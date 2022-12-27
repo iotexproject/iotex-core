@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package poll
 
@@ -51,7 +50,7 @@ func NewGovernanceChainCommitteeProtocol(
 		return nil, errors.New("getBlockTime api is not provided")
 	}
 
-	h := hash.Hash160b([]byte(protocolID))
+	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of poll protocol", zap.Error(err))
@@ -86,7 +85,7 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 		if err == nil || errors.Cause(err) != db.ErrNotExist {
 			break
 		}
-		log.L().Info("calling committee,waiting for a while", zap.Int64("duration", int64(p.initialCandidatesInterval.Seconds())), zap.String("unit", " seconds"))
+		log.L().Debug("calling committee,waiting for a while", zap.Int64("duration", int64(p.initialCandidatesInterval.Seconds())), zap.String("unit", " seconds"))
 		time.Sleep(p.initialCandidatesInterval)
 	}
 	if err != nil {
@@ -218,17 +217,17 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 
 // Register registers the protocol with a unique ID
 func (p *governanceChainCommitteeProtocol) Register(r *protocol.Registry) error {
-	return r.Register(protocolID, p)
+	return r.Register(_protocolID, p)
 }
 
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (p *governanceChainCommitteeProtocol) ForceRegister(r *protocol.Registry) error {
-	return r.ForceRegister(protocolID, p)
+	return r.ForceRegister(_protocolID, p)
 }
 
 // Name returns the name of protocol
 func (p *governanceChainCommitteeProtocol) Name() string {
-	return protocolID
+	return _protocolID
 }
 
 func (p *governanceChainCommitteeProtocol) getGravityHeight(ctx context.Context, height uint64) (uint64, error) {

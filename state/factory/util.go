@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package factory
 
@@ -12,11 +11,16 @@ import (
 	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/trie"
+	"github.com/iotexproject/iotex-core/db/trie/mptrie"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 func processOptions(opts ...protocol.StateOption) (*protocol.StateConfig, error) {
@@ -76,6 +80,20 @@ func generateWorkingSetCacheKey(blkHeader block.Header, producerAddr string) has
 	return hash.Hash256b(sum)
 }
 
+func protocolPreCommit(ctx context.Context, sr protocol.StateManager) error {
+	if reg, ok := protocol.GetRegistry(ctx); ok {
+		for _, p := range reg.All() {
+			post, ok := p.(protocol.PreCommitter)
+			if ok && sr.ProtocolDirty(p.Name()) {
+				if err := post.PreCommit(ctx, sr); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
 	if reg, ok := protocol.GetRegistry(ctx); ok {
 		for _, p := range reg.All() {
@@ -88,4 +106,49 @@ func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
 		}
 	}
 	return nil
+}
+
+func readStates(kvStore db.KVStore, namespace string, keys [][]byte) ([][]byte, error) {
+	if keys == nil {
+		_, values, err := kvStore.Filter(namespace, func(k, v []byte) bool { return true }, nil, nil)
+		if err != nil {
+			if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
+				return nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", namespace)
+			}
+			return nil, err
+		}
+		return values, nil
+	}
+	var values [][]byte
+	for _, key := range keys {
+		value, err := kvStore.Get(namespace, key)
+		switch errors.Cause(err) {
+		case db.ErrNotExist, db.ErrBucketNotExist:
+			values = append(values, nil)
+		case nil:
+			values = append(values, value)
+		default:
+			return nil, err
+		}
+	}
+	return values, nil
+}
+
+func newTwoLayerTrie(ns string, dao db.KVStore, rootKey string, create bool) (trie.TwoLayerTrie, error) {
+	dbForTrie, err := trie.NewKVStore(ns, dao)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create db for trie")
+	}
+	_, err = dbForTrie.Get([]byte(rootKey))
+	switch errors.Cause(err) {
+	case trie.ErrNotExist:
+		if !create {
+			return nil, err
+		}
+	case nil:
+		break
+	default:
+		return nil, err
+	}
+	return mptrie.NewTwoLayerTrie(dbForTrie, rootKey), nil
 }

@@ -6,51 +6,40 @@ package mock_dispatcher
 
 import (
 	context "context"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	dispatcher "github.com/iotexproject/iotex-core/dispatcher"
 	iotexrpc "github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	proto "google.golang.org/protobuf/proto"
-	reflect "reflect"
 )
 
-// MockSubscriber is a mock of Subscriber interface
+// MockSubscriber is a mock of Subscriber interface.
 type MockSubscriber struct {
 	ctrl     *gomock.Controller
 	recorder *MockSubscriberMockRecorder
 }
 
-// MockSubscriberMockRecorder is the mock recorder for MockSubscriber
+// MockSubscriberMockRecorder is the mock recorder for MockSubscriber.
 type MockSubscriberMockRecorder struct {
 	mock *MockSubscriber
 }
 
-// NewMockSubscriber creates a new mock instance
+// NewMockSubscriber creates a new mock instance.
 func NewMockSubscriber(ctrl *gomock.Controller) *MockSubscriber {
 	mock := &MockSubscriber{ctrl: ctrl}
 	mock.recorder = &MockSubscriberMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSubscriber) EXPECT() *MockSubscriberMockRecorder {
 	return m.recorder
 }
 
-// ReportFullness mocks base method
-func (m *MockSubscriber) ReportFullness(arg0 context.Context, arg1 iotexrpc.MessageType, arg2 float32) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "ReportFullness", arg0, arg1, arg2)
-}
-
-// ReportFullness indicates an expected call of ReportFullness
-func (mr *MockSubscriberMockRecorder) ReportFullness(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportFullness", reflect.TypeOf((*MockSubscriber)(nil).ReportFullness), arg0, arg1, arg2)
-}
-
-// HandleAction mocks base method
+// HandleAction mocks base method.
 func (m *MockSubscriber) HandleAction(arg0 context.Context, arg1 *iotextypes.Action) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleAction", arg0, arg1)
@@ -58,13 +47,13 @@ func (m *MockSubscriber) HandleAction(arg0 context.Context, arg1 *iotextypes.Act
 	return ret0
 }
 
-// HandleAction indicates an expected call of HandleAction
+// HandleAction indicates an expected call of HandleAction.
 func (mr *MockSubscriberMockRecorder) HandleAction(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleAction", reflect.TypeOf((*MockSubscriber)(nil).HandleAction), arg0, arg1)
 }
 
-// HandleBlock mocks base method
+// HandleBlock mocks base method.
 func (m *MockSubscriber) HandleBlock(arg0 context.Context, arg1 string, arg2 *iotextypes.Block) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleBlock", arg0, arg1, arg2)
@@ -72,27 +61,13 @@ func (m *MockSubscriber) HandleBlock(arg0 context.Context, arg1 string, arg2 *io
 	return ret0
 }
 
-// HandleBlock indicates an expected call of HandleBlock
+// HandleBlock indicates an expected call of HandleBlock.
 func (mr *MockSubscriberMockRecorder) HandleBlock(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlock", reflect.TypeOf((*MockSubscriber)(nil).HandleBlock), arg0, arg1, arg2)
 }
 
-// HandleSyncRequest mocks base method
-func (m *MockSubscriber) HandleSyncRequest(arg0 context.Context, arg1 peer.AddrInfo, arg2 *iotexrpc.BlockSync) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HandleSyncRequest", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// HandleSyncRequest indicates an expected call of HandleSyncRequest
-func (mr *MockSubscriberMockRecorder) HandleSyncRequest(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSyncRequest", reflect.TypeOf((*MockSubscriber)(nil).HandleSyncRequest), arg0, arg1, arg2)
-}
-
-// HandleConsensusMsg mocks base method
+// HandleConsensusMsg mocks base method.
 func (m *MockSubscriber) HandleConsensusMsg(arg0 *iotextypes.ConsensusMessage) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleConsensusMsg", arg0)
@@ -100,36 +75,98 @@ func (m *MockSubscriber) HandleConsensusMsg(arg0 *iotextypes.ConsensusMessage) e
 	return ret0
 }
 
-// HandleConsensusMsg indicates an expected call of HandleConsensusMsg
+// HandleConsensusMsg indicates an expected call of HandleConsensusMsg.
 func (mr *MockSubscriberMockRecorder) HandleConsensusMsg(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleConsensusMsg", reflect.TypeOf((*MockSubscriber)(nil).HandleConsensusMsg), arg0)
 }
 
-// MockDispatcher is a mock of Dispatcher interface
+// HandleSyncRequest mocks base method.
+func (m *MockSubscriber) HandleSyncRequest(arg0 context.Context, arg1 peer.AddrInfo, arg2 *iotexrpc.BlockSync) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleSyncRequest", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// HandleSyncRequest indicates an expected call of HandleSyncRequest.
+func (mr *MockSubscriberMockRecorder) HandleSyncRequest(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSyncRequest", reflect.TypeOf((*MockSubscriber)(nil).HandleSyncRequest), arg0, arg1, arg2)
+}
+
+// ReportFullness mocks base method.
+func (m *MockSubscriber) ReportFullness(arg0 context.Context, arg1 iotexrpc.MessageType, arg2 float32) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ReportFullness", arg0, arg1, arg2)
+}
+
+// ReportFullness indicates an expected call of ReportFullness.
+func (mr *MockSubscriberMockRecorder) ReportFullness(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportFullness", reflect.TypeOf((*MockSubscriber)(nil).ReportFullness), arg0, arg1, arg2)
+}
+
+// MockDispatcher is a mock of Dispatcher interface.
 type MockDispatcher struct {
 	ctrl     *gomock.Controller
 	recorder *MockDispatcherMockRecorder
 }
 
-// MockDispatcherMockRecorder is the mock recorder for MockDispatcher
+// MockDispatcherMockRecorder is the mock recorder for MockDispatcher.
 type MockDispatcherMockRecorder struct {
 	mock *MockDispatcher
 }
 
-// NewMockDispatcher creates a new mock instance
+// NewMockDispatcher creates a new mock instance.
 func NewMockDispatcher(ctrl *gomock.Controller) *MockDispatcher {
 	mock := &MockDispatcher{ctrl: ctrl}
 	mock.recorder = &MockDispatcherMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDispatcher) EXPECT() *MockDispatcherMockRecorder {
 	return m.recorder
 }
 
-// Start mocks base method
+// AddSubscriber mocks base method.
+func (m *MockDispatcher) AddSubscriber(arg0 uint32, arg1 dispatcher.Subscriber) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AddSubscriber", arg0, arg1)
+}
+
+// AddSubscriber indicates an expected call of AddSubscriber.
+func (mr *MockDispatcherMockRecorder) AddSubscriber(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubscriber", reflect.TypeOf((*MockDispatcher)(nil).AddSubscriber), arg0, arg1)
+}
+
+// HandleBroadcast mocks base method.
+func (m *MockDispatcher) HandleBroadcast(arg0 context.Context, arg1 uint32, arg2 string, arg3 proto.Message) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "HandleBroadcast", arg0, arg1, arg2, arg3)
+}
+
+// HandleBroadcast indicates an expected call of HandleBroadcast.
+func (mr *MockDispatcherMockRecorder) HandleBroadcast(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBroadcast", reflect.TypeOf((*MockDispatcher)(nil).HandleBroadcast), arg0, arg1, arg2, arg3)
+}
+
+// HandleTell mocks base method.
+func (m *MockDispatcher) HandleTell(arg0 context.Context, arg1 uint32, arg2 peer.AddrInfo, arg3 proto.Message) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "HandleTell", arg0, arg1, arg2, arg3)
+}
+
+// HandleTell indicates an expected call of HandleTell.
+func (mr *MockDispatcherMockRecorder) HandleTell(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleTell", reflect.TypeOf((*MockDispatcher)(nil).HandleTell), arg0, arg1, arg2, arg3)
+}
+
+// Start mocks base method.
 func (m *MockDispatcher) Start(arg0 context.Context) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Start", arg0)
@@ -137,13 +174,13 @@ func (m *MockDispatcher) Start(arg0 context.Context) error {
 	return ret0
 }
 
-// Start indicates an expected call of Start
+// Start indicates an expected call of Start.
 func (mr *MockDispatcherMockRecorder) Start(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockDispatcher)(nil).Start), arg0)
 }
 
-// Stop mocks base method
+// Stop mocks base method.
 func (m *MockDispatcher) Stop(arg0 context.Context) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stop", arg0)
@@ -151,44 +188,8 @@ func (m *MockDispatcher) Stop(arg0 context.Context) error {
 	return ret0
 }
 
-// Stop indicates an expected call of Stop
+// Stop indicates an expected call of Stop.
 func (mr *MockDispatcherMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockDispatcher)(nil).Stop), arg0)
-}
-
-// AddSubscriber mocks base method
-func (m *MockDispatcher) AddSubscriber(arg0 uint32, arg1 dispatcher.Subscriber) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AddSubscriber", arg0, arg1)
-}
-
-// AddSubscriber indicates an expected call of AddSubscriber
-func (mr *MockDispatcherMockRecorder) AddSubscriber(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubscriber", reflect.TypeOf((*MockDispatcher)(nil).AddSubscriber), arg0, arg1)
-}
-
-// HandleBroadcast mocks base method
-func (m *MockDispatcher) HandleBroadcast(arg0 context.Context, arg1 uint32, arg2 string, arg3 proto.Message) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "HandleBroadcast", arg0, arg1, arg2, arg3)
-}
-
-// HandleBroadcast indicates an expected call of HandleBroadcast
-func (mr *MockDispatcherMockRecorder) HandleBroadcast(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBroadcast", reflect.TypeOf((*MockDispatcher)(nil).HandleBroadcast), arg0, arg1, arg2, arg3)
-}
-
-// HandleTell mocks base method
-func (m *MockDispatcher) HandleTell(arg0 context.Context, arg1 uint32, arg2 peer.AddrInfo, arg3 proto.Message) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "HandleTell", arg0, arg1, arg2, arg3)
-}
-
-// HandleTell indicates an expected call of HandleTell
-func (mr *MockDispatcherMockRecorder) HandleTell(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleTell", reflect.TypeOf((*MockDispatcher)(nil).HandleTell), arg0, arg1, arg2, arg3)
 }

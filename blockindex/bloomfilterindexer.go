@@ -1,26 +1,26 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package blockindex
 
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/iotexproject/go-pkgs/bloom"
+	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/iotexproject/iotex-core/action"
 	filter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -32,9 +32,18 @@ const (
 	CurrentHeightKey = "CurrentHeight"
 )
 
+const (
+	_maxBlockRange = 1e6
+	_workerNumbers = 5
+)
+
 var (
 	// TotalBloomFilterNamespace indicates the kvstore namespace to store total ranges
 	TotalBloomFilterNamespace = []byte("TotalBloomFilters")
+
+	errRangeTooLarge = errors.New("block range is too large")
+
+	_queryTimeout = 20 * time.Second
 )
 
 type (
@@ -45,10 +54,8 @@ type (
 		RangeBloomFilterNumElements() uint64
 		// BlockFilterByHeight returns the block-level bloomfilter which includes not only topic but also address of logs info by given block height
 		BlockFilterByHeight(uint64) (bloom.BloomFilter, error)
-		// RangeFilterByHeight returns the range bloomfilter for the height
-		RangeFilterByHeight(uint64) (bloom.BloomFilter, error)
 		// FilterBlocksInRange returns the block numbers by given logFilter in range from start to end
-		FilterBlocksInRange(*filter.LogFilter, uint64, uint64) ([]uint64, error)
+		FilterBlocksInRange(*filter.LogFilter, uint64, uint64, uint64) ([]uint64, error)
 	}
 
 	// bloomfilterIndexer is a struct for bloomfilter indexer
@@ -62,10 +69,15 @@ type (
 		curRangeBloomfilter *bloomRange
 		totalRange          db.RangeIndex
 	}
+
+	jobDesc struct {
+		idx uint64
+		key []byte
+	}
 )
 
 // NewBloomfilterIndexer creates a new bloomfilterindexer struct by given kvstore and rangebloomfilter size
-func NewBloomfilterIndexer(kv db.KVStore, cfg config.Indexer) (BloomFilterIndexer, error) {
+func NewBloomfilterIndexer(kv db.KVStore, cfg Config) (BloomFilterIndexer, error) {
 	if kv == nil {
 		return nil, errors.New("empty kvStore")
 	}
@@ -110,17 +122,19 @@ func (bfx *bloomfilterIndexer) initRangeBloomFilter(height uint64) error {
 	if err != nil {
 		return err
 	}
-
+	if bfx.curRangeBloomfilter, err = newBloomRange(bfx.bfSize, bfx.bfNumHash); err != nil {
+		return err
+	}
 	if height > 0 {
-		bfx.curRangeBloomfilter, err = bfx.rangeBloomFilter(height)
+		bfx.currRangeBfKey, err = bfx.totalRange.Get(height)
 		if err != nil {
 			return err
 		}
-		// totalRange.Get() is called and err-checked in rangeBloomFilter() above
-		bfx.currRangeBfKey, _ = bfx.totalRange.Get(height)
+		if err := bfx.loadBloomRangeFromDB(bfx.curRangeBloomfilter, bfx.currRangeBfKey); err != nil {
+			return err
+		}
 	} else {
-		bf, _ := bloom.NewBloomFilter(bfx.bfSize, bfx.bfNumHash)
-		bfx.curRangeBloomfilter = newBloomRange(1, bf)
+		bfx.curRangeBloomfilter.SetStart(1)
 		bfx.currRangeBfKey = zero8Bytes
 	}
 	return nil
@@ -156,21 +170,20 @@ func (bfx *bloomfilterIndexer) PutBlock(ctx context.Context, blk *block.Block) (
 		if err := bfx.totalRange.Insert(blk.Height()+1, bfx.currRangeBfKey); err != nil {
 			return errors.Wrapf(err, "failed to write next bloomfilter index")
 		}
-		bf, err := bloom.NewBloomFilter(bfx.bfSize, bfx.bfNumHash)
-		if err != nil {
-			return errors.Wrapf(err, "failed to create new bloomfilter")
+		if bfx.curRangeBloomfilter, err = newBloomRange(bfx.bfSize, bfx.bfNumHash); err != nil {
+			return err
 		}
-		bfx.curRangeBloomfilter = newBloomRange(blk.Height()+1, bf)
+		bfx.curRangeBloomfilter.SetStart(blk.Height() + 1)
 	}
 	return nil
 }
 
 // DeleteTipBlock deletes tip height from underlying DB if necessary
-func (bfx *bloomfilterIndexer) DeleteTipBlock(blk *block.Block) (err error) {
+func (bfx *bloomfilterIndexer) DeleteTipBlock(_ context.Context, blk *block.Block) (err error) {
 	bfx.mutex.Lock()
 	defer bfx.mutex.Unlock()
 	height := blk.Height()
-	if err := bfx.delete(height); err != nil {
+	if err := bfx.kvStore.Delete(BlockBloomFilterNamespace, byteutil.Uint64ToBytesBigEndian(height)); err != nil {
 		return err
 	}
 	bfx.curRangeBloomfilter = nil
@@ -190,65 +203,115 @@ func (bfx *bloomfilterIndexer) BlockFilterByHeight(height uint64) (bloom.BloomFi
 	if err != nil {
 		return nil, err
 	}
-	return bloom.BloomFilterFromBytes(bfBytes)
-}
-
-// RangeFilterByHeight returns the range bloomfilter for the height
-func (bfx *bloomfilterIndexer) RangeFilterByHeight(height uint64) (bloom.BloomFilter, error) {
-	br, err := bfx.rangeBloomFilter(height)
+	bf, err := bloom.NewBloomFilter(bfx.bfSize, bfx.bfNumHash)
 	if err != nil {
 		return nil, err
 	}
-	return br.BloomFilter, nil
+	if err := bf.FromBytes(bfBytes); err != nil {
+		return nil, err
+	}
+	return bf, nil
 }
 
-// FilterBlocksInRange returns the block numbers by given logFilter in range [start, end]
-func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, end uint64) ([]uint64, error) {
+// FilterBlocksInRange returns the block numbers by given logFilter in range [start, end].
+// Result blocks are limited when pagination is larger than 0
+func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, end uint64, pagination uint64) ([]uint64, error) {
 	if start == 0 || end == 0 || end < start {
 		return nil, errors.New("start/end height should be bigger than zero")
 	}
-
-	br, err := bfx.getRangeFilters(start, end)
-	if err != nil {
+	if end-start > _maxBlockRange {
+		return nil, errRangeTooLarge
+	}
+	var (
+		startIndex, endIndex uint64
+		err                  error
+	)
+	if startIndex, err = bfx.getIndexByHeight(start); err != nil {
+		return nil, err
+	}
+	if endIndex, err = bfx.getIndexByHeight(end); err != nil {
 		return nil, err
 	}
 
-	blockNumbers := make([]uint64, 0)
-	for i := range br {
-		bigBloom := br[i].BloomFilter
-		if l.ExistInBloomFilterv2(bigBloom) {
-			searchStart, searchEnd := br[i].Start(), br[i].End()
-			if i == 0 {
-				searchStart = start
+	var (
+		ctx, cancel = context.WithTimeout(context.Background(), _queryTimeout)
+		blkNums     = make([][]uint64, endIndex-startIndex+1)
+		jobs        = make(chan jobDesc, endIndex-startIndex+1)
+		eg          *errgroup.Group
+		bufPool     sync.Pool
+	)
+	defer cancel()
+	eg, ctx = errgroup.WithContext(ctx)
+
+	// create pool for BloomRange object reusing
+	if _, err := newBloomRange(bfx.bfSize, bfx.bfNumHash); err != nil {
+		return nil, err
+	}
+	bufPool = sync.Pool{
+		New: func() interface{} {
+			br, _ := newBloomRange(bfx.bfSize, bfx.bfNumHash)
+			return br
+		},
+	}
+
+	for w := 0; w < _workerNumbers; w++ {
+		eg.Go(func() error {
+			for {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case job, ok := <-jobs:
+					if !ok {
+						return nil
+					}
+					br := bufPool.Get().(*bloomRange)
+					if err := bfx.loadBloomRangeFromDB(br, job.key); err != nil {
+						bufPool.Put(br)
+						return err
+					}
+					if l.ExistInBloomFilterv2(br.BloomFilter) {
+						searchStart := br.Start()
+						if start > searchStart {
+							searchStart = start
+						}
+						searchEnd := br.End()
+						if end < searchEnd {
+							searchEnd = end
+						}
+						blkNums[job.idx] = l.SelectBlocksFromRangeBloomFilter(br.BloomFilter, searchStart, searchEnd)
+					}
+					bufPool.Put(br)
+				}
 			}
-			if i == len(br)-1 {
-				searchEnd = end
+		})
+	}
+
+	// send job to job chan
+	for idx := startIndex; idx <= endIndex; idx++ {
+		jobs <- jobDesc{idx - startIndex, byteutil.Uint64ToBytesBigEndian(idx)}
+	}
+	close(jobs)
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	// collect results from goroutines
+	ret := []uint64{}
+	for i := range blkNums {
+		if len(blkNums[i]) > 0 {
+			ret = append(ret, blkNums[i]...)
+			if pagination > 0 && uint64(len(ret)) > pagination {
+				return ret, nil
 			}
-			blockNumbers = append(blockNumbers, l.SelectBlocksFromRangeBloomFilter(bigBloom, searchStart, searchEnd)...)
 		}
 	}
-	return blockNumbers, nil
-}
-
-func (bfx *bloomfilterIndexer) rangeBloomFilter(blockNumber uint64) (*bloomRange, error) {
-	rangeBloomfilterKey, err := bfx.totalRange.Get(blockNumber)
-	if err != nil {
-		return nil, err
-	}
-	bfBytes, err := bfx.kvStore.Get(RangeBloomFilterNamespace, rangeBloomfilterKey)
-	if err != nil {
-		return nil, err
-	}
-	return bloomRangeFromBytes(bfBytes)
-}
-
-func (bfx *bloomfilterIndexer) delete(blockNumber uint64) error {
-	// TODO: remove delete from indexer interface
-	return bfx.kvStore.Delete(BlockBloomFilterNamespace, byteutil.Uint64ToBytesBigEndian(blockNumber))
+	return ret, nil
 }
 
 func (bfx *bloomfilterIndexer) commit(blockNumber uint64, blkBloomfilter bloom.BloomFilter) error {
-	bfBytes, err := bfx.curRangeBloomfilter.SetEnd(blockNumber).Bytes()
+	bfx.curRangeBloomfilter.SetEnd(blockNumber)
+	bfBytes, err := bfx.curRangeBloomfilter.Bytes()
 	if err != nil {
 		return err
 	}
@@ -261,6 +324,7 @@ func (bfx *bloomfilterIndexer) commit(blockNumber uint64, blkBloomfilter bloom.B
 	return bfx.kvStore.WriteBatch(b)
 }
 
+// TODO: improve performance
 func (bfx *bloomfilterIndexer) calculateBlockBloomFilter(ctx context.Context, receipts []*action.Receipt) bloom.BloomFilter {
 	bloom, _ := bloom.NewBloomFilter(2048, 3)
 	for _, receipt := range receipts {
@@ -274,6 +338,7 @@ func (bfx *bloomfilterIndexer) calculateBlockBloomFilter(ctx context.Context, re
 	return bloom
 }
 
+// TODO: improve performance
 func (bfx *bloomfilterIndexer) addLogsToRangeBloomFilter(ctx context.Context, blockNumber uint64, receipts []*action.Receipt) {
 	Heightkey := append([]byte(filter.BlockHeightPrefix), byteutil.Uint64ToBytes(blockNumber)...)
 
@@ -289,29 +354,21 @@ func (bfx *bloomfilterIndexer) addLogsToRangeBloomFilter(ctx context.Context, bl
 	}
 }
 
-func (bfx *bloomfilterIndexer) getRangeFilters(start, end uint64) ([]*bloomRange, error) {
-	b, err := bfx.totalRange.Get(start)
+func (bfx *bloomfilterIndexer) loadBloomRangeFromDB(br *bloomRange, bfKey []byte) error {
+	if br == nil {
+		return errors.New("bloomRange is empty")
+	}
+	bfBytes, err := bfx.kvStore.Get(RangeBloomFilterNamespace, bfKey)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	startIndex := byteutil.BytesToUint64BigEndian(b)
-	if b, err = bfx.totalRange.Get(end); err != nil {
-		return nil, err
-	}
-	endIndex := byteutil.BytesToUint64BigEndian(b)
+	return br.FromBytes(bfBytes)
+}
 
-	var br []*bloomRange
-	for ; startIndex <= endIndex; startIndex++ {
-		bfKey := byteutil.Uint64ToBytesBigEndian(startIndex)
-		bfBytes, err := bfx.kvStore.Get(RangeBloomFilterNamespace, bfKey)
-		if err != nil {
-			return nil, err
-		}
-		bf, err := bloomRangeFromBytes(bfBytes)
-		if err != nil {
-			return nil, err
-		}
-		br = append(br, bf)
+func (bfx *bloomfilterIndexer) getIndexByHeight(height uint64) (uint64, error) {
+	val, err := bfx.totalRange.Get(height)
+	if err != nil {
+		return 0, err
 	}
-	return br, nil
+	return byteutil.BytesToUint64BigEndian(val), nil
 }

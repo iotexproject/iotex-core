@@ -1,0 +1,190 @@
+{
+    "initGenesis": {
+        "isBering" : true,
+        "isIceland" : true,
+        "isLondon" : true
+    },
+    "initBalances": [{
+        "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+        "rawBalance": "1000000000000000000000000000"
+    }],
+    "deployments": [{
+        "rawByteCode": "608060405234801561001057600080fd5b50610511806100206000396000f3fe608060405234801561001057600080fd5b50600436106100ea5760003560e01c80635985b6241161008c578063c8cf44bd11610066578063c8cf44bd146101ae578063d2f8cf241461021b578063e86783a714610223578063f74d8e321461022b57600080fd5b80635985b6241461019e5780635fdc7f65146101a65780637781deba146101a657600080fd5b806344d9385f116100c857806344d9385f1461017e5780634c9e7ca5146101865780635087821a1461018e578063511931021461019657600080fd5b806304d3c094146100ef578063114be5841461012457806311b405c71461012c575b600080fd5b7f3ac225168df54212a25c1c01fd35bebfea408fdac2e31ddd6f80a4bbf9a5f1cb5b6040519081526020015b60405180910390f35b610111610233565b604080516242544360e81b6020808301919091526208aa8960eb1b6028830152624c544360e81b603083015263444f474560e01b60388301528251808303820181529183019092528051910120610111565b61011161025f565b610111610277565b6101116103af565b6101116103ce565b61011161040f565b610111610429565b61020b604051606160f81b6020820152603160f91b6021820152600090602201604051602081830303815290604052805190602001207f67fad3bfa1e0321bd021ca805ce14876e50acac8ca8532eda8cbf924da56516014905090565b604051901515815260200161011b565b61011161043d565b610111610451565b61011161046d565b604080516000196020820152600091015b60405160208183030381529060405280519060200120905090565b604051600160f81b6020820152600090602101610244565b60408051600480825260a08201909252600091829190602082016080803683370190505090506242544360e81b816000815181106102b7576102b7610485565b60200260200101906001600160c01b03191690816001600160c01b031916815250506208aa8960eb1b816001815181106102f3576102f3610485565b60200260200101906001600160c01b03191690816001600160c01b03191681525050624c544360e81b8160028151811061032f5761032f610485565b60200260200101906001600160c01b03191690816001600160c01b0319168152505063444f474560e01b8160038151811061036c5761036c610485565b6001600160c01b03199092166020928302919091018201526040516103939183910161049b565b6040516020818303038152906040528051906020012091505090565b604051606160f81b602082015260016021820152600090604101610244565b6040517319de644fa609a211d3dc42d1f870141b1772918d60621b6020820152600090736779913e982688474f710b47e1c0506c5dca463490603401610393565b604051600560f91b60208201819052600091602101610393565b604080516001602082015260009101610244565b604080516064602082015260009101610244565b6040805168056bc75e2d63100000602082015260009101610244565b604051600160e01b6020820152600090602401610244565b634e487b7160e01b600052603260045260246000fd5b815160009082906020808601845b838110156104cf5781516001600160c01b031916855293820193908201906001016104a9565b5092969550505050505056fea2646970667358221220d2158981ace89707299dda5b0dbdfa6f28c1df9e097ab4e08e3de364f9207f4064736f6c634300080e0033",
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawAmount": "0",
+        "rawGasLimit": 5000000,
+        "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 402600,
+        "expectedStatus": 1,
+        "expectedBalances": [],
+        "comment": "deploy sha3 contract"
+    }],
+    "executions": [{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "4c9e7ca5",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 11869,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "374c0504f79c1d5e6e4ded17d488802b5656bd1d96b16a568d6c324e1c04c37b",
+        "comment": "call hashArray"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "11b405c7",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10850,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "e79a6745d2205095147fd735f329de58377b2f0b9f4b81ae23e010062127f2bc",
+        "comment": "call hashPackedArray"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "51193102",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10839,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "229327de236bd04ccac2efc445f1a2b63afddf438b35874b9f6fd1e6c38b0198",
+        "comment": "call hashAddress"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "c8cf44bd",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 10784,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000001",
+        "comment": "call testPackedArgs"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "5985b624",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10773,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "0ef9d8f8804d174666011a394cab7901679a8944d24249fd148a6a36071151f8",
+        "comment": "call hashHex"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "5fdc7f65",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10781,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "b10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6",
+        "comment": "call hashInt"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "114be584",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10774,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "a9c584056064687e149968cbab758a3376d22aedc6a55823d1b3ecbee81b8fb9",
+        "comment": "call hashNegative"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "44d9385f",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10765,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "5fe7f977e71dba2ea1a68e21057beebb9be2ac30c6410aa38d4f3fbe41dcffd2",
+        "comment": "call hash8"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "f74d8e32",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10830,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "51f81bcdfc324a0dff2b5bec9d92e21cbebc4d5e29d3a3d30de3e03fbeab8d7f",
+        "comment": "call hash32"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "7781deba",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10803,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "b10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6",
+        "comment": "call hash256"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "e86783a7",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10802,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "c7cc234d21c9cfbd4632749fd77669e7ae72f5241ce5895e410c45185a469273",
+        "comment": "call hashEth"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "d2f8cf24",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10780,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "26700e13983fefbd9cf16da2ed70fa5c6798ac55062a4803121a869731e308d2",
+        "comment": "call hashWei"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "5087821a",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10833,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "b5cafab5b83d18303877bb912b2d66ca18ab7390cfd9be8a2e66cc5096e0ea02",
+        "comment": "call hashMultipleArgs"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "04d3c094",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10594,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "3ac225168df54212a25c1c01fd35bebfea408fdac2e31ddd6f80a4bbf9a5f1cb",
+        "comment": "call hashString"
+    }]
+}

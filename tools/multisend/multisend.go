@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package main
 
@@ -18,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 func main() {
@@ -69,12 +68,12 @@ func multiSend(args []string) (string, error) {
 	recipients := make([]common.Address, 0)
 	amounts := make([]*big.Int, 0)
 	for _, target := range targetSet.Targets {
-		recipient, err := util.IoAddrToEvmAddr(target.Recipient)
+		recipient, err := addrutil.IoAddrToEvmAddr(target.Recipient)
 		if err != nil {
 			return "", err
 		}
 		recipients = append(recipients, recipient)
-		amount, ok := big.NewInt(0).SetString(target.Amount, 10)
+		amount, ok := new(big.Int).SetString(target.Amount, 10)
 		if !ok {
 			return "", fmt.Errorf("failed to convert string to big int")
 		}

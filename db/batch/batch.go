@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package batch
 
@@ -17,6 +16,8 @@ var (
 	ErrNotExist = errors.New("not exist in DB")
 	// ErrOutOfBound indicates an out of bound error
 	ErrOutOfBound = errors.New("out of bound")
+	// ErrUnexpectedType indicates an invalid casting
+	ErrUnexpectedType = errors.New("unexpected type")
 )
 
 type (
@@ -38,9 +39,9 @@ type (
 		// ClearAndUnlock clears the write queue and unlocks the batch
 		ClearAndUnlock()
 		// Put insert or update a record identified by (namespace, key)
-		Put(string, []byte, []byte, string, ...interface{})
+		Put(string, []byte, []byte, string)
 		// Delete deletes a record by (namespace, key)
-		Delete(string, []byte, string, ...interface{})
+		Delete(string, []byte, string)
 		// Size returns the size of batch
 		Size() int
 		// Entry returns the entry at the index
@@ -61,11 +62,18 @@ type (
 	// A local cache is added to provide fast retrieval of pending Put/Delete entries
 	CachedBatch interface {
 		KVStoreBatch
+		Snapshot
 		// Get gets a record by (namespace, key)
 		Get(string, []byte) ([]byte, error)
+	}
+
+	// Snapshot defines an interface which supports snapshot related functions
+	Snapshot interface {
 		// Snapshot takes a snapshot of current cached batch
 		Snapshot() int
-		// Revert sets the cached batch to the state at the given snapshot
-		Revert(int) error
+		// RevertSnapshot sets the cached batch to the state at the given snapshot
+		RevertSnapshot(int) error
+		// ResetSnapshots() clears all snapshots
+		ResetSnapshots()
 	}
 )

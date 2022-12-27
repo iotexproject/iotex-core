@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package trie
 
@@ -17,7 +16,7 @@ import (
 )
 
 var (
-	trieKeystoreMtc = prometheus.NewCounterVec(
+	_trieKeystoreMtc = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "iotex_trie_keystore",
 			Help: "IoTeX Trie Keystore",
@@ -27,7 +26,7 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(trieKeystoreMtc)
+	prometheus.MustRegister(_trieKeystoreMtc)
 }
 
 type (
@@ -116,7 +115,7 @@ func (s *kvStoreImpl) Stop(ctx context.Context) error {
 
 // Delete deletes key
 func (s *kvStoreImpl) Delete(key []byte) error {
-	trieKeystoreMtc.WithLabelValues("delete").Inc()
+	_trieKeystoreMtc.WithLabelValues("delete").Inc()
 
 	err := s.dao.Delete(s.bucket, key)
 	if errors.Cause(err) == db.ErrNotExist {
@@ -128,13 +127,13 @@ func (s *kvStoreImpl) Delete(key []byte) error {
 
 // Put puts value for key
 func (s *kvStoreImpl) Put(key, value []byte) error {
-	trieKeystoreMtc.WithLabelValues("put").Inc()
+	_trieKeystoreMtc.WithLabelValues("put").Inc()
 	return s.dao.Put(s.bucket, key, value)
 }
 
 // Get gets value of key
 func (s *kvStoreImpl) Get(key []byte) ([]byte, error) {
-	trieKeystoreMtc.WithLabelValues("get").Inc()
+	_trieKeystoreMtc.WithLabelValues("get").Inc()
 	value, err := s.dao.Get(s.bucket, key)
 	if errors.Cause(err) == db.ErrNotExist {
 		return nil, errors.Wrapf(ErrNotExist, err.Error())

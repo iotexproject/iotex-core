@@ -1,16 +1,16 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package protocol
 
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/state"
@@ -18,7 +18,7 @@ import (
 
 type (
 	// AccountState defines a function to return the account state of a given address
-	AccountState func(StateReader, string) (*state.Account, error)
+	AccountState func(context.Context, StateReader, address.Address) (*state.Account, error)
 	// GenericValidator is the validator for generic action verification
 	GenericValidator struct {
 		accountState AccountState
@@ -36,23 +36,39 @@ func NewGenericValidator(sr StateReader, accountState AccountState) *GenericVali
 
 // Validate validates a generic action
 func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvelope) error {
-	// Verify action using action sender's public key
-	if err := action.Verify(selp); err != nil {
-		return errors.Wrap(err, "failed to verify action signature")
-	}
-	caller, err := address.FromBytes(selp.SrcPubkey().Hash())
+	intrinsicGas, err := selp.IntrinsicGas()
 	if err != nil {
 		return err
 	}
-	// Reject action if nonce is too low
-	confirmedState, err := v.accountState(v.sr, caller.String())
-	if err != nil {
-		return errors.Wrapf(err, "invalid state of account %s", caller.String())
+	if intrinsicGas > selp.GasLimit() {
+		return action.ErrIntrinsicGas
 	}
 
-	pendingNonce := confirmedState.Nonce + 1
-	if selp.Nonce() > 0 && pendingNonce > selp.Nonce() {
-		return errors.Wrap(action.ErrNonce, "nonce is too low")
+	// Verify action using action sender's public key
+	if err := selp.VerifySignature(); err != nil {
+		return err
 	}
+	caller := selp.SenderAddress()
+	if caller == nil {
+		return errors.New("failed to get address")
+	}
+	// Reject action if nonce is too low
+	if action.IsSystemAction(selp) {
+		if selp.Nonce() != 0 {
+			return action.ErrSystemActionNonce
+		}
+	} else {
+		featureCtx, ok := GetFeatureCtx(ctx)
+		if ok && featureCtx.FixGasAndNonceUpdate || selp.Nonce() != 0 {
+			confirmedState, err := v.accountState(ctx, v.sr, caller)
+			if err != nil {
+				return errors.Wrapf(err, "invalid state of account %s", caller.String())
+			}
+			if confirmedState.PendingNonce() > selp.Nonce() {
+				return action.ErrNonceTooLow
+			}
+		}
+	}
+
 	return selp.Action().SanityCheck()
 }

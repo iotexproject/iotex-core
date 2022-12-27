@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package factory
 
@@ -20,16 +19,22 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-type testString struct {
-	s string
-}
+type (
+	testString struct {
+		s string
+	}
+
+	workingSetCreator interface {
+		newWorkingSet(context.Context, uint64) (*workingSet, error)
+	}
+)
 
 func (s testString) Serialize() ([]byte, error) {
 	return []byte(s.s), nil
@@ -42,7 +47,7 @@ func (s *testString) Deserialize(v []byte) error {
 
 func newFactoryWorkingSet(t testing.TB) *workingSet {
 	r := require.New(t)
-	sf, err := NewFactory(config.Default, InMemTrieOption())
+	sf, err := NewFactory(DefaultConfig, db.NewMemKVStore())
 	r.NoError(err)
 
 	ctx := genesis.WithGenesisContext(
@@ -59,7 +64,7 @@ func newFactoryWorkingSet(t testing.TB) *workingSet {
 
 func newStateDBWorkingSet(t testing.TB) *workingSet {
 	r := require.New(t)
-	sf, err := NewStateDB(config.Default, InMemStateDBOption())
+	sf, err := NewStateDB(DefaultConfig, db.NewMemKVStore())
 	r.NoError(err)
 
 	ctx := genesis.WithGenesisContext(
@@ -180,8 +185,8 @@ func TestWorkingSet_Dock(t *testing.T) {
 func TestWorkingSet_ValidateBlock(t *testing.T) {
 	var (
 		require    = require.New(t)
-		f1, _      = NewFactory(config.Default, InMemTrieOption())
-		f2, _      = NewStateDB(config.Default, InMemStateDBOption())
+		f1, _      = NewFactory(DefaultConfig, db.NewMemKVStore())
+		f2, _      = NewStateDB(DefaultConfig, db.NewMemKVStore())
 		factories  = []Factory{f1, f2}
 		digestHash = hash.Hash256b([]byte{65, 99, 99, 111, 117, 110, 116, 99, 117, 114, 114,
 			101, 110, 116, 72, 101, 105, 103, 104, 116, 1, 0, 0, 0, 0, 0, 0, 0})
@@ -192,7 +197,7 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 			{makeBlock(t, 1, hash.ZeroHash256, digestHash), nil},
 			{
 				makeBlock(t, 3, hash.ZeroHash256, digestHash),
-				action.ErrNonce,
+				action.ErrNonceTooHigh,
 			},
 			{
 				makeBlock(t, 1, hash.Hash256b([]byte("test")), digestHash),
@@ -212,6 +217,9 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 			GasLimit:    gasLimit,
 		})
 	zctx = genesis.WithGenesisContext(zctx, genesis.Default)
+	zctx = protocol.WithFeatureCtx(protocol.WithBlockchainCtx(zctx, protocol.BlockchainCtx{
+		ChainID: 1,
+	}))
 	for _, f := range factories {
 		for _, test := range tests {
 			require.Equal(test.err, errors.Cause(f.Validate(zctx, test.block)))

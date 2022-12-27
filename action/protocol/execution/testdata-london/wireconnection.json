@@ -1,0 +1,47 @@
+{
+    "initGenesis": {
+        "isBering" : true,
+        "isIceland" : true,
+        "isLondon" : true
+    },
+    "initBalances": [{
+        "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+        "rawBalance": "1000000000000000000000000000"
+    }],
+    "deployments": [{
+        "rawByteCode": "608060405234801561001057600080fd5b5060ca8061001f6000396000f3fe6080604052348015600f57600080fd5b5060043610603c5760003560e01c8063dba7ab6c146041578063df11c2ac14605d578063ebaa833714606f575b600080fd5b646d69616f7760d81b5b60405190815260200160405180910390f35b606d6068366004607c565b600055565b005b646d69616f7760d81b604b565b600060208284031215608d57600080fd5b503591905056fea2646970667358221220c064a12b90076472ef76304dee377a60987f8737847349e4cda6f48b073c488364736f6c634300080e0033",
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawAmount": "0",
+        "rawGasLimit": 5000000,
+        "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 73793,
+        "expectedStatus": 1,
+        "expectedBalances": [],
+        "comment": "deploy proposal contract"
+    }],
+    "executions": [{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "dba7ab6c",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10553,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "miaow",
+        "comment": "call utterance()"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "ebaa8337",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10608,
+        "expectedStatus": 1,
+        "hasReturnValue": true,
+        "rawReturnValue": "miaow",
+        "comment": "call Utterance()"
+    }]
+}

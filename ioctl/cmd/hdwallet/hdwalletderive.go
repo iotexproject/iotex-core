@@ -1,22 +1,21 @@
-// Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package hdwallet
 
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	ecrypt "github.com/ethereum/go-ethereum/crypto"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -25,20 +24,16 @@ import (
 
 // Multi-language support
 var (
-	hdwalletDeriveCmdShorts = map[config.Language]string{
+	_hdwalletDeriveCmdShorts = map[config.Language]string{
 		config.English: "derive key from HDWallet",
 		config.Chinese: "查询HDWallet钱包的派生key地址",
 	}
-	hdwalletDeriveCmdUses = map[config.Language]string{
-		config.English: "derive id1/id2/id3",
-		config.Chinese: "derive id1/id2/id3",
-	}
 )
 
-// hdwalletDeriveCmd represents the hdwallet derive command
-var hdwalletDeriveCmd = &cobra.Command{
-	Use:   config.TranslateInLang(hdwalletDeriveCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(hdwalletDeriveCmdShorts, config.UILanguage),
+// _hdwalletDeriveCmd represents the hdwallet derive command
+var _hdwalletDeriveCmd = &cobra.Command{
+	Use:   "derive id1/id2/id3",
+	Short: config.TranslateInLang(_hdwalletDeriveCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -76,7 +71,7 @@ func DeriveKey(account, change, index uint32, password string) (string, crypto.P
 		return "", nil, output.NewError(output.InputError, "Run 'ioctl hdwallet create' to create your HDWallet first.", nil)
 	}
 
-	enctxt, err := ioutil.ReadFile(hdWalletConfigFile)
+	enctxt, err := os.ReadFile(filepath.Clean(hdWalletConfigFile))
 	if err != nil {
 		return "", nil, output.NewError(output.InputError, "failed to read config", err)
 	}
@@ -118,9 +113,9 @@ func DeriveKey(account, change, index uint32, password string) (string, crypto.P
 		return "", nil, output.NewError(output.InputError, "failed to Bytes private key", err)
 	}
 
-	addr, err := address.FromBytes(prvKey.PublicKey().Hash())
-	if err != nil {
-		return "", nil, output.NewError(output.ConvertError, "failed to convert public key into address", err)
+	addr := prvKey.PublicKey().Address()
+	if addr == nil {
+		return "", nil, output.NewError(output.ConvertError, "failed to convert public key into address", nil)
 	}
 	return addr.String(), prvKey, nil
 }

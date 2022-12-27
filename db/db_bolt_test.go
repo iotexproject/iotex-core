@@ -1,27 +1,69 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package db
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
+	"syscall"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/testutil"
 )
+
+func TestBoltDB_NilDB_DoesNotPanic(t *testing.T) {
+	r := require.New(t)
+
+	cfg := DefaultConfig
+	kv := NewBoltDB(cfg)
+
+	// ensure all methods return the error instead of panicking if the db is nil.
+	r.Equal(kv.BucketExists("namespace"), false)
+
+	_, _, err := kv.Filter("namespace", func(k, v []byte) bool {
+		return true
+	}, []byte("minKey"), []byte("maxKey"))
+	r.Errorf(err, "db hasn't started")
+
+	_, err = kv.Get("namespace", []byte("test"))
+	r.Errorf(err, "db hasn't started")
+
+	_, err = kv.GetBucketByPrefix([]byte("namespace"))
+	r.Errorf(err, "db hasn't started")
+	_, err = kv.GetKeyByPrefix([]byte("namespace"), []byte("prefix"))
+	r.Errorf(err, "db hasn't started")
+
+	r.Errorf(kv.Delete("test", []byte("key")), "db hasn't started")
+	r.Errorf(kv.Purge([]byte("name"), 123), "db hasn't started")
+	r.Errorf(kv.Insert([]byte("name"), 123, []byte("value")), "db hasn't started")
+	r.Errorf(kv.Put("test", []byte("key"), []byte("value")), "db hasn't started")
+	r.Errorf(kv.Remove([]byte("name"), 123), "db hasn't started")
+	r.Errorf(kv.WriteBatch(batch.NewBatch()), "db hasn't started")
+
+	_, err = kv.Range("namespace", []byte("key"), 0)
+	r.Errorf(err, "db hasn't started")
+
+	_, err = kv.SeekNext([]byte("key"), 12)
+	r.Errorf(err, "db hasn't started")
+
+	_, err = kv.SeekPrev([]byte("key"), 12)
+	r.Errorf(err, "db hasn't started")
+}
 
 func TestBucketExists(t *testing.T) {
 	r := require.New(t)
 	testPath, err := testutil.PathOfTempFile("test-bucket")
 	r.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, testPath)
+		testutil.CleanupPath(testPath)
 	}()
 
 	cfg := DefaultConfig
@@ -33,12 +75,21 @@ func TestBucketExists(t *testing.T) {
 	r.False(kv.BucketExists("name"))
 	r.NoError(kv.Put("name", []byte("key"), []byte{}))
 	r.True(kv.BucketExists("name"))
+	v, err := kv.Get("name", []byte("key"))
+	r.NoError(err)
+	r.Equal([]byte{}, v)
+}
+
+func TestDiskfullErr(t *testing.T) {
+	err := fmt.Errorf("write /run/data/chain.db: %w", syscall.ENOSPC)
+	require.True(t, errors.Is(err, syscall.ENOSPC))
 }
 
 func BenchmarkBoltDB_Get(b *testing.B) {
 	runBenchmark := func(b *testing.B, size int) {
 		path, err := testutil.PathOfTempFile("boltdb")
 		require.NoError(b, err)
+		defer testutil.CleanupPath(path)
 		db := BoltDB{
 			path:   path,
 			config: DefaultConfig,

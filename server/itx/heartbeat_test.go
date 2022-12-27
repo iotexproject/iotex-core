@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package itx
 
@@ -23,18 +22,21 @@ func TestNewHeartbeatHandler(t *testing.T) {
 
 	dbPath, err := testutil.PathOfTempFile("chain.db")
 	require.NoError(err)
-	testutil.CleanupPath(t, dbPath)
+	testutil.CleanupPath(dbPath)
 	triePath, err := testutil.PathOfTempFile("trie.db")
 	require.NoError(err)
-	testutil.CleanupPath(t, triePath)
+	testutil.CleanupPath(triePath)
 	defer func() {
-		testutil.CleanupPath(t, dbPath)
-		testutil.CleanupPath(t, triePath)
+		testutil.CleanupPath(dbPath)
+		testutil.CleanupPath(triePath)
 	}()
 	cfg := config.Default
-	cfg.API.Port = testutil.RandomPort()
+	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.API.HTTPPort = testutil.RandomPort()
+	cfg.API.WebSocketPort = testutil.RandomPort()
 	cfg.Chain.ChainDBPath = dbPath
 	cfg.Chain.TrieDBPath = triePath
+	cfg.Chain.TrieDBPatchFile = ""
 	s, err := NewServer(cfg)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.EnableGravityChainVoting = true

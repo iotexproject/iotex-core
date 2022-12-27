@@ -1,14 +1,12 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package mptrie
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -20,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -453,23 +450,15 @@ func TestHistoryTrie(t *testing.T) {
 	path := "test-history-trie.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
+	defer testutil.CleanupPath(testPath)
 
 	cfg.DbPath = testPath
 	opts := []db.KVStoreFlusherOption{
 		db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
-			if wi.WriteType() != batch.Delete {
-				return wi
+			if wi.WriteType() == batch.Delete {
+				return nil
 			}
-			oldKey := wi.Key()
-			newKey := byteutil.Uint64ToBytesBigEndian(1)
-			return batch.NewWriteInfo(
-				batch.Put,
-				strings.Join([]string{"Archive", wi.Namespace()}, "-"),
-				append(newKey, oldKey...),
-				wi.Value(),
-				wi.ErrorFormat(),
-				wi.ErrorArgs(),
-			)
+			return wi
 		}),
 	}
 	dao := db.NewBoltDB(cfg)
@@ -549,7 +538,13 @@ func Test4kEntries(t *testing.T) {
 func test4kEntries(t *testing.T, enableAsync bool) {
 	require := require.New(t)
 
-	tr, err := New(KeyLengthOption(4), AsyncOption())
+	var tr trie.Trie
+	var err error
+	if enableAsync {
+		tr, err = New(KeyLengthOption(4), AsyncOption())
+	} else {
+		tr, err = New(KeyLengthOption(4))
+	}
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
 	root, err := tr.RootHash()

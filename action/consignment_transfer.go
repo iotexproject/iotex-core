@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
@@ -57,8 +56,8 @@ type (
 
 	// ConsignMsgEther is the consignment message format of Ethereum
 	ConsignMsgEther struct {
-		BucketIdx int    `json:"bucket"`
-		Nonce     int    `json:"nonce"`
+		BucketIdx uint64 `json:"bucket"`
+		Nonce     uint64 `json:"nonce"`
 		Recipient string `json:"recipient"`
 		Reclaim   string `json:"reclaim"`
 	}
@@ -114,9 +113,9 @@ func processConsignmentEther(c ConsignJSON) (Consignment, error) {
 	}
 
 	con := consignment{}
-	con.signer, err = address.FromBytes(pk.Hash())
-	if err != nil {
-		return nil, err
+	con.signer = pk.Address()
+	if con.signer == nil {
+		return nil, errors.New("failed to get address")
 	}
 	con.recipient, err = address.FromString(msg.Recipient)
 	if err != nil {
@@ -148,8 +147,8 @@ func NewConsignMsg(sigType, recipient string, bucketIdx, nonce uint64) ([]byte, 
 	switch sigType {
 	case "Ethereum":
 		msg := ConsignMsgEther{
-			BucketIdx: int(bucketIdx),
-			Nonce:     int(nonce),
+			BucketIdx: bucketIdx,
+			Nonce:     nonce,
 			Recipient: recipient,
 			Reclaim:   _reclaim,
 		}

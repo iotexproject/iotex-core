@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package filedao
 
@@ -43,14 +42,14 @@ type (
 // ReadHeaderLegacy reads header from KVStore
 func ReadHeaderLegacy(kv *db.BoltDB) (*FileHeader, error) {
 	// legacy file has these 6 buckets
-	if !kv.BucketExists(receiptsNS) || !kv.BucketExists(blockHeaderNS) ||
-		!kv.BucketExists(blockBodyNS) || !kv.BucketExists(blockFooterNS) {
+	if !kv.BucketExists(_receiptsNS) || !kv.BucketExists(_blockHeaderNS) ||
+		!kv.BucketExists(_blockBodyNS) || !kv.BucketExists(_blockFooterNS) {
 		return nil, ErrFileInvalid
 	}
 
 	// check tip height stored in master file
-	_, err := getValueMustBe8Bytes(kv, blockNS, topHeightKey)
-	if err == nil && kv.BucketExists(blockHashHeightMappingNS) {
+	_, err := getValueMustBe8Bytes(kv, _blockNS, _topHeightKey)
+	if err == nil && kv.BucketExists(_blockHashHeightMappingNS) {
 		return &FileHeader{Version: FileLegacyMaster}, nil
 	}
 	return &FileHeader{Version: FileLegacyAuxiliary}, nil
@@ -58,7 +57,7 @@ func ReadHeaderLegacy(kv *db.BoltDB) (*FileHeader, error) {
 
 // ReadHeaderV2 reads header from KVStore
 func ReadHeaderV2(kv db.KVStore) (*FileHeader, error) {
-	value, err := kv.Get(headerDataNs, fileHeaderKey)
+	value, err := kv.Get(_headerDataNs, _fileHeaderKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "file header not exist")
 	}
@@ -71,7 +70,7 @@ func WriteHeaderV2(kv db.KVStore, header *FileHeader) error {
 	if err != nil {
 		return err
 	}
-	return kv.Put(headerDataNs, fileHeaderKey, ser)
+	return kv.Put(_headerDataNs, _fileHeaderKey, ser)
 }
 
 // Serialize serializes FileHeader to byte-stream

@@ -1,8 +1,7 @@
-// Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package staking
 
@@ -10,7 +9,6 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -20,12 +18,12 @@ import (
 
 // const
 const (
-	stakingBucketPool = "bucketPool"
+	_stakingBucketPool = "bucketPool"
 )
 
 var (
-	bucketPoolAddr    = hash.Hash160b([]byte(stakingBucketPool))
-	bucketPoolAddrKey = append([]byte{_const}, bucketPoolAddr[:]...)
+	_bucketPoolAddr    = hash.Hash160b([]byte(_stakingBucketPool))
+	_bucketPoolAddrKey = append([]byte{_const}, _bucketPoolAddr[:]...)
 )
 
 // when a bucket is created, the amount of staked IOTX token is deducted from user, but does not transfer to any address
@@ -92,42 +90,6 @@ func (t *totalAmount) SubBalance(amount *big.Int) error {
 	return nil
 }
 
-// NewBucketPool creates an instance of BucketPool
-func NewBucketPool(sr protocol.StateReader, enableSMStorage bool) (*BucketPool, error) {
-	bp := BucketPool{
-		enableSMStorage: enableSMStorage,
-		total: &totalAmount{
-			amount: big.NewInt(0),
-		},
-	}
-
-	if bp.enableSMStorage {
-		switch _, err := sr.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey)); errors.Cause(err) {
-		case nil:
-			return &bp, nil
-		case state.ErrStateNotExist:
-			// fall back to load all buckets
-		default:
-			return nil, err
-		}
-	}
-
-	// sum up all existing buckets
-	all, _, err := getAllBuckets(sr)
-	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
-		return nil, err
-	}
-
-	for _, v := range all {
-		if v.StakedAmount.Cmp(big.NewInt(0)) <= 0 {
-			return nil, state.ErrNotEnoughBalance
-		}
-		bp.total.amount.Add(bp.total.amount, v.StakedAmount)
-	}
-	bp.total.count = uint64(len(all))
-	return &bp, nil
-}
-
 // Total returns the total amount staked in bucket pool
 func (bp *BucketPool) Total() *big.Int {
 	return new(big.Int).Set(bp.total.amount)
@@ -152,11 +114,11 @@ func (bp *BucketPool) Copy(enableSMStorage bool) *BucketPool {
 // Sync syncs the data from state manager
 func (bp *BucketPool) Sync(sm protocol.StateManager) error {
 	if bp.enableSMStorage {
-		_, err := sm.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+		_, err := sm.State(bp.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		return err
 	}
 	// get stashed total amount
-	err := sm.Unload(protocolID, stakingBucketPool, bp.total)
+	err := sm.Unload(_protocolID, _stakingBucketPool, bp.total)
 	if err != nil && err != protocol.ErrNoName {
 		return err
 	}
@@ -175,18 +137,18 @@ func (bp *BucketPool) CreditPool(sm protocol.StateManager, amount *big.Int) erro
 	}
 
 	if bp.enableSMStorage {
-		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+		_, err := sm.PutState(bp.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		return err
 	}
-	return sm.Load(protocolID, stakingBucketPool, bp.total)
+	return sm.Load(_protocolID, _stakingBucketPool, bp.total)
 }
 
 // DebitPool adds staked amount into the pool
 func (bp *BucketPool) DebitPool(sm protocol.StateManager, amount *big.Int, newBucket bool) error {
 	bp.total.AddBalance(amount, newBucket)
 	if bp.enableSMStorage {
-		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+		_, err := sm.PutState(bp.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		return err
 	}
-	return sm.Load(protocolID, stakingBucketPool, bp.total)
+	return sm.Load(_protocolID, _stakingBucketPool, bp.total)
 }

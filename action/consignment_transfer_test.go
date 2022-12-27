@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
@@ -16,7 +15,7 @@ import (
 )
 
 var (
-	sigTests = []struct {
+	_sigTests = []struct {
 		signer    string
 		recipient string
 		msg       string
@@ -53,7 +52,7 @@ var (
 func TestVerifyEccSig(t *testing.T) {
 	r := require.New(t)
 
-	for _, v := range sigTests {
+	for _, v := range _sigTests {
 		sig, _ := hex.DecodeString(v.sig)
 		pk, err := RecoverPubkeyFromEccSig("Ethereum", []byte(v.msg), sig)
 		r.NoError(err)
@@ -63,7 +62,7 @@ func TestVerifyEccSig(t *testing.T) {
 	}
 
 	// test with modified signature
-	for _, v := range sigTests {
+	for _, v := range _sigTests {
 		sig, _ := hex.DecodeString(v.sig)
 		sig[rand.Intn(len(sig))]++
 		pk, err := RecoverPubkeyFromEccSig("Ethereum", []byte(v.msg), sig)
@@ -77,7 +76,7 @@ func TestConsignmentTransfer(t *testing.T) {
 	r := require.New(t)
 
 	// generate payload from tests
-	v := sigTests[2]
+	v := _sigTests[2]
 	_, err := NewConsignJSON("Trezor", v.recipient, v.sig, 47, 136)
 	r.Equal(ErrNotSupported, err)
 	b, err := NewConsignJSON("Ethereum", v.recipient, v.sig, 47, 136)

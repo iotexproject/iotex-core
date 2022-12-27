@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package util
 
@@ -41,7 +40,7 @@ func TestRauToString(t *testing.T) {
 	GasString := []string{"0.000000000001", "0", "1", "0.2", "0.03", "1.004",
 		"999999999999999.999999939987", "100090907.0000300001"}
 	for i, testString := range inputString {
-		testBigInt, ok := big.NewInt(0).SetString(testString, 10)
+		testBigInt, ok := new(big.Int).SetString(testString, 10)
 		require.True(ok)
 		res := RauToString(testBigInt, IotxDecimalNum)
 		require.Equal(IotxString[i], res)

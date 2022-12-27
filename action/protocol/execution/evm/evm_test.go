@@ -1,13 +1,14 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package evm
 
 import (
 	"context"
+	"errors"
+	"math"
 	"math/big"
 	"testing"
 
@@ -16,10 +17,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
@@ -53,6 +55,10 @@ func TestExecuteContractFailure(t *testing.T) {
 	})
 	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 
+	ctx = protocol.WithBlockchainCtx(protocol.WithFeatureCtx(ctx), protocol.BlockchainCtx{
+		ChainID:      1,
+		EvmNetworkID: 100,
+	})
 	retval, receipt, err := ExecuteContract(ctx, sm, e,
 		func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
@@ -75,8 +81,12 @@ func TestConstantinople(t *testing.T) {
 		Caller: identityset.Address(27),
 	})
 
+	evmNetworkID := uint32(100)
 	g := genesis.Default
-	ctx = genesis.WithGenesisContext(ctx, g)
+	ctx = protocol.WithBlockchainCtx(genesis.WithGenesisContext(ctx, g), protocol.BlockchainCtx{
+		ChainID:      1,
+		EvmNetworkID: evmNetworkID,
+	})
 
 	execHeights := []struct {
 		contract string
@@ -136,14 +146,68 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			11267641,
 		},
-		// after Iceland
+		// Iceland -- Jutland
 		{
 			action.EmptyAddress,
-			21267641,
+			12289321,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			21267641,
+			12289321,
+		},
+		// Jutland - Kamchatka
+		{
+			action.EmptyAddress,
+			13685401,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			13816440,
+		},
+		// Kamchatka - LordHowe
+		{
+			action.EmptyAddress,
+			13816441,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			13979160,
+		},
+		// LordHowe - Midway
+		{
+			action.EmptyAddress,
+			13979161,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			16509240,
+		},
+		// Midway - NewFoundland
+		{
+			action.EmptyAddress,
+			16509241,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			17662680,
+		},
+		// NewFoundland - Okhotsk
+		{
+			action.EmptyAddress,
+			17662681,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			21542760,
+		},
+		// after Okhotsk
+		{
+			action.EmptyAddress,
+			21542761,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			math.MaxUint64,
 		},
 	}
 
@@ -158,33 +222,34 @@ func TestConstantinople(t *testing.T) {
 		)
 		require.NoError(err)
 
-		stateDB := NewStateDBAdapter(sm, e.height, !g.IsAleutian(e.height), g.IsGreenland(e.height), hash.ZeroHash256)
-		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		fCtx := protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
 			BlockHeight: e.height,
-		})
-		ps, err := newParams(ctx, ex, stateDB, func(uint64) (hash.Hash256, error) {
+		}))
+		stateDB, err := prepareStateDB(fCtx, sm)
+		require.NoError(err)
+		ps, err := newParams(fCtx, ex, stateDB, func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		})
 		require.NoError(err)
 
 		var evmConfig vm.Config
-		chainConfig := getChainConfig(g, e.height)
-		evm := vm.NewEVM(ps.context, stateDB, chainConfig, evmConfig)
+		chainConfig := getChainConfig(g.Blockchain, e.height, ps.evmNetworkID)
+		evm := vm.NewEVM(ps.context, ps.txCtx, stateDB, chainConfig, evmConfig)
 
 		evmChainConfig := evm.ChainConfig()
-		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsHomestead(evm.BlockNumber))
-		require.False(evmChainConfig.IsDAOFork(evm.BlockNumber))
-		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP150(evm.BlockNumber))
-		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP158(evm.BlockNumber))
-		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP155(evm.BlockNumber))
-		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsByzantium(evm.BlockNumber))
-		require.True(evmChainConfig.IsConstantinople(evm.BlockNumber))
-		require.True(evmChainConfig.IsPetersburg(evm.BlockNumber))
+		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsHomestead(evm.Context.BlockNumber))
+		require.False(evmChainConfig.IsDAOFork(evm.Context.BlockNumber))
+		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP150(evm.Context.BlockNumber))
+		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP158(evm.Context.BlockNumber))
+		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP155(evm.Context.BlockNumber))
+		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsByzantium(evm.Context.BlockNumber))
+		require.True(evmChainConfig.IsConstantinople(evm.Context.BlockNumber))
+		require.True(evmChainConfig.IsPetersburg(evm.Context.BlockNumber))
 
 		// verify chainRules
-		chainRules := evmChainConfig.Rules(ps.context.BlockNumber)
+		chainRules := evmChainConfig.Rules(ps.context.BlockNumber, false)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsHomestead)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP150)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP158)
@@ -194,22 +259,95 @@ func TestConstantinople(t *testing.T) {
 		require.True(chainRules.IsPetersburg)
 
 		// verify iotex configs in chain config block
-		require.Equal(big.NewInt(int64(genesis.Default.BeringBlockHeight)), evmChainConfig.BeringBlock)
-		require.Equal(big.NewInt(int64(genesis.Default.GreenlandBlockHeight)), evmChainConfig.GreenlandBlock)
-		require.Equal(!g.IsBering(e.height), evm.IsPreBering())
+		require.Equal(big.NewInt(int64(g.BeringBlockHeight)), evmChainConfig.BeringBlock)
+		require.Equal(big.NewInt(int64(g.GreenlandBlockHeight)), evmChainConfig.GreenlandBlock)
 
 		// iceland = support chainID + enable Istanbul and Muir Glacier
-		if g.IsIceland(e.height) {
-			require.EqualValues(config.EVMNetworkID(), evmChainConfig.ChainID.Uint64())
-			require.True(evmChainConfig.IsIstanbul(evm.BlockNumber))
-			require.True(evmChainConfig.IsMuirGlacier(evm.BlockNumber))
-			require.True(chainRules.IsIstanbul)
+		isIceland := g.IsIceland(e.height)
+		if isIceland {
+			require.EqualValues(evmNetworkID, evmChainConfig.ChainID.Uint64())
 		} else {
 			require.Nil(evmChainConfig.ChainID)
-			require.False(evmChainConfig.IsIstanbul(evm.BlockNumber))
-			require.False(evmChainConfig.IsMuirGlacier(evm.BlockNumber))
-			require.False(chainRules.IsIstanbul)
 		}
+		require.Equal(big.NewInt(int64(g.IcelandBlockHeight)), evmChainConfig.MuirGlacierBlock)
+		require.Equal(big.NewInt(int64(g.IcelandBlockHeight)), evmChainConfig.IstanbulBlock)
+		require.Equal(isIceland, evmChainConfig.IsIstanbul(evm.Context.BlockNumber))
+		require.Equal(isIceland, evmChainConfig.IsMuirGlacier(evm.Context.BlockNumber))
+		require.Equal(isIceland, chainRules.IsIstanbul)
+
+		// Okhotsk = enable Berlin and London
+		isOkhotsk := g.IsOkhotsk(e.height)
+		require.Equal(big.NewInt(int64(g.OkhotskBlockHeight)), evmChainConfig.BerlinBlock)
+		require.Equal(big.NewInt(int64(g.OkhotskBlockHeight)), evmChainConfig.LondonBlock)
+		require.Equal(isOkhotsk, evmChainConfig.IsBerlin(evm.Context.BlockNumber))
+		require.Equal(isOkhotsk, chainRules.IsBerlin)
+		require.Equal(isOkhotsk, evmChainConfig.IsLondon(evm.Context.BlockNumber))
+		require.Equal(isOkhotsk, chainRules.IsLondon)
+		require.False(chainRules.IsMerge)
+
+		// test basefee
+		require.Equal(new(big.Int), evm.Context.BaseFee)
+	}
+}
+
+func TestEvmError(t *testing.T) {
+	r := require.New(t)
+	g := genesis.Default.Blockchain
+
+	beringTests := []struct {
+		evmError error
+		status   iotextypes.ReceiptStatus
+	}{
+		{vm.ErrOutOfGas, iotextypes.ReceiptStatus_ErrOutOfGas},
+		{vm.ErrCodeStoreOutOfGas, iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas},
+		{vm.ErrDepth, iotextypes.ReceiptStatus_ErrDepth},
+		{vm.ErrContractAddressCollision, iotextypes.ReceiptStatus_ErrContractAddressCollision},
+		{vm.ErrExecutionReverted, iotextypes.ReceiptStatus_ErrExecutionReverted},
+		{vm.ErrMaxCodeSizeExceeded, iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded},
+		{vm.ErrWriteProtection, iotextypes.ReceiptStatus_ErrWriteProtection},
+		{errors.New("unknown"), iotextypes.ReceiptStatus_ErrUnknown},
+	}
+	for _, v := range beringTests {
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight-1), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight-1), iotextypes.ReceiptStatus_Failure)
+	}
+
+	jutlandTests := []struct {
+		evmError error
+		status   iotextypes.ReceiptStatus
+	}{
+		{vm.ErrInsufficientBalance, iotextypes.ReceiptStatus_ErrInsufficientBalance},
+		{vm.ErrInvalidJump, iotextypes.ReceiptStatus_ErrInvalidJump},
+		{vm.ErrReturnDataOutOfBounds, iotextypes.ReceiptStatus_ErrReturnDataOutOfBounds},
+		{vm.ErrGasUintOverflow, iotextypes.ReceiptStatus_ErrGasUintOverflow},
+		{errors.New("unknown"), iotextypes.ReceiptStatus_ErrUnknown},
+	}
+	for _, v := range jutlandTests {
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight-1), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), iotextypes.ReceiptStatus_ErrUnknown)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), iotextypes.ReceiptStatus_ErrUnknown)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight-1), iotextypes.ReceiptStatus_Failure)
+	}
+
+	newTests := []struct {
+		evmError error
+		status   iotextypes.ReceiptStatus
+	}{
+		{vm.ErrInvalidCode, iotextypes.ReceiptStatus_ErrInvalidCode},
+	}
+	for _, v := range newTests {
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight-1), iotextypes.ReceiptStatus_ErrUnknown)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), iotextypes.ReceiptStatus_ErrUnknown)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), iotextypes.ReceiptStatus_ErrUnknown)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), iotextypes.ReceiptStatus_ErrUnknown)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight-1), iotextypes.ReceiptStatus_Failure)
 	}
 }
 
@@ -217,30 +355,29 @@ func TestGasEstimate(t *testing.T) {
 	require := require.New(t)
 
 	for _, v := range []struct {
-		gas, consume, refund uint64
-		data                 []byte
+		gas, consume, refund, size uint64
 	}{
-		{config.Default.Genesis.BlockGasLimit, 8200300, 1000000, make([]byte, 20000)},
-		{1000000, 245600, 100000, make([]byte, 5600)},
-		{500000, 21000, 10000, make([]byte, 36)},
+		{genesis.Default.BlockGasLimit, 8200300, 1000000, 20000},
+		{1000000, 245600, 100000, 5600},
+		{500000, 21000, 10000, 36},
 	} {
-		evmLeftOver, remainingGas, err := gasExecuteInEVM(v.gas, v.consume, v.refund, v.data)
+		evmLeftOver, remainingGas, err := gasExecuteInEVM(v.gas, v.consume, v.refund, v.size)
 		require.NoError(err)
 		gasConsumed := v.gas - remainingGas
 		require.Equal(v.gas-evmLeftOver, gasConsumed+v.refund)
 
 		// if we use gasConsumed + refund, EVM will consume the exact amount of gas
-		evmLeftOver, _, err = gasExecuteInEVM(gasConsumed+v.refund, v.consume, v.refund, v.data)
+		evmLeftOver, _, err = gasExecuteInEVM(gasConsumed+v.refund, v.consume, v.refund, v.size)
 		require.NoError(err)
 		require.Zero(evmLeftOver)
 	}
 }
 
 // gasExecuteInEVM performs gas calculation during EVM execution
-func gasExecuteInEVM(gas, consume, refund uint64, data []byte) (uint64, uint64, error) {
+func gasExecuteInEVM(gas, consume, refund, size uint64) (uint64, uint64, error) {
 	remainingGas := gas
 
-	intriGas, err := intrinsicGas(data)
+	intriGas, err := intrinsicGas(size, nil)
 	if err != nil {
 		return 0, 0, err
 	}

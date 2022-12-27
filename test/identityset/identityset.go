@@ -1,14 +1,14 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package identityset
 
 import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -73,9 +73,9 @@ func PrivateKey(i int) crypto.PrivateKey {
 // Address returns the i-th identity's address
 func Address(i int) address.Address {
 	sk := PrivateKey(i)
-	addr, err := address.FromBytes(sk.PublicKey().Hash())
-	if err != nil {
-		log.L().Panic("Error when constructing the address", zap.Error(err))
+	addr := sk.PublicKey().Address()
+	if addr == nil {
+		log.L().Panic("Error when constructing the address", zap.Error(errors.New("failed to get address")))
 	}
 	return addr
 }

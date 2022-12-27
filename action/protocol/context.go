@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package protocol
 
@@ -11,8 +10,10 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -25,6 +26,12 @@ type (
 
 	registryContextKey struct{}
 
+	featureContextKey struct{}
+
+	featureWithHeightContextKey struct{}
+
+	vmConfigContextKey struct{}
+
 	// TipInfo contains the tip block information
 	TipInfo struct {
 		Height    uint64
@@ -36,6 +43,10 @@ type (
 	BlockchainCtx struct {
 		// Tip is the information of tip block
 		Tip TipInfo
+		//ChainID is the native chain ID
+		ChainID uint32
+		// EvmNetworkID is the EVM network ID
+		EvmNetworkID uint32
 	}
 
 	// BlockCtx provides block auxiliary information.
@@ -62,6 +73,54 @@ type (
 		IntrinsicGas uint64
 		// Nonce is the nonce of the action
 		Nonce uint64
+	}
+
+	// CheckFunc is function type to check by height.
+	CheckFunc func(height uint64) bool
+
+	// FeatureCtx provides features information.
+	FeatureCtx struct {
+		FixDoubleChargeGas                      bool
+		SystemWideActionGasLimit                bool
+		NotFixTopicCopyBug                      bool
+		SetRevertMessageToReceipt               bool
+		FixGetHashFnHeight                      bool
+		FixSortCacheContractsAndUsePendingNonce bool
+		AsyncContractTrie                       bool
+		AddOutOfGasToTransactionLog             bool
+		AddChainIDToConfig                      bool
+		UseV2Storage                            bool
+		CannotUnstakeAgain                      bool
+		SkipStakingIndexer                      bool
+		ReturnFetchError                        bool
+		CannotTranferToSelf                     bool
+		NewStakingReceiptFormat                 bool
+		UpdateBlockMeta                         bool
+		CurrentEpochProductivity                bool
+		FixSnapshotOrder                        bool
+		AllowCorrectDefaultChainID              bool
+		CorrectGetHashFn                        bool
+		CorrectTxLogIndex                       bool
+		RevertLog                               bool
+		TolerateLegacyAddress                   bool
+		ValidateRewardProtocol                  bool
+		CreateLegacyNonceAccount                bool
+		FixGasAndNonceUpdate                    bool
+		FixUnproductiveDelegates                bool
+		CorrectGasRefund                        bool
+		FixRewardErroCheckPosition              bool
+	}
+
+	// FeatureWithHeightCtx provides feature check functions.
+	FeatureWithHeightCtx struct {
+		GetUnproductiveDelegates CheckFunc
+		ReadStateFromDB          CheckFunc
+		UseV2Staking             CheckFunc
+		EnableNativeStaking      CheckFunc
+		StakingCorrectGas        CheckFunc
+		CalculateProbationList   CheckFunc
+		LoadCandidatesLegacy     CheckFunc
+		CandCenterHasAlias       CheckFunc
 	}
 )
 
@@ -146,4 +205,123 @@ func MustGetActionCtx(ctx context.Context) ActionCtx {
 		log.S().Panic("Miss action context")
 	}
 	return ac
+}
+
+// WithFeatureCtx add FeatureCtx into context.
+func WithFeatureCtx(ctx context.Context) context.Context {
+	g := genesis.MustExtractGenesisContext(ctx)
+	height := MustGetBlockCtx(ctx).BlockHeight
+	return context.WithValue(
+		ctx,
+		featureContextKey{},
+		FeatureCtx{
+			FixDoubleChargeGas:                      g.IsPacific(height),
+			SystemWideActionGasLimit:                !g.IsAleutian(height),
+			NotFixTopicCopyBug:                      !g.IsAleutian(height),
+			SetRevertMessageToReceipt:               g.IsHawaii(height),
+			FixGetHashFnHeight:                      g.IsHawaii(height),
+			FixSortCacheContractsAndUsePendingNonce: g.IsHawaii(height),
+			AsyncContractTrie:                       g.IsGreenland(height),
+			AddOutOfGasToTransactionLog:             !g.IsGreenland(height),
+			AddChainIDToConfig:                      g.IsIceland(height),
+			UseV2Storage:                            g.IsGreenland(height),
+			CannotUnstakeAgain:                      g.IsGreenland(height),
+			SkipStakingIndexer:                      !g.IsFairbank(height),
+			ReturnFetchError:                        !g.IsGreenland(height),
+			CannotTranferToSelf:                     g.IsHawaii(height),
+			NewStakingReceiptFormat:                 g.IsFbkMigration(height),
+			UpdateBlockMeta:                         g.IsGreenland(height),
+			CurrentEpochProductivity:                g.IsGreenland(height),
+			FixSnapshotOrder:                        g.IsKamchatka(height),
+			AllowCorrectDefaultChainID:              g.IsMidway(height),
+			CorrectGetHashFn:                        g.IsMidway(height),
+			CorrectTxLogIndex:                       g.IsMidway(height),
+			RevertLog:                               g.IsMidway(height),
+			TolerateLegacyAddress:                   !g.IsNewfoundland(height),
+			ValidateRewardProtocol:                  g.IsNewfoundland(height),
+			CreateLegacyNonceAccount:                !g.IsOkhotsk(height),
+			FixGasAndNonceUpdate:                    g.IsOkhotsk(height),
+			FixUnproductiveDelegates:                g.IsOkhotsk(height),
+			CorrectGasRefund:                        g.IsOkhotsk(height),
+			FixRewardErroCheckPosition:              g.IsOkhotsk(height),
+		},
+	)
+}
+
+// GetFeatureCtx gets FeatureCtx.
+func GetFeatureCtx(ctx context.Context) (FeatureCtx, bool) {
+	fc, ok := ctx.Value(featureContextKey{}).(FeatureCtx)
+	return fc, ok
+}
+
+// MustGetFeatureCtx must get FeatureCtx.
+// If context doesn't exist, this function panic.
+func MustGetFeatureCtx(ctx context.Context) FeatureCtx {
+	fc, ok := ctx.Value(featureContextKey{}).(FeatureCtx)
+	if !ok {
+		log.S().Panic("Miss feature context")
+	}
+	return fc
+}
+
+// WithFeatureWithHeightCtx add FeatureWithHeightCtx into context.
+func WithFeatureWithHeightCtx(ctx context.Context) context.Context {
+	g := genesis.MustExtractGenesisContext(ctx)
+	return context.WithValue(
+		ctx,
+		featureWithHeightContextKey{},
+		FeatureWithHeightCtx{
+			GetUnproductiveDelegates: func(height uint64) bool {
+				return !g.IsEaster(height)
+			},
+			ReadStateFromDB: func(height uint64) bool {
+				return g.IsGreenland(height)
+			},
+			UseV2Staking: func(height uint64) bool {
+				return g.IsFairbank(height)
+			},
+			EnableNativeStaking: func(height uint64) bool {
+				return g.IsCook(height)
+			},
+			StakingCorrectGas: func(height uint64) bool {
+				return g.IsDaytona(height)
+			},
+			CalculateProbationList: func(height uint64) bool {
+				return g.IsEaster(height)
+			},
+			LoadCandidatesLegacy: func(height uint64) bool {
+				return !g.IsEaster(height)
+			},
+			CandCenterHasAlias: func(height uint64) bool {
+				return !g.IsOkhotsk(height)
+			},
+		},
+	)
+}
+
+// GetFeatureWithHeightCtx gets FeatureWithHeightCtx.
+func GetFeatureWithHeightCtx(ctx context.Context) (FeatureWithHeightCtx, bool) {
+	fc, ok := ctx.Value(featureWithHeightContextKey{}).(FeatureWithHeightCtx)
+	return fc, ok
+}
+
+// MustGetFeatureWithHeightCtx must get FeatureWithHeightCtx.
+// If context doesn't exist, this function panic.
+func MustGetFeatureWithHeightCtx(ctx context.Context) FeatureWithHeightCtx {
+	fc, ok := ctx.Value(featureWithHeightContextKey{}).(FeatureWithHeightCtx)
+	if !ok {
+		log.S().Panic("Miss feature context")
+	}
+	return fc
+}
+
+// WithVMConfigCtx adds vm config to context
+func WithVMConfigCtx(ctx context.Context, vmConfig vm.Config) context.Context {
+	return context.WithValue(ctx, vmConfigContextKey{}, vmConfig)
+}
+
+// GetVMConfigCtx returns the vm config from context
+func GetVMConfigCtx(ctx context.Context) (vm.Config, bool) {
+	cfg, ok := ctx.Value(vmConfigContextKey{}).(vm.Config)
+	return cfg, ok
 }

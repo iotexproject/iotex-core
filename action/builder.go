@@ -1,15 +1,17 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
 import (
+	"bytes"
 	"math/big"
 
-	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
@@ -18,6 +20,11 @@ import (
 type Builder struct {
 	act AbstractAction
 }
+
+var (
+	_stakingProtocolAddr, _   = address.FromString(address.StakingProtocolAddr)
+	_rewardingProtocolAddr, _ = address.FromString(address.RewardingProtocol)
+)
 
 // SetVersion sets action's version.
 func (b *Builder) SetVersion(v uint32) *Builder {
@@ -28,12 +35,6 @@ func (b *Builder) SetVersion(v uint32) *Builder {
 // SetNonce sets action's nonce.
 func (b *Builder) SetNonce(n uint64) *Builder {
 	b.act.nonce = n
-	return b
-}
-
-// SetSourcePublicKey sets action's source's public key.
-func (b *Builder) SetSourcePublicKey(key crypto.PublicKey) *Builder {
-	b.act.srcPubkey = key
 	return b
 }
 
@@ -75,6 +76,7 @@ func (b *Builder) Build() AbstractAction {
 }
 
 // EnvelopeBuilder is the builder to build Envelope.
+// TODO: change envelope to *envelope
 type EnvelopeBuilder struct {
 	elp envelope
 }
@@ -123,13 +125,141 @@ func (b *EnvelopeBuilder) SetAction(action actionPayload) *EnvelopeBuilder {
 	return b
 }
 
+// SetChainID sets action's chainID.
+func (b *EnvelopeBuilder) SetChainID(chainID uint32) *EnvelopeBuilder {
+	b.elp.chainID = chainID
+	return b
+}
+
 // Build builds a new action.
 func (b *EnvelopeBuilder) Build() Envelope {
+	return b.build()
+}
+
+func (b *EnvelopeBuilder) build() Envelope {
 	if b.elp.gasPrice == nil {
 		b.elp.gasPrice = big.NewInt(0)
 	}
 	if b.elp.version == 0 {
 		b.elp.version = version.ProtocolVersion
 	}
+	if b.elp.payload == nil {
+		panic("cannot build Envelope w/o a valid payload")
+	}
+	b.elp.payload.SetEnvelopeContext(&b.elp)
 	return &b.elp
+}
+
+// BuildTransfer loads transfer action into envelope
+func (b *EnvelopeBuilder) BuildTransfer(tx *types.Transaction) (Envelope, error) {
+	if tx.To() == nil {
+		return nil, ErrInvalidAct
+	}
+	b.setEnvelopeCommonFields(tx)
+	tsf, err := NewTransfer(tx.Nonce(), tx.Value(), getRecipientAddr(tx.To()), tx.Data(), tx.Gas(), tx.GasPrice())
+	if err != nil {
+		return nil, err
+	}
+	b.elp.payload = tsf
+	return b.build(), nil
+}
+
+func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) {
+	b.elp.nonce = tx.Nonce()
+	b.elp.gasPrice = new(big.Int).Set(tx.GasPrice())
+	b.elp.gasLimit = tx.Gas()
+}
+
+func getRecipientAddr(addr *common.Address) string {
+	if addr == nil {
+		return ""
+	}
+	ioAddr, _ := address.FromBytes(addr.Bytes())
+	return ioAddr.String()
+}
+
+// BuildExecution loads executino action into envelope
+func (b *EnvelopeBuilder) BuildExecution(tx *types.Transaction) (Envelope, error) {
+	b.setEnvelopeCommonFields(tx)
+	exec, err := NewExecutionWithAccessList(getRecipientAddr(tx.To()), tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data(), tx.AccessList())
+	if err != nil {
+		return nil, err
+	}
+	b.elp.payload = exec
+	return b.build(), nil
+}
+
+// BuildStakingAction loads staking action into envelope from abi-encoded data
+func (b *EnvelopeBuilder) BuildStakingAction(tx *types.Transaction) (Envelope, error) {
+	if !bytes.Equal(tx.To().Bytes(), _stakingProtocolAddr.Bytes()) {
+		return nil, ErrInvalidAct
+	}
+	b.setEnvelopeCommonFields(tx)
+	act, err := newStakingActionFromABIBinary(tx.Data())
+	if err != nil {
+		return nil, err
+	}
+	b.elp.payload = act
+	return b.build(), nil
+}
+
+// BuildRewardingAction loads rewarding action into envelope from abi-encoded data
+func (b *EnvelopeBuilder) BuildRewardingAction(tx *types.Transaction) (Envelope, error) {
+	if !bytes.Equal(tx.To().Bytes(), _rewardingProtocolAddr.Bytes()) {
+		return nil, ErrInvalidAct
+	}
+	b.setEnvelopeCommonFields(tx)
+	act, err := newRewardingActionFromABIBinary(tx.Data())
+	if err != nil {
+		return nil, err
+	}
+	b.elp.payload = act
+	return b.build(), nil
+}
+
+func newStakingActionFromABIBinary(data []byte) (actionPayload, error) {
+	if len(data) <= 4 {
+		return nil, ErrInvalidABI
+	}
+	if act, err := NewCreateStakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewDepositToStakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewChangeCandidateFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewUnstakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewWithdrawStakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewRestakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewTransferStakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewCandidateRegisterFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewCandidateUpdateFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	return nil, ErrInvalidABI
+}
+
+func newRewardingActionFromABIBinary(data []byte) (actionPayload, error) {
+	if len(data) <= 4 {
+		return nil, ErrInvalidABI
+	}
+	if act, err := NewClaimFromRewardingFundFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewDepositToRewardingFundFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	return nil, ErrInvalidABI
 }

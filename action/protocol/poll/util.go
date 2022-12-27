@@ -1,13 +1,11 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package poll
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math"
@@ -25,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -110,7 +107,7 @@ func validate(ctx context.Context, sr protocol.StateReader, p Protocol, act acti
 
 func createPostSystemActions(ctx context.Context, sr protocol.StateReader, p Protocol) ([]action.Envelope, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	g := genesis.MustExtractGenesisContext(ctx)
+	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	lastBlkHeight := rp.GetEpochLastBlockHeight(epochNum)
@@ -120,8 +117,8 @@ func createPostSystemActions(ctx context.Context, sr protocol.StateReader, p Pro
 	if blkCtx.BlockHeight < epochHeight+(nextEpochHeight-epochHeight)/2 {
 		return nil, nil
 	}
-	beforeEaster := !g.IsEaster(nextEpochHeight)
-	if _, _, err := candidatesutil.CandidatesFromDB(sr, nextEpochHeight, beforeEaster, true); errors.Cause(err) != state.ErrStateNotExist {
+	loadCandidatesLegacy := featureCtx.LoadCandidatesLegacy(nextEpochHeight)
+	if _, _, err := candidatesutil.CandidatesFromDB(sr, nextEpochHeight, loadCandidatesLegacy, true); errors.Cause(err) != state.ErrStateNotExist {
 		return nil, err
 	}
 	log.L().Debug(
@@ -163,27 +160,39 @@ func setCandidates(
 	candidates state.CandidateList,
 	height uint64, // epoch start height
 ) error {
-	g := genesis.MustExtractGenesisContext(ctx)
+	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(height)
 	if height != rp.GetEpochHeight(epochNum) {
 		return errors.New("put poll result height should be epoch start height")
 	}
-	preEaster := !g.IsEaster(height)
+	loadCandidatesLegacy := featureCtx.LoadCandidatesLegacy(height)
+	accountCreationOpts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
+	} else {
+		accountCreationOpts = append(accountCreationOpts, state.DelegateCandidateOption())
+	}
 	for _, candidate := range candidates {
-		delegate, err := accountutil.LoadOrCreateAccount(sm, candidate.Address)
+		addr, err := address.FromString(candidate.Address)
+		if err != nil {
+			return errors.Wrapf(err, "failed to decode delegate address %s", candidate.Address)
+		}
+		delegate, err := accountutil.LoadOrCreateAccount(sm, addr, accountCreationOpts...)
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
 		}
-		delegate.IsCandidate = true
-		if preEaster {
+		if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+			delegate.MarkAsCandidate()
+		}
+		if loadCandidatesLegacy {
 			if err := candidatesutil.LoadAndAddCandidates(sm, height, candidate.Address); err != nil {
 				return err
 			}
 		}
 		candAddr, err := address.FromString(candidate.Address)
-		if err != nil {
-			errors.Wrap(err, "failed to convert candidate address")
+		if err != nil && protocol.MustGetFeatureCtx(ctx).FixUnproductiveDelegates {
+			return errors.Wrap(err, "failed to convert candidate address")
 		}
 		if err := accountutil.StoreAccount(sm, candAddr, delegate); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
@@ -200,7 +209,7 @@ func setCandidates(
 			return errors.Wrapf(err, "failed to put candidatelist into indexer at height %d", height)
 		}
 	}
-	if preEaster {
+	if loadCandidatesLegacy {
 		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(height)))
 		return err
 	}
@@ -320,12 +329,15 @@ func setCurrentBlockMeta(
 
 // allBlockMetasFromDB returns all latest block meta structs
 func allBlockMetasFromDB(sr protocol.StateReader, blocksInEpoch uint64) ([]*BlockMeta, error) {
+	keys := make([][]byte, blocksInEpoch)
+	for i := uint64(0); i < blocksInEpoch; i++ {
+		keys[i] = blockMetaKey(i, blocksInEpoch)
+	}
 	stateHeight, iter, err := sr.States(
 		protocol.NamespaceOption(protocol.SystemNamespace),
-		protocol.FilterOption(func(k, v []byte) bool {
-			prefix := candidatesutil.ConstructKey(blockMetaPrefix)
-			return bytes.HasPrefix(k, prefix[:])
-		}, blockMetaKey(0, blocksInEpoch), blockMetaKey(math.MaxUint64, blocksInEpoch)),
+		protocol.KeysOption(func() ([][]byte, error) {
+			return keys, nil
+		}),
 	)
 	if err != nil {
 		return nil, err
@@ -338,17 +350,20 @@ func allBlockMetasFromDB(sr protocol.StateReader, blocksInEpoch uint64) ([]*Bloc
 	blockmetas := make([]*BlockMeta, 0, iter.Size())
 	for i := 0; i < iter.Size(); i++ {
 		bm := &BlockMeta{}
-		if err := iter.Next(bm); err != nil {
+		switch err := iter.Next(bm); errors.Cause(err) {
+		case nil:
+			blockmetas = append(blockmetas, bm)
+		case state.ErrNilValue:
+		default:
 			return nil, errors.Wrapf(err, "failed to deserialize block meta")
 		}
-		blockmetas = append(blockmetas, bm)
 	}
 	return blockmetas, nil
 }
 
 // blockMetaKey returns key for storing block meta with prefix
 func blockMetaKey(blkHeight uint64, blocksInEpoch uint64) []byte {
-	prefixKey := candidatesutil.ConstructKey(blockMetaPrefix)
+	prefixKey := candidatesutil.ConstructKey(_blockMetaPrefix)
 	if blkHeight == math.MaxUint64 {
 		return append(prefixKey[:], byteutil.Uint64ToBytesBigEndian(blocksInEpoch)...)
 	}

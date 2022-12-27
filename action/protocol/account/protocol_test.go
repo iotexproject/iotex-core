@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
@@ -12,15 +11,13 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -59,17 +56,48 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 			return 0, nil
 		}).AnyTimes()
 
-	addrv1 := identityset.Address(27)
-	s, err := accountutil.LoadAccount(sm, hash.BytesToHash160(addrv1.Bytes()))
-	require.NoError(err)
-	require.Equal(s.Balance, state.EmptyAccount().Balance)
+	for _, test := range []struct {
+		accountType   int32
+		addr          address.Address
+		expectedNonce uint64
+	}{
+		{
+			0,
+			identityset.Address(27),
+			uint64(0x1),
+		},
+		{
+			1,
+			identityset.Address(28),
+			uint64(0x0),
+		},
+	} {
+		var (
+			s   *state.Account
+			err error
+		)
+		if test.accountType == 0 {
+			s, err = accountutil.LoadAccount(sm, test.addr, state.LegacyNonceAccountTypeOption())
+		} else {
+			s, err = accountutil.LoadAccount(sm, test.addr)
+		}
+		require.NoError(err)
+		require.Equal(big.NewInt(0), s.Balance)
+		require.Equal(test.accountType, s.AccountType())
+		require.Equal(test.expectedNonce, s.PendingNonce())
 
-	// create account
-	require.NoError(createAccount(sm, addrv1.String(), big.NewInt(5)))
-	s, err = accountutil.LoadAccount(sm, hash.BytesToHash160(addrv1.Bytes()))
-	require.NoError(err)
-	require.Equal("5", s.Balance.String())
-	require.Equal(uint64(0x0), s.Nonce)
+		if test.accountType == 0 {
+			require.NoError(createAccount(sm, test.addr.String(), big.NewInt(5), state.LegacyNonceAccountTypeOption()))
+			s, err = accountutil.LoadAccount(sm, test.addr, state.LegacyNonceAccountTypeOption())
+		} else {
+			require.NoError(createAccount(sm, test.addr.String(), big.NewInt(5)))
+			s, err = accountutil.LoadAccount(sm, test.addr)
+		}
+		require.NoError(err)
+		require.Equal("5", s.Balance.String())
+		require.Equal(test.accountType, s.AccountType())
+		require.Equal(test.expectedNonce, s.PendingNonce())
+	}
 }
 
 func TestProtocol_Initialize(t *testing.T) {
@@ -103,14 +131,14 @@ func TestProtocol_Initialize(t *testing.T) {
 			return 0, nil
 		}).AnyTimes()
 
-	ge := config.Default.Genesis
+	ge := genesis.Default
 	ge.Account.InitBalanceMap = map[string]string{
 		identityset.Address(0).String(): "100",
 	}
 	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
 		BlockHeight: 0,
 	})
-	ctx = genesis.WithGenesisContext(ctx, ge)
+	ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(ctx, ge))
 	p := NewProtocol(rewarding.DepositGas)
 	require.NoError(
 		p.CreateGenesisStates(
@@ -128,7 +156,7 @@ func TestProtocol_Initialize(t *testing.T) {
 	)
 
 	require.Error(createAccount(sm, identityset.Address(0).String(), big.NewInt(0)))
-	acc0, err := accountutil.LoadAccount(sm, hash.BytesToHash160(identityset.Address(0).Bytes()))
+	acc0, err := accountutil.LoadAccount(sm, identityset.Address(0))
 	require.NoError(err)
 	require.Equal(big.NewInt(100), acc0.Balance)
 }

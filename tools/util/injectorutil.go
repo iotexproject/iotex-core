@@ -1,25 +1,25 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package util
 
 import (
 	"context"
 	"encoding/hex"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -27,9 +27,8 @@ import (
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/chainservice"
+	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
@@ -82,7 +81,7 @@ func GetTotalTsfFailed() uint64 {
 // LoadAddresses loads key pairs from key pair path and construct addresses
 func LoadAddresses(keypairsPath string, chainID uint32) ([]*AddressKey, error) {
 	// Load Senders' public/private key pairs
-	keyPairBytes, err := ioutil.ReadFile(keypairsPath)
+	keyPairBytes, err := os.ReadFile(filepath.Clean(keypairsPath))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read key pairs file")
 	}
@@ -102,9 +101,9 @@ func LoadAddresses(keypairsPath string, chainID uint32) ([]*AddressKey, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to decode private key")
 		}
-		addr, err := address.FromBytes(pk.Hash())
-		if err != nil {
-			return nil, err
+		addr := pk.Address()
+		if addr == nil {
+			return nil, errors.New("failed to get address")
 		}
 		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: addr.String(), PriKey: sk})
 	}
@@ -157,9 +156,9 @@ func InjectByAps(
 	retryNum int,
 	retryInterval int,
 	resetInterval int,
-	expectedBalances *map[string]*big.Int,
-	cs *chainservice.ChainService,
-	pendingActionMap *cache.ThreadSafeLruCache,
+	expectedBalances map[string]*big.Int,
+	cs api.CoreService,
+	pendingActionMap *ttl.Cache,
 ) {
 	timeout := time.After(duration)
 	tick := time.NewTicker(time.Duration(1/aps*1000000) * time.Microsecond)
@@ -370,7 +369,7 @@ func injectTransfer(
 	payload string,
 	retryNum int,
 	retryInterval int,
-	pendingActionMap *cache.ThreadSafeLruCache,
+	pendingActionMap *ttl.Cache,
 ) {
 	selp, _, err := createSignedTransfer(sender, recipient, unit.ConvertIotxToRau(amount), nonce, gasLimit,
 		gasPrice, payload)
@@ -391,7 +390,7 @@ func injectTransfer(
 		if err != nil {
 			log.L().Fatal("Failed to get hash", zap.Error(err))
 		}
-		pendingActionMap.Add(selpHash, 1)
+		pendingActionMap.Set(selpHash, 1)
 		atomic.AddUint64(&totalTsfSentToAPI, 1)
 	}
 
@@ -412,7 +411,7 @@ func injectExecInteraction(
 	data string,
 	retryNum int,
 	retryInterval int,
-	pendingActionMap *cache.ThreadSafeLruCache,
+	pendingActionMap *ttl.Cache,
 ) {
 	selp, execution, err := createSignedExecution(executor, contract, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
@@ -428,7 +427,7 @@ func injectExecInteraction(
 		if err != nil {
 			log.L().Error("Failed to inject transfer", zap.Error(err))
 		}
-		pendingActionMap.Add(selpHash, 1)
+		pendingActionMap.Set(selpHash, 1)
 	}
 
 	if wg != nil {
@@ -482,7 +481,7 @@ func injectStake(
 	payload string,
 	retryNum int,
 	retryInterval int,
-	pendingActionMap *cache.ThreadSafeLruCache,
+	pendingActionMap *ttl.Cache,
 ) {
 	selp, _, err := createSignedStake(sender, nonce, sender.EncodedAddr, amount, duration, autoStake, []byte(payload), gasLimit, gasPrice)
 	if err != nil {
@@ -501,7 +500,7 @@ func injectStake(
 		if err != nil {
 			log.L().Fatal("Failed to get hash", zap.Error(err))
 		}
-		pendingActionMap.Add(selpHash, 1)
+		pendingActionMap.Set(selpHash, 1)
 		atomic.AddUint64(&totalTsfSentToAPI, 1)
 	}
 
@@ -668,8 +667,15 @@ func GetAllBalanceMap(
 			if err != nil {
 				return err
 			}
-			balanceMap[addr] = big.NewInt(0)
-			balanceMap[addr].SetString(acctDetails.GetAccountMeta().Balance, 10)
+			if acctDetails.GetAccountMeta().Balance == "" {
+				balanceMap[addr] = big.NewInt(0)
+			} else {
+				baddr, ok := new(big.Int).SetString(acctDetails.GetAccountMeta().Balance, 10)
+				if !ok {
+					return errors.Errorf("invalid balance %s", acctDetails.GetAccountMeta().Balance)
+				}
+				balanceMap[addr] = baddr
+			}
 			return nil
 		}, backoff.NewExponentialBackOff())
 		if err != nil {
@@ -685,92 +691,77 @@ func GetAllBalanceMap(
 // 1) update the expectation balance map if the action has been run successfully
 // 2) remove the action from pending list
 func CheckPendingActionList(
-	cs *chainservice.ChainService,
-	pendingActionMap *cache.ThreadSafeLruCache,
-	balancemap *map[string]*big.Int,
+	cs api.CoreService,
+	pendingActionMap *ttl.Cache,
+	balancemap map[string]*big.Int,
 ) (bool, error) {
 	var retErr error
 	empty := true
 
-	pendingActionMap.Range(func(selphash cache.Key, vi interface{}) bool {
+	pendingActionMap.Range(func(selphash, vi interface{}) error {
 		empty = false
-		receipt, err := cs.APIServer().GetReceiptByActionHash(selphash.(hash.Hash256))
+		sh, _ := selphash.(hash.Hash256)
+		receipt, err := GetReceiptByAction(cs, sh)
 		if err == nil {
-			selp, err := cs.APIServer().GetActionByActionHash(selphash.(hash.Hash256))
+			actInfo, err := GetActionByActionHash(cs, selphash.(hash.Hash256))
 			if err != nil {
 				retErr = err
-				return false
+				return nil
 			}
+			executoraddr := actInfo.GetSender()
 			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
-
-				pbAct := selp.Envelope.Proto()
-
+				pbAct := actInfo.GetAction().GetCore()
+				gasLimit := actInfo.GetAction().Core.GetGasLimit()
+				gasPrice, ok := new(big.Int).SetString(actInfo.GetAction().Core.GetGasPrice(), 10)
+				if !ok {
+					return errors.New("failed to set gas price")
+				}
 				switch {
 				case pbAct.GetTransfer() != nil:
 					act := &action.Transfer{}
 					if err := act.LoadProto(pbAct.GetTransfer()); err != nil {
 						retErr = err
-						return false
+						return nil
 					}
-					senderaddr, err := address.FromBytes(selp.SrcPubkey().Hash())
-					if err != nil {
-						retErr = err
-						return false
-					}
-
-					updateTransferExpectedBalanceMap(balancemap, senderaddr.String(),
-						act.Recipient(), act.Amount(), act.Payload(), selp.GasLimit(), selp.GasPrice())
+					updateTransferExpectedBalanceMap(balancemap, executoraddr,
+						act.Recipient(), act.Amount(), act.Payload(), gasLimit, gasPrice)
 					atomic.AddUint64(&totalTsfSucceeded, 1)
-
 				case pbAct.GetExecution() != nil:
 					act := &action.Execution{}
 					if err := act.LoadProto(pbAct.GetExecution()); err != nil {
 						retErr = err
-						return false
+						return nil
 					}
-					executoraddr, err := address.FromBytes(selp.SrcPubkey().Hash())
-					if err != nil {
-						retErr = err
-						return false
-					}
-
-					updateExecutionExpectedBalanceMap(balancemap, executoraddr.String(), selp.GasLimit(), selp.GasPrice())
+					updateExecutionExpectedBalanceMap(balancemap, executoraddr, gasLimit, gasPrice)
 				case pbAct.GetStakeCreate() != nil:
 					act := &action.CreateStake{}
 					if err := act.LoadProto(pbAct.GetStakeCreate()); err != nil {
 						retErr = err
-						return false
-					}
-					executoraddr, err := address.FromBytes(selp.SrcPubkey().Hash())
-					if err != nil {
-						retErr = err
-						return false
+						return nil
 					}
 					cost, err := act.Cost()
 					if err != nil {
 						retErr = err
-						return false
+						return nil
 					}
-					updateStakeExpectedBalanceMap(balancemap,
-						executoraddr.String(),
-						cost)
+					updateStakeExpectedBalanceMap(balancemap, executoraddr, cost)
 				default:
 					retErr = errors.New("Unsupported action type for balance check")
-					return false
+					return nil
 				}
 			} else {
 				atomic.AddUint64(&totalTsfFailed, 1)
 			}
-			pendingActionMap.Remove(selphash)
+			return errors.New("return error so LruCache will remove this key")
 		}
-		return true
+		return nil
 	})
 
 	return empty, retErr
 }
 
 func updateTransferExpectedBalanceMap(
-	balancemap *map[string]*big.Int,
+	balancemap map[string]*big.Int,
 	senderAddr string,
 	recipientAddr string,
 	amount *big.Int,
@@ -799,26 +790,26 @@ func updateTransferExpectedBalanceMap(
 	totalUsed := new(big.Int).Add(gasConsumed, amount)
 
 	// update sender balance
-	senderBalance := (*balancemap)[senderAddr]
+	senderBalance := balancemap[senderAddr]
 	if senderBalance.Cmp(totalUsed) < 0 {
 		log.L().Fatal("Not enough balance")
 	}
-	(*balancemap)[senderAddr].Sub(senderBalance, totalUsed)
+	balancemap[senderAddr].Sub(senderBalance, totalUsed)
 
 	// update recipient balance
-	recipientBalance := (*balancemap)[recipientAddr]
-	(*balancemap)[recipientAddr].Add(recipientBalance, amount)
+	recipientBalance := balancemap[recipientAddr]
+	balancemap[recipientAddr].Add(recipientBalance, amount)
 }
 
 func updateExecutionExpectedBalanceMap(
-	balancemap *map[string]*big.Int,
+	balancemap map[string]*big.Int,
 	executor string,
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) {
 	gasLimitBig := new(big.Int).SetUint64(gasLimit)
 
-	// NOTE: This hard-coded gas comsumption value is precalculted on minicluster deployed test contract only
+	// NOTE: This hard-coded gas consumption value is precalculated on minicluster deployed test contract only
 	gasUnitConsumed := new(big.Int).SetUint64(12014)
 
 	if gasLimitBig.Cmp(gasUnitConsumed) < 0 {
@@ -826,22 +817,40 @@ func updateExecutionExpectedBalanceMap(
 	}
 	gasConsumed := new(big.Int).Mul(gasUnitConsumed, gasPrice)
 
-	executorBalance := (*balancemap)[executor]
+	executorBalance := balancemap[executor]
 	if executorBalance.Cmp(gasConsumed) < 0 {
 		log.L().Fatal("Not enough balance")
 	}
-	(*balancemap)[executor].Sub(executorBalance, gasConsumed)
+	balancemap[executor].Sub(executorBalance, gasConsumed)
 }
 
 func updateStakeExpectedBalanceMap(
-	balancemap *map[string]*big.Int,
+	balancemap map[string]*big.Int,
 	candidateAddr string,
 	cost *big.Int,
 ) {
 	// update sender balance
-	senderBalance := (*balancemap)[candidateAddr]
+	senderBalance := balancemap[candidateAddr]
 	if senderBalance.Cmp(cost) < 0 {
 		log.L().Fatal("Not enough balance")
 	}
-	(*balancemap)[candidateAddr].Sub(senderBalance, cost)
+	balancemap[candidateAddr].Sub(senderBalance, cost)
+}
+
+// GetActionByActionHash acquires action by calling coreService
+func GetActionByActionHash(api api.CoreService, actHash hash.Hash256) (*iotexapi.ActionInfo, error) {
+	act, err := api.Action(hex.EncodeToString(actHash[:]), false)
+	if err != nil {
+		return nil, err
+	}
+	return act, nil
+}
+
+// GetReceiptByAction acquires receipt by calling coreService
+func GetReceiptByAction(api api.CoreService, actHash hash.Hash256) (*iotextypes.Receipt, error) {
+	receipt, err := api.ReceiptByActionHash(actHash)
+	if err != nil {
+		return nil, err
+	}
+	return receipt.ConvertToReceiptPb(), nil
 }

@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package e2etest
 
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
@@ -26,14 +26,23 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/probe"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/tools/util"
 )
 
 type TransferState int
@@ -199,7 +208,7 @@ var (
 			1, big.NewInt(100), // nonce, amount
 			make([]byte, 100),             //payload
 			uint64(200000), big.NewInt(1), // gasLimit, gasPrice
-			TsfFail, "Invalid balance",
+			TsfFail, action.ErrInsufficientFunds.Error(),
 			"Normal transfer from an address not created on block chain",
 		},
 		{
@@ -208,7 +217,7 @@ var (
 			1, big.NewInt(222222),
 			make([]byte, 0),
 			uint64(200000), big.NewInt(1),
-			TsfFail, "Invalid balance",
+			TsfFail, action.ErrInsufficientFunds.Error(),
 			"Transfer with not enough balance",
 		},
 		{
@@ -217,7 +226,7 @@ var (
 			1, big.NewInt(222222),
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
-			TsfFail, "Invalid balance",
+			TsfFail, action.ErrInsufficientFunds.Error(),
 			"Transfer with not enough balance with payload",
 		},
 		{
@@ -226,7 +235,7 @@ var (
 			1, big.NewInt(-100),
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
-			TsfFail, "Invalid balance",
+			TsfFail, "negative value",
 			"Transfer with negative amount",
 		},
 		{
@@ -235,7 +244,7 @@ var (
 			1, big.NewInt(100),
 			make([]byte, 0),
 			uint64(1000), big.NewInt(1),
-			TsfFail, "Insufficient balance for gas",
+			TsfFail, action.ErrIntrinsicGas.Error(),
 			"Transfer with not enough gas limit",
 		},
 		{
@@ -244,7 +253,7 @@ var (
 			0, big.NewInt(0),
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
-			TsfFail, "Invalid nonce",
+			TsfFail, "nonce too low",
 			"Transfer with nonce 0",
 		},
 		{
@@ -253,7 +262,7 @@ var (
 			1, big.NewInt(100),
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
-			TsfFail, "Invalid nonce",
+			TsfFail, "nonce too low",
 			"Transfer with same nonce from a single sender 2",
 		},
 		{
@@ -294,12 +303,12 @@ func TestLocalTransfer(t *testing.T) {
 	require.NoError(err)
 
 	defer func() {
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		testutil.CleanupPath(t, testIndexPath)
-		testutil.CleanupPath(t, testSystemLogPath)
-		testutil.CleanupPath(t, testBloomfilterIndexPath)
-		testutil.CleanupPath(t, testCandidateIndexPath)
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(testIndexPath)
+		testutil.CleanupPath(testSystemLogPath)
+		testutil.CleanupPath(testBloomfilterIndexPath)
+		testutil.CleanupPath(testCandidateIndexPath)
 	}()
 
 	networkPort := 4689
@@ -314,24 +323,24 @@ func TestLocalTransfer(t *testing.T) {
 		if tsfTest.senderAcntState == AcntCreate {
 			sk, err := crypto.GenerateKey()
 			require.NoError(err)
-			addr, err := address.FromBytes(sk.PublicKey().Hash())
-			require.NoError(err)
+			addr := sk.PublicKey().Address()
+			require.NotNil(addr)
 			cfg.Genesis.InitBalanceMap[addr.String()] = tsfTest.senderBalance.String()
 			getSimpleTransferTests[i].senderPriKey = sk
 		}
 		if tsfTest.recvAcntState == AcntCreate {
 			sk, err := crypto.GenerateKey()
 			require.NoError(err)
-			addr, err := address.FromBytes(sk.PublicKey().Hash())
-			require.NoError(err)
+			addr := sk.PublicKey().Address()
+			require.NotNil(addr)
 			cfg.Genesis.InitBalanceMap[addr.String()] = tsfTest.recvBalance.String()
 			getSimpleTransferTests[i].recvPriKey = sk
 		}
 	}
 	for i := 0; i < len(localKeys); i++ {
 		sk := getLocalKey(i)
-		addr, err := address.FromBytes(sk.PublicKey().Hash())
-		require.NoError(err)
+		addr := sk.PublicKey().Address()
+		require.NotNil(addr)
 		cfg.Genesis.InitBalanceMap[addr.String()] = "30000"
 	}
 
@@ -340,7 +349,7 @@ func TestLocalTransfer(t *testing.T) {
 	require.NoError(err)
 
 	// Create and start probe server
-	ctx := context.Background()
+	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 	probeSvr := probe.New(7788)
 	require.NoError(probeSvr.Start(ctx))
 
@@ -366,7 +375,7 @@ func TestLocalTransfer(t *testing.T) {
 	bc := svr.ChainService(chainID).Blockchain()
 	sf := svr.ChainService(chainID).StateFactory()
 	ap := svr.ChainService(chainID).ActionPool()
-	as := svr.ChainService(chainID).APIServer()
+	as := svr.APIServer(chainID)
 
 	for _, tsfTest := range getSimpleTransferTests {
 		senderPriKey, senderAddr, err := initStateKeyAddr(tsfTest.senderAcntState, tsfTest.senderPriKey, tsfTest.senderBalance, bc, sf)
@@ -391,24 +400,26 @@ func TestLocalTransfer(t *testing.T) {
 			require.NoError(err, tsfTest.message)
 			// Wait long enough for a block to be minted, and check the balance of both
 			// sender and receiver.
-			var selp action.SealedEnvelope
+			var actInfo *iotexapi.ActionInfo
 			err := backoff.Retry(func() error {
 				var err error
 				tsfHash, err1 := tsf.Hash()
 				if err1 != nil {
 					return err1
 				}
-				selp, err = as.GetActionByActionHash(tsfHash)
+				actInfo, err = util.GetActionByActionHash(as.CoreService(), tsfHash)
 				if err != nil {
 					return err
 				}
 				return err
 			}, bo)
 			require.NoError(err, tsfTest.message)
-			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
-			require.Equal(senderPriKey.PublicKey().Bytes(), selp.Proto().SenderPubKey, tsfTest.message)
+			require.Equal(tsfTest.nonce, actInfo.GetAction().GetCore().GetNonce(), tsfTest.message)
+			require.Equal(senderPriKey.PublicKey().Bytes(), actInfo.GetAction().SenderPubKey, tsfTest.message)
 
-			newSenderState, _ := accountutil.AccountState(sf, senderAddr)
+			senderAddr1, err := address.FromString(senderAddr)
+			require.NoError(err)
+			newSenderState, _ := accountutil.AccountState(ctx, sf, senderAddr1)
 			minusAmount := big.NewInt(0).Sub(tsfTest.senderBalance, tsfTest.amount)
 			gasUnitPayloadConsumed := big.NewInt(0).Mul(big.NewInt(int64(action.TransferPayloadGas)),
 				big.NewInt(int64(len(tsfTest.payload))))
@@ -418,7 +429,9 @@ func TestLocalTransfer(t *testing.T) {
 			expectedSenderBalance := big.NewInt(0).Sub(minusAmount, gasConsumed)
 			require.Equal(expectedSenderBalance.String(), newSenderState.Balance.String(), tsfTest.message)
 
-			newRecvState, err := accountutil.AccountState(sf, recvAddr)
+			recvAddr1, err := address.FromString(recvAddr)
+			require.NoError(err)
+			newRecvState, err := accountutil.AccountState(ctx, sf, recvAddr1)
 			require.NoError(err)
 			expectedRecvrBalance := big.NewInt(0)
 			if tsfTest.recvAcntState == AcntNotRegistered {
@@ -428,42 +441,47 @@ func TestLocalTransfer(t *testing.T) {
 			}
 			require.Equal(expectedRecvrBalance.String(), newRecvState.Balance.String(), tsfTest.message)
 		case TsfFail:
-			require.Error(err, tsfTest.message)
+			// bad address will be in actpool, but won't pass validation in protocol execution
+			if tsfTest.recvAcntState != AcntBadAddr {
+				require.Error(err, tsfTest.message)
 
-			st, ok := status.FromError(err)
-			require.True(ok, tsfTest.message)
-			require.Equal(st.Code(), codes.Internal, tsfTest.message)
+				st, ok := status.FromError(err)
+				require.True(ok, tsfTest.message)
+				require.Equal(st.Code(), codes.Internal, tsfTest.message)
 
-			details := st.Details()
-			require.Equal(len(details), 1, tsfTest.message)
+				details := st.Details()
+				require.Equal(len(details), 1, tsfTest.message)
 
-			detail, ok := details[0].(*errdetails.BadRequest)
-			require.True(ok, tsfTest.message)
-			require.Equal(len(detail.FieldViolations), 1, tsfTest.message)
+				detail, ok := details[0].(*errdetails.BadRequest)
+				require.True(ok, tsfTest.message)
+				require.Equal(len(detail.FieldViolations), 1, tsfTest.message)
 
-			violation := detail.FieldViolations[0]
-			require.Equal(violation.Description, tsfTest.expectedDesc, tsfTest.message)
-			require.Equal(violation.Field, "Action rejected", tsfTest.message)
+				violation := detail.FieldViolations[0]
+				require.Equal(tsfTest.expectedDesc, violation.Description, tsfTest.message)
+				require.Equal(violation.Field, "Action rejected", tsfTest.message)
 
-			//The transfer should be rejected right after we inject it
-			//Wait long enough to make sure the failed transfer does not exit in either action pool or blockchain
-			err := backoff.Retry(func() error {
-				var err error
-				tsfHash, err1 := tsf.Hash()
-				if err1 != nil {
-					return err1
-				}
-				_, err = ap.GetActionByHash(tsfHash)
-				return err
-			}, bo)
-			require.Error(err, tsfTest.message)
+				//The transfer should be rejected right after we inject it
+				//Wait long enough to make sure the failed transfer does not exit in either action pool or blockchain
+				err := backoff.Retry(func() error {
+					var err error
+					tsfHash, err1 := tsf.Hash()
+					if err1 != nil {
+						return err1
+					}
+					_, err = ap.GetActionByHash(tsfHash)
+					return err
+				}, bo)
+				require.Error(err, tsfTest.message)
+			}
 			tsfHash, err1 := tsf.Hash()
 			require.NoError(err1)
-			_, err = as.GetActionByActionHash(tsfHash)
+			_, err = util.GetActionByActionHash(as.CoreService(), tsfHash)
 			require.Error(err, tsfTest.message)
 
 			if tsfTest.senderAcntState == AcntCreate || tsfTest.senderAcntState == AcntExist {
-				newSenderState, _ := accountutil.AccountState(sf, senderAddr)
+				senderAddr1, err := address.FromString(senderAddr)
+				require.NoError(err)
+				newSenderState, _ := accountutil.AccountState(ctx, sf, senderAddr1)
 				require.Equal(tsfTest.senderBalance.String(), newSenderState.Balance.String())
 			}
 
@@ -482,7 +500,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.NoError(err, tsfTest.message)
 			tsfHash, err1 := tsf.Hash()
 			require.NoError(err1)
-			_, err = as.GetActionByActionHash(tsfHash)
+			_, err = util.GetActionByActionHash(as.CoreService(), tsfHash)
 			require.Error(err, tsfTest.message)
 		case TsfFinal:
 			require.NoError(err, tsfTest.message)
@@ -514,19 +532,20 @@ func initStateKeyAddr(
 	retAddr := ""
 	switch accountState {
 	case AcntCreate:
-		addr, err := address.FromBytes(retKey.PublicKey().Hash())
-		if err != nil {
-			return nil, "", err
+		addr := retKey.PublicKey().Address()
+		if addr == nil {
+			return nil, "", errors.New("failed to get address")
 		}
 		retAddr = addr.String()
 
 	case AcntExist:
-		addr, err := address.FromBytes(retKey.PublicKey().Hash())
-		if err != nil {
-			return nil, "", err
+		addr := retKey.PublicKey().Address()
+		if addr == nil {
+			return nil, "", errors.New("failed to get address")
 		}
 		retAddr = addr.String()
-		existState, err := accountutil.AccountState(sf, retAddr)
+		ctx := genesis.WithGenesisContext(context.Background(), bc.Genesis())
+		existState, err := accountutil.AccountState(ctx, sf, addr)
 		if err != nil {
 			return nil, "", err
 		}
@@ -536,9 +555,9 @@ func initStateKeyAddr(
 		if err != nil {
 			return nil, "", err
 		}
-		addr, err := address.FromBytes(sk.PublicKey().Hash())
-		if err != nil {
-			return nil, "", err
+		addr := sk.PublicKey().Address()
+		if addr == nil {
+			return nil, "", errors.New("failed to get address")
 		}
 		retAddr = addr.String()
 		retKey = sk
@@ -575,6 +594,7 @@ func newTransferConfig(
 	cfg.Chain.ID = 1
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.IndexDBPath = indexDBPath
 	cfg.Chain.BloomfilterIndexDBPath = bloomfilterIndex
 	cfg.System.SystemLogDBPath = systemLogDBPath
@@ -582,7 +602,7 @@ func newTransferConfig(
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme
-	cfg.API.Port = apiPort
+	cfg.API.GRPCPort = apiPort
 	cfg.Genesis.BlockInterval = 800 * time.Millisecond
 
 	return cfg, nil
@@ -594,4 +614,94 @@ func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
 		l += len(part)
 	}
 	return l
+}
+
+func TestEnforceChainID(t *testing.T) {
+	require := require.New(t)
+
+	testCase := []struct {
+		chainID uint32
+		success bool
+	}{
+		{
+			1, true, // tx chainID = node chainID, height < KamchatkaHeight
+		},
+		{
+			2, true, // tx chainID != node chainID, height < KamchatkaHeight
+		},
+		{
+			1, true, // tx chainID = node chainID, height = KamchatkaHeight
+		},
+		{
+			1, true, // tx chainID = node chainID, height > KamchatkaHeight
+		},
+		{
+			2, false, // tx chainID != node chainID, height > KamchatkaHeight
+		},
+	}
+
+	ctx := context.Background()
+	cfg := config.Default
+	cfg.Genesis.BlockGasLimit = uint64(100000)
+	cfg.Genesis.MidwayBlockHeight = 3
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	require.NoError(err)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
+	require.NoError(err)
+	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	bc := blockchain.NewBlockchain(
+		cfg.Chain,
+		cfg.Genesis,
+		blkMemDao,
+		factory.NewMinter(sf, ap),
+	)
+	require.NoError(bc.Start(ctx))
+
+	defer func() {
+		require.NoError(bc.Stop(ctx))
+	}()
+	for i, c := range testCase {
+		tsf, err := action.NewTransfer(
+			uint64(i)+1,
+			big.NewInt(100),
+			identityset.Address(27).String(),
+			[]byte{}, uint64(100000),
+			big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev)),
+		)
+		require.NoError(err)
+
+		bd := &action.EnvelopeBuilder{}
+		elp1 := bd.SetAction(tsf).
+			SetChainID(c.chainID).
+			SetNonce(uint64(i) + 1).
+			SetGasLimit(100000).
+			SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).Build()
+		selp, err := action.Sign(elp1, identityset.PrivateKey(0))
+		require.NoError(err)
+
+		// simulate API receives tx
+		selp1, err := (&action.Deserializer{}).SetEvmNetworkID(cfg.Chain.EVMNetworkID).ActionToSealedEnvelope(selp.Proto())
+		require.NoError(err)
+
+		// mint block using received tx
+		require.NoError(ap.Add(context.Background(), selp1))
+		blk, err := bc.MintNewBlock(testutil.TimestampNow())
+		require.NoError(err)
+		require.NoError(bc.CommitBlock(blk))
+		require.Equal(c.success, len(blk.Actions) == 1)
+		require.Equal(c.success, len(blk.Receipts) == 1)
+
+		// verify action has valid chainID
+		if c.success {
+			act := blk.Actions[0]
+			tsf, ok := act.Action().(*action.Transfer)
+			require.True(ok)
+			require.Equal(c.chainID, act.ChainID())
+			require.Equal(c.chainID, tsf.ChainID())
+		}
+	}
 }

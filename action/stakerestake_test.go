@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
@@ -15,27 +14,27 @@ import (
 )
 
 var (
-	duration  = uint32(1000)
-	autoStake = true
+	_duration  = uint32(1000)
+	_autoStake = true
 )
 
 func TestRestake(t *testing.T) {
 	require := require.New(t)
-	stake, err := NewRestake(nonce, index, duration, autoStake, payload, gaslimit, gasprice)
+	stake, err := NewRestake(_nonce, _index, _duration, _autoStake, _payload, _gaslimit, _gasprice)
 	require.NoError(err)
 
 	ser := stake.Serialize()
 	require.Equal("080a10e807180122077061796c6f6164", hex.EncodeToString(ser))
 
 	require.NoError(err)
-	require.Equal(gaslimit, stake.GasLimit())
-	require.Equal(gasprice, stake.GasPrice())
-	require.Equal(nonce, stake.Nonce())
+	require.Equal(_gaslimit, stake.GasLimit())
+	require.Equal(_gasprice, stake.GasPrice())
+	require.Equal(_nonce, stake.Nonce())
 
 	require.True(stake.AutoStake())
-	require.Equal(payload, stake.Payload())
-	require.Equal(duration, stake.Duration())
-	require.Equal(index, stake.BucketIndex())
+	require.Equal(_payload, stake.Payload())
+	require.Equal(_duration, stake.Duration())
+	require.Equal(_index, stake.BucketIndex())
 
 	gas, err := stake.IntrinsicGas()
 	require.NoError(err)
@@ -48,23 +47,23 @@ func TestRestake(t *testing.T) {
 	stake2 := &Restake{}
 	require.NoError(stake2.LoadProto(proto))
 	require.True(stake2.AutoStake())
-	require.Equal(payload, stake2.Payload())
-	require.Equal(duration, stake2.Duration())
-	require.Equal(index, stake2.BucketIndex())
+	require.Equal(_payload, stake2.Payload())
+	require.Equal(_duration, stake2.Duration())
+	require.Equal(_index, stake2.BucketIndex())
 }
 
 func TestRestakeSignVerify(t *testing.T) {
 	require := require.New(t)
-	require.Equal("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", senderKey.HexString())
-	stake, err := NewRestake(nonce, index, duration, autoStake, payload, gaslimit, gasprice)
+	require.Equal("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", _senderKey.HexString())
+	stake, err := NewRestake(_nonce, _index, _duration, _autoStake, _payload, _gaslimit, _gasprice)
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasLimit(gaslimit).
-		SetGasPrice(gasprice).
+	elp := bd.SetGasLimit(_gaslimit).
+		SetGasPrice(_gasprice).
 		SetAction(stake).Build()
 	// sign
-	selp, err := Sign(elp, senderKey)
+	selp, err := Sign(elp, _senderKey)
 	require.NoError(err)
 	require.NotNil(selp)
 	ser, err := proto.Marshal(selp.Proto())
@@ -74,5 +73,20 @@ func TestRestakeSignVerify(t *testing.T) {
 	require.NoError(err)
 	require.Equal("8816e8f784a1fce40b54d1cd172bb6976fd9552f1570c73d1d9fcdc5635424a9", hex.EncodeToString(hash[:]))
 	// verify signature
-	require.NoError(Verify(selp))
+	require.NoError(selp.VerifySignature())
+}
+
+func TestRestakeABIEncodeAndDecode(t *testing.T) {
+	require := require.New(t)
+	stake, err := NewRestake(_nonce, _index, _duration, _autoStake, _payload, _gaslimit, _gasprice)
+	require.NoError(err)
+
+	data, err := stake.EncodeABIBinary()
+	require.NoError(err)
+	stake, err = NewRestakeFromABIBinary(data)
+	require.NoError(err)
+	require.Equal(_index, stake.bucketIndex)
+	require.Equal(_duration, stake.Duration())
+	require.Equal(_autoStake, stake.AutoStake())
+	require.Equal(_payload, stake.payload)
 }

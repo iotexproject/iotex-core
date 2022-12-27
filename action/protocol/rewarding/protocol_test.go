@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package rewarding
 
@@ -25,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
@@ -35,50 +33,55 @@ import (
 	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
+func TestValidateExtension(t *testing.T) {
+	r := require.New(t)
+
+	g := genesis.Default.Rewarding
+	r.NoError(validateFoundationBonusExtension(g))
+
+	last := g.FoundationBonusP2StartEpoch
+	g.FoundationBonusP2StartEpoch = g.FoundationBonusLastEpoch - 1
+	r.Equal(errInvalidEpoch, validateFoundationBonusExtension(g))
+	g.FoundationBonusP2StartEpoch = last
+
+	last = g.FoundationBonusP2EndEpoch
+	g.FoundationBonusP2EndEpoch = g.FoundationBonusP2StartEpoch - 1
+	r.Equal(errInvalidEpoch, validateFoundationBonusExtension(g))
+	g.FoundationBonusP2EndEpoch = last
+}
+
 func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.StateManager, *Protocol), withExempt bool) {
 	ctrl := gomock.NewController(t)
 
 	registry := protocol.NewRegistry()
-	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	cb := batch.NewCachedBatch()
+	sm := testdb.NewMockStateManager(ctrl)
 
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
-			cfg, err := protocol.CreateStateConfig(opts...)
-			if err != nil {
-				return 0, err
-			}
-			val, err := cb.Get("state", cfg.Key)
-			if err != nil {
-				return 0, state.ErrStateNotExist
-			}
-			return 0, state.Deserialize(account, val)
-		}).AnyTimes()
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
-			cfg, err := protocol.CreateStateConfig(opts...)
-			if err != nil {
-				return 0, err
-			}
-			ss, err := state.Serialize(account)
-			if err != nil {
-				return 0, err
-			}
-			cb.Put("state", cfg.Key, ss, "failed to put state")
-			return 0, nil
-		}).AnyTimes()
-
-	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
-
+	g := genesis.Default
+	// Create a test account with 1000 token
+	g.InitBalanceMap[identityset.Address(28).String()] = "1000"
+	g.Rewarding.InitBalanceStr = "0"
+	g.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
+	g.Rewarding.BlockRewardStr = "10"
+	g.Rewarding.EpochRewardStr = "100"
+	g.Rewarding.NumDelegatesForEpochReward = 4
+	g.Rewarding.FoundationBonusStr = "5"
+	g.Rewarding.NumDelegatesForFoundationBonus = 5
+	g.Rewarding.FoundationBonusLastEpoch = 365
+	g.Rewarding.ProductivityThreshold = 50
+	// Initialize the protocol
+	if withExempt {
+		g.Rewarding.ExemptAddrStrsFromEpochReward = []string{
+			identityset.Address(31).String(),
+		}
+		g.Rewarding.NumDelegatesForEpochReward = 10
+	}
 	rp := rolldpos.NewProtocol(
-		genesis.Default.NumCandidateDelegates,
-		genesis.Default.NumDelegates,
-		genesis.Default.NumSubEpochs,
+		g.NumCandidateDelegates,
+		g.NumDelegates,
+		g.NumSubEpochs,
+		rolldpos.EnableDardanellesSubEpoch(g.DardanellesBlockHeight, g.DardanellesNumSubEpochs),
 	)
-	p := NewProtocol(
-		genesis.Default.FoundationBonusP2StartEpoch,
-		genesis.Default.FoundationBonusP2EndEpoch,
-	)
+	p := NewProtocol(g.Rewarding)
 	candidates := []*state.Candidate{
 		{
 			Address:       identityset.Address(27).String(),
@@ -154,60 +157,36 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	require.NoError(t, pp.Register(registry))
 	require.NoError(t, p.Register(registry))
 
-	ge := config.Default.Genesis
-	// Create a test account with 1000 token
-	ge.InitBalanceMap[identityset.Address(28).String()] = "1000"
-	ge.Rewarding.InitBalanceStr = "0"
-	ge.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
-	ge.Rewarding.BlockRewardStr = "10"
-	ge.Rewarding.EpochRewardStr = "100"
-	ge.Rewarding.NumDelegatesForEpochReward = 4
-	ge.Rewarding.FoundationBonusStr = "5"
-	ge.Rewarding.NumDelegatesForFoundationBonus = 5
-	ge.Rewarding.FoundationBonusLastEpoch = 365
-	ge.Rewarding.ProductivityThreshold = 50
-	// Initialize the protocol
-	if withExempt {
-		ge.Rewarding.ExemptAddrStrsFromEpochReward = []string{
-			identityset.Address(31).String(),
-		}
-		ge.Rewarding.NumDelegatesForEpochReward = 10
-	}
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
 		protocol.BlockCtx{
 			BlockHeight: 0,
 		},
 	)
-	ctx = genesis.WithGenesisContext(ctx, ge)
+	ctx = genesis.WithGenesisContext(ctx, g)
+	ctx = protocol.WithFeatureCtx(ctx)
 	ap := account.NewProtocol(DepositGas)
 	require.NoError(t, ap.Register(registry))
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
 	require.NoError(t, p.CreateGenesisStates(ctx, sm))
 
 	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
+		ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
 		},
 	)
 	ctx = protocol.WithActionCtx(
-		ctx,
-		protocol.ActionCtx{
+		ctx, protocol.ActionCtx{
 			Caller: identityset.Address(28),
 		},
 	)
-	ctx = genesis.WithGenesisContext(
-		protocol.WithBlockchainCtx(
-			protocol.WithRegistry(ctx, registry),
-			protocol.BlockchainCtx{
-				Tip: protocol.TipInfo{
-					Height: 20,
-				},
+	ctx = protocol.WithBlockchainCtx(
+		protocol.WithRegistry(ctx, registry), protocol.BlockchainCtx{
+			Tip: protocol.TipInfo{
+				Height: 20,
 			},
-		),
-		ge,
+		},
 	)
 	blockReward, err := p.BlockReward(ctx, sm)
 	require.NoError(t, err)
@@ -238,10 +217,62 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	test(t, ctx, sm, p)
 }
 
+func TestProtocol_Validate(t *testing.T) {
+	g := genesis.Default
+	g.NewfoundlandBlockHeight = 0
+	p := NewProtocol(g.Rewarding)
+	act := createGrantRewardAction(0, uint64(0)).Action()
+	ctx := protocol.WithBlockCtx(
+		context.Background(),
+		protocol.BlockCtx{
+			Producer:    identityset.Address(0),
+			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+		},
+	)
+	ctx = genesis.WithGenesisContext(
+		ctx,
+		genesis.Genesis{},
+	)
+	ctx = protocol.WithActionCtx(
+		protocol.WithFeatureCtx(ctx),
+		protocol.ActionCtx{
+			Caller:   identityset.Address(0),
+			GasPrice: big.NewInt(0),
+		},
+	)
+	require.NoError(t, p.Validate(ctx, act, nil))
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:   identityset.Address(1),
+			GasPrice: big.NewInt(0),
+		},
+	)
+	require.Error(t, p.Validate(ctx, act, nil))
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:   identityset.Address(0),
+			GasPrice: big.NewInt(1),
+		},
+	)
+	require.Error(t, p.Validate(ctx, act, nil))
+	require.Error(t, p.Validate(ctx, act, nil))
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:       identityset.Address(0),
+			GasPrice:     big.NewInt(0),
+			IntrinsicGas: 1,
+		},
+	)
+	require.Error(t, p.Validate(ctx, act, nil))
+}
+
 func TestProtocol_Handle(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
-	cfg := config.Default
+	g := genesis.Default
 	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := batch.NewCachedBatch()
@@ -273,38 +304,37 @@ func TestProtocol_Handle(t *testing.T) {
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
 
-	cfg.Genesis.NumSubEpochs = 15
+	g.Rewarding.InitBalanceStr = "1000000"
+	g.Rewarding.BlockRewardStr = "10"
+	g.Rewarding.EpochRewardStr = "100"
+	g.Rewarding.NumDelegatesForEpochReward = 10
+	g.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
+	g.Rewarding.FoundationBonusStr = "5"
+	g.Rewarding.NumDelegatesForFoundationBonus = 5
+	g.Rewarding.FoundationBonusLastEpoch = 0
+	g.Rewarding.ProductivityThreshold = 50
+	// Create a test account with 1000000 token
+	g.InitBalanceMap[identityset.Address(0).String()] = "1000000"
+	g.NumSubEpochs = 15
 	rp := rolldpos.NewProtocol(
-		cfg.Genesis.NumCandidateDelegates,
-		cfg.Genesis.NumDelegates,
-		cfg.Genesis.NumSubEpochs,
-		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
+		g.NumCandidateDelegates,
+		g.NumDelegates,
+		g.NumSubEpochs,
+		rolldpos.EnableDardanellesSubEpoch(g.DardanellesBlockHeight, g.DardanellesNumSubEpochs),
 	)
-	require.Equal(t, cfg.Genesis.FairbankBlockHeight, rp.GetEpochHeight(cfg.Genesis.FoundationBonusP2StartEpoch))
-	require.Equal(t, cfg.Genesis.FoundationBonusP2StartEpoch, rp.GetEpochNum(cfg.Genesis.FairbankBlockHeight))
-	require.Equal(t, cfg.Genesis.FoundationBonusP2EndEpoch, cfg.Genesis.FoundationBonusP2StartEpoch+24*365)
+	require.Equal(t, g.FairbankBlockHeight, rp.GetEpochHeight(g.FoundationBonusP2StartEpoch))
+	require.Equal(t, g.FoundationBonusP2StartEpoch, rp.GetEpochNum(g.FairbankBlockHeight))
+	require.Equal(t, g.FoundationBonusP2EndEpoch, g.FoundationBonusP2StartEpoch+24*365)
 	require.NoError(t, rp.Register(registry))
-	pp := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+	pp := poll.NewLifeLongDelegatesProtocol(g.Delegates)
 	require.NoError(t, pp.Register(registry))
-	p := NewProtocol(0, 0)
+	p := NewProtocol(g.Rewarding)
 	require.NoError(t, p.Register(registry))
 	// Test for ForceRegister
 	require.NoError(t, p.ForceRegister(registry))
 
 	// address package also defined protocol address, make sure they match
 	require.Equal(t, p.addr.Bytes(), address.RewardingProtocolAddrHash[:])
-
-	cfg.Genesis.Rewarding.InitBalanceStr = "1000000"
-	cfg.Genesis.Rewarding.BlockRewardStr = "10"
-	cfg.Genesis.Rewarding.EpochRewardStr = "100"
-	cfg.Genesis.Rewarding.NumDelegatesForEpochReward = 10
-	cfg.Genesis.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
-	cfg.Genesis.Rewarding.FoundationBonusStr = "5"
-	cfg.Genesis.Rewarding.NumDelegatesForFoundationBonus = 5
-	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 0
-	cfg.Genesis.Rewarding.ProductivityThreshold = 50
-	// Create a test account with 1000000 token
-	cfg.Genesis.InitBalanceMap[identityset.Address(0).String()] = "1000000"
 
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
@@ -313,7 +343,8 @@ func TestProtocol_Handle(t *testing.T) {
 		},
 	)
 
-	ctx = genesis.WithGenesisContext(protocol.WithRegistry(ctx, registry), cfg.Genesis)
+	ctx = genesis.WithGenesisContext(protocol.WithRegistry(ctx, registry), g)
+	ctx = protocol.WithFeatureCtx(ctx)
 	ap := account.NewProtocol(DepositGas)
 	require.NoError(t, ap.Register(registry))
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
@@ -331,6 +362,7 @@ func TestProtocol_Handle(t *testing.T) {
 		protocol.ActionCtx{
 			Caller:   identityset.Address(0),
 			GasPrice: big.NewInt(0),
+			Nonce:    1,
 		},
 	)
 
@@ -338,7 +370,7 @@ func TestProtocol_Handle(t *testing.T) {
 	db := action.DepositToRewardingFundBuilder{}
 	deposit := db.SetAmount(big.NewInt(1000000)).Build()
 	eb1 := action.EnvelopeBuilder{}
-	e1 := eb1.SetNonce(0).
+	e1 := eb1.SetNonce(1).
 		SetGasPrice(big.NewInt(0)).
 		SetGasLimit(deposit.GasLimit()).
 		SetAction(&deposit).
@@ -357,11 +389,26 @@ func TestProtocol_Handle(t *testing.T) {
 	e2 := createGrantRewardAction(0, uint64(0))
 	se2, err := action.Sign(e2, identityset.PrivateKey(0))
 	require.NoError(t, err)
-
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:   identityset.Address(0),
+			GasPrice: big.NewInt(0),
+			Nonce:    0,
+		},
+	)
 	receipt, err := p.Handle(ctx, se2.Action(), sm)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
 	assert.Equal(t, 1, len(receipt.Logs()))
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:   identityset.Address(0),
+			GasPrice: big.NewInt(0),
+			Nonce:    0,
+		},
+	)
 	// Grant the block reward again should fail
 	receipt, err = p.Handle(ctx, se2.Action(), sm)
 	require.NoError(t, err)
@@ -371,14 +418,21 @@ func TestProtocol_Handle(t *testing.T) {
 	claimBuilder := action.ClaimFromRewardingFundBuilder{}
 	claim := claimBuilder.SetAmount(big.NewInt(1000000)).Build()
 	eb3 := action.EnvelopeBuilder{}
-	e3 := eb3.SetNonce(0).
+	e3 := eb3.SetNonce(4).
 		SetGasPrice(big.NewInt(0)).
 		SetGasLimit(claim.GasLimit()).
 		SetAction(&claim).
 		Build()
 	se3, err := action.Sign(e3, identityset.PrivateKey(0))
 	require.NoError(t, err)
-
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:   identityset.Address(0),
+			GasPrice: big.NewInt(0),
+			Nonce:    2,
+		},
+	)
 	_, err = p.Handle(ctx, se3.Action(), sm)
 	require.NoError(t, err)
 	balance, _, err = p.TotalBalance(ctx, sm)
@@ -468,10 +522,7 @@ func TestStateCheckLegacy(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	p := NewProtocol(
-		genesis.Default.FoundationBonusP2StartEpoch,
-		genesis.Default.FoundationBonusP2EndEpoch,
-	)
+	p := NewProtocol(genesis.Default.Rewarding)
 	chainCtx := genesis.WithGenesisContext(
 		context.Background(),
 		genesis.Genesis{
@@ -481,6 +532,7 @@ func TestStateCheckLegacy(t *testing.T) {
 	ctx := protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{
 		BlockHeight: 2,
 	})
+	ctx = protocol.WithFeatureCtx(ctx)
 
 	tests := []struct {
 		before, add *big.Int
@@ -499,7 +551,7 @@ func TestStateCheckLegacy(t *testing.T) {
 	acc := rewardAccount{
 		balance: tests[0].before,
 	}
-	accKey := append(adminKey, addr.Bytes()...)
+	accKey := append(_adminKey, addr.Bytes()...)
 	require.NoError(p.putState(ctx, sm, accKey, &acc))
 
 	for useV2 := 0; useV2 < 2; useV2++ {
@@ -527,6 +579,7 @@ func TestStateCheckLegacy(t *testing.T) {
 			ctx = protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{
 				BlockHeight: 3,
 			})
+			ctx = protocol.WithFeatureCtx(ctx)
 		}
 	}
 
@@ -539,56 +592,107 @@ func TestStateCheckLegacy(t *testing.T) {
 }
 
 func TestMigrateValue(t *testing.T) {
-	require := require.New(t)
-	ctrl := gomock.NewController(t)
-	sm := testdb.NewMockStateManager(ctrl)
-	p := NewProtocol(
-		genesis.Default.FoundationBonusP2StartEpoch,
-		genesis.Default.FoundationBonusP2EndEpoch,
-	)
-	// put old
-	require.NoError(p.putStateV1(sm, adminKey, &admin{
-		blockReward:                big.NewInt(811),
-		epochReward:                big.NewInt(922),
-		foundationBonus:            big.NewInt(700),
-		numDelegatesForEpochReward: 118,
-	}))
-	require.NoError(p.putStateV1(sm, fundKey, &fund{
-		totalBalance:     big.NewInt(811),
-		unclaimedBalance: big.NewInt(922),
-	}))
-	require.NoError(p.putStateV1(sm, exemptKey, &exempt{
-		addrs: []address.Address{identityset.Address(0)},
-	}))
+	r := require.New(t)
 
-	// migrate
-	require.NoError(p.migrateValueGreenland(context.Background(), sm))
+	a1 := admin{
+		blockReward:                    big.NewInt(10),
+		epochReward:                    big.NewInt(100),
+		numDelegatesForEpochReward:     10,
+		foundationBonus:                big.NewInt(5),
+		numDelegatesForFoundationBonus: 5,
+		foundationBonusLastEpoch:       365,
+		productivityThreshold:          50,
+	}
+	f1 := fund{
+		totalBalance:     new(big.Int),
+		unclaimedBalance: new(big.Int),
+	}
+	e1 := exempt{
+		[]address.Address{identityset.Address(31)},
+	}
+	g := genesis.Default
 
-	// assert old (not exist)
-	_, err := p.stateV1(sm, adminKey, &admin{})
-	require.Equal(state.ErrStateNotExist, err)
-	_, err = p.stateV1(sm, fundKey, &fund{})
-	require.Equal(state.ErrStateNotExist, err)
-	_, err = p.stateV1(sm, exemptKey, &exempt{})
-	require.Equal(state.ErrStateNotExist, err)
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		// verify v1 state
+		a := admin{}
+		_, err := p.stateV1(sm, _adminKey, &a)
+		r.NoError(err)
+		r.Equal(a1, a)
 
-	// assert new (with correct value)
-	a := admin{}
-	_, err = p.stateV2(sm, adminKey, &a)
-	require.NoError(err)
-	require.Equal(uint64(118), a.numDelegatesForEpochReward)
-	require.Equal("811", a.blockReward.String())
+		f := fund{}
+		_, err = p.stateV1(sm, _fundKey, &f)
+		r.NoError(err)
+		r.Equal(f1, f)
 
-	f := fund{}
-	_, err = p.stateV2(sm, fundKey, &f)
-	require.NoError(err)
-	require.Equal("811", f.totalBalance.String())
+		e := exempt{}
+		_, err = p.stateV1(sm, _exemptKey, &e)
+		r.NoError(err)
+		r.Equal(e1, e)
 
-	e := exempt{}
-	_, err = p.stateV2(sm, exemptKey, &e)
-	require.NoError(err)
-	require.Equal(identityset.Address(0).String(), e.addrs[0].String())
+		// use numSubEpochs = 15
+		rp := rolldpos.NewProtocol(
+			g.NumCandidateDelegates,
+			g.NumDelegates,
+			15,
+			rolldpos.EnableDardanellesSubEpoch(g.DardanellesBlockHeight, g.DardanellesNumSubEpochs),
+		)
+		reg, ok := protocol.GetRegistry(ctx)
+		r.True(ok)
+		r.NoError(rp.ForceRegister(reg))
 
-	// test migrate with no data
-	require.NoError(p.migrateValueGreenland(context.Background(), sm))
+		for _, v := range []struct {
+			height, lastEpoch uint64
+		}{
+			{g.GreenlandBlockHeight, a1.foundationBonusLastEpoch},
+			{1641601, g.FoundationBonusP2EndEpoch},
+			{g.KamchatkaBlockHeight, 30473},
+		} {
+			fCtx := ctx
+			if v.height == 1641601 {
+				// test the case where newStartEpoch < cfg.FoundationBonusP2StartEpoch
+				g1 := g
+				g1.GreenlandBlockHeight = v.height - 720
+				g1.KamchatkaBlockHeight = v.height
+				fCtx = genesis.WithGenesisContext(ctx, g1)
+			}
+			blkCtx := protocol.MustGetBlockCtx(ctx)
+			blkCtx.BlockHeight = v.height
+			fCtx = protocol.WithFeatureCtx(protocol.WithBlockCtx(fCtx, blkCtx))
+			r.NoError(p.CreatePreStates(fCtx, sm))
+
+			// verify v1 is deleted
+			_, err = p.stateV1(sm, _adminKey, &a)
+			r.Equal(state.ErrStateNotExist, err)
+			_, err = p.stateV1(sm, _fundKey, &f)
+			r.Equal(state.ErrStateNotExist, err)
+			_, err = p.stateV1(sm, _exemptKey, &e)
+			r.Equal(state.ErrStateNotExist, err)
+
+			// verify v2 exist
+			_, err = p.stateV2(sm, _adminKey, &a)
+			r.NoError(err)
+			_, err = p.stateV2(sm, _fundKey, &f)
+			r.NoError(err)
+			r.Equal(f1, f)
+			_, err = p.stateV2(sm, _exemptKey, &e)
+			r.NoError(err)
+			r.Equal(e1, e)
+
+			switch v.height {
+			case g.GreenlandBlockHeight:
+				r.Equal(a1, a)
+				// test migrate with no data
+				r.NoError(p.migrateValueGreenland(ctx, sm))
+			default:
+				r.Equal(v.lastEpoch, a.foundationBonusLastEpoch)
+				r.True(a.grantFoundationBonus(v.lastEpoch))
+				r.False(a.grantFoundationBonus(v.lastEpoch + 1))
+				a.foundationBonusLastEpoch = a1.foundationBonusLastEpoch
+				r.Equal(a1, a)
+				a.foundationBonusLastEpoch = v.lastEpoch
+				// test migrate with no data
+				r.NoError(p.migrateValueGreenland(ctx, sm))
+			}
+		}
+	}, true)
 }

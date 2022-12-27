@@ -14,6 +14,7 @@ type (
 	Envelope interface {
 		Version() uint32
 		Nonce() uint64
+		ChainID() uint32
 		GasLimit() uint64
 		GasPrice() *big.Int
 		Destination() (string, bool)
@@ -23,10 +24,12 @@ type (
 		Proto() *iotextypes.ActionCore
 		LoadProto(pbAct *iotextypes.ActionCore) error
 		SetNonce(n uint64)
+		SetChainID(chainID uint32)
 	}
 
 	envelope struct {
 		version  uint32
+		chainID  uint32
 		nonce    uint64
 		gasLimit uint64
 		gasPrice *big.Int
@@ -36,6 +39,9 @@ type (
 
 // Version returns the version
 func (elp *envelope) Version() uint32 { return elp.version }
+
+// ChainID return the chainID value
+func (elp *envelope) ChainID() uint32 { return elp.chainID }
 
 // Nonce returns the nonce
 func (elp *envelope) Nonce() uint64 { return elp.nonce }
@@ -81,6 +87,7 @@ func (elp *envelope) Proto() *iotextypes.ActionCore {
 		Version:  elp.version,
 		Nonce:    elp.nonce,
 		GasLimit: elp.gasLimit,
+		ChainID:  elp.chainID,
 	}
 	if elp.gasPrice != nil {
 		actCore.GasPrice = elp.gasPrice.String()
@@ -127,17 +134,25 @@ func (elp *envelope) Proto() *iotextypes.ActionCore {
 // LoadProto loads fields from protobuf format.
 func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 	if elp == nil {
-		return errors.New("nil action to load proto")
+		return ErrNilAction
 	}
 	*elp = envelope{}
 	elp.version = pbAct.GetVersion()
 	elp.nonce = pbAct.GetNonce()
 	elp.gasLimit = pbAct.GetGasLimit()
-	elp.gasPrice = &big.Int{}
-	elp.gasPrice.SetString(pbAct.GetGasPrice(), 10)
+	elp.chainID = pbAct.GetChainID()
+	if pbAct.GetGasPrice() == "" {
+		elp.gasPrice = big.NewInt(0)
+	} else {
+		gp, ok := new(big.Int).SetString(pbAct.GetGasPrice(), 10)
+		if !ok {
+			return errors.Errorf("invalid gas prcie %s", pbAct.GetGasPrice())
+		}
+		elp.gasPrice = gp
+	}
 
 	switch {
 	case pbAct.GetTransfer() != nil:
@@ -234,8 +249,12 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	default:
 		return errors.Errorf("no applicable action to handle proto type %T", pbAct.Action)
 	}
+	elp.payload.SetEnvelopeContext(elp)
 	return nil
 }
 
 // SetNonce sets the nonce value
 func (elp *envelope) SetNonce(n uint64) { elp.nonce = n }
+
+// SetChainID sets the chainID value
+func (elp *envelope) SetChainID(chainID uint32) { elp.chainID = chainID }

@@ -2,9 +2,9 @@ package protocol
 
 import (
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // NamespaceOption creates an option for given namesapce
@@ -24,23 +24,19 @@ func KeyOption(key []byte) StateOption {
 	}
 }
 
+// KeysOption sets the key for call
+func KeysOption(f func() ([][]byte, error)) StateOption {
+	return func(cfg *StateConfig) (err error) {
+		cfg.Keys, err = f()
+		return err
+	}
+}
+
 // LegacyKeyOption sets the key for call with legacy key
 func LegacyKeyOption(key hash.Hash160) StateOption {
 	return func(cfg *StateConfig) error {
 		cfg.Key = make([]byte, len(key[:]))
 		copy(cfg.Key, key[:])
-		return nil
-	}
-}
-
-// FilterOption sets the filter
-func FilterOption(cond db.Condition, minKey, maxKey []byte) StateOption {
-	return func(cfg *StateConfig) error {
-		cfg.Cond = cond
-		cfg.MinKey = make([]byte, len(minKey))
-		copy(cfg.MinKey, minKey)
-		cfg.MaxKey = make([]byte, len(maxKey))
-		copy(cfg.MaxKey, maxKey)
 		return nil
 	}
 }
@@ -61,9 +57,7 @@ type (
 	StateConfig struct {
 		Namespace string // namespace used by state's storage
 		Key       []byte
-		MinKey    []byte
-		MaxKey    []byte
-		Cond      db.Condition
+		Keys      [][]byte
 	}
 
 	// StateOption sets parameter for access state

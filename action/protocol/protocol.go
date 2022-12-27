@@ -1,17 +1,20 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package protocol
 
 import (
 	"context"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 var (
@@ -46,6 +49,11 @@ type GenesisStateCreator interface {
 // PreStatesCreator creates preliminary states for state manager
 type PreStatesCreator interface {
 	CreatePreStates(context.Context, StateManager) error
+}
+
+// PreCommitter performs pre-commit action of the protocol
+type PreCommitter interface {
+	PreCommit(context.Context, StateManager) error
 }
 
 // Committer performs commit action of the protocol
@@ -83,4 +91,14 @@ func (view View) Read(name string) (interface{}, error) {
 func (view View) Write(name string, v interface{}) error {
 	view[name] = v
 	return nil
+}
+
+// HashStringToAddress generates the contract address from the protocolID of each protocol
+func HashStringToAddress(str string) address.Address {
+	h := hash.Hash160b([]byte(str))
+	addr, err := address.FromBytes(h[:])
+	if err != nil {
+		log.L().Panic("Error when constructing the address of account protocol", zap.Error(err))
+	}
+	return addr
 }

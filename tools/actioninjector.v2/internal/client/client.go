@@ -31,7 +31,7 @@ func New(serverAddr string, insecure bool) (*Client, error) {
 		conn, err = grpc.DialContext(grpcctx, serverAddr, grpc.WithBlock(), grpc.WithInsecure())
 	} else {
 		log.L().Info("secure connection")
-		conn, err = grpc.DialContext(grpcctx, serverAddr, grpc.WithBlock(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+		conn, err = grpc.DialContext(grpcctx, serverAddr, grpc.WithBlock(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
 	}
 	if err != nil {
 		return nil, err

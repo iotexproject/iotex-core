@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package e2etest
 
@@ -58,8 +57,8 @@ func TestStakingContract(t *testing.T) {
 		require.NotNil(registry)
 		admin := identityset.PrivateKey(26)
 		state0 := hash.BytesToHash160(identityset.Address(26).Bytes())
-		var s state.Account
-		_, err = sf.State(&s, protocol.LegacyKeyOption(state0))
+		s := &state.Account{}
+		_, err = sf.State(s, protocol.LegacyKeyOption(state0))
 		require.NoError(err)
 		require.Equal(unit.ConvertIotxToRau(100000000), s.Balance)
 
@@ -101,7 +100,7 @@ func TestStakingContract(t *testing.T) {
 			require.NoError(bc.CommitBlock(blk))
 
 			state0 = hash.BytesToHash160(identityset.Address(i).Bytes())
-			_, err = sf.State(&s, protocol.LegacyKeyOption(state0))
+			_, err = sf.State(s, protocol.LegacyKeyOption(state0))
 			require.NoError(err)
 			require.Equal(unit.ConvertIotxToRau(100000000-int64(numBucket)*200), s.Balance)
 		}
@@ -145,6 +144,10 @@ func TestStakingContract(t *testing.T) {
 				}),
 			cfg.Genesis,
 		)
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx,
+			protocol.BlockCtx{
+				BlockHeight: genesis.Default.OkhotskBlockHeight,
+			}))
 		bcCtx := protocol.MustGetBlockchainCtx(ctx)
 		_, err = ns.Votes(ctx, bcCtx.Tip.Timestamp, false)
 		require.Equal(poll.ErrNoData, err)
@@ -190,18 +193,19 @@ func TestStakingContract(t *testing.T) {
 	testConsensusPath, err := testutil.PathOfTempFile("consensus")
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		testutil.CleanupPath(t, testIndexPath)
-		testutil.CleanupPath(t, testBloomfilterIndexPath)
-		testutil.CleanupPath(t, testCandidateIndexPath)
-		testutil.CleanupPath(t, testSystemLogPath)
-		testutil.CleanupPath(t, testConsensusPath)
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(testIndexPath)
+		testutil.CleanupPath(testBloomfilterIndexPath)
+		testutil.CleanupPath(testCandidateIndexPath)
+		testutil.CleanupPath(testSystemLogPath)
+		testutil.CleanupPath(testConsensusPath)
 		// clear the gateway
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
 	cfg.ActPool.MinGasPriceStr = "0"
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath

@@ -1,8 +1,7 @@
 // Copyright (c) 2018 IoTeX
-// This is an alpha (internal) release and is not suitable for production. This source code is provided ‘as is’ and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided ‘as is’ and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 // Package lifecycle provides application models' lifecycle management.
 package lifecycle
@@ -59,7 +58,7 @@ func (lc *Lifecycle) OnStart(ctx context.Context) error {
 	return g.Wait()
 }
 
-// OnStop runs models Start function if models implmented it. All OnStop functions will be run in parallel.
+// OnStop runs models Stop function if models implmented it. All OnStop functions will be run in parallel.
 // context passed into models' OnStop method will be canceled on the first time a model's OnStop function return non-nil error.
 func (lc *Lifecycle) OnStop(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
@@ -69,4 +68,28 @@ func (lc *Lifecycle) OnStop(ctx context.Context) error {
 		}
 	}
 	return g.Wait()
+}
+
+// OnStartSequentially runs models' Start function if models implmented it.
+func (lc *Lifecycle) OnStartSequentially(ctx context.Context) error {
+	for _, m := range lc.models {
+		if starter, ok := m.(Starter); ok {
+			if err := starter.Start(ctx); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// OnStopSequentially runs models' Stop function if models implmented it.
+func (lc *Lifecycle) OnStopSequentially(ctx context.Context) error {
+	for i := len(lc.models) - 1; i >= 0; i-- {
+		if stopper, ok := lc.models[i].(Stopper); ok {
+			if err := stopper.Stop(ctx); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

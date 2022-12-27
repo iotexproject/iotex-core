@@ -1,15 +1,13 @@
-// Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package hdwallet
 
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -25,20 +23,16 @@ import (
 
 // Multi-language support
 var (
-	importCmdShorts = map[config.Language]string{
+	_importCmdShorts = map[config.Language]string{
 		config.English: "import hdwallet using mnemonic",
 		config.Chinese: "通过助记词导入钱包",
 	}
-	importCmdUses = map[config.Language]string{
-		config.English: "import",
-		config.Chinese: "import 导入",
-	}
 )
 
-// hdwalletImportCmd represents the hdwallet import command
-var hdwalletImportCmd = &cobra.Command{
-	Use:   config.TranslateInLang(importCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(importCmdShorts, config.UILanguage),
+// _hdwalletImportCmd represents the hdwallet import command
+var _hdwalletImportCmd = &cobra.Command{
+	Use:   "import",
+	Short: config.TranslateInLang(_importCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -48,7 +42,7 @@ var hdwalletImportCmd = &cobra.Command{
 }
 
 func hdwalletImport() error {
-	if fileutil.FileExists(hdWalletConfigFile) {
+	if fileutil.FileExists(_hdWalletConfigFile) {
 		output.PrintResult("Please run 'ioctl hdwallet delete' before import")
 		return nil
 	}
@@ -86,9 +80,9 @@ func hdwalletImport() error {
 		return output.NewError(output.ValidationError, "failed to encrypting mnemonic", nil)
 	}
 
-	if err := ioutil.WriteFile(hdWalletConfigFile, out, 0600); err != nil {
+	if err := os.WriteFile(_hdWalletConfigFile, out, 0600); err != nil {
 		return output.NewError(output.WriteFileError,
-			fmt.Sprintf("failed to write to config file %s", hdWalletConfigFile), err)
+			fmt.Sprintf("failed to write to config file %s", _hdWalletConfigFile), err)
 	}
 
 	output.PrintResult(fmt.Sprintf("Mnemonic phrase: %s\n"+

@@ -1,8 +1,7 @@
-// Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package factory
 
@@ -11,10 +10,11 @@ import (
 	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -22,13 +22,12 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 var (
-	stateDBMtc = prometheus.NewCounterVec(
+	_stateDBMtc = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "iotex_state_db",
 			Help: "IoTeX State DB",
@@ -38,39 +37,32 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(stateDBMtc)
+	prometheus.MustRegister(_stateDBMtc)
 }
 
 type (
 	workingSet struct {
-		height        uint64
-		finalized     bool
-		dock          protocol.Dock
-		receipts      []*action.Receipt
-		commitFunc    func(uint64) error
-		readviewFunc  func(name string) (interface{}, error)
-		writeviewFunc func(name string, v interface{}) error
-		dbFunc        func() db.KVStore
-		delStateFunc  func(string, []byte) error
-		statesFunc    func(opts ...protocol.StateOption) (uint64, state.Iterator, error)
-		digestFunc    func() hash.Hash256
-		finalizeFunc  func(uint64) error
-		getStateFunc  func(string, []byte, interface{}) error
-		putStateFunc  func(string, []byte, interface{}) error
-		revertFunc    func(int) error
-		snapshotFunc  func() int
-	}
-
-	workingSetCreator interface {
-		newWorkingSet(context.Context, uint64) (*workingSet, error)
+		height    uint64
+		store     workingSetStore
+		finalized bool
+		dock      protocol.Dock
+		receipts  []*action.Receipt
 	}
 )
+
+func newWorkingSet(height uint64, store workingSetStore) *workingSet {
+	return &workingSet{
+		height: height,
+		store:  store,
+		dock:   protocol.NewDock(),
+	}
+}
 
 func (ws *workingSet) digest() (hash.Hash256, error) {
 	if !ws.finalized {
 		return hash.ZeroHash256, errors.New("workingset has not been finalized yet")
 	}
-	return ws.digestFunc(), nil
+	return ws.store.Digest(), nil
 }
 
 func (ws *workingSet) Receipts() ([]*action.Receipt, error) {
@@ -104,17 +96,14 @@ func (ws *workingSet) runActions(
 	ctx context.Context,
 	elps []action.SealedEnvelope,
 ) ([]*action.Receipt, error) {
-	if err := ws.validate(ctx); err != nil {
-		return nil, err
-	}
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
-		ctx, err := withActionCtx(ctx, elp)
+		ctxWithActionContext, err := withActionCtx(ctx, elp)
 		if err != nil {
 			return nil, err
 		}
-		receipt, err := ws.runAction(ctx, elp)
+		receipt, err := ws.runAction(ctxWithActionContext, elp)
 		if err != nil {
 			return nil, errors.Wrap(err, "error when run action")
 		}
@@ -122,15 +111,18 @@ func (ws *workingSet) runActions(
 			receipts = append(receipts, receipt)
 		}
 	}
-
+	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
+		updateReceiptIndex(receipts)
+	}
 	return receipts, nil
 }
 
 func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Context, error) {
 	var actionCtx protocol.ActionCtx
-	caller, err := address.FromBytes(selp.SrcPubkey().Hash())
-	if err != nil {
-		return nil, err
+	var err error
+	caller := selp.SenderAddress()
+	if caller == nil {
+		return nil, errors.New("failed to get address")
 	}
 	actionCtx.Caller = caller
 	actionCtx.ActionHash, err = selp.Hash()
@@ -153,39 +145,55 @@ func (ws *workingSet) runAction(
 	elp action.SealedEnvelope,
 ) (*action.Receipt, error) {
 	if protocol.MustGetBlockCtx(ctx).GasLimit < protocol.MustGetActionCtx(ctx).IntrinsicGas {
-		return nil, errors.Wrap(action.ErrHitGasLimit, "block gas limit exceeded")
+		return nil, action.ErrGasLimit
+	}
+	// Reject execution of chainID not equal the node's chainID
+	if err := validateChainID(ctx, elp.ChainID()); err != nil {
+		return nil, err
 	}
 	// Handle action
 	reg, ok := protocol.GetRegistry(ctx)
 	if !ok {
 		return nil, nil
 	}
+	elpHash, err := elp.Hash()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to get hash")
+	}
+	var receipt *action.Receipt
 	for _, actionHandler := range reg.All() {
-		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
-		elpHash, err1 := elp.Hash()
-		if err1 != nil {
-			return nil, errors.Wrapf(err1, "Failed to get hash")
-		}
+		receipt, err = actionHandler.Handle(ctx, elp.Action(), ws)
 		if err != nil {
-			return nil, errors.Wrapf(
+			err = errors.Wrapf(
 				err,
 				"error when action %x mutates states",
 				elpHash,
 			)
 		}
-		if receipt != nil {
-			return receipt, nil
+		if receipt != nil || err != nil {
+			break
 		}
 	}
-	// TODO (zhi): return error
-	return nil, nil
+	ws.ResetSnapshots()
+
+	// TODO (zhi): return error if both receipt and err are nil
+	return receipt, err
+}
+
+func validateChainID(ctx context.Context, chainID uint32) error {
+	blkChainCtx := protocol.MustGetBlockchainCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.AllowCorrectDefaultChainID && (chainID != blkChainCtx.ChainID && chainID != 0) {
+		return errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, chainID)
+	}
+	return nil
 }
 
 func (ws *workingSet) finalize() error {
 	if ws.finalized {
 		return errors.New("Cannot finalize a working set twice")
 	}
-	if err := ws.finalizeFunc(ws.height); err != nil {
+	if err := ws.store.Finalize(ws.height); err != nil {
 		return err
 	}
 	ws.finalized = true
@@ -194,72 +202,94 @@ func (ws *workingSet) finalize() error {
 }
 
 func (ws *workingSet) Snapshot() int {
-	return ws.snapshotFunc()
+	return ws.store.Snapshot()
 }
 
 func (ws *workingSet) Revert(snapshot int) error {
-	return ws.revertFunc(snapshot)
+	return ws.store.RevertSnapshot(snapshot)
+}
+
+func (ws *workingSet) ResetSnapshots() {
+	ws.store.ResetSnapshots()
 }
 
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit(ctx context.Context) error {
-	if err := ws.commitFunc(ws.height); err != nil {
+	if err := protocolPreCommit(ctx, ws); err != nil {
+		return err
+	}
+	if err := ws.store.Commit(); err != nil {
 		return err
 	}
 	if err := protocolCommit(ctx, ws); err != nil {
+		// TODO (zhi): wrap the error and eventually panic it in caller side
 		return err
 	}
 	ws.Reset()
 	return nil
 }
 
-// GetDB returns the underlying DB for account/contract storage
-func (ws *workingSet) GetDB() db.KVStore {
-	return ws.dbFunc()
-}
-
 // State pulls a state from DB
 func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
-	stateDBMtc.WithLabelValues("get").Inc()
+	_stateDBMtc.WithLabelValues("get").Inc()
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, ws.getStateFunc(cfg.Namespace, cfg.Key, s)
+	value, err := ws.store.Get(cfg.Namespace, cfg.Key)
+	if err != nil {
+		return ws.height, err
+	}
+	return ws.height, state.Deserialize(s, value)
 }
 
 func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-	return ws.statesFunc(opts...)
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return ws.height, nil, err
+	}
+	if cfg.Key != nil {
+		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
+	}
+	values, err := ws.store.States(cfg.Namespace, cfg.Keys)
+	if err != nil {
+		return 0, nil, err
+	}
+	return ws.height, state.NewIterator(values), nil
 }
 
 // PutState puts a state into DB
 func (ws *workingSet) PutState(s interface{}, opts ...protocol.StateOption) (uint64, error) {
-	stateDBMtc.WithLabelValues("put").Inc()
+	_stateDBMtc.WithLabelValues("put").Inc()
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, ws.putStateFunc(cfg.Namespace, cfg.Key, s)
+	ss, err := state.Serialize(s)
+	if err != nil {
+		return ws.height, errors.Wrapf(err, "failed to convert account %v to bytes", s)
+	}
+	return ws.height, ws.store.Put(cfg.Namespace, cfg.Key, ss)
 }
 
 // DelState deletes a state from DB
 func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
-	stateDBMtc.WithLabelValues("delete").Inc()
+	_stateDBMtc.WithLabelValues("delete").Inc()
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, ws.delStateFunc(cfg.Namespace, cfg.Key)
+	return ws.height, ws.store.Delete(cfg.Namespace, cfg.Key)
 }
 
 // ReadView reads the view
 func (ws *workingSet) ReadView(name string) (interface{}, error) {
-	return ws.readviewFunc(name)
+	return ws.store.ReadView(name)
 }
 
 // WriteView writeback the view to factory
 func (ws *workingSet) WriteView(name string, v interface{}) error {
-	return ws.writeviewFunc(name, v)
+	return ws.store.WriteView(name, v)
 }
 
 func (ws *workingSet) ProtocolDirty(name string) bool {
@@ -293,12 +323,12 @@ func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
 	return ws.finalize()
 }
 
-func (ws *workingSet) validateNonce(blk *block.Block) error {
+func (ws *workingSet) validateNonce(ctx context.Context, blk *block.Block) error {
 	accountNonceMap := make(map[string][]uint64)
 	for _, selp := range blk.Actions {
-		caller, err := address.FromBytes(selp.SrcPubkey().Hash())
-		if err != nil {
-			return err
+		caller := selp.SenderAddress()
+		if caller == nil {
+			return errors.New("failed to get address")
 		}
 		appendActionIndex(accountNonceMap, caller.String(), selp.Nonce())
 	}
@@ -309,21 +339,23 @@ func (ws *workingSet) validateNonce(blk *block.Block) error {
 	}
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
-		confirmedState, err := accountutil.AccountState(ws, srcAddr)
+		addr, _ := address.FromString(srcAddr)
+		confirmedState, err := accountutil.AccountState(ctx, ws, addr)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}
 		receivedNonces := receivedNonces
 		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
+		pendingNonce := confirmedState.PendingNonce()
 		for i, nonce := range receivedNonces {
-			if nonce != confirmedState.Nonce+uint64(i+1) {
+			if nonce != pendingNonce+uint64(i) {
 				return errors.Wrapf(
-					action.ErrNonce,
-					"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
+					action.ErrNonceTooHigh,
+					"the %d nonce %d of address %s (init pending nonce %d) is not continuously increasing",
 					i,
 					nonce,
 					srcAddr,
-					confirmedState.Nonce,
+					pendingNonce,
 				)
 			}
 		}
@@ -336,21 +368,25 @@ func (ws *workingSet) Process(ctx context.Context, actions []action.SealedEnvelo
 }
 
 func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelope) error {
-	var err error
+	if err := ws.validate(ctx); err != nil {
+		return err
+	}
+
 	reg := protocol.MustGetRegistry(ctx)
 	for _, act := range actions {
-		if ctx, err = withActionCtx(ctx, act); err != nil {
+		ctxWithActionContext, err := withActionCtx(ctx, act)
+		if err != nil {
 			return err
 		}
 		for _, p := range reg.All() {
 			if validator, ok := p.(protocol.ActionValidator); ok {
-				if err := validator.Validate(ctx, act.Action(), ws); err != nil {
+				if err := validator.Validate(ctxWithActionContext, act.Action(), ws); err != nil {
 					return err
 				}
 			}
 		}
 	}
-	for _, p := range protocol.MustGetRegistry(ctx).All() {
+	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
 				return err
@@ -391,6 +427,7 @@ func (ws *workingSet) pickAndRunActions(
 
 	// initial action iterator
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	ctxWithBlockContext := ctx
 	if ap != nil {
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
 		for {
@@ -402,41 +439,44 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			}
-			if ctx, err = withActionCtx(ctx, nextAction); err == nil {
+			actionCtx, err := withActionCtx(ctxWithBlockContext, nextAction)
+			if err == nil {
 				for _, p := range reg.All() {
 					if validator, ok := p.(protocol.ActionValidator); ok {
-						if err = validator.Validate(ctx, nextAction.Action(), ws); err != nil {
+						if err = validator.Validate(actionCtx, nextAction.Action(), ws); err != nil {
 							break
 						}
 					}
 				}
 			}
 			if err != nil {
-				caller, err := address.FromBytes(nextAction.SrcPubkey().Hash())
-				if err != nil {
-					return nil, err
+				caller := nextAction.SenderAddress()
+				if caller == nil {
+					return nil, errors.New("failed to get address")
 				}
 				ap.DeleteAction(caller)
 				actionIterator.PopAccount()
 				continue
 			}
-			receipt, err := ws.runAction(ctx, nextAction)
+			receipt, err := ws.runAction(actionCtx, nextAction)
 			switch errors.Cause(err) {
 			case nil:
 				// do nothing
-			case action.ErrHitGasLimit:
+			case action.ErrChainID:
+				continue
+			case action.ErrGasLimit:
 				actionIterator.PopAccount()
 				continue
 			default:
-				nextActionHash, err := nextAction.Hash()
-				if err != nil{
-					return nil, errors.Wrapf(err, "Failed to get hash for %x", nextActionHash)
+				nextActionHash, hashErr := nextAction.Hash()
+				if hashErr != nil {
+					return nil, errors.Wrapf(hashErr, "Failed to get hash for %x", nextActionHash)
 				}
 				return nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
 			}
 			if receipt != nil {
 				blkCtx.GasLimit -= receipt.GasConsumed
-				ctx = protocol.WithBlockCtx(ctx, blkCtx)
+				ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 				receipts = append(receipts, receipt)
 			}
 			executedActions = append(executedActions, nextAction)
@@ -450,10 +490,11 @@ func (ws *workingSet) pickAndRunActions(
 	}
 
 	for _, selp := range postSystemActions {
-		if ctx, err = withActionCtx(ctx, selp); err != nil {
+		actionCtx, err := withActionCtx(ctxWithBlockContext, selp)
+		if err != nil {
 			return nil, err
 		}
-		receipt, err := ws.runAction(ctx, selp)
+		receipt, err := ws.runAction(actionCtx, selp)
 		if err != nil {
 			return nil, err
 		}
@@ -462,13 +503,24 @@ func (ws *workingSet) pickAndRunActions(
 		}
 		executedActions = append(executedActions, selp)
 	}
+	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
+		updateReceiptIndex(receipts)
+	}
 	ws.receipts = receipts
 
 	return executedActions, ws.finalize()
 }
 
+func updateReceiptIndex(receipts []*action.Receipt) {
+	var txIndex, logIndex uint32
+	for _, r := range receipts {
+		logIndex = r.UpdateIndex(txIndex, logIndex)
+		txIndex++
+	}
+}
+
 func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {
-	if err := ws.validateNonce(blk); err != nil {
+	if err := ws.validateNonce(ctx, blk); err != nil {
 		return errors.Wrap(err, "failed to validate nonce")
 	}
 	if err := ws.process(ctx, blk.RunnableActions().Actions()); err != nil {
@@ -480,11 +532,12 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 	if err != nil {
 		return err
 	}
-	if err = blk.VerifyDeltaStateDigest(digest); err != nil {
-		return errors.Wrap(err, "failed to verify delta state digest")
+	if !blk.VerifyDeltaStateDigest(digest) {
+		return errors.Wrapf(block.ErrDeltaStateMismatch, "digest in block '%x' vs digest in workingset '%x'", blk.DeltaStateDigest(), digest)
 	}
-	if err = blk.VerifyReceiptRoot(calculateReceiptRoot(ws.receipts)); err != nil {
-		return errors.Wrap(err, "Failed to verify receipt root")
+	receiptRoot := calculateReceiptRoot(ws.receipts)
+	if !blk.VerifyReceiptRoot(receiptRoot) {
+		return errors.Wrapf(block.ErrReceiptRootMismatch, "receipt root in block '%x' vs receipt root in workingset '%x'", blk.ReceiptRoot(), receiptRoot)
 	}
 
 	return nil

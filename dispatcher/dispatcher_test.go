@@ -1,33 +1,31 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package dispatcher
 
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/iotexproject/iotex-proto/golang/testingpb"
 )
 
+// TODO: define defaultChainID in chain.DefaultConfig
+var (
+	defaultChainID uint32 = 1
+)
+
 func createDispatcher(t *testing.T, chainID uint32) Dispatcher {
-	cfg := config.Config{
-		Consensus:  config.Consensus{Scheme: config.NOOPScheme},
-		Dispatcher: config.Dispatcher{ActionChanSize: 1024, BlockChanSize: 1024, BlockSyncChanSize: 1024, ProcessSyncRequestInterval: 0 * time.Second},
-	}
-	dp, err := NewDispatcher(cfg)
+	dp, err := NewDispatcher(DefaultConfig)
 	assert.NoError(t, err)
 	dp.AddSubscriber(chainID, &dummySubscriber{})
 	return dp
@@ -35,7 +33,7 @@ func createDispatcher(t *testing.T, chainID uint32) Dispatcher {
 
 func startDispatcher(t *testing.T) (ctx context.Context, d Dispatcher) {
 	ctx = context.Background()
-	d = createDispatcher(t, config.Default.Chain.ID)
+	d = createDispatcher(t, defaultChainID)
 	assert.NotNil(t, d)
 	err := d.Start(ctx)
 	assert.NoError(t, err)
@@ -67,7 +65,7 @@ func TestHandleBroadcast(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		for _, msg := range msgs {
-			d.HandleBroadcast(ctx, config.Default.Chain.ID, "peer1", msg)
+			d.HandleBroadcast(ctx, defaultChainID, "peer1", msg)
 		}
 	}
 }
@@ -82,7 +80,7 @@ func TestHandleTell(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		for _, msg := range msgs {
-			d.HandleTell(ctx, config.Default.Chain.ID, peer.AddrInfo{}, msg)
+			d.HandleTell(ctx, defaultChainID, peer.AddrInfo{}, msg)
 		}
 	}
 }

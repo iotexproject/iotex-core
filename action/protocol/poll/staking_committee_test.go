@@ -1,15 +1,13 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package poll
 
 import (
 	"context"
 	"math/big"
-	"strings"
 	"testing"
 	"time"
 
@@ -26,8 +24,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -37,7 +35,13 @@ import (
 // TODO: we need something like mock_nativestaking to test properly with native buckets
 // now in the unit tests, native bucket is empty
 func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult, error) {
-	cfg := config.Default
+	cfg := struct {
+		Genesis genesis.Genesis
+		Chain   blockchain.Config
+	}{
+		Genesis: genesis.Default,
+		Chain:   blockchain.DefaultConfig,
+	}
 	cfg.Genesis.NativeStakingContractAddress = "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza"
 	producer := identityset.Address(0)
 	ctx := protocol.WithBlockCtx(
@@ -54,7 +58,7 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	}
 	ctx = genesis.WithGenesisContext(
 		protocol.WithRegistry(ctx, registry),
-		config.Default.Genesis,
+		genesis.Default,
 	)
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{})
 	ctx = protocol.WithActionCtx(
@@ -63,6 +67,7 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 			Caller: producer,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)
@@ -146,6 +151,7 @@ func TestCreateGenesisStates_StakingCommittee(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	p, ctx, sm, r, err := initConstructStakingCommittee(ctrl)
 	require.NoError(err)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
 	var candlist state.CandidateList
 	_, err = sm.State(&candlist, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
@@ -173,6 +179,7 @@ func TestCreatePostSystemActions_StakingCommittee(t *testing.T) {
 	require.NoError(err)
 	psac, ok := p.(protocol.PostSystemActionsCreator)
 	require.True(ok)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	elp, err := psac.CreatePostSystemActions(ctx, sr)
 	require.NoError(err)
 	require.Equal(1, len(elp))
@@ -194,6 +201,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 
 	p, ctx, sm, _, err := initConstructStakingCommittee(ctrl)
 	require.NoError(err)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
 
 	// wrong action
@@ -216,6 +224,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 	t.Run("All right", func(t *testing.T) {
 		p2, ctx2, sm2, _, err := initConstructStakingCommittee(ctrl)
 		require.NoError(err)
+		ctx2 = protocol.WithFeatureWithHeightCtx(ctx2)
 		require.NoError(p2.CreateGenesisStates(ctx2, sm2))
 		var sc2 state.CandidateList
 		_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
@@ -245,6 +254,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		// Case 2: Only producer could create this protocol
 		p2, ctx2, sm2, _, err := initConstructStakingCommittee(ctrl)
 		require.NoError(err)
+		ctx2 = protocol.WithFeatureWithHeightCtx(ctx2)
 		require.NoError(p2.CreateGenesisStates(ctx2, sm2))
 		var sc2 state.CandidateList
 		_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
@@ -257,8 +267,8 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		selp2, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp2)
-		caller, err := address.FromBytes(selp2.SrcPubkey().Hash())
-		require.NoError(err)
+		caller := selp2.SenderAddress()
+		require.NotNil(caller)
 		ctx2 = protocol.WithBlockCtx(
 			ctx2,
 			protocol.BlockCtx{
@@ -273,12 +283,13 @@ func TestHandle_StakingCommittee(t *testing.T) {
 			},
 		)
 		err = p.Validate(ctx2, selp2.Action(), sm2)
-		require.True(strings.Contains(err.Error(), "Only producer could create this protocol"))
+		require.Contains(err.Error(), "Only producer could create this protocol")
 	})
 
 	t.Run("Duplicate candidate", func(t *testing.T) {
 		p3, ctx3, sm3, _, err := initConstructStakingCommittee(ctrl)
 		require.NoError(err)
+		ctx3 = protocol.WithFeatureWithHeightCtx(ctx3)
 		require.NoError(p3.CreateGenesisStates(ctx3, sm3))
 		var sc3 state.CandidateList
 		_, err = sm3.State(&sc3, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
@@ -293,8 +304,8 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		selp3, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp3)
-		caller, err := address.FromBytes(selp3.SrcPubkey().Hash())
-		require.NoError(err)
+		caller := selp3.SenderAddress()
+		require.NotNil(caller)
 		ctx3 = protocol.WithBlockCtx(
 			ctx3,
 			protocol.BlockCtx{
@@ -309,12 +320,13 @@ func TestHandle_StakingCommittee(t *testing.T) {
 			},
 		)
 		err = p.Validate(ctx3, selp3.Action(), sm3)
-		require.True(strings.Contains(err.Error(), "duplicate candidate"))
+		require.Contains(err.Error(), "duplicate candidate")
 	})
 
 	t.Run("Delegate's length is not equal", func(t *testing.T) {
 		p4, ctx4, sm4, _, err := initConstructStakingCommittee(ctrl)
 		require.NoError(err)
+		ctx4 = protocol.WithFeatureWithHeightCtx(ctx4)
 		require.NoError(p4.CreateGenesisStates(ctx4, sm4))
 		var sc4 state.CandidateList
 		_, err = sm4.State(&sc4, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
@@ -328,8 +340,8 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		selp4, err := action.Sign(elp4, senderKey)
 		require.NoError(err)
 		require.NotNil(selp4)
-		caller, err := address.FromBytes(selp4.SrcPubkey().Hash())
-		require.NoError(err)
+		caller := selp4.SenderAddress()
+		require.NotNil(caller)
 		ctx4 = protocol.WithBlockCtx(
 			ctx4,
 			protocol.BlockCtx{
@@ -343,13 +355,15 @@ func TestHandle_StakingCommittee(t *testing.T) {
 				Caller: caller,
 			},
 		)
+		ctx4 = protocol.WithFeatureWithHeightCtx(ctx4)
 		err = p4.Validate(ctx4, selp4.Action(), sm4)
-		require.True(strings.Contains(err.Error(), "the proposed delegate list length"))
+		require.Contains(err.Error(), "the proposed delegate list length")
 	})
 
 	t.Run("Candidate's vote is not equal", func(t *testing.T) {
 		p5, ctx5, sm5, _, err := initConstructStakingCommittee(ctrl)
 		require.NoError(err)
+		ctx5 = protocol.WithFeatureWithHeightCtx(ctx5)
 		require.NoError(p5.CreateGenesisStates(ctx5, sm5))
 		var sc5 state.CandidateList
 		_, err = sm5.State(&sc5, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
@@ -362,8 +376,8 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		selp5, err := action.Sign(elp5, senderKey)
 		require.NoError(err)
 		require.NotNil(selp5)
-		caller, err := address.FromBytes(selp5.SrcPubkey().Hash())
-		require.NoError(err)
+		caller := selp5.SenderAddress()
+		require.NotNil(caller)
 		ctx5 = protocol.WithBlockCtx(
 			ctx5,
 			protocol.BlockCtx{
@@ -378,6 +392,6 @@ func TestHandle_StakingCommittee(t *testing.T) {
 			},
 		)
 		err = p5.Validate(ctx5, selp5.Action(), sm5)
-		require.True(strings.Contains(err.Error(), "delegates are not as expected"))
+		require.Contains(err.Error(), "delegates are not as expected")
 	})
 }

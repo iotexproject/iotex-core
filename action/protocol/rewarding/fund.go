@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package rewarding
 
@@ -13,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -21,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // fund stores the balance of the rewarding fund. The difference between total and available balance should be
@@ -45,11 +44,11 @@ func (f *fund) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
-	totalBalance, ok := big.NewInt(0).SetString(gen.TotalBalance, 10)
+	totalBalance, ok := new(big.Int).SetString(gen.TotalBalance, 10)
 	if !ok {
 		return errors.New("failed to set total balance")
 	}
-	unclaimedBalance, ok := big.NewInt(0).SetString(gen.UnclaimedBalance, 10)
+	unclaimedBalance, ok := new(big.Int).SetString(gen.UnclaimedBalance, 10)
 	if !ok {
 		return errors.New("failed to set unclaimed balance")
 	}
@@ -66,29 +65,29 @@ func (p *Protocol) Deposit(
 	transactionLogType iotextypes.TransactionLogType,
 ) (*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
-	if err := p.assertAmount(amount); err != nil {
-		return nil, err
-	}
-	if err := p.assertEnoughBalance(actionCtx, sm, amount); err != nil {
-		return nil, err
+	accountCreationOpts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
 	// Subtract balance from caller
-	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
+	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)
 	if err != nil {
 		return nil, err
 	}
-	acc.Balance = big.NewInt(0).Sub(acc.Balance, amount)
+	if err := acc.SubBalance(amount); err != nil {
+		return nil, err
+	}
 	if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
 		return nil, err
 	}
 	// Add balance to fund
 	f := fund{}
-	if _, err := p.state(ctx, sm, fundKey, &f); err != nil {
+	if _, err := p.state(ctx, sm, _fundKey, &f); err != nil {
 		return nil, err
 	}
 	f.totalBalance = big.NewInt(0).Add(f.totalBalance, amount)
 	f.unclaimedBalance = big.NewInt(0).Add(f.unclaimedBalance, amount)
-	if err := p.putState(ctx, sm, fundKey, &f); err != nil {
+	if err := p.putState(ctx, sm, _fundKey, &f); err != nil {
 		return nil, err
 	}
 	return &action.TransactionLog{
@@ -105,7 +104,7 @@ func (p *Protocol) TotalBalance(
 	sm protocol.StateReader,
 ) (*big.Int, uint64, error) {
 	f := fund{}
-	height, err := p.state(ctx, sm, fundKey, &f)
+	height, err := p.state(ctx, sm, _fundKey, &f)
 	if err != nil {
 		return nil, height, err
 	}
@@ -118,26 +117,11 @@ func (p *Protocol) AvailableBalance(
 	sm protocol.StateReader,
 ) (*big.Int, uint64, error) {
 	f := fund{}
-	height, err := p.state(ctx, sm, fundKey, &f)
+	height, err := p.state(ctx, sm, _fundKey, &f)
 	if err != nil {
 		return nil, height, err
 	}
 	return f.unclaimedBalance, height, nil
-}
-
-func (p *Protocol) assertEnoughBalance(
-	actionCtx protocol.ActionCtx,
-	sm protocol.StateReader,
-	amount *big.Int,
-) error {
-	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
-	if err != nil {
-		return err
-	}
-	if acc.Balance.Cmp(amount) < 0 {
-		return errors.New("balance is not enough for donation")
-	}
-	return nil
 }
 
 // DepositGas deposits gas into the rewarding fund

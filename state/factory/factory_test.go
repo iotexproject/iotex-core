@@ -1,14 +1,13 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package factory
 
 import (
-	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/hex"
 	"math/big"
 	"math/rand"
@@ -35,9 +34,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
@@ -48,31 +47,40 @@ import (
 )
 
 const (
-	triePath    = "trie.test"
-	stateDBPath = "stateDB.test"
+	_triePath    = "trie.test"
+	_stateDBPath = "stateDB.test"
 )
 
-var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+var _letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 func randStringRunes(n int) string {
 	b := make([]rune, n)
 	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+		b[i] = _letterRunes[rand.Intn(len(_letterRunes))]
 	}
 	return string(b)
 }
 
+func TestGenerateConfig(t *testing.T) {
+	require := require.New(t)
+	cfg := GenerateConfig(blockchain.DefaultConfig, genesis.Default)
+	require.Equal(27, len(cfg.Genesis.InitBalanceMap))
+	require.Equal(blockchain.DefaultConfig.ChainDBPath, cfg.Chain.ChainDBPath)
+}
+
 func TestSnapshot(t *testing.T) {
 	require := require.New(t)
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
 
-	cfg := config.Default
-	cfg.DB.DbPath = testTriePath
+	cfg := DefaultConfig
+	db1, err := db.CreateKVStore(db.DefaultConfig, testTriePath)
+	require.NoError(err)
+
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "5"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "7"
 	registry := protocol.NewRegistry()
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), RegistryOption(registry))
+	sf, err := NewFactory(cfg, db1, RegistryOption(registry))
 	require.NoError(err)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
@@ -83,6 +91,7 @@ func TestSnapshot(t *testing.T) {
 	require.NoError(sf.Start(ctx))
 	defer func() {
 		require.NoError(sf.Stop(ctx))
+		testutil.CleanupPath(testTriePath)
 	}()
 	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.NoError(err)
@@ -92,15 +101,19 @@ func TestSnapshot(t *testing.T) {
 
 func TestSDBSnapshot(t *testing.T) {
 	require := require.New(t)
-	testStateDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testStateDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(err)
+	defer testutil.CleanupPath(testStateDBPath)
 
-	cfg := config.Default
+	cfg := DefaultConfig
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "5"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "7"
 	registry := protocol.NewRegistry()
-	sdb, err := NewStateDB(cfg, CachedStateDBOption(), RegistryStateDBOption(registry))
+	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(err)
+	sdb, err := NewStateDB(cfg, db2, RegistryStateDBOption(registry))
 	require.NoError(err)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
@@ -121,13 +134,13 @@ func testRevert(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 
-	s, err := accountutil.LoadAccount(ws, sHash)
+	s, err := accountutil.LoadAccount(ws, identityset.Address(28))
 	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
 	require.Equal(1, s0)
 
-	s.Balance.Add(s.Balance, big.NewInt(5))
+	require.NoError(s.AddBalance(big.NewInt(5)))
 	require.Equal(big.NewInt(10), s.Balance)
 	_, err = ws.PutState(s, protocol.LegacyKeyOption(sHash))
 	require.NoError(err)
@@ -142,13 +155,13 @@ func testSDBRevert(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 
-	s, err := accountutil.LoadAccount(ws, sHash)
+	s, err := accountutil.LoadAccount(ws, identityset.Address(28))
 	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
 	require.Equal(1, s0)
 
-	s.Balance.Add(s.Balance, big.NewInt(5))
+	require.NoError(s.AddBalance(big.NewInt(5)))
 	require.Equal(big.NewInt(10), s.Balance)
 	_, err = ws.PutState(s, protocol.LegacyKeyOption(sHash))
 	require.NoError(err)
@@ -162,28 +175,30 @@ func testSDBRevert(ws *workingSet, t *testing.T) {
 func testSnapshot(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
+	sHashAddr := identityset.Address(28)
 	tHash := hash.BytesToHash160(identityset.Address(29).Bytes())
+	tHashAddr := identityset.Address(29)
 
-	s, err := accountutil.LoadAccount(ws, tHash)
+	s, err := accountutil.LoadAccount(ws, tHashAddr)
 	require.NoError(err)
 	require.Equal(big.NewInt(7), s.Balance)
-	s, err = accountutil.LoadAccount(ws, sHash)
+	s, err = accountutil.LoadAccount(ws, sHashAddr)
 	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
 	require.Zero(s0)
-	s.Balance.Add(s.Balance, big.NewInt(5))
+	require.NoError(s.AddBalance(big.NewInt(5)))
 	require.Equal(big.NewInt(10), s.Balance)
 	_, err = ws.PutState(s, protocol.LegacyKeyOption(sHash))
 	require.NoError(err)
 	s1 := ws.Snapshot()
 	require.Equal(1, s1)
-	s.Balance.Add(s.Balance, big.NewInt(5))
+	require.NoError(s.AddBalance(big.NewInt(5)))
 	require.Equal(big.NewInt(15), s.Balance)
 	_, err = ws.PutState(s, protocol.LegacyKeyOption(sHash))
 	require.NoError(err)
 
-	s, err = accountutil.LoadAccount(ws, tHash)
+	s, err = accountutil.LoadAccount(ws, tHashAddr)
 	require.NoError(err)
 	require.Equal(big.NewInt(7), s.Balance)
 	s2 := ws.Snapshot()
@@ -211,15 +226,15 @@ func testSnapshot(ws *workingSet, t *testing.T) {
 }
 
 func TestCandidates(t *testing.T) {
-	cfg := config.Default
-	sf, err := NewFactory(cfg, InMemTrieOption(), SkipBlockValidationOption())
+	cfg := DefaultConfig
+	sf, err := NewFactory(cfg, db.NewMemKVStore(), SkipBlockValidationOption())
 	require.NoError(t, err)
 	testCandidates(sf, t)
 }
 
 func TestSDBCandidates(t *testing.T) {
-	cfg := config.Default
-	sdb, err := NewStateDB(cfg, InMemStateDBOption(), SkipBlockValidationStateDBOption())
+	cfg := DefaultConfig
+	sdb, err := NewStateDB(cfg, db.NewMemKVStore(), SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
 	testCandidates(sdb, t)
 }
@@ -255,7 +270,7 @@ func testCandidates(sf Factory, t *testing.T) {
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 
 	require.NoError(t, sf.Register(rolldpos.NewProtocol(36, 36, 20)))
-	cfg := config.Default
+	cfg := DefaultConfig
 	slasher, err := poll.NewSlasher(
 		func(uint64, uint64) (map[string]uint64, error) {
 			return nil, nil
@@ -293,6 +308,7 @@ func testCandidates(sf Factory, t *testing.T) {
 			GasLimit:    gasLimit,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	require.NoError(t, sf.Start(ctx))
 	defer require.NoError(t, sf.Stop(ctx))
 
@@ -304,16 +320,22 @@ func testCandidates(sf Factory, t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, sf.PutBlock(
-		protocol.WithBlockCtx(
-			genesis.WithGenesisContext(context.Background(), cfg.Genesis),
-			protocol.BlockCtx{
-				BlockHeight: 1,
-				Producer:    identityset.Address(27),
-				GasLimit:    gasLimit,
-			},
+		protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(
+			protocol.WithBlockchainCtx(
+				protocol.WithBlockCtx(
+					genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+					protocol.BlockCtx{
+						BlockHeight: 1,
+						Producer:    identityset.Address(27),
+						GasLimit:    gasLimit,
+					},
+				),
+				protocol.BlockchainCtx{
+					ChainID: 1,
+				},
+			),
 		),
-		&blk,
-	))
+		), &blk))
 
 	candidates, _, err := candidatesutil.CandidatesFromDB(sf, 1, true, false)
 	require.NoError(t, err)
@@ -324,12 +346,14 @@ func testCandidates(sf Factory, t *testing.T) {
 }
 
 func TestState(t *testing.T) {
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(t, err)
+	defer testutil.CleanupPath(testTriePath)
 
-	cfg := config.Default
-	cfg.DB.DbPath = testTriePath
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), SkipBlockValidationOption())
+	cfg := DefaultConfig
+	db1, err := db.CreateKVStore(db.DefaultConfig, testTriePath)
+	require.NoError(t, err)
+	sf, err := NewFactory(cfg, db1, SkipBlockValidationOption())
 	require.NoError(t, err)
 	testState(sf, t)
 }
@@ -338,85 +362,105 @@ func TestHistoryState(t *testing.T) {
 	r := require.New(t)
 	var err error
 	// using factory and enable history
-	cfg := config.Default
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
+	cfg := DefaultConfig
+	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
 	cfg.Chain.EnableArchiveMode = true
-	sf, err := NewFactory(cfg, DefaultTrieOption(), SkipBlockValidationOption())
+	db1, err := db.CreateKVStore(db.DefaultConfig, cfg.Chain.TrieDBPath)
+	r.NoError(err)
+	sf, err := NewFactory(cfg, db1, SkipBlockValidationOption())
 	r.NoError(err)
 	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
 	// using stateDB and enable history
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
+	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
-	sf, err = NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
+	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	r.NoError(err)
+	sf, err = NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	r.NoError(err)
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 
 	// using factory and disable history
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
+	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
 	cfg.Chain.EnableArchiveMode = false
-	sf, err = NewFactory(cfg, DefaultTrieOption(), SkipBlockValidationOption())
+	db1, err = db.CreateKVStore(db.DefaultConfig, cfg.Chain.TrieDBPath)
+	r.NoError(err)
+	sf, err = NewFactory(cfg, db1, SkipBlockValidationOption())
 	r.NoError(err)
 	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
 	// using stateDB and disable history
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
+	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
-	sf, err = NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
+	db2, err = db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	r.NoError(err)
+	sf, err = NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	r.NoError(err)
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
+	defer func() {
+		testutil.CleanupPath(cfg.Chain.TrieDBPath)
+	}()
 }
 
 func TestFactoryStates(t *testing.T) {
 	r := require.New(t)
 	var err error
-	cfg := config.Default
-
+	cfg := DefaultConfig
 	// using factory
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
+	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
-	sf, err := NewFactory(cfg, DefaultTrieOption(), SkipBlockValidationOption())
+	db1, err := db.CreateKVStore(db.DefaultConfig, cfg.Chain.TrieDBPath)
+	r.NoError(err)
+	sf, err := NewFactory(cfg, db1, SkipBlockValidationOption())
 	r.NoError(err)
 	testFactoryStates(sf, t)
 
 	// using stateDB
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
+	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
-	sf, err = NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
+	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	r.NoError(err)
+	sf, err = NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	r.NoError(err)
 	testFactoryStates(sf, t)
+	defer testutil.CleanupPath(cfg.Chain.TrieDBPath)
 }
 
 func TestSDBState(t *testing.T) {
-	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(t, err)
+	defer testutil.CleanupPath(testDBPath)
 
-	cfg := config.Default
+	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = testDBPath
-	sdb, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
+	db1, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(t, err)
+	sdb, err := NewStateDB(cfg, db1, SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
 	testState(sdb, t)
 }
 
 func testState(sf Factory, t *testing.T) {
 	// Create a dummy iotex address
-	a := identityset.Address(28).String()
+	a := identityset.Address(28)
 	priKeyA := identityset.PrivateKey(28)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, sf.Register(acc))
 	ge := genesis.Default
-	ge.InitBalanceMap[a] = "100"
+	ge.InitBalanceMap[a.String()] = "100"
 	gasLimit := uint64(1000000)
-	ctx := protocol.WithBlockCtx(
+	ctx := protocol.WithBlockchainCtx(protocol.WithBlockCtx(
 		context.Background(),
 		protocol.BlockCtx{
 			BlockHeight: 0,
 			Producer:    identityset.Address(27),
 			GasLimit:    gasLimit,
 		},
-	)
+	), protocol.BlockchainCtx{
+		ChainID: 1,
+	})
 	ctx = genesis.WithGenesisContext(ctx, ge)
 
 	require.NoError(t, sf.Start(ctx))
@@ -427,7 +471,7 @@ func testState(sf Factory, t *testing.T) {
 	tsf, err := action.NewTransfer(1, big.NewInt(10), identityset.Address(31).String(), nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	elp := bd.SetAction(tsf).SetGasLimit(20000).SetNonce(1).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	ctx = protocol.WithBlockCtx(
@@ -448,25 +492,25 @@ func testState(sf Factory, t *testing.T) {
 	require.NoError(t, sf.PutBlock(ctx, &blk))
 
 	//test AccountState() & State()
-	var testAccount state.Account
-	accountA, err := accountutil.AccountState(sf, a)
+	testAccount := &state.Account{}
+	accountA, err := accountutil.AccountState(ctx, sf, a)
 	require.NoError(t, err)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
-	_, err = sf.State(&testAccount, protocol.LegacyKeyOption(sHash))
+	_, err = sf.State(testAccount, protocol.LegacyKeyOption(sHash))
 	require.NoError(t, err)
-	require.Equal(t, accountA, &testAccount)
+	require.Equal(t, accountA, testAccount)
 	require.Equal(t, big.NewInt(90), accountA.Balance)
 }
 
 func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	// Create a dummy iotex address
-	a := identityset.Address(28).String()
-	b := identityset.Address(31).String()
+	a := identityset.Address(28)
+	b := identityset.Address(31)
 	priKeyA := identityset.PrivateKey(28)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, sf.Register(acc))
 	ge := genesis.Default
-	ge.InitBalanceMap[a] = "100"
+	ge.InitBalanceMap[a.String()] = "100"
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
@@ -482,16 +526,16 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	defer func() {
 		require.NoError(t, sf.Stop(ctx))
 	}()
-	accountA, err := accountutil.AccountState(sf, a)
+	accountA, err := accountutil.AccountState(ctx, sf, a)
 	require.NoError(t, err)
-	accountB, err := accountutil.AccountState(sf, b)
+	accountB, err := accountutil.AccountState(ctx, sf, b)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(100), accountA.Balance)
 	require.Equal(t, big.NewInt(0), accountB.Balance)
-	tsf, err := action.NewTransfer(1, big.NewInt(10), b, nil, uint64(20000), big.NewInt(0))
+	tsf, err := action.NewTransfer(1, big.NewInt(10), b.String(), nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	elp := bd.SetAction(tsf).SetGasLimit(20000).SetNonce(1).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	ctx = protocol.WithBlockCtx(
@@ -502,6 +546,9 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 			GasLimit:    gasLimit,
 		},
 	)
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		ChainID: 1,
+	})
 	blk, err := block.NewTestingBuilder().
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
@@ -512,9 +559,9 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	require.NoError(t, sf.PutBlock(ctx, &blk))
 
 	// check latest balance
-	accountA, err = accountutil.AccountState(sf, a)
+	accountA, err = accountutil.AccountState(ctx, sf, a)
 	require.NoError(t, err)
-	accountB, err = accountutil.AccountState(sf, b)
+	accountB, err = accountutil.AccountState(ctx, sf, b)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(90), accountA.Balance)
 	require.Equal(t, big.NewInt(10), accountB.Balance)
@@ -522,20 +569,20 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	// check archive data
 	if statetx {
 		// statetx not support archive mode
-		_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), a)
+		_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), a)
 		require.Equal(t, ErrNotSupported, errors.Cause(err))
-		_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), b)
+		_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), b)
 		require.Equal(t, ErrNotSupported, errors.Cause(err))
 	} else {
 		if !archive {
-			_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), a)
+			_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), a)
 			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
-			_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), b)
+			_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), b)
 			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
 		} else {
-			accountA, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), a)
+			accountA, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), a)
 			require.NoError(t, err)
-			accountB, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), b)
+			accountB, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), b)
 			require.NoError(t, err)
 			require.Equal(t, big.NewInt(100), accountA.Balance)
 			require.Equal(t, big.NewInt(0), accountB.Balance)
@@ -572,7 +619,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	tsf, err := action.NewTransfer(1, big.NewInt(10), b, nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	elp := bd.SetAction(tsf).SetGasLimit(20000).SetNonce(1).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	ctx = protocol.WithBlockCtx(
@@ -583,6 +630,9 @@ func testFactoryStates(sf Factory, t *testing.T) {
 			GasLimit:    gasLimit,
 		},
 	)
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		ChainID: 1,
+	})
 	blk, err := block.NewTestingBuilder().
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
@@ -597,20 +647,8 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	_, _, err = sf.States(keyOpt)
 	require.Equal(t, ErrNotSupported, errors.Cause(err))
 
-	// case II: check without cond and namespace,key not exists
-	filterOpt := protocol.FilterOption(nil, []byte("1"), []byte("2"))
-	_, _, err = sf.States(filterOpt)
-	require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
-
-	// case III: check without cond,with AccountKVNamespace namespace,key not exists
-	filterOpt = protocol.FilterOption(nil, []byte("1"), []byte("2"))
-	namespaceOpt := protocol.NamespaceOption(AccountKVNamespace)
-	_, _, err = sf.States(filterOpt, namespaceOpt)
-	require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
-
-	// case IV: check without cond,with AccountKVNamespace namespace
-	namespaceOpt = protocol.NamespaceOption(AccountKVNamespace)
-	height, iter, err := sf.States(namespaceOpt)
+	// case II: check without namespace & keys
+	height, iter, err := sf.States()
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), height)
 	// two accounts and one CurrentHeightKey
@@ -627,14 +665,50 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
 	require.Equal(t, uint64(110), accounts[1].Balance.Uint64())
 
+	// case III: check without cond,with AccountKVNamespace namespace,key not exists
+	namespaceOpt := protocol.NamespaceOption(AccountKVNamespace)
+	height, iter, err = sf.States(namespaceOpt)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), height)
+	// two accounts and one CurrentHeightKey
+	require.Equal(t, 3, iter.Size())
+	accounts = make([]*state.Account, 0)
+	for i := 0; i < iter.Size(); i++ {
+		c := &state.Account{}
+		err = iter.Next(c)
+		if err != nil {
+			continue
+		}
+		accounts = append(accounts, c)
+	}
+	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
+	require.Equal(t, uint64(110), accounts[1].Balance.Uint64())
+
+	// case IV: check without cond,with AccountKVNamespace namespace
+	namespaceOpt = protocol.NamespaceOption(AccountKVNamespace)
+	height, iter, err = sf.States(namespaceOpt)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), height)
+	// two accounts and one CurrentHeightKey
+	require.Equal(t, 3, iter.Size())
+	accounts = make([]*state.Account, 0)
+	for i := 0; i < iter.Size(); i++ {
+		c := &state.Account{}
+		err = iter.Next(c)
+		if err != nil {
+			continue
+		}
+		accounts = append(accounts, c)
+	}
+	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
+	require.Equal(t, uint64(110), accounts[1].Balance.Uint64())
+
 	// case V: check cond,with AccountKVNamespace namespace
 	namespaceOpt = protocol.NamespaceOption(AccountKVNamespace)
 	addrHash := hash.BytesToHash160(identityset.Address(28).Bytes())
-	cond := func(k, v []byte) bool {
-		return bytes.Equal(k, addrHash[:])
-	}
-	condOpt := protocol.FilterOption(cond, nil, nil)
-	height, iter, err = sf.States(condOpt, namespaceOpt)
+	height, iter, err = sf.States(namespaceOpt, protocol.KeysOption(func() ([][]byte, error) {
+		return [][]byte{addrHash[:]}, nil
+	}))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), height)
 	require.Equal(t, 1, iter.Size())
@@ -648,23 +722,29 @@ func testFactoryStates(sf Factory, t *testing.T) {
 }
 
 func TestNonce(t *testing.T) {
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(t, err)
+	defer testutil.CleanupPath(testTriePath)
 
-	cfg := config.Default
-	cfg.DB.DbPath = testTriePath
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), SkipBlockValidationOption())
+	cfg := DefaultConfig
+	db1, err := db.CreateKVStore(db.DefaultConfig, testTriePath)
+	require.NoError(t, err)
+	sf, err := NewFactory(cfg, db1, SkipBlockValidationOption())
 	require.NoError(t, err)
 	testNonce(sf, t)
 }
 
 func TestSDBNonce(t *testing.T) {
-	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(t, err)
+	defer testutil.CleanupPath(testDBPath)
 
-	cfg := config.Default
+	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = testDBPath
-	sdb, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
+
+	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(t, err)
+	sdb, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
 
 	testNonce(sdb, t)
@@ -687,7 +767,7 @@ func testNonce(sf Factory, t *testing.T) {
 			Producer:    identityset.Address(27),
 			GasLimit:    gasLimit,
 		})
-	ctx = genesis.WithGenesisContext(ctx, ge)
+	ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(ctx, ge))
 
 	require.NoError(t, sf.Start(ctx))
 	defer func() {
@@ -723,11 +803,14 @@ func testNonce(sf Factory, t *testing.T) {
 			IntrinsicGas: intrinsicGas,
 		},
 	)
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		ChainID: 1,
+	})
 	_, err = ws.runAction(ctx, selp)
 	require.NoError(t, err)
-	state, err := accountutil.AccountState(sf, a.String())
+	state, err := accountutil.AccountState(ctx, sf, a)
 	require.NoError(t, err)
-	require.Equal(t, uint64(0), state.Nonce)
+	require.Equal(t, uint64(1), state.PendingNonce())
 
 	tx, err = action.NewTransfer(1, big.NewInt(2), b, nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
@@ -745,52 +828,62 @@ func testNonce(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, sf.PutBlock(ctx, &blk))
-	state, err = accountutil.AccountState(sf, a.String())
+	state, err = accountutil.AccountState(ctx, sf, a)
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), state.Nonce)
+	require.Equal(t, uint64(2), state.PendingNonce())
 }
 
 func TestLoadStoreHeight(t *testing.T) {
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(t, err)
+	defer testutil.CleanupPath(testTriePath)
 
-	cfg := config.Default
+	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = testTriePath
-	statefactory, err := NewFactory(cfg, DefaultTrieOption(), SkipBlockValidationOption())
+
+	db1, err := db.CreateKVStore(db.DefaultConfig, cfg.Chain.TrieDBPath)
+	require.NoError(t, err)
+	statefactory, err := NewFactory(cfg, db1, SkipBlockValidationOption())
 	require.NoError(t, err)
 
 	testLoadStoreHeight(statefactory, t)
 }
 
 func TestLoadStoreHeightInMem(t *testing.T) {
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(t, err)
+	defer testutil.CleanupPath(testTriePath)
 
-	cfg := config.Default
+	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = testTriePath
-	statefactory, err := NewFactory(cfg, InMemTrieOption(), SkipBlockValidationOption())
+	statefactory, err := NewFactory(cfg, db.NewMemKVStore(), SkipBlockValidationOption())
 	require.NoError(t, err)
 	testLoadStoreHeight(statefactory, t)
 }
 
 func TestSDBLoadStoreHeight(t *testing.T) {
-	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(t, err)
+	defer testutil.CleanupPath(testDBPath)
 
-	cfg := config.Default
+	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = testDBPath
-	db, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
+
+	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(t, err)
+	db, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
 
 	testLoadStoreHeight(db, t)
 }
 
 func TestSDBLoadStoreHeightInMem(t *testing.T) {
-	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(t, err)
-	cfg := config.Default
+	defer testutil.CleanupPath(testDBPath)
+	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = testDBPath
-	db, err := NewStateDB(cfg, InMemStateDBOption(), SkipBlockValidationStateDBOption())
+	db, err := NewStateDB(cfg, db.NewMemKVStore(), SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
 
 	testLoadStoreHeight(db, t)
@@ -830,15 +923,16 @@ func testLoadStoreHeight(sf Factory, t *testing.T) {
 
 func TestRunActions(t *testing.T) {
 	require := require.New(t)
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
 
-	cfg := config.Default
-	cfg.DB.DbPath = testTriePath
+	cfg := DefaultConfig
+	db1, err := db.CreateKVStore(db.DefaultConfig, testTriePath)
+	require.NoError(err)
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
 	registry := protocol.NewRegistry()
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), RegistryOption(registry), SkipBlockValidationOption())
+	sf, err := NewFactory(cfg, db1, RegistryOption(registry), SkipBlockValidationOption())
 	require.NoError(err)
 
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -850,20 +944,24 @@ func TestRunActions(t *testing.T) {
 	require.NoError(sf.Start(ctx))
 	defer func() {
 		require.NoError(sf.Stop(ctx))
+		testutil.CleanupPath(testTriePath)
 	}()
 	testCommit(sf, t)
 }
 
 func TestSTXRunActions(t *testing.T) {
 	require := require.New(t)
-	testStateDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testStateDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(err)
 
-	cfg := config.Default
+	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
-	sdb, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
+
+	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(err)
+	sdb, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	require.NoError(err)
 
 	registry := protocol.NewRegistry()
@@ -876,6 +974,7 @@ func TestSTXRunActions(t *testing.T) {
 	require.NoError(sdb.Start(ctx))
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
+		testutil.CleanupPath(testStateDBPath)
 	}()
 	testCommit(sdb, t)
 }
@@ -936,15 +1035,16 @@ func testCommit(factory Factory, t *testing.T) {
 
 func TestPickAndRunActions(t *testing.T) {
 	require := require.New(t)
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
 
-	cfg := config.Default
-	cfg.DB.DbPath = testTriePath
+	cfg := DefaultConfig
+	db1, err := db.CreateKVStore(db.DefaultConfig, testTriePath)
+	require.NoError(err)
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
 	registry := protocol.NewRegistry()
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), RegistryOption(registry))
+	sf, err := NewFactory(cfg, db1, RegistryOption(registry))
 	require.NoError(err)
 
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -956,21 +1056,24 @@ func TestPickAndRunActions(t *testing.T) {
 	require.NoError(sf.Start(ctx))
 	defer func() {
 		require.NoError(sf.Stop(ctx))
+		testutil.CleanupPath(testTriePath)
 	}()
 	testNewBlockBuilder(sf, t)
 }
 
 func TestSTXPickAndRunActions(t *testing.T) {
 	require := require.New(t)
-	testStateDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testStateDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(err)
 
-	cfg := config.Default
+	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
 	registry := protocol.NewRegistry()
-	sdb, err := NewStateDB(cfg, CachedStateDBOption(), RegistryStateDBOption(registry))
+	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(err)
+	sdb, err := NewStateDB(cfg, db2, RegistryStateDBOption(registry))
 	require.NoError(err)
 
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -982,6 +1085,7 @@ func TestSTXPickAndRunActions(t *testing.T) {
 	require.NoError(sdb.Start(ctx))
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
+		testutil.CleanupPath(testStateDBPath)
 	}()
 	testNewBlockBuilder(sdb, t)
 }
@@ -1028,6 +1132,7 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 		genesis.WithGenesisContext(ctx, genesis.Default),
 		protocol.BlockchainCtx{},
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	blkBuilder, err := factory.NewBlockBuilder(ctx, ap, nil)
 	require.NoError(err)
 	require.NotNil(blkBuilder)
@@ -1038,15 +1143,16 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 
 func TestSimulateExecution(t *testing.T) {
 	require := require.New(t)
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
 
-	cfg := config.Default
-	cfg.DB.DbPath = testTriePath
+	cfg := DefaultConfig
+	db1, err := db.CreateKVStore(db.DefaultConfig, testTriePath)
+	require.NoError(err)
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
 	registry := protocol.NewRegistry()
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), RegistryOption(registry))
+	sf, err := NewFactory(cfg, db1, RegistryOption(registry))
 	require.NoError(err)
 
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -1061,21 +1167,24 @@ func TestSimulateExecution(t *testing.T) {
 	require.NoError(sf.Start(ctx))
 	defer func() {
 		require.NoError(sf.Stop(ctx))
+		testutil.CleanupPath(testTriePath)
 	}()
 	testSimulateExecution(ctx, sf, t)
 }
 
 func TestSTXSimulateExecution(t *testing.T) {
 	require := require.New(t)
-	testStateDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testStateDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(err)
 
-	cfg := config.Default
+	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
 	registry := protocol.NewRegistry()
-	sdb, err := NewStateDB(cfg, CachedStateDBOption(), RegistryStateDBOption(registry))
+	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(err)
+	sdb, err := NewStateDB(cfg, db2, RegistryStateDBOption(registry))
 	require.NoError(err)
 
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -1090,6 +1199,7 @@ func TestSTXSimulateExecution(t *testing.T) {
 	require.NoError(sdb.Start(ctx))
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
+		testutil.CleanupPath(testStateDBPath)
 	}()
 	testSimulateExecution(ctx, sdb, t)
 }
@@ -1110,7 +1220,7 @@ func testSimulateExecution(ctx context.Context, sf Factory, t *testing.T) {
 }
 
 func TestCachedBatch(t *testing.T) {
-	sf, err := NewFactory(config.Default, InMemTrieOption())
+	sf, err := NewFactory(DefaultConfig, db.NewMemKVStore())
 	require.NoError(t, err)
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
@@ -1123,7 +1233,7 @@ func TestCachedBatch(t *testing.T) {
 }
 
 func TestSTXCachedBatch(t *testing.T) {
-	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
+	sdb, err := NewStateDB(DefaultConfig, db.NewMemKVStore())
 	require.NoError(t, err)
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
@@ -1140,14 +1250,15 @@ func testCachedBatch(ws *workingSet, t *testing.T) {
 
 	// test PutState()
 	hashA := hash.BytesToHash160(identityset.Address(28).Bytes())
-	accountA := state.EmptyAccount()
-	accountA.Balance = big.NewInt(70)
-	_, err := ws.PutState(accountA, protocol.LegacyKeyOption(hashA))
+	accountA, err := state.NewAccount()
+	require.NoError(err)
+	require.NoError(accountA.AddBalance(big.NewInt(70)))
+	_, err = ws.PutState(accountA, protocol.LegacyKeyOption(hashA))
 	require.NoError(err)
 
 	// test State()
-	testAccount := state.EmptyAccount()
-	_, err = ws.State(&testAccount, protocol.LegacyKeyOption(hashA))
+	testAccount := &state.Account{}
+	_, err = ws.State(testAccount, protocol.LegacyKeyOption(hashA))
 	require.NoError(err)
 	require.Equal(accountA, testAccount)
 
@@ -1156,57 +1267,151 @@ func testCachedBatch(ws *workingSet, t *testing.T) {
 	require.NoError(err)
 
 	// can't state account "alfa" anymore
-	_, err = ws.State(&testAccount, protocol.LegacyKeyOption(hashA))
+	_, err = ws.State(testAccount, protocol.LegacyKeyOption(hashA))
 	require.Error(err)
 }
 
-func TestGetDB(t *testing.T) {
+func TestStateDBPatch(t *testing.T) {
 	require := require.New(t)
-	sf, err := NewFactory(config.Default, InMemTrieOption())
+	n1 := "n1"
+	n2 := "n2"
+	a1 := "a1"
+	a2 := "a2"
+	b11 := "bb11"
+	b12 := "bb12"
+	b21 := "bb21"
+	b22 := "bb22"
+	ha1, err := hex.DecodeString(a1)
 	require.NoError(err)
-	ctx := genesis.WithGenesisContext(
-		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		genesis.Default,
-	)
-	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
+	ha2, err := hex.DecodeString(a2)
 	require.NoError(err)
-	h, _ := ws.Height()
-	require.Equal(uint64(1), h)
-	kvStore := ws.GetDB()
-	_, ok := kvStore.(db.KVStoreWithBuffer)
-	require.True(ok)
-}
+	hb11, err := hex.DecodeString(b11)
+	require.NoError(err)
+	hb12, err := hex.DecodeString(b12)
+	require.NoError(err)
+	hb21, err := hex.DecodeString(b21)
+	require.NoError(err)
+	hb22, err := hex.DecodeString(b22)
+	require.NoError(err)
+	patchTest := [][]string{
+		{"1", "PUT", n1, a1, b11},
+		{"1", "PUT", n1, a2, b12},
+		{"1", "PUT", n2, a1, b21},
+		{"2", "DELETE", n1, a1},
+		{"2", "PUT", n2, a2, b22},
+	}
+	patchFile, err := testutil.PathOfTempFile(_triePath + ".patch")
+	require.NoError(err)
+	f, err := os.Create(patchFile)
+	require.NoError(err)
+	require.NoError(csv.NewWriter(f).WriteAll(patchTest))
+	require.NoError(f.Close())
 
-func TestSTXGetDB(t *testing.T) {
-	require := require.New(t)
-	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
+	testDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(err)
-	ctx := genesis.WithGenesisContext(
-		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		genesis.Default,
+	cfg := DefaultConfig
+	dbcfg := db.DefaultConfig
+	dbcfg.DbPath = testDBPath
+	cfg.Chain.TrieDBPatchFile = patchFile
+	trieDB := db.NewBoltDB(dbcfg)
+	sdb, err := NewStateDB(cfg, trieDB, DefaultPatchOption(), SkipBlockValidationStateDBOption())
+	require.NoError(err)
+	gasLimit := testutil.TestGasLimit
+
+	ctx := protocol.WithBlockCtx(
+		context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: 0,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		},
 	)
-	ws, err := sdb.(workingSetCreator).newWorkingSet(ctx, 1)
+	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+
+	require.NoError(sdb.Start(ctx))
+	defer func() {
+		require.NoError(sdb.Stop(ctx))
+		testutil.CleanupPath(patchFile)
+		testutil.CleanupPath(testDBPath)
+	}()
+	ctx = protocol.WithBlockchainCtx(protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		}), protocol.BlockchainCtx{
+		ChainID: 1,
+	})
+	_, err = trieDB.Get(n1, ha1)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	_, err = trieDB.Get(n1, ha2)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	_, err = trieDB.Get(n2, ha1)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	_, err = trieDB.Get(n2, ha2)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	blk1, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	h, _ := ws.Height()
-	require.Equal(uint64(1), h)
-	kvStore := ws.GetDB()
-	_, ok := kvStore.(db.KVStoreWithBuffer)
-	require.True(ok)
+	require.NoError(sdb.PutBlock(ctx, &blk1))
+	v11, err := trieDB.Get(n1, ha1)
+	require.NoError(err)
+	require.Equal(v11, hb11)
+	v12, err := trieDB.Get(n1, ha2)
+	require.NoError(err)
+	require.Equal(v12, hb12)
+	v21, err := trieDB.Get(n2, ha1)
+	require.NoError(err)
+	require.Equal(v21, hb21)
+	_, err = trieDB.Get(n2, ha2)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	ctx = protocol.WithBlockchainCtx(protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight: 2,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		}), protocol.BlockchainCtx{
+		ChainID: 1,
+	})
+	blk2, err := block.NewTestingBuilder().
+		SetHeight(2).
+		SetPrevBlockHash(blk1.HashBlock()).
+		SetTimeStamp(testutil.TimestampNow()).
+		SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(err)
+	require.NoError(sdb.PutBlock(ctx, &blk2))
+	v11, err = trieDB.Get(n1, ha1)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	v12, err = trieDB.Get(n1, ha2)
+	require.NoError(err)
+	require.Equal(v12, hb12)
+	v21, err = trieDB.Get(n2, ha1)
+	require.NoError(err)
+	require.Equal(v21, hb21)
+	v22, err := trieDB.Get(n2, ha2)
+	require.NoError(err)
+	require.Equal(v22, hb22)
+
+	require.NoError(os.RemoveAll(patchFile))
 }
 
 func TestDeleteAndPutSameKey(t *testing.T) {
 	testDeleteAndPutSameKey := func(t *testing.T, ws *workingSet) {
 		key := hash.Hash160b([]byte("test"))
-		acc := state.Account{
-			Nonce: 1,
-		}
-		_, err := ws.PutState(acc, protocol.LegacyKeyOption(key))
+		acc, err := state.NewAccount()
+		require.NoError(t, err)
+		require.NoError(t, acc.SetPendingNonce(1))
+		require.NoError(t, acc.SetPendingNonce(2))
+		_, err = ws.PutState(acc, protocol.LegacyKeyOption(key))
 		require.NoError(t, err)
 		_, err = ws.DelState(protocol.LegacyKeyOption(key))
 		require.NoError(t, err)
-		_, err = ws.State(&acc, protocol.LegacyKeyOption(key))
+		_, err = ws.State(acc, protocol.LegacyKeyOption(key))
 		require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
-		_, err = ws.State(&acc, protocol.LegacyKeyOption(hash.Hash160b([]byte("other"))))
+		_, err = ws.State(acc, protocol.LegacyKeyOption(hash.Hash160b([]byte("other"))))
 		require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
 	}
 	ctx := genesis.WithGenesisContext(
@@ -1214,14 +1419,15 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 		genesis.Default,
 	)
 	t.Run("workingSet", func(t *testing.T) {
-		sf, err := NewFactory(config.Default, InMemTrieOption())
+		sf, err := NewFactory(DefaultConfig, db.NewMemKVStore())
 		require.NoError(t, err)
 		ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 0)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})
 	t.Run("stateTx", func(t *testing.T) {
-		sdb, err := NewStateDB(config.Default, InMemStateDBOption())
+		sdb, err := NewStateDB(DefaultConfig, db.NewMemKVStore())
+		require.NoError(t, err)
 		ws, err := sdb.(workingSetCreator).newWorkingSet(ctx, 0)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
@@ -1229,8 +1435,8 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 }
 
 func BenchmarkInMemRunAction(b *testing.B) {
-	cfg := config.Default
-	sf, err := NewFactory(cfg, InMemTrieOption(), SkipBlockValidationOption())
+	cfg := DefaultConfig
+	sf, err := NewFactory(cfg, db.NewMemKVStore(), SkipBlockValidationOption())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1238,14 +1444,15 @@ func BenchmarkInMemRunAction(b *testing.B) {
 }
 
 func BenchmarkDBRunAction(b *testing.B) {
-	tp := filepath.Join(os.TempDir(), triePath)
+	tp := filepath.Join(os.TempDir(), _triePath)
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
 
-	cfg := config.Default
-	cfg.DB.DbPath = tp
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), SkipBlockValidationOption())
+	cfg := DefaultConfig
+	db1, err := db.CreateKVStore(db.DefaultConfig, tp)
+	require.NoError(b, err)
+	sf, err := NewFactory(cfg, db1, SkipBlockValidationOption())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1257,8 +1464,8 @@ func BenchmarkDBRunAction(b *testing.B) {
 }
 
 func BenchmarkSDBInMemRunAction(b *testing.B) {
-	cfg := config.Default
-	sdb, err := NewStateDB(cfg, InMemStateDBOption(), SkipBlockValidationStateDBOption())
+	cfg := DefaultConfig
+	sdb, err := NewStateDB(cfg, db.NewMemKVStore(), SkipBlockValidationStateDBOption())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1266,13 +1473,15 @@ func BenchmarkSDBInMemRunAction(b *testing.B) {
 }
 
 func BenchmarkSDBRunAction(b *testing.B) {
-	tp := filepath.Join(os.TempDir(), stateDBPath)
+	tp := filepath.Join(os.TempDir(), _stateDBPath)
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
-	cfg := config.Default
+	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = tp
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
+	db1, err := db.CreateKVStore(db.DefaultConfig, cfg.Chain.TrieDBPath)
+	require.NoError(b, err)
+	sdb, err := NewStateDB(cfg, db1, SkipBlockValidationStateDBOption())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1283,13 +1492,15 @@ func BenchmarkSDBRunAction(b *testing.B) {
 }
 
 func BenchmarkCachedSDBRunAction(b *testing.B) {
-	tp := filepath.Join(os.TempDir(), stateDBPath)
+	tp := filepath.Join(os.TempDir(), _stateDBPath)
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
-	cfg := config.Default
+	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = tp
-	sdb, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
+	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(b, err)
+	sdb, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1393,13 +1604,15 @@ func benchRunAction(sf Factory, b *testing.B) {
 }
 
 func BenchmarkSDBState(b *testing.B) {
-	tp := filepath.Join(os.TempDir(), stateDBPath)
+	tp := filepath.Join(os.TempDir(), _stateDBPath)
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
-	cfg := config.Default
+	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = tp
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
+	db1, err := db.CreateKVStore(db.DefaultConfig, cfg.Chain.TrieDBPath)
+	require.NoError(b, err)
+	sdb, err := NewStateDB(cfg, db1, SkipBlockValidationStateDBOption())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1410,13 +1623,15 @@ func BenchmarkSDBState(b *testing.B) {
 }
 
 func BenchmarkCachedSDBState(b *testing.B) {
-	tp := filepath.Join(os.TempDir(), stateDBPath)
+	tp := filepath.Join(os.TempDir(), _stateDBPath)
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
-	cfg := config.Default
+	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = tp
-	sdb, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
+	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(b, err)
+	sdb, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1516,7 +1731,11 @@ func benchState(sf Factory, b *testing.B) {
 	for n := 1; n < b.N; n++ {
 		b.StartTimer()
 		idx := rand.Int() % len(accounts)
-		_, err := accountutil.AccountState(sf, accounts[idx])
+		addr, err := address.FromString(accounts[idx])
+		if err != nil {
+			b.Fatal(err)
+		}
+		_, err = accountutil.AccountState(zctx, sf, addr)
 		if err != nil {
 			b.Fatal(err)
 		}

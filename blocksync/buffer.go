@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package blocksync
 
@@ -35,7 +34,7 @@ func newBlockBuffer(bufferSize, intervalSize uint64) *blockBuffer {
 	}
 }
 
-func (b *blockBuffer) Delete(height uint64) []*peerBlock {
+func (b *blockBuffer) Pop(height uint64) []*peerBlock {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	queue, ok := b.blockQueues[height]
@@ -66,18 +65,21 @@ func (b *blockBuffer) Cleanup(height uint64) {
 }
 
 // AddBlock tries to put given block into buffer and flush buffer into blockchain.
-func (b *blockBuffer) AddBlock(tipHeight uint64, blk *peerBlock) bool {
+func (b *blockBuffer) AddBlock(tipHeight uint64, blk *peerBlock) (bool, uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	blkHeight := blk.block.Height()
-	if blkHeight > tipHeight && blkHeight <= tipHeight+b.bufferSize {
-		if _, ok := b.blockQueues[blkHeight]; !ok {
-			b.blockQueues[blkHeight] = newUniQueue()
-		}
-		b.blockQueues[blkHeight].enque(blk)
-		return true
+	if blkHeight <= tipHeight {
+		return false, blkHeight
 	}
-	return false
+	if blkHeight > tipHeight+b.bufferSize {
+		return false, tipHeight + b.bufferSize
+	}
+	if _, ok := b.blockQueues[blkHeight]; !ok {
+		b.blockQueues[blkHeight] = newUniQueue()
+	}
+	b.blockQueues[blkHeight].enque(blk)
+	return true, blkHeight
 }
 
 // GetBlocksIntervalsToSync returns groups of syncBlocksInterval are missing upto targetHeight.

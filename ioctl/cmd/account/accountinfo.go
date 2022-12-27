@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
@@ -21,20 +20,20 @@ import (
 
 // Multi-language support
 var (
-	infoCmdUses = map[config.Language]string{
+	_infoCmdUses = map[config.Language]string{
 		config.English: "info [ALIAS|ADDRESS]",
 		config.Chinese: "info [别名|地址]",
 	}
-	infoCmdShorts = map[config.Language]string{
+	_infoCmdShorts = map[config.Language]string{
 		config.English: "Display an account's information",
 		config.Chinese: "显示账号信息",
 	}
 )
 
-// accountInfoCmd represents the account info command
-var accountInfoCmd = &cobra.Command{
-	Use:   config.TranslateInLang(infoCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(infoCmdShorts, config.UILanguage),
+// _accountInfoCmd represents the account info command
+var _accountInfoCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_infoCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_infoCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -45,8 +44,8 @@ var accountInfoCmd = &cobra.Command{
 
 type infoMessage struct {
 	Address          string `json:"address"`
+	EthAddress       string `json:"ethAddress"`
 	Balance          string `json:"balance"`
-	Nonce            int    `json:"nonce"`
 	PendingNonce     int    `json:"pendingNonce"`
 	NumActions       int    `json:"numActions"`
 	IsContract       bool   `json:"isContract"`
@@ -67,15 +66,18 @@ func info(arg string) error {
 	if err != nil {
 		return output.NewError(output.APIError, "", err)
 	}
-	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
+	balance, ok := new(big.Int).SetString(accountMeta.Balance, 10)
 	if !ok {
 		return output.NewError(output.ConvertError, "", err)
 	}
-
+	ethAddr, err := address.FromString(addr)
+	if err != nil {
+		return output.NewError(output.ConvertError, "", err)
+	}
 	message := infoMessage{
 		Address:          addr,
+		EthAddress:       ethAddr.Hex(),
 		Balance:          util.RauToString(balance, util.IotxDecimalNum),
-		Nonce:            int(accountMeta.Nonce),
 		PendingNonce:     int(accountMeta.PendingNonce),
 		NumActions:       int(accountMeta.NumActions),
 		IsContract:       accountMeta.IsContract,

@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package rewarding
 
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -27,8 +25,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
@@ -83,6 +81,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		_, err := p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.NoError(t, err)
 
+		ctx = protocol.WithFeatureWithHeightCtx(ctx)
 		// Grant epoch reward
 		rewardLogs, err := p.GrantEpochReward(ctx, sm)
 		require.NoError(t, err)
@@ -189,6 +188,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		_, err := p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.NoError(t, err)
 
+		ctx = protocol.WithFeatureWithHeightCtx(ctx)
 		// Grant epoch reward
 		_, err = p.GrantEpochReward(ctx, sm)
 		require.NoError(t, err)
@@ -227,7 +227,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		claimCtx := protocol.WithActionCtx(ctx, claimActionCtx)
 
 		// Record the init balance of account
-		primAcc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
+		primAcc, err := accountutil.LoadAccount(sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		initBalance := primAcc.Balance
 
@@ -240,7 +240,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		unclaimedBalance, _, err := p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
+		primAcc, err = accountutil.LoadAccount(sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		initBalance = new(big.Int).Add(initBalance, big.NewInt(5))
 		assert.Equal(t, initBalance, primAcc.Balance)
@@ -259,7 +259,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
+		primAcc, err = accountutil.LoadAccount(sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, initBalance, primAcc.Balance)
 
@@ -278,7 +278,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
-		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
+		primAcc, err = accountutil.LoadAccount(sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		initBalance = new(big.Int).Add(initBalance, big.NewInt(5))
 		assert.Equal(t, initBalance, primAcc.Balance)
@@ -330,7 +330,23 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		}).AnyTimes()
 	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
-	p := NewProtocol(0, 0)
+	ge := genesis.Default
+	ge.Rewarding.InitBalanceStr = "0"
+	ge.Rewarding.BlockRewardStr = "10"
+	ge.Rewarding.EpochRewardStr = "100"
+	ge.Rewarding.NumDelegatesForEpochReward = 10
+	ge.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
+	ge.Rewarding.FoundationBonusStr = "5"
+	ge.Rewarding.NumDelegatesForFoundationBonus = 5
+	ge.Rewarding.FoundationBonusLastEpoch = 365
+	ge.Rewarding.ProductivityThreshold = 50
+	ge.Rewarding.FoundationBonusP2StartEpoch = 365
+	ge.Rewarding.FoundationBonusP2EndEpoch = 365
+
+	// Create a test account with 1000 token
+	ge.InitBalanceMap[identityset.Address(0).String()] = "1000"
+
+	p := NewProtocol(ge.Rewarding)
 	rp := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
@@ -348,7 +364,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			RewardAddress: identityset.Address(1).String(),
 		},
 	}
-	cfg := config.Default
+	g := genesis.Default
 	committee := mock_committee.NewMockCommittee(ctrl)
 	slasher, err := poll.NewSlasher(
 		func(uint64, uint64) (map[string]uint64, error) {
@@ -365,38 +381,24 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		nil,
 		2,
 		2,
-		cfg.Genesis.DardanellesNumSubEpochs,
-		cfg.Genesis.ProductivityThreshold,
-		cfg.Genesis.ProbationEpochPeriod,
-		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-		cfg.Genesis.ProbationIntensityRate)
+		g.DardanellesNumSubEpochs,
+		g.ProductivityThreshold,
+		g.ProbationEpochPeriod,
+		g.UnproductiveDelegateMaxCacheSize,
+		g.ProbationIntensityRate)
 	require.NoError(t, err)
 	pp, err := poll.NewGovernanceChainCommitteeProtocol(
 		nil,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
-		cfg.Chain.PollInitialCandidatesInterval,
+		blockchain.DefaultConfig.PollInitialCandidatesInterval,
 		slasher,
 	)
 	require.NoError(t, err)
 	require.NoError(t, rp.Register(registry))
 	require.NoError(t, pp.Register(registry))
 	require.NoError(t, p.Register(registry))
-
-	ge := config.Default.Genesis
-	ge.Rewarding.InitBalanceStr = "0"
-	ge.Rewarding.BlockRewardStr = "10"
-	ge.Rewarding.EpochRewardStr = "100"
-	ge.Rewarding.NumDelegatesForEpochReward = 10
-	ge.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
-	ge.Rewarding.FoundationBonusStr = "5"
-	ge.Rewarding.NumDelegatesForFoundationBonus = 5
-	ge.Rewarding.FoundationBonusLastEpoch = 365
-	ge.Rewarding.ProductivityThreshold = 50
-
-	// Create a test account with 1000 token
-	ge.InitBalanceMap[identityset.Address(0).String()] = "1000"
 
 	// Initialize the protocol
 	ctx := protocol.WithBlockCtx(
@@ -408,6 +410,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			BlockHeight: 0,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 	ap := account.NewProtocol(DepositGas)
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
 	require.NoError(t, p.CreateGenesisStates(ctx, sm))
@@ -438,6 +441,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	_, err = p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 	require.NoError(t, err)
 
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	// Grant block reward
 	_, err = p.GrantBlockReward(ctx, sm)
 	require.NoError(t, err)
@@ -450,6 +454,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	assert.Equal(t, big.NewInt(10), unclaimedBalance)
 
 	// Grant epoch reward
+	ctx = protocol.WithFeatureCtx(ctx)
 	rewardLogs, err := p.GrantEpochReward(ctx, sm)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(rewardLogs))

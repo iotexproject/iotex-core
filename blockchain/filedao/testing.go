@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package filedao
 
@@ -21,12 +20,14 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
+
+var _defaultEVMNetworkID uint32 = 4689
 
 type (
 	// testInMemFd is an in-memory FileDAO
@@ -68,6 +69,7 @@ func newFileDAOv2InMem(bottom uint64) (*fileDAOv2, error) {
 		blkCache: cache.NewThreadSafeLruCache(16),
 		kvStore:  db.NewMemKVStore(),
 		batch:    batch.NewBatch(),
+		deser:    block.NewDeserializer(_defaultEVMNetworkID),
 	}
 	return &fd, nil
 }
@@ -222,7 +224,7 @@ func testVerifyChainDB(t *testing.T, fd FileDAO, start, end uint64) {
 }
 
 func createTestingBlock(builder *block.TestingBuilder, height uint64, h hash.Hash256) *block.Block {
-	block.LoadGenesisHash(&config.Default.Genesis)
+	block.LoadGenesisHash(&genesis.Default)
 	r := &action.Receipt{
 		Status:      1,
 		BlockHeight: height,

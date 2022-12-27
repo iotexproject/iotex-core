@@ -1,8 +1,7 @@
-// Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
@@ -17,20 +16,20 @@ import (
 
 // Multi-language support
 var (
-	claimCmdShorts = map[config.Language]string{
+	_claimCmdShorts = map[config.Language]string{
 		config.English: "Claim rewards from rewarding fund",
 		config.Chinese: "从奖励基金中获取奖励",
 	}
-	claimCmdUses = map[config.Language]string{
+	_claimCmdUses = map[config.Language]string{
 		config.English: "claim AMOUNT_IOTX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
 		config.Chinese: "claim IOTX数量 [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 )
 
-// actionClaimCmd represents the action claim command
-var actionClaimCmd = &cobra.Command{
-	Use:   config.TranslateInLang(claimCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(claimCmdShorts, config.UILanguage),
+// _actionClaimCmd represents the action claim command
+var _actionClaimCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_claimCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_claimCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -40,7 +39,7 @@ var actionClaimCmd = &cobra.Command{
 }
 
 func init() {
-	RegisterWriteCommand(actionClaimCmd)
+	RegisterWriteCommand(_actionClaimCmd)
 }
 
 func claim(args []string) error {
@@ -56,7 +55,7 @@ func claim(args []string) error {
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signer address", err)
 	}
-	gasLimit := gasLimitFlag.Value().(uint64)
+	gasLimit := _gasLimitFlag.Value().(uint64)
 	if gasLimit == 0 {
 		gasLimit = action.ClaimFromRewardingFundBaseGas +
 			action.ClaimFromRewardingFundGasPerByte*uint64(len(payload))

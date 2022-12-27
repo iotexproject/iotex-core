@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package util
 
@@ -10,24 +9,20 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
 
-	"google.golang.org/grpc/metadata"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-
-	"github.com/iotexproject/iotex-address/address"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -45,10 +40,10 @@ const (
 // ExecuteCmd executes cmd with args, and return system output, e.g., help info, and error
 func ExecuteCmd(cmd *cobra.Command, args ...string) (string, error) {
 	buf := new(bytes.Buffer)
-	cmd.SetOutput(buf)
+	cmd.SetOut(buf)
+	cmd.SetErr(new(bytes.Buffer))
 	cmd.SetArgs(args)
-	_, err := cmd.ExecuteC()
-
+	err := cmd.Execute()
 	return buf.String(), err
 }
 
@@ -61,7 +56,7 @@ func ConnectToEndpoint(secure bool) (*grpc.ClientConn, error) {
 	if !secure {
 		return grpc.Dial(endpoint, grpc.WithInsecure())
 	}
-	return grpc.Dial(endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+	return grpc.Dial(endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
 }
 
 // StringToRau converts different unit string into Rau big int
@@ -79,7 +74,7 @@ func StringToRau(amount string, numDecimals int) (*big.Int, error) {
 	}
 	zeroString := strings.Repeat("0", numDecimals)
 	amountStrings[0] += zeroString
-	amountRau, ok := big.NewInt(0).SetString(amountStrings[0], 10)
+	amountRau, ok := new(big.Int).SetString(amountStrings[0], 10)
 	if !ok {
 		return nil, output.NewError(output.ConvertError, "failed to convert string into big int", nil)
 	}
@@ -104,18 +99,6 @@ func RauToString(amount *big.Int, numDecimals int) string {
 		return amountInt.String() + "." + decString
 	}
 	return amountInt.String()
-}
-
-// IoAddrToEvmAddr converts IoTeX address into evm address
-func IoAddrToEvmAddr(ioAddr string) (common.Address, error) {
-	if err := validator.ValidateAddress(ioAddr); err != nil {
-		return common.Address{}, output.NewError(output.ValidationError, "", err)
-	}
-	address, err := address.FromString(ioAddr)
-	if err != nil {
-		return common.Address{}, output.NewError(output.ConvertError, "", err)
-	}
-	return common.BytesToAddress(address.Bytes()), nil
 }
 
 // StringToIOTX converts Rau string to Iotx string
@@ -172,7 +155,7 @@ func GetAddress(in string) (string, error) {
 func Address(in string) (string, error) {
 	if len(in) >= validator.IoAddrLen {
 		if err := validator.ValidateAddress(in); err != nil {
-			return "", output.NewError(output.ValidationError, "", err)
+			return "", output.NewError(output.ValidationError, in, err)
 		}
 		return in, nil
 	}
@@ -180,13 +163,13 @@ func Address(in string) (string, error) {
 	if ok {
 		return addr, nil
 	}
-	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
+	return "", output.NewError(output.ConfigError, "cannot find address for alias "+in, nil)
 }
 
 // JwtAuth used for ioctl set auth and send for every grpc request
 func JwtAuth() (jwt metadata.MD, err error) {
 	jwtFile := os.Getenv("HOME") + "/.config/ioctl/default/auth.jwt"
-	jwtString, err := ioutil.ReadFile(jwtFile)
+	jwtString, err := os.ReadFile(filepath.Clean(jwtFile))
 	if err != nil {
 		return nil, err
 	}

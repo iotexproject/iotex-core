@@ -4,16 +4,23 @@ coverage:
     project:
       default:
         enabled: yes
-        target: 60%
+        target: 85%
     patch:
       default:
         enabled: yes
         target: auto
 ignore:
-  - "test/mock/**/*"
-  - "consensus/scheme/rolldpos/endorsementpb"
   - "action/protocol/rewarding/rewardingpb"
-  - "ction/protocol/account/accountpb"
-  - "db/trie/triepb"
+  - "action/protocol/account/accountpb"
+  - "action/protocol/poll/*.abi.go"
   - "blockindex/indexpb"
-  - "tools/executiontester/blockchain"
+  - "consensus/scheme/rolldpos/endorsementpb"
+  - "db/trie/triepb"
+  - "db/mock_kvstore.go"
+  - "e2etest/*"
+  - "ioctl/cmd/**/*"
+  - "ioctl/doc/*"
+  - "ioctl/flag/*"
+  - "ioctl/output/*"
+  - "test/mock/**/*"
+  - "tools/**/*"

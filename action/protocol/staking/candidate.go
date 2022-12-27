@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package staking
 
@@ -16,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -70,11 +69,11 @@ func (d *Candidate) Equal(c *Candidate) bool {
 // Validate does the sanity check
 func (d *Candidate) Validate() error {
 	if d.Votes == nil {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 
 	if d.Name == "" {
-		return ErrInvalidCanName
+		return action.ErrInvalidCanName
 	}
 
 	if d.Owner == nil {
@@ -90,7 +89,7 @@ func (d *Candidate) Validate() error {
 	}
 
 	if d.SelfStake == nil {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 	return nil
 }
@@ -101,7 +100,7 @@ func (d *Candidate) Collision(c *Candidate) error {
 		return nil
 	}
 	if c.Name == d.Name {
-		return ErrInvalidCanName
+		return action.ErrInvalidCanName
 	}
 	if address.Equal(c.Operator, d.Operator) {
 		return ErrInvalidOperator
@@ -115,7 +114,7 @@ func (d *Candidate) Collision(c *Candidate) error {
 // AddVote adds vote
 func (d *Candidate) AddVote(amount *big.Int) error {
 	if amount.Sign() < 0 {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 	d.Votes.Add(d.Votes, amount)
 	return nil
@@ -124,11 +123,11 @@ func (d *Candidate) AddVote(amount *big.Int) error {
 // SubVote subtracts vote
 func (d *Candidate) SubVote(amount *big.Int) error {
 	if amount.Sign() < 0 {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 
 	if d.Votes.Cmp(amount) == -1 {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 	d.Votes.Sub(d.Votes, amount)
 	return nil
@@ -137,7 +136,7 @@ func (d *Candidate) SubVote(amount *big.Int) error {
 // AddSelfStake adds self stake
 func (d *Candidate) AddSelfStake(amount *big.Int) error {
 	if amount.Sign() < 0 {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 	d.SelfStake.Add(d.SelfStake, amount)
 	return nil
@@ -146,11 +145,11 @@ func (d *Candidate) AddSelfStake(amount *big.Int) error {
 // SubSelfStake subtracts self stake
 func (d *Candidate) SubSelfStake(amount *big.Int) error {
 	if amount.Sign() < 0 {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 
 	if d.Votes.Cmp(amount) == -1 {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 	d.SelfStake.Sub(d.SelfStake, amount)
 	return nil
@@ -216,13 +215,13 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	var ok bool
 	d.Votes, ok = new(big.Int).SetString(pb.GetVotes(), 10)
 	if !ok {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 
 	d.SelfStakeBucketIdx = pb.GetSelfStakeBucketIdx()
 	d.SelfStake, ok = new(big.Int).SetString(pb.GetSelfStake(), 10)
 	if !ok {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 	return nil
 }
@@ -254,7 +253,25 @@ func (l CandidateList) Less(i, j int) bool {
 	if res := l[i].Votes.Cmp(l[j].Votes); res != 0 {
 		return res == 1
 	}
-	return strings.Compare(l[i].Owner.String(), l[j].Owner.String()) == 1
+	if res := strings.Compare(l[i].Owner.String(), l[j].Owner.String()); res != 0 {
+		return res == 1
+	}
+	if res := strings.Compare(l[i].Reward.String(), l[j].Reward.String()); res != 0 {
+		return res == 1
+	}
+	if res := strings.Compare(l[i].Operator.String(), l[j].Operator.String()); res != 0 {
+		return res == 1
+	}
+	switch {
+	case l[i].SelfStakeBucketIdx > l[j].SelfStakeBucketIdx:
+		return true
+	case l[i].SelfStakeBucketIdx < l[j].SelfStakeBucketIdx:
+		return false
+	}
+	if res := l[i].SelfStake.Cmp(l[j].SelfStake); res != 0 {
+		return res == 1
+	}
+	return strings.Compare(l[i].Name, l[j].Name) == 1
 }
 
 // Serialize serializes candidate to bytes
@@ -303,40 +320,4 @@ func (l CandidateList) toStateCandidateList() (state.CandidateList, error) {
 	}
 	sort.Sort(list)
 	return list, nil
-}
-
-func getCandidate(sr protocol.StateReader, name address.Address) (*Candidate, uint64, error) {
-	if name == nil {
-		return nil, 0, ErrNilParameters
-	}
-	var d Candidate
-	height, err := sr.State(&d, protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(name.Bytes()))
-	return &d, height, err
-}
-
-func putCandidate(sm protocol.StateManager, d *Candidate) error {
-	_, err := sm.PutState(d, protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(d.Owner.Bytes()))
-	return err
-}
-
-func delCandidate(sm protocol.StateManager, name address.Address) error {
-	_, err := sm.DelState(protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(name.Bytes()))
-	return err
-}
-
-func getAllCandidates(sr protocol.StateReader) (CandidateList, uint64, error) {
-	height, iter, err := sr.States(protocol.NamespaceOption(CandidateNameSpace))
-	if err != nil {
-		return nil, height, err
-	}
-
-	cands := make(CandidateList, 0, iter.Size())
-	for i := 0; i < iter.Size(); i++ {
-		c := &Candidate{}
-		if err := iter.Next(c); err != nil {
-			return nil, height, errors.Wrapf(err, "failed to deserialize candidate")
-		}
-		cands = append(cands, c)
-	}
-	return cands, height, nil
 }

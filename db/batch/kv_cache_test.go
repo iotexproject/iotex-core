@@ -1,23 +1,20 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package batch
 
 import (
 	"testing"
 
-	"github.com/iotexproject/go-pkgs/hash"
-
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	k1 = hash.Hash160b([]byte("key_1"))
-	k2 = hash.Hash160b([]byte([]byte("key_2")))
-	k3 = hash.Hash160b([]byte([]byte("key_3")))
+	k1 = &kvCacheKey{"ns", "key"}
+	k2 = &kvCacheKey{"nsk", "ey"}
+	k3 = &kvCacheKey{"n", "skey"}
 
 	v1 = []byte("value_1")
 	v2 = []byte("value_2")
@@ -96,80 +93,24 @@ func TestKvCache(t *testing.T) {
 	v, err = c.Read(k3)
 	require.NoError(err)
 	require.Equal(v, v3)
+}
 
-	// 10. clone - make a comparison between both
-	cc := c.Clone()
-	require.Equal(cc, c)
+func TestWriteIfNotExist(t *testing.T) {
+	require := require.New(t)
 
-	v, err = cc.Read(k1)
-	require.NoError(err)
-	require.Equal(v, v1)
+	c := NewKVCache()
 
-	v, err = cc.Read(k2)
-	require.NoError(err)
-	require.Equal(v, v2)
-
-	v, err = cc.Read(k3)
-	require.NoError(err)
-	require.Equal(v, v3)
-
-	// 11. clear one and the other one will stay unchanged
-	c.Clear()
-
-	v, err = c.Read(k1)
+	v, err := c.Read(k1)
 	require.Equal(err, ErrNotExist)
 	require.Nil(v)
 
-	v, err = c.Read(k2)
-	require.Equal(err, ErrNotExist)
-	require.Nil(v)
-
-	v, err = c.Read(k3)
-	require.Equal(err, ErrNotExist)
-	require.Nil(v)
-
-	v, err = cc.Read(k1)
+	err = c.WriteIfNotExist(k1, v1)
 	require.NoError(err)
-	require.Equal(v, v1)
 
-	v, err = cc.Read(k2)
+	err = c.WriteIfNotExist(k1, v1)
+	require.Equal(err, ErrAlreadyExist)
+
+	c.Evict(k1)
+	err = c.WriteIfNotExist(k1, v1)
 	require.NoError(err)
-	require.Equal(v, v2)
-
-	v, err = cc.Read(k3)
-	require.NoError(err)
-	require.Equal(v, v3)
-
-	require.NotEqual(cc, c)
-
-	// 12. clone - make different changes and compare again
-	c.Write(k1, v2)
-	c.Write(k2, v3)
-	c.Write(k3, v1)
-
-	v, err = c.Read(k1)
-	require.NoError(err)
-	require.Equal(v, v2)
-
-	v, err = c.Read(k2)
-	require.NoError(err)
-	require.Equal(v, v3)
-
-	v, err = c.Read(k3)
-	require.NoError(err)
-	require.Equal(v, v1)
-
-	v, err = cc.Read(k1)
-	require.NoError(err)
-	require.Equal(v, v1)
-
-	v, err = cc.Read(k2)
-	require.NoError(err)
-	require.Equal(v, v2)
-
-	v, err = cc.Read(k3)
-	require.NoError(err)
-	require.Equal(v, v3)
-
-	require.NotEqual(cc, c)
 }

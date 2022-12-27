@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package block
 
@@ -36,15 +35,18 @@ func TestSerDer(t *testing.T) {
 	body := Body{}
 	ser, err := body.Serialize()
 	require.NoError(err)
-	require.NoError(body.Deserialize(ser))
-	require.Equal(0, len(body.Actions))
+	body2, err := (&Deserializer{}).DeserializeBody(ser)
+	require.NoError(err)
+	require.Equal(0, len(body2.Actions))
 
 	body, err = makeBody()
 	require.NoError(err)
 	ser, err = body.Serialize()
 	require.NoError(err)
-	require.NoError(body.Deserialize(ser))
-	require.Equal(1, len(body.Actions))
+	body2, err = (&Deserializer{}).DeserializeBody(ser)
+	require.NoError(err)
+	require.Equal(1, len(body2.Actions))
+	require.Equal(&body, body2)
 }
 
 func TestLoadProto(t *testing.T) {
@@ -52,26 +54,31 @@ func TestLoadProto(t *testing.T) {
 	body := Body{}
 	blockBody := body.Proto()
 	require.NotNil(blockBody)
-	require.NoError(body.LoadProto(blockBody))
-	require.Equal(0, len(body.Actions))
+	body2, err := (&Deserializer{}).fromBodyProto(blockBody)
+	require.NoError(err)
+	require.Equal(0, len(body2.Actions))
 
-	body, err := makeBody()
+	body, err = makeBody()
 	require.NoError(err)
 	blockBody = body.Proto()
 	require.NotNil(blockBody)
-	require.NoError(body.LoadProto(blockBody))
-	require.Equal(1, len(body.Actions))
+	body2, err = (&Deserializer{}).fromBodyProto(blockBody)
+	require.NoError(err)
+	require.Equal(1, len(body2.Actions))
+	require.Equal(body, body2)
 }
 
 func TestCalculateTxRoot(t *testing.T) {
 	require := require.New(t)
 	body := Body{}
-	h := body.CalculateTxRoot()
+	h, err := body.CalculateTxRoot()
+	require.NoError(err)
 	require.Equal(h, hash.ZeroHash256)
 
-	body, err := makeBody()
+	body, err = makeBody()
 	require.NoError(err)
-	h = body.CalculateTxRoot()
+	h, err = body.CalculateTxRoot()
+	require.NoError(err)
 	require.NotEqual(h, hash.ZeroHash256)
 }
 

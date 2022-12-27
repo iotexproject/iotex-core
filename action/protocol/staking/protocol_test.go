@@ -1,13 +1,13 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package staking
 
 import (
 	"context"
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -39,9 +39,11 @@ func TestProtocol(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
+	csr := newCandidateStateReader(sm)
+	csmTemp := newCandidateStateManager(sm)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
-		protocol.NamespaceOption(StakingNameSpace),
+		protocol.NamespaceOption(_stakingNameSpace),
 		protocol.KeyOption(TotalBucketKey),
 	)
 	r.NoError(err)
@@ -84,13 +86,16 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// test loading with no candidate in stateDB
-	stk, err := NewProtocol(nil, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
+	stk, err := NewProtocol(nil, &BuilderConfig{
+		Staking:                  genesis.Default.Staking,
+		PersistStakingPatchBlock: math.MaxUint64,
+	}, nil, genesis.Default.GreenlandBlockHeight)
 	r.NotNil(stk)
 	r.NoError(err)
-	buckets, _, err := getAllBuckets(sm)
+	buckets, _, err := csr.getAllBuckets()
 	r.NoError(err)
 	r.Equal(0, len(buckets))
-	c, _, err := getAllCandidates(sm)
+	c, _, err := csr.getAllCandidates()
 	r.Equal(state.ErrStateNotExist, err)
 	r.Equal(0, len(c))
 
@@ -100,15 +105,16 @@ func TestProtocol(t *testing.T) {
 	// write a number of buckets into stateDB
 	for _, e := range tests {
 		vb := NewVoteBucket(e.cand, e.owner, e.amount, e.duration, time.Now(), true)
-		index, err := putBucketAndIndex(sm, vb)
+		index, err := csmTemp.putBucketAndIndex(vb)
 		r.NoError(err)
 		r.Equal(index, vb.Index)
 	}
 
 	// load candidates from stateDB and verify
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := stk.Start(ctx, sm)
-	sm.WriteView(protocolID, v)
+	sm.WriteView(_protocolID, v)
 	r.NoError(err)
 	_, ok := v.(*ViewData)
 	r.True(ok)
@@ -119,7 +125,7 @@ func TestProtocol(t *testing.T) {
 	for _, e := range testCandidates {
 		r.NoError(csm.Upsert(e.d))
 	}
-	r.NoError(csm.Commit())
+	r.NoError(csm.Commit(ctx))
 	for _, e := range testCandidates {
 		r.True(csm.ContainsOwner(e.d.Owner))
 		r.True(csm.ContainsName(e.d.Name))
@@ -143,7 +149,7 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// load all candidates from stateDB and verify
-	all, _, err := getAllCandidates(sm)
+	all, _, err := csr.getAllCandidates()
 	r.NoError(err)
 	r.Equal(len(testCandidates), len(all))
 	for _, e := range testCandidates {
@@ -163,14 +169,14 @@ func TestProtocol(t *testing.T) {
 	r.Equal(c1, c2)
 
 	// load buckets from stateDB and verify
-	buckets, _, err = getAllBuckets(sm)
+	buckets, _, err = csr.getAllBuckets()
 	r.NoError(err)
 	r.Equal(len(tests), len(buckets))
 	// delete one bucket
-	r.NoError(delBucket(sm, 1))
-	buckets, _, err = getAllBuckets(sm)
-	r.NoError(err)
-	r.Equal(len(tests)-1, len(buckets))
+	r.NoError(csm.delBucket(1))
+	buckets, _, err = csr.getAllBuckets()
+	r.NoError(csm.delBucket(1))
+	buckets, _, err = csr.getAllBuckets()
 	for _, e := range tests {
 		for i := range buckets {
 			if buckets[i].StakedAmount == e.amount {
@@ -186,7 +192,10 @@ func TestCreatePreStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	p, err := NewProtocol(nil, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
+	p, err := NewProtocol(nil, &BuilderConfig{
+		Staking:                  genesis.Default.Staking,
+		PersistStakingPatchBlock: math.MaxUint64,
+	}, nil, genesis.Default.GreenlandBlockHeight, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 	ctx := protocol.WithBlockCtx(
 		genesis.WithGenesisContext(context.Background(), genesis.Default),
@@ -194,16 +203,17 @@ func TestCreatePreStates(t *testing.T) {
 			BlockHeight: genesis.Default.GreenlandBlockHeight - 1,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	require.NoError(sm.WriteView(protocolID, v))
+	require.NoError(sm.WriteView(_protocolID, v))
 	csm, err := NewCandidateStateManager(sm, false)
 	require.NoError(err)
 	require.NotNil(csm)
 	_, err = NewCandidateStateManager(sm, true)
 	require.Error(err)
 	require.NoError(p.CreatePreStates(ctx, sm))
-	_, err = sm.State(nil, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+	_, err = sm.State(nil, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 	require.EqualError(errors.Cause(err), state.ErrStateNotExist.Error())
 	ctx = protocol.WithBlockCtx(
 		ctx,
@@ -212,7 +222,7 @@ func TestCreatePreStates(t *testing.T) {
 		},
 	)
 	require.NoError(p.CreatePreStates(ctx, sm))
-	_, err = sm.State(nil, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+	_, err = sm.State(nil, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 	require.EqualError(errors.Cause(err), state.ErrStateNotExist.Error())
 	ctx = protocol.WithBlockCtx(
 		ctx,
@@ -222,7 +232,7 @@ func TestCreatePreStates(t *testing.T) {
 	)
 	require.NoError(p.CreatePreStates(ctx, sm))
 	total := &totalAmount{}
-	_, err = sm.State(total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+	_, err = sm.State(total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 	require.NoError(err)
 }
 
@@ -234,7 +244,7 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("test-bucket")
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, testPath)
+		testutil.CleanupPath(testPath)
 	}()
 
 	cfg := db.DefaultConfig
@@ -245,7 +255,10 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 
 	ctx := context.Background()
 	require.NoError(cbi.Start(ctx))
-	p, err := NewProtocol(nil, genesis.Default.Staking, cbi, genesis.Default.GreenlandBlockHeight)
+	p, err := NewProtocol(nil, &BuilderConfig{
+		Staking:                  genesis.Default.Staking,
+		PersistStakingPatchBlock: math.MaxUint64,
+	}, cbi, genesis.Default.GreenlandBlockHeight, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	rol := rolldpos.NewProtocol(23, 4, 3)
@@ -259,9 +272,10 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 			BlockHeight: genesis.Default.GreenlandBlockHeight,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	require.NoError(sm.WriteView(protocolID, v))
+	require.NoError(sm.WriteView(_protocolID, v))
 	_, err = NewCandidateStateManager(sm, true)
 	require.Error(err)
 
@@ -273,7 +287,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 
-	selfStake, _ := big.NewInt(0).SetString("1200000000000000000000000", 10)
+	selfStake, _ := new(big.Int).SetString("1200000000000000000000000", 10)
 	cfg := genesis.Default.Staking
 
 	testBootstrapCandidates := []struct {
@@ -290,7 +304,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 					SelfStakingTokens: "test123",
 				},
 			},
-			"address prefix io don't match",
+			"address length = 16, expecting 41",
 		},
 		{
 			[]genesis.BootstrapCandidate{
@@ -302,7 +316,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 					SelfStakingTokens: selfStake.String(),
 				},
 			},
-			"address prefix io don't match",
+			"address length = 16, expecting 41",
 		},
 		{
 			[]genesis.BootstrapCandidate{
@@ -314,7 +328,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 					SelfStakingTokens: selfStake.String(),
 				},
 			},
-			"address prefix io don't match",
+			"address length = 16, expecting 41",
 		},
 		{
 			[]genesis.BootstrapCandidate{
@@ -326,7 +340,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 					SelfStakingTokens: "test123",
 				},
 			},
-			"invalid staking amount",
+			"invalid amount",
 		},
 		{
 			[]genesis.BootstrapCandidate{
@@ -354,14 +368,18 @@ func Test_CreateGenesisStates(t *testing.T) {
 			BlockHeight: genesis.Default.GreenlandBlockHeight - 1,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	for _, test := range testBootstrapCandidates {
 		cfg.BootstrapCandidates = test.BootstrapCandidate
-		p, err := NewProtocol(nil, cfg, nil, genesis.Default.GreenlandBlockHeight)
+		p, err := NewProtocol(nil, &BuilderConfig{
+			Staking:                  cfg,
+			PersistStakingPatchBlock: math.MaxUint64,
+		}, nil, genesis.Default.GreenlandBlockHeight)
 		require.NoError(err)
 
 		v, err := p.Start(ctx, sm)
 		require.NoError(err)
-		require.NoError(sm.WriteView(protocolID, v))
+		require.NoError(sm.WriteView(_protocolID, v))
 
 		err = p.CreateGenesisStates(ctx, sm)
 		if err != nil {

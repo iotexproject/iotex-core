@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
@@ -10,31 +9,31 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/spf13/cobra"
-
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 // Multi-language support
 var (
-	ethaddrCmdShorts = map[config.Language]string{
+	_ethaddrCmdShorts = map[config.Language]string{
 		config.English: "Translate address between IOTX and ETH",
 		config.Chinese: "在IOTX和ETH间转换地址",
 	}
-	ethaddrCmdUses = map[config.Language]string{
+	_ethaddrCmdUses = map[config.Language]string{
 		config.English: "ethaddr (ALIAS|IOTEX_ADDRESS|ETH_ADDRESS)",
 		config.Chinese: "ethaddr (别名|IOTEX_地址|ETH_地址)",
 	}
 )
 
-// accountEthaddrCmd represents the account ethaddr command
-var accountEthaddrCmd = &cobra.Command{
-	Use:   config.TranslateInLang(ethaddrCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(ethaddrCmdShorts, config.UILanguage),
+// _accountEthaddrCmd represents the account ethaddr command
+var _accountEthaddrCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_ethaddrCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_ethaddrCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -62,7 +61,7 @@ func accountEthaddr(arg string) error {
 		}
 		ioAddr = ioAddress.String()
 	} else {
-		ethAddress, err = util.IoAddrToEvmAddr(ioAddr)
+		ethAddress, err = addrutil.IoAddrToEvmAddr(ioAddr)
 		if err != nil {
 			return output.NewError(output.AddressError, "", err)
 		}

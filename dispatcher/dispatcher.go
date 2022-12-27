@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package dispatcher
 
@@ -19,12 +18,32 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	goproto "github.com/iotexproject/iotex-proto/golang"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+)
+
+type (
+	// Config is the config for dispatcher
+	Config struct {
+		ActionChanSize             uint          `yaml:"actionChanSize"`
+		BlockChanSize              uint          `yaml:"blockChanSize"`
+		BlockSyncChanSize          uint          `yaml:"blockSyncChanSize"`
+		ProcessSyncRequestInterval time.Duration `yaml:"processSyncRequestInterval"`
+		// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
+	}
+)
+
+var (
+	// DefaultConfig is the default config
+	DefaultConfig = Config{
+		ActionChanSize:             1000,
+		BlockChanSize:              1000,
+		BlockSyncChanSize:          400,
+		ProcessSyncRequestInterval: 0 * time.Second,
+	}
 )
 
 // Subscriber is the dispatcher subscriber interface
@@ -118,16 +137,16 @@ type IotxDispatcher struct {
 }
 
 // NewDispatcher creates a new Dispatcher
-func NewDispatcher(cfg config.Config) (Dispatcher, error) {
+func NewDispatcher(cfg Config) (Dispatcher, error) {
 	d := &IotxDispatcher{
-		actionChan:   make(chan *actionMsg, cfg.Dispatcher.ActionChanSize),
-		blockChan:    make(chan *blockMsg, cfg.Dispatcher.BlockChanSize),
-		syncChan:     make(chan *blockSyncMsg, cfg.Dispatcher.BlockSyncChanSize),
+		actionChan:   make(chan *actionMsg, cfg.ActionChanSize),
+		blockChan:    make(chan *blockMsg, cfg.BlockChanSize),
+		syncChan:     make(chan *blockSyncMsg, cfg.BlockSyncChanSize),
 		eventAudit:   make(map[iotexrpc.MessageType]int),
 		quit:         make(chan struct{}),
 		subscribers:  make(map[uint32]Subscriber),
 		peerLastSync: make(map[string]time.Time),
-		syncInterval: cfg.Dispatcher.ProcessSyncRequestInterval,
+		syncInterval: cfg.ProcessSyncRequestInterval,
 	}
 	return d, nil
 }
@@ -215,25 +234,12 @@ func (d *IotxDispatcher) blockHandler() {
 	}
 }
 
-func (d *IotxDispatcher) checkSyncPermission(peerID string) bool {
-	now := time.Now()
-	last, ok := d.peerLastSync[peerID]
-	if ok && last.Add(d.syncInterval).After(now) {
-		return false
-	}
-
-	d.peerLastSync[peerID] = now
-	return true
-}
-
 // syncHandler handles incoming block sync requests
 func (d *IotxDispatcher) syncHandler() {
 	for {
 		select {
 		case m := <-d.syncChan:
-			if d.checkSyncPermission(m.peer.ID.Pretty()) {
-				d.handleBlockSyncMsg(m)
-			}
+			d.handleBlockSyncMsg(m)
 		case <-d.quit:
 			d.wg.Done()
 			log.L().Info("block sync handler done.")
@@ -334,7 +340,7 @@ func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg
 		}
 		l++
 	} else {
-		log.L().Warn("dispatcher action chan is full, drop an event.")
+		log.L().Warn("dispatcher action channel is full, drop an event.")
 	}
 	subscriber.ReportFullness(ctx, iotexrpc.MessageType_ACTION, float32(l)/float32(c))
 }
@@ -362,7 +368,7 @@ func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, peer
 		}
 		l++
 	} else {
-		log.L().Warn("dispatcher block chan is full, drop an event.")
+		log.L().Warn("dispatcher block channel is full, drop an event.")
 	}
 	subscriber.ReportFullness(ctx, iotexrpc.MessageType_BLOCK, float32(l)/float32(c))
 }
@@ -377,8 +383,15 @@ func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint3
 		log.L().Debug("no subscriber for this chain id, drop the request", zap.Uint32("chain id", chainID))
 		return
 	}
+	now := time.Now()
+	peerID := peer.ID.Pretty()
 	d.syncChanLock.Lock()
 	defer d.syncChanLock.Unlock()
+	last, ok := d.peerLastSync[peerID]
+	if ok && last.Add(d.syncInterval).After(now) {
+		return
+	}
+	d.peerLastSync[peerID] = now
 	l := len(d.syncChan)
 	c := cap(d.syncChan)
 	if l < c {
@@ -390,35 +403,30 @@ func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint3
 		}
 		l++
 	} else {
-		log.L().Warn("dispatcher sync chan is full, drop an event.")
+		log.L().Warn("dispatcher sync channel is full, drop an event.")
 	}
 	subscriber.ReportFullness(ctx, iotexrpc.MessageType_BLOCK_REQUEST, float32(l)/float32(c))
 }
 
 // HandleBroadcast handles incoming broadcast message
 func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, peer string, message proto.Message) {
-	msgType, err := goproto.GetTypeFromRPCMsg(message)
-	if err != nil {
-		log.L().Warn("Unexpected message handled by HandleBroadcast.", zap.Error(err))
-	}
-	d.subscribersMU.RLock()
-	subscriber, ok := d.subscribers[chainID]
-	d.subscribersMU.RUnlock()
-	if !ok {
+	subscriber := d.subscriber(chainID)
+	if subscriber == nil {
 		log.L().Warn("chainID has not been registered in dispatcher.", zap.Uint32("chainID", chainID))
 		return
 	}
 
-	switch msgType {
-	case iotexrpc.MessageType_CONSENSUS:
-		if err := subscriber.HandleConsensusMsg(message.(*iotextypes.ConsensusMessage)); err != nil {
+	switch msg := message.(type) {
+	case *iotextypes.ConsensusMessage:
+		if err := subscriber.HandleConsensusMsg(msg); err != nil {
 			log.L().Debug("Failed to handle consensus message.", zap.Error(err))
 		}
-	case iotexrpc.MessageType_ACTION:
+	case *iotextypes.Action:
 		d.dispatchAction(ctx, chainID, message)
-	case iotexrpc.MessageType_BLOCK:
+	case *iotextypes.Block:
 		d.dispatchBlock(ctx, chainID, peer, message)
 	default:
+		msgType, _ := goproto.GetTypeFromRPCMsg(message)
 		log.L().Warn("Unexpected msgType handled by HandleBroadcast.", zap.Any("msgType", msgType))
 	}
 }

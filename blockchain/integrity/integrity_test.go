@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package integrity
 
@@ -11,12 +10,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/mock/gomock"
+	iotexcrypto "github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -42,7 +42,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
@@ -53,25 +52,25 @@ import (
 )
 
 var (
-	deployHash      hash.Hash256                                                                           // in block 1
-	setHash         hash.Hash256                                                                           // in block 2
-	shrHash         hash.Hash256                                                                           // in block 3
-	shlHash         hash.Hash256                                                                           // in block 4
-	sarHash         hash.Hash256                                                                           // in block 5
-	extHash         hash.Hash256                                                                           // in block 6
-	crt2Hash        hash.Hash256                                                                           // in block 7
-	storeHash       hash.Hash256                                                                           // in block 8
-	store2Hash      hash.Hash256                                                                           // in block 9
-	setTopic, _     = hex.DecodeString("fe00000000000000000000000000000000000000000000000000000000001f40") // in block 2
-	getTopic, _     = hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000001") // in block 2
-	shrTopic, _     = hex.DecodeString("00fe00000000000000000000000000000000000000000000000000000000001f") // in block 3
-	shlTopic, _     = hex.DecodeString("fe00000000000000000000000000000000000000000000000000000000001f00") // in block 4
-	sarTopic, _     = hex.DecodeString("fffe00000000000000000000000000000000000000000000000000000000001f") // in block 5
-	extTopic, _     = hex.DecodeString("4a98ce81a2fd5177f0f42b49cb25b01b720f9ce8019f3937f63b789766c938e2") // in block 6
-	crt2Topic, _    = hex.DecodeString("0000000000000000000000001895e6033cd1081f18e0bd23a4501d9376028523") // in block 7
-	preGrPreStore   *big.Int
-	preGrPostStore  *big.Int
-	postGrPostStore *big.Int
+	_deployHash      hash.Hash256                                                                           // in block 1
+	_setHash         hash.Hash256                                                                           // in block 2
+	_shrHash         hash.Hash256                                                                           // in block 3
+	_shlHash         hash.Hash256                                                                           // in block 4
+	_sarHash         hash.Hash256                                                                           // in block 5
+	_extHash         hash.Hash256                                                                           // in block 6
+	_crt2Hash        hash.Hash256                                                                           // in block 7
+	_storeHash       hash.Hash256                                                                           // in block 8
+	_store2Hash      hash.Hash256                                                                           // in block 9
+	_setTopic, _     = hex.DecodeString("fe00000000000000000000000000000000000000000000000000000000001f40") // in block 2
+	_getTopic, _     = hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000001") // in block 2
+	_shrTopic, _     = hex.DecodeString("00fe00000000000000000000000000000000000000000000000000000000001f") // in block 3
+	_shlTopic, _     = hex.DecodeString("fe00000000000000000000000000000000000000000000000000000000001f00") // in block 4
+	_sarTopic, _     = hex.DecodeString("fffe00000000000000000000000000000000000000000000000000000000001f") // in block 5
+	_extTopic, _     = hex.DecodeString("4a98ce81a2fd5177f0f42b49cb25b01b720f9ce8019f3937f63b789766c938e2") // in block 6
+	_crt2Topic, _    = hex.DecodeString("0000000000000000000000001895e6033cd1081f18e0bd23a4501d9376028523") // in block 7
+	_preGrPreStore   *big.Int
+	_preGrPostStore  *big.Int
+	_postGrPostStore *big.Int
 )
 
 func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.BlockDAO, sf factory.Factory, ap actpool.ActPool) error {
@@ -81,7 +80,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	if err != nil {
 		return err
 	}
-	deployHash, err = ex1.Hash()
+	_deployHash, err = ex1.Hash()
 	if err != nil {
 		return err
 	}
@@ -100,7 +99,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// get deployed contract address
 	var contract string
 	if dao != nil {
-		r, err := dao.GetReceiptByActionHash(deployHash, 1)
+		r, err := dao.GetReceiptByActionHash(_deployHash, 1)
 		if err != nil {
 			return err
 		}
@@ -139,8 +138,8 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// Add block 2
 	// call set() to set storedData = 0xfe...1f40
 	funcSig := hash.Hash256b([]byte("set(uint256)"))
-	data := append(funcSig[:4], setTopic...)
-	setHash, err = addOneBlock(contract, 2, zero, gasLimit, gasPrice, data)
+	data := append(funcSig[:4], _setTopic...)
+	_setHash, err = addOneBlock(contract, 2, zero, gasLimit, gasPrice, data)
 	if err != nil {
 		return err
 	}
@@ -148,7 +147,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// Add block 3
 	// call shright() to test SHR opcode, storedData => 0x00fe...1f
 	funcSig = hash.Hash256b([]byte("shright()"))
-	shrHash, err = addOneBlock(contract, 3, zero, gasLimit, gasPrice, funcSig[:4])
+	_shrHash, err = addOneBlock(contract, 3, zero, gasLimit, gasPrice, funcSig[:4])
 	if err != nil {
 		return err
 	}
@@ -156,7 +155,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// Add block 4
 	// call shleft() to test SHL opcode, storedData => 0xfe...1f00
 	funcSig = hash.Hash256b([]byte("shleft()"))
-	shlHash, err = addOneBlock(contract, 4, zero, gasLimit, gasPrice, funcSig[:4])
+	_shlHash, err = addOneBlock(contract, 4, zero, gasLimit, gasPrice, funcSig[:4])
 	if err != nil {
 		return err
 	}
@@ -164,7 +163,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// Add block 5
 	// call saright() to test SAR opcode, storedData => 0xfffe...1f
 	funcSig = hash.Hash256b([]byte("saright()"))
-	sarHash, err = addOneBlock(contract, 5, zero, gasLimit, gasPrice, funcSig[:4])
+	_sarHash, err = addOneBlock(contract, 5, zero, gasLimit, gasPrice, funcSig[:4])
 	if err != nil {
 		return err
 	}
@@ -175,7 +174,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	addr, _ := address.FromString(contract)
 	ethaddr := hash.BytesToHash256(addr.Bytes())
 	data = append(funcSig[:4], ethaddr[:]...)
-	extHash, err = addOneBlock(contract, 6, zero, gasLimit, gasPrice, data)
+	_extHash, err = addOneBlock(contract, 6, zero, gasLimit, gasPrice, data)
 	if err != nil {
 		return err
 	}
@@ -183,7 +182,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// Add block 7
 	// call create2() to test CREATE2 opcode
 	funcSig = hash.Hash256b([]byte("create2()"))
-	crt2Hash, err = addOneBlock(contract, 7, zero, gasLimit, gasPrice, funcSig[:4])
+	_crt2Hash, err = addOneBlock(contract, 7, zero, gasLimit, gasPrice, funcSig[:4])
 	if err != nil {
 		return err
 	}
@@ -191,21 +190,21 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// Add block 8
 	// test store out of gas
 	var (
-		caller     state.Account
+		caller     = &state.Account{}
 		callerAddr = hash.BytesToHash160(identityset.Address(27).Bytes())
 	)
-	_, err = sf.State(&caller, protocol.LegacyKeyOption(callerAddr))
+	_, err = sf.State(caller, protocol.LegacyKeyOption(callerAddr))
 	if err != nil {
 		return err
 	}
-	preGrPreStore = new(big.Int).Set(caller.Balance)
-	storeHash, err = addOneBlock(action.EmptyAddress, 8, unit.ConvertIotxToRau(10000), 3000000, big.NewInt(unit.Qev), _codeStoreOutOfGasContract)
+	_preGrPreStore = new(big.Int).Set(caller.Balance)
+	_storeHash, err = addOneBlock(action.EmptyAddress, 8, unit.ConvertIotxToRau(10000), 3000000, big.NewInt(unit.Qev), _codeStoreOutOfGasContract)
 	if err != nil {
 		return err
 	}
 
 	if dao != nil {
-		r, err := dao.GetReceiptByActionHash(storeHash, 8)
+		r, err := dao.GetReceiptByActionHash(_storeHash, 8)
 		if err != nil {
 			return err
 		}
@@ -216,18 +215,18 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 
 	// Add block 9
 	// test store out of gas
-	_, err = sf.State(&caller, protocol.LegacyKeyOption(callerAddr))
+	_, err = sf.State(caller, protocol.LegacyKeyOption(callerAddr))
 	if err != nil {
 		return err
 	}
-	preGrPostStore = new(big.Int).Set(caller.Balance)
-	store2Hash, err = addOneBlock(action.EmptyAddress, 9, unit.ConvertIotxToRau(10000), 3000000, big.NewInt(unit.Qev), _codeStoreOutOfGasContract)
+	_preGrPostStore = new(big.Int).Set(caller.Balance)
+	_store2Hash, err = addOneBlock(action.EmptyAddress, 9, unit.ConvertIotxToRau(10000), 3000000, big.NewInt(unit.Qev), _codeStoreOutOfGasContract)
 	if err != nil {
 		return err
 	}
 
 	if dao != nil {
-		r, err := dao.GetReceiptByActionHash(store2Hash, 9)
+		r, err := dao.GetReceiptByActionHash(_store2Hash, 9)
 		if err != nil {
 			return err
 		}
@@ -236,22 +235,39 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 		}
 	}
 
-	_, err = sf.State(&caller, protocol.LegacyKeyOption(callerAddr))
+	_, err = sf.State(caller, protocol.LegacyKeyOption(callerAddr))
 	if err != nil {
 		return err
 	}
-	postGrPostStore = new(big.Int).Set(caller.Balance)
+	_postGrPostStore = new(big.Int).Set(caller.Balance)
 	return nil
 }
 
 func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.ActPool) error {
+	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
+	addOneTsf := func(recipientAddr string, senderPriKey iotexcrypto.PrivateKey, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int) error {
+		tx, err := action.SignedTransfer(recipientAddr, senderPriKey, nonce, amount, payload, gasLimit, gasPrice)
+		if err != nil {
+			return err
+		}
+		if err := ap.Add(ctx, tx); err != nil {
+			return err
+		}
+		return nil
+	}
+	addOneExec := func(contractAddr string, executorPriKey iotexcrypto.PrivateKey, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) error {
+		tx, err := action.SignedExecution(contractAddr, executorPriKey, nonce, amount, gasLimit, gasPrice, data)
+		if err != nil {
+			return err
+		}
+		if err := ap.Add(ctx, tx); err != nil {
+			return err
+		}
+		return nil
+	}
 	// Add block 1
 	addr0 := identityset.Address(27).String()
-	tsf0, err := action.SignedTransfer(addr0, identityset.PrivateKey(0), 1, big.NewInt(90000000), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	if err := ap.Add(context.Background(), tsf0); err != nil {
+	if err := addOneTsf(addr0, identityset.PrivateKey(0), 1, big.NewInt(90000000), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
@@ -277,46 +293,22 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	addr6 := identityset.Address(33).String()
 	// Add block 2
 	// test --> A, B, C, D, E, F
-	tsf1, err := action.SignedTransfer(addr1, priKey0, 1, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
+	if err := addOneTsf(addr1, priKey0, 1, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf1); err != nil {
+	if err := addOneTsf(addr2, priKey0, 2, big.NewInt(30), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	tsf2, err := action.SignedTransfer(addr2, priKey0, 2, big.NewInt(30), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
+	if err := addOneTsf(addr3, priKey0, 3, big.NewInt(50), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf2); err != nil {
+	if err := addOneTsf(addr4, priKey0, 4, big.NewInt(70), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	tsf3, err := action.SignedTransfer(addr3, priKey0, 3, big.NewInt(50), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
+	if err := addOneTsf(addr5, priKey0, 5, big.NewInt(110), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf3); err != nil {
-		return err
-	}
-	tsf4, err := action.SignedTransfer(addr4, priKey0, 4, big.NewInt(70), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	if err := ap.Add(context.Background(), tsf4); err != nil {
-		return err
-	}
-	tsf5, err := action.SignedTransfer(addr5, priKey0, 5, big.NewInt(110), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	if err := ap.Add(context.Background(), tsf5); err != nil {
-		return err
-	}
-	tsf6, err := action.SignedTransfer(addr6, priKey0, 6, big.NewInt(50<<20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	if err := ap.Add(context.Background(), tsf6); err != nil {
+	if err := addOneTsf(addr6, priKey0, 6, big.NewInt(50<<20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
 	// deploy simple smart contract
@@ -325,10 +317,10 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	if err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), ex1); err != nil {
+	if err := ap.Add(ctx, ex1); err != nil {
 		return err
 	}
-	deployHash, err = ex1.Hash()
+	_deployHash, err = ex1.Hash()
 	if err != nil {
 		return err
 	}
@@ -345,7 +337,7 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	var contract string
 	_, gateway := cfg.Plugins[config.GatewayPlugin]
 	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
-		r, err := dao.GetReceiptByActionHash(deployHash, 2)
+		r, err := dao.GetReceiptByActionHash(_deployHash, 2)
 		if err != nil {
 			return err
 		}
@@ -354,45 +346,29 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 
 	// Add block 3
 	// Charlie --> A, B, D, E, test
-	tsf1, err = action.SignedTransfer(addr1, priKey3, 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
+	if err := addOneTsf(addr1, priKey3, 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf1); err != nil {
+	if err := addOneTsf(addr2, priKey3, 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	tsf2, err = action.SignedTransfer(addr2, priKey3, 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
+	if err := addOneTsf(addr4, priKey3, 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf2); err != nil {
+	if err := addOneTsf(addr5, priKey3, 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	tsf3, err = action.SignedTransfer(addr4, priKey3, 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	if err := ap.Add(context.Background(), tsf3); err != nil {
-		return err
-	}
-	tsf4, err = action.SignedTransfer(addr5, priKey3, 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	if err := ap.Add(context.Background(), tsf4); err != nil {
-		return err
-	}
-	tsf5, err = action.SignedTransfer(addr0, priKey3, 5, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	if err := ap.Add(context.Background(), tsf5); err != nil {
+	if err := addOneTsf(addr0, priKey3, 5, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
 	// call set() to set storedData = 0x1f40
 	data, _ = hex.DecodeString("60fe47b1")
-	data = append(data, setTopic...)
+	data = append(data, _setTopic...)
 	ex1, err = action.SignedExecution(contract, priKey2, 2, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
+	if err != nil {
+		return err
+	}
+	_setHash, err = ex1.Hash()
 	if err != nil {
 		return err
 	}
@@ -410,37 +386,25 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 
 	// Add block 4
 	// Delta --> B, E, F, test
-	tsf1, err = action.SignedTransfer(addr2, priKey4, 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
+	if err := addOneTsf(addr2, priKey4, 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf1); err != nil {
+	if err := addOneTsf(addr5, priKey4, 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	tsf2, err = action.SignedTransfer(addr5, priKey4, 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
+	if err := addOneTsf(addr6, priKey4, 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf2); err != nil {
-		return err
-	}
-	tsf3, err = action.SignedTransfer(addr6, priKey4, 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	if err := ap.Add(context.Background(), tsf3); err != nil {
-		return err
-	}
-	tsf4, err = action.SignedTransfer(addr0, priKey4, 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	if err := ap.Add(context.Background(), tsf4); err != nil {
+	if err := addOneTsf(addr0, priKey4, 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
 	data, _ = hex.DecodeString("c2bc2efc")
-	data = append(data, getTopic...)
+	data = append(data, _getTopic...)
 	ex1, err = action.SignedExecution(contract, priKey2, 3, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
+	if err != nil {
+		return err
+	}
+	_sarHash, err = ex1.Hash()
 	if err != nil {
 		return err
 	}
@@ -457,60 +421,39 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 
 	// Add block 5
 	// Delta --> A, B, C, D, F, test
-	tsf1, err = action.SignedTransfer(addr1, priKey5, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
+	if err := addOneTsf(addr1, priKey5, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf1); err != nil {
+	if err := addOneTsf(addr2, priKey5, 2, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	tsf2, err = action.SignedTransfer(addr2, priKey5, 2, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
+	if err := addOneTsf(addr3, priKey5, 3, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf2); err != nil {
+	if err := addOneTsf(addr4, priKey5, 4, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	tsf3, err = action.SignedTransfer(addr3, priKey5, 3, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
+	if err := addOneTsf(addr6, priKey5, 5, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf3); err != nil {
+	if err := addOneTsf(addr0, priKey5, 6, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	tsf4, err = action.SignedTransfer(addr4, priKey5, 4, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
+	if err := addOneTsf(addr3, priKey3, 6, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf4); err != nil {
+	if err := addOneTsf(addr1, priKey1, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	tsf5, err = action.SignedTransfer(addr6, priKey5, 5, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
+	// call set() to set storedData = 0x1f40
+	data, _ = hex.DecodeString("60fe47b1")
+	data = append(data, _setTopic...)
+	if err := addOneExec(contract, priKey2, 4, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data); err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf5); err != nil {
-		return err
-	}
-	tsf6, err = action.SignedTransfer(addr0, priKey5, 6, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	if err := ap.Add(context.Background(), tsf6); err != nil {
-		return err
-	}
-	tsf7, err := action.SignedTransfer(addr3, priKey3, 6, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	if err := ap.Add(context.Background(), tsf7); err != nil {
-		return err
-	}
-	tsf8, err := action.SignedTransfer(addr1, priKey1, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	if err := ap.Add(context.Background(), tsf8); err != nil {
+	data, _ = hex.DecodeString("c2bc2efc")
+	data = append(data, _getTopic...)
+	if err := addOneExec(contract, priKey2, 5, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data); err != nil {
 		return err
 	}
 	blk, err = bc.MintNewBlock(testutil.TimestampNow())
@@ -535,13 +478,15 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -551,13 +496,12 @@ func TestCreateBlockchain(t *testing.T) {
 	)
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(0, 0)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(rewardingProtocol.Register(registry))
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	height := bc.TipHeight()
 	require.Equal(0, int(height))
-	fmt.Printf("Create blockchain pass, height = %d\n", height)
 	defer func() {
 		require.NoError(bc.Stop(ctx))
 	}()
@@ -576,23 +520,26 @@ func TestGetBlockHash(t *testing.T) {
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
 	cfg.Genesis.EnableGravityChainVoting = false
-	cfg.Genesis.HawaiiBlockHeight = 3
+	cfg.Genesis.HawaiiBlockHeight = 4
+	cfg.Genesis.MidwayBlockHeight = 9
 	cfg.ActPool.MinGasPriceStr = "0"
 	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
-	block.LoadGenesisHash(&config.Default.Genesis)
+	block.LoadGenesisHash(&genesis.Default)
 	// create chain
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -602,21 +549,20 @@ func TestGetBlockHash(t *testing.T) {
 	)
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(0, 0)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(rewardingProtocol.Register(registry))
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	height := bc.TipHeight()
 	require.Equal(0, int(height))
-	fmt.Printf("Create blockchain pass, height = %d\n", height)
 	defer func() {
 		require.NoError(bc.Stop(ctx))
 	}()
 
-	addTestingGetBlockHash(t, cfg.Genesis.HawaiiBlockHeight, bc, dao, ap)
+	addTestingGetBlockHash(t, cfg.Genesis, bc, dao, ap)
 }
 
-func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.ActPool) {
+func addTestingGetBlockHash(t *testing.T, g genesis.Genesis, bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.ActPool) {
 	require := require.New(t)
 	priKey0 := identityset.PrivateKey(27)
 
@@ -634,12 +580,13 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 		    }
 		}
 	*/
+	ctx := genesis.WithGenesisContext(context.Background(), g)
 	data, _ := hex.DecodeString("6080604052348015600f57600080fd5b5060de8061001e6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063ee82ac5e14602d575b600080fd5b605660048036036020811015604157600080fd5b8101908080359060200190929190505050606c565b6040518082815260200191505060405180910390f35b60008082409050807f2d93f7749862d33969fb261757410b48065a1bc86a56da5c47820bd063e2338260405160405180910390a28091505091905056fea265627a7a723158200a258cd08ea99ee11aa68c78b6d2bf7ea912615a1e64a81b90a2abca2dd59cfa64736f6c634300050c0032")
 
 	ex1, err := action.SignedExecution(action.EmptyAddress, priKey0, 1, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
 	require.NoError(err)
-	require.NoError(ap.Add(context.Background(), ex1))
-	deployHash, err = ex1.Hash()
+	require.NoError(ap.Add(ctx, ex1))
+	_deployHash, err = ex1.Hash()
 	require.NoError(err)
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
@@ -650,7 +597,7 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 	// get deployed contract address
 	var contract string
 	if dao != nil {
-		r, err := dao.GetReceiptByActionHash(deployHash, 1)
+		r, err := dao.GetReceiptByActionHash(_deployHash, 1)
 		require.NoError(err)
 		contract = r.ContractAddress
 	}
@@ -660,7 +607,7 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 			return hash.ZeroHash256, err
 		}
 		blockTime = blockTime.Add(time.Second)
-		if err := ap.Add(context.Background(), ex1); err != nil {
+		if err := ap.Add(ctx, ex1); err != nil {
 			return hash.ZeroHash256, err
 		}
 		blk, err = bc.MintNewBlock(blockTime)
@@ -677,7 +624,7 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 		return ex1Hash, nil
 	}
 
-	getBlockHash := func(x int64) []byte {
+	getBlockHashCallData := func(x int64) []byte {
 		funcSig := hash.Hash256b([]byte("getBlockHash(uint256)"))
 		// convert block number to uint256 (32-bytes)
 		blockNumber := hash.BytesToHash256(big.NewInt(x).Bytes())
@@ -686,69 +633,76 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 
 	var (
 		zero     = big.NewInt(0)
+		nonce    = uint64(2)
 		gasLimit = testutil.TestGasLimit * 5
 		gasPrice = big.NewInt(testutil.TestGasPriceInt64)
+		bcHash   hash.Hash256
 	)
-
-	acHash2, err := addOneBlock(contract, 2, zero, gasLimit, gasPrice, getBlockHash(0)) // equal to all zero
-	require.NoError(err)
-	acHash3, err := addOneBlock(contract, 3, zero, gasLimit, gasPrice, getBlockHash(0)) // equal to block 2
-	require.NoError(err)
-	acHash4, err := addOneBlock(contract, 4, zero, gasLimit, gasPrice, getBlockHash(1)) // equal to block 2
-	require.NoError(err)
-	acHash5, err := addOneBlock(contract, 5, zero, gasLimit, gasPrice, getBlockHash(3)) // equal to block 1
-	require.NoError(err)
-	acHash6, err := addOneBlock(contract, 6, zero, gasLimit, gasPrice, getBlockHash(2)) // equal to block 3
-	require.NoError(err)
-	acHash7, err := addOneBlock(contract, 7, zero, gasLimit, gasPrice, getBlockHash(6)) // equal to genesis block
-	require.NoError(err)
-
 	tests := []struct {
-		acHash       hash.Hash256
-		commitHeight uint64
-		targetHeight uint64
+		commitHeight  uint64
+		getHashHeight uint64
 	}{
-		{acHash2, 2, 0},
-		{acHash3, 3, 2},
-		{acHash4, 4, 2},
-		{acHash5, 5, 1},
-		{acHash6, 6, 3},
-		{acHash7, 7, 0},
+		{2, 0},
+		{3, 5},
+		{4, 1},
+		{5, 3},
+		{6, 0},
+		{7, 6},
+		{8, 9},
+		{9, 3},
+		{10, 9},
+		{11, 1},
+		{12, 4},
+		{13, 0},
+		{14, 100},
+		{15, 15},
 	}
 	for _, test := range tests {
-		r, err := dao.GetReceiptByActionHash(test.acHash, test.commitHeight)
+		h, err := addOneBlock(contract, nonce, zero, gasLimit, gasPrice, getBlockHashCallData(int64(test.getHashHeight)))
 		require.NoError(err)
-		var bcHash hash.Hash256
-		if test.commitHeight < hawaiiHeight {
+		r, err := dao.GetReceiptByActionHash(h, test.commitHeight)
+		require.NoError(err)
+		if test.getHashHeight >= test.commitHeight {
+			bcHash = hash.ZeroHash256
+		} else if test.commitHeight < g.HawaiiBlockHeight {
 			// before hawaii it mistakenly return zero hash
 			// see https://github.com/iotexproject/iotex-core/commit/2585b444214f9009b6356fbaf59c992e8728fc01
 			bcHash = hash.ZeroHash256
 		} else {
-			bcHash, err = dao.GetBlockHash(test.targetHeight)
+			var targetHeight uint64
+			if test.commitHeight < g.MidwayBlockHeight {
+				targetHeight = test.commitHeight - (test.getHashHeight + 1)
+			} else {
+				targetHeight = test.getHashHeight
+			}
+			bcHash, err = dao.GetBlockHash(targetHeight)
 			require.NoError(err)
 		}
 		require.Equal(r.Logs()[0].Topics[0], bcHash)
+		nonce++
 	}
 }
 
 func TestBlockchain_MintNewBlock(t *testing.T) {
-	ctx := context.Background()
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.ActPool.MinGasPriceStr = "0"
+	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(t, err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -758,7 +712,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	)
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(t, ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(0, 0)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(t, rewardingProtocol.Register(registry))
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
@@ -785,7 +739,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 		SetGasPrice(big.NewInt(10)).Build()
 	selp1, err := action.Sign(elp1, identityset.PrivateKey(0))
 	require.NoError(t, err)
-	require.NoError(t, ap.Add(context.Background(), selp1))
+	require.NoError(t, ap.Add(ctx, selp1))
 	// This execution should not be included in block because block is out of gas
 	elp2 := bd.SetAction(execution).
 		SetNonce(2).
@@ -793,7 +747,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 		SetGasPrice(big.NewInt(10)).Build()
 	selp2, err := action.Sign(elp2, identityset.PrivateKey(0))
 	require.NoError(t, err)
-	require.NoError(t, ap.Add(context.Background(), selp2))
+	require.NoError(t, ap.Add(ctx, selp2))
 
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	require.NoError(t, err)
@@ -807,20 +761,22 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 }
 
 func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
-	ctx := context.Background()
 	cfg := config.Default
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.ActPool.MinGasPriceStr = "0"
+	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, acc.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(t, err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -832,7 +788,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	require.NoError(t, rp.Register(registry))
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(t, ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(0, 0)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(t, rewardingProtocol.Register(registry))
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
@@ -853,12 +809,12 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 		tsf, err := action.SignedTransfer(addr1, priKey0, i+7, big.NewInt(2), bytes,
 			19000, big.NewInt(testutil.TestGasPriceInt64))
 		require.NoError(t, err)
-		require.NoError(t, ap.Add(context.Background(), tsf))
+		require.NoError(t, ap.Add(ctx, tsf))
 	}
 	transfer1, err := action.SignedTransfer(addr1, priKey3, 7, big.NewInt(2),
 		[]byte{}, 10000, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(t, err)
-	require.NoError(t, ap.Add(context.Background(), transfer1))
+	require.NoError(t, ap.Add(ctx, transfer1))
 
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	require.NoError(t, err)
@@ -879,22 +835,17 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 }
 
 type MockSubscriber struct {
-	counter int
-	mu      sync.RWMutex
+	counter int32
 }
 
 func (ms *MockSubscriber) ReceiveBlock(blk *block.Block) error {
-	ms.mu.Lock()
-	tsfs, _ := action.ClassifyActions(blk.Actions)
-	ms.counter += len(tsfs)
-	ms.mu.Unlock()
+	tsfs, _ := classifyActions(blk.Actions)
+	atomic.AddInt32(&ms.counter, int32(len(tsfs)))
 	return nil
 }
 
 func (ms *MockSubscriber) Counter() int {
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	return ms.counter
+	return int(atomic.LoadInt32(&ms.counter))
 }
 
 func TestConstantinople(t *testing.T) {
@@ -904,9 +855,12 @@ func TestConstantinople(t *testing.T) {
 
 		registry := protocol.NewRegistry()
 		// Create a blockchain from scratch
-		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+		db2, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 		require.NoError(err)
-		ap, err := actpool.NewActPool(sf, cfg.ActPool)
+		sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
+		require.NoError(err)
+		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)
 		acc := account.NewProtocol(rewarding.DepositGas)
 		require.NoError(acc.Register(registry))
@@ -918,11 +872,12 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-		dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf, indexer}, cfg.DB)
+		deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+		dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf, indexer}, cfg.DB, deser)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
-			cfg,
+			cfg.Chain,
+			cfg.Genesis,
 			dao,
 			factory.NewMinter(sf, ap),
 			blockchain.BlockValidatorOption(block.NewValidator(
@@ -932,7 +887,7 @@ func TestConstantinople(t *testing.T) {
 		)
 		ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 		require.NoError(ep.Register(registry))
-		rewardingProtocol := rewarding.NewProtocol(0, 0)
+		rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 		require.NoError(rewardingProtocol.Register(registry))
 		require.NoError(bc.Start(ctx))
 		defer func() {
@@ -946,79 +901,90 @@ func TestConstantinople(t *testing.T) {
 		// at that time, the test is run with both EVM version (Byzantium vs. Constantinople), and it generates the
 		// same exact block hash, so these values stood as gatekeeper for backward-compatibility
 		hashTopic := []struct {
+			height  uint64
 			h       hash.Hash256
 			blkHash string
 			topic   []byte
 		}{
 			{
-				deployHash,
+				1,
+				_deployHash,
 				"2861aecf2b3f91822de00c9f42ca44276e386ac693df363770783bfc133346c3",
 				nil,
 			},
 			{
-				setHash,
+				2,
+				_setHash,
 				"cb0f7895c1fa4f179c0c109835b160d9d1852fce526e12c6b443e86257cadb48",
-				setTopic,
+				_setTopic,
 			},
 			{
-				shrHash,
+				3,
+				_shrHash,
 				"c1337e26e157426dd0af058ed37e329d25dd3e34ed606994a6776b59f988f458",
-				shrTopic,
+				_shrTopic,
 			},
 			{
-				shlHash,
+				4,
+				_shlHash,
 				"cf5c2050a261fa7eca45f31a184c6cd1dc737c7fc3088a0983f659b08985521c",
-				shlTopic,
+				_shlTopic,
 			},
 			{
-				sarHash,
+				5,
+				_sarHash,
 				"5d76bd9e4be3a60c00761fd141da6bd9c07ab73f472f537845b65679095b0570",
-				sarTopic,
+				_sarTopic,
 			},
 			{
-				extHash,
+				6,
+				_extHash,
 				"c5fd9f372b89265f2423737a6d7b680e9759a4a715b22b04ccf875460c310015",
-				extTopic,
+				_extTopic,
 			},
 			{
-				crt2Hash,
+				7,
+				_crt2Hash,
 				"53632287a97e4e118302f2d9b54b3f97f62d3533286c4d4eb955627b3602d3b0",
-				crt2Topic,
+				_crt2Topic,
 			},
 		}
 
 		// test getReceipt
-		for i := range hashTopic {
-			actHash := hashTopic[i].h
-			ai, err := indexer.GetActionIndex(actHash[:])
+		for _, v := range hashTopic {
+			ai, err := indexer.GetActionIndex(v.h[:])
 			require.NoError(err)
-			r, err := dao.GetReceiptByActionHash(actHash, ai.BlockHeight())
+			require.Equal(v.height, ai.BlockHeight())
+			r, err := dao.GetReceiptByActionHash(v.h, v.height)
 			require.NoError(err)
 			require.NotNil(r)
 			require.Equal(uint64(1), r.Status)
-			require.Equal(actHash, r.ActionHash)
-			require.Equal(uint64(i)+1, r.BlockHeight)
-			a, _, err := dao.GetActionByActionHash(actHash, ai.BlockHeight())
+			require.Equal(v.h, r.ActionHash)
+			require.Equal(v.height, r.BlockHeight)
+			if v.height == 1 {
+				require.Equal("io1va03q4lcr608dr3nltwm64sfcz05czjuycsqgn", r.ContractAddress)
+			} else {
+				require.Empty(r.ContractAddress)
+			}
+			a, _, err := dao.GetActionByActionHash(v.h, v.height)
 			require.NoError(err)
 			require.NotNil(a)
 			aHash, err := a.Hash()
 			require.NoError(err)
-			require.Equal(actHash, aHash)
+			require.Equal(v.h, aHash)
 
-			actIndex, err := indexer.GetActionIndex(actHash[:])
+			blkHash, err := dao.GetBlockHash(v.height)
 			require.NoError(err)
-			blkHash, err := dao.GetBlockHash(actIndex.BlockHeight())
-			require.NoError(err)
-			require.Equal(hashTopic[i].blkHash, hex.EncodeToString(blkHash[:]))
+			require.Equal(v.blkHash, hex.EncodeToString(blkHash[:]))
 
-			if hashTopic[i].topic != nil {
+			if v.topic != nil {
 				funcSig := hash.Hash256b([]byte("Set(uint256)"))
-				blk, err := dao.GetBlockByHeight(1 + uint64(i))
+				blk, err := dao.GetBlockByHeight(v.height)
 				require.NoError(err)
 				f := blk.Header.LogsBloomfilter()
 				require.NotNil(f)
 				require.True(f.Exist(funcSig[:]))
-				require.True(f.Exist(hashTopic[i].topic))
+				require.True(f.Exist(v.topic))
 			}
 		}
 
@@ -1030,10 +996,10 @@ func TestConstantinople(t *testing.T) {
 			postBalance *big.Int
 		}{
 			{
-				8, storeHash, iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas, preGrPreStore, preGrPostStore,
+				8, _storeHash, iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas, _preGrPreStore, _preGrPostStore,
 			},
 			{
-				9, store2Hash, iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas, preGrPostStore, postGrPostStore,
+				9, _store2Hash, iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas, _preGrPostStore, _postGrPostStore,
 			},
 		}
 		caller := identityset.Address(27)
@@ -1101,9 +1067,9 @@ func TestConstantinople(t *testing.T) {
 	require.NoError(err)
 
 	defer func() {
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		testutil.CleanupPath(t, testIndexPath)
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(testIndexPath)
 		// clear the gateway
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -1129,13 +1095,16 @@ func TestConstantinople(t *testing.T) {
 func TestLoadBlockchainfromDB(t *testing.T) {
 	require := require.New(t)
 	testValidateBlockchain := func(cfg config.Config, t *testing.T) {
-		ctx := context.Background()
+		ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 
 		registry := protocol.NewRegistry()
 		// Create a blockchain from scratch
-		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+		db2, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 		require.NoError(err)
-		ap, err := actpool.NewActPool(sf, cfg.ActPool)
+		sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
+		require.NoError(err)
+		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)
 		acc := account.NewProtocol(rewarding.DepositGas)
 		require.NoError(acc.Register(registry))
@@ -1153,11 +1122,12 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-		dao := blockdao.NewBlockDAO(indexers, cfg.DB)
+		deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+		dao := blockdao.NewBlockDAO(indexers, cfg.DB, deser)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
-			cfg,
+			cfg.Chain,
+			cfg.Genesis,
 			dao,
 			factory.NewMinter(sf, ap),
 			blockchain.BlockValidatorOption(block.NewValidator(
@@ -1176,12 +1146,17 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		height := bc.TipHeight()
 		fmt.Printf("Open blockchain pass, height = %d\n", height)
 		require.NoError(addTestingTsfBlocks(cfg, bc, dao, ap))
+		//make sure pubsub is completed
+		err = testutil.WaitUntil(200*time.Millisecond, 3*time.Second, func() (bool, error) {
+			return 24 == ms.Counter(), nil
+		})
+		require.NoError(err)
 		require.NoError(bc.Stop(ctx))
-		require.Equal(24, ms.Counter())
 
 		// Load a blockchain from DB
 		bc = blockchain.NewBlockchain(
-			cfg,
+			cfg.Chain,
+			cfg.Genesis,
 			dao,
 			factory.NewMinter(sf, ap),
 			blockchain.BlockValidatorOption(block.NewValidator(
@@ -1261,22 +1236,23 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		fmt.Printf("Cannot add block 3 again: %v\n", err)
 
 		// invalid address returns error
-		act, err := accountutil.AccountState(sf, "")
-		require.Equal("invalid bech32 string length 0", errors.Cause(err).Error())
-		require.Nil(act)
+		_, err = address.FromString("")
+		require.Contains(err.Error(), "address length = 0, expecting 41")
 
 		// valid but unused address should return empty account
-		act, err = accountutil.AccountState(sf, "io1066kus4vlyvk0ljql39fzwqw0k22h7j8wmef3n")
+		addr, err := address.FromString("io1066kus4vlyvk0ljql39fzwqw0k22h7j8wmef3n")
 		require.NoError(err)
-		require.Equal(uint64(0), act.Nonce)
+		act, err := accountutil.AccountState(ctx, sf, addr)
+		require.NoError(err)
+		require.Equal(uint64(1), act.PendingNonce())
 		require.Equal(big.NewInt(0), act.Balance)
 
 		_, gateway := cfg.Plugins[config.GatewayPlugin]
 		if gateway && !cfg.Chain.EnableAsyncIndexWrite {
 			// verify deployed contract
-			ai, err := indexer.GetActionIndex(deployHash[:])
+			ai, err := indexer.GetActionIndex(_deployHash[:])
 			require.NoError(err)
-			r, err := dao.GetReceiptByActionHash(deployHash, ai.BlockHeight())
+			r, err := dao.GetReceiptByActionHash(_deployHash, ai.BlockHeight())
 			require.NoError(err)
 			require.NotNil(r)
 			require.Equal(uint64(1), r.Status)
@@ -1289,7 +1265,12 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			f := blk.Header.LogsBloomfilter()
 			require.NotNil(f)
 			require.True(f.Exist(funcSig[:]))
-			require.True(f.Exist(setTopic))
+			require.True(f.Exist(_setTopic))
+			r, err = dao.GetReceiptByActionHash(_setHash, 3)
+			require.NoError(err)
+			require.EqualValues(1, r.Status)
+			require.EqualValues(3, r.BlockHeight)
+			require.Empty(r.ContractAddress)
 
 			// 3 topics in block 4 calling get()
 			funcSig = hash.Hash256b([]byte("Get(address,uint256)"))
@@ -1298,8 +1279,18 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			f = blk.Header.LogsBloomfilter()
 			require.NotNil(f)
 			require.True(f.Exist(funcSig[:]))
-			require.True(f.Exist(setTopic))
-			require.True(f.Exist(getTopic))
+			require.True(f.Exist(_setTopic))
+			require.True(f.Exist(_getTopic))
+			r, err = dao.GetReceiptByActionHash(_sarHash, 4)
+			require.NoError(err)
+			require.EqualValues(1, r.Status)
+			require.EqualValues(4, r.BlockHeight)
+			require.Empty(r.ContractAddress)
+
+			// txIndex/logIndex corrected in block 5
+			blk, err = dao.GetBlockByHeight(5)
+			require.NoError(err)
+			verifyTxLogIndex(require, dao, blk, 10, 2)
 
 			// verify genesis block index
 			bi, err := indexer.GetBlockIndex(0)
@@ -1317,7 +1308,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 				require.EqualValues(blkIndex.NumAction(), len(blk.Actions))
 
 				// verify getting transfer amount
-				tsfs, _ := action.ClassifyActions(blk.Actions)
+				tsfs, _ := classifyActions(blk.Actions)
 				tsfa := big.NewInt(0)
 				for _, tsf := range tsfs {
 					tsfa.Add(tsfa, tsf.Amount())
@@ -1335,9 +1326,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NoError(err)
 
 	defer func() {
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		testutil.CleanupPath(t, testIndexPath)
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(testIndexPath)
 	}()
 
 	cfg := config.Default
@@ -1347,7 +1338,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.ActPool.MinGasPriceStr = "0"
 	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
-	block.LoadGenesisHash(&config.Default.Genesis)
+	block.LoadGenesisHash(&genesis.Default)
 
 	t.Run("load blockchain from DB w/o explorer", func(t *testing.T) {
 		testValidateBlockchain(cfg, t)
@@ -1361,9 +1352,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NoError(err)
 
 	defer func() {
-		testutil.CleanupPath(t, testTriePath2)
-		testutil.CleanupPath(t, testDBPath2)
-		testutil.CleanupPath(t, testIndexPath2)
+		testutil.CleanupPath(testTriePath2)
+		testutil.CleanupPath(testDBPath2)
+		testutil.CleanupPath(testIndexPath2)
 		// clear the gateway
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -1373,14 +1364,43 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = testIndexPath2
 	// test using sm2 signature
-	cfg.Chain.SignatureScheme = []string{config.SigP256sm2}
+	cfg.Chain.SignatureScheme = []string{blockchain.SigP256sm2}
 	cfg.Chain.ProducerPrivKey = "308193020100301306072a8648ce3d020106082a811ccf5501822d0479307702010104202d57ec7da578b98dad465997748ed02af0c69092ad809598073e5a2356c20492a00a06082a811ccf5501822da14403420004223356f0c6f40822ade24d47b0cd10e9285402cbc8a5028a8eec9efba44b8dfe1a7e8bc44953e557b32ec17039fb8018a58d48c8ffa54933fac8030c9a169bf6"
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.AleutianBlockHeight = 3
+	cfg.Genesis.MidwayBlockHeight = 5
 
 	t.Run("load blockchain from DB", func(t *testing.T) {
 		testValidateBlockchain(cfg, t)
 	})
+}
+
+// verify the block contains all tx/log indices up to txIndex and logIndex
+func verifyTxLogIndex(r *require.Assertions, dao blockdao.BlockDAO, blk *block.Block, txIndex int, logIndex uint32) {
+	r.Equal(txIndex, len(blk.Actions))
+	receipts, err := dao.GetReceipts(blk.Height())
+	r.NoError(err)
+	r.Equal(txIndex, len(receipts))
+
+	logs := make(map[uint32]bool)
+	for i := uint32(0); i < logIndex; i++ {
+		logs[i] = true
+	}
+	for i, v := range receipts {
+		r.EqualValues(1, v.Status)
+		r.EqualValues(i, v.TxIndex)
+		h, err := blk.Actions[i].Hash()
+		r.NoError(err)
+		r.Equal(h, v.ActionHash)
+		// verify log index
+		for _, l := range v.Logs() {
+			r.Equal(h, l.ActionHash)
+			r.EqualValues(i, l.TxIndex)
+			r.True(logs[l.Index])
+			delete(logs, l.Index)
+		}
+	}
+	r.Zero(len(logs))
 }
 
 func TestBlockchainInitialCandidate(t *testing.T) {
@@ -1399,17 +1419,24 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	db2, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 	require.NoError(err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
+	require.NoError(err)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
 	accountProtocol := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(accountProtocol.Register(registry))
+	dbcfg := cfg.DB
+	dbcfg.DbPath = cfg.Chain.ChainDBPath
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg, deser)
 	bc := blockchain.NewBlockchain(
-		cfg,
-		nil,
+		cfg.Chain,
+		cfg.Genesis,
+		dao,
 		factory.NewMinter(sf, ap),
-		blockchain.BoltDBDaoOption(sf),
 		blockchain.BlockValidatorOption(sf),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
@@ -1418,7 +1445,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 		genesis.Default.NumSubEpochs,
 	)
 	require.NoError(rolldposProtocol.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(0, 0)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(rewardingProtocol.Register(registry))
 	pollProtocol := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	require.NoError(pollProtocol.Register(registry))
@@ -1426,6 +1453,9 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(testIndexPath)
 	}()
 	candidate, _, err := candidatesutil.CandidatesFromDB(sf, 1, true, false)
 	require.NoError(err)
@@ -1439,19 +1469,22 @@ func TestBlockchain_AccountState(t *testing.T) {
 	// disable account-based testing
 	// create chain
 	cfg.Genesis.InitBalanceMap[identityset.Address(0).String()] = "100"
+	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
-	bc := blockchain.NewBlockchain(cfg, nil, factory.NewMinter(sf, ap), blockchain.InMemDaoOption(sf))
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
-	s, err := accountutil.AccountState(sf, identityset.Address(0).String())
+	s, err := accountutil.AccountState(ctx, sf, identityset.Address(0))
 	require.NoError(err)
-	require.Equal(uint64(0), s.Nonce)
+	require.Equal(uint64(1), s.PendingNonce())
 	require.Equal(big.NewInt(100), s.Balance)
 	require.Equal(hash.ZeroHash256, s.Root)
 	require.Equal([]byte(nil), s.CodeHash)
@@ -1484,16 +1517,24 @@ func TestBlocks(t *testing.T) {
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
+	dbcfg := cfg.DB
+	dbcfg.DbPath = cfg.Chain.ChainDBPath
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg, deser)
 
 	// Create a blockchain from scratch
-	bc := blockchain.NewBlockchain(cfg, nil, factory.NewMinter(sf, ap), blockchain.BoltDBDaoOption(sf))
+	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(testIndexPath)
 	}()
 
 	gasLimit := testutil.TestGasLimit
@@ -1549,17 +1590,21 @@ func TestActions(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	cfg.Genesis.InitBalanceMap[a] = "100000"
 	cfg.Genesis.InitBalanceMap[c] = "100000"
-
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
+	dbcfg := cfg.DB
+	dbcfg.DbPath = cfg.Chain.ChainDBPath
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg, deser)
 	// Create a blockchain from scratch
 	bc := blockchain.NewBlockchain(
-		cfg,
-		nil,
+		cfg.Chain,
+		cfg.Genesis,
+		dao,
 		factory.NewMinter(sf, ap),
-		blockchain.BoltDBDaoOption(sf),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -1568,6 +1613,9 @@ func TestActions(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(testIndexPath)
 	}()
 
 	gasLimit := testutil.TestGasLimit
@@ -1600,42 +1648,26 @@ func TestActions(t *testing.T) {
 	require.NoError(bc.ValidateBlock(blk))
 }
 
-func TestBlockchain_AddSubscriber(t *testing.T) {
+func TestBlockchain_AddRemoveSubscriber(t *testing.T) {
 	req := require.New(t)
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.EnableGravityChainVoting = false
 	// create chain
 	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	req.NoError(err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	req.NoError(err)
-	bc := blockchain.NewBlockchain(cfg, nil, factory.NewMinter(sf, ap), blockchain.InMemDaoOption(sf))
-	// mock
-	ctrl := gomock.NewController(t)
-	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
-	req.NoError(bc.AddSubscriber(mb))
-	req.EqualError(bc.AddSubscriber(nil), "subscriber could not be nil")
-}
-
-func TestBlockchain_RemoveSubscriber(t *testing.T) {
-	req := require.New(t)
-	cfg := config.Default
-	cfg.Genesis.BlockGasLimit = uint64(100000)
-	cfg.Genesis.EnableGravityChainVoting = false
-	// create chain
-	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
-	req.NoError(err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
-	req.NoError(err)
-	bc := blockchain.NewBlockchain(cfg, nil, factory.NewMinter(sf, ap), blockchain.InMemDaoOption(sf))
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
 	// mock
 	ctrl := gomock.NewController(t)
 	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
 	req.Error(bc.RemoveSubscriber(mb))
 	req.NoError(bc.AddSubscriber(mb))
+	req.EqualError(bc.AddSubscriber(nil), "subscriber could not be nil")
 	req.NoError(bc.RemoveSubscriber(mb))
 	req.EqualError(bc.RemoveSubscriber(nil), "cannot find subscription")
 }
@@ -1648,22 +1680,23 @@ func TestHistoryForAccount(t *testing.T) {
 func testHistoryForAccount(t *testing.T, statetx bool) {
 	require := require.New(t)
 	bc, sf, _, _, ap := newChain(t, statetx)
-	a := identityset.Address(28).String()
+	a := identityset.Address(28)
 	priKeyA := identityset.PrivateKey(28)
-	b := identityset.Address(29).String()
+	b := identityset.Address(29)
+	ctx := genesis.WithGenesisContext(context.Background(), bc.Genesis())
 
 	// check the original balance a and b before transfer
-	AccountA, err := accountutil.AccountState(sf, a)
+	AccountA, err := accountutil.AccountState(ctx, sf, a)
 	require.NoError(err)
-	AccountB, err := accountutil.AccountState(sf, b)
+	AccountB, err := accountutil.AccountState(ctx, sf, b)
 	require.NoError(err)
 	require.Equal(big.NewInt(100), AccountA.Balance)
 	require.Equal(big.NewInt(100), AccountB.Balance)
 
 	// make a transfer from a to b
 	actionMap := make(map[string][]action.SealedEnvelope)
-	actionMap[a] = []action.SealedEnvelope{}
-	tsf, err := action.SignedTransfer(b, priKeyA, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	actionMap[a.String()] = []action.SealedEnvelope{}
+	tsf, err := action.SignedTransfer(b.String(), priKeyA, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
 	require.NoError(ap.Add(context.Background(), tsf))
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
@@ -1672,23 +1705,23 @@ func testHistoryForAccount(t *testing.T, statetx bool) {
 	require.NoError(bc.CommitBlock(blk))
 
 	// check balances after transfer
-	AccountA, err = accountutil.AccountState(sf, a)
+	AccountA, err = accountutil.AccountState(ctx, sf, a)
 	require.NoError(err)
-	AccountB, err = accountutil.AccountState(sf, b)
+	AccountB, err = accountutil.AccountState(ctx, sf, b)
 	require.NoError(err)
 	require.Equal(big.NewInt(90), AccountA.Balance)
 	require.Equal(big.NewInt(110), AccountB.Balance)
 
 	// check history account's balance
 	if statetx {
-		_, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), a)
+		_, err = accountutil.AccountState(ctx, factory.NewHistoryStateReader(sf, bc.TipHeight()-1), a)
 		require.Equal(factory.ErrNotSupported, errors.Cause(err))
-		_, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), b)
+		_, err = accountutil.AccountState(ctx, factory.NewHistoryStateReader(sf, bc.TipHeight()-1), b)
 		require.Equal(factory.ErrNotSupported, errors.Cause(err))
 	} else {
-		AccountA, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), a)
+		AccountA, err = accountutil.AccountState(ctx, factory.NewHistoryStateReader(sf, bc.TipHeight()-1), a)
 		require.NoError(err)
-		AccountB, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), b)
+		AccountB, err = accountutil.AccountState(ctx, factory.NewHistoryStateReader(sf, bc.TipHeight()-1), b)
 		require.NoError(err)
 		require.Equal(big.NewInt(100), AccountA.Balance)
 		require.Equal(big.NewInt(100), AccountB.Balance)
@@ -1702,37 +1735,41 @@ func TestHistoryForContract(t *testing.T) {
 
 func testHistoryForContract(t *testing.T, statetx bool) {
 	require := require.New(t)
-	bc, sf, kv, dao, ap := newChain(t, statetx)
+	bc, sf, _, dao, ap := newChain(t, statetx)
+	ctx := genesis.WithGenesisContext(context.Background(), bc.Genesis())
 	genesisAccount := identityset.Address(27).String()
 	// deploy and get contract address
 	contract := deployXrc20(bc, dao, ap, t)
 
-	account, err := accountutil.AccountState(sf, contract)
+	contractAddr, err := address.FromString(contract)
+	require.NoError(err)
+	account, err := accountutil.AccountState(ctx, sf, contractAddr)
 	require.NoError(err)
 	// check the original balance
-	balance := BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
-	expect, ok := big.NewInt(0).SetString("2000000000000000000000000000", 10)
+	balance := BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
+	expect, ok := new(big.Int).SetString("2000000000000000000000000000", 10)
 	require.True(ok)
 	require.Equal(expect, balance)
 	// make a transfer for contract
 	makeTransfer(contract, bc, ap, t)
-	account, err = accountutil.AccountState(sf, contract)
+	account, err = accountutil.AccountState(ctx, sf, contractAddr)
 	require.NoError(err)
 	// check the balance after transfer
-	balance = BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
-	expect, ok = big.NewInt(0).SetString("1999999999999999999999999999", 10)
+	balance = BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
+	expect, ok = new(big.Int).SetString("1999999999999999999999999999", 10)
 	require.True(ok)
 	require.Equal(expect, balance)
 
 	// check the the original balance again
 	if statetx {
-		_, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), contract)
+		_, err = accountutil.AccountState(ctx, factory.NewHistoryStateReader(sf, bc.TipHeight()-1), contractAddr)
 		require.True(errors.Cause(err) == factory.ErrNotSupported)
 	} else {
-		account, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), contract)
+		sr := factory.NewHistoryStateReader(sf, bc.TipHeight()-1)
+		account, err = accountutil.AccountState(ctx, sr, contractAddr)
 		require.NoError(err)
-		balance = BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
-		expect, ok = big.NewInt(0).SetString("2000000000000000000000000000", 10)
+		balance = BalanceOfContract(contract, genesisAccount, sr, t, account.Root)
+		expect, ok = new(big.Int).SetString("2000000000000000000000000000", 10)
 		require.True(ok)
 		require.Equal(expect, balance)
 	}
@@ -1766,13 +1803,12 @@ func deployXrc20(bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.Act
 	return r.ContractAddress
 }
 
-func BalanceOfContract(contract, genesisAccount string, kv db.KVStore, t *testing.T, root hash.Hash256) *big.Int {
+func BalanceOfContract(contract, genesisAccount string, sr protocol.StateReader, t *testing.T, root hash.Hash256) *big.Int {
 	require := require.New(t)
 	addr, err := address.FromString(contract)
 	require.NoError(err)
 	addrHash := hash.BytesToHash160(addr.Bytes())
-	dbForTrie, err := trie.NewKVStore(evm.ContractKVNameSpace, kv)
-	require.NoError(err)
+	dbForTrie := protocol.NewKVStoreForTrieWithStateReader(evm.ContractKVNameSpace, sr)
 	options := []mptrie.Option{
 		mptrie.KVStoreOption(dbForTrie),
 		mptrie.KeyLengthOption(len(hash.Hash256{})),
@@ -1809,6 +1845,11 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	require.NoError(err)
 	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(testIndexPath)
+	}()
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
@@ -1821,14 +1862,15 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	registry := protocol.NewRegistry()
 	var sf factory.Factory
 	kv := db.NewMemKVStore()
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	if stateTX {
-		sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(kv), factory.RegistryStateDBOption(registry))
+		sf, err = factory.NewStateDB(factoryCfg, kv, factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 	} else {
-		sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(kv), factory.RegistryOption(registry))
+		sf, err = factory.NewFactory(factoryCfg, kv, factory.RegistryOption(registry))
 		require.NoError(err)
 	}
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
@@ -1846,11 +1888,12 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create BlockDAO
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	dao := blockdao.NewBlockDAO(indexers, cfg.DB)
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO(indexers, cfg.DB, deser)
 	require.NotNil(dao)
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -1899,6 +1942,22 @@ func makeTransfer(contract string, bc blockchain.Blockchain, ap actpool.ActPool,
 	require.NoError(err)
 	require.NoError(bc.CommitBlock(blk))
 	return blk
+}
+
+// classifyActions classfies actions
+func classifyActions(actions []action.SealedEnvelope) ([]*action.Transfer, []*action.Execution) {
+	tsfs := make([]*action.Transfer, 0)
+	exes := make([]*action.Execution, 0)
+	for _, elp := range actions {
+		act := elp.Action()
+		switch act := act.(type) {
+		case *action.Transfer:
+			tsfs = append(tsfs, act)
+		case *action.Execution:
+			exes = append(exes, act)
+		}
+	}
+	return tsfs, exes
 }
 
 // TODO: add func TestValidateBlock()

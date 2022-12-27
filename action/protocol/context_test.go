@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package protocol
 
@@ -11,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
@@ -38,11 +38,19 @@ func TestWithBlockchainCtx(t *testing.T) {
 
 func TestGetBlockchainCtx(t *testing.T) {
 	require := require.New(t)
-	bcCtx := BlockchainCtx{}
+	bcCtx := BlockchainCtx{
+		Tip: TipInfo{
+			Height:    1024,
+			Timestamp: time.Now(),
+		},
+		ChainID:      1,
+		EvmNetworkID: 100,
+	}
 	ctx := WithBlockchainCtx(context.Background(), bcCtx)
 	require.NotNil(ctx)
-	_, ok := GetBlockchainCtx(ctx)
+	bcCtx1, ok := GetBlockchainCtx(ctx)
 	require.True(ok)
+	require.Equal(bcCtx, bcCtx1)
 }
 
 func TestMustGetBlockchainCtx(t *testing.T) {
@@ -156,4 +164,18 @@ func TestMustGetActionCtx(t *testing.T) {
 	require.Equal(hash.ZeroHash256, ret.ActionHash)
 	// Case II: Panic
 	require.Panics(func() { MustGetActionCtx(context.Background()) }, "Miss action context")
+}
+
+func TestWithVMConfigCtx(t *testing.T) {
+	require := require.New(t)
+	require.NotNil(WithVMConfigCtx(context.Background(), vm.Config{Debug: true}))
+}
+
+func TestGetVMConfigCtx(t *testing.T) {
+	require := require.New(t)
+	ctx := WithVMConfigCtx(context.Background(), vm.Config{Debug: true})
+	require.NotNil(ctx)
+	ret, ok := GetVMConfigCtx(ctx)
+	require.True(ok)
+	require.True(ret.Debug)
 }

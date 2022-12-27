@@ -1,12 +1,14 @@
 package action
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -29,7 +31,13 @@ func TestEnvelope_Basic(t *testing.T) {
 	tsf2, ok := evlp.Action().(*Transfer)
 	req.True(ok)
 	req.Equal(tsf, tsf2)
+
+	evlp.SetNonce(_nonce)
+	req.Equal(_nonce, evlp.Nonce())
+	evlp.SetChainID(tsf.chainID)
+	req.Equal(tsf.chainID, evlp.ChainID())
 }
+
 func TestEnvelope_Proto(t *testing.T) {
 	req := require.New(t)
 	eb, tsf := createEnvelope()
@@ -41,17 +49,98 @@ func TestEnvelope_Proto(t *testing.T) {
 		Version:  evlp.version,
 		Nonce:    evlp.nonce,
 		GasLimit: evlp.gasLimit,
+		ChainID:  evlp.chainID,
 	}
 	actCore.GasPrice = evlp.gasPrice.String()
 	actCore.Action = &iotextypes.ActionCore_Transfer{Transfer: tsf.Proto()}
 	req.Equal(actCore, proto)
 
-	req.NoError(evlp.LoadProto(proto))
-	tsf2, ok := evlp.Action().(*Transfer)
+	evlp2 := &envelope{}
+	req.NoError(evlp2.LoadProto(proto))
+	req.Equal(evlp.version, evlp2.version)
+	req.Equal(evlp.chainID, evlp2.chainID)
+	req.Equal(evlp.nonce, evlp2.nonce)
+	req.Equal(evlp.gasLimit, evlp2.gasLimit)
+	req.Equal(evlp.gasPrice, evlp2.gasPrice)
+	tsf2, ok := evlp2.Action().(*Transfer)
 	req.True(ok)
 	req.Equal(tsf.amount, tsf2.amount)
 	req.Equal(tsf.recipient, tsf2.recipient)
 	req.Equal(tsf.payload, tsf2.payload)
+}
+
+func TestEnvelope_Actions(t *testing.T) {
+	require := require.New(t)
+	candidates := state.CandidateList{}
+	putPollResult := NewPutPollResult(1, 10001, candidates)
+
+	createStake, err := NewCreateStake(uint64(10), _addr2, "100", uint32(10000), true, _payload, _gasLimit, _gasPrice)
+	require.NoError(err)
+
+	depositToStake, err := NewDepositToStake(1, 2, big.NewInt(10).String(), _payload, _gasLimit, _gasPrice)
+	require.NoError(err)
+
+	changeCandidate, err := NewChangeCandidate(1, _candidate1Name, 2, _payload, _gasLimit, _gasPrice)
+	require.NoError(err)
+
+	unstake, err := NewUnstake(_nonce, 2, _payload, _gasLimit, _gasPrice)
+	require.NoError(err)
+
+	withdrawStake, err := NewWithdrawStake(_nonce, 2, _payload, _gasLimit, _gasPrice)
+	require.NoError(err)
+
+	restake, err := NewRestake(_nonce, _index, _duration, _autoStake, _payload, _gasLimit, _gasPrice)
+	require.NoError(err)
+
+	transferStake, err := NewTransferStake(_nonce, _cand1Addr, 2, _payload, _gasLimit, _gasPrice)
+	require.NoError(err)
+
+	candidateRegister, err := NewCandidateRegister(_nonce, _candidate1Name, _cand1Addr, _cand1Addr, _cand1Addr, big.NewInt(10).String(), 91, true, _payload, _gasLimit, _gasPrice)
+	require.NoError(err)
+
+	candidateUpdate, err := NewCandidateUpdate(_nonce, _candidate1Name, _cand1Addr, _cand1Addr, _gasLimit, _gasPrice)
+	require.NoError(err)
+
+	gb := GrantRewardBuilder{}
+	grantReward := gb.Build()
+
+	cb := ClaimFromRewardingFundBuilder{}
+	claimFromRewardingFund := cb.SetAmount(big.NewInt(1)).Build()
+
+	cf := DepositToRewardingFundBuilder{}
+	depositToRewardingFund := cf.SetAmount(big.NewInt(1)).Build()
+
+	tests := []actionPayload{
+		putPollResult,
+		createStake,
+		depositToStake,
+		changeCandidate,
+		unstake,
+		withdrawStake,
+		restake,
+		transferStake,
+		candidateRegister,
+		candidateUpdate,
+		&grantReward,
+		&claimFromRewardingFund,
+		&depositToRewardingFund,
+	}
+
+	for _, test := range tests {
+		bd := &EnvelopeBuilder{}
+		elp := bd.SetNonce(1).
+			SetAction(test).
+			SetGasLimit(100000).
+			SetChainID(1).Build()
+		evlp, ok := elp.(*envelope)
+		require.True(ok)
+		require.NoError(evlp.LoadProto(evlp.Proto()))
+		require.Equal(elp.Version(), evlp.Version())
+		require.Equal(elp.Nonce(), evlp.Nonce())
+		require.Equal(elp.ChainID(), evlp.ChainID())
+		require.Equal(elp.GasPrice(), evlp.GasPrice())
+		require.Equal(elp.GasLimit(), evlp.GasLimit())
+	}
 }
 
 func createEnvelope() (Envelope, *Transfer) {
@@ -70,6 +159,7 @@ func createEnvelope() (Envelope, *Transfer) {
 		SetGasPrice(tsf.GasPrice()).
 		SetNonce(tsf.Nonce()).
 		SetVersion(1).
+		SetChainID(1).
 		Build()
 	return evlp, tsf
 }

@@ -1,14 +1,13 @@
-// Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package alias
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v2"
@@ -20,20 +19,20 @@ import (
 
 // Multi-language support
 var (
-	setCmdShorts = map[config.Language]string{
+	_setCmdShorts = map[config.Language]string{
 		config.English: "Set alias for address",
 		config.Chinese: "设定地址的别名",
 	}
-	setCmdUses = map[config.Language]string{
+	_setCmdUses = map[config.Language]string{
 		config.English: "set ALIAS ADDRESS",
 		config.Chinese: "set 别名 地址",
 	}
 )
 
-// aliasSetCmd represents the alias set command
-var aliasSetCmd = &cobra.Command{
-	Use:   config.TranslateInLang(setCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(setCmdShorts, config.UILanguage),
+// _aliasSetCmd represents the alias set command
+var _aliasSetCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_setCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_setCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -62,7 +61,7 @@ func set(args []string) error {
 	if err != nil {
 		return output.NewError(output.SerializationError, "failed to marshal config", err)
 	}
-	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+	if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
 		return output.NewError(output.WriteFileError,
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}

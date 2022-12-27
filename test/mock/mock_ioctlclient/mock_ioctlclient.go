@@ -6,168 +6,55 @@ package mock_ioctlclient
 
 import (
 	context "context"
+	ecdsa "crypto/ecdsa"
+	http "net/http"
+	reflect "reflect"
+
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	gomock "github.com/golang/mock/gomock"
-	ioctl "github.com/iotexproject/iotex-core/ioctl"
 	config "github.com/iotexproject/iotex-core/ioctl/config"
 	iotexapi "github.com/iotexproject/iotex-proto/golang/iotexapi"
-	reflect "reflect"
 )
 
-// MockClient is a mock of Client interface
+// MockClient is a mock of Client interface.
 type MockClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockClientMockRecorder
 }
 
-// MockClientMockRecorder is the mock recorder for MockClient
+// MockClientMockRecorder is the mock recorder for MockClient.
 type MockClientMockRecorder struct {
 	mock *MockClient
 }
 
-// NewMockClient creates a new mock instance
+// NewMockClient creates a new mock instance.
 func NewMockClient(ctrl *gomock.Controller) *MockClient {
 	mock := &MockClient{ctrl: ctrl}
 	mock.recorder = &MockClientMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
-// Start mocks base method
-func (m *MockClient) Start(arg0 context.Context) error {
+// APIServiceClient mocks base method.
+func (m *MockClient) APIServiceClient() (iotexapi.APIServiceClient, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Start", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Start indicates an expected call of Start
-func (mr *MockClientMockRecorder) Start(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockClient)(nil).Start), arg0)
-}
-
-// Stop mocks base method
-func (m *MockClient) Stop(arg0 context.Context) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Stop", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Stop indicates an expected call of Stop
-func (mr *MockClientMockRecorder) Stop(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockClient)(nil).Stop), arg0)
-}
-
-// Config mocks base method
-func (m *MockClient) Config() config.Config {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].(config.Config)
-	return ret0
-}
-
-// Config indicates an expected call of Config
-func (mr *MockClientMockRecorder) Config() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockClient)(nil).Config))
-}
-
-// APIServiceClient mocks base method
-func (m *MockClient) APIServiceClient(arg0 ioctl.APIServiceConfig) (iotexapi.APIServiceClient, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIServiceClient", arg0)
+	ret := m.ctrl.Call(m, "APIServiceClient")
 	ret0, _ := ret[0].(iotexapi.APIServiceClient)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// APIServiceClient indicates an expected call of APIServiceClient
-func (mr *MockClientMockRecorder) APIServiceClient(arg0 interface{}) *gomock.Call {
+// APIServiceClient indicates an expected call of APIServiceClient.
+func (mr *MockClientMockRecorder) APIServiceClient() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIServiceClient", reflect.TypeOf((*MockClient)(nil).APIServiceClient), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIServiceClient", reflect.TypeOf((*MockClient)(nil).APIServiceClient))
 }
 
-// SelectTranslation mocks base method
-func (m *MockClient) SelectTranslation(arg0 map[config.Language]string) (string, config.Language) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SelectTranslation", arg0)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(config.Language)
-	return ret0, ret1
-}
-
-// SelectTranslation indicates an expected call of SelectTranslation
-func (mr *MockClientMockRecorder) SelectTranslation(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectTranslation", reflect.TypeOf((*MockClient)(nil).SelectTranslation), arg0)
-}
-
-// AskToConfirm mocks base method
-func (m *MockClient) AskToConfirm() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AskToConfirm")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// AskToConfirm indicates an expected call of AskToConfirm
-func (mr *MockClientMockRecorder) AskToConfirm() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskToConfirm", reflect.TypeOf((*MockClient)(nil).AskToConfirm))
-}
-
-// ReadSecret mocks base method
-func (m *MockClient) ReadSecret() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadSecret")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ReadSecret indicates an expected call of ReadSecret
-func (mr *MockClientMockRecorder) ReadSecret() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSecret", reflect.TypeOf((*MockClient)(nil).ReadSecret))
-}
-
-// Execute mocks base method
-func (m *MockClient) Execute(arg0 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Execute", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Execute indicates an expected call of Execute
-func (mr *MockClientMockRecorder) Execute(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockClient)(nil).Execute), arg0)
-}
-
-// GetAddress mocks base method
-func (m *MockClient) GetAddress(in string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAddress", in)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAddress indicates an expected call of GetAddress
-func (mr *MockClientMockRecorder) GetAddress(in interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddress", reflect.TypeOf((*MockClient)(nil).GetAddress), in)
-}
-
-// Address mocks base method
+// Address mocks base method.
 func (m *MockClient) Address(in string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Address", in)
@@ -176,50 +63,404 @@ func (m *MockClient) Address(in string) (string, error) {
 	return ret0, ret1
 }
 
-// Address indicates an expected call of Address
+// Address indicates an expected call of Address.
 func (mr *MockClientMockRecorder) Address(in interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockClient)(nil).Address), in)
 }
 
-// NewKeyStore mocks base method
-func (m *MockClient) NewKeyStore(arg0 string, arg1, arg2 int) *keystore.KeyStore {
+// AddressWithDefaultIfNotExist mocks base method.
+func (m *MockClient) AddressWithDefaultIfNotExist(in string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewKeyStore", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*keystore.KeyStore)
-	return ret0
+	ret := m.ctrl.Call(m, "AddressWithDefaultIfNotExist", in)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// NewKeyStore indicates an expected call of NewKeyStore
-func (mr *MockClientMockRecorder) NewKeyStore(arg0, arg1, arg2 interface{}) *gomock.Call {
+// AddressWithDefaultIfNotExist indicates an expected call of AddressWithDefaultIfNotExist.
+func (mr *MockClientMockRecorder) AddressWithDefaultIfNotExist(in interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddressWithDefaultIfNotExist", reflect.TypeOf((*MockClient)(nil).AddressWithDefaultIfNotExist), in)
 }
 
-// GetAliasMap mocks base method
-func (m *MockClient) GetAliasMap() map[string]string {
+// Alias mocks base method.
+func (m *MockClient) Alias(arg0 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAliasMap")
+	ret := m.ctrl.Call(m, "Alias", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Alias indicates an expected call of Alias.
+func (mr *MockClientMockRecorder) Alias(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Alias", reflect.TypeOf((*MockClient)(nil).Alias), arg0)
+}
+
+// AliasMap mocks base method.
+func (m *MockClient) AliasMap() map[string]string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AliasMap")
 	ret0, _ := ret[0].(map[string]string)
 	return ret0
 }
 
-// GetAliasMap indicates an expected call of GetAliasMap
-func (mr *MockClientMockRecorder) GetAliasMap() *gomock.Call {
+// AliasMap indicates an expected call of AliasMap.
+func (mr *MockClientMockRecorder) AliasMap() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAliasMap", reflect.TypeOf((*MockClient)(nil).GetAliasMap))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AliasMap", reflect.TypeOf((*MockClient)(nil).AliasMap))
 }
 
-// WriteConfig mocks base method
-func (m *MockClient) WriteConfig(arg0 config.Config) error {
+// AskToConfirm mocks base method.
+func (m *MockClient) AskToConfirm(arg0 string) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WriteConfig", arg0)
+	ret := m.ctrl.Call(m, "AskToConfirm", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AskToConfirm indicates an expected call of AskToConfirm.
+func (mr *MockClientMockRecorder) AskToConfirm(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskToConfirm", reflect.TypeOf((*MockClient)(nil).AskToConfirm), arg0)
+}
+
+// Config mocks base method.
+func (m *MockClient) Config() config.Config {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Config")
+	ret0, _ := ret[0].(config.Config)
+	return ret0
+}
+
+// Config indicates an expected call of Config.
+func (mr *MockClientMockRecorder) Config() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockClient)(nil).Config))
+}
+
+// ConfigFilePath mocks base method.
+func (m *MockClient) ConfigFilePath() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConfigFilePath")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ConfigFilePath indicates an expected call of ConfigFilePath.
+func (mr *MockClientMockRecorder) ConfigFilePath() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigFilePath", reflect.TypeOf((*MockClient)(nil).ConfigFilePath))
+}
+
+// DecryptPrivateKey mocks base method.
+func (m *MockClient) DecryptPrivateKey(arg0, arg1 string) (*ecdsa.PrivateKey, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DecryptPrivateKey", arg0, arg1)
+	ret0, _ := ret[0].(*ecdsa.PrivateKey)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DecryptPrivateKey indicates an expected call of DecryptPrivateKey.
+func (mr *MockClientMockRecorder) DecryptPrivateKey(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecryptPrivateKey", reflect.TypeOf((*MockClient)(nil).DecryptPrivateKey), arg0, arg1)
+}
+
+// DeleteAlias mocks base method.
+func (m *MockClient) DeleteAlias(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteAlias", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// WriteConfig indicates an expected call of WriteConfig
-func (mr *MockClientMockRecorder) WriteConfig(arg0 interface{}) *gomock.Call {
+// DeleteAlias indicates an expected call of DeleteAlias.
+func (mr *MockClientMockRecorder) DeleteAlias(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteConfig", reflect.TypeOf((*MockClient)(nil).WriteConfig), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAlias", reflect.TypeOf((*MockClient)(nil).DeleteAlias), arg0)
+}
+
+// Execute mocks base method.
+func (m *MockClient) Execute(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Execute", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Execute indicates an expected call of Execute.
+func (mr *MockClientMockRecorder) Execute(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockClient)(nil).Execute), arg0)
+}
+
+// HdwalletMnemonic mocks base method.
+func (m *MockClient) HdwalletMnemonic(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HdwalletMnemonic", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HdwalletMnemonic indicates an expected call of HdwalletMnemonic.
+func (mr *MockClientMockRecorder) HdwalletMnemonic(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HdwalletMnemonic", reflect.TypeOf((*MockClient)(nil).HdwalletMnemonic), arg0)
+}
+
+// Insecure mocks base method.
+func (m *MockClient) Insecure() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Insecure")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Insecure indicates an expected call of Insecure.
+func (mr *MockClientMockRecorder) Insecure() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Insecure", reflect.TypeOf((*MockClient)(nil).Insecure))
+}
+
+// IsCryptoSm2 mocks base method.
+func (m *MockClient) IsCryptoSm2() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsCryptoSm2")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsCryptoSm2 indicates an expected call of IsCryptoSm2.
+func (mr *MockClientMockRecorder) IsCryptoSm2() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCryptoSm2", reflect.TypeOf((*MockClient)(nil).IsCryptoSm2))
+}
+
+// IsHdWalletConfigFileExist mocks base method.
+func (m *MockClient) IsHdWalletConfigFileExist() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsHdWalletConfigFileExist")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsHdWalletConfigFileExist indicates an expected call of IsHdWalletConfigFileExist.
+func (mr *MockClientMockRecorder) IsHdWalletConfigFileExist() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsHdWalletConfigFileExist", reflect.TypeOf((*MockClient)(nil).IsHdWalletConfigFileExist))
+}
+
+// NewKeyStore mocks base method.
+func (m *MockClient) NewKeyStore() *keystore.KeyStore {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewKeyStore")
+	ret0, _ := ret[0].(*keystore.KeyStore)
+	return ret0
+}
+
+// NewKeyStore indicates an expected call of NewKeyStore.
+func (mr *MockClientMockRecorder) NewKeyStore() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore))
+}
+
+// QueryAnalyser mocks base method.
+func (m *MockClient) QueryAnalyser(arg0 interface{}) (*http.Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryAnalyser", arg0)
+	ret0, _ := ret[0].(*http.Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryAnalyser indicates an expected call of QueryAnalyser.
+func (mr *MockClientMockRecorder) QueryAnalyser(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryAnalyser", reflect.TypeOf((*MockClient)(nil).QueryAnalyser), arg0)
+}
+
+// ReadCustomLink mocks base method.
+func (m *MockClient) ReadCustomLink() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadCustomLink")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadCustomLink indicates an expected call of ReadCustomLink.
+func (mr *MockClientMockRecorder) ReadCustomLink() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadCustomLink", reflect.TypeOf((*MockClient)(nil).ReadCustomLink))
+}
+
+// ReadInput mocks base method.
+func (m *MockClient) ReadInput() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadInput")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadInput indicates an expected call of ReadInput.
+func (mr *MockClientMockRecorder) ReadInput() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadInput", reflect.TypeOf((*MockClient)(nil).ReadInput))
+}
+
+// ReadSecret mocks base method.
+func (m *MockClient) ReadSecret() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadSecret")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadSecret indicates an expected call of ReadSecret.
+func (mr *MockClientMockRecorder) ReadSecret() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSecret", reflect.TypeOf((*MockClient)(nil).ReadSecret))
+}
+
+// RemoveHdWalletConfigFile mocks base method.
+func (m *MockClient) RemoveHdWalletConfigFile() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveHdWalletConfigFile")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveHdWalletConfigFile indicates an expected call of RemoveHdWalletConfigFile.
+func (mr *MockClientMockRecorder) RemoveHdWalletConfigFile() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveHdWalletConfigFile", reflect.TypeOf((*MockClient)(nil).RemoveHdWalletConfigFile))
+}
+
+// SelectTranslation mocks base method.
+func (m *MockClient) SelectTranslation(arg0 map[config.Language]string) (string, config.Language) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SelectTranslation", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(config.Language)
+	return ret0, ret1
+}
+
+// SelectTranslation indicates an expected call of SelectTranslation.
+func (mr *MockClientMockRecorder) SelectTranslation(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectTranslation", reflect.TypeOf((*MockClient)(nil).SelectTranslation), arg0)
+}
+
+// SetAlias mocks base method.
+func (m *MockClient) SetAlias(arg0, arg1 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetAlias", arg0, arg1)
+}
+
+// SetAlias indicates an expected call of SetAlias.
+func (mr *MockClientMockRecorder) SetAlias(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAlias", reflect.TypeOf((*MockClient)(nil).SetAlias), arg0, arg1)
+}
+
+// SetAliasAndSave mocks base method.
+func (m *MockClient) SetAliasAndSave(arg0, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetAliasAndSave", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetAliasAndSave indicates an expected call of SetAliasAndSave.
+func (mr *MockClientMockRecorder) SetAliasAndSave(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAliasAndSave", reflect.TypeOf((*MockClient)(nil).SetAliasAndSave), arg0, arg1)
+}
+
+// SetEndpointWithFlag mocks base method.
+func (m *MockClient) SetEndpointWithFlag(arg0 func(*string, string, string, string)) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetEndpointWithFlag", arg0)
+}
+
+// SetEndpointWithFlag indicates an expected call of SetEndpointWithFlag.
+func (mr *MockClientMockRecorder) SetEndpointWithFlag(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetEndpointWithFlag", reflect.TypeOf((*MockClient)(nil).SetEndpointWithFlag), arg0)
+}
+
+// SetInsecureWithFlag mocks base method.
+func (m *MockClient) SetInsecureWithFlag(arg0 func(*bool, string, bool, string)) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetInsecureWithFlag", arg0)
+}
+
+// SetInsecureWithFlag indicates an expected call of SetInsecureWithFlag.
+func (mr *MockClientMockRecorder) SetInsecureWithFlag(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInsecureWithFlag", reflect.TypeOf((*MockClient)(nil).SetInsecureWithFlag), arg0)
+}
+
+// Start mocks base method.
+func (m *MockClient) Start(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Start", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Start indicates an expected call of Start.
+func (mr *MockClientMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockClient)(nil).Start), arg0)
+}
+
+// Stop mocks base method.
+func (m *MockClient) Stop(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Stop", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Stop indicates an expected call of Stop.
+func (mr *MockClientMockRecorder) Stop(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockClient)(nil).Stop), arg0)
+}
+
+// WriteConfig mocks base method.
+func (m *MockClient) WriteConfig() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteConfig")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteConfig indicates an expected call of WriteConfig.
+func (mr *MockClientMockRecorder) WriteConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteConfig", reflect.TypeOf((*MockClient)(nil).WriteConfig))
+}
+
+// WriteHdWalletConfigFile mocks base method.
+func (m *MockClient) WriteHdWalletConfigFile(arg0, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteHdWalletConfigFile", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteHdWalletConfigFile indicates an expected call of WriteHdWalletConfigFile.
+func (mr *MockClientMockRecorder) WriteHdWalletConfigFile(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteHdWalletConfigFile", reflect.TypeOf((*MockClient)(nil).WriteHdWalletConfigFile), arg0, arg1)
 }

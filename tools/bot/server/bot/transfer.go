@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package bot
 
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-antenna-go/v2/account"
 	"github.com/iotexproject/iotex-antenna-go/v2/iotex"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -93,8 +91,9 @@ func (s *Transfer) checkAndAlert(hs string) {
 	}
 }
 func (s *Transfer) transfer(pri crypto.PrivateKey) (txhash string, err error) {
-	addr, err := address.FromBytes(pri.PublicKey().Hash())
-	if err != nil {
+	addr := pri.PublicKey().Address()
+	if addr == nil {
+		err = errors.New("failed to get address")
 		return
 	}
 	gasprice := big.NewInt(0).SetUint64(s.cfg.GasPrice)
@@ -102,7 +101,7 @@ func (s *Transfer) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 	if err != nil {
 		return
 	}
-	amount, ok := big.NewInt(0).SetString(s.cfg.Transfer.AmountInRau, 10)
+	amount, ok := new(big.Int).SetString(s.cfg.Transfer.AmountInRau, 10)
 	if !ok {
 		err = errors.New("amount convert error")
 		return

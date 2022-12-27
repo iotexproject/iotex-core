@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package rolldpos
 
@@ -21,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -33,69 +31,71 @@ var dummyCandidatesByHeightFunc = func(uint64) ([]string, error) { return nil, n
 
 func TestRollDPoSCtx(t *testing.T) {
 	require := require.New(t)
-	cfg := config.Default
+	cfg := DefaultConfig
+	g := genesis.Default
 	dbConfig := db.DefaultConfig
-	dbConfig.DbPath = config.Default.Consensus.RollDPoS.ConsensusDBPath
+	dbConfig.DbPath = DefaultConfig.ConsensusDBPath
 	b, _, _, _, _ := makeChain(t)
 
 	t.Run("case 1:panic because of chain is nil", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, nil, nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
+		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, nil, block.NewDeserializer(0), nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
 		require.Error(err)
 	})
 
 	t.Run("case 2:panic because of rp is nil", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
+		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
 		require.Error(err)
 	})
 
 	rp := rolldpos.NewProtocol(
-		config.Default.Genesis.NumCandidateDelegates,
-		config.Default.Genesis.NumDelegates,
-		config.Default.Genesis.NumSubEpochs,
+		genesis.Default.NumCandidateDelegates,
+		genesis.Default.NumDelegates,
+		genesis.Default.NumSubEpochs,
 	)
 	t.Run("case 3:panic because of clock is nil", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, rp, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
+		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
 		require.Error(err)
 	})
 
 	c := clock.New()
-	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = time.Second * 10
-	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = time.Second
-	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = time.Second
-	cfg.Consensus.RollDPoS.FSM.CommitTTL = time.Second
+	cfg.FSM.AcceptBlockTTL = time.Second * 10
+	cfg.FSM.AcceptProposalEndorsementTTL = time.Second
+	cfg.FSM.AcceptLockEndorsementTTL = time.Second
+	cfg.FSM.CommitTTL = time.Second
 	t.Run("case 4:panic because of fsm time bigger than block interval", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, rp, nil, dummyCandidatesByHeightFunc, "", nil, c, 0)
+		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, c, 0)
 		require.Error(err)
 	})
 
-	cfg.Genesis.Blockchain.BlockInterval = time.Second * 20
+	g.Blockchain.BlockInterval = time.Second * 20
 	t.Run("case 5:panic because of nil CandidatesByHeight function", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, rp, nil, nil, "", nil, c, 0)
+		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, nil, "", nil, c, 0)
 		require.Error(err)
 	})
 
 	t.Run("case 6:normal", func(t *testing.T) {
-		bh := config.Default.Genesis.BeringBlockHeight
-		rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, rp, nil, dummyCandidatesByHeightFunc, "", nil, c, bh)
+		bh := genesis.Default.BeringBlockHeight
+		rctx, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, c, bh)
 		require.NoError(err)
-		require.Equal(bh, rctx.roundCalc.beringHeight)
+		require.Equal(bh, rctx.RoundCalculator().beringHeight)
 		require.NotNil(rctx)
 	})
 }
 
 func TestCheckVoteEndorser(t *testing.T) {
 	require := require.New(t)
-	cfg := config.Default
 	b, sf, _, rp, pp := makeChain(t)
 	c := clock.New()
-	cfg.Genesis.BlockInterval = time.Second * 20
-	rctx, err := newRollDPoSCtx(
-		consensusfsm.NewConsensusConfig(cfg),
+	g := genesis.Default
+	g.Blockchain.BlockInterval = time.Second * 20
+	rctx, err := NewRollDPoSCtx(
+		consensusfsm.NewConsensusConfig(DefaultConfig.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, g, DefaultConfig.Delay),
 		db.DefaultConfig,
 		true,
 		time.Second,
 		true,
-		b,
+		NewChainManager(b),
+		block.NewDeserializer(0),
 		rp,
 		nil,
 		func(epochnum uint64) ([]string, error) {
@@ -112,9 +112,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 							Height: tipHeight,
 						},
 					},
-				),
-				cfg.Genesis,
-			)
+				), g)
 			tipEpochNum := rp.GetEpochNum(tipHeight)
 			var candidatesList state.CandidateList
 			var addrs []string
@@ -138,7 +136,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 		"",
 		nil,
 		c,
-		config.Default.Genesis.BeringBlockHeight,
+		genesis.Default.BeringBlockHeight,
 	)
 	require.NoError(err)
 	require.NotNil(rctx)
@@ -157,17 +155,18 @@ func TestCheckVoteEndorser(t *testing.T) {
 
 func TestCheckBlockProposer(t *testing.T) {
 	require := require.New(t)
-	cfg := config.Default
+	g := genesis.Default
 	b, sf, _, rp, pp := makeChain(t)
 	c := clock.New()
-	cfg.Genesis.BlockInterval = time.Second * 20
-	rctx, err := newRollDPoSCtx(
-		consensusfsm.NewConsensusConfig(cfg),
-		cfg.DB,
+	g.Blockchain.BlockInterval = time.Second * 20
+	rctx, err := NewRollDPoSCtx(
+		consensusfsm.NewConsensusConfig(DefaultConfig.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, g, DefaultConfig.Delay),
+		db.DefaultConfig,
 		true,
 		time.Second,
 		true,
-		b,
+		NewChainManager(b),
+		block.NewDeserializer(0),
 		rp,
 		nil,
 		func(epochnum uint64) ([]string, error) {
@@ -184,9 +183,7 @@ func TestCheckBlockProposer(t *testing.T) {
 							Height: tipHeight,
 						},
 					},
-				),
-				cfg.Genesis,
-			)
+				), g)
 			tipEpochNum := rp.GetEpochNum(tipHeight)
 			var candidatesList state.CandidateList
 			var addrs []string
@@ -210,7 +207,7 @@ func TestCheckBlockProposer(t *testing.T) {
 		"",
 		nil,
 		c,
-		config.Default.Genesis.BeringBlockHeight,
+		genesis.Default.BeringBlockHeight,
 	)
 	require.NoError(err)
 	require.NotNil(rctx)
@@ -268,17 +265,18 @@ func TestCheckBlockProposer(t *testing.T) {
 
 func TestNotProducingMultipleBlocks(t *testing.T) {
 	require := require.New(t)
-	cfg := config.Default
 	b, sf, _, rp, pp := makeChain(t)
 	c := clock.New()
-	cfg.Genesis.BlockInterval = time.Second * 20
-	rctx, err := newRollDPoSCtx(
-		consensusfsm.NewConsensusConfig(cfg),
+	g := genesis.Default
+	g.Blockchain.BlockInterval = time.Second * 20
+	rctx, err := NewRollDPoSCtx(
+		consensusfsm.NewConsensusConfig(DefaultConfig.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, g, DefaultConfig.Delay),
 		db.DefaultConfig,
 		true,
 		time.Second,
 		true,
-		b,
+		NewChainManager(b),
+		block.NewDeserializer(0),
 		rp,
 		nil,
 		func(epochnum uint64) ([]string, error) {
@@ -295,9 +293,7 @@ func TestNotProducingMultipleBlocks(t *testing.T) {
 							Height: tipHeight,
 						},
 					},
-				),
-				cfg.Genesis,
-			)
+				), g)
 			tipEpochNum := rp.GetEpochNum(tipHeight)
 			var candidatesList state.CandidateList
 			var addrs []string
@@ -321,7 +317,7 @@ func TestNotProducingMultipleBlocks(t *testing.T) {
 		"",
 		identityset.PrivateKey(10),
 		c,
-		config.Default.Genesis.BeringBlockHeight,
+		genesis.Default.BeringBlockHeight,
 	)
 	require.NoError(err)
 	require.NotNil(rctx)

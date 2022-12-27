@@ -19,7 +19,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -38,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/tools/util"
 )
 
 type claimTestCaseID int
@@ -89,6 +89,7 @@ func TestBlockReward(t *testing.T) {
 	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(0).HexString()
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
@@ -113,6 +114,7 @@ func TestBlockReward(t *testing.T) {
 		},
 	)
 	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
+	ctx = protocol.WithFeatureCtx(ctx)
 
 	rp := rewarding.FindProtocol(svr.ChainService(1).Registry())
 	require.NotNil(t, rp)
@@ -120,8 +122,8 @@ func TestBlockReward(t *testing.T) {
 
 	sk, err := crypto.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
 	require.NoError(t, err)
-	addr, err := address.FromBytes(sk.PublicKey().Hash())
-	require.NoError(t, err)
+	addr := sk.PublicKey().Address()
+	require.NotNil(t, addr)
 
 	blockReward, err := rp.BlockReward(ctx, sf)
 	require.NoError(t, err)
@@ -228,13 +230,9 @@ func TestBlockEpochReward(t *testing.T) {
 		svrs[i] = svr
 	}
 
-	// Create a probe server
-	probeSvr := probe.New(7788)
-
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
-		go itx.StartServer(context.Background(), svrs[i], probeSvr, configs[i])
-		//defer svrs[i].Stop(context.Background())
+		go itx.StartServer(context.Background(), svrs[i], probe.New(7788+i), configs[i])
 	}
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"
@@ -254,7 +252,7 @@ func TestBlockEpochReward(t *testing.T) {
 	rps := make([]*rewarding.Protocol, numNodes)
 	sfs := make([]factory.Factory, numNodes)
 	chains := make([]blockchain.Blockchain, numNodes)
-	apis := make([]*api.Server, numNodes)
+	apis := make([]*api.ServerV2, numNodes)
 	//Map of expected unclaimed balance for each reward address
 	exptUnclaimed := make(map[string]*big.Int, numNodes)
 	//Map of real unclaimed balance for each reward address
@@ -274,16 +272,19 @@ func TestBlockEpochReward(t *testing.T) {
 		sfs[i] = svrs[i].ChainService(configs[i].Chain.ID).StateFactory()
 
 		chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
-		apis[i] = svrs[i].ChainService(configs[i].Chain.ID).APIServer()
+		apis[i] = svrs[i].APIServer(configs[i].Chain.ID)
 
+		rewardAddr := identityset.Address(i + numNodes)
 		rewardAddrStr := identityset.Address(i + numNodes).String()
 		exptUnclaimed[rewardAddrStr] = big.NewInt(0)
-		initState, err := accountutil.AccountState(sfs[i], rewardAddrStr)
+		ctx := genesis.WithGenesisContext(context.Background(), configs[i].Genesis)
+		initState, err := accountutil.AccountState(ctx, sfs[i], rewardAddr)
 		require.NoError(t, err)
 		initBalances[rewardAddrStr] = initState.Balance
 
+		operatorAddr := identityset.Address(i)
 		operatorAddrStr := identityset.Address(i).String()
-		initState, err = accountutil.AccountState(sfs[i], operatorAddrStr)
+		initState, err = accountutil.AccountState(ctx, sfs[i], operatorAddr)
 		require.NoError(t, err)
 		initBalances[operatorAddrStr] = initState.Balance
 
@@ -344,8 +345,7 @@ func TestBlockEpochReward(t *testing.T) {
 
 				//check pending Claim actions, if a claim is executed, then adjust the expectation accordingly
 				//Wait until all the pending actions are settled
-
-				updateExpectationWithPendingClaimList(t, apis[0], exptUnclaimed, claimedAmount, pendingClaimActions)
+				updateExpectationWithPendingClaimList(t, apis[0].CoreService(), exptUnclaimed, claimedAmount, pendingClaimActions)
 				if len(pendingClaimActions) > 0 {
 					// if there is pending action, retry
 					return false, nil
@@ -400,7 +400,7 @@ func TestBlockEpochReward(t *testing.T) {
 				}
 
 				//check pending Claim actions, if a claim is executed, then adjust the expectation accordingly
-				updateExpectationWithPendingClaimList(t, apis[0], exptUnclaimed, claimedAmount, pendingClaimActions)
+				updateExpectationWithPendingClaimList(t, apis[0].CoreService(), exptUnclaimed, claimedAmount, pendingClaimActions)
 
 				curHighCheck := chains[0].TipHeight()
 				preHeight = curHighCheck
@@ -468,15 +468,20 @@ func TestBlockEpochReward(t *testing.T) {
 
 	//Wait until all the pending actions are settled
 	err = testutil.WaitUntil(100*time.Millisecond, 40*time.Second, func() (bool, error) {
-		updateExpectationWithPendingClaimList(t, apis[0], exptUnclaimed, claimedAmount, pendingClaimActions)
+		updateExpectationWithPendingClaimList(t, apis[0].CoreService(), exptUnclaimed, claimedAmount, pendingClaimActions)
 		return len(pendingClaimActions) == 0, nil
 	})
 	require.NoError(t, err)
 
 	for i := 0; i < numNodes; i++ {
 		//Check Reward address balance
-		rewardAddrStr := identityset.Address(i + numNodes).String()
-		endState, err := accountutil.AccountState(sfs[0], rewardAddrStr)
+		rewardAddr := identityset.Address(i + numNodes)
+		rewardAddrStr := rewardAddr.String()
+		endState, err := accountutil.AccountState(
+			genesis.WithGenesisContext(context.Background(), configs[0].Genesis),
+			sfs[0],
+			rewardAddr,
+		)
 		require.NoError(t, err)
 		fmt.Println("Server ", i, " ", rewardAddrStr, " Closing Balance ", endState.Balance.String())
 		expectBalance := big.NewInt(0).Add(initBalances[rewardAddrStr], claimedAmount[rewardAddrStr])
@@ -484,8 +489,13 @@ func TestBlockEpochReward(t *testing.T) {
 		require.Equal(t, expectBalance.String(), endState.Balance.String())
 
 		//Make sure the non-reward addresses have not received money
+		operatorAddr := identityset.Address(i)
 		operatorAddrStr := identityset.Address(i).String()
-		operatorState, err := accountutil.AccountState(sfs[i], operatorAddrStr)
+		operatorState, err := accountutil.AccountState(
+			genesis.WithGenesisContext(context.Background(), configs[i].Genesis),
+			sfs[i],
+			operatorAddr,
+		)
 		require.NoError(t, err)
 		require.Equal(t, initBalances[operatorAddrStr], operatorState.Balance)
 	}
@@ -506,8 +516,8 @@ func injectClaim(
 		wg.Add(1)
 	}
 	payload := []byte{}
-	beneficiaryAddr, err := address.FromBytes(beneficiaryPri.PublicKey().Hash())
-	require.NoError(t, err)
+	beneficiaryAddr := beneficiaryPri.PublicKey().Address()
+	require.NotNil(t, beneficiaryAddr)
 	ctx := context.Background()
 	request := iotexapi.GetAccountRequest{Address: beneficiaryAddr.String()}
 	response, err := c.GetAccount(ctx, &request)
@@ -548,32 +558,31 @@ func injectClaim(
 
 func updateExpectationWithPendingClaimList(
 	t *testing.T,
-	api *api.Server,
+	api api.CoreService,
 	exptUnclaimed map[string]*big.Int,
 	claimedAmount map[string]*big.Int,
 	pendingClaimActions map[hash.Hash256]bool,
 ) bool {
 	updated := false
 	for selpHash, expectedSuccess := range pendingClaimActions {
-		receipt, err := api.GetReceiptByActionHash(selpHash)
-
+		receipt, err := util.GetReceiptByAction(api, selpHash)
 		if err == nil {
-			selp, err := api.GetActionByActionHash(selpHash)
+			actInfo, err := util.GetActionByActionHash(api, selpHash)
 			require.NoError(t, err)
-			addr, err := address.FromBytes(selp.SrcPubkey().Hash())
-			require.NoError(t, err)
+			addr := actInfo.GetSender()
+			require.NotNil(t, addr)
 
 			act := &action.ClaimFromRewardingFund{}
-			err = act.LoadProto(selp.Proto().Core.GetClaimFromRewardingFund())
+			err = act.LoadProto(actInfo.GetAction().Core.GetClaimFromRewardingFund())
 			require.NoError(t, err)
 			amount := act.Amount()
 
 			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
-				newExpectUnclaimed := big.NewInt(0).Sub(exptUnclaimed[addr.String()], amount)
-				exptUnclaimed[addr.String()] = newExpectUnclaimed
+				newExpectUnclaimed := big.NewInt(0).Sub(exptUnclaimed[addr], amount)
+				exptUnclaimed[addr] = newExpectUnclaimed
 
-				newClaimedAmount := big.NewInt(0).Add(claimedAmount[addr.String()], amount)
-				claimedAmount[addr.String()] = newClaimedAmount
+				newClaimedAmount := big.NewInt(0).Add(claimedAmount[addr], amount)
+				claimedAmount[addr] = newClaimedAmount
 				updated = true
 
 				//An test case expected to fail should never success
@@ -605,7 +614,6 @@ func newConfig(
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
-	cfg.Chain.CompressBlock = true
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
 	cfg.Chain.EnableAsyncIndexWrite = false
 
@@ -621,15 +629,15 @@ func newConfig(
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 1200 * time.Millisecond
 	cfg.Consensus.RollDPoS.Delay = 6 * time.Second
 
-	cfg.API.Port = apiPort
+	cfg.API.GRPCPort = apiPort
 
 	cfg.Genesis.Blockchain.NumSubEpochs = 4
 	cfg.Genesis.Blockchain.NumDelegates = numNodes
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[0:numNodes]
-
 	cfg.Genesis.BlockInterval = 500 * time.Millisecond
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 2
+
 	return cfg
 }

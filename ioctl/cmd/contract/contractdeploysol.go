@@ -1,15 +1,14 @@
-// Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package contract
 
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -23,20 +22,20 @@ import (
 
 // Multi-language support
 var (
-	deploySolCmdUses = map[config.Language]string{
+	_deploySolCmdUses = map[config.Language]string{
 		config.English: "sol [FILE_NAME:]CONTRACT_NAME [CODE_FILES...] [--with-arguments INIT_INPUT] [--init-amount IOTX数量]",
 		config.Chinese: "sol [文件名:]合约名 [代码文件...] [--with-arguments 初始化输入] [--init-amount IOTX数量]",
 	}
-	deploySolCmdShorts = map[config.Language]string{
+	_deploySolCmdShorts = map[config.Language]string{
 		config.English: "deploy smart contract with sol files on IoTeX blockchain",
 		config.Chinese: "使用sol文件在IoTex区块链上部署智能合约",
 	}
 )
 
-// contractDeploySolCmd represents the contract deploy sol command
-var contractDeploySolCmd = &cobra.Command{
-	Use:   config.TranslateInLang(deploySolCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(deploySolCmdShorts, config.UILanguage),
+// _contractDeploySolCmd represents the contract deploy sol command
+var _contractDeploySolCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_deploySolCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_deploySolCmdShorts, config.UILanguage),
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -46,7 +45,7 @@ var contractDeploySolCmd = &cobra.Command{
 }
 
 func init() {
-	initialAmountFlag.RegisterCommand(contractDeploySolCmd)
+	_initialAmountFlag.RegisterCommand(_contractDeploySolCmd)
 }
 
 func contractDeploySol(args []string) error {
@@ -54,7 +53,7 @@ func contractDeploySol(args []string) error {
 
 	files := args[1:]
 	if len(files) == 0 {
-		dirInfo, err := ioutil.ReadDir("./")
+		dirInfo, err := os.ReadDir("./")
 		if err != nil {
 			return output.NewError(output.ReadFileError, "failed to get current directory", err)
 		}
@@ -115,7 +114,7 @@ func contractDeploySol(args []string) error {
 		bytecode = append(bytecode, packedArg...)
 	}
 
-	amount, err := util.StringToRau(initialAmountFlag.Value().(string), util.IotxDecimalNum)
+	amount, err := util.StringToRau(_initialAmountFlag.Value().(string), util.IotxDecimalNum)
 	if err != nil {
 		return output.NewError(output.FlagError, "invalid amount", err)
 	}

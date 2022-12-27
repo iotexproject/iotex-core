@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package bot
 
@@ -15,7 +14,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -102,8 +100,9 @@ func (s *Xrc20) checkAndAlert(hs string) {
 	}
 }
 func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {
-	addr, err := address.FromBytes(pri.PublicKey().Hash())
-	if err != nil {
+	addr := pri.PublicKey().Address()
+	if addr == nil {
+		err = errors.New("failed to get address")
 		return
 	}
 	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, addr.String())
@@ -111,7 +110,7 @@ func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 		return
 	}
 	gasprice := big.NewInt(0).SetUint64(s.cfg.GasPrice)
-	amount, ok := big.NewInt(0).SetString(s.cfg.Xrc20.Amount, 10)
+	amount, ok := new(big.Int).SetString(s.cfg.Xrc20.Amount, 10)
 	if !ok {
 		err = errors.New("amount convert error")
 		return

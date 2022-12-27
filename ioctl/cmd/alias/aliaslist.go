@@ -1,8 +1,7 @@
-// Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package alias
 
@@ -19,20 +18,16 @@ import (
 
 // Multi-language support
 var (
-	listCmdShorts = map[config.Language]string{
+	_listCmdShorts = map[config.Language]string{
 		config.English: "List aliases",
 		config.Chinese: "列出别名",
 	}
-	listCmdUses = map[config.Language]string{
-		config.English: "list",
-		config.Chinese: "list",
-	}
 )
 
-// aliasListCmd represents the alias list command
-var aliasListCmd = &cobra.Command{
-	Use:   config.TranslateInLang(listCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(listCmdShorts, config.UILanguage),
+// _aliasListCmd represents the alias list command
+var _aliasListCmd = &cobra.Command{
+	Use:   "list",
+	Short: config.TranslateInLang(_listCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		aliasList()

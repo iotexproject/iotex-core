@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
@@ -44,6 +43,11 @@ func NewProtocol(depositGas DepositGas) *Protocol {
 	}
 
 	return &Protocol{addr: addr, depositGas: depositGas}
+}
+
+// ProtocolAddr returns the address generated from protocol id
+func ProtocolAddr() address.Address {
+	return protocol.HashStringToAddress(protocolID)
 }
 
 // FindProtocol finds the registered protocol from registry
@@ -102,20 +106,25 @@ func (p *Protocol) Name() string {
 	return protocolID
 }
 
-func createAccount(sm protocol.StateManager, encodedAddr string, init *big.Int) error {
-	var account state.Account
+func createAccount(sm protocol.StateManager, encodedAddr string, init *big.Int, opts ...state.AccountCreationOption) error {
+	account := &state.Account{}
 	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to get address public key hash from encoded address")
 	}
 	addrHash := hash.BytesToHash160(addr.Bytes())
-	_, err = sm.State(&account, protocol.LegacyKeyOption(addrHash))
+	_, err = sm.State(account, protocol.LegacyKeyOption(addrHash))
 	switch errors.Cause(err) {
 	case nil:
 		return errors.Errorf("failed to create account %s", encodedAddr)
 	case state.ErrStateNotExist:
-		account.Balance = init
-		account.VotingWeight = big.NewInt(0)
+		account, err := state.NewAccount(opts...)
+		if err != nil {
+			return err
+		}
+		if err := account.AddBalance(init); err != nil {
+			return errors.Wrapf(err, "failed to add balance %s", init)
+		}
 		if _, err := sm.PutState(account, protocol.LegacyKeyOption(addrHash)); err != nil {
 			return errors.Wrapf(err, "failed to put state for account %x", addrHash)
 		}
@@ -138,8 +147,12 @@ func (p *Protocol) CreateGenesisStates(ctx context.Context, sm protocol.StateMan
 	if err := p.assertAmounts(amounts); err != nil {
 		return err
 	}
+	opts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+		opts = append(opts, state.LegacyNonceAccountTypeOption())
+	}
 	for i, addr := range addrs {
-		if err := createAccount(sm, addr.String(), amounts[i]); err != nil {
+		if err := createAccount(sm, addr.String(), amounts[i], opts...); err != nil {
 			return err
 		}
 	}

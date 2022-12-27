@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package factory
 
@@ -23,14 +22,15 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -39,68 +39,30 @@ import (
 type stateDB struct {
 	mutex                    sync.RWMutex
 	currentChainHeight       uint64
-	cfg                      config.Config
+	cfg                      Config
 	registry                 *protocol.Registry
 	dao                      db.KVStore // the underlying DB for account/contract storage
 	timerFactory             *prometheustimer.TimerFactory
-	workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
+	workingsets              cache.LRUCache // lru cache for workingsets
 	protocolView             protocol.View
 	skipBlockValidationOnPut bool
+	ps                       *patchStore
 }
 
 // StateDBOption sets stateDB construction parameter
-type StateDBOption func(*stateDB, config.Config) error
+type StateDBOption func(*stateDB, *Config) error
 
-// PrecreatedStateDBOption uses pre-created state db
-func PrecreatedStateDBOption(kv db.KVStore) StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
-		if kv == nil {
-			return errors.New("Invalid state db")
-		}
-		sdb.dao = kv
-		return nil
-	}
-}
-
-// DefaultStateDBOption creates default state db from config
-func DefaultStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
-		dbPath := cfg.Chain.TrieDBPath
-		if len(dbPath) == 0 {
-			return errors.New("Invalid empty trie db path")
-		}
-		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		sdb.dao = db.NewBoltDB(cfg.DB)
-
-		return nil
-	}
-}
-
-// CachedStateDBOption creates state db with cache from config
-func CachedStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
-		dbPath := cfg.Chain.TrieDBPath
-		if len(dbPath) == 0 {
-			return errors.New("Invalid empty trie db path")
-		}
-		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		sdb.dao = db.NewKvStoreWithCache(db.NewBoltDB(cfg.DB), cfg.Chain.StateDBCacheSize)
-
-		return nil
-	}
-}
-
-// InMemStateDBOption creates in memory state db
-func InMemStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
-		sdb.dao = db.NewMemKVStore()
-		return nil
+// DefaultPatchOption loads patchs
+func DefaultPatchOption() StateDBOption {
+	return func(sdb *stateDB, cfg *Config) (err error) {
+		sdb.ps, err = newPatchStore(cfg.Chain.TrieDBPatchFile)
+		return
 	}
 }
 
 // RegistryStateDBOption sets the registry in state db
 func RegistryStateDBOption(reg *protocol.Registry) StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
+	return func(sdb *stateDB, cfg *Config) error {
 		sdb.registry = reg
 		return nil
 	}
@@ -108,23 +70,32 @@ func RegistryStateDBOption(reg *protocol.Registry) StateDBOption {
 
 // SkipBlockValidationStateDBOption skips block validation on PutBlock
 func SkipBlockValidationStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
+	return func(sdb *stateDB, cfg *Config) error {
 		sdb.skipBlockValidationOnPut = true
 		return nil
 	}
 }
 
+// DisableWorkingSetCacheOption disable workingset cache
+func DisableWorkingSetCacheOption() StateDBOption {
+	return func(sdb *stateDB, cfg *Config) error {
+		sdb.workingsets = cache.NewDummyLruCache()
+		return nil
+	}
+}
+
 // NewStateDB creates a new state db
-func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
+func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, error) {
 	sdb := stateDB{
 		cfg:                cfg,
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
 		protocolView:       protocol.View{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
+		dao:                dao,
 	}
 	for _, opt := range opts {
-		if err := opt(&sdb, cfg); err != nil {
+		if err := opt(&sdb, &cfg); err != nil {
 			log.S().Errorf("Failed to execute state factory creation option %p: %v", opt, err)
 			return nil, err
 		}
@@ -157,6 +128,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 			return err
 		}
 	case db.ErrNotExist:
+		sdb.currentChainHeight = 0
 		if err = sdb.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
@@ -169,9 +141,10 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 			protocol.BlockCtx{
 				BlockHeight:    0,
 				BlockTimeStamp: time.Unix(sdb.cfg.Genesis.Timestamp, 0),
-				Producer:       sdb.cfg.ProducerAddress(),
+				Producer:       sdb.cfg.Chain.ProducerAddress(),
 				GasLimit:       sdb.cfg.Genesis.BlockGasLimit,
 			})
+		ctx = protocol.WithFeatureCtx(ctx)
 		// init the state factory
 		if err = sdb.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
@@ -202,71 +175,28 @@ func (sdb *stateDB) Height() (uint64, error) {
 }
 
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
-	flusher, err := db.NewKVStoreFlusher(sdb.dao, batch.NewCachedBatch(), sdb.flusherOptions(ctx, height)...)
+	g := genesis.MustExtractGenesisContext(ctx)
+	flusher, err := db.NewKVStoreFlusher(
+		sdb.dao,
+		batch.NewCachedBatch(),
+		sdb.flusherOptions(!g.IsEaster(height))...,
+	)
 	if err != nil {
 		return nil, err
 	}
+	for _, p := range sdb.ps.Get(height) {
+		if p.Type == _Delete {
+			flusher.KVStoreWithBuffer().MustDelete(p.Namespace, p.Key)
+		} else {
+			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
+		}
+	}
+	store := newStateDBWorkingSetStore(sdb.protocolView, flusher, g.IsNewfoundland(height))
+	if err := store.Start(ctx); err != nil {
+		return nil, err
+	}
 
-	return &workingSet{
-		height:    height,
-		finalized: false,
-		dock:      protocol.NewDock(),
-		getStateFunc: func(ns string, key []byte, s interface{}) error {
-			data, err := flusher.KVStoreWithBuffer().Get(ns, key)
-			if err != nil {
-				if errors.Cause(err) == db.ErrNotExist {
-					return errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
-				}
-				return err
-			}
-			return state.Deserialize(s, data)
-		},
-		putStateFunc: func(ns string, key []byte, s interface{}) error {
-			ss, err := state.Serialize(s)
-			if err != nil {
-				return errors.Wrapf(err, "failed to convert account %v to bytes", s)
-			}
-			flusher.KVStoreWithBuffer().MustPut(ns, key, ss)
-			return nil
-		},
-		delStateFunc: func(ns string, key []byte) error {
-			flusher.KVStoreWithBuffer().MustDelete(ns, key)
-			return nil
-		},
-		statesFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-			return sdb.States(opts...)
-		},
-		digestFunc: func() hash.Hash256 {
-			return hash.Hash256b(flusher.SerializeQueue())
-		},
-		finalizeFunc: func(h uint64) error {
-			// Persist current chain Height
-			flusher.KVStoreWithBuffer().MustPut(
-				AccountKVNamespace,
-				[]byte(CurrentHeightKey),
-				byteutil.Uint64ToBytes(height),
-			)
-			return nil
-		},
-		commitFunc: func(h uint64) error {
-			if err := flusher.Flush(); err != nil {
-				return err
-			}
-			sdb.currentChainHeight = h
-			return nil
-		},
-		readviewFunc: func(name string) (interface{}, error) {
-			return sdb.ReadView(name)
-		},
-		writeviewFunc: func(name string, v interface{}) error {
-			return sdb.protocolView.Write(name, v)
-		},
-		snapshotFunc: flusher.KVStoreWithBuffer().Snapshot,
-		revertFunc:   flusher.KVStoreWithBuffer().Revert,
-		dbFunc: func() db.KVStore {
-			return flusher.KVStoreWithBuffer()
-		},
-	}, nil
+	return newWorkingSet(height, store), nil
 }
 
 func (sdb *stateDB) Register(p protocol.Protocol) error {
@@ -284,7 +214,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 		if err = ws.ValidateBlock(ctx, blk); err != nil {
 			return errors.Wrap(err, "failed to validate block with workingset in statedb")
 		}
-		sdb.putIntoWorkingSets(key, ws)
+		sdb.workingsets.Add(key, ws)
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
@@ -300,10 +230,11 @@ func (sdb *stateDB) NewBlockBuilder(
 	ap actpool.ActPool,
 	sign func(action.Envelope) (action.SealedEnvelope, error),
 ) (*block.Builder, error) {
-	sdb.mutex.Lock()
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
-	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
-	sdb.mutex.Unlock()
+	sdb.mutex.RLock()
+	currHeight := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +261,7 @@ func (sdb *stateDB) NewBlockBuilder(
 
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
-	sdb.putIntoWorkingSets(key, ws)
+	sdb.workingsets.Add(key, ws)
 	return blkBuilder, nil
 }
 
@@ -342,14 +273,30 @@ func (sdb *stateDB) SimulateExecution(
 	ex *action.Execution,
 	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
-	sdb.mutex.Lock()
-	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
-	sdb.mutex.Unlock()
+	ctx, span := tracer.NewSpan(ctx, "stateDB.SimulateExecution")
+	defer span.End()
+
+	sdb.mutex.RLock()
+	currHeight := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
+}
+
+// ReadContractStorage reads contract's storage
+func (sdb *stateDB) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
+	sdb.mutex.RLock()
+	currHeight := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate working set from state db")
+	}
+	return evm.ReadContractStorage(ctx, ws, contract, key)
 }
 
 // PutBlock persists all changes in RunActions() into the DB
@@ -358,9 +305,9 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	timer := sdb.timerFactory.NewTimer("Commit")
 	sdb.mutex.Unlock()
 	defer timer.End()
-	producer, err := address.FromBytes(blk.PublicKey().Hash())
-	if err != nil {
-		return err
+	producer := blk.PublicKey().Address()
+	if producer == nil {
+		return errors.New("failed to get address")
 	}
 	g := genesis.MustExtractGenesisContext(ctx)
 	ctx = protocol.WithBlockCtx(
@@ -372,6 +319,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 			Producer:       producer,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
 	if err != nil {
@@ -404,48 +352,45 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
-	return ws.Commit(ctx)
+	if err := ws.Commit(ctx); err != nil {
+		return err
+	}
+	sdb.currentChainHeight = h
+	return nil
 }
 
-func (sdb *stateDB) DeleteTipBlock(_ *block.Block) error {
+func (sdb *stateDB) DeleteTipBlock(_ context.Context, _ *block.Block) error {
 	return errors.Wrap(ErrNotSupported, "cannot delete tip block from state db")
 }
 
 // State returns a confirmed state in the state factory
 func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
-	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
-
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, err
 	}
-
+	sdb.mutex.RLock()
+	defer sdb.mutex.RUnlock()
+	if cfg.Keys != nil {
+		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
+	}
 	return sdb.currentChainHeight, sdb.state(cfg.Namespace, cfg.Key, s)
 }
 
 // State returns a set of states in the state factory
 func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, nil, err
 	}
+	sdb.mutex.RLock()
+	defer sdb.mutex.RUnlock()
 	if cfg.Key != nil {
 		return sdb.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	if cfg.Cond == nil {
-		cfg.Cond = func(k, v []byte) bool {
-			return true
-		}
-	}
-	_, values, err := sdb.dao.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
+	values, err := readStates(sdb.dao, cfg.Namespace, cfg.Keys)
 	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
-			return sdb.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", cfg.Namespace)
-		}
-		return sdb.currentChainHeight, nil, err
+		return 0, nil, err
 	}
 
 	return sdb.currentChainHeight, state.NewIterator(values), nil
@@ -470,9 +415,7 @@ func (sdb *stateDB) ReadView(name string) (interface{}, error) {
 // private trie constructor functions
 //======================================
 
-func (sdb *stateDB) flusherOptions(ctx context.Context, height uint64) []db.KVStoreFlusherOption {
-	g := genesis.MustExtractGenesisContext(ctx)
-	preEaster := !g.IsEaster(height)
+func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
 			if preEaster {
@@ -487,7 +430,7 @@ func (sdb *stateDB) flusherOptions(ctx context.Context, height uint64) []db.KVSt
 	return append(
 		opts,
 		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
-			return wi.Namespace() == evm.CodeKVNameSpace
+			return wi.Namespace() == evm.CodeKVNameSpace || wi.Namespace() == staking.CandsMapNS
 		}),
 	)
 }
@@ -520,8 +463,6 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
 func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*workingSet, bool, error) {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
 	if data, ok := sdb.workingsets.Get(key); ok {
 		if ws, ok := data.(*workingSet); ok {
 			// if it is already validated, return workingset
@@ -529,13 +470,9 @@ func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*
 		}
 		return nil, false, errors.New("type assertion failed to be WorkingSet")
 	}
-	tx, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
-
+	sdb.mutex.RLock()
+	currHeight := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	tx, err := sdb.newWorkingSet(ctx, currHeight+1)
 	return tx, false, err
-}
-
-func (sdb *stateDB) putIntoWorkingSets(key hash.Hash256, ws *workingSet) {
-	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
-	sdb.workingsets.Add(key, ws)
 }

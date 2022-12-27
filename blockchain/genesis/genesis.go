@@ -1,12 +1,12 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package genesis
 
 import (
+	"math"
 	"math/big"
 	"sort"
 	"sync"
@@ -31,8 +31,8 @@ import (
 var Default = defaultConfig()
 
 var (
-	genesisTs     int64
-	loadGenesisTs sync.Once
+	_genesisTs     int64
+	_loadGenesisTs sync.Once
 )
 
 func init() {
@@ -63,6 +63,13 @@ func defaultConfig() Genesis {
 			GreenlandBlockHeight:    6544441,
 			HawaiiBlockHeight:       11267641,
 			IcelandBlockHeight:      12289321,
+			JutlandBlockHeight:      13685401,
+			KamchatkaBlockHeight:    13816441,
+			LordHoweBlockHeight:     13979161,
+			MidwayBlockHeight:       16509241,
+			NewfoundlandBlockHeight: 17662681,
+			OkhotskBlockHeight:      21542761,
+			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -181,8 +188,40 @@ type (
 		// 4. fix sorted map in StateDBAdapter
 		// 5. use pending nonce in EVM
 		HawaiiBlockHeight uint64 `yaml:"hawaiiHeight"`
-		// IcelandBlockHeight is the start height to support chainID opcode in EVM
+		// IcelandBlockHeight is the start height to support chainID opcode and EVM Istanbul
 		IcelandBlockHeight uint64 `yaml:"icelandHeight"`
+		// JutlandBlockHeight is the start height to
+		// 1. report more EVM error codes
+		// 2. enable the opCall fix
+		JutlandBlockHeight uint64 `yaml:"jutlandHeight"`
+		// KamchatkaBlockHeight is the start height to
+		// 1. fix EVM snapshot order
+		// 2. extend foundation bonus
+		KamchatkaBlockHeight uint64 `yaml:"kamchatkaHeight"`
+		// LordHoweBlockHeight is the start height to
+		// 1. recover the smart contracts affected by snapshot order
+		// 2. clear snapshots in Revert()
+		LordHoweBlockHeight uint64 `yaml:"lordHoweHeight"`
+		// MidwayBlockHeight is the start height to
+		// 1. allow correct and default ChainID
+		// 2. fix GetHashFunc in EVM
+		// 3. correct tx/log index for transaction receipt and EVM log
+		// 4. revert logs upon tx reversion in EVM
+		MidwayBlockHeight uint64 `yaml:"midwayHeight"`
+		// NewfoundlandBlockHeight is the start height to
+		// 1. use correct chainID
+		// 2. check legacy address
+		// 3. enable web3 staking transaction
+		NewfoundlandBlockHeight uint64 `yaml:"newfoundlandHeight"`
+		// OkhotskBlockHeight is the start height to
+		// 1. enabled London EVM
+		// 2. create zero-nonce account
+		// 3. fix gas and nonce update
+		// 4. fix unproductive delegates in staking protocol
+		OkhotskBlockHeight uint64 `yaml:"okhotskHeight"`
+		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
+		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
+		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -320,14 +359,14 @@ func New(genesisPath string) (Genesis, error) {
 
 // SetGenesisTimestamp sets the genesis timestamp
 func SetGenesisTimestamp(ts int64) {
-	loadGenesisTs.Do(func() {
-		genesisTs = ts
+	_loadGenesisTs.Do(func() {
+		_genesisTs = ts
 	})
 }
 
 // Timestamp returns the genesis timestamp
 func Timestamp() int64 {
-	return atomic.LoadInt64(&genesisTs)
+	return atomic.LoadInt64(&_genesisTs)
 }
 
 // Hash is the hash of genesis config
@@ -401,68 +440,103 @@ func (g *Genesis) Hash() hash.Hash256 {
 	return hash.Hash256b(b)
 }
 
-func (g *Genesis) isPost(targetHeight, height uint64) bool {
+func (g *Blockchain) isPost(targetHeight, height uint64) bool {
 	return height >= targetHeight
 }
 
 // IsPacific checks whether height is equal to or larger than pacific height
-func (g *Genesis) IsPacific(height uint64) bool {
+func (g *Blockchain) IsPacific(height uint64) bool {
 	return g.isPost(g.PacificBlockHeight, height)
 }
 
 // IsAleutian checks whether height is equal to or larger than aleutian height
-func (g *Genesis) IsAleutian(height uint64) bool {
+func (g *Blockchain) IsAleutian(height uint64) bool {
 	return g.isPost(g.AleutianBlockHeight, height)
 }
 
 // IsBering checks whether height is equal to or larger than bering height
-func (g *Genesis) IsBering(height uint64) bool {
+func (g *Blockchain) IsBering(height uint64) bool {
 	return g.isPost(g.BeringBlockHeight, height)
 }
 
 // IsCook checks whether height is equal to or larger than cook height
-func (g *Genesis) IsCook(height uint64) bool {
+func (g *Blockchain) IsCook(height uint64) bool {
 	return g.isPost(g.CookBlockHeight, height)
 }
 
 // IsDardanelles checks whether height is equal to or larger than dardanelles height
-func (g *Genesis) IsDardanelles(height uint64) bool {
+func (g *Blockchain) IsDardanelles(height uint64) bool {
 	return g.isPost(g.DardanellesBlockHeight, height)
 }
 
 // IsDaytona checks whether height is equal to or larger than daytona height
-func (g *Genesis) IsDaytona(height uint64) bool {
+func (g *Blockchain) IsDaytona(height uint64) bool {
 	return g.isPost(g.DaytonaBlockHeight, height)
 }
 
 // IsEaster checks whether height is equal to or larger than easter height
-func (g *Genesis) IsEaster(height uint64) bool {
+func (g *Blockchain) IsEaster(height uint64) bool {
 	return g.isPost(g.EasterBlockHeight, height)
 }
 
 // IsFairbank checks whether height is equal to or larger than fairbank height
-func (g *Genesis) IsFairbank(height uint64) bool {
+func (g *Blockchain) IsFairbank(height uint64) bool {
 	return g.isPost(g.FairbankBlockHeight, height)
 }
 
 // IsFbkMigration checks whether height is equal to or larger than fbk migration height
-func (g *Genesis) IsFbkMigration(height uint64) bool {
+func (g *Blockchain) IsFbkMigration(height uint64) bool {
 	return g.isPost(g.FbkMigrationBlockHeight, height)
 }
 
 // IsGreenland checks whether height is equal to or larger than greenland height
-func (g *Genesis) IsGreenland(height uint64) bool {
+func (g *Blockchain) IsGreenland(height uint64) bool {
 	return g.isPost(g.GreenlandBlockHeight, height)
 }
 
 // IsHawaii checks whether height is equal to or larger than hawaii height
-func (g *Genesis) IsHawaii(height uint64) bool {
+func (g *Blockchain) IsHawaii(height uint64) bool {
 	return g.isPost(g.HawaiiBlockHeight, height)
 }
 
 // IsIceland checks whether height is equal to or larger than iceland height
-func (g *Genesis) IsIceland(height uint64) bool {
+func (g *Blockchain) IsIceland(height uint64) bool {
 	return g.isPost(g.IcelandBlockHeight, height)
+}
+
+// IsJutland checks whether height is equal to or larger than jutland height
+func (g *Blockchain) IsJutland(height uint64) bool {
+	return g.isPost(g.JutlandBlockHeight, height)
+}
+
+// IsKamchatka checks whether height is equal to or larger than kamchatka height
+func (g *Blockchain) IsKamchatka(height uint64) bool {
+	return g.isPost(g.KamchatkaBlockHeight, height)
+}
+
+// IsLordHowe checks whether height is equal to or larger than lordHowe height
+func (g *Blockchain) IsLordHowe(height uint64) bool {
+	return g.isPost(g.LordHoweBlockHeight, height)
+}
+
+// IsMidway checks whether height is equal to or larger than midway height
+func (g *Blockchain) IsMidway(height uint64) bool {
+	return g.isPost(g.MidwayBlockHeight, height)
+}
+
+// IsNewfoundland checks whether height is equal to or larger than newfoundland height
+func (g *Blockchain) IsNewfoundland(height uint64) bool {
+	return g.isPost(g.NewfoundlandBlockHeight, height)
+}
+
+// IsOkhotsk checks whether height is equal to or larger than okhotsk height
+func (g *Blockchain) IsOkhotsk(height uint64) bool {
+	return g.isPost(g.OkhotskBlockHeight, height)
+}
+
+// IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
+func (g *Blockchain) IsToBeEnabled(height uint64) bool {
+	return g.isPost(g.ToBeEnabledBlockHeight, height)
 }
 
 // InitBalances returns the address that have initial balances and the corresponding amounts. The i-th amount is the
@@ -482,7 +556,7 @@ func (a *Account) InitBalances() ([]address.Address, []*big.Int) {
 			log.L().Panic("Error when decoding the account protocol init balance address from string.", zap.Error(err))
 		}
 		addrs = append(addrs, addr)
-		amount, ok := big.NewInt(0).SetString(a.InitBalanceMap[addrStr], 10)
+		amount, ok := new(big.Int).SetString(a.InitBalanceMap[addrStr], 10)
 		if !ok {
 			log.S().Panicf("Error when casting init balance string %s into big int", a.InitBalanceMap[addrStr])
 		}
@@ -514,7 +588,7 @@ func (d *Delegate) RewardAddr() address.Address {
 
 // Votes returns the votes
 func (d *Delegate) Votes() *big.Int {
-	val, ok := big.NewInt(0).SetString(d.VotesStr, 10)
+	val, ok := new(big.Int).SetString(d.VotesStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting votes string %s into big int", d.VotesStr)
 	}
@@ -523,7 +597,7 @@ func (d *Delegate) Votes() *big.Int {
 
 // InitBalance returns the init balance of the rewarding fund
 func (r *Rewarding) InitBalance() *big.Int {
-	val, ok := big.NewInt(0).SetString(r.InitBalanceStr, 10)
+	val, ok := new(big.Int).SetString(r.InitBalanceStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting init balance string %s into big int", r.InitBalanceStr)
 	}
@@ -532,7 +606,7 @@ func (r *Rewarding) InitBalance() *big.Int {
 
 // BlockReward returns the block reward amount
 func (r *Rewarding) BlockReward() *big.Int {
-	val, ok := big.NewInt(0).SetString(r.BlockRewardStr, 10)
+	val, ok := new(big.Int).SetString(r.BlockRewardStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting block reward string %s into big int", r.BlockRewardStr)
 	}
@@ -541,7 +615,7 @@ func (r *Rewarding) BlockReward() *big.Int {
 
 // EpochReward returns the epoch reward amount
 func (r *Rewarding) EpochReward() *big.Int {
-	val, ok := big.NewInt(0).SetString(r.EpochRewardStr, 10)
+	val, ok := new(big.Int).SetString(r.EpochRewardStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting epoch reward string %s into big int", r.EpochRewardStr)
 	}
@@ -550,7 +624,7 @@ func (r *Rewarding) EpochReward() *big.Int {
 
 // AleutianEpochReward returns the epoch reward amount after Aleutian fork
 func (r *Rewarding) AleutianEpochReward() *big.Int {
-	val, ok := big.NewInt(0).SetString(r.AleutianEpochRewardStr, 10)
+	val, ok := new(big.Int).SetString(r.AleutianEpochRewardStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting epoch reward string %s into big int", r.EpochRewardStr)
 	}
@@ -559,7 +633,7 @@ func (r *Rewarding) AleutianEpochReward() *big.Int {
 
 // DardanellesBlockReward returns the block reward amount after dardanelles fork
 func (r *Rewarding) DardanellesBlockReward() *big.Int {
-	val, ok := big.NewInt(0).SetString(r.DardanellesBlockRewardStr, 10)
+	val, ok := new(big.Int).SetString(r.DardanellesBlockRewardStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting block reward string %s into big int", r.EpochRewardStr)
 	}
@@ -581,7 +655,7 @@ func (r *Rewarding) ExemptAddrsFromEpochReward() []address.Address {
 
 // FoundationBonus returns the bootstrap bonus amount rewarded per epoch
 func (r *Rewarding) FoundationBonus() *big.Int {
-	val, ok := big.NewInt(0).SetString(r.FoundationBonusStr, 10)
+	val, ok := new(big.Int).SetString(r.FoundationBonusStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting bootstrap bonus string %s into big int", r.EpochRewardStr)
 	}

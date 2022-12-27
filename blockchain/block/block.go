@@ -1,32 +1,21 @@
-// Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package block
 
 import (
-	"encoding/hex"
 	"time"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
-)
-
-// Errors
-var (
-	ErrTxRootMismatch      = errors.New("transaction merkle root does not match")
-	ErrDeltaStateMismatch  = errors.New("delta state digest doesn't match")
-	ErrReceiptRootMismatch = errors.New("receipt root hash does not match")
 )
 
 // Block defines the struct of block
@@ -62,58 +51,15 @@ func (b *Block) Serialize() ([]byte, error) {
 	return proto.Marshal(b.ConvertToBlockPb())
 }
 
-// ConvertFromBlockPb converts Block to Block
-func (b *Block) ConvertFromBlockPb(pbBlock *iotextypes.Block) error {
-	b.Header = Header{}
-	if err := b.Header.LoadFromBlockHeaderProto(pbBlock.GetHeader()); err != nil {
-		return err
-	}
-	b.Body = Body{}
-	if err := b.Body.LoadProto(pbBlock.GetBody()); err != nil {
-		return err
-	}
-
-	return b.ConvertFromBlockFooterPb(pbBlock.GetFooter())
-}
-
-// Deserialize parses the byte stream into a Block
-func (b *Block) Deserialize(buf []byte) error {
-	pbBlock := iotextypes.Block{}
-	if err := proto.Unmarshal(buf, &pbBlock); err != nil {
-		return err
-	}
-	if err := b.ConvertFromBlockPb(&pbBlock); err != nil {
-		return err
-	}
-	b.Receipts = nil
-
-	// verify merkle root can match after deserialize
-	if err := b.VerifyTxRoot(b.CalculateTxRoot()); err != nil {
-		return err
-	}
-	return nil
-}
-
 // VerifyTxRoot verifies the transaction root hash
-func (b *Block) VerifyTxRoot(root hash.Hash256) error {
-	if b.Header.txRoot != root {
+func (b *Block) VerifyTxRoot() error {
+	root, err := b.CalculateTxRoot()
+	if err != nil {
+		log.L().Debug("error in getting hash", zap.Error(err))
+		return err
+	}
+	if !b.Header.VerifyTransactionRoot(root) {
 		return ErrTxRootMismatch
-	}
-	return nil
-}
-
-// VerifyDeltaStateDigest verifies the delta state digest in header
-func (b *Block) VerifyDeltaStateDigest(digest hash.Hash256) error {
-	if b.Header.deltaStateDigest != digest {
-		return ErrDeltaStateMismatch
-	}
-	return nil
-}
-
-// VerifyReceiptRoot verifies the receipt root in header
-func (b *Block) VerifyReceiptRoot(root hash.Hash256) error {
-	if b.Header.receiptRoot != root {
-		return ErrReceiptRootMismatch
 	}
 	return nil
 }
@@ -153,18 +99,4 @@ func (b *Block) TransactionLog() *BlkTransactionLog {
 		return nil
 	}
 	return &blkLog
-}
-
-// ActionHashs returns action hashs in the block
-func (b *Block) ActionHashs() []string {
-	actHash := make([]string, len(b.Actions))
-	for i := range b.Actions {
-		h, err := b.Actions[i].Hash()
-		if err != nil {
-			log.L().Debug("Skipping action due to hash error", zap.Error(err))
-			continue
-		}
-		actHash[i] = hex.EncodeToString(h[:])
-	}
-	return actHash
 }

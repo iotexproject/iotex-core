@@ -1,14 +1,13 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/spf13/cobra"
@@ -37,7 +36,7 @@ var createConfigCmd = &cobra.Command{
 			priKeyBytes,
 			pubKeyBytes,
 		)
-		if err := ioutil.WriteFile(_outputFile, []byte(cfgStr), 0666); err != nil {
+		if err := os.WriteFile(_outputFile, []byte(cfgStr), 0600); err != nil {
 			log.L().Fatal("failed to write file", zap.Error(err))
 		}
 	},

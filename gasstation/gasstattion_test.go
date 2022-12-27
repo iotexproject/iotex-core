@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package gasstation
 
@@ -12,8 +11,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -28,18 +25,16 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestNewGasStation(t *testing.T) {
 	require := require.New(t)
-	require.NotNil(NewGasStation(nil, nil, nil, config.Default.API))
+	require.NotNil(NewGasStation(nil, nil, config.Default.API.GasStation))
 }
 func TestSuggestGasPriceForUserAction(t *testing.T) {
 	ctx := context.Background()
@@ -51,13 +46,15 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	require.NoError(t, acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(t, err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
 	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		blkMemDao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -67,7 +64,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	)
 	ep := execution.NewProtocol(blkMemDao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(t, ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(0, 0)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(t, rewardingProtocol.Register(registry))
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
@@ -108,7 +105,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, cfg.API)
+	gs := NewGasStation(bc, blkMemDao, cfg.API.GasStation)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
@@ -127,13 +124,15 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	require.NoError(t, acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(t, err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
 	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		blkMemDao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -143,7 +142,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	)
 	ep := execution.NewProtocol(blkMemDao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(t, ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(0, 0)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(t, rewardingProtocol.Register(registry))
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
@@ -165,76 +164,12 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, cfg.API)
+	gs := NewGasStation(bc, blkMemDao, cfg.API.GasStation)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
 	fmt.Println(gp)
 	require.NoError(t, err)
 	// i from 10 to 29,gasprice for 20 to 39,60%*20+20=31
-	require.Equal(t, gs.cfg.GasStation.DefaultGas, gp)
-}
-
-func TestEstimateGasForAction(t *testing.T) {
-	require := require.New(t)
-	ctrl := gomock.NewController(t)
-
-	cfg := config.Default
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
-	require.NoError(err)
-	dao := mock_blockdao.NewMockBlockDAO(ctrl)
-	mBc := mock_blockchain.NewMockBlockchain(ctrl)
-	gs := NewGasStation(mBc, sf.SimulateExecution, dao, config.Default.API)
-	require.NotNil(gs)
-
-	act := getAction()
-	require.NotNil(act)
-	ret, err := gs.EstimateGasForAction(act)
-	require.NoError(err)
-	// base intrinsic gas 10000
-	require.Equal(uint64(10000), ret)
-
-	// test for payload
-	act = getActionWithPayload()
-	require.NotNil(act)
-	ret, err = gs.EstimateGasForAction(act)
-	require.NoError(err)
-	// base intrinsic gas 10000,plus data size*ExecutionDataGas
-	require.Equal(uint64(10000)+10*action.ExecutionDataGas, ret)
-}
-
-func getAction() (act *iotextypes.Action) {
-	pubKey1 := identityset.PrivateKey(28).PublicKey()
-	addr2 := identityset.Address(29).String()
-
-	act = &iotextypes.Action{
-		Core: &iotextypes.ActionCore{
-			Action: &iotextypes.ActionCore_Transfer{
-				Transfer: &iotextypes.Transfer{Recipient: addr2},
-			},
-			Version: version.ProtocolVersion,
-			Nonce:   101,
-		},
-		SenderPubKey: pubKey1.Bytes(),
-		Signature:    action.ValidSig,
-	}
-	return
-}
-
-func getActionWithPayload() (act *iotextypes.Action) {
-	pubKey1 := identityset.PrivateKey(28).PublicKey()
-	addr2 := identityset.Address(29).String()
-
-	act = &iotextypes.Action{
-		Core: &iotextypes.ActionCore{
-			Action: &iotextypes.ActionCore_Transfer{
-				Transfer: &iotextypes.Transfer{Recipient: addr2, Payload: []byte("1234567890")},
-			},
-			Version: version.ProtocolVersion,
-			Nonce:   101,
-		},
-		SenderPubKey: pubKey1.Bytes(),
-		Signature:    action.ValidSig,
-	}
-	return
+	require.Equal(t, gs.cfg.DefaultGas, gp)
 }

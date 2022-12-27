@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package rolldpos
 
@@ -22,16 +21,16 @@ import (
 )
 
 const (
-	eManagerNS = "edm"
+	_eManagerNS = "edm"
 )
 
 var (
 	// ErrExpiredEndorsement indicates that the endorsement is expired
 	ErrExpiredEndorsement = errors.New("the endorsement has been replaced or expired")
-	statusKey             = []byte("status")
+	_statusKey            = []byte("status")
 )
 
-//EndorsedByMajorityFunc defines a function to give an information of consensus status
+// EndorsedByMajorityFunc defines a function to give an information of consensus status
 type EndorsedByMajorityFunc func(blockHash []byte, topics []ConsensusVoteTopic) bool
 
 type endorserEndorsementCollection struct {
@@ -120,13 +119,13 @@ func newBlockEndorsementCollection(blk *block.Block) *blockEndorsementCollection
 	}
 }
 
-func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEndorsementCollection) error {
+func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEndorsementCollection, deserializer *block.Deserializer) error {
 	bc.endorsers = make(map[string]*endorserEndorsementCollection)
 	if blockPro.Blk == nil {
 		bc.blk = nil
 	} else {
-		blk := &block.Block{}
-		if err := blk.ConvertFromBlockPb(blockPro.Blk); err != nil {
+		blk, err := deserializer.FromBlockProto(blockPro.Blk)
+		if err != nil {
 			return err
 		}
 		bc.blk = blk
@@ -224,7 +223,7 @@ type endorsementManager struct {
 	cachedMintedBlk *block.Block
 }
 
-func newEndorsementManager(eManagerDB db.KVStore) (*endorsementManager, error) {
+func newEndorsementManager(eManagerDB db.KVStore, deserializer *block.Deserializer) (*endorsementManager, error) {
 	if eManagerDB == nil {
 		return &endorsementManager{
 			eManagerDB:      nil,
@@ -232,7 +231,7 @@ func newEndorsementManager(eManagerDB db.KVStore) (*endorsementManager, error) {
 			cachedMintedBlk: nil,
 		}, nil
 	}
-	bytes, err := eManagerDB.Get(eManagerNS, statusKey)
+	bytes, err := eManagerDB.Get(_eManagerNS, _statusKey)
 	switch errors.Cause(err) {
 	case nil:
 		// Get from DB
@@ -241,7 +240,7 @@ func newEndorsementManager(eManagerDB db.KVStore) (*endorsementManager, error) {
 		if err = proto.Unmarshal(bytes, managerProto); err != nil {
 			return nil, err
 		}
-		if err = manager.fromProto(managerProto); err != nil {
+		if err = manager.fromProto(managerProto, deserializer); err != nil {
 			return nil, err
 		}
 		manager.eManagerDB = eManagerDB
@@ -268,7 +267,7 @@ func (m *endorsementManager) PutEndorsementManagerToDB() error {
 	if err != nil {
 		return err
 	}
-	err = m.eManagerDB.Put(eManagerNS, statusKey, valBytes)
+	err = m.eManagerDB.Put(_eManagerNS, _statusKey, valBytes)
 	if err != nil {
 		return err
 	}
@@ -279,18 +278,18 @@ func (m *endorsementManager) SetIsMarjorityFunc(isMajorityFunc EndorsedByMajorit
 	m.isMajorityFunc = isMajorityFunc
 }
 
-func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementManager) error {
+func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementManager, deserializer *block.Deserializer) error {
 	m.collections = make(map[string]*blockEndorsementCollection)
 	for i, block := range managerPro.BlockEndorsements {
 		bc := &blockEndorsementCollection{}
-		if err := bc.fromProto(block); err != nil {
+		if err := bc.fromProto(block, deserializer); err != nil {
 			return err
 		}
 		m.collections[managerPro.BlkHash[i]] = bc
 	}
 	if managerPro.CachedMintedBlk != nil {
-		blk := &block.Block{}
-		if err := blk.ConvertFromBlockPb(managerPro.CachedMintedBlk); err != nil {
+		blk, err := deserializer.FromBlockProto(managerPro.CachedMintedBlk)
+		if err != nil {
 			return err
 		}
 		m.cachedMintedBlk = blk

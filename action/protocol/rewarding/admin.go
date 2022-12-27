@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package rewarding
 
@@ -50,15 +49,15 @@ func (a *admin) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
-	blockReward, ok := big.NewInt(0).SetString(gen.BlockReward, 10)
+	blockReward, ok := new(big.Int).SetString(gen.BlockReward, 10)
 	if !ok {
 		return errors.New("failed to set block reward")
 	}
-	epochReward, ok := big.NewInt(0).SetString(gen.EpochReward, 10)
+	epochReward, ok := new(big.Int).SetString(gen.EpochReward, 10)
 	if !ok {
 		return errors.New("failed to set epoch reward")
 	}
-	foundationBonus, ok := big.NewInt(0).SetString(gen.FoundationBonus, 10)
+	foundationBonus, ok := new(big.Int).SetString(gen.FoundationBonus, 10)
 	if !ok {
 		return errors.New("failed to set bootstrap bonus")
 	}
@@ -70,6 +69,10 @@ func (a *admin) Deserialize(data []byte) error {
 	a.foundationBonusLastEpoch = gen.FoundationBonusLastEpoch
 	a.productivityThreshold = gen.ProductivityThreshold
 	return nil
+}
+
+func (a *admin) grantFoundationBonus(epoch uint64) bool {
+	return epoch <= a.foundationBonusLastEpoch
 }
 
 // exempt stores the addresses that exempt from epoch reward
@@ -124,34 +127,28 @@ func (p *Protocol) CreateGenesisStates(
 		return err
 	}
 
-	initBalance := g.InitBalance()
-	numDelegatesForEpochReward := g.NumDelegatesForEpochReward
-	exemptAddrs := g.ExemptAddrsFromEpochReward()
-	foundationBonus := g.FoundationBonus()
-	numDelegatesForFoundationBonus := g.NumDelegatesForFoundationBonus
-	foundationBonusLastEpoch := g.FoundationBonusLastEpoch
-	productivityThreshold := g.ProductivityThreshold
-
 	if err := p.putState(
 		ctx,
 		sm,
-		adminKey,
+		_adminKey,
 		&admin{
 			blockReward:                    blockReward,
 			epochReward:                    epochReward,
-			numDelegatesForEpochReward:     numDelegatesForEpochReward,
-			foundationBonus:                foundationBonus,
-			numDelegatesForFoundationBonus: numDelegatesForFoundationBonus,
-			foundationBonusLastEpoch:       foundationBonusLastEpoch,
-			productivityThreshold:          productivityThreshold,
+			numDelegatesForEpochReward:     g.NumDelegatesForEpochReward,
+			foundationBonus:                g.FoundationBonus(),
+			numDelegatesForFoundationBonus: g.NumDelegatesForFoundationBonus,
+			foundationBonusLastEpoch:       g.FoundationBonusLastEpoch,
+			productivityThreshold:          g.ProductivityThreshold,
 		},
 	); err != nil {
 		return err
 	}
+
+	initBalance := g.InitBalance()
 	if err := p.putState(
 		ctx,
 		sm,
-		fundKey,
+		_fundKey,
 		&fund{
 			totalBalance:     initBalance,
 			unclaimedBalance: initBalance,
@@ -162,9 +159,9 @@ func (p *Protocol) CreateGenesisStates(
 	return p.putState(
 		ctx,
 		sm,
-		exemptKey,
+		_exemptKey,
 		&exempt{
-			addrs: exemptAddrs,
+			addrs: g.ExemptAddrsFromEpochReward(),
 		},
 	)
 }
@@ -175,7 +172,7 @@ func (p *Protocol) BlockReward(
 	sm protocol.StateReader,
 ) (*big.Int, error) {
 	a := admin{}
-	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
 		return nil, err
 	}
 	return a.blockReward, nil
@@ -187,7 +184,7 @@ func (p *Protocol) EpochReward(
 	sm protocol.StateReader,
 ) (*big.Int, error) {
 	a := admin{}
-	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
 		return nil, err
 	}
 	return a.epochReward, nil
@@ -199,7 +196,7 @@ func (p *Protocol) NumDelegatesForEpochReward(
 	sm protocol.StateManager,
 ) (uint64, error) {
 	a := admin{}
-	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
 		return 0, err
 	}
 	return a.numDelegatesForEpochReward, nil
@@ -208,7 +205,7 @@ func (p *Protocol) NumDelegatesForEpochReward(
 // FoundationBonus returns the foundation bonus amount
 func (p *Protocol) FoundationBonus(ctx context.Context, sm protocol.StateReader) (*big.Int, error) {
 	a := admin{}
-	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
 		return nil, err
 	}
 	return a.foundationBonus, nil
@@ -217,7 +214,7 @@ func (p *Protocol) FoundationBonus(ctx context.Context, sm protocol.StateReader)
 // FoundationBonusLastEpoch returns the last epoch when the foundation bonus will still be granted
 func (p *Protocol) FoundationBonusLastEpoch(ctx context.Context, sm protocol.StateReader) (uint64, error) {
 	a := admin{}
-	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
 		return 0, err
 	}
 	return a.foundationBonusLastEpoch, nil
@@ -226,7 +223,7 @@ func (p *Protocol) FoundationBonusLastEpoch(ctx context.Context, sm protocol.Sta
 // NumDelegatesForFoundationBonus returns the number of delegates that will get foundation bonus
 func (p *Protocol) NumDelegatesForFoundationBonus(ctx context.Context, sm protocol.StateReader) (uint64, error) {
 	a := admin{}
-	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
 		return 0, err
 	}
 	return a.numDelegatesForFoundationBonus, nil
@@ -235,7 +232,7 @@ func (p *Protocol) NumDelegatesForFoundationBonus(ctx context.Context, sm protoc
 // ProductivityThreshold returns the productivity threshold
 func (p *Protocol) ProductivityThreshold(ctx context.Context, sm protocol.StateManager) (uint64, error) {
 	a := admin{}
-	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
 		return 0, err
 	}
 	return a.productivityThreshold, nil
@@ -252,7 +249,7 @@ func (p *Protocol) SetReward(
 		return err
 	}
 	a := admin{}
-	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
 		return err
 	}
 	if blockLevel {
@@ -260,7 +257,7 @@ func (p *Protocol) SetReward(
 	} else {
 		a.epochReward = amount
 	}
-	return p.putState(ctx, sm, adminKey, &a)
+	return p.putState(ctx, sm, _adminKey, &a)
 }
 
 func (p *Protocol) assertAmount(amount *big.Int) error {

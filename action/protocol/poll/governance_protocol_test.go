@@ -1,15 +1,13 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package poll
 
 import (
 	"context"
 	"math/big"
-	"strings"
 	"testing"
 	"time"
 
@@ -26,8 +24,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
@@ -36,7 +34,13 @@ import (
 )
 
 func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult, error) {
-	cfg := config.Default
+	cfg := struct {
+		Genesis genesis.Genesis
+		Chain   blockchain.Config
+	}{
+		Genesis: genesis.Default,
+		Chain:   blockchain.DefaultConfig,
+	}
 	cfg.Genesis.EasterBlockHeight = 1 // set up testing after Easter Height
 	cfg.Genesis.ProbationIntensityRate = 90
 	cfg.Genesis.ProbationEpochPeriod = 2
@@ -69,6 +73,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		ctx,
 		protocol.ActionCtx{},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)
@@ -206,6 +211,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	if err := setCandidates(ctx, sm, indexer, candidates, 1); err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -307,6 +313,7 @@ func TestCreatePreStates(t *testing.T) {
 				Producer:    identityset.Address(1),
 			},
 		)
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		require.NoError(psc.CreatePreStates(ctx, sm)) // shift
 		bl := &vote.ProbationList{}
 		key := candidatesutil.ConstructKey(candidatesutil.CurProbationKey)
@@ -394,8 +401,8 @@ func TestHandle(t *testing.T) {
 		selp2, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp2)
-		caller, err := address.FromBytes(selp2.SrcPubkey().Hash())
-		require.NoError(err)
+		caller := selp2.SenderAddress()
+		require.NotNil(caller)
 		ctx2 = protocol.WithBlockCtx(
 			ctx2,
 			protocol.BlockCtx{
@@ -441,8 +448,8 @@ func TestHandle(t *testing.T) {
 		selp2, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp2)
-		caller, err := address.FromBytes(selp2.SrcPubkey().Hash())
-		require.NoError(err)
+		caller := selp2.SenderAddress()
+		require.NotNil(caller)
 		ctx2 = protocol.WithBlockCtx(
 			ctx2,
 			protocol.BlockCtx{
@@ -457,7 +464,7 @@ func TestHandle(t *testing.T) {
 			},
 		)
 		err = p.Validate(ctx2, selp2.Action(), sm2)
-		require.True(strings.Contains(err.Error(), "Only producer could create this protocol"))
+		require.Contains(err.Error(), "Only producer could create this protocol")
 	})
 	t.Run("Duplicate candidate", func(t *testing.T) {
 		p3, ctx3, sm3, _, err := initConstruct(ctrl)
@@ -476,8 +483,8 @@ func TestHandle(t *testing.T) {
 		selp3, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp3)
-		caller, err := address.FromBytes(selp3.SrcPubkey().Hash())
-		require.NoError(err)
+		caller := selp3.SenderAddress()
+		require.NotNil(caller)
 		ctx3 = protocol.WithBlockCtx(
 			ctx3,
 			protocol.BlockCtx{
@@ -492,7 +499,7 @@ func TestHandle(t *testing.T) {
 			},
 		)
 		err = p.Validate(ctx3, selp3.Action(), sm3)
-		require.True(strings.Contains(err.Error(), "duplicate candidate"))
+		require.Contains(err.Error(), "duplicate candidate")
 	})
 	t.Run("Delegate's length is not equal", func(t *testing.T) {
 		p4, ctx4, sm4, _, err := initConstruct(ctrl)
@@ -510,8 +517,8 @@ func TestHandle(t *testing.T) {
 		selp4, err := action.Sign(elp4, senderKey)
 		require.NoError(err)
 		require.NotNil(selp4)
-		caller, err := address.FromBytes(selp4.SrcPubkey().Hash())
-		require.NoError(err)
+		caller := selp4.SenderAddress()
+		require.NotNil(caller)
 		ctx4 = protocol.WithBlockCtx(
 			ctx4,
 			protocol.BlockCtx{
@@ -526,7 +533,7 @@ func TestHandle(t *testing.T) {
 			},
 		)
 		err = p4.Validate(ctx4, selp4.Action(), sm4)
-		require.True(strings.Contains(err.Error(), "the proposed delegate list length"))
+		require.Contains(err.Error(), "the proposed delegate list length")
 	})
 	t.Run("Candidate's vote is not equal", func(t *testing.T) {
 		p5, ctx5, sm5, _, err := initConstruct(ctrl)
@@ -544,8 +551,8 @@ func TestHandle(t *testing.T) {
 		selp5, err := action.Sign(elp5, senderKey)
 		require.NoError(err)
 		require.NotNil(selp5)
-		caller, err := address.FromBytes(selp5.SrcPubkey().Hash())
-		require.NoError(err)
+		caller := selp5.SenderAddress()
+		require.NotNil(caller)
 		ctx5 = protocol.WithBlockCtx(
 			ctx5,
 			protocol.BlockCtx{
@@ -560,7 +567,7 @@ func TestHandle(t *testing.T) {
 			},
 		)
 		err = p5.Validate(ctx5, selp5.Action(), sm5)
-		require.True(strings.Contains(err.Error(), "delegates are not as expected"))
+		require.Contains(err.Error(), "delegates are not as expected")
 	})
 }
 
@@ -579,6 +586,7 @@ func TestNextCandidates(t *testing.T) {
 		IntensityRate: 50,
 	}
 	require.NoError(setNextEpochProbationList(sm, nil, 721, probationList))
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	filteredCandidates, err := p.NextCandidates(ctx, sm)
 	require.NoError(err)
 	require.Equal(6, len(filteredCandidates))
@@ -627,6 +635,7 @@ func TestDelegatesAndNextDelegates(t *testing.T) {
 	}
 	require.NoError(setNextEpochProbationList(sm, nil, 31, probationList))
 
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	delegates, err := p.NextDelegates(ctx, sm)
 	require.NoError(err)
 	require.Equal(2, len(delegates))

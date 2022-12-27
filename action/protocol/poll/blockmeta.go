@@ -1,17 +1,16 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package poll
 
 import (
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action/protocol/poll/blockmetapb"
 )
@@ -43,10 +42,7 @@ func (bm *BlockMeta) Serialize() ([]byte, error) {
 
 // Proto converts the BlockMeta struct to a protobuf message
 func (bm *BlockMeta) Proto() (*blockmetapb.BlockMeta, error) {
-	blkTime, err := ptypes.TimestampProto(bm.MintTime)
-	if err != nil {
-		return nil, err
-	}
+	blkTime := timestamppb.New(bm.MintTime)
 	return &blockmetapb.BlockMeta{
 		BlockHeight:   bm.Height,
 		BlockProducer: bm.Producer,
@@ -65,10 +61,10 @@ func (bm *BlockMeta) Deserialize(buf []byte) error {
 
 // LoadProto loads blockMeta from proto
 func (bm *BlockMeta) LoadProto(pb *blockmetapb.BlockMeta) error {
-	mintTime, err := ptypes.Timestamp(pb.GetBlockTime())
-	if err != nil {
+	if err := pb.GetBlockTime().CheckValid(); err != nil {
 		return err
 	}
+	mintTime := pb.GetBlockTime().AsTime()
 	bm.Height = pb.GetBlockHeight()
 	bm.Producer = pb.GetBlockProducer()
 	bm.MintTime = mintTime.UTC()

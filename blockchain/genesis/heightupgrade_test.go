@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package genesis
 
@@ -42,6 +41,18 @@ func TestNewHeightChange(t *testing.T) {
 	require.True(cfg.IsHawaii(uint64(11267641)))
 	require.False(cfg.IsIceland(uint64(12289320)))
 	require.True(cfg.IsIceland(uint64(12289321)))
+	require.False(cfg.IsJutland(uint64(13685400)))
+	require.True(cfg.IsJutland(uint64(13685401)))
+	require.False(cfg.IsKamchatka(uint64(13816440)))
+	require.True(cfg.IsKamchatka(uint64(13816441)))
+	require.False(cfg.IsLordHowe(uint64(13979160)))
+	require.True(cfg.IsLordHowe(uint64(13979161)))
+	require.False(cfg.IsMidway(uint64(16509240)))
+	require.True(cfg.IsMidway(uint64(16509241)))
+	require.False(cfg.IsNewfoundland(uint64(17662680)))
+	require.True(cfg.IsNewfoundland(uint64(17662681)))
+	require.False(cfg.IsOkhotsk(uint64(21542760)))
+	require.True(cfg.IsOkhotsk(uint64(21542761)))
 
 	require.Equal(cfg.PacificBlockHeight, uint64(432001))
 	require.Equal(cfg.AleutianBlockHeight, uint64(864001))
@@ -55,4 +66,10 @@ func TestNewHeightChange(t *testing.T) {
 	require.Equal(cfg.GreenlandBlockHeight, uint64(6544441))
 	require.Equal(cfg.HawaiiBlockHeight, uint64(11267641))
 	require.Equal(cfg.IcelandBlockHeight, uint64(12289321))
+	require.Equal(cfg.JutlandBlockHeight, uint64(13685401))
+	require.Equal(cfg.KamchatkaBlockHeight, uint64(13816441))
+	require.Equal(cfg.LordHoweBlockHeight, uint64(13979161))
+	require.Equal(cfg.MidwayBlockHeight, uint64(16509241))
+	require.Equal(cfg.NewfoundlandBlockHeight, uint64(17662681))
+	require.Equal(cfg.OkhotskBlockHeight, uint64(21542761))
 }

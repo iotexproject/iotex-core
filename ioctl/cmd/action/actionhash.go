@@ -1,8 +1,7 @@
-// Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
@@ -15,14 +14,12 @@ import (
 	"strconv"
 
 	protoV1 "github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
@@ -35,20 +32,20 @@ import (
 
 // Multi-language support
 var (
-	hashCmdShorts = map[config.Language]string{
+	_hashCmdShorts = map[config.Language]string{
 		config.English: "Get action by hash",
-		config.Chinese: "依据哈希值，获取行动",
+		config.Chinese: "依据哈希值，获取交易",
 	}
-	hashCmdUses = map[config.Language]string{
+	_hashCmdUses = map[config.Language]string{
 		config.English: "hash ACTION_HASH",
-		config.Chinese: "hash 行动_哈希", // this translation
+		config.Chinese: "hash 交易哈希",
 	}
 )
 
-// actionHashCmd represents the action hash command
-var actionHashCmd = &cobra.Command{
-	Use:   config.TranslateInLang(hashCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(hashCmdShorts, config.UILanguage),
+// _actionHashCmd represents the action hash command
+var _actionHashCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_hashCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_hashCmdShorts, config.UILanguage),
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -149,10 +146,10 @@ func printAction(actionInfo *iotexapi.ActionInfo) (string, error) {
 		return "", err
 	}
 	if actionInfo.Timestamp != nil {
-		ts, err := ptypes.Timestamp(actionInfo.Timestamp)
-		if err != nil {
+		if err := actionInfo.Timestamp.CheckValid(); err != nil {
 			return "", err
 		}
+		ts := actionInfo.Timestamp.AsTime()
 		result += fmt.Sprintf("timeStamp: %d\n", ts.Unix())
 		result += fmt.Sprintf("blkHash: %s\n", actionInfo.BlkHash)
 	}
@@ -165,26 +162,27 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 	if err != nil {
 		return "", output.NewError(output.ConvertError, "failed to convert public key from bytes", err)
 	}
-	senderAddress, err := address.FromBytes(pubKey.Hash())
-	if err != nil {
-		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
+	senderAddress := pubKey.Address()
+	if senderAddress == nil {
+		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", nil)
 	}
 	//ioctl action should display IOTX unit instead Raul
-	gasPriceUnitIOTX, err := util.StringToIOTX(action.Core.GasPrice)
+	core := action.Core
+	gasPriceUnitIOTX, err := util.StringToIOTX(core.GasPrice)
 	if err != nil {
 		return "", output.NewError(output.ConfigError, "failed to convert string to IOTX", err)
 	}
-	result := fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
-		fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
-		fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
-		fmt.Sprintf("gasPrice: %s IOTX\n", gasPriceUnitIOTX) +
+	result := fmt.Sprintf("\nversion: %d  ", core.GetVersion()) +
+		fmt.Sprintf("nonce: %d  ", core.GetNonce()) +
+		fmt.Sprintf("gasLimit: %d  ", core.GasLimit) +
+		fmt.Sprintf("gasPrice: %s IOTX  ", gasPriceUnitIOTX) +
+		fmt.Sprintf("chainID: %d  ", core.GetChainID()) +
+		fmt.Sprintf("encoding: %d\n", action.GetEncoding()) +
 		fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
 			Match(senderAddress.String(), "address"))
 	switch {
-	default:
-		result += protoV1.MarshalTextString(action.Core)
-	case action.Core.GetTransfer() != nil:
-		transfer := action.Core.GetTransfer()
+	case core.GetTransfer() != nil:
+		transfer := core.GetTransfer()
 		amount, err := util.StringToIOTX(transfer.Amount)
 		if err != nil {
 			return "", output.NewError(output.ConvertError, "failed to convert string into IOTX amount", err)
@@ -197,8 +195,8 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			result += fmt.Sprintf("  payload: %s\n", transfer.Payload)
 		}
 		result += ">\n"
-	case action.Core.GetExecution() != nil:
-		execution := action.Core.GetExecution()
+	case core.GetExecution() != nil:
+		execution := core.GetExecution()
 		result += "execution: <\n" +
 			fmt.Sprintf("  contract: %s %s\n", execution.Contract,
 				Match(execution.Contract, "address"))
@@ -210,8 +208,8 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			result += fmt.Sprintf("  amount: %s IOTX\n", amount)
 		}
 		result += fmt.Sprintf("  data: %x\n", execution.Data) + ">\n"
-	case action.Core.GetPutPollResult() != nil:
-		putPollResult := action.Core.GetPutPollResult()
+	case core.GetPutPollResult() != nil:
+		putPollResult := core.GetPutPollResult()
 		result += "putPollResult: <\n" +
 			fmt.Sprintf("  height: %d\n", putPollResult.Height) +
 			"  candidates: <\n"
@@ -225,6 +223,8 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 		}
 		result += "  >\n" +
 			">\n"
+	default:
+		result += protoV1.MarshalTextString(core)
 	}
 	result += fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
 		fmt.Sprintf("signature: %x\n", action.Signature)

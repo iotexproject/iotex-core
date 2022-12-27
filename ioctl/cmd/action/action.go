@@ -1,8 +1,7 @@
-// Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
@@ -18,7 +17,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -26,7 +24,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/hdwallet"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -36,43 +34,39 @@ import (
 
 // Multi-language support
 var (
-	actionCmdShorts = map[config.Language]string{
+	_actionCmdShorts = map[config.Language]string{
 		config.English: "Manage actions of IoTeX blockchain",
 		config.Chinese: "管理IoTex区块链的行为", // this translation
 	}
-	actionCmdUses = map[config.Language]string{
-		config.English: "action",
-		config.Chinese: "action 行为", // this translation
-	}
-	flagActionEndPointUsages = map[config.Language]string{
+	_flagActionEndPointUsages = map[config.Language]string{
 		config.English: "set endpoint for once",
 		config.Chinese: "一次设置端点", // this translation
 	}
-	flagActionInsecureUsages = map[config.Language]string{
+	_flagActionInsecureUsages = map[config.Language]string{
 		config.English: "insecure connection for once",
 		config.Chinese: "一次不安全连接", // this translation
 	}
 )
 
-const defaultGasLimit = uint64(20000000)
+const _defaultGasLimit = uint64(20000000)
 
 // var defaultGasPrice = big.NewInt(unit.Qev)
 
 // Flags
 var (
-	gasLimitFlag = flag.NewUint64VarP("gas-limit", "l", defaultGasLimit, "set gas limit")
-	gasPriceFlag = flag.NewStringVarP("gas-price", "p", "1", "set gas price (unit: 10^(-6)IOTX), use suggested gas price if input is \"0\"")
-	nonceFlag    = flag.NewUint64VarP("nonce", "n", 0, "set nonce (default using pending nonce)")
-	signerFlag   = flag.NewStringVarP("signer", "s", "", "choose a signing account")
-	bytecodeFlag = flag.NewStringVarP("bytecode", "b", "", "set the byte code")
-	yesFlag      = flag.BoolVarP("assume-yes", "y", false, "answer yes for all confirmations")
-	passwordFlag = flag.NewStringVarP("password", "P", "", "input password for account")
+	_gasLimitFlag = flag.NewUint64VarP("gas-limit", "l", _defaultGasLimit, "set gas limit")
+	_gasPriceFlag = flag.NewStringVarP("gas-price", "p", "1", "set gas price (unit: 10^(-6)IOTX), use suggested gas price if input is \"0\"")
+	_nonceFlag    = flag.NewUint64VarP("nonce", "n", 0, "set nonce (default using pending nonce)")
+	_signerFlag   = flag.NewStringVarP("signer", "s", "", "choose a signing account")
+	_bytecodeFlag = flag.NewStringVarP("bytecode", "b", "", "set the byte code")
+	_yesFlag      = flag.BoolVarP("assume-yes", "y", false, "answer yes for all confirmations")
+	_passwordFlag = flag.NewStringVarP("password", "P", "", "input password for account")
 )
 
 // ActionCmd represents the action command
 var ActionCmd = &cobra.Command{
-	Use:   config.TranslateInLang(actionCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(actionCmdShorts, config.UILanguage),
+	Use:   "action",
+	Short: config.TranslateInLang(_actionCmdShorts, config.UILanguage),
 }
 
 type sendMessage struct {
@@ -89,28 +83,28 @@ func (m *sendMessage) String() string {
 }
 
 func init() {
-	ActionCmd.AddCommand(actionHashCmd)
-	ActionCmd.AddCommand(actionTransferCmd)
-	ActionCmd.AddCommand(actionDeployCmd)
-	ActionCmd.AddCommand(actionInvokeCmd)
-	ActionCmd.AddCommand(actionReadCmd)
-	ActionCmd.AddCommand(actionClaimCmd)
-	ActionCmd.AddCommand(actionDepositCmd)
-	ActionCmd.AddCommand(actionSendRawCmd)
+	ActionCmd.AddCommand(_actionHashCmd)
+	ActionCmd.AddCommand(_actionTransferCmd)
+	ActionCmd.AddCommand(_actionDeployCmd)
+	ActionCmd.AddCommand(_actionInvokeCmd)
+	ActionCmd.AddCommand(_actionReadCmd)
+	ActionCmd.AddCommand(_actionClaimCmd)
+	ActionCmd.AddCommand(_actionDepositCmd)
+	ActionCmd.AddCommand(_actionSendRawCmd)
 	ActionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, config.TranslateInLang(flagActionEndPointUsages,
+		config.ReadConfig.Endpoint, config.TranslateInLang(_flagActionEndPointUsages,
 			config.UILanguage))
 	ActionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
-		config.TranslateInLang(flagActionInsecureUsages, config.UILanguage))
+		config.TranslateInLang(_flagActionInsecureUsages, config.UILanguage))
 }
 
 func decodeBytecode() ([]byte, error) {
-	return hex.DecodeString(util.TrimHexPrefix(bytecodeFlag.Value().(string)))
+	return hex.DecodeString(util.TrimHexPrefix(_bytecodeFlag.Value().(string)))
 }
 
 // Signer returns signer's address
 func Signer() (address string, err error) {
-	addressOrAlias := signerFlag.Value().(string)
+	addressOrAlias := _signerFlag.Value().(string)
 	if util.AliasIsHdwalletKey(addressOrAlias) {
 		return addressOrAlias, nil
 	}
@@ -129,7 +123,7 @@ func nonce(executor string) (uint64, error) {
 		// for hdwallet key, get the nonce in SendAction()
 		return 0, nil
 	}
-	nonce := nonceFlag.Value().(uint64)
+	nonce := _nonceFlag.Value().(uint64)
 	if nonce != 0 {
 		return nonce, nil
 	}
@@ -142,12 +136,12 @@ func nonce(executor string) (uint64, error) {
 
 // RegisterWriteCommand registers action flags for command
 func RegisterWriteCommand(cmd *cobra.Command) {
-	gasLimitFlag.RegisterCommand(cmd)
-	gasPriceFlag.RegisterCommand(cmd)
-	signerFlag.RegisterCommand(cmd)
-	nonceFlag.RegisterCommand(cmd)
-	yesFlag.RegisterCommand(cmd)
-	passwordFlag.RegisterCommand(cmd)
+	_gasLimitFlag.RegisterCommand(cmd)
+	_gasPriceFlag.RegisterCommand(cmd)
+	_signerFlag.RegisterCommand(cmd)
+	_nonceFlag.RegisterCommand(cmd)
+	_yesFlag.RegisterCommand(cmd)
+	_passwordFlag.RegisterCommand(cmd)
 }
 
 // gasPriceInRau returns the suggest gas price
@@ -155,7 +149,7 @@ func gasPriceInRau() (*big.Int, error) {
 	if account.CryptoSm2 {
 		return big.NewInt(0), nil
 	}
-	gasPrice := gasPriceFlag.Value().(string)
+	gasPrice := _gasPriceFlag.Value().(string)
 	if len(gasPrice) != 0 {
 		return util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	}
@@ -256,63 +250,21 @@ func SendRaw(selp *iotextypes.Action) error {
 	return nil
 }
 
-// PrivateKeyFromSigner returns private key from signer
-func PrivateKeyFromSigner(signer string) (crypto.PrivateKey, error) {
-	var prvKey crypto.PrivateKey
-	var err error
-
-	if account.IsSignerExist(signer) || util.AliasIsHdwalletKey(signer) {
-		// Get signer's password
-		password := passwordFlag.Value().(string)
-		if password == "" {
-			output.PrintQuery(fmt.Sprintf("Enter password #%s:\n", signer))
-			password, err = util.ReadSecretFromStdin()
-			if err != nil {
-				return nil, output.NewError(output.InputError, "failed to get password", err)
-			}
-		}
-
-		if util.AliasIsHdwalletKey(signer) {
-			account, change, index, err := util.ParseHdwPath(signer)
-			if err != nil {
-				return nil, output.NewError(output.InputError, "invalid hdwallet key format", err)
-			}
-			_, prvKey, err = hdwallet.DeriveKey(account, change, index, password)
-			if err != nil {
-				return nil, output.NewError(output.InputError, "failed to derive key from HDWallet", err)
-			}
-		} else {
-			prvKey, err = account.LocalAccountToPrivateKey(signer, password)
-			if err != nil {
-				return nil, output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
-			}
-		}
-		return prvKey, nil
-	}
-
-	// Get private key
-	output.PrintQuery(fmt.Sprintf("Enter private key #%s:", signer))
-	prvKeyString, err := util.ReadSecretFromStdin()
-	if err != nil {
-		return nil, output.NewError(output.InputError, "failed to get private key", err)
-	}
-
-	prvKey, err = crypto.HexStringToPrivateKey(prvKeyString)
-	if err != nil {
-		return nil, output.NewError(output.InputError, "failed to create private key from HexString input", err)
-	}
-	return prvKey, nil
-}
-
 // SendAction sends signed action to blockchain
 func SendAction(elp action.Envelope, signer string) error {
-	prvKey, err := PrivateKeyFromSigner(signer)
+	prvKey, err := account.PrivateKeyFromSigner(signer, _passwordFlag.Value().(string))
 	if err != nil {
 		return err
 	}
 
+	chainMeta, err := bc.GetChainMeta()
+	if err != nil {
+		return output.NewError(0, "failed to get chain meta", err)
+	}
+	elp.SetChainID(chainMeta.GetChainID())
+
 	if util.AliasIsHdwalletKey(signer) {
-		addr, _ := address.FromBytes(prvKey.PublicKey().Hash())
+		addr := prvKey.PublicKey().Address()
 		signer = addr.String()
 		nonce, err := nonce(signer)
 		if err != nil {
@@ -336,13 +288,15 @@ func SendAction(elp action.Envelope, signer string) error {
 		return output.NewError(0, "failed to print action proto message", err)
 	}
 
-	if yesFlag.Value() == false {
+	if _yesFlag.Value() == false {
 		var confirm string
 		info := fmt.Sprintln(actionInfo + "\nPlease confirm your action.\n")
 		message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
 		fmt.Println(message.String())
 
-		fmt.Scanf("%s", &confirm)
+		if _, err := fmt.Scanf("%s", &confirm); err != nil {
+			return output.NewError(output.InputError, "failed to input yes", err)
+		}
 		if !strings.EqualFold(confirm, "yes") {
 			output.PrintResult("quit")
 			return nil
@@ -369,7 +323,7 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce", err)
 	}
-	gasLimit := gasLimitFlag.Value().(uint64)
+	gasLimit := _gasLimitFlag.Value().(uint64)
 	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
 	if err != nil || tx == nil {
 		return output.NewError(output.InstantiationError, "failed to make a Execution instance", err)
@@ -418,6 +372,7 @@ func Read(contract address.Address, amount string, bytecode []byte) (string, err
 				Data:     bytecode,
 			},
 			CallerAddress: callerAddr,
+			GasLimit:      _gasLimitFlag.Value().(uint64),
 		},
 	)
 	if err == nil {
@@ -434,7 +389,7 @@ func isBalanceEnough(address string, act action.SealedEnvelope) error {
 	if err != nil {
 		return output.NewError(0, "failed to get account meta", err)
 	}
-	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
+	balance, ok := new(big.Int).SetString(accountMeta.Balance, 10)
 	if !ok {
 		return output.NewError(output.ConvertError, "failed to convert balance into big int", nil)
 	}

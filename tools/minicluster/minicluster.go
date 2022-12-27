@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 // usage: make minicluster
 
@@ -19,14 +18,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/iotexproject/go-pkgs/cache"
-	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
@@ -41,8 +43,8 @@ import (
 )
 
 const (
-	numNodes  = 4
-	numAdmins = 2
+	_numNodes  = 4
+	_numAdmins = 2
 )
 
 func main() {
@@ -73,16 +75,16 @@ func main() {
 	if err != nil {
 		log.L().Fatal("Failed to load addresses from config path", zap.Error(err))
 	}
-	admins := chainAddrs[len(chainAddrs)-numAdmins:]
-	delegates := chainAddrs[:len(chainAddrs)-numAdmins]
+	admins := chainAddrs[len(chainAddrs)-_numAdmins:]
+	delegates := chainAddrs[:len(chainAddrs)-_numAdmins]
 
 	dbFilePaths := make([]string, 0)
 	//a flag to indicate whether the DB files should be cleaned up upon completion of the minicluster.
 	deleteDBFiles := false
 
 	// Set mini-cluster configurations
-	configs := make([]config.Config, numNodes)
-	for i := 0; i < numNodes; i++ {
+	configs := make([]config.Config, _numNodes)
+	for i := 0; i < _numNodes; i++ {
 		chainDBPath := fmt.Sprintf("./chain%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, chainDBPath)
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
@@ -97,11 +99,14 @@ func main() {
 		dbFilePaths = append(dbFilePaths, systemLogDBPath)
 		candidateIndexDBPath := fmt.Sprintf("./candidate.index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
-		networkPort := 4689 + i
-		apiPort := 14014 + i
-		HTTPAdminPort := 9009 + i
-		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, HTTPAdminPort)
+		networkPort := config.Default.Network.Port + i
+		apiPort := config.Default.API.GRPCPort + i
+		web3APIPort := config.Default.API.HTTPPort + i
+		web3SocketPort := config.Default.API.WebSocketPort + i
+		HTTPAdminPort := config.Default.System.HTTPAdminPort + i
+		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, web3APIPort, web3SocketPort, HTTPAdminPort)
 		config.Chain.ChainDBPath = chainDBPath
+		config.Chain.TrieDBPatchFile = ""
 		config.Chain.TrieDBPath = trieDBPath
 		config.Chain.IndexDBPath = indexDBPath
 		config.Chain.BloomfilterIndexDBPath = bloomfilterIndexDBPath
@@ -118,8 +123,8 @@ func main() {
 	}
 
 	// Create mini-cluster
-	svrs := make([]*itx.Server, numNodes)
-	for i := 0; i < numNodes; i++ {
+	svrs := make([]*itx.Server, _numNodes)
+	for i := 0; i < _numNodes; i++ {
 		svr, err := itx.NewServer(configs[i])
 		if err != nil {
 			log.L().Fatal("Failed to create server.", zap.Error(err))
@@ -136,14 +141,12 @@ func main() {
 			}
 		}
 	}()
-	// Create a probe server
-	probeSvr := probe.New(7788)
 
 	// Start mini-cluster
-	for i := 0; i < numNodes; i++ {
+	for i := 0; i < _numNodes; i++ {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		go itx.StartServer(ctx, svrs[i], probeSvr, configs[i])
+		go itx.StartServer(ctx, svrs[i], probe.New(7788+i), configs[i])
 	}
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"
@@ -202,9 +205,12 @@ func main() {
 			log.L().Fatal("Failed to deploy smart contract", zap.Error(err))
 		}
 		// Wait until the smart contract is successfully deployed
-		var receipt *action.Receipt
+		var (
+			receipt *iotextypes.Receipt
+			as      = svrs[0].APIServer(1)
+		)
 		if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-			receipt, err = svrs[0].ChainService(uint32(1)).APIServer().GetReceiptByActionHash(eHash)
+			receipt, err = util.GetReceiptByAction(as.CoreService(), eHash)
 			return receipt != nil, nil
 		}); err != nil {
 			log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
@@ -262,7 +268,7 @@ func main() {
 		}
 
 		expectedBalancesMap := util.GetAllBalanceMap(client, chainAddrs)
-		pendingActionMap := cache.NewThreadSafeLruCache(0)
+		pendingActionMap, _ := ttl.NewCache(ttl.EvictOnErrorOption())
 
 		log.L().Info("Start action injections.")
 
@@ -270,14 +276,14 @@ func main() {
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit,
 			voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, fpToken,
 			fpContract, debtor, creditor, client, admins, delegates, d, retryNum, retryInterval, resetInterval,
-			&expectedBalancesMap, svrs[0].ChainService(1), pendingActionMap)
+			expectedBalancesMap, as.CoreService(), pendingActionMap)
 		wg.Wait()
 
 		err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 			empty, err := util.CheckPendingActionList(
-				svrs[0].ChainService(1),
+				as.CoreService(),
 				pendingActionMap,
-				&expectedBalancesMap,
+				expectedBalancesMap,
 			)
 			if err != nil {
 				log.L().Error(err.Error())
@@ -287,25 +293,25 @@ func main() {
 		})
 
 		totalPendingActions := 0
-		pendingActionMap.Range(func(selphash cache.Key, vi interface{}) bool {
+		pendingActionMap.Range(func(selphash, vi interface{}) error {
 			totalPendingActions++
-			return true
+			return nil
 		})
 
 		if err != nil {
 			log.L().Error("Not all actions are settled")
 		}
 
-		chains := make([]blockchain.Blockchain, numNodes)
-		sfs := make([]factory.Factory, numNodes)
-		stateHeights := make([]uint64, numNodes)
-		bcHeights := make([]uint64, numNodes)
-		idealHeight := make([]uint64, numNodes)
+		chains := make([]blockchain.Blockchain, _numNodes)
+		sfs := make([]factory.Factory, _numNodes)
+		stateHeights := make([]uint64, _numNodes)
+		bcHeights := make([]uint64, _numNodes)
+		idealHeight := make([]uint64, _numNodes)
 
 		var netTimeout int
 		var minTimeout int
 
-		for i := 0; i < numNodes; i++ {
+		for i := 0; i < _numNodes; i++ {
 			chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
 			sfs[i] = svrs[i].ChainService(configs[i].Chain.ID).StateFactory()
 
@@ -333,8 +339,8 @@ func main() {
 			}
 		}
 
-		for i := 0; i < numNodes; i++ {
-			for j := i + 1; j < numNodes; j++ {
+		for i := 0; i < _numNodes; i++ {
+			for j := i + 1; j < _numNodes; j++ {
 				if math.Abs(float64(bcHeights[i]-bcHeights[j])) > 1 {
 					log.S().Errorf("blockchain in Node#%d and blockchain in Node#%d are not sync", i, j)
 				} else {
@@ -386,6 +392,42 @@ func main() {
 
 			log.S().Info("Fp token transfer test pass!")
 		}
+
+		registries := make([]*protocol.Registry, _numNodes)
+		for i := 0; i < _numNodes; i++ {
+			registries[i] = svrs[i].ChainService(configs[i].Chain.ID).Registry()
+
+			ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+				BlockHeight: bcHeights[i],
+			})
+			ctx = genesis.WithGenesisContext(
+				protocol.WithRegistry(ctx, registries[i]),
+				chains[i].Genesis(),
+			)
+			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+
+			rp := rewarding.FindProtocol(registries[i])
+			if rp == nil {
+				log.S().Fatal("rolldpos is not registered.")
+			}
+
+			blockReward, err := rp.BlockReward(ctx, sfs[i])
+			if err != nil {
+				log.S().Fatal("Failed to get block reward.", zap.Error(err))
+			}
+			if blockReward == configs[i].Genesis.BlockReward() {
+				log.S().Fatal("actual block reward is incorrect.")
+			}
+
+			epochReward, err := rp.EpochReward(ctx, sfs[i])
+			if err != nil {
+				log.S().Fatal("Failed to get epoch reward.", zap.Error(err))
+			}
+			if epochReward == configs[i].Genesis.AleutianEpochReward() {
+				log.S().Fatal("actual epoch reward is incorrect.")
+			}
+		}
+
 		deleteDBFiles = true
 	}
 }
@@ -394,6 +436,8 @@ func newConfig(
 	producerPriKey crypto.PrivateKey,
 	networkPort,
 	apiPort int,
+	web3APIPort int,
+	webSocketPort int,
 	HTTPAdminPort int,
 ) config.Config {
 	cfg := config.Default
@@ -406,7 +450,6 @@ func newConfig(
 	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
 
 	cfg.Chain.ID = 1
-	cfg.Chain.CompressBlock = true
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
 
 	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()
@@ -421,14 +464,17 @@ func newConfig(
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 1200 * time.Millisecond
 	cfg.Consensus.RollDPoS.Delay = 6 * time.Second
 
-	cfg.API.Port = apiPort
+	cfg.API.GRPCPort = apiPort
+	cfg.API.HTTPPort = web3APIPort
+	cfg.API.WebSocketPort = webSocketPort
 
 	cfg.Genesis.BlockInterval = 6 * time.Second
 	cfg.Genesis.Blockchain.NumSubEpochs = 2
-	cfg.Genesis.Blockchain.NumDelegates = numNodes
+	cfg.Genesis.Blockchain.NumDelegates = _numNodes
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
-	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
+	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : _numNodes+3]
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.PollMode = "lifeLong"
+
 	return cfg
 }

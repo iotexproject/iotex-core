@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package filedao
 
@@ -18,7 +17,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -30,8 +28,9 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 	testFdInterface := func(cfg db.Config, t *testing.T) {
 		r := require.New(t)
 
-		testutil.CleanupPath(t, cfg.DbPath)
-		fdLegacy, err := newFileDAOLegacy(cfg)
+		testutil.CleanupPath(cfg.DbPath)
+		deser := block.NewDeserializer(_defaultEVMNetworkID)
+		fdLegacy, err := newFileDAOLegacy(cfg, deser)
 		r.NoError(err)
 		fd, ok := fdLegacy.(*fileDAOLegacy)
 		r.True(ok)
@@ -46,7 +45,7 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 		kv, _, err := fd.getTopDB(blk.Height())
 		r.NoError(err)
 		h := blk.HashBlock()
-		header, err := kv.Get(blockHeaderNS, h[:])
+		header, err := kv.Get(_blockHeaderNS, h[:])
 		r.NoError(err)
 		if cfg.CompressLegacy {
 			compressHeaderSize = len(header)
@@ -70,13 +69,13 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("filedao-legacy")
 	r.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, testPath)
+		testutil.CleanupPath(testPath)
 	}()
 
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash(&config.Default.Genesis)
+	genesis.SetGenesisTimestamp(genesis.Default.Timestamp)
+	block.LoadGenesisHash(&genesis.Default)
 	for _, compress := range []bool{false, true} {
 		cfg.CompressLegacy = compress
 		t.Run("test fileDAOLegacy interface", func(t *testing.T) {
@@ -95,7 +94,8 @@ func TestFileDAOLegacy_DeleteTipBlock(t *testing.T) {
 	cfg.DbPath = "./filedao_legacy.db"
 	cfg.CompressLegacy = true // enable compress
 
-	fd, err := newFileDAOLegacy(cfg)
+	deser := block.NewDeserializer(_defaultEVMNetworkID)
+	fd, err := newFileDAOLegacy(cfg, deser)
 	r.NoError(err)
 	legacy := fd.(*fileDAOLegacy)
 
@@ -131,7 +131,8 @@ func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = "./filedao_legacy.db"
 
-	fd, err := newFileDAOLegacy(cfg)
+	deser := block.NewDeserializer(_defaultEVMNetworkID)
+	fd, err := newFileDAOLegacy(cfg, deser)
 	r.NoError(err)
 	legacy := fd.(*fileDAOLegacy)
 
@@ -139,7 +140,7 @@ func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	r.NoError(legacy.Start(ctx))
 
 	// getBlockValue when block is not exist
-	_, err = legacy.getBlockValue(blockHeaderNS, hash.ZeroHash256)
+	_, err = legacy.getBlockValue(_blockHeaderNS, hash.ZeroHash256)
 	r.Equal(db.ErrNotExist, errors.Cause(err))
 
 	// getBlockValue when block is exist
@@ -147,14 +148,14 @@ func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	blk := createTestingBlock(builder, 1, sha256.Sum256([]byte("1")))
 	r.NoError(legacy.PutBlock(ctx, blk))
 
-	value, err := legacy.getBlockValue(blockHeaderNS, blk.HashBlock())
+	value, err := legacy.getBlockValue(_blockHeaderNS, blk.HashBlock())
 	r.NoError(err)
 	header, err := blk.Header.Serialize()
 	r.NoError(err)
 	r.Equal(value, header)
 
 	// getBlockValue when NS is not exist
-	_, err = legacy.getBlockValue(blockHeaderNS+"_error_case", blk.HashBlock())
+	_, err = legacy.getBlockValue(_blockHeaderNS+"_error_case", blk.HashBlock())
 	r.Error(db.ErrNotExist, errors.Cause(err))
 
 	r.NoError(legacy.Stop(ctx))

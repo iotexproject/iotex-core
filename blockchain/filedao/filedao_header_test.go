@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package filedao
 
@@ -70,7 +69,7 @@ func TestFileReadWrite(t *testing.T) {
 		r.NoError(err)
 		r.Equal(h, h1)
 
-		c, err := ReadTip(kv, headerDataNs, topHeightKey)
+		c, err := ReadTip(kv, _headerDataNs, _topHeightKey)
 		r.Equal(db.ErrNotExist, errors.Cause(err))
 		r.Nil(c)
 
@@ -78,9 +77,9 @@ func TestFileReadWrite(t *testing.T) {
 			Height: 1003,
 			Hash:   hash.Hash256{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 		}
-		r.NoError(WriteTip(kv, headerDataNs, topHeightKey, c))
+		r.NoError(WriteTip(kv, _headerDataNs, _topHeightKey, c))
 
-		c1, err := ReadTip(kv, headerDataNs, topHeightKey)
+		c1, err := ReadTip(kv, _headerDataNs, _topHeightKey)
 		r.NoError(err)
 		r.Equal(c, c1)
 	}
@@ -89,7 +88,7 @@ func TestFileReadWrite(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("test-header")
 	r.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, testPath)
+		testutil.CleanupPath(testPath)
 	}()
 
 	cfg := db.DefaultConfig

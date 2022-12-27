@@ -1,16 +1,13 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
 import (
 	"crypto/ecdsa"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -22,18 +19,12 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/testutil"
-)
-
-const (
-	testPath = "ksTest"
 )
 
 func TestAccount(t *testing.T) {
 	r := require.New(t)
 
-	testWallet := filepath.Join(os.TempDir(), testPath)
-	defer testutil.CleanupPath(t, testWallet)
+	testWallet := t.TempDir()
 	config.ReadConfig.Wallet = testWallet
 
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
@@ -53,9 +44,11 @@ func TestAccount(t *testing.T) {
 	account2, err := crypto.GenerateKeySm2()
 	r.NoError(err)
 	r.NotNil(account2)
-	addr2, err := address.FromBytes(account2.PublicKey().Hash())
-	r.NoError(err)
+	addr2 := account2.PublicKey().Address()
+	r.NotNil(addr2)
 	r.False(IsSignerExist(addr2.String()))
+	_, err = keyStoreAccountToPrivateKey(addr2.String(), passwd)
+	r.Contains(err.Error(), "does not match all local keys")
 	filePath := sm2KeyPath(addr2)
 	addrString, err := storeKey(account2.HexString(), config.ReadConfig.Wallet, passwd)
 	r.NoError(err)
@@ -72,7 +65,7 @@ func TestAccount(t *testing.T) {
 
 	// test keystore conversion and signing
 	CryptoSm2 = false
-	prvKey, err := LocalAccountToPrivateKey(addr.String(), passwd)
+	prvKey, err := keyStoreAccountToPrivateKey(addr.String(), passwd)
 	r.NoError(err)
 	msg := hash.Hash256b([]byte(nonce))
 	sig, err := prvKey.Sign(msg[:])
@@ -80,7 +73,7 @@ func TestAccount(t *testing.T) {
 	r.True(prvKey.PublicKey().Verify(msg[:], sig))
 
 	CryptoSm2 = true
-	prvKey2, err := LocalAccountToPrivateKey(addr2.String(), passwd)
+	prvKey2, err := keyStoreAccountToPrivateKey(addr2.String(), passwd)
 	r.NoError(err)
 	msg2 := hash.Hash256b([]byte(nonce))
 	sig2, err := prvKey2.Sign(msg2[:])

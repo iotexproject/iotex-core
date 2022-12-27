@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package actioniterator
 
@@ -14,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -106,8 +104,8 @@ func BenchmarkLooping(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		priKey, err := crypto.HexStringToPrivateKey(fmt.Sprintf("1%063x", i))
 		require.NoError(b, err)
-		addr, err := address.FromBytes(priKey.PublicKey().Hash())
-		require.NoError(b, err)
+		addr := priKey.PublicKey().Address()
+		require.NotNil(b, addr)
 		tsf, err := action.NewTransfer(uint64(1), big.NewInt(100), "1", nil, uint64(100000), big.NewInt(int64(i)))
 		require.NoError(b, err)
 		bd := &action.EnvelopeBuilder{}

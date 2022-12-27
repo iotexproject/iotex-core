@@ -85,10 +85,10 @@ func TestFlusher(t *testing.T) {
 			require.Equal(t, 1, kvb.Snapshot())
 		})
 		t.Run("Revert", func(t *testing.T) {
-			buffer.EXPECT().Revert(gomock.Any()).Return(expectedError).Times(1)
-			require.Equal(t, expectedError, kvb.Revert(1))
-			buffer.EXPECT().Revert(gomock.Any()).Return(nil).Times(1)
-			require.NoError(t, kvb.Revert(1))
+			buffer.EXPECT().RevertSnapshot(gomock.Any()).Return(expectedError).Times(1)
+			require.Equal(t, expectedError, kvb.RevertSnapshot(1))
+			buffer.EXPECT().RevertSnapshot(gomock.Any()).Return(nil).Times(1)
+			require.NoError(t, kvb.RevertSnapshot(1))
 		})
 		t.Run("Size", func(t *testing.T) {
 			buffer.EXPECT().Size().Return(5).Times(1)
@@ -99,11 +99,11 @@ func TestFlusher(t *testing.T) {
 			require.Equal(t, value, f.SerializeQueue())
 		})
 		t.Run("MustPut", func(t *testing.T) {
-			buffer.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+			buffer.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 			kvb.MustPut(ns, key, value)
 		})
 		t.Run("MustDelete", func(t *testing.T) {
-			buffer.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+			buffer.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 			kvb.MustDelete(ns, key)
 		})
 	})

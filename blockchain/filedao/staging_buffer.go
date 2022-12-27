@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package filedao
 
@@ -18,13 +17,15 @@ type (
 	stagingBuffer struct {
 		size   uint64
 		buffer []*block.Store
+		deser  *block.Deserializer
 	}
 )
 
-func newStagingBuffer(size uint64) *stagingBuffer {
+func newStagingBuffer(size uint64, deser *block.Deserializer) *stagingBuffer {
 	return &stagingBuffer{
 		size:   size,
 		buffer: make([]*block.Store, size),
+		deser:  deser,
 	}
 }
 
@@ -39,8 +40,8 @@ func (s *stagingBuffer) Put(pos uint64, blkBytes []byte) (bool, error) {
 	if pos >= s.size {
 		return false, ErrNotSupported
 	}
-	blk := &block.Store{}
-	if err := blk.Deserialize(blkBytes); err != nil {
+	blk, err := s.deser.DeserializeBlockStore(blkBytes)
+	if err != nil {
 		return false, err
 	}
 	s.buffer[pos] = blk

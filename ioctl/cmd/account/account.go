@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
@@ -12,7 +11,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,30 +25,27 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/ioctl/cmd/hdwallet"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Multi-language support
 var (
-	accountCmdShorts = map[config.Language]string{
+	_accountCmdShorts = map[config.Language]string{
 		config.English: "Manage accounts of IoTeX blockchain",
 		config.Chinese: "管理IoTeX区块链上的账号",
 	}
-	accountCmdUses = map[config.Language]string{
-		config.English: "account",
-		config.Chinese: "账户",
-	}
-	flagEndpoint = map[config.Language]string{
+	_flagEndpoint = map[config.Language]string{
 		config.English: "set endpoint for once",
 		config.Chinese: "一次设置端点",
 	}
-	flagInsecure = map[config.Language]string{
+	_flagInsecure = map[config.Language]string{
 		config.English: "insecure connection for once",
 		config.Chinese: "一次不安全连接",
 	}
@@ -66,50 +61,36 @@ var CryptoSm2 bool
 
 // AccountCmd represents the account command
 var AccountCmd = &cobra.Command{
-	Use:   config.TranslateInLang(accountCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(accountCmdShorts, config.UILanguage),
+	Use:   "account",
+	Short: config.TranslateInLang(_accountCmdShorts, config.UILanguage),
 }
 
 func init() {
 	AccountCmd.AddCommand(accountBalanceCmd)
-	AccountCmd.AddCommand(accountCreateCmd)
-	AccountCmd.AddCommand(accountCreateAddCmd)
-	AccountCmd.AddCommand(accountDeleteCmd)
-	AccountCmd.AddCommand(accountEthaddrCmd)
-	AccountCmd.AddCommand(accountExportCmd)
-	AccountCmd.AddCommand(accountExportPublicCmd)
-	AccountCmd.AddCommand(accountImportCmd)
-	AccountCmd.AddCommand(accountInfoCmd)
-	AccountCmd.AddCommand(accountListCmd)
-	AccountCmd.AddCommand(accountNonceCmd)
-	AccountCmd.AddCommand(accountSignCmd)
-	AccountCmd.AddCommand(accountUpdateCmd)
-	AccountCmd.AddCommand(accountVerifyCmd)
-	AccountCmd.AddCommand(accountActionsCmd)
+	AccountCmd.AddCommand(_accountCreateCmd)
+	AccountCmd.AddCommand(_accountCreateAddCmd)
+	AccountCmd.AddCommand(_accountDeleteCmd)
+	AccountCmd.AddCommand(_accountEthaddrCmd)
+	AccountCmd.AddCommand(_accountExportCmd)
+	AccountCmd.AddCommand(_accountExportPublicCmd)
+	AccountCmd.AddCommand(_accountImportCmd)
+	AccountCmd.AddCommand(_accountInfoCmd)
+	AccountCmd.AddCommand(_accountListCmd)
+	AccountCmd.AddCommand(_accountNonceCmd)
+	AccountCmd.AddCommand(_accountSignCmd)
+	AccountCmd.AddCommand(_accountUpdateCmd)
+	AccountCmd.AddCommand(_accountVerifyCmd)
+	AccountCmd.AddCommand(_accountActionsCmd)
 	AccountCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpoint, config.UILanguage))
-	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(flagInsecure, config.UILanguage))
+		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpoint, config.UILanguage))
+	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(_flagInsecure, config.UILanguage))
 }
 
 // Sign sign message with signer
-func Sign(signer, password, message string) (signedMessage string, err error) {
-	var pri crypto.PrivateKey
-	if !util.AliasIsHdwalletKey(signer) {
-		pri, err = LocalAccountToPrivateKey(signer, password)
-		if err != nil {
-			return
-		}
-	} else {
-		account, change, index, err1 := util.ParseHdwPath(signer)
-		if err1 != nil {
-			err = output.NewError(output.InputError, "invalid hdwallet key format", err1)
-			return
-		}
-
-		_, pri, err = hdwallet.DeriveKey(account, change, index, password)
-		if err != nil {
-			return
-		}
+func Sign(signer, password, message string) (string, error) {
+	pri, err := PrivateKeyFromSigner(signer, password)
+	if err != nil {
+		return "", err
 	}
 	mes := message
 	head := message[:2]
@@ -118,28 +99,27 @@ func Sign(signer, password, message string) (signedMessage string, err error) {
 	}
 	b, err := hex.DecodeString(mes)
 	if err != nil {
-		return
+		return "", err
 	}
 	prefix := fmt.Sprintf("\x19Ethereum Signed Message:\n%d", len(b))
 	msg := append([]byte(prefix), b...)
 	mesToSign := hash.Hash256b(msg)
 	ret, err := pri.Sign(mesToSign[:])
 	if err != nil {
-		return
+		return "", err
 	}
-	signedMessage = hex.EncodeToString(ret)
-	return
+	return hex.EncodeToString(ret), nil
 }
 
-// LocalAccountToPrivateKey generates our PrivateKey interface from Keystore account
-func LocalAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
+// keyStoreAccountToPrivateKey generates our PrivateKey interface from Keystore account
+func keyStoreAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
 	addrString, err := util.Address(signer)
 	if err != nil {
 		return nil, err
 	}
 	addr, err := address.FromString(addrString)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert bytes into address")
+		return nil, fmt.Errorf("invalid account #%s, addr %s", signer, addrString)
 	}
 
 	if CryptoSm2 {
@@ -161,6 +141,39 @@ func LocalAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error
 	}
 
 	return nil, fmt.Errorf("account #%s does not match all local keys", signer)
+}
+
+// PrivateKeyFromSigner returns private key from signer
+func PrivateKeyFromSigner(signer, password string) (crypto.PrivateKey, error) {
+	var (
+		prvKey crypto.PrivateKey
+		err    error
+	)
+
+	if !IsSignerExist(signer) && !util.AliasIsHdwalletKey(signer) {
+		return nil, fmt.Errorf("invalid address #%s", signer)
+	}
+
+	if password == "" {
+		output.PrintQuery(fmt.Sprintf("Enter password for #%s:\n", signer))
+		password, err = util.ReadSecretFromStdin()
+		if err != nil {
+			return nil, output.NewError(output.InputError, "failed to get password", err)
+		}
+	}
+
+	if util.AliasIsHdwalletKey(signer) {
+		account, change, index, err := util.ParseHdwPath(signer)
+		if err != nil {
+			return nil, output.NewError(output.InputError, "invalid HDWallet key format", err)
+		}
+		_, prvKey, err = hdwallet.DeriveKey(account, change, index, password)
+		if err != nil {
+			return nil, output.NewError(output.InputError, "failed to derive key from HDWallet", err)
+		}
+		return prvKey, nil
+	}
+	return keyStoreAccountToPrivateKey(signer, password)
 }
 
 // GetAccountMeta gets account metadata
@@ -260,9 +273,9 @@ func newAccountSm2(alias string) (string, error) {
 		return "", output.NewError(output.CryptoError, "failed to generate sm2 private key", err)
 	}
 
-	addr, err := address.FromBytes(priKey.PublicKey().Hash())
-	if err != nil {
-		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
+	addr := priKey.PublicKey().Address()
+	if addr == nil {
+		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", nil)
 	}
 
 	pemFilePath := sm2KeyPath(addr)
@@ -292,7 +305,7 @@ func newAccountByKey(alias string, privateKey string, walletDir string) (string,
 }
 
 func newAccountByKeyStore(alias, passwordOfKeyStore, keyStorePath string, walletDir string) (string, error) {
-	keyJSON, err := ioutil.ReadFile(keyStorePath)
+	keyJSON, err := os.ReadFile(filepath.Clean(keyStorePath))
 	if err != nil {
 		return "", output.NewError(output.ReadFileError,
 			fmt.Sprintf("keystore file \"%s\" read error", keyStorePath), nil)
@@ -329,9 +342,9 @@ func storeKey(privateKey, walletDir, password string) (string, error) {
 	}
 	defer priKey.Zero()
 
-	addr, err := address.FromBytes(priKey.PublicKey().Hash())
-	if err != nil {
-		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
+	addr := priKey.PublicKey().Address()
+	if addr == nil {
+		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", nil)
 	}
 
 	switch sk := priKey.EcdsaPrivateKey().(type) {
@@ -367,7 +380,7 @@ func findSm2PemFile(addr address.Address) (string, error) {
 
 func listSm2Account() ([]string, error) {
 	sm2Accounts := make([]string, 0)
-	files, err := ioutil.ReadDir(config.ReadConfig.Wallet)
+	files, err := os.ReadDir(config.ReadConfig.Wallet)
 	if err != nil {
 		return nil, output.NewError(output.ReadFileError, "failed to read files in wallet", err)
 	}

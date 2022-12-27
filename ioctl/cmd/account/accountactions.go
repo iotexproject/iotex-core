@@ -1,52 +1,59 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
 import (
-	"context"
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
-	"strings"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
-var countLimit *uint64
+type (
+	allActionsByAddressResult struct {
+		ActHash    string
+		BlkHeight  string
+		Sender     string
+		Recipient  string
+		ActType    string
+		Amount     string
+		TimeStamp  string
+		RecordType string
+	}
+
+	allActionsByAddressResponse struct {
+		Count   string
+		Results []*allActionsByAddressResult
+	}
+)
 
 // Multi-language support
 var (
-	actionsCmdShorts = map[config.Language]string{
+	_actionsCmdShorts = map[config.Language]string{
 		config.English: "Show the list of actions for an account",
 		config.Chinese: "显示账户的操作列表",
 	}
-	actionsCmdUses = map[config.Language]string{
+	_actionsCmdUses = map[config.Language]string{
 		config.English: "actions (ALIAS|ADDRESS)  [SKIP]",
-		config.Chinese: "actions (ALIAS|ADDRESS)  [SKIP]",
-	}
-	flagCountUsages = map[config.Language]string{
-		config.English: "choose a count limit",
-		config.Chinese: "选择一个计数限制",
+		config.Chinese: "actions (别名|地址)  [SKIP]",
 	}
 )
 
-// accountActionsCmd represents the account sign command
-var accountActionsCmd = &cobra.Command{
-	Use:   config.TranslateInLang(actionsCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(actionsCmdShorts, config.UILanguage),
+// _accountActionsCmd represents the account sign command
+var _accountActionsCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_actionsCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_actionsCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -55,12 +62,8 @@ var accountActionsCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	countLimit = accountActionsCmd.Flags().Uint64("limit", 15, config.TranslateInLang(flagCountUsages, config.UILanguage))
-}
-
 func accountActions(args []string) error {
-	var skip uint64
+	var skip uint64 = 0
 	var err error
 	if len(args) == 2 {
 		skip, err = strconv.ParseUint(args[1], 10, 64)
@@ -73,130 +76,51 @@ func accountActions(args []string) error {
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get address", err)
 	}
-
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	reqData := map[string]string{
+		"address": addr,
+		"offset":  fmt.Sprint(skip),
+	}
+	jsonData, err := json.Marshal(reqData)
 	if err != nil {
-		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return output.NewError(output.ConvertError, "failed to pack in json", nil)
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	resp, err := http.Post(config.ReadConfig.AnalyserEndpoint+"/api.ActionsService.GetActionsByAddress", "application/json",
+		bytes.NewBuffer(jsonData))
+	if err != nil {
+		return output.NewError(output.NetworkError, "failed to send request", nil)
 	}
 
-	requestGetAccount := iotexapi.GetAccountRequest{
-		Address: addr,
-	}
-	accountResponse, err := cli.GetAccount(ctx, &requestGetAccount)
+	var respData allActionsByAddressResponse
+	err = json.NewDecoder(resp.Body).Decode(&respData)
 	if err != nil {
-		return output.NewError(output.APIError, "failed to get account", err)
+		return output.NewError(output.SerializationError, "failed to deserialize the response", nil)
 	}
-	numActions := accountResponse.AccountMeta.GetNumActions()
-	fmt.Println("Total:", numActions)
-	requestGetAction := iotexapi.GetActionsRequest{
-		Lookup: &iotexapi.GetActionsRequest_ByAddr{
-			ByAddr: &iotexapi.GetActionsByAddressRequest{
-				Address: addr,
-				Start:   numActions - *countLimit - skip,
-				Count:   *countLimit,
-			},
-		},
-	}
-	response, err := cli.GetActions(ctx, &requestGetAction)
-	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
-			return output.NewError(output.APIError, sta.Message(), nil)
-		}
-		return output.NewError(output.NetworkError, "failed to invoke GetActions api", err)
-	}
-	if len(response.ActionInfo) == 0 {
-		return output.NewError(output.APIError, "no action info returned", nil)
-	}
+	actions := respData.Results
+
+	fmt.Println("Total:", len(actions))
 	showFields := []interface{}{
-		"Hash",
-		"Time",
-		"Status",
+		"ActHash",
+		"TimeStamp",
+		"BlkHeight",
+		"ActCategory",
+		"ActType",
 		"Sender",
-		"Type",
-		"To",
-		"Contract",
+		"Recipient",
 		"Amount",
 	}
-	tbl := table.New(showFields...)
-
-	for i := range response.ActionInfo {
-		k := len(response.ActionInfo) - 1 - i
-		actionInfo := response.ActionInfo[k]
-		requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: actionInfo.ActHash}
-		responseReceipt, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
-		if err != nil {
-			sta, ok := status.FromError(err)
-			if ok {
-				fmt.Println(output.NewError(output.APIError, sta.Message(), nil))
-			} else {
-				fmt.Println(output.NewError(output.NetworkError, "failed to invoke GetReceiptByAction api", err))
-			}
-			continue
-		}
-		amount := "0"
-		transfer := actionInfo.Action.Core.GetTransfer()
-		if transfer != nil {
-			amount, _ = util.StringToIOTX(transfer.Amount)
-
-		}
-		tbl.AddRow(
+	tb := table.New(showFields...)
+	for _, actionInfo := range actions {
+		tb.AddRow(
 			actionInfo.ActHash,
-			getActionTime(actionInfo),
-			iotextypes.ReceiptStatus_name[int32(responseReceipt.ReceiptInfo.Receipt.GetStatus())],
+			actionInfo.TimeStamp,
+			actionInfo.BlkHeight,
+			actionInfo.RecordType,
+			actionInfo.ActType,
 			actionInfo.Sender,
-			getActionTypeString(actionInfo),
-			getActionTo(actionInfo),
-			getActionContract(responseReceipt),
-			amount+" IOTX",
+			actionInfo.Recipient,
+			actionInfo.Amount+" IOTX",
 		)
 	}
-	tbl.Print()
+	tb.Print()
 	return nil
-}
-
-func getActionContract(responseReceipt *iotexapi.GetReceiptByActionResponse) string {
-	contract := responseReceipt.ReceiptInfo.Receipt.GetContractAddress()
-	if contract == "" {
-		contract = "-"
-	}
-	return contract
-}
-
-func getActionTypeString(actionInfo *iotexapi.ActionInfo) string {
-	actionType := fmt.Sprintf("%T", actionInfo.Action.Core.GetAction())
-	return strings.TrimLeft(actionType, "*iotextypes.ActionCore_")
-}
-
-func getActionTo(actionInfo *iotexapi.ActionInfo) string {
-	recipient := ""
-	switch getActionTypeString(actionInfo) {
-	case "Transfer":
-		transfer := actionInfo.Action.Core.GetTransfer()
-		recipient = transfer.GetRecipient()
-	case "Execution":
-		execution := actionInfo.Action.Core.GetExecution()
-		recipient = execution.GetContract()
-	}
-	if recipient == "" {
-		recipient = "-"
-	}
-	return recipient
-}
-
-func getActionTime(actionInfo *iotexapi.ActionInfo) string {
-	if actionInfo.Timestamp != nil {
-		if ts, err := ptypes.Timestamp(actionInfo.Timestamp); err == nil {
-			return ts.String()
-		}
-	}
-	return ""
 }

@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package blockindex
 
@@ -19,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -156,7 +156,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	testIndexer := func(kvStore db.KVStore, t *testing.T) {
-		ctx := context.Background()
+		ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 		indexer, err := NewIndexer(kvStore, hash.ZeroHash256)
 		require.NoError(err)
 		require.NoError(indexer.Start(ctx))
@@ -168,11 +168,11 @@ func TestIndexer(t *testing.T) {
 		require.NoError(err)
 		require.EqualValues(0, height)
 
-		require.NoError(indexer.PutBlock(context.Background(), blks[0]))
+		require.NoError(indexer.PutBlock(ctx, blks[0]))
 		// cannot skip block when indexing
 		err = indexer.PutBlock(context.Background(), blks[2])
 		require.Equal(db.ErrInvalid, errors.Cause(err))
-		require.NoError(indexer.PutBlock(context.Background(), blks[1]))
+		require.NoError(indexer.PutBlock(ctx, blks[1]))
 		height, err = indexer.Height()
 		require.NoError(err)
 		require.EqualValues(2, height)
@@ -180,7 +180,7 @@ func TestIndexer(t *testing.T) {
 		require.NoError(err)
 		require.EqualValues(6, total)
 
-		require.NoError(indexer.PutBlock(context.Background(), blks[2]))
+		require.NoError(indexer.PutBlock(ctx, blks[2]))
 		height, err = indexer.Height()
 		require.NoError(err)
 		require.EqualValues(3, height)
@@ -200,7 +200,7 @@ func TestIndexer(t *testing.T) {
 
 			// test amount
 			amount := big.NewInt(0)
-			tsfs, _ := action.ClassifyActions(blks[i].Actions)
+			tsfs, _ := classifyActions(blks[i].Actions)
 			for _, tsf := range tsfs {
 				amount.Add(amount, tsf.Amount())
 			}
@@ -241,7 +241,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	testDelete := func(kvStore db.KVStore, t *testing.T) {
-		ctx := context.Background()
+		ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 		indexer, err := NewIndexer(kvStore, hash.ZeroHash256)
 		require.NoError(err)
 		require.NoError(indexer.Start(ctx))
@@ -250,7 +250,7 @@ func TestIndexer(t *testing.T) {
 		}()
 
 		for i := 0; i < 3; i++ {
-			require.NoError(indexer.PutBlock(context.Background(), blks[i]))
+			require.NoError(indexer.PutBlock(ctx, blks[i]))
 		}
 
 		for i := range indexTests[0].actions {
@@ -266,7 +266,7 @@ func TestIndexer(t *testing.T) {
 				continue
 			}
 
-			require.NoError(indexer.DeleteTipBlock(blks[3-i]))
+			require.NoError(indexer.DeleteTipBlock(ctx, blks[3-i]))
 			tipHeight, err := indexer.Height()
 			require.NoError(err)
 			require.EqualValues(uint64(3-i), tipHeight)
@@ -314,12 +314,13 @@ func TestIndexer(t *testing.T) {
 	path := "test-indexer"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
+	defer testutil.CleanupPath(testPath)
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 
 	t.Run("Bolt DB indexer", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
+		testutil.CleanupPath(testPath)
+		defer testutil.CleanupPath(testPath)
 		testIndexer(db.NewBoltDB(cfg), t)
 	})
 
@@ -327,8 +328,8 @@ func TestIndexer(t *testing.T) {
 		testDelete(db.NewMemKVStore(), t)
 	})
 	t.Run("Bolt DB delete", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
+		testutil.CleanupPath(testPath)
+		defer testutil.CleanupPath(testPath)
 		testDelete(db.NewBoltDB(cfg), t)
 	})
 }

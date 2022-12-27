@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
@@ -24,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -34,12 +32,24 @@ import (
 func TestProtocol_ValidateTransfer(t *testing.T) {
 	require := require.New(t)
 	p := NewProtocol(rewarding.DepositGas)
-	t.Run("Oversized data", func(t *testing.T) {
-		tmpPayload := [32769]byte{}
-		payload := tmpPayload[:]
-		tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", payload, uint64(0), big.NewInt(0))
+	t.Run("invalid transfer", func(t *testing.T) {
+		tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", make([]byte, 32683), uint64(0), big.NewInt(0))
 		require.NoError(err)
-		require.Equal(action.ErrActPool, errors.Cause(p.Validate(context.Background(), tsf, nil)))
+		tsf1, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", nil, uint64(0), big.NewInt(0))
+		require.NoError(err)
+		g := genesis.Default
+		ctx := protocol.WithFeatureCtx(genesis.WithGenesisContext(protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+			BlockHeight: g.NewfoundlandBlockHeight,
+		}), g))
+		for _, v := range []struct {
+			tsf *action.Transfer
+			err error
+		}{
+			{tsf, action.ErrOversizedData},
+			{tsf1, address.ErrInvalidAddr},
+		} {
+			require.Equal(v.err, errors.Cause(p.Validate(ctx, v.tsf, nil)))
+		}
 	})
 }
 
@@ -51,26 +61,29 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 	// set-up protocol and genesis states
 	p := NewProtocol(rewarding.DepositGas)
-	reward := rewarding.NewProtocol(0, 0)
+	reward := rewarding.NewProtocol(genesis.Default.Rewarding)
 	registry := protocol.NewRegistry()
 	require.NoError(reward.Register(registry))
 	chainCtx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), registry),
-		config.Default.Genesis,
+		genesis.Default,
 	)
 	ctx := protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{})
+	ctx = protocol.WithFeatureCtx(ctx)
 	require.NoError(reward.CreateGenesisStates(ctx, sm))
 
 	// initial deposit to alfa and charlie (as a contract)
 	alfa := identityset.Address(28)
 	bravo := identityset.Address(29)
 	charlie := identityset.Address(30)
-	require.NoError(accountutil.StoreAccount(sm, alfa, &state.Account{
-		Balance: big.NewInt(50005),
-	}))
-	require.NoError(accountutil.StoreAccount(sm, charlie, &state.Account{
-		CodeHash: []byte("codeHash"),
-	}))
+	acct1, err := state.NewAccount(state.LegacyNonceAccountTypeOption())
+	require.NoError(err)
+	require.NoError(acct1.AddBalance(big.NewInt(50005)))
+	require.NoError(accountutil.StoreAccount(sm, alfa, acct1))
+	acct2, err := state.NewAccount()
+	require.NoError(err)
+	acct2.CodeHash = []byte("codeHash")
+	require.NoError(accountutil.StoreAccount(sm, charlie, acct2))
 
 	tests := []struct {
 		caller      address.Address
@@ -103,9 +116,10 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		gas, err := tsf.IntrinsicGas()
 		require.NoError(err)
 
-		ctx = protocol.WithActionCtx(chainCtx, protocol.ActionCtx{
+		ctx := protocol.WithActionCtx(chainCtx, protocol.ActionCtx{
 			Caller:       v.caller,
 			IntrinsicGas: gas,
+			Nonce:        v.nonce,
 		})
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			BlockHeight: 1,
@@ -113,21 +127,24 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			GasLimit:    testutil.TestGasLimit,
 		})
 
-		sender, err := accountutil.AccountState(sm, v.caller.String())
+		sender, err := accountutil.AccountState(ctx, sm, v.caller)
 		require.NoError(err)
-		recipient, err := accountutil.AccountState(sm, v.recipient)
+		addr, err := address.FromString(v.recipient)
+		require.NoError(err)
+		recipient, err := accountutil.AccountState(ctx, sm, addr)
 		require.NoError(err)
 		gasFee := new(big.Int).Mul(v.gasPrice, new(big.Int).SetUint64(gas))
 
+		ctx = protocol.WithFeatureCtx(ctx)
 		receipt, err := p.Handle(ctx, tsf, sm)
 		require.Equal(v.err, errors.Cause(err))
 		if err != nil {
 			require.Nil(receipt)
 			// sender balance/nonce remains the same in case of error
-			newSender, err := accountutil.AccountState(sm, v.caller.String())
+			newSender, err := accountutil.AccountState(ctx, sm, v.caller)
 			require.NoError(err)
 			require.Equal(sender.Balance, newSender.Balance)
-			require.Equal(sender.Nonce, newSender.Nonce)
+			require.Equal(sender.PendingNonce(), newSender.PendingNonce())
 			continue
 		}
 		require.Equal(v.status, receipt.Status)
@@ -136,17 +153,19 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) && !v.isContract {
 			gasFee.Add(gasFee, v.amount)
 			// verify recipient
-			newRecipient, err := accountutil.AccountState(sm, v.recipient)
+			addr, err := address.FromString(v.recipient)
 			require.NoError(err)
-			recipient.AddBalance(v.amount)
+			newRecipient, err := accountutil.AccountState(ctx, sm, addr)
+			require.NoError(err)
+			require.NoError(recipient.AddBalance(v.amount))
 			require.Equal(recipient.Balance, newRecipient.Balance)
 		}
 		// verify sender balance/nonce
-		newSender, err := accountutil.AccountState(sm, v.caller.String())
+		newSender, err := accountutil.AccountState(ctx, sm, v.caller)
 		require.NoError(err)
-		sender.SubBalance(gasFee)
+		require.NoError(sender.SubBalance(gasFee))
 		require.Equal(sender.Balance, newSender.Balance)
-		require.Equal(v.nonce, newSender.Nonce)
+		require.Equal(v.nonce+1, newSender.PendingNonce())
 
 		// verify transaction log
 		tLog := block.ReceiptTransactionLog(receipt)

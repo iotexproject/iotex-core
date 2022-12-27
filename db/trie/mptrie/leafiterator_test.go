@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package mptrie
 
@@ -30,12 +29,10 @@ func TestIterator(t *testing.T) {
 
 	mpt, err := New(KVStoreOption(memStore), KeyLengthOption(5), AsyncOption())
 	require.NoError(err)
-	err = mpt.Start(context.Background())
-	require.NoError(err)
+	require.NoError(mpt.Start(context.Background()))
 
 	for _, item := range items {
-		err = mpt.Upsert([]byte(item.k), []byte(item.v))
-		require.NoError(err)
+		require.NoError(mpt.Upsert([]byte(item.k), []byte(item.v)))
 	}
 
 	iter, err := NewLeafIterator(mpt)

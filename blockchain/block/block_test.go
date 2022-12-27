@@ -1,8 +1,7 @@
-// Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package block
 
@@ -14,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
@@ -62,10 +61,11 @@ func TestMerkle(t *testing.T) {
 		producerPubKey,
 		actions,
 	)
-	hash := block.CalculateTxRoot()
+	hash, err := block.CalculateTxRoot()
+	require.NoError(err)
 	require.Equal("eb5cb75ae199d96de7c1cd726d5e1a3dff15022ed7bdc914a3d8b346f1ef89c9", hex.EncodeToString(hash[:]))
 
-	hashes := block.ActionHashs()
+	hashes := actionHashs(block)
 	for i := range hashes {
 		h, err := actions[i].Hash()
 		require.NoError(err)
@@ -75,57 +75,54 @@ func TestMerkle(t *testing.T) {
 	t.Log("Merkle root match pass\n")
 }
 
-func TestConvertFromBlockPb(t *testing.T) {
-	blk := Block{}
-	senderPubKey := identityset.PrivateKey(27).PublicKey()
-	require.NoError(t, blk.ConvertFromBlockPb(&iotextypes.Block{
+var (
+	_pkBytes = identityset.PrivateKey(27).PublicKey().Bytes()
+	_pbBlock = iotextypes.Block{
 		Header: &iotextypes.BlockHeader{
 			Core: &iotextypes.BlockHeaderCore{
 				Version:   version.ProtocolVersion,
 				Height:    123456789,
-				Timestamp: ptypes.TimestampNow(),
+				Timestamp: timestamppb.Now(),
 			},
-			ProducerPubkey: senderPubKey.Bytes(),
+			ProducerPubkey: _pkBytes,
 		},
 		Body: &iotextypes.BlockBody{
 			Actions: []*iotextypes.Action{
 				{
 					Core: &iotextypes.ActionCore{
 						Action: &iotextypes.ActionCore_Transfer{
-							Transfer: &iotextypes.Transfer{},
+							Transfer: &iotextypes.Transfer{
+								Amount:    "100000000000000000",
+								Recipient: "alice",
+							},
 						},
 						Version: version.ProtocolVersion,
 						Nonce:   101,
+						ChainID: 1,
 					},
-					SenderPubKey: senderPubKey.Bytes(),
+					SenderPubKey: _pkBytes,
 					Signature:    action.ValidSig,
 				},
 				{
 					Core: &iotextypes.ActionCore{
-						Action: &iotextypes.ActionCore_Transfer{
-							Transfer: &iotextypes.Transfer{},
+						Action: &iotextypes.ActionCore_Execution{
+							Execution: &iotextypes.Execution{
+								Contract: "bob",
+								Amount:   "200000000000000000",
+								Data:     []byte{1, 2, 3, 4},
+							},
 						},
 						Version: version.ProtocolVersion,
 						Nonce:   102,
+						ChainID: 2,
 					},
-					SenderPubKey: senderPubKey.Bytes(),
+					SenderPubKey: _pkBytes,
 					Signature:    action.ValidSig,
 				},
 			},
 		},
-	}))
-
-	blk.Header.txRoot = blk.CalculateTxRoot()
-	blk.Header.receiptRoot = hash.Hash256b(([]byte)("test"))
-
-	raw, err := blk.Serialize()
-	require.NoError(t, err)
-
-	var newblk Block
-	err = newblk.Deserialize(raw)
-	require.NoError(t, err)
-	require.Equal(t, blk, newblk)
-}
+	}
+)
 
 func TestBlockCompressionSize(t *testing.T) {
 	for _, n := range []int{1, 10, 100, 1000, 10000} {
@@ -216,4 +213,48 @@ func makeBlock(tb testing.TB, n int) *Block {
 		SignAndBuild(identityset.PrivateKey(0))
 	require.NoError(tb, err)
 	return &blk
+}
+
+func TestVerifyBlock(t *testing.T) {
+	require := require.New(t)
+
+	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	require.NoError(err)
+
+	tsf2, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	require.NoError(err)
+
+	blkhash, err := tsf1.Hash()
+	require.NoError(err)
+	blk, err := NewTestingBuilder().
+		SetHeight(1).
+		SetPrevBlockHash(blkhash).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(tsf1, tsf2).
+		SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(err)
+	t.Run("success", func(t *testing.T) {
+		require.True(blk.Header.VerifySignature())
+		require.NoError(blk.VerifyTxRoot())
+	})
+
+	t.Run("wrong root hash", func(t *testing.T) {
+		blk.Actions[0], blk.Actions[1] = blk.Actions[1], blk.Actions[0]
+		require.True(blk.Header.VerifySignature())
+		require.Error(blk.VerifyTxRoot())
+	})
+}
+
+// actionHashs returns action hashs in the block
+func actionHashs(blk *Block) []string {
+	actHash := make([]string, len(blk.Actions))
+	for i := range blk.Actions {
+		h, err := blk.Actions[i].Hash()
+		if err != nil {
+			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+			continue
+		}
+		actHash[i] = hex.EncodeToString(h[:])
+	}
+	return actHash
 }

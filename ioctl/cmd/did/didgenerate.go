@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package did
 
@@ -19,24 +18,25 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 // Multi-language support
 var (
-	generateCmdShorts = map[config.Language]string{
+	_generateCmdShorts = map[config.Language]string{
 		config.English: "Generate DID document using private key from wallet",
 		config.Chinese: "用钱包中的私钥产生DID document",
 	}
-	generateCmdUses = map[config.Language]string{
+	_generateCmdUses = map[config.Language]string{
 		config.English: "generate [-s SIGNER]",
 		config.Chinese: "generate [-s 签署人]",
 	}
 )
 
-// didGenerateCmd represents the generate command
-var didGenerateCmd = &cobra.Command{
-	Use:   config.TranslateInLang(generateCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(generateCmdShorts, config.UILanguage),
+// _didGenerateCmd represents the generate command
+var _didGenerateCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_generateCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_generateCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -46,7 +46,7 @@ var didGenerateCmd = &cobra.Command{
 }
 
 func init() {
-	action.RegisterWriteCommand(didGenerateCmd)
+	action.RegisterWriteCommand(_didGenerateCmd)
 }
 
 func generate() error {
@@ -68,12 +68,12 @@ func generate() error {
 }
 
 func generateFromSigner(signer, password string) (generatedMessage string, err error) {
-	pri, err := account.LocalAccountToPrivateKey(signer, password)
+	pri, err := account.PrivateKeyFromSigner(signer, password)
 	if err != nil {
 		return
 	}
 	doc := newDIDDoc()
-	ethAddress, err := util.IoAddrToEvmAddr(signer)
+	ethAddress, err := addrutil.IoAddrToEvmAddr(signer)
 	if err != nil {
 		return "", output.NewError(output.AddressError, "", err)
 	}

@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package poll
 
@@ -16,14 +15,13 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
 func initLifeLongDelegateProtocol(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, error) {
-	genesisConfig := config.Default.Genesis
+	genesisConfig := genesis.Default
 	delegates := genesisConfig.Delegates
 	p := NewLifeLongDelegatesProtocol(delegates)
 	registry := protocol.NewRegistry()
@@ -33,7 +31,7 @@ func initLifeLongDelegateProtocol(ctrl *gomock.Controller) (Protocol, context.Co
 	}
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), registry),
-		config.Default.Genesis,
+		genesis.Default,
 	)
 	ctx = protocol.WithActionCtx(
 		ctx,
@@ -81,6 +79,8 @@ func TestCreateGenesisStates_WithLifeLong(t *testing.T) {
 	p, ctx, sm, err := initLifeLongDelegateProtocol(ctrl)
 	require.NoError(err)
 
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+	ctx = protocol.WithFeatureCtx(ctx)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
 }
 
@@ -91,6 +91,7 @@ func TestProtocol_Handle_WithLifeLong(t *testing.T) {
 	p, ctx, sm, err := initLifeLongDelegateProtocol(ctrl)
 	require.NoError(err)
 
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	receipt, error := p.Handle(ctx, nil, sm)
 	require.Nil(receipt)
 	require.NoError(error)

@@ -5,80 +5,106 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIsDynamicTypeNumber(t *testing.T) {
-	assert := assert.New(t)
-
+	require := require.New(t)
 	sa := NewSliceAssembler()
-	assert.False(sa.IsDynamicType(25))
+	require.False(sa.IsDynamicType(25))
 	// test byte slice
-	assert.False(sa.IsDynamicType([]byte{1, 2, 3, 4, 5}))
-	assert.False(sa.IsDynamicType([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2}))
-	assert.True(sa.IsDynamicType([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3}))
+	require.False(sa.IsDynamicType([]byte{1, 2, 3, 4, 5}))
+	require.False(sa.IsDynamicType([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2}))
+	require.True(sa.IsDynamicType([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3}))
 	// test other type slice
-	assert.True(sa.IsDynamicType([]uint32{1, 2, 3, 4, 5}))
-	assert.True(sa.IsDynamicType([]int32{1, 2, 3, 4, 5}))
-	assert.True(sa.IsDynamicType([]uint64{1, 2, 3, 4, 5}))
-	assert.True(sa.IsDynamicType([]int64{1, 2, 3, 4, 5}))
-	assert.True(sa.IsDynamicType([]uint16{1, 2, 3, 4, 5}))
-	assert.True(sa.IsDynamicType([]int16{1, 2, 3, 4, 5}))
+	require.True(sa.IsDynamicType([]uint32{1, 2, 3, 4, 5}))
+	require.True(sa.IsDynamicType([]int32{1, 2, 3, 4, 5}))
+	require.True(sa.IsDynamicType([]uint64{1, 2, 3, 4, 5}))
+	require.True(sa.IsDynamicType([]int64{1, 2, 3, 4, 5}))
+	require.True(sa.IsDynamicType([]uint16{1, 2, 3, 4, 5}))
+	require.True(sa.IsDynamicType([]int16{1, 2, 3, 4, 5}))
 	// test string
-	assert.True(sa.IsDynamicType("hello world"))
+	require.True(sa.IsDynamicType("hello world"))
 }
 
 func TestExample(t *testing.T) {
-	assert := assert.New(t)
-
+	require := require.New(t)
 	// example taken from https://solidity.readthedocs.io/en/v0.5.3/abi-spec.html
 	// call sam with the arguments "dave", true and [1,2,3]
 	expected, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000464617665000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003")
 	sa := NewSliceAssembler()
 	data, err := sa.PackArguments("dave", true, []uint{1, 2, 3})
-	assert.NoError(err)
-	assert.Equal(expected, data)
+	require.NoError(err)
+	require.Equal(expected, data)
 }
 
 func TestSliceAssembler_PackArguments_BigInt(t *testing.T) {
+	require := require.New(t)
+	expected, _ := hex.DecodeString("000000000000000000000000000000000000000000000000000000000000001900000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000019")
 	sa := NewSliceAssembler()
 	target := big.NewInt(25)
-	t.Log(sa.PackArguments(target, target, target))
+	data, err := sa.PackArguments(target, target, target)
+	require.NoError(err)
+	require.Equal(expected, data)
 }
 
 func TestSliceAssembler_PackArguments_BigInts(t *testing.T) {
+	require := require.New(t)
+	expected, _ := hex.DecodeString("00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000001900000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000019")
 	sa := NewSliceAssembler()
 	target := big.NewInt(25)
-	t.Log(sa.PackArguments([]*big.Int{target, target, target}))
+	data, err := sa.PackArguments([]*big.Int{target, target, target})
+	require.NoError(err)
+	require.Equal(expected, data)
 }
 
 func TestSliceAssembler_PackArguments_Ints(t *testing.T) {
+	require := require.New(t)
+	expected, _ := hex.DecodeString("00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000001900000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000019")
 	sa := NewSliceAssembler()
 	target := int32(25)
-	t.Log(sa.PackArguments([]int32{target, target, target}))
+	data, err := sa.PackArguments([]int32{target, target, target})
+	require.NoError(err)
+	require.Equal(expected, data)
 }
 
 func TestSliceAssembler_PackArguments_Params(t *testing.T) {
+	require := require.New(t)
+	expected, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000001900000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000019")
 	sa := NewSliceAssembler()
 	target := 25
-	t.Log(sa.PackArguments(5, 6, []int{target, target, target}))
+	data, err := sa.PackArguments(5, 6, []int{target, target, target})
+	require.NoError(err)
+	require.Equal(expected, data)
 }
 
 func TestSliceAssembler_PackArguments_Strings(t *testing.T) {
+	require := require.New(t)
+	expected, _ := hex.DecodeString("000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000d48656c6c6f2c20776f726c642100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d48656c6c6f2c20776f726c642100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d48656c6c6f2c20776f726c642100000000000000000000000000000000000000")
 	sa := NewSliceAssembler()
 	target := "Hello, world!"
-	t.Log(sa.PackArguments(target, target, target))
+	data, err := sa.PackArguments(target, target, target)
+	require.NoError(err)
+	require.Equal(expected, data)
 }
 
 func TestSliceAssembler_PackArguments_String(t *testing.T) {
+	require := require.New(t)
+	expected, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d48656c6c6f2c20776f726c642100000000000000000000000000000000000000")
 	sa := NewSliceAssembler()
 	target := "Hello, world!"
-	t.Log(sa.PackArguments(target))
+	data, err := sa.PackArguments(target)
+	require.NoError(err)
+	require.Equal(expected, data)
 }
 
 func TestSliceAssembler_PackArguments_Bytes(t *testing.T) {
+	require := require.New(t)
+	expected, _ := hex.DecodeString("48656c6c6f0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002748656c6c6f2c20776f726c642148656c6c6f2c20776f726c642148656c6c6f2c20776f726c642100000000000000000000000000000000000000000000000000")
 	sa := NewSliceAssembler()
 	target := "Hello, world!Hello, world!Hello, world!"
 	minTarget := "Hello"
-	t.Log(sa.PackArguments([]byte(minTarget), []byte(target)))
+	data, err := sa.PackArguments([]byte(minTarget), []byte(target))
+	require.NoError(err)
+	require.Equal(expected, data)
 }

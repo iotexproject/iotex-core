@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package staking
 
@@ -11,13 +10,15 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
 type (
 	// candChange captures the change to candidates
 	candChange struct {
-		dirty map[string]*Candidate
+		candidates []*Candidate
+		dirty      map[string]*Candidate
 	}
 
 	// candBase is the confirmed base state
@@ -27,6 +28,7 @@ type (
 		ownerMap         map[string]*Candidate
 		operatorMap      map[string]*Candidate
 		selfStkBucketMap map[uint64]*Candidate
+		owners           CandidateList
 	}
 
 	// CandidateCenter is a struct to manage the candidates
@@ -45,6 +47,7 @@ func listToCandChange(l CandidateList) (*candChange, error) {
 		if err := d.Validate(); err != nil {
 			return nil, err
 		}
+		cv.candidates = append(cv.candidates, d)
 		cv.dirty[d.Owner.String()] = d
 	}
 	return cv, nil
@@ -58,12 +61,7 @@ func NewCandidateCenter(all CandidateList) (*CandidateCenter, error) {
 	}
 
 	c := CandidateCenter{
-		base: &candBase{
-			nameMap:          make(map[string]*Candidate),
-			ownerMap:         make(map[string]*Candidate),
-			operatorMap:      make(map[string]*Candidate),
-			selfStkBucketMap: make(map[uint64]*Candidate),
-		},
+		base:   newCandBase(),
 		change: delta,
 	}
 
@@ -84,7 +82,7 @@ func (m *CandidateCenter) Size() int {
 
 // All returns all candidates in candidate center
 func (m *CandidateCenter) All() CandidateList {
-	list := m.change.all()
+	list := m.change.view()
 	if list == nil {
 		return m.base.all()
 	}
@@ -108,7 +106,7 @@ func (m CandidateCenter) Base() *CandidateCenter {
 
 // Delta exports the pending changes
 func (m *CandidateCenter) Delta() CandidateList {
-	return m.change.all()
+	return m.change.items()
 }
 
 // SetDelta sets the delta
@@ -142,7 +140,19 @@ func (m *CandidateCenter) SetDelta(l CandidateList) error {
 
 // Commit writes the change into base
 func (m *CandidateCenter) Commit() error {
-	size, err := m.base.commit(m.change)
+	size, err := m.base.commit(m.change, false)
+	if err != nil {
+		return err
+	}
+	m.size = size
+	m.change = nil
+	m.change = newCandChange()
+	return nil
+}
+
+// LegacyCommit writes the change into base with legacy logic
+func (m *CandidateCenter) LegacyCommit() error {
+	size, err := m.base.commit(m.change, true)
 	if err != nil {
 		return err
 	}
@@ -155,7 +165,7 @@ func (m *CandidateCenter) Commit() error {
 // Sync syncs the data from state manager
 func (m *CandidateCenter) Sync(sm protocol.StateManager) error {
 	delta := CandidateList{}
-	if err := sm.Unload(protocolID, stakingCandCenter, &delta); err != nil && err != protocol.ErrNoName {
+	if err := sm.Unload(_protocolID, _stakingCandCenter, &delta); err != nil && err != protocol.ErrNoName {
 		return err
 	}
 
@@ -284,7 +294,7 @@ func (m *CandidateCenter) collision(d *Candidate) error {
 
 	name, oper, self := m.base.collision(d)
 	if name != nil && !m.change.containsOwner(name) {
-		return ErrInvalidCanName
+		return action.ErrInvalidCanName
 	}
 
 	if oper != nil && !m.change.containsOwner(oper) {
@@ -311,7 +321,7 @@ func (cc *candChange) size() int {
 	return len(cc.dirty)
 }
 
-func (cc *candChange) all() CandidateList {
+func (cc *candChange) view() CandidateList {
 	if len(cc.dirty) == 0 {
 		return nil
 	}
@@ -321,6 +331,14 @@ func (cc *candChange) all() CandidateList {
 		list = append(list, d.Clone())
 	}
 	return list
+}
+
+func (cc *candChange) items() CandidateList {
+	var retval CandidateList
+	for _, c := range cc.candidates {
+		retval = append(retval, c.Clone())
+	}
+	return retval
 }
 
 func (cc *candChange) containsName(name string) bool {
@@ -391,6 +409,7 @@ func (cc *candChange) upsert(d *Candidate) error {
 	if err := d.Validate(); err != nil {
 		return err
 	}
+	cc.candidates = append(cc.candidates, d)
 	cc.dirty[d.Owner.String()] = d
 	return nil
 }
@@ -404,16 +423,18 @@ func (cc *candChange) collision(d *Candidate) error {
 	return nil
 }
 
-func (cc *candChange) delete(owner address.Address) {
-	if owner == nil {
-		return
-	}
-	delete(cc.dirty, owner.String())
-}
-
 //======================================
 // candBase funcs
 //======================================
+
+func newCandBase() *candBase {
+	return &candBase{
+		nameMap:          make(map[string]*Candidate),
+		ownerMap:         make(map[string]*Candidate),
+		operatorMap:      make(map[string]*Candidate),
+		selfStkBucketMap: make(map[uint64]*Candidate),
+	}
+}
 
 func (cb *candBase) size() int {
 	cb.lock.RLock()
@@ -435,18 +456,35 @@ func (cb *candBase) all() CandidateList {
 	return list
 }
 
-func (cb *candBase) commit(change *candChange) (int, error) {
+func (cb *candBase) commit(change *candChange, keepAliasBug bool) (int, error) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
-	for _, v := range change.dirty {
-		if err := v.Validate(); err != nil {
-			return 0, err
+	if keepAliasBug {
+		for _, v := range change.dirty {
+			if err := v.Validate(); err != nil {
+				return 0, err
+			}
+			d := v.Clone()
+			cb.ownerMap[d.Owner.String()] = d
+			cb.nameMap[d.Name] = d
+			cb.operatorMap[d.Operator.String()] = d
+			cb.selfStkBucketMap[d.SelfStakeBucketIdx] = d
 		}
-		d := v.Clone()
-		cb.ownerMap[d.Owner.String()] = d
-		cb.nameMap[d.Name] = d
-		cb.operatorMap[d.Operator.String()] = d
-		cb.selfStkBucketMap[d.SelfStakeBucketIdx] = d
+	} else {
+		for _, v := range change.candidates {
+			if err := v.Validate(); err != nil {
+				return 0, err
+			}
+			d := v.Clone()
+			if curr, ok := cb.ownerMap[d.Owner.String()]; ok {
+				delete(cb.nameMap, curr.Name)
+				delete(cb.operatorMap, curr.Operator.String())
+			}
+			cb.ownerMap[d.Owner.String()] = d
+			cb.nameMap[d.Name] = d
+			cb.operatorMap[d.Operator.String()] = d
+			cb.selfStkBucketMap[d.SelfStakeBucketIdx] = d
+		}
 	}
 	return len(cb.ownerMap), nil
 }

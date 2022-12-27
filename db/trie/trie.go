@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package trie
 
@@ -47,6 +46,8 @@ type (
 		SetRootHash([]byte) error
 		// IsEmpty returns true is this is an empty trie
 		IsEmpty() bool
+		// Clone clones a trie with a new kvstore
+		Clone(KVStore) (Trie, error)
 	}
 	// TwoLayerTrie is a trie data structure with two layers
 	TwoLayerTrie interface {

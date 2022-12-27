@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package hdwallet
 
@@ -13,7 +12,6 @@ import (
 
 	ecrypt "github.com/ethereum/go-ethereum/crypto"
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/stretchr/testify/require"
@@ -146,8 +144,8 @@ func TestFixedMnemonicAndDerivationPath(t *testing.T) {
 	require.NoError(err)
 	prvKey, err := crypto.BytesToPrivateKey(ecrypt.FromECDSA(private))
 	require.NoError(err)
-	addr, err := address.FromBytes(prvKey.PublicKey().Hash())
-	require.NoError(err)
+	addr := prvKey.PublicKey().Address()
+	require.NotNil(addr)
 
 	require.Equal(addr.String(), "io13hwqt04le40puf73aa9w9zm9fq04qqn7qcjc6z")
 

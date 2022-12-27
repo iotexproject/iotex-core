@@ -1,14 +1,15 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -77,8 +78,8 @@ func (tsf *Transfer) TotalSize() uint32 {
 	if tsf.amount != nil && len(tsf.amount.Bytes()) > 0 {
 		size += uint32(len(tsf.amount.Bytes()))
 	}
-
-	return size + uint32(len(tsf.payload))
+	// 65 is the pubkey size
+	return size + uint32(len(tsf.payload)) + 65
 }
 
 // Serialize returns a raw byte stream of this Transfer
@@ -103,24 +104,32 @@ func (tsf *Transfer) Proto() *iotextypes.Transfer {
 // LoadProto converts a protobuf's Action to Transfer
 func (tsf *Transfer) LoadProto(pbAct *iotextypes.Transfer) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 	if tsf == nil {
-		return errors.New("nil action to load proto")
+		return ErrNilAction
 	}
 	*tsf = Transfer{}
 
 	tsf.recipient = pbAct.GetRecipient()
 	tsf.payload = pbAct.GetPayload()
-	tsf.amount = big.NewInt(0)
-	tsf.amount.SetString(pbAct.GetAmount(), 10)
+	if pbAct.GetAmount() == "" {
+		tsf.amount = big.NewInt(0)
+	} else {
+		amount, ok := new(big.Int).SetString(pbAct.GetAmount(), 10)
+		// tsf amount gets zero when pbAct.GetAmount is empty string
+		if !ok {
+			return errors.Errorf("invalid amount %s", pbAct.GetAmount())
+		}
+		tsf.amount = amount
+	}
 	return nil
 }
 
 // IntrinsicGas returns the intrinsic gas of a transfer
 func (tsf *Transfer) IntrinsicGas() (uint64, error) {
 	payloadSize := uint64(len(tsf.Payload()))
-	return calculateIntrinsicGas(TransferBaseIntrinsicGas, TransferPayloadGas, payloadSize)
+	return CalculateIntrinsicGas(TransferBaseIntrinsicGas, TransferPayloadGas, payloadSize)
 }
 
 // Cost returns the total cost of a transfer
@@ -137,12 +146,17 @@ func (tsf *Transfer) Cost() (*big.Int, error) {
 func (tsf *Transfer) SanityCheck() error {
 	// Reject transfer of negative amount
 	if tsf.Amount().Sign() < 0 {
-		return errors.Wrap(ErrBalance, "negative value")
+		return ErrNegativeValue
 	}
-	// check if recipient's address is valid
-	if _, err := address.FromString(tsf.Recipient()); err != nil {
-		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient())
-	}
-
 	return tsf.AbstractAction.SanityCheck()
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (tsf *Transfer) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(tsf.recipient)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	return types.NewTransaction(tsf.Nonce(), ethAddr, tsf.amount, tsf.GasLimit(), tsf.GasPrice(), tsf.payload), nil
 }

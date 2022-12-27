@@ -1,14 +1,13 @@
-// Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package alias
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -20,20 +19,20 @@ import (
 
 // Multi-language support
 var (
-	removeCmdShorts = map[config.Language]string{
+	_removeCmdShorts = map[config.Language]string{
 		config.English: "Remove alias",
 		config.Chinese: "移除别名",
 	}
-	removeCmdUses = map[config.Language]string{
+	_removeCmdUses = map[config.Language]string{
 		config.English: "remove ALIAS",
 		config.Chinese: "remove 别名",
 	}
 )
 
-// aliasRemoveCmd represents the alias remove command
-var aliasRemoveCmd = &cobra.Command{
-	Use:   config.TranslateInLang(removeCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(removeCmdShorts, config.UILanguage),
+// _aliasRemoveCmd represents the alias remove command
+var _aliasRemoveCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_removeCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_removeCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -53,7 +52,7 @@ func remove(arg string) error {
 	if err != nil {
 		return output.NewError(output.SerializationError, "failed to marshal config", err)
 	}
-	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+	if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
 		return output.NewError(output.WriteFileError,
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}

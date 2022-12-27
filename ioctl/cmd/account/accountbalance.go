@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
@@ -20,11 +19,11 @@ import (
 
 // Multi-language support
 var (
-	balanceCmdUses = map[config.Language]string{
+	_balanceCmdUses = map[config.Language]string{
 		config.English: "balance [ALIAS|ADDRESS]",
 		config.Chinese: "balance [别名|地址]",
 	}
-	balanceCmdShorts = map[config.Language]string{
+	_balanceCmdShorts = map[config.Language]string{
 		config.English: "Get balance of an account",
 		config.Chinese: "查询账号余额",
 	}
@@ -32,8 +31,8 @@ var (
 
 // accountBalanceCmd represents the account balance command
 var accountBalanceCmd = &cobra.Command{
-	Use:   config.TranslateInLang(balanceCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(balanceCmdShorts, config.UILanguage),
+	Use:   config.TranslateInLang(_balanceCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_balanceCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -65,7 +64,7 @@ func balance(arg string) error {
 	if err != nil {
 		return output.NewError(0, "", err) // TODO: undefined error
 	}
-	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
+	balance, ok := new(big.Int).SetString(accountMeta.Balance, 10)
 	if !ok {
 		return output.NewError(output.ConvertError, "", err)
 	}

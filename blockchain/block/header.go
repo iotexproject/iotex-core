@@ -1,22 +1,21 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package block
 
 import (
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -36,6 +35,13 @@ type Header struct {
 	blockSig         []byte            // block signature
 	pubkey           crypto.PublicKey  // block producer's public key
 }
+
+// Errors
+var (
+	ErrTxRootMismatch      = errors.New("transaction merkle root does not match")
+	ErrDeltaStateMismatch  = errors.New("delta state digest doesn't match")
+	ErrReceiptRootMismatch = errors.New("receipt root hash does not match")
+)
 
 // Version returns the version of this block.
 func (h *Header) Version() uint32 { return h.version }
@@ -82,10 +88,7 @@ func (h *Header) BlockHeaderProto() *iotextypes.BlockHeader {
 
 // BlockHeaderCoreProto returns BlockHeaderCore proto.
 func (h *Header) BlockHeaderCoreProto() *iotextypes.BlockHeaderCore {
-	ts, err := ptypes.TimestampProto(h.timestamp)
-	if err != nil {
-		log.L().Panic("failed to cast to ptypes.timestamp", zap.Error(err))
-	}
+	ts := timestamppb.New(h.timestamp)
 	header := iotextypes.BlockHeaderCore{
 		Version:          h.version,
 		Height:           h.height,
@@ -120,17 +123,24 @@ func (h *Header) LoadFromBlockHeaderProto(pb *iotextypes.BlockHeader) error {
 func (h *Header) loadFromBlockHeaderCoreProto(pb *iotextypes.BlockHeaderCore) error {
 	h.version = pb.GetVersion()
 	h.height = pb.GetHeight()
-	ts, err := ptypes.Timestamp(pb.GetTimestamp())
-	if err != nil {
+	if err := pb.GetTimestamp().CheckValid(); err != nil {
 		return err
 	}
+	ts := pb.GetTimestamp().AsTime()
 	h.timestamp = ts
 	copy(h.prevBlockHash[:], pb.GetPrevBlockHash())
 	copy(h.txRoot[:], pb.GetTxRoot())
 	copy(h.deltaStateDigest[:], pb.GetDeltaStateDigest())
 	copy(h.receiptRoot[:], pb.GetReceiptRoot())
+	var err error
 	if pb.GetLogsBloom() != nil {
-		h.logsBloom, err = bloom.BloomFilterFromBytesLegacy(pb.GetLogsBloom(), 2048, 3)
+		h.logsBloom, err = bloom.NewBloomFilterLegacy(2048, 3)
+		if err != nil {
+			return err
+		}
+		if err = h.logsBloom.FromBytes(pb.GetLogsBloom()); err != nil {
+			return err
+		}
 	}
 	return err
 }
@@ -175,9 +185,24 @@ func (h *Header) VerifySignature() bool {
 	return h.pubkey.Verify(hash[:], h.blockSig)
 }
 
+// VerifyDeltaStateDigest verifies the delta state digest in header
+func (h *Header) VerifyDeltaStateDigest(digest hash.Hash256) bool {
+	return h.deltaStateDigest == digest
+}
+
+// VerifyReceiptRoot verifies the receipt root in header
+func (h *Header) VerifyReceiptRoot(root hash.Hash256) bool {
+	return h.receiptRoot == root
+}
+
+// VerifyTransactionRoot verifies the delta state digest in header
+func (h *Header) VerifyTransactionRoot(root hash.Hash256) bool {
+	return h.txRoot == root
+}
+
 // ProducerAddress returns the address of producer
 func (h *Header) ProducerAddress() string {
-	addr, _ := address.FromBytes(h.pubkey.Hash())
+	addr := h.pubkey.Address()
 	return addr.String()
 }
 

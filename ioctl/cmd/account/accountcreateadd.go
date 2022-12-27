@@ -1,14 +1,13 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -21,20 +20,20 @@ import (
 
 // Multi-language support
 var (
-	createAddCmdShorts = map[config.Language]string{
+	_createAddCmdShorts = map[config.Language]string{
 		config.English: "Create new account for ioctl",
 		config.Chinese: "为ioctl创建新账户",
 	}
-	createAddCmdUses = map[config.Language]string{
+	_createAddCmdUses = map[config.Language]string{
 		config.English: "createadd ALIAS",
 		config.Chinese: "createadd 别名",
 	}
 )
 
-// accountCreateAddCmd represents the account createadd command
-var accountCreateAddCmd = &cobra.Command{
-	Use:   config.TranslateInLang(createAddCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(createAddCmdShorts, config.UILanguage),
+// _accountCreateAddCmd represents the account createadd command
+var _accountCreateAddCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_createAddCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_createAddCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -56,7 +55,9 @@ func accountCreateAdd(args []string) error {
 			"but bind the alias to the new one.\nWould you like to continue?\n", alias, addr)
 		message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
 		fmt.Println(message.String())
-		fmt.Scanf("%s", &confirm)
+		if _, err := fmt.Scanf("%s", &confirm); err != nil {
+			return output.NewError(output.InputError, "failed to input yes", err)
+		}
 		if !strings.EqualFold(confirm, "yes") {
 			output.PrintResult("quit")
 			return nil
@@ -81,7 +82,7 @@ func accountCreateAdd(args []string) error {
 	if err != nil {
 		return output.NewError(output.SerializationError, "failed to marshal config", err)
 	}
-	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+	if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
 		return output.NewError(output.WriteFileError,
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}

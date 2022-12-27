@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package evm
 
@@ -46,9 +45,9 @@ type (
 	contract struct {
 		*state.Account
 		async      bool
-		dirtyCode  bool              // contract's code has been set
-		dirtyState bool              // contract's account state has changed
-		code       SerializableBytes // contract byte-code
+		dirtyCode  bool                       // contract's code has been set
+		dirtyState bool                       // contract's account state has changed
+		code       protocol.SerializableBytes // contract byte-code
 		root       hash.Hash256
 		committed  map[hash.Hash256][]byte
 		sm         protocol.StateManager
@@ -83,7 +82,7 @@ func (c *contract) GetState(key hash.Hash256) ([]byte, error) {
 // SetState set the value into contract storage
 func (c *contract) SetState(key hash.Hash256, value []byte) error {
 	if _, ok := c.committed[key]; !ok {
-		c.GetState(key)
+		_, _ = c.GetState(key)
 	}
 	c.dirtyState = true
 	if err := c.trie.Upsert(key[:], value); err != nil {
@@ -188,7 +187,7 @@ func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateMan
 		async:     enableAsync,
 	}
 	options := []mptrie.Option{
-		mptrie.KVStoreOption(newKVStoreForTrieWithStateManager(ContractKVNameSpace, sm)),
+		mptrie.KVStoreOption(protocol.NewKVStoreForTrieWithStateManager(ContractKVNameSpace, sm)),
 		mptrie.KeyLengthOption(len(hash.Hash256{})),
 		mptrie.HashFuncOption(func(data []byte) []byte {
 			h := hash.Hash256b(append(addr[:], data...))

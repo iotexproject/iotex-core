@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
@@ -10,7 +9,6 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -47,10 +45,10 @@ func NewPutPollResult(
 // LoadProto converts a proto message into put block action.
 func (r *PutPollResult) LoadProto(putPollResultPb *iotextypes.PutPollResult) error {
 	if putPollResultPb == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 	if r == nil {
-		return errors.New("nil action to load proto")
+		return ErrNilAction
 	}
 	*r = PutPollResult{}
 

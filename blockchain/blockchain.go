@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package blockchain
 
@@ -26,14 +25,19 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 )
 
+// const
+const (
+	SigP256k1  = "secp256k1"
+	SigP256sm2 = "p256sm2"
+)
+
 var (
-	blockMtc = prometheus.NewGaugeVec(
+	_blockMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_block_metrics",
 
@@ -54,7 +58,7 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(blockMtc)
+	prometheus.MustRegister(_blockMtc)
 }
 
 type (
@@ -69,6 +73,8 @@ type (
 		BlockFooterByHeight(height uint64) (*block.Footer, error)
 		// ChainID returns the chain ID
 		ChainID() uint32
+		// EvmNetworkID returns the evm network ID
+		EvmNetworkID() uint32
 		// ChainAddress returns chain address on parent chain, the root chain return empty.
 		ChainAddress() string
 		// TipHash returns tip block's hash
@@ -95,10 +101,27 @@ type (
 		// RemoveSubscriber make you listen to every single produced block
 		RemoveSubscriber(BlockCreationSubscriber) error
 	}
+
 	// BlockBuilderFactory is the factory interface of block builder
 	BlockBuilderFactory interface {
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error)
+	}
+
+	// blockchain implements the Blockchain interface
+	blockchain struct {
+		mu             sync.RWMutex // mutex to protect utk, tipHeight and tipHash
+		dao            blockdao.BlockDAO
+		config         Config
+		genesis        genesis.Genesis
+		blockValidator block.Validator
+		lifecycle      lifecycle.Lifecycle
+		clk            clock.Clock
+		pubSubManager  PubSubManager
+		timerFactory   *prometheustimer.TimerFactory
+
+		// used by account-based model
+		bbf BlockBuilderFactory
 	}
 )
 
@@ -117,78 +140,38 @@ func Productivity(bc Blockchain, startHeight uint64, endHeight uint64) (map[stri
 	return stats, nil
 }
 
-// blockchain implements the Blockchain interface
-type blockchain struct {
-	mu             sync.RWMutex // mutex to protect utk, tipHeight and tipHash
-	dao            blockdao.BlockDAO
-	config         config.Config
-	blockValidator block.Validator
-	lifecycle      lifecycle.Lifecycle
-	clk            clock.Clock
-	pubSubManager  PubSubManager
-	timerFactory   *prometheustimer.TimerFactory
-
-	// used by account-based model
-	bbf BlockBuilderFactory
-}
-
 // Option sets blockchain construction parameter
-type Option func(*blockchain, config.Config) error
+type Option func(*blockchain) error
 
 // BlockValidatorOption sets block validator
 func BlockValidatorOption(blockValidator block.Validator) Option {
-	return func(bc *blockchain, cfg config.Config) error {
+	return func(bc *blockchain) error {
 		bc.blockValidator = blockValidator
-		return nil
-	}
-}
-
-// BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
-func BoltDBDaoOption(indexers ...blockdao.BlockIndexer) Option {
-	return func(bc *blockchain, cfg config.Config) error {
-		if bc.dao != nil {
-			return nil
-		}
-		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-		bc.dao = blockdao.NewBlockDAO(indexers, cfg.DB)
-		return nil
-	}
-}
-
-// InMemDaoOption sets blockchain's dao with MemKVStore
-func InMemDaoOption(indexers ...blockdao.BlockIndexer) Option {
-	return func(bc *blockchain, cfg config.Config) error {
-		if bc.dao != nil {
-			return nil
-		}
-		bc.dao = blockdao.NewBlockDAOInMemForTest(indexers)
 		return nil
 	}
 }
 
 // ClockOption overrides the default clock
 func ClockOption(clk clock.Clock) Option {
-	return func(bc *blockchain, conf config.Config) error {
+	return func(bc *blockchain) error {
 		bc.clk = clk
-
 		return nil
 	}
 }
 
 // NewBlockchain creates a new blockchain and DB instance
-// TODO: replace sf with blockbuilderfactory
-func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFactory, opts ...Option) Blockchain {
+func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf BlockBuilderFactory, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{
 		config:        cfg,
+		genesis:       g,
 		dao:           dao,
 		bbf:           bbf,
 		clk:           clock.New(),
-		pubSubManager: NewPubSub(cfg.BlockSync.BufferSize),
+		pubSubManager: NewPubSub(cfg.StreamingBlockBufferSize),
 	}
 	for _, opt := range opts {
-		if err := opt(chain, cfg); err != nil {
+		if err := opt(chain); err != nil {
 			log.S().Panicf("Failed to execute blockchain creation option %p: %v", opt, err)
 		}
 	}
@@ -196,7 +179,7 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFac
 		"iotex_blockchain_perf",
 		"Performance of blockchain module",
 		[]string{"topic", "chainID"},
-		[]string{"default", strconv.FormatUint(uint64(cfg.Chain.ID), 10)},
+		[]string{"default", strconv.FormatUint(uint64(cfg.ID), 10)},
 	)
 	if err != nil {
 		log.L().Panic("Failed to generate prometheus timer factory.", zap.Error(err))
@@ -206,16 +189,21 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFac
 		log.L().Panic("blockdao is nil")
 	}
 	chain.lifecycle.Add(chain.dao)
+	chain.lifecycle.Add(chain.pubSubManager)
 
 	return chain
 }
 
 func (bc *blockchain) ChainID() uint32 {
-	return atomic.LoadUint32(&bc.config.Chain.ID)
+	return atomic.LoadUint32(&bc.config.ID)
+}
+
+func (bc *blockchain) EvmNetworkID() uint32 {
+	return atomic.LoadUint32(&bc.config.EVMNetworkID)
 }
 
 func (bc *blockchain) ChainAddress() string {
-	return bc.config.Chain.Address
+	return bc.config.Address
 }
 
 // Start starts the blockchain
@@ -301,13 +289,17 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 			tip.Hash,
 		)
 	}
-	if err := block.VerifyBlock(blk); err != nil {
-		return errors.Wrap(err, "failed to verify block's signature and merkle root")
+
+	if !blk.Header.VerifySignature() {
+		return errors.Errorf("failed to verify block's signature with public key: %x", blk.PublicKey())
+	}
+	if err := blk.VerifyTxRoot(); err != nil {
+		return err
 	}
 
-	producerAddr, err := address.FromBytes(blk.PublicKey().Hash())
-	if err != nil {
-		return err
+	producerAddr := blk.PublicKey().Address()
+	if producerAddr == nil {
+		return errors.New("failed to get address")
 	}
 	ctx, err := bc.context(context.Background(), true)
 	if err != nil {
@@ -317,10 +309,11 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 		protocol.BlockCtx{
 			BlockHeight:    blk.Height(),
 			BlockTimeStamp: blk.Timestamp(),
-			GasLimit:       bc.config.Genesis.BlockGasLimit,
+			GasLimit:       bc.genesis.BlockGasLimit,
 			Producer:       producerAddr,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 	if bc.blockValidator == nil {
 		return nil
 	}
@@ -342,7 +335,7 @@ func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Add
 			BlockHeight:    height,
 			BlockTimeStamp: timestamp,
 			Producer:       producer,
-			GasLimit:       bc.config.Genesis.BlockGasLimit,
+			GasLimit:       bc.genesis.BlockGasLimit,
 		})
 }
 
@@ -356,15 +349,18 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 		}
 	}
 
-	return genesis.WithGenesisContext(
+	ctx = genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
 			ctx,
 			protocol.BlockchainCtx{
-				Tip: tip,
+				Tip:          tip,
+				ChainID:      bc.ChainID(),
+				EvmNetworkID: bc.EvmNetworkID(),
 			},
 		),
-		bc.config.Genesis,
-	), nil
+		bc.genesis,
+	)
+	return protocol.WithFeatureWithHeightCtx(ctx), nil
 }
 
 func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
@@ -382,6 +378,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 		return nil, err
 	}
 	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp)
+	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
 	minterPrivateKey := bc.config.ProducerPrivateKey()
 	blockBuilder, err := bc.bbf.NewBlockBuilder(
@@ -401,7 +398,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	return &blk, nil
 }
 
-//  CommitBlock validates and appends a block to the chain
+// CommitBlock validates and appends a block to the chain
 func (bc *blockchain) CommitBlock(blk *block.Block) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
@@ -411,8 +408,6 @@ func (bc *blockchain) CommitBlock(blk *block.Block) error {
 }
 
 func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
 	log.L().Info("Add a subscriber.")
 	if s == nil {
 		return errors.New("subscriber could not be nil")
@@ -422,9 +417,6 @@ func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 }
 
 func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
-
 	return bc.pubSubManager.RemoveBlockListener(s)
 }
 
@@ -433,7 +425,7 @@ func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 //=====================================
 
 func (bc *blockchain) Genesis() genesis.Genesis {
-	return bc.config.Genesis
+	return bc.genesis
 }
 
 //======================================
@@ -448,8 +440,8 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 	if tipHeight == 0 {
 		return &protocol.TipInfo{
 			Height:    0,
-			Hash:      bc.config.Genesis.Hash(),
-			Timestamp: time.Unix(bc.config.Genesis.Timestamp, 0),
+			Hash:      bc.genesis.Hash(),
+			Timestamp: time.Unix(bc.genesis.Timestamp, 0),
 		}, nil
 	}
 	header, err := bc.dao.HeaderByHeight(tipHeight)
@@ -466,7 +458,7 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 
 // commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *block.Block) error {
-	ctx, err := bc.context(context.Background(), false)
+	ctx, err := bc.context(context.Background(), true)
 	if err != nil {
 		return err
 	}
@@ -485,7 +477,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if blk.Height()%100 == 0 {
 		blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", blkHash[:]))
 	}
-	blockMtc.WithLabelValues("numActions").Set(float64(len(blk.Actions)))
+	_blockMtc.WithLabelValues("numActions").Set(float64(len(blk.Actions)))
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
 	return nil

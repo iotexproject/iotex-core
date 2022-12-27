@@ -1,13 +1,11 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package alias
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -21,7 +19,8 @@ import (
 func TestAlias(t *testing.T) {
 	require := require.New(t)
 
-	require.NoError(testInit())
+	_, err := testInit(t)
+	require.NoError(err)
 
 	raullen := "raullen"
 	qevan := "qevan"
@@ -63,22 +62,22 @@ func TestAlias(t *testing.T) {
 	require.Equal(jing, aliases["io1kmpejl35lys5pxcpk74g8am0kwmzwwuvsvqrp8"])
 }
 
-func testInit() error {
-	testPathd, _ := ioutil.TempDir(os.TempDir(), "kstest")
-	config.ConfigDir = testPathd
+func testInit(t *testing.T) (string, error) {
 	var err error
+	testPathd := t.TempDir()
+	config.ConfigDir = testPathd
 	config.DefaultConfigFile = config.ConfigDir + "/config.default"
 	config.ReadConfig, err = config.LoadConfig()
 	if err != nil && !os.IsNotExist(err) {
-		return err
+		return testPathd, err
 	}
 	config.ReadConfig.Wallet = config.ConfigDir
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
-		return err
+		return testPathd, err
 	}
-	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return err
+	if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+		return testPathd, err
 	}
-	return nil
+	return testPathd, nil
 }

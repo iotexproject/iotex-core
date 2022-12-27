@@ -1,14 +1,12 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
 import (
 	"math/big"
-	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -24,7 +22,8 @@ func TestTransferSignVerify(t *testing.T) {
 
 	tsf, err := NewTransfer(1, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	require.Nil(tsf.srcPubkey)
+	require.EqualValues(21, tsf.BasicActionSize())
+	require.EqualValues(87, tsf.TotalSize())
 
 	bd := &EnvelopeBuilder{}
 	eb := bd.SetNonce(tsf.nonce).
@@ -35,19 +34,20 @@ func TestTransferSignVerify(t *testing.T) {
 	require.True(ok)
 
 	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))
-	require.Error(Verify(w))
+	require.Error(w.VerifySignature())
 	tsf2, ok := w.Envelope.Action().(*Transfer)
 	require.True(ok)
 	require.Equal(tsf, tsf2)
-	require.NotNil(tsf.srcPubkey)
 
 	// sign the transfer
 	selp, err := Sign(elp, senderKey)
 	require.NoError(err)
 	require.NotNil(selp)
+	require.EqualValues(21, tsf.BasicActionSize())
+	require.EqualValues(87, tsf.TotalSize())
 
 	// verify signature
-	require.NoError(Verify(selp))
+	require.NoError(selp.VerifySignature())
 }
 
 func TestTransfer(t *testing.T) {
@@ -68,7 +68,7 @@ func TestTransfer(t *testing.T) {
 	require.True(ok)
 
 	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))
-	require.Error(Verify(w))
+	require.Error(w.VerifySignature())
 
 	require.NoError(err)
 	require.Equal("10", tsf.Amount().Text(10))
@@ -100,26 +100,12 @@ func TestTransfer(t *testing.T) {
 		tsf, err := NewTransfer(uint64(1), big.NewInt(-100), "2", nil,
 			uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		require.Equal(ErrBalance, errors.Cause(tsf.SanityCheck()))
-	})
-	t.Run("Invalid recipient address", func(t *testing.T) {
-		tsf, err := NewTransfer(
-			1,
-			big.NewInt(1),
-			identityset.Address(28).String()+"aaa",
-			nil,
-			uint64(100000),
-			big.NewInt(0),
-		)
-		require.NoError(err)
-		err = tsf.SanityCheck()
-		require.Error(err)
-		require.True(strings.Contains(err.Error(), "error when validating recipient's address"))
+		require.Equal(ErrNegativeValue, errors.Cause(tsf.SanityCheck()))
 	})
 	t.Run("Negative gas fee", func(t *testing.T) {
 		tsf, err := NewTransfer(uint64(1), big.NewInt(100), identityset.Address(28).String(), nil,
 			uint64(100000), big.NewInt(-1))
 		require.NoError(err)
-		require.Equal(ErrGasPrice, errors.Cause(tsf.SanityCheck()))
+		require.Equal(ErrNegativeValue, errors.Cause(tsf.SanityCheck()))
 	})
 }

@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package rolldpos
 
@@ -61,11 +60,12 @@ func (bp *blockProposal) ProposerAddress() string {
 	return bp.block.ProducerAddress()
 }
 
-func (bp *blockProposal) LoadProto(msg *iotextypes.BlockProposal) error {
-	bp.block = &block.Block{}
-	if err := bp.block.ConvertFromBlockPb(msg.Block); err != nil {
+func (bp *blockProposal) LoadProto(msg *iotextypes.BlockProposal, deserializer *block.Deserializer) error {
+	blk, err := deserializer.FromBlockProto(msg.Block)
+	if err != nil {
 		return err
 	}
+	bp.block = blk
 	bp.proofOfLock = []*endorsement.Endorsement{}
 	for _, ePb := range msg.Endorsements {
 		en := &endorsement.Endorsement{}

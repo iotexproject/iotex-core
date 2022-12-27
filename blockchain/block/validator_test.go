@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package block
 
@@ -12,9 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -32,13 +32,16 @@ func TestValidator(t *testing.T) {
 	v := NewValidator(nil)
 	require.NoError(v.Validate(ctx, blk))
 
-	valid := protocol.NewGenericValidator(nil, func(sr protocol.StateReader, addr string) (*state.Account, error) {
+	valid := protocol.NewGenericValidator(nil, func(ctx context.Context, sr protocol.StateReader, addr address.Address) (*state.Account, error) {
 		pk := identityset.PrivateKey(27).PublicKey()
-		eAddr, _ := address.FromBytes(pk.Hash())
-		if strings.EqualFold(eAddr.String(), addr) {
+		eAddr := pk.Address()
+		if strings.EqualFold(eAddr.String(), addr.String()) {
 			return nil, errors.New("MockChainManager nonce error")
 		}
-		return &state.Account{Nonce: 2}, nil
+		account, err := state.NewAccount()
+		require.NoError(err)
+		require.NoError(account.SetPendingNonce(3))
+		return account, nil
 	})
 
 	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
@@ -58,6 +61,6 @@ func TestValidator(t *testing.T) {
 	require.NoError(err)
 
 	v = NewValidator(nil, valid)
-	require.True(strings.Contains(v.Validate(ctx, &nblk).Error(), "MockChainManager nonce error"))
+	require.Contains(v.Validate(ctx, &nblk).Error(), "MockChainManager nonce error")
 
 }

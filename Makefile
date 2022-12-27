@@ -1,9 +1,8 @@
 ########################################################################################################################
 # Copyright (c) 2019 IoTeX Foundation
-# This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-# warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-# permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-# License 2.0 that can be found in the LICENSE file.
+# This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+# or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+# This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 ########################################################################################################################
 
 # Go parameters
@@ -19,9 +18,12 @@ BUILD_TARGET_SERVER=server
 BUILD_TARGET_ACTINJV2=actioninjectorv2
 BUILD_TARGET_ADDRGEN=addrgen
 BUILD_TARGET_IOCTL=ioctl
+BUILD_TARGET_NEWIOCTL=newioctl
 BUILD_TARGET_XCTL=xctl
+BUILD_TARGET_NEWXCTL=newxctl
 BUILD_TARGET_MINICLUSTER=minicluster
 BUILD_TARGET_RECOVER=recover
+BUILD_TARGET_READTIP=readtip
 BUILD_TARGET_IOMIGRATER=iomigrater
 BUILD_TARGET_OS=$(shell go env GOOS)
 BUILD_TARGET_ARCH=$(shell go env GOARCH)
@@ -76,7 +78,7 @@ build: ioctl
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 
 .PHONY: build-all
-build-all: build build-actioninjector build-addrgen build-minicluster build-staterecoverer
+build-all: build build-actioninjector build-addrgen build-minicluster build-staterecoverer build-readtip
 
 .PHONY: build-actioninjector
 build-actioninjector: 
@@ -94,9 +96,14 @@ build-minicluster:
 build-staterecoverer:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_RECOVER) -v ./tools/staterecoverer
 
+.PHONY: build-readtip
+build-readtip:
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_READTIP) -v ./tools/readtip
+
 .PHONY: fmt
 fmt:
 	$(GOCMD) fmt ./...
+	$(GOCMD) mod tidy
 
 .PHONY: lint
 lint:
@@ -183,13 +190,18 @@ reboot:
 run:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	 sudo mkdir -p /var/{data,log}
+	 sudo mkdir -p /var/data /var/log
 	 sudo chown ${USER} /var/data /var/log
 	./bin/$(BUILD_TARGET_SERVER) -plugin=gateway -config-path=./config/standalone-config.yaml -genesis-path=./config/standalone-genesis.yaml
 
 .PHONY: docker
 docker:
-	$(DOCKERCMD) build -t $(USER)/iotex-core:latest .
+	DOCKER_BUILDKIT=1 $(DOCKERCMD) build -t $(USER)/iotex-core:latest .
+
+.PHONY: docker-scan
+docker-scan: docker
+	DOCKER_BUILDKIT=1 $(DOCKERCMD) login
+	DOCKER_BUILDKIT=1 $(DOCKERCMD) scan $(USER)/iotex-core:latest .
 
 .PHONY: minicluster
 minicluster:
@@ -218,6 +230,10 @@ recover:
 .PHONY: ioctl
 ioctl:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOCTL) -v ./tools/ioctl
+
+.PHONY: newioctl
+newioctl:
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_NEWIOCTL) -v ./tools/newioctl
 	
 .PHONY: ioctl-cross
 ioctl-cross:
@@ -229,9 +245,23 @@ ioctl-cross:
 	cd $(GOPATH)/src && $(GOPATH)/bin/xgo --targets=$(BUILD_TARGET_OS)/$(BUILD_TARGET_ARCH) .
 	mkdir -p ./bin/$(BUILD_TARGET_IOCTL) && sudo mv $(GOPATH)/src/main-$(BUILD_TARGET_OS)-$(BUILD_TARGET_ARCH) ./bin/$(BUILD_TARGET_IOCTL)/ioctl-$(BUILD_TARGET_OS)-$(BUILD_TARGET_ARCH)
 
+.PHONY: newioctl-cross
+newioctl-cross:
+	$(DOCKERCMD) pull techknowlogick/xgo:latest
+	$(GOCMD) get src.techknowlogick.com/xgo
+	mkdir -p $(GOPATH)/src
+	sudo cp ./tools/newioctl/ioctl.go $(GOPATH)/src
+	cd $(GOPATH)/src && sudo rm -f go.mod && $(GOCMD) mod init main && $(GOCMD) mod tidy
+	cd $(GOPATH)/src && $(GOPATH)/bin/xgo --targets=$(BUILD_TARGET_OS)/$(BUILD_TARGET_ARCH) .
+	mkdir -p ./bin/$(BUILD_TARGET_NEWIOCTL) && sudo mv $(GOPATH)/src/main-$(BUILD_TARGET_OS)-$(BUILD_TARGET_ARCH) ./bin/$(BUILD_TARGET_NEWIOCTL)/ioctl-$(BUILD_TARGET_OS)-$(BUILD_TARGET_ARCH)
+
 .PHONY: xctl
 xctl:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_XCTL) -v ./tools/xctl
+
+.PHONY: newxctl
+newxctl:
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_NEWXCTL) -v ./tools/newxctl
 
 .PHONY: iomigrater
 iomigrater:

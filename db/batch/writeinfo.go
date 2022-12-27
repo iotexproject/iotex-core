@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package batch
 
@@ -19,12 +18,11 @@ type (
 
 	// WriteInfo is the struct to store Put/Delete operation info
 	WriteInfo struct {
-		writeType   WriteType
-		namespace   string
-		key         []byte
-		value       []byte
-		errorFormat string
-		errorArgs   interface{}
+		writeType    WriteType
+		namespace    string
+		key          []byte
+		value        []byte
+		errorMessage string
 	}
 
 	// WriteInfoFilter filters a write
@@ -43,16 +41,14 @@ func NewWriteInfo(
 	namespace string,
 	key,
 	value []byte,
-	errorFormat string,
-	errorArgs interface{},
+	errorMessage string,
 ) *WriteInfo {
 	return &WriteInfo{
-		writeType:   writeType,
-		namespace:   namespace,
-		key:         key,
-		value:       value,
-		errorFormat: errorFormat,
-		errorArgs:   errorArgs,
+		writeType:    writeType,
+		namespace:    namespace,
+		key:          key,
+		value:        value,
+		errorMessage: errorMessage,
 	}
 }
 
@@ -82,14 +78,9 @@ func (wi *WriteInfo) Value() []byte {
 	return value
 }
 
-// ErrorFormat returns the error format
-func (wi *WriteInfo) ErrorFormat() string {
-	return wi.errorFormat
-}
-
-// ErrorArgs returns the error args
-func (wi *WriteInfo) ErrorArgs() interface{} {
-	return wi.errorArgs
+// Error returns the error Message
+func (wi *WriteInfo) Error() string {
+	return wi.errorMessage
 }
 
 // Serialize serializes the write info

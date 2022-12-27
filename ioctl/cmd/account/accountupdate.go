@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
@@ -24,20 +23,20 @@ import (
 
 // Multi-language support
 var (
-	updateCmdShorts = map[config.Language]string{
+	_updateCmdShorts = map[config.Language]string{
 		config.English: "Update password for IoTeX account",
 		config.Chinese: "为IoTeX账户更新密码",
 	}
-	updateCmdUses = map[config.Language]string{
+	_updateCmdUses = map[config.Language]string{
 		config.English: "update [ALIAS|ADDRESS]",
 		config.Chinese: "update [别名|地址]",
 	}
 )
 
-// accountUpdateCmd represents the account update command
-var accountUpdateCmd = &cobra.Command{
-	Use:   config.TranslateInLang(updateCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(updateCmdShorts, config.UILanguage),
+// _accountUpdateCmd represents the account update command
+var _accountUpdateCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_updateCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_updateCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

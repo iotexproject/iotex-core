@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package poll
 
@@ -35,10 +34,10 @@ import (
 )
 
 var (
-	nativeStakingContractCreator = address.ZeroAddress
-	nativeStakingContractNonce   = uint64(0)
-	// this is a special execution that is not signed, set hash = hex-string of "nativeStakingContractHash"
-	nativeStakingContractHash, _ = hash.HexStringToHash256("000000000000006e61746976655374616b696e67436f6e747261637448617368")
+	_nativeStakingContractCreator = address.ZeroAddress
+	_nativeStakingContractNonce   = uint64(0)
+	// this is a special execution that is not signed, set hash = hex-string of "_nativeStakingContractHash"
+	_nativeStakingContractHash, _ = hash.HexStringToHash256("000000000000006e61746976655374616b696e67436f6e747261637448617368")
 )
 
 type stakingCommittee struct {
@@ -113,7 +112,7 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	}
 	execution, err := action.NewExecution(
 		"",
-		nativeStakingContractNonce,
+		_nativeStakingContractNonce,
 		big.NewInt(0),
 		g.BlockGasLimit,
 		big.NewInt(0),
@@ -123,12 +122,12 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		return err
 	}
 	actionCtx := protocol.ActionCtx{}
-	actionCtx.Caller, err = address.FromString(nativeStakingContractCreator)
+	actionCtx.Caller, err = address.FromString(_nativeStakingContractCreator)
 	if err != nil {
 		return err
 	}
-	actionCtx.Nonce = nativeStakingContractNonce
-	actionCtx.ActionHash = nativeStakingContractHash
+	actionCtx.Nonce = _nativeStakingContractNonce
+	actionCtx.ActionHash = _nativeStakingContractHash
 	actionCtx.GasPrice = execution.GasPrice()
 	actionCtx.IntrinsicGas, err = execution.IntrinsicGas()
 	if err != nil {
@@ -163,8 +162,8 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 func (sc *stakingCommittee) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
 	if g.NativeStakingContractAddress == "" && g.NativeStakingContractCode != "" {
-		caller, _ := address.FromString(nativeStakingContractCreator)
-		ethAddr := crypto.CreateAddress(common.BytesToAddress(caller.Bytes()), nativeStakingContractNonce)
+		caller, _ := address.FromString(_nativeStakingContractCreator)
+		ethAddr := crypto.CreateAddress(common.BytesToAddress(caller.Bytes()), _nativeStakingContractNonce)
 		iotxAddr, _ := address.FromBytes(ethAddr.Bytes())
 		sc.SetNativeStakingContract(iotxAddr.String())
 		log.L().Info("Loaded native staking contract", zap.String("address", iotxAddr.String()))
@@ -198,7 +197,7 @@ func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action, sr 
 }
 
 func (sc *stakingCommittee) Name() string {
-	return protocolID
+	return _protocolID
 }
 
 // CalculateCandidatesByHeight calculates delegates with native staking and returns merged list
@@ -210,11 +209,11 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, sr 
 		return nil, err
 	}
 
-	g := genesis.MustExtractGenesisContext(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	// convert to epoch start height
-	if !g.IsCook(rp.GetEpochHeight(rp.GetEpochNum(height))) {
+	if !featureCtx.EnableNativeStaking(rp.GetEpochHeight(rp.GetEpochNum(height))) {
 		return sc.filterCandidates(cand), nil
 	}
 	// native staking using contract starts from Cook
@@ -224,7 +223,7 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, sr 
 
 	// TODO: extract tip info inside of Votes function
 	timer = sc.timerFactory.NewTimer("Native")
-	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Timestamp, g.IsDaytona(height))
+	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Timestamp, featureCtx.StakingCorrectGas(height))
 	timer.End()
 	if err == ErrNoData {
 		// no native staking data
@@ -267,12 +266,12 @@ func (sc *stakingCommittee) ReadState(ctx context.Context, sr protocol.StateRead
 
 // Register registers the protocol with a unique ID
 func (sc *stakingCommittee) Register(r *protocol.Registry) error {
-	return r.Register(protocolID, sc)
+	return r.Register(_protocolID, sc)
 }
 
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (sc *stakingCommittee) ForceRegister(r *protocol.Registry) error {
-	return r.ForceRegister(protocolID, sc)
+	return r.ForceRegister(_protocolID, sc)
 }
 
 // SetNativeStakingContract sets the address of native staking contract
@@ -319,11 +318,11 @@ func (sc *stakingCommittee) mergeCandidates(list state.CandidateList, votes *Vot
 func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *action.Receipt, err error) error {
 	// Start to write native buckets archive after cook and only when the action is executed successfully
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	g := genesis.MustExtractGenesisContext(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochHeight := rp.GetEpochHeight(rp.GetEpochNum(blkCtx.BlockHeight))
-	if !g.IsCook(epochHeight) {
+	if !featureCtx.EnableNativeStaking(epochHeight) {
 		return nil
 	}
 	if receipt == nil || receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {

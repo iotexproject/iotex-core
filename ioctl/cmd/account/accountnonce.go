@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
@@ -18,20 +17,20 @@ import (
 
 // Multi-language support
 var (
-	nonceCmdShorts = map[config.Language]string{
+	_nonceCmdShorts = map[config.Language]string{
 		config.English: "Get nonce of an account",
 		config.Chinese: "获取账户的nonce值",
 	}
-	nonceCmdUses = map[config.Language]string{
+	_nonceCmdUses = map[config.Language]string{
 		config.English: "nonce [ALIAS|ADDRESS]",
 		config.Chinese: "nonce [别名|地址]",
 	}
 )
 
-// accountNonceCmd represents the account nonce command
-var accountNonceCmd = &cobra.Command{
-	Use:   config.TranslateInLang(nonceCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(nonceCmdShorts, config.UILanguage),
+// _accountNonceCmd represents the account nonce command
+var _accountNonceCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_nonceCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_nonceCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -46,11 +45,10 @@ var accountNonceCmd = &cobra.Command{
 
 type nonceMessage struct {
 	Address      string `json:"address"`
-	Nonce        int    `json:"nonce"`
 	PendingNonce int    `json:"pendingNonce"`
 }
 
-// nonce gets nonce and pending nonce of an IoTeX blockchain address
+// nonce gets pending nonce of an IoTeX blockchain address
 func nonce(arg string) error {
 	addr, err := util.GetAddress(arg)
 	if err != nil {
@@ -62,7 +60,6 @@ func nonce(arg string) error {
 	}
 	message := nonceMessage{
 		Address:      addr,
-		Nonce:        int(accountMeta.Nonce),
 		PendingNonce: int(accountMeta.PendingNonce),
 	}
 	fmt.Println(message.String())
@@ -71,8 +68,8 @@ func nonce(arg string) error {
 
 func (m *nonceMessage) String() string {
 	if output.Format == "" {
-		return fmt.Sprintf("%s:\nNonce: %d, Pending Nonce: %d",
-			m.Address, m.Nonce, m.PendingNonce)
+		return fmt.Sprintf("%s:\nPending Nonce: %d",
+			m.Address, m.PendingNonce)
 	}
 	return output.FormatString(output.Result, m)
 }

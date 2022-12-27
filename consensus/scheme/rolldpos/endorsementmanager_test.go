@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package rolldpos
 
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -95,7 +95,8 @@ func TestBlockEndorsementCollection(t *testing.T) {
 
 func TestEndorsementManager(t *testing.T) {
 	require := require.New(t)
-	em, err := newEndorsementManager(nil)
+
+	em, err := newEndorsementManager(nil, block.NewDeserializer(0))
 	require.NoError(err)
 	require.NotNil(em)
 	require.Equal(0, em.Size())
@@ -178,7 +179,7 @@ func TestEndorsementManager(t *testing.T) {
 
 func TestEndorsementManagerProto(t *testing.T) {
 	require := require.New(t)
-	em, err := newEndorsementManager(nil)
+	em, err := newEndorsementManager(nil, block.NewDeserializer(0))
 	require.NoError(err)
 	require.NotNil(em)
 
@@ -203,9 +204,9 @@ func TestEndorsementManagerProto(t *testing.T) {
 	//test converting emanager pb
 	emProto, err := em.toProto()
 	require.NoError(err)
-	em2, err := newEndorsementManager(nil)
+	em2, err := newEndorsementManager(nil, block.NewDeserializer(0))
 	require.NoError(err)
-	require.NoError(em2.fromProto(emProto))
+	require.NoError(em2.fromProto(emProto, block.NewDeserializer(0)))
 
 	require.Equal(len(em.collections), len(em2.collections))
 	encoded := encodeToString(cv.BlockHash())

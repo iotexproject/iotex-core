@@ -1,8 +1,7 @@
-// Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package cmd
 
@@ -26,31 +25,23 @@ import (
 
 // Multi-language support
 var (
-	ioctlRootCmdShorts = map[config.Language]string{
+	_ioctlRootCmdShorts = map[config.Language]string{
 		config.English: "Command-line interface for IoTeX blockchain",
 		config.Chinese: "IoTeX区块链命令行工具",
 	}
-	ioctlRootCmdLongs = map[config.Language]string{
+	_ioctlRootCmdLongs = map[config.Language]string{
 		config.English: `ioctl is a command-line interface for interacting with IoTeX blockchain.`,
 		config.Chinese: `ioctl 是用于与IoTeX区块链进行交互的命令行工具`,
 	}
-	ioctlRootCmdUses = map[config.Language]string{
-		config.English: "ioctl",
-		config.Chinese: "ioctl",
-	}
-	xctlRootCmdShorts = map[config.Language]string{
+	_xctlRootCmdShorts = map[config.Language]string{
 		config.English: "Command-line interface for consortium blockchain",
 		config.Chinese: "联盟链命令行工具",
 	}
-	xctlRootCmdLongs = map[config.Language]string{
+	_xctlRootCmdLongs = map[config.Language]string{
 		config.English: `xctl is a command-line interface for interacting with consortium blockchain.`,
 		config.Chinese: `xctl 是用于与联盟链进行交互的命令行工具`,
 	}
-	xctlRootCmdUses = map[config.Language]string{
-		config.English: "xctl",
-		config.Chinese: "xctl",
-	}
-	flagOutputFormatUsages = map[config.Language]string{
+	_flagOutputFormatUsages = map[config.Language]string{
 		config.English: "output format",
 		config.Chinese: "指定输出格式",
 	}
@@ -59,9 +50,9 @@ var (
 // NewIoctl returns ioctl root cmd
 func NewIoctl() *cobra.Command {
 	var rootCmd = &cobra.Command{
-		Use:   config.TranslateInLang(ioctlRootCmdUses, config.UILanguage),
-		Short: config.TranslateInLang(ioctlRootCmdShorts, config.UILanguage),
-		Long:  config.TranslateInLang(ioctlRootCmdLongs, config.UILanguage),
+		Use:   "ioctl",
+		Short: config.TranslateInLang(_ioctlRootCmdShorts, config.UILanguage),
+		Long:  config.TranslateInLang(_ioctlRootCmdLongs, config.UILanguage),
 	}
 
 	rootCmd.AddCommand(config.ConfigCmd)
@@ -79,7 +70,7 @@ func NewIoctl() *cobra.Command {
 	rootCmd.AddCommand(hdwallet.HdwalletCmd)
 	rootCmd.AddCommand(jwt.JwtCmd)
 	rootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
-		config.TranslateInLang(flagOutputFormatUsages, config.UILanguage))
+		config.TranslateInLang(_flagOutputFormatUsages, config.UILanguage))
 
 	return rootCmd
 }
@@ -87,9 +78,9 @@ func NewIoctl() *cobra.Command {
 // NewXctl returns xctl root cmd
 func NewXctl() *cobra.Command {
 	var rootCmd = &cobra.Command{
-		Use:   config.TranslateInLang(xctlRootCmdUses, config.UILanguage),
-		Short: config.TranslateInLang(xctlRootCmdShorts, config.UILanguage),
-		Long:  config.TranslateInLang(xctlRootCmdLongs, config.UILanguage),
+		Use:   "xctl",
+		Short: config.TranslateInLang(_xctlRootCmdShorts, config.UILanguage),
+		Long:  config.TranslateInLang(_xctlRootCmdLongs, config.UILanguage),
 	}
 
 	rootCmd.AddCommand(config.ConfigCmd)
@@ -103,7 +94,7 @@ func NewXctl() *cobra.Command {
 	// TODO: add xctl's UpdateCmd
 
 	rootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
-		config.TranslateInLang(flagOutputFormatUsages, config.UILanguage))
+		config.TranslateInLang(_flagOutputFormatUsages, config.UILanguage))
 
 	return rootCmd
 }

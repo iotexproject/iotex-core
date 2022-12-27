@@ -1,27 +1,67 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
 import (
+	"bytes"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
+
+const _depositRewardInterfaceABI = `[
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint8[]",
+				"name": "data",
+				"type": "uint8[]"
+			}
+		],
+		"name": "deposit",
+		"outputs": [],
+		"stateMutability": "payable",
+		"type": "function"
+	}
+]`
 
 var (
 	// DepositToRewardingFundBaseGas represents the base intrinsic gas for depositToRewardingFund
 	DepositToRewardingFundBaseGas = uint64(10000)
 	// DepositToRewardingFundGasPerByte represents the depositToRewardingFund payload gas per uint
 	DepositToRewardingFundGasPerByte = uint64(100)
+
+	_depositRewardMethod abi.Method
 )
+
+func init() {
+	depositRewardInterface, err := abi.JSON(strings.NewReader(_depositRewardInterfaceABI))
+	if err != nil {
+		panic(err)
+	}
+	var ok bool
+	_depositRewardMethod, ok = depositRewardInterface.Methods["deposit"]
+	if !ok {
+		panic("fail to load the deposit method")
+	}
+}
 
 // DepositToRewardingFund is the action to deposit to the rewarding fund
 type DepositToRewardingFund struct {
@@ -53,7 +93,7 @@ func (d *DepositToRewardingFund) Proto() *iotextypes.DepositToRewardingFund {
 // LoadProto converts a deposit action protobuf to a deposit action struct
 func (d *DepositToRewardingFund) LoadProto(deposit *iotextypes.DepositToRewardingFund) error {
 	*d = DepositToRewardingFund{}
-	amount, ok := big.NewInt(0).SetString(deposit.Amount, 10)
+	amount, ok := new(big.Int).SetString(deposit.Amount, 10)
 	if !ok {
 		return errors.New("failed to set deposit amount")
 	}
@@ -65,7 +105,7 @@ func (d *DepositToRewardingFund) LoadProto(deposit *iotextypes.DepositToRewardin
 // IntrinsicGas returns the intrinsic gas of a deposit action
 func (d *DepositToRewardingFund) IntrinsicGas() (uint64, error) {
 	dataLen := uint64(len(d.Data()))
-	return calculateIntrinsicGas(DepositToRewardingFundBaseGas, DepositToRewardingFundGasPerByte, dataLen)
+	return CalculateIntrinsicGas(DepositToRewardingFundBaseGas, DepositToRewardingFundGasPerByte, dataLen)
 }
 
 // Cost returns the total cost of a deposit action
@@ -80,7 +120,7 @@ func (d *DepositToRewardingFund) Cost() (*big.Int, error) {
 // SanityCheck validates the variables in the action
 func (d *DepositToRewardingFund) SanityCheck() error {
 	if d.Amount().Sign() < 0 {
-		return errors.Wrap(ErrBalance, "negative value")
+		return ErrNegativeValue
 	}
 
 	return d.AbstractAction.SanityCheck()
@@ -108,4 +148,50 @@ func (b *DepositToRewardingFundBuilder) SetData(data []byte) *DepositToRewarding
 func (b *DepositToRewardingFundBuilder) Build() DepositToRewardingFund {
 	b.deposit.AbstractAction = b.Builder.Build()
 	return b.deposit
+}
+
+// encodeABIBinary encodes data in abi encoding
+func (d *DepositToRewardingFund) encodeABIBinary() ([]byte, error) {
+	data, err := _depositRewardMethod.Inputs.Pack(d.Amount(), d.Data())
+	if err != nil {
+		return nil, err
+	}
+	return append(_depositRewardMethod.ID, data...), nil
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (d *DepositToRewardingFund) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.RewardingProtocol)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := d.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(d.Nonce(), ethAddr, big.NewInt(0), d.GasLimit(), d.GasPrice(), data), nil
+}
+
+// NewDepositToRewardingFundFromABIBinary decodes data into action
+func NewDepositToRewardingFundFromABIBinary(data []byte) (*DepositToRewardingFund, error) {
+	var (
+		paramsMap = map[string]interface{}{}
+		ok        bool
+		ac        DepositToRewardingFund
+	)
+	// sanity check
+	if len(data) <= 4 || !bytes.Equal(_depositRewardMethod.ID[:], data[:4]) {
+		return nil, errDecodeFailure
+	}
+	if err := _depositRewardMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
+	}
+	if ac.amount, ok = paramsMap["amount"].(*big.Int); !ok {
+		return nil, errDecodeFailure
+	}
+	if ac.data, ok = paramsMap["data"].([]byte); !ok {
+		return nil, errDecodeFailure
+	}
+	return &ac, nil
 }

@@ -13,6 +13,7 @@
 pprof*
 
 # Binaries for programs and plugins
+*.a
 *.exe
 *.dll
 *.dylib
@@ -34,8 +35,8 @@ data/*
 
 # binary
 bin/*
-**/release
+*/release
 coverage.txt
-lint.log
+*.log
 .editorconfig
 

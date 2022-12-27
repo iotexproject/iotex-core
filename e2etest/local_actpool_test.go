@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package e2etest
 
@@ -52,6 +51,7 @@ func TestLocalActPool(t *testing.T) {
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
 	cli := p2p.NewAgent(
 		cfg.Network,
+		cfg.Chain.ID,
 		cfg.Genesis.Hash(),
 		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 
@@ -72,10 +72,9 @@ func TestLocalActPool(t *testing.T) {
 	// Create three valid actions from "from" to "to"
 	tsf1, err := action.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
 	// Wait until server receives the 1st action
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		require.NoError(cli.BroadcastOutbound(p2pCtx, tsf1.Proto()))
+		require.NoError(cli.BroadcastOutbound(ctx, tsf1.Proto()))
 		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
 		return lenPendingActionMap(acts) == 1, nil
 	}))
@@ -92,10 +91,10 @@ func TestLocalActPool(t *testing.T) {
 	tsf5, err := action.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 2, big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	require.NoError(cli.BroadcastOutbound(p2pCtx, tsf2.Proto()))
-	require.NoError(cli.BroadcastOutbound(p2pCtx, tsf3.Proto()))
-	require.NoError(cli.BroadcastOutbound(p2pCtx, exec4.Proto()))
-	require.NoError(cli.BroadcastOutbound(p2pCtx, tsf5.Proto()))
+	require.NoError(cli.BroadcastOutbound(ctx, tsf2.Proto()))
+	require.NoError(cli.BroadcastOutbound(ctx, tsf3.Proto()))
+	require.NoError(cli.BroadcastOutbound(ctx, exec4.Proto()))
+	require.NoError(cli.BroadcastOutbound(ctx, tsf5.Proto()))
 
 	fmt.Println("2")
 	// Wait until server receives all the transfers
@@ -130,6 +129,7 @@ func TestPressureActPool(t *testing.T) {
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
 	cli := p2p.NewAgent(
 		cfg.Network,
+		cfg.Chain.ID,
 		cfg.Genesis.Hash(),
 		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 
@@ -146,12 +146,11 @@ func TestPressureActPool(t *testing.T) {
 		require.NoError(svr.Stop(ctx))
 	}()
 
-	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
 	tsf, err := action.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 1, big.NewInt(int64(0)), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	// Wait until server receives the 1st action
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		require.NoError(cli.BroadcastOutbound(p2pCtx, tsf.Proto()))
+		require.NoError(cli.BroadcastOutbound(ctx, tsf.Proto()))
 		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
 		return lenPendingActionMap(acts) == 1, nil
 	}))
@@ -160,7 +159,7 @@ func TestPressureActPool(t *testing.T) {
 	for i := 2; i <= 250; i++ {
 		tsf, err := action.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), uint64(i), big.NewInt(int64(i)), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		require.NoError(cli.BroadcastOutbound(p2pCtx, tsf.Proto()))
+		require.NoError(cli.BroadcastOutbound(ctx, tsf.Proto()))
 	}
 
 	// Wait until committed blocks contain all broadcasted actions
@@ -183,6 +182,13 @@ func newActPoolConfig(t *testing.T) (config.Config, error) {
 	testIndexPath, err := testutil.PathOfTempFile("index")
 	r.NoError(err)
 
+	defer func() {
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(testIndexPath)
+	}()
+
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath

@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package consensusfsm
 
@@ -253,16 +252,16 @@ func TestStateTransitionFunctions(t *testing.T) {
 		evt := <-cfsm.evtq
 		require.Equal(eReceiveProposalEndorsement, evt.Type())
 	})
-	t.Run("onReceiveProposalEndorsement", func(t *testing.T) {
+	t.Run("onReceiveProposalEndorsementInAcceptProposalEndorsementState", func(t *testing.T) {
 		t.Run("invalid-fsm-event", func(t *testing.T) {
-			state, err := cfsm.onReceiveProposalEndorsement(nil)
+			state, err := cfsm.onReceiveProposalEndorsementInAcceptProposalEndorsementState(nil)
 			require.Error(err)
 			require.Equal(sAcceptProposalEndorsement, state)
 		})
 		t.Run("fail-to-add-proposal-vote", func(t *testing.T) {
 			mockCtx.EXPECT().NewLockEndorsement(gomock.Any()).Return(nil, errors.New("some error")).Times(1)
 			mockEndorsement := NewMockEndorsement(ctrl)
-			state, err := cfsm.onReceiveProposalEndorsement(&ConsensusEvent{
+			state, err := cfsm.onReceiveProposalEndorsementInAcceptProposalEndorsementState(&ConsensusEvent{
 				eventType: eReceiveProposalEndorsement,
 				data:      mockEndorsement,
 			})
@@ -271,13 +270,13 @@ func TestStateTransitionFunctions(t *testing.T) {
 		})
 		t.Run("is-not-locked", func(t *testing.T) {
 			mockCtx.EXPECT().NewLockEndorsement(gomock.Any()).Return(nil, nil).Times(2)
-			state, err := cfsm.onReceiveProposalEndorsement(&ConsensusEvent{
+			state, err := cfsm.onReceiveProposalEndorsementInAcceptProposalEndorsementState(&ConsensusEvent{
 				eventType: eReceiveProposalEndorsement,
 				data:      NewMockEndorsement(ctrl),
 			})
 			require.NoError(err)
 			require.Equal(sAcceptProposalEndorsement, state)
-			state, err = cfsm.onReceiveProposalEndorsement(&ConsensusEvent{
+			state, err = cfsm.onReceiveProposalEndorsementInAcceptProposalEndorsementState(&ConsensusEvent{
 				eventType: eReceivePreCommitEndorsement,
 				data:      NewMockEndorsement(ctrl),
 			})
@@ -287,7 +286,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 		t.Run("is-locked", func(t *testing.T) {
 			mockCtx.EXPECT().NewLockEndorsement(gomock.Any()).Return(NewMockEndorsement(ctrl), nil).Times(2)
 			mockCtx.EXPECT().Broadcast(gomock.Any()).Return().Times(2)
-			state, err := cfsm.onReceiveProposalEndorsement(&ConsensusEvent{
+			state, err := cfsm.onReceiveProposalEndorsementInAcceptProposalEndorsementState(&ConsensusEvent{
 				eventType: eReceiveProposalEndorsement,
 				data:      NewMockEndorsement(ctrl),
 			})
@@ -295,7 +294,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 			require.Equal(sAcceptLockEndorsement, state)
 			evt := <-cfsm.evtq
 			require.Equal(eReceiveLockEndorsement, evt.Type())
-			state, err = cfsm.onReceiveProposalEndorsement(&ConsensusEvent{
+			state, err = cfsm.onReceiveProposalEndorsementInAcceptProposalEndorsementState(&ConsensusEvent{
 				eventType: eReceivePreCommitEndorsement,
 				data:      NewMockEndorsement(ctrl),
 			})
@@ -309,6 +308,58 @@ func TestStateTransitionFunctions(t *testing.T) {
 		state, err := cfsm.onStopReceivingProposalEndorsement(nil)
 		require.NoError(err)
 		require.Equal(sAcceptLockEndorsement, state)
+	})
+	t.Run("onReceiveProposalEndorsementInAcceptLockEndorsementState", func(t *testing.T) {
+		t.Run("invalid-fsm-event", func(t *testing.T) {
+			state, err := cfsm.onReceiveProposalEndorsementInAcceptLockEndorsementState(nil)
+			require.Error(err)
+			require.Equal(sAcceptLockEndorsement, state)
+		})
+		t.Run("fail-to-add-proposal-vote", func(t *testing.T) {
+			mockCtx.EXPECT().NewLockEndorsement(gomock.Any()).Return(nil, errors.New("some error")).Times(1)
+			mockEndorsement := NewMockEndorsement(ctrl)
+			state, err := cfsm.onReceiveProposalEndorsementInAcceptLockEndorsementState(&ConsensusEvent{
+				eventType: eReceiveProposalEndorsement,
+				data:      mockEndorsement,
+			})
+			require.NoError(err)
+			require.Equal(sAcceptLockEndorsement, state)
+		})
+		t.Run("is-not-locked", func(t *testing.T) {
+			mockCtx.EXPECT().NewLockEndorsement(gomock.Any()).Return(nil, nil).Times(2)
+			state, err := cfsm.onReceiveProposalEndorsementInAcceptLockEndorsementState(&ConsensusEvent{
+				eventType: eReceiveProposalEndorsement,
+				data:      NewMockEndorsement(ctrl),
+			})
+			require.NoError(err)
+			require.Equal(sAcceptLockEndorsement, state)
+			state, err = cfsm.onReceiveProposalEndorsementInAcceptLockEndorsementState(&ConsensusEvent{
+				eventType: eReceivePreCommitEndorsement,
+				data:      NewMockEndorsement(ctrl),
+			})
+			require.NoError(err)
+			require.Equal(sAcceptLockEndorsement, state)
+		})
+		t.Run("is-locked", func(t *testing.T) {
+			mockCtx.EXPECT().NewLockEndorsement(gomock.Any()).Return(NewMockEndorsement(ctrl), nil).Times(2)
+			mockCtx.EXPECT().Broadcast(gomock.Any()).Return().Times(2)
+			state, err := cfsm.onReceiveProposalEndorsementInAcceptLockEndorsementState(&ConsensusEvent{
+				eventType: eReceiveProposalEndorsement,
+				data:      NewMockEndorsement(ctrl),
+			})
+			require.NoError(err)
+			require.Equal(sAcceptLockEndorsement, state)
+			evt := <-cfsm.evtq
+			require.Equal(eReceiveLockEndorsement, evt.Type())
+			state, err = cfsm.onReceiveProposalEndorsementInAcceptLockEndorsementState(&ConsensusEvent{
+				eventType: eReceivePreCommitEndorsement,
+				data:      NewMockEndorsement(ctrl),
+			})
+			require.NoError(err)
+			require.Equal(sAcceptLockEndorsement, state)
+			evt = <-cfsm.evtq
+			require.Equal(eReceiveLockEndorsement, evt.Type())
+		})
 	})
 	t.Run("onReceiveLockEndorsement", func(t *testing.T) {
 		t.Run("invalid-fsm-event", func(t *testing.T) {

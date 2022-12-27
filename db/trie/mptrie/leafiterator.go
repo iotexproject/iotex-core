@@ -1,8 +1,7 @@
 // Copyright (c) 2018 IoTeX
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package mptrie
 
@@ -14,7 +13,7 @@ import (
 
 // LeafIterator defines an iterator to go through all the leaves under given node
 type LeafIterator struct {
-	mpt   *merklePatriciaTrie
+	cli   client
 	stack []node
 }
 
@@ -26,7 +25,7 @@ func NewLeafIterator(tr trie.Trie) (trie.Iterator, error) {
 	}
 	stack := []node{mpt.root}
 
-	return &LeafIterator{mpt: mpt, stack: stack}, nil
+	return &LeafIterator{cli: mpt, stack: stack}, nil
 }
 
 // Next moves iterator to next node
@@ -36,7 +35,7 @@ func (li *LeafIterator) Next() ([]byte, []byte, error) {
 		node := li.stack[size-1]
 		li.stack = li.stack[:size-1]
 		if hn, ok := node.(*hashNode); ok {
-			node, err := hn.LoadNode()
+			node, err := hn.LoadNode(li.cli)
 			if err != nil {
 				return nil, nil, err
 			}

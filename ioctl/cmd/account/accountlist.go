@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
@@ -22,20 +21,16 @@ import (
 
 // Multi-language support
 var (
-	listCmdShorts = map[config.Language]string{
+	_listCmdShorts = map[config.Language]string{
 		config.English: "List existing account for ioctl",
 		config.Chinese: "列出ioctl中已存在的账户",
 	}
-	listCmdUses = map[config.Language]string{
-		config.English: "list",
-		config.Chinese: "list",
-	}
 )
 
-// accountListCmd represents the account list command
-var accountListCmd = &cobra.Command{
-	Use:   config.TranslateInLang(listCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(listCmdShorts, config.UILanguage),
+// _accountListCmd represents the account list command
+var _accountListCmd = &cobra.Command{
+	Use:   "list",
+	Short: config.TranslateInLang(_listCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

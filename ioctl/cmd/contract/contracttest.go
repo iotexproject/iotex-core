@@ -1,8 +1,7 @@
-// Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package contract
 
@@ -15,25 +14,21 @@ import (
 
 // Multi-language support
 var (
-	testCmdUses = map[config.Language]string{
-		config.English: "test",
-		config.Chinese: "test",
-	}
-	testCmdShorts = map[config.Language]string{
+	_testCmdShorts = map[config.Language]string{
 		config.English: "Test smart contract of IoTeX blockchain",
 		config.Chinese: "测试IoTeX区块链部署智能合约",
 	}
 )
 
 // contractTesCmd represents the contract test command
-var contractTestCmd = &cobra.Command{
-	Use:   config.TranslateInLang(testCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(testCmdShorts, config.UILanguage),
+var _contractTestCmd = &cobra.Command{
+	Use:   "test",
+	Short: config.TranslateInLang(_testCmdShorts, config.UILanguage),
 }
 
 func init() {
-	contractTestCmd.AddCommand(contractTestBytecodeCmd)
-	contractTestCmd.AddCommand(contractTestFunctionCmd)
-	action.RegisterWriteCommand(contractTestBytecodeCmd)
-	action.RegisterWriteCommand(contractTestFunctionCmd)
+	_contractTestCmd.AddCommand(_contractTestBytecodeCmd)
+	_contractTestCmd.AddCommand(_contractTestFunctionCmd)
+	action.RegisterWriteCommand(_contractTestBytecodeCmd)
+	action.RegisterWriteCommand(_contractTestFunctionCmd)
 }

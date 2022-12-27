@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package rolldpos
 
@@ -14,13 +13,13 @@ import (
 	"github.com/facebookgo/clock"
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/db"
@@ -29,7 +28,7 @@ import (
 )
 
 var (
-	timeSlotMtc = prometheus.NewGaugeVec(
+	_timeSlotMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_consensus_round",
 			Help: "Consensus round",
@@ -37,7 +36,7 @@ var (
 		[]string{},
 	)
 
-	blockIntervalMtc = prometheus.NewGaugeVec(
+	_blockIntervalMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_consensus_block_interval",
 			Help: "Consensus block interval",
@@ -45,7 +44,7 @@ var (
 		[]string{},
 	)
 
-	consensusDurationMtc = prometheus.NewGaugeVec(
+	_consensusDurationMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_consensus_elapse_time",
 			Help: "Consensus elapse time.",
@@ -53,7 +52,7 @@ var (
 		[]string{},
 	)
 
-	consensusHeightMtc = prometheus.NewGaugeVec(
+	_consensusHeightMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_consensus_height",
 			Help: "Consensus height",
@@ -63,39 +62,56 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(timeSlotMtc)
-	prometheus.MustRegister(blockIntervalMtc)
-	prometheus.MustRegister(consensusDurationMtc)
-	prometheus.MustRegister(consensusHeightMtc)
+	prometheus.MustRegister(_timeSlotMtc)
+	prometheus.MustRegister(_blockIntervalMtc)
+	prometheus.MustRegister(_consensusDurationMtc)
+	prometheus.MustRegister(_consensusHeightMtc)
 }
 
-// DelegatesByEpochFunc defines a function to overwrite candidates
-type DelegatesByEpochFunc func(uint64) ([]string, error)
-type rollDPoSCtx struct {
-	consensusfsm.ConsensusConfig
+type (
+	// DelegatesByEpochFunc defines a function to overwrite candidates
+	DelegatesByEpochFunc func(uint64) ([]string, error)
 
-	// TODO: explorer dependency deleted at #1085, need to add api params here
-	chain             ChainManager
-	broadcastHandler  scheme.Broadcast
-	roundCalc         *roundCalculator
-	eManagerDB        db.KVStore
-	toleratedOvertime time.Duration
+	// RDPoSCtx is the context of RollDPoS
+	RDPoSCtx interface {
+		consensusfsm.Context
+		Chain() ChainManager
+		BlockDeserializer() *block.Deserializer
+		RoundCalculator() *roundCalculator
+		Clock() clock.Clock
+		CheckBlockProposer(uint64, *blockProposal, *endorsement.Endorsement) error
+		CheckVoteEndorser(uint64, *ConsensusVote, *endorsement.Endorsement) error
+	}
 
-	encodedAddr string
-	priKey      crypto.PrivateKey
-	round       *roundCtx
-	clock       clock.Clock
-	active      bool
-	mutex       sync.RWMutex
-}
+	rollDPoSCtx struct {
+		consensusfsm.ConsensusConfig
 
-func newRollDPoSCtx(
+		// TODO: explorer dependency deleted at #1085, need to add api params here
+		chain             ChainManager
+		blockDeserializer *block.Deserializer
+		broadcastHandler  scheme.Broadcast
+		roundCalc         *roundCalculator
+		eManagerDB        db.KVStore
+		toleratedOvertime time.Duration
+
+		encodedAddr string
+		priKey      crypto.PrivateKey
+		round       *roundCtx
+		clock       clock.Clock
+		active      bool
+		mutex       sync.RWMutex
+	}
+)
+
+// NewRollDPoSCtx returns a context of RollDPoSCtx
+func NewRollDPoSCtx(
 	cfg consensusfsm.ConsensusConfig,
 	consensusDBConfig db.Config,
 	active bool,
 	toleratedOvertime time.Duration,
 	timeBasedRotation bool,
 	chain ChainManager,
+	blockDeserializer *block.Deserializer,
 	rp *rolldpos.Protocol,
 	broadcastHandler scheme.Broadcast,
 	delegatesByEpochFunc DelegatesByEpochFunc,
@@ -103,7 +119,7 @@ func newRollDPoSCtx(
 	priKey crypto.PrivateKey,
 	clock clock.Clock,
 	beringHeight uint64,
-) (*rollDPoSCtx, error) {
+) (RDPoSCtx, error) {
 	if chain == nil {
 		return nil, errors.New("chain cannot be nil")
 	}
@@ -143,6 +159,7 @@ func newRollDPoSCtx(
 		encodedAddr:       encodedAddr,
 		priKey:            priKey,
 		chain:             chain,
+		blockDeserializer: blockDeserializer,
 		broadcastHandler:  broadcastHandler,
 		clock:             clock,
 		roundCalc:         roundCalc,
@@ -157,7 +174,7 @@ func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
 		if err := ctx.eManagerDB.Start(c); err != nil {
 			return errors.Wrap(err, "Error when starting the collectionDB")
 		}
-		eManager, err = newEndorsementManager(ctx.eManagerDB)
+		eManager, err = newEndorsementManager(ctx.eManagerDB, ctx.blockDeserializer)
 	}
 	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.BlockInterval(0), ctx.clock.Now(), eManager, ctx.toleratedOvertime)
 
@@ -171,6 +188,22 @@ func (ctx *rollDPoSCtx) Stop(c context.Context) error {
 	return nil
 }
 
+func (ctx *rollDPoSCtx) Chain() ChainManager {
+	return ctx.chain
+}
+
+func (ctx *rollDPoSCtx) BlockDeserializer() *block.Deserializer {
+	return ctx.blockDeserializer
+}
+
+func (ctx *rollDPoSCtx) RoundCalculator() *roundCalculator {
+	return ctx.roundCalc
+}
+
+func (ctx *rollDPoSCtx) Clock() clock.Clock {
+	return ctx.clock
+}
+
 // CheckVoteEndorser checks if the endorsement's endorser is a valid delegate at the given height
 func (ctx *rollDPoSCtx) CheckVoteEndorser(
 	height uint64,
@@ -179,9 +212,9 @@ func (ctx *rollDPoSCtx) CheckVoteEndorser(
 ) error {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
-	endorserAddr, err := address.FromBytes(en.Endorser().Hash())
-	if err != nil {
-		return err
+	endorserAddr := en.Endorser().Address()
+	if endorserAddr == nil {
+		return errors.New("failed to get address")
 	}
 	if !ctx.roundCalc.IsDelegate(endorserAddr.String(), height) {
 		return errors.Errorf("%s is not delegate of the corresponding round", endorserAddr)
@@ -205,9 +238,9 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 			height,
 		)
 	}
-	endorserAddr, err := address.FromBytes(en.Endorser().Hash())
-	if err != nil {
-		return err
+	endorserAddr := en.Endorser().Address()
+	if endorserAddr == nil {
+		return errors.New("failed to get address")
 	}
 	if proposer := ctx.roundCalc.Proposer(height, ctx.BlockInterval(height), en.Timestamp()); proposer != endorserAddr.String() {
 		return errors.Errorf(
@@ -305,8 +338,8 @@ func (ctx *rollDPoSCtx) Prepare() error {
 		zap.String("roundStartTime", newRound.roundStartTime.String()),
 	)
 	ctx.round = newRound
-	consensusHeightMtc.WithLabelValues().Set(float64(ctx.round.height))
-	timeSlotMtc.WithLabelValues().Set(float64(ctx.round.roundNum))
+	_consensusHeightMtc.WithLabelValues().Set(float64(ctx.round.height))
+	_timeSlotMtc.WithLabelValues().Set(float64(ctx.round.roundNum))
 	return nil
 }
 
@@ -483,6 +516,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	case nil:
 		break
 	default:
+		log.L().Error("error when committing the block", zap.Error(err))
 		return false, errors.Wrap(err, "error when committing a block")
 	}
 	// Broadcast the committed block to the network
@@ -505,16 +539,16 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 		)
 	}
 
-	consensusDurationMtc.WithLabelValues().Set(float64(time.Since(ctx.round.roundStartTime)))
+	_consensusDurationMtc.WithLabelValues().Set(float64(time.Since(ctx.round.roundStartTime)))
 	if pendingBlock.Height() > 1 {
-		prevBlkHeader, err := ctx.chain.BlockHeaderByHeight(pendingBlock.Height() - 1)
+		prevBlkProposeTime, err := ctx.chain.BlockProposeTime(pendingBlock.Height() - 1)
 		if err != nil {
-			log.L().Error("Error when getting the previous block header.",
+			ctx.logger().Error("Error when getting the previous block header.",
 				zap.Error(err),
 				zap.Uint64("height", pendingBlock.Height()-1),
 			)
 		}
-		blockIntervalMtc.WithLabelValues().Set(float64(pendingBlock.Timestamp().Sub(prevBlkHeader.Timestamp())))
+		_blockIntervalMtc.WithLabelValues().Set(float64(pendingBlock.Timestamp().Sub(prevBlkProposeTime)))
 	}
 	return true, nil
 }

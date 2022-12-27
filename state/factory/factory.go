@@ -1,8 +1,7 @@
-// Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package factory
 
@@ -10,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -25,17 +23,18 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -59,17 +58,23 @@ var (
 	// ErrNoArchiveData is the error that the node have no archive data
 	ErrNoArchiveData = errors.New("no archive data")
 
-	dbBatchSizelMtc = prometheus.NewGaugeVec(
+	_dbBatchSizelMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_db_batch_size",
 			Help: "DB batch size",
 		},
 		[]string{},
 	)
+
+	//DefaultConfig is the default config for state factory
+	DefaultConfig = Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.Default,
+	}
 )
 
 func init() {
-	prometheus.MustRegister(dbBatchSizelMtc)
+	prometheus.MustRegister(_dbBatchSizelMtc)
 }
 
 type (
@@ -82,8 +87,9 @@ type (
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error)
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
+		ReadContractStorage(context.Context, address.Address, []byte) ([]byte, error)
 		PutBlock(context.Context, *block.Block) error
-		DeleteTipBlock(*block.Block) error
+		DeleteTipBlock(context.Context, *block.Block) error
 		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
 		StatesAtHeight(uint64, ...protocol.StateOption) (state.Iterator, error)
 	}
@@ -92,57 +98,40 @@ type (
 	factory struct {
 		lifecycle                lifecycle.Lifecycle
 		mutex                    sync.RWMutex
-		cfg                      config.Config
+		cfg                      Config
 		registry                 *protocol.Registry
 		currentChainHeight       uint64
 		saveHistory              bool
 		twoLayerTrie             trie.TwoLayerTrie // global state trie, this is a read only trie
 		dao                      db.KVStore        // the underlying DB for account/contract storage
 		timerFactory             *prometheustimer.TimerFactory
-		workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
+		workingsets              cache.LRUCache // lru cache for workingsets
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
+		ps                       *patchStore
+	}
+
+	// Config contains the config for factory
+	Config struct {
+		Chain   blockchain.Config
+		Genesis genesis.Genesis
 	}
 )
 
+// GenerateConfig generates the factory config
+func GenerateConfig(chain blockchain.Config, g genesis.Genesis) Config {
+	return Config{
+		Chain:   chain,
+		Genesis: g,
+	}
+}
+
 // Option sets Factory construction parameter
-type Option func(*factory, config.Config) error
-
-// PrecreatedTrieDBOption uses pre-created trie DB for state factory
-func PrecreatedTrieDBOption(kv db.KVStore) Option {
-	return func(sf *factory, cfg config.Config) (err error) {
-		if kv == nil {
-			return errors.New("Invalid empty trie db")
-		}
-		sf.dao = kv
-		return nil
-	}
-}
-
-// DefaultTrieOption creates trie from config for state factory
-func DefaultTrieOption() Option {
-	return func(sf *factory, cfg config.Config) (err error) {
-		dbPath := cfg.Chain.TrieDBPath
-		if len(dbPath) == 0 {
-			return errors.New("Invalid empty trie db path")
-		}
-		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		sf.dao = db.NewBoltDB(cfg.DB)
-		return nil
-	}
-}
-
-// InMemTrieOption creates in memory trie for state factory
-func InMemTrieOption() Option {
-	return func(sf *factory, cfg config.Config) (err error) {
-		sf.dao = db.NewMemKVStore()
-		return nil
-	}
-}
+type Option func(*factory, *Config) error
 
 // RegistryOption sets the registry in state db
 func RegistryOption(reg *protocol.Registry) Option {
-	return func(sf *factory, cfg config.Config) error {
+	return func(sf *factory, cfg *Config) error {
 		sf.registry = reg
 		return nil
 	}
@@ -150,33 +139,22 @@ func RegistryOption(reg *protocol.Registry) Option {
 
 // SkipBlockValidationOption skips block validation on PutBlock
 func SkipBlockValidationOption() Option {
-	return func(sf *factory, cfg config.Config) error {
+	return func(sf *factory, cfg *Config) error {
 		sf.skipBlockValidationOnPut = true
 		return nil
 	}
 }
 
-func newTwoLayerTrie(ns string, dao db.KVStore, rootKey string, create bool) (trie.TwoLayerTrie, error) {
-	dbForTrie, err := trie.NewKVStore(ns, dao)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create db for trie")
+// DefaultTriePatchOption loads patchs
+func DefaultTriePatchOption() Option {
+	return func(sf *factory, cfg *Config) (err error) {
+		sf.ps, err = newPatchStore(cfg.Chain.TrieDBPatchFile)
+		return
 	}
-	_, err = dbForTrie.Get([]byte(rootKey))
-	switch errors.Cause(err) {
-	case trie.ErrNotExist:
-		if !create {
-			return nil, err
-		}
-	case nil:
-		break
-	default:
-		return nil, err
-	}
-	return mptrie.NewTwoLayerTrie(dbForTrie, rootKey), nil
 }
 
 // NewFactory creates a new state factory
-func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
+func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
 	sf := &factory{
 		cfg:                cfg,
 		currentChainHeight: 0,
@@ -184,10 +162,11 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 		saveHistory:        cfg.Chain.EnableArchiveMode,
 		protocolView:       protocol.View{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
+		dao:                dao,
 	}
 
 	for _, opt := range opts {
-		if err := opt(sf, cfg); err != nil {
+		if err := opt(sf, &cfg); err != nil {
 			log.S().Errorf("Failed to execute state factory creation option %p: %v", opt, err)
 			return nil, err
 		}
@@ -240,9 +219,10 @@ func (sf *factory) Start(ctx context.Context) error {
 			protocol.BlockCtx{
 				BlockHeight:    0,
 				BlockTimeStamp: time.Unix(sf.cfg.Genesis.Timestamp, 0),
-				Producer:       sf.cfg.ProducerAddress(),
+				Producer:       sf.cfg.Chain.ProducerAddress(),
 				GasLimit:       sf.cfg.Genesis.BlockGasLimit,
 			})
+		ctx = protocol.WithFeatureCtx(ctx)
 		// init the state factory
 		if err := sf.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
@@ -275,128 +255,48 @@ func (sf *factory) Height() (uint64, error) {
 }
 
 func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
-	flusher, err := db.NewKVStoreFlusher(sf.dao, batch.NewCachedBatch(), sf.flusherOptions(ctx, height)...)
+	span := tracer.SpanFromContext(ctx)
+	span.AddEvent("factory.newWorkingSet")
+	defer span.End()
+
+	g := genesis.MustExtractGenesisContext(ctx)
+	flusher, err := db.NewKVStoreFlusher(
+		sf.dao,
+		batch.NewCachedBatch(),
+		sf.flusherOptions(!g.IsEaster(height))...,
+	)
 	if err != nil {
 		return nil, err
 	}
-	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, flusher.KVStoreWithBuffer(), ArchiveTrieRootKey, true)
+	store, err := newFactoryWorkingSetStore(sf.protocolView, flusher)
 	if err != nil {
 		return nil, err
 	}
-	if err := tlt.Start(ctx); err != nil {
+	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
-	finalized := false
-	trieRoots := make(map[int][]byte)
+	for _, p := range sf.ps.Get(height) {
+		if p.Type == _Delete {
+			if err := store.Delete(p.Namespace, p.Key); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := store.Put(p.Namespace, p.Key, p.Value); err != nil {
+				return nil, err
+			}
+		}
+	}
 
-	return &workingSet{
-		height:    height,
-		finalized: false,
-		dock:      protocol.NewDock(),
-		getStateFunc: func(ns string, key []byte, s interface{}) error {
-			return readState(tlt, ns, key, s)
-		},
-		putStateFunc: func(ns string, key []byte, s interface{}) error {
-			ss, err := state.Serialize(s)
-			if err != nil {
-				return errors.Wrapf(err, "failed to convert account %v to bytes", s)
-			}
-			flusher.KVStoreWithBuffer().MustPut(ns, key, ss)
-			nsHash := hash.Hash160b([]byte(ns))
-
-			return tlt.Upsert(nsHash[:], toLegacyKey(key), ss)
-		},
-		delStateFunc: func(ns string, key []byte) error {
-			flusher.KVStoreWithBuffer().MustDelete(ns, key)
-			nsHash := hash.Hash160b([]byte(ns))
-
-			err := tlt.Delete(nsHash[:], toLegacyKey(key))
-			if errors.Cause(err) == trie.ErrNotExist {
-				return errors.Wrapf(state.ErrStateNotExist, "key %x doesn't exist in namespace %x", key, nsHash)
-			}
-			return err
-		},
-		statesFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-			return sf.States(opts...)
-		},
-		digestFunc: func() hash.Hash256 {
-			return hash.Hash256b(flusher.SerializeQueue())
-		},
-		finalizeFunc: func(h uint64) error {
-			if finalized {
-				return errors.New("Cannot finalize a working set twice")
-			}
-			rootHash, err := tlt.RootHash()
-			if err != nil {
-				return err
-			}
-			finalized = true
-			flusher.KVStoreWithBuffer().MustPut(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(h))
-			flusher.KVStoreWithBuffer().MustPut(ArchiveTrieNamespace, []byte(ArchiveTrieRootKey), rootHash)
-			// Persist the historical accountTrie's root hash
-			flusher.KVStoreWithBuffer().MustPut(
-				ArchiveTrieNamespace,
-				[]byte(fmt.Sprintf("%s-%d", ArchiveTrieRootKey, h)),
-				rootHash,
-			)
-			return nil
-		},
-		commitFunc: func(h uint64) error {
-			dbBatchSizelMtc.WithLabelValues().Set(float64(flusher.KVStoreWithBuffer().Size()))
-			if err := flusher.Flush(); err != nil {
-				return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
-			}
-			rh, err := tlt.RootHash()
-			if err != nil {
-				return err
-			}
-			if err := sf.twoLayerTrie.SetRootHash(rh); err != nil {
-				return err
-			}
-			sf.currentChainHeight = h
-			return nil
-		},
-		readviewFunc: func(name string) (interface{}, error) {
-			return sf.ReadView(name)
-		},
-		writeviewFunc: func(name string, v interface{}) error {
-			return sf.protocolView.Write(name, v)
-		},
-		snapshotFunc: func() int {
-			rh, err := tlt.RootHash()
-			if err != nil {
-				log.L().Panic("failed to do snapshot", zap.Error(err))
-			}
-			s := flusher.KVStoreWithBuffer().Snapshot()
-			trieRoots[s] = rh
-			return s
-		},
-		revertFunc: func(snapshot int) error {
-			if err := flusher.KVStoreWithBuffer().Revert(snapshot); err != nil {
-				return err
-			}
-			root, ok := trieRoots[snapshot]
-			if !ok {
-				// this should not happen, b/c we save the trie root on a successful return of Snapshot(), but check anyway
-				return errors.Wrapf(trie.ErrInvalidTrie, "failed to get trie root for snapshot = %d", snapshot)
-			}
-			return tlt.SetRootHash(root[:])
-		},
-		dbFunc: func() db.KVStore {
-			return flusher.KVStoreWithBuffer()
-		},
-	}, nil
+	return newWorkingSet(height, store), nil
 }
 
-func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVStoreFlusherOption {
-	g := genesis.MustExtractGenesisContext(ctx)
-	preEaster := !g.IsEaster(height)
+func (sf *factory) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
 			if wi.Namespace() == ArchiveTrieNamespace {
 				return true
 			}
-			if wi.Namespace() != evm.CodeKVNameSpace {
+			if wi.Namespace() != evm.CodeKVNameSpace && wi.Namespace() != staking.CandsMapNS {
 				return false
 			}
 			return preEaster
@@ -410,19 +310,10 @@ func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVSto
 	}
 	if sf.saveHistory {
 		opts = append(opts, db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
-			if wi.WriteType() != batch.Delete {
-				return wi
+			if wi.WriteType() == batch.Delete && wi.Namespace() == ArchiveTrieNamespace {
+				return nil
 			}
-			oldKey := wi.Key()
-			newKey := byteutil.Uint64ToBytesBigEndian(height)
-			return batch.NewWriteInfo(
-				batch.Put,
-				strings.Join([]string{ArchiveNamespacePrefix, wi.Namespace()}, "-"),
-				append(newKey, oldKey...),
-				wi.Value(),
-				wi.ErrorFormat(),
-				wi.ErrorArgs(),
-			)
+			return wi
 		}))
 	}
 
@@ -502,6 +393,9 @@ func (sf *factory) SimulateExecution(
 	ex *action.Execution,
 	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
+	ctx, span := tracer.NewSpan(ctx, "factory.SimulateExecution")
+	defer span.End()
+
 	sf.mutex.Lock()
 	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
 	sf.mutex.Unlock()
@@ -512,15 +406,26 @@ func (sf *factory) SimulateExecution(
 	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
+// ReadContractStorage reads contract's storage
+func (sf *factory) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
+	sf.mutex.Lock()
+	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+	sf.mutex.Unlock()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate working set from state factory")
+	}
+	return evm.ReadContractStorage(ctx, ws, contract, key)
+}
+
 // PutBlock persists all changes in RunActions() into the DB
 func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	sf.mutex.Lock()
 	timer := sf.timerFactory.NewTimer("Commit")
 	sf.mutex.Unlock()
 	defer timer.End()
-	producer, err := address.FromBytes(blk.PublicKey().Hash())
-	if err != nil {
-		return err
+	producer := blk.PublicKey().Address()
+	if producer == nil {
+		return errors.New("failed to get address")
 	}
 	g := genesis.MustExtractGenesisContext(ctx)
 	ctx = protocol.WithBlockCtx(
@@ -532,6 +437,7 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 			Producer:       producer,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
 	if err != nil {
@@ -565,10 +471,22 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
-	return ws.Commit(ctx)
+	if err := ws.Commit(ctx); err != nil {
+		return err
+	}
+	rh, err := sf.dao.Get(ArchiveTrieNamespace, []byte(ArchiveTrieRootKey))
+	if err != nil {
+		return err
+	}
+	if err := sf.twoLayerTrie.SetRootHash(rh); err != nil {
+		return err
+	}
+	sf.currentChainHeight = h
+
+	return nil
 }
 
-func (sf *factory) DeleteTipBlock(_ *block.Block) error {
+func (sf *factory) DeleteTipBlock(_ context.Context, _ *block.Block) error {
 	return errors.Wrap(ErrNotSupported, "cannot delete tip block from factory")
 }
 
@@ -579,6 +497,9 @@ func (sf *factory) StateAtHeight(height uint64, s interface{}, opts ...protocol.
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return err
+	}
+	if cfg.Keys != nil {
+		return errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
 	if height > sf.currentChainHeight {
 		return errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
@@ -604,6 +525,9 @@ func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, e
 	if err != nil {
 		return 0, err
 	}
+	if cfg.Keys != nil {
+		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
+	}
 	value, err := sf.dao.Get(cfg.Namespace, cfg.Key)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
@@ -626,17 +550,9 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 	if cfg.Key != nil {
 		return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	if cfg.Cond == nil {
-		cfg.Cond = func(k, v []byte) bool {
-			return true
-		}
-	}
-	_, values, err := sf.dao.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
+	values, err := readStates(sf.dao, cfg.Namespace, cfg.Keys)
 	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
-			return sf.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", cfg.Namespace)
-		}
-		return sf.currentChainHeight, nil, err
+		return 0, nil, err
 	}
 
 	return sf.currentChainHeight, state.NewIterator(values), nil
@@ -660,22 +576,26 @@ func namespaceKey(ns string) []byte {
 	return h[:]
 }
 
-func readState(tlt trie.TwoLayerTrie, ns string, key []byte, s interface{}) error {
+func readState(tlt trie.TwoLayerTrie, ns string, key []byte) ([]byte, error) {
 	ltKey := toLegacyKey(key)
 	data, err := tlt.Get(namespaceKey(ns), ltKey)
 	if err != nil {
 		if errors.Cause(err) == trie.ErrNotExist {
-			return errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
+			return nil, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
 		}
-		return err
+		return nil, err
 	}
 
-	return state.Deserialize(s, data)
+	return data, nil
 }
 
 func toLegacyKey(input []byte) []byte {
 	key := hash.Hash160b(input)
 	return key[:]
+}
+
+func legacyKeyLen() int {
+	return 20
 }
 
 func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interface{}) error {
@@ -691,7 +611,11 @@ func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interfa
 	}
 	defer tlt.Stop(context.Background())
 
-	return readState(tlt, ns, key, s)
+	value, err := readState(tlt, ns, key)
+	if err != nil {
+		return err
+	}
+	return state.Deserialize(s, value)
 }
 
 func (sf *factory) createGenesisStates(ctx context.Context) error {

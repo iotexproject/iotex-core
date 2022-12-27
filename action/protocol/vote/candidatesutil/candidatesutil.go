@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package candidatesutil
 
@@ -42,11 +41,11 @@ const NxtProbationKey = "NextKickoutKey."
 const UnproductiveDelegateKey = "UnproductiveDelegateKey."
 
 // CandidatesFromDB returns array of Candidates in candidate pool of a given height or current epoch
-func CandidatesFromDB(sr protocol.StateReader, height uint64, beforeEaster bool, epochStartPoint bool) ([]*state.Candidate, uint64, error) {
+func CandidatesFromDB(sr protocol.StateReader, height uint64, loadCandidatesLegacy bool, epochStartPoint bool) ([]*state.Candidate, uint64, error) {
 	var candidates state.CandidateList
 	var stateHeight uint64
 	var err error
-	if beforeEaster {
+	if loadCandidatesLegacy {
 		// Load Candidates on the given height from underlying db [deprecated]
 		candidatesKey := ConstructLegacyKey(height)
 		stateHeight, err = sr.State(&candidates, protocol.LegacyKeyOption(candidatesKey))
@@ -65,7 +64,7 @@ func CandidatesFromDB(sr protocol.StateReader, height uint64, beforeEaster bool,
 	}
 	log.L().Debug(
 		"CandidatesFromDB",
-		zap.Bool("beforeEaster", beforeEaster),
+		zap.Bool("loadCandidatesLegacy", loadCandidatesLegacy),
 		zap.Uint64("height", height),
 		zap.Uint64("stateHeight", stateHeight),
 		zap.Any("candidates", candidates),

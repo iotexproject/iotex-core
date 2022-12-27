@@ -1,15 +1,14 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package compress
 
 import (
 	"bytes"
 	"compress/gzip"
-	"io/ioutil"
+	"io"
 
 	"github.com/golang/snappy"
 	"github.com/pkg/errors"
@@ -61,12 +60,13 @@ func CompGzip(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = w.Write(data)
-	if err != nil {
-		w.Close()
+	if _, err = w.Write(data); err != nil {
+		err = w.Close()
 		return nil, err
 	}
-	w.Close()
+	if err = w.Close(); err != nil {
+		return nil, err
+	}
 	output := bb.Bytes()
 	return output, nil
 }
@@ -77,8 +77,10 @@ func DecompGzip(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	r.Close()
-	return ioutil.ReadAll(r)
+	if err = r.Close(); err != nil {
+		return nil, err
+	}
+	return io.ReadAll(r)
 }
 
 // CompSnappy uses Snappy to compress the input bytes

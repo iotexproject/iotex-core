@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package blockchain
 
@@ -33,7 +32,7 @@ func NewErc721Token(exp string) Erc721Token {
 }
 
 func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
-	TokenID, ok := big.NewInt(0).SetString(tokenid, 10)
+	TokenID, ok := new(big.Int).SetString(tokenid, 10)
 	if !ok {
 		return "", errors.Errorf("invalid tokenid = %s", tokenid)
 	}
@@ -53,9 +52,8 @@ func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
 	return h, nil
 }
 
-//
 func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, tokenid string) (string, error) {
-	TokenID, ok := big.NewInt(0).SetString(tokenid, 10)
+	TokenID, ok := new(big.Int).SetString(tokenid, 10)
 	if !ok {
 		return "", errors.Errorf("invalid tokenid = %s", tokenid)
 	}

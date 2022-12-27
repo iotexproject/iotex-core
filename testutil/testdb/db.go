@@ -114,9 +114,16 @@ func NewMockKVStore(ctrl *gomock.Controller) db.KVStore {
 }
 
 // NewMockStateManager returns a in memory StateManager.
-func NewMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
+func NewMockStateManager(ctrl *gomock.Controller) *mock_chainmanager.MockStateManager {
+	sm := NewMockStateManagerWithoutHeightFunc(ctrl)
+	sm.EXPECT().Height().Return(uint64(0), nil).AnyTimes()
+
+	return sm
+}
+
+// NewMockStateManagerWithoutHeightFunc returns a in memory StateManager without default height function.
+func NewMockStateManagerWithoutHeightFunc(ctrl *gomock.Controller) *mock_chainmanager.MockStateManager {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	var h uint64
 	kv := NewMockKVStore(ctrl)
 	dk := protocol.NewDock()
 	view := protocol.View{}
@@ -169,23 +176,31 @@ func NewMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 			if err != nil {
 				return 0, nil, err
 			}
-			if cfg.Cond == nil {
-				cfg.Cond = func(k, v []byte) bool {
+			var fv [][]byte
+			if cfg.Keys == nil {
+				_, fv, err = kv.Filter(cfg.Namespace, func(k, v []byte) bool {
 					return true
+				}, nil, nil)
+				if err != nil {
+					return 0, nil, state.ErrStateNotExist
 				}
-			}
-			_, fv, err := kv.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
-			if err != nil {
-				return 0, nil, state.ErrStateNotExist
+			} else {
+				for _, key := range cfg.Keys {
+					value, err := kv.Get(cfg.Namespace, key)
+					switch errors.Cause(err) {
+					case db.ErrNotExist, db.ErrBucketNotExist:
+						fv = append(fv, nil)
+					case nil:
+						fv = append(fv, value)
+					default:
+						return 0, nil, err
+					}
+				}
 			}
 			return 0, state.NewIterator(fv), nil
 		},
 	).AnyTimes()
-	sm.EXPECT().Height().DoAndReturn(
-		func() (uint64, error) {
-			return h, nil
-		},
-	).AnyTimes()
+	// sm.EXPECT().Height().Return(uint64(0), nil).AnyTimes()
 	sm.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ns, key string, v interface{}) error {
 			return dk.Load(ns, key, v)

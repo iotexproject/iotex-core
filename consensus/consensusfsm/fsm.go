@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package consensusfsm
 
@@ -23,7 +22,7 @@ import (
  * without signature, which could be replaced with real signature
  */
 var (
-	consensusEvtsMtc = prometheus.NewCounterVec(
+	_consensusEvtsMtc = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "iotex_consensus_events",
 			Help: "IoTeX consensus events",
@@ -33,7 +32,7 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(consensusEvtsMtc)
+	prometheus.MustRegister(_consensusEvtsMtc)
 }
 
 const (
@@ -135,7 +134,7 @@ func NewConsensusFSM(ctx Context, clock clock.Clock) (*ConsensusFSM, error) {
 		AddTransition(
 			sAcceptProposalEndorsement,
 			eReceiveProposalEndorsement,
-			cm.onReceiveProposalEndorsement,
+			cm.onReceiveProposalEndorsementInAcceptProposalEndorsementState,
 			[]fsm.State{
 				sAcceptProposalEndorsement, // not enough endorsements
 				sAcceptLockEndorsement,     // enough endorsements
@@ -143,7 +142,7 @@ func NewConsensusFSM(ctx Context, clock clock.Clock) (*ConsensusFSM, error) {
 		AddTransition(
 			sAcceptProposalEndorsement,
 			eReceivePreCommitEndorsement,
-			cm.onReceiveProposalEndorsement,
+			cm.onReceiveProposalEndorsementInAcceptProposalEndorsementState,
 			[]fsm.State{
 				sAcceptProposalEndorsement, // not enough endorsements
 				sAcceptLockEndorsement,     // enough endorsements
@@ -155,6 +154,14 @@ func NewConsensusFSM(ctx Context, clock clock.Clock) (*ConsensusFSM, error) {
 			[]fsm.State{
 				sAcceptLockEndorsement, // timeout, jump to next step
 			}).
+		AddTransition(
+			sAcceptLockEndorsement,
+			eReceiveProposalEndorsement,
+			cm.onReceiveProposalEndorsementInAcceptLockEndorsementState,
+			[]fsm.State{
+				sAcceptLockEndorsement,
+			},
+		).
 		AddTransition(
 			sAcceptLockEndorsement,
 			eReceiveLockEndorsement,
@@ -298,7 +305,7 @@ func (m *ConsensusFSM) produce(evt *ConsensusEvent, delay time.Duration) {
 	if evt == nil {
 		return
 	}
-	consensusEvtsMtc.WithLabelValues(string(evt.Type()), "produced").Inc()
+	_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "produced").Inc()
 	if delay > 0 {
 		m.wg.Add(1)
 		go func() {
@@ -317,14 +324,14 @@ func (m *ConsensusFSM) produce(evt *ConsensusEvent, delay time.Duration) {
 func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 	if m.ctx.IsStaleEvent(evt) {
 		m.ctx.Logger().Debug("stale event", zap.Any("event", evt.Type()))
-		consensusEvtsMtc.WithLabelValues(string(evt.Type()), "stale").Inc()
+		_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "stale").Inc()
 		return nil
 	}
 	if m.ctx.IsFutureEvent(evt) {
 		m.ctx.Logger().Debug("future event", zap.Any("event", evt.Type()))
 		// TODO: find a more appropriate delay
 		m.produce(evt, m.ctx.UnmatchedEventInterval(evt.Height()))
-		consensusEvtsMtc.WithLabelValues(string(evt.Type()), "backoff").Inc()
+		_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "backoff").Inc()
 		return nil
 	}
 	src := m.fsm.CurrentState()
@@ -337,10 +344,10 @@ func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 			zap.String("dst", string(m.fsm.CurrentState())),
 			zap.String("evt", string(evt.Type())),
 		)
-		consensusEvtsMtc.WithLabelValues(string(evt.Type()), "consumed").Inc()
+		_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "consumed").Inc()
 	case fsm.ErrTransitionNotFound:
 		if m.ctx.IsStaleUnmatchedEvent(evt) {
-			consensusEvtsMtc.WithLabelValues(string(evt.Type()), "stale").Inc()
+			_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "stale").Inc()
 			return nil
 		}
 		m.produce(evt, m.ctx.UnmatchedEventInterval(evt.Height()))
@@ -350,7 +357,7 @@ func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 			zap.String("evt", string(evt.Type())),
 			zap.Error(err),
 		)
-		consensusEvtsMtc.WithLabelValues(string(evt.Type()), "backoff").Inc()
+		_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "backoff").Inc()
 	case ErrOldCalibrateEvt:
 		m.ctx.Logger().Debug(
 			"failed to handle eCalibrate, event height is less than current height",
@@ -472,18 +479,26 @@ func (m *ConsensusFSM) onFailedToReceiveBlock(evt fsm.Event) (fsm.State, error) 
 	return sAcceptProposalEndorsement, nil
 }
 
-func (m *ConsensusFSM) onReceiveProposalEndorsement(evt fsm.Event) (fsm.State, error) {
+func (m *ConsensusFSM) onReceiveProposalEndorsementInAcceptLockEndorsementState(evt fsm.Event) (fsm.State, error) {
+	return m.onReceiveProposalEndorsement(evt, sAcceptLockEndorsement)
+}
+
+func (m *ConsensusFSM) onReceiveProposalEndorsementInAcceptProposalEndorsementState(evt fsm.Event) (fsm.State, error) {
+	return m.onReceiveProposalEndorsement(evt, sAcceptProposalEndorsement)
+}
+
+func (m *ConsensusFSM) onReceiveProposalEndorsement(evt fsm.Event, currentState fsm.State) (fsm.State, error) {
 	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
-		return sAcceptProposalEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
+		return currentState, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
 	}
 	lockEndorsement, err := m.ctx.NewLockEndorsement(cEvt.Data())
 	if err != nil {
 		m.ctx.Logger().Debug("Failed to add proposal endorsement", zap.Error(err))
-		return sAcceptProposalEndorsement, nil
+		return currentState, nil
 	}
 	if lockEndorsement == nil {
-		return sAcceptProposalEndorsement, nil
+		return currentState, nil
 	}
 	m.ProduceReceiveLockEndorsementEvent(lockEndorsement)
 	m.ctx.Broadcast(lockEndorsement)

@@ -1,20 +1,19 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -33,6 +32,8 @@ var (
 	ErrConfigNotMatch = fmt.Errorf("no matching config")
 	// ErrEmptyEndpoint indicates error for empty endpoint
 	ErrEmptyEndpoint = fmt.Errorf("no endpoint has been set")
+	// ErrConfigDefaultAccountNotSet indicates an error for the default account not being set
+	ErrConfigDefaultAccountNotSet = fmt.Errorf("default account not set")
 )
 
 // Language type used to enumerate supported language of ioctl
@@ -57,14 +58,15 @@ type Context struct {
 
 // Config defines the config schema
 type Config struct {
-	Wallet         string            `json:"wallet" yaml:"wallet"`
-	Endpoint       string            `json:"endpoint" yaml:"endpoint"`
-	SecureConnect  bool              `json:"secureConnect" yaml:"secureConnect"`
-	Aliases        map[string]string `json:"aliases" yaml:"aliases"`
-	DefaultAccount Context           `json:"defaultAccount" yaml:"defaultAccount"`
-	Explorer       string            `json:"explorer" yaml:"explorer"`
-	Language       string            `json:"language" yaml:"language"`
-	Nsv2height     uint64            `json:"nsv2height" yaml:"nsv2height"`
+	Wallet           string            `json:"wallet" yaml:"wallet"`
+	Endpoint         string            `json:"endpoint" yaml:"endpoint"`
+	SecureConnect    bool              `json:"secureConnect" yaml:"secureConnect"`
+	Aliases          map[string]string `json:"aliases" yaml:"aliases"`
+	DefaultAccount   Context           `json:"defaultAccount" yaml:"defaultAccount"`
+	Explorer         string            `json:"explorer" yaml:"explorer"`
+	Language         string            `json:"language" yaml:"language"`
+	Nsv2height       uint64            `json:"nsv2height" yaml:"nsv2height"`
+	AnalyserEndpoint string            `json:"analyserEndpoint" yaml:"analyserEndpoint"`
 }
 
 var (
@@ -102,11 +104,15 @@ func init() {
 		completeness = false
 	}
 	if ReadConfig.Language == "" {
-		ReadConfig.Language = supportedLanguage[0]
+		ReadConfig.Language = _supportedLanguage[0]
 		completeness = false
 	}
 	if ReadConfig.Nsv2height == 0 {
-		ReadConfig.Nsv2height = config.Default.Genesis.FairbankBlockHeight
+		ReadConfig.Nsv2height = genesis.Default.FairbankBlockHeight
+	}
+	if ReadConfig.AnalyserEndpoint == "" {
+		ReadConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
+		completeness = false
 	}
 	if !completeness {
 		err := writeConfig()
@@ -123,9 +129,9 @@ func init() {
 		fmt.Println(message.Warn())
 	}
 	// Init subcommands
-	ConfigCmd.AddCommand(configGetCmd)
-	ConfigCmd.AddCommand(configSetCmd)
-	ConfigCmd.AddCommand(configResetCmd)
+	ConfigCmd.AddCommand(_configGetCmd)
+	ConfigCmd.AddCommand(_configSetCmd)
+	ConfigCmd.AddCommand(_configResetCmd)
 }
 
 // LoadConfig loads config file in yaml format
@@ -133,7 +139,7 @@ func LoadConfig() (Config, error) {
 	ReadConfig := Config{
 		Aliases: make(map[string]string),
 	}
-	in, err := ioutil.ReadFile(DefaultConfigFile)
+	in, err := os.ReadFile(filepath.Clean(DefaultConfigFile))
 	if err == nil {
 		if err := yaml.Unmarshal(in, &ReadConfig); err != nil {
 			return ReadConfig, err
@@ -150,4 +156,14 @@ func TranslateInLang(translations map[Language]string, lang Language) string {
 
 	// Assumption: English should always be provided
 	return translations[English]
+}
+
+// Lang returns the selected language, default is English
+func (c *Config) Lang() Language {
+	switch c.Language {
+	case "中文":
+		return Chinese
+	default:
+		return English
+	}
 }

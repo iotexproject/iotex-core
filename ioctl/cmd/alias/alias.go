@@ -1,8 +1,7 @@
-// Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// Copyright (c) 2022 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package alias
 
@@ -16,17 +15,14 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 // Multi-language support
 var (
-	aliasCmdShorts = map[config.Language]string{
+	_aliasCmdShorts = map[config.Language]string{
 		config.English: "Manage aliases of IoTeX addresses",
 		config.Chinese: "管理IoTeX的地址别名",
-	}
-	aliasCmdUses = map[config.Language]string{
-		config.English: "alias",
-		config.Chinese: "alias",
 	}
 )
 
@@ -37,8 +33,8 @@ var (
 
 // Flags
 var (
-	format      string
-	forceImport bool
+	_format      string
+	_forceImport bool
 )
 
 type alias struct {
@@ -52,19 +48,19 @@ type aliases struct {
 
 // AliasCmd represents the alias command
 var AliasCmd = &cobra.Command{
-	Use:   config.TranslateInLang(aliasCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(aliasCmdShorts, config.UILanguage),
+	Use:   "alias",
+	Short: config.TranslateInLang(_aliasCmdShorts, config.UILanguage),
 }
 
 func init() {
-	AliasCmd.AddCommand(aliasSetCmd)
-	AliasCmd.AddCommand(aliasListCmd)
-	AliasCmd.AddCommand(aliasRemoveCmd)
-	AliasCmd.AddCommand(aliasImportCmd)
-	AliasCmd.AddCommand(aliasExportCmd)
+	AliasCmd.AddCommand(_aliasSetCmd)
+	AliasCmd.AddCommand(_aliasListCmd)
+	AliasCmd.AddCommand(_aliasRemoveCmd)
+	AliasCmd.AddCommand(_aliasImportCmd)
+	AliasCmd.AddCommand(_aliasExportCmd)
 }
 
-// IOAddress returns the address in IoTeX address format
+// IOAddress returns the address in IoTeX address _format
 func IOAddress(in string) (address.Address, error) {
 	addr, err := util.Address(in)
 	if err != nil {
@@ -73,13 +69,13 @@ func IOAddress(in string) (address.Address, error) {
 	return address.FromString(addr)
 }
 
-// EtherAddress returns the address in ether format
+// EtherAddress returns the address in ether _format
 func EtherAddress(in string) (common.Address, error) {
 	addr, err := util.Address(in)
 	if err != nil {
 		return common.Address{}, output.NewError(output.AddressError, "", err)
 	}
-	return util.IoAddrToEvmAddr(addr)
+	return addrutil.IoAddrToEvmAddr(addr)
 }
 
 // Alias returns the alias corresponding to address
