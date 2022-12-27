@@ -77,7 +77,7 @@ func NewContractCompileCmd(client ioctl.Client) *cobra.Command {
 
 			contracts, err := Compile(files...)
 			if err != nil {
-				return errors.Wrap(err, "failed to compile")
+				return errors.WithMessage(err, "failed to compile")
 			}
 
 			for name := range contracts {
