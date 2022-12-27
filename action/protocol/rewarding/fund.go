@@ -70,8 +70,10 @@ func (p *Protocol) Deposit(
 	if fCtx.CreateLegacyNonceAccount {
 		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
-	if !fCtx.EnableWeb3Rewarding {
-		return nil, errUnactiveWeb3Rewarding
+	if actionCtx.Encoding == uint32(iotextypes.Encoding_ETHEREUM_RLP) {
+		if !fCtx.EnableWeb3Rewarding {
+			return nil, errUnactiveWeb3Rewarding
+		}
 	}
 	// Subtract balance from caller
 	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)

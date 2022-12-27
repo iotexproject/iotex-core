@@ -287,8 +287,10 @@ func (p *Protocol) Claim(
 	amount *big.Int,
 ) (*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
-	if !protocol.MustGetFeatureCtx(ctx).EnableWeb3Rewarding {
-		return nil, errUnactiveWeb3Rewarding
+	if actionCtx.Encoding == uint32(iotextypes.Encoding_ETHEREUM_RLP) {
+		if !protocol.MustGetFeatureCtx(ctx).EnableWeb3Rewarding {
+			return nil, errUnactiveWeb3Rewarding
+		}
 	}
 	if err := p.assertAmount(amount); err != nil {
 		return nil, err
