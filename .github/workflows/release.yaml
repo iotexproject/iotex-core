@@ -45,7 +45,8 @@ jobs:
           asset_name: ${{ matrix.asset_name }}
           tag: ${{ github.ref }}
 
-      - name: Configure GPG
+      - name: Configure GPG Linux/MacOS
+        if: startsWith(matrix.os, 'windows-latest') != true
         env:
           GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
@@ -54,8 +55,19 @@ jobs:
           echo "$GPG_SIGNING_KEY" | gpg --batch --import
           echo "$GPG_PASSPHRASE" | gpg --passphrase-fd 0 --pinentry-mode loopback --batch -ab ./${{ matrix.artifact_name }}
 
+      - name: Configure GPG Windows
+        if: startsWith(matrix.os, 'windows-latest')
+        env:
+          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          echo $env:GPG_SIGNING_KEY | gpg --batch --import
+          gpg --passphrase "$env:GPG_PASSPHRASE" --batch --pinentry-mode loopback -ab ./${{ matrix.artifact_name }}
+
       - name: Upload signature
-        uses: actions/upload-artifact@v2
+        uses: svenstaro/upload-release-action@v2
         with:
-          name: ${{ matrix.artifact_name }}.asc
-          path: ./${{ matrix.artifact_name }}.asc
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          asset_name: ${{ matrix.artifact_name }}.asc
+          file: ./${{ matrix.artifact_name }}.asc
+          tag: ${{ github.ref }}
