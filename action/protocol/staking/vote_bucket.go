@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package staking
 
@@ -17,6 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -69,11 +69,11 @@ func (vb *VoteBucket) Deserialize(buf []byte) error {
 func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
 	vote, ok := new(big.Int).SetString(pb.GetStakedAmount(), 10)
 	if !ok {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 
 	if vote.Sign() <= 0 {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 
 	candAddr, err := address.FromString(pb.GetCandidateAddress())

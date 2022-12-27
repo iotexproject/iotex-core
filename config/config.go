@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package config
 
@@ -18,6 +17,9 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
+	"github.com/iotexproject/iotex-core/blocksync"
+	"github.com/iotexproject/iotex-core/consensus"
+	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
@@ -58,47 +60,15 @@ func (ss *strs) Set(str string) error {
 var (
 	// Default is the default config
 	Default = Config{
-		Plugins: make(map[int]interface{}),
-		SubLogs: make(map[string]log.GlobalConfig),
-		Network: p2p.DefaultConfig,
-		Chain:   blockchain.DefaultConfig,
-		ActPool: actpool.DefaultConfig,
-		Consensus: Consensus{
-			Scheme: StandaloneScheme,
-			RollDPoS: RollDPoS{
-				FSM: ConsensusTiming{
-					UnmatchedEventTTL:            3 * time.Second,
-					UnmatchedEventInterval:       100 * time.Millisecond,
-					AcceptBlockTTL:               4 * time.Second,
-					AcceptProposalEndorsementTTL: 2 * time.Second,
-					AcceptLockEndorsementTTL:     2 * time.Second,
-					CommitTTL:                    2 * time.Second,
-					EventChanSize:                10000,
-				},
-				ToleratedOvertime: 2 * time.Second,
-				Delay:             5 * time.Second,
-				ConsensusDBPath:   "/var/data/consensus.db",
-			},
-		},
-		DardanellesUpgrade: DardanellesUpgrade{
-			UnmatchedEventTTL:            2 * time.Second,
-			UnmatchedEventInterval:       100 * time.Millisecond,
-			AcceptBlockTTL:               2 * time.Second,
-			AcceptProposalEndorsementTTL: time.Second,
-			AcceptLockEndorsementTTL:     time.Second,
-			CommitTTL:                    time.Second,
-			BlockInterval:                5 * time.Second,
-			Delay:                        2 * time.Second,
-		},
-		BlockSync: BlockSync{
-			Interval:              30 * time.Second,
-			ProcessSyncRequestTTL: 10 * time.Second,
-			BufferSize:            200,
-			IntervalSize:          20,
-			MaxRepeat:             3,
-			RepeatDecayStep:       1,
-		},
-		Dispatcher: dispatcher.DefaultConfig,
+		Plugins:            make(map[int]interface{}),
+		SubLogs:            make(map[string]log.GlobalConfig),
+		Network:            p2p.DefaultConfig,
+		Chain:              blockchain.DefaultConfig,
+		ActPool:            actpool.DefaultConfig,
+		Consensus:          consensus.DefaultConfig,
+		DardanellesUpgrade: consensusfsm.DefaultDardanellesUpgradeConfig,
+		BlockSync:          blocksync.DefaultConfig,
+		Dispatcher:         dispatcher.DefaultConfig,
 		API: API{
 			UseRDS:        false,
 			GRPCPort:      14014,
@@ -141,56 +111,6 @@ var (
 
 // Network is the config struct for network package
 type (
-	// Consensus is the config struct for consensus package
-	Consensus struct {
-		// There are three schemes that are supported
-		Scheme   string   `yaml:"scheme"`
-		RollDPoS RollDPoS `yaml:"rollDPoS"`
-	}
-
-	// BlockSync is the config struct for the BlockSync
-	BlockSync struct {
-		Interval              time.Duration `yaml:"interval"` // update duration
-		ProcessSyncRequestTTL time.Duration `yaml:"processSyncRequestTTL"`
-		BufferSize            uint64        `yaml:"bufferSize"`
-		IntervalSize          uint64        `yaml:"intervalSize"`
-		// MaxRepeat is the maximal number of repeat of a block sync request
-		MaxRepeat int `yaml:"maxRepeat"`
-		// RepeatDecayStep is the step for repeat number decreasing by 1
-		RepeatDecayStep int `yaml:"repeatDecayStep"`
-	}
-
-	// DardanellesUpgrade is the config for dardanelles upgrade
-	DardanellesUpgrade struct {
-		UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
-		UnmatchedEventInterval       time.Duration `yaml:"unmatchedEventInterval"`
-		AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
-		AcceptProposalEndorsementTTL time.Duration `yaml:"acceptProposalEndorsementTTL"`
-		AcceptLockEndorsementTTL     time.Duration `yaml:"acceptLockEndorsementTTL"`
-		CommitTTL                    time.Duration `yaml:"commitTTL"`
-		BlockInterval                time.Duration `yaml:"blockInterval"`
-		Delay                        time.Duration `yaml:"delay"`
-	}
-
-	// RollDPoS is the config struct for RollDPoS consensus package
-	RollDPoS struct {
-		FSM               ConsensusTiming `yaml:"fsm"`
-		ToleratedOvertime time.Duration   `yaml:"toleratedOvertime"`
-		Delay             time.Duration   `yaml:"delay"`
-		ConsensusDBPath   string          `yaml:"consensusDBPath"`
-	}
-
-	// ConsensusTiming defines a set of time durations used in fsm and event queue size
-	ConsensusTiming struct {
-		EventChanSize                uint          `yaml:"eventChanSize"`
-		UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
-		UnmatchedEventInterval       time.Duration `yaml:"unmatchedEventInterval"`
-		AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
-		AcceptProposalEndorsementTTL time.Duration `yaml:"acceptProposalEndorsementTTL"`
-		AcceptLockEndorsementTTL     time.Duration `yaml:"acceptLockEndorsementTTL"`
-		CommitTTL                    time.Duration `yaml:"commitTTL"`
-	}
-
 	// API is the api service config
 	API struct {
 		UseRDS          bool          `yaml:"useRDS"`
@@ -226,21 +146,21 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		Plugins            map[int]interface{}         `ymal:"plugins"`
-		Network            p2p.Config                  `yaml:"network"`
-		Chain              blockchain.Config           `yaml:"chain"`
-		ActPool            actpool.Config              `yaml:"actPool"`
-		Consensus          Consensus                   `yaml:"consensus"`
-		DardanellesUpgrade DardanellesUpgrade          `yaml:"dardanellesUpgrade"`
-		BlockSync          BlockSync                   `yaml:"blockSync"`
-		Dispatcher         dispatcher.Config           `yaml:"dispatcher"`
-		API                API                         `yaml:"api"`
-		System             System                      `yaml:"system"`
-		DB                 db.Config                   `yaml:"db"`
-		Indexer            blockindex.Config           `yaml:"indexer"`
-		Log                log.GlobalConfig            `yaml:"log"`
-		SubLogs            map[string]log.GlobalConfig `yaml:"subLogs"`
-		Genesis            genesis.Genesis             `yaml:"genesis"`
+		Plugins            map[int]interface{}             `ymal:"plugins"`
+		Network            p2p.Config                      `yaml:"network"`
+		Chain              blockchain.Config               `yaml:"chain"`
+		ActPool            actpool.Config                  `yaml:"actPool"`
+		Consensus          consensus.Config                `yaml:"consensus"`
+		DardanellesUpgrade consensusfsm.DardanellesUpgrade `yaml:"dardanellesUpgrade"`
+		BlockSync          blocksync.Config                `yaml:"blockSync"`
+		Dispatcher         dispatcher.Config               `yaml:"dispatcher"`
+		API                API                             `yaml:"api"`
+		System             System                          `yaml:"system"`
+		DB                 db.Config                       `yaml:"db"`
+		Indexer            blockindex.Config               `yaml:"indexer"`
+		Log                log.GlobalConfig                `yaml:"log"`
+		SubLogs            map[string]log.GlobalConfig     `yaml:"subLogs"`
+		Genesis            genesis.Genesis                 `yaml:"genesis"`
 	}
 
 	// Validate is the interface of validating the config

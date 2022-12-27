@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package execution
 
@@ -1078,6 +1077,18 @@ func TestIstanbulEVM(t *testing.T) {
 	t.Run("err-write-protection-twice-delta-0-1", func(t *testing.T) {
 		// hit errWriteProtection twice,, first delta is 0, second delta is not 0, no revert
 		NewSmartContractTest(t, "testdata-istanbul/write-protection-007.json")
+	})
+	t.Run("err-write-protection-call-staticcall-revrt", func(t *testing.T) {
+		// call -> staticcall -> revrt
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-008.json")
+	})
+	t.Run("err-write-protection-staticcall-staticcall-revrt", func(t *testing.T) {
+		// staticcall -> staticcall -> revrt
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-009.json")
+	})
+	t.Run("err-write-protection-staticcall-staticcall-revrt-1", func(t *testing.T) {
+		// staticcall -> staticcall -> revrt twice
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-010.json")
 	})
 }
 

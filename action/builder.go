@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
@@ -23,7 +22,8 @@ type Builder struct {
 }
 
 var (
-	_stakingProtocolAddr, _ = address.FromString(address.StakingProtocolAddr)
+	_stakingProtocolAddr, _   = address.FromString(address.StakingProtocolAddr)
+	_rewardingProtocolAddr, _ = address.FromString(address.RewardingProtocol)
 )
 
 // SetVersion sets action's version.
@@ -203,6 +203,20 @@ func (b *EnvelopeBuilder) BuildStakingAction(tx *types.Transaction) (Envelope, e
 	return b.build(), nil
 }
 
+// BuildRewardingAction loads rewarding action into envelope from abi-encoded data
+func (b *EnvelopeBuilder) BuildRewardingAction(tx *types.Transaction) (Envelope, error) {
+	if !bytes.Equal(tx.To().Bytes(), _rewardingProtocolAddr.Bytes()) {
+		return nil, ErrInvalidAct
+	}
+	b.setEnvelopeCommonFields(tx)
+	act, err := newRewardingActionFromABIBinary(tx.Data())
+	if err != nil {
+		return nil, err
+	}
+	b.elp.payload = act
+	return b.build(), nil
+}
+
 func newStakingActionFromABIBinary(data []byte) (actionPayload, error) {
 	if len(data) <= 4 {
 		return nil, ErrInvalidABI
@@ -232,6 +246,19 @@ func newStakingActionFromABIBinary(data []byte) (actionPayload, error) {
 		return act, nil
 	}
 	if act, err := NewCandidateUpdateFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	return nil, ErrInvalidABI
+}
+
+func newRewardingActionFromABIBinary(data []byte) (actionPayload, error) {
+	if len(data) <= 4 {
+		return nil, ErrInvalidABI
+	}
+	if act, err := NewClaimFromRewardingFundFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewDepositToRewardingFundFromABIBinary(data); err == nil {
 		return act, nil
 	}
 	return nil, ErrInvalidABI

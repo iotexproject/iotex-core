@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package evm
 
@@ -557,6 +556,27 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	// restore gas refund
 	if !stateDB.manualCorrectGasRefund {
 		stateDB.refund = stateDB.refundSnapshot[snapshot]
+		delete(stateDB.refundSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.refundSnapshot[i]; ok {
+				delete(stateDB.refundSnapshot, i)
+			} else {
+				break
+			}
+		}
+	}
+	// restore access list
+	stateDB.accessList = nil
+	stateDB.accessList = stateDB.accessListSnapshot[snapshot]
+	{
+		delete(stateDB.accessListSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.accessListSnapshot[i]; ok {
+				delete(stateDB.accessListSnapshot, i)
+			} else {
+				break
+			}
+		}
 	}
 	// restore logs and txLogs
 	if stateDB.revertLog {
@@ -620,19 +640,6 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		for i := snapshot + 1; ; i++ {
 			if _, ok := stateDB.preimageSnapshot[i]; ok {
 				delete(stateDB.preimageSnapshot, i)
-			} else {
-				break
-			}
-		}
-	}
-	// restore access list
-	stateDB.accessList = nil
-	stateDB.accessList = stateDB.accessListSnapshot[snapshot]
-	{
-		delete(stateDB.accessListSnapshot, snapshot)
-		for i := snapshot + 1; ; i++ {
-			if _, ok := stateDB.accessListSnapshot[i]; ok {
-				delete(stateDB.accessListSnapshot, i)
 			} else {
 				break
 			}

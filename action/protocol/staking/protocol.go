@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package staking
 
@@ -129,17 +128,17 @@ func NewProtocol(
 
 	minStakeAmount, ok := new(big.Int).SetString(cfg.Staking.MinStakeAmount, 10)
 	if !ok {
-		return nil, ErrInvalidAmount
+		return nil, action.ErrInvalidAmount
 	}
 
 	regFee, ok := new(big.Int).SetString(cfg.Staking.RegistrationConsts.Fee, 10)
 	if !ok {
-		return nil, ErrInvalidAmount
+		return nil, action.ErrInvalidAmount
 	}
 
 	minSelfStake, ok := new(big.Int).SetString(cfg.Staking.RegistrationConsts.MinSelfStake, 10)
 	if !ok {
-		return nil, ErrInvalidAmount
+		return nil, action.ErrInvalidAmount
 	}
 
 	// new vote reviser, revise ate greenland
@@ -231,7 +230,7 @@ func (p *Protocol) CreateGenesisStates(
 
 		selfStake, ok := new(big.Int).SetString(bc.SelfStakingTokens, 10)
 		if !ok {
-			return ErrInvalidAmount
+			return action.ErrInvalidAmount
 		}
 		bucket := NewVoteBucket(owner, owner, selfStake, 7, time.Now(), true)
 		bucketIdx, err := csm.putBucketAndIndex(bucket)
