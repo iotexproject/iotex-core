@@ -59,7 +59,7 @@ func TestNewContractCompileCmd(t *testing.T) {
 }
 
 func skipWithoutSolc(t *testing.T) {
-	if _, err := exec.LookPath("solc"); err != nil {
+	if _, err := exec.LookPath(_solCompiler); err != nil {
 		t.Skip(err)
 	}
 }
