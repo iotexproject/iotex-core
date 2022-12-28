@@ -66,15 +66,8 @@ func (p *Protocol) Deposit(
 ) (*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	accountCreationOpts := []state.AccountCreationOption{}
-	fCtx := protocol.MustGetFeatureCtx(ctx)
-	if fCtx.CreateLegacyNonceAccount {
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
 		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
-	}
-	if transactionLogType == iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND &&
-		actionCtx.Encoding == uint32(iotextypes.Encoding_ETHEREUM_RLP) {
-		if !fCtx.EnableWeb3Rewarding {
-			return nil, errUnactiveWeb3Rewarding
-		}
 	}
 	// Subtract balance from caller
 	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)

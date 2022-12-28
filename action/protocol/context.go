@@ -73,8 +73,6 @@ type (
 		IntrinsicGas uint64
 		// Nonce is the nonce of the action
 		Nonce uint64
-		// Encoding is the encoding of the action
-		Encoding uint32
 	}
 
 	// CheckFunc is function type to check by height.
