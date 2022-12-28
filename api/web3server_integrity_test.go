@@ -142,12 +142,12 @@ func TestWeb3ServerIntegrity(t *testing.T) {
 		sendRawTransaction(t, handler)
 	})
 
-	t.Run("eth_estimateGas", func(t *testing.T) {
-		estimateGas(t, handler, bc, dao, actPool)
-	})
-
 	t.Run("eth_getCode", func(t *testing.T) {
 		getCode(t, handler, bc, dao, actPool)
+	})
+
+	t.Run("eth_estimateGas", func(t *testing.T) {
+		estimateGas(t, handler, bc, dao, actPool)
 	})
 
 	t.Run("eth_getStorageAt", func(t *testing.T) {
@@ -291,7 +291,7 @@ func ethCall(t *testing.T, handler *hTTPHandler) {
 		result := serveTestHTTP(require, handler, "eth_call", test.params)
 		if test.expected == 0 {
 			require.Nil(result)
-			return
+			continue
 		}
 		actual, ok := result.(string)
 		require.True(ok)
@@ -335,7 +335,7 @@ func getBlockByHash(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain
 		result := serveTestHTTP(require, handler, "eth_getBlockByHash", test.params)
 		if test.expected == 0 {
 			require.Nil(result)
-			return
+			continue
 		}
 		hash, ok := result.(map[string]interface{})["hash"]
 		require.True(ok)
@@ -358,7 +358,7 @@ func getTransactionByHash(t *testing.T, handler *hTTPHandler) {
 		result := serveTestHTTP(require, handler, "eth_getTransactionByHash", test.params)
 		if test.expected == 0 {
 			require.Nil(result)
-			return
+			continue
 		}
 		hash, ok := result.(map[string]interface{})["hash"]
 		require.True(ok)
@@ -401,7 +401,7 @@ func getTransactionReceipt(t *testing.T, handler *hTTPHandler) {
 		result := serveTestHTTP(require, handler, "eth_getTransactionReceipt", test.params)
 		if test.expected == 0 {
 			require.Nil(result)
-			return
+			continue
 		}
 		transactionHash, ok := result.(map[string]interface{})["transactionHash"]
 		require.True(ok)
@@ -428,7 +428,7 @@ func getTransactionReceipt(t *testing.T, handler *hTTPHandler) {
 
 func getBlockTransactionCountByNumber(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
-	result := serveTestHTTP(require, handler, "eth_getBlockTransactionCountByNumber", `["0x1", 1]`)
+	result := serveTestHTTP(require, handler, "eth_getBlockTransactionCountByNumber", `["0x1"]`)
 	actual, ok := result.(string)
 	require.True(ok)
 	require.Equal(uint64ToHex(2), actual)
@@ -451,7 +451,7 @@ func getTransactionByBlockHashAndIndex(t *testing.T, handler *hTTPHandler, bc bl
 		result := serveTestHTTP(require, handler, "eth_getTransactionByBlockHashAndIndex", test.params)
 		if test.expected == 0 {
 			require.Nil(result)
-			return
+			continue
 		}
 		hash, ok := result.(map[string]interface{})["hash"]
 		require.True(ok)
@@ -487,7 +487,7 @@ func getTransactionByBlockNumberAndIndex(t *testing.T, handler *hTTPHandler) {
 		result := serveTestHTTP(require, handler, "eth_getTransactionByBlockNumberAndIndex", test.params)
 		if test.expected == 0 {
 			require.Nil(result)
-			return
+			continue
 		}
 		hash, ok := result.(map[string]interface{})["hash"]
 		require.True(ok)
@@ -528,40 +528,32 @@ func newBlockFilter(t *testing.T, handler *hTTPHandler) {
 
 func getFilterChanges(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
-	var paramData []string
-	for _, test := range []struct {
-		method   string
-		params   string
-		expected int
-	}{
-		// filter
-		{"eth_newFilter", `[{"fromBlock":"0x1"}]`, 1},
-		// blockfilter
-		{"eth_newBlockFilter", `[]`, 1},
-	} {
-		result := serveTestHTTP(require, handler, test.method, test.params)
-		actual, ok := result.(string)
-		require.True(ok)
-		require.Equal(test.expected, len(actual))
-		paramData = append(paramData, fmt.Sprintf(`["%s"]`, actual))
-	}
 
-	for _, test := range []struct {
-		params   string
-		expected int
-	}{
-		// filter
-		{paramData[0], 4},
-		{paramData[0], 0},
-		// blockfilter
-		{paramData[1], 1},
-		{paramData[1], 0},
-	} {
-		result := serveTestHTTP(require, handler, "eth_getFilterChanges", test.params)
-		actual, ok := result.([]interface{})
-		require.True(ok)
-		require.Equal(test.expected, len(actual))
-	}
+	result := serveTestHTTP(require, handler, "eth_newFilter", `[{"fromBlock":"0x1"}]`)
+	actual, ok := result.(string)
+	require.True(ok)
+	result1 := serveTestHTTP(require, handler, "eth_getFilterChanges", fmt.Sprintf(`["%s"]`, actual))
+	actual1, ok := result1.([]interface{})
+	require.True(ok)
+	require.Len(actual1, 4)
+	// request again after last rolling
+	result1 = serveTestHTTP(require, handler, "eth_getFilterChanges", fmt.Sprintf(`["%s"]`, actual))
+	actual1, ok = result1.([]interface{})
+	require.True(ok)
+	require.Len(actual1, 0)
+
+	result = serveTestHTTP(require, handler, "eth_newBlockFilter", `[]`)
+	actual, ok = result.(string)
+	require.True(ok)
+	result1 = serveTestHTTP(require, handler, "eth_getFilterChanges", fmt.Sprintf(`["%s"]`, actual))
+	actual1, ok = result1.([]interface{})
+	require.True(ok)
+	require.Len(actual1, 1)
+	// request again after last rolling
+	result1 = serveTestHTTP(require, handler, "eth_getFilterChanges", fmt.Sprintf(`["%s"]`, actual))
+	actual1, ok = result1.([]interface{})
+	require.True(ok)
+	require.Len(actual1, 0)
 }
 
 func getFilterLogs(t *testing.T, handler *hTTPHandler) {
@@ -717,7 +709,7 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 
 func sendRawTransaction(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
-	result := serveTestHTTP(require, handler, "eth_sendRawTransaction", "[f8600180830186a09412745fec82b585f239c01090882eb40702c32b04808025a0b0e1aab5b64d744ae01fc9f1c3e9919844a799e90c23129d611f7efe6aec8a29a0195e28d22d9b280e00d501ff63525bb76f5c87b8646c89d5d9c5485edcb1b498]")
+	result := serveTestHTTP(require, handler, "eth_sendRawTransaction", `["f8600180830186a09412745fec82b585f239c01090882eb40702c32b04808025a0b0e1aab5b64d744ae01fc9f1c3e9919844a799e90c23129d611f7efe6aec8a29a0195e28d22d9b280e00d501ff63525bb76f5c87b8646c89d5d9c5485edcb1b498"]`)
 	actual, ok := result.(string)
 	require.True(ok)
 	require.Equal("0x778fd5a054e74e9055bf68ef5f9d559fa306e8ba7dee608d0a3624cca0b63b3e", actual)
@@ -728,7 +720,7 @@ func estimateGas(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, d
 
 	// deploy a contract
 	contractCode := "608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806360fe47b11461003b5780636d4ce63c14610057575b600080fd5b6100556004803603810190610050919061009d565b610075565b005b61005f61007f565b60405161006c91906100d9565b60405180910390f35b8060008190555050565b60008054905090565b60008135905061009781610103565b92915050565b6000602082840312156100b3576100b26100fe565b5b60006100c184828501610088565b91505092915050565b6100d3816100f4565b82525050565b60006020820190506100ee60008301846100ca565b92915050565b6000819050919050565b600080fd5b61010c816100f4565b811461011757600080fd5b5056fea2646970667358221220c86a8c4dd175f55f5732b75b721d714ceb38a835b87c6cf37cf28c790813e19064736f6c63430008070033"
-	contract, _ := deployContractV2(bc, dao, actPool, identityset.PrivateKey(13), 1, bc.TipHeight(), contractCode)
+	contract, _ := deployContractV2(bc, dao, actPool, identityset.PrivateKey(13), 2, bc.TipHeight(), contractCode)
 
 	fromAddr, _ := ioAddrToEthAddr(identityset.Address(0).String())
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(28).String())
@@ -773,7 +765,7 @@ func estimateGas(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, d
 		},
 	} {
 		result := serveTestHTTP(require, handler, "eth_estimateGas", test.params)
-		actual, ok := result.([]interface{})
+		actual, ok := result.(string)
 		require.True(ok)
 		require.Equal(uint64ToHex(test.expected), actual)
 	}
@@ -786,17 +778,17 @@ func getCode(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao b
 	contract, _ := deployContractV2(bc, dao, actPool, identityset.PrivateKey(13), 1, bc.TipHeight(), contractCode)
 	contractAddr, _ := ioAddrToEthAddr(contract)
 
-	result := serveTestHTTP(require, handler, "eth_getCode", fmt.Sprintf(`["%s", 1]`, contractAddr))
+	result := serveTestHTTP(require, handler, "eth_getCode", fmt.Sprintf(`["%s", "0x1"]`, contractAddr))
 	actual, ok := result.(string)
 	require.True(ok)
-	require.Equal(contractCode, util.Remove0xPrefix(actual))
+	require.Contains(contractCode, util.Remove0xPrefix(actual))
 }
 
 func getStorageAt(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool actpool.ActPool) {
 	require := require.New(t)
 	// deploy a contract
 	contractCode := "608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806360fe47b11461003b5780636d4ce63c14610057575b600080fd5b6100556004803603810190610050919061009d565b610075565b005b61005f61007f565b60405161006c91906100d9565b60405180910390f35b8060008190555050565b60008054905090565b60008135905061009781610103565b92915050565b6000602082840312156100b3576100b26100fe565b5b60006100c184828501610088565b91505092915050565b6100d3816100f4565b82525050565b60006020820190506100ee60008301846100ca565b92915050565b6000819050919050565b600080fd5b61010c816100f4565b811461011757600080fd5b5056fea2646970667358221220c86a8c4dd175f55f5732b75b721d714ceb38a835b87c6cf37cf28c790813e19064736f6c63430008070033"
-	contract, _ := deployContractV2(bc, dao, actPool, identityset.PrivateKey(13), 1, bc.TipHeight(), contractCode)
+	contract, _ := deployContractV2(bc, dao, actPool, identityset.PrivateKey(13), 3, bc.TipHeight(), contractCode)
 	contractAddr, _ := ioAddrToEthAddr(contract)
 
 	for _, test := range []struct {
@@ -810,7 +802,7 @@ func getStorageAt(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, 
 		result := serveTestHTTP(require, handler, "eth_getStorageAt", test.params)
 		if test.expected == 0 {
 			require.Nil(result)
-			return
+			continue
 		}
 		actual, ok := result.(string)
 		require.True(ok)
