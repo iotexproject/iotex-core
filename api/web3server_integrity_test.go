@@ -19,10 +19,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -142,12 +141,12 @@ func TestWeb3ServerIntegrity(t *testing.T) {
 		sendRawTransaction(t, handler)
 	})
 
-	t.Run("eth_getCode", func(t *testing.T) {
-		getCode(t, handler, bc, dao, actPool)
-	})
-
 	t.Run("eth_estimateGas", func(t *testing.T) {
 		estimateGas(t, handler, bc, dao, actPool)
+	})
+
+	t.Run("eth_getCode", func(t *testing.T) {
+		getCode(t, handler, bc, dao, actPool)
 	})
 
 	t.Run("eth_getStorageAt", func(t *testing.T) {
@@ -720,7 +719,7 @@ func estimateGas(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, d
 
 	// deploy a contract
 	contractCode := "608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806360fe47b11461003b5780636d4ce63c14610057575b600080fd5b6100556004803603810190610050919061009d565b610075565b005b61005f61007f565b60405161006c91906100d9565b60405180910390f35b8060008190555050565b60008054905090565b60008135905061009781610103565b92915050565b6000602082840312156100b3576100b26100fe565b5b60006100c184828501610088565b91505092915050565b6100d3816100f4565b82525050565b60006020820190506100ee60008301846100ca565b92915050565b6000819050919050565b600080fd5b61010c816100f4565b811461011757600080fd5b5056fea2646970667358221220c86a8c4dd175f55f5732b75b721d714ceb38a835b87c6cf37cf28c790813e19064736f6c63430008070033"
-	contract, _ := deployContractV2(bc, dao, actPool, identityset.PrivateKey(13), 2, bc.TipHeight(), contractCode)
+	contract, _ := deployContractV2(bc, dao, actPool, identityset.PrivateKey(13), 1, bc.TipHeight(), contractCode)
 
 	fromAddr, _ := ioAddrToEthAddr(identityset.Address(0).String())
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(28).String())
@@ -775,7 +774,7 @@ func getCode(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao b
 	require := require.New(t)
 	// deploy a contract
 	contractCode := "608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806360fe47b11461003b5780636d4ce63c14610057575b600080fd5b6100556004803603810190610050919061009d565b610075565b005b61005f61007f565b60405161006c91906100d9565b60405180910390f35b8060008190555050565b60008054905090565b60008135905061009781610103565b92915050565b6000602082840312156100b3576100b26100fe565b5b60006100c184828501610088565b91505092915050565b6100d3816100f4565b82525050565b60006020820190506100ee60008301846100ca565b92915050565b6000819050919050565b600080fd5b61010c816100f4565b811461011757600080fd5b5056fea2646970667358221220c86a8c4dd175f55f5732b75b721d714ceb38a835b87c6cf37cf28c790813e19064736f6c63430008070033"
-	contract, _ := deployContractV2(bc, dao, actPool, identityset.PrivateKey(13), 1, bc.TipHeight(), contractCode)
+	contract, _ := deployContractV2(bc, dao, actPool, identityset.PrivateKey(13), 2, bc.TipHeight(), contractCode)
 	contractAddr, _ := ioAddrToEthAddr(contract)
 
 	result := serveTestHTTP(require, handler, "eth_getCode", fmt.Sprintf(`["%s", "0x1"]`, contractAddr))
