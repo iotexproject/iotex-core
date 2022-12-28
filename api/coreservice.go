@@ -1205,7 +1205,7 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	end := reverseStart
 	res := make([]*iotexapi.ActionInfo, 0, start-end+1)
 
-	for idx := start; idx <= end; idx++ {
+	for idx := start; idx <= end; idx-- {
 		ri := size - 1 - idx
 		selp := blk.Actions[ri]
 		actHash, err := selp.Hash()
