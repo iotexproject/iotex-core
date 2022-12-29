@@ -38,8 +38,7 @@ func newExtensionNode(
 			return nil, err
 		}
 	}
-	hashVal, _ := e.cacheNode.Hash(cli)
-	if err := logNode(_nodeTypeExtension, _actionTypeNew, hashVal, e); err != nil {
+	if err := logNode(_nodeTypeExtension, _actionTypeNew, e, cli); err != nil {
 		return nil, err
 	}
 	return e, nil
@@ -55,15 +54,14 @@ func newExtensionNodeFromProtoPb(pb *triepb.ExtendPb, hashVal []byte) *extension
 		child: newHashNode(pb.Value),
 	}
 	e.cacheNode.serializable = e
-	if err := logNode(_nodeTypeExtension, _actionTypeNew, hashVal, e); err != nil {
+	if err := logNode(_nodeTypeExtension, _actionTypeNew, e, nil); err != nil {
 		panic(err)
 	}
 	return e
 }
 
 func (e *extensionNode) Delete(cli client, key keyType, offset uint8) (node, error) {
-	hashVal, _ := e.cacheNode.Hash(cli)
-	if err := logNode(_nodeTypeExtension, _actionTypeDelete, hashVal, e); err != nil {
+	if err := logNode(_nodeTypeExtension, _actionTypeDelete, e, cli); err != nil {
 		return nil, err
 	}
 	matched := e.commonPrefixLength(key[offset:])
@@ -96,8 +94,7 @@ func (e *extensionNode) Delete(cli client, key keyType, offset uint8) (node, err
 }
 
 func (e *extensionNode) Upsert(cli client, key keyType, offset uint8, value []byte) (node, error) {
-	hashVal, _ := e.cacheNode.Hash(cli)
-	if err := logNode(_nodeTypeExtension, _actionTypeUpsert, hashVal, e); err != nil {
+	if err := logNode(_nodeTypeExtension, _actionTypeUpsert, e, cli); err != nil {
 		return nil, err
 	}
 	matched := e.commonPrefixLength(key[offset:])
@@ -135,8 +132,7 @@ func (e *extensionNode) Upsert(cli client, key keyType, offset uint8, value []by
 }
 
 func (e *extensionNode) Search(cli client, key keyType, offset uint8) (node, error) {
-	hashVal, _ := e.cacheNode.Hash(cli)
-	if err := logNode(_nodeTypeExtension, _actionTypeSearch, hashVal, e); err != nil {
+	if err := logNode(_nodeTypeExtension, _actionTypeSearch, e, cli); err != nil {
 		return nil, err
 	}
 	matched := e.commonPrefixLength(key[offset:])

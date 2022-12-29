@@ -80,11 +80,11 @@ func CloseLogDB() error {
 	return logFile.Close()
 }
 
-func logNode(nt nodeType, at actionType, hashvalue []byte, n node) error {
+func logNode(nt nodeType, at actionType, n node, cli client) error {
 	if !enabledLogMptrie {
 		return nil
 	}
-	nodeKey, nodePath, nodeChildren, err := parseNode(n)
+	nodeKey, nodePath, nodeChildren, hashvalue, err := parseNode(n, cli)
 	if err != nil {
 		return err
 	}
@@ -100,23 +100,26 @@ func logNode(nt nodeType, at actionType, hashvalue []byte, n node) error {
 		HashLen:     uint8(len(hashvalue)),
 		HashVal:     hashvalue,
 	}
-	// write events length
+	// write event length
 	if err = logWriter.WriteByte(byte(len(event.Bytes()))); err != nil {
 		return err
 	}
-	// write events body
+	// write event body
 	_, err = logWriter.Write(event.Bytes())
 	return err
 }
 
-func parseNode(n node) (nodeKey []byte, nodePath []byte, nodeChildren []byte, err error) {
+func parseNode(n node, cli client) (nodeKey, nodePath, nodeChildren, hashvalue []byte, err error) {
 	switch n := n.(type) {
 	case *leafNode:
 		nodeKey = n.key
+		hashvalue, err = n.cacheNode.Hash(cli)
 	case *extensionNode:
 		nodePath = n.path
+		hashvalue, err = n.cacheNode.Hash(cli)
 	case *branchNode:
 		nodeChildren = n.indices.List()
+		hashvalue, err = n.cacheNode.Hash(cli)
 	default:
 		err = errors.Errorf("unknown node type %T", n)
 	}
