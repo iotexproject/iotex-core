@@ -158,6 +158,7 @@ type (
 		chainListener     apitypes.Listener
 		electionCommittee committee.Committee
 		readCache         *ReadCache
+		delegatesMonitor  map[string]*iotextypes.ConsensusMessage
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange

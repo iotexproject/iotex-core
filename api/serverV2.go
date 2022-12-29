@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // ServerV2 provides api for user to interact with blockchain data
@@ -133,4 +134,10 @@ func (svr *ServerV2) ReceiveBlock(blk *block.Block) error {
 // CoreService returns the coreservice of the api
 func (svr *ServerV2) CoreService() CoreService {
 	return svr.core
+}
+
+// HandleMonitorMsg handle monitor msg
+func (svr *ServerV2) HandleMonitorMsg(msg *iotextypes.ConsensusMessage) error {
+	// save msg to core.delegatesMonitor
+	return nil
 }
