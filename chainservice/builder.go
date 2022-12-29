@@ -60,12 +60,10 @@ func WithStopHeightBuilderOption(stopHeight uint64) BuilderOption {
 }
 
 // NewBuilder creates a new chainservice builder
-func NewBuilder(cfg config.Config, opts ...BuilderOption) *Builder {
+func NewBuilder(cfg config.Config) *Builder {
 	builder := &Builder{cfg: cfg}
 	builder.createInstance()
-	for _, opt := range opts {
-		opt(builder)
-	}
+
 	return builder
 }
 
@@ -131,8 +129,11 @@ func (builder *Builder) BuildForSubChain() (*ChainService, error) {
 }
 
 // Build builds a chainservice
-func (builder *Builder) Build() (*ChainService, error) {
+func (builder *Builder) Build(opts ...BuilderOption) (*ChainService, error) {
 	builder.createInstance()
+	for _, opt := range opts {
+		opt(builder)
+	}
 	return builder.build(false, false)
 }
 
