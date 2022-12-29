@@ -174,7 +174,9 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 		if err != nil {
 			return nil, err
 		}
-		opts = append(opts, factory.WithStopHeightStateDBOption(builder.stopHeight))
+		if builder.stopHeight > 0 {
+			opts = append(opts, factory.WithStopHeightStateDBOption(builder.stopHeight))
+		}
 		return factory.NewStateDB(factoryCfg, dao, opts...)
 	}
 	if forTest {

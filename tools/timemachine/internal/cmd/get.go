@@ -10,7 +10,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/byteutil"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
@@ -40,11 +39,7 @@ var get = &cobra.Command{
 		if err = blkStore.Start(ctx); err != nil {
 			return err
 		}
-		defer func() {
-			if err := blkStore.Stop(ctx); err != nil {
-				log.S().Panic("failed to stop chain.db", zap.Error(err))
-			}
-		}()
+		defer blkStore.Stop(ctx)
 		chainHeight, err := blkStore.Height()
 		if err != nil {
 			return err
@@ -57,11 +52,7 @@ var get = &cobra.Command{
 		if err = triedao.Start(ctx); err != nil {
 			return err
 		}
-		defer func() {
-			if err := triedao.Stop(ctx); err != nil {
-				log.S().Panic("failed to stop trie.db", zap.Error(err))
-			}
-		}()
+		defer triedao.Stop(ctx)
 		trieHeight, err := triedao.Get(factory.AccountKVNamespace, []byte(factory.CurrentHeightKey))
 		if err != nil {
 			return err
