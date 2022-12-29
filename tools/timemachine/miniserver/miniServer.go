@@ -47,7 +47,7 @@ func WithStopHeightOption(stopHeight uint64) Option {
 }
 
 // NewMiniServer creates instace and runs chainservice
-func NewMiniServer(cfg config.Config, operation int, opts ...Option) (*MiniServer, error) {
+func NewMiniServer(cfg config.Config,  opts ...Option) (*MiniServer, error) {
 	svr := &MiniServer{}
 	for _, opt := range opts {
 		opt(svr)
@@ -55,7 +55,6 @@ func NewMiniServer(cfg config.Config, operation int, opts ...Option) (*MiniServe
 
 	builder := chainservice.NewBuilder(
 		cfg,
-		chainservice.WithOpTimeMachineBuilderOption(operation),
 		chainservice.WithStopHeightBuilderOption(svr.stopHeight),
 	)
 	cs, err := builder.SetP2PAgent(p2p.NewDummyAgent()).Build()

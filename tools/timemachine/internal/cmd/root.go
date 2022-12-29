@@ -23,8 +23,7 @@ steps:
 3. ./bin/timemachine download 13000188
 4、after download successful, edit ./tools/timemachine/etc/config.yaml and set chainDBPath trieDBPath gravityChainDB:dbPath, eg: ./tools/timemachine/data/13m/chain-00000012.db
 5. ./bin/timemachine try 13000188
-6. ./bin/timemachine commit 13000188
-7. ./bin/timemachine get`,
+6. ./bin/timemachine get`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -38,5 +37,4 @@ func init() {
 	rootCmd.AddCommand(download)
 	rootCmd.AddCommand(get)
 	rootCmd.AddCommand(try)
-	rootCmd.AddCommand(commit)
 }

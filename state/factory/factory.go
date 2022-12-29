@@ -109,7 +109,6 @@ type (
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
-		commitBlock              bool   // for tools/timemachine
 		stopHeight               uint64 // for tools/timemachine
 	}
 
@@ -152,14 +151,6 @@ func DefaultTriePatchOption() Option {
 	return func(sf *factory, cfg *Config) (err error) {
 		sf.ps, err = newPatchStore(cfg.Chain.TrieDBPatchFile)
 		return
-	}
-}
-
-// CommitBlockFactoryOption commits block on PutBlock
-func CommitBlockFactoryOption() Option {
-	return func(sf *factory, cfg *Config) error {
-		sf.commitBlock = true
-		return nil
 	}
 }
 
@@ -489,7 +480,7 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
-	if blk.Height() == sf.stopHeight && !sf.commitBlock {
+	if blk.Height() == sf.stopHeight {
 		return nil
 	}
 	if err := ws.Commit(ctx); err != nil {

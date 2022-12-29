@@ -8,10 +8,9 @@ package cmd
 import (
 	"context"
 
+	"github.com/iotexproject/go-pkgs/byteutil"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-
-	"github.com/iotexproject/go-pkgs/byteutil"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
@@ -67,7 +66,7 @@ var get = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		
+
 		log.S().Infof("current chain.db height is %d", chainHeight)
 		log.S().Infof("current trie.db height is %d", byteutil.BytesToUint64(trieHeight))
 		return nil

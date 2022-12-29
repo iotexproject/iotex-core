@@ -47,7 +47,6 @@ type stateDB struct {
 	protocolView             protocol.View
 	skipBlockValidationOnPut bool
 	ps                       *patchStore
-	commitBlock              bool   // for tools/timemachine
 	stopHeight               uint64 // for tools/timemachine
 }
 
@@ -82,14 +81,6 @@ func SkipBlockValidationStateDBOption() StateDBOption {
 func DisableWorkingSetCacheOption() StateDBOption {
 	return func(sdb *stateDB, cfg *Config) error {
 		sdb.workingsets = cache.NewDummyLruCache()
-		return nil
-	}
-}
-
-// CommitBlockStateDBOption commits block on PutBlock
-func CommitBlockStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg *Config) error {
-		sdb.commitBlock = true
 		return nil
 	}
 }
@@ -370,7 +361,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
-	if blk.Height() == sdb.stopHeight && !sdb.commitBlock {
+	if blk.Height() == sdb.stopHeight {
 		return nil
 	}
 	if err := ws.Commit(ctx); err != nil {

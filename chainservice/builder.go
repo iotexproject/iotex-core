@@ -38,16 +38,14 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/tools/timemachine/common"
 )
 
 type (
 	// Builder is a builder to build chainservice
 	Builder struct {
-		cfg           config.Config
-		cs            *ChainService
-		opTimeMachine int
-		stopHeight    uint64
+		cfg        config.Config
+		cs         *ChainService
+		stopHeight uint64 // for tools/timemachine
 	}
 
 	// BuilderOption sets Builder construction parameter
@@ -58,13 +56,6 @@ type (
 func WithStopHeightBuilderOption(stopHeight uint64) BuilderOption {
 	return func(svr *Builder) {
 		svr.stopHeight = stopHeight
-	}
-}
-
-// WithOpTimeMachineBuilderOption sets the operation of timemachine
-func WithOpTimeMachineBuilderOption(op int) BuilderOption {
-	return func(svr *Builder) {
-		svr.opTimeMachine = op
 	}
 }
 
@@ -183,12 +174,7 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 		if err != nil {
 			return nil, err
 		}
-		switch builder.opTimeMachine {
-		case common.Try:
-			opts = append(opts, factory.WithStopHeightStateDBOption(builder.stopHeight))
-		case common.Commit:
-			opts = append(opts, factory.CommitBlockStateDBOption())
-		}
+		opts = append(opts, factory.WithStopHeightStateDBOption(builder.stopHeight))
 		return factory.NewStateDB(factoryCfg, dao, opts...)
 	}
 	if forTest {

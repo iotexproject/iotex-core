@@ -35,7 +35,7 @@ const (
 // download represents the download command
 var download = &cobra.Command{
 	Use:   "download [height]",
-	Short: "Download height block datas into directoy",
+	Short: "Download height block datas into ./tools/timemachine/data/xxm/",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

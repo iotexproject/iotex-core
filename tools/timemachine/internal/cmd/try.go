@@ -11,14 +11,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/tools/timemachine/common"
 	"github.com/iotexproject/iotex-core/tools/timemachine/miniserver"
 )
 
 // try represents the try command
 var try = &cobra.Command{
 	Use:   "try [height]",
-	Short: "Play blocks from chain.db to trie.db without committing the height's block.",
+	Short: "Play blocks from chain.db to trie.db uncommitted stopHeight block.",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -26,7 +25,7 @@ var try = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if _, err = miniserver.NewMiniServer(miniserver.Config(), common.Try, miniserver.WithStopHeightOption(stopHeight)); err != nil {
+		if _, err = miniserver.NewMiniServer(miniserver.Config(), miniserver.WithStopHeightOption(stopHeight)); err != nil {
 			return err
 		}
 		log.S().Infof("successful played block %d", stopHeight)
