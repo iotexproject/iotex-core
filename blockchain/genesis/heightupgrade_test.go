@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package genesis
 
@@ -52,8 +51,8 @@ func TestNewHeightChange(t *testing.T) {
 	require.True(cfg.IsMidway(uint64(16509241)))
 	require.False(cfg.IsNewfoundland(uint64(17662680)))
 	require.True(cfg.IsNewfoundland(uint64(17662681)))
-	require.False(cfg.IsOkhotsk(uint64(37662680)))
-	require.True(cfg.IsOkhotsk(uint64(37662681)))
+	require.False(cfg.IsOkhotsk(uint64(21542760)))
+	require.True(cfg.IsOkhotsk(uint64(21542761)))
 
 	require.Equal(cfg.PacificBlockHeight, uint64(432001))
 	require.Equal(cfg.AleutianBlockHeight, uint64(864001))
@@ -72,5 +71,5 @@ func TestNewHeightChange(t *testing.T) {
 	require.Equal(cfg.LordHoweBlockHeight, uint64(13979161))
 	require.Equal(cfg.MidwayBlockHeight, uint64(16509241))
 	require.Equal(cfg.NewfoundlandBlockHeight, uint64(17662681))
-	require.Equal(cfg.OkhotskBlockHeight, uint64(37662681))
+	require.Equal(cfg.OkhotskBlockHeight, uint64(21542761))
 }

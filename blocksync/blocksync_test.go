@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package blocksync
 
@@ -28,7 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -40,7 +39,14 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func newBlockSyncer(cfg config.BlockSync, chain blockchain.Blockchain, dao blockdao.BlockDAO, cs consensus.Consensus) (*blockSyncer, error) {
+type testConfig struct {
+	BlockSync Config
+	Genesis   genesis.Genesis
+	Chain     blockchain.Config
+	ActPool   actpool.Config
+}
+
+func newBlockSyncerForTest(cfg Config, chain blockchain.Blockchain, dao blockdao.BlockDAO, cs consensus.Consensus) (*blockSyncer, error) {
 	bs, err := NewBlockSyncer(cfg, chain.TipHeight,
 		func(h uint64) (*block.Block, error) {
 			return dao.GetBlockByHeight(h)
@@ -100,7 +106,7 @@ func TestNewBlockSyncer(t *testing.T) {
 
 	cs := mock_consensus.NewMockConsensus(ctrl)
 
-	bs, err := newBlockSyncer(cfg.BlockSync, mBc, dao, cs)
+	bs, err := newBlockSyncerForTest(cfg.BlockSync, mBc, dao, cs)
 	assert.Nil(err)
 	assert.NotNil(bs)
 }
@@ -150,7 +156,7 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	require.NoError(err)
 	cs := mock_consensus.NewMockConsensus(ctrl)
 
-	bs, err := newBlockSyncer(cfg.BlockSync, mBc, dao, cs)
+	bs, err := newBlockSyncerForTest(cfg.BlockSync, mBc, dao, cs)
 	assert.NoError(err)
 	assert.NoError(bs.ProcessSyncRequest(context.Background(), peer.AddrInfo{}, 1, 1))
 }
@@ -169,7 +175,7 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 	chain.EXPECT().TipHeight().Return(uint64(10)).Times(1)
 	cs := mock_consensus.NewMockConsensus(ctrl)
 
-	bs, err := newBlockSyncer(cfg.BlockSync, chain, dao, cs)
+	bs, err := newBlockSyncerForTest(cfg.BlockSync, chain, dao, cs)
 	require.NoError(err)
 
 	require.Error(bs.ProcessSyncRequest(context.Background(), peer.AddrInfo{}, 1, 5))
@@ -208,7 +214,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(1)
 	cs.EXPECT().Calibrate(uint64(1)).Times(1)
 
-	bs, err := newBlockSyncer(cfg.BlockSync, chain, dao, cs)
+	bs, err := newBlockSyncerForTest(cfg.BlockSync, chain, dao, cs)
 	require.NoError(err)
 
 	defer func() {
@@ -272,7 +278,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	cs1.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
 
-	bs1, err := newBlockSyncer(cfg.BlockSync, chain1, dao, cs1)
+	bs1, err := newBlockSyncerForTest(cfg.BlockSync, chain1, dao, cs1)
 	require.NoError(err)
 	registry2 := protocol.NewRegistry()
 	require.NoError(acc.Register(registry2))
@@ -296,7 +302,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	cs2 := mock_consensus.NewMockConsensus(ctrl)
 	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs2.EXPECT().Calibrate(gomock.Any()).Times(3)
-	bs2, err := newBlockSyncer(cfg.BlockSync, chain2, dao2, cs2)
+	bs2, err := newBlockSyncerForTest(cfg.BlockSync, chain2, dao2, cs2)
 	require.NoError(err)
 
 	defer func() {
@@ -369,7 +375,7 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	cs1 := mock_consensus.NewMockConsensus(ctrl)
 	cs1.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
-	bs1, err := newBlockSyncer(cfg.BlockSync, chain1, dao, cs1)
+	bs1, err := newBlockSyncerForTest(cfg.BlockSync, chain1, dao, cs1)
 	require.NoError(err)
 	registry2 := protocol.NewRegistry()
 	require.NoError(acc.Register(registry2))
@@ -393,7 +399,7 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	cs2 := mock_consensus.NewMockConsensus(ctrl)
 	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs2.EXPECT().Calibrate(gomock.Any()).Times(3)
-	bs2, err := newBlockSyncer(cfg.BlockSync, chain2, dao2, cs2)
+	bs2, err := newBlockSyncerForTest(cfg.BlockSync, chain2, dao2, cs2)
 	require.NoError(err)
 
 	defer func() {
@@ -460,7 +466,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(2)
 	cs.EXPECT().Calibrate(gomock.Any()).Times(2)
 
-	bs, err := newBlockSyncer(cfg.BlockSync, chain, dao, cs)
+	bs, err := newBlockSyncerForTest(cfg.BlockSync, chain, dao, cs)
 	require.NoError(err)
 	require.NotNil(bs)
 	require.NoError(bs.Start(ctx))
@@ -488,28 +494,29 @@ func TestBlockSyncerSync(t *testing.T) {
 	time.Sleep(time.Millisecond << 7)
 }
 
-func newTestConfig() (config.Config, error) {
+func newTestConfig() (testConfig, error) {
 	testTriePath, err := testutil.PathOfTempFile("trie")
 	if err != nil {
-		return config.Config{}, err
+		return testConfig{}, err
 	}
 	testDBPath, err := testutil.PathOfTempFile("db")
 	if err != nil {
-		return config.Config{}, err
+		return testConfig{}, err
 	}
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 	}()
 
-	cfg := config.Default
+	cfg := testConfig{
+		BlockSync: DefaultConfig,
+		Genesis:   genesis.Default,
+		Chain:     blockchain.DefaultConfig,
+		ActPool:   actpool.DefaultConfig,
+	}
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.BlockSync.Interval = 100 * time.Millisecond
-	cfg.Consensus.Scheme = config.NOOPScheme
-	cfg.Network.Host = "127.0.0.1"
-	cfg.Network.Port = 10000
-	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4689"}
 	cfg.Genesis.EnableGravityChainVoting = false
 	return cfg, nil
 }

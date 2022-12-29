@@ -1,27 +1,67 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
 import (
+	"bytes"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
+
+const _claimRewardingInterfaceABI = `[
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint8[]",
+				"name": "data",
+				"type": "uint8[]"
+			}
+		],
+		"name": "claim",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	}
+]`
 
 var (
 	// ClaimFromRewardingFundBaseGas represents the base intrinsic gas for claimFromRewardingFund
 	ClaimFromRewardingFundBaseGas = uint64(10000)
 	// ClaimFromRewardingFundGasPerByte represents the claimFromRewardingFund payload gas per uint
 	ClaimFromRewardingFundGasPerByte = uint64(100)
+
+	_claimRewardingMethod abi.Method
 )
+
+func init() {
+	claimRewardInterface, err := abi.JSON(strings.NewReader(_claimRewardingInterfaceABI))
+	if err != nil {
+		panic(err)
+	}
+	var ok bool
+	_claimRewardingMethod, ok = claimRewardInterface.Methods["claim"]
+	if !ok {
+		panic("fail to load the claim method")
+	}
+}
 
 // ClaimFromRewardingFund is the action to claim reward from the rewarding fund
 type ClaimFromRewardingFund struct {
@@ -108,4 +148,50 @@ func (b *ClaimFromRewardingFundBuilder) SetData(data []byte) *ClaimFromRewarding
 func (b *ClaimFromRewardingFundBuilder) Build() ClaimFromRewardingFund {
 	b.claim.AbstractAction = b.Builder.Build()
 	return b.claim
+}
+
+// encodeABIBinary encodes data in abi encoding
+func (c *ClaimFromRewardingFund) encodeABIBinary() ([]byte, error) {
+	data, err := _claimRewardingMethod.Inputs.Pack(c.Amount(), c.Data())
+	if err != nil {
+		return nil, err
+	}
+	return append(_claimRewardingMethod.ID, data...), nil
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (c *ClaimFromRewardingFund) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.RewardingProtocol)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := c.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(c.Nonce(), ethAddr, big.NewInt(0), c.GasLimit(), c.GasPrice(), data), nil
+}
+
+// NewClaimFromRewardingFundFromABIBinary decodes data into action
+func NewClaimFromRewardingFundFromABIBinary(data []byte) (*ClaimFromRewardingFund, error) {
+	var (
+		paramsMap = map[string]interface{}{}
+		ok        bool
+		ac        ClaimFromRewardingFund
+	)
+	// sanity check
+	if len(data) <= 4 || !bytes.Equal(_claimRewardingMethod.ID[:], data[:4]) {
+		return nil, errDecodeFailure
+	}
+	if err := _claimRewardingMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
+	}
+	if ac.amount, ok = paramsMap["amount"].(*big.Int); !ok {
+		return nil, errDecodeFailure
+	}
+	if ac.data, ok = paramsMap["data"].([]byte); !ok {
+		return nil, errDecodeFailure
+	}
+	return &ac, nil
 }

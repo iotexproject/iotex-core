@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package execution
 
@@ -1047,6 +1046,49 @@ func TestIstanbulEVM(t *testing.T) {
 	})
 	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
+	})
+	t.Run("err-write-protection", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/write-protection.json")
+	})
+	t.Run("err-write-protection-twice-delta-0", func(t *testing.T) {
+		// hit errWriteProtection 2 times, delta is 0
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-001.json")
+	})
+	t.Run("err-write-protection-once-delta-0", func(t *testing.T) {
+		// hit errWriteProtection 1 times, delta is 0
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-002.json")
+	})
+	t.Run("err-write-protection-twice-delta-0-0", func(t *testing.T) {
+		// hit errWriteProtection twice, delta is not 0
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-003.json")
+	})
+	t.Run("err-write-protection-twice-delta-0-1", func(t *testing.T) {
+		// hit errWriteProtection twice, first delta is not 0, second delta is 0
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-004.json")
+	})
+	t.Run("err-write-protection-once-delta-1", func(t *testing.T) {
+		// hit errWriteProtection once, delta is not 0,but no revert
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-005.json")
+	})
+	t.Run("err-write-protection-twice-delta-1-1", func(t *testing.T) {
+		// hit errWriteProtection twice,, first delta is not 0, second delta is not 0, no revert
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-006.json")
+	})
+	t.Run("err-write-protection-twice-delta-0-1", func(t *testing.T) {
+		// hit errWriteProtection twice,, first delta is 0, second delta is not 0, no revert
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-007.json")
+	})
+	t.Run("err-write-protection-call-staticcall-revrt", func(t *testing.T) {
+		// call -> staticcall -> revrt
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-008.json")
+	})
+	t.Run("err-write-protection-staticcall-staticcall-revrt", func(t *testing.T) {
+		// staticcall -> staticcall -> revrt
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-009.json")
+	})
+	t.Run("err-write-protection-staticcall-staticcall-revrt-1", func(t *testing.T) {
+		// staticcall -> staticcall -> revrt twice
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-010.json")
 	})
 }
 

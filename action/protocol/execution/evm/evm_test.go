@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package evm
 
@@ -199,12 +198,12 @@ func TestConstantinople(t *testing.T) {
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			37662680,
+			21542760,
 		},
 		// after Okhotsk
 		{
 			action.EmptyAddress,
-			37662681,
+			21542761,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
@@ -222,25 +221,14 @@ func TestConstantinople(t *testing.T) {
 			nil,
 		)
 		require.NoError(err)
-		opt := []StateDBAdapterOption{}
-		if !g.IsAleutian(e.height) {
-			opt = append(opt, NotFixTopicCopyBugOption())
-		}
-		if g.IsGreenland(e.height) {
-			opt = append(opt, AsyncContractTrieOption())
-		}
-		if g.IsKamchatka(e.height) {
-			opt = append(opt, FixSnapshotOrderOption())
-		}
-		stateDB, err := NewStateDBAdapter(sm, e.height, hash.ZeroHash256, opt...)
-		require.NoError(err)
 
-		fCtx := protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		fCtx := protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
 			BlockHeight: e.height,
-		})
-		fCtx = protocol.WithFeatureCtx(fCtx)
+		}))
+		stateDB, err := prepareStateDB(fCtx, sm)
+		require.NoError(err)
 		ps, err := newParams(fCtx, ex, stateDB, func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		})
@@ -289,6 +277,8 @@ func TestConstantinople(t *testing.T) {
 
 		// Okhotsk = enable Berlin and London
 		isOkhotsk := g.IsOkhotsk(e.height)
+		require.Equal(big.NewInt(int64(g.OkhotskBlockHeight)), evmChainConfig.BerlinBlock)
+		require.Equal(big.NewInt(int64(g.OkhotskBlockHeight)), evmChainConfig.LondonBlock)
 		require.Equal(isOkhotsk, evmChainConfig.IsBerlin(evm.Context.BlockNumber))
 		require.Equal(isOkhotsk, chainRules.IsBerlin)
 		require.Equal(isOkhotsk, evmChainConfig.IsLondon(evm.Context.BlockNumber))

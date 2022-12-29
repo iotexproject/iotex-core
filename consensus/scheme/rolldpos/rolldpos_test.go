@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package rolldpos
 
@@ -36,7 +35,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -57,17 +56,25 @@ func TestNewRollDPoS(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 
-	cfg := config.Default
+	g := genesis.Default
+	builderCfg := BuilderConfig{
+		Chain:              blockchain.DefaultConfig,
+		Consensus:          DefaultConfig,
+		DardanellesUpgrade: consensusfsm.DefaultDardanellesUpgradeConfig,
+		DB:                 db.DefaultConfig,
+		Genesis:            g,
+		SystemActive:       true,
+	}
 	rp := rolldpos.NewProtocol(
-		cfg.Genesis.NumCandidateDelegates,
-		cfg.Genesis.NumDelegates,
-		cfg.Genesis.NumSubEpochs,
+		g.NumCandidateDelegates,
+		g.NumDelegates,
+		g.NumSubEpochs,
 	)
 	delegatesByEpoch := func(uint64) ([]string, error) { return nil, nil }
 	t.Run("normal", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
-			SetConfig(cfg).
+			SetConfig(builderCfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
 			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
@@ -83,7 +90,7 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Run("mock-clock", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
-			SetConfig(cfg).
+			SetConfig(builderCfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
 			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
@@ -96,14 +103,14 @@ func TestNewRollDPoS(t *testing.T) {
 			Build()
 		assert.NoError(t, err)
 		assert.NotNil(t, r)
-		_, ok := r.ctx.clock.(*clock.Mock)
+		_, ok := r.ctx.Clock().(*clock.Mock)
 		assert.True(t, ok)
 	})
 
 	t.Run("root chain API", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
-			SetConfig(cfg).
+			SetConfig(builderCfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
 			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
@@ -120,7 +127,7 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Run("missing-dep", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
-			SetConfig(cfg).
+			SetConfig(builderCfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
 			SetBroadcast(func(_ proto.Message) error {
@@ -189,26 +196,34 @@ func TestValidateBlockFooter(t *testing.T) {
 	clock := clock.NewMock()
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
-	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
-	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(5)
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(5)
 
 	sk1 := identityset.PrivateKey(1)
-	cfg := config.Default
-	cfg.Genesis.NumDelegates = 4
-	cfg.Genesis.NumSubEpochs = 1
-	cfg.Genesis.BlockInterval = 10 * time.Second
-	cfg.Genesis.Timestamp = int64(1500000000)
-	blockchain.EXPECT().Genesis().Return(cfg.Genesis).Times(5)
+	g := genesis.Default
+	g.NumDelegates = 4
+	g.NumSubEpochs = 1
+	g.BlockInterval = 10 * time.Second
+	g.Timestamp = int64(1500000000)
+	builderCfg := BuilderConfig{
+		Chain:              blockchain.DefaultConfig,
+		Consensus:          DefaultConfig,
+		DardanellesUpgrade: consensusfsm.DefaultDardanellesUpgradeConfig,
+		DB:                 db.DefaultConfig,
+		Genesis:            g,
+		SystemActive:       true,
+	}
+	bc.EXPECT().Genesis().Return(g).Times(5)
 	rp := rolldpos.NewProtocol(
-		cfg.Genesis.NumCandidateDelegates,
-		cfg.Genesis.NumDelegates,
-		cfg.Genesis.NumSubEpochs,
+		g.NumCandidateDelegates,
+		g.NumDelegates,
+		g.NumSubEpochs,
 	)
 	r, err := NewRollDPoSBuilder().
-		SetConfig(cfg).
+		SetConfig(builderCfg).
 		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
-		SetChainManager(NewChainManager(blockchain)).
+		SetChainManager(NewChainManager(bc)).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
@@ -265,28 +280,37 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	clock := clock.NewMock()
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
-	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
-	blockchain.EXPECT().TipHeight().Return(blockHeight).Times(1)
-	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(2)
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	bc.EXPECT().TipHeight().Return(blockHeight).Times(1)
+	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(2)
 
 	sk1 := identityset.PrivateKey(1)
-	cfg := config.Default
-	cfg.Consensus.RollDPoS.ConsensusDBPath = "consensus.db"
-	cfg.Genesis.NumDelegates = 4
-	cfg.Genesis.NumSubEpochs = 1
-	cfg.Genesis.BlockInterval = 10 * time.Second
-	cfg.Genesis.Timestamp = int64(1500000000)
-	blockchain.EXPECT().Genesis().Return(cfg.Genesis).Times(2)
+	cfg := DefaultConfig
+	cfg.ConsensusDBPath = "consensus.db"
+	g := genesis.Default
+	g.NumDelegates = 4
+	g.NumSubEpochs = 1
+	g.BlockInterval = 10 * time.Second
+	g.Timestamp = int64(1500000000)
+	builderCfg := BuilderConfig{
+		Chain:              blockchain.DefaultConfig,
+		Consensus:          cfg,
+		DardanellesUpgrade: consensusfsm.DefaultDardanellesUpgradeConfig,
+		DB:                 db.DefaultConfig,
+		Genesis:            g,
+		SystemActive:       true,
+	}
+	bc.EXPECT().Genesis().Return(g).Times(2)
 	rp := rolldpos.NewProtocol(
-		cfg.Genesis.NumCandidateDelegates,
-		cfg.Genesis.NumDelegates,
-		cfg.Genesis.NumSubEpochs,
+		g.NumCandidateDelegates,
+		g.NumDelegates,
+		g.NumSubEpochs,
 	)
 	r, err := NewRollDPoSBuilder().
-		SetConfig(cfg).
+		SetConfig(builderCfg).
 		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
-		SetChainManager(NewChainManager(blockchain)).
+		SetChainManager(NewChainManager(bc)).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
@@ -303,15 +327,15 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	clock.Add(r.ctx.BlockInterval(blockHeight))
-	require.NoError(t, r.ctx.Start(context.Background()))
-	r.ctx.round, err = r.ctx.roundCalc.UpdateRound(r.ctx.round, blockHeight+1, r.ctx.BlockInterval(blockHeight+1), clock.Now(), 2*time.Second)
+	ctx := r.ctx.(*rollDPoSCtx)
+	clock.Add(ctx.BlockInterval(blockHeight))
+	require.NoError(t, ctx.Start(context.Background()))
+	ctx.round, err = ctx.roundCalc.UpdateRound(ctx.round, blockHeight+1, ctx.BlockInterval(blockHeight+1), clock.Now(), 2*time.Second)
 	require.NoError(t, err)
 
 	m, err := r.Metrics()
 	require.NoError(t, err)
 	assert.Equal(t, uint64(3), m.LatestEpoch)
-
 	assert.Equal(t, candidates[:4], m.LatestDelegates)
 	assert.Equal(t, candidates[1], m.LatestBlockProducer)
 }
@@ -353,21 +377,29 @@ func (o *directOverlay) GetPeers() []net.Addr {
 
 func TestRollDPoSConsensus(t *testing.T) {
 	newConsensusComponents := func(numNodes int) ([]*RollDPoS, []*directOverlay, []blockchain.Blockchain) {
-		cfg := config.Default
-		cfg.Consensus.RollDPoS.ConsensusDBPath = ""
-		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
-		cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 800 * time.Millisecond
-		cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 400 * time.Millisecond
-		cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 400 * time.Millisecond
-		cfg.Consensus.RollDPoS.FSM.CommitTTL = 400 * time.Millisecond
-		cfg.Consensus.RollDPoS.FSM.UnmatchedEventTTL = time.Second
-		cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 10 * time.Millisecond
-		cfg.Consensus.RollDPoS.ToleratedOvertime = 200 * time.Millisecond
-
-		cfg.Genesis.BlockInterval = 2 * time.Second
-		cfg.Genesis.Blockchain.NumDelegates = uint64(numNodes)
-		cfg.Genesis.Blockchain.NumSubEpochs = 1
-		cfg.Genesis.EnableGravityChainVoting = false
+		cfg := DefaultConfig
+		cfg.ConsensusDBPath = ""
+		cfg.Delay = 300 * time.Millisecond
+		cfg.FSM.AcceptBlockTTL = 800 * time.Millisecond
+		cfg.FSM.AcceptProposalEndorsementTTL = 400 * time.Millisecond
+		cfg.FSM.AcceptLockEndorsementTTL = 400 * time.Millisecond
+		cfg.FSM.CommitTTL = 400 * time.Millisecond
+		cfg.FSM.UnmatchedEventTTL = time.Second
+		cfg.FSM.UnmatchedEventInterval = 10 * time.Millisecond
+		cfg.ToleratedOvertime = 200 * time.Millisecond
+		g := genesis.Default
+		g.BlockInterval = 2 * time.Second
+		g.Blockchain.NumDelegates = uint64(numNodes)
+		g.Blockchain.NumSubEpochs = 1
+		g.EnableGravityChainVoting = false
+		builderCfg := BuilderConfig{
+			Chain:              blockchain.DefaultConfig,
+			Consensus:          cfg,
+			DardanellesUpgrade: consensusfsm.DefaultDardanellesUpgradeConfig,
+			DB:                 db.DefaultConfig,
+			Genesis:            g,
+			SystemActive:       true,
+		}
 		chainAddrs := make([]*addrKeyPair, 0, numNodes)
 		networkAddrs := make([]net.Addr, 0, numNodes)
 		for i := 0; i < numNodes; i++ {
@@ -402,28 +434,29 @@ func TestRollDPoSConsensus(t *testing.T) {
 		chains := make([]blockchain.Blockchain, 0, numNodes)
 		p2ps := make([]*directOverlay, 0, numNodes)
 		cs := make([]*RollDPoS, 0, numNodes)
-		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+		bc := blockchain.DefaultConfig
+		factoryCfg := factory.GenerateConfig(bc, g)
 		for i := 0; i < numNodes; i++ {
 			ctx := context.Background()
-			cfg.Chain.ProducerPrivKey = hex.EncodeToString(chainAddrs[i].priKey.Bytes())
+			bc.ProducerPrivKey = hex.EncodeToString(chainAddrs[i].priKey.Bytes())
 			registry := protocol.NewRegistry()
 			sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 			require.NoError(t, err)
 			require.NoError(t, sf.Start(genesis.WithGenesisContext(
 				protocol.WithRegistry(ctx, registry),
-				cfg.Genesis,
+				g,
 			)))
-			actPool, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool, actpool.EnableExperimentalActions())
+			actPool, err := actpool.NewActPool(g, sf, actpool.DefaultConfig, actpool.EnableExperimentalActions())
 			require.NoError(t, err)
 			require.NoError(t, err)
 			acc := account.NewProtocol(rewarding.DepositGas)
 			require.NoError(t, acc.Register(registry))
-			rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+			rp := rolldpos.NewProtocol(g.NumCandidateDelegates, g.NumDelegates, g.NumSubEpochs)
 			require.NoError(t, rp.Register(registry))
 			dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 			chain := blockchain.NewBlockchain(
-				cfg.Chain,
-				cfg.Genesis,
+				bc,
+				g,
 				dao,
 				factory.NewMinter(sf, actPool),
 				blockchain.BlockValidatorOption(block.NewValidator(
@@ -442,7 +475,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			consensus, err := NewRollDPoSBuilder().
 				SetAddr(chainAddrs[i].encodedAddr).
 				SetPriKey(chainAddrs[i].priKey).
-				SetConfig(cfg).
+				SetConfig(builderCfg).
 				SetChainManager(NewChainManager(chain)).
 				SetBroadcast(p2p.Broadcast).
 				SetDelegatesByEpochFunc(delegatesByEpochFunc).
@@ -564,7 +597,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		for i := 0; i < 24; i++ {
 			go func(idx int) {
 				defer wg.Done()
-				cs[idx].ctx.roundCalc.timeBasedRotation = true
+				cs[idx].ctx.(*rollDPoSCtx).roundCalc.timeBasedRotation = true
 				err := cs[idx].Start(ctx)
 				require.NoError(t, err)
 			}(i)

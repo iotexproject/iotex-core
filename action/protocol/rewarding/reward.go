@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package rewarding
 
@@ -98,6 +97,12 @@ func (p *Protocol) GrantBlockReward(
 		return nil, nil
 	}
 	rewardAddr, err := address.FromString(rewardAddrStr)
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	if fCtx.FixRewardErroCheckPosition {
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	a := admin{}
 	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
@@ -106,8 +111,10 @@ func (p *Protocol) GrantBlockReward(
 	if err := p.updateAvailableBalance(ctx, sm, a.blockReward); err != nil {
 		return nil, err
 	}
-	if err != nil {
-		return nil, err
+	if !fCtx.FixRewardErroCheckPosition {
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := p.grantToAccount(ctx, sm, rewardAddr, a.blockReward); err != nil {
 		return nil, err

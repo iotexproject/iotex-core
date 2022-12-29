@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
@@ -84,7 +83,7 @@ var (
 const (
 	gasLimitFlagLabel       = "gas-limit"
 	gasLimitFlagShortLabel  = "l"
-	gasLimitFlagDefault     = uint64(20000000)
+	GasLimitFlagDefault     = uint64(20000000)
 	gasPriceFlagLabel       = "gas-price"
 	gasPriceFlagShortLabel  = "p"
 	gasPriceFlagDefault     = "1"
@@ -93,7 +92,7 @@ const (
 	nonceFlagDefault        = uint64(0)
 	signerFlagLabel         = "signer"
 	signerFlagShortLabel    = "s"
-	signerFlagDefault       = ""
+	SignerFlagDefault       = ""
 	bytecodeFlagLabel       = "bytecode"
 	bytecodeFlagShortLabel  = "b"
 	bytecodeFlagDefault     = ""
@@ -106,7 +105,7 @@ const (
 )
 
 func registerGasLimitFlag(client ioctl.Client, cmd *cobra.Command) {
-	flag.NewUint64VarP(gasLimitFlagLabel, gasLimitFlagShortLabel, gasLimitFlagDefault, selectTranslation(client, _flagGasLimitUsages)).RegisterCommand(cmd)
+	flag.NewUint64VarP(gasLimitFlagLabel, gasLimitFlagShortLabel, GasLimitFlagDefault, selectTranslation(client, _flagGasLimitUsages)).RegisterCommand(cmd)
 }
 
 func registerGasPriceFlag(client ioctl.Client, cmd *cobra.Command) {
@@ -118,7 +117,7 @@ func registerNonceFlag(client ioctl.Client, cmd *cobra.Command) {
 }
 
 func registerSignerFlag(client ioctl.Client, cmd *cobra.Command) {
-	flag.NewStringVarP(signerFlagLabel, signerFlagShortLabel, signerFlagDefault, selectTranslation(client, _flagSignerUsages)).RegisterCommand(cmd)
+	flag.NewStringVarP(signerFlagLabel, signerFlagShortLabel, SignerFlagDefault, selectTranslation(client, _flagSignerUsages)).RegisterCommand(cmd)
 }
 
 func registerBytecodeFlag(client ioctl.Client, cmd *cobra.Command) {
