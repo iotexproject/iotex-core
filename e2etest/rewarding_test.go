@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"os"
 	"strconv"
 	"sync"
@@ -30,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/fastrand"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
@@ -158,13 +158,12 @@ func TestBlockEpochReward(t *testing.T) {
 	numNodes := 4
 
 	// Set mini-cluster configurations
-	rand.Seed(time.Now().UnixNano())
 	var delegates []genesis.Delegate
 	for i := 0; i < numNodes; i++ {
 		delegates = append(delegates, genesis.Delegate{
 			OperatorAddrStr: identityset.Address(i).String(),
 			RewardAddrStr:   identityset.Address(i + numNodes).String(),
-			VotesStr:        strconv.Itoa(1000 + rand.Intn(1000)),
+			VotesStr:        strconv.Itoa(1000 + int(fastrand.Uint32n(1000))),
 		})
 
 	}
@@ -184,10 +183,12 @@ func TestBlockEpochReward(t *testing.T) {
 		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
+		httpPort := 15014 + i
+		webSocketPort := 16014 + i
 		HTTPStatsPort := 8080 + i
 		HTTPAdminPort := 9009 + i
 		cfg := newConfig(chainDBPath, trieDBPath, indexDBPath, identityset.PrivateKey(i),
-			networkPort, apiPort, uint64(numNodes))
+			networkPort, apiPort, httpPort, webSocketPort, uint64(numNodes))
 		cfg.Genesis.Delegates = delegates
 		cfg.Genesis.PollMode = "lifeLong"
 		cfg.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
@@ -263,14 +264,14 @@ func TestBlockEpochReward(t *testing.T) {
 	claimedAmount := make(map[string]*big.Int, numNodes)
 	//Map to translate from operator address to reward address
 	getRewardAddStr := make(map[string]string)
-
+	registries := make([]*protocol.Registry, numNodes)
 	for i := 0; i < numNodes; i++ {
-		rp := rewarding.FindProtocol(svrs[i].ChainService(configs[i].Chain.ID).Registry())
+		registries[i] = svrs[i].ChainService(configs[i].Chain.ID).Registry()
+		rp := rewarding.FindProtocol(registries[i])
 		require.NotNil(t, rp)
 		rps[i] = rp
 
 		sfs[i] = svrs[i].ChainService(configs[i].Chain.ID).StateFactory()
-
 		chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
 		apis[i] = svrs[i].APIServer(configs[i].Chain.ID)
 
@@ -301,7 +302,8 @@ func TestBlockEpochReward(t *testing.T) {
 			BlockHeight: 0,
 		},
 	)
-	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+	ctx = genesis.WithGenesisContext(ctx, chains[0].Genesis())
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 
 	blockReward, err := rps[0].BlockReward(ctx, sfs[0])
 	require.NoError(t, err)
@@ -331,12 +333,13 @@ func TestBlockEpochReward(t *testing.T) {
 
 	fmt.Println("Starting test")
 
-	if err := testutil.WaitUntil(100*time.Millisecond, 120*time.Second, func() (bool, error) {
+	if _, err := testutil.Poll(400*time.Millisecond, 120*time.Second, func() (bool, error) {
 		height := chains[0].TipHeight()
+		t.Logf("height = %d , preHeight = %d", height, preHeight)
 		//New height is reached, need to update block reward
 		if height > preHeight {
 
-			err = testutil.WaitUntil(100*time.Millisecond, 15*time.Second, func() (bool, error) {
+			_, err = testutil.Poll(300*time.Millisecond, 15*time.Second, func() (bool, error) {
 				//This Waituntil block guarantees that we can get a consistent snapshot of the followings at some height:
 				// 1) all unclaimed balance live
 				// 2) expected unclaimed balance
@@ -347,6 +350,7 @@ func TestBlockEpochReward(t *testing.T) {
 				//Wait until all the pending actions are settled
 				updateExpectationWithPendingClaimList(t, apis[0].CoreService(), exptUnclaimed, claimedAmount, pendingClaimActions)
 				if len(pendingClaimActions) > 0 {
+					t.Logf("pendingClaimActions = %v", pendingClaimActions)
 					// if there is pending action, retry
 					return false, nil
 				}
@@ -360,7 +364,7 @@ func TestBlockEpochReward(t *testing.T) {
 				if curHigh != chains[0].TipHeight() {
 					return false, nil
 				}
-
+				t.Logf("curHigh = %d preExpectHigh = %d", curHigh, preExpectHigh)
 				//add expected block/epoch reward
 				for h := preExpectHigh + 1; h <= curHigh; h++ {
 					//Add block reward to current block producer
@@ -381,7 +385,14 @@ func TestBlockEpochReward(t *testing.T) {
 							expectAfterEpoch := big.NewInt(0).Add(exptUnclaimed[rewardAddrStr], epRwdShares[rewardAddrStr])
 							exptUnclaimed[rewardAddrStr] = expectAfterEpoch
 						}
-						ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
+						ctx := protocol.WithBlockCtx(
+							context.Background(),
+							protocol.BlockCtx{
+								BlockHeight: h,
+							},
+						)
+						ctx = genesis.WithGenesisContext(ctx, configs[0].Genesis)
+						ctx = protocol.WithFeatureCtx(ctx)
 						//Add foundation bonus
 						foundationBonusLastEpoch, err := rps[0].FoundationBonusLastEpoch(ctx, sfs[0])
 						require.NoError(t, err)
@@ -404,6 +415,8 @@ func TestBlockEpochReward(t *testing.T) {
 
 				curHighCheck := chains[0].TipHeight()
 				preHeight = curHighCheck
+				t.Logf("curHigh = %d , preHeight = %d curHighCheck=%d", curHigh, preHeight, curHighCheck)
+
 				//If chain height changes, we need to take snapshot again.
 				return curHigh == curHighCheck, nil
 
@@ -424,14 +437,13 @@ func TestBlockEpochReward(t *testing.T) {
 
 			// perform a random claim and record the amount
 			// chose a random node to claim
-			d := rand.Intn(numNodes)
+			d := int(fastrand.Uint32n(uint32(numNodes)))
 			var amount *big.Int
 			rewardAddrStr := identityset.Address(d + numNodes).String()
 			rewardPriKey := identityset.PrivateKey(d + numNodes)
 			expectedSuccess := true
 
-			rand.Seed(time.Now().UnixNano())
-			switch r := rand.Intn(int(totalClaimCasesNum)); claimTestCaseID(r) {
+			switch r := int(fastrand.Uint32n(uint32(totalClaimCasesNum))); claimTestCaseID(r) {
 			case caseClaimZero:
 				//Claim 0
 				amount = big.NewInt(0)
@@ -443,7 +455,7 @@ func TestBlockEpochReward(t *testing.T) {
 				amount = big.NewInt(0).Mul(exptUnclaimed[rewardAddrStr], big.NewInt(2))
 			case caseClaimPartOfBalance:
 				//Claim random part of available
-				amount = big.NewInt(0).Div(exptUnclaimed[rewardAddrStr], big.NewInt(int64(rand.Intn(100000))))
+				amount = big.NewInt(0).Div(exptUnclaimed[rewardAddrStr], big.NewInt(int64(int(fastrand.Uint32n(100000)))))
 			case caseClaimNegative:
 				//Claim negative
 				amount = big.NewInt(-100000)
@@ -467,7 +479,7 @@ func TestBlockEpochReward(t *testing.T) {
 	}
 
 	//Wait until all the pending actions are settled
-	err = testutil.WaitUntil(100*time.Millisecond, 40*time.Second, func() (bool, error) {
+	_, err = testutil.Poll(300*time.Millisecond, 40*time.Second, func() (bool, error) {
 		updateExpectationWithPendingClaimList(t, apis[0].CoreService(), exptUnclaimed, claimedAmount, pendingClaimActions)
 		return len(pendingClaimActions) == 0, nil
 	})
@@ -590,6 +602,8 @@ func updateExpectationWithPendingClaimList(
 			}
 
 			delete(pendingClaimActions, selpHash)
+		} else {
+			t.Logf("Failed to get receipt for action %x", selpHash)
 		}
 	}
 
@@ -602,7 +616,9 @@ func newConfig(
 	indexDBPath string,
 	producerPriKey crypto.PrivateKey,
 	networkPort,
-	apiPort int,
+	apiPort,
+	httpPort,
+	webSocketPort int,
 	numNodes uint64,
 ) config.Config {
 	cfg := config.Default
@@ -614,8 +630,10 @@ func newConfig(
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
-	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Chain.EnableAsyncIndexWrite = true
+	cfg.Chain.MaxCacheSize = 100
 
 	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()
 
@@ -630,12 +648,14 @@ func newConfig(
 	cfg.Consensus.RollDPoS.Delay = 6 * time.Second
 
 	cfg.API.GRPCPort = apiPort
+	cfg.API.HTTPPort = httpPort
+	cfg.API.WebSocketPort = webSocketPort
 
 	cfg.Genesis.Blockchain.NumSubEpochs = 4
 	cfg.Genesis.Blockchain.NumDelegates = numNodes
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[0:numNodes]
-	cfg.Genesis.BlockInterval = 500 * time.Millisecond
+	cfg.Genesis.BlockInterval = 1000 * time.Millisecond
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 2
 
