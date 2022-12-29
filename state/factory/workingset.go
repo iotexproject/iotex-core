@@ -584,15 +584,14 @@ func (ws *workingSet) CreateBuilder(
 }
 
 func isWeb3RewardingAction(selp action.SealedEnvelope) bool {
-	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_RLP) {
-		act := selp.Action()
-		switch act.(type) {
-		case *action.ClaimFromRewardingFund,
-			*action.DepositToRewardingFund:
-			return true
-		default:
-			return false
-		}
+	if selp.Encoding() != uint32(iotextypes.Encoding_ETHEREUM_RLP) {
+		return false
 	}
-	return false
+	switch selp.Action().(type) {
+	case *action.ClaimFromRewardingFund,
+		*action.DepositToRewardingFund:
+		return true
+	default:
+		return false
+	}
 }
