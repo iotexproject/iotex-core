@@ -32,9 +32,10 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -81,7 +82,7 @@ var (
 
 	// nonce is too high
 	_testTransferInvalid4, _ = action.SignedTransfer(identityset.Address(28).String(),
-		identityset.PrivateKey(28), config.Default.ActPool.MaxNumActsPerAcct+10, big.NewInt(1),
+		identityset.PrivateKey(28), actpool.DefaultConfig.MaxNumActsPerAcct+10, big.NewInt(1),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	_testTransferInvalid4Pb = _testTransferInvalid4.Proto()
 
@@ -819,7 +820,7 @@ var (
 func TestGrpcServer_GetAccountIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, bc, dao, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -884,7 +885,7 @@ func TestGrpcServer_GetAccountIntegrity(t *testing.T) {
 func TestGrpcServer_GetActionsIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -945,7 +946,7 @@ func TestGrpcServer_GetActionsIntegrity(t *testing.T) {
 func TestGrpcServer_GetActionIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, dao, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -999,7 +1000,7 @@ func TestGrpcServer_GetActionIntegrity(t *testing.T) {
 func TestGrpcServer_GetActionsByAddressIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1051,7 +1052,7 @@ func TestGrpcServer_GetActionsByAddressIntegrity(t *testing.T) {
 func TestGrpcServer_GetUnconfirmedActionsByAddressIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1083,7 +1084,7 @@ func TestGrpcServer_GetUnconfirmedActionsByAddressIntegrity(t *testing.T) {
 func TestGrpcServer_GetActionsByBlockIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1121,9 +1122,9 @@ func TestGrpcServer_GetActionsByBlockIntegrity(t *testing.T) {
 func TestGrpcServer_GetBlockMetasIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
-	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
-	block.LoadGenesisHash(&cfg.Genesis)
+	cfg.api.GRPCPort = testutil.RandomPort()
+	genesis.SetGenesisTimestamp(cfg.genesis.Timestamp)
+	block.LoadGenesisHash(&cfg.genesis)
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1185,7 +1186,7 @@ func TestGrpcServer_GetBlockMetasIntegrity(t *testing.T) {
 func TestGrpcServer_GetBlockMetaIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, bc, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1224,7 +1225,7 @@ func TestGrpcServer_GetChainMetaIntegrity(t *testing.T) {
 	for _, test := range _getChainMetaTests {
 		cfg := newConfig()
 		if test.pollProtocolType == lld {
-			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+			pol = poll.NewLifeLongDelegatesProtocol(cfg.genesis.Delegates)
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			slasher, _ := poll.NewSlasher(
@@ -1235,25 +1236,25 @@ func TestGrpcServer_GetChainMetaIntegrity(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				cfg.Genesis.NumCandidateDelegates,
-				cfg.Genesis.NumDelegates,
-				cfg.Genesis.DardanellesNumSubEpochs,
-				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.ProbationEpochPeriod,
-				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-				cfg.Genesis.ProbationIntensityRate)
+				cfg.genesis.NumCandidateDelegates,
+				cfg.genesis.NumDelegates,
+				cfg.genesis.DardanellesNumSubEpochs,
+				cfg.genesis.ProductivityThreshold,
+				cfg.genesis.ProbationEpochPeriod,
+				cfg.genesis.UnproductiveDelegateMaxCacheSize,
+				cfg.genesis.ProbationIntensityRate)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				cfg.Chain.PollInitialCandidatesInterval,
+				cfg.chain.PollInitialCandidatesInterval,
 				slasher)
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
 		}
 
-		cfg.API.GRPCPort = testutil.RandomPort()
-		cfg.API.TpsWindow = test.tpsWindow
+		cfg.api.GRPCPort = testutil.RandomPort()
+		cfg.api.TpsWindow = test.tpsWindow
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		grpcHandler := newGRPCHandler(svr.core)
@@ -1287,8 +1288,8 @@ func TestGrpcServer_GetChainMetaIntegrity(t *testing.T) {
 func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
-	cfg.Genesis.MidwayBlockHeight = 10
+	cfg.api.GRPCPort = testutil.RandomPort()
+	cfg.genesis.MidwayBlockHeight = 10
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1315,19 +1316,19 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 	// 3 failure cases
 	ctx := context.Background()
 	tests := []struct {
-		cfg    func() config.Config
+		cfg    func() testConfig
 		action *iotextypes.Action
 		err    string
 	}{
 		{
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			&iotextypes.Action{},
 			"invalid signature length",
 		},
 		{
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			&iotextypes.Action{
@@ -1336,30 +1337,30 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 			"empty action proto to load",
 		},
 		{
-			func() config.Config {
+			func() testConfig {
 				cfg := newConfig()
-				cfg.ActPool.MaxNumActsPerPool = 8
+				cfg.actPoll.MaxNumActsPerPool = 8
 				return cfg
 			},
 			_testTransferPb,
 			action.ErrTxPoolOverflow.Error(),
 		},
 		{
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			_testTransferInvalid1Pb,
 			action.ErrNonceTooLow.Error(),
 		},
 		{
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			_testTransferInvalid2Pb,
 			action.ErrUnderpriced.Error(),
 		},
 		{
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			_testTransferInvalid3Pb,
@@ -1370,7 +1371,7 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 	for _, test := range tests {
 		request := &iotexapi.SendActionRequest{Action: test.action}
 		cfg := test.cfg()
-		cfg.API.GRPCPort = testutil.RandomPort()
+		cfg.api.GRPCPort = testutil.RandomPort()
 		svr, _, _, _, _, _, file, err := createServerV2(cfg, true)
 		require.NoError(err)
 		grpcHandler := newGRPCHandler(svr.core)
@@ -1386,7 +1387,7 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 func TestGrpcServer_StreamLogsIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1401,7 +1402,7 @@ func TestGrpcServer_StreamLogsIntegrity(t *testing.T) {
 func TestGrpcServer_GetReceiptByActionIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1431,7 +1432,7 @@ func TestGrpcServer_GetReceiptByActionIntegrity(t *testing.T) {
 func TestGrpcServer_GetServerMetaIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1451,7 +1452,7 @@ func TestGrpcServer_GetServerMetaIntegrity(t *testing.T) {
 func TestGrpcServer_ReadContractIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, dao, indexer, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1485,9 +1486,9 @@ func TestGrpcServer_ReadContractIntegrity(t *testing.T) {
 func TestGrpcServer_SuggestGasPriceIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	for _, test := range _suggestGasPriceTests {
-		cfg.API.GasStation.DefaultGas = test.defaultGasPrice
+		cfg.api.GasStation.DefaultGas = test.defaultGasPrice
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		grpcHandler := newGRPCHandler(svr.core)
@@ -1503,7 +1504,7 @@ func TestGrpcServer_SuggestGasPriceIntegrity(t *testing.T) {
 func TestGrpcServer_EstimateGasForActionIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, dao, indexer, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1529,7 +1530,7 @@ func TestGrpcServer_EstimateGasForActionIntegrity(t *testing.T) {
 func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1708,8 +1709,8 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 func TestGrpcServer_ReadUnclaimedBalanceIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
-	cfg.Consensus.Scheme = config.RollDPoSScheme
+	cfg.api.GRPCPort = testutil.RandomPort()
+	cfg.consensus.Scheme = consensus.RollDPoSScheme
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1737,7 +1738,7 @@ func TestGrpcServer_ReadUnclaimedBalanceIntegrity(t *testing.T) {
 func TestGrpcServer_TotalBalanceIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1759,8 +1760,8 @@ func TestGrpcServer_TotalBalanceIntegrity(t *testing.T) {
 func TestGrpcServer_AvailableBalanceIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.Consensus.Scheme = config.RollDPoSScheme
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.consensus.Scheme = consensus.RollDPoSScheme
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1782,7 +1783,7 @@ func TestGrpcServer_AvailableBalanceIntegrity(t *testing.T) {
 func TestGrpcServer_ReadCandidatesByEpochIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 
 	ctrl := gomock.NewController(t)
 	committee := mock_committee.NewMockCommittee(ctrl)
@@ -1802,8 +1803,8 @@ func TestGrpcServer_ReadCandidatesByEpochIntegrity(t *testing.T) {
 	for _, test := range _readCandidatesByEpochTests {
 		var pol poll.Protocol
 		if test.protocolType == lld {
-			cfg.Genesis.Delegates = _delegates
-			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+			cfg.genesis.Delegates = _delegates
+			pol = poll.NewLifeLongDelegatesProtocol(cfg.genesis.Delegates)
 		} else {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
@@ -1817,19 +1818,19 @@ func TestGrpcServer_ReadCandidatesByEpochIntegrity(t *testing.T) {
 				nil,
 				nil,
 				indexer,
-				cfg.Genesis.NumCandidateDelegates,
-				cfg.Genesis.NumDelegates,
-				cfg.Genesis.DardanellesNumSubEpochs,
-				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.ProbationEpochPeriod,
-				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-				cfg.Genesis.ProbationIntensityRate)
+				cfg.genesis.NumCandidateDelegates,
+				cfg.genesis.NumDelegates,
+				cfg.genesis.DardanellesNumSubEpochs,
+				cfg.genesis.ProductivityThreshold,
+				cfg.genesis.ProbationEpochPeriod,
+				cfg.genesis.UnproductiveDelegateMaxCacheSize,
+				cfg.genesis.ProbationIntensityRate)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				cfg.Chain.PollInitialCandidatesInterval,
+				cfg.chain.PollInitialCandidatesInterval,
 				slasher)
 		}
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
@@ -1855,7 +1856,7 @@ func TestGrpcServer_ReadCandidatesByEpochIntegrity(t *testing.T) {
 func TestGrpcServer_ReadBlockProducersByEpochIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 
 	ctrl := gomock.NewController(t)
 	committee := mock_committee.NewMockCommittee(ctrl)
@@ -1875,8 +1876,8 @@ func TestGrpcServer_ReadBlockProducersByEpochIntegrity(t *testing.T) {
 	for _, test := range _readBlockProducersByEpochTests {
 		var pol poll.Protocol
 		if test.protocolType == lld {
-			cfg.Genesis.Delegates = _delegates
-			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+			cfg.genesis.Delegates = _delegates
+			pol = poll.NewLifeLongDelegatesProtocol(cfg.genesis.Delegates)
 		} else {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
@@ -1891,19 +1892,19 @@ func TestGrpcServer_ReadBlockProducersByEpochIntegrity(t *testing.T) {
 				nil,
 				indexer,
 				test.numCandidateDelegates,
-				cfg.Genesis.NumDelegates,
-				cfg.Genesis.DardanellesNumSubEpochs,
-				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.ProbationEpochPeriod,
-				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-				cfg.Genesis.ProbationIntensityRate)
+				cfg.genesis.NumDelegates,
+				cfg.genesis.DardanellesNumSubEpochs,
+				cfg.genesis.ProductivityThreshold,
+				cfg.genesis.ProbationEpochPeriod,
+				cfg.genesis.UnproductiveDelegateMaxCacheSize,
+				cfg.genesis.ProbationIntensityRate)
 
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				cfg.Chain.PollInitialCandidatesInterval,
+				cfg.chain.PollInitialCandidatesInterval,
 				slasher)
 		}
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
@@ -1928,7 +1929,7 @@ func TestGrpcServer_ReadBlockProducersByEpochIntegrity(t *testing.T) {
 func TestGrpcServer_ReadActiveBlockProducersByEpochIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 
 	ctrl := gomock.NewController(t)
 	committee := mock_committee.NewMockCommittee(ctrl)
@@ -1948,8 +1949,8 @@ func TestGrpcServer_ReadActiveBlockProducersByEpochIntegrity(t *testing.T) {
 	for _, test := range _readActiveBlockProducersByEpochTests {
 		var pol poll.Protocol
 		if test.protocolType == lld {
-			cfg.Genesis.Delegates = _delegates
-			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+			cfg.genesis.Delegates = _delegates
+			pol = poll.NewLifeLongDelegatesProtocol(cfg.genesis.Delegates)
 		} else {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
@@ -1963,19 +1964,19 @@ func TestGrpcServer_ReadActiveBlockProducersByEpochIntegrity(t *testing.T) {
 				nil,
 				nil,
 				indexer,
-				cfg.Genesis.NumCandidateDelegates,
+				cfg.genesis.NumCandidateDelegates,
 				test.numDelegates,
-				cfg.Genesis.DardanellesNumSubEpochs,
-				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.ProbationEpochPeriod,
-				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-				cfg.Genesis.ProbationIntensityRate)
+				cfg.genesis.DardanellesNumSubEpochs,
+				cfg.genesis.ProductivityThreshold,
+				cfg.genesis.ProbationEpochPeriod,
+				cfg.genesis.UnproductiveDelegateMaxCacheSize,
+				cfg.genesis.ProbationIntensityRate)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				cfg.Chain.PollInitialCandidatesInterval,
+				cfg.chain.PollInitialCandidatesInterval,
 				slasher)
 		}
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
@@ -2001,7 +2002,7 @@ func TestGrpcServer_ReadActiveBlockProducersByEpochIntegrity(t *testing.T) {
 func TestGrpcServer_ReadRollDPoSMetaIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	for _, test := range _readRollDPoSMetaTests {
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
@@ -2023,7 +2024,7 @@ func TestGrpcServer_ReadRollDPoSMetaIntegrity(t *testing.T) {
 func TestGrpcServer_ReadEpochCtxIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	for _, test := range _readEpochCtxTests {
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
@@ -2047,7 +2048,7 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -2056,12 +2057,12 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 	}()
 	for _, test := range _getEpochMetaTests {
 		if test.pollProtocolType == lld {
-			pol := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+			pol := poll.NewLifeLongDelegatesProtocol(cfg.genesis.Delegates)
 			require.NoError(pol.ForceRegister(registry))
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
-			mbc.EXPECT().Genesis().Return(cfg.Genesis).Times(10)
+			mbc.EXPECT().Genesis().Return(cfg.genesis).Times(10)
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
@@ -2105,19 +2106,19 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 				nil,
 				nil,
 				indexer,
-				cfg.Genesis.NumCandidateDelegates,
-				cfg.Genesis.NumDelegates,
-				cfg.Genesis.DardanellesNumSubEpochs,
-				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.ProbationEpochPeriod,
-				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-				cfg.Genesis.ProbationIntensityRate)
+				cfg.genesis.NumCandidateDelegates,
+				cfg.genesis.NumDelegates,
+				cfg.genesis.DardanellesNumSubEpochs,
+				cfg.genesis.ProductivityThreshold,
+				cfg.genesis.ProbationEpochPeriod,
+				cfg.genesis.UnproductiveDelegateMaxCacheSize,
+				cfg.genesis.ProbationIntensityRate)
 			pol, _ := poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				cfg.Chain.PollInitialCandidatesInterval,
+				cfg.chain.PollInitialCandidatesInterval,
 				slasher)
 			require.NoError(pol.ForceRegister(registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
@@ -2179,7 +2180,7 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 func TestGrpcServer_GetRawBlocksIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -2247,7 +2248,7 @@ func TestGrpcServer_GetRawBlocksIntegrity(t *testing.T) {
 func TestGrpcServer_GetLogsIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -2307,7 +2308,7 @@ func TestGrpcServer_GetLogsIntegrity(t *testing.T) {
 func TestGrpcServer_GetElectionBucketsIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -2326,7 +2327,7 @@ func TestGrpcServer_GetElectionBucketsIntegrity(t *testing.T) {
 func TestGrpcServer_GetActionByActionHashIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
@@ -2343,7 +2344,7 @@ func TestGrpcServer_GetActionByActionHashIntegrity(t *testing.T) {
 func TestGrpcServer_GetTransactionLogByActionHashIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -2379,7 +2380,7 @@ func TestGrpcServer_GetTransactionLogByActionHashIntegrity(t *testing.T) {
 func TestGrpcServer_GetEvmTransfersByBlockHeightIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -2413,8 +2414,8 @@ func TestGrpcServer_GetEvmTransfersByBlockHeightIntegrity(t *testing.T) {
 func TestGrpcServer_GetActPoolActionsIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
-	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
+	cfg.api.GRPCPort = testutil.RandomPort()
+	ctx := genesis.WithGenesisContext(context.Background(), cfg.genesis)
 	svr, _, _, _, _, actPool, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -2472,7 +2473,7 @@ func TestGrpcServer_GetActPoolActionsIntegrity(t *testing.T) {
 func TestGrpcServer_GetEstimateGasSpecialIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, bc, dao, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -2511,13 +2512,13 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 
 	tests := []struct {
 		testName string
-		cfg      func() config.Config
+		cfg      func() testConfig
 		actions  []*iotextypes.Action
 		errRegex *regexp.Regexp
 	}{
 		{
 			"NonceTooLow",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid1Pb},
@@ -2525,7 +2526,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		},
 		{
 			"TerminallyUnderpriced",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid2Pb},
@@ -2533,7 +2534,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		},
 		{
 			"InsufficientEth",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid3Pb},
@@ -2542,7 +2543,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 
 		{
 			"NonceTooHigh",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid4Pb},
@@ -2550,7 +2551,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		},
 		{
 			"TransactionAlreadyInMempool",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferPb, _testTransferPb},
@@ -2558,7 +2559,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		},
 		{
 			"ReplacementTransactionUnderpriced",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferPb, _testTransferInvalid5Pb},
@@ -2566,7 +2567,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		},
 		{
 			"IntrinsicGasTooLow",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid6Pb},
@@ -2574,7 +2575,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		},
 		{
 			"NegativeValue",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid7Pb},
@@ -2582,9 +2583,9 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		},
 		{
 			"ExceedsBlockGasLimit",
-			func() config.Config {
+			func() testConfig {
 				cfg := newConfig()
-				cfg.ActPool.MaxGasLimitPerPool = 1e5
+				cfg.actPoll.MaxGasLimitPerPool = 1e5
 				return cfg
 			},
 			[]*iotextypes.Action{_testTransferInvalid8Pb},
@@ -2595,7 +2596,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 	for i, test := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			cfg := test.cfg()
-			cfg.API.GRPCPort = testutil.RandomPort()
+			cfg.api.GRPCPort = testutil.RandomPort()
 			svr, _, _, _, _, _, file, err := createServerV2(cfg, true)
 			require.NoError(err)
 			grpcHandler := newGRPCHandler(svr.core)
@@ -2619,7 +2620,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 func TestGrpcServer_TraceTransactionStructLogsIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, bc, _, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
