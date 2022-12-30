@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
 )
 
 // BlockDAO represents the block data access object
@@ -33,11 +32,11 @@ type SimulateFunc func(context.Context, address.Address, *action.Execution, evm.
 type GasStation struct {
 	bc  blockchain.Blockchain
 	dao BlockDAO
-	cfg config.GasStation
+	cfg Config
 }
 
 // NewGasStation creates a new gas station
-func NewGasStation(bc blockchain.Blockchain, dao BlockDAO, cfg config.GasStation) *GasStation {
+func NewGasStation(bc blockchain.Blockchain, dao BlockDAO, cfg Config) *GasStation {
 	return &GasStation{
 		bc:  bc,
 		dao: dao,
