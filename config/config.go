@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/server/cronjob"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
@@ -81,7 +80,6 @@ var (
 		DB:      db.DefaultConfig,
 		Indexer: blockindex.DefaultConfig,
 		Genesis: genesis.Default,
-		Cronjob: cronjob.DefaultConfig,
 	}
 
 	// ErrInvalidCfg indicates the invalid config value
@@ -132,7 +130,6 @@ type (
 		Log                log.GlobalConfig                `yaml:"log"`
 		SubLogs            map[string]log.GlobalConfig     `yaml:"subLogs"`
 		Genesis            genesis.Genesis                 `yaml:"genesis"`
-		Cronjob            cronjob.Config                  `yaml:"cronjob"`
 	}
 
 	// Validate is the interface of validating the config
