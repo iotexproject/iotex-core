@@ -106,7 +106,7 @@ if [ "$OS" = "darwin" ]; then
     brew update
     brew upgrade
     brew tap ethereum/ethereum
-    brew install solidity@8
+    brew install solidity
 else
     if [ "${OS}" != "linux" ] && { [ "${ARCH}" = "ppc64" ] || [ "${ARCH}" = "ppc64le" ];}; then
         # ppc64 and ppc64le are only supported on Linux.
