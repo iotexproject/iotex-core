@@ -53,11 +53,7 @@ type Subscriber interface {
 	HandleBlock(context.Context, string, *iotextypes.Block) error
 	HandleSyncRequest(context.Context, peer.AddrInfo, *iotexrpc.BlockSync) error
 	HandleConsensusMsg(*iotextypes.ConsensusMessage) error
-}
-
-// MsgSubscriber is the dispatcher msg subscriber interface
-type MsgSubscriber interface {
-	HandleMonitorMsg(*iotextypes.ConsensusMessage) error
+	HandleMonitorMsg(context.Context, string, *iotextypes.Monitor) error
 }
 
 // Dispatcher is used by peers, handles incoming block and header notifications and relays announcements of new blocks.
@@ -72,8 +68,6 @@ type Dispatcher interface {
 	// HandleTell handles the incoming tell message. The transportation layer semantics is exact once. The sender is
 	// given for the sake of replying the message
 	HandleTell(context.Context, uint32, peer.AddrInfo, proto.Message)
-	// AddMsgSubscriber add msg subscriber
-	AddMsgSubscriber(MsgSubscriber)
 }
 
 var (
@@ -135,24 +129,22 @@ func (m actionMsg) ChainID() uint32 {
 
 // IotxDispatcher is the request and event dispatcher for iotx node.
 type IotxDispatcher struct {
-	started          int32
-	shutdown         int32
-	actionChanLock   sync.RWMutex
-	blockChanLock    sync.RWMutex
-	syncChanLock     sync.RWMutex
-	actionChan       chan *actionMsg
-	blockChan        chan *blockMsg
-	syncChan         chan *blockSyncMsg
-	eventAudit       map[iotexrpc.MessageType]int
-	eventAuditLock   sync.RWMutex
-	wg               sync.WaitGroup
-	quit             chan struct{}
-	subscribers      map[uint32]Subscriber
-	subscribersMU    sync.RWMutex
-	peerLastSync     map[string]time.Time
-	syncInterval     time.Duration
-	msgSubscribers   []MsgSubscriber
-	msgSubscribersMU sync.RWMutex
+	started        int32
+	shutdown       int32
+	actionChanLock sync.RWMutex
+	blockChanLock  sync.RWMutex
+	syncChanLock   sync.RWMutex
+	actionChan     chan *actionMsg
+	blockChan      chan *blockMsg
+	syncChan       chan *blockSyncMsg
+	eventAudit     map[iotexrpc.MessageType]int
+	eventAuditLock sync.RWMutex
+	wg             sync.WaitGroup
+	quit           chan struct{}
+	subscribers    map[uint32]Subscriber
+	subscribersMU  sync.RWMutex
+	peerLastSync   map[string]time.Time
+	syncInterval   time.Duration
 }
 
 // NewDispatcher creates a new Dispatcher
@@ -178,15 +170,6 @@ func (d *IotxDispatcher) AddSubscriber(
 	d.subscribersMU.Lock()
 	d.subscribers[chainID] = subscriber
 	d.subscribersMU.Unlock()
-}
-
-// AddMsgSubscriber adds a subscriber to dispatcher
-func (d *IotxDispatcher) AddMsgSubscriber(
-	subscriber MsgSubscriber,
-) {
-	d.msgSubscribersMU.Lock()
-	d.msgSubscribers = append(d.msgSubscribers, subscriber)
-	d.msgSubscribersMU.Unlock()
 }
 
 // Start starts the dispatcher.
@@ -373,10 +356,6 @@ func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg
 	subscriber.ReportFullness(ctx, iotexrpc.MessageType_ACTION, float32(l)/float32(c))
 }
 
-func (d *IotxDispatcher) dispatchMonitorMessage(ctx context.Context, peer string, msg proto.Message) {
-	// save metrics
-}
-
 // dispatchBlock adds the passed block message to the news handling queue.
 func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, peer string, msg proto.Message) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
@@ -440,22 +419,8 @@ func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint3
 	subscriber.ReportFullness(ctx, iotexrpc.MessageType_BLOCK_REQUEST, float32(l)/float32(c))
 }
 
-func (d *IotxDispatcher) handleBroadcastMsg(ctx context.Context, chainID uint32, peer string, message proto.Message) {
-	for _, sub := range d.msgSubscribers {
-		switch msg := message.(type) {
-		case *iotextypes.ConsensusMessage:
-			if err := sub.HandleMonitorMsg(msg); err != nil {
-				log.L().Debug("Failed to handle consensus message", zap.Error(err))
-			}
-		default:
-		}
-	}
-}
-
 // HandleBroadcast handles incoming broadcast message
 func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, peer string, message proto.Message) {
-	d.handleBroadcastMsg(ctx, chainID, peer, message)
-
 	subscriber := d.subscriber(chainID)
 	if subscriber == nil {
 		log.L().Warn("chainID has not been registered in dispatcher.", zap.Uint32("chainID", chainID))
@@ -471,8 +436,11 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, pe
 		d.dispatchAction(ctx, chainID, message)
 	case *iotextypes.Block:
 		d.dispatchBlock(ctx, chainID, peer, message)
-	case *iotextypes.ConsensusVote:
-		d.dispatchMonitorMessage(ctx, peer, msg)
+	case *iotextypes.Monitor:
+		if err := subscriber.HandleMonitorMsg(ctx, peer, msg); err != nil {
+			log.L().Debug("Failed to handle monitor message.", zap.Error(err))
+		}
+		// update delegateHeightGauge metric
 	default:
 		msgType, _ := goproto.GetTypeFromRPCMsg(message)
 		log.L().Warn("Unexpected msgType handled by HandleBroadcast.", zap.Any("msgType", msgType))

@@ -140,6 +140,8 @@ type (
 		ReceiveBlock(blk *block.Block) error
 		// BlockHashByBlockHeight returns block hash by block height
 		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
+		// HandleMonitorMsg handle monitor msg
+		HandleMonitorMsg(ctx context.Context, peer string, msg *iotextypes.Monitor) error
 	}
 
 	// coreService implements the CoreService interface
@@ -158,7 +160,7 @@ type (
 		chainListener     apitypes.Listener
 		electionCommittee committee.Committee
 		readCache         *ReadCache
-		delegatesMonitor  map[string]*iotextypes.ConsensusMessage
+		delegatesMonitor  map[string]*iotextypes.Monitor
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -1564,4 +1566,10 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
 	startingHeight, currentHeight, targetHeight, _ := core.bs.SyncStatus()
 	return startingHeight, currentHeight, targetHeight
+}
+
+// HandleMonitorMsg handle monitor msg
+func (core *coreService) HandleMonitorMsg(ctx context.Context, peer string, msg *iotextypes.Monitor) error {
+	// update delegateMonitor
+	return nil
 }

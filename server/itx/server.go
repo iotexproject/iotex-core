@@ -22,12 +22,10 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/ha"
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/pkg/util/httputil"
-	"github.com/iotexproject/iotex-core/server/cronjob"
 )
 
 // Server is the iotex server instance containing all components.
@@ -41,7 +39,6 @@ type Server struct {
 	initializedSubChains map[uint32]bool
 	mutex                sync.RWMutex
 	subModuleCancel      context.CancelFunc
-	tasks                []lifecycle.StartStopper
 }
 
 // NewServer creates a new server
@@ -90,18 +87,13 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		if err := cs.Blockchain().AddSubscriber(apiServer); err != nil {
 			return nil, errors.Wrap(err, "failed to add api server as subscriber")
 		}
-	}
-
-	tasks := []lifecycle.StartStopper{}
-	jobs := cronjob.NewCronJobs(cfg.Cronjob, p2pAgent, cs.Blockchain())
-	for i := range jobs {
-		tasks = append(tasks, routine.NewRecurringTask(jobs[i].Run, jobs[i].Interval()))
+		cs.SetMonitorHandler(apiServer)
+		cs.SetMonitorBroadcaster(routine.NewRecurringTask(NewMonitorBroadcaster(p2pAgent, cs.Blockchain()).Broadcast, cfg.System.MonitorBroadcastInterval))
 	}
 
 	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
-	dispatcher.AddMsgSubscriber(apiServer)
 	svr := Server{
 		cfg:                  cfg,
 		p2pAgent:             p2pAgent,
@@ -110,7 +102,6 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		chainservices:        chains,
 		apiServers:           apiServers,
 		initializedSubChains: map[uint32]bool{},
-		tasks:                tasks,
 	}
 	// Setup sub-chain starter
 	// TODO: sub-chain infra should use main-chain API instead of protocol directly
@@ -137,22 +128,12 @@ func (s *Server) Start(ctx context.Context) error {
 	if err := s.dispatcher.Start(cctx); err != nil {
 		return errors.Wrap(err, "error when starting dispatcher")
 	}
-	for i := range s.tasks {
-		if err := s.tasks[i].Start(cctx); err != nil {
-			return errors.Wrapf(err, "error when starting task %v", i)
-		}
-	}
 	return nil
 }
 
 // Stop stops the server
 func (s *Server) Stop(ctx context.Context) error {
 	defer s.subModuleCancel()
-	for i := range s.tasks {
-		if err := s.tasks[i].Stop(ctx); err != nil {
-			return errors.Wrapf(err, "error when stopping task %v", i)
-		}
-	}
 	if err := s.p2pAgent.Stop(ctx); err != nil {
 		// notest
 		return errors.Wrap(err, "error when stopping P2P agent")

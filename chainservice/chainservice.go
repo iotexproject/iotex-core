@@ -61,6 +61,10 @@ var (
 	)
 )
 
+type monitorMsgHandler interface {
+	HandleMonitorMsg(context.Context, string, *iotextypes.Monitor) error
+}
+
 func init() {
 	prometheus.MustRegister(_apiCallWithChainIDMtc)
 	prometheus.MustRegister(_apiCallWithOutChainIDMtc)
@@ -84,6 +88,8 @@ type ChainService struct {
 	candidateIndexer   *poll.CandidateIndexer
 	candBucketsIndexer *staking.CandidatesBucketsIndexer
 	registry           *protocol.Registry
+	monitorHandler     monitorMsgHandler
+	monitorBroadcaster lifecycle.StartStopper
 }
 
 // Start starts the server
@@ -163,6 +169,11 @@ func (cs *ChainService) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) err
 	return cs.consensus.HandleConsensusMsg(msg)
 }
 
+// HandleMonitorMsg handles monitor message.
+func (cs *ChainService) HandleMonitorMsg(ctx context.Context, peer string, msg *iotextypes.Monitor) error {
+	return cs.monitorHandler.HandleMonitorMsg(ctx, peer, msg)
+}
+
 // ChainID returns ChainID.
 func (cs *ChainService) ChainID() uint32 { return cs.chain.ChainID() }
 
@@ -198,6 +209,15 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 
 // Registry returns a pointer to the registry
 func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
+
+// SetMonitorHandler set the monitor handler
+func (cs *ChainService) SetMonitorHandler(handler monitorMsgHandler) { cs.monitorHandler = handler }
+
+// SetMonitorBroadcaster sets the block sync instance
+func (cs *ChainService) SetMonitorBroadcaster(mb lifecycle.StartStopper) {
+	cs.monitorBroadcaster = mb
+	cs.lifecycle.Add(mb)
+}
 
 // NewAPIServer creates a new api server
 func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}) (*api.ServerV2, error) {

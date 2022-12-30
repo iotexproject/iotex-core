@@ -137,7 +137,6 @@ func (svr *ServerV2) CoreService() CoreService {
 }
 
 // HandleMonitorMsg handle monitor msg
-func (svr *ServerV2) HandleMonitorMsg(msg *iotextypes.ConsensusMessage) error {
-	// save msg to core.delegatesMonitor
-	return nil
+func (svr *ServerV2) HandleMonitorMsg(ctx context.Context, peer string, msg *iotextypes.Monitor) error {
+	return svr.core.HandleMonitorMsg(ctx, peer, msg)
 }

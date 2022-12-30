@@ -627,3 +627,10 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 
 	return cs, nil
 }
+
+// SetMonitorHandler sets the monitor handler instance
+func (builder *Builder) SetMonitorHandler(handler monitorMsgHandler) *Builder {
+	builder.createInstance()
+	builder.cs.monitorHandler = handler
+	return builder
+}
