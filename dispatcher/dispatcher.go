@@ -78,18 +78,10 @@ var (
 		},
 		[]string{"method", "succeed"},
 	)
-	delegateHeightGauge = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "iotex_p2p_delegate_height_gauge",
-			Help: "delegate height",
-		},
-		[]string{"address", "version"},
-	)
 )
 
 func init() {
 	prometheus.MustRegister(requestMtc)
-	prometheus.MustRegister(delegateHeightGauge)
 }
 
 // blockMsg packages a proto block message.

@@ -19,9 +19,9 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
+	"github.com/iotexproject/iotex-core/node"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // ServerV2 provides api for user to interact with blockchain data
@@ -44,9 +44,10 @@ func NewServerV2(
 	bfIndexer blockindex.BloomFilterIndexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
+	dm node.NodeManager,
 	opts ...Option,
 ) (*ServerV2, error) {
-	coreAPI, err := newCoreService(cfg, chain, bs, sf, dao, indexer, bfIndexer, actPool, registry, opts...)
+	coreAPI, err := newCoreService(cfg, chain, bs, sf, dao, indexer, bfIndexer, actPool, registry, dm, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -134,9 +135,4 @@ func (svr *ServerV2) ReceiveBlock(blk *block.Block) error {
 // CoreService returns the coreservice of the api
 func (svr *ServerV2) CoreService() CoreService {
 	return svr.core
-}
-
-// HandleMonitorMsg handle monitor msg
-func (svr *ServerV2) HandleMonitorMsg(ctx context.Context, peer string, msg *iotextypes.Monitor) error {
-	return svr.core.HandleMonitorMsg(ctx, peer, msg)
 }

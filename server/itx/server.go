@@ -87,8 +87,6 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		if err := cs.Blockchain().AddSubscriber(apiServer); err != nil {
 			return nil, errors.Wrap(err, "failed to add api server as subscriber")
 		}
-		cs.SetMonitorHandler(apiServer)
-		cs.SetMonitorBroadcaster(routine.NewRecurringTask(NewMonitorBroadcaster(p2pAgent, cs.Blockchain()).Broadcast, cfg.System.MonitorBroadcastInterval))
 	}
 
 	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api

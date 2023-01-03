@@ -49,6 +49,7 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
+	"github.com/iotexproject/iotex-core/node"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -140,8 +141,6 @@ type (
 		ReceiveBlock(blk *block.Block) error
 		// BlockHashByBlockHeight returns block hash by block height
 		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
-		// HandleMonitorMsg handle monitor msg
-		HandleMonitorMsg(ctx context.Context, peer string, msg *iotextypes.Monitor) error
 	}
 
 	// coreService implements the CoreService interface
@@ -160,7 +159,7 @@ type (
 		chainListener     apitypes.Listener
 		electionCommittee committee.Committee
 		readCache         *ReadCache
-		delegatesMonitor  map[string]*iotextypes.Monitor
+		delegateManager   node.NodeManager
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -210,6 +209,7 @@ func newCoreService(
 	bfIndexer blockindex.BloomFilterIndexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
+	dm node.NodeManager,
 	opts ...Option,
 ) (CoreService, error) {
 	if cfg == (Config{}) {
@@ -222,18 +222,19 @@ func newCoreService(
 	}
 
 	core := coreService{
-		bc:            chain,
-		bs:            bs,
-		sf:            sf,
-		dao:           dao,
-		indexer:       indexer,
-		bfIndexer:     bfIndexer,
-		ap:            actPool,
-		cfg:           cfg,
-		registry:      registry,
-		chainListener: NewChainListener(500),
-		gs:            gasstation.NewGasStation(chain, dao, cfg.GasStation),
-		readCache:     NewReadCache(),
+		bc:              chain,
+		bs:              bs,
+		sf:              sf,
+		dao:             dao,
+		indexer:         indexer,
+		bfIndexer:       bfIndexer,
+		ap:              actPool,
+		cfg:             cfg,
+		registry:        registry,
+		chainListener:   NewChainListener(500),
+		gs:              gasstation.NewGasStation(chain, dao, cfg.GasStation),
+		readCache:       NewReadCache(),
+		delegateManager: dm,
 	}
 
 	for _, opt := range opts {
@@ -1566,10 +1567,4 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
 	startingHeight, currentHeight, targetHeight, _ := core.bs.SyncStatus()
 	return startingHeight, currentHeight, targetHeight
-}
-
-// HandleMonitorMsg handle monitor msg
-func (core *coreService) HandleMonitorMsg(ctx context.Context, peer string, msg *iotextypes.Monitor) error {
-	// update delegateMonitor
-	return nil
 }

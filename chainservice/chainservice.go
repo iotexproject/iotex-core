@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/consensus"
+	"github.com/iotexproject/iotex-core/node"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -88,8 +89,7 @@ type ChainService struct {
 	candidateIndexer   *poll.CandidateIndexer
 	candBucketsIndexer *staking.CandidatesBucketsIndexer
 	registry           *protocol.Registry
-	monitorHandler     monitorMsgHandler
-	monitorBroadcaster lifecycle.StartStopper
+	delegateManager    node.NodeManager
 }
 
 // Start starts the server
@@ -171,7 +171,12 @@ func (cs *ChainService) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) err
 
 // HandleMonitorMsg handles monitor message.
 func (cs *ChainService) HandleMonitorMsg(ctx context.Context, peer string, msg *iotextypes.Monitor) error {
-	return cs.monitorHandler.HandleMonitorMsg(ctx, peer, msg)
+	cs.delegateManager.UpdateNode(&node.Node{
+		Addr:    peer,
+		Height:  msg.Height,
+		Version: msg.Version,
+	})
+	return nil
 }
 
 // ChainID returns ChainID.
@@ -210,15 +215,6 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 // Registry returns a pointer to the registry
 func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
 
-// SetMonitorHandler set the monitor handler
-func (cs *ChainService) SetMonitorHandler(handler monitorMsgHandler) { cs.monitorHandler = handler }
-
-// SetMonitorBroadcaster sets the block sync instance
-func (cs *ChainService) SetMonitorBroadcaster(mb lifecycle.StartStopper) {
-	cs.monitorBroadcaster = mb
-	cs.lifecycle.Add(mb)
-}
-
 // NewAPIServer creates a new api server
 func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}) (*api.ServerV2, error) {
 	if cfg.GRPCPort == 0 && cfg.HTTPPort == 0 {
@@ -242,6 +238,7 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 		cs.bfIndexer,
 		cs.actpool,
 		cs.registry,
+		cs.delegateManager,
 		apiServerOptions...,
 	)
 	if err != nil {
