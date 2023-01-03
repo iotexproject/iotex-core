@@ -62,10 +62,6 @@ var (
 	)
 )
 
-type monitorMsgHandler interface {
-	HandleMonitorMsg(context.Context, string, *iotextypes.Monitor) error
-}
-
 func init() {
 	prometheus.MustRegister(_apiCallWithChainIDMtc)
 	prometheus.MustRegister(_apiCallWithOutChainIDMtc)
@@ -169,8 +165,8 @@ func (cs *ChainService) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) err
 	return cs.consensus.HandleConsensusMsg(msg)
 }
 
-// HandleMonitorMsg handles monitor message.
-func (cs *ChainService) HandleMonitorMsg(ctx context.Context, peer string, msg *iotextypes.Monitor) error {
+// HandleNodeInfoMsg handles nodeinfo message.
+func (cs *ChainService) HandleNodeInfoMsg(ctx context.Context, peer string, msg *iotextypes.NodeInfo) error {
 	cs.delegateManager.UpdateNode(&node.Node{
 		Addr:    peer,
 		Height:  msg.Height,

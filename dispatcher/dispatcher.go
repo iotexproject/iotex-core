@@ -53,7 +53,7 @@ type Subscriber interface {
 	HandleBlock(context.Context, string, *iotextypes.Block) error
 	HandleSyncRequest(context.Context, peer.AddrInfo, *iotexrpc.BlockSync) error
 	HandleConsensusMsg(*iotextypes.ConsensusMessage) error
-	HandleMonitorMsg(context.Context, string, *iotextypes.Monitor) error
+	HandleNodeInfoMsg(context.Context, string, *iotextypes.NodeInfo) error
 }
 
 // Dispatcher is used by peers, handles incoming block and header notifications and relays announcements of new blocks.
@@ -428,11 +428,10 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, pe
 		d.dispatchAction(ctx, chainID, message)
 	case *iotextypes.Block:
 		d.dispatchBlock(ctx, chainID, peer, message)
-	case *iotextypes.Monitor:
-		if err := subscriber.HandleMonitorMsg(ctx, peer, msg); err != nil {
+	case *iotextypes.NodeInfo:
+		if err := subscriber.HandleNodeInfoMsg(ctx, peer, msg); err != nil {
 			log.L().Debug("Failed to handle monitor message.", zap.Error(err))
 		}
-		// update delegateHeightGauge metric
 	default:
 		msgType, _ := goproto.GetTypeFromRPCMsg(message)
 		log.L().Warn("Unexpected msgType handled by HandleBroadcast.", zap.Any("msgType", msgType))

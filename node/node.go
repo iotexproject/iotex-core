@@ -68,7 +68,7 @@ func (dm *delegateManager) GetNode(addr string) *Node {
 	return dm.nodeMap[addr]
 }
 func (dm *delegateManager) broadcast() {
-	dm.p2pAgent.BroadcastOutbound(context.Background(), &iotextypes.Monitor{
+	dm.p2pAgent.BroadcastOutbound(context.Background(), &iotextypes.NodeInfo{
 		Height:  dm.bc.TipHeight(),
 		Version: version.PackageVersion,
 	})

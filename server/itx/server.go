@@ -88,7 +88,6 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 			return nil, errors.Wrap(err, "failed to add api server as subscriber")
 		}
 	}
-
 	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
