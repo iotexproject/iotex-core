@@ -13,8 +13,8 @@
 
 set -e
 
-LINUX_RELEASES_URL="https://github.com/ethereum/solidity/releases/download/v0.4.25/solidity-ubuntu-trusty.zip"
-WINDOWS_RELEASES_URL="https://github.com/ethereum/solidity/releases/download/v0.4.25/solidity-windows.zip"
+LINUX_RELEASES_URL="https://github.com/ethereum/solidity/releases/download/v0.8.17/solc-static-linux"
+WINDOWS_RELEASES_URL="https://github.com/ethereum/solidity/releases/download/v0.8.17/solc-windows.exe"
 INSTALL_DIRECTORY='/usr/local/bin'
 
 downloadJSON() {
@@ -106,7 +106,7 @@ if [ "$OS" = "darwin" ]; then
     brew update
     brew upgrade
     brew tap ethereum/ethereum
-    brew install solidity@5
+    brew install solidity
 else
     if [ "${OS}" != "linux" ] && { [ "${ARCH}" = "ppc64" ] || [ "${ARCH}" = "ppc64le" ];}; then
         # ppc64 and ppc64le are only supported on Linux.
@@ -125,17 +125,16 @@ else
     DOWNLOAD_FILE=$(mktemp)
 
     downloadFile "$BINARY_URL" "$DOWNLOAD_FILE"
-    unzip -o "$DOWNLOAD_FILE" -d /tmp
 
     echo "Setting executable permissions."
-    chmod +x /tmp/"$INSTALL_NAME"
+    chmod +x "$DOWNLOAD_FILE"
 
     if [ "$OS" = "windows" ]; then
         echo "Moving executable to $HOME/$INSTALL_NAME"
-        mv /tmp/"$INSTALL_NAME" "$HOME/$INSTALL_NAME"
+        mv "$DOWNLOAD_FILE" "$HOME/$INSTALL_NAME"
     else
         echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
-        sudo mv /tmp/"$INSTALL_NAME" "$INSTALL_DIRECTORY/$INSTALL_NAME"
+        sudo mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
     fi
 fi
 
