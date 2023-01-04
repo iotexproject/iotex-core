@@ -1,0 +1,2 @@
+#!/bin/bash
+docker build  --build-arg PACKAGE_COMMIT_ID=$SOURCE_COMMIT --build-arg PACKAGE_VERSION=$DOCKER_TAG --build-arg GIT_STATUS=clean -f $DOCKERFILE_PATH -t $IMAGE_NAME .
