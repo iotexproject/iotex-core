@@ -15,13 +15,13 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: ioctl-linux-amd64
-            asset_name: ioctl-linux-amd64
+            server_artifact_name: iotex-core-linux-amd64
           - os: windows-latest
             artifact_name: ioctl-windows-amd64.exe
-            asset_name: ioctl-windows-amd64.exe
+            server_artifact_name: iotex-core-windows-amd64.exe
           - os: macos-latest
             artifact_name: ioctl-darwin-amd64
-            asset_name: ioctl-darwin-amd64
+            server_artifact_name: iotex-core-darwin-amd64
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -31,21 +31,58 @@ jobs:
         with:
           go-version: 1.18.5
 
-      - name: make ioctl
+      - name: make iotex-server/ioctl
         run: |
+          make build
+
           set CGO_ENABLED=1 
           set GOARCH=amd64
           go build -tags netgo -o ./${{ matrix.artifact_name }} -v ./tools/ioctl
 
-      - name: Upload binaries to release
+      - name: Upload iotex-core binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ./bin/server
+          asset_name: ${{ matrix.server_artifact_name }}
+          tag: ${{ github.ref }}
+
+      - name: Configure iotex-core GPG Linux/MacOS
+        if: startsWith(matrix.os, 'windows-latest') != true
+        env:
+          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          export GPG_TTY=$(tty)
+          echo "$GPG_SIGNING_KEY" | gpg --batch --import
+          echo "$GPG_PASSPHRASE" | gpg --passphrase-fd 0 --pinentry-mode loopback --batch -ab ./bin/server
+
+      - name: Configure iotex-core GPG Windows
+        if: startsWith(matrix.os, 'windows-latest')
+        env:
+          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          echo $env:GPG_SIGNING_KEY | gpg --batch --import
+          gpg --passphrase "$env:GPG_PASSPHRASE" --batch --pinentry-mode loopback -ab ./bin/server
+
+      - name: Upload iotex-core signature
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          asset_name: ${{ matrix.server_artifact_name }}.asc
+          file: ./bin/server.asc
+          tag: ${{ github.ref }}
+
+      - name: Upload ioctl binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ./${{ matrix.artifact_name }}
-          asset_name: ${{ matrix.asset_name }}
+          asset_name: ${{ matrix.artifact_name }}
           tag: ${{ github.ref }}
 
-      - name: Configure GPG Linux/MacOS
+      - name: Configure ioctl GPG Linux/MacOS
         if: startsWith(matrix.os, 'windows-latest') != true
         env:
           GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
@@ -55,7 +92,7 @@ jobs:
           echo "$GPG_SIGNING_KEY" | gpg --batch --import
           echo "$GPG_PASSPHRASE" | gpg --passphrase-fd 0 --pinentry-mode loopback --batch -ab ./${{ matrix.artifact_name }}
 
-      - name: Configure GPG Windows
+      - name: Configure ioctl GPG Windows
         if: startsWith(matrix.os, 'windows-latest')
         env:
           GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
@@ -64,7 +101,7 @@ jobs:
           echo $env:GPG_SIGNING_KEY | gpg --batch --import
           gpg --passphrase "$env:GPG_PASSPHRASE" --batch --pinentry-mode loopback -ab ./${{ matrix.artifact_name }}
 
-      - name: Upload signature
+      - name: Upload ioctl signature
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
