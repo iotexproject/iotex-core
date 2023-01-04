@@ -159,13 +159,6 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 	return ap, nil
 }
 
-// TODO: add start() and stop() in actpool
-// func (ap *actPool) Start() {
-// }
-
-// func (ap *actPool) Stop() {
-// }
-
 func (ap *actPool) AddActionEnvelopeValidators(fs ...action.SealedEnvelopeValidator) {
 	ap.actionEnvelopeValidators = append(ap.actionEnvelopeValidators, fs...)
 }
@@ -340,18 +333,7 @@ func (ap *actPool) GetUnconfirmedActs(addrStr string) []action.SealedEnvelope {
 	if queue := ap.worker[ap.allocatedWorker(addr)].GetQueue(addr); queue != nil {
 		ret = queue.AllActs()
 	}
-	ap.accountDesActs.mu.Lock()
-	defer ap.accountDesActs.mu.Unlock()
-	if desMap, ok := ap.accountDesActs.acts[addrStr]; ok {
-		if desMap != nil {
-			sortActions := make(SortedActions, 0)
-			for _, v := range desMap {
-				sortActions = append(sortActions, v)
-			}
-			sort.Stable(sortActions)
-			ret = append(ret, sortActions...)
-		}
-	}
+	ret = append(ret, ap.accountDesActs.actionsByDestination(addrStr)...)
 	return ret
 }
 
@@ -426,6 +408,7 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 	return nil
 }
 
+// TODO: fix async issue
 func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 	for _, act := range acts {
 		hash, err := act.Hash()
@@ -437,30 +420,7 @@ func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 		ap.allActions.Delete(hash)
 		intrinsicGas, _ := act.IntrinsicGas()
 		atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))
-		//del actions in destination map
-		ap.deleteAccountDestinationActions(act)
-	}
-}
-
-// deleteAccountDestinationActions just for destination map
-func (ap *actPool) deleteAccountDestinationActions(acts ...action.SealedEnvelope) {
-	ap.accountDesActs.mu.Lock()
-	defer ap.accountDesActs.mu.Unlock()
-	for _, act := range acts {
-		hash, err := act.Hash()
-		if err != nil {
-			log.L().Debug("Skipping action due to hash error", zap.Error(err))
-			continue
-		}
-		if desAddress, ok := act.Destination(); ok {
-			dst := ap.accountDesActs.acts[desAddress]
-			if dst != nil {
-				delete(dst, hash)
-			}
-			if len(dst) == 0 {
-				delete(ap.accountDesActs.acts, desAddress)
-			}
-		}
+		ap.accountDesActs.deleteActions(act)
 	}
 }
 
@@ -494,13 +454,57 @@ type destinationMap struct {
 	acts map[string]map[hash.Hash256]action.SealedEnvelope
 }
 
-func (des *destinationMap) addAction(act action.SealedEnvelope) {
+func (des *destinationMap) addAction(act action.SealedEnvelope) error {
 	des.mu.Lock()
 	defer des.mu.Unlock()
-	destn, _ := act.Destination()
-	actHash, _ := act.Hash()
-	if desMap := des.acts[destn]; desMap == nil {
+	destn, ok := act.Destination()
+	if !ok {
+		return errors.New("the recipient is empty")
+	}
+	actHash, err := act.Hash()
+	if err != nil {
+		return err
+	}
+	if _, exist := des.acts[destn]; !exist {
 		des.acts[destn] = make(map[hash.Hash256]action.SealedEnvelope)
 	}
 	des.acts[destn][actHash] = act
+	return nil
+}
+
+func (des *destinationMap) actionsByDestination(addr string) []action.SealedEnvelope {
+	des.mu.Lock()
+	defer des.mu.Unlock()
+	desMap, ok := des.acts[addr]
+	if !ok {
+		return []action.SealedEnvelope{}
+	}
+	sortActions := make(SortedActions, 0)
+	for _, v := range desMap {
+		sortActions = append(sortActions, v)
+	}
+	sort.Stable(sortActions)
+	return sortActions
+}
+
+func (des *destinationMap) deleteActions(acts ...action.SealedEnvelope) {
+	des.mu.Lock()
+	defer des.mu.Unlock()
+	for _, act := range acts {
+		desAddress, ok := act.Destination()
+		if !ok {
+			continue
+		}
+		hash, err := act.Hash()
+		if err != nil {
+			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+			continue
+		}
+		if dst, exist := des.acts[desAddress]; exist {
+			delete(dst, hash)
+			if len(dst) == 0 {
+				delete(des.acts, desAddress)
+			}
+		}
+	}
 }

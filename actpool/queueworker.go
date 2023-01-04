@@ -104,7 +104,9 @@ func (worker *queueWorker) Handle(job workerJob) error {
 	worker.ap.allActions.Set(actHash, act)
 
 	if desAddress, ok := act.Destination(); ok && !strings.EqualFold(sender, desAddress) {
-		worker.ap.accountDesActs.addAction(act)
+		if err := worker.ap.accountDesActs.addAction(act); err != nil {
+			log.L().Debug("fail to add destionation map", zap.Error(err))
+		}
 	}
 
 	atomic.AddUint64(&worker.ap.gasInPool, intrinsicGas)

@@ -210,7 +210,7 @@ func (d *IotxDispatcher) EventAudit() map[iotexrpc.MessageType]int {
 }
 
 func (d *IotxDispatcher) actionHandler() {
-	d.wg.Done()
+	defer d.wg.Done()
 	for {
 		select {
 		case a := <-d.actionChan:
