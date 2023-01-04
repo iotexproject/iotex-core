@@ -37,13 +37,19 @@ ROOT_PKG := "github.com/iotexproject/iotex-core"
 DOCKERCMD=docker
 
 # Package Info
+ifndef PACKAGE_VERSION
 PACKAGE_VERSION := $(shell git describe --tags)
+endif
+ifndef PACKAGE_COMMIT_ID
 PACKAGE_COMMIT_ID := $(shell git rev-parse HEAD)
+endif
+ifndef GIT_STATUS
 GIT_STATUS := $(shell git status --porcelain)
 ifdef GIT_STATUS
-	GIT_STATUS := "dirty"
+    GIT_STATUS := "dirty"
 else
-	GIT_STATUS := "clean"
+    GIT_STATUS := "clean"
+endif
 endif
 GO_VERSION := $(shell go version)
 BUILD_TIME=$(shell date +%F-%Z/%T)
