@@ -24,7 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -32,15 +32,34 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
+type testConfig struct {
+	Genesis    genesis.Genesis
+	Chain      blockchain.Config
+	ActPool    actpool.Config
+	GasStation Config
+}
+
 func TestNewGasStation(t *testing.T) {
 	require := require.New(t)
-	require.NotNil(NewGasStation(nil, nil, config.Default.API))
+	require.NotNil(NewGasStation(nil, nil, DefaultConfig))
 }
-func TestSuggestGasPriceForUserAction(t *testing.T) {
-	ctx := context.Background()
-	cfg := config.Default
+
+func newTestConfig() testConfig {
+	cfg := testConfig{
+		Genesis:    genesis.Default,
+		Chain:      blockchain.DefaultConfig,
+		ActPool:    actpool.DefaultConfig,
+		GasStation: DefaultConfig,
+	}
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.EnableGravityChainVoting = false
+
+	return cfg
+}
+
+func TestSuggestGasPriceForUserAction(t *testing.T) {
+	ctx := context.Background()
+	cfg := newTestConfig()
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, acc.Register(registry))
@@ -105,7 +124,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, blkMemDao, cfg.API)
+	gs := NewGasStation(bc, blkMemDao, cfg.GasStation)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
@@ -116,9 +135,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 
 func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	ctx := context.Background()
-	cfg := config.Default
-	cfg.Genesis.BlockGasLimit = uint64(100000)
-	cfg.Genesis.EnableGravityChainVoting = false
+	cfg := newTestConfig()
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, acc.Register(registry))
@@ -164,12 +181,12 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, blkMemDao, cfg.API)
+	gs := NewGasStation(bc, blkMemDao, cfg.GasStation)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
 	fmt.Println(gp)
 	require.NoError(t, err)
 	// i from 10 to 29,gasprice for 20 to 39,60%*20+20=31
-	require.Equal(t, gs.cfg.GasStation.DefaultGas, gp)
+	require.Equal(t, gs.cfg.DefaultGas, gp)
 }

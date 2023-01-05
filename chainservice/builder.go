@@ -34,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
+	rp "github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -559,7 +560,16 @@ func (builder *Builder) buildConsensusComponent() error {
 	}
 
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
-	component, err := consensus.NewConsensus(builder.cfg, builder.cs.chain, builder.cs.factory, copts...)
+	builderCfg := rp.BuilderConfig{
+		Chain:              builder.cfg.Chain,
+		Consensus:          builder.cfg.Consensus.RollDPoS,
+		Scheme:             builder.cfg.Consensus.Scheme,
+		DardanellesUpgrade: builder.cfg.DardanellesUpgrade,
+		DB:                 builder.cfg.DB,
+		Genesis:            builder.cfg.Genesis,
+		SystemActive:       builder.cfg.System.Active,
+	}
+	component, err := consensus.NewConsensus(builderCfg, builder.cs.chain, builder.cs.factory, copts...)
 	if err != nil {
 		return errors.Wrap(err, "failed to create consensus component")
 	}

@@ -1078,6 +1078,18 @@ func TestIstanbulEVM(t *testing.T) {
 		// hit errWriteProtection twice,, first delta is 0, second delta is not 0, no revert
 		NewSmartContractTest(t, "testdata-istanbul/write-protection-007.json")
 	})
+	t.Run("err-write-protection-call-staticcall-revrt", func(t *testing.T) {
+		// call -> staticcall -> revrt
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-008.json")
+	})
+	t.Run("err-write-protection-staticcall-staticcall-revrt", func(t *testing.T) {
+		// staticcall -> staticcall -> revrt
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-009.json")
+	})
+	t.Run("err-write-protection-staticcall-staticcall-revrt-1", func(t *testing.T) {
+		// staticcall -> staticcall -> revrt twice
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-010.json")
+	})
 }
 
 func TestLondonEVM(t *testing.T) {

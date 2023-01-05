@@ -185,6 +185,15 @@ func (cu *CandidateUpdate) Cost() (*big.Int, error) {
 	return fee, nil
 }
 
+// SanityCheck validates the variables in the action
+func (cu *CandidateUpdate) SanityCheck() error {
+	if !IsValidCandidateName(cu.Name()) {
+		return ErrInvalidCanName
+	}
+
+	return cu.AbstractAction.SanityCheck()
+}
+
 // EncodeABIBinary encodes data in abi encoding
 func (cu *CandidateUpdate) EncodeABIBinary() ([]byte, error) {
 	return cu.encodeABIBinary()

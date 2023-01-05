@@ -213,6 +213,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v1.7.4-0.20221123031803-9e576f7b3e4b
+replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v0.4.2
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
