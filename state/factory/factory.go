@@ -514,7 +514,18 @@ func (sf *factory) StatesAtHeight(height uint64, opts ...protocol.StateOption) (
 	if height > sf.currentChainHeight {
 		return nil, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
 	}
-	return nil, errors.Wrap(ErrNotSupported, "Read historical states has not been implemented yet")
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Key != nil {
+		return nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
+	}
+	values, err := sf.statesAtHeight(height, cfg.Namespace, cfg.Keys)
+	if err != nil {
+		return nil, err
+	}
+	return state.NewIterator(values), nil
 }
 
 // State returns a confirmed state in the state factory
@@ -616,6 +627,35 @@ func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interfa
 		return err
 	}
 	return state.Deserialize(s, value)
+}
+
+func (sf *factory) statesAtHeight(height uint64, ns string, keys [][]byte) ([][]byte, error) {
+	if !sf.saveHistory {
+		return nil, ErrNoArchiveData
+	}
+	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), false)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to generate trie for %d", height)
+	}
+	if err := tlt.Start(context.Background()); err != nil {
+		return nil, err
+	}
+	defer tlt.Stop(context.Background())
+
+	var values [][]byte
+	for _, key := range keys {
+		ltKey := toLegacyKey(key)
+		value, err := tlt.Get(namespaceKey(ns), ltKey)
+		switch errors.Cause(err) {
+		case db.ErrNotExist, db.ErrBucketNotExist:
+			values = append(values, nil)
+		case nil:
+			values = append(values, value)
+		default:
+			return nil, err
+		}
+	}
+	return values, nil
 }
 
 func (sf *factory) createGenesisStates(ctx context.Context) error {
