@@ -15,7 +15,6 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -24,6 +23,10 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
+)
+
+const (
+	maxBalance = 1e7
 )
 
 func TestNoncePriorityQueue(t *testing.T) {
@@ -58,7 +61,7 @@ func TestNoncePriorityQueue(t *testing.T) {
 
 func TestActQueuePut(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue(nil, "").(*actQueue)
+	q := NewActQueue(nil, "", 1, big.NewInt(maxBalance)).(*actQueue)
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(1))
 	require.NoError(err)
 	require.NoError(q.Put(tsf1))
@@ -83,7 +86,7 @@ func TestActQueuePut(t *testing.T) {
 
 func TestActQueueFilterNonce(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue(nil, "").(*actQueue)
+	q := NewActQueue(nil, "", 1, big.NewInt(maxBalance)).(*actQueue)
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	tsf2, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(1), nil, uint64(0), big.NewInt(0))
@@ -93,7 +96,7 @@ func TestActQueueFilterNonce(t *testing.T) {
 	require.NoError(q.Put(tsf1))
 	require.NoError(q.Put(tsf2))
 	require.NoError(q.Put(tsf3))
-	q.FilterNonce(uint64(3))
+	q.UpdateAccountState(3, big.NewInt(maxBalance))
 	require.Equal(1, len(q.items))
 	require.Equal(uint64(3), q.index[0].nonce)
 	require.Equal(tsf3, q.items[q.index[0].nonce])
@@ -101,26 +104,23 @@ func TestActQueueFilterNonce(t *testing.T) {
 
 func TestActQueueUpdateNonce(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue(nil, "").(*actQueue)
+	q := NewActQueue(nil, "", 1, big.NewInt(1010)).(*actQueue)
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	tsf2, err := action.SignedTransfer(_addr2, _priKey1, 3, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := action.SignedTransfer(_addr2, _priKey1, 4, big.NewInt(10000), nil, uint64(0), big.NewInt(0))
+	tsf3, err := action.SignedTransfer(_addr2, _priKey1, 4, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	tsf4, err := action.SignedTransfer(_addr2, _priKey1, 6, big.NewInt(100000), nil, uint64(0), big.NewInt(0))
+	tsf4, err := action.SignedTransfer(_addr2, _priKey1, 6, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	tsf5, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(100000), nil, uint64(0), big.NewInt(0))
+	tsf5, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	require.NoError(q.Put(tsf1))
 	require.NoError(q.Put(tsf2))
 	require.NoError(q.Put(tsf3))
 	require.NoError(q.Put(tsf4))
-	q.pendingBalance = big.NewInt(1000)
 	require.NoError(q.Put(tsf5))
-	removed := q.UpdateQueue(uint64(2))
-	require.Equal(uint64(2), q.pendingNonce)
-	require.Equal([]action.SealedEnvelope{tsf5, tsf2, tsf3, tsf4}, removed)
+	require.Equal(uint64(3), q.pendingNonce)
 }
 
 func TestActQueuePendingActs(t *testing.T) {
@@ -130,12 +130,13 @@ func TestActQueuePendingActs(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).Do(func(accountState *state.Account, _ protocol.StateOption) {
 		require.NoError(accountState.SetPendingNonce(accountState.PendingNonce() + 1))
+		accountState.Balance = big.NewInt(maxBalance)
 	}).Return(uint64(0), nil).Times(1)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	ap, err := NewActPool(genesis.Default, sf, DefaultConfig, EnableExperimentalActions())
 	require.NoError(err)
-	q := NewActQueue(ap.(*actPool), identityset.Address(0).String()).(*actQueue)
+	q := NewActQueue(ap.(*actPool), identityset.Address(0).String(), 1, big.NewInt(maxBalance)).(*actQueue)
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	tsf2, err := action.SignedTransfer(_addr2, _priKey1, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))
@@ -158,7 +159,7 @@ func TestActQueuePendingActs(t *testing.T) {
 
 func TestActQueueAllActs(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue(nil, "").(*actQueue)
+	q := NewActQueue(nil, "", 1, big.NewInt(maxBalance)).(*actQueue)
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	tsf3, err := action.SignedTransfer(_addr2, _priKey1, 3, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
@@ -169,41 +170,9 @@ func TestActQueueAllActs(t *testing.T) {
 	require.Equal([]action.SealedEnvelope{tsf1, tsf3}, actions)
 }
 
-func TestActQueueRemoveActs(t *testing.T) {
-	require := require.New(t)
-	q := NewActQueue(nil, "").(*actQueue)
-	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
-	require.NoError(err)
-	tsf2, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(0))
-	require.NoError(err)
-	tsf3, err := action.SignedTransfer(_addr2, _priKey1, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))
-	require.NoError(err)
-	require.NoError(q.Put(tsf1))
-	require.NoError(q.Put(tsf2))
-	require.NoError(q.Put(tsf3))
-	removed := q.removeActs(0)
-	require.Equal(0, len(q.index))
-	require.Equal(0, len(q.items))
-	require.Equal([]action.SealedEnvelope{tsf1, tsf2, tsf3}, removed)
-
-	tsf4, err := action.SignedTransfer(_addr2, _priKey1, 4, big.NewInt(10000), nil, uint64(0), big.NewInt(0))
-	require.NoError(err)
-	tsf5, err := action.SignedTransfer(_addr2, _priKey1, 5, big.NewInt(100000), nil, uint64(0), big.NewInt(0))
-	require.NoError(err)
-	tsf6, err := action.SignedTransfer(_addr2, _priKey1, 6, big.NewInt(100000), nil, uint64(0), big.NewInt(0))
-	require.NoError(err)
-	require.NoError(q.Put(tsf4))
-	require.NoError(q.Put(tsf5))
-	require.NoError(q.Put(tsf6))
-	removed = q.removeActs(1)
-	require.Equal(1, len(q.index))
-	require.Equal(1, len(q.items))
-	require.Equal([]action.SealedEnvelope{tsf5, tsf6}, removed)
-}
-
 func TestActQueueTimeOutAction(t *testing.T) {
 	c := clock.NewMock()
-	q := NewActQueue(nil, "", WithClock(c), WithTimeOut(3*time.Minute))
+	q := NewActQueue(nil, "", 1, big.NewInt(maxBalance), WithClock(c), WithTimeOut(3*time.Minute))
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 	tsf2, err := action.SignedTransfer(_addr2, _priKey1, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))
@@ -214,15 +183,15 @@ func TestActQueueTimeOutAction(t *testing.T) {
 
 	require.NoError(t, q.Put(tsf2))
 	q.(*actQueue).cleanTimeout()
-	assert.Equal(t, 2, q.Len())
+	require.Equal(t, 2, q.Len())
 	c.Add(2 * time.Minute)
 	q.(*actQueue).cleanTimeout()
-	assert.Equal(t, 1, q.Len())
+	require.Equal(t, 1, q.Len())
 }
 
 func TestActQueueCleanTimeout(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue(nil, "").(*actQueue)
+	q := NewActQueue(nil, "", 1, big.NewInt(0)).(*actQueue)
 	q.ttl = 1
 	invalidTime := time.Now()
 	validTime := time.Now().Add(10 * time.Minute)
