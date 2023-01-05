@@ -10,9 +10,11 @@ COPY go.sum .
 RUN go mod download
 
 COPY . .
-
+ARG PACKAGE_VERSION
+ARG PACKAGE_COMMIT_ID
+ARG GIT_STATUS
 RUN mkdir -p $GOPATH/pkg/linux_amd64/github.com/iotexproject/ && \
-    make clean build-all
+    PACKAGE_VERSION=$PACKAGE_VERSION PACKAGE_COMMIT_ID=$PACKAGE_COMMIT_ID GIT_STATUS=$GIT_STATUS make clean build-all
 
 FROM alpine
 
