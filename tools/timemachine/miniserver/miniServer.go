@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // const
@@ -54,7 +55,7 @@ func NewMiniServer(cfg config.Config, opts ...Option) (*MiniServer, error) {
 	}
 
 	builder := chainservice.NewBuilder(cfg)
-	cs, err := builder.SetP2PAgent(p2p.NewDummyAgent()).Build(chainservice.WithStopHeightBuilderOption(svr.stopHeight))
+	cs, err := builder.SetP2PAgent(p2p.NewDummyAgent()).Build(factory.WithStopHeightStateDBOption(svr.stopHeight))
 	if err != nil {
 		return nil, err
 	}

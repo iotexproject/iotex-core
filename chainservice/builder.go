@@ -40,23 +40,10 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-type (
-	// Builder is a builder to build chainservice
-	Builder struct {
-		cfg        config.Config
-		cs         *ChainService
-		stopHeight uint64 // for tools/timemachine
-	}
-
-	// BuilderOption sets Builder construction parameter
-	BuilderOption func(*Builder)
-)
-
-// WithStopHeightBuilderOption sets the stopHeight
-func WithStopHeightBuilderOption(stopHeight uint64) BuilderOption {
-	return func(svr *Builder) {
-		svr.stopHeight = stopHeight
-	}
+// Builder is a builder to build chainservice
+type Builder struct {
+	cfg config.Config
+	cs  *ChainService
 }
 
 // NewBuilder creates a new chainservice builder
@@ -129,12 +116,9 @@ func (builder *Builder) BuildForSubChain() (*ChainService, error) {
 }
 
 // Build builds a chainservice
-func (builder *Builder) Build(opts ...BuilderOption) (*ChainService, error) {
+func (builder *Builder) Build(opts ...factory.StateDBOption) (*ChainService, error) {
 	builder.createInstance()
-	for _, opt := range opts {
-		opt(builder)
-	}
-	return builder.build(false, false)
+	return builder.build(false, false, opts...)
 }
 
 func (builder *Builder) createInstance() {
@@ -143,8 +127,8 @@ func (builder *Builder) createInstance() {
 	}
 }
 
-func (builder *Builder) buildFactory(forTest bool) error {
-	factory, err := builder.createFactory(forTest)
+func (builder *Builder) buildFactory(forTest bool, opts ...factory.StateDBOption) error {
+	factory, err := builder.createFactory(forTest, opts...)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create state factory")
 	}
@@ -152,7 +136,7 @@ func (builder *Builder) buildFactory(forTest bool) error {
 	return nil
 }
 
-func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
+func (builder *Builder) createFactory(forTest bool, optsStateDB ...factory.StateDBOption) (factory.Factory, error) {
 	var dao db.KVStore
 	var err error
 	if builder.cs.factory != nil {
@@ -167,6 +151,7 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 			factory.RegistryStateDBOption(builder.cs.registry),
 			factory.DefaultPatchOption(),
 		}
+		opts = append(opts, optsStateDB...)
 		if builder.cfg.Chain.EnableStateDBCaching {
 			dao, err = db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
 		} else {
@@ -174,9 +159,6 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 		}
 		if err != nil {
 			return nil, err
-		}
-		if builder.stopHeight > 0 {
-			opts = append(opts, factory.WithStopHeightStateDBOption(builder.stopHeight))
 		}
 		return factory.NewStateDB(factoryCfg, dao, opts...)
 	}
@@ -587,12 +569,12 @@ func (builder *Builder) buildConsensusComponent() error {
 	return nil
 }
 
-func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) {
+func (builder *Builder) build(forSubChain, forTest bool, opts ...factory.StateDBOption) (*ChainService, error) {
 	builder.cs.registry = protocol.NewRegistry()
 	if builder.cs.p2pAgent == nil {
 		builder.cs.p2pAgent = p2p.NewDummyAgent()
 	}
-	if err := builder.buildFactory(forTest); err != nil {
+	if err := builder.buildFactory(forTest, opts...); err != nil {
 		return nil, err
 	}
 	if err := builder.buildElectionCommittee(); err != nil {
