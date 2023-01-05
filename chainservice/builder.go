@@ -277,11 +277,7 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		dbConfig := builder.cfg.DB
 		dbConfig.DbPath = builder.cfg.Chain.ChainDBPath
 		deser := block.NewDeserializer(builder.cfg.Chain.EVMNetworkID)
-		var opts []blockdao.Option
-		if builder.stopHeight > 0 {
-			opts = append(opts, blockdao.WithStopHeightOption(builder.stopHeight))
-		}
-		builder.cs.blockdao = blockdao.NewBlockDAO(indexers, dbConfig, deser, opts...)
+		builder.cs.blockdao = blockdao.NewBlockDAO(indexers, dbConfig, deser)
 	}
 
 	return nil

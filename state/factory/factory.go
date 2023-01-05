@@ -481,7 +481,7 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 
 	if blk.Height() == sf.stopHeight {
-		return nil
+		return fmt.Errorf("factory catches up to stop height %d", sf.stopHeight)
 	}
 	if err := ws.Commit(ctx); err != nil {
 		return err

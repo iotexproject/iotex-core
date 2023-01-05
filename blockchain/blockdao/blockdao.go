@@ -55,28 +55,17 @@ type (
 		bodyCache    cache.LRUCache
 		footerCache  cache.LRUCache
 		tipHeight    uint64
-		stopHeight   uint64 // for tools/timemachine
 	}
-
-	// Option sets blockDAO construction parameter
-	Option func(*blockDAO)
 )
 
-// WithStopHeightOption uncheck indexer during start
-func WithStopHeightOption(stopHeight uint64) Option {
-	return func(dao *blockDAO) {
-		dao.stopHeight = stopHeight
-	}
-}
-
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(indexers []BlockIndexer, cfg db.Config, deser *block.Deserializer, opts ...Option) BlockDAO {
+func NewBlockDAO(indexers []BlockIndexer, cfg db.Config, deser *block.Deserializer) BlockDAO {
 	blkStore, err := filedao.NewFileDAO(cfg, deser)
 	if err != nil {
 		log.L().Fatal(err.Error(), zap.Any("cfg", cfg))
 		return nil
 	}
-	return createBlockDAO(blkStore, indexers, cfg, opts...)
+	return createBlockDAO(blkStore, indexers, cfg)
 }
 
 // NewBlockDAOInMemForTest creates a in-memory block DAO for testing
@@ -106,7 +95,7 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 	checker := NewBlockIndexerChecker(dao)
 	for i, indexer := range dao.indexers {
-		if err := checker.CheckIndexer(ctx, indexer, dao.stopHeight, func(height uint64) {
+		if err := checker.CheckIndexer(ctx, indexer, 0, func(height uint64) {
 			if height%5000 == 0 {
 				log.L().Info(
 					"indexer is catching up.",
@@ -314,7 +303,7 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	return nil
 }
 
-func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg db.Config, opts ...Option) BlockDAO {
+func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg db.Config) BlockDAO {
 	if blkStore == nil {
 		return nil
 	}
@@ -322,9 +311,6 @@ func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg db.Co
 	blockDAO := &blockDAO{
 		blockStore: blkStore,
 		indexers:   indexers,
-	}
-	for _, opt := range opts {
-		opt(blockDAO)
 	}
 
 	blockDAO.lifecycle.Add(blkStore)

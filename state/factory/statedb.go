@@ -362,7 +362,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 
 	if blk.Height() == sdb.stopHeight {
-		return nil
+		return fmt.Errorf("factory catches up to stop height %d", sdb.stopHeight)
 	}
 	if err := ws.Commit(ctx); err != nil {
 		return err
