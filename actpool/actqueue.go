@@ -233,8 +233,8 @@ func (q *actQueue) UpdateAccountState(nonce uint64, balance *big.Int) []action.S
 	// Pop off priority queue and delete corresponding entries from map
 	for q.index.Len() > 0 && (q.index)[0].nonce < q.accountNonce {
 		nonce := heap.Pop(&q.index).(*nonceWithTTL).nonce
-		delete(q.items, nonce)
 		removed = append(removed, q.items[nonce])
+		delete(q.items, nonce)
 	}
 	return removed
 }
