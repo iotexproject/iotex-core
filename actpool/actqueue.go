@@ -61,12 +61,10 @@ func (h *noncePriorityQueue) Pop() interface{} {
 // ActQueue is the interface of actQueue
 type ActQueue interface {
 	Put(action.SealedEnvelope) error
-	CleanConfirmedAct() []action.SealedEnvelope
 	UpdateQueue() []action.SealedEnvelope
-	SetAccountState(uint64, *big.Int)
+	UpdateAccountState(uint64, *big.Int) []action.SealedEnvelope
 	AccountState() (uint64, *big.Int)
 	PendingNonce() uint64
-	PendingBalance() *big.Int
 	Len() int
 	Empty() bool
 	PendingActs(context.Context) []action.SealedEnvelope
@@ -102,8 +100,8 @@ func NewActQueue(ap *actPool, address string, pendingNonce uint64, balance *big.
 		address:        address,
 		items:          make(map[uint64]action.SealedEnvelope),
 		index:          noncePriorityQueue{},
-		pendingBalance: make(map[uint64]*big.Int),
 		pendingNonce:   pendingNonce,
+		pendingBalance: make(map[uint64]*big.Int),
 		accountNonce:   pendingNonce,
 		accountBalance: new(big.Int).Set(balance),
 		clock:          clock.New(),
@@ -182,19 +180,15 @@ func (q *actQueue) updateFromNonce(start uint64) {
 	q.pendingNonce = start
 }
 
-// CleanConfirmedAct removes all actions from the map with a nonce lower than account's nonce
-func (q *actQueue) CleanConfirmedAct() []action.SealedEnvelope {
+// UpdateQueue updates the pending nonce and balance of the queue
+func (q *actQueue) UpdateQueue() []action.SealedEnvelope {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	var removed []action.SealedEnvelope
-	// Pop off priority queue and delete corresponding entries from map until the threshold is reached
-	for q.index.Len() > 0 && (q.index)[0].nonce < q.accountNonce {
-		nonce := heap.Pop(&q.index).(*nonceWithTTL).nonce
-		removed = append(removed, q.items[nonce])
-		delete(q.items, nonce)
-		delete(q.pendingBalance, nonce)
-	}
-	return removed
+	// First remove all timed out actions
+	removedFromQueue := q.cleanTimeout()
+	// Now, starting from the current pending nonce, incrementally find the next pending nonce
+	q.updateFromNonce(q.pendingNonce)
+	return removedFromQueue
 }
 
 func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
@@ -227,25 +221,22 @@ func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
 	return removedFromQueue
 }
 
-// UpdateQueue updates the pending nonce and balance of the queue
-func (q *actQueue) UpdateQueue() []action.SealedEnvelope {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	// First remove all timed out actions
-	removedFromQueue := q.cleanTimeout()
-	// Now, starting from the current pending nonce, incrementally find the next pending nonce
-	q.updateFromNonce(q.pendingNonce)
-	return removedFromQueue
-}
-
-// SetAccountState sets the account's nonce and balance for the queue
-func (q *actQueue) SetAccountState(nonce uint64, balance *big.Int) {
+// UpdateAccountState updates the account's nonce and balance and cleans confirmed actions
+func (q *actQueue) UpdateAccountState(nonce uint64, balance *big.Int) []action.SealedEnvelope {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.pendingNonce = nonce
+	q.pendingBalance = make(map[uint64]*big.Int)
 	q.accountNonce = nonce
 	q.accountBalance.Set(balance)
-	q.pendingBalance = make(map[uint64]*big.Int)
+	var removed []action.SealedEnvelope
+	// Pop off priority queue and delete corresponding entries from map
+	for q.index.Len() > 0 && (q.index)[0].nonce < q.accountNonce {
+		nonce := heap.Pop(&q.index).(*nonceWithTTL).nonce
+		delete(q.items, nonce)
+		removed = append(removed, q.items[nonce])
+	}
+	return removed
 }
 
 // AccountState returns the current account's nonce and balance
@@ -260,13 +251,6 @@ func (q *actQueue) PendingNonce() uint64 {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 	return q.pendingNonce
-}
-
-// PendingBalance returns the current pending balance of the queue
-func (q *actQueue) PendingBalance() *big.Int {
-	q.mu.RLock()
-	defer q.mu.RUnlock()
-	return q.getPendingBalanceAtNonce(q.pendingNonce)
 }
 
 // Len returns the length of the action map
@@ -290,6 +274,8 @@ func (q *actQueue) Reset() {
 	q.items = make(map[uint64]action.SealedEnvelope)
 	q.index = noncePriorityQueue{}
 	q.pendingNonce = 0
+	q.pendingBalance = make(map[uint64]*big.Int)
+	q.accountNonce = 0
 	q.accountBalance = big.NewInt(0)
 }
 

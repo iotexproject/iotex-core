@@ -96,8 +96,7 @@ func TestActQueueFilterNonce(t *testing.T) {
 	require.NoError(q.Put(tsf1))
 	require.NoError(q.Put(tsf2))
 	require.NoError(q.Put(tsf3))
-	q.SetAccountState(3, big.NewInt(maxBalance))
-	q.CleanConfirmedAct()
+	q.UpdateAccountState(3, big.NewInt(maxBalance))
 	require.Equal(1, len(q.items))
 	require.Equal(uint64(3), q.index[0].nonce)
 	require.Equal(tsf3, q.items[q.index[0].nonce])
@@ -121,9 +120,7 @@ func TestActQueueUpdateNonce(t *testing.T) {
 	require.NoError(q.Put(tsf3))
 	require.NoError(q.Put(tsf4))
 	require.NoError(q.Put(tsf5))
-	removed := q.UpdateQueue()
 	require.Equal(uint64(3), q.pendingNonce)
-	require.Equal(0, len(removed))
 }
 
 func TestActQueuePendingActs(t *testing.T) {

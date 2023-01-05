@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	// move to config
+	// TODO: move to config
 	_numWorker = 16
 )
 
@@ -331,7 +331,7 @@ func (ap *actPool) GetUnconfirmedActs(addrStr string) []action.SealedEnvelope {
 
 	var ret []action.SealedEnvelope
 	if queue := ap.worker[ap.allocatedWorker(addr)].GetQueue(addr); queue != nil {
-		ret = queue.AllActs()
+		ret = append(ret, queue.AllActs()...)
 	}
 	ret = append(ret, ap.accountDesActs.actionsByDestination(addrStr)...)
 	return ret
@@ -408,7 +408,6 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 	return nil
 }
 
-// TODO: fix async issue
 func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 	for _, act := range acts {
 		hash, err := act.Hash()
@@ -420,7 +419,7 @@ func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 		ap.allActions.Delete(hash)
 		intrinsicGas, _ := act.IntrinsicGas()
 		atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))
-		ap.accountDesActs.deleteActions(act)
+		ap.accountDesActs.delete(act)
 	}
 }
 
@@ -487,24 +486,24 @@ func (des *destinationMap) actionsByDestination(addr string) []action.SealedEnve
 	return sortActions
 }
 
-func (des *destinationMap) deleteActions(acts ...action.SealedEnvelope) {
+func (des *destinationMap) delete(act action.SealedEnvelope) {
 	des.mu.Lock()
 	defer des.mu.Unlock()
-	for _, act := range acts {
-		desAddress, ok := act.Destination()
-		if !ok {
-			continue
-		}
-		hash, err := act.Hash()
-		if err != nil {
-			log.L().Debug("Skipping action due to hash error", zap.Error(err))
-			continue
-		}
-		if dst, exist := des.acts[desAddress]; exist {
-			delete(dst, hash)
-			if len(dst) == 0 {
-				delete(des.acts, desAddress)
-			}
-		}
+	desAddress, ok := act.Destination()
+	if !ok {
+		return
+	}
+	hash, err := act.Hash()
+	if err != nil {
+		log.L().Debug("Skipping action due to hash error", zap.Error(err))
+		return
+	}
+	dst, exist := des.acts[desAddress]
+	if !exist {
+		return
+	}
+	delete(dst, hash)
+	if len(dst) == 0 {
+		delete(des.acts, desAddress)
 	}
 }

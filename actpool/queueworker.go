@@ -224,9 +224,8 @@ func (worker *queueWorker) Reset(ctx context.Context) {
 			worker.emptyAccounts.Set(from, struct{}{})
 			continue
 		}
-		queue.SetAccountState(confirmedState.PendingNonce(), confirmedState.Balance)
 		// Remove all actions that are committed to new block
-		acts := queue.CleanConfirmedAct()
+		acts := queue.UpdateAccountState(confirmedState.PendingNonce(), confirmedState.Balance)
 		acts2 := queue.UpdateQueue()
 		worker.ap.removeInvalidActs(append(acts, acts2...))
 		// Delete the queue entry if it becomes empty
@@ -236,7 +235,7 @@ func (worker *queueWorker) Reset(ctx context.Context) {
 	}
 }
 
-// PendingActions returns an action interator with all accepted actions
+// PendingActions returns all accepted actions
 func (worker *queueWorker) PendingActions(ctx context.Context) []*pendingActions {
 	actionArr := make([]*pendingActions, 0)
 

@@ -1138,7 +1138,8 @@ func getPendingBalance(ap *actPool, addrStr string) (*big.Int, error) {
 		return nil, err
 	}
 	if queue := ap.worker[ap.allocatedWorker(addr)].GetQueue(addr); queue != nil {
-		return queue.PendingBalance(), nil
+		q := queue.(*actQueue)
+		return q.getPendingBalanceAtNonce(q.pendingNonce), nil
 	}
 	state, err := accountutil.AccountState(genesis.WithGenesisContext(context.Background(), genesis.Default), ap.sf, addr)
 	if err != nil {
