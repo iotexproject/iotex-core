@@ -159,7 +159,7 @@ type (
 		chainListener     apitypes.Listener
 		electionCommittee committee.Committee
 		readCache         *ReadCache
-		delegateManager   node.NodeManager
+		delegateManager   *node.DelegateManager
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -209,7 +209,7 @@ func newCoreService(
 	bfIndexer blockindex.BloomFilterIndexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
-	dm node.NodeManager,
+	dm *node.DelegateManager,
 	opts ...Option,
 ) (CoreService, error) {
 	if cfg == (Config{}) {

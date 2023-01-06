@@ -44,7 +44,7 @@ func NewServerV2(
 	bfIndexer blockindex.BloomFilterIndexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
-	dm node.NodeManager,
+	dm *node.DelegateManager,
 	opts ...Option,
 ) (*ServerV2, error) {
 	coreAPI, err := newCoreService(cfg, chain, bs, sf, dao, indexer, bfIndexer, actPool, registry, dm, opts...)

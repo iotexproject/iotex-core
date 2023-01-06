@@ -85,7 +85,7 @@ type ChainService struct {
 	candidateIndexer   *poll.CandidateIndexer
 	candBucketsIndexer *staking.CandidatesBucketsIndexer
 	registry           *protocol.Registry
-	delegateManager    node.NodeManager
+	delegateManager    *node.DelegateManager
 }
 
 // Start starts the server
@@ -167,11 +167,7 @@ func (cs *ChainService) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) err
 
 // HandleNodeInfoMsg handles nodeinfo message.
 func (cs *ChainService) HandleNodeInfoMsg(ctx context.Context, peer string, msg *iotextypes.ResponseNodeInfoMessage) error {
-	cs.delegateManager.UpdateNode(&node.Node{
-		Addr:    peer,
-		Height:  msg.Info.Height,
-		Version: msg.Info.Version,
-	})
+	cs.delegateManager.UpdateNode(peer, msg.Info)
 	return nil
 }
 
