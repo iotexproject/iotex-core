@@ -9,12 +9,13 @@ import (
 	"context"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Node struct {
@@ -27,36 +28,38 @@ type Node struct {
 type NodeManager interface {
 	lifecycle.StartStopper
 	UpdateNode(*Node)
-	GetNode(addr string) *Node
+	GetNode(addr string) Node
+	TellNodeInfo(ctx context.Context, peer peer.AddrInfo) error
 }
 
 type delegateManager struct {
 	cfg         Config
 	nodeMap     map[string]*Node
-	consensus   consensus.Consensus
 	broadcaster lifecycle.StartStopper
 	p2pAgent    p2p.Agent
 	bc          blockchain.Blockchain
 }
 
-func NewDelegateManager(cfg *Config, consensus consensus.Consensus, p2pAgent p2p.Agent, bc blockchain.Blockchain) NodeManager {
+// NewDelegateManager new delegate manager
+func NewDelegateManager(cfg *Config, p2pAgent p2p.Agent, bc blockchain.Blockchain) NodeManager {
 	dm := &delegateManager{
-		cfg:       *cfg,
-		nodeMap:   make(map[string]*Node),
-		consensus: consensus,
-		p2pAgent:  p2pAgent,
-		bc:        bc,
+		cfg:      *cfg,
+		nodeMap:  make(map[string]*Node),
+		p2pAgent: p2pAgent,
+		bc:       bc,
 	}
-	dm.broadcaster = routine.NewRecurringTask(dm.broadcast, cfg.NodeInfoBroadcastInterval)
+	dm.broadcaster = routine.NewRecurringTask(dm.requestNodeInfo, cfg.RequestNodeInfoInterval)
 	return dm
 }
 
 func (dm *delegateManager) Start(ctx context.Context) error {
 	return dm.broadcaster.Start(ctx)
 }
+
 func (dm *delegateManager) Stop(ctx context.Context) error {
 	return dm.broadcaster.Stop(ctx)
 }
+
 func (dm *delegateManager) UpdateNode(node *Node) {
 	// update dm.nodeMap
 	n := *node
@@ -64,12 +67,27 @@ func (dm *delegateManager) UpdateNode(node *Node) {
 	// update metric
 	nodeDelegateHeightGauge.WithLabelValues("address", node.Addr, "version", node.Version).Set(float64(node.Height))
 }
-func (dm *delegateManager) GetNode(addr string) *Node {
-	return dm.nodeMap[addr]
+
+func (dm *delegateManager) GetNode(addr string) Node {
+	return *dm.nodeMap[addr]
 }
-func (dm *delegateManager) broadcast() {
-	dm.p2pAgent.BroadcastOutbound(context.Background(), &iotextypes.NodeInfo{
-		Height:  dm.bc.TipHeight(),
-		Version: version.PackageVersion,
-	})
+
+func (dm *delegateManager) requestNodeInfo() {
+	req := &iotextypes.RequestNodeInfoMessage{
+		Timestamp: timestamppb.Now(),
+	}
+	// TODO: add sign for msg
+	dm.p2pAgent.BroadcastOutbound(context.Background(), req)
+}
+
+func (dm *delegateManager) TellNodeInfo(ctx context.Context, peer peer.AddrInfo) error {
+	req := &iotextypes.ResponseNodeInfoMessage{
+		Info: &iotextypes.NodeInfo{
+			Version:   version.PackageVersion,
+			Height:    dm.bc.TipHeight(),
+			Timestamp: timestamppb.Now(),
+		},
+	}
+	// TODO: add sign for msg
+	return dm.p2pAgent.UnicastOutbound(ctx, peer, req)
 }

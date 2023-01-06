@@ -379,7 +379,7 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 }
 
 func (builder *Builder) buildNodeManager() {
-	dm := node.NewDelegateManager(&builder.cfg.Node, builder.cs.consensus, builder.cs.p2pAgent, builder.cs.chain)
+	dm := node.NewDelegateManager(&builder.cfg.Node, builder.cs.p2pAgent, builder.cs.chain)
 	builder.cs.delegateManager = dm
 	builder.cs.lifecycle.Add(dm)
 }

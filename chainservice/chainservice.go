@@ -166,13 +166,32 @@ func (cs *ChainService) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) err
 }
 
 // HandleNodeInfoMsg handles nodeinfo message.
-func (cs *ChainService) HandleNodeInfoMsg(ctx context.Context, peer string, msg *iotextypes.NodeInfo) error {
+func (cs *ChainService) HandleNodeInfoMsg(ctx context.Context, peer string, msg *iotextypes.ResponseNodeInfoMessage) error {
 	cs.delegateManager.UpdateNode(&node.Node{
 		Addr:    peer,
-		Height:  msg.Height,
-		Version: msg.Version,
+		Height:  msg.Info.Height,
+		Version: msg.Info.Version,
 	})
 	return nil
+}
+
+// HandleRequestNodeInfoMsg handles request node info message
+func (cs *ChainService) HandleRequestNodeInfoMsg(ctx context.Context, peerID string, msg *iotextypes.RequestNodeInfoMessage) error {
+	peers, err := cs.p2pAgent.ConnectedPeers()
+	if err != nil {
+		return err
+	}
+	var target *peer.AddrInfo
+	for i := range peers {
+		if peers[i].ID.Pretty() == peerID {
+			target = &peers[i]
+			break
+		}
+	}
+	if target == nil {
+		return errors.Errorf("unicast node info msg failed: target peerID %s is not connected", peerID)
+	}
+	return cs.delegateManager.TellNodeInfo(ctx, *target)
 }
 
 // ChainID returns ChainID.

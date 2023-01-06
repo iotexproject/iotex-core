@@ -7,6 +7,7 @@ package node
 
 import "time"
 
+// Config node config
 type Config struct {
-	NodeInfoBroadcastInterval time.Duration `yaml:"nodeInfoBroadcastInterval"`
+	RequestNodeInfoInterval time.Duration `yaml:"requestNodeInfoInterval"`
 }
