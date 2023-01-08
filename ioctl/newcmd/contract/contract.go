@@ -6,6 +6,8 @@
 package contract
 
 import (
+	"encoding/hex"
+
 	"github.com/ethereum/go-ethereum/common/compiler"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -72,4 +74,8 @@ func checkCompilerVersion(solc *util.Solidity) bool {
 		return true
 	}
 	return false
+}
+
+func decodeBytecode(bytecode string) ([]byte, error) {
+	return hex.DecodeString(util.TrimHexPrefix(bytecode))
 }
