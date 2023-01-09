@@ -108,6 +108,18 @@ func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
 	return nil
 }
 
+func protocolCommits(ctx context.Context, sr protocol.StateManager) error {
+	if err := protocolPreCommit(ctx, sr); err != nil {
+		return err
+	}
+	if err := protocolCommit(ctx, sr); err != nil {
+		// TODO (zhi): wrap the error and eventually panic it in caller side
+		return err
+	}
+	sr.Reset()
+	return nil
+}
+
 func readStates(kvStore db.KVStore, namespace string, keys [][]byte) ([][]byte, error) {
 	if keys == nil {
 		_, values, err := kvStore.Filter(namespace, func(k, v []byte) bool { return true }, nil, nil)

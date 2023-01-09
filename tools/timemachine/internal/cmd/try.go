@@ -25,10 +25,9 @@ var try = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if _, err = miniserver.NewMiniServer(miniserver.Config(), miniserver.WithStopHeightOption(stopHeight)); err != nil {
-			return err
+		if _, err = miniserver.NewMiniServer(miniserver.Config(_configPath, _genesisPath), miniserver.WithStopHeightOption(stopHeight)); err != nil {
+			log.S().Info(err.Error())
 		}
-		log.S().Infof("successful played block %d", stopHeight)
 		return nil
 	},
 }

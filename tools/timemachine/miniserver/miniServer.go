@@ -19,14 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state/factory"
-)
-
-// const
-const (
-	// config files
-	_configPath  = "./tools/timemachine/etc/config.yaml"
-	_genesisPath = "./tools/timemachine/etc/genesis.yaml"
 )
 
 type (
@@ -55,7 +47,7 @@ func NewMiniServer(cfg config.Config, opts ...Option) (*MiniServer, error) {
 	}
 
 	builder := chainservice.NewBuilder(cfg)
-	cs, err := builder.SetP2PAgent(p2p.NewDummyAgent()).Build(factory.WithStopHeightStateDBOption(svr.stopHeight))
+	cs, err := builder.SetP2PAgent(p2p.NewDummyAgent()).SetStopHeight(svr.stopHeight).Build()
 	if err != nil {
 		return nil, err
 	}
@@ -78,20 +70,20 @@ func NewMiniServer(cfg config.Config, opts ...Option) (*MiniServer, error) {
 }
 
 // Config returns the config data from yaml
-func Config() config.Config {
-	if _, err := os.Stat(_genesisPath); errors.Is(err, os.ErrNotExist) {
-		log.S().Fatalf("%s is not exist", _genesisPath)
+func Config(configPath, genesisPath string) config.Config {
+	if _, err := os.Stat(genesisPath); errors.Is(err, os.ErrNotExist) {
+		log.S().Fatal("genesisPath is not exist")
 	}
-	genesisCfg, err := genesis.New(_genesisPath)
+	genesisCfg, err := genesis.New(genesisPath)
 	if err != nil {
 		log.S().Panic("failed to read genesis.yaml", zap.Error(err))
 	}
 	genesis.SetGenesisTimestamp(genesisCfg.Timestamp)
 	block.LoadGenesisHash(&genesisCfg)
-	if _, err := os.Stat(_configPath); errors.Is(err, os.ErrNotExist) {
-		log.S().Fatalf("%s is not exist", _configPath)
+	if _, err := os.Stat(configPath); errors.Is(err, os.ErrNotExist) {
+		log.S().Fatal("configPath is not exist")
 	}
-	cfg, err := config.New([]string{_configPath}, []string{})
+	cfg, err := config.New([]string{configPath}, []string{})
 	if err != nil {
 		log.S().Panic("failed to read config.yaml", zap.Error(err))
 	}

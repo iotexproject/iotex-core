@@ -361,8 +361,11 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
+	if err := protocolCommits(ctx, ws); err != nil {
+		return err
+	}
 	if blk.Height() == sdb.stopHeight {
-		return fmt.Errorf("factory catches up to stop height %d", sdb.stopHeight)
+		return fmt.Errorf("chain sync halted right before committing block %d", sdb.stopHeight)
 	}
 	if err := ws.Commit(ctx); err != nil {
 		return err
@@ -469,7 +472,9 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 	if err := ws.CreateGenesisStates(ctx); err != nil {
 		return err
 	}
-
+	if err := protocolCommits(ctx, ws); err != nil {
+		return err
+	}
 	return ws.Commit(ctx)
 }
 

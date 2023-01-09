@@ -27,7 +27,7 @@ var get = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 
-		cfg := miniserver.Config()
+		cfg := miniserver.Config(_configPath, _genesisPath)
 		dbConfig := cfg.DB
 		dbConfig.DbPath = cfg.Chain.ChainDBPath
 		deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)

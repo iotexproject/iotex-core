@@ -30,25 +30,28 @@ import (
 const (
 	_gcpTimeout = time.Second * 60
 	_bucket     = "blockchain-golden"
-	_objPrefix  = "fullsync/mainnet/"
+	_objPrefix  = "fullsync/"
 )
 
 // download represents the download command
 var download = &cobra.Command{
-	Use:   "download [height]",
-	Short: "Download height block datas into ./tools/timemachine/data/xxm/",
-	Args:  cobra.ExactArgs(1),
+	Use:   "download [mainnet/testnet] [height]",
+	Short: "Download height block datas into ./data/xxm/",
+	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		height, err := strconv.ParseUint(args[0], 10, 64)
+		if args[0] != "mainnet" && args[0] != "testnet" {
+			return errors.New("block data is not from mainnet or testnet")
+		}
+		height, err := strconv.ParseUint(args[1], 10, 64)
 		if err != nil {
-			return errors.Wrapf(err, "Failed to convert input height: %s.", args[0])
+			return errors.Wrapf(err, "Failed to convert input height: %s.", args[1])
 		}
 		if height == 0 {
 			return errors.New("input height cannot be 0")
 		}
-
-		objs, err := listFiles(_bucket, _objPrefix, "")
+		objPrefix := _objPrefix + args[0] + "/"
+		objs, err := listFiles(_bucket, objPrefix, "")
 		if err != nil {
 			return err
 		}
@@ -66,7 +69,7 @@ var download = &cobra.Command{
 				continue
 			}
 
-			dbpath := strings.TrimPrefix(obj, _objPrefix)
+			dbpath := strings.TrimPrefix(obj, objPrefix)
 			heightStr := path.Dir(dbpath)
 			var h uint64
 			if heightStr != "latest" {
@@ -101,7 +104,7 @@ var download = &cobra.Command{
 			wg.Add(1)
 			go func(obj string) {
 				defer wg.Done()
-				if err := downloadFile(_bucket, _objPrefix+obj, obj); err != nil {
+				if err := downloadFile(_bucket, objPrefix+obj, obj); err != nil {
 					panic(errors.Wrapf(err, "Failed to downloadFile: %s.", obj))
 				}
 			}(obj)
@@ -115,7 +118,7 @@ var download = &cobra.Command{
 
 // downloadFile downloads an object to a file.
 func downloadFile(bucket, object, dbpath string) error {
-	dbpath = fmt.Sprintf("./tools/timemachine/data/%s", dbpath)
+	dbpath = fmt.Sprintf("./data/%s", dbpath)
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
