@@ -167,7 +167,7 @@ func (cs *ChainService) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) err
 
 // HandleNodeInfoMsg handles nodeinfo message.
 func (cs *ChainService) HandleNodeInfoMsg(ctx context.Context, peer string, msg *iotextypes.ResponseNodeInfoMessage) error {
-	cs.delegateManager.UpdateNode(peer, msg.Info)
+	cs.delegateManager.HandleNodeInfo(ctx, peer, msg)
 	return nil
 }
 
@@ -185,7 +185,7 @@ func (cs *ChainService) HandleRequestNodeInfoMsg(ctx context.Context, peerID str
 		}
 	}
 	if target == nil {
-		return errors.Errorf("unicast node info msg failed: target peerID %s is not connected", peerID)
+		return errors.Errorf("unicast node info msg failed: target peerID %s is not connected, peers size=%v, %v", peerID, len(peers), peers)
 	}
 	return cs.delegateManager.TellNodeInfo(ctx, *target)
 }
