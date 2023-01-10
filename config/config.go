@@ -81,6 +81,7 @@ var (
 		DB:      db.DefaultConfig,
 		Indexer: blockindex.DefaultConfig,
 		Genesis: genesis.Default,
+		Node:    node.DefaultConfig,
 	}
 
 	// ErrInvalidCfg indicates the invalid config value

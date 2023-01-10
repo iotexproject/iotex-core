@@ -98,3 +98,11 @@ func (ds *dummySubscriber) HandleSyncRequest(context.Context, peer.AddrInfo, *io
 func (ds *dummySubscriber) HandleAction(context.Context, *iotextypes.Action) error { return nil }
 
 func (ds *dummySubscriber) HandleConsensusMsg(*iotextypes.ConsensusMessage) error { return nil }
+
+func (ds *dummySubscriber) HandleRequestNodeInfoMsg(context.Context, string, *iotextypes.RequestNodeInfoMessage) error {
+	return nil
+}
+
+func (ds *dummySubscriber) HandleNodeInfoMsg(context.Context, string, *iotextypes.ResponseNodeInfoMessage) error {
+	return nil
+}

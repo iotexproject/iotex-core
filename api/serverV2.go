@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
-	"github.com/iotexproject/iotex-core/node"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -44,10 +43,9 @@ func NewServerV2(
 	bfIndexer blockindex.BloomFilterIndexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
-	dm *node.DelegateManager,
 	opts ...Option,
 ) (*ServerV2, error) {
-	coreAPI, err := newCoreService(cfg, chain, bs, sf, dao, indexer, bfIndexer, actPool, registry, dm, opts...)
+	coreAPI, err := newCoreService(cfg, chain, bs, sf, dao, indexer, bfIndexer, actPool, registry, opts...)
 	if err != nil {
 		return nil, err
 	}

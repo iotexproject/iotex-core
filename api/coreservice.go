@@ -49,7 +49,6 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
-	"github.com/iotexproject/iotex-core/node"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -159,7 +158,6 @@ type (
 		chainListener     apitypes.Listener
 		electionCommittee committee.Committee
 		readCache         *ReadCache
-		delegateManager   *node.DelegateManager
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -209,7 +207,6 @@ func newCoreService(
 	bfIndexer blockindex.BloomFilterIndexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
-	dm *node.DelegateManager,
 	opts ...Option,
 ) (CoreService, error) {
 	if cfg == (Config{}) {
@@ -222,19 +219,18 @@ func newCoreService(
 	}
 
 	core := coreService{
-		bc:              chain,
-		bs:              bs,
-		sf:              sf,
-		dao:             dao,
-		indexer:         indexer,
-		bfIndexer:       bfIndexer,
-		ap:              actPool,
-		cfg:             cfg,
-		registry:        registry,
-		chainListener:   NewChainListener(500),
-		gs:              gasstation.NewGasStation(chain, dao, cfg.GasStation),
-		readCache:       NewReadCache(),
-		delegateManager: dm,
+		bc:            chain,
+		bs:            bs,
+		sf:            sf,
+		dao:           dao,
+		indexer:       indexer,
+		bfIndexer:     bfIndexer,
+		ap:            actPool,
+		cfg:           cfg,
+		registry:      registry,
+		chainListener: NewChainListener(500),
+		gs:            gasstation.NewGasStation(chain, dao, cfg.GasStation),
+		readCache:     NewReadCache(),
 	}
 
 	for _, opt := range opts {

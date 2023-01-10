@@ -249,7 +249,6 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 		cs.bfIndexer,
 		cs.actpool,
 		cs.registry,
-		cs.delegateManager,
 		apiServerOptions...,
 	)
 	if err != nil {

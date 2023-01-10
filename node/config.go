@@ -11,3 +11,6 @@ import "time"
 type Config struct {
 	RequestNodeInfoInterval time.Duration `yaml:"requestNodeInfoInterval"`
 }
+
+// DefaultConfig is the default config
+var DefaultConfig = Config{}
