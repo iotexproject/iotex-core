@@ -8,6 +8,7 @@ package node
 import (
 	"context"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
@@ -34,31 +35,26 @@ type (
 	signer interface {
 		Sign([]byte) ([]byte, error)
 	}
-	signVerifier interface {
-		Verify(pk, hash, sig []byte) bool
-	}
 
 	// DelegateManager manage delegate node info
 	DelegateManager struct {
-		cfg          Config
-		nodeMap      map[string]iotextypes.NodeInfo
-		broadcaster  *routine.RecurringTask
-		transmitter  transmitter
-		heightable   heightable
-		signer       signer
-		signVerifier signVerifier
+		cfg         Config
+		nodeMap     map[string]iotextypes.NodeInfo
+		broadcaster *routine.RecurringTask
+		transmitter transmitter
+		heightable  heightable
+		signer      signer
 	}
 )
 
 // NewDelegateManager new delegate manager
-func NewDelegateManager(cfg *Config, t transmitter, h heightable, s signer, sv signVerifier) *DelegateManager {
+func NewDelegateManager(cfg *Config, t transmitter, h heightable, s signer) *DelegateManager {
 	dm := &DelegateManager{
-		cfg:          *cfg,
-		nodeMap:      make(map[string]iotextypes.NodeInfo),
-		transmitter:  t,
-		heightable:   h,
-		signer:       s,
-		signVerifier: sv,
+		cfg:         *cfg,
+		nodeMap:     make(map[string]iotextypes.NodeInfo),
+		transmitter: t,
+		heightable:  h,
+		signer:      s,
 	}
 	dm.broadcaster = routine.NewRecurringTask(dm.RequestNodeInfo, cfg.RequestNodeInfoInterval)
 	return dm
@@ -76,7 +72,7 @@ func (dm *DelegateManager) Stop(ctx context.Context) error {
 
 // HandleNodeInfo handle node info message
 func (dm *DelegateManager) HandleNodeInfo(ctx context.Context, addr string, node *iotextypes.ResponseNodeInfoMessage) {
-	// sign verify
+	// TODO sign verify
 	// if !dm.verifyNodeInfo(addr, node) {
 	// 	log.L().Warn("node info message verify failed", zap.String("addr", addr))
 	// 	return
@@ -105,11 +101,12 @@ func (dm *DelegateManager) RequestNodeInfo() {
 		log.L().Error("delegateManager get self info failed", zap.Error(err))
 		return
 	}
-	dm.UpdateNode(peer.ID.Pretty(), &iotextypes.NodeInfo{
+	msg := &iotextypes.NodeInfo{
 		Version:   version.PackageVersion,
 		Height:    dm.heightable.TipHeight(),
 		Timestamp: timestamppb.Now(),
-	})
+	}
+	dm.UpdateNode(peer.ID.Pretty(), msg)
 }
 
 // TellNodeInfo tell node info to peer
@@ -123,22 +120,36 @@ func (dm *DelegateManager) TellNodeInfo(ctx context.Context, peer peer.AddrInfo)
 		},
 	}
 	// add sign for msg
-	// dm.signNodeInfo(req)
-	return dm.transmitter.UnicastOutbound(ctx, peer, req)
-}
-
-func (dm *DelegateManager) signNodeInfo(msg *iotextypes.ResponseNodeInfoMessage) error {
-	h := hash.Hash256b(byteutil.Must(proto.Marshal(msg.Info)))
-	sign, err := dm.signer.Sign(h[:])
+	sign, err := dm.signNodeInfo(req)
 	if err != nil {
 		return err
 	}
-	msg.Signature = sign
-	return nil
+	req.Signature = sign
+
+	return dm.transmitter.UnicastOutbound(ctx, peer, req)
+}
+
+func (dm *DelegateManager) signNodeInfo(msg *iotextypes.ResponseNodeInfoMessage) ([]byte, error) {
+	h := dm.hashNodeInfo(msg)
+	sign, err := dm.signer.Sign(h[:])
+	if err != nil {
+		return nil, err
+	}
+	return sign, nil
+}
+
+func (dm *DelegateManager) hashNodeInfo(msg *iotextypes.ResponseNodeInfoMessage) hash.Hash256 {
+	return hash.Hash256b(byteutil.Must(proto.Marshal(msg.Info)))
 }
 
 func (dm *DelegateManager) verifyNodeInfo(peer string, msg *iotextypes.ResponseNodeInfoMessage) bool {
 	pk := []byte{}
-	hash := []byte{}
-	return dm.signVerifier.Verify(pk, hash, msg.Signature)
+	hash := dm.hashNodeInfo(msg)
+	pubK, err := crypto.BytesToPublicKey(pk)
+	if err != nil {
+		log.L().Warn("convert bytes to publickey failed", zap.Error(err))
+		return false
+	}
+
+	return pubK.Verify(hash[:], msg.Signature)
 }
