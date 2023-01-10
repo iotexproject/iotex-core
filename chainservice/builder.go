@@ -105,7 +105,7 @@ func (builder *Builder) SetBlockSync(bs blocksync.BlockSync) *Builder {
 	return builder
 }
 
-// SetBlockSync sets stop height for time machine
+// SetStopHeight sets stop height for time machine
 func (builder *Builder) SetStopHeight(stopHeight uint64) *Builder {
 	builder.createInstance()
 	builder.stopHeight = stopHeight

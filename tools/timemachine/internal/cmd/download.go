@@ -30,7 +30,7 @@ import (
 const (
 	_gcpTimeout = time.Second * 60
 	_bucket     = "blockchain-golden"
-	_objPrefix  = "fullsync/"
+	_fullsync   = "fullsync/"
 )
 
 // download represents the download command
@@ -50,7 +50,7 @@ var download = &cobra.Command{
 		if height == 0 {
 			return errors.New("input height cannot be 0")
 		}
-		objPrefix := _objPrefix + args[0] + "/"
+		objPrefix := _fullsync + args[0] + "/"
 		objs, err := listFiles(_bucket, objPrefix, "")
 		if err != nil {
 			return err
@@ -104,7 +104,7 @@ var download = &cobra.Command{
 			wg.Add(1)
 			go func(obj string) {
 				defer wg.Done()
-				if err := downloadFile(_bucket, objPrefix+obj, obj); err != nil {
+				if err := downloadFile(_bucket, objPrefix+obj); err != nil {
 					panic(errors.Wrapf(err, "Failed to downloadFile: %s.", obj))
 				}
 			}(obj)
@@ -117,8 +117,8 @@ var download = &cobra.Command{
 }
 
 // downloadFile downloads an object to a file.
-func downloadFile(bucket, object, dbpath string) error {
-	dbpath = fmt.Sprintf("./data/%s", dbpath)
+func downloadFile(bucket, object string) error {
+	dbpath := fmt.Sprintf("./data/%s", strings.TrimPrefix(object, _fullsync))
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
