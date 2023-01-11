@@ -460,7 +460,7 @@ func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer pe
 }
 
 func (d *IotxDispatcher) dispatchNodeInfo(ctx context.Context, chainID uint32, peer string, message proto.Message) {
-	if atomic.LoadInt32(&d.shutdown) != 0 {
+	if !d.IsReady() {
 		return
 	}
 	subscriber := d.subscriber(chainID)
