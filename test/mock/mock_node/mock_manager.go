@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	crypto "github.com/iotexproject/go-pkgs/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	proto "google.golang.org/protobuf/proto"
 )
@@ -48,21 +49,6 @@ func (m *Mocktransmitter) BroadcastOutbound(arg0 context.Context, arg1 proto.Mes
 func (mr *MocktransmitterMockRecorder) BroadcastOutbound(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BroadcastOutbound", reflect.TypeOf((*Mocktransmitter)(nil).BroadcastOutbound), arg0, arg1)
-}
-
-// Info mocks base method.
-func (m *Mocktransmitter) Info() (peer.AddrInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Info")
-	ret0, _ := ret[0].(peer.AddrInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Info indicates an expected call of Info.
-func (mr *MocktransmitterMockRecorder) Info() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*Mocktransmitter)(nil).Info))
 }
 
 // UnicastOutbound mocks base method.
@@ -116,31 +102,45 @@ func (mr *MockheightableMockRecorder) TipHeight() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*Mockheightable)(nil).TipHeight))
 }
 
-// Mocksigner is a mock of signer interface.
-type Mocksigner struct {
+// MockprivateKey is a mock of privateKey interface.
+type MockprivateKey struct {
 	ctrl     *gomock.Controller
-	recorder *MocksignerMockRecorder
+	recorder *MockprivateKeyMockRecorder
 }
 
-// MocksignerMockRecorder is the mock recorder for Mocksigner.
-type MocksignerMockRecorder struct {
-	mock *Mocksigner
+// MockprivateKeyMockRecorder is the mock recorder for MockprivateKey.
+type MockprivateKeyMockRecorder struct {
+	mock *MockprivateKey
 }
 
-// NewMocksigner creates a new mock instance.
-func NewMocksigner(ctrl *gomock.Controller) *Mocksigner {
-	mock := &Mocksigner{ctrl: ctrl}
-	mock.recorder = &MocksignerMockRecorder{mock}
+// NewMockprivateKey creates a new mock instance.
+func NewMockprivateKey(ctrl *gomock.Controller) *MockprivateKey {
+	mock := &MockprivateKey{ctrl: ctrl}
+	mock.recorder = &MockprivateKeyMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *Mocksigner) EXPECT() *MocksignerMockRecorder {
+func (m *MockprivateKey) EXPECT() *MockprivateKeyMockRecorder {
 	return m.recorder
 }
 
+// PublicKey mocks base method.
+func (m *MockprivateKey) PublicKey() crypto.PublicKey {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PublicKey")
+	ret0, _ := ret[0].(crypto.PublicKey)
+	return ret0
+}
+
+// PublicKey indicates an expected call of PublicKey.
+func (mr *MockprivateKeyMockRecorder) PublicKey() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublicKey", reflect.TypeOf((*MockprivateKey)(nil).PublicKey))
+}
+
 // Sign mocks base method.
-func (m *Mocksigner) Sign(arg0 []byte) ([]byte, error) {
+func (m *MockprivateKey) Sign(arg0 []byte) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Sign", arg0)
 	ret0, _ := ret[0].([]byte)
@@ -149,7 +149,7 @@ func (m *Mocksigner) Sign(arg0 []byte) ([]byte, error) {
 }
 
 // Sign indicates an expected call of Sign.
-func (mr *MocksignerMockRecorder) Sign(arg0 interface{}) *gomock.Call {
+func (mr *MockprivateKeyMockRecorder) Sign(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*Mocksigner)(nil).Sign), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*MockprivateKey)(nil).Sign), arg0)
 }

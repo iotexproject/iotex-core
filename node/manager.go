@@ -25,14 +25,14 @@ type (
 	transmitter interface {
 		BroadcastOutbound(context.Context, proto.Message) error
 		UnicastOutbound(context.Context, peer.AddrInfo, proto.Message) error
-		Info() (peer.AddrInfo, error)
 	}
 
 	heightable interface {
 		TipHeight() uint64
 	}
 
-	signer interface {
+	privateKey interface {
+		PublicKey() crypto.PublicKey
 		Sign([]byte) ([]byte, error)
 	}
 
@@ -43,18 +43,18 @@ type (
 		broadcaster *routine.RecurringTask
 		transmitter transmitter
 		heightable  heightable
-		signer      signer
+		privKey     privateKey
 	}
 )
 
 // NewDelegateManager new delegate manager
-func NewDelegateManager(cfg *Config, t transmitter, h heightable, s signer) *DelegateManager {
+func NewDelegateManager(cfg *Config, t transmitter, h heightable, privKey privateKey) *DelegateManager {
 	dm := &DelegateManager{
 		cfg:         *cfg,
 		nodeMap:     make(map[string]iotextypes.NodeInfo),
 		transmitter: t,
 		heightable:  h,
-		signer:      s,
+		privKey:     privKey,
 	}
 	// disable broadcast if RequestNodeInfoInterval == 0
 	if cfg.RequestNodeInfoInterval > 0 {
@@ -81,13 +81,20 @@ func (dm *DelegateManager) Stop(ctx context.Context) error {
 }
 
 // HandleNodeInfo handle node info message
-func (dm *DelegateManager) HandleNodeInfo(ctx context.Context, addr string, node *iotextypes.ResponseNodeInfoMessage) {
-	// TODO sign verify
-	// if !dm.verifyNodeInfo(addr, node) {
-	// 	log.L().Warn("node info message verify failed", zap.String("addr", addr))
-	// 	return
-	// }
-	dm.UpdateNode(addr, node.Info)
+func (dm *DelegateManager) HandleNodeInfo(ctx context.Context, peerID string, msg *iotextypes.ResponseNodeInfoMessage) {
+	// verify signature
+	pubKey, err := crypto.BytesToPublicKey(msg.Pubkey)
+	if err != nil {
+		log.L().Warn("delegate manager convert to publick key failed", zap.Error(err))
+		return
+	}
+	hash := hashNodeInfo(msg)
+	if !pubKey.Verify(hash[:], msg.Signature) {
+		log.L().Warn("delegate manager node info message verify failed", zap.String("peer", peerID))
+		return
+	}
+
+	dm.UpdateNode(pubKey.Address().String(), msg.Info)
 }
 
 // UpdateNode update node info
@@ -100,37 +107,35 @@ func (dm *DelegateManager) UpdateNode(addr string, node *iotextypes.NodeInfo) {
 
 // RequestNodeInfo broadcast request node info message
 func (dm *DelegateManager) RequestNodeInfo() {
-	log.L().Info("delegateManager request node info")
+	log.L().Info("delegate manager request node info")
+
+	// broadcast request meesage
 	if err := dm.transmitter.BroadcastOutbound(context.Background(), &iotextypes.RequestNodeInfoMessage{}); err != nil {
-		log.L().Error("delegateManager request node info failed", zap.Error(err))
+		log.L().Error("delegate manager request node info failed", zap.Error(err))
 	}
 
 	// manually update self node info for broadcast message to myself will be ignored
-	peer, err := dm.transmitter.Info()
-	if err != nil {
-		log.L().Error("delegateManager get self info failed", zap.Error(err))
-		return
-	}
-	msg := &iotextypes.NodeInfo{
+	dm.UpdateNode(dm.privKey.PublicKey().Address().String(), &iotextypes.NodeInfo{
 		Version:   version.PackageVersion,
 		Height:    dm.heightable.TipHeight(),
 		Timestamp: timestamppb.Now(),
-	}
-	dm.UpdateNode(peer.ID.Pretty(), msg)
+	})
 }
 
 // TellNodeInfo tell node info to peer
 func (dm *DelegateManager) TellNodeInfo(ctx context.Context, peer peer.AddrInfo) error {
-	log.L().Info("delegateManager tell node info", zap.Any("peer", peer.ID.Pretty()))
+	log.L().Info("delegate manager tell node info", zap.Any("peer", peer.ID.Pretty()))
 	req := &iotextypes.ResponseNodeInfoMessage{
 		Info: &iotextypes.NodeInfo{
 			Version:   version.PackageVersion,
 			Height:    dm.heightable.TipHeight(),
 			Timestamp: timestamppb.Now(),
 		},
+		Pubkey: dm.privKey.PublicKey().Bytes(),
 	}
 	// add sign for msg
-	sign, err := dm.signNodeInfo(req)
+	h := hashNodeInfo(req)
+	sign, err := dm.privKey.Sign(h[:])
 	if err != nil {
 		return err
 	}
@@ -139,27 +144,6 @@ func (dm *DelegateManager) TellNodeInfo(ctx context.Context, peer peer.AddrInfo)
 	return dm.transmitter.UnicastOutbound(ctx, peer, req)
 }
 
-func (dm *DelegateManager) signNodeInfo(msg *iotextypes.ResponseNodeInfoMessage) ([]byte, error) {
-	h := dm.hashNodeInfo(msg)
-	sign, err := dm.signer.Sign(h[:])
-	if err != nil {
-		return nil, err
-	}
-	return sign, nil
-}
-
-func (dm *DelegateManager) hashNodeInfo(msg *iotextypes.ResponseNodeInfoMessage) hash.Hash256 {
+func hashNodeInfo(msg *iotextypes.ResponseNodeInfoMessage) hash.Hash256 {
 	return hash.Hash256b(byteutil.Must(proto.Marshal(msg.Info)))
-}
-
-func (dm *DelegateManager) verifyNodeInfo(peer string, msg *iotextypes.ResponseNodeInfoMessage) bool {
-	pk := []byte{}
-	hash := dm.hashNodeInfo(msg)
-	pubK, err := crypto.BytesToPublicKey(pk)
-	if err != nil {
-		log.L().Warn("convert bytes to publickey failed", zap.Error(err))
-		return false
-	}
-
-	return pubK.Verify(hash[:], msg.Signature)
 }
