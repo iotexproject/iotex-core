@@ -429,8 +429,9 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	}
 	// If there is no error putting into local actpool,
 	// Broadcast it to the network
-
-	msg := &iotextypes.Actions{Actions: []*iotextypes.Action{in}}
+	// TODO: enable message batching
+	// msg := &iotextypes.Actions{Actions: []*iotextypes.Action{in}}
+	msg := in
 	if err = core.broadcastHandler(ctx, core.bc.ChainID(), msg); err != nil {
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}

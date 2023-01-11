@@ -431,7 +431,6 @@ func (builder *Builder) buildBlockSyncer() error {
 			return nil
 		},
 		p2pAgent.ConnectedPeers,
-		// TODO: WithBatch() will be added after the hardfork
 		func(ctx context.Context, peer peer.AddrInfo, msg proto.Message) error {
 			return p2pAgent.UnicastOutbound(ctx, peer, msg)
 		},

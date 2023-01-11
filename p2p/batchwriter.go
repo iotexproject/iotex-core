@@ -53,14 +53,15 @@ type (
 	messageOutbound func(*batchMessage) error
 )
 
+// TODO: move BatchManager outside of p2p after serialized messages
+// could be passed directly to p2p module
 func newBatchManager(handler messageOutbound) *batchManager {
-	bm := &batchManager{
+	return &batchManager{
 		writerMap:           make(map[batchID]*batchWriter),
 		outputQueue:         make(chan *batchMessage, _bufferLength),
 		assembleQueue:       make(chan *batch, _bufferLength),
 		batchMessageHandler: handler,
 	}
-	return bm
 }
 
 func (bm *batchManager) Start() {
@@ -104,11 +105,7 @@ func (bm *batchManager) Put(msg *batchMessage, opts ...batchOption) error {
 }
 
 func (bm *batchManager) supported(msgType iotexrpc.MessageType) bool {
-	if msgType == iotexrpc.MessageType_ACTIONS ||
-		msgType == iotexrpc.MessageType_BLOCKS {
-		return true
-	}
-	return false
+	return msgType == iotexrpc.MessageType_ACTIONS || msgType == iotexrpc.MessageType_BLOCKS
 }
 
 func (bm *batchManager) assemble(ctx context.Context) {

@@ -432,11 +432,6 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, pe
 		}
 	case *iotextypes.Block:
 		d.dispatchBlock(ctx, chainID, peer, message.(*iotextypes.Block))
-	case *iotextypes.Blocks:
-		blks := message.(*iotextypes.Blocks)
-		for i := range blks.Blocks {
-			d.dispatchBlock(ctx, chainID, peer, blks.Blocks[i])
-		}
 	default:
 		msgType, _ := goproto.GetTypeFromRPCMsg(message)
 		log.L().Warn("Unexpected msgType handled by HandleBroadcast.", zap.Any("msgType", msgType))
@@ -454,11 +449,6 @@ func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer pe
 		d.dispatchBlockSyncReq(ctx, chainID, peer, message)
 	case iotexrpc.MessageType_BLOCK:
 		d.dispatchBlock(ctx, chainID, peer.ID.Pretty(), message.(*iotextypes.Block))
-	case iotexrpc.MessageType_BLOCKS:
-		blks := message.(*iotextypes.Blocks)
-		for i := range blks.Blocks {
-			d.dispatchBlock(ctx, chainID, peer.ID.Pretty(), blks.Blocks[i])
-		}
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleTell.", zap.Any("msgType", msgType))
 	}
