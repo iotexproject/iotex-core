@@ -35,7 +35,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-election/committee"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -431,9 +430,7 @@ func (builder *Builder) buildBlockSyncer() error {
 			return nil
 		},
 		p2pAgent.ConnectedPeers,
-		func(ctx context.Context, peer peer.AddrInfo, msg proto.Message) error {
-			return p2pAgent.UnicastOutbound(ctx, peer, msg)
-		},
+		p2pAgent.UnicastOutbound,
 		p2pAgent.BlockPeer,
 	)
 	if err != nil {

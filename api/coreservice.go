@@ -50,6 +50,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	batch "github.com/iotexproject/iotex-core/pkg/messagebatcher"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
@@ -158,6 +159,7 @@ type (
 		chainListener     apitypes.Listener
 		electionCommittee committee.Committee
 		readCache         *ReadCache
+		messageBatcher    *batch.Manager
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -235,6 +237,13 @@ func newCoreService(
 
 	for _, opt := range opts {
 		opt(&core)
+	}
+
+	// TODO: enable message batching
+	if core.broadcastHandler != nil {
+		core.messageBatcher = batch.NewManager(func(msg *batch.Message) error {
+			return core.broadcastHandler(context.Background(), core.bc.ChainID(), msg.Data)
+		})
 	}
 
 	return &core, nil
@@ -429,10 +438,17 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	}
 	// If there is no error putting into local actpool,
 	// Broadcast it to the network
-	// TODO: enable message batching
-	// msg := &iotextypes.Actions{Actions: []*iotextypes.Action{in}}
 	msg := in
-	if err = core.broadcastHandler(ctx, core.bc.ChainID(), msg); err != nil {
+	if core.messageBatcher != nil {
+		err = core.messageBatcher.Put(&batch.Message{
+			ChainID: core.bc.ChainID(),
+			Target:  nil,
+			Data:    msg,
+		})
+	} else {
+		err = core.broadcastHandler(ctx, core.bc.ChainID(), msg)
+	}
+	if err != nil {
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	return hex.EncodeToString(hash[:]), nil
@@ -807,11 +823,21 @@ func (core *coreService) Start(_ context.Context) error {
 	if err := core.chainListener.Start(); err != nil {
 		return errors.Wrap(err, "failed to start blockchain listener")
 	}
+	if core.messageBatcher != nil {
+		if err := core.messageBatcher.Start(); err != nil {
+			return errors.Wrap(err, "failed to start message batcher")
+		}
+	}
 	return nil
 }
 
 // Stop stops the API server
 func (core *coreService) Stop(_ context.Context) error {
+	if core.messageBatcher != nil {
+		if err := core.messageBatcher.Stop(); err != nil {
+			return errors.Wrap(err, "failed to start message batcher")
+		}
+	}
 	return core.chainListener.Stop()
 }
 

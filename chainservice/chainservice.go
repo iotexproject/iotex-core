@@ -207,8 +207,6 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 	p2pAgent := cs.p2pAgent
 	apiServerOptions := []api.Option{
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
-			// TODO: enable message batching
-			// p2pAgent.BroadcastOutbound(ctx, msg, p2p.WithBatch())
 			return p2pAgent.BroadcastOutbound(ctx, msg)
 		}),
 		api.WithNativeElection(cs.electionCommittee),

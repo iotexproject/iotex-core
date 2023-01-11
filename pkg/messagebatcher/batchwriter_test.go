@@ -1,68 +1,82 @@
-package p2p
+package batch
 
 import (
+	"math/big"
 	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
 var (
 	peerAddr1, _ = peer.AddrInfoFromP2pAddr(multiaddr.StringCast(`/ip4/127.0.0.1/tcp/31954/p2p/12D3KooWJwW7pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ`))
 	peerAddr2, _ = peer.AddrInfoFromP2pAddr(multiaddr.StringCast(`/ip4/127.0.0.1/tcp/32954/p2p/12D3KooWJwW8pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ`))
-	_messages    = []*batchMessage{
+
+	tx1, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64))
+	txProto1 = tx1.Proto()
+	tx2, _   = action.SignedExecution(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64), []byte{})
+	txProto2  = tx2.Proto()
+	_messages = []*Message{
 		// broadcast Messages
 		{
-			MsgType: iotexrpc.MessageType_ACTIONS,
+			// MsgType: iotexrpc.MessageType_ACTIONS,
 			ChainID: 1,
-			Data:    []byte{0, 1},
+			Data:    txProto1,
+			Target:  nil,
 		},
 		{
-			MsgType: iotexrpc.MessageType_BLOCKS,
 			ChainID: 1,
-			Data:    []byte{0, 1},
+			Target:  nil,
+			Data:    &iotextypes.Block{},
 		},
 		{
-			MsgType: iotexrpc.MessageType_ACTIONS,
+			// MsgType: iotexrpc.MessageType_ACTIONS,
 			ChainID: 2,
-			Data:    []byte{0, 1, 2},
+			Data:    txProto2,
+			Target:  nil,
 		},
 		{
-			MsgType: iotexrpc.MessageType_BLOCKS,
 			ChainID: 2,
-			Data:    []byte{0, 1, 2},
+			Target:  nil,
+			Data:    &iotextypes.Block{},
 		},
 		// unicast Messages
 		{
-			MsgType: iotexrpc.MessageType_ACTIONS,
+			// MsgType: iotexrpc.MessageType_ACTIONS,
 			ChainID: 1,
+			Data:    txProto1,
 			Target:  peerAddr1,
-			Data:    []byte{0, 1},
 		},
 		{
-			MsgType: iotexrpc.MessageType_BLOCKS,
 			ChainID: 1,
+			Data:    &iotextypes.Block{},
 			Target:  peerAddr2,
-			Data:    []byte{0, 1},
 		},
 		{
-			MsgType: iotexrpc.MessageType_ACTIONS,
+			// MsgType: iotexrpc.MessageType_ACTIONS,
 			ChainID: 2,
+			Data:    txProto2,
 			Target:  peerAddr1,
-			Data:    []byte{0, 1, 2},
+			// Data:    []byte{0, 1, 2},
 		},
 		{
-			MsgType: iotexrpc.MessageType_BLOCKS,
 			ChainID: 2,
+			Data:    &iotextypes.Block{},
 			Target:  peerAddr2,
-			Data:    []byte{0, 1, 2, 3, 4, 5},
 		},
 	}
 )
@@ -70,75 +84,70 @@ var (
 func TestBatchManager(t *testing.T) {
 	require := require.New(t)
 
-	var msgsSize int32 = 0
 	var msgsCount int32 = 0
-	callback := func(msg *batchMessage) error {
-		atomic.AddInt32(&msgsSize, int32(msg.Size()))
+	callback := func(msg *Message) error {
 		atomic.AddInt32(&msgsCount, 1)
 		return nil
 	}
 
-	manager := newBatchManager(callback)
+	manager := NewManager(callback)
 	manager.Start()
-	defer manager.Close()
+	defer manager.Stop()
 
 	t.Run("msgWithSizelimit", func(t *testing.T) {
-		manager.Put(_messages[0], withSizeLimit(3))
-		manager.Put(_messages[0], withSizeLimit(3))
-		manager.Put(_messages[0], withSizeLimit(3))
+		manager.Put(_messages[0], WithSizeLimit(2))
+		manager.Put(_messages[0], WithSizeLimit(2))
+		manager.Put(_messages[0], WithSizeLimit(2))
 		err := testutil.WaitUntil(50*time.Millisecond, 3*time.Second, func() (bool, error) {
-			return atomic.LoadInt32(&msgsCount) == 2 && atomic.LoadInt32(&msgsSize) == 6, nil
+			return atomic.LoadInt32(&msgsCount) == 2, nil
 		})
 		require.NoError(err)
 
-		manager.Put(_messages[2], withSizeLimit(4))
-		manager.Put(_messages[1], withSizeLimit(3))
-		manager.Put(_messages[2], withSizeLimit(4))
-		manager.Put(_messages[1], withSizeLimit(3))
+		manager.Put(_messages[2], WithSizeLimit(2))
+		manager.Put(_messages[1], WithSizeLimit(2))
+		manager.Put(_messages[2], WithSizeLimit(2))
+		manager.Put(_messages[1], WithSizeLimit(2))
 		err = testutil.WaitUntil(50*time.Millisecond, 3*time.Second, func() (bool, error) {
-			return atomic.LoadInt32(&msgsCount) == 4 && atomic.LoadInt32(&msgsSize) == 16, nil
+			return atomic.LoadInt32(&msgsCount) == 4, nil
 		})
 		require.NoError(err)
 
-		manager.Put(_messages[7], withSizeLimit(4))
+		manager.Put(_messages[7], WithSizeLimit(1))
 		err = testutil.WaitUntil(50*time.Millisecond, 3*time.Second, func() (bool, error) {
-			return atomic.LoadInt32(&msgsCount) == 5 && atomic.LoadInt32(&msgsSize) == 22, nil
+			return atomic.LoadInt32(&msgsCount) == 5, nil
 		})
 		require.NoError(err)
 		require.Equal(4, len(manager.writerMap))
-
 	})
 
-	msgsSize = 0
 	msgsCount = 0
 	manager.writerMap = make(map[batchID]*batchWriter)
 
-	t.Run("msgwithInterval", func(t *testing.T) {
-		manager.Put(_messages[0], withInterval(50*time.Millisecond))
+	t.Run("msgWithInterval", func(t *testing.T) {
+		manager.Put(_messages[0], WithInterval(50*time.Millisecond))
 		time.Sleep(60 * time.Millisecond)
 		err := testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
-			return atomic.LoadInt32(&msgsCount) == 1 && atomic.LoadInt32(&msgsSize) == 2, nil
+			return atomic.LoadInt32(&msgsCount) == 1, nil
 		})
 		require.NoError(err)
 
-		manager.Put(_messages[2], withInterval(50*time.Millisecond))
-		manager.Put(_messages[3], withInterval(50*time.Millisecond))
+		manager.Put(_messages[2], WithInterval(50*time.Millisecond))
+		manager.Put(_messages[3], WithInterval(50*time.Millisecond))
 		time.Sleep(60 * time.Millisecond)
 		err = testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
-			return atomic.LoadInt32(&msgsCount) == 3 && atomic.LoadInt32(&msgsSize) == 8, nil
+			return atomic.LoadInt32(&msgsCount) == 3, nil
 		})
 		require.NoError(err)
 	})
 
-	msgsSize = 0
 	msgsCount = 0
 	manager.writerMap = make(map[batchID]*batchWriter)
 
 	t.Run("writerTimeout", func(t *testing.T) {
-		manager.Put(_messages[0], withInterval(1*time.Minute))
-		manager.Put(_messages[1], withInterval(1*time.Minute))
-		manager.Put(_messages[2], withInterval(1*time.Minute))
-		manager.Put(_messages[3], withInterval(1*time.Minute))
+		manager.Put(_messages[0], WithInterval(1*time.Minute))
+		manager.Put(_messages[1], WithInterval(1*time.Minute))
+		manager.Put(_messages[2], WithInterval(1*time.Minute))
+		manager.Put(_messages[3], WithInterval(1*time.Minute))
 		require.Equal(4, len(manager.writerMap))
 		err := testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
 			queuedItems := 0
@@ -152,7 +161,7 @@ func TestBatchManager(t *testing.T) {
 		manager.cleanupLoop()
 		manager.cleanupLoop()
 		err = testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
-			return atomic.LoadInt32(&msgsCount) == 4 && atomic.LoadInt32(&msgsSize) == 10, nil
+			return atomic.LoadInt32(&msgsCount) == 4, nil
 		})
 		require.NoError(err)
 		require.Equal(0, len(manager.writerMap))
@@ -163,25 +172,25 @@ func TestBatchDataCorrectness(t *testing.T) {
 	require := require.New(t)
 
 	var (
-		msgsSize     int32 = 0
 		msgsCount    int32 = 0
-		expectedData       = append(_messages[0].Data, _messages[0].Data...)
+		expectedData       = iotextypes.Actions{Actions: []*iotextypes.Action{txProto1, txProto1}}
 	)
-	callback := func(msg *batchMessage) error {
-		atomic.AddInt32(&msgsSize, int32(msg.Size()))
+	callback := func(msg *Message) error {
 		atomic.AddInt32(&msgsCount, 1)
-		require.Equal(expectedData, msg.Data)
+		binary1, _ := proto.Marshal(&expectedData)
+		binary2, _ := proto.Marshal(msg.Data)
+		require.Equal(binary1, binary2)
 		return nil
 	}
 
-	manager := newBatchManager(callback)
+	manager := NewManager(callback)
 	manager.Start()
-	defer manager.Close()
+	defer manager.Stop()
 
-	manager.Put(_messages[0], withSizeLimit(3))
-	manager.Put(_messages[0], withSizeLimit(3))
+	manager.Put(_messages[0], WithSizeLimit(2))
+	manager.Put(_messages[0], WithSizeLimit(2))
 	err := testutil.WaitUntil(50*time.Millisecond, 3*time.Second, func() (bool, error) {
-		return atomic.LoadInt32(&msgsCount) == 1 && atomic.LoadInt32(&msgsSize) == 4, nil
+		return atomic.LoadInt32(&msgsCount) == 1, nil
 	})
 	require.NoError(err)
 }
@@ -189,15 +198,13 @@ func TestBatchDataCorrectness(t *testing.T) {
 func TestBatchWriter(t *testing.T) {
 	require := require.New(t)
 
-	manager := &batchManager{
+	manager := &Manager{
 		assembleQueue: make(chan *batch, _bufferLength),
 	}
 
-	var batchesSize int32 = 0
 	var batchesCount int32 = 0
 	go func() {
-		for batch := range manager.assembleQueue {
-			atomic.AddInt32(&batchesSize, int32(batch.bytes))
+		for range manager.assembleQueue {
 			atomic.AddInt32(&batchesCount, 1)
 		}
 	}()
@@ -206,7 +213,7 @@ func TestBatchWriter(t *testing.T) {
 		writer := newBatchWriter(
 			&writerConfig{
 				expiredThreshold: 10,
-				sizeLimit:        5,
+				sizeLimit:        2,
 				msgInterval:      10 * time.Minute,
 			},
 			manager,
@@ -220,38 +227,44 @@ func TestBatchWriter(t *testing.T) {
 
 		writer.Put(_messages[0])
 		writer.Put(_messages[1])
-		writer.Put(_messages[2])
 		err = testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
-			return atomic.LoadInt32(&batchesCount) == 1 && atomic.LoadInt32(&batchesSize) == 7, nil
+			return atomic.LoadInt32(&batchesCount) == 1, nil
 		})
 		require.NoError(err)
 		require.Nil(writer.curBatch)
 
 		writer.Put(_messages[7])
 		err = testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
-			return atomic.LoadInt32(&batchesCount) == 2 && atomic.LoadInt32(&batchesSize) == 13, nil
+			return atomic.LoadInt32(&batchesCount) == 1, nil
+		})
+		require.NoError(err)
+		require.NotNil(writer.curBatch)
+
+		writer.Put(_messages[3])
+		err = testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
+			return atomic.LoadInt32(&batchesCount) == 2, nil
 		})
 		require.NoError(err)
 		require.Nil(writer.curBatch)
 
 		writer.Put(_messages[3])
 		err = testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
-			return atomic.LoadInt32(&batchesCount) == 2 && atomic.LoadInt32(&batchesSize) == 13, nil
+			return atomic.LoadInt32(&batchesCount) == 2, nil
 		})
 		require.NoError(err)
+		require.NotNil(writer.curBatch)
 		writer.Close()
 		require.Error(writer.Put(_messages[3]))
 		err = testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
-			return atomic.LoadInt32(&batchesCount) == 3 && atomic.LoadInt32(&batchesSize) == 16, nil
+			return atomic.LoadInt32(&batchesCount) == 3, nil
 		})
 		require.NoError(err)
 		require.Nil(writer.curBatch)
 	})
 
-	batchesSize = 0
 	batchesCount = 0
 
-	t.Run("msgwithInterval", func(t *testing.T) {
+	t.Run("msgWithInterval", func(t *testing.T) {
 		writer := newBatchWriter(
 			&writerConfig{
 				expiredThreshold: 10,
@@ -270,7 +283,7 @@ func TestBatchWriter(t *testing.T) {
 		writer.Put(_messages[0])
 		time.Sleep(60 * time.Millisecond)
 		err = testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
-			return atomic.LoadInt32(&batchesCount) == 1 && atomic.LoadInt32(&batchesSize) == 2, nil
+			return atomic.LoadInt32(&batchesCount) == 1, nil
 		})
 		require.NoError(err)
 		require.Nil(writer.curBatch)
@@ -279,7 +292,7 @@ func TestBatchWriter(t *testing.T) {
 		writer.Put(_messages[3])
 		time.Sleep(60 * time.Millisecond)
 		err = testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
-			return atomic.LoadInt32(&batchesCount) == 2 && atomic.LoadInt32(&batchesSize) == 8, nil
+			return atomic.LoadInt32(&batchesCount) == 2, nil
 		})
 		require.NoError(err)
 		require.Nil(writer.curBatch)
@@ -290,7 +303,7 @@ func TestBatchWriter(t *testing.T) {
 		time.Sleep(60 * time.Millisecond)
 		require.Error(writer.Put(_messages[4]))
 		err = testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
-			return atomic.LoadInt32(&batchesCount) == 3 && atomic.LoadInt32(&batchesSize) == 10, nil
+			return atomic.LoadInt32(&batchesCount) == 3, nil
 		})
 		require.NoError(err)
 		require.Nil(writer.curBatch)
@@ -309,21 +322,19 @@ func TestBatch(t *testing.T) {
 		}
 	}()
 	batch := &batch{
-		msgs:  make([]*batchMessage, 0),
-		limit: 10,
-		ready: readyChan,
+		msgs:      make([]*Message, 0),
+		sizeLimit: 4,
+		ready:     readyChan,
 	}
 
 	batch.Add(_messages[0])
 	batch.Add(_messages[1])
-	require.Equal(2, batch.Count())
-	require.Equal(uint64(4), batch.DataSize())
+	require.Equal(2, batch.Size())
 	require.False(batch.Full())
 
 	batch.Add(_messages[2])
 	batch.Add(_messages[3])
-	require.Equal(4, batch.Count())
-	require.Equal(uint64(10), batch.DataSize())
+	require.Equal(4, batch.Size())
 	require.True(batch.Full())
 
 	batch.Flush()
@@ -333,20 +344,12 @@ func TestBatch(t *testing.T) {
 	require.NoError(err)
 }
 
-func TestMessageSize(t *testing.T) {
-	require := require.New(t)
-	msg := &batchMessage{
-		Data: []byte{1, 2, 3},
-	}
-	require.Equal(uint64(3), msg.Size())
-}
-
 func TestMessageBatchID(t *testing.T) {
 	require := require.New(t)
 
 	hashSet := make(map[batchID]struct{})
 	for _, msg := range _messages {
-		id, err := msg.BatchID()
+		id, err := msg.batchID()
 		require.NoError(err)
 		hashSet[id] = struct{}{}
 	}
@@ -360,28 +363,24 @@ func BenchmarkBatchManager(b *testing.B) {
 		msgSize        = 500
 	)
 
-	var msgsSize int32 = 0
 	var msgsCount int32 = 0
-	callback := func(msg *batchMessage) error {
-		atomic.AddInt32(&msgsSize, int32(msg.Size()))
+	callback := func(msg *Message) error {
 		atomic.AddInt32(&msgsCount, 1)
 		return nil
 	}
 
-	manager := newBatchManager(callback)
+	manager := NewManager(callback)
 	manager.Start()
-	defer manager.Close()
+	defer manager.Stop()
 
 	b.Run("packedMsgs", func(b *testing.B) {
 		// generate Messages
-		messages := make([]*batchMessage, 0, numMsgsForTest)
+		messages := make([]*Message, 0, numMsgsForTest)
 		chainIDRange := 2
 		for i, chainID := 0, 0; i < numMsgsForTest; i++ {
-			data := make([]byte, msgSize)
-			messages = append(messages, &batchMessage{
-				MsgType: iotexrpc.MessageType_ACTIONS,
+			messages = append(messages, &Message{
 				ChainID: uint32(chainID),
-				Data:    data,
+				Data:    txProto1,
 			})
 			chainID = (chainID + 1) % chainIDRange
 		}
@@ -390,7 +389,7 @@ func BenchmarkBatchManager(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			manager.writerMap = make(map[batchID]*batchWriter) // reset batch factory manually
 			for i := range messages {
-				manager.Put(messages[i], withSizeLimit(10000))
+				manager.Put(messages[i], WithSizeLimit(10000))
 			}
 		}
 		b.StopTimer()
@@ -400,13 +399,11 @@ func BenchmarkBatchManager(b *testing.B) {
 
 	b.Run("multipleBatchWriters", func(b *testing.B) {
 		// generate Messages
-		messages := make([]*batchMessage, 0, numMsgsForTest)
+		messages := make([]*Message, 0, numMsgsForTest)
 		for i := 0; i < numMsgsForTest; i++ {
-			data := make([]byte, msgSize)
-			messages = append(messages, &batchMessage{
-				MsgType: iotexrpc.MessageType_ACTION,
+			messages = append(messages, &Message{
 				ChainID: uint32(i),
-				Data:    data,
+				Data:    txProto1,
 			})
 		}
 
@@ -414,7 +411,7 @@ func BenchmarkBatchManager(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			manager.writerMap = make(map[batchID]*batchWriter) // reset batch factory manually
 			for i := range messages {
-				manager.Put(messages[i], withSizeLimit(uint64(msgSize)))
+				manager.Put(messages[i], WithSizeLimit(uint64(msgSize)))
 			}
 		}
 		b.StopTimer()

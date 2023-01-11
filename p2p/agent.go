@@ -70,21 +70,7 @@ const (
 	_dialRetryInterval = 2 * time.Second
 )
 
-// WithBatch is the option for sending messages in batch
-func WithBatch() OutBoundOption {
-	return func(cfg *outBoundConfig) {
-		cfg.sendInBatch = true
-	}
-}
-
 type (
-	// OutBoundOption is options for OutBound interface
-	OutBoundOption func(cfg *outBoundConfig)
-
-	outBoundConfig struct {
-		sendInBatch bool
-	}
-
 	// HandleBroadcastInbound handles broadcast message when agent listens it from the network
 	HandleBroadcastInbound func(context.Context, uint32, string, proto.Message)
 
@@ -113,9 +99,9 @@ type (
 	Agent interface {
 		lifecycle.StartStopper
 		// BroadcastOutbound sends a broadcast message to the whole network
-		BroadcastOutbound(ctx context.Context, msg proto.Message, opts ...OutBoundOption) (err error)
+		BroadcastOutbound(ctx context.Context, msg proto.Message) (err error)
 		// UnicastOutbound sends a unicast message to the given address
-		UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message, opts ...OutBoundOption) (err error)
+		UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message) (err error)
 		// Info returns agents' peer info.
 		Info() (peer.AddrInfo, error)
 		// Self returns the self network address
@@ -139,7 +125,6 @@ type (
 		reconnectTimeout           time.Duration
 		reconnectTask              *routine.RecurringTask
 		qosMetrics                 *Qos
-		batchManager               *batchManager
 	}
 )
 
@@ -171,11 +156,11 @@ func (*dummyAgent) Stop(context.Context) error {
 	return nil
 }
 
-func (*dummyAgent) BroadcastOutbound(ctx context.Context, msg proto.Message, opts ...OutBoundOption) error {
+func (*dummyAgent) BroadcastOutbound(ctx context.Context, msg proto.Message) error {
 	return nil
 }
 
-func (*dummyAgent) UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message, opts ...OutBoundOption) error {
+func (*dummyAgent) UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message) error {
 	return nil
 }
 
@@ -198,7 +183,7 @@ func (*dummyAgent) BlockPeer(string) {
 // NewAgent instantiates a local P2P agent instance
 func NewAgent(cfg Config, chainID uint32, genesisHash hash.Hash256, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) Agent {
 	log.L().Info("p2p agent", log.Hex("topicSuffix", genesisHash[22:]))
-	agent := &agent{
+	return &agent{
 		cfg:     cfg,
 		chainID: chainID,
 		// Make sure the honest node only care the messages related the chain from the same genesis
@@ -208,8 +193,6 @@ func NewAgent(cfg Config, chainID uint32, genesisHash hash.Hash256, broadcastHan
 		reconnectTimeout:           cfg.ReconnectInterval,
 		qosMetrics:                 NewQoS(time.Now(), 2*cfg.ReconnectInterval),
 	}
-	agent.batchManager = newBatchManager(agent.handleBatchMessage)
-	return agent
 }
 
 func (p *agent) Start(ctx context.Context) error {
@@ -365,8 +348,6 @@ func (p *agent) Start(ctx context.Context) error {
 
 	close(ready)
 
-	p.batchManager.Start()
-
 	// check network connectivity every 60 blocks, and reconnect in case of disconnection
 	p.reconnectTask = routine.NewRecurringTask(p.reconnect, p.reconnectTimeout)
 	return p.reconnectTask.Start(ctx)
@@ -380,14 +361,13 @@ func (p *agent) Stop(ctx context.Context) error {
 	if err := p.reconnectTask.Stop(ctx); err != nil {
 		return err
 	}
-	p.batchManager.Close()
 	if err := p.host.Close(); err != nil {
 		return errors.Wrap(err, "error when closing Agent host")
 	}
 	return nil
 }
 
-func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message, opts ...OutBoundOption) (err error) {
+func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err error) {
 	_, span := tracer.NewSpan(ctx, "Agent.BroadcastOutbound")
 	defer span.End()
 
@@ -414,38 +394,20 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message, opts .
 	if err != nil {
 		return
 	}
-
-	cfg := &outBoundConfig{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
-	if cfg.sendInBatch {
-		return p.batchManager.Put(
-			&batchMessage{
-				MsgType: msgType,
-				ChainID: p.chainID,
-				Target:  nil,
-				Data:    msgBody,
-			})
-	}
-	return p.broadcastMsg(ctx, &iotexrpc.BroadcastMsg{
+	broadcast := iotexrpc.BroadcastMsg{
 		ChainId:   p.chainID,
 		PeerId:    host.HostIdentity(),
 		MsgType:   msgType,
 		MsgBody:   msgBody,
 		Timestamp: timestamppb.Now(),
-	})
-}
-
-func (p *agent) broadcastMsg(ctx context.Context, msg *iotexrpc.BroadcastMsg) (err error) {
-	data, err := proto.Marshal(msg)
+	}
+	data, err := proto.Marshal(&broadcast)
 	if err != nil {
 		err = errors.Wrap(err, "error when marshaling broadcast message")
 		return
 	}
 	t := time.Now()
-	if err = p.host.Broadcast(ctx, _broadcastTopic+p.topicSuffix, data); err != nil {
+	if err = host.Broadcast(ctx, _broadcastTopic+p.topicSuffix, data); err != nil {
 		err = errors.Wrap(err, "error when sending broadcast message")
 		p.qosMetrics.updateSendBroadcast(t, false)
 		return
@@ -454,14 +416,15 @@ func (p *agent) broadcastMsg(ctx context.Context, msg *iotexrpc.BroadcastMsg) (e
 	return
 }
 
-func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg proto.Message, opts ...OutBoundOption) (err error) {
+func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg proto.Message) (err error) {
 	host := p.host
 	if host == nil {
 		return ErrAgentNotStarted
 	}
 	var (
-		msgType iotexrpc.MessageType
-		msgBody []byte
+		peerName = peer.ID.Pretty()
+		msgType  iotexrpc.MessageType
+		msgBody  []byte
 	)
 	defer func() {
 		status := _successStr
@@ -475,39 +438,21 @@ func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 	if err != nil {
 		return
 	}
-
-	cfg := &outBoundConfig{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
-	if cfg.sendInBatch {
-		return p.batchManager.Put(
-			&batchMessage{
-				MsgType: msgType,
-				ChainID: p.chainID,
-				Target:  &peer,
-				Data:    msgBody,
-			})
-	}
-	return p.unicastMsg(ctx, peer, &iotexrpc.UnicastMsg{
+	unicast := iotexrpc.UnicastMsg{
 		ChainId:   p.chainID,
 		PeerId:    host.HostIdentity(),
 		MsgType:   msgType,
 		MsgBody:   msgBody,
 		Timestamp: timestamppb.Now(),
-	})
-}
-
-func (p *agent) unicastMsg(ctx context.Context, peer peer.AddrInfo, msg *iotexrpc.UnicastMsg) (err error) {
-	data, err := proto.Marshal(msg)
+	}
+	data, err := proto.Marshal(&unicast)
 	if err != nil {
 		err = errors.Wrap(err, "error when marshaling unicast message")
 		return
 	}
-	peerName := peer.ID.Pretty()
+
 	t := time.Now()
-	if err = p.host.Unicast(ctx, peer, _unicastTopic+p.topicSuffix, data); err != nil {
+	if err = host.Unicast(ctx, peer, _unicastTopic+p.topicSuffix, data); err != nil {
 		err = errors.Wrap(err, "error when sending unicast message")
 		p.qosMetrics.updateSendUnicast(peerName, t, false)
 		return
@@ -590,29 +535,6 @@ func (p *agent) connectBootNode(ctx context.Context) error {
 		}
 	}
 	return nil
-}
-
-func (p *agent) handleBatchMessage(msg *batchMessage) (err error) {
-	if msg.Target == nil {
-		broadcastMsg := &iotexrpc.BroadcastMsg{
-			ChainId:   msg.ChainID,
-			PeerId:    p.host.HostIdentity(),
-			MsgType:   msg.MsgType,
-			MsgBody:   msg.Data,
-			Timestamp: timestamppb.Now(),
-		}
-		err = p.broadcastMsg(context.Background(), broadcastMsg)
-	} else {
-		unicastMsg := &iotexrpc.UnicastMsg{
-			ChainId:   msg.ChainID,
-			PeerId:    p.host.HostIdentity(),
-			MsgType:   msg.MsgType,
-			MsgBody:   msg.Data,
-			Timestamp: timestamppb.Now(),
-		}
-		err = p.unicastMsg(context.Background(), *msg.Target, unicastMsg)
-	}
-	return err
 }
 
 func (p *agent) reconnect() {

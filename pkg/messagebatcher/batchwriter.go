@@ -1,4 +1,4 @@
-package p2p
+package batch
 
 import (
 	"bytes"
@@ -9,10 +9,13 @@ import (
 	"time"
 
 	"github.com/cespare/xxhash/v2"
+	goproto "github.com/iotexproject/iotex-proto/golang"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -24,63 +27,71 @@ const (
 	_cleanupInterval = 15 * time.Minute
 )
 
-type batchOption func(cfg *writerConfig)
+// Option sets parameter for batch
+type Option func(cfg *writerConfig)
 
-func withInterval(t time.Duration) batchOption {
+// WithInterval sets batch with time interval
+func WithInterval(t time.Duration) Option {
 	return func(cfg *writerConfig) {
 		cfg.msgInterval = t
 	}
 }
 
-func withSizeLimit(limit uint64) batchOption {
+// WithSizeLimit sets batch with limited size
+func WithSizeLimit(limit uint64) Option {
 	return func(cfg *writerConfig) {
 		cfg.sizeLimit = limit
 	}
 }
 
 type (
-	batchManager struct {
-		mu                  sync.RWMutex
-		writerMap           map[batchID]*batchWriter
-		outputQueue         chan *batchMessage // assembled message queue for external reader
-		assembleQueue       chan *batch        // batch queue which collects batches sent from writers
-		batchMessageHandler messageOutbound
-		cancelHanlder       context.CancelFunc
+	// Manager is the manager of batch component
+	Manager struct {
+		mu             sync.RWMutex
+		writerMap      map[batchID]*batchWriter
+		outputQueue    chan *Message // assembled message queue for external reader
+		assembleQueue  chan *batch   // batch queue which collects batches sent from writers
+		messageHandler messageOutbound
+		cancelHanlders context.CancelFunc
 	}
 
 	batchID uint64
 
-	messageOutbound func(*batchMessage) error
+	messageOutbound func(*Message) error
 )
 
-// TODO: move BatchManager outside of p2p after serialized messages
-// could be passed directly to p2p module
-func newBatchManager(handler messageOutbound) *batchManager {
-	return &batchManager{
-		writerMap:           make(map[batchID]*batchWriter),
-		outputQueue:         make(chan *batchMessage, _bufferLength),
-		assembleQueue:       make(chan *batch, _bufferLength),
-		batchMessageHandler: handler,
+// NewManager creates a new Manager with callback
+func NewManager(handler messageOutbound) *Manager {
+	return &Manager{
+		writerMap:      make(map[batchID]*batchWriter),
+		outputQueue:    make(chan *Message, _bufferLength),
+		assembleQueue:  make(chan *batch, _bufferLength),
+		messageHandler: handler,
 	}
 }
 
-func (bm *batchManager) Start() {
+// Start start the Manager
+func (bm *Manager) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	go bm.assemble(ctx)
 	go bm.cleanup(ctx, _cleanupInterval)
 	go bm.callback(ctx)
-	bm.cancelHanlder = cancel
+	bm.cancelHanlders = cancel
+	return nil
 }
 
-func (bm *batchManager) Close() {
-	bm.cancelHanlder()
+// Stop stops the Manager
+func (bm *Manager) Stop() error {
+	bm.cancelHanlders()
+	return nil
 }
 
-func (bm *batchManager) Put(msg *batchMessage, opts ...batchOption) error {
-	if !bm.supported(msg.MsgType) {
+// Put puts a batchmessage into the Manager
+func (bm *Manager) Put(msg *Message, opts ...Option) error {
+	if !bm.supported(msg.messageType()) {
 		return errors.New("message is unsupported for batching")
 	}
-	id, err := msg.BatchID()
+	id, err := msg.batchID()
 	if err != nil {
 		return err
 	}
@@ -104,29 +115,25 @@ func (bm *batchManager) Put(msg *batchMessage, opts ...batchOption) error {
 	return writer.Put(msg)
 }
 
-func (bm *batchManager) supported(msgType iotexrpc.MessageType) bool {
-	return msgType == iotexrpc.MessageType_ACTIONS || msgType == iotexrpc.MessageType_BLOCKS
+func (bm *Manager) supported(msgType iotexrpc.MessageType) bool {
+	return msgType == iotexrpc.MessageType_ACTION || msgType == iotexrpc.MessageType_BLOCK
 }
 
-func (bm *batchManager) assemble(ctx context.Context) {
+func (bm *Manager) assemble(ctx context.Context) {
 	for {
 		select {
 		case batch := <-bm.assembleQueue:
-			if batch.Count() == 0 {
+			if batch.Size() == 0 {
 				continue
 			}
 			var (
 				msg0 = batch.msgs[0]
-				data = make([]byte, 0, batch.DataSize())
 			)
-			for i := range batch.msgs {
-				data = append(data, batch.msgs[i].Data...)
-			}
-			bm.outputQueue <- &batchMessage{
-				MsgType: msg0.MsgType,
+			bm.outputQueue <- &Message{
+				msgType: msg0.msgType,
 				ChainID: msg0.ChainID,
 				Target:  msg0.Target,
-				Data:    data,
+				Data:    packMessageData(msg0.msgType, batch.msgs),
 			}
 		case <-ctx.Done():
 			return
@@ -134,7 +141,26 @@ func (bm *batchManager) assemble(ctx context.Context) {
 	}
 }
 
-func (bm *batchManager) cleanup(ctx context.Context, interval time.Duration) {
+func packMessageData(msgType iotexrpc.MessageType, arr []*Message) proto.Message {
+	switch msgType {
+	case iotexrpc.MessageType_ACTION:
+		actions := make([]*iotextypes.Action, 0, len(arr))
+		for i := range arr {
+			actions = append(actions, arr[i].Data.(*iotextypes.Action))
+		}
+		return &iotextypes.Actions{Actions: actions}
+	case iotexrpc.MessageType_BLOCK:
+		blocks := make([]*iotextypes.Block, 0, len(arr))
+		for i := range arr {
+			blocks = append(blocks, arr[i].Data.(*iotextypes.Block))
+		}
+		return &iotextypes.Blocks{Blocks: blocks}
+	default:
+		panic("the message type should be supported")
+	}
+}
+
+func (bm *Manager) cleanup(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	for {
 		select {
@@ -147,11 +173,11 @@ func (bm *batchManager) cleanup(ctx context.Context, interval time.Duration) {
 	}
 }
 
-func (bm *batchManager) callback(ctx context.Context) {
+func (bm *Manager) callback(ctx context.Context) {
 	for {
 		select {
 		case msg := <-bm.outputQueue:
-			err := bm.batchMessageHandler(msg)
+			err := bm.messageHandler(msg)
 			if err != nil {
 				log.L().Error("fail to handle a batch message when calling back", zap.Error(err))
 			}
@@ -161,7 +187,7 @@ func (bm *batchManager) callback(ctx context.Context) {
 	}
 }
 
-func (bm *batchManager) cleanupLoop() {
+func (bm *Manager) cleanupLoop() {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 	for k, v := range bm.writerMap {
@@ -182,27 +208,27 @@ type writerConfig struct {
 var _defaultWriterConfig = &writerConfig{
 	expiredThreshold: 2,
 	msgInterval:      100 * time.Millisecond,
-	sizeLimit:        1e6,
+	sizeLimit:        1000,
 }
 
 type batchWriter struct {
 	lifecycle.Readiness
 	mu sync.RWMutex
 
-	manager *batchManager
+	manager *Manager
 	cfg     writerConfig
 
-	msgBuffer chan *batchMessage
+	msgBuffer chan *Message
 	curBatch  *batch
 
 	timeoutTimes uint32
 }
 
-func newBatchWriter(cfg *writerConfig, manager *batchManager) *batchWriter {
+func newBatchWriter(cfg *writerConfig, manager *Manager) *batchWriter {
 	bw := &batchWriter{
 		manager:   manager,
 		cfg:       *cfg,
-		msgBuffer: make(chan *batchMessage, _bufferLength),
+		msgBuffer: make(chan *Message, _bufferLength),
 	}
 	go bw.handleMsg()
 	bw.TurnOn()
@@ -231,7 +257,7 @@ func (bw *batchWriter) closeCurBatch() {
 	}
 }
 
-func (bw *batchWriter) addBatch(msg *batchMessage, more bool) {
+func (bw *batchWriter) addBatch(msg *Message, more bool) {
 	bw.mu.Lock()
 	defer bw.mu.Unlock()
 	if bw.curBatch == nil {
@@ -247,11 +273,10 @@ func (bw *batchWriter) addBatch(msg *batchMessage, more bool) {
 
 func (bw *batchWriter) newBatch(msgInterval time.Duration, limit uint64) *batch {
 	batch := &batch{
-		msgs:  make([]*batchMessage, 0),
-		bytes: 0,
-		limit: limit,
-		timer: time.NewTimer(msgInterval),
-		ready: make(chan struct{}),
+		msgs:      make([]*Message, 0),
+		sizeLimit: limit,
+		timer:     time.NewTimer(msgInterval),
+		ready:     make(chan struct{}),
 	}
 	go bw.awaitBatch(batch)
 	return batch
@@ -275,7 +300,7 @@ func (bw *batchWriter) extendTimeout() {
 	atomic.SwapUint32(&bw.timeoutTimes, 0)
 }
 
-func (bw *batchWriter) Put(msg *batchMessage) error {
+func (bw *batchWriter) Put(msg *Message) error {
 	if !bw.IsReady() {
 		return errors.New("writer hasn't started yet")
 	}
@@ -301,28 +326,22 @@ func (bw *batchWriter) Close() {
 }
 
 type batch struct {
-	msgs  []*batchMessage
-	bytes uint64
-	limit uint64
-	timer *time.Timer
-	ready chan struct{}
+	msgs      []*Message
+	sizeLimit uint64
+	timer     *time.Timer
+	ready     chan struct{}
 }
 
-func (b *batch) Count() int {
+func (b *batch) Size() int {
 	return len(b.msgs)
 }
 
-func (b *batch) DataSize() uint64 {
-	return b.bytes
-}
-
-func (b *batch) Add(msg *batchMessage) {
-	b.bytes += msg.Size()
+func (b *batch) Add(msg *Message) {
 	b.msgs = append(b.msgs, msg)
 }
 
 func (b *batch) Full() bool {
-	return b.bytes >= b.limit
+	return uint64(len(b.msgs)) >= b.sizeLimit
 }
 
 func (b *batch) Flush() {
@@ -330,25 +349,22 @@ func (b *batch) Flush() {
 	close(b.ready)
 }
 
-type batchMessage struct {
-	id      *batchID // cache for Message.BatchID()
-	MsgType iotexrpc.MessageType
+// Message is the message to be batching
+type Message struct {
 	ChainID uint32
-	Target  *peer.AddrInfo // target of broadcast msg is nil
-	Data    []byte
+	Data    proto.Message
+	Target  *peer.AddrInfo       // target of broadcast msg is nil
+	id      *batchID             // cache for Message.BatchID()
+	msgType iotexrpc.MessageType // generated by MessageType()
 }
 
-func (msg *batchMessage) Size() uint64 {
-	return uint64(len(msg.Data))
-}
-
-func (msg *batchMessage) BatchID() (id batchID, err error) {
+func (msg *Message) batchID() (id batchID, err error) {
 	if msg.id != nil {
 		id = *msg.id
 		return
 	}
 	buf := new(bytes.Buffer)
-	if err = binary.Write(buf, binary.LittleEndian, msg.MsgType); err != nil {
+	if err = binary.Write(buf, binary.LittleEndian, msg.messageType()); err != nil {
 		return
 	}
 	if err = binary.Write(buf, binary.LittleEndian, msg.ChainID); err != nil {
@@ -366,4 +382,15 @@ func (msg *batchMessage) BatchID() (id batchID, err error) {
 	id = batchID(h)
 	msg.id = &id
 	return
+}
+
+func (msg *Message) messageType() iotexrpc.MessageType {
+	if msg.msgType == iotexrpc.MessageType_UNKNOWN {
+		var err error
+		msg.msgType, err = goproto.GetTypeFromRPCMsg(msg.Data)
+		if err != nil {
+			return iotexrpc.MessageType_UNKNOWN
+		}
+	}
+	return msg.msgType
 }
