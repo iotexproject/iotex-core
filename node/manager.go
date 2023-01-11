@@ -56,18 +56,28 @@ func NewDelegateManager(cfg *Config, t transmitter, h heightable, s signer) *Del
 		heightable:  h,
 		signer:      s,
 	}
-	dm.broadcaster = routine.NewRecurringTask(dm.RequestNodeInfo, cfg.RequestNodeInfoInterval)
+	// disable broadcast if RequestNodeInfoInterval == 0
+	if cfg.RequestNodeInfoInterval > 0 {
+		dm.broadcaster = routine.NewRecurringTask(dm.RequestNodeInfo, cfg.RequestNodeInfoInterval)
+	}
+
 	return dm
 }
 
 // Start start delegate broadcast task
 func (dm *DelegateManager) Start(ctx context.Context) error {
-	return dm.broadcaster.Start(ctx)
+	if dm.broadcaster != nil {
+		return dm.broadcaster.Start(ctx)
+	}
+	return nil
 }
 
 // Stop stop delegate broadcast task
 func (dm *DelegateManager) Stop(ctx context.Context) error {
-	return dm.broadcaster.Stop(ctx)
+	if dm.broadcaster != nil {
+		return dm.broadcaster.Stop(ctx)
+	}
+	return nil
 }
 
 // HandleNodeInfo handle node info message

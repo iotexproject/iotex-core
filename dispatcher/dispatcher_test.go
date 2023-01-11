@@ -52,6 +52,8 @@ func setTestCase() []proto.Message {
 		&iotextypes.Block{},
 		&iotexrpc.BlockSync{},
 		&testingpb.TestPayload{},
+		&iotextypes.RequestNodeInfoMessage{},
+		&iotextypes.ResponseNodeInfoMessage{},
 	}
 }
 
