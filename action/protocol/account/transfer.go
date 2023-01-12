@@ -23,11 +23,7 @@ import (
 const TransferSizeLimit = 32 * 1024
 
 // handleTransfer handles a transfer
-func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	tsf, ok := act.(*action.Transfer)
-	if !ok {
-		return nil, nil
-	}
+func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm protocol.StateManager) (*action.Receipt, error) {
 	var (
 		fCtx      = protocol.MustGetFeatureCtx(ctx)
 		actionCtx = protocol.MustGetActionCtx(ctx)
