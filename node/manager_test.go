@@ -29,6 +29,8 @@ func TestNewDelegateManager(t *testing.T) {
 	tMock := mock_node.NewMocktransmitter(ctrl)
 	pMock := mock_node.NewMockprivateKey(ctrl)
 
+	require := require.New(t)
+
 	type args struct {
 		cfg *Config
 		t   transmitter
@@ -69,12 +71,12 @@ func TestNewDelegateManager(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewDelegateManager(tt.args.cfg, tt.args.t, tt.args.h, tt.args.p)
-			require.Equal(t, tt.want.cfg, got.cfg)
-			require.Equal(t, tt.want.nodeMap, got.nodeMap)
-			require.Equal(t, tt.want.transmitter, got.transmitter)
-			require.Equal(t, tt.want.heightable, got.heightable)
-			require.Equal(t, tt.want.privKey, got.privKey)
-			require.Equal(t, tt.broadcasterIsNull, got.broadcaster == nil)
+			require.Equal(tt.want.cfg, got.cfg)
+			require.Equal(tt.want.nodeMap, got.nodeMap)
+			require.Equal(tt.want.transmitter, got.transmitter)
+			require.Equal(tt.want.heightable, got.heightable)
+			require.Equal(tt.want.privKey, got.privKey)
+			require.Equal(tt.broadcasterIsNull, got.broadcaster == nil)
 		})
 	}
 }
@@ -86,6 +88,7 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 	tMock := mock_node.NewMocktransmitter(ctrl)
 	pMock := mock_node.NewMockprivateKey(ctrl)
 
+	require := require.New(t)
 	privKey, err := crypto.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
@@ -185,19 +188,19 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 			}
 			addr := pubKey.Address().String()
 			if tt.valid {
-				require.Equal(t, tt.args.node.Info.Height, dm.nodeMap[addr].Height)
-				require.Equal(t, tt.args.node.Info.Version, dm.nodeMap[addr].Version)
-				require.Equal(t, tt.args.node.Info.Timestamp.String(), dm.nodeMap[addr].Timestamp.String())
+				require.Equal(tt.args.node.Info.Height, dm.nodeMap[addr].Height)
+				require.Equal(tt.args.node.Info.Version, dm.nodeMap[addr].Version)
+				require.Equal(tt.args.node.Info.Timestamp.String(), dm.nodeMap[addr].Timestamp.String())
 
 				m := dto.Metric{}
 				nodeDelegateHeightGauge.WithLabelValues(addr, tt.args.node.Info.Version).Write(&m)
-				require.Equal(t, tt.args.node.Info.Height, uint64(m.Gauge.GetValue()))
+				require.Equal(tt.args.node.Info.Height, uint64(m.Gauge.GetValue()))
 			} else {
 				_, ok := dm.nodeMap[addr]
-				require.False(t, ok)
+				require.False(ok)
 				m := dto.Metric{}
 				nodeDelegateHeightGauge.WithLabelValues(addr, tt.args.node.Info.Version).Write(&m)
-				require.Equal(t, uint64(0), uint64(m.Gauge.GetValue()))
+				require.Equal(uint64(0), uint64(m.Gauge.GetValue()))
 			}
 		})
 	}
@@ -210,6 +213,7 @@ func TestDelegateManager_RequestNodeInfo(t *testing.T) {
 	tMock := mock_node.NewMocktransmitter(ctrl)
 	pMock := mock_node.NewMockprivateKey(ctrl)
 
+	require := require.New(t)
 	type fields struct {
 		cfg         Config
 		nodeMap     map[string]iotextypes.NodeInfo
@@ -252,7 +256,7 @@ func TestDelegateManager_RequestNodeInfo(t *testing.T) {
 			pMock.EXPECT().PublicKey().Return(privK.PublicKey()).Times(1)
 			dm.RequestNodeInfo()
 
-			require.Equal(t, height, dm.nodeMap[privK.PublicKey().Address().String()].Height)
+			require.Equal(height, dm.nodeMap[privK.PublicKey().Address().String()].Height)
 		})
 	}
 }
@@ -264,6 +268,7 @@ func TestDelegateManager_TellNodeInfo(t *testing.T) {
 	tMock := mock_node.NewMocktransmitter(ctrl)
 	pMock := mock_node.NewMockprivateKey(ctrl)
 
+	require := require.New(t)
 	type fields struct {
 		cfg         Config
 		nodeMap     map[string]iotextypes.NodeInfo
@@ -326,8 +331,8 @@ func TestDelegateManager_TellNodeInfo(t *testing.T) {
 				t.Errorf("DelegateManager.TellNodeInfo() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			require.Equal(t, message.Info.Height, tt.args.height)
-			require.Equal(t, message.Signature, tt.args.sign)
+			require.Equal(message.Info.Height, tt.args.height)
+			require.Equal(message.Signature, tt.args.sign)
 		})
 	}
 }
