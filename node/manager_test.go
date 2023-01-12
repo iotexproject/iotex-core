@@ -269,70 +269,34 @@ func TestDelegateManager_TellNodeInfo(t *testing.T) {
 	pMock := mock_node.NewMockprivateKey(ctrl)
 
 	require := require.New(t)
-	type fields struct {
-		cfg         Config
-		nodeMap     map[string]iotextypes.NodeInfo
-		broadcaster *routine.RecurringTask
-		transmitter transmitter
-		heightable  heightable
-		privateKey  privateKey
-	}
-	type args struct {
-		ctx    context.Context
-		peer   peer.AddrInfo
-		height uint64
-		sign   []byte
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		{
-			"",
-			fields{
-				Config{},
-				map[string]iotextypes.NodeInfo{},
-				nil,
-				tMock,
-				hMock,
-				pMock,
-			},
-			args{
-				context.Background(),
-				peer.AddrInfo{ID: "abcd"},
-				200,
-				[]byte("xxxxxx"),
-			},
-			false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dm := &DelegateManager{
-				cfg:         tt.fields.cfg,
-				nodeMap:     tt.fields.nodeMap,
-				broadcaster: tt.fields.broadcaster,
-				transmitter: tt.fields.transmitter,
-				heightable:  tt.fields.heightable,
-				privKey:     tt.fields.privateKey,
-			}
-			privK, _ := crypto.GenerateKey()
-			message := &iotextypes.ResponseNodeInfoMessage{}
-			hMock.EXPECT().TipHeight().Return(tt.args.height).Times(1)
-			tMock.EXPECT().UnicastOutbound(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, peerInfo peer.AddrInfo, msg proto.Message) error {
-				*message = *msg.(*iotextypes.ResponseNodeInfoMessage)
-				return nil
-			}).Times(1)
-			pMock.EXPECT().PublicKey().Return(privK.PublicKey()).Times(1)
-			pMock.EXPECT().Sign(gomock.Any()).Return(tt.args.sign, nil).Times(1)
-			if err := dm.TellNodeInfo(tt.args.ctx, tt.args.peer); (err != nil) != tt.wantErr {
-				t.Errorf("DelegateManager.TellNodeInfo() error = %v, wantErr %v", err, tt.wantErr)
-			}
 
-			require.Equal(message.Info.Height, tt.args.height)
-			require.Equal(message.Signature, tt.args.sign)
-		})
-	}
+	t.Run("tell", func(t *testing.T) {
+		dm := &DelegateManager{
+			cfg:         Config{},
+			nodeMap:     map[string]iotextypes.NodeInfo{},
+			broadcaster: nil,
+			transmitter: tMock,
+			heightable:  hMock,
+			privKey:     pMock,
+		}
+		height := uint64(200)
+		sign := []byte("xxxxxx")
+		privK, _ := crypto.GenerateKey()
+		message := &iotextypes.ResponseNodeInfoMessage{}
+
+		hMock.EXPECT().TipHeight().Return(height).Times(1)
+		tMock.EXPECT().UnicastOutbound(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, peerInfo peer.AddrInfo, msg proto.Message) error {
+			*message = *msg.(*iotextypes.ResponseNodeInfoMessage)
+			return nil
+		}).Times(1)
+		pMock.EXPECT().PublicKey().Return(privK.PublicKey()).Times(1)
+		pMock.EXPECT().Sign(gomock.Any()).Return(sign, nil).Times(1)
+
+		err := dm.TellNodeInfo(context.Background(), peer.AddrInfo{})
+
+		require.NoError(err)
+		require.Equal(message.Info.Height, height)
+		require.Equal(message.Signature, sign)
+	})
+
 }
