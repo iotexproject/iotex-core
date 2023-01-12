@@ -62,9 +62,8 @@ func ConnectToEndpoint() (*grpc.ClientConn, error) {
 func secure() bool {
 	if config.IsSetInsecure {
 		return !config.Insecure
-	} else {
-		return config.ReadConfig.SecureConnect
 	}
+	return config.ReadConfig.SecureConnect
 }
 
 // StringToRau converts different unit string into Rau big int
