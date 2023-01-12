@@ -240,11 +240,11 @@ func newCoreService(
 	}
 
 	// TODO: enable message batching
-	if core.broadcastHandler != nil {
-		core.messageBatcher = batch.NewManager(func(msg *batch.Message) error {
-			return core.broadcastHandler(context.Background(), core.bc.ChainID(), msg.Data)
-		})
-	}
+	// if core.broadcastHandler != nil {
+	// 	core.messageBatcher = batch.NewManager(func(msg *batch.Message) error {
+	// 		return core.broadcastHandler(context.Background(), core.bc.ChainID(), msg.Data)
+	// 	})
+	// }
 
 	return &core, nil
 }
