@@ -14,6 +14,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
@@ -153,7 +154,7 @@ func gasPriceInRau() (*big.Int, error) {
 	if len(gasPrice) != 0 {
 		return util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	}
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -169,8 +170,10 @@ func gasPriceInRau() (*big.Int, error) {
 	request := &iotexapi.SuggestGasPriceRequest{}
 	response, err := cli.SuggestGasPrice(ctx, request)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return nil, output.NewError(output.APIError, "check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has", nil)
+			}
 			return nil, output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return nil, output.NewError(output.NetworkError, "failed to invoke SuggestGasPrice api", err)
@@ -179,7 +182,7 @@ func gasPriceInRau() (*big.Int, error) {
 }
 
 func fixGasLimit(caller string, execution *action.Execution) (*action.Execution, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -200,8 +203,10 @@ func fixGasLimit(caller string, execution *action.Execution) (*action.Execution,
 
 	res, err := cli.EstimateActionGasConsumption(ctx, request)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return nil, output.NewError(output.APIError, "check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has", nil)
+			}
 			return nil, output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return nil, output.NewError(output.NetworkError,
@@ -212,7 +217,7 @@ func fixGasLimit(caller string, execution *action.Execution) (*action.Execution,
 
 // SendRaw sends raw action to blockchain
 func SendRaw(selp *iotextypes.Action) error {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -228,6 +233,9 @@ func SendRaw(selp *iotextypes.Action) error {
 	request := &iotexapi.SendActionRequest{Action: selp}
 	if _, err = cli.SendAction(ctx, request); err != nil {
 		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return output.NewError(output.APIError, "check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has", nil)
+			}
 			return output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return output.NewError(output.NetworkError, "failed to invoke SendAction api", err)
@@ -347,7 +355,7 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 
 // Read reads smart contract on IoTeX blockchain
 func Read(contract address.Address, amount string, bytecode []byte) (string, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return "", output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}

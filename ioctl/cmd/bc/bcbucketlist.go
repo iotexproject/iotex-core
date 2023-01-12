@@ -59,6 +59,7 @@ var _bcBucketListCmd = &cobra.Command{
 ioctl bc bucketlist cand [CANDIDATE_NAME] [OFFSET] [LIMIT]`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := getBucketList(args[0], args[1], args[2:]...)
 		return output.PrintError(err)
 	},

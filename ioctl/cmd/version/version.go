@@ -11,14 +11,16 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	ver "github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Multi-language support
@@ -44,6 +46,7 @@ var VersionCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := version()
 		return err
 	},
@@ -75,7 +78,7 @@ func version() error {
 	fmt.Println(message.String())
 
 	message = versionMessage{Object: config.ReadConfig.Endpoint}
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -91,8 +94,10 @@ func version() error {
 
 	response, err := cli.GetServerMeta(ctx, request)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return output.NewError(output.APIError, "check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has", nil)
+			}
 			return output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return output.NewError(output.NetworkError,

@@ -22,12 +22,13 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 // Multi-language support
@@ -49,6 +50,7 @@ var _actionHashCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := getActionByHash(args)
 		return output.PrintError(err)
 	},
@@ -88,7 +90,7 @@ func (m *actionMessage) String() string {
 // getActionByHash gets action of IoTeX Blockchain by hash
 func getActionByHash(args []string) error {
 	hash := args[0]
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -112,8 +114,10 @@ func getActionByHash(args []string) error {
 	}
 	response, err := cli.GetActions(ctx, &requestGetAction)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return output.NewError(output.APIError, "check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has", nil)
+			}
 			return output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return output.NewError(output.NetworkError, "failed to invoke GetActions api", err)
@@ -126,10 +130,12 @@ func getActionByHash(args []string) error {
 	requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
 	responseReceipt, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok && sta.Code() == codes.NotFound {
-			message.State = Pending
-		} else if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.NotFound {
+				message.State = Pending
+			} else if sta.Code() == codes.Unavailable {
+				return output.NewError(output.APIError, "check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has", nil)
+			}
 			return output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return output.NewError(output.NetworkError, "failed to invoke GetReceiptByAction api", err)

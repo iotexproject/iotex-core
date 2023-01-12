@@ -67,6 +67,7 @@ var _nodeDelegateCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := delegates()
 		return output.PrintError(err)
 	},
@@ -178,7 +179,7 @@ func delegates() error {
 }
 
 func delegatesV2(pb *vote.ProbationList, epochMeta *iotexapi.GetEpochMetaResponse, message *delegatesMessage) error {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -200,11 +201,13 @@ func delegatesV2(pb *vote.ProbationList, epochMeta *iotexapi.GetEpochMetaRespons
 	}
 	abpResponse, err := cli.ReadState(ctx, request)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok && sta.Code() == codes.NotFound {
-			fmt.Println(message.String())
-			return nil
-		} else if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.NotFound {
+				fmt.Println(message.String())
+				return nil
+			} else if sta.Code() == codes.Unavailable {
+				return output.NewError(output.APIError, "check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has", nil)
+			}
 			return output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
@@ -220,8 +223,10 @@ func delegatesV2(pb *vote.ProbationList, epochMeta *iotexapi.GetEpochMetaRespons
 	}
 	bpResponse, err := cli.ReadState(ctx, request)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return output.NewError(output.APIError, "check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has", nil)
+			}
 			return output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)

@@ -36,6 +36,7 @@ var _actionSendRawCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := sendRaw(args[0])
 		return output.PrintError(err)
 	},

@@ -34,6 +34,7 @@ var _xrc20TotalSupplyCmd = &cobra.Command{
 	Short: config.TranslateInLang(_totalSupplyCmdShorts, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := totalSupply()
 		return output.PrintError(err)
 	},

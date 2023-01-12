@@ -13,6 +13,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -50,6 +51,7 @@ var _bcBlockCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := getBlock(args)
 		return output.PrintError(err)
 	},
@@ -190,7 +192,7 @@ func getBlock(args []string) error {
 
 // getActionInfoByBlock gets action info by block hash with start index and action count
 func getActionInfoWithinBlock(height uint64) ([]blocksInfo, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -206,8 +208,10 @@ func getActionInfoWithinBlock(height uint64) ([]blocksInfo, error) {
 
 	response, err := cli.GetRawBlocks(ctx, &request)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return nil, output.NewError(output.APIError, "check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has", nil)
+			}
 			return nil, output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return nil, output.NewError(output.NetworkError, "failed to invoke GetRawBlocks api", err)
@@ -225,7 +229,7 @@ func getActionInfoWithinBlock(height uint64) ([]blocksInfo, error) {
 
 // getBlockMetaByHeight gets block metadata by height
 func getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -248,8 +252,10 @@ func getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 
 	response, err := cli.GetBlockMetas(ctx, request)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return nil, output.NewError(output.APIError, "check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has", nil)
+			}
 			return nil, output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return nil, output.NewError(output.NetworkError, "failed to invoke GetBlockMetas api", err)
@@ -262,7 +268,7 @@ func getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 
 // getBlockMetaByHash gets block metadata by hash
 func getBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -282,8 +288,10 @@ func getBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
 
 	response, err := cli.GetBlockMetas(ctx, request)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return nil, output.NewError(output.APIError, "check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has", nil)
+			}
 			return nil, output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return nil, output.NewError(output.NetworkError, "failed to invoke GetBlockMetas api", err)

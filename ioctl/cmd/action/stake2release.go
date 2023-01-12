@@ -37,6 +37,7 @@ var _stake2ReleaseCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := stake2Release(args)
 		return output.PrintError(err)
 	},

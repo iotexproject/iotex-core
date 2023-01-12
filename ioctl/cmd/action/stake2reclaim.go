@@ -41,6 +41,7 @@ var _stake2ReclaimCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := stake2Reclaim(args)
 		return output.PrintError(err)
 	},

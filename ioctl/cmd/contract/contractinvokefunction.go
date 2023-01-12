@@ -37,6 +37,7 @@ var _contractInvokeFunctionCmd = &cobra.Command{
 	Args:  util.CheckArgs(3, 4),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := contractInvokeFunction(args)
 		return output.PrintError(err)
 	},

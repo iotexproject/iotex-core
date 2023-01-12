@@ -38,6 +38,7 @@ var _didDeregisterCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := deregisterDID(args)
 		return output.PrintError(err)
 	},
