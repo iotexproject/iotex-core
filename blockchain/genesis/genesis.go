@@ -113,6 +113,7 @@ func defaultConfig() Genesis {
 	}
 }
 
+// TestDefault is the default genesis config for testing
 func TestDefault() Genesis {
 	ge := defaultConfig()
 	initTestDefaultConfig(&ge)
