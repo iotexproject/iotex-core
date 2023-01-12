@@ -2,6 +2,7 @@ package action
 
 import (
 	"encoding/hex"
+	"sync"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -24,6 +25,12 @@ type SealedEnvelope struct {
 	signature    []byte
 	srcAddress   address.Address
 	hash         hash.Hash256
+}
+
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		return &iotextypes.Action{}
+	},
 }
 
 // envelopeHash returns the raw hash of embedded Envelope (this is the hash to be signed)
@@ -73,10 +80,21 @@ func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
 		}
 		return rlpSignedHash(tx, sealed.evmNetworkID, sealed.Signature())
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
-		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Proto()))), nil
+		return hash.Hash256b(byteutil.Must(sealed.serialize())), nil
 	default:
 		return hash.ZeroHash256, errors.Errorf("unknown encoding type %v", sealed.encoding)
 	}
+}
+
+func (sealed *SealedEnvelope) serialize() ([]byte, error) {
+	buf := bufPool.Get().(*iotextypes.Action)
+	buf.Core = sealed.Envelope.Proto()
+	buf.SenderPubKey = sealed.srcPubkey.Bytes()
+	buf.Signature = sealed.signature
+	buf.Encoding = sealed.encoding
+	ret, err := proto.Marshal(buf)
+	bufPool.Put(buf)
+	return ret, err
 }
 
 // SrcPubkey returns the source public key
