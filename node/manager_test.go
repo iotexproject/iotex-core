@@ -131,11 +131,11 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 							Version:   "v1.8.0",
 							Height:    200,
 							Timestamp: timestamppb.Now(),
+							Address:   privKey.PublicKey().Address().String(),
 						},
 					}
 					hash := hashNodeInfo(msg)
 					msg.Signature, _ = privKey.Sign(hash[:])
-					msg.Pubkey = privKey.PublicKey().Bytes()
 					return msg
 				}(),
 			},
@@ -154,17 +154,17 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 				context.Background(),
 				"abc",
 				func() *iotextypes.ResponseNodeInfoMessage {
+					privKey2, _ := crypto.GenerateKey()
 					msg := &iotextypes.ResponseNodeInfoMessage{
 						Info: &iotextypes.NodeInfo{
 							Version:   "v1.8.0",
 							Height:    200,
 							Timestamp: timestamppb.Now(),
+							Address:   privKey2.PublicKey().Address().String(),
 						},
 					}
 					hash := hashNodeInfo(msg)
 					msg.Signature, _ = privKey.Sign(hash[:])
-					privKey2, _ := crypto.GenerateKey()
-					msg.Pubkey = privKey2.PublicKey().Bytes()
 					return msg
 				}(),
 			},
@@ -182,11 +182,7 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 				privKey:     tt.fields.privKey,
 			}
 			dm.HandleNodeInfo(tt.args.ctx, tt.args.addr, tt.args.node)
-			pubKey, err := crypto.BytesToPublicKey(tt.args.node.Pubkey)
-			if err != nil {
-				t.Fatal(err)
-			}
-			addr := pubKey.Address().String()
+			addr := tt.args.node.Info.Address
 			if tt.valid {
 				require.Equal(tt.args.node.Info.Height, dm.nodeMap[addr].Height)
 				require.Equal(tt.args.node.Info.Version, dm.nodeMap[addr].Version)
@@ -299,4 +295,28 @@ func TestDelegateManager_TellNodeInfo(t *testing.T) {
 		require.Equal(message.Signature, sign)
 	})
 
+}
+
+func TestPubkey(t *testing.T) {
+	masterKey := "96f0aa5e8523d6a28dc35c927274be4e931e74eaa720b418735debfcbfe712b8"
+	sk, err := crypto.HexStringToPrivateKey(masterKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ioPubKey := sk.PublicKey()
+	ioAddr := ioPubKey.Address().String()
+
+	hash := []byte("testtesttesttesttesttesttesttest")
+	sign, err := sk.Sign(hash)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	recovPubKey, err := crypto.RecoverPubkey(hash, sign)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recovAddr := recovPubKey.Address().String()
+
+	t.Log("ioAddr=", ioAddr, "recovAddr", recovAddr)
 }

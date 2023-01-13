@@ -219,8 +219,8 @@ github.com/eapache/queue v1.1.0/go.mod h1:6eCeP0CKFpHLu8blIFXhExK/dRa7WDZfr6jVFP
 github.com/eclipse/paho.mqtt.golang v1.2.0/go.mod h1:H9keYFcgq3Qr5OUJm/JZI/i6U7joQ8SYLhZwfeOo6Ts=
 github.com/edsrzf/mmap-go v1.0.0 h1:CEBF7HpRnUCSJgGUb5h1Gm7e3VkmVDrR8lvWVLtrOFw=
 github.com/edsrzf/mmap-go v1.0.0/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
-github.com/envestcc/iotex-proto v0.0.0-20230111152952-64e97c18b1b1 h1:98KGzfnsMv2h5bZsxFuP8Yn0xRg9LPBGV4cfEgR61K4=
-github.com/envestcc/iotex-proto v0.0.0-20230111152952-64e97c18b1b1/go.mod h1:OfmLvjBmy5EYeLxxDv6kesJq+Mm3Adn5GKgDJgF9G9U=
+github.com/envestcc/iotex-proto v0.0.0-20230113062505-e182a7f5aafe h1:1yuc2o+/IkuT/sOyNaFM7SNXgNNXHw9bkqqv7mog5Dc=
+github.com/envestcc/iotex-proto v0.0.0-20230113062505-e182a7f5aafe/go.mod h1:OfmLvjBmy5EYeLxxDv6kesJq+Mm3Adn5GKgDJgF9G9U=
 github.com/envoyproxy/go-control-plane v0.6.9/go.mod h1:SBwIajubJHhxtWwsL9s8ss4safvEdbitLhGGK48rN6g=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=

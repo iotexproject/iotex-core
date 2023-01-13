@@ -82,19 +82,20 @@ func (dm *DelegateManager) Stop(ctx context.Context) error {
 
 // HandleNodeInfo handle node info message
 func (dm *DelegateManager) HandleNodeInfo(ctx context.Context, peerID string, msg *iotextypes.ResponseNodeInfoMessage) {
-	// verify signature
-	pubKey, err := crypto.BytesToPublicKey(msg.Pubkey)
+	// recover pubkey
+	hash := hashNodeInfo(msg)
+	pubKey, err := crypto.RecoverPubkey(hash[:], msg.Signature)
 	if err != nil {
-		log.L().Warn("delegate manager convert to publick key failed", zap.Error(err))
+		log.L().Warn("delegate manager recover pubkey failed", zap.Error(err))
 		return
 	}
-	hash := hashNodeInfo(msg)
-	if !pubKey.Verify(hash[:], msg.Signature) {
-		log.L().Warn("delegate manager node info message verify failed", zap.String("peer", peerID))
+	// verify signature
+	if pubKey.Address().String() != msg.Info.Address {
+		log.L().Warn("delegate manager node info message verify failed", zap.String("address", msg.Info.Address))
 		return
 	}
 
-	dm.updateNode(pubKey.Address().String(), msg.Info)
+	dm.updateNode(msg.Info.Address, msg.Info)
 }
 
 // updateNode update node info
@@ -130,8 +131,8 @@ func (dm *DelegateManager) TellNodeInfo(ctx context.Context, peer peer.AddrInfo)
 			Version:   version.PackageVersion,
 			Height:    dm.heightable.TipHeight(),
 			Timestamp: timestamppb.Now(),
+			Address:   dm.privKey.PublicKey().Address().String(),
 		},
-		Pubkey: dm.privKey.PublicKey().Bytes(),
 	}
 	// add sign for msg
 	h := hashNodeInfo(req)
