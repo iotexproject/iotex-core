@@ -48,7 +48,7 @@ func TestNewDelegateManager(t *testing.T) {
 			args{&Config{}, tMock, hMock, pMock},
 			&DelegateManager{
 				cfg:         Config{},
-				nodeMap:     map[string]iotextypes.NodeInfo{},
+				nodeMap:     map[string]NodeInfo{},
 				transmitter: tMock,
 				heightable:  hMock,
 				privKey:     pMock,
@@ -60,7 +60,7 @@ func TestNewDelegateManager(t *testing.T) {
 			args{&Config{time.Second * 3}, tMock, hMock, pMock},
 			&DelegateManager{
 				cfg:         Config{time.Second * 3},
-				nodeMap:     map[string]iotextypes.NodeInfo{},
+				nodeMap:     map[string]NodeInfo{},
 				transmitter: tMock,
 				heightable:  hMock,
 				privKey:     pMock,
@@ -96,7 +96,7 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 
 	type fields struct {
 		cfg         Config
-		nodeMap     map[string]iotextypes.NodeInfo
+		nodeMap     map[string]NodeInfo
 		broadcaster *routine.RecurringTask
 		transmitter transmitter
 		heightable  heightable
@@ -117,7 +117,7 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 			"valid",
 			fields{
 				cfg:         Config{},
-				nodeMap:     map[string]iotextypes.NodeInfo{},
+				nodeMap:     map[string]NodeInfo{},
 				transmitter: tMock,
 				heightable:  hMock,
 				privKey:     pMock,
@@ -145,7 +145,7 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 			"invalid",
 			fields{
 				cfg:         Config{},
-				nodeMap:     map[string]iotextypes.NodeInfo{},
+				nodeMap:     map[string]NodeInfo{},
 				transmitter: tMock,
 				heightable:  hMock,
 				privKey:     pMock,
@@ -186,7 +186,7 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 			if tt.valid {
 				require.Equal(tt.args.node.Info.Height, dm.nodeMap[addr].Height)
 				require.Equal(tt.args.node.Info.Version, dm.nodeMap[addr].Version)
-				require.Equal(tt.args.node.Info.Timestamp.String(), dm.nodeMap[addr].Timestamp.String())
+				require.Equal(tt.args.node.Info.Timestamp.AsTime().String(), dm.nodeMap[addr].Timestamp.String())
 
 				m := dto.Metric{}
 				nodeDelegateHeightGauge.WithLabelValues(addr, tt.args.node.Info.Version).Write(&m)
@@ -212,7 +212,7 @@ func TestDelegateManager_RequestNodeInfo(t *testing.T) {
 	require := require.New(t)
 	type fields struct {
 		cfg         Config
-		nodeMap     map[string]iotextypes.NodeInfo
+		nodeMap     map[string]NodeInfo
 		broadcaster *routine.RecurringTask
 		transmitter transmitter
 		heightable  heightable
@@ -226,7 +226,7 @@ func TestDelegateManager_RequestNodeInfo(t *testing.T) {
 			"update_self",
 			fields{
 				Config{},
-				map[string]iotextypes.NodeInfo{},
+				map[string]NodeInfo{},
 				nil,
 				tMock,
 				hMock,
@@ -269,7 +269,7 @@ func TestDelegateManager_TellNodeInfo(t *testing.T) {
 	t.Run("tell", func(t *testing.T) {
 		dm := &DelegateManager{
 			cfg:         Config{},
-			nodeMap:     map[string]iotextypes.NodeInfo{},
+			nodeMap:     map[string]NodeInfo{},
 			broadcaster: nil,
 			transmitter: tMock,
 			heightable:  hMock,

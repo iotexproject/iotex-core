@@ -7,6 +7,7 @@ package node
 
 import (
 	"context"
+	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -16,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -36,10 +38,18 @@ type (
 		Sign([]byte) ([]byte, error)
 	}
 
+	// NodeInfo node infomation
+	NodeInfo struct {
+		Version   string
+		Height    uint64
+		Timestamp time.Time
+		Address   string
+	}
+
 	// DelegateManager manage delegate node info
 	DelegateManager struct {
 		cfg         Config
-		nodeMap     map[string]iotextypes.NodeInfo
+		nodeMap     map[string]NodeInfo
 		broadcaster *routine.RecurringTask
 		transmitter transmitter
 		heightable  heightable
@@ -51,7 +61,7 @@ type (
 func NewDelegateManager(cfg *Config, t transmitter, h heightable, privKey privateKey) *DelegateManager {
 	dm := &DelegateManager{
 		cfg:         *cfg,
-		nodeMap:     make(map[string]iotextypes.NodeInfo),
+		nodeMap:     make(map[string]NodeInfo),
 		transmitter: t,
 		heightable:  h,
 		privKey:     privKey,
@@ -82,6 +92,7 @@ func (dm *DelegateManager) Stop(ctx context.Context) error {
 
 // HandleNodeInfo handle node info message
 func (dm *DelegateManager) HandleNodeInfo(ctx context.Context, peerID string, msg *iotextypes.ResponseNodeInfoMessage) {
+	log.L().Debug("delegate manager handle node info")
 	// recover pubkey
 	hash := hashNodeInfo(msg)
 	pubKey, err := crypto.RecoverPubkey(hash[:], msg.Signature)
@@ -95,11 +106,17 @@ func (dm *DelegateManager) HandleNodeInfo(ctx context.Context, peerID string, ms
 		return
 	}
 
-	dm.updateNode(msg.Info.Address, msg.Info)
+	dm.updateNode(&NodeInfo{
+		Version:   msg.Info.Version,
+		Height:    msg.Info.Height,
+		Timestamp: msg.Info.Timestamp.AsTime(),
+		Address:   msg.Info.Address,
+	})
 }
 
 // updateNode update node info
-func (dm *DelegateManager) updateNode(addr string, node *iotextypes.NodeInfo) {
+func (dm *DelegateManager) updateNode(node *NodeInfo) {
+	addr := node.Address
 	// update dm.nodeMap
 	dm.nodeMap[addr] = *node
 	// update metric
@@ -108,24 +125,24 @@ func (dm *DelegateManager) updateNode(addr string, node *iotextypes.NodeInfo) {
 
 // RequestNodeInfo broadcast request node info message
 func (dm *DelegateManager) RequestNodeInfo() {
-	log.L().Info("delegate manager request node info")
-
+	log.L().Debug("delegate manager request node info")
 	// broadcast request meesage
 	if err := dm.transmitter.BroadcastOutbound(context.Background(), &iotextypes.RequestNodeInfoMessage{}); err != nil {
 		log.L().Error("delegate manager request node info failed", zap.Error(err))
 	}
 
 	// manually update self node info for broadcast message to myself will be ignored
-	dm.updateNode(dm.privKey.PublicKey().Address().String(), &iotextypes.NodeInfo{
+	dm.updateNode(&NodeInfo{
 		Version:   version.PackageVersion,
 		Height:    dm.heightable.TipHeight(),
-		Timestamp: timestamppb.Now(),
+		Timestamp: time.Now(),
+		Address:   dm.privKey.PublicKey().Address().String(),
 	})
 }
 
 // TellNodeInfo tell node info to peer
 func (dm *DelegateManager) TellNodeInfo(ctx context.Context, peer peer.AddrInfo) error {
-	log.L().Info("delegate manager tell node info", zap.Any("peer", peer.ID.Pretty()))
+	log.L().Debug("delegate manager tell node info", zap.Any("peer", peer.ID.Pretty()))
 	req := &iotextypes.ResponseNodeInfoMessage{
 		Info: &iotextypes.NodeInfo{
 			Version:   version.PackageVersion,
@@ -138,7 +155,7 @@ func (dm *DelegateManager) TellNodeInfo(ctx context.Context, peer peer.AddrInfo)
 	h := hashNodeInfo(req)
 	sign, err := dm.privKey.Sign(h[:])
 	if err != nil {
-		return err
+		return errors.Wrap(err, "sign node info message failed")
 	}
 	req.Signature = sign
 
