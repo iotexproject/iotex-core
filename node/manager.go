@@ -38,8 +38,8 @@ type (
 		Sign([]byte) ([]byte, error)
 	}
 
-	// NodeInfo node infomation
-	NodeInfo struct {
+	// Info node infomation
+	Info struct {
 		Version   string
 		Height    uint64
 		Timestamp time.Time
@@ -49,7 +49,7 @@ type (
 	// DelegateManager manage delegate node info
 	DelegateManager struct {
 		cfg         Config
-		nodeMap     map[string]NodeInfo
+		nodeMap     map[string]Info
 		broadcaster *routine.RecurringTask
 		transmitter transmitter
 		heightable  heightable
@@ -61,7 +61,7 @@ type (
 func NewDelegateManager(cfg *Config, t transmitter, h heightable, privKey privateKey) *DelegateManager {
 	dm := &DelegateManager{
 		cfg:         *cfg,
-		nodeMap:     make(map[string]NodeInfo),
+		nodeMap:     make(map[string]Info),
 		transmitter: t,
 		heightable:  h,
 		privKey:     privKey,
@@ -106,7 +106,7 @@ func (dm *DelegateManager) HandleNodeInfo(ctx context.Context, peerID string, ms
 		return
 	}
 
-	dm.updateNode(&NodeInfo{
+	dm.updateNode(&Info{
 		Version:   msg.Info.Version,
 		Height:    msg.Info.Height,
 		Timestamp: msg.Info.Timestamp.AsTime(),
@@ -115,7 +115,7 @@ func (dm *DelegateManager) HandleNodeInfo(ctx context.Context, peerID string, ms
 }
 
 // updateNode update node info
-func (dm *DelegateManager) updateNode(node *NodeInfo) {
+func (dm *DelegateManager) updateNode(node *Info) {
 	addr := node.Address
 	// update dm.nodeMap
 	dm.nodeMap[addr] = *node
@@ -132,7 +132,7 @@ func (dm *DelegateManager) RequestNodeInfo() {
 	}
 
 	// manually update self node info for broadcast message to myself will be ignored
-	dm.updateNode(&NodeInfo{
+	dm.updateNode(&Info{
 		Version:   version.PackageVersion,
 		Height:    dm.heightable.TipHeight(),
 		Timestamp: time.Now(),
