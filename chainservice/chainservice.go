@@ -12,6 +12,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -175,19 +176,15 @@ func (cs *ChainService) HandleNodeInfoMsg(ctx context.Context, peer string, msg 
 func (cs *ChainService) HandleRequestNodeInfoMsg(ctx context.Context, peerID string, msg *iotextypes.RequestNodeInfoMessage) error {
 	peers, err := cs.p2pAgent.ConnectedPeers()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "get connected peers failed")
 	}
-	var target *peer.AddrInfo
-	for i := range peers {
-		if peers[i].ID.Pretty() == peerID {
-			target = &peers[i]
-			break
-		}
+	id := slices.IndexFunc(peers, func(p peer.AddrInfo) bool {
+		return p.ID.Pretty() == peerID
+	})
+	if id < 0 {
+		return errors.Errorf("unicast node info msg failed: target peerID %s is not connected", peerID)
 	}
-	if target == nil {
-		return errors.Errorf("unicast node info msg failed: target peerID %s is not connected, peers size=%v, %v", peerID, len(peers), peers)
-	}
-	return cs.delegateManager.TellNodeInfo(ctx, *target)
+	return cs.delegateManager.TellNodeInfo(ctx, peers[id])
 }
 
 // ChainID returns ChainID.
