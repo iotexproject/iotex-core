@@ -9,6 +9,7 @@ import (
 )
 
 func TestNodeEvent(t *testing.T) {
+	require := require.New(t)
 	tests := []struct {
 		event nodeEvent
 	}{
@@ -45,39 +46,17 @@ func TestNodeEvent(t *testing.T) {
 	for _, test := range tests {
 		b := test.event.Bytes()
 		event, err := parseNodeEvent(b)
-		if err != nil {
-			t.Errorf("unexpected error %v", err)
-		}
-		if event.NodeType != test.event.NodeType {
-			t.Errorf("unexpected NodeType %v", event.NodeType)
-		}
-		if event.ActionType != test.event.ActionType {
-			t.Errorf("unexpected ActionType %v", event.ActionType)
-		}
-		if event.KeyLen != test.event.KeyLen {
-			t.Errorf("unexpected key length %v", event.KeyLen)
-		}
-		if event.Key != nil && string(event.Key) != string(test.event.Key) {
-			t.Errorf("unexpected key %v", event.Key)
-		}
-		if event.PathLen != test.event.PathLen {
-			t.Errorf("unexpected path length %v", event.PathLen)
-		}
-		if event.Path != nil && string(event.Path) != string(test.event.Path) {
-			t.Errorf("unexpected path %v", event.Path)
-		}
-		if event.ChildrenLen != test.event.ChildrenLen {
-			t.Errorf("unexpected children length %v", event.ChildrenLen)
-		}
-		if event.Children != nil && string(event.Children) != string(test.event.Children) {
-			t.Errorf("unexpected children %v", event.Children)
-		}
-		if event.HashLen != test.event.HashLen {
-			t.Errorf("unexpected hash length %v", event.HashLen)
-		}
-		if event.HashVal != nil && string(event.HashVal) != string(test.event.HashVal) {
-			t.Errorf("unexpected hash %v", event.HashVal)
-		}
+		require.NoError(err)
+		require.Equal(test.event.NodeType, event.NodeType)
+		require.Equal(test.event.ActionType, event.ActionType)
+		require.Equal(test.event.KeyLen, event.KeyLen)
+		require.Equal(test.event.Key, event.Key)
+		require.Equal(test.event.PathLen, event.PathLen)
+		require.Equal(test.event.Path, event.Path)
+		require.Equal(test.event.ChildrenLen, event.ChildrenLen)
+		require.Equal(test.event.Children, event.Children)
+		require.Equal(test.event.HashLen, event.HashLen)
+		require.Equal(test.event.HashVal, event.HashVal)
 	}
 }
 
