@@ -221,6 +221,7 @@ type (
 		OkhotskBlockHeight uint64 `yaml:"okhotskHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
+		// 1. web3 rewarding api
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
 	}
 	// Account contains the configs for account protocol

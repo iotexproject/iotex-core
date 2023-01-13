@@ -393,6 +393,11 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		return "", err
 	}
 
+	// reject web3 rewarding action if isn't activation feature
+	if err := core.validateWeb3Rewarding(selp); err != nil {
+		return "", err
+	}
+
 	// Add to local actpool
 	ctx = protocol.WithRegistry(ctx, core.registry)
 	hash, err := selp.Hash()
@@ -439,6 +444,19 @@ func (core *coreService) validateChainID(chainID uint32) error {
 		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
 	}
 	return nil
+}
+
+func (core *coreService) validateWeb3Rewarding(selp action.SealedEnvelope) error {
+	if ge := core.bc.Genesis(); ge.IsToBeEnabled(core.bc.TipHeight()) || selp.Encoding() != uint32(iotextypes.Encoding_ETHEREUM_RLP) {
+		return nil
+	}
+	switch selp.Action().(type) {
+	case *action.ClaimFromRewardingFund,
+		*action.DepositToRewardingFund:
+		return status.Error(codes.Unavailable, "Web3 rewarding isn't activation")
+	default:
+		return nil
+	}
 }
 
 // ReadContract reads the state in a contract address specified by the slot
