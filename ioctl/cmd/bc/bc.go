@@ -58,7 +58,11 @@ func init() {
 
 // GetChainMeta gets block chain metadata
 func GetChainMeta() (*iotextypes.ChainMeta, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	secure := false
+	if !config.Insecure {
+		secure = config.ReadConfig.SecureConnect
+	}
+	conn, err := util.ConnectToEndpoint(secure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
