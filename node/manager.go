@@ -94,11 +94,11 @@ func (dm *DelegateManager) HandleNodeInfo(ctx context.Context, peerID string, ms
 		return
 	}
 
-	dm.UpdateNode(pubKey.Address().String(), msg.Info)
+	dm.updateNode(pubKey.Address().String(), msg.Info)
 }
 
-// UpdateNode update node info
-func (dm *DelegateManager) UpdateNode(addr string, node *iotextypes.NodeInfo) {
+// updateNode update node info
+func (dm *DelegateManager) updateNode(addr string, node *iotextypes.NodeInfo) {
 	// update dm.nodeMap
 	dm.nodeMap[addr] = *node
 	// update metric
@@ -115,7 +115,7 @@ func (dm *DelegateManager) RequestNodeInfo() {
 	}
 
 	// manually update self node info for broadcast message to myself will be ignored
-	dm.UpdateNode(dm.privKey.PublicKey().Address().String(), &iotextypes.NodeInfo{
+	dm.updateNode(dm.privKey.PublicKey().Address().String(), &iotextypes.NodeInfo{
 		Version:   version.PackageVersion,
 		Height:    dm.heightable.TipHeight(),
 		Timestamp: timestamppb.Now(),
