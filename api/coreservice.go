@@ -47,7 +47,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -154,7 +153,7 @@ type (
 		ap                actpool.ActPool
 		gs                *gasstation.GasStation
 		broadcastHandler  BroadcastOutbound
-		cfg               config.API
+		cfg               Config
 		registry          *protocol.Registry
 		chainListener     apitypes.Listener
 		electionCommittee committee.Committee
@@ -199,7 +198,7 @@ var (
 
 // newcoreService creates a api server that contains major blockchain components
 func newCoreService(
-	cfg config.API,
+	cfg Config,
 	chain blockchain.Blockchain,
 	bs blocksync.BlockSync,
 	sf factory.Factory,
@@ -210,9 +209,9 @@ func newCoreService(
 	registry *protocol.Registry,
 	opts ...Option,
 ) (CoreService, error) {
-	if cfg == (config.API{}) {
+	if cfg == (Config{}) {
 		log.L().Warn("API server is not configured.")
-		cfg = config.Default.API
+		cfg = DefaultConfig
 	}
 
 	if cfg.RangeQueryLimit < uint64(cfg.TpsWindow) {
@@ -394,6 +393,11 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		return "", err
 	}
 
+	// reject web3 rewarding action if isn't activation feature
+	if err := core.validateWeb3Rewarding(selp); err != nil {
+		return "", err
+	}
+
 	// Add to local actpool
 	ctx = protocol.WithRegistry(ctx, core.registry)
 	hash, err := selp.Hash()
@@ -440,6 +444,19 @@ func (core *coreService) validateChainID(chainID uint32) error {
 		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
 	}
 	return nil
+}
+
+func (core *coreService) validateWeb3Rewarding(selp action.SealedEnvelope) error {
+	if ge := core.bc.Genesis(); ge.IsToBeEnabled(core.bc.TipHeight()) || selp.Encoding() != uint32(iotextypes.Encoding_ETHEREUM_RLP) {
+		return nil
+	}
+	switch selp.Action().(type) {
+	case *action.ClaimFromRewardingFund,
+		*action.DepositToRewardingFund:
+		return status.Error(codes.Unavailable, "Web3 rewarding isn't activation")
+	default:
+		return nil
+	}
 }
 
 // ReadContract reads the state in a contract address specified by the slot
