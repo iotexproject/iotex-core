@@ -129,6 +129,7 @@ type (
 		Log                log.GlobalConfig                `yaml:"log"`
 		SubLogs            map[string]log.GlobalConfig     `yaml:"subLogs"`
 		Genesis            genesis.Genesis                 `yaml:"genesis"`
+		MptrieLogPath      string                          `yaml:"mptrieLogPath"`
 	}
 
 	// Validate is the interface of validating the config
