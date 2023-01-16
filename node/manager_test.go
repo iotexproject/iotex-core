@@ -250,7 +250,7 @@ func TestDelegateManager_RequestNodeInfo(t *testing.T) {
 			tMock.EXPECT().BroadcastOutbound(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			hMock.EXPECT().TipHeight().Return(height).Times(1)
 			pMock.EXPECT().PublicKey().Return(privK.PublicKey()).Times(1)
-			dm.RequestNodeInfo()
+			dm.RequestAllNodeInfoAsync()
 
 			require.Equal(height, dm.nodeMap[privK.PublicKey().Address().String()].Height)
 		})
@@ -297,26 +297,33 @@ func TestDelegateManager_TellNodeInfo(t *testing.T) {
 
 }
 
-func TestPubkey(t *testing.T) {
-	masterKey := "96f0aa5e8523d6a28dc35c927274be4e931e74eaa720b418735debfcbfe712b8"
-	sk, err := crypto.HexStringToPrivateKey(masterKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ioPubKey := sk.PublicKey()
-	ioAddr := ioPubKey.Address().String()
+func TestDelegateManager_RequestSingleNodeInfoAsync(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	hMock := mock_node.NewMockheightable(ctrl)
+	tMock := mock_node.NewMocktransmitter(ctrl)
+	pMock := mock_node.NewMockprivateKey(ctrl)
 
-	hash := []byte("testtesttesttesttesttesttesttest")
-	sign, err := sk.Sign(hash)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require := require.New(t)
+	t.Run("request_single", func(t *testing.T) {
+		dm := &DelegateManager{
+			cfg:         Config{},
+			nodeMap:     map[string]Info{},
+			transmitter: tMock,
+			heightable:  hMock,
+			privKey:     pMock,
+		}
+		var paramPeer peer.AddrInfo
+		var paramMsg iotextypes.RequestNodeInfoMessage
+		targetPeer := peer.AddrInfo{ID: peer.ID("xxxx")}
+		tMock.EXPECT().UnicastOutbound(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, p peer.AddrInfo, msg proto.Message) {
+			paramPeer = p
+			paramMsg = *msg.(*iotextypes.RequestNodeInfoMessage)
+		}).Times(1)
+		dm.RequestSingleNodeInfoAsync(targetPeer)
 
-	recovPubKey, err := crypto.RecoverPubkey(hash, sign)
-	if err != nil {
-		t.Fatal(err)
-	}
-	recovAddr := recovPubKey.Address().String()
+		require.Equal(targetPeer, paramPeer)
+		require.Equal(iotextypes.RequestNodeInfoMessage{}, paramMsg)
+	})
 
-	t.Log("ioAddr=", ioAddr, "recovAddr", recovAddr)
 }

@@ -7,6 +7,7 @@ package node
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -48,12 +49,13 @@ type (
 
 	// DelegateManager manage delegate node info
 	DelegateManager struct {
-		cfg         Config
-		nodeMap     map[string]Info
-		broadcaster *routine.RecurringTask
-		transmitter transmitter
-		heightable  heightable
-		privKey     privateKey
+		cfg          Config
+		nodeMap      map[string]Info
+		nodeMapMutex sync.Mutex
+		broadcaster  *routine.RecurringTask
+		transmitter  transmitter
+		heightable   heightable
+		privKey      privateKey
 	}
 )
 
@@ -68,7 +70,7 @@ func NewDelegateManager(cfg *Config, t transmitter, h heightable, privKey privat
 	}
 	// disable broadcast if RequestNodeInfoInterval == 0
 	if cfg.RequestNodeInfoInterval > 0 {
-		dm.broadcaster = routine.NewRecurringTask(dm.RequestNodeInfo, cfg.RequestNodeInfoInterval)
+		dm.broadcaster = routine.NewRecurringTask(dm.RequestAllNodeInfoAsync, cfg.RequestNodeInfoInterval)
 	}
 
 	return dm
@@ -117,15 +119,18 @@ func (dm *DelegateManager) HandleNodeInfo(ctx context.Context, peerID string, ms
 // updateNode update node info
 func (dm *DelegateManager) updateNode(node *Info) {
 	addr := node.Address
+	dm.nodeMapMutex.Lock()
+	defer dm.nodeMapMutex.Unlock()
+
 	// update dm.nodeMap
 	dm.nodeMap[addr] = *node
 	// update metric
 	nodeDelegateHeightGauge.WithLabelValues(addr, node.Version).Set(float64(node.Height))
 }
 
-// RequestNodeInfo broadcast request node info message
-func (dm *DelegateManager) RequestNodeInfo() {
-	log.L().Debug("delegate manager request node info")
+// RequestAllNodeInfoAsync broadcast request node info message
+func (dm *DelegateManager) RequestAllNodeInfoAsync() {
+	log.L().Debug("delegate manager request all node info")
 	// broadcast request meesage
 	if err := dm.transmitter.BroadcastOutbound(context.Background(), &iotextypes.RequestNodeInfoMessage{}); err != nil {
 		log.L().Error("delegate manager request node info failed", zap.Error(err))
@@ -138,6 +143,15 @@ func (dm *DelegateManager) RequestNodeInfo() {
 		Timestamp: time.Now(),
 		Address:   dm.privKey.PublicKey().Address().String(),
 	})
+}
+
+// RequestSingleNodeInfoAsync unicast request node info message
+func (dm *DelegateManager) RequestSingleNodeInfoAsync(peer peer.AddrInfo) {
+	log.L().Debug("delegate manager request one node info", zap.String("peer", peer.ID.Pretty()))
+	// unicast request meesage
+	if err := dm.transmitter.UnicastOutbound(context.Background(), peer, &iotextypes.RequestNodeInfoMessage{}); err != nil {
+		log.L().Error("delegate manager request one node info failed", zap.Error(err))
+	}
 }
 
 // TellNodeInfo tell node info to peer

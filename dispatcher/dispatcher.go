@@ -452,7 +452,7 @@ func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer pe
 		d.dispatchBlockSyncReq(ctx, chainID, peer, message)
 	case iotexrpc.MessageType_BLOCK:
 		d.dispatchBlock(ctx, chainID, peer.ID.Pretty(), message)
-	case iotexrpc.MessageType_NODE_INFO:
+	case iotexrpc.MessageType_NODE_INFO_REQUEST, iotexrpc.MessageType_NODE_INFO:
 		d.dispatchNodeInfo(ctx, chainID, peer.ID.Pretty(), message)
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleTell.", zap.Any("msgType", msgType))
@@ -468,10 +468,17 @@ func (d *IotxDispatcher) dispatchNodeInfo(ctx context.Context, chainID uint32, p
 		log.L().Debug("no subscriber for this chain id, drop the node info", zap.Uint32("chain id", chainID))
 		return
 	}
-
-	if err := subscriber.HandleNodeInfoMsg(ctx, peer, message.(*iotextypes.ResponseNodeInfoMessage)); err != nil {
-		log.L().Warn("failed to handle node info message", zap.Error(err))
-		return
+	switch msg := message.(type) {
+	case *iotextypes.ResponseNodeInfoMessage:
+		if err := subscriber.HandleNodeInfoMsg(ctx, peer, msg); err != nil {
+			log.L().Warn("failed to handle node info message", zap.Error(err))
+		}
+	case *iotextypes.RequestNodeInfoMessage:
+		if err := subscriber.HandleRequestNodeInfoMsg(ctx, peer, msg); err != nil {
+			log.L().Warn("failed to handle request node info message", zap.Error(err))
+		}
+	default:
+		log.L().Warn("Unexpected nodeinfo msgType.", zap.Any("msgType", msg))
 	}
 }
 
