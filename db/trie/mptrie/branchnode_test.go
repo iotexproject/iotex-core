@@ -48,10 +48,11 @@ func equals(bn *branchNode, clone *branchNode) bool {
 
 func TestBranchNodeClone(t *testing.T) {
 	require := require.New(t)
+	cli := &merklePatriciaTrie{async: true, hashFunc: DefaultHashFunc}
 	t.Run("dirty empty root", func(t *testing.T) {
 		children := map[byte]node{}
 		indices := NewSortedList(children)
-		node, err := newRootBranchNode(nil, children, indices, true)
+		node, err := newRootBranchNode(cli, children, indices, true)
 		require.NoError(err)
 		bn, ok := node.(*branchNode)
 		require.True(ok)
@@ -64,7 +65,7 @@ func TestBranchNodeClone(t *testing.T) {
 	t.Run("clean empty root", func(t *testing.T) {
 		children := map[byte]node{}
 		indices := NewSortedList(children)
-		node, err := newRootBranchNode(nil, children, indices, false)
+		node, err := newRootBranchNode(cli, children, indices, false)
 		require.NoError(err)
 		bn, ok := node.(*branchNode)
 		require.True(ok)
@@ -81,7 +82,7 @@ func TestBranchNodeClone(t *testing.T) {
 		children['c'] = &hashNode{hashVal: []byte("c")}
 		children['d'] = &hashNode{hashVal: []byte("d")}
 		indices := NewSortedList(children)
-		node, err := newBranchNode(&merklePatriciaTrie{async: true}, children, indices)
+		node, err := newBranchNode(cli, children, indices)
 		require.NoError(err)
 		bn, ok := node.(*branchNode)
 		require.True(ok)
@@ -105,7 +106,7 @@ func TestBranchNodeProto(t *testing.T) {
 		children: children,
 		indices:  indices,
 	}
-	cli := &merklePatriciaTrie{async: true}
+	cli := &merklePatriciaTrie{async: true, hashFunc: DefaultHashFunc}
 	proto, err := bnode.proto(cli, true)
 	require.NoError(err)
 	nodepb, ok := proto.(*triepb.NodePb)

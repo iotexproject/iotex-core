@@ -134,7 +134,7 @@ func TestActQueuePendingActs(t *testing.T) {
 	}).Return(uint64(0), nil).Times(1)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
-	ap, err := NewActPool(genesis.Default, sf, DefaultConfig, EnableExperimentalActions())
+	ap, err := NewActPool(genesis.Default, sf, DefaultConfig)
 	require.NoError(err)
 	q := NewActQueue(ap.(*actPool), identityset.Address(0).String(), 1, big.NewInt(maxBalance)).(*actQueue)
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(0))
