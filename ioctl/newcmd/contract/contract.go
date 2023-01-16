@@ -7,7 +7,6 @@ package contract
 
 import (
 	"encoding/hex"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -18,7 +17,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
@@ -54,6 +52,7 @@ func NewContractCmd(client ioctl.Client) *cobra.Command {
 	cmd.AddCommand(NewContractCompileCmd(client))
 	client.SetEndpointWithFlag(cmd.PersistentFlags().StringVar)
 	client.SetInsecureWithFlag(cmd.PersistentFlags().BoolVar)
+
 	return cmd
 }
 
@@ -124,19 +123,19 @@ func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]
 
 		rowArg, ok := rowArguments[param.Name]
 		if !ok {
-			return nil, errors.New(fmt.Sprintf("failed to parse argument \"%s\"", param.Name))
+			return nil, errors.Errorf("failed to parse argument \"%s\"", param.Name)
 		}
 
 		arg, err := parseInputArgument(&param.Type, rowArg)
 		if err != nil {
-			return nil, output.NewError(output.InputError, fmt.Sprintf("failed to parse argument \"%s\"", param.Name), err)
+			return nil, errors.Wrapf(err, "failed to parse argument \"%s\"", param.Name)
 		}
 		arguments = append(arguments, arg)
 	}
 	return targetAbi.Pack(targetMethod, arguments...)
 }
 
-func translate(client ioctl.Client, trls map[config.Language]string) string {
+func selectTranslate(client ioctl.Client, trls map[config.Language]string) string {
 	trans, _ := client.SelectTranslation(trls)
 	return trans
 }

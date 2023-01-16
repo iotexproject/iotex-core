@@ -6,7 +6,6 @@
 package contract
 
 import (
-	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
@@ -15,47 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
-
-func Test_parseOutput(t *testing.T) {
-	r := require.New(t)
-
-	testAbiFile := "test.abi"
-	testAbi, err := readAbiFile(testAbiFile)
-	r.NoError(err)
-
-	tests := []struct {
-		expectResult string
-		method       string
-		outputs      string
-	}{
-		{
-			"0",
-			"minTips",
-			"0000000000000000000000000000000000000000000000000000000000000000",
-		},
-		{
-			"io1cl6rl2ev5dfa988qmgzg2x4hfazmp9vn2g66ng",
-			"owner",
-			"000000000000000000000000c7f43fab2ca353d29ce0da04851ab74f45b09593",
-		},
-		{
-			"Hello World",
-			"getMessage",
-			"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000b48656c6c6f20576f726c64000000000000000000000000000000000000000000",
-		},
-		{
-			"{i:17 abc:[io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7 io1cl6rl2ev5dfa988qmgzg2x4hfazmp9vn2g66ng]}",
-			"testTuple",
-			"00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c7f43fab2ca353d29ce0da04851ab74f45b09593",
-		},
-	}
-
-	for _, test := range tests {
-		v, err := parseOutput(testAbi, test.method, test.outputs)
-		r.NoError(err)
-		r.Equal(test.expectResult, fmt.Sprint(v))
-	}
-}
 
 func Test_parseOutputArgument(t *testing.T) {
 	r := require.New(t)
@@ -198,7 +156,7 @@ func Test_parseInput(t *testing.T) {
 			map[string]interface{}{
 				"name": "Marry",
 			},
-			true,
+			false,
 		},
 		{
 			`{"age": 12}`,

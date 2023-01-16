@@ -6,7 +6,6 @@
 package contract
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -30,52 +29,38 @@ var (
 		config.English: "test smart contract on IoTeX blockchain with function name",
 		config.Chinese: "调用函数测试IoTeX区块链上的智能合约",
 	}
-	_failToGetAddress = map[config.Language]string{
-		config.English: "failed to get contract address",
-		config.Chinese: "获取合约地址失败",
-	}
-	_failToConvertStringIntoAddress = map[config.Language]string{
-		config.English: "failed to convert string into address",
-		config.Chinese: "转换字符串到地址失败",
-	}
-	_failToReadABIFile = map[config.Language]string{
-		config.English: "failed to read abi file",
-		config.Chinese: "读取 ABI 文件失败",
-	}
-	_InvalidAmount = map[config.Language]string{
-		config.English: "invalid amount",
-		config.Chinese: "无效的数字",
-	}
 )
 
 // NewContractTestFunctionCmd represents the contract test function cmd
 func NewContractTestFunctionCmd(client ioctl.Client) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   translate(client, _testFunctionCmdUses),
-		Short: translate(client, _testFunctionCmdShorts),
+		Use:   selectTranslate(client, _testFunctionCmdUses),
+		Short: selectTranslate(client, _testFunctionCmdShorts),
 		Args:  cobra.RangeArgs(3, 4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			return contractTestFunction(client, cmd, args)
 		},
 	}
+	action.RegisterWriteCommand(client, cmd)
+	flag.WithArgumentsFlag.RegisterCommand(cmd)
 	return cmd
 }
 
 func contractTestFunction(client ioctl.Client, cmd *cobra.Command, args []string) error {
 	addr, err := client.Address(args[0])
 	if err != nil {
-		return errors.WithMessage(err, translate(client, _failToGetAddress))
+		return errors.WithMessage(err, "failed to get contract address")
 	}
 
 	contract, err := address.FromString(addr)
 	if err != nil {
-		return errors.WithMessage(err, translate(client, _failToConvertStringIntoAddress))
+		return errors.WithMessage(err, "failed to convert string into address")
 	}
 
 	abi, err := readAbiFile(args[1])
 	if err != nil {
-		return errors.WithMessage(err, translate(client, _failToReadABIFile)+" "+args[1])
+		return errors.WithMessage(err, "failed to read abi file "+args[1])
 	}
 
 	methodName := args[2]
@@ -84,7 +69,7 @@ func contractTestFunction(client ioctl.Client, cmd *cobra.Command, args []string
 	if len(args) == 4 {
 		amount, err = util.StringToRau(args[3], util.IotxDecimalNum)
 		if err != nil {
-			return errors.WithMessage(err, translate(client, _InvalidAmount))
+			return errors.Wrap(err, "invalid amount")
 		}
 	}
 
@@ -108,6 +93,6 @@ func contractTestFunction(client ioctl.Client, cmd *cobra.Command, args []string
 		result = rowResult
 	}
 
-	fmt.Println("return: " + result)
+	cmd.Println("return: " + result)
 	return nil
 }

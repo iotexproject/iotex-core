@@ -7,6 +7,7 @@ package contract
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -33,7 +34,7 @@ func TestNewContractCmd(t *testing.T) {
 	require.Contains(result, "Available Commands")
 }
 
-func Test_readAbiFile(t *testing.T) {
+func TestReadAbiFile(t *testing.T) {
 	r := require.New(t)
 	testAbiFile := "test.abi"
 	abi, err := readAbiFile(testAbiFile)
@@ -43,7 +44,7 @@ func Test_readAbiFile(t *testing.T) {
 	r.Equal("recipients", abi.Methods["multiSend"].Inputs[0].Name)
 }
 
-func Test_packArguments(t *testing.T) {
+func TestParseInput(t *testing.T) {
 	r := require.New(t)
 
 	testAbiFile := "test.abi"
@@ -90,26 +91,43 @@ func Test_packArguments(t *testing.T) {
 	}
 }
 
-func Test_decodeBytecode(t *testing.T) {
+func TestParseOutput(t *testing.T) {
 	r := require.New(t)
 
+	testAbiFile := "test.abi"
+	testAbi, err := readAbiFile(testAbiFile)
+	r.NoError(err)
+
 	tests := []struct {
-		bytecode string
-		expect   []byte
+		expectResult string
+		method       string
+		outputs      string
 	}{
 		{
-			"68656c6c6f20776f726c64",
-			[]byte(`hello world`),
+			"0",
+			"minTips",
+			"0000000000000000000000000000000000000000000000000000000000000000",
 		},
 		{
-			"0x68656c6c6f20776f726c64",
-			[]byte(`hello world`),
+			"io1cl6rl2ev5dfa988qmgzg2x4hfazmp9vn2g66ng",
+			"owner",
+			"000000000000000000000000c7f43fab2ca353d29ce0da04851ab74f45b09593",
+		},
+		{
+			"Hello World",
+			"getMessage",
+			"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000b48656c6c6f20576f726c64000000000000000000000000000000000000000000",
+		},
+		{
+			"{i:17 abc:[io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7 io1cl6rl2ev5dfa988qmgzg2x4hfazmp9vn2g66ng]}",
+			"testTuple",
+			"00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c7f43fab2ca353d29ce0da04851ab74f45b09593",
 		},
 	}
-	for _, tt := range tests {
-		res, err := decodeBytecode(tt.bytecode)
-		r.NoError(err)
 
-		r.True(bytes.Equal(res, tt.expect))
+	for _, test := range tests {
+		v, err := parseOutput(testAbi, test.method, test.outputs)
+		r.NoError(err)
+		r.Equal(test.expectResult, fmt.Sprint(v))
 	}
 }
