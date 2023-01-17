@@ -27,7 +27,10 @@ jobs:
         with:
           go-version: 1.18.5
           cache: false
-
+          
+      - name: Build Go
+        run: go build ./...
+        
 #       - name: Error Check
 #         uses: reviewdog/action-golangci-lint@v2
 #         with:
