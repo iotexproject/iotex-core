@@ -35,7 +35,7 @@ type (
 	// TipHeight returns the tip height of blockchain
 	TipHeight func() uint64
 	// BlockByHeight returns the block of a given height
-	BlockByHeight func(uint64) (*block.Block, error)
+	BlockByHeight func(uint64) (*block.BlockRaw, error)
 	// CommitBlock commits a block to blockchain
 	CommitBlock func(*block.Block) error
 
@@ -309,7 +309,7 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peer.AddrInf
 		// TODO: send back multiple blocks in one shot
 		syncCtx, cancel := context.WithTimeout(ctx, bs.cfg.ProcessSyncRequestTTL)
 		defer cancel()
-		if err := bs.unicastOutbound(syncCtx, peer, blk.ConvertToBlockPb()); err != nil {
+		if err := bs.unicastOutbound(syncCtx, peer, blk.Proto()); err != nil {
 			return err
 		}
 	}

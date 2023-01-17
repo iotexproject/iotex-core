@@ -48,8 +48,8 @@ type testConfig struct {
 
 func newBlockSyncerForTest(cfg Config, chain blockchain.Blockchain, dao blockdao.BlockDAO, cs consensus.Consensus) (*blockSyncer, error) {
 	bs, err := NewBlockSyncer(cfg, chain.TipHeight,
-		func(h uint64) (*block.Block, error) {
-			return dao.GetBlockByHeight(h)
+		func(h uint64) (*block.BlockRaw, error) {
+			return dao.GetBlockRawByHeight(h)
 		},
 		func(blk *block.Block) error {
 			if err := cs.ValidateBlockFooter(blk); err != nil {

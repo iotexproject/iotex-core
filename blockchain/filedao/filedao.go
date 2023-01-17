@@ -54,6 +54,7 @@ type (
 		GetBlockHeight(hash.Hash256) (uint64, error)
 		GetBlock(hash.Hash256) (*block.Block, error)
 		GetBlockByHeight(uint64) (*block.Block, error)
+		GetBlockRawByHeight(uint64) (*block.BlockRaw, error)
 		GetReceipts(uint64) ([]*action.Receipt, error)
 		ContainsTransactionLog() bool
 		TransactionLogs(uint64) (*iotextypes.TransactionLogs, error)
