@@ -7,10 +7,12 @@ package mptrie
 
 import (
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/triepb"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 type branchNode struct {
@@ -92,7 +94,7 @@ func newBranchNodeFromProtoPb(pb *triepb.BranchPb, hashVal []byte) *branchNode {
 	bnode.indices = NewSortedList(bnode.children)
 	bnode.cacheNode.serializable = bnode
 	if err := logNode(_nodeTypeBranch, _actionTypeNew, bnode, nil); err != nil {
-		panic(err)
+		log.L().Error("fail to log branch node", zap.Error(err))
 	}
 	return bnode
 }
