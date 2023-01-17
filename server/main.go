@@ -140,8 +140,8 @@ func main() {
 		livenessCancel()
 	}()
 
-	if cfg.MptrieLogPath != "" {
-		if err = mptrie.OpenLogDB(cfg.MptrieLogPath); err != nil {
+	if cfg.System.MptrieLogPath != "" {
+		if err = mptrie.OpenLogDB(cfg.System.MptrieLogPath); err != nil {
 			log.L().Fatal("Failed to open mptrie log DB.", zap.Error(err))
 		}
 		defer func() {

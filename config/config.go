@@ -110,6 +110,7 @@ type (
 		HTTPStatsPort         int           `yaml:"httpStatsPort"`
 		StartSubChainInterval time.Duration `yaml:"startSubChainInterval"`
 		SystemLogDBPath       string        `yaml:"systemLogDBPath"`
+		MptrieLogPath         string        `yaml:"mptrieLogPath"`
 	}
 
 	// Config is the root config struct, each package's config should be put as its sub struct
@@ -129,7 +130,6 @@ type (
 		Log                log.GlobalConfig                `yaml:"log"`
 		SubLogs            map[string]log.GlobalConfig     `yaml:"subLogs"`
 		Genesis            genesis.Genesis                 `yaml:"genesis"`
-		MptrieLogPath      string                          `yaml:"mptrieLogPath"`
 	}
 
 	// Validate is the interface of validating the config
