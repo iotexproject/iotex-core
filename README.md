@@ -67,7 +67,7 @@ If the dependency needs to be updated, run
 go get -u
 go mod tidy
 ```
-If you want learn more advanced usage about `go mod`, you can find out [here](https://github.com/golang/go/wiki/Modules).
+If you want to learn more advanced usage about `go mod`, you can find out [here](https://github.com/golang/go/wiki/Modules).
 
 Run unit tests only by
 
@@ -83,7 +83,7 @@ make docker
 
 ### Run iotex-core
 
-Start (or resume) a standalone server to operate on an blockchain by
+Start (or resume) a standalone server to operate on a blockchain by
 
 ```
 make run
