@@ -87,28 +87,19 @@ func (p SortedActions) Less(i, j int) bool { return p[i].Nonce() < p[j].Nonce() 
 // Option sets action pool construction parameter
 type Option func(pool *actPool) error
 
-// EnableExperimentalActions enables the action pool to take experimental actions
-func EnableExperimentalActions() Option {
-	return func(pool *actPool) error {
-		pool.enableExperimentalActions = true
-		return nil
-	}
-}
-
 // actPool implements ActPool interface
 type actPool struct {
-	cfg                       Config
-	g                         genesis.Genesis
-	sf                        protocol.StateReader
-	accountDesActs            *destinationMap
-	allActions                *ttl.Cache
-	gasInPool                 uint64
-	actionEnvelopeValidators  []action.SealedEnvelopeValidator
-	timerFactory              *prometheustimer.TimerFactory
-	enableExperimentalActions bool
-	senderBlackList           map[string]bool
-	jobQueue                  []chan workerJob
-	worker                    []*queueWorker
+	cfg                      Config
+	g                        genesis.Genesis
+	sf                       protocol.StateReader
+	accountDesActs           *destinationMap
+	allActions               *ttl.Cache
+	gasInPool                uint64
+	actionEnvelopeValidators []action.SealedEnvelopeValidator
+	timerFactory             *prometheustimer.TimerFactory
+	senderBlackList          map[string]bool
+	jobQueue                 []chan workerJob
+	worker                   []*queueWorker
 }
 
 // NewActPool constructs a new actpool
