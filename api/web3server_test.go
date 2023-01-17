@@ -1,7 +1,10 @@
 package api
 
 import (
+	"encoding/hex"
+	"fmt"
 	"io"
+	"math/big"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +17,17 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/go-pkgs/util"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/action"
+	apitypes "github.com/iotexproject/iotex-core/api/types"
+	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
 )
 
@@ -137,51 +150,325 @@ func TestGasPrice(t *testing.T) {
 }
 
 func TestGetChainID(t *testing.T) {
-
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
+	core.EXPECT().EVMNetworkID().Return(uint32(1))
+	ret, err := web3svr.getChainID()
+	require.NoError(err)
+	require.Equal("0x1", ret.(string))
 }
 
 func TestGetBlockNumber(t *testing.T) {
-
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
+	core.EXPECT().TipHeight().Return(uint64(1))
+	ret, err := web3svr.getBlockNumber()
+	require.NoError(err)
+	require.Equal("0x1", ret.(string))
 }
 
 func TestGetBlockByNumber(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
 
+	tsf, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	tsfhash, err := tsf.Hash()
+	require.NoError(err)
+	receipts := []*action.Receipt{
+		{BlockHeight: 1, ActionHash: tsfhash},
+		{BlockHeight: 2, ActionHash: tsfhash},
+	}
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetVersion(111).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(time.Now()).
+		SetReceipts(receipts).
+		AddActions(tsf).
+		SignAndBuild(identityset.PrivateKey(0))
+	require.NoError(err)
+	core.EXPECT().BlockByHeight(gomock.Any()).Return(&apitypes.BlockWithReceipts{
+		Block:    &blk,
+		Receipts: receipts,
+	}, nil)
+
+	in := gjson.Parse(`{"params":["1", true]}`)
+	ret, err := web3svr.getBlockByNumber(&in)
+	require.NoError(err)
+	rlt, ok := ret.(*getBlockResult)
+	require.True(ok)
+	require.Equal(rlt.blk.Header, blk.Header)
+	require.Equal(rlt.blk.Receipts, receipts)
+	require.Len(rlt.transactions, 1)
+	tsrlt, ok := rlt.transactions[0].(*getTransactionResult)
+	require.True(ok)
+	require.Equal(tsrlt.receipt, receipts[0])
 }
 
 func TestGetBalance(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
+	balance := "111111111111111111"
+	core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{Balance: balance}, nil, nil)
 
+	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]}`)
+	ret, err := web3svr.getBalance(&in)
+	require.NoError(err)
+	ans, ok := new(big.Int).SetString(balance, 10)
+	require.True(ok)
+	require.Equal("0x"+fmt.Sprintf("%x", ans), ret.(string))
 }
 
 func TestGetTransactionCount(t *testing.T) {
-
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
+	core.EXPECT().PendingNonce(gomock.Any()).Return(uint64(2), nil)
+	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]}`)
+	ret, err := web3svr.getTransactionCount(&in)
+	require.NoError(err)
+	require.Equal("0x2", ret.(string))
 }
 
 func TestCall(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
 
+	t.Run("to is StakingProtocol addr", func(t *testing.T) {
+		meta := &iotextypes.AccountMeta{
+			Address: "io000000000000000000000000stakingprotocol",
+			Balance: "100000000000000000000",
+		}
+		metaBytes, _ := proto.Marshal(meta)
+		core.EXPECT().ReadState(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&iotexapi.ReadStateResponse{
+			Data: metaBytes,
+		}, nil)
+		in := gjson.Parse(`{"params":[{
+			"from":     "",
+			"to":       "0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
+			"gas":      "0x4e20",
+			"gasPrice": "0xe8d4a51000",
+			"value":    "0x1",
+			"data":     "d201114a"
+		   },
+		   1]}`)
+		ret, err := web3svr.call(&in)
+		require.NoError(err)
+		require.Equal("0x0000000000000000000000000000000000000000000000056bc75e2d63100000", ret.(string))
+	})
+
+	t.Run("to is RewardingProtocol addr", func(t *testing.T) {
+		amount := big.NewInt(10000)
+		core.EXPECT().ReadState(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&iotexapi.ReadStateResponse{
+			Data: []byte(amount.String()),
+		}, nil)
+		in := gjson.Parse(`{"params":[{
+			"from":     "",
+			"to":       "0xA576C141e5659137ddDa4223d209d4744b2106BE",
+			"gas":      "0x4e20",
+			"gasPrice": "0xe8d4a51000",
+			"value":    "0x1",
+			"data":     "ad7a672f"
+		   },
+		   1]}`)
+		ret, err := web3svr.call(&in)
+		require.NoError(err)
+		require.Equal("0x0000000000000000000000000000000000000000000000000000000000002710", ret.(string))
+	})
+
+	t.Run("to is contract addr", func(t *testing.T) {
+		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("111111", nil, nil)
+		in := gjson.Parse(`{"params":[{
+			"from":     "",
+			"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
+			"gas":      "0x4e20",
+			"gasPrice": "0xe8d4a51000",
+			"value":    "0x1",
+			"data":     "0x1"
+		   },
+		   1]}`)
+		ret, err := web3svr.call(&in)
+		require.NoError(err)
+		require.Equal("0x111111", ret.(string))
+	})
 }
 
 func TestEstimateGas(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
+	core.EXPECT().ChainID().Return(uint32(1)).Times(2)
 
+	t.Run("estimate execution", func(t *testing.T) {
+		core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{IsContract: true}, nil, nil)
+		core.EXPECT().EstimateExecutionGasConsumption(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint64(11000), nil)
+
+		in := gjson.Parse(`{"params":[{
+			"from":     "",
+			"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
+			"gas":      "0x4e20",
+			"gasPrice": "0xe8d4a51000",
+			"value":    "0x1",
+			"data":     "0x6d4ce63c"
+		   },
+		   1]}`)
+		ret, err := web3svr.estimateGas(&in)
+		require.NoError(err)
+		require.Equal(uint64ToHex(uint64(21000)), ret.(string))
+	})
+
+	t.Run("estimate nonexecution", func(t *testing.T) {
+		core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{IsContract: false}, nil, nil)
+		core.EXPECT().EstimateGasForNonExecution(gomock.Any()).Return(uint64(36000), nil)
+
+		in := gjson.Parse(`{"params":[{
+			"from":     "",
+			"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
+			"gas":      "0x4e20",
+			"gasPrice": "0xe8d4a51000",
+			"value":    "0x1",
+			"data":     "0x1123123c"
+		   },
+		   1]}`)
+		ret, err := web3svr.estimateGas(&in)
+		require.NoError(err)
+		require.Equal(uint64ToHex(uint64(36000)), ret.(string))
+	})
 }
 
 func TestSendRawTransaction(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
+	core.EXPECT().EVMNetworkID().Return(uint32(1))
+	core.EXPECT().ChainID().Return(uint32(1))
+	core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{IsContract: true}, nil, nil)
+	core.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return("111111111111111", nil)
 
+	in := gjson.Parse(`{"params":["f8600180830186a09412745fec82b585f239c01090882eb40702c32b04808025a0b0e1aab5b64d744ae01fc9f1c3e9919844a799e90c23129d611f7efe6aec8a29a0195e28d22d9b280e00d501ff63525bb76f5c87b8646c89d5d9c5485edcb1b498"]}`)
+	ret, err := web3svr.sendRawTransaction(&in)
+	require.NoError(err)
+	require.Equal("0x111111111111111", ret.(string))
 }
 
 func TestGetCode(t *testing.T) {
-
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
+	code := "608060405234801561001057600080fd5b50610150806100206contractbytecode"
+	data, _ := hex.DecodeString(code)
+	core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{ContractByteCode: data}, nil, nil)
+	in := gjson.Parse(`{"params":["0x7c13866F9253DEf79e20034eDD011e1d69E67fe5"]}`)
+	ret, err := web3svr.getCode(&in)
+	require.NoError(err)
+	require.Contains(code, util.Remove0xPrefix(ret.(string)))
 }
 
 func TestGetNodeInfo(t *testing.T) {
-
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
+	core.EXPECT().ServerMeta().Return("111", "", "", "222", "")
+	ret, err := web3svr.getNodeInfo()
+	require.NoError(err)
+	require.Equal("111/222", ret.(string))
 }
 
 func TestGetBlockTransactionCountByHash(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
 
+	tsf, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetVersion(111).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(time.Now()).
+		AddActions(tsf).
+		SignAndBuild(identityset.PrivateKey(0))
+	require.NoError(err)
+	core.EXPECT().BlockByHash(gomock.Any()).Return(&apitypes.BlockWithReceipts{
+		Block: &blk,
+	}, nil)
+
+	blkHash := blk.HashBlock()
+	in := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", true]}`, hex.EncodeToString(blkHash[:])))
+	ret, err := web3svr.getBlockTransactionCountByHash(&in)
+	require.NoError(err)
+	require.Equal("0x1", ret.(string))
 }
 
 func TestGetBlockByHash(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
 
+	tsf, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	tsfhash, err := tsf.Hash()
+	require.NoError(err)
+	receipts := []*action.Receipt{
+		{BlockHeight: 1, ActionHash: tsfhash},
+		{BlockHeight: 2, ActionHash: tsfhash},
+	}
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetVersion(111).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(time.Now()).
+		SetReceipts(receipts).
+		AddActions(tsf).
+		SignAndBuild(identityset.PrivateKey(0))
+	require.NoError(err)
+	core.EXPECT().BlockByHash(gomock.Any()).Return(&apitypes.BlockWithReceipts{
+		Block:    &blk,
+		Receipts: receipts,
+	}, nil)
+
+	blkHash := blk.HashBlock()
+	in := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", true]}`, hex.EncodeToString(blkHash[:])))
+	ret, err := web3svr.getBlockByHash(&in)
+	require.NoError(err)
+	rlt, ok := ret.(*getBlockResult)
+	require.True(ok)
+	require.Equal(rlt.blk.Header, blk.Header)
+	require.Equal(rlt.blk.Receipts, receipts)
+	require.Len(rlt.transactions, 1)
+	tsrlt, ok := rlt.transactions[0].(*getTransactionResult)
+	require.True(ok)
+	require.Equal(tsrlt.receipt, receipts[0])
 }
 
 func TestGetTransactionByHash(t *testing.T) {
