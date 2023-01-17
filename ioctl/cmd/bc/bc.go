@@ -52,17 +52,13 @@ func init() {
 	BCCmd.AddCommand(_bcBucketCmd)
 	BCCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpointUsages, config.UILanguage))
-	BCCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
+	BCCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", !config.ReadConfig.SecureConnect,
 		config.TranslateInLang(_flagInsecureUsages, config.UILanguage))
 }
 
 // GetChainMeta gets block chain metadata
 func GetChainMeta() (*iotextypes.ChainMeta, error) {
-	secure := false
-	if !config.Insecure {
-		secure = config.ReadConfig.SecureConnect
-	}
-	conn, err := util.ConnectToEndpoint(secure)
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
