@@ -41,7 +41,7 @@ func init() {
 	NodeCmd.AddCommand(_nodeProbationlistCmd)
 	NodeCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpointUsages, config.UILanguage))
-	NodeCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
+	NodeCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", !config.ReadConfig.SecureConnect,
 		config.TranslateInLang(_flagInsecureUsages, config.UILanguage))
 	_allFlag.RegisterCommand(_nodeDelegateCmd)
 }

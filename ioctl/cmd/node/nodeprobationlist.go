@@ -34,7 +34,6 @@ var _nodeProbationlistCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := probationlist()
 		return output.PrintError(err)
 	},

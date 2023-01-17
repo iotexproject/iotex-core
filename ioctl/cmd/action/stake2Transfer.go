@@ -39,7 +39,6 @@ var _stake2TransferCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := stake2Transfer(args)
 		return output.PrintError(err)
 

@@ -56,7 +56,6 @@ ioctl bc bucket count, to query total number of active buckets
 `,
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		cmd.SilenceUsage = true
-		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		switch args[0] {
 		case _bcBucketOptMax:
 			err = getBucketsTotalCount()
@@ -161,7 +160,7 @@ func getBucket(arg string) error {
 }
 
 func getBucketByIndex(index uint64) (*iotextypes.VoteBucket, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -237,7 +236,7 @@ func getBucketsActiveCount() error {
 }
 
 func getBucketsCount() (count *iotextypes.BucketsCount, err error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}

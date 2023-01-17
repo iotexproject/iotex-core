@@ -74,8 +74,6 @@ var (
 	ReadConfig Config
 	// Insecure represents the insecure connect option of grpc dial, default is false
 	Insecure = false
-	// IsSetInsecure represents if user set Insecure in cmdline, true if set, false if not
-	IsSetInsecure = false
 	// UILanguage represents the language of ioctl user interface, default is 0 representing English
 	UILanguage Language
 )

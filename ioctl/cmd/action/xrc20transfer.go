@@ -35,7 +35,6 @@ var _xrc20TransferCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := xrc20Transfer(args)
 		return output.PrintError(err)
 	},

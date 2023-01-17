@@ -95,7 +95,7 @@ func init() {
 	ActionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagActionEndPointUsages,
 			config.UILanguage))
-	ActionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
+	ActionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", !config.ReadConfig.SecureConnect,
 		config.TranslateInLang(_flagActionInsecureUsages, config.UILanguage))
 }
 
@@ -154,7 +154,7 @@ func gasPriceInRau() (*big.Int, error) {
 	if len(gasPrice) != 0 {
 		return util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	}
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -182,7 +182,7 @@ func gasPriceInRau() (*big.Int, error) {
 }
 
 func fixGasLimit(caller string, execution *action.Execution) (*action.Execution, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -217,7 +217,7 @@ func fixGasLimit(caller string, execution *action.Execution) (*action.Execution,
 
 // SendRaw sends raw action to blockchain
 func SendRaw(selp *iotextypes.Action) error {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -355,7 +355,7 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 
 // Read reads smart contract on IoTeX blockchain
 func Read(contract address.Address, amount string, bytecode []byte) (string, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return "", output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}

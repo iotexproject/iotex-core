@@ -52,13 +52,13 @@ func init() {
 	BCCmd.AddCommand(_bcBucketCmd)
 	BCCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpointUsages, config.UILanguage))
-	BCCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
+	BCCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", !config.ReadConfig.SecureConnect,
 		config.TranslateInLang(_flagInsecureUsages, config.UILanguage))
 }
 
 // GetChainMeta gets block chain metadata
 func GetChainMeta() (*iotextypes.ChainMeta, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -87,7 +87,7 @@ func GetChainMeta() (*iotextypes.ChainMeta, error) {
 
 // GetEpochMeta gets blockchain epoch meta
 func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -116,7 +116,7 @@ func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
 
 // GetProbationList gets probation list
 func GetProbationList(epochNum uint64, epochStartHeight uint64) (*iotexapi.ReadStateResponse, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -156,7 +156,7 @@ func GetBucketList(
 	methodName iotexapi.ReadStakingDataMethod_Name,
 	readStakingDataRequest *iotexapi.ReadStakingDataRequest,
 ) (*iotextypes.VoteBucketList, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}

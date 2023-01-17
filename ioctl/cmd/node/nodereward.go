@@ -46,7 +46,6 @@ var _nodeRewardCmd = &cobra.Command{
 	Long:  config.TranslateInLang(_rewardPoolLong, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		var err error
 		switch args[0] {
 		case "pool":
@@ -98,7 +97,7 @@ func (m *rewardMessage) String() string {
 }
 
 func rewardPool() error {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -165,7 +164,7 @@ func reward(arg string) error {
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get address", err)
 	}
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}

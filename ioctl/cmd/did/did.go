@@ -42,5 +42,5 @@ func init() {
 	DIDCmd.AddCommand(_didDeregisterCmd)
 	DIDCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpoint, config.UILanguage))
-	DIDCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(_flagInsecure, config.UILanguage))
+	DIDCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", !config.ReadConfig.SecureConnect, config.TranslateInLang(_flagInsecure, config.UILanguage))
 }

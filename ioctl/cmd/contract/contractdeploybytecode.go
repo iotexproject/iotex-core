@@ -33,7 +33,6 @@ var _contractDeployBytecodeCmd = &cobra.Command{
 	Args:  util.CheckArgs(1, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := contractDeployBytecode(args)
 		return output.PrintError(err)
 	},

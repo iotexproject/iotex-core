@@ -50,7 +50,6 @@ var _actionHashCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := getActionByHash(args)
 		return output.PrintError(err)
 	},
@@ -90,7 +89,7 @@ func (m *actionMessage) String() string {
 // getActionByHash gets action of IoTeX Blockchain by hash
 func getActionByHash(args []string) error {
 	hash := args[0]
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}

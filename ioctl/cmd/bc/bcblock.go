@@ -51,7 +51,6 @@ var _bcBlockCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := getBlock(args)
 		return output.PrintError(err)
 	},
@@ -192,7 +191,7 @@ func getBlock(args []string) error {
 
 // getActionInfoByBlock gets action info by block hash with start index and action count
 func getActionInfoWithinBlock(height uint64) ([]blocksInfo, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -229,7 +228,7 @@ func getActionInfoWithinBlock(height uint64) ([]blocksInfo, error) {
 
 // getBlockMetaByHeight gets block metadata by height
 func getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -268,7 +267,7 @@ func getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 
 // getBlockMetaByHash gets block metadata by hash
 func getBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}

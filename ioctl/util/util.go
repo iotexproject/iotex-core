@@ -48,22 +48,15 @@ func ExecuteCmd(cmd *cobra.Command, args ...string) (string, error) {
 }
 
 // ConnectToEndpoint starts a new connection
-func ConnectToEndpoint() (*grpc.ClientConn, error) {
+func ConnectToEndpoint(secure bool) (*grpc.ClientConn, error) {
 	endpoint := config.ReadConfig.Endpoint
 	if endpoint == "" {
 		return nil, output.NewError(output.ConfigError, `use "ioctl config set endpoint" to config endpoint first`, nil)
 	}
-	if !secure() {
+	if !secure {
 		return grpc.Dial(endpoint, grpc.WithInsecure())
 	}
 	return grpc.Dial(endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
-}
-
-func secure() bool {
-	if config.IsSetInsecure {
-		return !config.Insecure
-	}
-	return config.ReadConfig.SecureConnect
 }
 
 // StringToRau converts different unit string into Rau big int

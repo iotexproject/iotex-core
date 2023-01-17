@@ -46,7 +46,6 @@ var VersionCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := version()
 		return err
 	},
@@ -60,7 +59,7 @@ type versionMessage struct {
 func init() {
 	VersionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpointUsage, config.UILanguage))
-	VersionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
+	VersionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", !config.ReadConfig.SecureConnect,
 		config.TranslateInLang(_flagInsecureUsage, config.UILanguage))
 }
 
@@ -78,7 +77,7 @@ func version() error {
 	fmt.Println(message.String())
 
 	message = versionMessage{Object: config.ReadConfig.Endpoint}
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}

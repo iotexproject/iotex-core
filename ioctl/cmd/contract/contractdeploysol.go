@@ -39,7 +39,6 @@ var _contractDeploySolCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		err := contractDeploySol(args)
 		return output.PrintError(err)
 	},

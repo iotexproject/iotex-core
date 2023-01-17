@@ -84,7 +84,7 @@ func init() {
 	AccountCmd.AddCommand(_accountActionsCmd)
 	AccountCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpoint, config.UILanguage))
-	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(_flagInsecure, config.UILanguage))
+	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", !config.ReadConfig.SecureConnect, config.TranslateInLang(_flagInsecure, config.UILanguage))
 }
 
 // Sign sign message with signer
@@ -179,7 +179,7 @@ func PrivateKeyFromSigner(signer, password string) (crypto.PrivateKey, error) {
 
 // GetAccountMeta gets account metadata
 func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}

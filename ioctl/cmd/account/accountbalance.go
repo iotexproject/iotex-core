@@ -36,7 +36,6 @@ var accountBalanceCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		config.IsSetInsecure = cmd.Flags().Changed("insecure")
 		arg := ""
 		if len(args) == 1 {
 			arg = args[0]
