@@ -158,11 +158,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 }
 
 // validateTransfer validates a transfer
-func (p *Protocol) validateTransfer(ctx context.Context, act action.Action) error {
-	tsf, ok := act.(*action.Transfer)
-	if !ok {
-		return nil
-	}
+func (p *Protocol) validateTransfer(ctx context.Context, tsf *action.Transfer) error {
 	// Reject oversized transfer
 	if tsf.TotalSize() > TransferSizeLimit {
 		return action.ErrOversizedData
