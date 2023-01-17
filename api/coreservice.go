@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -26,6 +28,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -140,6 +143,8 @@ type (
 		ReceiveBlock(blk *block.Block) error
 		// BlockHashByBlockHeight returns block hash by block height
 		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
+		// TraceTransaction returns the trace result of a transaction
+		TraceTransaction(ctx context.Context, actHash string, config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -1581,4 +1586,30 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
 	startingHeight, currentHeight, targetHeight, _ := core.bs.SyncStatus()
 	return startingHeight, currentHeight, targetHeight
+}
+
+// TraceTransaction returns the trace result of transaction
+func (core *coreService) TraceTransaction(ctx context.Context, actHash string, config *logger.Config) (retval []byte, receipt *action.Receipt, traces *logger.StructLogger, err error) {
+	actInfo, err := core.Action(util.Remove0xPrefix(actHash), false)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	act, err := (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID()).ActionToSealedEnvelope(actInfo.Action)
+	if err != nil {
+		return
+	}
+	sc, ok := act.Action().(*action.Execution)
+	if !ok {
+		err = status.Error(codes.InvalidArgument, "the type of action is not supported")
+		return
+	}
+	traces = logger.NewStructLogger(nil)
+	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
+		Debug:     true,
+		Tracer:    traces,
+		NoBaseFee: true,
+	})
+
+	retval, receipt, err = core.SimulateExecution(ctx, act.SenderAddress(), sc)
+	return
 }

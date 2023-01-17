@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -74,6 +75,14 @@ type (
 		StartingBlock string `json:"startingBlock"`
 		CurrentBlock  string `json:"currentBlock"`
 		HighestBlock  string `json:"highestBlock"`
+	}
+
+	debugTraceTransactionResult struct {
+		Failed      bool               `json:"failed"`
+		Revert      string             `json:"revert"`
+		ReturnValue string             `json:"returnValue"`
+		Gas         uint64             `json:"gas"`
+		StructLogs  []logger.StructLog `json:"structLogs"`
 	}
 )
 

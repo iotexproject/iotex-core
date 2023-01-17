@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
@@ -205,6 +206,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.subscribe(web3Req, writer)
 	case "eth_unsubscribe":
 		res, err = svr.unsubscribe(web3Req)
+	case "debug_traceTransaction":
+		res, err = svr.traceTransaction(ctx, web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
 		"eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex",
 		"eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
@@ -878,6 +881,42 @@ func (svr *web3Handler) unsubscribe(in *gjson.Result) (interface{}, error) {
 	}
 	chainListener := svr.coreService.ChainListener()
 	return chainListener.RemoveResponder(id.String())
+}
+
+func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) (interface{}, error) {
+	actHash, options := in.Get("params.0"), in.Get("params.1")
+	if !actHash.Exists() {
+		return nil, errInvalidFormat
+	}
+	hash := util.Remove0xPrefix(actHash.String())
+	if len(hash) != 64 {
+		return nil, errInvalidFormat
+	}
+	var (
+		enableMemory, disableStack, disableStorage, enableReturnData bool
+	)
+	if options.Exists() {
+		enableMemory = options.Get("enableMemory").Bool()
+		disableStack = options.Get("disableStack").Bool()
+		disableStorage = options.Get("disableStorage").Bool()
+		enableReturnData = options.Get("enableReturnData").Bool()
+	}
+	cfg := &logger.Config{
+		EnableMemory:     enableMemory,
+		DisableStack:     disableStack,
+		DisableStorage:   disableStorage,
+		EnableReturnData: enableReturnData,
+	}
+	retval, receipt, traces, err := svr.coreService.TraceTransaction(ctx, hash, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &debugTraceTransactionResult{
+		Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+		ReturnValue: byteToHex(retval),
+		StructLogs:  traces.StructLogs(),
+		Gas:         receipt.GasConsumed,
+	}, nil
 }
 
 func (svr *web3Handler) unimplemented() (interface{}, error) {
