@@ -1609,7 +1609,7 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 		Tracer:    traces,
 		NoBaseFee: true,
 	})
-
-	retval, receipt, err = core.SimulateExecution(ctx, act.SenderAddress(), sc)
+	addr, _ := address.FromString(address.ZeroAddress)
+	retval, receipt, err = core.SimulateExecution(ctx, addr, sc)
 	return
 }
