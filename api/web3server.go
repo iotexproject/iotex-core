@@ -913,9 +913,9 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 		return nil, err
 	}
 
-	structLogs := make([]StructLog, 0)
+	structLogs := make([]structLog, 0)
 	for _, s := range traces.StructLogs() {
-		var enc StructLog
+		var enc structLog
 		enc.Pc = s.Pc
 		enc.Op = s.Op
 		enc.Gas = math.HexOrDecimal64(s.Gas)

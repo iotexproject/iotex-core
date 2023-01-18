@@ -1592,7 +1592,7 @@ func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
 func (core *coreService) TraceTransaction(ctx context.Context, actHash string, config *logger.Config) (retval []byte, receipt *action.Receipt, traces *logger.StructLogger, err error) {
 	actInfo, err := core.Action(util.Remove0xPrefix(actHash), false)
 	if err != nil {
-		return nil, nil, nil, err
+		return
 	}
 	act, err := (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID()).ActionToSealedEnvelope(actInfo.Action)
 	if err != nil {

@@ -80,7 +80,7 @@ type (
 		CurrentBlock  string `json:"currentBlock"`
 		HighestBlock  string `json:"highestBlock"`
 	}
-	StructLog struct {
+	structLog struct {
 		Pc            uint64                      `json:"pc"`
 		Op            vm.OpCode                   `json:"op"`
 		Gas           math.HexOrDecimal64         `json:"gas"`
@@ -100,7 +100,7 @@ type (
 		Revert      string      `json:"revert"`
 		ReturnValue string      `json:"returnValue"`
 		Gas         uint64      `json:"gas"`
-		StructLogs  []StructLog `json:"structLogs"`
+		StructLogs  []structLog `json:"structLogs"`
 	}
 )
 
