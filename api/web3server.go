@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -911,10 +912,31 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 	if err != nil {
 		return nil, err
 	}
+
+	structLogs := make([]StructLog, 0)
+	for _, s := range traces.StructLogs() {
+		var enc StructLog
+		enc.Pc = s.Pc
+		enc.Op = s.Op
+		enc.Gas = math.HexOrDecimal64(s.Gas)
+		enc.GasCost = math.HexOrDecimal64(s.GasCost)
+		enc.Memory = s.Memory
+		enc.MemorySize = s.MemorySize
+		enc.Stack = s.Stack
+		enc.ReturnData = s.ReturnData
+		enc.Storage = s.Storage
+		enc.Depth = s.Depth
+		enc.RefundCounter = s.RefundCounter
+		enc.OpName = s.OpName()
+		enc.ErrorString = s.ErrorString()
+		structLogs = append(structLogs, enc)
+	}
+
 	return &debugTraceTransactionResult{
 		Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+		Revert:      receipt.ExecutionRevertMsg(),
 		ReturnValue: byteToHex(retval),
-		StructLogs:  traces.StructLogs(),
+		StructLogs:  structLogs,
 		Gas:         receipt.GasConsumed,
 	}, nil
 }
