@@ -960,14 +960,15 @@ func TestSTXRunActions(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
 
-	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
-	require.NoError(err)
-	sdb, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
-	require.NoError(err)
-
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
+
+	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(err)
+	sdb, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption(), RegistryStateDBOption(registry))
+	require.NoError(err)
+
 	ctx := protocol.WithBlockCtx(
 		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
 		protocol.BlockCtx{},
@@ -1384,7 +1385,7 @@ func TestStateDBPatch(t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 	require.NoError(sdb.PutBlock(ctx, &blk2))
-	v11, err = trieDB.Get(n1, ha1)
+	_, err = trieDB.Get(n1, ha1)
 	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
 	v12, err = trieDB.Get(n1, ha2)
 	require.NoError(err)

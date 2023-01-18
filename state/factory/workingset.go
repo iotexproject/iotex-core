@@ -162,23 +162,21 @@ func (ws *workingSet) runAction(
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
 	var receipt *action.Receipt
+	defer ws.ResetSnapshots()
 	for _, actionHandler := range reg.All() {
 		receipt, err = actionHandler.Handle(ctx, elp.Action(), ws)
 		if err != nil {
-			err = errors.Wrapf(
+			return nil, errors.Wrapf(
 				err,
 				"error when action %x mutates states",
 				elpHash,
 			)
 		}
-		if receipt != nil || err != nil {
-			break
+		if receipt != nil {
+			return receipt, nil
 		}
 	}
-	ws.ResetSnapshots()
-
-	// TODO (zhi): return error if both receipt and err are nil
-	return receipt, err
+	return nil, errors.New("receipt is nil")
 }
 
 func validateChainID(ctx context.Context, chainID uint32) error {

@@ -8,7 +8,7 @@ package factory
 
 import (
 	"context"
-	"math/rand"
+	"math/big"
 	"testing"
 	"time"
 
@@ -18,10 +18,12 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -184,40 +186,65 @@ func TestWorkingSet_Dock(t *testing.T) {
 }
 
 func TestWorkingSet_ValidateBlock(t *testing.T) {
+	require := require.New(t)
+	registry := protocol.NewRegistry()
+	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
+	cfg := Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.TestDefault(),
+	}
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100000000"
 	var (
-		require    = require.New(t)
-		f1, _      = NewFactory(DefaultConfig, db.NewMemKVStore())
-		f2, _      = NewStateDB(DefaultConfig, db.NewMemKVStore())
+		f1, _      = NewFactory(cfg, db.NewMemKVStore(), RegistryOption(registry))
+		f2, _      = NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
 		factories  = []Factory{f1, f2}
-		digestHash = hash.Hash256b([]byte{65, 99, 99, 111, 117, 110, 116, 99, 117, 114, 114,
-			101, 110, 116, 72, 101, 105, 103, 104, 116, 1, 0, 0, 0, 0, 0, 0, 0})
+		digestHash = hash.BytesToHash256([]byte{67, 246, 156, 149, 78, 160, 19, 137, 23, 214, 154,
+			1, 247, 186, 71, 218, 116, 201, 156, 178, 198, 34, 159, 89, 105, 167, 240, 191,
+			83, 239, 183, 117})
+		receiptRoot = hash.BytesToHash256([]byte{43, 195, 20, 81, 149, 72, 181, 0, 230, 212, 137,
+			96, 64, 59, 99, 229, 48, 189, 105, 53, 69, 94, 195, 36, 128, 228, 210, 211, 189,
+			116, 62, 176})
 		tests = []struct {
 			block *block.Block
 			err   error
 		}{
-			{makeBlock(t, 1, hash.ZeroHash256, digestHash), nil},
 			{
-				makeBlock(t, 3, hash.ZeroHash256, digestHash),
+				makeBlock(t, 1, hash.ZeroHash256, receiptRoot, digestHash),
+				nil,
+			},
+			{
+				makeBlock(t, 3, hash.ZeroHash256, receiptRoot, digestHash),
 				action.ErrNonceTooHigh,
 			},
 			{
-				makeBlock(t, 1, hash.Hash256b([]byte("test")), digestHash),
+				makeBlock(t, 1, hash.ZeroHash256, hash.Hash256b([]byte("test")), digestHash),
 				block.ErrReceiptRootMismatch,
 			},
 			{
-				makeBlock(t, 1, hash.ZeroHash256, hash.Hash256b([]byte("test"))),
+				makeBlock(t, 1, hash.ZeroHash256, receiptRoot, hash.Hash256b([]byte("test"))),
 				block.ErrDeltaStateMismatch,
 			},
 		}
 	)
-	gasLimit := testutil.TestGasLimit * 100000
+
+	ctx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+		protocol.BlockCtx{},
+	)
+	require.NoError(f1.Start(ctx))
+	require.NoError(f2.Start(ctx))
+	defer func() {
+		require.NoError(f1.Stop(ctx))
+		require.NoError(f2.Stop(ctx))
+	}()
+
 	zctx := protocol.WithBlockCtx(context.Background(),
 		protocol.BlockCtx{
 			BlockHeight: uint64(1),
 			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
+			GasLimit:    testutil.TestGasLimit * 100000,
 		})
-	zctx = genesis.WithGenesisContext(zctx, genesis.Default)
+	zctx = genesis.WithGenesisContext(zctx, cfg.Genesis)
 	zctx = protocol.WithFeatureCtx(protocol.WithBlockchainCtx(zctx, protocol.BlockchainCtx{
 		ChainID: 1,
 	}))
@@ -228,17 +255,15 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 	}
 }
 
-func makeBlock(t *testing.T, nonce uint64, rootHash hash.Hash256, digest hash.Hash256) *block.Block {
-	rand.Seed(time.Now().Unix())
+func makeBlock(t *testing.T, nonce uint64, prevHash hash.Hash256, receiptRoot hash.Hash256, digest hash.Hash256) *block.Block {
 	var sevlps []action.SealedEnvelope
-	r := rand.Int()
 	tsf, err := action.NewTransfer(
-		uint64(r),
-		unit.ConvertIotxToRau(1000+int64(r)),
-		identityset.Address(r%identityset.Size()).String(),
+		uint64(nonce),
+		big.NewInt(1),
+		identityset.Address(29).String(),
 		nil,
-		20000+uint64(r),
-		unit.ConvertIotxToRau(1+int64(r)),
+		testutil.TestGasLimit,
+		big.NewInt(0),
 	)
 	require.NoError(t, err)
 	eb := action.EnvelopeBuilder{}
@@ -249,7 +274,7 @@ func makeBlock(t *testing.T, nonce uint64, rootHash hash.Hash256, digest hash.Ha
 		SetNonce(nonce).
 		SetVersion(1).
 		Build()
-	sevlp, err := action.Sign(evlp, identityset.PrivateKey((r+1)%identityset.Size()))
+	sevlp, err := action.Sign(evlp, identityset.PrivateKey(28))
 	require.NoError(t, err)
 	sevlps = append(sevlps, sevlp)
 	rap := block.RunnableActionsBuilder{}
@@ -258,9 +283,9 @@ func makeBlock(t *testing.T, nonce uint64, rootHash hash.Hash256, digest hash.Ha
 		SetHeight(1).
 		SetTimestamp(time.Now()).
 		SetVersion(1).
-		SetReceiptRoot(rootHash).
+		SetReceiptRoot(receiptRoot).
 		SetDeltaStateDigest(digest).
-		SetPrevBlockHash(hash.Hash256b([]byte("test"))).
+		SetPrevBlockHash(prevHash).
 		SignAndBuild(identityset.PrivateKey(0))
 	require.NoError(t, err)
 	return &blk
