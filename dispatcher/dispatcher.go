@@ -431,9 +431,9 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, pe
 		d.dispatchAction(ctx, chainID, message)
 	case *iotextypes.Block:
 		d.dispatchBlock(ctx, chainID, peer, message)
-	case *iotextypes.RequestNodeInfoMessage:
-		if err := subscriber.HandleRequestNodeInfoMsg(ctx, peer, msg); err != nil {
-			log.L().Warn("Failed to handle request node info message.", zap.Error(err))
+	case *iotextypes.ResponseNodeInfoMessage:
+		if err := subscriber.HandleNodeInfoMsg(ctx, peer, msg); err != nil {
+			log.L().Warn("Failed to handle node info message.", zap.Error(err))
 		}
 	default:
 		msgType, _ := goproto.GetTypeFromRPCMsg(message)

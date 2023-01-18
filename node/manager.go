@@ -68,11 +68,18 @@ func NewDelegateManager(cfg *Config, t transmitter, h heightable, privKey privat
 		heightable:  h,
 		privKey:     privKey,
 	}
-	// disable broadcast if RequestNodeInfoInterval == 0
-	if cfg.RequestNodeInfoInterval > 0 {
-		dm.broadcaster = routine.NewRecurringTask(dm.RequestAllNodeInfoAsync, cfg.RequestNodeInfoInterval)
-	}
 
+	dm.broadcaster = routine.NewRecurringTask(func() {
+		// delegates and nodes who are turned on will broadcast
+		if !dm.isDelegate() && dm.cfg.OnlyDelegateBroadcast {
+			log.L().Debug("delegate manager general node disabled node info broadcast")
+			return
+		}
+
+		if err := dm.BroadcastNodeInfo(context.Background()); err != nil {
+			log.L().Error("delegate manager broadcast node info failed", zap.Error(err))
+		}
+	}, cfg.BroadcastNodeInfoInterval)
 	return dm
 }
 
@@ -128,35 +135,49 @@ func (dm *DelegateManager) updateNode(node *Info) {
 	nodeDelegateHeightGauge.WithLabelValues(addr, node.Version).Set(float64(node.Height))
 }
 
-// RequestAllNodeInfoAsync broadcast request node info message
-func (dm *DelegateManager) RequestAllNodeInfoAsync() {
-	log.L().Debug("delegate manager request all node info")
+// BroadcastNodeInfo broadcast request node info message
+func (dm *DelegateManager) BroadcastNodeInfo(ctx context.Context) error {
+	log.L().Debug("delegate manager broadcast node info")
+	req, err := dm.genNodeInfoMsg()
+	if err != nil {
+		return err
+	}
+
 	// broadcast request meesage
-	if err := dm.transmitter.BroadcastOutbound(context.Background(), &iotextypes.RequestNodeInfoMessage{}); err != nil {
-		log.L().Error("delegate manager request node info failed", zap.Error(err))
+	if err := dm.transmitter.BroadcastOutbound(ctx, req); err != nil {
+		return err
 	}
 
 	// manually update self node info for broadcast message to myself will be ignored
 	dm.updateNode(&Info{
-		Version:   version.PackageVersion,
-		Height:    dm.heightable.TipHeight(),
-		Timestamp: time.Now(),
-		Address:   dm.privKey.PublicKey().Address().String(),
+		Version:   req.Info.Version,
+		Height:    req.Info.Height,
+		Timestamp: req.Info.Timestamp.AsTime(),
+		Address:   req.Info.Address,
 	})
+
+	return nil
 }
 
 // RequestSingleNodeInfoAsync unicast request node info message
-func (dm *DelegateManager) RequestSingleNodeInfoAsync(peer peer.AddrInfo) {
+func (dm *DelegateManager) RequestSingleNodeInfoAsync(ctx context.Context, peer peer.AddrInfo) error {
 	log.L().Debug("delegate manager request one node info", zap.String("peer", peer.ID.Pretty()))
-	// unicast request meesage
-	if err := dm.transmitter.UnicastOutbound(context.Background(), peer, &iotextypes.RequestNodeInfoMessage{}); err != nil {
-		log.L().Error("delegate manager request one node info failed", zap.Error(err))
-	}
+
+	return dm.transmitter.UnicastOutbound(ctx, peer, &iotextypes.RequestNodeInfoMessage{})
 }
 
 // TellNodeInfo tell node info to peer
 func (dm *DelegateManager) TellNodeInfo(ctx context.Context, peer peer.AddrInfo) error {
 	log.L().Debug("delegate manager tell node info", zap.Any("peer", peer.ID.Pretty()))
+	req, err := dm.genNodeInfoMsg()
+	if err != nil {
+		return err
+	}
+
+	return dm.transmitter.UnicastOutbound(ctx, peer, req)
+}
+
+func (dm *DelegateManager) genNodeInfoMsg() (*iotextypes.ResponseNodeInfoMessage, error) {
 	req := &iotextypes.ResponseNodeInfoMessage{
 		Info: &iotextypes.NodeInfo{
 			Version:   version.PackageVersion,
@@ -169,11 +190,15 @@ func (dm *DelegateManager) TellNodeInfo(ctx context.Context, peer peer.AddrInfo)
 	h := hashNodeInfo(req)
 	sign, err := dm.privKey.Sign(h[:])
 	if err != nil {
-		return errors.Wrap(err, "sign node info message failed")
+		return nil, errors.Wrap(err, "sign node info message failed")
 	}
 	req.Signature = sign
+	return req, nil
+}
 
-	return dm.transmitter.UnicastOutbound(ctx, peer, req)
+func (dm *DelegateManager) isDelegate() bool {
+	// TODO whether i am delegate
+	return false
 }
 
 func hashNodeInfo(msg *iotextypes.ResponseNodeInfoMessage) hash.Hash256 {
