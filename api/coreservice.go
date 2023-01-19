@@ -1211,18 +1211,14 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	blkHeight := blk.Height()
 
 	size := uint64(len(blk.Actions))
-	if reverseStart > size || count == 0 {
-		return nil
+	rstart := reverseStart + count - 1
+	if rstart > size-1 {
+		rstart = size - 1
 	}
+	rend := reverseStart
+	res := make([]*iotexapi.ActionInfo, 0, rstart-rend+1)
 
-	start := reverseStart + count - 1
-	if start >= size {
-		start = size - 1
-	}
-	end := reverseStart
-	res := make([]*iotexapi.ActionInfo, 0, start-end+1)
-
-	for idx := start; idx <= end; idx++ {
+	for idx := rstart; idx >= rend; idx-- {
 		ri := size - 1 - idx
 		selp := blk.Actions[ri]
 		actHash, err := selp.Hash()
