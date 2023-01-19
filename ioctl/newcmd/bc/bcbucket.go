@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
@@ -227,8 +228,10 @@ func getBuckets(client ioctl.Client, method *iotexapi.ReadStakingDataMethod, rea
 
 	response, err = apiClient.ReadState(ctx, request)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return nil, errors.New("check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has")
+			}
 			return nil, errors.New(sta.Message())
 		}
 		return nil, errors.Wrap(err, "failed to invoke ReadState api")

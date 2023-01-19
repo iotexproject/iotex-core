@@ -115,12 +115,13 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 					},
 				)
 				if err != nil {
-					sta, ok := status.FromError(err)
-					if ok && sta.Code() == codes.NotFound {
-						message.Determined = false
-						cmd.Println(message.String(epochNum))
-						return nil
-					} else if ok {
+					if sta, ok := status.FromError(err); ok {
+						if sta.Code() == codes.NotFound {
+							cmd.Println(message.String(epochNum))
+							return nil
+						} else if sta.Code() == codes.Unavailable {
+							return errors.New("check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has")
+						}
 						return errors.New(sta.Message())
 					}
 					return errors.Wrap(err, "failed to invoke ReadState api")
@@ -140,8 +141,10 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 					},
 				)
 				if err != nil {
-					sta, ok := status.FromError(err)
-					if ok {
+					if sta, ok := status.FromError(err); ok {
+						if sta.Code() == codes.Unavailable {
+							return errors.New("check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has")
+						}
 						return errors.New(sta.Message())
 					}
 					return errors.Wrap(err, "failed to invoke ReadState api")

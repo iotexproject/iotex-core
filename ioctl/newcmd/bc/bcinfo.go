@@ -38,6 +38,7 @@ func NewBCInfoCmd(client ioctl.Client) *cobra.Command {
 		Short: bcInfoCmdShort,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
 			chainMeta, err := GetChainMeta(client)
 			if err != nil {
 				return err
