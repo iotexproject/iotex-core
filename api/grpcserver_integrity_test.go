@@ -972,7 +972,7 @@ func TestGrpcServer_GetActionIntegrity(t *testing.T) {
 		if !test.checkPending {
 			blk, err := dao.GetBlockByHeight(test.blkNumber)
 			require.NoError(err)
-			timeStamp := blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
+			timeStamp := blk.Header.Proto().GetCore().GetTimestamp()
 			_blkHash := blk.HashBlock()
 			require.Equal(hex.EncodeToString(_blkHash[:]), act.BlkHash)
 			require.Equal(test.blkNumber, act.BlkHeight)

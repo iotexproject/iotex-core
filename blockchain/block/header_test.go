@@ -31,7 +31,7 @@ func TestHeader(t *testing.T) {
 	require.Equal("04755ce6d8903f6b3793bddb4ea5d3589d637de2d209ae0ea930815c82db564ee8cc448886f639e8a0c7e94e99a5c1335b583c0bc76ef30dd6a1038ed9da8daf33", header.PublicKey().HexString())
 	require.True(isEqual(expected, header.ReceiptRoot()))
 	require.True(isEqual("39f9a57253c8396601394ca504ff0cd648adefbd1d0728e9e77fd211e34c5258", header.HashBlock()))
-	require.NotNil(header.BlockHeaderProto())
+	require.NotNil(header.Proto())
 	require.NotNil(header.BlockHeaderCoreProto())
 	require.Equal("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms", header.ProducerAddress())
 }
@@ -55,7 +55,7 @@ func TestSerDesHeadrer(t *testing.T) {
 	require.Equal("04755ce6d8903f6b3793bddb4ea5d3589d637de2d209ae0ea930815c82db564ee8cc448886f639e8a0c7e94e99a5c1335b583c0bc76ef30dd6a1038ed9da8daf33", header.PublicKey().HexString())
 	require.True(isEqual(expected, header.ReceiptRoot()))
 	require.True(isEqual("39f9a57253c8396601394ca504ff0cd648adefbd1d0728e9e77fd211e34c5258", header.HashBlock()))
-	require.NotNil(header.BlockHeaderProto())
+	require.NotNil(header.Proto())
 	require.NotNil(header.BlockHeaderCoreProto())
 	require.Equal("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms", header.ProducerAddress())
 }
