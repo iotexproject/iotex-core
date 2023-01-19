@@ -112,6 +112,7 @@ type (
 		HTTPStatsPort         int           `yaml:"httpStatsPort"`
 		StartSubChainInterval time.Duration `yaml:"startSubChainInterval"`
 		SystemLogDBPath       string        `yaml:"systemLogDBPath"`
+		MptrieLogPath         string        `yaml:"mptrieLogPath"`
 	}
 
 	// Config is the root config struct, each package's config should be put as its sub struct

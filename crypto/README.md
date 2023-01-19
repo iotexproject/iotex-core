@@ -30,7 +30,7 @@
   * “//” is not a regular comment sign in CGO declaration. It starts a directive and will not be ignored by compiler.
   * import “C” should be immediately preceded by //#include XXX or //#cgo.
   * //#include XXX indicates the use of c header files and c source code files
-  * //#cgo is used to indicate the use of flags like CFLAGS, CPPFLAGS, CXXFLAGS, FFLAGS and LDFLAGS etc. to tweak the behavior of C, C++ compiler. The //#cgo directive can also include a list of build constraints that limit the os and architecture. It can also indicates the C library, so that you do not have to include the source code files.
+  * //#cgo is used to indicate the use of flags like CFLAGS, CPPFLAGS, CXXFLAGS, FFLAGS and LDFLAGS etc. to tweak the behavior of C, C++ compiler. The //#cgo directive can also include a list of build constraints that limit the os and architecture. It can also indicate the C library, so that you do not have to include the source code files.
 ``` Go
 //#cgo darwin LDFLAGS: -L${SRCDIR}/lib -lsect283k1_macos
 //#cgo linux LDFLAGS: -L${SRCDIR}/lib -lsect283k1_ubuntu
@@ -126,7 +126,7 @@ func (b *bls) Sign(privkey []uint32, msg []byte) (bool, []byte, error) {
 ```
 ##### 4. Use struct defined in C
   * Construct a corresponding struct in Go that mimics the same struct in C.
-  * (Recommended) Write function to serialize and deserialize the the struct, so the information can be exposed outside independently.
+  * (Recommended) Write function to serialize and deserialize the struct, so the information can be exposed outside independently.
     ``` Go
     // C header file and C struct definition
     typedef struct

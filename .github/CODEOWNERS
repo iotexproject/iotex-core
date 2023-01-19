@@ -10,12 +10,11 @@
 /api/   		    @Liuhaai @millken @CoderZhi 
 /config/	        @dustinxie @CoderZhi 
 /p2p/		    @Liuhaai @dustinxie
-
 /action/		    @CoderZhi @dustinxie
 /blockchain/	    @CoderZhi @dustinxie
 /blockindex/	    @CoderZhi @dustinxie
 /crypto/		    @CoderZhi @dustinxie
-/db/		        @CoderZhi @dustinxie
+/db/		        @CoderZhi @dustinxie @Liuhaai
 /dispatcher/	    @CoderZhi @dustinxie
 /pkg/		    @dustinxie
 /server/		    @CoderZhi @dustinxie
