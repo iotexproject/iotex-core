@@ -1211,16 +1211,17 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	blkHeight := blk.Height()
 
 	size := uint64(len(blk.Actions))
-	rstart := reverseStart + count - 1
-	if rstart > size-1 {
-		rstart = size - 1
+	if reverseStart > size || count == 0 {
+		return nil
 	}
-	rend := reverseStart
-	res := make([]*iotexapi.ActionInfo, 0, rstart-rend+1)
-
-	for idx := rstart; idx >= rend; idx-- {
-		ri := size - 1 - idx
-		selp := blk.Actions[ri]
+	start := size - (reverseStart + count)
+	if start < 0 {
+		start = 0
+	}
+	end := size - 1 - reverseStart
+	res := make([]*iotexapi.ActionInfo, 0, start-end+1)
+	for idx := start; idx <= end; idx++ {
+		selp := blk.Actions[idx]
 		actHash, err := selp.Hash()
 		if err != nil {
 			log.Logger("api").Debug("Skipping action due to hash error", zap.Error(err))
@@ -1241,7 +1242,7 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 			BlkHeight: blkHeight,
 			Sender:    sender.String(),
 			GasFee:    gas.String(),
-			Index:     uint32(ri),
+			Index:     uint32(idx),
 		})
 	}
 	return res
