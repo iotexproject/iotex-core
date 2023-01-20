@@ -472,7 +472,33 @@ func TestGetBlockByHash(t *testing.T) {
 }
 
 func TestGetTransactionByHash(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
 
+	selp, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	txHash, err := selp.Hash()
+	require.NoError(err)
+	receipt := &action.Receipt{
+		Status:          1,
+		BlockHeight:     1,
+		ActionHash:      hash.Hash256b([]byte("test")),
+		GasConsumed:     1,
+		ContractAddress: "test",
+		TxIndex:         1,
+	}
+	core.EXPECT().ActionByActionHash(gomock.Any()).Return(selp, hash.Hash256b([]byte("test")), 0, 0, nil)
+	core.EXPECT().ReceiptByActionHash(gomock.Any()).Return(receipt, nil)
+
+	in := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", true]}`, hex.EncodeToString(txHash[:])))
+	ret, err := web3svr.getTransactionByHash(&in)
+	require.NoError(err)
+	rlt, ok := ret.(*getTransactionResult)
+	require.True(ok)
+	require.Equal(rlt.receipt, receipt)
 }
 
 func TestGetLogs(t *testing.T) {
@@ -480,10 +506,74 @@ func TestGetLogs(t *testing.T) {
 }
 
 func TestGetTransactionReceipt(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
+
+	selp, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	txHash, err := selp.Hash()
+	require.NoError(err)
+	receipt := &action.Receipt{
+		Status:          1,
+		BlockHeight:     1,
+		ActionHash:      hash.Hash256b([]byte("test")),
+		GasConsumed:     1,
+		ContractAddress: "test",
+		TxIndex:         1,
+	}
+	core.EXPECT().ActionByActionHash(gomock.Any()).Return(selp, hash.Hash256b([]byte("test")), 0, 0, nil)
+	core.EXPECT().ReceiptByActionHash(gomock.Any()).Return(receipt, nil)
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetVersion(111).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(time.Now()).
+		AddActions(selp).
+		SignAndBuild(identityset.PrivateKey(0))
+	require.NoError(err)
+	core.EXPECT().BlockByHash(gomock.Any()).Return(&apitypes.BlockWithReceipts{
+		Block: &blk,
+	}, nil)
+
+	in := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", true]}`, hex.EncodeToString(txHash[:])))
+	ret, err := web3svr.getTransactionReceipt(&in)
+	require.NoError(err)
+	rlt, ok := ret.(*getReceiptResult)
+	require.True(ok)
+	require.Equal(rlt.receipt, receipt)
+	bf := blk.Header.LogsBloomfilter()
+	topic, _ := hex.DecodeString(rlt.logsBloom)
+	require.True(bf.Exist(topic))
 }
 
 func TestGetBlockTransactionCountByNumber(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
 
+	tsf, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetVersion(111).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(time.Now()).
+		AddActions(tsf).
+		SignAndBuild(identityset.PrivateKey(0))
+	require.NoError(err)
+	core.EXPECT().BlockByHeight(gomock.Any()).Return(&apitypes.BlockWithReceipts{
+		Block: &blk,
+	}, nil)
+	
+	in := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", true]}`, hex.EncodeToString(txHash[:])))
+	ret, err := web3svr.getBlockTransactionCountByNumber(&in)
+	require.NoError(err)
+	require.Equal("111/222", ret.(string))
 }
 
 func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
