@@ -470,6 +470,7 @@ func TestCreateBlockchain(t *testing.T) {
 	cfg := config.Default
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
+	cfg.Genesis = genesis.TestConfig()
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.ActPool.MinGasPriceStr = "0"
 	// create chain
@@ -686,6 +687,7 @@ func addTestingGetBlockHash(t *testing.T, g genesis.Genesis, bc blockchain.Block
 
 func TestBlockchain_MintNewBlock(t *testing.T) {
 	cfg := config.Default
+	cfg.Genesis = genesis.TestConfig()
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.ActPool.MinGasPriceStr = "0"
@@ -763,6 +765,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 
 func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	cfg := config.Default
+	cfg.Genesis = genesis.TestConfig()
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.ActPool.MinGasPriceStr = "0"
 	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
@@ -910,43 +913,43 @@ func TestConstantinople(t *testing.T) {
 			{
 				1,
 				_deployHash,
-				"2861aecf2b3f91822de00c9f42ca44276e386ac693df363770783bfc133346c3",
+				"f455e29b7a42d201be84c7b6e5f9ca0059801bbd9599a794ffc5cb47e43f60e8",
 				nil,
 			},
 			{
 				2,
 				_setHash,
-				"cb0f7895c1fa4f179c0c109835b160d9d1852fce526e12c6b443e86257cadb48",
+				"fa9095dacfecaf664bce3c33b7c1f424c951005aedeecf6dd0b5348d41b0968b",
 				_setTopic,
 			},
 			{
 				3,
 				_shrHash,
-				"c1337e26e157426dd0af058ed37e329d25dd3e34ed606994a6776b59f988f458",
+				"e03ad7ab3f615fdb47e5a527969343b221b6d044f793eaa6973a83ba2360183a",
 				_shrTopic,
 			},
 			{
 				4,
 				_shlHash,
-				"cf5c2050a261fa7eca45f31a184c6cd1dc737c7fc3088a0983f659b08985521c",
+				"3f834dbb02c6974113949243c8b401c8f78c668093133fc56965af1d8672fbd3",
 				_shlTopic,
 			},
 			{
 				5,
 				_sarHash,
-				"5d76bd9e4be3a60c00761fd141da6bd9c07ab73f472f537845b65679095b0570",
+				"d9e7bc30c27169bfc1c0170861700fdcbc009e0256f64028969ab40cec9f3955",
 				_sarTopic,
 			},
 			{
 				6,
 				_extHash,
-				"c5fd9f372b89265f2423737a6d7b680e9759a4a715b22b04ccf875460c310015",
+				"e816b44438fa6c52945a360d9c07b2e9c8b9d14512126cc76deeed21368a9c8f",
 				_extTopic,
 			},
 			{
 				7,
 				_crt2Hash,
-				"53632287a97e4e118302f2d9b54b3f97f62d3533286c4d4eb955627b3602d3b0",
+				"25ab4365780f5cde418a493cba7e795b4157895a50f9f52190d8cfb8a721000f",
 				_crt2Topic,
 			},
 		}
@@ -1079,10 +1082,12 @@ func TestConstantinople(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"
+	cfg.Genesis = genesis.TestConfig()
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.ActPool.MinGasPriceStr = "0"
+	cfg.Genesis = genesis.TestConfig()
 	cfg.Genesis.AleutianBlockHeight = 2
 	cfg.Genesis.BeringBlockHeight = 8
 	cfg.Genesis.GreenlandBlockHeight = 9
@@ -1336,6 +1341,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Genesis = genesis.TestConfig()
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.ActPool.MinGasPriceStr = "0"
 	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
@@ -1416,6 +1422,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	require.NoError(err)
 
 	cfg := config.Default
+	cfg.Genesis = genesis.TestConfig()
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath

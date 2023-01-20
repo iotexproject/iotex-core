@@ -440,6 +440,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(err)
 	// Disable block reward to make bookkeeping easier
 	cfg := config.Default
+	cfg.Genesis = genesis.TestConfig()
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
@@ -534,6 +535,7 @@ func newTestConfig() (config.Config, error) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	cfg.API.HTTPPort = testutil.RandomPort()
 	cfg.API.WebSocketPort = testutil.RandomPort()
+	cfg.Genesis = genesis.TestConfig()
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.MidwayBlockHeight = 1
 	sk, err := crypto.GenerateKey()

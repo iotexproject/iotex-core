@@ -420,6 +420,7 @@ func TestNativeStaking(t *testing.T) {
 	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Genesis = genesis.TestConfig()
 	cfg.Genesis.BootstrapCandidates = testInitCands
 	cfg.Genesis.FbkMigrationBlockHeight = 1
 

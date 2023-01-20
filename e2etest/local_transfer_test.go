@@ -603,6 +603,7 @@ func newTransferConfig(
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.API.GRPCPort = apiPort
+	cfg.Genesis = genesis.TestConfig()
 	cfg.Genesis.BlockInterval = 800 * time.Millisecond
 
 	return cfg, nil
@@ -642,6 +643,7 @@ func TestEnforceChainID(t *testing.T) {
 
 	ctx := context.Background()
 	cfg := config.Default
+	cfg.Genesis = genesis.TestConfig()
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.MidwayBlockHeight = 3
 	registry := protocol.NewRegistry()

@@ -27,7 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
-// Default contains the default genesis config
+// DefaultConfig contains the default genesis config
 var DefaultConfig = defaultConfig()
 
 func defaultConfig() Genesis {
@@ -63,7 +63,7 @@ func defaultConfig() Genesis {
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
-			InitBalanceMap: make(map[string]string),
+			InitBalanceMap: make(map[string]string, 0),
 		},
 		Poll: Poll{
 			PollMode:                         "nativeMix",
@@ -72,6 +72,7 @@ func defaultConfig() Genesis {
 			ProbationEpochPeriod:             6,
 			ProbationIntensityRate:           90,
 			UnproductiveDelegateMaxCacheSize: 20,
+			Delegates:                        make([]Delegate, 0),
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),

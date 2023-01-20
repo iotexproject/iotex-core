@@ -215,6 +215,7 @@ func TestStakingContract(t *testing.T) {
 	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"
 	cfg.Consensus.Scheme = config.RollDPoSScheme
+	cfg.Genesis = genesis.TestConfig()
 	cfg.Genesis.NumDelegates = 1
 	cfg.Genesis.NumSubEpochs = 10
 	cfg.Genesis.Delegates = []genesis.Delegate{

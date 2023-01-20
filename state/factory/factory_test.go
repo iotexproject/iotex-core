@@ -1040,6 +1040,7 @@ func TestPickAndRunActions(t *testing.T) {
 	require.NoError(err)
 
 	cfg := DefaultConfig
+	cfg.Genesis = genesis.TestConfig()
 	db1, err := db.CreateKVStore(db.DefaultConfig, testTriePath)
 	require.NoError(err)
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
@@ -1068,6 +1069,7 @@ func TestSTXPickAndRunActions(t *testing.T) {
 	require.NoError(err)
 
 	cfg := DefaultConfig
+	cfg.Genesis = genesis.TestConfig()
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
