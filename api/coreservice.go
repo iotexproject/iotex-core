@@ -239,13 +239,6 @@ func newCoreService(
 		opt(&core)
 	}
 
-	// TODO: enable message batching
-	// if core.broadcastHandler != nil {
-	// 	core.messageBatcher = batch.NewManager(func(msg *batch.Message) error {
-	// 		return core.broadcastHandler(context.Background(), core.bc.ChainID(), msg.Data)
-	// 	})
-	// }
-
 	return &core, nil
 }
 
@@ -835,7 +828,7 @@ func (core *coreService) Start(_ context.Context) error {
 func (core *coreService) Stop(_ context.Context) error {
 	if core.messageBatcher != nil {
 		if err := core.messageBatcher.Stop(); err != nil {
-			return errors.Wrap(err, "failed to start message batcher")
+			return errors.Wrap(err, "failed to stop message batcher")
 		}
 	}
 	return core.chainListener.Stop()
