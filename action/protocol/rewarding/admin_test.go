@@ -27,7 +27,7 @@ func TestAdminPb(t *testing.T) {
 	a := admin{}
 	r.NoError(a.Deserialize(b))
 
-	g := genesis.Default
+	g := genesis.TestConfig()
 	r.Equal(a.blockReward.String(), g.DardanellesBlockRewardStr)
 	r.Equal(a.epochReward.String(), g.AleutianEpochRewardStr)
 	r.Equal(a.numDelegatesForEpochReward, g.NumDelegatesForEpochReward)

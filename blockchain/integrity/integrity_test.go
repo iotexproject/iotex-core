@@ -524,7 +524,8 @@ func TestGetBlockHash(t *testing.T) {
 	cfg.Genesis.MidwayBlockHeight = 9
 	cfg.ActPool.MinGasPriceStr = "0"
 	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
-	block.LoadGenesisHash(&genesis.Default)
+	ge := genesis.TestConfig()
+	block.LoadGenesisHash(&ge)
 	// create chain
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -1201,7 +1202,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		fmt.Printf("Current tip = %d hash = %x\n", h, blkhash)
 
 		// add block with wrong height
-		selp, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
+		selp, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.TestConfig().ActionGasLimit, big.NewInt(0))
 		require.NoError(err)
 
 		nblk, err := block.NewTestingBuilder().
@@ -1215,7 +1216,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		fmt.Printf("Cannot validate block %d: %v\n", header.Height(), err)
 
 		// add block with zero prev hash
-		selp2, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
+		selp2, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.TestConfig().ActionGasLimit, big.NewInt(0))
 		require.NoError(err)
 
 		nblk, err = block.NewTestingBuilder().
@@ -1338,7 +1339,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.ActPool.MinGasPriceStr = "0"
 	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
-	block.LoadGenesisHash(&genesis.Default)
+	ge := genesis.TestConfig()
+	block.LoadGenesisHash(&ge)
 
 	t.Run("load blockchain from DB w/o explorer", func(t *testing.T) {
 		testValidateBlockchain(cfg, t)
@@ -1440,9 +1442,9 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 		blockchain.BlockValidatorOption(sf),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
-		genesis.Default.NumCandidateDelegates,
-		genesis.Default.NumDelegates,
-		genesis.Default.NumSubEpochs,
+		genesis.TestConfig().NumCandidateDelegates,
+		genesis.TestConfig().NumDelegates,
+		genesis.TestConfig().NumSubEpochs,
 	)
 	require.NoError(rolldposProtocol.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)

@@ -227,8 +227,8 @@ func TestReadContractStorage(t *testing.T) {
 	stateDB.CommitContracts()
 
 	ctx := protocol.WithBlockchainCtx(protocol.WithFeatureCtx(protocol.WithBlockCtx(
-		genesis.WithGenesisContext(context.Background(), genesis.Default),
-		protocol.BlockCtx{BlockHeight: genesis.Default.MidwayBlockHeight})),
+		genesis.WithGenesisContext(context.Background(), genesis.TestConfig()),
+		protocol.BlockCtx{BlockHeight: genesis.TestConfig().MidwayBlockHeight})),
 		protocol.BlockchainCtx{})
 	for k, v := range kvs {
 		b, err := ReadContractStorage(ctx, sm, addr, k[:])

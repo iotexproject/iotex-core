@@ -35,7 +35,7 @@ import (
 var (
 	// TODO: whenever ActionGasLimit is removed from genesis, we need to hard code it to 5M to make it compatible with
 	// the mainnet.
-	_preAleutianActionGasLimit = genesis.Default.ActionGasLimit
+	_preAleutianActionGasLimit = genesis.DefaultConfig.ActionGasLimit
 
 	_inContractTransfer = hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER)})
 

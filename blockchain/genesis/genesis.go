@@ -28,16 +28,7 @@ import (
 )
 
 // Default contains the default genesis config
-var Default = defaultConfig()
-
-var (
-	_genesisTs     int64
-	_loadGenesisTs sync.Once
-)
-
-func init() {
-	initTestDefaultConfig(&Default)
-}
+var DefaultConfig = defaultConfig()
 
 func defaultConfig() Genesis {
 	return Genesis{
@@ -113,12 +104,17 @@ func defaultConfig() Genesis {
 	}
 }
 
-// TestDefault is the default genesis config for testing
-func TestDefault() Genesis {
+// TestConfig is the genesis config for testing
+func TestConfig() Genesis {
 	ge := defaultConfig()
 	initTestDefaultConfig(&ge)
 	return ge
 }
+
+var (
+	_genesisTs     int64
+	_loadGenesisTs sync.Once
+)
 
 func initTestDefaultConfig(cfg *Genesis) {
 	cfg.PacificBlockHeight = 0

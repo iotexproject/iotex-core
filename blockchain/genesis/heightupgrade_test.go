@@ -14,7 +14,7 @@ import (
 func TestNewHeightChange(t *testing.T) {
 	require := require.New(t)
 
-	cfg := Default
+	cfg := TestConfig()
 	cfg.PacificBlockHeight = uint64(432001)
 
 	require.False(cfg.IsPacific(uint64(432000)))

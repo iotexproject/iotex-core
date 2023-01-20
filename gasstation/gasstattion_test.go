@@ -46,7 +46,7 @@ func TestNewGasStation(t *testing.T) {
 
 func newTestConfig() testConfig {
 	cfg := testConfig{
-		Genesis:    genesis.Default,
+		Genesis:    genesis.TestConfig(),
 		Chain:      blockchain.DefaultConfig,
 		ActPool:    actpool.DefaultConfig,
 		GasStation: DefaultConfig,

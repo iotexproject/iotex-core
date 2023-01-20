@@ -13,19 +13,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDefaultConfig(t *testing.T) {
+func TestDefaultConfigConfig(t *testing.T) {
 	// construct a config without overriding
 	cfg, err := New("")
 	require.NoError(t, err)
 	// Validate blockchain
-	assert.Equal(t, Default.BlockGasLimit, cfg.BlockGasLimit)
-	assert.Equal(t, Default.ActionGasLimit, cfg.ActionGasLimit)
-	assert.Equal(t, Default.NumSubEpochs, cfg.NumSubEpochs)
-	assert.Equal(t, Default.NumDelegates, cfg.NumDelegates)
+	assert.Equal(t, DefaultConfig.BlockGasLimit, cfg.BlockGasLimit)
+	assert.Equal(t, DefaultConfig.ActionGasLimit, cfg.ActionGasLimit)
+	assert.Equal(t, DefaultConfig.NumSubEpochs, cfg.NumSubEpochs)
+	assert.Equal(t, DefaultConfig.NumDelegates, cfg.NumDelegates)
 	// Validate rewarding protocol)
-	assert.Equal(t, Default.BlockReward(), cfg.BlockReward())
-	assert.Equal(t, Default.EpochReward(), cfg.EpochReward())
-	assert.Equal(t, Default.FoundationBonus(), cfg.FoundationBonus())
+	assert.Equal(t, DefaultConfig.BlockReward(), cfg.BlockReward())
+	assert.Equal(t, DefaultConfig.EpochReward(), cfg.EpochReward())
+	assert.Equal(t, DefaultConfig.FoundationBonus(), cfg.FoundationBonus())
 }
 func TestHash(t *testing.T) {
 	require := require.New(t)

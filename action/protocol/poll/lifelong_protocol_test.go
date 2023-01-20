@@ -21,7 +21,7 @@ import (
 )
 
 func initLifeLongDelegateProtocol(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, error) {
-	genesisConfig := genesis.Default
+	genesisConfig := genesis.TestConfig()
 	delegates := genesisConfig.Delegates
 	p := NewLifeLongDelegatesProtocol(delegates)
 	registry := protocol.NewRegistry()
@@ -31,7 +31,7 @@ func initLifeLongDelegateProtocol(ctrl *gomock.Controller) (Protocol, context.Co
 	}
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), registry),
-		genesis.Default,
+		genesis.TestConfig(),
 	)
 	ctx = protocol.WithActionCtx(
 		ctx,

@@ -131,7 +131,7 @@ func TestProtocol_Initialize(t *testing.T) {
 			return 0, nil
 		}).AnyTimes()
 
-	ge := genesis.Default
+	ge := genesis.TestConfig()
 	ge.Account.InitBalanceMap = map[string]string{
 		identityset.Address(0).String(): "100",
 	}

@@ -156,7 +156,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	testIndexer := func(kvStore db.KVStore, t *testing.T) {
-		ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+		ctx := genesis.WithGenesisContext(context.Background(), genesis.TestConfig())
 		indexer, err := NewIndexer(kvStore, hash.ZeroHash256)
 		require.NoError(err)
 		require.NoError(indexer.Start(ctx))
@@ -241,7 +241,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	testDelete := func(kvStore db.KVStore, t *testing.T) {
-		ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+		ctx := genesis.WithGenesisContext(context.Background(), genesis.TestConfig())
 		indexer, err := NewIndexer(kvStore, hash.ZeroHash256)
 		require.NoError(err)
 		require.NoError(indexer.Start(ctx))

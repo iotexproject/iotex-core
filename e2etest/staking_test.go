@@ -146,7 +146,7 @@ func TestStakingContract(t *testing.T) {
 		)
 		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx,
 			protocol.BlockCtx{
-				BlockHeight: genesis.Default.OkhotskBlockHeight,
+				BlockHeight: genesis.TestConfig().OkhotskBlockHeight,
 			}))
 		bcCtx := protocol.MustGetBlockchainCtx(ctx)
 		_, err = ns.Votes(ctx, bcCtx.Tip.Timestamp, false)

@@ -19,12 +19,12 @@ import (
 func TestGenesisBlock(t *testing.T) {
 	r := require.New(t)
 
-	g := genesis.Default
+	g := genesis.TestConfig()
 	genesis.SetGenesisTimestamp(g.Timestamp)
 	blk := GenesisBlock()
 	r.EqualValues(version.ProtocolVersion, blk.Version())
 	r.Zero(blk.Height())
-	r.Equal(genesis.Default.Timestamp, blk.Timestamp().Unix())
+	r.Equal(genesis.TestConfig().Timestamp, blk.Timestamp().Unix())
 	r.Equal(hash.ZeroHash256, blk.PrevHash())
 	r.Equal(hash.ZeroHash256, blk.TxRoot())
 	r.Equal(hash.ZeroHash256, blk.DeltaStateDigest())
