@@ -152,5 +152,5 @@ mkdir -p ./test/mock/mock_node
 mockgen -destination=./test/mock/mock_node/mock_manager.go  \
         -source=./node/manager.go \
         -package=mock_node \
-        transmitter heightable signer
+        transmitter heightable
 

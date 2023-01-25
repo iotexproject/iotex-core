@@ -9,7 +9,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	crypto "github.com/iotexproject/go-pkgs/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	proto "google.golang.org/protobuf/proto"
 )
@@ -51,6 +50,21 @@ func (mr *MocktransmitterMockRecorder) BroadcastOutbound(arg0, arg1 interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BroadcastOutbound", reflect.TypeOf((*Mocktransmitter)(nil).BroadcastOutbound), arg0, arg1)
 }
 
+// Info mocks base method.
+func (m *Mocktransmitter) Info() (peer.AddrInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Info")
+	ret0, _ := ret[0].(peer.AddrInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Info indicates an expected call of Info.
+func (mr *MocktransmitterMockRecorder) Info() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*Mocktransmitter)(nil).Info))
+}
+
 // UnicastOutbound mocks base method.
 func (m *Mocktransmitter) UnicastOutbound(arg0 context.Context, arg1 peer.AddrInfo, arg2 proto.Message) error {
 	m.ctrl.T.Helper()
@@ -65,31 +79,31 @@ func (mr *MocktransmitterMockRecorder) UnicastOutbound(arg0, arg1, arg2 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnicastOutbound", reflect.TypeOf((*Mocktransmitter)(nil).UnicastOutbound), arg0, arg1, arg2)
 }
 
-// Mockheightable is a mock of heightable interface.
-type Mockheightable struct {
+// Mockchain is a mock of chain interface.
+type Mockchain struct {
 	ctrl     *gomock.Controller
-	recorder *MockheightableMockRecorder
+	recorder *MockchainMockRecorder
 }
 
-// MockheightableMockRecorder is the mock recorder for Mockheightable.
-type MockheightableMockRecorder struct {
-	mock *Mockheightable
+// MockchainMockRecorder is the mock recorder for Mockchain.
+type MockchainMockRecorder struct {
+	mock *Mockchain
 }
 
-// NewMockheightable creates a new mock instance.
-func NewMockheightable(ctrl *gomock.Controller) *Mockheightable {
-	mock := &Mockheightable{ctrl: ctrl}
-	mock.recorder = &MockheightableMockRecorder{mock}
+// NewMockchain creates a new mock instance.
+func NewMockchain(ctrl *gomock.Controller) *Mockchain {
+	mock := &Mockchain{ctrl: ctrl}
+	mock.recorder = &MockchainMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *Mockheightable) EXPECT() *MockheightableMockRecorder {
+func (m *Mockchain) EXPECT() *MockchainMockRecorder {
 	return m.recorder
 }
 
 // TipHeight mocks base method.
-func (m *Mockheightable) TipHeight() uint64 {
+func (m *Mockchain) TipHeight() uint64 {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TipHeight")
 	ret0, _ := ret[0].(uint64)
@@ -97,59 +111,7 @@ func (m *Mockheightable) TipHeight() uint64 {
 }
 
 // TipHeight indicates an expected call of TipHeight.
-func (mr *MockheightableMockRecorder) TipHeight() *gomock.Call {
+func (mr *MockchainMockRecorder) TipHeight() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*Mockheightable)(nil).TipHeight))
-}
-
-// MockprivateKey is a mock of privateKey interface.
-type MockprivateKey struct {
-	ctrl     *gomock.Controller
-	recorder *MockprivateKeyMockRecorder
-}
-
-// MockprivateKeyMockRecorder is the mock recorder for MockprivateKey.
-type MockprivateKeyMockRecorder struct {
-	mock *MockprivateKey
-}
-
-// NewMockprivateKey creates a new mock instance.
-func NewMockprivateKey(ctrl *gomock.Controller) *MockprivateKey {
-	mock := &MockprivateKey{ctrl: ctrl}
-	mock.recorder = &MockprivateKeyMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockprivateKey) EXPECT() *MockprivateKeyMockRecorder {
-	return m.recorder
-}
-
-// PublicKey mocks base method.
-func (m *MockprivateKey) PublicKey() crypto.PublicKey {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PublicKey")
-	ret0, _ := ret[0].(crypto.PublicKey)
-	return ret0
-}
-
-// PublicKey indicates an expected call of PublicKey.
-func (mr *MockprivateKeyMockRecorder) PublicKey() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublicKey", reflect.TypeOf((*MockprivateKey)(nil).PublicKey))
-}
-
-// Sign mocks base method.
-func (m *MockprivateKey) Sign(arg0 []byte) ([]byte, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Sign", arg0)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Sign indicates an expected call of Sign.
-func (mr *MockprivateKeyMockRecorder) Sign(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*MockprivateKey)(nil).Sign), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*Mockchain)(nil).TipHeight))
 }

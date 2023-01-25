@@ -22,46 +22,45 @@ import (
 )
 
 func TestNewDelegateManager(t *testing.T) {
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	hMock := mock_node.NewMockheightable(ctrl)
+	hMock := mock_node.NewMockchain(ctrl)
 	tMock := mock_node.NewMocktransmitter(ctrl)
-	pMock := mock_node.NewMockprivateKey(ctrl)
-
-	require := require.New(t)
+	privK, err := crypto.GenerateKey()
+	require.NoError(err)
 
 	t.Run("disable_broadcast", func(t *testing.T) {
 		cfg := Config{true, 100 * time.Millisecond}
-		got := NewDelegateManager(&cfg, tMock, hMock, pMock)
-		require.Equal(cfg, got.cfg)
-		require.Equal(map[string]Info{}, got.nodeMap)
-		require.Equal(tMock, got.transmitter)
-		require.Equal(hMock, got.heightable)
-		require.Equal(pMock, got.privKey)
-		require.Equal(true, got.broadcaster != nil)
+		dm := NewDelegateManager(&cfg, tMock, hMock, privK)
+		require.Equal(cfg, dm.cfg)
+		require.Equal(map[string]Info{}, dm.nodeMap)
+		require.Equal(tMock, dm.transmitter)
+		require.Equal(hMock, dm.chain)
+		require.Equal(privK, dm.privKey)
+		require.Equal(true, dm.broadcastTask != nil)
 		tMock.EXPECT().BroadcastOutbound(gomock.Any(), gomock.Any()).Times(0)
-		err := got.Start(context.Background())
+		err := dm.Start(context.Background())
 		require.NoError(err)
+		defer dm.Stop(context.Background())
 		time.Sleep(time.Second)
 	})
 
 	t.Run("enable_broadcast", func(t *testing.T) {
 		cfg := Config{false, 100 * time.Millisecond}
-		got := NewDelegateManager(&cfg, tMock, hMock, pMock)
-		require.Equal(cfg, got.cfg)
-		require.Equal(map[string]Info{}, got.nodeMap)
-		require.Equal(tMock, got.transmitter)
-		require.Equal(hMock, got.heightable)
-		require.Equal(pMock, got.privKey)
-		require.Equal(true, got.broadcaster != nil)
-
-		privK, _ := crypto.GenerateKey()
-		hMock.EXPECT().TipHeight().Return(uint64(10)).AnyTimes()
-		pMock.EXPECT().PublicKey().Return(privK.PublicKey()).AnyTimes()
-		pMock.EXPECT().Sign(gomock.Any()).Return([]byte("xxxxxx"), nil).AnyTimes()
+		dm := NewDelegateManager(&cfg, tMock, hMock, privK)
+		require.Equal(cfg, dm.cfg)
+		require.Equal(map[string]Info{}, dm.nodeMap)
+		require.Equal(tMock, dm.transmitter)
+		require.Equal(hMock, dm.chain)
+		require.Equal(privK, dm.privKey)
+		require.Equal(true, dm.broadcastTask != nil)
+		tMock.EXPECT().Info().Return(peer.AddrInfo{}, nil).MinTimes(1)
+		hMock.EXPECT().TipHeight().Return(uint64(10)).MinTimes(1)
 		tMock.EXPECT().BroadcastOutbound(gomock.Any(), gomock.Any()).Return(nil).MinTimes(1)
-		err := got.Start(context.Background())
+		err := dm.Start(context.Background())
 		require.NoError(err)
+		defer dm.Stop(context.Background())
 		time.Sleep(time.Second)
 	})
 }
@@ -69,9 +68,8 @@ func TestNewDelegateManager(t *testing.T) {
 func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	hMock := mock_node.NewMockheightable(ctrl)
+	hMock := mock_node.NewMockchain(ctrl)
 	tMock := mock_node.NewMocktransmitter(ctrl)
-	pMock := mock_node.NewMockprivateKey(ctrl)
 
 	require := require.New(t)
 	privKey, err := crypto.GenerateKey()
@@ -86,20 +84,22 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 				Address:   privKey.PublicKey().Address().String(),
 			},
 		}
-		hash := hashNodeInfo(msg)
+		hash := hashNodeInfo(msg.Info)
 		msg.Signature, _ = privKey.Sign(hash[:])
-		dm := NewDelegateManager(&DefaultConfig, tMock, hMock, pMock)
+		dm := NewDelegateManager(&DefaultConfig, tMock, hMock, privKey)
 		dm.HandleNodeInfo(context.Background(), "abc", msg)
 		addr := msg.Info.Address
-		require.Equal(msg.Info.Height, dm.nodeMap[addr].Height)
-		require.Equal(msg.Info.Version, dm.nodeMap[addr].Version)
-		require.Equal(msg.Info.Timestamp.AsTime().String(), dm.nodeMap[addr].Timestamp.String())
+		nodeGot := dm.nodeMap[addr]
+		require.Equal(msg.Info.Height, nodeGot.Height)
+		require.Equal(msg.Info.Version, nodeGot.Version)
+		require.Equal(msg.Info.Timestamp.AsTime().String(), nodeGot.Timestamp.String())
+		require.Equal("abc", nodeGot.PeerID)
 		m := dto.Metric{}
 		nodeDelegateHeightGauge.WithLabelValues(addr, msg.Info.Version).Write(&m)
 		require.Equal(msg.Info.Height, uint64(m.Gauge.GetValue()))
 	})
 
-	t.Run("verify_unpass", func(t *testing.T) {
+	t.Run("verify_fail", func(t *testing.T) {
 		privKey2, _ := crypto.GenerateKey()
 		msg := &iotextypes.ResponseNodeInfoMessage{
 			Info: &iotextypes.NodeInfo{
@@ -108,13 +108,11 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 				Timestamp: timestamppb.Now(),
 				Address:   privKey2.PublicKey().Address().String(),
 			},
+			Signature: []byte("xxxx"),
 		}
-		hash := hashNodeInfo(msg)
-		msg.Signature, _ = privKey.Sign(hash[:])
-		dm := NewDelegateManager(&DefaultConfig, tMock, hMock, pMock)
+		dm := NewDelegateManager(&DefaultConfig, tMock, hMock, privKey)
 		dm.HandleNodeInfo(context.Background(), "abc", msg)
 		addr := msg.Info.Address
-
 		_, ok := dm.nodeMap[addr]
 		require.False(ok)
 		m := dto.Metric{}
@@ -124,94 +122,84 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 }
 
 func TestDelegateManager_BroadcastNodeInfo(t *testing.T) {
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	hMock := mock_node.NewMockheightable(ctrl)
+	hMock := mock_node.NewMockchain(ctrl)
 	tMock := mock_node.NewMocktransmitter(ctrl)
-	pMock := mock_node.NewMockprivateKey(ctrl)
-
-	require := require.New(t)
+	privKey, err := crypto.GenerateKey()
+	require.NoError(err)
 
 	t.Run("update_self", func(t *testing.T) {
-		dm := NewDelegateManager(&DefaultConfig, tMock, hMock, pMock)
-
+		dm := NewDelegateManager(&DefaultConfig, tMock, hMock, privKey)
 		height := uint64(200)
-		privK, _ := crypto.GenerateKey()
-		tMock.EXPECT().BroadcastOutbound(gomock.Any(), gomock.Any()).Return(nil).Times(1)
-		hMock.EXPECT().TipHeight().Return(height).Times(1)
-		pMock.EXPECT().PublicKey().Return(privK.PublicKey()).Times(1)
-		pMock.EXPECT().Sign(gomock.Any()).Return([]byte(""), nil).Times(1)
-		err := dm.BroadcastNodeInfo(context.Background())
-
+		peerID, err := peer.IDFromString("12D3KooWF2fns5ZWKbPfx2U1wQDdxoTK2D6HC3ortbSAQYR4BQp4")
 		require.NoError(err)
-		require.Equal(height, dm.nodeMap[privK.PublicKey().Address().String()].Height)
+		hMock.EXPECT().TipHeight().Return(height).Times(1)
+		tMock.EXPECT().Info().Return(peer.AddrInfo{ID: peerID}, nil).Times(1)
+		tMock.EXPECT().BroadcastOutbound(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+		err = dm.BroadcastNodeInfo(context.Background())
+		require.NoError(err)
+		addr := privKey.PublicKey().Address().String()
+		nodeGot := dm.nodeMap[addr]
+		require.Equal(height, nodeGot.Height)
+		require.Equal(dm.myVersion, nodeGot.Version)
+		require.Equal(addr, nodeGot.Address)
+		require.Equal(peerID.Pretty(), nodeGot.PeerID)
 	})
 }
 
-func TestDelegateManager_TellNodeInfo(t *testing.T) {
+func TestDelegateManager_HandleNodeInfoRequest(t *testing.T) {
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	hMock := mock_node.NewMockheightable(ctrl)
+	hMock := mock_node.NewMockchain(ctrl)
 	tMock := mock_node.NewMocktransmitter(ctrl)
-	pMock := mock_node.NewMockprivateKey(ctrl)
+	privKey, err := crypto.GenerateKey()
+	require.NoError(err)
 
-	require := require.New(t)
-
-	t.Run("tell", func(t *testing.T) {
-		dm := &DelegateManager{
-			cfg:         Config{},
-			nodeMap:     map[string]Info{},
-			broadcaster: nil,
-			transmitter: tMock,
-			heightable:  hMock,
-			privKey:     pMock,
-		}
+	t.Run("unicast", func(t *testing.T) {
+		dm := NewDelegateManager(&DefaultConfig, tMock, hMock, privKey)
 		height := uint64(200)
-		sign := []byte("xxxxxx")
-		privK, _ := crypto.GenerateKey()
+		var sig []byte
 		message := &iotextypes.ResponseNodeInfoMessage{}
-
 		hMock.EXPECT().TipHeight().Return(height).Times(1)
 		tMock.EXPECT().UnicastOutbound(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, peerInfo peer.AddrInfo, msg proto.Message) error {
 			*message = *msg.(*iotextypes.ResponseNodeInfoMessage)
+			hash := hashNodeInfo(message.Info)
+			sig, _ = dm.privKey.Sign(hash[:])
 			return nil
 		}).Times(1)
-		pMock.EXPECT().PublicKey().Return(privK.PublicKey()).Times(1)
-		pMock.EXPECT().Sign(gomock.Any()).Return(sign, nil).Times(1)
-
-		err := dm.TellNodeInfo(context.Background(), peer.AddrInfo{})
-
+		err := dm.HandleNodeInfoRequest(context.Background(), peer.AddrInfo{})
 		require.NoError(err)
 		require.Equal(message.Info.Height, height)
-		require.Equal(message.Signature, sign)
+		require.Equal(message.Info.Version, dm.myVersion)
+		require.Equal(message.Info.Address, dm.myAddress)
+		require.Equal(message.Signature, sig)
 	})
 }
 
 func TestDelegateManager_RequestSingleNodeInfoAsync(t *testing.T) {
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	hMock := mock_node.NewMockheightable(ctrl)
+	hMock := mock_node.NewMockchain(ctrl)
 	tMock := mock_node.NewMocktransmitter(ctrl)
-	pMock := mock_node.NewMockprivateKey(ctrl)
+	privKey, err := crypto.GenerateKey()
+	require.NoError(err)
 
-	require := require.New(t)
 	t.Run("request_single", func(t *testing.T) {
-		dm := &DelegateManager{
-			cfg:         Config{},
-			nodeMap:     map[string]Info{},
-			transmitter: tMock,
-			heightable:  hMock,
-			privKey:     pMock,
-		}
+		dm := NewDelegateManager(&DefaultConfig, tMock, hMock, privKey)
 		var paramPeer peer.AddrInfo
 		var paramMsg iotextypes.RequestNodeInfoMessage
-		targetPeer := peer.AddrInfo{ID: peer.ID("xxxx")}
+		peerID, err := peer.IDFromString("12D3KooWF2fns5ZWKbPfx2U1wQDdxoTK2D6HC3ortbSAQYR4BQp4")
+		require.NoError(err)
+		targetPeer := peer.AddrInfo{ID: peerID}
 		tMock.EXPECT().UnicastOutbound(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, p peer.AddrInfo, msg proto.Message) {
 			paramPeer = p
 			paramMsg = *msg.(*iotextypes.RequestNodeInfoMessage)
 		}).Times(1)
 		dm.RequestSingleNodeInfoAsync(context.Background(), targetPeer)
-
 		require.Equal(targetPeer, paramPeer)
 		require.Equal(iotextypes.RequestNodeInfoMessage{}, paramMsg)
 	})

@@ -184,7 +184,7 @@ func (cs *ChainService) HandleRequestNodeInfoMsg(ctx context.Context, peerID str
 	if id < 0 {
 		return errors.Errorf("unicast node info msg failed: target peerID %s is not connected", peerID)
 	}
-	return cs.delegateManager.TellNodeInfo(ctx, peers[id])
+	return cs.delegateManager.HandleNodeInfoRequest(ctx, peers[id])
 }
 
 // ChainID returns ChainID.
