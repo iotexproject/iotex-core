@@ -158,16 +158,15 @@ func (ws *workingSet) runAction(
 	// Handle action
 	reg, ok := protocol.GetRegistry(ctx)
 	if !ok {
-		return nil, nil
+		return nil, errors.New("protocol is empty")
 	}
 	elpHash, err := elp.Hash()
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
-	var receipt *action.Receipt
 	defer ws.ResetSnapshots()
 	for _, actionHandler := range reg.All() {
-		receipt, err = actionHandler.Handle(ctx, elp.Action(), ws)
+		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
 		if err != nil {
 			return nil, errors.Wrapf(
 				err,
@@ -179,7 +178,7 @@ func (ws *workingSet) runAction(
 			return receipt, nil
 		}
 	}
-	return nil, errors.New("receipt is nil")
+	return nil, errors.New("receipt is empty")
 }
 
 func validateChainID(ctx context.Context, chainID uint32) error {
