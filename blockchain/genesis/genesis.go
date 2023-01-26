@@ -108,16 +108,11 @@ func defaultConfig() Genesis {
 // TestConfig is the genesis config for testing
 func TestConfig() Genesis {
 	ge := defaultConfig()
-	initTestDefaultConfig(&ge)
+	initTestConfig(&ge)
 	return ge
 }
 
-var (
-	_genesisTs     int64
-	_loadGenesisTs sync.Once
-)
-
-func initTestDefaultConfig(cfg *Genesis) {
+func initTestConfig(cfg *Genesis) {
 	cfg.PacificBlockHeight = 0
 	for i := 0; i < identityset.Size(); i++ {
 		addr := identityset.Address(i).String()
@@ -132,6 +127,11 @@ func initTestDefaultConfig(cfg *Genesis) {
 		}
 	}
 }
+
+var (
+	_genesisTs     int64
+	_loadGenesisTs sync.Once
+)
 
 type (
 	// Genesis is the root level of genesis config. Genesis config is the network-wide blockchain config. All the nodes

@@ -224,7 +224,8 @@ func testVerifyChainDB(t *testing.T, fd FileDAO, start, end uint64) {
 }
 
 func createTestingBlock(builder *block.TestingBuilder, height uint64, h hash.Hash256) *block.Block {
-	block.LoadGenesisHash(&genesis.DefaultConfig)
+	ge := genesis.TestConfig()
+	block.LoadGenesisHash(&ge)
 	r := &action.Receipt{
 		Status:      1,
 		BlockHeight: height,
