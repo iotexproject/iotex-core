@@ -297,12 +297,25 @@ func TestGrpcServer_GetBlockMetas(t *testing.T) {
 	})
 }
 
-func TestGrpcServer_GetBlockMeta(t *testing.T) {
-
-}
-
 func TestGrpcServer_GetChainMeta(t *testing.T) {
-
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
+	chainMeta := &iotextypes.ChainMeta{
+		Height:   1000,
+		ChainID:  1,
+		Epoch:    &iotextypes.EpochData{Num: 7000},
+		TpsFloat: 11.22,
+	}
+	syncStatus := "sync ok"
+	core.EXPECT().ChainMeta().Return(chainMeta, syncStatus, nil)
+	request := &iotexapi.GetChainMetaRequest{}
+	res, err := grpcSvr.GetChainMeta(context.Background(), request)
+	require.NoError(err)
+	require.Equal(chainMeta, res.ChainMeta)
+	require.Equal(syncStatus, res.SyncStage)
 }
 
 func TestGrpcServer_SendAction(t *testing.T) {
@@ -537,51 +550,328 @@ func TestGrpcServer_EstimateGasForAction(t *testing.T) {
 }
 
 func TestGrpcServer_EstimateActionGasConsumption(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
+	request := &iotexapi.EstimateActionGasConsumptionRequest{
+		CallerAddress: identityset.Address(0).String(),
+	}
 
+	t.Run("Execution is not nil", func(t *testing.T) {
+		core.EXPECT().EstimateExecutionGasConsumption(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint64(10100), nil)
+		request.Action = &iotexapi.EstimateActionGasConsumptionRequest_Execution{
+			Execution: &iotextypes.Execution{
+				Data: _executionHash1[:],
+			},
+		}
+		res, err := grpcSvr.EstimateActionGasConsumption(context.Background(), request)
+		require.NoError(err)
+		require.Equal(uint64(10100), res.Gas)
+	})
+
+	core.EXPECT().EstimateGasForNonExecution(gomock.Any()).Return(uint64(10100), nil).Times(10)
+
+	t.Run("Transfer is not nil", func(t *testing.T) {
+		request.Action = &iotexapi.EstimateActionGasConsumptionRequest_Transfer{
+			Transfer: &iotextypes.Transfer{
+				Amount:    "1000",
+				Recipient: identityset.Address(29).String(),
+				Payload:   []byte("1234567890"),
+			},
+		}
+		res, err := grpcSvr.EstimateActionGasConsumption(context.Background(), request)
+		require.NoError(err)
+		require.Equal(uint64(10100), res.Gas)
+	})
+
+	t.Run("StakeCreate is not nil", func(t *testing.T) {
+		request.Action = &iotexapi.EstimateActionGasConsumptionRequest_StakeCreate{
+			StakeCreate: &iotextypes.StakeCreate{
+				CandidateName:  "Candidate",
+				StakedAmount:   "1000",
+				StakedDuration: uint32(111),
+				Payload:        []byte("1234567890"),
+			},
+		}
+		res, err := grpcSvr.EstimateActionGasConsumption(context.Background(), request)
+		require.NoError(err)
+		require.Equal(uint64(10100), res.Gas)
+	})
+
+	t.Run("StakeUnstake is not nil", func(t *testing.T) {
+		request.Action = &iotexapi.EstimateActionGasConsumptionRequest_StakeUnstake{
+			StakeUnstake: &iotextypes.StakeReclaim{
+				BucketIndex: uint64(111),
+				Payload:     []byte("1234567890"),
+			},
+		}
+		res, err := grpcSvr.EstimateActionGasConsumption(context.Background(), request)
+		require.NoError(err)
+		require.Equal(uint64(10100), res.Gas)
+	})
+
+	t.Run("StakeWithdraw is not nil", func(t *testing.T) {
+		request.Action = &iotexapi.EstimateActionGasConsumptionRequest_StakeWithdraw{
+			StakeWithdraw: &iotextypes.StakeReclaim{
+				BucketIndex: uint64(222),
+				Payload:     []byte("abc1234567890"),
+			},
+		}
+		res, err := grpcSvr.EstimateActionGasConsumption(context.Background(), request)
+		require.NoError(err)
+		require.Equal(uint64(10100), res.Gas)
+	})
+
+	t.Run("StakeAddDeposit is not nil", func(t *testing.T) {
+		request.Action = &iotexapi.EstimateActionGasConsumptionRequest_StakeAddDeposit{
+			StakeAddDeposit: &iotextypes.StakeAddDeposit{
+				Amount:      "1000",
+				BucketIndex: uint64(333),
+				Payload:     []byte("abc1234567890"),
+			},
+		}
+		res, err := grpcSvr.EstimateActionGasConsumption(context.Background(), request)
+		require.NoError(err)
+		require.Equal(uint64(10100), res.Gas)
+	})
+
+	t.Run("StakeRestake is not nil", func(t *testing.T) {
+		request.Action = &iotexapi.EstimateActionGasConsumptionRequest_StakeRestake{
+			StakeRestake: &iotextypes.StakeRestake{
+				BucketIndex:    uint64(444),
+				StakedDuration: uint32(111),
+				Payload:        []byte("abc1234567890"),
+			},
+		}
+		res, err := grpcSvr.EstimateActionGasConsumption(context.Background(), request)
+		require.NoError(err)
+		require.Equal(uint64(10100), res.Gas)
+	})
+
+	t.Run("StakeChangeCandidate is not nil", func(t *testing.T) {
+		request.Action = &iotexapi.EstimateActionGasConsumptionRequest_StakeChangeCandidate{
+			StakeChangeCandidate: &iotextypes.StakeChangeCandidate{
+				CandidateName: "Candidate",
+				BucketIndex:   uint64(555),
+				Payload:       []byte("abc1234567890"),
+			},
+		}
+		res, err := grpcSvr.EstimateActionGasConsumption(context.Background(), request)
+		require.NoError(err)
+		require.Equal(uint64(10100), res.Gas)
+	})
+
+	t.Run("StakeTransferOwnership is not nil", func(t *testing.T) {
+		request.Action = &iotexapi.EstimateActionGasConsumptionRequest_StakeTransferOwnership{
+			StakeTransferOwnership: &iotextypes.StakeTransferOwnership{
+				BucketIndex:  uint64(666),
+				VoterAddress: identityset.Address(29).String(),
+				Payload:      []byte("1234567890"),
+			},
+		}
+		res, err := grpcSvr.EstimateActionGasConsumption(context.Background(), request)
+		require.NoError(err)
+		require.Equal(uint64(10100), res.Gas)
+	})
+
+	t.Run("CandidateRegister is not nil", func(t *testing.T) {
+		request.Action = &iotexapi.EstimateActionGasConsumptionRequest_CandidateRegister{
+			CandidateRegister: &iotextypes.CandidateRegister{
+				Candidate: &iotextypes.CandidateBasicInfo{
+					Name:            "candidate",
+					OperatorAddress: identityset.Address(29).String(),
+					RewardAddress:   identityset.Address(28).String(),
+				},
+				StakedAmount:   "1000",
+				StakedDuration: uint32(111),
+				OwnerAddress:   identityset.Address(29).String(),
+				Payload:        []byte("abc1234567890"),
+			},
+		}
+		res, err := grpcSvr.EstimateActionGasConsumption(context.Background(), request)
+		require.NoError(err)
+		require.Equal(uint64(10100), res.Gas)
+	})
+
+	t.Run("CandidateUpdate is not nil", func(t *testing.T) {
+		request.Action = &iotexapi.EstimateActionGasConsumptionRequest_CandidateUpdate{
+			CandidateUpdate: &iotextypes.CandidateBasicInfo{
+				Name:            "candidate",
+				OperatorAddress: identityset.Address(29).String(),
+				RewardAddress:   identityset.Address(28).String(),
+			},
+		}
+		res, err := grpcSvr.EstimateActionGasConsumption(context.Background(), request)
+		require.NoError(err)
+		require.Equal(uint64(10100), res.Gas)
+	})
 }
 
-func TestGrpcServer_ReadUnclaimedBalance(t *testing.T) {
-
-}
-
-func TestGrpcServer_TotalBalance(t *testing.T) {
-
-}
-
-func TestGrpcServer_AvailableBalance(t *testing.T) {
-
-}
-
-func TestGrpcServer_ReadCandidatesByEpoch(t *testing.T) {
-
-}
-
-func TestGrpcServer_ReadBlockProducersByEpoch(t *testing.T) {
-
-}
-
-func TestGrpcServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
-
-}
-
-func TestGrpcServer_ReadRollDPoSMeta(t *testing.T) {
-
-}
-
-func TestGrpcServer_ReadEpochCtx(t *testing.T) {
-
+func TestGrpcServer_ReadState(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
+	core.EXPECT().ReadState(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&iotexapi.ReadStateResponse{
+		Data: []byte("10100"),
+	}, nil)
+	resp, err := grpcSvr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		ProtocolID: []byte("rewarding"),
+		MethodName: []byte("UnclaimedBalance"),
+	})
+	require.NoError(err)
+	require.Equal([]byte("10100"), resp.Data)
 }
 
 func TestGrpcServer_GetEpochMeta(t *testing.T) {
-
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
+	epochData := &iotextypes.EpochData{Num: 7000}
+	blockProducersInfo := []*iotexapi.BlockProducerInfo{{Production: 8000}}
+	core.EXPECT().EpochMeta(gomock.Any()).Return(epochData, uint64(11), blockProducersInfo, nil)
+	resp, err := grpcSvr.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{
+		EpochNumber: uint64(11),
+	})
+	require.NoError(err)
+	require.Equal(epochData, resp.EpochData)
+	require.Equal(uint64(11), resp.TotalBlocks)
+	require.Equal(blockProducersInfo, resp.BlockProducersInfo)
 }
 
 func TestGrpcServer_GetRawBlocks(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
+	blocks := []*iotexapi.BlockInfo{
+		{
+			Block: &iotextypes.Block{
+				Body: &iotextypes.BlockBody{
+					Actions: []*iotextypes.Action{
+						{
+							Core: &iotextypes.ActionCore{
+								Version:  1,
+								Nonce:    2,
+								GasLimit: 3,
+								GasPrice: "4",
+							},
+						},
+					},
+				},
+			},
+			Receipts: []*iotextypes.Receipt{
+				{
+					Status:          1,
+					BlkHeight:       1,
+					ActHash:         []byte("02ae2a956d21e8d481c3a69e146633470cf625ec"),
+					GasConsumed:     1,
+					ContractAddress: "test",
+					Logs:            []*iotextypes.Log{},
+				},
+			},
+		},
+	}
+	core.EXPECT().RawBlocks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(blocks, nil)
+	resp, err := grpcSvr.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
+		StartHeight: 55,
+		Count:       1000,
+	})
+	require.NoError(err)
+	require.Equal(blocks, resp.Blocks)
 }
 
 func TestGrpcServer_GetLogs(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
+	request := &iotexapi.GetLogsRequest{
+		Filter: &iotexapi.LogsFilter{
+			Address: []string{},
+			Topics:  []*iotexapi.Topics{},
+		},
+	}
+	logs := []*action.Log{
+		{
+			Address:     "_topic1",
+			BlockHeight: 1,
+			Topics: []hash.Hash256{
+				hash.Hash256b([]byte("_topic1")),
+				hash.Hash256b([]byte("_topic11")),
+			},
+		},
+		{
+			Address:     "_topic2",
+			BlockHeight: 2,
+			Topics: []hash.Hash256{
+				hash.Hash256b([]byte("_topic2")),
+				hash.Hash256b([]byte("_topic22")),
+			},
+		},
+	}
 
+	t.Run("by block", func(t *testing.T) {
+		core.EXPECT().LogsInBlockByHash(gomock.Any(), gomock.Any()).Return(logs, nil)
+		request.Lookup = &iotexapi.GetLogsRequest_ByBlock{
+			ByBlock: &iotexapi.GetLogsByBlock{
+				BlockHash: []byte("02ae2a956d21e8d481c3a69e146633470cf625ec"),
+			},
+		}
+		res, err := grpcSvr.GetLogs(context.Background(), request)
+		require.NoError(err)
+		require.Len(res.Logs, 2)
+		blkHash := hash.BytesToHash256(request.GetByBlock().BlockHash)
+		require.Equal(blkHash[:], res.Logs[0].BlkHash)
+		require.Equal(logs[0].Address, res.Logs[0].ContractAddress)
+		require.Equal(logs[0].BlockHeight, res.Logs[0].BlkHeight)
+		require.Len(res.Logs[0].Topics, 2)
+		require.Equal(logs[0].Topics[0][:], res.Logs[0].Topics[0])
+		require.Equal(logs[0].Topics[1][:], res.Logs[0].Topics[1])
+		require.Equal(blkHash[:], res.Logs[1].BlkHash)
+		require.Equal(logs[1].Address, res.Logs[1].ContractAddress)
+		require.Equal(logs[1].BlockHeight, res.Logs[1].BlkHeight)
+		require.Len(res.Logs[1].Topics, 2)
+		require.Equal(logs[1].Topics[0][:], res.Logs[1].Topics[0])
+		require.Equal(logs[1].Topics[1][:], res.Logs[1].Topics[1])
+	})
+
+	t.Run("by range", func(t *testing.T) {
+		hashes := []hash.Hash256{
+			hash.BytesToHash256([]byte("02ae2a956d21e8d481c3a69e146633470cf625ec")),
+			hash.BytesToHash256([]byte("956d21e8d481c3a6901fc246633470cf62ae2ae1")),
+		}
+		core.EXPECT().LogsInRange(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(logs, hashes, nil)
+		request.Lookup = &iotexapi.GetLogsRequest_ByRange{
+			ByRange: &iotexapi.GetLogsByRange{
+				FromBlock: 1,
+				ToBlock:   100,
+			},
+		}
+		res, err := grpcSvr.GetLogs(context.Background(), request)
+		require.NoError(err)
+		require.Len(res.Logs, 2)
+		require.Equal(hashes[0][:], res.Logs[0].BlkHash)
+		require.Equal(logs[0].Address, res.Logs[0].ContractAddress)
+		require.Equal(logs[0].BlockHeight, res.Logs[0].BlkHeight)
+		require.Len(res.Logs[0].Topics, 2)
+		require.Equal(logs[0].Topics[0][:], res.Logs[0].Topics[0])
+		require.Equal(logs[0].Topics[1][:], res.Logs[0].Topics[1])
+		require.Equal(hashes[1][:], res.Logs[1].BlkHash)
+		require.Equal(logs[1].Address, res.Logs[1].ContractAddress)
+		require.Equal(logs[1].BlockHeight, res.Logs[1].BlkHeight)
+		require.Len(res.Logs[1].Topics, 2)
+		require.Equal(logs[1].Topics[0][:], res.Logs[1].Topics[0])
+		require.Equal(logs[1].Topics[1][:], res.Logs[1].Topics[1])
+	})
 }
 
 func TestGrpcServer_GetElectionBuckets(t *testing.T) {
