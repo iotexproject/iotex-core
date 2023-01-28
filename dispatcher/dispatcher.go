@@ -321,7 +321,7 @@ func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 }
 
 // dispatchAction adds the passed action message to the news handling queue.
-func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg *iotextypes.Action) {
+func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg proto.Message) {
 	if !d.IsReady() {
 		return
 	}
@@ -338,7 +338,7 @@ func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg
 		d.actionChan <- &actionMsg{
 			ctx:     ctx,
 			chainID: chainID,
-			action:  msg,
+			action:  (msg).(*iotextypes.Action),
 		}
 		l++
 	} else {
@@ -348,7 +348,7 @@ func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg
 }
 
 // dispatchBlock adds the passed block message to the news handling queue.
-func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, peer string, msg *iotextypes.Block) {
+func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, peer string, msg proto.Message) {
 	if !d.IsReady() {
 		return
 	}
@@ -365,7 +365,7 @@ func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, peer
 		d.blockChan <- &blockMsg{
 			ctx:     ctx,
 			chainID: chainID,
-			block:   msg,
+			block:   (msg).(*iotextypes.Block),
 			peer:    peer,
 		}
 		l++
@@ -424,14 +424,9 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, pe
 			log.L().Debug("Failed to handle consensus message.", zap.Error(err))
 		}
 	case *iotextypes.Action:
-		d.dispatchAction(ctx, chainID, message.(*iotextypes.Action))
-	case *iotextypes.Actions:
-		acts := message.(*iotextypes.Actions)
-		for i := range acts.Actions {
-			d.dispatchAction(ctx, chainID, acts.Actions[i])
-		}
+		d.dispatchAction(ctx, chainID, message)
 	case *iotextypes.Block:
-		d.dispatchBlock(ctx, chainID, peer, message.(*iotextypes.Block))
+		d.dispatchBlock(ctx, chainID, peer, message)
 	default:
 		msgType, _ := goproto.GetTypeFromRPCMsg(message)
 		log.L().Warn("Unexpected msgType handled by HandleBroadcast.", zap.Any("msgType", msgType))
@@ -448,7 +443,7 @@ func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer pe
 	case iotexrpc.MessageType_BLOCK_REQUEST:
 		d.dispatchBlockSyncReq(ctx, chainID, peer, message)
 	case iotexrpc.MessageType_BLOCK:
-		d.dispatchBlock(ctx, chainID, peer.ID.Pretty(), message.(*iotextypes.Block))
+		d.dispatchBlock(ctx, chainID, peer.ID.Pretty(), message)
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleTell.", zap.Any("msgType", msgType))
 	}

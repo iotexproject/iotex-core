@@ -1304,7 +1304,6 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 		broadcastHandlerCount++
 		return nil
 	}
-	coreService.messageBatcher = nil
 
 	for i, test := range _sendActionTests {
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}

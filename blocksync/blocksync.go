@@ -300,13 +300,13 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peer.AddrInf
 		)
 		end = tip
 	}
-	// TODO: send back multiple blocks in one shot
 	for i := start; i <= end; i++ {
 		// TODO: fetch block from buffer
 		blk, err := bs.blockByHeightHandler(i)
 		if err != nil {
 			return err
 		}
+		// TODO: send back multiple blocks in one shot
 		syncCtx, cancel := context.WithTimeout(ctx, bs.cfg.ProcessSyncRequestTTL)
 		defer cancel()
 		if err := bs.unicastOutbound(syncCtx, peer, blk.ConvertToBlockPb()); err != nil {
