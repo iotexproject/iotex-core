@@ -27,17 +27,8 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
-// Default contains the default genesis config
-var Default = defaultConfig()
-
-var (
-	_genesisTs     int64
-	_loadGenesisTs sync.Once
-)
-
-func init() {
-	initTestDefaultConfig(&Default)
-}
+// DefaultConfig contains the default genesis config
+var DefaultConfig = defaultConfig()
 
 func defaultConfig() Genesis {
 	return Genesis{
@@ -72,7 +63,7 @@ func defaultConfig() Genesis {
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
-			InitBalanceMap: make(map[string]string),
+			InitBalanceMap: make(map[string]string, 0),
 		},
 		Poll: Poll{
 			PollMode:                         "nativeMix",
@@ -81,6 +72,7 @@ func defaultConfig() Genesis {
 			ProbationEpochPeriod:             6,
 			ProbationIntensityRate:           90,
 			UnproductiveDelegateMaxCacheSize: 20,
+			Delegates:                        make([]Delegate, 0),
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),
@@ -113,14 +105,14 @@ func defaultConfig() Genesis {
 	}
 }
 
-// TestDefault is the default genesis config for testing
-func TestDefault() Genesis {
+// TestConfig is the genesis config for testing
+func TestConfig() Genesis {
 	ge := defaultConfig()
-	initTestDefaultConfig(&ge)
+	initTestConfig(&ge)
 	return ge
 }
 
-func initTestDefaultConfig(cfg *Genesis) {
+func initTestConfig(cfg *Genesis) {
 	cfg.PacificBlockHeight = 0
 	for i := 0; i < identityset.Size(); i++ {
 		addr := identityset.Address(i).String()
@@ -135,6 +127,11 @@ func initTestDefaultConfig(cfg *Genesis) {
 		}
 	}
 }
+
+var (
+	_genesisTs     int64
+	_loadGenesisTs sync.Once
+)
 
 type (
 	// Genesis is the root level of genesis config. Genesis config is the network-wide blockchain config. All the nodes

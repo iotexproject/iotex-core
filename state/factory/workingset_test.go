@@ -54,7 +54,7 @@ func newFactoryWorkingSet(t testing.TB) *workingSet {
 
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		genesis.Default,
+		genesis.TestConfig(),
 	)
 	r.NoError(sf.Start(ctx))
 	// defer r.NoError(sf.Stop(ctx))
@@ -71,7 +71,7 @@ func newStateDBWorkingSet(t testing.TB) *workingSet {
 
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		genesis.Default,
+		genesis.TestConfig(),
 	)
 	r.NoError(sf.Start(ctx))
 	// defer r.NoError(sf.Stop(ctx))
@@ -190,7 +190,7 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
 	cfg := Config{
 		Chain:   blockchain.DefaultConfig,
-		Genesis: genesis.TestDefault(),
+		Genesis: genesis.TestConfig(),
 	}
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100000000"
 	var (

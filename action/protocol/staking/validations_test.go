@@ -19,9 +19,9 @@ import (
 func initTestProtocol(t *testing.T) (*Protocol, []*Candidate) {
 	require := require.New(t)
 	p, err := NewProtocol(nil, &BuilderConfig{
-		Staking:                  genesis.Default.Staking,
+		Staking:                  genesis.TestConfig().Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, nil, genesis.Default.GreenlandBlockHeight)
+	}, nil, genesis.TestConfig().GreenlandBlockHeight)
 	require.NoError(err)
 
 	var cans []*Candidate

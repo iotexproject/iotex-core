@@ -82,9 +82,9 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 
 	// create protocol
 	p, err := NewProtocol(depositGas, &BuilderConfig{
-		Staking:                  genesis.Default.Staking,
+		Staking:                  genesis.TestConfig().Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, nil, genesis.Default.GreenlandBlockHeight)
+	}, nil, genesis.TestConfig().GreenlandBlockHeight)
 	require.NoError(err)
 
 	// set up candidate
@@ -92,7 +92,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require.NoError(csm.putCandidate(candidate))
 	candidateName := candidate.Name
 	candidateAddr := candidate.Owner
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestConfig())
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
@@ -553,7 +553,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
-		ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+		ctx = genesis.WithGenesisContext(ctx, genesis.TestConfig())
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
 		if test.err != nil {
@@ -856,7 +856,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
-		ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+		ctx = genesis.WithGenesisContext(ctx, genesis.TestConfig())
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		_, err = p.Handle(ctx, act, sm)
 		require.NoError(err)
@@ -1200,7 +1200,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		{restake, false, iotextypes.ReceiptStatus_ErrNotEnoughBalance},
 	}
 	for i, v := range unstakedBucketTests {
-		greenland := genesis.Default
+		greenland := genesis.TestConfig()
 		if v.greenland {
 			blkCtx := protocol.MustGetBlockCtx(ctx)
 			greenland.GreenlandBlockHeight = blkCtx.BlockHeight
@@ -1598,7 +1598,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			big.NewInt(unit.Qev),
 			10000,
 			1,
-			genesis.Default.HawaiiBlockHeight,
+			genesis.TestConfig().HawaiiBlockHeight,
 			time.Now(),
 			10000,
 			false,
@@ -1811,7 +1811,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			big.NewInt(unit.Qev),
 			10000,
 			2,
-			genesis.Default.HawaiiBlockHeight,
+			genesis.TestConfig().HawaiiBlockHeight,
 			time.Now(),
 			10000,
 			identityset.Address(2),
@@ -2651,7 +2651,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 		BlockTimeStamp: blkTimestamp,
 		GasLimit:       blkGasLimit,
 	})
-	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+	ctx = genesis.WithGenesisContext(ctx, genesis.TestConfig())
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
@@ -2678,9 +2678,9 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 
 	// create protocol
 	p, err := NewProtocol(depositGas, &BuilderConfig{
-		Staking:                  genesis.Default.Staking,
+		Staking:                  genesis.TestConfig().Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, nil, genesis.Default.GreenlandBlockHeight)
+	}, nil, genesis.TestConfig().GreenlandBlockHeight)
 	require.NoError(err)
 
 	// set up candidate
@@ -2690,7 +2690,7 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	candidate2 := testCandidates[1].d.Clone()
 	candidate2.Votes = big.NewInt(0)
 	require.NoError(csm.putCandidate(candidate2))
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestConfig())
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)

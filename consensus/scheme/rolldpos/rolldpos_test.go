@@ -56,7 +56,7 @@ func TestNewRollDPoS(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 
-	g := genesis.Default
+	g := genesis.TestConfig()
 	builderCfg := BuilderConfig{
 		Chain:              blockchain.DefaultConfig,
 		Consensus:          DefaultConfig,
@@ -200,7 +200,7 @@ func TestValidateBlockFooter(t *testing.T) {
 	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(5)
 
 	sk1 := identityset.PrivateKey(1)
-	g := genesis.Default
+	g := genesis.TestConfig()
 	g.NumDelegates = 4
 	g.NumSubEpochs = 1
 	g.BlockInterval = 10 * time.Second
@@ -287,7 +287,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	sk1 := identityset.PrivateKey(1)
 	cfg := DefaultConfig
 	cfg.ConsensusDBPath = "consensus.db"
-	g := genesis.Default
+	g := genesis.TestConfig()
 	g.NumDelegates = 4
 	g.NumSubEpochs = 1
 	g.BlockInterval = 10 * time.Second
@@ -387,7 +387,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg.FSM.UnmatchedEventTTL = time.Second
 		cfg.FSM.UnmatchedEventInterval = 10 * time.Millisecond
 		cfg.ToleratedOvertime = 200 * time.Millisecond
-		g := genesis.Default
+		g := genesis.TestConfig()
 		g.BlockInterval = 2 * time.Second
 		g.Blockchain.NumDelegates = uint64(numNodes)
 		g.Blockchain.NumSubEpochs = 1

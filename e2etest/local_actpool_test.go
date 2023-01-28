@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -188,6 +189,7 @@ func newActPoolConfig(t *testing.T) (config.Config, error) {
 		testutil.CleanupPath(testIndexPath)
 	}()
 
+	cfg.Genesis = genesis.TestConfig()
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath

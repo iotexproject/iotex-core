@@ -156,7 +156,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 		testutil.CleanupPath(testIndexPath)
 	}()
 
-	g := genesis.Default
+	g := genesis.TestConfig()
 	g.Timestamp = 1562382372
 	sk, err := crypto.GenerateKey()
 	cfg.ProducerPrivKey = sk.HexString()
@@ -244,7 +244,7 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 						},
 					},
 				),
-				genesis.Default,
+				genesis.TestConfig(),
 			)
 			tipEpochNum := rp.GetEpochNum(tipHeight)
 			var candidatesList state.CandidateList

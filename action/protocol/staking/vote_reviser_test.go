@@ -116,13 +116,13 @@ func TestVoteReviser(t *testing.T) {
 	stk, err := NewProtocol(
 		nil,
 		&BuilderConfig{
-			Staking:                  genesis.Default.Staking,
+			Staking:                  genesis.TestConfig().Staking,
 			PersistStakingPatchBlock: math.MaxUint64,
 		},
 		nil,
-		genesis.Default.OkhotskBlockHeight,
-		genesis.Default.HawaiiBlockHeight,
-		genesis.Default.GreenlandBlockHeight,
+		genesis.TestConfig().OkhotskBlockHeight,
+		genesis.TestConfig().HawaiiBlockHeight,
+		genesis.TestConfig().GreenlandBlockHeight,
 	)
 	r.NotNil(stk)
 	r.NoError(err)
@@ -136,7 +136,7 @@ func TestVoteReviser(t *testing.T) {
 	}
 
 	// load candidates from stateDB and verify
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestConfig())
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := stk.Start(ctx, sm)
 	sm.WriteView(_protocolID, v)
@@ -165,25 +165,25 @@ func TestVoteReviser(t *testing.T) {
 
 	// test revise
 	vr := stk.voteReviser
-	r.False(vr.isCacheExist(genesis.Default.GreenlandBlockHeight))
-	r.False(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
-	r.NoError(vr.Revise(csm, genesis.Default.HawaiiBlockHeight))
-	r.True(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
+	r.False(vr.isCacheExist(genesis.TestConfig().GreenlandBlockHeight))
+	r.False(vr.isCacheExist(genesis.TestConfig().HawaiiBlockHeight))
+	r.NoError(vr.Revise(csm, genesis.TestConfig().HawaiiBlockHeight))
+	r.True(vr.isCacheExist(genesis.TestConfig().HawaiiBlockHeight))
 	// simulate first revise attempt failed -- call Revise() again
-	r.True(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
-	r.NoError(vr.Revise(csm, genesis.Default.HawaiiBlockHeight))
+	r.True(vr.isCacheExist(genesis.TestConfig().HawaiiBlockHeight))
+	r.NoError(vr.Revise(csm, genesis.TestConfig().HawaiiBlockHeight))
 	sm.EXPECT().Height().DoAndReturn(
 		func() (uint64, error) {
-			return genesis.Default.HawaiiBlockHeight, nil
+			return genesis.TestConfig().HawaiiBlockHeight, nil
 		},
 	).Times(1)
 	r.NoError(csm.Commit(ctx))
 	r.NotNil(csm.GetByName(oldCand.Name))
 	// verify self-stake and total votes match
-	result, ok := vr.result(genesis.Default.HawaiiBlockHeight)
+	result, ok := vr.result(genesis.TestConfig().HawaiiBlockHeight)
 	r.True(ok)
 	r.Equal(len(testCandidates), len(result))
-	cv := genesis.Default.Staking.VoteWeightCalConsts
+	cv := genesis.TestConfig().Staking.VoteWeightCalConsts
 	for _, c := range result {
 		cand := csm.GetByOwner(c.Owner)
 		r.True(c.Equal(cand))
@@ -205,10 +205,10 @@ func TestVoteReviser(t *testing.T) {
 			}
 		}
 	}
-	r.NoError(vr.Revise(csm, genesis.Default.OkhotskBlockHeight))
+	r.NoError(vr.Revise(csm, genesis.TestConfig().OkhotskBlockHeight))
 	sm.EXPECT().Height().DoAndReturn(
 		func() (uint64, error) {
-			return genesis.Default.OkhotskBlockHeight, nil
+			return genesis.TestConfig().OkhotskBlockHeight, nil
 		},
 	).Times(1)
 	r.NoError(csm.Commit(ctx))

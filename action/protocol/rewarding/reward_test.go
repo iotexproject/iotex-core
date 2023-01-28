@@ -330,7 +330,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		}).AnyTimes()
 	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
-	ge := genesis.Default
+	ge := genesis.TestConfig()
 	ge.Rewarding.InitBalanceStr = "0"
 	ge.Rewarding.BlockRewardStr = "10"
 	ge.Rewarding.EpochRewardStr = "100"
@@ -348,9 +348,9 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 
 	p := NewProtocol(ge.Rewarding)
 	rp := rolldpos.NewProtocol(
-		genesis.Default.NumCandidateDelegates,
-		genesis.Default.NumDelegates,
-		genesis.Default.NumSubEpochs,
+		genesis.TestConfig().NumCandidateDelegates,
+		genesis.TestConfig().NumDelegates,
+		genesis.TestConfig().NumSubEpochs,
 	)
 	abps := []*state.Candidate{
 		{
@@ -364,7 +364,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			RewardAddress: identityset.Address(1).String(),
 		},
 	}
-	g := genesis.Default
+	g := genesis.TestConfig()
 	committee := mock_committee.NewMockCommittee(ctrl)
 	slasher, err := poll.NewSlasher(
 		func(uint64, uint64) (map[string]uint64, error) {
@@ -429,7 +429,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		ctx,
 		protocol.BlockCtx{
 			Producer:    identityset.Address(0),
-			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+			BlockHeight: genesis.TestConfig().NumDelegates * genesis.TestConfig().NumSubEpochs,
 		},
 	)
 	ctx = protocol.WithActionCtx(

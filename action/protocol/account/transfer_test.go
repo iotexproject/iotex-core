@@ -37,7 +37,7 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 		require.NoError(err)
 		tsf1, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", nil, uint64(0), big.NewInt(0))
 		require.NoError(err)
-		g := genesis.Default
+		g := genesis.TestConfig()
 		ctx := protocol.WithFeatureCtx(genesis.WithGenesisContext(protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
 			BlockHeight: g.NewfoundlandBlockHeight,
 		}), g))
@@ -61,12 +61,12 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 	// set-up protocol and genesis states
 	p := NewProtocol(rewarding.DepositGas)
-	reward := rewarding.NewProtocol(genesis.Default.Rewarding)
+	reward := rewarding.NewProtocol(genesis.TestConfig().Rewarding)
 	registry := protocol.NewRegistry()
 	require.NoError(reward.Register(registry))
 	chainCtx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), registry),
-		genesis.Default,
+		genesis.TestConfig(),
 	)
 	ctx := protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{})
 	ctx = protocol.WithFeatureCtx(ctx)

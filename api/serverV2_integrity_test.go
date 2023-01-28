@@ -339,9 +339,9 @@ func setupChain(cfg testConfig) (blockchain.Blockchain, blockdao.BlockDAO, block
 	evm := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	p := poll.NewLifeLongDelegatesProtocol(cfg.genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
-		genesis.Default.NumCandidateDelegates,
-		genesis.Default.NumDelegates,
-		genesis.Default.NumSubEpochs,
+		genesis.TestConfig().NumCandidateDelegates,
+		genesis.TestConfig().NumDelegates,
+		genesis.TestConfig().NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(cfg.genesis.DardanellesBlockHeight, cfg.genesis.DardanellesNumSubEpochs),
 	)
 	r := rewarding.NewProtocol(cfg.genesis.Rewarding)
@@ -379,7 +379,7 @@ func setupActPool(g genesis.Genesis, sf factory.Factory, cfg actpool.Config) (ac
 func newConfig() testConfig {
 	cfg := testConfig{
 		api:       DefaultConfig,
-		genesis:   genesis.Default,
+		genesis:   genesis.TestConfig(),
 		actPoll:   actpool.DefaultConfig,
 		chain:     blockchain.DefaultConfig,
 		consensus: consensus.DefaultConfig,

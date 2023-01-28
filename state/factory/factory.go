@@ -69,7 +69,7 @@ var (
 	//DefaultConfig is the default config for state factory
 	DefaultConfig = Config{
 		Chain:   blockchain.DefaultConfig,
-		Genesis: genesis.Default,
+		Genesis: genesis.DefaultConfig,
 	}
 )
 

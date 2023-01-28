@@ -62,7 +62,7 @@ func TestIndexBuilder(t *testing.T) {
 
 	testIndexer := func(dao blockdao.BlockDAO, indexer Indexer, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
-			genesis.WithGenesisContext(context.Background(), genesis.Default),
+			genesis.WithGenesisContext(context.Background(), genesis.TestConfig()),
 			protocol.BlockchainCtx{
 				ChainID: blockchain.DefaultConfig.ID,
 			})
@@ -71,7 +71,7 @@ func TestIndexBuilder(t *testing.T) {
 		ib := &IndexBuilder{
 			dao:     dao,
 			indexer: indexer,
-			genesis: genesis.Default,
+			genesis: genesis.TestConfig(),
 		}
 		defer func() {
 			require.NoError(ib.Stop(ctx))
