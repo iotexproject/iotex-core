@@ -31,7 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	rp "github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/node"
+	"github.com/iotexproject/iotex-core/nodeinfo"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -379,7 +379,7 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 }
 
 func (builder *Builder) buildNodeManager() {
-	dm := node.NewDelegateManager(&builder.cfg.Node, builder.cs.p2pAgent, builder.cs.chain, builder.cfg.Chain.ProducerPrivateKey())
+	dm := nodeinfo.NewDelegateManager(&builder.cfg.Node, builder.cs.p2pAgent, builder.cs.chain, builder.cfg.Chain.ProducerPrivateKey())
 	builder.cs.delegateManager = dm
 	builder.cs.lifecycle.Add(dm)
 }

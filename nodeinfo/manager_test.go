@@ -3,7 +3,7 @@
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
-package node
+package nodeinfo
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-core/test/mock/mock_node"
+	"github.com/iotexproject/iotex-core/test/mock/mock_nodeinfo"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/libp2p/go-libp2p-core/peer"
 	dto "github.com/prometheus/client_model/go"
@@ -25,8 +25,8 @@ func TestNewDelegateManager(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	hMock := mock_node.NewMockchain(ctrl)
-	tMock := mock_node.NewMocktransmitter(ctrl)
+	hMock := mock_nodeinfo.NewMockchain(ctrl)
+	tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 	privK, err := crypto.GenerateKey()
 	require.NoError(err)
 
@@ -68,8 +68,8 @@ func TestNewDelegateManager(t *testing.T) {
 func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	hMock := mock_node.NewMockchain(ctrl)
-	tMock := mock_node.NewMocktransmitter(ctrl)
+	hMock := mock_nodeinfo.NewMockchain(ctrl)
+	tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 
 	require := require.New(t)
 	privKey, err := crypto.GenerateKey()
@@ -125,8 +125,8 @@ func TestDelegateManager_BroadcastNodeInfo(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	hMock := mock_node.NewMockchain(ctrl)
-	tMock := mock_node.NewMocktransmitter(ctrl)
+	hMock := mock_nodeinfo.NewMockchain(ctrl)
+	tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 	privKey, err := crypto.GenerateKey()
 	require.NoError(err)
 
@@ -153,8 +153,8 @@ func TestDelegateManager_HandleNodeInfoRequest(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	hMock := mock_node.NewMockchain(ctrl)
-	tMock := mock_node.NewMocktransmitter(ctrl)
+	hMock := mock_nodeinfo.NewMockchain(ctrl)
+	tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 	privKey, err := crypto.GenerateKey()
 	require.NoError(err)
 
@@ -183,8 +183,8 @@ func TestDelegateManager_RequestSingleNodeInfoAsync(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	hMock := mock_node.NewMockchain(ctrl)
-	tMock := mock_node.NewMocktransmitter(ctrl)
+	hMock := mock_nodeinfo.NewMockchain(ctrl)
+	tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 	privKey, err := crypto.GenerateKey()
 	require.NoError(err)
 
@@ -203,5 +203,4 @@ func TestDelegateManager_RequestSingleNodeInfoAsync(t *testing.T) {
 		require.Equal(targetPeer, paramPeer)
 		require.Equal(iotextypes.RequestNodeInfoMessage{}, paramMsg)
 	})
-
 }

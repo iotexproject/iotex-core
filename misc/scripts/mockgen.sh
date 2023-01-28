@@ -148,9 +148,9 @@ mockgen -destination=./test/mock/mock_web3server/mock_web3server.go  \
         -package=mock_web3server \
         Web3Handler
 
-mkdir -p ./test/mock/mock_node
-mockgen -destination=./test/mock/mock_node/mock_manager.go  \
-        -source=./node/manager.go \
-        -package=mock_node \
-        transmitter heightable
+mkdir -p ./test/mock/mock_nodeinfo
+mockgen -destination=./test/mock/mock_nodeinfo/mock_manager.go  \
+        -source=./nodeinfo/manager.go \
+        -package=mock_nodeinfo \
+        transmitter chain
 

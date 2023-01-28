@@ -23,7 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
-	"github.com/iotexproject/iotex-core/node"
+	"github.com/iotexproject/iotex-core/nodeinfo"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -81,7 +81,7 @@ var (
 		DB:      db.DefaultConfig,
 		Indexer: blockindex.DefaultConfig,
 		Genesis: genesis.Default,
-		Node:    node.DefaultConfig,
+		Node:    nodeinfo.DefaultConfig,
 	}
 
 	// ErrInvalidCfg indicates the invalid config value
@@ -132,7 +132,7 @@ type (
 		Log                log.GlobalConfig                `yaml:"log"`
 		SubLogs            map[string]log.GlobalConfig     `yaml:"subLogs"`
 		Genesis            genesis.Genesis                 `yaml:"genesis"`
-		Node               node.Config                     `yaml:"node"`
+		Node               nodeinfo.Config                 `yaml:"node"`
 	}
 
 	// Validate is the interface of validating the config
