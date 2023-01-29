@@ -203,12 +203,11 @@ func TestEstimateGasForAction(t *testing.T) {
 	require.Contains(err.Error(), action.ErrNilProto.Error())
 }
 
-
 func TestTraceTransaction(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	svr, _, _, _, cleanCallback := setupTestCoreSerivce()
+	svr, bc, _, ap, cleanCallback := setupTestCoreSerivce()
 	defer cleanCallback()
 	ctx := context.Background()
 	tsf, err := action.SignedExecution(identityset.Address(29).String(),
@@ -216,7 +215,12 @@ func TestTraceTransaction(t *testing.T) {
 		big.NewInt(testutil.TestGasPriceInt64), []byte{})
 	require.NoError(err)
 	tsfhash, err := tsf.Hash()
+
+	blk1Time := testutil.TimestampNow()
+	require.NoError(ap.Add(ctx, tsf))
+	blk, err := bc.MintNewBlock(blk1Time)
 	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk))
 	cfg := &logger.Config{
 		EnableMemory:     true,
 		DisableStack:     false,
@@ -224,11 +228,13 @@ func TestTraceTransaction(t *testing.T) {
 		EnableReturnData: true,
 	}
 	retval, receipt, traces, err := svr.TraceTransaction(ctx, hex.EncodeToString(tsfhash[:]), cfg)
+	require.NoError(err)
 	require.Equal("0x", byteToHex(retval))
-	require.Equal(1, receipt.Status)
-	require.Equal(uint64(100000), receipt.GasConsumed)
+	require.Equal(uint64(1), receipt.Status)
+	require.Equal(uint64(0x2710), receipt.GasConsumed)
 	require.Empty(receipt.ExecutionRevertMsg())
 	require.Equal(0, len(traces.StructLogs()))
+}
 
 func TestProofAndCompareReverseActions(t *testing.T) {
 	sliceN := func(n uint64) (value []uint64) {

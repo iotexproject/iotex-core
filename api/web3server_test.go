@@ -31,8 +31,8 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
-	"github.com/iotexproject/iotex-core/testutil"
 	mock_apitypes "github.com/iotexproject/iotex-core/test/mock/mock_apiresponder"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestGetWeb3Reqs(t *testing.T) {
