@@ -200,8 +200,6 @@ func TestStakingContract(t *testing.T) {
 		testutil.CleanupPath(testCandidateIndexPath)
 		testutil.CleanupPath(testSystemLogPath)
 		testutil.CleanupPath(testConsensusPath)
-		// clear the gateway
-		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
 	cfg.ActPool.MinGasPriceStr = "0"
@@ -224,9 +222,9 @@ func TestStakingContract(t *testing.T) {
 			VotesStr:        "10",
 		},
 	}
+	cfg.Gateway = true
 	cfg.Genesis.PollMode = "lifeLong"
 	cfg.Genesis.EnableGravityChainVoting = false
-	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.AleutianBlockHeight = 2
 

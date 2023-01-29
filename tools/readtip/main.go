@@ -47,7 +47,7 @@ func readStateDBPath() string {
 	if _stateDBPath != "" {
 		return _stateDBPath
 	}
-	cfg, err := config.New([]string{_overwritePath, _secretPath}, []string{})
+	cfg, err := config.New([]string{_overwritePath, _secretPath})
 	if err != nil {
 		log.S().Panic("failed to new config.", zap.Error(err))
 	}

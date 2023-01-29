@@ -441,8 +441,7 @@ func newConfig(
 	HTTPAdminPort int,
 ) config.Config {
 	cfg := config.Default
-
-	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Gateway = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 
 	cfg.System.HTTPAdminPort = HTTPAdminPort

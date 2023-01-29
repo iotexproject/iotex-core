@@ -372,10 +372,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	cfg config.Config,
 	r *require.Assertions,
 ) (blockchain.Blockchain, factory.Factory, blockdao.BlockDAO, actpool.ActPool) {
-	defer func() {
-		delete(cfg.Plugins, config.GatewayPlugin)
-	}()
-	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Gateway = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
 	testTriePath, err := testutil.PathOfTempFile("trie")
@@ -618,10 +615,6 @@ func TestProtocol_Handle(t *testing.T) {
 		require := require.New(t)
 
 		cfg := config.Default
-		defer func() {
-			delete(cfg.Plugins, config.GatewayPlugin)
-		}()
-
 		testTriePath, err := testutil.PathOfTempFile("trie")
 		require.NoError(err)
 		testDBPath, err := testutil.PathOfTempFile("db")
@@ -633,8 +626,7 @@ func TestProtocol_Handle(t *testing.T) {
 			testutil.CleanupPath(testDBPath)
 			testutil.CleanupPath(testIndexPath)
 		}()
-
-		cfg.Plugins[config.GatewayPlugin] = true
+		cfg.Gateway = true
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.IndexDBPath = testIndexPath

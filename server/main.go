@@ -62,7 +62,6 @@ func init() {
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
-	flag.Var(&_plugins, "plugin", "Plugin of the node")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
 			"usage: server -config-path=[string]\n")
@@ -95,7 +94,7 @@ func main() {
 		glog.Fatalln("Genesis hash is not set, call block.LoadGenesisHash() first")
 	}
 
-	cfg, err := config.New([]string{_overwritePath, _secretPath}, _plugins)
+	cfg, err := config.New([]string{_overwritePath, _secretPath})
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}

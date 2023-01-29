@@ -43,7 +43,7 @@ func main() {
 	ctx := context.Background()
 	// Start iotex-server
 	cfg := config.Default
-	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Gateway = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.BlockInterval = 2 * time.Second
 	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()

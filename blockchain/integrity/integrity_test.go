@@ -335,8 +335,7 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 
 	// get deployed contract address
 	var contract string
-	_, gateway := cfg.Plugins[config.GatewayPlugin]
-	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
+	if cfg.Gateway && !cfg.Chain.EnableAsyncIndexWrite {
 		r, err := dao.GetReceiptByActionHash(_deployHash, 2)
 		if err != nil {
 			return err
@@ -1070,16 +1069,14 @@ func TestConstantinople(t *testing.T) {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(testIndexPath)
-		// clear the gateway
-		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
+	cfg.Gateway = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"
 	cfg.Genesis.EnableGravityChainVoting = false
-	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Genesis.AleutianBlockHeight = 2
@@ -1112,7 +1109,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.NoError(rp.Register(registry))
 		var indexer blockindex.Indexer
 		indexers := []blockdao.BlockIndexer{sf}
-		if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway && !cfg.Chain.EnableAsyncIndexWrite {
+		if !cfg.Chain.EnableAsyncIndexWrite {
 			// create indexer
 			cfg.DB.DbPath = cfg.Chain.IndexDBPath
 			indexer, err = blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
@@ -1247,8 +1244,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.Equal(uint64(1), act.PendingNonce())
 		require.Equal(big.NewInt(0), act.Balance)
 
-		_, gateway := cfg.Plugins[config.GatewayPlugin]
-		if gateway && !cfg.Chain.EnableAsyncIndexWrite {
+		if cfg.Gateway && !cfg.Chain.EnableAsyncIndexWrite {
 			// verify deployed contract
 			ai, err := indexer.GetActionIndex(_deployHash[:])
 			require.NoError(err)
@@ -1355,11 +1351,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		testutil.CleanupPath(testTriePath2)
 		testutil.CleanupPath(testDBPath2)
 		testutil.CleanupPath(testIndexPath2)
-		// clear the gateway
-		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
-
-	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Gateway = true
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = testIndexPath2
@@ -1878,7 +1871,7 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	require.NoError(rp.Register(registry))
 	var indexer blockindex.Indexer
 	indexers := []blockdao.BlockIndexer{sf}
-	if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway && !cfg.Chain.EnableAsyncIndexWrite {
+	if cfg.Gateway && !cfg.Chain.EnableAsyncIndexWrite {
 		// create indexer
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
 		indexer, err = blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())

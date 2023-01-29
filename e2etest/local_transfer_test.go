@@ -314,9 +314,7 @@ func TestLocalTransfer(t *testing.T) {
 	networkPort := 4689
 	apiPort := testutil.RandomPort()
 	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, testBloomfilterIndexPath, testSystemLogPath, testCandidateIndexPath, networkPort, apiPort)
-	defer func() {
-		delete(cfg.Plugins, config.GatewayPlugin)
-	}()
+
 	require.NoError(err)
 
 	for i, tsfTest := range getSimpleTransferTests {
@@ -589,8 +587,8 @@ func newTransferConfig(
 ) (config.Config, error) {
 
 	cfg := config.Default
-	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Network.Port = networkPort
+	cfg.Gateway = true
 	cfg.Chain.ID = 1
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath

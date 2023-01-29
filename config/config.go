@@ -39,11 +39,6 @@ const (
 	NOOPScheme = "NOOP"
 )
 
-const (
-	// GatewayPlugin is the plugin of accepting user API requests and serving blockchain data to users
-	GatewayPlugin = iota
-)
-
 type strs []string
 
 func (ss *strs) String() string {
@@ -59,7 +54,6 @@ func (ss *strs) Set(str string) error {
 var (
 	// Default is the default config
 	Default = Config{
-		Plugins:            make(map[int]interface{}),
 		SubLogs:            make(map[string]log.GlobalConfig),
 		Network:            p2p.DefaultConfig,
 		Chain:              blockchain.DefaultConfig,
@@ -115,7 +109,7 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		Plugins            map[int]interface{}             `ymal:"plugins"`
+		Gateway            bool                            `yaml:"gateway"`
 		Network            p2p.Config                      `yaml:"network"`
 		Chain              blockchain.Config               `yaml:"chain"`
 		ActPool            actpool.Config                  `yaml:"actPool"`
@@ -139,7 +133,7 @@ type (
 // New creates a config instance. It first loads the default configs. If the config path is not empty, it will read from
 // the file and override the default configs. By default, it will apply all validation functions. To bypass validation,
 // use DoNotValidate instead.
-func New(configPaths []string, _plugins []string, validates ...Validate) (Config, error) {
+func New(configPaths []string, validates ...Validate) (Config, error) {
 	opts := make([]uconfig.YAMLOption, 0)
 	opts = append(opts, uconfig.Static(Default))
 	opts = append(opts, uconfig.Expand(os.LookupEnv))
@@ -165,16 +159,6 @@ func New(configPaths []string, _plugins []string, validates ...Validate) (Config
 	// set network master key to private key
 	if cfg.Network.MasterKey == "" {
 		cfg.Network.MasterKey = cfg.Chain.ProducerPrivKey
-	}
-
-	// set plugins
-	for _, plugin := range _plugins {
-		switch strings.ToLower(plugin) {
-		case "gateway":
-			cfg.Plugins[GatewayPlugin] = nil
-		default:
-			return Config{}, errors.Errorf("Plugin %s is not supported", plugin)
-		}
 	}
 
 	// By default, the config needs to pass all the validation

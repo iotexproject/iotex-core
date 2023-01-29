@@ -290,11 +290,9 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 	candBucketsIndexer *staking.CandidatesBucketsIndexer,
 	err error,
 ) {
-	_, gateway := builder.cfg.Plugins[config.GatewayPlugin]
-	if !gateway {
+	if !builder.cfg.Gateway {
 		return
 	}
-
 	if forTest {
 		indexer, err = blockindex.NewIndexer(db.NewMemKVStore(), builder.cfg.Genesis.Hash())
 		if err != nil {

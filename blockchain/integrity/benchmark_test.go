@@ -247,7 +247,7 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	}
 	var indexer blockindex.Indexer
 	indexers := []blockdao.BlockIndexer{sf}
-	if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway && !cfg.Chain.EnableAsyncIndexWrite {
+	if cfg.Gateway && !cfg.Chain.EnableAsyncIndexWrite {
 		// create indexer
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
 		indexer, err = blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())

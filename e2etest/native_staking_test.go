@@ -408,8 +408,6 @@ func TestNativeStaking(t *testing.T) {
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(testIndexPath)
 		testutil.CleanupPath(testSystemLogPath)
-		// clear the gateway
-		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
 	cfg.ActPool.MinGasPriceStr = "0"
