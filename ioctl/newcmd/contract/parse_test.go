@@ -130,21 +130,21 @@ func Test_parseAbi(t *testing.T) {
 	abi, err := parseAbi(abiBytes)
 	r.NoError(err)
 
-	r.True(len(abi.Methods) == 1)
+	r.Len(abi.Methods, 1)
 	method, ok := abi.Methods["multiSend"]
 	r.True(ok)
-	r.True(!method.IsConstant())
+	r.False(method.IsConstant())
 	r.True(method.IsPayable())
-	r.True(method.StateMutability == "payable")
-	r.True(len(method.Inputs) == 3)
-	r.True(method.Inputs[0].Name == "recipients")
-	r.True(method.Inputs[1].Name == "amounts")
-	r.True(method.Inputs[2].Name == "payload")
-	r.True(len(method.Outputs) == 0)
-
+	r.Equal(method.StateMutability, "payable")
+	r.Len(method.Inputs, 3)
+	r.Equal(method.Inputs[0].Name, "recipients")
+	r.Equal(method.Inputs[1].Name, "amounts")
+	r.Equal(method.Inputs[2].Name, "payload")
+	r.Len(method.Outputs, 0)
 }
 
 func Test_parseInput(t *testing.T) {
+	require := require.New(t)
 
 	tests := []struct {
 		rowInput string
@@ -176,19 +176,19 @@ func Test_parseInput(t *testing.T) {
 	for _, tt := range tests {
 		got, err := parseInput(tt.rowInput)
 		if (err != nil) != tt.wantErr {
-			t.Fatalf("parseInput() error = %v, wantErr %v", err, tt.wantErr)
+			require.FailNow("parseInput() error = %v, wantErr %v", err, tt.wantErr)
 		}
 		if !reflect.DeepEqual(got, tt.want) {
-			t.Fatalf("parseInput() = %#v, want %#v", got, tt.want)
+			require.FailNow("parseInput() = %#v, want %#v", got, tt.want)
 		}
 	}
 }
 
 func Test_parseInputArgument(t *testing.T) {
-	r := require.New(t)
+	require := require.New(t)
 
 	abiType, err := abi.NewType("string[]", "", nil)
-	r.NoError(err)
+	require.NoError(err)
 
 	tests := []struct {
 		t       *abi.Type
@@ -206,10 +206,10 @@ func Test_parseInputArgument(t *testing.T) {
 	for _, tt := range tests {
 		got, err := parseInputArgument(tt.t, tt.arg)
 		if (err != nil) != tt.wantErr {
-			t.Fatalf("parseInputArgument() error = %v, wantErr %v", err, tt.wantErr)
+			require.FailNow("parseInputArgument() error = %v, wantErr %v", err, tt.wantErr)
 		}
 		if !reflect.DeepEqual(got, tt.want) {
-			t.Fatalf("parseInputArgument() = %#v, want %#v", got, tt.want)
+			require.FailNow("parseInputArgument() = %#v, want %#v", got, tt.want)
 		}
 	}
 }

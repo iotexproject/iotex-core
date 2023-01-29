@@ -9,13 +9,14 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
 )
 
 // Multi-language support
@@ -33,9 +34,12 @@ var (
 
 // NewContractTestFunctionCmd represents the contract test function cmd
 func NewContractTestFunctionCmd(client ioctl.Client) *cobra.Command {
+	use, _ := client.SelectTranslation(_testFunctionCmdUses)
+	short, _ := client.SelectTranslation(_testFunctionCmdShorts)
+
 	cmd := &cobra.Command{
-		Use:   selectTranslate(client, _testFunctionCmdUses),
-		Short: selectTranslate(client, _testFunctionCmdShorts),
+		Use:   use,
+		Short: short,
 		Args:  cobra.RangeArgs(3, 4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
@@ -90,6 +94,7 @@ func contractTestFunction(client ioctl.Client, cmd *cobra.Command, args []string
 
 	result, err := parseOutput(abi, methodName, rowResult)
 	if err != nil {
+		cmd.PrintErrln("parseOutput failed", err)
 		result = rowResult
 	}
 

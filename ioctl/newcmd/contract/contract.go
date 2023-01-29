@@ -134,8 +134,3 @@ func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]
 	}
 	return targetAbi.Pack(targetMethod, arguments...)
 }
-
-func selectTranslate(client ioctl.Client, trls map[config.Language]string) string {
-	trans, _ := client.SelectTranslation(trls)
-	return trans
-}

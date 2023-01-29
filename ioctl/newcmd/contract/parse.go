@@ -17,8 +17,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 // ErrInvalidArg indicates argument is invalid
@@ -73,9 +74,6 @@ func parseOutput(targetAbi *abi.ABI, targetMethod string, result string) (string
 // parseInputArgument parses input's argument as golang variable
 func parseInputArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 	switch t.T {
-	default:
-		return nil, ErrInvalidArg
-
 	case abi.BoolTy:
 		if reflect.TypeOf(arg).Kind() != reflect.Bool {
 			return nil, ErrInvalidArg
@@ -152,15 +150,6 @@ func parseInputArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 
 		var value int64
 		switch t.Size {
-		default:
-			if k == reflect.String {
-				arg, ok = new(big.Int).SetString(arg.(string), 10)
-				if !ok {
-					return nil, ErrInvalidArg
-				}
-			} else {
-				arg = big.NewInt(int64(arg.(float64)))
-			}
 		case 8:
 			if k == reflect.String {
 				value, err = strconv.ParseInt(arg.(string), 10, 8)
@@ -188,6 +177,15 @@ func parseInputArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 			} else {
 				arg = int64(arg.(float64))
 			}
+		default:
+			if k == reflect.String {
+				arg, ok = new(big.Int).SetString(arg.(string), 10)
+				if !ok {
+					return nil, ErrInvalidArg
+				}
+			} else {
+				arg = big.NewInt(int64(arg.(float64)))
+			}
 		}
 
 		if err != nil {
@@ -206,19 +204,6 @@ func parseInputArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 
 		var value uint64
 		switch t.Size {
-		default:
-			if k == reflect.String {
-				arg, ok = new(big.Int).SetString(arg.(string), 10)
-				if !ok {
-					return nil, ErrInvalidArg
-				}
-			} else {
-				arg = big.NewInt(int64(arg.(float64)))
-			}
-
-			if arg.(*big.Int).Cmp(big.NewInt(0)) < 0 {
-				return nil, ErrInvalidArg
-			}
 		case 8:
 			if k == reflect.String {
 				value, err = strconv.ParseUint(arg.(string), 10, 8)
@@ -245,6 +230,19 @@ func parseInputArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 				arg, err = strconv.ParseUint(arg.(string), 10, 64)
 			} else {
 				arg = uint64(arg.(float64))
+			}
+		default:
+			if k == reflect.String {
+				arg, ok = new(big.Int).SetString(arg.(string), 10)
+				if !ok {
+					return nil, ErrInvalidArg
+				}
+			} else {
+				arg = big.NewInt(int64(arg.(float64)))
+			}
+
+			if arg.(*big.Int).Cmp(big.NewInt(0)) < 0 {
+				return nil, ErrInvalidArg
 			}
 		}
 
@@ -293,6 +291,8 @@ func parseInputArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 
 		arg = bytes.Interface()
 
+	default:
+		return nil, ErrInvalidArg
 	}
 	return arg, nil
 }
