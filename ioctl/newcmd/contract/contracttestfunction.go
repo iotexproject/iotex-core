@@ -94,7 +94,6 @@ func contractTestFunction(client ioctl.Client, cmd *cobra.Command, args []string
 
 	result, err := parseOutput(abi, methodName, rowResult)
 	if err != nil {
-		cmd.PrintErrln("parseOutput failed", err)
 		result = rowResult
 	}
 
