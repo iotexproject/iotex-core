@@ -538,7 +538,7 @@ func TestEthAccounts(t *testing.T) {
 
 }
 
-func TestTraceTransaction(t *testing.T) {
+func TestDebugTraceTransaction(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
