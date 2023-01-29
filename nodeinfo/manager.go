@@ -151,6 +151,15 @@ func (dm *DelegateManager) updateNode(node *Info) {
 	nodeDelegateHeightGauge.WithLabelValues(addr, node.Version).Set(float64(node.Height))
 }
 
+// GetNodeByAddr get node info by address
+func (dm *DelegateManager) GetNodeByAddr(addr string) (info Info, ok bool) {
+	dm.nodeMapMutex.Lock()
+	defer dm.nodeMapMutex.Unlock()
+
+	info, ok = dm.nodeMap[addr]
+	return
+}
+
 // BroadcastNodeInfo broadcast request node info message
 func (dm *DelegateManager) BroadcastNodeInfo(ctx context.Context) error {
 	log.L().Debug("delegate manager broadcast node info")

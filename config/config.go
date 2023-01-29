@@ -78,10 +78,10 @@ var (
 			StartSubChainInterval: 10 * time.Second,
 			SystemLogDBPath:       "/var/log",
 		},
-		DB:      db.DefaultConfig,
-		Indexer: blockindex.DefaultConfig,
-		Genesis: genesis.Default,
-		Node:    nodeinfo.DefaultConfig,
+		DB:       db.DefaultConfig,
+		Indexer:  blockindex.DefaultConfig,
+		Genesis:  genesis.Default,
+		NodeInfo: nodeinfo.DefaultConfig,
 	}
 
 	// ErrInvalidCfg indicates the invalid config value
@@ -132,7 +132,7 @@ type (
 		Log                log.GlobalConfig                `yaml:"log"`
 		SubLogs            map[string]log.GlobalConfig     `yaml:"subLogs"`
 		Genesis            genesis.Genesis                 `yaml:"genesis"`
-		Node               nodeinfo.Config                 `yaml:"node"`
+		NodeInfo           nodeinfo.Config                 `yaml:"nodeinfo"`
 	}
 
 	// Validate is the interface of validating the config

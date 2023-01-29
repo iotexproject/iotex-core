@@ -204,3 +204,31 @@ func TestDelegateManager_RequestSingleNodeInfoAsync(t *testing.T) {
 		require.Equal(iotextypes.RequestNodeInfoMessage{}, paramMsg)
 	})
 }
+
+func TestDelegateManager_GetNodeByAddr(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	hMock := mock_nodeinfo.NewMockchain(ctrl)
+	tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
+	privKey, err := crypto.GenerateKey()
+	require.NoError(err)
+
+	dm := NewDelegateManager(&DefaultConfig, tMock, hMock, privKey)
+	dm.updateNode(&Info{Address: "1"})
+	dm.updateNode(&Info{Address: "2"})
+
+	t.Run("exist", func(t *testing.T) {
+		info, ok := dm.GetNodeByAddr("1")
+		require.True(ok)
+		require.Equal(Info{Address: "1"}, info)
+		info, ok = dm.GetNodeByAddr("2")
+		require.True(ok)
+		require.Equal(Info{Address: "2"}, info)
+	})
+	t.Run("not_exist", func(t *testing.T) {
+		_, ok := dm.GetNodeByAddr("3")
+		require.False(ok)
+	})
+
+}

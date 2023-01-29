@@ -220,6 +220,11 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 	return cs.blocksync
 }
 
+// DelegateManager returns the delegate manager
+func (cs *ChainService) DelegateManager() *nodeinfo.DelegateManager {
+	return cs.delegateManager
+}
+
 // Registry returns a pointer to the registry
 func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
 
