@@ -16,7 +16,7 @@ import (
 )
 
 func Test_parseOutputArgument(t *testing.T) {
-	r := require.New(t)
+	require := require.New(t)
 
 	bigInt, _ := new(big.Int).SetString("2346783498523230921101011", 10)
 	var bytes31 [31]byte
@@ -92,15 +92,15 @@ func Test_parseOutputArgument(t *testing.T) {
 
 	for _, test := range tests {
 		t, err := abi.NewType(test.t, "", test.components)
-		r.NoError(err)
+		require.NoError(err)
 		result, ok := parseOutputArgument(test.v, &t)
-		r.True(ok)
-		r.Equal(test.expect, result)
+		require.True(ok)
+		require.Equal(test.expect, result)
 	}
 }
 
 func Test_parseAbi(t *testing.T) {
-	r := require.New(t)
+	require := require.New(t)
 
 	abiBytes := []byte(`[
 {
@@ -128,19 +128,19 @@ func Test_parseAbi(t *testing.T) {
 ]`)
 
 	abi, err := parseAbi(abiBytes)
-	r.NoError(err)
+	require.NoError(err)
 
-	r.Len(abi.Methods, 1)
+	require.Len(abi.Methods, 1)
 	method, ok := abi.Methods["multiSend"]
-	r.True(ok)
-	r.False(method.IsConstant())
-	r.True(method.IsPayable())
-	r.Equal(method.StateMutability, "payable")
-	r.Len(method.Inputs, 3)
-	r.Equal(method.Inputs[0].Name, "recipients")
-	r.Equal(method.Inputs[1].Name, "amounts")
-	r.Equal(method.Inputs[2].Name, "payload")
-	r.Len(method.Outputs, 0)
+	require.True(ok)
+	require.False(method.IsConstant())
+	require.True(method.IsPayable())
+	require.Equal("payable", method.StateMutability)
+	require.Len(method.Inputs, 3)
+	require.Equal("recipients", method.Inputs[0].Name)
+	require.Equal("amounts", method.Inputs[1].Name)
+	require.Equal("payload", method.Inputs[2].Name)
+	require.Len(method.Outputs, 0)
 }
 
 func Test_parseInput(t *testing.T) {
@@ -173,7 +173,7 @@ func Test_parseInput(t *testing.T) {
 		t.Run(strconv.FormatInt(int64(i), 10), func(t *testing.T) {
 			got, err := parseInput(tt.rowInput)
 			require.NoError(err)
-			require.Equal(got, tt.want)
+			require.Equal(tt.want, got)
 		})
 	}
 }
@@ -199,7 +199,7 @@ func Test_parseInputArgument(t *testing.T) {
 		t.Run(strconv.FormatInt(int64(i), 10), func(t *testing.T) {
 			got, err := parseInputArgument(tt.t, tt.arg)
 			require.NoError(err)
-			require.Equal(got, tt.want)
+			require.Equal(tt.want, got)
 		})
 	}
 }

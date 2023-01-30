@@ -35,21 +35,21 @@ func TestNewContractCmd(t *testing.T) {
 }
 
 func TestReadAbiFile(t *testing.T) {
-	r := require.New(t)
+	require := require.New(t)
 	testAbiFile := "test.abi"
 	abi, err := readAbiFile(testAbiFile)
-	r.NoError(err)
-	r.Equal("", abi.Constructor.Name)
-	r.Equal(10, len(abi.Methods))
-	r.Equal("recipients", abi.Methods["multiSend"].Inputs[0].Name)
+	require.NoError(err)
+	require.Equal("", abi.Constructor.Name)
+	require.Len(abi.Methods, 10)
+	require.Equal("recipients", abi.Methods["multiSend"].Inputs[0].Name)
 }
 
 func TestParseInput(t *testing.T) {
-	r := require.New(t)
+	require := require.New(t)
 
 	testAbiFile := "test.abi"
 	testAbi, err := readAbiFile(testAbiFile)
-	r.NoError(err)
+	require.NoError(err)
 
 	tests := []struct {
 		expectCode string
@@ -82,21 +82,21 @@ func TestParseInput(t *testing.T) {
 
 	for _, test := range tests {
 		expect, err := decodeBytecode(test.expectCode)
-		r.NoError(err)
+		require.NoError(err)
 
 		bytecode, err := packArguments(testAbi, test.method, test.inputs)
-		r.NoError(err)
+		require.NoError(err)
 
-		r.True(bytes.Equal(expect, bytecode))
+		require.True(bytes.Equal(expect, bytecode))
 	}
 }
 
 func TestParseOutput(t *testing.T) {
-	r := require.New(t)
+	require := require.New(t)
 
 	testAbiFile := "test.abi"
 	testAbi, err := readAbiFile(testAbiFile)
-	r.NoError(err)
+	require.NoError(err)
 
 	tests := []struct {
 		expectResult string
@@ -127,7 +127,7 @@ func TestParseOutput(t *testing.T) {
 
 	for _, test := range tests {
 		v, err := parseOutput(testAbi, test.method, test.outputs)
-		r.NoError(err)
-		r.Equal(test.expectResult, fmt.Sprint(v))
+		require.NoError(err)
+		require.Equal(test.expectResult, fmt.Sprint(v))
 	}
 }
