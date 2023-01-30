@@ -7,7 +7,7 @@ package contract
 
 import (
 	"math/big"
-	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -149,38 +149,32 @@ func Test_parseInput(t *testing.T) {
 	tests := []struct {
 		rowInput string
 		want     map[string]interface{}
-		wantErr  bool
 	}{
 		{
 			`{"name": "Marry"}`,
 			map[string]interface{}{
 				"name": "Marry",
 			},
-			false,
 		},
 		{
 			`{"age": 12}`,
 			map[string]interface{}{
 				"age": float64(12),
 			},
-			false,
 		},
 		{
 			`{"names": ["marry", "alice"]}`,
 			map[string]interface{}{
 				"names": []interface{}{"marry", "alice"},
 			},
-			false,
 		},
 	}
-	for _, tt := range tests {
-		got, err := parseInput(tt.rowInput)
-		if (err != nil) != tt.wantErr {
-			require.FailNow("parseInput() error = %v, wantErr %v", err, tt.wantErr)
-		}
-		if !reflect.DeepEqual(got, tt.want) {
-			require.FailNow("parseInput() = %#v, want %#v", got, tt.want)
-		}
+	for i, tt := range tests {
+		t.Run(strconv.FormatInt(int64(i), 10), func(t *testing.T) {
+			got, err := parseInput(tt.rowInput)
+			require.NoError(err)
+			require.Equal(got, tt.want)
+		})
 	}
 }
 
@@ -191,25 +185,21 @@ func Test_parseInputArgument(t *testing.T) {
 	require.NoError(err)
 
 	tests := []struct {
-		t       *abi.Type
-		arg     interface{}
-		want    interface{}
-		wantErr bool
+		t    *abi.Type
+		arg  interface{}
+		want interface{}
 	}{
 		{
 			&abiType,
 			[]interface{}{"hello world", "happy holidays"},
 			[]string{"hello world", "happy holidays"},
-			false,
 		},
 	}
-	for _, tt := range tests {
-		got, err := parseInputArgument(tt.t, tt.arg)
-		if (err != nil) != tt.wantErr {
-			require.FailNow("parseInputArgument() error = %v, wantErr %v", err, tt.wantErr)
-		}
-		if !reflect.DeepEqual(got, tt.want) {
-			require.FailNow("parseInputArgument() = %#v, want %#v", got, tt.want)
-		}
+	for i, tt := range tests {
+		t.Run(strconv.FormatInt(int64(i), 10), func(t *testing.T) {
+			got, err := parseInputArgument(tt.t, tt.arg)
+			require.NoError(err)
+			require.Equal(got, tt.want)
+		})
 	}
 }
