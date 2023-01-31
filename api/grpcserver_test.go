@@ -334,6 +334,35 @@ func TestGrpcServer_SendAction(t *testing.T) {
 	}
 }
 
+func TestGrpcServer_StreamBlocks(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
+
+	t.Run("addResponder failed", func(t *testing.T) {
+		listener := mock_apitypes.NewMockListener(ctrl)
+		listener.EXPECT().AddResponder(gomock.Any()).Return("", errors.New("mock test"))
+		core.EXPECT().ChainListener().Return(listener)
+		err := grpcSvr.StreamBlocks(&iotexapi.StreamBlocksRequest{}, nil)
+		require.Contains(err.Error(), "mock test")
+	})
+	
+	t.Run("success", func(t *testing.T) {
+		listener := mock_apitypes.NewMockListener(ctrl)
+		listener.EXPECT().AddResponder(gomock.Any()).DoAndReturn(func(g *gRPCBlockListener) (string, error) {
+			go func() {
+				g.errChan <- nil
+			}()
+			return "", nil
+		})
+		core.EXPECT().ChainListener().Return(listener)
+		err := grpcSvr.StreamBlocks(&iotexapi.StreamBlocksRequest{}, nil)
+		require.NoError(err)
+	})
+}
+
 func TestGrpcServer_StreamLogs(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -875,35 +904,138 @@ func TestGrpcServer_GetLogs(t *testing.T) {
 }
 
 func TestGrpcServer_GetElectionBuckets(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
-}
-
-func TestGrpcServer_GetActionByActionHash(t *testing.T) {
-
+	buckets := []*iotextypes.ElectionBucket{
+		{
+			Voter:     []byte("_voter"),
+			Candidate: []byte("_candidate"),
+		},
+	}
+	core.EXPECT().ElectionBuckets(gomock.Any()).Return(buckets, nil)
+	resp, err := grpcSvr.GetElectionBuckets(context.Background(), &iotexapi.GetElectionBucketsRequest{
+		EpochNum: 11,
+	})
+	require.NoError(err)
+	require.Equal(buckets, resp.Buckets)
 }
 
 func TestGrpcServer_GetTransactionLogByActionHash(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
+	txLog := &iotextypes.TransactionLog{
+		ActionHash:      []byte("_testAction"),
+		NumTransactions: 100,
+	}
+	core.EXPECT().TransactionLogByActionHash(gomock.Any()).Return(txLog, nil)
+	resp, err := grpcSvr.GetTransactionLogByActionHash(context.Background(), &iotexapi.GetTransactionLogByActionHashRequest{
+		ActionHash: "_actionHash",
+	})
+	require.NoError(err)
+	require.Equal(txLog, resp.TransactionLog)
 }
 
-func TestGrpcServer_GetEvmTransfersByBlockHeight(t *testing.T) {
+func TestGrpcServer_GetTransactionLogByBlockHeight(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
+	blockIdentifier := &iotextypes.BlockIdentifier{
+		Height: 10100,
+	}
+	txLog := &iotextypes.TransactionLogs{
+		Logs: []*iotextypes.TransactionLog{
+			{
+				ActionHash:      []byte("_testAction"),
+				NumTransactions: 100,
+			},
+		},
+	}
+	core.EXPECT().TransactionLogByBlockHeight(gomock.Any()).Return(blockIdentifier, txLog, nil)
+	resp, err := grpcSvr.GetTransactionLogByBlockHeight(context.Background(), &iotexapi.GetTransactionLogByBlockHeightRequest{
+		BlockHeight: 10101,
+	})
+	require.NoError(err)
+	require.Equal(blockIdentifier, resp.BlockIdentifier)
+	require.Equal(txLog, resp.TransactionLogs)
 }
 
 func TestGrpcServer_GetActPoolActions(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
+	addr1 := identityset.Address(28).String()
+	priKey1 := identityset.PrivateKey(29)
+	tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	tsf2, err := action.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	acts := []action.SealedEnvelope{tsf1, tsf2}
+	core.EXPECT().ActionsInActPool(gomock.Any()).Return(acts, nil)
+	resp, err := grpcSvr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{
+		ActionHashes: []string{"_actionHash"},
+	})
+	require.NoError(err)
+	require.Equal(len(acts), len(resp.Actions))
+	require.Equal(acts[0].Signature(), resp.Actions[0].Signature)
+	require.Equal(acts[1].Signature(), resp.Actions[1].Signature)
+	require.Equal(acts[0].SrcPubkey().Bytes(), resp.Actions[0].SenderPubKey)
+	require.Equal(acts[1].SrcPubkey().Bytes(), resp.Actions[1].SenderPubKey)
 }
 
-func TestGrpcServer_GetEstimateGasSpecial(t *testing.T) {
+func TestGrpcServer_ReadContractStorage(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
-}
-
-func TestChainlinkErrTest(t *testing.T) {
-
+	core.EXPECT().ReadContractStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return([]byte("_data"), nil)
+	resp, err := grpcSvr.ReadContractStorage(context.Background(), &iotexapi.ReadContractStorageRequest{
+		Contract: "io1d4c5lp4ea4754wy439g2t99ue7wryu5r2lslh2",
+		Key:      []byte("_key"),
+	})
+	require.NoError(err)
+	require.Equal([]byte("_data"), resp.Data)
 }
 
 func TestGrpcServer_TraceTransactionStructLogs(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
+	addr1 := identityset.Address(28).String()
+	priKey1 := identityset.PrivateKey(29)
+	ex1, err := action.SignedExecution(addr1, priKey1, uint64(1), big.NewInt(10), uint64(100000), big.NewInt(0), []byte{})
+	require.NoError(err)
+	act := &iotexapi.ActionInfo{
+		Index:   0,
+		ActHash: "_test",
+		Action:  ex1.Proto(),
+	}
+	core.EXPECT().Action(gomock.Any(), gomock.Any()).Return(act, nil)
+	core.EXPECT().EVMNetworkID().Return(uint32(11))
+	core.EXPECT().SimulateExecution(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
+	resp, err := grpcSvr.TraceTransactionStructLogs(context.Background(), &iotexapi.TraceTransactionStructLogsRequest{
+		ActionHash: "_actionHash",
+	})
+	require.NoError(err)
+	require.Equal(0, len(resp.StructLogs))
 }
 
 func getAction() (act *iotextypes.Action) {
