@@ -328,6 +328,11 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	height := ""
+	blkNum := in.Get("params.1")
+	if blkNum.Exists() {
+		height = blkNum.String()
+	}
 	if to == _metamaskBalanceContractAddr {
 		return nil, nil
 	}
@@ -336,7 +341,7 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		states, err := svr.coreService.ReadState("staking", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		states, err := svr.coreService.ReadState("staking", height, sctx.Parameters().MethodName, sctx.Parameters().Arguments)
 		if err != nil {
 			return nil, err
 		}
