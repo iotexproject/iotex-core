@@ -86,7 +86,7 @@ func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				if sta, ok := status.FromError(err); ok {
 					if sta.Code() == codes.Unavailable {
-						return errors.New("check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has")
+						return ioctl.ErrInvalidEndpointOrInsecure
 					}
 					return errors.New(sta.Message())
 				}
@@ -104,7 +104,7 @@ func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 					if sta.Code() == codes.NotFound {
 						message.State = Pending
 					} else if sta.Code() == codes.Unavailable {
-						return errors.New("check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has")
+						return ioctl.ErrInvalidEndpointOrInsecure
 					}
 					return errors.New(sta.Message())
 				}

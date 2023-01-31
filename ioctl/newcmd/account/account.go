@@ -181,7 +181,7 @@ func Meta(client ioctl.Client, addr string) (*iotextypes.AccountMeta, error) {
 	if err != nil {
 		if sta, ok := status.FromError(err); ok {
 			if sta.Code() == codes.Unavailable {
-				return nil, errors.New("check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has")
+				return nil, ioctl.ErrInvalidEndpointOrInsecure
 			}
 			return nil, errors.New(sta.Message())
 		}

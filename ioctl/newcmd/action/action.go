@@ -209,7 +209,7 @@ func GetWriteCommandFlag(cmd *cobra.Command) (gasPrice, signer, password string,
 func handleClientRequestError(err error, apiName string) error {
 	if sta, ok := status.FromError(err); ok {
 		if sta.Code() == codes.Unavailable {
-			return errors.New("check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has")
+			return ioctl.ErrInvalidEndpointOrInsecure
 		}
 		return errors.New(sta.Message())
 	}

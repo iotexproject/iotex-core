@@ -149,7 +149,7 @@ func getActionInfoWithinBlock(cli *iotexapi.APIServiceClient, height uint64, cou
 	if err != nil {
 		if sta, ok := status.FromError(err); ok {
 			if sta.Code() == codes.Unavailable {
-				return nil, errors.New("check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has")
+				return nil, ioctl.ErrInvalidEndpointOrInsecure
 			}
 			return nil, errors.New(sta.Message())
 		}
@@ -175,7 +175,7 @@ func getBlockMeta(cli *iotexapi.APIServiceClient, request *iotexapi.GetBlockMeta
 	if err != nil {
 		if sta, ok := status.FromError(err); ok {
 			if sta.Code() == codes.Unavailable {
-				return nil, errors.New("check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has")
+				return nil, ioctl.ErrInvalidEndpointOrInsecure
 			}
 			return nil, errors.New(sta.Message())
 		}

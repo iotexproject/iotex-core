@@ -62,7 +62,7 @@ func GetChainMeta(client ioctl.Client) (*iotextypes.ChainMeta, error) {
 	if err != nil {
 		if sta, ok := status.FromError(err); ok {
 			if sta.Code() == codes.Unavailable {
-				return nil, errors.New("check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has")
+				return nil, ioctl.ErrInvalidEndpointOrInsecure
 			}
 			return nil, errors.New(sta.Message())
 		}
@@ -86,7 +86,7 @@ func GetEpochMeta(client ioctl.Client, epochNum uint64) (*iotexapi.GetEpochMetaR
 	if err != nil {
 		if sta, ok := status.FromError(err); ok {
 			if sta.Code() == codes.Unavailable {
-				return nil, errors.New("check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has")
+				return nil, ioctl.ErrInvalidEndpointOrInsecure
 			}
 			return nil, errors.New(sta.Message())
 		}
@@ -119,7 +119,7 @@ func GetProbationList(client ioctl.Client, epochNum uint64, epochStartHeight uin
 			if sta.Code() == codes.NotFound {
 				return nil, nil
 			} else if sta.Code() == codes.Unavailable {
-				return nil, errors.New("check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has")
+				return nil, ioctl.ErrInvalidEndpointOrInsecure
 			}
 			return nil, errors.New(sta.Message())
 		}
@@ -160,7 +160,7 @@ func GetBucketList(
 	if err != nil {
 		if sta, ok := status.FromError(err); ok {
 			if sta.Code() == codes.Unavailable {
-				return nil, errors.New("check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has")
+				return nil, ioctl.ErrInvalidEndpointOrInsecure
 			}
 			return nil, errors.New(sta.Message())
 		}
