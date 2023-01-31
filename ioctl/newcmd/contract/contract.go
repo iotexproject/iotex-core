@@ -7,7 +7,10 @@ package contract
 
 import (
 	"encoding/hex"
+	"os"
+	"path/filepath"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/compiler"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -49,6 +52,7 @@ func NewContractCmd(client ioctl.Client) *cobra.Command {
 	cmd.AddCommand(NewContractCompileCmd(client))
 	client.SetEndpointWithFlag(cmd.PersistentFlags().StringVar)
 	client.SetInsecureWithFlag(cmd.PersistentFlags().BoolVar)
+
 	return cmd
 }
 
@@ -78,4 +82,55 @@ func checkCompilerVersion(solc *util.Solidity) bool {
 
 func decodeBytecode(bytecode string) ([]byte, error) {
 	return hex.DecodeString(util.TrimHexPrefix(bytecode))
+}
+
+func readAbiFile(abiFile string) (*abi.ABI, error) {
+	abiBytes, err := os.ReadFile(filepath.Clean(abiFile))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read abi file")
+	}
+
+	return parseAbi(abiBytes)
+}
+
+func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]byte, error) {
+	var method abi.Method
+	var ok bool
+
+	if rowInput == "" {
+		rowInput = "{}"
+	}
+
+	rowArguments, err := parseInput(rowInput)
+	if err != nil {
+		return nil, err
+	}
+
+	if targetMethod == "" {
+		method = targetAbi.Constructor
+	} else {
+		method, ok = targetAbi.Methods[targetMethod]
+		if !ok {
+			return nil, errors.New("invalid method name")
+		}
+	}
+
+	arguments := make([]interface{}, 0, len(method.Inputs))
+	for _, param := range method.Inputs {
+		if param.Name == "" {
+			param.Name = "_"
+		}
+
+		rowArg, ok := rowArguments[param.Name]
+		if !ok {
+			return nil, errors.Errorf("failed to parse argument \"%s\"", param.Name)
+		}
+
+		arg, err := parseInputArgument(&param.Type, rowArg)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to parse argument \"%s\"", param.Name)
+		}
+		arguments = append(arguments, arg)
+	}
+	return targetAbi.Pack(targetMethod, arguments...)
 }
