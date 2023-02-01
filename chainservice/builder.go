@@ -378,9 +378,9 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, factory.NewMinter(builder.cs.factory, builder.cs.actpool), chainOpts...)
 }
 
-func (builder *Builder) buildDelegateManager() {
-	dm := nodeinfo.NewDelegateManager(&builder.cfg.NodeInfo, builder.cs.p2pAgent, builder.cs.chain, builder.cfg.Chain.ProducerPrivateKey())
-	builder.cs.delegateManager = dm
+func (builder *Builder) buildNodeInfoManager() {
+	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, builder.cs.p2pAgent, builder.cs.chain, builder.cfg.Chain.ProducerPrivateKey())
+	builder.cs.nodeInfoManager = dm
 	builder.cs.lifecycle.Add(dm)
 }
 
@@ -629,7 +629,7 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.buildBlockSyncer(); err != nil {
 		return nil, err
 	}
-	builder.buildDelegateManager()
+	builder.buildNodeInfoManager()
 	cs := builder.cs
 	builder.cs = nil
 

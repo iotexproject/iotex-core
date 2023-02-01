@@ -12,7 +12,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -86,7 +85,7 @@ type ChainService struct {
 	candidateIndexer   *poll.CandidateIndexer
 	candBucketsIndexer *staking.CandidatesBucketsIndexer
 	registry           *protocol.Registry
-	delegateManager    *nodeinfo.DelegateManager
+	nodeInfoManager    *nodeinfo.InfoManager
 }
 
 // Start starts the server
@@ -166,25 +165,15 @@ func (cs *ChainService) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) err
 	return cs.consensus.HandleConsensusMsg(msg)
 }
 
-// HandleNodeInfoMsg handles nodeinfo message.
-func (cs *ChainService) HandleNodeInfoMsg(ctx context.Context, peer string, msg *iotextypes.ResponseNodeInfoMessage) error {
-	cs.delegateManager.HandleNodeInfo(ctx, peer, msg)
+// HandleNodeInfo handles nodeinfo message.
+func (cs *ChainService) HandleNodeInfo(ctx context.Context, peer string, msg *iotextypes.NodeInfo) error {
+	cs.nodeInfoManager.HandleNodeInfo(ctx, peer, msg)
 	return nil
 }
 
-// HandleRequestNodeInfoMsg handles request node info message
-func (cs *ChainService) HandleRequestNodeInfoMsg(ctx context.Context, peerID string, msg *iotextypes.RequestNodeInfoMessage) error {
-	peers, err := cs.p2pAgent.ConnectedPeers()
-	if err != nil {
-		return errors.Wrap(err, "get connected peers failed")
-	}
-	id := slices.IndexFunc(peers, func(p peer.AddrInfo) bool {
-		return p.ID.Pretty() == peerID
-	})
-	if id < 0 {
-		return errors.Errorf("unicast node info msg failed: target peerID %s is not connected", peerID)
-	}
-	return cs.delegateManager.HandleNodeInfoRequest(ctx, peers[id])
+// HandleNodeInfoRequest handles request node info message
+func (cs *ChainService) HandleNodeInfoRequest(ctx context.Context, peer peer.AddrInfo, msg *iotextypes.NodeInfoRequest) error {
+	return cs.nodeInfoManager.HandleNodeInfoRequest(ctx, peer)
 }
 
 // ChainID returns ChainID.
@@ -220,9 +209,9 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 	return cs.blocksync
 }
 
-// DelegateManager returns the delegate manager
-func (cs *ChainService) DelegateManager() *nodeinfo.DelegateManager {
-	return cs.delegateManager
+// NodeInfoManager returns the delegate manager
+func (cs *ChainService) NodeInfoManager() *nodeinfo.InfoManager {
+	return cs.nodeInfoManager
 }
 
 // Registry returns a pointer to the registry

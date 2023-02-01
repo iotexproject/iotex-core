@@ -82,7 +82,7 @@ func (mr *MockSubscriberMockRecorder) HandleConsensusMsg(arg0 interface{}) *gomo
 }
 
 // HandleNodeInfoMsg mocks base method.
-func (m *MockSubscriber) HandleNodeInfoMsg(arg0 context.Context, arg1 string, arg2 *iotextypes.ResponseNodeInfoMessage) error {
+func (m *MockSubscriber) HandleNodeInfoMsg(arg0 context.Context, arg1 string, arg2 *iotextypes.NodeInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleNodeInfoMsg", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -96,7 +96,7 @@ func (mr *MockSubscriberMockRecorder) HandleNodeInfoMsg(arg0, arg1, arg2 interfa
 }
 
 // HandleRequestNodeInfoMsg mocks base method.
-func (m *MockSubscriber) HandleRequestNodeInfoMsg(arg0 context.Context, arg1 string, arg2 *iotextypes.RequestNodeInfoMessage) error {
+func (m *MockSubscriber) HandleRequestNodeInfoMsg(arg0 context.Context, arg1 string, arg2 *iotextypes.NodeInfoRequest) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleRequestNodeInfoMsg", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

@@ -31,10 +31,9 @@ func TestNewDelegateManager(t *testing.T) {
 	require.NoError(err)
 
 	t.Run("disable_broadcast", func(t *testing.T) {
-		cfg := Config{true, 100 * time.Millisecond}
-		dm := NewDelegateManager(&cfg, tMock, hMock, privK)
-		require.Equal(cfg, dm.cfg)
-		require.Equal(map[string]Info{}, dm.nodeMap)
+		cfg := Config{false, 100 * time.Millisecond}
+		dm := NewInfoManager(&cfg, tMock, hMock, privK)
+		require.NotNil(dm.nodeMap)
 		require.Equal(tMock, dm.transmitter)
 		require.Equal(hMock, dm.chain)
 		require.Equal(privK, dm.privKey)
@@ -47,10 +46,9 @@ func TestNewDelegateManager(t *testing.T) {
 	})
 
 	t.Run("enable_broadcast", func(t *testing.T) {
-		cfg := Config{false, 100 * time.Millisecond}
-		dm := NewDelegateManager(&cfg, tMock, hMock, privK)
-		require.Equal(cfg, dm.cfg)
-		require.Equal(map[string]Info{}, dm.nodeMap)
+		cfg := Config{true, 100 * time.Millisecond}
+		dm := NewInfoManager(&cfg, tMock, hMock, privK)
+		require.NotNil(dm.nodeMap)
 		require.Equal(tMock, dm.transmitter)
 		require.Equal(hMock, dm.chain)
 		require.Equal(privK, dm.privKey)
@@ -76,8 +74,8 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 	require.NoError(err)
 
 	t.Run("verify_pass", func(t *testing.T) {
-		msg := &iotextypes.ResponseNodeInfoMessage{
-			Info: &iotextypes.NodeInfo{
+		msg := &iotextypes.NodeInfo{
+			Info: &iotextypes.NodeInfoCore{
 				Version:   "v1.8.0",
 				Height:    200,
 				Timestamp: timestamppb.Now(),
@@ -86,23 +84,25 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 		}
 		hash := hashNodeInfo(msg.Info)
 		msg.Signature, _ = privKey.Sign(hash[:])
-		dm := NewDelegateManager(&DefaultConfig, tMock, hMock, privKey)
+		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey)
 		dm.HandleNodeInfo(context.Background(), "abc", msg)
 		addr := msg.Info.Address
-		nodeGot := dm.nodeMap[addr]
-		require.Equal(msg.Info.Height, nodeGot.Height)
-		require.Equal(msg.Info.Version, nodeGot.Version)
-		require.Equal(msg.Info.Timestamp.AsTime().String(), nodeGot.Timestamp.String())
-		require.Equal("abc", nodeGot.PeerID)
+		nodeGot, ok := dm.nodeMap.Get(addr)
+		require.True(ok)
+		nodeInfo := nodeGot.(Info)
+		require.Equal(msg.Info.Height, nodeInfo.Height)
+		require.Equal(msg.Info.Version, nodeInfo.Version)
+		require.Equal(msg.Info.Timestamp.AsTime().String(), nodeInfo.Timestamp.String())
+		require.Equal("abc", nodeInfo.PeerID)
 		m := dto.Metric{}
-		nodeDelegateHeightGauge.WithLabelValues(addr, msg.Info.Version).Write(&m)
+		_nodeInfoHeightGauge.WithLabelValues(addr, msg.Info.Version).Write(&m)
 		require.Equal(msg.Info.Height, uint64(m.Gauge.GetValue()))
 	})
 
 	t.Run("verify_fail", func(t *testing.T) {
 		privKey2, _ := crypto.GenerateKey()
-		msg := &iotextypes.ResponseNodeInfoMessage{
-			Info: &iotextypes.NodeInfo{
+		msg := &iotextypes.NodeInfo{
+			Info: &iotextypes.NodeInfoCore{
 				Version:   "v1.8.0",
 				Height:    200,
 				Timestamp: timestamppb.Now(),
@@ -110,13 +110,13 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 			},
 			Signature: []byte("xxxx"),
 		}
-		dm := NewDelegateManager(&DefaultConfig, tMock, hMock, privKey)
+		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey)
 		dm.HandleNodeInfo(context.Background(), "abc", msg)
 		addr := msg.Info.Address
-		_, ok := dm.nodeMap[addr]
+		_, ok := dm.nodeMap.Get(addr)
 		require.False(ok)
 		m := dto.Metric{}
-		nodeDelegateHeightGauge.WithLabelValues(addr, msg.Info.Version).Write(&m)
+		_nodeInfoHeightGauge.WithLabelValues(addr, msg.Info.Version).Write(&m)
 		require.Equal(uint64(0), uint64(m.Gauge.GetValue()))
 	})
 }
@@ -131,7 +131,7 @@ func TestDelegateManager_BroadcastNodeInfo(t *testing.T) {
 	require.NoError(err)
 
 	t.Run("update_self", func(t *testing.T) {
-		dm := NewDelegateManager(&DefaultConfig, tMock, hMock, privKey)
+		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey)
 		height := uint64(200)
 		peerID, err := peer.IDFromString("12D3KooWF2fns5ZWKbPfx2U1wQDdxoTK2D6HC3ortbSAQYR4BQp4")
 		require.NoError(err)
@@ -141,11 +141,13 @@ func TestDelegateManager_BroadcastNodeInfo(t *testing.T) {
 		err = dm.BroadcastNodeInfo(context.Background())
 		require.NoError(err)
 		addr := privKey.PublicKey().Address().String()
-		nodeGot := dm.nodeMap[addr]
-		require.Equal(height, nodeGot.Height)
-		require.Equal(dm.myVersion, nodeGot.Version)
-		require.Equal(addr, nodeGot.Address)
-		require.Equal(peerID.Pretty(), nodeGot.PeerID)
+		nodeGot, ok := dm.nodeMap.Get(addr)
+		require.True(ok)
+		nodeInfo := nodeGot.(Info)
+		require.Equal(height, nodeInfo.Height)
+		require.Equal(dm.version, nodeInfo.Version)
+		require.Equal(addr, nodeInfo.Address)
+		require.Equal(peerID.Pretty(), nodeInfo.PeerID)
 	})
 }
 
@@ -159,13 +161,13 @@ func TestDelegateManager_HandleNodeInfoRequest(t *testing.T) {
 	require.NoError(err)
 
 	t.Run("unicast", func(t *testing.T) {
-		dm := NewDelegateManager(&DefaultConfig, tMock, hMock, privKey)
+		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey)
 		height := uint64(200)
 		var sig []byte
-		message := &iotextypes.ResponseNodeInfoMessage{}
+		message := &iotextypes.NodeInfo{}
 		hMock.EXPECT().TipHeight().Return(height).Times(1)
 		tMock.EXPECT().UnicastOutbound(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, peerInfo peer.AddrInfo, msg proto.Message) error {
-			*message = *msg.(*iotextypes.ResponseNodeInfoMessage)
+			*message = *msg.(*iotextypes.NodeInfo)
 			hash := hashNodeInfo(message.Info)
 			sig, _ = dm.privKey.Sign(hash[:])
 			return nil
@@ -173,8 +175,8 @@ func TestDelegateManager_HandleNodeInfoRequest(t *testing.T) {
 		err := dm.HandleNodeInfoRequest(context.Background(), peer.AddrInfo{})
 		require.NoError(err)
 		require.Equal(message.Info.Height, height)
-		require.Equal(message.Info.Version, dm.myVersion)
-		require.Equal(message.Info.Address, dm.myAddress)
+		require.Equal(message.Info.Version, dm.version)
+		require.Equal(message.Info.Address, dm.address)
 		require.Equal(message.Signature, sig)
 	})
 }
@@ -189,19 +191,19 @@ func TestDelegateManager_RequestSingleNodeInfoAsync(t *testing.T) {
 	require.NoError(err)
 
 	t.Run("request_single", func(t *testing.T) {
-		dm := NewDelegateManager(&DefaultConfig, tMock, hMock, privKey)
+		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey)
 		var paramPeer peer.AddrInfo
-		var paramMsg iotextypes.RequestNodeInfoMessage
+		var paramMsg iotextypes.NodeInfoRequest
 		peerID, err := peer.IDFromString("12D3KooWF2fns5ZWKbPfx2U1wQDdxoTK2D6HC3ortbSAQYR4BQp4")
 		require.NoError(err)
 		targetPeer := peer.AddrInfo{ID: peerID}
 		tMock.EXPECT().UnicastOutbound(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, p peer.AddrInfo, msg proto.Message) {
 			paramPeer = p
-			paramMsg = *msg.(*iotextypes.RequestNodeInfoMessage)
+			paramMsg = *msg.(*iotextypes.NodeInfoRequest)
 		}).Times(1)
 		dm.RequestSingleNodeInfoAsync(context.Background(), targetPeer)
 		require.Equal(targetPeer, paramPeer)
-		require.Equal(iotextypes.RequestNodeInfoMessage{}, paramMsg)
+		require.Equal(iotextypes.NodeInfoRequest{}, paramMsg)
 	})
 }
 
@@ -214,7 +216,7 @@ func TestDelegateManager_GetNodeByAddr(t *testing.T) {
 	privKey, err := crypto.GenerateKey()
 	require.NoError(err)
 
-	dm := NewDelegateManager(&DefaultConfig, tMock, hMock, privKey)
+	dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey)
 	dm.updateNode(&Info{Address: "1"})
 	dm.updateNode(&Info{Address: "2"})
 

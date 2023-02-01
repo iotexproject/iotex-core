@@ -7,15 +7,11 @@ package nodeinfo
 
 import (
 	"context"
-	"sync"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/cache/lru"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/routine"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
@@ -23,6 +19,11 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/routine"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 type (
@@ -45,13 +46,11 @@ type (
 		PeerID    string
 	}
 
-	// DelegateManager manage delegate node info
-	DelegateManager struct {
-		cfg          Config
-		nodeMap      map[string]Info
-		nodeMapMutex sync.Mutex
-		myVersion    string
-		myAddress    string
+	// InfoManager manage delegate node info
+	InfoManager struct {
+		nodeMap *lru.Cache
+		version string
+		address string
 
 		broadcastTask *routine.RecurringTask
 		transmitter   transmitter
@@ -60,46 +59,47 @@ type (
 	}
 )
 
-var nodeDelegateHeightGauge = prometheus.NewGaugeVec(
+const _nodeMapSizeLimit = 1000
+
+var _nodeInfoHeightGauge = prometheus.NewGaugeVec(
 	prometheus.GaugeOpts{
-		Name: "iotex_node_delegate_height_gauge",
-		Help: "delegate height",
+		Name: "iotex_node_info_height_gauge",
+		Help: "height info of node",
 	},
 	[]string{"address", "version"},
 )
 
 func init() {
-	prometheus.MustRegister(nodeDelegateHeightGauge)
+	prometheus.MustRegister(_nodeInfoHeightGauge)
 }
 
-// NewDelegateManager new delegate manager
-func NewDelegateManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateKey) *DelegateManager {
-	dm := &DelegateManager{
-		cfg:         *cfg,
-		nodeMap:     make(map[string]Info),
+// NewInfoManager new info manager
+func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateKey) *InfoManager {
+	dm := &InfoManager{
+		nodeMap:     lru.New(_nodeMapSizeLimit),
 		transmitter: t,
 		chain:       h,
 		privKey:     privKey,
-		myVersion:   version.PackageVersion,
-		myAddress:   privKey.PublicKey().Address().String(),
+		version:     version.PackageVersion,
+		address:     privKey.PublicKey().Address().String(),
 	}
 
 	dm.broadcastTask = routine.NewRecurringTask(func() {
 		// delegates and nodes who are turned on will broadcast
-		if !dm.isDelegate() && dm.cfg.OnlyDelegateBroadcast {
-			log.L().Debug("delegate manager general node disabled node info broadcast")
+		if !cfg.EnableBroadcastNodeInfo && !dm.isDelegate() {
+			log.L().Debug("nodeinfo manager general node disabled node info broadcast")
 			return
 		}
 
 		if err := dm.BroadcastNodeInfo(context.Background()); err != nil {
-			log.L().Error("delegate manager broadcast node info failed", zap.Error(err))
+			log.L().Error("nodeinfo manager broadcast node info failed", zap.Error(err))
 		}
 	}, cfg.BroadcastNodeInfoInterval)
 	return dm
 }
 
 // Start start delegate broadcast task
-func (dm *DelegateManager) Start(ctx context.Context) error {
+func (dm *InfoManager) Start(ctx context.Context) error {
 	if dm.broadcastTask != nil {
 		return dm.broadcastTask.Start(ctx)
 	}
@@ -107,7 +107,7 @@ func (dm *DelegateManager) Start(ctx context.Context) error {
 }
 
 // Stop stop delegate broadcast task
-func (dm *DelegateManager) Stop(ctx context.Context) error {
+func (dm *InfoManager) Stop(ctx context.Context) error {
 	if dm.broadcastTask != nil {
 		return dm.broadcastTask.Stop(ctx)
 	}
@@ -115,18 +115,18 @@ func (dm *DelegateManager) Stop(ctx context.Context) error {
 }
 
 // HandleNodeInfo handle node info message
-func (dm *DelegateManager) HandleNodeInfo(ctx context.Context, peerID string, msg *iotextypes.ResponseNodeInfoMessage) {
-	log.L().Debug("delegate manager handle node info")
+func (dm *InfoManager) HandleNodeInfo(ctx context.Context, peerID string, msg *iotextypes.NodeInfo) {
+	log.L().Debug("nodeinfo manager handle node info")
 	// recover pubkey
 	hash := hashNodeInfo(msg.Info)
 	pubKey, err := crypto.RecoverPubkey(hash[:], msg.Signature)
 	if err != nil {
-		log.L().Warn("delegate manager recover pubkey failed", zap.Error(err))
+		log.L().Warn("nodeinfo manager recover pubkey failed", zap.Error(err))
 		return
 	}
 	// verify signature
 	if addr := pubKey.Address().String(); addr != msg.Info.Address {
-		log.L().Warn("delegate manager node info message verify failed", zap.String("expected", addr), zap.String("recieved", msg.Info.Address))
+		log.L().Warn("nodeinfo manager node info message verify failed", zap.String("expected", addr), zap.String("recieved", msg.Info.Address))
 		return
 	}
 
@@ -140,29 +140,26 @@ func (dm *DelegateManager) HandleNodeInfo(ctx context.Context, peerID string, ms
 }
 
 // updateNode update node info
-func (dm *DelegateManager) updateNode(node *Info) {
+func (dm *InfoManager) updateNode(node *Info) {
 	addr := node.Address
-	dm.nodeMapMutex.Lock()
-	defer dm.nodeMapMutex.Unlock()
-
 	// update dm.nodeMap
-	dm.nodeMap[addr] = *node
+	dm.nodeMap.Add(addr, *node)
 	// update metric
-	nodeDelegateHeightGauge.WithLabelValues(addr, node.Version).Set(float64(node.Height))
+	_nodeInfoHeightGauge.WithLabelValues(addr, node.Version).Set(float64(node.Height))
 }
 
 // GetNodeByAddr get node info by address
-func (dm *DelegateManager) GetNodeByAddr(addr string) (info Info, ok bool) {
-	dm.nodeMapMutex.Lock()
-	defer dm.nodeMapMutex.Unlock()
-
-	info, ok = dm.nodeMap[addr]
-	return
+func (dm *InfoManager) GetNodeByAddr(addr string) (Info, bool) {
+	info, ok := dm.nodeMap.Get(addr)
+	if !ok {
+		return Info{}, false
+	}
+	return info.(Info), true
 }
 
 // BroadcastNodeInfo broadcast request node info message
-func (dm *DelegateManager) BroadcastNodeInfo(ctx context.Context) error {
-	log.L().Debug("delegate manager broadcast node info")
+func (dm *InfoManager) BroadcastNodeInfo(ctx context.Context) error {
+	log.L().Debug("nodeinfo manager broadcast node info")
 	req, err := dm.genNodeInfoMsg()
 	if err != nil {
 		return err
@@ -187,14 +184,14 @@ func (dm *DelegateManager) BroadcastNodeInfo(ctx context.Context) error {
 }
 
 // RequestSingleNodeInfoAsync unicast request node info message
-func (dm *DelegateManager) RequestSingleNodeInfoAsync(ctx context.Context, peer peer.AddrInfo) error {
-	log.L().Debug("delegate manager request one node info", zap.String("peer", peer.ID.Pretty()))
-	return dm.transmitter.UnicastOutbound(ctx, peer, &iotextypes.RequestNodeInfoMessage{})
+func (dm *InfoManager) RequestSingleNodeInfoAsync(ctx context.Context, peer peer.AddrInfo) error {
+	log.L().Debug("nodeinfo manager request one node info", zap.String("peer", peer.ID.Pretty()))
+	return dm.transmitter.UnicastOutbound(ctx, peer, &iotextypes.NodeInfoRequest{})
 }
 
 // HandleNodeInfoRequest tell node info to peer
-func (dm *DelegateManager) HandleNodeInfoRequest(ctx context.Context, peer peer.AddrInfo) error {
-	log.L().Debug("delegate manager tell node info", zap.Any("peer", peer.ID.Pretty()))
+func (dm *InfoManager) HandleNodeInfoRequest(ctx context.Context, peer peer.AddrInfo) error {
+	log.L().Debug("nodeinfo manager tell node info", zap.Any("peer", peer.ID.Pretty()))
 	req, err := dm.genNodeInfoMsg()
 	if err != nil {
 		return err
@@ -202,13 +199,13 @@ func (dm *DelegateManager) HandleNodeInfoRequest(ctx context.Context, peer peer.
 	return dm.transmitter.UnicastOutbound(ctx, peer, req)
 }
 
-func (dm *DelegateManager) genNodeInfoMsg() (*iotextypes.ResponseNodeInfoMessage, error) {
-	req := &iotextypes.ResponseNodeInfoMessage{
-		Info: &iotextypes.NodeInfo{
-			Version:   dm.myVersion,
+func (dm *InfoManager) genNodeInfoMsg() (*iotextypes.NodeInfo, error) {
+	req := &iotextypes.NodeInfo{
+		Info: &iotextypes.NodeInfoCore{
+			Version:   dm.version,
 			Height:    dm.chain.TipHeight(),
 			Timestamp: timestamppb.Now(),
-			Address:   dm.myAddress,
+			Address:   dm.address,
 		},
 	}
 	// add sig for msg
@@ -221,11 +218,11 @@ func (dm *DelegateManager) genNodeInfoMsg() (*iotextypes.ResponseNodeInfoMessage
 	return req, nil
 }
 
-func (dm *DelegateManager) isDelegate() bool {
+func (dm *InfoManager) isDelegate() bool {
 	// TODO whether i am delegate
 	return false
 }
 
-func hashNodeInfo(msg *iotextypes.NodeInfo) hash.Hash256 {
+func hashNodeInfo(msg *iotextypes.NodeInfoCore) hash.Hash256 {
 	return hash.Hash256b(byteutil.Must(proto.Marshal(msg)))
 }

@@ -9,12 +9,12 @@ import "time"
 
 // Config node config
 type Config struct {
-	OnlyDelegateBroadcast     bool          `yaml:"onlyDelegateBroadcast"`
+	EnableBroadcastNodeInfo   bool          `yaml:"enableBroadcastNodeInfo"`
 	BroadcastNodeInfoInterval time.Duration `yaml:"broadcastNodeInfoInterval"`
 }
 
 // DefaultConfig is the default config
 var DefaultConfig = Config{
-	OnlyDelegateBroadcast:     true,
+	EnableBroadcastNodeInfo:   false,
 	BroadcastNodeInfoInterval: 5 * time.Minute,
 }
