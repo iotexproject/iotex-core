@@ -28,11 +28,6 @@ type Block struct {
 	Receipts []*action.Receipt
 }
 
-// ConvertToBlockHeaderPb converts BlockHeader to BlockHeader
-func (b *Block) ConvertToBlockHeaderPb() *iotextypes.BlockHeader {
-	return b.Header.BlockHeaderProto()
-}
-
 // ConvertToBlockPb converts Block to Block
 func (b *Block) ConvertToBlockPb() *iotextypes.Block {
 	footer, err := b.ConvertToBlockFooterPb()
@@ -40,7 +35,7 @@ func (b *Block) ConvertToBlockPb() *iotextypes.Block {
 		log.L().Panic("failed to convert block footer to protobuf message")
 	}
 	return &iotextypes.Block{
-		Header: b.ConvertToBlockHeaderPb(),
+		Header: b.Header.Proto(),
 		Body:   b.Body.Proto(),
 		Footer: footer,
 	}
