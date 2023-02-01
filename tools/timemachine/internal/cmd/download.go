@@ -118,7 +118,7 @@ var download = &cobra.Command{
 
 // downloadFile downloads an object to a file.
 func downloadFile(bucket, object string) error {
-	dbpath := fmt.Sprintf("./data/%s", strings.TrimPrefix(object, _fullsync))
+	dbpath := fmt.Sprintf("./timemachine/data/%s", strings.TrimPrefix(object, _fullsync))
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {

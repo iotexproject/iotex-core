@@ -109,7 +109,7 @@ build-readtip:
 
 .PHONY: build-timemachine
 build-timemachine:
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_TIMEMACHINE) -v ./tools/timemachine
+	mkdir -p ./bin/$(BUILD_TARGET_TIMEMACHINE) && $(GOBUILD) -o ./bin/$(BUILD_TARGET_TIMEMACHINE)/$(BUILD_TARGET_TIMEMACHINE) -v ./tools/timemachine
 
 .PHONY: fmt
 fmt:
