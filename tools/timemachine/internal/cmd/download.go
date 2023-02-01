@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -70,7 +69,7 @@ var download = &cobra.Command{
 			}
 
 			dbpath := strings.TrimPrefix(obj, objPrefix)
-			heightStr := path.Dir(dbpath)
+			heightStr := filepath.Dir(dbpath)
 			var h uint64
 			if heightStr != "latest" {
 				h = convertHeightStr(heightStr)
@@ -99,12 +98,18 @@ var download = &cobra.Command{
 		})
 		hi--
 
+		binPath, err := os.Executable()
+		if err != nil {
+			return err
+		}
+		dir := filepath.Dir(binPath)
+
 		var wg sync.WaitGroup
 		for _, obj := range dbnames[orders[hi]] {
 			wg.Add(1)
 			go func(obj string) {
 				defer wg.Done()
-				if err := downloadFile(_bucket, objPrefix+obj); err != nil {
+				if err := downloadFile(_bucket, objPrefix+obj, dir); err != nil {
 					panic(errors.Wrapf(err, "Failed to downloadFile: %s.", obj))
 				}
 			}(obj)
@@ -117,8 +122,8 @@ var download = &cobra.Command{
 }
 
 // downloadFile downloads an object to a file.
-func downloadFile(bucket, object string) error {
-	dbpath := fmt.Sprintf("./timemachine/data/%s", strings.TrimPrefix(object, _fullsync))
+func downloadFile(bucket, object, dir string) error {
+	dbpath := fmt.Sprintf("%s/data/%s", dir, strings.TrimPrefix(object, _fullsync))
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {

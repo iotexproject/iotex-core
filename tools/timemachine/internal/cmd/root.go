@@ -21,7 +21,7 @@ steps:
 3. make build-timemachine
 4. cd ./bin/timemachine
 5. ./timemachine download mainnet 13000188
-6、after download successful, edit ./etc/config.yaml and set chainDBPath trieDBPath gravityChainDB:dbPath(path of poll.db) separately. eg: chainDBPath: "./data/mainnet/13m/chain-00000012.db"
+6、after download successful, edit ./etc/config.yaml and set path of chainDBPath trieDBPath gravityChainDB:dbPath(path of poll.db) separately.
 7. ./timemachine try 13000188 --genesis-path ./etc/genesis.yaml --config-path ./etc/config.yaml
 8. ./timemachine get --genesis-path ./etc/genesis.yaml --config-path ./etc/config.yaml`,
 }
