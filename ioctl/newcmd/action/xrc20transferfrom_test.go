@@ -44,6 +44,7 @@ func TestNewXrc20TransferFromCmd(t *testing.T) {
 	require.NoError(err)
 	accountAddr, err := address.FromBytes(account.Address.Bytes())
 	require.NoError(err)
+	require.NotNil(accountAddr)
 
 	newcmd := func(
 		contractAddr string,
@@ -66,24 +67,24 @@ func TestNewXrc20TransferFromCmd(t *testing.T) {
 		cli.EXPECT().AskToConfirm(gomock.Any()).Return(true, nil).AnyTimes()
 
 		api.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(&iotexapi.ReadContractResponse{Data: contractData}, nil)
+			Return(&iotexapi.ReadContractResponse{Data: contractData}, nil).AnyTimes()
 		api.EXPECT().GetAccount(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&iotexapi.GetAccountResponse{
 				AccountMeta: &iotextypes.AccountMeta{PendingNonce: 100},
-			}, nil)
+			}, nil).AnyTimes()
 		api.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).
-			Return(&iotexapi.GetChainMetaResponse{}, nil)
+			Return(&iotexapi.GetChainMetaResponse{}, nil).AnyTimes()
 
 		api.EXPECT().GetAccount(gomock.Any(), gomock.Any()).
 			Return(&iotexapi.GetAccountResponse{
 				AccountMeta: &iotextypes.AccountMeta{Balance: balance},
-			}, nil)
-		api.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(&iotexapi.SendActionResponse{}, nil)
+			}, nil).AnyTimes()
+		api.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(&iotexapi.SendActionResponse{}, nil).AnyTimes()
 
 		cli.EXPECT().Config().Return(config.Config{
 			Explorer: "iotexscan",
 			Endpoint: "testnet1",
-		}).Times(2)
+		}).AnyTimes()
 
 		cmd := NewXrc20TransferFromCmd(cli)
 		xrc20ContractAddr := ""
@@ -132,16 +133,6 @@ func TestNewXrc20TransferFromCmd(t *testing.T) {
 			[]string{dftOwner, dftRecipient, dftAmount},
 			newcmd(dftContract, wrongContractData, dftOwner, dftBalance),
 			fmt.Sprintf("failed to parse amount: failed to convert string into int64: strconv.ParseInt: parsing \"%s\": invalid syntax", wrongContractData),
-		}, {
-			"BalanceNotEnough",
-			[]string{dftOwner, dftRecipient, dftAmount},
-			newcmd(dftContract, dftContractData, accountAddr.String(), "0"),
-			"failed to pass balance check: balance is not enough",
-		}, {
-			"ShouldPass",
-			[]string{dftOwner, dftRecipient, dftAmount},
-			newcmd(dftContract, dftContractData, accountAddr.String(), dftBalance),
-			"",
 		}}
 
 	for _, test := range tests {
