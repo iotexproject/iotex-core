@@ -7,6 +7,8 @@ package nodeinfo
 
 import "time"
 
+const _nodeMapSize = 1000
+
 // Config node config
 type Config struct {
 	EnableBroadcastNodeInfo   bool          `yaml:"enableBroadcastNodeInfo"`

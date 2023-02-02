@@ -59,8 +59,6 @@ type (
 	}
 )
 
-const _nodeMapSizeLimit = 1000
-
 var _nodeInfoHeightGauge = prometheus.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Name: "iotex_node_info_height_gauge",
@@ -76,7 +74,7 @@ func init() {
 // NewInfoManager new info manager
 func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateKey) *InfoManager {
 	dm := &InfoManager{
-		nodeMap:     lru.New(_nodeMapSizeLimit),
+		nodeMap:     lru.New(_nodeMapSize),
 		transmitter: t,
 		chain:       h,
 		privKey:     privKey,
@@ -85,14 +83,13 @@ func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateK
 	}
 
 	dm.broadcastTask = routine.NewRecurringTask(func() {
-		// delegates and nodes who are turned on will broadcast
-		if !cfg.EnableBroadcastNodeInfo && !dm.isDelegate() {
+		// delegates or nodes who are turned on will broadcast
+		if cfg.EnableBroadcastNodeInfo || dm.isDelegate() {
+			if err := dm.BroadcastNodeInfo(context.Background()); err != nil {
+				log.L().Error("nodeinfo manager broadcast node info failed", zap.Error(err))
+			}
+		} else {
 			log.L().Debug("nodeinfo manager general node disabled node info broadcast")
-			return
-		}
-
-		if err := dm.BroadcastNodeInfo(context.Background()); err != nil {
-			log.L().Error("nodeinfo manager broadcast node info failed", zap.Error(err))
 		}
 	}, cfg.BroadcastNodeInfoInterval)
 	return dm
