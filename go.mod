@@ -7,7 +7,7 @@ require (
 	github.com/ethereum/go-ethereum v1.10.21
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a
 	github.com/go-redis/redis/v8 v8.11.4
-	github.com/golang/mock v1.6.0
+	github.com/golang/mock v1.5.0
 	github.com/golang/protobuf v1.5.2
 	github.com/golang/snappy v0.0.4
 	github.com/gorilla/websocket v1.4.2

@@ -81,32 +81,32 @@ func (mr *MockSubscriberMockRecorder) HandleConsensusMsg(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleConsensusMsg", reflect.TypeOf((*MockSubscriber)(nil).HandleConsensusMsg), arg0)
 }
 
-// HandleNodeInfoMsg mocks base method.
-func (m *MockSubscriber) HandleNodeInfoMsg(arg0 context.Context, arg1 string, arg2 *iotextypes.NodeInfo) error {
+// HandleNodeInfo mocks base method.
+func (m *MockSubscriber) HandleNodeInfo(arg0 context.Context, arg1 string, arg2 *iotextypes.NodeInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HandleNodeInfoMsg", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "HandleNodeInfo", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// HandleNodeInfoMsg indicates an expected call of HandleNodeInfoMsg.
-func (mr *MockSubscriberMockRecorder) HandleNodeInfoMsg(arg0, arg1, arg2 interface{}) *gomock.Call {
+// HandleNodeInfo indicates an expected call of HandleNodeInfo.
+func (mr *MockSubscriberMockRecorder) HandleNodeInfo(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleNodeInfoMsg", reflect.TypeOf((*MockSubscriber)(nil).HandleNodeInfoMsg), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleNodeInfo", reflect.TypeOf((*MockSubscriber)(nil).HandleNodeInfo), arg0, arg1, arg2)
 }
 
-// HandleRequestNodeInfoMsg mocks base method.
-func (m *MockSubscriber) HandleRequestNodeInfoMsg(arg0 context.Context, arg1 string, arg2 *iotextypes.NodeInfoRequest) error {
+// HandleNodeInfoRequest mocks base method.
+func (m *MockSubscriber) HandleNodeInfoRequest(arg0 context.Context, arg1 peer.AddrInfo, arg2 *iotextypes.NodeInfoRequest) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HandleRequestNodeInfoMsg", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "HandleNodeInfoRequest", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// HandleRequestNodeInfoMsg indicates an expected call of HandleRequestNodeInfoMsg.
-func (mr *MockSubscriberMockRecorder) HandleRequestNodeInfoMsg(arg0, arg1, arg2 interface{}) *gomock.Call {
+// HandleNodeInfoRequest indicates an expected call of HandleNodeInfoRequest.
+func (mr *MockSubscriberMockRecorder) HandleNodeInfoRequest(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleRequestNodeInfoMsg", reflect.TypeOf((*MockSubscriber)(nil).HandleRequestNodeInfoMsg), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleNodeInfoRequest", reflect.TypeOf((*MockSubscriber)(nil).HandleNodeInfoRequest), arg0, arg1, arg2)
 }
 
 // HandleSyncRequest mocks base method.
