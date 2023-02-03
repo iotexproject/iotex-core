@@ -117,7 +117,7 @@ func (bm *Manager) Put(msg *Message, opts ...Option) error {
 }
 
 func (bm *Manager) supported(msgType iotexrpc.MessageType) bool {
-	return msgType == iotexrpc.MessageType_ACTION || msgType == iotexrpc.MessageType_BLOCK
+	return msgType == iotexrpc.MessageType_ACTION
 }
 
 func (bm *Manager) assemble(ctx context.Context) {

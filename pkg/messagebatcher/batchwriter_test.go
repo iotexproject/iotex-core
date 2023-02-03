@@ -39,8 +39,8 @@ var (
 			Target:  nil,
 		},
 		{
-			ChainID: 1,
-			Target:  peerAddr2,
+			ChainID: 3,
+			Target:  nil,
 			Data:    &iotextypes.Action{},
 		},
 		{
@@ -50,8 +50,8 @@ var (
 			Target:  nil,
 		},
 		{
-			ChainID: 2,
-			Target:  peerAddr2,
+			ChainID: 4,
+			Target:  nil,
 			Data:    &iotextypes.Action{},
 		},
 		// unicast Messages
