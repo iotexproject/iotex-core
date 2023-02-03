@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -116,7 +117,7 @@ func (bm *Manager) Put(msg *Message, opts ...Option) error {
 }
 
 func (bm *Manager) supported(msgType iotexrpc.MessageType) bool {
-	return msgType == iotexrpc.MessageType_ACTION || msgType == iotexrpc.MessageType_BLOCK
+	return msgType == iotexrpc.MessageType_ACTION
 }
 
 func (bm *Manager) assemble(ctx context.Context) {
@@ -149,14 +150,8 @@ func packMessageData(msgType iotexrpc.MessageType, arr []*Message) proto.Message
 			actions = append(actions, arr[i].Data.(*iotextypes.Action))
 		}
 		return &iotextypes.Actions{Actions: actions}
-	case iotexrpc.MessageType_BLOCK:
-		blocks := make([]*iotextypes.Block, 0, len(arr))
-		for i := range arr {
-			blocks = append(blocks, arr[i].Data.(*iotextypes.Block))
-		}
-		return &iotextypes.Blocks{Blocks: blocks}
 	default:
-		panic("the message type should be supported")
+		panic(fmt.Sprintf("the message type %v is not supported", msgType))
 	}
 }
 

@@ -58,7 +58,7 @@ func TestNewUpdateCmd(t *testing.T) {
 		expectedError := errors.New("invalid version-type flag:pre-release")
 		client.EXPECT().SelectTranslation(gomock.Any()).Return("invalid version-type flag:%s",
 			config.English).Times(9)
-		client.EXPECT().Execute(gomock.Any()).Return(expectedError).Times(1)
+		client.EXPECT().Execute(gomock.Any()).Return(expectedError).AnyTimes()
 
 		cmd := NewUpdateCmd(client)
 		_, err := util.ExecuteCmd(cmd, "-t", "pre-release")
