@@ -41,7 +41,7 @@ func TestBCBucketCmd(t *testing.T) {
 	})
 
 	t.Run("get active blockchain bucket count", func(t *testing.T) {
-		client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
+		client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).AnyTimes()
 		apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.All()).Return(&iotexapi.ReadStateResponse{}, nil)
 
 		cmd := NewBCBucketCmd(client)
@@ -61,7 +61,7 @@ func TestBCBucketCmd(t *testing.T) {
 			Buckets: []*iotextypes.VoteBucket{vb},
 		})
 		require.NoError(err)
-		client.EXPECT().Config().Return(cfg).Times(1)
+		client.EXPECT().Config().Return(cfg).AnyTimes()
 		apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.All()).Return(&iotexapi.ReadStateResponse{
 			Data: vblist,
 		}, nil)

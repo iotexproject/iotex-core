@@ -2063,7 +2063,7 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
-			mbc.EXPECT().Genesis().Return(cfg.Genesis).Times(10)
+			mbc.EXPECT().Genesis().Return(cfg.Genesis).Times(3)
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(

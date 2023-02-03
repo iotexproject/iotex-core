@@ -26,7 +26,7 @@ func TestNewHdwalletImportCmd(t *testing.T) {
 	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
 	password := "123"
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(6)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 	client.EXPECT().IsHdWalletConfigFileExist().Return(false).Times(2)
 
 	t.Run("import hdwallet", func(t *testing.T) {

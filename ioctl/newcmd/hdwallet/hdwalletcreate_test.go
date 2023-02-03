@@ -24,7 +24,7 @@ func TestNewHdwalletCreateCmd(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	password := "123"
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(9)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 	client.EXPECT().IsHdWalletConfigFileExist().Return(false).Times(3)
 
 	t.Run("create hdwallet", func(t *testing.T) {

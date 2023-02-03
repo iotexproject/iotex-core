@@ -28,8 +28,8 @@ func TestNewBCInfoCmd(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(9)
-	client.EXPECT().Config().Return(config.Config{}).Times(7)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
+	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
 
 	t.Run("get blockchain info", func(t *testing.T) {

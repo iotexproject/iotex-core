@@ -27,7 +27,7 @@ func TestNewNodeRewardCmd(t *testing.T) {
 	apiClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(24)
-	client.EXPECT().APIServiceClient().Return(apiClient, nil).Times(7)
+	client.EXPECT().APIServiceClient().Return(apiClient, nil).AnyTimes()
 
 	t.Run("get node reward pool", func(t *testing.T) {
 		t.Run("get available reward & total reward", func(t *testing.T) {

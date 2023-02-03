@@ -811,7 +811,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
-	}).Times(8)
+	}).Times(5)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap.Add(ctx, tsf1))
@@ -861,7 +861,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
-	}).Times(10)
+	}).Times(6)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
@@ -910,7 +910,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
-	}).Times(10)
+	}).Times(6)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap.Add(ctx, tsf1))

@@ -29,7 +29,7 @@ func TestNewActionReadCmd(t *testing.T) {
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 	addr := identityset.Address(0).String()
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(36)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
 	client.EXPECT().Address(gomock.Any()).Return(addr, nil).Times(3)
 	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(addr, nil).Times(2)

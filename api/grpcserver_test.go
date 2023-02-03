@@ -322,6 +322,35 @@ func TestGrpcServer_SendAction(t *testing.T) {
 	}
 }
 
+func TestGrpcServer_StreamBlocks(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
+
+	t.Run("addResponder failed", func(t *testing.T) {
+		listener := mock_apitypes.NewMockListener(ctrl)
+		listener.EXPECT().AddResponder(gomock.Any()).Return("", errors.New("mock test"))
+		core.EXPECT().ChainListener().Return(listener)
+		err := grpcSvr.StreamBlocks(&iotexapi.StreamBlocksRequest{}, nil)
+		require.Contains(err.Error(), "mock test")
+	})
+
+	t.Run("success", func(t *testing.T) {
+		listener := mock_apitypes.NewMockListener(ctrl)
+		listener.EXPECT().AddResponder(gomock.Any()).DoAndReturn(func(g *gRPCBlockListener) (string, error) {
+			go func() {
+				g.errChan <- nil
+			}()
+			return "", nil
+		})
+		core.EXPECT().ChainListener().Return(listener)
+		err := grpcSvr.StreamBlocks(&iotexapi.StreamBlocksRequest{}, nil)
+		require.NoError(err)
+	})
+}
+
 func TestGrpcServer_StreamLogs(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)

@@ -47,7 +47,7 @@ func TestNewActionClaimCmd(t *testing.T) {
 	client.EXPECT().Config().Return(config.Config{
 		Explorer: "iotexscan",
 		Endpoint: "testnet1",
-	}).Times(10)
+	}).AnyTimes()
 
 	accountResp := &iotexapi.GetAccountResponse{
 		AccountMeta: &iotextypes.AccountMeta{

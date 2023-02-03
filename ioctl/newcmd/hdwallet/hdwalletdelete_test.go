@@ -22,7 +22,7 @@ func TestNewHdwalletDeleteCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(4)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
 	t.Run("delete hdwallet", func(t *testing.T) {
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true, nil)

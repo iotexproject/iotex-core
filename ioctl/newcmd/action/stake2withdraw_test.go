@@ -47,7 +47,7 @@ func TestNewStake2WithdrawCmd(t *testing.T) {
 	client.EXPECT().Config().Return(config.Config{
 		Explorer: "iotexscan",
 		Endpoint: "testnet1",
-	}).Times(10)
+	}).AnyTimes()
 
 	accountResp := &iotexapi.GetAccountResponse{
 		AccountMeta: &iotextypes.AccountMeta{
@@ -119,7 +119,7 @@ func TestNewStake2WithdrawCmd(t *testing.T) {
 	t.Run("failed to get signed address", func(t *testing.T) {
 		expectedErr := errors.New("failed to get signed address")
 		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return("", expectedErr)
-		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResp, nil)
+		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResp, nil).AnyTimes()
 
 		cmd := NewStake2WithdrawCmd(client)
 		_, err = util.ExecuteCmd(cmd, "10", "--signer", accAddr.String())

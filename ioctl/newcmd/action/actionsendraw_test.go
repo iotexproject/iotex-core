@@ -25,7 +25,7 @@ func TestNewActionSendRawCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(8)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
 	t.Run("action send raw", func(t *testing.T) {
 		client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)

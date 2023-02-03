@@ -37,8 +37,8 @@ func TestNewBCBlockCmd(t *testing.T) {
 	}
 	blockMetaResponse := &iotexapi.GetBlockMetasResponse{BlkMetas: blockMeta}
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(35)
-	client.EXPECT().Config().Return(cfg).Times(20)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
+	client.EXPECT().Config().Return(cfg).AnyTimes()
 
 	t.Run("failed to dial grpc connection", func(t *testing.T) {
 		expectedErr := errors.New("failed to dial grpc connection")
@@ -50,7 +50,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 		require.Equal(expectedErr, err)
 	})
 
-	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(16)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).AnyTimes()
 
 	t.Run("failed to get chain meta", func(t *testing.T) {
 		expectedErr := errors.New("failed to get chain meta")

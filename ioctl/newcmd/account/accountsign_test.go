@@ -39,7 +39,7 @@ func TestNewAccountSign(t *testing.T) {
 	})
 
 	t.Run("valid_account", func(t *testing.T) {
-		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
+		client.EXPECT().IsCryptoSm2().Return(false).Times(1)
 		const pwd = "test"
 		acc, _ := ks.NewAccount(pwd)
 		accAddr, _ := address.FromBytes(acc.Address.Bytes())

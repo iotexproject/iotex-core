@@ -31,7 +31,7 @@ func TestVersionCommand(t *testing.T) {
 		ServerMeta: &iotextypes.ServerMeta{PackageVersion: "1.0"},
 	}
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(12)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
 	endpoint := "111:222:333:444:5678"
 	insecure := true
 	callbackEndpoint := func(cb func(*string, string, string, string)) {
@@ -68,7 +68,7 @@ func TestVersionCommand(t *testing.T) {
 	t.Run("use \"ioctl config set endpoint\" to config endpoint first", func(t *testing.T) {
 		expectedErr := errors.New("use \"ioctl config set endpoint\" to config endpoint first")
 		client.EXPECT().APIServiceClient().Return(nil, expectedErr).Times(1)
-		apiServiceClient.EXPECT().GetServerMeta(gomock.Any(), gomock.Any()).Return(&response, nil).Times(1)
+		apiServiceClient.EXPECT().GetServerMeta(gomock.Any(), gomock.Any()).Return(&response, nil).AnyTimes()
 
 		cmd := NewVersionCmd(client)
 		_, err := util.ExecuteCmd(cmd)

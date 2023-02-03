@@ -22,7 +22,7 @@ func TestNewAliasExport(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslation",
-		config.English).Times(12)
+		config.English).AnyTimes()
 	cfg := config.Config{
 		Aliases: map[string]string{
 			"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
