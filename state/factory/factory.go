@@ -96,7 +96,6 @@ type (
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
 	factory struct {
-		lifecycle                lifecycle.Lifecycle
 		mutex                    sync.RWMutex
 		cfg                      Config
 		registry                 *protocol.Registry
@@ -207,6 +206,7 @@ func (sf *factory) Start(ctx context.Context) error {
 			return err
 		}
 	case db.ErrNotExist:
+		sf.currentChainHeight = 0
 		if err = sf.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init factory's height")
 		}
@@ -230,17 +230,14 @@ func (sf *factory) Start(ctx context.Context) error {
 	default:
 		return err
 	}
-	return sf.lifecycle.OnStart(ctx)
+	return nil
 }
 
 func (sf *factory) Stop(ctx context.Context) error {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	if err := sf.dao.Stop(ctx); err != nil {
-		return err
-	}
 	sf.workingsets.Clear()
-	return sf.lifecycle.OnStop(ctx)
+	return sf.dao.Stop(ctx)
 }
 
 // Height returns factory's height
@@ -255,10 +252,6 @@ func (sf *factory) Height() (uint64, error) {
 }
 
 func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
-	span := tracer.SpanFromContext(ctx)
-	span.AddEvent("factory.newWorkingSet")
-	defer span.End()
-
 	g := genesis.MustExtractGenesisContext(ctx)
 	flusher, err := db.NewKVStoreFlusher(
 		sf.dao,
@@ -268,6 +261,13 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	if err != nil {
 		return nil, err
 	}
+	for _, p := range sf.ps.Get(height) {
+		if p.Type == _Delete {
+			flusher.KVStoreWithBuffer().MustDelete(p.Namespace, p.Key)
+		} else {
+			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
+		}
+	}
 	store, err := newFactoryWorkingSetStore(sf.protocolView, flusher)
 	if err != nil {
 		return nil, err
@@ -275,49 +275,7 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
-	for _, p := range sf.ps.Get(height) {
-		if p.Type == _Delete {
-			if err := store.Delete(p.Namespace, p.Key); err != nil {
-				return nil, err
-			}
-		} else {
-			if err := store.Put(p.Namespace, p.Key, p.Value); err != nil {
-				return nil, err
-			}
-		}
-	}
-
 	return newWorkingSet(height, store), nil
-}
-
-func (sf *factory) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
-	opts := []db.KVStoreFlusherOption{
-		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
-			if wi.Namespace() == ArchiveTrieNamespace {
-				return true
-			}
-			if wi.Namespace() != evm.CodeKVNameSpace && wi.Namespace() != staking.CandsMapNS {
-				return false
-			}
-			return preEaster
-		}),
-		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
-			if preEaster {
-				return wi.SerializeWithoutWriteType()
-			}
-			return wi.Serialize()
-		}),
-	}
-	if sf.saveHistory {
-		opts = append(opts, db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
-			if wi.WriteType() == batch.Delete && wi.Namespace() == ArchiveTrieNamespace {
-				return nil
-			}
-			return wi
-		}))
-	}
-
-	return opts
 }
 
 func (sf *factory) Register(p protocol.Protocol) error {
@@ -335,7 +293,7 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 		if err := ws.ValidateBlock(ctx, blk); err != nil {
 			return errors.Wrap(err, "failed to validate block with workingset in factory")
 		}
-		sf.putIntoWorkingSets(key, ws)
+		sf.workingsets.Add(key, ws)
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
@@ -351,10 +309,11 @@ func (sf *factory) NewBlockBuilder(
 	ap actpool.ActPool,
 	sign func(action.Envelope) (action.SealedEnvelope, error),
 ) (*block.Builder, error) {
-	sf.mutex.Lock()
 	ctx = protocol.WithRegistry(ctx, sf.registry)
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+	sf.mutex.Lock()
+	currHeight := sf.currentChainHeight
 	sf.mutex.Unlock()
+	ws, err := sf.newWorkingSet(ctx, currHeight+1)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
@@ -381,7 +340,7 @@ func (sf *factory) NewBlockBuilder(
 
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
-	sf.putIntoWorkingSets(key, ws)
+	sf.workingsets.Add(key, ws)
 	return blkBuilder, nil
 }
 
@@ -397,8 +356,9 @@ func (sf *factory) SimulateExecution(
 	defer span.End()
 
 	sf.mutex.Lock()
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+	currHeight := sf.currentChainHeight
 	sf.mutex.Unlock()
+	ws, err := sf.newWorkingSet(ctx, currHeight+1)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
@@ -409,8 +369,9 @@ func (sf *factory) SimulateExecution(
 // ReadContractStorage reads contract's storage
 func (sf *factory) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
 	sf.mutex.Lock()
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+	currHeight := sf.currentChainHeight
 	sf.mutex.Unlock()
+	ws, err := sf.newWorkingSet(ctx, currHeight+1)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate working set from state factory")
 	}
@@ -530,12 +491,12 @@ func (sf *factory) StatesAtHeight(height uint64, opts ...protocol.StateOption) (
 
 // State returns a confirmed state in the state factory
 func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, err
 	}
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
 	if cfg.Keys != nil {
 		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
@@ -552,12 +513,12 @@ func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, e
 
 // State returns a set states in the state factory
 func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, nil, err
 	}
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
 	if cfg.Key != nil {
 		return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
@@ -577,6 +538,36 @@ func (sf *factory) ReadView(name string) (interface{}, error) {
 //======================================
 // private trie constructor functions
 //======================================
+
+func (sf *factory) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
+	opts := []db.KVStoreFlusherOption{
+		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
+			if wi.Namespace() == ArchiveTrieNamespace {
+				return true
+			}
+			if wi.Namespace() != evm.CodeKVNameSpace && wi.Namespace() != staking.CandsMapNS {
+				return false
+			}
+			return preEaster
+		}),
+		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
+			if preEaster {
+				return wi.SerializeWithoutWriteType()
+			}
+			return wi.Serialize()
+		}),
+	}
+	if sf.saveHistory {
+		opts = append(opts, db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
+			if wi.WriteType() == batch.Delete && wi.Namespace() == ArchiveTrieNamespace {
+				return nil
+			}
+			return wi
+		}))
+	}
+
+	return opts
+}
 
 func (sf *factory) rootHash() ([]byte, error) {
 	return sf.twoLayerTrie.RootHash()
@@ -673,8 +664,6 @@ func (sf *factory) createGenesisStates(ctx context.Context) error {
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
 func (sf *factory) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*workingSet, bool, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
 	if data, ok := sf.workingsets.Get(key); ok {
 		if ws, ok := data.(*workingSet); ok {
 			// if it is already validated, return workingset
@@ -682,11 +671,11 @@ func (sf *factory) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*w
 		}
 		return nil, false, errors.New("type assertion failed to be WorkingSet")
 	}
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
-	if err != nil {
-		return nil, false, errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-	return ws, false, nil
+	sf.mutex.RLock()
+	currHeight := sf.currentChainHeight
+	defer sf.mutex.RUnlock()
+	ws, err := sf.newWorkingSet(ctx, currHeight+1)
+	return ws, false, err
 }
 
 func (sf *factory) putIntoWorkingSets(key hash.Hash256, ws *workingSet) {
