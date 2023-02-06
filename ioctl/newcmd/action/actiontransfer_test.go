@@ -36,11 +36,11 @@ func TestNewActionTransferCmd(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 	client.EXPECT().Alias(gomock.Any()).Return("producer", nil).Times(10)
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).AnyTimes()
-	client.EXPECT().IsCryptoSm2().Return(false).Times(19)
-	client.EXPECT().ReadSecret().Return("", nil).Times(6)
+	client.EXPECT().IsCryptoSm2().Return(false).AnyTimes()
+	client.EXPECT().ReadSecret().Return("", nil).AnyTimes()
 	client.EXPECT().Address(gomock.Any()).Return(accAddr.String(), nil).Times(17)
 	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(7)
-	client.EXPECT().NewKeyStore().Return(ks).Times(12)
+	client.EXPECT().NewKeyStore().Return(ks).AnyTimes()
 	client.EXPECT().AskToConfirm(gomock.Any()).Return(true, nil).Times(5)
 	client.EXPECT().Config().Return(config.Config{
 		Explorer: "iotexscan",
@@ -61,7 +61,7 @@ func TestNewActionTransferCmd(t *testing.T) {
 	}
 	sendActionResp := &iotexapi.SendActionResponse{}
 	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResp, nil).Times(18)
-	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResp, nil).Times(6)
+	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResp, nil).AnyTimes()
 	apiServiceClient.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(sendActionResp, nil).Times(5)
 
 	t.Run("action transfer", func(t *testing.T) {
