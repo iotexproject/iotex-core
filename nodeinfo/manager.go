@@ -74,7 +74,7 @@ func init() {
 // NewInfoManager new info manager
 func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateKey) *InfoManager {
 	dm := &InfoManager{
-		nodeMap:     lru.New(_nodeMapSize),
+		nodeMap:     lru.New(cfg.NodeMapSize),
 		transmitter: t,
 		chain:       h,
 		privKey:     privKey,

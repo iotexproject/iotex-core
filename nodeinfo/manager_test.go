@@ -31,7 +31,7 @@ func TestNewDelegateManager(t *testing.T) {
 	require.NoError(err)
 
 	t.Run("disable_broadcast", func(t *testing.T) {
-		cfg := Config{false, 100 * time.Millisecond}
+		cfg := Config{false, 100 * time.Millisecond, 1000}
 		dm := NewInfoManager(&cfg, tMock, hMock, privK)
 		require.NotNil(dm.nodeMap)
 		require.Equal(tMock, dm.transmitter)
@@ -46,7 +46,7 @@ func TestNewDelegateManager(t *testing.T) {
 	})
 
 	t.Run("enable_broadcast", func(t *testing.T) {
-		cfg := Config{true, 100 * time.Millisecond}
+		cfg := Config{true, 100 * time.Millisecond, 1000}
 		dm := NewInfoManager(&cfg, tMock, hMock, privK)
 		require.NotNil(dm.nodeMap)
 		require.Equal(tMock, dm.transmitter)
