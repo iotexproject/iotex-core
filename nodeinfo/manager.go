@@ -48,10 +48,9 @@ type (
 
 	// InfoManager manage delegate node info
 	InfoManager struct {
-		nodeMap *lru.Cache
-		version string
-		address string
-
+		version       string
+		address       string
+		nodeMap       *lru.Cache
 		broadcastTask *routine.RecurringTask
 		transmitter   transmitter
 		chain         chain
