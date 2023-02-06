@@ -62,10 +62,9 @@ func TestActPool_NewActPool(t *testing.T) {
 	require.Error(err)
 
 	// all good
-	opt := EnableExperimentalActions()
 	require.Panics(func() { blockchain.NewBlockchain(blockchain.DefaultConfig, genesis.Default, nil, nil, nil) }, "option is nil")
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
-	act, err := NewActPool(genesis.Default, sf, DefaultConfig, opt)
+	act, err := NewActPool(genesis.Default, sf, DefaultConfig)
 	require.NoError(err)
 	require.NotNil(act)
 
@@ -101,7 +100,7 @@ func TestValidate(t *testing.T) {
 	mockError := errors.New("mock error")
 	sev.EXPECT().Validate(gomock.Any(), gomock.Any()).Return(mockError).Times(1)
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(g, sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(g, sf, apConfig)
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -138,7 +137,7 @@ func TestActPool_AddActs(t *testing.T) {
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -198,7 +197,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.Error(ap.Add(ctx, tsf1))
 	require.Error(ap.Add(ctx, tsf4))
 	// Case III: Pool space/gas space is full
-	Ap2, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
+	Ap2, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
@@ -292,7 +291,7 @@ func TestActPool_PickActs(t *testing.T) {
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	createActPool := func(cfg Config) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
 		// Create actpool
-		Ap, err := NewActPool(genesis.Default, sf, cfg, EnableExperimentalActions())
+		Ap, err := NewActPool(genesis.Default, sf, cfg)
 		require.NoError(err)
 		ap, ok := Ap.(*actPool)
 		require.True(ok)
@@ -372,7 +371,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -472,12 +471,12 @@ func TestActPool_Reset(t *testing.T) {
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
 	apConfig := getActPoolCfg()
-	Ap1, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
+	Ap1, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
 	ap1, ok := Ap1.(*actPool)
 	require.True(ok)
 	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-	Ap2, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
+	Ap2, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
@@ -790,7 +789,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -810,7 +809,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
-	}).Times(8)
+	}).Times(5)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap.Add(ctx, tsf1))
@@ -840,7 +839,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -860,7 +859,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
-	}).Times(10)
+	}).Times(6)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
@@ -888,7 +887,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -909,7 +908,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
-	}).Times(10)
+	}).Times(6)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap.Add(ctx, tsf1))
@@ -939,7 +938,7 @@ func TestActPool_GetActionByHash(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -973,7 +972,7 @@ func TestActPool_GetCapacity(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -987,7 +986,7 @@ func TestActPool_GetSize(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -1039,7 +1038,7 @@ func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 
 	apConfig := DefaultConfig
-	ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
+	ap, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(t, err)
 	tsf, err := action.SignedTransfer(
 		identityset.Address(0).String(),
@@ -1075,7 +1074,7 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)

@@ -52,6 +52,8 @@ func setTestCase() []proto.Message {
 		&iotextypes.Block{},
 		&iotexrpc.BlockSync{},
 		&testingpb.TestPayload{},
+		&iotextypes.NodeInfoRequest{},
+		&iotextypes.NodeInfo{},
 	}
 }
 
@@ -98,3 +100,11 @@ func (ds *dummySubscriber) HandleSyncRequest(context.Context, peer.AddrInfo, *io
 func (ds *dummySubscriber) HandleAction(context.Context, *iotextypes.Action) error { return nil }
 
 func (ds *dummySubscriber) HandleConsensusMsg(*iotextypes.ConsensusMessage) error { return nil }
+
+func (ds *dummySubscriber) HandleNodeInfoRequest(context.Context, peer.AddrInfo, *iotextypes.NodeInfoRequest) error {
+	return nil
+}
+
+func (ds *dummySubscriber) HandleNodeInfo(context.Context, string, *iotextypes.NodeInfo) error {
+	return nil
+}

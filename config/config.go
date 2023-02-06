@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
+	"github.com/iotexproject/iotex-core/nodeinfo"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -77,9 +78,10 @@ var (
 			StartSubChainInterval: 10 * time.Second,
 			SystemLogDBPath:       "/var/log",
 		},
-		DB:      db.DefaultConfig,
-		Indexer: blockindex.DefaultConfig,
-		Genesis: genesis.Default,
+		DB:       db.DefaultConfig,
+		Indexer:  blockindex.DefaultConfig,
+		Genesis:  genesis.Default,
+		NodeInfo: nodeinfo.DefaultConfig,
 	}
 
 	// ErrInvalidCfg indicates the invalid config value
@@ -110,6 +112,7 @@ type (
 		HTTPStatsPort         int           `yaml:"httpStatsPort"`
 		StartSubChainInterval time.Duration `yaml:"startSubChainInterval"`
 		SystemLogDBPath       string        `yaml:"systemLogDBPath"`
+		MptrieLogPath         string        `yaml:"mptrieLogPath"`
 	}
 
 	// Config is the root config struct, each package's config should be put as its sub struct
@@ -129,6 +132,7 @@ type (
 		Log                log.GlobalConfig                `yaml:"log"`
 		SubLogs            map[string]log.GlobalConfig     `yaml:"subLogs"`
 		Genesis            genesis.Genesis                 `yaml:"genesis"`
+		NodeInfo           nodeinfo.Config                 `yaml:"nodeinfo"`
 	}
 
 	// Validate is the interface of validating the config

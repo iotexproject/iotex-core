@@ -51,6 +51,8 @@ type Subscriber interface {
 	HandleBlock(context.Context, string, *iotextypes.Block) error
 	HandleSyncRequest(context.Context, peer.AddrInfo, *iotexrpc.BlockSync) error
 	HandleConsensusMsg(*iotextypes.ConsensusMessage) error
+	HandleNodeInfoRequest(context.Context, peer.AddrInfo, *iotextypes.NodeInfoRequest) error
+	HandleNodeInfo(context.Context, string, *iotextypes.NodeInfo) error
 }
 
 // Dispatcher is used by peers, handles incoming block and header notifications and relays announcements of new blocks.
@@ -67,12 +69,14 @@ type Dispatcher interface {
 	HandleTell(context.Context, uint32, peer.AddrInfo, proto.Message)
 }
 
-var requestMtc = prometheus.NewCounterVec(
-	prometheus.CounterOpts{
-		Name: "iotex_dispatch_request",
-		Help: "Dispatcher request counter.",
-	},
-	[]string{"method", "succeed"},
+var (
+	requestMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_dispatch_request",
+			Help: "Dispatcher request counter.",
+		},
+		[]string{"method", "succeed"},
+	)
 )
 
 func init() {
@@ -321,7 +325,7 @@ func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 }
 
 // dispatchAction adds the passed action message to the news handling queue.
-func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg proto.Message) {
+func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg *iotextypes.Action) {
 	if !d.IsReady() {
 		return
 	}
@@ -338,7 +342,7 @@ func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg
 		d.actionChan <- &actionMsg{
 			ctx:     ctx,
 			chainID: chainID,
-			action:  (msg).(*iotextypes.Action),
+			action:  msg,
 		}
 		l++
 	} else {
@@ -348,7 +352,7 @@ func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg
 }
 
 // dispatchBlock adds the passed block message to the news handling queue.
-func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, peer string, msg proto.Message) {
+func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, peer string, msg *iotextypes.Block) {
 	if !d.IsReady() {
 		return
 	}
@@ -365,7 +369,7 @@ func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, peer
 		d.blockChan <- &blockMsg{
 			ctx:     ctx,
 			chainID: chainID,
-			block:   (msg).(*iotextypes.Block),
+			block:   msg,
 			peer:    peer,
 		}
 		l++
@@ -424,9 +428,18 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, pe
 			log.L().Debug("Failed to handle consensus message.", zap.Error(err))
 		}
 	case *iotextypes.Action:
-		d.dispatchAction(ctx, chainID, message)
+		d.dispatchAction(ctx, chainID, message.(*iotextypes.Action))
+	case *iotextypes.Actions:
+		acts := message.(*iotextypes.Actions)
+		for i := range acts.Actions {
+			d.dispatchAction(ctx, chainID, acts.Actions[i])
+		}
 	case *iotextypes.Block:
-		d.dispatchBlock(ctx, chainID, peer, message)
+		d.dispatchBlock(ctx, chainID, peer, message.(*iotextypes.Block))
+	case *iotextypes.NodeInfo:
+		if err := subscriber.HandleNodeInfo(ctx, peer, msg); err != nil {
+			log.L().Warn("Failed to handle node info message.", zap.Error(err))
+		}
 	default:
 		msgType, _ := goproto.GetTypeFromRPCMsg(message)
 		log.L().Warn("Unexpected msgType handled by HandleBroadcast.", zap.Any("msgType", msgType))
@@ -443,9 +456,41 @@ func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer pe
 	case iotexrpc.MessageType_BLOCK_REQUEST:
 		d.dispatchBlockSyncReq(ctx, chainID, peer, message)
 	case iotexrpc.MessageType_BLOCK:
-		d.dispatchBlock(ctx, chainID, peer.ID.Pretty(), message)
+		d.dispatchBlock(ctx, chainID, peer.ID.Pretty(), message.(*iotextypes.Block))
+	case iotexrpc.MessageType_NODE_INFO_REQUEST:
+		d.dispatchNodeInfoRequest(ctx, chainID, peer, message.(*iotextypes.NodeInfoRequest))
+	case iotexrpc.MessageType_NODE_INFO:
+		d.dispatchNodeInfo(ctx, chainID, peer.ID.Pretty(), message.(*iotextypes.NodeInfo))
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleTell.", zap.Any("msgType", msgType))
+	}
+}
+
+func (d *IotxDispatcher) dispatchNodeInfoRequest(ctx context.Context, chainID uint32, peer peer.AddrInfo, message *iotextypes.NodeInfoRequest) {
+	if !d.IsReady() {
+		return
+	}
+	subscriber := d.subscriber(chainID)
+	if subscriber == nil {
+		log.L().Debug("no subscriber for this chain id, drop the node info", zap.Uint32("chain id", chainID))
+		return
+	}
+	if err := subscriber.HandleNodeInfoRequest(ctx, peer, message); err != nil {
+		log.L().Warn("failed to handle request node info message", zap.Error(err))
+	}
+}
+
+func (d *IotxDispatcher) dispatchNodeInfo(ctx context.Context, chainID uint32, peerID string, message *iotextypes.NodeInfo) {
+	if !d.IsReady() {
+		return
+	}
+	subscriber := d.subscriber(chainID)
+	if subscriber == nil {
+		log.L().Debug("no subscriber for this chain id, drop the node info", zap.Uint32("chain id", chainID))
+		return
+	}
+	if err := subscriber.HandleNodeInfo(ctx, peerID, message); err != nil {
+		log.L().Warn("failed to handle node info message", zap.Error(err))
 	}
 }
 
