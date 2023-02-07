@@ -70,16 +70,15 @@ func TestNewXrc20TransferFromCmd(t *testing.T) {
 			Return(&iotexapi.ReadContractResponse{Data: contractData}, nil).AnyTimes()
 		api.EXPECT().GetAccount(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&iotexapi.GetAccountResponse{
-				AccountMeta: &iotextypes.AccountMeta{PendingNonce: 100},
+				AccountMeta: &iotextypes.AccountMeta{
+					PendingNonce: 100,
+					Balance:      balance,
+				},
 			}, nil).AnyTimes()
 		api.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).
 			Return(&iotexapi.GetChainMetaResponse{}, nil).AnyTimes()
-
-		api.EXPECT().GetAccount(gomock.Any(), gomock.Any()).
-			Return(&iotexapi.GetAccountResponse{
-				AccountMeta: &iotextypes.AccountMeta{Balance: balance},
-			}, nil).AnyTimes()
-		api.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(&iotexapi.SendActionResponse{}, nil).AnyTimes()
+		api.EXPECT().SendAction(gomock.Any(), gomock.Any()).
+			Return(&iotexapi.SendActionResponse{}, nil).AnyTimes()
 
 		cli.EXPECT().Config().Return(config.Config{
 			Explorer: "iotexscan",
@@ -133,6 +132,16 @@ func TestNewXrc20TransferFromCmd(t *testing.T) {
 			[]string{dftOwner, dftRecipient, dftAmount},
 			newcmd(dftContract, wrongContractData, dftOwner, dftBalance),
 			fmt.Sprintf("failed to parse amount: failed to convert string into int64: strconv.ParseInt: parsing \"%s\": invalid syntax", wrongContractData),
+		}, {
+			"BalanceNotEnough",
+			[]string{dftOwner, dftRecipient, dftAmount},
+			newcmd(dftContract, dftContractData, accountAddr.String(), "0"),
+			"failed to pass balance check: balance is not enough",
+		}, {
+			"ShouldPass",
+			[]string{dftOwner, dftRecipient, dftAmount},
+			newcmd(dftContract, dftContractData, accountAddr.String(), dftBalance),
+			"",
 		}}
 
 	for _, test := range tests {
