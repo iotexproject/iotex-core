@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
@@ -206,8 +207,10 @@ func GetWriteCommandFlag(cmd *cobra.Command) (gasPrice, signer, password string,
 }
 
 func handleClientRequestError(err error, apiName string) error {
-	sta, ok := status.FromError(err)
-	if ok {
+	if sta, ok := status.FromError(err); ok {
+		if sta.Code() == codes.Unavailable {
+			return ioctl.ErrInvalidEndpointOrInsecure
+		}
 		return errors.New(sta.Message())
 	}
 	return errors.Wrapf(err, "failed to invoke %s api", apiName)
