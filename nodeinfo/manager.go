@@ -60,7 +60,7 @@ type (
 		lifecycle.Lifecycle
 		version      string
 		address      string
-		isDelegate   atomic.Bool
+		isDelegate   atomic.Value // bool
 		nodeMap      *lru.Cache
 		transmitter  transmitter
 		chain        chain
@@ -92,6 +92,7 @@ func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateK
 		address:      privKey.PublicKey().Address().String(),
 		getDelegates: fun,
 	}
+	dm.isDelegate.Store(false)
 	// init recurring tasks
 	broadcastTask := routine.NewRecurringTask(func() {
 		ctx := protocol.WithFeatureCtx(
@@ -104,7 +105,7 @@ func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateK
 			return
 		}
 		// delegates or nodes who are turned on will broadcast
-		if cfg.EnableBroadcastNodeInfo || dm.isDelegate.Load() {
+		if cfg.EnableBroadcastNodeInfo || dm.isDelegate.Load().(bool) {
 			if err := dm.BroadcastNodeInfo(context.Background()); err != nil {
 				log.L().Error("nodeinfo manager broadcast node info failed", zap.Error(err))
 			}
