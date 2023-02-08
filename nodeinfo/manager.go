@@ -7,6 +7,7 @@ package nodeinfo
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/cache/lru"
@@ -17,13 +18,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 type (
@@ -37,6 +41,8 @@ type (
 		TipHeight() uint64
 	}
 
+	delegatesGetFunc func(context.Context) (state.CandidateList, error)
+
 	// Info node infomation
 	Info struct {
 		Version   string
@@ -48,13 +54,15 @@ type (
 
 	// InfoManager manage delegate node info
 	InfoManager struct {
-		version       string
-		address       string
-		nodeMap       *lru.Cache
-		broadcastTask *routine.RecurringTask
-		transmitter   transmitter
-		chain         chain
-		privKey       crypto.PrivateKey
+		lifecycle.Lifecycle
+		version      string
+		address      string
+		isDelegate   atomic.Bool
+		nodeMap      *lru.Cache
+		transmitter  transmitter
+		chain        chain
+		privKey      crypto.PrivateKey
+		getDelegates delegatesGetFunc
 	}
 )
 
@@ -71,19 +79,20 @@ func init() {
 }
 
 // NewInfoManager new info manager
-func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateKey) *InfoManager {
+func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateKey, fun delegatesGetFunc) *InfoManager {
 	dm := &InfoManager{
-		nodeMap:     lru.New(cfg.NodeMapSize),
-		transmitter: t,
-		chain:       h,
-		privKey:     privKey,
-		version:     version.PackageVersion,
-		address:     privKey.PublicKey().Address().String(),
+		nodeMap:      lru.New(cfg.NodeMapSize),
+		transmitter:  t,
+		chain:        h,
+		privKey:      privKey,
+		version:      version.PackageVersion,
+		address:      privKey.PublicKey().Address().String(),
+		getDelegates: fun,
 	}
-
-	dm.broadcastTask = routine.NewRecurringTask(func() {
+	// init recurring tasks
+	broadcastTask := routine.NewRecurringTask(func() {
 		// delegates or nodes who are turned on will broadcast
-		if cfg.EnableBroadcastNodeInfo || dm.isDelegate() {
+		if cfg.EnableBroadcastNodeInfo || dm.isDelegate.Load() {
 			if err := dm.BroadcastNodeInfo(context.Background()); err != nil {
 				log.L().Error("nodeinfo manager broadcast node info failed", zap.Error(err))
 			}
@@ -91,23 +100,23 @@ func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateK
 			log.L().Debug("nodeinfo manager general node disabled node info broadcast")
 		}
 	}, cfg.BroadcastNodeInfoInterval)
+	updateDelegateCacheTask := routine.NewRecurringTask(func() {
+		if err := dm.updateDelegateCache(); err != nil {
+			log.L().Error("nodeinfo manager update delegate cache failed", zap.Error(err))
+		}
+	}, cfg.DelegateCacheTTL)
+	dm.AddModels(updateDelegateCacheTask, broadcastTask)
 	return dm
 }
 
 // Start start delegate broadcast task
 func (dm *InfoManager) Start(ctx context.Context) error {
-	if dm.broadcastTask != nil {
-		return dm.broadcastTask.Start(ctx)
-	}
-	return nil
+	return dm.OnStart(ctx)
 }
 
 // Stop stop delegate broadcast task
 func (dm *InfoManager) Stop(ctx context.Context) error {
-	if dm.broadcastTask != nil {
-		return dm.broadcastTask.Stop(ctx)
-	}
-	return nil
+	return dm.OnStop(ctx)
 }
 
 // HandleNodeInfo handle node info message
@@ -214,9 +223,16 @@ func (dm *InfoManager) genNodeInfoMsg() (*iotextypes.NodeInfo, error) {
 	return req, nil
 }
 
-func (dm *InfoManager) isDelegate() bool {
-	// TODO whether i am delegate
-	return false
+func (dm *InfoManager) updateDelegateCache() error {
+	candList, err := dm.getDelegates(context.Background())
+	if err != nil {
+		return err
+	}
+	log.L().Debug("nodeinfo manager active candidates", zap.Any("candidates", candList))
+	dm.isDelegate.Store(slices.ContainsFunc(candList, func(e *state.Candidate) bool {
+		return dm.address == e.Address
+	}))
+	return nil
 }
 
 func hashNodeInfo(msg *iotextypes.NodeInfoCore) hash.Hash256 {
