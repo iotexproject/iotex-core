@@ -22,6 +22,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
@@ -39,6 +41,7 @@ type (
 
 	chain interface {
 		TipHeight() uint64
+		Genesis() genesis.Genesis
 	}
 
 	delegatesGetFunc func(context.Context) (state.CandidateList, error)
@@ -91,6 +94,15 @@ func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateK
 	}
 	// init recurring tasks
 	broadcastTask := routine.NewRecurringTask(func() {
+		ctx := protocol.WithFeatureCtx(
+			protocol.WithBlockCtx(
+				genesis.WithGenesisContext(context.Background(), dm.chain.Genesis()),
+				protocol.BlockCtx{BlockHeight: dm.chain.TipHeight()},
+			),
+		)
+		if !protocol.MustGetFeatureCtx(ctx).EnableNodeInfo {
+			return
+		}
 		// delegates or nodes who are turned on will broadcast
 		if cfg.EnableBroadcastNodeInfo || dm.isDelegate.Load() {
 			if err := dm.BroadcastNodeInfo(context.Background()); err != nil {

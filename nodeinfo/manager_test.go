@@ -12,6 +12,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_nodeinfo"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -43,6 +44,12 @@ func TestNewDelegateManager(t *testing.T) {
 		require.Equal(hMock, dm.chain)
 		require.Equal(privK, dm.privKey)
 		tMock.EXPECT().BroadcastOutbound(gomock.Any(), gomock.Any()).Times(0)
+		hMock.EXPECT().TipHeight().Return(uint64(2)).MinTimes(1)
+		hMock.EXPECT().Genesis().DoAndReturn(func() genesis.Genesis {
+			g := genesis.TestDefault()
+			g.ToBeEnabledBlockHeight = 1
+			return g
+		}).MinTimes(1)
 		err := dm.Start(context.Background())
 		require.NoError(err)
 		defer dm.Stop(context.Background())
@@ -60,6 +67,11 @@ func TestNewDelegateManager(t *testing.T) {
 		require.Equal(privK, dm.privKey)
 		tMock.EXPECT().Info().Return(peer.AddrInfo{}, nil).MinTimes(1)
 		hMock.EXPECT().TipHeight().Return(uint64(10)).MinTimes(1)
+		hMock.EXPECT().Genesis().DoAndReturn(func() genesis.Genesis {
+			g := genesis.TestDefault()
+			g.ToBeEnabledBlockHeight = 1
+			return g
+		}).MinTimes(1)
 		tMock.EXPECT().BroadcastOutbound(gomock.Any(), gomock.Any()).Return(nil).MinTimes(1)
 		err := dm.Start(context.Background())
 		require.NoError(err)
@@ -83,6 +95,11 @@ func TestNewDelegateManager(t *testing.T) {
 		require.Equal(privK, dm.privKey)
 		tMock.EXPECT().Info().Return(peer.AddrInfo{}, nil).MinTimes(1)
 		hMock.EXPECT().TipHeight().Return(uint64(10)).MinTimes(1)
+		hMock.EXPECT().Genesis().DoAndReturn(func() genesis.Genesis {
+			g := genesis.TestDefault()
+			g.ToBeEnabledBlockHeight = 1
+			return g
+		}).MinTimes(1)
 		tMock.EXPECT().BroadcastOutbound(gomock.Any(), gomock.Any()).Return(nil).MinTimes(1)
 		err := dm.Start(context.Background())
 		require.NoError(err)
