@@ -102,6 +102,7 @@ func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateK
 			),
 		)
 		if !protocol.MustGetFeatureCtx(ctx).EnableNodeInfo {
+			log.L().Debug("nodeinfo manager feature is disabled")
 			return
 		}
 		// delegates or nodes who are turned on will broadcast

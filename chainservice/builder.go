@@ -379,15 +379,14 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, factory.NewMinter(builder.cs.factory, builder.cs.actpool), chainOpts...)
 }
 
-func (builder *Builder) buildNodeManager() error {
+func (builder *Builder) buildNodeInfoManager() error {
 	cs := builder.cs
-	protocol := staking.FindProtocol(builder.cs.Registry())
-	if protocol == nil {
-		return errors.New("cannot find staking protocol")
-	}
-
-	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, builder.cs.p2pAgent, builder.cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func(ctx context.Context) (state.CandidateList, error) {
-		return protocol.ActiveCandidates(ctx, cs.factory, 0)
+	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func(ctx context.Context) (state.CandidateList, error) {
+		stk := staking.FindProtocol(cs.Registry())
+		if stk == nil {
+			return nil, errors.New("cannot find staking protocol")
+		}
+		return stk.ActiveCandidates(ctx, cs.factory, 0)
 	})
 	builder.cs.nodeInfoManager = dm
 	builder.cs.lifecycle.Add(dm)
@@ -639,7 +638,7 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.buildBlockSyncer(); err != nil {
 		return nil, err
 	}
-	if err := builder.buildNodeManager(); err != nil {
+	if err := builder.buildNodeInfoManager(); err != nil {
 		return nil, err
 	}
 	cs := builder.cs
