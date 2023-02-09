@@ -21,6 +21,7 @@ type Config struct {
 	GasStation      gasstation.Config `yaml:"gasStation"`
 	RangeQueryLimit uint64            `yaml:"rangeQueryLimit"`
 	Tracer          tracer.Config     `yaml:"tracer"`
+	BatchSizeLimit  uint64            `yaml:"batchSizeLimit"`
 }
 
 // DefaultConfig is the default config
@@ -32,4 +33,5 @@ var DefaultConfig = Config{
 	TpsWindow:       10,
 	GasStation:      gasstation.DefaultConfig,
 	RangeQueryLimit: 1000,
+	BatchSizeLimit:  100,
 }
