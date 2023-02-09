@@ -13,6 +13,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/ioctl"
@@ -95,8 +96,10 @@ func rewardPool(client ioctl.Client) (string, string, string, error) {
 		},
 	)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return "", "", "", ioctl.ErrInvalidEndpointOrInsecure
+			}
 			return "", "", "", errors.New(sta.Message())
 		}
 		return "", "", "", errors.Wrap(err, "failed to invoke ReadState api")
@@ -115,8 +118,10 @@ func rewardPool(client ioctl.Client) (string, string, string, error) {
 		},
 	)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return "", "", "", ioctl.ErrInvalidEndpointOrInsecure
+			}
 			return "", "", "", errors.New(sta.Message())
 		}
 		return "", "", "", errors.Wrap(err, "failed to invoke ReadState api")
@@ -158,8 +163,10 @@ func reward(client ioctl.Client, arg string) (string, string, error) {
 		},
 	)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return "", "", ioctl.ErrInvalidEndpointOrInsecure
+			}
 			return "", "", errors.New(sta.Message())
 		}
 		return "", "", errors.Wrap(err, "failed to get version from server")

@@ -729,9 +729,15 @@ func TestNonce(t *testing.T) {
 	cfg := DefaultConfig
 	db1, err := db.CreateKVStore(db.DefaultConfig, testTriePath)
 	require.NoError(t, err)
-	sf, err := NewFactory(cfg, db1, SkipBlockValidationOption())
+
+	reg := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	err = acc.Register(reg)
 	require.NoError(t, err)
-	testNonce(sf, t)
+
+	sf, err := NewFactory(cfg, db1, SkipBlockValidationOption(), RegistryOption(reg))
+	require.NoError(t, err)
+	testNonce(protocol.WithRegistry(context.Background(), reg), sf, t)
 }
 
 func TestSDBNonce(t *testing.T) {
@@ -744,24 +750,27 @@ func TestSDBNonce(t *testing.T) {
 
 	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	require.NoError(t, err)
-	sdb, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
+
+	reg := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	err = acc.Register(reg)
 	require.NoError(t, err)
 
-	testNonce(sdb, t)
+	sdb, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption(), RegistryStateDBOption(reg))
+	require.NoError(t, err)
+
+	testNonce(protocol.WithRegistry(context.Background(), reg), sdb, t)
 }
 
-func testNonce(sf Factory, t *testing.T) {
+func testNonce(ctx context.Context, sf Factory, t *testing.T) {
 	// Create two dummy iotex address
 	a := identityset.Address(28)
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
-
-	acc := account.NewProtocol(rewarding.DepositGas)
-	require.NoError(t, sf.Register(acc))
 	ge := genesis.Default
 	ge.InitBalanceMap[a.String()] = "100"
 	gasLimit := uint64(1000000)
-	ctx := protocol.WithBlockCtx(context.Background(),
+	ctx = protocol.WithBlockCtx(ctx,
 		protocol.BlockCtx{
 			BlockHeight: 0,
 			Producer:    identityset.Address(27),

@@ -39,9 +39,9 @@ var (
 			Target:  nil,
 		},
 		{
-			ChainID: 1,
+			ChainID: 3,
 			Target:  nil,
-			Data:    &iotextypes.Block{},
+			Data:    &iotextypes.Action{},
 		},
 		{
 			// MsgType: iotexrpc.MessageType_ACTIONS,
@@ -50,9 +50,9 @@ var (
 			Target:  nil,
 		},
 		{
-			ChainID: 2,
+			ChainID: 4,
 			Target:  nil,
-			Data:    &iotextypes.Block{},
+			Data:    &iotextypes.Action{},
 		},
 		// unicast Messages
 		{
@@ -62,21 +62,10 @@ var (
 			Target:  peerAddr1,
 		},
 		{
-			ChainID: 1,
-			Data:    &iotextypes.Block{},
-			Target:  peerAddr2,
-		},
-		{
 			// MsgType: iotexrpc.MessageType_ACTIONS,
 			ChainID: 2,
 			Data:    txProto2,
 			Target:  peerAddr1,
-			// Data:    []byte{0, 1, 2},
-		},
-		{
-			ChainID: 2,
-			Data:    &iotextypes.Block{},
-			Target:  peerAddr2,
 		},
 	}
 )
@@ -112,7 +101,7 @@ func TestBatchManager(t *testing.T) {
 		})
 		require.NoError(err)
 
-		manager.Put(_messages[7], WithSizeLimit(1))
+		manager.Put(_messages[5], WithSizeLimit(1))
 		err = testutil.WaitUntil(50*time.Millisecond, 3*time.Second, func() (bool, error) {
 			return atomic.LoadInt32(&msgsCount) == 5, nil
 		})
@@ -209,6 +198,13 @@ func TestBatchWriter(t *testing.T) {
 		}
 	}()
 
+	isBatchNil := func(writer *batchWriter) bool {
+		writer.mu.Lock()
+		ret := writer.curBatch == nil
+		writer.mu.Unlock()
+		return ret
+	}
+
 	t.Run("msgWithSizelimit", func(t *testing.T) {
 		writer := newBatchWriter(
 			&writerConfig{
@@ -231,28 +227,28 @@ func TestBatchWriter(t *testing.T) {
 			return atomic.LoadInt32(&batchesCount) == 1, nil
 		})
 		require.NoError(err)
-		require.Nil(writer.curBatch)
+		require.True(isBatchNil(writer))
 
-		writer.Put(_messages[7])
+		writer.Put(_messages[5])
 		err = testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
 			return atomic.LoadInt32(&batchesCount) == 1, nil
 		})
 		require.NoError(err)
-		require.NotNil(writer.curBatch)
+		require.False(isBatchNil(writer))
 
 		writer.Put(_messages[3])
 		err = testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
 			return atomic.LoadInt32(&batchesCount) == 2, nil
 		})
 		require.NoError(err)
-		require.Nil(writer.curBatch)
+		require.True(isBatchNil(writer))
 
 		writer.Put(_messages[3])
 		err = testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
 			return atomic.LoadInt32(&batchesCount) == 2, nil
 		})
 		require.NoError(err)
-		require.NotNil(writer.curBatch)
+		require.False(isBatchNil(writer))
 		writer.Close()
 		require.Error(writer.Put(_messages[3]))
 		err = testutil.WaitUntil(50*time.Millisecond, 1*time.Second, func() (bool, error) {
@@ -286,7 +282,7 @@ func TestBatchWriter(t *testing.T) {
 			return atomic.LoadInt32(&batchesCount) == 1, nil
 		})
 		require.NoError(err)
-		require.Nil(writer.curBatch)
+		require.True(isBatchNil(writer))
 
 		writer.Put(_messages[2])
 		writer.Put(_messages[3])
@@ -295,7 +291,7 @@ func TestBatchWriter(t *testing.T) {
 			return atomic.LoadInt32(&batchesCount) == 2, nil
 		})
 		require.NoError(err)
-		require.Nil(writer.curBatch)
+		require.True(isBatchNil(writer))
 
 		writer.Put(_messages[4])
 		writer.Close()
@@ -306,7 +302,7 @@ func TestBatchWriter(t *testing.T) {
 			return atomic.LoadInt32(&batchesCount) == 3, nil
 		})
 		require.NoError(err)
-		require.Nil(writer.curBatch)
+		require.True(isBatchNil(writer))
 	})
 }
 
