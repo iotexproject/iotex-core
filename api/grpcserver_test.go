@@ -348,7 +348,7 @@ func TestGrpcServer_StreamBlocks(t *testing.T) {
 		err := grpcSvr.StreamBlocks(&iotexapi.StreamBlocksRequest{}, nil)
 		require.Contains(err.Error(), "mock test")
 	})
-	
+
 	t.Run("success", func(t *testing.T) {
 		listener := mock_apitypes.NewMockListener(ctrl)
 		listener.EXPECT().AddResponder(gomock.Any()).DoAndReturn(func(g *gRPCBlockListener) (string, error) {

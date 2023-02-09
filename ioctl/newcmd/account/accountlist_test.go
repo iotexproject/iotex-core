@@ -55,10 +55,6 @@ func TestNewAccountList(t *testing.T) {
 	t.Run("When NewAccountList returns error", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(true)
 		client.EXPECT().Config().Return(config.Config{}).Times(1)
-		client.EXPECT().AliasMap().Return(map[string]string{
-			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "a",
-			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1": "b",
-		}).Times(2)
 		expectedErr := errors.New("failed to get sm2 accounts")
 
 		cmd := NewAccountList(client)

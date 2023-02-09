@@ -36,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	rp "github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/nodeinfo"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -387,6 +388,12 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, factory.NewMinter(builder.cs.factory, builder.cs.actpool), chainOpts...)
 }
 
+func (builder *Builder) buildNodeInfoManager() {
+	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, builder.cs.p2pAgent, builder.cs.chain, builder.cfg.Chain.ProducerPrivateKey())
+	builder.cs.nodeInfoManager = dm
+	builder.cs.lifecycle.Add(dm)
+}
+
 func (builder *Builder) buildBlockSyncer() error {
 	if builder.cs.blocksync != nil {
 		return nil
@@ -632,6 +639,7 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.buildBlockSyncer(); err != nil {
 		return nil, err
 	}
+	builder.buildNodeInfoManager()
 	cs := builder.cs
 	builder.cs = nil
 

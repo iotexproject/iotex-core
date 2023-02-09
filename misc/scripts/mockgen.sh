@@ -147,3 +147,10 @@ mockgen -destination=./test/mock/mock_web3server/mock_web3server.go  \
         -source=./api/web3server.go \
         -package=mock_web3server \
         Web3Handler
+
+mkdir -p ./test/mock/mock_nodeinfo
+mockgen -destination=./test/mock/mock_nodeinfo/mock_manager.go  \
+        -source=./nodeinfo/manager.go \
+        -package=mock_nodeinfo \
+        transmitter chain
+
