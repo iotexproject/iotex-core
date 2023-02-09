@@ -972,7 +972,7 @@ func TestGrpcServer_GetActionIntegrity(t *testing.T) {
 		if !test.checkPending {
 			blk, err := dao.GetBlockByHeight(test.blkNumber)
 			require.NoError(err)
-			timeStamp := blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
+			timeStamp := blk.Header.Proto().GetCore().GetTimestamp()
 			_blkHash := blk.HashBlock()
 			require.Equal(hex.EncodeToString(_blkHash[:]), act.BlkHash)
 			require.Equal(test.blkNumber, act.BlkHeight)
@@ -1304,6 +1304,7 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 		broadcastHandlerCount++
 		return nil
 	}
+	coreService.messageBatcher = nil
 
 	for i, test := range _sendActionTests {
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
@@ -2062,7 +2063,7 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
-			mbc.EXPECT().Genesis().Return(cfg.genesis).Times(10)
+			mbc.EXPECT().Genesis().Return(cfg.genesis).Times(3)
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(

@@ -73,8 +73,8 @@ func (h *Header) HashBlock() hash.Hash256 { return h.HashHeader() }
 // LogsBloomfilter return the bloom filter for all contract log events
 func (h *Header) LogsBloomfilter() bloom.BloomFilter { return h.logsBloom }
 
-// BlockHeaderProto returns BlockHeader proto.
-func (h *Header) BlockHeaderProto() *iotextypes.BlockHeader {
+// Proto returns BlockHeader proto.
+func (h *Header) Proto() *iotextypes.BlockHeader {
 	header := iotextypes.BlockHeader{
 		Core: h.BlockHeaderCoreProto(),
 	}
@@ -152,7 +152,7 @@ func (h *Header) SerializeCore() []byte {
 
 // Serialize returns the serialized byte stream of the block header
 func (h *Header) Serialize() ([]byte, error) {
-	return proto.Marshal(h.BlockHeaderProto())
+	return proto.Marshal(h.Proto())
 }
 
 // Deserialize loads from the serialized byte stream

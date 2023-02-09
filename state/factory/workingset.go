@@ -110,9 +110,7 @@ func (ws *workingSet) runActions(
 		if err != nil {
 			return nil, errors.Wrap(err, "error when run action")
 		}
-		if receipt != nil {
-			receipts = append(receipts, receipt)
-		}
+		receipts = append(receipts, receipt)
 	}
 	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
 		updateReceiptIndex(receipts)
@@ -160,30 +158,27 @@ func (ws *workingSet) runAction(
 	// Handle action
 	reg, ok := protocol.GetRegistry(ctx)
 	if !ok {
-		return nil, nil
+		return nil, errors.New("protocol is empty")
 	}
 	elpHash, err := elp.Hash()
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
-	var receipt *action.Receipt
+	defer ws.ResetSnapshots()
 	for _, actionHandler := range reg.All() {
-		receipt, err = actionHandler.Handle(ctx, elp.Action(), ws)
+		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
 		if err != nil {
-			err = errors.Wrapf(
+			return nil, errors.Wrapf(
 				err,
 				"error when action %x mutates states",
 				elpHash,
 			)
 		}
-		if receipt != nil || err != nil {
-			break
+		if receipt != nil {
+			return receipt, nil
 		}
 	}
-	ws.ResetSnapshots()
-
-	// TODO (zhi): return error if both receipt and err are nil
-	return receipt, err
+	return nil, errors.New("receipt is empty")
 }
 
 func validateChainID(ctx context.Context, chainID uint32) error {
@@ -480,11 +475,9 @@ func (ws *workingSet) pickAndRunActions(
 				}
 				return nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
 			}
-			if receipt != nil {
-				blkCtx.GasLimit -= receipt.GasConsumed
-				ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
-				receipts = append(receipts, receipt)
-			}
+			blkCtx.GasLimit -= receipt.GasConsumed
+			ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
+			receipts = append(receipts, receipt)
 			executedActions = append(executedActions, nextAction)
 
 			// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
@@ -504,9 +497,7 @@ func (ws *workingSet) pickAndRunActions(
 		if err != nil {
 			return nil, err
 		}
-		if receipt != nil {
-			receipts = append(receipts, receipt)
-		}
+		receipts = append(receipts, receipt)
 		executedActions = append(executedActions, selp)
 	}
 	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {

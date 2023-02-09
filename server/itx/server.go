@@ -125,7 +125,6 @@ func (s *Server) Start(ctx context.Context) error {
 	if err := s.dispatcher.Start(cctx); err != nil {
 		return errors.Wrap(err, "error when starting dispatcher")
 	}
-
 	return nil
 }
 

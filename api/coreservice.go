@@ -50,6 +50,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	batch "github.com/iotexproject/iotex-core/pkg/messagebatcher"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
@@ -158,6 +159,7 @@ type (
 		chainListener     apitypes.Listener
 		electionCommittee committee.Committee
 		readCache         *ReadCache
+		messageBatcher    *batch.Manager
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -429,7 +431,17 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	}
 	// If there is no error putting into local actpool,
 	// Broadcast it to the network
-	if err = core.broadcastHandler(ctx, core.bc.ChainID(), in); err != nil {
+	msg := in
+	if core.messageBatcher != nil {
+		err = core.messageBatcher.Put(&batch.Message{
+			ChainID: core.bc.ChainID(),
+			Target:  nil,
+			Data:    msg,
+		})
+	} else {
+		err = core.broadcastHandler(ctx, core.bc.ChainID(), msg)
+	}
+	if err != nil {
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	return hex.EncodeToString(hash[:]), nil
@@ -804,11 +816,21 @@ func (core *coreService) Start(_ context.Context) error {
 	if err := core.chainListener.Start(); err != nil {
 		return errors.Wrap(err, "failed to start blockchain listener")
 	}
+	if core.messageBatcher != nil {
+		if err := core.messageBatcher.Start(); err != nil {
+			return errors.Wrap(err, "failed to start message batcher")
+		}
+	}
 	return nil
 }
 
 // Stop stops the API server
 func (core *coreService) Stop(_ context.Context) error {
+	if core.messageBatcher != nil {
+		if err := core.messageBatcher.Stop(); err != nil {
+			return errors.Wrap(err, "failed to stop message batcher")
+		}
+	}
 	return core.chainListener.Stop()
 }
 
@@ -920,6 +942,7 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 	}
 
 	var res []*iotexapi.ActionInfo
+	var actsList [][]*iotexapi.ActionInfo
 	var hit bool
 	for height := core.bc.TipHeight(); height >= 1 && count > 0; height-- {
 		blk, err := core.dao.GetBlockByHeight(height)
@@ -932,10 +955,13 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 		}
 		// now reverseStart < len(blk.Actions), we are going to fetch actions from this block
 		hit = true
-		act := core.reverseActionsInBlock(blk, reverseStart, count)
-		res = append(act, res...)
-		count -= uint64(len(act))
+		acts := core.reverseActionsInBlock(blk, reverseStart, count)
+		actsList = append(actsList, acts)
+		count -= uint64(len(acts))
 		reverseStart = 0
+	}
+	for i := len(actsList) - 1; i >= 0; i-- {
+		res = append(res, actsList[i]...)
 	}
 	return res, nil
 }
@@ -1206,10 +1232,18 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	blkHash := hex.EncodeToString(h[:])
 	blkHeight := blk.Height()
 
-	var res []*iotexapi.ActionInfo
-	for i := reverseStart; i < uint64(len(blk.Actions)) && i < reverseStart+count; i++ {
-		ri := uint64(len(blk.Actions)) - 1 - i
-		selp := blk.Actions[ri]
+	size := uint64(len(blk.Actions))
+	if reverseStart > size || count == 0 {
+		return nil
+	}
+	start := size - (reverseStart + count)
+	if start < 0 {
+		start = 0
+	}
+	end := size - 1 - reverseStart
+	res := make([]*iotexapi.ActionInfo, 0, start-end+1)
+	for idx := start; idx <= end; idx++ {
+		selp := blk.Actions[idx]
 		actHash, err := selp.Hash()
 		if err != nil {
 			log.Logger("api").Debug("Skipping action due to hash error", zap.Error(err))
@@ -1222,7 +1256,7 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 		}
 		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
 		sender := selp.SenderAddress()
-		res = append([]*iotexapi.ActionInfo{{
+		res = append(res, &iotexapi.ActionInfo{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
 			BlkHash:   blkHash,
@@ -1230,8 +1264,8 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 			BlkHeight: blkHeight,
 			Sender:    sender.String(),
 			GasFee:    gas.String(),
-			Index:     uint32(ri),
-		}}, res...)
+			Index:     uint32(idx),
+		})
 	}
 	return res
 }
