@@ -37,7 +37,7 @@ func TestNewDelegateManager(t *testing.T) {
 	t.Run("disable_broadcast", func(t *testing.T) {
 		hMock := mock_nodeinfo.NewMockchain(ctrl)
 		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
-		cfg := Config{false, 100 * time.Millisecond, 1000, time.Minute}
+		cfg := Config{false, 100 * time.Millisecond, 1000}
 		dm := NewInfoManager(&cfg, tMock, hMock, privK, getEmptyCandidates)
 		require.NotNil(dm.nodeMap)
 		require.Equal(tMock, dm.transmitter)
@@ -59,7 +59,7 @@ func TestNewDelegateManager(t *testing.T) {
 	t.Run("enable_broadcast", func(t *testing.T) {
 		hMock := mock_nodeinfo.NewMockchain(ctrl)
 		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
-		cfg := Config{true, 100 * time.Millisecond, 1000, time.Minute}
+		cfg := Config{true, 100 * time.Millisecond, 1000}
 		dm := NewInfoManager(&cfg, tMock, hMock, privK, getEmptyCandidates)
 		require.NotNil(dm.nodeMap)
 		require.Equal(tMock, dm.transmitter)
@@ -81,7 +81,7 @@ func TestNewDelegateManager(t *testing.T) {
 	t.Run("delegate_broadcast", func(t *testing.T) {
 		hMock := mock_nodeinfo.NewMockchain(ctrl)
 		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
-		cfg := Config{false, 100 * time.Millisecond, 1000, 100 * time.Millisecond}
+		cfg := Config{false, 100 * time.Millisecond, 1000}
 		dm := NewInfoManager(&cfg, tMock, hMock, privK, func(ctx context.Context) (state.CandidateList, error) {
 			return state.CandidateList{
 				&state.Candidate{

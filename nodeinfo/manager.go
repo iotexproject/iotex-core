@@ -105,6 +105,11 @@ func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateK
 			log.L().Debug("nodeinfo manager feature is disabled")
 			return
 		}
+		if !dm.isDelegate.Load().(bool) {
+			if err := dm.updateDelegateCache(); err != nil {
+				log.L().Error("nodeinfo manager update delegate cache failed", zap.Error(err))
+			}
+		}
 		// delegates or nodes who are turned on will broadcast
 		if cfg.EnableBroadcastNodeInfo || dm.isDelegate.Load().(bool) {
 			if err := dm.BroadcastNodeInfo(context.Background()); err != nil {
@@ -114,12 +119,7 @@ func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateK
 			log.L().Debug("nodeinfo manager general node disabled node info broadcast")
 		}
 	}, cfg.BroadcastNodeInfoInterval)
-	updateDelegateCacheTask := routine.NewRecurringTask(func() {
-		if err := dm.updateDelegateCache(); err != nil {
-			log.L().Error("nodeinfo manager update delegate cache failed", zap.Error(err))
-		}
-	}, cfg.DelegateCacheTTL)
-	dm.AddModels(updateDelegateCacheTask, broadcastTask)
+	dm.AddModels(broadcastTask)
 	return dm
 }
 

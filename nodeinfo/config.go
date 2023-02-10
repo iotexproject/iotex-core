@@ -12,7 +12,6 @@ type Config struct {
 	EnableBroadcastNodeInfo   bool          `yaml:"enableBroadcastNodeInfo"`
 	BroadcastNodeInfoInterval time.Duration `yaml:"broadcastNodeInfoInterval"`
 	NodeMapSize               int           `yaml:"nodeMapSize"`
-	DelegateCacheTTL          time.Duration `yaml:"delegateCacheTTL"`
 }
 
 // DefaultConfig is the default config
@@ -20,5 +19,4 @@ var DefaultConfig = Config{
 	EnableBroadcastNodeInfo:   false,
 	BroadcastNodeInfoInterval: 5 * time.Minute,
 	NodeMapSize:               1000,
-	DelegateCacheTTL:          30 * time.Minute,
 }
