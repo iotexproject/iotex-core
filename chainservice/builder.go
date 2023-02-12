@@ -381,11 +381,11 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 
 func (builder *Builder) buildNodeInfoManager() error {
 	cs := builder.cs
+	stk := staking.FindProtocol(cs.Registry())
+	if stk == nil {
+		return errors.New("cannot find staking protocol")
+	}
 	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func(ctx context.Context) (state.CandidateList, error) {
-		stk := staking.FindProtocol(cs.Registry())
-		if stk == nil {
-			return nil, errors.New("cannot find staking protocol")
-		}
 		return stk.ActiveCandidates(ctx, cs.factory, 0)
 	})
 	builder.cs.nodeInfoManager = dm
