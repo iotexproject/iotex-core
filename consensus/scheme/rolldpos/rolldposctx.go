@@ -69,8 +69,11 @@ func init() {
 }
 
 type (
-	// DelegatesByEpochFunc defines a function to overwrite candidates
-	DelegatesByEpochFunc func(uint64) ([]string, error)
+	// NodesElectionByEpoch define a interface to overwrite delegates and executions
+	NodesElectionByEpoch interface {
+		Delegates(uint64) ([]string, error)
+		Executors(uint64) ([]string, error)
+	}
 
 	// RDPoSCtx is the context of RollDPoS
 	RDPoSCtx interface {
@@ -114,7 +117,7 @@ func NewRollDPoSCtx(
 	blockDeserializer *block.Deserializer,
 	rp *rolldpos.Protocol,
 	broadcastHandler scheme.Broadcast,
-	delegatesByEpochFunc DelegatesByEpochFunc,
+	nodesElectionByEpoch NodesElectionByEpoch,
 	encodedAddr string,
 	priKey crypto.PrivateKey,
 	clock clock.Clock,
@@ -129,8 +132,8 @@ func NewRollDPoSCtx(
 	if clock == nil {
 		return nil, errors.New("clock cannot be nil")
 	}
-	if delegatesByEpochFunc == nil {
-		return nil, errors.New("delegates by epoch function cannot be nil")
+	if nodesElectionByEpoch == nil {
+		return nil, errors.New("nodes election by epoch function cannot be nil")
 	}
 	if cfg.AcceptBlockTTL(0)+cfg.AcceptProposalEndorsementTTL(0)+cfg.AcceptLockEndorsementTTL(0)+cfg.CommitTTL(0) > cfg.BlockInterval(0) {
 		return nil, errors.Errorf(
@@ -147,7 +150,7 @@ func NewRollDPoSCtx(
 		eManagerDB = db.NewBoltDB(consensusDBConfig)
 	}
 	roundCalc := &roundCalculator{
-		delegatesByEpochFunc: delegatesByEpochFunc,
+		nodesElectionByEpoch: nodesElectionByEpoch,
 		chain:                chain,
 		rp:                   rp,
 		timeBasedRotation:    timeBasedRotation,
@@ -348,6 +351,13 @@ func (ctx *rollDPoSCtx) IsDelegate() bool {
 	defer ctx.mutex.RUnlock()
 
 	return ctx.isDelegate()
+}
+
+func (ctx *rollDPoSCtx) IsExecutor() bool {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
+
+	return ctx.isExecutor()
 }
 
 func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
@@ -644,6 +654,14 @@ func (ctx *rollDPoSCtx) isDelegate() bool {
 		return false
 	}
 	return ctx.round.IsDelegate(ctx.encodedAddr)
+}
+
+func (ctx *rollDPoSCtx) isExecutor() bool {
+	if active := ctx.active; !active {
+		ctx.logger().Info("current node is in standby mode")
+		return false
+	}
+	return ctx.round.IsExecutor(ctx.encodedAddr)
 }
 
 func (ctx *rollDPoSCtx) endorseBlockProposal(proposal *blockProposal) (*EndorsedConsensusMessage, error) {

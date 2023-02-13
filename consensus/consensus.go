@@ -13,17 +13,14 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	rp "github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -37,6 +34,8 @@ type Consensus interface {
 	Metrics() (scheme.ConsensusMetrics, error)
 	Activate(bool)
 	Active() bool
+	IsExecutor() bool
+	IsDelegate() bool
 }
 
 // IotxConsensus implements Consensus
@@ -100,6 +99,7 @@ func NewConsensus(
 	var err error
 	switch cfg.Scheme {
 	case RollDPoSScheme:
+		nodesElection := newNodesElection(bc, sf, ops.pp, ops.rp, cfg.Genesis)
 		bd := rolldpos.NewRollDPoSBuilder().
 			SetAddr(cfg.Chain.ProducerAddress().String()).
 			SetPriKey(cfg.Chain.ProducerPrivateKey()).
@@ -108,37 +108,7 @@ func NewConsensus(
 			SetBlockDeserializer(block.NewDeserializer(bc.EvmNetworkID())).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
-			SetDelegatesByEpochFunc(func(epochNum uint64) ([]string, error) {
-				re := protocol.NewRegistry()
-				if err := ops.rp.Register(re); err != nil {
-					return nil, err
-				}
-				ctx := genesis.WithGenesisContext(
-					protocol.WithRegistry(context.Background(), re),
-					cfg.Genesis,
-				)
-				ctx = protocol.WithFeatureWithHeightCtx(ctx)
-				tipHeight := bc.TipHeight()
-				tipEpochNum := ops.rp.GetEpochNum(tipHeight)
-				var candidatesList state.CandidateList
-				var err error
-				switch epochNum {
-				case tipEpochNum:
-					candidatesList, err = ops.pp.Delegates(ctx, sf)
-				case tipEpochNum + 1:
-					candidatesList, err = ops.pp.NextDelegates(ctx, sf)
-				default:
-					err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochNum, tipEpochNum)
-				}
-				if err != nil {
-					return nil, err
-				}
-				addrs := []string{}
-				for _, candidate := range candidatesList {
-					addrs = append(addrs, candidate.Address)
-				}
-				return addrs, nil
-			}).
+			SetNodesElectionByEpoch(nodesElection).
 			RegisterProtocol(ops.rp)
 		// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 		cs.scheme, err = bd.Build()
@@ -240,3 +210,9 @@ func (c *IotxConsensus) Activate(active bool) {
 
 // Active returns true if the consensus component is active or false if it stands by
 func (c *IotxConsensus) Active() bool { return c.scheme.Active() }
+
+// IsExecutor returns true if it is an exeuctor
+func (c *IotxConsensus) IsExecutor() bool { return c.scheme.IsExecutor() }
+
+// IsDelegate returns true if it is a delegate
+func (c *IotxConsensus) IsDelegate() bool { return c.scheme.IsDelegate() }

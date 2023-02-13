@@ -501,6 +501,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 	if err := rolldpos.NewProtocol(
 		builder.cfg.Genesis.NumCandidateDelegates,
 		builder.cfg.Genesis.NumDelegates,
+		builder.cfg.Genesis.NumExecutions,
 		builder.cfg.Genesis.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(builder.cfg.Genesis.DardanellesBlockHeight, builder.cfg.Genesis.DardanellesNumSubEpochs),
 	).Register(builder.cs.registry); err != nil {

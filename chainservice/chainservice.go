@@ -105,6 +105,9 @@ func (cs *ChainService) ReportFullness(_ context.Context, messageType iotexrpc.M
 
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
+	if !cs.consensus.IsExecutor() {
+		return nil
+	}
 	act, err := (&action.Deserializer{}).SetEvmNetworkID(cs.chain.EvmNetworkID()).ActionToSealedEnvelope(actPb)
 	if err != nil {
 		return err
