@@ -408,11 +408,13 @@ func (m *ConsensusFSM) prepare(evt fsm.Event) (fsm.State, error) {
 	}
 
 	overtime := m.ctx.WaitUntilRoundStart()
+	if proposal != nil && m.ctx.IsExecutor() {
+		m.ctx.Broadcast(proposal)
+	}
 	if !m.ctx.IsDelegate() {
 		return m.BackToPrepare(0)
 	}
 	if proposal != nil {
-		m.ctx.Broadcast(proposal)
 		m.ProduceReceiveBlockEvent(proposal)
 	}
 

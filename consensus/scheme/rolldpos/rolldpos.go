@@ -248,9 +248,9 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	if !round.IsDelegate(blk.ProducerAddress()) {
+	if !round.IsExecutor(blk.ProducerAddress()) {
 		return errors.Errorf(
-			"block proposer %s is not a valid delegate",
+			"block proposer %s is not a valid execution",
 			blk.ProducerAddress(),
 		)
 	}
@@ -315,6 +315,16 @@ func (r *RollDPoS) Active() bool {
 	return r.ctx.Active() || r.cfsm.CurrentState() != consensusfsm.InitState
 }
 
+// IsExecutor is true if it is an executor
+func (r *RollDPoS) IsExecutor() bool {
+	return r.ctx.IsExecutor()
+}
+
+// IsDelegate is true if it is a delegate
+func (r *RollDPoS) IsDelegate() bool {
+	return r.ctx.IsDelegate()
+}
+
 type (
 	// BuilderConfig returns the configuration of the builder
 	BuilderConfig struct {
@@ -338,8 +348,8 @@ type (
 		broadcastHandler  scheme.Broadcast
 		clock             clock.Clock
 		// TODO: explorer dependency deleted at #1085, need to add api params
-		rp                   *rolldpos.Protocol
-		delegatesByEpochFunc DelegatesByEpochFunc
+		rp                       *rolldpos.Protocol
+		nodesElectionByEpochFunc NodesElectionByEpoch
 	}
 )
 
@@ -391,10 +401,10 @@ func (b *Builder) SetClock(clock clock.Clock) *Builder {
 }
 
 // SetDelegatesByEpochFunc sets delegatesByEpochFunc
-func (b *Builder) SetDelegatesByEpochFunc(
-	delegatesByEpochFunc DelegatesByEpochFunc,
+func (b *Builder) SetNodesElectionByEpoch(
+	nodesElectionByEpoch NodesElectionByEpoch,
 ) *Builder {
-	b.delegatesByEpochFunc = delegatesByEpochFunc
+	b.nodesElectionByEpochFunc = nodesElectionByEpoch
 	return b
 }
 
@@ -426,7 +436,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.blockDeserializer,
 		b.rp,
 		b.broadcastHandler,
-		b.delegatesByEpochFunc,
+		b.nodesElectionByEpochFunc,
 		b.encodedAddr,
 		b.priKey,
 		b.clock,

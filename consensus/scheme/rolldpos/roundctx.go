@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -32,6 +33,7 @@ type roundCtx struct {
 	epochStartHeight     uint64
 	nextEpochStartHeight uint64
 	delegates            []string
+	executors            []string
 
 	height             uint64
 	roundNum           uint32
@@ -102,6 +104,14 @@ func (ctx *roundCtx) IsDelegate(addr string) bool {
 	}
 
 	return false
+}
+
+func (ctx *roundCtx) IsExecutor(addr string) bool {
+	return slices.Contains(ctx.executors, addr)
+}
+
+func (ctx *roundCtx) Executors() []string {
+	return ctx.executors
 }
 
 func (ctx *roundCtx) Block(blkHash []byte) *block.Block {

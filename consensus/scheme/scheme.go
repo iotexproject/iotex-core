@@ -38,6 +38,8 @@ type Scheme interface {
 	Metrics() (ConsensusMetrics, error)
 	Activate(bool)
 	Active() bool
+	IsExecutor() bool
+	IsDelegate() bool
 }
 
 // ConsensusMetrics contains consensus metrics to expose
