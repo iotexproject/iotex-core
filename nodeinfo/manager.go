@@ -7,7 +7,6 @@ package nodeinfo
 
 import (
 	"context"
-	"sync/atomic"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/cache/lru"
@@ -58,14 +57,14 @@ type (
 	// InfoManager manage delegate node info
 	InfoManager struct {
 		lifecycle.Lifecycle
-		version      string
-		address      string
-		isDelegate   atomic.Value // bool
-		nodeMap      *lru.Cache
-		transmitter  transmitter
-		chain        chain
-		privKey      crypto.PrivateKey
-		getDelegates delegatesGetFunc
+		version       string
+		address       string
+		delegateCache bool
+		nodeMap       *lru.Cache
+		transmitter   transmitter
+		chain         chain
+		privKey       crypto.PrivateKey
+		getDelegates  delegatesGetFunc
 	}
 )
 
@@ -82,17 +81,16 @@ func init() {
 }
 
 // NewInfoManager new info manager
-func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateKey, fun delegatesGetFunc) *InfoManager {
+func NewInfoManager(cfg *Config, t transmitter, ch chain, privKey crypto.PrivateKey, getDelegatesHandler delegatesGetFunc) *InfoManager {
 	dm := &InfoManager{
 		nodeMap:      lru.New(cfg.NodeMapSize),
 		transmitter:  t,
-		chain:        h,
+		chain:        ch,
 		privKey:      privKey,
 		version:      version.PackageVersion,
 		address:      privKey.PublicKey().Address().String(),
-		getDelegates: fun,
+		getDelegates: getDelegatesHandler,
 	}
-	dm.isDelegate.Store(false)
 	// init recurring tasks
 	broadcastTask := routine.NewRecurringTask(func() {
 		ctx := protocol.WithFeatureCtx(
@@ -105,13 +103,9 @@ func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateK
 			log.L().Debug("nodeinfo manager feature is disabled")
 			return
 		}
-		if !dm.isDelegate.Load().(bool) {
-			if err := dm.updateDelegateCache(); err != nil {
-				log.L().Error("nodeinfo manager update delegate cache failed", zap.Error(err))
-			}
-		}
+
 		// delegates or nodes who are turned on will broadcast
-		if cfg.EnableBroadcastNodeInfo || dm.isDelegate.Load().(bool) {
+		if cfg.EnableBroadcastNodeInfo || dm.isDelegate() {
 			if err := dm.BroadcastNodeInfo(context.Background()); err != nil {
 				log.L().Error("nodeinfo manager broadcast node info failed", zap.Error(err))
 			}
@@ -119,7 +113,7 @@ func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateK
 			log.L().Debug("nodeinfo manager general node disabled node info broadcast")
 		}
 	}, cfg.BroadcastNodeInfoInterval)
-	dm.AddModels(broadcastTask)
+	dm.Add(broadcastTask)
 	return dm
 }
 
@@ -237,15 +231,24 @@ func (dm *InfoManager) genNodeInfoMsg() (*iotextypes.NodeInfo, error) {
 	return req, nil
 }
 
+func (dm *InfoManager) isDelegate() bool {
+	if !dm.delegateCache {
+		if err := dm.updateDelegateCache(); err != nil {
+			log.L().Error("nodeinfo manager update delegate cache failed", zap.Error(err))
+		}
+	}
+	return dm.delegateCache
+}
+
 func (dm *InfoManager) updateDelegateCache() error {
 	candList, err := dm.getDelegates(context.Background())
 	if err != nil {
 		return err
 	}
 	log.L().Debug("nodeinfo manager active candidates", zap.Any("candidates", candList))
-	dm.isDelegate.Store(slices.ContainsFunc(candList, func(e *state.Candidate) bool {
+	dm.delegateCache = slices.ContainsFunc(candList, func(e *state.Candidate) bool {
 		return dm.address == e.Address
-	}))
+	})
 	return nil
 }
 
