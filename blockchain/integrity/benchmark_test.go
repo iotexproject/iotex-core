@@ -290,7 +290,6 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	var genesisNonce uint64 = 0
 
 	// make a transfer from genesisAccount to a and b,because stateTX cannot store data in height 0
-	genesisNonce++
 	tsf, err := action.SignedTransfer(userA.String(), genesisPriKey, genesisNonce, big.NewInt(1e17), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return nil, nil, err

@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -364,6 +365,53 @@ func (ws *workingSet) validateNonce(ctx context.Context, blk *block.Block) error
 	return nil
 }
 
+func (ws *workingSet) validateNonce2(ctx context.Context, blk *block.Block) error {
+	accountNonceMap := make(map[string][]uint64)
+	for _, selp := range blk.Actions {
+		if action.IsSystemAction(selp) {
+			continue
+		}
+
+		caller := selp.SenderAddress()
+		if caller == nil {
+			return errors.New("failed to get address")
+		}
+		srcAddr := caller.String()
+		if _, ok := accountNonceMap[srcAddr]; !ok {
+			accountNonceMap[srcAddr] = make([]uint64, 0)
+		}
+		accountNonceMap[srcAddr] = append(accountNonceMap[srcAddr], selp.Nonce())
+	}
+
+	// Special handling for genesis block
+	if blk.Height() == 0 {
+		return nil
+	}
+	// Verify each account's Nonce
+	for srcAddr, receivedNonces := range accountNonceMap {
+		addr, _ := address.FromString(srcAddr)
+		confirmedState, err := accountutil.AccountState(ctx, ws, addr)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
+		}
+		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
+		pendingNonce := confirmedState.PendingNonce()
+		for i, nonce := range receivedNonces {
+			if nonce != pendingNonce+uint64(i) {
+				return errors.Wrapf(
+					action.ErrNonceTooHigh,
+					"the %d nonce %d of address %s (init pending nonce %d) is not continuously increasing",
+					i,
+					nonce,
+					srcAddr,
+					pendingNonce,
+				)
+			}
+		}
+	}
+	return nil
+}
+
 func (ws *workingSet) Process(ctx context.Context, actions []action.SealedEnvelope) error {
 	return ws.process(ctx, actions)
 }
@@ -521,9 +569,16 @@ func updateReceiptIndex(receipts []*action.Receipt) {
 }
 
 func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {
-	if err := ws.validateNonce(ctx, blk); err != nil {
-		return errors.Wrap(err, "failed to validate nonce")
+	if g := genesis.MustExtractGenesisContext(ctx); g.IsToBeEnabled(blk.Height()) {
+		if err := ws.validateNonce2(ctx, blk); err != nil {
+			return errors.Wrap(err, "failed to validate nonce")
+		}
+	} else {
+		if err := ws.validateNonce(ctx, blk); err != nil {
+			return errors.Wrap(err, "failed to validate nonce")
+		}
 	}
+
 	if err := ws.process(ctx, blk.RunnableActions().Actions()); err != nil {
 		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
 		return err
