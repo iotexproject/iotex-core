@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,6 +14,10 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/httputil"
+)
+
+const (
+	_maxRequestContentLength = 1024 * 1024 * 5
 )
 
 type (
@@ -70,8 +75,8 @@ func (handler *hTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-
-	if err := handler.msgHandler.HandlePOSTReq(ctx, req.Body,
+	body := io.LimitReader(req.Body, _maxRequestContentLength)
+	if err := handler.msgHandler.HandlePOSTReq(ctx, body,
 		apitypes.NewResponseWriter(
 			func(resp interface{}) error {
 				w.Header().Set("Access-Control-Allow-Origin", "*")
