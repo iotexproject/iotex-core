@@ -1466,9 +1466,6 @@ func TestBlockchain_AccountState(t *testing.T) {
 	require := require.New(t)
 
 	cfg := config.Default
-	// disable account-based testing
-	// create chain
-	cfg.Genesis.InitBalanceMap[identityset.Address(0).String()] = "100"
 	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -1480,14 +1477,104 @@ func TestBlockchain_AccountState(t *testing.T) {
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
-	require.NoError(bc.Start(context.Background()))
+	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
+	defer func() {
+		require.NoError(bc.Stop(ctx))
+	}()
 	s, err := accountutil.AccountState(ctx, sf, identityset.Address(0))
 	require.NoError(err)
 	require.Equal(uint64(1), s.PendingNonce())
-	require.Equal(big.NewInt(100), s.Balance)
-	require.Equal(hash.ZeroHash256, s.Root)
-	require.Equal([]byte(nil), s.CodeHash)
+	require.Equal(unit.ConvertIotxToRau(100000000), s.Balance)
+	require.Zero(s.Root)
+	require.Nil(s.CodeHash)
+}
+
+func TestNewAccountAction(t *testing.T) {
+	require := require.New(t)
+
+	cfg := config.Default
+	cfg.Genesis.OkhotskBlockHeight = 1
+	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	require.NoError(err)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
+	require.NoError(err)
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
+	require.NoError(bc.Start(ctx))
+	require.NotNil(bc)
+	defer func() {
+		require.NoError(bc.Stop(ctx))
+	}()
+
+	// create a new address, transfer 4 IOTX
+	newSk, err := iotexcrypto.HexStringToPrivateKey("55499c1b09f687488af9e4ee9e2bd53c7c8c3ddc69d4d9345a04b13030cffabe")
+	require.NoError(err)
+	newAddr := newSk.PublicKey().Address()
+	tx, err := action.SignedTransfer(newAddr.String(), identityset.PrivateKey(0), 1, big.NewInt(4*unit.Iotx), nil, testutil.TestGasLimit, testutil.TestGasPrice)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tx))
+	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk))
+	ap.Reset()
+
+	// initiate transfer from new address
+	tx, err = action.SignedTransfer(identityset.Address(0).String(), newSk, 0, big.NewInt(unit.Iotx), nil, testutil.TestGasLimit, testutil.TestGasPrice)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tx))
+	tx1, err := action.SignedTransfer(identityset.Address(1).String(), newSk, 1, big.NewInt(unit.Iotx), nil, testutil.TestGasLimit, testutil.TestGasPrice)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tx1))
+	blk1, err := bc.MintNewBlock(testutil.TimestampNow())
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk1))
+	ap.Reset()
+
+	// commit 2 blocks into a new chain
+	for _, validateNonce := range []bool{false, true} {
+		if validateNonce {
+			cfg.Genesis.PalauBlockHeight = 2
+		} else {
+			cfg.Genesis.PalauBlockHeight = 20
+		}
+		ctx = genesis.WithGenesisContext(context.Background(), cfg.Genesis)
+		factoryCfg = factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+		sf1, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+		require.NoError(err)
+		dao1 := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf1})
+		bc1 := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao1, factory.NewMinter(sf1, ap))
+		require.NoError(bc1.Start(ctx))
+		require.NotNil(bc1)
+		defer func() {
+			require.NoError(bc1.Stop(ctx))
+		}()
+		require.NoError(bc1.CommitBlock(blk))
+		err = bc1.CommitBlock(blk1)
+		if validateNonce {
+			require.NoError(err)
+		} else {
+			require.Equal(action.ErrNonceTooHigh, errors.Cause(err))
+		}
+
+		// verify new addr
+		s, err := accountutil.AccountState(ctx, sf1, newAddr)
+		require.NoError(err)
+		if validateNonce {
+			require.EqualValues(2, s.PendingNonce())
+			require.Equal(big.NewInt(2*unit.Iotx), s.Balance)
+		} else {
+			require.Zero(s.PendingNonce())
+			require.Equal(big.NewInt(4*unit.Iotx), s.Balance)
+		}
+		require.Zero(s.Root)
+		require.Nil(s.CodeHash)
+	}
 }
 
 func TestBlocks(t *testing.T) {
