@@ -12,6 +12,8 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_nodeinfo"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -21,24 +23,33 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+func getEmptyCandidates(context.Context) (state.CandidateList, error) {
+	return state.CandidateList{}, nil
+}
+
 func TestNewDelegateManager(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	hMock := mock_nodeinfo.NewMockchain(ctrl)
-	tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 	privK, err := crypto.GenerateKey()
 	require.NoError(err)
 
 	t.Run("disable_broadcast", func(t *testing.T) {
+		hMock := mock_nodeinfo.NewMockchain(ctrl)
+		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 		cfg := Config{false, 100 * time.Millisecond, 1000}
-		dm := NewInfoManager(&cfg, tMock, hMock, privK)
+		dm := NewInfoManager(&cfg, tMock, hMock, privK, getEmptyCandidates)
 		require.NotNil(dm.nodeMap)
 		require.Equal(tMock, dm.transmitter)
 		require.Equal(hMock, dm.chain)
 		require.Equal(privK, dm.privKey)
-		require.Equal(true, dm.broadcastTask != nil)
 		tMock.EXPECT().BroadcastOutbound(gomock.Any(), gomock.Any()).Times(0)
+		hMock.EXPECT().TipHeight().Return(uint64(2)).MinTimes(1)
+		hMock.EXPECT().Genesis().DoAndReturn(func() genesis.Genesis {
+			g := genesis.TestDefault()
+			g.ToBeEnabledBlockHeight = 1
+			return g
+		}).MinTimes(1)
 		err := dm.Start(context.Background())
 		require.NoError(err)
 		defer dm.Stop(context.Background())
@@ -46,15 +57,49 @@ func TestNewDelegateManager(t *testing.T) {
 	})
 
 	t.Run("enable_broadcast", func(t *testing.T) {
+		hMock := mock_nodeinfo.NewMockchain(ctrl)
+		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 		cfg := Config{true, 100 * time.Millisecond, 1000}
-		dm := NewInfoManager(&cfg, tMock, hMock, privK)
+		dm := NewInfoManager(&cfg, tMock, hMock, privK, getEmptyCandidates)
 		require.NotNil(dm.nodeMap)
 		require.Equal(tMock, dm.transmitter)
 		require.Equal(hMock, dm.chain)
 		require.Equal(privK, dm.privKey)
-		require.Equal(true, dm.broadcastTask != nil)
 		tMock.EXPECT().Info().Return(peer.AddrInfo{}, nil).MinTimes(1)
 		hMock.EXPECT().TipHeight().Return(uint64(10)).MinTimes(1)
+		hMock.EXPECT().Genesis().DoAndReturn(func() genesis.Genesis {
+			g := genesis.TestDefault()
+			g.ToBeEnabledBlockHeight = 1
+			return g
+		}).MinTimes(1)
+		tMock.EXPECT().BroadcastOutbound(gomock.Any(), gomock.Any()).Return(nil).MinTimes(1)
+		err := dm.Start(context.Background())
+		require.NoError(err)
+		defer dm.Stop(context.Background())
+		time.Sleep(time.Second)
+	})
+	t.Run("delegate_broadcast", func(t *testing.T) {
+		hMock := mock_nodeinfo.NewMockchain(ctrl)
+		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
+		cfg := Config{false, 100 * time.Millisecond, 1000}
+		dm := NewInfoManager(&cfg, tMock, hMock, privK, func(ctx context.Context) (state.CandidateList, error) {
+			return state.CandidateList{
+				&state.Candidate{
+					Address: privK.PublicKey().Address().String(),
+				},
+			}, nil
+		})
+		require.NotNil(dm.nodeMap)
+		require.Equal(tMock, dm.transmitter)
+		require.Equal(hMock, dm.chain)
+		require.Equal(privK, dm.privKey)
+		tMock.EXPECT().Info().Return(peer.AddrInfo{}, nil).MinTimes(1)
+		hMock.EXPECT().TipHeight().Return(uint64(10)).MinTimes(1)
+		hMock.EXPECT().Genesis().DoAndReturn(func() genesis.Genesis {
+			g := genesis.TestDefault()
+			g.ToBeEnabledBlockHeight = 1
+			return g
+		}).MinTimes(1)
 		tMock.EXPECT().BroadcastOutbound(gomock.Any(), gomock.Any()).Return(nil).MinTimes(1)
 		err := dm.Start(context.Background())
 		require.NoError(err)
@@ -66,14 +111,14 @@ func TestNewDelegateManager(t *testing.T) {
 func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	hMock := mock_nodeinfo.NewMockchain(ctrl)
-	tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 
 	require := require.New(t)
 	privKey, err := crypto.GenerateKey()
 	require.NoError(err)
 
 	t.Run("verify_pass", func(t *testing.T) {
+		hMock := mock_nodeinfo.NewMockchain(ctrl)
+		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 		msg := &iotextypes.NodeInfo{
 			Info: &iotextypes.NodeInfoCore{
 				Version:   "v1.8.0",
@@ -84,7 +129,7 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 		}
 		hash := hashNodeInfo(msg.Info)
 		msg.Signature, _ = privKey.Sign(hash[:])
-		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey)
+		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey, getEmptyCandidates)
 		dm.HandleNodeInfo(context.Background(), "abc", msg)
 		addr := msg.Info.Address
 		nodeGot, ok := dm.nodeMap.Get(addr)
@@ -100,6 +145,8 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 	})
 
 	t.Run("verify_fail", func(t *testing.T) {
+		hMock := mock_nodeinfo.NewMockchain(ctrl)
+		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 		privKey2, _ := crypto.GenerateKey()
 		msg := &iotextypes.NodeInfo{
 			Info: &iotextypes.NodeInfoCore{
@@ -110,7 +157,7 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 			},
 			Signature: []byte("xxxx"),
 		}
-		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey)
+		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey, getEmptyCandidates)
 		dm.HandleNodeInfo(context.Background(), "abc", msg)
 		addr := msg.Info.Address
 		_, ok := dm.nodeMap.Get(addr)
@@ -125,13 +172,13 @@ func TestDelegateManager_BroadcastNodeInfo(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	hMock := mock_nodeinfo.NewMockchain(ctrl)
-	tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 	privKey, err := crypto.GenerateKey()
 	require.NoError(err)
 
 	t.Run("update_self", func(t *testing.T) {
-		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey)
+		hMock := mock_nodeinfo.NewMockchain(ctrl)
+		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
+		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey, getEmptyCandidates)
 		height := uint64(200)
 		peerID, err := peer.IDFromString("12D3KooWF2fns5ZWKbPfx2U1wQDdxoTK2D6HC3ortbSAQYR4BQp4")
 		require.NoError(err)
@@ -155,13 +202,13 @@ func TestDelegateManager_HandleNodeInfoRequest(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	hMock := mock_nodeinfo.NewMockchain(ctrl)
-	tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 	privKey, err := crypto.GenerateKey()
 	require.NoError(err)
 
 	t.Run("unicast", func(t *testing.T) {
-		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey)
+		hMock := mock_nodeinfo.NewMockchain(ctrl)
+		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
+		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey, getEmptyCandidates)
 		height := uint64(200)
 		var sig []byte
 		message := &iotextypes.NodeInfo{}
@@ -185,13 +232,13 @@ func TestDelegateManager_RequestSingleNodeInfoAsync(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	hMock := mock_nodeinfo.NewMockchain(ctrl)
-	tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 	privKey, err := crypto.GenerateKey()
 	require.NoError(err)
 
 	t.Run("request_single", func(t *testing.T) {
-		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey)
+		hMock := mock_nodeinfo.NewMockchain(ctrl)
+		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
+		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey, getEmptyCandidates)
 		var paramPeer peer.AddrInfo
 		var paramMsg iotextypes.NodeInfoRequest
 		peerID, err := peer.IDFromString("12D3KooWF2fns5ZWKbPfx2U1wQDdxoTK2D6HC3ortbSAQYR4BQp4")
@@ -216,7 +263,7 @@ func TestDelegateManager_GetNodeByAddr(t *testing.T) {
 	privKey, err := crypto.GenerateKey()
 	require.NoError(err)
 
-	dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey)
+	dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey, getEmptyCandidates)
 	dm.updateNode(&Info{Address: "1"})
 	dm.updateNode(&Info{Address: "2"})
 
