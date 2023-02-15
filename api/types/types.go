@@ -9,7 +9,7 @@ import (
 )
 
 // _maxResponseSize is the max size of response
-const _maxResponseSize = 1024 * 1024 * 100 // 100MB
+var _maxResponseSize = 1024 * 1024 * 100 // 100MB
 
 type (
 	// Web3ResponseWriter is writer for web3 request
