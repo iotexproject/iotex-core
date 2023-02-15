@@ -1637,7 +1637,7 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 		err = errors.New("the type of action is not supported")
 		return
 	}
-	traces = logger.NewStructLogger(nil)
+	traces = logger.NewStructLogger(config)
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
 		Debug:     true,
 		Tracer:    traces,
