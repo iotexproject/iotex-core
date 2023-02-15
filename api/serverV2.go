@@ -49,7 +49,7 @@ func NewServerV2(
 	if err != nil {
 		return nil, err
 	}
-	web3Handler := NewWeb3Handler(coreAPI, cfg)
+	web3Handler := NewWeb3Handler(coreAPI, cfg.RedisCacheURL)
 
 	tp, err := tracer.NewProvider(
 		tracer.WithServiceName(cfg.Tracer.ServiceName),
