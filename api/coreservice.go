@@ -1623,27 +1623,26 @@ func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
 }
 
 // TraceTransaction returns the trace result of transaction
-func (core *coreService) TraceTransaction(ctx context.Context, actHash string, config *logger.Config) (retval []byte, receipt *action.Receipt, traces *logger.StructLogger, err error) {
+func (core *coreService) TraceTransaction(ctx context.Context, actHash string, config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error) {
 	actInfo, err := core.Action(util.Remove0xPrefix(actHash), false)
 	if err != nil {
-		return
+		return nil, nil, nil, err
 	}
 	act, err := (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID()).ActionToSealedEnvelope(actInfo.Action)
 	if err != nil {
-		return
+		return nil, nil, nil, err
 	}
 	sc, ok := act.Action().(*action.Execution)
 	if !ok {
-		err = errors.New("the type of action is not supported")
-		return
+		return nil, nil, nil, errors.New("the type of action is not supported")
 	}
-	traces = logger.NewStructLogger(config)
+	traces := logger.NewStructLogger(config)
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
 		Debug:     true,
 		Tracer:    traces,
 		NoBaseFee: true,
 	})
 	addr, _ := address.FromString(address.ZeroAddress)
-	retval, receipt, err = core.SimulateExecution(ctx, addr, sc)
-	return
+	retval, receipt, err := core.SimulateExecution(ctx, addr, sc)
+	return retval, receipt, traces, err
 }
