@@ -41,7 +41,7 @@ type (
 	}
 
 	web3Handler struct {
-		batchSizeLimit uint16
+		batchSizeLimit int
 		coreService    CoreService
 		cache          apiCache
 	}
@@ -84,7 +84,7 @@ func init() {
 // NewWeb3Handler creates a handle to process web3 requests
 func NewWeb3Handler(core CoreService, cfg Config) Web3Handler {
 	return &web3Handler{
-		batchSizeLimit: cfg.BatchSizeLimit,
+		batchSizeLimit: int(cfg.BatchSizeLimit),
 		coreService:    core,
 		cache:          newAPICache(15*time.Minute, cfg.RedisCacheURL),
 	}
@@ -104,7 +104,7 @@ func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, wri
 		return svr.handleWeb3Req(ctx, &web3Reqs, writer)
 	}
 	web3ReqArr := web3Reqs.Array()
-	if len(web3ReqArr) > int(svr.batchSizeLimit) {
+	if len(web3ReqArr) > svr.batchSizeLimit {
 		err := errors.Wrapf(
 			errInvalidFormat,
 			"batch size %d exceeds the limit %d",
