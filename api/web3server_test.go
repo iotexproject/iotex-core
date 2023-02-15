@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
+	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
 )
 
@@ -104,6 +105,13 @@ func TestHandlePost(t *testing.T) {
 	bodyBytes5, _ := io.ReadAll(response5.Body)
 	require.True(gjson.Valid(string(bodyBytes5)))
 	require.Equal(2, len(gjson.Parse(string(bodyBytes5)).Array()))
+
+	// multiple web3 req with big batch
+	apitypes.MaxResponseSize = 1024 * 1024 // fake max response size
+	request8, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[`+strings.Repeat(`{"jsonrpc":"2.0","method":"eth_mining","params":[],"id":1},`, 100000)+`{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":2}]`))
+	response8 := getServerResp(svr, request8)
+	bodyBytes8, _ := io.ReadAll(response8.Body)
+	require.Equal(len(bodyBytes8), 0)
 
 	// multiple web3 req2
 	request6, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_mining","params":[],"id":1}]`))
