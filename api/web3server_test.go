@@ -120,7 +120,7 @@ func TestHandlePost(t *testing.T) {
 	require.Equal(2, len(gjson.Parse(string(bodyBytes5)).Array()))
 
 	// multiple web3 req with big batch
-	apitypes.MaxResponseSize = 1024 * 1024 // fake max response size
+	apitypes._maxResponseSize = 1024 * 1024 // fake max response size
 	request8, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[`+strings.Repeat(`{"jsonrpc":"2.0","method":"eth_mining","params":[],"id":1},`, 100000)+`{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":2}]`))
 	response8 := getServerResp(svr, request8)
 	bodyBytes8, _ := io.ReadAll(response8.Body)
