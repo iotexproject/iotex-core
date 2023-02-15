@@ -8,8 +8,8 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 )
 
-// _maxResponseSize is the max size of response
-var _maxResponseSize = 1024 * 1024 * 100 // 100MB
+// MaxResponseSize is the max size of response
+var MaxResponseSize = 1024 * 1024 * 100 // 100MB
 
 type (
 	// Web3ResponseWriter is writer for web3 request
