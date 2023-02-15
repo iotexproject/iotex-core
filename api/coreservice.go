@@ -491,9 +491,9 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 		return "", nil, err
 	}
 	sc.SetNonce(state.PendingNonce())
-	actGasLimit := core.bc.Genesis().ActionGasLimit
-	if sc.GasLimit() == 0 || actGasLimit < sc.GasLimit() {
-		sc.SetGasLimit(actGasLimit)
+	blockGasLimit := core.bc.Genesis().BlockGasLimit
+	if sc.GasLimit() == 0 || blockGasLimit < sc.GasLimit() {
+		sc.SetGasLimit(blockGasLimit)
 	}
 	sc.SetGasPrice(big.NewInt(0)) // ReadContract() is read-only, use 0 to prevent insufficient gas
 
