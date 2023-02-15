@@ -75,7 +75,7 @@ func (w *BatchWriter) Write(in interface{}) error {
 		return err
 	}
 	w.totalSize += len(raw)
-	if w.totalSize > _maxResponseSize {
+	if w.totalSize > MaxResponseSize {
 		return errors.New("response size exceeds limit")
 	}
 	w.buf = append(w.buf, raw)
