@@ -1634,7 +1634,7 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	}
 	sc, ok := act.Action().(*action.Execution)
 	if !ok {
-		err = status.Error(codes.InvalidArgument, "the type of action is not supported")
+		err = errors.New("the type of action is not supported")
 		return
 	}
 	traces = logger.NewStructLogger(nil)

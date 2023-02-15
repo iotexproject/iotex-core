@@ -889,10 +889,6 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 	if !actHash.Exists() {
 		return nil, errInvalidFormat
 	}
-	hash := util.Remove0xPrefix(actHash.String())
-	if len(hash) != 64 {
-		return nil, errInvalidFormat
-	}
 	var (
 		enableMemory, disableStack, disableStorage, enableReturnData bool
 	)
@@ -908,7 +904,7 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 		DisableStorage:   disableStorage,
 		EnableReturnData: enableReturnData,
 	}
-	retval, receipt, traces, err := svr.coreService.TraceTransaction(ctx, hash, cfg)
+	retval, receipt, traces, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
 	if err != nil {
 		return nil, err
 	}
