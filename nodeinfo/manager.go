@@ -43,7 +43,7 @@ type (
 		Genesis() genesis.Genesis
 	}
 
-	delegatesGetFunc func(context.Context) (state.CandidateList, error)
+	candidatesGetFunc func(context.Context) (state.CandidateList, error)
 
 	// Info node infomation
 	Info struct {
@@ -57,14 +57,14 @@ type (
 	// InfoManager manage the Info of nodes in p2p network.
 	InfoManager struct {
 		lifecycle.Lifecycle
-		version       string
-		address       string
-		delegateCache bool
-		nodeMap       *lru.Cache
-		transmitter   transmitter
-		chain         chain
-		privKey       crypto.PrivateKey
-		getDelegates  delegatesGetFunc
+		version        string
+		address        string
+		candidateCache bool
+		nodeMap        *lru.Cache
+		transmitter    transmitter
+		chain          chain
+		privKey        crypto.PrivateKey
+		getCandidates  candidatesGetFunc
 	}
 )
 
@@ -81,15 +81,15 @@ func init() {
 }
 
 // NewInfoManager new info manager
-func NewInfoManager(cfg *Config, t transmitter, ch chain, privKey crypto.PrivateKey, getDelegatesHandler delegatesGetFunc) *InfoManager {
+func NewInfoManager(cfg *Config, t transmitter, ch chain, privKey crypto.PrivateKey, getDelegatesHandler candidatesGetFunc) *InfoManager {
 	dm := &InfoManager{
-		nodeMap:      lru.New(cfg.NodeMapSize),
-		transmitter:  t,
-		chain:        ch,
-		privKey:      privKey,
-		version:      version.PackageVersion,
-		address:      privKey.PublicKey().Address().String(),
-		getDelegates: getDelegatesHandler,
+		nodeMap:       lru.New(cfg.NodeMapSize),
+		transmitter:   t,
+		chain:         ch,
+		privKey:       privKey,
+		version:       version.PackageVersion,
+		address:       privKey.PublicKey().Address().String(),
+		getCandidates: getDelegatesHandler,
 	}
 	// init recurring tasks
 	broadcastTask := routine.NewRecurringTask(func() {
@@ -105,7 +105,7 @@ func NewInfoManager(cfg *Config, t transmitter, ch chain, privKey crypto.Private
 		}
 
 		// delegates or nodes who are turned on will broadcast
-		if cfg.EnableBroadcastNodeInfo || dm.isDelegate() {
+		if cfg.EnableBroadcastNodeInfo || dm.isCandidate() {
 			if err := dm.BroadcastNodeInfo(context.Background()); err != nil {
 				log.L().Error("nodeinfo manager broadcast node info failed", zap.Error(err))
 			}
@@ -206,9 +206,10 @@ func (dm *InfoManager) HandleNodeInfoRequest(ctx context.Context, peer peer.Addr
 // SelfRoles return itself Roles
 func (dm *InfoManager) SelfRoles() Roles {
 	r := GenEmptyRoles()
-	if dm.isDelegate() {
+	if dm.isCandidate() {
 		r.Add(ConsensusRole)
-		// TODO add ExecutorRole if is executor
+	}
+	if dm.isExecutor() {
 		r.Add(ExecutorRole)
 	}
 	return r
@@ -242,22 +243,27 @@ func (dm *InfoManager) genNodeInfoMsg() (*iotextypes.NodeInfo, error) {
 	return req, nil
 }
 
-func (dm *InfoManager) isDelegate() bool {
-	if !dm.delegateCache {
-		if err := dm.updateDelegateCache(); err != nil {
-			log.L().Error("nodeinfo manager update delegate cache failed", zap.Error(err))
+func (dm *InfoManager) isCandidate() bool {
+	if !dm.candidateCache {
+		if err := dm.updateCandidateCache(); err != nil {
+			log.L().Error("nodeinfo manager update candidate cache failed", zap.Error(err))
 		}
 	}
-	return dm.delegateCache
+	return dm.candidateCache
 }
 
-func (dm *InfoManager) updateDelegateCache() error {
-	candList, err := dm.getDelegates(context.Background())
+func (dm *InfoManager) isExecutor() bool {
+	// TODO return true if it is executor
+	return true
+}
+
+func (dm *InfoManager) updateCandidateCache() error {
+	candList, err := dm.getCandidates(context.Background())
 	if err != nil {
 		return err
 	}
 	log.L().Debug("nodeinfo manager active candidates", zap.Any("candidates", candList))
-	dm.delegateCache = slices.ContainsFunc(candList, func(e *state.Candidate) bool {
+	dm.candidateCache = slices.ContainsFunc(candList, func(e *state.Candidate) bool {
 		return dm.address == e.Address
 	})
 	return nil
