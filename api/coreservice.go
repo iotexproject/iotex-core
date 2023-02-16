@@ -459,7 +459,7 @@ func (core *coreService) validateChainID(chainID uint32) error {
 }
 
 func (core *coreService) validateWeb3Rewarding(selp action.SealedEnvelope) error {
-	if ge := core.bc.Genesis(); ge.IsToBeEnabled(core.bc.TipHeight()) || selp.Encoding() != uint32(iotextypes.Encoding_ETHEREUM_RLP) {
+	if ge := core.bc.Genesis(); ge.IsQueensland(core.bc.TipHeight()) || selp.Encoding() != uint32(iotextypes.Encoding_ETHEREUM_RLP) {
 		return nil
 	}
 	switch selp.Action().(type) {

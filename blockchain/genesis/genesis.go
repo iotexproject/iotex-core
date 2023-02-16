@@ -69,6 +69,7 @@ func defaultConfig() Genesis {
 			MidwayBlockHeight:       16509241,
 			NewfoundlandBlockHeight: 17662681,
 			OkhotskBlockHeight:      21542761,
+			QueenslandBlockHeight:   31542761,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
@@ -225,9 +226,12 @@ type (
 		// 3. fix gas and nonce update
 		// 4. fix unproductive delegates in staking protocol
 		OkhotskBlockHeight uint64 `yaml:"okhotskHeight"`
+		// QueenslandBlockHeight is the the start height to
+		// 1. enable rewarding action via web3
+		// 2. broadcast node info into the p2p network
+		QueenslandBlockHeight uint64 `yaml:"queenslandHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
-		// 1. web3 rewarding api
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
 	}
 	// Account contains the configs for account protocol
@@ -539,6 +543,11 @@ func (g *Blockchain) IsNewfoundland(height uint64) bool {
 // IsOkhotsk checks whether height is equal to or larger than okhotsk height
 func (g *Blockchain) IsOkhotsk(height uint64) bool {
 	return g.isPost(g.OkhotskBlockHeight, height)
+}
+
+// IsQueensland checks whether height is equal to or larger than queensland height
+func (g *Blockchain) IsQueensland(height uint64) bool {
+	return g.isPost(g.QueenslandBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
