@@ -54,7 +54,7 @@ type (
 		PeerID    string
 	}
 
-	// InfoManager manage delegate node info
+	// InfoManager manage the Info of nodes in p2p network.
 	InfoManager struct {
 		lifecycle.Lifecycle
 		version       string
@@ -152,15 +152,6 @@ func (dm *InfoManager) HandleNodeInfo(ctx context.Context, peerID string, msg *i
 	})
 }
 
-// updateNode update node info
-func (dm *InfoManager) updateNode(node *Info) {
-	addr := node.Address
-	// update dm.nodeMap
-	dm.nodeMap.Add(addr, *node)
-	// update metric
-	_nodeInfoHeightGauge.WithLabelValues(addr, node.Version).Set(float64(node.Height))
-}
-
 // GetNodeByAddr get node info by address
 func (dm *InfoManager) GetNodeByAddr(addr string) (Info, bool) {
 	info, ok := dm.nodeMap.Get(addr)
@@ -210,6 +201,26 @@ func (dm *InfoManager) HandleNodeInfoRequest(ctx context.Context, peer peer.Addr
 		return err
 	}
 	return dm.transmitter.UnicastOutbound(ctx, peer, req)
+}
+
+// SelfRoles return itself Roles
+func (dm *InfoManager) SelfRoles() Roles {
+	r := GenEmptyRoles()
+	if dm.isDelegate() {
+		r.Add(ConsensusRole)
+		// TODO add ExecutorRole if is executor
+		r.Add(ExecutorRole)
+	}
+	return r
+}
+
+// updateNode update node info
+func (dm *InfoManager) updateNode(node *Info) {
+	addr := node.Address
+	// update dm.nodeMap
+	dm.nodeMap.Add(addr, *node)
+	// update metric
+	_nodeInfoHeightGauge.WithLabelValues(addr, node.Version).Set(float64(node.Height))
 }
 
 func (dm *InfoManager) genNodeInfoMsg() (*iotextypes.NodeInfo, error) {

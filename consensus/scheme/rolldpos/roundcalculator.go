@@ -46,7 +46,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 			if delegates, err = c.Delegates(height); err != nil {
 				return nil, err
 			}
-			if executions, err = c.Executions(height); err != nil {
+			if executions, err = c.Executors(height); err != nil {
 				return nil, err
 			}
 		}
@@ -181,8 +181,8 @@ func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
 	return c.nodesElectionByEpoch.Delegates(epochNum)
 }
 
-// Executions returns list of executions at given height
-func (c *roundCalculator) Executions(height uint64) ([]string, error) {
+// Executors returns list of executions at given height
+func (c *roundCalculator) Executors(height uint64) ([]string, error) {
 	epochNum := c.rp.GetEpochNum(height)
 	return c.nodesElectionByEpoch.Executors(epochNum)
 }
@@ -227,7 +227,7 @@ func (c *roundCalculator) newRound(
 		if delegates, err = c.Delegates(height); err != nil {
 			return
 		}
-		if executions, err = c.Executions(height); err != nil {
+		if executions, err = c.Executors(height); err != nil {
 			return
 		}
 		if roundNum, roundStartTime, err = c.roundInfo(height, blockInterval, now, toleratedOvertime); err != nil {
@@ -266,17 +266,17 @@ func (c *roundCalculator) newRound(
 func (c *roundCalculator) calculateProposer(
 	height uint64,
 	round uint32,
-	executions []string,
+	executors []string,
 ) (proposer string, err error) {
-	numExeutions := c.rp.NumExecutions()
-	if numExeutions != uint64(len(executions)) {
-		err = errors.New("invalid execution list")
+	numExecutors := c.rp.NumExecutors()
+	if numExecutors != uint64(len(executors)) {
+		err = errors.New("invalid executor list")
 		return
 	}
 	idx := height
 	if c.timeBasedRotation {
 		idx += uint64(round)
 	}
-	proposer = executions[idx%numExeutions]
+	proposer = executors[idx%numExecutors]
 	return
 }

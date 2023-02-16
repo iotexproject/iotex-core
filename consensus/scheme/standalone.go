@@ -101,9 +101,3 @@ func (s *Standalone) Activate(_ bool) {
 
 // Active is always true for standalone scheme
 func (s *Standalone) Active() bool { return true }
-
-// IsExecutor is always false for standalone scheme
-func (s *Standalone) IsExecutor() bool { return false }
-
-// IsDelegate is always false for standalone scheme
-func (s *Standalone) IsDelegate() bool { return false }

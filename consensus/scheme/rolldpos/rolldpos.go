@@ -315,16 +315,6 @@ func (r *RollDPoS) Active() bool {
 	return r.ctx.Active() || r.cfsm.CurrentState() != consensusfsm.InitState
 }
 
-// IsExecutor is true if it is an executor
-func (r *RollDPoS) IsExecutor() bool {
-	return r.ctx.IsExecutor()
-}
-
-// IsDelegate is true if it is a delegate
-func (r *RollDPoS) IsDelegate() bool {
-	return r.ctx.IsDelegate()
-}
-
 type (
 	// BuilderConfig returns the configuration of the builder
 	BuilderConfig struct {

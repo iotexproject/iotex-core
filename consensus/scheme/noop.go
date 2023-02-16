@@ -60,9 +60,3 @@ func (n *Noop) Activate(_ bool) {
 
 // Active is always true for noop scheme
 func (n *Noop) Active() bool { return true }
-
-// IsExecutor is always false for noop scheme
-func (n *Noop) IsExecutor() bool { return false }
-
-// IsDelegate is always false for noop scheme
-func (n *Noop) IsDelegate() bool { return false }

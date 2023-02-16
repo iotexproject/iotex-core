@@ -34,8 +34,6 @@ type Consensus interface {
 	Metrics() (scheme.ConsensusMetrics, error)
 	Activate(bool)
 	Active() bool
-	IsExecutor() bool
-	IsDelegate() bool
 }
 
 // IotxConsensus implements Consensus
@@ -210,9 +208,3 @@ func (c *IotxConsensus) Activate(active bool) {
 
 // Active returns true if the consensus component is active or false if it stands by
 func (c *IotxConsensus) Active() bool { return c.scheme.Active() }
-
-// IsExecutor returns true if it is an exeuctor
-func (c *IotxConsensus) IsExecutor() bool { return c.scheme.IsExecutor() }
-
-// IsDelegate returns true if it is a delegate
-func (c *IotxConsensus) IsDelegate() bool { return c.scheme.IsDelegate() }

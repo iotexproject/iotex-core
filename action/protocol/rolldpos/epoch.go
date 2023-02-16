@@ -23,7 +23,7 @@ const protocolID = "rolldpos"
 type Protocol struct {
 	numCandidateDelegates   uint64
 	numDelegates            uint64
-	numExecutions           uint64
+	numExecutors            uint64
 	numSubEpochs            uint64
 	numSubEpochsDardanelles uint64
 	dardanellesHeight       uint64
@@ -76,14 +76,14 @@ func EnableDardanellesSubEpoch(height, numSubEpochs uint64) Option {
 }
 
 // NewProtocol returns a new rolldpos protocol
-func NewProtocol(numCandidateDelegates, numDelegates, numExecutions, numSubEpochs uint64, opts ...Option) *Protocol {
+func NewProtocol(numCandidateDelegates, numDelegates, numExecutors, numSubEpochs uint64, opts ...Option) *Protocol {
 	if numCandidateDelegates < numDelegates {
 		numCandidateDelegates = numDelegates
 	}
 	p := &Protocol{
 		numCandidateDelegates: numCandidateDelegates,
 		numDelegates:          numDelegates,
-		numExecutions:         numExecutions,
+		numExecutors:          numExecutors,
 		numSubEpochs:          numSubEpochs,
 	}
 	for _, opt := range opts {
@@ -195,9 +195,9 @@ func (p *Protocol) NumDelegates() uint64 {
 	return p.numDelegates
 }
 
-// NumExecutions returns the number of executions in an epoch
-func (p *Protocol) NumExecutions() uint64 {
-	return p.numExecutions
+// NumExecutors returns the number of executors in an epoch
+func (p *Protocol) NumExecutors() uint64 {
+	return p.numExecutors
 }
 
 // NumSubEpochs returns the number of subEpochs given a block height
