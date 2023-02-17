@@ -22,6 +22,7 @@ func newConfigForNodeInfoTest(triePath, dBPath, idxDBPath string) (config.Config
 	if err != nil {
 		return cfg, nil, err
 	}
+	cfg.Genesis.ToBeEnabledBlockHeight = 0
 	testTriePath, err := testutil.PathOfTempFile(triePath)
 	if err != nil {
 		return cfg, nil, err
