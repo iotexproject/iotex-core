@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -30,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
 	mock_apitypes "github.com/iotexproject/iotex-core/test/mock/mock_apiresponder"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestGetWeb3Reqs(t *testing.T) {
@@ -979,4 +982,35 @@ func TestLocalAPICache(t *testing.T) {
 	cacheLocal.Del(testKey)
 	_, exist = cacheLocal.Get(testKey)
 	require.False(exist)
+}
+
+func TestDebugTraceTransaction(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
+
+	ctx := context.Background()
+	tsf, err := action.SignedExecution(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64), []byte{})
+	require.NoError(err)
+	tsfhash, err := tsf.Hash()
+	require.NoError(err)
+	receipt := &action.Receipt{Status: 1, BlockHeight: 1, ActionHash: tsfhash, GasConsumed: 100000}
+	structLogger := &logger.StructLogger{}
+
+	core.EXPECT().TraceTransaction(ctx, gomock.Any(), gomock.Any()).AnyTimes().Return([]byte{0x01}, receipt, structLogger, nil)
+
+	in := gjson.Parse(`{"params":["` + hex.EncodeToString(tsfhash[:]) + `"]}`)
+	ret, err := web3svr.traceTransaction(ctx, &in)
+	require.NoError(err)
+	rlt, ok := ret.(*debugTraceTransactionResult)
+	require.True(ok)
+	require.Equal("0x01", rlt.ReturnValue)
+	require.False(rlt.Failed)
+	require.Equal(uint64(100000), rlt.Gas)
+	require.Empty(rlt.Revert)
+	require.Equal(0, len(rlt.StructLogs))
 }

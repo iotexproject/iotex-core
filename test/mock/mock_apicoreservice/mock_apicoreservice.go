@@ -8,6 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	logger "github.com/ethereum/go-ethereum/eth/tracers/logger"
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	address "github.com/iotexproject/iotex-address/address"
@@ -587,6 +588,23 @@ func (m *MockCoreService) TipHeight() uint64 {
 func (mr *MockCoreServiceMockRecorder) TipHeight() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*MockCoreService)(nil).TipHeight))
+}
+
+// TraceTransaction mocks base method.
+func (m *MockCoreService) TraceTransaction(ctx context.Context, actHash string, config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TraceTransaction", ctx, actHash, config)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(*action.Receipt)
+	ret2, _ := ret[2].(*logger.StructLogger)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// TraceTransaction indicates an expected call of TraceTransaction.
+func (mr *MockCoreServiceMockRecorder) TraceTransaction(ctx, actHash, config interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceTransaction", reflect.TypeOf((*MockCoreService)(nil).TraceTransaction), ctx, actHash, config)
 }
 
 // TransactionLogByActionHash mocks base method.
