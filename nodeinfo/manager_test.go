@@ -47,7 +47,7 @@ func TestNewDelegateManager(t *testing.T) {
 		hMock.EXPECT().TipHeight().Return(uint64(2)).MinTimes(1)
 		hMock.EXPECT().Genesis().DoAndReturn(func() genesis.Genesis {
 			g := genesis.TestDefault()
-			g.QueenslandBlockHeight = 1
+			g.PalauBlockHeight = 1
 			return g
 		}).MinTimes(1)
 		err := dm.Start(context.Background())
@@ -69,7 +69,7 @@ func TestNewDelegateManager(t *testing.T) {
 		hMock.EXPECT().TipHeight().Return(uint64(10)).MinTimes(1)
 		hMock.EXPECT().Genesis().DoAndReturn(func() genesis.Genesis {
 			g := genesis.TestDefault()
-			g.QueenslandBlockHeight = 1
+			g.PalauBlockHeight = 1
 			return g
 		}).MinTimes(1)
 		tMock.EXPECT().BroadcastOutbound(gomock.Any(), gomock.Any()).Return(nil).MinTimes(1)
@@ -97,7 +97,7 @@ func TestNewDelegateManager(t *testing.T) {
 		hMock.EXPECT().TipHeight().Return(uint64(10)).MinTimes(1)
 		hMock.EXPECT().Genesis().DoAndReturn(func() genesis.Genesis {
 			g := genesis.TestDefault()
-			g.QueenslandBlockHeight = 1
+			g.PalauBlockHeight = 1
 			return g
 		}).MinTimes(1)
 		tMock.EXPECT().BroadcastOutbound(gomock.Any(), gomock.Any()).Return(nil).MinTimes(1)
