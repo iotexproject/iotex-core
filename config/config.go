@@ -320,6 +320,8 @@ func ValidateForkHeights(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "Midway is heigher than Newfoundland")
 	case hu.NewfoundlandBlockHeight > hu.OkhotskBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Newfoundland is heigher than Okhotsk")
+	case hu.OkhotskBlockHeight > hu.PalauBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Okhotsk is heigher than Palau")
 	}
 	return nil
 }

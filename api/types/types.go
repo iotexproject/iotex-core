@@ -63,8 +63,8 @@ type BatchWriter struct {
 // NewBatchWriter returns a new BatchWriter
 func NewBatchWriter(singleWriter Web3ResponseWriter) *BatchWriter {
 	return &BatchWriter{
-		writer:    singleWriter,
-		buf:       make([]json.RawMessage, 0),
+		writer: singleWriter,
+		buf:    make([]json.RawMessage, 0),
 	}
 }
 
