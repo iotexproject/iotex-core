@@ -100,6 +100,39 @@ func NewConsensus(
 	var err error
 	switch cfg.Scheme {
 	case RollDPoSScheme:
+		delegatesByEpochFunc := func(epochNum uint64) ([]string, error) {
+			re := protocol.NewRegistry()
+			if err := ops.rp.Register(re); err != nil {
+				return nil, err
+			}
+			ctx := genesis.WithGenesisContext(
+				protocol.WithRegistry(context.Background(), re),
+				cfg.Genesis,
+			)
+			ctx = protocol.WithFeatureWithHeightCtx(ctx)
+			tipHeight := bc.TipHeight()
+			tipEpochNum := ops.rp.GetEpochNum(tipHeight)
+			var candidatesList state.CandidateList
+			var err error
+			switch epochNum {
+			case tipEpochNum:
+				candidatesList, err = ops.pp.Delegates(ctx, sf)
+			case tipEpochNum + 1:
+				candidatesList, err = ops.pp.NextDelegates(ctx, sf)
+			default:
+				err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochNum, tipEpochNum)
+			}
+			if err != nil {
+				return nil, err
+			}
+			addrs := []string{}
+			for _, candidate := range candidatesList {
+				addrs = append(addrs, candidate.Address)
+			}
+			return addrs, nil
+		}
+		// TODO implement proposorsByEpochFunc
+		proposorsByEpochFunc := delegatesByEpochFunc
 		bd := rolldpos.NewRollDPoSBuilder().
 			SetAddr(cfg.Chain.ProducerAddress().String()).
 			SetPriKey(cfg.Chain.ProducerPrivateKey()).
@@ -108,37 +141,8 @@ func NewConsensus(
 			SetBlockDeserializer(block.NewDeserializer(bc.EvmNetworkID())).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
-			SetDelegatesByEpochFunc(func(epochNum uint64) ([]string, error) {
-				re := protocol.NewRegistry()
-				if err := ops.rp.Register(re); err != nil {
-					return nil, err
-				}
-				ctx := genesis.WithGenesisContext(
-					protocol.WithRegistry(context.Background(), re),
-					cfg.Genesis,
-				)
-				ctx = protocol.WithFeatureWithHeightCtx(ctx)
-				tipHeight := bc.TipHeight()
-				tipEpochNum := ops.rp.GetEpochNum(tipHeight)
-				var candidatesList state.CandidateList
-				var err error
-				switch epochNum {
-				case tipEpochNum:
-					candidatesList, err = ops.pp.Delegates(ctx, sf)
-				case tipEpochNum + 1:
-					candidatesList, err = ops.pp.NextDelegates(ctx, sf)
-				default:
-					err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochNum, tipEpochNum)
-				}
-				if err != nil {
-					return nil, err
-				}
-				addrs := []string{}
-				for _, candidate := range candidatesList {
-					addrs = append(addrs, candidate.Address)
-				}
-				return addrs, nil
-			}).
+			SetDelegatesByEpochFunc(delegatesByEpochFunc).
+			SetProposorsByEpochFunc(proposorsByEpochFunc).
 			RegisterProtocol(ops.rp)
 		// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 		cs.scheme, err = bd.Build()

@@ -339,7 +339,8 @@ type (
 		clock             clock.Clock
 		// TODO: explorer dependency deleted at #1085, need to add api params
 		rp                   *rolldpos.Protocol
-		delegatesByEpochFunc DelegatesByEpochFunc
+		delegatesByEpochFunc NodesSelectionByEpochFunc
+		proposorsByEpochFunc NodesSelectionByEpochFunc
 	}
 )
 
@@ -392,9 +393,17 @@ func (b *Builder) SetClock(clock clock.Clock) *Builder {
 
 // SetDelegatesByEpochFunc sets delegatesByEpochFunc
 func (b *Builder) SetDelegatesByEpochFunc(
-	delegatesByEpochFunc DelegatesByEpochFunc,
+	delegatesByEpochFunc NodesSelectionByEpochFunc,
 ) *Builder {
 	b.delegatesByEpochFunc = delegatesByEpochFunc
+	return b
+}
+
+// SetProposorsByEpochFunc sets proposorsByEpochFunc
+func (b *Builder) SetProposorsByEpochFunc(
+	proposorsByEpochFunc NodesSelectionByEpochFunc,
+) *Builder {
+	b.proposorsByEpochFunc = proposorsByEpochFunc
 	return b
 }
 
@@ -427,6 +436,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.rp,
 		b.broadcastHandler,
 		b.delegatesByEpochFunc,
+		b.proposorsByEpochFunc,
 		b.encodedAddr,
 		b.priKey,
 		b.clock,
