@@ -72,7 +72,7 @@ type (
 	// NodesElectionByEpoch define a interface to overwrite delegates and executions
 	NodesElectionByEpoch interface {
 		Delegates(uint64) ([]string, error)
-		Executors(uint64) ([]string, error)
+		Proposors(uint64) ([]string, error)
 	}
 
 	// RDPoSCtx is the context of RollDPoS
@@ -353,11 +353,11 @@ func (ctx *rollDPoSCtx) IsDelegate() bool {
 	return ctx.isDelegate()
 }
 
-func (ctx *rollDPoSCtx) IsExecutor() bool {
+func (ctx *rollDPoSCtx) IsProposor() bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
-	return ctx.isExecutor()
+	return ctx.isProposor()
 }
 
 func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
@@ -656,12 +656,12 @@ func (ctx *rollDPoSCtx) isDelegate() bool {
 	return ctx.round.IsDelegate(ctx.encodedAddr)
 }
 
-func (ctx *rollDPoSCtx) isExecutor() bool {
+func (ctx *rollDPoSCtx) isProposor() bool {
 	if active := ctx.active; !active {
 		ctx.logger().Info("current node is in standby mode")
 		return false
 	}
-	return ctx.round.IsExecutor(ctx.encodedAddr)
+	return ctx.round.IsProposors(ctx.encodedAddr)
 }
 
 func (ctx *rollDPoSCtx) endorseBlockProposal(proposal *blockProposal) (*EndorsedConsensusMessage, error) {

@@ -33,7 +33,7 @@ type roundCtx struct {
 	epochStartHeight     uint64
 	nextEpochStartHeight uint64
 	delegates            []string
-	executors            []string
+	proposors            []string
 
 	height             uint64
 	roundNum           uint32
@@ -106,12 +106,12 @@ func (ctx *roundCtx) IsDelegate(addr string) bool {
 	return false
 }
 
-func (ctx *roundCtx) IsExecutor(addr string) bool {
-	return slices.Contains(ctx.executors, addr)
+func (ctx *roundCtx) IsProposors(addr string) bool {
+	return slices.Contains(ctx.proposors, addr)
 }
 
-func (ctx *roundCtx) Executors() []string {
-	return ctx.executors
+func (ctx *roundCtx) Proposors() []string {
+	return ctx.proposors
 }
 
 func (ctx *roundCtx) Block(blkHash []byte) *block.Block {

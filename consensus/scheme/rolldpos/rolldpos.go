@@ -248,7 +248,7 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	if !round.IsExecutor(blk.ProducerAddress()) {
+	if !round.IsProposors(blk.ProducerAddress()) {
 		return errors.Errorf(
 			"block proposer %s is not a valid execution",
 			blk.ProducerAddress(),

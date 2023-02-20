@@ -68,8 +68,8 @@ func (ne *nodesElection) Delegates(epochNum uint64) ([]string, error) {
 	return addrs, nil
 }
 
-func (ne *nodesElection) Executors(epochNum uint64) ([]string, error) {
-	// TODO implement get executions
-	// use delegates as executors at present
+func (ne *nodesElection) Proposors(epochNum uint64) ([]string, error) {
+	// TODO implement select proposors in each epoch
+	// use delegates as proposors at present
 	return ne.Delegates(epochNum)
 }
