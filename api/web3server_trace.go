@@ -63,9 +63,6 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		}
 		if blkNumOrHash.BlockHash != "" {
 			blkHash, err = hash.HexStringToHash256(blkNumOrHash.BlockHash)
-			if err != nil {
-				return nil, err
-			}
 		} else {
 			blkHash, err = core.dao.GetBlockHash(blkNumOrHash.BlockNumber)
 		}
