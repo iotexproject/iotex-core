@@ -5,7 +5,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/holiman/uint256"
 )
 
@@ -41,27 +40,4 @@ type StructLog struct {
 	RefundCounter uint64                      `json:"refund"`
 	OpName        string                      `json:"opName"`
 	ErrorString   string                      `json:"error"`
-}
-
-// FromLoggerStructLogs converts logger.StructLog to apitypes.StructLog
-func FromLoggerStructLogs(logs []logger.StructLog) []StructLog {
-	ret := make([]StructLog, len(logs))
-	for index, log := range logs {
-		ret[index] = StructLog{
-			Pc:            log.Pc,
-			Op:            log.Op,
-			Gas:           math.HexOrDecimal64(log.Gas),
-			GasCost:       math.HexOrDecimal64(log.GasCost),
-			Memory:        log.Memory,
-			MemorySize:    log.MemorySize,
-			Stack:         log.Stack,
-			ReturnData:    log.ReturnData,
-			Storage:       log.Storage,
-			Depth:         log.Depth,
-			RefundCounter: log.RefundCounter,
-			OpName:        log.OpName(),
-			ErrorString:   log.ErrorString(),
-		}
-	}
-	return ret
 }

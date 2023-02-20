@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -17,6 +18,29 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/tidwall/gjson"
 )
+
+// fromLoggerStructLogs converts logger.StructLog to apitypes.StructLog
+func fromLoggerStructLogs(logs []logger.StructLog) []apitypes.StructLog {
+	ret := make([]apitypes.StructLog, len(logs))
+	for index, log := range logs {
+		ret[index] = apitypes.StructLog{
+			Pc:            log.Pc,
+			Op:            log.Op,
+			Gas:           math.HexOrDecimal64(log.Gas),
+			GasCost:       math.HexOrDecimal64(log.GasCost),
+			Memory:        log.Memory,
+			MemorySize:    log.MemorySize,
+			Stack:         log.Stack,
+			ReturnData:    log.ReturnData,
+			Storage:       log.Storage,
+			Depth:         log.Depth,
+			RefundCounter: log.RefundCounter,
+			OpName:        log.OpName(),
+			ErrorString:   log.ErrorString(),
+		}
+	}
+	return ret
+}
 
 func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interface{}, error) {
 	var callArgs apitypes.TransactionArgs
@@ -129,7 +153,7 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
 		Revert:      receipt.ExecutionRevertMsg(),
 		ReturnValue: byteToHex(retval),
-		StructLogs:  apitypes.FromLoggerStructLogs(traces.StructLogs()),
+		StructLogs:  fromLoggerStructLogs(traces.StructLogs()),
 		Gas:         receipt.GasConsumed,
 	}, nil
 }

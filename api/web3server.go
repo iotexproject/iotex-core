@@ -914,7 +914,7 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 		Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
 		Revert:      receipt.ExecutionRevertMsg(),
 		ReturnValue: byteToHex(retval),
-		StructLogs:  apitypes.FromLoggerStructLogs(traces.StructLogs()),
+		StructLogs:  fromLoggerStructLogs(traces.StructLogs()),
 		Gas:         receipt.GasConsumed,
 	}, nil
 }
