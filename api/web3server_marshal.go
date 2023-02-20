@@ -13,12 +13,12 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/action"
+	apitypes "github.com/iotexproject/iotex-core/api/types"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain/block"
 )
 
 const (
@@ -96,11 +96,11 @@ type (
 		ErrorString   string                      `json:"error"`
 	}
 	debugTraceTransactionResult struct {
-		Failed      bool        `json:"failed"`
-		Revert      string      `json:"revert"`
-		ReturnValue string      `json:"returnValue"`
-		Gas         uint64      `json:"gas"`
-		StructLogs  []structLog `json:"structLogs"`
+		Failed      bool                 `json:"failed"`
+		Revert      string               `json:"revert"`
+		ReturnValue string               `json:"returnValue"`
+		Gas         uint64               `json:"gas"`
+		StructLogs  []apitypes.StructLog `json:"structLogs"`
 	}
 )
 

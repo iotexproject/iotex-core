@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -209,6 +208,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.unsubscribe(web3Req)
 	case "debug_traceTransaction":
 		res, err = svr.traceTransaction(ctx, web3Req)
+	case "debug_traceCall":
+		res, err = svr.traceCall(ctx, web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
 		"eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex",
 		"eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
@@ -909,30 +910,11 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 		return nil, err
 	}
 
-	structLogs := make([]structLog, 0)
-	for _, s := range traces.StructLogs() {
-		var enc structLog
-		enc.Pc = s.Pc
-		enc.Op = s.Op
-		enc.Gas = math.HexOrDecimal64(s.Gas)
-		enc.GasCost = math.HexOrDecimal64(s.GasCost)
-		enc.Memory = s.Memory
-		enc.MemorySize = s.MemorySize
-		enc.Stack = s.Stack
-		enc.ReturnData = s.ReturnData
-		enc.Storage = s.Storage
-		enc.Depth = s.Depth
-		enc.RefundCounter = s.RefundCounter
-		enc.OpName = s.OpName()
-		enc.ErrorString = s.ErrorString()
-		structLogs = append(structLogs, enc)
-	}
-
 	return &debugTraceTransactionResult{
 		Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
 		Revert:      receipt.ExecutionRevertMsg(),
 		ReturnValue: byteToHex(retval),
-		StructLogs:  structLogs,
+		StructLogs:  apitypes.FromLoggerStructLogs(traces.StructLogs()),
 		Gas:         receipt.GasConsumed,
 	}, nil
 }
