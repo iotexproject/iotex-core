@@ -100,6 +100,86 @@ func TestBroadcast(t *testing.T) {
 	}
 }
 
+func TestNetworkSeparation(t *testing.T) {
+	r := require.New(t)
+
+	ctx := context.Background()
+	n := 10
+	agents := make([]Agent, 0)
+	defer func() {
+		var err error
+		for _, agent := range agents {
+			err = agent.Stop(ctx)
+		}
+		r.NoError(err)
+	}()
+	counts := make(map[uint8]int)
+	var mutex sync.RWMutex
+	b := func(_ context.Context, _ uint32, _ string, msg proto.Message) {
+		mutex.Lock()
+		defer mutex.Unlock()
+		testMsg, ok := msg.(*testingpb.TestPayload)
+		r.True(ok)
+		idx := testMsg.MsgBody[0]
+		if _, ok = counts[idx]; ok {
+			counts[idx]++
+		} else {
+			counts[idx] = 1
+		}
+	}
+	u := func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {}
+
+	bootnodePort := testutil.RandomPort()
+	bootnode, err := p2p.NewHost(context.Background(), p2p.DHTProtocolID(1), p2p.Port(bootnodePort), p2p.SecureIO(), p2p.MasterKey("bootnode"))
+	r.NoError(err)
+	bootnodeAddr := bootnode.Addresses()
+
+	for i := 0; i < n; i++ {
+		port := bootnodePort + i + 1
+		var opt Option
+		if i%3 == 0 {
+			opt = NetworkSeparation([]string{"action"}, func(m proto.Message) (string, error) {
+				msg := m.(*testingpb.TestPayload)
+				i := uint8(msg.MsgBody[0])
+				t.Logf("separate %v", i)
+				return "action", nil
+			})
+		} else {
+			opt = NetworkSeparation([]string{"block"}, func(m proto.Message) (string, error) {
+				msg := m.(*testingpb.TestPayload)
+				i := uint8(msg.MsgBody[0])
+				t.Logf("separate %v", i)
+				return "block", nil
+			})
+		}
+		opts := []Option{
+			opt,
+		}
+		agent := NewAgent(Config{
+			Host:              "127.0.0.1",
+			Port:              port,
+			BootstrapNodes:    []string{bootnodeAddr[0].String()},
+			ReconnectInterval: 150 * time.Second,
+		}, 1, hash.ZeroHash256, b, u, opts...)
+		agent.Start(ctx)
+		agents = append(agents, agent)
+	}
+
+	for i := 0; i < n; i++ {
+		t.Logf("agent %v BroadcastOutbound\n", i)
+		r.NoError(agents[i].BroadcastOutbound(ctx, &testingpb.TestPayload{
+			MsgBody: []byte{uint8(i)},
+		}))
+		(testutil.WaitUntil(500*time.Millisecond, 3*time.Second, func() (bool, error) {
+			mutex.RLock()
+			defer mutex.RUnlock()
+			// Broadcast message will be skipped by the source node
+			t.Logf("counts[%v]=%v\n", i, counts[uint8(i)])
+			return counts[uint8(i)] == n/2-1, nil
+		}))
+	}
+}
+
 func TestUnicast(t *testing.T) {
 	r := require.New(t)
 
