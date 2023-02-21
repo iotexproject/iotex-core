@@ -101,19 +101,20 @@ type (
 	Agent interface {
 		lifecycle.StartStopper
 		nodestats.StatsReporter
-		// BroadcastOutbound sends a broadcast message to the whole network
-		BroadcastOutbound(ctx context.Context, msg proto.Message) (err error)
-		// UnicastOutbound sends a unicast message to the given address
-		UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message) (err error)
 		// Info returns agents' peer info.
 		Info() (peer.AddrInfo, error)
 		// Self returns the self network address
 		Self() ([]multiaddr.Multiaddr, error)
-		// ConnectedPeers returns the connected peers' info
-		ConnectedPeers() ([]peer.AddrInfo, error)
 		// BlockPeer blocks the peer in p2p layer
 		BlockPeer(string)
+		// Subnet returns a network proxy to agent
+		Subnet(string) SubnetProxy
+		// ConnectedPeers returns the connected peers' info
+		ConnectedPeers() ([]peer.AddrInfo, error)
 	}
+
+	// Option defines the option function to modify agent
+	Option func(*agent)
 
 	dummyAgent struct{}
 
@@ -128,8 +129,20 @@ type (
 		reconnectTimeout           time.Duration
 		reconnectTask              *routine.RecurringTask
 		qosMetrics                 *Qos
+		networks                   map[string]struct{}
 	}
 )
+
+// JoinSubnet choose networks to join.
+// You will only receive messages from the networks you joined.
+// "" is a special network name, which means the whole network before introducing message network.
+func JoinSubnet(networks ...string) Option {
+	return func(a *agent) {
+		for _, network := range networks {
+			a.networks[network] = struct{}{}
+		}
+	}
+}
 
 // DefaultConfig is the default config of p2p
 var DefaultConfig = Config{
@@ -188,10 +201,14 @@ func (*dummyAgent) BuildReport() string {
 	return ""
 }
 
+func (d *dummyAgent) Subnet(n string) SubnetProxy {
+	return d
+}
+
 // NewAgent instantiates a local P2P agent instance
-func NewAgent(cfg Config, chainID uint32, genesisHash hash.Hash256, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) Agent {
+func NewAgent(cfg Config, chainID uint32, genesisHash hash.Hash256, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync, opts ...Option) Agent {
 	log.L().Info("p2p agent", log.Hex("topicSuffix", genesisHash[22:]))
-	return &agent{
+	a := &agent{
 		cfg:     cfg,
 		chainID: chainID,
 		// Make sure the honest node only care the messages related the chain from the same genesis
@@ -200,7 +217,12 @@ func NewAgent(cfg Config, chainID uint32, genesisHash hash.Hash256, broadcastHan
 		unicastInboundAsyncHandler: unicastHandler,
 		reconnectTimeout:           cfg.ReconnectInterval,
 		qosMetrics:                 NewQoS(time.Now(), 2*cfg.ReconnectInterval),
+		networks:                   make(map[string]struct{}),
 	}
+	for _, opt := range opts {
+		opt(a)
+	}
+	return a
 }
 
 func (p *agent) Start(ctx context.Context) error {
@@ -232,101 +254,103 @@ func (p *agent) Start(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
-
-	if err := host.AddBroadcastPubSub(ctx, _broadcastTopic+p.topicSuffix, func(ctx context.Context, data []byte) (err error) {
-		// Blocking handling the broadcast message until the agent is started
-		<-ready
-		var (
-			peerID    string
-			broadcast iotexrpc.BroadcastMsg
-			latency   int64
-		)
-		skip := false
-		defer func() {
-			// Skip accounting if the broadcast message is not handled
-			if skip {
+	for network := range p.networks {
+		log.L().Info("join network", zap.String("network", network))
+		if err := host.AddBroadcastPubSub(ctx, p.broadcastTopicName(network), func(ctx context.Context, data []byte) (err error) {
+			// Blocking handling the broadcast message until the agent is started
+			<-ready
+			var (
+				peerID    string
+				broadcast iotexrpc.BroadcastMsg
+				latency   int64
+			)
+			skip := false
+			defer func() {
+				// Skip accounting if the broadcast message is not handled
+				if skip {
+					return
+				}
+				status := _successStr
+				if err != nil {
+					status = _failureStr
+				}
+				_p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), "in", peerID, status).Inc()
+				_p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), status).Observe(float64(latency))
+			}()
+			if err = proto.Unmarshal(data, &broadcast); err != nil {
+				err = errors.Wrap(err, "error when marshaling broadcast message")
 				return
 			}
-			status := _successStr
-			if err != nil {
-				status = _failureStr
+			// Skip the broadcast message if it's from the node itself
+			rawmsg, ok := p2p.GetBroadcastMsg(ctx)
+			if !ok {
+				err = errors.New("error when asserting broadcast msg context")
+				return
 			}
-			_p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), "in", peerID, status).Inc()
-			_p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), status).Observe(float64(latency))
-		}()
-		if err = proto.Unmarshal(data, &broadcast); err != nil {
-			err = errors.Wrap(err, "error when marshaling broadcast message")
-			return
-		}
-		// Skip the broadcast message if it's from the node itself
-		rawmsg, ok := p2p.GetBroadcastMsg(ctx)
-		if !ok {
-			err = errors.New("error when asserting broadcast msg context")
-			return
-		}
-		peerID = rawmsg.GetFrom().String()
-		if p.host.HostIdentity() == peerID {
-			skip = true
-			return
-		}
-		if broadcast.ChainId != p.chainID {
-			err = errors.Errorf("chain ID mismatch, received %d, expecting %d", broadcast.ChainId, p.chainID)
-			return
-		}
-
-		t := broadcast.GetTimestamp().AsTime()
-		latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
-
-		msg, err := goproto.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
-		if err != nil {
-			err = errors.Wrap(err, "error when typifying broadcast message")
-			return
-		}
-		p.broadcastInboundHandler(ctx, broadcast.ChainId, peerID, msg)
-		p.qosMetrics.updateRecvBroadcast(time.Now())
-		return
-	}); err != nil {
-		return errors.Wrap(err, "error when adding broadcast pubsub")
-	}
-
-	if err := host.AddUnicastPubSub(_unicastTopic+p.topicSuffix, func(ctx context.Context, peerInfo peer.AddrInfo, data []byte) (err error) {
-		// Blocking handling the unicast message until the agent is started
-		<-ready
-		var (
-			unicast iotexrpc.UnicastMsg
-			peerID  = peerInfo.ID.String()
-			latency int64
-		)
-		defer func() {
-			status := _successStr
-			if err != nil {
-				status = _failureStr
+			peerID = rawmsg.GetFrom().String()
+			if p.host.HostIdentity() == peerID {
+				skip = true
+				return
 			}
-			_p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", peerID, status).Inc()
-			_p2pMsgLatency.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), status).Observe(float64(latency))
-		}()
-		if err = proto.Unmarshal(data, &unicast); err != nil {
-			err = errors.Wrap(err, "error when marshaling unicast message")
+			if broadcast.ChainId != p.chainID {
+				err = errors.Errorf("chain ID mismatch, received %d, expecting %d", broadcast.ChainId, p.chainID)
+				return
+			}
+
+			t := broadcast.GetTimestamp().AsTime()
+			latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
+
+			msg, err := goproto.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
+			if err != nil {
+				err = errors.Wrap(err, "error when typifying broadcast message")
+				return
+			}
+			p.broadcastInboundHandler(ctx, broadcast.ChainId, peerID, msg)
+			p.qosMetrics.updateRecvBroadcast(time.Now())
 			return
-		}
-		msg, err := goproto.TypifyRPCMsg(unicast.MsgType, unicast.MsgBody)
-		if err != nil {
-			err = errors.Wrap(err, "error when typifying unicast message")
-			return
-		}
-		if unicast.ChainId != p.chainID {
-			err = errors.Errorf("chain ID mismatch, received %d, expecting %d", unicast.ChainId, p.chainID)
-			return
+		}); err != nil {
+			return errors.Wrap(err, "error when adding broadcast pubsub")
 		}
 
-		t := unicast.GetTimestamp().AsTime()
-		latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
+		if err := host.AddUnicastPubSub(p.unicastTopicName(network), func(ctx context.Context, peerInfo peer.AddrInfo, data []byte) (err error) {
+			// Blocking handling the unicast message until the agent is started
+			<-ready
+			var (
+				unicast iotexrpc.UnicastMsg
+				peerID  = peerInfo.ID.String()
+				latency int64
+			)
+			defer func() {
+				status := _successStr
+				if err != nil {
+					status = _failureStr
+				}
+				_p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", peerID, status).Inc()
+				_p2pMsgLatency.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), status).Observe(float64(latency))
+			}()
+			if err = proto.Unmarshal(data, &unicast); err != nil {
+				err = errors.Wrap(err, "error when marshaling unicast message")
+				return
+			}
+			msg, err := goproto.TypifyRPCMsg(unicast.MsgType, unicast.MsgBody)
+			if err != nil {
+				err = errors.Wrap(err, "error when typifying unicast message")
+				return
+			}
+			if unicast.ChainId != p.chainID {
+				err = errors.Errorf("chain ID mismatch, received %d, expecting %d", unicast.ChainId, p.chainID)
+				return
+			}
 
-		p.unicastInboundAsyncHandler(ctx, unicast.ChainId, peerInfo, msg)
-		p.qosMetrics.updateRecvUnicast(peerID, time.Now())
-		return
-	}); err != nil {
-		return errors.Wrap(err, "error when adding unicast pubsub")
+			t := unicast.GetTimestamp().AsTime()
+			latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
+
+			p.unicastInboundAsyncHandler(ctx, unicast.ChainId, peerInfo, msg)
+			p.qosMetrics.updateRecvUnicast(peerID, time.Now())
+			return
+		}); err != nil {
+			return errors.Wrap(err, "error when adding unicast pubsub")
+		}
 	}
 
 	// create boot nodes list except itself
@@ -376,7 +400,7 @@ func (p *agent) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err error) {
+func (p *agent) BroadcastOutbound(ctx context.Context, network string, msg proto.Message) (err error) {
 	_, span := tracer.NewSpan(ctx, "Agent.BroadcastOutbound")
 	defer span.End()
 
@@ -399,6 +423,7 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 			status,
 		).Inc()
 	}()
+
 	msgType, msgBody, err = convertAppMsg(msg)
 	if err != nil {
 		return
@@ -416,7 +441,7 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		return
 	}
 	t := time.Now()
-	if err = host.Broadcast(ctx, _broadcastTopic+p.topicSuffix, data); err != nil {
+	if err = host.Broadcast(ctx, p.broadcastTopicName(network), data); err != nil {
 		err = errors.Wrap(err, "error when sending broadcast message")
 		p.qosMetrics.updateSendBroadcast(t, false)
 		return
@@ -425,7 +450,7 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	return
 }
 
-func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg proto.Message) (err error) {
+func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, network string, msg proto.Message) (err error) {
 	host := p.host
 	if host == nil {
 		return ErrAgentNotStarted
@@ -461,7 +486,7 @@ func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 	}
 
 	t := time.Now()
-	if err = host.Unicast(ctx, peer, _unicastTopic+p.topicSuffix, data); err != nil {
+	if err = host.Unicast(ctx, peer, p.unicastTopicName(network), data); err != nil {
 		err = errors.Wrap(err, "error when sending unicast message")
 		p.qosMetrics.updateSendUnicast(peerName, t, false)
 		return
@@ -491,6 +516,13 @@ func (p *agent) ConnectedPeers() ([]peer.AddrInfo, error) {
 	return p.host.ConnectedPeers(), nil
 }
 
+func (p *agent) connectedPeersByNetwork(network string) ([]peer.AddrInfo, error) {
+	if p.host == nil {
+		return nil, ErrAgentNotStarted
+	}
+	return p.host.ConnectedPeersByTopic(p.broadcastTopicName(network)), nil
+}
+
 func (p *agent) BlockPeer(pidStr string) {
 	pid, err := peer.Decode(pidStr)
 	if err != nil {
@@ -506,6 +538,13 @@ func (p *agent) BuildReport() string {
 		return fmt.Sprintf("P2P ConnectedPeers: %d", len(neighbors))
 	}
 	return ""
+}
+
+func (p *agent) Subnet(network string) SubnetProxy {
+	return &subnetProxy{
+		agent:   p,
+		network: network,
+	}
 }
 
 func (p *agent) connectBootNode(ctx context.Context) error {
@@ -574,6 +613,14 @@ func (p *agent) reconnect() {
 	if err := p.host.FindPeersAsync(); err != nil {
 		log.L().Error("fail to find peer", zap.Error(err))
 	}
+}
+
+func (p *agent) broadcastTopicName(network string) string {
+	return _broadcastTopic + network + p.topicSuffix
+}
+
+func (p *agent) unicastTopicName(network string) string {
+	return _unicastTopic + network + p.topicSuffix
 }
 
 func convertAppMsg(msg proto.Message) (iotexrpc.MessageType, []byte, error) {
