@@ -924,52 +924,33 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 }
 
 func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interface{}, error) {
-	var callArgs apitypes.TransactionArgs
-	var blkHash hash.Hash256
-	var err error
-	var contractAddr string
-	var addrFrom string
-	var callData []byte
-	var gasLimit uint64
+	var (
+		blkHash      hash.Hash256
+		err          error
+		contractAddr string
+		callData     []byte
+		gasLimit     uint64
+		value        *big.Int
+		callerAddr   address.Address
+		gasPrice     int64
+	)
 	core := svr.coreService.(*coreService)
-	callArgsObj, blkNumOrHashObj, options := in.Get("params.0"), in.Get("params.1"), in.Get("params.2")
-	addrFrom = address.ZeroAddress
-	gasLimit = core.bc.Genesis().BlockGasLimit
-	if callArgsObj.Exists() {
-		if err := json.Unmarshal([]byte(callArgsObj.Raw), &callArgs); err != nil {
-			return nil, err
-		}
-		addr, err := address.FromHex(callArgs.To)
-		if err != nil {
-			return nil, err
-		}
-		contractAddr = addr.String()
-		if callArgs.From != "" {
-			addr, err := address.FromHex(callArgs.From)
-			if err != nil {
-				return nil, err
-			}
-			addrFrom = addr.String()
-		}
-		if callArgs.Data != "" {
-			callData, err = hexToBytes(callArgs.Data)
-			if err != nil {
-				return nil, err
-			}
-		}
-		if callArgs.Gas != 0 {
-			gasLimit = callArgs.Gas
-		}
+	blkNumOrHashObj, options := in.Get("params.1"), in.Get("params.2")
+	callerAddr, contractAddr, gasLimit, value, callData, err = parseCallObject(in)
+	if err != nil {
+		return nil, err
 	}
-	var blkNumOrHash apitypes.BlockNumberOrHash
+	gasPrice = in.Get("params.0.gasPrice").Int()
+	if gasLimit == 0 {
+		gasLimit = core.bc.Genesis().BlockGasLimit
+	}
+
 	if blkNumOrHashObj.Exists() {
-		if err := json.Unmarshal([]byte(blkNumOrHashObj.Raw), &blkNumOrHash); err != nil {
-			return nil, err
-		}
-		if blkNumOrHash.BlockHash != "" {
-			blkHash, err = hash.HexStringToHash256(blkNumOrHash.BlockHash)
+		blockHash := blkNumOrHashObj.Get("blockHash").String()
+		if blockHash != "" {
+			blkHash, err = hash.HexStringToHash256(blockHash)
 		} else {
-			blkHash, err = core.dao.GetBlockHash(blkNumOrHash.BlockNumber)
+			blkHash, err = core.dao.GetBlockHash(blkNumOrHashObj.Get("blockNumber").Uint())
 		}
 		if err != nil {
 			return nil, err
@@ -998,18 +979,17 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 	exec, err := action.NewExecution(
 		contractAddr,
 		uint64(0),
-		big.NewInt(callArgs.Value),
+		value,
 		gasLimit,
-		big.NewInt(callArgs.GasPrice),
+		big.NewInt(gasPrice),
 		callData,
 	)
 	if err != nil {
 		return nil, err
 	}
-	addr, _ := address.FromString(addrFrom)
 
 	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	state, err := accountutil.AccountState(ctx, core.sf, addr)
+	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -1025,7 +1005,7 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		Tracer:    traces,
 		NoBaseFee: true,
 	})
-	retval, receipt, err := core.sf.SimulateExecution(ctx, addr, exec, getblockHash)
+	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, exec, getblockHash)
 	if err != nil {
 		return nil, err
 	}

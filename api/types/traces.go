@@ -8,23 +8,6 @@ import (
 	"github.com/holiman/uint256"
 )
 
-// TransactionArgs represents the arguments to construct a new transaction
-// or a message call.
-type TransactionArgs struct {
-	From     string `json:"from"`     //(optional) The address the transaction is sent from
-	To       string `json:"to"`       //The address the transaction is directed to
-	Gas      uint64 `json:"gas"`      //(optional) The integer of the gas provided for the transaction execution
-	GasPrice int64  `json:"gasPrice"` //(optional) The integer of the gasPrice used for each paid gas
-	Value    int64  `json:"value"`    //(optional) The integer of the value sent with this transaction
-	Data     string `json:"data"`     //(optional) The hash of the method signature and encoded parameters
-}
-
-// BlockNumberOrHash represents a block number or a block hash
-type BlockNumberOrHash struct {
-	BlockNumber uint64 `json:"blockNumber,omitempty"`
-	BlockHash   string `json:"blockHash,omitempty"`
-}
-
 // StructLog represents a structured log created during the execution of the EVM.
 type StructLog struct {
 	Pc            uint64                      `json:"pc"`
