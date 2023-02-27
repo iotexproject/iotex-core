@@ -111,6 +111,9 @@ type (
 		Self() ([]multiaddr.Multiaddr, error)
 		// ConnectedPeers returns the connected peers' info
 		ConnectedPeers() ([]peer.AddrInfo, error)
+		// ConnectedPeersByNetwork returns the connected peers' info of one specific network
+		// It should be called only when init with NetworkSeparation option
+		ConnectedPeersByNetwork(string) ([]peer.AddrInfo, error)
 		// BlockPeer blocks the peer in p2p layer
 		BlockPeer(string)
 	}
@@ -190,6 +193,10 @@ func (*dummyAgent) ConnectedPeers() ([]peer.AddrInfo, error) {
 	return nil, nil
 }
 
+func (*dummyAgent) ConnectedPeersByNetwork(string) ([]peer.AddrInfo, error) {
+	return nil, nil
+}
+
 func (*dummyAgent) BlockPeer(string) {
 	return
 }
@@ -258,7 +265,7 @@ func (p *agent) Start(ctx context.Context) error {
 	}
 
 	for _, network := range networks {
-		if err := host.AddBroadcastPubSub(ctx, _broadcastTopic+network+p.topicSuffix, func(ctx context.Context, data []byte) (err error) {
+		if err := host.AddBroadcastPubSub(ctx, p.broadcastTopicName(network), func(ctx context.Context, data []byte) (err error) {
 			// Blocking handling the broadcast message until the agent is started
 			<-ready
 			var (
@@ -314,7 +321,7 @@ func (p *agent) Start(ctx context.Context) error {
 			return errors.Wrap(err, "error when adding broadcast pubsub")
 		}
 
-		if err := host.AddUnicastPubSub(_unicastTopic+network+p.topicSuffix, func(ctx context.Context, peerInfo peer.AddrInfo, data []byte) (err error) {
+		if err := host.AddUnicastPubSub(p.unicastTopicName(network), func(ctx context.Context, peerInfo peer.AddrInfo, data []byte) (err error) {
 			// Blocking handling the unicast message until the agent is started
 			<-ready
 			var (
@@ -446,7 +453,7 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		return
 	}
 	t := time.Now()
-	if err = host.Broadcast(ctx, _broadcastTopic+network+p.topicSuffix, data); err != nil {
+	if err = host.Broadcast(ctx, p.broadcastTopicName(network), data); err != nil {
 		err = errors.Wrap(err, "error when sending broadcast message")
 		p.qosMetrics.updateSendBroadcast(t, false)
 		return
@@ -494,7 +501,7 @@ func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 	}
 
 	t := time.Now()
-	if err = host.Unicast(ctx, peer, _unicastTopic+network+p.topicSuffix, data); err != nil {
+	if err = host.Unicast(ctx, peer, p.unicastTopicName(network), data); err != nil {
 		err = errors.Wrap(err, "error when sending unicast message")
 		p.qosMetrics.updateSendUnicast(peerName, t, false)
 		return
@@ -522,6 +529,13 @@ func (p *agent) ConnectedPeers() ([]peer.AddrInfo, error) {
 		return nil, ErrAgentNotStarted
 	}
 	return p.host.ConnectedPeers(), nil
+}
+
+func (p *agent) ConnectedPeersByNetwork(network string) ([]peer.AddrInfo, error) {
+	if p.host == nil {
+		return nil, ErrAgentNotStarted
+	}
+	return p.host.ConnectedPeersByBroadcastTopic(p.broadcastTopicName(network)), nil
 }
 
 func (p *agent) BlockPeer(pidStr string) {
@@ -613,6 +627,14 @@ func (p *agent) getMessageNetwork(msg proto.Message) (network string, err error)
 		return
 	}
 	return
+}
+
+func (p *agent) broadcastTopicName(network string) string {
+	return _broadcastTopic + network + p.topicSuffix
+}
+
+func (p *agent) unicastTopicName(network string) string {
+	return _unicastTopic + network + p.topicSuffix
 }
 
 func convertAppMsg(msg proto.Message) (iotexrpc.MessageType, []byte, error) {

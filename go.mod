@@ -60,7 +60,7 @@ require (
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible
 	github.com/shirou/gopsutil/v3 v3.22.2
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.34.0
-	golang.org/x/exp v0.0.0-20230206171751-46f607a40771
+	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2
 	golang.org/x/text v0.5.0
 )
 
@@ -204,3 +204,5 @@ require (
 replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v0.4.2
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
+
+replace github.com/iotexproject/go-p2p => /Users/chenchen/dev/go-p2p
