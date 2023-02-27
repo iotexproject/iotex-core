@@ -1707,7 +1707,7 @@ func (core *coreService) TraceCall(ctx context.Context,
 	}
 	exec, err := action.NewExecution(
 		contractAddress,
-		uint64(0),
+		nonce,
 		amount,
 		gasLimit,
 		gasPrice,
