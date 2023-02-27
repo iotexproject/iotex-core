@@ -1697,9 +1697,12 @@ func (core *coreService) TraceCall(ctx context.Context,
 		NoBaseFee: true,
 	})
 	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
-	if err != nil {
-		return nil, nil, nil, err
+	if nonce == 0 {
+		state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		nonce = state.PendingNonce()
 	}
 	ctx, err = core.bc.Context(ctx)
 	if err != nil {
@@ -1716,11 +1719,6 @@ func (core *coreService) TraceCall(ctx context.Context,
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	exec.SetNonce(state.PendingNonce())
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	exec.SetGasLimit(gasLimit)
 	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, exec, getblockHash)
 	return retval, receipt, traces, err
 }
