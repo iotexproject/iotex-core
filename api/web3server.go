@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
@@ -24,12 +23,9 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	rewardingabi "github.com/iotexproject/iotex-core/action/protocol/rewarding/ethabi"
 	stakingabi "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi"
 	apitypes "github.com/iotexproject/iotex-core/api/types"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
@@ -925,7 +921,6 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 
 func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interface{}, error) {
 	var (
-		blkHash      hash.Hash256
 		err          error
 		contractAddr string
 		callData     []byte
@@ -934,30 +929,18 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		callerAddr   address.Address
 		gasPrice     int64
 	)
-	core := svr.coreService.(*coreService)
 	blkNumOrHashObj, options := in.Get("params.1"), in.Get("params.2")
 	callerAddr, contractAddr, gasLimit, value, callData, err = parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
 	gasPrice = in.Get("params.0.gasPrice").Int()
-	if gasLimit == 0 {
-		gasLimit = core.bc.Genesis().BlockGasLimit
-	}
-
+	var blkNumOrHash any
 	if blkNumOrHashObj.Exists() {
-		blockHash := blkNumOrHashObj.Get("blockHash").String()
-		if blockHash != "" {
-			blkHash, err = hash.HexStringToHash256(blockHash)
-		} else {
-			blkHash, err = core.dao.GetBlockHash(blkNumOrHashObj.Get("blockNumber").Uint())
+		blkNumOrHash = blkNumOrHashObj.Get("blockHash").String()
+		if blkNumOrHash == "" {
+			blkNumOrHash = blkNumOrHashObj.Get("blockNumber").Uint()
 		}
-		if err != nil {
-			return nil, err
-		}
-	}
-	getblockHash := func(height uint64) (hash.Hash256, error) {
-		return blkHash, nil
 	}
 
 	var (
@@ -976,36 +959,7 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		EnableReturnData: enableReturnData,
 	}
 
-	exec, err := action.NewExecution(
-		contractAddr,
-		uint64(0),
-		value,
-		gasLimit,
-		big.NewInt(gasPrice),
-		callData,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
-	if err != nil {
-		return nil, err
-	}
-	ctx, err = core.bc.Context(ctx)
-	if err != nil {
-		return nil, err
-	}
-	exec.SetNonce(state.PendingNonce())
-
-	traces := logger.NewStructLogger(cfg)
-	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
-		Debug:     true,
-		Tracer:    traces,
-		NoBaseFee: true,
-	})
-	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, exec, getblockHash)
+	retval, receipt, traces, err := svr.coreService.TraceCall(ctx, callerAddr, blkNumOrHash, contractAddr, 0, value, gasLimit, big.NewInt(gasPrice), callData, cfg)
 	if err != nil {
 		return nil, err
 	}

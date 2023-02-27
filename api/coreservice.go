@@ -146,6 +146,17 @@ type (
 		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
 		// TraceTransaction returns the trace result of a transaction
 		TraceTransaction(ctx context.Context, actHash string, config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error)
+		// TraceCall returns the trace result of a call
+		TraceCall(ctx context.Context,
+			callerAddr address.Address,
+			blkNumOrHash any,
+			contractAddress string,
+			nonce uint64,
+			amount *big.Int,
+			gasLimit uint64,
+			gasPrice *big.Int,
+			data []byte,
+			config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -1644,5 +1655,72 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	})
 	addr, _ := address.FromString(address.ZeroAddress)
 	retval, receipt, err := core.SimulateExecution(ctx, addr, sc)
+	return retval, receipt, traces, err
+}
+
+// TraceCall returns the trace result of call
+func (core *coreService) TraceCall(ctx context.Context,
+	callerAddr address.Address,
+	blkNumOrHash any,
+	contractAddress string,
+	nonce uint64,
+	amount *big.Int,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	data []byte,
+	config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error) {
+	var (
+		blkHash hash.Hash256
+		err     error
+	)
+	switch blkNumOrHash.(type) {
+	case uint64:
+		blkHash, err = core.dao.GetBlockHash(blkNumOrHash.(uint64))
+	case string:
+		blkHash, err = hash.HexStringToHash256(blkNumOrHash.(string))
+	default:
+		err = errors.New("invalid block number or hash")
+	}
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	getblockHash := func(height uint64) (hash.Hash256, error) {
+		return blkHash, nil
+	}
+	if gasLimit == 0 {
+		gasLimit = core.bc.Genesis().BlockGasLimit
+	}
+	traces := logger.NewStructLogger(config)
+	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
+		Debug:     true,
+		Tracer:    traces,
+		NoBaseFee: true,
+	})
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	ctx, err = core.bc.Context(ctx)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	exec, err := action.NewExecution(
+		contractAddress,
+		uint64(0),
+		amount,
+		gasLimit,
+		gasPrice,
+		data,
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	exec.SetNonce(state.PendingNonce())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	exec.SetGasLimit(gasLimit)
+	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, exec, getblockHash)
 	return retval, receipt, traces, err
 }
