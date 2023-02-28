@@ -131,8 +131,7 @@ func NewConsensus(
 			}
 			return addrs, nil
 		}
-		// TODO implement proposorsByEpochFunc
-		proposorsByEpochFunc := delegatesByEpochFunc
+		proposersByEpochFunc := delegatesByEpochFunc
 		bd := rolldpos.NewRollDPoSBuilder().
 			SetAddr(cfg.Chain.ProducerAddress().String()).
 			SetPriKey(cfg.Chain.ProducerPrivateKey()).
@@ -142,7 +141,7 @@ func NewConsensus(
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
 			SetDelegatesByEpochFunc(delegatesByEpochFunc).
-			SetProposorsByEpochFunc(proposorsByEpochFunc).
+			SetProposersByEpochFunc(proposersByEpochFunc).
 			RegisterProtocol(ops.rp)
 		// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 		cs.scheme, err = bd.Build()

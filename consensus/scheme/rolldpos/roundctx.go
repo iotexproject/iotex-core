@@ -32,7 +32,7 @@ type roundCtx struct {
 	epochStartHeight     uint64
 	nextEpochStartHeight uint64
 	delegates            []string
-	proposors            []string
+	proposers            []string
 
 	height             uint64
 	roundNum           uint32
@@ -95,8 +95,8 @@ func (ctx *roundCtx) Delegates() []string {
 	return ctx.delegates
 }
 
-func (ctx *roundCtx) Proposors() []string {
-	return ctx.proposors
+func (ctx *roundCtx) Proposers() []string {
+	return ctx.proposers
 }
 
 func (ctx *roundCtx) IsDelegate(addr string) bool {

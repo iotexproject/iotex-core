@@ -115,7 +115,7 @@ func NewRollDPoSCtx(
 	rp *rolldpos.Protocol,
 	broadcastHandler scheme.Broadcast,
 	delegatesByEpochFunc NodesSelectionByEpochFunc,
-	proposorsByEpochFunc NodesSelectionByEpochFunc,
+	proposersByEpochFunc NodesSelectionByEpochFunc,
 	encodedAddr string,
 	priKey crypto.PrivateKey,
 	clock clock.Clock,
@@ -133,8 +133,8 @@ func NewRollDPoSCtx(
 	if delegatesByEpochFunc == nil {
 		return nil, errors.New("delegates by epoch function cannot be nil")
 	}
-	if proposorsByEpochFunc == nil {
-		return nil, errors.New("proposors by epoch function cannot be nil")
+	if proposersByEpochFunc == nil {
+		return nil, errors.New("proposers by epoch function cannot be nil")
 	}
 	if cfg.AcceptBlockTTL(0)+cfg.AcceptProposalEndorsementTTL(0)+cfg.AcceptLockEndorsementTTL(0)+cfg.CommitTTL(0) > cfg.BlockInterval(0) {
 		return nil, errors.Errorf(
@@ -152,7 +152,7 @@ func NewRollDPoSCtx(
 	}
 	roundCalc := &roundCalculator{
 		delegatesByEpochFunc: delegatesByEpochFunc,
-		proposorsByEpochFunc: proposorsByEpochFunc,
+		proposersByEpochFunc: proposersByEpochFunc,
 		chain:                chain,
 		rp:                   rp,
 		timeBasedRotation:    timeBasedRotation,

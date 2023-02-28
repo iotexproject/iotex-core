@@ -21,7 +21,7 @@ type roundCalculator struct {
 	timeBasedRotation    bool
 	rp                   *rolldpos.Protocol
 	delegatesByEpochFunc NodesSelectionByEpochFunc
-	proposorsByEpochFunc NodesSelectionByEpochFunc
+	proposersByEpochFunc NodesSelectionByEpochFunc
 	beringHeight         uint64
 }
 
@@ -30,7 +30,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 	epochNum := round.EpochNum()
 	epochStartHeight := round.EpochStartHeight()
 	delegates := round.Delegates()
-	proposors := round.Proposors()
+	proposers := round.Proposers()
 	switch {
 	case height < round.Height():
 		return nil, errors.New("cannot update to a lower height")
@@ -47,7 +47,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 			if delegates, err = c.Delegates(height); err != nil {
 				return nil, err
 			}
-			if proposors, err = c.Proposors(height); err != nil {
+			if proposers, err = c.Proposers(height); err != nil {
 				return nil, err
 			}
 		}
@@ -56,7 +56,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 	if err != nil {
 		return nil, err
 	}
-	proposer, err := c.calculateProposer(height, roundNum, proposors)
+	proposer, err := c.calculateProposer(height, roundNum, proposers)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 		epochStartHeight:     epochStartHeight,
 		nextEpochStartHeight: c.rp.GetEpochHeight(epochNum + 1),
 		delegates:            delegates,
-		proposors:            proposors,
+		proposers:            proposers,
 
 		height:             height,
 		roundNum:           roundNum,
@@ -183,10 +183,10 @@ func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
 	return c.delegatesByEpochFunc(epochNum)
 }
 
-// Delegates returns list of proposors at given height
-func (c *roundCalculator) Proposors(height uint64) ([]string, error) {
+// Proposers returns list of candidate proposers at given height
+func (c *roundCalculator) Proposers(height uint64) ([]string, error) {
 	epochNum := c.rp.GetEpochNum(height)
-	return c.proposorsByEpochFunc(epochNum)
+	return c.proposersByEpochFunc(epochNum)
 }
 
 // NewRoundWithToleration starts new round with tolerated over time
@@ -219,7 +219,7 @@ func (c *roundCalculator) newRound(
 ) (round *roundCtx, err error) {
 	epochNum := uint64(0)
 	epochStartHeight := uint64(0)
-	var delegates, proposors []string
+	var delegates, proposers []string
 	var roundNum uint32
 	var proposer string
 	var roundStartTime time.Time
@@ -229,13 +229,13 @@ func (c *roundCalculator) newRound(
 		if delegates, err = c.Delegates(height); err != nil {
 			return
 		}
-		if proposors, err = c.Proposors(height); err != nil {
+		if proposers, err = c.Proposers(height); err != nil {
 			return
 		}
 		if roundNum, roundStartTime, err = c.roundInfo(height, blockInterval, now, toleratedOvertime); err != nil {
 			return
 		}
-		if proposer, err = c.calculateProposer(height, roundNum, proposors); err != nil {
+		if proposer, err = c.calculateProposer(height, roundNum, proposers); err != nil {
 			return
 		}
 	}
@@ -249,7 +249,7 @@ func (c *roundCalculator) newRound(
 		epochStartHeight:     epochStartHeight,
 		nextEpochStartHeight: c.rp.GetEpochHeight(epochNum + 1),
 		delegates:            delegates,
-		proposors:            proposors,
+		proposers:            proposers,
 
 		height:             height,
 		roundNum:           roundNum,
@@ -268,18 +268,18 @@ func (c *roundCalculator) newRound(
 func (c *roundCalculator) calculateProposer(
 	height uint64,
 	round uint32,
-	proposors []string,
+	proposers []string,
 ) (proposer string, err error) {
-	// TODO use number of proposors
-	numProposors := c.rp.NumDelegates()
-	if numProposors != uint64(len(proposors)) {
-		err = errors.New("invalid proposor list")
+	// TODO use number of proposers
+	numProposers := c.rp.NumDelegates()
+	if numProposers != uint64(len(proposers)) {
+		err = errors.New("invalid proposer list")
 		return
 	}
 	idx := height
 	if c.timeBasedRotation {
 		idx += uint64(round)
 	}
-	proposer = proposors[idx%numProposors]
+	proposer = proposers[idx%numProposers]
 	return
 }

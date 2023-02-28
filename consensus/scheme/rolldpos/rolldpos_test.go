@@ -82,7 +82,7 @@ func TestNewRollDPoS(t *testing.T) {
 				return nil
 			}).
 			SetDelegatesByEpochFunc(delegatesByEpoch).
-			SetProposorsByEpochFunc(delegatesByEpoch).
+			SetProposersByEpochFunc(delegatesByEpoch).
 			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
@@ -100,7 +100,7 @@ func TestNewRollDPoS(t *testing.T) {
 			}).
 			SetClock(clock.NewMock()).
 			SetDelegatesByEpochFunc(delegatesByEpoch).
-			SetProposorsByEpochFunc(delegatesByEpoch).
+			SetProposersByEpochFunc(delegatesByEpoch).
 			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
@@ -121,7 +121,7 @@ func TestNewRollDPoS(t *testing.T) {
 			}).
 			SetClock(clock.NewMock()).
 			SetDelegatesByEpochFunc(delegatesByEpoch).
-			SetProposorsByEpochFunc(delegatesByEpoch).
+			SetProposersByEpochFunc(delegatesByEpoch).
 			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
@@ -137,7 +137,7 @@ func TestNewRollDPoS(t *testing.T) {
 				return nil
 			}).
 			SetDelegatesByEpochFunc(delegatesByEpoch).
-			SetProposorsByEpochFunc(delegatesByEpoch).
+			SetProposersByEpochFunc(delegatesByEpoch).
 			RegisterProtocol(rp).
 			Build()
 		assert.Error(t, err)
@@ -240,7 +240,7 @@ func TestValidateBlockFooter(t *testing.T) {
 			return nil
 		}).
 		SetDelegatesByEpochFunc(delegatesByEpoch).
-		SetProposorsByEpochFunc(delegatesByEpoch).
+		SetProposersByEpochFunc(delegatesByEpoch).
 		SetClock(clock).
 		RegisterProtocol(rp).
 		Build()
@@ -330,7 +330,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		}).
 		SetClock(clock).
 		SetDelegatesByEpochFunc(delegatesByEpoch).
-		SetProposorsByEpochFunc(delegatesByEpoch).
+		SetProposersByEpochFunc(delegatesByEpoch).
 		RegisterProtocol(rp).
 		Build()
 	require.NoError(t, err)
@@ -487,7 +487,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				SetChainManager(NewChainManager(chain)).
 				SetBroadcast(p2p.Broadcast).
 				SetDelegatesByEpochFunc(delegatesByEpochFunc).
-				SetProposorsByEpochFunc(delegatesByEpochFunc).
+				SetProposersByEpochFunc(delegatesByEpochFunc).
 				RegisterProtocol(rp).
 				Build()
 			require.NoError(t, err)
