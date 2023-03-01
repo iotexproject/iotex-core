@@ -152,5 +152,5 @@ mkdir -p ./test/mock/mock_nodeinfo
 mockgen -destination=./test/mock/mock_nodeinfo/mock_manager.go  \
         -source=./nodeinfo/manager.go \
         -package=mock_nodeinfo \
-        transmitter chain
+        transmitter
 

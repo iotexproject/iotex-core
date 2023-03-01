@@ -84,7 +84,7 @@ func TestBroadcastNodeInfo(t *testing.T) {
 	require.NoError(srvSender.ChainService(cfgSender.Chain.ID).NodeInfoManager().BroadcastNodeInfo(context.Background()))
 	time.Sleep(1 * time.Second)
 	addrSender := cfgSender.Chain.ProducerAddress().String()
-	_, ok := srvReciever.ChainService(cfgReciever.Chain.ID).NodeInfoManager().GetNodeByAddr(addrSender)
+	_, ok := srvReciever.ChainService(cfgReciever.Chain.ID).NodeInfoManager().GetInfo(addrSender)
 	require.True(ok)
 }
 
@@ -128,6 +128,6 @@ func TestUnicastNodeInfo(t *testing.T) {
 	require.NoError(err)
 	time.Sleep(1 * time.Second)
 	addrReciever := cfgReciever.Chain.ProducerAddress().String()
-	_, ok := dmSender.GetNodeByAddr(addrReciever)
+	_, ok := dmSender.GetInfo(addrReciever)
 	require.True(ok)
 }

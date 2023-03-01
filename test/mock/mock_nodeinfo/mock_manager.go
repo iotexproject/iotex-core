@@ -9,7 +9,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	genesis "github.com/iotexproject/iotex-core/blockchain/genesis"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	proto "google.golang.org/protobuf/proto"
 )
@@ -78,55 +77,4 @@ func (m *Mocktransmitter) UnicastOutbound(arg0 context.Context, arg1 peer.AddrIn
 func (mr *MocktransmitterMockRecorder) UnicastOutbound(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnicastOutbound", reflect.TypeOf((*Mocktransmitter)(nil).UnicastOutbound), arg0, arg1, arg2)
-}
-
-// Mockchain is a mock of chain interface.
-type Mockchain struct {
-	ctrl     *gomock.Controller
-	recorder *MockchainMockRecorder
-}
-
-// MockchainMockRecorder is the mock recorder for Mockchain.
-type MockchainMockRecorder struct {
-	mock *Mockchain
-}
-
-// NewMockchain creates a new mock instance.
-func NewMockchain(ctrl *gomock.Controller) *Mockchain {
-	mock := &Mockchain{ctrl: ctrl}
-	mock.recorder = &MockchainMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *Mockchain) EXPECT() *MockchainMockRecorder {
-	return m.recorder
-}
-
-// Genesis mocks base method.
-func (m *Mockchain) Genesis() genesis.Genesis {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Genesis")
-	ret0, _ := ret[0].(genesis.Genesis)
-	return ret0
-}
-
-// Genesis indicates an expected call of Genesis.
-func (mr *MockchainMockRecorder) Genesis() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Genesis", reflect.TypeOf((*Mockchain)(nil).Genesis))
-}
-
-// TipHeight mocks base method.
-func (m *Mockchain) TipHeight() uint64 {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TipHeight")
-	ret0, _ := ret[0].(uint64)
-	return ret0
-}
-
-// TipHeight indicates an expected call of TipHeight.
-func (mr *MockchainMockRecorder) TipHeight() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*Mockchain)(nil).TipHeight))
 }

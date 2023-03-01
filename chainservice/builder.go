@@ -34,7 +34,6 @@ import (
 	"github.com/iotexproject/iotex-core/nodeinfo"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
@@ -385,9 +384,23 @@ func (builder *Builder) buildNodeInfoManager() error {
 	if stk == nil {
 		return errors.New("cannot find staking protocol")
 	}
-	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func(ctx context.Context) (state.CandidateList, error) {
-		return stk.ActiveCandidates(ctx, cs.factory, 0)
+
+	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, builder.cfg.Chain.ProducerPrivateKey(), func() []string {
+		whiteList := []string{}
+		candidates, err := stk.ActiveCandidates(context.Background(), cs.factory, 0)
+		if err != nil {
+			log.L().Error("failed to get active candidates", zap.Error(errors.WithStack(err)))
+		} else {
+			whiteList = make([]string, len(candidates))
+			for i := range whiteList {
+				whiteList[i] = candidates[i].Address
+			}
+		}
+		return whiteList
 	})
+	if err := cs.chain.AddSubscriber(dm); err != nil {
+		return errors.Wrap(err, "failed to add node info manager as subscriber")
+	}
 	builder.cs.nodeInfoManager = dm
 	builder.cs.lifecycle.Add(dm)
 	return nil
