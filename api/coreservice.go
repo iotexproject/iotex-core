@@ -154,7 +154,6 @@ type (
 			nonce uint64,
 			amount *big.Int,
 			gasLimit uint64,
-			gasPrice *big.Int,
 			data []byte,
 			config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error)
 	}
@@ -1666,7 +1665,6 @@ func (core *coreService) TraceCall(ctx context.Context,
 	nonce uint64,
 	amount *big.Int,
 	gasLimit uint64,
-	gasPrice *big.Int,
 	data []byte,
 	config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error) {
 	var (
@@ -1713,7 +1711,7 @@ func (core *coreService) TraceCall(ctx context.Context,
 		nonce,
 		amount,
 		gasLimit,
-		gasPrice,
+		big.NewInt(0),
 		data,
 	)
 	if err != nil {

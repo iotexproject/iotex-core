@@ -592,9 +592,9 @@ func (mr *MockCoreServiceMockRecorder) TipHeight() *gomock.Call {
 }
 
 // TraceCall mocks base method.
-func (m *MockCoreService) TraceCall(ctx context.Context, callerAddr address.Address, blkNumOrHash any, contractAddress string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error) {
+func (m *MockCoreService) TraceCall(ctx context.Context, callerAddr address.Address, blkNumOrHash any, contractAddress string, nonce uint64, amount *big.Int, gasLimit uint64, data []byte, config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TraceCall", ctx, callerAddr, blkNumOrHash, contractAddress, nonce, amount, gasLimit, gasPrice, data, config)
+	ret := m.ctrl.Call(m, "TraceCall", ctx, callerAddr, blkNumOrHash, contractAddress, nonce, amount, gasLimit, data, config)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(*action.Receipt)
 	ret2, _ := ret[2].(*logger.StructLogger)
@@ -603,9 +603,9 @@ func (m *MockCoreService) TraceCall(ctx context.Context, callerAddr address.Addr
 }
 
 // TraceCall indicates an expected call of TraceCall.
-func (mr *MockCoreServiceMockRecorder) TraceCall(ctx, callerAddr, blkNumOrHash, contractAddress, nonce, amount, gasLimit, gasPrice, data, config interface{}) *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) TraceCall(ctx, callerAddr, blkNumOrHash, contractAddress, nonce, amount, gasLimit, data, config interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceCall", reflect.TypeOf((*MockCoreService)(nil).TraceCall), ctx, callerAddr, blkNumOrHash, contractAddress, nonce, amount, gasLimit, gasPrice, data, config)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceCall", reflect.TypeOf((*MockCoreService)(nil).TraceCall), ctx, callerAddr, blkNumOrHash, contractAddress, nonce, amount, gasLimit, data, config)
 }
 
 // TraceTransaction mocks base method.

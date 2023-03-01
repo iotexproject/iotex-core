@@ -927,14 +927,12 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		gasLimit     uint64
 		value        *big.Int
 		callerAddr   address.Address
-		gasPrice     int64
 	)
 	blkNumOrHashObj, options := in.Get("params.1"), in.Get("params.2")
 	callerAddr, contractAddr, gasLimit, value, callData, err = parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
-	gasPrice = in.Get("params.0.gasPrice").Int()
 	var blkNumOrHash any
 	if blkNumOrHashObj.Exists() {
 		blkNumOrHash = blkNumOrHashObj.Get("blockHash").String()
@@ -959,7 +957,7 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		EnableReturnData: enableReturnData,
 	}
 
-	retval, receipt, traces, err := svr.coreService.TraceCall(ctx, callerAddr, blkNumOrHash, contractAddr, 0, value, gasLimit, big.NewInt(gasPrice), callData, cfg)
+	retval, receipt, traces, err := svr.coreService.TraceCall(ctx, callerAddr, blkNumOrHash, contractAddr, 0, value, gasLimit, callData, cfg)
 	if err != nil {
 		return nil, err
 	}

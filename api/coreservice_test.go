@@ -263,7 +263,7 @@ func TestTraceCall(t *testing.T) {
 		identityset.Address(29), blk.Height(),
 		identityset.Address(29).String(),
 		0, big.NewInt(0), testutil.TestGasLimit,
-		big.NewInt(testutil.TestGasPriceInt64), []byte{}, cfg)
+		[]byte{}, cfg)
 	require.NoError(err)
 	require.Equal("0x", byteToHex(retval))
 	require.Equal(uint64(1), receipt.Status)
