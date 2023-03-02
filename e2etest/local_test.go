@@ -129,7 +129,7 @@ func TestLocalCommit(t *testing.T) {
 		},
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 		},
-	)
+	).NetworkProxy(p2p.BlockNetwork)
 	require.NotNil(p)
 	require.NoError(p.Start(ctx))
 	defer func() {
@@ -408,7 +408,7 @@ func TestLocalSync(t *testing.T) {
 	}()
 
 	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, func() (bool, error) {
-		peers, err := svr.P2PAgent().ConnectedPeers()
+		peers, err := svr.P2PAgent().NetworkProxy(p2p.BlockNetwork).ConnectedPeers()
 		return len(peers) >= 1, err
 	})
 	require.NoError(err)

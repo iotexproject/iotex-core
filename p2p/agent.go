@@ -274,6 +274,7 @@ func (p *agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
 	for network := range p.networks {
+		log.L().Info("join network", zap.String("network", network))
 		if err := host.AddBroadcastPubSub(ctx, p.broadcastTopicName(network), func(ctx context.Context, data []byte) (err error) {
 			// Blocking handling the broadcast message until the agent is started
 			<-ready

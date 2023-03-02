@@ -7,6 +7,7 @@ package p2p
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"sync"
 	"testing"
@@ -86,7 +87,7 @@ func TestBroadcast(t *testing.T) {
 	}
 
 	for i := 0; i < n; i++ {
-		r.NoError(agents[i].BroadcastOutbound(ctx, &testingpb.TestPayload{
+		r.NoError(agents[i].NetworkProxy(BlockNetwork).BroadcastOutbound(ctx, &testingpb.TestPayload{
 			MsgBody: []byte{uint8(i)},
 		}))
 		r.NoError(testutil.WaitUntil(100*time.Millisecond, 20*time.Second, func() (bool, error) {
@@ -99,96 +100,139 @@ func TestBroadcast(t *testing.T) {
 }
 
 func TestNetworkSeparation(t *testing.T) {
-	r := require.New(t)
+	require := require.New(t)
 
 	ctx := context.Background()
 	n := 4
-	agents := make([]Agent, 0)
+	agents := make([]AgentProxy, 0)
 	defer func() {
 		var err error
 		for _, agent := range agents {
 			err = agent.Stop(ctx)
 		}
-		r.NoError(err)
+		require.NoError(err)
 	}()
 	counts := make(map[uint8]int)
 	var mutex sync.RWMutex
-	b := func(_ context.Context, _ uint32, _ string, msg proto.Message) {
-		mutex.Lock()
-		defer mutex.Unlock()
-		testMsg, ok := msg.(*testingpb.TestPayload)
-		r.True(ok)
-		idx := testMsg.MsgBody[0]
-		if _, ok = counts[idx]; ok {
+	b := func(idx uint8) HandleBroadcastInbound {
+		return func(_ context.Context, _ uint32, _ string, msg proto.Message) {
+			mutex.Lock()
+			defer mutex.Unlock()
+			_, ok := msg.(*testingpb.TestPayload)
+			require.True(ok)
 			counts[idx]++
-		} else {
-			counts[idx] = 1
+		}
+	}
+	resetCounts := func() {
+		for i := range counts {
+			counts[i] = 0
 		}
 	}
 	u := func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {}
 
 	bootnodePort := testutil.RandomPort()
 	bootnode, err := p2p.NewHost(context.Background(), p2p.DHTProtocolID(1), p2p.Port(bootnodePort), p2p.SecureIO(), p2p.Gossip())
-	r.NoError(err)
+	require.NoError(err)
 	bootnodeAddr := bootnode.Addresses()
-	t.Logf("bootnodeAddr=%v", bootnodeAddr)
 
 	for i := 0; i < n; i++ {
 		port := bootnodePort + i + 2
-		var opt Option
-		if i%2 == 0 {
-			opt = NetworkSeparation([]string{"action"}, func(m proto.Message) (string, error) {
-				return "action", nil
-			})
-		} else {
-			opt = NetworkSeparation([]string{"block"}, func(m proto.Message) (string, error) {
-				return "block", nil
-			})
-		}
-		opts := []Option{
-			opt,
-		}
 		cfg := DefaultConfig
 		cfg.Host = "127.0.0.1"
 		cfg.Port = port
 		cfg.BootstrapNodes = []string{bootnodeAddr[0].String()}
 		cfg.ReconnectInterval = 150 * time.Second
-		agent := NewAgent(cfg, 1, hash.ZeroHash256, b, u, opts...)
+		var agent AgentProxy
+		if i%2 == 0 {
+			opt := JoinNetwork(ActionNetwork)
+			agent = NewAgent(cfg, 1, hash.ZeroHash256, b(uint8(i)), u, opt).NetworkProxy(ActionNetwork)
+		} else {
+			opt := JoinNetwork(ConsensusNetwork)
+			agent = NewAgent(cfg, 1, hash.ZeroHash256, b(uint8(i)), u, opt).NetworkProxy(ConsensusNetwork)
+		}
 		agent.Start(ctx)
 		agents = append(agents, agent)
 	}
-	time.Sleep(2 * time.Second)
-	for i := 0; i < n; i++ {
-		r.NoError(agents[i].BroadcastOutbound(ctx, &testingpb.TestPayload{
-			MsgBody: []byte{uint8(i)},
-		}))
-	}
+	time.Sleep(100 * time.Millisecond)
 
-	for i := 0; i < n; i++ {
-		r.NoError(testutil.WaitUntil(500*time.Millisecond, 3*time.Second, func() (bool, error) {
-			mutex.RLock()
-			defer mutex.RUnlock()
-			// Broadcast message will be skipped by the source node
-			t.Logf("counts[%v]=%v\n", i, counts[uint8(i)])
-			return counts[uint8(i)] == n/2-1, nil
-		}))
-		if i%2 == 0 {
-			peers, err := agents[i].ConnectedPeersByNetwork("action")
-			r.NoError(err)
-			r.Len(peers, n/2-1)
-			peers, err = agents[i].ConnectedPeersByNetwork("block")
-			r.NoError(err)
-			r.Len(peers, 0)
-		} else {
-			peers, err := agents[i].ConnectedPeersByNetwork("action")
-			r.NoError(err)
-			r.Len(peers, 0)
-			peers, err = agents[i].ConnectedPeersByNetwork("block")
-			r.NoError(err)
-			r.Len(peers, n/2-1)
+	t.Run("connectedPeers", func(t *testing.T) {
+		for i := 0; i < n; i++ {
+			if i%2 == 0 {
+				peers, err := agents[i].ConnectedPeersByNetwork(ActionNetwork)
+				require.NoError(err)
+				require.Len(peers, n/2-1)
+				peers, err = agents[i].ConnectedPeersByNetwork(ConsensusNetwork)
+				require.NoError(err)
+				require.Len(peers, n/2)
+				peers, err = agents[i].ConnectedPeersByNetwork(BlockNetwork)
+				require.NoError(err)
+				require.Len(peers, n-1)
+				peers, err = agents[i].ConnectedPeersByNetwork("unknown")
+				require.NoError(err)
+				require.Len(peers, 0)
+			} else {
+				peers, err := agents[i].ConnectedPeersByNetwork(ActionNetwork)
+				require.NoError(err)
+				require.Len(peers, n/2)
+				peers, err = agents[i].ConnectedPeersByNetwork(ConsensusNetwork)
+				require.NoError(err)
+				require.Len(peers, n/2-1)
+				peers, err = agents[i].ConnectedPeersByNetwork(BlockNetwork)
+				require.NoError(err)
+				require.Len(peers, n-1)
+				peers, err = agents[i].ConnectedPeersByNetwork("unknown")
+				require.NoError(err)
+				require.Len(peers, 0)
+			}
 		}
-	}
+	})
 
+	t.Run("broadcastSubscribed", func(t *testing.T) {
+		resetCounts()
+		for i := 0; i < n; i++ {
+			require.NoError(agents[i].BroadcastOutbound(ctx, &testingpb.TestPayload{
+				MsgBody: []byte{uint8(i)},
+			}))
+		}
+		for i := 0; i < n; i++ {
+			require.NoError(testutil.WaitUntil(500*time.Millisecond, 3*time.Second, func() (bool, error) {
+				mutex.RLock()
+				defer mutex.RUnlock()
+				// Broadcast message will be skipped by the source node
+				return counts[uint8(i)] == n/2-1, nil
+			}))
+		}
+	})
+
+	t.Run("broadcastUnsubscribed", func(t *testing.T) {
+		resetCounts()
+		require.NoError(agents[0].BroadcastOutboundByNetwork(ctx, ConsensusNetwork, &testingpb.TestPayload{
+			MsgBody: []byte{uint8(0)},
+		}))
+		for i := 0; i < n; i++ {
+			if i%2 == 0 {
+				require.NoError(testutil.WaitUntil(500*time.Millisecond, 3*time.Second, func() (bool, error) {
+					mutex.RLock()
+					defer mutex.RUnlock()
+					return counts[uint8(i)] == 0, nil
+				}))
+			} else {
+				require.NoError(testutil.WaitUntil(500*time.Millisecond, 3*time.Second, func() (bool, error) {
+					mutex.RLock()
+					defer mutex.RUnlock()
+					return counts[uint8(i)] == 1, nil
+				}))
+			}
+		}
+	})
+
+	t.Run("broadcastUnsubscribedWithNoPeers", func(t *testing.T) {
+		resetCounts()
+		err := agents[0].BroadcastOutboundByNetwork(ctx, "unknown", &testingpb.TestPayload{
+			MsgBody: []byte{uint8(0)},
+		})
+		require.True(errors.Is(err, ErrNoPeersToBroadcast))
+	})
 }
 
 func TestUnicast(t *testing.T) {
@@ -238,11 +282,11 @@ func TestUnicast(t *testing.T) {
 	}
 
 	for i := 0; i < n; i++ {
-		neighbors, err := agents[i].ConnectedPeers()
+		neighbors, err := agents[i].NetworkProxy(BlockNetwork).ConnectedPeers()
 		r.NoError(err)
 		r.True(len(neighbors) >= n/3)
 		for _, neighbor := range neighbors {
-			r.NoError(agents[i].UnicastOutbound(ctx, neighbor, &testingpb.TestPayload{
+			r.NoError(agents[i].NetworkProxy(BlockNetwork).UnicastOutbound(ctx, neighbor, &testingpb.TestPayload{
 				MsgBody: []byte{uint8(i)},
 			}))
 		}
