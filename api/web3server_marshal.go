@@ -4,12 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/holiman/uint256"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -81,21 +76,7 @@ type (
 		CurrentBlock  string `json:"currentBlock"`
 		HighestBlock  string `json:"highestBlock"`
 	}
-	structLog struct {
-		Pc            uint64                      `json:"pc"`
-		Op            vm.OpCode                   `json:"op"`
-		Gas           math.HexOrDecimal64         `json:"gas"`
-		GasCost       math.HexOrDecimal64         `json:"gasCost"`
-		Memory        hexutil.Bytes               `json:"memory"`
-		MemorySize    int                         `json:"memSize"`
-		Stack         []uint256.Int               `json:"stack"`
-		ReturnData    hexutil.Bytes               `json:"returnData"`
-		Storage       map[common.Hash]common.Hash `json:"storage"`
-		Depth         int                         `json:"depth"`
-		RefundCounter uint64                      `json:"refund"`
-		OpName        string                      `json:"opName"`
-		ErrorString   string                      `json:"error"`
-	}
+
 	debugTraceTransactionResult struct {
 		Failed      bool                 `json:"failed"`
 		Revert      string               `json:"revert"`
