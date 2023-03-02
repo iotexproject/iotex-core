@@ -18,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -36,6 +35,13 @@ import (
 const (
 	_successStr = "success"
 	_failureStr = "failure"
+)
+
+// There are three types of network
+const (
+	BlockNetwork     = ""
+	ConsensusNetwork = "consensus"
+	ActionNetwork    = "action"
 )
 
 var (
@@ -56,6 +62,8 @@ var (
 	)
 	// ErrAgentNotStarted is the error returned when p2p agent has not been started
 	ErrAgentNotStarted = errors.New("p2p agent has not been started")
+	// ErrNoPeersToBroadcast is a broadcast error when have no peers
+	ErrNoPeersToBroadcast = p2p.ErrNoPeersToBroadcast
 )
 
 func init() {
@@ -69,8 +77,6 @@ const (
 	_unicastTopic      = "unicast"
 	_numDialRetries    = 8
 	_dialRetryInterval = 2 * time.Second
-
-	_defaultNetwork = ""
 )
 
 type (
@@ -101,21 +107,21 @@ type (
 	// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
 	Agent interface {
 		lifecycle.StartStopper
-		// BroadcastOutbound sends a broadcast message to the whole network
-		BroadcastOutbound(ctx context.Context, msg proto.Message) (err error)
-		// UnicastOutbound sends a unicast message to the given address
-		UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message) (err error)
+		// BroadcastOutboundByNetwork sends a broadcast message to the network
+		BroadcastOutboundByNetwork(ctx context.Context, network string, msg proto.Message) (err error)
+		// UnicastOutboundByNetwork sends a unicast message to the given address
+		UnicastOutboundByNetwork(_ context.Context, peer peer.AddrInfo, network string, msg proto.Message) (err error)
 		// Info returns agents' peer info.
 		Info() (peer.AddrInfo, error)
 		// Self returns the self network address
 		Self() ([]multiaddr.Multiaddr, error)
-		// ConnectedPeers returns the connected peers' info
-		ConnectedPeers() ([]peer.AddrInfo, error)
 		// ConnectedPeersByNetwork returns the connected peers' info of one specific network
 		// It should be called only when init with NetworkSeparation option
 		ConnectedPeersByNetwork(string) ([]peer.AddrInfo, error)
 		// BlockPeer blocks the peer in p2p layer
 		BlockPeer(string)
+		// NetworkProxy returns a network proxy to agent
+		NetworkProxy(string) AgentProxy
 	}
 
 	// Option defines the option function to modify agent
@@ -134,16 +140,21 @@ type (
 		reconnectTimeout           time.Duration
 		reconnectTask              *routine.RecurringTask
 		qosMetrics                 *Qos
-		networkSeparator           *networkSeparator
-	}
-
-	messageNetworkMappingFunc func(proto.Message) (string, error)
-
-	networkSeparator struct {
-		networks     []string
-		separateFunc messageNetworkMappingFunc
+		networks                   map[string]struct{}
 	}
 )
+
+// JoinNetwork choose networks to join.
+// you could recieve messages from or send to networks you have joined, furthermore you also could broadcast messages to you havn't joined.
+// there are three types networks you can join, that is BlockNetwork, ConsensusNetwork, ActionNetwork.
+// it will join BlockNetwork by default.
+func JoinNetwork(networks ...string) Option {
+	return func(a *agent) {
+		for _, network := range networks {
+			a.networks[network] = struct{}{}
+		}
+	}
+}
 
 // DefaultConfig is the default config of p2p
 var DefaultConfig = Config{
@@ -161,7 +172,7 @@ var DefaultConfig = Config{
 }
 
 // NewDummyAgent creates a dummy p2p agent
-func NewDummyAgent() Agent {
+func NewDummyAgent() AgentProxy {
 	return &dummyAgent{}
 }
 
@@ -177,7 +188,15 @@ func (*dummyAgent) BroadcastOutbound(ctx context.Context, msg proto.Message) err
 	return nil
 }
 
+func (*dummyAgent) BroadcastOutboundByNetwork(ctx context.Context, network string, msg proto.Message) error {
+	return nil
+}
+
 func (*dummyAgent) UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message) error {
+	return nil
+}
+
+func (*dummyAgent) UnicastOutboundByNetwork(_ context.Context, peer peer.AddrInfo, network string, msg proto.Message) error {
 	return nil
 }
 
@@ -201,15 +220,8 @@ func (*dummyAgent) BlockPeer(string) {
 	return
 }
 
-// NetworkSeparation is the option to separate network
-func NetworkSeparation(networks []string, separateFunc messageNetworkMappingFunc) Option {
-	return func(a *agent) {
-		d := &networkSeparator{
-			networks:     networks,
-			separateFunc: separateFunc,
-		}
-		a.networkSeparator = d
-	}
+func (d *dummyAgent) NetworkProxy(string) AgentProxy {
+	return d
 }
 
 // NewAgent instantiates a local P2P agent instance
@@ -224,7 +236,9 @@ func NewAgent(cfg Config, chainID uint32, genesisHash hash.Hash256, broadcastHan
 		unicastInboundAsyncHandler: unicastHandler,
 		reconnectTimeout:           cfg.ReconnectInterval,
 		qosMetrics:                 NewQoS(time.Now(), 2*cfg.ReconnectInterval),
+		networks:                   make(map[string]struct{}),
 	}
+	a.networks[BlockNetwork] = struct{}{}
 	for _, opt := range opts {
 		opt(a)
 	}
@@ -259,12 +273,7 @@ func (p *agent) Start(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
-	networks := []string{_defaultNetwork}
-	if p.networkSeparator != nil {
-		networks = p.networkSeparator.networks
-	}
-
-	for _, network := range networks {
+	for network := range p.networks {
 		if err := host.AddBroadcastPubSub(ctx, p.broadcastTopicName(network), func(ctx context.Context, data []byte) (err error) {
 			// Blocking handling the broadcast message until the agent is started
 			<-ready
@@ -409,7 +418,7 @@ func (p *agent) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err error) {
+func (p *agent) BroadcastOutboundByNetwork(ctx context.Context, network string, msg proto.Message) (err error) {
 	_, span := tracer.NewSpan(ctx, "Agent.BroadcastOutbound")
 	defer span.End()
 
@@ -432,10 +441,7 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 			status,
 		).Inc()
 	}()
-	network, err := p.getMessageNetwork(msg)
-	if err != nil {
-		return
-	}
+
 	msgType, msgBody, err = convertAppMsg(msg)
 	if err != nil {
 		return
@@ -462,7 +468,7 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	return
 }
 
-func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg proto.Message) (err error) {
+func (p *agent) UnicastOutboundByNetwork(ctx context.Context, peer peer.AddrInfo, network string, msg proto.Message) (err error) {
 	host := p.host
 	if host == nil {
 		return ErrAgentNotStarted
@@ -479,10 +485,7 @@ func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 		}
 		_p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", peer.ID.Pretty(), status).Inc()
 	}()
-	network, err := p.getMessageNetwork(msg)
-	if err != nil {
-		return
-	}
+
 	msgType, msgBody, err = convertAppMsg(msg)
 	if err != nil {
 		return
@@ -524,18 +527,11 @@ func (p *agent) Self() ([]multiaddr.Multiaddr, error) {
 	return p.host.Addresses(), nil
 }
 
-func (p *agent) ConnectedPeers() ([]peer.AddrInfo, error) {
-	if p.host == nil {
-		return nil, ErrAgentNotStarted
-	}
-	return p.host.ConnectedPeers(), nil
-}
-
 func (p *agent) ConnectedPeersByNetwork(network string) ([]peer.AddrInfo, error) {
 	if p.host == nil {
 		return nil, ErrAgentNotStarted
 	}
-	return p.host.ConnectedPeersByBroadcastTopic(p.broadcastTopicName(network)), nil
+	return p.host.ConnectedPeersByTopic(p.broadcastTopicName(network)), nil
 }
 
 func (p *agent) BlockPeer(pidStr string) {
@@ -544,6 +540,13 @@ func (p *agent) BlockPeer(pidStr string) {
 		return
 	}
 	p.host.BlockPeer(pid)
+}
+
+func (p *agent) NetworkProxy(network string) AgentProxy {
+	return &agentProxy{
+		agent:   p,
+		network: network,
+	}
 }
 
 func (p *agent) connectBootNode(ctx context.Context) error {
@@ -612,21 +615,6 @@ func (p *agent) reconnect() {
 	if err := p.host.FindPeersAsync(); err != nil {
 		log.L().Error("fail to find peer", zap.Error(err))
 	}
-}
-
-func (p *agent) getMessageNetwork(msg proto.Message) (network string, err error) {
-	if p.networkSeparator == nil {
-		return _defaultNetwork, nil
-	}
-	network, err = p.networkSeparator.separateFunc(msg)
-	if err != nil {
-		return
-	}
-	if !slices.Contains(p.networkSeparator.networks, network) {
-		err = errors.Errorf("unknown network %v", network)
-		return
-	}
-	return
 }
 
 func (p *agent) broadcastTopicName(network string) string {

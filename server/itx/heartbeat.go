@@ -68,7 +68,7 @@ func NewHeartbeatHandler(s *Server, cfg p2p.Config) *HeartbeatHandler {
 // Log executes the logging logic
 func (h *HeartbeatHandler) Log() {
 	// Network metrics
-	p2pAgent := h.s.P2PAgent()
+	p2pAgent := h.s.P2PAgent().NetworkProxy(p2p.BlockNetwork)
 
 	// Dispatcher metrics
 	dp, ok := h.s.Dispatcher().(*dispatcher.IotxDispatcher)

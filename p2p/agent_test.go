@@ -12,15 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-p2p"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-proto/golang/testingpb"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/iotexproject/go-p2p"
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-proto/golang/testingpb"
-
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestDummyAgent(t *testing.T) {

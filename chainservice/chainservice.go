@@ -222,7 +222,7 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 	if cfg.GRPCPort == 0 && cfg.HTTPPort == 0 {
 		return nil, nil
 	}
-	p2pAgent := cs.p2pAgent
+	p2pAgent := cs.p2pAgent.NetworkProxy(p2p.BlockNetwork)
 	apiServerOptions := []api.Option{
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 			return p2pAgent.BroadcastOutbound(ctx, msg)
