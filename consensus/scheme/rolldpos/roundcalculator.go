@@ -20,7 +20,8 @@ type roundCalculator struct {
 	chain                ChainManager
 	timeBasedRotation    bool
 	rp                   *rolldpos.Protocol
-	delegatesByEpochFunc DelegatesByEpochFunc
+	delegatesByEpochFunc NodesSelectionByEpochFunc
+	proposersByEpochFunc NodesSelectionByEpochFunc
 	beringHeight         uint64
 }
 
@@ -29,6 +30,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 	epochNum := round.EpochNum()
 	epochStartHeight := round.EpochStartHeight()
 	delegates := round.Delegates()
+	proposers := round.Proposers()
 	switch {
 	case height < round.Height():
 		return nil, errors.New("cannot update to a lower height")
@@ -45,13 +47,16 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 			if delegates, err = c.Delegates(height); err != nil {
 				return nil, err
 			}
+			if proposers, err = c.Proposers(height); err != nil {
+				return nil, err
+			}
 		}
 	}
 	roundNum, roundStartTime, err := c.roundInfo(height, blockInterval, now, toleratedOvertime)
 	if err != nil {
 		return nil, err
 	}
-	proposer, err := c.calculateProposer(height, roundNum, delegates)
+	proposer, err := c.calculateProposer(height, roundNum, proposers)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +82,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 		epochStartHeight:     epochStartHeight,
 		nextEpochStartHeight: c.rp.GetEpochHeight(epochNum + 1),
 		delegates:            delegates,
+		proposers:            proposers,
 
 		height:             height,
 		roundNum:           roundNum,
@@ -177,6 +183,12 @@ func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
 	return c.delegatesByEpochFunc(epochNum)
 }
 
+// Proposers returns list of candidate proposers at given height
+func (c *roundCalculator) Proposers(height uint64) ([]string, error) {
+	epochNum := c.rp.GetEpochNum(height)
+	return c.proposersByEpochFunc(epochNum)
+}
+
 // NewRoundWithToleration starts new round with tolerated over time
 func (c *roundCalculator) NewRoundWithToleration(
 	height uint64,
@@ -207,7 +219,7 @@ func (c *roundCalculator) newRound(
 ) (round *roundCtx, err error) {
 	epochNum := uint64(0)
 	epochStartHeight := uint64(0)
-	var delegates []string
+	var delegates, proposers []string
 	var roundNum uint32
 	var proposer string
 	var roundStartTime time.Time
@@ -217,10 +229,13 @@ func (c *roundCalculator) newRound(
 		if delegates, err = c.Delegates(height); err != nil {
 			return
 		}
+		if proposers, err = c.Proposers(height); err != nil {
+			return
+		}
 		if roundNum, roundStartTime, err = c.roundInfo(height, blockInterval, now, toleratedOvertime); err != nil {
 			return
 		}
-		if proposer, err = c.calculateProposer(height, roundNum, delegates); err != nil {
+		if proposer, err = c.calculateProposer(height, roundNum, proposers); err != nil {
 			return
 		}
 	}
@@ -234,6 +249,7 @@ func (c *roundCalculator) newRound(
 		epochStartHeight:     epochStartHeight,
 		nextEpochStartHeight: c.rp.GetEpochHeight(epochNum + 1),
 		delegates:            delegates,
+		proposers:            proposers,
 
 		height:             height,
 		roundNum:           roundNum,
@@ -252,17 +268,18 @@ func (c *roundCalculator) newRound(
 func (c *roundCalculator) calculateProposer(
 	height uint64,
 	round uint32,
-	delegates []string,
+	proposers []string,
 ) (proposer string, err error) {
-	numDelegates := c.rp.NumDelegates()
-	if numDelegates != uint64(len(delegates)) {
-		err = errors.New("invalid delegate list")
+	// TODO use number of proposers
+	numProposers := c.rp.NumDelegates()
+	if numProposers != uint64(len(proposers)) {
+		err = errors.New("invalid proposer list")
 		return
 	}
 	idx := height
 	if c.timeBasedRotation {
 		idx += uint64(round)
 	}
-	proposer = delegates[idx%numDelegates]
+	proposer = proposers[idx%numProposers]
 	return
 }
