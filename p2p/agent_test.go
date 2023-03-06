@@ -24,7 +24,7 @@ import (
 
 func TestDummyAgent(t *testing.T) {
 	require := require.New(t)
-	a := NewDummyAgent()
+	a := NewDummyAgent().NetworkProxy(BlockNetwork)
 	require.NoError(a.Start(nil))
 	require.NoError(a.Stop(nil))
 	require.NoError(a.BroadcastOutbound(nil, nil))
@@ -81,7 +81,7 @@ func TestBroadcast(t *testing.T) {
 			Port:              port,
 			BootstrapNodes:    []string{bootnodeAddr[0].String()},
 			ReconnectInterval: 150 * time.Second,
-		}, 1, hash.ZeroHash256, b, u)
+		}, 1, hash.ZeroHash256, b, u, JoinNetwork(BlockNetwork))
 		agent.Start(ctx)
 		agents = append(agents, agent)
 	}
@@ -103,7 +103,7 @@ func TestNetworkSeparation(t *testing.T) {
 	require := require.New(t)
 
 	ctx := context.Background()
-	n := 4
+	n := 10
 	agents := make([]AgentProxy, 0)
 	defer func() {
 		var err error
@@ -144,10 +144,10 @@ func TestNetworkSeparation(t *testing.T) {
 		cfg.ReconnectInterval = 150 * time.Second
 		var agent AgentProxy
 		if i%2 == 0 {
-			opt := JoinNetwork(ActionNetwork)
+			opt := JoinNetwork(BlockNetwork, ActionNetwork)
 			agent = NewAgent(cfg, 1, hash.ZeroHash256, b(uint8(i)), u, opt).NetworkProxy(ActionNetwork)
 		} else {
-			opt := JoinNetwork(ConsensusNetwork)
+			opt := JoinNetwork(BlockNetwork, ConsensusNetwork)
 			agent = NewAgent(cfg, 1, hash.ZeroHash256, b(uint8(i)), u, opt).NetworkProxy(ConsensusNetwork)
 		}
 		agent.Start(ctx)
@@ -231,7 +231,7 @@ func TestNetworkSeparation(t *testing.T) {
 		err := agents[0].BroadcastOutboundByNetwork(ctx, "unknown", &testingpb.TestPayload{
 			MsgBody: []byte{uint8(0)},
 		})
-		require.True(errors.Is(err, ErrNoPeersToBroadcast))
+		require.True(errors.Is(err, ErrNoConnectedPeers))
 	})
 }
 
@@ -276,7 +276,7 @@ func TestUnicast(t *testing.T) {
 			BootstrapNodes:    []string{addrs[0].String()},
 			ReconnectInterval: 150 * time.Second,
 			MasterKey:         strconv.Itoa(i),
-		}, 2, hash.ZeroHash256, b, u)
+		}, 2, hash.ZeroHash256, b, u, JoinNetwork(BlockNetwork))
 		r.NoError(agent.Start(ctx))
 		agents = append(agents, agent)
 	}

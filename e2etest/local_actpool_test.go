@@ -59,6 +59,7 @@ func TestLocalActPool(t *testing.T) {
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 
 		},
+		p2p.JoinNetwork(p2p.BlockNetwork),
 	).NetworkProxy(p2p.BlockNetwork)
 	require.NotNil(cli)
 	require.NoError(cli.Start(ctx))
@@ -137,6 +138,7 @@ func TestPressureActPool(t *testing.T) {
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 
 		},
+		p2p.JoinNetwork(p2p.BlockNetwork),
 	).NetworkProxy(p2p.BlockNetwork)
 	require.NotNil(cli)
 	require.NoError(cli.Start(ctx))

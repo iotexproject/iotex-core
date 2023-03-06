@@ -62,8 +62,8 @@ var (
 	)
 	// ErrAgentNotStarted is the error returned when p2p agent has not been started
 	ErrAgentNotStarted = errors.New("p2p agent has not been started")
-	// ErrNoPeersToBroadcast is a broadcast error when have no peers
-	ErrNoPeersToBroadcast = p2p.ErrNoPeersToBroadcast
+	// ErrNoConnectedPeers is a broadcast error when have no connected peers
+	ErrNoConnectedPeers = p2p.ErrNoConnectedPeers
 )
 
 func init() {
@@ -172,7 +172,7 @@ var DefaultConfig = Config{
 }
 
 // NewDummyAgent creates a dummy p2p agent
-func NewDummyAgent() AgentProxy {
+func NewDummyAgent() Agent {
 	return &dummyAgent{}
 }
 
@@ -238,7 +238,6 @@ func NewAgent(cfg Config, chainID uint32, genesisHash hash.Hash256, broadcastHan
 		qosMetrics:                 NewQoS(time.Now(), 2*cfg.ReconnectInterval),
 		networks:                   make(map[string]struct{}),
 	}
-	a.networks[BlockNetwork] = struct{}{}
 	for _, opt := range opts {
 		opt(a)
 	}

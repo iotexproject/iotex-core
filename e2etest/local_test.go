@@ -129,6 +129,7 @@ func TestLocalCommit(t *testing.T) {
 		},
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 		},
+		p2p.JoinNetwork(p2p.BlockNetwork),
 	).NetworkProxy(p2p.BlockNetwork)
 	require.NotNil(p)
 	require.NoError(p.Start(ctx))
@@ -343,7 +344,9 @@ func TestLocalSync(t *testing.T) {
 		cfg.Chain.ID,
 		hash.ZeroHash256,
 		func(_ context.Context, _ uint32, _ string, msg proto.Message) {},
-		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {})
+		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {},
+		p2p.JoinNetwork(p2p.BlockNetwork),
+	)
 	require.NoError(bootnode.Start(ctx))
 	addrs, err := bootnode.Self()
 	require.NoError(err)
