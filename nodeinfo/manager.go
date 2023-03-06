@@ -49,17 +49,17 @@ type (
 	// InfoManager manage delegate node info
 	InfoManager struct {
 		lifecycle.Lifecycle
-		version          string
-		address          string
-		height           atomic.Value // unit64
-		whiteList        atomic.Value // []string, whitelist to force enable broadcast
-		nodeMap          *lru.Cache
-		transmitter      transmitter
-		privKey          crypto.PrivateKey
-		getWhiteListFunc getWhiteListFunc
+		version              string
+		address              string
+		height               atomic.Value // unit64
+		broadcastList        atomic.Value // []string, whitelist to force enable broadcast
+		nodeMap              *lru.Cache
+		transmitter          transmitter
+		privKey              crypto.PrivateKey
+		getBroadcastListFunc getBroadcastListFunc
 	}
 
-	getWhiteListFunc func() []string
+	getBroadcastListFunc func() []string
 )
 
 var _nodeInfoHeightGauge = prometheus.NewGaugeVec(
@@ -75,21 +75,21 @@ func init() {
 }
 
 // NewInfoManager new info manager
-func NewInfoManager(cfg *Config, t transmitter, privKey crypto.PrivateKey, getWhiteListFunc getWhiteListFunc) *InfoManager {
+func NewInfoManager(cfg *Config, t transmitter, privKey crypto.PrivateKey, broadcastListFunc getBroadcastListFunc) *InfoManager {
 	dm := &InfoManager{
-		nodeMap:          lru.New(cfg.NodeMapSize),
-		transmitter:      t,
-		privKey:          privKey,
-		version:          version.PackageVersion,
-		address:          privKey.PublicKey().Address().String(),
-		getWhiteListFunc: getWhiteListFunc,
+		nodeMap:              lru.New(cfg.NodeMapSize),
+		transmitter:          t,
+		privKey:              privKey,
+		version:              version.PackageVersion,
+		address:              privKey.PublicKey().Address().String(),
+		getBroadcastListFunc: broadcastListFunc,
 	}
 	dm.height.Store(uint64(0))
-	dm.whiteList.Store([]string{})
+	dm.broadcastList.Store([]string{})
 	// init recurring tasks
 	broadcastTask := routine.NewRecurringTask(func() {
-		// whitelist or nodes who are turned on will broadcast
-		if cfg.EnableBroadcastNodeInfo || dm.inWhiteList() {
+		// broadcastlist or nodes who are turned on will broadcast
+		if cfg.EnableBroadcastNodeInfo || dm.inBroadcastList() {
 			if err := dm.BroadcastNodeInfo(context.Background()); err != nil {
 				log.L().Error("nodeinfo manager broadcast node info failed", zap.Error(err))
 			}
@@ -97,16 +97,16 @@ func NewInfoManager(cfg *Config, t transmitter, privKey crypto.PrivateKey, getWh
 			log.L().Debug("nodeinfo manager general node disabled node info broadcast")
 		}
 	}, cfg.BroadcastNodeInfoInterval)
-	updateWhiteListTask := routine.NewRecurringTask(func() {
-		dm.updateWhiteList()
-	}, cfg.WhiteListTTL)
-	dm.AddModels(updateWhiteListTask, broadcastTask)
+	updateBroadcastListTask := routine.NewRecurringTask(func() {
+		dm.updateBroadcastList()
+	}, cfg.BroadcastListTTL)
+	dm.AddModels(updateBroadcastListTask, broadcastTask)
 	return dm
 }
 
 // Start start delegate broadcast task
 func (dm *InfoManager) Start(ctx context.Context) error {
-	dm.updateWhiteList()
+	dm.updateBroadcastList()
 	return dm.OnStart(ctx)
 }
 
@@ -149,8 +149,8 @@ func (dm *InfoManager) updateNode(node *Info) {
 	_nodeInfoHeightGauge.WithLabelValues(addr, node.Version).Set(float64(node.Height))
 }
 
-// GetInfo get node info by address
-func (dm *InfoManager) GetInfo(addr string) (Info, bool) {
+// GetNodeInfo get node info by address
+func (dm *InfoManager) GetNodeInfo(addr string) (Info, bool) {
 	info, ok := dm.nodeMap.Get(addr)
 	if !ok {
 		return Info{}, false
@@ -225,13 +225,13 @@ func (dm *InfoManager) genNodeInfoMsg() (*iotextypes.NodeInfo, error) {
 	return req, nil
 }
 
-func (dm *InfoManager) inWhiteList() bool {
-	return slices.Contains(dm.whiteList.Load().([]string), dm.address)
+func (dm *InfoManager) inBroadcastList() bool {
+	return slices.Contains(dm.broadcastList.Load().([]string), dm.address)
 }
 
-func (dm *InfoManager) updateWhiteList() {
-	if dm.getWhiteListFunc != nil {
-		dm.whiteList.Store(dm.getWhiteListFunc())
+func (dm *InfoManager) updateBroadcastList() {
+	if dm.getBroadcastListFunc != nil {
+		dm.broadcastList.Store(dm.getBroadcastListFunc())
 	}
 }
 

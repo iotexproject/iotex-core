@@ -386,15 +386,14 @@ func (builder *Builder) buildNodeInfoManager() error {
 	}
 
 	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, builder.cfg.Chain.ProducerPrivateKey(), func() []string {
-		whiteList := []string{}
 		candidates, err := stk.ActiveCandidates(context.Background(), cs.factory, 0)
 		if err != nil {
 			log.L().Error("failed to get active candidates", zap.Error(errors.WithStack(err)))
-		} else {
-			whiteList = make([]string, len(candidates))
-			for i := range whiteList {
-				whiteList[i] = candidates[i].Address
-			}
+			return nil
+		}
+		whiteList := make([]string, len(candidates))
+		for i := range whiteList {
+			whiteList[i] = candidates[i].Address
 		}
 		return whiteList
 	})

@@ -243,15 +243,15 @@ func TestDelegateManager_GetNodeByAddr(t *testing.T) {
 	dm.updateNode(&Info{Address: "2"})
 
 	t.Run("exist", func(t *testing.T) {
-		info, ok := dm.GetInfo("1")
+		info, ok := dm.GetNodeInfo("1")
 		require.True(ok)
 		require.Equal(Info{Address: "1"}, info)
-		info, ok = dm.GetInfo("2")
+		info, ok = dm.GetNodeInfo("2")
 		require.True(ok)
 		require.Equal(Info{Address: "2"}, info)
 	})
 	t.Run("not_exist", func(t *testing.T) {
-		_, ok := dm.GetInfo("3")
+		_, ok := dm.GetNodeInfo("3")
 		require.False(ok)
 	})
 
