@@ -1649,7 +1649,7 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	traces := logger.NewStructLogger(config)
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
 		Debug:     true,
-		Tracer:    logger.NewStructLogger(config),
+		Tracer:    traces,
 		NoBaseFee: true,
 	})
 	addr, _ := address.FromString(address.ZeroAddress)
