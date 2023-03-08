@@ -225,47 +225,49 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 
 func makeRoundCalculator(t *testing.T) *roundCalculator {
 	bc, sf, _, rp, pp := makeChain(t)
+	delegatesByEpoch := func(epochNum uint64) ([]string, error) {
+		re := protocol.NewRegistry()
+		if err := rp.Register(re); err != nil {
+			return nil, err
+		}
+		tipHeight := bc.TipHeight()
+		ctx := genesis.WithGenesisContext(
+			protocol.WithBlockchainCtx(
+				protocol.WithRegistry(context.Background(), re),
+				protocol.BlockchainCtx{
+					Tip: protocol.TipInfo{
+						Height: tipHeight,
+					},
+				},
+			),
+			genesis.Default,
+		)
+		tipEpochNum := rp.GetEpochNum(tipHeight)
+		var candidatesList state.CandidateList
+		var addrs []string
+		var err error
+		switch epochNum {
+		case tipEpochNum:
+			candidatesList, err = pp.Delegates(ctx, sf)
+		case tipEpochNum + 1:
+			candidatesList, err = pp.NextDelegates(ctx, sf)
+		default:
+			err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochNum, tipEpochNum)
+		}
+		if err != nil {
+			return nil, err
+		}
+		for _, cand := range candidatesList {
+			addrs = append(addrs, cand.Address)
+		}
+		return addrs, nil
+	}
 	return &roundCalculator{
 		NewChainManager(bc),
 		true,
 		rp,
-		func(epochNum uint64) ([]string, error) {
-			re := protocol.NewRegistry()
-			if err := rp.Register(re); err != nil {
-				return nil, err
-			}
-			tipHeight := bc.TipHeight()
-			ctx := genesis.WithGenesisContext(
-				protocol.WithBlockchainCtx(
-					protocol.WithRegistry(context.Background(), re),
-					protocol.BlockchainCtx{
-						Tip: protocol.TipInfo{
-							Height: tipHeight,
-						},
-					},
-				),
-				genesis.Default,
-			)
-			tipEpochNum := rp.GetEpochNum(tipHeight)
-			var candidatesList state.CandidateList
-			var addrs []string
-			var err error
-			switch epochNum {
-			case tipEpochNum:
-				candidatesList, err = pp.Delegates(ctx, sf)
-			case tipEpochNum + 1:
-				candidatesList, err = pp.NextDelegates(ctx, sf)
-			default:
-				err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochNum, tipEpochNum)
-			}
-			if err != nil {
-				return nil, err
-			}
-			for _, cand := range candidatesList {
-				addrs = append(addrs, cand.Address)
-			}
-			return addrs, nil
-		},
+		delegatesByEpoch,
+		delegatesByEpoch,
 		0,
 	}
 }
