@@ -1649,7 +1649,7 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	traces := logger.NewStructLogger(config)
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
 		Debug:     true,
-		Tracer:    traces,
+		Tracer:    logger.NewStructLogger(config),
 		NoBaseFee: true,
 	})
 	addr, _ := address.FromString(address.ZeroAddress)
@@ -1682,9 +1682,7 @@ func (core *coreService) TraceCall(ctx context.Context,
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	getblockHash := func(height uint64) (hash.Hash256, error) {
-		return blkHash, nil
-	}
+
 	if gasLimit == 0 {
 		gasLimit = core.bc.Genesis().BlockGasLimit
 	}
@@ -1694,17 +1692,16 @@ func (core *coreService) TraceCall(ctx context.Context,
 		Tracer:    traces,
 		NoBaseFee: true,
 	})
-	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	ctx, err = core.bc.Context(ctx)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	if nonce == 0 {
 		state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		nonce = state.PendingNonce()
-	}
-	ctx, err = core.bc.Context(ctx)
-	if err != nil {
-		return nil, nil, nil, err
 	}
 	exec, err := action.NewExecution(
 		contractAddress,
@@ -1716,6 +1713,9 @@ func (core *coreService) TraceCall(ctx context.Context,
 	)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	getblockHash := func(height uint64) (hash.Hash256, error) {
+		return blkHash, nil
 	}
 	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, exec, getblockHash)
 	return retval, receipt, traces, err
