@@ -385,7 +385,7 @@ func (builder *Builder) buildNodeInfoManager() error {
 		return errors.New("cannot find staking protocol")
 	}
 
-	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, builder.cfg.Chain.ProducerPrivateKey(), func() []string {
+	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func() []string {
 		candidates, err := stk.ActiveCandidates(context.Background(), cs.factory, 0)
 		if err != nil {
 			log.L().Error("failed to get active candidates", zap.Error(errors.WithStack(err)))
@@ -397,9 +397,6 @@ func (builder *Builder) buildNodeInfoManager() error {
 		}
 		return whiteList
 	})
-	if err := cs.chain.AddSubscriber(dm); err != nil {
-		return errors.Wrap(err, "failed to add node info manager as subscriber")
-	}
 	builder.cs.nodeInfoManager = dm
 	builder.cs.lifecycle.Add(dm)
 	return nil

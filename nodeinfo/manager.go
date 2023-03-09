@@ -22,7 +22,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
@@ -35,6 +34,10 @@ type (
 		BroadcastOutbound(context.Context, proto.Message) error
 		UnicastOutbound(context.Context, peer.AddrInfo, proto.Message) error
 		Info() (peer.AddrInfo, error)
+	}
+
+	chain interface {
+		TipHeight() uint64
 	}
 
 	// Info node infomation
@@ -51,10 +54,10 @@ type (
 		lifecycle.Lifecycle
 		version              string
 		address              string
-		height               atomic.Value // unit64
 		broadcastList        atomic.Value // []string, whitelist to force enable broadcast
 		nodeMap              *lru.Cache
 		transmitter          transmitter
+		chain                chain
 		privKey              crypto.PrivateKey
 		getBroadcastListFunc getBroadcastListFunc
 	}
@@ -75,16 +78,16 @@ func init() {
 }
 
 // NewInfoManager new info manager
-func NewInfoManager(cfg *Config, t transmitter, privKey crypto.PrivateKey, broadcastListFunc getBroadcastListFunc) *InfoManager {
+func NewInfoManager(cfg *Config, t transmitter, ch chain, privKey crypto.PrivateKey, broadcastListFunc getBroadcastListFunc) *InfoManager {
 	dm := &InfoManager{
 		nodeMap:              lru.New(cfg.NodeMapSize),
 		transmitter:          t,
+		chain:                ch,
 		privKey:              privKey,
 		version:              version.PackageVersion,
 		address:              privKey.PublicKey().Address().String(),
 		getBroadcastListFunc: broadcastListFunc,
 	}
-	dm.height.Store(uint64(0))
 	dm.broadcastList.Store([]string{})
 	// init recurring tasks
 	broadcastTask := routine.NewRecurringTask(func() {
@@ -200,17 +203,11 @@ func (dm *InfoManager) HandleNodeInfoRequest(ctx context.Context, peer peer.Addr
 	return dm.transmitter.UnicastOutbound(ctx, peer, req)
 }
 
-// ReceiveBlock subscribe blockchain to update height
-func (dm *InfoManager) ReceiveBlock(block *block.Block) error {
-	dm.height.Store(block.Height())
-	return nil
-}
-
 func (dm *InfoManager) genNodeInfoMsg() (*iotextypes.NodeInfo, error) {
 	req := &iotextypes.NodeInfo{
 		Info: &iotextypes.NodeInfoCore{
 			Version:   dm.version,
-			Height:    dm.height.Load().(uint64),
+			Height:    dm.chain.TipHeight(),
 			Timestamp: timestamppb.Now(),
 			Address:   dm.address,
 		},
@@ -231,7 +228,9 @@ func (dm *InfoManager) inBroadcastList() bool {
 
 func (dm *InfoManager) updateBroadcastList() {
 	if dm.getBroadcastListFunc != nil {
-		dm.broadcastList.Store(dm.getBroadcastListFunc())
+		list := dm.getBroadcastListFunc()
+		dm.broadcastList.Store(list)
+		log.L().Debug("nodeinfo manaager updateBroadcastList", zap.Strings("list", list))
 	}
 }
 
