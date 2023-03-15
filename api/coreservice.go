@@ -1671,18 +1671,11 @@ func (core *coreService) TraceCall(ctx context.Context,
 		blkHash hash.Hash256
 		err     error
 	)
-	switch blkNumOrHash.(type) {
-	case uint64:
-		blkHash, err = core.dao.GetBlockHash(blkNumOrHash.(uint64))
-	case string:
-		blkHash, err = hash.HexStringToHash256(blkNumOrHash.(string))
-	default:
-		err = errors.New("invalid block number or hash")
-	}
+	// ignore the incoming blkNumOrHash and use the latest height.
+	blkHash, err = core.dao.GetBlockHash(core.TipHeight())
 	if err != nil {
 		return nil, nil, nil, err
 	}
-
 	if gasLimit == 0 {
 		gasLimit = core.bc.Genesis().BlockGasLimit
 	}
