@@ -34,6 +34,8 @@ import (
 
 const (
 	_metamaskBalanceContractAddr = "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr"
+	// DefaultBatchRequestLimit is the default maximum number of items in a batch.
+	DefaultBatchRequestLimit = 100 // Maximum number of items in a batch.
 )
 
 type (
@@ -43,8 +45,9 @@ type (
 	}
 
 	web3Handler struct {
-		coreService CoreService
-		cache       apiCache
+		coreService       CoreService
+		cache             apiCache
+		batchRequestLimit int
 	}
 )
 
@@ -72,6 +75,7 @@ var (
 	errInvalidFilterID   = errors.New("filter not found")
 	errInvalidBlock      = errors.New("invalid block")
 	errUnsupportedAction = errors.New("the type of action is not supported")
+	errMsgBatchTooLarge  = errors.New("batch too large")
 
 	_pendingBlockNumber  = "pending"
 	_latestBlockNumber   = "latest"
@@ -83,10 +87,11 @@ func init() {
 }
 
 // NewWeb3Handler creates a handle to process web3 requests
-func NewWeb3Handler(core CoreService, cacheURL string) Web3Handler {
+func NewWeb3Handler(core CoreService, cacheURL string, batchRequestLimit int) Web3Handler {
 	return &web3Handler{
-		coreService: core,
-		cache:       newAPICache(15*time.Minute, cacheURL),
+		coreService:       core,
+		cache:             newAPICache(15*time.Minute, cacheURL),
+		batchRequestLimit: batchRequestLimit,
 	}
 }
 
@@ -103,8 +108,18 @@ func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, wri
 	if !web3Reqs.IsArray() {
 		return svr.handleWeb3Req(ctx, &web3Reqs, writer)
 	}
-	batchWriter := apitypes.NewBatchWriter(writer)
 	web3ReqArr := web3Reqs.Array()
+	if len(web3ReqArr) > int(svr.batchRequestLimit) {
+		err := errors.Wrapf(
+			errMsgBatchTooLarge,
+			"batch size %d exceeds the limit %d",
+			len(web3ReqArr),
+			svr.batchRequestLimit,
+		)
+		span.RecordError(err)
+		return writer.Write(&web3Response{err: err})
+	}
+	batchWriter := apitypes.NewBatchWriter(writer)
 	for i := range web3ReqArr {
 		if err := svr.handleWeb3Req(ctx, &web3ReqArr[i], batchWriter); err != nil {
 			return err
