@@ -34,5 +34,5 @@ var DefaultConfig = Config{
 	TpsWindow:         10,
 	GasStation:        gasstation.DefaultConfig,
 	RangeQueryLimit:   1000,
-	BatchRequestLimit: DefaultBatchRequestLimit,
+	BatchRequestLimit: _defaultBatchRequestLimit,
 }

@@ -42,7 +42,7 @@ func TestWeb3ServerIntegrity(t *testing.T) {
 	ctx := context.Background()
 	web3svr.Start(ctx)
 	defer web3svr.Stop(ctx)
-	handler := newHTTPHandler(NewWeb3Handler(svr.core, "", DefaultBatchRequestLimit))
+	handler := newHTTPHandler(NewWeb3Handler(svr.core, "", _defaultBatchRequestLimit))
 
 	// send request
 	t.Run("eth_gasPrice", func(t *testing.T) {

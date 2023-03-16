@@ -34,8 +34,8 @@ import (
 
 const (
 	_metamaskBalanceContractAddr = "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr"
-	// DefaultBatchRequestLimit is the default maximum number of items in a batch.
-	DefaultBatchRequestLimit = 100 // Maximum number of items in a batch.
+	// _defaultBatchRequestLimit is the default maximum number of items in a batch.
+	_defaultBatchRequestLimit = 100 // Maximum number of items in a batch.
 )
 
 type (
