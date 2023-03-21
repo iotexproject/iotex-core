@@ -1022,3 +1022,34 @@ func TestDebugTraceTransaction(t *testing.T) {
 	require.Empty(rlt.Revert)
 	require.Equal(0, len(rlt.StructLogs))
 }
+
+func TestDebugTraceCall(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil}
+
+	ctx := context.Background()
+	tsf, err := action.SignedExecution(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64), []byte{})
+	require.NoError(err)
+	tsfhash, err := tsf.Hash()
+	require.NoError(err)
+	receipt := &action.Receipt{Status: 1, BlockHeight: 1, ActionHash: tsfhash, GasConsumed: 100000}
+	structLogger := &logger.StructLogger{}
+
+	core.EXPECT().TraceCall(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return([]byte{0x01}, receipt, structLogger, nil)
+
+	in := gjson.Parse(`{"method":"debug_traceCall","params":[{"from":null,"to":"0x6b175474e89094c44da98b954eedeac495271d0f","data":"0x70a082310000000000000000000000006E0d01A76C3Cf4288372a29124A26D4353EE51BE"}, {"blockNumber":1}],"id":1,"jsonrpc":"2.0"}`)
+	ret, err := web3svr.traceCall(ctx, &in)
+	require.NoError(err)
+	rlt, ok := ret.(*debugTraceTransactionResult)
+	require.True(ok)
+	require.Equal("0x01", rlt.ReturnValue)
+	require.False(rlt.Failed)
+	require.Equal(uint64(100000), rlt.Gas)
+	require.Empty(rlt.Revert)
+	require.Equal(0, len(rlt.StructLogs))
+}

@@ -146,6 +146,16 @@ type (
 		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
 		// TraceTransaction returns the trace result of a transaction
 		TraceTransaction(ctx context.Context, actHash string, config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error)
+		// TraceCall returns the trace result of a call
+		TraceCall(ctx context.Context,
+			callerAddr address.Address,
+			blkNumOrHash any,
+			contractAddress string,
+			nonce uint64,
+			amount *big.Int,
+			gasLimit uint64,
+			data []byte,
+			config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -1644,5 +1654,62 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	})
 	addr, _ := address.FromString(address.ZeroAddress)
 	retval, receipt, err := core.SimulateExecution(ctx, addr, sc)
+	return retval, receipt, traces, err
+}
+
+// TraceCall returns the trace result of call
+func (core *coreService) TraceCall(ctx context.Context,
+	callerAddr address.Address,
+	blkNumOrHash any,
+	contractAddress string,
+	nonce uint64,
+	amount *big.Int,
+	gasLimit uint64,
+	data []byte,
+	config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error) {
+	var (
+		blkHash hash.Hash256
+		err     error
+	)
+	// ignore the incoming blkNumOrHash and use the latest height.
+	blkHash, err = core.dao.GetBlockHash(core.TipHeight())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if gasLimit == 0 {
+		gasLimit = core.bc.Genesis().BlockGasLimit
+	}
+	traces := logger.NewStructLogger(config)
+	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
+		Debug:     true,
+		Tracer:    traces,
+		NoBaseFee: true,
+	})
+	ctx, err = core.bc.Context(ctx)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if nonce == 0 {
+		state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		nonce = state.PendingNonce()
+	}
+	exec, err := action.NewExecution(
+		contractAddress,
+		nonce,
+		amount,
+		gasLimit,
+		big.NewInt(0),
+		data,
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	getblockHash := func(height uint64) (hash.Hash256, error) {
+		return blkHash, nil
+	}
+	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, exec, getblockHash)
 	return retval, receipt, traces, err
 }
