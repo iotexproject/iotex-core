@@ -21,15 +21,18 @@ type Config struct {
 	GasStation      gasstation.Config `yaml:"gasStation"`
 	RangeQueryLimit uint64            `yaml:"rangeQueryLimit"`
 	Tracer          tracer.Config     `yaml:"tracer"`
+	// BatchRequestLimit is the maximum number of requests in a batch.
+	BatchRequestLimit int `yaml:"batchRequestLimit"`
 }
 
 // DefaultConfig is the default config
 var DefaultConfig = Config{
-	UseRDS:          false,
-	GRPCPort:        14014,
-	HTTPPort:        15014,
-	WebSocketPort:   16014,
-	TpsWindow:       10,
-	GasStation:      gasstation.DefaultConfig,
-	RangeQueryLimit: 1000,
+	UseRDS:            false,
+	GRPCPort:          14014,
+	HTTPPort:          15014,
+	WebSocketPort:     16014,
+	TpsWindow:         10,
+	GasStation:        gasstation.DefaultConfig,
+	RangeQueryLimit:   1000,
+	BatchRequestLimit: _defaultBatchRequestLimit,
 }
