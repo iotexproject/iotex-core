@@ -1028,7 +1028,7 @@ func TestDebugTraceCall(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	web3svr := &web3Handler{core, nil}
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	ctx := context.Background()
 	tsf, err := action.SignedExecution(identityset.Address(29).String(),
