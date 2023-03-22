@@ -19,7 +19,7 @@ func TestServerV2(t *testing.T) {
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
 	// TODO: mock web3handler
-	web3Handler := NewWeb3Handler(core, "")
+	web3Handler := NewWeb3Handler(core, "", _defaultBatchRequestLimit)
 	svr := &ServerV2{
 		core:         core,
 		grpcServer:   NewGRPCServer(core, testutil.RandomPort()),
