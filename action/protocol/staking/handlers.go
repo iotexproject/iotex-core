@@ -678,6 +678,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		Votes:              p.calculateVoteWeight(bucket, true),
 		SelfStakeBucketIdx: bucketIdx,
 		SelfStake:          act.Amount(),
+		Type:               CandidateType(act.CandidateType()),
 	}
 
 	if err := csm.Upsert(c); err != nil {

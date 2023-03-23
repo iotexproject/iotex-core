@@ -8,7 +8,7 @@
 
 syntax = "proto3";
 package stakingpb;
-
+option go_package = "action/protocol/staking/stakingpb";
 import "google/protobuf/timestamp.proto";
 
 message Bucket {
@@ -27,6 +27,11 @@ message BucketIndices {
     repeated uint64 indices = 1;
 }
 
+enum CandidateType {
+    ConsensusCandidate = 0;
+    ExecutionCandidate = 1;
+}
+
 message Candidate {
     string ownerAddress = 1;
     string operatorAddress = 2;
@@ -35,6 +40,7 @@ message Candidate {
     string votes = 5;
     uint64 selfStakeBucketIdx = 6;
     string selfStake = 7;
+    CandidateType type = 8;
 }
 
 message Candidates {

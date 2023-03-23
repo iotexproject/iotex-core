@@ -20,7 +20,15 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
+// Candidate Types Definition
+const (
+	ConsensusCandidate CandidateType = iota
+	ExecutionCandidate
+)
+
 type (
+	// CandidateType is the type of candidate
+	CandidateType uint32
 	// Candidate represents the candidate
 	Candidate struct {
 		Owner              address.Address
@@ -30,6 +38,7 @@ type (
 		Votes              *big.Int
 		SelfStakeBucketIdx uint64
 		SelfStake          *big.Int
+		Type               CandidateType
 	}
 
 	// CandidateList is a list of candidates which is sortable
@@ -52,6 +61,7 @@ func (d *Candidate) Clone() *Candidate {
 		Votes:              new(big.Int).Set(d.Votes),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          new(big.Int).Set(d.SelfStake),
+		Type:               d.Type,
 	}
 }
 
@@ -187,6 +197,7 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 		Votes:              d.Votes.String(),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          d.SelfStake.String(),
+		Type:               stakingpb.CandidateType(d.Type),
 	}, nil
 }
 
@@ -223,6 +234,7 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	if !ok {
 		return action.ErrInvalidAmount
 	}
+	d.Type = CandidateType(pb.Type)
 	return nil
 }
 
@@ -244,6 +256,7 @@ func (d *Candidate) toStateCandidate() *state.Candidate {
 		Votes:         new(big.Int).Set(d.Votes),
 		RewardAddress: d.Reward.String(),
 		CanName:       []byte(d.Name),
+		Type:          state.CandidateType(d.Type),
 	}
 }
 

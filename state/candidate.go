@@ -28,13 +28,22 @@ var (
 	ErrCandidateList = errors.New("invalid candidate list")
 )
 
+// Candidate Types Definition
+const (
+	ConsensusCandidate CandidateType = iota
+	ExecutionCandidate
+)
+
 type (
+	// CandidateType is the type of candidate
+	CandidateType int
 	// Candidate indicates the structure of a candidate
 	Candidate struct {
 		Address       string
 		Votes         *big.Int
 		RewardAddress string
 		CanName       []byte // used as identifier to merge with native staking result, not part of protobuf
+		Type          CandidateType
 	}
 
 	// CandidateList indicates the list of Candidates which is sortable
@@ -69,6 +78,7 @@ func (c *Candidate) Clone() *Candidate {
 		Votes:         new(big.Int).Set(c.Votes),
 		RewardAddress: c.RewardAddress,
 		CanName:       name,
+		Type:          c.Type,
 	}
 }
 
@@ -147,6 +157,7 @@ func candidateToPb(cand *Candidate) *iotextypes.Candidate {
 		Address:       cand.Address,
 		Votes:         cand.Votes.Bytes(),
 		RewardAddress: cand.RewardAddress,
+		Type:          iotextypes.CandidateType(cand.Type),
 	}
 	if cand.Votes != nil && len(cand.Votes.Bytes()) > 0 {
 		candidatePb.Votes = cand.Votes.Bytes()
@@ -163,6 +174,7 @@ func pbToCandidate(candPb *iotextypes.Candidate) (*Candidate, error) {
 		Address:       candPb.Address,
 		Votes:         big.NewInt(0).SetBytes(candPb.Votes),
 		RewardAddress: candPb.RewardAddress,
+		Type:          CandidateType(candPb.Type),
 	}
 	return candidate, nil
 }

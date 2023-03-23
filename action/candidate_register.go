@@ -103,6 +103,7 @@ type CandidateRegister struct {
 	duration        uint32
 	autoStake       bool
 	payload         []byte
+	candidateType   uint32
 }
 
 func init() {
@@ -191,6 +192,9 @@ func (cr *CandidateRegister) RewardAddress() address.Address { return cr.rewardA
 
 // OwnerAddress returns candidate ownerAddress to register
 func (cr *CandidateRegister) OwnerAddress() address.Address { return cr.ownerAddress }
+
+// CandidateType returns the candidate type
+func (cr *CandidateRegister) CandidateType() uint32 { return cr.candidateType }
 
 // Serialize returns a raw byte stream of the CandidateRegister struct
 func (cr *CandidateRegister) Serialize() []byte {
