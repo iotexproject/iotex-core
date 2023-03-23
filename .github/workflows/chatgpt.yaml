@@ -1,4 +1,4 @@
-name: Code Review
+name: ChatGPT Code Review
 
 on:
   pull_request:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   CodeReview:
-    name: Code Review - chatgpt
+    name: ChatGPT Code Review
     runs-on: ubuntu-latest
     steps:
       - name: OpenAI ChatGPT Code Review
