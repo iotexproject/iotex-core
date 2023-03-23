@@ -107,21 +107,14 @@ type (
 	// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
 	Agent interface {
 		lifecycle.StartStopper
-		// BroadcastOutboundByNetwork sends a broadcast message to the network
-		BroadcastOutboundByNetwork(ctx context.Context, network string, msg proto.Message) (err error)
-		// UnicastOutboundByNetwork sends a unicast message to the given address
-		UnicastOutboundByNetwork(_ context.Context, peer peer.AddrInfo, network string, msg proto.Message) (err error)
 		// Info returns agents' peer info.
 		Info() (peer.AddrInfo, error)
 		// Self returns the self network address
 		Self() ([]multiaddr.Multiaddr, error)
-		// ConnectedPeersByNetwork returns the connected peers' info of one specific network
-		// It should be called only when init with NetworkSeparation option
-		ConnectedPeersByNetwork(string) ([]peer.AddrInfo, error)
 		// BlockPeer blocks the peer in p2p layer
 		BlockPeer(string)
 		// NetworkProxy returns a network proxy to agent
-		NetworkProxy(string) AgentProxy
+		NetworkProxy(string) NetworkProxy
 	}
 
 	// Option defines the option function to modify agent
@@ -188,15 +181,7 @@ func (*dummyAgent) BroadcastOutbound(ctx context.Context, msg proto.Message) err
 	return nil
 }
 
-func (*dummyAgent) BroadcastOutboundByNetwork(ctx context.Context, network string, msg proto.Message) error {
-	return nil
-}
-
 func (*dummyAgent) UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message) error {
-	return nil
-}
-
-func (*dummyAgent) UnicastOutboundByNetwork(_ context.Context, peer peer.AddrInfo, network string, msg proto.Message) error {
 	return nil
 }
 
@@ -212,15 +197,11 @@ func (*dummyAgent) ConnectedPeers() ([]peer.AddrInfo, error) {
 	return nil, nil
 }
 
-func (*dummyAgent) ConnectedPeersByNetwork(string) ([]peer.AddrInfo, error) {
-	return nil, nil
-}
-
 func (*dummyAgent) BlockPeer(string) {
 	return
 }
 
-func (d *dummyAgent) NetworkProxy(string) AgentProxy {
+func (d *dummyAgent) NetworkProxy(n string) NetworkProxy {
 	return d
 }
 
@@ -418,7 +399,7 @@ func (p *agent) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (p *agent) BroadcastOutboundByNetwork(ctx context.Context, network string, msg proto.Message) (err error) {
+func (p *agent) BroadcastOutbound(ctx context.Context, network string, msg proto.Message) (err error) {
 	_, span := tracer.NewSpan(ctx, "Agent.BroadcastOutbound")
 	defer span.End()
 
@@ -468,7 +449,7 @@ func (p *agent) BroadcastOutboundByNetwork(ctx context.Context, network string, 
 	return
 }
 
-func (p *agent) UnicastOutboundByNetwork(ctx context.Context, peer peer.AddrInfo, network string, msg proto.Message) (err error) {
+func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, network string, msg proto.Message) (err error) {
 	host := p.host
 	if host == nil {
 		return ErrAgentNotStarted
@@ -527,7 +508,7 @@ func (p *agent) Self() ([]multiaddr.Multiaddr, error) {
 	return p.host.Addresses(), nil
 }
 
-func (p *agent) ConnectedPeersByNetwork(network string) ([]peer.AddrInfo, error) {
+func (p *agent) ConnectedPeers(network string) ([]peer.AddrInfo, error) {
 	if p.host == nil {
 		return nil, ErrAgentNotStarted
 	}
@@ -542,8 +523,8 @@ func (p *agent) BlockPeer(pidStr string) {
 	p.host.BlockPeer(pid)
 }
 
-func (p *agent) NetworkProxy(network string) AgentProxy {
-	return &agentProxy{
+func (p *agent) NetworkProxy(network string) NetworkProxy {
+	return &networkProxy{
 		agent:   p,
 		network: network,
 	}

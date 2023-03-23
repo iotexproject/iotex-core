@@ -104,7 +104,7 @@ func TestNetworkSeparation(t *testing.T) {
 
 	ctx := context.Background()
 	n := 10
-	agents := make([]AgentProxy, 0)
+	agents := make([]NetworkProxy, 0)
 	defer func() {
 		var err error
 		for _, agent := range agents {
@@ -142,7 +142,7 @@ func TestNetworkSeparation(t *testing.T) {
 		cfg.Port = port
 		cfg.BootstrapNodes = []string{bootnodeAddr[0].String()}
 		cfg.ReconnectInterval = 150 * time.Second
-		var agent AgentProxy
+		var agent NetworkProxy
 		if i%2 == 0 {
 			opt := JoinNetwork(BlockNetwork, ActionNetwork)
 			agent = NewAgent(cfg, 1, hash.ZeroHash256, b(uint8(i)), u, opt).NetworkProxy(ActionNetwork)
@@ -158,29 +158,29 @@ func TestNetworkSeparation(t *testing.T) {
 	t.Run("connectedPeers", func(t *testing.T) {
 		for i := 0; i < n; i++ {
 			if i%2 == 0 {
-				peers, err := agents[i].ConnectedPeersByNetwork(ActionNetwork)
+				peers, err := agents[i].NetworkProxy(ActionNetwork).ConnectedPeers()
 				require.NoError(err)
 				require.Len(peers, n/2-1)
-				peers, err = agents[i].ConnectedPeersByNetwork(ConsensusNetwork)
+				peers, err = agents[i].NetworkProxy(ConsensusNetwork).ConnectedPeers()
 				require.NoError(err)
 				require.Len(peers, n/2)
-				peers, err = agents[i].ConnectedPeersByNetwork(BlockNetwork)
+				peers, err = agents[i].NetworkProxy(BlockNetwork).ConnectedPeers()
 				require.NoError(err)
 				require.Len(peers, n-1)
-				peers, err = agents[i].ConnectedPeersByNetwork("unknown")
+				peers, err = agents[i].NetworkProxy("unknown").ConnectedPeers()
 				require.NoError(err)
 				require.Len(peers, 0)
 			} else {
-				peers, err := agents[i].ConnectedPeersByNetwork(ActionNetwork)
+				peers, err := agents[i].NetworkProxy(ActionNetwork).ConnectedPeers()
 				require.NoError(err)
 				require.Len(peers, n/2)
-				peers, err = agents[i].ConnectedPeersByNetwork(ConsensusNetwork)
+				peers, err = agents[i].NetworkProxy(ConsensusNetwork).ConnectedPeers()
 				require.NoError(err)
 				require.Len(peers, n/2-1)
-				peers, err = agents[i].ConnectedPeersByNetwork(BlockNetwork)
+				peers, err = agents[i].NetworkProxy(BlockNetwork).ConnectedPeers()
 				require.NoError(err)
 				require.Len(peers, n-1)
-				peers, err = agents[i].ConnectedPeersByNetwork("unknown")
+				peers, err = agents[i].NetworkProxy("unknown").ConnectedPeers()
 				require.NoError(err)
 				require.Len(peers, 0)
 			}
@@ -206,7 +206,7 @@ func TestNetworkSeparation(t *testing.T) {
 
 	t.Run("broadcastUnsubscribed", func(t *testing.T) {
 		resetCounts()
-		require.NoError(agents[0].BroadcastOutboundByNetwork(ctx, ConsensusNetwork, &testingpb.TestPayload{
+		require.NoError(agents[0].NetworkProxy(ConsensusNetwork).BroadcastOutbound(ctx, &testingpb.TestPayload{
 			MsgBody: []byte{uint8(0)},
 		}))
 		for i := 0; i < n; i++ {
@@ -228,7 +228,7 @@ func TestNetworkSeparation(t *testing.T) {
 
 	t.Run("broadcastUnsubscribedWithNoPeers", func(t *testing.T) {
 		resetCounts()
-		err := agents[0].BroadcastOutboundByNetwork(ctx, "unknown", &testingpb.TestPayload{
+		err := agents[0].NetworkProxy("unknown").BroadcastOutbound(ctx, &testingpb.TestPayload{
 			MsgBody: []byte{uint8(0)},
 		})
 		require.True(errors.Is(err, ErrNoConnectedPeers))
