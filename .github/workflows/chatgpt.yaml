@@ -2,7 +2,7 @@ name: Code Review
 
 on:
   pull_request:
-    types: [opened, reopened]
+    types: [opened, reopened,synchronize]
   workflow_dispatch:
 
 permissions:
@@ -20,7 +20,7 @@ jobs:
           openai_api_key: ${{ secrets.OPENAI_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           github_pr_id: ${{ github.event.number }}
-          openai_engine: "gpt-4" #optional
-          openai_temperature: 0.5 #optional
-          openai_max_tokens: 8192 #optional
+          # openai_engine: "gpt-4" #optional
+          # openai_temperature: 0.5 #optional
+          # openai_max_tokens: 8192 #optional
           mode: file # file or patch
