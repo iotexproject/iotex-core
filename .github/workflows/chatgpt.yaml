@@ -22,5 +22,5 @@ jobs:
           github_pr_id: ${{ github.event.number }}
           # openai_engine: "code-davinci-002" #optional
           # openai_temperature: 0.5 #optional
-          openai_max_tokens: 4096
+          openai_max_tokens: 2048
           # mode: file # file or patch
