@@ -21,7 +21,7 @@ jobs:
           github-pr-id: ${{ github.event.number }}
           dev-lang: Go
           openai-max-tokens: 4096
-          openai-engine: "code-davinci-002" # "gpt-4"
+          #openai-engine: "code-davinci-002" # "gpt-4"
           
 #       - name: OpenAI ChatGPT Code Review
 #         uses: cirolini/chatgpt-github-actions@v1.3
