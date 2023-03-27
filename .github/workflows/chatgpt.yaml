@@ -23,4 +23,4 @@ jobs:
           # openai_engine: "code-davinci-002" #optional
           # openai_temperature: 0.5 #optional
           openai_max_tokens: 4096
-          mode: file # file or patch
+          # mode: file # file or patch
