@@ -28,6 +28,11 @@ const (
 	// CandidateRegisterBaseIntrinsicGas represents the base intrinsic gas for CandidateRegister
 	CandidateRegisterBaseIntrinsicGas = uint64(10000)
 
+	// CandidateRegisterTypeConsensus represents the consensus type of candidate register
+	CandidateRegisterTypeConsensus = uint32(0)
+	// CandidateRegisterTypeExecution represents the execution type of candidate register
+	CandidateRegisterTypeExecution = uint32(1)
+
 	_candidateRegisterInterfaceABI = `[
 		{
 			"inputs": [

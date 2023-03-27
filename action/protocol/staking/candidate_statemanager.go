@@ -19,7 +19,8 @@ import (
 
 // const
 const (
-	_stakingCandCenter = "candCenter"
+	_stakingCandCenter          = "candCenter"
+	_executionStakingCandCenter = "candCenter:execution"
 )
 
 type (
@@ -62,10 +63,54 @@ type (
 
 	candSM struct {
 		protocol.StateManager
-		candCenter *CandidateCenter
-		bucketPool *BucketPool
+		candCenter    *CandidateCenter
+		bucketPool    *BucketPool
+		namespace     string
+		candCenterKey string
+	}
+
+	combinedCandSM struct {
+		protocol.StateManager
+		consensusCandSM CandidateStateManager
+		executionCandSM CandidateStateManager
 	}
 )
+
+func (ccsm *combinedCandSM) Commit(ctx context.Context) error {
+	if err := ccsm.consensusCandSM.Commit(ctx); err != nil {
+		return err
+	}
+	consensusDirtyView := ccsm.consensusCandSM.DirtyView()
+	if err := ccsm.executionCandSM.Commit(ctx); err != nil {
+		return err
+	}
+	executionDirtyView := ccsm.executionCandSM.DirtyView()
+	return ccsm.WriteView(_protocolID, &ViewData{
+		candCenter:          consensusDirtyView.candCenter,
+		bucketPool:          consensusDirtyView.bucketPool,
+		executionCandCenter: executionDirtyView.candCenter,
+		executionBucketPool: executionDirtyView.bucketPool,
+	})
+}
+func NewCombinedCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (*combinedCandSM, error) {
+	consensusCsm, err := NewCandidateStateManager(sm, enableSMStorage)
+	if err != nil {
+		return nil, err
+	}
+	executionCsm, err := NewExecutionCandidateStateManager(sm, enableSMStorage)
+	if err != nil {
+		return nil, err
+	}
+	return &combinedCandSM{
+		StateManager:    sm,
+		consensusCandSM: consensusCsm,
+		executionCandSM: executionCsm,
+	}, nil
+}
+
+func NewExecutionCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (CandidateStateManager, error) {
+	return nil, nil
+}
 
 // NewCandidateStateManager returns a new CandidateStateManager instance
 func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (CandidateStateManager, error) {
@@ -80,16 +125,17 @@ func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (C
 	// and won't affect base view until being committed
 	view := csr.BaseView()
 	csm := &candSM{
-		StateManager: sm,
-		candCenter:   view.candCenter.Base(),
-		bucketPool:   view.bucketPool.Copy(enableSMStorage),
+		StateManager:  sm,
+		candCenter:    view.candCenter.Base(),
+		bucketPool:    view.bucketPool.Copy(enableSMStorage),
+		namespace:     _candidateNameSpace,
+		candCenterKey: _stakingCandCenter,
 	}
 
 	// extract view change from SM
 	if err := csm.bucketPool.Sync(sm); err != nil {
 		return nil, errors.Wrap(err, "failed to sync bucket pool")
 	}
-
 	if err := csm.candCenter.Sync(sm); err != nil {
 		return nil, errors.Wrap(err, "failed to sync candidate center")
 	}
@@ -154,7 +200,7 @@ func (csm *candSM) Upsert(d *Candidate) error {
 	}
 
 	// load change to sm
-	return csm.StateManager.Load(_protocolID, _stakingCandCenter, &delta)
+	return csm.StateManager.Load(_protocolID, csm.candCenterKey, &delta)
 }
 
 func (csm *candSM) CreditBucketPool(amount *big.Int) error {
@@ -185,7 +231,8 @@ func (csm *candSM) Commit(ctx context.Context) error {
 	}
 
 	// write updated view back to state factory
-	return csm.WriteView(_protocolID, csm.DirtyView())
+	// return csm.WriteView(_protocolID, csm.DirtyView())
+	return nil
 }
 
 func (csm *candSM) getBucket(index uint64) (*VoteBucket, error) {
@@ -323,7 +370,7 @@ func (csm *candSM) delVoterBucketIndex(addr address.Address, index uint64) error
 }
 
 func (csm *candSM) putCandidate(d *Candidate) error {
-	_, err := csm.PutState(d, protocol.NamespaceOption(_candidateNameSpace), protocol.KeyOption(d.Owner.Bytes()))
+	_, err := csm.PutState(d, protocol.NamespaceOption(csm.namespace), protocol.KeyOption(d.Owner.Bytes()))
 	return err
 }
 
@@ -332,7 +379,7 @@ func (csm *candSM) putCandBucketIndex(addr address.Address, index uint64) error 
 }
 
 func (csm *candSM) delCandidate(name address.Address) error {
-	_, err := csm.DelState(protocol.NamespaceOption(_candidateNameSpace), protocol.KeyOption(name.Bytes()))
+	_, err := csm.DelState(protocol.NamespaceOption(csm.namespace), protocol.KeyOption(name.Bytes()))
 	return err
 }
 

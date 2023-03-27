@@ -38,6 +38,8 @@ const (
 
 	// _candidateNameSpace is the bucket name for candidate state
 	_candidateNameSpace = "Candidate"
+	// _executionCandidateNameSpace is the bucket name for execution candidate state
+	_executionCandidateNameSpace = "ExecutionCandidate"
 
 	// CandsMapNS is the bucket name to store candidate map
 	CandsMapNS = "CandsMap"
@@ -363,13 +365,14 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	if err != nil {
 		return err
 	}
-	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	csnc, err := NewCombinedCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	// csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
 	if err != nil {
 		return err
 	}
 
 	// commit updated view
-	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in Commit")
+	return errors.Wrap(csnc.Commit(ctx), "failed to commit candidate change in Commit")
 }
 
 // Handle handles a staking message
@@ -379,7 +382,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, err
 	}
-	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	csm, err := NewCombinedCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +390,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	return p.handle(ctx, act, csm)
 }
 
-func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
+func (p *Protocol) handle(ctx context.Context, act action.Action, csm *combinedCandSM) (*action.Receipt, error) {
 	var (
 		rLog  *receiptLog
 		tLogs []*action.TransactionLog
@@ -397,23 +400,23 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 
 	switch act := act.(type) {
 	case *action.CreateStake:
-		rLog, tLogs, err = p.handleCreateStake(ctx, act, csm)
+		rLog, tLogs, err = p.handleCreateStake(ctx, act, csm.consensusCandSM)
 	case *action.Unstake:
-		rLog, err = p.handleUnstake(ctx, act, csm)
+		rLog, err = p.handleUnstake(ctx, act, csm.consensusCandSM)
 	case *action.WithdrawStake:
-		rLog, tLogs, err = p.handleWithdrawStake(ctx, act, csm)
+		rLog, tLogs, err = p.handleWithdrawStake(ctx, act, csm.consensusCandSM)
 	case *action.ChangeCandidate:
-		rLog, err = p.handleChangeCandidate(ctx, act, csm)
+		rLog, err = p.handleChangeCandidate(ctx, act, csm.consensusCandSM)
 	case *action.TransferStake:
-		rLog, err = p.handleTransferStake(ctx, act, csm)
+		rLog, err = p.handleTransferStake(ctx, act, csm.consensusCandSM)
 	case *action.DepositToStake:
-		rLog, tLogs, err = p.handleDepositToStake(ctx, act, csm)
+		rLog, tLogs, err = p.handleDepositToStake(ctx, act, csm.consensusCandSM)
 	case *action.Restake:
-		rLog, err = p.handleRestake(ctx, act, csm)
+		rLog, err = p.handleRestake(ctx, act, csm.consensusCandSM)
 	case *action.CandidateRegister:
 		rLog, tLogs, err = p.handleCandidateRegister(ctx, act, csm)
 	case *action.CandidateUpdate:
-		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
+		rLog, err = p.handleCandidateUpdate(ctx, act, csm.consensusCandSM)
 	default:
 		return nil, nil
 	}
@@ -422,14 +425,14 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		logs = append(logs, l)
 	}
 	if err == nil {
-		return p.settleAction(ctx, csm.SM(), uint64(iotextypes.ReceiptStatus_Success), logs, tLogs)
+		return p.settleAction(ctx, csm.consensusCandSM.SM(), uint64(iotextypes.ReceiptStatus_Success), logs, tLogs)
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		log.L().With(
 			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Debug("Failed to commit staking action", zap.Error(err))
-		return p.settleAction(ctx, csm.SM(), receiptErr.ReceiptStatus(), logs, tLogs)
+		return p.settleAction(ctx, csm.consensusCandSM.SM(), receiptErr.ReceiptStatus(), logs, tLogs)
 	}
 	return nil, err
 }

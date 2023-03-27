@@ -619,7 +619,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	return log, nil
 }
 
-func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.CandidateRegister, csm CandidateStateManager,
+func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.CandidateRegister, csmc *combinedCandSM,
 ) (*receiptLog, []*action.TransactionLog, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -627,7 +627,10 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	log := newReceiptLog(p.addr.String(), HandleCandidateRegister, featureCtx.NewStakingReceiptFormat)
 
 	registrationFee := new(big.Int).Set(p.config.RegistrationConsts.Fee)
-
+	csm := csmc.consensusCandSM
+	if act.CandidateType() == action.CandidateRegisterTypeExecution {
+		csm = csmc.executionCandSM
+	}
 	caller, fetchErr := fetchCaller(ctx, csm, new(big.Int).Add(act.Amount(), registrationFee))
 	if fetchErr != nil {
 		return log, nil, fetchErr

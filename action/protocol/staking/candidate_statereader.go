@@ -69,20 +69,24 @@ type (
 
 	candSR struct {
 		protocol.StateReader
-		height uint64
-		view   *ViewData
+		height    uint64
+		view      *ViewData
+		namespace string
 	}
 
 	// ViewData is the data that need to be stored in protocol's view
 	ViewData struct {
-		candCenter *CandidateCenter
-		bucketPool *BucketPool
+		candCenter          *CandidateCenter
+		bucketPool          *BucketPool
+		executionCandCenter *CandidateCenter
+		executionBucketPool *BucketPool
 	}
 )
 
 func newCandidateStateReader(sr protocol.StateReader) CandidateStateReader {
 	return &candSR{
 		StateReader: sr,
+		namespace:   _candidateNameSpace,
 	}
 }
 
@@ -143,8 +147,39 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 		StateReader: sr,
 		height:      height,
 		view: &ViewData{
-			candCenter: view.candCenter,
-			bucketPool: view.bucketPool,
+			candCenter:          view.candCenter,
+			bucketPool:          view.bucketPool,
+			executionCandCenter: view.executionCandCenter,
+			executionBucketPool: view.executionBucketPool,
+		},
+	}, nil
+}
+
+func ConstructExecutionView(sr protocol.StateReader) (CandidateStateReader, error) {
+	if sr == nil {
+		return nil, ErrMissingField
+	}
+
+	height, err := sr.Height()
+	if err != nil {
+		return nil, err
+	}
+	v, err := sr.ReadView(_protocolID)
+	if err != nil {
+		return nil, err
+	}
+
+	view, ok := v.(*ViewData)
+	if !ok {
+		return nil, errors.Wrap(ErrTypeAssertion, "expecting *ViewData")
+	}
+
+	return &candSR{
+		StateReader: sr,
+		height:      height,
+		view: &ViewData{
+			candCenter: view.executionCandCenter,
+			bucketPool: view.executionBucketPool,
 		},
 	}, nil
 }
@@ -284,12 +319,12 @@ func (c *candSR) getCandidate(name address.Address) (*Candidate, uint64, error) 
 		return nil, 0, ErrNilParameters
 	}
 	var d Candidate
-	height, err := c.State(&d, protocol.NamespaceOption(_candidateNameSpace), protocol.KeyOption(name.Bytes()))
+	height, err := c.State(&d, protocol.NamespaceOption(c.namespace), protocol.KeyOption(name.Bytes()))
 	return &d, height, err
 }
 
 func (c *candSR) getAllCandidates() (CandidateList, uint64, error) {
-	height, iter, err := c.States(protocol.NamespaceOption(_candidateNameSpace))
+	height, iter, err := c.States(protocol.NamespaceOption(c.namespace))
 	if err != nil {
 		return nil, height, err
 	}
