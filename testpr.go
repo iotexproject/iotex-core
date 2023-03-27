@@ -9,9 +9,9 @@ import (
 	"fmt"
 )
 
-var RSA_PRIVATE = ''
+var RSA_PRIVATE = ""
 
-var RSA_PUBLIC = ''
+var RSA_PUBLIC = ""
 
 
 // Sign sign message with sha256
