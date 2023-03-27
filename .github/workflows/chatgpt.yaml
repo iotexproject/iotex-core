@@ -1,0 +1,27 @@
+name: ChatGPT Code Review
+
+on:
+  pull_request:
+    types: [opened, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  CodeReview:
+    name: ChatGPT Code Review
+    runs-on: ubuntu-latest
+    steps:
+      - name: OpenAI ChatGPT Code Review
+        uses: cirolini/chatgpt-github-actions@v1.3
+        with:
+          openai_api_key: ${{ secrets.OPENAI_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_pr_id: ${{ github.event.number }}
+          openai_engine: "code-davinci-002" #optional
+          # openai_temperature: 0.5 #optional
+          # openai_max_tokens: 8192 #optional
+          mode: file # file or patch
