@@ -2,7 +2,7 @@ name: ChatGPT Code Review
 
 on:
   pull_request:
-    types: [opened, reopened]
+    branches: "*"
   workflow_dispatch:
 
 permissions:
