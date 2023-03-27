@@ -93,11 +93,11 @@ func (ccsm *combinedCandSM) Commit(ctx context.Context) error {
 	})
 }
 func NewCombinedCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (*combinedCandSM, error) {
-	consensusCsm, err := NewCandidateStateManager(sm, enableSMStorage)
+	consensusCsm, err := newConsensusCandidateStateManager(sm, enableSMStorage)
 	if err != nil {
 		return nil, err
 	}
-	executionCsm, err := NewExecutionCandidateStateManager(sm, enableSMStorage)
+	executionCsm, err := newExecutionCandidateStateManager(sm, enableSMStorage)
 	if err != nil {
 		return nil, err
 	}
@@ -108,12 +108,16 @@ func NewCombinedCandidateStateManager(sm protocol.StateManager, enableSMStorage 
 	}, nil
 }
 
-func NewExecutionCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (CandidateStateManager, error) {
-	return nil, nil
+func newConsensusCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (CandidateStateManager, error) {
+	return NewCandidateStateManager(sm, enableSMStorage, _candidateNameSpace, _stakingCandCenter)
+}
+
+func newExecutionCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (CandidateStateManager, error) {
+	return NewCandidateStateManager(sm, enableSMStorage, _executionCandidateNameSpace, _executionStakingCandCenter)
 }
 
 // NewCandidateStateManager returns a new CandidateStateManager instance
-func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (CandidateStateManager, error) {
+func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool, namespace, candCenterKey string) (CandidateStateManager, error) {
 	// TODO: we can store csm in a local cache, just as how statedb store the workingset
 	// b/c most time the sm is used before, no need to create another clone
 	csr, err := ConstructBaseView(sm)

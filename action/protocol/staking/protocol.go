@@ -209,7 +209,7 @@ func (p *Protocol) CreateGenesisStates(
 		return nil
 	}
 	// TODO: set init values based on ctx
-	csm, err := NewCandidateStateManager(sm, false)
+	csmc, err := NewCombinedCandidateStateManager(sm, false)
 	if err != nil {
 		return err
 	}
@@ -235,7 +235,7 @@ func (p *Protocol) CreateGenesisStates(
 			return action.ErrInvalidAmount
 		}
 		bucket := NewVoteBucket(owner, owner, selfStake, 7, time.Now(), true)
-		bucketIdx, err := csm.putBucketAndIndex(bucket)
+		bucketIdx, err := csmc.consensusCandSM.putBucketAndIndex(bucket)
 		if err != nil {
 			return err
 		}
@@ -250,16 +250,16 @@ func (p *Protocol) CreateGenesisStates(
 		}
 
 		// put in statedb and cand center
-		if err := csm.Upsert(c); err != nil {
+		if err := csmc.consensusCandSM.Upsert(c); err != nil {
 			return err
 		}
-		if err := csm.DebitBucketPool(selfStake, true); err != nil {
+		if err := csmc.consensusCandSM.DebitBucketPool(selfStake, true); err != nil {
 			return err
 		}
 	}
 
 	// commit updated view
-	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in CreateGenesisStates")
+	return errors.Wrap(csmc.Commit(ctx), "failed to commit candidate change in CreateGenesisStates")
 }
 
 // CreatePreStates updates state manager
@@ -279,7 +279,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	}
 
 	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
-		csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(blkCtx.BlockHeight))
+		csm, err := newConsensusCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(blkCtx.BlockHeight))
 		if err != nil {
 			return err
 		}
@@ -336,7 +336,7 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	}
 
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
-	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	csm, err := newConsensusCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
 	if err != nil {
 		return err
 	}
