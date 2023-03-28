@@ -69,7 +69,7 @@ func defaultConfig() Genesis {
 			MidwayBlockHeight:       16509241,
 			NewfoundlandBlockHeight: 17662681,
 			OkhotskBlockHeight:      21542761,
-			PalauBlockHeight:        31542761,
+			PalauBlockHeight:        22991401,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
