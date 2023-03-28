@@ -58,13 +58,13 @@ func GetChainMeta(client ioctl.Client) (*iotextypes.ChainMeta, error) {
 	if err == nil {
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(context.Background())
 	}
-
 	chainMetaResponse, err := apiServiceClient.GetChainMeta(ctx, &iotexapi.GetChainMetaRequest{})
-
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
-			return nil, errors.Wrap(nil, sta.Message())
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return nil, ioctl.ErrInvalidEndpointOrInsecure
+			}
+			return nil, errors.New(sta.Message())
 		}
 		return nil, errors.Wrap(err, "failed to invoke GetChainMeta api")
 	}
@@ -77,17 +77,18 @@ func GetEpochMeta(client ioctl.Client, epochNum uint64) (*iotexapi.GetEpochMetaR
 	if err != nil {
 		return nil, err
 	}
-
 	ctx := context.Background()
 	jwtMD, err := util.JwtAuth()
 	if err == nil {
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
-	epochMetaresponse, err := apiServiceClient.GetEpochMeta(ctx, &iotexapi.GetEpochMetaRequest{})
+	epochMetaresponse, err := apiServiceClient.GetEpochMeta(ctx, &iotexapi.GetEpochMetaRequest{EpochNumber: epochNum})
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
-			return nil, errors.Wrap(nil, sta.Message())
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return nil, ioctl.ErrInvalidEndpointOrInsecure
+			}
+			return nil, errors.New(sta.Message())
 		}
 		return nil, errors.Wrap(err, "failed to invoke GetEpochMeta api")
 	}
@@ -114,10 +115,12 @@ func GetProbationList(client ioctl.Client, epochNum uint64, epochStartHeight uin
 
 	response, err := apiServiceClient.ReadState(ctx, request)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok && sta.Code() == codes.NotFound {
-			return nil, nil
-		} else if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.NotFound {
+				return nil, nil
+			} else if sta.Code() == codes.Unavailable {
+				return nil, ioctl.ErrInvalidEndpointOrInsecure
+			}
 			return nil, errors.New(sta.Message())
 		}
 		return nil, errors.Wrap(err, "failed to invoke ReadState api")
@@ -155,8 +158,10 @@ func GetBucketList(
 
 	response, err := apiServiceClient.ReadState(ctx, request)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return nil, ioctl.ErrInvalidEndpointOrInsecure
+			}
 			return nil, errors.New(sta.Message())
 		}
 		return nil, errors.Wrap(err, "failed to invoke ReadState api")

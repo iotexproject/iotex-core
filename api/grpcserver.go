@@ -15,13 +15,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -39,7 +37,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/api/logfilter"
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -659,32 +656,18 @@ func (svr *gRPCHandler) ReadContractStorage(ctx context.Context, in *iotexapi.Re
 
 // TraceTransactionStructLogs get trace transaction struct logs
 func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iotexapi.TraceTransactionStructLogsRequest) (*iotexapi.TraceTransactionStructLogsResponse, error) {
-	actInfo, err := svr.coreService.Action(util.Remove0xPrefix(in.GetActionHash()), false)
+	cfg := &logger.Config{
+		EnableMemory:     true,
+		DisableStack:     false,
+		DisableStorage:   false,
+		EnableReturnData: true,
+	}
+	_, _, traces, err := svr.coreService.TraceTransaction(ctx, in.GetActionHash(), cfg)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
-	act, err := (&action.Deserializer{}).SetEvmNetworkID(svr.coreService.EVMNetworkID()).ActionToSealedEnvelope(actInfo.Action)
-	if err != nil {
-		return nil, err
-	}
-	sc, ok := act.Action().(*action.Execution)
-	if !ok {
-		return nil, status.Error(codes.InvalidArgument, "the type of action is not supported")
-	}
-	tracer := logger.NewStructLogger(nil)
-	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
-		Debug:     true,
-		Tracer:    tracer,
-		NoBaseFee: true,
-	})
-
-	_, _, err = svr.coreService.SimulateExecution(ctx, act.SenderAddress(), sc)
-	if err != nil {
-		return nil, err
-	}
-
 	structLogs := make([]*iotextypes.TransactionStructLog, 0)
-	for _, log := range tracer.StructLogs() {
+	for _, log := range traces.StructLogs() {
 		var stack []string
 		for _, s := range log.Stack {
 			stack = append(stack, s.String())

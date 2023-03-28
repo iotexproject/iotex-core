@@ -84,8 +84,10 @@ func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 			}
 			response, err := apiServiceClient.GetActions(ctx, requestGetAction)
 			if err != nil {
-				sta, ok := status.FromError(err)
-				if ok {
+				if sta, ok := status.FromError(err); ok {
+					if sta.Code() == codes.Unavailable {
+						return ioctl.ErrInvalidEndpointOrInsecure
+					}
 					return errors.New(sta.Message())
 				}
 				return errors.Wrap(err, "failed to invoke GetActions api")
@@ -98,10 +100,12 @@ func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 			requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
 			responseReceipt, err := apiServiceClient.GetReceiptByAction(ctx, requestGetReceipt)
 			if err != nil {
-				sta, ok := status.FromError(err)
-				if ok && sta.Code() == codes.NotFound {
-					message.State = Pending
-				} else if ok {
+				if sta, ok := status.FromError(err); ok {
+					if sta.Code() == codes.NotFound {
+						message.State = Pending
+					} else if sta.Code() == codes.Unavailable {
+						return ioctl.ErrInvalidEndpointOrInsecure
+					}
 					return errors.New(sta.Message())
 				}
 				return errors.Wrap(err, "failed to invoke GetReceiptByAction api")

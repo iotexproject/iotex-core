@@ -37,6 +37,11 @@ const (
 	_urlPattern = `[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`
 )
 
+var (
+	//ErrInvalidEndpointOrInsecure represents that endpoint or insecure is invalid
+	ErrInvalidEndpointOrInsecure = errors.New("check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has")
+)
+
 type (
 	// Client defines the interface of an ioctl client
 	Client interface {

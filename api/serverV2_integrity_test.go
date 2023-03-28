@@ -33,13 +33,23 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
+
+type testConfig struct {
+	api       Config
+	genesis   genesis.Genesis
+	actPoll   actpool.Config
+	chain     blockchain.Config
+	consensus consensus.Config
+	db        db.Config
+	indexer   blockindex.Config
+}
 
 var (
 	_testTransfer1, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(27), 1,
@@ -277,28 +287,28 @@ func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 	return ap.Add(ctx, execution1)
 }
 
-func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, blockindex.BloomFilterIndexer, factory.Factory, actpool.ActPool, *protocol.Registry, string, error) {
-	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
+func setupChain(cfg testConfig) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, blockindex.BloomFilterIndexer, factory.Factory, actpool.ActPool, *protocol.Registry, string, error) {
+	cfg.chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
 	registry := protocol.NewRegistry()
-	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	factoryCfg := factory.GenerateConfig(cfg.chain, cfg.genesis)
 	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", err
 	}
-	ap, err := setupActPool(cfg.Genesis, sf, cfg.ActPool)
+	ap, err := setupActPool(cfg.genesis, sf, cfg.actPoll)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", err
 	}
-	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
-	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = unit.ConvertIotxToRau(10000000000).String()
+	cfg.genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
+	cfg.genesis.InitBalanceMap[identityset.Address(28).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create indexer
-	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
+	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.genesis.Hash())
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create indexer")
 	}
 	testPath, _ := testutil.PathOfTempFile("bloomfilter")
-	cfg.DB.DbPath = testPath
-	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewBoltDB(cfg.DB), cfg.Indexer)
+	cfg.db.DbPath = testPath
+	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewBoltDB(cfg.db), cfg.indexer)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create bloomfilter indexer")
 	}
@@ -309,8 +319,8 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	}
 	// create chain
 	bc := blockchain.NewBlockchain(
-		cfg.Chain,
-		cfg.Genesis,
+		cfg.chain,
+		cfg.genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -327,14 +337,14 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 
 	acc := account.NewProtocol(rewarding.DepositGas)
 	evm := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
-	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+	p := poll.NewLifeLongDelegatesProtocol(cfg.genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
 		genesis.Default.NumSubEpochs,
-		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
+		rolldpos.EnableDardanellesSubEpoch(cfg.genesis.DardanellesBlockHeight, cfg.genesis.DardanellesNumSubEpochs),
 	)
-	r := rewarding.NewProtocol(cfg.Genesis.Rewarding)
+	r := rewarding.NewProtocol(cfg.genesis.Rewarding)
 
 	if err := rolldposProtocol.Register(registry); err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", err
@@ -356,7 +366,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 }
 
 func setupActPool(g genesis.Genesis, sf factory.Factory, cfg actpool.Config) (actpool.ActPool, error) {
-	ap, err := actpool.NewActPool(g, sf, cfg, actpool.EnableExperimentalActions())
+	ap, err := actpool.NewActPool(g, sf, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -366,8 +376,16 @@ func setupActPool(g genesis.Genesis, sf factory.Factory, cfg actpool.Config) (ac
 	return ap, nil
 }
 
-func newConfig() config.Config {
-	cfg := config.Default
+func newConfig() testConfig {
+	cfg := testConfig{
+		api:       DefaultConfig,
+		genesis:   genesis.Default,
+		actPoll:   actpool.DefaultConfig,
+		chain:     blockchain.DefaultConfig,
+		consensus: consensus.DefaultConfig,
+		db:        db.DefaultConfig,
+		indexer:   blockindex.DefaultConfig,
+	}
 
 	testTriePath, err := testutil.PathOfTempFile("trie")
 	if err != nil {
@@ -392,23 +410,21 @@ func newConfig() config.Config {
 		testutil.CleanupPath(testSystemLogPath)
 	}()
 
-	cfg.Plugins[config.GatewayPlugin] = true
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.Chain.EVMNetworkID = _evmNetworkID
-	cfg.System.SystemLogDBPath = testSystemLogPath
-	cfg.Chain.EnableAsyncIndexWrite = false
-	cfg.Genesis.EnableGravityChainVoting = true
-	cfg.ActPool.MinGasPriceStr = "0"
-	cfg.API.RangeQueryLimit = 100
-	cfg.API.GRPCPort = 0
-	cfg.API.HTTPPort = 0
-	cfg.API.WebSocketPort = 0
+	cfg.chain.TrieDBPath = testTriePath
+	cfg.chain.ChainDBPath = testDBPath
+	cfg.chain.IndexDBPath = testIndexPath
+	cfg.chain.EVMNetworkID = _evmNetworkID
+	cfg.chain.EnableAsyncIndexWrite = false
+	cfg.genesis.EnableGravityChainVoting = true
+	cfg.actPoll.MinGasPriceStr = "0"
+	cfg.api.RangeQueryLimit = 100
+	cfg.api.GRPCPort = 0
+	cfg.api.HTTPPort = 0
+	cfg.api.WebSocketPort = 0
 	return cfg
 }
 
-func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, actpool.ActPool, string, error) {
+func createServerV2(cfg testConfig, needActPool bool) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, actpool.ActPool, string, error) {
 	// TODO (zhi): revise
 	bc, dao, indexer, bfIndexer, sf, ap, registry, bfIndexFile, err := setupChain(cfg)
 	if err != nil {
@@ -436,7 +452,7 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.
 	opts := []Option{WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 		return nil
 	})}
-	svr, err := NewServerV2(cfg.API, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
+	svr, err := NewServerV2(cfg.api, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, "", err
 	}
@@ -446,7 +462,7 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.
 func TestServerV2Integrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.api.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {

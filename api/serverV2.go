@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -35,7 +34,7 @@ type ServerV2 struct {
 
 // NewServerV2 creates a new server with coreService and GRPC Server
 func NewServerV2(
-	cfg config.API,
+	cfg Config,
 	chain blockchain.Blockchain,
 	bs blocksync.BlockSync,
 	sf factory.Factory,
@@ -50,7 +49,7 @@ func NewServerV2(
 	if err != nil {
 		return nil, err
 	}
-	web3Handler := NewWeb3Handler(coreAPI, cfg.RedisCacheURL)
+	web3Handler := NewWeb3Handler(coreAPI, cfg.RedisCacheURL, cfg.BatchRequestLimit)
 
 	tp, err := tracer.NewProvider(
 		tracer.WithServiceName(cfg.Tracer.ServiceName),

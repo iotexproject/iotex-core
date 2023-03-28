@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -26,6 +28,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -47,10 +50,10 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	batch "github.com/iotexproject/iotex-core/pkg/messagebatcher"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
@@ -141,6 +144,18 @@ type (
 		ReceiveBlock(blk *block.Block) error
 		// BlockHashByBlockHeight returns block hash by block height
 		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
+		// TraceTransaction returns the trace result of a transaction
+		TraceTransaction(ctx context.Context, actHash string, config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error)
+		// TraceCall returns the trace result of a call
+		TraceCall(ctx context.Context,
+			callerAddr address.Address,
+			blkNumOrHash any,
+			contractAddress string,
+			nonce uint64,
+			amount *big.Int,
+			gasLimit uint64,
+			data []byte,
+			config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -154,11 +169,12 @@ type (
 		ap                actpool.ActPool
 		gs                *gasstation.GasStation
 		broadcastHandler  BroadcastOutbound
-		cfg               config.API
+		cfg               Config
 		registry          *protocol.Registry
 		chainListener     apitypes.Listener
 		electionCommittee committee.Committee
 		readCache         *ReadCache
+		messageBatcher    *batch.Manager
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -199,7 +215,7 @@ var (
 
 // newcoreService creates a api server that contains major blockchain components
 func newCoreService(
-	cfg config.API,
+	cfg Config,
 	chain blockchain.Blockchain,
 	bs blocksync.BlockSync,
 	sf factory.Factory,
@@ -210,9 +226,9 @@ func newCoreService(
 	registry *protocol.Registry,
 	opts ...Option,
 ) (CoreService, error) {
-	if cfg == (config.API{}) {
+	if cfg == (Config{}) {
 		log.L().Warn("API server is not configured.")
-		cfg = config.Default.API
+		cfg = DefaultConfig
 	}
 
 	if cfg.RangeQueryLimit < uint64(cfg.TpsWindow) {
@@ -394,6 +410,11 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		return "", err
 	}
 
+	// reject web3 rewarding action if isn't activation feature
+	if err := core.validateWeb3Rewarding(selp); err != nil {
+		return "", err
+	}
+
 	// Add to local actpool
 	ctx = protocol.WithRegistry(ctx, core.registry)
 	hash, err := selp.Hash()
@@ -425,7 +446,17 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	}
 	// If there is no error putting into local actpool,
 	// Broadcast it to the network
-	if err = core.broadcastHandler(ctx, core.bc.ChainID(), in); err != nil {
+	msg := in
+	if core.messageBatcher != nil {
+		err = core.messageBatcher.Put(&batch.Message{
+			ChainID: core.bc.ChainID(),
+			Target:  nil,
+			Data:    msg,
+		})
+	} else {
+		err = core.broadcastHandler(ctx, core.bc.ChainID(), msg)
+	}
+	if err != nil {
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	return hex.EncodeToString(hash[:]), nil
@@ -440,6 +471,19 @@ func (core *coreService) validateChainID(chainID uint32) error {
 		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
 	}
 	return nil
+}
+
+func (core *coreService) validateWeb3Rewarding(selp action.SealedEnvelope) error {
+	if ge := core.bc.Genesis(); ge.IsPalau(core.bc.TipHeight()) || selp.Encoding() != uint32(iotextypes.Encoding_ETHEREUM_RLP) {
+		return nil
+	}
+	switch selp.Action().(type) {
+	case *action.ClaimFromRewardingFund,
+		*action.DepositToRewardingFund:
+		return status.Error(codes.Unavailable, "Web3 rewarding isn't activation")
+	default:
+		return nil
+	}
 }
 
 // ReadContract reads the state in a contract address specified by the slot
@@ -787,11 +831,21 @@ func (core *coreService) Start(_ context.Context) error {
 	if err := core.chainListener.Start(); err != nil {
 		return errors.Wrap(err, "failed to start blockchain listener")
 	}
+	if core.messageBatcher != nil {
+		if err := core.messageBatcher.Start(); err != nil {
+			return errors.Wrap(err, "failed to start message batcher")
+		}
+	}
 	return nil
 }
 
 // Stop stops the API server
 func (core *coreService) Stop(_ context.Context) error {
+	if core.messageBatcher != nil {
+		if err := core.messageBatcher.Stop(); err != nil {
+			return errors.Wrap(err, "failed to stop message batcher")
+		}
+	}
 	return core.chainListener.Stop()
 }
 
@@ -903,6 +957,7 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 	}
 
 	var res []*iotexapi.ActionInfo
+	var actsList [][]*iotexapi.ActionInfo
 	var hit bool
 	for height := core.bc.TipHeight(); height >= 1 && count > 0; height-- {
 		blk, err := core.dao.GetBlockByHeight(height)
@@ -915,10 +970,13 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 		}
 		// now reverseStart < len(blk.Actions), we are going to fetch actions from this block
 		hit = true
-		act := core.reverseActionsInBlock(blk, reverseStart, count)
-		res = append(act, res...)
-		count -= uint64(len(act))
+		acts := core.reverseActionsInBlock(blk, reverseStart, count)
+		actsList = append(actsList, acts)
+		count -= uint64(len(acts))
 		reverseStart = 0
+	}
+	for i := len(actsList) - 1; i >= 0; i-- {
+		res = append(res, actsList[i]...)
 	}
 	return res, nil
 }
@@ -1189,10 +1247,18 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	blkHash := hex.EncodeToString(h[:])
 	blkHeight := blk.Height()
 
-	var res []*iotexapi.ActionInfo
-	for i := reverseStart; i < uint64(len(blk.Actions)) && i < reverseStart+count; i++ {
-		ri := uint64(len(blk.Actions)) - 1 - i
-		selp := blk.Actions[ri]
+	size := uint64(len(blk.Actions))
+	if reverseStart > size || count == 0 {
+		return nil
+	}
+	start := size - (reverseStart + count)
+	if start < 0 {
+		start = 0
+	}
+	end := size - 1 - reverseStart
+	res := make([]*iotexapi.ActionInfo, 0, start-end+1)
+	for idx := start; idx <= end; idx++ {
+		selp := blk.Actions[idx]
 		actHash, err := selp.Hash()
 		if err != nil {
 			log.Logger("api").Debug("Skipping action due to hash error", zap.Error(err))
@@ -1205,7 +1271,7 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 		}
 		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
 		sender := selp.SenderAddress()
-		res = append([]*iotexapi.ActionInfo{{
+		res = append(res, &iotexapi.ActionInfo{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
 			BlkHash:   blkHash,
@@ -1213,8 +1279,8 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 			BlkHeight: blkHeight,
 			Sender:    sender.String(),
 			GasFee:    gas.String(),
-			Index:     uint32(ri),
-		}}, res...)
+			Index:     uint32(idx),
+		})
 	}
 	return res
 }
@@ -1564,4 +1630,86 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
 	startingHeight, currentHeight, targetHeight, _ := core.bs.SyncStatus()
 	return startingHeight, currentHeight, targetHeight
+}
+
+// TraceTransaction returns the trace result of transaction
+func (core *coreService) TraceTransaction(ctx context.Context, actHash string, config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error) {
+	actInfo, err := core.Action(util.Remove0xPrefix(actHash), false)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	act, err := (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID()).ActionToSealedEnvelope(actInfo.Action)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	sc, ok := act.Action().(*action.Execution)
+	if !ok {
+		return nil, nil, nil, errors.New("the type of action is not supported")
+	}
+	traces := logger.NewStructLogger(config)
+	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
+		Debug:     true,
+		Tracer:    traces,
+		NoBaseFee: true,
+	})
+	addr, _ := address.FromString(address.ZeroAddress)
+	retval, receipt, err := core.SimulateExecution(ctx, addr, sc)
+	return retval, receipt, traces, err
+}
+
+// TraceCall returns the trace result of call
+func (core *coreService) TraceCall(ctx context.Context,
+	callerAddr address.Address,
+	blkNumOrHash any,
+	contractAddress string,
+	nonce uint64,
+	amount *big.Int,
+	gasLimit uint64,
+	data []byte,
+	config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error) {
+	var (
+		blkHash hash.Hash256
+		err     error
+	)
+	// ignore the incoming blkNumOrHash and use the latest height.
+	blkHash, err = core.dao.GetBlockHash(core.TipHeight())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if gasLimit == 0 {
+		gasLimit = core.bc.Genesis().BlockGasLimit
+	}
+	traces := logger.NewStructLogger(config)
+	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
+		Debug:     true,
+		Tracer:    traces,
+		NoBaseFee: true,
+	})
+	ctx, err = core.bc.Context(ctx)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if nonce == 0 {
+		state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		nonce = state.PendingNonce()
+	}
+	exec, err := action.NewExecution(
+		contractAddress,
+		nonce,
+		amount,
+		gasLimit,
+		big.NewInt(0),
+		data,
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	getblockHash := func(height uint64) (hash.Hash256, error) {
+		return blkHash, nil
+	}
+	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, exec, getblockHash)
+	return retval, receipt, traces, err
 }

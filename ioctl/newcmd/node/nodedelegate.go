@@ -91,21 +91,20 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 			if nextEpoch {
 				//nextDelegates
 				//deprecated: It won't be able to query next delegate after Easter height, because it will be determined at the end of the epoch.
-				apiServiceClient, err := client.APIServiceClient()
+				currEpochNum, err := currEpochNum(client)
 				if err != nil {
 					return err
 				}
-				chainMeta, err := bc.GetChainMeta(client)
-				if err != nil {
-					return errors.Wrap(err, "failed to get chain meta")
-				}
-				epochNum = chainMeta.GetEpoch().GetNum() + 1
+				epochNum = currEpochNum + 1
 				message := nextDelegatesMessage{Epoch: int(epochNum)}
 
 				ctx := context.Background()
-				jwtMD, err := util.JwtAuth()
-				if err == nil {
+				if jwtMD, err := util.JwtAuth(); err == nil {
 					ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+				}
+				apiServiceClient, err := client.APIServiceClient()
+				if err != nil {
+					return err
 				}
 				abpResponse, err := apiServiceClient.ReadState(
 					ctx,
@@ -116,12 +115,13 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 					},
 				)
 				if err != nil {
-					sta, ok := status.FromError(err)
-					if ok && sta.Code() == codes.NotFound {
-						message.Determined = false
-						cmd.Println(message.String(epochNum))
-						return nil
-					} else if ok {
+					if sta, ok := status.FromError(err); ok {
+						if sta.Code() == codes.NotFound {
+							cmd.Println(message.String(epochNum))
+							return nil
+						} else if sta.Code() == codes.Unavailable {
+							return ioctl.ErrInvalidEndpointOrInsecure
+						}
 						return errors.New(sta.Message())
 					}
 					return errors.Wrap(err, "failed to invoke ReadState api")
@@ -140,10 +140,11 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 						Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
 					},
 				)
-
 				if err != nil {
-					sta, ok := status.FromError(err)
-					if ok {
+					if sta, ok := status.FromError(err); ok {
+						if sta.Code() == codes.Unavailable {
+							return ioctl.ErrInvalidEndpointOrInsecure
+						}
 						return errors.New(sta.Message())
 					}
 					return errors.Wrap(err, "failed to invoke ReadState api")
@@ -152,6 +153,7 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 				if err := bps.Deserialize(bpResponse.Data); err != nil {
 					return errors.Wrap(err, "failed to deserialize bps")
 				}
+
 				isActive := make(map[string]bool)
 				for _, abp := range abps {
 					isActive[abp.Address] = true
@@ -169,12 +171,13 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 				}
 				cmd.Println(message.String(epochNum))
 			} else {
+				// specfic epoch-num
 				if epochNum == 0 {
-					chainMeta, err := bc.GetChainMeta(client)
+					currEpochNum, err := currEpochNum(client)
 					if err != nil {
-						return errors.Wrap(err, "failed to get chain meta")
+						return err
 					}
-					epochNum = chainMeta.GetEpoch().GetNum()
+					epochNum = currEpochNum
 				}
 
 				response, err := bc.GetEpochMeta(client, epochNum)
@@ -182,7 +185,7 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 					return errors.Wrap(err, "failed to get epoch meta")
 				}
 				if response.EpochData == nil {
-					return errors.New("ROLLDPOS is not registered")
+					return errors.New("rolldpos is not registered")
 				}
 				epochData := response.EpochData
 				aliases := client.AliasMap()
@@ -221,6 +224,7 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
+
 	cmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0,
 		flagEpochNumUsage)
 	cmd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
@@ -242,14 +246,14 @@ func (m *nextDelegatesMessage) String(epochNum uint64) string {
 	formatTitleString := "%-41s   %-4s   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %s"
 	formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %s"
 	lines = append(lines, fmt.Sprintf(formatTitleString, "Address", "Rank", "Alias", "Status", "Votes"))
+
+	var status string
 	for _, bp := range m.Delegates {
 		if bp.Active {
-			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-				bp.Alias, "active", bp.Votes))
-		} else {
-			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-				bp.Alias, "false", bp.Votes))
+			status = "active"
 		}
+		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
+			bp.Alias, status, bp.Votes))
 	}
 	return strings.Join(lines, "\n")
 }
@@ -267,14 +271,32 @@ func (m *delegatesMessage) String() string {
 	formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6d   %-12s    %s"
 	lines = append(lines, fmt.Sprintf(formatTitleString,
 		"Address", "Rank", "Alias", "Status", "Blocks", "ProbatedStatus", "Votes"))
+
+	var (
+		status         string
+		probatedStatus string
+	)
 	for _, bp := range m.Delegates {
 		if bp.Active {
-			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-				bp.Alias, "active", bp.Production, "probated", bp.Votes))
-		} else {
-			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-				bp.Alias, "false", bp.Production, "", bp.Votes))
+			status = "active"
 		}
+		if bp.ProbatedStatus {
+			probatedStatus = "probated"
+		}
+		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
+			bp.Alias, status, bp.Production, probatedStatus, bp.Votes))
 	}
 	return strings.Join(lines, "\n")
+}
+
+func currEpochNum(client ioctl.Client) (uint64, error) {
+	chainMeta, err := bc.GetChainMeta(client)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to get chain meta")
+	}
+	epoch := chainMeta.Epoch
+	if epoch == nil {
+		return 0, errors.Wrap(err, "rolldpos is not registered")
+	}
+	return epoch.Num, nil
 }

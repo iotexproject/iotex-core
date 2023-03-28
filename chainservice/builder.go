@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	rp "github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/nodeinfo"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -377,6 +378,30 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, factory.NewMinter(builder.cs.factory, builder.cs.actpool), chainOpts...)
 }
 
+func (builder *Builder) buildNodeInfoManager() error {
+	cs := builder.cs
+	stk := staking.FindProtocol(cs.Registry())
+	if stk == nil {
+		return errors.New("cannot find staking protocol")
+	}
+
+	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func() []string {
+		candidates, err := stk.ActiveCandidates(context.Background(), cs.factory, 0)
+		if err != nil {
+			log.L().Error("failed to get active candidates", zap.Error(errors.WithStack(err)))
+			return nil
+		}
+		whiteList := make([]string, len(candidates))
+		for i := range whiteList {
+			whiteList[i] = candidates[i].Address
+		}
+		return whiteList
+	})
+	builder.cs.nodeInfoManager = dm
+	builder.cs.lifecycle.Add(dm)
+	return nil
+}
+
 func (builder *Builder) buildBlockSyncer() error {
 	if builder.cs.blocksync != nil {
 		return nil
@@ -620,6 +645,9 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildBlockSyncer(); err != nil {
+		return nil, err
+	}
+	if err := builder.buildNodeInfoManager(); err != nil {
 		return nil, err
 	}
 	cs := builder.cs

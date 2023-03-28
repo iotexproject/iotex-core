@@ -30,8 +30,8 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
+	"github.com/iotexproject/iotex-core/nodeinfo"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -85,6 +85,7 @@ type ChainService struct {
 	candidateIndexer   *poll.CandidateIndexer
 	candBucketsIndexer *staking.CandidatesBucketsIndexer
 	registry           *protocol.Registry
+	nodeInfoManager    *nodeinfo.InfoManager
 }
 
 // Start starts the server
@@ -164,6 +165,17 @@ func (cs *ChainService) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) err
 	return cs.consensus.HandleConsensusMsg(msg)
 }
 
+// HandleNodeInfo handles nodeinfo message.
+func (cs *ChainService) HandleNodeInfo(ctx context.Context, peer string, msg *iotextypes.NodeInfo) error {
+	cs.nodeInfoManager.HandleNodeInfo(ctx, peer, msg)
+	return nil
+}
+
+// HandleNodeInfoRequest handles request node info message
+func (cs *ChainService) HandleNodeInfoRequest(ctx context.Context, peer peer.AddrInfo, msg *iotextypes.NodeInfoRequest) error {
+	return cs.nodeInfoManager.HandleNodeInfoRequest(ctx, peer)
+}
+
 // ChainID returns ChainID.
 func (cs *ChainService) ChainID() uint32 { return cs.chain.ChainID() }
 
@@ -197,11 +209,16 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 	return cs.blocksync
 }
 
+// NodeInfoManager returns the delegate manager
+func (cs *ChainService) NodeInfoManager() *nodeinfo.InfoManager {
+	return cs.nodeInfoManager
+}
+
 // Registry returns a pointer to the registry
 func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
 
 // NewAPIServer creates a new api server
-func (cs *ChainService) NewAPIServer(cfg config.API, plugins map[int]interface{}) (*api.ServerV2, error) {
+func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}) (*api.ServerV2, error) {
 	if cfg.GRPCPort == 0 && cfg.HTTPPort == 0 {
 		return nil, nil
 	}

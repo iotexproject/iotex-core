@@ -36,7 +36,7 @@ var (
 )
 
 func init() {
-	initTestDefaultConfig()
+	initTestDefaultConfig(&Default)
 }
 
 func defaultConfig() Genesis {
@@ -69,6 +69,7 @@ func defaultConfig() Genesis {
 			MidwayBlockHeight:       16509241,
 			NewfoundlandBlockHeight: 17662681,
 			OkhotskBlockHeight:      21542761,
+			PalauBlockHeight:        22991401,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
@@ -113,15 +114,21 @@ func defaultConfig() Genesis {
 	}
 }
 
-func initTestDefaultConfig() {
-	Default = defaultConfig()
-	Default.PacificBlockHeight = 0
+// TestDefault is the default genesis config for testing
+func TestDefault() Genesis {
+	ge := defaultConfig()
+	initTestDefaultConfig(&ge)
+	return ge
+}
+
+func initTestDefaultConfig(cfg *Genesis) {
+	cfg.PacificBlockHeight = 0
 	for i := 0; i < identityset.Size(); i++ {
 		addr := identityset.Address(i).String()
 		value := unit.ConvertIotxToRau(100000000).String()
-		Default.InitBalanceMap[addr] = value
-		if uint64(i) < Default.NumDelegates {
-			Default.Delegates = append(Default.Delegates, Delegate{
+		cfg.InitBalanceMap[addr] = value
+		if uint64(i) < cfg.NumDelegates {
+			cfg.Delegates = append(cfg.Delegates, Delegate{
 				OperatorAddrStr: addr,
 				RewardAddrStr:   addr,
 				VotesStr:        value,
@@ -219,6 +226,10 @@ type (
 		// 3. fix gas and nonce update
 		// 4. fix unproductive delegates in staking protocol
 		OkhotskBlockHeight uint64 `yaml:"okhotskHeight"`
+		// PalauBlockHeight is the the start height to
+		// 1. enable rewarding action via web3
+		// 2. broadcast node info into the p2p network
+		PalauBlockHeight uint64 `yaml:"palauHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -532,6 +543,11 @@ func (g *Blockchain) IsNewfoundland(height uint64) bool {
 // IsOkhotsk checks whether height is equal to or larger than okhotsk height
 func (g *Blockchain) IsOkhotsk(height uint64) bool {
 	return g.isPost(g.OkhotskBlockHeight, height)
+}
+
+// IsPalau checks whether height is equal to or larger than palau height
+func (g *Blockchain) IsPalau(height uint64) bool {
+	return g.isPost(g.PalauBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height

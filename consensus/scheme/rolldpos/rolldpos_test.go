@@ -82,6 +82,7 @@ func TestNewRollDPoS(t *testing.T) {
 				return nil
 			}).
 			SetDelegatesByEpochFunc(delegatesByEpoch).
+			SetProposersByEpochFunc(delegatesByEpoch).
 			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
@@ -99,6 +100,7 @@ func TestNewRollDPoS(t *testing.T) {
 			}).
 			SetClock(clock.NewMock()).
 			SetDelegatesByEpochFunc(delegatesByEpoch).
+			SetProposersByEpochFunc(delegatesByEpoch).
 			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
@@ -119,6 +121,7 @@ func TestNewRollDPoS(t *testing.T) {
 			}).
 			SetClock(clock.NewMock()).
 			SetDelegatesByEpochFunc(delegatesByEpoch).
+			SetProposersByEpochFunc(delegatesByEpoch).
 			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
@@ -134,6 +137,7 @@ func TestNewRollDPoS(t *testing.T) {
 				return nil
 			}).
 			SetDelegatesByEpochFunc(delegatesByEpoch).
+			SetProposersByEpochFunc(delegatesByEpoch).
 			RegisterProtocol(rp).
 			Build()
 		assert.Error(t, err)
@@ -219,6 +223,14 @@ func TestValidateBlockFooter(t *testing.T) {
 		g.NumDelegates,
 		g.NumSubEpochs,
 	)
+	delegatesByEpoch := func(uint64) ([]string, error) {
+		return []string{
+			candidates[0],
+			candidates[1],
+			candidates[2],
+			candidates[3],
+		}, nil
+	}
 	r, err := NewRollDPoSBuilder().
 		SetConfig(builderCfg).
 		SetAddr(identityset.Address(1).String()).
@@ -227,14 +239,8 @@ func TestValidateBlockFooter(t *testing.T) {
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
-		SetDelegatesByEpochFunc(func(uint64) ([]string, error) {
-			return []string{
-				candidates[0],
-				candidates[1],
-				candidates[2],
-				candidates[3],
-			}, nil
-		}).
+		SetDelegatesByEpochFunc(delegatesByEpoch).
+		SetProposersByEpochFunc(delegatesByEpoch).
 		SetClock(clock).
 		RegisterProtocol(rp).
 		Build()
@@ -306,6 +312,14 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		g.NumDelegates,
 		g.NumSubEpochs,
 	)
+	delegatesByEpoch := func(uint64) ([]string, error) {
+		return []string{
+			candidates[0],
+			candidates[1],
+			candidates[2],
+			candidates[3],
+		}, nil
+	}
 	r, err := NewRollDPoSBuilder().
 		SetConfig(builderCfg).
 		SetAddr(identityset.Address(1).String()).
@@ -315,14 +329,8 @@ func TestRollDPoS_Metrics(t *testing.T) {
 			return nil
 		}).
 		SetClock(clock).
-		SetDelegatesByEpochFunc(func(uint64) ([]string, error) {
-			return []string{
-				candidates[0],
-				candidates[1],
-				candidates[2],
-				candidates[3],
-			}, nil
-		}).
+		SetDelegatesByEpochFunc(delegatesByEpoch).
+		SetProposersByEpochFunc(delegatesByEpoch).
 		RegisterProtocol(rp).
 		Build()
 	require.NoError(t, err)
@@ -446,7 +454,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				protocol.WithRegistry(ctx, registry),
 				g,
 			)))
-			actPool, err := actpool.NewActPool(g, sf, actpool.DefaultConfig, actpool.EnableExperimentalActions())
+			actPool, err := actpool.NewActPool(g, sf, actpool.DefaultConfig)
 			require.NoError(t, err)
 			require.NoError(t, err)
 			acc := account.NewProtocol(rewarding.DepositGas)
@@ -479,6 +487,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				SetChainManager(NewChainManager(chain)).
 				SetBroadcast(p2p.Broadcast).
 				SetDelegatesByEpochFunc(delegatesByEpochFunc).
+				SetProposersByEpochFunc(delegatesByEpochFunc).
 				RegisterProtocol(rp).
 				Build()
 			require.NoError(t, err)

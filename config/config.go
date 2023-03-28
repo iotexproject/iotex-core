@@ -14,6 +14,7 @@ import (
 	uconfig "go.uber.org/config"
 
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
@@ -22,10 +23,9 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
+	"github.com/iotexproject/iotex-core/nodeinfo"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/tracer"
-	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
@@ -69,19 +69,7 @@ var (
 		DardanellesUpgrade: consensusfsm.DefaultDardanellesUpgradeConfig,
 		BlockSync:          blocksync.DefaultConfig,
 		Dispatcher:         dispatcher.DefaultConfig,
-		API: API{
-			UseRDS:        false,
-			GRPCPort:      14014,
-			HTTPPort:      15014,
-			WebSocketPort: 16014,
-			TpsWindow:     10,
-			GasStation: GasStation{
-				SuggestBlockWindow: 20,
-				DefaultGas:         uint64(unit.Qev),
-				Percentile:         60,
-			},
-			RangeQueryLimit: 1000,
-		},
+		API:                api.DefaultConfig,
 		System: System{
 			Active:                true,
 			HeartbeatInterval:     10 * time.Second,
@@ -90,9 +78,10 @@ var (
 			StartSubChainInterval: 10 * time.Second,
 			SystemLogDBPath:       "/var/log",
 		},
-		DB:      db.DefaultConfig,
-		Indexer: blockindex.DefaultConfig,
-		Genesis: genesis.Default,
+		DB:       db.DefaultConfig,
+		Indexer:  blockindex.DefaultConfig,
+		Genesis:  genesis.Default,
+		NodeInfo: nodeinfo.DefaultConfig,
 	}
 
 	// ErrInvalidCfg indicates the invalid config value
@@ -111,25 +100,6 @@ var (
 
 // Network is the config struct for network package
 type (
-	// API is the api service config
-	API struct {
-		UseRDS          bool          `yaml:"useRDS"`
-		GRPCPort        int           `yaml:"port"`
-		HTTPPort        int           `yaml:"web3port"`
-		WebSocketPort   int           `yaml:"webSocketPort"`
-		RedisCacheURL   string        `yaml:"redisCacheURL"`
-		TpsWindow       int           `yaml:"tpsWindow"`
-		GasStation      GasStation    `yaml:"gasStation"`
-		RangeQueryLimit uint64        `yaml:"rangeQueryLimit"`
-		Tracer          tracer.Config `yaml:"tracer"`
-	}
-
-	// GasStation is the gas station config
-	GasStation struct {
-		SuggestBlockWindow int    `yaml:"suggestBlockWindow"`
-		DefaultGas         uint64 `yaml:"defaultGas"`
-		Percentile         int    `yaml:"Percentile"`
-	}
 
 	// System is the system config
 	System struct {
@@ -142,6 +112,7 @@ type (
 		HTTPStatsPort         int           `yaml:"httpStatsPort"`
 		StartSubChainInterval time.Duration `yaml:"startSubChainInterval"`
 		SystemLogDBPath       string        `yaml:"systemLogDBPath"`
+		MptrieLogPath         string        `yaml:"mptrieLogPath"`
 	}
 
 	// Config is the root config struct, each package's config should be put as its sub struct
@@ -154,13 +125,14 @@ type (
 		DardanellesUpgrade consensusfsm.DardanellesUpgrade `yaml:"dardanellesUpgrade"`
 		BlockSync          blocksync.Config                `yaml:"blockSync"`
 		Dispatcher         dispatcher.Config               `yaml:"dispatcher"`
-		API                API                             `yaml:"api"`
+		API                api.Config                      `yaml:"api"`
 		System             System                          `yaml:"system"`
 		DB                 db.Config                       `yaml:"db"`
 		Indexer            blockindex.Config               `yaml:"indexer"`
 		Log                log.GlobalConfig                `yaml:"log"`
 		SubLogs            map[string]log.GlobalConfig     `yaml:"subLogs"`
 		Genesis            genesis.Genesis                 `yaml:"genesis"`
+		NodeInfo           nodeinfo.Config                 `yaml:"nodeinfo"`
 	}
 
 	// Validate is the interface of validating the config
@@ -349,6 +321,8 @@ func ValidateForkHeights(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "Midway is heigher than Newfoundland")
 	case hu.NewfoundlandBlockHeight > hu.OkhotskBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Newfoundland is heigher than Okhotsk")
+	case hu.OkhotskBlockHeight > hu.PalauBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Okhotsk is heigher than Palau")
 	}
 	return nil
 }
