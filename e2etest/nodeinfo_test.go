@@ -22,6 +22,7 @@ func newConfigForNodeInfoTest(triePath, dBPath, idxDBPath string) (config.Config
 	if err != nil {
 		return cfg, nil, err
 	}
+	cfg.Genesis.PalauBlockHeight = 0
 	testTriePath, err := testutil.PathOfTempFile(triePath)
 	if err != nil {
 		return cfg, nil, err
@@ -83,7 +84,7 @@ func TestBroadcastNodeInfo(t *testing.T) {
 	require.NoError(srvSender.ChainService(cfgSender.Chain.ID).NodeInfoManager().BroadcastNodeInfo(context.Background()))
 	time.Sleep(1 * time.Second)
 	addrSender := cfgSender.Chain.ProducerAddress().String()
-	_, ok := srvReciever.ChainService(cfgReciever.Chain.ID).NodeInfoManager().GetNodeByAddr(addrSender)
+	_, ok := srvReciever.ChainService(cfgReciever.Chain.ID).NodeInfoManager().GetNodeInfo(addrSender)
 	require.True(ok)
 }
 
@@ -127,6 +128,6 @@ func TestUnicastNodeInfo(t *testing.T) {
 	require.NoError(err)
 	time.Sleep(1 * time.Second)
 	addrReciever := cfgReciever.Chain.ProducerAddress().String()
-	_, ok := dmSender.GetNodeByAddr(addrReciever)
+	_, ok := dmSender.GetNodeInfo(addrReciever)
 	require.True(ok)
 }

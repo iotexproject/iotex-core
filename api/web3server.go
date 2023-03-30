@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
@@ -32,6 +33,8 @@ import (
 
 const (
 	_metamaskBalanceContractAddr = "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr"
+	// _defaultBatchRequestLimit is the default maximum number of items in a batch.
+	_defaultBatchRequestLimit = 100 // Maximum number of items in a batch.
 )
 
 type (
@@ -41,8 +44,9 @@ type (
 	}
 
 	web3Handler struct {
-		coreService CoreService
-		cache       apiCache
+		coreService       CoreService
+		cache             apiCache
+		batchRequestLimit int
 	}
 )
 
@@ -70,6 +74,7 @@ var (
 	errInvalidFilterID   = errors.New("filter not found")
 	errInvalidBlock      = errors.New("invalid block")
 	errUnsupportedAction = errors.New("the type of action is not supported")
+	errMsgBatchTooLarge  = errors.New("batch too large")
 
 	_pendingBlockNumber  = "pending"
 	_latestBlockNumber   = "latest"
@@ -81,10 +86,11 @@ func init() {
 }
 
 // NewWeb3Handler creates a handle to process web3 requests
-func NewWeb3Handler(core CoreService, cacheURL string) Web3Handler {
+func NewWeb3Handler(core CoreService, cacheURL string, batchRequestLimit int) Web3Handler {
 	return &web3Handler{
-		coreService: core,
-		cache:       newAPICache(15*time.Minute, cacheURL),
+		coreService:       core,
+		cache:             newAPICache(15*time.Minute, cacheURL),
+		batchRequestLimit: batchRequestLimit,
 	}
 }
 
@@ -101,8 +107,18 @@ func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, wri
 	if !web3Reqs.IsArray() {
 		return svr.handleWeb3Req(ctx, &web3Reqs, writer)
 	}
-	batchWriter := apitypes.NewBatchWriter(writer)
 	web3ReqArr := web3Reqs.Array()
+	if len(web3ReqArr) > int(svr.batchRequestLimit) {
+		err := errors.Wrapf(
+			errMsgBatchTooLarge,
+			"batch size %d exceeds the limit %d",
+			len(web3ReqArr),
+			svr.batchRequestLimit,
+		)
+		span.RecordError(err)
+		return writer.Write(&web3Response{err: err})
+	}
+	batchWriter := apitypes.NewBatchWriter(writer)
 	for i := range web3ReqArr {
 		if err := svr.handleWeb3Req(ctx, &web3ReqArr[i], batchWriter); err != nil {
 			return err
@@ -205,6 +221,10 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.subscribe(web3Req, writer)
 	case "eth_unsubscribe":
 		res, err = svr.unsubscribe(web3Req)
+	case "debug_traceTransaction":
+		res, err = svr.traceTransaction(ctx, web3Req)
+	case "debug_traceCall":
+		res, err = svr.traceCall(ctx, web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
 		"eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex",
 		"eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
@@ -878,6 +898,92 @@ func (svr *web3Handler) unsubscribe(in *gjson.Result) (interface{}, error) {
 	}
 	chainListener := svr.coreService.ChainListener()
 	return chainListener.RemoveResponder(id.String())
+}
+
+func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) (interface{}, error) {
+	actHash, options := in.Get("params.0"), in.Get("params.1")
+	if !actHash.Exists() {
+		return nil, errInvalidFormat
+	}
+	var (
+		enableMemory, disableStack, disableStorage, enableReturnData bool
+	)
+	if options.Exists() {
+		enableMemory = options.Get("enableMemory").Bool()
+		disableStack = options.Get("disableStack").Bool()
+		disableStorage = options.Get("disableStorage").Bool()
+		enableReturnData = options.Get("enableReturnData").Bool()
+	}
+	cfg := &logger.Config{
+		EnableMemory:     enableMemory,
+		DisableStack:     disableStack,
+		DisableStorage:   disableStorage,
+		EnableReturnData: enableReturnData,
+	}
+	retval, receipt, traces, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &debugTraceTransactionResult{
+		Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+		Revert:      receipt.ExecutionRevertMsg(),
+		ReturnValue: byteToHex(retval),
+		StructLogs:  fromLoggerStructLogs(traces.StructLogs()),
+		Gas:         receipt.GasConsumed,
+	}, nil
+}
+
+func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interface{}, error) {
+	var (
+		err          error
+		contractAddr string
+		callData     []byte
+		gasLimit     uint64
+		value        *big.Int
+		callerAddr   address.Address
+	)
+	blkNumOrHashObj, options := in.Get("params.1"), in.Get("params.2")
+	callerAddr, contractAddr, gasLimit, value, callData, err = parseCallObject(in)
+	if err != nil {
+		return nil, err
+	}
+	var blkNumOrHash any
+	if blkNumOrHashObj.Exists() {
+		blkNumOrHash = blkNumOrHashObj.Get("blockHash").String()
+		if blkNumOrHash == "" {
+			blkNumOrHash = blkNumOrHashObj.Get("blockNumber").Uint()
+		}
+	}
+
+	var (
+		enableMemory, disableStack, disableStorage, enableReturnData bool
+	)
+	if options.Exists() {
+		enableMemory = options.Get("enableMemory").Bool()
+		disableStack = options.Get("disableStack").Bool()
+		disableStorage = options.Get("disableStorage").Bool()
+		enableReturnData = options.Get("enableReturnData").Bool()
+	}
+	cfg := &logger.Config{
+		EnableMemory:     enableMemory,
+		DisableStack:     disableStack,
+		DisableStorage:   disableStorage,
+		EnableReturnData: enableReturnData,
+	}
+
+	retval, receipt, traces, err := svr.coreService.TraceCall(ctx, callerAddr, blkNumOrHash, contractAddr, 0, value, gasLimit, callData, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &debugTraceTransactionResult{
+		Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+		Revert:      receipt.ExecutionRevertMsg(),
+		ReturnValue: byteToHex(retval),
+		StructLogs:  fromLoggerStructLogs(traces.StructLogs()),
+		Gas:         receipt.GasConsumed,
+	}, nil
 }
 
 func (svr *web3Handler) unimplemented() (interface{}, error) {

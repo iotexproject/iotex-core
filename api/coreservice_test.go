@@ -7,9 +7,12 @@ package api
 
 import (
 	"context"
+	"encoding/hex"
+	"math/big"
 	"strconv"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/pkg/errors"
@@ -21,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockindex"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -197,6 +201,75 @@ func TestEstimateGasForAction(t *testing.T) {
 
 	_, err = svr.EstimateGasForAction(context.Background(), nil)
 	require.Contains(err.Error(), action.ErrNilProto.Error())
+}
+
+func TestTraceTransaction(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	svr, bc, _, ap, cleanCallback := setupTestCoreSerivce()
+	defer cleanCallback()
+	ctx := context.Background()
+	tsf, err := action.SignedExecution(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64), []byte{})
+	require.NoError(err)
+	tsfhash, err := tsf.Hash()
+
+	blk1Time := testutil.TimestampNow()
+	require.NoError(ap.Add(ctx, tsf))
+	blk, err := bc.MintNewBlock(blk1Time)
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk))
+	cfg := &logger.Config{
+		EnableMemory:     true,
+		DisableStack:     false,
+		DisableStorage:   false,
+		EnableReturnData: true,
+	}
+	retval, receipt, traces, err := svr.TraceTransaction(ctx, hex.EncodeToString(tsfhash[:]), cfg)
+	require.NoError(err)
+	require.Equal("0x", byteToHex(retval))
+	require.Equal(uint64(1), receipt.Status)
+	require.Equal(uint64(0x2710), receipt.GasConsumed)
+	require.Empty(receipt.ExecutionRevertMsg())
+	require.Equal(0, len(traces.StructLogs()))
+}
+
+func TestTraceCall(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	svr, bc, _, ap, cleanCallback := setupTestCoreSerivce()
+	defer cleanCallback()
+	ctx := context.Background()
+	tsf, err := action.SignedExecution(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64), []byte{})
+	require.NoError(err)
+
+	blk1Time := testutil.TimestampNow()
+	require.NoError(ap.Add(ctx, tsf))
+	blk, err := bc.MintNewBlock(blk1Time)
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk))
+	cfg := &logger.Config{
+		EnableMemory:     true,
+		DisableStack:     false,
+		DisableStorage:   false,
+		EnableReturnData: true,
+	}
+	retval, receipt, traces, err := svr.TraceCall(ctx,
+		identityset.Address(29), blk.Height(),
+		identityset.Address(29).String(),
+		0, big.NewInt(0), testutil.TestGasLimit,
+		[]byte{}, cfg)
+	require.NoError(err)
+	require.Equal("0x", byteToHex(retval))
+	require.Equal(uint64(1), receipt.Status)
+	require.Equal(uint64(0x2710), receipt.GasConsumed)
+	require.Empty(receipt.ExecutionRevertMsg())
+	require.Equal(0, len(traces.StructLogs()))
 }
 
 func TestProofAndCompareReverseActions(t *testing.T) {

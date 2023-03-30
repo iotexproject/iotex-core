@@ -5,19 +5,19 @@
 *       @iotexproject/protocol-team
 
 #Specific owners
-/consensus/	    @CoderZhi 
-/ioctl/  	    @huof6829 @CoderZhi 
-/api/   		    @Liuhaai @millken @CoderZhi 
-/config/	        @dustinxie @CoderZhi 
-/p2p/		    @Liuhaai @dustinxie
-/action/		    @CoderZhi @dustinxie
-/blockchain/	    @CoderZhi @dustinxie
-/blockindex/	    @CoderZhi @dustinxie
-/crypto/		    @CoderZhi @dustinxie
+/consensus/	    @CoderZhi @dustinxie @Liuhaai
+/ioctl/  	    @CoderZhi @dustinxie @Liuhaai
+/api/   		    @CoderZhi @dustinxie @Liuhaai @millken
+/config/	        @CoderZhi @dustinxie @Liuhaai @envestcc
+/p2p/		    @CoderZhi @dustinxie @Liuhaai @envestcc
+/action/		    @CoderZhi @dustinxie @Liuhaai
+/blockchain/	    @CoderZhi @dustinxie @Liuhaai
+/blockindex/	    @CoderZhi @dustinxie @Liuhaai
+/crypto/		    @CoderZhi @dustinxie @Liuhaai
 /db/		        @CoderZhi @dustinxie @Liuhaai
-/dispatcher/	    @CoderZhi @dustinxie
-/pkg/		    @dustinxie
-/server/		    @CoderZhi @dustinxie
-/state/		    @CoderZhi @dustinxie
-/actpool/		@CoderZhi @Liuhaai
-/.github/workflows 		@dustinxie @xianhuawei
+/dispatcher/	    @CoderZhi @dustinxie @Liuhaai @envestcc
+/pkg/		    @CoderZhi @dustinxie @Liuhaai
+/server/		    @CoderZhi @dustinxie @Liuhaai
+/state/		    @CoderZhi @dustinxie @Liuhaai
+/actpool/		@CoderZhi @dustinxie @Liuhaai
+/.github/workflows 		@CoderZhi @dustinxie @Liuhaai @xianhuawei

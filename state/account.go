@@ -197,7 +197,7 @@ func (st *Account) AddBalance(amount *big.Int) error {
 		return errors.Wrapf(ErrInvalidAmount, "amount %s shouldn't be negative", amount.String())
 	}
 	if st.Balance != nil {
-		st.Balance = new(big.Int).Add(st.Balance, amount)
+		st.Balance.Add(st.Balance, amount)
 	} else {
 		st.Balance = new(big.Int).Set(amount)
 	}

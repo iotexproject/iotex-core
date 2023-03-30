@@ -69,8 +69,8 @@ func init() {
 }
 
 type (
-	// DelegatesByEpochFunc defines a function to overwrite candidates
-	DelegatesByEpochFunc func(uint64) ([]string, error)
+	// NodesSelectionByEpochFunc defines a function to select nodes
+	NodesSelectionByEpochFunc func(uint64) ([]string, error)
 
 	// RDPoSCtx is the context of RollDPoS
 	RDPoSCtx interface {
@@ -114,7 +114,8 @@ func NewRollDPoSCtx(
 	blockDeserializer *block.Deserializer,
 	rp *rolldpos.Protocol,
 	broadcastHandler scheme.Broadcast,
-	delegatesByEpochFunc DelegatesByEpochFunc,
+	delegatesByEpochFunc NodesSelectionByEpochFunc,
+	proposersByEpochFunc NodesSelectionByEpochFunc,
 	encodedAddr string,
 	priKey crypto.PrivateKey,
 	clock clock.Clock,
@@ -132,6 +133,9 @@ func NewRollDPoSCtx(
 	if delegatesByEpochFunc == nil {
 		return nil, errors.New("delegates by epoch function cannot be nil")
 	}
+	if proposersByEpochFunc == nil {
+		return nil, errors.New("proposers by epoch function cannot be nil")
+	}
 	if cfg.AcceptBlockTTL(0)+cfg.AcceptProposalEndorsementTTL(0)+cfg.AcceptLockEndorsementTTL(0)+cfg.CommitTTL(0) > cfg.BlockInterval(0) {
 		return nil, errors.Errorf(
 			"invalid ttl config, the sum of ttls should be equal to block interval. acceptBlockTTL %d, acceptProposalEndorsementTTL %d, acceptLockEndorsementTTL %d, commitTTL %d, blockInterval %d",
@@ -148,6 +152,7 @@ func NewRollDPoSCtx(
 	}
 	roundCalc := &roundCalculator{
 		delegatesByEpochFunc: delegatesByEpochFunc,
+		proposersByEpochFunc: proposersByEpochFunc,
 		chain:                chain,
 		rp:                   rp,
 		timeBasedRotation:    timeBasedRotation,

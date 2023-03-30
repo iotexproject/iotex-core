@@ -7,6 +7,7 @@ package nodeinfo
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/cache/lru"
@@ -17,9 +18,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -48,14 +51,18 @@ type (
 
 	// InfoManager manage delegate node info
 	InfoManager struct {
-		version       string
-		address       string
-		nodeMap       *lru.Cache
-		broadcastTask *routine.RecurringTask
-		transmitter   transmitter
-		chain         chain
-		privKey       crypto.PrivateKey
+		lifecycle.Lifecycle
+		version              string
+		address              string
+		broadcastList        atomic.Value // []string, whitelist to force enable broadcast
+		nodeMap              *lru.Cache
+		transmitter          transmitter
+		chain                chain
+		privKey              crypto.PrivateKey
+		getBroadcastListFunc getBroadcastListFunc
 	}
+
+	getBroadcastListFunc func() []string
 )
 
 var _nodeInfoHeightGauge = prometheus.NewGaugeVec(
@@ -71,19 +78,21 @@ func init() {
 }
 
 // NewInfoManager new info manager
-func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateKey) *InfoManager {
+func NewInfoManager(cfg *Config, t transmitter, ch chain, privKey crypto.PrivateKey, broadcastListFunc getBroadcastListFunc) *InfoManager {
 	dm := &InfoManager{
-		nodeMap:     lru.New(cfg.NodeMapSize),
-		transmitter: t,
-		chain:       h,
-		privKey:     privKey,
-		version:     version.PackageVersion,
-		address:     privKey.PublicKey().Address().String(),
+		nodeMap:              lru.New(cfg.NodeMapSize),
+		transmitter:          t,
+		chain:                ch,
+		privKey:              privKey,
+		version:              version.PackageVersion,
+		address:              privKey.PublicKey().Address().String(),
+		getBroadcastListFunc: broadcastListFunc,
 	}
-
-	dm.broadcastTask = routine.NewRecurringTask(func() {
-		// delegates or nodes who are turned on will broadcast
-		if cfg.EnableBroadcastNodeInfo || dm.isDelegate() {
+	dm.broadcastList.Store([]string{})
+	// init recurring tasks
+	broadcastTask := routine.NewRecurringTask(func() {
+		// broadcastlist or nodes who are turned on will broadcast
+		if cfg.EnableBroadcastNodeInfo || dm.inBroadcastList() {
 			if err := dm.BroadcastNodeInfo(context.Background()); err != nil {
 				log.L().Error("nodeinfo manager broadcast node info failed", zap.Error(err))
 			}
@@ -91,23 +100,22 @@ func NewInfoManager(cfg *Config, t transmitter, h chain, privKey crypto.PrivateK
 			log.L().Debug("nodeinfo manager general node disabled node info broadcast")
 		}
 	}, cfg.BroadcastNodeInfoInterval)
+	updateBroadcastListTask := routine.NewRecurringTask(func() {
+		dm.updateBroadcastList()
+	}, cfg.BroadcastListTTL)
+	dm.AddModels(updateBroadcastListTask, broadcastTask)
 	return dm
 }
 
 // Start start delegate broadcast task
 func (dm *InfoManager) Start(ctx context.Context) error {
-	if dm.broadcastTask != nil {
-		return dm.broadcastTask.Start(ctx)
-	}
-	return nil
+	dm.updateBroadcastList()
+	return dm.OnStart(ctx)
 }
 
 // Stop stop delegate broadcast task
 func (dm *InfoManager) Stop(ctx context.Context) error {
-	if dm.broadcastTask != nil {
-		return dm.broadcastTask.Stop(ctx)
-	}
-	return nil
+	return dm.OnStop(ctx)
 }
 
 // HandleNodeInfo handle node info message
@@ -144,8 +152,8 @@ func (dm *InfoManager) updateNode(node *Info) {
 	_nodeInfoHeightGauge.WithLabelValues(addr, node.Version).Set(float64(node.Height))
 }
 
-// GetNodeByAddr get node info by address
-func (dm *InfoManager) GetNodeByAddr(addr string) (Info, bool) {
+// GetNodeInfo get node info by address
+func (dm *InfoManager) GetNodeInfo(addr string) (Info, bool) {
 	info, ok := dm.nodeMap.Get(addr)
 	if !ok {
 		return Info{}, false
@@ -214,9 +222,16 @@ func (dm *InfoManager) genNodeInfoMsg() (*iotextypes.NodeInfo, error) {
 	return req, nil
 }
 
-func (dm *InfoManager) isDelegate() bool {
-	// TODO whether i am delegate
-	return false
+func (dm *InfoManager) inBroadcastList() bool {
+	return slices.Contains(dm.broadcastList.Load().([]string), dm.address)
+}
+
+func (dm *InfoManager) updateBroadcastList() {
+	if dm.getBroadcastListFunc != nil {
+		list := dm.getBroadcastListFunc()
+		dm.broadcastList.Store(list)
+		log.L().Debug("nodeinfo manaager updateBroadcastList", zap.Strings("list", list))
+	}
 }
 
 func hashNodeInfo(msg *iotextypes.NodeInfoCore) hash.Hash256 {
