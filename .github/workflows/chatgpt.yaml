@@ -4,15 +4,15 @@ on:
   pull_request:
     types: [opened, synchronize]
 
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  statuses: write
+permissions: write-all
 
 jobs:
   CodeReview:
-    permissions: write-all
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      statuses: write
     name: ChatGPT Code Review
     runs-on: ubuntu-latest
     steps:
