@@ -300,7 +300,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		actions := []action.SealedEnvelope{makeTransferAction(t, 1)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
-			require.Equal(errSystemActionLayout, errors.Cause(f.Validate(zctx, block)))
+			require.Equal(errInvalidSystemActionLayout, errors.Cause(f.Validate(zctx, block)))
 		}
 	})
 	t.Run("correct system action", func(t *testing.T) {
@@ -322,7 +322,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		actions := []action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t), makeRewardAction(t)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
-			require.Equal(errSystemActionLayout, errors.Cause(f.Validate(zctx, block)))
+			require.Equal(errInvalidSystemActionLayout, errors.Cause(f.Validate(zctx, block)))
 		}
 	})
 }

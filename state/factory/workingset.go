@@ -36,8 +36,8 @@ var (
 		[]string{"type"},
 	)
 
-	errUnsupportWeb3Rewarding = errors.New("unsupported web3 rewarding")
-	errSystemActionLayout     = errors.New("system action layout is incorrect")
+	errUnsupportWeb3Rewarding    = errors.New("unsupported web3 rewarding")
+	errInvalidSystemActionLayout = errors.New("system action layout is invalid")
 )
 
 func init() {
@@ -428,11 +428,11 @@ func (ws *workingSet) validateSystemActionLayout(ctx context.Context, actions []
 	}
 	if len(receivedSystemActions) != len(postSystemActions) ||
 		startIdx+len(postSystemActions) != len(actions) {
-		return errors.Wrapf(errSystemActionLayout, "systen actions start at index %d with length %d, expected length is %d", startIdx, len(receivedSystemActions), len(postSystemActions))
+		return errors.Wrapf(errInvalidSystemActionLayout, "systen actions start at index %d with length %d, expected length is %d", startIdx, len(receivedSystemActions), len(postSystemActions))
 	}
 	for i := range receivedSystemActions {
 		if receivedSystemActions[i].Proto().String() != postSystemActions[i].Proto().String() {
-			return errors.Wrapf(errSystemActionLayout, "the system action of index %d is incorrect", i)
+			return errors.Wrapf(errInvalidSystemActionLayout, "the system action of index %d is incorrect", i)
 		}
 	}
 	return nil
