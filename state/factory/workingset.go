@@ -37,6 +37,7 @@ var (
 	)
 
 	errUnsupportWeb3Rewarding = errors.New("unsupported web3 rewarding")
+	errSystemActionLayout     = errors.New("system action layout is incorrect")
 )
 
 func init() {
@@ -394,7 +395,6 @@ func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelo
 			}
 		}
 	}
-	// TODO: verify whether the post system actions are appended tail
 
 	receipts, err := ws.runActions(ctx, actions)
 	if err != nil {
@@ -402,6 +402,40 @@ func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelo
 	}
 	ws.receipts = receipts
 	return ws.finalize()
+}
+
+func (ws *workingSet) validateSystemActionLayout(ctx context.Context, actions []action.SealedEnvelope) error {
+	reg := protocol.MustGetRegistry(ctx)
+	postSystemActions := []action.Envelope{}
+	for _, p := range reg.All() {
+		if psc, ok := p.(protocol.PostSystemActionsCreator); ok {
+			elps, err := psc.CreatePostSystemActions(ctx, ws)
+			if err != nil {
+				return err
+			}
+			postSystemActions = append(postSystemActions, elps...)
+		}
+	}
+	receivedSystemActions := []action.Envelope{}
+	startIdx := len(actions)
+	for i := range actions {
+		if action.IsSystemAction(actions[i]) {
+			if startIdx == len(actions) {
+				startIdx = i
+			}
+			receivedSystemActions = append(receivedSystemActions, actions[i].Envelope)
+		}
+	}
+	if len(receivedSystemActions) != len(postSystemActions) ||
+		startIdx+len(postSystemActions) != len(actions) {
+		return errors.Wrapf(errSystemActionLayout, "systen actions start at index %d with length %d, expected length is %d", startIdx, len(receivedSystemActions), len(postSystemActions))
+	}
+	for i := range receivedSystemActions {
+		if receivedSystemActions[i].Proto().String() != postSystemActions[i].Proto().String() {
+			return errors.Wrapf(errSystemActionLayout, "the system action of index %d is incorrect", i)
+		}
+	}
+	return nil
 }
 
 func (ws *workingSet) pickAndRunActions(
@@ -519,6 +553,9 @@ func updateReceiptIndex(receipts []*action.Receipt) {
 func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {
 	if err := ws.validateNonce(ctx, blk); err != nil {
 		return errors.Wrap(err, "failed to validate nonce")
+	}
+	if err := ws.validateSystemActionLayout(ctx, blk.RunnableActions().Actions()); err != nil {
+		return err
 	}
 	if err := ws.process(ctx, blk.RunnableActions().Actions()); err != nil {
 		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
