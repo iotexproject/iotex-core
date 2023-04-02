@@ -36,8 +36,7 @@ var DIDCmd = &cobra.Command{
 func init() {
 	DIDCmd.AddCommand(_didGenerateCmd)
 	DIDCmd.AddCommand(_didRegisterCmd)
-	DIDCmd.AddCommand(_didGetHashCmd)
-	DIDCmd.AddCommand(_didGetURICmd)
+	DIDCmd.AddCommand(_didGetCmd)
 	DIDCmd.AddCommand(_didDeregisterCmd)
 	DIDCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpoint, config.UILanguage))

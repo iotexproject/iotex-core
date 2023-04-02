@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 // Multi-language support
@@ -75,7 +76,11 @@ func registerDID(args []string) error {
 	publicKeyBytes := crypto.FromECDSAPub(publicKeyECDSA)
 
 	endpoint := args[0]
-	permit, err := GetPermit(endpoint, signer)
+	ethAddress, err := addrutil.IoAddrToEvmAddr(signer)
+	if err != nil {
+		return output.NewError(output.AddressError, "", err)
+	}
+	permit, err := GetPermit(endpoint, ethAddress.String())
 	if err != nil {
 		return output.NewError(output.InputError, "failed to fetch permit", err)
 	}

@@ -16,15 +16,6 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-const (
-	_registerDIDName   = "registerDID"
-	_getHashName       = "getHash"
-	_getURIName        = "getURI"
-	_deregisterDIDName = "deregisterDID"
-	// DIDABI is the did abi
-	DIDABI = `[{"constant": false,"inputs": [],"name": "deregisterDID","outputs": [],"payable": false,"stateMutability": "nonpayable","type": "function"},{"constant": true,"inputs": [{"internalType": "bytes","name": "did","type": "bytes"}],"name": "getHash","outputs": [{"internalType": "bytes32","name": "","type": "bytes32"}],"payable": false,"stateMutability": "view","type": "function"},   {"constant": true,"inputs": [{"internalType": "bytes","name": "did","type": "bytes"}],"name": "getURI","outputs": [{"internalType": "bytes","name": "","type": "bytes"}],"payable": false,"stateMutability": "view","type": "function"},{"constant": false,"inputs": [{"internalType": "bytes32","name": "h","type": "bytes32"},{"internalType": "bytes","name": "uri","type": "bytes"}],"name": "registerDID","outputs": [],"payable": false,"stateMutability": "nonpayable","type": "function"},{"constant": false,"inputs": [{"internalType": "bytes32","name": "h","type": "bytes32"},{"internalType": "bytes","name": "uri","type": "bytes"}],"name": "updateDID","outputs": [],"payable": false,"stateMutability": "nonpayable","type": "function"}]`
-)
-
 type (
 	// Permit permit content for DID
 	Permit struct {
@@ -48,14 +39,14 @@ type (
 
 // GetPermit fetch DID permit from resolver
 func GetPermit(endpoint, address string) (*Permit, error) {
-	res, err := http.Get(endpoint + "/did/" + address + "/permit")
+	resp, err := http.Get(endpoint + "/did/" + address + "/permit")
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer resp.Body.Close()
 
 	var data Permit
-	err = json.NewDecoder(res.Body).Decode(&data)
+	err = json.NewDecoder(resp.Body).Decode(&data)
 	if err != nil {
 		return nil, err
 	}

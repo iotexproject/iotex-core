@@ -6,24 +6,28 @@
 package did
 
 import (
-	"math/big"
-	"strings"
+	"bytes"
+	"crypto/ecdsa"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 // Multi-language support
 var (
 	_deregisterCmdUses = map[config.Language]string{
-		config.English: "deregister (CONTRACT_ADDRESS|ALIAS)",
-		config.Chinese: "deregister (合约地址|别名)",
+		config.English: "deregister (RESOLVER_ENDPOINT) [-s SIGNER]",
+		config.Chinese: "deregister (Resolver端点) [-s 签署人]",
 	}
 	_deregisterCmdShorts = map[config.Language]string{
 		config.English: "Deregister DID on IoTeX blockchain",
@@ -48,22 +52,56 @@ func init() {
 }
 
 func deregisterDID(args []string) (err error) {
-	contract, err := util.Address(args[0])
+	signer, err := action.Signer()
 	if err != nil {
-		return output.NewError(output.AddressError, "failed to get contract address", err)
+		return output.NewError(output.InputError, "failed to get signer addr", err)
+	}
+	fmt.Printf("Enter password #%s:\n", signer)
+	password, err := util.ReadSecretFromStdin()
+	if err != nil {
+		return output.NewError(output.InputError, "failed to get password", err)
+	}
+	pri, err := account.PrivateKeyFromSigner(signer, password)
+	if err != nil {
+		return output.NewError(output.InputError, "failed to decrypt key", err)
 	}
 
-	abi, err := abi.JSON(strings.NewReader(DIDABI))
+	endpoint := args[0]
+	ethAddress, err := addrutil.IoAddrToEvmAddr(signer)
 	if err != nil {
-		return
+		return output.NewError(output.AddressError, "", err)
 	}
-	_, exist := abi.Methods[_deregisterDIDName]
-	if !exist {
-		return errors.New("method is not found")
-	}
-	bytecode, err := abi.Pack(_deregisterDIDName)
+	permit, err := GetPermit(endpoint, ethAddress.String())
 	if err != nil {
-		return
+		return output.NewError(output.InputError, "failed to fetch permit", err)
 	}
-	return action.Execute(contract, big.NewInt(0), bytecode)
+	signature, err := SignType(pri.EcdsaPrivateKey().(*ecdsa.PrivateKey), permit.Separator, permit.PermitHash)
+	if err != nil {
+		return output.NewError(output.InputError, "failed to sign typed permit", err)
+	}
+
+	deleteBytes, err := json.Marshal(&signature)
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to encode request", err)
+	}
+	req, err := http.NewRequest("POST", endpoint+"/did/"+ethAddress.String()+"/delete", bytes.NewBuffer(deleteBytes))
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to create request", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return output.NewError(output.NetworkError, "failed to post request", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to read response", err)
+	}
+	output.PrintResult(string(body))
+
+	return nil
 }
