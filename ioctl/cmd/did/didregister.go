@@ -6,35 +6,29 @@
 package did
 
 import (
+	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
-	"math/big"
-	"strings"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/pkg/errors"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
-const (
-	_registerDIDName   = "registerDID"
-	_getHashName       = "getHash"
-	_getURIName        = "getURI"
-	_updateDIDName     = "updateDID"
-	_deregisterDIDName = "deregisterDID"
-	// DIDABI is the did abi
-	DIDABI = `[{"constant": false,"inputs": [],"name": "deregisterDID","outputs": [],"payable": false,"stateMutability": "nonpayable","type": "function"},{"constant": true,"inputs": [{"internalType": "bytes","name": "did","type": "bytes"}],"name": "getHash","outputs": [{"internalType": "bytes32","name": "","type": "bytes32"}],"payable": false,"stateMutability": "view","type": "function"},   {"constant": true,"inputs": [{"internalType": "bytes","name": "did","type": "bytes"}],"name": "getURI","outputs": [{"internalType": "bytes","name": "","type": "bytes"}],"payable": false,"stateMutability": "view","type": "function"},{"constant": false,"inputs": [{"internalType": "bytes32","name": "h","type": "bytes32"},{"internalType": "bytes","name": "uri","type": "bytes"}],"name": "registerDID","outputs": [],"payable": false,"stateMutability": "nonpayable","type": "function"},{"constant": false,"inputs": [{"internalType": "bytes32","name": "h","type": "bytes32"},{"internalType": "bytes","name": "uri","type": "bytes"}],"name": "updateDID","outputs": [],"payable": false,"stateMutability": "nonpayable","type": "function"}]`
-)
-
 // Multi-language support
 var (
 	_registerCmdUses = map[config.Language]string{
-		config.English: "register (CONTRACT_ADDRESS|ALIAS) hash uri",
-		config.Chinese: "register (合约地址|别名) hash uri",
+		config.English: "register (RESOLVER_ENDPOINT) [-s SIGNER]",
+		config.Chinese: "register (Resolver端点) [-s 签署人]",
 	}
 	_registerCmdShorts = map[config.Language]string{
 		config.English: "Register DID on IoTeX blockchain",
@@ -46,7 +40,7 @@ var (
 var _didRegisterCmd = &cobra.Command{
 	Use:   config.TranslateInLang(_registerCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(_registerCmdShorts, config.UILanguage),
-	Args:  cobra.ExactArgs(3),
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := registerDID(args)
@@ -59,33 +53,62 @@ func init() {
 }
 
 func registerDID(args []string) error {
-	contract, err := util.Address(args[0])
+	signer, err := action.Signer()
 	if err != nil {
-		return output.NewError(output.AddressError, "failed to get contract address", err)
+		return output.NewError(output.InputError, "failed to get signer addr", err)
+	}
+	fmt.Printf("Enter password #%s:\n", signer)
+	password, err := util.ReadSecretFromStdin()
+	if err != nil {
+		return output.NewError(output.InputError, "failed to get password", err)
+	}
+	pri, err := account.PrivateKeyFromSigner(signer, password)
+	if err != nil {
+		return output.NewError(output.InputError, "failed to decrypt key", err)
 	}
 
-	bytecode, err := encode(_registerDIDName, args[1], args[2])
+	publicKey := pri.EcdsaPrivateKey().(*ecdsa.PrivateKey).Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return output.NewError(output.ConvertError, "generate public key error", nil)
+	}
+	publicKeyBytes := crypto.FromECDSAPub(publicKeyECDSA)
+
+	endpoint := args[0]
+	permit, err := GetPermit(endpoint, signer)
 	if err != nil {
-		return output.NewError(output.ConvertError, "invalid bytecode", err)
+		return output.NewError(output.InputError, "failed to fetch permit", err)
+	}
+	signature, err := SignType(pri.EcdsaPrivateKey().(*ecdsa.PrivateKey), permit.Separator, permit.PermitHash)
+	if err != nil {
+		return output.NewError(output.InputError, "failed to sign typed permit", err)
 	}
 
-	return action.Execute(contract, big.NewInt(0), bytecode)
-}
+	createReq := &CreateRequest{
+		Signature: *signature,
+		PublicKey: hex.EncodeToString(publicKeyBytes),
+	}
+	createBytes, err := json.Marshal(&createReq)
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to encode request", err)
+	}
+	req, err := http.NewRequest("POST", endpoint+"/did", bytes.NewBuffer(createBytes))
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to create request", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
 
-func encode(method, didHash, uri string) (ret []byte, err error) {
-	hashSlice, err := hex.DecodeString(didHash)
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
-		return
+		return output.NewError(output.NetworkError, "failed to post request", err)
 	}
-	var hashArray [32]byte
-	copy(hashArray[:], hashSlice)
-	abi, err := abi.JSON(strings.NewReader(DIDABI))
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return
+		return output.NewError(output.ConvertError, "failed to read response", err)
 	}
-	_, exist := abi.Methods[method]
-	if !exist {
-		return nil, errors.New("method is not found")
-	}
-	return abi.Pack(method, hashArray, []byte(uri))
+	output.PrintResult(string(body))
+	return nil
 }
