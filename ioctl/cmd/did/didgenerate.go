@@ -6,11 +6,11 @@
 package did
 
 import (
-	"crypto/sha256"
+	"crypto/ecdsa"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 // Multi-language support
@@ -72,39 +71,26 @@ func generateFromSigner(signer, password string) (generatedMessage string, err e
 	if err != nil {
 		return
 	}
-	doc := newDIDDoc()
-	ethAddress, err := addrutil.IoAddrToEvmAddr(signer)
-	if err != nil {
-		return "", output.NewError(output.AddressError, "", err)
-	}
-	doc.ID = DIDPrefix + ethAddress.String()
-	authentication := authenticationStruct{
-		ID:         doc.ID + DIDOwner,
-		Type:       DIDAuthType,
-		Controller: doc.ID,
-	}
-	uncompressed := pri.PublicKey().Bytes()
-	if len(uncompressed) == 33 && (uncompressed[0] == 2 || uncompressed[0] == 3) {
-		authentication.PublicKeyHex = hex.EncodeToString(uncompressed)
-	} else if len(uncompressed) == 65 && uncompressed[0] == 4 {
-		lastNum := uncompressed[64]
-		authentication.PublicKeyHex = hex.EncodeToString(uncompressed[1:33])
-		if lastNum%2 == 0 {
-			authentication.PublicKeyHex = "02" + authentication.PublicKeyHex
-		} else {
-			authentication.PublicKeyHex = "03" + authentication.PublicKeyHex
-		}
-	} else {
-		return "", output.NewError(output.CryptoError, "invalid public key", nil)
-	}
 
-	doc.Authentication = append(doc.Authentication, authentication)
-	msg, err := json.MarshalIndent(doc, "", "  ")
+	publicKey := pri.EcdsaPrivateKey().(*ecdsa.PrivateKey).Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return "", output.NewError(output.ConvertError, "generate public key error", nil)
+	}
+	publicKeyBytes := crypto.FromECDSAPub(publicKeyECDSA)
+	doc, err := NewDIDDoc(publicKeyBytes)
+	if err != nil {
+		return "", output.NewError(output.ConvertError, "", err)
+	}
+	msg, err := doc.Json()
+	if err != nil {
+		return "", output.NewError(output.ConvertError, "", err)
+	}
+	hash, err := doc.Hash()
 	if err != nil {
 		return "", output.NewError(output.ConvertError, "", err)
 	}
 
-	sum := sha256.Sum256(msg)
-	generatedMessage = string(msg) + "\n\nThe hex encoded SHA256 hash of the DID doc is:" + hex.EncodeToString(sum[:])
+	generatedMessage = msg + "\n\nThe hex encoded SHA256 hash of the DID doc is:" + hex.EncodeToString(hash[:])
 	return
 }
