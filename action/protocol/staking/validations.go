@@ -79,3 +79,7 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 	}
 	return nil
 }
+
+func (p *Protocol) validateProposerRegister(ctx context.Context, act *action.ProposerRegister) error {
+	return nil
+}

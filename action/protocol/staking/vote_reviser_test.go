@@ -143,15 +143,18 @@ func TestVoteReviser(t *testing.T) {
 	v, err := stk.Start(ctx, sm)
 	sm.WriteView(_protocolID, v)
 	r.NoError(err)
-	_, ok := v.(*ViewData)
+	_, ok := v.(*stakingView)
 	r.True(ok)
 
 	csm, err = NewCandidateStateManager(sm, false)
+	r.NoError(err)
+	esm, err := newExecutorStateManager(sm)
 	r.NoError(err)
 	oldCand := testCandidates[3].d.Clone()
 	oldCand.Name = "old name"
 	r.NoError(csm.Upsert(oldCand))
 	r.NoError(csm.Commit(ctx))
+	r.NoError(writeView(csm, esm))
 	r.NotNil(csm.GetByName(oldCand.Name))
 	// load a number of candidates
 	updateCands := CandidateList{
@@ -162,6 +165,7 @@ func TestVoteReviser(t *testing.T) {
 		r.NoError(csm.Upsert(e))
 	}
 	r.NoError(csm.Commit(ctx))
+	r.NoError(writeView(csm, esm))
 	r.NotNil(csm.GetByName(oldCand.Name))
 	r.NotNil(csm.GetByName(testCandidates[3].d.Name))
 

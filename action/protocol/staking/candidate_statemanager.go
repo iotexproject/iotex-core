@@ -185,7 +185,8 @@ func (csm *candSM) Commit(ctx context.Context) error {
 	}
 
 	// write updated view back to state factory
-	return csm.WriteView(_protocolID, csm.DirtyView())
+	// return csm.WriteView(_protocolID, csm.DirtyView())
+	return nil
 }
 
 func (csm *candSM) getBucket(index uint64) (*VoteBucket, error) {

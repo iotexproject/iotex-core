@@ -34,10 +34,12 @@ const (
 	_protocolID = "staking"
 
 	// _stakingNameSpace is the bucket name for staking state
-	_stakingNameSpace = "Staking"
+	_stakingNameSpace          = "Staking"
+	_executionStakingNameSpace = "ExecutionStaking"
 
 	// _candidateNameSpace is the bucket name for candidate state
 	_candidateNameSpace = "Candidate"
+	_executorNameSpace  = "Executor"
 
 	// CandsMapNS is the bucket name to store candidate map
 	CandsMapNS = "CandsMap"
@@ -181,7 +183,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	}
 
 	// load view from SR
-	c, _, err := CreateBaseView(sr, featureCtx.ReadStateFromDB(height))
+	c, err := createBaseView(sr, featureCtx.ReadStateFromDB(height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
@@ -194,10 +196,11 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 				return nil, errors.Wrap(err, "failed to read name/operator map")
 			}
 		}
-		if err = c.candCenter.base.loadNameOperatorMapOwnerList(name, operator, owners); err != nil {
+		if err = c.csmView.candCenter.base.loadNameOperatorMapOwnerList(name, operator, owners); err != nil {
 			return nil, errors.Wrap(err, "failed to load name/operator map to cand center")
 		}
 	}
+
 	return c, nil
 }
 
@@ -211,6 +214,10 @@ func (p *Protocol) CreateGenesisStates(
 	}
 	// TODO: set init values based on ctx
 	csm, err := NewCandidateStateManager(sm, false)
+	if err != nil {
+		return err
+	}
+	esm, err := newExecutorStateManager(sm)
 	if err != nil {
 		return err
 	}
@@ -260,7 +267,10 @@ func (p *Protocol) CreateGenesisStates(
 	}
 
 	// commit updated view
-	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in CreateGenesisStates")
+	if err = csm.Commit(ctx); err != nil {
+		return errors.Wrap(err, "failed to commit candidate change in CreateGenesisStates")
+	}
+	return writeView(csm, esm)
 }
 
 // CreatePreStates updates state manager
@@ -370,9 +380,15 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	if err != nil {
 		return err
 	}
-
+	esm, err := newExecutorStateManager(sm)
+	if err != nil {
+		return err
+	}
 	// commit updated view
-	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in Commit")
+	if err = csm.Commit(ctx); err != nil {
+		return errors.Wrap(err, "failed to commit candidate change in Commit")
+	}
+	return writeView(csm, esm)
 }
 
 // Handle handles a staking message
@@ -386,18 +402,21 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, err
 	}
+	esm, err := newExecutorStateManager(sm)
+	if err != nil {
+		return nil, err
+	}
 
-	return p.handle(ctx, act, csm)
+	return p.handle(ctx, act, csm, esm)
 }
 
-func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
+func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager, esm *executorStateManager) (*action.Receipt, error) {
 	var (
 		rLog  *receiptLog
 		tLogs []*action.TransactionLog
 		err   error
 		logs  []*action.Log
 	)
-
 	switch act := act.(type) {
 	case *action.CreateStake:
 		rLog, tLogs, err = p.handleCreateStake(ctx, act, csm)
@@ -417,6 +436,8 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		rLog, tLogs, err = p.handleCandidateRegister(ctx, act, csm)
 	case *action.CandidateUpdate:
 		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
+	case *action.ProposerRegister:
+		rLog, tLogs, err = p.handleProposerRegister(ctx, act, esm)
 	default:
 		return nil, nil
 	}
@@ -461,6 +482,8 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 		return p.validateCandidateRegister(ctx, act)
 	case *action.CandidateUpdate:
 		return p.validateCandidateUpdate(ctx, act)
+	case *action.ProposerRegister:
+		return p.validateProposerRegister(ctx, act)
 	}
 	return nil
 }

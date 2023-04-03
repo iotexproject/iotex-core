@@ -120,16 +120,19 @@ func TestProtocol(t *testing.T) {
 	v, err := stk.Start(ctx, sm)
 	sm.WriteView(_protocolID, v)
 	r.NoError(err)
-	_, ok := v.(*ViewData)
+	_, ok := v.(*stakingView)
 	r.True(ok)
 
 	csm, err := NewCandidateStateManager(sm, false)
+	r.NoError(err)
+	esm, err := newExecutorStateManager(sm)
 	r.NoError(err)
 	// load a number of candidates
 	for _, e := range testCandidates {
 		r.NoError(csm.Upsert(e.d))
 	}
 	r.NoError(csm.Commit(ctx))
+	r.NoError(writeView(csm, esm))
 	for _, e := range testCandidates {
 		r.True(csm.ContainsOwner(e.d.Owner))
 		r.True(csm.ContainsName(e.d.Name))

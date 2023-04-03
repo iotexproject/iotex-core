@@ -129,28 +129,20 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 	if err != nil {
 		return nil, err
 	}
-	v, err := sr.ReadView(_protocolID)
+	view, err := readView(sr)
 	if err != nil {
 		return nil, err
-	}
-
-	view, ok := v.(*ViewData)
-	if !ok {
-		return nil, errors.Wrap(ErrTypeAssertion, "expecting *ViewData")
 	}
 
 	return &candSR{
 		StateReader: sr,
 		height:      height,
-		view: &ViewData{
-			candCenter: view.candCenter,
-			bucketPool: view.bucketPool,
-		},
+		view:        view.csmView,
 	}, nil
 }
 
-// CreateBaseView creates the base view from state reader
-func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, uint64, error) {
+// createCandidateBaseView creates the base view from state reader
+func createCandidateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, uint64, error) {
 	if sr == nil {
 		return nil, 0, ErrMissingField
 	}
