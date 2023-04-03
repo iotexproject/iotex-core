@@ -265,6 +265,18 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	return nil
 }
 
+func (builder *Builder) buildSGDRegistry(forTest bool) error {
+	if builder.cs.sgdRegistry != nil {
+		return nil
+	}
+	if forTest {
+		builder.cs.sgdRegistry = nil
+	} else {
+		builder.cs.sgdRegistry = rewarding.NewSGDRegistry()
+	}
+	return nil
+}
+
 func (builder *Builder) buildGatewayComponents(forTest bool) error {
 	indexer, bfIndexer, candidateIndexer, candBucketsIndexer, err := builder.createGateWayComponents(forTest)
 	if err != nil {
@@ -500,7 +512,7 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGas).Register(builder.cs.registry)
+	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGasWithSGD, builder.cs.sgdRegistry).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
@@ -560,7 +572,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 		func(start, end uint64) (map[string]uint64, error) {
 			return blockchain.Productivity(chain, start, end)
 		},
-		builder.cs.blockdao.GetBlockHash,
+		dao.GetBlockHash,
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate poll protocol")
@@ -617,6 +629,9 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildGatewayComponents(forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildSGDRegistry(forTest); err != nil {
 		return nil, err
 	}
 	if err := builder.buildBlockDAO(forTest); err != nil {

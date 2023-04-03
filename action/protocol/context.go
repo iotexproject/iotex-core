@@ -110,6 +110,7 @@ type (
 		CorrectGasRefund                        bool
 		SkipSystemActionNonce                   bool
 		ValidateSystemAction                    bool
+		SharedGasWithDapp                       bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -246,6 +247,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CorrectGasRefund:                        g.IsOkhotsk(height),
 			SkipSystemActionNonce:                   g.IsPalau(height),
 			ValidateSystemAction:                    g.IsToBeEnabled(height),
+			SharedGasWithDapp:                       g.IsToBeEnabled(height),
 		},
 	)
 }

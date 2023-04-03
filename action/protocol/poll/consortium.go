@@ -133,9 +133,10 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 		func(height uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
-		func(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.TransactionLog, error) {
+		func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
 			return nil, nil
 		},
+		nil,
 	)
 	if err != nil {
 		return err
@@ -290,7 +291,7 @@ func getContractReaderForGenesisStates(ctx context.Context, sm protocol.StateMan
 			return nil, err
 		}
 
-		res, _, err := evm.SimulateExecution(ctx, sm, addr, ex, getBlockHash)
+		res, _, err := evm.SimulateExecution(ctx, sm, addr, ex, getBlockHash, nil)
 
 		return res, err
 	}

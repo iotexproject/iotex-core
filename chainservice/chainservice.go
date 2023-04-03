@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/api"
@@ -84,6 +85,7 @@ type ChainService struct {
 	bfIndexer          blockindex.BloomFilterIndexer
 	candidateIndexer   *poll.CandidateIndexer
 	candBucketsIndexer *staking.CandidatesBucketsIndexer
+	sgdRegistry        rewarding.SGDRegistry
 	registry           *protocol.Registry
 	nodeInfoManager    *nodeinfo.InfoManager
 }
