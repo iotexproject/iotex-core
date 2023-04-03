@@ -45,7 +45,7 @@ require (
 	go.uber.org/config v1.3.1
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.1.0
-	golang.org/x/net v0.3.0
+	golang.org/x/net v0.7.0
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
 	google.golang.org/genproto v0.0.0-20230127162408-596548ed4efa
 	google.golang.org/grpc v1.51.0
@@ -61,7 +61,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.2
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.34.0
 	golang.org/x/exp v0.0.0-20230206171751-46f607a40771
-	golang.org/x/text v0.5.0
+	golang.org/x/text v0.7.0
 )
 
 require (
@@ -193,8 +193,8 @@ require (
 	go.opentelemetry.io/otel/metric v0.31.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/sys v0.3.0 // indirect
-	golang.org/x/term v0.3.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/term v0.5.0 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
