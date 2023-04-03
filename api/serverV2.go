@@ -100,7 +100,7 @@ func (svr *ServerV2) Start(ctx context.Context) error {
 // Stop stops the GRPC server and the CoreService
 func (svr *ServerV2) Stop(ctx context.Context) error {
 	if svr.tracer != nil {
-		if err := svr.tracer.Shutdown(context.Background()); err != nil {
+		if err := svr.tracer.Shutdown(ctx); err != nil {
 			return errors.Wrap(err, "failed to shutdown api tracer")
 		}
 	}
