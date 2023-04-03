@@ -16,7 +16,7 @@ env:
 jobs:
   ci:
     name: ci flow
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         # with:
@@ -30,13 +30,6 @@ jobs:
           
       - name: Build Go
         run: go build ./...
-        
-#       - name: Error Check
-#         uses: reviewdog/action-golangci-lint@v2
-#         with:
-#           golangci_lint_flags: "--disable-all -E errcheck"
-#           tool_name: errcheck
-#           level: info
 
       - name: Run Test
         id: unittest
