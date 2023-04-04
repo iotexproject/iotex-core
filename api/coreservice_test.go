@@ -31,7 +31,7 @@ import (
 
 func TestLogsInRange(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestCoreSerivce()
+	svr, _, _, _, cleanCallback := setupTestCoreService()
 	defer cleanCallback()
 
 	t.Run("blocks with four logs", func(t *testing.T) {
@@ -107,7 +107,7 @@ func TestLogsInRange(t *testing.T) {
 }
 
 func BenchmarkLogsInRange(b *testing.B) {
-	svr, _, _, _, cleanCallback := setupTestCoreSerivce()
+	svr, _, _, _, cleanCallback := setupTestCoreService()
 	defer cleanCallback()
 
 	ctrl := gomock.NewController(b)
@@ -151,7 +151,7 @@ func getTopicsAddress(addr []string, topics [][]string) (iotexapi.LogsFilter, er
 	return filter, nil
 }
 
-func setupTestCoreSerivce() (CoreService, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
+func setupTestCoreService() (CoreService, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
 	cfg := newConfig()
 
 	// TODO (zhi): revise
@@ -188,7 +188,7 @@ func TestEstimateGasForAction(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	svr, _, _, _, cleanCallback := setupTestCoreSerivce()
+	svr, _, _, _, cleanCallback := setupTestCoreService()
 	defer cleanCallback()
 
 	estimatedGas, err := svr.EstimateGasForAction(context.Background(), getAction())
@@ -207,7 +207,7 @@ func TestTraceTransaction(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	svr, bc, _, ap, cleanCallback := setupTestCoreSerivce()
+	svr, bc, _, ap, cleanCallback := setupTestCoreService()
 	defer cleanCallback()
 	ctx := context.Background()
 	tsf, err := action.SignedExecution(identityset.Address(29).String(),
@@ -240,7 +240,7 @@ func TestTraceCall(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	svr, bc, _, ap, cleanCallback := setupTestCoreSerivce()
+	svr, bc, _, ap, cleanCallback := setupTestCoreService()
 	defer cleanCallback()
 	ctx := context.Background()
 	tsf, err := action.SignedExecution(identityset.Address(29).String(),
