@@ -404,17 +404,26 @@ func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelo
 	return ws.finalize()
 }
 
-func (ws *workingSet) validateSystemActionLayout(ctx context.Context, actions []action.SealedEnvelope) error {
+func (ws *workingSet) generateSystemActions(ctx context.Context) ([]action.Envelope, error) {
 	reg := protocol.MustGetRegistry(ctx)
 	postSystemActions := []action.Envelope{}
 	for _, p := range reg.All() {
 		if psc, ok := p.(protocol.PostSystemActionsCreator); ok {
 			elps, err := psc.CreatePostSystemActions(ctx, ws)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			postSystemActions = append(postSystemActions, elps...)
 		}
+	}
+	return postSystemActions, nil
+}
+
+// validateSystemActionLayout verify whether the post system actions are appended tail
+func (ws *workingSet) validateSystemActionLayout(ctx context.Context, actions []action.SealedEnvelope) error {
+	postSystemActions, err := ws.generateSystemActions(ctx)
+	if err != nil {
+		return err
 	}
 	receivedSystemActions := []action.Envelope{}
 	startIdx := len(actions)
@@ -426,10 +435,12 @@ func (ws *workingSet) validateSystemActionLayout(ctx context.Context, actions []
 			receivedSystemActions = append(receivedSystemActions, actions[i].Envelope)
 		}
 	}
+	// system actions should be at the end of the action list, and they should be continuous
 	if len(receivedSystemActions) != len(postSystemActions) ||
 		startIdx+len(postSystemActions) != len(actions) {
 		return errors.Wrapf(errInvalidSystemActionLayout, "systen actions start at index %d with length %d, expected length is %d", startIdx, len(receivedSystemActions), len(postSystemActions))
 	}
+	// verify each system action
 	for i := range receivedSystemActions {
 		if receivedSystemActions[i].Proto().String() != postSystemActions[i].Proto().String() {
 			return errors.Wrapf(errInvalidSystemActionLayout, "the system action of index %d is incorrect", i)
