@@ -425,26 +425,22 @@ func (ws *workingSet) validateSystemActionLayout(ctx context.Context, actions []
 	if err != nil {
 		return err
 	}
-	receivedSystemActions := []action.Envelope{}
-	startIdx := len(actions)
+	// system actions should be at the end of the action list, and they should be continuous
+	expectedStartIdx := len(actions) - len(postSystemActions)
+	offset := 0
 	for i := range actions {
 		if action.IsSystemAction(actions[i]) {
-			if startIdx == len(actions) {
-				startIdx = i
+			if i != expectedStartIdx+offset {
+				return errors.Wrapf(errInvalidSystemActionLayout, "the action of idx %d should not be a system action", i)
 			}
-			receivedSystemActions = append(receivedSystemActions, actions[i].Envelope)
+			if actions[i].Envelope.Proto().String() != postSystemActions[offset].Proto().String() {
+				return errors.Wrapf(errInvalidSystemActionLayout, "the action of idx %d is not the expected system action", i)
+			}
+			offset++
 		}
 	}
-	// system actions should be at the end of the action list, and they should be continuous
-	if len(receivedSystemActions) != len(postSystemActions) ||
-		startIdx+len(postSystemActions) != len(actions) {
-		return errors.Wrapf(errInvalidSystemActionLayout, "systen actions start at index %d with length %d, expected length is %d", startIdx, len(receivedSystemActions), len(postSystemActions))
-	}
-	// verify each system action
-	for i := range receivedSystemActions {
-		if receivedSystemActions[i].Proto().String() != postSystemActions[i].Proto().String() {
-			return errors.Wrapf(errInvalidSystemActionLayout, "the system action of index %d is incorrect", i)
-		}
+	if offset != len(postSystemActions) {
+		return errors.Wrapf(errInvalidSystemActionLayout, "the number of system actions is incorrect, expected %d", len(postSystemActions))
 	}
 	return nil
 }

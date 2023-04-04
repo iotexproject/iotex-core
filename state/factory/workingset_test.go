@@ -300,7 +300,18 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		actions := []action.SealedEnvelope{makeTransferAction(t, 1)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
-			require.Equal(errInvalidSystemActionLayout, errors.Cause(f.Validate(zctx, block)))
+			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
+		}
+	})
+	t.Run("system action not on tail", func(t *testing.T) {
+		digestHash, err := hash.HexStringToHash256("8f9b7694c325a4f4b0065cd382f8af0a4e913113a4ce7ef1ac899f96158c74f4")
+		require.NoError(err)
+		receiptRoot, err := hash.HexStringToHash256("f04673451e31386a8fddfcf7750665bfcf33f239f6c4919430bb11a144e1aa95")
+		require.NoError(err)
+		actions := []action.SealedEnvelope{makeRewardAction(t), makeTransferAction(t, 1)}
+		for _, f := range factories {
+			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
+			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
 		}
 	})
 	t.Run("correct system action", func(t *testing.T) {
@@ -311,7 +322,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		actions := []action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
-			require.Equal(nil, errors.Cause(f.Validate(zctx, block)))
+			require.ErrorIs(f.Validate(zctx, block), nil)
 		}
 	})
 	t.Run("postiche system action", func(t *testing.T) {
@@ -322,7 +333,20 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		actions := []action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t), makeRewardAction(t)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
-			require.Equal(errInvalidSystemActionLayout, errors.Cause(f.Validate(zctx, block)))
+			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
+		}
+	})
+	t.Run("inconsistent system action", func(t *testing.T) {
+		digestHash, err := hash.HexStringToHash256("8f9b7694c325a4f4b0065cd382f8af0a4e913113a4ce7ef1ac899f96158c74f4")
+		require.NoError(err)
+		receiptRoot, err := hash.HexStringToHash256("f04673451e31386a8fddfcf7750665bfcf33f239f6c4919430bb11a144e1aa95")
+		require.NoError(err)
+		rewardAct := makeRewardAction(t)
+		rewardAct.SetNonce(2)
+		actions := []action.SealedEnvelope{makeTransferAction(t, 1), rewardAct}
+		for _, f := range factories {
+			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
+			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
 		}
 	})
 }
