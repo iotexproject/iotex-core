@@ -52,15 +52,18 @@ type (
 	}
 )
 
+// Owner did document owner
 func (doc *Doc) Owner() common.Address {
 	return common.HexToAddress(doc.ID[7:])
 }
 
+// Bytes did document bytes
 func (doc *Doc) Bytes() ([]byte, error) {
 	return json.MarshalIndent(doc, "", "  ")
 }
 
-func (doc *Doc) Json() (string, error) {
+// JSON did document json
+func (doc *Doc) JSON() (string, error) {
 	data, err := doc.Bytes()
 	if err != nil {
 		return "", err
@@ -68,6 +71,7 @@ func (doc *Doc) Json() (string, error) {
 	return string(data), nil
 }
 
+// Hash did document hash
 func (doc *Doc) Hash() ([32]byte, error) {
 	data, err := doc.Bytes()
 	if err != nil {
@@ -76,6 +80,7 @@ func (doc *Doc) Hash() ([32]byte, error) {
 	return sha256.Sum256(data), nil
 }
 
+// AddService add service to did document
 func (doc *Doc) AddService(tag, serviceType, endpoint string) {
 	id := doc.ID + "#" + tag
 	if doc.Service == nil {
@@ -103,6 +108,7 @@ func (doc *Doc) AddService(tag, serviceType, endpoint string) {
 	}
 }
 
+// RemoveService remove service from did document
 func (doc *Doc) RemoveService(tag string) error {
 	id := doc.ID + "#" + tag
 	if doc.Service == nil {
@@ -121,6 +127,7 @@ func (doc *Doc) RemoveService(tag string) error {
 	return nil
 }
 
+// NewDIDDoc new did document by public key
 func NewDIDDoc(publicKey []byte) (*Doc, error) {
 	pubKey, err := crypto.UnmarshalPubkey(publicKey)
 	if err != nil {

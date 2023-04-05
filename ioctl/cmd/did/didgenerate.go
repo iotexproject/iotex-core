@@ -66,7 +66,7 @@ func generateFromSigner(key *ecdsa.PrivateKey) (generatedMessage string, err err
 	if err != nil {
 		return "", output.NewError(output.ConvertError, "", err)
 	}
-	msg, err := doc.Json()
+	msg, err := doc.JSON()
 	if err != nil {
 		return "", output.NewError(output.ConvertError, "", err)
 	}
