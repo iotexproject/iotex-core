@@ -76,19 +76,19 @@ func (doc *Doc) Hash() ([32]byte, error) {
 	return sha256.Sum256(data), nil
 }
 
-func (doc *Doc) AddService(tag, _type, endpoint string) {
+func (doc *Doc) AddService(tag, serviceType, endpoint string) {
 	id := doc.ID + "#" + tag
 	if doc.Service == nil {
 		doc.Service = []serviceStruct{{
 			ID:              id,
-			Type:            _type,
+			Type:            serviceType,
 			ServiceEndpoint: endpoint,
 		}}
 	} else {
 		found := false
 		for _, service := range doc.Service {
 			if service.ID == id {
-				service.Type = _type
+				service.Type = serviceType
 				service.ServiceEndpoint = endpoint
 				found = true
 			}
@@ -96,7 +96,7 @@ func (doc *Doc) AddService(tag, _type, endpoint string) {
 		if !found {
 			doc.Service = append(doc.Service, serviceStruct{
 				ID:              id,
-				Type:            _type,
+				Type:            serviceType,
 				ServiceEndpoint: endpoint,
 			})
 		}
