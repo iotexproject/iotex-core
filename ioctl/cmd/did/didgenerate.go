@@ -8,16 +8,12 @@ package did
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
-	"fmt"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 // Multi-language support
@@ -49,36 +45,24 @@ func init() {
 }
 
 func generate() error {
-	addr, err := action.Signer()
+	key, _, err := LoadPrivateKey()
 	if err != nil {
-		return output.NewError(output.InputError, "failed to get signer addr", err)
+		return err
 	}
-	fmt.Printf("Enter password #%s:\n", addr)
-	password, err := util.ReadSecretFromStdin()
+	generatedMessage, err := generateFromSigner(key)
 	if err != nil {
-		return output.NewError(output.InputError, "failed to get password", err)
-	}
-	generatedMessage, err := generateFromSigner(addr, password)
-	if err != nil {
-		return output.NewError(output.KeystoreError, "failed to sign message", err)
+		return err
 	}
 	output.PrintResult(generatedMessage)
 	return nil
 }
 
-func generateFromSigner(signer, password string) (generatedMessage string, err error) {
-	pri, err := account.PrivateKeyFromSigner(signer, password)
+func generateFromSigner(key *ecdsa.PrivateKey) (generatedMessage string, err error) {
+	publicKey, err := LoadPublicKey(key)
 	if err != nil {
-		return
+		return "", err
 	}
-
-	publicKey := pri.EcdsaPrivateKey().(*ecdsa.PrivateKey).Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return "", output.NewError(output.ConvertError, "generate public key error", nil)
-	}
-	publicKeyBytes := crypto.FromECDSAPub(publicKeyECDSA)
-	doc, err := NewDIDDoc(publicKeyBytes)
+	doc, err := NewDIDDoc(publicKey)
 	if err != nil {
 		return "", output.NewError(output.ConvertError, "", err)
 	}

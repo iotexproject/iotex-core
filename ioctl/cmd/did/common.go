@@ -6,13 +6,21 @@
 package did
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
+	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
+	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -80,4 +88,83 @@ func SignType(key *ecdsa.PrivateKey, separator, hash string) (*Signature, error)
 		S: hexutil.Encode(sig[32:64]),
 		V: v.Uint64(),
 	}, nil
+}
+
+// LoadPrivateKey load private key and address from signer
+func LoadPrivateKey() (*ecdsa.PrivateKey, string, error) {
+	signer, err := action.Signer()
+	if err != nil {
+		return nil, "", output.NewError(output.InputError, "failed to get signer addr", err)
+	}
+	fmt.Printf("Enter password #%s:\n", signer)
+	password, err := util.ReadSecretFromStdin()
+	if err != nil {
+		return nil, "", output.NewError(output.InputError, "failed to get password", err)
+	}
+	pri, err := account.PrivateKeyFromSigner(signer, password)
+	if err != nil {
+		return nil, "", output.NewError(output.InputError, "failed to decrypt key", err)
+	}
+	ethAddress, err := addrutil.IoAddrToEvmAddr(signer)
+	if err != nil {
+		return nil, "", output.NewError(output.AddressError, "", err)
+	}
+
+	return pri.EcdsaPrivateKey().(*ecdsa.PrivateKey), ethAddress.String(), nil
+}
+
+// LoadPublicKey load public key by private key
+func LoadPublicKey(key *ecdsa.PrivateKey) ([]byte, error) {
+	publicKey := key.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, output.NewError(output.ConvertError, "generate public key error", nil)
+	}
+	return crypto.FromECDSAPub(publicKeyECDSA), nil
+}
+
+// SignPermit fetch permit and sign and return signature, publicKey and address
+func SignPermit(endpoint string) (*Signature, []byte, string, error) {
+	key, addr, err := LoadPrivateKey()
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	publicKey, err := LoadPublicKey(key)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	permit, err := GetPermit(endpoint, addr)
+	if err != nil {
+		return nil, nil, "", output.NewError(output.InputError, "failed to fetch permit", err)
+	}
+	signature, err := SignType(key, permit.Separator, permit.PermitHash)
+	if err != nil {
+		return nil, nil, "", output.NewError(output.InputError, "failed to sign typed permit", err)
+	}
+	return signature, publicKey, addr, nil
+}
+
+// PostToResolver post data to resolver
+func PostToResolver(url string, reqBytes []byte) error {
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBytes))
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to create request", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return output.NewError(output.NetworkError, "failed to post request", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to read response", err)
+	}
+	output.PrintResult(string(body))
+	return nil
 }
