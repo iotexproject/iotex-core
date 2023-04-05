@@ -108,7 +108,6 @@ type (
 		FixGasAndNonceUpdate                    bool
 		FixUnproductiveDelegates                bool
 		CorrectGasRefund                        bool
-		EnableWeb3Rewarding                     bool
 		SkipSystemActionNonce                   bool
 	}
 
@@ -244,7 +243,6 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixGasAndNonceUpdate:                    g.IsOkhotsk(height),
 			FixUnproductiveDelegates:                g.IsOkhotsk(height),
 			CorrectGasRefund:                        g.IsOkhotsk(height),
-			EnableWeb3Rewarding:                     g.IsPalau(height),
 			SkipSystemActionNonce:                   g.IsPalau(height),
 		},
 	)
