@@ -43,7 +43,7 @@ var _didGetCmd = &cobra.Command{
 func get(args []string) (err error) {
 	endpoint := args[0]
 	address := args[1]
-	if strings.HasPrefix("io", address) {
+	if strings.HasPrefix(address, "io") {
 		ethAddress, err := addrutil.IoAddrToEvmAddr(address)
 		if err != nil {
 			return output.NewError(output.AddressError, "", err)
