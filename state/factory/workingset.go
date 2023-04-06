@@ -338,30 +338,7 @@ func (ws *workingSet) validateNonce(ctx context.Context, blk *block.Block) error
 	if blk.Height() == 0 {
 		return nil
 	}
-	// Verify each account's Nonce
-	for srcAddr, receivedNonces := range accountNonceMap {
-		addr, _ := address.FromString(srcAddr)
-		confirmedState, err := accountutil.AccountState(ctx, ws, addr)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
-		}
-		receivedNonces := receivedNonces
-		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
-		pendingNonce := confirmedState.PendingNonce()
-		for i, nonce := range receivedNonces {
-			if nonce != pendingNonce+uint64(i) {
-				return errors.Wrapf(
-					action.ErrNonceTooHigh,
-					"the %d-th nonce %d of address %s (init pending nonce %d) is not continuously increasing",
-					i,
-					nonce,
-					srcAddr,
-					pendingNonce,
-				)
-			}
-		}
-	}
-	return nil
+	return ws.checkNonceContinuity(ctx, accountNonceMap)
 }
 
 func (ws *workingSet) validateNonce2(ctx context.Context, blk *block.Block) error {
@@ -386,6 +363,10 @@ func (ws *workingSet) validateNonce2(ctx context.Context, blk *block.Block) erro
 	if blk.Height() == 0 {
 		return nil
 	}
+	return ws.checkNonceContinuity(ctx, accountNonceMap)
+}
+
+func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap map[string][]uint64) error {
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
 		addr, _ := address.FromString(srcAddr)
