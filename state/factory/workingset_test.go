@@ -260,6 +260,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		Chain:   blockchain.DefaultConfig,
 		Genesis: genesis.TestDefault(),
 	}
+	cfg.Genesis.ToBeEnabledBlockHeight = 1 // enable validate system action
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100000000"
 	registry := protocol.NewRegistry()
 	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))

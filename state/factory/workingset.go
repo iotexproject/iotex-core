@@ -561,9 +561,12 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 	if err := ws.validateNonce(ctx, blk); err != nil {
 		return errors.Wrap(err, "failed to validate nonce")
 	}
-	if err := ws.validateSystemActionLayout(ctx, blk.RunnableActions().Actions()); err != nil {
-		return err
+	if protocol.MustGetFeatureCtx(ctx).ValidateSystemAction {
+		if err := ws.validateSystemActionLayout(ctx, blk.RunnableActions().Actions()); err != nil {
+			return err
+		}
 	}
+
 	if err := ws.process(ctx, blk.RunnableActions().Actions()); err != nil {
 		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
 		return err

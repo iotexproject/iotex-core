@@ -111,6 +111,7 @@ type (
 		FixRewardErroCheckPosition              bool
 		EnableWeb3Rewarding                     bool
 		EnableNodeInfo                          bool
+		ValidateSystemAction                    bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -248,6 +249,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixRewardErroCheckPosition:              g.IsOkhotsk(height),
 			EnableWeb3Rewarding:                     g.IsPalau(height),
 			EnableNodeInfo:                          g.IsPalau(height),
+			ValidateSystemAction:                    g.IsToBeEnabled(height),
 		},
 	)
 }
