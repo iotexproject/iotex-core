@@ -359,20 +359,16 @@ func (sf *factory) NewBlockBuilder(
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
 	postSystemActions := make([]action.SealedEnvelope, 0)
-	for _, p := range sf.registry.All() {
-		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
-			elps, err := psac.CreatePostSystemActions(ctx, ws)
-			if err != nil {
-				return nil, err
-			}
-			for _, elp := range elps {
-				se, err := sign(elp)
-				if err != nil {
-					return nil, err
-				}
-				postSystemActions = append(postSystemActions, se)
-			}
+	unsignedSystemActions, err := ws.generateSystemActions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, elp := range unsignedSystemActions {
+		se, err := sign(elp)
+		if err != nil {
+			return nil, err
 		}
+		postSystemActions = append(postSystemActions, se)
 	}
 	blkBuilder, err := ws.CreateBuilder(ctx, ap, postSystemActions, sf.cfg.Chain.AllowedBlockGasResidue)
 	if err != nil {
