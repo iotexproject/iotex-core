@@ -4,24 +4,24 @@ on:
   pull_request:
     types: [opened, synchronize]
 
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  statuses: write
+permissions: write-all
 
 jobs:
   CodeReview:
-    permissions: write-all
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      statuses: write
     name: ChatGPT Code Review
     runs-on: ubuntu-latest
     steps:
-      - uses: fitomad/github-chatgpt-integration@main
+      - uses: xianhuawei/github-chatgpt-integration@main
         with:
           openai-api-key: ${{ secrets.OPENAI_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           github-pr-id: ${{ github.event.number }}
           dev-lang: Go
-          openai-max-tokens: 4096
+          openai-max-tokens: 3072
           #openai-engine: "code-davinci-002" # "gpt-4"
-
+          #exclude-dir: ""
