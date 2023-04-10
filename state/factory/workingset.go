@@ -333,15 +333,10 @@ func (ws *workingSet) validateNonce(ctx context.Context, blk *block.Block) error
 		}
 		appendActionIndex(accountNonceMap, caller.String(), selp.Nonce())
 	}
-
-	// Special handling for genesis block
-	if blk.Height() == 0 {
-		return nil
-	}
 	return ws.checkNonceContinuity(ctx, accountNonceMap)
 }
 
-func (ws *workingSet) validateNonce2(ctx context.Context, blk *block.Block) error {
+func (ws *workingSet) validateNonceSkipSystemAction(ctx context.Context, blk *block.Block) error {
 	accountNonceMap := make(map[string][]uint64)
 	for _, selp := range blk.Actions {
 		if action.IsSystemAction(selp) {
@@ -357,11 +352,6 @@ func (ws *workingSet) validateNonce2(ctx context.Context, blk *block.Block) erro
 			accountNonceMap[srcAddr] = make([]uint64, 0)
 		}
 		accountNonceMap[srcAddr] = append(accountNonceMap[srcAddr], selp.Nonce())
-	}
-
-	// Special handling for genesis block
-	if blk.Height() == 0 {
-		return nil
 	}
 	return ws.checkNonceContinuity(ctx, accountNonceMap)
 }
@@ -546,7 +536,7 @@ func updateReceiptIndex(receipts []*action.Receipt) {
 
 func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {
 	if protocol.MustGetFeatureCtx(ctx).SkipSystemActionNonce {
-		if err := ws.validateNonce2(ctx, blk); err != nil {
+		if err := ws.validateNonceSkipSystemAction(ctx, blk); err != nil {
 			return errors.Wrap(err, "failed to validate nonce")
 		}
 	} else {
