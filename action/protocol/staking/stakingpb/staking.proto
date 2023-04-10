@@ -56,3 +56,16 @@ message BucketType {
     uint64 duration = 2;
     uint64 activatedAt = 3;
 }
+
+enum ExecutorType {
+    EXECUTOR_TYPE_PROPOSER = 0;
+}
+
+message Executor {
+    string ownerAddress = 1;
+    string operatorAddress = 2;
+    string rewardAddress = 3;
+    ExecutorType type = 4;
+    string amount = 5;
+    uint64 bucketIdx = 6;
+}
