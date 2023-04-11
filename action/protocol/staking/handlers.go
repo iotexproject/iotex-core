@@ -34,8 +34,6 @@ const (
 	HandleCandidateRegister = "candidateRegister"
 	HandleCandidateUpdate   = "candidateUpdate"
 	HandleExecutorRegister  = "executorRegister"
-
-	ProposerStakeAmount = 10000 // TBD
 )
 
 const _withdrawWaitingTime = 14 * 24 * time.Hour // to maintain backward compatibility with r0.11 code
@@ -785,7 +783,7 @@ func (p *Protocol) handleProposerRegister(ctx context.Context, act *action.Propo
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleExecutorRegister, featureCtx.NewStakingReceiptFormat)
 
-	actAmount := big.NewInt(ProposerStakeAmount)
+	actAmount := act.Amount()
 	registrationFee := new(big.Int).Set(p.config.RegistrationConsts.Fee)
 
 	caller, fetchErr := fetchCaller(ctx, esm, new(big.Int).Add(actAmount, registrationFee))
@@ -799,7 +797,7 @@ func (p *Protocol) handleProposerRegister(ctx context.Context, act *action.Propo
 	}
 
 	// cannot collide with existing operator
-	if esm.containsOperator(ExecutorTypeProposer, act.OperatorAddress()) {
+	if _, ok := esm.getExecutor(ExecutorTypeProposer, act.OperatorAddress()); ok {
 		return log, nil, &handleError{
 			err:           ErrInvalidOperator,
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,

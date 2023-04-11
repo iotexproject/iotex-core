@@ -2640,6 +2640,166 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 	}
 }
 
+func TestProtocol_HandleExecutorRegister(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	initFunc := func() (protocol.StateManager, *Protocol) {
+		p, err := NewProtocol(depositGas,
+			&BuilderConfig{Staking: genesis.Default.Staking, PersistStakingPatchBlock: math.MaxUint64},
+			nil, genesis.Default.GreenlandBlockHeight,
+		)
+		require.NoError(err)
+		sm := testdb.NewMockStateManager(ctrl)
+		ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+		ctx = protocol.WithFeatureWithHeightCtx(ctx)
+		v, err := p.Start(ctx, sm)
+		require.NoError(err)
+		cc, ok := v.(*stakingView)
+		require.True(ok)
+		require.NoError(sm.WriteView(_protocolID, cc))
+		return sm, p
+	}
+
+	prepareAction := func(sm protocol.StateManager, p *Protocol, nonce, height uint64, owner, operator, reward address.Address) (*action.ProposerRegister, context.Context) {
+		act, err := action.NewProposerRegister(nonce, operator.String(), reward.String(), owner.String(), (100), true, nil, 1000000, big.NewInt(1))
+		require.NoError(err)
+		intrinsicGas, err := act.IntrinsicGas()
+		require.NoError(err)
+		blkGasLimit := uint64(10000000)
+		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+			Caller:       act.OwnerAddress(),
+			GasPrice:     act.GasPrice(),
+			IntrinsicGas: intrinsicGas,
+			Nonce:        act.Nonce(),
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    height,
+			BlockTimeStamp: time.Now(),
+			GasLimit:       blkGasLimit,
+		})
+		ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		return act, ctx
+	}
+
+	prepareAccount := func(sm protocol.StateManager, id, balance int) address.Address {
+		caller := identityset.Address(id)
+		require.NoError(setupAccount(sm, caller, int64(balance)))
+		return caller
+	}
+
+	t.Run("register success", func(t *testing.T) {
+		sm, p := initFunc()
+		initBalance := 1000000000000000000
+		accounts := []address.Address{
+			prepareAccount(sm, 1, initBalance),
+			prepareAccount(sm, 2, 0),
+			prepareAccount(sm, 3, 0),
+		}
+		nonce := uint64(1)
+		act, ctx := prepareAction(sm, p, nonce, 1, accounts[0], accounts[1], accounts[2])
+		require.NoError(p.Validate(ctx, act, sm))
+		receipt, err := p.Handle(ctx, act, sm)
+		require.NoError(err)
+		require.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
+
+		// check transaction log
+		tLogs := receipt.TransactionLogs()
+		require.Equal(2, len(tLogs))
+		cLog := tLogs[0]
+		require.Equal(act.OwnerAddress().String(), cLog.Sender)
+		require.Equal(address.StakingBucketPoolAddr, cLog.Recipient)
+		require.Equal(act.Amount().String(), cLog.Amount.String())
+		cLog = tLogs[1]
+		require.Equal(act.OwnerAddress().String(), cLog.Sender)
+		require.Equal(address.RewardingPoolAddr, cLog.Recipient)
+		require.Equal(p.config.RegistrationConsts.Fee.String(), cLog.Amount.String())
+		// check executor
+		esm, err := newExecutorStateManager(sm)
+		require.NoError(err)
+		executor, ok := esm.getExecutor(ExecutorTypeProposer, act.OperatorAddress())
+		require.True(ok)
+		require.Equal(act.OwnerAddress(), executor.Owner)
+		require.Equal(act.RewardAddress(), executor.Reward)
+		require.Equal(act.OperatorAddress(), executor.Operator)
+		require.Equal(0, executor.Amount.Cmp(act.Amount()))
+		require.Equal(ExecutorTypeProposer, executor.Type)
+		require.Equal(uint64(0), executor.BucketIdx)
+		// check staker's account
+		callerAccount, err := accountutil.LoadAccount(sm, act.OwnerAddress())
+		require.NoError(err)
+		actCost, err := act.Cost()
+		require.NoError(err)
+		total := big.NewInt(0)
+		require.Equal(unit.ConvertIotxToRau(int64(initBalance)), total.Add(total, callerAccount.Balance).Add(total, actCost).Add(total, p.config.RegistrationConsts.Fee))
+		require.Equal(nonce+1, callerAccount.PendingNonce())
+	})
+
+	t.Run("not enough balance", func(t *testing.T) {
+		sm, p := initFunc()
+		initBalance := 0
+		accounts := []address.Address{
+			prepareAccount(sm, 1, initBalance),
+			prepareAccount(sm, 2, 0),
+			prepareAccount(sm, 3, 0),
+		}
+		nonce := uint64(1)
+		act, ctx := prepareAction(sm, p, nonce, 1, accounts[0], accounts[1], accounts[2])
+		require.NoError(p.Validate(ctx, act, sm))
+		receipt, err := p.Handle(ctx, act, sm)
+		require.NoError(err)
+		require.Equal(uint64(iotextypes.ReceiptStatus_ErrNotEnoughBalance), receipt.Status)
+	})
+
+	t.Run("caller register via multiple operator", func(t *testing.T) {
+		sm, p := initFunc()
+		initBalance := 1000000000000000000
+		accounts := []address.Address{
+			prepareAccount(sm, 1, initBalance),
+			prepareAccount(sm, 2, 0),
+			prepareAccount(sm, 3, 0),
+			prepareAccount(sm, 4, 0),
+		}
+		nonce := uint64(0)
+		for i := 1; i < 4; i++ {
+			nonce++
+			act, ctx := prepareAction(sm, p, nonce, 1, accounts[0], accounts[i], accounts[2])
+			require.NoError(p.Validate(ctx, act, sm))
+			receipt, err := p.Handle(ctx, act, sm)
+			require.NoError(err)
+			require.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
+			esm, err := newExecutorStateManager(sm)
+			require.NoError(err)
+			_, ok := esm.getExecutor(ExecutorTypeProposer, accounts[i])
+			require.True(ok)
+		}
+	})
+
+	t.Run("operator is unique per execution type", func(t *testing.T) {
+		sm, p := initFunc()
+		initBalance := 100000000
+		accounts := []address.Address{
+			prepareAccount(sm, 1, initBalance),
+			prepareAccount(sm, 2, 0),
+			prepareAccount(sm, 3, 0),
+			prepareAccount(sm, 4, 0),
+		}
+		nonce := uint64(1)
+		act, ctx := prepareAction(sm, p, nonce, 1, accounts[0], accounts[1], accounts[2])
+		require.NoError(p.Validate(ctx, act, sm))
+		receipt, err := p.Handle(ctx, act, sm)
+		require.NoError(err)
+		require.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
+
+		act, ctx = prepareAction(sm, p, nonce+1, 1, accounts[0], accounts[1], accounts[3])
+		require.NoError(p.Validate(ctx, act, sm))
+		receipt, err = p.Handle(ctx, act, sm)
+		require.NoError(err)
+		require.Equal(uint64(iotextypes.ReceiptStatus_ErrCandidateConflict), receipt.Status)
+	})
+}
+
 func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.Address, initBalance int64, gasPrice *big.Int, gasLimit uint64, nonce uint64, blkHeight uint64, blkTimestamp time.Time, blkGasLimit uint64, p *Protocol, candidate *Candidate, amount string, autoStake bool) (context.Context, *big.Int) {
 	require := require.New(t)
 	require.NoError(setupAccount(sm, callerAddr, initBalance))

@@ -150,13 +150,13 @@ func (esm *executorStateManager) putExecutor(e *Executor) error {
 	return err
 }
 
-func (esm *executorStateManager) containsOperator(etype ExecutorType, operator address.Address) bool {
+func (esm *executorStateManager) getExecutor(etype ExecutorType, operator address.Address) (e *Executor, ok bool) {
 	candMap, ok := esm.executors[etype]
 	if !ok {
-		return false
+		return nil, false
 	}
-	_, ok = candMap[operator.String()]
-	return ok
+	e, ok = candMap[operator.String()]
+	return
 }
 
 func (esm *executorStateManager) view() *executorViewData {
