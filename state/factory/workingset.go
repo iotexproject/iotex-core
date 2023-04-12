@@ -427,20 +427,20 @@ func (ws *workingSet) validateSystemActionLayout(ctx context.Context, actions []
 	}
 	// system actions should be at the end of the action list, and they should be continuous
 	expectedStartIdx := len(actions) - len(postSystemActions)
-	offset := 0
+	sysActCnt := 0
 	for i := range actions {
 		if action.IsSystemAction(actions[i]) {
-			if i != expectedStartIdx+offset {
-				return errors.Wrapf(errInvalidSystemActionLayout, "the action of idx %d should not be a system action", i)
+			if i != expectedStartIdx+sysActCnt {
+				return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action should not be a system action", i)
 			}
-			if actions[i].Envelope.Proto().String() != postSystemActions[offset].Proto().String() {
-				return errors.Wrapf(errInvalidSystemActionLayout, "the action of idx %d is not the expected system action", i)
+			if actions[i].Envelope.Proto().String() != postSystemActions[sysActCnt].Proto().String() {
+				return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action is not the expected system action", i)
 			}
-			offset++
+			sysActCnt++
 		}
 	}
-	if offset != len(postSystemActions) {
-		return errors.Wrapf(errInvalidSystemActionLayout, "the number of system actions is incorrect, expected %d", len(postSystemActions))
+	if sysActCnt != len(postSystemActions) {
+		return errors.Wrapf(errInvalidSystemActionLayout, "the number of system actions is incorrect, expected %d, got %d", len(postSystemActions), sysActCnt)
 	}
 	return nil
 }
