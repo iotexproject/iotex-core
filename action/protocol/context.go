@@ -110,7 +110,7 @@ type (
 		CorrectGasRefund                        bool
 		FixRewardErroCheckPosition              bool
 		EnableWeb3Rewarding                     bool
-		EnableNodeInfo                          bool
+		SkipSystemActionNonce                   bool
 		ValidateSystemAction                    bool
 	}
 
@@ -248,7 +248,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CorrectGasRefund:                        g.IsOkhotsk(height),
 			FixRewardErroCheckPosition:              g.IsOkhotsk(height),
 			EnableWeb3Rewarding:                     g.IsPalau(height),
-			EnableNodeInfo:                          g.IsPalau(height),
+			SkipSystemActionNonce:                   g.IsPalau(height),
 			ValidateSystemAction:                    g.IsToBeEnabled(height),
 		},
 	)

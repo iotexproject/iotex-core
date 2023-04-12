@@ -334,11 +334,30 @@ func (ws *workingSet) validateNonce(ctx context.Context, blk *block.Block) error
 		}
 		appendActionIndex(accountNonceMap, caller.String(), selp.Nonce())
 	}
+	return ws.checkNonceContinuity(ctx, accountNonceMap)
+}
 
-	// Special handling for genesis block
-	if blk.Height() == 0 {
-		return nil
+func (ws *workingSet) validateNonceSkipSystemAction(ctx context.Context, blk *block.Block) error {
+	accountNonceMap := make(map[string][]uint64)
+	for _, selp := range blk.Actions {
+		if action.IsSystemAction(selp) {
+			continue
+		}
+
+		caller := selp.SenderAddress()
+		if caller == nil {
+			return errors.New("failed to get address")
+		}
+		srcAddr := caller.String()
+		if _, ok := accountNonceMap[srcAddr]; !ok {
+			accountNonceMap[srcAddr] = make([]uint64, 0)
+		}
+		accountNonceMap[srcAddr] = append(accountNonceMap[srcAddr], selp.Nonce())
 	}
+	return ws.checkNonceContinuity(ctx, accountNonceMap)
+}
+
+func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap map[string][]uint64) error {
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
 		addr, _ := address.FromString(srcAddr)
@@ -346,14 +365,13 @@ func (ws *workingSet) validateNonce(ctx context.Context, blk *block.Block) error
 		if err != nil {
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}
-		receivedNonces := receivedNonces
 		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
 		pendingNonce := confirmedState.PendingNonce()
 		for i, nonce := range receivedNonces {
 			if nonce != pendingNonce+uint64(i) {
 				return errors.Wrapf(
 					action.ErrNonceTooHigh,
-					"the %d nonce %d of address %s (init pending nonce %d) is not continuously increasing",
+					"the %d-th nonce %d of address %s (init pending nonce %d) is not continuously increasing",
 					i,
 					nonce,
 					srcAddr,
@@ -558,8 +576,14 @@ func updateReceiptIndex(receipts []*action.Receipt) {
 }
 
 func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {
-	if err := ws.validateNonce(ctx, blk); err != nil {
-		return errors.Wrap(err, "failed to validate nonce")
+	if protocol.MustGetFeatureCtx(ctx).SkipSystemActionNonce {
+		if err := ws.validateNonceSkipSystemAction(ctx, blk); err != nil {
+			return errors.Wrap(err, "failed to validate nonce")
+		}
+	} else {
+		if err := ws.validateNonce(ctx, blk); err != nil {
+			return errors.Wrap(err, "failed to validate nonce")
+		}
 	}
 	if protocol.MustGetFeatureCtx(ctx).ValidateSystemAction {
 		if err := ws.validateSystemActionLayout(ctx, blk.RunnableActions().Actions()); err != nil {
