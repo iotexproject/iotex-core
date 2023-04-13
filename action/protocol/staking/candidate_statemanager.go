@@ -184,8 +184,6 @@ func (csm *candSM) Commit(ctx context.Context) error {
 		return err
 	}
 
-	// write updated view back to state factory
-	// return csm.WriteView(_protocolID, csm.DirtyView())
 	return nil
 }
 

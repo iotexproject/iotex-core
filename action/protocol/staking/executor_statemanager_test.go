@@ -78,7 +78,7 @@ func Test_newExecutorStateManager(t *testing.T) {
 		esm, err := newExecutorStateManager(msm)
 		require.NoError(err)
 		for _, e := range cases {
-			require.NoError(esm.putExecutor(e))
+			require.NoError(esm.upsert(e))
 		}
 		require.NoError(writeView(newCandidateStateManager(msm), esm))
 		esm, err = newExecutorStateManager(msm)
@@ -121,7 +121,7 @@ func Test_putExecutor(t *testing.T) {
 		esm, err := newExecutorStateManager(msm)
 		require.NoError(err)
 		for _, e := range executors {
-			require.NoError(esm.putExecutor(e))
+			require.NoError(esm.upsert(e))
 		}
 		esmExecutorCheck(require, esm, executors)
 	})
@@ -157,7 +157,7 @@ func Test_putExecutor(t *testing.T) {
 		esm, err := newExecutorStateManager(msm)
 		require.NoError(err)
 		for _, e := range executors {
-			require.NoError(esm.putExecutor(e))
+			require.NoError(esm.upsert(e))
 		}
 		esmExecutorCheck(require, esm, executors)
 	})
@@ -193,7 +193,7 @@ func Test_putExecutor(t *testing.T) {
 		esm, err := newExecutorStateManager(msm)
 		require.NoError(err)
 		for _, e := range executors {
-			require.NoError(esm.putExecutor(e))
+			require.NoError(esm.upsert(e))
 		}
 		esmExecutorCheck(require, esm, []*Executor{
 			{
@@ -232,14 +232,13 @@ func Test_putBucket(t *testing.T) {
 				true,
 			),
 		}
-		esm, err := newExecutorStateManager(msm)
-		require.NoError(err)
+		bsm := newExecutorBucketStateManager(msm)
 		for i, b := range buckets {
-			idx, err := esm.putBucket(b)
+			idx, err := bsm.add(b)
 			require.NoError(err)
 			require.Equal(uint64(i), idx)
 		}
-		esmBucketCheck(require, esm, buckets)
+		esmBucketCheck(require, bsm, buckets)
 	})
 }
 
@@ -268,7 +267,7 @@ func Test_view(t *testing.T) {
 	esm, err := newExecutorStateManager(msm)
 	require.NoError(err)
 	for _, e := range executors {
-		require.NoError(esm.putExecutor(e))
+		require.NoError(esm.upsert(e))
 	}
 	view := esm.view()
 	for _, e := range executors {
@@ -315,18 +314,18 @@ func esmExecutorCheck(require *require.Assertions, esm *executorStateManager, ex
 	}
 }
 
-func esmBucketCheck(require *require.Assertions, esm *executorStateManager, expects []*VoteBucket) {
+func esmBucketCheck(require *require.Assertions, bsm *bucketStateManager, expects []*VoteBucket) {
 	var tc totalBucketCount
-	_, err := esm.State(
+	_, err := bsm.State(
 		&tc,
-		protocol.NamespaceOption(esm.config.bucketNamespace),
-		protocol.KeyOption(esm.config.totalBucketKey))
+		protocol.NamespaceOption(bsm.config.bucketNamespace),
+		protocol.KeyOption(bsm.config.totalBucketKey))
 	require.NoError(err)
 	require.Equal(len(expects), int(tc.Count()))
 
 	bucket := &VoteBucket{}
 	for i := range expects {
-		_, err := esm.State(bucket, protocol.NamespaceOption(esm.config.bucketNamespace), protocol.KeyOption(esm.config.bucketKeygenFunc(expects[i])))
+		_, err := bsm.State(bucket, protocol.NamespaceOption(bsm.config.bucketNamespace), protocol.KeyOption(bsm.config.bucketKeygenFunc(expects[i])))
 		require.NoError(err)
 		equalBucket(require, expects[i], bucket)
 	}

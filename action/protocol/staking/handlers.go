@@ -797,20 +797,22 @@ func (p *Protocol) handleProposerRegister(ctx context.Context, act *action.Propo
 	}
 
 	// cannot collide with existing operator
-	if _, ok := esm.getExecutor(ExecutorTypeProposer, act.OperatorAddress()); ok {
+	if _, ok := esm.get(ExecutorTypeProposer, act.OperatorAddress()); ok {
 		return log, nil, &handleError{
 			err:           ErrInvalidOperator,
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
 		}
 	}
 
+	// create a bucket
+	bsm := newExecutorBucketStateManager(esm)
 	bucket := NewVoteBucket(act.OperatorAddress(), owner, actAmount, act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
-	bucketIdx, err := esm.putBucket(bucket)
+	bucketIdx, err := bsm.add(bucket)
 	if err != nil {
 		return log, nil, err
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), owner.Bytes())
-
+	// create an executor
 	c := &Executor{
 		Owner:     owner,
 		Operator:  act.OperatorAddress(),
@@ -819,10 +821,10 @@ func (p *Protocol) handleProposerRegister(ctx context.Context, act *action.Propo
 		BucketIdx: bucketIdx,
 		Amount:    actAmount,
 	}
-
-	if err := esm.putExecutor(c); err != nil {
+	if err := esm.upsert(c); err != nil {
 		return log, nil, csmErrorToHandleError(owner.String(), err)
 	}
+	// amount transferred to bucket pool from caller account
 	if err := caller.SubBalance(actAmount); err != nil {
 		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to update the balance of register %s", actCtx.Caller.String()),
@@ -832,6 +834,7 @@ func (p *Protocol) handleProposerRegister(ctx context.Context, act *action.Propo
 	if err := accountutil.StoreAccount(esm, actCtx.Caller, caller); err != nil {
 		return log, nil, errors.Wrapf(err, "failed to store account %s", actCtx.Caller.String())
 	}
+	// deposit gas
 	if _, err = p.depositGas(ctx, esm, registrationFee); err != nil {
 		return log, nil, errors.Wrap(err, "failed to deposit gas")
 	}

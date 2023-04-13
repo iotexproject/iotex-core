@@ -2718,7 +2718,7 @@ func TestProtocol_HandleExecutorRegister(t *testing.T) {
 		// check executor
 		esm, err := newExecutorStateManager(sm)
 		require.NoError(err)
-		executor, ok := esm.getExecutor(ExecutorTypeProposer, act.OperatorAddress())
+		executor, ok := esm.get(ExecutorTypeProposer, act.OperatorAddress())
 		require.True(ok)
 		require.Equal(act.OwnerAddress(), executor.Owner)
 		require.Equal(act.RewardAddress(), executor.Reward)
@@ -2771,7 +2771,7 @@ func TestProtocol_HandleExecutorRegister(t *testing.T) {
 			require.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
 			esm, err := newExecutorStateManager(sm)
 			require.NoError(err)
-			_, ok := esm.getExecutor(ExecutorTypeProposer, accounts[i])
+			_, ok := esm.get(ExecutorTypeProposer, accounts[i])
 			require.True(ok)
 		}
 	})

@@ -30,11 +30,6 @@ type (
 	}
 
 	executorStateConfig struct {
-		// bucket state config
-		bucketNamespace  string
-		totalBucketKey   []byte
-		bucketKeygenFunc func(*VoteBucket) []byte
-		// executor state config
 		executorNamespace  string
 		executorKeygenFunc func(*Executor) []byte
 	}
@@ -45,11 +40,6 @@ type (
 )
 
 var _executorStateConfig = executorStateConfig{
-	bucketNamespace: _executionStakingNameSpace,
-	totalBucketKey:  TotalBucketKey,
-	bucketKeygenFunc: func(bucket *VoteBucket) []byte {
-		return bucketKey(bucket.Index)
-	},
 	executorNamespace: _executorNameSpace,
 	executorKeygenFunc: func(e *Executor) []byte {
 		return e.Operator.Bytes()
@@ -111,34 +101,7 @@ func newExecutorStateManager(sm protocol.StateManager) (*executorStateManager, e
 	return esm, nil
 }
 
-func (esm *executorStateManager) putBucket(bucket *VoteBucket) (uint64, error) {
-	// Get total bucket count
-	var tc totalBucketCount
-	if _, err := esm.State(
-		&tc,
-		protocol.NamespaceOption(esm.config.bucketNamespace),
-		protocol.KeyOption(esm.config.totalBucketKey)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
-		return 0, err
-	}
-	// Add index inside bucket and put
-	index := tc.Count()
-	bucket.Index = index
-	if _, err := esm.PutState(
-		bucket,
-		protocol.NamespaceOption(esm.config.bucketNamespace),
-		protocol.KeyOption(esm.config.bucketKeygenFunc(bucket))); err != nil {
-		return 0, err
-	}
-	// Update total bucket count
-	tc.count++
-	_, err := esm.PutState(
-		&tc,
-		protocol.NamespaceOption(esm.config.bucketNamespace),
-		protocol.KeyOption(esm.config.totalBucketKey))
-	return index, err
-}
-
-func (esm *executorStateManager) putExecutor(e *Executor) error {
+func (esm *executorStateManager) upsert(e *Executor) error {
 	candMap, ok := esm.executors[e.Type]
 	if !ok {
 		candMap = make(map[string]*Executor)
@@ -150,7 +113,7 @@ func (esm *executorStateManager) putExecutor(e *Executor) error {
 	return err
 }
 
-func (esm *executorStateManager) getExecutor(etype ExecutorType, operator address.Address) (e *Executor, ok bool) {
+func (esm *executorStateManager) get(etype ExecutorType, operator address.Address) (e *Executor, ok bool) {
 	candMap, ok := esm.executors[etype]
 	if !ok {
 		return nil, false
