@@ -101,6 +101,9 @@ func TestEnvelope_Actions(t *testing.T) {
 	candidateUpdate, err := NewCandidateUpdate(_nonce, _candidate1Name, _cand1Addr, _cand1Addr, _gasLimit, _gasPrice)
 	require.NoError(err)
 
+	proposerRegister, err := NewProposerRegister(_nonce, _cand1Addr, _cand1Addr, _cand1Addr, 10, true, _payload, _gasLimit, _gasPrice)
+	require.NoError(err)
+
 	gb := GrantRewardBuilder{}
 	grantReward := gb.Build()
 
@@ -121,6 +124,7 @@ func TestEnvelope_Actions(t *testing.T) {
 		transferStake,
 		candidateRegister,
 		candidateUpdate,
+		proposerRegister,
 		&grantReward,
 		&claimFromRewardingFund,
 		&depositToRewardingFund,

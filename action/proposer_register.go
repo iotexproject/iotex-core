@@ -10,6 +10,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
 
@@ -120,4 +121,64 @@ func (pr *ProposerRegister) Cost() (*big.Int, error) {
 // SanityCheck validates the ProposerRegister
 func (pr *ProposerRegister) SanityCheck() error {
 	return pr.AbstractAction.SanityCheck()
+}
+
+// Proto converts to protobuf ProposerRegister Action
+func (pr *ProposerRegister) Proto() *iotextypes.ProposerRegister {
+	act := iotextypes.ProposerRegister{
+		Proposer: &iotextypes.ProposerBasicInfo{
+			OperatorAddress: pr.operatorAddress.String(),
+			RewardAddress:   pr.rewardAddress.String(),
+		},
+		StakedDuration: pr.duration,
+		AutoStake:      pr.autoStake,
+	}
+
+	if pr.ownerAddress != nil {
+		act.OwnerAddress = pr.ownerAddress.String()
+	}
+
+	if len(pr.payload) > 0 {
+		act.Payload = make([]byte, len(pr.payload))
+		copy(act.Payload, pr.payload)
+	}
+	return &act
+}
+
+// LoadProto converts a protobuf's Action to ProposerRegister
+func (pr *ProposerRegister) LoadProto(pbAct *iotextypes.ProposerRegister) error {
+	if pbAct == nil {
+		return ErrNilProto
+	}
+
+	pInfo := pbAct.GetProposer()
+
+	operatorAddr, err := address.FromString(pInfo.GetOperatorAddress())
+	if err != nil {
+		return err
+	}
+	rewardAddr, err := address.FromString(pInfo.GetRewardAddress())
+	if err != nil {
+		return err
+	}
+
+	pr.operatorAddress = operatorAddr
+	pr.rewardAddress = rewardAddr
+	pr.duration = pbAct.GetStakedDuration()
+	pr.autoStake = pbAct.GetAutoStake()
+
+	pr.payload = nil
+	if len(pbAct.GetPayload()) > 0 {
+		pr.payload = make([]byte, len(pbAct.GetPayload()))
+		copy(pr.payload, pbAct.GetPayload())
+	}
+
+	if len(pbAct.GetOwnerAddress()) > 0 {
+		ownerAddr, err := address.FromString(pbAct.GetOwnerAddress())
+		if err != nil {
+			return err
+		}
+		pr.ownerAddress = ownerAddr
+	}
+	return nil
 }
