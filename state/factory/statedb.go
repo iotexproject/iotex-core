@@ -239,20 +239,16 @@ func (sdb *stateDB) NewBlockBuilder(
 		return nil, err
 	}
 	postSystemActions := make([]action.SealedEnvelope, 0)
-	for _, p := range sdb.registry.All() {
-		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
-			elps, err := psac.CreatePostSystemActions(ctx, ws)
-			if err != nil {
-				return nil, err
-			}
-			for _, elp := range elps {
-				se, err := sign(elp)
-				if err != nil {
-					return nil, err
-				}
-				postSystemActions = append(postSystemActions, se)
-			}
+	unsignedSystemActions, err := ws.generateSystemActions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, elp := range unsignedSystemActions {
+		se, err := sign(elp)
+		if err != nil {
+			return nil, err
 		}
+		postSystemActions = append(postSystemActions, se)
 	}
 	blkBuilder, err := ws.CreateBuilder(ctx, ap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
 	if err != nil {
