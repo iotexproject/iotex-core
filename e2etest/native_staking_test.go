@@ -403,11 +403,14 @@ func TestNativeStaking(t *testing.T) {
 	require.NoError(err)
 	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
 	require.NoError(err)
+	testSGDPath, err := testutil.PathOfTempFile("index")
+	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(testIndexPath)
 		testutil.CleanupPath(testSystemLogPath)
+		testutil.CleanupPath(testSGDPath)
 		// clear the gateway
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -417,6 +420,7 @@ func TestNativeStaking(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Chain.SGDIndexDBPath = testSGDPath
 	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Chain.EnableAsyncIndexWrite = false

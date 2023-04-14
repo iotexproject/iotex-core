@@ -301,6 +301,8 @@ func TestLocalTransfer(t *testing.T) {
 	require.NoError(err)
 	testCandidateIndexPath, err := testutil.PathOfTempFile("candidateIndex")
 	require.NoError(err)
+	testSGDIndexPath, err := testutil.PathOfTempFile("index")
+	require.NoError(err)
 
 	defer func() {
 		testutil.CleanupPath(testTriePath)
@@ -309,11 +311,13 @@ func TestLocalTransfer(t *testing.T) {
 		testutil.CleanupPath(testSystemLogPath)
 		testutil.CleanupPath(testBloomfilterIndexPath)
 		testutil.CleanupPath(testCandidateIndexPath)
+		testutil.CleanupPath(testSGDIndexPath)
 	}()
 
 	networkPort := 4689
 	apiPort := testutil.RandomPort()
-	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, testBloomfilterIndexPath, testSystemLogPath, testCandidateIndexPath, networkPort, apiPort)
+	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, testBloomfilterIndexPath, testSystemLogPath, testCandidateIndexPath,
+		testSGDIndexPath, networkPort, apiPort)
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -584,6 +588,7 @@ func newTransferConfig(
 	bloomfilterIndex string,
 	systemLogDBPath string,
 	candidateIndexDBPath string,
+	testSGDIndexPath string,
 	networkPort,
 	apiPort int,
 ) (config.Config, error) {
@@ -599,6 +604,7 @@ func newTransferConfig(
 	cfg.Chain.BloomfilterIndexDBPath = bloomfilterIndex
 	cfg.System.SystemLogDBPath = systemLogDBPath
 	cfg.Chain.CandidateIndexDBPath = candidateIndexDBPath
+	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme
