@@ -22,6 +22,11 @@ const (
 	DIDAuthType = "EcdsaSecp256k1VerificationKey2019"
 	// DIDOwner is the suffix string
 	DIDOwner = "#owner"
+
+	// KnownDIDContext known context for did
+	KnownDIDContext = "https://www.w3.org/ns/did/v1"
+	// Secp256k1DIDContext secp256k1 context for did
+	Secp256k1DIDContext = "https://w3id.org/security/suites/secp256k1-2019/v1"
 )
 
 type (
@@ -89,22 +94,23 @@ func (doc *Doc) AddService(tag, serviceType, endpoint string) {
 			Type:            serviceType,
 			ServiceEndpoint: endpoint,
 		}}
-	} else {
-		found := false
-		for _, service := range doc.Service {
-			if service.ID == id {
-				service.Type = serviceType
-				service.ServiceEndpoint = endpoint
-				found = true
-			}
+		return
+	}
+	found := false
+	for _, service := range doc.Service {
+		if service.ID == id {
+			service.Type = serviceType
+			service.ServiceEndpoint = endpoint
+			found = true
+			break
 		}
-		if !found {
-			doc.Service = append(doc.Service, serviceStruct{
-				ID:              id,
-				Type:            serviceType,
-				ServiceEndpoint: endpoint,
-			})
-		}
+	}
+	if !found {
+		doc.Service = append(doc.Service, serviceStruct{
+			ID:              id,
+			Type:            serviceType,
+			ServiceEndpoint: endpoint,
+		})
 	}
 }
 
@@ -114,16 +120,18 @@ func (doc *Doc) RemoveService(tag string) error {
 	if doc.Service == nil {
 		return errors.New("service not exists")
 	}
-	serices := make([]serviceStruct, len(doc.Service)-1)
+	services := make([]serviceStruct, len(doc.Service)-1)
+	count := 0
 	for i, service := range doc.Service {
 		if service.ID != id {
-			if i == len(serices) {
+			if count == len(services) {
 				return errors.New("service not exists")
 			}
-			serices[i] = doc.Service[i]
+			services[count] = doc.Service[i]
+			count++
 		}
 	}
-	doc.Service = serices
+	doc.Service = services
 	return nil
 }
 
@@ -141,8 +149,8 @@ func NewDIDDoc(publicKey []byte) (*Doc, error) {
 
 	doc := &Doc{
 		Context: []string{
-			"https://www.w3.org/ns/did/v1",
-			"https://w3id.org/security/suites/secp256k1-2019/v1",
+			KnownDIDContext,
+			Secp256k1DIDContext,
 		},
 	}
 	doc.ID = DIDPrefix + address.Hex()
