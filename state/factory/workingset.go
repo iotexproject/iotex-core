@@ -36,7 +36,8 @@ var (
 		[]string{"type"},
 	)
 
-	errUnsupportWeb3Rewarding = errors.New("unsupported web3 rewarding")
+	errUnsupportWeb3Rewarding    = errors.New("unsupported web3 rewarding")
+	errInvalidSystemActionLayout = errors.New("system action layout is invalid")
 )
 
 func init() {
@@ -412,7 +413,6 @@ func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelo
 			}
 		}
 	}
-	// TODO: verify whether the post system actions are appended tail
 
 	receipts, err := ws.runActions(ctx, actions)
 	if err != nil {
@@ -420,6 +420,47 @@ func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelo
 	}
 	ws.receipts = receipts
 	return ws.finalize()
+}
+
+func (ws *workingSet) generateSystemActions(ctx context.Context) ([]action.Envelope, error) {
+	reg := protocol.MustGetRegistry(ctx)
+	postSystemActions := []action.Envelope{}
+	for _, p := range reg.All() {
+		if psc, ok := p.(protocol.PostSystemActionsCreator); ok {
+			elps, err := psc.CreatePostSystemActions(ctx, ws)
+			if err != nil {
+				return nil, err
+			}
+			postSystemActions = append(postSystemActions, elps...)
+		}
+	}
+	return postSystemActions, nil
+}
+
+// validateSystemActionLayout verify whether the post system actions are appended tail
+func (ws *workingSet) validateSystemActionLayout(ctx context.Context, actions []action.SealedEnvelope) error {
+	postSystemActions, err := ws.generateSystemActions(ctx)
+	if err != nil {
+		return err
+	}
+	// system actions should be at the end of the action list, and they should be continuous
+	expectedStartIdx := len(actions) - len(postSystemActions)
+	sysActCnt := 0
+	for i := range actions {
+		if action.IsSystemAction(actions[i]) {
+			if i != expectedStartIdx+sysActCnt {
+				return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action should not be a system action", i)
+			}
+			if actions[i].Envelope.Proto().String() != postSystemActions[sysActCnt].Proto().String() {
+				return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action is not the expected system action", i)
+			}
+			sysActCnt++
+		}
+	}
+	if sysActCnt != len(postSystemActions) {
+		return errors.Wrapf(errInvalidSystemActionLayout, "the number of system actions is incorrect, expected %d, got %d", len(postSystemActions), sysActCnt)
+	}
+	return nil
 }
 
 func (ws *workingSet) pickAndRunActions(
@@ -544,6 +585,12 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 			return errors.Wrap(err, "failed to validate nonce")
 		}
 	}
+	if protocol.MustGetFeatureCtx(ctx).ValidateSystemAction {
+		if err := ws.validateSystemActionLayout(ctx, blk.RunnableActions().Actions()); err != nil {
+			return err
+		}
+	}
+
 	if err := ws.process(ctx, blk.RunnableActions().Actions()); err != nil {
 		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
 		return err
