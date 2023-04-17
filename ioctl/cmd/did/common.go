@@ -45,8 +45,8 @@ type (
 	}
 )
 
-// GetPermit fetch DID permit from resolver
-func GetPermit(endpoint, address string) (*Permit, error) {
+// getPermit fetch DID permit from resolver
+func getPermit(endpoint, address string) (*Permit, error) {
 	resp, err := http.Get(endpoint + "/did/" + address + "/permit")
 	if err != nil {
 		return nil, err
@@ -61,8 +61,8 @@ func GetPermit(endpoint, address string) (*Permit, error) {
 	return &data, nil
 }
 
-// SignType sign typed message
-func SignType(key *ecdsa.PrivateKey, separator, hash string) (*Signature, error) {
+// signType sign typed message
+func signType(key *ecdsa.PrivateKey, separator, hash string) (*Signature, error) {
 	separatorBytes, err := hexutil.Decode(separator)
 	if err != nil {
 		return nil, err
@@ -90,8 +90,8 @@ func SignType(key *ecdsa.PrivateKey, separator, hash string) (*Signature, error)
 	}, nil
 }
 
-// LoadPrivateKey load private key and address from signer
-func LoadPrivateKey() (*ecdsa.PrivateKey, string, error) {
+// loadPrivateKey load private key and address from signer
+func loadPrivateKey() (*ecdsa.PrivateKey, string, error) {
 	signer, err := action.Signer()
 	if err != nil {
 		return nil, "", output.NewError(output.InputError, "failed to get signer addr", err)
@@ -113,8 +113,8 @@ func LoadPrivateKey() (*ecdsa.PrivateKey, string, error) {
 	return pri.EcdsaPrivateKey().(*ecdsa.PrivateKey), ethAddress.String(), nil
 }
 
-// LoadPublicKey load public key by private key
-func LoadPublicKey(key *ecdsa.PrivateKey) ([]byte, error) {
+// loadPublicKey load public key by private key
+func loadPublicKey(key *ecdsa.PrivateKey) ([]byte, error) {
 	publicKey := key.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -123,31 +123,31 @@ func LoadPublicKey(key *ecdsa.PrivateKey) ([]byte, error) {
 	return crypto.FromECDSAPub(publicKeyECDSA), nil
 }
 
-// SignPermit fetch permit and sign and return signature, publicKey and address
-func SignPermit(endpoint string) (*Signature, []byte, string, error) {
-	key, addr, err := LoadPrivateKey()
+// signPermit fetch permit and sign and return signature, publicKey and address
+func signPermit(endpoint string) (*Signature, []byte, string, error) {
+	key, addr, err := loadPrivateKey()
 	if err != nil {
 		return nil, nil, "", err
 	}
 
-	publicKey, err := LoadPublicKey(key)
+	publicKey, err := loadPublicKey(key)
 	if err != nil {
 		return nil, nil, "", err
 	}
 
-	permit, err := GetPermit(endpoint, addr)
+	permit, err := getPermit(endpoint, addr)
 	if err != nil {
 		return nil, nil, "", output.NewError(output.InputError, "failed to fetch permit", err)
 	}
-	signature, err := SignType(key, permit.Separator, permit.PermitHash)
+	signature, err := signType(key, permit.Separator, permit.PermitHash)
 	if err != nil {
 		return nil, nil, "", output.NewError(output.InputError, "failed to sign typed permit", err)
 	}
 	return signature, publicKey, addr, nil
 }
 
-// PostToResolver post data to resolver
-func PostToResolver(url string, reqBytes []byte) error {
+// postToResolver post data to resolver
+func postToResolver(url string, reqBytes []byte) error {
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to create request", err)

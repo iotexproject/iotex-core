@@ -46,7 +46,7 @@ func init() {
 func deregisterDID(args []string) (err error) {
 	endpoint := args[0]
 
-	signature, _, addr, err := SignPermit(endpoint)
+	signature, _, addr, err := signPermit(endpoint)
 	if err != nil {
 		return err
 	}
@@ -56,5 +56,5 @@ func deregisterDID(args []string) (err error) {
 		return output.NewError(output.ConvertError, "failed to encode request", err)
 	}
 
-	return PostToResolver(endpoint+"/did/"+addr+"/delete", deleteBytes)
+	return postToResolver(endpoint+"/did/"+addr+"/delete", deleteBytes)
 }

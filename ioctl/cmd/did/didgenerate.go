@@ -45,7 +45,7 @@ func init() {
 }
 
 func generate() error {
-	key, _, err := LoadPrivateKey()
+	key, _, err := loadPrivateKey()
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func generate() error {
 }
 
 func generateFromSigner(key *ecdsa.PrivateKey) (generatedMessage string, err error) {
-	publicKey, err := LoadPublicKey(key)
+	publicKey, err := loadPublicKey(key)
 	if err != nil {
 		return "", err
 	}

@@ -47,7 +47,7 @@ func init() {
 func registerDID(args []string) error {
 	endpoint := args[0]
 
-	signature, publicKey, _, err := SignPermit(endpoint)
+	signature, publicKey, _, err := signPermit(endpoint)
 	if err != nil {
 		return err
 	}
@@ -61,5 +61,5 @@ func registerDID(args []string) error {
 		return output.NewError(output.ConvertError, "failed to encode request", err)
 	}
 
-	return PostToResolver(endpoint+"/did", createBytes)
+	return postToResolver(endpoint+"/did", createBytes)
 }
