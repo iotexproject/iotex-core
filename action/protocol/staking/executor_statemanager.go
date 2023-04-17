@@ -14,7 +14,7 @@ import (
 
 const (
 	// ExecutorTypeProposer is the type of proposer
-	ExecutorTypeProposer ExecutorType = iota
+	ExecutorTypeProposer ExecutorType = 1 << iota
 )
 
 type (
@@ -39,14 +39,16 @@ type (
 	}
 )
 
-var _executorStateConfig = executorStateConfig{
-	executorNamespace: _executorNameSpace,
-	executorKeygenFunc: func(e *Executor) []byte {
-		return e.Operator.Bytes()
-	},
-}
+var (
+	_executorStateConfig = executorStateConfig{
+		executorNamespace: _executorNameSpace,
+		executorKeygenFunc: func(e *Executor) []byte {
+			return e.Operator.Bytes()
+		},
+	}
+)
 
-func createExecutorBaseView(sr protocol.StateReader) (*executorViewData, error) {
+func createExecutorView(sr protocol.StateReader) (*executorViewData, error) {
 	executors, err := loadExecutorFromStateDB(sr, &_executorStateConfig)
 	if err != nil {
 		return nil, err

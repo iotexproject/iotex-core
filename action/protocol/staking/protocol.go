@@ -183,7 +183,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	}
 
 	// load view from SR
-	c, err := createBaseView(sr, featureCtx.ReadStateFromDB(height))
+	c, err := createView(sr, featureCtx.ReadStateFromDB(height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
@@ -218,6 +218,10 @@ func (p *Protocol) CreateGenesisStates(
 		return err
 	}
 	esm, err := newExecutorStateManager(sm)
+	if err != nil {
+		return err
+	}
+	bsm, err := newExecutorBucketStateManager(sm)
 	if err != nil {
 		return err
 	}
@@ -270,7 +274,7 @@ func (p *Protocol) CreateGenesisStates(
 	if err = csm.Commit(ctx); err != nil {
 		return errors.Wrap(err, "failed to commit candidate change in CreateGenesisStates")
 	}
-	return writeView(csm, esm)
+	return writeView(csm, esm, bsm)
 }
 
 // CreatePreStates updates state manager
@@ -384,11 +388,15 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	if err != nil {
 		return err
 	}
+	bsm, err := newExecutorBucketStateManager(sm)
+	if err != nil {
+		return err
+	}
 	// commit updated view
 	if err = csm.Commit(ctx); err != nil {
 		return errors.Wrap(err, "failed to commit candidate change in Commit")
 	}
-	return writeView(csm, esm)
+	return writeView(csm, esm, bsm)
 }
 
 // Handle handles a staking message

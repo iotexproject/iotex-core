@@ -782,15 +782,17 @@ func (p *Protocol) handleProposerRegister(ctx context.Context, act *action.Propo
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleExecutorRegister, featureCtx.NewStakingReceiptFormat)
-
 	actAmount := act.Amount()
 	registrationFee := new(big.Int).Set(p.config.RegistrationConsts.Fee)
 
+	bsm, err := newExecutorBucketStateManager(esm)
+	if err != nil {
+		return log, nil, err
+	}
 	caller, fetchErr := fetchCaller(ctx, esm, new(big.Int).Add(actAmount, registrationFee))
 	if fetchErr != nil {
 		return log, nil, fetchErr
 	}
-
 	owner := actCtx.Caller
 	if act.OwnerAddress() != nil {
 		owner = act.OwnerAddress()
@@ -805,37 +807,33 @@ func (p *Protocol) handleProposerRegister(ctx context.Context, act *action.Propo
 	}
 
 	// create a bucket
-	bsm := newExecutorBucketStateManager(esm)
-	bucket := NewVoteBucket(act.OperatorAddress(), owner, actAmount, act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
-	bucketIdx, err := bsm.add(bucket)
+	bucketIdx, err := bsm.add(NewVoteBucket(act.OperatorAddress(), owner, actAmount, act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake()))
 	if err != nil {
 		return log, nil, err
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), owner.Bytes())
+
 	// create an executor
-	c := &Executor{
+	if err := esm.upsert(&Executor{
 		Owner:     owner,
 		Operator:  act.OperatorAddress(),
 		Reward:    act.RewardAddress(),
 		Type:      ExecutorTypeProposer,
 		BucketIdx: bucketIdx,
 		Amount:    actAmount,
-	}
-	if err := esm.upsert(c); err != nil {
+	}); err != nil {
 		return log, nil, csmErrorToHandleError(owner.String(), err)
 	}
-	// amount transferred to bucket pool from caller account
-	if err := caller.SubBalance(actAmount); err != nil {
-		return log, nil, &handleError{
-			err:           errors.Wrapf(err, "failed to update the balance of register %s", actCtx.Caller.String()),
-			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
-		}
+
+	// deposit stake
+	stakeTLog, err := depositStake(bsm, actAmount, caller, actCtx.Caller, iotextypes.TransactionLogType_PROPOSER_SELF_STAKE)
+	if err != nil {
+		return log, nil, err
 	}
-	if err := accountutil.StoreAccount(esm, actCtx.Caller, caller); err != nil {
-		return log, nil, errors.Wrapf(err, "failed to store account %s", actCtx.Caller.String())
-	}
+
 	// deposit gas
-	if _, err = p.depositGas(ctx, esm, registrationFee); err != nil {
+	gasTLog, err := p.depositGasWithType(ctx, esm, registrationFee, iotextypes.TransactionLogType_PROPOSER_REGISTRATION_FEE)
+	if err != nil {
 		return log, nil, errors.Wrap(err, "failed to deposit gas")
 	}
 
@@ -844,19 +842,18 @@ func (p *Protocol) handleProposerRegister(ctx context.Context, act *action.Propo
 	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
 
 	return log, []*action.TransactionLog{
-		{
-			Type:      iotextypes.TransactionLogType_PROPOSER_SELF_STAKE,
-			Sender:    actCtx.Caller.String(),
-			Recipient: address.StakingBucketPoolAddr,
-			Amount:    actAmount,
-		},
-		{
-			Type:      iotextypes.TransactionLogType_PROPOSER_REGISTRATION_FEE,
-			Sender:    actCtx.Caller.String(),
-			Recipient: address.RewardingPoolAddr,
-			Amount:    registrationFee,
-		},
+		stakeTLog,
+		gasTLog,
 	}, nil
+}
+
+func (p *Protocol) depositGasWithType(ctx context.Context, sm protocol.StateManager, amount *big.Int, logType iotextypes.TransactionLogType) (*action.TransactionLog, error) {
+	tLog, err := p.depositGas(ctx, sm, amount)
+	if err != nil {
+		return nil, err
+	}
+	tLog.Type = logType
+	return tLog, nil
 }
 
 func (p *Protocol) fetchBucket(
@@ -970,4 +967,31 @@ func BucketIndexFromReceiptLog(log *iotextypes.Log) (uint64, bool) {
 	default:
 		return 0, false
 	}
+}
+
+// depositStake transfer stake from caller account to bucket pool
+func depositStake(bsm *bucketStateManager, amount *big.Int, callerAccount *state.Account, callerAddr address.Address, logType iotextypes.TransactionLogType) (*action.TransactionLog, error) {
+	// update bucket pool
+	if err := bsm.depositPool(amount, true); err != nil {
+		return nil, &handleError{
+			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
+			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
+		}
+	}
+	// update caller account
+	if err := callerAccount.SubBalance(amount); err != nil {
+		return nil, &handleError{
+			err:           errors.Wrapf(err, "failed to update the balance of register %s", callerAddr.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
+		}
+	}
+	if err := accountutil.StoreAccount(bsm, callerAddr, callerAccount); err != nil {
+		return nil, errors.Wrapf(err, "failed to store account %s", callerAddr.String())
+	}
+	return &action.TransactionLog{
+		Type:      logType,
+		Sender:    callerAddr.String(),
+		Recipient: bsm.config.bucketPoolAddr,
+		Amount:    amount,
+	}, nil
 }

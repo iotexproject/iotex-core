@@ -2645,7 +2645,7 @@ func TestProtocol_HandleExecutorRegister(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	initFunc := func() (protocol.StateManager, *Protocol) {
-		p, err := NewProtocol(depositGas,
+		p, err := NewProtocol(depositGasWithLog,
 			&BuilderConfig{Staking: genesis.Default.Staking, PersistStakingPatchBlock: math.MaxUint64},
 			nil, genesis.Default.GreenlandBlockHeight,
 		)
@@ -2706,12 +2706,18 @@ func TestProtocol_HandleExecutorRegister(t *testing.T) {
 
 		// check transaction log
 		tLogs := receipt.TransactionLogs()
-		require.Equal(2, len(tLogs))
+		require.Equal(3, len(tLogs))
 		cLog := tLogs[0]
+		intrinsicGas, err := act.IntrinsicGas()
+		require.NoError(err)
+		require.Equal(act.OwnerAddress().String(), cLog.Sender)
+		require.Equal(address.RewardingPoolAddr, cLog.Recipient)
+		require.Equal(intrinsicGas, cLog.Amount.Uint64())
+		cLog = tLogs[1]
 		require.Equal(act.OwnerAddress().String(), cLog.Sender)
 		require.Equal(address.StakingBucketPoolAddr, cLog.Recipient)
 		require.Equal(act.Amount().String(), cLog.Amount.String())
-		cLog = tLogs[1]
+		cLog = tLogs[2]
 		require.Equal(act.OwnerAddress().String(), cLog.Sender)
 		require.Equal(address.RewardingPoolAddr, cLog.Recipient)
 		require.Equal(p.config.RegistrationConsts.Fee.String(), cLog.Amount.String())
@@ -2734,6 +2740,11 @@ func TestProtocol_HandleExecutorRegister(t *testing.T) {
 		total := big.NewInt(0)
 		require.Equal(unit.ConvertIotxToRau(int64(initBalance)), total.Add(total, callerAccount.Balance).Add(total, actCost).Add(total, p.config.RegistrationConsts.Fee))
 		require.Equal(nonce+1, callerAccount.PendingNonce())
+		// check bucket pool
+		bsm, err := newExecutorBucketStateManager(sm)
+		require.NoError(err)
+		require.EqualValues(1, bsm.totalAmount.count)
+		require.EqualValues(0, bsm.totalAmount.amount.Cmp(act.Amount()))
 	})
 
 	t.Run("not enough balance", func(t *testing.T) {
@@ -2895,6 +2906,22 @@ func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) 
 	// TODO: replace with SubBalance, and then change `Balance` to a function
 	acc.Balance = big.NewInt(0).Sub(acc.Balance, gasFee)
 	return nil, accountutil.StoreAccount(sm, actionCtx.Caller, acc)
+}
+
+func depositGasWithLog(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) (*action.TransactionLog, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	// Subtract balance from caller
+	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller)
+	if err != nil {
+		return nil, err
+	}
+	acc.Balance = big.NewInt(0).Sub(acc.Balance, gasFee)
+	return &action.TransactionLog{
+		Type:      iotextypes.TransactionLogType_GAS_FEE,
+		Sender:    actionCtx.Caller.String(),
+		Recipient: address.RewardingPoolAddr,
+		Amount:    gasFee,
+	}, accountutil.StoreAccount(sm, actionCtx.Caller, acc)
 }
 
 func newconsignment(r *require.Assertions, bucketIdx, nonce uint64, senderPrivate, recipient, consignTpye, reclaim string, wrongSig bool) []byte {

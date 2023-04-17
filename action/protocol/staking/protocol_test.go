@@ -127,12 +127,14 @@ func TestProtocol(t *testing.T) {
 	r.NoError(err)
 	esm, err := newExecutorStateManager(sm)
 	r.NoError(err)
+	bsm, err := newExecutorBucketStateManager(sm)
+	r.NoError(err)
 	// load a number of candidates
 	for _, e := range testCandidates {
 		r.NoError(csm.Upsert(e.d))
 	}
 	r.NoError(csm.Commit(ctx))
-	r.NoError(writeView(csm, esm))
+	r.NoError(writeView(csm, esm, bsm))
 	for _, e := range testCandidates {
 		r.True(csm.ContainsOwner(e.d.Owner))
 		r.True(csm.ContainsName(e.d.Name))

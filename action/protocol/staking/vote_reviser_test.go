@@ -150,11 +150,13 @@ func TestVoteReviser(t *testing.T) {
 	r.NoError(err)
 	esm, err := newExecutorStateManager(sm)
 	r.NoError(err)
+	bsm, err := newExecutorBucketStateManager(sm)
+	r.NoError(err)
 	oldCand := testCandidates[3].d.Clone()
 	oldCand.Name = "old name"
 	r.NoError(csm.Upsert(oldCand))
 	r.NoError(csm.Commit(ctx))
-	r.NoError(writeView(csm, esm))
+	r.NoError(writeView(csm, esm, bsm))
 	r.NotNil(csm.GetByName(oldCand.Name))
 	// load a number of candidates
 	updateCands := CandidateList{
@@ -165,7 +167,7 @@ func TestVoteReviser(t *testing.T) {
 		r.NoError(csm.Upsert(e))
 	}
 	r.NoError(csm.Commit(ctx))
-	r.NoError(writeView(csm, esm))
+	r.NoError(writeView(csm, esm, bsm))
 	r.NotNil(csm.GetByName(oldCand.Name))
 	r.NotNil(csm.GetByName(testCandidates[3].d.Name))
 

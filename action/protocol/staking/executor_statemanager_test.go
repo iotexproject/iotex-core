@@ -80,7 +80,9 @@ func Test_newExecutorStateManager(t *testing.T) {
 		for _, e := range cases {
 			require.NoError(esm.upsert(e))
 		}
-		require.NoError(writeView(newCandidateStateManager(msm), esm))
+		bsm, err := newExecutorBucketStateManager(msm)
+		require.NoError(err)
+		require.NoError(writeView(newCandidateStateManager(msm), esm, bsm))
 		esm, err = newExecutorStateManager(msm)
 		require.NoError(err)
 
@@ -232,7 +234,8 @@ func Test_putBucket(t *testing.T) {
 				true,
 			),
 		}
-		bsm := newExecutorBucketStateManager(msm)
+		bsm, err := newExecutorBucketStateManager(msm)
+		require.NoError(err)
 		for i, b := range buckets {
 			idx, err := bsm.add(b)
 			require.NoError(err)

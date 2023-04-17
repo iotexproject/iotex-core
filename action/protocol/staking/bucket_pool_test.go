@@ -78,7 +78,7 @@ func TestBucketPool(t *testing.T) {
 		r.NoError(err)
 	}
 
-	view, err := createBaseView(sm, false)
+	view, err := createView(sm, false)
 	r.NoError(err)
 	sm.WriteView(_protocolID, view)
 	pool = view.csmView.bucketPool
@@ -125,6 +125,8 @@ func TestBucketPool(t *testing.T) {
 		r.NoError(err)
 		esm, err := newExecutorStateManager(sm)
 		r.NoError(err)
+		bsm, err := newExecutorBucketStateManager(sm)
+		r.NoError(err)
 		// dirty view always follows the latest change
 		pool = csm.DirtyView().bucketPool
 		r.Equal(total, pool.Total())
@@ -152,7 +154,7 @@ func TestBucketPool(t *testing.T) {
 
 		if v.commit {
 			r.NoError(csm.Commit(ctx))
-			r.NoError(writeView(csm, esm))
+			r.NoError(writeView(csm, esm, bsm))
 			// after commit, value should reflect in base view
 			c, err = ConstructBaseView(sm)
 			r.NoError(err)

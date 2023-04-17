@@ -12,22 +12,28 @@ import (
 
 // stakingView is the view data of staking protocol
 type stakingView struct {
-	esmView *executorViewData
-	csmView *ViewData
+	esmView  *executorViewData
+	ebsmView *bucketViewData
+	csmView  *ViewData
 }
 
-func createBaseView(sr protocol.StateReader, enableSMStorage bool) (*stakingView, error) {
+func createView(sr protocol.StateReader, enableSMStorage bool) (*stakingView, error) {
 	candidateView, _, err := createCandidateBaseView(sr, enableSMStorage)
 	if err != nil {
 		return nil, err
 	}
-	executorView, err := createExecutorBaseView(sr)
+	executorView, err := createExecutorView(sr)
+	if err != nil {
+		return nil, err
+	}
+	executionBucketView, err := createExecutionBucketView(sr)
 	if err != nil {
 		return nil, err
 	}
 	return &stakingView{
-		esmView: executorView,
-		csmView: candidateView,
+		esmView:  executorView,
+		csmView:  candidateView,
+		ebsmView: executionBucketView,
 	}, nil
 }
 
@@ -45,9 +51,10 @@ func readView(sm protocol.StateReader) (*stakingView, error) {
 }
 
 // writeView writes the staking view to the protocol view
-func writeView(csm CandidateStateManager, esm *executorStateManager) error {
+func writeView(csm CandidateStateManager, esm *executorStateManager, bsm *bucketStateManager) error {
 	return esm.WriteView(_protocolID, &stakingView{
-		esmView: esm.view(),
-		csmView: csm.DirtyView(),
+		esmView:  esm.view(),
+		csmView:  csm.DirtyView(),
+		ebsmView: bsm.view(),
 	})
 }
