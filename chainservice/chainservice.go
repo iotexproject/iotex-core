@@ -80,12 +80,13 @@ type ChainService struct {
 	p2pAgent          p2p.Agent
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
-	indexer            blockindex.Indexer
-	bfIndexer          blockindex.BloomFilterIndexer
-	candidateIndexer   *poll.CandidateIndexer
-	candBucketsIndexer *staking.CandidatesBucketsIndexer
-	registry           *protocol.Registry
-	nodeInfoManager    *nodeinfo.InfoManager
+	indexer              blockindex.Indexer
+	bfIndexer            blockindex.BloomFilterIndexer
+	candidateIndexer     *poll.CandidateIndexer
+	candBucketsIndexer   *staking.CandidatesBucketsIndexer
+	registry             *protocol.Registry
+	nodeInfoManager      *nodeinfo.InfoManager
+	systemStakingIndexer blockindex.SystemStakingIndexer
 }
 
 // Start starts the server

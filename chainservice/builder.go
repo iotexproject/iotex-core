@@ -240,13 +240,18 @@ func (builder *Builder) buildActionPool() error {
 	return nil
 }
 
+func (builder *Builder) buildSystemStakingIndexer() error {
+	builder.cs.systemStakingIndexer = blockindex.NewSystemStakingIndexer()
+	return nil
+}
+
 func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.blockdao != nil {
 		return nil
 	}
 
 	var indexers []blockdao.BlockIndexer
-	indexers = append(indexers, builder.cs.factory)
+	indexers = append(indexers, builder.cs.factory, builder.cs.systemStakingIndexer)
 	if !builder.cfg.Chain.EnableAsyncIndexWrite && builder.cs.indexer != nil {
 		indexers = append(indexers, builder.cs.indexer)
 	}
@@ -617,6 +622,9 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildGatewayComponents(forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildSystemStakingIndexer(); err != nil {
 		return nil, err
 	}
 	if err := builder.buildBlockDAO(forTest); err != nil {
