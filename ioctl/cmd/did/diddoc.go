@@ -96,28 +96,24 @@ func (doc *Doc) AddService(tag, serviceType, endpoint string) {
 		}}
 		return
 	}
-	found := false
 	for _, service := range doc.Service {
 		if service.ID == id {
 			service.Type = serviceType
 			service.ServiceEndpoint = endpoint
-			found = true
-			break
+			return
 		}
 	}
-	if !found {
-		doc.Service = append(doc.Service, serviceStruct{
-			ID:              id,
-			Type:            serviceType,
-			ServiceEndpoint: endpoint,
-		})
-	}
+	doc.Service = append(doc.Service, serviceStruct{
+		ID:              id,
+		Type:            serviceType,
+		ServiceEndpoint: endpoint,
+	})
 }
 
 // RemoveService remove service from did document
 func (doc *Doc) RemoveService(tag string) error {
 	id := doc.ID + "#" + tag
-	if doc.Service == nil {
+	if doc.Service == nil || len(doc.Service) == 0 {
 		return errors.New("service not exists")
 	}
 	services := make([]serviceStruct, len(doc.Service)-1)
