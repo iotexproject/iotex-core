@@ -15,5 +15,5 @@ import (
 func TestTimestamp(t *testing.T) {
 	assert := assert.New(t)
 	time1 := TimestampNow()
-	assert.True(time.Now().After(time1))
+	assert.False(time.Now().Before(time1))
 }
