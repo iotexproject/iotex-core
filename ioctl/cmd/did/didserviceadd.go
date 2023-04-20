@@ -3,10 +3,11 @@ package did
 import (
 	"encoding/json"
 
+	"github.com/spf13/cobra"
+
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/spf13/cobra"
 )
 
 // Multi-language support
@@ -55,6 +56,5 @@ func addService(args []string) error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to encode request", err)
 	}
-
 	return postToResolver(endpoint+"/did/"+addr+"/service", serviceBytes)
 }
