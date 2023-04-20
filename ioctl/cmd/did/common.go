@@ -43,6 +43,20 @@ type (
 		Signature
 		PublicKey string `json:"publicKey"`
 	}
+
+	// ServiceAddRequest add service to DID request
+	ServiceAddRequest struct {
+		Signature
+		Tag             string `json:"tag"`
+		Type            string `json:"type"`
+		ServiceEndpoint string `json:"serviceEndpoint"`
+	}
+
+	// ServiceRemoveRequest remove service from DID request
+	ServiceRemoveRequest struct {
+		Signature
+		Tag string `json:"tag"`
+	}
 )
 
 // getPermit fetch DID permit from resolver

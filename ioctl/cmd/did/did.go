@@ -38,6 +38,8 @@ func init() {
 	DIDCmd.AddCommand(_didRegisterCmd)
 	DIDCmd.AddCommand(_didGetCmd)
 	DIDCmd.AddCommand(_didDeregisterCmd)
+	DIDCmd.AddCommand(_didServiceAddCmd)
+	DIDCmd.AddCommand(_didServiceRemoveCmd)
 	DIDCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpoint, config.UILanguage))
 	DIDCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(_flagInsecure, config.UILanguage))
