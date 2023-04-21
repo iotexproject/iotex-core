@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
@@ -134,6 +135,9 @@ func (s *liquidStakingIndexer) Stop(ctx context.Context) error {
 
 func (s *liquidStakingIndexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	for _, receipt := range blk.Receipts {
+		if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+			continue
+		}
 		for _, log := range receipt.Logs() {
 			if log.Address != LiquidStakingContractAddress {
 				continue
@@ -425,34 +429,26 @@ func (s *liquidStakingIndexer) blockHeightToDuration(height uint64) time.Duratio
 	return time.Duration(height) * s.blockInterval
 }
 
-func (e eventParam) fieldUint256(name string) (*big.Int, error) {
-	field, ok := e[name].(*big.Int)
+func eventField[T any](e eventParam, name string) (T, error) {
+	field, ok := e[name].(T)
 	if !ok {
-		return nil, errors.Wrapf(errUnpackEvent, "invalid %s %v", name, e[name])
+		return field, errors.Wrapf(errUnpackEvent, "invalid %s %v", name, e[name])
 	}
 	return field, nil
+}
+
+func (e eventParam) fieldUint256(name string) (*big.Int, error) {
+	return eventField[*big.Int](e, name)
 }
 
 func (e eventParam) fieldBytes12(name string) ([12]byte, error) {
-	field, ok := e[name].([12]byte)
-	if !ok {
-		return [12]byte{}, errors.Wrapf(errUnpackEvent, "invalid %s %v", name, e[name])
-	}
-	return field, nil
+	return eventField[[12]byte](e, name)
 }
 
 func (e eventParam) fieldUint256Slice(name string) ([]*big.Int, error) {
-	field, ok := e[name].([]*big.Int)
-	if !ok {
-		return nil, errors.Wrapf(errUnpackEvent, "invalid %s %v", name, e[name])
-	}
-	return field, nil
+	return eventField[[]*big.Int](e, name)
 }
 
 func (e eventParam) fieldAddress(name string) (common.Address, error) {
-	field, ok := e[name].(common.Address)
-	if !ok {
-		return common.Address{}, errors.Wrapf(errUnpackEvent, "invalid %s %v", name, e[name])
-	}
-	return field, nil
+	return eventField[common.Address](e, name)
 }
