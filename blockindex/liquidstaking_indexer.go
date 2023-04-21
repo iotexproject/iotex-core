@@ -112,7 +112,7 @@ type (
 var (
 	_liquidStakingInterface abi.ABI
 
-	errUnpackEvent = errors.New("failed to unpack event")
+	errInvlidEventParam = errors.New("invalid event param")
 )
 
 func init() {
@@ -175,11 +175,13 @@ func (s *liquidStakingIndexer) handleEvent(ctx context.Context, blk *block.Block
 	if err != nil {
 		return errors.Wrapf(err, "get event abi from topic %v failed", log.Topics[0])
 	}
+
 	// unpack event data
-	event := make(map[string]any)
+	event := make(eventParam)
 	if err = abiEvent.Inputs.UnpackIntoMap(event, log.Data); err != nil {
 		return errors.Wrap(err, "unpack event data failed")
 	}
+
 	// handle different kinds of event
 	switch abiEvent.Name {
 	case "BucketTypeActivated":
@@ -436,7 +438,7 @@ func (s *liquidStakingIndexer) blockHeightToDuration(height uint64) time.Duratio
 func eventField[T any](e eventParam, name string) (T, error) {
 	field, ok := e[name].(T)
 	if !ok {
-		return field, errors.Wrapf(errUnpackEvent, "invalid %s %v", name, e[name])
+		return field, errors.Wrapf(errInvlidEventParam, "field %s got %#v, expect %T", name, e[name], field)
 	}
 	return field, nil
 }
