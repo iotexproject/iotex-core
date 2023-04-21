@@ -86,7 +86,7 @@ type ChainService struct {
 	candBucketsIndexer   *staking.CandidatesBucketsIndexer
 	registry             *protocol.Registry
 	nodeInfoManager      *nodeinfo.InfoManager
-	systemStakingIndexer blockindex.SystemStakingIndexer
+	liquidStakingIndexer blockindex.LiquidStakingIndexer
 }
 
 // Start starts the server

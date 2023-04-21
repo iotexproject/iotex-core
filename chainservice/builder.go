@@ -241,7 +241,7 @@ func (builder *Builder) buildActionPool() error {
 }
 
 func (builder *Builder) buildSystemStakingIndexer() error {
-	builder.cs.systemStakingIndexer = blockindex.NewSystemStakingIndexer()
+	builder.cs.liquidStakingIndexer = blockindex.NewLiquidStakingIndexer()
 	return nil
 }
 
@@ -251,7 +251,7 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 
 	var indexers []blockdao.BlockIndexer
-	indexers = append(indexers, builder.cs.factory, builder.cs.systemStakingIndexer)
+	indexers = append(indexers, builder.cs.factory, builder.cs.liquidStakingIndexer)
 	if !builder.cfg.Chain.EnableAsyncIndexWrite && builder.cs.indexer != nil {
 		indexers = append(indexers, builder.cs.indexer)
 	}
