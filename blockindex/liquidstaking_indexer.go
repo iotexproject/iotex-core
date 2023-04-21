@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -81,6 +82,8 @@ type (
 	}
 
 	liquidStakingIndexer struct {
+		kvStore db.KVStore
+
 		bucketMap     map[uint64]*BucketInfo // map[token]bucketInfo
 		bucketTypes   []*BucketType
 		bucketTypeMap map[int64]map[int64]uint64 // map[amount][duration]index
@@ -180,30 +183,31 @@ func (s *liquidStakingIndexer) handleEvent(ctx context.Context, blk *block.Block
 	// handle different kinds of event
 	switch abiEvent.Name {
 	case "BucketTypeActivated":
-		return s.handleBucketTypeActivatedEvent(event, blk.Timestamp())
+		err = s.handleBucketTypeActivatedEvent(event, blk.Timestamp())
 	case "BucketTypeDeactivated":
-		return s.handleBucketTypeDeactivatedEvent(event)
+		err = s.handleBucketTypeDeactivatedEvent(event)
 	case "Staked":
-		return s.handleStakedEvent(event)
+		err = s.handleStakedEvent(event)
 	case "Locked":
-		return s.handleLockedEvent(event)
+		err = s.handleLockedEvent(event)
 	case "Unlocked":
-		return s.handleUnlockedEvent(event, blk.Timestamp())
+		err = s.handleUnlockedEvent(event, blk.Timestamp())
 	case "Unstaked":
-		return s.handleUnstakedEvent(event, blk.Timestamp())
+		err = s.handleUnstakedEvent(event, blk.Timestamp())
 	case "Merged":
-		return s.handleMergedEvent(event)
+		err = s.handleMergedEvent(event)
 	case "DurationExtended":
-		return s.handleDurationExtendedEvent(event)
+		err = s.handleDurationExtendedEvent(event)
 	case "AmountIncreased":
-		return s.handleAmountIncreasedEvent(event)
+		err = s.handleAmountIncreasedEvent(event)
 	case "DelegateChanged":
-		return s.handleDelegateChangedEvent(event)
+		err = s.handleDelegateChangedEvent(event)
 	case "Withdrawal":
-		return s.handleWithdrawalEvent(event)
+		err = s.handleWithdrawalEvent(event)
 	default:
-		return nil
+		err = nil
 	}
+	return err
 }
 
 func (s *liquidStakingIndexer) handleBucketTypeActivatedEvent(event eventParam, timeStamp time.Time) error {
