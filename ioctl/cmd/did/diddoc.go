@@ -7,42 +7,53 @@ package did
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/pkg/errors"
 )
 
 const (
 	// DIDPrefix is the prefix string
 	DIDPrefix = "did:io:"
 	// DIDAuthType is the authentication type
-	DIDAuthType = "EcdsaSecp256k1VerificationKey2019"
+	DIDAuthType = "JsonWebKey2020"
 	// DIDOwner is the suffix string
 	DIDOwner = "#owner"
 
 	// KnownDIDContext known context for did
 	KnownDIDContext = "https://www.w3.org/ns/did/v1"
+	// JWSDIDContext jws context
+	JWSDIDContext = "https://w3id.org/security/suites/jws-2020/v1"
 	// Secp256k1DIDContext secp256k1 context for did
 	Secp256k1DIDContext = "https://w3id.org/security/suites/secp256k1-2019/v1"
 )
 
 type (
 	verificationMethod struct {
-		ID              string `json:"id"`
-		Type            string `json:"type"`
-		Controller      string `json:"controller"`
-		PublicKeyBase58 string `json:"publicKeyBase58,omitempty"`
+		ID           string      `json:"id"`
+		Type         string      `json:"type"`
+		Controller   string      `json:"controller"`
+		PublicKeyJwk interface{} `json:"publicKeyJwk,omitempty"`
+	}
+
+	secp256k1PublicKey struct {
+		Kty string `json:"kty"`
+		Crv string `json:"crv"`
+		X   string `json:"x"`
+		Y   string `json:"y"`
 	}
 
 	verificationMethodSet interface{}
 
 	serviceStruct struct {
-		ID              string `json:"id,omitempty"`
-		Type            string `json:"type,omitempty"`
-		ServiceEndpoint string `json:"serviceEndpoint,omitempty"`
+		ID              string                  `json:"id,omitempty"`
+		Type            string                  `json:"type,omitempty"`
+		ServiceEndpoint string                  `json:"serviceEndpoint,omitempty"`
+		RecipientKeys   []verificationMethodSet `json:"recipientKeys,omitempty"`
+		Accept          []string                `json:"accept,omitempty"`
 	}
 
 	// Doc is the DID document struct
@@ -54,6 +65,7 @@ type (
 		Authentication     []verificationMethodSet `json:"authentication,omitempty"`
 		AssertionMethod    []verificationMethodSet `json:"assertionMethod,omitempty"`
 		Service            []serviceStruct         `json:"service,omitempty"`
+		KeyAgreement       []verificationMethodSet `json:"keyAgreement,omitempty"`
 	}
 )
 
@@ -93,13 +105,15 @@ func (doc *Doc) AddService(tag, serviceType, endpoint string) {
 			ID:              id,
 			Type:            serviceType,
 			ServiceEndpoint: endpoint,
+			RecipientKeys:   doc.Authentication,
+			Accept:          []string{"didcomm/v2"},
 		}}
 		return
 	}
-	for _, service := range doc.Service {
+	for i, service := range doc.Service {
 		if service.ID == id {
-			service.Type = serviceType
-			service.ServiceEndpoint = endpoint
+			doc.Service[i].Type = serviceType
+			doc.Service[i].ServiceEndpoint = endpoint
 			return
 		}
 	}
@@ -107,6 +121,8 @@ func (doc *Doc) AddService(tag, serviceType, endpoint string) {
 		ID:              id,
 		Type:            serviceType,
 		ServiceEndpoint: endpoint,
+		RecipientKeys:   doc.Authentication,
+		Accept:          []string{"didcomm/v2"},
 	})
 }
 
@@ -137,7 +153,6 @@ func NewDIDDoc(publicKey []byte) (*Doc, error) {
 	if err != nil {
 		return nil, err
 	}
-	compressedPubKey := crypto.CompressPubkey(pubKey)
 	address := crypto.PubkeyToAddress(*pubKey)
 	if err != nil {
 		return nil, err
@@ -146,18 +161,25 @@ func NewDIDDoc(publicKey []byte) (*Doc, error) {
 	doc := &Doc{
 		Context: []string{
 			KnownDIDContext,
+			JWSDIDContext,
 			Secp256k1DIDContext,
 		},
 	}
 	doc.ID = DIDPrefix + address.Hex()
 	key0 := doc.ID + "#key-0"
 	doc.VerificationMethod = []verificationMethod{{
-		ID:              key0,
-		Type:            DIDAuthType,
-		Controller:      doc.ID,
-		PublicKeyBase58: base58.Encode(compressedPubKey),
+		ID:         key0,
+		Type:       DIDAuthType,
+		Controller: doc.ID,
+		PublicKeyJwk: &secp256k1PublicKey{
+			Kty: "EC",
+			Crv: "secp256k1",
+			X:   base64.RawURLEncoding.EncodeToString(pubKey.X.Bytes()),
+			Y:   base64.RawURLEncoding.EncodeToString(pubKey.Y.Bytes()),
+		},
 	}}
 	doc.Authentication = []verificationMethodSet{key0}
 	doc.AssertionMethod = []verificationMethodSet{key0}
+	doc.KeyAgreement = []verificationMethodSet{key0}
 	return doc, nil
 }
