@@ -8,7 +8,6 @@ package blockindex
 import (
 	"context"
 	"encoding/binary"
-	"encoding/json"
 	"math/big"
 	"strings"
 	"time"
@@ -19,12 +18,12 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/blockindex/indexpb"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -97,13 +96,6 @@ type (
 		data *liquidStakingData
 
 		blockInterval time.Duration
-	}
-
-	liquidStakingData struct {
-		dirty      batch.CachedBatch // im-memory dirty data
-		dirtyCache *liquidStakingCache
-		clean      db.KVStore          // clean data in db
-		cleanCache *liquidStakingCache // in-memory index for clean data
 	}
 
 	// BucketInfo is the bucket information
@@ -327,7 +319,7 @@ func (s *liquidStakingIndexer) handleLockedEvent(event eventParam) error {
 	}
 	newBtIdx, ok := s.data.getBucketTypeIndex(bt.Amount, s.blockHeightToDuration(durationParam.Uint64()))
 	if !ok {
-		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", bt.Amount.Int64(), durationParam.Uint64())
+		return errors.Wrapf(errBucketTypeNotExist, "amount %v, duration %d", bt.Amount, durationParam.Uint64())
 	}
 	b.TypeIndex = newBtIdx
 	b.UnlockedAt = nil
@@ -508,141 +500,75 @@ func (e eventParam) fieldAddress(name string) (common.Address, error) {
 	return eventField[common.Address](e, name)
 }
 
-func newLiquidStakingData(kvStore db.KVStore) (*liquidStakingData, error) {
-	data := liquidStakingData{
-		dirty:      batch.NewCachedBatch(),
-		clean:      kvStore,
-		cleanCache: newLiquidStakingCache(),
-		dirtyCache: newLiquidStakingCache(),
+func (bt *BucketType) toProto() *indexpb.BucketType {
+	return &indexpb.BucketType{
+		Amount:      bt.Amount.String(),
+		Duration:    uint64(bt.Duration),
+		ActivatedAt: timestamppb.New(*bt.ActivatedAt),
 	}
-	return &data, nil
 }
 
-func (s *liquidStakingData) loadCache() error {
-	ks, vs, err := s.clean.Filter(_liquidStakingBucketInfoNS, func(k, v []byte) bool { return true }, nil, nil)
-	if err != nil {
-		if !errors.Is(err, db.ErrNotExist) {
-			return err
-		}
+func (bt *BucketType) loadProto(p *indexpb.BucketType) error {
+	var ok bool
+	bt.Amount, ok = big.NewInt(0).SetString(p.Amount, 10)
+	if !ok {
+		return errors.New("failed to parse amount")
 	}
-	for i := range vs {
-		var b BucketInfo
-		if err := json.Unmarshal(vs[i], &b); err != nil {
-			return err
-		}
-		s.cleanCache.putBucketInfo(binary.LittleEndian.Uint64(ks[i]), &b)
-	}
-
-	ks, vs, err = s.clean.Filter(_liquidStakingBucketTypeNS, func(k, v []byte) bool { return true }, nil, nil)
-	if err != nil {
-		if !errors.Is(err, db.ErrNotExist) {
-			return err
-		}
-	}
-	for i := range vs {
-		var b BucketType
-		if err := json.Unmarshal(vs[i], &b); err != nil {
-			return err
-		}
-		s.cleanCache.putBucketType(binary.LittleEndian.Uint64(ks[i]), &b)
-	}
-	return nil
-}
-
-func (s *liquidStakingData) getBucketTypeIndex(amount *big.Int, duration time.Duration) (uint64, bool) {
-	id, ok := s.dirtyCache.getBucketTypeIndex(amount, duration)
-	if ok {
-		return id, true
-	}
-	id, ok = s.cleanCache.getBucketTypeIndex(amount, duration)
-	return id, ok
-}
-
-func (s *liquidStakingData) getBucketTypeCount() uint64 {
-	base := len(s.cleanCache.bucketTypes)
-	add := 0
-	for k, dbt := range s.dirtyCache.bucketTypes {
-		_, ok := s.cleanCache.bucketTypes[k]
-		if dbt != nil && !ok {
-			add++
-		} else if dbt == nil && ok {
-			add--
-		}
-	}
-	return uint64(base + add)
-}
-
-func (s *liquidStakingData) getBucketType(id uint64) (*BucketType, bool) {
-	bt, ok := s.dirtyCache.getBucketType(id)
-	if ok {
-		return bt, true
-	}
-	bt, ok = s.cleanCache.getBucketType(id)
-	return bt, ok
-}
-
-func (s *liquidStakingData) putBucketType(id uint64, bt *BucketType) {
-	key := make([]byte, 8)
-	binary.LittleEndian.PutUint64(key, id)
-	s.dirty.Put(_liquidStakingBucketTypeNS, key, bt.serialize(), "failed to put bucket type")
-	s.dirtyCache.putBucketType(id, bt)
-}
-
-func (s *liquidStakingData) putBucketInfo(id uint64, bi *BucketInfo) {
-	key := make([]byte, 8)
-	binary.LittleEndian.PutUint64(key, id)
-	s.dirty.Put(_liquidStakingBucketInfoNS, key, bi.serialize(), "failed to put bucket info")
-	s.dirtyCache.putBucketInfo(id, bi)
-}
-
-func (s *liquidStakingData) getBucketInfo(id uint64) (*BucketInfo, bool) {
-	bi, ok := s.dirtyCache.getBucketInfo(id)
-	if ok {
-		return bi, bi != nil
-	}
-	bi, ok = s.cleanCache.getBucketInfo(id)
-	return bi, ok
-}
-
-func (s *liquidStakingData) burnBucket(id uint64) {
-	key := make([]byte, 8)
-	binary.LittleEndian.PutUint64(key, id)
-	s.dirty.Delete(_liquidStakingBucketInfoNS, key, "failed to delete bucket info")
-	s.dirtyCache.putBucketInfo(id, nil)
-}
-
-// GetBuckets(height uint64, offset, limit uint32)
-// BucketsByVoter(voterAddr string, offset, limit uint32)
-// BucketsByCandidate(candidateAddr string, offset, limit uint32)
-// BucketByIndices(indecis []uint64)
-// BucketCount()
-// TotalStakingAmount()
-
-func (s *liquidStakingData) commit() error {
-	if err := s.cleanCache.writeBatch(s.dirty); err != nil {
-		return err
-	}
-	if err := s.clean.WriteBatch(s.dirty); err != nil {
-		return err
-	}
-	s.dirty.Lock()
-	s.dirty.ClearAndUnlock()
-	s.dirtyCache = newLiquidStakingCache()
+	bt.Duration = time.Duration(p.Duration)
+	t := p.ActivatedAt.AsTime()
+	bt.ActivatedAt = &t
 	return nil
 }
 
 func (bt *BucketType) serialize() []byte {
-	b, err := json.Marshal(bt)
-	if err != nil {
-		log.S().Panic("marshal bucket type", zap.Error(err))
+	return byteutil.Must(proto.Marshal(bt.toProto()))
+}
+
+func (bt *BucketType) deserialize(b []byte) error {
+	m := indexpb.BucketType{}
+	if err := proto.Unmarshal(b, &m); err != nil {
+		return err
 	}
-	return b
+	return bt.loadProto(&m)
+}
+
+func (bi *BucketInfo) toProto() *indexpb.BucketInfo {
+	return &indexpb.BucketInfo{
+		TypeIndex:  bi.TypeIndex,
+		UnlockedAt: timestamppb.New(*bi.UnlockedAt),
+		UnstakedAt: timestamppb.New(*bi.UnstakedAt),
+		Delegate:   bi.Delegate,
+	}
 }
 
 func (bi *BucketInfo) serialize() []byte {
-	b, err := json.Marshal(bi)
-	if err != nil {
-		log.S().Panic("marshal bucket info", zap.Error(err))
+	return byteutil.Must(proto.Marshal(bi.toProto()))
+}
+
+func (bi *BucketInfo) deserialize(b []byte) error {
+	m := indexpb.BucketInfo{}
+	if err := proto.Unmarshal(b, &m); err != nil {
+		return err
 	}
+	return bi.loadProto(&m)
+}
+
+func (bi *BucketInfo) loadProto(p *indexpb.BucketInfo) error {
+	bi.TypeIndex = p.TypeIndex
+	t := p.UnlockedAt.AsTime()
+	bi.UnlockedAt = &t
+	t = p.UnstakedAt.AsTime()
+	bi.UnstakedAt = &t
+	bi.Delegate = p.Delegate
+	return nil
+}
+
+func serializeUint64(v uint64) []byte {
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, v)
 	return b
+}
+
+func deserializeUint64(b []byte) uint64 {
+	return binary.LittleEndian.Uint64(b)
 }
