@@ -1,24 +1,15 @@
 //SPDX-License-Identifier: UNLICENSED
 
 pragma solidity ^0.8.0;
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol";
 
-contract IIP15Manager {
+contract IIP15Manager is Ownable {
     mapping (address => address) private contractMapping;
     mapping (address => bool) private isApproved;
-    address private owner;
 
     event ContractRegistered(address contractAddress, address recipient);
     event ContractApproved(address contractAddress);
     event ContractUnapproved(address contractAddress);
-
-    constructor()  {
-        owner = msg.sender;
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Only the contract owner can perform this action");
-        _;
-    }
 
     function registerContract(address _contractAddress, address _recipient) public {
         require(_contractAddress != address(0));
