@@ -15,6 +15,7 @@ type (
 		candidateBucketMap    map[string]map[uint64]bool // map[candidate]bucket
 		idBucketTypeMap       map[uint64]*BucketType
 		propertyBucketTypeMap map[int64]map[int64]uint64 // map[amount][duration]index
+		height                uint64
 	}
 
 	liquidStakingData struct {
@@ -30,6 +31,7 @@ func newLiquidStakingCache() *liquidStakingCache {
 		idBucketMap:           make(map[uint64]*BucketInfo),
 		idBucketTypeMap:       make(map[uint64]*BucketType),
 		propertyBucketTypeMap: make(map[int64]map[int64]uint64),
+		candidateBucketMap:    make(map[string]map[uint64]bool),
 	}
 }
 
@@ -64,6 +66,14 @@ func (s *liquidStakingCache) writeBatch(b batch.KVStoreBatch) error {
 		}
 	}
 	return nil
+}
+
+func (s *liquidStakingCache) putHeight(h uint64) {
+	s.height = h
+}
+
+func (s *liquidStakingCache) getHeight() uint64 {
+	return s.height
 }
 
 func (s *liquidStakingCache) putBucketType(id uint64, bt *BucketType) {
@@ -148,6 +158,20 @@ func newLiquidStakingData(kvStore db.KVStore) (*liquidStakingData, error) {
 }
 
 func (s *liquidStakingIndexer) loadCache() error {
+	// load height
+	var height uint64
+	h, err := s.clean.Get(_liquidStakingHeightNS, _liquidStakingHeightKey)
+	if err != nil {
+		if !errors.Is(err, db.ErrNotExist) {
+			return err
+		}
+		height = 0
+	} else {
+		height = deserializeUint64(h)
+	}
+	s.cleanCache.putHeight(height)
+
+	// load bucket info
 	ks, vs, err := s.clean.Filter(_liquidStakingBucketInfoNS, func(k, v []byte) bool { return true }, nil, nil)
 	if err != nil {
 		if !errors.Is(err, db.ErrNotExist) {
@@ -162,6 +186,7 @@ func (s *liquidStakingIndexer) loadCache() error {
 		s.cleanCache.putBucketInfo(deserializeUint64(ks[i]), &b)
 	}
 
+	// load bucket type
 	ks, vs, err = s.clean.Filter(_liquidStakingBucketTypeNS, func(k, v []byte) bool { return true }, nil, nil)
 	if err != nil {
 		if !errors.Is(err, db.ErrNotExist) {
@@ -208,6 +233,11 @@ func (s *liquidStakingIndexer) getBucketType(id uint64) (*BucketType, bool) {
 	}
 	bt, ok = s.cleanCache.getBucketType(id)
 	return bt, ok
+}
+
+func (s *liquidStakingIndexer) putHeight(h uint64) {
+	s.dirty.Put(_liquidStakingHeightNS, _liquidStakingHeightKey, serializeUint64(h), "failed to put height")
+	s.dirtyCache.putHeight(h)
 }
 
 func (s *liquidStakingIndexer) putBucketType(id uint64, bt *BucketType) {
