@@ -234,13 +234,6 @@ func (s *liquidStakingIndexer) burnBucket(id uint64) {
 	s.dirtyCache.putBucketInfo(id, nil)
 }
 
-// GetBuckets(height uint64, offset, limit uint32)
-// BucketsByVoter(voterAddr string, offset, limit uint32)
-// BucketsByCandidate(candidateAddr string, offset, limit uint32)
-// BucketByIndices(indecis []uint64)
-// BucketCount()
-// TotalStakingAmount()
-
 func (s *liquidStakingIndexer) commit() error {
 	if err := s.cleanCache.writeBatch(s.dirty); err != nil {
 		return err

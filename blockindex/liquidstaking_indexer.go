@@ -14,6 +14,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -86,6 +88,7 @@ type (
 		blockdao.BlockIndexer
 
 		GetCandidateVotes(candidate string) *big.Int
+		GetBuckets() ([]*staking.VoteBucket, error)
 	}
 
 	liquidStakingIndexer struct {
@@ -99,9 +102,11 @@ type (
 	// BucketInfo is the bucket information
 	BucketInfo struct {
 		TypeIndex  uint64
+		CreatedAt  time.Time
 		UnlockedAt *time.Time
 		UnstakedAt *time.Time
 		Delegate   string
+		Owner      string
 	}
 
 	// BucketType is the bucket type
@@ -158,15 +163,28 @@ func (s *liquidStakingIndexer) Stop(ctx context.Context) error {
 }
 
 func (s *liquidStakingIndexer) PutBlock(ctx context.Context, blk *block.Block) error {
+	actionMap := make(map[hash.Hash256]*action.SealedEnvelope)
+	for _, act := range blk.Actions {
+		h, err := act.Hash()
+		if err != nil {
+			return err
+		}
+		actionMap[h] = &act
+	}
+
 	for _, receipt := range blk.Receipts {
 		if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 			continue
+		}
+		act, ok := actionMap[receipt.ActionHash]
+		if !ok {
+			return errors.Errorf("action %x not found", receipt.ActionHash)
 		}
 		for _, log := range receipt.Logs() {
 			if log.Address != LiquidStakingContractAddress {
 				continue
 			}
-			if err := s.handleEvent(ctx, blk, log); err != nil {
+			if err := s.handleEvent(ctx, blk, act, log); err != nil {
 				return err
 			}
 		}
@@ -186,11 +204,20 @@ func (s *liquidStakingIndexer) GetCandidateVotes(candidate string) *big.Int {
 	return s.cleanCache.getCandidateVotes(candidate)
 }
 
-func (s *liquidStakingIndexer) GetBucket(bucketIndex uint64) (*staking.VoteBucket, error) {
-	return nil, nil
+func (s *liquidStakingIndexer) GetBuckets() ([]*staking.VoteBucket, error) {
+	vbs := []*staking.VoteBucket{}
+	for id, bi := range s.cleanCache.idBucketMap {
+		bt := s.cleanCache.mustGetBucketType(bi.TypeIndex)
+		vb, err := convertToVoteBucket(id, bi, bt)
+		if err != nil {
+			return nil, err
+		}
+		vbs = append(vbs, vb)
+	}
+	return vbs, nil
 }
 
-func (s *liquidStakingIndexer) handleEvent(ctx context.Context, blk *block.Block, log *action.Log) error {
+func (s *liquidStakingIndexer) handleEvent(ctx context.Context, blk *block.Block, act *action.SealedEnvelope, log *action.Log) error {
 	// get event abi
 	abiEvent, err := _liquidStakingInterface.EventByID(common.Hash(log.Topics[0]))
 	if err != nil {
@@ -204,19 +231,20 @@ func (s *liquidStakingIndexer) handleEvent(ctx context.Context, blk *block.Block
 	}
 
 	// handle different kinds of event
+	timestamp := blk.Timestamp()
 	switch abiEvent.Name {
 	case "BucketTypeActivated":
-		err = s.handleBucketTypeActivatedEvent(event, blk.Timestamp())
+		err = s.handleBucketTypeActivatedEvent(event, timestamp)
 	case "BucketTypeDeactivated":
 		err = s.handleBucketTypeDeactivatedEvent(event)
 	case "Staked":
-		err = s.handleStakedEvent(event)
+		err = s.handleStakedEvent(event, timestamp, act.SenderAddress())
 	case "Locked":
 		err = s.handleLockedEvent(event)
 	case "Unlocked":
-		err = s.handleUnlockedEvent(event, blk.Timestamp())
+		err = s.handleUnlockedEvent(event, timestamp)
 	case "Unstaked":
-		err = s.handleUnstakedEvent(event, blk.Timestamp())
+		err = s.handleUnstakedEvent(event, timestamp)
 	case "Merged":
 		err = s.handleMergedEvent(event)
 	case "DurationExtended":
@@ -279,7 +307,7 @@ func (s *liquidStakingIndexer) handleBucketTypeDeactivatedEvent(event eventParam
 	return nil
 }
 
-func (s *liquidStakingIndexer) handleStakedEvent(event eventParam) error {
+func (s *liquidStakingIndexer) handleStakedEvent(event eventParam, timestamp time.Time, owner address.Address) error {
 	tokenIDParam, err := event.fieldUint256("tokenId")
 	if err != nil {
 		return err
@@ -304,6 +332,8 @@ func (s *liquidStakingIndexer) handleStakedEvent(event eventParam) error {
 	bucket := BucketInfo{
 		TypeIndex: btIdx,
 		Delegate:  string(delegateParam[:]),
+		Owner:     owner.String(),
+		CreatedAt: timestamp,
 	}
 	s.putBucketInfo(tokenIDParam.Uint64(), &bucket)
 	return nil
@@ -581,4 +611,33 @@ func serializeUint64(v uint64) []byte {
 
 func deserializeUint64(b []byte) uint64 {
 	return binary.LittleEndian.Uint64(b)
+}
+
+func convertToVoteBucket(token uint64, bi *BucketInfo, bt *BucketType) (*staking.VoteBucket, error) {
+	var err error
+	vb := staking.VoteBucket{
+		Index:            token,
+		StakedAmount:     bt.Amount,
+		StakedDuration:   bt.Duration,
+		CreateTime:       bi.CreatedAt,
+		StakeStartTime:   bi.CreatedAt,
+		UnstakeStartTime: time.Unix(0, 0).UTC(),
+		AutoStake:        bi.UnlockedAt == nil,
+	}
+
+	vb.Candidate, err = address.FromString(bi.Delegate)
+	if err != nil {
+		return nil, err
+	}
+	vb.Owner, err = address.FromString(bi.Owner)
+	if err != nil {
+		return nil, err
+	}
+	if bi.UnlockedAt != nil {
+		vb.StakeStartTime = *bi.UnlockedAt
+	}
+	if bi.UnstakedAt != nil {
+		vb.UnstakeStartTime = *bi.UnstakedAt
+	}
+	return &vb, nil
 }
