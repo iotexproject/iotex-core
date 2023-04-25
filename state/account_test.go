@@ -55,7 +55,7 @@ func TestBalance(t *testing.T) {
 
 	state := &Account{Balance: big.NewInt(20)}
 	// Add 10 to the balance
-	require.NoError(state.AddBalance(big.NewInt(10)))
+	state.AddBalance(big.NewInt(10))
 	// Balance should == 30 now
 	require.Equal(0, state.Balance.Cmp(big.NewInt(30)))
 	// Sub 40 to the balance
@@ -71,7 +71,7 @@ func TestClone(t *testing.T) {
 	account := ss.Clone()
 	require.Equal(big.NewInt(200), account.Balance)
 
-	require.NoError(account.AddBalance(big.NewInt(100)))
+	account.AddBalance(big.NewInt(100))
 	require.Equal(big.NewInt(200), ss.Balance)
 	require.Equal(big.NewInt(200+100), account.Balance)
 }

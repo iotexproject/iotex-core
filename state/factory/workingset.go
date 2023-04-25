@@ -174,11 +174,11 @@ func (ws *workingSet) runAction(
 	}
 	for _, actionHandler := range reg.All() {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
-		elpHash, err1 := elp.Hash()
-		if err1 != nil {
-			return nil, errors.Wrapf(err1, "Failed to get hash")
-		}
 		if err != nil {
+			elpHash, err1 := elp.Hash()
+			if err1 != nil {
+				return nil, errors.Wrapf(err1, "Failed to get hash")
+			}
 			return nil, errors.Wrapf(
 				err,
 				"error when action %x mutates states",
@@ -412,6 +412,11 @@ func (ws *workingSet) pickAndRunActions(
 			if !ok {
 				break
 			}
+			// preload
+			// go func(selp *action.SealedEnvelope) {
+			// 	addr := selp.SrcPubkey().Address()
+			// 	_, _ = accountutil.LoadAccount(ws, addr)
+			// }(&nextAction)
 			if nextAction.GasLimit() > blkCtx.GasLimit {
 				actionIterator.PopAccount()
 				continue

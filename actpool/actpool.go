@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -177,14 +178,18 @@ func (ap *actPool) PendingActionMap() map[string][]action.SealedEnvelope {
 	// Remove the actions that are already timeout
 	ap.reset()
 
+	// make actionMap protected by mutex in parallel
 	actionMap := make(map[string][]action.SealedEnvelope)
 	for from, queue := range ap.accountActs {
-		actionMap[from] = append(actionMap[from], queue.PendingActs()...)
+		if ret := queue.PendingActs(); len(ret) > 0 {
+			actionMap[from] = ret
+		}
 	}
 	return actionMap
 }
 
 func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
+	// log.L().Info("actpool size", zap.Uint64("size", ap.GetSize()))
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
@@ -260,15 +265,13 @@ func (ap *actPool) GetUnconfirmedActs(addr string) []action.SealedEnvelope {
 	if queue, ok := ap.accountActs[addr]; ok {
 		ret = queue.AllActs()
 	}
-	if desMap, ok := ap.accountDesActs[addr]; ok {
-		if desMap != nil {
-			sortActions := make(SortedActions, 0)
-			for _, v := range desMap {
-				sortActions = append(sortActions, v)
-			}
-			sort.Stable(sortActions)
-			ret = append(ret, sortActions...)
+	if desMap, ok := ap.accountDesActs[addr]; ok && desMap != nil {
+		sortActions := make(SortedActions, 0)
+		for _, v := range desMap {
+			sortActions = append(sortActions, v)
 		}
+		sort.Stable(sortActions)
+		ret = append(ret, sortActions...)
 	}
 	return ret
 }
@@ -321,7 +324,7 @@ func (ap *actPool) DeleteAction(caller address.Address) {
 	ap.mutex.RLock()
 	defer ap.mutex.RUnlock()
 	pendingActs := ap.accountActs[caller.String()].AllActs()
-	ap.removeInvalidActs(pendingActs)
+	ap.removeActs(pendingActs)
 	delete(ap.accountActs, caller.String())
 }
 
@@ -373,17 +376,9 @@ func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope
 	if queue == nil {
 		queue = NewActQueue(ap, sender, WithTimeOut(ap.cfg.ActionExpiry))
 		ap.accountActs[sender] = queue
-
-		// Initialize pending nonce for new account
-		pendingNonce := confirmedNonce + 1
-		queue.SetPendingNonce(pendingNonce)
-		// Initialize balance for new account
-		state, err := accountutil.AccountState(ap.sf, addr)
-		if err != nil {
-			actpoolMtc.WithLabelValues("failedToGetBalance").Inc()
-			return errors.Wrapf(err, "failed to get sender's balance for action %x", actHash)
-		}
-		queue.SetPendingBalance(state.Balance)
+		// Initialize pending nonce and balance for new account
+		queue.SetPendingNonce(confirmedNonce + 1)
+		queue.SetPendingBalance(confirmedState.Balance)
 	}
 
 	if actNonce-confirmedNonce >= ap.cfg.MaxNumActsPerAcct+1 {
@@ -441,68 +436,77 @@ func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope
 	return nil
 }
 
-// removeConfirmedActs removes processed (committed to block) actions from pool
-func (ap *actPool) removeConfirmedActs() {
-	for from, queue := range ap.accountActs {
-		addr, _ := address.FromString(from)
-		confirmedState, err := accountutil.AccountState(ap.sf, addr)
-		if err != nil {
-			log.L().Error("Error when removing confirmed actions", zap.Error(err))
-			return
-		}
-		pendingNonce := confirmedState.Nonce + 1
-		// Remove all actions that are committed to new block
-		acts := queue.FilterNonce(pendingNonce)
-		ap.removeInvalidActs(acts)
-		//del actions in destination map
-		ap.deleteAccountDestinationActions(acts...)
-		// Delete the queue entry if it becomes empty
-		if queue.Empty() {
-			delete(ap.accountActs, from)
-		}
-	}
-}
+// // removeConfirmedActs removes processed (committed to block) actions from pool
+// func (ap *actPool) removeConfirmedActs() {
+// 	for from, queue := range ap.accountActs {
+// 		addr, _ := address.FromString(from)
+// 		confirmedState, err := accountutil.AccountState(ap.sf, addr)
+// 		if err != nil {
+// 			log.L().Error("Error when removing confirmed actions", zap.Error(err))
+// 			return
+// 		}
+// 		pendingNonce := confirmedState.Nonce + 1
+// 		// Remove all actions that are committed to new block
+// 		acts := queue.FilterNonce(pendingNonce)
 
-func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
-	for _, act := range acts {
-		hash, err := act.Hash()
-		if err != nil {
-			log.L().Debug("Skipping action due to hash error", zap.Error(err))
-			continue
-		}
-		log.L().Debug("Removed invalidated action.", log.Hex("hash", hash[:]))
-		delete(ap.allActions, hash)
-		intrinsicGas, _ := act.IntrinsicGas()
-		ap.subGasFromPool(intrinsicGas)
-		//del actions in destination map
-		ap.deleteAccountDestinationActions(act)
-	}
-}
+// 		ap.removeActs(acts)
 
-// deleteAccountDestinationActions just for destination map
-func (ap *actPool) deleteAccountDestinationActions(acts ...action.SealedEnvelope) {
+// 		// Delete the queue entry if it becomes empty
+// 		if queue.Empty() {
+// 			delete(ap.accountActs, from)
+// 		}
+// 	}
+// }
+
+// TODO: multithread
+func (ap *actPool) removeActs(acts []action.SealedEnvelope) {
+	var wg sync.WaitGroup
+	mu := sync.Mutex{}
 	for _, act := range acts {
-		hash, err := act.Hash()
-		if err != nil {
-			log.L().Debug("Skipping action due to hash error", zap.Error(err))
-			continue
-		}
-		desAddress, ok := act.Destination()
-		if ok {
-			dst := ap.accountDesActs[desAddress]
-			if dst != nil {
-				delete(dst, hash)
+		wg.Add(1)
+		func(act *action.SealedEnvelope) {
+			defer wg.Done()
+			hash, err := act.Hash()
+			if err != nil {
+				log.L().Debug("Skipping action due to hash error", zap.Error(err))
+				return
 			}
-		}
+			mu.Lock()
+			delete(ap.allActions, hash)
+			mu.Unlock()
+			intrinsicGas, _ := act.IntrinsicGas()
+			atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))
+			//del actions in destination map
+			if desAddress, ok := act.Destination(); ok {
+				if dst := ap.accountDesActs[desAddress]; dst != nil {
+					mu.Lock()
+					delete(dst, hash)
+					mu.Unlock()
+				}
+			}
+		}(&act)
 	}
+	wg.Wait()
 }
+
+// // deleteAccountDestinationActions just for destination map
+// func (ap *actPool) deleteAccountDestinationActions(acts ...action.SealedEnvelope) {
+// 	for _, act := range acts {
+// 		hash, err := act.Hash()
+// 		if err != nil {
+// 			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+// 			continue
+// 		}
+
+// 	}
+// }
 
 // updateAccount updates queue's status and remove invalidated actions from pool if necessary
 func (ap *actPool) updateAccount(sender string) {
 	queue := ap.accountActs[sender]
-	acts := queue.UpdateQueue(queue.PendingNonce())
+	acts := queue.UpdateQueue()
 	if len(acts) > 0 {
-		ap.removeInvalidActs(acts)
+		ap.removeActs(acts)
 	}
 	// Delete the queue entry if it becomes empty
 	if queue.Empty() {
@@ -510,34 +514,72 @@ func (ap *actPool) updateAccount(sender string) {
 	}
 }
 
+// Reset the state of every account in the pool
 func (ap *actPool) reset() {
 	timer := ap.timerFactory.NewTimer("reset")
 	defer timer.End()
 
-	// Remove confirmed actions in actpool
-	ap.removeConfirmedActs()
+	actsToRemoved := struct {
+		sync.RWMutex
+		items []action.SealedEnvelope
+	}{
+		items: make([]action.SealedEnvelope, 0),
+	}
+
+	accountsToRemoved := struct {
+		sync.RWMutex
+		items []string
+	}{
+		items: make([]string, 0),
+	}
+
+	var wg sync.WaitGroup
 	for from, queue := range ap.accountActs {
-		// Reset pending balance for each account
-		addr, _ := address.FromString(from)
-		state, err := accountutil.AccountState(ap.sf, addr)
-		if err != nil {
-			log.L().Error("Error when resetting actpool state.", zap.Error(err))
-			return
-		}
-		queue.SetPendingBalance(state.Balance)
+		wg.Add(1)
+		func(from string, queue *actQueue) {
+			defer wg.Done()
+			addr, _ := address.FromString(from)
+			confirmedState, err := accountutil.AccountState(ap.sf, addr)
+			if err != nil {
+				log.L().Error("Error when resetting actpool state.", zap.Error(err))
+				return
+			}
+			pendingNonce := confirmedState.Nonce + 1
 
-		// Reset pending nonce and remove invalid actions for each account
-		confirmedNonce := state.Nonce
-		pendingNonce := confirmedNonce + 1
-		queue.SetPendingNonce(pendingNonce)
-		ap.updateAccount(from)
-	}
-}
+			// Remove confirmed actions in actpool
+			acts := queue.FilterNonce(pendingNonce)
+			actsToRemoved.Lock()
+			actsToRemoved.items = append(actsToRemoved.items, acts...)
+			actsToRemoved.Unlock()
 
-func (ap *actPool) subGasFromPool(gas uint64) {
-	if ap.gasInPool < gas {
-		ap.gasInPool = 0
-		return
+			if queue.Empty() {
+				accountsToRemoved.Lock()
+				accountsToRemoved.items = append(accountsToRemoved.items, from)
+				accountsToRemoved.Unlock()
+				return
+			}
+
+			queue.SetPendingBalance(confirmedState.Balance)
+			queue.SetPendingNonce(pendingNonce)
+
+			// remove invalid actions for each account
+			acts = queue.UpdateQueue()
+			actsToRemoved.Lock()
+			actsToRemoved.items = append(actsToRemoved.items, acts...)
+			actsToRemoved.Unlock()
+
+			if queue.Empty() {
+				accountsToRemoved.Lock()
+				accountsToRemoved.items = append(accountsToRemoved.items, from)
+				accountsToRemoved.Unlock()
+			}
+		}(from, queue.(*actQueue))
 	}
-	ap.gasInPool -= gas
+	wg.Wait()
+
+	ap.removeActs(actsToRemoved.items)
+
+	for _, from := range accountsToRemoved.items {
+		delete(ap.accountActs, from)
+	}
 }

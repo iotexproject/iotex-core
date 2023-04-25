@@ -41,16 +41,15 @@ func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvel
 	if err := action.Verify(selp); err != nil {
 		return err
 	}
+	// Reject action if nonce is too low
 	caller := selp.SrcPubkey().Address()
 	if caller == nil {
 		return errors.New("failed to get address")
 	}
-	// Reject action if nonce is too low
 	confirmedState, err := v.accountState(v.sr, caller)
 	if err != nil {
 		return errors.Wrapf(err, "invalid state of account %s", caller.String())
 	}
-
 	pendingNonce := confirmedState.Nonce + 1
 	if selp.Nonce() > 0 && pendingNonce > selp.Nonce() {
 		return action.ErrNonceTooLow

@@ -390,7 +390,7 @@ func (p *Protocol) claimFromAccount(ctx context.Context, sm protocol.StateManage
 	}
 
 	// Update primary account
-	primAcc, err := accountutil.LoadOrCreateAccount(sm, addr.String())
+	primAcc, err := accountutil.LoadOrCreateAccount(sm, addr)
 	if err != nil {
 		return err
 	}

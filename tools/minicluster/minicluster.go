@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -198,20 +197,12 @@ func main() {
 		d := time.Duration(timeout) * time.Second
 
 		// First deploy a user specified smart contract which can be interacted by injected executions
-		eHash, err := util.DeployContract(client, counter, delegates, executionGasLimit, executionGasPrice,
+		executor, nonce := util.CreateExecutionInjection(counter, delegates)
+		contract, err := util.DeployContract(client, executor, nonce, executionGasLimit, executionGasPrice,
 			deployExecData, retryNum, retryInterval)
 		if err != nil {
 			log.L().Fatal("Failed to deploy smart contract", zap.Error(err))
 		}
-		// Wait until the smart contract is successfully deployed
-		var receipt *iotextypes.Receipt
-		if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-			receipt, err = util.GetReceiptByAction(svrs[0].ChainService(uint32(1)).APIServer(), eHash)
-			return receipt != nil, nil
-		}); err != nil {
-			log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
-		}
-		contract := receipt.ContractAddress
 
 		var fpToken bc.FpToken
 		var fpContract string

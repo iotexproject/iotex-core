@@ -192,7 +192,7 @@ func testSnapshot(ws *workingSet, t *testing.T) {
 	require.Equal(big.NewInt(7), s.Balance)
 	s2 := ws.Snapshot()
 	require.Equal(2, s2)
-	require.NoError(s.AddBalance(big.NewInt(6)))
+	s.AddBalance(big.NewInt(6))
 	require.Equal(big.NewInt(13), s.Balance)
 	_, err = ws.PutState(s, protocol.LegacyKeyOption(tHash))
 	require.NoError(err)
@@ -1039,6 +1039,7 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ap := mock_actpool.NewMockActPool(ctrl)
 	ap.EXPECT().PendingActionMap().Return(accMap).Times(1)
+	ap.EXPECT().GetSize().Return(uint64(1))
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(context.Background(),
 		protocol.BlockCtx{

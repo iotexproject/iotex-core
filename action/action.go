@@ -52,6 +52,9 @@ func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
 	}
 	sealed.signature = sig
 	act.Action().SetEnvelopeContext(sealed)
+	if err := sealed.calcHash(); err != nil {
+		return sealed, err
+	}
 	return sealed, nil
 }
 
@@ -85,7 +88,7 @@ func Verify(sealed SealedEnvelope) error {
 	}
 	// Reject action with insufficient gas limit
 	intrinsicGas, err := sealed.IntrinsicGas()
-	if intrinsicGas > sealed.GasLimit() || err != nil {
+	if err != nil || intrinsicGas > sealed.GasLimit() {
 		return ErrIntrinsicGas
 	}
 

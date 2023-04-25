@@ -7,9 +7,9 @@
 package batch
 
 import (
+	"container/list"
 	"sync"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 )
 
@@ -93,23 +93,41 @@ func (b *baseKVStoreBatch) Entry(index int) (*WriteInfo, error) {
 	return b.writeQueue[index], nil
 }
 
+type dataLocation struct {
+	data  []byte
+	index int
+}
+
 func (b *baseKVStoreBatch) SerializeQueue(serialize WriteInfoSerialize, filter WriteInfoFilter) []byte {
+	var (
+		dataList       = list.New()
+		size           = 0
+		serializedData []byte
+	)
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	// 1. This could be improved by being processed in parallel
 	// 2. Digest could be replaced by merkle root if we need proof
-	bytes := make([]byte, 0)
 	for _, wi := range b.writeQueue {
 		if filter != nil && filter(wi) {
 			continue
 		}
 		if serialize != nil {
-			bytes = append(bytes, serialize(wi)...)
+			serializedData = serialize(wi)
 		} else {
-			bytes = append(bytes, wi.Serialize()...)
+			serializedData = wi.Serialize()
 		}
+		dataList.PushBack(dataLocation{serializedData, size})
+		size += len(serializedData)
 	}
-	return bytes
+	ret := make([]byte, size)
+	for e := dataList.Front(); e != nil; e = e.Next() {
+		item := e.Value.(dataLocation)
+		copy(ret[item.index:], item.data)
+	}
+	// log.L().Info("byte len", zap.Int("bytes len", len(bytes)),
+	// zap.Int("queue len", len(b.writeQueue)))
+	return ret
 }
 
 // Clear clear write queue
@@ -271,6 +289,10 @@ func (cb *cachedBatch) Get(namespace string, key []byte) ([]byte, error) {
 	cb.lock.RLock()
 	defer cb.lock.RUnlock()
 	h := cb.hash(namespace, key)
+	// log.L().Info("asd",
+	// 	zap.Int("len namespace", len(namespace)),
+	// 	zap.Int("len key", len(key)),
+	// )
 	return cb.Read(h)
 }
 
@@ -310,6 +332,6 @@ func (cb *cachedBatch) AddFillPercent(ns string, percent float64) {
 	cb.kvStoreBatch.AddFillPercent(ns, percent)
 }
 
-func (cb *cachedBatch) hash(namespace string, key []byte) hash.Hash160 {
-	return hash.Hash160b(append([]byte(namespace), key...))
+func (cb *cachedBatch) hash(namespace string, key []byte) *kvCacheKey {
+	return &kvCacheKey{namespace, string(key)}
 }

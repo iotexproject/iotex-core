@@ -349,6 +349,7 @@ func (sdb *stateDB) NewBlockBuilder(
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
 	sdb.putIntoWorkingSets(key, ws)
+	log.L().Info("actpool size", zap.Uint64("size", ap.GetSize()))
 	return blkBuilder, nil
 }
 
@@ -446,8 +447,8 @@ func (sdb *stateDB) DeleteTipBlock(_ *block.Block) error {
 
 // State returns a confirmed state in the state factory
 func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
-	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
+	sdb.mutex.RLock()
+	defer sdb.mutex.RUnlock()
 
 	cfg, err := processOptions(opts...)
 	if err != nil {

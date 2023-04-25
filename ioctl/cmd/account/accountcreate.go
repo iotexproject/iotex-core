@@ -73,7 +73,6 @@ func accountCreate() error {
 			if err != nil {
 				return output.NewError(output.CryptoError, "failed to generate new private key", err)
 			}
-
 		} else {
 			private, err = crypto.GenerateKeySm2()
 			if err != nil {

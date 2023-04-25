@@ -2641,7 +2641,7 @@ func setupAccount(sm protocol.StateManager, addr address.Address, balance int64)
 	if balance < 0 {
 		return errors.New("balance cannot be negative")
 	}
-	account, err := accountutil.LoadOrCreateAccount(sm, addr.String())
+	account, err := accountutil.LoadOrCreateAccount(sm, addr)
 	if err != nil {
 		return err
 	}

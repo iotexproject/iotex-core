@@ -7,6 +7,7 @@
 package account
 
 import (
+	"bytes"
 	"context"
 	"math/big"
 
@@ -24,16 +25,13 @@ import (
 const TransferSizeLimit = 32 * 1024
 
 // handleTransfer handles a transfer
-func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm protocol.StateManager) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	fixDoubleChargeGas := protocol.MustGetFeatureCtx(ctx).FixDoubleChargeGas
-	tsf, ok := act.(*action.Transfer)
-	if !ok {
-		return nil, nil
-	}
+
 	// check sender
-	sender, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller.String())
+	sender, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of sender %s", actionCtx.Caller.String())
 	}
@@ -67,7 +65,10 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
 	}
-	recipientAcct, err := accountutil.LoadAccount(sm, recipientAddr)
+	recipientAcct, err := accountutil.LoadOrCreateAccount(sm, recipientAddr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
+	}
 	if err == nil && recipientAcct.IsContract() {
 		// update sender Nonce
 		accountutil.SetNonce(tsf, sender)
@@ -83,14 +84,13 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 				}
 			}
 		}
-		receipt := &action.Receipt{
+		receipt := (&action.Receipt{
 			Status:          uint64(iotextypes.ReceiptStatus_Failure),
 			BlockHeight:     blkCtx.BlockHeight,
 			ActionHash:      actionCtx.ActionHash,
 			GasConsumed:     actionCtx.IntrinsicGas,
-			ContractAddress: p.addr.String(),
-		}
-		receipt.AddTransactionLogs(depositLog)
+			ContractAddress: p.addr,
+		}).AddTransactionLogs(depositLog)
 		return receipt, nil
 	}
 
@@ -100,20 +100,17 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	}
 	// update sender Nonce
 	accountutil.SetNonce(tsf, sender)
-	// put updated sender's state to trie
-	if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
-		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
+	if bytes.Equal(actionCtx.Caller.Bytes(), recipientAddr.Bytes()) {
+		recipientAcct = sender
+	} else {
+		// put updated sender's state to trie
+		if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
+			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
+		}
 	}
-	// check recipient
-	recipient, err := accountutil.LoadOrCreateAccount(sm, tsf.Recipient())
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
-	}
-	if err := recipient.AddBalance(tsf.Amount()); err != nil {
-		return nil, errors.Wrapf(err, "failed to update the Balance of recipient %s", tsf.Recipient())
-	}
+	recipientAcct.AddBalance(tsf.Amount())
 	// put updated recipient's state to trie
-	if err := accountutil.StoreAccount(sm, recipientAddr, recipient); err != nil {
+	if err := accountutil.StoreAccount(sm, recipientAddr, recipientAcct); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
@@ -126,14 +123,13 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		}
 	}
 
-	receipt := &action.Receipt{
+	receipt := (&action.Receipt{
 		Status:          uint64(iotextypes.ReceiptStatus_Success),
 		BlockHeight:     blkCtx.BlockHeight,
 		ActionHash:      actionCtx.ActionHash,
 		GasConsumed:     actionCtx.IntrinsicGas,
-		ContractAddress: p.addr.String(),
-	}
-	receipt.AddTransactionLogs(&action.TransactionLog{
+		ContractAddress: p.addr,
+	}).AddTransactionLogs(&action.TransactionLog{
 		Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,
 		Sender:    actionCtx.Caller.String(),
 		Recipient: tsf.Recipient(),
