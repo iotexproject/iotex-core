@@ -33,8 +33,8 @@ import (
 const (
 	// TODO (iip-13): replace with the real liquid staking contract address
 	LiquidStakingContractAddress = ""
-
-	_liquidStakingContractABI = `[
+	// LiquidStakingContractABI is the ABI of liquid staking contract
+	LiquidStakingContractABI = `[
 		{
 		  "inputs": [],
 		  "stateMutability": "nonpayable",
@@ -1316,7 +1316,7 @@ var (
 
 func init() {
 	var err error
-	_liquidStakingInterface, err = abi.JSON(strings.NewReader(_liquidStakingContractABI))
+	_liquidStakingInterface, err = abi.JSON(strings.NewReader(LiquidStakingContractABI))
 	if err != nil {
 		panic(err)
 	}

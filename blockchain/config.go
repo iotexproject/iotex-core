@@ -24,23 +24,24 @@ import (
 type (
 	// Config is the config struct for blockchain package
 	Config struct {
-		ChainDBPath            string           `yaml:"chainDBPath"`
-		TrieDBPatchFile        string           `yaml:"trieDBPatchFile"`
-		TrieDBPath             string           `yaml:"trieDBPath"`
-		StakingPatchDir        string           `yaml:"stakingPatchDir"`
-		IndexDBPath            string           `yaml:"indexDBPath"`
-		BloomfilterIndexDBPath string           `yaml:"bloomfilterIndexDBPath"`
-		CandidateIndexDBPath   string           `yaml:"candidateIndexDBPath"`
-		StakingIndexDBPath     string           `yaml:"stakingIndexDBPath"`
-		ID                     uint32           `yaml:"id"`
-		EVMNetworkID           uint32           `yaml:"evmNetworkID"`
-		Address                string           `yaml:"address"`
-		ProducerPrivKey        string           `yaml:"producerPrivKey"`
-		ProducerPrivKeySchema  string           `yaml:"producerPrivKeySchema"`
-		SignatureScheme        []string         `yaml:"signatureScheme"`
-		EmptyGenesis           bool             `yaml:"emptyGenesis"`
-		GravityChainDB         db.Config        `yaml:"gravityChainDB"`
-		Committee              committee.Config `yaml:"committee"`
+		ChainDBPath              string           `yaml:"chainDBPath"`
+		TrieDBPatchFile          string           `yaml:"trieDBPatchFile"`
+		TrieDBPath               string           `yaml:"trieDBPath"`
+		StakingPatchDir          string           `yaml:"stakingPatchDir"`
+		IndexDBPath              string           `yaml:"indexDBPath"`
+		BloomfilterIndexDBPath   string           `yaml:"bloomfilterIndexDBPath"`
+		CandidateIndexDBPath     string           `yaml:"candidateIndexDBPath"`
+		StakingIndexDBPath       string           `yaml:"stakingIndexDBPath"`
+		LiquidStakingIndexDBPath string           `yaml:"liquidStakingIndexDBPath"`
+		ID                       uint32           `yaml:"id"`
+		EVMNetworkID             uint32           `yaml:"evmNetworkID"`
+		Address                  string           `yaml:"address"`
+		ProducerPrivKey          string           `yaml:"producerPrivKey"`
+		ProducerPrivKeySchema    string           `yaml:"producerPrivKeySchema"`
+		SignatureScheme          []string         `yaml:"signatureScheme"`
+		EmptyGenesis             bool             `yaml:"emptyGenesis"`
+		GravityChainDB           db.Config        `yaml:"gravityChainDB"`
+		Committee                committee.Config `yaml:"committee"`
 
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
 		// EnableStateDBCaching enables cachedStateDBOption
@@ -75,21 +76,22 @@ type (
 var (
 	// DefaultConfig is the default config of chain
 	DefaultConfig = Config{
-		ChainDBPath:            "/var/data/chain.db",
-		TrieDBPatchFile:        "/var/data/trie.db.patch",
-		TrieDBPath:             "/var/data/trie.db",
-		StakingPatchDir:        "/var/data",
-		IndexDBPath:            "/var/data/index.db",
-		BloomfilterIndexDBPath: "/var/data/bloomfilter.index.db",
-		CandidateIndexDBPath:   "/var/data/candidate.index.db",
-		StakingIndexDBPath:     "/var/data/staking.index.db",
-		ID:                     1,
-		EVMNetworkID:           4689,
-		Address:                "",
-		ProducerPrivKey:        generateRandomKey(SigP256k1),
-		SignatureScheme:        []string{SigP256k1},
-		EmptyGenesis:           false,
-		GravityChainDB:         db.Config{DbPath: "/var/data/poll.db", NumRetries: 10},
+		ChainDBPath:              "/var/data/chain.db",
+		TrieDBPatchFile:          "/var/data/trie.db.patch",
+		TrieDBPath:               "/var/data/trie.db",
+		StakingPatchDir:          "/var/data",
+		IndexDBPath:              "/var/data/index.db",
+		BloomfilterIndexDBPath:   "/var/data/bloomfilter.index.db",
+		CandidateIndexDBPath:     "/var/data/candidate.index.db",
+		StakingIndexDBPath:       "/var/data/staking.index.db",
+		LiquidStakingIndexDBPath: "/var/data/liquidstaking.index.db",
+		ID:                       1,
+		EVMNetworkID:             4689,
+		Address:                  "",
+		ProducerPrivKey:          generateRandomKey(SigP256k1),
+		SignatureScheme:          []string{SigP256k1},
+		EmptyGenesis:             false,
+		GravityChainDB:           db.Config{DbPath: "/var/data/poll.db", NumRetries: 10},
 		Committee: committee.Config{
 			GravityChainAPIs: []string{},
 		},

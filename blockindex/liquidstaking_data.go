@@ -174,7 +174,7 @@ func (s *liquidStakingIndexer) loadCache() error {
 	// load bucket info
 	ks, vs, err := s.clean.Filter(_liquidStakingBucketInfoNS, func(k, v []byte) bool { return true }, nil, nil)
 	if err != nil {
-		if !errors.Is(err, db.ErrNotExist) {
+		if !errors.Is(err, db.ErrBucketNotExist) {
 			return err
 		}
 	}
@@ -189,7 +189,7 @@ func (s *liquidStakingIndexer) loadCache() error {
 	// load bucket type
 	ks, vs, err = s.clean.Filter(_liquidStakingBucketTypeNS, func(k, v []byte) bool { return true }, nil, nil)
 	if err != nil {
-		if !errors.Is(err, db.ErrNotExist) {
+		if !errors.Is(err, db.ErrBucketNotExist) {
 			return err
 		}
 	}

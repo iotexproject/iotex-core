@@ -281,9 +281,9 @@ func (builder *Builder) buildGatewayComponents(forTest bool) error {
 	builder.cs.bfIndexer = bfIndexer
 	builder.cs.indexer = indexer
 	builder.cs.liquidStakingIndexer = liquidStakeBucketsIndexer
-	if builder.cs.liquidStakingIndexer != nil {
-		builder.cs.lifecycle.Add(builder.cs.liquidStakingIndexer)
-	}
+	// if builder.cs.liquidStakingIndexer != nil {
+	// 	builder.cs.lifecycle.Add(builder.cs.liquidStakingIndexer)
+	// }
 	return nil
 }
 
@@ -347,6 +347,7 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 	}
 
 	// create liquid staking indexer
+	dbConfig.DbPath = builder.cfg.Chain.LiquidStakingIndexDBPath
 	liquidStakeBucketsIndexer = blockindex.NewLiquidStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.BlockInterval)
 	return
 }
