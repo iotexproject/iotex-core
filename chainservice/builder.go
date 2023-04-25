@@ -240,11 +240,6 @@ func (builder *Builder) buildActionPool() error {
 	return nil
 }
 
-func (builder *Builder) buildSystemStakingIndexer() error {
-	builder.cs.liquidStakingIndexer = blockindex.NewLiquidStakingIndexer()
-	return nil
-}
-
 func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.blockdao != nil {
 		return nil
@@ -271,7 +266,7 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 }
 
 func (builder *Builder) buildGatewayComponents(forTest bool) error {
-	indexer, bfIndexer, candidateIndexer, candBucketsIndexer, err := builder.createGateWayComponents(forTest)
+	indexer, bfIndexer, candidateIndexer, candBucketsIndexer, liquidStakeBucketsIndexer, err := builder.createGateWayComponents(forTest)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create gateway components")
 	}
@@ -285,7 +280,10 @@ func (builder *Builder) buildGatewayComponents(forTest bool) error {
 	}
 	builder.cs.bfIndexer = bfIndexer
 	builder.cs.indexer = indexer
-
+	builder.cs.liquidStakingIndexer = liquidStakeBucketsIndexer
+	if builder.cs.liquidStakingIndexer != nil {
+		builder.cs.lifecycle.Add(builder.cs.liquidStakingIndexer)
+	}
 	return nil
 }
 
@@ -294,6 +292,7 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 	bfIndexer blockindex.BloomFilterIndexer,
 	candidateIndexer *poll.CandidateIndexer,
 	candBucketsIndexer *staking.CandidatesBucketsIndexer,
+	liquidStakeBucketsIndexer blockindex.LiquidStakingIndexer,
 	err error,
 ) {
 	_, gateway := builder.cfg.Plugins[config.GatewayPlugin]
@@ -317,6 +316,7 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 		if builder.cfg.Chain.EnableStakingIndexer {
 			candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewMemKVStore())
 		}
+		liquidStakeBucketsIndexer = blockindex.NewLiquidStakingIndexer(db.NewMemKVStore(), builder.cfg.Genesis.BlockInterval)
 		return
 	}
 	dbConfig := builder.cfg.DB
@@ -345,6 +345,9 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 		dbConfig.DbPath = builder.cfg.Chain.StakingIndexDBPath
 		candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewBoltDB(dbConfig))
 	}
+
+	// create liquid staking indexer
+	liquidStakeBucketsIndexer = blockindex.NewLiquidStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.BlockInterval)
 	return
 }
 
@@ -622,9 +625,6 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildGatewayComponents(forTest); err != nil {
-		return nil, err
-	}
-	if err := builder.buildSystemStakingIndexer(); err != nil {
 		return nil, err
 	}
 	if err := builder.buildBlockDAO(forTest); err != nil {
