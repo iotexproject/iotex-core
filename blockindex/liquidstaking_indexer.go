@@ -1564,7 +1564,7 @@ func (s *liquidStakingIndexer) handleStakedEvent(event eventParam, timestamp tim
 }
 
 func (s *liquidStakingIndexer) handleLockedEvent(event eventParam) error {
-	tokenIDParam, err := event.fieldUint256("tokenId")
+	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err
 	}
@@ -1592,7 +1592,7 @@ func (s *liquidStakingIndexer) handleLockedEvent(event eventParam) error {
 }
 
 func (s *liquidStakingIndexer) handleUnlockedEvent(event eventParam, timestamp time.Time) error {
-	tokenIDParam, err := event.fieldUint256("tokenId")
+	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err
 	}
@@ -1607,7 +1607,7 @@ func (s *liquidStakingIndexer) handleUnlockedEvent(event eventParam, timestamp t
 }
 
 func (s *liquidStakingIndexer) handleUnstakedEvent(event eventParam, timestamp time.Time) error {
-	tokenIDParam, err := event.fieldUint256("tokenId")
+	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err
 	}
@@ -1654,7 +1654,7 @@ func (s *liquidStakingIndexer) handleMergedEvent(event eventParam) error {
 }
 
 func (s *liquidStakingIndexer) handleDurationExtendedEvent(event eventParam) error {
-	tokenIDParam, err := event.fieldUint256("tokenId")
+	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err
 	}
@@ -1681,7 +1681,7 @@ func (s *liquidStakingIndexer) handleDurationExtendedEvent(event eventParam) err
 }
 
 func (s *liquidStakingIndexer) handleAmountIncreasedEvent(event eventParam) error {
-	tokenIDParam, err := event.fieldUint256("tokenId")
+	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err
 	}
@@ -1708,7 +1708,7 @@ func (s *liquidStakingIndexer) handleAmountIncreasedEvent(event eventParam) erro
 }
 
 func (s *liquidStakingIndexer) handleDelegateChangedEvent(event eventParam) error {
-	tokenIDParam, err := event.fieldUint256("tokenId")
+	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err
 	}
@@ -1727,7 +1727,7 @@ func (s *liquidStakingIndexer) handleDelegateChangedEvent(event eventParam) erro
 }
 
 func (s *liquidStakingIndexer) handleWithdrawalEvent(event eventParam) error {
-	tokenIDParam, err := event.fieldUint256("tokenId")
+	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err
 	}
