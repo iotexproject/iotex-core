@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockindex/indexpb"
@@ -32,1233 +31,1239 @@ import (
 
 const (
 	// TODO (iip-13): replace with the real liquid staking contract address
-	LiquidStakingContractAddress = ""
+	LiquidStakingContractAddress = "io1dkqh5mu9djfas3xyrmzdv9frsmmytel4mp7a64"
 	// LiquidStakingContractABI is the ABI of liquid staking contract
 	LiquidStakingContractABI = `[
 		{
-		  "inputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "constructor"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": true,
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			},
-			{
-			  "indexed": false,
-			  "internalType": "uint256",
-			  "name": "amount",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "AmountIncreased",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": true,
-			  "internalType": "address",
-			  "name": "owner",
-			  "type": "address"
-			},
-			{
-			  "indexed": true,
-			  "internalType": "address",
-			  "name": "approved",
-			  "type": "address"
-			},
-			{
-			  "indexed": true,
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "Approval",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": true,
-			  "internalType": "address",
-			  "name": "owner",
-			  "type": "address"
-			},
-			{
-			  "indexed": true,
-			  "internalType": "address",
-			  "name": "operator",
-			  "type": "address"
-			},
-			{
-			  "indexed": false,
-			  "internalType": "bool",
-			  "name": "approved",
-			  "type": "bool"
-			}
-		  ],
-		  "name": "ApprovalForAll",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": false,
-			  "internalType": "uint256",
-			  "name": "amount",
-			  "type": "uint256"
-			},
-			{
-			  "indexed": false,
-			  "internalType": "uint256",
-			  "name": "duration",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "BucketTypeActivated",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": false,
-			  "internalType": "uint256",
-			  "name": "amount",
-			  "type": "uint256"
-			},
-			{
-			  "indexed": false,
-			  "internalType": "uint256",
-			  "name": "duration",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "BucketTypeDeactivated",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": true,
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			},
-			{
-			  "indexed": true,
-			  "internalType": "bytes12",
-			  "name": "oldDelegate",
-			  "type": "bytes12"
-			},
-			{
-			  "indexed": true,
-			  "internalType": "bytes12",
-			  "name": "newDelegate",
-			  "type": "bytes12"
-			}
-		  ],
-		  "name": "DelegateChanged",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": true,
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			},
-			{
-			  "indexed": false,
-			  "internalType": "uint256",
-			  "name": "duration",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "DurationExtended",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": true,
-			  "internalType": "address",
-			  "name": "recipient",
-			  "type": "address"
-			},
-			{
-			  "indexed": false,
-			  "internalType": "uint256",
-			  "name": "amount",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "FeeWithdrawal",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": true,
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			},
-			{
-			  "indexed": false,
-			  "internalType": "uint256",
-			  "name": "duration",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "Locked",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": true,
-			  "internalType": "address",
-			  "name": "previousOwner",
-			  "type": "address"
-			},
-			{
-			  "indexed": true,
-			  "internalType": "address",
-			  "name": "newOwner",
-			  "type": "address"
-			}
-		  ],
-		  "name": "OwnershipTransferred",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": false,
-			  "internalType": "address",
-			  "name": "account",
-			  "type": "address"
-			}
-		  ],
-		  "name": "Paused",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": true,
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			},
-			{
-			  "indexed": true,
-			  "internalType": "bytes12",
-			  "name": "delegate",
-			  "type": "bytes12"
-			},
-			{
-			  "indexed": false,
-			  "internalType": "uint256",
-			  "name": "amount",
-			  "type": "uint256"
-			},
-			{
-			  "indexed": false,
-			  "internalType": "uint256",
-			  "name": "duration",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "Staked",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": true,
-			  "internalType": "address",
-			  "name": "from",
-			  "type": "address"
-			},
-			{
-			  "indexed": true,
-			  "internalType": "address",
-			  "name": "to",
-			  "type": "address"
-			},
-			{
-			  "indexed": true,
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "Transfer",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": true,
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "Unlocked",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": false,
-			  "internalType": "address",
-			  "name": "account",
-			  "type": "address"
-			}
-		  ],
-		  "name": "Unpaused",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": true,
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "Unstaked",
-		  "type": "event"
-		},
-		{
-		  "anonymous": false,
-		  "inputs": [
-			{
-			  "indexed": true,
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			},
-			{
-			  "indexed": true,
-			  "internalType": "address",
-			  "name": "recipient",
-			  "type": "address"
-			},
-			{
-			  "indexed": false,
-			  "internalType": "uint256",
-			  "name": "amount",
-			  "type": "uint256"
-			},
-			{
-			  "indexed": false,
-			  "internalType": "uint256",
-			  "name": "penaltyFee",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "Withdrawal",
-		  "type": "event"
-		},
-		{
-		  "inputs": [],
-		  "name": "UINT256_MAX",
-		  "outputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "",
-			  "type": "uint256"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
-		},
-		{
-		  "inputs": [],
-		  "name": "accumulatedWithdrawFee",
-		  "outputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "",
-			  "type": "uint256"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
-		},
-		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_amount",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "_duration",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "activateBucketType",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
-		},
-		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_amount",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "_duration",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "addBucketType",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
-		},
-		{
-		  "inputs": [
-			{
-			  "internalType": "address",
-			  "name": "to",
-			  "type": "address"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "approve",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
-		},
-		{
-		  "inputs": [
-			{
-			  "internalType": "address",
-			  "name": "owner",
-			  "type": "address"
-			}
-		  ],
-		  "name": "balanceOf",
-		  "outputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "",
-			  "type": "uint256"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
-		},
-		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_tokenId",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "blocksToUnstake",
-		  "outputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "",
-			  "type": "uint256"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
-		},
-		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_tokenId",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "blocksToWithdraw",
-		  "outputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "",
-			  "type": "uint256"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
-		},
-		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_tokenId",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "bucketOf",
-		  "outputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "amount_",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "duration_",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "unlockedAt_",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "unstakedAt_",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "bytes12",
-			  "name": "delegate_",
-			  "type": "bytes12"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
-		},
-		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_offset",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "_size",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "bucketTypes",
-		  "outputs": [
-			{
-			  "components": [
+			"inputs": [
 				{
-				  "internalType": "uint256",
-				  "name": "amount",
-				  "type": "uint256"
+					"internalType": "uint256",
+					"name": "_amount",
+					"type": "uint256"
 				},
 				{
-				  "internalType": "uint256",
-				  "name": "duration",
-				  "type": "uint256"
-				},
-				{
-				  "internalType": "uint256",
-				  "name": "activatedAt",
-				  "type": "uint256"
+					"internalType": "uint256",
+					"name": "_duration",
+					"type": "uint256"
 				}
-			  ],
-			  "internalType": "struct BucketType[]",
-			  "name": "types_",
-			  "type": "tuple[]"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
+			],
+			"name": "activateBucketType",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_tokenId",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "bytes12",
-			  "name": "_delegate",
-			  "type": "bytes12"
-			}
-		  ],
-		  "name": "changeDelegate",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_amount",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint256",
+					"name": "_duration",
+					"type": "uint256"
+				}
+			],
+			"name": "addBucketType",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256[]",
-			  "name": "_tokenIds",
-			  "type": "uint256[]"
-			},
-			{
-			  "internalType": "bytes12",
-			  "name": "_delegate",
-			  "type": "bytes12"
-			}
-		  ],
-		  "name": "changeDelegates",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"inputs": [],
+			"stateMutability": "nonpayable",
+			"type": "constructor"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_amount",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "_duration",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "deactivateBucketType",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint256",
+					"name": "amount",
+					"type": "uint256"
+				}
+			],
+			"name": "AmountIncreased",
+			"type": "event"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_tokenId",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "address payable",
-			  "name": "_recipient",
-			  "type": "address"
-			}
-		  ],
-		  "name": "emergencyWithdraw",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "address",
+					"name": "owner",
+					"type": "address"
+				},
+				{
+					"indexed": true,
+					"internalType": "address",
+					"name": "approved",
+					"type": "address"
+				},
+				{
+					"indexed": true,
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "Approval",
+			"type": "event"
 		},
 		{
-		  "inputs": [],
-		  "name": "emergencyWithdrawPenaltyRate",
-		  "outputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "",
-			  "type": "uint256"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "address",
+					"name": "owner",
+					"type": "address"
+				},
+				{
+					"indexed": true,
+					"internalType": "address",
+					"name": "operator",
+					"type": "address"
+				},
+				{
+					"indexed": false,
+					"internalType": "bool",
+					"name": "approved",
+					"type": "bool"
+				}
+			],
+			"name": "ApprovalForAll",
+			"type": "event"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_tokenId",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "_newDuration",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "extendDuration",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "to",
+					"type": "address"
+				},
+				{
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "approve",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "getApproved",
-		  "outputs": [
-			{
-			  "internalType": "address",
-			  "name": "",
-			  "type": "address"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": false,
+					"internalType": "uint256",
+					"name": "amount",
+					"type": "uint256"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint256",
+					"name": "duration",
+					"type": "uint256"
+				}
+			],
+			"name": "BucketTypeActivated",
+			"type": "event"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_tokenId",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "_newAmount",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "increaseAmount",
-		  "outputs": [],
-		  "stateMutability": "payable",
-		  "type": "function"
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": false,
+					"internalType": "uint256",
+					"name": "amount",
+					"type": "uint256"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint256",
+					"name": "duration",
+					"type": "uint256"
+				}
+			],
+			"name": "BucketTypeDeactivated",
+			"type": "event"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_amount",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "_duration",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "isActiveBucketType",
-		  "outputs": [
-			{
-			  "internalType": "bool",
-			  "name": "",
-			  "type": "bool"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_tokenId",
+					"type": "uint256"
+				},
+				{
+					"internalType": "bytes12",
+					"name": "_delegate",
+					"type": "bytes12"
+				}
+			],
+			"name": "changeDelegate",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "address",
-			  "name": "owner",
-			  "type": "address"
-			},
-			{
-			  "internalType": "address",
-			  "name": "operator",
-			  "type": "address"
-			}
-		  ],
-		  "name": "isApprovedForAll",
-		  "outputs": [
-			{
-			  "internalType": "bool",
-			  "name": "",
-			  "type": "bool"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "uint256[]",
+					"name": "_tokenIds",
+					"type": "uint256[]"
+				},
+				{
+					"internalType": "bytes12",
+					"name": "_delegate",
+					"type": "bytes12"
+				}
+			],
+			"name": "changeDelegates",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_tokenId",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "_duration",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "lock",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_amount",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint256",
+					"name": "_duration",
+					"type": "uint256"
+				}
+			],
+			"name": "deactivateBucketType",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "bytes12[]",
-			  "name": "_delegates",
-			  "type": "bytes12[]"
-			}
-		  ],
-		  "name": "lockedVotesTo",
-		  "outputs": [
-			{
-			  "internalType": "uint256[][]",
-			  "name": "counts_",
-			  "type": "uint256[][]"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				},
+				{
+					"indexed": false,
+					"internalType": "bytes12",
+					"name": "newDelegate",
+					"type": "bytes12"
+				}
+			],
+			"name": "DelegateChanged",
+			"type": "event"
 		},
 		{
-		  "inputs": [],
-		  "name": "name",
-		  "outputs": [
-			{
-			  "internalType": "string",
-			  "name": "",
-			  "type": "string"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint256",
+					"name": "duration",
+					"type": "uint256"
+				}
+			],
+			"name": "DurationExtended",
+			"type": "event"
 		},
 		{
-		  "inputs": [],
-		  "name": "numOfBucketTypes",
-		  "outputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "",
-			  "type": "uint256"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_tokenId",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint256",
+					"name": "_newDuration",
+					"type": "uint256"
+				}
+			],
+			"name": "extendDuration",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [],
-		  "name": "owner",
-		  "outputs": [
-			{
-			  "internalType": "address",
-			  "name": "",
-			  "type": "address"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_tokenId",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint256",
+					"name": "_newAmount",
+					"type": "uint256"
+				}
+			],
+			"name": "increaseAmount",
+			"outputs": [],
+			"stateMutability": "payable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "ownerOf",
-		  "outputs": [
-			{
-			  "internalType": "address",
-			  "name": "",
-			  "type": "address"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_tokenId",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint256",
+					"name": "_duration",
+					"type": "uint256"
+				}
+			],
+			"name": "lock",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [],
-		  "name": "pause",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "uint256[]",
+					"name": "_tokenIds",
+					"type": "uint256[]"
+				},
+				{
+					"internalType": "uint256",
+					"name": "_duration",
+					"type": "uint256"
+				}
+			],
+			"name": "lock",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [],
-		  "name": "paused",
-		  "outputs": [
-			{
-			  "internalType": "bool",
-			  "name": "",
-			  "type": "bool"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint256",
+					"name": "duration",
+					"type": "uint256"
+				}
+			],
+			"name": "Locked",
+			"type": "event"
 		},
 		{
-		  "inputs": [],
-		  "name": "renounceOwnership",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "uint256[]",
+					"name": "tokenIds",
+					"type": "uint256[]"
+				},
+				{
+					"internalType": "uint256",
+					"name": "_newDuration",
+					"type": "uint256"
+				}
+			],
+			"name": "merge",
+			"outputs": [],
+			"stateMutability": "payable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "address",
-			  "name": "from",
-			  "type": "address"
-			},
-			{
-			  "internalType": "address",
-			  "name": "to",
-			  "type": "address"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "safeTransferFrom",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "uint256[]",
+					"name": "tokenIds",
+					"type": "uint256[]"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint256",
+					"name": "amount",
+					"type": "uint256"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint256",
+					"name": "duration",
+					"type": "uint256"
+				}
+			],
+			"name": "Merged",
+			"type": "event"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "address",
-			  "name": "from",
-			  "type": "address"
-			},
-			{
-			  "internalType": "address",
-			  "name": "to",
-			  "type": "address"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "bytes",
-			  "name": "data",
-			  "type": "bytes"
-			}
-		  ],
-		  "name": "safeTransferFrom",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "address",
+					"name": "previousOwner",
+					"type": "address"
+				},
+				{
+					"indexed": true,
+					"internalType": "address",
+					"name": "newOwner",
+					"type": "address"
+				}
+			],
+			"name": "OwnershipTransferred",
+			"type": "event"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "address",
-			  "name": "operator",
-			  "type": "address"
-			},
-			{
-			  "internalType": "bool",
-			  "name": "approved",
-			  "type": "bool"
-			}
-		  ],
-		  "name": "setApprovalForAll",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"inputs": [],
+			"name": "pause",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_rate",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "setEmergencyWithdrawPenaltyRate",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": false,
+					"internalType": "address",
+					"name": "account",
+					"type": "address"
+				}
+			],
+			"name": "Paused",
+			"type": "event"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_duration",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "bytes12",
-			  "name": "_delegate",
-			  "type": "bytes12"
-			}
-		  ],
-		  "name": "stake",
-		  "outputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "",
-			  "type": "uint256"
-			}
-		  ],
-		  "stateMutability": "payable",
-		  "type": "function"
+			"inputs": [],
+			"name": "renounceOwnership",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_amount",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "_duration",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "bytes12",
-			  "name": "_delegate",
-			  "type": "bytes12"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "_count",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "stake",
-		  "outputs": [
-			{
-			  "internalType": "uint256[]",
-			  "name": "tokenIds_",
-			  "type": "uint256[]"
-			}
-		  ],
-		  "stateMutability": "payable",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "from",
+					"type": "address"
+				},
+				{
+					"internalType": "address",
+					"name": "to",
+					"type": "address"
+				},
+				{
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "safeTransferFrom",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_amount",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "_duration",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "bytes12[]",
-			  "name": "_delegates",
-			  "type": "bytes12[]"
-			}
-		  ],
-		  "name": "stake",
-		  "outputs": [
-			{
-			  "internalType": "uint256[]",
-			  "name": "tokenIds_",
-			  "type": "uint256[]"
-			}
-		  ],
-		  "stateMutability": "payable",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "from",
+					"type": "address"
+				},
+				{
+					"internalType": "address",
+					"name": "to",
+					"type": "address"
+				},
+				{
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				},
+				{
+					"internalType": "bytes",
+					"name": "data",
+					"type": "bytes"
+				}
+			],
+			"name": "safeTransferFrom",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "bytes4",
-			  "name": "interfaceId",
-			  "type": "bytes4"
-			}
-		  ],
-		  "name": "supportsInterface",
-		  "outputs": [
-			{
-			  "internalType": "bool",
-			  "name": "",
-			  "type": "bool"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "operator",
+					"type": "address"
+				},
+				{
+					"internalType": "bool",
+					"name": "approved",
+					"type": "bool"
+				}
+			],
+			"name": "setApprovalForAll",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [],
-		  "name": "symbol",
-		  "outputs": [
-			{
-			  "internalType": "string",
-			  "name": "",
-			  "type": "string"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_duration",
+					"type": "uint256"
+				},
+				{
+					"internalType": "bytes12",
+					"name": "_delegate",
+					"type": "bytes12"
+				}
+			],
+			"name": "stake",
+			"outputs": [
+				{
+					"internalType": "uint256",
+					"name": "",
+					"type": "uint256"
+				}
+			],
+			"stateMutability": "payable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "tokenURI",
-		  "outputs": [
-			{
-			  "internalType": "string",
-			  "name": "",
-			  "type": "string"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_amount",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint256",
+					"name": "_duration",
+					"type": "uint256"
+				},
+				{
+					"internalType": "bytes12",
+					"name": "_delegate",
+					"type": "bytes12"
+				},
+				{
+					"internalType": "uint256",
+					"name": "_count",
+					"type": "uint256"
+				}
+			],
+			"name": "stake",
+			"outputs": [
+				{
+					"internalType": "uint256",
+					"name": "firstTokenId_",
+					"type": "uint256"
+				}
+			],
+			"stateMutability": "payable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "address",
-			  "name": "from",
-			  "type": "address"
-			},
-			{
-			  "internalType": "address",
-			  "name": "to",
-			  "type": "address"
-			},
-			{
-			  "internalType": "uint256",
-			  "name": "tokenId",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "transferFrom",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_amount",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint256",
+					"name": "_duration",
+					"type": "uint256"
+				},
+				{
+					"internalType": "bytes12[]",
+					"name": "_delegates",
+					"type": "bytes12[]"
+				}
+			],
+			"name": "stake",
+			"outputs": [
+				{
+					"internalType": "uint256",
+					"name": "firstTokenId_",
+					"type": "uint256"
+				}
+			],
+			"stateMutability": "payable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "address",
-			  "name": "newOwner",
-			  "type": "address"
-			}
-		  ],
-		  "name": "transferOwnership",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				},
+				{
+					"indexed": false,
+					"internalType": "bytes12",
+					"name": "delegate",
+					"type": "bytes12"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint256",
+					"name": "amount",
+					"type": "uint256"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint256",
+					"name": "duration",
+					"type": "uint256"
+				}
+			],
+			"name": "Staked",
+			"type": "event"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_tokenId",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "unlock",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "address",
+					"name": "from",
+					"type": "address"
+				},
+				{
+					"indexed": true,
+					"internalType": "address",
+					"name": "to",
+					"type": "address"
+				},
+				{
+					"indexed": true,
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "Transfer",
+			"type": "event"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "bytes12[]",
-			  "name": "_delegates",
-			  "type": "bytes12[]"
-			}
-		  ],
-		  "name": "unlockedVotesTo",
-		  "outputs": [
-			{
-			  "internalType": "uint256[][]",
-			  "name": "counts_",
-			  "type": "uint256[][]"
-			}
-		  ],
-		  "stateMutability": "view",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "from",
+					"type": "address"
+				},
+				{
+					"internalType": "address",
+					"name": "to",
+					"type": "address"
+				},
+				{
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "transferFrom",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [],
-		  "name": "unpause",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "newOwner",
+					"type": "address"
+				}
+			],
+			"name": "transferOwnership",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_tokenId",
-			  "type": "uint256"
-			}
-		  ],
-		  "name": "unstake",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "uint256[]",
+					"name": "_tokenIds",
+					"type": "uint256[]"
+				}
+			],
+			"name": "unlock",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_tokenId",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "address payable",
-			  "name": "_recipient",
-			  "type": "address"
-			}
-		  ],
-		  "name": "withdraw",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "unlock",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
 		},
 		{
-		  "inputs": [
-			{
-			  "internalType": "uint256",
-			  "name": "_amount",
-			  "type": "uint256"
-			},
-			{
-			  "internalType": "address payable",
-			  "name": "_recipient",
-			  "type": "address"
-			}
-		  ],
-		  "name": "withdrawFee",
-		  "outputs": [],
-		  "stateMutability": "nonpayable",
-		  "type": "function"
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "Unlocked",
+			"type": "event"
+		},
+		{
+			"inputs": [],
+			"name": "unpause",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": false,
+					"internalType": "address",
+					"name": "account",
+					"type": "address"
+				}
+			],
+			"name": "Unpaused",
+			"type": "event"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "unstake",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint256[]",
+					"name": "_tokenIds",
+					"type": "uint256[]"
+				}
+			],
+			"name": "unstake",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "Unstaked",
+			"type": "event"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_tokenId",
+					"type": "uint256"
+				},
+				{
+					"internalType": "address payable",
+					"name": "_recipient",
+					"type": "address"
+				}
+			],
+			"name": "withdraw",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint256[]",
+					"name": "_tokenIds",
+					"type": "uint256[]"
+				},
+				{
+					"internalType": "address payable",
+					"name": "_recipient",
+					"type": "address"
+				}
+			],
+			"name": "withdraw",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				},
+				{
+					"indexed": true,
+					"internalType": "address",
+					"name": "recipient",
+					"type": "address"
+				}
+			],
+			"name": "Withdrawal",
+			"type": "event"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "owner",
+					"type": "address"
+				}
+			],
+			"name": "balanceOf",
+			"outputs": [
+				{
+					"internalType": "uint256",
+					"name": "",
+					"type": "uint256"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "blocksToUnstake",
+			"outputs": [
+				{
+					"internalType": "uint256",
+					"name": "",
+					"type": "uint256"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "blocksToWithdraw",
+			"outputs": [
+				{
+					"internalType": "uint256",
+					"name": "",
+					"type": "uint256"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "bucketOf",
+			"outputs": [
+				{
+					"internalType": "uint256",
+					"name": "amount_",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint256",
+					"name": "duration_",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint256",
+					"name": "unlockedAt_",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint256",
+					"name": "unstakedAt_",
+					"type": "uint256"
+				},
+				{
+					"internalType": "bytes12",
+					"name": "delegate_",
+					"type": "bytes12"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_offset",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint256",
+					"name": "_size",
+					"type": "uint256"
+				}
+			],
+			"name": "bucketTypes",
+			"outputs": [
+				{
+					"components": [
+						{
+							"internalType": "uint256",
+							"name": "amount",
+							"type": "uint256"
+						},
+						{
+							"internalType": "uint256",
+							"name": "duration",
+							"type": "uint256"
+						},
+						{
+							"internalType": "uint256",
+							"name": "activatedAt",
+							"type": "uint256"
+						}
+					],
+					"internalType": "struct BucketType[]",
+					"name": "types_",
+					"type": "tuple[]"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "getApproved",
+			"outputs": [
+				{
+					"internalType": "address",
+					"name": "",
+					"type": "address"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "_amount",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint256",
+					"name": "_duration",
+					"type": "uint256"
+				}
+			],
+			"name": "isActiveBucketType",
+			"outputs": [
+				{
+					"internalType": "bool",
+					"name": "",
+					"type": "bool"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "owner",
+					"type": "address"
+				},
+				{
+					"internalType": "address",
+					"name": "operator",
+					"type": "address"
+				}
+			],
+			"name": "isApprovedForAll",
+			"outputs": [
+				{
+					"internalType": "bool",
+					"name": "",
+					"type": "bool"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "bytes12[]",
+					"name": "_delegates",
+					"type": "bytes12[]"
+				}
+			],
+			"name": "lockedVotesTo",
+			"outputs": [
+				{
+					"internalType": "uint256[][]",
+					"name": "counts_",
+					"type": "uint256[][]"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "name",
+			"outputs": [
+				{
+					"internalType": "string",
+					"name": "",
+					"type": "string"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "numOfBucketTypes",
+			"outputs": [
+				{
+					"internalType": "uint256",
+					"name": "",
+					"type": "uint256"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "owner",
+			"outputs": [
+				{
+					"internalType": "address",
+					"name": "",
+					"type": "address"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "ownerOf",
+			"outputs": [
+				{
+					"internalType": "address",
+					"name": "",
+					"type": "address"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "paused",
+			"outputs": [
+				{
+					"internalType": "bool",
+					"name": "",
+					"type": "bool"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "bytes4",
+					"name": "interfaceId",
+					"type": "bytes4"
+				}
+			],
+			"name": "supportsInterface",
+			"outputs": [
+				{
+					"internalType": "bool",
+					"name": "",
+					"type": "bool"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "symbol",
+			"outputs": [
+				{
+					"internalType": "string",
+					"name": "",
+					"type": "string"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				}
+			],
+			"name": "tokenURI",
+			"outputs": [
+				{
+					"internalType": "string",
+					"name": "",
+					"type": "string"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "UINT256_MAX",
+			"outputs": [
+				{
+					"internalType": "uint256",
+					"name": "",
+					"type": "uint256"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "bytes12[]",
+					"name": "_delegates",
+					"type": "bytes12[]"
+				}
+			],
+			"name": "unlockedVotesTo",
+			"outputs": [
+				{
+					"internalType": "uint256[][]",
+					"name": "counts_",
+					"type": "uint256[][]"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "UNSTAKE_FREEZE_BLOCKS",
+			"outputs": [
+				{
+					"internalType": "uint256",
+					"name": "",
+					"type": "uint256"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
 		}
-	  ]`
+	]`
 
 	// bucket related namespace in db
 	_liquidStakingBucketInfoNS = "lsbInfo"
@@ -1272,7 +1277,7 @@ type (
 		blockdao.BlockIndexer
 
 		GetCandidateVotes(candidate string) *big.Int
-		GetBuckets() ([]*staking.VoteBucket, error)
+		GetBuckets() ([]*Bucket, error)
 	}
 
 	liquidStakingIndexer struct {
@@ -1281,6 +1286,7 @@ type (
 		dirtyCache    *liquidStakingCache
 		clean         db.KVStore          // clean data in db
 		cleanCache    *liquidStakingCache // in-memory index for clean data
+		tokenOwner    map[uint64]string   // token id -> owner
 	}
 
 	// BucketInfo is the bucket information
@@ -1298,6 +1304,18 @@ type (
 		Amount      *big.Int
 		Duration    time.Duration
 		ActivatedAt *time.Time
+	}
+	// Bucket is the bucket information
+	Bucket struct {
+		Index            uint64
+		Candidate        string
+		Owner            address.Address
+		StakedAmount     *big.Int
+		StakedDuration   time.Duration
+		CreateTime       time.Time
+		StakeStartTime   time.Time
+		UnstakeStartTime time.Time
+		AutoStake        bool
 	}
 
 	// eventParam is a struct to hold smart contract event parameters, which can easily convert a param to go type
@@ -1330,6 +1348,7 @@ func NewLiquidStakingIndexer(kvStore db.KVStore, blockInterval time.Duration) Li
 		dirtyCache:    newLiquidStakingCache(),
 		clean:         kvStore,
 		cleanCache:    newLiquidStakingCache(),
+		tokenOwner:    make(map[uint64]string),
 	}
 }
 
@@ -1357,6 +1376,7 @@ func (s *liquidStakingIndexer) PutBlock(ctx context.Context, blk *block.Block) e
 		actionMap[h] = &act
 	}
 
+	s.dirtyCache.putHeight(blk.Height())
 	for _, receipt := range blk.Receipts {
 		if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 			continue
@@ -1389,8 +1409,8 @@ func (s *liquidStakingIndexer) GetCandidateVotes(candidate string) *big.Int {
 	return s.cleanCache.getCandidateVotes(candidate)
 }
 
-func (s *liquidStakingIndexer) GetBuckets() ([]*staking.VoteBucket, error) {
-	vbs := []*staking.VoteBucket{}
+func (s *liquidStakingIndexer) GetBuckets() ([]*Bucket, error) {
+	vbs := []*Bucket{}
 	for id, bi := range s.cleanCache.idBucketMap {
 		bt := s.cleanCache.mustGetBucketType(bi.TypeIndex)
 		vb, err := convertToVoteBucket(id, bi, bt)
@@ -1410,9 +1430,9 @@ func (s *liquidStakingIndexer) handleEvent(ctx context.Context, blk *block.Block
 	}
 
 	// unpack event data
-	event := make(eventParam)
-	if err = abiEvent.Inputs.UnpackIntoMap(event, log.Data); err != nil {
-		return errors.Wrap(err, "unpack event data failed")
+	event, err := unpackEventParam(abiEvent, log)
+	if err != nil {
+		return err
 	}
 
 	// handle different kinds of event
@@ -1423,7 +1443,7 @@ func (s *liquidStakingIndexer) handleEvent(ctx context.Context, blk *block.Block
 	case "BucketTypeDeactivated":
 		err = s.handleBucketTypeDeactivatedEvent(event)
 	case "Staked":
-		err = s.handleStakedEvent(event, timestamp, act.SenderAddress())
+		err = s.handleStakedEvent(event, timestamp)
 	case "Locked":
 		err = s.handleLockedEvent(event)
 	case "Unlocked":
@@ -1440,10 +1460,26 @@ func (s *liquidStakingIndexer) handleEvent(ctx context.Context, blk *block.Block
 		err = s.handleDelegateChangedEvent(event)
 	case "Withdrawal":
 		err = s.handleWithdrawalEvent(event)
+	case "Transfer":
+		err = s.handleTransferEvent(event)
 	default:
 		err = nil
 	}
 	return err
+}
+
+func (s *liquidStakingIndexer) handleTransferEvent(event eventParam) error {
+	to, err := event.indexedFieldAddress("to")
+	if err != nil {
+		return err
+	}
+	tokenID, err := event.indexedFieldUint256("tokenId")
+	if err != nil {
+		return err
+	}
+
+	s.tokenOwner[tokenID.Uint64()] = to.String()
+	return nil
 }
 
 func (s *liquidStakingIndexer) handleBucketTypeActivatedEvent(event eventParam, timeStamp time.Time) error {
@@ -1492,8 +1528,8 @@ func (s *liquidStakingIndexer) handleBucketTypeDeactivatedEvent(event eventParam
 	return nil
 }
 
-func (s *liquidStakingIndexer) handleStakedEvent(event eventParam, timestamp time.Time, owner address.Address) error {
-	tokenIDParam, err := event.fieldUint256("tokenId")
+func (s *liquidStakingIndexer) handleStakedEvent(event eventParam, timestamp time.Time) error {
+	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err
 	}
@@ -1514,10 +1550,13 @@ func (s *liquidStakingIndexer) handleStakedEvent(event eventParam, timestamp tim
 	if !ok {
 		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), durationParam.Uint64())
 	}
+	tail := len(delegateParam) - 1
+	for ; tail >= 0 && delegateParam[tail] == 0; tail-- {
+	}
 	bucket := BucketInfo{
 		TypeIndex: btIdx,
-		Delegate:  string(delegateParam[:]),
-		Owner:     owner.String(),
+		Delegate:  string(delegateParam[:tail+1]),
+		Owner:     s.tokenOwner[tokenIDParam.Uint64()],
 		CreatedAt: timestamp,
 	}
 	s.putBucketInfo(tokenIDParam.Uint64(), &bucket)
@@ -1725,6 +1764,22 @@ func (e eventParam) fieldAddress(name string) (common.Address, error) {
 	return eventField[common.Address](e, name)
 }
 
+func (e eventParam) indexedFieldAddress(name string) (common.Address, error) {
+	bytes, err := eventField[hash.Hash256](e, name)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return common.BytesToAddress(bytes[:]), nil
+}
+
+func (e eventParam) indexedFieldUint256(name string) (*big.Int, error) {
+	bytes, err := eventField[hash.Hash256](e, name)
+	if err != nil {
+		return nil, err
+	}
+	return big.NewInt(0).SetBytes(bytes[:]), nil
+}
+
 func (bt *BucketType) toProto() *indexpb.BucketType {
 	return &indexpb.BucketType{
 		Amount:      bt.Amount.String(),
@@ -1758,12 +1813,19 @@ func (bt *BucketType) deserialize(b []byte) error {
 }
 
 func (bi *BucketInfo) toProto() *indexpb.BucketInfo {
-	return &indexpb.BucketInfo{
-		TypeIndex:  bi.TypeIndex,
-		UnlockedAt: timestamppb.New(*bi.UnlockedAt),
-		UnstakedAt: timestamppb.New(*bi.UnstakedAt),
-		Delegate:   bi.Delegate,
+	pb := &indexpb.BucketInfo{
+		TypeIndex: bi.TypeIndex,
+		Delegate:  bi.Delegate,
+		CreatedAt: timestamppb.New(bi.CreatedAt),
+		Owner:     bi.Owner,
 	}
+	if bi.UnlockedAt != nil {
+		pb.UnlockedAt = timestamppb.New(*bi.UnlockedAt)
+	}
+	if bi.UnstakedAt != nil {
+		pb.UnstakedAt = timestamppb.New(*bi.UnstakedAt)
+	}
+	return pb
 }
 
 func (bi *BucketInfo) serialize() []byte {
@@ -1780,11 +1842,21 @@ func (bi *BucketInfo) deserialize(b []byte) error {
 
 func (bi *BucketInfo) loadProto(p *indexpb.BucketInfo) error {
 	bi.TypeIndex = p.TypeIndex
-	t := p.UnlockedAt.AsTime()
-	bi.UnlockedAt = &t
-	t = p.UnstakedAt.AsTime()
-	bi.UnstakedAt = &t
+	bi.CreatedAt = p.CreatedAt.AsTime()
+	if p.UnlockedAt != nil {
+		t := p.UnlockedAt.AsTime()
+		bi.UnlockedAt = &t
+	} else {
+		bi.UnlockedAt = nil
+	}
+	if p.UnstakedAt != nil {
+		t := p.UnstakedAt.AsTime()
+		bi.UnstakedAt = &t
+	} else {
+		bi.UnstakedAt = nil
+	}
 	bi.Delegate = p.Delegate
+	bi.Owner = p.Owner
 	return nil
 }
 
@@ -1798,9 +1870,9 @@ func deserializeUint64(b []byte) uint64 {
 	return binary.LittleEndian.Uint64(b)
 }
 
-func convertToVoteBucket(token uint64, bi *BucketInfo, bt *BucketType) (*staking.VoteBucket, error) {
+func convertToVoteBucket(token uint64, bi *BucketInfo, bt *BucketType) (*Bucket, error) {
 	var err error
-	vb := staking.VoteBucket{
+	vb := Bucket{
 		Index:            token,
 		StakedAmount:     bt.Amount,
 		StakedDuration:   bt.Duration,
@@ -1808,13 +1880,10 @@ func convertToVoteBucket(token uint64, bi *BucketInfo, bt *BucketType) (*staking
 		StakeStartTime:   bi.CreatedAt,
 		UnstakeStartTime: time.Unix(0, 0).UTC(),
 		AutoStake:        bi.UnlockedAt == nil,
+		Candidate:        bi.Delegate,
 	}
 
-	vb.Candidate, err = address.FromString(bi.Delegate)
-	if err != nil {
-		return nil, err
-	}
-	vb.Owner, err = address.FromString(bi.Owner)
+	vb.Owner, err = address.FromHex(bi.Owner)
 	if err != nil {
 		return nil, err
 	}
@@ -1825,4 +1894,23 @@ func convertToVoteBucket(token uint64, bi *BucketInfo, bt *BucketType) (*staking
 		vb.UnstakeStartTime = *bi.UnstakedAt
 	}
 	return &vb, nil
+}
+
+func unpackEventParam(abiEvent *abi.Event, log *action.Log) (eventParam, error) {
+	event := make(eventParam)
+	// unpack non-indexed fields
+	if len(log.Data) > 0 {
+		if err := abiEvent.Inputs.UnpackIntoMap(event, log.Data); err != nil {
+			return nil, errors.Wrap(err, "unpack event data failed")
+		}
+	}
+	// unpack indexed fields
+	i := 0
+	for _, arg := range abiEvent.Inputs {
+		if arg.Indexed {
+			i++
+			event[arg.Name] = log.Topics[i]
+		}
+	}
+	return event, nil
 }

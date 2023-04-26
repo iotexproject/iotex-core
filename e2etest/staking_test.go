@@ -33,6 +33,11 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
+func TestAAA(t *testing.T) {
+	t.Log(identityset.Address(1))
+	t.Log(identityset.PrivateKey(1).HexString())
+}
+
 func TestStakingContract(t *testing.T) {
 	require := require.New(t)
 

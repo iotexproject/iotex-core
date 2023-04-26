@@ -77,8 +77,14 @@ func (s *liquidStakingCache) getHeight() uint64 {
 }
 
 func (s *liquidStakingCache) putBucketType(id uint64, bt *BucketType) {
+	amount := bt.Amount.Int64()
 	s.idBucketTypeMap[id] = bt
-	s.propertyBucketTypeMap[bt.Amount.Int64()][int64(bt.Duration)] = id
+	m, ok := s.propertyBucketTypeMap[amount]
+	if !ok {
+		s.propertyBucketTypeMap[amount] = make(map[int64]uint64)
+		m = s.propertyBucketTypeMap[amount]
+	}
+	m[int64(bt.Duration)] = id
 }
 
 func (s *liquidStakingCache) putBucketInfo(id uint64, bi *BucketInfo) {

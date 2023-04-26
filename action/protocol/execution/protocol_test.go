@@ -381,8 +381,12 @@ func (sct *SmartContractTest) prepareBlockchain(
 	testTriePath, err := testutil.PathOfTempFile("trie")
 	r.NoError(err)
 	defer testutil.CleanupPath(testTriePath)
+	testLiquidStakeIndexerPath, err := testutil.PathOfTempFile("liquidstakeindexer")
+	r.NoError(err)
+	defer testutil.CleanupPath(testLiquidStakeIndexerPath)
 
 	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.LiquidStakingIndexDBPath = testLiquidStakeIndexerPath
 	cfg.ActPool.MinGasPriceStr = "0"
 	if sct.InitGenesis.IsBering {
 		cfg.Genesis.Blockchain.AleutianBlockHeight = 0
@@ -438,8 +442,11 @@ func (sct *SmartContractTest) prepareBlockchain(
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	r.NoError(err)
+	cc := cfg.DB
+	cc.DbPath = testLiquidStakeIndexerPath
+	liquidStakeIndexer := blockindex.NewLiquidStakingIndexer(db.NewBoltDB(cc), cfg.Genesis.BlockInterval)
 	// create BlockDAO
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer})
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, liquidStakeIndexer})
 	r.NotNil(dao)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
@@ -958,6 +965,9 @@ func TestProtocol_Handle(t *testing.T) {
 	// at https://github.com/ethereum/go-ethereum/blob/master/docs/postmortems/2021-08-22-split-postmortem.md
 	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
+	})
+	t.Run("system-staking", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/system-staking.json")
 	})
 }
 
