@@ -374,7 +374,6 @@ func prepareliquidStakingBlockchain(ctx context.Context, cfg config.Config, r *r
 	defer testutil.CleanupPath(testLiquidStakeIndexerPath)
 
 	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.LiquidStakingIndexDBPath = testLiquidStakeIndexerPath
 	cfg.ActPool.MinGasPriceStr = "0"
 
 	cfg.Genesis.Blockchain.AleutianBlockHeight = 0

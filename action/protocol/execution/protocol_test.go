@@ -381,12 +381,8 @@ func (sct *SmartContractTest) prepareBlockchain(
 	testTriePath, err := testutil.PathOfTempFile("trie")
 	r.NoError(err)
 	defer testutil.CleanupPath(testTriePath)
-	testLiquidStakeIndexerPath, err := testutil.PathOfTempFile("liquidstakeindexer")
-	r.NoError(err)
-	defer testutil.CleanupPath(testLiquidStakeIndexerPath)
 
 	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.LiquidStakingIndexDBPath = testLiquidStakeIndexerPath
 	cfg.ActPool.MinGasPriceStr = "0"
 	if sct.InitGenesis.IsBering {
 		cfg.Genesis.Blockchain.AleutianBlockHeight = 0
@@ -442,11 +438,8 @@ func (sct *SmartContractTest) prepareBlockchain(
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	r.NoError(err)
-	cc := cfg.DB
-	cc.DbPath = testLiquidStakeIndexerPath
-	liquidStakeIndexer := blockindex.NewLiquidStakingIndexer(db.NewBoltDB(cc), cfg.Genesis.BlockInterval)
 	// create BlockDAO
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, liquidStakeIndexer})
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer})
 	r.NotNil(dao)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
