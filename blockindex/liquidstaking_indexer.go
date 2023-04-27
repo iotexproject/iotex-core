@@ -1282,12 +1282,13 @@ type (
 	}
 
 	liquidStakingIndexer struct {
+		dirty      batch.CachedBatch   // batch for dirty data
+		kvstore    db.KVStore          // persistent storage
+		dirtyCache *liquidStakingCache // in-memory index for dirty data
+		cleanCache *liquidStakingCache // in-memory index for clean data
+
+		tokenOwner    map[uint64]string // token id -> owner
 		blockInterval time.Duration
-		dirty         batch.CachedBatch // im-memory dirty data
-		dirtyCache    *liquidStakingCache
-		clean         db.KVStore          // clean data in db
-		cleanCache    *liquidStakingCache // in-memory index for clean data
-		tokenOwner    map[uint64]string   // token id -> owner
 	}
 
 	// BucketInfo is the bucket information
@@ -1306,6 +1307,7 @@ type (
 		Duration    time.Duration
 		ActivatedAt *time.Time
 	}
+
 	// Bucket is the bucket information including bucket type and bucket info
 	Bucket struct {
 		Index            uint64
@@ -1330,13 +1332,6 @@ type (
 		propertyBucketTypeMap map[int64]map[int64]uint64 // map[amount][duration]index
 		height                uint64
 	}
-
-	liquidStakingDataStore struct {
-		dirty      batch.CachedBatch   // batch for dirty data
-		kvstore    db.KVStore          // persistent storage
-		dirtyCache *liquidStakingCache // in-memory index for dirty data
-		cleanCache *liquidStakingCache // in-memory index for clean data
-	}
 )
 
 var (
@@ -1345,6 +1340,7 @@ var (
 
 	errInvlidEventParam   = errors.New("invalid event param")
 	errBucketTypeNotExist = errors.New("bucket type does not exist")
+
 	// ErrBucketInfoNotExist is the error when bucket does not exist
 	ErrBucketInfoNotExist = errors.New("bucket info does not exist")
 )
@@ -1363,21 +1359,21 @@ func NewLiquidStakingIndexer(kvStore db.KVStore, blockInterval time.Duration) Li
 		blockInterval: blockInterval,
 		dirty:         batch.NewCachedBatch(),
 		dirtyCache:    newLiquidStakingCache(),
-		clean:         kvStore,
+		kvstore:       kvStore,
 		cleanCache:    newLiquidStakingCache(),
 		tokenOwner:    make(map[uint64]string),
 	}
 }
 
 func (s *liquidStakingIndexer) Start(ctx context.Context) error {
-	if err := s.clean.Start(ctx); err != nil {
+	if err := s.kvstore.Start(ctx); err != nil {
 		return err
 	}
 	return s.loadCache()
 }
 
 func (s *liquidStakingIndexer) Stop(ctx context.Context) error {
-	if err := s.clean.Stop(ctx); err != nil {
+	if err := s.kvstore.Stop(ctx); err != nil {
 		return err
 	}
 	return nil
@@ -1767,7 +1763,7 @@ func (s *liquidStakingIndexer) handleWithdrawalEvent(event eventParam) error {
 func (s *liquidStakingIndexer) loadCache() error {
 	// load height
 	var height uint64
-	h, err := s.clean.Get(_liquidStakingHeightNS, _liquidStakingHeightKey)
+	h, err := s.kvstore.Get(_liquidStakingHeightNS, _liquidStakingHeightKey)
 	if err != nil {
 		if !errors.Is(err, db.ErrNotExist) {
 			return err
@@ -1779,7 +1775,7 @@ func (s *liquidStakingIndexer) loadCache() error {
 	s.cleanCache.putHeight(height)
 
 	// load bucket info
-	ks, vs, err := s.clean.Filter(_liquidStakingBucketInfoNS, func(k, v []byte) bool { return true }, nil, nil)
+	ks, vs, err := s.kvstore.Filter(_liquidStakingBucketInfoNS, func(k, v []byte) bool { return true }, nil, nil)
 	if err != nil {
 		if !errors.Is(err, db.ErrBucketNotExist) {
 			return err
@@ -1794,7 +1790,7 @@ func (s *liquidStakingIndexer) loadCache() error {
 	}
 
 	// load bucket type
-	ks, vs, err = s.clean.Filter(_liquidStakingBucketTypeNS, func(k, v []byte) bool { return true }, nil, nil)
+	ks, vs, err = s.kvstore.Filter(_liquidStakingBucketTypeNS, func(k, v []byte) bool { return true }, nil, nil)
 	if err != nil {
 		if !errors.Is(err, db.ErrBucketNotExist) {
 			return err
@@ -1875,7 +1871,7 @@ func (s *liquidStakingIndexer) commit() error {
 	if err := s.cleanCache.writeBatch(s.dirty); err != nil {
 		return err
 	}
-	if err := s.clean.WriteBatch(s.dirty); err != nil {
+	if err := s.kvstore.WriteBatch(s.dirty); err != nil {
 		return err
 	}
 	s.dirty.Lock()
@@ -2136,16 +2132,6 @@ func (s *liquidStakingCache) getCandidateVotes(name string) *big.Int {
 		}
 	}
 	return votes
-}
-
-func newLiquidStakingDataStore(kvStore db.KVStore) (*liquidStakingDataStore, error) {
-	data := liquidStakingDataStore{
-		dirty:      batch.NewCachedBatch(),
-		kvstore:    kvStore,
-		cleanCache: newLiquidStakingCache(),
-		dirtyCache: newLiquidStakingCache(),
-	}
-	return &data, nil
 }
 
 func serializeUint64(v uint64) []byte {
