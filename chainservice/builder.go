@@ -280,6 +280,7 @@ func (builder *Builder) buildGatewayComponents(forTest bool) error {
 	}
 	builder.cs.bfIndexer = bfIndexer
 	builder.cs.indexer = indexer
+
 	return nil
 }
 
