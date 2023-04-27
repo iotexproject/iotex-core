@@ -10,7 +10,6 @@ import (
 	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -36,7 +35,6 @@ var (
 		[]string{"type"},
 	)
 
-	errUnsupportWeb3Rewarding    = errors.New("unsupported web3 rewarding")
 	errInvalidSystemActionLayout = errors.New("system action layout is invalid")
 )
 
@@ -148,9 +146,6 @@ func (ws *workingSet) runAction(
 ) (*action.Receipt, error) {
 	if protocol.MustGetBlockCtx(ctx).GasLimit < protocol.MustGetActionCtx(ctx).IntrinsicGas {
 		return nil, action.ErrGasLimit
-	}
-	if !protocol.MustGetFeatureCtx(ctx).EnableWeb3Rewarding && isWeb3RewardingAction(elp) {
-		return nil, errUnsupportWeb3Rewarding
 	}
 	// Reject execution of chainID not equal the node's chainID
 	if err := validateChainID(ctx, elp.ChainID()); err != nil {
@@ -522,7 +517,7 @@ func (ws *workingSet) pickAndRunActions(
 			switch errors.Cause(err) {
 			case nil:
 				// do nothing
-			case action.ErrChainID, errUnsupportWeb3Rewarding:
+			case action.ErrChainID:
 				continue
 			case action.ErrGasLimit:
 				actionIterator.PopAccount()
@@ -643,17 +638,4 @@ func (ws *workingSet) CreateBuilder(
 		SetReceiptRoot(calculateReceiptRoot(ws.receipts)).
 		SetLogsBloom(calculateLogsBloom(ctx, ws.receipts))
 	return blkBuilder, nil
-}
-
-func isWeb3RewardingAction(selp action.SealedEnvelope) bool {
-	if selp.Encoding() != uint32(iotextypes.Encoding_ETHEREUM_RLP) {
-		return false
-	}
-	switch selp.Action().(type) {
-	case *action.ClaimFromRewardingFund,
-		*action.DepositToRewardingFund:
-		return true
-	default:
-		return false
-	}
 }
