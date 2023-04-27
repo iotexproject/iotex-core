@@ -1278,6 +1278,7 @@ type (
 
 		GetCandidateVotes(candidate string) *big.Int
 		GetBuckets() ([]*Bucket, error)
+		GetBucket(id uint64) (*Bucket, error)
 	}
 
 	liquidStakingIndexer struct {
@@ -1329,7 +1330,8 @@ var (
 
 	errInvlidEventParam   = errors.New("invalid event param")
 	errBucketTypeNotExist = errors.New("bucket type does not exist")
-	errBucketInfoNotExist = errors.New("bucket info does not exist")
+	// ErrBucketInfoNotExist is the error when bucket does not exist
+	ErrBucketInfoNotExist = errors.New("bucket info does not exist")
 )
 
 func init() {
@@ -1420,6 +1422,19 @@ func (s *liquidStakingIndexer) GetBuckets() ([]*Bucket, error) {
 		vbs = append(vbs, vb)
 	}
 	return vbs, nil
+}
+
+func (s *liquidStakingIndexer) GetBucket(id uint64) (*Bucket, error) {
+	bi, ok := s.cleanCache.idBucketMap[id]
+	if !ok {
+		return nil, errors.Wrapf(ErrBucketInfoNotExist, "id %d", id)
+	}
+	bt := s.cleanCache.mustGetBucketType(bi.TypeIndex)
+	vb, err := convertToVoteBucket(id, bi, bt)
+	if err != nil {
+		return nil, err
+	}
+	return vb, nil
 }
 
 func (s *liquidStakingIndexer) handleEvent(ctx context.Context, blk *block.Block, act *action.SealedEnvelope, log *action.Log) error {
@@ -1550,12 +1565,10 @@ func (s *liquidStakingIndexer) handleStakedEvent(event eventParam, timestamp tim
 	if !ok {
 		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), durationParam.Uint64())
 	}
-	tail := len(delegateParam) - 1
-	for ; tail >= 0 && delegateParam[tail] == 0; tail-- {
-	}
+
 	bucket := BucketInfo{
 		TypeIndex: btIdx,
-		Delegate:  string(delegateParam[:tail+1]),
+		Delegate:  delegateParam,
 		Owner:     s.tokenOwner[tokenIDParam.Uint64()],
 		CreatedAt: timestamp,
 	}
@@ -1575,7 +1588,7 @@ func (s *liquidStakingIndexer) handleLockedEvent(event eventParam) error {
 
 	b, ok := s.getBucketInfo(tokenIDParam.Uint64())
 	if !ok {
-		return errors.Wrapf(errBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
+		return errors.Wrapf(ErrBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
 	}
 	bt, ok := s.getBucketType(b.TypeIndex)
 	if !ok {
@@ -1599,7 +1612,7 @@ func (s *liquidStakingIndexer) handleUnlockedEvent(event eventParam, timestamp t
 
 	b, ok := s.getBucketInfo(tokenIDParam.Uint64())
 	if !ok {
-		return errors.Wrapf(errBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
+		return errors.Wrapf(ErrBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
 	}
 	b.UnlockedAt = &timestamp
 	s.putBucketInfo(tokenIDParam.Uint64(), b)
@@ -1614,7 +1627,7 @@ func (s *liquidStakingIndexer) handleUnstakedEvent(event eventParam, timestamp t
 
 	b, ok := s.getBucketInfo(tokenIDParam.Uint64())
 	if !ok {
-		return errors.Wrapf(errBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
+		return errors.Wrapf(ErrBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
 	}
 	b.UnstakedAt = &timestamp
 	s.putBucketInfo(tokenIDParam.Uint64(), b)
@@ -1642,7 +1655,7 @@ func (s *liquidStakingIndexer) handleMergedEvent(event eventParam) error {
 	}
 	b, ok := s.getBucketInfo(tokenIDsParam[0].Uint64())
 	if !ok {
-		return errors.Wrapf(errBucketInfoNotExist, "token id %d", tokenIDsParam[0].Uint64())
+		return errors.Wrapf(ErrBucketInfoNotExist, "token id %d", tokenIDsParam[0].Uint64())
 	}
 	b.TypeIndex = btIdx
 	b.UnlockedAt = nil
@@ -1665,7 +1678,7 @@ func (s *liquidStakingIndexer) handleDurationExtendedEvent(event eventParam) err
 
 	b, ok := s.getBucketInfo(tokenIDParam.Uint64())
 	if !ok {
-		return errors.Wrapf(errBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
+		return errors.Wrapf(ErrBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
 	}
 	bt, ok := s.getBucketType(b.TypeIndex)
 	if !ok {
@@ -1692,7 +1705,7 @@ func (s *liquidStakingIndexer) handleAmountIncreasedEvent(event eventParam) erro
 
 	b, ok := s.getBucketInfo(tokenIDParam.Uint64())
 	if !ok {
-		return errors.Wrapf(errBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
+		return errors.Wrapf(ErrBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
 	}
 	bt, ok := s.getBucketType(b.TypeIndex)
 	if !ok {
@@ -1719,7 +1732,7 @@ func (s *liquidStakingIndexer) handleDelegateChangedEvent(event eventParam) erro
 
 	b, ok := s.getBucketInfo(tokenIDParam.Uint64())
 	if !ok {
-		return errors.Wrapf(errBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
+		return errors.Wrapf(ErrBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
 	}
 	b.Delegate = string(delegateParam[:])
 	s.putBucketInfo(tokenIDParam.Uint64(), b)
@@ -1752,8 +1765,16 @@ func (e eventParam) fieldUint256(name string) (*big.Int, error) {
 	return eventField[*big.Int](e, name)
 }
 
-func (e eventParam) fieldBytes12(name string) ([12]byte, error) {
-	return eventField[[12]byte](e, name)
+func (e eventParam) fieldBytes12(name string) (string, error) {
+	data, err := eventField[[12]byte](e, name)
+	if err != nil {
+		return "", err
+	}
+	// remove trailing zeros
+	tail := len(data) - 1
+	for ; tail >= 0 && data[tail] == 0; tail-- {
+	}
+	return string(data[:tail+1]), nil
 }
 
 func (e eventParam) fieldUint256Slice(name string) ([]*big.Int, error) {
@@ -1765,19 +1786,11 @@ func (e eventParam) fieldAddress(name string) (common.Address, error) {
 }
 
 func (e eventParam) indexedFieldAddress(name string) (common.Address, error) {
-	bytes, err := eventField[hash.Hash256](e, name)
-	if err != nil {
-		return common.Address{}, err
-	}
-	return common.BytesToAddress(bytes[:]), nil
+	return eventField[common.Address](e, name)
 }
 
 func (e eventParam) indexedFieldUint256(name string) (*big.Int, error) {
-	bytes, err := eventField[hash.Hash256](e, name)
-	if err != nil {
-		return nil, err
-	}
-	return big.NewInt(0).SetBytes(bytes[:]), nil
+	return eventField[*big.Int](e, name)
 }
 
 func (bt *BucketType) toProto() *indexpb.BucketType {
@@ -1905,12 +1918,28 @@ func unpackEventParam(abiEvent *abi.Event, log *action.Log) (eventParam, error) 
 		}
 	}
 	// unpack indexed fields
-	i := 0
+	// i := 0
+	// for _, arg := range abiEvent.Inputs {
+	// 	if arg.Indexed {
+	// 		i++
+	// 		event[arg.Name] = log.Topics[i]
+	// 	}
+	// }
+	args := make(abi.Arguments, 0)
 	for _, arg := range abiEvent.Inputs {
 		if arg.Indexed {
-			i++
-			event[arg.Name] = log.Topics[i]
+			args = append(args, arg)
 		}
+	}
+	topics := make([]common.Hash, 0)
+	for i, topic := range log.Topics {
+		if i > 0 {
+			topics = append(topics, common.Hash(topic))
+		}
+	}
+	err := abi.ParseTopicsIntoMap(event, args, topics)
+	if err != nil {
+		return nil, errors.Wrap(err, "unpack event indexed fields failed")
 	}
 	return event, nil
 }

@@ -13,7 +13,7 @@ type (
 	liquidStakingCache struct {
 		idBucketMap           map[uint64]*BucketInfo     // map[token]BucketInfo
 		candidateBucketMap    map[string]map[uint64]bool // map[candidate]bucket
-		idBucketTypeMap       map[uint64]*BucketType
+		idBucketTypeMap       map[uint64]*BucketType     // map[token]BucketType
 		propertyBucketTypeMap map[int64]map[int64]uint64 // map[amount][duration]index
 		height                uint64
 	}
@@ -100,7 +100,7 @@ func (s *liquidStakingCache) deleteBucketInfo(id uint64) {
 	if !ok {
 		return
 	}
-	s.idBucketTypeMap[id] = nil
+	s.idBucketMap[id] = nil
 	if _, ok := s.candidateBucketMap[bi.Delegate]; !ok {
 		return
 	}
@@ -144,6 +144,9 @@ func (s *liquidStakingCache) getCandidateVotes(name string) *big.Int {
 		if v {
 			bi, ok := s.idBucketMap[k]
 			if !ok {
+				continue
+			}
+			if bi.UnstakedAt != nil {
 				continue
 			}
 			bt := s.mustGetBucketType(bi.TypeIndex)
@@ -267,7 +270,7 @@ func (s *liquidStakingIndexer) getBucketInfo(id uint64) (*BucketInfo, bool) {
 
 func (s *liquidStakingIndexer) burnBucket(id uint64) {
 	s.dirty.Delete(_liquidStakingBucketInfoNS, serializeUint64(id), "failed to delete bucket info")
-	s.dirtyCache.putBucketInfo(id, nil)
+	s.dirtyCache.deleteBucketInfo(id)
 }
 
 func (s *liquidStakingIndexer) commit() error {

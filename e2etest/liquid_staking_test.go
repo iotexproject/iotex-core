@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
@@ -63,50 +64,299 @@ func TestLiquidStaking(t *testing.T) {
 		sk:           identityset.PrivateKey(1),
 	}
 	contractAddresses := deployContracts(bc, sf, dao, ap, &param, r)
-
-	// add bucket type, amount=10, duration=100
 	lsdABI, err := abi.JSON(strings.NewReader(blockindex.LiquidStakingContractABI))
 	r.NoError(err)
-	data, err := lsdABI.Pack("addBucketType", big.NewInt(10), big.NewInt(100))
-	r.NoError(err)
-	addBucketTypeParam := callParam{
-		contractAddr: contractAddresses,
-		bytecode:     hex.EncodeToString(data),
-		amount:       big.NewInt(0),
-		gasLimit:     1000000,
-		gasPrice:     big.NewInt(0),
-		sk:           identityset.PrivateKey(1),
-	}
-	// add bucket to candidate
-	delegate := [12]byte{}
-	copy(delegate[:], []byte("delegate1"))
-	data, err = lsdABI.Pack("stake", big.NewInt(100), delegate)
-	r.NoError(err)
-	addBucketParam := callParam{
-		contractAddr: contractAddresses,
-		bytecode:     hex.EncodeToString(data),
-		amount:       big.NewInt(10),
-		gasLimit:     1000000,
-		gasPrice:     big.NewInt(0),
-		sk:           identityset.PrivateKey(1),
-	}
-	receipts, blk := writeContract(bc, sf, dao, ap, []*callParam{&addBucketTypeParam, &addBucketParam}, r)
-	r.Len(receipts, 2)
-	r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
-	r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[1].Status)
 
-	buckets, err := indexer.GetBuckets()
-	r.NoError(err)
-	r.Equal(1, len(buckets))
-	r.True(buckets[0].AutoStake)
-	r.Equal("delegate1", buckets[0].Candidate)
-	r.EqualValues(identityset.PrivateKey(1).PublicKey().Address().String(), buckets[0].Owner.String())
-	r.EqualValues(0, buckets[0].StakedAmount.Cmp(big.NewInt(10)))
-	r.EqualValues(100*cfg.Genesis.BlockInterval, buckets[0].StakedDuration)
-	r.EqualValues(blk.Timestamp().UTC(), buckets[0].CreateTime)
-	r.EqualValues(blk.Timestamp().UTC(), buckets[0].StakeStartTime)
-	r.EqualValues(time.Unix(0, 0).UTC(), buckets[0].UnstakeStartTime)
-	r.EqualValues(1, buckets[0].Index)
+	// init bucket type
+	bucketTypes := []struct {
+		amount   int64
+		duration int64
+	}{
+		{10, 100},
+		{10, 10},
+		{100, 100},
+		{100, 10},
+	}
+	params := []*callParam{}
+	for i := range bucketTypes {
+		data, err := lsdABI.Pack("addBucketType", big.NewInt(bucketTypes[i].amount), big.NewInt(bucketTypes[i].duration))
+		r.NoError(err)
+		param := callParam{
+			contractAddr: contractAddresses,
+			bytecode:     hex.EncodeToString(data),
+			amount:       big.NewInt(0),
+			gasLimit:     1000000,
+			gasPrice:     big.NewInt(0),
+			sk:           identityset.PrivateKey(1),
+		}
+		params = append(params, &param)
+	}
+	receipts, _ := writeContract(bc, sf, dao, ap, params, r)
+	r.Len(receipts, len(params))
+	for _, receipt := range receipts {
+		r.EqualValues(iotextypes.ReceiptStatus_Success, receipt.Status)
+	}
+
+	simpleStake := func(candName string, amount, duration *big.Int) *blockindex.Bucket {
+		return stake(lsdABI, bc, sf, dao, ap, contractAddresses, indexer, r, candName, amount, duration)
+	}
+
+	t.Run("stake", func(t *testing.T) {
+		delegate := [12]byte{}
+		copy(delegate[:], []byte("delegate2"))
+		data, err := lsdABI.Pack("stake", big.NewInt(10), delegate)
+		r.NoError(err)
+		param := callParam{
+			contractAddr: contractAddresses,
+			bytecode:     hex.EncodeToString(data),
+			amount:       big.NewInt(10),
+			gasLimit:     1000000,
+			gasPrice:     big.NewInt(0),
+			sk:           identityset.PrivateKey(1),
+		}
+		receipts, blk := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+		r.Len(receipts, 1)
+		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
+		buckets, err := indexer.GetBuckets()
+		r.NoError(err)
+		bt := buckets[len(buckets)-1]
+		tokenID := bt.Index
+		r.EqualValues(1, bt.Index)
+		r.True(bt.AutoStake)
+		r.Equal("delegate2", bt.Candidate)
+		r.EqualValues(identityset.PrivateKey(1).PublicKey().Address().String(), bt.Owner.String())
+		r.EqualValues(0, bt.StakedAmount.Cmp(big.NewInt(10)))
+		r.EqualValues(10*cfg.Genesis.BlockInterval, bt.StakedDuration)
+		r.EqualValues(blk.Timestamp().UTC(), bt.CreateTime)
+		r.EqualValues(blk.Timestamp().UTC(), bt.StakeStartTime)
+		r.EqualValues(time.Unix(0, 0).UTC(), bt.UnstakeStartTime)
+		r.EqualValues(10, indexer.GetCandidateVotes("delegate2").Int64())
+
+		t.Run("unlock", func(t *testing.T) {
+			data, err = lsdABI.Pack("unlock0", big.NewInt(int64(bt.Index)))
+			r.NoError(err)
+			param = callParam{
+				contractAddr: contractAddresses,
+				bytecode:     hex.EncodeToString(data),
+				amount:       big.NewInt(0),
+				gasLimit:     1000000,
+				gasPrice:     big.NewInt(0),
+				sk:           identityset.PrivateKey(1),
+			}
+			receipts, blk = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+			r.Len(receipts, 1)
+			r.EqualValues("", receipts[0].ExecutionRevertMsg())
+			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
+			bt, err := indexer.GetBucket(uint64(tokenID))
+			r.NoError(err)
+			r.EqualValues(blk.Timestamp().UTC(), bt.StakeStartTime)
+			r.EqualValues(10, indexer.GetCandidateVotes("delegate2").Int64())
+
+			t.Run("unstake", func(t *testing.T) {
+				jumpBlocks(bc, 10, r)
+				data, err = lsdABI.Pack("unstake", big.NewInt(int64(bt.Index)))
+				r.NoError(err)
+				param = callParam{
+					contractAddr: contractAddresses,
+					bytecode:     hex.EncodeToString(data),
+					amount:       big.NewInt(0),
+					gasLimit:     1000000,
+					gasPrice:     big.NewInt(0),
+					sk:           identityset.PrivateKey(1),
+				}
+				receipts, blk = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+				r.Len(receipts, 1)
+				r.EqualValues("", receipts[0].ExecutionRevertMsg())
+				r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
+				bt, err := indexer.GetBucket(uint64(tokenID))
+				r.NoError(err)
+				r.EqualValues(blk.Timestamp().UTC(), bt.UnstakeStartTime)
+				r.EqualValues(0, indexer.GetCandidateVotes("delegate2").Int64())
+
+				t.Run("withdraw", func(t *testing.T) {
+					// jumpBlocks(bc, 3*24*3600/5, r)
+					tokenID := bt.Index
+
+					addr := common.BytesToAddress(identityset.PrivateKey(1).PublicKey().Bytes())
+					data, err := lsdABI.Pack("withdraw", big.NewInt(int64(tokenID)), addr)
+					r.NoError(err)
+					param = callParam{
+						contractAddr: contractAddresses,
+						bytecode:     hex.EncodeToString(data),
+						amount:       big.NewInt(0),
+						gasLimit:     1000000,
+						gasPrice:     big.NewInt(0),
+						sk:           identityset.PrivateKey(1),
+					}
+					receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+					r.Len(receipts, 1)
+					r.EqualValues("", receipts[0].ExecutionRevertMsg())
+					r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
+					bt, err = indexer.GetBucket(uint64(tokenID))
+					r.ErrorIs(err, blockindex.ErrBucketInfoNotExist)
+				})
+			})
+		})
+	})
+
+	t.Run("lock & unlock", func(t *testing.T) {
+		bt := simpleStake("delegate3", big.NewInt(10), big.NewInt(10))
+		tokenID := bt.Index
+
+		data, err := lsdABI.Pack("unlock0", big.NewInt(int64(bt.Index)))
+		r.NoError(err)
+		param = callParam{
+			contractAddr: contractAddresses,
+			bytecode:     hex.EncodeToString(data),
+			amount:       big.NewInt(0),
+			gasLimit:     1000000,
+			gasPrice:     big.NewInt(0),
+			sk:           identityset.PrivateKey(1),
+		}
+		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+		r.Len(receipts, 1)
+		r.EqualValues("", receipts[0].ExecutionRevertMsg())
+		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
+
+		data, err = lsdABI.Pack("lock", big.NewInt(int64(bt.Index)), big.NewInt(10))
+		r.NoError(err)
+		param = callParam{
+			contractAddr: contractAddresses,
+			bytecode:     hex.EncodeToString(data),
+			amount:       big.NewInt(0),
+			gasLimit:     1000000,
+			gasPrice:     big.NewInt(0),
+			sk:           identityset.PrivateKey(1),
+		}
+		receipts, _ := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+		r.Len(receipts, 1)
+		r.EqualValues("", receipts[0].ExecutionRevertMsg())
+		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
+		bt, err = indexer.GetBucket(uint64(tokenID))
+		r.NoError(err)
+		r.True(bt.AutoStake)
+	})
+	t.Run("merge", func(t *testing.T) {
+		// stake 10 bucket
+		candName := "delegate3"
+		params := []*callParam{}
+		for i := 0; i < 10; i++ {
+			delegate := [12]byte{}
+			copy(delegate[:], []byte(candName))
+			data, err := lsdABI.Pack("stake", big.NewInt(10), delegate)
+			r.NoError(err)
+			param := callParam{
+				contractAddr: contractAddresses,
+				bytecode:     hex.EncodeToString(data),
+				amount:       big.NewInt(10),
+				gasLimit:     1000000,
+				gasPrice:     big.NewInt(0),
+				sk:           identityset.PrivateKey(1),
+			}
+			params = append(params, &param)
+		}
+		receipts, _ := writeContract(bc, sf, dao, ap, params, r)
+		r.Len(receipts, len(params))
+		for _, receipt := range receipts {
+			r.EqualValues(iotextypes.ReceiptStatus_Success, receipt.Status)
+		}
+		buckets, err := indexer.GetBuckets()
+		r.NoError(err)
+		r.True(len(buckets) >= 10)
+		// merge
+		newBuckets := buckets[len(buckets)-10:]
+		tokens := []*big.Int{}
+		for _, bucket := range newBuckets {
+			tokens = append(tokens, big.NewInt(int64(bucket.Index)))
+		}
+		data, err := lsdABI.Pack("merge", tokens, big.NewInt(100))
+		r.NoError(err)
+		param := callParam{
+			contractAddr: contractAddresses,
+			bytecode:     hex.EncodeToString(data),
+			amount:       big.NewInt(0),
+			gasLimit:     1000000,
+			gasPrice:     big.NewInt(0),
+			sk:           identityset.PrivateKey(1),
+		}
+		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+		r.Len(receipts, 1)
+		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
+	})
+
+	t.Run("extend duration", func(t *testing.T) {
+		// stake
+		bt := simpleStake("delegate3", big.NewInt(10), big.NewInt(10))
+		tokenID := bt.Index
+		r.EqualValues(10*cfg.Genesis.BlockInterval, bt.StakedDuration)
+		// extend duration
+		data, err := lsdABI.Pack("extendDuration", big.NewInt(int64(tokenID)), big.NewInt(100))
+		r.NoError(err)
+		param = callParam{
+			contractAddr: contractAddresses,
+			bytecode:     hex.EncodeToString(data),
+			amount:       big.NewInt(0),
+			gasLimit:     1000000,
+			gasPrice:     big.NewInt(0),
+			sk:           identityset.PrivateKey(1),
+		}
+		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+		r.Len(receipts, 1)
+		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
+		bt, err = indexer.GetBucket(uint64(tokenID))
+		r.NoError(err)
+		r.EqualValues(100*cfg.Genesis.BlockInterval, bt.StakedDuration)
+	})
+
+	t.Run("increase amount", func(t *testing.T) {
+		bt := simpleStake("delegate4", big.NewInt(10), big.NewInt(10))
+		tokenID := bt.Index
+
+		data, err := lsdABI.Pack("increaseAmount", big.NewInt(int64(tokenID)), big.NewInt(100))
+		r.NoError(err)
+		param = callParam{
+			contractAddr: contractAddresses,
+			bytecode:     hex.EncodeToString(data),
+			amount:       big.NewInt(90),
+			gasLimit:     1000000,
+			gasPrice:     big.NewInt(0),
+			sk:           identityset.PrivateKey(1),
+		}
+		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+		r.Len(receipts, 1)
+		r.EqualValues("", receipts[0].ExecutionRevertMsg())
+		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
+		bt, err = indexer.GetBucket(uint64(tokenID))
+		r.NoError(err)
+		r.EqualValues(100, bt.StakedAmount.Int64())
+	})
+
+	t.Run("change delegate", func(t *testing.T) {
+		bt := simpleStake("delegate5", big.NewInt(10), big.NewInt(10))
+		tokenID := bt.Index
+		r.EqualValues("delegate5", bt.Candidate)
+
+		delegate := [12]byte{}
+		copy(delegate[:], []byte("delegate6"))
+		data, err := lsdABI.Pack("changeDelegate", big.NewInt(int64(tokenID)), delegate)
+		r.NoError(err)
+		param = callParam{
+			contractAddr: contractAddresses,
+			bytecode:     hex.EncodeToString(data),
+			amount:       big.NewInt(0),
+			gasLimit:     1000000,
+			gasPrice:     big.NewInt(0),
+			sk:           identityset.PrivateKey(1),
+		}
+		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+		r.Len(receipts, 1)
+		r.EqualValues("", receipts[0].ExecutionRevertMsg())
+		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
+		bt, err = indexer.GetBucket(uint64(tokenID))
+		r.NoError(err)
+		r.EqualValues("delegate6", bt.Candidate)
+	})
+
 }
 
 func prepareliquidStakingBlockchain(ctx context.Context, cfg config.Config, r *require.Assertions) (blockchain.Blockchain, factory.Factory, blockdao.BlockDAO, actpool.ActPool, blockindex.LiquidStakingIndexer) {
@@ -192,8 +442,8 @@ func prepareliquidStakingBlockchain(ctx context.Context, cfg config.Config, r *r
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
 	)
-	reward := rewarding.NewProtocol(cfg.Genesis.Rewarding)
-	r.NoError(reward.Register(registry))
+	// reward := rewarding.NewProtocol(cfg.Genesis.Rewarding)
+	// r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
 	execution := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
@@ -312,4 +562,35 @@ func writeContract(bc blockchain.Blockchain,
 		receipts = append(receipts, receipt)
 	}
 	return receipts, blk
+}
+
+func jumpBlocks(bc blockchain.Blockchain, count int, r *require.Assertions) {
+	for i := 0; i < count; i++ {
+		blk, err := bc.MintNewBlock(testutil.TimestampNow())
+		r.NoError(err)
+		err = bc.CommitBlock(blk)
+		r.NoError(err)
+	}
+}
+
+func stake(lsdABI abi.ABI, bc blockchain.Blockchain, sf factory.Factory, dao blockdao.BlockDAO, ap actpool.ActPool, contractAddresses string, indexer blockindex.LiquidStakingIndexer, r *require.Assertions, candName string, amount, duration *big.Int) *blockindex.Bucket {
+	delegate := [12]byte{}
+	copy(delegate[:], []byte(candName))
+	data, err := lsdABI.Pack("stake", duration, delegate)
+	r.NoError(err)
+	param := callParam{
+		contractAddr: contractAddresses,
+		bytecode:     hex.EncodeToString(data),
+		amount:       amount,
+		gasLimit:     1000000,
+		gasPrice:     big.NewInt(0),
+		sk:           identityset.PrivateKey(1),
+	}
+	receipts, _ := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+	r.Len(receipts, 1)
+	r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
+	buckets, err := indexer.GetBuckets()
+	r.NoError(err)
+	bt := buckets[len(buckets)-1]
+	return bt
 }
