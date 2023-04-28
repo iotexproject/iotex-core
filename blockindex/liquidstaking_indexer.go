@@ -31,6 +31,7 @@ import (
 
 const (
 	// TODO (iip-13): replace with the real liquid staking contract address
+	// LiquidStakingContractAddress  is the address of liquid staking contract
 	LiquidStakingContractAddress = "io1dkqh5mu9djfas3xyrmzdv9frsmmytel4mp7a64"
 	// LiquidStakingContractABI is the ABI of liquid staking contract
 	LiquidStakingContractABI = `[
@@ -1365,6 +1366,7 @@ func NewLiquidStakingIndexer(kvStore db.KVStore, blockInterval time.Duration) Li
 	}
 }
 
+// Start starts the indexer
 func (s *liquidStakingIndexer) Start(ctx context.Context) error {
 	if err := s.kvstore.Start(ctx); err != nil {
 		return err
@@ -1372,6 +1374,7 @@ func (s *liquidStakingIndexer) Start(ctx context.Context) error {
 	return s.loadCache()
 }
 
+// Stop stops the indexer
 func (s *liquidStakingIndexer) Stop(ctx context.Context) error {
 	if err := s.kvstore.Stop(ctx); err != nil {
 		return err
@@ -1379,6 +1382,7 @@ func (s *liquidStakingIndexer) Stop(ctx context.Context) error {
 	return nil
 }
 
+// PutBlock puts a block into indexer
 func (s *liquidStakingIndexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	actionMap := make(map[hash.Hash256]*action.SealedEnvelope)
 	for _, act := range blk.Actions {
@@ -1410,18 +1414,22 @@ func (s *liquidStakingIndexer) PutBlock(ctx context.Context, blk *block.Block) e
 	return s.commit()
 }
 
+// DeleteTipBlock deletes the tip block from indexer
 func (s *liquidStakingIndexer) DeleteTipBlock(context.Context, *block.Block) error {
 	return errors.New("not implemented")
 }
 
+// Height returns the tip block height
 func (s *liquidStakingIndexer) Height() (uint64, error) {
 	return s.cleanCache.getHeight(), nil
 }
 
+// GetCandidateVotes returns the candidate votes
 func (s *liquidStakingIndexer) GetCandidateVotes(candidate string) *big.Int {
 	return s.cleanCache.getCandidateVotes(candidate)
 }
 
+// GetBuckets returns the buckets
 func (s *liquidStakingIndexer) GetBuckets() ([]*Bucket, error) {
 	vbs := []*Bucket{}
 	for id, bi := range s.cleanCache.idBucketMap {
@@ -1435,6 +1443,7 @@ func (s *liquidStakingIndexer) GetBuckets() ([]*Bucket, error) {
 	return vbs, nil
 }
 
+// GetBucket returns the bucket
 func (s *liquidStakingIndexer) GetBucket(id uint64) (*Bucket, error) {
 	bi, ok := s.cleanCache.idBucketMap[id]
 	if !ok {
