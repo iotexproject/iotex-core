@@ -1,0 +1,156 @@
+// Copyright (c) 2023 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
+package blockindex
+
+import (
+	"math/big"
+	"time"
+
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/blockindex/indexpb"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+type (
+	// BucketInfo is the bucket information
+	BucketInfo struct {
+		TypeIndex  uint64
+		CreatedAt  time.Time
+		UnlockedAt *time.Time
+		UnstakedAt *time.Time
+		Delegate   string
+		Owner      string
+	}
+
+	// BucketType is the bucket type
+	BucketType struct {
+		Amount      *big.Int
+		Duration    time.Duration
+		ActivatedAt *time.Time
+	}
+
+	// Bucket is the bucket information including bucket type and bucket info
+	Bucket struct {
+		Index            uint64
+		Candidate        string
+		Owner            address.Address
+		StakedAmount     *big.Int
+		StakedDuration   time.Duration
+		CreateTime       time.Time
+		StakeStartTime   time.Time
+		UnstakeStartTime time.Time
+		AutoStake        bool
+	}
+)
+
+func (bt *BucketType) toProto() *indexpb.BucketType {
+	return &indexpb.BucketType{
+		Amount:      bt.Amount.String(),
+		Duration:    uint64(bt.Duration),
+		ActivatedAt: timestamppb.New(*bt.ActivatedAt),
+	}
+}
+
+func (bt *BucketType) loadProto(p *indexpb.BucketType) error {
+	var ok bool
+	bt.Amount, ok = big.NewInt(0).SetString(p.Amount, 10)
+	if !ok {
+		return errors.New("failed to parse amount")
+	}
+	bt.Duration = time.Duration(p.Duration)
+	t := p.ActivatedAt.AsTime()
+	bt.ActivatedAt = &t
+	return nil
+}
+
+func (bt *BucketType) serialize() []byte {
+	return byteutil.Must(proto.Marshal(bt.toProto()))
+}
+
+func (bt *BucketType) deserialize(b []byte) error {
+	m := indexpb.BucketType{}
+	if err := proto.Unmarshal(b, &m); err != nil {
+		return err
+	}
+	return bt.loadProto(&m)
+}
+
+func (bi *BucketInfo) toProto() *indexpb.BucketInfo {
+	pb := &indexpb.BucketInfo{
+		TypeIndex: bi.TypeIndex,
+		Delegate:  bi.Delegate,
+		CreatedAt: timestamppb.New(bi.CreatedAt),
+		Owner:     bi.Owner,
+	}
+	if bi.UnlockedAt != nil {
+		pb.UnlockedAt = timestamppb.New(*bi.UnlockedAt)
+	}
+	if bi.UnstakedAt != nil {
+		pb.UnstakedAt = timestamppb.New(*bi.UnstakedAt)
+	}
+	return pb
+}
+
+func (bi *BucketInfo) serialize() []byte {
+	return byteutil.Must(proto.Marshal(bi.toProto()))
+}
+
+func (bi *BucketInfo) deserialize(b []byte) error {
+	m := indexpb.BucketInfo{}
+	if err := proto.Unmarshal(b, &m); err != nil {
+		return err
+	}
+	return bi.loadProto(&m)
+}
+
+func (bi *BucketInfo) loadProto(p *indexpb.BucketInfo) error {
+	bi.TypeIndex = p.TypeIndex
+	bi.CreatedAt = p.CreatedAt.AsTime()
+	if p.UnlockedAt != nil {
+		t := p.UnlockedAt.AsTime()
+		bi.UnlockedAt = &t
+	} else {
+		bi.UnlockedAt = nil
+	}
+	if p.UnstakedAt != nil {
+		t := p.UnstakedAt.AsTime()
+		bi.UnstakedAt = &t
+	} else {
+		bi.UnstakedAt = nil
+	}
+	bi.Delegate = p.Delegate
+	bi.Owner = p.Owner
+	return nil
+}
+
+func convertToVoteBucket(token uint64, bi *BucketInfo, bt *BucketType) (*Bucket, error) {
+	var err error
+	vb := Bucket{
+		Index:            token,
+		StakedAmount:     bt.Amount,
+		StakedDuration:   bt.Duration,
+		CreateTime:       bi.CreatedAt,
+		StakeStartTime:   bi.CreatedAt,
+		UnstakeStartTime: time.Unix(0, 0).UTC(),
+		AutoStake:        bi.UnlockedAt == nil,
+		Candidate:        bi.Delegate,
+	}
+
+	vb.Owner, err = address.FromHex(bi.Owner)
+	if err != nil {
+		return nil, err
+	}
+	if bi.UnlockedAt != nil {
+		vb.StakeStartTime = *bi.UnlockedAt
+	}
+	if bi.UnstakedAt != nil {
+		vb.UnstakeStartTime = *bi.UnstakedAt
+	}
+	return &vb, nil
+}
