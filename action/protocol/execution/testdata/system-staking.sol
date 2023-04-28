@@ -28,7 +28,7 @@ contract SystemStaking is ERC721, Ownable, Pausable {
     event Locked(uint256 indexed tokenId, uint256 duration);
     event Unlocked(uint256 indexed tokenId);
     event Unstaked(uint256 indexed tokenId);
-    event Merged(uint256[] indexed tokenIds, uint256 amount, uint256 duration);
+    event Merged(uint256[] tokenIds, uint256 amount, uint256 duration);
     event DurationExtended(uint256 indexed tokenId, uint256 duration);
     event AmountIncreased(uint256 indexed tokenId, uint256 amount);
     event DelegateChanged(uint256 indexed tokenId, bytes12 newDelegate);
