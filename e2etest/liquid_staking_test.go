@@ -1269,16 +1269,19 @@ const (
 			"type": "function"
 		}
 	]`
+
+	_adminID = 22
 )
 
 func TestLiquidStaking(t *testing.T) {
 	r := require.New(t)
 	// prepare blockchain
+	adminID := _adminID
 	ctx := context.Background()
 	cfg := config.Default
-	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(1).HexString()
+	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(adminID).HexString()
 	cfg.Chain.EnableTrielessStateDB = false
-	cfg.Genesis.InitBalanceMap[identityset.Address(1).String()] = "1000000000000000000000000000"
+	cfg.Genesis.InitBalanceMap[identityset.Address(adminID).String()] = "1000000000000000000000000000"
 
 	bc, sf, dao, ap, indexer := prepareliquidStakingBlockchain(ctx, cfg, r)
 	defer func() {
@@ -1294,9 +1297,10 @@ func TestLiquidStaking(t *testing.T) {
 		amount:       big.NewInt(0),
 		gasLimit:     20000000,
 		gasPrice:     big.NewInt(0),
-		sk:           identityset.PrivateKey(1),
+		sk:           identityset.PrivateKey(adminID),
 	}
 	contractAddresses := deployContracts(bc, sf, dao, ap, &param, r)
+	r.Equal(deployAddr, contractAddresses)
 	lsdABI, err := abi.JSON(strings.NewReader(_liquidStakingContractABI))
 	r.NoError(err)
 
@@ -1320,7 +1324,7 @@ func TestLiquidStaking(t *testing.T) {
 			amount:       big.NewInt(0),
 			gasLimit:     1000000,
 			gasPrice:     big.NewInt(0),
-			sk:           identityset.PrivateKey(1),
+			sk:           identityset.PrivateKey(adminID),
 		}
 		params = append(params, &param)
 	}
@@ -1345,7 +1349,7 @@ func TestLiquidStaking(t *testing.T) {
 			amount:       big.NewInt(10),
 			gasLimit:     1000000,
 			gasPrice:     big.NewInt(0),
-			sk:           identityset.PrivateKey(1),
+			sk:           identityset.PrivateKey(adminID),
 		}
 		receipts, blk := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 		r.Len(receipts, 1)
@@ -1360,7 +1364,7 @@ func TestLiquidStaking(t *testing.T) {
 		r.EqualValues(1, bt.Index)
 		r.True(bt.AutoStake)
 		r.Equal("delegate2", bt.Candidate)
-		r.EqualValues(identityset.PrivateKey(1).PublicKey().Address().String(), bt.Owner.String())
+		r.EqualValues(identityset.PrivateKey(adminID).PublicKey().Address().String(), bt.Owner.String())
 		r.EqualValues(0, bt.StakedAmount.Cmp(big.NewInt(10)))
 		r.EqualValues(10*cfg.Genesis.BlockInterval, bt.StakedDuration)
 		r.EqualValues(blk.Timestamp().Unix(), bt.CreateTime.Unix())
@@ -1377,7 +1381,7 @@ func TestLiquidStaking(t *testing.T) {
 				amount:       big.NewInt(0),
 				gasLimit:     1000000,
 				gasPrice:     big.NewInt(0),
-				sk:           identityset.PrivateKey(1),
+				sk:           identityset.PrivateKey(adminID),
 			}
 			receipts, blk = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 			r.Len(receipts, 1)
@@ -1398,7 +1402,7 @@ func TestLiquidStaking(t *testing.T) {
 					amount:       big.NewInt(0),
 					gasLimit:     1000000,
 					gasPrice:     big.NewInt(0),
-					sk:           identityset.PrivateKey(1),
+					sk:           identityset.PrivateKey(adminID),
 				}
 				receipts, blk = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 				r.Len(receipts, 1)
@@ -1414,7 +1418,7 @@ func TestLiquidStaking(t *testing.T) {
 					jumpBlocks(bc, 10, r)
 					tokenID := bt.Index
 
-					addr := common.BytesToAddress(identityset.PrivateKey(1).PublicKey().Bytes())
+					addr := common.BytesToAddress(identityset.PrivateKey(adminID).PublicKey().Bytes())
 					data, err := lsdABI.Pack("withdraw", big.NewInt(int64(tokenID)), addr)
 					r.NoError(err)
 					param = callParam{
@@ -1423,7 +1427,7 @@ func TestLiquidStaking(t *testing.T) {
 						amount:       big.NewInt(0),
 						gasLimit:     1000000,
 						gasPrice:     big.NewInt(0),
-						sk:           identityset.PrivateKey(1),
+						sk:           identityset.PrivateKey(adminID),
 					}
 					receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 					r.Len(receipts, 1)
@@ -1448,7 +1452,7 @@ func TestLiquidStaking(t *testing.T) {
 			amount:       big.NewInt(0),
 			gasLimit:     1000000,
 			gasPrice:     big.NewInt(0),
-			sk:           identityset.PrivateKey(1),
+			sk:           identityset.PrivateKey(adminID),
 		}
 		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 		r.Len(receipts, 1)
@@ -1463,7 +1467,7 @@ func TestLiquidStaking(t *testing.T) {
 			amount:       big.NewInt(0),
 			gasLimit:     1000000,
 			gasPrice:     big.NewInt(0),
-			sk:           identityset.PrivateKey(1),
+			sk:           identityset.PrivateKey(adminID),
 		}
 		receipts, _ := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 		r.Len(receipts, 1)
@@ -1488,7 +1492,7 @@ func TestLiquidStaking(t *testing.T) {
 				amount:       big.NewInt(10),
 				gasLimit:     1000000,
 				gasPrice:     big.NewInt(0),
-				sk:           identityset.PrivateKey(1),
+				sk:           identityset.PrivateKey(adminID),
 			}
 			params = append(params, &param)
 		}
@@ -1517,7 +1521,7 @@ func TestLiquidStaking(t *testing.T) {
 			amount:       big.NewInt(0),
 			gasLimit:     1000000,
 			gasPrice:     big.NewInt(0),
-			sk:           identityset.PrivateKey(1),
+			sk:           identityset.PrivateKey(adminID),
 		}
 		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 		r.Len(receipts, 1)
@@ -1549,7 +1553,7 @@ func TestLiquidStaking(t *testing.T) {
 			amount:       big.NewInt(0),
 			gasLimit:     1000000,
 			gasPrice:     big.NewInt(0),
-			sk:           identityset.PrivateKey(1),
+			sk:           identityset.PrivateKey(adminID),
 		}
 		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 		r.Len(receipts, 1)
@@ -1571,7 +1575,7 @@ func TestLiquidStaking(t *testing.T) {
 			amount:       big.NewInt(90),
 			gasLimit:     1000000,
 			gasPrice:     big.NewInt(0),
-			sk:           identityset.PrivateKey(1),
+			sk:           identityset.PrivateKey(adminID),
 		}
 		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 		r.Len(receipts, 1)
@@ -1597,7 +1601,7 @@ func TestLiquidStaking(t *testing.T) {
 			amount:       big.NewInt(0),
 			gasLimit:     1000000,
 			gasPrice:     big.NewInt(0),
-			sk:           identityset.PrivateKey(1),
+			sk:           identityset.PrivateKey(adminID),
 		}
 		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 		r.Len(receipts, 1)
@@ -1834,7 +1838,7 @@ func stake(lsdABI abi.ABI, bc blockchain.Blockchain, sf factory.Factory, dao blo
 		amount:       amount,
 		gasLimit:     1000000,
 		gasPrice:     big.NewInt(0),
-		sk:           identityset.PrivateKey(1),
+		sk:           identityset.PrivateKey(_adminID),
 	}
 	receipts, _ := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 	r.Len(receipts, 1)

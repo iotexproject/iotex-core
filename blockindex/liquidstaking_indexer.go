@@ -27,7 +27,7 @@ import (
 const (
 	// LiquidStakingContractAddress  is the address of liquid staking contract
 	// TODO (iip-13): replace with the real liquid staking contract address
-	LiquidStakingContractAddress = "io1dkqh5mu9djfas3xyrmzdv9frsmmytel4mp7a64"
+	LiquidStakingContractAddress = "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd"
 	// LiquidStakingContractABI is the ABI of liquid staking contract
 	LiquidStakingContractABI = `[
 		{
