@@ -155,7 +155,7 @@ func (s *liquidStakingCache) getCandidateVotes(name string) *big.Int {
 			if !ok {
 				continue
 			}
-			if bi.UnstakedAt != nil {
+			if !bi.UnstakedAt.IsZero() {
 				continue
 			}
 			bt := s.mustGetBucketType(bi.TypeIndex)

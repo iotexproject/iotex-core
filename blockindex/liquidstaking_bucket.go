@@ -22,8 +22,8 @@ type (
 	BucketInfo struct {
 		TypeIndex  uint64
 		CreatedAt  time.Time
-		UnlockedAt *time.Time
-		UnstakedAt *time.Time
+		UnlockedAt time.Time
+		UnstakedAt time.Time
 		Delegate   string
 		Owner      string
 	}
@@ -32,7 +32,7 @@ type (
 	BucketType struct {
 		Amount      *big.Int
 		Duration    time.Duration
-		ActivatedAt *time.Time
+		ActivatedAt time.Time
 	}
 
 	// Bucket is the bucket information including bucket type and bucket info
@@ -53,7 +53,7 @@ func (bt *BucketType) toProto() *indexpb.BucketType {
 	return &indexpb.BucketType{
 		Amount:      bt.Amount.String(),
 		Duration:    uint64(bt.Duration),
-		ActivatedAt: timestamppb.New(*bt.ActivatedAt),
+		ActivatedAt: timestamppb.New(bt.ActivatedAt),
 	}
 }
 
@@ -64,8 +64,7 @@ func (bt *BucketType) loadProto(p *indexpb.BucketType) error {
 		return errors.New("failed to parse amount")
 	}
 	bt.Duration = time.Duration(p.Duration)
-	t := p.ActivatedAt.AsTime()
-	bt.ActivatedAt = &t
+	bt.ActivatedAt = p.ActivatedAt.AsTime()
 	return nil
 }
 
@@ -88,11 +87,12 @@ func (bi *BucketInfo) toProto() *indexpb.BucketInfo {
 		CreatedAt: timestamppb.New(bi.CreatedAt),
 		Owner:     bi.Owner,
 	}
-	if bi.UnlockedAt != nil {
-		pb.UnlockedAt = timestamppb.New(*bi.UnlockedAt)
+	if !bi.UnlockedAt.IsZero() {
+		pb.UnlockedAt = timestamppb.New(bi.UnlockedAt)
 	}
-	if bi.UnstakedAt != nil {
-		pb.UnstakedAt = timestamppb.New(*bi.UnstakedAt)
+	time.Unix(0, 0).UTC()
+	if !bi.UnstakedAt.IsZero() {
+		pb.UnstakedAt = timestamppb.New(bi.UnstakedAt)
 	}
 	return pb
 }
@@ -113,16 +113,14 @@ func (bi *BucketInfo) loadProto(p *indexpb.BucketInfo) error {
 	bi.TypeIndex = p.TypeIndex
 	bi.CreatedAt = p.CreatedAt.AsTime()
 	if p.UnlockedAt != nil {
-		t := p.UnlockedAt.AsTime()
-		bi.UnlockedAt = &t
+		bi.UnlockedAt = p.UnlockedAt.AsTime()
 	} else {
-		bi.UnlockedAt = nil
+		bi.UnlockedAt = time.Time{}
 	}
 	if p.UnstakedAt != nil {
-		t := p.UnstakedAt.AsTime()
-		bi.UnstakedAt = &t
+		bi.UnstakedAt = p.UnstakedAt.AsTime()
 	} else {
-		bi.UnstakedAt = nil
+		bi.UnstakedAt = time.Time{}
 	}
 	bi.Delegate = p.Delegate
 	bi.Owner = p.Owner
@@ -137,8 +135,8 @@ func convertToVoteBucket(token uint64, bi *BucketInfo, bt *BucketType) (*Bucket,
 		StakedDuration:   bt.Duration,
 		CreateTime:       bi.CreatedAt,
 		StakeStartTime:   bi.CreatedAt,
-		UnstakeStartTime: time.Unix(0, 0).UTC(),
-		AutoStake:        bi.UnlockedAt == nil,
+		UnstakeStartTime: bi.UnstakedAt,
+		AutoStake:        bi.UnlockedAt.IsZero(),
 		Candidate:        bi.Delegate,
 	}
 
@@ -146,11 +144,8 @@ func convertToVoteBucket(token uint64, bi *BucketInfo, bt *BucketType) (*Bucket,
 	if err != nil {
 		return nil, err
 	}
-	if bi.UnlockedAt != nil {
-		vb.StakeStartTime = *bi.UnlockedAt
-	}
-	if bi.UnstakedAt != nil {
-		vb.UnstakeStartTime = *bi.UnstakedAt
+	if !bi.UnlockedAt.IsZero() {
+		vb.StakeStartTime = bi.UnlockedAt
 	}
 	return &vb, nil
 }

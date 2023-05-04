@@ -587,7 +587,7 @@ func (s *liquidStakingIndexer) handleBucketTypeActivatedEvent(event eventParam, 
 	bt := BucketType{
 		Amount:      amountParam,
 		Duration:    s.blockHeightToDuration(durationParam.Uint64()),
-		ActivatedAt: &timeStamp,
+		ActivatedAt: timeStamp,
 	}
 	id, ok := s.getBucketTypeIndex(amountParam, bt.Duration)
 	if !ok {
@@ -615,7 +615,7 @@ func (s *liquidStakingIndexer) handleBucketTypeDeactivatedEvent(event eventParam
 	if !ok {
 		return errors.Wrapf(errBucketTypeNotExist, "id %d", id)
 	}
-	bt.ActivatedAt = nil
+	bt.ActivatedAt = time.Time{}
 	s.putBucketType(id, bt)
 	return nil
 }
@@ -676,7 +676,7 @@ func (s *liquidStakingIndexer) handleLockedEvent(event eventParam) error {
 		return errors.Wrapf(errBucketTypeNotExist, "amount %v, duration %d", bt.Amount, durationParam.Uint64())
 	}
 	b.TypeIndex = newBtIdx
-	b.UnlockedAt = nil
+	b.UnlockedAt = time.Time{}
 	s.putBucketInfo(tokenIDParam.Uint64(), b)
 	return nil
 }
@@ -691,7 +691,7 @@ func (s *liquidStakingIndexer) handleUnlockedEvent(event eventParam, timestamp t
 	if !ok {
 		return errors.Wrapf(ErrBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
 	}
-	b.UnlockedAt = &timestamp
+	b.UnlockedAt = timestamp
 	s.putBucketInfo(tokenIDParam.Uint64(), b)
 	return nil
 }
@@ -706,7 +706,7 @@ func (s *liquidStakingIndexer) handleUnstakedEvent(event eventParam, timestamp t
 	if !ok {
 		return errors.Wrapf(ErrBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
 	}
-	b.UnstakedAt = &timestamp
+	b.UnstakedAt = timestamp
 	s.putBucketInfo(tokenIDParam.Uint64(), b)
 	return nil
 }
@@ -735,7 +735,7 @@ func (s *liquidStakingIndexer) handleMergedEvent(event eventParam) error {
 		return errors.Wrapf(ErrBucketInfoNotExist, "token id %d", tokenIDsParam[0].Uint64())
 	}
 	b.TypeIndex = btIdx
-	b.UnlockedAt = nil
+	b.UnlockedAt = time.Time{}
 	for i := 1; i < len(tokenIDsParam); i++ {
 		s.burnBucket(tokenIDsParam[i].Uint64())
 	}

@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -1365,7 +1364,7 @@ func TestLiquidStaking(t *testing.T) {
 		r.EqualValues(10*cfg.Genesis.BlockInterval, bt.StakedDuration)
 		r.EqualValues(blk.Timestamp().UTC(), bt.CreateTime)
 		r.EqualValues(blk.Timestamp().UTC(), bt.StakeStartTime)
-		r.EqualValues(time.Unix(0, 0).UTC(), bt.UnstakeStartTime)
+		r.True(bt.UnstakeStartTime.IsZero())
 		r.EqualValues(10, indexer.CandidateVotes("delegate2").Int64())
 
 		t.Run("unlock", func(t *testing.T) {
