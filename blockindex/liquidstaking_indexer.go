@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
@@ -835,7 +836,8 @@ func (s *liquidStakingIndexer) loadCache() error {
 		}
 		height = 0
 	} else {
-		height = deserializeUint64(h)
+		height = byteutil.BytesToUint64BigEndian(h)
+
 	}
 	s.cleanCache.putHeight(height)
 
@@ -851,7 +853,7 @@ func (s *liquidStakingIndexer) loadCache() error {
 		if err := b.deserialize(vs[i]); err != nil {
 			return err
 		}
-		s.cleanCache.putBucketInfo(deserializeUint64(ks[i]), &b)
+		s.cleanCache.putBucketInfo(byteutil.BytesToUint64BigEndian(ks[i]), &b)
 	}
 
 	// load bucket type
@@ -866,7 +868,7 @@ func (s *liquidStakingIndexer) loadCache() error {
 		if err := b.deserialize(vs[i]); err != nil {
 			return err
 		}
-		s.cleanCache.putBucketType(deserializeUint64(ks[i]), &b)
+		s.cleanCache.putBucketType(byteutil.BytesToUint64BigEndian(ks[i]), &b)
 	}
 	return nil
 }
@@ -904,17 +906,17 @@ func (s *liquidStakingIndexer) getBucketType(id uint64) (*BucketType, bool) {
 }
 
 func (s *liquidStakingIndexer) putHeight(h uint64) {
-	s.dirty.Put(_liquidStakingHeightNS, _liquidStakingHeightKey, serializeUint64(h), "failed to put height")
+	s.dirty.Put(_liquidStakingHeightNS, _liquidStakingHeightKey, byteutil.Uint64ToBytesBigEndian(h), "failed to put height")
 	s.dirtyCache.putHeight(h)
 }
 
 func (s *liquidStakingIndexer) putBucketType(id uint64, bt *BucketType) {
-	s.dirty.Put(_liquidStakingBucketTypeNS, serializeUint64(id), bt.serialize(), "failed to put bucket type")
+	s.dirty.Put(_liquidStakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.serialize(), "failed to put bucket type")
 	s.dirtyCache.putBucketType(id, bt)
 }
 
 func (s *liquidStakingIndexer) putBucketInfo(id uint64, bi *BucketInfo) {
-	s.dirty.Put(_liquidStakingBucketInfoNS, serializeUint64(id), bi.serialize(), "failed to put bucket info")
+	s.dirty.Put(_liquidStakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.serialize(), "failed to put bucket info")
 	s.dirtyCache.putBucketInfo(id, bi)
 }
 
@@ -928,7 +930,7 @@ func (s *liquidStakingIndexer) getBucketInfo(id uint64) (*BucketInfo, bool) {
 }
 
 func (s *liquidStakingIndexer) burnBucket(id uint64) {
-	s.dirty.Delete(_liquidStakingBucketInfoNS, serializeUint64(id), "failed to delete bucket info")
+	s.dirty.Delete(_liquidStakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), "failed to delete bucket info")
 	s.dirtyCache.markDeleteBucketInfo(id)
 }
 

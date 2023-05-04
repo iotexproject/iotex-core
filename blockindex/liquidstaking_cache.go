@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 type (
@@ -44,10 +45,10 @@ func (s *liquidStakingCache) writeBatch(b batch.KVStoreBatch) error {
 				if err = bi.deserialize(write.Value()); err != nil {
 					return err
 				}
-				id := deserializeUint64(write.Key())
+				id := byteutil.BytesToUint64BigEndian(write.Key())
 				s.putBucketInfo(id, &bi)
 			} else if write.WriteType() == batch.Delete {
-				id := deserializeUint64(write.Key())
+				id := byteutil.BytesToUint64BigEndian(write.Key())
 				s.deleteBucketInfo(id)
 			}
 		case _liquidStakingBucketTypeNS:
@@ -56,7 +57,7 @@ func (s *liquidStakingCache) writeBatch(b batch.KVStoreBatch) error {
 				if err = bt.deserialize(write.Value()); err != nil {
 					return err
 				}
-				id := deserializeUint64(write.Key())
+				id := byteutil.BytesToUint64BigEndian(write.Key())
 				s.putBucketType(id, &bt)
 			}
 		}

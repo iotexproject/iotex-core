@@ -6,7 +6,6 @@
 package blockindex
 
 import (
-	"encoding/binary"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -90,14 +89,4 @@ func unpackEventParam(abiEvent *abi.Event, log *action.Log) (eventParam, error) 
 		return nil, errors.Wrap(err, "unpack event indexed fields failed")
 	}
 	return event, nil
-}
-
-func serializeUint64(v uint64) []byte {
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, v)
-	return b
-}
-
-func deserializeUint64(b []byte) uint64 {
-	return binary.LittleEndian.Uint64(b)
 }
