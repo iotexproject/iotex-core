@@ -321,10 +321,6 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-func (sdb *stateDB) DeleteTipBlock(_ context.Context, _ *block.Block) error {
-	return errors.Wrap(ErrNotSupported, "cannot delete tip block from state db")
-}
-
 // State returns a confirmed state in the state factory
 func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	cfg, err := processOptions(opts...)
