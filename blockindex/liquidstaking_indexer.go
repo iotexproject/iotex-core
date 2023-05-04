@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -21,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -443,12 +444,12 @@ func (s *liquidStakingIndexer) Stop(ctx context.Context) error {
 // PutBlock puts a block into indexer
 func (s *liquidStakingIndexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	actionMap := make(map[hash.Hash256]*action.SealedEnvelope)
-	for _, act := range blk.Actions {
-		h, err := act.Hash()
+	for i := range blk.Actions {
+		h, err := blk.Actions[i].Hash()
 		if err != nil {
 			return err
 		}
-		actionMap[h] = &act
+		actionMap[h] = &blk.Actions[i]
 	}
 
 	s.dirtyCache.putHeight(blk.Height())

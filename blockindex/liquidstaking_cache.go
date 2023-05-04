@@ -149,18 +149,19 @@ func (s *liquidStakingCache) getCandidateVotes(name string) *big.Int {
 	if !ok {
 		return votes
 	}
-	for k, v := range m {
-		if v {
-			bi, ok := s.idBucketMap[k]
-			if !ok {
-				continue
-			}
-			if !bi.UnstakedAt.IsZero() {
-				continue
-			}
-			bt := s.mustGetBucketType(bi.TypeIndex)
-			votes.Add(votes, bt.Amount)
+	for id, existed := range m {
+		if !existed {
+			continue
 		}
+		bi, ok := s.idBucketMap[id]
+		if !ok {
+			continue
+		}
+		if !bi.UnstakedAt.IsZero() {
+			continue
+		}
+		bt := s.mustGetBucketType(bi.TypeIndex)
+		votes.Add(votes, bt.Amount)
 	}
 	return votes
 }
