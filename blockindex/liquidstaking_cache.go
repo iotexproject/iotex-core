@@ -8,9 +8,6 @@ package blockindex
 import (
 	"math/big"
 	"time"
-
-	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 type (
@@ -30,39 +27,6 @@ func newLiquidStakingCache() *liquidStakingCache {
 		propertyBucketTypeMap: make(map[int64]map[int64]uint64),
 		candidateBucketMap:    make(map[string]map[uint64]bool),
 	}
-}
-
-func (s *liquidStakingCache) writeBatch(b batch.KVStoreBatch) error {
-	for i := 0; i < b.Size(); i++ {
-		write, err := b.Entry(i)
-		if err != nil {
-			return err
-		}
-		switch write.Namespace() {
-		case _liquidStakingBucketInfoNS:
-			if write.WriteType() == batch.Put {
-				var bi BucketInfo
-				if err = bi.deserialize(write.Value()); err != nil {
-					return err
-				}
-				id := byteutil.BytesToUint64BigEndian(write.Key())
-				s.putBucketInfo(id, &bi)
-			} else if write.WriteType() == batch.Delete {
-				id := byteutil.BytesToUint64BigEndian(write.Key())
-				s.deleteBucketInfo(id)
-			}
-		case _liquidStakingBucketTypeNS:
-			if write.WriteType() == batch.Put {
-				var bt BucketType
-				if err = bt.deserialize(write.Value()); err != nil {
-					return err
-				}
-				id := byteutil.BytesToUint64BigEndian(write.Key())
-				s.putBucketType(id, &bt)
-			}
-		}
-	}
-	return nil
 }
 
 func (s *liquidStakingCache) putHeight(h uint64) {
@@ -102,18 +66,6 @@ func (s *liquidStakingCache) deleteBucketInfo(id uint64) {
 		return
 	}
 	delete(s.candidateBucketMap[bi.Delegate], id)
-}
-
-func (s *liquidStakingCache) markDeleteBucketInfo(id uint64) {
-	bi, ok := s.idBucketMap[id]
-	if !ok {
-		return
-	}
-	s.idBucketMap[id] = nil
-	if _, ok := s.candidateBucketMap[bi.Delegate]; !ok {
-		return
-	}
-	s.candidateBucketMap[bi.Delegate][id] = false
 }
 
 func (s *liquidStakingCache) getBucketTypeIndex(amount *big.Int, duration time.Duration) (uint64, bool) {

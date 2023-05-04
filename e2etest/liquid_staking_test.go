@@ -11,6 +11,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -29,9 +33,6 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 )
 
 const (
@@ -1362,8 +1363,8 @@ func TestLiquidStaking(t *testing.T) {
 		r.EqualValues(identityset.PrivateKey(1).PublicKey().Address().String(), bt.Owner.String())
 		r.EqualValues(0, bt.StakedAmount.Cmp(big.NewInt(10)))
 		r.EqualValues(10*cfg.Genesis.BlockInterval, bt.StakedDuration)
-		r.EqualValues(blk.Timestamp().UTC(), bt.CreateTime)
-		r.EqualValues(blk.Timestamp().UTC(), bt.StakeStartTime)
+		r.EqualValues(blk.Timestamp().Unix(), bt.CreateTime.Unix())
+		r.EqualValues(blk.Timestamp().UTC().Unix(), bt.StakeStartTime.Unix())
 		r.True(bt.UnstakeStartTime.IsZero())
 		r.EqualValues(10, indexer.CandidateVotes("delegate2").Int64())
 
@@ -1384,7 +1385,7 @@ func TestLiquidStaking(t *testing.T) {
 			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 			bt, err := indexer.Bucket(uint64(tokenID))
 			r.NoError(err)
-			r.EqualValues(blk.Timestamp().UTC(), bt.StakeStartTime)
+			r.EqualValues(blk.Timestamp().UTC().Unix(), bt.StakeStartTime.Unix())
 			r.EqualValues(10, indexer.CandidateVotes("delegate2").Int64())
 
 			t.Run("unstake", func(t *testing.T) {
@@ -1405,7 +1406,7 @@ func TestLiquidStaking(t *testing.T) {
 				r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 				bt, err := indexer.Bucket(uint64(tokenID))
 				r.NoError(err)
-				r.EqualValues(blk.Timestamp().UTC(), bt.UnstakeStartTime)
+				r.EqualValues(blk.Timestamp().UTC().Unix(), bt.UnstakeStartTime.Unix())
 				r.EqualValues(0, indexer.CandidateVotes("delegate2").Int64())
 
 				t.Run("withdraw", func(t *testing.T) {

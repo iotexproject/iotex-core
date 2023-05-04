@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/blockindex/indexpb"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/iotexproject/iotex-core/blockindex/indexpb"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 type (
