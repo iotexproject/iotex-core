@@ -39,22 +39,27 @@ func newCompositiveStakingStateReader(liquidSR LiquidStakingStateReader, nativeI
 }
 
 func (c *compositiveStakingStateReader) readStateBuckets(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBuckets) (*iotextypes.VoteBucketList, uint64, error) {
+	// TODO (iip-13): combine native and liquid staking buckets
 	return c.nativeSR.readStateBuckets(ctx, req)
 }
 
 func (c *compositiveStakingStateReader) readStateBucketsByVoter(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBucketsByVoter) (*iotextypes.VoteBucketList, uint64, error) {
+	// TODO (iip-13): combine native and liquid staking buckets
 	return c.nativeSR.readStateBucketsByVoter(ctx, req)
 }
 
 func (c *compositiveStakingStateReader) readStateBucketsByCandidate(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate) (*iotextypes.VoteBucketList, uint64, error) {
+	// TODO (iip-13): combine native and liquid staking buckets
 	return c.nativeSR.readStateBucketsByCandidate(ctx, req)
 }
 
 func (c *compositiveStakingStateReader) readStateBucketByIndices(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes) (*iotextypes.VoteBucketList, uint64, error) {
+	// TODO (iip-13): combine native and liquid staking buckets
 	return c.nativeSR.readStateBucketByIndices(ctx, req)
 }
 
 func (c *compositiveStakingStateReader) readStateBucketCount(ctx context.Context, _ *iotexapi.ReadStakingDataRequest_BucketsCount) (*iotextypes.BucketsCount, uint64, error) {
+	// TODO (iip-13): combine native and liquid staking buckets
 	return c.nativeSR.readStateBucketCount(ctx, nil)
 }
 
@@ -111,6 +116,7 @@ func (c *compositiveStakingStateReader) readStateCandidateByAddress(ctx context.
 }
 
 func (c *compositiveStakingStateReader) readStateTotalStakingAmount(ctx context.Context, _ *iotexapi.ReadStakingDataRequest_TotalStakingAmount) (*iotextypes.AccountMeta, uint64, error) {
+	// TODO (iip-13): combine native and liquid staking buckets
 	return c.nativeSR.readStateTotalStakingAmount(ctx, nil)
 }
 
