@@ -80,6 +80,7 @@ type (
 		candBucketsIndexer *CandidatesBucketsIndexer
 		voteReviser        *VoteReviser
 		patch              *PatchStore
+		liquidSR           LiquidStakingStateReader
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -161,6 +162,7 @@ func NewProtocol(
 		candBucketsIndexer: candBucketsIndexer,
 		voteReviser:        voteReviser,
 		patch:              NewPatchStore(cfg.StakingPatchDir),
+		liquidSR:           &emptyLiquidStakingStateReader{},
 	}, nil
 }
 
@@ -472,6 +474,7 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 	list := c.AllCandidates()
 	cand := make(CandidateList, 0, len(list))
 	for i := range list {
+		list[i].Votes.Add(list[i].Votes, p.liquidSR.CandidateVotes(list[i].Name))
 		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {
 			cand = append(cand, list[i])
 		}
@@ -497,6 +500,8 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if err != nil {
 		return nil, 0, err
 	}
+
+	cssr := newCompositiveStakingStateReader(p.liquidSR, p.candBucketsIndexer, csr)
 
 	// get height arg
 	inputHeight, err := sr.Height()
@@ -526,13 +531,14 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		resp, height, err = csr.readStateBucketCount(ctx, r.GetBucketsCount())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
 		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
-			return p.candBucketsIndexer.GetCandidates(epochStartHeight, r.GetCandidates().GetPagination().GetOffset(), r.GetCandidates().GetPagination().GetLimit())
+			resp, height, err = cssr.readStateCandidatesByIndexer(ctx, r.GetCandidates(), epochStartHeight)
+		} else {
+			resp, height, err = cssr.readStateCandidates(ctx, r.GetCandidates())
 		}
-		resp, height, err = csr.readStateCandidates(ctx, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
-		resp, height, err = csr.readStateCandidateByName(ctx, r.GetCandidateByName())
+		resp, height, err = cssr.readStateCandidateByName(ctx, r.GetCandidateByName())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS:
-		resp, height, err = csr.readStateCandidateByAddress(ctx, r.GetCandidateByAddress())
+		resp, height, err = cssr.readStateCandidateByAddress(ctx, r.GetCandidateByAddress())
 	case iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT:
 		resp, height, err = csr.readStateTotalStakingAmount(ctx, r.GetTotalStakingAmount())
 	default:
