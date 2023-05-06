@@ -19,7 +19,7 @@ type (
 
 	// compositiveStakingStateReader is the compositive staking state reader, which combine native and liquid staking
 	compositiveStakingStateReader struct {
-		liquidSR      LiquidStakingStateReader
+		liquidIndexer LiquidStakingIndexer
 		nativeIndexer *CandidatesBucketsIndexer
 		nativeSR      CandidateStateReader
 	}
@@ -30,9 +30,9 @@ var (
 )
 
 // newCompositiveStakingStateReader creates a new compositive staking state reader
-func newCompositiveStakingStateReader(liquidSR LiquidStakingStateReader, nativeIndexer *CandidatesBucketsIndexer, nativeSR CandidateStateReader) *compositiveStakingStateReader {
+func newCompositiveStakingStateReader(liquidIndexer LiquidStakingIndexer, nativeIndexer *CandidatesBucketsIndexer, nativeSR CandidateStateReader) *compositiveStakingStateReader {
 	return &compositiveStakingStateReader{
-		liquidSR:      liquidSR,
+		liquidIndexer: liquidIndexer,
 		nativeIndexer: nativeIndexer,
 		nativeSR:      nativeSR,
 	}
@@ -69,7 +69,7 @@ func (c *compositiveStakingStateReader) readStateCandidates(ctx context.Context,
 		return candidates, height, err
 	}
 	for _, candidate := range candidates.Candidates {
-		if err = addLiquidVotes(candidate, c.liquidSR); err != nil {
+		if err = addLiquidVotes(candidate, c.liquidIndexer); err != nil {
 			return candidates, height, err
 		}
 	}
@@ -86,7 +86,7 @@ func (c *compositiveStakingStateReader) readStateCandidatesByIndexer(ctx context
 		return nil, height, errors.Wrap(err, "failed to unmarshal candidates")
 	}
 	for _, candidate := range candidates.Candidates {
-		if err = addLiquidVotes(candidate, c.liquidSR); err != nil {
+		if err = addLiquidVotes(candidate, c.liquidIndexer); err != nil {
 			return candidates, height, err
 		}
 	}
@@ -98,7 +98,7 @@ func (c *compositiveStakingStateReader) readStateCandidateByName(ctx context.Con
 	if err != nil {
 		return candidate, height, err
 	}
-	if err := addLiquidVotes(candidate, c.liquidSR); err != nil {
+	if err := addLiquidVotes(candidate, c.liquidIndexer); err != nil {
 		return candidate, height, err
 	}
 	return candidate, height, nil
@@ -109,7 +109,7 @@ func (c *compositiveStakingStateReader) readStateCandidateByAddress(ctx context.
 	if err != nil {
 		return candidate, height, err
 	}
-	if err := addLiquidVotes(candidate, c.liquidSR); err != nil {
+	if err := addLiquidVotes(candidate, c.liquidIndexer); err != nil {
 		return candidate, height, err
 	}
 	return candidate, height, nil
@@ -120,7 +120,7 @@ func (c *compositiveStakingStateReader) readStateTotalStakingAmount(ctx context.
 	return c.nativeSR.readStateTotalStakingAmount(ctx, nil)
 }
 
-func addLiquidVotes(candidate *iotextypes.CandidateV2, liquidSR LiquidStakingStateReader) error {
+func addLiquidVotes(candidate *iotextypes.CandidateV2, liquidSR LiquidStakingIndexer) error {
 	votes, ok := big.NewInt(0).SetString(candidate.TotalWeightedVotes, 10)
 	if !ok {
 		return errors.Errorf("invalid total weighted votes %s", candidate.TotalWeightedVotes)

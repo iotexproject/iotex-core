@@ -10,16 +10,21 @@ import (
 )
 
 type (
-	// LiquidStakingStateReader defines the interface of liquid staking reader
-	LiquidStakingStateReader interface {
+	// LiquidStakingIndexer defines the interface of liquid staking reader
+	LiquidStakingIndexer interface {
 		CandidateVotes(name string) *big.Int
 	}
 
-	emptyLiquidStakingStateReader struct{}
+	emptyLiquidStakingIndexer struct{}
 )
 
-var _ LiquidStakingStateReader = (*emptyLiquidStakingStateReader)(nil)
+var _ LiquidStakingIndexer = (*emptyLiquidStakingIndexer)(nil)
 
-func (f *emptyLiquidStakingStateReader) CandidateVotes(name string) *big.Int {
+// NewEmptyLiquidStakingIndexer creates an empty liquid staking indexer
+func NewEmptyLiquidStakingIndexer() LiquidStakingIndexer {
+	return &emptyLiquidStakingIndexer{}
+}
+
+func (f *emptyLiquidStakingIndexer) CandidateVotes(name string) *big.Int {
 	return big.NewInt(0)
 }

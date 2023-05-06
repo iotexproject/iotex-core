@@ -80,7 +80,7 @@ type (
 		candBucketsIndexer *CandidatesBucketsIndexer
 		voteReviser        *VoteReviser
 		patch              *PatchStore
-		liquidSR           LiquidStakingStateReader
+		liquidIndexer      LiquidStakingIndexer
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -118,6 +118,7 @@ func NewProtocol(
 	depositGas DepositGas,
 	cfg *BuilderConfig,
 	candBucketsIndexer *CandidatesBucketsIndexer,
+	liquidIndexer LiquidStakingIndexer,
 	correctCandsHeight uint64,
 	reviseHeights ...uint64,
 ) (*Protocol, error) {
@@ -162,7 +163,7 @@ func NewProtocol(
 		candBucketsIndexer: candBucketsIndexer,
 		voteReviser:        voteReviser,
 		patch:              NewPatchStore(cfg.StakingPatchDir),
-		liquidSR:           &emptyLiquidStakingStateReader{},
+		liquidIndexer:      liquidIndexer,
 	}, nil
 }
 
@@ -474,7 +475,7 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 	list := c.AllCandidates()
 	cand := make(CandidateList, 0, len(list))
 	for i := range list {
-		list[i].Votes.Add(list[i].Votes, p.liquidSR.CandidateVotes(list[i].Name))
+		list[i].Votes.Add(list[i].Votes, p.liquidIndexer.CandidateVotes(list[i].Name))
 		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {
 			cand = append(cand, list[i])
 		}
@@ -501,7 +502,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return nil, 0, err
 	}
 
-	cssr := newCompositiveStakingStateReader(p.liquidSR, p.candBucketsIndexer, csr)
+	cssr := newCompositiveStakingStateReader(p.liquidIndexer, p.candBucketsIndexer, csr)
 
 	// get height arg
 	inputHeight, err := sr.Height()

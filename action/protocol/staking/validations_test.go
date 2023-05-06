@@ -21,7 +21,7 @@ func initTestProtocol(t *testing.T) (*Protocol, []*Candidate) {
 	p, err := NewProtocol(nil, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, nil, genesis.Default.GreenlandBlockHeight)
+	}, nil, &emptyLiquidStakingIndexer{}, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	var cans []*Candidate
