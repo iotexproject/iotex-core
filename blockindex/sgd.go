@@ -26,8 +26,10 @@ import (
 )
 
 const (
-	_sgdBucket     = "sg"
-	_sgdToHeightNS = "hh"
+	_sgdBucket                = "sgd"
+	_sgdToHeightNS            = "hh"
+	_sgdActCreate  sgdActType = iota
+	_sgdActCall
 )
 
 var _sgdCurrentHeight = []byte("currentHeight")
@@ -43,37 +45,33 @@ type (
 	}
 
 	sgdRegistry struct {
-		kvStore db.KVStore
-		kvCache cache.LRUCache
+		kvStore    db.KVStore
+		kvCache    cache.LRUCache
+		percentage uint64
 	}
 
+	sgdActType int
+
 	sgdAct struct {
+		actType    sgdActType
 		sender     address.Address
 		contract   string
 		createTime time.Time
 	}
 )
 
-func newSgdIndex(contract, deployer string, createTime uint64) *indexpb.SGDIndex {
-	return &indexpb.SGDIndex{
-		Contract:   contract,
-		CreateTime: createTime,
-		Deployer:   deployer,
-	}
-}
-
 // NewSGDRegistry creates a new SGDIndexer
-func NewSGDRegistry(kv db.KVStore, cacheSize int) SGDIndexer {
+func NewSGDRegistry(kv db.KVStore, kvCache cache.LRUCache, percentage uint64) SGDIndexer {
 	if kv == nil {
 		panic("nil kvstore")
 	}
-	kvCache := cache.NewDummyLruCache()
-	if cacheSize > 0 {
-		kvCache = cache.NewThreadSafeLruCache(cacheSize)
+	if percentage > 100 {
+		panic("percentage should be less than 100")
 	}
 	return &sgdRegistry{
-		kvStore: kv,
-		kvCache: kvCache,
+		kvStore:    kv,
+		percentage: percentage,
+		kvCache:    kvCache,
 	}
 }
 
@@ -103,10 +101,15 @@ func (sgd *sgdRegistry) Height() (uint64, error) {
 // PutBlock puts a block into SGDIndexer
 func (sgd *sgdRegistry) PutBlock(ctx context.Context, blk *block.Block) error {
 	var (
-		index *indexpb.SGDIndex
-		r     *action.Receipt
-		ok    bool
+		index    *indexpb.SGDIndex
+		r        *action.Receipt
+		actType  sgdActType
+		contract string
+		ok       bool
 	)
+	if blk == nil {
+		return errors.New("empty block")
+	}
 	b := batch.NewBatch()
 	receipts := getReceiptsFromBlock(blk)
 	for _, selp := range blk.Actions {
@@ -121,16 +124,22 @@ func (sgd *sgdRegistry) PutBlock(ctx context.Context, blk *block.Block) error {
 			if !ok || r.Status != uint64(iotextypes.ReceiptStatus_Success) {
 				continue
 			}
-			sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
-			if len(r.ContractAddress) > 0 {
-				// contract creation
-				index = newSgdIndex(r.ContractAddress, sender.String(), uint64(blk.Header.Timestamp().Unix()))
+			if r.ContractAddress != "" {
+				actType = _sgdActCreate
+				contract = r.ContractAddress
 			} else {
-				index, err = sgd.GetSGDIndex(act.Destination())
-				if err != nil {
-					return err
-				}
-				index.CallTimes++
+				actType = _sgdActCall
+				contract = act.Destination()
+			}
+			sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
+			sgdAct := sgdAct{
+				actType:    actType,
+				sender:     sender,
+				contract:   contract,
+				createTime: blk.Header.Timestamp(),
+			}
+			if index, err = sgd.actToIndex(sgdAct); err != nil {
+				return err
 			}
 			if err := sgd.putIndex(b, index); err != nil {
 				return err
@@ -140,6 +149,32 @@ func (sgd *sgdRegistry) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	b.Put(_sgdToHeightNS, _sgdCurrentHeight, byteutil.Uint64ToBytesBigEndian(blk.Height()), "failed to put current height")
 	return sgd.kvStore.WriteBatch(b)
+}
+
+func (sgd *sgdRegistry) actToIndex(sgdAct sgdAct) (*indexpb.SGDIndex, error) {
+	var (
+		sgdIndex *indexpb.SGDIndex
+		err      error
+	)
+	switch sgdAct.actType {
+	case _sgdActCreate:
+		sgdIndex = &indexpb.SGDIndex{
+			Contract:   sgdAct.contract,
+			Deployer:   sgdAct.sender.String(),
+			CreateTime: sgdAct.createTime.Unix(),
+		}
+	case _sgdActCall:
+		sgdIndex, err = sgd.GetSGDIndex(sgdAct.contract)
+		if err != nil {
+			//make sure running when the contract is not exist
+			sgdIndex = &indexpb.SGDIndex{
+				Contract: sgdAct.contract,
+			}
+		}
+		sgdIndex.CallTimes++
+	}
+	return sgdIndex, nil
+
 }
 
 func (sgd *sgdRegistry) putIndex(b batch.KVStoreBatch, sgdIndex *indexpb.SGDIndex) error {
@@ -166,10 +201,9 @@ func (sgd *sgdRegistry) CheckContract(contract string) (address.Address, uint64,
 	addr, err := address.FromString(sgdIndex.Receiver)
 	if err != nil {
 		// if the receiver is no set or invalid
-		return nil, 0, true
+		return nil, sgd.percentage, true
 	}
-	percentage := uint64(20)
-	return addr, percentage, true
+	return addr, sgd.percentage, true
 }
 
 // GetSGDIndex returns the SGDIndex of the contract

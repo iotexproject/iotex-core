@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -279,8 +280,8 @@ func (builder *Builder) buildSGDRegistry(forTest bool) error {
 		dbConfig.DbPath = builder.cfg.Chain.SGDIndexDBPath
 		builder.cs.sgdRegistry = blockindex.NewSGDRegistry(
 			db.NewBoltDB(dbConfig),
-			builder.cfg.Chain.SGDIndexCacheSize,
-		)
+			cache.NewThreadSafeLruCache(builder.cfg.Chain.SGDIndexCacheSize),
+			builder.cfg.Chain.SGDPercentage)
 	}
 	return nil
 }

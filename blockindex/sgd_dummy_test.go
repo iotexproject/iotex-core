@@ -27,4 +27,7 @@ func TestSGDDummy(t *testing.T) {
 	if _, _, ok := r.CheckContract(""); ok {
 		t.Error("should return false")
 	}
+	if _, err := r.GetSGDIndex(""); err != nil {
+		t.Error(err)
+	}
 }

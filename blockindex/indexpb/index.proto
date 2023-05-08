@@ -23,6 +23,6 @@ message SGDIndex {
     string contract = 1;
     string deployer = 2;
     string receiver = 3;
-    uint64 createTime = 4;
+    int64 createTime = 4;
     int32 callTimes = 5;
 }
