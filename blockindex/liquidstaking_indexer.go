@@ -382,6 +382,16 @@ type (
 		Buckets() ([]*Bucket, error)
 		Bucket(id uint64) (*Bucket, error)
 	}
+	// liquidStakingIndexer is the implementation of LiquidStakingIndexer
+	// Main functions:
+	// 		1. handle liquid staking contract events when new block comes to generate index data
+	// 		2. provide query interface for liquid staking index data
+	// Generate index data flow:
+	// 		block comes -> new dirty cache -> handle contract events -> update dirty cache -> merge dirty to clean cache
+	// Main Object:
+	// 		kvstore: persistent storage, used to initialize index cache at startup
+	// 		cache: in-memory index for clean data, used to query index data
+	//      dirty: the cache to update during event processing, will be merged to clean cache after all events are processed. If errors occur during event processing, dirty cache will be discarded.
 
 	liquidStakingIndexer struct {
 		kvstore       db.KVStore          // persistent storage
@@ -436,9 +446,9 @@ func (s *liquidStakingIndexer) Stop(ctx context.Context) error {
 // PutBlock puts a block into indexer
 func (s *liquidStakingIndexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	// new dirty cache
-	dirty := newLiquidStakingDirty(s.kvstore, s.cache)
+	dirty := newLiquidStakingDirty(s.cache)
 	dirty.putHeight(blk.Height())
-
+	// make action map
 	actionMap := make(map[hash.Hash256]*action.SealedEnvelope)
 	for i := range blk.Actions {
 		h, err := blk.Actions[i].Hash()
@@ -447,6 +457,8 @@ func (s *liquidStakingIndexer) PutBlock(ctx context.Context, blk *block.Block) e
 		}
 		actionMap[h] = &blk.Actions[i]
 	}
+
+	// handle events of block
 	for _, receipt := range blk.Receipts {
 		if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 			continue

@@ -9,25 +9,29 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 type (
+	// liquidStakingDirty is the dirty data of liquid staking
+	// main functions:
+	// 1. update bucket
+	// 2. get up-to-date bucket
+	// 3. store delta to merge to clean cache
+	liquidStakingDirty struct {
+		clean      *liquidStakingCache // clean cache to get buckets of last block
+		delta      *liquidStakingDelta // delta for cache to store buckets of current block
+		batch      batch.KVStoreBatch  // batch for db to store buckets of current block
+		tokenOwner map[uint64]string
+	}
+
 	liquidStakingDelta struct {
-		*liquidStakingCache
+		*liquidStakingCache // easy to query buckets
+
 		updatedBucketType map[uint64]*BucketType
 		updatedBucketInfo map[uint64]*BucketInfo
 		deletedBucketInfo map[uint64]bool
-	}
-
-	liquidStakingDirty struct {
-		kvstore    db.KVStore
-		clean      *liquidStakingCache
-		delta      *liquidStakingDelta
-		batch      batch.KVStoreBatch
-		tokenOwner map[uint64]string
 	}
 )
 
@@ -61,9 +65,8 @@ func (s *liquidStakingDelta) deleteBucketInfo(id uint64) {
 	}
 }
 
-func newLiquidStakingDirty(kvstore db.KVStore, clean *liquidStakingCache) *liquidStakingDirty {
+func newLiquidStakingDirty(clean *liquidStakingCache) *liquidStakingDirty {
 	return &liquidStakingDirty{
-		kvstore:    kvstore,
 		clean:      clean,
 		delta:      newLiquidStakingDelta(),
 		batch:      batch.NewBatch(),
