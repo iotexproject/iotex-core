@@ -223,6 +223,19 @@
         "expectedLogs": [{}],
         "rawReturnValue": "",
         "comment": "approveContract use new owner, success"
+    },{
+        "rawPrivateKey": "febab1e4efeeeb87ce19da49f2648aa824da34f7f7f2688a7fcd45d1f61f0ce6",
+        "rawByteCode": "c375c2ef0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
+        "rawAmount": "0",
+        "rawGasLimit": 6000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 13312,
+        "expectedStatus": 1,
+        "expectedErrorMsg": "",
+        "expectedLogs": [{}],
+        "rawReturnValue": "",
+        "comment": "removeContract use new owner, success"
     }
 ]
 }
