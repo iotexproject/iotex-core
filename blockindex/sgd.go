@@ -8,6 +8,7 @@ package blockindex
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -44,6 +45,12 @@ type (
 	sgdRegistry struct {
 		kvStore db.KVStore
 		kvCache cache.LRUCache
+	}
+
+	sgdAct struct {
+		sender     address.Address
+		contract   string
+		createTime time.Time
 	}
 )
 
