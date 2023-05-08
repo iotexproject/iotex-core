@@ -3,11 +3,10 @@
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
-// To compile the proto, run under the current directory:
-//      protoc --go_out=. index.proto
+// To compile the proto, run:
+//      protoc --go_out=plugins=grpc:. *.proto
 syntax = "proto3";
 package indexpb;
-option go_package = "../indexpb";
 
 message BlockIndex {
     uint32 numAction = 1;
@@ -17,12 +16,4 @@ message BlockIndex {
 
 message ActionIndex {
     uint64 blkHeight = 1;
-}
-
-message SGDIndex {
-    string contract = 1;
-    string deployer = 2;
-    string receiver = 3;
-    int64 createTime = 4;
-    int32 callTimes = 5;
 }

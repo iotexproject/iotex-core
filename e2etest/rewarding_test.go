@@ -69,14 +69,7 @@ func TestBlockReward(t *testing.T) {
 	r.NoError(err)
 	testConsensusPath, err := testutil.PathOfTempFile("cons")
 	r.NoError(err)
-	testSGDPath, err := testutil.PathOfTempFile("index")
-	r.NoError(err)
-	defer func() {
-		testutil.CleanupPath(testTriePath)
-		testutil.CleanupPath(testDBPath)
-		testutil.CleanupPath(testIndexPath)
-		testutil.CleanupPath(testSGDPath)
-	}()
+
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.NumDelegates = 1
@@ -100,7 +93,6 @@ func TestBlockReward(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.Chain.SGDIndexDBPath = testSGDPath
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.Genesis.PollMode = "lifeLong"
 

@@ -192,8 +192,6 @@ func TestStakingContract(t *testing.T) {
 	require.NoError(err)
 	testConsensusPath, err := testutil.PathOfTempFile("consensus")
 	require.NoError(err)
-	testSGDIndexPath, err := testutil.PathOfTempFile("sgdindex")
-	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
@@ -202,7 +200,6 @@ func TestStakingContract(t *testing.T) {
 		testutil.CleanupPath(testCandidateIndexPath)
 		testutil.CleanupPath(testSystemLogPath)
 		testutil.CleanupPath(testConsensusPath)
-		testutil.CleanupPath(testSGDIndexPath)
 		// clear the gateway
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -214,7 +211,6 @@ func TestStakingContract(t *testing.T) {
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.BloomfilterIndexDBPath = testBloomfilterIndexPath
 	cfg.Chain.CandidateIndexDBPath = testCandidateIndexPath
-	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
 	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"

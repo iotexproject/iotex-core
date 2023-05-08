@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -254,9 +253,6 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.bfIndexer != nil {
 		indexers = append(indexers, builder.cs.bfIndexer)
 	}
-	if builder.cs.sgdRegistry != nil {
-		indexers = append(indexers, builder.cs.sgdRegistry)
-	}
 	if forTest {
 		builder.cs.blockdao = blockdao.NewBlockDAOInMemForTest(indexers)
 	} else {
@@ -266,23 +262,6 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		builder.cs.blockdao = blockdao.NewBlockDAO(indexers, dbConfig, deser)
 	}
 
-	return nil
-}
-
-func (builder *Builder) buildSGDRegistry(forTest bool) error {
-	if builder.cs.sgdRegistry != nil {
-		return nil
-	}
-	if forTest {
-		builder.cs.sgdRegistry = blockindex.NewDummySGDRegistry()
-	} else {
-		dbConfig := builder.cfg.DB
-		dbConfig.DbPath = builder.cfg.Chain.SGDIndexDBPath
-		builder.cs.sgdRegistry = blockindex.NewSGDRegistry(
-			db.NewBoltDB(dbConfig),
-			cache.NewThreadSafeLruCache(builder.cfg.Chain.SGDIndexCacheSize),
-			builder.cfg.Chain.SGDPercentage)
-	}
 	return nil
 }
 
@@ -581,7 +560,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 		func(start, end uint64) (map[string]uint64, error) {
 			return blockchain.Productivity(chain, start, end)
 		},
-		dao.GetBlockHash,
+		builder.cs.blockdao.GetBlockHash,
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate poll protocol")
@@ -638,9 +617,6 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildGatewayComponents(forTest); err != nil {
-		return nil, err
-	}
-	if err := builder.buildSGDRegistry(forTest); err != nil {
 		return nil, err
 	}
 	if err := builder.buildBlockDAO(forTest); err != nil {

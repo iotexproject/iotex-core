@@ -7,7 +7,6 @@ package blockdao
 
 import (
 	"context"
-	"fmt"
 	"sync/atomic"
 
 	"github.com/pkg/errors"
@@ -95,12 +94,12 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 
 func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 	checker := NewBlockIndexerChecker(dao)
-	for _, indexer := range dao.indexers {
+	for i, indexer := range dao.indexers {
 		if err := checker.CheckIndexer(ctx, indexer, 0, func(height uint64) {
 			if height%5000 == 0 {
 				log.L().Info(
 					"indexer is catching up.",
-					zap.String("indexer", fmt.Sprintf("%T", indexer)),
+					zap.Int("indexer", i),
 					zap.Uint64("height", height),
 				)
 			}
@@ -109,7 +108,7 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 		}
 		log.L().Info(
 			"indexer is up to date.",
-			zap.String("indexer", fmt.Sprintf("%T", indexer)),
+			zap.Int("indexer", i),
 		)
 	}
 	return nil
