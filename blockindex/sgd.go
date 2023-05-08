@@ -159,20 +159,10 @@ func (sgd *sgdRegistry) DeleteTipBlock(context.Context, *block.Block) error {
 
 // CheckContract checks if the contract is a SGD contract
 func (sgd *sgdRegistry) CheckContract(contract string) (address.Address, uint64, bool) {
-	var (
-		sgdIndex *indexpb.SGDIndex
-		err      error
-	)
-	//check if the SGDIndex is in cache
-	if v, ok := sgd.kvCache.Get(contract); ok {
-		sgdIndex = v.(*indexpb.SGDIndex)
-	} else {
-		sgdIndex, err = sgd.GetSGDIndex(contract)
-		if err != nil {
-			return nil, 0, false
-		}
+	sgdIndex, err := sgd.GetSGDIndex(contract)
+	if err != nil {
+		return nil, 0, false
 	}
-
 	addr, err := address.FromString(sgdIndex.Receiver)
 	if err != nil {
 		// if the receiver is no set or invalid
@@ -184,6 +174,10 @@ func (sgd *sgdRegistry) CheckContract(contract string) (address.Address, uint64,
 
 // GetSGDIndex returns the SGDIndex of the contract
 func (sgd *sgdRegistry) GetSGDIndex(contract string) (*indexpb.SGDIndex, error) {
+	//check if the SGDIndex is in cache
+	if v, ok := sgd.kvCache.Get(contract); ok {
+		return v.(*indexpb.SGDIndex), nil
+	}
 	//if not in cache, get it from db
 	buf, err := sgd.kvStore.Get(_sgdBucket, []byte(contract))
 	if err != nil {
