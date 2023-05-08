@@ -15,6 +15,7 @@ type (
 		CandidateVotes(name string) *big.Int
 	}
 
+	// TODO (iip-13): remove this empty liquid staking indexer
 	emptyLiquidStakingIndexer struct{}
 )
 

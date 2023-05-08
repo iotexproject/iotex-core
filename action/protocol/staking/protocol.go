@@ -78,9 +78,9 @@ type (
 		depositGas         DepositGas
 		config             Configuration
 		candBucketsIndexer *CandidatesBucketsIndexer
+		liquidIndexer      LiquidStakingIndexer
 		voteReviser        *VoteReviser
 		patch              *PatchStore
-		liquidIndexer      LiquidStakingIndexer
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -497,12 +497,13 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return nil, uint64(0), errors.Wrap(err, "failed to unmarshal request")
 	}
 
-	csr, err := ConstructBaseView(sr)
+	// nativeSR is the native state reader
+	nativeSR, err := ConstructBaseView(sr)
 	if err != nil {
 		return nil, 0, err
 	}
-
-	cssr := newCompositiveStakingStateReader(p.liquidIndexer, p.candBucketsIndexer, csr)
+	// stakeSR is the stake state reader including native and liquid staking
+	stakeSR := newCompositiveStakingStateReader(p.liquidIndexer, p.candBucketsIndexer, nativeSR)
 
 	// get height arg
 	inputHeight, err := sr.Height()
@@ -521,27 +522,23 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
 			return p.candBucketsIndexer.GetBuckets(epochStartHeight, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
 		}
-		resp, height, err = csr.readStateBuckets(ctx, r.GetBuckets())
+		resp, height, err = nativeSR.readStateBuckets(ctx, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
-		resp, height, err = csr.readStateBucketsByVoter(ctx, r.GetBucketsByVoter())
+		resp, height, err = nativeSR.readStateBucketsByVoter(ctx, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
-		resp, height, err = csr.readStateBucketsByCandidate(ctx, r.GetBucketsByCandidate())
+		resp, height, err = nativeSR.readStateBucketsByCandidate(ctx, r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES:
-		resp, height, err = csr.readStateBucketByIndices(ctx, r.GetBucketsByIndexes())
+		resp, height, err = nativeSR.readStateBucketByIndices(ctx, r.GetBucketsByIndexes())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_COUNT:
-		resp, height, err = csr.readStateBucketCount(ctx, r.GetBucketsCount())
+		resp, height, err = nativeSR.readStateBucketCount(ctx, r.GetBucketsCount())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
-		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
-			resp, height, err = cssr.readStateCandidatesByIndexer(ctx, r.GetCandidates(), epochStartHeight)
-		} else {
-			resp, height, err = cssr.readStateCandidates(ctx, r.GetCandidates())
-		}
+		resp, height, err = stakeSR.readStateCandidates(ctx, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
-		resp, height, err = cssr.readStateCandidateByName(ctx, r.GetCandidateByName())
+		resp, height, err = stakeSR.readStateCandidateByName(ctx, r.GetCandidateByName())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS:
-		resp, height, err = cssr.readStateCandidateByAddress(ctx, r.GetCandidateByAddress())
+		resp, height, err = stakeSR.readStateCandidateByAddress(ctx, r.GetCandidateByAddress())
 	case iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT:
-		resp, height, err = csr.readStateTotalStakingAmount(ctx, r.GetTotalStakingAmount())
+		resp, height, err = nativeSR.readStateTotalStakingAmount(ctx, r.GetTotalStakingAmount())
 	default:
 		err = errors.New("corresponding method isn't found")
 	}

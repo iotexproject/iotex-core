@@ -13,10 +13,12 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 )
 
 type (
-
 	// compositiveStakingStateReader is the compositive staking state reader, which combine native and liquid staking
 	compositiveStakingStateReader struct {
 		liquidIndexer LiquidStakingIndexer
@@ -25,12 +27,8 @@ type (
 	}
 )
 
-var (
-	_ ReadState = (*compositiveStakingStateReader)(nil)
-)
-
 // newCompositiveStakingStateReader creates a new compositive staking state reader
-func newCompositiveStakingStateReader(liquidIndexer LiquidStakingIndexer, nativeIndexer *CandidatesBucketsIndexer, nativeSR CandidateStateReader) *compositiveStakingStateReader {
+func newCompositiveStakingStateReader(liquidIndexer LiquidStakingIndexer, nativeIndexer *CandidatesBucketsIndexer, nativeSR CandidateStateReader) ReadState {
 	return &compositiveStakingStateReader{
 		liquidIndexer: liquidIndexer,
 		nativeIndexer: nativeIndexer,
@@ -64,27 +62,39 @@ func (c *compositiveStakingStateReader) readStateBucketCount(ctx context.Context
 }
 
 func (c *compositiveStakingStateReader) readStateCandidates(ctx context.Context, req *iotexapi.ReadStakingDataRequest_Candidates) (*iotextypes.CandidateListV2, uint64, error) {
-	candidates, height, err := c.nativeSR.readStateCandidates(ctx, req)
+	// get height arg
+	inputHeight, err := c.nativeSR.SR().Height()
 	if err != nil {
-		return candidates, height, err
+		return nil, 0, err
 	}
-	for _, candidate := range candidates.Candidates {
-		if err = addLiquidVotes(candidate, c.liquidIndexer); err != nil {
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
+
+	// read native candidates
+	var (
+		candidates      *iotextypes.CandidateListV2
+		height          uint64
+		candidatesBytes []byte
+	)
+	if epochStartHeight != 0 && c.nativeIndexer != nil {
+		// read candidates from indexer
+		candidatesBytes, height, err = c.nativeIndexer.GetCandidates(height, req.GetPagination().GetOffset(), req.GetPagination().GetLimit())
+		if err != nil {
+			return nil, height, err
+		}
+		candidates = &iotextypes.CandidateListV2{}
+		if err = proto.Unmarshal(candidatesBytes, candidates); err != nil {
+			return nil, height, errors.Wrap(err, "failed to unmarshal candidates")
+		}
+	} else {
+		// read candidates from native state
+		candidates, height, err = c.nativeSR.readStateCandidates(ctx, req)
+		if err != nil {
 			return candidates, height, err
 		}
 	}
-	return candidates, height, nil
-}
 
-func (c *compositiveStakingStateReader) readStateCandidatesByIndexer(ctx context.Context, req *iotexapi.ReadStakingDataRequest_Candidates, height uint64) (*iotextypes.CandidateListV2, uint64, error) {
-	candidatesBytes, height, err := c.nativeIndexer.GetCandidates(height, req.GetPagination().GetOffset(), req.GetPagination().GetLimit())
-	if err != nil {
-		return nil, height, err
-	}
-	candidates := &iotextypes.CandidateListV2{}
-	if err := proto.Unmarshal(candidatesBytes, candidates); err != nil {
-		return nil, height, errors.Wrap(err, "failed to unmarshal candidates")
-	}
+	// add liquid votes
 	for _, candidate := range candidates.Candidates {
 		if err = addLiquidVotes(candidate, c.liquidIndexer); err != nil {
 			return candidates, height, err
