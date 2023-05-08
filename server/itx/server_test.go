@@ -76,8 +76,6 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	require.NoError(err)
 	triePath, err := testutil.PathOfTempFile("trie.db")
 	require.NoError(err)
-	sgdIndexPath, err := testutil.PathOfTempFile("sgd.db")
-	require.NoError(err)
 	cfg := config.Default
 	cfg.API.GRPCPort = testutil.RandomPort()
 	cfg.API.HTTPPort = testutil.RandomPort()
@@ -85,10 +83,8 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	cfg.Chain.ChainDBPath = dbPath
 	cfg.Chain.TrieDBPath = triePath
 	cfg.Chain.TrieDBPatchFile = ""
-	cfg.Chain.SGDIndexDBPath = sgdIndexPath
 	return cfg, func() {
 		testutil.CleanupPath(dbPath)
 		testutil.CleanupPath(triePath)
-		testutil.CleanupPath(sgdIndexPath)
 	}
 }
