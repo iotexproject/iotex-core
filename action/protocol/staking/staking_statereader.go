@@ -98,9 +98,9 @@ func (c *compositeStakingStateReader) readStateCandidates(ctx context.Context, r
 		}
 	}
 
-	// add liquid votes
+	// add liquid stake votes
 	for _, candidate := range candidates.Candidates {
-		if err = addLiquidVotes(candidate, c.liquidIndexer); err != nil {
+		if err = addLSDVotes(candidate, c.liquidIndexer); err != nil {
 			return nil, 0, err
 		}
 	}
@@ -112,7 +112,7 @@ func (c *compositeStakingStateReader) readStateCandidateByName(ctx context.Conte
 	if err != nil {
 		return nil, 0, err
 	}
-	if err := addLiquidVotes(candidate, c.liquidIndexer); err != nil {
+	if err := addLSDVotes(candidate, c.liquidIndexer); err != nil {
 		return nil, 0, err
 	}
 	return candidate, height, nil
@@ -123,7 +123,7 @@ func (c *compositeStakingStateReader) readStateCandidateByAddress(ctx context.Co
 	if err != nil {
 		return nil, 0, err
 	}
-	if err := addLiquidVotes(candidate, c.liquidIndexer); err != nil {
+	if err := addLSDVotes(candidate, c.liquidIndexer); err != nil {
 		return nil, 0, err
 	}
 	return candidate, height, nil
@@ -134,7 +134,7 @@ func (c *compositeStakingStateReader) readStateTotalStakingAmount(ctx context.Co
 	return c.nativeSR.readStateTotalStakingAmount(ctx, nil)
 }
 
-func addLiquidVotes(candidate *iotextypes.CandidateV2, liquidSR LiquidStakingIndexer) error {
+func addLSDVotes(candidate *iotextypes.CandidateV2, liquidSR LiquidStakingIndexer) error {
 	votes, ok := big.NewInt(0).SetString(candidate.TotalWeightedVotes, 10)
 	if !ok {
 		return errors.Errorf("invalid total weighted votes %s", candidate.TotalWeightedVotes)
