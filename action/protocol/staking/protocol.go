@@ -503,23 +503,12 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return nil, 0, err
 	}
 
-	// get height arg
-	inputHeight, err := sr.Height()
-	if err != nil {
-		return nil, 0, err
-	}
-	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
-
 	var (
 		height uint64
 		resp   proto.Message
 	)
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
-		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
-			return p.candBucketsIndexer.GetBuckets(epochStartHeight, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
-		}
 		resp, height, err = stakeSR.readStateBuckets(ctx, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
 		resp, height, err = stakeSR.readStateBucketsByVoter(ctx, r.GetBucketsByVoter())

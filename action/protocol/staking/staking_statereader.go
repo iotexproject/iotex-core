@@ -9,6 +9,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -41,28 +42,136 @@ func newCompositeStakingStateReader(liquidIndexer LiquidStakingIndexer, nativeIn
 }
 
 func (c *compositeStakingStateReader) readStateBuckets(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBuckets) (*iotextypes.VoteBucketList, uint64, error) {
-	// TODO (iip-13): combine native and liquid staking buckets
-	return c.nativeSR.readStateBuckets(ctx, req)
+	// get height arg
+	inputHeight, err := c.nativeSR.SR().Height()
+	if err != nil {
+		return nil, 0, err
+	}
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
+
+	var (
+		buckets      *iotextypes.VoteBucketList
+		height       uint64
+		bucketsBytes []byte
+	)
+	if epochStartHeight != 0 && c.nativeIndexer != nil {
+		// read native buckets from indexer
+		bucketsBytes, height, err = c.nativeIndexer.GetBuckets(epochStartHeight, req.GetPagination().GetOffset(), req.GetPagination().GetLimit())
+		if err != nil {
+			return nil, 0, err
+		}
+		buckets = &iotextypes.VoteBucketList{}
+		if err := proto.Unmarshal(bucketsBytes, buckets); err != nil {
+			return nil, 0, err
+		}
+	} else {
+		// read native buckets from state
+		buckets, height, err = c.nativeSR.readStateBuckets(ctx, req)
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+	// read LSD buckets
+	lsdBuckets, err := c.liquidIndexer.Buckets()
+	if err != nil {
+		return nil, 0, err
+	}
+	lsdIoTeXBuckets, err := toIoTeXTypesVoteBucketList(lsdBuckets)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// merge native and LSD buckets
+	buckets.Buckets = append(buckets.Buckets, lsdIoTeXBuckets.Buckets...)
+	buckets.Buckets = getPageOfArray(buckets.Buckets, int(req.GetPagination().GetOffset()), int(req.GetPagination().GetLimit()))
+	return buckets, height, err
 }
 
 func (c *compositeStakingStateReader) readStateBucketsByVoter(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBucketsByVoter) (*iotextypes.VoteBucketList, uint64, error) {
-	// TODO (iip-13): combine native and liquid staking buckets
-	return c.nativeSR.readStateBucketsByVoter(ctx, req)
+	// read native buckets
+	buckets, height, err := c.nativeSR.readStateBucketsByVoter(ctx, req)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// read LSD buckets
+	lsdBuckets, err := c.liquidIndexer.Buckets()
+	if err != nil {
+		return nil, 0, err
+	}
+	lsdBuckets = filterBucketsByVoter(lsdBuckets, req.GetVoterAddress())
+	lsdIoTeXBuckets, err := toIoTeXTypesVoteBucketList(lsdBuckets)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// merge native and LSD buckets
+	buckets.Buckets = append(buckets.Buckets, lsdIoTeXBuckets.Buckets...)
+	buckets.Buckets = getPageOfArray(buckets.Buckets, int(req.GetPagination().GetOffset()), int(req.GetPagination().GetLimit()))
+	return buckets, height, err
 }
 
 func (c *compositeStakingStateReader) readStateBucketsByCandidate(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate) (*iotextypes.VoteBucketList, uint64, error) {
-	// TODO (iip-13): combine native and liquid staking buckets
-	return c.nativeSR.readStateBucketsByCandidate(ctx, req)
+	// read native buckets
+	buckets, height, err := c.nativeSR.readStateBucketsByCandidate(ctx, req)
+	if err != nil {
+		return nil, 0, err
+	}
+	// read LSD buckets
+	lsdBuckets, err := c.liquidIndexer.Buckets()
+	if err != nil {
+		return nil, 0, err
+	}
+	candidate := c.nativeSR.GetCandidateByName(req.GetCandName())
+	if candidate == nil {
+		return &iotextypes.VoteBucketList{}, height, nil
+	}
+	lsdBuckets = filterBucketsByCandidate(lsdBuckets, candidate.Owner)
+	lsdIoTeXBuckets, err := toIoTeXTypesVoteBucketList(lsdBuckets)
+	if err != nil {
+		return nil, 0, err
+	}
+	// merge native and LSD buckets
+	buckets.Buckets = append(buckets.Buckets, lsdIoTeXBuckets.Buckets...)
+	buckets.Buckets = getPageOfArray(buckets.Buckets, int(req.GetPagination().GetOffset()), int(req.GetPagination().GetLimit()))
+	return buckets, height, err
 }
 
 func (c *compositeStakingStateReader) readStateBucketByIndices(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes) (*iotextypes.VoteBucketList, uint64, error) {
-	// TODO (iip-13): combine native and liquid staking buckets
-	return c.nativeSR.readStateBucketByIndices(ctx, req)
+	// read native buckets
+	buckets, height, err := c.nativeSR.readStateBucketByIndices(ctx, req)
+	if err != nil {
+		return nil, 0, err
+	}
+	// read LSD buckets
+	lsdBuckets, err := c.liquidIndexer.BucketsByIndices(req.GetIndex())
+	if err != nil {
+		return nil, 0, err
+	}
+	lsbIoTeXBuckets, err := toIoTeXTypesVoteBucketList(lsdBuckets)
+	if err != nil {
+		return nil, 0, err
+	}
+	// merge native and LSD buckets
+	buckets.Buckets = append(buckets.Buckets, lsbIoTeXBuckets.Buckets...)
+	return buckets, height, nil
 }
 
-func (c *compositeStakingStateReader) readStateBucketCount(ctx context.Context, _ *iotexapi.ReadStakingDataRequest_BucketsCount) (*iotextypes.BucketsCount, uint64, error) {
-	// TODO (iip-13): combine native and liquid staking buckets
-	return c.nativeSR.readStateBucketCount(ctx, nil)
+func (c *compositeStakingStateReader) readStateBucketCount(ctx context.Context, req *iotexapi.ReadStakingDataRequest_BucketsCount) (*iotextypes.BucketsCount, uint64, error) {
+	bucketCnt, height, err := c.nativeSR.readStateBucketCount(ctx, req)
+	if err != nil {
+		return nil, 0, err
+	}
+	buckets, err := c.liquidIndexer.Buckets()
+	if err != nil {
+		return nil, 0, err
+	}
+	// TODO (iip-13): calculate active buckets
+	active := 0
+	bucketCnt.Active += uint64(active)
+	bucketCnt.Total += uint64(len(buckets))
+	return bucketCnt, height, nil
 }
 
 func (c *compositeStakingStateReader) readStateCandidates(ctx context.Context, req *iotexapi.ReadStakingDataRequest_Candidates) (*iotextypes.CandidateListV2, uint64, error) {
@@ -142,4 +251,24 @@ func addLSDVotes(candidate *iotextypes.CandidateV2, liquidSR LiquidStakingIndexe
 	votes.Add(votes, liquidSR.CandidateVotes(candidate.OwnerAddress))
 	candidate.TotalWeightedVotes = votes.String()
 	return nil
+}
+
+func filterBucketsByVoter(buckets []*VoteBucket, voterAddress string) []*VoteBucket {
+	var filtered []*VoteBucket
+	for _, bucket := range buckets {
+		if bucket.Owner.String() == voterAddress {
+			filtered = append(filtered, bucket)
+		}
+	}
+	return filtered
+}
+
+func filterBucketsByCandidate(buckets []*VoteBucket, candidate address.Address) []*VoteBucket {
+	var filtered []*VoteBucket
+	for _, bucket := range buckets {
+		if bucket.Candidate.String() == candidate.String() {
+			filtered = append(filtered, bucket)
+		}
+	}
+	return filtered
 }

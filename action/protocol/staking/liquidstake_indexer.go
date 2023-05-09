@@ -13,6 +13,8 @@ type (
 	// LiquidStakingIndexer defines the interface of liquid staking reader
 	LiquidStakingIndexer interface {
 		CandidateVotes(ownerAddr string) *big.Int
+		Buckets() ([]*VoteBucket, error)
+		BucketsByIndices([]uint64) ([]*VoteBucket, error)
 	}
 
 	// TODO (iip-13): remove this empty liquid staking indexer
@@ -28,4 +30,12 @@ func NewEmptyLiquidStakingIndexer() LiquidStakingIndexer {
 
 func (f *emptyLiquidStakingIndexer) CandidateVotes(ownerAddr string) *big.Int {
 	return big.NewInt(0)
+}
+
+func (f *emptyLiquidStakingIndexer) Buckets() ([]*VoteBucket, error) {
+	return nil, nil
+}
+
+func (f *emptyLiquidStakingIndexer) BucketsByIndices([]uint64) ([]*VoteBucket, error) {
+	return nil, nil
 }
