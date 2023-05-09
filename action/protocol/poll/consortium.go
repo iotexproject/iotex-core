@@ -291,7 +291,7 @@ func getContractReaderForGenesisStates(ctx context.Context, sm protocol.StateMan
 			return nil, err
 		}
 
-		res, _, err := evm.SimulateExecution(ctx, sm, addr, ex, getBlockHash, nil)
+		res, _, err := evm.SimulateExecution(ctx, sm, addr, ex, getBlockHash)
 
 		return res, err
 	}

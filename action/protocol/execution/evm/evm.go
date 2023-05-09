@@ -586,7 +586,6 @@ func SimulateExecution(
 	caller address.Address,
 	ex *action.Execution,
 	getBlockHash GetBlockHash,
-	sgd SGDRegistry,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.SimulateExecution")
 	defer span.End()
@@ -622,6 +621,6 @@ func SimulateExecution(
 		func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
 			return nil, nil
 		},
-		sgd,
+		nil,
 	)
 }

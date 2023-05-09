@@ -280,7 +280,7 @@ func (sdb *stateDB) SimulateExecution(
 		return nil, nil, err
 	}
 
-	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash, nil)
+	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
 // ReadContractStorage reads contract's storage

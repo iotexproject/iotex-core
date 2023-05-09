@@ -399,7 +399,7 @@ func (sf *factory) SimulateExecution(
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 
-	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash, nil)
+	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
 // ReadContractStorage reads contract's storage
