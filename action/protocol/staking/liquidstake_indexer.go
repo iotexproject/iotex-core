@@ -12,7 +12,7 @@ import (
 type (
 	// LiquidStakingIndexer defines the interface of liquid staking reader
 	LiquidStakingIndexer interface {
-		CandidateVotes(name string) *big.Int
+		CandidateVotes(ownerAddr string) *big.Int
 	}
 
 	// TODO (iip-13): remove this empty liquid staking indexer
@@ -26,6 +26,6 @@ func NewEmptyLiquidStakingIndexer() LiquidStakingIndexer {
 	return &emptyLiquidStakingIndexer{}
 }
 
-func (f *emptyLiquidStakingIndexer) CandidateVotes(name string) *big.Int {
+func (f *emptyLiquidStakingIndexer) CandidateVotes(ownerAddr string) *big.Int {
 	return big.NewInt(0)
 }

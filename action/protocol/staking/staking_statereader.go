@@ -135,7 +135,7 @@ func addLiquidVotes(candidate *iotextypes.CandidateV2, liquidSR LiquidStakingInd
 	if !ok {
 		return errors.Errorf("invalid total weighted votes %s", candidate.TotalWeightedVotes)
 	}
-	votes.Add(votes, liquidSR.CandidateVotes(candidate.Name))
+	votes.Add(votes, liquidSR.CandidateVotes(candidate.OwnerAddress))
 	candidate.TotalWeightedVotes = votes.String()
 	return nil
 }
