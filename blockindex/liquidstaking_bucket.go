@@ -25,7 +25,7 @@ type (
 		CreatedAt  time.Time
 		UnlockedAt time.Time
 		UnstakedAt time.Time
-		Delegate   string
+		Delegate   string // owner address of the delegate
 		Owner      string
 	}
 

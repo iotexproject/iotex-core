@@ -379,7 +379,7 @@ type (
 	LiquidStakingIndexer interface {
 		blockdao.BlockIndexer
 
-		CandidateVotes(candidate string) *big.Int
+		CandidateVotes(ownerAddr string) *big.Int
 		Buckets() ([]*Bucket, error)
 		Bucket(id uint64) (*Bucket, error)
 	}
@@ -655,10 +655,13 @@ func (s *liquidStakingIndexer) handleStakedEvent(dirty *liquidStakingDirty, even
 	if !ok {
 		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), durationParam.Uint64())
 	}
-
+	delegateOwner, err := s.candNameToOwnerFunc(delegateParam)
+	if err != nil {
+		return errors.Wrapf(err, "get delegate owner from %v failed", delegateParam)
+	}
 	bucket := BucketInfo{
 		TypeIndex: btIdx,
-		Delegate:  delegateParam,
+		Delegate:  delegateOwner.String(),
 		Owner:     dirty.tokenOwner[tokenIDParam.Uint64()],
 		CreatedAt: timestamp,
 	}
@@ -824,7 +827,11 @@ func (s *liquidStakingIndexer) handleDelegateChangedEvent(dirty *liquidStakingDi
 	if !ok {
 		return errors.Wrapf(ErrBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
 	}
-	b.Delegate = string(delegateParam[:])
+	delegateOwner, err := s.candNameToOwnerFunc(delegateParam)
+	if err != nil {
+		return errors.Wrapf(err, "get owner of candidate %s", delegateParam)
+	}
+	b.Delegate = delegateOwner.String()
 	dirty.putBucketInfo(tokenIDParam.Uint64(), b)
 	return nil
 }
@@ -912,7 +919,7 @@ func (s *liquidStakingIndexer) convertToVoteBucket(token uint64, bi *BucketInfo,
 		UnstakeStartTime: bi.UnstakedAt,
 		AutoStake:        bi.UnlockedAt.IsZero(),
 	}
-	vb.Candidate, err = s.candNameToOwnerFunc(bi.Delegate)
+	vb.Candidate, err = address.FromString(bi.Delegate)
 	if err != nil {
 		return nil, err
 	}

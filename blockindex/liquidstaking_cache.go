@@ -95,9 +95,9 @@ func (s *liquidStakingCache) getBucketInfo(id uint64) (*BucketInfo, bool) {
 	return bi, ok
 }
 
-func (s *liquidStakingCache) getCandidateVotes(name string) *big.Int {
+func (s *liquidStakingCache) getCandidateVotes(ownerAddr string) *big.Int {
 	votes := big.NewInt(0)
-	m, ok := s.candidateBucketMap[name]
+	m, ok := s.candidateBucketMap[ownerAddr]
 	if !ok {
 		return votes
 	}
