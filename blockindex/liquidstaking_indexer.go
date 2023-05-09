@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
@@ -382,6 +383,7 @@ type (
 		Buckets() ([]*Bucket, error)
 		Bucket(id uint64) (*Bucket, error)
 	}
+
 	// liquidStakingIndexer is the implementation of LiquidStakingIndexer
 	// Main functions:
 	// 		1. handle liquid staking contract events when new block comes to generate index data
@@ -392,12 +394,13 @@ type (
 	// 		kvstore: persistent storage, used to initialize index cache at startup
 	// 		cache: in-memory index for clean data, used to query index data
 	//      dirty: the cache to update during event processing, will be merged to clean cache after all events are processed. If errors occur during event processing, dirty cache will be discarded.
-
 	liquidStakingIndexer struct {
-		kvstore       db.KVStore          // persistent storage
-		cache         *liquidStakingCache // in-memory index for clean data
-		blockInterval time.Duration
+		kvstore             db.KVStore          // persistent storage
+		cache               *liquidStakingCache // in-memory index for clean data
+		blockInterval       time.Duration
+		candNameToOwnerFunc candNameToOwnerFunc
 	}
+	candNameToOwnerFunc func(name string) (address.Address, error)
 )
 
 var (
@@ -419,11 +422,12 @@ func init() {
 }
 
 // NewLiquidStakingIndexer creates a new liquid staking indexer
-func NewLiquidStakingIndexer(kvStore db.KVStore, blockInterval time.Duration) LiquidStakingIndexer {
+func NewLiquidStakingIndexer(kvStore db.KVStore, blockInterval time.Duration, candNameToOwnerFunc candNameToOwnerFunc) LiquidStakingIndexer {
 	return &liquidStakingIndexer{
-		blockInterval: blockInterval,
-		kvstore:       kvStore,
-		cache:         newLiquidStakingCache(),
+		blockInterval:       blockInterval,
+		kvstore:             kvStore,
+		cache:               newLiquidStakingCache(),
+		candNameToOwnerFunc: candNameToOwnerFunc,
 	}
 }
 
@@ -492,8 +496,8 @@ func (s *liquidStakingIndexer) Height() (uint64, error) {
 }
 
 // CandidateVotes returns the candidate votes
-func (s *liquidStakingIndexer) CandidateVotes(candidate string) *big.Int {
-	return s.cache.getCandidateVotes(candidate)
+func (s *liquidStakingIndexer) CandidateVotes(ownerAddr string) *big.Int {
+	return s.cache.getCandidateVotes(ownerAddr)
 }
 
 // Buckets returns the buckets
@@ -501,7 +505,7 @@ func (s *liquidStakingIndexer) Buckets() ([]*Bucket, error) {
 	vbs := []*Bucket{}
 	for id, bi := range s.cache.idBucketMap {
 		bt := s.cache.mustGetBucketType(bi.TypeIndex)
-		vb, err := convertToVoteBucket(id, bi, bt)
+		vb, err := s.convertToVoteBucket(id, bi, bt)
 		if err != nil {
 			return nil, err
 		}
@@ -517,7 +521,7 @@ func (s *liquidStakingIndexer) Bucket(id uint64) (*Bucket, error) {
 		return nil, errors.Wrapf(ErrBucketInfoNotExist, "id %d", id)
 	}
 	bt := s.cache.mustGetBucketType(bi.TypeIndex)
-	vb, err := convertToVoteBucket(id, bi, bt)
+	vb, err := s.convertToVoteBucket(id, bi, bt)
 	if err != nil {
 		return nil, err
 	}
@@ -895,4 +899,29 @@ func (s *liquidStakingIndexer) commit(dirty *liquidStakingDirty) error {
 
 func (s *liquidStakingIndexer) blockHeightToDuration(height uint64) time.Duration {
 	return time.Duration(height) * s.blockInterval
+}
+
+func (s *liquidStakingIndexer) convertToVoteBucket(token uint64, bi *BucketInfo, bt *BucketType) (*Bucket, error) {
+	var err error
+	vb := Bucket{
+		Index:            token,
+		StakedAmount:     bt.Amount,
+		StakedDuration:   bt.Duration,
+		CreateTime:       bi.CreatedAt,
+		StakeStartTime:   bi.CreatedAt,
+		UnstakeStartTime: bi.UnstakedAt,
+		AutoStake:        bi.UnlockedAt.IsZero(),
+	}
+	vb.Candidate, err = s.candNameToOwnerFunc(bi.Delegate)
+	if err != nil {
+		return nil, err
+	}
+	vb.Owner, err = address.FromHex(bi.Owner)
+	if err != nil {
+		return nil, err
+	}
+	if !bi.UnlockedAt.IsZero() {
+		vb.StakeStartTime = bi.UnlockedAt
+	}
+	return &vb, nil
 }

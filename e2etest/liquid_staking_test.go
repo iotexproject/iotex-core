@@ -11,7 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 
@@ -1273,6 +1275,18 @@ const (
 	_adminID = 22
 )
 
+var (
+	_delegates = []string{
+		"delegate0",
+		"delegate1",
+		"delegate2",
+		"delegate3",
+		"delegate4",
+		"delegate5",
+		"delegate6",
+	}
+)
+
 func TestLiquidStaking(t *testing.T) {
 	r := require.New(t)
 	// prepare blockchain
@@ -1339,8 +1353,9 @@ func TestLiquidStaking(t *testing.T) {
 	}
 
 	t.Run("stake", func(t *testing.T) {
+		delegateIdx := 2
 		delegate := [12]byte{}
-		copy(delegate[:], []byte("delegate2"))
+		copy(delegate[:], []byte(_delegates[delegateIdx]))
 		data, err := lsdABI.Pack("stake", big.NewInt(10), delegate)
 		r.NoError(err)
 		param := callParam{
@@ -1363,14 +1378,14 @@ func TestLiquidStaking(t *testing.T) {
 		tokenID := bt.Index
 		r.EqualValues(1, bt.Index)
 		r.True(bt.AutoStake)
-		r.Equal("delegate2", bt.Candidate)
+		r.Equal(identityset.Address(delegateIdx).String(), bt.Candidate.String())
 		r.EqualValues(identityset.PrivateKey(adminID).PublicKey().Address().String(), bt.Owner.String())
 		r.EqualValues(0, bt.StakedAmount.Cmp(big.NewInt(10)))
 		r.EqualValues(10*cfg.Genesis.BlockInterval, bt.StakedDuration)
 		r.EqualValues(blk.Timestamp().Unix(), bt.CreateTime.Unix())
 		r.EqualValues(blk.Timestamp().UTC().Unix(), bt.StakeStartTime.Unix())
 		r.True(bt.UnstakeStartTime.IsZero())
-		r.EqualValues(10, indexer.CandidateVotes("delegate2").Int64())
+		r.EqualValues(10, indexer.CandidateVotes(_delegates[delegateIdx]).Int64())
 
 		t.Run("unlock", func(t *testing.T) {
 			data, err = lsdABI.Pack("unlock0", big.NewInt(int64(bt.Index)))
@@ -1390,7 +1405,7 @@ func TestLiquidStaking(t *testing.T) {
 			bt, err := indexer.Bucket(uint64(tokenID))
 			r.NoError(err)
 			r.EqualValues(blk.Timestamp().UTC().Unix(), bt.StakeStartTime.Unix())
-			r.EqualValues(10, indexer.CandidateVotes("delegate2").Int64())
+			r.EqualValues(10, indexer.CandidateVotes(_delegates[delegateIdx]).Int64())
 
 			t.Run("unstake", func(t *testing.T) {
 				jumpBlocks(bc, 10, r)
@@ -1587,12 +1602,14 @@ func TestLiquidStaking(t *testing.T) {
 	})
 
 	t.Run("change delegate", func(t *testing.T) {
-		bt := simpleStake("delegate5", big.NewInt(10), big.NewInt(10))
+		delegateIdx := 5
+		bt := simpleStake(_delegates[delegateIdx], big.NewInt(10), big.NewInt(10))
 		tokenID := bt.Index
-		r.EqualValues("delegate5", bt.Candidate)
+		r.EqualValues(identityset.Address(delegateIdx).String(), bt.Candidate.String())
 
+		delegateIdx = 6
 		delegate := [12]byte{}
-		copy(delegate[:], []byte("delegate6"))
+		copy(delegate[:], []byte(_delegates[delegateIdx]))
 		data, err := lsdABI.Pack("changeDelegate", big.NewInt(int64(tokenID)), delegate)
 		r.NoError(err)
 		param = callParam{
@@ -1609,7 +1626,7 @@ func TestLiquidStaking(t *testing.T) {
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 		bt, err = indexer.Bucket(uint64(tokenID))
 		r.NoError(err)
-		r.EqualValues("delegate6", bt.Candidate)
+		r.EqualValues(identityset.Address(delegateIdx).String(), bt.Candidate.String())
 	})
 
 }
@@ -1682,7 +1699,14 @@ func prepareliquidStakingBlockchain(ctx context.Context, cfg config.Config, r *r
 	r.NoError(err)
 	cc := cfg.DB
 	cc.DbPath = testLiquidStakeIndexerPath
-	liquidStakeIndexer := blockindex.NewLiquidStakingIndexer(db.NewBoltDB(cc), cfg.Genesis.BlockInterval)
+	candNameToOwner := func(name string) (address.Address, error) {
+		idx := slices.Index(_delegates, name)
+		if idx == -1 {
+			return &address.AddrV1{}, errors.New("delegate not found")
+		}
+		return identityset.Address(idx), nil
+	}
+	liquidStakeIndexer := blockindex.NewLiquidStakingIndexer(db.NewBoltDB(cc), cfg.Genesis.BlockInterval, candNameToOwner)
 	// create BlockDAO
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, liquidStakeIndexer})
 	r.NotNil(dao)

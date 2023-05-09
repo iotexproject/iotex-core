@@ -9,11 +9,11 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockindex/indexpb"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -37,17 +37,7 @@ type (
 	}
 
 	// Bucket is the bucket information including bucket type and bucket info
-	Bucket struct {
-		Index            uint64
-		Candidate        string
-		Owner            address.Address
-		StakedAmount     *big.Int
-		StakedDuration   time.Duration
-		CreateTime       time.Time
-		StakeStartTime   time.Time
-		UnstakeStartTime time.Time
-		AutoStake        bool
-	}
+	Bucket = staking.VoteBucket
 )
 
 func (bt *BucketType) toProto() *indexpb.BucketType {
@@ -126,27 +116,4 @@ func (bi *BucketInfo) loadProto(p *indexpb.BucketInfo) error {
 	bi.Delegate = p.Delegate
 	bi.Owner = p.Owner
 	return nil
-}
-
-func convertToVoteBucket(token uint64, bi *BucketInfo, bt *BucketType) (*Bucket, error) {
-	var err error
-	vb := Bucket{
-		Index:            token,
-		StakedAmount:     bt.Amount,
-		StakedDuration:   bt.Duration,
-		CreateTime:       bi.CreatedAt,
-		StakeStartTime:   bi.CreatedAt,
-		UnstakeStartTime: bi.UnstakedAt,
-		AutoStake:        bi.UnlockedAt.IsZero(),
-		Candidate:        bi.Delegate,
-	}
-
-	vb.Owner, err = address.FromHex(bi.Owner)
-	if err != nil {
-		return nil, err
-	}
-	if !bi.UnlockedAt.IsZero() {
-		vb.StakeStartTime = bi.UnlockedAt
-	}
-	return &vb, nil
 }
