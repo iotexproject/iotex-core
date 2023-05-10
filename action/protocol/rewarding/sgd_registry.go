@@ -89,7 +89,6 @@ func (r *sgdRegistry) CheckContract(ctx context.Context, contract string) (addre
 	if err != nil {
 		return nil, 0, false, errors.Wrap(err, "failed to GetContract")
 	}
-
 	return receiver, r.percentage, isApproved, nil
 }
 
