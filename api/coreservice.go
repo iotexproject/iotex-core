@@ -254,6 +254,15 @@ func newCoreService(
 		opt(&core)
 	}
 
+	//TODO: revert height check after activated
+	if ge := core.bc.Genesis(); ge.IsToBeEnabled(core.bc.TipHeight()) {
+		if core.broadcastHandler != nil {
+			core.messageBatcher = batch.NewManager(func(msg *batch.Message) error {
+				return core.broadcastHandler(context.Background(), core.bc.ChainID(), msg.Data)
+			})
+		}
+	}
+
 	return &core, nil
 }
 
