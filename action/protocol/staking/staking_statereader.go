@@ -167,10 +167,8 @@ func (c *compositeStakingStateReader) readStateBucketCount(ctx context.Context, 
 	if err != nil {
 		return nil, 0, err
 	}
-	// TODO (iip-13): calculate active buckets
-	active := 0
-	bucketCnt.Active += uint64(active)
-	bucketCnt.Total += uint64(len(buckets))
+	bucketCnt.Active += uint64(len(buckets))
+	bucketCnt.Total += c.liquidIndexer.TotalBucketCount()
 	return bucketCnt, height, nil
 }
 
