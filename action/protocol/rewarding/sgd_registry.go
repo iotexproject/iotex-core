@@ -9,8 +9,6 @@ import (
 	"context"
 
 	"github.com/iotexproject/iotex-address/address"
-
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 )
 
 type (
@@ -21,7 +19,6 @@ type (
 	}
 
 	sgdRegistry struct {
-		getHash evm.GetBlockHash
 	}
 )
 
