@@ -134,8 +134,9 @@ func TestSGDRegistry(t *testing.T) {
 				}),
 			cfg.Genesis,
 		)
-		receiver, isApproved, err := sgdRegistry.GetContract(ctx, registerAddress.String())
+		receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
 		r.NoError(err)
+		r.Equal(uint64(20), percentage)
 		r.Equal(receiverAddress, receiver)
 		r.False(isApproved)
 	})
@@ -163,10 +164,6 @@ func TestSGDRegistry(t *testing.T) {
 				}),
 			cfg.Genesis,
 		)
-		receiver, isApproved, err := sgdRegistry.GetContract(ctx, registerAddress.String())
-		r.NoError(err)
-		r.Equal(receiverAddress, receiver)
-		r.True(isApproved)
 		receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
 		r.NoError(err)
 		r.Equal(receiverAddress, receiver)
@@ -198,10 +195,6 @@ func TestSGDRegistry(t *testing.T) {
 				}),
 			cfg.Genesis,
 		)
-		receiver, isApproved, err := sgdRegistry.GetContract(ctx, registerAddress.String())
-		r.NoError(err)
-		r.Equal(receiverAddress, receiver)
-		r.False(isApproved)
 		receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
 		r.NoError(err)
 		r.Equal(receiverAddress, receiver)
@@ -233,10 +226,6 @@ func TestSGDRegistry(t *testing.T) {
 				}),
 			cfg.Genesis,
 		)
-		receiver, isApproved, err := sgdRegistry.GetContract(ctx, registerAddress.String())
-		r.NoError(err)
-		r.Nil(receiver)
-		r.False(isApproved)
 		receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
 		r.NoError(err)
 		r.Nil(receiver)

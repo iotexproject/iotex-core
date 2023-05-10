@@ -59,8 +59,6 @@ func init() {
 type SGDRegistry interface {
 	//CheckContract check if the contract is approved in sgd registry contract, return (receiverAddress, percentage, isApproved, error)
 	CheckContract(ctx context.Context, contract string) (address.Address, uint64, bool, error)
-	//GetContract return (receiverAddress, isApproved, error)
-	GetContract(ctx context.Context, contract string) (address.Address, bool, error)
 }
 
 // ReadContract defines a callback function to read contract
@@ -87,7 +85,7 @@ func (r *sgdRegistry) CheckContract(ctx context.Context, contract string) (addre
 	if r.readContract == nil {
 		return nil, 0, false, nil
 	}
-	receiver, isApproved, err := r.GetContract(ctx, contract)
+	receiver, isApproved, err := r.getContract(ctx, contract)
 	if err != nil {
 		return nil, 0, false, errors.Wrap(err, "failed to GetContract")
 	}
@@ -95,8 +93,8 @@ func (r *sgdRegistry) CheckContract(ctx context.Context, contract string) (addre
 	return receiver, r.percentage, isApproved, nil
 }
 
-// GetContract get contract info in sgd registry contract, return (receiverAddress, isApproved, error)
-func (r *sgdRegistry) GetContract(ctx context.Context, contract string) (address.Address, bool, error) {
+// getContract get contract info in sgd registry contract, return (receiverAddress, isApproved, error)
+func (r *sgdRegistry) getContract(ctx context.Context, contract string) (address.Address, bool, error) {
 	if r.readContract == nil {
 		return nil, false, errors.New("empty read contract callback")
 	}
