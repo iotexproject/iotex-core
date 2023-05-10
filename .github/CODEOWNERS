@@ -5,7 +5,7 @@
 *       @iotexproject/protocol-team
 
 #Specific owners
-/consensus/	    @CoderZhi @dustinxie @Liuhaai
+/consensus/	    @CoderZhi @dustinxie @Liuhaai @envestcc
 /ioctl/  	    @CoderZhi @dustinxie @Liuhaai
 /api/   		    @CoderZhi @dustinxie @Liuhaai @millken
 /config/	        @CoderZhi @dustinxie @Liuhaai @envestcc
@@ -20,4 +20,5 @@
 /server/		    @CoderZhi @dustinxie @Liuhaai
 /state/		    @CoderZhi @dustinxie @Liuhaai
 /actpool/		@CoderZhi @dustinxie @Liuhaai
-/.github/workflows 		@CoderZhi @dustinxie @Liuhaai @xianhuawei
+/nodeinfo/ 		@CoderZhi @dustinxie @envestcc
+/.github/ 		@CoderZhi @dustinxie @Liuhaai @xianhuawei
