@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -120,6 +121,7 @@ func TestVoteReviser(t *testing.T) {
 			PersistStakingPatchBlock: math.MaxUint64,
 		},
 		nil,
+		&emptyLiquidStakingIndexer{},
 		genesis.Default.OkhotskBlockHeight,
 		genesis.Default.HawaiiBlockHeight,
 		genesis.Default.GreenlandBlockHeight,

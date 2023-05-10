@@ -11,6 +11,11 @@ import (
 	"time"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/committee"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -35,10 +40,6 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-election/committee"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 )
 
 // Builder is a builder to build chainservice
@@ -483,6 +484,10 @@ func (builder *Builder) registerStakingProtocol() error {
 	if !builder.cfg.Chain.EnableStakingProtocol {
 		return nil
 	}
+
+	// TODO (iip-13): use a real liquid indexer instead
+	liquidIndexer := staking.NewEmptyLiquidStakingIndexer()
+
 	stakingProtocol, err := staking.NewProtocol(
 		rewarding.DepositGas,
 		&staking.BuilderConfig{
@@ -491,6 +496,7 @@ func (builder *Builder) registerStakingProtocol() error {
 			StakingPatchDir:          builder.cfg.Chain.StakingPatchDir,
 		},
 		builder.cs.candBucketsIndexer,
+		liquidIndexer,
 		builder.cfg.Genesis.OkhotskBlockHeight,
 		builder.cfg.Genesis.GreenlandBlockHeight,
 		builder.cfg.Genesis.HawaiiBlockHeight,
