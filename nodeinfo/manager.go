@@ -120,7 +120,7 @@ func (dm *InfoManager) Stop(ctx context.Context) error {
 
 // HandleNodeInfo handle node info message
 func (dm *InfoManager) HandleNodeInfo(ctx context.Context, peerID string, msg *iotextypes.NodeInfo) {
-	log.L().Debug("nodeinfo manager handle node info")
+	log.L().Info("nodeinfo manager handle node info", zap.String("peerID", peerID), zap.Any("msg", msg))
 	// recover pubkey
 	hash := hashNodeInfo(msg.Info)
 	pubKey, err := crypto.RecoverPubkey(hash[:], msg.Signature)
@@ -163,11 +163,11 @@ func (dm *InfoManager) GetNodeInfo(addr string) (Info, bool) {
 
 // BroadcastNodeInfo broadcast request node info message
 func (dm *InfoManager) BroadcastNodeInfo(ctx context.Context) error {
-	log.L().Debug("nodeinfo manager broadcast node info")
 	req, err := dm.genNodeInfoMsg()
 	if err != nil {
 		return err
 	}
+	log.L().Info("nodeinfo manager broadcast node info", zap.Any("msg", req))
 	// broadcast request meesage
 	if err := dm.transmitter.BroadcastOutbound(ctx, req); err != nil {
 		return err
@@ -230,7 +230,7 @@ func (dm *InfoManager) updateBroadcastList() {
 	if dm.getBroadcastListFunc != nil {
 		list := dm.getBroadcastListFunc()
 		dm.broadcastList.Store(list)
-		log.L().Debug("nodeinfo manaager updateBroadcastList", zap.Strings("list", list))
+		log.L().Info("nodeinfo manaager updateBroadcastList", zap.Strings("list", list))
 	}
 }
 
