@@ -273,7 +273,7 @@ func (builder *Builder) buildSGDRegistry(forTest bool) error {
 	if forTest {
 		builder.cs.sgdRegistry = nil
 	} else {
-		builder.cs.sgdRegistry = rewarding.NewSGDRegistry()
+		builder.cs.sgdRegistry = blockindex.NewSGDRegistry()
 	}
 	return nil
 }
