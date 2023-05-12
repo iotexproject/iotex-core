@@ -371,7 +371,7 @@ const (
 	// bucket related namespace in db
 	_liquidStakingBucketInfoNS = "lsbInfo"
 	_liquidStakingBucketTypeNS = "lsbType"
-	_liquidStakingHeightNS     = "lsHeight"
+	_liquidStakingNS           = "lsns"
 )
 
 type (
@@ -382,6 +382,8 @@ type (
 		CandidateVotes(ownerAddr string) *big.Int
 		Buckets() ([]*Bucket, error)
 		Bucket(id uint64) (*Bucket, error)
+		BucketsByIndices(indices []uint64) ([]*Bucket, error)
+		TotalBucketCount() uint64
 	}
 
 	// liquidStakingIndexer is the implementation of LiquidStakingIndexer
@@ -404,8 +406,9 @@ type (
 )
 
 var (
-	_liquidStakingInterface abi.ABI
-	_liquidStakingHeightKey = []byte("lsHeight")
+	_liquidStakingInterface           abi.ABI
+	_liquidStakingHeightKey           = []byte("lsHeight")
+	_liquidStakingTotalBucketCountKey = []byte("lsTotalBucketCount")
 
 	errBucketTypeNotExist = errors.New("bucket type does not exist")
 
@@ -528,6 +531,28 @@ func (s *liquidStakingIndexer) Bucket(id uint64) (*Bucket, error) {
 	return vb, nil
 }
 
+// BucketsByIndices returns the buckets by indices
+func (s *liquidStakingIndexer) BucketsByIndices(indices []uint64) ([]*Bucket, error) {
+	vbs := make([]*Bucket, 0, len(indices))
+	for _, id := range indices {
+		bi, ok := s.cache.idBucketMap[id]
+		if !ok {
+			return nil, errors.Wrapf(ErrBucketInfoNotExist, "id %d", id)
+		}
+		bt := s.cache.mustGetBucketType(bi.TypeIndex)
+		vb, err := s.convertToVoteBucket(id, bi, bt)
+		if err != nil {
+			return nil, err
+		}
+		vbs = append(vbs, vb)
+	}
+	return vbs, nil
+}
+
+func (s *liquidStakingIndexer) TotalBucketCount() uint64 {
+	return s.cache.getTotalBucketCount()
+}
+
 func (s *liquidStakingIndexer) handleEvent(ctx context.Context, dirty *liquidStakingDirty, blk *block.Block, act *action.SealedEnvelope, log *action.Log) error {
 	// get event abi
 	abiEvent, err := _liquidStakingInterface.EventByID(common.Hash(log.Topics[0]))
@@ -605,9 +630,12 @@ func (s *liquidStakingIndexer) handleBucketTypeActivatedEvent(dirty *liquidStaki
 	id, ok := dirty.getBucketTypeIndex(amountParam, bt.Duration)
 	if !ok {
 		id = dirty.getBucketTypeCount()
+		err = dirty.addBucketType(id, &bt)
+	} else {
+		err = dirty.updateBucketType(id, &bt)
 	}
-	dirty.putBucketType(id, &bt)
-	return nil
+
+	return err
 }
 
 func (s *liquidStakingIndexer) handleBucketTypeDeactivatedEvent(dirty *liquidStakingDirty, event eventParam) error {
@@ -629,8 +657,7 @@ func (s *liquidStakingIndexer) handleBucketTypeDeactivatedEvent(dirty *liquidSta
 		return errors.Wrapf(errBucketTypeNotExist, "id %d", id)
 	}
 	bt.ActivatedAt = time.Time{}
-	dirty.putBucketType(id, bt)
-	return nil
+	return dirty.updateBucketType(id, bt)
 }
 
 func (s *liquidStakingIndexer) handleStakedEvent(dirty *liquidStakingDirty, event eventParam, timestamp time.Time) error {
@@ -665,8 +692,7 @@ func (s *liquidStakingIndexer) handleStakedEvent(dirty *liquidStakingDirty, even
 		Owner:     dirty.tokenOwner[tokenIDParam.Uint64()],
 		CreatedAt: timestamp,
 	}
-	dirty.putBucketInfo(tokenIDParam.Uint64(), &bucket)
-	return nil
+	return dirty.addBucketInfo(tokenIDParam.Uint64(), &bucket)
 }
 
 func (s *liquidStakingIndexer) handleLockedEvent(dirty *liquidStakingDirty, event eventParam) error {
@@ -693,8 +719,7 @@ func (s *liquidStakingIndexer) handleLockedEvent(dirty *liquidStakingDirty, even
 	}
 	b.TypeIndex = newBtIdx
 	b.UnlockedAt = time.Time{}
-	dirty.putBucketInfo(tokenIDParam.Uint64(), b)
-	return nil
+	return dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
 }
 
 func (s *liquidStakingIndexer) handleUnlockedEvent(dirty *liquidStakingDirty, event eventParam, timestamp time.Time) error {
@@ -708,8 +733,7 @@ func (s *liquidStakingIndexer) handleUnlockedEvent(dirty *liquidStakingDirty, ev
 		return errors.Wrapf(ErrBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
 	}
 	b.UnlockedAt = timestamp
-	dirty.putBucketInfo(tokenIDParam.Uint64(), b)
-	return nil
+	return dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
 }
 
 func (s *liquidStakingIndexer) handleUnstakedEvent(dirty *liquidStakingDirty, event eventParam, timestamp time.Time) error {
@@ -723,8 +747,7 @@ func (s *liquidStakingIndexer) handleUnstakedEvent(dirty *liquidStakingDirty, ev
 		return errors.Wrapf(ErrBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
 	}
 	b.UnstakedAt = timestamp
-	dirty.putBucketInfo(tokenIDParam.Uint64(), b)
-	return nil
+	return dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
 }
 
 func (s *liquidStakingIndexer) handleMergedEvent(dirty *liquidStakingDirty, event eventParam) error {
@@ -753,10 +776,11 @@ func (s *liquidStakingIndexer) handleMergedEvent(dirty *liquidStakingDirty, even
 	b.TypeIndex = btIdx
 	b.UnlockedAt = time.Time{}
 	for i := 1; i < len(tokenIDsParam); i++ {
-		dirty.burnBucket(tokenIDsParam[i].Uint64())
+		if err = dirty.burnBucket(tokenIDsParam[i].Uint64()); err != nil {
+			return err
+		}
 	}
-	dirty.putBucketInfo(tokenIDsParam[0].Uint64(), b)
-	return nil
+	return dirty.updateBucketInfo(tokenIDsParam[0].Uint64(), b)
 }
 
 func (s *liquidStakingIndexer) handleDurationExtendedEvent(dirty *liquidStakingDirty, event eventParam) error {
@@ -782,8 +806,7 @@ func (s *liquidStakingIndexer) handleDurationExtendedEvent(dirty *liquidStakingD
 		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", bt.Amount.Int64(), durationParam.Uint64())
 	}
 	b.TypeIndex = newBtIdx
-	dirty.putBucketInfo(tokenIDParam.Uint64(), b)
-	return nil
+	return dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
 }
 
 func (s *liquidStakingIndexer) handleAmountIncreasedEvent(dirty *liquidStakingDirty, event eventParam) error {
@@ -809,8 +832,7 @@ func (s *liquidStakingIndexer) handleAmountIncreasedEvent(dirty *liquidStakingDi
 		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), bt.Duration)
 	}
 	b.TypeIndex = newBtIdx
-	dirty.putBucketInfo(tokenIDParam.Uint64(), b)
-	return nil
+	return dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
 }
 
 func (s *liquidStakingIndexer) handleDelegateChangedEvent(dirty *liquidStakingDirty, event eventParam) error {
@@ -832,8 +854,7 @@ func (s *liquidStakingIndexer) handleDelegateChangedEvent(dirty *liquidStakingDi
 		return errors.Wrapf(err, "get owner of candidate %s", delegateParam)
 	}
 	b.Delegate = delegateOwner.String()
-	dirty.putBucketInfo(tokenIDParam.Uint64(), b)
-	return nil
+	return dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
 }
 
 func (s *liquidStakingIndexer) handleWithdrawalEvent(dirty *liquidStakingDirty, event eventParam) error {
@@ -842,15 +863,14 @@ func (s *liquidStakingIndexer) handleWithdrawalEvent(dirty *liquidStakingDirty, 
 		return err
 	}
 
-	dirty.burnBucket(tokenIDParam.Uint64())
-	return nil
+	return dirty.burnBucket(tokenIDParam.Uint64())
 }
 
 func (s *liquidStakingIndexer) loadCache() error {
 	delta := newLiquidStakingDelta()
 	// load height
 	var height uint64
-	h, err := s.kvstore.Get(_liquidStakingHeightNS, _liquidStakingHeightKey)
+	h, err := s.kvstore.Get(_liquidStakingNS, _liquidStakingHeightKey)
 	if err != nil {
 		if !errors.Is(err, db.ErrNotExist) {
 			return err
@@ -861,6 +881,18 @@ func (s *liquidStakingIndexer) loadCache() error {
 
 	}
 	delta.putHeight(height)
+
+	// load total bucket count
+	var totalBucketCount uint64
+	tbc, err := s.kvstore.Get(_liquidStakingNS, _liquidStakingTotalBucketCountKey)
+	if err != nil {
+		if !errors.Is(err, db.ErrNotExist) {
+			return err
+		}
+	} else {
+		totalBucketCount = byteutil.BytesToUint64BigEndian(tbc)
+	}
+	delta.putTotalBucketCount(totalBucketCount)
 
 	// load bucket info
 	ks, vs, err := s.kvstore.Filter(_liquidStakingBucketInfoNS, func(k, v []byte) bool { return true }, nil, nil)
@@ -895,10 +927,11 @@ func (s *liquidStakingIndexer) loadCache() error {
 }
 
 func (s *liquidStakingIndexer) commit(dirty *liquidStakingDirty) error {
-	if err := s.kvstore.WriteBatch(dirty.batch); err != nil {
+	batch, delta := dirty.finalize()
+	if err := s.kvstore.WriteBatch(batch); err != nil {
 		return err
 	}
-	if err := s.cache.merge(dirty.delta); err != nil {
+	if err := s.cache.merge(delta); err != nil {
 		return err
 	}
 	return nil

@@ -1386,6 +1386,7 @@ func TestLiquidStaking(t *testing.T) {
 		r.EqualValues(blk.Timestamp().UTC().Unix(), bt.StakeStartTime.Unix())
 		r.True(bt.UnstakeStartTime.IsZero())
 		r.EqualValues(10, indexer.CandidateVotes(identityset.Address(delegateIdx).String()).Int64())
+		r.EqualValues(1, indexer.TotalBucketCount())
 
 		t.Run("unlock", func(t *testing.T) {
 			data, err = lsdABI.Pack("unlock0", big.NewInt(int64(bt.Index)))
@@ -1406,6 +1407,7 @@ func TestLiquidStaking(t *testing.T) {
 			r.NoError(err)
 			r.EqualValues(blk.Timestamp().UTC().Unix(), bt.StakeStartTime.Unix())
 			r.EqualValues(10, indexer.CandidateVotes(identityset.Address(delegateIdx).String()).Int64())
+			r.EqualValues(1, indexer.TotalBucketCount())
 
 			t.Run("unstake", func(t *testing.T) {
 				jumpBlocks(bc, 10, r)
@@ -1427,6 +1429,7 @@ func TestLiquidStaking(t *testing.T) {
 				r.NoError(err)
 				r.EqualValues(blk.Timestamp().UTC().Unix(), bt.UnstakeStartTime.Unix())
 				r.EqualValues(0, indexer.CandidateVotes(identityset.Address(delegateIdx).String()).Int64())
+				r.EqualValues(1, indexer.TotalBucketCount())
 
 				t.Run("withdraw", func(t *testing.T) {
 					// freeze blocks are changed to 10 in test
@@ -1450,6 +1453,7 @@ func TestLiquidStaking(t *testing.T) {
 					r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 					bt, err = indexer.Bucket(uint64(tokenID))
 					r.ErrorIs(err, blockindex.ErrBucketInfoNotExist)
+					r.EqualValues(1, indexer.TotalBucketCount())
 				})
 			})
 		})

@@ -17,6 +17,7 @@ type (
 		idBucketTypeMap       map[uint64]*BucketType     // map[token]BucketType
 		propertyBucketTypeMap map[int64]map[int64]uint64 // map[amount][duration]index
 		height                uint64
+		totalBucketCount      uint64 // total number of buckets including burned buckets
 	}
 )
 
@@ -95,6 +96,14 @@ func (s *liquidStakingCache) getBucketInfo(id uint64) (*BucketInfo, bool) {
 	return bi, ok
 }
 
+func (s *liquidStakingCache) mustGetBucketInfo(id uint64) *BucketInfo {
+	bt, ok := s.idBucketMap[id]
+	if !ok {
+		panic("bucket info not found")
+	}
+	return bt
+}
+
 func (s *liquidStakingCache) getCandidateVotes(ownerAddr string) *big.Int {
 	votes := big.NewInt(0)
 	m, ok := s.candidateBucketMap[ownerAddr]
@@ -116,4 +125,12 @@ func (s *liquidStakingCache) getCandidateVotes(ownerAddr string) *big.Int {
 		votes.Add(votes, bt.Amount)
 	}
 	return votes
+}
+
+func (s *liquidStakingCache) putTotalBucketCount(count uint64) {
+	s.totalBucketCount = count
+}
+
+func (s *liquidStakingCache) getTotalBucketCount() uint64 {
+	return s.totalBucketCount
 }
