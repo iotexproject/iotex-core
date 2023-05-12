@@ -254,6 +254,9 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.bfIndexer != nil {
 		indexers = append(indexers, builder.cs.bfIndexer)
 	}
+	if builder.cs.sgdIndexer != nil {
+		indexers = append(indexers, builder.cs.sgdIndexer)
+	}
 	if forTest {
 		builder.cs.blockdao = blockdao.NewBlockDAOInMemForTest(indexers)
 	} else {
@@ -267,13 +270,13 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 }
 
 func (builder *Builder) buildSGDRegistry(forTest bool) error {
-	if builder.cs.sgdRegistry != nil {
+	if builder.cs.sgdIndexer != nil {
 		return nil
 	}
 	if forTest {
-		builder.cs.sgdRegistry = nil
+		builder.cs.sgdIndexer = nil
 	} else {
-		builder.cs.sgdRegistry = blockindex.NewSGDRegistry()
+		builder.cs.sgdIndexer = blockindex.NewSGDRegistry()
 	}
 	return nil
 }
@@ -518,7 +521,7 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGasWithSGD, builder.cs.sgdRegistry).Register(builder.cs.registry)
+	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGasWithSGD, builder.cs.sgdIndexer).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
