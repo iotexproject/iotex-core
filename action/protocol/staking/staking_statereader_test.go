@@ -407,6 +407,6 @@ func TestStakingStateReader(t *testing.T) {
 		total, height, err := stakeSR.readStateTotalStakingAmount(ctx, req)
 		r.NoError(err)
 		r.EqualValues(1, height)
-		r.EqualValues("10", total.Balance)
+		r.EqualValues("210", total.Balance)
 	})
 }

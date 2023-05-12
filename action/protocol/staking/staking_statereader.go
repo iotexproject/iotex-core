@@ -237,8 +237,27 @@ func (c *compositeStakingStateReader) readStateCandidateByAddress(ctx context.Co
 }
 
 func (c *compositeStakingStateReader) readStateTotalStakingAmount(ctx context.Context, _ *iotexapi.ReadStakingDataRequest_TotalStakingAmount) (*iotextypes.AccountMeta, uint64, error) {
-	// TODO (iip-13): combine native and liquid staking buckets
-	return c.nativeSR.readStateTotalStakingAmount(ctx, nil)
+	// read native total staking amount
+	accountMeta, height, err := c.nativeSR.readStateTotalStakingAmount(ctx, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+	amount, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
+	if !ok {
+		return nil, 0, errors.Errorf("invalid balance %s", accountMeta.Balance)
+	}
+
+	// add liquid staking amount
+	buckets, err := c.liquidIndexer.Buckets()
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, bucket := range buckets {
+		amount.Add(amount, bucket.StakedAmount)
+	}
+
+	accountMeta.Balance = amount.String()
+	return accountMeta, height, nil
 }
 
 func addLSDVotes(candidate *iotextypes.CandidateV2, liquidSR LiquidStakingIndexer) error {
