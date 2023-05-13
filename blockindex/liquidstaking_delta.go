@@ -51,10 +51,10 @@ var (
 
 func (s deltaState) transfer(act deltaAction) (deltaState, error) {
 	if _, ok := deltaStateTransferMap[s]; !ok {
-		return s, errors.New("invalid delta state")
+		return s, errors.Errorf("invalid delta state %d", s)
 	}
 	if _, ok := deltaStateTransferMap[s][act]; !ok {
-		return s, errors.New("invalid delta action")
+		return s, errors.Errorf("invalid delta action %d on state %d", act, s)
 	}
 	return deltaStateTransferMap[s][act], nil
 }
