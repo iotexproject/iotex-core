@@ -398,8 +398,8 @@ type (
 	//      dirty: the cache to update during event processing, will be merged to clean cache after all events are processed. If errors occur during event processing, dirty cache will be discarded.
 	// TODO (iip-13): make it concurrent safe
 	liquidStakingIndexer struct {
-		kvstore             db.KVStore                // persistent storage
-		cache               liquidStakingCacheManager // in-memory index for clean data
+		kvstore             db.KVStore                      // persistent storage
+		cache               *liquidStakingCacheThreadSafety // in-memory index for clean data
 		blockInterval       time.Duration
 		candNameToOwnerFunc candNameToOwnerFunc
 	}
@@ -453,9 +453,12 @@ func (s *liquidStakingIndexer) Stop(ctx context.Context) error {
 
 // PutBlock puts a block into indexer
 func (s *liquidStakingIndexer) PutBlock(ctx context.Context, blk *block.Block) error {
-	// new dirty cache
-	dirty := newLiquidStakingDirty(s.cache)
+	// new dirty cache for this block
+	// it's not necessary to use thread safe cache here, because only one thread will call this function
+	// and no update to cache will happen before dirty merge to clean
+	dirty := newLiquidStakingDirty(s.cache.cache)
 	dirty.putHeight(blk.Height())
+
 	// make action map
 	actionMap := make(map[hash.Hash256]*action.SealedEnvelope)
 	for i := range blk.Actions {

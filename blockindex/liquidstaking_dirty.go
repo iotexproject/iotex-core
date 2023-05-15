@@ -38,24 +38,6 @@ func newLiquidStakingDirty(clean liquidStakingCacheReader) *liquidStakingDirty {
 	}
 }
 
-func (s *liquidStakingCache) merge(delta *liquidStakingDelta) error {
-	for id, state := range delta.bucketTypeDeltaState {
-		if state == deltaStateAdded || state == deltaStateModified {
-			s.putBucketType(id, delta.mustGetBucketType(id))
-		}
-	}
-	for id, state := range delta.bucketInfoDeltaState {
-		if state == deltaStateAdded || state == deltaStateModified {
-			s.putBucketInfo(id, delta.mustGetBucketInfo(id))
-		} else if state == deltaStateRemoved {
-			s.deleteBucketInfo(id)
-		}
-	}
-	s.putHeight(delta.getHeight())
-	s.putTotalBucketCount(s.getTotalBucketCount() + delta.addedBucketCnt())
-	return nil
-}
-
 func (s *liquidStakingDirty) putHeight(h uint64) {
 	s.batch.Put(_liquidStakingNS, _liquidStakingHeightKey, byteutil.Uint64ToBytesBigEndian(h), "failed to put height")
 	s.delta.putHeight(h)

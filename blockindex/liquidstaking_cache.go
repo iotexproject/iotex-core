@@ -7,6 +7,7 @@ package blockindex
 
 import (
 	"math/big"
+	"sync"
 	"time"
 )
 
@@ -46,15 +47,21 @@ type (
 		height                uint64
 		totalBucketCount      uint64 // total number of buckets including burned buckets
 	}
+
+	liquidStakingCacheThreadSafety struct {
+		cache liquidStakingCacheManager
+		mutex sync.RWMutex
+	}
 )
 
-func newLiquidStakingCache() liquidStakingCacheManager {
-	return &liquidStakingCache{
+func newLiquidStakingCache() *liquidStakingCacheThreadSafety {
+	cache := &liquidStakingCache{
 		idBucketMap:           make(map[uint64]*BucketInfo),
 		idBucketTypeMap:       make(map[uint64]*BucketType),
 		propertyBucketTypeMap: make(map[int64]map[int64]uint64),
 		candidateBucketMap:    make(map[string]map[uint64]bool),
 	}
+	return &liquidStakingCacheThreadSafety{cache: cache}
 }
 
 func (s *liquidStakingCache) putHeight(h uint64) {
@@ -172,4 +179,133 @@ func (s *liquidStakingCache) getAllBucketInfo() map[uint64]*BucketInfo {
 		m[k] = v
 	}
 	return m
+}
+
+func (s *liquidStakingCache) merge(delta *liquidStakingDelta) error {
+	for id, state := range delta.bucketTypeDeltaState {
+		if state == deltaStateAdded || state == deltaStateModified {
+			s.putBucketType(id, delta.mustGetBucketType(id))
+		}
+	}
+	for id, state := range delta.bucketInfoDeltaState {
+		if state == deltaStateAdded || state == deltaStateModified {
+			s.putBucketInfo(id, delta.mustGetBucketInfo(id))
+		} else if state == deltaStateRemoved {
+			s.deleteBucketInfo(id)
+		}
+	}
+	s.putHeight(delta.getHeight())
+	s.putTotalBucketCount(s.getTotalBucketCount() + delta.addedBucketCnt())
+	return nil
+}
+
+func (s *liquidStakingCacheThreadSafety) putHeight(h uint64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.cache.putHeight(h)
+}
+
+func (s *liquidStakingCacheThreadSafety) getHeight() uint64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.cache.getHeight()
+}
+
+func (s *liquidStakingCacheThreadSafety) putBucketType(id uint64, bt *BucketType) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.cache.putBucketType(id, bt)
+}
+
+func (s *liquidStakingCacheThreadSafety) putBucketInfo(id uint64, bi *BucketInfo) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.cache.putBucketInfo(id, bi)
+}
+
+func (s *liquidStakingCacheThreadSafety) deleteBucketInfo(id uint64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.cache.deleteBucketInfo(id)
+}
+
+func (s *liquidStakingCacheThreadSafety) getBucketTypeIndex(amount *big.Int, duration time.Duration) (uint64, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.cache.getBucketTypeIndex(amount, duration)
+}
+
+func (s *liquidStakingCacheThreadSafety) getBucketType(id uint64) (*BucketType, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.cache.getBucketType(id)
+}
+
+func (s *liquidStakingCacheThreadSafety) mustGetBucketType(id uint64) *BucketType {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.cache.mustGetBucketType(id)
+}
+
+func (s *liquidStakingCacheThreadSafety) getBucketInfo(id uint64) (*BucketInfo, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.cache.getBucketInfo(id)
+}
+
+func (s *liquidStakingCacheThreadSafety) mustGetBucketInfo(id uint64) *BucketInfo {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.cache.mustGetBucketInfo(id)
+}
+
+func (s *liquidStakingCacheThreadSafety) getCandidateVotes(ownerAddr string) *big.Int {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.cache.getCandidateVotes(ownerAddr)
+}
+
+func (s *liquidStakingCacheThreadSafety) putTotalBucketCount(count uint64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.cache.putTotalBucketCount(count)
+}
+
+func (s *liquidStakingCacheThreadSafety) getTotalBucketCount() uint64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.cache.getTotalBucketCount()
+}
+
+func (s *liquidStakingCacheThreadSafety) getTotalBucketTypeCount() uint64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.cache.getTotalBucketTypeCount()
+}
+
+func (s *liquidStakingCacheThreadSafety) getAllBucketInfo() map[uint64]*BucketInfo {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.cache.getAllBucketInfo()
+}
+
+func (s *liquidStakingCacheThreadSafety) merge(delta *liquidStakingDelta) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return s.cache.merge(delta)
 }
