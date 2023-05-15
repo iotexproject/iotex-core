@@ -1093,6 +1093,9 @@ func TestIstanbulEVM(t *testing.T) {
 		// staticcall -> staticcall -> revrt twice
 		NewSmartContractTest(t, "testdata-istanbul/write-protection-010.json")
 	})
+	t.Run("iip15-manager test", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/iip15-manager.json")
+	})
 }
 
 func TestLondonEVM(t *testing.T) {
