@@ -8,7 +8,7 @@
 
 syntax = "proto3";
 package stakingpb;
-
+option go_package = "github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb";
 import "google/protobuf/timestamp.proto";
 
 message Bucket {
@@ -21,6 +21,7 @@ message Bucket {
   google.protobuf.Timestamp unstakeStartTime = 7;
   bool autoStake = 8;
   string owner = 9;
+  string contractAddress = 10;
 }
 
 message BucketIndices {

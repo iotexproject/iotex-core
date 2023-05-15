@@ -154,3 +154,9 @@ mockgen -destination=./test/mock/mock_nodeinfo/mock_manager.go  \
         -package=mock_nodeinfo \
         transmitter chain
 
+mkdir -p ./action/protocol/staking
+mockgen -destination=./action/protocol/staking/liquidstake_indexer_mock.go  \
+        -source=./action/protocol/staking/liquidstake_indexer.go \
+        -package=staking \
+        LiquidStakingIndexer
+

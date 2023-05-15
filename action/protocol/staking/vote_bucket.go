@@ -34,6 +34,7 @@ type (
 		StakeStartTime   time.Time
 		UnstakeStartTime time.Time
 		AutoStake        bool
+		ContractAddress  string // Corresponding contract address; Empty if it's native staking
 	}
 
 	// totalBucketCount stores the total bucket count
@@ -109,6 +110,7 @@ func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
 	vb.StakeStartTime = stakeTime
 	vb.UnstakeStartTime = unstakeTime
 	vb.AutoStake = pb.GetAutoStake()
+	vb.ContractAddress = pb.GetContractAddress()
 	return nil
 }
 
@@ -130,6 +132,7 @@ func (vb *VoteBucket) toProto() (*stakingpb.Bucket, error) {
 		StakeStartTime:   stakeTime,
 		UnstakeStartTime: unstakeTime,
 		AutoStake:        vb.AutoStake,
+		ContractAddress:  vb.ContractAddress,
 	}, nil
 }
 
@@ -148,6 +151,7 @@ func (vb *VoteBucket) toIoTeXTypes() (*iotextypes.VoteBucket, error) {
 		StakeStartTime:   stakeTime,
 		UnstakeStartTime: unstakeTime,
 		AutoStake:        vb.AutoStake,
+		ContractAddress:  vb.ContractAddress,
 	}, nil
 }
 
