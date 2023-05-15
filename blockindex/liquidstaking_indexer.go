@@ -396,7 +396,6 @@ type (
 	// 		kvstore: persistent storage, used to initialize index cache at startup
 	// 		cache: in-memory index for clean data, used to query index data
 	//      dirty: the cache to update during event processing, will be merged to clean cache after all events are processed. If errors occur during event processing, dirty cache will be discarded.
-	// TODO (iip-13): make it concurrent safe
 	liquidStakingIndexer struct {
 		kvstore             db.KVStore                      // persistent storage
 		cache               *liquidStakingCacheThreadSafety // in-memory index for clean data
