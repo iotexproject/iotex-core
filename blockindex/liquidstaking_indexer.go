@@ -398,8 +398,8 @@ type (
 	//      dirty: the cache to update during event processing, will be merged to clean cache after all events are processed. If errors occur during event processing, dirty cache will be discarded.
 	// TODO (iip-13): make it concurrent safe
 	liquidStakingIndexer struct {
-		kvstore             db.KVStore          // persistent storage
-		cache               *liquidStakingCache // in-memory index for clean data
+		kvstore             db.KVStore                // persistent storage
+		cache               liquidStakingCacheManager // in-memory index for clean data
 		blockInterval       time.Duration
 		candNameToOwnerFunc candNameToOwnerFunc
 	}
@@ -507,7 +507,7 @@ func (s *liquidStakingIndexer) CandidateVotes(ownerAddr string) *big.Int {
 // Buckets returns the buckets
 func (s *liquidStakingIndexer) Buckets() ([]*Bucket, error) {
 	vbs := []*Bucket{}
-	for id, bi := range s.cache.idBucketMap {
+	for id, bi := range s.cache.getAllBucketInfo() {
 		bt := s.cache.mustGetBucketType(bi.TypeIndex)
 		vb, err := s.convertToVoteBucket(id, bi, bt)
 		if err != nil {
@@ -520,7 +520,7 @@ func (s *liquidStakingIndexer) Buckets() ([]*Bucket, error) {
 
 // Bucket returns the bucket
 func (s *liquidStakingIndexer) Bucket(id uint64) (*Bucket, error) {
-	bi, ok := s.cache.idBucketMap[id]
+	bi, ok := s.cache.getBucketInfo(id)
 	if !ok {
 		return nil, errors.Wrapf(ErrBucketInfoNotExist, "id %d", id)
 	}
@@ -536,7 +536,7 @@ func (s *liquidStakingIndexer) Bucket(id uint64) (*Bucket, error) {
 func (s *liquidStakingIndexer) BucketsByIndices(indices []uint64) ([]*Bucket, error) {
 	vbs := make([]*Bucket, 0, len(indices))
 	for _, id := range indices {
-		bi, ok := s.cache.idBucketMap[id]
+		bi, ok := s.cache.getBucketInfo(id)
 		if !ok {
 			return nil, errors.Wrapf(ErrBucketInfoNotExist, "id %d", id)
 		}

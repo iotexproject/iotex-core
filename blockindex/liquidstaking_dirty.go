@@ -21,15 +21,15 @@ type (
 	// 2. get up-to-date bucket
 	// 3. store delta to merge to clean cache
 	liquidStakingDirty struct {
-		clean      *liquidStakingCache // clean cache to get buckets of last block
-		delta      *liquidStakingDelta // delta for cache to store buckets of current block
-		batch      batch.KVStoreBatch  // batch for db to store buckets of current block
+		clean      liquidStakingCacheReader // clean cache to get buckets of last block
+		delta      *liquidStakingDelta      // delta for cache to store buckets of current block
+		batch      batch.KVStoreBatch       // batch for db to store buckets of current block
 		tokenOwner map[uint64]string
 		once       sync.Once
 	}
 )
 
-func newLiquidStakingDirty(clean *liquidStakingCache) *liquidStakingDirty {
+func newLiquidStakingDirty(clean liquidStakingCacheReader) *liquidStakingDirty {
 	return &liquidStakingDirty{
 		clean:      clean,
 		delta:      newLiquidStakingDelta(),
@@ -96,17 +96,7 @@ func (s *liquidStakingDirty) getBucketTypeIndex(amount *big.Int, duration time.D
 }
 
 func (s *liquidStakingDirty) getBucketTypeCount() uint64 {
-	base := len(s.clean.idBucketTypeMap)
-	add := 0
-	for k, dbt := range s.delta.idBucketTypeMap {
-		_, ok := s.clean.idBucketTypeMap[k]
-		if dbt != nil && !ok {
-			add++
-		} else if dbt == nil && ok {
-			add--
-		}
-	}
-	return uint64(base + add)
+	return s.clean.getTotalBucketTypeCount() + s.delta.addedBucketTypeCnt()
 }
 
 func (s *liquidStakingDirty) getBucketType(id uint64) (*BucketType, bool) {

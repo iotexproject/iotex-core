@@ -23,7 +23,7 @@ type (
 	deltaAction int
 
 	liquidStakingDelta struct {
-		*liquidStakingCache // easy to query buckets
+		liquidStakingCacheManager // easy to query buckets
 
 		bucketTypeDeltaState map[uint64]deltaState
 		bucketInfoDeltaState map[uint64]deltaState
@@ -61,9 +61,9 @@ func (s deltaState) transfer(act deltaAction) (deltaState, error) {
 
 func newLiquidStakingDelta() *liquidStakingDelta {
 	return &liquidStakingDelta{
-		liquidStakingCache:   newLiquidStakingCache(),
-		bucketTypeDeltaState: make(map[uint64]deltaState),
-		bucketInfoDeltaState: make(map[uint64]deltaState),
+		liquidStakingCacheManager: newLiquidStakingCache(),
+		bucketTypeDeltaState:      make(map[uint64]deltaState),
+		bucketInfoDeltaState:      make(map[uint64]deltaState),
 	}
 }
 
@@ -77,7 +77,7 @@ func (s *liquidStakingDelta) addBucketType(id uint64, bt *BucketType) error {
 			return err
 		}
 	}
-	s.liquidStakingCache.putBucketType(id, bt)
+	s.liquidStakingCacheManager.putBucketType(id, bt)
 	return nil
 }
 
@@ -91,7 +91,7 @@ func (s *liquidStakingDelta) updateBucketType(id uint64, bt *BucketType) error {
 			return err
 		}
 	}
-	s.liquidStakingCache.putBucketType(id, bt)
+	s.liquidStakingCacheManager.putBucketType(id, bt)
 	return nil
 }
 
@@ -105,7 +105,7 @@ func (s *liquidStakingDelta) addBucketInfo(id uint64, bi *BucketInfo) error {
 			return err
 		}
 	}
-	s.liquidStakingCache.putBucketInfo(id, bi)
+	s.liquidStakingCacheManager.putBucketInfo(id, bi)
 	return nil
 }
 
@@ -119,7 +119,7 @@ func (s *liquidStakingDelta) updateBucketInfo(id uint64, bi *BucketInfo) error {
 			return err
 		}
 	}
-	s.liquidStakingCache.putBucketInfo(id, bi)
+	s.liquidStakingCacheManager.putBucketInfo(id, bi)
 	return nil
 }
 
@@ -133,7 +133,7 @@ func (s *liquidStakingDelta) deleteBucketInfo(id uint64) error {
 			return err
 		}
 	}
-	s.liquidStakingCache.deleteBucketInfo(id)
+	s.liquidStakingCacheManager.deleteBucketInfo(id)
 	return nil
 }
 
@@ -145,6 +145,16 @@ func (s *liquidStakingDelta) addedBucketCnt() uint64 {
 		}
 	}
 	return addedBucketCnt
+}
+
+func (s *liquidStakingDelta) addedBucketTypeCnt() uint64 {
+	cnt := uint64(0)
+	for _, state := range s.bucketTypeDeltaState {
+		if state == deltaStateAdded {
+			cnt++
+		}
+	}
+	return cnt
 }
 
 func (s *liquidStakingDelta) isBucketDeleted(id uint64) bool {

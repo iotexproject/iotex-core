@@ -11,6 +11,33 @@ import (
 )
 
 type (
+	// liquidStakingCacheReader is the interface to read liquid staking cache
+	// it serves the purpose of preventing modifications to it.
+	liquidStakingCacheReader interface {
+		getHeight() uint64
+		getTotalBucketCount() uint64
+		getTotalBucketTypeCount() uint64
+		getBucketTypeIndex(amount *big.Int, duration time.Duration) (uint64, bool)
+		getBucketType(id uint64) (*BucketType, bool)
+		getBucketInfo(id uint64) (*BucketInfo, bool)
+		mustGetBucketType(id uint64) *BucketType
+		mustGetBucketInfo(id uint64) *BucketInfo
+		getAllBucketInfo() map[uint64]*BucketInfo
+		getCandidateVotes(ownerAddr string) *big.Int
+	}
+
+	// liquidStakingCacheManager is the interface to manage liquid staking cache
+	// it's used to hide internal data, ensuring thread safety when used within the package
+	liquidStakingCacheManager interface {
+		liquidStakingCacheReader
+		merge(delta *liquidStakingDelta) error
+		putHeight(h uint64)
+		putTotalBucketCount(cnt uint64)
+		putBucketType(id uint64, bt *BucketType)
+		putBucketInfo(id uint64, bi *BucketInfo)
+		deleteBucketInfo(id uint64)
+	}
+
 	liquidStakingCache struct {
 		idBucketMap           map[uint64]*BucketInfo     // map[token]BucketInfo
 		candidateBucketMap    map[string]map[uint64]bool // map[candidate]bucket
@@ -21,7 +48,7 @@ type (
 	}
 )
 
-func newLiquidStakingCache() *liquidStakingCache {
+func newLiquidStakingCache() liquidStakingCacheManager {
 	return &liquidStakingCache{
 		idBucketMap:           make(map[uint64]*BucketInfo),
 		idBucketTypeMap:       make(map[uint64]*BucketType),
@@ -133,4 +160,16 @@ func (s *liquidStakingCache) putTotalBucketCount(count uint64) {
 
 func (s *liquidStakingCache) getTotalBucketCount() uint64 {
 	return s.totalBucketCount
+}
+
+func (s *liquidStakingCache) getTotalBucketTypeCount() uint64 {
+	return uint64(len(s.idBucketTypeMap))
+}
+
+func (s *liquidStakingCache) getAllBucketInfo() map[uint64]*BucketInfo {
+	m := make(map[uint64]*BucketInfo)
+	for k, v := range s.idBucketMap {
+		m[k] = v
+	}
+	return m
 }
