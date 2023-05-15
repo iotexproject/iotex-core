@@ -247,7 +247,7 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 
 	var indexers []blockdao.BlockIndexer
-	indexers = append(indexers, builder.cs.factory)
+	indexers = append(indexers, builder.cs.factory, builder.cs.liquidStakingIndexer)
 	if !builder.cfg.Chain.EnableAsyncIndexWrite && builder.cs.indexer != nil {
 		indexers = append(indexers, builder.cs.indexer)
 	}
@@ -263,6 +263,29 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		builder.cs.blockdao = blockdao.NewBlockDAO(indexers, dbConfig, deser)
 	}
 
+	return nil
+}
+
+func (builder *Builder) buildLiquidStakingIndexer(forTest bool) error {
+	sf := builder.cs.factory
+	candNameToOwner := func(name string) (address.Address, error) {
+		sr, err := staking.ConstructBaseView(sf)
+		if err != nil {
+			return nil, err
+		}
+		cand := sr.GetCandidateByName(name)
+		if cand == nil {
+			return nil, errors.Errorf("candidate %s not found", name)
+		}
+		return cand.Owner, nil
+	}
+	if forTest {
+		builder.cs.liquidStakingIndexer = blockindex.NewLiquidStakingIndexer(db.NewMemKVStore(), builder.cfg.Genesis.BlockInterval, candNameToOwner)
+	} else {
+		dbConfig := builder.cfg.DB
+		dbConfig.DbPath = builder.cfg.Chain.LiquidStakingIndexDBPath
+		builder.cs.liquidStakingIndexer = blockindex.NewLiquidStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.BlockInterval, candNameToOwner)
+	}
 	return nil
 }
 
@@ -473,9 +496,6 @@ func (builder *Builder) registerStakingProtocol() error {
 		return nil
 	}
 
-	// TODO (iip-13): use a real liquid indexer instead
-	liquidIndexer := staking.NewEmptyLiquidStakingIndexer()
-
 	stakingProtocol, err := staking.NewProtocol(
 		rewarding.DepositGas,
 		&staking.BuilderConfig{
@@ -484,7 +504,7 @@ func (builder *Builder) registerStakingProtocol() error {
 			StakingPatchDir:          builder.cfg.Chain.StakingPatchDir,
 		},
 		builder.cs.candBucketsIndexer,
-		liquidIndexer,
+		builder.cs.liquidStakingIndexer,
 		builder.cfg.Genesis.OkhotskBlockHeight,
 		builder.cfg.Genesis.GreenlandBlockHeight,
 		builder.cfg.Genesis.HawaiiBlockHeight,
@@ -623,6 +643,9 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildGatewayComponents(forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildLiquidStakingIndexer(forTest); err != nil {
 		return nil, err
 	}
 	if err := builder.buildBlockDAO(forTest); err != nil {
