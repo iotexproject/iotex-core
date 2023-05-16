@@ -3,6 +3,7 @@ package e2etest
 import (
 	"context"
 	"encoding/hex"
+	"math"
 	"math/big"
 	"strings"
 	"testing"
@@ -1378,10 +1379,10 @@ func TestLiquidStaking(t *testing.T) {
 		r.Equal(identityset.Address(delegateIdx).String(), bt.Candidate.String())
 		r.EqualValues(identityset.PrivateKey(adminID).PublicKey().Address().String(), bt.Owner.String())
 		r.EqualValues(0, bt.StakedAmount.Cmp(big.NewInt(10)))
-		r.EqualValues(10*cfg.Genesis.BlockInterval, bt.StakedDuration)
-		r.EqualValues(blk.Timestamp().Unix(), bt.CreateTime.Unix())
-		r.EqualValues(blk.Timestamp().UTC().Unix(), bt.StakeStartTime.Unix())
-		r.True(bt.UnstakeStartTime.IsZero())
+		r.EqualValues(10, bt.StakedDuration)
+		r.EqualValues(blk.Height(), bt.CreateTime)
+		r.EqualValues(blk.Height(), bt.StakeStartTime)
+		r.True(bt.UnstakeStartTime == math.MaxUint64)
 		r.EqualValues(10, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 		r.EqualValues(1, indexer.TotalBucketCount())
 
@@ -1402,7 +1403,7 @@ func TestLiquidStaking(t *testing.T) {
 			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 			bt, err := indexer.Bucket(uint64(tokenID))
 			r.NoError(err)
-			r.EqualValues(blk.Timestamp().UTC().Unix(), bt.StakeStartTime.Unix())
+			r.EqualValues(blk.Height(), bt.StakeStartTime)
 			r.EqualValues(10, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 			r.EqualValues(1, indexer.TotalBucketCount())
 
@@ -1424,7 +1425,7 @@ func TestLiquidStaking(t *testing.T) {
 				r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 				bt, err := indexer.Bucket(uint64(tokenID))
 				r.NoError(err)
-				r.EqualValues(blk.Timestamp().UTC().Unix(), bt.UnstakeStartTime.Unix())
+				r.EqualValues(blk.Height(), bt.UnstakeStartTime)
 				r.EqualValues(0, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 				r.EqualValues(1, indexer.TotalBucketCount())
 
@@ -1547,7 +1548,7 @@ func TestLiquidStaking(t *testing.T) {
 			if i == 0 {
 				bt, err := indexer.Bucket(uint64(newBuckets[i].Index))
 				r.NoError(err)
-				r.EqualValues(100*cfg.Genesis.BlockInterval, bt.StakedDuration)
+				r.EqualValues(100, bt.StakedDuration)
 			} else {
 				_, err := indexer.Bucket(uint64(newBuckets[i].Index))
 				r.ErrorIs(err, blockindex.ErrBucketInfoNotExist)
@@ -1559,7 +1560,7 @@ func TestLiquidStaking(t *testing.T) {
 		// stake
 		bt := simpleStake(_delegates[3], big.NewInt(10), big.NewInt(10))
 		tokenID := bt.Index
-		r.EqualValues(10*cfg.Genesis.BlockInterval, bt.StakedDuration)
+		r.EqualValues(10, bt.StakedDuration)
 		// extend duration
 		data, err := lsdABI.Pack("extendDuration", big.NewInt(int64(tokenID)), big.NewInt(100))
 		r.NoError(err)
@@ -1576,7 +1577,7 @@ func TestLiquidStaking(t *testing.T) {
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 		bt, err = indexer.Bucket(uint64(tokenID))
 		r.NoError(err)
-		r.EqualValues(100*cfg.Genesis.BlockInterval, bt.StakedDuration)
+		r.EqualValues(100, bt.StakedDuration)
 	})
 
 	t.Run("increase amount", func(t *testing.T) {

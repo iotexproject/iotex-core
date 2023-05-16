@@ -8,19 +8,18 @@
 syntax = "proto3";
 package indexpb;
 option go_package = "github.com/iotexproject/iotex-core/blockindex/indexpb";
-import "google/protobuf/timestamp.proto";
 
 message BucketType {
     string amount = 1;
     uint64 duration = 2;
-    google.protobuf.Timestamp activatedAt = 3;
+    uint64 activatedAt = 3;
 }
 
 message BucketInfo {
     uint64 typeIndex = 1;
-    google.protobuf.Timestamp createdAt = 2;
-    google.protobuf.Timestamp unlockedAt = 3;
-    google.protobuf.Timestamp unstakedAt = 4;
+    uint64 createdAt = 2;
+    uint64 unlockedAt = 3;
+    uint64 unstakedAt = 4;
     string delegate = 5;
     string owner = 6;
 }

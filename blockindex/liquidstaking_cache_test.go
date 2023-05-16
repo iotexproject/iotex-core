@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"sync"
 	"testing"
-	"time"
 )
 
 func TestLiquidStakingCacheThreadSafety(t *testing.T) {
@@ -21,8 +20,8 @@ func TestLiquidStakingCacheThreadSafety(t *testing.T) {
 		for i := 0; i < 1000; i++ {
 			cache.putBucketType(uint64(i), &BucketType{
 				Amount:      big.NewInt(int64(i)),
-				Duration:    time.Hour,
-				ActivatedAt: time.Now(),
+				Duration:    1000,
+				ActivatedAt: 10,
 			})
 		}
 		wait.Done()

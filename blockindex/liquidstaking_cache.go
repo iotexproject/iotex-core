@@ -8,7 +8,6 @@ package blockindex
 import (
 	"math/big"
 	"sync"
-	"time"
 
 	"github.com/iotexproject/iotex-address/address"
 )
@@ -20,7 +19,7 @@ type (
 		getHeight() uint64
 		getTotalBucketCount() uint64
 		getTotalBucketTypeCount() uint64
-		getBucketTypeIndex(amount *big.Int, duration time.Duration) (uint64, bool)
+		getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool)
 		getBucketType(id uint64) (*BucketType, bool)
 		getBucketInfo(id uint64) (*BucketInfo, bool)
 		mustGetBucketType(id uint64) *BucketType
@@ -42,10 +41,10 @@ type (
 	}
 
 	liquidStakingCache struct {
-		idBucketMap           map[uint64]*BucketInfo     // map[token]BucketInfo
-		candidateBucketMap    map[string]map[uint64]bool // map[candidate]bucket
-		idBucketTypeMap       map[uint64]*BucketType     // map[token]BucketType
-		propertyBucketTypeMap map[int64]map[int64]uint64 // map[amount][duration]index
+		idBucketMap           map[uint64]*BucketInfo      // map[token]BucketInfo
+		candidateBucketMap    map[string]map[uint64]bool  // map[candidate]bucket
+		idBucketTypeMap       map[uint64]*BucketType      // map[token]BucketType
+		propertyBucketTypeMap map[int64]map[uint64]uint64 // map[amount][duration]index
 		height                uint64
 		totalBucketCount      uint64 // total number of buckets including burned buckets
 	}
@@ -60,7 +59,7 @@ func newLiquidStakingCache() *liquidStakingCacheThreadSafety {
 	cache := &liquidStakingCache{
 		idBucketMap:           make(map[uint64]*BucketInfo),
 		idBucketTypeMap:       make(map[uint64]*BucketType),
-		propertyBucketTypeMap: make(map[int64]map[int64]uint64),
+		propertyBucketTypeMap: make(map[int64]map[uint64]uint64),
 		candidateBucketMap:    make(map[string]map[uint64]bool),
 	}
 	return &liquidStakingCacheThreadSafety{cache: cache}
@@ -79,10 +78,10 @@ func (s *liquidStakingCache) putBucketType(id uint64, bt *BucketType) {
 	s.idBucketTypeMap[id] = bt
 	m, ok := s.propertyBucketTypeMap[amount]
 	if !ok {
-		s.propertyBucketTypeMap[amount] = make(map[int64]uint64)
+		s.propertyBucketTypeMap[amount] = make(map[uint64]uint64)
 		m = s.propertyBucketTypeMap[amount]
 	}
-	m[int64(bt.Duration)] = id
+	m[bt.Duration] = id
 }
 
 func (s *liquidStakingCache) putBucketInfo(id uint64, bi *BucketInfo) {
@@ -105,12 +104,12 @@ func (s *liquidStakingCache) deleteBucketInfo(id uint64) {
 	delete(s.candidateBucketMap[bi.Delegate.String()], id)
 }
 
-func (s *liquidStakingCache) getBucketTypeIndex(amount *big.Int, duration time.Duration) (uint64, bool) {
+func (s *liquidStakingCache) getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool) {
 	m, ok := s.propertyBucketTypeMap[amount.Int64()]
 	if !ok {
 		return 0, false
 	}
-	id, ok := m[int64(duration)]
+	id, ok := m[duration]
 	return id, ok
 }
 
@@ -154,7 +153,7 @@ func (s *liquidStakingCache) getCandidateVotes(candidate address.Address) *big.I
 		if !ok {
 			continue
 		}
-		if !bi.UnstakedAt.IsZero() {
+		if bi.UnstakedAt != maxBlockNumber {
 			continue
 		}
 		bt := s.mustGetBucketType(bi.TypeIndex)
@@ -235,7 +234,7 @@ func (s *liquidStakingCacheThreadSafety) deleteBucketInfo(id uint64) {
 	s.cache.deleteBucketInfo(id)
 }
 
-func (s *liquidStakingCacheThreadSafety) getBucketTypeIndex(amount *big.Int, duration time.Duration) (uint64, bool) {
+func (s *liquidStakingCacheThreadSafety) getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 

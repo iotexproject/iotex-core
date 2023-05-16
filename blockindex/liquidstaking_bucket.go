@@ -6,27 +6,29 @@
 package blockindex
 
 import (
+	"math"
 	"math/big"
-	"time"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockindex/indexpb"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+)
+
+const (
+	maxBlockNumber = math.MaxUint64
 )
 
 type (
 	// BucketInfo is the bucket information
 	BucketInfo struct {
 		TypeIndex  uint64
-		CreatedAt  time.Time
-		UnlockedAt time.Time
-		UnstakedAt time.Time
+		CreatedAt  uint64
+		UnlockedAt uint64
+		UnstakedAt uint64
 		Delegate   address.Address // owner address of the delegate
 		Owner      address.Address
 	}
@@ -34,19 +36,29 @@ type (
 	// BucketType is the bucket type
 	BucketType struct {
 		Amount      *big.Int
-		Duration    time.Duration
-		ActivatedAt time.Time
+		Duration    uint64
+		ActivatedAt uint64
 	}
 
 	// Bucket is the bucket information including bucket type and bucket info
-	Bucket = staking.VoteBucket
+	Bucket struct {
+		Index            uint64
+		Candidate        address.Address
+		Owner            address.Address
+		StakedAmount     *big.Int
+		StakedDuration   uint64
+		CreateTime       uint64
+		StakeStartTime   uint64
+		UnstakeStartTime uint64
+		AutoStake        bool
+	}
 )
 
 func (bt *BucketType) toProto() *indexpb.BucketType {
 	return &indexpb.BucketType{
 		Amount:      bt.Amount.String(),
-		Duration:    uint64(bt.Duration),
-		ActivatedAt: timestamppb.New(bt.ActivatedAt),
+		Duration:    bt.Duration,
+		ActivatedAt: bt.ActivatedAt,
 	}
 }
 
@@ -56,8 +68,8 @@ func (bt *BucketType) loadProto(p *indexpb.BucketType) error {
 	if !ok {
 		return errors.New("failed to parse amount")
 	}
-	bt.Duration = time.Duration(p.Duration)
-	bt.ActivatedAt = p.ActivatedAt.AsTime()
+	bt.Duration = p.Duration
+	bt.ActivatedAt = p.ActivatedAt
 	return nil
 }
 
@@ -75,17 +87,12 @@ func (bt *BucketType) deserialize(b []byte) error {
 
 func (bi *BucketInfo) toProto() *indexpb.BucketInfo {
 	pb := &indexpb.BucketInfo{
-		TypeIndex: bi.TypeIndex,
-		Delegate:  bi.Delegate.String(),
-		CreatedAt: timestamppb.New(bi.CreatedAt),
-		Owner:     bi.Owner.String(),
-	}
-	if !bi.UnlockedAt.IsZero() {
-		pb.UnlockedAt = timestamppb.New(bi.UnlockedAt)
-	}
-	time.Unix(0, 0).UTC()
-	if !bi.UnstakedAt.IsZero() {
-		pb.UnstakedAt = timestamppb.New(bi.UnstakedAt)
+		TypeIndex:  bi.TypeIndex,
+		Delegate:   bi.Delegate.String(),
+		CreatedAt:  bi.CreatedAt,
+		Owner:      bi.Owner.String(),
+		UnlockedAt: bi.UnlockedAt,
+		UnstakedAt: bi.UnstakedAt,
 	}
 	return pb
 }
@@ -105,17 +112,9 @@ func (bi *BucketInfo) deserialize(b []byte) error {
 func (bi *BucketInfo) loadProto(p *indexpb.BucketInfo) error {
 	var err error
 	bi.TypeIndex = p.TypeIndex
-	bi.CreatedAt = p.CreatedAt.AsTime()
-	if p.UnlockedAt != nil {
-		bi.UnlockedAt = p.UnlockedAt.AsTime()
-	} else {
-		bi.UnlockedAt = time.Time{}
-	}
-	if p.UnstakedAt != nil {
-		bi.UnstakedAt = p.UnstakedAt.AsTime()
-	} else {
-		bi.UnstakedAt = time.Time{}
-	}
+	bi.CreatedAt = p.CreatedAt
+	bi.UnlockedAt = p.UnlockedAt
+	bi.UnstakedAt = p.UnstakedAt
 	bi.Delegate, err = address.FromString(p.Delegate)
 	if err != nil {
 		return err

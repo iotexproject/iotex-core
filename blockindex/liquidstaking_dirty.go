@@ -8,7 +8,6 @@ package blockindex
 import (
 	"math/big"
 	"sync"
-	"time"
 
 	"github.com/iotexproject/iotex-address/address"
 
@@ -70,7 +69,7 @@ func (s *liquidStakingDirty) burnBucket(id uint64) error {
 	return s.delta.deleteBucketInfo(id)
 }
 
-func (s *liquidStakingDirty) getBucketTypeIndex(amount *big.Int, duration time.Duration) (uint64, bool) {
+func (s *liquidStakingDirty) getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool) {
 	id, ok := s.delta.getBucketTypeIndex(amount, duration)
 	if ok {
 		return id, true
