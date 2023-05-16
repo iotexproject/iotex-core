@@ -13,6 +13,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockindex/indexpb"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -25,8 +27,8 @@ type (
 		CreatedAt  time.Time
 		UnlockedAt time.Time
 		UnstakedAt time.Time
-		Delegate   string // owner address of the delegate
-		Owner      string
+		Delegate   address.Address // owner address of the delegate
+		Owner      address.Address
 	}
 
 	// BucketType is the bucket type
@@ -74,9 +76,9 @@ func (bt *BucketType) deserialize(b []byte) error {
 func (bi *BucketInfo) toProto() *indexpb.BucketInfo {
 	pb := &indexpb.BucketInfo{
 		TypeIndex: bi.TypeIndex,
-		Delegate:  bi.Delegate,
+		Delegate:  bi.Delegate.String(),
 		CreatedAt: timestamppb.New(bi.CreatedAt),
-		Owner:     bi.Owner,
+		Owner:     bi.Owner.String(),
 	}
 	if !bi.UnlockedAt.IsZero() {
 		pb.UnlockedAt = timestamppb.New(bi.UnlockedAt)
@@ -101,6 +103,7 @@ func (bi *BucketInfo) deserialize(b []byte) error {
 }
 
 func (bi *BucketInfo) loadProto(p *indexpb.BucketInfo) error {
+	var err error
 	bi.TypeIndex = p.TypeIndex
 	bi.CreatedAt = p.CreatedAt.AsTime()
 	if p.UnlockedAt != nil {
@@ -113,7 +116,13 @@ func (bi *BucketInfo) loadProto(p *indexpb.BucketInfo) error {
 	} else {
 		bi.UnstakedAt = time.Time{}
 	}
-	bi.Delegate = p.Delegate
-	bi.Owner = p.Owner
+	bi.Delegate, err = address.FromString(p.Delegate)
+	if err != nil {
+		return err
+	}
+	bi.Owner, err = address.FromString(p.Owner)
+	if err != nil {
+		return err
+	}
 	return nil
 }

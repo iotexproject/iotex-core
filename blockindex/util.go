@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 )
 
@@ -52,12 +54,16 @@ func (e eventParam) fieldUint256Slice(name string) ([]*big.Int, error) {
 	return eventField[[]*big.Int](e, name)
 }
 
-func (e eventParam) fieldAddress(name string) (common.Address, error) {
-	return eventField[common.Address](e, name)
+func (e eventParam) fieldAddress(name string) (address.Address, error) {
+	commAddr, err := eventField[common.Address](e, name)
+	if err != nil {
+		return nil, err
+	}
+	return address.FromBytes(commAddr.Bytes())
 }
 
-func (e eventParam) indexedFieldAddress(name string) (common.Address, error) {
-	return eventField[common.Address](e, name)
+func (e eventParam) indexedFieldAddress(name string) (address.Address, error) {
+	return e.fieldAddress(name)
 }
 
 func (e eventParam) indexedFieldUint256(name string) (*big.Int, error) {

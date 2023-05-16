@@ -149,9 +149,9 @@ const (
 				},
 				{
 					"indexed": false,
-					"internalType": "bytes12",
+					"internalType": "address",
 					"name": "newDelegate",
-					"type": "bytes12"
+					"type": "address"
 				}
 			],
 			"name": "DelegateChanged",
@@ -263,9 +263,9 @@ const (
 				},
 				{
 					"indexed": false,
-					"internalType": "bytes12",
+					"internalType": "address",
 					"name": "delegate",
-					"type": "bytes12"
+					"type": "address"
 				},
 				{
 					"indexed": false,
@@ -379,7 +379,7 @@ type (
 	LiquidStakingIndexer interface {
 		blockdao.BlockIndexer
 
-		CandidateVotes(ownerAddr string) *big.Int
+		CandidateVotes(candidate address.Address) *big.Int
 		Buckets() ([]*Bucket, error)
 		Bucket(id uint64) (*Bucket, error)
 		BucketsByIndices(indices []uint64) ([]*Bucket, error)
@@ -397,12 +397,10 @@ type (
 	// 		cache: in-memory index for clean data, used to query index data
 	//      dirty: the cache to update during event processing, will be merged to clean cache after all events are processed. If errors occur during event processing, dirty cache will be discarded.
 	liquidStakingIndexer struct {
-		kvstore             db.KVStore                      // persistent storage
-		cache               *liquidStakingCacheThreadSafety // in-memory index for clean data
-		blockInterval       time.Duration
-		candNameToOwnerFunc candNameToOwnerFunc
+		kvstore       db.KVStore                      // persistent storage
+		cache         *liquidStakingCacheThreadSafety // in-memory index for clean data
+		blockInterval time.Duration
 	}
-	candNameToOwnerFunc func(name string) (address.Address, error)
 )
 
 var (
@@ -425,12 +423,11 @@ func init() {
 }
 
 // NewLiquidStakingIndexer creates a new liquid staking indexer
-func NewLiquidStakingIndexer(kvStore db.KVStore, blockInterval time.Duration, candNameToOwnerFunc candNameToOwnerFunc) LiquidStakingIndexer {
+func NewLiquidStakingIndexer(kvStore db.KVStore, blockInterval time.Duration) LiquidStakingIndexer {
 	return &liquidStakingIndexer{
-		blockInterval:       blockInterval,
-		kvstore:             kvStore,
-		cache:               newLiquidStakingCache(),
-		candNameToOwnerFunc: candNameToOwnerFunc,
+		blockInterval: blockInterval,
+		kvstore:       kvStore,
+		cache:         newLiquidStakingCache(),
 	}
 }
 
@@ -502,8 +499,8 @@ func (s *liquidStakingIndexer) Height() (uint64, error) {
 }
 
 // CandidateVotes returns the candidate votes
-func (s *liquidStakingIndexer) CandidateVotes(ownerAddr string) *big.Int {
-	return s.cache.getCandidateVotes(ownerAddr)
+func (s *liquidStakingIndexer) CandidateVotes(candidate address.Address) *big.Int {
+	return s.cache.getCandidateVotes(candidate)
 }
 
 // Buckets returns the buckets
@@ -611,7 +608,7 @@ func (s *liquidStakingIndexer) handleTransferEvent(dirty *liquidStakingDirty, ev
 		return err
 	}
 
-	dirty.tokenOwner[tokenID.Uint64()] = to.String()
+	dirty.tokenOwner[tokenID.Uint64()] = to
 	return nil
 }
 
@@ -668,7 +665,7 @@ func (s *liquidStakingIndexer) handleStakedEvent(dirty *liquidStakingDirty, even
 	if err != nil {
 		return err
 	}
-	delegateParam, err := event.fieldBytes12("delegate")
+	delegateParam, err := event.fieldAddress("delegate")
 	if err != nil {
 		return err
 	}
@@ -685,13 +682,9 @@ func (s *liquidStakingIndexer) handleStakedEvent(dirty *liquidStakingDirty, even
 	if !ok {
 		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), durationParam.Uint64())
 	}
-	delegateOwner, err := s.candNameToOwnerFunc(delegateParam)
-	if err != nil {
-		return errors.Wrapf(err, "get delegate owner from %v failed", delegateParam)
-	}
 	bucket := BucketInfo{
 		TypeIndex: btIdx,
-		Delegate:  delegateOwner.String(),
+		Delegate:  delegateParam,
 		Owner:     dirty.tokenOwner[tokenIDParam.Uint64()],
 		CreatedAt: timestamp,
 	}
@@ -843,7 +836,7 @@ func (s *liquidStakingIndexer) handleDelegateChangedEvent(dirty *liquidStakingDi
 	if err != nil {
 		return err
 	}
-	delegateParam, err := event.fieldBytes12("newDelegate")
+	delegateParam, err := event.fieldAddress("newDelegate")
 	if err != nil {
 		return err
 	}
@@ -852,11 +845,7 @@ func (s *liquidStakingIndexer) handleDelegateChangedEvent(dirty *liquidStakingDi
 	if !ok {
 		return errors.Wrapf(ErrBucketInfoNotExist, "token id %d", tokenIDParam.Uint64())
 	}
-	delegateOwner, err := s.candNameToOwnerFunc(delegateParam)
-	if err != nil {
-		return errors.Wrapf(err, "get owner of candidate %s", delegateParam)
-	}
-	b.Delegate = delegateOwner.String()
+	b.Delegate = delegateParam
 	return dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
 }
 
@@ -945,7 +934,6 @@ func (s *liquidStakingIndexer) blockHeightToDuration(height uint64) time.Duratio
 }
 
 func (s *liquidStakingIndexer) convertToVoteBucket(token uint64, bi *BucketInfo, bt *BucketType) (*Bucket, error) {
-	var err error
 	vb := Bucket{
 		Index:            token,
 		StakedAmount:     bt.Amount,
@@ -954,14 +942,8 @@ func (s *liquidStakingIndexer) convertToVoteBucket(token uint64, bi *BucketInfo,
 		StakeStartTime:   bi.CreatedAt,
 		UnstakeStartTime: bi.UnstakedAt,
 		AutoStake:        bi.UnlockedAt.IsZero(),
-	}
-	vb.Candidate, err = address.FromString(bi.Delegate)
-	if err != nil {
-		return nil, err
-	}
-	vb.Owner, err = address.FromHex(bi.Owner)
-	if err != nil {
-		return nil, err
+		Candidate:        bi.Delegate,
+		Owner:            bi.Owner,
 	}
 	if !bi.UnlockedAt.IsZero() {
 		vb.StakeStartTime = bi.UnlockedAt

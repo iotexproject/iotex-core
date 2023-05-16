@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -24,7 +26,7 @@ type (
 		clean      liquidStakingCacheReader // clean cache to get buckets of last block
 		delta      *liquidStakingDelta      // delta for cache to store buckets of current block
 		batch      batch.KVStoreBatch       // batch for db to store buckets of current block
-		tokenOwner map[uint64]string
+		tokenOwner map[uint64]address.Address
 		once       sync.Once
 	}
 )
@@ -34,7 +36,7 @@ func newLiquidStakingDirty(clean liquidStakingCacheReader) *liquidStakingDirty {
 		clean:      clean,
 		delta:      newLiquidStakingDelta(),
 		batch:      batch.NewBatch(),
-		tokenOwner: make(map[uint64]string),
+		tokenOwner: make(map[uint64]address.Address),
 	}
 }
 

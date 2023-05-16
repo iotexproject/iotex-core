@@ -9,6 +9,8 @@ import (
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/iotexproject/iotex-address/address"
 )
 
 type (
@@ -24,7 +26,7 @@ type (
 		mustGetBucketType(id uint64) *BucketType
 		mustGetBucketInfo(id uint64) *BucketInfo
 		getAllBucketInfo() map[uint64]*BucketInfo
-		getCandidateVotes(ownerAddr string) *big.Int
+		getCandidateVotes(candidate address.Address) *big.Int
 	}
 
 	// liquidStakingCacheManager is the interface to manage liquid staking cache
@@ -85,10 +87,10 @@ func (s *liquidStakingCache) putBucketType(id uint64, bt *BucketType) {
 
 func (s *liquidStakingCache) putBucketInfo(id uint64, bi *BucketInfo) {
 	s.idBucketMap[id] = bi
-	if _, ok := s.candidateBucketMap[bi.Delegate]; !ok {
-		s.candidateBucketMap[bi.Delegate] = make(map[uint64]bool)
+	if _, ok := s.candidateBucketMap[bi.Delegate.String()]; !ok {
+		s.candidateBucketMap[bi.Delegate.String()] = make(map[uint64]bool)
 	}
-	s.candidateBucketMap[bi.Delegate][id] = true
+	s.candidateBucketMap[bi.Delegate.String()][id] = true
 }
 
 func (s *liquidStakingCache) deleteBucketInfo(id uint64) {
@@ -97,10 +99,10 @@ func (s *liquidStakingCache) deleteBucketInfo(id uint64) {
 		return
 	}
 	delete(s.idBucketMap, id)
-	if _, ok := s.candidateBucketMap[bi.Delegate]; !ok {
+	if _, ok := s.candidateBucketMap[bi.Delegate.String()]; !ok {
 		return
 	}
-	delete(s.candidateBucketMap[bi.Delegate], id)
+	delete(s.candidateBucketMap[bi.Delegate.String()], id)
 }
 
 func (s *liquidStakingCache) getBucketTypeIndex(amount *big.Int, duration time.Duration) (uint64, bool) {
@@ -138,9 +140,9 @@ func (s *liquidStakingCache) mustGetBucketInfo(id uint64) *BucketInfo {
 	return bt
 }
 
-func (s *liquidStakingCache) getCandidateVotes(ownerAddr string) *big.Int {
+func (s *liquidStakingCache) getCandidateVotes(candidate address.Address) *big.Int {
 	votes := big.NewInt(0)
-	m, ok := s.candidateBucketMap[ownerAddr]
+	m, ok := s.candidateBucketMap[candidate.String()]
 	if !ok {
 		return votes
 	}
@@ -268,11 +270,11 @@ func (s *liquidStakingCacheThreadSafety) mustGetBucketInfo(id uint64) *BucketInf
 	return s.cache.mustGetBucketInfo(id)
 }
 
-func (s *liquidStakingCacheThreadSafety) getCandidateVotes(ownerAddr string) *big.Int {
+func (s *liquidStakingCacheThreadSafety) getCandidateVotes(candidate address.Address) *big.Int {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	return s.cache.getCandidateVotes(ownerAddr)
+	return s.cache.getCandidateVotes(candidate)
 }
 
 func (s *liquidStakingCacheThreadSafety) putTotalBucketCount(count uint64) {
