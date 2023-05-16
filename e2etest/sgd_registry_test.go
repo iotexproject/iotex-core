@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -89,24 +90,8 @@ func TestSGDRegistry(t *testing.T) {
 	r.Equal(uint64(1), height)
 
 	contractAddress := receipt.ContractAddress
-	sgdRegistry := rewarding.NewSGDRegistry(20, contractAddress, func(ctx context.Context, contract string, data []byte, correctGas bool) ([]byte, error) {
-		gasLimit := uint64(1000000)
-		if correctGas {
-			gasLimit *= 10
-		}
-		ex, err := action.NewExecution(contract, 1, big.NewInt(0), gasLimit, big.NewInt(0), data)
-		if err != nil {
-			return nil, err
-		}
-
-		addr, err := address.FromString(address.ZeroAddress)
-		if err != nil {
-			return nil, err
-		}
-
-		data, _, err = sf.SimulateExecution(ctx, addr, ex, dao.GetBlockHash)
-		return data, err
-	})
+	kvstore := db.NewMemKVStore()
+	sgdRegistry := blockindex.NewSGDRegistry(contractAddress, kvstore, 0)
 	registerAddress, err := address.FromHex("5b38da6a701c568545dcfcb03fcb875f56beddc4")
 	r.NoError(err)
 	receiverAddress, err := address.FromHex("78731d3ca6b7e34ac0f824c42a7cc18a495cabab")
@@ -135,6 +120,7 @@ func TestSGDRegistry(t *testing.T) {
 				}),
 			cfg.Genesis,
 		)
+		r.NoError(sgdRegistry.PutBlock(ctx, blk))
 		receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
 		r.NoError(err)
 		r.Equal(uint64(20), percentage)
@@ -165,6 +151,7 @@ func TestSGDRegistry(t *testing.T) {
 				}),
 			cfg.Genesis,
 		)
+		r.NoError(sgdRegistry.PutBlock(ctx, blk))
 		receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
 		r.NoError(err)
 		r.Equal(receiverAddress, receiver)
@@ -196,6 +183,7 @@ func TestSGDRegistry(t *testing.T) {
 				}),
 			cfg.Genesis,
 		)
+		r.NoError(sgdRegistry.PutBlock(ctx, blk))
 		receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
 		r.NoError(err)
 		r.Equal(receiverAddress, receiver)
@@ -227,10 +215,11 @@ func TestSGDRegistry(t *testing.T) {
 				}),
 			cfg.Genesis,
 		)
+		r.NoError(sgdRegistry.PutBlock(ctx, blk))
 		receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
-		r.NoError(err)
+		r.ErrorContains(err, "not exist in DB")
 		r.Nil(receiver)
 		r.False(isApproved)
-		r.Equal(uint64(20), percentage)
+		r.Equal(uint64(0), percentage)
 	})
 }

@@ -17,3 +17,9 @@ message BlockIndex {
 message ActionIndex {
     uint64 blkHeight = 1;
 }
+
+message SGDIndex {
+    string contract = 1;
+    string receiver = 2;
+    bool approved = 3;
+}
