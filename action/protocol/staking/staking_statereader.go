@@ -206,6 +206,9 @@ func (c *compositeStakingStateReader) readStateCandidates(ctx context.Context, r
 	}
 
 	// add liquid stake votes
+	if !protocol.MustGetFeatureCtx(ctx).AddLSDVotes {
+		return candidates, height, nil
+	}
 	for _, candidate := range candidates.Candidates {
 		if err = addLSDVotes(candidate, c.liquidIndexer); err != nil {
 			return nil, 0, err
@@ -219,6 +222,9 @@ func (c *compositeStakingStateReader) readStateCandidateByName(ctx context.Conte
 	if err != nil {
 		return nil, 0, err
 	}
+	if !protocol.MustGetFeatureCtx(ctx).AddLSDVotes {
+		return candidate, height, nil
+	}
 	if err := addLSDVotes(candidate, c.liquidIndexer); err != nil {
 		return nil, 0, err
 	}
@@ -229,6 +235,9 @@ func (c *compositeStakingStateReader) readStateCandidateByAddress(ctx context.Co
 	candidate, height, err := c.nativeSR.readStateCandidateByAddress(ctx, req)
 	if err != nil {
 		return nil, 0, err
+	}
+	if !protocol.MustGetFeatureCtx(ctx).AddLSDVotes {
+		return candidate, height, nil
 	}
 	if err := addLSDVotes(candidate, c.liquidIndexer); err != nil {
 		return nil, 0, err

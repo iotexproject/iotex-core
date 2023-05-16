@@ -111,8 +111,12 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// load candidates from stateDB and verify
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	g := genesis.Default
+	g.ToBeEnabledBlockHeight = 0
+	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 10})
+	ctx = protocol.WithFeatureCtx(ctx)
 	v, err := stk.Start(ctx, sm)
 	sm.WriteView(_protocolID, v)
 	r.NoError(err)

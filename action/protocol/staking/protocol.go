@@ -471,11 +471,13 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
 	}
-
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	list := c.AllCandidates()
 	cand := make(CandidateList, 0, len(list))
 	for i := range list {
-		list[i].Votes.Add(list[i].Votes, p.liquidIndexer.CandidateVotes(list[i].Owner))
+		if featureCtx.AddLSDVotes {
+			list[i].Votes.Add(list[i].Votes, p.liquidIndexer.CandidateVotes(list[i].Owner))
+		}
 		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {
 			cand = append(cand, list[i])
 		}

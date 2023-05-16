@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -131,8 +132,12 @@ func TestStakingStateReader(t *testing.T) {
 		reg := protocol.NewRegistry()
 		rolldposProto := rolldpos.NewProtocol(10, 10, 10)
 		rolldposProto.Register(reg)
-		ctx := context.Background()
+		g := genesis.Default
+		g.ToBeEnabledBlockHeight = 0
+		ctx := genesis.WithGenesisContext(context.Background(), g)
 		ctx = protocol.WithRegistry(ctx, reg)
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1000})
+		ctx = protocol.WithFeatureCtx(ctx)
 
 		return sf, liquidIndexer, stakeSR, ctx, r
 	}
@@ -318,9 +323,9 @@ func TestStakingStateReader(t *testing.T) {
 	})
 	t.Run("readStateCandidates", func(t *testing.T) {
 		_, liquidIndexer, stakeSR, ctx, r := prepare(t)
-		liquidIndexer.EXPECT().CandidateVotes(gomock.Any()).DoAndReturn(func(ownerAddr string) *big.Int {
+		liquidIndexer.EXPECT().CandidateVotes(gomock.Any()).DoAndReturn(func(ownerAddr address.Address) *big.Int {
 			for _, b := range testLiquidBuckets {
-				if b.Owner.String() == ownerAddr {
+				if b.Owner.String() == ownerAddr.String() {
 					return b.StakedAmount
 				}
 			}
@@ -348,9 +353,9 @@ func TestStakingStateReader(t *testing.T) {
 	})
 	t.Run("readStateCandidateByName", func(t *testing.T) {
 		_, liquidIndexer, stakeSR, ctx, r := prepare(t)
-		liquidIndexer.EXPECT().CandidateVotes(gomock.Any()).DoAndReturn(func(ownerAddr string) *big.Int {
+		liquidIndexer.EXPECT().CandidateVotes(gomock.Any()).DoAndReturn(func(ownerAddr address.Address) *big.Int {
 			for _, b := range testLiquidBuckets {
-				if b.Owner.String() == ownerAddr {
+				if b.Owner.String() == ownerAddr.String() {
 					return b.StakedAmount
 				}
 			}
@@ -371,9 +376,9 @@ func TestStakingStateReader(t *testing.T) {
 	})
 	t.Run("readStateCandidateByAddress", func(t *testing.T) {
 		_, liquidIndexer, stakeSR, ctx, r := prepare(t)
-		liquidIndexer.EXPECT().CandidateVotes(gomock.Any()).DoAndReturn(func(ownerAddr string) *big.Int {
+		liquidIndexer.EXPECT().CandidateVotes(gomock.Any()).DoAndReturn(func(ownerAddr address.Address) *big.Int {
 			for _, b := range testLiquidBuckets {
-				if b.Owner.String() == ownerAddr {
+				if b.Owner.String() == ownerAddr.String() {
 					return b.StakedAmount
 				}
 			}
