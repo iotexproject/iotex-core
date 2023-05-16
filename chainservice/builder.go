@@ -276,7 +276,12 @@ func (builder *Builder) buildSGDRegistry(forTest bool) error {
 	if forTest {
 		builder.cs.sgdIndexer = nil
 	} else {
-		builder.cs.sgdIndexer = blockindex.NewSGDRegistry()
+		dbConfig := builder.cfg.DB
+		dbConfig.DbPath = builder.cfg.Chain.SGDIndexDBPath
+		builder.cs.sgdIndexer = blockindex.NewSGDRegistry(builder.cfg.Chain.SGDContract,
+			db.NewBoltDB(dbConfig),
+			builder.cfg.Chain.SGDIndexCacheSize,
+		)
 	}
 	return nil
 }
