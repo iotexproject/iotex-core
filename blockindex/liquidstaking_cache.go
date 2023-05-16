@@ -25,6 +25,7 @@ type (
 		mustGetBucketType(id uint64) *BucketType
 		mustGetBucketInfo(id uint64) *BucketInfo
 		getAllBucketInfo() map[uint64]*BucketInfo
+		getActiveBucketType() map[uint64]*BucketType
 		getCandidateVotes(candidate address.Address) *big.Int
 	}
 
@@ -182,6 +183,16 @@ func (s *liquidStakingCache) getAllBucketInfo() map[uint64]*BucketInfo {
 	return m
 }
 
+func (s *liquidStakingCache) getActiveBucketType() map[uint64]*BucketType {
+	m := make(map[uint64]*BucketType)
+	for k, v := range s.idBucketTypeMap {
+		if v.ActivatedAt != maxBlockNumber {
+			m[k] = v
+		}
+	}
+	return m
+}
+
 func (s *liquidStakingCache) merge(delta *liquidStakingDelta) error {
 	for id, state := range delta.bucketTypeDeltaState {
 		if state == deltaStateAdded || state == deltaStateModified {
@@ -302,6 +313,13 @@ func (s *liquidStakingCacheThreadSafety) getAllBucketInfo() map[uint64]*BucketIn
 	defer s.mutex.RUnlock()
 
 	return s.cache.getAllBucketInfo()
+}
+
+func (s *liquidStakingCacheThreadSafety) getActiveBucketType() map[uint64]*BucketType {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.cache.getActiveBucketType()
 }
 
 func (s *liquidStakingCacheThreadSafety) merge(delta *liquidStakingDelta) error {

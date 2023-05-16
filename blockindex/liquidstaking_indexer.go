@@ -384,6 +384,7 @@ type (
 		Bucket(id uint64) (*Bucket, error)
 		BucketsByIndices(indices []uint64) ([]*Bucket, error)
 		TotalBucketCount() uint64
+		ActiveBucketTypes() (map[uint64]*BucketType, error)
 	}
 
 	// liquidStakingIndexer is the implementation of LiquidStakingIndexer
@@ -551,6 +552,10 @@ func (s *liquidStakingIndexer) BucketsByIndices(indices []uint64) ([]*Bucket, er
 
 func (s *liquidStakingIndexer) TotalBucketCount() uint64 {
 	return s.cache.getTotalBucketCount()
+}
+
+func (s *liquidStakingIndexer) ActiveBucketTypes() (map[uint64]*BucketType, error) {
+	return s.cache.getActiveBucketType(), nil
 }
 
 func (s *liquidStakingIndexer) handleEvent(ctx context.Context, dirty *liquidStakingDirty, blk *block.Block, act *action.SealedEnvelope, log *action.Log) error {
