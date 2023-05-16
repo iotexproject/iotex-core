@@ -265,7 +265,11 @@ func addLSDVotes(candidate *iotextypes.CandidateV2, liquidSR LiquidStakingIndexe
 	if !ok {
 		return errors.Errorf("invalid total weighted votes %s", candidate.TotalWeightedVotes)
 	}
-	votes.Add(votes, liquidSR.CandidateVotes(candidate.OwnerAddress))
+	addr, err := address.FromString(candidate.OwnerAddress)
+	if err != nil {
+		return err
+	}
+	votes.Add(votes, liquidSR.CandidateVotes(addr))
 	candidate.TotalWeightedVotes = votes.String()
 	return nil
 }

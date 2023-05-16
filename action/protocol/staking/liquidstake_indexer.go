@@ -7,6 +7,8 @@ package staking
 
 import (
 	"math/big"
+
+	"github.com/iotexproject/iotex-address/address"
 )
 
 type (
@@ -14,7 +16,7 @@ type (
 	LiquidStakingIndexer interface {
 		// CandidateVotes returns the total staked votes of a candidate
 		// candidate identified by owner address
-		CandidateVotes(ownerAddr string) *big.Int
+		CandidateVotes(ownerAddr address.Address) *big.Int
 		// Buckets returns active buckets
 		Buckets() ([]*VoteBucket, error)
 		// BucketsByIndices returns active buckets by indices
@@ -34,7 +36,7 @@ func NewEmptyLiquidStakingIndexer() LiquidStakingIndexer {
 	return &emptyLiquidStakingIndexer{}
 }
 
-func (f *emptyLiquidStakingIndexer) CandidateVotes(ownerAddr string) *big.Int {
+func (f *emptyLiquidStakingIndexer) CandidateVotes(ownerAddr address.Address) *big.Int {
 	return big.NewInt(0)
 }
 

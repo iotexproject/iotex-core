@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	address "github.com/iotexproject/iotex-address/address"
 )
 
 // MockLiquidStakingIndexer is a mock of LiquidStakingIndexer interface.
@@ -65,7 +66,7 @@ func (mr *MockLiquidStakingIndexerMockRecorder) BucketsByIndices(arg0 interface{
 }
 
 // CandidateVotes mocks base method.
-func (m *MockLiquidStakingIndexer) CandidateVotes(ownerAddr string) *big.Int {
+func (m *MockLiquidStakingIndexer) CandidateVotes(ownerAddr address.Address) *big.Int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CandidateVotes", ownerAddr)
 	ret0, _ := ret[0].(*big.Int)
