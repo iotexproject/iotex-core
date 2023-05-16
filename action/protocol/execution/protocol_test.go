@@ -455,7 +455,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	execution := NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	execution := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
 
@@ -605,7 +605,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require := require.New(t)
 	p := NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, rewarding.DepositGas)
+	}, rewarding.DepositGasWithSGD, nil)
 
 	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), make([]byte, 32684))
 	require.NoError(err)
@@ -675,7 +675,7 @@ func TestProtocol_Handle(t *testing.T) {
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
 		)
-		exeProtocol := NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+		exeProtocol := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 		require.NoError(exeProtocol.Register(registry))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
