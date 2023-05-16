@@ -503,21 +503,36 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return nil, 0, err
 	}
 
+	// get height arg
+	inputHeight, err := sr.Height()
+	if err != nil {
+		return nil, 0, err
+	}
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
+	nativeSR, err := ConstructBaseView(sr)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	var (
 		height uint64
 		resp   proto.Message
 	)
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
-		resp, height, err = stakeSR.readStateBuckets(ctx, r.GetBuckets())
+		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
+			return p.candBucketsIndexer.GetBuckets(epochStartHeight, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
+		}
+		resp, height, err = nativeSR.readStateBuckets(ctx, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
-		resp, height, err = stakeSR.readStateBucketsByVoter(ctx, r.GetBucketsByVoter())
+		resp, height, err = nativeSR.readStateBucketsByVoter(ctx, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
-		resp, height, err = stakeSR.readStateBucketsByCandidate(ctx, r.GetBucketsByCandidate())
+		resp, height, err = nativeSR.readStateBucketsByCandidate(ctx, r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES:
-		resp, height, err = stakeSR.readStateBucketByIndices(ctx, r.GetBucketsByIndexes())
+		resp, height, err = nativeSR.readStateBucketByIndices(ctx, r.GetBucketsByIndexes())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_COUNT:
-		resp, height, err = stakeSR.readStateBucketCount(ctx, r.GetBucketsCount())
+		resp, height, err = nativeSR.readStateBucketCount(ctx, r.GetBucketsCount())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
 		resp, height, err = stakeSR.readStateCandidates(ctx, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
@@ -525,6 +540,18 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS:
 		resp, height, err = stakeSR.readStateCandidateByAddress(ctx, r.GetCandidateByAddress())
 	case iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT:
+		resp, height, err = nativeSR.readStateTotalStakingAmount(ctx, r.GetTotalStakingAmount())
+	case iotexapi.ReadStakingDataMethod_COMPOSITE_BUCKETS:
+		resp, height, err = stakeSR.readStateBuckets(ctx, r.GetBuckets())
+	case iotexapi.ReadStakingDataMethod_COMPOSITE_BUCKETS_BY_VOTER:
+		resp, height, err = stakeSR.readStateBucketsByVoter(ctx, r.GetBucketsByVoter())
+	case iotexapi.ReadStakingDataMethod_COMPOSITE_BUCKETS_BY_CANDIDATE:
+		resp, height, err = stakeSR.readStateBucketsByCandidate(ctx, r.GetBucketsByCandidate())
+	case iotexapi.ReadStakingDataMethod_COMPOSITE_BUCKETS_BY_INDEXES:
+		resp, height, err = stakeSR.readStateBucketByIndices(ctx, r.GetBucketsByIndexes())
+	case iotexapi.ReadStakingDataMethod_COMPOSITE_BUCKETS_COUNT:
+		resp, height, err = stakeSR.readStateBucketCount(ctx, r.GetBucketsCount())
+	case iotexapi.ReadStakingDataMethod_COMPOSITE_TOTAL_STAKING_AMOUNT:
 		resp, height, err = stakeSR.readStateTotalStakingAmount(ctx, r.GetTotalStakingAmount())
 	default:
 		err = errors.New("corresponding method isn't found")
