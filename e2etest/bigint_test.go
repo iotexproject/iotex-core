@@ -110,7 +110,7 @@ func prepareBlockchain(ctx context.Context, _executor string, r *require.Asserti
 	reward := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	r.NoError(reward.Register(registry))
 
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 	r.NoError(ep.Register(registry))
 	r.NoError(bc.Start(ctx))
 	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)

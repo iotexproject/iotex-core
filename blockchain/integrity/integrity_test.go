@@ -494,7 +494,7 @@ func TestCreateBlockchain(t *testing.T) {
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
 	)
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 	require.NoError(ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(rewardingProtocol.Register(registry))
@@ -547,7 +547,7 @@ func TestGetBlockHash(t *testing.T) {
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
 	)
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 	require.NoError(ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(rewardingProtocol.Register(registry))
@@ -710,7 +710,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
 	)
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(t, rewardingProtocol.Register(registry))
@@ -786,7 +786,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	)
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(t, rewardingProtocol.Register(registry))
@@ -885,7 +885,7 @@ func TestConstantinople(t *testing.T) {
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
 		)
-		ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+		ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 		require.NoError(ep.Register(registry))
 		rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 		require.NoError(rewardingProtocol.Register(registry))
@@ -1135,7 +1135,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
 		)
-		ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+		ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 		require.NoError(ep.Register(registry))
 		require.NoError(bc.Start(ctx))
 
@@ -1989,7 +1989,7 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 		)),
 	)
 	require.NotNil(bc)
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 
