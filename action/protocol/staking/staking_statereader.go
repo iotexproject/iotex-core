@@ -29,7 +29,7 @@ type (
 )
 
 // newCompositeStakingStateReader creates a new compositive staking state reader
-func newCompositeStakingStateReader(liquidIndexer LiquidStakingIndexer, nativeIndexer *CandidatesBucketsIndexer, sr protocol.StateReader) (ReadState, error) {
+func newCompositeStakingStateReader(liquidIndexer LiquidStakingIndexer, nativeIndexer *CandidatesBucketsIndexer, sr protocol.StateReader) (*compositeStakingStateReader, error) {
 	nativeSR, err := ConstructBaseView(sr)
 	if err != nil {
 		return nil, err
@@ -267,6 +267,21 @@ func (c *compositeStakingStateReader) readStateTotalStakingAmount(ctx context.Co
 
 	accountMeta.Balance = amount.String()
 	return accountMeta, height, nil
+}
+
+func (c *compositeStakingStateReader) readStateLiquidStakingBucketTypes(ctx context.Context, _ *iotexapi.ReadStakingDataRequest_LiquidStakingBucketTypes) (*iotextypes.LiquidStakingBucketTypeList, uint64, error) {
+	bts, err := c.liquidIndexer.BucketTypes()
+	if err != nil {
+		return nil, 0, err
+	}
+	pbBts := make([]*iotextypes.LiquidStakingBucketType, 0, len(bts))
+	for _, bt := range bts {
+		pbBts = append(pbBts, &iotextypes.LiquidStakingBucketType{
+			StakedAmount:   bt.Amount.String(),
+			StakedDuration: uint32(bt.Duration),
+		})
+	}
+	return &iotextypes.LiquidStakingBucketTypeList{BucketTypes: pbBts}, c.nativeSR.Height(), nil
 }
 
 func addLSDVotes(candidate *iotextypes.CandidateV2, liquidSR LiquidStakingIndexer) error {

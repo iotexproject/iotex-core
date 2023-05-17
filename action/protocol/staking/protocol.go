@@ -555,6 +555,8 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		resp, height, err = stakeSR.readStateBucketCount(ctx, r.GetBucketsCount())
 	case iotexapi.ReadStakingDataMethod_COMPOSITE_TOTAL_STAKING_AMOUNT:
 		resp, height, err = stakeSR.readStateTotalStakingAmount(ctx, r.GetTotalStakingAmount())
+	case iotexapi.ReadStakingDataMethod_LIQUID_STAKING_BUCKET_TYPES:
+		resp, height, err = stakeSR.readStateLiquidStakingBucketTypes(ctx, r.GetLiquidStakingBucketTypes())
 	default:
 		err = errors.New("corresponding method isn't found")
 	}

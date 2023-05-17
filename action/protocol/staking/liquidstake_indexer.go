@@ -12,6 +12,13 @@ import (
 )
 
 type (
+	// LiquidStakingBucketType defines the type of liquid staking bucket
+	LiquidStakingBucketType struct {
+		Amount      *big.Int
+		Duration    uint64 // block numbers
+		ActivatedAt uint64 // block height
+	}
+
 	// LiquidStakingIndexer defines the interface of liquid staking reader
 	LiquidStakingIndexer interface {
 		// CandidateVotes returns the total staked votes of a candidate
@@ -23,6 +30,8 @@ type (
 		BucketsByIndices([]uint64) ([]*VoteBucket, error)
 		// TotalBucketCount returns the total number of buckets including burned buckets
 		TotalBucketCount() uint64
+		// BucketTypes returns the active bucket types
+		BucketTypes() ([]*LiquidStakingBucketType, error)
 	}
 
 	// TODO (iip-13): remove this empty liquid staking indexer
@@ -50,4 +59,8 @@ func (f *emptyLiquidStakingIndexer) BucketsByIndices([]uint64) ([]*VoteBucket, e
 
 func (f *emptyLiquidStakingIndexer) TotalBucketCount() uint64 {
 	return 0
+}
+
+func (f *emptyLiquidStakingIndexer) BucketTypes() ([]*LiquidStakingBucketType, error) {
+	return nil, nil
 }

@@ -35,6 +35,21 @@ func (m *MockLiquidStakingIndexer) EXPECT() *MockLiquidStakingIndexerMockRecorde
 	return m.recorder
 }
 
+// BucketTypes mocks base method.
+func (m *MockLiquidStakingIndexer) BucketTypes() ([]*LiquidStakingBucketType, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BucketTypes")
+	ret0, _ := ret[0].([]*LiquidStakingBucketType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BucketTypes indicates an expected call of BucketTypes.
+func (mr *MockLiquidStakingIndexerMockRecorder) BucketTypes() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BucketTypes", reflect.TypeOf((*MockLiquidStakingIndexer)(nil).BucketTypes))
+}
+
 // Buckets mocks base method.
 func (m *MockLiquidStakingIndexer) Buckets() ([]*VoteBucket, error) {
 	m.ctrl.T.Helper()
