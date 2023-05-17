@@ -60,14 +60,18 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 	indexDBPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
+	indexSGDDBPath, err := testutil.PathOfTempFile(_dBPath + "_sgd")
+	require.NoError(err)
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
+	cfg.Chain.SGDIndexDBPath = indexSGDDBPath
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(indexDBPath)
+		testutil.CleanupPath(indexSGDDBPath)
 	}()
 
 	// create server
@@ -323,14 +327,18 @@ func TestLocalSync(t *testing.T) {
 	require.NoError(err)
 	indexDBPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
+	indexSGDDBPath, err := testutil.PathOfTempFile(_dBPath + "_sgd")
+	require.NoError(err)
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
+	cfg.Chain.SGDIndexDBPath = indexSGDDBPath
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(indexDBPath)
+		testutil.CleanupPath(indexSGDDBPath)
 	}()
 
 	// bootnode
@@ -379,17 +387,20 @@ func TestLocalSync(t *testing.T) {
 	require.NoError(err)
 	indexDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
-
+	indexSGDDBPath2, err := testutil.PathOfTempFile(_dBPath2 + "_sgd")
+	require.NoError(err)
 	cfg, err = newTestConfig()
 	require.NoError(err)
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
+	cfg.Chain.SGDIndexDBPath = indexSGDDBPath2
 	defer func() {
 		testutil.CleanupPath(testTriePath2)
 		testutil.CleanupPath(testDBPath2)
 		testutil.CleanupPath(indexDBPath2)
+		testutil.CleanupPath(indexSGDDBPath2)
 	}()
 
 	// Create client
@@ -438,12 +449,15 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(err)
 	testIndexPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
+	testSGDIndexPath, err := testutil.PathOfTempFile(_dBPath + "_sgd")
+	require.NoError(err)
 	// Disable block reward to make bookkeeping easier
 	cfg := config.Default
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
@@ -464,6 +478,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(testIndexPath)
+		testutil.CleanupPath(testSGDIndexPath)
 	}()
 
 	require.NoError(addTestingTsfBlocks(bc, ap))
@@ -493,6 +508,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	// Build states from height 1 to 3
 	testutil.CleanupPath(testTriePath)
+	testutil.CleanupPath(testSGDIndexPath)
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
 	require.NoError(svr.Start(ctx))
@@ -513,6 +529,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(dao.DeleteBlockToTarget(2))
 	require.NoError(dao.Stop(ctx))
 	testutil.CleanupPath(testTriePath)
+	testutil.CleanupPath(testSGDIndexPath)
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
 	// Build states from height 1 to 2
