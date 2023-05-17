@@ -33,7 +33,6 @@ type (
 		CandidateIndexDBPath   string           `yaml:"candidateIndexDBPath"`
 		StakingIndexDBPath     string           `yaml:"stakingIndexDBPath"`
 		SGDIndexDBPath         string           `yaml:"sgdIndexDBPath"`
-		SGDIndexCacheSize      int              `yaml:"sgdIndexCacheSize"`
 		SGDContract            string           `yaml:"sgdContract"`
 		ID                     uint32           `yaml:"id"`
 		EVMNetworkID           uint32           `yaml:"evmNetworkID"`
@@ -87,7 +86,6 @@ var (
 		CandidateIndexDBPath:   "/var/data/candidate.index.db",
 		StakingIndexDBPath:     "/var/data/staking.index.db",
 		SGDIndexDBPath:         "/var/data/sgd.index.db",
-		SGDIndexCacheSize:      1000,
 		ID:                     1,
 		EVMNetworkID:           4689,
 		Address:                "",
