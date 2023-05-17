@@ -91,7 +91,7 @@ func TestSGDRegistry(t *testing.T) {
 
 	contractAddress := receipt.ContractAddress
 	kvstore := db.NewMemKVStore()
-	sgdRegistry := blockindex.NewSGDRegistry(contractAddress, kvstore, 0)
+	sgdRegistry := blockindex.NewSGDRegistry(contractAddress, kvstore)
 	registerAddress, err := address.FromHex("5b38da6a701c568545dcfcb03fcb875f56beddc4")
 	r.NoError(err)
 	receiverAddress, err := address.FromHex("78731d3ca6b7e34ac0f824c42a7cc18a495cabab")

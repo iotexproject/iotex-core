@@ -276,12 +276,11 @@ func (builder *Builder) buildSGDRegistry(forTest bool) error {
 	if forTest {
 		builder.cs.sgdIndexer = nil
 	} else {
-		dbConfig := builder.cfg.DB
-		dbConfig.DbPath = builder.cfg.Chain.SGDIndexDBPath
-		builder.cs.sgdIndexer = blockindex.NewSGDRegistry(builder.cfg.Chain.SGDContract,
-			db.NewBoltDB(dbConfig),
-			builder.cfg.Chain.SGDIndexCacheSize,
-		)
+		kvStore, err := db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.SGDIndexDBPath, builder.cfg.Chain.SGDIndexCacheSize)
+		if err != nil {
+			return err
+		}
+		builder.cs.sgdIndexer = blockindex.NewSGDRegistry(builder.cfg.Chain.SGDContract, kvStore)
 	}
 	return nil
 }

@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -197,7 +196,6 @@ type (
 	sgdRegistry struct {
 		contract string
 		kvStore  db.KVStore
-		kvCache  cache.LRUCache
 	}
 )
 
@@ -209,18 +207,13 @@ func newSgdIndex(contract, receiver string) *indexpb.SGDIndex {
 }
 
 // NewSGDRegistry creates a new SGDIndexer
-func NewSGDRegistry(contract string, kv db.KVStore, cacheSize int) SGDRegistry {
+func NewSGDRegistry(contract string, kv db.KVStore) SGDRegistry {
 	if kv == nil {
 		panic("nil kvstore")
-	}
-	kvCache := cache.NewDummyLruCache()
-	if cacheSize > 0 {
-		kvCache = cache.NewThreadSafeLruCache(cacheSize)
 	}
 	return &sgdRegistry{
 		contract: contract,
 		kvStore:  kv,
-		kvCache:  kvCache,
 	}
 }
 
@@ -390,13 +383,11 @@ func (sgd *sgdRegistry) putIndex(b batch.KVStoreBatch, sgdIndex *indexpb.SGDInde
 		return err
 	}
 	b.Put(_sgdBucket, []byte(sgdIndex.Contract), sgdIndexBytes, "failed to put sgd index")
-	sgd.kvCache.Add(sgdIndex.Contract, sgdIndex)
 	return nil
 }
 
 func (sgd *sgdRegistry) deleteIndex(b batch.KVStoreBatch, contract string) error {
 	b.Delete(_sgdBucket, []byte(contract), "failed to delete sgd index")
-	sgd.kvCache.Remove(contract)
 	return nil
 }
 
@@ -407,32 +398,19 @@ func (sgd *sgdRegistry) DeleteTipBlock(context.Context, *block.Block) error {
 
 // CheckContract checks if the contract is a SGD contract
 func (sgd *sgdRegistry) CheckContract(ctx context.Context, contract string) (address.Address, uint64, bool, error) {
-	var (
-		sgdIndex *indexpb.SGDIndex
-		err      error
-	)
-	//check if the SGDIndex is in cache
-	if v, ok := sgd.kvCache.Get(contract); ok {
-		sgdIndex = v.(*indexpb.SGDIndex)
-	} else {
-		sgdIndex, err = sgd.GetSGDIndex(contract)
-		if err != nil {
-			return nil, 0, false, err
-		}
+	sgdIndex, err := sgd.GetSGDIndex(contract)
+	if err != nil {
+		return nil, 0, false, err
 	}
 
 	addr, err := address.FromString(sgdIndex.Receiver)
-	if err != nil {
-		// if the receiver is no set or invalid
-		return nil, 0, true, nil
-	}
+	//TODO (millken): dynamic set percentage
 	percentage := uint64(20)
-	return addr, percentage, sgdIndex.Approved, nil
+	return addr, percentage, sgdIndex.Approved, err
 }
 
 // GetSGDIndex returns the SGDIndex of the contract
 func (sgd *sgdRegistry) GetSGDIndex(contract string) (*indexpb.SGDIndex, error) {
-	//if not in cache, get it from db
 	buf, err := sgd.kvStore.Get(_sgdBucket, []byte(contract))
 	if err != nil {
 		return nil, err
@@ -441,8 +419,6 @@ func (sgd *sgdRegistry) GetSGDIndex(contract string) (*indexpb.SGDIndex, error) 
 	if err := proto.Unmarshal(buf, sgdIndex); err != nil {
 		return nil, err
 	}
-	//put the SGDIndex into cache
-	sgd.kvCache.Add(contract, sgdIndex)
 	return sgdIndex, nil
 }
 
