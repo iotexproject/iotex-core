@@ -1718,7 +1718,7 @@ func prepareliquidStakingBlockchain(ctx context.Context, cfg config.Config, r *r
 	// r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	execution := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	execution := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
 
