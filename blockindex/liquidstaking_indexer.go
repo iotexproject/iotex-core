@@ -9,6 +9,7 @@ import (
 	"context"
 	"math/big"
 	"strings"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -398,6 +399,7 @@ type (
 	liquidStakingIndexer struct {
 		kvstore db.KVStore                      // persistent storage
 		cache   *liquidStakingCacheThreadSafety // in-memory index for clean data
+		mutex   sync.RWMutex                    // mutex for multiple reading to cache
 	}
 )
 
@@ -489,6 +491,9 @@ func (s *liquidStakingIndexer) CandidateVotes(candidate address.Address) *big.In
 
 // Buckets returns the buckets
 func (s *liquidStakingIndexer) Buckets() ([]*Bucket, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	vbs := []*Bucket{}
 	for id, bi := range s.cache.getAllBucketInfo() {
 		bt := s.cache.mustGetBucketType(bi.TypeIndex)
@@ -503,11 +508,17 @@ func (s *liquidStakingIndexer) Buckets() ([]*Bucket, error) {
 
 // Bucket returns the bucket
 func (s *liquidStakingIndexer) Bucket(id uint64) (*Bucket, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	return s.generateBucket(id)
 }
 
 // BucketsByIndices returns the buckets by indices
 func (s *liquidStakingIndexer) BucketsByIndices(indices []uint64) ([]*Bucket, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	vbs := make([]*Bucket, 0, len(indices))
 	for _, id := range indices {
 		vb, err := s.generateBucket(id)
@@ -637,6 +648,9 @@ func (s *liquidStakingIndexer) loadCache() error {
 }
 
 func (s *liquidStakingIndexer) commit(dirty *liquidStakingDirty) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	batch, delta := dirty.finalize()
 	if err := s.kvstore.WriteBatch(batch); err != nil {
 		return err
