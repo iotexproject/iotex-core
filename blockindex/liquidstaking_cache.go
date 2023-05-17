@@ -328,3 +328,7 @@ func (s *liquidStakingCacheThreadSafety) merge(delta *liquidStakingDelta) error 
 
 	return s.cache.merge(delta)
 }
+
+func (s *liquidStakingCacheThreadSafety) unsafe() liquidStakingCacheManager {
+	return s.cache
+}

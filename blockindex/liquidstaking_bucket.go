@@ -9,10 +9,9 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/blockindex/indexpb"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"

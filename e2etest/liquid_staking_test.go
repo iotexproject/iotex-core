@@ -1700,7 +1700,7 @@ func prepareliquidStakingBlockchain(ctx context.Context, cfg config.Config, r *r
 	r.NoError(err)
 	cc := cfg.DB
 	cc.DbPath = testLiquidStakeIndexerPath
-	liquidStakeIndexer := blockindex.NewLiquidStakingIndexer(db.NewBoltDB(cc), cfg.Genesis.BlockInterval)
+	liquidStakeIndexer := blockindex.NewLiquidStakingIndexer(db.NewBoltDB(cc))
 	// create BlockDAO
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, liquidStakeIndexer})
 	r.NotNil(dao)
