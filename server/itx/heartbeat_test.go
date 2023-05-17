@@ -14,29 +14,13 @@ import (
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/probe"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestNewHeartbeatHandler(t *testing.T) {
 	require := require.New(t)
 
-	dbPath, err := testutil.PathOfTempFile("chain.db")
-	require.NoError(err)
-	testutil.CleanupPath(dbPath)
-	triePath, err := testutil.PathOfTempFile("trie.db")
-	require.NoError(err)
-	testutil.CleanupPath(triePath)
-	defer func() {
-		testutil.CleanupPath(dbPath)
-		testutil.CleanupPath(triePath)
-	}()
-	cfg := config.Default
-	cfg.API.GRPCPort = testutil.RandomPort()
-	cfg.API.HTTPPort = testutil.RandomPort()
-	cfg.API.WebSocketPort = testutil.RandomPort()
-	cfg.Chain.ChainDBPath = dbPath
-	cfg.Chain.TrieDBPath = triePath
-	cfg.Chain.TrieDBPatchFile = ""
+	cfg, cleanupPath := newConfig(t)
+	defer cleanupPath()
 	s, err := NewServer(cfg)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.EnableGravityChainVoting = true
