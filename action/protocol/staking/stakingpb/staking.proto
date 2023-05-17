@@ -22,6 +22,10 @@ message Bucket {
   bool autoStake = 8;
   string owner = 9;
   string contractAddress = 10;
+  uint64 stakedDurationBlockNumber = 11;
+  uint64 createBlockHeight = 12;
+  uint64 stakeStartBlockHeight = 13;
+  uint64 unstakeStartBlockHeight = 14;
 }
 
 message BucketIndices {
