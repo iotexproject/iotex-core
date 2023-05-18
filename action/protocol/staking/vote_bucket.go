@@ -29,19 +29,16 @@ const (
 type (
 	// VoteBucket represents a vote
 	VoteBucket struct {
-		Index           uint64
-		Candidate       address.Address
-		Owner           address.Address
-		StakedAmount    *big.Int
-		AutoStake       bool
-		ContractAddress string // Corresponding contract address; Empty if it's native staking
-
-		// only used for native staking buckets
+		Index            uint64
+		Candidate        address.Address
+		Owner            address.Address
+		StakedAmount     *big.Int
 		StakedDuration   time.Duration
 		CreateTime       time.Time
 		StakeStartTime   time.Time
 		UnstakeStartTime time.Time
-
+		AutoStake        bool
+		ContractAddress  string // Corresponding contract address; Empty if it's native staking
 		// only used for contract staking buckets
 		StakedDurationBlockNumber uint64
 		CreateBlockHeight         uint64

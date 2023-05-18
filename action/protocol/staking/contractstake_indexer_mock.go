@@ -65,6 +65,21 @@ func (mr *MockContractStakingIndexerMockRecorder) Buckets() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Buckets", reflect.TypeOf((*MockContractStakingIndexer)(nil).Buckets))
 }
 
+// BucketsByCandidate mocks base method.
+func (m *MockContractStakingIndexer) BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BucketsByCandidate", ownerAddr)
+	ret0, _ := ret[0].([]*VoteBucket)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BucketsByCandidate indicates an expected call of BucketsByCandidate.
+func (mr *MockContractStakingIndexerMockRecorder) BucketsByCandidate(ownerAddr interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BucketsByCandidate", reflect.TypeOf((*MockContractStakingIndexer)(nil).BucketsByCandidate), ownerAddr)
+}
+
 // BucketsByIndices mocks base method.
 func (m *MockContractStakingIndexer) BucketsByIndices(arg0 []uint64) ([]*VoteBucket, error) {
 	m.ctrl.T.Helper()

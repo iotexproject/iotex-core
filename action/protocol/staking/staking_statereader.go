@@ -119,15 +119,14 @@ func (c *compositeStakingStateReader) readStateBucketsByCandidate(ctx context.Co
 		return nil, 0, err
 	}
 	// read LSD buckets
-	lsdBuckets, err := c.contractIndexer.Buckets()
-	if err != nil {
-		return nil, 0, err
-	}
 	candidate := c.nativeSR.GetCandidateByName(req.GetCandName())
 	if candidate == nil {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
-	lsdBuckets = filterBucketsByCandidate(lsdBuckets, candidate.Owner)
+	lsdBuckets, err := c.contractIndexer.BucketsByCandidate(candidate.Owner)
+	if err != nil {
+		return nil, 0, err
+	}
 	lsdIoTeXBuckets, err := toIoTeXTypesVoteBucketList(lsdBuckets)
 	if err != nil {
 		return nil, 0, err
@@ -205,10 +204,6 @@ func (c *compositeStakingStateReader) readStateCandidates(ctx context.Context, r
 		}
 	}
 
-	// add contract stake votes
-	if !protocol.MustGetFeatureCtx(ctx).AddContractStakingVotes {
-		return candidates, height, nil
-	}
 	for _, candidate := range candidates.Candidates {
 		if err = addContractStakingVotes(candidate, c.contractIndexer); err != nil {
 			return nil, 0, err
@@ -302,16 +297,6 @@ func filterBucketsByVoter(buckets []*VoteBucket, voterAddress string) []*VoteBuc
 	var filtered []*VoteBucket
 	for _, bucket := range buckets {
 		if bucket.Owner.String() == voterAddress {
-			filtered = append(filtered, bucket)
-		}
-	}
-	return filtered
-}
-
-func filterBucketsByCandidate(buckets []*VoteBucket, candidate address.Address) []*VoteBucket {
-	var filtered []*VoteBucket
-	for _, bucket := range buckets {
-		if bucket.Candidate.String() == candidate.String() {
 			filtered = append(filtered, bucket)
 		}
 	}

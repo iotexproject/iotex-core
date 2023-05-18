@@ -28,6 +28,8 @@ type (
 		Buckets() ([]*VoteBucket, error)
 		// BucketsByIndices returns active buckets by indices
 		BucketsByIndices([]uint64) ([]*VoteBucket, error)
+		// BucketsByCandidate returns active buckets by candidate
+		BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error)
 		// TotalBucketCount returns the total number of buckets including burned buckets
 		TotalBucketCount() uint64
 		// BucketTypes returns the active bucket types
@@ -62,5 +64,9 @@ func (f *emptyContractStakingIndexer) TotalBucketCount() uint64 {
 }
 
 func (f *emptyContractStakingIndexer) BucketTypes() ([]*ContractStakingBucketType, error) {
+	return nil, nil
+}
+
+func (f *emptyContractStakingIndexer) BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error) {
 	return nil, nil
 }
