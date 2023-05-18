@@ -67,7 +67,7 @@ func newLiquidStakingDelta() *liquidStakingDelta {
 	}
 }
 
-func (s *liquidStakingDelta) addBucketType(id uint64, bt *BucketType) error {
+func (s *liquidStakingDelta) addBucketType(id uint64, bt *ContractStakingBucketType) error {
 	if _, ok := s.bucketTypeDeltaState[id]; !ok {
 		s.bucketTypeDeltaState[id] = deltaStateAdded
 	} else {
@@ -81,7 +81,7 @@ func (s *liquidStakingDelta) addBucketType(id uint64, bt *BucketType) error {
 	return nil
 }
 
-func (s *liquidStakingDelta) updateBucketType(id uint64, bt *BucketType) error {
+func (s *liquidStakingDelta) updateBucketType(id uint64, bt *ContractStakingBucketType) error {
 	if _, ok := s.bucketTypeDeltaState[id]; !ok {
 		s.bucketTypeDeltaState[id] = deltaStateModified
 	} else {
@@ -95,7 +95,7 @@ func (s *liquidStakingDelta) updateBucketType(id uint64, bt *BucketType) error {
 	return nil
 }
 
-func (s *liquidStakingDelta) addBucketInfo(id uint64, bi *BucketInfo) error {
+func (s *liquidStakingDelta) addBucketInfo(id uint64, bi *ContractStakingBucketInfo) error {
 	var err error
 	if _, ok := s.bucketInfoDeltaState[id]; !ok {
 		s.bucketInfoDeltaState[id] = deltaStateAdded
@@ -109,7 +109,7 @@ func (s *liquidStakingDelta) addBucketInfo(id uint64, bi *BucketInfo) error {
 	return nil
 }
 
-func (s *liquidStakingDelta) updateBucketInfo(id uint64, bi *BucketInfo) error {
+func (s *liquidStakingDelta) updateBucketInfo(id uint64, bi *ContractStakingBucketInfo) error {
 	if _, ok := s.bucketInfoDeltaState[id]; !ok {
 		s.bucketInfoDeltaState[id] = deltaStateModified
 	} else {

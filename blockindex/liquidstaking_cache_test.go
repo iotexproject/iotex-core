@@ -18,7 +18,7 @@ func TestLiquidStakingCacheThreadSafety(t *testing.T) {
 	wait.Add(2)
 	go func() {
 		for i := 0; i < 1000; i++ {
-			cache.putBucketType(uint64(i), &BucketType{
+			cache.putBucketType(uint64(i), &ContractStakingBucketType{
 				Amount:      big.NewInt(int64(i)),
 				Duration:    1000,
 				ActivatedAt: 10,

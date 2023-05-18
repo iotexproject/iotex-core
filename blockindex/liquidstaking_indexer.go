@@ -374,19 +374,25 @@ const (
 )
 
 type (
-	// LiquidStakingIndexer is the interface of liquid staking indexer
-	LiquidStakingIndexer interface {
+	// ContractStakingIndexer is the interface of contract staking indexer
+	ContractStakingIndexer interface {
 		blockdao.BlockIndexer
 
+		// CandidateVotes returns the total votes of a candidate
 		CandidateVotes(candidate address.Address) *big.Int
-		Buckets() ([]*Bucket, error)
-		Bucket(id uint64) (*Bucket, error)
-		BucketsByIndices(indices []uint64) ([]*Bucket, error)
+		// Buckets returns all existed buckets
+		Buckets() ([]*ContractStakingBucket, error)
+		// Bucket returns the bucket by id
+		Bucket(id uint64) (*ContractStakingBucket, error)
+		// BucketsByIndices returns buckets by indices
+		BucketsByIndices(indices []uint64) ([]*ContractStakingBucket, error)
+		// TotalBucketCount returns the total bucket count including burned buckets
 		TotalBucketCount() uint64
-		ActiveBucketTypes() (map[uint64]*BucketType, error)
+		// ActiveBucketTypes returns all active bucket types
+		ActiveBucketTypes() (map[uint64]*ContractStakingBucketType, error)
 	}
 
-	// liquidStakingIndexer is the implementation of LiquidStakingIndexer
+	// liquidStakingIndexer is the implementation of ContractStakingIndexer
 	// Main functions:
 	// 		1. handle liquid staking contract events when new block comes to generate index data
 	// 		2. provide query interface for liquid staking index data
@@ -422,8 +428,8 @@ func init() {
 	}
 }
 
-// NewLiquidStakingIndexer creates a new liquid staking indexer
-func NewLiquidStakingIndexer(kvStore db.KVStore) LiquidStakingIndexer {
+// NewContractStakingIndexer creates a new contract staking indexer
+func NewContractStakingIndexer(kvStore db.KVStore) ContractStakingIndexer {
 	return &liquidStakingIndexer{
 		kvstore: kvStore,
 		cache:   newLiquidStakingCache(),
@@ -490,11 +496,11 @@ func (s *liquidStakingIndexer) CandidateVotes(candidate address.Address) *big.In
 }
 
 // Buckets returns the buckets
-func (s *liquidStakingIndexer) Buckets() ([]*Bucket, error) {
+func (s *liquidStakingIndexer) Buckets() ([]*ContractStakingBucket, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	vbs := []*Bucket{}
+	vbs := []*ContractStakingBucket{}
 	for id, bi := range s.cache.getAllBucketInfo() {
 		bt := s.cache.mustGetBucketType(bi.TypeIndex)
 		vb, err := s.convertToVoteBucket(id, bi, bt)
@@ -507,7 +513,7 @@ func (s *liquidStakingIndexer) Buckets() ([]*Bucket, error) {
 }
 
 // Bucket returns the bucket
-func (s *liquidStakingIndexer) Bucket(id uint64) (*Bucket, error) {
+func (s *liquidStakingIndexer) Bucket(id uint64) (*ContractStakingBucket, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -515,11 +521,11 @@ func (s *liquidStakingIndexer) Bucket(id uint64) (*Bucket, error) {
 }
 
 // BucketsByIndices returns the buckets by indices
-func (s *liquidStakingIndexer) BucketsByIndices(indices []uint64) ([]*Bucket, error) {
+func (s *liquidStakingIndexer) BucketsByIndices(indices []uint64) ([]*ContractStakingBucket, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	vbs := make([]*Bucket, 0, len(indices))
+	vbs := make([]*ContractStakingBucket, 0, len(indices))
 	for _, id := range indices {
 		vb, err := s.generateBucket(id)
 		if err != nil {
@@ -534,11 +540,11 @@ func (s *liquidStakingIndexer) TotalBucketCount() uint64 {
 	return s.cache.getTotalBucketCount()
 }
 
-func (s *liquidStakingIndexer) ActiveBucketTypes() (map[uint64]*BucketType, error) {
+func (s *liquidStakingIndexer) ActiveBucketTypes() (map[uint64]*ContractStakingBucketType, error) {
 	return s.cache.getActiveBucketType(), nil
 }
 
-func (s *liquidStakingIndexer) generateBucket(id uint64) (*Bucket, error) {
+func (s *liquidStakingIndexer) generateBucket(id uint64) (*ContractStakingBucket, error) {
 	bi, ok := s.cache.getBucketInfo(id)
 	if !ok {
 		return nil, errors.Wrapf(ErrBucketInfoNotExist, "id %d", id)
@@ -625,7 +631,7 @@ func (s *liquidStakingIndexer) loadCache() error {
 		return err
 	}
 	for i := range vs {
-		var b BucketInfo
+		var b ContractStakingBucketInfo
 		if err := b.deserialize(vs[i]); err != nil {
 			return err
 		}
@@ -638,7 +644,7 @@ func (s *liquidStakingIndexer) loadCache() error {
 		return err
 	}
 	for i := range vs {
-		var b BucketType
+		var b ContractStakingBucketType
 		if err := b.deserialize(vs[i]); err != nil {
 			return err
 		}
@@ -661,20 +667,20 @@ func (s *liquidStakingIndexer) commit(dirty *liquidStakingDirty) error {
 	return nil
 }
 
-func (s *liquidStakingIndexer) convertToVoteBucket(token uint64, bi *BucketInfo, bt *BucketType) (*Bucket, error) {
-	vb := Bucket{
-		Index:            token,
-		StakedAmount:     bt.Amount,
-		StakedDuration:   bt.Duration,
-		CreateTime:       bi.CreatedAt,
-		StakeStartTime:   bi.CreatedAt,
-		UnstakeStartTime: bi.UnstakedAt,
-		AutoStake:        bi.UnlockedAt == maxBlockNumber,
-		Candidate:        bi.Delegate,
-		Owner:            bi.Owner,
+func (s *liquidStakingIndexer) convertToVoteBucket(token uint64, bi *ContractStakingBucketInfo, bt *ContractStakingBucketType) (*ContractStakingBucket, error) {
+	vb := ContractStakingBucket{
+		Index:                     token,
+		StakedAmount:              bt.Amount,
+		StakedDurationBlockNumber: bt.Duration,
+		CreateBlockHeight:         bi.CreatedAt,
+		StakeBlockHeight:          bi.CreatedAt,
+		UnstakeBlockHeight:        bi.UnstakedAt,
+		AutoStake:                 bi.UnlockedAt == maxBlockNumber,
+		Candidate:                 bi.Delegate,
+		Owner:                     bi.Owner,
 	}
 	if bi.UnlockedAt != maxBlockNumber {
-		vb.StakeStartTime = bi.UnlockedAt
+		vb.StakeBlockHeight = bi.UnlockedAt
 	}
 	return &vb, nil
 }

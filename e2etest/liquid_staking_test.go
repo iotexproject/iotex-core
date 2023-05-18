@@ -1347,7 +1347,7 @@ func TestLiquidStaking(t *testing.T) {
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipt.Status)
 	}
 
-	simpleStake := func(cand common.Address, amount, duration *big.Int) *blockindex.Bucket {
+	simpleStake := func(cand common.Address, amount, duration *big.Int) *blockindex.ContractStakingBucket {
 		return stake(lsdABI, bc, sf, dao, ap, contractAddresses, indexer, r, cand, amount, duration)
 	}
 
@@ -1369,7 +1369,7 @@ func TestLiquidStaking(t *testing.T) {
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 		buckets, err := indexer.Buckets()
 		r.NoError(err)
-		slices.SortFunc(buckets, func(i, j *blockindex.Bucket) bool {
+		slices.SortFunc(buckets, func(i, j *blockindex.ContractStakingBucket) bool {
 			return i.Index < j.Index
 		})
 		bt := buckets[len(buckets)-1]
@@ -1379,10 +1379,10 @@ func TestLiquidStaking(t *testing.T) {
 		r.Equal(identityset.Address(delegateIdx).String(), bt.Candidate.String())
 		r.EqualValues(identityset.PrivateKey(adminID).PublicKey().Address().String(), bt.Owner.String())
 		r.EqualValues(0, bt.StakedAmount.Cmp(big.NewInt(10)))
-		r.EqualValues(10, bt.StakedDuration)
-		r.EqualValues(blk.Height(), bt.CreateTime)
-		r.EqualValues(blk.Height(), bt.StakeStartTime)
-		r.True(bt.UnstakeStartTime == math.MaxUint64)
+		r.EqualValues(10, bt.StakedDurationBlockNumber)
+		r.EqualValues(blk.Height(), bt.CreateBlockHeight)
+		r.EqualValues(blk.Height(), bt.StakeBlockHeight)
+		r.True(bt.UnstakeBlockHeight == math.MaxUint64)
 		r.EqualValues(10, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 		r.EqualValues(1, indexer.TotalBucketCount())
 
@@ -1403,7 +1403,7 @@ func TestLiquidStaking(t *testing.T) {
 			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 			bt, err := indexer.Bucket(uint64(tokenID))
 			r.NoError(err)
-			r.EqualValues(blk.Height(), bt.StakeStartTime)
+			r.EqualValues(blk.Height(), bt.StakeBlockHeight)
 			r.EqualValues(10, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 			r.EqualValues(1, indexer.TotalBucketCount())
 
@@ -1425,7 +1425,7 @@ func TestLiquidStaking(t *testing.T) {
 				r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 				bt, err := indexer.Bucket(uint64(tokenID))
 				r.NoError(err)
-				r.EqualValues(blk.Height(), bt.UnstakeStartTime)
+				r.EqualValues(blk.Height(), bt.UnstakeBlockHeight)
 				r.EqualValues(0, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 				r.EqualValues(1, indexer.TotalBucketCount())
 
@@ -1520,7 +1520,7 @@ func TestLiquidStaking(t *testing.T) {
 		}
 		buckets, err := indexer.Buckets()
 		r.NoError(err)
-		slices.SortFunc(buckets, func(i, j *blockindex.Bucket) bool {
+		slices.SortFunc(buckets, func(i, j *blockindex.ContractStakingBucket) bool {
 			return i.Index < j.Index
 		})
 		r.True(len(buckets) >= 10)
@@ -1548,7 +1548,7 @@ func TestLiquidStaking(t *testing.T) {
 			if i == 0 {
 				bt, err := indexer.Bucket(uint64(newBuckets[i].Index))
 				r.NoError(err)
-				r.EqualValues(100, bt.StakedDuration)
+				r.EqualValues(100, bt.StakedDurationBlockNumber)
 			} else {
 				_, err := indexer.Bucket(uint64(newBuckets[i].Index))
 				r.ErrorIs(err, blockindex.ErrBucketInfoNotExist)
@@ -1560,7 +1560,7 @@ func TestLiquidStaking(t *testing.T) {
 		// stake
 		bt := simpleStake(_delegates[3], big.NewInt(10), big.NewInt(10))
 		tokenID := bt.Index
-		r.EqualValues(10, bt.StakedDuration)
+		r.EqualValues(10, bt.StakedDurationBlockNumber)
 		// extend duration
 		data, err := lsdABI.Pack("extendDuration", big.NewInt(int64(tokenID)), big.NewInt(100))
 		r.NoError(err)
@@ -1577,7 +1577,7 @@ func TestLiquidStaking(t *testing.T) {
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 		bt, err = indexer.Bucket(uint64(tokenID))
 		r.NoError(err)
-		r.EqualValues(100, bt.StakedDuration)
+		r.EqualValues(100, bt.StakedDurationBlockNumber)
 	})
 
 	t.Run("increase amount", func(t *testing.T) {
@@ -1632,7 +1632,7 @@ func TestLiquidStaking(t *testing.T) {
 
 }
 
-func prepareliquidStakingBlockchain(ctx context.Context, cfg config.Config, r *require.Assertions) (blockchain.Blockchain, factory.Factory, blockdao.BlockDAO, actpool.ActPool, blockindex.LiquidStakingIndexer) {
+func prepareliquidStakingBlockchain(ctx context.Context, cfg config.Config, r *require.Assertions) (blockchain.Blockchain, factory.Factory, blockdao.BlockDAO, actpool.ActPool, blockindex.ContractStakingIndexer) {
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -1700,7 +1700,7 @@ func prepareliquidStakingBlockchain(ctx context.Context, cfg config.Config, r *r
 	r.NoError(err)
 	cc := cfg.DB
 	cc.DbPath = testLiquidStakeIndexerPath
-	liquidStakeIndexer := blockindex.NewLiquidStakingIndexer(db.NewBoltDB(cc))
+	liquidStakeIndexer := blockindex.NewContractStakingIndexer(db.NewBoltDB(cc))
 	// create BlockDAO
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, liquidStakeIndexer})
 	r.NotNil(dao)
@@ -1845,7 +1845,7 @@ func jumpBlocks(bc blockchain.Blockchain, count int, r *require.Assertions) {
 	}
 }
 
-func stake(lsdABI abi.ABI, bc blockchain.Blockchain, sf factory.Factory, dao blockdao.BlockDAO, ap actpool.ActPool, contractAddresses string, indexer blockindex.LiquidStakingIndexer, r *require.Assertions, cand common.Address, amount, duration *big.Int) *blockindex.Bucket {
+func stake(lsdABI abi.ABI, bc blockchain.Blockchain, sf factory.Factory, dao blockdao.BlockDAO, ap actpool.ActPool, contractAddresses string, indexer blockindex.ContractStakingIndexer, r *require.Assertions, cand common.Address, amount, duration *big.Int) *blockindex.ContractStakingBucket {
 	delegate := cand
 	data, err := lsdABI.Pack("stake0", duration, delegate)
 	r.NoError(err)
@@ -1862,7 +1862,7 @@ func stake(lsdABI abi.ABI, bc blockchain.Blockchain, sf factory.Factory, dao blo
 	r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 	buckets, err := indexer.Buckets()
 	r.NoError(err)
-	slices.SortFunc(buckets, func(i, j *blockindex.Bucket) bool {
+	slices.SortFunc(buckets, func(i, j *blockindex.ContractStakingBucket) bool {
 		return i.Index < j.Index
 	})
 	bt := buckets[len(buckets)-1]

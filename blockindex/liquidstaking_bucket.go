@@ -22,8 +22,8 @@ const (
 )
 
 type (
-	// BucketInfo is the bucket information
-	BucketInfo struct {
+	// ContractStakingBucketInfo is the bucket information
+	ContractStakingBucketInfo struct {
 		TypeIndex  uint64
 		CreatedAt  uint64
 		UnlockedAt uint64
@@ -32,28 +32,28 @@ type (
 		Owner      address.Address
 	}
 
-	// BucketType is the bucket type
-	BucketType struct {
+	// ContractStakingBucketType is the bucket type
+	ContractStakingBucketType struct {
 		Amount      *big.Int
 		Duration    uint64
 		ActivatedAt uint64
 	}
 
-	// Bucket is the bucket information including bucket type and bucket info
-	Bucket struct {
-		Index            uint64
-		Candidate        address.Address
-		Owner            address.Address
-		StakedAmount     *big.Int
-		StakedDuration   uint64
-		CreateTime       uint64
-		StakeStartTime   uint64
-		UnstakeStartTime uint64
-		AutoStake        bool
+	// ContractStakingBucket is the bucket information including bucket type and bucket info
+	ContractStakingBucket struct {
+		Index                     uint64
+		Candidate                 address.Address
+		Owner                     address.Address
+		StakedAmount              *big.Int
+		StakedDurationBlockNumber uint64
+		CreateBlockHeight         uint64
+		StakeBlockHeight          uint64
+		UnstakeBlockHeight        uint64
+		AutoStake                 bool
 	}
 )
 
-func (bt *BucketType) toProto() *indexpb.BucketType {
+func (bt *ContractStakingBucketType) toProto() *indexpb.BucketType {
 	return &indexpb.BucketType{
 		Amount:      bt.Amount.String(),
 		Duration:    bt.Duration,
@@ -61,7 +61,7 @@ func (bt *BucketType) toProto() *indexpb.BucketType {
 	}
 }
 
-func (bt *BucketType) loadProto(p *indexpb.BucketType) error {
+func (bt *ContractStakingBucketType) loadProto(p *indexpb.BucketType) error {
 	var ok bool
 	bt.Amount, ok = big.NewInt(0).SetString(p.Amount, 10)
 	if !ok {
@@ -72,11 +72,11 @@ func (bt *BucketType) loadProto(p *indexpb.BucketType) error {
 	return nil
 }
 
-func (bt *BucketType) serialize() []byte {
+func (bt *ContractStakingBucketType) serialize() []byte {
 	return byteutil.Must(proto.Marshal(bt.toProto()))
 }
 
-func (bt *BucketType) deserialize(b []byte) error {
+func (bt *ContractStakingBucketType) deserialize(b []byte) error {
 	m := indexpb.BucketType{}
 	if err := proto.Unmarshal(b, &m); err != nil {
 		return err
@@ -84,7 +84,7 @@ func (bt *BucketType) deserialize(b []byte) error {
 	return bt.loadProto(&m)
 }
 
-func (bi *BucketInfo) toProto() *indexpb.BucketInfo {
+func (bi *ContractStakingBucketInfo) toProto() *indexpb.BucketInfo {
 	pb := &indexpb.BucketInfo{
 		TypeIndex:  bi.TypeIndex,
 		Delegate:   bi.Delegate.String(),
@@ -96,11 +96,11 @@ func (bi *BucketInfo) toProto() *indexpb.BucketInfo {
 	return pb
 }
 
-func (bi *BucketInfo) serialize() []byte {
+func (bi *ContractStakingBucketInfo) serialize() []byte {
 	return byteutil.Must(proto.Marshal(bi.toProto()))
 }
 
-func (bi *BucketInfo) deserialize(b []byte) error {
+func (bi *ContractStakingBucketInfo) deserialize(b []byte) error {
 	m := indexpb.BucketInfo{}
 	if err := proto.Unmarshal(b, &m); err != nil {
 		return err
@@ -108,7 +108,7 @@ func (bi *BucketInfo) deserialize(b []byte) error {
 	return bi.loadProto(&m)
 }
 
-func (bi *BucketInfo) loadProto(p *indexpb.BucketInfo) error {
+func (bi *ContractStakingBucketInfo) loadProto(p *indexpb.BucketInfo) error {
 	var err error
 	bi.TypeIndex = p.TypeIndex
 	bi.CreatedAt = p.CreatedAt

@@ -45,22 +45,22 @@ func (dirty *liquidStakingDirty) putHeight(h uint64) {
 	dirty.delta.putHeight(h)
 }
 
-func (dirty *liquidStakingDirty) addBucketType(id uint64, bt *BucketType) error {
+func (dirty *liquidStakingDirty) addBucketType(id uint64, bt *ContractStakingBucketType) error {
 	dirty.batch.Put(_liquidStakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.serialize(), "failed to put bucket type")
 	return dirty.delta.addBucketType(id, bt)
 }
 
-func (dirty *liquidStakingDirty) updateBucketType(id uint64, bt *BucketType) error {
+func (dirty *liquidStakingDirty) updateBucketType(id uint64, bt *ContractStakingBucketType) error {
 	dirty.batch.Put(_liquidStakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.serialize(), "failed to put bucket type")
 	return dirty.delta.updateBucketType(id, bt)
 }
 
-func (dirty *liquidStakingDirty) addBucketInfo(id uint64, bi *BucketInfo) error {
+func (dirty *liquidStakingDirty) addBucketInfo(id uint64, bi *ContractStakingBucketInfo) error {
 	dirty.batch.Put(_liquidStakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.serialize(), "failed to put bucket info")
 	return dirty.delta.addBucketInfo(id, bi)
 }
 
-func (dirty *liquidStakingDirty) updateBucketInfo(id uint64, bi *BucketInfo) error {
+func (dirty *liquidStakingDirty) updateBucketInfo(id uint64, bi *ContractStakingBucketInfo) error {
 	dirty.batch.Put(_liquidStakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.serialize(), "failed to put bucket info")
 	return dirty.delta.updateBucketInfo(id, bi)
 }
@@ -83,7 +83,7 @@ func (dirty *liquidStakingDirty) getBucketTypeCount() uint64 {
 	return dirty.clean.getTotalBucketTypeCount() + dirty.delta.addedBucketTypeCnt()
 }
 
-func (dirty *liquidStakingDirty) getBucketType(id uint64) (*BucketType, bool) {
+func (dirty *liquidStakingDirty) getBucketType(id uint64) (*ContractStakingBucketType, bool) {
 	bt, ok := dirty.delta.getBucketType(id)
 	if ok {
 		return bt, true
@@ -92,7 +92,7 @@ func (dirty *liquidStakingDirty) getBucketType(id uint64) (*BucketType, bool) {
 	return bt, ok
 }
 
-func (dirty *liquidStakingDirty) getBucketInfo(id uint64) (*BucketInfo, bool) {
+func (dirty *liquidStakingDirty) getBucketInfo(id uint64) (*ContractStakingBucketInfo, bool) {
 	if dirty.delta.isBucketDeleted(id) {
 		return nil, false
 	}
@@ -140,7 +140,7 @@ func (dirty *liquidStakingDirty) handleBucketTypeActivatedEvent(event eventParam
 		return err
 	}
 
-	bt := BucketType{
+	bt := ContractStakingBucketType{
 		Amount:      amountParam,
 		Duration:    durationParam.Uint64(),
 		ActivatedAt: height,
@@ -200,7 +200,7 @@ func (dirty *liquidStakingDirty) handleStakedEvent(event eventParam, height uint
 	if !ok {
 		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), durationParam.Uint64())
 	}
-	bucket := BucketInfo{
+	bucket := ContractStakingBucketInfo{
 		TypeIndex:  btIdx,
 		Delegate:   delegateParam,
 		Owner:      dirty.tokenOwner[tokenIDParam.Uint64()],
