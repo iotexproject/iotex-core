@@ -628,6 +628,11 @@ func (s *contractStakingIndexer) handleEvent(ctx context.Context, dirty *contrac
 	}
 }
 
+func (s *contractStakingIndexer) reloadCache() error {
+	s.cache = newContractStakingCache()
+	return s.loadCache()
+}
+
 func (s *contractStakingIndexer) loadCache() error {
 	delta := newContractStakingDelta()
 	// load height
@@ -689,10 +694,12 @@ func (s *contractStakingIndexer) commit(dirty *contractStakingDirty) error {
 	defer s.mutex.Unlock()
 
 	batch, delta := dirty.finalize()
-	if err := s.kvstore.WriteBatch(batch); err != nil {
+	if err := s.cache.merge(delta); err != nil {
+		s.reloadCache()
 		return err
 	}
-	if err := s.cache.merge(delta); err != nil {
+	if err := s.kvstore.WriteBatch(batch); err != nil {
+		s.reloadCache()
 		return err
 	}
 	return nil
