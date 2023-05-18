@@ -8,10 +8,13 @@ package blockindex
 import (
 	"context"
 	"math/big"
+	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -36,26 +39,10 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	dirty := newContractStakingDirty(indexer.cache)
 	height := uint64(1)
 	dirty.putHeight(height)
-	err = dirty.handleBucketTypeActivatedEvent(eventParam{
-		"amount":   big.NewInt(10),
-		"duration": big.NewInt(100),
-	}, height)
-	r.NoError(err)
+	activateBucketType(r, dirty, 10, 100, height)
 	owner := identityset.Address(0)
-
-	err = dirty.handleTransferEvent(eventParam{
-		"to":      common.BytesToAddress(owner.Bytes()),
-		"tokenId": big.NewInt(1),
-	})
-	r.NoError(err)
 	delegate := identityset.Address(1)
-	err = dirty.handleStakedEvent(eventParam{
-		"tokenId":  big.NewInt(1),
-		"delegate": common.BytesToAddress(delegate.Bytes()),
-		"amount":   big.NewInt(10),
-		"duration": big.NewInt(100),
-	}, height)
-	r.NoError(err)
+	stake(r, dirty, owner, delegate, 1, 10, 100, height)
 	err = indexer.commit(dirty)
 	r.NoError(err)
 	buckets, err := indexer.Buckets()
@@ -81,4 +68,365 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	r.Equal(height, newHeight)
 	r.EqualValues(1, newIndexer.TotalBucketCount())
 	r.NoError(newIndexer.Stop(context.Background()))
+}
+
+func TestContractStakingIndexerDirty(t *testing.T) {
+	r := require.New(t)
+	testDBPath, err := testutil.PathOfTempFile("staking.db")
+	r.NoError(err)
+	defer testutil.CleanupPath(testDBPath)
+	cfg := db.DefaultConfig
+	cfg.DbPath = testDBPath
+	kvStore := db.NewBoltDB(cfg)
+	indexer := &contractStakingIndexer{
+		kvstore: kvStore,
+		cache:   newContractStakingCache(),
+	}
+	r.NoError(indexer.Start(context.Background()))
+
+	// before commit dirty, the cache should be empty
+	dirty := newContractStakingDirty(indexer.cache)
+	height := uint64(1)
+	dirty.putHeight(height)
+	gotHeight, err := indexer.Height()
+	r.NoError(err)
+	r.EqualValues(0, gotHeight)
+	// after commit dirty, the cache should be updated
+	err = indexer.commit(dirty)
+	r.NoError(err)
+	gotHeight, err = indexer.Height()
+	r.NoError(err)
+	r.EqualValues(height, gotHeight)
+
+	r.NoError(indexer.Stop(context.Background()))
+}
+
+func TestContractStakingIndexerThreadSafe(t *testing.T) {
+	r := require.New(t)
+	testDBPath, err := testutil.PathOfTempFile("staking.db")
+	r.NoError(err)
+	defer testutil.CleanupPath(testDBPath)
+	cfg := db.DefaultConfig
+	cfg.DbPath = testDBPath
+	kvStore := db.NewBoltDB(cfg)
+	indexer := &contractStakingIndexer{
+		kvstore: kvStore,
+		cache:   newContractStakingCache(),
+	}
+	r.NoError(indexer.Start(context.Background()))
+
+	wait := sync.WaitGroup{}
+	wait.Add(6)
+	owner := identityset.Address(0)
+	delegate := identityset.Address(1)
+	// read concurrently
+	for i := 0; i < 5; i++ {
+		go func() {
+			defer wait.Done()
+			for i := 0; i < 1000; i++ {
+				_, err := indexer.Buckets()
+				r.NoError(err)
+				_, err = indexer.ActiveBucketTypes()
+				r.NoError(err)
+				_, err = indexer.BucketsByCandidate(delegate)
+				r.NoError(err)
+				indexer.CandidateVotes(delegate)
+				_, err = indexer.Height()
+				r.NoError(err)
+				indexer.TotalBucketCount()
+			}
+		}()
+	}
+	// write
+	go func() {
+		defer wait.Done()
+		// activate bucket type
+		dirty := newContractStakingDirty(indexer.cache)
+		activateBucketType(r, dirty, 10, 100, 1)
+		r.NoError(indexer.commit(dirty))
+		for i := 2; i < 1000; i++ {
+			dirty := newContractStakingDirty(indexer.cache)
+			height := uint64(i)
+			dirty.putHeight(height)
+			stake(r, dirty, owner, delegate, 1, 10, 100, height)
+			err := indexer.commit(dirty)
+			r.NoError(err)
+		}
+	}()
+	wait.Wait()
+	r.NoError(indexer.Stop(context.Background()))
+	// no panic means thread safe
+}
+
+func TestContractStakingIndexerBucketType(t *testing.T) {
+	r := require.New(t)
+	testDBPath, err := testutil.PathOfTempFile("staking.db")
+	r.NoError(err)
+	defer testutil.CleanupPath(testDBPath)
+	cfg := db.DefaultConfig
+	cfg.DbPath = testDBPath
+	kvStore := db.NewBoltDB(cfg)
+	indexer := &contractStakingIndexer{
+		kvstore: kvStore,
+		cache:   newContractStakingCache(),
+	}
+	r.NoError(indexer.Start(context.Background()))
+
+	// activate
+	bucketTypeData := [][2]int64{
+		{10, 10},
+		{20, 10},
+		{10, 100},
+		{20, 100},
+	}
+	height := uint64(1)
+	dirty := newContractStakingDirty(indexer.cache)
+	dirty.putHeight(height)
+	for _, data := range bucketTypeData {
+		activateBucketType(r, dirty, data[0], data[1], height)
+	}
+	err = indexer.commit(dirty)
+	r.NoError(err)
+	bucketTypes, err := indexer.ActiveBucketTypes()
+	r.NoError(err)
+	r.Equal(len(bucketTypeData), len(bucketTypes))
+	for i, data := range bucketTypeData {
+		r.EqualValues(data[0], bucketTypes[uint64(i)].Amount.Int64())
+		r.EqualValues(data[1], bucketTypes[uint64(i)].Duration)
+		r.EqualValues(height, bucketTypes[uint64(i)].ActivatedAt)
+	}
+	// deactivate
+	height++
+	dirty = newContractStakingDirty(indexer.cache)
+	dirty.putHeight(height)
+	for i := 0; i < 2; i++ {
+		data := bucketTypeData[i]
+		deactivateBucketType(r, dirty, data[0], data[1], height)
+	}
+	err = indexer.commit(dirty)
+	r.NoError(err)
+	bucketTypes, err = indexer.ActiveBucketTypes()
+	r.NoError(err)
+	r.Equal(len(bucketTypeData)-2, len(bucketTypes))
+	for i, data := range bucketTypeData {
+		if i < 2 {
+			continue
+		}
+		r.EqualValues(data[0], bucketTypes[uint64(i)].Amount.Int64())
+		r.EqualValues(data[1], bucketTypes[uint64(i)].Duration)
+		r.EqualValues(1, bucketTypes[uint64(i)].ActivatedAt)
+	}
+	// reactivate
+	height++
+	dirty = newContractStakingDirty(indexer.cache)
+	dirty.putHeight(height)
+	for i := 0; i < 2; i++ {
+		data := bucketTypeData[i]
+		activateBucketType(r, dirty, data[0], data[1], height)
+	}
+	err = indexer.commit(dirty)
+	r.NoError(err)
+	bucketTypes, err = indexer.ActiveBucketTypes()
+	r.NoError(err)
+	r.Equal(len(bucketTypeData), len(bucketTypes))
+	for i, data := range bucketTypeData {
+		r.EqualValues(data[0], bucketTypes[uint64(i)].Amount.Int64())
+		r.EqualValues(data[1], bucketTypes[uint64(i)].Duration)
+		if i < 2 {
+			r.EqualValues(height, bucketTypes[uint64(i)].ActivatedAt)
+		} else {
+			r.EqualValues(1, bucketTypes[uint64(i)].ActivatedAt)
+		}
+	}
+	r.NoError(indexer.Stop(context.Background()))
+}
+
+func TestContractStakingIndexerBucketInfo(t *testing.T) {
+	r := require.New(t)
+	testDBPath, err := testutil.PathOfTempFile("staking.db")
+	r.NoError(err)
+	defer testutil.CleanupPath(testDBPath)
+	cfg := db.DefaultConfig
+	cfg.DbPath = testDBPath
+	kvStore := db.NewBoltDB(cfg)
+	indexer := &contractStakingIndexer{
+		kvstore: kvStore,
+		cache:   newContractStakingCache(),
+	}
+	r.NoError(indexer.Start(context.Background()))
+
+	// init bucket type
+	bucketTypeData := [][2]int64{
+		{10, 10},
+		{20, 10},
+		{10, 100},
+		{20, 100},
+	}
+	height := uint64(1)
+	dirty := newContractStakingDirty(indexer.cache)
+	dirty.putHeight(height)
+	for _, data := range bucketTypeData {
+		activateBucketType(r, dirty, data[0], data[1], height)
+	}
+	err = indexer.commit(dirty)
+	r.NoError(err)
+
+	// stake
+	owner := identityset.Address(0)
+	delegate := identityset.Address(1)
+	height++
+	dirty = newContractStakingDirty(indexer.cache)
+	dirty.putHeight(height)
+	stake(r, dirty, owner, delegate, 1, 10, 100, height)
+	r.NoError(err)
+	r.NoError(indexer.commit(dirty))
+	bucket, err := indexer.Bucket(1)
+	r.NoError(err)
+	r.EqualValues(1, bucket.Index)
+	r.EqualValues(owner, bucket.Owner)
+	r.EqualValues(delegate, bucket.Candidate)
+	r.EqualValues(10, bucket.StakedAmount.Int64())
+	r.EqualValues(100, bucket.StakedDurationBlockNumber)
+	r.EqualValues(height, bucket.StakeBlockHeight)
+	r.True(bucket.AutoStake)
+	r.EqualValues(height, bucket.CreateBlockHeight)
+	r.EqualValues(maxBlockNumber, bucket.UnstakeBlockHeight)
+	r.EqualValues(StakingContractAddress, bucket.ContractAddress)
+	r.EqualValues(10, indexer.CandidateVotes(delegate).Uint64())
+	r.EqualValues(1, indexer.TotalBucketCount())
+
+	// unlock
+	height++
+	dirty = newContractStakingDirty(indexer.cache)
+	dirty.putHeight(height)
+	unlock(r, dirty, int64(bucket.Index), height)
+	r.NoError(indexer.commit(dirty))
+	bucket, err = indexer.Bucket(bucket.Index)
+	r.NoError(err)
+	r.EqualValues(1, bucket.Index)
+	r.EqualValues(owner, bucket.Owner)
+	r.EqualValues(delegate, bucket.Candidate)
+	r.EqualValues(10, bucket.StakedAmount.Int64())
+	r.EqualValues(100, bucket.StakedDurationBlockNumber)
+	r.EqualValues(height, bucket.StakeBlockHeight)
+	r.False(bucket.AutoStake)
+	r.EqualValues(height-1, bucket.CreateBlockHeight)
+	r.EqualValues(maxBlockNumber, bucket.UnstakeBlockHeight)
+	r.EqualValues(StakingContractAddress, bucket.ContractAddress)
+	r.EqualValues(10, indexer.CandidateVotes(delegate).Uint64())
+	r.EqualValues(1, indexer.TotalBucketCount())
+
+	// lock again
+	height++
+	dirty = newContractStakingDirty(indexer.cache)
+	dirty.putHeight(height)
+	lock(r, dirty, int64(bucket.Index), int64(10))
+	r.NoError(indexer.commit(dirty))
+	bucket, err = indexer.Bucket(bucket.Index)
+	r.NoError(err)
+	r.EqualValues(1, bucket.Index)
+	r.EqualValues(owner, bucket.Owner)
+	r.EqualValues(delegate, bucket.Candidate)
+	r.EqualValues(10, bucket.StakedAmount.Int64())
+	r.EqualValues(10, bucket.StakedDurationBlockNumber)
+	r.EqualValues(height-2, bucket.StakeBlockHeight)
+	r.True(bucket.AutoStake)
+	r.EqualValues(height-2, bucket.CreateBlockHeight)
+	r.EqualValues(maxBlockNumber, bucket.UnstakeBlockHeight)
+	r.EqualValues(StakingContractAddress, bucket.ContractAddress)
+	r.EqualValues(10, indexer.CandidateVotes(delegate).Uint64())
+	r.EqualValues(1, indexer.TotalBucketCount())
+
+	// unstake
+	height++
+	dirty = newContractStakingDirty(indexer.cache)
+	dirty.putHeight(height)
+	unlock(r, dirty, int64(bucket.Index), height)
+	unstake(r, dirty, int64(bucket.Index), height)
+	r.NoError(indexer.commit(dirty))
+	bucket, err = indexer.Bucket(bucket.Index)
+	r.NoError(err)
+	r.EqualValues(1, bucket.Index)
+	r.EqualValues(owner, bucket.Owner)
+	r.EqualValues(delegate, bucket.Candidate)
+	r.EqualValues(10, bucket.StakedAmount.Int64())
+	r.EqualValues(10, bucket.StakedDurationBlockNumber)
+	r.EqualValues(height, bucket.StakeBlockHeight)
+	r.False(bucket.AutoStake)
+	r.EqualValues(height-3, bucket.CreateBlockHeight)
+	r.EqualValues(height, bucket.UnstakeBlockHeight)
+	r.EqualValues(StakingContractAddress, bucket.ContractAddress)
+	r.EqualValues(0, indexer.CandidateVotes(delegate).Uint64())
+	r.EqualValues(1, indexer.TotalBucketCount())
+
+	// withdraw
+	height++
+	dirty = newContractStakingDirty(indexer.cache)
+	dirty.putHeight(height)
+	withdraw(r, dirty, int64(bucket.Index))
+	r.NoError(indexer.commit(dirty))
+	bucket, err = indexer.Bucket(bucket.Index)
+	r.ErrorIs(err, ErrBucketInfoNotExist)
+	r.EqualValues(0, indexer.CandidateVotes(delegate).Uint64())
+	r.EqualValues(1, indexer.TotalBucketCount())
+}
+
+func activateBucketType(r *require.Assertions, dirty *contractStakingDirty, amount, duration int64, height uint64) {
+	err := dirty.handleBucketTypeActivatedEvent(eventParam{
+		"amount":   big.NewInt(amount),
+		"duration": big.NewInt(duration),
+	}, height)
+	r.NoError(err)
+}
+
+func deactivateBucketType(r *require.Assertions, dirty *contractStakingDirty, amount, duration int64, height uint64) {
+	err := dirty.handleBucketTypeDeactivatedEvent(eventParam{
+		"amount":   big.NewInt(amount),
+		"duration": big.NewInt(duration),
+	}, height)
+	r.NoError(err)
+}
+
+func stake(r *require.Assertions, dirty *contractStakingDirty, owner, candidate address.Address, token, amount, duration int64, height uint64) {
+	err := dirty.handleTransferEvent(eventParam{
+		"to":      common.BytesToAddress(owner.Bytes()),
+		"tokenId": big.NewInt(token),
+	})
+	r.NoError(err)
+	err = dirty.handleStakedEvent(eventParam{
+		"tokenId":  big.NewInt(token),
+		"delegate": common.BytesToAddress(candidate.Bytes()),
+		"amount":   big.NewInt(amount),
+		"duration": big.NewInt(duration),
+	}, height)
+	r.NoError(err)
+}
+
+func unlock(r *require.Assertions, dirty *contractStakingDirty, token int64, height uint64) {
+	err := dirty.handleUnlockedEvent(eventParam{
+		"tokenId": big.NewInt(token),
+	}, height)
+	r.NoError(err)
+}
+
+func lock(r *require.Assertions, dirty *contractStakingDirty, token, duration int64) {
+	err := dirty.handleLockedEvent(eventParam{
+		"tokenId":  big.NewInt(token),
+		"duration": big.NewInt(duration),
+	})
+	r.NoError(err)
+}
+
+func unstake(r *require.Assertions, dirty *contractStakingDirty, token int64, height uint64) {
+	err := dirty.handleUnstakedEvent(eventParam{
+		"tokenId": big.NewInt(token),
+	}, height)
+	r.NoError(err)
+}
+
+func withdraw(r *require.Assertions, dirty *contractStakingDirty, token int64) {
+	err := dirty.handleWithdrawalEvent(eventParam{
+		"tokenId": big.NewInt(token),
+	})
+	r.NoError(err)
 }

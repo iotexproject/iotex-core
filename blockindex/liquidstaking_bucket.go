@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	maxBlockNumber = math.MaxUint64
+	maxBlockNumber uint64 = math.MaxUint64
 )
 
 type (
