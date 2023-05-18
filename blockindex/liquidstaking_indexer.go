@@ -620,8 +620,11 @@ func (s *contractStakingIndexer) handleEvent(ctx context.Context, dirty *contrac
 		return dirty.handleWithdrawalEvent(event)
 	case "Transfer":
 		return dirty.handleTransferEvent(event)
-	default:
+	case "Approval", "ApprovalForAll", "OwnershipTransferred", "Paused", "Unpaused":
+		// not require handling events
 		return nil
+	default:
+		return errors.Errorf("unknown event name %s", abiEvent.Name)
 	}
 }
 
