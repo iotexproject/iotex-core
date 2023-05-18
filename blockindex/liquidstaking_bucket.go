@@ -50,6 +50,7 @@ type (
 		StakeBlockHeight          uint64
 		UnstakeBlockHeight        uint64
 		AutoStake                 bool
+		ContractAddress           string
 	}
 )
 

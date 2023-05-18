@@ -503,7 +503,7 @@ func (s *liquidStakingIndexer) Buckets() ([]*ContractStakingBucket, error) {
 	vbs := []*ContractStakingBucket{}
 	for id, bi := range s.cache.getAllBucketInfo() {
 		bt := s.cache.mustGetBucketType(bi.TypeIndex)
-		vb, err := s.convertToVoteBucket(id, bi, bt)
+		vb, err := s.assembleContractStakingBucket(id, bi, bt)
 		if err != nil {
 			return nil, err
 		}
@@ -550,7 +550,7 @@ func (s *liquidStakingIndexer) generateBucket(id uint64) (*ContractStakingBucket
 		return nil, errors.Wrapf(ErrBucketInfoNotExist, "id %d", id)
 	}
 	bt := s.cache.mustGetBucketType(bi.TypeIndex)
-	return s.convertToVoteBucket(id, bi, bt)
+	return s.assembleContractStakingBucket(id, bi, bt)
 }
 
 func (s *liquidStakingIndexer) handleEvent(ctx context.Context, dirty *liquidStakingDirty, blk *block.Block, log *action.Log) error {
@@ -667,7 +667,7 @@ func (s *liquidStakingIndexer) commit(dirty *liquidStakingDirty) error {
 	return nil
 }
 
-func (s *liquidStakingIndexer) convertToVoteBucket(token uint64, bi *ContractStakingBucketInfo, bt *ContractStakingBucketType) (*ContractStakingBucket, error) {
+func (s *liquidStakingIndexer) assembleContractStakingBucket(token uint64, bi *ContractStakingBucketInfo, bt *ContractStakingBucketType) (*ContractStakingBucket, error) {
 	vb := ContractStakingBucket{
 		Index:                     token,
 		StakedAmount:              bt.Amount,
@@ -678,6 +678,7 @@ func (s *liquidStakingIndexer) convertToVoteBucket(token uint64, bi *ContractSta
 		AutoStake:                 bi.UnlockedAt == maxBlockNumber,
 		Candidate:                 bi.Delegate,
 		Owner:                     bi.Owner,
+		ContractAddress:           LiquidStakingContractAddress,
 	}
 	if bi.UnlockedAt != maxBlockNumber {
 		vb.StakeBlockHeight = bi.UnlockedAt
