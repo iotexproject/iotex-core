@@ -405,9 +405,9 @@ type (
 	// 		cache: in-memory index for clean data, used to query index data
 	//      dirty: the cache to update during event processing, will be merged to clean cache after all events are processed. If errors occur during event processing, dirty cache will be discarded.
 	contractStakingIndexer struct {
-		kvstore db.KVStore                        // persistent storage
-		cache   *contractStakingCacheThreadSafety // in-memory index for clean data
-		mutex   sync.RWMutex                      // mutex for multiple reading to cache
+		kvstore db.KVStore                  // persistent storage
+		cache   contractStakingCacheManager // in-memory index for clean data
+		mutex   sync.RWMutex                // mutex for multiple reading to cache
 	}
 )
 
@@ -448,6 +448,9 @@ func (s *contractStakingIndexer) Start(ctx context.Context) error {
 
 // Stop stops the indexer
 func (s *contractStakingIndexer) Stop(ctx context.Context) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if err := s.kvstore.Stop(ctx); err != nil {
 		return err
 	}
@@ -460,7 +463,7 @@ func (s *contractStakingIndexer) PutBlock(ctx context.Context, blk *block.Block)
 	// new dirty cache for this block
 	// it's not necessary to use thread safe cache here, because only one thread will call this function
 	// and no update to cache will happen before dirty merge to clean
-	dirty := newContractStakingDirty(s.cache.unsafe())
+	dirty := newContractStakingDirty(s.cache)
 	dirty.putHeight(blk.Height())
 
 	// handle events of block
@@ -489,11 +492,15 @@ func (s *contractStakingIndexer) DeleteTipBlock(context.Context, *block.Block) e
 
 // Height returns the tip block height
 func (s *contractStakingIndexer) Height() (uint64, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	return s.cache.getHeight(), nil
 }
 
 // CandidateVotes returns the candidate votes
 func (s *contractStakingIndexer) CandidateVotes(candidate address.Address) *big.Int {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	return s.cache.getCandidateVotes(candidate)
 }
 
@@ -554,10 +561,14 @@ func (s *contractStakingIndexer) BucketsByCandidate(candidate address.Address) (
 }
 
 func (s *contractStakingIndexer) TotalBucketCount() uint64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	return s.cache.getTotalBucketCount()
 }
 
 func (s *contractStakingIndexer) ActiveBucketTypes() (map[uint64]*ContractStakingBucketType, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	return s.cache.getActiveBucketType(), nil
 }
 

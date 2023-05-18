@@ -7,7 +7,6 @@ package blockindex
 
 import (
 	"math/big"
-	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
 )
@@ -50,21 +49,16 @@ type (
 		height                uint64
 		totalBucketCount      uint64 // total number of buckets including burned buckets
 	}
-
-	contractStakingCacheThreadSafety struct {
-		cache contractStakingCacheManager
-		mutex sync.RWMutex
-	}
 )
 
-func newContractStakingCache() *contractStakingCacheThreadSafety {
+func newContractStakingCache() *contractStakingCache {
 	cache := &contractStakingCache{
 		idBucketMap:           make(map[uint64]*ContractStakingBucketInfo),
 		idBucketTypeMap:       make(map[uint64]*ContractStakingBucketType),
 		propertyBucketTypeMap: make(map[int64]map[uint64]uint64),
 		candidateBucketMap:    make(map[string]map[uint64]bool),
 	}
-	return &contractStakingCacheThreadSafety{cache: cache}
+	return cache
 }
 
 func (s *contractStakingCache) putHeight(h uint64) {
@@ -220,133 +214,4 @@ func (s *contractStakingCache) merge(delta *contractStakingDelta) error {
 	s.putHeight(delta.getHeight())
 	s.putTotalBucketCount(s.getTotalBucketCount() + delta.addedBucketCnt())
 	return nil
-}
-
-func (s *contractStakingCacheThreadSafety) putHeight(h uint64) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.cache.putHeight(h)
-}
-
-func (s *contractStakingCacheThreadSafety) getHeight() uint64 {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.cache.getHeight()
-}
-
-func (s *contractStakingCacheThreadSafety) putBucketType(id uint64, bt *ContractStakingBucketType) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	s.cache.putBucketType(id, bt)
-}
-
-func (s *contractStakingCacheThreadSafety) putBucketInfo(id uint64, bi *ContractStakingBucketInfo) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	s.cache.putBucketInfo(id, bi)
-}
-
-func (s *contractStakingCacheThreadSafety) deleteBucketInfo(id uint64) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	s.cache.deleteBucketInfo(id)
-}
-
-func (s *contractStakingCacheThreadSafety) getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.cache.getBucketTypeIndex(amount, duration)
-}
-
-func (s *contractStakingCacheThreadSafety) getBucketType(id uint64) (*ContractStakingBucketType, bool) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.cache.getBucketType(id)
-}
-
-func (s *contractStakingCacheThreadSafety) mustGetBucketType(id uint64) *ContractStakingBucketType {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.cache.mustGetBucketType(id)
-}
-
-func (s *contractStakingCacheThreadSafety) getBucketInfo(id uint64) (*ContractStakingBucketInfo, bool) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.cache.getBucketInfo(id)
-}
-
-func (s *contractStakingCacheThreadSafety) mustGetBucketInfo(id uint64) *ContractStakingBucketInfo {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.cache.mustGetBucketInfo(id)
-}
-
-func (s *contractStakingCacheThreadSafety) getCandidateVotes(candidate address.Address) *big.Int {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.cache.getCandidateVotes(candidate)
-}
-
-func (s *contractStakingCacheThreadSafety) putTotalBucketCount(count uint64) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	s.cache.putTotalBucketCount(count)
-}
-
-func (s *contractStakingCacheThreadSafety) getTotalBucketCount() uint64 {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.cache.getTotalBucketCount()
-}
-
-func (s *contractStakingCacheThreadSafety) getTotalBucketTypeCount() uint64 {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.cache.getTotalBucketTypeCount()
-}
-
-func (s *contractStakingCacheThreadSafety) getAllBucketInfo() map[uint64]*ContractStakingBucketInfo {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.cache.getAllBucketInfo()
-}
-
-func (s *contractStakingCacheThreadSafety) getActiveBucketType() map[uint64]*ContractStakingBucketType {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.cache.getActiveBucketType()
-}
-
-func (s *contractStakingCacheThreadSafety) getBucketInfoByCandidate(candidate address.Address) map[uint64]*ContractStakingBucketInfo {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.cache.getBucketInfoByCandidate(candidate)
-}
-
-func (s *contractStakingCacheThreadSafety) merge(delta *contractStakingDelta) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	return s.cache.merge(delta)
-}
-
-func (s *contractStakingCacheThreadSafety) unsafe() contractStakingCacheManager {
-	return s.cache
 }
