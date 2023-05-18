@@ -214,8 +214,7 @@ func NewSGDRegistry(contract string, kv db.KVStore) SGDRegistry {
 		panic("nil kvstore")
 	}
 	if contract != "" {
-		_, err := address.FromString(contract)
-		if err != nil {
+		if _, err := address.FromString(contract); err != nil {
 			panic("invalid contract address")
 		}
 	}
