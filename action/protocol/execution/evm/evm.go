@@ -46,6 +46,19 @@ var (
 	ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
 )
 
+type (
+	// GetBlockHash gets block hash by height
+	GetBlockHash func(uint64) (hash.Hash256, error)
+
+	// DepositGasWithSGD deposits gas with Sharing of Gas-fee with DApps
+	DepositGasWithSGD func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error)
+
+	// SGDRegistry is the interface for handling Sharing of Gas-fee with DApps
+	SGDRegistry interface {
+		CheckContract(context.Context, string) (address.Address, uint64, bool, error)
+	}
+)
+
 // CanTransfer checks whether the from account has enough balance
 func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool {
 	return db.GetBalance(fromHash).Cmp(balance) >= 0
@@ -191,7 +204,8 @@ func ExecuteContract(
 	sm protocol.StateManager,
 	execution *action.Execution,
 	getBlockHash GetBlockHash,
-	depositGasFunc DepositGas,
+	depositGasFunc DepositGasWithSGD,
+	sgd SGDRegistry,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
@@ -219,7 +233,10 @@ func ExecuteContract(
 	}
 
 	receipt.Status = uint64(statusCode)
-	var burnLog *action.TransactionLog
+	var (
+		depositLog, burnLog *action.TransactionLog
+		consumedGas         = depositGas - remainingGas
+	)
 	if featureCtx.FixDoubleChargeGas {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.txCtx.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.txCtx.GasPrice))
@@ -228,19 +245,33 @@ func ExecuteContract(
 			remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.txCtx.GasPrice)
 			stateDB.AddBalance(ps.txCtx.Origin, remainingValue)
 		}
-		if depositGas-remainingGas > 0 {
+		if consumedGas > 0 {
 			burnLog = &action.TransactionLog{
 				Type:      iotextypes.TransactionLogType_GAS_FEE,
 				Sender:    actionCtx.Caller.String(),
 				Recipient: "", // burned
-				Amount:    new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.txCtx.GasPrice),
+				Amount:    new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), ps.txCtx.GasPrice),
 			}
 		}
 	}
-	var depositLog *action.TransactionLog
-	if depositGas-remainingGas > 0 {
-		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.txCtx.GasPrice)
-		depositLog, err = depositGasFunc(ctx, sm, gasValue)
+	if consumedGas > 0 {
+		var (
+			receiver                  address.Address
+			sharedGas                 uint64
+			sharedGasFee, totalGasFee *big.Int
+		)
+		if featureCtx.SharedGasWithDapp && sgd != nil {
+			receiver, sharedGas, err = processSGD(ctx, sm, execution, consumedGas, sgd)
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "failed to process Sharing of Gas-fee with DApps")
+			}
+		}
+		if sharedGas > 0 {
+			sharedGasFee = big.NewInt(int64(sharedGas))
+			sharedGasFee.Mul(sharedGasFee, ps.txCtx.GasPrice)
+		}
+		totalGasFee = new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), ps.txCtx.GasPrice)
+		depositLog, err = depositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -265,6 +296,24 @@ func ExecuteContract(
 	}
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil
+}
+
+func processSGD(ctx context.Context, sm protocol.StateManager, execution *action.Execution, consumedGas uint64, sgd SGDRegistry,
+) (address.Address, uint64, error) {
+	if execution.Contract() == action.EmptyAddress {
+		return nil, 0, nil
+	}
+
+	receiver, percentage, ok, err := sgd.CheckContract(ctx, execution.Contract())
+	if err != nil || !ok {
+		return nil, 0, err
+	}
+
+	sharedGas := consumedGas * percentage / 100
+	if sharedGas > consumedGas {
+		sharedGas = consumedGas
+	}
+	return receiver, sharedGas, nil
 }
 
 // ReadContractStorage reads contract's storage
@@ -569,8 +618,9 @@ func SimulateExecution(
 		sm,
 		ex,
 		getBlockHash,
-		func(context.Context, protocol.StateManager, *big.Int) (*action.TransactionLog, error) {
+		func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
 			return nil, nil
 		},
+		nil,
 	)
 }

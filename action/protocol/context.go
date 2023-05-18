@@ -112,6 +112,7 @@ type (
 		SkipSystemActionNonce                   bool
 		ValidateSystemAction                    bool
 		AddLSDVotes                             bool
+		SharedGasWithDapp                       bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -249,6 +250,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			SkipSystemActionNonce:                   g.IsPalau(height),
 			ValidateSystemAction:                    g.IsToBeEnabled(height),
 			AddLSDVotes:                             g.IsToBeEnabled(height),
+			SharedGasWithDapp:                       g.IsToBeEnabled(height),
 		},
 	)
 }
