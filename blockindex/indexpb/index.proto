@@ -4,7 +4,8 @@
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 // To compile the proto, run:
-//      protoc --go_out=plugins=grpc:. *.proto
+//      protoc --go_out=. *.proto
+// option go_package = "../indexpb"; is to specify the package name in the generated go file
 syntax = "proto3";
 package indexpb;
 
@@ -19,7 +20,7 @@ message ActionIndex {
 }
 
 message SGDIndex {
-    string contract = 1;
-    string receiver = 2;
+    bytes contract = 1;
+    bytes receiver = 2;
     bool approved = 3;
 }

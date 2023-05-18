@@ -119,7 +119,7 @@ const (
 						"type": "address"
 					}
 				],
-				"name": "ContractUnapproved",
+				"name": "ContractDisapproved",
 				"type": "event"
 			},
 			{
@@ -181,6 +181,8 @@ func init() {
 const (
 	_sgdBucket     = "sg"
 	_sgdToHeightNS = "hh"
+	//TODO (millken): currently we fix the percentage to 30%, we can make it configurable in the future
+	_sgdPercentage = uint64(30)
 )
 
 var _sgdCurrentHeight = []byte("currentHeight")
@@ -199,7 +201,7 @@ type (
 	}
 )
 
-func newSgdIndex(contract, receiver string) *indexpb.SGDIndex {
+func newSgdIndex(contract, receiver []byte) *indexpb.SGDIndex {
 	return &indexpb.SGDIndex{
 		Contract: contract,
 		Receiver: receiver,
@@ -211,6 +213,12 @@ func NewSGDRegistry(contract string, kv db.KVStore) SGDRegistry {
 	if kv == nil {
 		panic("nil kvstore")
 	}
+	if contract != "" {
+		_, err := address.FromString(contract)
+		if err != nil {
+			panic("invalid contract address")
+		}
+	}
 	return &sgdRegistry{
 		contract: contract,
 		kvStore:  kv,
@@ -219,7 +227,15 @@ func NewSGDRegistry(contract string, kv db.KVStore) SGDRegistry {
 
 // Start starts the SGDIndexer
 func (sgd *sgdRegistry) Start(ctx context.Context) error {
-	return sgd.kvStore.Start(ctx)
+	err := sgd.kvStore.Start(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = sgd.Height()
+	if err != nil && errors.Is(err, db.ErrNotExist) {
+		return sgd.kvStore.Put(_sgdToHeightNS, _sgdCurrentHeight, byteutil.Uint64ToBytesBigEndian(0))
+	}
+	return err
 }
 
 // Stop stops the SGDIndexer
@@ -231,10 +247,6 @@ func (sgd *sgdRegistry) Stop(ctx context.Context) error {
 func (sgd *sgdRegistry) Height() (uint64, error) {
 	h, err := sgd.kvStore.Get(_sgdToHeightNS, _sgdCurrentHeight)
 	if err != nil {
-		// if db not exist, return 0, nil, after PutBlock, the height will be increased
-		if errors.Is(err, db.ErrNotExist) {
-			return 0, nil
-		}
 		return 0, err
 	}
 	return byteutil.BytesToUint64BigEndian(h), nil
@@ -280,8 +292,8 @@ func (sgd *sgdRegistry) handleEvent(b batch.KVStoreBatch, log *action.Log) error
 		return sgd.handleContractRegistered(b, log)
 	case "ContractApproved":
 		return sgd.handleContractApproved(b, log)
-	case "ContractUnapproved":
-		return sgd.handleContractUnapproved(b, log)
+	case "ContractDisapproved":
+		return sgd.handleContractDisapproved(b, log)
 	case "ContractRemoved":
 		return sgd.handleContractRemoved(b, log)
 	default:
@@ -293,7 +305,6 @@ func (sgd *sgdRegistry) handleEvent(b batch.KVStoreBatch, log *action.Log) error
 func (sgd *sgdRegistry) handleContractRegistered(b batch.KVStoreBatch, log *action.Log) error {
 	var (
 		sgdIndex *indexpb.SGDIndex
-		err      error
 		event    struct {
 			ContractAddress common.Address
 			Recipient       common.Address
@@ -302,15 +313,8 @@ func (sgd *sgdRegistry) handleContractRegistered(b batch.KVStoreBatch, log *acti
 	if err := _sgdABI.UnpackIntoInterface(&event, "ContractRegistered", log.Data); err != nil {
 		return err
 	}
-	contract, err := address.FromBytes(event.ContractAddress.Bytes())
-	if err != nil {
-		return err
-	}
-	recipient, err := address.FromBytes(event.Recipient.Bytes())
-	if err != nil {
-		return err
-	}
-	sgdIndex = newSgdIndex(contract.String(), recipient.String())
+
+	sgdIndex = newSgdIndex(event.ContractAddress.Bytes(), event.Recipient.Bytes())
 	return sgd.putIndex(b, sgdIndex)
 }
 
@@ -325,19 +329,19 @@ func (sgd *sgdRegistry) handleContractApproved(b batch.KVStoreBatch, log *action
 	if err := _sgdABI.UnpackIntoInterface(&event, "ContractApproved", log.Data); err != nil {
 		return err
 	}
-	contract, err := address.FromBytes(event.ContractAddress.Bytes())
+
+	sgdIndex, err = sgd.getSGDIndex(event.ContractAddress.Bytes())
 	if err != nil {
 		return err
 	}
-	sgdIndex, err = sgd.GetSGDIndex(contract.String())
-	if err != nil {
-		return err
+	if sgdIndex.Approved {
+		return errors.New("contract is approved")
 	}
 	sgdIndex.Approved = true
 	return sgd.putIndex(b, sgdIndex)
 }
 
-func (sgd *sgdRegistry) handleContractUnapproved(b batch.KVStoreBatch, log *action.Log) error {
+func (sgd *sgdRegistry) handleContractDisapproved(b batch.KVStoreBatch, log *action.Log) error {
 	var (
 		sgdIndex *indexpb.SGDIndex
 		err      error
@@ -345,16 +349,16 @@ func (sgd *sgdRegistry) handleContractUnapproved(b batch.KVStoreBatch, log *acti
 			ContractAddress common.Address
 		}
 	)
-	if err := _sgdABI.UnpackIntoInterface(&event, "ContractUnapproved", log.Data); err != nil {
+	if err := _sgdABI.UnpackIntoInterface(&event, "ContractDisapproved", log.Data); err != nil {
 		return err
 	}
-	contract, err := address.FromBytes(event.ContractAddress.Bytes())
+
+	sgdIndex, err = sgd.getSGDIndex(event.ContractAddress.Bytes())
 	if err != nil {
 		return err
 	}
-	sgdIndex, err = sgd.GetSGDIndex(contract.String())
-	if err != nil {
-		return err
+	if !sgdIndex.Approved {
+		return errors.New("contract is not approved")
 	}
 	sgdIndex.Approved = false
 	return sgd.putIndex(b, sgdIndex)
@@ -362,7 +366,6 @@ func (sgd *sgdRegistry) handleContractUnapproved(b batch.KVStoreBatch, log *acti
 
 func (sgd *sgdRegistry) handleContractRemoved(b batch.KVStoreBatch, log *action.Log) error {
 	var (
-		err   error
 		event struct {
 			ContractAddress common.Address
 		}
@@ -370,11 +373,7 @@ func (sgd *sgdRegistry) handleContractRemoved(b batch.KVStoreBatch, log *action.
 	if err := _sgdABI.UnpackIntoInterface(&event, "ContractRemoved", log.Data); err != nil {
 		return err
 	}
-	contract, err := address.FromBytes(event.ContractAddress.Bytes())
-	if err != nil {
-		return err
-	}
-	return sgd.deleteIndex(b, contract.String())
+	return sgd.deleteIndex(b, event.ContractAddress.Bytes())
 }
 
 func (sgd *sgdRegistry) putIndex(b batch.KVStoreBatch, sgdIndex *indexpb.SGDIndex) error {
@@ -382,12 +381,12 @@ func (sgd *sgdRegistry) putIndex(b batch.KVStoreBatch, sgdIndex *indexpb.SGDInde
 	if err != nil {
 		return err
 	}
-	b.Put(_sgdBucket, []byte(sgdIndex.Contract), sgdIndexBytes, "failed to put sgd index")
+	b.Put(_sgdBucket, sgdIndex.Contract, sgdIndexBytes, "failed to put sgd index")
 	return nil
 }
 
-func (sgd *sgdRegistry) deleteIndex(b batch.KVStoreBatch, contract string) error {
-	b.Delete(_sgdBucket, []byte(contract), "failed to delete sgd index")
+func (sgd *sgdRegistry) deleteIndex(b batch.KVStoreBatch, contract []byte) error {
+	b.Delete(_sgdBucket, contract, "failed to delete sgd index")
 	return nil
 }
 
@@ -398,20 +397,22 @@ func (sgd *sgdRegistry) DeleteTipBlock(context.Context, *block.Block) error {
 
 // CheckContract checks if the contract is a SGD contract
 func (sgd *sgdRegistry) CheckContract(ctx context.Context, contract string) (address.Address, uint64, bool, error) {
-	sgdIndex, err := sgd.GetSGDIndex(contract)
+	addr, err := address.FromString(contract)
+	if err != nil {
+		return nil, 0, false, err
+	}
+	sgdIndex, err := sgd.getSGDIndex(addr.Bytes())
 	if err != nil {
 		return nil, 0, false, err
 	}
 
-	addr, err := address.FromString(sgdIndex.Receiver)
-	//TODO (millken): dynamic set percentage
-	percentage := uint64(20)
-	return addr, percentage, sgdIndex.Approved, err
+	addr, err = address.FromBytes(sgdIndex.Receiver)
+	return addr, _sgdPercentage, sgdIndex.Approved, err
 }
 
-// GetSGDIndex returns the SGDIndex of the contract
-func (sgd *sgdRegistry) GetSGDIndex(contract string) (*indexpb.SGDIndex, error) {
-	buf, err := sgd.kvStore.Get(_sgdBucket, []byte(contract))
+// getSGDIndex returns the SGDIndex of the contract
+func (sgd *sgdRegistry) getSGDIndex(contract []byte) (*indexpb.SGDIndex, error) {
+	buf, err := sgd.kvStore.Get(_sgdBucket, contract)
 	if err != nil {
 		return nil, err
 	}
