@@ -11,8 +11,8 @@ import (
 	"testing"
 )
 
-func TestLiquidStakingCacheThreadSafety(t *testing.T) {
-	cache := newLiquidStakingCache()
+func TestContractStakingCacheThreadSafety(t *testing.T) {
+	cache := newContractStakingCache()
 
 	wait := sync.WaitGroup{}
 	wait.Add(2)

@@ -25,11 +25,11 @@ import (
 )
 
 const (
-	// LiquidStakingContractAddress  is the address of liquid staking contract
-	// TODO (iip-13): replace with the real liquid staking contract address
-	LiquidStakingContractAddress = "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd"
-	// LiquidStakingContractABI is the ABI of liquid staking contract
-	LiquidStakingContractABI = `[
+	// StakingContractAddress  is the address of system staking contract
+	// TODO (iip-13): replace with the real system staking contract address
+	StakingContractAddress = "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd"
+	// StakingContractABI is the ABI of system staking contract
+	StakingContractABI = `[
 		{
 			"anonymous": false,
 			"inputs": [
@@ -368,9 +368,9 @@ const (
 	]`
 
 	// bucket related namespace in db
-	_liquidStakingBucketInfoNS = "lsbInfo"
-	_liquidStakingBucketTypeNS = "lsbType"
-	_liquidStakingNS           = "lsns"
+	_StakingBucketInfoNS = "sbi"
+	_StakingBucketTypeNS = "sbt"
+	_StakingNS           = "s"
 )
 
 type (
@@ -394,27 +394,27 @@ type (
 		ActiveBucketTypes() (map[uint64]*ContractStakingBucketType, error)
 	}
 
-	// liquidStakingIndexer is the implementation of ContractStakingIndexer
+	// contractStakingIndexer is the implementation of ContractStakingIndexer
 	// Main functions:
-	// 		1. handle liquid staking contract events when new block comes to generate index data
-	// 		2. provide query interface for liquid staking index data
+	// 		1. handle contract staking contract events when new block comes to generate index data
+	// 		2. provide query interface for contract staking index data
 	// Generate index data flow:
 	// 		block comes -> new dirty cache -> handle contract events -> update dirty cache -> merge dirty to clean cache
 	// Main Object:
 	// 		kvstore: persistent storage, used to initialize index cache at startup
 	// 		cache: in-memory index for clean data, used to query index data
 	//      dirty: the cache to update during event processing, will be merged to clean cache after all events are processed. If errors occur during event processing, dirty cache will be discarded.
-	liquidStakingIndexer struct {
-		kvstore db.KVStore                      // persistent storage
-		cache   *liquidStakingCacheThreadSafety // in-memory index for clean data
-		mutex   sync.RWMutex                    // mutex for multiple reading to cache
+	contractStakingIndexer struct {
+		kvstore db.KVStore                        // persistent storage
+		cache   *contractStakingCacheThreadSafety // in-memory index for clean data
+		mutex   sync.RWMutex                      // mutex for multiple reading to cache
 	}
 )
 
 var (
-	_liquidStakingInterface           abi.ABI
-	_liquidStakingHeightKey           = []byte("lsHeight")
-	_liquidStakingTotalBucketCountKey = []byte("lsTotalBucketCount")
+	_stakingInterface           abi.ABI
+	_stakingHeightKey           = []byte("shk")
+	_stakingTotalBucketCountKey = []byte("stbck")
 
 	errBucketTypeNotExist = errors.New("bucket type does not exist")
 
@@ -424,7 +424,7 @@ var (
 
 func init() {
 	var err error
-	_liquidStakingInterface, err = abi.JSON(strings.NewReader(LiquidStakingContractABI))
+	_stakingInterface, err = abi.JSON(strings.NewReader(StakingContractABI))
 	if err != nil {
 		panic(err)
 	}
@@ -432,14 +432,14 @@ func init() {
 
 // NewContractStakingIndexer creates a new contract staking indexer
 func NewContractStakingIndexer(kvStore db.KVStore) ContractStakingIndexer {
-	return &liquidStakingIndexer{
+	return &contractStakingIndexer{
 		kvstore: kvStore,
-		cache:   newLiquidStakingCache(),
+		cache:   newContractStakingCache(),
 	}
 }
 
 // Start starts the indexer
-func (s *liquidStakingIndexer) Start(ctx context.Context) error {
+func (s *contractStakingIndexer) Start(ctx context.Context) error {
 	if err := s.kvstore.Start(ctx); err != nil {
 		return err
 	}
@@ -447,20 +447,20 @@ func (s *liquidStakingIndexer) Start(ctx context.Context) error {
 }
 
 // Stop stops the indexer
-func (s *liquidStakingIndexer) Stop(ctx context.Context) error {
+func (s *contractStakingIndexer) Stop(ctx context.Context) error {
 	if err := s.kvstore.Stop(ctx); err != nil {
 		return err
 	}
-	s.cache = newLiquidStakingCache()
+	s.cache = newContractStakingCache()
 	return nil
 }
 
 // PutBlock puts a block into indexer
-func (s *liquidStakingIndexer) PutBlock(ctx context.Context, blk *block.Block) error {
+func (s *contractStakingIndexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	// new dirty cache for this block
 	// it's not necessary to use thread safe cache here, because only one thread will call this function
 	// and no update to cache will happen before dirty merge to clean
-	dirty := newLiquidStakingDirty(s.cache.unsafe())
+	dirty := newContractStakingDirty(s.cache.unsafe())
 	dirty.putHeight(blk.Height())
 
 	// handle events of block
@@ -469,7 +469,7 @@ func (s *liquidStakingIndexer) PutBlock(ctx context.Context, blk *block.Block) e
 			continue
 		}
 		for _, log := range receipt.Logs() {
-			if log.Address != LiquidStakingContractAddress {
+			if log.Address != StakingContractAddress {
 				continue
 			}
 			if err := s.handleEvent(ctx, dirty, blk, log); err != nil {
@@ -483,22 +483,22 @@ func (s *liquidStakingIndexer) PutBlock(ctx context.Context, blk *block.Block) e
 }
 
 // DeleteTipBlock deletes the tip block from indexer
-func (s *liquidStakingIndexer) DeleteTipBlock(context.Context, *block.Block) error {
+func (s *contractStakingIndexer) DeleteTipBlock(context.Context, *block.Block) error {
 	return errors.New("not implemented")
 }
 
 // Height returns the tip block height
-func (s *liquidStakingIndexer) Height() (uint64, error) {
+func (s *contractStakingIndexer) Height() (uint64, error) {
 	return s.cache.getHeight(), nil
 }
 
 // CandidateVotes returns the candidate votes
-func (s *liquidStakingIndexer) CandidateVotes(candidate address.Address) *big.Int {
+func (s *contractStakingIndexer) CandidateVotes(candidate address.Address) *big.Int {
 	return s.cache.getCandidateVotes(candidate)
 }
 
 // Buckets returns the buckets
-func (s *liquidStakingIndexer) Buckets() ([]*ContractStakingBucket, error) {
+func (s *contractStakingIndexer) Buckets() ([]*ContractStakingBucket, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -515,7 +515,7 @@ func (s *liquidStakingIndexer) Buckets() ([]*ContractStakingBucket, error) {
 }
 
 // Bucket returns the bucket
-func (s *liquidStakingIndexer) Bucket(id uint64) (*ContractStakingBucket, error) {
+func (s *contractStakingIndexer) Bucket(id uint64) (*ContractStakingBucket, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -523,7 +523,7 @@ func (s *liquidStakingIndexer) Bucket(id uint64) (*ContractStakingBucket, error)
 }
 
 // BucketsByIndices returns the buckets by indices
-func (s *liquidStakingIndexer) BucketsByIndices(indices []uint64) ([]*ContractStakingBucket, error) {
+func (s *contractStakingIndexer) BucketsByIndices(indices []uint64) ([]*ContractStakingBucket, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -538,7 +538,7 @@ func (s *liquidStakingIndexer) BucketsByIndices(indices []uint64) ([]*ContractSt
 	return vbs, nil
 }
 
-func (s *liquidStakingIndexer) BucketsByCandidate(candidate address.Address) ([]*ContractStakingBucket, error) {
+func (s *contractStakingIndexer) BucketsByCandidate(candidate address.Address) ([]*ContractStakingBucket, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -553,15 +553,15 @@ func (s *liquidStakingIndexer) BucketsByCandidate(candidate address.Address) ([]
 	return vbs, nil
 }
 
-func (s *liquidStakingIndexer) TotalBucketCount() uint64 {
+func (s *contractStakingIndexer) TotalBucketCount() uint64 {
 	return s.cache.getTotalBucketCount()
 }
 
-func (s *liquidStakingIndexer) ActiveBucketTypes() (map[uint64]*ContractStakingBucketType, error) {
+func (s *contractStakingIndexer) ActiveBucketTypes() (map[uint64]*ContractStakingBucketType, error) {
 	return s.cache.getActiveBucketType(), nil
 }
 
-func (s *liquidStakingIndexer) generateBucket(id uint64) (*ContractStakingBucket, error) {
+func (s *contractStakingIndexer) generateBucket(id uint64) (*ContractStakingBucket, error) {
 	bi, ok := s.cache.getBucketInfo(id)
 	if !ok {
 		return nil, errors.Wrapf(ErrBucketInfoNotExist, "id %d", id)
@@ -570,9 +570,9 @@ func (s *liquidStakingIndexer) generateBucket(id uint64) (*ContractStakingBucket
 	return s.assembleContractStakingBucket(id, bi, bt)
 }
 
-func (s *liquidStakingIndexer) handleEvent(ctx context.Context, dirty *liquidStakingDirty, blk *block.Block, log *action.Log) error {
+func (s *contractStakingIndexer) handleEvent(ctx context.Context, dirty *contractStakingDirty, blk *block.Block, log *action.Log) error {
 	// get event abi
-	abiEvent, err := _liquidStakingInterface.EventByID(common.Hash(log.Topics[0]))
+	abiEvent, err := _stakingInterface.EventByID(common.Hash(log.Topics[0]))
 	if err != nil {
 		return errors.Wrapf(err, "get event abi from topic %v failed", log.Topics[0])
 	}
@@ -614,11 +614,11 @@ func (s *liquidStakingIndexer) handleEvent(ctx context.Context, dirty *liquidSta
 	}
 }
 
-func (s *liquidStakingIndexer) loadCache() error {
-	delta := newLiquidStakingDelta()
+func (s *contractStakingIndexer) loadCache() error {
+	delta := newContractStakingDelta()
 	// load height
 	var height uint64
-	h, err := s.kvstore.Get(_liquidStakingNS, _liquidStakingHeightKey)
+	h, err := s.kvstore.Get(_StakingNS, _stakingHeightKey)
 	if err != nil {
 		if !errors.Is(err, db.ErrNotExist) {
 			return err
@@ -632,7 +632,7 @@ func (s *liquidStakingIndexer) loadCache() error {
 
 	// load total bucket count
 	var totalBucketCount uint64
-	tbc, err := s.kvstore.Get(_liquidStakingNS, _liquidStakingTotalBucketCountKey)
+	tbc, err := s.kvstore.Get(_StakingNS, _stakingTotalBucketCountKey)
 	if err != nil {
 		if !errors.Is(err, db.ErrNotExist) {
 			return err
@@ -643,7 +643,7 @@ func (s *liquidStakingIndexer) loadCache() error {
 	delta.putTotalBucketCount(totalBucketCount)
 
 	// load bucket info
-	ks, vs, err := s.kvstore.Filter(_liquidStakingBucketInfoNS, func(k, v []byte) bool { return true }, nil, nil)
+	ks, vs, err := s.kvstore.Filter(_StakingBucketInfoNS, func(k, v []byte) bool { return true }, nil, nil)
 	if err != nil && !errors.Is(err, db.ErrBucketNotExist) {
 		return err
 	}
@@ -656,7 +656,7 @@ func (s *liquidStakingIndexer) loadCache() error {
 	}
 
 	// load bucket type
-	ks, vs, err = s.kvstore.Filter(_liquidStakingBucketTypeNS, func(k, v []byte) bool { return true }, nil, nil)
+	ks, vs, err = s.kvstore.Filter(_StakingBucketTypeNS, func(k, v []byte) bool { return true }, nil, nil)
 	if err != nil && !errors.Is(err, db.ErrBucketNotExist) {
 		return err
 	}
@@ -670,7 +670,7 @@ func (s *liquidStakingIndexer) loadCache() error {
 	return s.cache.merge(delta)
 }
 
-func (s *liquidStakingIndexer) commit(dirty *liquidStakingDirty) error {
+func (s *contractStakingIndexer) commit(dirty *contractStakingDirty) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -684,7 +684,7 @@ func (s *liquidStakingIndexer) commit(dirty *liquidStakingDirty) error {
 	return nil
 }
 
-func (s *liquidStakingIndexer) assembleContractStakingBucket(token uint64, bi *ContractStakingBucketInfo, bt *ContractStakingBucketType) (*ContractStakingBucket, error) {
+func (s *contractStakingIndexer) assembleContractStakingBucket(token uint64, bi *ContractStakingBucketInfo, bt *ContractStakingBucketType) (*ContractStakingBucket, error) {
 	vb := ContractStakingBucket{
 		Index:                     token,
 		StakedAmount:              bt.Amount,
@@ -695,7 +695,7 @@ func (s *liquidStakingIndexer) assembleContractStakingBucket(token uint64, bi *C
 		AutoStake:                 bi.UnlockedAt == maxBlockNumber,
 		Candidate:                 bi.Delegate,
 		Owner:                     bi.Owner,
-		ContractAddress:           LiquidStakingContractAddress,
+		ContractAddress:           StakingContractAddress,
 	}
 	if bi.UnlockedAt != maxBlockNumber {
 		vb.StakeBlockHeight = bi.UnlockedAt

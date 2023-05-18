@@ -17,60 +17,60 @@ import (
 )
 
 type (
-	// liquidStakingDirty is the dirty data of liquid staking
+	// contractStakingDirty is the dirty data of contract staking
 	// main functions:
 	// 1. update bucket
 	// 2. get up-to-date bucket
 	// 3. store delta to merge to clean cache
-	liquidStakingDirty struct {
-		clean      liquidStakingCacheReader // clean cache to get buckets of last block
-		delta      *liquidStakingDelta      // delta for cache to store buckets of current block
-		batch      batch.KVStoreBatch       // batch for db to store buckets of current block
+	contractStakingDirty struct {
+		clean      contractStakingCacheReader // clean cache to get buckets of last block
+		delta      *contractStakingDelta      // delta for cache to store buckets of current block
+		batch      batch.KVStoreBatch         // batch for db to store buckets of current block
 		tokenOwner map[uint64]address.Address
 		once       sync.Once
 	}
 )
 
-func newLiquidStakingDirty(clean liquidStakingCacheReader) *liquidStakingDirty {
-	return &liquidStakingDirty{
+func newContractStakingDirty(clean contractStakingCacheReader) *contractStakingDirty {
+	return &contractStakingDirty{
 		clean:      clean,
-		delta:      newLiquidStakingDelta(),
+		delta:      newContractStakingDelta(),
 		batch:      batch.NewBatch(),
 		tokenOwner: make(map[uint64]address.Address),
 	}
 }
 
-func (dirty *liquidStakingDirty) putHeight(h uint64) {
-	dirty.batch.Put(_liquidStakingNS, _liquidStakingHeightKey, byteutil.Uint64ToBytesBigEndian(h), "failed to put height")
+func (dirty *contractStakingDirty) putHeight(h uint64) {
+	dirty.batch.Put(_StakingNS, _stakingHeightKey, byteutil.Uint64ToBytesBigEndian(h), "failed to put height")
 	dirty.delta.putHeight(h)
 }
 
-func (dirty *liquidStakingDirty) addBucketType(id uint64, bt *ContractStakingBucketType) error {
-	dirty.batch.Put(_liquidStakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.serialize(), "failed to put bucket type")
+func (dirty *contractStakingDirty) addBucketType(id uint64, bt *ContractStakingBucketType) error {
+	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.serialize(), "failed to put bucket type")
 	return dirty.delta.addBucketType(id, bt)
 }
 
-func (dirty *liquidStakingDirty) updateBucketType(id uint64, bt *ContractStakingBucketType) error {
-	dirty.batch.Put(_liquidStakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.serialize(), "failed to put bucket type")
+func (dirty *contractStakingDirty) updateBucketType(id uint64, bt *ContractStakingBucketType) error {
+	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.serialize(), "failed to put bucket type")
 	return dirty.delta.updateBucketType(id, bt)
 }
 
-func (dirty *liquidStakingDirty) addBucketInfo(id uint64, bi *ContractStakingBucketInfo) error {
-	dirty.batch.Put(_liquidStakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.serialize(), "failed to put bucket info")
+func (dirty *contractStakingDirty) addBucketInfo(id uint64, bi *ContractStakingBucketInfo) error {
+	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.serialize(), "failed to put bucket info")
 	return dirty.delta.addBucketInfo(id, bi)
 }
 
-func (dirty *liquidStakingDirty) updateBucketInfo(id uint64, bi *ContractStakingBucketInfo) error {
-	dirty.batch.Put(_liquidStakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.serialize(), "failed to put bucket info")
+func (dirty *contractStakingDirty) updateBucketInfo(id uint64, bi *ContractStakingBucketInfo) error {
+	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.serialize(), "failed to put bucket info")
 	return dirty.delta.updateBucketInfo(id, bi)
 }
 
-func (dirty *liquidStakingDirty) burnBucket(id uint64) error {
-	dirty.batch.Delete(_liquidStakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), "failed to delete bucket info")
+func (dirty *contractStakingDirty) burnBucket(id uint64) error {
+	dirty.batch.Delete(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), "failed to delete bucket info")
 	return dirty.delta.deleteBucketInfo(id)
 }
 
-func (dirty *liquidStakingDirty) getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool) {
+func (dirty *contractStakingDirty) getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool) {
 	id, ok := dirty.delta.getBucketTypeIndex(amount, duration)
 	if ok {
 		return id, true
@@ -79,11 +79,11 @@ func (dirty *liquidStakingDirty) getBucketTypeIndex(amount *big.Int, duration ui
 	return id, ok
 }
 
-func (dirty *liquidStakingDirty) getBucketTypeCount() uint64 {
+func (dirty *contractStakingDirty) getBucketTypeCount() uint64 {
 	return dirty.clean.getTotalBucketTypeCount() + dirty.delta.addedBucketTypeCnt()
 }
 
-func (dirty *liquidStakingDirty) getBucketType(id uint64) (*ContractStakingBucketType, bool) {
+func (dirty *contractStakingDirty) getBucketType(id uint64) (*ContractStakingBucketType, bool) {
 	bt, ok := dirty.delta.getBucketType(id)
 	if ok {
 		return bt, true
@@ -92,7 +92,7 @@ func (dirty *liquidStakingDirty) getBucketType(id uint64) (*ContractStakingBucke
 	return bt, ok
 }
 
-func (dirty *liquidStakingDirty) getBucketInfo(id uint64) (*ContractStakingBucketInfo, bool) {
+func (dirty *contractStakingDirty) getBucketInfo(id uint64) (*ContractStakingBucketInfo, bool) {
 	if dirty.delta.isBucketDeleted(id) {
 		return nil, false
 	}
@@ -104,19 +104,19 @@ func (dirty *liquidStakingDirty) getBucketInfo(id uint64) (*ContractStakingBucke
 	return bi, ok
 }
 
-func (dirty *liquidStakingDirty) finalizeBatch() batch.KVStoreBatch {
+func (dirty *contractStakingDirty) finalizeBatch() batch.KVStoreBatch {
 	dirty.once.Do(func() {
 		total := dirty.clean.getTotalBucketCount() + dirty.delta.addedBucketCnt()
-		dirty.batch.Put(_liquidStakingNS, _liquidStakingTotalBucketCountKey, byteutil.Uint64ToBytesBigEndian(total), "failed to put total bucket count")
+		dirty.batch.Put(_StakingNS, _stakingTotalBucketCountKey, byteutil.Uint64ToBytesBigEndian(total), "failed to put total bucket count")
 	})
 	return dirty.batch
 }
 
-func (dirty *liquidStakingDirty) finalize() (batch.KVStoreBatch, *liquidStakingDelta) {
+func (dirty *contractStakingDirty) finalize() (batch.KVStoreBatch, *contractStakingDelta) {
 	return dirty.finalizeBatch(), dirty.delta
 }
 
-func (dirty *liquidStakingDirty) handleTransferEvent(event eventParam) error {
+func (dirty *contractStakingDirty) handleTransferEvent(event eventParam) error {
 	to, err := event.indexedFieldAddress("to")
 	if err != nil {
 		return err
@@ -130,7 +130,7 @@ func (dirty *liquidStakingDirty) handleTransferEvent(event eventParam) error {
 	return nil
 }
 
-func (dirty *liquidStakingDirty) handleBucketTypeActivatedEvent(event eventParam, height uint64) error {
+func (dirty *contractStakingDirty) handleBucketTypeActivatedEvent(event eventParam, height uint64) error {
 	amountParam, err := event.fieldUint256("amount")
 	if err != nil {
 		return err
@@ -156,7 +156,7 @@ func (dirty *liquidStakingDirty) handleBucketTypeActivatedEvent(event eventParam
 	return err
 }
 
-func (dirty *liquidStakingDirty) handleBucketTypeDeactivatedEvent(event eventParam, height uint64) error {
+func (dirty *contractStakingDirty) handleBucketTypeDeactivatedEvent(event eventParam, height uint64) error {
 	amountParam, err := event.fieldUint256("amount")
 	if err != nil {
 		return err
@@ -178,7 +178,7 @@ func (dirty *liquidStakingDirty) handleBucketTypeDeactivatedEvent(event eventPar
 	return dirty.updateBucketType(id, bt)
 }
 
-func (dirty *liquidStakingDirty) handleStakedEvent(event eventParam, height uint64) error {
+func (dirty *contractStakingDirty) handleStakedEvent(event eventParam, height uint64) error {
 	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err
@@ -211,7 +211,7 @@ func (dirty *liquidStakingDirty) handleStakedEvent(event eventParam, height uint
 	return dirty.addBucketInfo(tokenIDParam.Uint64(), &bucket)
 }
 
-func (dirty *liquidStakingDirty) handleLockedEvent(event eventParam) error {
+func (dirty *contractStakingDirty) handleLockedEvent(event eventParam) error {
 	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err
@@ -238,7 +238,7 @@ func (dirty *liquidStakingDirty) handleLockedEvent(event eventParam) error {
 	return dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
 }
 
-func (dirty *liquidStakingDirty) handleUnlockedEvent(event eventParam, height uint64) error {
+func (dirty *contractStakingDirty) handleUnlockedEvent(event eventParam, height uint64) error {
 	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err
@@ -252,7 +252,7 @@ func (dirty *liquidStakingDirty) handleUnlockedEvent(event eventParam, height ui
 	return dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
 }
 
-func (dirty *liquidStakingDirty) handleUnstakedEvent(event eventParam, height uint64) error {
+func (dirty *contractStakingDirty) handleUnstakedEvent(event eventParam, height uint64) error {
 	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err
@@ -266,7 +266,7 @@ func (dirty *liquidStakingDirty) handleUnstakedEvent(event eventParam, height ui
 	return dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
 }
 
-func (dirty *liquidStakingDirty) handleMergedEvent(event eventParam) error {
+func (dirty *contractStakingDirty) handleMergedEvent(event eventParam) error {
 	tokenIDsParam, err := event.fieldUint256Slice("tokenIds")
 	if err != nil {
 		return err
@@ -299,7 +299,7 @@ func (dirty *liquidStakingDirty) handleMergedEvent(event eventParam) error {
 	return dirty.updateBucketInfo(tokenIDsParam[0].Uint64(), b)
 }
 
-func (dirty *liquidStakingDirty) handleDurationExtendedEvent(event eventParam) error {
+func (dirty *contractStakingDirty) handleDurationExtendedEvent(event eventParam) error {
 	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err
@@ -325,7 +325,7 @@ func (dirty *liquidStakingDirty) handleDurationExtendedEvent(event eventParam) e
 	return dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
 }
 
-func (dirty *liquidStakingDirty) handleAmountIncreasedEvent(event eventParam) error {
+func (dirty *contractStakingDirty) handleAmountIncreasedEvent(event eventParam) error {
 	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err
@@ -351,7 +351,7 @@ func (dirty *liquidStakingDirty) handleAmountIncreasedEvent(event eventParam) er
 	return dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
 }
 
-func (dirty *liquidStakingDirty) handleDelegateChangedEvent(event eventParam) error {
+func (dirty *contractStakingDirty) handleDelegateChangedEvent(event eventParam) error {
 	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err
@@ -369,7 +369,7 @@ func (dirty *liquidStakingDirty) handleDelegateChangedEvent(event eventParam) er
 	return dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
 }
 
-func (dirty *liquidStakingDirty) handleWithdrawalEvent(event eventParam) error {
+func (dirty *contractStakingDirty) handleWithdrawalEvent(event eventParam) error {
 	tokenIDParam, err := event.indexedFieldUint256("tokenId")
 	if err != nil {
 		return err

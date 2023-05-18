@@ -13,9 +13,9 @@ import (
 )
 
 type (
-	// liquidStakingCacheReader is the interface to read liquid staking cache
+	// contractStakingCacheReader is the interface to read contract staking cache
 	// it serves the purpose of preventing modifications to it.
-	liquidStakingCacheReader interface {
+	contractStakingCacheReader interface {
 		getHeight() uint64
 		getTotalBucketCount() uint64
 		getTotalBucketTypeCount() uint64
@@ -30,11 +30,11 @@ type (
 		getBucketInfoByCandidate(candidate address.Address) map[uint64]*ContractStakingBucketInfo
 	}
 
-	// liquidStakingCacheManager is the interface to manage liquid staking cache
+	// contractStakingCacheManager is the interface to manage contract staking cache
 	// it's used to hide internal data, ensuring thread safety when used within the package
-	liquidStakingCacheManager interface {
-		liquidStakingCacheReader
-		merge(delta *liquidStakingDelta) error
+	contractStakingCacheManager interface {
+		contractStakingCacheReader
+		merge(delta *contractStakingDelta) error
 		putHeight(h uint64)
 		putTotalBucketCount(cnt uint64)
 		putBucketType(id uint64, bt *ContractStakingBucketType)
@@ -42,7 +42,7 @@ type (
 		deleteBucketInfo(id uint64)
 	}
 
-	liquidStakingCache struct {
+	contractStakingCache struct {
 		idBucketMap           map[uint64]*ContractStakingBucketInfo // map[token]BucketInfo
 		candidateBucketMap    map[string]map[uint64]bool            // map[candidate]bucket
 		idBucketTypeMap       map[uint64]*ContractStakingBucketType // map[token]BucketType
@@ -51,31 +51,31 @@ type (
 		totalBucketCount      uint64 // total number of buckets including burned buckets
 	}
 
-	liquidStakingCacheThreadSafety struct {
-		cache liquidStakingCacheManager
+	contractStakingCacheThreadSafety struct {
+		cache contractStakingCacheManager
 		mutex sync.RWMutex
 	}
 )
 
-func newLiquidStakingCache() *liquidStakingCacheThreadSafety {
-	cache := &liquidStakingCache{
+func newContractStakingCache() *contractStakingCacheThreadSafety {
+	cache := &contractStakingCache{
 		idBucketMap:           make(map[uint64]*ContractStakingBucketInfo),
 		idBucketTypeMap:       make(map[uint64]*ContractStakingBucketType),
 		propertyBucketTypeMap: make(map[int64]map[uint64]uint64),
 		candidateBucketMap:    make(map[string]map[uint64]bool),
 	}
-	return &liquidStakingCacheThreadSafety{cache: cache}
+	return &contractStakingCacheThreadSafety{cache: cache}
 }
 
-func (s *liquidStakingCache) putHeight(h uint64) {
+func (s *contractStakingCache) putHeight(h uint64) {
 	s.height = h
 }
 
-func (s *liquidStakingCache) getHeight() uint64 {
+func (s *contractStakingCache) getHeight() uint64 {
 	return s.height
 }
 
-func (s *liquidStakingCache) putBucketType(id uint64, bt *ContractStakingBucketType) {
+func (s *contractStakingCache) putBucketType(id uint64, bt *ContractStakingBucketType) {
 	amount := bt.Amount.Int64()
 	s.idBucketTypeMap[id] = bt
 	m, ok := s.propertyBucketTypeMap[amount]
@@ -86,7 +86,7 @@ func (s *liquidStakingCache) putBucketType(id uint64, bt *ContractStakingBucketT
 	m[bt.Duration] = id
 }
 
-func (s *liquidStakingCache) putBucketInfo(id uint64, bi *ContractStakingBucketInfo) {
+func (s *contractStakingCache) putBucketInfo(id uint64, bi *ContractStakingBucketInfo) {
 	s.idBucketMap[id] = bi
 	if _, ok := s.candidateBucketMap[bi.Delegate.String()]; !ok {
 		s.candidateBucketMap[bi.Delegate.String()] = make(map[uint64]bool)
@@ -94,7 +94,7 @@ func (s *liquidStakingCache) putBucketInfo(id uint64, bi *ContractStakingBucketI
 	s.candidateBucketMap[bi.Delegate.String()][id] = true
 }
 
-func (s *liquidStakingCache) deleteBucketInfo(id uint64) {
+func (s *contractStakingCache) deleteBucketInfo(id uint64) {
 	bi, ok := s.idBucketMap[id]
 	if !ok {
 		return
@@ -106,7 +106,7 @@ func (s *liquidStakingCache) deleteBucketInfo(id uint64) {
 	delete(s.candidateBucketMap[bi.Delegate.String()], id)
 }
 
-func (s *liquidStakingCache) getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool) {
+func (s *contractStakingCache) getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool) {
 	m, ok := s.propertyBucketTypeMap[amount.Int64()]
 	if !ok {
 		return 0, false
@@ -115,12 +115,12 @@ func (s *liquidStakingCache) getBucketTypeIndex(amount *big.Int, duration uint64
 	return id, ok
 }
 
-func (s *liquidStakingCache) getBucketType(id uint64) (*ContractStakingBucketType, bool) {
+func (s *contractStakingCache) getBucketType(id uint64) (*ContractStakingBucketType, bool) {
 	bt, ok := s.idBucketTypeMap[id]
 	return bt, ok
 }
 
-func (s *liquidStakingCache) mustGetBucketType(id uint64) *ContractStakingBucketType {
+func (s *contractStakingCache) mustGetBucketType(id uint64) *ContractStakingBucketType {
 	bt, ok := s.idBucketTypeMap[id]
 	if !ok {
 		panic("bucket type not found")
@@ -128,12 +128,12 @@ func (s *liquidStakingCache) mustGetBucketType(id uint64) *ContractStakingBucket
 	return bt
 }
 
-func (s *liquidStakingCache) getBucketInfo(id uint64) (*ContractStakingBucketInfo, bool) {
+func (s *contractStakingCache) getBucketInfo(id uint64) (*ContractStakingBucketInfo, bool) {
 	bi, ok := s.idBucketMap[id]
 	return bi, ok
 }
 
-func (s *liquidStakingCache) mustGetBucketInfo(id uint64) *ContractStakingBucketInfo {
+func (s *contractStakingCache) mustGetBucketInfo(id uint64) *ContractStakingBucketInfo {
 	bt, ok := s.idBucketMap[id]
 	if !ok {
 		panic("bucket info not found")
@@ -141,7 +141,7 @@ func (s *liquidStakingCache) mustGetBucketInfo(id uint64) *ContractStakingBucket
 	return bt
 }
 
-func (s *liquidStakingCache) getCandidateVotes(candidate address.Address) *big.Int {
+func (s *contractStakingCache) getCandidateVotes(candidate address.Address) *big.Int {
 	votes := big.NewInt(0)
 	m, ok := s.candidateBucketMap[candidate.String()]
 	if !ok {
@@ -164,19 +164,19 @@ func (s *liquidStakingCache) getCandidateVotes(candidate address.Address) *big.I
 	return votes
 }
 
-func (s *liquidStakingCache) putTotalBucketCount(count uint64) {
+func (s *contractStakingCache) putTotalBucketCount(count uint64) {
 	s.totalBucketCount = count
 }
 
-func (s *liquidStakingCache) getTotalBucketCount() uint64 {
+func (s *contractStakingCache) getTotalBucketCount() uint64 {
 	return s.totalBucketCount
 }
 
-func (s *liquidStakingCache) getTotalBucketTypeCount() uint64 {
+func (s *contractStakingCache) getTotalBucketTypeCount() uint64 {
 	return uint64(len(s.idBucketTypeMap))
 }
 
-func (s *liquidStakingCache) getAllBucketInfo() map[uint64]*ContractStakingBucketInfo {
+func (s *contractStakingCache) getAllBucketInfo() map[uint64]*ContractStakingBucketInfo {
 	m := make(map[uint64]*ContractStakingBucketInfo)
 	for k, v := range s.idBucketMap {
 		m[k] = v
@@ -184,7 +184,7 @@ func (s *liquidStakingCache) getAllBucketInfo() map[uint64]*ContractStakingBucke
 	return m
 }
 
-func (s *liquidStakingCache) getActiveBucketType() map[uint64]*ContractStakingBucketType {
+func (s *contractStakingCache) getActiveBucketType() map[uint64]*ContractStakingBucketType {
 	m := make(map[uint64]*ContractStakingBucketType)
 	for k, v := range s.idBucketTypeMap {
 		if v.ActivatedAt != maxBlockNumber {
@@ -194,7 +194,7 @@ func (s *liquidStakingCache) getActiveBucketType() map[uint64]*ContractStakingBu
 	return m
 }
 
-func (s *liquidStakingCache) getBucketInfoByCandidate(candidate address.Address) map[uint64]*ContractStakingBucketInfo {
+func (s *contractStakingCache) getBucketInfoByCandidate(candidate address.Address) map[uint64]*ContractStakingBucketInfo {
 	m := make(map[uint64]*ContractStakingBucketInfo)
 	for k, v := range s.candidateBucketMap[candidate.String()] {
 		if v {
@@ -204,7 +204,7 @@ func (s *liquidStakingCache) getBucketInfoByCandidate(candidate address.Address)
 	return m
 }
 
-func (s *liquidStakingCache) merge(delta *liquidStakingDelta) error {
+func (s *contractStakingCache) merge(delta *contractStakingDelta) error {
 	for id, state := range delta.bucketTypeDeltaState {
 		if state == deltaStateAdded || state == deltaStateModified {
 			s.putBucketType(id, delta.mustGetBucketType(id))
@@ -222,131 +222,131 @@ func (s *liquidStakingCache) merge(delta *liquidStakingDelta) error {
 	return nil
 }
 
-func (s *liquidStakingCacheThreadSafety) putHeight(h uint64) {
+func (s *contractStakingCacheThreadSafety) putHeight(h uint64) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.cache.putHeight(h)
 }
 
-func (s *liquidStakingCacheThreadSafety) getHeight() uint64 {
+func (s *contractStakingCacheThreadSafety) getHeight() uint64 {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s.cache.getHeight()
 }
 
-func (s *liquidStakingCacheThreadSafety) putBucketType(id uint64, bt *ContractStakingBucketType) {
+func (s *contractStakingCacheThreadSafety) putBucketType(id uint64, bt *ContractStakingBucketType) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	s.cache.putBucketType(id, bt)
 }
 
-func (s *liquidStakingCacheThreadSafety) putBucketInfo(id uint64, bi *ContractStakingBucketInfo) {
+func (s *contractStakingCacheThreadSafety) putBucketInfo(id uint64, bi *ContractStakingBucketInfo) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	s.cache.putBucketInfo(id, bi)
 }
 
-func (s *liquidStakingCacheThreadSafety) deleteBucketInfo(id uint64) {
+func (s *contractStakingCacheThreadSafety) deleteBucketInfo(id uint64) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	s.cache.deleteBucketInfo(id)
 }
 
-func (s *liquidStakingCacheThreadSafety) getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool) {
+func (s *contractStakingCacheThreadSafety) getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s.cache.getBucketTypeIndex(amount, duration)
 }
 
-func (s *liquidStakingCacheThreadSafety) getBucketType(id uint64) (*ContractStakingBucketType, bool) {
+func (s *contractStakingCacheThreadSafety) getBucketType(id uint64) (*ContractStakingBucketType, bool) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s.cache.getBucketType(id)
 }
 
-func (s *liquidStakingCacheThreadSafety) mustGetBucketType(id uint64) *ContractStakingBucketType {
+func (s *contractStakingCacheThreadSafety) mustGetBucketType(id uint64) *ContractStakingBucketType {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s.cache.mustGetBucketType(id)
 }
 
-func (s *liquidStakingCacheThreadSafety) getBucketInfo(id uint64) (*ContractStakingBucketInfo, bool) {
+func (s *contractStakingCacheThreadSafety) getBucketInfo(id uint64) (*ContractStakingBucketInfo, bool) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s.cache.getBucketInfo(id)
 }
 
-func (s *liquidStakingCacheThreadSafety) mustGetBucketInfo(id uint64) *ContractStakingBucketInfo {
+func (s *contractStakingCacheThreadSafety) mustGetBucketInfo(id uint64) *ContractStakingBucketInfo {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s.cache.mustGetBucketInfo(id)
 }
 
-func (s *liquidStakingCacheThreadSafety) getCandidateVotes(candidate address.Address) *big.Int {
+func (s *contractStakingCacheThreadSafety) getCandidateVotes(candidate address.Address) *big.Int {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s.cache.getCandidateVotes(candidate)
 }
 
-func (s *liquidStakingCacheThreadSafety) putTotalBucketCount(count uint64) {
+func (s *contractStakingCacheThreadSafety) putTotalBucketCount(count uint64) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	s.cache.putTotalBucketCount(count)
 }
 
-func (s *liquidStakingCacheThreadSafety) getTotalBucketCount() uint64 {
+func (s *contractStakingCacheThreadSafety) getTotalBucketCount() uint64 {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s.cache.getTotalBucketCount()
 }
 
-func (s *liquidStakingCacheThreadSafety) getTotalBucketTypeCount() uint64 {
+func (s *contractStakingCacheThreadSafety) getTotalBucketTypeCount() uint64 {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s.cache.getTotalBucketTypeCount()
 }
 
-func (s *liquidStakingCacheThreadSafety) getAllBucketInfo() map[uint64]*ContractStakingBucketInfo {
+func (s *contractStakingCacheThreadSafety) getAllBucketInfo() map[uint64]*ContractStakingBucketInfo {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s.cache.getAllBucketInfo()
 }
 
-func (s *liquidStakingCacheThreadSafety) getActiveBucketType() map[uint64]*ContractStakingBucketType {
+func (s *contractStakingCacheThreadSafety) getActiveBucketType() map[uint64]*ContractStakingBucketType {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s.cache.getActiveBucketType()
 }
 
-func (s *liquidStakingCacheThreadSafety) getBucketInfoByCandidate(candidate address.Address) map[uint64]*ContractStakingBucketInfo {
+func (s *contractStakingCacheThreadSafety) getBucketInfoByCandidate(candidate address.Address) map[uint64]*ContractStakingBucketInfo {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s.cache.getBucketInfoByCandidate(candidate)
 }
 
-func (s *liquidStakingCacheThreadSafety) merge(delta *liquidStakingDelta) error {
+func (s *contractStakingCacheThreadSafety) merge(delta *contractStakingDelta) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	return s.cache.merge(delta)
 }
 
-func (s *liquidStakingCacheThreadSafety) unsafe() liquidStakingCacheManager {
+func (s *contractStakingCacheThreadSafety) unsafe() contractStakingCacheManager {
 	return s.cache
 }
