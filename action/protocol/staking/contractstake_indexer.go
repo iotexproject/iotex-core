@@ -12,15 +12,15 @@ import (
 )
 
 type (
-	// LiquidStakingBucketType defines the type of liquid staking bucket
-	LiquidStakingBucketType struct {
+	// ContractStakingBucketType defines the type of contract staking bucket
+	ContractStakingBucketType struct {
 		Amount      *big.Int
 		Duration    uint64 // block numbers
 		ActivatedAt uint64 // block height
 	}
 
-	// LiquidStakingIndexer defines the interface of liquid staking reader
-	LiquidStakingIndexer interface {
+	// ContractStakingIndexer defines the interface of contract staking reader
+	ContractStakingIndexer interface {
 		// CandidateVotes returns the total staked votes of a candidate
 		// candidate identified by owner address
 		CandidateVotes(ownerAddr address.Address) *big.Int
@@ -31,36 +31,36 @@ type (
 		// TotalBucketCount returns the total number of buckets including burned buckets
 		TotalBucketCount() uint64
 		// BucketTypes returns the active bucket types
-		BucketTypes() ([]*LiquidStakingBucketType, error)
+		BucketTypes() ([]*ContractStakingBucketType, error)
 	}
 
-	// TODO (iip-13): remove this empty liquid staking indexer
-	emptyLiquidStakingIndexer struct{}
+	// TODO (iip-13): remove this empty contract staking indexer
+	emptyContractStakingIndexer struct{}
 )
 
-var _ LiquidStakingIndexer = (*emptyLiquidStakingIndexer)(nil)
+var _ ContractStakingIndexer = (*emptyContractStakingIndexer)(nil)
 
-// NewEmptyLiquidStakingIndexer creates an empty liquid staking indexer
-func NewEmptyLiquidStakingIndexer() LiquidStakingIndexer {
-	return &emptyLiquidStakingIndexer{}
+// NewEmptyContractStakingIndexer creates an empty contract staking indexer
+func NewEmptyContractStakingIndexer() ContractStakingIndexer {
+	return &emptyContractStakingIndexer{}
 }
 
-func (f *emptyLiquidStakingIndexer) CandidateVotes(ownerAddr address.Address) *big.Int {
+func (f *emptyContractStakingIndexer) CandidateVotes(ownerAddr address.Address) *big.Int {
 	return big.NewInt(0)
 }
 
-func (f *emptyLiquidStakingIndexer) Buckets() ([]*VoteBucket, error) {
+func (f *emptyContractStakingIndexer) Buckets() ([]*VoteBucket, error) {
 	return nil, nil
 }
 
-func (f *emptyLiquidStakingIndexer) BucketsByIndices([]uint64) ([]*VoteBucket, error) {
+func (f *emptyContractStakingIndexer) BucketsByIndices([]uint64) ([]*VoteBucket, error) {
 	return nil, nil
 }
 
-func (f *emptyLiquidStakingIndexer) TotalBucketCount() uint64 {
+func (f *emptyContractStakingIndexer) TotalBucketCount() uint64 {
 	return 0
 }
 
-func (f *emptyLiquidStakingIndexer) BucketTypes() ([]*LiquidStakingBucketType, error) {
+func (f *emptyContractStakingIndexer) BucketTypes() ([]*ContractStakingBucketType, error) {
 	return nil, nil
 }

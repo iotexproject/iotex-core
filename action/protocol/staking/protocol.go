@@ -74,13 +74,13 @@ type (
 
 	// Protocol defines the protocol of handling staking
 	Protocol struct {
-		addr               address.Address
-		depositGas         DepositGas
-		config             Configuration
-		candBucketsIndexer *CandidatesBucketsIndexer
-		liquidIndexer      LiquidStakingIndexer
-		voteReviser        *VoteReviser
-		patch              *PatchStore
+		addr                   address.Address
+		depositGas             DepositGas
+		config                 Configuration
+		candBucketsIndexer     *CandidatesBucketsIndexer
+		contractStakingIndexer ContractStakingIndexer
+		voteReviser            *VoteReviser
+		patch                  *PatchStore
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -118,7 +118,7 @@ func NewProtocol(
 	depositGas DepositGas,
 	cfg *BuilderConfig,
 	candBucketsIndexer *CandidatesBucketsIndexer,
-	liquidIndexer LiquidStakingIndexer,
+	contractStakingIndexer ContractStakingIndexer,
 	correctCandsHeight uint64,
 	reviseHeights ...uint64,
 ) (*Protocol, error) {
@@ -159,11 +159,11 @@ func NewProtocol(
 			BootstrapCandidates:      cfg.Staking.BootstrapCandidates,
 			PersistStakingPatchBlock: cfg.PersistStakingPatchBlock,
 		},
-		depositGas:         depositGas,
-		candBucketsIndexer: candBucketsIndexer,
-		voteReviser:        voteReviser,
-		patch:              NewPatchStore(cfg.StakingPatchDir),
-		liquidIndexer:      liquidIndexer,
+		depositGas:             depositGas,
+		candBucketsIndexer:     candBucketsIndexer,
+		voteReviser:            voteReviser,
+		patch:                  NewPatchStore(cfg.StakingPatchDir),
+		contractStakingIndexer: contractStakingIndexer,
 	}, nil
 }
 
@@ -475,8 +475,8 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 	list := c.AllCandidates()
 	cand := make(CandidateList, 0, len(list))
 	for i := range list {
-		if ok && featureCtx.AddLSDVotes {
-			list[i].Votes.Add(list[i].Votes, p.liquidIndexer.CandidateVotes(list[i].Owner))
+		if ok && featureCtx.AddContractStakingVotes {
+			list[i].Votes.Add(list[i].Votes, p.contractStakingIndexer.CandidateVotes(list[i].Owner))
 		}
 		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {
 			cand = append(cand, list[i])
@@ -499,8 +499,8 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return nil, uint64(0), errors.Wrap(err, "failed to unmarshal request")
 	}
 
-	// stakeSR is the stake state reader including native and liquid staking
-	stakeSR, err := newCompositeStakingStateReader(p.liquidIndexer, p.candBucketsIndexer, sr)
+	// stakeSR is the stake state reader including native and contract staking
+	stakeSR, err := newCompositeStakingStateReader(p.contractStakingIndexer, p.candBucketsIndexer, sr)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -555,8 +555,8 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		resp, height, err = stakeSR.readStateBucketCount(ctx, r.GetBucketsCount())
 	case iotexapi.ReadStakingDataMethod_COMPOSITE_TOTAL_STAKING_AMOUNT:
 		resp, height, err = stakeSR.readStateTotalStakingAmount(ctx, r.GetTotalStakingAmount())
-	case iotexapi.ReadStakingDataMethod_LIQUID_STAKING_BUCKET_TYPES:
-		resp, height, err = stakeSR.readStateLiquidStakingBucketTypes(ctx, r.GetLiquidStakingBucketTypes())
+	case iotexapi.ReadStakingDataMethod_CONTRACT_STAKING_BUCKET_TYPES:
+		resp, height, err = stakeSR.readStateContractStakingBucketTypes(ctx, r.GetContractStakingBucketTypes())
 	default:
 		err = errors.New("corresponding method isn't found")
 	}

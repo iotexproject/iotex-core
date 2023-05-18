@@ -42,7 +42,7 @@ type (
 		StakeStartTime   time.Time
 		UnstakeStartTime time.Time
 
-		// only used for liquid staking buckets
+		// only used for contract staking buckets
 		StakedDurationBlockNumber uint64
 		CreateBlockHeight         uint64
 		StakeStartBlockHeight     uint64

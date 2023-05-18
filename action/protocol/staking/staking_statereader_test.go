@@ -50,7 +50,7 @@ func TestStakingStateReader(t *testing.T) {
 			SelfStake:          big.NewInt(0),
 		},
 	}
-	testLiquidBuckets := []*VoteBucket{
+	testContractBuckets := []*VoteBucket{
 		{
 			Index:           1,
 			Candidate:       identityset.Address(1),
@@ -99,7 +99,7 @@ func TestStakingStateReader(t *testing.T) {
 		states[i], err = state.Serialize(testNativeBuckets[i])
 		r.NoError(err)
 	}
-	prepare := func(t *testing.T) (*mock_factory.MockFactory, *MockLiquidStakingIndexer, ReadState, context.Context, *require.Assertions) {
+	prepare := func(t *testing.T) (*mock_factory.MockFactory, *MockContractStakingIndexer, ReadState, context.Context, *require.Assertions) {
 		r := require.New(t)
 		ctrl := gomock.NewController(t)
 		sf := mock_factory.NewMockFactory(ctrl)
@@ -122,10 +122,10 @@ func TestStakingStateReader(t *testing.T) {
 		}
 		sf.EXPECT().ReadView(gomock.Any()).Return(testNativeData, nil).Times(1)
 
-		liquidIndexer := NewMockLiquidStakingIndexer(ctrl)
-		liquidIndexer.EXPECT().Buckets().Return(testLiquidBuckets, nil).AnyTimes()
+		contractIndexer := NewMockContractStakingIndexer(ctrl)
+		contractIndexer.EXPECT().Buckets().Return(testContractBuckets, nil).AnyTimes()
 
-		stakeSR, err := newCompositeStakingStateReader(liquidIndexer, nil, sf)
+		stakeSR, err := newCompositeStakingStateReader(contractIndexer, nil, sf)
 		r.NoError(err)
 		r.NotNil(stakeSR)
 
@@ -139,10 +139,10 @@ func TestStakingStateReader(t *testing.T) {
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1000})
 		ctx = protocol.WithFeatureCtx(ctx)
 
-		return sf, liquidIndexer, stakeSR, ctx, r
+		return sf, contractIndexer, stakeSR, ctx, r
 	}
-	addLiquidVotes := func(expectCand *Candidate) {
-		for _, b := range testLiquidBuckets {
+	addContractVotes := func(expectCand *Candidate) {
+		for _, b := range testContractBuckets {
 			if b.Candidate.String() == expectCand.Owner.String() {
 				expectCand.Votes.Add(expectCand.Votes, b.StakedAmount)
 				break
@@ -165,14 +165,14 @@ func TestStakingStateReader(t *testing.T) {
 		buckets, height, err := stakeSR.readStateBuckets(ctx, req)
 		r.NoError(err)
 		r.EqualValues(1, height)
-		r.Len(buckets.Buckets, len(testNativeBuckets)+len(testLiquidBuckets))
+		r.Len(buckets.Buckets, len(testNativeBuckets)+len(testContractBuckets))
 		for i := range testNativeBuckets {
 			iotexBucket, err := testNativeBuckets[i].toIoTeXTypes()
 			r.NoError(err)
 			r.Equal(iotexBucket, buckets.Buckets[i])
 		}
-		for i := range testLiquidBuckets {
-			iotexBucket, err := testLiquidBuckets[i].toIoTeXTypes()
+		for i := range testContractBuckets {
+			iotexBucket, err := testContractBuckets[i].toIoTeXTypes()
 			r.NoError(err)
 			r.Equal(iotexBucket, buckets.Buckets[i+len(testNativeBuckets)])
 		}
@@ -215,7 +215,7 @@ func TestStakingStateReader(t *testing.T) {
 		iotexBucket, err := testNativeBuckets[0].toIoTeXTypes()
 		r.NoError(err)
 		r.Equal(iotexBucket, buckets.Buckets[0])
-		iotexBucket, err = testLiquidBuckets[0].toIoTeXTypes()
+		iotexBucket, err = testContractBuckets[0].toIoTeXTypes()
 		r.NoError(err)
 		r.Equal(iotexBucket, buckets.Buckets[1])
 	})
@@ -255,12 +255,12 @@ func TestStakingStateReader(t *testing.T) {
 		iotexBucket, err := testNativeBuckets[0].toIoTeXTypes()
 		r.NoError(err)
 		r.Equal(iotexBucket, buckets.Buckets[0])
-		iotexBucket, err = testLiquidBuckets[0].toIoTeXTypes()
+		iotexBucket, err = testContractBuckets[0].toIoTeXTypes()
 		r.NoError(err)
 		r.Equal(iotexBucket, buckets.Buckets[1])
 	})
 	t.Run("readStateBucketByIndices", func(t *testing.T) {
-		sf, liquidIndexer, stakeSR, ctx, r := prepare(t)
+		sf, contractIndexer, stakeSR, ctx, r := prepare(t)
 		sf.EXPECT().State(gomock.AssignableToTypeOf(&VoteBucket{}), gomock.Any()).DoAndReturn(func(arg0 any, arg1 ...protocol.StateOption) (uint64, error) {
 			arg0R := arg0.(*VoteBucket)
 			cfg := &protocol.StateConfig{}
@@ -276,10 +276,10 @@ func TestStakingStateReader(t *testing.T) {
 			*arg0R = totalBucketCount{count: 1}
 			return uint64(1), nil
 		}).Times(1)
-		liquidIndexer.EXPECT().BucketsByIndices(gomock.Any()).DoAndReturn(func(arg0 []uint64) ([]*VoteBucket, error) {
+		contractIndexer.EXPECT().BucketsByIndices(gomock.Any()).DoAndReturn(func(arg0 []uint64) ([]*VoteBucket, error) {
 			buckets := []*VoteBucket{}
 			for i := range arg0 {
-				buckets = append(buckets, testLiquidBuckets[arg0[i]])
+				buckets = append(buckets, testContractBuckets[arg0[i]])
 			}
 			return buckets, nil
 		}).Times(1)
@@ -293,12 +293,12 @@ func TestStakingStateReader(t *testing.T) {
 		iotexBucket, err := testNativeBuckets[0].toIoTeXTypes()
 		r.NoError(err)
 		r.Equal(iotexBucket, buckets.Buckets[0])
-		iotexBucket, err = testLiquidBuckets[0].toIoTeXTypes()
+		iotexBucket, err = testContractBuckets[0].toIoTeXTypes()
 		r.NoError(err)
 		r.Equal(iotexBucket, buckets.Buckets[1])
 	})
 	t.Run("readStateBucketCount", func(t *testing.T) {
-		sf, liquidIndexer, stakeSR, ctx, r := prepare(t)
+		sf, contractIndexer, stakeSR, ctx, r := prepare(t)
 		sf.EXPECT().State(gomock.AssignableToTypeOf(&totalAmount{}), gomock.Any()).DoAndReturn(func(arg0 any, arg1 ...protocol.StateOption) (uint64, error) {
 			arg0R := arg0.(*totalAmount)
 			*arg0R = *testNativeTotalAmount
@@ -309,7 +309,7 @@ func TestStakingStateReader(t *testing.T) {
 			*arg0R = totalBucketCount{count: 1}
 			return uint64(1), nil
 		}).Times(1)
-		liquidIndexer.EXPECT().TotalBucketCount().Return(uint64(len(testLiquidBuckets))).Times(1)
+		contractIndexer.EXPECT().TotalBucketCount().Return(uint64(len(testContractBuckets))).Times(1)
 		cfg := genesis.Default
 		cfg.GreenlandBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, cfg)
@@ -322,9 +322,9 @@ func TestStakingStateReader(t *testing.T) {
 		r.EqualValues(3, bucketCount.Active)
 	})
 	t.Run("readStateCandidates", func(t *testing.T) {
-		_, liquidIndexer, stakeSR, ctx, r := prepare(t)
-		liquidIndexer.EXPECT().CandidateVotes(gomock.Any()).DoAndReturn(func(ownerAddr address.Address) *big.Int {
-			for _, b := range testLiquidBuckets {
+		_, contractIndexer, stakeSR, ctx, r := prepare(t)
+		contractIndexer.EXPECT().CandidateVotes(gomock.Any()).DoAndReturn(func(ownerAddr address.Address) *big.Int {
+			for _, b := range testContractBuckets {
 				if b.Owner.String() == ownerAddr.String() {
 					return b.StakedAmount
 				}
@@ -347,14 +347,14 @@ func TestStakingStateReader(t *testing.T) {
 			})
 			r.True(idx >= 0)
 			expectCand := *testCandidates[idx]
-			addLiquidVotes(&expectCand)
+			addContractVotes(&expectCand)
 			r.EqualValues(expectCand.toIoTeXTypes(), candidates.Candidates[i])
 		}
 	})
 	t.Run("readStateCandidateByName", func(t *testing.T) {
-		_, liquidIndexer, stakeSR, ctx, r := prepare(t)
-		liquidIndexer.EXPECT().CandidateVotes(gomock.Any()).DoAndReturn(func(ownerAddr address.Address) *big.Int {
-			for _, b := range testLiquidBuckets {
+		_, contractIndexer, stakeSR, ctx, r := prepare(t)
+		contractIndexer.EXPECT().CandidateVotes(gomock.Any()).DoAndReturn(func(ownerAddr address.Address) *big.Int {
+			for _, b := range testContractBuckets {
 				if b.Owner.String() == ownerAddr.String() {
 					return b.StakedAmount
 				}
@@ -371,13 +371,13 @@ func TestStakingStateReader(t *testing.T) {
 		})
 		r.True(idx >= 0)
 		expectCand := *testCandidates[idx]
-		addLiquidVotes(&expectCand)
+		addContractVotes(&expectCand)
 		r.EqualValues(expectCand.toIoTeXTypes(), candidate)
 	})
 	t.Run("readStateCandidateByAddress", func(t *testing.T) {
-		_, liquidIndexer, stakeSR, ctx, r := prepare(t)
-		liquidIndexer.EXPECT().CandidateVotes(gomock.Any()).DoAndReturn(func(ownerAddr address.Address) *big.Int {
-			for _, b := range testLiquidBuckets {
+		_, contractIndexer, stakeSR, ctx, r := prepare(t)
+		contractIndexer.EXPECT().CandidateVotes(gomock.Any()).DoAndReturn(func(ownerAddr address.Address) *big.Int {
+			for _, b := range testContractBuckets {
 				if b.Owner.String() == ownerAddr.String() {
 					return b.StakedAmount
 				}
@@ -394,7 +394,7 @@ func TestStakingStateReader(t *testing.T) {
 		})
 		r.True(idx >= 0)
 		expectCand := *testCandidates[idx]
-		addLiquidVotes(&expectCand)
+		addContractVotes(&expectCand)
 		r.EqualValues(expectCand.toIoTeXTypes(), candidate)
 	})
 	t.Run("readStateTotalStakingAmount", func(t *testing.T) {

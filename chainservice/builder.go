@@ -488,8 +488,8 @@ func (builder *Builder) registerStakingProtocol() error {
 		return nil
 	}
 
-	// TODO (iip-13): use a real liquid indexer instead
-	liquidIndexer := staking.NewEmptyLiquidStakingIndexer()
+	// TODO (iip-13): use a real contract indexer instead
+	contractIndexer := staking.NewEmptyContractStakingIndexer()
 
 	stakingProtocol, err := staking.NewProtocol(
 		rewarding.DepositGas,
@@ -499,7 +499,7 @@ func (builder *Builder) registerStakingProtocol() error {
 			StakingPatchDir:          builder.cfg.Chain.StakingPatchDir,
 		},
 		builder.cs.candBucketsIndexer,
-		liquidIndexer,
+		contractIndexer,
 		builder.cfg.Genesis.OkhotskBlockHeight,
 		builder.cfg.Genesis.GreenlandBlockHeight,
 		builder.cfg.Genesis.HawaiiBlockHeight,

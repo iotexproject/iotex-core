@@ -111,7 +111,7 @@ type (
 		CorrectGasRefund                        bool
 		SkipSystemActionNonce                   bool
 		ValidateSystemAction                    bool
-		AddLSDVotes                             bool
+		AddContractStakingVotes                 bool
 		SharedGasWithDapp                       bool
 	}
 
@@ -249,7 +249,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CorrectGasRefund:                        g.IsOkhotsk(height),
 			SkipSystemActionNonce:                   g.IsPalau(height),
 			ValidateSystemAction:                    g.IsToBeEnabled(height),
-			AddLSDVotes:                             g.IsToBeEnabled(height),
+			AddContractStakingVotes:                 g.IsToBeEnabled(height),
 			SharedGasWithDapp:                       g.IsToBeEnabled(height),
 		},
 	)
