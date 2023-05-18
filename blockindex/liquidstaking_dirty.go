@@ -200,10 +200,14 @@ func (dirty *contractStakingDirty) handleStakedEvent(event eventParam, height ui
 	if !ok {
 		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), durationParam.Uint64())
 	}
+	owner, ok := dirty.tokenOwner[tokenIDParam.Uint64()]
+	if !ok {
+		return errors.Errorf("no owner for token id %d", tokenIDParam.Uint64())
+	}
 	bucket := ContractStakingBucketInfo{
 		TypeIndex:  btIdx,
 		Delegate:   delegateParam,
-		Owner:      dirty.tokenOwner[tokenIDParam.Uint64()],
+		Owner:      owner,
 		CreatedAt:  height,
 		UnlockedAt: maxBlockNumber,
 		UnstakedAt: maxBlockNumber,

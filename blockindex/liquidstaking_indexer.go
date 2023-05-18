@@ -663,7 +663,7 @@ func (s *contractStakingIndexer) loadCache() error {
 		if err := b.deserialize(vs[i]); err != nil {
 			return err
 		}
-		delta.putBucketInfo(byteutil.BytesToUint64BigEndian(ks[i]), &b)
+		delta.addBucketInfo(byteutil.BytesToUint64BigEndian(ks[i]), &b)
 	}
 
 	// load bucket type
@@ -676,7 +676,7 @@ func (s *contractStakingIndexer) loadCache() error {
 		if err := b.deserialize(vs[i]); err != nil {
 			return err
 		}
-		delta.putBucketType(byteutil.BytesToUint64BigEndian(ks[i]), &b)
+		delta.addBucketType(byteutil.BytesToUint64BigEndian(ks[i]), &b)
 	}
 	return s.cache.merge(delta)
 }
