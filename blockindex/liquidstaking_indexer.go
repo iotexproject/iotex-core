@@ -386,6 +386,8 @@ type (
 		Bucket(id uint64) (*ContractStakingBucket, error)
 		// BucketsByIndices returns buckets by indices
 		BucketsByIndices(indices []uint64) ([]*ContractStakingBucket, error)
+		// BucketsByCandidate returns buckets by candidate
+		BucketsByCandidate(candidate address.Address) ([]*ContractStakingBucket, error)
 		// TotalBucketCount returns the total bucket count including burned buckets
 		TotalBucketCount() uint64
 		// ActiveBucketTypes returns all active bucket types
@@ -527,6 +529,21 @@ func (s *liquidStakingIndexer) BucketsByIndices(indices []uint64) ([]*ContractSt
 
 	vbs := make([]*ContractStakingBucket, 0, len(indices))
 	for _, id := range indices {
+		vb, err := s.generateBucket(id)
+		if err != nil {
+			return nil, err
+		}
+		vbs = append(vbs, vb)
+	}
+	return vbs, nil
+}
+
+func (s *liquidStakingIndexer) BucketsByCandidate(candidate address.Address) ([]*ContractStakingBucket, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	vbs := make([]*ContractStakingBucket, 0)
+	for id := range s.cache.getBucketInfoByCandidate(candidate) {
 		vb, err := s.generateBucket(id)
 		if err != nil {
 			return nil, err

@@ -27,6 +27,7 @@ type (
 		getAllBucketInfo() map[uint64]*ContractStakingBucketInfo
 		getActiveBucketType() map[uint64]*ContractStakingBucketType
 		getCandidateVotes(candidate address.Address) *big.Int
+		getBucketInfoByCandidate(candidate address.Address) map[uint64]*ContractStakingBucketInfo
 	}
 
 	// liquidStakingCacheManager is the interface to manage liquid staking cache
@@ -193,6 +194,16 @@ func (s *liquidStakingCache) getActiveBucketType() map[uint64]*ContractStakingBu
 	return m
 }
 
+func (s *liquidStakingCache) getBucketInfoByCandidate(candidate address.Address) map[uint64]*ContractStakingBucketInfo {
+	m := make(map[uint64]*ContractStakingBucketInfo)
+	for k, v := range s.candidateBucketMap[candidate.String()] {
+		if v {
+			m[k] = s.idBucketMap[k]
+		}
+	}
+	return m
+}
+
 func (s *liquidStakingCache) merge(delta *liquidStakingDelta) error {
 	for id, state := range delta.bucketTypeDeltaState {
 		if state == deltaStateAdded || state == deltaStateModified {
@@ -320,6 +331,13 @@ func (s *liquidStakingCacheThreadSafety) getActiveBucketType() map[uint64]*Contr
 	defer s.mutex.RUnlock()
 
 	return s.cache.getActiveBucketType()
+}
+
+func (s *liquidStakingCacheThreadSafety) getBucketInfoByCandidate(candidate address.Address) map[uint64]*ContractStakingBucketInfo {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.cache.getBucketInfoByCandidate(candidate)
 }
 
 func (s *liquidStakingCacheThreadSafety) merge(delta *liquidStakingDelta) error {

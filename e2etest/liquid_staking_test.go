@@ -1386,6 +1386,10 @@ func TestLiquidStaking(t *testing.T) {
 		r.EqualValues(10, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 		r.EqualValues(1, indexer.TotalBucketCount())
 		r.EqualValues(contractAddresses, bt.ContractAddress)
+		buckets, err = indexer.BucketsByCandidate(identityset.Address(delegateIdx))
+		r.NoError(err)
+		r.Len(buckets, 1)
+		r.EqualValues(bt, buckets[0])
 
 		t.Run("unlock", func(t *testing.T) {
 			data, err = lsdABI.Pack("unlock0", big.NewInt(int64(bt.Index)))
