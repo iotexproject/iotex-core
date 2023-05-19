@@ -220,7 +220,7 @@ func TestStakingStateReader(t *testing.T) {
 		r.Equal(iotexBucket, buckets.Buckets[1])
 	})
 	t.Run("readStateBucketsByCandidate", func(t *testing.T) {
-		sf, _, stakeSR, ctx, r := prepare(t)
+		sf, contractIndexer, stakeSR, ctx, r := prepare(t)
 		sf.EXPECT().State(gomock.AssignableToTypeOf(&VoteBucket{}), gomock.Any()).DoAndReturn(func(arg0 any, arg1 ...protocol.StateOption) (uint64, error) {
 			arg0R := arg0.(*VoteBucket)
 			cfg := &protocol.StateConfig{}
@@ -240,6 +240,15 @@ func TestStakingStateReader(t *testing.T) {
 			arg0R := arg0.(*totalBucketCount)
 			*arg0R = totalBucketCount{count: 1}
 			return uint64(1), nil
+		}).Times(1)
+		contractIndexer.EXPECT().BucketsByCandidate(gomock.Any()).DoAndReturn(func(arg0 address.Address) ([]*VoteBucket, error) {
+			buckets := []*VoteBucket{}
+			for i := range testContractBuckets {
+				if testContractBuckets[i].Candidate.String() == arg0.String() {
+					buckets = append(buckets, testContractBuckets[i])
+				}
+			}
+			return buckets, nil
 		}).Times(1)
 		req := &iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate{
 			Pagination: &iotexapi.PaginationParam{
