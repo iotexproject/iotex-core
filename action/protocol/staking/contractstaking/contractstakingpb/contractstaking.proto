@@ -1,0 +1,25 @@
+// Copyright (c) 2019 IoTeX
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
+// To compile the proto, run:
+//      protoc --go_out=plugins=grpc:. *.proto
+syntax = "proto3";
+package contractstakingpb;
+option go_package = "github.com/iotexproject/iotex-core/action/protocol/staking/contractstaking/contractstakingpb";
+
+message BucketType {
+    string amount = 1;
+    uint64 duration = 2;
+    uint64 activatedAt = 3;
+}
+
+message BucketInfo {
+    uint64 typeIndex = 1;
+    uint64 createdAt = 2;
+    uint64 unlockedAt = 3;
+    uint64 unstakedAt = 4;
+    string delegate = 5;
+    string owner = 6;
+}
