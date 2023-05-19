@@ -52,6 +52,23 @@ func NewContractStakingIndexer(kvStore db.KVStore) *Indexer {
 	}
 }
 
+// Start starts the indexer
+func (s *Indexer) Start(ctx context.Context) error {
+	if err := s.kvstore.Start(ctx); err != nil {
+		return err
+	}
+	return s.loadCache()
+}
+
+// Stop stops the indexer
+func (s *Indexer) Stop(ctx context.Context) error {
+	if err := s.kvstore.Stop(ctx); err != nil {
+		return err
+	}
+	s.cache = newContractStakingCacheSafe()
+	return nil
+}
+
 // Height returns the tip block height
 func (s *Indexer) Height() (uint64, error) {
 	return s.cache.GetHeight(), nil
@@ -123,6 +140,11 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 
 	// commit dirty cache
 	return s.commit(dirty)
+}
+
+// DeleteTipBlock deletes the tip block from indexer
+func (s *Indexer) DeleteTipBlock(context.Context, *block.Block) error {
+	return errors.New("not implemented")
 }
 
 func (s *Indexer) commit(dirty *contractStakingDirty) error {
