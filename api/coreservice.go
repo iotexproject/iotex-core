@@ -254,6 +254,12 @@ func newCoreService(
 		opt(&core)
 	}
 
+	if core.broadcastHandler != nil {
+		core.messageBatcher = batch.NewManager(func(msg *batch.Message) error {
+			return core.broadcastHandler(context.Background(), core.bc.ChainID(), msg.Data)
+		})
+	}
+
 	return &core, nil
 }
 
@@ -447,13 +453,14 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	// If there is no error putting into local actpool,
 	// Broadcast it to the network
 	msg := in
-	if core.messageBatcher != nil {
+	if ge := core.bc.Genesis(); ge.IsToBeEnabled(core.bc.TipHeight()) {
 		err = core.messageBatcher.Put(&batch.Message{
 			ChainID: core.bc.ChainID(),
 			Target:  nil,
 			Data:    msg,
 		})
 	} else {
+		//TODO: remove height check after activated
 		err = core.broadcastHandler(ctx, core.bc.ChainID(), msg)
 	}
 	if err != nil {

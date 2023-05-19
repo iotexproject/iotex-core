@@ -22,8 +22,8 @@ type (
 	deltaState  int
 	deltaAction int
 
-	liquidStakingDelta struct {
-		liquidStakingCacheManager // easy to query buckets
+	contractStakingDelta struct {
+		contractStakingCacheManager // easy to query buckets
 
 		bucketTypeDeltaState map[uint64]deltaState
 		bucketInfoDeltaState map[uint64]deltaState
@@ -59,15 +59,15 @@ func (s deltaState) transfer(act deltaAction) (deltaState, error) {
 	return deltaStateTransferMap[s][act], nil
 }
 
-func newLiquidStakingDelta() *liquidStakingDelta {
-	return &liquidStakingDelta{
-		liquidStakingCacheManager: newLiquidStakingCache(),
-		bucketTypeDeltaState:      make(map[uint64]deltaState),
-		bucketInfoDeltaState:      make(map[uint64]deltaState),
+func newContractStakingDelta() *contractStakingDelta {
+	return &contractStakingDelta{
+		contractStakingCacheManager: newContractStakingCache(),
+		bucketTypeDeltaState:        make(map[uint64]deltaState),
+		bucketInfoDeltaState:        make(map[uint64]deltaState),
 	}
 }
 
-func (s *liquidStakingDelta) addBucketType(id uint64, bt *BucketType) error {
+func (s *contractStakingDelta) addBucketType(id uint64, bt *ContractStakingBucketType) error {
 	if _, ok := s.bucketTypeDeltaState[id]; !ok {
 		s.bucketTypeDeltaState[id] = deltaStateAdded
 	} else {
@@ -77,11 +77,11 @@ func (s *liquidStakingDelta) addBucketType(id uint64, bt *BucketType) error {
 			return err
 		}
 	}
-	s.liquidStakingCacheManager.putBucketType(id, bt)
+	s.contractStakingCacheManager.putBucketType(id, bt)
 	return nil
 }
 
-func (s *liquidStakingDelta) updateBucketType(id uint64, bt *BucketType) error {
+func (s *contractStakingDelta) updateBucketType(id uint64, bt *ContractStakingBucketType) error {
 	if _, ok := s.bucketTypeDeltaState[id]; !ok {
 		s.bucketTypeDeltaState[id] = deltaStateModified
 	} else {
@@ -91,11 +91,11 @@ func (s *liquidStakingDelta) updateBucketType(id uint64, bt *BucketType) error {
 			return err
 		}
 	}
-	s.liquidStakingCacheManager.putBucketType(id, bt)
+	s.contractStakingCacheManager.putBucketType(id, bt)
 	return nil
 }
 
-func (s *liquidStakingDelta) addBucketInfo(id uint64, bi *BucketInfo) error {
+func (s *contractStakingDelta) addBucketInfo(id uint64, bi *ContractStakingBucketInfo) error {
 	var err error
 	if _, ok := s.bucketInfoDeltaState[id]; !ok {
 		s.bucketInfoDeltaState[id] = deltaStateAdded
@@ -105,11 +105,11 @@ func (s *liquidStakingDelta) addBucketInfo(id uint64, bi *BucketInfo) error {
 			return err
 		}
 	}
-	s.liquidStakingCacheManager.putBucketInfo(id, bi)
+	s.contractStakingCacheManager.putBucketInfo(id, bi)
 	return nil
 }
 
-func (s *liquidStakingDelta) updateBucketInfo(id uint64, bi *BucketInfo) error {
+func (s *contractStakingDelta) updateBucketInfo(id uint64, bi *ContractStakingBucketInfo) error {
 	if _, ok := s.bucketInfoDeltaState[id]; !ok {
 		s.bucketInfoDeltaState[id] = deltaStateModified
 	} else {
@@ -119,11 +119,11 @@ func (s *liquidStakingDelta) updateBucketInfo(id uint64, bi *BucketInfo) error {
 			return err
 		}
 	}
-	s.liquidStakingCacheManager.putBucketInfo(id, bi)
+	s.contractStakingCacheManager.putBucketInfo(id, bi)
 	return nil
 }
 
-func (s *liquidStakingDelta) deleteBucketInfo(id uint64) error {
+func (s *contractStakingDelta) deleteBucketInfo(id uint64) error {
 	if _, ok := s.bucketInfoDeltaState[id]; !ok {
 		s.bucketInfoDeltaState[id] = deltaStateRemoved
 	} else {
@@ -133,11 +133,11 @@ func (s *liquidStakingDelta) deleteBucketInfo(id uint64) error {
 			return err
 		}
 	}
-	s.liquidStakingCacheManager.deleteBucketInfo(id)
+	s.contractStakingCacheManager.deleteBucketInfo(id)
 	return nil
 }
 
-func (s *liquidStakingDelta) addedBucketCnt() uint64 {
+func (s *contractStakingDelta) addedBucketCnt() uint64 {
 	addedBucketCnt := uint64(0)
 	for _, state := range s.bucketInfoDeltaState {
 		if state == deltaStateAdded {
@@ -147,7 +147,7 @@ func (s *liquidStakingDelta) addedBucketCnt() uint64 {
 	return addedBucketCnt
 }
 
-func (s *liquidStakingDelta) addedBucketTypeCnt() uint64 {
+func (s *contractStakingDelta) addedBucketTypeCnt() uint64 {
 	cnt := uint64(0)
 	for _, state := range s.bucketTypeDeltaState {
 		if state == deltaStateAdded {
@@ -157,7 +157,7 @@ func (s *liquidStakingDelta) addedBucketTypeCnt() uint64 {
 	return cnt
 }
 
-func (s *liquidStakingDelta) isBucketDeleted(id uint64) bool {
+func (s *contractStakingDelta) isBucketDeleted(id uint64) bool {
 	if _, ok := s.bucketInfoDeltaState[id]; ok {
 		return s.bucketInfoDeltaState[id] == deltaStateRemoved
 	}

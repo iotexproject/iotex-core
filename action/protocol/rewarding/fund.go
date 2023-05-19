@@ -64,6 +64,17 @@ func (p *Protocol) Deposit(
 	amount *big.Int,
 	transactionLogType iotextypes.TransactionLogType,
 ) (*action.TransactionLog, error) {
+	// fallback to regular case by setting sgdAmount = nil
+	return p.deposit(ctx, sm, nil, amount, nil, transactionLogType)
+}
+
+func (p *Protocol) deposit(
+	ctx context.Context,
+	sm protocol.StateManager,
+	receiver address.Address,
+	amount, sgdAmount *big.Int,
+	transactionLogType iotextypes.TransactionLogType,
+) (*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	accountCreationOpts := []state.AccountCreationOption{}
 	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
@@ -85,8 +96,18 @@ func (p *Protocol) Deposit(
 	if _, err := p.state(ctx, sm, _fundKey, &f); err != nil {
 		return nil, err
 	}
-	f.totalBalance = big.NewInt(0).Add(f.totalBalance, amount)
-	f.unclaimedBalance = big.NewInt(0).Add(f.unclaimedBalance, amount)
+	f.totalBalance.Add(f.totalBalance, amount)
+	f.unclaimedBalance.Add(f.unclaimedBalance, amount)
+	if !isZero(sgdAmount) {
+		f.unclaimedBalance.Sub(f.unclaimedBalance, sgdAmount)
+		if f.unclaimedBalance.Sign() == -1 {
+			return nil, errors.New("no enough available balance")
+		}
+		// grant sgd amount to receiver
+		if err := p.grantToAccount(ctx, sm, receiver, sgdAmount); err != nil {
+			return nil, err
+		}
+	}
 	if err := p.putState(ctx, sm, _fundKey, &f); err != nil {
 		return nil, err
 	}
@@ -145,4 +166,36 @@ func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int) 
 		return nil, nil
 	}
 	return rp.Deposit(ctx, sm, amount, iotextypes.TransactionLogType_GAS_FEE)
+}
+
+// DepositGasWithSGD deposits gas into the rewarding fund with Sharing of Gas-fee with DApps
+func DepositGasWithSGD(ctx context.Context, sm protocol.StateManager, sgdReceiver address.Address, totalAmount, sgdAmount *big.Int,
+) (*action.TransactionLog, error) {
+	if isZero(sgdAmount) {
+		// fallback to regular case if SGD amount is zero
+		return DepositGas(ctx, sm, totalAmount)
+	}
+	if sgdReceiver == nil {
+		// a valid SGD amount but no valid receiver address
+		return nil, errors.New("no valid receiver address to receive the Sharing of Gas-fee with DApps")
+	}
+	// TODO: we bypass the gas deposit for the actions in genesis block. Later we should remove this after we remove
+	// genesis actions
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	if blkCtx.BlockHeight == 0 {
+		return nil, nil
+	}
+	reg, ok := protocol.GetRegistry(ctx)
+	if !ok {
+		return nil, nil
+	}
+	rp := FindProtocol(reg)
+	if rp == nil {
+		return nil, nil
+	}
+	return rp.deposit(ctx, sm, sgdReceiver, totalAmount, sgdAmount, iotextypes.TransactionLogType_GAS_FEE)
+}
+
+func isZero(a *big.Int) bool {
+	return a == nil || len(a.Bytes()) == 0
 }

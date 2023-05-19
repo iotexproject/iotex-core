@@ -247,12 +247,18 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 
 	var indexers []blockdao.BlockIndexer
-	indexers = append(indexers, builder.cs.factory, builder.cs.liquidStakingIndexer)
+	indexers = append(indexers, builder.cs.factory)
 	if !builder.cfg.Chain.EnableAsyncIndexWrite && builder.cs.indexer != nil {
 		indexers = append(indexers, builder.cs.indexer)
 	}
 	if builder.cs.bfIndexer != nil {
 		indexers = append(indexers, builder.cs.bfIndexer)
+	}
+	if builder.cs.sgdIndexer != nil {
+		indexers = append(indexers, builder.cs.sgdIndexer)
+	}
+	if builder.cs.contractStakingIndexer != nil {
+		indexers = append(indexers, builder.cs.contractStakingIndexer)
 	}
 	if forTest {
 		builder.cs.blockdao = blockdao.NewBlockDAOInMemForTest(indexers)
@@ -266,25 +272,25 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	return nil
 }
 
-func (builder *Builder) buildLiquidStakingIndexer(forTest bool) error {
-	sf := builder.cs.factory
-	candNameToOwner := func(name string) (address.Address, error) {
-		sr, err := staking.ConstructBaseView(sf)
-		if err != nil {
-			return nil, err
-		}
-		cand := sr.GetCandidateByName(name)
-		if cand == nil {
-			return nil, errors.Errorf("candidate %s not found", name)
-		}
-		return cand.Owner, nil
+func (builder *Builder) buildSGDRegistry(forTest bool) error {
+	if builder.cs.sgdIndexer != nil {
+		return nil
 	}
 	if forTest {
-		builder.cs.liquidStakingIndexer = blockindex.NewLiquidStakingIndexer(db.NewMemKVStore(), builder.cfg.Genesis.BlockInterval, candNameToOwner)
+		builder.cs.sgdIndexer = nil
+	} else {
+		builder.cs.sgdIndexer = blockindex.NewSGDRegistry()
+	}
+	return nil
+}
+
+func (builder *Builder) buildLiquidStakingIndexer(forTest bool) error {
+	if forTest {
+		builder.cs.contractStakingIndexer = blockindex.NewContractStakingIndexer(db.NewMemKVStore())
 	} else {
 		dbConfig := builder.cfg.DB
 		dbConfig.DbPath = builder.cfg.Chain.LiquidStakingIndexDBPath
-		builder.cs.liquidStakingIndexer = blockindex.NewLiquidStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.BlockInterval, candNameToOwner)
+		builder.cs.contractStakingIndexer = blockindex.NewContractStakingIndexer(db.NewBoltDB(dbConfig))
 	}
 	return nil
 }
@@ -504,7 +510,7 @@ func (builder *Builder) registerStakingProtocol() error {
 			StakingPatchDir:          builder.cfg.Chain.StakingPatchDir,
 		},
 		builder.cs.candBucketsIndexer,
-		builder.cs.liquidStakingIndexer,
+		builder.cs.contractStakingIndexer,
 		builder.cfg.Genesis.OkhotskBlockHeight,
 		builder.cfg.Genesis.GreenlandBlockHeight,
 		builder.cfg.Genesis.HawaiiBlockHeight,
@@ -526,7 +532,7 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGas).Register(builder.cs.registry)
+	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGasWithSGD, builder.cs.sgdIndexer).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
@@ -586,7 +592,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 		func(start, end uint64) (map[string]uint64, error) {
 			return blockchain.Productivity(chain, start, end)
 		},
-		builder.cs.blockdao.GetBlockHash,
+		dao.GetBlockHash,
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate poll protocol")
@@ -643,6 +649,9 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildGatewayComponents(forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildSGDRegistry(forTest); err != nil {
 		return nil, err
 	}
 	if err := builder.buildLiquidStakingIndexer(forTest); err != nil {
