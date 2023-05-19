@@ -26,9 +26,13 @@ func TestNewHeartbeatHandler(t *testing.T) {
 	triePath, err := testutil.PathOfTempFile("trie.db")
 	require.NoError(err)
 	testutil.CleanupPath(triePath)
+	stakePath, err := testutil.PathOfTempFile("stake.db")
+	require.NoError(err)
+	testutil.CleanupPath(stakePath)
 	defer func() {
 		testutil.CleanupPath(dbPath)
 		testutil.CleanupPath(triePath)
+		testutil.CleanupPath(stakePath)
 	}()
 	cfg := config.Default
 	cfg.API.GRPCPort = testutil.RandomPort()
@@ -37,6 +41,7 @@ func TestNewHeartbeatHandler(t *testing.T) {
 	cfg.Chain.ChainDBPath = dbPath
 	cfg.Chain.TrieDBPath = triePath
 	cfg.Chain.TrieDBPatchFile = ""
+	cfg.Chain.ContractStakingIndexDBPath = stakePath
 	s, err := NewServer(cfg)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.EnableGravityChainVoting = true

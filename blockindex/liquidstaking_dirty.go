@@ -46,22 +46,22 @@ func (dirty *contractStakingDirty) putHeight(h uint64) {
 }
 
 func (dirty *contractStakingDirty) addBucketType(id uint64, bt *ContractStakingBucketType) error {
-	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.serialize(), "failed to put bucket type")
+	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.Serialize(), "failed to put bucket type")
 	return dirty.delta.addBucketType(id, bt)
 }
 
 func (dirty *contractStakingDirty) updateBucketType(id uint64, bt *ContractStakingBucketType) error {
-	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.serialize(), "failed to put bucket type")
+	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.Serialize(), "failed to put bucket type")
 	return dirty.delta.updateBucketType(id, bt)
 }
 
 func (dirty *contractStakingDirty) addBucketInfo(id uint64, bi *ContractStakingBucketInfo) error {
-	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.serialize(), "failed to put bucket info")
+	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.Serialize(), "failed to put bucket info")
 	return dirty.delta.addBucketInfo(id, bi)
 }
 
 func (dirty *contractStakingDirty) updateBucketInfo(id uint64, bi *ContractStakingBucketInfo) error {
-	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.serialize(), "failed to put bucket info")
+	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.Serialize(), "failed to put bucket info")
 	return dirty.delta.updateBucketInfo(id, bi)
 }
 

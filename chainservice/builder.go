@@ -289,7 +289,7 @@ func (builder *Builder) buildLiquidStakingIndexer(forTest bool) error {
 		builder.cs.contractStakingIndexer = blockindex.NewContractStakingIndexer(db.NewMemKVStore())
 	} else {
 		dbConfig := builder.cfg.DB
-		dbConfig.DbPath = builder.cfg.Chain.LiquidStakingIndexDBPath
+		dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
 		builder.cs.contractStakingIndexer = blockindex.NewContractStakingIndexer(db.NewBoltDB(dbConfig))
 	}
 	return nil

@@ -6,8 +6,8 @@
 // To compile the proto, run:
 //      protoc --go_out=plugins=grpc:. *.proto
 syntax = "proto3";
-package indexpb;
-option go_package = "github.com/iotexproject/iotex-core/blockindex/indexpb";
+package stakingpb;
+option go_package = "github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb";
 
 message BucketType {
     string amount = 1;

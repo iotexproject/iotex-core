@@ -390,8 +390,8 @@ type (
 		BucketsByCandidate(candidate address.Address) ([]*ContractStakingBucket, error)
 		// TotalBucketCount returns the total bucket count including burned buckets
 		TotalBucketCount() uint64
-		// ActiveBucketTypes returns all active bucket types
-		ActiveBucketTypes() (map[uint64]*ContractStakingBucketType, error)
+		// BucketTypes returns all active bucket types
+		BucketTypes() ([]*ContractStakingBucketType, error)
 	}
 
 	// contractStakingIndexer is the implementation of ContractStakingIndexer
@@ -566,10 +566,16 @@ func (s *contractStakingIndexer) TotalBucketCount() uint64 {
 	return s.cache.getTotalBucketCount()
 }
 
-func (s *contractStakingIndexer) ActiveBucketTypes() (map[uint64]*ContractStakingBucketType, error) {
+func (s *contractStakingIndexer) BucketTypes() ([]*ContractStakingBucketType, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return s.cache.getActiveBucketType(), nil
+
+	btMap := s.cache.getActiveBucketType()
+	bts := make([]*ContractStakingBucketType, 0, len(btMap))
+	for _, bt := range btMap {
+		bts = append(bts, bt)
+	}
+	return bts, nil
 }
 
 func (s *contractStakingIndexer) generateBucket(id uint64) (*ContractStakingBucket, error) {
@@ -668,7 +674,7 @@ func (s *contractStakingIndexer) loadCache() error {
 	}
 	for i := range vs {
 		var b ContractStakingBucketInfo
-		if err := b.deserialize(vs[i]); err != nil {
+		if err := b.Deserialize(vs[i]); err != nil {
 			return err
 		}
 		delta.addBucketInfo(byteutil.BytesToUint64BigEndian(ks[i]), &b)
@@ -681,7 +687,7 @@ func (s *contractStakingIndexer) loadCache() error {
 	}
 	for i := range vs {
 		var b ContractStakingBucketType
-		if err := b.deserialize(vs[i]); err != nil {
+		if err := b.Deserialize(vs[i]); err != nil {
 			return err
 		}
 		delta.addBucketType(byteutil.BytesToUint64BigEndian(ks[i]), &b)
@@ -711,15 +717,15 @@ func (s *contractStakingIndexer) assembleContractStakingBucket(token uint64, bi 
 		StakedAmount:              bt.Amount,
 		StakedDurationBlockNumber: bt.Duration,
 		CreateBlockHeight:         bi.CreatedAt,
-		StakeBlockHeight:          bi.CreatedAt,
-		UnstakeBlockHeight:        bi.UnstakedAt,
+		StakeStartBlockHeight:     bi.CreatedAt,
+		UnstakeStartBlockHeight:   bi.UnstakedAt,
 		AutoStake:                 bi.UnlockedAt == maxBlockNumber,
 		Candidate:                 bi.Delegate,
 		Owner:                     bi.Owner,
 		ContractAddress:           StakingContractAddress,
 	}
 	if bi.UnlockedAt != maxBlockNumber {
-		vb.StakeBlockHeight = bi.UnlockedAt
+		vb.StakeStartBlockHeight = bi.UnlockedAt
 	}
 	return &vb, nil
 }

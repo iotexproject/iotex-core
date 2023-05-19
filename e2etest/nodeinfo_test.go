@@ -10,14 +10,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/stretchr/testify/require"
 )
 
-func newConfigForNodeInfoTest(triePath, dBPath, idxDBPath string) (config.Config, func(), error) {
+func newConfigForNodeInfoTest(triePath, dBPath, idxDBPath, contracStakeIdxDBPath string) (config.Config, func(), error) {
 	cfg, err := newTestConfig()
 	if err != nil {
 		return cfg, nil, err
@@ -35,21 +36,27 @@ func newConfigForNodeInfoTest(triePath, dBPath, idxDBPath string) (config.Config
 	if err != nil {
 		return cfg, nil, err
 	}
+	contractStakeIdxDBPath, err := testutil.PathOfTempFile(contracStakeIdxDBPath)
+	if err != nil {
+		return cfg, nil, err
+	}
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
+	cfg.Chain.ContractStakingIndexDBPath = contractStakeIdxDBPath
 	return cfg, func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(indexDBPath)
+		testutil.CleanupPath(contractStakeIdxDBPath)
 	}, nil
 }
 
 func TestBroadcastNodeInfo(t *testing.T) {
 	require := require.New(t)
 
-	cfgSender, teardown, err := newConfigForNodeInfoTest("trie.test", "db.test", "indexdb.test")
+	cfgSender, teardown, err := newConfigForNodeInfoTest("trie.test", "db.test", "indexdb.test", "stake.test")
 	require.NoError(err)
 	defer teardown()
 	cfgSender.NodeInfo.EnableBroadcastNodeInfo = true
@@ -66,7 +73,7 @@ func TestBroadcastNodeInfo(t *testing.T) {
 	addrsSender, err := srvSender.P2PAgent().Self()
 	require.NoError(err)
 
-	cfgReciever, teardown2, err := newConfigForNodeInfoTest("trie2.test", "db2.test", "indexdb2.test")
+	cfgReciever, teardown2, err := newConfigForNodeInfoTest("trie2.test", "db2.test", "indexdb2.test", "stake2.test")
 	require.NoError(err)
 	defer teardown2()
 	cfgReciever.Network.BootstrapNodes = []string{validNetworkAddr(addrsSender)}
@@ -91,7 +98,7 @@ func TestBroadcastNodeInfo(t *testing.T) {
 func TestUnicastNodeInfo(t *testing.T) {
 	require := require.New(t)
 
-	cfgReciever, teardown2, err := newConfigForNodeInfoTest("trie2.test", "db2.test", "indexdb2.test")
+	cfgReciever, teardown2, err := newConfigForNodeInfoTest("trie2.test", "db2.test", "indexdb2.test", "stake2.test")
 	require.NoError(err)
 	defer teardown2()
 	cfgReciever.Network.ReconnectInterval = 2 * time.Second
@@ -106,7 +113,7 @@ func TestUnicastNodeInfo(t *testing.T) {
 	addrsReciever, err := srvReciever.P2PAgent().Self()
 	require.NoError(err)
 
-	cfgSender, teardown, err := newConfigForNodeInfoTest("trie.test", "db.test", "indexdb.test")
+	cfgSender, teardown, err := newConfigForNodeInfoTest("trie.test", "db.test", "indexdb.test", "stake.test")
 	require.NoError(err)
 	defer teardown()
 	cfgSender.Network.ReconnectInterval = 2 * time.Second

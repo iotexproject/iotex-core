@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
 
 	"github.com/iotexproject/iotex-address/address"
 
@@ -126,7 +127,7 @@ func TestContractStakingIndexerThreadSafe(t *testing.T) {
 			for i := 0; i < 1000; i++ {
 				_, err := indexer.Buckets()
 				r.NoError(err)
-				_, err = indexer.ActiveBucketTypes()
+				_, err = indexer.BucketTypes()
 				r.NoError(err)
 				_, err = indexer.BucketsByCandidate(delegate)
 				r.NoError(err)
@@ -179,6 +180,16 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 		{10, 100},
 		{20, 100},
 	}
+	existInBucketTypeData := func(bt *ContractStakingBucketType) int {
+		idx := slices.IndexFunc(bucketTypeData, func(data [2]int64) bool {
+			if bt.Amount.Int64() == data[0] && int64(bt.Duration) == data[1] {
+				return true
+			}
+			return false
+		})
+		return idx
+	}
+
 	height := uint64(1)
 	dirty := newContractStakingDirty(indexer.cache)
 	dirty.putHeight(height)
@@ -187,13 +198,12 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 	}
 	err = indexer.commit(dirty)
 	r.NoError(err)
-	bucketTypes, err := indexer.ActiveBucketTypes()
+	bucketTypes, err := indexer.BucketTypes()
 	r.NoError(err)
 	r.Equal(len(bucketTypeData), len(bucketTypes))
-	for i, data := range bucketTypeData {
-		r.EqualValues(data[0], bucketTypes[uint64(i)].Amount.Int64())
-		r.EqualValues(data[1], bucketTypes[uint64(i)].Duration)
-		r.EqualValues(height, bucketTypes[uint64(i)].ActivatedAt)
+	for _, bt := range bucketTypes {
+		r.True(existInBucketTypeData(bt) >= 0)
+		r.EqualValues(height, bt.ActivatedAt)
 	}
 	// deactivate
 	height++
@@ -205,16 +215,12 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 	}
 	err = indexer.commit(dirty)
 	r.NoError(err)
-	bucketTypes, err = indexer.ActiveBucketTypes()
+	bucketTypes, err = indexer.BucketTypes()
 	r.NoError(err)
 	r.Equal(len(bucketTypeData)-2, len(bucketTypes))
-	for i, data := range bucketTypeData {
-		if i < 2 {
-			continue
-		}
-		r.EqualValues(data[0], bucketTypes[uint64(i)].Amount.Int64())
-		r.EqualValues(data[1], bucketTypes[uint64(i)].Duration)
-		r.EqualValues(1, bucketTypes[uint64(i)].ActivatedAt)
+	for _, bt := range bucketTypes {
+		r.True(existInBucketTypeData(bt) >= 0)
+		r.EqualValues(1, bt.ActivatedAt)
 	}
 	// reactivate
 	height++
@@ -226,16 +232,16 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 	}
 	err = indexer.commit(dirty)
 	r.NoError(err)
-	bucketTypes, err = indexer.ActiveBucketTypes()
+	bucketTypes, err = indexer.BucketTypes()
 	r.NoError(err)
 	r.Equal(len(bucketTypeData), len(bucketTypes))
-	for i, data := range bucketTypeData {
-		r.EqualValues(data[0], bucketTypes[uint64(i)].Amount.Int64())
-		r.EqualValues(data[1], bucketTypes[uint64(i)].Duration)
-		if i < 2 {
-			r.EqualValues(height, bucketTypes[uint64(i)].ActivatedAt)
+	for _, bt := range bucketTypes {
+		idx := existInBucketTypeData(bt)
+		r.True(idx >= 0)
+		if idx < 2 {
+			r.EqualValues(height, bt.ActivatedAt)
 		} else {
-			r.EqualValues(1, bucketTypes[uint64(i)].ActivatedAt)
+			r.EqualValues(1, bt.ActivatedAt)
 		}
 	}
 	r.NoError(indexer.Stop(context.Background()))
@@ -287,10 +293,10 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.EqualValues(delegate, bucket.Candidate)
 	r.EqualValues(10, bucket.StakedAmount.Int64())
 	r.EqualValues(100, bucket.StakedDurationBlockNumber)
-	r.EqualValues(height, bucket.StakeBlockHeight)
+	r.EqualValues(height, bucket.StakeStartBlockHeight)
 	r.True(bucket.AutoStake)
 	r.EqualValues(height, bucket.CreateBlockHeight)
-	r.EqualValues(maxBlockNumber, bucket.UnstakeBlockHeight)
+	r.EqualValues(maxBlockNumber, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(StakingContractAddress, bucket.ContractAddress)
 	r.EqualValues(10, indexer.CandidateVotes(delegate).Uint64())
 	r.EqualValues(1, indexer.TotalBucketCount())
@@ -308,10 +314,10 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.EqualValues(delegate, bucket.Candidate)
 	r.EqualValues(10, bucket.StakedAmount.Int64())
 	r.EqualValues(100, bucket.StakedDurationBlockNumber)
-	r.EqualValues(height, bucket.StakeBlockHeight)
+	r.EqualValues(height, bucket.StakeStartBlockHeight)
 	r.False(bucket.AutoStake)
 	r.EqualValues(height-1, bucket.CreateBlockHeight)
-	r.EqualValues(maxBlockNumber, bucket.UnstakeBlockHeight)
+	r.EqualValues(maxBlockNumber, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(StakingContractAddress, bucket.ContractAddress)
 	r.EqualValues(10, indexer.CandidateVotes(delegate).Uint64())
 	r.EqualValues(1, indexer.TotalBucketCount())
@@ -329,10 +335,10 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.EqualValues(delegate, bucket.Candidate)
 	r.EqualValues(10, bucket.StakedAmount.Int64())
 	r.EqualValues(10, bucket.StakedDurationBlockNumber)
-	r.EqualValues(height-2, bucket.StakeBlockHeight)
+	r.EqualValues(height-2, bucket.StakeStartBlockHeight)
 	r.True(bucket.AutoStake)
 	r.EqualValues(height-2, bucket.CreateBlockHeight)
-	r.EqualValues(maxBlockNumber, bucket.UnstakeBlockHeight)
+	r.EqualValues(maxBlockNumber, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(StakingContractAddress, bucket.ContractAddress)
 	r.EqualValues(10, indexer.CandidateVotes(delegate).Uint64())
 	r.EqualValues(1, indexer.TotalBucketCount())
@@ -351,10 +357,10 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.EqualValues(delegate, bucket.Candidate)
 	r.EqualValues(10, bucket.StakedAmount.Int64())
 	r.EqualValues(10, bucket.StakedDurationBlockNumber)
-	r.EqualValues(height, bucket.StakeBlockHeight)
+	r.EqualValues(height, bucket.StakeStartBlockHeight)
 	r.False(bucket.AutoStake)
 	r.EqualValues(height-3, bucket.CreateBlockHeight)
-	r.EqualValues(height, bucket.UnstakeBlockHeight)
+	r.EqualValues(height, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(StakingContractAddress, bucket.ContractAddress)
 	r.EqualValues(0, indexer.CandidateVotes(delegate).Uint64())
 	r.EqualValues(1, indexer.TotalBucketCount())

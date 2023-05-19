@@ -67,6 +67,8 @@ func TestBlockReward(t *testing.T) {
 	r.NoError(err)
 	testIndexPath, err := testutil.PathOfTempFile("index")
 	r.NoError(err)
+	testStakeIndexPath, err := testutil.PathOfTempFile("stake")
+	r.NoError(err)
 	testConsensusPath, err := testutil.PathOfTempFile("cons")
 	r.NoError(err)
 
@@ -93,6 +95,7 @@ func TestBlockReward(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Chain.ContractStakingIndexDBPath = testStakeIndexPath
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.Genesis.PollMode = "lifeLong"
 

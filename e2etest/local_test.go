@@ -64,7 +64,7 @@ func TestLocalCommit(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
-	cfg.Chain.LiquidStakingIndexDBPath = indexDBPath
+	cfg.Chain.ContractStakingIndexDBPath = indexDBPath
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
@@ -152,7 +152,7 @@ func TestLocalCommit(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
-	cfg.Chain.LiquidStakingIndexDBPath = indexDBPath2
+	cfg.Chain.ContractStakingIndexDBPath = indexDBPath2
 	require.NoError(copyDB(testTriePath, testTriePath2))
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	require.NoError(copyDB(indexDBPath, indexDBPath2))
@@ -329,7 +329,7 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
-	cfg.Chain.LiquidStakingIndexDBPath = indexDBPath
+	cfg.Chain.ContractStakingIndexDBPath = indexDBPath
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
@@ -389,7 +389,7 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
-	cfg.Chain.LiquidStakingIndexDBPath = indexDBPath2
+	cfg.Chain.ContractStakingIndexDBPath = indexDBPath2
 	defer func() {
 		testutil.CleanupPath(testTriePath2)
 		testutil.CleanupPath(testDBPath2)

@@ -301,6 +301,8 @@ func TestLocalTransfer(t *testing.T) {
 	require.NoError(err)
 	testCandidateIndexPath, err := testutil.PathOfTempFile("candidateIndex")
 	require.NoError(err)
+	testContractStakingIndexPath, err := testutil.PathOfTempFile("contractStakingIndex")
+	require.NoError(err)
 
 	defer func() {
 		testutil.CleanupPath(testTriePath)
@@ -309,11 +311,12 @@ func TestLocalTransfer(t *testing.T) {
 		testutil.CleanupPath(testSystemLogPath)
 		testutil.CleanupPath(testBloomfilterIndexPath)
 		testutil.CleanupPath(testCandidateIndexPath)
+		testutil.CleanupPath(testContractStakingIndexPath)
 	}()
 
 	networkPort := 4689
 	apiPort := testutil.RandomPort()
-	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, testBloomfilterIndexPath, testSystemLogPath, testCandidateIndexPath, networkPort, apiPort)
+	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, testBloomfilterIndexPath, testSystemLogPath, testCandidateIndexPath, testContractStakingIndexPath, networkPort, apiPort)
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -364,7 +367,7 @@ func TestLocalTransfer(t *testing.T) {
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"
 	grpcAddr := fmt.Sprintf("127.0.0.1:%d", apiPort)
-	grpcctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	grpcctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	conn, err := grpc.DialContext(grpcctx, grpcAddr, grpc.WithBlock(), grpc.WithInsecure())
 	require.NoError(err)
@@ -584,6 +587,7 @@ func newTransferConfig(
 	bloomfilterIndex string,
 	systemLogDBPath string,
 	candidateIndexDBPath string,
+	contractStakingIndexDBPath string,
 	networkPort,
 	apiPort int,
 ) (config.Config, error) {
@@ -599,6 +603,7 @@ func newTransferConfig(
 	cfg.Chain.BloomfilterIndexDBPath = bloomfilterIndex
 	cfg.System.SystemLogDBPath = systemLogDBPath
 	cfg.Chain.CandidateIndexDBPath = candidateIndexDBPath
+	cfg.Chain.ContractStakingIndexDBPath = contractStakingIndexDBPath
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme

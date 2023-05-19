@@ -20,24 +20,24 @@ import (
 )
 
 type (
-	// compositeStakingStateReader is the compositive staking state reader, which combine native and liquid staking
+	// compositeStakingStateReader is the compositive staking state reader, which combine native and contract staking
 	compositeStakingStateReader struct {
-		liquidIndexer LiquidStakingIndexer
-		nativeIndexer *CandidatesBucketsIndexer
-		nativeSR      CandidateStateReader
+		contractIndexer ContractStakingIndexer
+		nativeIndexer   *CandidatesBucketsIndexer
+		nativeSR        CandidateStateReader
 	}
 )
 
 // newCompositeStakingStateReader creates a new compositive staking state reader
-func newCompositeStakingStateReader(liquidIndexer LiquidStakingIndexer, nativeIndexer *CandidatesBucketsIndexer, sr protocol.StateReader) (ReadState, error) {
+func newCompositeStakingStateReader(contractIndexer ContractStakingIndexer, nativeIndexer *CandidatesBucketsIndexer, sr protocol.StateReader) (*compositeStakingStateReader, error) {
 	nativeSR, err := ConstructBaseView(sr)
 	if err != nil {
 		return nil, err
 	}
 	return &compositeStakingStateReader{
-		liquidIndexer: liquidIndexer,
-		nativeIndexer: nativeIndexer,
-		nativeSR:      nativeSR,
+		contractIndexer: contractIndexer,
+		nativeIndexer:   nativeIndexer,
+		nativeSR:        nativeSR,
 	}, nil
 }
 
@@ -73,7 +73,7 @@ func (c *compositeStakingStateReader) readStateBuckets(ctx context.Context, req 
 		}
 	}
 	// read LSD buckets
-	lsdBuckets, err := c.liquidIndexer.Buckets()
+	lsdBuckets, err := c.contractIndexer.Buckets()
 	if err != nil {
 		return nil, 0, err
 	}
@@ -96,7 +96,7 @@ func (c *compositeStakingStateReader) readStateBucketsByVoter(ctx context.Contex
 	}
 
 	// read LSD buckets
-	lsdBuckets, err := c.liquidIndexer.Buckets()
+	lsdBuckets, err := c.contractIndexer.Buckets()
 	if err != nil {
 		return nil, 0, err
 	}
@@ -119,15 +119,14 @@ func (c *compositeStakingStateReader) readStateBucketsByCandidate(ctx context.Co
 		return nil, 0, err
 	}
 	// read LSD buckets
-	lsdBuckets, err := c.liquidIndexer.Buckets()
-	if err != nil {
-		return nil, 0, err
-	}
 	candidate := c.nativeSR.GetCandidateByName(req.GetCandName())
 	if candidate == nil {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
-	lsdBuckets = filterBucketsByCandidate(lsdBuckets, candidate.Owner)
+	lsdBuckets, err := c.contractIndexer.BucketsByCandidate(candidate.Owner)
+	if err != nil {
+		return nil, 0, err
+	}
 	lsdIoTeXBuckets, err := toIoTeXTypesVoteBucketList(lsdBuckets)
 	if err != nil {
 		return nil, 0, err
@@ -145,7 +144,7 @@ func (c *compositeStakingStateReader) readStateBucketByIndices(ctx context.Conte
 		return nil, 0, err
 	}
 	// read LSD buckets
-	lsdBuckets, err := c.liquidIndexer.BucketsByIndices(req.GetIndex())
+	lsdBuckets, err := c.contractIndexer.BucketsByIndices(req.GetIndex())
 	if err != nil {
 		return nil, 0, err
 	}
@@ -163,12 +162,12 @@ func (c *compositeStakingStateReader) readStateBucketCount(ctx context.Context, 
 	if err != nil {
 		return nil, 0, err
 	}
-	buckets, err := c.liquidIndexer.Buckets()
+	buckets, err := c.contractIndexer.Buckets()
 	if err != nil {
 		return nil, 0, err
 	}
 	bucketCnt.Active += uint64(len(buckets))
-	bucketCnt.Total += c.liquidIndexer.TotalBucketCount()
+	bucketCnt.Total += c.contractIndexer.TotalBucketCount()
 	return bucketCnt, height, nil
 }
 
@@ -205,9 +204,8 @@ func (c *compositeStakingStateReader) readStateCandidates(ctx context.Context, r
 		}
 	}
 
-	// add liquid stake votes
 	for _, candidate := range candidates.Candidates {
-		if err = addLSDVotes(candidate, c.liquidIndexer); err != nil {
+		if err = addContractStakingVotes(candidate, c.contractIndexer); err != nil {
 			return nil, 0, err
 		}
 	}
@@ -219,7 +217,10 @@ func (c *compositeStakingStateReader) readStateCandidateByName(ctx context.Conte
 	if err != nil {
 		return nil, 0, err
 	}
-	if err := addLSDVotes(candidate, c.liquidIndexer); err != nil {
+	if !protocol.MustGetFeatureCtx(ctx).AddContractStakingVotes {
+		return candidate, height, nil
+	}
+	if err := addContractStakingVotes(candidate, c.contractIndexer); err != nil {
 		return nil, 0, err
 	}
 	return candidate, height, nil
@@ -230,7 +231,10 @@ func (c *compositeStakingStateReader) readStateCandidateByAddress(ctx context.Co
 	if err != nil {
 		return nil, 0, err
 	}
-	if err := addLSDVotes(candidate, c.liquidIndexer); err != nil {
+	if !protocol.MustGetFeatureCtx(ctx).AddContractStakingVotes {
+		return candidate, height, nil
+	}
+	if err := addContractStakingVotes(candidate, c.contractIndexer); err != nil {
 		return nil, 0, err
 	}
 	return candidate, height, nil
@@ -247,8 +251,8 @@ func (c *compositeStakingStateReader) readStateTotalStakingAmount(ctx context.Co
 		return nil, 0, errors.Errorf("invalid balance %s", accountMeta.Balance)
 	}
 
-	// add liquid staking amount
-	buckets, err := c.liquidIndexer.Buckets()
+	// add contract staking amount
+	buckets, err := c.contractIndexer.Buckets()
 	if err != nil {
 		return nil, 0, err
 	}
@@ -260,12 +264,31 @@ func (c *compositeStakingStateReader) readStateTotalStakingAmount(ctx context.Co
 	return accountMeta, height, nil
 }
 
-func addLSDVotes(candidate *iotextypes.CandidateV2, liquidSR LiquidStakingIndexer) error {
+func (c *compositeStakingStateReader) readStateContractStakingBucketTypes(ctx context.Context, _ *iotexapi.ReadStakingDataRequest_ContractStakingBucketTypes) (*iotextypes.ContractStakingBucketTypeList, uint64, error) {
+	bts, err := c.contractIndexer.BucketTypes()
+	if err != nil {
+		return nil, 0, err
+	}
+	pbBts := make([]*iotextypes.ContractStakingBucketType, 0, len(bts))
+	for _, bt := range bts {
+		pbBts = append(pbBts, &iotextypes.ContractStakingBucketType{
+			StakedAmount:   bt.Amount.String(),
+			StakedDuration: uint32(bt.Duration),
+		})
+	}
+	return &iotextypes.ContractStakingBucketTypeList{BucketTypes: pbBts}, c.nativeSR.Height(), nil
+}
+
+func addContractStakingVotes(candidate *iotextypes.CandidateV2, contractStakingSR ContractStakingIndexer) error {
 	votes, ok := big.NewInt(0).SetString(candidate.TotalWeightedVotes, 10)
 	if !ok {
 		return errors.Errorf("invalid total weighted votes %s", candidate.TotalWeightedVotes)
 	}
-	votes.Add(votes, liquidSR.CandidateVotes(candidate.OwnerAddress))
+	addr, err := address.FromString(candidate.OwnerAddress)
+	if err != nil {
+		return err
+	}
+	votes.Add(votes, contractStakingSR.CandidateVotes(addr))
 	candidate.TotalWeightedVotes = votes.String()
 	return nil
 }
@@ -274,16 +297,6 @@ func filterBucketsByVoter(buckets []*VoteBucket, voterAddress string) []*VoteBuc
 	var filtered []*VoteBucket
 	for _, bucket := range buckets {
 		if bucket.Owner.String() == voterAddress {
-			filtered = append(filtered, bucket)
-		}
-	}
-	return filtered
-}
-
-func filterBucketsByCandidate(buckets []*VoteBucket, candidate address.Address) []*VoteBucket {
-	var filtered []*VoteBucket
-	for _, bucket := range buckets {
-		if bucket.Candidate.String() == candidate.String() {
 			filtered = append(filtered, bucket)
 		}
 	}

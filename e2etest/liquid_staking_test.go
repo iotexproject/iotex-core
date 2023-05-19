@@ -1381,8 +1381,8 @@ func TestContractStaking(t *testing.T) {
 		r.EqualValues(0, bt.StakedAmount.Cmp(big.NewInt(10)))
 		r.EqualValues(10, bt.StakedDurationBlockNumber)
 		r.EqualValues(blk.Height(), bt.CreateBlockHeight)
-		r.EqualValues(blk.Height(), bt.StakeBlockHeight)
-		r.True(bt.UnstakeBlockHeight == math.MaxUint64)
+		r.EqualValues(blk.Height(), bt.StakeStartBlockHeight)
+		r.True(bt.UnstakeStartBlockHeight == math.MaxUint64)
 		r.EqualValues(10, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 		r.EqualValues(1, indexer.TotalBucketCount())
 		r.EqualValues(contractAddresses, bt.ContractAddress)
@@ -1408,7 +1408,7 @@ func TestContractStaking(t *testing.T) {
 			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 			bt, err := indexer.Bucket(uint64(tokenID))
 			r.NoError(err)
-			r.EqualValues(blk.Height(), bt.StakeBlockHeight)
+			r.EqualValues(blk.Height(), bt.StakeStartBlockHeight)
 			r.EqualValues(10, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 			r.EqualValues(1, indexer.TotalBucketCount())
 
@@ -1430,7 +1430,7 @@ func TestContractStaking(t *testing.T) {
 				r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 				bt, err := indexer.Bucket(uint64(tokenID))
 				r.NoError(err)
-				r.EqualValues(blk.Height(), bt.UnstakeBlockHeight)
+				r.EqualValues(blk.Height(), bt.UnstakeStartBlockHeight)
 				r.EqualValues(0, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 				r.EqualValues(1, indexer.TotalBucketCount())
 

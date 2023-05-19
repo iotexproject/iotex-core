@@ -7,14 +7,8 @@ package blockindex
 
 import (
 	"math"
-	"math/big"
 
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/pkg/errors"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/iotexproject/iotex-core/blockindex/indexpb"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 )
 
 const (
@@ -23,105 +17,11 @@ const (
 
 type (
 	// ContractStakingBucketInfo is the bucket information
-	ContractStakingBucketInfo struct {
-		TypeIndex  uint64
-		CreatedAt  uint64
-		UnlockedAt uint64
-		UnstakedAt uint64
-		Delegate   address.Address // owner address of the delegate
-		Owner      address.Address
-	}
+	ContractStakingBucketInfo = staking.ContractStakingBucketInfo
 
 	// ContractStakingBucketType is the bucket type
-	ContractStakingBucketType struct {
-		Amount      *big.Int
-		Duration    uint64
-		ActivatedAt uint64
-	}
+	ContractStakingBucketType = staking.ContractStakingBucketType
 
 	// ContractStakingBucket is the bucket information including bucket type and bucket info
-	ContractStakingBucket struct {
-		Index                     uint64
-		Candidate                 address.Address
-		Owner                     address.Address
-		StakedAmount              *big.Int
-		StakedDurationBlockNumber uint64
-		CreateBlockHeight         uint64
-		StakeBlockHeight          uint64
-		UnstakeBlockHeight        uint64
-		AutoStake                 bool
-		ContractAddress           string
-	}
+	ContractStakingBucket = staking.VoteBucket
 )
-
-func (bt *ContractStakingBucketType) toProto() *indexpb.BucketType {
-	return &indexpb.BucketType{
-		Amount:      bt.Amount.String(),
-		Duration:    bt.Duration,
-		ActivatedAt: bt.ActivatedAt,
-	}
-}
-
-func (bt *ContractStakingBucketType) loadProto(p *indexpb.BucketType) error {
-	var ok bool
-	bt.Amount, ok = big.NewInt(0).SetString(p.Amount, 10)
-	if !ok {
-		return errors.New("failed to parse amount")
-	}
-	bt.Duration = p.Duration
-	bt.ActivatedAt = p.ActivatedAt
-	return nil
-}
-
-func (bt *ContractStakingBucketType) serialize() []byte {
-	return byteutil.Must(proto.Marshal(bt.toProto()))
-}
-
-func (bt *ContractStakingBucketType) deserialize(b []byte) error {
-	m := indexpb.BucketType{}
-	if err := proto.Unmarshal(b, &m); err != nil {
-		return err
-	}
-	return bt.loadProto(&m)
-}
-
-func (bi *ContractStakingBucketInfo) toProto() *indexpb.BucketInfo {
-	pb := &indexpb.BucketInfo{
-		TypeIndex:  bi.TypeIndex,
-		Delegate:   bi.Delegate.String(),
-		CreatedAt:  bi.CreatedAt,
-		Owner:      bi.Owner.String(),
-		UnlockedAt: bi.UnlockedAt,
-		UnstakedAt: bi.UnstakedAt,
-	}
-	return pb
-}
-
-func (bi *ContractStakingBucketInfo) serialize() []byte {
-	return byteutil.Must(proto.Marshal(bi.toProto()))
-}
-
-func (bi *ContractStakingBucketInfo) deserialize(b []byte) error {
-	m := indexpb.BucketInfo{}
-	if err := proto.Unmarshal(b, &m); err != nil {
-		return err
-	}
-	return bi.loadProto(&m)
-}
-
-func (bi *ContractStakingBucketInfo) loadProto(p *indexpb.BucketInfo) error {
-	var err error
-	bi.TypeIndex = p.TypeIndex
-	bi.CreatedAt = p.CreatedAt
-	bi.UnlockedAt = p.UnlockedAt
-	bi.UnstakedAt = p.UnstakedAt
-	bi.Delegate, err = address.FromString(p.Delegate)
-	if err != nil {
-		return err
-	}
-	bi.Owner, err = address.FromString(p.Owner)
-	if err != nil {
-		return err
-	}
-	return nil
-}
