@@ -65,42 +65,52 @@ func (s *contractStakingCache) GetCandidateVotes(candidate address.Address) *big
 	return votes
 }
 
-func (s *contractStakingCache) GetBuckets() ([]*Bucket, error) {
+func (s *contractStakingCache) GetBuckets() []*Bucket {
 	vbs := []*Bucket{}
 	for id, bi := range s.getAllBucketInfo() {
 		bt := s.mustGetBucketType(bi.TypeIndex)
-		vb, err := assembleBucket(id, bi, bt)
-		if err != nil {
-			return nil, err
-		}
+		vb := assembleBucket(id, bi, bt)
 		vbs = append(vbs, vb)
 	}
-	return vbs, nil
+	return vbs
 }
 
-func (s *contractStakingCache) GetBucket(id uint64) (*Bucket, error) {
+func (s *contractStakingCache) GetBucket(id uint64) (*Bucket, bool) {
 	return s.getBucket(id)
 }
 
-func (s *contractStakingCache) GetBucketsByCandidate(candidate address.Address) ([]*Bucket, error) {
+func (s *contractStakingCache) GetBucketInfo(id uint64) (*bucketInfo, bool) {
+	return s.getBucketInfo(id)
+}
+
+func (s *contractStakingCache) MustGetBucketInfo(id uint64) *bucketInfo {
+	return s.mustGetBucketInfo(id)
+}
+
+func (s *contractStakingCache) MustGetBucketType(id uint64) *BucketType {
+	return s.mustGetBucketType(id)
+}
+
+func (s *contractStakingCache) GetBucketType(id uint64) (*BucketType, bool) {
+	return s.getBucketType(id)
+}
+
+func (s *contractStakingCache) GetBucketsByCandidate(candidate address.Address) []*Bucket {
 	bucketMap := s.getBucketInfoByCandidate(candidate)
 	vbs := make([]*Bucket, 0, len(bucketMap))
 	for id := range bucketMap {
-		vb, err := s.getBucket(id)
-		if err != nil {
-			return nil, err
-		}
+		vb := s.mustGetBucket(id)
 		vbs = append(vbs, vb)
 	}
-	return vbs, nil
+	return vbs
 }
 
 func (s *contractStakingCache) GetBucketsByIndices(indices []uint64) ([]*Bucket, error) {
 	vbs := make([]*Bucket, 0, len(indices))
 	for _, id := range indices {
-		vb, err := s.getBucket(id)
-		if err != nil {
-			return nil, err
+		vb, ok := s.getBucket(id)
+		if !ok {
+			return nil, errors.Wrapf(ErrBucketNotExist, "id %d", id)
 		}
 		vbs = append(vbs, vb)
 	}
@@ -108,7 +118,7 @@ func (s *contractStakingCache) GetBucketsByIndices(indices []uint64) ([]*Bucket,
 }
 
 func (s *contractStakingCache) GetTotalBucketCount() uint64 {
-	return s.totalBucketCount
+	return s.getTotalBucketCount()
 }
 
 func (s *contractStakingCache) GetActiveBucketTypes() map[uint64]*BucketType {
@@ -119,6 +129,58 @@ func (s *contractStakingCache) GetActiveBucketTypes() map[uint64]*BucketType {
 		}
 	}
 	return m
+}
+
+func (s *contractStakingCache) PutBucketType(id uint64, bt *BucketType) {
+	s.putBucketType(id, bt)
+}
+
+func (s *contractStakingCache) PutBucketInfo(id uint64, bi *bucketInfo) {
+	s.putBucketInfo(id, bi)
+}
+
+func (s *contractStakingCache) DeleteBucketInfo(id uint64) {
+	s.deleteBucketInfo(id)
+}
+
+func (s *contractStakingCache) PutHeight(h uint64) {
+	s.putHeight(h)
+}
+
+func (s *contractStakingCache) Merge(delta *contractStakingDelta) error {
+	for state, btMap := range delta.BucketTypeDelta() {
+		if state == deltaStateAdded || state == deltaStateModified {
+			for id, bt := range btMap {
+				s.putBucketType(id, bt)
+			}
+		}
+	}
+	for state, biMap := range delta.BucketInfoDelta() {
+		if state == deltaStateAdded || state == deltaStateModified {
+			for id, bi := range biMap {
+				s.putBucketInfo(id, bi)
+			}
+		} else if state == deltaStateRemoved {
+			for id := range biMap {
+				s.deleteBucketInfo(id)
+			}
+		}
+	}
+	s.putHeight(delta.GetHeight())
+	s.putTotalBucketCount(s.getTotalBucketCount() + delta.AddedBucketCnt())
+	return nil
+}
+
+func (s *contractStakingCache) PutTotalBucketCount(count uint64) {
+	s.putTotalBucketCount(count)
+}
+
+func (s *contractStakingCache) MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
+	id, ok := s.getBucketTypeIndex(amount, duration)
+	if !ok {
+		return 0, nil, false
+	}
+	return id, s.mustGetBucketType(id), true
 }
 
 func (s *contractStakingCache) getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool) {
@@ -156,16 +218,22 @@ func (s *contractStakingCache) mustGetBucketInfo(id uint64) *bucketInfo {
 	return bt
 }
 
-func (s *contractStakingCache) getBucket(id uint64) (*Bucket, error) {
-	bi, ok := s.getBucketInfo(id)
-	if !ok {
-		return nil, errors.Wrapf(ErrBucketNotExist, "id %d", id)
-	}
+func (s *contractStakingCache) mustGetBucket(id uint64) *Bucket {
+	bi := s.mustGetBucketInfo(id)
 	bt := s.mustGetBucketType(bi.TypeIndex)
 	return assembleBucket(id, bi, bt)
 }
 
-func (s *contractStakingCache) getTotalBucketTypeCount() uint64 {
+func (s *contractStakingCache) getBucket(id uint64) (*Bucket, bool) {
+	bi, ok := s.getBucketInfo(id)
+	if !ok {
+		return nil, false
+	}
+	bt := s.mustGetBucketType(bi.TypeIndex)
+	return assembleBucket(id, bi, bt), true
+}
+
+func (s *contractStakingCache) GetTotalBucketTypeCount() uint64 {
 	return uint64(len(s.idBucketTypeMap))
 }
 
@@ -185,4 +253,47 @@ func (s *contractStakingCache) getBucketInfoByCandidate(candidate address.Addres
 		}
 	}
 	return m
+}
+
+func (s *contractStakingCache) getTotalBucketCount() uint64 {
+	return s.totalBucketCount
+}
+
+func (s *contractStakingCache) putBucketType(id uint64, bt *BucketType) {
+	amount := bt.Amount.Int64()
+	s.idBucketTypeMap[id] = bt
+	m, ok := s.propertyBucketTypeMap[amount]
+	if !ok {
+		s.propertyBucketTypeMap[amount] = make(map[uint64]uint64)
+		m = s.propertyBucketTypeMap[amount]
+	}
+	m[bt.Duration] = id
+}
+
+func (s *contractStakingCache) putBucketInfo(id uint64, bi *bucketInfo) {
+	s.idBucketMap[id] = bi
+	if _, ok := s.candidateBucketMap[bi.Delegate.String()]; !ok {
+		s.candidateBucketMap[bi.Delegate.String()] = make(map[uint64]bool)
+	}
+	s.candidateBucketMap[bi.Delegate.String()][id] = true
+}
+
+func (s *contractStakingCache) deleteBucketInfo(id uint64) {
+	bi, ok := s.idBucketMap[id]
+	if !ok {
+		return
+	}
+	delete(s.idBucketMap, id)
+	if _, ok := s.candidateBucketMap[bi.Delegate.String()]; !ok {
+		return
+	}
+	delete(s.candidateBucketMap[bi.Delegate.String()], id)
+}
+
+func (s *contractStakingCache) putHeight(h uint64) {
+	s.height = h
+}
+
+func (s *contractStakingCache) putTotalBucketCount(count uint64) {
+	s.totalBucketCount = count
 }

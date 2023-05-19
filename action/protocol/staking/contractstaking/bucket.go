@@ -25,7 +25,7 @@ type Bucket struct {
 	ContractAddress           string
 }
 
-func assembleBucket(token uint64, bi *bucketInfo, bt *BucketType) (*Bucket, error) {
+func assembleBucket(token uint64, bi *bucketInfo, bt *BucketType) *Bucket {
 	vb := Bucket{
 		Index:                     token,
 		StakedAmount:              bt.Amount,
@@ -41,5 +41,5 @@ func assembleBucket(token uint64, bi *bucketInfo, bt *BucketType) (*Bucket, erro
 	if bi.UnlockedAt != maxBlockNumber {
 		vb.StakeStartBlockHeight = bi.UnlockedAt
 	}
-	return &vb, nil
+	return &vb
 }
