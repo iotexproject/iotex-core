@@ -7,7 +7,6 @@ package blockindex
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -15,6 +14,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 var (
@@ -193,6 +194,8 @@ type (
 		blockdao.BlockIndexer
 		// CheckContract returns the contract's eligibility for SGD and percentage
 		CheckContract(context.Context, string) (address.Address, uint64, bool, error)
+		// FetchContracts returns all contracts that are eligible for SGD
+		FetchContracts(context.Context) ([]*indexpb.SGDIndex, error)
 	}
 
 	sgdRegistry struct {
@@ -420,6 +423,26 @@ func (sgd *sgdRegistry) getSGDIndex(contract []byte) (*indexpb.SGDIndex, error) 
 		return nil, err
 	}
 	return sgdIndex, nil
+}
+
+// FetchContracts returns all contracts that are eligible for SGD
+func (sgd *sgdRegistry) FetchContracts(ctx context.Context) ([]*indexpb.SGDIndex, error) {
+	_, values, err := sgd.kvStore.Filter(_sgdBucket, func(k, v []byte) bool { return true }, nil, nil)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
+			return nil, errors.Wrapf(state.ErrStateNotExist, "failed to get sgd states of ns = %x", _sgdBucket)
+		}
+		return nil, err
+	}
+	sgdIndexes := make([]*indexpb.SGDIndex, 0, len(values))
+	for _, v := range values {
+		sgdIndex := &indexpb.SGDIndex{}
+		if err := proto.Unmarshal(v, sgdIndex); err != nil {
+			return nil, err
+		}
+		sgdIndexes = append(sgdIndexes, sgdIndex)
+	}
+	return sgdIndexes, nil
 }
 
 func getReceiptsFromBlock(blk *block.Block) map[hash.Hash256]*action.Receipt {

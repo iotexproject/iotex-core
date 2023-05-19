@@ -25,7 +25,9 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -90,8 +92,18 @@ func TestSGDRegistry(t *testing.T) {
 	r.Equal(uint64(1), height)
 
 	contractAddress := receipt.ContractAddress
-	kvstore := db.NewMemKVStore()
+
+	indexSGDDBPath, err := testutil.PathOfTempFile(_dBPath + "_sgd")
+	r.NoError(err)
+	kvstore, err := db.CreateKVStore(db.DefaultConfig, indexSGDDBPath)
+	r.NoError(err)
 	sgdRegistry := blockindex.NewSGDRegistry(contractAddress, kvstore)
+	r.NoError(sgdRegistry.Start(ctx))
+	defer func() {
+		r.NoError(sgdRegistry.Stop(ctx))
+		testutil.CleanupPath(indexSGDDBPath)
+	}()
+
 	registerAddress, err := address.FromHex("5b38da6a701c568545dcfcb03fcb875f56beddc4")
 	r.NoError(err)
 	receiverAddress, err := address.FromHex("78731d3ca6b7e34ac0f824c42a7cc18a495cabab")
@@ -127,6 +139,13 @@ func TestSGDRegistry(t *testing.T) {
 		r.Equal(expectPercentage, percentage)
 		r.Equal(receiverAddress, receiver)
 		r.False(isApproved)
+
+		lists, err := sgdRegistry.FetchContracts(ctx)
+		r.NoError(err)
+		r.Equal(1, len(lists))
+		r.Equal(registerAddress.Bytes(), lists[0].GetContract())
+		r.Equal(receiverAddress.Bytes(), lists[0].GetReceiver())
+		r.False(lists[0].GetApproved())
 	})
 	t.Run("approveContract", func(t *testing.T) {
 		data, _ = hex.DecodeString("07f7aafb0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4")
@@ -222,5 +241,8 @@ func TestSGDRegistry(t *testing.T) {
 		r.Nil(receiver)
 		r.False(isApproved)
 		r.Equal(uint64(0), percentage)
+
+		_, err = sgdRegistry.FetchContracts(ctx)
+		r.ErrorIs(err, state.ErrStateNotExist)
 	})
 }
