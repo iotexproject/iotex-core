@@ -25,18 +25,6 @@ type (
 	}
 )
 
-func (bi *bucketInfo) toProto() *contractstakingpb.BucketInfo {
-	pb := &contractstakingpb.BucketInfo{
-		TypeIndex:  bi.TypeIndex,
-		Delegate:   bi.Delegate.String(),
-		CreatedAt:  bi.CreatedAt,
-		Owner:      bi.Owner.String(),
-		UnlockedAt: bi.UnlockedAt,
-		UnstakedAt: bi.UnstakedAt,
-	}
-	return pb
-}
-
 // Serialize serializes the bucket info
 func (bi *bucketInfo) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(bi.toProto()))
@@ -51,19 +39,32 @@ func (bi *bucketInfo) Deserialize(b []byte) error {
 	return bi.loadProto(&m)
 }
 
+func (bi *bucketInfo) toProto() *contractstakingpb.BucketInfo {
+	pb := &contractstakingpb.BucketInfo{
+		TypeIndex:  bi.TypeIndex,
+		Delegate:   bi.Delegate.String(),
+		CreatedAt:  bi.CreatedAt,
+		Owner:      bi.Owner.String(),
+		UnlockedAt: bi.UnlockedAt,
+		UnstakedAt: bi.UnstakedAt,
+	}
+	return pb
+}
+
 func (bi *bucketInfo) loadProto(p *contractstakingpb.BucketInfo) error {
-	var err error
+	delegate, err := address.FromString(p.Delegate)
+	if err != nil {
+		return err
+	}
+	owner, err := address.FromString(p.Owner)
+	if err != nil {
+		return err
+	}
 	bi.TypeIndex = p.TypeIndex
 	bi.CreatedAt = p.CreatedAt
 	bi.UnlockedAt = p.UnlockedAt
 	bi.UnstakedAt = p.UnstakedAt
-	bi.Delegate, err = address.FromString(p.Delegate)
-	if err != nil {
-		return err
-	}
-	bi.Owner, err = address.FromString(p.Owner)
-	if err != nil {
-		return err
-	}
+	bi.Delegate = delegate
+	bi.Owner = owner
 	return nil
 }
