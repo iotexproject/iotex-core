@@ -22,5 +22,5 @@ type Bucket struct {
 	StakeStartBlockHeight     uint64
 	UnstakeStartBlockHeight   uint64
 	AutoStake                 bool
-	ContractAddress           string
+	ContractAddress           string // contract address for the bucket
 }
