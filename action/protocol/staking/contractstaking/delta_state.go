@@ -35,7 +35,7 @@ var (
 	}
 )
 
-func (s deltaState) transfer(act deltaAction) (deltaState, error) {
+func (s deltaState) Transfer(act deltaAction) (deltaState, error) {
 	if _, ok := deltaStateTransferMap[s]; !ok {
 		return s, errors.Errorf("invalid delta state %d", s)
 	}

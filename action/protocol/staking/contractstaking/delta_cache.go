@@ -112,7 +112,7 @@ func (s *contractStakingDelta) AddBucketType(id uint64, bt *BucketType) error {
 		s.bucketTypeDeltaState[id] = deltaStateAdded
 	} else {
 		var err error
-		s.bucketTypeDeltaState[id], err = s.bucketTypeDeltaState[id].transfer(deltaActionAdd)
+		s.bucketTypeDeltaState[id], err = s.bucketTypeDeltaState[id].Transfer(deltaActionAdd)
 		if err != nil {
 			return err
 		}
@@ -126,7 +126,7 @@ func (s *contractStakingDelta) UpdateBucketType(id uint64, bt *BucketType) error
 		s.bucketTypeDeltaState[id] = deltaStateModified
 	} else {
 		var err error
-		s.bucketTypeDeltaState[id], err = s.bucketTypeDeltaState[id].transfer(deltaActionModify)
+		s.bucketTypeDeltaState[id], err = s.bucketTypeDeltaState[id].Transfer(deltaActionModify)
 		if err != nil {
 			return err
 		}
@@ -135,26 +135,12 @@ func (s *contractStakingDelta) UpdateBucketType(id uint64, bt *BucketType) error
 	return nil
 }
 
-func (s *contractStakingDelta) addBucketInfo(id uint64, bi *bucketInfo) error {
-	var err error
-	if _, ok := s.bucketInfoDeltaState[id]; !ok {
-		s.bucketInfoDeltaState[id] = deltaStateAdded
-	} else {
-		s.bucketInfoDeltaState[id], err = s.bucketInfoDeltaState[id].transfer(deltaActionAdd)
-		if err != nil {
-			return err
-		}
-	}
-	s.cache.PutBucketInfo(id, bi)
-	return nil
-}
-
 func (s *contractStakingDelta) UpdateBucketInfo(id uint64, bi *bucketInfo) error {
 	if _, ok := s.bucketInfoDeltaState[id]; !ok {
 		s.bucketInfoDeltaState[id] = deltaStateModified
 	} else {
 		var err error
-		s.bucketInfoDeltaState[id], err = s.bucketInfoDeltaState[id].transfer(deltaActionModify)
+		s.bucketInfoDeltaState[id], err = s.bucketInfoDeltaState[id].Transfer(deltaActionModify)
 		if err != nil {
 			return err
 		}
@@ -168,7 +154,7 @@ func (s *contractStakingDelta) DeleteBucketInfo(id uint64) error {
 		s.bucketInfoDeltaState[id] = deltaStateRemoved
 	} else {
 		var err error
-		s.bucketInfoDeltaState[id], err = s.bucketInfoDeltaState[id].transfer(deltaActionRemove)
+		s.bucketInfoDeltaState[id], err = s.bucketInfoDeltaState[id].Transfer(deltaActionRemove)
 		if err != nil {
 			return err
 		}
@@ -202,4 +188,18 @@ func (s *contractStakingDelta) isBucketDeleted(id uint64) bool {
 		return s.bucketInfoDeltaState[id] == deltaStateRemoved
 	}
 	return false
+}
+
+func (s *contractStakingDelta) addBucketInfo(id uint64, bi *bucketInfo) error {
+	var err error
+	if _, ok := s.bucketInfoDeltaState[id]; !ok {
+		s.bucketInfoDeltaState[id] = deltaStateAdded
+	} else {
+		s.bucketInfoDeltaState[id], err = s.bucketInfoDeltaState[id].Transfer(deltaActionAdd)
+		if err != nil {
+			return err
+		}
+	}
+	s.cache.PutBucketInfo(id, bi)
+	return nil
 }
