@@ -22,6 +22,10 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
+const (
+	_testStakingContractAddress = "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd"
+)
+
 func TestContractStakingIndexerLoadCache(t *testing.T) {
 	r := require.New(t)
 	testDBPath, err := testutil.PathOfTempFile("staking.db")
@@ -30,11 +34,11 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore)
+	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress)
 	r.NoError(indexer.Start(context.Background()))
 
 	// create a stake
-	dirty := newContractStakingDirty(indexer.cache.Unsafe())
+	dirty := newContractStakingDirty(indexer.cache)
 	height := uint64(1)
 	dirty.PutHeight(height)
 	handler := newContractStakingEventHandler(dirty)
@@ -49,7 +53,7 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	r.NoError(indexer.Stop(context.Background()))
 
 	// load cache from db
-	newIndexer := NewContractStakingIndexer(db.NewBoltDB(cfg))
+	newIndexer := NewContractStakingIndexer(db.NewBoltDB(cfg), _testStakingContractAddress)
 	r.NoError(newIndexer.Start(context.Background()))
 
 	// check cache
@@ -74,11 +78,11 @@ func TestContractStakingIndexerDirty(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore)
+	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress)
 	r.NoError(indexer.Start(context.Background()))
 
 	// before commit dirty, the cache should be empty
-	dirty := newContractStakingDirty(indexer.cache.Unsafe())
+	dirty := newContractStakingDirty(indexer.cache)
 	height := uint64(1)
 	dirty.PutHeight(height)
 	gotHeight, err := indexer.Height()
@@ -102,7 +106,7 @@ func TestContractStakingIndexerThreadSafe(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore)
+	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress)
 	r.NoError(indexer.Start(context.Background()))
 
 	wait := sync.WaitGroup{}
@@ -130,12 +134,12 @@ func TestContractStakingIndexerThreadSafe(t *testing.T) {
 	go func() {
 		defer wait.Done()
 		// activate bucket type
-		dirty := newContractStakingDirty(indexer.cache.Unsafe())
+		dirty := newContractStakingDirty(indexer.cache)
 		handler := newContractStakingEventHandler(dirty)
 		activateBucketType(r, handler, 10, 100, 1)
 		r.NoError(indexer.commit(dirty))
 		for i := 2; i < 1000; i++ {
-			dirty := newContractStakingDirty(indexer.cache.Unsafe())
+			dirty := newContractStakingDirty(indexer.cache)
 			height := uint64(i)
 			dirty.PutHeight(height)
 			handler := newContractStakingEventHandler(dirty)
@@ -157,7 +161,7 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore)
+	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress)
 	r.NoError(indexer.Start(context.Background()))
 
 	// activate
@@ -178,7 +182,7 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 	}
 
 	height := uint64(1)
-	dirty := newContractStakingDirty(indexer.cache.Unsafe())
+	dirty := newContractStakingDirty(indexer.cache)
 	dirty.PutHeight(height)
 	handler := newContractStakingEventHandler(dirty)
 	for _, data := range bucketTypeData {
@@ -195,7 +199,7 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 	}
 	// deactivate
 	height++
-	dirty = newContractStakingDirty(indexer.cache.Unsafe())
+	dirty = newContractStakingDirty(indexer.cache)
 	dirty.PutHeight(height)
 	handler = newContractStakingEventHandler(dirty)
 	for i := 0; i < 2; i++ {
@@ -213,7 +217,7 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 	}
 	// reactivate
 	height++
-	dirty = newContractStakingDirty(indexer.cache.Unsafe())
+	dirty = newContractStakingDirty(indexer.cache)
 	dirty.PutHeight(height)
 	handler = newContractStakingEventHandler(dirty)
 	for i := 0; i < 2; i++ {
@@ -245,7 +249,7 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore)
+	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress)
 	r.NoError(indexer.Start(context.Background()))
 
 	// init bucket type
@@ -256,7 +260,7 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 		{20, 100},
 	}
 	height := uint64(1)
-	dirty := newContractStakingDirty(indexer.cache.Unsafe())
+	dirty := newContractStakingDirty(indexer.cache)
 	dirty.PutHeight(height)
 	handler := newContractStakingEventHandler(dirty)
 	for _, data := range bucketTypeData {
@@ -269,7 +273,7 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	owner := identityset.Address(0)
 	delegate := identityset.Address(1)
 	height++
-	dirty = newContractStakingDirty(indexer.cache.Unsafe())
+	dirty = newContractStakingDirty(indexer.cache)
 	dirty.PutHeight(height)
 	handler = newContractStakingEventHandler(dirty)
 	stake(r, handler, owner, delegate, 1, 10, 100, height)
@@ -286,13 +290,13 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.True(bucket.AutoStake)
 	r.EqualValues(height, bucket.CreateBlockHeight)
 	r.EqualValues(maxBlockNumber, bucket.UnstakeStartBlockHeight)
-	r.EqualValues(StakingContractAddress, bucket.ContractAddress)
+	r.EqualValues(_testStakingContractAddress, bucket.ContractAddress)
 	r.EqualValues(10, indexer.CandidateVotes(delegate).Uint64())
 	r.EqualValues(1, indexer.TotalBucketCount())
 
 	// unlock
 	height++
-	dirty = newContractStakingDirty(indexer.cache.Unsafe())
+	dirty = newContractStakingDirty(indexer.cache)
 	dirty.PutHeight(height)
 	handler = newContractStakingEventHandler(dirty)
 	unlock(r, handler, int64(bucket.Index), height)
@@ -308,13 +312,13 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.False(bucket.AutoStake)
 	r.EqualValues(height-1, bucket.CreateBlockHeight)
 	r.EqualValues(maxBlockNumber, bucket.UnstakeStartBlockHeight)
-	r.EqualValues(StakingContractAddress, bucket.ContractAddress)
+	r.EqualValues(_testStakingContractAddress, bucket.ContractAddress)
 	r.EqualValues(10, indexer.CandidateVotes(delegate).Uint64())
 	r.EqualValues(1, indexer.TotalBucketCount())
 
 	// lock again
 	height++
-	dirty = newContractStakingDirty(indexer.cache.Unsafe())
+	dirty = newContractStakingDirty(indexer.cache)
 	dirty.PutHeight(height)
 	handler = newContractStakingEventHandler(dirty)
 	lock(r, handler, int64(bucket.Index), int64(10))
@@ -330,13 +334,13 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.True(bucket.AutoStake)
 	r.EqualValues(height-2, bucket.CreateBlockHeight)
 	r.EqualValues(maxBlockNumber, bucket.UnstakeStartBlockHeight)
-	r.EqualValues(StakingContractAddress, bucket.ContractAddress)
+	r.EqualValues(_testStakingContractAddress, bucket.ContractAddress)
 	r.EqualValues(10, indexer.CandidateVotes(delegate).Uint64())
 	r.EqualValues(1, indexer.TotalBucketCount())
 
 	// unstake
 	height++
-	dirty = newContractStakingDirty(indexer.cache.Unsafe())
+	dirty = newContractStakingDirty(indexer.cache)
 	dirty.PutHeight(height)
 	handler = newContractStakingEventHandler(dirty)
 	unlock(r, handler, int64(bucket.Index), height)
@@ -353,13 +357,13 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.False(bucket.AutoStake)
 	r.EqualValues(height-3, bucket.CreateBlockHeight)
 	r.EqualValues(height, bucket.UnstakeStartBlockHeight)
-	r.EqualValues(StakingContractAddress, bucket.ContractAddress)
+	r.EqualValues(_testStakingContractAddress, bucket.ContractAddress)
 	r.EqualValues(0, indexer.CandidateVotes(delegate).Uint64())
 	r.EqualValues(1, indexer.TotalBucketCount())
 
 	// withdraw
 	height++
-	dirty = newContractStakingDirty(indexer.cache.Unsafe())
+	dirty = newContractStakingDirty(indexer.cache)
 	dirty.PutHeight(height)
 	handler = newContractStakingEventHandler(dirty)
 	withdraw(r, handler, int64(bucket.Index))

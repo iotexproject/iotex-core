@@ -19,9 +19,9 @@ type (
 	}
 )
 
-func newContractStakingCacheSafe() *contractStakingCacheSafe {
+func newContractStakingCacheSafe(contract string) *contractStakingCacheSafe {
 	return &contractStakingCacheSafe{
-		inner: newContractStakingCache(),
+		inner: newContractStakingCache(contract),
 	}
 }
 
@@ -33,56 +33,56 @@ func (s *contractStakingCacheSafe) GetHeight() uint64 {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	return s.inner.GetHeight()
+	return s.inner.Height()
 }
 
 func (s *contractStakingCacheSafe) GetCandidateVotes(candidate address.Address) *big.Int {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	return s.inner.GetCandidateVotes(candidate)
+	return s.inner.CandidateVotes(candidate)
 }
 
 func (s *contractStakingCacheSafe) GetBuckets() []*Bucket {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	return s.inner.GetBuckets()
+	return s.inner.Buckets()
 }
 
 func (s *contractStakingCacheSafe) GetBucket(id uint64) (*Bucket, bool) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	return s.inner.GetBucket(id)
+	return s.inner.Bucket(id)
 }
 
 func (s *contractStakingCacheSafe) GetBucketsByIndices(indices []uint64) ([]*Bucket, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	return s.inner.GetBucketsByIndices(indices)
+	return s.inner.BucketsByIndices(indices)
 }
 
 func (s *contractStakingCacheSafe) GetBucketsByCandidate(candidate address.Address) []*Bucket {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	return s.inner.GetBucketsByCandidate(candidate)
+	return s.inner.BucketsByCandidate(candidate)
 }
 
 func (s *contractStakingCacheSafe) GetTotalBucketCount() uint64 {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	return s.inner.GetTotalBucketCount()
+	return s.inner.TotalBucketCount()
 }
 
 func (s *contractStakingCacheSafe) GetActiveBucketTypes() map[uint64]*BucketType {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	return s.inner.GetActiveBucketTypes()
+	return s.inner.ActiveBucketTypes()
 }
 
 func (s *contractStakingCacheSafe) Merge(delta *contractStakingDelta) error {

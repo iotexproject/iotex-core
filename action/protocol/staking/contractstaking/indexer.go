@@ -20,10 +20,6 @@ import (
 )
 
 const (
-	// StakingContractAddress  is the address of system staking contract
-	// TODO (iip-13): replace with the real system staking contract address
-	StakingContractAddress = "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd"
-
 	maxBlockNumber uint64 = math.MaxUint64
 )
 
@@ -32,23 +28,18 @@ type (
 	// Main functions:
 	// 		1. handle contract staking contract events when new block comes to generate index data
 	// 		2. provide query interface for contract staking index data
-	// Generate index data flow:
-	// 		block comes -> new dirty cache -> handle contract events -> update dirty cache -> merge dirty to clean cache
-	// Main Object:
-	// 		kvstore: persistent storage, used to initialize index cache at startup
-	// 		cache: in-memory index for clean data, used to query index data
-	//      dirty: the cache to update during event processing, will be merged to clean cache after all events are processed. If errors occur during event processing, dirty cache will be discarded.
 	Indexer struct {
-		kvstore db.KVStore                // persistent storage
-		cache   *contractStakingCacheSafe // in-memory index for clean data
+		kvstore         db.KVStore            // persistent storage, used to initialize index cache at startup
+		cache           *contractStakingCache // in-memory index for clean data, used to query index data
+		contractAddress string                // stake contract address
 	}
 )
 
 // NewContractStakingIndexer creates a new contract staking indexer
-func NewContractStakingIndexer(kvStore db.KVStore) *Indexer {
+func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string) *Indexer {
 	return &Indexer{
 		kvstore: kvStore,
-		cache:   newContractStakingCacheSafe(),
+		cache:   newContractStakingCache(contractAddr),
 	}
 }
 
@@ -65,48 +56,48 @@ func (s *Indexer) Stop(ctx context.Context) error {
 	if err := s.kvstore.Stop(ctx); err != nil {
 		return err
 	}
-	s.cache = newContractStakingCacheSafe()
+	s.cache = newContractStakingCache(s.contractAddress)
 	return nil
 }
 
 // Height returns the tip block height
 func (s *Indexer) Height() (uint64, error) {
-	return s.cache.GetHeight(), nil
+	return s.cache.Height(), nil
 }
 
 // CandidateVotes returns the candidate votes
 func (s *Indexer) CandidateVotes(candidate address.Address) *big.Int {
-	return s.cache.GetCandidateVotes(candidate)
+	return s.cache.CandidateVotes(candidate)
 }
 
 // Buckets returns the buckets
 func (s *Indexer) Buckets() ([]*Bucket, error) {
-	return s.cache.GetBuckets(), nil
+	return s.cache.Buckets(), nil
 }
 
 // Bucket returns the bucket
 func (s *Indexer) Bucket(id uint64) (*Bucket, bool) {
-	return s.cache.GetBucket(id)
+	return s.cache.Bucket(id)
 }
 
 // BucketsByIndices returns the buckets by indices
 func (s *Indexer) BucketsByIndices(indices []uint64) ([]*Bucket, error) {
-	return s.cache.GetBucketsByIndices(indices)
+	return s.cache.BucketsByIndices(indices)
 }
 
 // BucketsByCandidate returns the buckets by candidate
 func (s *Indexer) BucketsByCandidate(candidate address.Address) []*Bucket {
-	return s.cache.GetBucketsByCandidate(candidate)
+	return s.cache.BucketsByCandidate(candidate)
 }
 
 // TotalBucketCount returns the total bucket count including active and burnt buckets
 func (s *Indexer) TotalBucketCount() uint64 {
-	return s.cache.GetTotalBucketCount()
+	return s.cache.TotalBucketCount()
 }
 
 // BucketTypes returns the active bucket types
 func (s *Indexer) BucketTypes() ([]*BucketType, error) {
-	btMap := s.cache.GetActiveBucketTypes()
+	btMap := s.cache.ActiveBucketTypes()
 	bts := make([]*BucketType, 0, len(btMap))
 	for _, bt := range btMap {
 		bts = append(bts, bt)
@@ -119,7 +110,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	// new dirty cache for this block
 	// it's not necessary to use thread safe cache here, because only one thread will call this function
 	// and no update to cache will happen before dirty merge to clean
-	dirty := newContractStakingDirty(s.cache.Unsafe())
+	dirty := newContractStakingDirty(s.cache)
 	dirty.PutHeight(blk.Height())
 	handler := newContractStakingEventHandler(dirty)
 
@@ -129,7 +120,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 			continue
 		}
 		for _, log := range receipt.Logs() {
-			if log.Address != StakingContractAddress {
+			if log.Address != s.contractAddress {
 				continue
 			}
 			if err := handler.HandleEvent(ctx, blk, log); err != nil {
@@ -161,7 +152,7 @@ func (s *Indexer) commit(dirty *contractStakingDirty) error {
 }
 
 func (s *Indexer) reloadCache() error {
-	s.cache = newContractStakingCacheSafe()
+	s.cache = newContractStakingCache(s.contractAddress)
 	return s.loadCache()
 }
 

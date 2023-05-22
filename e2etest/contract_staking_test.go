@@ -1271,8 +1271,8 @@ const (
 			"type": "function"
 		}
 	]`
-
-	_adminID = 22
+	_stakingContractAddress = "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd"
+	_adminID                = 22
 )
 
 var (
@@ -1304,7 +1304,7 @@ func TestContractStaking(t *testing.T) {
 	ctx = genesis.WithGenesisContext(context.Background(), bc.Genesis())
 
 	// deploy smart contract
-	deployAddr := contractstaking.StakingContractAddress
+	deployAddr := _stakingContractAddress
 	param := callParam{
 		contractAddr: deployAddr,
 		bytecode:     _stakingContractByteCode,
@@ -1705,7 +1705,7 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 	r.NoError(err)
 	cc := cfg.DB
 	cc.DbPath = testContractStakeIndexerPath
-	contractStakeIndexer := contractstaking.NewContractStakingIndexer(db.NewBoltDB(cc))
+	contractStakeIndexer := contractstaking.NewContractStakingIndexer(db.NewBoltDB(cc), _stakingContractAddress)
 	// create BlockDAO
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, contractStakeIndexer})
 	r.NotNil(dao)

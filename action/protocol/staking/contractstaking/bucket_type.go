@@ -24,25 +24,6 @@ type (
 	}
 )
 
-func (bt *BucketType) toProto() *contractstakingpb.BucketType {
-	return &contractstakingpb.BucketType{
-		Amount:      bt.Amount.String(),
-		Duration:    bt.Duration,
-		ActivatedAt: bt.ActivatedAt,
-	}
-}
-
-func (bt *BucketType) loadProto(p *contractstakingpb.BucketType) error {
-	var ok bool
-	bt.Amount, ok = big.NewInt(0).SetString(p.Amount, 10)
-	if !ok {
-		return errors.New("failed to parse amount")
-	}
-	bt.Duration = p.Duration
-	bt.ActivatedAt = p.ActivatedAt
-	return nil
-}
-
 // Serialize serializes the bucket type
 func (bt *BucketType) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(bt.toProto()))
@@ -55,4 +36,23 @@ func (bt *BucketType) Deserialize(b []byte) error {
 		return err
 	}
 	return bt.loadProto(&m)
+}
+
+func (bt *BucketType) toProto() *contractstakingpb.BucketType {
+	return &contractstakingpb.BucketType{
+		Amount:      bt.Amount.String(),
+		Duration:    bt.Duration,
+		ActivatedAt: bt.ActivatedAt,
+	}
+}
+
+func (bt *BucketType) loadProto(p *contractstakingpb.BucketType) error {
+	amount, ok := big.NewInt(0).SetString(p.Amount, 10)
+	if !ok {
+		return errors.New("failed to parse amount")
+	}
+	bt.Amount = amount
+	bt.Duration = p.Duration
+	bt.ActivatedAt = p.ActivatedAt
+	return nil
 }

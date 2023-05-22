@@ -18,7 +18,7 @@ type (
 
 func newContractStakingDelta() *contractStakingDelta {
 	return &contractStakingDelta{
-		cache:                newContractStakingCache(),
+		cache:                newContractStakingCache(""),
 		bucketTypeDeltaState: make(map[uint64]deltaState),
 		bucketInfoDeltaState: make(map[uint64]deltaState),
 	}
@@ -29,7 +29,7 @@ func (s *contractStakingDelta) PutHeight(height uint64) {
 }
 
 func (s *contractStakingDelta) GetHeight() uint64 {
-	return s.cache.GetHeight()
+	return s.cache.Height()
 }
 
 func (s *contractStakingDelta) PutTotalBucketCount(count uint64) {
