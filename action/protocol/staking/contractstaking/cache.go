@@ -7,6 +7,7 @@ package contractstaking
 
 import (
 	"math/big"
+	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -21,6 +22,7 @@ type (
 		height                uint64
 		totalBucketCount      uint64 // total number of buckets including burned buckets
 		contractAddress       string // contract address for the bucket
+		mutex                 sync.RWMutex
 	}
 )
 
@@ -30,21 +32,25 @@ var (
 )
 
 func newContractStakingCache(contractAddr string) *contractStakingCache {
-	cache := &contractStakingCache{
+	return &contractStakingCache{
 		bucketInfoMap:         make(map[uint64]*bucketInfo),
 		bucketTypeMap:         make(map[uint64]*BucketType),
 		propertyBucketTypeMap: make(map[int64]map[uint64]uint64),
 		candidateBucketMap:    make(map[string]map[uint64]bool),
 		contractAddress:       contractAddr,
 	}
-	return cache
 }
 
 func (s *contractStakingCache) Height() uint64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	return s.height
 }
 
 func (s *contractStakingCache) CandidateVotes(candidate address.Address) *big.Int {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	votes := big.NewInt(0)
 	m, ok := s.candidateBucketMap[candidate.String()]
 	if !ok {
@@ -66,6 +72,9 @@ func (s *contractStakingCache) CandidateVotes(candidate address.Address) *big.In
 }
 
 func (s *contractStakingCache) Buckets() []*Bucket {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	vbs := []*Bucket{}
 	for id, bi := range s.getAllBucketInfo() {
 		bt := s.mustGetBucketType(bi.TypeIndex)
@@ -76,26 +85,44 @@ func (s *contractStakingCache) Buckets() []*Bucket {
 }
 
 func (s *contractStakingCache) Bucket(id uint64) (*Bucket, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	return s.getBucket(id)
 }
 
 func (s *contractStakingCache) BucketInfo(id uint64) (*bucketInfo, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	return s.getBucketInfo(id)
 }
 
 func (s *contractStakingCache) MustGetBucketInfo(id uint64) *bucketInfo {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	return s.mustGetBucketInfo(id)
 }
 
 func (s *contractStakingCache) MustGetBucketType(id uint64) *BucketType {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	return s.mustGetBucketType(id)
 }
 
 func (s *contractStakingCache) BucketType(id uint64) (*BucketType, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	return s.getBucketType(id)
 }
 
 func (s *contractStakingCache) BucketsByCandidate(candidate address.Address) []*Bucket {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	bucketMap := s.getBucketInfoByCandidate(candidate)
 	vbs := make([]*Bucket, 0, len(bucketMap))
 	for id := range bucketMap {
@@ -106,6 +133,9 @@ func (s *contractStakingCache) BucketsByCandidate(candidate address.Address) []*
 }
 
 func (s *contractStakingCache) BucketsByIndices(indices []uint64) ([]*Bucket, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	vbs := make([]*Bucket, 0, len(indices))
 	for _, id := range indices {
 		vb, ok := s.getBucket(id)
@@ -118,10 +148,16 @@ func (s *contractStakingCache) BucketsByIndices(indices []uint64) ([]*Bucket, er
 }
 
 func (s *contractStakingCache) TotalBucketCount() uint64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	return s.getTotalBucketCount()
 }
 
 func (s *contractStakingCache) ActiveBucketTypes() map[uint64]*BucketType {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	m := make(map[uint64]*BucketType)
 	for k, v := range s.bucketTypeMap {
 		if v.ActivatedAt != maxBlockNumber {
@@ -132,22 +168,37 @@ func (s *contractStakingCache) ActiveBucketTypes() map[uint64]*BucketType {
 }
 
 func (s *contractStakingCache) PutBucketType(id uint64, bt *BucketType) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	s.putBucketType(id, bt)
 }
 
 func (s *contractStakingCache) PutBucketInfo(id uint64, bi *bucketInfo) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	s.putBucketInfo(id, bi)
 }
 
 func (s *contractStakingCache) DeleteBucketInfo(id uint64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	s.deleteBucketInfo(id)
 }
 
 func (s *contractStakingCache) PutHeight(h uint64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	s.putHeight(h)
 }
 
 func (s *contractStakingCache) Merge(delta *contractStakingDelta) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	for state, btMap := range delta.BucketTypeDelta() {
 		if state == deltaStateAdded || state == deltaStateModified {
 			for id, bt := range btMap {
@@ -172,10 +223,16 @@ func (s *contractStakingCache) Merge(delta *contractStakingDelta) error {
 }
 
 func (s *contractStakingCache) PutTotalBucketCount(count uint64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	s.putTotalBucketCount(count)
 }
 
 func (s *contractStakingCache) MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	id, ok := s.getBucketTypeIndex(amount, duration)
 	if !ok {
 		return 0, nil, false
@@ -184,6 +241,9 @@ func (s *contractStakingCache) MatchBucketType(amount *big.Int, duration uint64)
 }
 
 func (s *contractStakingCache) BucketTypeCount() uint64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	return uint64(len(s.bucketTypeMap))
 }
 

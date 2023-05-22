@@ -38,8 +38,9 @@ type (
 // NewContractStakingIndexer creates a new contract staking indexer
 func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string) *Indexer {
 	return &Indexer{
-		kvstore: kvStore,
-		cache:   newContractStakingCache(contractAddr),
+		kvstore:         kvStore,
+		cache:           newContractStakingCache(contractAddr),
+		contractAddress: contractAddr,
 	}
 }
 
@@ -108,8 +109,8 @@ func (s *Indexer) BucketTypes() ([]*BucketType, error) {
 // PutBlock puts a block into indexer
 func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	// new dirty cache for this block
-	// it's not necessary to use thread safe cache here, because only one thread will call this function
-	// and no update to cache will happen before dirty merge to clean
+	// dirty is the cache to update during event processing, which will be merged to clean cache after all events are processed.
+	// if errors occur during event processing, dirty cache will be discarded.
 	dirty := newContractStakingDirty(s.cache)
 	dirty.PutHeight(blk.Height())
 	handler := newContractStakingEventHandler(dirty)
