@@ -24,3 +24,22 @@ type Bucket struct {
 	AutoStake                 bool
 	ContractAddress           string // contract address for the bucket
 }
+
+func assembleBucket(token uint64, bi *bucketInfo, bt *BucketType, contractAddr string) (*Bucket, error) {
+	vb := Bucket{
+		Index:                     token,
+		StakedAmount:              bt.Amount,
+		StakedDurationBlockNumber: bt.Duration,
+		CreateBlockHeight:         bi.CreatedAt,
+		StakeStartBlockHeight:     bi.CreatedAt,
+		UnstakeStartBlockHeight:   bi.UnstakedAt,
+		AutoStake:                 bi.UnlockedAt == maxBlockNumber,
+		Candidate:                 bi.Delegate,
+		Owner:                     bi.Owner,
+		ContractAddress:           contractAddr,
+	}
+	if bi.UnlockedAt != maxBlockNumber {
+		vb.StakeStartBlockHeight = bi.UnlockedAt
+	}
+	return &vb, nil
+}
