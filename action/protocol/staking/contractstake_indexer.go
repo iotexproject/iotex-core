@@ -30,16 +30,11 @@ type (
 		BucketTypes() ([]*ContractStakingBucketType, error)
 	}
 
-	// TODO (iip-13): remove this empty contract staking indexer
+	// TODO (iip-13): move this empty contract staking indexer to test file
 	emptyContractStakingIndexer struct{}
 )
 
 var _ ContractStakingIndexer = (*emptyContractStakingIndexer)(nil)
-
-// NewEmptyContractStakingIndexer creates an empty contract staking indexer
-func NewEmptyContractStakingIndexer() ContractStakingIndexer {
-	return &emptyContractStakingIndexer{}
-}
 
 func (f *emptyContractStakingIndexer) CandidateVotes(ownerAddr address.Address) *big.Int {
 	return big.NewInt(0)
