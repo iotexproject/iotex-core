@@ -143,9 +143,9 @@ func TestSGDRegistry(t *testing.T) {
 		lists, err := sgdRegistry.FetchContracts(ctx)
 		r.NoError(err)
 		r.Equal(1, len(lists))
-		r.Equal(registerAddress.Bytes(), lists[0].GetContract())
-		r.Equal(receiverAddress.Bytes(), lists[0].GetReceiver())
-		r.False(lists[0].GetApproved())
+		r.Equal(registerAddress.Bytes(), lists[0].Contract.Bytes())
+		r.Equal(receiverAddress.Bytes(), lists[0].Receiver.Bytes())
+		r.False(lists[0].Approved)
 	})
 	t.Run("approveContract", func(t *testing.T) {
 		data, _ = hex.DecodeString("07f7aafb0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4")

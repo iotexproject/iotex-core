@@ -195,14 +195,36 @@ type (
 		// CheckContract returns the contract's eligibility for SGD and percentage
 		CheckContract(context.Context, string) (address.Address, uint64, bool, error)
 		// FetchContracts returns all contracts that are eligible for SGD
-		FetchContracts(context.Context) ([]*indexpb.SGDIndex, error)
+		FetchContracts(context.Context) ([]*SGDIndex, error)
 	}
 
 	sgdRegistry struct {
 		contract string
 		kvStore  db.KVStore
 	}
+	// SGDIndex is the struct for SGDIndex
+	SGDIndex struct {
+		Contract address.Address
+		Receiver address.Address
+		Approved bool
+	}
 )
+
+func sgdIndexFromPb(pb *indexpb.SGDIndex) (*SGDIndex, error) {
+	contract, err := address.FromBytes(pb.Contract)
+	if err != nil {
+		return nil, err
+	}
+	receiver, err := address.FromBytes(pb.Receiver)
+	if err != nil {
+		return nil, err
+	}
+	return &SGDIndex{
+		Contract: contract,
+		Receiver: receiver,
+		Approved: pb.Approved,
+	}, nil
+}
 
 func newSgdIndex(contract, receiver []byte) *indexpb.SGDIndex {
 	return &indexpb.SGDIndex{
@@ -426,7 +448,7 @@ func (sgd *sgdRegistry) getSGDIndex(contract []byte) (*indexpb.SGDIndex, error) 
 }
 
 // FetchContracts returns all contracts that are eligible for SGD
-func (sgd *sgdRegistry) FetchContracts(ctx context.Context) ([]*indexpb.SGDIndex, error) {
+func (sgd *sgdRegistry) FetchContracts(ctx context.Context) ([]*SGDIndex, error) {
 	_, values, err := sgd.kvStore.Filter(_sgdBucket, func(k, v []byte) bool { return true }, nil, nil)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
@@ -434,10 +456,14 @@ func (sgd *sgdRegistry) FetchContracts(ctx context.Context) ([]*indexpb.SGDIndex
 		}
 		return nil, err
 	}
-	sgdIndexes := make([]*indexpb.SGDIndex, 0, len(values))
+	sgdIndexes := make([]*SGDIndex, 0, len(values))
 	for _, v := range values {
-		sgdIndex := &indexpb.SGDIndex{}
-		if err := proto.Unmarshal(v, sgdIndex); err != nil {
+		sgdIndexPb := &indexpb.SGDIndex{}
+		if err := proto.Unmarshal(v, sgdIndexPb); err != nil {
+			return nil, err
+		}
+		sgdIndex, err := sgdIndexFromPb(sgdIndexPb)
+		if err != nil {
 			return nil, err
 		}
 		sgdIndexes = append(sgdIndexes, sgdIndex)
