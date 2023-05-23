@@ -110,6 +110,8 @@ func defaultConfig() Genesis {
 			WithdrawWaitingPeriod: 3 * 24 * time.Hour,
 			MinStakeAmount:        unit.ConvertIotxToRau(100).String(),
 			BootstrapCandidates:   []BootstrapCandidate{},
+			// TODO (iip-13): replace the following with the address on mainnet
+			ContractAddress: "io1uw3gvmhrjz5mwxpd966wxxt6fn5uuvwfpynrwj",
 		},
 	}
 }
@@ -321,6 +323,7 @@ type (
 		WithdrawWaitingPeriod time.Duration        `yaml:"withdrawWaitingPeriod"`
 		MinStakeAmount        string               `yaml:"minStakeAmount"`
 		BootstrapCandidates   []BootstrapCandidate `yaml:"bootstrapCandidates"`
+		ContractAddress       string               `yaml:"contractAddress"`
 	}
 
 	// VoteWeightCalConsts contains the configs for calculating vote weight

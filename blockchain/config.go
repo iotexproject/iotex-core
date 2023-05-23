@@ -24,23 +24,24 @@ import (
 type (
 	// Config is the config struct for blockchain package
 	Config struct {
-		ChainDBPath            string           `yaml:"chainDBPath"`
-		TrieDBPatchFile        string           `yaml:"trieDBPatchFile"`
-		TrieDBPath             string           `yaml:"trieDBPath"`
-		StakingPatchDir        string           `yaml:"stakingPatchDir"`
-		IndexDBPath            string           `yaml:"indexDBPath"`
-		BloomfilterIndexDBPath string           `yaml:"bloomfilterIndexDBPath"`
-		CandidateIndexDBPath   string           `yaml:"candidateIndexDBPath"`
-		StakingIndexDBPath     string           `yaml:"stakingIndexDBPath"`
-		ID                     uint32           `yaml:"id"`
-		EVMNetworkID           uint32           `yaml:"evmNetworkID"`
-		Address                string           `yaml:"address"`
-		ProducerPrivKey        string           `yaml:"producerPrivKey"`
-		ProducerPrivKeySchema  string           `yaml:"producerPrivKeySchema"`
-		SignatureScheme        []string         `yaml:"signatureScheme"`
-		EmptyGenesis           bool             `yaml:"emptyGenesis"`
-		GravityChainDB         db.Config        `yaml:"gravityChainDB"`
-		Committee              committee.Config `yaml:"committee"`
+		ChainDBPath                string           `yaml:"chainDBPath"`
+		TrieDBPatchFile            string           `yaml:"trieDBPatchFile"`
+		TrieDBPath                 string           `yaml:"trieDBPath"`
+		StakingPatchDir            string           `yaml:"stakingPatchDir"`
+		IndexDBPath                string           `yaml:"indexDBPath"`
+		BloomfilterIndexDBPath     string           `yaml:"bloomfilterIndexDBPath"`
+		CandidateIndexDBPath       string           `yaml:"candidateIndexDBPath"`
+		StakingIndexDBPath         string           `yaml:"stakingIndexDBPath"`
+		ContractStakingIndexDBPath string           `yaml:"contractStakingIndexDBPath"`
+		ID                         uint32           `yaml:"id"`
+		EVMNetworkID               uint32           `yaml:"evmNetworkID"`
+		Address                    string           `yaml:"address"`
+		ProducerPrivKey            string           `yaml:"producerPrivKey"`
+		ProducerPrivKeySchema      string           `yaml:"producerPrivKeySchema"`
+		SignatureScheme            []string         `yaml:"signatureScheme"`
+		EmptyGenesis               bool             `yaml:"emptyGenesis"`
+		GravityChainDB             db.Config        `yaml:"gravityChainDB"`
+		Committee                  committee.Config `yaml:"committee"`
 
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
 		// EnableStateDBCaching enables cachedStateDBOption

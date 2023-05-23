@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -257,6 +258,9 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.sgdIndexer != nil {
 		indexers = append(indexers, builder.cs.sgdIndexer)
 	}
+	if builder.cs.contractStakingIndexer != nil {
+		indexers = append(indexers, builder.cs.contractStakingIndexer)
+	}
 	if forTest {
 		builder.cs.blockdao = blockdao.NewBlockDAOInMemForTest(indexers)
 	} else {
@@ -277,6 +281,20 @@ func (builder *Builder) buildSGDRegistry(forTest bool) error {
 		builder.cs.sgdIndexer = nil
 	} else {
 		builder.cs.sgdIndexer = blockindex.NewSGDRegistry()
+	}
+	return nil
+}
+
+func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
+	if builder.cs.contractStakingIndexer != nil {
+		return nil
+	}
+	if forTest {
+		builder.cs.contractStakingIndexer = contractstaking.NewContractStakingIndexer(db.NewMemKVStore(), builder.cfg.Genesis.Staking.ContractAddress)
+	} else {
+		dbConfig := builder.cfg.DB
+		dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
+		builder.cs.contractStakingIndexer = contractstaking.NewContractStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.Staking.ContractAddress)
 	}
 	return nil
 }
@@ -641,6 +659,9 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildSGDRegistry(forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildContractStakingIndexer(forTest); err != nil {
 		return nil, err
 	}
 	if err := builder.buildBlockDAO(forTest); err != nil {
