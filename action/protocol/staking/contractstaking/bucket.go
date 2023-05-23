@@ -6,24 +6,11 @@
 package contractstaking
 
 import (
-	"math/big"
-
-	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 )
 
 // Bucket defines the bucket struct for contract staking
-type Bucket struct {
-	Index                     uint64
-	Candidate                 address.Address
-	Owner                     address.Address
-	StakedAmount              *big.Int
-	StakedDurationBlockNumber uint64
-	CreateBlockHeight         uint64
-	StakeStartBlockHeight     uint64
-	UnstakeStartBlockHeight   uint64
-	AutoStake                 bool
-	ContractAddress           string // contract address for the bucket
-}
+type Bucket = staking.VoteBucket
 
 func assembleBucket(token uint64, bi *bucketInfo, bt *BucketType, contractAddr string) (*Bucket, error) {
 	vb := Bucket{

@@ -12,12 +12,6 @@ import (
 )
 
 type (
-	// ContractStakingBucketType defines the type of contract staking bucket
-	ContractStakingBucketType struct {
-		Amount      *big.Int
-		Duration    uint64 // block numbers
-		ActivatedAt uint64 // block height
-	}
 
 	// ContractStakingIndexer defines the interface of contract staking reader
 	ContractStakingIndexer interface {

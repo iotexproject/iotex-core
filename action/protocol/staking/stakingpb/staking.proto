@@ -50,3 +50,9 @@ message TotalAmount {
     string amount = 1;
     uint64 count = 2;
 }
+
+message BucketType {
+    string amount = 1;
+    uint64 duration = 2;
+    uint64 activatedAt = 3;
+}
