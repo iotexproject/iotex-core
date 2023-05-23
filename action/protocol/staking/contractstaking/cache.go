@@ -262,7 +262,7 @@ func (s *contractStakingCache) getBucketType(id uint64) (*BucketType, bool) {
 }
 
 func (s *contractStakingCache) mustGetBucketType(id uint64) *BucketType {
-	bt, ok := s.bucketTypeMap[id]
+	bt, ok := s.getBucketType(id)
 	if !ok {
 		panic("bucket type not found")
 	}
@@ -275,7 +275,7 @@ func (s *contractStakingCache) getBucketInfo(id uint64) (*bucketInfo, bool) {
 }
 
 func (s *contractStakingCache) mustGetBucketInfo(id uint64) *bucketInfo {
-	bt, ok := s.bucketInfoMap[id]
+	bt, ok := s.getBucketInfo(id)
 	if !ok {
 		panic("bucket info not found")
 	}
