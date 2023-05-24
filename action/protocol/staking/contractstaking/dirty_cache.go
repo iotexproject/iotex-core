@@ -19,7 +19,7 @@ const (
 	// bucket related namespace in db
 	_StakingBucketInfoNS = "sbi"
 	_StakingBucketTypeNS = "sbt"
-	_StakingNS           = "s"
+	_StakingNS           = "sns"
 )
 
 type (
