@@ -9,7 +9,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action/protocol/staking/contractstaking/contractstakingpb"
+	"github.com/iotexproject/iotex-core/blockindex/contractstaking/contractstakingpb"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 

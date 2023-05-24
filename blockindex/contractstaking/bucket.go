@@ -12,7 +12,7 @@ import (
 // Bucket defines the bucket struct for contract staking
 type Bucket = staking.VoteBucket
 
-func assembleBucket(token uint64, bi *bucketInfo, bt *BucketType, contractAddr string) (*Bucket, error) {
+func assembleBucket(token uint64, bi *bucketInfo, bt *BucketType, contractAddr string) *Bucket {
 	vb := Bucket{
 		Index:                     token,
 		StakedAmount:              bt.Amount,
@@ -28,5 +28,5 @@ func assembleBucket(token uint64, bi *bucketInfo, bt *BucketType, contractAddr s
 	if bi.UnlockedAt != maxBlockNumber {
 		vb.StakeStartBlockHeight = bi.UnlockedAt
 	}
-	return &vb, nil
+	return &vb
 }
