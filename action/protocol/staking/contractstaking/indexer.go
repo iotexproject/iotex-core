@@ -16,7 +16,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 const (
@@ -49,7 +48,7 @@ func (s *Indexer) Start(ctx context.Context) error {
 	if err := s.kvstore.Start(ctx); err != nil {
 		return err
 	}
-	return s.loadCache()
+	return s.cache.LoadFromDB(s.kvstore)
 }
 
 // Stop stops the indexer
@@ -150,61 +149,5 @@ func (s *Indexer) commit(handler *contractStakingEventHandler) error {
 
 func (s *Indexer) reloadCache() error {
 	s.cache = newContractStakingCache(s.contractAddress)
-	return s.loadCache()
-}
-
-func (s *Indexer) loadCache() error {
-	delta := newContractStakingDelta()
-	// load height
-	var height uint64
-	h, err := s.kvstore.Get(_StakingNS, _stakingHeightKey)
-	if err != nil {
-		if !errors.Is(err, db.ErrNotExist) {
-			return err
-		}
-		height = 0
-	} else {
-		height = byteutil.BytesToUint64BigEndian(h)
-
-	}
-	delta.PutHeight(height)
-
-	// load total bucket count
-	var totalBucketCount uint64
-	tbc, err := s.kvstore.Get(_StakingNS, _stakingTotalBucketCountKey)
-	if err != nil {
-		if !errors.Is(err, db.ErrNotExist) {
-			return err
-		}
-	} else {
-		totalBucketCount = byteutil.BytesToUint64BigEndian(tbc)
-	}
-	delta.PutTotalBucketCount(totalBucketCount)
-
-	// load bucket info
-	ks, vs, err := s.kvstore.Filter(_StakingBucketInfoNS, func(k, v []byte) bool { return true }, nil, nil)
-	if err != nil && !errors.Is(err, db.ErrBucketNotExist) {
-		return err
-	}
-	for i := range vs {
-		var b bucketInfo
-		if err := b.Deserialize(vs[i]); err != nil {
-			return err
-		}
-		delta.addBucketInfo(byteutil.BytesToUint64BigEndian(ks[i]), &b)
-	}
-
-	// load bucket type
-	ks, vs, err = s.kvstore.Filter(_StakingBucketTypeNS, func(k, v []byte) bool { return true }, nil, nil)
-	if err != nil && !errors.Is(err, db.ErrBucketNotExist) {
-		return err
-	}
-	for i := range vs {
-		var b BucketType
-		if err := b.Deserialize(vs[i]); err != nil {
-			return err
-		}
-		delta.AddBucketType(byteutil.BytesToUint64BigEndian(ks[i]), &b)
-	}
-	return s.cache.Merge(delta)
+	return s.cache.LoadFromDB(s.kvstore)
 }

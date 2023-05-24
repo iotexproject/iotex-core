@@ -11,6 +11,9 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 type (
@@ -199,27 +202,7 @@ func (s *contractStakingCache) Merge(delta *contractStakingDelta) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	for state, btMap := range delta.BucketTypeDelta() {
-		if state == deltaStateAdded || state == deltaStateModified {
-			for id, bt := range btMap {
-				s.putBucketType(id, bt)
-			}
-		}
-	}
-	for state, biMap := range delta.BucketInfoDelta() {
-		if state == deltaStateAdded || state == deltaStateModified {
-			for id, bi := range biMap {
-				s.putBucketInfo(id, bi)
-			}
-		} else if state == deltaStateRemoved {
-			for id := range biMap {
-				s.deleteBucketInfo(id)
-			}
-		}
-	}
-	s.putHeight(delta.GetHeight())
-	s.putTotalBucketCount(s.getTotalBucketCount() + delta.AddedBucketCnt())
-	return nil
+	return s.merge(delta)
 }
 
 func (s *contractStakingCache) PutTotalBucketCount(count uint64) {
@@ -245,6 +228,65 @@ func (s *contractStakingCache) BucketTypeCount() uint64 {
 	defer s.mutex.RUnlock()
 
 	return uint64(len(s.bucketTypeMap))
+}
+
+func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	delta := newContractStakingDelta()
+	// load height
+	var height uint64
+	h, err := kvstore.Get(_StakingNS, _stakingHeightKey)
+	if err != nil {
+		if !errors.Is(err, db.ErrNotExist) {
+			return err
+		}
+		height = 0
+	} else {
+		height = byteutil.BytesToUint64BigEndian(h)
+
+	}
+	delta.PutHeight(height)
+
+	// load total bucket count
+	var totalBucketCount uint64
+	tbc, err := kvstore.Get(_StakingNS, _stakingTotalBucketCountKey)
+	if err != nil {
+		if !errors.Is(err, db.ErrNotExist) {
+			return err
+		}
+	} else {
+		totalBucketCount = byteutil.BytesToUint64BigEndian(tbc)
+	}
+	delta.PutTotalBucketCount(totalBucketCount)
+
+	// load bucket info
+	ks, vs, err := kvstore.Filter(_StakingBucketInfoNS, func(k, v []byte) bool { return true }, nil, nil)
+	if err != nil && !errors.Is(err, db.ErrBucketNotExist) {
+		return err
+	}
+	for i := range vs {
+		var b bucketInfo
+		if err := b.Deserialize(vs[i]); err != nil {
+			return err
+		}
+		delta.AddBucketInfo(byteutil.BytesToUint64BigEndian(ks[i]), &b)
+	}
+
+	// load bucket type
+	ks, vs, err = kvstore.Filter(_StakingBucketTypeNS, func(k, v []byte) bool { return true }, nil, nil)
+	if err != nil && !errors.Is(err, db.ErrBucketNotExist) {
+		return err
+	}
+	for i := range vs {
+		var b BucketType
+		if err := b.Deserialize(vs[i]); err != nil {
+			return err
+		}
+		delta.AddBucketType(byteutil.BytesToUint64BigEndian(ks[i]), &b)
+	}
+	return s.merge(delta)
 }
 
 func (s *contractStakingCache) getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool) {
@@ -356,4 +398,28 @@ func (s *contractStakingCache) putHeight(h uint64) {
 
 func (s *contractStakingCache) putTotalBucketCount(count uint64) {
 	s.totalBucketCount = count
+}
+
+func (s *contractStakingCache) merge(delta *contractStakingDelta) error {
+	for state, btMap := range delta.BucketTypeDelta() {
+		if state == deltaStateAdded || state == deltaStateModified {
+			for id, bt := range btMap {
+				s.putBucketType(id, bt)
+			}
+		}
+	}
+	for state, biMap := range delta.BucketInfoDelta() {
+		if state == deltaStateAdded || state == deltaStateModified {
+			for id, bi := range biMap {
+				s.putBucketInfo(id, bi)
+			}
+		} else if state == deltaStateRemoved {
+			for id := range biMap {
+				s.deleteBucketInfo(id)
+			}
+		}
+	}
+	s.putHeight(delta.GetHeight())
+	s.putTotalBucketCount(s.getTotalBucketCount() + delta.AddedBucketCnt())
+	return nil
 }
