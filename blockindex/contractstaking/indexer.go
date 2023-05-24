@@ -6,11 +6,15 @@
 package contractstaking
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 )
 
@@ -33,9 +37,27 @@ type (
 // NewContractStakingIndexer creates a new contract staking indexer
 func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string) *Indexer {
 	return &Indexer{
-		kvstore: kvStore,
-		cache:   newContractStakingCache(contractAddr),
+		kvstore:         kvStore,
+		cache:           newContractStakingCache(contractAddr),
+		contractAddress: contractAddr,
 	}
+}
+
+// Start starts the indexer
+func (s *Indexer) Start(ctx context.Context) error {
+	if err := s.kvstore.Start(ctx); err != nil {
+		return err
+	}
+	return s.cache.LoadFromDB(s.kvstore)
+}
+
+// Stop stops the indexer
+func (s *Indexer) Stop(ctx context.Context) error {
+	if err := s.kvstore.Stop(ctx); err != nil {
+		return err
+	}
+	s.cache = newContractStakingCache(s.contractAddress)
+	return nil
 }
 
 // Height returns the tip block height
@@ -50,11 +72,11 @@ func (s *Indexer) CandidateVotes(candidate address.Address) *big.Int {
 
 // Buckets returns the buckets
 func (s *Indexer) Buckets() ([]*Bucket, error) {
-	return s.cache.Buckets()
+	return s.cache.Buckets(), nil
 }
 
 // Bucket returns the bucket
-func (s *Indexer) Bucket(id uint64) (*Bucket, error) {
+func (s *Indexer) Bucket(id uint64) (*Bucket, bool) {
 	return s.cache.Bucket(id)
 }
 
@@ -64,7 +86,7 @@ func (s *Indexer) BucketsByIndices(indices []uint64) ([]*Bucket, error) {
 }
 
 // BucketsByCandidate returns the buckets by candidate
-func (s *Indexer) BucketsByCandidate(candidate address.Address) ([]*Bucket, error) {
+func (s *Indexer) BucketsByCandidate(candidate address.Address) []*Bucket {
 	return s.cache.BucketsByCandidate(candidate)
 }
 
@@ -81,4 +103,51 @@ func (s *Indexer) BucketTypes() ([]*BucketType, error) {
 		bts = append(bts, bt)
 	}
 	return bts, nil
+}
+
+// PutBlock puts a block into indexer
+func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
+	// new event handler for this block
+	handler := newContractStakingEventHandler(s.cache, blk.Height())
+
+	// handle events of block
+	for _, receipt := range blk.Receipts {
+		if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+			continue
+		}
+		for _, log := range receipt.Logs() {
+			if log.Address != s.contractAddress {
+				continue
+			}
+			if err := handler.HandleEvent(ctx, blk, log); err != nil {
+				return err
+			}
+		}
+	}
+
+	// commit the result
+	return s.commit(handler)
+}
+
+// DeleteTipBlock deletes the tip block from indexer
+func (s *Indexer) DeleteTipBlock(context.Context, *block.Block) error {
+	return errors.New("not implemented")
+}
+
+func (s *Indexer) commit(handler *contractStakingEventHandler) error {
+	batch, delta := handler.Result()
+	if err := s.cache.Merge(delta); err != nil {
+		s.reloadCache()
+		return err
+	}
+	if err := s.kvstore.WriteBatch(batch); err != nil {
+		s.reloadCache()
+		return err
+	}
+	return nil
+}
+
+func (s *Indexer) reloadCache() error {
+	s.cache = newContractStakingCache(s.contractAddress)
+	return s.cache.LoadFromDB(s.kvstore)
 }
