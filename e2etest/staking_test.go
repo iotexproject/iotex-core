@@ -211,6 +211,7 @@ func TestStakingContract(t *testing.T) {
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.BloomfilterIndexDBPath = testBloomfilterIndexPath
 	cfg.Chain.CandidateIndexDBPath = testCandidateIndexPath
+	cfg.Chain.ContractStakingIndexDBPath = testIndexPath
 	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"

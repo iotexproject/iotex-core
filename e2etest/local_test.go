@@ -64,6 +64,7 @@ func TestLocalCommit(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
+	cfg.Chain.ContractStakingIndexDBPath = indexDBPath
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
@@ -327,6 +328,7 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
+	cfg.Chain.ContractStakingIndexDBPath = indexDBPath
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
@@ -386,6 +388,7 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
+	cfg.Chain.ContractStakingIndexDBPath = indexDBPath2
 	defer func() {
 		testutil.CleanupPath(testTriePath2)
 		testutil.CleanupPath(testDBPath2)
@@ -438,12 +441,15 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(err)
 	testIndexPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
+	testContractStakeIndexPath, err := testutil.PathOfTempFile(_dBPath)
+	require.NoError(err)
 	// Disable block reward to make bookkeeping easier
 	cfg := config.Default
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Chain.ContractStakingIndexDBPath = testContractStakeIndexPath
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
@@ -464,6 +470,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(testIndexPath)
+		testutil.CleanupPath(testContractStakeIndexPath)
 	}()
 
 	require.NoError(addTestingTsfBlocks(bc, ap))
@@ -472,6 +479,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(svr.Stop(ctx))
 	// Delete state db and recover to tip
 	testutil.CleanupPath(testTriePath)
+	testutil.CleanupPath(testContractStakeIndexPath)
 
 	require.NoError(cs.Blockchain().Start(ctx))
 	height, _ := cs.StateFactory().Height()
@@ -493,6 +501,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	// Build states from height 1 to 3
 	testutil.CleanupPath(testTriePath)
+	testutil.CleanupPath(testContractStakeIndexPath)
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
 	require.NoError(svr.Start(ctx))
@@ -513,6 +522,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(dao.DeleteBlockToTarget(2))
 	require.NoError(dao.Stop(ctx))
 	testutil.CleanupPath(testTriePath)
+	testutil.CleanupPath(testContractStakeIndexPath)
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
 	// Build states from height 1 to 2

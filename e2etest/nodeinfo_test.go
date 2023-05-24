@@ -10,11 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/stretchr/testify/require"
 )
 
 func newConfigForNodeInfoTest(triePath, dBPath, idxDBPath string) (config.Config, func(), error) {
@@ -39,6 +40,7 @@ func newConfigForNodeInfoTest(triePath, dBPath, idxDBPath string) (config.Config
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
+	cfg.Chain.ContractStakingIndexDBPath = indexDBPath
 	return cfg, func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
