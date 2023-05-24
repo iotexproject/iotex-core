@@ -20,9 +20,9 @@ type (
 		bucketTypeMap         map[uint64]*BucketType      // map[bucketTypeId]BucketType
 		propertyBucketTypeMap map[int64]map[uint64]uint64 // map[amount][duration]index
 		height                uint64
-		totalBucketCount      uint64 // total number of buckets including burned buckets
-		contractAddress       string // contract address for the bucket
-		mutex                 sync.RWMutex
+		totalBucketCount      uint64       // total number of buckets including burned buckets
+		contractAddress       string       // contract address for the bucket
+		mutex                 sync.RWMutex // a RW mutex for the cache to protect concurrent access
 	}
 )
 

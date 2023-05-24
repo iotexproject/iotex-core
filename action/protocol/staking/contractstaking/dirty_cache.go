@@ -51,31 +51,27 @@ func newContractStakingDirty(clean *contractStakingCache) *contractStakingDirty 
 	}
 }
 
-func (dirty *contractStakingDirty) PutHeight(h uint64) {
+func (dirty *contractStakingDirty) putHeight(h uint64) {
 	dirty.batch.Put(_StakingNS, _stakingHeightKey, byteutil.Uint64ToBytesBigEndian(h), "failed to put height")
 	dirty.delta.PutHeight(h)
 }
 
-func (dirty *contractStakingDirty) UpdateBucketType(id uint64, bt *BucketType) error {
-	return dirty.updateBucketType(id, bt)
-}
-
-func (dirty *contractStakingDirty) AddBucketInfo(id uint64, bi *bucketInfo) error {
+func (dirty *contractStakingDirty) addBucketInfo(id uint64, bi *bucketInfo) error {
 	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.Serialize(), "failed to put bucket info")
 	return dirty.delta.AddBucketInfo(id, bi)
 }
 
-func (dirty *contractStakingDirty) UpdateBucketInfo(id uint64, bi *bucketInfo) error {
+func (dirty *contractStakingDirty) updateBucketInfo(id uint64, bi *bucketInfo) error {
 	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.Serialize(), "failed to put bucket info")
 	return dirty.delta.UpdateBucketInfo(id, bi)
 }
 
-func (dirty *contractStakingDirty) DeleteBucketInfo(id uint64) error {
+func (dirty *contractStakingDirty) deleteBucketInfo(id uint64) error {
 	dirty.batch.Delete(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), "failed to delete bucket info")
 	return dirty.delta.DeleteBucketInfo(id)
 }
 
-func (dirty *contractStakingDirty) PutBucketType(bt *BucketType) error {
+func (dirty *contractStakingDirty) putBucketType(bt *BucketType) error {
 	id, _, ok := dirty.matchBucketType(bt.Amount, bt.Duration)
 	if !ok {
 		id = dirty.getBucketTypeCount()
@@ -86,11 +82,7 @@ func (dirty *contractStakingDirty) PutBucketType(bt *BucketType) error {
 	return dirty.updateBucketType(id, bt)
 }
 
-func (dirty *contractStakingDirty) MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
-	return dirty.matchBucketType(amount, duration)
-}
-
-func (dirty *contractStakingDirty) GetBucketType(id uint64) (*BucketType, bool) {
+func (dirty *contractStakingDirty) getBucketType(id uint64) (*BucketType, bool) {
 	bt, state := dirty.delta.GetBucketType(id)
 	switch state {
 	case deltaStateAdded, deltaStateModified:
@@ -100,7 +92,7 @@ func (dirty *contractStakingDirty) GetBucketType(id uint64) (*BucketType, bool) 
 	}
 }
 
-func (dirty *contractStakingDirty) GetBucketInfo(id uint64) (*bucketInfo, bool) {
+func (dirty *contractStakingDirty) getBucketInfo(id uint64) (*bucketInfo, bool) {
 	bi, state := dirty.delta.GetBucketInfo(id)
 	switch state {
 	case deltaStateAdded, deltaStateModified:
@@ -112,7 +104,7 @@ func (dirty *contractStakingDirty) GetBucketInfo(id uint64) (*bucketInfo, bool) 
 	}
 }
 
-func (dirty *contractStakingDirty) Finalize() (batch.KVStoreBatch, *contractStakingDelta) {
+func (dirty *contractStakingDirty) finalize() (batch.KVStoreBatch, *contractStakingDelta) {
 	return dirty.finalizeBatch(), dirty.delta
 }
 

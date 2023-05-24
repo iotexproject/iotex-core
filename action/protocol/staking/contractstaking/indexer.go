@@ -108,12 +108,8 @@ func (s *Indexer) BucketTypes() ([]*BucketType, error) {
 
 // PutBlock puts a block into indexer
 func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
-	// new dirty cache for this block
-	// dirty is the cache to update during event processing, which will be merged to clean cache after all events are processed.
-	// if errors occur during event processing, dirty cache will be discarded.
-	dirty := newContractStakingDirty(s.cache)
-	dirty.PutHeight(blk.Height())
-	handler := newContractStakingEventHandler(dirty)
+	// new event handler for this block
+	handler := newContractStakingEventHandler(s.cache, blk.Height())
 
 	// handle events of block
 	for _, receipt := range blk.Receipts {
@@ -130,8 +126,8 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 	}
 
-	// commit dirty cache
-	return s.commit(dirty)
+	// commit the result
+	return s.commit(handler)
 }
 
 // DeleteTipBlock deletes the tip block from indexer
@@ -139,8 +135,8 @@ func (s *Indexer) DeleteTipBlock(context.Context, *block.Block) error {
 	return errors.New("not implemented")
 }
 
-func (s *Indexer) commit(dirty *contractStakingDirty) error {
-	batch, delta := dirty.Finalize()
+func (s *Indexer) commit(handler *contractStakingEventHandler) error {
+	batch, delta := handler.Result()
 	if err := s.cache.Merge(delta); err != nil {
 		s.reloadCache()
 		return err
