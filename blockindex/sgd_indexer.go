@@ -457,8 +457,8 @@ func (sgd *sgdRegistry) FetchContracts(ctx context.Context) ([]*SGDIndex, error)
 		return nil, err
 	}
 	sgdIndexes := make([]*SGDIndex, 0, len(values))
+	sgdIndexPb := &indexpb.SGDIndex{}
 	for _, v := range values {
-		sgdIndexPb := &indexpb.SGDIndex{}
 		if err := proto.Unmarshal(v, sgdIndexPb); err != nil {
 			return nil, err
 		}
