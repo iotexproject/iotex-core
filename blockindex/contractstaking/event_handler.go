@@ -361,6 +361,7 @@ const (
 	]`
 )
 
+// contractStakingEventHandler handles events from staking contract
 type contractStakingEventHandler struct {
 	dirty      *contractStakingDirty
 	tokenOwner map[uint64]address.Address
