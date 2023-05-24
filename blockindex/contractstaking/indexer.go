@@ -86,8 +86,8 @@ func (s *Indexer) BucketsByIndices(indices []uint64) ([]*Bucket, error) {
 }
 
 // BucketsByCandidate returns the buckets by candidate
-func (s *Indexer) BucketsByCandidate(candidate address.Address) []*Bucket {
-	return s.cache.BucketsByCandidate(candidate)
+func (s *Indexer) BucketsByCandidate(candidate address.Address) ([]*Bucket, error) {
+	return s.cache.BucketsByCandidate(candidate), nil
 }
 
 // TotalBucketCount returns the total bucket count including active and burnt buckets
