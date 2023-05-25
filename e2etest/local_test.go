@@ -60,15 +60,18 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 	indexDBPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
+	contractIndexDBPath, err := testutil.PathOfTempFile(_dBPath)
+	require.NoError(err)
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
-	cfg.Chain.ContractStakingIndexDBPath = indexDBPath
+	cfg.Chain.ContractStakingIndexDBPath = contractIndexDBPath
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(indexDBPath)
+		testutil.CleanupPath(contractIndexDBPath)
 	}()
 
 	// create server
@@ -324,15 +327,18 @@ func TestLocalSync(t *testing.T) {
 	require.NoError(err)
 	indexDBPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
+	contractIndexDBPath, err := testutil.PathOfTempFile(_dBPath)
+	require.NoError(err)
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
-	cfg.Chain.ContractStakingIndexDBPath = indexDBPath
+	cfg.Chain.ContractStakingIndexDBPath = contractIndexDBPath
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(indexDBPath)
+		testutil.CleanupPath(contractIndexDBPath)
 	}()
 
 	// bootnode
@@ -381,6 +387,8 @@ func TestLocalSync(t *testing.T) {
 	require.NoError(err)
 	indexDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
+	contractIndexDBPath2, err := testutil.PathOfTempFile(_dBPath2)
+	require.NoError(err)
 
 	cfg, err = newTestConfig()
 	require.NoError(err)
@@ -388,11 +396,12 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
-	cfg.Chain.ContractStakingIndexDBPath = indexDBPath2
+	cfg.Chain.ContractStakingIndexDBPath = contractIndexDBPath2
 	defer func() {
 		testutil.CleanupPath(testTriePath2)
 		testutil.CleanupPath(testDBPath2)
 		testutil.CleanupPath(indexDBPath2)
+		testutil.CleanupPath(contractIndexDBPath2)
 	}()
 
 	// Create client

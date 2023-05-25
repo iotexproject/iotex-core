@@ -69,6 +69,8 @@ func TestBlockReward(t *testing.T) {
 	r.NoError(err)
 	testConsensusPath, err := testutil.PathOfTempFile("cons")
 	r.NoError(err)
+	testContractIndexPath, err := testutil.PathOfTempFile("contractindex")
+	r.NoError(err)
 
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.RollDPoSScheme
@@ -93,7 +95,7 @@ func TestBlockReward(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.Chain.ContractStakingIndexDBPath = testIndexPath
+	cfg.Chain.ContractStakingIndexDBPath = testContractIndexPath
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.Genesis.PollMode = "lifeLong"
 
@@ -170,13 +172,15 @@ func TestBlockEpochReward(t *testing.T) {
 		dbFilePaths = append(dbFilePaths, trieDBPath)
 		indexDBPath := fmt.Sprintf("./index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, indexDBPath)
+		contractIndexDBPath := fmt.Sprintf("./contractindex%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, contractIndexDBPath)
 		consensusDBPath := fmt.Sprintf("./consensus%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, consensusDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
 		HTTPStatsPort := 8080 + i
 		HTTPAdminPort := 9009 + i
-		cfg := newConfig(chainDBPath, trieDBPath, indexDBPath, identityset.PrivateKey(i),
+		cfg := newConfig(chainDBPath, trieDBPath, indexDBPath, contractIndexDBPath, identityset.PrivateKey(i),
 			networkPort, apiPort, uint64(numNodes))
 		cfg.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
 		if i == 0 {
@@ -580,7 +584,8 @@ func updateExpectationWithPendingClaimList(
 func newConfig(
 	chainDBPath,
 	trieDBPath,
-	indexDBPath string,
+	indexDBPath,
+	contractIndexDBPath string,
 	producerPriKey crypto.PrivateKey,
 	networkPort,
 	apiPort int,
@@ -595,7 +600,7 @@ func newConfig(
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
-	cfg.Chain.ContractStakingIndexDBPath = indexDBPath
+	cfg.Chain.ContractStakingIndexDBPath = contractIndexDBPath
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
 	cfg.Chain.EnableAsyncIndexWrite = false
 
