@@ -1387,7 +1387,8 @@ func TestContractStaking(t *testing.T) {
 		r.EqualValues(10, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 		r.EqualValues(1, indexer.TotalBucketCount())
 		r.EqualValues(contractAddresses, bt.ContractAddress)
-		buckets = indexer.BucketsByCandidate(identityset.Address(delegateIdx))
+		buckets, err = indexer.BucketsByCandidate(identityset.Address(delegateIdx))
+		r.NoError(err)
 		r.Len(buckets, 1)
 		r.EqualValues(bt, buckets[0])
 

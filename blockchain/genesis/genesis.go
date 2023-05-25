@@ -82,6 +82,8 @@ func defaultConfig() Genesis {
 			ProbationEpochPeriod:             6,
 			ProbationIntensityRate:           90,
 			UnproductiveDelegateMaxCacheSize: 20,
+			// TODO (iip-13): replace the following with the address on mainnet
+			LiquidStakingContractAddress: "io1uw3gvmhrjz5mwxpd966wxxt6fn5uuvwfpynrwj",
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),
@@ -275,6 +277,8 @@ type (
 		ProbationIntensityRate uint32 `yaml:"probationIntensityRate"`
 		// UnproductiveDelegateMaxCacheSize is a max cache size of upd which is stored into state DB (probationEpochPeriod <= UnproductiveDelegateMaxCacheSize)
 		UnproductiveDelegateMaxCacheSize uint64 `yaml:unproductiveDelegateMaxCacheSize`
+		// LiquidStakingContractAddress is the address of liquid staking contract
+		LiquidStakingContractAddress string `yaml:"liquidStakingContractAddress"`
 	}
 	// Delegate defines a delegate with address and votes
 	Delegate struct {

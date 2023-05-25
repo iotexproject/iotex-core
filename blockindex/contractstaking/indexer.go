@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/db"
 )
 
@@ -23,6 +24,25 @@ const (
 )
 
 type (
+	// ContractIndexer defines the interface of contract staking reader
+	ContractIndexer interface {
+		blockdao.BlockIndexer
+
+		// CandidateVotes returns the total staked votes of a candidate
+		// candidate identified by owner address
+		CandidateVotes(ownerAddr address.Address) *big.Int
+		// Buckets returns active buckets
+		Buckets() ([]*Bucket, error)
+		// BucketsByIndices returns active buckets by indices
+		BucketsByIndices([]uint64) ([]*Bucket, error)
+		// BucketsByCandidate returns active buckets by candidate
+		BucketsByCandidate(ownerAddr address.Address) ([]*Bucket, error)
+		// TotalBucketCount returns the total number of buckets including burned buckets
+		TotalBucketCount() uint64
+		// BucketTypes returns the active bucket types
+		BucketTypes() ([]*BucketType, error)
+	}
+
 	// Indexer is the contract staking indexer
 	// Main functions:
 	// 		1. handle contract staking contract events when new block comes to generate index data
@@ -86,8 +106,8 @@ func (s *Indexer) BucketsByIndices(indices []uint64) ([]*Bucket, error) {
 }
 
 // BucketsByCandidate returns the buckets by candidate
-func (s *Indexer) BucketsByCandidate(candidate address.Address) []*Bucket {
-	return s.cache.BucketsByCandidate(candidate)
+func (s *Indexer) BucketsByCandidate(candidate address.Address) ([]*Bucket, error) {
+	return s.cache.BucketsByCandidate(candidate), nil
 }
 
 // TotalBucketCount returns the total bucket count including active and burnt buckets
