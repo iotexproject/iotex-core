@@ -411,6 +411,11 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		return "", status.Error(codes.InvalidArgument, err.Error())
 	}
 
+	// system action is only added by proposer when creating a block
+	if action.IsSystemAction(selp) {
+		return "", errors.New("cannot process system action")
+	}
+
 	// reject action if chainID is not matched at KamchatkaHeight
 	if err := core.validateChainID(in.GetCore().GetChainID()); err != nil {
 		return "", err
