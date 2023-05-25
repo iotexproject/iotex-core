@@ -259,8 +259,6 @@ type (
 		StakingContractAddress string `yaml:"stakingContractAddress"`
 		// NativeStakingContractAddress is the address of native staking contract
 		NativeStakingContractAddress string `yaml:"nativeStakingContractAddress"`
-		// LiquidStakingContractAddress is the address of liquid staking contract
-		LiquidStakingContractAddress string `yaml:"liquidStakingContractAddress"`
 		// NativeStakingContractCode is the code of native staking contract
 		NativeStakingContractCode string `yaml:"nativeStakingContractCode"`
 		// ConsortiumCommitteeCode is the code of consortiumCommittee contract
@@ -279,6 +277,8 @@ type (
 		ProbationIntensityRate uint32 `yaml:"probationIntensityRate"`
 		// UnproductiveDelegateMaxCacheSize is a max cache size of upd which is stored into state DB (probationEpochPeriod <= UnproductiveDelegateMaxCacheSize)
 		UnproductiveDelegateMaxCacheSize uint64 `yaml:unproductiveDelegateMaxCacheSize`
+		// LiquidStakingContractAddress is the address of liquid staking contract
+		LiquidStakingContractAddress string `yaml:"liquidStakingContractAddress"`
 	}
 	// Delegate defines a delegate with address and votes
 	Delegate struct {
