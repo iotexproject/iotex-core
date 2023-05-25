@@ -82,6 +82,8 @@ func defaultConfig() Genesis {
 			ProbationEpochPeriod:             6,
 			ProbationIntensityRate:           90,
 			UnproductiveDelegateMaxCacheSize: 20,
+			// TODO (iip-13): replace the following with the address on mainnet
+			LiquidStakingContractAddress: "io1uw3gvmhrjz5mwxpd966wxxt6fn5uuvwfpynrwj",
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),
@@ -110,8 +112,6 @@ func defaultConfig() Genesis {
 			WithdrawWaitingPeriod: 3 * 24 * time.Hour,
 			MinStakeAmount:        unit.ConvertIotxToRau(100).String(),
 			BootstrapCandidates:   []BootstrapCandidate{},
-			// TODO (iip-13): replace the following with the address on mainnet
-			ContractAddress: "io1uw3gvmhrjz5mwxpd966wxxt6fn5uuvwfpynrwj",
 		},
 	}
 }
@@ -259,6 +259,8 @@ type (
 		StakingContractAddress string `yaml:"stakingContractAddress"`
 		// NativeStakingContractAddress is the address of native staking contract
 		NativeStakingContractAddress string `yaml:"nativeStakingContractAddress"`
+		// LiquidStakingContractAddress is the address of liquid staking contract
+		LiquidStakingContractAddress string `yaml:"liquidStakingContractAddress"`
 		// NativeStakingContractCode is the code of native staking contract
 		NativeStakingContractCode string `yaml:"nativeStakingContractCode"`
 		// ConsortiumCommitteeCode is the code of consortiumCommittee contract
@@ -323,7 +325,6 @@ type (
 		WithdrawWaitingPeriod time.Duration        `yaml:"withdrawWaitingPeriod"`
 		MinStakeAmount        string               `yaml:"minStakeAmount"`
 		BootstrapCandidates   []BootstrapCandidate `yaml:"bootstrapCandidates"`
-		ContractAddress       string               `yaml:"contractAddress"`
 	}
 
 	// VoteWeightCalConsts contains the configs for calculating vote weight

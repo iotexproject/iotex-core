@@ -290,11 +290,11 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		return nil
 	}
 	if forTest {
-		builder.cs.contractStakingIndexer = contractstaking.NewContractStakingIndexer(db.NewMemKVStore(), builder.cfg.Genesis.Staking.ContractAddress)
+		builder.cs.contractStakingIndexer = contractstaking.NewDummyContractStakingIndexer()
 	} else {
 		dbConfig := builder.cfg.DB
 		dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
-		builder.cs.contractStakingIndexer = contractstaking.NewContractStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.Staking.ContractAddress)
+		builder.cs.contractStakingIndexer = contractstaking.NewContractStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.LiquidStakingContractAddress)
 	}
 	return nil
 }
