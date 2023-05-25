@@ -416,11 +416,6 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		return "", err
 	}
 
-	// reject web3 rewarding action if isn't activation feature
-	if err := core.validateWeb3Rewarding(selp); err != nil {
-		return "", err
-	}
-
 	// Add to local actpool
 	ctx = protocol.WithRegistry(ctx, core.registry)
 	hash, err := selp.Hash()
@@ -453,7 +448,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	// If there is no error putting into local actpool,
 	// Broadcast it to the network
 	msg := in
-	if ge := core.bc.Genesis(); ge.IsToBeEnabled(core.bc.TipHeight()) {
+	if ge := core.bc.Genesis(); ge.IsQuebec(core.bc.TipHeight()) {
 		err = core.messageBatcher.Put(&batch.Message{
 			ChainID: core.bc.ChainID(),
 			Target:  nil,
@@ -474,23 +469,14 @@ func (core *coreService) PendingNonce(addr address.Address) (uint64, error) {
 }
 
 func (core *coreService) validateChainID(chainID uint32) error {
-	if ge := core.bc.Genesis(); ge.IsMidway(core.bc.TipHeight()) && chainID != core.bc.ChainID() && chainID != 0 {
+	ge := core.bc.Genesis()
+	if ge.IsQuebec(core.bc.TipHeight()) && chainID != core.bc.ChainID() {
+		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
+	}
+	if ge.IsMidway(core.bc.TipHeight()) && chainID != core.bc.ChainID() && chainID != 0 {
 		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
 	}
 	return nil
-}
-
-func (core *coreService) validateWeb3Rewarding(selp action.SealedEnvelope) error {
-	if ge := core.bc.Genesis(); ge.IsPalau(core.bc.TipHeight()) || selp.Encoding() != uint32(iotextypes.Encoding_ETHEREUM_RLP) {
-		return nil
-	}
-	switch selp.Action().(type) {
-	case *action.ClaimFromRewardingFund,
-		*action.DepositToRewardingFund:
-		return status.Error(codes.Unavailable, "Web3 rewarding isn't activation")
-	default:
-		return nil
-	}
 }
 
 // ReadContract reads the state in a contract address specified by the slot

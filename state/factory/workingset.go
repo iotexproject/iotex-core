@@ -148,8 +148,10 @@ func (ws *workingSet) runAction(
 		return nil, action.ErrGasLimit
 	}
 	// Reject execution of chainID not equal the node's chainID
-	if err := validateChainID(ctx, elp.ChainID()); err != nil {
-		return nil, err
+	if !action.IsSystemAction(elp) {
+		if err := validateChainID(ctx, elp.ChainID()); err != nil {
+			return nil, err
+		}
 	}
 	// Handle action
 	reg, ok := protocol.GetRegistry(ctx)
@@ -180,6 +182,9 @@ func (ws *workingSet) runAction(
 func validateChainID(ctx context.Context, chainID uint32) error {
 	blkChainCtx := protocol.MustGetBlockchainCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.AllowCorrectChainIDOnly && chainID != blkChainCtx.ChainID {
+		return errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, chainID)
+	}
 	if featureCtx.AllowCorrectDefaultChainID && (chainID != blkChainCtx.ChainID && chainID != 0) {
 		return errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, chainID)
 	}

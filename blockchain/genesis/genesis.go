@@ -70,6 +70,7 @@ func defaultConfig() Genesis {
 			NewfoundlandBlockHeight: 17662681,
 			OkhotskBlockHeight:      21542761,
 			PalauBlockHeight:        22991401,
+			QuebecBlockHeight:       32991401,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
@@ -232,6 +233,11 @@ type (
 		// 1. enable rewarding action via web3
 		// 2. broadcast node info into the p2p network
 		PalauBlockHeight uint64 `yaml:"palauHeight"`
+		// QuebecBlockHeight is the start height to
+		// 1. enforce using correct chainID only
+		// 2. enable IIP-13 liquidity staking
+		// 3. valiate system action layout
+		QuebecBlockHeight uint64 `yaml:"quebecHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -552,6 +558,11 @@ func (g *Blockchain) IsOkhotsk(height uint64) bool {
 // IsPalau checks whether height is equal to or larger than palau height
 func (g *Blockchain) IsPalau(height uint64) bool {
 	return g.isPost(g.PalauBlockHeight, height)
+}
+
+// IsQuebec checks whether height is equal to or larger than quebec height
+func (g *Blockchain) IsQuebec(height uint64) bool {
+	return g.isPost(g.QuebecBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height

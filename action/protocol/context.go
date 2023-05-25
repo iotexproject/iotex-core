@@ -111,6 +111,7 @@ type (
 		CorrectGasRefund                        bool
 		SkipSystemActionNonce                   bool
 		ValidateSystemAction                    bool
+		AllowCorrectChainIDOnly                 bool
 		AddContractStakingVotes                 bool
 		SharedGasWithDapp                       bool
 	}
@@ -248,8 +249,9 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixUnproductiveDelegates:                g.IsOkhotsk(height),
 			CorrectGasRefund:                        g.IsOkhotsk(height),
 			SkipSystemActionNonce:                   g.IsPalau(height),
-			ValidateSystemAction:                    g.IsToBeEnabled(height),
-			AddContractStakingVotes:                 g.IsToBeEnabled(height),
+			ValidateSystemAction:                    g.IsQuebec(height),
+			AllowCorrectChainIDOnly:                 g.IsQuebec(height),
+			AddContractStakingVotes:                 g.IsQuebec(height),
 			SharedGasWithDapp:                       g.IsToBeEnabled(height),
 		},
 	)
