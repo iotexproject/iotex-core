@@ -65,7 +65,7 @@ func initMockStateManager(ctrl *gomock.Controller) (*mock_chainmanager.MockState
 			return 0, nil
 		}).AnyTimes()
 	sm.EXPECT().DelState(gomock.Any()).DoAndReturn(
-		func(s interface{}, opts ...protocol.StateOption) (uint64, error) {
+		func(opts ...protocol.StateOption) (uint64, error) {
 			cfg, err := protocol.CreateStateConfig(opts...)
 			if err != nil {
 				return 0, err

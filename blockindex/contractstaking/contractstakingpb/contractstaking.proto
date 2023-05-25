@@ -9,12 +9,6 @@ syntax = "proto3";
 package contractstakingpb;
 option go_package = "github.com/iotexproject/iotex-core/blockindex/contractstaking/contractstakingpb";
 
-message BucketType {
-    string amount = 1;
-    uint64 duration = 2;
-    uint64 activatedAt = 3;
-}
-
 message BucketInfo {
     uint64 typeIndex = 1;
     uint64 createdAt = 2;
