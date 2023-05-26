@@ -133,7 +133,7 @@ func TestStakingStateReader(t *testing.T) {
 		rolldposProto := rolldpos.NewProtocol(10, 10, 10)
 		rolldposProto.Register(reg)
 		g := genesis.Default
-		g.ToBeEnabledBlockHeight = 0
+		g.QuebecBlockHeight = 1
 		ctx := genesis.WithGenesisContext(context.Background(), g)
 		ctx = protocol.WithRegistry(ctx, reg)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1000})

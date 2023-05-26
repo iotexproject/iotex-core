@@ -626,22 +626,29 @@ func TestEnforceChainID(t *testing.T) {
 
 	testCase := []struct {
 		chainID uint32
+		nonce   uint64
 		success bool
 	}{
 		{
-			1, true, // tx chainID = node chainID, height < KamchatkaHeight
+			1, 1, true, // tx chainID = node chainID, height < KamchatkaHeight
 		},
 		{
-			2, true, // tx chainID != node chainID, height < KamchatkaHeight
+			2, 2, true, // tx chainID != node chainID, height < KamchatkaHeight
 		},
 		{
-			1, true, // tx chainID = node chainID, height = KamchatkaHeight
+			1, 3, true, // tx chainID = node chainID, height = KamchatkaHeight
 		},
 		{
-			1, true, // tx chainID = node chainID, height > KamchatkaHeight
+			1, 4, true, // tx chainID = node chainID, height > KamchatkaHeight
 		},
 		{
-			2, false, // tx chainID != node chainID, height > KamchatkaHeight
+			2, 5, false, // tx chainID != node chainID, height > KamchatkaHeight
+		},
+		{
+			0, 5, true, // tx chainID = 0, height < QuebecHeight, OK
+		},
+		{
+			0, 6, false, // tx chainID = 0, height = QuebecHeight, reject
 		},
 	}
 
@@ -649,6 +656,7 @@ func TestEnforceChainID(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.MidwayBlockHeight = 3
+	cfg.Genesis.QuebecBlockHeight = 7
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
@@ -682,7 +690,7 @@ func TestEnforceChainID(t *testing.T) {
 		bd := &action.EnvelopeBuilder{}
 		elp1 := bd.SetAction(tsf).
 			SetChainID(c.chainID).
-			SetNonce(uint64(i) + 1).
+			SetNonce(c.nonce).
 			SetGasLimit(100000).
 			SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).Build()
 		selp, err := action.Sign(elp1, identityset.PrivateKey(0))
