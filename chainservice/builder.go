@@ -294,7 +294,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 	} else {
 		dbConfig := builder.cfg.DB
 		dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
-		builder.cs.contractStakingIndexer = contractstaking.NewContractStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.LiquidStakingContractAddress)
+		builder.cs.contractStakingIndexer = contractstaking.NewContractStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.SystemStakingContractAddress, builder.cfg.Genesis.SystemStakingContractHeight)
 	}
 	return nil
 }

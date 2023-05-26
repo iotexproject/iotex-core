@@ -51,11 +51,12 @@ type (
 		kvstore         db.KVStore            // persistent storage, used to initialize index cache at startup
 		cache           *contractStakingCache // in-memory index for clean data, used to query index data
 		contractAddress string                // stake contract address
+		contractHeight  uint64                // height of the contract deployment
 	}
 )
 
 // NewContractStakingIndexer creates a new contract staking indexer
-func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string) *Indexer {
+func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string, contractHeight uint64) *Indexer {
 	return &Indexer{
 		kvstore:         kvStore,
 		cache:           newContractStakingCache(contractAddr),
@@ -83,6 +84,11 @@ func (s *Indexer) Stop(ctx context.Context) error {
 // Height returns the tip block height
 func (s *Indexer) Height() (uint64, error) {
 	return s.cache.Height(), nil
+}
+
+// StartHeight returns the start height of the indexer
+func (s *Indexer) StartHeight() uint64 {
+	return s.contractHeight
 }
 
 // CandidateVotes returns the candidate votes
@@ -127,6 +133,9 @@ func (s *Indexer) BucketTypes() ([]*BucketType, error) {
 
 // PutBlock puts a block into indexer
 func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
+	if blk.Height() < s.contractHeight {
+		return nil
+	}
 	// new event handler for this block
 	handler := newContractStakingEventHandler(s.cache, blk.Height())
 
