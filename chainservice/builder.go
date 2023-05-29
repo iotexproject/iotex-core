@@ -261,8 +261,6 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.contractStakingIndexer != nil {
 		indexers = append(indexers, builder.cs.contractStakingIndexer)
 	}
-	startGroupIndexer := blockdao.NewBlockIndexerWithStartGroup()
-	indexers = append(indexers, startGroupIndexer)
 
 	if forTest {
 		builder.cs.blockdao = blockdao.NewBlockDAOInMemForTest(indexers)
@@ -273,11 +271,6 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		builder.cs.blockdao = blockdao.NewBlockDAO(indexers, dbConfig, deser)
 	}
 
-	// Set max valid height before start group indexer
-	dao := builder.cs.blockdao
-	startGroupIndexer.SetTipHeightFunc(func() (uint64, error) {
-		return dao.Height()
-	})
 	return nil
 }
 
