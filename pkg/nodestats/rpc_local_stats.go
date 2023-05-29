@@ -10,31 +10,23 @@ import (
 var _ IRPCLocalStats = (*RPCLocalStats)(nil)
 
 type RPCLocalStats struct {
-	allTimeStats *generic.Map[string, *MethodStats]
-	currentStats *generic.Map[string, *MethodStats]
+	allTimeStats *generic.Map[string, *rpcMethodStats]
+	currentStats *generic.Map[string, *rpcMethodStats]
 }
 
 func NewRPCLocalStats() *RPCLocalStats {
 	return &RPCLocalStats{
-		allTimeStats: generic.NewMap[string, *MethodStats](),
-		currentStats: generic.NewMap[string, *MethodStats](),
+		allTimeStats: generic.NewMap[string, *rpcMethodStats](),
+		currentStats: generic.NewMap[string, *rpcMethodStats](),
 	}
-}
-
-func (s *RPCLocalStats) GetMethodStats(methodName string) *MethodStats {
-	stats, ok := s.allTimeStats.Load(methodName)
-	if !ok {
-		stats = &MethodStats{}
-	}
-	return stats
 }
 
 func (s *RPCLocalStats) ReportCall(report RpcReport, size int64) {
 	if report.Method == "" {
 		return
 	}
-	methodStats, _ := s.currentStats.LoadOrStore(report.Method, &MethodStats{})
-	allTimeMethodStats, _ := s.allTimeStats.LoadOrStore(report.Method, &MethodStats{})
+	methodStats, _ := s.currentStats.LoadOrStore(report.Method, &rpcMethodStats{})
+	allTimeMethodStats, _ := s.allTimeStats.LoadOrStore(report.Method, &rpcMethodStats{})
 	reportHandlingTimeMicroseconds := report.HandlingTime.Microseconds()
 	if report.Success {
 		methodStats.Successes++
@@ -90,8 +82,8 @@ func (s *RPCLocalStats) BuildReport() string {
 	stringBuilder.WriteString(divider + "\n")
 	stringBuilder.WriteString(reportHeader + "\n")
 	stringBuilder.WriteString(divider + "\n")
-	total := &MethodStats{}
-	snapshot.Range(func(key string, value *MethodStats) bool {
+	total := &rpcMethodStats{}
+	snapshot.Range(func(key string, value *rpcMethodStats) bool {
 		if total.Successes+value.Successes > 0 {
 			total.AvgTimeOfSuccesses = (total.AvgTimeOfSuccesses*int64(total.Successes) + int64(value.Successes)*value.AvgTimeOfSuccesses) / int64(total.Successes+value.Successes)
 		} else {
@@ -121,7 +113,7 @@ func (s *RPCLocalStats) BuildReport() string {
 
 }
 
-func (s *RPCLocalStats) prepareReportLine(method string, stats *MethodStats) string {
+func (s *RPCLocalStats) prepareReportLine(method string, stats *rpcMethodStats) string {
 	return fmt.Sprintf("%-40s| %9d | %14d | %14d | %9d | %14d | %14d | %8s | %10s |",
 		method,
 		stats.Successes,
@@ -147,4 +139,18 @@ func byteCountSI(b int64) string {
 	}
 	return fmt.Sprintf("%.1f %cB",
 		float64(b)/float64(div), "kMGTPE"[exp])
+}
+
+func byteCountIEC(b uint64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB",
+		float64(b)/float64(div), "KMGTPE"[exp])
 }

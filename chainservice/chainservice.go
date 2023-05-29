@@ -36,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/nodestats"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -89,6 +90,7 @@ type ChainService struct {
 	contractStakingIndexer contractstaking.ContractIndexer
 	registry               *protocol.Registry
 	nodeInfoManager        *nodeinfo.InfoManager
+	rpcStats               nodestats.IRPCLocalStats
 }
 
 // Start starts the server
@@ -231,6 +233,7 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 			return p2pAgent.BroadcastOutbound(ctx, msg)
 		}),
 		api.WithNativeElection(cs.electionCommittee),
+		api.WithRPCStats(cs.rpcStats),
 	}
 
 	svr, err := api.NewServerV2(

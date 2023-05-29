@@ -14,6 +14,7 @@ import (
 
 type nodeStats struct {
 	rpc       IRPCLocalStats
+	system    SytemStats
 	blocksync blocksync.BlockSync
 	p2pAgent  p2p.Agent
 	task      *routine.RecurringTask
@@ -24,6 +25,7 @@ func NewNodeStats(rpc IRPCLocalStats, bs blocksync.BlockSync, p2pAgent p2p.Agent
 		rpc:       rpc,
 		blocksync: bs,
 		p2pAgent:  p2pAgent,
+		system:    newSystemStats(),
 	}
 }
 
@@ -40,6 +42,10 @@ func (s *nodeStats) generateReport() {
 	stringBuilder := strings.Builder{}
 	stringBuilder.WriteString(s.rpc.BuildReport())
 	stringBuilder.WriteString("\n")
+
+	stringBuilder.WriteString(s.system.BuildReport())
+	stringBuilder.WriteString("\n")
+
 	startingHeight, currentHeight, targetHeight, statusString := s.blocksync.SyncStatus()
 	stringBuilder.WriteString("BlockSync: ")
 	stringBuilder.WriteString(statusString)
@@ -59,13 +65,3 @@ func (s *nodeStats) generateReport() {
 	}
 	fmt.Println(stringBuilder.String())
 }
-
-// Web3Track is a helper function to track web3 calls.
-// func Web3Track(ctx context.Context, start time.Time, method string, size int64, success bool) {
-// 	elapsed := time.Since(start)
-// 	_global.rpc.ReportCall(RpcReport{
-// 		Method:       method,
-// 		HandlingTime: elapsed,
-// 		Success:      success,
-// 	}, size)
-// }

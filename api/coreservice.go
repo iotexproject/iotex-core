@@ -54,6 +54,7 @@ import (
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	batch "github.com/iotexproject/iotex-core/pkg/messagebatcher"
+	"github.com/iotexproject/iotex-core/pkg/nodestats"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
@@ -156,6 +157,9 @@ type (
 			gasLimit uint64,
 			data []byte,
 			config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error)
+
+		// Track adds a track record for the given method
+		Track(ctx context.Context, start time.Time, method string, size int64, success bool)
 	}
 
 	// coreService implements the CoreService interface
@@ -175,6 +179,7 @@ type (
 		electionCommittee committee.Committee
 		readCache         *ReadCache
 		messageBatcher    *batch.Manager
+		rpcStats          nodestats.IRPCLocalStats
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -201,6 +206,13 @@ func WithBroadcastOutbound(broadcastHandler BroadcastOutbound) Option {
 func WithNativeElection(committee committee.Committee) Option {
 	return func(svr *coreService) {
 		svr.electionCommittee = committee
+	}
+}
+
+// WithRPCStats is the option to return RPC stats through API.
+func WithRPCStats(stats nodestats.IRPCLocalStats) Option {
+	return func(svr *coreService) {
+		svr.rpcStats = stats
 	}
 }
 
@@ -1719,4 +1731,14 @@ func (core *coreService) TraceCall(ctx context.Context,
 	}
 	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, exec, getblockHash)
 	return retval, receipt, traces, err
+}
+
+// Track
+func (core *coreService) Track(ctx context.Context, start time.Time, method string, size int64, success bool) {
+	elapsed := time.Since(start)
+	core.rpcStats.ReportCall(nodestats.RpcReport{
+		Method:       method,
+		HandlingTime: elapsed,
+		Success:      success,
+	}, size)
 }
