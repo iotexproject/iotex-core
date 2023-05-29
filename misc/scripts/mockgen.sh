@@ -160,3 +160,16 @@ mockgen -destination=./action/protocol/staking/contractstake_indexer_mock.go  \
         -package=staking \
         ContractStakingIndexer
 
+mkdir -p ./blockchain/blockdao/mock
+mockgen -destination=./blockchain/blockdao/mock/blockindexer_mock.go  \
+        -package=mock \
+        github.com/iotexproject/iotex-core/blockchain/blockdao \
+        BlockIndexer
+mockgen -destination=./blockchain/blockdao/mock/blockindexer_withstart_mock.go  \
+        -package=mock \
+        github.com/iotexproject/iotex-core/blockchain/blockdao \
+        BlockIndexerWithStart
+mockgen -destination=./blockchain/blockdao/mock/blockdao_mock.go  \
+        -package=mock \
+        github.com/iotexproject/iotex-core/blockchain/blockdao \
+        BlockDAO
