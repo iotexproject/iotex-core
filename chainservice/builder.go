@@ -261,7 +261,6 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.contractStakingIndexer != nil {
 		indexers = append(indexers, builder.cs.contractStakingIndexer)
 	}
-
 	if forTest {
 		builder.cs.blockdao = blockdao.NewBlockDAOInMemForTest(indexers)
 	} else {
