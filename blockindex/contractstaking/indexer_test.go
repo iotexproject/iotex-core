@@ -353,7 +353,7 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 
 func BenchmarkIndexer_PutBlockBeforeContractHeight(b *testing.B) {
 	// Create a new Indexer with a contract height of 100
-	indexer := &Indexer{contractHeight: 100}
+	indexer := &Indexer{contractDeployHeight: 100}
 
 	// Create a mock block with a height of 50
 	blk := &block.Block{}

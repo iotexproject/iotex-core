@@ -48,19 +48,20 @@ type (
 	// 		1. handle contract staking contract events when new block comes to generate index data
 	// 		2. provide query interface for contract staking index data
 	Indexer struct {
-		kvstore         db.KVStore            // persistent storage, used to initialize index cache at startup
-		cache           *contractStakingCache // in-memory index for clean data, used to query index data
-		contractAddress string                // stake contract address
-		contractHeight  uint64                // height of the contract deployment
+		kvstore              db.KVStore            // persistent storage, used to initialize index cache at startup
+		cache                *contractStakingCache // in-memory index for clean data, used to query index data
+		contractAddress      string                // stake contract address
+		contractDeployHeight uint64                // height of the contract deployment
 	}
 )
 
 // NewContractStakingIndexer creates a new contract staking indexer
-func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string, contractHeight uint64) *Indexer {
+func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string, contractDeployHeight uint64) *Indexer {
 	return &Indexer{
-		kvstore:         kvStore,
-		cache:           newContractStakingCache(contractAddr),
-		contractAddress: contractAddr,
+		kvstore:              kvStore,
+		cache:                newContractStakingCache(contractAddr),
+		contractAddress:      contractAddr,
+		contractDeployHeight: contractDeployHeight,
 	}
 }
 
@@ -88,7 +89,7 @@ func (s *Indexer) Height() (uint64, error) {
 
 // StartHeight returns the start height of the indexer
 func (s *Indexer) StartHeight() uint64 {
-	return s.contractHeight
+	return s.contractDeployHeight
 }
 
 // CandidateVotes returns the candidate votes
@@ -133,7 +134,7 @@ func (s *Indexer) BucketTypes() ([]*BucketType, error) {
 
 // PutBlock puts a block into indexer
 func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
-	if blk.Height() < s.contractHeight {
+	if blk.Height() < s.contractDeployHeight {
 		return nil
 	}
 	// new event handler for this block
