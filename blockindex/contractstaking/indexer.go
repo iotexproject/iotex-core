@@ -26,7 +26,7 @@ const (
 type (
 	// ContractIndexer defines the interface of contract staking reader
 	ContractIndexer interface {
-		blockdao.BlockIndexer
+		blockdao.BlockIndexerWithStart
 
 		// CandidateVotes returns the total staked votes of a candidate
 		// candidate identified by owner address

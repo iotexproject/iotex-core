@@ -35,6 +35,11 @@ func (d *dummyContractStakingIndexer) Stop(ctx context.Context) error {
 	return nil
 }
 
+// StartHeight returns the start height of the indexer
+func (d *dummyContractStakingIndexer) StartHeight() uint64 {
+	return 0
+}
+
 // Height returns the height of the indexer
 func (d *dummyContractStakingIndexer) Height() (uint64, error) {
 	return 0, nil
