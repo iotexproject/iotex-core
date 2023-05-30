@@ -279,8 +279,8 @@ func (sgd *sgdRegistry) Height() (uint64, error) {
 }
 
 // StartHeight returns the start height of the indexer
-func (s *sgdRegistry) StartHeight() uint64 {
-	return s.startHeight
+func (sgd *sgdRegistry) StartHeight() uint64 {
+	return sgd.startHeight
 }
 
 // PutBlock puts a block into SGDIndexer
