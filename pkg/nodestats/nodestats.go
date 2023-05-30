@@ -20,6 +20,7 @@ type nodeStats struct {
 	task      *routine.RecurringTask
 }
 
+// NewNodeStats creates a new NodeStats
 func NewNodeStats(rpc IRPCLocalStats, bs blocksync.BlockSync, p2pAgent p2p.Agent) NodeStats {
 	return &nodeStats{
 		rpc:       rpc,
@@ -29,11 +30,13 @@ func NewNodeStats(rpc IRPCLocalStats, bs blocksync.BlockSync, p2pAgent p2p.Agent
 	}
 }
 
+// Start starts the node stats
 func (s *nodeStats) Start(ctx context.Context) error {
 	s.task = routine.NewRecurringTask(s.generateReport, time.Second*10)
 	return s.task.Start(ctx)
 }
 
+// Stop stops the node stats
 func (s *nodeStats) Stop(ctx context.Context) error {
 	return s.task.Stop(ctx)
 }

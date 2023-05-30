@@ -9,11 +9,13 @@ import (
 
 var _ IRPCLocalStats = (*RPCLocalStats)(nil)
 
+// RPCLocalStats is the struct for getting RPC stats
 type RPCLocalStats struct {
 	allTimeStats *generic.Map[string, *rpcMethodStats]
 	currentStats *generic.Map[string, *rpcMethodStats]
 }
 
+// NewRPCLocalStats creates a new RPCLocalStats
 func NewRPCLocalStats() *RPCLocalStats {
 	return &RPCLocalStats{
 		allTimeStats: generic.NewMap[string, *rpcMethodStats](),
@@ -21,6 +23,7 @@ func NewRPCLocalStats() *RPCLocalStats {
 	}
 }
 
+// ReportCall reports a call to the RPC
 func (s *RPCLocalStats) ReportCall(report RpcReport, size int64) {
 	if report.Method == "" {
 		return
@@ -60,6 +63,7 @@ func (s *RPCLocalStats) ReportCall(report RpcReport, size int64) {
 	s.allTimeStats.Store(report.Method, allTimeMethodStats)
 }
 
+// BuildReport builds a report of the RPC stats
 func (s *RPCLocalStats) BuildReport() string {
 	snapshot := s.currentStats.Clone()
 	defer s.currentStats.Clear()
