@@ -18,9 +18,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao/mock"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
 )
 
 func TestCheckIndexer(t *testing.T) {
@@ -45,9 +45,9 @@ func TestCheckIndexer(t *testing.T) {
 			require := require.New(t)
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockDao := mock.NewMockBlockDAO(ctrl)
+			mockDao := mock_blockdao.NewMockBlockDAO(ctrl)
 			checker := NewBlockIndexerChecker(mockDao)
-			indexer := mock.NewMockBlockIndexer(ctrl)
+			indexer := mock_blockdao.NewMockBlockIndexer(ctrl)
 
 			putBlocks := make([]*block.Block, 0)
 			mockDao.EXPECT().Height().Return(c.daoHeight, nil).Times(1)
@@ -105,9 +105,9 @@ func TestCheckIndexerWithStart(t *testing.T) {
 			require := require.New(t)
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockDao := mock.NewMockBlockDAO(ctrl)
+			mockDao := mock_blockdao.NewMockBlockDAO(ctrl)
 			checker := NewBlockIndexerChecker(mockDao)
-			indexer := mock.NewMockBlockIndexerWithStart(ctrl)
+			indexer := mock_blockdao.NewMockBlockIndexerWithStart(ctrl)
 
 			putBlocks := make([]*block.Block, 0)
 			mockDao.EXPECT().Height().Return(c.daoHeight, nil).Times(1)
