@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/db"
 )
 
@@ -23,23 +24,44 @@ const (
 )
 
 type (
+	// ContractIndexer defines the interface of contract staking reader
+	ContractIndexer interface {
+		blockdao.BlockIndexerWithStart
+
+		// CandidateVotes returns the total staked votes of a candidate
+		// candidate identified by owner address
+		CandidateVotes(ownerAddr address.Address) *big.Int
+		// Buckets returns active buckets
+		Buckets() ([]*Bucket, error)
+		// BucketsByIndices returns active buckets by indices
+		BucketsByIndices([]uint64) ([]*Bucket, error)
+		// BucketsByCandidate returns active buckets by candidate
+		BucketsByCandidate(ownerAddr address.Address) ([]*Bucket, error)
+		// TotalBucketCount returns the total number of buckets including burned buckets
+		TotalBucketCount() uint64
+		// BucketTypes returns the active bucket types
+		BucketTypes() ([]*BucketType, error)
+	}
+
 	// Indexer is the contract staking indexer
 	// Main functions:
 	// 		1. handle contract staking contract events when new block comes to generate index data
 	// 		2. provide query interface for contract staking index data
 	Indexer struct {
-		kvstore         db.KVStore            // persistent storage, used to initialize index cache at startup
-		cache           *contractStakingCache // in-memory index for clean data, used to query index data
-		contractAddress string                // stake contract address
+		kvstore              db.KVStore            // persistent storage, used to initialize index cache at startup
+		cache                *contractStakingCache // in-memory index for clean data, used to query index data
+		contractAddress      string                // stake contract address
+		contractDeployHeight uint64                // height of the contract deployment
 	}
 )
 
 // NewContractStakingIndexer creates a new contract staking indexer
-func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string) *Indexer {
+func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string, contractDeployHeight uint64) *Indexer {
 	return &Indexer{
-		kvstore:         kvStore,
-		cache:           newContractStakingCache(contractAddr),
-		contractAddress: contractAddr,
+		kvstore:              kvStore,
+		cache:                newContractStakingCache(contractAddr),
+		contractAddress:      contractAddr,
+		contractDeployHeight: contractDeployHeight,
 	}
 }
 
@@ -65,6 +87,11 @@ func (s *Indexer) Height() (uint64, error) {
 	return s.cache.Height(), nil
 }
 
+// StartHeight returns the start height of the indexer
+func (s *Indexer) StartHeight() uint64 {
+	return s.contractDeployHeight
+}
+
 // CandidateVotes returns the candidate votes
 func (s *Indexer) CandidateVotes(candidate address.Address) *big.Int {
 	return s.cache.CandidateVotes(candidate)
@@ -86,8 +113,8 @@ func (s *Indexer) BucketsByIndices(indices []uint64) ([]*Bucket, error) {
 }
 
 // BucketsByCandidate returns the buckets by candidate
-func (s *Indexer) BucketsByCandidate(candidate address.Address) []*Bucket {
-	return s.cache.BucketsByCandidate(candidate)
+func (s *Indexer) BucketsByCandidate(candidate address.Address) ([]*Bucket, error) {
+	return s.cache.BucketsByCandidate(candidate), nil
 }
 
 // TotalBucketCount returns the total bucket count including active and burnt buckets
@@ -107,6 +134,9 @@ func (s *Indexer) BucketTypes() ([]*BucketType, error) {
 
 // PutBlock puts a block into indexer
 func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
+	if blk.Height() < s.contractDeployHeight {
+		return nil
+	}
 	// new event handler for this block
 	handler := newContractStakingEventHandler(s.cache, blk.Height())
 

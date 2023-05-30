@@ -12,11 +12,11 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 
-	"github.com/iotexproject/iotex-address/address"
-
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -34,7 +34,7 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress)
+	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
 	r.NoError(indexer.Start(context.Background()))
 
 	// create a stake
@@ -51,7 +51,7 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	r.NoError(indexer.Stop(context.Background()))
 
 	// load cache from db
-	newIndexer := NewContractStakingIndexer(db.NewBoltDB(cfg), _testStakingContractAddress)
+	newIndexer := NewContractStakingIndexer(db.NewBoltDB(cfg), _testStakingContractAddress, 0)
 	r.NoError(newIndexer.Start(context.Background()))
 
 	// check cache
@@ -76,7 +76,7 @@ func TestContractStakingIndexerDirty(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress)
+	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
 	r.NoError(indexer.Start(context.Background()))
 
 	// before commit dirty, the cache should be empty
@@ -103,7 +103,7 @@ func TestContractStakingIndexerThreadSafe(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress)
+	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
 	r.NoError(indexer.Start(context.Background()))
 
 	wait := sync.WaitGroup{}
@@ -119,7 +119,8 @@ func TestContractStakingIndexerThreadSafe(t *testing.T) {
 				r.NoError(err)
 				_, err = indexer.BucketTypes()
 				r.NoError(err)
-				_ = indexer.BucketsByCandidate(delegate)
+				_, err = indexer.BucketsByCandidate(delegate)
+				r.NoError(err)
 				indexer.CandidateVotes(delegate)
 				_, err = indexer.Height()
 				r.NoError(err)
@@ -155,7 +156,7 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress)
+	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
 	r.NoError(indexer.Start(context.Background()))
 
 	// activate
@@ -237,7 +238,7 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress)
+	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
 	r.NoError(indexer.Start(context.Background()))
 
 	// init bucket type
@@ -348,6 +349,23 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.False(ok)
 	r.EqualValues(0, indexer.CandidateVotes(delegate).Uint64())
 	r.EqualValues(1, indexer.TotalBucketCount())
+}
+
+func BenchmarkIndexer_PutBlockBeforeContractHeight(b *testing.B) {
+	// Create a new Indexer with a contract height of 100
+	indexer := &Indexer{contractDeployHeight: 100}
+
+	// Create a mock block with a height of 50
+	blk := &block.Block{}
+
+	// Run the benchmark
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err := indexer.PutBlock(context.Background(), blk)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
 }
 
 func activateBucketType(r *require.Assertions, handler *contractStakingEventHandler, amount, duration int64, height uint64) {
