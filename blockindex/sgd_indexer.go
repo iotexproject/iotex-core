@@ -289,6 +289,9 @@ func (sgd *sgdRegistry) PutBlock(ctx context.Context, blk *block.Block) error {
 		r  *action.Receipt
 		ok bool
 	)
+	if blk.Height() < sgd.startHeight {
+		return nil
+	}
 	b := batch.NewBatch()
 	receipts := getReceiptsFromBlock(blk)
 	for _, selp := range blk.Actions {
