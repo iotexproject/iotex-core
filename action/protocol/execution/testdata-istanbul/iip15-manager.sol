@@ -15,7 +15,7 @@ contract IIP15Manager is Ownable {
 
     event ContractRegistered(address contractAddress, address recipient);
     event ContractApproved(address contractAddress);
-    event ContractUnapproved(address contractAddress);
+    event ContractDisapproved(address contractAddress);
     event ContractRemoved(address contractAddress);
 
     function registerContract(address _contractAddress, address _recipient) public {
@@ -39,7 +39,7 @@ contract IIP15Manager is Ownable {
         require(contractInfo.recipient != address(0), "Contract is not registered");
         require(contractInfo.isApproved, "Contract is not approved");
         contractInfo.isApproved = false;
-        emit ContractUnapproved(_contractAddress);
+        emit ContractDisapproved(_contractAddress);
     }
 
     function removeContract(address _contractAddress) public onlyOwner {

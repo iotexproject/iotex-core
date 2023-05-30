@@ -32,6 +32,7 @@ type (
 		BloomfilterIndexDBPath     string           `yaml:"bloomfilterIndexDBPath"`
 		CandidateIndexDBPath       string           `yaml:"candidateIndexDBPath"`
 		StakingIndexDBPath         string           `yaml:"stakingIndexDBPath"`
+		SGDIndexDBPath             string           `yaml:"sgdIndexDBPath"`
 		ContractStakingIndexDBPath string           `yaml:"contractStakingIndexDBPath"`
 		ID                         uint32           `yaml:"id"`
 		EVMNetworkID               uint32           `yaml:"evmNetworkID"`
@@ -84,6 +85,7 @@ var (
 		BloomfilterIndexDBPath:     "/var/data/bloomfilter.index.db",
 		CandidateIndexDBPath:       "/var/data/candidate.index.db",
 		StakingIndexDBPath:         "/var/data/staking.index.db",
+		SGDIndexDBPath:             "/var/data/sgd.index.db",
 		ContractStakingIndexDBPath: "/var/data/contractstaking.index.db",
 		ID:                         1,
 		EVMNetworkID:               4689,
