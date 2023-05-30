@@ -8,7 +8,7 @@ import (
 	"github.com/mackerelio/go-osstat/memory"
 )
 
-// APIReport is the report of an RPC call
+// APIReport is the report of an API call
 type APIReport struct {
 	Method       string
 	HandlingTime time.Duration
@@ -25,7 +25,7 @@ type apiMethodStats struct {
 	TotalSize          int64
 }
 
-// AvgSize returns the average size of the rpc call
+// AvgSize returns the average size of the api call
 func (m *apiMethodStats) AvgSize() int64 {
 	if m.Successes+m.Errors == 0 {
 		return 0
