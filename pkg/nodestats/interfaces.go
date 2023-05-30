@@ -44,6 +44,7 @@ type NodeStats interface {
 	lifecycle.StartStopper
 }
 
+// DiskStatus is the status of the disk
 type DiskStatus struct {
 	All  uint64 `json:"All"`
 	Used uint64 `json:"Used"`
