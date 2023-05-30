@@ -1722,6 +1722,9 @@ func (core *coreService) TraceCall(ctx context.Context,
 // Track
 func (core *coreService) Track(ctx context.Context, start time.Time, method string, size int64, success bool) {
 	elapsed := time.Since(start)
+	if core.rpcStats == nil {
+		return
+	}
 	core.rpcStats.ReportCall(nodestats.APIReport{
 		Method:       method,
 		HandlingTime: elapsed,
