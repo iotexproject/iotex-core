@@ -28,6 +28,13 @@ type (
 		DeleteTipBlock(context.Context, *block.Block) error
 	}
 
+	// BlockIndexerWithStart defines an interface to accept block to build index from a start height
+	BlockIndexerWithStart interface {
+		BlockIndexer
+		// StartHeight returns the start height of the indexer
+		StartHeight() uint64
+	}
+
 	// BlockIndexerChecker defines a checker of block indexer
 	BlockIndexerChecker struct {
 		dao BlockDAO
@@ -67,7 +74,14 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 	if targetHeight == 0 || targetHeight > daoTip {
 		targetHeight = daoTip
 	}
-	for i := tipHeight + 1; i <= targetHeight; i++ {
+	startHeight := tipHeight + 1
+	if indexerWS, ok := indexer.(BlockIndexerWithStart); ok {
+		indexStartHeight := indexerWS.StartHeight()
+		if indexStartHeight > startHeight {
+			startHeight = indexStartHeight
+		}
+	}
+	for i := startHeight; i <= targetHeight; i++ {
 		blk, err := bic.dao.GetBlockByHeight(i)
 		if err != nil {
 			return err

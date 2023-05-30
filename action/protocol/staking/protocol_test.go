@@ -112,7 +112,7 @@ func TestProtocol(t *testing.T) {
 
 	// load candidates from stateDB and verify
 	g := genesis.Default
-	g.ToBeEnabledBlockHeight = 0
+	g.QuebecBlockHeight = 1
 	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 10})

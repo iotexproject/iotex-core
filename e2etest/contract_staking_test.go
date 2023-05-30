@@ -1706,7 +1706,7 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 	r.NoError(err)
 	cc := cfg.DB
 	cc.DbPath = testContractStakeIndexerPath
-	contractStakeIndexer := contractstaking.NewContractStakingIndexer(db.NewBoltDB(cc), _stakingContractAddress)
+	contractStakeIndexer := contractstaking.NewContractStakingIndexer(db.NewBoltDB(cc), _stakingContractAddress, 0)
 	// create BlockDAO
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, contractStakeIndexer})
 	r.NotNil(dao)
