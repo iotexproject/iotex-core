@@ -56,13 +56,16 @@ type (
 )
 
 // NewContractStakingIndexer creates a new contract staking indexer
-func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string, contractDeployHeight uint64) *Indexer {
+func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string, contractDeployHeight uint64) (*Indexer, error) {
+	if _, err := address.FromString(contractAddr); err != nil {
+		return nil, errors.Wrapf(err, "invalid contract address %s", contractAddr)
+	}
 	return &Indexer{
 		kvstore:              kvStore,
 		cache:                newContractStakingCache(contractAddr),
 		contractAddress:      contractAddr,
 		contractDeployHeight: contractDeployHeight,
-	}
+	}, nil
 }
 
 // Start starts the indexer

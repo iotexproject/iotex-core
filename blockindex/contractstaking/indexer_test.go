@@ -34,7 +34,8 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
 	// create a stake
@@ -51,7 +52,8 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	r.NoError(indexer.Stop(context.Background()))
 
 	// load cache from db
-	newIndexer := NewContractStakingIndexer(db.NewBoltDB(cfg), _testStakingContractAddress, 0)
+	newIndexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), _testStakingContractAddress, 0)
+	r.NoError(err)
 	r.NoError(newIndexer.Start(context.Background()))
 
 	// check cache
@@ -76,7 +78,8 @@ func TestContractStakingIndexerDirty(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
 	// before commit dirty, the cache should be empty
@@ -103,7 +106,8 @@ func TestContractStakingIndexerThreadSafe(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
 	wait := sync.WaitGroup{}
@@ -156,7 +160,8 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
 	// activate
@@ -238,7 +243,8 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
 	// init bucket type
