@@ -44,9 +44,16 @@ type NodeStats interface {
 	lifecycle.StartStopper
 }
 
+type DiskStatus struct {
+	All  uint64 `json:"All"`
+	Used uint64 `json:"Used"`
+	Free uint64 `json:"Free"`
+}
+
 // SytemStats is the interface for getting system stats
 type SytemStats interface {
 	GetMemory() (*memory.Stats, error)
 	GetCPU() (*cpu.Stats, error)
+	GetDisk() DiskStatus
 	BuildReport() string
 }

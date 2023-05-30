@@ -14,7 +14,7 @@ import (
 
 const (
 	// PeriodicReportInterval is the interval for generating periodic reports
-	PeriodicReportInterval = 5 * time.Minute
+	PeriodicReportInterval = 5 * time.Second
 )
 
 type nodeStats struct {
