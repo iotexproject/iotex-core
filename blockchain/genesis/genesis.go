@@ -70,6 +70,7 @@ func defaultConfig() Genesis {
 			NewfoundlandBlockHeight: 17662681,
 			OkhotskBlockHeight:      21542761,
 			PalauBlockHeight:        22991401,
+			QuebecBlockHeight:       32991401,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
@@ -82,6 +83,9 @@ func defaultConfig() Genesis {
 			ProbationEpochPeriod:             6,
 			ProbationIntensityRate:           90,
 			UnproductiveDelegateMaxCacheSize: 20,
+			// TODO (iip-13): replace the following with the address and height on mainnet
+			SystemStakingContractAddress: "io1uw3gvmhrjz5mwxpd966wxxt6fn5uuvwfpynrwj",
+			SystemStakingContractHeight:  20386536,
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),
@@ -230,6 +234,11 @@ type (
 		// 1. enable rewarding action via web3
 		// 2. broadcast node info into the p2p network
 		PalauBlockHeight uint64 `yaml:"palauHeight"`
+		// QuebecBlockHeight is the start height to
+		// 1. enforce using correct chainID only
+		// 2. enable IIP-13 liquidity staking
+		// 3. valiate system action layout
+		QuebecBlockHeight uint64 `yaml:"quebecHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -275,6 +284,14 @@ type (
 		ProbationIntensityRate uint32 `yaml:"probationIntensityRate"`
 		// UnproductiveDelegateMaxCacheSize is a max cache size of upd which is stored into state DB (probationEpochPeriod <= UnproductiveDelegateMaxCacheSize)
 		UnproductiveDelegateMaxCacheSize uint64 `yaml:unproductiveDelegateMaxCacheSize`
+		// SystemStakingContractAddress is the address of system staking contract
+		SystemStakingContractAddress string `yaml:"systemStakingContractAddress"`
+		// SystemStakingContractHeight is the height of system staking contract
+		SystemStakingContractHeight uint64 `yaml:"systemStakingContractHeight"`
+		// SystemSGDContractAddress is the address of system sgd contract
+		SystemSGDContractAddress string `yaml:"sgdContractAddress"`
+		// SystemSGDContractHeight is the height of system sgd contract
+		SystemSGDContractHeight uint64 `yaml:"sgdContractHeight"`
 	}
 	// Delegate defines a delegate with address and votes
 	Delegate struct {
@@ -548,6 +565,11 @@ func (g *Blockchain) IsOkhotsk(height uint64) bool {
 // IsPalau checks whether height is equal to or larger than palau height
 func (g *Blockchain) IsPalau(height uint64) bool {
 	return g.isPost(g.PalauBlockHeight, height)
+}
+
+// IsQuebec checks whether height is equal to or larger than quebec height
+func (g *Blockchain) IsQuebec(height uint64) bool {
+	return g.isPost(g.QuebecBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height

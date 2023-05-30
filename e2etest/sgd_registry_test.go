@@ -97,7 +97,7 @@ func TestSGDRegistry(t *testing.T) {
 	r.NoError(err)
 	kvstore, err := db.CreateKVStore(db.DefaultConfig, indexSGDDBPath)
 	r.NoError(err)
-	sgdRegistry := blockindex.NewSGDRegistry(contractAddress, kvstore)
+	sgdRegistry := blockindex.NewSGDRegistry(contractAddress, 0, kvstore)
 	r.NoError(sgdRegistry.Start(ctx))
 	defer func() {
 		r.NoError(sgdRegistry.Stop(ctx))

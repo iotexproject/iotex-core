@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockindex"
+	"github.com/iotexproject/iotex-core/blockindex/contractstaking"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
@@ -257,6 +258,9 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.sgdIndexer != nil {
 		indexers = append(indexers, builder.cs.sgdIndexer)
 	}
+	if builder.cs.contractStakingIndexer != nil {
+		indexers = append(indexers, builder.cs.contractStakingIndexer)
+	}
 	if forTest {
 		builder.cs.blockdao = blockdao.NewBlockDAOInMemForTest(indexers)
 	} else {
@@ -280,7 +284,21 @@ func (builder *Builder) buildSGDRegistry(forTest bool) error {
 		if err != nil {
 			return err
 		}
-		builder.cs.sgdIndexer = blockindex.NewSGDRegistry(builder.cfg.Chain.SGDContract, kvStore)
+		builder.cs.sgdIndexer = blockindex.NewSGDRegistry(builder.cfg.Genesis.SystemSGDContractAddress, builder.cfg.Genesis.SystemSGDContractHeight, kvStore)
+	}
+	return nil
+}
+
+func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
+	if builder.cs.contractStakingIndexer != nil {
+		return nil
+	}
+	if forTest {
+		builder.cs.contractStakingIndexer = contractstaking.NewDummyContractStakingIndexer()
+	} else {
+		dbConfig := builder.cfg.DB
+		dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
+		builder.cs.contractStakingIndexer = contractstaking.NewContractStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.SystemStakingContractAddress, builder.cfg.Genesis.SystemStakingContractHeight)
 	}
 	return nil
 }
@@ -492,9 +510,6 @@ func (builder *Builder) registerStakingProtocol() error {
 		return nil
 	}
 
-	// TODO (iip-13): use a real liquid indexer instead
-	liquidIndexer := staking.NewEmptyLiquidStakingIndexer()
-
 	stakingProtocol, err := staking.NewProtocol(
 		rewarding.DepositGas,
 		&staking.BuilderConfig{
@@ -503,7 +518,7 @@ func (builder *Builder) registerStakingProtocol() error {
 			StakingPatchDir:          builder.cfg.Chain.StakingPatchDir,
 		},
 		builder.cs.candBucketsIndexer,
-		liquidIndexer,
+		builder.cs.contractStakingIndexer,
 		builder.cfg.Genesis.OkhotskBlockHeight,
 		builder.cfg.Genesis.GreenlandBlockHeight,
 		builder.cfg.Genesis.HawaiiBlockHeight,
@@ -645,6 +660,9 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildSGDRegistry(forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildContractStakingIndexer(forTest); err != nil {
 		return nil, err
 	}
 	if err := builder.buildBlockDAO(forTest); err != nil {

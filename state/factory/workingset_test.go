@@ -194,16 +194,12 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 	}
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100000000"
 	var (
-		f1, _      = NewFactory(cfg, db.NewMemKVStore(), RegistryOption(registry))
-		f2, _      = NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
-		factories  = []Factory{f1, f2}
-		digestHash = hash.BytesToHash256([]byte{67, 246, 156, 149, 78, 160, 19, 137, 23, 214, 154,
-			1, 247, 186, 71, 218, 116, 201, 156, 178, 198, 34, 159, 89, 105, 167, 240, 191,
-			83, 239, 183, 117})
-		receiptRoot = hash.BytesToHash256([]byte{43, 195, 20, 81, 149, 72, 181, 0, 230, 212, 137,
-			96, 64, 59, 99, 229, 48, 189, 105, 53, 69, 94, 195, 36, 128, 228, 210, 211, 189,
-			116, 62, 176})
-		tests = []struct {
+		f1, _          = NewFactory(cfg, db.NewMemKVStore(), RegistryOption(registry))
+		f2, _          = NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+		factories      = []Factory{f1, f2}
+		digestHash, _  = hash.HexStringToHash256("43f69c954ea0138917d69a01f7ba47da74c99cb2c6229f5969a7f0bf53efb775")
+		receiptRoot, _ = hash.HexStringToHash256("b8aaff4d845664a7a3f341f677365dafcdae0ae99a7fea821c7cc42c320acefe")
+		tests          = []struct {
 			block *block.Block
 			err   error
 		}{
@@ -260,7 +256,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		Chain:   blockchain.DefaultConfig,
 		Genesis: genesis.TestDefault(),
 	}
-	cfg.Genesis.ToBeEnabledBlockHeight = 1 // enable validate system action
+	cfg.Genesis.QuebecBlockHeight = 1 // enable validate system action
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100000000"
 	registry := protocol.NewRegistry()
 	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
@@ -318,7 +314,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 	t.Run("correct system action", func(t *testing.T) {
 		digestHash, err := hash.HexStringToHash256("ade24a5c647b5af34c4e74fe0d8f1fa410f6fb115f8fc2d39e45ca2f895de9ca")
 		require.NoError(err)
-		receiptRoot, err := hash.HexStringToHash256("0aa4c3109e75d3da8c6b1cb51720a769d7a3a8c735247063cede8e3ecf90ed62")
+		receiptRoot, err := hash.HexStringToHash256("a59bd06fe4d2bb537895f170dec1f9213045cb13480e4941f1abdc8d13b16fae")
 		require.NoError(err)
 		actions := []action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t)}
 		for _, f := range factories {
@@ -329,7 +325,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 	t.Run("postiche system action", func(t *testing.T) {
 		digestHash, err := hash.HexStringToHash256("ade24a5c647b5af34c4e74fe0d8f1fa410f6fb115f8fc2d39e45ca2f895de9ca")
 		require.NoError(err)
-		receiptRoot, err := hash.HexStringToHash256("0aa4c3109e75d3da8c6b1cb51720a769d7a3a8c735247063cede8e3ecf90ed62")
+		receiptRoot, err := hash.HexStringToHash256("a59bd06fe4d2bb537895f170dec1f9213045cb13480e4941f1abdc8d13b16fae")
 		require.NoError(err)
 		actions := []action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t), makeRewardAction(t)}
 		for _, f := range factories {
@@ -368,6 +364,7 @@ func makeTransferAction(t *testing.T, nonce uint64) action.SealedEnvelope {
 		SetGasLimit(tsf.GasLimit()).
 		SetGasPrice(tsf.GasPrice()).
 		SetNonce(nonce).
+		SetChainID(1).
 		SetVersion(1).
 		Build()
 	sevlp, err := action.Sign(evlp, identityset.PrivateKey(28))

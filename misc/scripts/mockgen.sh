@@ -154,3 +154,22 @@ mockgen -destination=./test/mock/mock_nodeinfo/mock_manager.go  \
         -package=mock_nodeinfo \
         transmitter chain
 
+mkdir -p ./action/protocol/staking
+mockgen -destination=./action/protocol/staking/contractstake_indexer_mock.go  \
+        -source=./action/protocol/staking/contractstake_indexer.go \
+        -package=staking \
+        ContractStakingIndexer
+
+mkdir -p ./blockchain/blockdao/mock
+mockgen -destination=./blockchain/blockdao/mock/blockindexer_mock.go  \
+        -package=mock \
+        github.com/iotexproject/iotex-core/blockchain/blockdao \
+        BlockIndexer
+mockgen -destination=./blockchain/blockdao/mock/blockindexer_withstart_mock.go  \
+        -package=mock \
+        github.com/iotexproject/iotex-core/blockchain/blockdao \
+        BlockIndexerWithStart
+mockgen -destination=./blockchain/blockdao/mock/blockdao_mock.go  \
+        -package=mock \
+        github.com/iotexproject/iotex-core/blockchain/blockdao \
+        BlockDAO

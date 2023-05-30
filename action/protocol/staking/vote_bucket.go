@@ -22,6 +22,10 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
+const (
+	maxBlockNumber = math.MaxUint64
+)
+
 type (
 	// VoteBucket represents a vote
 	VoteBucket struct {
@@ -34,6 +38,12 @@ type (
 		StakeStartTime   time.Time
 		UnstakeStartTime time.Time
 		AutoStake        bool
+		ContractAddress  string // Corresponding contract address; Empty if it's native staking
+		// only used for contract staking buckets
+		StakedDurationBlockNumber uint64
+		CreateBlockHeight         uint64
+		StakeStartBlockHeight     uint64
+		UnstakeStartBlockHeight   uint64
 	}
 
 	// totalBucketCount stores the total bucket count
@@ -109,6 +119,11 @@ func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
 	vb.StakeStartTime = stakeTime
 	vb.UnstakeStartTime = unstakeTime
 	vb.AutoStake = pb.GetAutoStake()
+	vb.ContractAddress = pb.GetContractAddress()
+	vb.StakedDurationBlockNumber = pb.GetStakedDurationBlockNumber()
+	vb.CreateBlockHeight = pb.GetCreateBlockHeight()
+	vb.StakeStartBlockHeight = pb.GetStakeStartBlockHeight()
+	vb.UnstakeStartBlockHeight = pb.GetUnstakeStartBlockHeight()
 	return nil
 }
 
@@ -121,15 +136,20 @@ func (vb *VoteBucket) toProto() (*stakingpb.Bucket, error) {
 	unstakeTime := timestamppb.New(vb.UnstakeStartTime)
 
 	return &stakingpb.Bucket{
-		Index:            vb.Index,
-		CandidateAddress: vb.Candidate.String(),
-		Owner:            vb.Owner.String(),
-		StakedAmount:     vb.StakedAmount.String(),
-		StakedDuration:   uint32(vb.StakedDuration / 24 / time.Hour),
-		CreateTime:       createTime,
-		StakeStartTime:   stakeTime,
-		UnstakeStartTime: unstakeTime,
-		AutoStake:        vb.AutoStake,
+		Index:                     vb.Index,
+		CandidateAddress:          vb.Candidate.String(),
+		Owner:                     vb.Owner.String(),
+		StakedAmount:              vb.StakedAmount.String(),
+		StakedDuration:            uint32(vb.StakedDuration / 24 / time.Hour),
+		CreateTime:                createTime,
+		StakeStartTime:            stakeTime,
+		UnstakeStartTime:          unstakeTime,
+		AutoStake:                 vb.AutoStake,
+		ContractAddress:           vb.ContractAddress,
+		StakedDurationBlockNumber: vb.StakedDurationBlockNumber,
+		CreateBlockHeight:         vb.CreateBlockHeight,
+		StakeStartBlockHeight:     vb.StakeStartBlockHeight,
+		UnstakeStartBlockHeight:   vb.UnstakeStartBlockHeight,
 	}, nil
 }
 
@@ -139,15 +159,20 @@ func (vb *VoteBucket) toIoTeXTypes() (*iotextypes.VoteBucket, error) {
 	unstakeTime := timestamppb.New(vb.UnstakeStartTime)
 
 	return &iotextypes.VoteBucket{
-		Index:            vb.Index,
-		CandidateAddress: vb.Candidate.String(),
-		Owner:            vb.Owner.String(),
-		StakedAmount:     vb.StakedAmount.String(),
-		StakedDuration:   uint32(vb.StakedDuration / 24 / time.Hour),
-		CreateTime:       createTime,
-		StakeStartTime:   stakeTime,
-		UnstakeStartTime: unstakeTime,
-		AutoStake:        vb.AutoStake,
+		Index:                     vb.Index,
+		CandidateAddress:          vb.Candidate.String(),
+		Owner:                     vb.Owner.String(),
+		StakedAmount:              vb.StakedAmount.String(),
+		StakedDuration:            uint32(vb.StakedDuration / 24 / time.Hour),
+		CreateTime:                createTime,
+		StakeStartTime:            stakeTime,
+		UnstakeStartTime:          unstakeTime,
+		AutoStake:                 vb.AutoStake,
+		ContractAddress:           vb.ContractAddress,
+		StakedDurationBlockNumber: vb.StakedDurationBlockNumber,
+		CreateBlockHeight:         vb.CreateBlockHeight,
+		StakeStartBlockHeight:     vb.StakeStartBlockHeight,
+		UnstakeStartBlockHeight:   vb.UnstakeStartBlockHeight,
 	}, nil
 }
 
@@ -161,7 +186,10 @@ func (vb *VoteBucket) Serialize() ([]byte, error) {
 }
 
 func (vb *VoteBucket) isUnstaked() bool {
-	return vb.UnstakeStartTime.After(vb.StakeStartTime)
+	if vb.ContractAddress == "" {
+		return vb.UnstakeStartTime.After(vb.StakeStartTime)
+	}
+	return vb.UnstakeStartBlockHeight < maxBlockNumber
 }
 
 // Deserialize deserializes bytes into bucket count

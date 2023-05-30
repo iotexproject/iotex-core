@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -110,6 +111,8 @@ type (
 		CorrectGasRefund                        bool
 		SkipSystemActionNonce                   bool
 		ValidateSystemAction                    bool
+		AllowCorrectChainIDOnly                 bool
+		AddContractStakingVotes                 bool
 		SharedGasWithDapp                       bool
 	}
 
@@ -246,7 +249,9 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixUnproductiveDelegates:                g.IsOkhotsk(height),
 			CorrectGasRefund:                        g.IsOkhotsk(height),
 			SkipSystemActionNonce:                   g.IsPalau(height),
-			ValidateSystemAction:                    g.IsToBeEnabled(height),
+			ValidateSystemAction:                    g.IsQuebec(height),
+			AllowCorrectChainIDOnly:                 g.IsQuebec(height),
+			AddContractStakingVotes:                 g.IsQuebec(height),
 			SharedGasWithDapp:                       g.IsToBeEnabled(height),
 		},
 	)

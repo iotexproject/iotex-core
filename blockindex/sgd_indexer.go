@@ -191,7 +191,7 @@ var _sgdCurrentHeight = []byte("currentHeight")
 type (
 	// SGDRegistry is the interface for Sharing of Gas-fee with DApps
 	SGDRegistry interface {
-		blockdao.BlockIndexer
+		blockdao.BlockIndexerWithStart
 		// CheckContract returns the contract's eligibility for SGD and percentage
 		CheckContract(context.Context, string) (address.Address, uint64, bool, error)
 		// FetchContracts returns all contracts that are eligible for SGD
@@ -199,8 +199,9 @@ type (
 	}
 
 	sgdRegistry struct {
-		contract string
-		kvStore  db.KVStore
+		contract    string
+		startHeight uint64
+		kvStore     db.KVStore
 	}
 	// SGDIndex is the struct for SGDIndex
 	SGDIndex struct {
@@ -234,7 +235,7 @@ func newSgdIndex(contract, receiver []byte) *indexpb.SGDIndex {
 }
 
 // NewSGDRegistry creates a new SGDIndexer
-func NewSGDRegistry(contract string, kv db.KVStore) SGDRegistry {
+func NewSGDRegistry(contract string, startHeight uint64, kv db.KVStore) SGDRegistry {
 	if kv == nil {
 		panic("nil kvstore")
 	}
@@ -244,8 +245,9 @@ func NewSGDRegistry(contract string, kv db.KVStore) SGDRegistry {
 		}
 	}
 	return &sgdRegistry{
-		contract: contract,
-		kvStore:  kv,
+		contract:    contract,
+		startHeight: startHeight,
+		kvStore:     kv,
 	}
 }
 
@@ -274,6 +276,11 @@ func (sgd *sgdRegistry) Height() (uint64, error) {
 		return 0, err
 	}
 	return byteutil.BytesToUint64BigEndian(h), nil
+}
+
+// StartHeight returns the start height of the indexer
+func (s *sgdRegistry) StartHeight() uint64 {
+	return s.startHeight
 }
 
 // PutBlock puts a block into SGDIndexer
