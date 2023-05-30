@@ -71,7 +71,8 @@ func TestBlockReward(t *testing.T) {
 	r.NoError(err)
 	testContractIndexPath, err := testutil.PathOfTempFile("contractindex")
 	r.NoError(err)
-
+	testSGDIndexPath, err := testutil.PathOfTempFile("sgdindex")
+	r.NoError(err)
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.NumDelegates = 1
@@ -96,6 +97,7 @@ func TestBlockReward(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.ContractStakingIndexDBPath = testContractIndexPath
+	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.Genesis.PollMode = "lifeLong"
 
