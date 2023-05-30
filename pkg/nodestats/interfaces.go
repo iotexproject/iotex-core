@@ -8,14 +8,14 @@ import (
 	"github.com/mackerelio/go-osstat/memory"
 )
 
-// RpcReport is the report of an RPC call
-type RpcReport struct {
+// APIReport is the report of an RPC call
+type APIReport struct {
 	Method       string
 	HandlingTime time.Duration
 	Success      bool
 }
 
-type rpcMethodStats struct {
+type apiMethodStats struct {
 	Successes          int
 	Errors             int
 	AvgTimeOfErrors    int64
@@ -26,16 +26,16 @@ type rpcMethodStats struct {
 }
 
 // AvgSize returns the average size of the rpc call
-func (m *rpcMethodStats) AvgSize() int64 {
+func (m *apiMethodStats) AvgSize() int64 {
 	if m.Successes+m.Errors == 0 {
 		return 0
 	}
 	return m.TotalSize / int64(m.Successes+m.Errors)
 }
 
-// IRPCLocalStats is the interface for getting RPC stats
-type IRPCLocalStats interface {
-	ReportCall(report RpcReport, size int64)
+// RPCLocalStats is the interface for getting RPC stats
+type RPCLocalStats interface {
+	ReportCall(report APIReport, size int64)
 	BuildReport() string
 }
 

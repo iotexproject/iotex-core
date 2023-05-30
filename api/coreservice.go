@@ -179,7 +179,7 @@ type (
 		electionCommittee committee.Committee
 		readCache         *ReadCache
 		messageBatcher    *batch.Manager
-		rpcStats          nodestats.IRPCLocalStats
+		rpcStats          nodestats.RPCLocalStats
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -210,7 +210,7 @@ func WithNativeElection(committee committee.Committee) Option {
 }
 
 // WithRPCStats is the option to return RPC stats through API.
-func WithRPCStats(stats nodestats.IRPCLocalStats) Option {
+func WithRPCStats(stats nodestats.RPCLocalStats) Option {
 	return func(svr *coreService) {
 		svr.rpcStats = stats
 	}
@@ -1722,7 +1722,7 @@ func (core *coreService) TraceCall(ctx context.Context,
 // Track
 func (core *coreService) Track(ctx context.Context, start time.Time, method string, size int64, success bool) {
 	elapsed := time.Since(start)
-	core.rpcStats.ReportCall(nodestats.RpcReport{
+	core.rpcStats.ReportCall(nodestats.APIReport{
 		Method:       method,
 		HandlingTime: elapsed,
 		Success:      success,

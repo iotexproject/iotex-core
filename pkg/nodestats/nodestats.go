@@ -12,8 +12,13 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
+const (
+	// PeriodicReportInterval is the interval for generating periodic reports
+	PeriodicReportInterval = 5 * time.Minute
+)
+
 type nodeStats struct {
-	rpc       IRPCLocalStats
+	rpc       RPCLocalStats
 	system    SytemStats
 	blocksync blocksync.BlockSync
 	p2pAgent  p2p.Agent
@@ -21,7 +26,7 @@ type nodeStats struct {
 }
 
 // NewNodeStats creates a new NodeStats
-func NewNodeStats(rpc IRPCLocalStats, bs blocksync.BlockSync, p2pAgent p2p.Agent) NodeStats {
+func NewNodeStats(rpc RPCLocalStats, bs blocksync.BlockSync, p2pAgent p2p.Agent) NodeStats {
 	return &nodeStats{
 		rpc:       rpc,
 		blocksync: bs,
@@ -32,7 +37,7 @@ func NewNodeStats(rpc IRPCLocalStats, bs blocksync.BlockSync, p2pAgent p2p.Agent
 
 // Start starts the node stats
 func (s *nodeStats) Start(ctx context.Context) error {
-	s.task = routine.NewRecurringTask(s.generateReport, time.Second*10)
+	s.task = routine.NewRecurringTask(s.generateReport, PeriodicReportInterval)
 	return s.task.Start(ctx)
 }
 

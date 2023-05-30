@@ -90,7 +90,7 @@ type ChainService struct {
 	contractStakingIndexer contractstaking.ContractIndexer
 	registry               *protocol.Registry
 	nodeInfoManager        *nodeinfo.InfoManager
-	rpcStats               nodestats.IRPCLocalStats
+	rpcStats               nodestats.RPCLocalStats
 }
 
 // Start starts the server

@@ -94,7 +94,7 @@ func (builder *Builder) SetP2PAgent(agent p2p.Agent) *Builder {
 }
 
 // SetRPCStats sets the RPCStats instance
-func (builder *Builder) SetRPCStats(stats nodestats.IRPCLocalStats) *Builder {
+func (builder *Builder) SetRPCStats(stats nodestats.RPCLocalStats) *Builder {
 	builder.createInstance()
 	builder.cs.rpcStats = stats
 	return builder
