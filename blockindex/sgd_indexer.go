@@ -285,14 +285,14 @@ func (sgd *sgdRegistry) StartHeight() uint64 {
 
 // PutBlock puts a block into SGDIndexer
 func (sgd *sgdRegistry) PutBlock(ctx context.Context, blk *block.Block) error {
-	var (
-		r  *action.Receipt
-		ok bool
-	)
 	if blk.Height() < sgd.startHeight {
 		return nil
 	}
-	b := batch.NewBatch()
+	var (
+		r  *action.Receipt
+		ok bool
+		b  = batch.NewBatch()
+	)
 	receipts := getReceiptsFromBlock(blk)
 	for _, selp := range blk.Actions {
 		actHash, err := selp.Hash()
