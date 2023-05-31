@@ -37,7 +37,7 @@ type Server struct {
 	apiServers           map[uint32]*api.ServerV2
 	p2pAgent             p2p.Agent
 	dispatcher           dispatcher.Dispatcher
-	nodeStats            nodestats.NodeStats
+	nodeStats            *nodestats.NodeStats
 	initializedSubChains map[uint32]bool
 	mutex                sync.RWMutex
 	subModuleCancel      context.CancelFunc

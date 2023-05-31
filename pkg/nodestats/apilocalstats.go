@@ -7,8 +7,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/generic"
 )
 
-var _ RPCLocalStats = (*APILocalStats)(nil)
-
 // APILocalStats is the struct for getting API stats
 type APILocalStats struct {
 	allTimeStats *generic.Map[string, *apiMethodStats]

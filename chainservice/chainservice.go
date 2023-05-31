@@ -90,7 +90,7 @@ type ChainService struct {
 	contractStakingIndexer contractstaking.ContractIndexer
 	registry               *protocol.Registry
 	nodeInfoManager        *nodeinfo.InfoManager
-	rpcStats               nodestats.RPCLocalStats
+	apiStats               *nodestats.APILocalStats
 }
 
 // Start starts the server
@@ -233,7 +233,7 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 			return p2pAgent.BroadcastOutbound(ctx, msg)
 		}),
 		api.WithNativeElection(cs.electionCommittee),
-		api.WithRPCStats(cs.rpcStats),
+		api.WithAPIStats(cs.apiStats),
 	}
 
 	svr, err := api.NewServerV2(

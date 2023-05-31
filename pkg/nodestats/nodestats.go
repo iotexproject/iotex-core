@@ -17,18 +17,18 @@ const (
 	PeriodicReportInterval = 5 * time.Minute
 )
 
-type nodeStats struct {
-	rpc       RPCLocalStats
-	system    SytemStats
+type NodeStats struct {
+	api       *APILocalStats
+	system    *systemStats
 	blocksync blocksync.BlockSync
 	p2pAgent  p2p.Agent
 	task      *routine.RecurringTask
 }
 
 // NewNodeStats creates a new NodeStats
-func NewNodeStats(rpc RPCLocalStats, bs blocksync.BlockSync, p2pAgent p2p.Agent) NodeStats {
-	return &nodeStats{
-		rpc:       rpc,
+func NewNodeStats(apiStats *APILocalStats, bs blocksync.BlockSync, p2pAgent p2p.Agent) *NodeStats {
+	return &NodeStats{
+		api:       apiStats,
 		blocksync: bs,
 		p2pAgent:  p2pAgent,
 		system:    newSystemStats(),
@@ -36,19 +36,19 @@ func NewNodeStats(rpc RPCLocalStats, bs blocksync.BlockSync, p2pAgent p2p.Agent)
 }
 
 // Start starts the node stats
-func (s *nodeStats) Start(ctx context.Context) error {
+func (s *NodeStats) Start(ctx context.Context) error {
 	s.task = routine.NewRecurringTask(s.generateReport, PeriodicReportInterval)
 	return s.task.Start(ctx)
 }
 
 // Stop stops the node stats
-func (s *nodeStats) Stop(ctx context.Context) error {
+func (s *NodeStats) Stop(ctx context.Context) error {
 	return s.task.Stop(ctx)
 }
 
-func (s *nodeStats) generateReport() {
+func (s *NodeStats) generateReport() {
 	stringBuilder := strings.Builder{}
-	stringBuilder.WriteString(s.rpc.BuildReport())
+	stringBuilder.WriteString(s.api.BuildReport())
 	stringBuilder.WriteString("\n")
 
 	stringBuilder.WriteString(s.system.BuildReport())
