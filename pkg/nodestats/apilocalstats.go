@@ -3,9 +3,35 @@ package nodestats
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/iotexproject/iotex-core/pkg/generic"
 )
+
+// APIReport is the report of an API call
+type APIReport struct {
+	Method       string
+	HandlingTime time.Duration
+	Success      bool
+}
+
+type apiMethodStats struct {
+	Successes          int
+	Errors             int
+	AvgTimeOfErrors    int64
+	AvgTimeOfSuccesses int64
+	MaxTimeOfError     int64
+	MaxTimeOfSuccess   int64
+	TotalSize          int64
+}
+
+// AvgSize returns the average size of the api call
+func (m *apiMethodStats) AvgSize() int64 {
+	if m.Successes+m.Errors == 0 {
+		return 0
+	}
+	return m.TotalSize / int64(m.Successes+m.Errors)
+}
 
 // APILocalStats is the struct for getting API stats
 type APILocalStats struct {

@@ -10,6 +10,13 @@ import (
 	"github.com/mackerelio/go-osstat/memory"
 )
 
+// DiskStatus is the status of the disk
+type DiskStatus struct {
+	All  uint64 `json:"All"`
+	Used uint64 `json:"Used"`
+	Free uint64 `json:"Free"`
+}
+
 // diskusage of path/disk
 func diskUsage(path string) (disk DiskStatus) {
 	fs := syscall.Statfs_t{}
