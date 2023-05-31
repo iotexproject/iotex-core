@@ -1719,7 +1719,7 @@ func (core *coreService) TraceCall(ctx context.Context,
 	return retval, receipt, traces, err
 }
 
-// Track
+// Track tracks the api call
 func (core *coreService) Track(ctx context.Context, start time.Time, method string, size int64, success bool) {
 	if core.apiStats == nil {
 		return

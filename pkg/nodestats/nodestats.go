@@ -17,6 +17,7 @@ const (
 	PeriodicReportInterval = 5 * time.Minute
 )
 
+// NodeStats is the struct for getting node stats
 type NodeStats struct {
 	api       *APILocalStats
 	system    *systemStats
