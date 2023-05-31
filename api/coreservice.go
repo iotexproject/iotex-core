@@ -158,7 +158,7 @@ type (
 			data []byte,
 			config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error)
 
-		// Track adds a track record for the given method
+		// Track tracks the api call
 		Track(ctx context.Context, start time.Time, method string, size int64, success bool)
 	}
 
