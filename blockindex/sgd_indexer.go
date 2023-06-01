@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -23,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex/indexpb"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
+	lg "github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -202,6 +204,7 @@ type (
 		contract    string
 		startHeight uint64
 		kvStore     db.KVStore
+		hit         bool
 	}
 	// SGDIndex is the struct for SGDIndex
 	SGDIndex struct {
@@ -313,7 +316,20 @@ func (sgd *sgdRegistry) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 	}
 	b.Put(_sgdToHeightNS, _sgdCurrentHeight, byteutil.Uint64ToBytesBigEndian(blk.Height()), "failed to put current height")
-	return sgd.kvStore.WriteBatch(b)
+	err := sgd.kvStore.WriteBatch(b)
+	if sgd.hit {
+		cs, err := sgd.FetchContracts(ctx)
+		if err != nil {
+			lg.L().Error("fetch contracts", zap.Error(err))
+		}
+		for i := range cs {
+			lg.L().Info("fetch", zap.String("contract", cs[i].Contract.String()))
+			lg.L().Info("fetch", zap.String("receiver", cs[i].Receiver.String()))
+			lg.L().Info("fetch", zap.Bool("approved", cs[i].Approved))
+		}
+		sgd.hit = false
+	}
+	return err
 }
 
 func (sgd *sgdRegistry) handleEvent(b batch.KVStoreBatch, log *action.Log) error {
@@ -321,16 +337,22 @@ func (sgd *sgdRegistry) handleEvent(b batch.KVStoreBatch, log *action.Log) error
 	if err != nil {
 		return err
 	}
+	sgd.hit = true
 	switch abiEvent.Name {
 	case "ContractRegistered":
+		lg.L().Info("contract register")
 		return sgd.handleContractRegistered(b, log)
 	case "ContractApproved":
+		lg.L().Info("contract approve")
 		return sgd.handleContractApproved(b, log)
 	case "ContractDisapproved":
+		lg.L().Info("contract disapprove")
 		return sgd.handleContractDisapproved(b, log)
 	case "ContractRemoved":
+		lg.L().Info("contract remove")
 		return sgd.handleContractRemoved(b, log)
 	default:
+		sgd.hit = false
 		//skip other events
 	}
 	return nil
@@ -347,7 +369,6 @@ func (sgd *sgdRegistry) handleContractRegistered(b batch.KVStoreBatch, log *acti
 	if err := _sgdABI.UnpackIntoInterface(&event, "ContractRegistered", log.Data); err != nil {
 		return err
 	}
-
 	sgdIndex = newSgdIndex(event.ContractAddress.Bytes(), event.Recipient.Bytes())
 	return sgd.putIndex(b, sgdIndex)
 }
