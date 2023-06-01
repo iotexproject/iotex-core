@@ -40,11 +40,16 @@ func newConfigForNodeInfoTest(triePath, dBPath, idxDBPath, contractIdxDBPath str
 	if err != nil {
 		return cfg, nil, err
 	}
+	sgdIndexDBPath, err := testutil.PathOfTempFile(idxDBPath)
+	if err != nil {
+		return cfg, nil, err
+	}
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
 	cfg.Chain.ContractStakingIndexDBPath = contractIndexDBPath
+	cfg.Chain.SGDIndexDBPath = sgdIndexDBPath
 	return cfg, func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)

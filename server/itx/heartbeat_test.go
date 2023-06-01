@@ -28,10 +28,13 @@ func TestNewHeartbeatHandler(t *testing.T) {
 	testutil.CleanupPath(triePath)
 	indexPath, err := testutil.PathOfTempFile("index.db")
 	require.NoError(err)
+	sgdIndexPath, err := testutil.PathOfTempFile("sgdindex.db")
+	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(dbPath)
 		testutil.CleanupPath(triePath)
 		testutil.CleanupPath(indexPath)
+		testutil.CleanupPath(sgdIndexPath)
 	}()
 	cfg := config.Default
 	cfg.API.GRPCPort = testutil.RandomPort()
@@ -40,6 +43,7 @@ func TestNewHeartbeatHandler(t *testing.T) {
 	cfg.Chain.ChainDBPath = dbPath
 	cfg.Chain.TrieDBPath = triePath
 	cfg.Chain.ContractStakingIndexDBPath = indexPath
+	cfg.Chain.SGDIndexDBPath = sgdIndexPath
 	cfg.Chain.TrieDBPatchFile = ""
 	s, err := NewServer(cfg)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
