@@ -49,7 +49,7 @@ func TestBaseKVStoreBatch(t *testing.T) {
 	require.Equal(0.5, p)
 
 	// test serialize/translate
-	require.True(bytes.Equal([]byte{0, 110, 115, 1, 110, 115}, b.SerializeQueue(nil, nil)))
+	require.True(bytes.Equal([]byte{1, 110, 115, 0, 110, 115}, b.SerializeQueue(nil, nil)))
 	require.True(bytes.Equal([]byte{}, b.SerializeQueue(nil, func(wi *WriteInfo) bool {
 		return wi.Namespace() == "ns"
 	})))
