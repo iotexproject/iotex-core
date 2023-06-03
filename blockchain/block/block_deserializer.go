@@ -21,7 +21,6 @@ import (
 //
 // blk, err := (&Deserializer{}).SetEvmNetworkID(id).FromBlockProto(pbBlock)
 // blk, err := (&Deserializer{}).SetEvmNetworkID(id).DeserializeBlock(buf)
-//
 type Deserializer struct {
 	evmNetworkID uint32
 }

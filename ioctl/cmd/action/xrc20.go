@@ -42,7 +42,7 @@ var (
 	}
 )
 
-//Xrc20Cmd represent xrc20 standard command-line
+// Xrc20Cmd represent xrc20 standard command-line
 var Xrc20Cmd = &cobra.Command{
 	Use:   "xrc20",
 	Short: config.TranslateInLang(_xrc20CmdShorts, config.UILanguage),

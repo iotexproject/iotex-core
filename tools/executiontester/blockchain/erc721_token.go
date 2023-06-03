@@ -53,7 +53,6 @@ func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
 	return h, nil
 }
 
-//
 func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, tokenid string) (string, error) {
 	TokenID, ok := new(big.Int).SetString(tokenid, 10)
 	if !ok {

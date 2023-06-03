@@ -14,7 +14,6 @@ import "github.com/iotexproject/iotex-proto/golang/iotextypes"
 // Currently the parameter is EVM network ID for tx in web3 format, it is called like
 //
 // act, err := (&Deserializer{}).SetEvmNetworkID(id).ActionToSealedEnvelope(pbAction)
-//
 type Deserializer struct {
 	evmNetworkID uint32
 }

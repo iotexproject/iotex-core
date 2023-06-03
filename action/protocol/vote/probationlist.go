@@ -15,7 +15,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
-//ProbationList defines a map where key is candidate's name and value is the counter which counts the unproductivity during probation epoch.
+// ProbationList defines a map where key is candidate's name and value is the counter which counts the unproductivity during probation epoch.
 type ProbationList struct {
 	ProbationInfo map[string]uint32
 	IntensityRate uint32

@@ -97,7 +97,7 @@ func (b *baseKVStoreBatch) SerializeQueue(serialize WriteInfoSerialize, filter W
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	// 1. Digest could be replaced by merkle root if we need proof
-	bytes := make([]byte, 0)
+	bytesChan := make(chan []byte)
 	wg := sync.WaitGroup{}
 	wg.Add(len(b.writeQueue))
 	for _, wi := range b.writeQueue {
@@ -106,14 +106,20 @@ func (b *baseKVStoreBatch) SerializeQueue(serialize WriteInfoSerialize, filter W
 				return
 			}
 			if serialize != nil {
-				bytes = append(bytes, serialize(info)...)
+				bytesChan <- serialize(info)
 			} else {
-				bytes = append(bytes, info.Serialize()...)
+				bytesChan <- info.Serialize()
 			}
 			wg.Done()
 		}(wi)
 	}
 	wg.Wait()
+
+	bytes := make([]byte, 0)
+	for itemBytes := range bytesChan {
+		bytes = append(bytes, itemBytes...)
+	}
+
 	return bytes
 }
 
