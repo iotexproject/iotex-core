@@ -96,19 +96,24 @@ func (b *baseKVStoreBatch) Entry(index int) (*WriteInfo, error) {
 func (b *baseKVStoreBatch) SerializeQueue(serialize WriteInfoSerialize, filter WriteInfoFilter) []byte {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	// 1. This could be improved by being processed in parallel
-	// 2. Digest could be replaced by merkle root if we need proof
+	// 1. Digest could be replaced by merkle root if we need proof
 	bytes := make([]byte, 0)
+	wg := sync.WaitGroup{}
+	wg.Add(len(b.writeQueue))
 	for _, wi := range b.writeQueue {
-		if filter != nil && filter(wi) {
-			continue
-		}
-		if serialize != nil {
-			bytes = append(bytes, serialize(wi)...)
-		} else {
-			bytes = append(bytes, wi.Serialize()...)
-		}
+		go func(info *WriteInfo) {
+			if filter != nil && filter(info) {
+				return
+			}
+			if serialize != nil {
+				bytes = append(bytes, serialize(info)...)
+			} else {
+				bytes = append(bytes, info.Serialize()...)
+			}
+			wg.Done()
+		}(wi)
 	}
+	wg.Wait()
 	return bytes
 }
 
