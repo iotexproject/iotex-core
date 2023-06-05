@@ -102,6 +102,7 @@ func (b *baseKVStoreBatch) SerializeQueue(serialize WriteInfoSerialize, filter W
 	wg.Add(len(b.writeQueue))
 	for _, wi := range b.writeQueue {
 		go func(info *WriteInfo) {
+			defer wg.Done()
 			if filter != nil && filter(info) {
 				return
 			}
@@ -110,7 +111,6 @@ func (b *baseKVStoreBatch) SerializeQueue(serialize WriteInfoSerialize, filter W
 			} else {
 				bytesChan <- info.Serialize()
 			}
-			wg.Done()
 		}(wi)
 	}
 	wg.Wait()
