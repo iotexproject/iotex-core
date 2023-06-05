@@ -26,6 +26,31 @@ const (
 	_testStakingContractAddress = "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd"
 )
 
+func TestNewContractStakingIndexer(t *testing.T) {
+	r := require.New(t)
+
+	t.Run("kvStore is nil", func(t *testing.T) {
+		_, err := NewContractStakingIndexer(nil, "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd", 0)
+		r.Error(err)
+		r.Contains(err.Error(), "kv store is nil")
+	})
+
+	t.Run("invalid contract address", func(t *testing.T) {
+		kvStore := db.NewMemKVStore()
+		_, err := NewContractStakingIndexer(kvStore, "invalid address", 0)
+		r.Error(err)
+		r.Contains(err.Error(), "invalid contract address")
+	})
+
+	t.Run("valid input", func(t *testing.T) {
+		contractAddr, err := address.FromString("io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd")
+		r.NoError(err)
+		indexer, err := NewContractStakingIndexer(db.NewMemKVStore(), contractAddr.String(), 0)
+		r.NoError(err)
+		r.NotNil(indexer)
+	})
+}
+
 func TestContractStakingIndexerLoadCache(t *testing.T) {
 	r := require.New(t)
 	testDBPath, err := testutil.PathOfTempFile("staking.db")
