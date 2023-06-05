@@ -57,6 +57,9 @@ type (
 
 // NewContractStakingIndexer creates a new contract staking indexer
 func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string, contractDeployHeight uint64) (*Indexer, error) {
+	if kvStore == nil {
+		return nil, errors.New("kv store is nil")
+	}
 	if _, err := address.FromString(contractAddr); err != nil {
 		return nil, errors.Wrapf(err, "invalid contract address %s", contractAddr)
 	}
