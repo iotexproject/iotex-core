@@ -26,6 +26,31 @@ const (
 	_testStakingContractAddress = "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd"
 )
 
+func TestNewContractStakingIndexer(t *testing.T) {
+	r := require.New(t)
+
+	t.Run("kvStore is nil", func(t *testing.T) {
+		_, err := NewContractStakingIndexer(nil, "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd", 0)
+		r.Error(err)
+		r.Contains(err.Error(), "kv store is nil")
+	})
+
+	t.Run("invalid contract address", func(t *testing.T) {
+		kvStore := db.NewMemKVStore()
+		_, err := NewContractStakingIndexer(kvStore, "invalid address", 0)
+		r.Error(err)
+		r.Contains(err.Error(), "invalid contract address")
+	})
+
+	t.Run("valid input", func(t *testing.T) {
+		contractAddr, err := address.FromString("io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd")
+		r.NoError(err)
+		indexer, err := NewContractStakingIndexer(db.NewMemKVStore(), contractAddr.String(), 0)
+		r.NoError(err)
+		r.NotNil(indexer)
+	})
+}
+
 func TestContractStakingIndexerLoadCache(t *testing.T) {
 	r := require.New(t)
 	testDBPath, err := testutil.PathOfTempFile("staking.db")
@@ -34,7 +59,8 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
 	// create a stake
@@ -51,7 +77,8 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	r.NoError(indexer.Stop(context.Background()))
 
 	// load cache from db
-	newIndexer := NewContractStakingIndexer(db.NewBoltDB(cfg), _testStakingContractAddress, 0)
+	newIndexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), _testStakingContractAddress, 0)
+	r.NoError(err)
 	r.NoError(newIndexer.Start(context.Background()))
 
 	// check cache
@@ -76,7 +103,8 @@ func TestContractStakingIndexerDirty(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
 	// before commit dirty, the cache should be empty
@@ -103,7 +131,8 @@ func TestContractStakingIndexerThreadSafe(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
 	wait := sync.WaitGroup{}
@@ -156,7 +185,8 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
 	// activate
@@ -238,7 +268,8 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
 	// init bucket type
