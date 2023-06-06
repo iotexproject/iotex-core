@@ -357,6 +357,31 @@ const (
 			],
 			"name": "Withdrawal",
 			"type": "event"
+		},
+		{
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint256",
+					"name": "amount",
+					"type": "uint256"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint256",
+					"name": "duration",
+					"type": "uint256"
+				}
+			],
+			"name": "BucketTypeExpanded",
+			"type": "event"
 		}
 	]`
 )
@@ -421,6 +446,8 @@ func (eh *contractStakingEventHandler) HandleEvent(ctx context.Context, blk *blo
 		return eh.handleDurationExtendedEvent(event)
 	case "AmountIncreased":
 		return eh.handleAmountIncreasedEvent(event)
+	case "BucketTypeExpanded":
+		return eh.handleBucketTypeExpandedEvent(event)
 	case "DelegateChanged":
 		return eh.handleDelegateChangedEvent(event)
 	case "Withdrawal":
@@ -661,6 +688,32 @@ func (eh *contractStakingEventHandler) handleAmountIncreasedEvent(event eventPar
 	newBtIdx, _, ok := eh.dirty.matchBucketType(amountParam, bt.Duration)
 	if !ok {
 		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), bt.Duration)
+	}
+	b.TypeIndex = newBtIdx
+	return eh.dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
+}
+
+func (eh *contractStakingEventHandler) handleBucketTypeExpandedEvent(event eventParam) error {
+	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
+	if err != nil {
+		return err
+	}
+	amountParam, err := event.FieldUint256("amount")
+	if err != nil {
+		return err
+	}
+	durationParam, err := event.FieldUint256("duration")
+	if err != nil {
+		return err
+	}
+
+	b, ok := eh.dirty.getBucketInfo(tokenIDParam.Uint64())
+	if !ok {
+		return errors.Wrapf(ErrBucketNotExist, "token id %d", tokenIDParam.Uint64())
+	}
+	newBtIdx, _, ok := eh.dirty.matchBucketType(amountParam, durationParam.Uint64())
+	if !ok {
+		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), durationParam.Uint64())
 	}
 	b.TypeIndex = newBtIdx
 	return eh.dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
