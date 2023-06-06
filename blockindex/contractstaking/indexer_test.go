@@ -507,7 +507,7 @@ func withdraw(r *require.Assertions, handler *contractStakingEventHandler, token
 }
 
 func expandBucketType(r *require.Assertions, handler *contractStakingEventHandler, token, amount, duration int64) {
-	err := handler.handleBucketTypeExpandedEvent(eventParam{
+	err := handler.handleBucketExpandedEvent(eventParam{
 		"tokenId":  big.NewInt(token),
 		"amount":   big.NewInt(amount),
 		"duration": big.NewInt(duration),

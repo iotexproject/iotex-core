@@ -380,7 +380,7 @@ const (
 					"type": "uint256"
 				}
 			],
-			"name": "BucketTypeExpanded",
+			"name": "BucketExpanded",
 			"type": "event"
 		}
 	]`
@@ -446,8 +446,8 @@ func (eh *contractStakingEventHandler) HandleEvent(ctx context.Context, blk *blo
 		return eh.handleDurationExtendedEvent(event)
 	case "AmountIncreased":
 		return eh.handleAmountIncreasedEvent(event)
-	case "BucketTypeExpanded":
-		return eh.handleBucketTypeExpandedEvent(event)
+	case "BucketExpanded":
+		return eh.handleBucketExpandedEvent(event)
 	case "DelegateChanged":
 		return eh.handleDelegateChangedEvent(event)
 	case "Withdrawal":
@@ -693,7 +693,7 @@ func (eh *contractStakingEventHandler) handleAmountIncreasedEvent(event eventPar
 	return eh.dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
 }
 
-func (eh *contractStakingEventHandler) handleBucketTypeExpandedEvent(event eventParam) error {
+func (eh *contractStakingEventHandler) handleBucketExpandedEvent(event eventParam) error {
 	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
 	if err != nil {
 		return err
