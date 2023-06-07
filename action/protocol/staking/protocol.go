@@ -475,7 +475,7 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 	list := c.AllCandidates()
 	cand := make(CandidateList, 0, len(list))
 	for i := range list {
-		if ok && featureCtx.AddContractStakingVotes {
+		if p.contractStakingIndexer != nil && ok && featureCtx.AddContractStakingVotes {
 			list[i].Votes.Add(list[i].Votes, p.contractStakingIndexer.CandidateVotes(list[i].Owner))
 		}
 		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {

@@ -302,7 +302,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		return nil
 	}
 	if forTest || builder.cfg.Genesis.SystemStakingContractAddress == "" {
-		builder.cs.contractStakingIndexer = contractstaking.NewDummyContractStakingIndexer()
+		builder.cs.contractStakingIndexer = nil
 		return nil
 	}
 	dbConfig := builder.cfg.DB

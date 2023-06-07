@@ -121,7 +121,7 @@ func TestVoteReviser(t *testing.T) {
 			PersistStakingPatchBlock: math.MaxUint64,
 		},
 		nil,
-		&emptyContractStakingIndexer{},
+		nil,
 		genesis.Default.OkhotskBlockHeight,
 		genesis.Default.HawaiiBlockHeight,
 		genesis.Default.GreenlandBlockHeight,
