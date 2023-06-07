@@ -84,8 +84,8 @@ func defaultConfig() Genesis {
 			ProbationIntensityRate:           90,
 			UnproductiveDelegateMaxCacheSize: 20,
 			// TODO (iip-13): replace the following with the address and height on mainnet
-			SystemStakingContractAddress: "io14g76t4d03c27pa4lthv98207wwa6e3ptvhcsq5",
-			SystemStakingContractHeight:  20635347,
+			SystemStakingContractAddress: "io1224slckr49ryfhsg3z3m484pgsm89esl2nd4jh",
+			SystemStakingContractHeight:  20645456,
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),
