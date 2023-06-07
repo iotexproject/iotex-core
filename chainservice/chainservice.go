@@ -86,7 +86,7 @@ type ChainService struct {
 	candidateIndexer       *poll.CandidateIndexer
 	candBucketsIndexer     *staking.CandidatesBucketsIndexer
 	sgdIndexer             blockindex.SGDRegistry
-	contractStakingIndexer contractstaking.ContractIndexer
+	contractStakingIndexer *contractstaking.Indexer
 	registry               *protocol.Registry
 	nodeInfoManager        *nodeinfo.InfoManager
 }
