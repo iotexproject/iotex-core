@@ -188,7 +188,7 @@ func (c *compositeStakingStateReader) readStateCandidates(ctx context.Context, r
 	)
 	if epochStartHeight != 0 && c.nativeIndexer != nil {
 		// read candidates from indexer
-		candidatesBytes, height, err = c.nativeIndexer.GetCandidates(height, req.GetPagination().GetOffset(), req.GetPagination().GetLimit())
+		candidatesBytes, height, err = c.nativeIndexer.GetCandidates(epochStartHeight, req.GetPagination().GetOffset(), req.GetPagination().GetLimit())
 		if err != nil {
 			return nil, 0, err
 		}
