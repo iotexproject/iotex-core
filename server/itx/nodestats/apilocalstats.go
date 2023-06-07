@@ -3,9 +3,8 @@ package nodestats
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
-
-	"github.com/iotexproject/iotex-core/pkg/generic"
 )
 
 // APIReport is the report of an API call
@@ -35,15 +34,15 @@ func (m *apiMethodStats) AvgSize() int64 {
 
 // APILocalStats is the struct for getting API stats
 type APILocalStats struct {
-	allTimeStats *generic.Map[string, *apiMethodStats]
-	currentStats *generic.Map[string, *apiMethodStats]
+	allTimeStats sync.Map
+	currentStats sync.Map
 }
 
 // NewAPILocalStats creates a new APILocalStats
 func NewAPILocalStats() *APILocalStats {
 	return &APILocalStats{
-		allTimeStats: generic.NewMap[string, *apiMethodStats](),
-		currentStats: generic.NewMap[string, *apiMethodStats](),
+		allTimeStats: sync.Map{},
+		currentStats: sync.Map{},
 	}
 }
 
@@ -52,8 +51,10 @@ func (s *APILocalStats) ReportCall(report APIReport, size int64) {
 	if report.Method == "" {
 		return
 	}
-	methodStats, _ := s.currentStats.LoadOrStore(report.Method, &apiMethodStats{})
-	allTimeMethodStats, _ := s.allTimeStats.LoadOrStore(report.Method, &apiMethodStats{})
+	v, _ := s.currentStats.LoadOrStore(report.Method, &apiMethodStats{})
+	methodStats := v.(*apiMethodStats)
+	v, _ = s.allTimeStats.LoadOrStore(report.Method, &apiMethodStats{})
+	allTimeMethodStats := v.(*apiMethodStats)
 	reportHandlingTimeMicroseconds := report.HandlingTime.Microseconds()
 	if report.Success {
 		methodStats.Successes++
@@ -89,11 +90,17 @@ func (s *APILocalStats) ReportCall(report APIReport, size int64) {
 
 // BuildReport builds a report of the API stats
 func (s *APILocalStats) BuildReport() string {
-	snapshot := s.currentStats.Clone()
-	defer s.currentStats.Clear()
+	var snapshot sync.Map
+	snapshotLen := 0
+	s.currentStats.Range(func(key, value interface{}) bool {
+		snapshot.Store(key, value)
+		snapshotLen++
+		s.currentStats.Delete(key)
+		return true
+	})
 	stringBuilder := strings.Builder{}
 
-	if snapshot.Total() == 0 {
+	if snapshotLen == 0 {
 		return stringBuilder.String()
 	}
 	const reportHeader = "method                                  | " +
@@ -111,7 +118,8 @@ func (s *APILocalStats) BuildReport() string {
 	stringBuilder.WriteString(reportHeader + "\n")
 	stringBuilder.WriteString(divider + "\n")
 	total := &apiMethodStats{}
-	snapshot.Range(func(key string, value *apiMethodStats) bool {
+	snapshot.Range(func(key, val interface{}) bool {
+		value := val.(*apiMethodStats)
 		if total.Successes+value.Successes > 0 {
 			total.AvgTimeOfSuccesses = (total.AvgTimeOfSuccesses*int64(total.Successes) + int64(value.Successes)*value.AvgTimeOfSuccesses) / int64(total.Successes+value.Successes)
 		} else {
@@ -131,7 +139,7 @@ func (s *APILocalStats) BuildReport() string {
 			total.MaxTimeOfSuccess = value.MaxTimeOfSuccess
 		}
 		total.TotalSize += value.TotalSize
-		stringBuilder.WriteString(s.prepareReportLine(key, value) + "\n")
+		stringBuilder.WriteString(s.prepareReportLine(key.(string), value) + "\n")
 		return true
 	})
 	stringBuilder.WriteString(divider + "\n")
