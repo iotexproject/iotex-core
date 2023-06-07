@@ -204,6 +204,10 @@ func (c *compositeStakingStateReader) readStateCandidates(ctx context.Context, r
 		}
 	}
 
+	if !protocol.MustGetFeatureCtx(ctx).AddContractStakingVotes {
+		return candidates, height, nil
+	}
+
 	for _, candidate := range candidates.Candidates {
 		if err = addContractStakingVotes(candidate, c.contractIndexer); err != nil {
 			return nil, 0, err
