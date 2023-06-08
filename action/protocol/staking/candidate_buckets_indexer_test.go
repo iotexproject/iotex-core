@@ -33,11 +33,9 @@ func TestCandidatesBucketsIndexer_PutGetCandidates(t *testing.T) {
 	}()
 
 	// nothing in db, return empty list
-	a, height, err := cbi.GetCandidates(1, 0, 1)
+	r, height, err := cbi.GetCandidates(1, 0, 1)
 	require.NoError(err)
 	require.EqualValues(0, height)
-	var r iotextypes.CandidateListV2
-	require.NoError(proto.Unmarshal(a, &r))
 	require.Zero(len(r.Candidates))
 
 	cand := []*iotextypes.CandidateV2{
@@ -83,10 +81,9 @@ func TestCandidatesBucketsIndexer_PutGetCandidates(t *testing.T) {
 		require.NoError(cbi.PutCandidates(v.height, v.candidates))
 
 		for _, v2 := range tests2 {
-			a, b, err := cbi.GetCandidates(v.height, v2.offset, v2.limit)
+			r, b, err := cbi.GetCandidates(v.height, v2.offset, v2.limit)
 			require.NoError(err)
 			require.Equal(b, v.height)
-			require.NoError(proto.Unmarshal(a, &r))
 			if tests[v.height].candidates == nil {
 				continue
 			}
@@ -112,10 +109,9 @@ func TestCandidatesBucketsIndexer_PutGetCandidates(t *testing.T) {
 
 	// test height > latest height
 	require.EqualValues(6, cbi.latestCandidatesHeight)
-	a, height, err = cbi.GetCandidates(7, 0, 1)
+	r, height, err = cbi.GetCandidates(7, 0, 1)
 	require.NoError(err)
 	require.EqualValues(6, height)
-	require.NoError(proto.Unmarshal(a, &r))
 	require.Equal(1, len(r.Candidates))
 	expect := tests[6].candidates.Candidates[0]
 	actual := r.Candidates[0]
@@ -134,9 +130,11 @@ func TestCandidatesBucketsIndexer_PutGetCandidates(t *testing.T) {
 	}
 	require.NoError(cbi.PutCandidates(height, candMax))
 	lcHash := cbi.latestCandidatesHash
-	a, _, err = cbi.GetCandidates(height, 0, 4)
+	r, _, err = cbi.GetCandidates(height, 0, 4)
 	require.NoError(err)
 	c, err := getFromIndexer(store, StakingCandidatesNamespace, height+1)
+	require.NoError(err)
+	a, err := proto.Marshal(r)
 	require.NoError(err)
 	require.Equal(a, c)
 	require.NoError(cbi.Stop(ctx))

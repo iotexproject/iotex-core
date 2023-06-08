@@ -182,19 +182,14 @@ func (c *compositeStakingStateReader) readStateCandidates(ctx context.Context, r
 
 	// read native candidates
 	var (
-		candidates      *iotextypes.CandidateListV2
-		height          uint64
-		candidatesBytes []byte
+		candidates *iotextypes.CandidateListV2
+		height     uint64
 	)
 	if epochStartHeight != 0 && c.nativeIndexer != nil {
 		// read candidates from indexer
-		candidatesBytes, height, err = c.nativeIndexer.GetCandidates(epochStartHeight, req.GetPagination().GetOffset(), req.GetPagination().GetLimit())
+		candidates, height, err = c.nativeIndexer.GetCandidates(epochStartHeight, req.GetPagination().GetOffset(), req.GetPagination().GetLimit())
 		if err != nil {
 			return nil, 0, err
-		}
-		candidates = &iotextypes.CandidateListV2{}
-		if err = proto.Unmarshal(candidatesBytes, candidates); err != nil {
-			return nil, 0, errors.Wrap(err, "failed to unmarshal candidates")
 		}
 	} else {
 		// read candidates from native state
