@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -197,25 +196,12 @@ func main() {
 		fpRisk := int64(1000)
 
 		d := time.Duration(timeout) * time.Second
-
-		// First deploy a user specified smart contract which can be interacted by injected executions
-		eHash, err := util.DeployContract(client, counter, delegates, executionGasLimit, executionGasPrice,
-			deployExecData, retryNum, retryInterval)
+		executor, nonce := util.CreateExecutionInjection(counter, delegates)
+		contract, err := util.DeployContract(client, executor, nonce, executionGasLimit, executionGasPrice,
+			deployExecData, retryNum, retryInterval, 2)
 		if err != nil {
 			log.L().Fatal("Failed to deploy smart contract", zap.Error(err))
 		}
-		// Wait until the smart contract is successfully deployed
-		var (
-			receipt *iotextypes.Receipt
-			as      = svrs[0].APIServer(1)
-		)
-		if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-			receipt, err = util.GetReceiptByAction(as.CoreService(), eHash)
-			return receipt != nil, nil
-		}); err != nil {
-			log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
-		}
-		contract := receipt.ContractAddress
 
 		var fpToken bc.FpToken
 		var fpContract string
@@ -272,11 +258,12 @@ func main() {
 
 		log.L().Info("Start action injections.")
 
+		as := svrs[0].APIServer(1)
 		wg := &sync.WaitGroup{}
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit,
 			voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, fpToken,
 			fpContract, debtor, creditor, client, admins, delegates, d, retryNum, retryInterval, resetInterval,
-			expectedBalancesMap, as.CoreService(), pendingActionMap)
+			expectedBalancesMap, as.CoreService(), pendingActionMap, 2)
 		wg.Wait()
 
 		err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
