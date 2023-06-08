@@ -164,7 +164,7 @@ func (cbi *CandidatesBucketsIndexer) PutBuckets(height uint64, buckets *iotextyp
 }
 
 // GetBuckets gets vote buckets from indexer given epoch start height
-func (cbi *CandidatesBucketsIndexer) GetBuckets(height uint64, offset, limit uint32) ([]byte, uint64, error) {
+func (cbi *CandidatesBucketsIndexer) GetBuckets(height uint64, offset, limit uint32) (*iotextypes.VoteBucketList, uint64, error) {
 	if height > cbi.latestBucketsHeight {
 		height = cbi.latestBucketsHeight
 	}
@@ -172,8 +172,7 @@ func (cbi *CandidatesBucketsIndexer) GetBuckets(height uint64, offset, limit uin
 	ret, err := getFromIndexer(cbi.kvStore, StakingBucketsNamespace, height)
 	cause := errors.Cause(err)
 	if cause == db.ErrNotExist || cause == db.ErrBucketNotExist {
-		d, err := proto.Marshal(buckets)
-		return d, height, err
+		return buckets, height, nil
 	}
 	if err != nil {
 		return nil, height, err
@@ -183,16 +182,14 @@ func (cbi *CandidatesBucketsIndexer) GetBuckets(height uint64, offset, limit uin
 	}
 	length := uint32(len(buckets.Buckets))
 	if offset >= length {
-		d, err := proto.Marshal(&iotextypes.VoteBucketList{})
-		return d, height, err
+		return &iotextypes.VoteBucketList{}, height, nil
 	}
 	end := offset + limit
 	if end > uint32(len(buckets.Buckets)) {
 		end = uint32(len(buckets.Buckets))
 	}
 	buckets.Buckets = buckets.Buckets[offset:end]
-	d, err := proto.Marshal(buckets)
-	return d, height, err
+	return buckets, height, nil
 }
 
 func (cbi *CandidatesBucketsIndexer) putToIndexer(ns string, height uint64, data []byte) error {

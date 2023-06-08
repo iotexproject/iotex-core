@@ -13,7 +13,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -51,18 +50,13 @@ func (c *compositeStakingStateReader) readStateBuckets(ctx context.Context, req 
 	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
 
 	var (
-		buckets      *iotextypes.VoteBucketList
-		height       uint64
-		bucketsBytes []byte
+		buckets *iotextypes.VoteBucketList
+		height  uint64
 	)
 	if epochStartHeight != 0 && c.nativeIndexer != nil {
 		// read native buckets from indexer
-		bucketsBytes, height, err = c.nativeIndexer.GetBuckets(epochStartHeight, req.GetPagination().GetOffset(), req.GetPagination().GetLimit())
+		buckets, height, err = c.nativeIndexer.GetBuckets(epochStartHeight, req.GetPagination().GetOffset(), req.GetPagination().GetLimit())
 		if err != nil {
-			return nil, 0, err
-		}
-		buckets = &iotextypes.VoteBucketList{}
-		if err := proto.Unmarshal(bucketsBytes, buckets); err != nil {
 			return nil, 0, err
 		}
 	} else {
