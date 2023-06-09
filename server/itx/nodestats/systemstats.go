@@ -30,6 +30,8 @@ func diskUsage(path string) (disk DiskStatus) {
 	return
 }
 
+var _ StatsReporter = (*systemStats)(nil)
+
 type systemStats struct {
 	cpuValue *cpu.Stats
 }

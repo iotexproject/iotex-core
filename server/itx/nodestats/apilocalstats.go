@@ -32,6 +32,8 @@ func (m *apiMethodStats) AvgSize() int64 {
 	return m.TotalSize / int64(m.Successes+m.Errors)
 }
 
+var _ StatsReporter = (*APILocalStats)(nil)
+
 // APILocalStats is the struct for getting API stats
 type APILocalStats struct {
 	allTimeStats sync.Map
