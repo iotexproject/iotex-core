@@ -282,6 +282,14 @@ func TestActPool_AddActs(t *testing.T) {
 
 	err = ap.Add(ctx, selp)
 	require.Equal(action.ErrIntrinsicGas, errors.Cause(err))
+
+	// test reject system action
+	elp = bd.SetAction(&action.GrantReward{}).Build()
+	err = ap.Add(ctx, action.FakeSeal(elp, _priKey1.PublicKey()))
+	require.Equal(action.ErrInvalidAct, errors.Cause(err))
+	elp = bd.SetAction(&action.PutPollResult{}).Build()
+	err = ap.Add(ctx, action.FakeSeal(elp, _priKey1.PublicKey()))
+	require.Equal(action.ErrInvalidAct, errors.Cause(err))
 }
 
 func TestActPool_PickActs(t *testing.T) {

@@ -23,15 +23,26 @@ var (
 type (
 	// BucketEth struct for eth
 	BucketEth struct {
-		Index            uint64
-		CandidateAddress common.Address
-		StakedAmount     *big.Int
-		StakedDuration   uint32
-		CreateTime       int64
-		StakeStartTime   int64
-		UnstakeStartTime int64
-		AutoStake        bool
-		Owner            common.Address
+		Index                     uint64
+		CandidateAddress          common.Address
+		StakedAmount              *big.Int
+		StakedDuration            uint32
+		CreateTime                int64
+		StakeStartTime            int64
+		UnstakeStartTime          int64
+		AutoStake                 bool
+		Owner                     common.Address
+		ContractAddress           common.Address
+		StakedDurationBlockNumber uint64
+		CreateBlockHeight         uint64
+		StakeStartBlockHeight     uint64
+		UnstakeStartBlockHeight   uint64
+	}
+
+	// BucketTypeEth struct for eth
+	BucketTypeEth struct {
+		StakedAmount   *big.Int
+		StakedDuration uint32
 	}
 
 	// CandidateEth struct for eth
@@ -61,16 +72,32 @@ func encodeVoteBucketListToEth(outputs abi.Arguments, buckets iotextypes.VoteBuc
 		} else {
 			return "", errConvertBigNumber
 		}
-		args[i].StakedDuration = bucket.StakedDuration
-		args[i].CreateTime = bucket.CreateTime.Seconds
-		args[i].StakeStartTime = bucket.StakeStartTime.Seconds
-		args[i].UnstakeStartTime = bucket.UnstakeStartTime.Seconds
+
 		args[i].AutoStake = bucket.AutoStake
 		addr, err = addrutil.IoAddrToEvmAddr(bucket.Owner)
 		if err != nil {
 			return "", err
 		}
 		args[i].Owner = addr
+
+		if bucket.ContractAddress == "" {
+			// native bucket contract address is 0x0000000000000000000000000000000000000000
+			args[i].ContractAddress = common.Address{}
+			args[i].StakedDuration = bucket.StakedDuration
+			args[i].CreateTime = bucket.CreateTime.Seconds
+			args[i].StakeStartTime = bucket.StakeStartTime.Seconds
+			args[i].UnstakeStartTime = bucket.UnstakeStartTime.Seconds
+		} else {
+			addr, err = addrutil.IoAddrToEvmAddr(bucket.ContractAddress)
+			if err != nil {
+				return "", err
+			}
+			args[i].ContractAddress = addr
+			args[i].StakedDurationBlockNumber = bucket.StakedDurationBlockNumber
+			args[i].CreateBlockHeight = bucket.CreateBlockHeight
+			args[i].StakeStartBlockHeight = bucket.StakeStartBlockHeight
+			args[i].UnstakeStartBlockHeight = bucket.UnstakeStartBlockHeight
+		}
 	}
 
 	data, err := outputs.Pack(args)
@@ -112,6 +139,25 @@ func encodeCandidateToEth(candidate *iotextypes.CandidateV2) (*CandidateEth, err
 	return result, nil
 }
 
+func encodeBucketTypeListToEth(outputs abi.Arguments, bucketTypes iotextypes.ContractStakingBucketTypeList) (string, error) {
+	args := make([]BucketTypeEth, len(bucketTypes.BucketTypes))
+	for i, bt := range bucketTypes.BucketTypes {
+		args[i] = BucketTypeEth{}
+		if amount, ok := new(big.Int).SetString(bt.StakedAmount, 10); ok {
+			args[i].StakedAmount = amount
+		} else {
+			return "", errConvertBigNumber
+		}
+		args[i].StakedDuration = bt.StakedDuration
+	}
+
+	data, err := outputs.Pack(args)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(data), nil
+}
+
 // BuildReadStateRequest decode eth_call data to StateContext
 func BuildReadStateRequest(data []byte) (protocol.StateContext, error) {
 	if len(data) < 4 {
@@ -137,6 +183,20 @@ func BuildReadStateRequest(data []byte) (protocol.StateContext, error) {
 		return newCandidateByAddressStateContext(data[4:])
 	case hex.EncodeToString(_totalStakingAmountMethod.ID):
 		return newTotalStakingAmountContext()
+	case hex.EncodeToString(_compositeBucketsMethod.ID):
+		return newCompositeBucketsStateContext(data[4:])
+	case hex.EncodeToString(_compositeBucketsByCandidateMethod.ID):
+		return newCompositeBucketsByCandidateStateContext(data[4:])
+	case hex.EncodeToString(_compositeBucketsByIndexesMethod.ID):
+		return newCompositeBucketsByIndexesStateContext(data[4:])
+	case hex.EncodeToString(_compositeBucketsByVoterMethod.ID):
+		return newCompositeBucketsByVoterStateContext(data[4:])
+	case hex.EncodeToString(_compositeBucketsCountMethod.ID):
+		return newCompositeBucketsCountStateContext()
+	case hex.EncodeToString(_compositeTotalStakingAmountMethod.ID):
+		return newCompositeTotalStakingAmountContext()
+	case hex.EncodeToString(_contractBucketTypesMethod.ID):
+		return newContractBucketTypesStateContext(data[4:])
 	default:
 		return nil, errInvalidCallSig
 	}

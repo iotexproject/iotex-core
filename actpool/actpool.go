@@ -218,6 +218,11 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	defer span.End()
 	ctx = ap.context(ctx)
 
+	// system action is only added by proposer when creating a block
+	if action.IsSystemAction(act) {
+		return action.ErrInvalidAct
+	}
+
 	if err := checkSelpData(&act); err != nil {
 		return err
 	}
@@ -227,7 +232,6 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	}
 
 	// Reject action if pool space is full
-
 	if uint64(ap.allActions.Count()) >= ap.cfg.MaxNumActsPerPool {
 		_actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
 		return action.ErrTxPoolOverflow
