@@ -142,10 +142,9 @@ func (s *contractStakingCache) BucketsByIndices(indices []uint64) ([]*Bucket, er
 	vbs := make([]*Bucket, 0, len(indices))
 	for _, id := range indices {
 		vb, ok := s.getBucket(id)
-		if !ok {
-			return nil, errors.Wrapf(ErrBucketNotExist, "id %d", id)
+		if ok {
+			vbs = append(vbs, vb)
 		}
-		vbs = append(vbs, vb)
 	}
 	return vbs, nil
 }
