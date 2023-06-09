@@ -65,6 +65,7 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 
 	// create a stake
 	height := uint64(1)
+	startHeight := uint64(1)
 	handler := newContractStakingEventHandler(indexer.cache, height)
 	activateBucketType(r, handler, 10, 100, height)
 	owner := identityset.Address(0)
@@ -77,7 +78,7 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	r.NoError(indexer.Stop(context.Background()))
 
 	// load cache from db
-	newIndexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), _testStakingContractAddress, 0)
+	newIndexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), _testStakingContractAddress, startHeight)
 	r.NoError(err)
 	r.NoError(newIndexer.Start(context.Background()))
 
@@ -91,6 +92,7 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	newHeight, err := newIndexer.Height()
 	r.NoError(err)
 	r.Equal(height, newHeight)
+	r.Equal(startHeight, newIndexer.StartHeight())
 	r.EqualValues(1, newIndexer.TotalBucketCount())
 	r.NoError(newIndexer.Stop(context.Background()))
 }
@@ -426,6 +428,101 @@ func TestContractStakingIndexerChangeBucketType(t *testing.T) {
 		r.True(ok)
 		r.EqualValues(20, bucket.StakedAmount.Int64())
 		r.EqualValues(100, bucket.StakedDurationBlockNumber)
+	})
+}
+
+func TestContractStakingIndexerReadBuckets(t *testing.T) {
+	r := require.New(t)
+	testDBPath, err := testutil.PathOfTempFile("staking.db")
+	r.NoError(err)
+	defer testutil.CleanupPath(testDBPath)
+	cfg := db.DefaultConfig
+	cfg.DbPath = testDBPath
+	kvStore := db.NewBoltDB(cfg)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	r.NoError(err)
+	r.NoError(indexer.Start(context.Background()))
+
+	// init bucket type
+	bucketTypeData := [][2]int64{
+		{10, 10},
+		{20, 10},
+		{10, 100},
+		{20, 100},
+	}
+	height := uint64(1)
+	handler := newContractStakingEventHandler(indexer.cache, height)
+	for _, data := range bucketTypeData {
+		activateBucketType(r, handler, data[0], data[1], height)
+	}
+	err = indexer.commit(handler)
+	r.NoError(err)
+
+	// stake
+	stakeData := []struct {
+		owner, delegate  int
+		amount, duration uint64
+	}{
+		{1, 2, 10, 10},
+		{1, 2, 20, 10},
+		{1, 2, 10, 100},
+		{1, 2, 20, 100},
+		{1, 3, 10, 100},
+		{1, 3, 20, 100},
+	}
+	height++
+	handler = newContractStakingEventHandler(indexer.cache, height)
+	for i, data := range stakeData {
+		stake(r, handler, identityset.Address(data.owner), identityset.Address(data.delegate), int64(i), int64(data.amount), int64(data.duration), height)
+	}
+	r.NoError(err)
+	r.NoError(indexer.commit(handler))
+
+	t.Run("Buckets", func(t *testing.T) {
+		buckets, err := indexer.Buckets()
+		r.NoError(err)
+		r.Len(buckets, len(stakeData))
+	})
+
+	t.Run("BucketsByCandidate", func(t *testing.T) {
+		candidateMap := make(map[int]int)
+		for i := range stakeData {
+			candidateMap[stakeData[i].delegate]++
+		}
+		for cand := range candidateMap {
+			buckets, err := indexer.BucketsByCandidate(identityset.Address(cand))
+			r.NoError(err)
+			r.Len(buckets, candidateMap[cand])
+		}
+	})
+
+	t.Run("BucketsByIndices", func(t *testing.T) {
+		indices := []uint64{0, 1, 2, 3, 4, 5, 6}
+		buckets, err := indexer.BucketsByIndices(indices)
+		r.NoError(err)
+		expectedLen := 0
+		for _, idx := range indices {
+			if int(idx) < len(stakeData) {
+				expectedLen++
+			}
+		}
+		r.Len(buckets, expectedLen)
+	})
+
+	t.Run("TotalBucketCount", func(t *testing.T) {
+		r.EqualValues(len(stakeData), indexer.TotalBucketCount())
+	})
+
+	t.Run("CandidateVotes", func(t *testing.T) {
+		candidateMap := make(map[int]int64)
+		for i := range stakeData {
+			candidateMap[stakeData[i].delegate] += int64(stakeData[i].amount)
+		}
+		candidates := []int{1, 2, 3}
+		for _, cand := range candidates {
+			votes := candidateMap[cand]
+			r.EqualValues(votes, indexer.CandidateVotes(identityset.Address(cand)).Uint64())
+		}
 	})
 }
 
