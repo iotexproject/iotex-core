@@ -89,6 +89,7 @@ func TestHandlePost(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core.EXPECT().Track(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
 	svr := newHTTPHandler(NewWeb3Handler(core, "", _defaultBatchRequestLimit))
 	getServerResp := func(svr *hTTPHandler, req *http.Request) *httptest.ResponseRecorder {
 		req.Header.Set("Content-Type", "application/json")

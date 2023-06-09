@@ -14,7 +14,7 @@ var MaxResponseSize = 1024 * 1024 * 100 // 100MB
 type (
 	// Web3ResponseWriter is writer for web3 request
 	Web3ResponseWriter interface {
-		Write(interface{}) error
+		Write(interface{}) (int, error)
 	}
 
 	// Responder responds to new block
@@ -41,15 +41,15 @@ type (
 
 // responseWriter for server
 type responseWriter struct {
-	writeHandler func(interface{}) error
+	writeHandler func(interface{}) (int, error)
 }
 
 // NewResponseWriter returns a new responseWriter
-func NewResponseWriter(handler func(interface{}) error) Web3ResponseWriter {
+func NewResponseWriter(handler func(interface{}) (int, error)) Web3ResponseWriter {
 	return &responseWriter{handler}
 }
 
-func (w *responseWriter) Write(in interface{}) error {
+func (w *responseWriter) Write(in interface{}) (int, error) {
 	return w.writeHandler(in)
 }
 
@@ -69,20 +69,21 @@ func NewBatchWriter(singleWriter Web3ResponseWriter) *BatchWriter {
 }
 
 // Write adds data into batch buffer
-func (w *BatchWriter) Write(in interface{}) error {
+func (w *BatchWriter) Write(in interface{}) (int, error) {
 	raw, err := json.Marshal(in)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	w.totalSize += len(raw)
 	if w.totalSize > MaxResponseSize {
-		return errors.New("response size exceeds limit")
+		return w.totalSize, errors.New("response size exceeds limit")
 	}
 	w.buf = append(w.buf, raw)
-	return nil
+	return w.totalSize, nil
 }
 
 // Flush writes data in batch buffer
 func (w *BatchWriter) Flush() error {
-	return w.writer.Write(w.buf)
+	_, err := w.writer.Write(w.buf)
+	return err
 }

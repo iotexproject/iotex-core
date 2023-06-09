@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
+	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 )
 
 type (
@@ -42,7 +43,7 @@ type (
 	// BlockSync defines the interface of blocksyncer
 	BlockSync interface {
 		lifecycle.StartStopper
-
+		nodestats.StatsReporter
 		// TargetHeight returns the target height to sync to
 		TargetHeight() uint64
 		// ProcessSyncRequest processes a block sync request
@@ -120,6 +121,10 @@ func (*dummyBlockSync) ProcessBlock(context.Context, string, *block.Block) error
 
 func (*dummyBlockSync) SyncStatus() (uint64, uint64, uint64, string) {
 	return 0, 0, 0, ""
+}
+
+func (*dummyBlockSync) BuildReport() string {
+	return ""
 }
 
 // NewBlockSyncer returns a new block syncer instance
@@ -334,4 +339,16 @@ func (bs *blockSyncer) SyncStatus() (uint64, uint64, uint64, string) {
 		syncSpeedDesc = fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(syncBlockIncrease)/bs.cfg.Interval.Seconds())
 	}
 	return bs.startingHeight, bs.tipHeightHandler(), bs.targetHeight, syncSpeedDesc
+}
+
+// BuildReport builds a report of block syncer
+func (bs *blockSyncer) BuildReport() string {
+	startingHeight, tipHeight, targetHeight, syncSpeedDesc := bs.SyncStatus()
+	return fmt.Sprintf(
+		"BlockSync startingHeight: %d, tipHeight: %d, targetHeight: %d, %s",
+		startingHeight,
+		tipHeight,
+		targetHeight,
+		syncSpeedDesc,
+	)
 }

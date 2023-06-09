@@ -40,6 +40,7 @@ import (
 	"github.com/iotexproject/iotex-core/nodeinfo"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -89,6 +90,13 @@ func (builder *Builder) SetBlockDAO(bd blockdao.BlockDAO) *Builder {
 func (builder *Builder) SetP2PAgent(agent p2p.Agent) *Builder {
 	builder.createInstance()
 	builder.cs.p2pAgent = agent
+	return builder
+}
+
+// SetRPCStats sets the RPCStats instance
+func (builder *Builder) SetRPCStats(stats *nodestats.APILocalStats) *Builder {
+	builder.createInstance()
+	builder.cs.apiStats = stats
 	return builder
 }
 

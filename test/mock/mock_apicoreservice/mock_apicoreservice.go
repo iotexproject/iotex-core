@@ -8,6 +8,7 @@ import (
 	context "context"
 	big "math/big"
 	reflect "reflect"
+	time "time"
 
 	logger "github.com/ethereum/go-ethereum/eth/tracers/logger"
 	gomock "github.com/golang/mock/gomock"
@@ -623,6 +624,18 @@ func (m *MockCoreService) TraceTransaction(ctx context.Context, actHash string, 
 func (mr *MockCoreServiceMockRecorder) TraceTransaction(ctx, actHash, config interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceTransaction", reflect.TypeOf((*MockCoreService)(nil).TraceTransaction), ctx, actHash, config)
+}
+
+// Track mocks base method.
+func (m *MockCoreService) Track(ctx context.Context, start time.Time, method string, size int64, success bool) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Track", ctx, start, method, size, success)
+}
+
+// Track indicates an expected call of Track.
+func (mr *MockCoreServiceMockRecorder) Track(ctx, start, method, size, success interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Track", reflect.TypeOf((*MockCoreService)(nil).Track), ctx, start, method, size, success)
 }
 
 // TransactionLogByActionHash mocks base method.

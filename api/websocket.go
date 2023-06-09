@@ -86,11 +86,11 @@ func (wsSvr *WebsocketHandler) handleConnection(ctx context.Context, ws *websock
 
 			err = wsSvr.msgHandler.HandlePOSTReq(ctx, reader,
 				apitypes.NewResponseWriter(
-					func(resp interface{}) error {
+					func(resp interface{}) (int, error) {
 						if err = ws.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
 							log.Logger("api").Warn("failed to set write deadline timeout.", zap.Error(err))
 						}
-						return ws.WriteJSON(resp)
+						return 0, ws.WriteJSON(resp)
 					}),
 			)
 			if err != nil {
