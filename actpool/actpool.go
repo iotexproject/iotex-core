@@ -403,10 +403,6 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 	return nil
 }
 
-// ======================================
-// private functions
-// ======================================
-
 func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 	for _, act := range acts {
 		hash, err := act.Hash()
