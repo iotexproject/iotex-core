@@ -435,7 +435,9 @@ func (eh *contractStakingEventHandler) handleTransferEvent(event eventParam) err
 	}
 
 	token := tokenID.Uint64()
+	// cache token owner for stake event
 	eh.tokenOwner[token] = to
+	// update bucket owner if token exists
 	if bi, ok := eh.dirty.getBucketInfo(token); ok {
 		bi.Owner = to
 		return eh.dirty.updateBucketInfo(token, bi)
