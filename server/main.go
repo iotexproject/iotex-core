@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 // Usage:
 //   make build
@@ -28,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/recovery"
@@ -140,6 +140,16 @@ func main() {
 		livenessCancel()
 	}()
 
+	if cfg.System.MptrieLogPath != "" {
+		if err = mptrie.OpenLogDB(cfg.System.MptrieLogPath); err != nil {
+			log.L().Fatal("Failed to open mptrie log DB.", zap.Error(err))
+		}
+		defer func() {
+			if err = mptrie.CloseLogDB(); err != nil {
+				log.L().Error("Failed to close mptrie log DB.", zap.Error(err))
+			}
+		}()
+	}
 	// create and start the node
 	svr, err := itx.NewServer(cfg)
 	if err != nil {
@@ -169,7 +179,7 @@ func main() {
 
 func initLogger(cfg config.Config) error {
 	addr := cfg.Chain.ProducerAddress()
-	return log.InitLoggers(cfg.Log, cfg.SubLogs, zap.Fields(
+	return log.InitLoggers(cfg.Log, cfg.SubLogs, zap.AddCaller(), zap.Fields(
 		zap.String("ioAddr", addr.String()),
 	))
 }

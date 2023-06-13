@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package chainservice
 
@@ -12,6 +11,11 @@ import (
 	"time"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/committee"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -27,17 +31,17 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockindex"
+	"github.com/iotexproject/iotex-core/blockindex/contractstaking"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
+	rp "github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/nodeinfo"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-election/committee"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 )
 
 // Builder is a builder to build chainservice
@@ -89,6 +93,13 @@ func (builder *Builder) SetP2PAgent(agent p2p.Agent) *Builder {
 	return builder
 }
 
+// SetRPCStats sets the RPCStats instance
+func (builder *Builder) SetRPCStats(stats *nodestats.APILocalStats) *Builder {
+	builder.createInstance()
+	builder.cs.apiStats = stats
+	return builder
+}
+
 // SetElectionCommittee sets the election committee instance
 func (builder *Builder) SetElectionCommittee(c committee.Committee) *Builder {
 	builder.createInstance()
@@ -137,31 +148,40 @@ func (builder *Builder) buildFactory(forTest bool) error {
 }
 
 func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
+	var dao db.KVStore
+	var err error
 	if builder.cs.factory != nil {
 		return builder.cs.factory, nil
 	}
+	factoryCfg := factory.GenerateConfig(builder.cfg.Chain, builder.cfg.Genesis)
 	if builder.cfg.Chain.EnableTrielessStateDB {
 		if forTest {
-			return factory.NewStateDB(builder.cfg, factory.InMemStateDBOption(), factory.RegistryStateDBOption(builder.cs.registry))
+			return factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(builder.cs.registry))
 		}
 		opts := []factory.StateDBOption{
 			factory.RegistryStateDBOption(builder.cs.registry),
 			factory.DefaultPatchOption(),
 		}
 		if builder.cfg.Chain.EnableStateDBCaching {
-			opts = append(opts, factory.CachedStateDBOption())
+			dao, err = db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
 		} else {
-			opts = append(opts, factory.DefaultStateDBOption())
+			dao, err = db.CreateKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
 		}
-		return factory.NewStateDB(builder.cfg, opts...)
+		if err != nil {
+			return nil, err
+		}
+		return factory.NewStateDB(factoryCfg, dao, opts...)
 	}
 	if forTest {
-		return factory.NewFactory(builder.cfg, factory.InMemTrieOption(), factory.RegistryOption(builder.cs.registry))
+		return factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(builder.cs.registry))
 	}
-
+	dao, err = db.CreateKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
+	if err != nil {
+		return nil, err
+	}
 	return factory.NewFactory(
-		builder.cfg,
-		factory.DefaultTrieOption(),
+		factoryCfg,
+		dao,
 		factory.RegistryOption(builder.cs.registry),
 		factory.DefaultTriePatchOption(),
 	)
@@ -243,6 +263,12 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.bfIndexer != nil {
 		indexers = append(indexers, builder.cs.bfIndexer)
 	}
+	if builder.cs.sgdIndexer != nil {
+		indexers = append(indexers, builder.cs.sgdIndexer)
+	}
+	if builder.cs.contractStakingIndexer != nil {
+		indexers = append(indexers, builder.cs.contractStakingIndexer)
+	}
 	if forTest {
 		builder.cs.blockdao = blockdao.NewBlockDAOInMemForTest(indexers)
 	} else {
@@ -252,6 +278,40 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		builder.cs.blockdao = blockdao.NewBlockDAO(indexers, dbConfig, deser)
 	}
 
+	return nil
+}
+
+func (builder *Builder) buildSGDRegistry(forTest bool) error {
+	if builder.cs.sgdIndexer != nil {
+		return nil
+	}
+	if forTest {
+		builder.cs.sgdIndexer = nil
+	} else {
+		kvStore, err := db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.SGDIndexDBPath, 1000)
+		if err != nil {
+			return err
+		}
+		builder.cs.sgdIndexer = blockindex.NewSGDRegistry(builder.cfg.Genesis.SystemSGDContractAddress, builder.cfg.Genesis.SystemSGDContractHeight, kvStore)
+	}
+	return nil
+}
+
+func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
+	if builder.cs.contractStakingIndexer != nil {
+		return nil
+	}
+	if forTest {
+		builder.cs.contractStakingIndexer = contractstaking.NewDummyContractStakingIndexer()
+	} else {
+		dbConfig := builder.cfg.DB
+		dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
+		indexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.SystemStakingContractAddress, builder.cfg.Genesis.SystemStakingContractHeight)
+		if err != nil {
+			return err
+		}
+		builder.cs.contractStakingIndexer = indexer
+	}
 	return nil
 }
 
@@ -368,6 +428,30 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, factory.NewMinter(builder.cs.factory, builder.cs.actpool), chainOpts...)
 }
 
+func (builder *Builder) buildNodeInfoManager() error {
+	cs := builder.cs
+	stk := staking.FindProtocol(cs.Registry())
+	if stk == nil {
+		return errors.New("cannot find staking protocol")
+	}
+
+	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func() []string {
+		candidates, err := stk.ActiveCandidates(context.Background(), cs.factory, 0)
+		if err != nil {
+			log.L().Error("failed to get active candidates", zap.Error(errors.WithStack(err)))
+			return nil
+		}
+		whiteList := make([]string, len(candidates))
+		for i := range whiteList {
+			whiteList[i] = candidates[i].Address
+		}
+		return whiteList
+	})
+	builder.cs.nodeInfoManager = dm
+	builder.cs.lifecycle.Add(dm)
+	return nil
+}
+
 func (builder *Builder) buildBlockSyncer() error {
 	if builder.cs.blocksync != nil {
 		return nil
@@ -437,10 +521,17 @@ func (builder *Builder) registerStakingProtocol() error {
 	if !builder.cfg.Chain.EnableStakingProtocol {
 		return nil
 	}
+
 	stakingProtocol, err := staking.NewProtocol(
 		rewarding.DepositGas,
-		builder.cfg.Genesis.Staking,
+		&staking.BuilderConfig{
+			Staking:                  builder.cfg.Genesis.Staking,
+			PersistStakingPatchBlock: builder.cfg.Chain.PersistStakingPatchBlock,
+			StakingPatchDir:          builder.cfg.Chain.StakingPatchDir,
+		},
 		builder.cs.candBucketsIndexer,
+		builder.cs.contractStakingIndexer,
+		builder.cfg.Genesis.OkhotskBlockHeight,
 		builder.cfg.Genesis.GreenlandBlockHeight,
 		builder.cfg.Genesis.HawaiiBlockHeight,
 	)
@@ -461,7 +552,7 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGas).Register(builder.cs.registry)
+	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGasWithSGD, builder.cs.sgdIndexer).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
@@ -521,7 +612,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 		func(start, end uint64) (map[string]uint64, error) {
 			return blockchain.Productivity(chain, start, end)
 		},
-		builder.cs.blockdao.GetBlockHash,
+		dao.GetBlockHash,
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate poll protocol")
@@ -544,7 +635,16 @@ func (builder *Builder) buildConsensusComponent() error {
 	}
 
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
-	component, err := consensus.NewConsensus(builder.cfg, builder.cs.chain, builder.cs.factory, copts...)
+	builderCfg := rp.BuilderConfig{
+		Chain:              builder.cfg.Chain,
+		Consensus:          builder.cfg.Consensus.RollDPoS,
+		Scheme:             builder.cfg.Consensus.Scheme,
+		DardanellesUpgrade: builder.cfg.DardanellesUpgrade,
+		DB:                 builder.cfg.DB,
+		Genesis:            builder.cfg.Genesis,
+		SystemActive:       builder.cfg.System.Active,
+	}
+	component, err := consensus.NewConsensus(builderCfg, builder.cs.chain, builder.cs.factory, copts...)
 	if err != nil {
 		return errors.Wrap(err, "failed to create consensus component")
 	}
@@ -569,6 +669,12 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildGatewayComponents(forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildSGDRegistry(forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildContractStakingIndexer(forTest); err != nil {
 		return nil, err
 	}
 	if err := builder.buildBlockDAO(forTest); err != nil {
@@ -597,6 +703,9 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildBlockSyncer(); err != nil {
+		return nil, err
+	}
+	if err := builder.buildNodeInfoManager(); err != nil {
 		return nil, err
 	}
 	cs := builder.cs

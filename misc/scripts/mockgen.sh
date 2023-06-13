@@ -73,7 +73,7 @@ mkdir -p ./test/mock/mock_poll
 mockgen -destination=./test/mock/mock_poll/mock_poll.go  \
         -source=./action/protocol/poll/protocol.go \
         -package=mock_poll \
-        Poll
+        Protocol
 
 mockgen -destination=./db/mock_kvstore.go  \
         -source=./db/kvstore.go \
@@ -147,3 +147,25 @@ mockgen -destination=./test/mock/mock_web3server/mock_web3server.go  \
         -source=./api/web3server.go \
         -package=mock_web3server \
         Web3Handler
+
+mkdir -p ./test/mock/mock_nodeinfo
+mockgen -destination=./test/mock/mock_nodeinfo/mock_manager.go  \
+        -source=./nodeinfo/manager.go \
+        -package=mock_nodeinfo \
+        transmitter chain
+
+mkdir -p ./action/protocol/staking
+mockgen -destination=./action/protocol/staking/contractstake_indexer_mock.go  \
+        -source=./action/protocol/staking/contractstake_indexer.go \
+        -package=staking \
+        ContractStakingIndexer
+
+mkdir -p ./test/mock/mock_blockdao
+mockgen -destination=./test/mock/mock_blockdao/mock_blockindexer.go  \
+        -package=mock_blockdao \
+        github.com/iotexproject/iotex-core/blockchain/blockdao \
+        BlockIndexer
+mockgen -destination=./test/mock/mock_blockdao/mock_blockindexer_withstart.go  \
+        -package=mock_blockdao \
+        github.com/iotexproject/iotex-core/blockchain/blockdao \
+        BlockIndexerWithStart

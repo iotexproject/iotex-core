@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package evm
 
@@ -45,6 +44,19 @@ var (
 
 	// ErrInconsistentNonce is the error that the nonce is different from executor's nonce
 	ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
+)
+
+type (
+	// GetBlockHash gets block hash by height
+	GetBlockHash func(uint64) (hash.Hash256, error)
+
+	// DepositGasWithSGD deposits gas with Sharing of Gas-fee with DApps
+	DepositGasWithSGD func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error)
+
+	// SGDRegistry is the interface for handling Sharing of Gas-fee with DApps
+	SGDRegistry interface {
+		CheckContract(context.Context, string) (address.Address, uint64, bool, error)
+	}
 )
 
 // CanTransfer checks whether the from account has enough balance
@@ -144,10 +156,11 @@ func newParams(
 		Transfer:    MakeTransfer,
 		GetHash:     getHashFn,
 		Coinbase:    common.BytesToAddress(blkCtx.Producer.Bytes()),
+		GasLimit:    gasLimit,
 		BlockNumber: new(big.Int).SetUint64(blkCtx.BlockHeight),
 		Time:        new(big.Int).SetInt64(blkCtx.BlockTimeStamp.Unix()),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
-		GasLimit:    gasLimit,
+		BaseFee:     new(big.Int),
 	}
 
 	return &Params{
@@ -191,7 +204,8 @@ func ExecuteContract(
 	sm protocol.StateManager,
 	execution *action.Execution,
 	getBlockHash GetBlockHash,
-	depositGasFunc DepositGas,
+	depositGasFunc DepositGasWithSGD,
+	sgd SGDRegistry,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
@@ -219,7 +233,10 @@ func ExecuteContract(
 	}
 
 	receipt.Status = uint64(statusCode)
-	var burnLog *action.TransactionLog
+	var (
+		depositLog, burnLog *action.TransactionLog
+		consumedGas         = depositGas - remainingGas
+	)
 	if featureCtx.FixDoubleChargeGas {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.txCtx.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.txCtx.GasPrice))
@@ -228,19 +245,33 @@ func ExecuteContract(
 			remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.txCtx.GasPrice)
 			stateDB.AddBalance(ps.txCtx.Origin, remainingValue)
 		}
-		if depositGas-remainingGas > 0 {
+		if consumedGas > 0 {
 			burnLog = &action.TransactionLog{
 				Type:      iotextypes.TransactionLogType_GAS_FEE,
 				Sender:    actionCtx.Caller.String(),
 				Recipient: "", // burned
-				Amount:    new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.txCtx.GasPrice),
+				Amount:    new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), ps.txCtx.GasPrice),
 			}
 		}
 	}
-	var depositLog *action.TransactionLog
-	if depositGas-remainingGas > 0 {
-		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.txCtx.GasPrice)
-		depositLog, err = depositGasFunc(ctx, sm, gasValue)
+	if consumedGas > 0 {
+		var (
+			receiver                  address.Address
+			sharedGas                 uint64
+			sharedGasFee, totalGasFee *big.Int
+		)
+		if featureCtx.SharedGasWithDapp && sgd != nil {
+			receiver, sharedGas, err = processSGD(ctx, sm, execution, consumedGas, sgd)
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "failed to process Sharing of Gas-fee with DApps")
+			}
+		}
+		if sharedGas > 0 {
+			sharedGasFee = big.NewInt(int64(sharedGas))
+			sharedGasFee.Mul(sharedGasFee, ps.txCtx.GasPrice)
+		}
+		totalGasFee = new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), ps.txCtx.GasPrice)
+		depositLog, err = depositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -265,6 +296,24 @@ func ExecuteContract(
 	}
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil
+}
+
+func processSGD(ctx context.Context, sm protocol.StateManager, execution *action.Execution, consumedGas uint64, sgd SGDRegistry,
+) (address.Address, uint64, error) {
+	if execution.Contract() == action.EmptyAddress {
+		return nil, 0, nil
+	}
+
+	receiver, percentage, ok, err := sgd.CheckContract(ctx, execution.Contract())
+	if err != nil || !ok {
+		return nil, 0, err
+	}
+
+	sharedGas := consumedGas * percentage / 100
+	if sharedGas > consumedGas {
+		sharedGas = consumedGas
+	}
+	return receiver, sharedGas, nil
 }
 
 // ReadContractStorage reads contract's storage
@@ -314,6 +363,12 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if featureCtx.RevertLog {
 		opts = append(opts, RevertLogOption())
 	}
+	if !featureCtx.FixUnproductiveDelegates {
+		opts = append(opts, NotCheckPutStateErrorOption())
+	}
+	if !featureCtx.CorrectGasRefund {
+		opts = append(opts, ManualCorrectGasRefundOption())
+	}
 
 	return NewStateDBAdapter(
 		sm,
@@ -336,8 +391,8 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.Chai
 		chainConfig.ChainID = new(big.Int).SetUint64(uint64(id))
 	}
 	// enable Berlin and London
-	chainConfig.BerlinBlock = new(big.Int).SetUint64(g.ToBeEnabledBlockHeight)
-	chainConfig.LondonBlock = new(big.Int).SetUint64(g.ToBeEnabledBlockHeight)
+	chainConfig.BerlinBlock = new(big.Int).SetUint64(g.OkhotskBlockHeight)
+	chainConfig.LondonBlock = new(big.Int).SetUint64(g.OkhotskBlockHeight)
 	return &chainConfig
 }
 
@@ -357,7 +412,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	}
 	chainConfig := getChainConfig(g, blockHeight, evmParams.evmNetworkID)
 	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, chainConfig, config)
-	if g.IsToBeEnabled(blockHeight) {
+	if g.IsOkhotsk(blockHeight) {
 		accessList = evmParams.accessList
 	}
 	intriGas, err := intrinsicGas(uint64(len(evmParams.data)), accessList)
@@ -370,7 +425,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	remainingGas -= intriGas
 
 	// Set up the initial access list
-	if rules := chainConfig.Rules(evm.Context.BlockNumber); rules.IsBerlin {
+	if rules := chainConfig.Rules(evm.Context.BlockNumber, false); rules.IsBerlin {
 		stateDB.PrepareAccessList(evmParams.txCtx.Origin, evmParams.contract, vm.ActivePrecompiles(rules), evmParams.accessList)
 	}
 	var (
@@ -415,6 +470,20 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 		// After EIP-3529: refunds are capped to gasUsed / 5
 		refund = (evmParams.gas - remainingGas) / params.RefundQuotientEIP3529
 	}
+	// before London EVM activation (at Okhotsk height), in certain cases dynamicGas
+	// has caused gas refund to change, which needs to be manually adjusted after
+	// the tx is reverted. After Okhotsk height, it is fixed inside RevertToSnapshot()
+	var (
+		deltaRefundByDynamicGas = evm.DeltaRefundByDynamicGas
+		featureCtx              = protocol.MustGetFeatureCtx(ctx)
+	)
+	if !featureCtx.CorrectGasRefund && deltaRefundByDynamicGas != 0 {
+		if deltaRefundByDynamicGas > 0 {
+			stateDB.SubRefund(uint64(deltaRefundByDynamicGas))
+		} else {
+			stateDB.AddRefund(uint64(-deltaRefundByDynamicGas))
+		}
+	}
 	if refund > stateDB.GetRefund() {
 		refund = stateDB.GetRefund()
 	}
@@ -442,7 +511,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 // evmErrToErrStatusCode returns ReceiptStatuscode which describes error type
 func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) iotextypes.ReceiptStatus {
 	// specific error starting London
-	if g.IsToBeEnabled(height) {
+	if g.IsOkhotsk(height) {
 		if evmErr == vm.ErrInvalidCode {
 			return iotextypes.ReceiptStatus_ErrInvalidCode
 		}
@@ -549,8 +618,9 @@ func SimulateExecution(
 		sm,
 		ex,
 		getBlockHash,
-		func(context.Context, protocol.StateManager, *big.Int) (*action.TransactionLog, error) {
+		func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
 			return nil, nil
 		},
+		nil,
 	)
 }

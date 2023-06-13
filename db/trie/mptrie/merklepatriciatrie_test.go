@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package mptrie
 
@@ -539,7 +538,13 @@ func Test4kEntries(t *testing.T) {
 func test4kEntries(t *testing.T, enableAsync bool) {
 	require := require.New(t)
 
-	tr, err := New(KeyLengthOption(4), AsyncOption())
+	var tr trie.Trie
+	var err error
+	if enableAsync {
+		tr, err = New(KeyLengthOption(4), AsyncOption())
+	} else {
+		tr, err = New(KeyLengthOption(4))
+	}
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
 	root, err := tr.RootHash()

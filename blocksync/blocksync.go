@@ -1,15 +1,13 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package blocksync
 
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -21,10 +19,11 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/fastrand"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
+	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 )
 
 type (
@@ -44,7 +43,7 @@ type (
 	// BlockSync defines the interface of blocksyncer
 	BlockSync interface {
 		lifecycle.StartStopper
-
+		nodestats.StatsReporter
 		// TargetHeight returns the target height to sync to
 		TargetHeight() uint64
 		// ProcessSyncRequest processes a block sync request
@@ -59,7 +58,7 @@ type (
 
 	// blockSyncer implements BlockSync interface
 	blockSyncer struct {
-		cfg config.BlockSync
+		cfg Config
 		buf *blockBuffer
 
 		tipHeightHandler     TipHeight
@@ -124,9 +123,13 @@ func (*dummyBlockSync) SyncStatus() (uint64, uint64, uint64, string) {
 	return 0, 0, 0, ""
 }
 
+func (*dummyBlockSync) BuildReport() string {
+	return ""
+}
+
 // NewBlockSyncer returns a new block syncer instance
 func NewBlockSyncer(
-	cfg config.BlockSync,
+	cfg Config,
 	tipHeightHandler TipHeight,
 	blockByHeightHandler BlockByHeight,
 	commitBlockHandler CommitBlock,
@@ -213,7 +216,7 @@ func (bs *blockSyncer) requestBlock(ctx context.Context, start uint64, end uint6
 		repeat = len(peers)
 	}
 	for i := 0; i < repeat; i++ {
-		peer := peers[rand.Intn(len(peers))]
+		peer := peers[fastrand.Uint32n(uint32(len(peers)))]
 		if err := bs.unicastOutbound(
 			ctx,
 			peer,
@@ -302,13 +305,13 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peer.AddrInf
 		)
 		end = tip
 	}
+	// TODO: send back multiple blocks in one shot
 	for i := start; i <= end; i++ {
 		// TODO: fetch block from buffer
 		blk, err := bs.blockByHeightHandler(i)
 		if err != nil {
 			return err
 		}
-		// TODO: send back multiple blocks in one shot
 		syncCtx, cancel := context.WithTimeout(ctx, bs.cfg.ProcessSyncRequestTTL)
 		defer cancel()
 		if err := bs.unicastOutbound(syncCtx, peer, blk.ConvertToBlockPb()); err != nil {
@@ -336,4 +339,16 @@ func (bs *blockSyncer) SyncStatus() (uint64, uint64, uint64, string) {
 		syncSpeedDesc = fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(syncBlockIncrease)/bs.cfg.Interval.Seconds())
 	}
 	return bs.startingHeight, bs.tipHeightHandler(), bs.targetHeight, syncSpeedDesc
+}
+
+// BuildReport builds a report of block syncer
+func (bs *blockSyncer) BuildReport() string {
+	startingHeight, tipHeight, targetHeight, syncSpeedDesc := bs.SyncStatus()
+	return fmt.Sprintf(
+		"BlockSync startingHeight: %d, tipHeight: %d, targetHeight: %d, %s",
+		startingHeight,
+		tipHeight,
+		targetHeight,
+		syncSpeedDesc,
+	)
 }

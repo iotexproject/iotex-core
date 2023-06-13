@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package itx
 
@@ -27,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/pkg/util/httputil"
+	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 )
 
 // Server is the iotex server instance containing all components.
@@ -37,6 +37,7 @@ type Server struct {
 	apiServers           map[uint32]*api.ServerV2
 	p2pAgent             p2p.Agent
 	dispatcher           dispatcher.Dispatcher
+	nodeStats            *nodestats.NodeStats
 	initializedSubChains map[uint32]bool
 	mutex                sync.RWMutex
 	subModuleCancel      context.CancelFunc
@@ -71,6 +72,8 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	var cs *chainservice.ChainService
 	builder := chainservice.NewBuilder(cfg)
 	builder.SetP2PAgent(p2pAgent)
+	rpcStats := nodestats.NewAPILocalStats()
+	builder.SetRPCStats(rpcStats)
 	if testing {
 		cs, err = builder.BuildForTest()
 	} else {
@@ -79,6 +82,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
+	nodeStats := nodestats.NewNodeStats(rpcStats, cs.BlockSync(), p2pAgent)
 	apiServer, err := cs.NewAPIServer(cfg.API, cfg.Plugins)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create api server")
@@ -99,6 +103,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		rootChainService:     cs,
 		chainservices:        chains,
 		apiServers:           apiServers,
+		nodeStats:            nodeStats,
 		initializedSubChains: map[uint32]bool{},
 	}
 	// Setup sub-chain starter
@@ -126,13 +131,18 @@ func (s *Server) Start(ctx context.Context) error {
 	if err := s.dispatcher.Start(cctx); err != nil {
 		return errors.Wrap(err, "error when starting dispatcher")
 	}
-
+	if err := s.nodeStats.Start(cctx); err != nil {
+		return errors.Wrap(err, "error when starting node stats")
+	}
 	return nil
 }
 
 // Stop stops the server
 func (s *Server) Stop(ctx context.Context) error {
 	defer s.subModuleCancel()
+	if err := s.nodeStats.Stop(ctx); err != nil {
+		return errors.Wrap(err, "error when stopping node stats")
+	}
 	if err := s.p2pAgent.Stop(ctx); err != nil {
 		// notest
 		return errors.Wrap(err, "error when stopping P2P agent")

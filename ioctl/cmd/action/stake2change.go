@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
@@ -15,7 +14,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
 // Multi-language support
@@ -50,8 +48,8 @@ func init() {
 
 func stake2Change(args []string) error {
 	var candidateName = args[0]
-	if err := validator.ValidateCandidateNameForStake2(candidateName); err != nil {
-		return output.NewError(output.ValidationError, "invalid candidate name", err)
+	if !action.IsValidCandidateName(candidateName) {
+		return output.NewError(output.ValidationError, "", action.ErrInvalidCanName)
 	}
 
 	bucketIndex, err := strconv.ParseUint(args[1], 10, 64)

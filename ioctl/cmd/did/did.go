@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package did
 
@@ -37,10 +36,10 @@ var DIDCmd = &cobra.Command{
 func init() {
 	DIDCmd.AddCommand(_didGenerateCmd)
 	DIDCmd.AddCommand(_didRegisterCmd)
-	DIDCmd.AddCommand(_didGetHashCmd)
-	DIDCmd.AddCommand(_didGetURICmd)
-	DIDCmd.AddCommand(_didUpdateCmd)
+	DIDCmd.AddCommand(_didGetCmd)
 	DIDCmd.AddCommand(_didDeregisterCmd)
+	DIDCmd.AddCommand(_didServiceAddCmd)
+	DIDCmd.AddCommand(_didServiceRemoveCmd)
 	DIDCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpoint, config.UILanguage))
 	DIDCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(_flagInsecure, config.UILanguage))

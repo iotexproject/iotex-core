@@ -11,9 +11,7 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -76,130 +74,6 @@ func TestWeb3ResponseMarshal(t *testing.T) {
 func TestBlockObjectMarshal(t *testing.T) {
 	require := require.New(t)
 
-	emptyBytes := make([]byte, 256)
-	blkMeta := &iotextypes.BlockMeta{
-		Hash:              "a52101ae81a5cf4e054709456adb5e8fcbb0c707f02e5f292d0bd22ddd817076",
-		Height:            1,
-		Timestamp:         timestamppb.New(time.Date(2011, 1, 26, 0, 0, 0, 0, time.UTC)),
-		NumActions:        2,
-		ProducerAddress:   "io1juvx5g063eu4ts832nukp4vgcwk2gnc5cu9ayd",
-		TransferAmount:    "10",
-		TxRoot:            "2a4e3b26aa302bf1974b850397e4ec24aa77517e4ea367e3f7f764b2c59f1eb5",
-		ReceiptRoot:       "0c26064b778ca775ed2f4220882ce20ced34f806ceb5edf67a7fb4cdb7b1a5dc",
-		DeltaStateDigest:  "900d80ab3bb6d12a98ae177268610b28a14c9ef84fb891a9c809d6d863d79cd3",
-		LogsBloom:         hex.EncodeToString(emptyBytes),
-		PreviousBlockHash: "1f20ad92a25748c2459aa6820a4fe5a25a1c57702045f4ab910dc88df5a04fce",
-		GasLimit:          20000,
-		GasUsed:           10000,
-	}
-
-	t.Run("BlockWithoutDetail", func(t *testing.T) {
-		res, err := json.Marshal(&getBlockResult{
-			blkMeta:      blkMeta,
-			transactions: []interface{}{string("0x2133ee7ff4562535166e3f16fd7407c19e5ed1acd036f78d3528a5a40e40ad42")},
-		})
-		require.NoError(err)
-		require.JSONEq(`
-		{
-			"author":"0x97186A21fA8E7955C0f154f960d588C3ACA44f14",
-			"number":"0x1",
-			"hash":"0xa52101ae81a5cf4e054709456adb5e8fcbb0c707f02e5f292d0bd22ddd817076",
-			"parentHash":"0x1f20ad92a25748c2459aa6820a4fe5a25a1c57702045f4ab910dc88df5a04fce",
-			"sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-			"logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-			"transactionsRoot":"0x2a4e3b26aa302bf1974b850397e4ec24aa77517e4ea367e3f7f764b2c59f1eb5",
-			"stateRoot":"0x900d80ab3bb6d12a98ae177268610b28a14c9ef84fb891a9c809d6d863d79cd3",
-			"receiptsRoot":"0x0c26064b778ca775ed2f4220882ce20ced34f806ceb5edf67a7fb4cdb7b1a5dc",
-			"miner":"0x97186A21fA8E7955C0f154f960d588C3ACA44f14",
-			"difficulty":"0xfffffffffffffffffffffffffffffffe",
-			"totalDifficulty":"0xff14700000000000000000000000486001d72",
-			"extraData":"0x",
-			"size":"0x2",
-			"gasLimit":"0x4e20",
-			"gasUsed":"0x2710",
-			"timestamp":"0x4d3f6400",
-			"transactions":[
-			   "0x2133ee7ff4562535166e3f16fd7407c19e5ed1acd036f78d3528a5a40e40ad42"
-			],
-			"step":"373422302",
-			"uncles":[
-			   
-			]
-		 }
-		`, string(res))
-	})
-
-	t.Run("BlockWithDetail", func(t *testing.T) {
-		receipt := &action.Receipt{
-			Status:          1,
-			BlockHeight:     16,
-			ActionHash:      _testTxHash,
-			GasConsumed:     21000,
-			ContractAddress: _testContractIoAddr,
-			TxIndex:         1,
-		}
-		tx := &getTransactionResult{
-			blockHash: _testBlkHash,
-			to:        nil,
-			ethTx:     types.NewContractCreation(1, big.NewInt(10), 21000, big.NewInt(0), []byte{}),
-			receipt:   receipt,
-			pubkey:    _testPubKey,
-			signature: []byte("69d89a0af27dcaa67f1b62a383594d97599aadd2b7b164cb4112aa8ddfd42f895649075cae1b7216c43a491c5e9be68d1d9a27b863d71155ecdd7c95dab5394f01"),
-		}
-		res, err := json.Marshal(&getBlockResult{
-			blkMeta:      blkMeta,
-			transactions: []interface{}{tx},
-		})
-		require.NoError(err)
-		require.JSONEq(`
-		{
-			"author":"0x97186A21fA8E7955C0f154f960d588C3ACA44f14",
-			"number":"0x1",
-			"hash":"0xa52101ae81a5cf4e054709456adb5e8fcbb0c707f02e5f292d0bd22ddd817076",
-			"parentHash":"0x1f20ad92a25748c2459aa6820a4fe5a25a1c57702045f4ab910dc88df5a04fce",
-			"sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-			"logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-			"transactionsRoot":"0x2a4e3b26aa302bf1974b850397e4ec24aa77517e4ea367e3f7f764b2c59f1eb5",
-			"stateRoot":"0x900d80ab3bb6d12a98ae177268610b28a14c9ef84fb891a9c809d6d863d79cd3",
-			"receiptsRoot":"0x0c26064b778ca775ed2f4220882ce20ced34f806ceb5edf67a7fb4cdb7b1a5dc",
-			"miner":"0x97186A21fA8E7955C0f154f960d588C3ACA44f14",
-			"difficulty":"0xfffffffffffffffffffffffffffffffe",
-			"totalDifficulty":"0xff14700000000000000000000000486001d72",
-			"extraData":"0x",
-			"size":"0x2",
-			"gasLimit":"0x4e20",
-			"gasUsed":"0x2710",
-			"timestamp":"0x4d3f6400",
-			"transactions":[
-			   {
-				  "hash":"0x25bef7a7e20402a625973613b19bbc1793ed3a38cad270abf623222120a10fd0",
-				  "nonce":"0x1",
-				  "blockHash":"0xc4aace64c1f4d7c0b6ebe74ba01e00e27c7ff4b2552c36ef617f38f0f2b1ebb3",
-				  "blockNumber":"0x10",
-				  "transactionIndex":"0x1",
-				  "from":"0x0666dba65b0ef88d11cdcbe857ffb6618310dcfa",
-				  "to":null,
-				  "value":"0xa",
-				  "gasPrice":"0x0",
-				  "gas":"0x5208",
-				  "input":"0x",
-				  "r":"0x3639643839613061663237646361613637663162363261333833353934643937",
-				  "s":"0x3539396161646432623762313634636234313132616138646466643432663839",
-				  "v":"0x35"
-			   }
-			],
-			"step":"373422302",
-			"uncles":[
-			   
-			]
-		 }
-		`, string(res))
-	})
-}
-
-func TestBlockObjectV2Marshal(t *testing.T) {
-	require := require.New(t)
-
 	var (
 		receiptRoot, _       = hex.DecodeString("0c26064b778ca775ed2f4220882ce20ced34f806ceb5edf67a7fb4cdb7b1a5dc")
 		deltaStateDigest, _  = hex.DecodeString("900d80ab3bb6d12a98ae177268610b28a14c9ef84fb891a9c809d6d863d79cd3")
@@ -244,7 +118,7 @@ func TestBlockObjectV2Marshal(t *testing.T) {
 	}}
 
 	t.Run("BlockWithoutDetail", func(t *testing.T) {
-		res, err := json.Marshal(&getBlockResultV2{
+		res, err := json.Marshal(&getBlockResult{
 			blk:          &blk,
 			transactions: []interface{}{string("0x2133ee7ff4562535166e3f16fd7407c19e5ed1acd036f78d3528a5a40e40ad42")},
 		})
@@ -288,7 +162,7 @@ func TestBlockObjectV2Marshal(t *testing.T) {
 			pubkey:    sevlp.SrcPubkey(),
 			signature: sevlp.Signature(),
 		}
-		res, err := json.Marshal(&getBlockResultV2{
+		res, err := json.Marshal(&getBlockResult{
 			blk:          &blk,
 			transactions: []interface{}{tx},
 		})

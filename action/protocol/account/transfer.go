@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
@@ -24,11 +23,7 @@ import (
 const TransferSizeLimit = 32 * 1024
 
 // handleTransfer handles a transfer
-func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	tsf, ok := act.(*action.Transfer)
-	if !ok {
-		return nil, nil
-	}
+func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm protocol.StateManager) (*action.Receipt, error) {
 	var (
 		fCtx      = protocol.MustGetFeatureCtx(ctx)
 		actionCtx = protocol.MustGetActionCtx(ctx)
@@ -163,11 +158,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 }
 
 // validateTransfer validates a transfer
-func (p *Protocol) validateTransfer(ctx context.Context, act action.Action) error {
-	tsf, ok := act.(*action.Transfer)
-	if !ok {
-		return nil
-	}
+func (p *Protocol) validateTransfer(ctx context.Context, tsf *action.Transfer) error {
 	// Reject oversized transfer
 	if tsf.TotalSize() > TransferSizeLimit {
 		return action.ErrOversizedData

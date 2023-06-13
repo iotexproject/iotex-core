@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package poll
 
@@ -102,6 +101,7 @@ func (ns *NativeStaking) Votes(ctx context.Context, ts time.Time, correctGas boo
 	}
 	prevIndex := big.NewInt(0)
 	limit := big.NewInt(256)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 
 	for {
 		vote, index, err := ns.readBuckets(ctx, prevIndex, limit, correctGas)
@@ -114,7 +114,11 @@ func (ns *NativeStaking) Votes(ctx context.Context, ts time.Time, correctGas boo
 			log.L().Error(" read native staking contract", zap.Error(err))
 			return nil, err
 		}
-		votes.tally(vote, ts)
+		err = votes.tally(vote, ts)
+		if featureCtx.FixUnproductiveDelegates && err != nil {
+			log.L().Error(" read vote tally", zap.Error(err))
+			return nil, err
+		}
 		if len(vote) < int(limit.Int64()) {
 			// all data been read
 			break

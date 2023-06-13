@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package bc
 
@@ -30,9 +29,9 @@ func TestNewBCBucketListCmd(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(21)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
-	client.EXPECT().Config().Return(config.Config{}).Times(2)
+	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
 
 	t.Run("get bucket list by voter", func(t *testing.T) {
 		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return("io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx", nil)

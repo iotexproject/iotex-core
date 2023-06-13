@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package mptrie
 
@@ -17,20 +16,28 @@ var ErrNoData = errors.New("no data in hash node")
 type (
 	keyType []byte
 
+	client interface {
+		asyncMode() bool
+		hash([]byte) []byte
+		loadNode([]byte) (node, error)
+		deleteNode([]byte) error
+		putNode([]byte, []byte) error
+	}
+
 	node interface {
-		Search(keyType, uint8) (node, error)
-		Delete(keyType, uint8) (node, error)
-		Upsert(keyType, uint8, []byte) (node, error)
-		Hash() ([]byte, error)
-		Flush() error
+		Search(client, keyType, uint8) (node, error)
+		Delete(client, keyType, uint8) (node, error)
+		Upsert(client, keyType, uint8, []byte) (node, error)
+		Hash(client) ([]byte, error)
+		Flush(client) error
 	}
 
 	serializable interface {
 		node
-		hash(flush bool) ([]byte, error)
-		proto(flush bool) (proto.Message, error)
-		delete() error
-		store() (node, error)
+		hash(client, bool) ([]byte, error)
+		proto(client, bool) (proto.Message, error)
+		delete(client) error
+		store(client) error
 	}
 
 	leaf interface {
@@ -50,6 +57,7 @@ type (
 		node
 		Children() []node
 		MarkAsRoot()
+		Clone() (branch, error)
 	}
 )
 

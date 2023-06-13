@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package version
 
@@ -14,6 +13,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/ioctl"
@@ -62,6 +62,9 @@ func NewVersionCmd(cli ioctl.Client) *cobra.Command {
 			)
 			if err != nil {
 				if sta, ok := status.FromError(err); ok {
+					if sta.Code() == codes.Unavailable {
+						return ioctl.ErrInvalidEndpointOrInsecure
+					}
 					return errors.New(sta.Message())
 				}
 				return errors.Wrap(err, "failed to get version from server")

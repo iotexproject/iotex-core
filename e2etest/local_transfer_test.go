@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package e2etest
 
@@ -36,6 +35,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -301,6 +301,10 @@ func TestLocalTransfer(t *testing.T) {
 	require.NoError(err)
 	testCandidateIndexPath, err := testutil.PathOfTempFile("candidateIndex")
 	require.NoError(err)
+	testContractStakeIndexPath, err := testutil.PathOfTempFile("contractStakeIndex")
+	require.NoError(err)
+	sgdIndexDBPath, err := testutil.PathOfTempFile("sgdIndex")
+	require.NoError(err)
 
 	defer func() {
 		testutil.CleanupPath(testTriePath)
@@ -309,11 +313,13 @@ func TestLocalTransfer(t *testing.T) {
 		testutil.CleanupPath(testSystemLogPath)
 		testutil.CleanupPath(testBloomfilterIndexPath)
 		testutil.CleanupPath(testCandidateIndexPath)
+		testutil.CleanupPath(testContractStakeIndexPath)
+		testutil.CleanupPath(sgdIndexDBPath)
 	}()
 
 	networkPort := 4689
 	apiPort := testutil.RandomPort()
-	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, testBloomfilterIndexPath, testSystemLogPath, testCandidateIndexPath, networkPort, apiPort)
+	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, sgdIndexDBPath, testBloomfilterIndexPath, testSystemLogPath, testCandidateIndexPath, testContractStakeIndexPath, networkPort, apiPort)
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -581,9 +587,11 @@ func newTransferConfig(
 	chainDBPath,
 	trieDBPath,
 	indexDBPath string,
+	sgdIndexDBPath string,
 	bloomfilterIndex string,
 	systemLogDBPath string,
 	candidateIndexDBPath string,
+	contractstakeIndexDBPath string,
 	networkPort,
 	apiPort int,
 ) (config.Config, error) {
@@ -596,9 +604,11 @@ func newTransferConfig(
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.IndexDBPath = indexDBPath
+	cfg.Chain.SGDIndexDBPath = sgdIndexDBPath
 	cfg.Chain.BloomfilterIndexDBPath = bloomfilterIndex
 	cfg.System.SystemLogDBPath = systemLogDBPath
 	cfg.Chain.CandidateIndexDBPath = candidateIndexDBPath
+	cfg.Chain.ContractStakingIndexDBPath = contractstakeIndexDBPath
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme
@@ -621,22 +631,29 @@ func TestEnforceChainID(t *testing.T) {
 
 	testCase := []struct {
 		chainID uint32
+		nonce   uint64
 		success bool
 	}{
 		{
-			1, true, // tx chainID = node chainID, height < KamchatkaHeight
+			1, 1, true, // tx chainID = node chainID, height < KamchatkaHeight
 		},
 		{
-			2, true, // tx chainID != node chainID, height < KamchatkaHeight
+			2, 2, true, // tx chainID != node chainID, height < KamchatkaHeight
 		},
 		{
-			1, true, // tx chainID = node chainID, height = KamchatkaHeight
+			1, 3, true, // tx chainID = node chainID, height = KamchatkaHeight
 		},
 		{
-			1, true, // tx chainID = node chainID, height > KamchatkaHeight
+			1, 4, true, // tx chainID = node chainID, height > KamchatkaHeight
 		},
 		{
-			2, false, // tx chainID != node chainID, height > KamchatkaHeight
+			2, 5, false, // tx chainID != node chainID, height > KamchatkaHeight
+		},
+		{
+			0, 5, true, // tx chainID = 0, height < QuebecHeight, OK
+		},
+		{
+			0, 6, false, // tx chainID = 0, height = QuebecHeight, reject
 		},
 	}
 
@@ -644,10 +661,12 @@ func TestEnforceChainID(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.MidwayBlockHeight = 3
+	cfg.Genesis.QuebecBlockHeight = 7
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -676,7 +695,7 @@ func TestEnforceChainID(t *testing.T) {
 		bd := &action.EnvelopeBuilder{}
 		elp1 := bd.SetAction(tsf).
 			SetChainID(c.chainID).
-			SetNonce(uint64(i) + 1).
+			SetNonce(c.nonce).
 			SetGasLimit(100000).
 			SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).Build()
 		selp, err := action.Sign(elp1, identityset.PrivateKey(0))

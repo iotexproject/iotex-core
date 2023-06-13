@@ -1,18 +1,20 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package blockchain
 
 import (
 	"crypto/ecdsa"
+	"os"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
+	"github.com/pkg/errors"
+	"go.uber.org/config"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/db"
@@ -22,21 +24,25 @@ import (
 type (
 	// Config is the config struct for blockchain package
 	Config struct {
-		ChainDBPath            string           `yaml:"chainDBPath"`
-		TrieDBPatchFile        string           `yaml:"trieDBPatchFile"`
-		TrieDBPath             string           `yaml:"trieDBPath"`
-		IndexDBPath            string           `yaml:"indexDBPath"`
-		BloomfilterIndexDBPath string           `yaml:"bloomfilterIndexDBPath"`
-		CandidateIndexDBPath   string           `yaml:"candidateIndexDBPath"`
-		StakingIndexDBPath     string           `yaml:"stakingIndexDBPath"`
-		ID                     uint32           `yaml:"id"`
-		EVMNetworkID           uint32           `yaml:"evmNetworkID"`
-		Address                string           `yaml:"address"`
-		ProducerPrivKey        string           `yaml:"producerPrivKey"`
-		SignatureScheme        []string         `yaml:"signatureScheme"`
-		EmptyGenesis           bool             `yaml:"emptyGenesis"`
-		GravityChainDB         db.Config        `yaml:"gravityChainDB"`
-		Committee              committee.Config `yaml:"committee"`
+		ChainDBPath                string           `yaml:"chainDBPath"`
+		TrieDBPatchFile            string           `yaml:"trieDBPatchFile"`
+		TrieDBPath                 string           `yaml:"trieDBPath"`
+		StakingPatchDir            string           `yaml:"stakingPatchDir"`
+		IndexDBPath                string           `yaml:"indexDBPath"`
+		BloomfilterIndexDBPath     string           `yaml:"bloomfilterIndexDBPath"`
+		CandidateIndexDBPath       string           `yaml:"candidateIndexDBPath"`
+		StakingIndexDBPath         string           `yaml:"stakingIndexDBPath"`
+		SGDIndexDBPath             string           `yaml:"sgdIndexDBPath"`
+		ContractStakingIndexDBPath string           `yaml:"contractStakingIndexDBPath"`
+		ID                         uint32           `yaml:"id"`
+		EVMNetworkID               uint32           `yaml:"evmNetworkID"`
+		Address                    string           `yaml:"address"`
+		ProducerPrivKey            string           `yaml:"producerPrivKey"`
+		ProducerPrivKeySchema      string           `yaml:"producerPrivKeySchema"`
+		SignatureScheme            []string         `yaml:"signatureScheme"`
+		EmptyGenesis               bool             `yaml:"emptyGenesis"`
+		GravityChainDB             db.Config        `yaml:"gravityChainDB"`
+		Committee                  committee.Config `yaml:"committee"`
 
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
 		// EnableStateDBCaching enables cachedStateDBOption
@@ -63,42 +69,53 @@ type (
 		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
 		// StreamingBlockBufferSize
 		StreamingBlockBufferSize uint64 `yaml:"streamingBlockBufferSize"`
+		// PersistStakingPatchBlock is the block to persist staking patch
+		PersistStakingPatchBlock uint64 `yaml:"persistStakingPatchBlock"`
 	}
 )
 
-// DefaultConfig is the default config of chain
-var DefaultConfig = Config{
-	ChainDBPath:            "/var/data/chain.db",
-	TrieDBPatchFile:        "/var/data/trie.db.patch",
-	TrieDBPath:             "/var/data/trie.db",
-	IndexDBPath:            "/var/data/index.db",
-	BloomfilterIndexDBPath: "/var/data/bloomfilter.index.db",
-	CandidateIndexDBPath:   "/var/data/candidate.index.db",
-	StakingIndexDBPath:     "/var/data/staking.index.db",
-	ID:                     1,
-	EVMNetworkID:           4689,
-	Address:                "",
-	ProducerPrivKey:        generateRandomKey(SigP256k1),
-	SignatureScheme:        []string{SigP256k1},
-	EmptyGenesis:           false,
-	GravityChainDB:         db.Config{DbPath: "/var/data/poll.db", NumRetries: 10},
-	Committee: committee.Config{
-		GravityChainAPIs: []string{},
-	},
-	EnableTrielessStateDB:         true,
-	EnableStateDBCaching:          false,
-	EnableArchiveMode:             false,
-	EnableAsyncIndexWrite:         true,
-	EnableSystemLogIndexer:        false,
-	EnableStakingProtocol:         true,
-	EnableStakingIndexer:          false,
-	AllowedBlockGasResidue:        10000,
-	MaxCacheSize:                  0,
-	PollInitialCandidatesInterval: 10 * time.Second,
-	StateDBCacheSize:              1000,
-	WorkingSetCacheSize:           20,
-	StreamingBlockBufferSize:      200,
-}
+var (
+	// DefaultConfig is the default config of chain
+	DefaultConfig = Config{
+		ChainDBPath:                "/var/data/chain.db",
+		TrieDBPatchFile:            "/var/data/trie.db.patch",
+		TrieDBPath:                 "/var/data/trie.db",
+		StakingPatchDir:            "/var/data",
+		IndexDBPath:                "/var/data/index.db",
+		BloomfilterIndexDBPath:     "/var/data/bloomfilter.index.db",
+		CandidateIndexDBPath:       "/var/data/candidate.index.db",
+		StakingIndexDBPath:         "/var/data/staking.index.db",
+		SGDIndexDBPath:             "/var/data/sgd.index.db",
+		ContractStakingIndexDBPath: "/var/data/contractstaking.index.db",
+		ID:                         1,
+		EVMNetworkID:               4689,
+		Address:                    "",
+		ProducerPrivKey:            generateRandomKey(SigP256k1),
+		SignatureScheme:            []string{SigP256k1},
+		EmptyGenesis:               false,
+		GravityChainDB:             db.Config{DbPath: "/var/data/poll.db", NumRetries: 10},
+		Committee: committee.Config{
+			GravityChainAPIs: []string{},
+		},
+		EnableTrielessStateDB:         true,
+		EnableStateDBCaching:          false,
+		EnableArchiveMode:             false,
+		EnableAsyncIndexWrite:         true,
+		EnableSystemLogIndexer:        false,
+		EnableStakingProtocol:         true,
+		EnableStakingIndexer:          false,
+		AllowedBlockGasResidue:        10000,
+		MaxCacheSize:                  0,
+		PollInitialCandidatesInterval: 10 * time.Second,
+		StateDBCacheSize:              1000,
+		WorkingSetCacheSize:           20,
+		StreamingBlockBufferSize:      200,
+		PersistStakingPatchBlock:      19778037,
+	}
+
+	// ErrConfig config error
+	ErrConfig = errors.New("config error")
+)
 
 // ProducerAddress returns the configured producer address derived from key
 func (cfg *Config) ProducerAddress() address.Address {
@@ -124,6 +141,37 @@ func (cfg *Config) ProducerPrivateKey() crypto.PrivateKey {
 		log.L().Panic("The private key's signature scheme is not whitelisted")
 	}
 	return sk
+}
+
+// SetProducerPrivKey set producer privKey by PrivKeyConfigFile info
+func (cfg *Config) SetProducerPrivKey() error {
+	switch cfg.ProducerPrivKeySchema {
+	case "hex", "":
+		// do nothing
+	case "hashiCorpVault":
+		yaml, err := config.NewYAML(config.Expand(os.LookupEnv), config.File(cfg.ProducerPrivKey))
+		if err != nil {
+			return errors.Wrap(err, "failed to init private key config")
+		}
+		hcv := &hashiCorpVault{}
+		if err := yaml.Get(config.Root).Populate(hcv); err != nil {
+			return errors.Wrap(err, "failed to unmarshal YAML config to privKeyConfig struct")
+		}
+
+		loader, err := newVaultPrivKeyLoader(hcv)
+		if err != nil {
+			return errors.Wrap(err, "failed to new vault client")
+		}
+		key, err := loader.load()
+		if err != nil {
+			return errors.Wrap(err, "failed to load producer private key")
+		}
+		cfg.ProducerPrivKey = key
+	default:
+		return errors.Wrap(ErrConfig, "invalid private key schema")
+	}
+
+	return nil
 }
 
 func generateRandomKey(scheme string) string {

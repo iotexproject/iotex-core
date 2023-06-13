@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package actioniterator
 
@@ -70,8 +69,7 @@ func NewActionIterator(accountActs map[string][]action.SealedEnvelope) ActionIte
 
 // LoadNext load next action of account of top action
 func (ai *actionIterator) loadNextActionForTopAccount() {
-	sender := ai.heads[0].SrcPubkey()
-	callerAddrStr := sender.Address().String()
+	callerAddrStr := ai.heads[0].SenderAddress().String()
 	if actions, ok := ai.accountActs[callerAddrStr]; ok && len(actions) > 0 {
 		ai.heads[0], ai.accountActs[callerAddrStr] = actions[0], actions[1:]
 		heap.Fix(&ai.heads, 0)

@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package factory
 
@@ -35,6 +34,8 @@ var (
 		},
 		[]string{"type"},
 	)
+
+	errInvalidSystemActionLayout = errors.New("system action layout is invalid")
 )
 
 func init() {
@@ -97,23 +98,18 @@ func (ws *workingSet) runActions(
 	ctx context.Context,
 	elps []action.SealedEnvelope,
 ) ([]*action.Receipt, error) {
-	if err := ws.validate(ctx); err != nil {
-		return nil, err
-	}
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
-		ctx, err := withActionCtx(ctx, elp)
+		ctxWithActionContext, err := withActionCtx(ctx, elp)
 		if err != nil {
 			return nil, err
 		}
-		receipt, err := ws.runAction(ctx, elp)
+		receipt, err := ws.runAction(ctxWithActionContext, elp)
 		if err != nil {
 			return nil, errors.Wrap(err, "error when run action")
 		}
-		if receipt != nil {
-			receipts = append(receipts, receipt)
-		}
+		receipts = append(receipts, receipt)
 	}
 	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
 		updateReceiptIndex(receipts)
@@ -152,41 +148,43 @@ func (ws *workingSet) runAction(
 		return nil, action.ErrGasLimit
 	}
 	// Reject execution of chainID not equal the node's chainID
-	if err := validateChainID(ctx, elp.ChainID()); err != nil {
-		return nil, err
+	if !action.IsSystemAction(elp) {
+		if err := validateChainID(ctx, elp.ChainID()); err != nil {
+			return nil, err
+		}
 	}
 	// Handle action
 	reg, ok := protocol.GetRegistry(ctx)
 	if !ok {
-		return nil, nil
+		return nil, errors.New("protocol is empty")
 	}
 	elpHash, err := elp.Hash()
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
-	var receipt *action.Receipt
+	defer ws.ResetSnapshots()
 	for _, actionHandler := range reg.All() {
-		receipt, err = actionHandler.Handle(ctx, elp.Action(), ws)
+		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
 		if err != nil {
-			err = errors.Wrapf(
+			return nil, errors.Wrapf(
 				err,
 				"error when action %x mutates states",
 				elpHash,
 			)
 		}
-		if receipt != nil || err != nil {
-			break
+		if receipt != nil {
+			return receipt, nil
 		}
 	}
-	ws.ResetSnapshots()
-
-	// TODO (zhi): return error if both receipt and err are nil
-	return receipt, err
+	return nil, errors.New("receipt is empty")
 }
 
 func validateChainID(ctx context.Context, chainID uint32) error {
 	blkChainCtx := protocol.MustGetBlockchainCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.AllowCorrectChainIDOnly && chainID != blkChainCtx.ChainID {
+		return errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, chainID)
+	}
 	if featureCtx.AllowCorrectDefaultChainID && (chainID != blkChainCtx.ChainID && chainID != 0) {
 		return errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, chainID)
 	}
@@ -219,10 +217,14 @@ func (ws *workingSet) ResetSnapshots() {
 
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit(ctx context.Context) error {
+	if err := protocolPreCommit(ctx, ws); err != nil {
+		return err
+	}
 	if err := ws.store.Commit(); err != nil {
 		return err
 	}
 	if err := protocolCommit(ctx, ws); err != nil {
+		// TODO (zhi): wrap the error and eventually panic it in caller side
 		return err
 	}
 	ws.Reset()
@@ -332,11 +334,30 @@ func (ws *workingSet) validateNonce(ctx context.Context, blk *block.Block) error
 		}
 		appendActionIndex(accountNonceMap, caller.String(), selp.Nonce())
 	}
+	return ws.checkNonceContinuity(ctx, accountNonceMap)
+}
 
-	// Special handling for genesis block
-	if blk.Height() == 0 {
-		return nil
+func (ws *workingSet) validateNonceSkipSystemAction(ctx context.Context, blk *block.Block) error {
+	accountNonceMap := make(map[string][]uint64)
+	for _, selp := range blk.Actions {
+		if action.IsSystemAction(selp) {
+			continue
+		}
+
+		caller := selp.SenderAddress()
+		if caller == nil {
+			return errors.New("failed to get address")
+		}
+		srcAddr := caller.String()
+		if _, ok := accountNonceMap[srcAddr]; !ok {
+			accountNonceMap[srcAddr] = make([]uint64, 0)
+		}
+		accountNonceMap[srcAddr] = append(accountNonceMap[srcAddr], selp.Nonce())
 	}
+	return ws.checkNonceContinuity(ctx, accountNonceMap)
+}
+
+func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap map[string][]uint64) error {
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
 		addr, _ := address.FromString(srcAddr)
@@ -344,14 +365,13 @@ func (ws *workingSet) validateNonce(ctx context.Context, blk *block.Block) error
 		if err != nil {
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}
-		receivedNonces := receivedNonces
 		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
 		pendingNonce := confirmedState.PendingNonce()
 		for i, nonce := range receivedNonces {
 			if nonce != pendingNonce+uint64(i) {
 				return errors.Wrapf(
 					action.ErrNonceTooHigh,
-					"the %d nonce %d of address %s (init pending nonce %d) is not continuously increasing",
+					"the %d-th nonce %d of address %s (init pending nonce %d) is not continuously increasing",
 					i,
 					nonce,
 					srcAddr,
@@ -368,28 +388,31 @@ func (ws *workingSet) Process(ctx context.Context, actions []action.SealedEnvelo
 }
 
 func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelope) error {
-	var err error
+	if err := ws.validate(ctx); err != nil {
+		return err
+	}
+
 	reg := protocol.MustGetRegistry(ctx)
 	for _, act := range actions {
-		if ctx, err = withActionCtx(ctx, act); err != nil {
+		ctxWithActionContext, err := withActionCtx(ctx, act)
+		if err != nil {
 			return err
 		}
 		for _, p := range reg.All() {
 			if validator, ok := p.(protocol.ActionValidator); ok {
-				if err := validator.Validate(ctx, act.Action(), ws); err != nil {
+				if err := validator.Validate(ctxWithActionContext, act.Action(), ws); err != nil {
 					return err
 				}
 			}
 		}
 	}
-	for _, p := range protocol.MustGetRegistry(ctx).All() {
+	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
 				return err
 			}
 		}
 	}
-	// TODO: verify whether the post system actions are appended tail
 
 	receipts, err := ws.runActions(ctx, actions)
 	if err != nil {
@@ -397,6 +420,47 @@ func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelo
 	}
 	ws.receipts = receipts
 	return ws.finalize()
+}
+
+func (ws *workingSet) generateSystemActions(ctx context.Context) ([]action.Envelope, error) {
+	reg := protocol.MustGetRegistry(ctx)
+	postSystemActions := []action.Envelope{}
+	for _, p := range reg.All() {
+		if psc, ok := p.(protocol.PostSystemActionsCreator); ok {
+			elps, err := psc.CreatePostSystemActions(ctx, ws)
+			if err != nil {
+				return nil, err
+			}
+			postSystemActions = append(postSystemActions, elps...)
+		}
+	}
+	return postSystemActions, nil
+}
+
+// validateSystemActionLayout verify whether the post system actions are appended tail
+func (ws *workingSet) validateSystemActionLayout(ctx context.Context, actions []action.SealedEnvelope) error {
+	postSystemActions, err := ws.generateSystemActions(ctx)
+	if err != nil {
+		return err
+	}
+	// system actions should be at the end of the action list, and they should be continuous
+	expectedStartIdx := len(actions) - len(postSystemActions)
+	sysActCnt := 0
+	for i := range actions {
+		if action.IsSystemAction(actions[i]) {
+			if i != expectedStartIdx+sysActCnt {
+				return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action should not be a system action", i)
+			}
+			if actions[i].Envelope.Proto().String() != postSystemActions[sysActCnt].Proto().String() {
+				return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action is not the expected system action", i)
+			}
+			sysActCnt++
+		}
+	}
+	if sysActCnt != len(postSystemActions) {
+		return errors.Wrapf(errInvalidSystemActionLayout, "the number of system actions is incorrect, expected %d, got %d", len(postSystemActions), sysActCnt)
+	}
+	return nil
 }
 
 func (ws *workingSet) pickAndRunActions(
@@ -470,11 +534,9 @@ func (ws *workingSet) pickAndRunActions(
 				}
 				return nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
 			}
-			if receipt != nil {
-				blkCtx.GasLimit -= receipt.GasConsumed
-				ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
-				receipts = append(receipts, receipt)
-			}
+			blkCtx.GasLimit -= receipt.GasConsumed
+			ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
+			receipts = append(receipts, receipt)
 			executedActions = append(executedActions, nextAction)
 
 			// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
@@ -494,9 +556,7 @@ func (ws *workingSet) pickAndRunActions(
 		if err != nil {
 			return nil, err
 		}
-		if receipt != nil {
-			receipts = append(receipts, receipt)
-		}
+		receipts = append(receipts, receipt)
 		executedActions = append(executedActions, selp)
 	}
 	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
@@ -516,9 +576,21 @@ func updateReceiptIndex(receipts []*action.Receipt) {
 }
 
 func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {
-	if err := ws.validateNonce(ctx, blk); err != nil {
-		return errors.Wrap(err, "failed to validate nonce")
+	if protocol.MustGetFeatureCtx(ctx).SkipSystemActionNonce {
+		if err := ws.validateNonceSkipSystemAction(ctx, blk); err != nil {
+			return errors.Wrap(err, "failed to validate nonce")
+		}
+	} else {
+		if err := ws.validateNonce(ctx, blk); err != nil {
+			return errors.Wrap(err, "failed to validate nonce")
+		}
 	}
+	if protocol.MustGetFeatureCtx(ctx).ValidateSystemAction {
+		if err := ws.validateSystemActionLayout(ctx, blk.RunnableActions().Actions()); err != nil {
+			return err
+		}
+	}
+
 	if err := ws.process(ctx, blk.RunnableActions().Actions()); err != nil {
 		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
 		return err
@@ -529,10 +601,11 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 		return err
 	}
 	if !blk.VerifyDeltaStateDigest(digest) {
-		return block.ErrDeltaStateMismatch
+		return errors.Wrapf(block.ErrDeltaStateMismatch, "digest in block '%x' vs digest in workingset '%x'", blk.DeltaStateDigest(), digest)
 	}
-	if !blk.VerifyReceiptRoot(calculateReceiptRoot(ws.receipts)) {
-		return block.ErrReceiptRootMismatch
+	receiptRoot := calculateReceiptRoot(ws.receipts)
+	if !blk.VerifyReceiptRoot(receiptRoot) {
+		return errors.Wrapf(block.ErrReceiptRootMismatch, "receipt root in block '%x' vs receipt root in workingset '%x'", blk.ReceiptRoot(), receiptRoot)
 	}
 
 	return nil

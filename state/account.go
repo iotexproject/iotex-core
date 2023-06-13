@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package state
 
@@ -27,6 +26,8 @@ var (
 	ErrInvalidNonce = errors.New("invalid nonce")
 	// ErrUnknownAccountType is the error that the account type is unknown
 	ErrUnknownAccountType = errors.New("unknown account type")
+	// ErrNonceOverflow is the error that the nonce overflow
+	ErrNonceOverflow = errors.New("nonce overflow")
 )
 
 // LegacyNonceAccountTypeOption is an option to create account with new account type
@@ -143,11 +144,17 @@ func (st *Account) AccountType() int32 {
 func (st *Account) SetPendingNonce(nonce uint64) error {
 	switch st.accountType {
 	case 1:
+		if st.nonce+1 < st.nonce {
+			return errors.Wrapf(ErrNonceOverflow, "current value %d", st.nonce)
+		}
 		if nonce != st.nonce+1 {
 			return errors.Wrapf(ErrInvalidNonce, "actual value %d, %d expected", nonce, st.nonce+1)
 		}
 		st.nonce++
 	case 0:
+		if st.nonce+2 < st.nonce {
+			return errors.Wrapf(ErrNonceOverflow, "current value %d", st.nonce)
+		}
 		if nonce != st.nonce+2 {
 			return errors.Wrapf(ErrInvalidNonce, "actual value %d, %d expected", nonce, st.nonce+2)
 		}
@@ -190,7 +197,7 @@ func (st *Account) AddBalance(amount *big.Int) error {
 		return errors.Wrapf(ErrInvalidAmount, "amount %s shouldn't be negative", amount.String())
 	}
 	if st.Balance != nil {
-		st.Balance = new(big.Int).Add(st.Balance, amount)
+		st.Balance.Add(st.Balance, amount)
 	} else {
 		st.Balance = new(big.Int).Set(amount)
 	}

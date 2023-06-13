@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
@@ -19,7 +18,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
@@ -30,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/account"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -86,7 +84,7 @@ var (
 const (
 	gasLimitFlagLabel       = "gas-limit"
 	gasLimitFlagShortLabel  = "l"
-	gasLimitFlagDefault     = uint64(20000000)
+	GasLimitFlagDefault     = uint64(20000000)
 	gasPriceFlagLabel       = "gas-price"
 	gasPriceFlagShortLabel  = "p"
 	gasPriceFlagDefault     = "1"
@@ -95,7 +93,7 @@ const (
 	nonceFlagDefault        = uint64(0)
 	signerFlagLabel         = "signer"
 	signerFlagShortLabel    = "s"
-	signerFlagDefault       = ""
+	SignerFlagDefault       = ""
 	bytecodeFlagLabel       = "bytecode"
 	bytecodeFlagShortLabel  = "b"
 	bytecodeFlagDefault     = ""
@@ -108,91 +106,31 @@ const (
 )
 
 func registerGasLimitFlag(client ioctl.Client, cmd *cobra.Command) {
-	usage, _ := client.SelectTranslation(_flagGasLimitUsages)
-	flag.NewUint64VarP(gasLimitFlagLabel, gasLimitFlagShortLabel, gasLimitFlagDefault, usage).RegisterCommand(cmd)
+	flag.NewUint64VarP(gasLimitFlagLabel, gasLimitFlagShortLabel, GasLimitFlagDefault, selectTranslation(client, _flagGasLimitUsages)).RegisterCommand(cmd)
 }
 
 func registerGasPriceFlag(client ioctl.Client, cmd *cobra.Command) {
-	usage, _ := client.SelectTranslation(_flagGasPriceUsages)
-	flag.NewStringVarP(gasPriceFlagLabel, gasPriceFlagShortLabel, gasPriceFlagDefault, usage).RegisterCommand(cmd)
+	flag.NewStringVarP(gasPriceFlagLabel, gasPriceFlagShortLabel, gasPriceFlagDefault, selectTranslation(client, _flagGasPriceUsages)).RegisterCommand(cmd)
 }
 
 func registerNonceFlag(client ioctl.Client, cmd *cobra.Command) {
-	usage, _ := client.SelectTranslation(_flagNonceUsages)
-	flag.NewUint64VarP(nonceFlagLabel, nonceFlagShortLabel, nonceFlagDefault, usage).RegisterCommand(cmd)
+	flag.NewUint64VarP(nonceFlagLabel, nonceFlagShortLabel, nonceFlagDefault, selectTranslation(client, _flagNonceUsages)).RegisterCommand(cmd)
 }
 
 func registerSignerFlag(client ioctl.Client, cmd *cobra.Command) {
-	usage, _ := client.SelectTranslation(_flagSignerUsages)
-	flag.NewStringVarP(signerFlagLabel, signerFlagShortLabel, signerFlagDefault, usage).RegisterCommand(cmd)
+	flag.NewStringVarP(signerFlagLabel, signerFlagShortLabel, SignerFlagDefault, selectTranslation(client, _flagSignerUsages)).RegisterCommand(cmd)
 }
 
 func registerBytecodeFlag(client ioctl.Client, cmd *cobra.Command) {
-	usage, _ := client.SelectTranslation(_flagBytecodeUsages)
-	flag.NewStringVarP(bytecodeFlagLabel, bytecodeFlagShortLabel, bytecodeFlagDefault, usage).RegisterCommand(cmd)
+	flag.NewStringVarP(bytecodeFlagLabel, bytecodeFlagShortLabel, bytecodeFlagDefault, selectTranslation(client, _flagBytecodeUsages)).RegisterCommand(cmd)
 }
 
 func registerAssumeYesFlag(client ioctl.Client, cmd *cobra.Command) {
-	usage, _ := client.SelectTranslation(_flagAssumeYesUsages)
-	flag.BoolVarP(assumeYesFlagLabel, assumeYesFlagShortLabel, assumeYesFlagDefault, usage).RegisterCommand(cmd)
+	flag.BoolVarP(assumeYesFlagLabel, assumeYesFlagShortLabel, assumeYesFlagDefault, selectTranslation(client, _flagAssumeYesUsages)).RegisterCommand(cmd)
 }
 
 func registerPasswordFlag(client ioctl.Client, cmd *cobra.Command) {
-	usage, _ := client.SelectTranslation(_flagPasswordUsages)
-	flag.NewStringVarP(passwordFlagLabel, passwordFlagShortLabel, passwordFlagDefault, usage).RegisterCommand(cmd)
-}
-
-func mustString(v string, err error) string {
-	if err != nil {
-		log.L().Panic("input flag must be string", zap.Error(err))
-	}
-	return v
-}
-
-func mustUint64(v uint64, err error) uint64 {
-	if err != nil {
-		log.L().Panic("input flag must be uint64", zap.Error(err))
-	}
-	return v
-}
-
-func mustBoolean(v bool, err error) bool {
-	if err != nil {
-		log.L().Panic("input flag must be boolean", zap.Error(err))
-	}
-	return v
-}
-
-func gasLimitFlagValue(cmd *cobra.Command) (v uint64) {
-	return mustUint64(cmd.Flags().GetUint64(gasLimitFlagLabel))
-}
-
-func gasPriceFlagValue(cmd *cobra.Command) (v string) {
-	return mustString(cmd.Flags().GetString(gasPriceFlagLabel))
-}
-
-func getNonceFlagValue(cmd *cobra.Command) (v uint64) {
-	return mustUint64(cmd.Flags().GetUint64(nonceFlagLabel))
-}
-
-func getSignerFlagValue(cmd *cobra.Command) (v string) {
-	return mustString(cmd.Flags().GetString(signerFlagLabel))
-}
-
-func getBytecodeFlagValue(cmd *cobra.Command) (v string) {
-	return mustString(cmd.Flags().GetString(bytecodeFlagLabel))
-}
-
-func getDecodeBytecode(cmd *cobra.Command) ([]byte, error) {
-	return hex.DecodeString(util.TrimHexPrefix(getBytecodeFlagValue(cmd)))
-}
-
-func getAssumeYesFlagValue(cmd *cobra.Command) (v bool) {
-	return mustBoolean(cmd.Flags().GetBool(assumeYesFlagLabel))
-}
-
-func getPasswordFlagValue(cmd *cobra.Command) (v string) {
-	return mustString(cmd.Flags().GetString(passwordFlagLabel))
+	flag.NewStringVarP(passwordFlagLabel, passwordFlagShortLabel, passwordFlagDefault, selectTranslation(client, _flagPasswordUsages)).RegisterCommand(cmd)
 }
 
 func selectTranslation(client ioctl.Client, trls map[config.Language]string) string {
@@ -202,7 +140,7 @@ func selectTranslation(client ioctl.Client, trls map[config.Language]string) str
 
 // NewActionCmd represents the action command
 func NewActionCmd(client ioctl.Client) *cobra.Command {
-	ac := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "action",
 		Short: selectTranslation(client, _actionCmdShorts),
 	}
@@ -217,10 +155,10 @@ func NewActionCmd(client ioctl.Client) *cobra.Command {
 	// cmd.AddCommand(NewActionDeposit(client))
 	// cmd.AddCommand(NewActionSendRaw(client))
 
-	client.SetEndpointWithFlag(ac.PersistentFlags().StringVar)
-	client.SetInsecureWithFlag(ac.PersistentFlags().BoolVar)
+	client.SetEndpointWithFlag(cmd.PersistentFlags().StringVar)
+	client.SetInsecureWithFlag(cmd.PersistentFlags().BoolVar)
 
-	return ac
+	return cmd
 }
 
 // RegisterWriteCommand registers action flags for command
@@ -233,29 +171,65 @@ func RegisterWriteCommand(client ioctl.Client, cmd *cobra.Command) {
 	registerPasswordFlag(client, cmd)
 }
 
+// GetWriteCommandFlag returns action flags for command
+func GetWriteCommandFlag(cmd *cobra.Command) (gasPrice, signer, password string, nonce, gasLimit uint64, assumeYes bool, err error) {
+	gasPrice, err = cmd.Flags().GetString(gasPriceFlagLabel)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get flag gas-price")
+		return
+	}
+	signer, err = cmd.Flags().GetString(signerFlagLabel)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get flag signer")
+		return
+	}
+	password, err = cmd.Flags().GetString(passwordFlagLabel)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get flag password")
+		return
+	}
+	nonce, err = cmd.Flags().GetUint64(nonceFlagLabel)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get flag nonce")
+		return
+	}
+	gasLimit, err = cmd.Flags().GetUint64(gasLimitFlagLabel)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get flag gas-limit")
+		return
+	}
+	assumeYes, err = cmd.Flags().GetBool(assumeYesFlagLabel)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get flag assume-yes")
+		return
+	}
+	return
+}
+
 func handleClientRequestError(err error, apiName string) error {
-	sta, ok := status.FromError(err)
-	if ok {
+	if sta, ok := status.FromError(err); ok {
+		if sta.Code() == codes.Unavailable {
+			return ioctl.ErrInvalidEndpointOrInsecure
+		}
 		return errors.New(sta.Message())
 	}
 	return errors.Wrapf(err, "failed to invoke %s api", apiName)
 }
 
 // Signer returns signer's address
-func Signer(client ioctl.Client, cmd *cobra.Command) (address string, err error) {
-	addressOrAlias := getSignerFlagValue(cmd)
-	if util.AliasIsHdwalletKey(addressOrAlias) {
-		return addressOrAlias, nil
+func Signer(client ioctl.Client, signer string) (string, error) {
+	if util.AliasIsHdwalletKey(signer) {
+		return signer, nil
 	}
-	return client.AddressWithDefaultIfNotExist(addressOrAlias)
+	return client.AddressWithDefaultIfNotExist(signer)
 }
 
-func nonce(client ioctl.Client, cmd *cobra.Command, executor string) (uint64, error) {
+func checkNonce(client ioctl.Client, nonce uint64, executor string) (uint64, error) {
 	if util.AliasIsHdwalletKey(executor) {
 		// for hdwallet key, get the nonce in SendAction()
 		return 0, nil
 	}
-	if nonce := getNonceFlagValue(cmd); nonce != 0 {
+	if nonce != 0 {
 		return nonce, nil
 	}
 	accountMeta, err := account.Meta(client, executor)
@@ -266,11 +240,10 @@ func nonce(client ioctl.Client, cmd *cobra.Command, executor string) (uint64, er
 }
 
 // gasPriceInRau returns the suggest gas price
-func gasPriceInRau(client ioctl.Client, cmd *cobra.Command) (*big.Int, error) {
+func gasPriceInRau(client ioctl.Client, gasPrice string) (*big.Int, error) {
 	if client.IsCryptoSm2() {
 		return big.NewInt(0), nil
 	}
-	gasPrice := gasPriceFlagValue(cmd)
 	if len(gasPrice) != 0 {
 		return util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	}
@@ -354,10 +327,16 @@ func SendRaw(client ioctl.Client, cmd *cobra.Command, selp *iotextypes.Action) e
 }
 
 // SendAction sends signed action to blockchain
-func SendAction(client ioctl.Client, cmd *cobra.Command, elp action.Envelope, signer string) error {
-	sk, err := account.PrivateKeyFromSigner(client, cmd, signer, getPasswordFlagValue(cmd))
+func SendAction(client ioctl.Client,
+	cmd *cobra.Command,
+	elp action.Envelope,
+	signer, password string,
+	nonce uint64,
+	assumeYes bool,
+) error {
+	sk, err := account.PrivateKeyFromSigner(client, cmd, signer, password)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to get privateKey")
 	}
 
 	chainMeta, err := bc.GetChainMeta(client)
@@ -369,9 +348,9 @@ func SendAction(client ioctl.Client, cmd *cobra.Command, elp action.Envelope, si
 	if util.AliasIsHdwalletKey(signer) {
 		addr := sk.PublicKey().Address()
 		signer = addr.String()
-		nonce, err := nonce(client, cmd, signer)
+		nonce, err = checkNonce(client, nonce, signer)
 		if err != nil {
-			return errors.Wrap(err, "failed to get nonce ")
+			return errors.Wrap(err, "failed to get nonce")
 		}
 		elp.SetNonce(nonce)
 	}
@@ -386,14 +365,13 @@ func SendAction(client ioctl.Client, cmd *cobra.Command, elp action.Envelope, si
 
 	selp := sealed.Proto()
 	sk.Zero()
-	// TODO wait newcmd/action/actionhash impl pr #3425
-	// actionInfo, err := printActionProto(selp)
-	// if err != nil {
-	// 	return errors.Wrap(err, "failed to print action proto message")
-	// }
-	// cmd.Println(actionInfo)
+	actionInfo, err := printActionProto(client, selp)
+	if err != nil {
+		return errors.Wrap(err, "failed to print action proto message")
+	}
+	cmd.Println(actionInfo)
 
-	if !getAssumeYesFlagValue(cmd) {
+	if !assumeYes {
 		infoWarn := selectTranslation(client, _infoWarn)
 		infoQuit := selectTranslation(client, _infoQuit)
 		confirmed, err := client.AskToConfirm(infoWarn)
@@ -409,30 +387,37 @@ func SendAction(client ioctl.Client, cmd *cobra.Command, elp action.Envelope, si
 	return SendRaw(client, cmd, selp)
 }
 
-// Execute sends signed execution transaction to blockchain
-func Execute(client ioctl.Client, cmd *cobra.Command, contract string, amount *big.Int, bytecode []byte) error {
+// Execute sends signed execution's transaction to blockchain
+func Execute(client ioctl.Client,
+	cmd *cobra.Command,
+	contract string,
+	amount *big.Int,
+	bytecode []byte,
+	gasPrice, signer, password string,
+	nonce, gasLimit uint64,
+	assumeYes bool,
+) error {
 	if len(contract) == 0 && len(bytecode) == 0 {
 		return errors.New("failed to deploy contract with empty bytecode")
 	}
-	gasPriceRau, err := gasPriceInRau(client, cmd)
+	gasPriceRau, err := gasPriceInRau(client, gasPrice)
 	if err != nil {
 		return errors.Wrap(err, "failed to get gas price")
 	}
-	signer, err := Signer(client, cmd)
+	sender, err := Signer(client, signer)
 	if err != nil {
 		return errors.Wrap(err, "failed to get signer address")
 	}
-	nonce, err := nonce(client, cmd, signer)
+	nonce, err = checkNonce(client, nonce, sender)
 	if err != nil {
 		return errors.Wrap(err, "failed to get nonce")
 	}
-	gasLimit := gasLimitFlagValue(cmd)
 	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
 	if err != nil || tx == nil {
 		return errors.Wrap(err, "failed to make a Execution instance")
 	}
 	if gasLimit == 0 {
-		tx, err = fixGasLimit(client, signer, tx)
+		tx, err = fixGasLimit(client, sender, tx)
 		if err != nil || tx == nil {
 			return errors.Wrap(err, "failed to fix Execution gas limit")
 		}
@@ -446,12 +431,21 @@ func Execute(client ioctl.Client, cmd *cobra.Command, contract string, amount *b
 			SetGasPrice(gasPriceRau).
 			SetGasLimit(gasLimit).
 			SetAction(tx).Build(),
-		signer,
+		sender,
+		password,
+		nonce,
+		assumeYes,
 	)
 }
 
 // Read reads smart contract on IoTeX blockchain
-func Read(client ioctl.Client, cmd *cobra.Command, contract address.Address, amount string, bytecode []byte) (string, error) {
+func Read(client ioctl.Client,
+	contract address.Address,
+	amount string,
+	bytecode []byte,
+	signer string,
+	gasLimit uint64,
+) (string, error) {
 	cli, err := client.APIServiceClient()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to connect to endpoint")
@@ -462,7 +456,10 @@ func Read(client ioctl.Client, cmd *cobra.Command, contract address.Address, amo
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
-	callerAddr, _ := Signer(client, cmd)
+	callerAddr, err := Signer(client, signer)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get signer address")
+	}
 	if callerAddr == "" {
 		callerAddr = address.ZeroAddress
 	}
@@ -475,7 +472,7 @@ func Read(client ioctl.Client, cmd *cobra.Command, contract address.Address, amo
 				Data:     bytecode,
 			},
 			CallerAddress: callerAddr,
-			GasLimit:      gasLimitFlagValue(cmd),
+			GasLimit:      gasLimit,
 		},
 	)
 	if err != nil {

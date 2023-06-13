@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package blockindex
 
@@ -12,17 +11,16 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/bloom"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/iotexproject/iotex-core/action"
 	filter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -79,7 +77,7 @@ type (
 )
 
 // NewBloomfilterIndexer creates a new bloomfilterindexer struct by given kvstore and rangebloomfilter size
-func NewBloomfilterIndexer(kv db.KVStore, cfg config.Indexer) (BloomFilterIndexer, error) {
+func NewBloomfilterIndexer(kv db.KVStore, cfg Config) (BloomFilterIndexer, error) {
 	if kv == nil {
 		return nil, errors.New("empty kvStore")
 	}

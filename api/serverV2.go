@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package api
 
@@ -10,6 +9,7 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -35,7 +34,7 @@ type ServerV2 struct {
 
 // NewServerV2 creates a new server with coreService and GRPC Server
 func NewServerV2(
-	cfg config.API,
+	cfg Config,
 	chain blockchain.Blockchain,
 	bs blocksync.BlockSync,
 	sf factory.Factory,
@@ -50,7 +49,7 @@ func NewServerV2(
 	if err != nil {
 		return nil, err
 	}
-	web3Handler := NewWeb3Handler(coreAPI, cfg.RedisCacheURL)
+	web3Handler := NewWeb3Handler(coreAPI, cfg.RedisCacheURL, cfg.BatchRequestLimit)
 
 	tp, err := tracer.NewProvider(
 		tracer.WithServiceName(cfg.Tracer.ServiceName),
@@ -62,11 +61,15 @@ func NewServerV2(
 		return nil, errors.Wrapf(err, "cannot config tracer provider")
 	}
 
+	wrappedWeb3Handler := otelhttp.NewHandler(newHTTPHandler(web3Handler), "web3.jsonrpc")
+
+	wrappedWebsocketHandler := otelhttp.NewHandler(NewWebsocketHandler(web3Handler), "web3.websocket")
+
 	return &ServerV2{
 		core:         coreAPI,
 		grpcServer:   NewGRPCServer(coreAPI, cfg.GRPCPort),
-		httpSvr:      NewHTTPServer("", cfg.HTTPPort, newHTTPHandler(web3Handler)),
-		websocketSvr: NewHTTPServer("", cfg.WebSocketPort, NewWebsocketHandler(web3Handler)),
+		httpSvr:      NewHTTPServer("", cfg.HTTPPort, wrappedWeb3Handler),
+		websocketSvr: NewHTTPServer("", cfg.WebSocketPort, wrappedWebsocketHandler),
 		tracer:       tp,
 	}, nil
 }
@@ -97,7 +100,7 @@ func (svr *ServerV2) Start(ctx context.Context) error {
 // Stop stops the GRPC server and the CoreService
 func (svr *ServerV2) Stop(ctx context.Context) error {
 	if svr.tracer != nil {
-		if err := svr.tracer.Shutdown(context.Background()); err != nil {
+		if err := svr.tracer.Shutdown(ctx); err != nil {
 			return errors.Wrap(err, "failed to shutdown api tracer")
 		}
 	}

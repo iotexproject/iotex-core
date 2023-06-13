@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package protocol
 
@@ -14,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -107,6 +107,13 @@ type (
 		ValidateRewardProtocol                  bool
 		CreateLegacyNonceAccount                bool
 		FixGasAndNonceUpdate                    bool
+		FixUnproductiveDelegates                bool
+		CorrectGasRefund                        bool
+		SkipSystemActionNonce                   bool
+		ValidateSystemAction                    bool
+		AllowCorrectChainIDOnly                 bool
+		AddContractStakingVotes                 bool
+		SharedGasWithDapp                       bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -118,6 +125,7 @@ type (
 		StakingCorrectGas        CheckFunc
 		CalculateProbationList   CheckFunc
 		LoadCandidatesLegacy     CheckFunc
+		CandCenterHasAlias       CheckFunc
 	}
 )
 
@@ -236,8 +244,15 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			RevertLog:                               g.IsMidway(height),
 			TolerateLegacyAddress:                   !g.IsNewfoundland(height),
 			ValidateRewardProtocol:                  g.IsNewfoundland(height),
-			CreateLegacyNonceAccount:                !g.IsToBeEnabled(height),
-			FixGasAndNonceUpdate:                    g.IsToBeEnabled(height),
+			CreateLegacyNonceAccount:                !g.IsOkhotsk(height),
+			FixGasAndNonceUpdate:                    g.IsOkhotsk(height),
+			FixUnproductiveDelegates:                g.IsOkhotsk(height),
+			CorrectGasRefund:                        g.IsOkhotsk(height),
+			SkipSystemActionNonce:                   g.IsPalau(height),
+			ValidateSystemAction:                    g.IsQuebec(height),
+			AllowCorrectChainIDOnly:                 g.IsQuebec(height),
+			AddContractStakingVotes:                 g.IsQuebec(height),
+			SharedGasWithDapp:                       g.IsToBeEnabled(height),
 		},
 	)
 }
@@ -285,6 +300,9 @@ func WithFeatureWithHeightCtx(ctx context.Context) context.Context {
 			},
 			LoadCandidatesLegacy: func(height uint64) bool {
 				return !g.IsEaster(height)
+			},
+			CandCenterHasAlias: func(height uint64) bool {
+				return !g.IsOkhotsk(height)
 			},
 		},
 	)

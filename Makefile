@@ -1,9 +1,8 @@
 ########################################################################################################################
 # Copyright (c) 2019 IoTeX Foundation
-# This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-# warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-# permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-# License 2.0 that can be found in the LICENSE file.
+# This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+# or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+# This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 ########################################################################################################################
 
 # Go parameters
@@ -24,6 +23,7 @@ BUILD_TARGET_XCTL=xctl
 BUILD_TARGET_NEWXCTL=newxctl
 BUILD_TARGET_MINICLUSTER=minicluster
 BUILD_TARGET_RECOVER=recover
+BUILD_TARGET_READTIP=readtip
 BUILD_TARGET_IOMIGRATER=iomigrater
 BUILD_TARGET_OS=$(shell go env GOOS)
 BUILD_TARGET_ARCH=$(shell go env GOARCH)
@@ -37,13 +37,19 @@ ROOT_PKG := "github.com/iotexproject/iotex-core"
 DOCKERCMD=docker
 
 # Package Info
+ifndef PACKAGE_VERSION
 PACKAGE_VERSION := $(shell git describe --tags)
+endif
+ifndef PACKAGE_COMMIT_ID
 PACKAGE_COMMIT_ID := $(shell git rev-parse HEAD)
+endif
+ifndef GIT_STATUS
 GIT_STATUS := $(shell git status --porcelain)
 ifdef GIT_STATUS
-	GIT_STATUS := "dirty"
+    GIT_STATUS := "dirty"
 else
-	GIT_STATUS := "clean"
+    GIT_STATUS := "clean"
+endif
 endif
 GO_VERSION := $(shell go version)
 BUILD_TIME=$(shell date +%F-%Z/%T)
@@ -78,7 +84,7 @@ build: ioctl
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 
 .PHONY: build-all
-build-all: build build-actioninjector build-addrgen build-minicluster build-staterecoverer
+build-all: build build-actioninjector build-addrgen build-minicluster build-staterecoverer build-readtip
 
 .PHONY: build-actioninjector
 build-actioninjector: 
@@ -95,6 +101,10 @@ build-minicluster:
 .PHONY: build-staterecoverer
 build-staterecoverer:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_RECOVER) -v ./tools/staterecoverer
+
+.PHONY: build-readtip
+build-readtip:
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_READTIP) -v ./tools/readtip
 
 .PHONY: fmt
 fmt:
@@ -193,6 +203,11 @@ run:
 .PHONY: docker
 docker:
 	DOCKER_BUILDKIT=1 $(DOCKERCMD) build -t $(USER)/iotex-core:latest .
+
+.PHONY: docker-scan
+docker-scan: docker
+	DOCKER_BUILDKIT=1 $(DOCKERCMD) login
+	DOCKER_BUILDKIT=1 $(DOCKERCMD) scan $(USER)/iotex-core:latest .
 
 .PHONY: minicluster
 minicluster:

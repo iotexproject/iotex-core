@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package evm
 
@@ -23,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -67,7 +65,7 @@ func initMockStateManager(ctrl *gomock.Controller) (*mock_chainmanager.MockState
 			return 0, nil
 		}).AnyTimes()
 	sm.EXPECT().DelState(gomock.Any()).DoAndReturn(
-		func(s interface{}, opts ...protocol.StateOption) (uint64, error) {
+		func(opts ...protocol.StateOption) (uint64, error) {
 			cfg, err := protocol.CreateStateConfig(opts...)
 			if err != nil {
 				return 0, err
@@ -312,6 +310,7 @@ var tests = []stateDBTest{
 			{_c1, _k2, _v2},
 			{_c3, _k3, _v4},
 		},
+		15000,
 		[]sui{
 			{_c2, false, false},
 			{_c4, false, false},
@@ -345,6 +344,7 @@ var tests = []stateDBTest{
 			{_c2, _k3, _v3},
 			{_c2, _k4, _v4},
 		},
+		2000,
 		[]sui{
 			{_c1, true, true},
 			{_c3, true, true},
@@ -372,6 +372,7 @@ var tests = []stateDBTest{
 			{_c2, _k3, _v1},
 			{_c2, _k4, _v2},
 		},
+		15000,
 		[]sui{
 			{_addr1, true, true},
 		},
@@ -391,7 +392,7 @@ var tests = []stateDBTest{
 }
 
 func TestSnapshotRevertAndCommit(t *testing.T) {
-	testSnapshotAndRevert := func(_ config.Config, t *testing.T, async, fixSnapshot, revertLog bool) {
+	testSnapshotAndRevert := func(t *testing.T, async, fixSnapshot, revertLog bool) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 
@@ -427,6 +428,8 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			for _, e := range test.states {
 				stateDB.SetState(e.addr, e.k, e.v)
 			}
+			// set refund
+			stateDB.refund = test.refund
 			// set suicide
 			for _, e := range test.suicide {
 				require.Equal(e.suicide, stateDB.Suicide(e.addr))
@@ -481,6 +484,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{_c2, _k3, _v1},
 					{_c2, _k4, _v2},
 				},
+				tests[2].refund,
 				[]sui{
 					{_c1, true, true},
 					{_c3, true, true},
@@ -508,6 +512,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				},
 				[]code{},
 				tests[1].states,
+				tests[1].refund,
 				[]sui{
 					{_c1, true, true},
 					{_c3, true, true},
@@ -539,6 +544,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{_c1, _k2, _v2},
 					{_c3, _k3, _v4},
 				},
+				tests[0].refund,
 				[]sui{
 					{_c1, false, true},
 					{_c3, false, true},
@@ -581,6 +587,8 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				for _, e := range test.states {
 					require.Equal(e.v, stateDB.GetState(e.addr, e.k))
 				}
+				// test refund
+				require.Equal(test.refund, stateDB.refund)
 				// test preimage
 				for _, e := range test.preimage {
 					v := stateDB.preimages[e.hash]
@@ -626,10 +634,16 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			require.Equal(1, len(stateDB.contractSnapshot))
 			require.Equal(1, len(stateDB.suicideSnapshot))
 			require.Equal(1, len(stateDB.preimageSnapshot))
+			require.Equal(1, len(stateDB.accessListSnapshot))
+			require.Equal(1, len(stateDB.refundSnapshot))
 		} else {
 			require.Equal(3, len(stateDB.contractSnapshot))
 			require.Equal(3, len(stateDB.suicideSnapshot))
 			require.Equal(3, len(stateDB.preimageSnapshot))
+			// refund fix and accessList are introduced after fixSnapshot
+			// so their snapshot are always properly cleared
+			require.Zero(len(stateDB.accessListSnapshot))
+			require.Zero(len(stateDB.refundSnapshot))
 		}
 		// commit snapshot 0's state
 		require.NoError(stateDB.CommitContracts())
@@ -638,25 +652,21 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 	}
 
 	t.Run("contract snapshot/revert/commit", func(t *testing.T) {
-		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, false, true, false)
+		testSnapshotAndRevert(t, false, true, false)
 	})
 	t.Run("contract snapshot/revert/commit w/o bug fix and revert log", func(t *testing.T) {
-		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, false, false, true)
+		testSnapshotAndRevert(t, false, false, true)
 	})
 	t.Run("contract snapshot/revert/commit with async trie and revert log", func(t *testing.T) {
-		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, true, true, true)
+		testSnapshotAndRevert(t, true, true, true)
 	})
 	t.Run("contract snapshot/revert/commit with async trie and w/o bug fix", func(t *testing.T) {
-		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, true, false, false)
+		testSnapshotAndRevert(t, true, false, false)
 	})
 }
 
 func TestClearSnapshots(t *testing.T) {
-	testClearSnapshots := func(_ config.Config, t *testing.T, async, fixSnapshotOrder bool) {
+	testClearSnapshots := func(t *testing.T, async, fixSnapshotOrder bool) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 
@@ -733,12 +743,10 @@ func TestClearSnapshots(t *testing.T) {
 
 	}
 	t.Run("contract w/o clear snapshots", func(t *testing.T) {
-		cfg := config.Default
-		testClearSnapshots(cfg, t, false, false)
+		testClearSnapshots(t, false, false)
 	})
 	t.Run("contract with clear snapshots", func(t *testing.T) {
-		cfg := config.Default
-		testClearSnapshots(cfg, t, false, true)
+		testClearSnapshots(t, false, true)
 	})
 }
 

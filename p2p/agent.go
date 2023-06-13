@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package p2p
 
@@ -31,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
+	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 )
 
 const (
@@ -99,6 +99,7 @@ type (
 	// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
 	Agent interface {
 		lifecycle.StartStopper
+		nodestats.StatsReporter
 		// BroadcastOutbound sends a broadcast message to the whole network
 		BroadcastOutbound(ctx context.Context, msg proto.Message) (err error)
 		// UnicastOutbound sends a unicast message to the given address
@@ -179,6 +180,10 @@ func (*dummyAgent) ConnectedPeers() ([]peer.AddrInfo, error) {
 
 func (*dummyAgent) BlockPeer(string) {
 	return
+}
+
+func (*dummyAgent) BuildReport() string {
+	return ""
 }
 
 // NewAgent instantiates a local P2P agent instance
@@ -333,13 +338,20 @@ func (p *agent) Start(ctx context.Context) error {
 		return err
 	}
 	host.JoinOverlay()
+	p.host = host
 
 	// connect to bootstrap nodes
-	p.host = host
-	if err := p.joinP2P(ctx); err != nil {
-		log.L().Error("fail to join p2p network", zap.Error(err))
+	if err := p.connectBootNode(ctx); err != nil {
+		log.L().Error("fail to connect bootnode", zap.Error(err))
 		return err
 	}
+	if err := p.host.AdvertiseAsync(); err != nil {
+		return err
+	}
+	if err := p.host.FindPeersAsync(); err != nil {
+		return err
+	}
+
 	close(ready)
 
 	// check network connectivity every 60 blocks, and reconnect in case of disconnection
@@ -484,22 +496,19 @@ func (p *agent) BlockPeer(pidStr string) {
 	p.host.BlockPeer(pid)
 }
 
-func (p *agent) joinP2P(ctx context.Context) error {
-	if len(p.cfg.BootstrapNodes) == 0 {
-		return nil
+// BuildReport builds a report of p2p agent
+func (p *agent) BuildReport() string {
+	neighbors, err := p.ConnectedPeers()
+	if err == nil {
+		return fmt.Sprintf("P2P ConnectedPeers: %d", len(neighbors))
 	}
-	if err := p.connectBootNode(ctx); err != nil {
-		return err
-	}
-	// it might take a few seconds to establish handshake with bootstrap
-	if err := p.host.Advertise(); err != nil {
-		return err
-	}
-	p.host.FindPeers(ctx)
-	return nil
+	return ""
 }
 
 func (p *agent) connectBootNode(ctx context.Context) error {
+	if len(p.cfg.BootstrapNodes) == 0 {
+		return nil
+	}
 	var errNum, connNum, desiredConnNum int
 	conn := make(chan struct{}, len(p.cfg.BootstrapNodes))
 	connErrChan := make(chan error, len(p.cfg.BootstrapNodes))
@@ -550,13 +559,17 @@ func (p *agent) reconnect() {
 	if len(p.host.ConnectedPeers()) == 0 || p.qosMetrics.lostConnection() {
 		log.L().Info("network lost, try re-connecting.")
 		p.host.ClearBlocklist()
-		if err := p.joinP2P(context.Background()); err != nil {
-			log.L().Error("fail to join p2p network", zap.Error(err))
+		if err := p.connectBootNode(context.Background()); err != nil {
+			log.L().Error("fail to connect bootnode", zap.Error(err))
+			return
 		}
-		return
+		if err := p.host.AdvertiseAsync(); err != nil {
+			log.L().Error("fail to advertise", zap.Error(err))
+			return
+		}
 	}
-	if err := p.host.FindPeers(context.Background()); err != nil {
-		log.L().Error("fail to find peers", zap.Error(err))
+	if err := p.host.FindPeersAsync(); err != nil {
+		log.L().Error("fail to find peer", zap.Error(err))
 	}
 }
 

@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package staking
 
@@ -39,6 +38,9 @@ const (
 
 	// _candidateNameSpace is the bucket name for candidate state
 	_candidateNameSpace = "Candidate"
+
+	// CandsMapNS is the bucket name to store candidate map
+	CandsMapNS = "CandsMap"
 )
 
 const (
@@ -57,6 +59,12 @@ var (
 	TotalBucketKey     = append([]byte{_const}, []byte("totalBucket")...)
 )
 
+var (
+	_nameKey     = []byte("name")
+	_operatorKey = []byte("operator")
+	_ownerKey    = []byte("owner")
+)
+
 type (
 	// ReceiptError indicates a non-critical error with corresponding receipt status
 	ReceiptError interface {
@@ -66,20 +74,23 @@ type (
 
 	// Protocol defines the protocol of handling staking
 	Protocol struct {
-		addr               address.Address
-		depositGas         DepositGas
-		config             Configuration
-		candBucketsIndexer *CandidatesBucketsIndexer
-		voteReviser        *VoteReviser
+		addr                   address.Address
+		depositGas             DepositGas
+		config                 Configuration
+		candBucketsIndexer     *CandidatesBucketsIndexer
+		contractStakingIndexer ContractStakingIndexer
+		voteReviser            *VoteReviser
+		patch                  *PatchStore
 	}
 
 	// Configuration is the staking protocol configuration.
 	Configuration struct {
-		VoteWeightCalConsts   genesis.VoteWeightCalConsts
-		RegistrationConsts    RegistrationConsts
-		WithdrawWaitingPeriod time.Duration
-		MinStakeAmount        *big.Int
-		BootstrapCandidates   []genesis.BootstrapCandidate
+		VoteWeightCalConsts      genesis.VoteWeightCalConsts
+		RegistrationConsts       RegistrationConsts
+		WithdrawWaitingPeriod    time.Duration
+		MinStakeAmount           *big.Int
+		BootstrapCandidates      []genesis.BootstrapCandidate
+		PersistStakingPatchBlock uint64
 	}
 
 	// DepositGas deposits gas to some pool
@@ -103,46 +114,56 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 }
 
 // NewProtocol instantiates the protocol of staking
-func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer *CandidatesBucketsIndexer, reviseHeights ...uint64) (*Protocol, error) {
+func NewProtocol(
+	depositGas DepositGas,
+	cfg *BuilderConfig,
+	candBucketsIndexer *CandidatesBucketsIndexer,
+	contractStakingIndexer ContractStakingIndexer,
+	correctCandsHeight uint64,
+	reviseHeights ...uint64,
+) (*Protocol, error) {
 	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		return nil, err
 	}
 
-	minStakeAmount, ok := new(big.Int).SetString(cfg.MinStakeAmount, 10)
+	minStakeAmount, ok := new(big.Int).SetString(cfg.Staking.MinStakeAmount, 10)
 	if !ok {
-		return nil, ErrInvalidAmount
+		return nil, action.ErrInvalidAmount
 	}
 
-	regFee, ok := new(big.Int).SetString(cfg.RegistrationConsts.Fee, 10)
+	regFee, ok := new(big.Int).SetString(cfg.Staking.RegistrationConsts.Fee, 10)
 	if !ok {
-		return nil, ErrInvalidAmount
+		return nil, action.ErrInvalidAmount
 	}
 
-	minSelfStake, ok := new(big.Int).SetString(cfg.RegistrationConsts.MinSelfStake, 10)
+	minSelfStake, ok := new(big.Int).SetString(cfg.Staking.RegistrationConsts.MinSelfStake, 10)
 	if !ok {
-		return nil, ErrInvalidAmount
+		return nil, action.ErrInvalidAmount
 	}
 
 	// new vote reviser, revise ate greenland
-	voteReviser := NewVoteReviser(cfg.VoteWeightCalConsts, reviseHeights...)
+	voteReviser := NewVoteReviser(cfg.Staking.VoteWeightCalConsts, correctCandsHeight, reviseHeights...)
 
 	return &Protocol{
 		addr: addr,
 		config: Configuration{
-			VoteWeightCalConsts: cfg.VoteWeightCalConsts,
+			VoteWeightCalConsts: cfg.Staking.VoteWeightCalConsts,
 			RegistrationConsts: RegistrationConsts{
 				Fee:          regFee,
 				MinSelfStake: minSelfStake,
 			},
-			WithdrawWaitingPeriod: cfg.WithdrawWaitingPeriod,
-			MinStakeAmount:        minStakeAmount,
-			BootstrapCandidates:   cfg.BootstrapCandidates,
+			WithdrawWaitingPeriod:    cfg.Staking.WithdrawWaitingPeriod,
+			MinStakeAmount:           minStakeAmount,
+			BootstrapCandidates:      cfg.Staking.BootstrapCandidates,
+			PersistStakingPatchBlock: cfg.PersistStakingPatchBlock,
 		},
-		depositGas:         depositGas,
-		candBucketsIndexer: candBucketsIndexer,
-		voteReviser:        voteReviser,
+		depositGas:             depositGas,
+		candBucketsIndexer:     candBucketsIndexer,
+		voteReviser:            voteReviser,
+		patch:                  NewPatchStore(cfg.StakingPatchDir),
+		contractStakingIndexer: contractStakingIndexer,
 	}, nil
 }
 
@@ -164,6 +185,19 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
+
+	if p.needToReadCandsMap(ctx, height) {
+		name, operator, owners, err := readCandCenterStateFromStateDB(sr)
+		if err != nil {
+			// stateDB does not have name/operator map yet
+			if name, operator, owners, err = p.patch.Read(height); err != nil {
+				return nil, errors.Wrap(err, "failed to read name/operator map")
+			}
+		}
+		if err = c.candCenter.base.loadNameOperatorMapOwnerList(name, operator, owners); err != nil {
+			return nil, errors.Wrap(err, "failed to load name/operator map to cand center")
+		}
+	}
 	return c, nil
 }
 
@@ -175,6 +209,7 @@ func (p *Protocol) CreateGenesisStates(
 	if len(p.config.BootstrapCandidates) == 0 {
 		return nil
 	}
+	// TODO: set init values based on ctx
 	csm, err := NewCandidateStateManager(sm, false)
 	if err != nil {
 		return err
@@ -198,7 +233,7 @@ func (p *Protocol) CreateGenesisStates(
 
 		selfStake, ok := new(big.Int).SetString(bc.SelfStakingTokens, 10)
 		if !ok {
-			return ErrInvalidAmount
+			return action.ErrInvalidAmount
 		}
 		bucket := NewVoteBucket(owner, owner, selfStake, 7, time.Now(), true)
 		bucketIdx, err := csm.putBucketAndIndex(bucket)
@@ -225,7 +260,7 @@ func (p *Protocol) CreateGenesisStates(
 	}
 
 	// commit updated view
-	return errors.Wrap(csm.Commit(), "failed to commit candidate change in CreateGenesisStates")
+	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in CreateGenesisStates")
 }
 
 // CreatePreStates updates state manager
@@ -291,6 +326,39 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 	return p.candBucketsIndexer.PutCandidates(epochStartHeight, candidateList)
 }
 
+// PreCommit preforms pre-commit
+func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) error {
+	height, err := sm.Height()
+	if err != nil {
+		return err
+	}
+	if !p.needToWriteCandsMap(ctx, height) {
+		return nil
+	}
+
+	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	if err != nil {
+		return err
+	}
+	cc := csm.DirtyView().candCenter
+	base := cc.base.clone()
+	if _, err = base.commit(cc.change, featureWithHeightCtx.CandCenterHasAlias(height)); err != nil {
+		return errors.Wrap(err, "failed to apply candidate change in pre-commit")
+	}
+	// persist nameMap/operatorMap and ownerList to stateDB
+	name := base.candsInNameMap()
+	op := base.candsInOperatorMap()
+	owners := base.ownersList()
+	if len(name) == 0 || len(op) == 0 {
+		return ErrNilParameters
+	}
+	if err := writeCandCenterStateToStateDB(sm, name, op, owners); err != nil {
+		return errors.Wrap(err, "failed to write name/operator map to stateDB")
+	}
+	return nil
+}
+
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
@@ -304,7 +372,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	}
 
 	// commit updated view
-	return errors.Wrap(csm.Commit(), "failed to commit candidate change in Commit")
+	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in Commit")
 }
 
 // Handle handles a staking message
@@ -399,14 +467,17 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
-	c, err := GetStakingStateReader(sr)
+	c, err := ConstructBaseView(sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
 	}
-
+	featureCtx, ok := protocol.GetFeatureCtx(ctx)
 	list := c.AllCandidates()
 	cand := make(CandidateList, 0, len(list))
 	for i := range list {
+		if ok && featureCtx.AddContractStakingVotes {
+			list[i].Votes.Add(list[i].Votes, p.contractStakingIndexer.CandidateVotes(list[i].Owner))
+		}
 		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {
 			cand = append(cand, list[i])
 		}
@@ -428,7 +499,8 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return nil, uint64(0), errors.Wrap(err, "failed to unmarshal request")
 	}
 
-	csr, err := ConstructBaseView(sr)
+	// stakeSR is the stake state reader including native and contract staking
+	stakeSR, err := newCompositeStakingStateReader(p.contractStakingIndexer, p.candBucketsIndexer, sr)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -440,6 +512,10 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	}
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
+	nativeSR, err := ConstructBaseView(sr)
+	if err != nil {
+		return nil, 0, err
+	}
 
 	var (
 		height uint64
@@ -448,28 +524,40 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
 		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
-			return p.candBucketsIndexer.GetBuckets(epochStartHeight, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
+			resp, height, err = p.candBucketsIndexer.GetBuckets(epochStartHeight, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
+		} else {
+			resp, height, err = nativeSR.readStateBuckets(ctx, r.GetBuckets())
 		}
-		resp, height, err = csr.readStateBuckets(ctx, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
-		resp, height, err = csr.readStateBucketsByVoter(ctx, r.GetBucketsByVoter())
+		resp, height, err = nativeSR.readStateBucketsByVoter(ctx, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
-		resp, height, err = csr.readStateBucketsByCandidate(ctx, r.GetBucketsByCandidate())
+		resp, height, err = nativeSR.readStateBucketsByCandidate(ctx, r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES:
-		resp, height, err = csr.readStateBucketByIndices(ctx, r.GetBucketsByIndexes())
+		resp, height, err = nativeSR.readStateBucketByIndices(ctx, r.GetBucketsByIndexes())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_COUNT:
-		resp, height, err = csr.readStateBucketCount(ctx, r.GetBucketsCount())
+		resp, height, err = nativeSR.readStateBucketCount(ctx, r.GetBucketsCount())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
-		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
-			return p.candBucketsIndexer.GetCandidates(epochStartHeight, r.GetCandidates().GetPagination().GetOffset(), r.GetCandidates().GetPagination().GetLimit())
-		}
-		resp, height, err = csr.readStateCandidates(ctx, r.GetCandidates())
+		resp, height, err = stakeSR.readStateCandidates(ctx, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
-		resp, height, err = csr.readStateCandidateByName(ctx, r.GetCandidateByName())
+		resp, height, err = stakeSR.readStateCandidateByName(ctx, r.GetCandidateByName())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS:
-		resp, height, err = csr.readStateCandidateByAddress(ctx, r.GetCandidateByAddress())
+		resp, height, err = stakeSR.readStateCandidateByAddress(ctx, r.GetCandidateByAddress())
 	case iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT:
-		resp, height, err = csr.readStateTotalStakingAmount(ctx, r.GetTotalStakingAmount())
+		resp, height, err = nativeSR.readStateTotalStakingAmount(ctx, r.GetTotalStakingAmount())
+	case iotexapi.ReadStakingDataMethod_COMPOSITE_BUCKETS:
+		resp, height, err = stakeSR.readStateBuckets(ctx, r.GetBuckets())
+	case iotexapi.ReadStakingDataMethod_COMPOSITE_BUCKETS_BY_VOTER:
+		resp, height, err = stakeSR.readStateBucketsByVoter(ctx, r.GetBucketsByVoter())
+	case iotexapi.ReadStakingDataMethod_COMPOSITE_BUCKETS_BY_CANDIDATE:
+		resp, height, err = stakeSR.readStateBucketsByCandidate(ctx, r.GetBucketsByCandidate())
+	case iotexapi.ReadStakingDataMethod_COMPOSITE_BUCKETS_BY_INDEXES:
+		resp, height, err = stakeSR.readStateBucketByIndices(ctx, r.GetBucketsByIndexes())
+	case iotexapi.ReadStakingDataMethod_COMPOSITE_BUCKETS_COUNT:
+		resp, height, err = stakeSR.readStateBucketCount(ctx, r.GetBucketsCount())
+	case iotexapi.ReadStakingDataMethod_COMPOSITE_TOTAL_STAKING_AMOUNT:
+		resp, height, err = stakeSR.readStateTotalStakingAmount(ctx, r.GetTotalStakingAmount())
+	case iotexapi.ReadStakingDataMethod_CONTRACT_STAKING_BUCKET_TYPES:
+		resp, height, err = stakeSR.readStateContractStakingBucketTypes(ctx, r.GetContractStakingBucketTypes())
 	default:
 		err = errors.New("corresponding method isn't found")
 	}
@@ -540,4 +628,41 @@ func (p *Protocol) settleAction(
 	}
 	r.AddLogs(logs...).AddTransactionLogs(depositLog).AddTransactionLogs(tLogs...)
 	return &r, nil
+}
+
+func (p *Protocol) needToReadCandsMap(ctx context.Context, height uint64) bool {
+	fCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	return height > p.config.PersistStakingPatchBlock && fCtx.CandCenterHasAlias(height)
+}
+
+func (p *Protocol) needToWriteCandsMap(ctx context.Context, height uint64) bool {
+	fCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	return height >= p.config.PersistStakingPatchBlock && fCtx.CandCenterHasAlias(height)
+}
+
+func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, CandidateList, CandidateList, error) {
+	var (
+		name, operator, owner CandidateList
+	)
+	if _, err := sr.State(&name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
+		return nil, nil, nil, err
+	}
+	if _, err := sr.State(&operator, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
+		return nil, nil, nil, err
+	}
+	if _, err := sr.State(&owner, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey)); err != nil {
+		return nil, nil, nil, err
+	}
+	return name, operator, owner, nil
+}
+
+func writeCandCenterStateToStateDB(sm protocol.StateManager, name, op, owners CandidateList) error {
+	if _, err := sm.PutState(name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
+		return err
+	}
+	if _, err := sm.PutState(op, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
+		return err
+	}
+	_, err := sm.PutState(owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
+	return err
 }

@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package e2etest
 
@@ -145,6 +144,10 @@ func TestStakingContract(t *testing.T) {
 				}),
 			cfg.Genesis,
 		)
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx,
+			protocol.BlockCtx{
+				BlockHeight: genesis.Default.OkhotskBlockHeight,
+			}))
 		bcCtx := protocol.MustGetBlockchainCtx(ctx)
 		_, err = ns.Votes(ctx, bcCtx.Tip.Timestamp, false)
 		require.Equal(poll.ErrNoData, err)
@@ -185,9 +188,13 @@ func TestStakingContract(t *testing.T) {
 	require.NoError(err)
 	testCandidateIndexPath, err := testutil.PathOfTempFile("candidateindex")
 	require.NoError(err)
+	testContractStakeIndexPath, err := testutil.PathOfTempFile("contractindex")
+	require.NoError(err)
 	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
 	require.NoError(err)
 	testConsensusPath, err := testutil.PathOfTempFile("consensus")
+	require.NoError(err)
+	testSGDIndexPath, err := testutil.PathOfTempFile("sgdIndex")
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(testTriePath)
@@ -197,6 +204,8 @@ func TestStakingContract(t *testing.T) {
 		testutil.CleanupPath(testCandidateIndexPath)
 		testutil.CleanupPath(testSystemLogPath)
 		testutil.CleanupPath(testConsensusPath)
+		testutil.CleanupPath(testContractStakeIndexPath)
+		testutil.CleanupPath(testSGDIndexPath)
 		// clear the gateway
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -206,8 +215,10 @@ func TestStakingContract(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
 	cfg.Chain.BloomfilterIndexDBPath = testBloomfilterIndexPath
 	cfg.Chain.CandidateIndexDBPath = testCandidateIndexPath
+	cfg.Chain.ContractStakingIndexDBPath = testContractStakeIndexPath
 	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"

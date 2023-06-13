@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package batch
 
@@ -67,17 +66,17 @@ func (b *baseKVStoreBatch) ClearAndUnlock() {
 }
 
 // Put inserts a <key, value> record
-func (b *baseKVStoreBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
+func (b *baseKVStoreBatch) Put(namespace string, key, value []byte, errorMessage string) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	b.batch(Put, namespace, key, value, errorFormat, errorArgs)
+	b.batch(Put, namespace, key, value, errorMessage)
 }
 
 // Delete deletes a record
-func (b *baseKVStoreBatch) Delete(namespace string, key []byte, errorFormat string, errorArgs ...interface{}) {
+func (b *baseKVStoreBatch) Delete(namespace string, key []byte, errorMessage string) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	b.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
+	b.batch(Delete, namespace, key, nil, errorMessage)
 }
 
 // Size returns the size of batch
@@ -180,16 +179,15 @@ func (b *baseKVStoreBatch) AddFillPercent(ns string, percent float64) {
 }
 
 // batch puts an entry into the write queue
-func (b *baseKVStoreBatch) batch(op WriteType, namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
+func (b *baseKVStoreBatch) batch(op WriteType, namespace string, key, value []byte, errorMessage string) {
 	b.writeQueue = append(
 		b.writeQueue,
 		&WriteInfo{
-			writeType:   op,
-			namespace:   namespace,
-			key:         key,
-			value:       value,
-			errorFormat: errorFormat,
-			errorArgs:   errorArgs,
+			writeType:    op,
+			namespace:    namespace,
+			key:          key,
+			value:        value,
+			errorMessage: errorMessage,
 		})
 }
 
@@ -271,23 +269,23 @@ func (cb *cachedBatch) touchKey(h kvCacheKey) {
 }
 
 // Put inserts a <key, value> record
-func (cb *cachedBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
+func (cb *cachedBatch) Put(namespace string, key, value []byte, errorMessage string) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	h := cb.hash(namespace, key)
 	cb.touchKey(h)
 	cb.currentCache().Write(&h, value)
-	cb.kvStoreBatch.batch(Put, namespace, key, value, errorFormat, errorArgs)
+	cb.kvStoreBatch.batch(Put, namespace, key, value, errorMessage)
 }
 
 // Delete deletes a record
-func (cb *cachedBatch) Delete(namespace string, key []byte, errorFormat string, errorArgs ...interface{}) {
+func (cb *cachedBatch) Delete(namespace string, key []byte, errorMessage string) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	h := cb.hash(namespace, key)
 	cb.touchKey(h)
 	cb.currentCache().Evict(&h)
-	cb.kvStoreBatch.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
+	cb.kvStoreBatch.batch(Delete, namespace, key, nil, errorMessage)
 }
 
 // Clear clear the cached batch buffer

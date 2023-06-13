@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package api
 
@@ -16,6 +15,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -27,6 +28,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -48,12 +50,13 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	batch "github.com/iotexproject/iotex-core/pkg/messagebatcher"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -106,18 +109,18 @@ type (
 		ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
 		// ActPoolActions returns the all Transaction Identifiers in the actpool
 		ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error)
+		// BlockByHeightRange returns blocks within the height range
+		BlockByHeightRange(uint64, uint64) ([]*apitypes.BlockWithReceipts, error)
+		// BlockByHeight returns the block and its receipt from block height
+		BlockByHeight(uint64) (*apitypes.BlockWithReceipts, error)
 		// BlockByHash returns the block and its receipt
-		BlockByHash(string) (*block.Store, error)
+		BlockByHash(string) (*apitypes.BlockWithReceipts, error)
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 		UnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// EstimateGasForNonExecution  estimates action gas except execution
 		EstimateGasForNonExecution(action.Action) (uint64, error)
 		// EstimateExecutionGasConsumption estimate gas consumption for execution action
 		EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error)
-		// BlockMetas returns blockmetas response within the height range
-		BlockMetas(start uint64, count uint64) ([]*iotextypes.BlockMeta, error)
-		// BlockMetaByHash returns blockmeta response by block hash
-		BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta, error)
 		// LogsInBlockByHash filter logs in the block by hash
 		LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*action.Log, error)
 		// LogsInRange filter logs among [start, end] blocks
@@ -142,6 +145,21 @@ type (
 		ReceiveBlock(blk *block.Block) error
 		// BlockHashByBlockHeight returns block hash by block height
 		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
+		// TraceTransaction returns the trace result of a transaction
+		TraceTransaction(ctx context.Context, actHash string, config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error)
+		// TraceCall returns the trace result of a call
+		TraceCall(ctx context.Context,
+			callerAddr address.Address,
+			blkNumOrHash any,
+			contractAddress string,
+			nonce uint64,
+			amount *big.Int,
+			gasLimit uint64,
+			data []byte,
+			config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error)
+
+		// Track tracks the api call
+		Track(ctx context.Context, start time.Time, method string, size int64, success bool)
 	}
 
 	// coreService implements the CoreService interface
@@ -155,11 +173,13 @@ type (
 		ap                actpool.ActPool
 		gs                *gasstation.GasStation
 		broadcastHandler  BroadcastOutbound
-		cfg               config.API
+		cfg               Config
 		registry          *protocol.Registry
 		chainListener     apitypes.Listener
 		electionCommittee committee.Committee
 		readCache         *ReadCache
+		messageBatcher    *batch.Manager
+		apiStats          *nodestats.APILocalStats
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -189,6 +209,13 @@ func WithNativeElection(committee committee.Committee) Option {
 	}
 }
 
+// WithAPIStats is the option to return RPC stats through API.
+func WithAPIStats(stats *nodestats.APILocalStats) Option {
+	return func(svr *coreService) {
+		svr.apiStats = stats
+	}
+}
+
 type intrinsicGasCalculator interface {
 	IntrinsicGas() (uint64, error)
 }
@@ -200,7 +227,7 @@ var (
 
 // newcoreService creates a api server that contains major blockchain components
 func newCoreService(
-	cfg config.API,
+	cfg Config,
 	chain blockchain.Blockchain,
 	bs blocksync.BlockSync,
 	sf factory.Factory,
@@ -211,9 +238,9 @@ func newCoreService(
 	registry *protocol.Registry,
 	opts ...Option,
 ) (CoreService, error) {
-	if cfg == (config.API{}) {
+	if cfg == (Config{}) {
 		log.L().Warn("API server is not configured.")
-		cfg = config.Default.API
+		cfg = DefaultConfig
 	}
 
 	if cfg.RangeQueryLimit < uint64(cfg.TpsWindow) {
@@ -231,12 +258,18 @@ func newCoreService(
 		cfg:           cfg,
 		registry:      registry,
 		chainListener: NewChainListener(500),
-		gs:            gasstation.NewGasStation(chain, dao, cfg),
+		gs:            gasstation.NewGasStation(chain, dao, cfg.GasStation),
 		readCache:     NewReadCache(),
 	}
 
 	for _, opt := range opts {
 		opt(&core)
+	}
+
+	if core.broadcastHandler != nil {
+		core.messageBatcher = batch.NewManager(func(msg *batch.Message) error {
+			return core.broadcastHandler(context.Background(), core.bc.ChainID(), msg.Data)
+		})
 	}
 
 	return &core, nil
@@ -331,21 +364,21 @@ func (core *coreService) ChainMeta() (*iotextypes.ChainMeta, string, error) {
 	if int64(tipHeight) < blockLimit {
 		blockLimit = int64(tipHeight)
 	}
-	blks, err := core.BlockMetas(tipHeight-uint64(blockLimit)+1, uint64(blockLimit))
+	blkStores, err := core.BlockByHeightRange(tipHeight-uint64(blockLimit)+1, uint64(blockLimit))
 	if err != nil {
 		return nil, "", status.Error(codes.NotFound, err.Error())
 	}
-	if len(blks) == 0 {
+	if len(blkStores) == 0 {
 		return nil, "", status.Error(codes.NotFound, "get 0 blocks! not able to calculate aps")
 	}
 
-	var numActions int64
-	for _, blk := range blks {
-		numActions += blk.NumActions
+	var numActions uint64
+	for _, blkStore := range blkStores {
+		numActions += uint64(len(blkStore.Block.Actions))
 	}
 
-	t1 := time.Unix(blks[0].Timestamp.GetSeconds(), int64(blks[0].Timestamp.GetNanos()))
-	t2 := time.Unix(blks[len(blks)-1].Timestamp.GetSeconds(), int64(blks[len(blks)-1].Timestamp.GetNanos()))
+	t1 := blkStores[0].Block.Timestamp()
+	t2 := blkStores[len(blkStores)-1].Block.Timestamp()
 	// duration of time difference in milli-seconds
 	// TODO: use config.Genesis.BlockInterval after PR1289 merges
 	timeDiff := (t2.Sub(t1) + 10*time.Second) / time.Millisecond
@@ -426,7 +459,18 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	}
 	// If there is no error putting into local actpool,
 	// Broadcast it to the network
-	if err = core.broadcastHandler(ctx, core.bc.ChainID(), in); err != nil {
+	msg := in
+	if ge := core.bc.Genesis(); ge.IsQuebec(core.bc.TipHeight()) {
+		err = core.messageBatcher.Put(&batch.Message{
+			ChainID: core.bc.ChainID(),
+			Target:  nil,
+			Data:    msg,
+		})
+	} else {
+		//TODO: remove height check after activated
+		err = core.broadcastHandler(ctx, core.bc.ChainID(), msg)
+	}
+	if err != nil {
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	return hex.EncodeToString(hash[:]), nil
@@ -437,7 +481,11 @@ func (core *coreService) PendingNonce(addr address.Address) (uint64, error) {
 }
 
 func (core *coreService) validateChainID(chainID uint32) error {
-	if ge := core.bc.Genesis(); ge.IsMidway(core.bc.TipHeight()) && chainID != core.bc.ChainID() && chainID != 0 {
+	ge := core.bc.Genesis()
+	if ge.IsQuebec(core.bc.TipHeight()) && chainID != core.bc.ChainID() {
+		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
+	}
+	if ge.IsMidway(core.bc.TipHeight()) && chainID != core.bc.ChainID() && chainID != 0 {
 		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
 	}
 	return nil
@@ -788,11 +836,21 @@ func (core *coreService) Start(_ context.Context) error {
 	if err := core.chainListener.Start(); err != nil {
 		return errors.Wrap(err, "failed to start blockchain listener")
 	}
+	if core.messageBatcher != nil {
+		if err := core.messageBatcher.Start(); err != nil {
+			return errors.Wrap(err, "failed to start message batcher")
+		}
+	}
 	return nil
 }
 
 // Stop stops the API server
 func (core *coreService) Stop(_ context.Context) error {
+	if core.messageBatcher != nil {
+		if err := core.messageBatcher.Stop(); err != nil {
+			return errors.Wrap(err, "failed to stop message batcher")
+		}
+	}
 	return core.chainListener.Stop()
 }
 
@@ -904,6 +962,7 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 	}
 
 	var res []*iotexapi.ActionInfo
+	var actsList [][]*iotexapi.ActionInfo
 	var hit bool
 	for height := core.bc.TipHeight(); height >= 1 && count > 0; height-- {
 		blk, err := core.dao.GetBlockByHeight(height)
@@ -916,10 +975,13 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 		}
 		// now reverseStart < len(blk.Actions), we are going to fetch actions from this block
 		hit = true
-		act := core.reverseActionsInBlock(blk, reverseStart, count)
-		res = append(act, res...)
-		count -= uint64(len(act))
+		acts := core.reverseActionsInBlock(blk, reverseStart, count)
+		actsList = append(actsList, acts)
+		count -= uint64(len(acts))
 		reverseStart = 0
+	}
+	for i := len(actsList) - 1; i >= 0; i-- {
+		res = append(res, actsList[i]...)
 	}
 	return res, nil
 }
@@ -1024,8 +1086,8 @@ func (core *coreService) UnconfirmedActionsByAddress(address string, start uint6
 	return res, nil
 }
 
-// BlockByHash returns the block and its receipt
-func (core *coreService) BlockByHash(blkHash string) (*block.Store, error) {
+// BlockByHash returns the block and its receipt from block hash
+func (core *coreService) BlockByHash(blkHash string) (*apitypes.BlockWithReceipts, error) {
 	if err := core.checkActionIndex(); err != nil {
 		return nil, err
 	}
@@ -1041,81 +1103,64 @@ func (core *coreService) BlockByHash(blkHash string) (*block.Store, error) {
 	if err != nil {
 		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
-	return &block.Store{
+	return &apitypes.BlockWithReceipts{
 		Block:    blk,
 		Receipts: receipts,
 	}, nil
 }
 
-// BlockMetas returns blockmetas response within the height range
-func (core *coreService) BlockMetas(start uint64, count uint64) ([]*iotextypes.BlockMeta, error) {
+// BlockByHeightRange returns blocks within the height range
+func (core *coreService) BlockByHeightRange(start uint64, count uint64) ([]*apitypes.BlockWithReceipts, error) {
 	if count == 0 {
-		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
+		return nil, errors.Wrap(errInvalidFormat, "count must be greater than zero")
 	}
 	if count > core.cfg.RangeQueryLimit {
-		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+		return nil, errors.Wrap(errInvalidFormat, "range exceeds the limit")
 	}
 
 	var (
 		tipHeight = core.bc.TipHeight()
-		res       = make([]*iotextypes.BlockMeta, 0)
+		res       = make([]*apitypes.BlockWithReceipts, 0)
 	)
 	if start > tipHeight {
-		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
+		return nil, errors.Wrap(errInvalidFormat, "start height should not exceed tip height")
 	}
 	for height := start; height <= tipHeight && count > 0; height++ {
-		blockMeta, err := core.getBlockMetaByHeight(height)
+		blkStore, err := core.getBlockByHeight(height)
 		if err != nil {
 			return nil, err
 		}
-		res = append(res, blockMeta)
+		res = append(res, blkStore)
 		count--
 	}
 	return res, nil
 }
 
-// BlockMetaByHash returns blockmeta response by block hash
-func (core *coreService) BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta, error) {
-	hash, err := hash.HexStringToHash256(blkHash)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	height, err := core.dao.GetBlockHeight(hash)
-	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	return core.getBlockMetaByHeight(height)
+// BlockByHeight returns the block and its receipt from block height
+func (core *coreService) BlockByHeight(height uint64) (*apitypes.BlockWithReceipts, error) {
+	return core.getBlockByHeight(height)
 }
 
-// getBlockMetaByHeight gets BlockMeta by height
-func (core *coreService) getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
+func (core *coreService) getBlockByHeight(height uint64) (*apitypes.BlockWithReceipts, error) {
+	if height > core.bc.TipHeight() {
+		return nil, ErrNotFound
+	}
 	blk, err := core.dao.GetBlockByHeight(height)
 	if err != nil {
-		return nil, status.Error(codes.NotFound, err.Error())
+		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
-	// get block's receipt
+	receipts := []*action.Receipt{}
 	if blk.Height() > 0 {
-		blk.Receipts, err = core.dao.GetReceipts(height)
+		var err error
+		receipts, err = core.dao.GetReceipts(height)
 		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
+			return nil, errors.Wrap(ErrNotFound, err.Error())
 		}
 	}
-	return generateBlockMeta(blk), nil
-}
-
-// GasLimitAndUsed returns the gas limit and used in a block
-func gasLimitAndUsed(b *block.Block) (uint64, uint64) {
-	var gasLimit, gasUsed uint64
-	for _, tx := range b.Actions {
-		gasLimit += tx.GasLimit()
-	}
-	for _, r := range b.Receipts {
-		gasUsed += r.GasConsumed
-	}
-	return gasLimit, gasUsed
+	return &apitypes.BlockWithReceipts{
+		Block:    blk,
+		Receipts: receipts,
+	}, nil
 }
 
 func (core *coreService) getGravityChainStartHeight(epochHeight uint64) (uint64, error) {
@@ -1207,10 +1252,18 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	blkHash := hex.EncodeToString(h[:])
 	blkHeight := blk.Height()
 
-	var res []*iotexapi.ActionInfo
-	for i := reverseStart; i < uint64(len(blk.Actions)) && i < reverseStart+count; i++ {
-		ri := uint64(len(blk.Actions)) - 1 - i
-		selp := blk.Actions[ri]
+	size := uint64(len(blk.Actions))
+	if reverseStart > size || count == 0 {
+		return nil
+	}
+	start := size - (reverseStart + count)
+	if start < 0 {
+		start = 0
+	}
+	end := size - 1 - reverseStart
+	res := make([]*iotexapi.ActionInfo, 0, start-end+1)
+	for idx := start; idx <= end; idx++ {
+		selp := blk.Actions[idx]
 		actHash, err := selp.Hash()
 		if err != nil {
 			log.Logger("api").Debug("Skipping action due to hash error", zap.Error(err))
@@ -1223,7 +1276,7 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 		}
 		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
 		sender := selp.SenderAddress()
-		res = append([]*iotexapi.ActionInfo{{
+		res = append(res, &iotexapi.ActionInfo{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
 			BlkHash:   blkHash,
@@ -1231,8 +1284,8 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 			BlkHeight: blkHeight,
 			Sender:    sender.String(),
 			GasFee:    gas.String(),
-			Index:     uint32(ri),
-		}}, res...)
+			Index:     uint32(idx),
+		})
 	}
 	return res
 }
@@ -1582,4 +1635,99 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
 	startingHeight, currentHeight, targetHeight, _ := core.bs.SyncStatus()
 	return startingHeight, currentHeight, targetHeight
+}
+
+// TraceTransaction returns the trace result of transaction
+func (core *coreService) TraceTransaction(ctx context.Context, actHash string, config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error) {
+	actInfo, err := core.Action(util.Remove0xPrefix(actHash), false)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	act, err := (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID()).ActionToSealedEnvelope(actInfo.Action)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	sc, ok := act.Action().(*action.Execution)
+	if !ok {
+		return nil, nil, nil, errors.New("the type of action is not supported")
+	}
+	traces := logger.NewStructLogger(config)
+	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
+		Debug:     true,
+		Tracer:    traces,
+		NoBaseFee: true,
+	})
+	addr, _ := address.FromString(address.ZeroAddress)
+	retval, receipt, err := core.SimulateExecution(ctx, addr, sc)
+	return retval, receipt, traces, err
+}
+
+// TraceCall returns the trace result of call
+func (core *coreService) TraceCall(ctx context.Context,
+	callerAddr address.Address,
+	blkNumOrHash any,
+	contractAddress string,
+	nonce uint64,
+	amount *big.Int,
+	gasLimit uint64,
+	data []byte,
+	config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error) {
+	var (
+		blkHash hash.Hash256
+		err     error
+	)
+	// ignore the incoming blkNumOrHash and use the latest height.
+	blkHash, err = core.dao.GetBlockHash(core.TipHeight())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if gasLimit == 0 {
+		gasLimit = core.bc.Genesis().BlockGasLimit
+	}
+	traces := logger.NewStructLogger(config)
+	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
+		Debug:     true,
+		Tracer:    traces,
+		NoBaseFee: true,
+	})
+	ctx, err = core.bc.Context(ctx)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if nonce == 0 {
+		state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		nonce = state.PendingNonce()
+	}
+	exec, err := action.NewExecution(
+		contractAddress,
+		nonce,
+		amount,
+		gasLimit,
+		big.NewInt(0),
+		data,
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	getblockHash := func(height uint64) (hash.Hash256, error) {
+		return blkHash, nil
+	}
+	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, exec, getblockHash)
+	return retval, receipt, traces, err
+}
+
+// Track tracks the api call
+func (core *coreService) Track(ctx context.Context, start time.Time, method string, size int64, success bool) {
+	if core.apiStats == nil {
+		return
+	}
+	elapsed := time.Since(start)
+	core.apiStats.ReportCall(nodestats.APIReport{
+		Method:       method,
+		HandlingTime: elapsed,
+		Success:      success,
+	}, size)
 }

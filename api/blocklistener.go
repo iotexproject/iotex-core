@@ -13,7 +13,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-type streamHandler func(interface{}) error
+type streamHandler func(interface{}) (int, error)
 
 type gRPCBlockListener struct {
 	streamHandle streamHandler
@@ -44,7 +44,7 @@ func (bl *gRPCBlockListener) Respond(_ string, blk *block.Block) error {
 		Height: blk.Height(),
 	}
 	// send blockInfo thru streaming API
-	if err := bl.streamHandle(&iotexapi.StreamBlocksResponse{
+	if _, err := bl.streamHandle(&iotexapi.StreamBlocksResponse{
 		Block:           blockInfo,
 		BlockIdentifier: blockID,
 	}); err != nil {
@@ -79,12 +79,12 @@ func NewWeb3BlockListener(handler streamHandler) apitypes.Responder {
 func (bl *web3BlockListener) Respond(id string, blk *block.Block) error {
 	res := &streamResponse{
 		id: id,
-		result: &getBlockResultV2{
+		result: &getBlockResult{
 			blk: blk,
 		},
 	}
 	// send blockInfo thru streaming API
-	if err := bl.streamHandle(res); err != nil {
+	if _, err := bl.streamHandle(res); err != nil {
 		log.L().Info(
 			"Error when streaming the block",
 			zap.Uint64("height", blk.Height()),

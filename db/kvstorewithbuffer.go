@@ -3,6 +3,7 @@ package db
 import (
 	"bytes"
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -176,21 +177,21 @@ func (kvb *kvStoreWithBuffer) Get(ns string, key []byte) ([]byte, error) {
 }
 
 func (kvb *kvStoreWithBuffer) Put(ns string, key, value []byte) error {
-	kvb.buffer.Put(ns, key, value, "faild to put %x in %s", key, ns)
+	kvb.buffer.Put(ns, key, value, fmt.Sprintf("faild to put %x in %s", key, ns))
 	return nil
 }
 
 func (kvb *kvStoreWithBuffer) MustPut(ns string, key, value []byte) {
-	kvb.buffer.Put(ns, key, value, "faild to put %x in %s", key, ns)
+	kvb.buffer.Put(ns, key, value, fmt.Sprintf("faild to put %x in %s", key, ns))
 }
 
 func (kvb *kvStoreWithBuffer) Delete(ns string, key []byte) error {
-	kvb.buffer.Delete(ns, key, "failed to delete %x in %s", key, ns)
+	kvb.buffer.Delete(ns, key, fmt.Sprintf("failed to delete %x in %s", key, ns))
 	return nil
 }
 
 func (kvb *kvStoreWithBuffer) MustDelete(ns string, key []byte) {
-	kvb.buffer.Delete(ns, key, "failed to delete %x in %s", key, ns)
+	kvb.buffer.Delete(ns, key, fmt.Sprintf("failed to delete %x in %s", key, ns))
 }
 
 func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition, minKey, maxKey []byte) ([][]byte, [][]byte, error) {
@@ -272,9 +273,9 @@ func (kvb *kvStoreWithBuffer) WriteBatch(b batch.KVStoreBatch) (err error) {
 	for _, write := range writes {
 		switch write.WriteType() {
 		case batch.Put:
-			kvb.buffer.Put(write.Namespace(), write.Key(), write.Value(), write.ErrorFormat(), write.ErrorArgs())
+			kvb.buffer.Put(write.Namespace(), write.Key(), write.Value(), write.Error())
 		case batch.Delete:
-			kvb.buffer.Delete(write.Namespace(), write.Key(), write.ErrorFormat(), write.ErrorArgs())
+			kvb.buffer.Delete(write.Namespace(), write.Key(), write.Error())
 		default:
 			log.S().Panic("unexpected write type")
 		}

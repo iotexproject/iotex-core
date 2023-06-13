@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package rolldpos
 
@@ -27,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -140,7 +139,7 @@ func TestRoundInfo(t *testing.T) {
 
 func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.ActPool, *rolldpos.Protocol, poll.Protocol) {
 	require := require.New(t)
-	cfg := config.Default
+	cfg := blockchain.DefaultConfig
 
 	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
@@ -148,49 +147,49 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 	require.NoError(err)
 	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.TrieDBPath = testTriePath
+	cfg.ChainDBPath = testDBPath
+	cfg.IndexDBPath = testIndexPath
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(testIndexPath)
 	}()
 
-	cfg.Consensus.Scheme = config.RollDPoSScheme
-	cfg.Network.Port = testutil.RandomPort()
-	cfg.API.GRPCPort = testutil.RandomPort()
-	cfg.API.HTTPPort = testutil.RandomPort()
-	cfg.Genesis.Timestamp = 1562382372
+	g := genesis.Default
+	g.Timestamp = 1562382372
 	sk, err := crypto.GenerateKey()
-	cfg.Chain.ProducerPrivKey = sk.HexString()
+	cfg.ProducerPrivKey = sk.HexString()
 	require.NoError(err)
 
 	for i := 0; i < identityset.Size(); i++ {
 		addr := identityset.Address(i).String()
 		value := unit.ConvertIotxToRau(100000000).String()
-		cfg.Genesis.InitBalanceMap[addr] = value
-		if uint64(i) < cfg.Genesis.NumDelegates {
+		g.InitBalanceMap[addr] = value
+		if uint64(i) < g.NumDelegates {
 			d := genesis.Delegate{
 				OperatorAddrStr: addr,
 				RewardAddrStr:   addr,
 				VotesStr:        value,
 			}
-			cfg.Genesis.Delegates = append(cfg.Genesis.Delegates, d)
+			g.Delegates = append(g.Delegates, d)
 		}
 	}
 	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg, g)
+	db1, err := db.CreateKVStore(db.DefaultConfig, cfg.TrieDBPath)
 	require.NoError(err)
-	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
+	sf, err := factory.NewFactory(factoryCfg, db1, factory.RegistryOption(registry))
 	require.NoError(err)
-	dbcfg := cfg.DB
-	dbcfg.DbPath = cfg.Chain.ChainDBPath
-	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	ap, err := actpool.NewActPool(g, sf, actpool.DefaultConfig)
+	require.NoError(err)
+	dbcfg := db.DefaultConfig
+	dbcfg.DbPath = cfg.ChainDBPath
+	deser := block.NewDeserializer(cfg.EVMNetworkID)
 	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg, deser)
 	chain := blockchain.NewBlockchain(
-		cfg.Chain,
-		cfg.Genesis,
+		cfg,
+		g,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -199,23 +198,23 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 		)),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
-		cfg.Genesis.NumCandidateDelegates,
-		cfg.Genesis.NumDelegates,
-		cfg.Genesis.NumSubEpochs,
+		g.NumCandidateDelegates,
+		g.NumDelegates,
+		g.NumSubEpochs,
 	)
 
 	require.NoError(rolldposProtocol.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
+	rewardingProtocol := rewarding.NewProtocol(g.Rewarding)
 	require.NoError(rewardingProtocol.Register(registry))
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	pp := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+	pp := poll.NewLifeLongDelegatesProtocol(g.Delegates)
 	require.NoError(pp.Register(registry))
 	ctx := context.Background()
 	require.NoError(chain.Start(ctx))
 	for i := 0; i < 50; i++ {
-		blk, err := chain.MintNewBlock(time.Unix(cfg.Genesis.Timestamp+int64(i), 0))
-		require.NoError(blk.Finalize(nil, time.Unix(cfg.Genesis.Timestamp+int64(i), 0)))
+		blk, err := chain.MintNewBlock(time.Unix(g.Timestamp+int64(i), 0))
+		require.NoError(blk.Finalize(nil, time.Unix(g.Timestamp+int64(i), 0)))
 		require.NoError(err)
 		require.NoError(chain.CommitBlock(blk))
 	}
@@ -226,47 +225,49 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 
 func makeRoundCalculator(t *testing.T) *roundCalculator {
 	bc, sf, _, rp, pp := makeChain(t)
+	delegatesByEpoch := func(epochNum uint64) ([]string, error) {
+		re := protocol.NewRegistry()
+		if err := rp.Register(re); err != nil {
+			return nil, err
+		}
+		tipHeight := bc.TipHeight()
+		ctx := genesis.WithGenesisContext(
+			protocol.WithBlockchainCtx(
+				protocol.WithRegistry(context.Background(), re),
+				protocol.BlockchainCtx{
+					Tip: protocol.TipInfo{
+						Height: tipHeight,
+					},
+				},
+			),
+			genesis.Default,
+		)
+		tipEpochNum := rp.GetEpochNum(tipHeight)
+		var candidatesList state.CandidateList
+		var addrs []string
+		var err error
+		switch epochNum {
+		case tipEpochNum:
+			candidatesList, err = pp.Delegates(ctx, sf)
+		case tipEpochNum + 1:
+			candidatesList, err = pp.NextDelegates(ctx, sf)
+		default:
+			err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochNum, tipEpochNum)
+		}
+		if err != nil {
+			return nil, err
+		}
+		for _, cand := range candidatesList {
+			addrs = append(addrs, cand.Address)
+		}
+		return addrs, nil
+	}
 	return &roundCalculator{
-		bc,
+		NewChainManager(bc),
 		true,
 		rp,
-		func(epochNum uint64) ([]string, error) {
-			re := protocol.NewRegistry()
-			if err := rp.Register(re); err != nil {
-				return nil, err
-			}
-			tipHeight := bc.TipHeight()
-			ctx := genesis.WithGenesisContext(
-				protocol.WithBlockchainCtx(
-					protocol.WithRegistry(context.Background(), re),
-					protocol.BlockchainCtx{
-						Tip: protocol.TipInfo{
-							Height: tipHeight,
-						},
-					},
-				),
-				genesis.Default,
-			)
-			tipEpochNum := rp.GetEpochNum(tipHeight)
-			var candidatesList state.CandidateList
-			var addrs []string
-			var err error
-			switch epochNum {
-			case tipEpochNum:
-				candidatesList, err = pp.Delegates(ctx, sf)
-			case tipEpochNum + 1:
-				candidatesList, err = pp.NextDelegates(ctx, sf)
-			default:
-				err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochNum, tipEpochNum)
-			}
-			if err != nil {
-				return nil, err
-			}
-			for _, cand := range candidatesList {
-				addrs = append(addrs, cand.Address)
-			}
-			return addrs, nil
-		},
+		delegatesByEpoch,
+		delegatesByEpoch,
 		0,
 	}
 }

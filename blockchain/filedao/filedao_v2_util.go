@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package filedao
 
@@ -42,7 +41,9 @@ func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
 		// populate to staging buffer, if the block is in latest round
 		height := info.Block.Height()
 		if height > blockStoreTip {
-			buffer.Put(stagingKey(height, fd.header), v)
+			if _, err = buffer.Put(stagingKey(height, fd.header), v); err != nil {
+				return nil, err
+			}
 		} else {
 			break
 		}

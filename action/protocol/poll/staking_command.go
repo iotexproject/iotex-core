@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package poll
 
@@ -108,8 +107,8 @@ func (sc *stakingCommand) CalculateUnproductiveDelegates(
 	ctx context.Context,
 	sr protocol.StateReader,
 ) ([]string, error) {
-	if sc.useV2(ctx, sr) {
-		sc.stakingV2.CalculateUnproductiveDelegates(ctx, sr)
+	if sc.useV2(ctx, sr) && protocol.MustGetFeatureCtx(ctx).FixUnproductiveDelegates {
+		return sc.stakingV2.CalculateUnproductiveDelegates(ctx, sr)
 	}
 	return sc.stakingV1.CalculateUnproductiveDelegates(ctx, sr)
 }

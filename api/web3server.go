@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
@@ -18,29 +19,34 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tidwall/gjson"
+	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
+	rewardingabi "github.com/iotexproject/iotex-core/action/protocol/rewarding/ethabi"
+	stakingabi "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi"
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 const (
 	_metamaskBalanceContractAddr = "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr"
+	// _defaultBatchRequestLimit is the default maximum number of items in a batch.
+	_defaultBatchRequestLimit = 100 // Maximum number of items in a batch.
 )
 
 type (
 	// Web3Handler handle JRPC request
 	Web3Handler interface {
-		HandlePOSTReq(io.Reader, apitypes.Web3ResponseWriter) error
+		HandlePOSTReq(context.Context, io.Reader, apitypes.Web3ResponseWriter) error
 	}
 
 	web3Handler struct {
-		coreService CoreService
-		cache       apiCache
+		coreService       CoreService
+		cache             apiCache
+		batchRequestLimit int
 	}
 )
 
@@ -68,6 +74,7 @@ var (
 	errInvalidFilterID   = errors.New("filter not found")
 	errInvalidBlock      = errors.New("invalid block")
 	errUnsupportedAction = errors.New("the type of action is not supported")
+	errMsgBatchTooLarge  = errors.New("batch too large")
 
 	_pendingBlockNumber  = "pending"
 	_latestBlockNumber   = "latest"
@@ -79,37 +86,62 @@ func init() {
 }
 
 // NewWeb3Handler creates a handle to process web3 requests
-func NewWeb3Handler(core CoreService, cacheURL string) Web3Handler {
+func NewWeb3Handler(core CoreService, cacheURL string, batchRequestLimit int) Web3Handler {
 	return &web3Handler{
-		coreService: core,
-		cache:       newAPICache(15*time.Minute, cacheURL),
+		coreService:       core,
+		cache:             newAPICache(15*time.Minute, cacheURL),
+		batchRequestLimit: batchRequestLimit,
 	}
 }
 
 // HandlePOSTReq handles web3 request
-func (svr *web3Handler) HandlePOSTReq(reader io.Reader, writer apitypes.Web3ResponseWriter) error {
+func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, writer apitypes.Web3ResponseWriter) error {
+	ctx, span := tracer.NewSpan(ctx, "svr.HandlePOSTReq")
+	defer span.End()
 	web3Reqs, err := parseWeb3Reqs(reader)
 	if err != nil {
 		err := errors.Wrap(err, "failed to parse web3 requests.")
-		return writer.Write(&web3Response{err: err})
+		span.RecordError(err)
+		_, err = writer.Write(&web3Response{err: err})
+		return err
 	}
 	if !web3Reqs.IsArray() {
-		return svr.handleWeb3Req(&web3Reqs, writer)
+		return svr.handleWeb3Req(ctx, &web3Reqs, writer)
+	}
+	web3ReqArr := web3Reqs.Array()
+	if len(web3ReqArr) > int(svr.batchRequestLimit) {
+		err := errors.Wrapf(
+			errMsgBatchTooLarge,
+			"batch size %d exceeds the limit %d",
+			len(web3ReqArr),
+			svr.batchRequestLimit,
+		)
+		span.RecordError(err)
+		_, err = writer.Write(&web3Response{err: err})
+		return err
 	}
 	batchWriter := apitypes.NewBatchWriter(writer)
-	for _, web3Req := range web3Reqs.Array() {
-		if err := svr.handleWeb3Req(&web3Req, batchWriter); err != nil {
+	for i := range web3ReqArr {
+		if err := svr.handleWeb3Req(ctx, &web3ReqArr[i], batchWriter); err != nil {
 			return err
 		}
 	}
 	return batchWriter.Flush()
 }
 
-func (svr *web3Handler) handleWeb3Req(web3Req *gjson.Result, writer apitypes.Web3ResponseWriter) error {
+func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result, writer apitypes.Web3ResponseWriter) error {
 	var (
-		res    interface{}
-		err    error
-		method = web3Req.Get("method").Value()
+		res       interface{}
+		err, err1 error
+		method    = web3Req.Get("method").Value()
+		size      int
+	)
+	defer func(start time.Time) { svr.coreService.Track(ctx, start, method.(string), int64(size), err == nil) }(time.Now())
+	span := tracer.SpanFromContext(ctx)
+	defer span.End()
+	span.AddEvent("handleWeb3Req")
+	span.SetAttributes(
+		attribute.String("method", method.(string)),
 	)
 	log.Logger("api").Debug("web3Debug", zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
 	_web3ServerMtc.WithLabelValues(method.(string)).Inc()
@@ -193,6 +225,10 @@ func (svr *web3Handler) handleWeb3Req(web3Req *gjson.Result, writer apitypes.Web
 		res, err = svr.subscribe(web3Req, writer)
 	case "eth_unsubscribe":
 		res, err = svr.unsubscribe(web3Req)
+	case "debug_traceTransaction":
+		res, err = svr.traceTransaction(ctx, web3Req)
+	case "debug_traceCall":
+		res, err = svr.traceCall(ctx, web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
 		"eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex",
 		"eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
@@ -207,14 +243,17 @@ func (svr *web3Handler) handleWeb3Req(web3Req *gjson.Result, writer apitypes.Web
 	} else {
 		log.Logger("api").Debug("web3Debug", zap.String("response", fmt.Sprintf("%+v", res)))
 	}
-	return writer.Write(&web3Response{
+	size, err1 = writer.Write(&web3Response{
 		id:     int(web3Req.Get("id").Int()),
 		result: res,
 		err:    err,
 	})
+	return err1
 }
 
 func parseWeb3Reqs(reader io.Reader) (gjson.Result, error) {
+	_, span := tracer.NewSpan(context.Background(), "parseWeb3Reqs")
+	defer span.End()
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return gjson.Result{}, err
@@ -264,18 +303,14 @@ func (svr *web3Handler) getBlockByNumber(in *gjson.Result) (interface{}, error) 
 		return nil, err
 	}
 
-	blkMetas, err := svr.coreService.BlockMetas(num, 1)
+	blk, err := svr.coreService.BlockByHeight(num)
 	if err != nil {
-		st, ok := status.FromError(err)
-		if ok && st.Code() == codes.InvalidArgument {
+		if errors.Cause(err) == ErrNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	if len(blkMetas) == 0 {
-		return nil, nil
-	}
-	return svr.getBlockWithTransactions(blkMetas[0], isDetailed.Bool())
+	return svr.getBlockWithTransactions(blk.Block, blk.Receipts, isDetailed.Bool())
 }
 
 func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
@@ -320,6 +355,36 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 	}
 	if to == _metamaskBalanceContractAddr {
 		return nil, nil
+	}
+	if to == address.StakingProtocolAddr {
+		sctx, err := stakingabi.BuildReadStateRequest(data)
+		if err != nil {
+			return nil, err
+		}
+		states, err := svr.coreService.ReadState("staking", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := sctx.EncodeToEth(states)
+		if err != nil {
+			return nil, err
+		}
+		return "0x" + ret, nil
+	}
+	if to == address.RewardingProtocol {
+		sctx, err := rewardingabi.BuildReadStateRequest(data)
+		if err != nil {
+			return nil, err
+		}
+		states, err := svr.coreService.ReadState("rewarding", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := sctx.EncodeToEth(states)
+		if err != nil {
+			return nil, err
+		}
+		return "0x" + ret, nil
 	}
 	exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
 	ret, _, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
@@ -454,11 +519,11 @@ func (svr *web3Handler) getBlockTransactionCountByHash(in *gjson.Result) (interf
 	if !txHash.Exists() {
 		return nil, errInvalidFormat
 	}
-	blkMeta, err := svr.coreService.BlockMetaByHash(util.Remove0xPrefix(txHash.String()))
+	blk, err := svr.coreService.BlockByHash(util.Remove0xPrefix(txHash.String()))
 	if err != nil {
 		return nil, errors.Wrap(err, "the block is not found")
 	}
-	return uint64ToHex(uint64(blkMeta.NumActions)), nil
+	return uint64ToHex(uint64(len(blk.Block.Actions))), nil
 }
 
 func (svr *web3Handler) getBlockByHash(in *gjson.Result) (interface{}, error) {
@@ -466,15 +531,14 @@ func (svr *web3Handler) getBlockByHash(in *gjson.Result) (interface{}, error) {
 	if !blkHash.Exists() || !isDetailed.Exists() {
 		return nil, errInvalidFormat
 	}
-	blkMeta, err := svr.coreService.BlockMetaByHash(util.Remove0xPrefix(blkHash.String()))
+	blk, err := svr.coreService.BlockByHash(util.Remove0xPrefix(blkHash.String()))
 	if err != nil {
-		st, ok := status.FromError(err)
-		if ok && st.Code() == codes.NotFound {
+		if errors.Cause(err) == ErrNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return svr.getBlockWithTransactions(blkMeta, isDetailed.Bool())
+	return svr.getBlockWithTransactions(blk.Block, blk.Receipts, isDetailed.Bool())
 }
 
 func (svr *web3Handler) getTransactionByHash(in *gjson.Result) (interface{}, error) {
@@ -501,7 +565,7 @@ func (svr *web3Handler) getTransactionByHash(in *gjson.Result) (interface{}, err
 		}
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(hex.EncodeToString(blkHash[:]), selp, receipt)
+	return svr.getTransactionFromActionInfo(blkHash, selp, receipt)
 }
 
 func (svr *web3Handler) getLogs(filter *filterObject) (interface{}, error) {
@@ -545,9 +609,14 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 
 	// acquire logsBloom from blockMeta
 	blkHash := hex.EncodeToString(blockHash[:])
-	blkMeta, err := svr.coreService.BlockMetaByHash(blkHash)
+	blk, err := svr.coreService.BlockByHash(blkHash)
 	if err != nil {
 		return nil, err
+	}
+
+	var logsBloomStr string
+	if logsBloom := blk.Block.LogsBloomfilter(); logsBloom != nil {
+		logsBloomStr = hex.EncodeToString(logsBloom.Bytes())
 	}
 
 	return &getReceiptResult{
@@ -555,7 +624,7 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 		from:            selp.SenderAddress(),
 		to:              to,
 		contractAddress: contractAddr,
-		logsBloom:       blkMeta.LogsBloom,
+		logsBloom:       logsBloomStr,
 		receipt:         receipt,
 	}, nil
 
@@ -570,14 +639,14 @@ func (svr *web3Handler) getBlockTransactionCountByNumber(in *gjson.Result) (inte
 	if err != nil {
 		return nil, err
 	}
-	blkMetas, err := svr.coreService.BlockMetas(num, 1)
+	blk, err := svr.coreService.BlockByHeight(num)
 	if err != nil {
+		if errors.Cause(err) == ErrNotFound {
+			return nil, nil
+		}
 		return nil, err
 	}
-	if len(blkMetas) == 0 {
-		return nil, errInvalidBlock
-	}
-	return uint64ToHex(uint64(blkMetas[0].NumActions)), nil
+	return uint64ToHex(uint64(len(blk.Block.Actions))), nil
 }
 
 func (svr *web3Handler) getTransactionByBlockHashAndIndex(in *gjson.Result) (interface{}, error) {
@@ -589,15 +658,19 @@ func (svr *web3Handler) getTransactionByBlockHashAndIndex(in *gjson.Result) (int
 	if err != nil {
 		return nil, err
 	}
-	blkHash := util.Remove0xPrefix(blkHashStr.String())
-	blkStore, err := svr.coreService.BlockByHash(blkHash)
-	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(blkStore.Receipts)) || len(blkStore.Receipts) == 0 {
+	blkHashHex := util.Remove0xPrefix(blkHashStr.String())
+	blk, err := svr.coreService.BlockByHash(blkHashHex)
+	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(blk.Receipts)) || len(blk.Receipts) == 0 {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(blkHash, blkStore.Block.Actions[idx], blkStore.Receipts[idx])
+	blkHash, err := hash.HexStringToHash256(blkHashHex)
+	if err != nil {
+		return nil, err
+	}
+	return svr.getTransactionFromActionInfo(blkHash, blk.Block.Actions[idx], blk.Receipts[idx])
 }
 
 func (svr *web3Handler) getTransactionByBlockNumberAndIndex(in *gjson.Result) (interface{}, error) {
@@ -613,25 +686,14 @@ func (svr *web3Handler) getTransactionByBlockNumberAndIndex(in *gjson.Result) (i
 	if err != nil {
 		return nil, err
 	}
-	blkMetas, err := svr.coreService.BlockMetas(num, 1)
-	if err != nil {
-		st, ok := status.FromError(err)
-		if ok && st.Code() == codes.InvalidArgument {
-			return nil, nil
-		}
-		return nil, err
-	}
-	if len(blkMetas) == 0 {
-		return nil, nil
-	}
-	blkStore, err := svr.coreService.BlockByHash(blkMetas[0].Hash)
-	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(blkStore.Receipts)) || len(blkStore.Receipts) == 0 {
+	blk, err := svr.coreService.BlockByHeight(num)
+	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(blk.Receipts)) || len(blk.Receipts) == 0 {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(blkMetas[0].Hash, blkStore.Block.Actions[idx], blkStore.Receipts[idx])
+	return svr.getTransactionFromActionInfo(blk.Block.HashBlock(), blk.Block.Actions[idx], blk.Receipts[idx])
 }
 
 func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
@@ -750,13 +812,14 @@ func (svr *web3Handler) getFilterChanges(in *gjson.Result) (interface{}, error) 
 			return []string{}, nil
 		}
 		queryCount := tipHeight - filterObj.LogHeight + 1
-		blkMetas, err := svr.coreService.BlockMetas(filterObj.LogHeight, queryCount)
+		blkStores, err := svr.coreService.BlockByHeightRange(filterObj.LogHeight, queryCount)
 		if err != nil {
 			return nil, err
 		}
 		hashArr := make([]string, 0)
-		for _, v := range blkMetas {
-			hashArr = append(hashArr, "0x"+v.Hash)
+		for _, blkStore := range blkStores {
+			blkHash := blkStore.Block.HashBlock()
+			hashArr = append(hashArr, "0x"+hex.EncodeToString(blkHash[:]))
 		}
 		ret, newLogHeight = hashArr, filterObj.LogHeight+queryCount
 	default:
@@ -840,6 +903,92 @@ func (svr *web3Handler) unsubscribe(in *gjson.Result) (interface{}, error) {
 	}
 	chainListener := svr.coreService.ChainListener()
 	return chainListener.RemoveResponder(id.String())
+}
+
+func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) (interface{}, error) {
+	actHash, options := in.Get("params.0"), in.Get("params.1")
+	if !actHash.Exists() {
+		return nil, errInvalidFormat
+	}
+	var (
+		enableMemory, disableStack, disableStorage, enableReturnData bool
+	)
+	if options.Exists() {
+		enableMemory = options.Get("enableMemory").Bool()
+		disableStack = options.Get("disableStack").Bool()
+		disableStorage = options.Get("disableStorage").Bool()
+		enableReturnData = options.Get("enableReturnData").Bool()
+	}
+	cfg := &logger.Config{
+		EnableMemory:     enableMemory,
+		DisableStack:     disableStack,
+		DisableStorage:   disableStorage,
+		EnableReturnData: enableReturnData,
+	}
+	retval, receipt, traces, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &debugTraceTransactionResult{
+		Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+		Revert:      receipt.ExecutionRevertMsg(),
+		ReturnValue: byteToHex(retval),
+		StructLogs:  fromLoggerStructLogs(traces.StructLogs()),
+		Gas:         receipt.GasConsumed,
+	}, nil
+}
+
+func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interface{}, error) {
+	var (
+		err          error
+		contractAddr string
+		callData     []byte
+		gasLimit     uint64
+		value        *big.Int
+		callerAddr   address.Address
+	)
+	blkNumOrHashObj, options := in.Get("params.1"), in.Get("params.2")
+	callerAddr, contractAddr, gasLimit, value, callData, err = parseCallObject(in)
+	if err != nil {
+		return nil, err
+	}
+	var blkNumOrHash any
+	if blkNumOrHashObj.Exists() {
+		blkNumOrHash = blkNumOrHashObj.Get("blockHash").String()
+		if blkNumOrHash == "" {
+			blkNumOrHash = blkNumOrHashObj.Get("blockNumber").Uint()
+		}
+	}
+
+	var (
+		enableMemory, disableStack, disableStorage, enableReturnData bool
+	)
+	if options.Exists() {
+		enableMemory = options.Get("enableMemory").Bool()
+		disableStack = options.Get("disableStack").Bool()
+		disableStorage = options.Get("disableStorage").Bool()
+		enableReturnData = options.Get("enableReturnData").Bool()
+	}
+	cfg := &logger.Config{
+		EnableMemory:     enableMemory,
+		DisableStack:     disableStack,
+		DisableStorage:   disableStorage,
+		EnableReturnData: enableReturnData,
+	}
+
+	retval, receipt, traces, err := svr.coreService.TraceCall(ctx, callerAddr, blkNumOrHash, contractAddr, 0, value, gasLimit, callData, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &debugTraceTransactionResult{
+		Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+		Revert:      receipt.ExecutionRevertMsg(),
+		ReturnValue: byteToHex(retval),
+		StructLogs:  fromLoggerStructLogs(traces.StructLogs()),
+		Gas:         receipt.GasConsumed,
+	}, nil
 }
 
 func (svr *web3Handler) unimplemented() (interface{}, error) {

@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package integrity
 
@@ -228,7 +227,8 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	registry := protocol.NewRegistry()
 	var sf factory.Factory
 	kv := db.NewBoltDB(cfg.DB)
-	sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(kv), factory.RegistryStateDBOption(registry), factory.DisableWorkingSetCacheOption())
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err = factory.NewStateDB(factoryCfg, kv, factory.RegistryStateDBOption(registry), factory.DisableWorkingSetCacheOption())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -277,7 +277,7 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	if bc == nil {
 		return nil, nil, errors.New("pointer is nil")
 	}
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 	if err = ep.Register(registry); err != nil {
 		return nil, nil, err
 	}
@@ -289,7 +289,6 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	var genesisNonce uint64 = 0
 
 	// make a transfer from genesisAccount to a and b,because stateTX cannot store data in height 0
-	genesisNonce++
 	tsf, err := action.SignedTransfer(userA.String(), genesisPriKey, genesisNonce, big.NewInt(1e17), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return nil, nil, err

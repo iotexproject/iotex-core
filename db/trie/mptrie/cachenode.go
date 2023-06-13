@@ -1,32 +1,35 @@
 // Copyright (c) 2020 IoTeX
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package mptrie
 
 import (
+	"errors"
+
 	"google.golang.org/protobuf/proto"
 )
 
 type cacheNode struct {
 	dirty bool
 	serializable
-	mpt     *merklePatriciaTrie
 	hashVal []byte
 	ser     []byte
 }
 
-func (cn *cacheNode) Hash() ([]byte, error) {
-	return cn.hash(false)
+func (cn *cacheNode) Hash(cli client) ([]byte, error) {
+	return cn.hash(cli, false)
 }
 
-func (cn *cacheNode) hash(flush bool) ([]byte, error) {
-	if cn.hashVal != nil {
+func (cn *cacheNode) hash(cli client, flush bool) ([]byte, error) {
+	if len(cn.hashVal) != 0 {
 		return cn.hashVal, nil
 	}
-	pb, err := cn.proto(flush)
+	if cli == nil {
+		return []byte{}, errors.New("client cannot be nil")
+	}
+	pb, err := cn.proto(cli, flush)
 	if err != nil {
 		return nil, err
 	}
@@ -36,18 +39,18 @@ func (cn *cacheNode) hash(flush bool) ([]byte, error) {
 	}
 
 	cn.ser = ser
-	cn.hashVal = cn.mpt.hashFunc(ser)
+	cn.hashVal = cli.hash(ser)
 
 	return cn.hashVal, nil
 }
 
-func (cn *cacheNode) delete() error {
+func (cn *cacheNode) delete(cli client) error {
 	if !cn.dirty {
-		h, err := cn.hash(false)
+		h, err := cn.hash(cli, false)
 		if err != nil {
 			return err
 		}
-		if err := cn.mpt.deleteNode(h); err != nil {
+		if err := cli.deleteNode(h); err != nil {
 			return err
 		}
 	}
@@ -57,16 +60,18 @@ func (cn *cacheNode) delete() error {
 	return nil
 }
 
-func (cn *cacheNode) store() (node, error) {
-	h, err := cn.hash(true)
+func (cn *cacheNode) store(cli client) error {
+	if !cn.dirty {
+		return nil
+	}
+	h, err := cn.hash(cli, true)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if cn.dirty {
-		if err := cn.mpt.putNode(h, cn.ser); err != nil {
-			return nil, err
-		}
-		cn.dirty = false
+	if err := cli.putNode(h, cn.ser); err != nil {
+		return err
 	}
-	return newHashNode(cn.mpt, h), nil
+	cn.dirty = false
+
+	return nil
 }

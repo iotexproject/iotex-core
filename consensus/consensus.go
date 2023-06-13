@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package consensus
 
@@ -10,6 +9,7 @@ import (
 	"context"
 
 	"github.com/facebookgo/clock"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -19,14 +19,12 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Consensus is the interface for handling IotxConsensus view change.
@@ -43,7 +41,7 @@ type Consensus interface {
 
 // IotxConsensus implements Consensus
 type IotxConsensus struct {
-	cfg    config.Consensus
+	cfg    Config
 	scheme scheme.Scheme
 }
 
@@ -82,7 +80,7 @@ func WithPollProtocol(pp poll.Protocol) Option {
 
 // NewConsensus creates a IotxConsensus struct.
 func NewConsensus(
-	cfg config.Config,
+	cfg rolldpos.BuilderConfig,
 	bc blockchain.Blockchain,
 	sf factory.Factory,
 	opts ...Option,
@@ -95,58 +93,64 @@ func NewConsensus(
 	}
 
 	clock := clock.New()
-	cs := &IotxConsensus{cfg: cfg.Consensus}
+	cs := &IotxConsensus{cfg: Config{
+		Scheme:   cfg.Scheme,
+		RollDPoS: cfg.Consensus,
+	}}
 	var err error
-	switch cfg.Consensus.Scheme {
-	case config.RollDPoSScheme:
+	switch cfg.Scheme {
+	case RollDPoSScheme:
+		delegatesByEpochFunc := func(epochNum uint64) ([]string, error) {
+			re := protocol.NewRegistry()
+			if err := ops.rp.Register(re); err != nil {
+				return nil, err
+			}
+			ctx := genesis.WithGenesisContext(
+				protocol.WithRegistry(context.Background(), re),
+				cfg.Genesis,
+			)
+			ctx = protocol.WithFeatureWithHeightCtx(ctx)
+			tipHeight := bc.TipHeight()
+			tipEpochNum := ops.rp.GetEpochNum(tipHeight)
+			var candidatesList state.CandidateList
+			var err error
+			switch epochNum {
+			case tipEpochNum:
+				candidatesList, err = ops.pp.Delegates(ctx, sf)
+			case tipEpochNum + 1:
+				candidatesList, err = ops.pp.NextDelegates(ctx, sf)
+			default:
+				err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochNum, tipEpochNum)
+			}
+			if err != nil {
+				return nil, err
+			}
+			addrs := []string{}
+			for _, candidate := range candidatesList {
+				addrs = append(addrs, candidate.Address)
+			}
+			return addrs, nil
+		}
+		proposersByEpochFunc := delegatesByEpochFunc
 		bd := rolldpos.NewRollDPoSBuilder().
 			SetAddr(cfg.Chain.ProducerAddress().String()).
 			SetPriKey(cfg.Chain.ProducerPrivateKey()).
 			SetConfig(cfg).
-			SetChainManager(bc).
+			SetChainManager(rolldpos.NewChainManager(bc)).
 			SetBlockDeserializer(block.NewDeserializer(bc.EvmNetworkID())).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
-			SetDelegatesByEpochFunc(func(epochNum uint64) ([]string, error) {
-				re := protocol.NewRegistry()
-				if err := ops.rp.Register(re); err != nil {
-					return nil, err
-				}
-				ctx := genesis.WithGenesisContext(
-					protocol.WithRegistry(context.Background(), re),
-					cfg.Genesis,
-				)
-				ctx = protocol.WithFeatureWithHeightCtx(ctx)
-				tipHeight := bc.TipHeight()
-				tipEpochNum := ops.rp.GetEpochNum(tipHeight)
-				var candidatesList state.CandidateList
-				var err error
-				switch epochNum {
-				case tipEpochNum:
-					candidatesList, err = ops.pp.Delegates(ctx, sf)
-				case tipEpochNum + 1:
-					candidatesList, err = ops.pp.NextDelegates(ctx, sf)
-				default:
-					err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochNum, tipEpochNum)
-				}
-				if err != nil {
-					return nil, err
-				}
-				addrs := []string{}
-				for _, candidate := range candidatesList {
-					addrs = append(addrs, candidate.Address)
-				}
-				return addrs, nil
-			}).
+			SetDelegatesByEpochFunc(delegatesByEpochFunc).
+			SetProposersByEpochFunc(proposersByEpochFunc).
 			RegisterProtocol(ops.rp)
 		// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 		cs.scheme, err = bd.Build()
 		if err != nil {
 			log.Logger("consensus").Panic("Error when constructing RollDPoS.", zap.Error(err))
 		}
-	case config.NOOPScheme:
+	case NOOPScheme:
 		cs.scheme = scheme.NewNoop()
-	case config.StandaloneScheme:
+	case StandaloneScheme:
 		mintBlockCB := func() (*block.Block, error) {
 			blk, err := bc.MintNewBlock(clock.Now())
 			if err != nil {
@@ -179,7 +183,7 @@ func NewConsensus(
 			cfg.Genesis.BlockInterval,
 		)
 	default:
-		return nil, errors.Errorf("unexpected IotxConsensus scheme %s", cfg.Consensus.Scheme)
+		return nil, errors.Errorf("unexpected IotxConsensus scheme %s", cfg.Scheme)
 	}
 
 	return cs, nil

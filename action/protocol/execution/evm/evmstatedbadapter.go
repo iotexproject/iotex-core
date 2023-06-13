@@ -1,14 +1,12 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package evm
 
 import (
 	"bytes"
-	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -41,12 +39,6 @@ type (
 	// preimageMap records the preimage of hash reported by VM
 	preimageMap map[common.Hash]protocol.SerializableBytes
 
-	// GetBlockHash gets block hash by height
-	GetBlockHash func(uint64) (hash.Hash256, error)
-
-	// DepositGas deposits gas
-	DepositGas func(context.Context, protocol.StateManager, *big.Int) (*action.TransactionLog, error)
-
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
 		sm                         protocol.StateManager
@@ -56,6 +48,7 @@ type (
 		blockHeight                uint64
 		executionHash              hash.Hash256
 		refund                     uint64
+		refundSnapshot             map[int]uint64
 		cachedContract             contractMap
 		contractSnapshot           map[int]contractMap   // snapshots of contracts
 		suicided                   deleteAccount         // account/contract calling Suicide
@@ -73,6 +66,8 @@ type (
 		legacyNonceAccount         bool
 		fixSnapshotOrder           bool
 		revertLog                  bool
+		notCheckPutStateError      bool
+		manualCorrectGasRefund     bool
 	}
 )
 
@@ -135,6 +130,25 @@ func RevertLogOption() StateDBAdapterOption {
 	}
 }
 
+// NotCheckPutStateErrorOption set notCheckPutStateError as true
+func NotCheckPutStateErrorOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.notCheckPutStateError = true
+		return nil
+	}
+}
+
+// ManualCorrectGasRefundOption set manualCorrectGasRefund as true
+func ManualCorrectGasRefundOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		// before London EVM activation (at Okhotsk height), in certain cases dynamicGas
+		// has caused gas refund to change, which needs to be manually adjusted after
+		// the tx is reverted. After Okhotsk height, it is fixed inside RevertToSnapshot()
+		adapter.manualCorrectGasRefund = true
+		return nil
+	}
+}
+
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(
 	sm protocol.StateManager,
@@ -148,6 +162,7 @@ func NewStateDBAdapter(
 		err:                nil,
 		blockHeight:        blockHeight,
 		executionHash:      executionHash,
+		refundSnapshot:     make(map[int]uint64),
 		cachedContract:     make(contractMap),
 		contractSnapshot:   make(map[int]contractMap),
 		suicided:           make(deleteAccount),
@@ -531,6 +546,31 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		log.L().Error("Failed to get snapshot.", zap.Int("snapshot", snapshot))
 		return
 	}
+	// restore gas refund
+	if !stateDB.manualCorrectGasRefund {
+		stateDB.refund = stateDB.refundSnapshot[snapshot]
+		delete(stateDB.refundSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.refundSnapshot[i]; ok {
+				delete(stateDB.refundSnapshot, i)
+			} else {
+				break
+			}
+		}
+	}
+	// restore access list
+	stateDB.accessList = nil
+	stateDB.accessList = stateDB.accessListSnapshot[snapshot]
+	{
+		delete(stateDB.accessListSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.accessListSnapshot[i]; ok {
+				delete(stateDB.accessListSnapshot, i)
+			} else {
+				break
+			}
+		}
+	}
 	// restore logs and txLogs
 	if stateDB.revertLog {
 		stateDB.logs = stateDB.logs[:stateDB.logsSnapshot[snapshot]]
@@ -598,19 +638,6 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 			}
 		}
 	}
-	// restore access list
-	stateDB.accessList = nil
-	stateDB.accessList = stateDB.accessListSnapshot[snapshot]
-	{
-		delete(stateDB.accessListSnapshot, snapshot)
-		for i := snapshot + 1; ; i++ {
-			if _, ok := stateDB.accessListSnapshot[i]; ok {
-				delete(stateDB.accessListSnapshot, i)
-			} else {
-				break
-			}
-		}
-	}
 }
 
 func (stateDB *StateDBAdapter) cachedContractAddrs() []hash.Hash160 {
@@ -644,6 +671,8 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		// stateDB.err = err
 		return sn
 	}
+	// record the current gas refund
+	stateDB.refundSnapshot[sn] = stateDB.refund
 	// record the current log size
 	if stateDB.revertLog {
 		stateDB.logsSnapshot[sn] = len(stateDB.logs)
@@ -968,7 +997,11 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 		v := stateDB.preimages[k]
 		h := make([]byte, len(k))
 		copy(h, k[:])
-		stateDB.sm.PutState(v, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(h))
+		_, err = stateDB.sm.PutState(v, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(h))
+		if !stateDB.notCheckPutStateError && err != nil {
+			stateDB.logError(err)
+			return errors.Wrap(err, "failed to update preimage to db")
+		}
 	}
 	return nil
 }
@@ -997,6 +1030,7 @@ func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, erro
 
 // clear clears local changes
 func (stateDB *StateDBAdapter) clear() {
+	stateDB.refundSnapshot = make(map[int]uint64)
 	stateDB.cachedContract = make(contractMap)
 	stateDB.contractSnapshot = make(map[int]contractMap)
 	stateDB.suicided = make(deleteAccount)

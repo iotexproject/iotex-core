@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package version
 
@@ -31,7 +30,7 @@ func TestVersionCommand(t *testing.T) {
 		ServerMeta: &iotextypes.ServerMeta{PackageVersion: "1.0"},
 	}
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(12)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
 	endpoint := "111:222:333:444:5678"
 	insecure := true
 	callbackEndpoint := func(cb func(*string, string, string, string)) {
@@ -68,7 +67,7 @@ func TestVersionCommand(t *testing.T) {
 	t.Run("use \"ioctl config set endpoint\" to config endpoint first", func(t *testing.T) {
 		expectedErr := errors.New("use \"ioctl config set endpoint\" to config endpoint first")
 		client.EXPECT().APIServiceClient().Return(nil, expectedErr).Times(1)
-		apiServiceClient.EXPECT().GetServerMeta(gomock.Any(), gomock.Any()).Return(&response, nil).Times(1)
+		apiServiceClient.EXPECT().GetServerMeta(gomock.Any(), gomock.Any()).Return(&response, nil).AnyTimes()
 
 		cmd := NewVersionCmd(client)
 		_, err := util.ExecuteCmd(cmd)

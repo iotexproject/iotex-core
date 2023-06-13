@@ -99,11 +99,11 @@ func TestFlusher(t *testing.T) {
 			require.Equal(t, value, f.SerializeQueue())
 		})
 		t.Run("MustPut", func(t *testing.T) {
-			buffer.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+			buffer.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 			kvb.MustPut(ns, key, value)
 		})
 		t.Run("MustDelete", func(t *testing.T) {
-			buffer.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+			buffer.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 			kvb.MustDelete(ns, key)
 		})
 	})

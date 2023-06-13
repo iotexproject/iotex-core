@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package staking
 
@@ -132,7 +131,7 @@ func TestReceiptLog(t *testing.T) {
 		log.AddAddress(v.cand)
 		log.AddAddress(v.voter)
 		log.SetData(v.data)
-		r.Nil(log.Build(ctx, ErrInvalidAmount))
+		r.Nil(log.Build(ctx, action.ErrInvalidAmount))
 		r.Equal(createLog(ctx, v.name, v.cand, v.voter, v.data), log.Build(ctx, nil))
 
 		log = newReceiptLog(v.addr, v.name, true)
@@ -144,7 +143,7 @@ func TestReceiptLog(t *testing.T) {
 		for i := range v.topics {
 			postFb.Topics = append(postFb.Topics, hash.BytesToHash256(v.topics[i]))
 		}
-		r.Equal(postFb, log.Build(ctx, ErrInvalidAmount))
+		r.Equal(postFb, log.Build(ctx, action.ErrInvalidAmount))
 		r.Equal(postFb, log.Build(ctx, nil))
 	}
 }

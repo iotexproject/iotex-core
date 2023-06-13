@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package alias
 
@@ -13,7 +12,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
@@ -42,8 +40,8 @@ func NewAliasCmd(client ioctl.Client) *cobra.Command {
 }
 
 // IOAddress returns the address in IoTeX address format
-func IOAddress(in string) (address.Address, error) {
-	addr, err := util.Address(in)
+func IOAddress(client ioctl.Client, in string) (address.Address, error) {
+	addr, err := client.Address(in)
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +49,8 @@ func IOAddress(in string) (address.Address, error) {
 }
 
 // EtherAddress returns the address in ether format
-func EtherAddress(in string) (common.Address, error) {
-	addr, err := util.Address(in)
+func EtherAddress(client ioctl.Client, in string) (common.Address, error) {
+	addr, err := client.Address(in)
 	if err != nil {
 		return common.Address{}, err
 	}

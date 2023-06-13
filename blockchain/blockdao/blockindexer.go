@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package blockdao
 
@@ -27,6 +26,13 @@ type (
 		Height() (uint64, error)
 		PutBlock(context.Context, *block.Block) error
 		DeleteTipBlock(context.Context, *block.Block) error
+	}
+
+	// BlockIndexerWithStart defines an interface to accept block to build index from a start height
+	BlockIndexerWithStart interface {
+		BlockIndexer
+		// StartHeight returns the start height of the indexer
+		StartHeight() uint64
 	}
 
 	// BlockIndexerChecker defines a checker of block indexer
@@ -68,7 +74,14 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 	if targetHeight == 0 || targetHeight > daoTip {
 		targetHeight = daoTip
 	}
-	for i := tipHeight + 1; i <= targetHeight; i++ {
+	startHeight := tipHeight + 1
+	if indexerWS, ok := indexer.(BlockIndexerWithStart); ok {
+		indexStartHeight := indexerWS.StartHeight()
+		if indexStartHeight > startHeight {
+			startHeight = indexStartHeight
+		}
+	}
+	for i := startHeight; i <= targetHeight; i++ {
 		blk, err := bic.dao.GetBlockByHeight(i)
 		if err != nil {
 			return err

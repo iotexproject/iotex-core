@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package rolldpos
 
@@ -14,13 +13,13 @@ import (
 	"github.com/facebookgo/clock"
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/db"
@@ -69,28 +68,43 @@ func init() {
 	prometheus.MustRegister(_consensusHeightMtc)
 }
 
-// DelegatesByEpochFunc defines a function to overwrite candidates
-type DelegatesByEpochFunc func(uint64) ([]string, error)
-type rollDPoSCtx struct {
-	consensusfsm.ConsensusConfig
+type (
+	// NodesSelectionByEpochFunc defines a function to select nodes
+	NodesSelectionByEpochFunc func(uint64) ([]string, error)
 
-	// TODO: explorer dependency deleted at #1085, need to add api params here
-	chain             ChainManager
-	blockDeserializer *block.Deserializer
-	broadcastHandler  scheme.Broadcast
-	roundCalc         *roundCalculator
-	eManagerDB        db.KVStore
-	toleratedOvertime time.Duration
+	// RDPoSCtx is the context of RollDPoS
+	RDPoSCtx interface {
+		consensusfsm.Context
+		Chain() ChainManager
+		BlockDeserializer() *block.Deserializer
+		RoundCalculator() *roundCalculator
+		Clock() clock.Clock
+		CheckBlockProposer(uint64, *blockProposal, *endorsement.Endorsement) error
+		CheckVoteEndorser(uint64, *ConsensusVote, *endorsement.Endorsement) error
+	}
 
-	encodedAddr string
-	priKey      crypto.PrivateKey
-	round       *roundCtx
-	clock       clock.Clock
-	active      bool
-	mutex       sync.RWMutex
-}
+	rollDPoSCtx struct {
+		consensusfsm.ConsensusConfig
 
-func newRollDPoSCtx(
+		// TODO: explorer dependency deleted at #1085, need to add api params here
+		chain             ChainManager
+		blockDeserializer *block.Deserializer
+		broadcastHandler  scheme.Broadcast
+		roundCalc         *roundCalculator
+		eManagerDB        db.KVStore
+		toleratedOvertime time.Duration
+
+		encodedAddr string
+		priKey      crypto.PrivateKey
+		round       *roundCtx
+		clock       clock.Clock
+		active      bool
+		mutex       sync.RWMutex
+	}
+)
+
+// NewRollDPoSCtx returns a context of RollDPoSCtx
+func NewRollDPoSCtx(
 	cfg consensusfsm.ConsensusConfig,
 	consensusDBConfig db.Config,
 	active bool,
@@ -100,12 +114,13 @@ func newRollDPoSCtx(
 	blockDeserializer *block.Deserializer,
 	rp *rolldpos.Protocol,
 	broadcastHandler scheme.Broadcast,
-	delegatesByEpochFunc DelegatesByEpochFunc,
+	delegatesByEpochFunc NodesSelectionByEpochFunc,
+	proposersByEpochFunc NodesSelectionByEpochFunc,
 	encodedAddr string,
 	priKey crypto.PrivateKey,
 	clock clock.Clock,
 	beringHeight uint64,
-) (*rollDPoSCtx, error) {
+) (RDPoSCtx, error) {
 	if chain == nil {
 		return nil, errors.New("chain cannot be nil")
 	}
@@ -117,6 +132,9 @@ func newRollDPoSCtx(
 	}
 	if delegatesByEpochFunc == nil {
 		return nil, errors.New("delegates by epoch function cannot be nil")
+	}
+	if proposersByEpochFunc == nil {
+		return nil, errors.New("proposers by epoch function cannot be nil")
 	}
 	if cfg.AcceptBlockTTL(0)+cfg.AcceptProposalEndorsementTTL(0)+cfg.AcceptLockEndorsementTTL(0)+cfg.CommitTTL(0) > cfg.BlockInterval(0) {
 		return nil, errors.Errorf(
@@ -134,6 +152,7 @@ func newRollDPoSCtx(
 	}
 	roundCalc := &roundCalculator{
 		delegatesByEpochFunc: delegatesByEpochFunc,
+		proposersByEpochFunc: proposersByEpochFunc,
 		chain:                chain,
 		rp:                   rp,
 		timeBasedRotation:    timeBasedRotation,
@@ -172,6 +191,22 @@ func (ctx *rollDPoSCtx) Stop(c context.Context) error {
 		return ctx.eManagerDB.Stop(c)
 	}
 	return nil
+}
+
+func (ctx *rollDPoSCtx) Chain() ChainManager {
+	return ctx.chain
+}
+
+func (ctx *rollDPoSCtx) BlockDeserializer() *block.Deserializer {
+	return ctx.blockDeserializer
+}
+
+func (ctx *rollDPoSCtx) RoundCalculator() *roundCalculator {
+	return ctx.roundCalc
+}
+
+func (ctx *rollDPoSCtx) Clock() clock.Clock {
+	return ctx.clock
 }
 
 // CheckVoteEndorser checks if the endorsement's endorser is a valid delegate at the given height
@@ -511,14 +546,14 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 
 	_consensusDurationMtc.WithLabelValues().Set(float64(time.Since(ctx.round.roundStartTime)))
 	if pendingBlock.Height() > 1 {
-		prevBlkHeader, err := ctx.chain.BlockHeaderByHeight(pendingBlock.Height() - 1)
+		prevBlkProposeTime, err := ctx.chain.BlockProposeTime(pendingBlock.Height() - 1)
 		if err != nil {
-			log.L().Error("Error when getting the previous block header.",
+			ctx.logger().Error("Error when getting the previous block header.",
 				zap.Error(err),
 				zap.Uint64("height", pendingBlock.Height()-1),
 			)
 		}
-		_blockIntervalMtc.WithLabelValues().Set(float64(pendingBlock.Timestamp().Sub(prevBlkHeader.Timestamp())))
+		_blockIntervalMtc.WithLabelValues().Set(float64(pendingBlock.Timestamp().Sub(prevBlkProposeTime)))
 	}
 	return true, nil
 }

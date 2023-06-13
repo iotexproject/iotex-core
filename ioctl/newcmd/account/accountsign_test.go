@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
@@ -39,7 +38,7 @@ func TestNewAccountSign(t *testing.T) {
 	})
 
 	t.Run("valid_account", func(t *testing.T) {
-		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
+		client.EXPECT().IsCryptoSm2().Return(false).Times(1)
 		const pwd = "test"
 		acc, _ := ks.NewAccount(pwd)
 		accAddr, _ := address.FromBytes(acc.Address.Bytes())

@@ -24,7 +24,9 @@ func rlpSignedHash(tx *types.Transaction, chainID uint32, sig []byte) (hash.Hash
 		return hash.ZeroHash256, err
 	}
 	h := sha3.NewLegacyKeccak256()
-	rlp.Encode(h, signedTx)
+	if err = rlp.Encode(h, signedTx); err != nil {
+		return hash.ZeroHash256, err
+	}
 	return hash.BytesToHash256(h.Sum(nil)), nil
 }
 

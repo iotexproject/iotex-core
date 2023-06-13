@@ -1,13 +1,20 @@
 package apitypes
 
 import (
+	"encoding/json"
+	"errors"
+
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 )
+
+// MaxResponseSize is the max size of response
+var MaxResponseSize = 1024 * 1024 * 100 // 100MB
 
 type (
 	// Web3ResponseWriter is writer for web3 request
 	Web3ResponseWriter interface {
-		Write(interface{}) error
+		Write(interface{}) (int, error)
 	}
 
 	// Responder responds to new block
@@ -24,43 +31,59 @@ type (
 		AddResponder(Responder) (string, error)
 		RemoveResponder(string) (bool, error)
 	}
+
+	// BlockWithReceipts includes block and its receipts
+	BlockWithReceipts struct {
+		Block    *block.Block
+		Receipts []*action.Receipt
+	}
 )
 
 // responseWriter for server
 type responseWriter struct {
-	writeHandler func(interface{}) error
+	writeHandler func(interface{}) (int, error)
 }
 
 // NewResponseWriter returns a new responseWriter
-func NewResponseWriter(handler func(interface{}) error) Web3ResponseWriter {
+func NewResponseWriter(handler func(interface{}) (int, error)) Web3ResponseWriter {
 	return &responseWriter{handler}
 }
 
-func (w *responseWriter) Write(in interface{}) error {
+func (w *responseWriter) Write(in interface{}) (int, error) {
 	return w.writeHandler(in)
 }
 
 // BatchWriter for multiple web3 requests
 type BatchWriter struct {
-	writer Web3ResponseWriter
-	buf    []interface{}
+	totalSize int
+	writer    Web3ResponseWriter
+	buf       []json.RawMessage
 }
 
 // NewBatchWriter returns a new BatchWriter
 func NewBatchWriter(singleWriter Web3ResponseWriter) *BatchWriter {
 	return &BatchWriter{
 		writer: singleWriter,
-		buf:    make([]interface{}, 0),
+		buf:    make([]json.RawMessage, 0),
 	}
 }
 
 // Write adds data into batch buffer
-func (w *BatchWriter) Write(in interface{}) error {
-	w.buf = append(w.buf, in)
-	return nil
+func (w *BatchWriter) Write(in interface{}) (int, error) {
+	raw, err := json.Marshal(in)
+	if err != nil {
+		return 0, err
+	}
+	w.totalSize += len(raw)
+	if w.totalSize > MaxResponseSize {
+		return w.totalSize, errors.New("response size exceeds limit")
+	}
+	w.buf = append(w.buf, raw)
+	return w.totalSize, nil
 }
 
 // Flush writes data in batch buffer
 func (w *BatchWriter) Flush() error {
-	return w.writer.Write(w.buf)
+	_, err := w.writer.Write(w.buf)
+	return err
 }

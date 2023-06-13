@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package factory
 
@@ -79,6 +78,20 @@ func calculateLogsBloom(ctx context.Context, receipts []*action.Receipt) bloom.B
 func generateWorkingSetCacheKey(blkHeader block.Header, producerAddr string) hash.Hash256 {
 	sum := append(blkHeader.SerializeCore(), []byte(producerAddr)...)
 	return hash.Hash256b(sum)
+}
+
+func protocolPreCommit(ctx context.Context, sr protocol.StateManager) error {
+	if reg, ok := protocol.GetRegistry(ctx); ok {
+		for _, p := range reg.All() {
+			post, ok := p.(protocol.PreCommitter)
+			if ok && sr.ProtocolDirty(p.Name()) {
+				if err := post.PreCommit(ctx, sr); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func protocolCommit(ctx context.Context, sr protocol.StateManager) error {

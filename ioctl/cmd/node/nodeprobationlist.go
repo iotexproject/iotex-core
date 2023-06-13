@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package node
 
@@ -78,6 +77,9 @@ func probationlist() error {
 	response, err := bc.GetEpochMeta(_epochNum)
 	if err != nil {
 		return output.NewError(0, "failed to get epoch meta", err)
+	}
+	if response.EpochData == nil {
+		return output.NewError(0, "ROLLDPOS is not registered", nil)
 	}
 	probationlist, err := getProbationList(_epochNum, response.EpochData.Height)
 	if err != nil {

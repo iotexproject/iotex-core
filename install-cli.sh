@@ -85,6 +85,7 @@ initArch() {
         armv6*) ARCH="arm";;
         armv7*) ARCH="arm";;
         aarch64) ARCH="arm64";;
+        arm64) ARCH="arm64";;
         *) echo "Architecture ${ARCH} is not supported by this installation script"; exit 1;;
     esac
     echo "ARCH = $ARCH"

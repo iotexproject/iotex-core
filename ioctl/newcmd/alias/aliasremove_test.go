@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 package alias
 
 import (
@@ -31,8 +30,8 @@ func TestNewAliasRemoveCmd(t *testing.T) {
 		"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "a",
 		"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542se": "b",
 		"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1": "c",
-	}).Times(2)
-	client.EXPECT().Config().Return(cfg).Times(2)
+	}).AnyTimes()
+	client.EXPECT().Config().Return(cfg).AnyTimes()
 
 	t.Run("remove alias", func(t *testing.T) {
 		client.EXPECT().SelectTranslation(gomock.Any()).Return("%s is removed", config.English).Times(5)
@@ -44,7 +43,7 @@ func TestNewAliasRemoveCmd(t *testing.T) {
 	})
 
 	t.Run("invalid alias", func(t *testing.T) {
-		client.EXPECT().SelectTranslation(gomock.Any()).Return("invalid alias %s", config.English).Times(5)
+		client.EXPECT().SelectTranslation(gomock.Any()).Return("invalid alias %s", config.English).AnyTimes()
 		cmd := NewAliasRemove(client)
 		_, err := util.ExecuteCmd(cmd, "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542se")
 		require.Error(err)

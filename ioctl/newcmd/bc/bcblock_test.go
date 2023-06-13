@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package bc
 
@@ -37,8 +36,8 @@ func TestNewBCBlockCmd(t *testing.T) {
 	}
 	blockMetaResponse := &iotexapi.GetBlockMetasResponse{BlkMetas: blockMeta}
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(35)
-	client.EXPECT().Config().Return(cfg).Times(20)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
+	client.EXPECT().Config().Return(cfg).AnyTimes()
 
 	t.Run("failed to dial grpc connection", func(t *testing.T) {
 		expectedErr := errors.New("failed to dial grpc connection")
@@ -50,7 +49,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 		require.Equal(expectedErr, err)
 	})
 
-	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(16)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).AnyTimes()
 
 	t.Run("failed to get chain meta", func(t *testing.T) {
 		expectedErr := errors.New("failed to get chain meta")

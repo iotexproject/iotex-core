@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package integrity
 
@@ -479,7 +478,8 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -494,7 +494,7 @@ func TestCreateBlockchain(t *testing.T) {
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
 	)
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 	require.NoError(ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(rewardingProtocol.Register(registry))
@@ -531,7 +531,8 @@ func TestGetBlockHash(t *testing.T) {
 	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -546,7 +547,7 @@ func TestGetBlockHash(t *testing.T) {
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
 	)
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 	require.NoError(ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(rewardingProtocol.Register(registry))
@@ -693,7 +694,8 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	require.NoError(t, acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
@@ -708,7 +710,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
 	)
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(t, rewardingProtocol.Register(registry))
@@ -766,7 +768,8 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, acc.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
@@ -783,7 +786,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	)
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(t, rewardingProtocol.Register(registry))
@@ -852,7 +855,10 @@ func TestConstantinople(t *testing.T) {
 
 		registry := protocol.NewRegistry()
 		// Create a blockchain from scratch
-		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+		db2, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
+		require.NoError(err)
+		sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
 		require.NoError(err)
 		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)
@@ -879,7 +885,7 @@ func TestConstantinople(t *testing.T) {
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
 		)
-		ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+		ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 		require.NoError(ep.Register(registry))
 		rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 		require.NoError(rewardingProtocol.Register(registry))
@@ -1093,7 +1099,10 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 		registry := protocol.NewRegistry()
 		// Create a blockchain from scratch
-		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+		db2, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
+		require.NoError(err)
+		sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
 		require.NoError(err)
 		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)
@@ -1126,7 +1135,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
 		)
-		ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+		ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 		require.NoError(ep.Register(registry))
 		require.NoError(bc.Start(ctx))
 
@@ -1410,7 +1419,10 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	db2, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
+	require.NoError(err)
+	sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -1454,27 +1466,115 @@ func TestBlockchain_AccountState(t *testing.T) {
 	require := require.New(t)
 
 	cfg := config.Default
-	// disable account-based testing
-	// create chain
-	cfg.Genesis.InitBalanceMap[identityset.Address(0).String()] = "100"
 	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
-	require.NoError(bc.Start(context.Background()))
+	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
+	defer func() {
+		require.NoError(bc.Stop(ctx))
+	}()
 	s, err := accountutil.AccountState(ctx, sf, identityset.Address(0))
 	require.NoError(err)
 	require.Equal(uint64(1), s.PendingNonce())
-	require.Equal(big.NewInt(100), s.Balance)
-	require.Equal(hash.ZeroHash256, s.Root)
-	require.Equal([]byte(nil), s.CodeHash)
+	require.Equal(unit.ConvertIotxToRau(100000000), s.Balance)
+	require.Zero(s.Root)
+	require.Nil(s.CodeHash)
+}
+
+func TestNewAccountAction(t *testing.T) {
+	require := require.New(t)
+
+	cfg := config.Default
+	cfg.Genesis.OkhotskBlockHeight = 1
+	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	require.NoError(err)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
+	require.NoError(err)
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
+	require.NoError(bc.Start(ctx))
+	require.NotNil(bc)
+	defer func() {
+		require.NoError(bc.Stop(ctx))
+	}()
+
+	// create a new address, transfer 4 IOTX
+	newSk, err := iotexcrypto.HexStringToPrivateKey("55499c1b09f687488af9e4ee9e2bd53c7c8c3ddc69d4d9345a04b13030cffabe")
+	require.NoError(err)
+	newAddr := newSk.PublicKey().Address()
+	tx, err := action.SignedTransfer(newAddr.String(), identityset.PrivateKey(0), 1, big.NewInt(4*unit.Iotx), nil, testutil.TestGasLimit, testutil.TestGasPrice)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tx))
+	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk))
+	ap.Reset()
+
+	// initiate transfer from new address
+	tx, err = action.SignedTransfer(identityset.Address(0).String(), newSk, 0, big.NewInt(unit.Iotx), nil, testutil.TestGasLimit, testutil.TestGasPrice)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tx))
+	tx1, err := action.SignedTransfer(identityset.Address(1).String(), newSk, 1, big.NewInt(unit.Iotx), nil, testutil.TestGasLimit, testutil.TestGasPrice)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tx1))
+	blk1, err := bc.MintNewBlock(testutil.TimestampNow())
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk1))
+	ap.Reset()
+
+	// commit 2 blocks into a new chain
+	for _, validateNonce := range []bool{false, true} {
+		if validateNonce {
+			cfg.Genesis.PalauBlockHeight = 2
+		} else {
+			cfg.Genesis.PalauBlockHeight = 20
+		}
+		ctx = genesis.WithGenesisContext(context.Background(), cfg.Genesis)
+		factoryCfg = factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+		sf1, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+		require.NoError(err)
+		dao1 := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf1})
+		bc1 := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao1, factory.NewMinter(sf1, ap))
+		require.NoError(bc1.Start(ctx))
+		require.NotNil(bc1)
+		defer func() {
+			require.NoError(bc1.Stop(ctx))
+		}()
+		require.NoError(bc1.CommitBlock(blk))
+		err = bc1.CommitBlock(blk1)
+		if validateNonce {
+			require.NoError(err)
+		} else {
+			require.Equal(action.ErrNonceTooHigh, errors.Cause(err))
+		}
+
+		// verify new addr
+		s, err := accountutil.AccountState(ctx, sf1, newAddr)
+		require.NoError(err)
+		if validateNonce {
+			require.EqualValues(2, s.PendingNonce())
+			require.Equal(big.NewInt(2*unit.Iotx), s.Balance)
+		} else {
+			require.Zero(s.PendingNonce())
+			require.Equal(big.NewInt(4*unit.Iotx), s.Balance)
+		}
+		require.Zero(s.Root)
+		require.Nil(s.CodeHash)
+	}
 }
 
 func TestBlocks(t *testing.T) {
@@ -1504,7 +1604,8 @@ func TestBlocks(t *testing.T) {
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -1576,8 +1677,8 @@ func TestActions(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	cfg.Genesis.InitBalanceMap[a] = "100000"
 	cfg.Genesis.InitBalanceMap[c] = "100000"
-
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -1641,7 +1742,8 @@ func TestBlockchain_AddRemoveSubscriber(t *testing.T) {
 	cfg.Genesis.EnableGravityChainVoting = false
 	// create chain
 	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	req.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	req.NoError(err)
@@ -1847,11 +1949,12 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	registry := protocol.NewRegistry()
 	var sf factory.Factory
 	kv := db.NewMemKVStore()
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	if stateTX {
-		sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(kv), factory.RegistryStateDBOption(registry))
+		sf, err = factory.NewStateDB(factoryCfg, kv, factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 	} else {
-		sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(kv), factory.RegistryOption(registry))
+		sf, err = factory.NewFactory(factoryCfg, kv, factory.RegistryOption(registry))
 		require.NoError(err)
 	}
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
@@ -1886,7 +1989,7 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 		)),
 	)
 	require.NotNil(bc)
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 

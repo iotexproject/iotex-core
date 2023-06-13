@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package batch
 
@@ -19,12 +18,11 @@ type (
 
 	// WriteInfo is the struct to store Put/Delete operation info
 	WriteInfo struct {
-		writeType   WriteType
-		namespace   string
-		key         []byte
-		value       []byte
-		errorFormat string
-		errorArgs   interface{}
+		writeType    WriteType
+		namespace    string
+		key          []byte
+		value        []byte
+		errorMessage string
 	}
 
 	// WriteInfoFilter filters a write
@@ -43,16 +41,14 @@ func NewWriteInfo(
 	namespace string,
 	key,
 	value []byte,
-	errorFormat string,
-	errorArgs interface{},
+	errorMessage string,
 ) *WriteInfo {
 	return &WriteInfo{
-		writeType:   writeType,
-		namespace:   namespace,
-		key:         key,
-		value:       value,
-		errorFormat: errorFormat,
-		errorArgs:   errorArgs,
+		writeType:    writeType,
+		namespace:    namespace,
+		key:          key,
+		value:        value,
+		errorMessage: errorMessage,
 	}
 }
 
@@ -82,30 +78,28 @@ func (wi *WriteInfo) Value() []byte {
 	return value
 }
 
-// ErrorFormat returns the error format
-func (wi *WriteInfo) ErrorFormat() string {
-	return wi.errorFormat
-}
-
-// ErrorArgs returns the error args
-func (wi *WriteInfo) ErrorArgs() interface{} {
-	return wi.errorArgs
+// Error returns the error Message
+func (wi *WriteInfo) Error() string {
+	return wi.errorMessage
 }
 
 // Serialize serializes the write info
 func (wi *WriteInfo) Serialize() []byte {
-	bytes := []byte{byte(wi.writeType)}
-	bytes = append(bytes, []byte(wi.namespace)...)
-	bytes = append(bytes, wi.key...)
-	bytes = append(bytes, wi.value...)
+	lenNamespace, lenKey, lenValue := len(wi.namespace), len(wi.key), len(wi.value)
+	bytes := make([]byte, 1+lenNamespace+lenKey+lenValue)
+	bytes[0] = byte(wi.writeType)
+	copy(bytes[1:], []byte(wi.namespace))
+	copy(bytes[1+lenNamespace:], wi.key)
+	copy(bytes[1+lenNamespace+lenKey:], wi.value)
 	return bytes
 }
 
 // SerializeWithoutWriteType serializes the write info without write type
 func (wi *WriteInfo) SerializeWithoutWriteType() []byte {
-	bytes := make([]byte, 0)
-	bytes = append(bytes, []byte(wi.namespace)...)
-	bytes = append(bytes, wi.key...)
-	bytes = append(bytes, wi.value...)
+	lenNamespace, lenKey, lenValue := len(wi.namespace), len(wi.key), len(wi.value)
+	bytes := make([]byte, lenNamespace+lenKey+lenValue)
+	copy(bytes[0:], []byte(wi.namespace))
+	copy(bytes[lenNamespace:], wi.key)
+	copy(bytes[lenNamespace+lenKey:], wi.value)
 	return bytes
 }

@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package dispatcher
 
@@ -53,6 +52,8 @@ func setTestCase() []proto.Message {
 		&iotextypes.Block{},
 		&iotexrpc.BlockSync{},
 		&testingpb.TestPayload{},
+		&iotextypes.NodeInfoRequest{},
+		&iotextypes.NodeInfo{},
 	}
 }
 
@@ -99,3 +100,11 @@ func (ds *dummySubscriber) HandleSyncRequest(context.Context, peer.AddrInfo, *io
 func (ds *dummySubscriber) HandleAction(context.Context, *iotextypes.Action) error { return nil }
 
 func (ds *dummySubscriber) HandleConsensusMsg(*iotextypes.ConsensusMessage) error { return nil }
+
+func (ds *dummySubscriber) HandleNodeInfoRequest(context.Context, peer.AddrInfo, *iotextypes.NodeInfoRequest) error {
+	return nil
+}
+
+func (ds *dummySubscriber) HandleNodeInfo(context.Context, string, *iotextypes.NodeInfo) error {
+	return nil
+}

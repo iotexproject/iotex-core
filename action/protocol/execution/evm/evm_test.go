@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package evm
 
@@ -18,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -64,9 +64,9 @@ func TestExecuteContractFailure(t *testing.T) {
 		func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
-		func(context.Context, protocol.StateManager, *big.Int) (*action.TransactionLog, error) {
+		func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
 			return nil, nil
-		})
+		}, nil)
 	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)
@@ -183,10 +183,37 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			16509240,
 		},
-		// after Midway
+		// Midway - NewFoundland
 		{
 			action.EmptyAddress,
 			16509241,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			17662680,
+		},
+		// NewFoundland - Okhotsk
+		{
+			action.EmptyAddress,
+			17662681,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			21542760,
+		},
+		// Okhotsk - Palau
+		{
+			action.EmptyAddress,
+			21542761,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			22991400,
+		},
+		// after Palau
+		{
+			action.EmptyAddress,
+			22991401,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
@@ -204,25 +231,14 @@ func TestConstantinople(t *testing.T) {
 			nil,
 		)
 		require.NoError(err)
-		opt := []StateDBAdapterOption{}
-		if !g.IsAleutian(e.height) {
-			opt = append(opt, NotFixTopicCopyBugOption())
-		}
-		if g.IsGreenland(e.height) {
-			opt = append(opt, AsyncContractTrieOption())
-		}
-		if g.IsKamchatka(e.height) {
-			opt = append(opt, FixSnapshotOrderOption())
-		}
-		stateDB, err := NewStateDBAdapter(sm, e.height, hash.ZeroHash256, opt...)
-		require.NoError(err)
 
-		fCtx := protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		fCtx := protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
 			BlockHeight: e.height,
-		})
-		fCtx = protocol.WithFeatureCtx(fCtx)
+		}))
+		stateDB, err := prepareStateDB(fCtx, sm)
+		require.NoError(err)
 		ps, err := newParams(fCtx, ex, stateDB, func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		})
@@ -243,7 +259,7 @@ func TestConstantinople(t *testing.T) {
 		require.True(evmChainConfig.IsPetersburg(evm.Context.BlockNumber))
 
 		// verify chainRules
-		chainRules := evmChainConfig.Rules(ps.context.BlockNumber)
+		chainRules := evmChainConfig.Rules(ps.context.BlockNumber, false)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsHomestead)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP150)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP158)
@@ -255,7 +271,6 @@ func TestConstantinople(t *testing.T) {
 		// verify iotex configs in chain config block
 		require.Equal(big.NewInt(int64(g.BeringBlockHeight)), evmChainConfig.BeringBlock)
 		require.Equal(big.NewInt(int64(g.GreenlandBlockHeight)), evmChainConfig.GreenlandBlock)
-		require.Equal(!g.IsBering(e.height), evm.IsPreBering())
 
 		// iceland = support chainID + enable Istanbul and Muir Glacier
 		isIceland := g.IsIceland(e.height)
@@ -270,15 +285,18 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isIceland, evmChainConfig.IsMuirGlacier(evm.Context.BlockNumber))
 		require.Equal(isIceland, chainRules.IsIstanbul)
 
-		// enable Berlin and London
-		isBerlin := g.IsToBeEnabled(e.height)
-		require.Equal(isBerlin, evmChainConfig.IsBerlin(evm.Context.BlockNumber))
-		require.Equal(isBerlin, chainRules.IsBerlin)
-		isLondon := g.IsToBeEnabled(e.height)
-		require.Equal(isLondon, evmChainConfig.IsLondon(evm.Context.BlockNumber))
-		require.Equal(isLondon, chainRules.IsLondon)
-		require.False(evmChainConfig.IsCatalyst(evm.Context.BlockNumber))
-		require.False(chainRules.IsCatalyst)
+		// Okhotsk = enable Berlin and London
+		isOkhotsk := g.IsOkhotsk(e.height)
+		require.Equal(big.NewInt(int64(g.OkhotskBlockHeight)), evmChainConfig.BerlinBlock)
+		require.Equal(big.NewInt(int64(g.OkhotskBlockHeight)), evmChainConfig.LondonBlock)
+		require.Equal(isOkhotsk, evmChainConfig.IsBerlin(evm.Context.BlockNumber))
+		require.Equal(isOkhotsk, chainRules.IsBerlin)
+		require.Equal(isOkhotsk, evmChainConfig.IsLondon(evm.Context.BlockNumber))
+		require.Equal(isOkhotsk, chainRules.IsLondon)
+		require.False(chainRules.IsMerge)
+
+		// test basefee
+		require.Equal(new(big.Int), evm.Context.BaseFee)
 	}
 }
 
@@ -300,8 +318,8 @@ func TestEvmError(t *testing.T) {
 		{errors.New("unknown"), iotextypes.ReceiptStatus_ErrUnknown},
 	}
 	for _, v := range beringTests {
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight), v.status)
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight-1), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight-1), v.status)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), v.status)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), v.status)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), v.status)
@@ -319,8 +337,8 @@ func TestEvmError(t *testing.T) {
 		{errors.New("unknown"), iotextypes.ReceiptStatus_ErrUnknown},
 	}
 	for _, v := range jutlandTests {
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight), v.status)
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight-1), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight-1), v.status)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), v.status)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), iotextypes.ReceiptStatus_ErrUnknown)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), iotextypes.ReceiptStatus_ErrUnknown)
@@ -334,8 +352,8 @@ func TestEvmError(t *testing.T) {
 		{vm.ErrInvalidCode, iotextypes.ReceiptStatus_ErrInvalidCode},
 	}
 	for _, v := range newTests {
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight), v.status)
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight-1), iotextypes.ReceiptStatus_ErrUnknown)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight-1), iotextypes.ReceiptStatus_ErrUnknown)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), iotextypes.ReceiptStatus_ErrUnknown)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), iotextypes.ReceiptStatus_ErrUnknown)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), iotextypes.ReceiptStatus_ErrUnknown)

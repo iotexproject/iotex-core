@@ -16,7 +16,7 @@ env:
 jobs:
   ci:
     name: ci flow
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         # with:
@@ -25,21 +25,19 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.17.2
-          # cache: true
-
-#       - name: Error Check
-#         uses: reviewdog/action-golangci-lint@v2
-#         with:
-#           golangci_lint_flags: "--disable-all -E errcheck"
-#           tool_name: errcheck
-#           level: info
+          go-version: 1.18.5
+          cache: false
+          
+      - name: Build Go
+        run: go build ./...
 
       - name: Run Test
         id: unittest
         shell: bash
         run: |
-          go get -u golang.org/x/lint/golint
+          go install golang.org/x/lint/golint@master
+          go install github.com/dave/courtney@latest
+          go mod tidy
           golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
           #go get -u github.com/dave/courtney@038390a12707e2d91979d2ca77a71597f4afe400
           ./go.test.sh
@@ -48,6 +46,7 @@ jobs:
           bash <(curl -s https://codecov.io/bash)
 
       - name: Make Minicluster
+        if: github.event.pull_request.merged == true
         id: minicluster
         shell: bash
         run: |

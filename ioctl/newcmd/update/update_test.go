@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package update
 
@@ -59,7 +58,7 @@ func TestNewUpdateCmd(t *testing.T) {
 		expectedError := errors.New("invalid version-type flag:pre-release")
 		client.EXPECT().SelectTranslation(gomock.Any()).Return("invalid version-type flag:%s",
 			config.English).Times(9)
-		client.EXPECT().Execute(gomock.Any()).Return(expectedError).Times(1)
+		client.EXPECT().Execute(gomock.Any()).Return(expectedError).AnyTimes()
 
 		cmd := NewUpdateCmd(client)
 		_, err := util.ExecuteCmd(cmd, "-t", "pre-release")

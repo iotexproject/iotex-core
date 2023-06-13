@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package rolldpos
 
@@ -11,18 +10,19 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	fsm "github.com/iotexproject/go-fsm"
+	"github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -36,31 +36,118 @@ var (
 	ErrNotEnoughCandidates = errors.New("Candidate pool does not have enough candidates")
 )
 
-// ChainManager defines the blockchain interface
-type ChainManager interface {
-	// Genesis returns the genesis
-	Genesis() genesis.Genesis
-	// BlockHeaderByHeight return block header by height
-	BlockHeaderByHeight(height uint64) (*block.Header, error)
-	// BlockFooterByHeight return block footer by height
-	BlockFooterByHeight(height uint64) (*block.Footer, error)
-	// MintNewBlock creates a new block with given actions
-	// Note: the coinbase transfer will be added to the given transfers when minting a new block
-	MintNewBlock(timestamp time.Time) (*block.Block, error)
-	// CommitBlock validates and appends a block to the chain
-	CommitBlock(blk *block.Block) error
-	// ValidateBlock validates a new block before adding it to the blockchain
-	ValidateBlock(blk *block.Block) error
-	// TipHeight returns tip block's height
-	TipHeight() uint64
-	// ChainAddress returns chain address on parent chain, the root chain return empty.
-	ChainAddress() string
+type (
+	// Config is the config struct for RollDPoS consensus package
+	Config struct {
+		FSM               consensusfsm.ConsensusTiming `yaml:"fsm"`
+		ToleratedOvertime time.Duration                `yaml:"toleratedOvertime"`
+		Delay             time.Duration                `yaml:"delay"`
+		ConsensusDBPath   string                       `yaml:"consensusDBPath"`
+	}
+
+	// ChainManager defines the blockchain interface
+	ChainManager interface {
+		// BlockProposeTime return propose time by height
+		BlockProposeTime(uint64) (time.Time, error)
+		// BlockCommitTime return commit time by height
+		BlockCommitTime(uint64) (time.Time, error)
+		// MintNewBlock creates a new block with given actions
+		// Note: the coinbase transfer will be added to the given transfers when minting a new block
+		MintNewBlock(timestamp time.Time) (*block.Block, error)
+		// CommitBlock validates and appends a block to the chain
+		CommitBlock(blk *block.Block) error
+		// ValidateBlock validates a new block before adding it to the blockchain
+		ValidateBlock(blk *block.Block) error
+		// TipHeight returns tip block's height
+		TipHeight() uint64
+		// ChainAddress returns chain address on parent chain, the root chain return empty.
+		ChainAddress() string
+	}
+
+	chainManager struct {
+		bc blockchain.Blockchain
+	}
+)
+
+// DefaultConfig is the default config
+var DefaultConfig = Config{
+	FSM: consensusfsm.ConsensusTiming{
+		UnmatchedEventTTL:            3 * time.Second,
+		UnmatchedEventInterval:       100 * time.Millisecond,
+		AcceptBlockTTL:               4 * time.Second,
+		AcceptProposalEndorsementTTL: 2 * time.Second,
+		AcceptLockEndorsementTTL:     2 * time.Second,
+		CommitTTL:                    2 * time.Second,
+		EventChanSize:                10000,
+	},
+	ToleratedOvertime: 2 * time.Second,
+	Delay:             5 * time.Second,
+	ConsensusDBPath:   "/var/data/consensus.db",
+}
+
+// NewChainManager creates a chain manager
+func NewChainManager(bc blockchain.Blockchain) ChainManager {
+	return &chainManager{
+		bc: bc,
+	}
+}
+
+// BlockProposeTime return propose time by height
+func (cm *chainManager) BlockProposeTime(height uint64) (time.Time, error) {
+	if height == 0 {
+		return time.Unix(cm.bc.Genesis().Timestamp, 0), nil
+	}
+	header, err := cm.bc.BlockHeaderByHeight(height)
+	if err != nil {
+		return time.Time{}, errors.Wrapf(
+			err, "error when getting the block at height: %d",
+			height,
+		)
+	}
+	return header.Timestamp(), nil
+}
+
+// BlockCommitTime return commit time by height
+func (cm *chainManager) BlockCommitTime(height uint64) (time.Time, error) {
+	footer, err := cm.bc.BlockFooterByHeight(height)
+	if err != nil {
+		return time.Time{}, errors.Wrapf(
+			err, "error when getting the block at height: %d",
+			height,
+		)
+	}
+	return footer.CommitTime(), nil
+}
+
+// MintNewBlock creates a new block with given actions
+func (cm *chainManager) MintNewBlock(timestamp time.Time) (*block.Block, error) {
+	return cm.bc.MintNewBlock(timestamp)
+}
+
+// CommitBlock validates and appends a block to the chain
+func (cm *chainManager) CommitBlock(blk *block.Block) error {
+	return cm.bc.CommitBlock(blk)
+}
+
+// ValidateBlock validates a new block before adding it to the blockchain
+func (cm *chainManager) ValidateBlock(blk *block.Block) error {
+	return cm.bc.ValidateBlock(blk)
+}
+
+// TipHeight returns tip block's height
+func (cm *chainManager) TipHeight() uint64 {
+	return cm.bc.TipHeight()
+}
+
+// ChainAddress returns chain address on parent chain, the root chain return empty.
+func (cm *chainManager) ChainAddress() string {
+	return cm.bc.ChainAddress()
 }
 
 // RollDPoS is Roll-DPoS consensus main entrance
 type RollDPoS struct {
 	cfsm       *consensusfsm.ConsensusFSM
-	ctx        *rollDPoSCtx
+	ctx        RDPoSCtx
 	startDelay time.Duration
 	ready      chan interface{}
 }
@@ -116,7 +203,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 		return nil
 	}
 	endorsedMessage := &EndorsedConsensusMessage{}
-	if err := endorsedMessage.LoadProto(msg, r.ctx.blockDeserializer); err != nil {
+	if err := endorsedMessage.LoadProto(msg, r.ctx.BlockDeserializer()); err != nil {
 		return errors.Wrapf(err, "failed to decode endorsed consensus message")
 	}
 	if !endorsement.VerifyEndorsedDocument(endorsedMessage) {
@@ -157,7 +244,7 @@ func (r *RollDPoS) Calibrate(height uint64) {
 // ValidateBlockFooter validates the signatures in the block footer
 func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 	height := blk.Height()
-	round, err := r.ctx.roundCalc.NewRound(height, r.ctx.BlockInterval(height), blk.Timestamp(), nil)
+	round, err := r.ctx.RoundCalculator().NewRound(height, r.ctx.BlockInterval(height), blk.Timestamp(), nil)
 	if err != nil {
 		return err
 	}
@@ -189,8 +276,8 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 // Metrics returns RollDPoS consensus metrics
 func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	var metrics scheme.ConsensusMetrics
-	height := r.ctx.chain.TipHeight()
-	round, err := r.ctx.roundCalc.NewRound(height+1, r.ctx.BlockInterval(height), r.ctx.clock.Now(), nil)
+	height := r.ctx.Chain().TipHeight()
+	round, err := r.ctx.RoundCalculator().NewRound(height+1, r.ctx.BlockInterval(height), r.ctx.Clock().Now(), nil)
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating round")
 	}
@@ -228,20 +315,34 @@ func (r *RollDPoS) Active() bool {
 	return r.ctx.Active() || r.cfsm.CurrentState() != consensusfsm.InitState
 }
 
-// Builder is the builder for RollDPoS
-type Builder struct {
-	cfg config.Config
-	// TODO: we should use keystore in the future
-	encodedAddr       string
-	priKey            crypto.PrivateKey
-	chain             ChainManager
-	blockDeserializer *block.Deserializer
-	broadcastHandler  scheme.Broadcast
-	clock             clock.Clock
-	// TODO: explorer dependency deleted at #1085, need to add api params
-	rp                   *rolldpos.Protocol
-	delegatesByEpochFunc DelegatesByEpochFunc
-}
+type (
+	// BuilderConfig returns the configuration of the builder
+	BuilderConfig struct {
+		Chain              blockchain.Config
+		Consensus          Config
+		Scheme             string
+		DardanellesUpgrade consensusfsm.DardanellesUpgrade
+		DB                 db.Config
+		Genesis            genesis.Genesis
+		SystemActive       bool
+	}
+
+	// Builder is the builder for rollDPoS
+	Builder struct {
+		cfg BuilderConfig
+		// TODO: we should use keystore in the future
+		encodedAddr       string
+		priKey            crypto.PrivateKey
+		chain             ChainManager
+		blockDeserializer *block.Deserializer
+		broadcastHandler  scheme.Broadcast
+		clock             clock.Clock
+		// TODO: explorer dependency deleted at #1085, need to add api params
+		rp                   *rolldpos.Protocol
+		delegatesByEpochFunc NodesSelectionByEpochFunc
+		proposersByEpochFunc NodesSelectionByEpochFunc
+	}
+)
 
 // NewRollDPoSBuilder instantiates a Builder instance
 func NewRollDPoSBuilder() *Builder {
@@ -249,7 +350,7 @@ func NewRollDPoSBuilder() *Builder {
 }
 
 // SetConfig sets config
-func (b *Builder) SetConfig(cfg config.Config) *Builder {
+func (b *Builder) SetConfig(cfg BuilderConfig) *Builder {
 	b.cfg = cfg
 	return b
 }
@@ -292,9 +393,17 @@ func (b *Builder) SetClock(clock clock.Clock) *Builder {
 
 // SetDelegatesByEpochFunc sets delegatesByEpochFunc
 func (b *Builder) SetDelegatesByEpochFunc(
-	delegatesByEpochFunc DelegatesByEpochFunc,
+	delegatesByEpochFunc NodesSelectionByEpochFunc,
 ) *Builder {
 	b.delegatesByEpochFunc = delegatesByEpochFunc
+	return b
+}
+
+// SetProposersByEpochFunc sets proposersByEpochFunc
+func (b *Builder) SetProposersByEpochFunc(
+	proposersByEpochFunc NodesSelectionByEpochFunc,
+) *Builder {
+	b.proposersByEpochFunc = proposersByEpochFunc
 	return b
 }
 
@@ -315,18 +424,19 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	if b.clock == nil {
 		b.clock = clock.New()
 	}
-	b.cfg.DB.DbPath = b.cfg.Consensus.RollDPoS.ConsensusDBPath
-	ctx, err := newRollDPoSCtx(
-		consensusfsm.NewConsensusConfig(b.cfg),
+	b.cfg.DB.DbPath = b.cfg.Consensus.ConsensusDBPath
+	ctx, err := NewRollDPoSCtx(
+		consensusfsm.NewConsensusConfig(b.cfg.Consensus.FSM, b.cfg.DardanellesUpgrade, b.cfg.Genesis, b.cfg.Consensus.Delay),
 		b.cfg.DB,
-		b.cfg.System.Active,
-		b.cfg.Consensus.RollDPoS.ToleratedOvertime,
+		b.cfg.SystemActive,
+		b.cfg.Consensus.ToleratedOvertime,
 		b.cfg.Genesis.TimeBasedRotation,
 		b.chain,
 		b.blockDeserializer,
 		b.rp,
 		b.broadcastHandler,
 		b.delegatesByEpochFunc,
+		b.proposersByEpochFunc,
 		b.encodedAddr,
 		b.priKey,
 		b.clock,
@@ -342,7 +452,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	return &RollDPoS{
 		cfsm:       cfsm,
 		ctx:        ctx,
-		startDelay: b.cfg.Consensus.RollDPoS.Delay,
+		startDelay: b.cfg.Consensus.Delay,
 		ready:      make(chan interface{}),
 	}, nil
 }

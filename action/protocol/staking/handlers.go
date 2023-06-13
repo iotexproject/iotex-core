@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package staking
 
@@ -651,7 +650,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	// cannot collide with existing name
 	if csm.ContainsName(act.Name()) && (!ownerExist || act.Name() != c.Name) {
 		return log, nil, &handleError{
-			err:           ErrInvalidCanName,
+			err:           action.ErrInvalidCanName,
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
 		}
 	}
@@ -683,6 +682,10 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 
 	if err := csm.Upsert(c); err != nil {
 		return log, nil, csmErrorToHandleError(owner.String(), err)
+	}
+	height, _ := csm.SM().Height()
+	if p.needToWriteCandsMap(ctx, height) {
+		csm.DirtyView().candCenter.base.recordOwner(c)
 	}
 
 	// update bucket pool
@@ -763,6 +766,10 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	if err := csm.Upsert(c); err != nil {
 		return log, csmErrorToHandleError(c.Owner.String(), err)
 	}
+	height, _ := csm.SM().Height()
+	if p.needToWriteCandsMap(ctx, height) {
+		csm.DirtyView().candCenter.base.recordOwner(c)
+	}
 
 	log.AddAddress(actCtx.Caller)
 	return log, nil
@@ -835,7 +842,7 @@ func csmErrorToHandleError(caller string, err error) error {
 	}
 
 	switch errors.Cause(err) {
-	case ErrInvalidCanName:
+	case action.ErrInvalidCanName:
 		hErr.failureStatus = iotextypes.ReceiptStatus_ErrCandidateConflict
 		return hErr
 	case ErrInvalidOperator:
@@ -844,7 +851,7 @@ func csmErrorToHandleError(caller string, err error) error {
 	case ErrInvalidSelfStkIndex:
 		hErr.failureStatus = iotextypes.ReceiptStatus_ErrCandidateConflict
 		return hErr
-	case ErrInvalidAmount:
+	case action.ErrInvalidAmount:
 		hErr.failureStatus = iotextypes.ReceiptStatus_ErrCandidateNotExist
 		return hErr
 	case ErrInvalidOwner:

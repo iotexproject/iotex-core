@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package staking
 
@@ -117,27 +116,6 @@ func (c *candSR) TotalStakedAmount() *big.Int {
 
 func (c *candSR) ActiveBucketsCount() uint64 {
 	return c.view.bucketPool.Count()
-}
-
-// GetStakingStateReader returns a candidate state reader that reflects the base view
-func GetStakingStateReader(sr protocol.StateReader) (CandidateStateReader, error) {
-	c, err := ConstructBaseView(sr)
-	if err != nil {
-		if errors.Cause(err) == protocol.ErrNoName {
-			// the view does not exist yet, create it
-			view, height, err := CreateBaseView(sr, true)
-			if err != nil {
-				return nil, err
-			}
-			return &candSR{
-				StateReader: sr,
-				height:      height,
-				view:        view,
-			}, nil
-		}
-		return nil, err
-	}
-	return c, nil
 }
 
 // ConstructBaseView returns a candidate state reader that reflects the base view
@@ -278,6 +256,23 @@ func (c *candSR) getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, er
 	return buckets, nil
 }
 
+// getExistingBucketsWithIndices returns buckets with given indices, if some of bucket
+// does not exist, they will be ignored and return the rest of buckets
+func (c *candSR) getExistingBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error) {
+	buckets := make([]*VoteBucket, 0, len(indices))
+	for _, i := range indices {
+		b, err := c.getBucket(i)
+		if err != nil {
+			if errors.Is(err, state.ErrStateNotExist) {
+				continue
+			}
+			return buckets, err
+		}
+		buckets = append(buckets, b)
+	}
+	return buckets, nil
+}
+
 func (c *candSR) getBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error) {
 	var (
 		bis BucketIndices
@@ -402,7 +397,7 @@ func (c *candSR) readStateBucketsByVoter(ctx context.Context, req *iotexapi.Read
 
 func (c *candSR) readStateBucketsByCandidate(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate) (*iotextypes.VoteBucketList, uint64, error) {
 	cand := c.GetCandidateByName(req.GetCandName())
-	if c == nil {
+	if cand == nil {
 		return &iotextypes.VoteBucketList{}, 0, nil
 	}
 
@@ -430,7 +425,7 @@ func (c *candSR) readStateBucketByIndices(ctx context.Context, req *iotexapi.Rea
 	if err != nil {
 		return &iotextypes.VoteBucketList{}, height, err
 	}
-	buckets, err := c.getBucketsWithIndices(BucketIndices(req.GetIndex()))
+	buckets, err := c.getExistingBucketsWithIndices(BucketIndices(req.GetIndex()))
 	if err != nil {
 		return nil, height, err
 	}
@@ -466,7 +461,7 @@ func (c *candSR) readStateCandidates(ctx context.Context, req *iotexapi.ReadStak
 
 func (c *candSR) readStateCandidateByName(ctx context.Context, req *iotexapi.ReadStakingDataRequest_CandidateByName) (*iotextypes.CandidateV2, uint64, error) {
 	cand := c.GetCandidateByName(req.GetCandName())
-	if c == nil {
+	if cand == nil {
 		return &iotextypes.CandidateV2{}, c.Height(), nil
 	}
 	return cand.toIoTeXTypes(), c.Height(), nil
@@ -478,7 +473,7 @@ func (c *candSR) readStateCandidateByAddress(ctx context.Context, req *iotexapi.
 		return nil, 0, err
 	}
 	cand := c.GetCandidateByOwner(owner)
-	if c == nil {
+	if cand == nil {
 		return &iotextypes.CandidateV2{}, c.Height(), nil
 	}
 	return cand.toIoTeXTypes(), c.Height(), nil

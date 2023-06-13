@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package rewarding
 
@@ -571,7 +570,14 @@ func TestStateCheckLegacy(t *testing.T) {
 				require.Equal(tests[useV2].before.Add(tests[useV2].before, tests[useV2].add), acc.balance)
 			}
 			if i == 0 {
+				// grant to existing addr
 				require.NoError(p.grantToAccount(ctx, sm, addr, tests[useV2].add))
+				// grant to new addr
+				newAddr := identityset.Address(4 + useV2)
+				require.NoError(p.grantToAccount(ctx, sm, newAddr, tests[useV2].add))
+				_, err = p.state(ctx, sm, append(_adminKey, newAddr.Bytes()...), &acc)
+				require.NoError(err)
+				require.Equal(acc.balance, tests[useV2].add)
 			}
 		}
 

@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package action
 
@@ -85,8 +84,10 @@ func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 			}
 			response, err := apiServiceClient.GetActions(ctx, requestGetAction)
 			if err != nil {
-				sta, ok := status.FromError(err)
-				if ok {
+				if sta, ok := status.FromError(err); ok {
+					if sta.Code() == codes.Unavailable {
+						return ioctl.ErrInvalidEndpointOrInsecure
+					}
 					return errors.New(sta.Message())
 				}
 				return errors.Wrap(err, "failed to invoke GetActions api")
@@ -99,10 +100,12 @@ func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 			requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
 			responseReceipt, err := apiServiceClient.GetReceiptByAction(ctx, requestGetReceipt)
 			if err != nil {
-				sta, ok := status.FromError(err)
-				if ok && sta.Code() == codes.NotFound {
-					message.State = Pending
-				} else if ok {
+				if sta, ok := status.FromError(err); ok {
+					if sta.Code() == codes.NotFound {
+						message.State = Pending
+					} else if sta.Code() == codes.Unavailable {
+						return ioctl.ErrInvalidEndpointOrInsecure
+					}
 					return errors.New(sta.Message())
 				}
 				return errors.Wrap(err, "failed to invoke GetReceiptByAction api")

@@ -1,14 +1,13 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package factory
 
 import (
 	"context"
-	"math/rand"
+	"math/big"
 	"testing"
 	"time"
 
@@ -18,10 +17,12 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -48,7 +49,7 @@ func (s *testString) Deserialize(v []byte) error {
 
 func newFactoryWorkingSet(t testing.TB) *workingSet {
 	r := require.New(t)
-	sf, err := NewFactory(config.Default, InMemTrieOption())
+	sf, err := NewFactory(DefaultConfig, db.NewMemKVStore())
 	r.NoError(err)
 
 	ctx := genesis.WithGenesisContext(
@@ -65,7 +66,7 @@ func newFactoryWorkingSet(t testing.TB) *workingSet {
 
 func newStateDBWorkingSet(t testing.TB) *workingSet {
 	r := require.New(t)
-	sf, err := NewStateDB(config.Default, InMemStateDBOption())
+	sf, err := NewStateDB(DefaultConfig, db.NewMemKVStore())
 	r.NoError(err)
 
 	ctx := genesis.WithGenesisContext(
@@ -184,40 +185,61 @@ func TestWorkingSet_Dock(t *testing.T) {
 }
 
 func TestWorkingSet_ValidateBlock(t *testing.T) {
+	require := require.New(t)
+	registry := protocol.NewRegistry()
+	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
+	cfg := Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.TestDefault(),
+	}
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100000000"
 	var (
-		require    = require.New(t)
-		f1, _      = NewFactory(config.Default, InMemTrieOption())
-		f2, _      = NewStateDB(config.Default, InMemStateDBOption())
-		factories  = []Factory{f1, f2}
-		digestHash = hash.Hash256b([]byte{65, 99, 99, 111, 117, 110, 116, 99, 117, 114, 114,
-			101, 110, 116, 72, 101, 105, 103, 104, 116, 1, 0, 0, 0, 0, 0, 0, 0})
-		tests = []struct {
+		f1, _          = NewFactory(cfg, db.NewMemKVStore(), RegistryOption(registry))
+		f2, _          = NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+		factories      = []Factory{f1, f2}
+		digestHash, _  = hash.HexStringToHash256("43f69c954ea0138917d69a01f7ba47da74c99cb2c6229f5969a7f0bf53efb775")
+		receiptRoot, _ = hash.HexStringToHash256("b8aaff4d845664a7a3f341f677365dafcdae0ae99a7fea821c7cc42c320acefe")
+		tests          = []struct {
 			block *block.Block
 			err   error
 		}{
-			{makeBlock(t, 1, hash.ZeroHash256, digestHash), nil},
 			{
-				makeBlock(t, 3, hash.ZeroHash256, digestHash),
+				makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, makeTransferAction(t, 1)),
+				nil,
+			},
+			{
+				makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, makeTransferAction(t, 3)),
 				action.ErrNonceTooHigh,
 			},
 			{
-				makeBlock(t, 1, hash.Hash256b([]byte("test")), digestHash),
+				makeBlock(t, hash.ZeroHash256, hash.Hash256b([]byte("test")), digestHash, makeTransferAction(t, 1)),
 				block.ErrReceiptRootMismatch,
 			},
 			{
-				makeBlock(t, 1, hash.ZeroHash256, hash.Hash256b([]byte("test"))),
+				makeBlock(t, hash.ZeroHash256, receiptRoot, hash.Hash256b([]byte("test")), makeTransferAction(t, 1)),
 				block.ErrDeltaStateMismatch,
 			},
 		}
 	)
-	gasLimit := testutil.TestGasLimit * 100000
+
+	ctx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+		protocol.BlockCtx{},
+	)
+	require.NoError(f1.Start(ctx))
+	require.NoError(f2.Start(ctx))
+	defer func() {
+		require.NoError(f1.Stop(ctx))
+		require.NoError(f2.Stop(ctx))
+	}()
+
 	zctx := protocol.WithBlockCtx(context.Background(),
 		protocol.BlockCtx{
 			BlockHeight: uint64(1),
 			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
+			GasLimit:    testutil.TestGasLimit * 100000,
 		})
-	zctx = genesis.WithGenesisContext(zctx, genesis.Default)
+	zctx = genesis.WithGenesisContext(zctx, cfg.Genesis)
 	zctx = protocol.WithFeatureCtx(protocol.WithBlockchainCtx(zctx, protocol.BlockchainCtx{
 		ChainID: 1,
 	}))
@@ -228,17 +250,112 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 	}
 }
 
-func makeBlock(t *testing.T, nonce uint64, rootHash hash.Hash256, digest hash.Hash256) *block.Block {
-	rand.Seed(time.Now().Unix())
-	var sevlps []action.SealedEnvelope
-	r := rand.Int()
+func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
+	require := require.New(t)
+	cfg := Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.TestDefault(),
+	}
+	cfg.Genesis.QuebecBlockHeight = 1 // enable validate system action
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100000000"
+	registry := protocol.NewRegistry()
+	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
+	require.NoError(rewarding.NewProtocol(cfg.Genesis.Rewarding).Register(registry))
+	var (
+		f1, _     = NewFactory(cfg, db.NewMemKVStore(), RegistryOption(registry))
+		f2, _     = NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+		factories = []Factory{f1, f2}
+	)
+
+	ctx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+		protocol.BlockCtx{},
+	)
+	require.NoError(f1.Start(ctx))
+	require.NoError(f2.Start(ctx))
+	defer func() {
+		require.NoError(f1.Stop(ctx))
+		require.NoError(f2.Stop(ctx))
+	}()
+
+	zctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: uint64(1),
+			Producer:    identityset.Address(27),
+			GasLimit:    testutil.TestGasLimit * 100000,
+		})
+	zctx = genesis.WithGenesisContext(zctx, cfg.Genesis)
+	zctx = protocol.WithFeatureCtx(protocol.WithBlockchainCtx(zctx, protocol.BlockchainCtx{
+		ChainID: 1,
+	}))
+
+	t.Run("missing system action", func(t *testing.T) {
+		digestHash, err := hash.HexStringToHash256("8f9b7694c325a4f4b0065cd382f8af0a4e913113a4ce7ef1ac899f96158c74f4")
+		require.NoError(err)
+		receiptRoot, err := hash.HexStringToHash256("f04673451e31386a8fddfcf7750665bfcf33f239f6c4919430bb11a144e1aa95")
+		require.NoError(err)
+		actions := []action.SealedEnvelope{makeTransferAction(t, 1)}
+		for _, f := range factories {
+			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
+			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
+		}
+	})
+	t.Run("system action not on tail", func(t *testing.T) {
+		digestHash, err := hash.HexStringToHash256("8f9b7694c325a4f4b0065cd382f8af0a4e913113a4ce7ef1ac899f96158c74f4")
+		require.NoError(err)
+		receiptRoot, err := hash.HexStringToHash256("f04673451e31386a8fddfcf7750665bfcf33f239f6c4919430bb11a144e1aa95")
+		require.NoError(err)
+		actions := []action.SealedEnvelope{makeRewardAction(t), makeTransferAction(t, 1)}
+		for _, f := range factories {
+			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
+			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
+		}
+	})
+	t.Run("correct system action", func(t *testing.T) {
+		digestHash, err := hash.HexStringToHash256("ade24a5c647b5af34c4e74fe0d8f1fa410f6fb115f8fc2d39e45ca2f895de9ca")
+		require.NoError(err)
+		receiptRoot, err := hash.HexStringToHash256("a59bd06fe4d2bb537895f170dec1f9213045cb13480e4941f1abdc8d13b16fae")
+		require.NoError(err)
+		actions := []action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t)}
+		for _, f := range factories {
+			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
+			require.ErrorIs(f.Validate(zctx, block), nil)
+		}
+	})
+	t.Run("postiche system action", func(t *testing.T) {
+		digestHash, err := hash.HexStringToHash256("ade24a5c647b5af34c4e74fe0d8f1fa410f6fb115f8fc2d39e45ca2f895de9ca")
+		require.NoError(err)
+		receiptRoot, err := hash.HexStringToHash256("a59bd06fe4d2bb537895f170dec1f9213045cb13480e4941f1abdc8d13b16fae")
+		require.NoError(err)
+		actions := []action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t), makeRewardAction(t)}
+		for _, f := range factories {
+			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
+			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
+		}
+	})
+	t.Run("inconsistent system action", func(t *testing.T) {
+		digestHash, err := hash.HexStringToHash256("8f9b7694c325a4f4b0065cd382f8af0a4e913113a4ce7ef1ac899f96158c74f4")
+		require.NoError(err)
+		receiptRoot, err := hash.HexStringToHash256("f04673451e31386a8fddfcf7750665bfcf33f239f6c4919430bb11a144e1aa95")
+		require.NoError(err)
+		rewardAct := makeRewardAction(t)
+		rewardAct.SetNonce(2)
+		actions := []action.SealedEnvelope{makeTransferAction(t, 1), rewardAct}
+		for _, f := range factories {
+			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
+			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
+		}
+	})
+}
+
+func makeTransferAction(t *testing.T, nonce uint64) action.SealedEnvelope {
 	tsf, err := action.NewTransfer(
-		uint64(r),
-		unit.ConvertIotxToRau(1000+int64(r)),
-		identityset.Address(r%identityset.Size()).String(),
+		uint64(nonce),
+		big.NewInt(1),
+		identityset.Address(29).String(),
 		nil,
-		20000+uint64(r),
-		unit.ConvertIotxToRau(1+int64(r)),
+		testutil.TestGasLimit,
+		big.NewInt(0),
 	)
 	require.NoError(t, err)
 	eb := action.EnvelopeBuilder{}
@@ -247,20 +364,38 @@ func makeBlock(t *testing.T, nonce uint64, rootHash hash.Hash256, digest hash.Ha
 		SetGasLimit(tsf.GasLimit()).
 		SetGasPrice(tsf.GasPrice()).
 		SetNonce(nonce).
+		SetChainID(1).
 		SetVersion(1).
 		Build()
-	sevlp, err := action.Sign(evlp, identityset.PrivateKey((r+1)%identityset.Size()))
+	sevlp, err := action.Sign(evlp, identityset.PrivateKey(28))
 	require.NoError(t, err)
-	sevlps = append(sevlps, sevlp)
+	return sevlp
+}
+
+func makeRewardAction(t *testing.T) action.SealedEnvelope {
+	gb := action.GrantRewardBuilder{}
+	grant := gb.SetRewardType(action.BlockReward).SetHeight(1).Build()
+	eb2 := action.EnvelopeBuilder{}
+	evlp := eb2.SetNonce(0).
+		SetGasPrice(big.NewInt(0)).
+		SetGasLimit(grant.GasLimit()).
+		SetAction(&grant).
+		Build()
+	sevlp, err := action.Sign(evlp, identityset.PrivateKey(28))
+	require.NoError(t, err)
+	return sevlp
+}
+
+func makeBlock(t *testing.T, prevHash hash.Hash256, receiptRoot hash.Hash256, digest hash.Hash256, actions ...action.SealedEnvelope) *block.Block {
 	rap := block.RunnableActionsBuilder{}
-	ra := rap.AddActions(sevlps...).Build()
+	ra := rap.AddActions(actions...).Build()
 	blk, err := block.NewBuilder(ra).
 		SetHeight(1).
 		SetTimestamp(time.Now()).
 		SetVersion(1).
-		SetReceiptRoot(rootHash).
+		SetReceiptRoot(receiptRoot).
 		SetDeltaStateDigest(digest).
-		SetPrevBlockHash(hash.Hash256b([]byte("test"))).
+		SetPrevBlockHash(prevHash).
 		SignAndBuild(identityset.PrivateKey(0))
 	require.NoError(t, err)
 	return &blk

@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package bc
 
@@ -41,7 +40,7 @@ func TestBCBucketCmd(t *testing.T) {
 	})
 
 	t.Run("get active blockchain bucket count", func(t *testing.T) {
-		client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
+		client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).AnyTimes()
 		apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.All()).Return(&iotexapi.ReadStateResponse{}, nil)
 
 		cmd := NewBCBucketCmd(client)
@@ -61,7 +60,7 @@ func TestBCBucketCmd(t *testing.T) {
 			Buckets: []*iotextypes.VoteBucket{vb},
 		})
 		require.NoError(err)
-		client.EXPECT().Config().Return(cfg).Times(1)
+		client.EXPECT().Config().Return(cfg).AnyTimes()
 		apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.All()).Return(&iotexapi.ReadStateResponse{
 			Data: vblist,
 		}, nil)

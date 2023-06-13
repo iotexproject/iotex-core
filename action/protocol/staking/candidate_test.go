@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package staking
 
@@ -14,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -58,6 +58,15 @@ func TestSer(t *testing.T) {
 	l1 := &CandidateList{}
 	r.NoError(l1.Deserialize(ser))
 	r.Equal(l, l1)
+
+	// empty CandidateList can successfully Serialize/Deserialize
+	var m CandidateList
+	ser, err = m.Serialize()
+	r.NoError(err)
+	r.Equal([]byte{}, ser)
+	var m1 CandidateList
+	r.NoError(m1.Deserialize(ser))
+	r.Nil(m1)
 }
 
 func TestClone(t *testing.T) {
@@ -80,7 +89,7 @@ func TestClone(t *testing.T) {
 	r.False(d.Equal(d2))
 	r.NoError(d.Collision(d2))
 	d.Owner = identityset.Address(0)
-	r.Equal(ErrInvalidCanName, d.Collision(d2))
+	r.Equal(action.ErrInvalidCanName, d.Collision(d2))
 	d.Name = "noconflict"
 	r.Equal(ErrInvalidOperator, d.Collision(d2))
 	d.Operator = identityset.Address(0)
@@ -212,5 +221,154 @@ func TestGetPutCandidate(t *testing.T) {
 		require.NoError(csm.delCandidate(e.d.Owner))
 		_, _, err := csr.getCandidate(e.d.Owner)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
+	}
+}
+
+func TestLess(t *testing.T) {
+	r := require.New(t)
+	pairs := []CandidateList{
+		{
+			&Candidate{
+				Owner:              identityset.Address(6),
+				Operator:           identityset.Address(12),
+				Reward:             identityset.Address(2),
+				Name:               "test6",
+				Votes:              big.NewInt(2),
+				SelfStakeBucketIdx: 0,
+				SelfStake:          unit.ConvertIotxToRau(1100000),
+			},
+			&Candidate{
+				Owner:              identityset.Address(6),
+				Operator:           identityset.Address(12),
+				Reward:             identityset.Address(2),
+				Name:               "test6",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 0,
+				SelfStake:          unit.ConvertIotxToRau(1100000),
+			},
+		},
+		{
+			&Candidate{
+				Owner:              identityset.Address(6),
+				Operator:           identityset.Address(12),
+				Reward:             identityset.Address(2),
+				Name:               "test6",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 0,
+				SelfStake:          unit.ConvertIotxToRau(1100000),
+			},
+			&Candidate{
+				Owner:              identityset.Address(5),
+				Operator:           identityset.Address(12),
+				Reward:             identityset.Address(2),
+				Name:               "test6",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 0,
+				SelfStake:          unit.ConvertIotxToRau(1100000),
+			},
+		},
+		{
+			&Candidate{
+				Owner:              identityset.Address(6),
+				Operator:           identityset.Address(6),
+				Reward:             identityset.Address(2),
+				Name:               "test6",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 0,
+				SelfStake:          unit.ConvertIotxToRau(1100000),
+			},
+			&Candidate{
+				Owner:              identityset.Address(6),
+				Operator:           identityset.Address(5),
+				Reward:             identityset.Address(2),
+				Name:               "test6",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 0,
+				SelfStake:          unit.ConvertIotxToRau(1100000),
+			},
+		},
+		{
+			&Candidate{
+				Owner:              identityset.Address(6),
+				Operator:           identityset.Address(12),
+				Reward:             identityset.Address(6),
+				Name:               "test6",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 0,
+				SelfStake:          unit.ConvertIotxToRau(1100000),
+			},
+			&Candidate{
+				Owner:              identityset.Address(6),
+				Operator:           identityset.Address(12),
+				Reward:             identityset.Address(5),
+				Name:               "test6",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 0,
+				SelfStake:          unit.ConvertIotxToRau(1100000),
+			},
+		},
+		{
+			&Candidate{
+				Owner:              identityset.Address(6),
+				Operator:           identityset.Address(12),
+				Reward:             identityset.Address(6),
+				Name:               "test6",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 0,
+				SelfStake:          unit.ConvertIotxToRau(1100000),
+			},
+			&Candidate{
+				Owner:              identityset.Address(6),
+				Operator:           identityset.Address(12),
+				Reward:             identityset.Address(6),
+				Name:               "test5",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 0,
+				SelfStake:          unit.ConvertIotxToRau(1100000),
+			},
+		},
+		{
+			&Candidate{
+				Owner:              identityset.Address(6),
+				Operator:           identityset.Address(12),
+				Reward:             identityset.Address(6),
+				Name:               "test6",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 1,
+				SelfStake:          unit.ConvertIotxToRau(1100000),
+			},
+			&Candidate{
+				Owner:              identityset.Address(6),
+				Operator:           identityset.Address(12),
+				Reward:             identityset.Address(6),
+				Name:               "test6",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 0,
+				SelfStake:          unit.ConvertIotxToRau(1100000),
+			},
+		},
+		{
+			&Candidate{
+				Owner:              identityset.Address(6),
+				Operator:           identityset.Address(12),
+				Reward:             identityset.Address(6),
+				Name:               "test6",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 0,
+				SelfStake:          unit.ConvertIotxToRau(1100001),
+			},
+			&Candidate{
+				Owner:              identityset.Address(6),
+				Operator:           identityset.Address(12),
+				Reward:             identityset.Address(6),
+				Name:               "test6",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 0,
+				SelfStake:          unit.ConvertIotxToRau(1100000),
+			},
+		},
+	}
+	for _, pair := range pairs {
+		r.True(pair.Less(0, 1))
 	}
 }

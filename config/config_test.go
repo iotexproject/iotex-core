@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package config
 
@@ -361,7 +360,16 @@ func TestValidateForkHeights(t *testing.T) {
 			"LordHowe", ErrInvalidCfg, "LordHowe is heigher than Midway",
 		},
 		{
-			"Newfoundland", ErrInvalidCfg, "Midway is heigher than Newfoundland",
+			"Midway", ErrInvalidCfg, "Midway is heigher than Newfoundland",
+		},
+		{
+			"Newfoundland", ErrInvalidCfg, "Newfoundland is heigher than Okhotsk",
+		},
+		{
+			"Okhotsk", ErrInvalidCfg, "Okhotsk is heigher than Palau",
+		},
+		{
+			"Palau", ErrInvalidCfg, "Palau is heigher than Quebec",
 		},
 		{
 			"", nil, "",
@@ -409,8 +417,14 @@ func newTestCfg(fork string) Config {
 		cfg.Genesis.KamchatkaBlockHeight = cfg.Genesis.LordHoweBlockHeight + 1
 	case "LordHowe":
 		cfg.Genesis.LordHoweBlockHeight = cfg.Genesis.MidwayBlockHeight + 1
-	case "Newfoundland":
+	case "Midway":
 		cfg.Genesis.MidwayBlockHeight = cfg.Genesis.NewfoundlandBlockHeight + 1
+	case "Newfoundland":
+		cfg.Genesis.NewfoundlandBlockHeight = cfg.Genesis.OkhotskBlockHeight + 1
+	case "Okhotsk":
+		cfg.Genesis.OkhotskBlockHeight = cfg.Genesis.PalauBlockHeight + 1
+	case "Palau":
+		cfg.Genesis.PalauBlockHeight = cfg.Genesis.QuebecBlockHeight + 1
 	}
 	return cfg
 }

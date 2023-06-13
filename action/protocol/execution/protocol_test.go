@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package execution
 
@@ -401,7 +400,13 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.IcelandBlockHeight = 0
 	}
 	if sct.InitGenesis.IsLondon {
-		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 0
+		// London is enabled at okhotsk height
+		cfg.Genesis.Blockchain.JutlandBlockHeight = 0
+		cfg.Genesis.Blockchain.KamchatkaBlockHeight = 0
+		cfg.Genesis.Blockchain.LordHoweBlockHeight = 0
+		cfg.Genesis.Blockchain.MidwayBlockHeight = 0
+		cfg.Genesis.Blockchain.NewfoundlandBlockHeight = 0
+		cfg.Genesis.Blockchain.OkhotskBlockHeight = 0
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
@@ -413,14 +418,19 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(rp.Register(registry))
 	// create state factory
 	var sf factory.Factory
+	var daoKV db.KVStore
+
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	if cfg.Chain.EnableTrielessStateDB {
 		if cfg.Chain.EnableStateDBCaching {
-			sf, err = factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+			daoKV, err = db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 		} else {
-			sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+			daoKV, err = db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 		}
+		r.NoError(err)
+		sf, err = factory.NewStateDB(factoryCfg, daoKV, factory.RegistryStateDBOption(registry))
 	} else {
-		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+		sf, err = factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	}
 	r.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
@@ -445,7 +455,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	execution := NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	execution := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
 
@@ -595,7 +605,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require := require.New(t)
 	p := NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, rewarding.DepositGas)
+	}, rewarding.DepositGasWithSGD, nil)
 
 	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), make([]byte, 32684))
 	require.NoError(err)
@@ -639,8 +649,11 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(acc.Register(registry))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
+		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+		db2, err := db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+		require.NoError(err)
 		// create state factory
-		sf, err := factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+		sf, err := factory.NewStateDB(factoryCfg, db2, factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)
@@ -662,7 +675,7 @@ func TestProtocol_Handle(t *testing.T) {
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
 		)
-		exeProtocol := NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+		exeProtocol := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
 		require.NoError(exeProtocol.Register(registry))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
@@ -1034,11 +1047,63 @@ func TestIstanbulEVM(t *testing.T) {
 	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
 	})
+	t.Run("err-write-protection", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/write-protection.json")
+	})
+	t.Run("err-write-protection-twice-delta-0", func(t *testing.T) {
+		// hit errWriteProtection 2 times, delta is 0
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-001.json")
+	})
+	t.Run("err-write-protection-once-delta-0", func(t *testing.T) {
+		// hit errWriteProtection 1 times, delta is 0
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-002.json")
+	})
+	t.Run("err-write-protection-twice-delta-0-0", func(t *testing.T) {
+		// hit errWriteProtection twice, delta is not 0
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-003.json")
+	})
+	t.Run("err-write-protection-twice-delta-0-1", func(t *testing.T) {
+		// hit errWriteProtection twice, first delta is not 0, second delta is 0
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-004.json")
+	})
+	t.Run("err-write-protection-once-delta-1", func(t *testing.T) {
+		// hit errWriteProtection once, delta is not 0,but no revert
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-005.json")
+	})
+	t.Run("err-write-protection-twice-delta-1-1", func(t *testing.T) {
+		// hit errWriteProtection twice,, first delta is not 0, second delta is not 0, no revert
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-006.json")
+	})
+	t.Run("err-write-protection-twice-delta-0-1", func(t *testing.T) {
+		// hit errWriteProtection twice,, first delta is 0, second delta is not 0, no revert
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-007.json")
+	})
+	t.Run("err-write-protection-call-staticcall-revrt", func(t *testing.T) {
+		// call -> staticcall -> revrt
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-008.json")
+	})
+	t.Run("err-write-protection-staticcall-staticcall-revrt", func(t *testing.T) {
+		// staticcall -> staticcall -> revrt
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-009.json")
+	})
+	t.Run("err-write-protection-staticcall-staticcall-revrt-1", func(t *testing.T) {
+		// staticcall -> staticcall -> revrt twice
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-010.json")
+	})
+	t.Run("iip15-manager test", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/iip15-manager.json")
+	})
 }
 
 func TestLondonEVM(t *testing.T) {
+	t.Run("factory", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/factory.json")
+	})
 	t.Run("ArrayReturn", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/array-return.json")
+	})
+	t.Run("BaseFee", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/basefee.json")
 	})
 	t.Run("BasicToken", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/basic-token.json")

@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package api
 
@@ -16,12 +15,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -39,8 +37,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/api/logfilter"
+	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/recovery"
@@ -198,19 +196,19 @@ func (svr *gRPCHandler) GetActions(ctx context.Context, in *iotexapi.GetActionsR
 		ret, err = svr.coreService.UnconfirmedActionsByAddress(request.Address, request.Start, request.Count)
 	case in.GetByBlk() != nil:
 		var (
-			request  = in.GetByBlk()
-			blkStore *block.Store
+			request = in.GetByBlk()
+			blk     *apitypes.BlockWithReceipts
 		)
-		blkStore, err = svr.coreService.BlockByHash(request.BlkHash)
+		blk, err = svr.coreService.BlockByHash(request.BlkHash)
 		if err != nil {
 			break
 		}
-		ret, err = actionsInBlock(blkStore.Block, blkStore.Receipts, request.Start, request.Count)
+		ret, err = actionsInBlock(blk.Block, blk.Receipts, request.Start, request.Count)
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetActionsRequest type")
 	}
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	return &iotexapi.GetActionsResponse{
 		Total:      uint64(len(ret)),
@@ -268,25 +266,27 @@ func actionsInBlock(blk *block.Block, receipts []*action.Receipt, start, count u
 
 // GetBlockMetas returns block metadata
 func (svr *gRPCHandler) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockMetasRequest) (*iotexapi.GetBlockMetasResponse, error) {
-	var (
-		ret []*iotextypes.BlockMeta
-		err error
-	)
+	var ret []*iotextypes.BlockMeta
 	switch {
 	case in.GetByIndex() != nil:
 		request := in.GetByIndex()
-		ret, err = svr.coreService.BlockMetas(request.Start, request.Count)
+		blkStores, err := svr.coreService.BlockByHeightRange(request.Start, request.Count)
+		if err != nil {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		for _, blkStore := range blkStores {
+			ret = append(ret, generateBlockMeta(blkStore))
+		}
 	case in.GetByHash() != nil:
-		var blkMeta *iotextypes.BlockMeta
-		request := in.GetByHash()
-		blkMeta, err = svr.coreService.BlockMetaByHash(request.BlkHash)
-		ret = []*iotextypes.BlockMeta{blkMeta}
+		blk, err := svr.coreService.BlockByHash(in.GetByHash().BlkHash)
+		if err != nil {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		ret = []*iotextypes.BlockMeta{generateBlockMeta(blk)}
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetBlockMetasRequest type")
 	}
-	if err != nil {
-		return nil, err
-	}
+
 	return &iotexapi.GetBlockMetasResponse{
 		Total:    uint64(len(ret)),
 		BlkMetas: ret,
@@ -546,8 +546,8 @@ func (svr *gRPCHandler) StreamBlocks(_ *iotexapi.StreamBlocksRequest, stream iot
 	defer close(errChan)
 	chainListener := svr.coreService.ChainListener()
 	if _, err := chainListener.AddResponder(NewGRPCBlockListener(
-		func(resp interface{}) error {
-			return stream.Send(resp.(*iotexapi.StreamBlocksResponse))
+		func(resp interface{}) (int, error) {
+			return 0, stream.Send(resp.(*iotexapi.StreamBlocksResponse))
 		},
 		errChan,
 	)); err != nil {
@@ -570,8 +570,8 @@ func (svr *gRPCHandler) StreamLogs(in *iotexapi.StreamLogsRequest, stream iotexa
 	chainListener := svr.coreService.ChainListener()
 	if _, err := chainListener.AddResponder(NewGRPCLogListener(
 		logfilter.NewLogFilter(in.GetFilter()),
-		func(in interface{}) error {
-			return stream.Send(in.(*iotexapi.StreamLogsResponse))
+		func(in interface{}) (int, error) {
+			return 0, stream.Send(in.(*iotexapi.StreamLogsResponse))
 		},
 		errChan,
 	)); err != nil {
@@ -656,32 +656,18 @@ func (svr *gRPCHandler) ReadContractStorage(ctx context.Context, in *iotexapi.Re
 
 // TraceTransactionStructLogs get trace transaction struct logs
 func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iotexapi.TraceTransactionStructLogsRequest) (*iotexapi.TraceTransactionStructLogsResponse, error) {
-	actInfo, err := svr.coreService.Action(util.Remove0xPrefix(in.GetActionHash()), false)
+	cfg := &logger.Config{
+		EnableMemory:     true,
+		DisableStack:     false,
+		DisableStorage:   false,
+		EnableReturnData: true,
+	}
+	_, _, traces, err := svr.coreService.TraceTransaction(ctx, in.GetActionHash(), cfg)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
-	act, err := (&action.Deserializer{}).SetEvmNetworkID(svr.coreService.EVMNetworkID()).ActionToSealedEnvelope(actInfo.Action)
-	if err != nil {
-		return nil, err
-	}
-	sc, ok := act.Action().(*action.Execution)
-	if !ok {
-		return nil, status.Error(codes.InvalidArgument, "the type of action is not supported")
-	}
-	tracer := vm.NewStructLogger(nil)
-	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
-		Debug:     true,
-		Tracer:    tracer,
-		NoBaseFee: true,
-	})
-
-	_, _, err = svr.coreService.SimulateExecution(ctx, act.SenderAddress(), sc)
-	if err != nil {
-		return nil, err
-	}
-
 	structLogs := make([]*iotextypes.TransactionStructLog, 0)
-	for _, log := range tracer.StructLogs() {
+	for _, log := range traces.StructLogs() {
 		var stack []string
 		for _, s := range log.Stack {
 			stack = append(stack, s.String())
@@ -707,7 +693,8 @@ func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iote
 }
 
 // generateBlockMeta generates BlockMeta from block
-func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
+func generateBlockMeta(blkStore *apitypes.BlockWithReceipts) *iotextypes.BlockMeta {
+	blk := blkStore.Block
 	header := blk.Header
 	height := header.Height()
 	ts := timestamppb.New(header.Timestamp())
@@ -741,6 +728,17 @@ func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
 	}
 	blockMeta.NumActions = int64(len(blk.Actions))
 	blockMeta.TransferAmount = blk.CalculateTransferAmount().String()
-	blockMeta.GasLimit, blockMeta.GasUsed = gasLimitAndUsed(blk)
+	blockMeta.GasLimit, blockMeta.GasUsed = gasLimitAndUsed(blk.Actions, blkStore.Receipts)
 	return &blockMeta
+}
+
+func gasLimitAndUsed(acts []action.SealedEnvelope, receipts []*action.Receipt) (uint64, uint64) {
+	var gasLimit, gasUsed uint64
+	for _, tx := range acts {
+		gasLimit += tx.GasLimit()
+	}
+	for _, r := range receipts {
+		gasUsed += r.GasConsumed
+	}
+	return gasLimit, gasUsed
 }

@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package blockindex
 
@@ -21,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -214,7 +212,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 
 	testIndexer := func(kvStore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		cfg := config.Default.Indexer
+		cfg := DefaultConfig
 		cfg.RangeBloomFilterNumElements = 16
 		cfg.RangeBloomFilterSize = 4096
 		cfg.RangeBloomFilterNumHash = 4
@@ -276,7 +274,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 func BenchmarkBloomfilterIndexer(b *testing.B) {
 	require := require.New(b)
 
-	indexerCfg := config.Default.Indexer
+	indexerCfg := DefaultConfig
 	indexerCfg.RangeBloomFilterNumElements = 16
 	indexerCfg.RangeBloomFilterSize = 4096
 	indexerCfg.RangeBloomFilterNumHash = 4

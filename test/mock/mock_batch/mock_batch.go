@@ -86,20 +86,15 @@ func (mr *MockKVStoreBatchMockRecorder) ClearAndUnlock() *gomock.Call {
 }
 
 // Delete mocks base method.
-func (m *MockKVStoreBatch) Delete(arg0 string, arg1 []byte, arg2 string, arg3 ...interface{}) {
+func (m *MockKVStoreBatch) Delete(arg0 string, arg1 []byte, arg2 string) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1, arg2}
-	for _, a := range arg3 {
-		varargs = append(varargs, a)
-	}
-	m.ctrl.Call(m, "Delete", varargs...)
+	m.ctrl.Call(m, "Delete", arg0, arg1, arg2)
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockKVStoreBatchMockRecorder) Delete(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+func (mr *MockKVStoreBatchMockRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockKVStoreBatch)(nil).Delete), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockKVStoreBatch)(nil).Delete), arg0, arg1, arg2)
 }
 
 // Entry mocks base method.
@@ -130,20 +125,15 @@ func (mr *MockKVStoreBatchMockRecorder) Lock() *gomock.Call {
 }
 
 // Put mocks base method.
-func (m *MockKVStoreBatch) Put(arg0 string, arg1, arg2 []byte, arg3 string, arg4 ...interface{}) {
+func (m *MockKVStoreBatch) Put(arg0 string, arg1, arg2 []byte, arg3 string) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1, arg2, arg3}
-	for _, a := range arg4 {
-		varargs = append(varargs, a)
-	}
-	m.ctrl.Call(m, "Put", varargs...)
+	m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3)
 }
 
 // Put indicates an expected call of Put.
-func (mr *MockKVStoreBatchMockRecorder) Put(arg0, arg1, arg2, arg3 interface{}, arg4 ...interface{}) *gomock.Call {
+func (mr *MockKVStoreBatchMockRecorder) Put(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1, arg2, arg3}, arg4...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockKVStoreBatch)(nil).Put), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockKVStoreBatch)(nil).Put), arg0, arg1, arg2, arg3)
 }
 
 // SerializeQueue mocks base method.
@@ -275,20 +265,15 @@ func (mr *MockCachedBatchMockRecorder) ClearAndUnlock() *gomock.Call {
 }
 
 // Delete mocks base method.
-func (m *MockCachedBatch) Delete(arg0 string, arg1 []byte, arg2 string, arg3 ...interface{}) {
+func (m *MockCachedBatch) Delete(arg0 string, arg1 []byte, arg2 string) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1, arg2}
-	for _, a := range arg3 {
-		varargs = append(varargs, a)
-	}
-	m.ctrl.Call(m, "Delete", varargs...)
+	m.ctrl.Call(m, "Delete", arg0, arg1, arg2)
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockCachedBatchMockRecorder) Delete(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+func (mr *MockCachedBatchMockRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockCachedBatch)(nil).Delete), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockCachedBatch)(nil).Delete), arg0, arg1, arg2)
 }
 
 // Entry mocks base method.
@@ -334,20 +319,15 @@ func (mr *MockCachedBatchMockRecorder) Lock() *gomock.Call {
 }
 
 // Put mocks base method.
-func (m *MockCachedBatch) Put(arg0 string, arg1, arg2 []byte, arg3 string, arg4 ...interface{}) {
+func (m *MockCachedBatch) Put(arg0 string, arg1, arg2 []byte, arg3 string) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1, arg2, arg3}
-	for _, a := range arg4 {
-		varargs = append(varargs, a)
-	}
-	m.ctrl.Call(m, "Put", varargs...)
+	m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3)
 }
 
 // Put indicates an expected call of Put.
-func (mr *MockCachedBatchMockRecorder) Put(arg0, arg1, arg2, arg3 interface{}, arg4 ...interface{}) *gomock.Call {
+func (mr *MockCachedBatchMockRecorder) Put(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1, arg2, arg3}, arg4...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockCachedBatch)(nil).Put), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockCachedBatch)(nil).Put), arg0, arg1, arg2, arg3)
 }
 
 // ResetSnapshots mocks base method.

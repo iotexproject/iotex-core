@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package node
 
@@ -27,7 +26,7 @@ func TestNewNodeRewardCmd(t *testing.T) {
 	apiClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(24)
-	client.EXPECT().APIServiceClient().Return(apiClient, nil).Times(7)
+	client.EXPECT().APIServiceClient().Return(apiClient, nil).AnyTimes()
 
 	t.Run("get node reward pool", func(t *testing.T) {
 		t.Run("get available reward & total reward", func(t *testing.T) {

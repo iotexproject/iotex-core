@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package actpool
 
@@ -10,13 +9,14 @@ import (
 	"context"
 	"encoding/hex"
 	"sort"
-	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
@@ -28,6 +28,11 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
+)
+
+const (
+	// TODO: move to config
+	_numWorker = 16
 )
 
 var (
@@ -82,28 +87,19 @@ func (p SortedActions) Less(i, j int) bool { return p[i].Nonce() < p[j].Nonce() 
 // Option sets action pool construction parameter
 type Option func(pool *actPool) error
 
-// EnableExperimentalActions enables the action pool to take experimental actions
-func EnableExperimentalActions() Option {
-	return func(pool *actPool) error {
-		pool.enableExperimentalActions = true
-		return nil
-	}
-}
-
 // actPool implements ActPool interface
 type actPool struct {
-	mutex                     sync.RWMutex
-	cfg                       Config
-	g                         genesis.Genesis
-	sf                        protocol.StateReader
-	accountActs               map[string]ActQueue
-	accountDesActs            map[string]map[hash.Hash256]action.SealedEnvelope
-	allActions                map[hash.Hash256]action.SealedEnvelope
-	gasInPool                 uint64
-	actionEnvelopeValidators  []action.SealedEnvelopeValidator
-	timerFactory              *prometheustimer.TimerFactory
-	enableExperimentalActions bool
-	senderBlackList           map[string]bool
+	cfg                      Config
+	g                        genesis.Genesis
+	sf                       protocol.StateReader
+	accountDesActs           *destinationMap
+	allActions               *ttl.Cache
+	gasInPool                uint64
+	actionEnvelopeValidators []action.SealedEnvelopeValidator
+	timerFactory             *prometheustimer.TimerFactory
+	senderBlackList          map[string]bool
+	jobQueue                 []chan workerJob
+	worker                   []*queueWorker
 }
 
 // NewActPool constructs a new actpool
@@ -117,14 +113,16 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 		senderBlackList[bannedSender] = true
 	}
 
+	actsMap, _ := ttl.NewCache()
 	ap := &actPool{
 		cfg:             cfg,
 		g:               g,
 		sf:              sf,
 		senderBlackList: senderBlackList,
-		accountActs:     make(map[string]ActQueue),
-		accountDesActs:  make(map[string]map[hash.Hash256]action.SealedEnvelope),
-		allActions:      make(map[hash.Hash256]action.SealedEnvelope),
+		accountDesActs:  &destinationMap{acts: make(map[string]map[hash.Hash256]action.SealedEnvelope)},
+		allActions:      actsMap,
+		jobQueue:        make([]chan workerJob, _numWorker),
+		worker:          make([]*queueWorker, _numWorker),
 	}
 	for _, opt := range opts {
 		if err := opt(ap); err != nil {
@@ -141,6 +139,14 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 		return nil, err
 	}
 	ap.timerFactory = timerFactory
+
+	for i := 0; i < _numWorker; i++ {
+		ap.jobQueue[i] = make(chan workerJob, ap.cfg.MaxNumActsPerAcct)
+		ap.worker[i] = newQueueWorker(ap, ap.jobQueue[i])
+		if err := ap.worker[i].Start(); err != nil {
+			return nil, err
+		}
+	}
 	return ap, nil
 }
 
@@ -157,100 +163,154 @@ func (ap *actPool) AddActionEnvelopeValidators(fs ...action.SealedEnvelopeValida
 // Then starting from the current confirmed nonce, iteratively update pending nonce if nonces are consecutive and pending
 // balance is sufficient, and remove all the subsequent actions once the pending balance becomes insufficient
 func (ap *actPool) Reset() {
-	ap.mutex.Lock()
-	defer ap.mutex.Unlock()
-
 	ap.reset()
 }
 
-func (ap *actPool) ReceiveBlock(*block.Block) error {
-	ap.mutex.Lock()
-	defer ap.mutex.Unlock()
+func (ap *actPool) reset() {
+	var (
+		wg  sync.WaitGroup
+		ctx = ap.context(context.Background())
+	)
+	for i := range ap.worker {
+		wg.Add(1)
+		go func(worker *queueWorker) {
+			defer wg.Done()
+			worker.Reset(ctx)
+		}(ap.worker[i])
+	}
+	wg.Wait()
+}
 
+func (ap *actPool) ReceiveBlock(*block.Block) error {
 	ap.reset()
 	return nil
 }
 
-// PendingActionIterator returns an action interator with all accepted actions
+// PendingActionMap returns an action interator with all accepted actions
 func (ap *actPool) PendingActionMap() map[string][]action.SealedEnvelope {
-	ap.mutex.Lock()
-	defer ap.mutex.Unlock()
-
-	// Remove the actions that are already timeout
-	ap.reset()
-
-	ctx := ap.context(context.Background())
-	actionMap := make(map[string][]action.SealedEnvelope)
-	for from, queue := range ap.accountActs {
-		actionMap[from] = append(actionMap[from], queue.PendingActs(ctx)...)
+	var (
+		wg             sync.WaitGroup
+		actsFromWorker = make([][]*pendingActions, _numWorker)
+		ctx            = ap.context(context.Background())
+		totalAccounts  = uint64(0)
+	)
+	for i := range ap.worker {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			actsFromWorker[i] = ap.worker[i].PendingActions(ctx)
+			atomic.AddUint64(&totalAccounts, uint64(len(actsFromWorker[i])))
+		}(i)
 	}
-	return actionMap
+	wg.Wait()
+
+	ret := make(map[string][]action.SealedEnvelope, totalAccounts)
+	for _, v := range actsFromWorker {
+		for _, w := range v {
+			ret[w.sender] = w.acts
+		}
+	}
+	return ret
 }
 
 func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
-	ap.mutex.Lock()
-	defer ap.mutex.Unlock()
-
 	ctx, span := tracer.NewSpan(ap.context(ctx), "actPool.Add")
 	defer span.End()
+	ctx = ap.context(ctx)
+
+	// system action is only added by proposer when creating a block
+	if action.IsSystemAction(act) {
+		return action.ErrInvalidAct
+	}
+
+	if err := checkSelpData(&act); err != nil {
+		return err
+	}
+
+	if err := ap.checkSelpWithoutState(ctx, &act); err != nil {
+		return err
+	}
 
 	// Reject action if pool space is full
-	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
+	if uint64(ap.allActions.Count()) >= ap.cfg.MaxNumActsPerPool {
 		_actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
 		return action.ErrTxPoolOverflow
 	}
-	span.AddEvent("act.IntrinsicGas")
-	intrinsicGas, err := act.IntrinsicGas()
-	if err != nil {
-		_actpoolMtc.WithLabelValues("failedGetIntrinsicGas").Inc()
-		return err
-	}
-	if ap.gasInPool+intrinsicGas > ap.cfg.MaxGasLimitPerPool {
+
+	if intrinsicGas, _ := act.IntrinsicGas(); atomic.LoadUint64(&ap.gasInPool)+intrinsicGas > ap.cfg.MaxGasLimitPerPool {
 		_actpoolMtc.WithLabelValues("overMaxGasLimitPerPool").Inc()
 		return action.ErrGasLimit
 	}
-	hash, err := act.Hash()
+
+	return ap.enqueue(ctx, act)
+}
+
+func checkSelpData(act *action.SealedEnvelope) error {
+	_, err := act.IntrinsicGas()
 	if err != nil {
 		return err
 	}
+	_, err = act.Hash()
+	if err != nil {
+		return err
+	}
+	_, err = act.Cost()
+	if err != nil {
+		return err
+	}
+	if act.SrcPubkey() == nil {
+		return action.ErrAddress
+	}
+	return nil
+}
+
+func (ap *actPool) checkSelpWithoutState(ctx context.Context, selp *action.SealedEnvelope) error {
+	span := tracer.SpanFromContext(ctx)
+	span.AddEvent("actPool.checkSelpWithoutState")
+	defer span.End()
+
+	hash, _ := selp.Hash()
 	// Reject action if it already exists in pool
-	if _, exist := ap.allActions[hash]; exist {
+	if _, exist := ap.allActions.Get(hash); exist {
 		_actpoolMtc.WithLabelValues("existedAction").Inc()
 		return action.ErrExistedInPool
 	}
+
 	// Reject action if the gas price is lower than the threshold
-	if act.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
+	if selp.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
 		_actpoolMtc.WithLabelValues("gasPriceLower").Inc()
+		actHash, _ := selp.Hash()
 		log.L().Info("action rejected due to low gas price",
-			zap.String("actionHash", hex.EncodeToString(hash[:])),
-			zap.String("gasPrice", act.GasPrice().String()))
+			zap.String("actionHash", hex.EncodeToString(actHash[:])),
+			zap.String("gasPrice", selp.GasPrice().String()))
 		return action.ErrUnderpriced
 	}
-	if err := ap.validate(ctx, act); err != nil {
-		return err
+
+	if _, ok := ap.senderBlackList[selp.SenderAddress().String()]; ok {
+		_actpoolMtc.WithLabelValues("blacklisted").Inc()
+		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
 
-	caller := act.SenderAddress()
-	if caller == nil {
-		return action.ErrAddress
+	for _, ev := range ap.actionEnvelopeValidators {
+		span.AddEvent("ev.Validate")
+		if err := ev.Validate(ctx, *selp); err != nil {
+			return err
+		}
 	}
-	return ap.enqueueAction(ctx, caller, act, hash, act.Nonce())
+	return nil
 }
 
 // GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address
-func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
-	addrStr, err := address.FromString(addr)
+func (ap *actPool) GetPendingNonce(addrStr string) (uint64, error) {
+	addr, err := address.FromString(addrStr)
 	if err != nil {
 		return 0, err
 	}
-	ap.mutex.RLock()
-	defer ap.mutex.RUnlock()
-
-	if queue, ok := ap.accountActs[addr]; ok {
+	if queue := ap.worker[ap.allocatedWorker(addr)].GetQueue(addr); queue != nil {
 		return queue.PendingNonce(), nil
 	}
 	ctx := ap.context(context.Background())
-	confirmedState, err := accountutil.AccountState(ctx, ap.sf, addrStr)
+	confirmedState, err := accountutil.AccountState(ctx, ap.sf, addr)
 	if err != nil {
 		return 0, err
 	}
@@ -258,44 +318,32 @@ func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
 }
 
 // GetUnconfirmedActs returns unconfirmed actions in pool given an account address
-func (ap *actPool) GetUnconfirmedActs(addr string) []action.SealedEnvelope {
-	ap.mutex.RLock()
-	defer ap.mutex.RUnlock()
+func (ap *actPool) GetUnconfirmedActs(addrStr string) []action.SealedEnvelope {
+	addr, err := address.FromString(addrStr)
+	if err != nil {
+		return []action.SealedEnvelope{}
+	}
+
 	var ret []action.SealedEnvelope
-	if queue, ok := ap.accountActs[addr]; ok {
-		ret = queue.AllActs()
+	if queue := ap.worker[ap.allocatedWorker(addr)].GetQueue(addr); queue != nil {
+		ret = append(ret, queue.AllActs()...)
 	}
-	if desMap, ok := ap.accountDesActs[addr]; ok {
-		if desMap != nil {
-			sortActions := make(SortedActions, 0)
-			for _, v := range desMap {
-				sortActions = append(sortActions, v)
-			}
-			sort.Stable(sortActions)
-			ret = append(ret, sortActions...)
-		}
-	}
+	ret = append(ret, ap.accountDesActs.actionsByDestination(addrStr)...)
 	return ret
 }
 
 // GetActionByHash returns the pending action in pool given action's hash
 func (ap *actPool) GetActionByHash(hash hash.Hash256) (action.SealedEnvelope, error) {
-	ap.mutex.RLock()
-	defer ap.mutex.RUnlock()
-
-	act, ok := ap.allActions[hash]
+	act, ok := ap.allActions.Get(hash)
 	if !ok {
 		return action.SealedEnvelope{}, errors.Wrapf(action.ErrNotFound, "action hash %x does not exist in pool", hash)
 	}
-	return act, nil
+	return act.(action.SealedEnvelope), nil
 }
 
 // GetSize returns the act pool size
 func (ap *actPool) GetSize() uint64 {
-	ap.mutex.RLock()
-	defer ap.mutex.RUnlock()
-
-	return uint64(len(ap.allActions))
+	return uint64(ap.allActions.Count())
 }
 
 // GetCapacity returns the act pool capacity
@@ -305,10 +353,7 @@ func (ap *actPool) GetCapacity() uint64 {
 
 // GetGasSize returns the act pool gas size
 func (ap *actPool) GetGasSize() uint64 {
-	ap.mutex.RLock()
-	defer ap.mutex.RUnlock()
-
-	return ap.gasInPool
+	return atomic.LoadUint64(&ap.gasInPool)
 }
 
 // GetGasCapacity returns the act pool gas capacity
@@ -317,17 +362,14 @@ func (ap *actPool) GetGasCapacity() uint64 {
 }
 
 func (ap *actPool) Validate(ctx context.Context, selp action.SealedEnvelope) error {
-	ap.mutex.RLock()
-	defer ap.mutex.RUnlock()
 	return ap.validate(ctx, selp)
 }
 
 func (ap *actPool) DeleteAction(caller address.Address) {
-	ap.mutex.RLock()
-	defer ap.mutex.RUnlock()
-	pendingActs := ap.accountActs[caller.String()].AllActs()
-	ap.removeInvalidActs(pendingActs)
-	delete(ap.accountActs, caller.String())
+	worker := ap.worker[ap.allocatedWorker(caller)]
+	if pendingActs := worker.ResetAccount(caller); len(pendingActs) != 0 {
+		ap.removeInvalidActs(pendingActs)
+	}
 }
 
 func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) error {
@@ -348,7 +390,7 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 	if err != nil {
 		return err
 	}
-	if _, ok := ap.allActions[selpHash]; ok {
+	if _, ok := ap.allActions.Get(selpHash); ok {
 		return nil
 	}
 	for _, ev := range ap.actionEnvelopeValidators {
@@ -477,42 +519,10 @@ func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 			continue
 		}
 		log.L().Debug("Removed invalidated action.", log.Hex("hash", hash[:]))
-		delete(ap.allActions, hash)
+		ap.allActions.Delete(hash)
 		intrinsicGas, _ := act.IntrinsicGas()
-		ap.subGasFromPool(intrinsicGas)
-		//del actions in destination map
-		ap.deleteAccountDestinationActions(act)
-	}
-}
-
-// deleteAccountDestinationActions just for destination map
-func (ap *actPool) deleteAccountDestinationActions(acts ...action.SealedEnvelope) {
-	for _, act := range acts {
-		hash, err := act.Hash()
-		if err != nil {
-			log.L().Debug("Skipping action due to hash error", zap.Error(err))
-			continue
-		}
-		desAddress, ok := act.Destination()
-		if ok {
-			dst := ap.accountDesActs[desAddress]
-			if dst != nil {
-				delete(dst, hash)
-			}
-		}
-	}
-}
-
-// updateAccount updates queue's status and remove invalidated actions from pool if necessary
-func (ap *actPool) updateAccount(sender string) {
-	queue := ap.accountActs[sender]
-	acts := queue.UpdateQueue(queue.PendingNonce())
-	if len(acts) > 0 {
-		ap.removeInvalidActs(acts)
-	}
-	// Delete the queue entry if it becomes empty
-	if queue.Empty() {
-		delete(ap.accountActs, sender)
+		atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))
+		ap.accountDesActs.delete(act)
 	}
 }
 
@@ -520,33 +530,83 @@ func (ap *actPool) context(ctx context.Context) context.Context {
 	return genesis.WithGenesisContext(ctx, ap.g)
 }
 
-func (ap *actPool) reset() {
-	timer := ap.timerFactory.NewTimer("reset")
-	defer timer.End()
+func (ap *actPool) enqueue(ctx context.Context, act action.SealedEnvelope) error {
+	var errChan = make(chan error) // unused errChan will be garbage-collected
+	ap.jobQueue[ap.allocatedWorker(act.SenderAddress())] <- workerJob{ctx, act, errChan}
 
-	ctx := ap.context(context.Background())
-	// Remove confirmed actions in actpool
-	ap.removeConfirmedActs(ctx)
-	for from, queue := range ap.accountActs {
-		// Reset pending balance for each account
-		addr, _ := address.FromString(from)
-		state, err := accountutil.AccountState(ctx, ap.sf, addr)
-		if err != nil {
-			log.L().Error("Error when resetting actpool state.", zap.Error(err))
-			return
+	for {
+		select {
+		case <-ctx.Done():
+			log.L().Error("enqueue actpool fails", zap.Error(ctx.Err()))
+			return ctx.Err()
+		case ret := <-errChan:
+			return ret
 		}
-		queue.SetPendingBalance(state.Balance)
-
-		// Reset pending nonce and remove invalid actions for each account
-		queue.SetPendingNonce(state.PendingNonce())
-		ap.updateAccount(from)
 	}
 }
 
-func (ap *actPool) subGasFromPool(gas uint64) {
-	if ap.gasInPool < gas {
-		ap.gasInPool = 0
+func (ap *actPool) allocatedWorker(senderAddr address.Address) int {
+	senderBytes := senderAddr.Bytes()
+	var lastByte uint8 = senderBytes[len(senderBytes)-1]
+	return int(lastByte) % _numWorker
+}
+
+type destinationMap struct {
+	mu   sync.Mutex
+	acts map[string]map[hash.Hash256]action.SealedEnvelope
+}
+
+func (des *destinationMap) addAction(act action.SealedEnvelope) error {
+	des.mu.Lock()
+	defer des.mu.Unlock()
+	destn, ok := act.Destination()
+	if !ok {
+		return errors.New("the recipient is empty")
+	}
+	actHash, err := act.Hash()
+	if err != nil {
+		return err
+	}
+	if _, exist := des.acts[destn]; !exist {
+		des.acts[destn] = make(map[hash.Hash256]action.SealedEnvelope)
+	}
+	des.acts[destn][actHash] = act
+	return nil
+}
+
+func (des *destinationMap) actionsByDestination(addr string) []action.SealedEnvelope {
+	des.mu.Lock()
+	defer des.mu.Unlock()
+	desMap, ok := des.acts[addr]
+	if !ok {
+		return []action.SealedEnvelope{}
+	}
+	sortActions := make(SortedActions, 0)
+	for _, v := range desMap {
+		sortActions = append(sortActions, v)
+	}
+	sort.Stable(sortActions)
+	return sortActions
+}
+
+func (des *destinationMap) delete(act action.SealedEnvelope) {
+	des.mu.Lock()
+	defer des.mu.Unlock()
+	desAddress, ok := act.Destination()
+	if !ok {
 		return
 	}
-	ap.gasInPool -= gas
+	hash, err := act.Hash()
+	if err != nil {
+		log.L().Debug("Skipping action due to hash error", zap.Error(err))
+		return
+	}
+	dst, exist := des.acts[desAddress]
+	if !exist {
+		return
+	}
+	delete(dst, hash)
+	if len(dst) == 0 {
+		delete(des.acts, desAddress)
+	}
 }
