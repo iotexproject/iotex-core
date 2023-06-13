@@ -434,7 +434,13 @@ func (eh *contractStakingEventHandler) handleTransferEvent(event eventParam) err
 		return err
 	}
 
-	eh.tokenOwner[tokenID.Uint64()] = to
+	token := tokenID.Uint64()
+	eh.tokenOwner[token] = to
+	if bi, ok := eh.dirty.getBucketInfo(token); ok {
+		bi.Owner = to
+		return eh.dirty.updateBucketInfo(token, bi)
+	}
+
 	return nil
 }
 

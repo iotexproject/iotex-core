@@ -169,7 +169,7 @@ func TestContractStakingIndexerThreadSafe(t *testing.T) {
 		for i := 2; i < 1000; i++ {
 			height := uint64(i)
 			handler := newContractStakingEventHandler(indexer.cache, height)
-			stake(r, handler, owner, delegate, 1, 10, 100, height)
+			stake(r, handler, owner, delegate, int64(i), 10, 100, height)
 			err := indexer.commit(handler)
 			r.NoError(err)
 		}
@@ -293,6 +293,7 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	owner := identityset.Address(0)
 	delegate := identityset.Address(1)
 	height++
+	createHeight := height
 	handler = newContractStakingEventHandler(indexer.cache, height)
 	stake(r, handler, owner, delegate, 1, 10, 100, height)
 	r.NoError(err)
@@ -312,6 +313,16 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.EqualValues(10, indexer.CandidateVotes(delegate).Uint64())
 	r.EqualValues(1, indexer.TotalBucketCount())
 
+	// transfer
+	newOwner := identityset.Address(2)
+	height++
+	handler = newContractStakingEventHandler(indexer.cache, height)
+	transfer(r, handler, newOwner, int64(bucket.Index))
+	r.NoError(indexer.commit(handler))
+	bucket, ok = indexer.Bucket(bucket.Index)
+	r.True(ok)
+	r.EqualValues(newOwner, bucket.Owner)
+
 	// unlock
 	height++
 	handler = newContractStakingEventHandler(indexer.cache, height)
@@ -320,13 +331,13 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	bucket, ok = indexer.Bucket(bucket.Index)
 	r.True(ok)
 	r.EqualValues(1, bucket.Index)
-	r.EqualValues(owner, bucket.Owner)
+	r.EqualValues(newOwner, bucket.Owner)
 	r.EqualValues(delegate, bucket.Candidate)
 	r.EqualValues(10, bucket.StakedAmount.Int64())
 	r.EqualValues(100, bucket.StakedDurationBlockNumber)
 	r.EqualValues(height, bucket.StakeStartBlockHeight)
 	r.False(bucket.AutoStake)
-	r.EqualValues(height-1, bucket.CreateBlockHeight)
+	r.EqualValues(createHeight, bucket.CreateBlockHeight)
 	r.EqualValues(maxBlockNumber, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(_testStakingContractAddress, bucket.ContractAddress)
 	r.EqualValues(10, indexer.CandidateVotes(delegate).Uint64())
@@ -340,13 +351,13 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	bucket, ok = indexer.Bucket(bucket.Index)
 	r.True(ok)
 	r.EqualValues(1, bucket.Index)
-	r.EqualValues(owner, bucket.Owner)
+	r.EqualValues(newOwner, bucket.Owner)
 	r.EqualValues(delegate, bucket.Candidate)
 	r.EqualValues(10, bucket.StakedAmount.Int64())
 	r.EqualValues(10, bucket.StakedDurationBlockNumber)
-	r.EqualValues(height-2, bucket.StakeStartBlockHeight)
+	r.EqualValues(createHeight, bucket.StakeStartBlockHeight)
 	r.True(bucket.AutoStake)
-	r.EqualValues(height-2, bucket.CreateBlockHeight)
+	r.EqualValues(createHeight, bucket.CreateBlockHeight)
 	r.EqualValues(maxBlockNumber, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(_testStakingContractAddress, bucket.ContractAddress)
 	r.EqualValues(10, indexer.CandidateVotes(delegate).Uint64())
@@ -361,13 +372,13 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	bucket, ok = indexer.Bucket(bucket.Index)
 	r.True(ok)
 	r.EqualValues(1, bucket.Index)
-	r.EqualValues(owner, bucket.Owner)
+	r.EqualValues(newOwner, bucket.Owner)
 	r.EqualValues(delegate, bucket.Candidate)
 	r.EqualValues(10, bucket.StakedAmount.Int64())
 	r.EqualValues(10, bucket.StakedDurationBlockNumber)
 	r.EqualValues(height, bucket.StakeStartBlockHeight)
 	r.False(bucket.AutoStake)
-	r.EqualValues(height-3, bucket.CreateBlockHeight)
+	r.EqualValues(createHeight, bucket.CreateBlockHeight)
 	r.EqualValues(height, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(_testStakingContractAddress, bucket.ContractAddress)
 	r.EqualValues(0, indexer.CandidateVotes(delegate).Uint64())
@@ -608,6 +619,14 @@ func expandBucketType(r *require.Assertions, handler *contractStakingEventHandle
 		"tokenId":  big.NewInt(token),
 		"amount":   big.NewInt(amount),
 		"duration": big.NewInt(duration),
+	})
+	r.NoError(err)
+}
+
+func transfer(r *require.Assertions, handler *contractStakingEventHandler, owner address.Address, token int64) {
+	err := handler.handleTransferEvent(eventParam{
+		"to":      common.BytesToAddress(owner.Bytes()),
+		"tokenId": big.NewInt(token),
 	})
 	r.NoError(err)
 }
