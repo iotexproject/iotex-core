@@ -429,18 +429,18 @@ func (eh *contractStakingEventHandler) handleTransferEvent(event eventParam) err
 	if err != nil {
 		return err
 	}
-	tokenID, err := event.IndexedFieldUint256("tokenId")
+	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
 	if err != nil {
 		return err
 	}
 
-	token := tokenID.Uint64()
+	tokenID := tokenIDParam.Uint64()
 	// cache token owner for stake event
-	eh.tokenOwner[token] = to
+	eh.tokenOwner[tokenID] = to
 	// update bucket owner if token exists
-	if bi, ok := eh.dirty.getBucketInfo(token); ok {
+	if bi, ok := eh.dirty.getBucketInfo(tokenID); ok {
 		bi.Owner = to
-		return eh.dirty.updateBucketInfo(token, bi)
+		return eh.dirty.updateBucketInfo(tokenID, bi)
 	}
 
 	return nil
