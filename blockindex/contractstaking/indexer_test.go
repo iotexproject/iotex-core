@@ -10,12 +10,14 @@ import (
 	"math/big"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -687,6 +689,116 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	r.NoError(indexer.commit(handler))
 	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
 	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
+
+	t.Run("Height", func(t *testing.T) {
+		h, err := indexer.Height()
+		r.NoError(err)
+		r.EqualValues(height, h)
+	})
+
+	t.Run("BucketTypes", func(t *testing.T) {
+		bts, err := indexer.BucketTypes()
+		r.NoError(err)
+		r.Len(bts, 4)
+		slices.SortFunc(bts, func(i, j *staking.ContractStakingBucketType) bool {
+			return i.Amount.Int64() < j.Amount.Int64()
+		})
+		r.EqualValues(10, bts[0].Duration)
+		r.EqualValues(20, bts[1].Duration)
+		r.EqualValues(20, bts[2].Duration)
+		r.EqualValues(20, bts[3].Duration)
+		r.EqualValues(10, bts[0].Amount.Int64())
+		r.EqualValues(20, bts[1].Amount.Int64())
+		r.EqualValues(30, bts[2].Amount.Int64())
+		r.EqualValues(60, bts[3].Amount.Int64())
+	})
+
+	t.Run("Buckets", func(t *testing.T) {
+		bts, err := indexer.Buckets()
+		r.NoError(err)
+		r.Len(bts, 5)
+		slices.SortFunc(bts, func(i, j *staking.VoteBucket) bool {
+			return i.Index < j.Index
+		})
+		r.EqualValues(1, bts[0].Index)
+		r.EqualValues(2, bts[1].Index)
+		r.EqualValues(3, bts[2].Index)
+		r.EqualValues(4, bts[3].Index)
+		r.EqualValues(5, bts[4].Index)
+		r.EqualValues(10, bts[0].StakedDurationBlockNumber)
+		r.EqualValues(20, bts[1].StakedDurationBlockNumber)
+		r.EqualValues(20, bts[2].StakedDurationBlockNumber)
+		r.EqualValues(20, bts[3].StakedDurationBlockNumber)
+		r.EqualValues(20, bts[4].StakedDurationBlockNumber)
+		r.EqualValues(10, bts[0].StakedAmount.Int64())
+		r.EqualValues(30, bts[1].StakedAmount.Int64())
+		r.EqualValues(20, bts[2].StakedAmount.Int64())
+		r.EqualValues(20, bts[3].StakedAmount.Int64())
+		r.EqualValues(60, bts[4].StakedAmount.Int64())
+		r.EqualValues(delegate1.String(), bts[0].Candidate.String())
+		r.EqualValues(delegate1.String(), bts[1].Candidate.String())
+		r.EqualValues(delegate1.String(), bts[2].Candidate.String())
+		r.EqualValues(delegate2.String(), bts[3].Candidate.String())
+		r.EqualValues(delegate2.String(), bts[4].Candidate.String())
+		r.EqualValues(owner.String(), bts[0].Owner.String())
+		r.EqualValues(owner.String(), bts[1].Owner.String())
+		r.EqualValues(owner.String(), bts[2].Owner.String())
+		r.EqualValues(delegate2.String(), bts[3].Owner.String())
+		r.EqualValues(owner.String(), bts[4].Owner.String())
+		r.False(bts[0].AutoStake)
+		r.True(bts[1].AutoStake)
+		r.True(bts[2].AutoStake)
+		r.True(bts[3].AutoStake)
+		r.False(bts[4].AutoStake)
+		r.EqualValues(1, bts[0].CreateBlockHeight)
+		r.EqualValues(1, bts[1].CreateBlockHeight)
+		r.EqualValues(1, bts[2].CreateBlockHeight)
+		r.EqualValues(1, bts[3].CreateBlockHeight)
+		r.EqualValues(7, bts[4].CreateBlockHeight)
+		r.EqualValues(3, bts[0].StakeStartBlockHeight)
+		r.EqualValues(1, bts[1].StakeStartBlockHeight)
+		r.EqualValues(1, bts[2].StakeStartBlockHeight)
+		r.EqualValues(1, bts[3].StakeStartBlockHeight)
+		r.EqualValues(9, bts[4].StakeStartBlockHeight)
+		r.EqualValues(4, bts[0].UnstakeStartBlockHeight)
+		r.EqualValues(maxBlockNumber, bts[1].UnstakeStartBlockHeight)
+		r.EqualValues(maxBlockNumber, bts[2].UnstakeStartBlockHeight)
+		r.EqualValues(maxBlockNumber, bts[3].UnstakeStartBlockHeight)
+		r.EqualValues(9, bts[4].UnstakeStartBlockHeight)
+		for _, b := range bts {
+			r.EqualValues(0, b.StakedDuration)
+			r.EqualValues(time.Time{}, b.CreateTime)
+			r.EqualValues(time.Time{}, b.StakeStartTime)
+			r.EqualValues(time.Time{}, b.UnstakeStartTime)
+			r.EqualValues(_testStakingContractAddress, b.ContractAddress)
+		}
+	})
+
+	t.Run("BucketsByCandidate", func(t *testing.T) {
+		d1Bts, err := indexer.BucketsByCandidate(delegate1)
+		r.NoError(err)
+		r.Len(d1Bts, 3)
+		slices.SortFunc(d1Bts, func(i, j *staking.VoteBucket) bool {
+			return i.Index < j.Index
+		})
+		r.EqualValues(1, d1Bts[0].Index)
+		r.EqualValues(2, d1Bts[1].Index)
+		r.EqualValues(3, d1Bts[2].Index)
+		d2Bts, err := indexer.BucketsByCandidate(delegate2)
+		r.NoError(err)
+		r.Len(d2Bts, 2)
+		slices.SortFunc(d2Bts, func(i, j *staking.VoteBucket) bool {
+			return i.Index < j.Index
+		})
+		r.EqualValues(4, d2Bts[0].Index)
+		r.EqualValues(5, d2Bts[1].Index)
+	})
+
+	t.Run("BucketsByIndices", func(t *testing.T) {
+		bts, err := indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5})
+		r.NoError(err)
+		r.Len(bts, 5)
+	})
 }
 
 func BenchmarkIndexer_PutBlockBeforeContractHeight(b *testing.B) {
