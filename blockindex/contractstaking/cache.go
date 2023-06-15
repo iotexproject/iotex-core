@@ -163,7 +163,7 @@ func (s *contractStakingCache) ActiveBucketTypes() map[uint64]*BucketType {
 	m := make(map[uint64]*BucketType)
 	for k, v := range s.bucketTypeMap {
 		if v.ActivatedAt != maxBlockNumber {
-			m[k] = v
+			m[k] = v.Clone()
 		}
 	}
 	return m
@@ -299,7 +299,10 @@ func (s *contractStakingCache) getBucketTypeIndex(amount *big.Int, duration uint
 
 func (s *contractStakingCache) getBucketType(id uint64) (*BucketType, bool) {
 	bt, ok := s.bucketTypeMap[id]
-	return bt, ok
+	if !ok {
+		return nil, false
+	}
+	return bt.Clone(), ok
 }
 
 func (s *contractStakingCache) mustGetBucketType(id uint64) *BucketType {
@@ -307,12 +310,15 @@ func (s *contractStakingCache) mustGetBucketType(id uint64) *BucketType {
 	if !ok {
 		panic("bucket type not found")
 	}
-	return bt
+	return bt.Clone()
 }
 
 func (s *contractStakingCache) getBucketInfo(id uint64) (*bucketInfo, bool) {
 	bi, ok := s.bucketInfoMap[id]
-	return bi, ok
+	if !ok {
+		return nil, false
+	}
+	return bi.Clone(), ok
 }
 
 func (s *contractStakingCache) mustGetBucketInfo(id uint64) *bucketInfo {
@@ -320,7 +326,7 @@ func (s *contractStakingCache) mustGetBucketInfo(id uint64) *bucketInfo {
 	if !ok {
 		panic("bucket info not found")
 	}
-	return bt
+	return bt.Clone()
 }
 
 func (s *contractStakingCache) mustGetBucket(id uint64) *Bucket {
@@ -341,7 +347,7 @@ func (s *contractStakingCache) getBucket(id uint64) (*Bucket, bool) {
 func (s *contractStakingCache) getAllBucketInfo() map[uint64]*bucketInfo {
 	m := make(map[uint64]*bucketInfo)
 	for k, v := range s.bucketInfoMap {
-		m[k] = v
+		m[k] = v.Clone()
 	}
 	return m
 }
@@ -350,7 +356,7 @@ func (s *contractStakingCache) getBucketInfoByCandidate(candidate address.Addres
 	m := make(map[uint64]*bucketInfo)
 	for k, v := range s.candidateBucketMap[candidate.String()] {
 		if v {
-			m[k] = s.bucketInfoMap[k]
+			m[k] = s.bucketInfoMap[k].Clone()
 		}
 	}
 	return m

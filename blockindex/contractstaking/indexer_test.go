@@ -537,6 +537,158 @@ func TestContractStakingIndexerReadBuckets(t *testing.T) {
 	})
 }
 
+func TestContractStakingIndexerCacheClean(t *testing.T) {
+	r := require.New(t)
+	testDBPath, err := testutil.PathOfTempFile("staking.db")
+	r.NoError(err)
+	defer testutil.CleanupPath(testDBPath)
+	cfg := db.DefaultConfig
+	cfg.DbPath = testDBPath
+	kvStore := db.NewBoltDB(cfg)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	r.NoError(err)
+	r.NoError(indexer.Start(context.Background()))
+
+	// init bucket type
+	height := uint64(1)
+	handler := newContractStakingEventHandler(indexer.cache, height)
+	activateBucketType(r, handler, 10, 10, height)
+	activateBucketType(r, handler, 20, 20, height)
+	// create bucket
+	owner := identityset.Address(10)
+	delegate1 := identityset.Address(1)
+	delegate2 := identityset.Address(2)
+	stake(r, handler, owner, delegate1, 1, 10, 10, height)
+	stake(r, handler, owner, delegate1, 2, 20, 20, height)
+	stake(r, handler, owner, delegate2, 3, 20, 20, height)
+	stake(r, handler, owner, delegate2, 4, 20, 20, height)
+	r.Len(indexer.cache.ActiveBucketTypes(), 0)
+	r.Len(indexer.cache.Buckets(), 0)
+	r.NoError(indexer.commit(handler))
+	r.Len(indexer.cache.ActiveBucketTypes(), 2)
+	r.Len(indexer.cache.Buckets(), 4)
+
+	height++
+	handler = newContractStakingEventHandler(indexer.cache, height)
+	changeDelegate(r, handler, delegate1, 3)
+	transfer(r, handler, delegate1, 1)
+	bt, ok := indexer.Bucket(3)
+	r.True(ok)
+	r.Equal(delegate2.String(), bt.Candidate.String())
+	bt, ok = indexer.Bucket(1)
+	r.True(ok)
+	r.Equal(owner.String(), bt.Owner.String())
+	r.NoError(indexer.commit(handler))
+	bt, ok = indexer.Bucket(3)
+	r.True(ok)
+	r.Equal(delegate1.String(), bt.Candidate.String())
+	bt, ok = indexer.Bucket(1)
+	r.True(ok)
+	r.Equal(delegate1.String(), bt.Owner.String())
+}
+
+func TestContractStakingIndexerVotes(t *testing.T) {
+	r := require.New(t)
+	testDBPath, err := testutil.PathOfTempFile("staking.db")
+	r.NoError(err)
+	defer testutil.CleanupPath(testDBPath)
+	cfg := db.DefaultConfig
+	cfg.DbPath = testDBPath
+	kvStore := db.NewBoltDB(cfg)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	r.NoError(err)
+	r.NoError(indexer.Start(context.Background()))
+
+	// init bucket type
+	height := uint64(1)
+	handler := newContractStakingEventHandler(indexer.cache, height)
+	activateBucketType(r, handler, 10, 10, height)
+	activateBucketType(r, handler, 20, 20, height)
+	activateBucketType(r, handler, 30, 20, height)
+	activateBucketType(r, handler, 60, 20, height)
+	// create bucket
+	owner := identityset.Address(10)
+	delegate1 := identityset.Address(1)
+	delegate2 := identityset.Address(2)
+	stake(r, handler, owner, delegate1, 1, 10, 10, height)
+	stake(r, handler, owner, delegate1, 2, 20, 20, height)
+	stake(r, handler, owner, delegate2, 3, 20, 20, height)
+	stake(r, handler, owner, delegate2, 4, 20, 20, height)
+	r.NoError(indexer.commit(handler))
+	r.EqualValues(30, indexer.CandidateVotes(delegate1).Uint64())
+	r.EqualValues(40, indexer.CandidateVotes(delegate2).Uint64())
+	r.EqualValues(0, indexer.CandidateVotes(owner).Uint64())
+
+	// change delegate bucket 3 to delegate1
+	height++
+	handler = newContractStakingEventHandler(indexer.cache, height)
+	changeDelegate(r, handler, delegate1, 3)
+	r.NoError(indexer.commit(handler))
+	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
+	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
+
+	// unlock bucket 1 & 4
+	height++
+	handler = newContractStakingEventHandler(indexer.cache, height)
+	unlock(r, handler, 1, height)
+	unlock(r, handler, 4, height)
+	r.NoError(indexer.commit(handler))
+	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
+	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
+
+	// unstake bucket 1 & lock 4
+	height++
+	handler = newContractStakingEventHandler(indexer.cache, height)
+	unstake(r, handler, 1, height)
+	lock(r, handler, 4, 20)
+	r.NoError(indexer.commit(handler))
+	r.EqualValues(40, indexer.CandidateVotes(delegate1).Uint64())
+	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
+
+	// expand bucket 2
+	height++
+	handler = newContractStakingEventHandler(indexer.cache, height)
+	expandBucketType(r, handler, 2, 30, 20)
+	r.NoError(indexer.commit(handler))
+	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
+	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
+
+	// transfer bucket 4
+	height++
+	handler = newContractStakingEventHandler(indexer.cache, height)
+	transfer(r, handler, delegate2, 4)
+	r.NoError(indexer.commit(handler))
+	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
+	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
+
+	// create bucket 5, 6, 7
+	height++
+	handler = newContractStakingEventHandler(indexer.cache, height)
+	stake(r, handler, owner, delegate2, 5, 20, 20, height)
+	stake(r, handler, owner, delegate2, 6, 20, 20, height)
+	stake(r, handler, owner, delegate2, 7, 20, 20, height)
+	r.NoError(indexer.commit(handler))
+	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
+	r.EqualValues(80, indexer.CandidateVotes(delegate2).Uint64())
+
+	// merge bucket 5, 6, 7
+	height++
+	handler = newContractStakingEventHandler(indexer.cache, height)
+	mergeBuckets(r, handler, []int64{5, 6, 7}, 60, 20)
+	r.NoError(indexer.commit(handler))
+	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
+	r.EqualValues(80, indexer.CandidateVotes(delegate2).Uint64())
+
+	// unlock & unstake 5
+	height++
+	handler = newContractStakingEventHandler(indexer.cache, height)
+	unlock(r, handler, 5, height)
+	unstake(r, handler, 5, height)
+	r.NoError(indexer.commit(handler))
+	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
+	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
+}
+
 func BenchmarkIndexer_PutBlockBeforeContractHeight(b *testing.B) {
 	// Create a new Indexer with a contract height of 100
 	indexer := &Indexer{contractDeployHeight: 100}
@@ -627,6 +779,27 @@ func transfer(r *require.Assertions, handler *contractStakingEventHandler, owner
 	err := handler.handleTransferEvent(eventParam{
 		"to":      common.BytesToAddress(owner.Bytes()),
 		"tokenId": big.NewInt(token),
+	})
+	r.NoError(err)
+}
+
+func changeDelegate(r *require.Assertions, handler *contractStakingEventHandler, delegate address.Address, token int64) {
+	err := handler.handleDelegateChangedEvent(eventParam{
+		"newDelegate": common.BytesToAddress(delegate.Bytes()),
+		"tokenId":     big.NewInt(token),
+	})
+	r.NoError(err)
+}
+
+func mergeBuckets(r *require.Assertions, handler *contractStakingEventHandler, tokenIds []int64, amount, duration int64) {
+	tokens := make([]*big.Int, len(tokenIds))
+	for i, token := range tokenIds {
+		tokens[i] = big.NewInt(token)
+	}
+	err := handler.handleMergedEvent(eventParam{
+		"amount":   big.NewInt(amount),
+		"duration": big.NewInt(duration),
+		"tokenIds": tokens,
 	})
 	r.NoError(err)
 }
