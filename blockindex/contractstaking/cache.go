@@ -233,7 +233,6 @@ func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	delta := newContractStakingDelta()
 	// load height
 	var height uint64
 	h, err := kvstore.Get(_StakingNS, _stakingHeightKey)
@@ -246,7 +245,7 @@ func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 		height = byteutil.BytesToUint64BigEndian(h)
 
 	}
-	delta.PutHeight(height)
+	s.putHeight(height)
 
 	// load total bucket count
 	var totalBucketCount uint64
@@ -258,7 +257,7 @@ func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 	} else {
 		totalBucketCount = byteutil.BytesToUint64BigEndian(tbc)
 	}
-	delta.PutTotalBucketCount(totalBucketCount)
+	s.putTotalBucketCount(totalBucketCount)
 
 	// load bucket info
 	ks, vs, err := kvstore.Filter(_StakingBucketInfoNS, func(k, v []byte) bool { return true }, nil, nil)
@@ -270,7 +269,7 @@ func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 		if err := b.Deserialize(vs[i]); err != nil {
 			return err
 		}
-		delta.AddBucketInfo(byteutil.BytesToUint64BigEndian(ks[i]), &b)
+		s.putBucketInfo(byteutil.BytesToUint64BigEndian(ks[i]), &b)
 	}
 
 	// load bucket type
@@ -283,9 +282,9 @@ func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 		if err := b.Deserialize(vs[i]); err != nil {
 			return err
 		}
-		delta.AddBucketType(byteutil.BytesToUint64BigEndian(ks[i]), &b)
+		s.putBucketType(byteutil.BytesToUint64BigEndian(ks[i]), &b)
 	}
-	return s.merge(delta)
+	return nil
 }
 
 func (s *contractStakingCache) getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool) {
