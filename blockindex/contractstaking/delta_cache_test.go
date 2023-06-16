@@ -17,19 +17,14 @@ func TestContractStakingDelta_BucketInfoDelta(t *testing.T) {
 
 	// add bucket info
 	bi := &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
-	cache.AddBucketInfo(1, bi)
+	require.NoError(cache.AddBucketInfo(1, bi))
 
 	// modify bucket info
 	bi = &bucketInfo{TypeIndex: 2, CreatedAt: 2, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(4)}
-	cache.UpdateBucketInfo(2, bi)
+	require.NoError(cache.UpdateBucketInfo(2, bi))
 
 	// remove bucket info
-	cache.DeleteBucketInfo(3)
-
-	// add and remove bucket info
-	bi = &bucketInfo{TypeIndex: 4, CreatedAt: 3, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(5), Owner: identityset.Address(6)}
-	cache.AddBucketInfo(4, bi)
-	cache.DeleteBucketInfo(4)
+	require.NoError(cache.DeleteBucketInfo(3))
 
 	// get bucket info delta
 	delta := cache.BucketInfoDelta()
@@ -73,12 +68,12 @@ func TestContractStakingDelta_BucketTypeDelta(t *testing.T) {
 	cache := newContractStakingDelta()
 
 	// add bucket type
-	cache.AddBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
-	cache.AddBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 100, ActivatedAt: 1})
+	require.NoError(cache.AddBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1}))
+	require.NoError(cache.AddBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 100, ActivatedAt: 1}))
 
 	// modify bucket type 1 & 3
-	cache.UpdateBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 3})
-	cache.UpdateBucketType(3, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 4})
+	require.NoError(cache.UpdateBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 3}))
+	require.NoError(cache.UpdateBucketType(3, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 4}))
 
 	delta := cache.BucketTypeDelta()
 	// check added bucket type
@@ -112,8 +107,8 @@ func TestContractStakingDelta_MatchBucketType(t *testing.T) {
 	require.Nil(bucketType)
 
 	// add bucket types
-	cache.AddBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
-	cache.AddBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 100, ActivatedAt: 1})
+	require.NoError(cache.AddBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1}))
+	require.NoError(cache.AddBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 100, ActivatedAt: 1}))
 
 	// test with amount and duration that match bucket type 1
 	amount := big.NewInt(100)
@@ -154,7 +149,7 @@ func TestContractStakingDelta_GetBucketInfo(t *testing.T) {
 
 	// add bucket info
 	bi := &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
-	cache.AddBucketInfo(1, bi)
+	require.NoError(cache.AddBucketInfo(1, bi))
 
 	// get added bucket info
 	info, state := cache.GetBucketInfo(1)
@@ -167,16 +162,9 @@ func TestContractStakingDelta_GetBucketInfo(t *testing.T) {
 	require.EqualValues(identityset.Address(2), info.Owner)
 	require.EqualValues(deltaStateAdded, state)
 
-	// revert bucket info 1
-	cache.DeleteBucketInfo(1)
-	// get bucket info
-	info, state = cache.GetBucketInfo(1)
-	require.Nil(info)
-	require.EqualValues(deltaStateUnchanged, state)
-
 	// modify bucket info 2
 	bi = &bucketInfo{TypeIndex: 2, CreatedAt: 2, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(4)}
-	cache.UpdateBucketInfo(2, bi)
+	require.NoError(cache.UpdateBucketInfo(2, bi))
 	// get modified bucket info
 	info, state = cache.GetBucketInfo(2)
 	require.NotNil(info)
@@ -189,7 +177,7 @@ func TestContractStakingDelta_GetBucketInfo(t *testing.T) {
 	require.EqualValues(deltaStateModified, state)
 
 	// remove bucket info 2
-	cache.DeleteBucketInfo(2)
+	require.NoError(cache.DeleteBucketInfo(2))
 	// get removed bucket info
 	info, state = cache.GetBucketInfo(2)
 	require.Nil(info)
@@ -204,7 +192,7 @@ func TestContractStakingDelta_GetBucketType(t *testing.T) {
 
 	// add bucket type
 	bt := &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1}
-	cache.AddBucketType(1, bt)
+	require.NoError(cache.AddBucketType(1, bt))
 
 	// get added bucket type
 	bucketType, state := cache.GetBucketType(1)
@@ -216,7 +204,7 @@ func TestContractStakingDelta_GetBucketType(t *testing.T) {
 
 	// modify bucket type
 	bt = &BucketType{Amount: big.NewInt(200), Duration: 200, ActivatedAt: 2}
-	cache.UpdateBucketType(2, bt)
+	require.NoError(cache.UpdateBucketType(2, bt))
 	// get modified bucket type
 	bucketType, state = cache.GetBucketType(2)
 	require.NotNil(bucketType)
@@ -238,26 +226,26 @@ func TestContractStakingDelta_AddedBucketCnt(t *testing.T) {
 	require.EqualValues(0, addedBucketCnt)
 
 	// add bucket types
-	cache.AddBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
-	cache.AddBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 100, ActivatedAt: 1})
+	require.NoError(cache.AddBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1}))
+	require.NoError(cache.AddBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 100, ActivatedAt: 1}))
 
 	// add bucket info
 	bi := &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
-	cache.AddBucketInfo(1, bi)
+	require.NoError(cache.AddBucketInfo(1, bi))
 	// add bucket info
 	bi = &bucketInfo{TypeIndex: 2, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
-	cache.AddBucketInfo(2, bi)
+	require.NoError(cache.AddBucketInfo(2, bi))
 
 	// test with added bucket info
 	addedBucketCnt = cache.AddedBucketCnt()
 	require.EqualValues(2, addedBucketCnt)
 
 	// remove bucket info
-	cache.DeleteBucketInfo(2)
+	require.NoError(cache.DeleteBucketInfo(3))
 
 	// test with removed bucket info
 	addedBucketCnt = cache.AddedBucketCnt()
-	require.EqualValues(1, addedBucketCnt)
+	require.EqualValues(2, addedBucketCnt)
 }
 
 func TestContractStakingDelta_AddedBucketTypeCnt(t *testing.T) {
@@ -271,9 +259,9 @@ func TestContractStakingDelta_AddedBucketTypeCnt(t *testing.T) {
 	require.EqualValues(0, addedBucketTypeCnt)
 
 	// add bucket types
-	cache.AddBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
-	cache.AddBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 100, ActivatedAt: 1})
-	cache.AddBucketType(3, &BucketType{Amount: big.NewInt(300), Duration: 100, ActivatedAt: 1})
+	require.NoError(cache.AddBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1}))
+	require.NoError(cache.AddBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 100, ActivatedAt: 1}))
+	require.NoError(cache.AddBucketType(3, &BucketType{Amount: big.NewInt(300), Duration: 100, ActivatedAt: 1}))
 
 	// test with added bucket type
 	addedBucketTypeCnt = cache.AddedBucketTypeCnt()
