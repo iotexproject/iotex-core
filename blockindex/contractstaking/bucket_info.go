@@ -39,8 +39,8 @@ func (bi *bucketInfo) Deserialize(b []byte) error {
 	return bi.loadProto(&m)
 }
 
-// Clone clones the bucket info
-func (bi *bucketInfo) Clone() *bucketInfo {
+// clone clones the bucket info
+func (bi *bucketInfo) clone() *bucketInfo {
 	return &bucketInfo{
 		TypeIndex:  bi.TypeIndex,
 		CreatedAt:  bi.CreatedAt,

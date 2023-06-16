@@ -309,7 +309,7 @@ func (s *contractStakingCache) mustGetBucketType(id uint64) *BucketType {
 	if !ok {
 		panic("bucket type not found")
 	}
-	return bt.Clone()
+	return bt
 }
 
 func (s *contractStakingCache) getBucketInfo(id uint64) (*bucketInfo, bool) {
@@ -317,7 +317,7 @@ func (s *contractStakingCache) getBucketInfo(id uint64) (*bucketInfo, bool) {
 	if !ok {
 		return nil, false
 	}
-	return bi.Clone(), ok
+	return bi.clone(), ok
 }
 
 func (s *contractStakingCache) mustGetBucketInfo(id uint64) *bucketInfo {
@@ -325,7 +325,7 @@ func (s *contractStakingCache) mustGetBucketInfo(id uint64) *bucketInfo {
 	if !ok {
 		panic("bucket info not found")
 	}
-	return bt.Clone()
+	return bt
 }
 
 func (s *contractStakingCache) mustGetBucket(id uint64) *Bucket {
@@ -346,7 +346,7 @@ func (s *contractStakingCache) getBucket(id uint64) (*Bucket, bool) {
 func (s *contractStakingCache) getAllBucketInfo() map[uint64]*bucketInfo {
 	m := make(map[uint64]*bucketInfo)
 	for k, v := range s.bucketInfoMap {
-		m[k] = v.Clone()
+		m[k] = v.clone()
 	}
 	return m
 }
@@ -355,7 +355,7 @@ func (s *contractStakingCache) getBucketInfoByCandidate(candidate address.Addres
 	m := make(map[uint64]*bucketInfo)
 	for k, v := range s.candidateBucketMap[candidate.String()] {
 		if v {
-			m[k] = s.bucketInfoMap[k].Clone()
+			m[k] = s.bucketInfoMap[k].clone()
 		}
 	}
 	return m
