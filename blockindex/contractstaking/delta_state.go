@@ -8,10 +8,10 @@ package contractstaking
 import "github.com/pkg/errors"
 
 const (
-	deltaStateAdded deltaState = iota
+	deltaStateUnchanged deltaState = iota
+	deltaStateAdded
 	deltaStateRemoved
 	deltaStateModified
-	deltaStateReverted
 )
 
 type deltaState int
@@ -19,18 +19,16 @@ type deltaState int
 var (
 	deltaStateTransferMap = map[deltaState]map[deltaAction]deltaState{
 		deltaStateAdded: {
-			deltaActionRemove: deltaStateReverted,
 			deltaActionModify: deltaStateAdded,
-		},
-		deltaStateRemoved: {
-			deltaActionAdd: deltaStateModified,
 		},
 		deltaStateModified: {
 			deltaActionModify: deltaStateModified,
 			deltaActionRemove: deltaStateRemoved,
 		},
-		deltaStateReverted: {
-			deltaActionAdd: deltaStateAdded,
+		deltaStateUnchanged: {
+			deltaActionAdd:    deltaStateAdded,
+			deltaActionRemove: deltaStateRemoved,
+			deltaActionModify: deltaStateModified,
 		},
 	}
 )

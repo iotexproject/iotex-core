@@ -172,7 +172,7 @@ func TestContractStakingDelta_GetBucketInfo(t *testing.T) {
 	// get bucket info
 	info, state = cache.GetBucketInfo(1)
 	require.Nil(info)
-	require.EqualValues(deltaStateReverted, state)
+	require.EqualValues(deltaStateUnchanged, state)
 
 	// modify bucket info 2
 	bi = &bucketInfo{TypeIndex: 2, CreatedAt: 2, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(4)}
