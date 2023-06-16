@@ -427,7 +427,5 @@ func (s *contractStakingCache) merge(delta *contractStakingDelta) error {
 			}
 		}
 	}
-	s.putHeight(delta.GetHeight())
-	s.putTotalBucketCount(s.getTotalBucketCount() + delta.AddedBucketCnt())
 	return nil
 }

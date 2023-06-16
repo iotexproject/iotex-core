@@ -171,11 +171,13 @@ func (s *Indexer) DeleteTipBlock(context.Context, *block.Block) error {
 }
 
 func (s *Indexer) commit(handler *contractStakingEventHandler) error {
-	batch, delta := handler.Result()
+	batch, delta, height := handler.Result()
 	if err := s.cache.Merge(delta); err != nil {
 		s.reloadCache()
 		return err
 	}
+	s.cache.PutHeight(height)
+	s.cache.PutTotalBucketCount(s.cache.TotalBucketCount() + delta.AddedBucketCnt())
 	if err := s.kvstore.WriteBatch(batch); err != nil {
 		s.reloadCache()
 		return err

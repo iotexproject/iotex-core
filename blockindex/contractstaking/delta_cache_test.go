@@ -9,22 +9,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
-func TestContractStakingDelta_GetHeight(t *testing.T) {
-	require := require.New(t)
-
-	// create a new delta cache
-	cache := newContractStakingDelta()
-
-	// test with height 0
-	height := cache.GetHeight()
-	require.EqualValues(0, height)
-
-	// test with height 12345
-	cache.PutHeight(12345)
-	height = cache.GetHeight()
-	require.EqualValues(12345, height)
-}
-
 func TestContractStakingDelta_BucketInfoDelta(t *testing.T) {
 	require := require.New(t)
 

@@ -24,18 +24,6 @@ func newContractStakingDelta() *contractStakingDelta {
 	}
 }
 
-func (s *contractStakingDelta) PutHeight(height uint64) {
-	s.cache.PutHeight(height)
-}
-
-func (s *contractStakingDelta) GetHeight() uint64 {
-	return s.cache.Height()
-}
-
-func (s *contractStakingDelta) PutTotalBucketCount(count uint64) {
-	s.cache.PutTotalBucketCount(count)
-}
-
 func (s *contractStakingDelta) BucketInfoDelta() map[deltaState]map[uint64]*bucketInfo {
 	delta := map[deltaState]map[uint64]*bucketInfo{
 		deltaStateAdded:    make(map[uint64]*bucketInfo),
