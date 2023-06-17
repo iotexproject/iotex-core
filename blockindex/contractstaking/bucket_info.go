@@ -41,13 +41,21 @@ func (bi *bucketInfo) Deserialize(b []byte) error {
 
 // clone clones the bucket info
 func (bi *bucketInfo) clone() *bucketInfo {
+	delegate := bi.Delegate
+	if delegate != nil {
+		delegate, _ = address.FromBytes(delegate.Bytes())
+	}
+	owner := bi.Owner
+	if owner != nil {
+		owner, _ = address.FromBytes(owner.Bytes())
+	}
 	return &bucketInfo{
 		TypeIndex:  bi.TypeIndex,
 		CreatedAt:  bi.CreatedAt,
 		UnlockedAt: bi.UnlockedAt,
 		UnstakedAt: bi.UnstakedAt,
-		Delegate:   bi.Delegate,
-		Owner:      bi.Owner,
+		Delegate:   delegate,
+		Owner:      owner,
 	}
 }
 

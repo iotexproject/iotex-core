@@ -8,6 +8,8 @@ package contractstaking
 import "github.com/pkg/errors"
 
 const (
+	// deltaState constants
+	// deltaStateUnchanged is the zero-value of the type deltaState
 	deltaStateUnchanged deltaState = iota
 	deltaStateAdded
 	deltaStateRemoved
@@ -18,17 +20,17 @@ type deltaState int
 
 var (
 	deltaStateTransferMap = map[deltaState]map[deltaAction]deltaState{
+		deltaStateUnchanged: {
+			deltaActionAdd:    deltaStateAdded,
+			deltaActionRemove: deltaStateRemoved,
+			deltaActionModify: deltaStateModified,
+		},
 		deltaStateAdded: {
 			deltaActionModify: deltaStateAdded,
 		},
 		deltaStateModified: {
 			deltaActionModify: deltaStateModified,
 			deltaActionRemove: deltaStateRemoved,
-		},
-		deltaStateUnchanged: {
-			deltaActionAdd:    deltaStateAdded,
-			deltaActionRemove: deltaStateRemoved,
-			deltaActionModify: deltaStateModified,
 		},
 	}
 )

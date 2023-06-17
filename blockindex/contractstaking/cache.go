@@ -379,12 +379,18 @@ func (s *contractStakingCache) putBucketType(id uint64, bt *BucketType) {
 func (s *contractStakingCache) putBucketInfo(id uint64, bi *bucketInfo) {
 	oldBi := s.bucketInfoMap[id]
 	s.bucketInfoMap[id] = bi
-	if _, ok := s.candidateBucketMap[bi.Delegate.String()]; !ok {
-		s.candidateBucketMap[bi.Delegate.String()] = make(map[uint64]bool)
+	// update candidate bucket map
+	newDelegate := bi.Delegate.String()
+	if _, ok := s.candidateBucketMap[newDelegate]; !ok {
+		s.candidateBucketMap[newDelegate] = make(map[uint64]bool)
 	}
-	s.candidateBucketMap[bi.Delegate.String()][id] = true
-	if oldBi != nil && oldBi.Delegate.String() != bi.Delegate.String() {
-		delete(s.candidateBucketMap[oldBi.Delegate.String()], id)
+	s.candidateBucketMap[newDelegate][id] = true
+	// delete old candidate bucket map
+	if oldBi != nil {
+		oldDelegate := oldBi.Delegate.String()
+		if oldDelegate != newDelegate {
+			delete(s.candidateBucketMap[oldDelegate], id)
+		}
 	}
 }
 
