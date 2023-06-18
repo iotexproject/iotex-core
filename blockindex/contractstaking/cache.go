@@ -79,9 +79,9 @@ func (s *contractStakingCache) Buckets() []*Bucket {
 	defer s.mutex.RUnlock()
 
 	vbs := []*Bucket{}
-	for id, bi := range s.getAllBucketInfo() {
+	for id, bi := range s.bucketInfoMap {
 		bt := s.mustGetBucketType(bi.TypeIndex)
-		vb := assembleBucket(id, bi, bt, s.contractAddress)
+		vb := assembleBucket(id, bi.clone(), bt, s.contractAddress)
 		vbs = append(vbs, vb)
 	}
 	return vbs
@@ -126,7 +126,7 @@ func (s *contractStakingCache) BucketsByCandidate(candidate address.Address) []*
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	bucketMap := s.getBucketInfoByCandidate(candidate)
+	bucketMap := s.candidateBucketMap[candidate.String()]
 	vbs := make([]*Bucket, 0, len(bucketMap))
 	for id := range bucketMap {
 		vb := s.mustGetBucket(id)
@@ -341,24 +341,6 @@ func (s *contractStakingCache) getBucket(id uint64) (*Bucket, bool) {
 	}
 	bt := s.mustGetBucketType(bi.TypeIndex)
 	return assembleBucket(id, bi, bt, s.contractAddress), true
-}
-
-func (s *contractStakingCache) getAllBucketInfo() map[uint64]*bucketInfo {
-	m := make(map[uint64]*bucketInfo)
-	for k, v := range s.bucketInfoMap {
-		m[k] = v.clone()
-	}
-	return m
-}
-
-func (s *contractStakingCache) getBucketInfoByCandidate(candidate address.Address) map[uint64]*bucketInfo {
-	m := make(map[uint64]*bucketInfo)
-	for k, v := range s.candidateBucketMap[candidate.String()] {
-		if v {
-			m[k] = s.bucketInfoMap[k].clone()
-		}
-	}
-	return m
 }
 
 func (s *contractStakingCache) getTotalBucketCount() uint64 {
