@@ -330,13 +330,14 @@ func (bs *blockSyncer) syncStageChecker() {
 func (bs *blockSyncer) SyncStatus() (uint64, uint64, uint64, string) {
 	var syncSpeedDesc string
 	syncBlockIncrease := atomic.LoadUint64(&bs.syncBlockIncrease)
+	increase := syncBlockIncrease
 	switch {
 	case syncBlockIncrease == 1:
 		syncSpeedDesc = "synced to blockchain tip"
 	case bs.cfg.Interval == 0:
 		syncSpeedDesc = "no sync task"
 	default:
-		syncSpeedDesc = fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(syncBlockIncrease)/bs.cfg.Interval.Seconds())
+		syncSpeedDesc = fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(increase)/bs.cfg.Interval.Seconds())
 	}
 	return bs.startingHeight, bs.tipHeightHandler(), bs.targetHeight, syncSpeedDesc
 }
