@@ -352,7 +352,6 @@ const (
 type contractStakingEventHandler struct {
 	dirty      *contractStakingDirty
 	tokenOwner map[uint64]address.Address
-	height     uint64
 }
 
 var (
@@ -367,13 +366,11 @@ func init() {
 	}
 }
 
-func newContractStakingEventHandler(cache *contractStakingCache, height uint64) *contractStakingEventHandler {
+func newContractStakingEventHandler(cache *contractStakingCache) *contractStakingEventHandler {
 	dirty := newContractStakingDirty(cache)
-	dirty.putHeight(height)
 	return &contractStakingEventHandler{
 		dirty:      dirty,
 		tokenOwner: make(map[uint64]address.Address),
-		height:     height,
 	}
 }
 
@@ -422,9 +419,9 @@ func (eh *contractStakingEventHandler) HandleEvent(ctx context.Context, blk *blo
 	}
 }
 
-func (eh *contractStakingEventHandler) Result() (batch.KVStoreBatch, *contractStakingDelta, uint64) {
+func (eh *contractStakingEventHandler) Result() (batch.KVStoreBatch, *contractStakingDelta) {
 	batch, delta := eh.dirty.finalize()
-	return batch, delta, eh.height
+	return batch, delta
 }
 
 func (eh *contractStakingEventHandler) handleTransferEvent(event eventParam) error {

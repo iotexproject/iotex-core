@@ -263,8 +263,4 @@ func TestContractStakingDirty_noSideEffectOnClean(t *testing.T) {
 	require.EqualValues(identityset.Address(1).String(), bi.Delegate.String())
 	require.EqualValues(identityset.Address(2).String(), bi.Owner.String())
 
-	// put height in dirty cache
-	dirty.putHeight(1)
-	// check that clean cache is not affected
-	require.EqualValues(0, clean.Height())
 }

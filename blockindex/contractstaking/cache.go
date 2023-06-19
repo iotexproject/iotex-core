@@ -22,10 +22,9 @@ type (
 		candidateBucketMap    map[string]map[uint64]bool  // map[candidate]bucket
 		bucketTypeMap         map[uint64]*BucketType      // map[bucketTypeId]BucketType
 		propertyBucketTypeMap map[int64]map[uint64]uint64 // map[amount][duration]index
-		height                uint64
-		totalBucketCount      uint64       // total number of buckets including burned buckets
-		contractAddress       string       // contract address for the bucket
-		mutex                 sync.RWMutex // a RW mutex for the cache to protect concurrent access
+		totalBucketCount      uint64                      // total number of buckets including burned buckets
+		contractAddress       string                      // contract address for the bucket
+		mutex                 sync.RWMutex                // a RW mutex for the cache to protect concurrent access
 	}
 )
 
@@ -42,12 +41,6 @@ func newContractStakingCache(contractAddr string) *contractStakingCache {
 		candidateBucketMap:    make(map[string]map[uint64]bool),
 		contractAddress:       contractAddr,
 	}
-}
-
-func (s *contractStakingCache) Height() uint64 {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.height
 }
 
 func (s *contractStakingCache) CandidateVotes(candidate address.Address) *big.Int {
@@ -190,13 +183,6 @@ func (s *contractStakingCache) DeleteBucketInfo(id uint64) {
 	s.deleteBucketInfo(id)
 }
 
-func (s *contractStakingCache) PutHeight(h uint64) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	s.putHeight(h)
-}
-
 func (s *contractStakingCache) Merge(delta *contractStakingDelta) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -232,20 +218,6 @@ func (s *contractStakingCache) BucketTypeCount() uint64 {
 func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-
-	// load height
-	var height uint64
-	h, err := kvstore.Get(_StakingNS, _stakingHeightKey)
-	if err != nil {
-		if !errors.Is(err, db.ErrNotExist) {
-			return err
-		}
-		height = 0
-	} else {
-		height = byteutil.BytesToUint64BigEndian(h)
-
-	}
-	s.putHeight(height)
 
 	// load total bucket count
 	var totalBucketCount uint64
@@ -386,10 +358,6 @@ func (s *contractStakingCache) deleteBucketInfo(id uint64) {
 		return
 	}
 	delete(s.candidateBucketMap[bi.Delegate.String()], id)
-}
-
-func (s *contractStakingCache) putHeight(h uint64) {
-	s.height = h
 }
 
 func (s *contractStakingCache) putTotalBucketCount(count uint64) {

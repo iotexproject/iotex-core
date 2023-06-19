@@ -51,10 +51,6 @@ func newContractStakingDirty(clean *contractStakingCache) *contractStakingDirty 
 	}
 }
 
-func (dirty *contractStakingDirty) putHeight(h uint64) {
-	dirty.batch.Put(_StakingNS, _stakingHeightKey, byteutil.Uint64ToBytesBigEndian(h), "failed to put height")
-}
-
 func (dirty *contractStakingDirty) addBucketInfo(id uint64, bi *bucketInfo) error {
 	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.Serialize(), "failed to put bucket info")
 	return dirty.delta.AddBucketInfo(id, bi)

@@ -15,17 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func TestContractStakingCache_Height(t *testing.T) {
-	require := require.New(t)
-	cache := newContractStakingCache("")
-
-	cache.PutHeight(12345)
-	require.Equal(uint64(12345), cache.Height())
-
-	cache.PutHeight(54321)
-	require.Equal(uint64(54321), cache.Height())
-}
-
 func TestContractStakingCache_CandidateVotes(t *testing.T) {
 	require := require.New(t)
 	cache := newContractStakingCache("")
@@ -437,7 +426,6 @@ func TestContractStakingCache_LoadFromDB(t *testing.T) {
 
 	err = cache.LoadFromDB(kvstore)
 	require.NoError(err)
-	require.Equal(uint64(0), cache.Height())
 	require.Equal(uint64(0), cache.TotalBucketCount())
 	require.Equal(0, len(cache.Buckets()))
 	require.EqualValues(0, cache.BucketTypeCount())
@@ -447,7 +435,6 @@ func TestContractStakingCache_LoadFromDB(t *testing.T) {
 	kvstore.Put(_StakingNS, _stakingTotalBucketCountKey, byteutil.Uint64ToBytesBigEndian(10))
 	err = cache.LoadFromDB(kvstore)
 	require.NoError(err)
-	require.Equal(uint64(12345), cache.Height())
 	require.Equal(uint64(10), cache.TotalBucketCount())
 	require.Equal(0, len(cache.Buckets()))
 	require.EqualValues(0, cache.BucketTypeCount())
@@ -459,7 +446,6 @@ func TestContractStakingCache_LoadFromDB(t *testing.T) {
 	kvstore.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(1), bucketType.Serialize())
 	err = cache.LoadFromDB(kvstore)
 	require.NoError(err)
-	require.Equal(uint64(12345), cache.Height())
 	require.Equal(uint64(10), cache.TotalBucketCount())
 	bi, ok := cache.BucketInfo(1)
 	require.True(ok)
