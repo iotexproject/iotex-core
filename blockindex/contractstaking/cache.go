@@ -187,7 +187,11 @@ func (s *contractStakingCache) Merge(delta *contractStakingDelta) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	return s.merge(delta)
+	if err := s.merge(delta); err != nil {
+		return err
+	}
+	s.putTotalBucketCount(s.totalBucketCount + delta.AddedBucketCnt())
+	return nil
 }
 
 func (s *contractStakingCache) PutTotalBucketCount(count uint64) {
