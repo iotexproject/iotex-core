@@ -143,7 +143,7 @@ func (s *Indexer) BucketTypes() ([]*BucketType, error) {
 
 // PutBlock puts a block into indexer
 func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
-	if blk.Height() < s.contractDeployHeight {
+	if blk.Height() < s.contractDeployHeight || blk.Height() <= s.height.Load().(uint64) {
 		return nil
 	}
 	// new event handler for this block
@@ -181,14 +181,14 @@ func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) er
 		return err
 	}
 	s.cache.PutTotalBucketCount(s.cache.TotalBucketCount() + delta.AddedBucketCnt())
-	// update indexer height cache
-	s.height.Store(height)
 	// update db
 	batch.Put(_StakingNS, _stakingHeightKey, byteutil.Uint64ToBytesBigEndian(height), "failed to put height")
 	if err := s.kvstore.WriteBatch(batch); err != nil {
 		s.reloadCache()
 		return err
 	}
+	// update indexer height cache
+	s.height.Store(height)
 	return nil
 }
 

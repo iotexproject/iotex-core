@@ -420,8 +420,7 @@ func (eh *contractStakingEventHandler) HandleEvent(ctx context.Context, blk *blo
 }
 
 func (eh *contractStakingEventHandler) Result() (batch.KVStoreBatch, *contractStakingDelta) {
-	batch, delta := eh.dirty.finalize()
-	return batch, delta
+	return eh.dirty.finalize()
 }
 
 func (eh *contractStakingEventHandler) handleTransferEvent(event eventParam) error {

@@ -19,6 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -77,6 +78,12 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	r.NoError(err)
 	buckets, err := indexer.Buckets()
 	r.NoError(err)
+	r.EqualValues(1, len(buckets))
+	r.EqualValues(1, indexer.TotalBucketCount())
+	h, err := indexer.Height()
+	r.NoError(err)
+	r.EqualValues(height, h)
+
 	r.NoError(indexer.Stop(context.Background()))
 
 	// load cache from db
@@ -799,6 +806,60 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 		r.NoError(err)
 		r.Len(bts, 5)
 	})
+}
+
+func TestIndexer_PutBlock(t *testing.T) {
+	r := require.New(t)
+
+	cases := []struct {
+		name           string
+		height         uint64
+		startHeight    uint64
+		blockHeight    uint64
+		expectedHeight uint64
+	}{
+		{"block < height < start", 10, 20, 9, 10},
+		{"block = height < start", 10, 20, 10, 10},
+		{"height < block < start", 10, 20, 11, 10},
+		{"height < block = start", 10, 20, 20, 20},
+		{"height < start < block", 10, 20, 21, 21},
+		{"block < start < height", 20, 10, 9, 20},
+		{"block = start < height", 20, 10, 10, 20},
+		{"start < block < height", 20, 10, 11, 20},
+		{"start < block = height", 20, 10, 20, 20},
+		{"start < height < block", 20, 10, 21, 21},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			// Create a new Indexer
+			height := c.height
+			startHeight := c.startHeight
+			cfg := config.Default.DB
+			dbPath, err := testutil.PathOfTempFile("db")
+			r.NoError(err)
+			cfg.DbPath = dbPath
+			indexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), identityset.Address(1).String(), startHeight)
+			r.NoError(err)
+			r.NoError(indexer.Start(context.Background()))
+			defer func() {
+				r.NoError(indexer.Stop(context.Background()))
+				testutil.CleanupPath(dbPath)
+			}()
+			indexer.height.Store(height)
+			// Create a mock block
+			builder := block.NewBuilder(block.NewRunnableActionsBuilder().Build())
+			builder.SetHeight(c.blockHeight)
+			blk, err := builder.SignAndBuild(identityset.PrivateKey(1))
+			r.NoError(err)
+			// Put the block
+			err = indexer.PutBlock(context.Background(), &blk)
+			r.NoError(err)
+			// Check the block height
+			r.EqualValues(c.expectedHeight, indexer.height.Load().(uint64))
+		})
+	}
+
 }
 
 func BenchmarkIndexer_PutBlockBeforeContractHeight(b *testing.B) {
