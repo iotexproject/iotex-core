@@ -366,9 +366,8 @@ func init() {
 	}
 }
 
-func newContractStakingEventHandler(cache *contractStakingCache, height uint64) *contractStakingEventHandler {
+func newContractStakingEventHandler(cache *contractStakingCache) *contractStakingEventHandler {
 	dirty := newContractStakingDirty(cache)
-	dirty.putHeight(height)
 	return &contractStakingEventHandler{
 		dirty:      dirty,
 		tokenOwner: make(map[uint64]address.Address),
