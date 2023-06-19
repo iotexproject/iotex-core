@@ -79,7 +79,7 @@ func (s *Indexer) Start(ctx context.Context) error {
 	if err := s.kvstore.Start(ctx); err != nil {
 		return err
 	}
-	return s.loadFromDB(s.kvstore)
+	return s.loadFromDB()
 }
 
 // Stop stops the indexer
@@ -180,7 +180,6 @@ func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) er
 		s.reloadCache()
 		return err
 	}
-	s.cache.PutTotalBucketCount(s.cache.TotalBucketCount() + delta.AddedBucketCnt())
 	// update db
 	batch.Put(_StakingNS, _stakingHeightKey, byteutil.Uint64ToBytesBigEndian(height), "failed to put height")
 	if err := s.kvstore.WriteBatch(batch); err != nil {
@@ -194,13 +193,13 @@ func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) er
 
 func (s *Indexer) reloadCache() error {
 	s.cache = newContractStakingCache(s.contractAddress)
-	return s.loadFromDB(s.kvstore)
+	return s.loadFromDB()
 }
 
-func (s *Indexer) loadFromDB(kvstore db.KVStore) error {
+func (s *Indexer) loadFromDB() error {
 	// load height
 	var height uint64
-	h, err := kvstore.Get(_StakingNS, _stakingHeightKey)
+	h, err := s.kvstore.Get(_StakingNS, _stakingHeightKey)
 	if err != nil {
 		if !errors.Is(err, db.ErrNotExist) {
 			return err
@@ -212,5 +211,5 @@ func (s *Indexer) loadFromDB(kvstore db.KVStore) error {
 	}
 	s.height.Store(height)
 	// load cache
-	return s.cache.LoadFromDB(kvstore)
+	return s.cache.LoadFromDB(s.kvstore)
 }
