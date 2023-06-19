@@ -146,7 +146,7 @@ func (s *contractStakingCache) TotalBucketCount() uint64 {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	return s.getTotalBucketCount()
+	return s.totalBucketCount
 }
 
 func (s *contractStakingCache) ActiveBucketTypes() map[uint64]*BucketType {
@@ -313,10 +313,6 @@ func (s *contractStakingCache) getBucket(id uint64) (*Bucket, bool) {
 	}
 	bt := s.mustGetBucketType(bi.TypeIndex)
 	return assembleBucket(id, bi, bt, s.contractAddress), true
-}
-
-func (s *contractStakingCache) getTotalBucketCount() uint64 {
-	return s.totalBucketCount
 }
 
 func (s *contractStakingCache) putBucketType(id uint64, bt *BucketType) {
