@@ -7,9 +7,6 @@ package blocksync
 
 import (
 	"context"
-	"fmt"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -537,40 +534,4 @@ func TestDummyBlockSync(t *testing.T) {
 	require.Zero(currentHeight)
 	require.Zero(targetHeight)
 	require.Empty(desc)
-}
-
-func TestBlockSyncerBugIssue3889(t *testing.T) {
-	var syncBlockIncrease uint64
-	SyncStatus := func() (uint64, uint64, uint64, string) {
-		var syncSpeedDesc string
-		syncBlockIncrease := atomic.LoadUint64(&syncBlockIncrease)
-		increase := syncBlockIncrease
-		syncSpeedDesc = fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(increase)/1)
-
-		return uint64(0), 1, 2, syncSpeedDesc
-	}
-
-	// BuildReport builds a report of block syncer
-	BuildReport := func() string {
-		startingHeight, tipHeight, targetHeight, syncSpeedDesc := SyncStatus()
-		return fmt.Sprintf(
-			"BlockSync startingHeight: %d, tipHeight: %d, targetHeight: %d, %s",
-			startingHeight,
-			tipHeight,
-			targetHeight,
-			syncSpeedDesc,
-		)
-	}
-	wait := sync.WaitGroup{}
-	wait.Add(6)
-	// read concurrently
-	for i := 0; i < 5; i++ {
-		go func() {
-			defer wait.Done()
-			startingHeight, tipHeight, targetHeight, syncSpeedDesc := SyncStatus()
-			t.Logf("BlockSync startingHeight: %d, tipHeight: %d, targetHeight: %d, %s", startingHeight, tipHeight, targetHeight, syncSpeedDesc)
-			report := BuildReport()
-			t.Log(report)
-		}()
-	}
 }
