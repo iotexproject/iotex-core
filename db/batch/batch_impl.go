@@ -94,6 +94,9 @@ func (b *baseKVStoreBatch) Entry(index int) (*WriteInfo, error) {
 
 func (b *baseKVStoreBatch) SerializeQueue(serialize WriteInfoSerialize, filter WriteInfoFilter) []byte {
 	// 1. Digest could be replaced by merkle root if we need proof
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
 	var (
 		serialisedBytes = make([][]byte, len(b.writeQueue))
 		wg              = sync.WaitGroup{}
