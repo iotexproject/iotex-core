@@ -7,6 +7,9 @@ package blocksync
 
 import (
 	"context"
+	"fmt"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -534,4 +537,67 @@ func TestDummyBlockSync(t *testing.T) {
 	require.Zero(currentHeight)
 	require.Zero(targetHeight)
 	require.Empty(desc)
+}
+
+type test1 struct {
+	syncBlockIncrease uint64
+	startingHeight    uint64
+	targetHeight      uint64
+	mu                sync.RWMutex
+}
+
+func (bs *test1) sync() {
+	for i := 0; i >= 0; i++ {
+		time.Sleep(time.Millisecond * 2)
+		bs.mu.Lock()
+		atomic.StoreUint64(&bs.syncBlockIncrease, uint64(i))
+		bs.targetHeight = uint64(i)
+		bs.startingHeight = uint64(i)
+		bs.mu.Unlock()
+	}
+}
+func (bs *test1) tipHeightHandler() uint64 {
+	return 1
+}
+func (bs *test1) SyncStatus() (uint64, uint64, uint64, string) {
+	bs.mu.RLock()
+	defer bs.mu.RUnlock()
+	var syncSpeedDesc string
+	syncBlockIncrease := atomic.LoadUint64(&bs.syncBlockIncrease)
+	switch {
+	case syncBlockIncrease == 1:
+		syncSpeedDesc = "synced to blockchain tip"
+	default:
+		syncSpeedDesc = fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(syncBlockIncrease))
+	}
+	return bs.startingHeight, bs.tipHeightHandler(), bs.targetHeight, syncSpeedDesc
+}
+
+func (bs *test1) BuildReport() string {
+	startingHeight, tipHeight, targetHeight, syncSpeedDesc := bs.SyncStatus()
+	return fmt.Sprintf(
+		"BlockSync startingHeight: %d, tipHeight: %d, targetHeight: %d, %s",
+		startingHeight,
+		tipHeight,
+		targetHeight,
+		syncSpeedDesc,
+	)
+}
+
+func TestBlockSyncerBugIssue3889(t *testing.T) {
+	bs := &test1{}
+	go bs.sync()
+	time.Sleep(time.Millisecond * 10)
+	wait := sync.WaitGroup{}
+	wait.Add(5)
+	for i := 0; i < 5; i++ {
+		go func(i int) {
+			defer wait.Done()
+			startingHeight, tipHeight, targetHeight, syncSpeedDesc := bs.SyncStatus()
+			t.Logf("BlockSync startingHeight: %d, tipHeight: %d, targetHeight: %d, %s", startingHeight, tipHeight, targetHeight, syncSpeedDesc)
+			report := bs.BuildReport()
+			t.Log(report)
+		}(i)
+	}
+	wait.Wait()
 }

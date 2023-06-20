@@ -328,6 +328,8 @@ func (bs *blockSyncer) syncStageChecker() {
 }
 
 func (bs *blockSyncer) SyncStatus() (uint64, uint64, uint64, string) {
+	bs.mu.RLock()
+	defer bs.mu.RUnlock()
 	var syncSpeedDesc string
 	syncBlockIncrease := atomic.LoadUint64(&bs.syncBlockIncrease)
 	switch {
