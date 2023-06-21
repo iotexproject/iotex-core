@@ -8,6 +8,7 @@ package contractstaking
 import (
 	"context"
 	"math/big"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/iotexproject/iotex-address/address"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 const (
@@ -32,6 +34,7 @@ type (
 		cache                *contractStakingCache // in-memory index for clean data, used to query index data
 		contractAddress      string                // stake contract address
 		contractDeployHeight uint64                // height of the contract deployment
+		height               atomic.Value          // uint64, current block height
 	}
 )
 
@@ -56,7 +59,7 @@ func (s *Indexer) Start(ctx context.Context) error {
 	if err := s.kvstore.Start(ctx); err != nil {
 		return err
 	}
-	return s.cache.LoadFromDB(s.kvstore)
+	return s.loadFromDB()
 }
 
 // Stop stops the indexer
@@ -70,7 +73,7 @@ func (s *Indexer) Stop(ctx context.Context) error {
 
 // Height returns the tip block height
 func (s *Indexer) Height() (uint64, error) {
-	return s.cache.Height(), nil
+	return s.height.Load().(uint64), nil
 }
 
 // StartHeight returns the start height of the indexer
@@ -120,11 +123,11 @@ func (s *Indexer) BucketTypes() ([]*BucketType, error) {
 
 // PutBlock puts a block into indexer
 func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
-	if blk.Height() < s.contractDeployHeight {
+	if blk.Height() < s.contractDeployHeight || blk.Height() <= s.height.Load().(uint64) {
 		return nil
 	}
 	// new event handler for this block
-	handler := newContractStakingEventHandler(s.cache, blk.Height())
+	handler := newContractStakingEventHandler(s.cache)
 
 	// handle events of block
 	for _, receipt := range blk.Receipts {
@@ -142,7 +145,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 
 	// commit the result
-	return s.commit(handler)
+	return s.commit(handler, blk.Height())
 }
 
 // DeleteTipBlock deletes the tip block from indexer
@@ -150,20 +153,43 @@ func (s *Indexer) DeleteTipBlock(context.Context, *block.Block) error {
 	return errors.New("not implemented")
 }
 
-func (s *Indexer) commit(handler *contractStakingEventHandler) error {
+func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) error {
 	batch, delta := handler.Result()
+	// update cache
 	if err := s.cache.Merge(delta); err != nil {
 		s.reloadCache()
 		return err
 	}
+	// update db
+	batch.Put(_StakingNS, _stakingHeightKey, byteutil.Uint64ToBytesBigEndian(height), "failed to put height")
 	if err := s.kvstore.WriteBatch(batch); err != nil {
 		s.reloadCache()
 		return err
 	}
+	// update indexer height cache
+	s.height.Store(height)
 	return nil
 }
 
 func (s *Indexer) reloadCache() error {
 	s.cache = newContractStakingCache(s.contractAddress)
+	return s.loadFromDB()
+}
+
+func (s *Indexer) loadFromDB() error {
+	// load height
+	var height uint64
+	h, err := s.kvstore.Get(_StakingNS, _stakingHeightKey)
+	if err != nil {
+		if !errors.Is(err, db.ErrNotExist) {
+			return err
+		}
+		height = 0
+	} else {
+		height = byteutil.BytesToUint64BigEndian(h)
+
+	}
+	s.height.Store(height)
+	// load cache
 	return s.cache.LoadFromDB(s.kvstore)
 }

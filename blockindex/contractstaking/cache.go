@@ -22,10 +22,9 @@ type (
 		candidateBucketMap    map[string]map[uint64]bool  // map[candidate]bucket
 		bucketTypeMap         map[uint64]*BucketType      // map[bucketTypeId]BucketType
 		propertyBucketTypeMap map[int64]map[uint64]uint64 // map[amount][duration]index
-		height                uint64
-		totalBucketCount      uint64       // total number of buckets including burned buckets
-		contractAddress       string       // contract address for the bucket
-		mutex                 sync.RWMutex // a RW mutex for the cache to protect concurrent access
+		totalBucketCount      uint64                      // total number of buckets including burned buckets
+		contractAddress       string                      // contract address for the bucket
+		mutex                 sync.RWMutex                // a RW mutex for the cache to protect concurrent access
 	}
 )
 
@@ -42,12 +41,6 @@ func newContractStakingCache(contractAddr string) *contractStakingCache {
 		candidateBucketMap:    make(map[string]map[uint64]bool),
 		contractAddress:       contractAddr,
 	}
-}
-
-func (s *contractStakingCache) Height() uint64 {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.height
 }
 
 func (s *contractStakingCache) CandidateVotes(candidate address.Address) *big.Int {
@@ -79,9 +72,9 @@ func (s *contractStakingCache) Buckets() []*Bucket {
 	defer s.mutex.RUnlock()
 
 	vbs := []*Bucket{}
-	for id, bi := range s.getAllBucketInfo() {
+	for id, bi := range s.bucketInfoMap {
 		bt := s.mustGetBucketType(bi.TypeIndex)
-		vb := assembleBucket(id, bi, bt, s.contractAddress)
+		vb := assembleBucket(id, bi.clone(), bt, s.contractAddress)
 		vbs = append(vbs, vb)
 	}
 	return vbs
@@ -126,7 +119,7 @@ func (s *contractStakingCache) BucketsByCandidate(candidate address.Address) []*
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	bucketMap := s.getBucketInfoByCandidate(candidate)
+	bucketMap := s.candidateBucketMap[candidate.String()]
 	vbs := make([]*Bucket, 0, len(bucketMap))
 	for id := range bucketMap {
 		vb := s.mustGetBucket(id)
@@ -142,10 +135,9 @@ func (s *contractStakingCache) BucketsByIndices(indices []uint64) ([]*Bucket, er
 	vbs := make([]*Bucket, 0, len(indices))
 	for _, id := range indices {
 		vb, ok := s.getBucket(id)
-		if !ok {
-			return nil, errors.Wrapf(ErrBucketNotExist, "id %d", id)
+		if ok {
+			vbs = append(vbs, vb)
 		}
-		vbs = append(vbs, vb)
 	}
 	return vbs, nil
 }
@@ -154,7 +146,7 @@ func (s *contractStakingCache) TotalBucketCount() uint64 {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	return s.getTotalBucketCount()
+	return s.totalBucketCount
 }
 
 func (s *contractStakingCache) ActiveBucketTypes() map[uint64]*BucketType {
@@ -164,7 +156,7 @@ func (s *contractStakingCache) ActiveBucketTypes() map[uint64]*BucketType {
 	m := make(map[uint64]*BucketType)
 	for k, v := range s.bucketTypeMap {
 		if v.ActivatedAt != maxBlockNumber {
-			m[k] = v
+			m[k] = v.Clone()
 		}
 	}
 	return m
@@ -191,18 +183,15 @@ func (s *contractStakingCache) DeleteBucketInfo(id uint64) {
 	s.deleteBucketInfo(id)
 }
 
-func (s *contractStakingCache) PutHeight(h uint64) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	s.putHeight(h)
-}
-
 func (s *contractStakingCache) Merge(delta *contractStakingDelta) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	return s.merge(delta)
+	if err := s.merge(delta); err != nil {
+		return err
+	}
+	s.putTotalBucketCount(s.totalBucketCount + delta.AddedBucketCnt())
+	return nil
 }
 
 func (s *contractStakingCache) PutTotalBucketCount(count uint64) {
@@ -234,21 +223,6 @@ func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	delta := newContractStakingDelta()
-	// load height
-	var height uint64
-	h, err := kvstore.Get(_StakingNS, _stakingHeightKey)
-	if err != nil {
-		if !errors.Is(err, db.ErrNotExist) {
-			return err
-		}
-		height = 0
-	} else {
-		height = byteutil.BytesToUint64BigEndian(h)
-
-	}
-	delta.PutHeight(height)
-
 	// load total bucket count
 	var totalBucketCount uint64
 	tbc, err := kvstore.Get(_StakingNS, _stakingTotalBucketCountKey)
@@ -259,7 +233,7 @@ func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 	} else {
 		totalBucketCount = byteutil.BytesToUint64BigEndian(tbc)
 	}
-	delta.PutTotalBucketCount(totalBucketCount)
+	s.putTotalBucketCount(totalBucketCount)
 
 	// load bucket info
 	ks, vs, err := kvstore.Filter(_StakingBucketInfoNS, func(k, v []byte) bool { return true }, nil, nil)
@@ -271,7 +245,7 @@ func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 		if err := b.Deserialize(vs[i]); err != nil {
 			return err
 		}
-		delta.AddBucketInfo(byteutil.BytesToUint64BigEndian(ks[i]), &b)
+		s.putBucketInfo(byteutil.BytesToUint64BigEndian(ks[i]), &b)
 	}
 
 	// load bucket type
@@ -284,9 +258,9 @@ func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 		if err := b.Deserialize(vs[i]); err != nil {
 			return err
 		}
-		delta.AddBucketType(byteutil.BytesToUint64BigEndian(ks[i]), &b)
+		s.putBucketType(byteutil.BytesToUint64BigEndian(ks[i]), &b)
 	}
-	return s.merge(delta)
+	return nil
 }
 
 func (s *contractStakingCache) getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool) {
@@ -300,7 +274,10 @@ func (s *contractStakingCache) getBucketTypeIndex(amount *big.Int, duration uint
 
 func (s *contractStakingCache) getBucketType(id uint64) (*BucketType, bool) {
 	bt, ok := s.bucketTypeMap[id]
-	return bt, ok
+	if !ok {
+		return nil, false
+	}
+	return bt.Clone(), ok
 }
 
 func (s *contractStakingCache) mustGetBucketType(id uint64) *BucketType {
@@ -313,7 +290,10 @@ func (s *contractStakingCache) mustGetBucketType(id uint64) *BucketType {
 
 func (s *contractStakingCache) getBucketInfo(id uint64) (*bucketInfo, bool) {
 	bi, ok := s.bucketInfoMap[id]
-	return bi, ok
+	if !ok {
+		return nil, false
+	}
+	return bi.clone(), ok
 }
 
 func (s *contractStakingCache) mustGetBucketInfo(id uint64) *bucketInfo {
@@ -339,28 +319,6 @@ func (s *contractStakingCache) getBucket(id uint64) (*Bucket, bool) {
 	return assembleBucket(id, bi, bt, s.contractAddress), true
 }
 
-func (s *contractStakingCache) getAllBucketInfo() map[uint64]*bucketInfo {
-	m := make(map[uint64]*bucketInfo)
-	for k, v := range s.bucketInfoMap {
-		m[k] = v
-	}
-	return m
-}
-
-func (s *contractStakingCache) getBucketInfoByCandidate(candidate address.Address) map[uint64]*bucketInfo {
-	m := make(map[uint64]*bucketInfo)
-	for k, v := range s.candidateBucketMap[candidate.String()] {
-		if v {
-			m[k] = s.bucketInfoMap[k]
-		}
-	}
-	return m
-}
-
-func (s *contractStakingCache) getTotalBucketCount() uint64 {
-	return s.totalBucketCount
-}
-
 func (s *contractStakingCache) putBucketType(id uint64, bt *BucketType) {
 	amount := bt.Amount.Int64()
 	s.bucketTypeMap[id] = bt
@@ -373,11 +331,21 @@ func (s *contractStakingCache) putBucketType(id uint64, bt *BucketType) {
 }
 
 func (s *contractStakingCache) putBucketInfo(id uint64, bi *bucketInfo) {
+	oldBi := s.bucketInfoMap[id]
 	s.bucketInfoMap[id] = bi
-	if _, ok := s.candidateBucketMap[bi.Delegate.String()]; !ok {
-		s.candidateBucketMap[bi.Delegate.String()] = make(map[uint64]bool)
+	// update candidate bucket map
+	newDelegate := bi.Delegate.String()
+	if _, ok := s.candidateBucketMap[newDelegate]; !ok {
+		s.candidateBucketMap[newDelegate] = make(map[uint64]bool)
 	}
-	s.candidateBucketMap[bi.Delegate.String()][id] = true
+	s.candidateBucketMap[newDelegate][id] = true
+	// delete old candidate bucket map
+	if oldBi != nil {
+		oldDelegate := oldBi.Delegate.String()
+		if oldDelegate != newDelegate {
+			delete(s.candidateBucketMap[oldDelegate], id)
+		}
+	}
 }
 
 func (s *contractStakingCache) deleteBucketInfo(id uint64) {
@@ -390,10 +358,6 @@ func (s *contractStakingCache) deleteBucketInfo(id uint64) {
 		return
 	}
 	delete(s.candidateBucketMap[bi.Delegate.String()], id)
-}
-
-func (s *contractStakingCache) putHeight(h uint64) {
-	s.height = h
 }
 
 func (s *contractStakingCache) putTotalBucketCount(count uint64) {
@@ -419,7 +383,5 @@ func (s *contractStakingCache) merge(delta *contractStakingDelta) error {
 			}
 		}
 	}
-	s.putHeight(delta.GetHeight())
-	s.putTotalBucketCount(s.getTotalBucketCount() + delta.AddedBucketCnt())
 	return nil
 }

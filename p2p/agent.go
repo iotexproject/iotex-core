@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
+	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 )
 
 const (
@@ -98,6 +99,7 @@ type (
 	// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
 	Agent interface {
 		lifecycle.StartStopper
+		nodestats.StatsReporter
 		// BroadcastOutbound sends a broadcast message to the whole network
 		BroadcastOutbound(ctx context.Context, msg proto.Message) (err error)
 		// UnicastOutbound sends a unicast message to the given address
@@ -178,6 +180,10 @@ func (*dummyAgent) ConnectedPeers() ([]peer.AddrInfo, error) {
 
 func (*dummyAgent) BlockPeer(string) {
 	return
+}
+
+func (*dummyAgent) BuildReport() string {
+	return ""
 }
 
 // NewAgent instantiates a local P2P agent instance
@@ -488,6 +494,15 @@ func (p *agent) BlockPeer(pidStr string) {
 		return
 	}
 	p.host.BlockPeer(pid)
+}
+
+// BuildReport builds a report of p2p agent
+func (p *agent) BuildReport() string {
+	neighbors, err := p.ConnectedPeers()
+	if err == nil {
+		return fmt.Sprintf("P2P ConnectedPeers: %d", len(neighbors))
+	}
+	return ""
 }
 
 func (p *agent) connectBootNode(ctx context.Context) error {

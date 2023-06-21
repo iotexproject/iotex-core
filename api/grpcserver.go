@@ -546,8 +546,8 @@ func (svr *gRPCHandler) StreamBlocks(_ *iotexapi.StreamBlocksRequest, stream iot
 	defer close(errChan)
 	chainListener := svr.coreService.ChainListener()
 	if _, err := chainListener.AddResponder(NewGRPCBlockListener(
-		func(resp interface{}) error {
-			return stream.Send(resp.(*iotexapi.StreamBlocksResponse))
+		func(resp interface{}) (int, error) {
+			return 0, stream.Send(resp.(*iotexapi.StreamBlocksResponse))
 		},
 		errChan,
 	)); err != nil {
@@ -570,8 +570,8 @@ func (svr *gRPCHandler) StreamLogs(in *iotexapi.StreamLogsRequest, stream iotexa
 	chainListener := svr.coreService.ChainListener()
 	if _, err := chainListener.AddResponder(NewGRPCLogListener(
 		logfilter.NewLogFilter(in.GetFilter()),
-		func(in interface{}) error {
-			return stream.Send(in.(*iotexapi.StreamLogsResponse))
+		func(in interface{}) (int, error) {
+			return 0, stream.Send(in.(*iotexapi.StreamLogsResponse))
 		},
 		errChan,
 	)); err != nil {

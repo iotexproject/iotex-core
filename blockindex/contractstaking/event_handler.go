@@ -28,25 +28,6 @@ const (
 			"inputs": [
 				{
 					"indexed": true,
-					"internalType": "uint256",
-					"name": "tokenId",
-					"type": "uint256"
-				},
-				{
-					"indexed": false,
-					"internalType": "uint256",
-					"name": "amount",
-					"type": "uint256"
-				}
-			],
-			"name": "AmountIncreased",
-			"type": "event"
-		},
-		{
-			"anonymous": false,
-			"inputs": [
-				{
-					"indexed": true,
 					"internalType": "address",
 					"name": "owner",
 					"type": "address"
@@ -147,25 +128,6 @@ const (
 				}
 			],
 			"name": "DelegateChanged",
-			"type": "event"
-		},
-		{
-			"anonymous": false,
-			"inputs": [
-				{
-					"indexed": true,
-					"internalType": "uint256",
-					"name": "tokenId",
-					"type": "uint256"
-				},
-				{
-					"indexed": false,
-					"internalType": "uint256",
-					"name": "duration",
-					"type": "uint256"
-				}
-			],
-			"name": "DurationExtended",
 			"type": "event"
 		},
 		{
@@ -357,6 +319,31 @@ const (
 			],
 			"name": "Withdrawal",
 			"type": "event"
+		},
+		{
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "uint256",
+					"name": "tokenId",
+					"type": "uint256"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint256",
+					"name": "amount",
+					"type": "uint256"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint256",
+					"name": "duration",
+					"type": "uint256"
+				}
+			],
+			"name": "BucketExpanded",
+			"type": "event"
 		}
 	]`
 )
@@ -379,9 +366,8 @@ func init() {
 	}
 }
 
-func newContractStakingEventHandler(cache *contractStakingCache, height uint64) *contractStakingEventHandler {
+func newContractStakingEventHandler(cache *contractStakingCache) *contractStakingEventHandler {
 	dirty := newContractStakingDirty(cache)
-	dirty.putHeight(height)
 	return &contractStakingEventHandler{
 		dirty:      dirty,
 		tokenOwner: make(map[uint64]address.Address),
@@ -417,10 +403,8 @@ func (eh *contractStakingEventHandler) HandleEvent(ctx context.Context, blk *blo
 		return eh.handleUnstakedEvent(event, blk.Height())
 	case "Merged":
 		return eh.handleMergedEvent(event)
-	case "DurationExtended":
-		return eh.handleDurationExtendedEvent(event)
-	case "AmountIncreased":
-		return eh.handleAmountIncreasedEvent(event)
+	case "BucketExpanded":
+		return eh.handleBucketExpandedEvent(event)
 	case "DelegateChanged":
 		return eh.handleDelegateChangedEvent(event)
 	case "Withdrawal":
@@ -444,12 +428,20 @@ func (eh *contractStakingEventHandler) handleTransferEvent(event eventParam) err
 	if err != nil {
 		return err
 	}
-	tokenID, err := event.IndexedFieldUint256("tokenId")
+	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
 	if err != nil {
 		return err
 	}
 
-	eh.tokenOwner[tokenID.Uint64()] = to
+	tokenID := tokenIDParam.Uint64()
+	// cache token owner for stake event
+	eh.tokenOwner[tokenID] = to
+	// update bucket owner if token exists
+	if bi, ok := eh.dirty.getBucketInfo(tokenID); ok {
+		bi.Owner = to
+		return eh.dirty.updateBucketInfo(tokenID, bi)
+	}
+
 	return nil
 }
 
@@ -614,8 +606,12 @@ func (eh *contractStakingEventHandler) handleMergedEvent(event eventParam) error
 	return eh.dirty.updateBucketInfo(tokenIDsParam[0].Uint64(), b)
 }
 
-func (eh *contractStakingEventHandler) handleDurationExtendedEvent(event eventParam) error {
+func (eh *contractStakingEventHandler) handleBucketExpandedEvent(event eventParam) error {
 	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
+	if err != nil {
+		return err
+	}
+	amountParam, err := event.FieldUint256("amount")
 	if err != nil {
 		return err
 	}
@@ -628,39 +624,9 @@ func (eh *contractStakingEventHandler) handleDurationExtendedEvent(event eventPa
 	if !ok {
 		return errors.Wrapf(ErrBucketNotExist, "token id %d", tokenIDParam.Uint64())
 	}
-	bt, ok := eh.dirty.getBucketType(b.TypeIndex)
+	newBtIdx, _, ok := eh.dirty.matchBucketType(amountParam, durationParam.Uint64())
 	if !ok {
-		return errors.Wrapf(errBucketTypeNotExist, "id %d", b.TypeIndex)
-	}
-	newBtIdx, _, ok := eh.dirty.matchBucketType(bt.Amount, durationParam.Uint64())
-	if !ok {
-		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", bt.Amount.Int64(), durationParam.Uint64())
-	}
-	b.TypeIndex = newBtIdx
-	return eh.dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
-}
-
-func (eh *contractStakingEventHandler) handleAmountIncreasedEvent(event eventParam) error {
-	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
-	if err != nil {
-		return err
-	}
-	amountParam, err := event.FieldUint256("amount")
-	if err != nil {
-		return err
-	}
-
-	b, ok := eh.dirty.getBucketInfo(tokenIDParam.Uint64())
-	if !ok {
-		return errors.Wrapf(ErrBucketNotExist, "token id %d", tokenIDParam.Uint64())
-	}
-	bt, ok := eh.dirty.getBucketType(b.TypeIndex)
-	if !ok {
-		return errors.Wrapf(errBucketTypeNotExist, "id %d", b.TypeIndex)
-	}
-	newBtIdx, _, ok := eh.dirty.matchBucketType(amountParam, bt.Duration)
-	if !ok {
-		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), bt.Duration)
+		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), durationParam.Uint64())
 	}
 	b.TypeIndex = newBtIdx
 	return eh.dirty.updateBucketInfo(tokenIDParam.Uint64(), b)

@@ -102,7 +102,8 @@ func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, wri
 	if err != nil {
 		err := errors.Wrap(err, "failed to parse web3 requests.")
 		span.RecordError(err)
-		return writer.Write(&web3Response{err: err})
+		_, err = writer.Write(&web3Response{err: err})
+		return err
 	}
 	if !web3Reqs.IsArray() {
 		return svr.handleWeb3Req(ctx, &web3Reqs, writer)
@@ -116,7 +117,8 @@ func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, wri
 			svr.batchRequestLimit,
 		)
 		span.RecordError(err)
-		return writer.Write(&web3Response{err: err})
+		_, err = writer.Write(&web3Response{err: err})
+		return err
 	}
 	batchWriter := apitypes.NewBatchWriter(writer)
 	for i := range web3ReqArr {
@@ -129,10 +131,12 @@ func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, wri
 
 func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result, writer apitypes.Web3ResponseWriter) error {
 	var (
-		res    interface{}
-		err    error
-		method = web3Req.Get("method").Value()
+		res       interface{}
+		err, err1 error
+		method    = web3Req.Get("method").Value()
+		size      int
 	)
+	defer func(start time.Time) { svr.coreService.Track(ctx, start, method.(string), int64(size), err == nil) }(time.Now())
 	span := tracer.SpanFromContext(ctx)
 	defer span.End()
 	span.AddEvent("handleWeb3Req")
@@ -239,11 +243,12 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	} else {
 		log.Logger("api").Debug("web3Debug", zap.String("response", fmt.Sprintf("%+v", res)))
 	}
-	return writer.Write(&web3Response{
+	size, err1 = writer.Write(&web3Response{
 		id:     int(web3Req.Get("id").Int()),
 		result: res,
 		err:    err,
 	})
+	return err1
 }
 
 func parseWeb3Reqs(reader io.Reader) (gjson.Result, error) {

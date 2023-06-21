@@ -31,8 +31,8 @@ func TestBlockListener(t *testing.T) {
 
 	server := mock_apiserver.NewMockStreamBlocksServer(ctrl)
 	responder := NewGRPCBlockListener(
-		func(in interface{}) error {
-			return server.Send(in.(*iotexapi.StreamBlocksResponse))
+		func(in interface{}) (int, error) {
+			return 0, server.Send(in.(*iotexapi.StreamBlocksResponse))
 		},
 		errChan)
 
