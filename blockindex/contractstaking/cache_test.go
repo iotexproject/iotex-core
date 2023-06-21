@@ -240,11 +240,11 @@ func TestContractStakingCache_TotalBucketCount(t *testing.T) {
 	require.EqualValues(0, cache.TotalBucketCount())
 
 	// one bucket
-	cache.PutTotalBucketCount(1)
+	cache.putTotalBucketCount(1)
 	require.EqualValues(1, cache.TotalBucketCount())
 
 	// two buckets
-	cache.PutTotalBucketCount(2)
+	cache.putTotalBucketCount(2)
 	require.EqualValues(2, cache.TotalBucketCount())
 
 	// delete bucket 1
@@ -312,12 +312,13 @@ func TestContractStakingCache_ActiveBucketTypes(t *testing.T) {
 func TestContractStakingCache_Merge(t *testing.T) {
 	require := require.New(t)
 	cache := newContractStakingCache("")
+	height := uint64(1)
 
 	// create delta with one bucket type
 	delta := newContractStakingDelta()
 	delta.AddBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
 	// merge delta into cache
-	err := cache.Merge(delta)
+	err := cache.Merge(delta, height)
 	require.NoError(err)
 	// check that bucket type was added to cache
 	activeBucketTypes := cache.ActiveBucketTypes()
@@ -325,12 +326,13 @@ func TestContractStakingCache_Merge(t *testing.T) {
 	require.EqualValues(100, activeBucketTypes[1].Amount.Int64())
 	require.EqualValues(100, activeBucketTypes[1].Duration)
 	require.EqualValues(1, activeBucketTypes[1].ActivatedAt)
+	require.EqualValues(height, cache.Height())
 
 	// create delta with one bucket
 	delta = newContractStakingDelta()
 	delta.AddBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
 	// merge delta into cache
-	err = cache.Merge(delta)
+	err = cache.Merge(delta, height)
 	require.NoError(err)
 	// check that bucket was added to cache and vote count is correct
 	require.EqualValues(100, cache.CandidateVotes(identityset.Address(1)).Int64())
@@ -339,7 +341,7 @@ func TestContractStakingCache_Merge(t *testing.T) {
 	delta = newContractStakingDelta()
 	delta.UpdateBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(2)})
 	// merge delta into cache
-	err = cache.Merge(delta)
+	err = cache.Merge(delta, height)
 	require.NoError(err)
 	// check that bucket delegate was updated and vote count is correct
 	require.EqualValues(0, cache.CandidateVotes(identityset.Address(1)).Int64())
@@ -349,7 +351,7 @@ func TestContractStakingCache_Merge(t *testing.T) {
 	delta = newContractStakingDelta()
 	delta.DeleteBucketInfo(1)
 	// merge delta into cache
-	err = cache.Merge(delta)
+	err = cache.Merge(delta, height)
 	require.NoError(err)
 	// check that bucket was deleted from cache and vote count is 0
 	require.EqualValues(0, cache.CandidateVotes(identityset.Address(3)).Int64())

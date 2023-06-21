@@ -23,6 +23,7 @@ type (
 		bucketTypeMap         map[uint64]*BucketType      // map[bucketTypeId]BucketType
 		propertyBucketTypeMap map[int64]map[uint64]uint64 // map[amount][duration]index
 		totalBucketCount      uint64                      // total number of buckets including burned buckets
+		height                uint64                      // current block height
 		contractAddress       string                      // contract address for the bucket
 		mutex                 sync.RWMutex                // a RW mutex for the cache to protect concurrent access
 	}
@@ -41,6 +42,12 @@ func newContractStakingCache(contractAddr string) *contractStakingCache {
 		candidateBucketMap:    make(map[string]map[uint64]bool),
 		contractAddress:       contractAddr,
 	}
+}
+
+func (s *contractStakingCache) Height() uint64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.height
 }
 
 func (s *contractStakingCache) CandidateVotes(candidate address.Address) *big.Int {
@@ -183,22 +190,16 @@ func (s *contractStakingCache) DeleteBucketInfo(id uint64) {
 	s.deleteBucketInfo(id)
 }
 
-func (s *contractStakingCache) Merge(delta *contractStakingDelta) error {
+func (s *contractStakingCache) Merge(delta *contractStakingDelta, height uint64) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if err := s.merge(delta); err != nil {
+	if err := s.mergeDelta(delta); err != nil {
 		return err
 	}
+	s.putHeight(height)
 	s.putTotalBucketCount(s.totalBucketCount + delta.AddedBucketCnt())
 	return nil
-}
-
-func (s *contractStakingCache) PutTotalBucketCount(count uint64) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	s.putTotalBucketCount(count)
 }
 
 func (s *contractStakingCache) MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
@@ -222,6 +223,20 @@ func (s *contractStakingCache) BucketTypeCount() uint64 {
 func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	// load height
+	var height uint64
+	h, err := kvstore.Get(_StakingNS, _stakingHeightKey)
+	if err != nil {
+		if !errors.Is(err, db.ErrNotExist) {
+			return err
+		}
+		height = 0
+	} else {
+		height = byteutil.BytesToUint64BigEndian(h)
+
+	}
+	s.putHeight(height)
 
 	// load total bucket count
 	var totalBucketCount uint64
@@ -364,7 +379,11 @@ func (s *contractStakingCache) putTotalBucketCount(count uint64) {
 	s.totalBucketCount = count
 }
 
-func (s *contractStakingCache) merge(delta *contractStakingDelta) error {
+func (s *contractStakingCache) putHeight(height uint64) {
+	s.height = height
+}
+
+func (s *contractStakingCache) mergeDelta(delta *contractStakingDelta) error {
 	for state, btMap := range delta.BucketTypeDelta() {
 		if state == deltaStateAdded || state == deltaStateModified {
 			for id, bt := range btMap {
