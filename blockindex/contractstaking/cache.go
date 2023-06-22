@@ -335,8 +335,20 @@ func (s *contractStakingCache) getBucket(id uint64) (*Bucket, bool) {
 }
 
 func (s *contractStakingCache) putBucketType(id uint64, bt *BucketType) {
-	amount := bt.Amount.Int64()
+	// remove old bucket map
+	if oldBt, existed := s.bucketTypeMap[id]; existed {
+		amount := oldBt.Amount.Int64()
+		if _, existed := s.propertyBucketTypeMap[amount]; existed {
+			delete(s.propertyBucketTypeMap[amount], oldBt.Duration)
+			if len(s.propertyBucketTypeMap[amount]) == 0 {
+				delete(s.propertyBucketTypeMap, amount)
+			}
+		}
+	}
+	// update bucket type
 	s.bucketTypeMap[id] = bt
+	// add new bucket type map
+	amount := bt.Amount.Int64()
 	m, ok := s.propertyBucketTypeMap[amount]
 	if !ok {
 		s.propertyBucketTypeMap[amount] = make(map[uint64]uint64)
@@ -346,7 +358,16 @@ func (s *contractStakingCache) putBucketType(id uint64, bt *BucketType) {
 }
 
 func (s *contractStakingCache) putBucketInfo(id uint64, bi *bucketInfo) {
-	oldBi := s.bucketInfoMap[id]
+	// delete old candidate bucket map
+	if oldBi, existed := s.bucketInfoMap[id]; existed {
+		oldDelegate := oldBi.Delegate.String()
+		if _, existed := s.candidateBucketMap[oldDelegate]; existed {
+			delete(s.candidateBucketMap[oldDelegate], id)
+			if len(s.candidateBucketMap[oldDelegate]) == 0 {
+				delete(s.candidateBucketMap, oldDelegate)
+			}
+		}
+	}
 	s.bucketInfoMap[id] = bi
 	// update candidate bucket map
 	newDelegate := bi.Delegate.String()
@@ -354,13 +375,6 @@ func (s *contractStakingCache) putBucketInfo(id uint64, bi *bucketInfo) {
 		s.candidateBucketMap[newDelegate] = make(map[uint64]bool)
 	}
 	s.candidateBucketMap[newDelegate][id] = true
-	// delete old candidate bucket map
-	if oldBi != nil {
-		oldDelegate := oldBi.Delegate.String()
-		if oldDelegate != newDelegate {
-			delete(s.candidateBucketMap[oldDelegate], id)
-		}
-	}
 }
 
 func (s *contractStakingCache) deleteBucketInfo(id uint64) {
