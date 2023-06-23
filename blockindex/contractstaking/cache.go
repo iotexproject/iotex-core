@@ -23,7 +23,7 @@ type (
 		bucketTypeMap         map[uint64]*BucketType      // map[bucketTypeId]BucketType
 		propertyBucketTypeMap map[int64]map[uint64]uint64 // map[amount][duration]index
 		totalBucketCount      uint64                      // total number of buckets including burned buckets
-		height                uint64                      // current block height
+		height                uint64                      // current block height, it's put in cache for consistency on merge
 		contractAddress       string                      // contract address for the bucket
 		mutex                 sync.RWMutex                // a RW mutex for the cache to protect concurrent access
 	}
@@ -245,6 +245,7 @@ func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 		if !errors.Is(err, db.ErrNotExist) {
 			return err
 		}
+		totalBucketCount = 0
 	} else {
 		totalBucketCount = byteutil.BytesToUint64BigEndian(tbc)
 	}
@@ -345,9 +346,8 @@ func (s *contractStakingCache) putBucketType(id uint64, bt *BucketType) {
 			}
 		}
 	}
-	// update bucket type
+	// add new bucket map
 	s.bucketTypeMap[id] = bt
-	// add new bucket type map
 	amount := bt.Amount.Int64()
 	m, ok := s.propertyBucketTypeMap[amount]
 	if !ok {
@@ -358,16 +358,7 @@ func (s *contractStakingCache) putBucketType(id uint64, bt *BucketType) {
 }
 
 func (s *contractStakingCache) putBucketInfo(id uint64, bi *bucketInfo) {
-	// delete old candidate bucket map
-	if oldBi, existed := s.bucketInfoMap[id]; existed {
-		oldDelegate := oldBi.Delegate.String()
-		if _, existed := s.candidateBucketMap[oldDelegate]; existed {
-			delete(s.candidateBucketMap[oldDelegate], id)
-			if len(s.candidateBucketMap[oldDelegate]) == 0 {
-				delete(s.candidateBucketMap, oldDelegate)
-			}
-		}
-	}
+	oldBi := s.bucketInfoMap[id]
 	s.bucketInfoMap[id] = bi
 	// update candidate bucket map
 	newDelegate := bi.Delegate.String()
@@ -375,6 +366,18 @@ func (s *contractStakingCache) putBucketInfo(id uint64, bi *bucketInfo) {
 		s.candidateBucketMap[newDelegate] = make(map[uint64]bool)
 	}
 	s.candidateBucketMap[newDelegate][id] = true
+	// delete old candidate bucket map
+	if oldBi == nil {
+		return
+	}
+	oldDelegate := oldBi.Delegate.String()
+	if oldDelegate == newDelegate {
+		return
+	}
+	delete(s.candidateBucketMap[oldDelegate], id)
+	if len(s.candidateBucketMap[oldDelegate]) == 0 {
+		delete(s.candidateBucketMap, oldDelegate)
+	}
 }
 
 func (s *contractStakingCache) deleteBucketInfo(id uint64) {
