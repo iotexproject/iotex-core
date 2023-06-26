@@ -560,8 +560,8 @@ func (bs *test1) tipHeightHandler() uint64 {
 	return 1
 }
 func (bs *test1) SyncStatus() (uint64, uint64, uint64, string) {
-	bs.mu.RLock()
-	defer bs.mu.RUnlock()
+	// bs.mu.RLock()
+	// defer bs.mu.RUnlock()
 	var syncSpeedDesc string
 	syncBlockIncrease := atomic.LoadUint64(&bs.syncBlockIncrease)
 	switch {

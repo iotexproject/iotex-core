@@ -11,7 +11,7 @@ import (
 
 const (
 	// PeriodicReportInterval is the interval for generating periodic reports
-	PeriodicReportInterval = 5 * time.Minute
+	PeriodicReportInterval = 20 * time.Second
 )
 
 // StatsReporter is the interface for stats reporter
