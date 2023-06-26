@@ -38,18 +38,6 @@ func (e eventParam) FieldUint256(name string) (*big.Int, error) {
 	return eventField[*big.Int](e, name)
 }
 
-func (e eventParam) FieldBytes12(name string) (string, error) {
-	data, err := eventField[[12]byte](e, name)
-	if err != nil {
-		return "", err
-	}
-	// remove trailing zeros
-	tail := len(data) - 1
-	for ; tail >= 0 && data[tail] == 0; tail-- {
-	}
-	return string(data[:tail+1]), nil
-}
-
 func (e eventParam) FieldUint256Slice(name string) ([]*big.Int, error) {
 	return eventField[[]*big.Int](e, name)
 }

@@ -19,59 +19,66 @@ func TestContractStakingCache_CandidateVotes(t *testing.T) {
 	require := require.New(t)
 	cache := newContractStakingCache("")
 
+	var (
+		cand1 = identityset.Address(1)
+		cand2 = identityset.Address(2)
+		cand3 = identityset.Address(3)
+		cand4 = identityset.Address(4)
+	)
+
 	// no bucket
-	require.EqualValues(0, cache.CandidateVotes(identityset.Address(1)).Int64())
+	require.EqualValues(0, cache.CandidateVotes(cand1).Int64())
 
 	// one bucket
 	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
-	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	require.EqualValues(100, cache.CandidateVotes(identityset.Address(1)).Int64())
+	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: cand1, Owner: cand2})
+	require.EqualValues(100, cache.CandidateVotes(cand1).Int64())
 
 	// two buckets
-	cache.PutBucketInfo(2, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	require.EqualValues(200, cache.CandidateVotes(identityset.Address(1)).Int64())
+	cache.PutBucketInfo(2, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: cand1, Owner: cand2})
+	require.EqualValues(200, cache.CandidateVotes(cand1).Int64())
 
 	// add one bucket with different delegate
-	cache.PutBucketInfo(3, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(2)})
-	require.EqualValues(200, cache.CandidateVotes(identityset.Address(1)).Int64())
-	require.EqualValues(100, cache.CandidateVotes(identityset.Address(3)).Int64())
+	cache.PutBucketInfo(3, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: cand3, Owner: cand2})
+	require.EqualValues(200, cache.CandidateVotes(cand1).Int64())
+	require.EqualValues(100, cache.CandidateVotes(cand3).Int64())
 
 	// add one bucket with different owner
-	cache.PutBucketInfo(4, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(4)})
-	require.EqualValues(300, cache.CandidateVotes(identityset.Address(1)).Int64())
+	cache.PutBucketInfo(4, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: cand1, Owner: cand4})
+	require.EqualValues(300, cache.CandidateVotes(cand1).Int64())
 
 	// add one bucket with different amount
 	cache.PutBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 100, ActivatedAt: 1})
-	cache.PutBucketInfo(5, &bucketInfo{TypeIndex: 2, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	require.EqualValues(500, cache.CandidateVotes(identityset.Address(1)).Int64())
+	cache.PutBucketInfo(5, &bucketInfo{TypeIndex: 2, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: cand1, Owner: cand2})
+	require.EqualValues(500, cache.CandidateVotes(cand1).Int64())
 
 	// add one bucket with different duration
 	cache.PutBucketType(3, &BucketType{Amount: big.NewInt(300), Duration: 200, ActivatedAt: 1})
-	cache.PutBucketInfo(6, &bucketInfo{TypeIndex: 3, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	require.EqualValues(800, cache.CandidateVotes(identityset.Address(1)).Int64())
+	cache.PutBucketInfo(6, &bucketInfo{TypeIndex: 3, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: cand1, Owner: cand2})
+	require.EqualValues(800, cache.CandidateVotes(cand1).Int64())
 
 	// add one bucket that is unstaked
-	cache.PutBucketInfo(7, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: 1, UnstakedAt: 1, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	require.EqualValues(800, cache.CandidateVotes(identityset.Address(1)).Int64())
+	cache.PutBucketInfo(7, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: 1, UnstakedAt: 1, Delegate: cand1, Owner: cand2})
+	require.EqualValues(800, cache.CandidateVotes(cand1).Int64())
 
 	// add one bucket that is unlocked and staked
-	cache.PutBucketInfo(8, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: 100, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	require.EqualValues(900, cache.CandidateVotes(identityset.Address(1)).Int64())
+	cache.PutBucketInfo(8, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: 100, UnstakedAt: maxBlockNumber, Delegate: cand1, Owner: cand2})
+	require.EqualValues(900, cache.CandidateVotes(cand1).Int64())
 
 	// change delegate of bucket 1
-	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(2)})
-	require.EqualValues(800, cache.CandidateVotes(identityset.Address(1)).Int64())
-	require.EqualValues(200, cache.CandidateVotes(identityset.Address(3)).Int64())
+	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: cand3, Owner: cand2})
+	require.EqualValues(800, cache.CandidateVotes(cand1).Int64())
+	require.EqualValues(200, cache.CandidateVotes(cand3).Int64())
 
 	// change owner of bucket 1
-	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(4)})
-	require.EqualValues(800, cache.CandidateVotes(identityset.Address(1)).Int64())
-	require.EqualValues(200, cache.CandidateVotes(identityset.Address(3)).Int64())
+	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: cand3, Owner: cand4})
+	require.EqualValues(800, cache.CandidateVotes(cand1).Int64())
+	require.EqualValues(200, cache.CandidateVotes(cand3).Int64())
 
 	// change amount of bucket 1
-	cache.putBucketInfo(1, &bucketInfo{TypeIndex: 2, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(4)})
-	require.EqualValues(800, cache.CandidateVotes(identityset.Address(1)).Int64())
-	require.EqualValues(300, cache.CandidateVotes(identityset.Address(3)).Int64())
+	cache.putBucketInfo(1, &bucketInfo{TypeIndex: 2, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: cand3, Owner: cand4})
+	require.EqualValues(800, cache.CandidateVotes(cand1).Int64())
+	require.EqualValues(300, cache.CandidateVotes(cand3).Int64())
 }
 
 func TestContractStakingCache_Buckets(t *testing.T) {
@@ -83,52 +90,57 @@ func TestContractStakingCache_Buckets(t *testing.T) {
 	require.Empty(cache.Buckets())
 
 	// add one bucket
-	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
-	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
+	bt1 := &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1}
+	b1 := &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
+	cache.PutBucketType(1, bt1)
+	cache.PutBucketInfo(1, b1)
 	buckets := cache.Buckets()
 	require.Len(buckets, 1)
-	checkVoteBucket(require, buckets[0], 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 1, buckets[0], b1, bt1, contractAddr)
 	bucket, ok := cache.Bucket(1)
 	require.True(ok)
-	checkVoteBucket(require, bucket, 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 1, bucket, b1, bt1, contractAddr)
 
 	// add one bucket with different index
-	cache.PutBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 200, ActivatedAt: 1})
-	cache.PutBucketInfo(2, &bucketInfo{TypeIndex: 2, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(4)})
+	bt2 := &BucketType{Amount: big.NewInt(200), Duration: 200, ActivatedAt: 1}
+	b2 := &bucketInfo{TypeIndex: 2, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(4)}
+	cache.PutBucketType(2, bt2)
+	cache.PutBucketInfo(2, b2)
 	bucketMaps := bucketsToMap(cache.Buckets())
 	require.Len(bucketMaps, 2)
-	checkVoteBucket(require, bucketMaps[1], 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
-	checkVoteBucket(require, bucketMaps[2], 2, identityset.Address(3).String(), identityset.Address(4).String(), 200, 200, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 1, bucketMaps[1], b1, bt1, contractAddr)
+	checkVoteBucket(require, 2, bucketMaps[2], b2, bt2, contractAddr)
 	bucket, ok = cache.Bucket(1)
 	require.True(ok)
-	checkVoteBucket(require, bucket, 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 1, bucket, b1, bt1, contractAddr)
 	bucket, ok = cache.Bucket(2)
 	require.True(ok)
-	checkVoteBucket(require, bucket, 2, identityset.Address(3).String(), identityset.Address(4).String(), 200, 200, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 2, bucket, b2, bt2, contractAddr)
 
 	// update delegate of bucket 2
-	cache.PutBucketInfo(2, &bucketInfo{TypeIndex: 2, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(5), Owner: identityset.Address(4)})
+	b2.Delegate = identityset.Address(5)
+	cache.PutBucketInfo(2, b2)
 	bucketMaps = bucketsToMap(cache.Buckets())
 	require.Len(bucketMaps, 2)
-	checkVoteBucket(require, bucketMaps[1], 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
-	checkVoteBucket(require, bucketMaps[2], 2, identityset.Address(5).String(), identityset.Address(4).String(), 200, 200, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 1, bucketMaps[1], b1, bt1, contractAddr)
+	checkVoteBucket(require, 2, bucketMaps[2], b2, bt2, contractAddr)
 	bucket, ok = cache.Bucket(1)
 	require.True(ok)
-	checkVoteBucket(require, bucket, 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 1, bucket, b1, bt1, contractAddr)
 	bucket, ok = cache.Bucket(2)
 	require.True(ok)
-	checkVoteBucket(require, bucket, 2, identityset.Address(5).String(), identityset.Address(4).String(), 200, 200, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 2, bucket, b2, bt2, contractAddr)
 
 	// delete bucket 1
 	cache.DeleteBucketInfo(1)
 	bucketMaps = bucketsToMap(cache.Buckets())
 	require.Len(bucketMaps, 1)
-	checkVoteBucket(require, bucketMaps[2], 2, identityset.Address(5).String(), identityset.Address(4).String(), 200, 200, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 2, bucketMaps[2], b2, bt2, contractAddr)
 	_, ok = cache.Bucket(1)
 	require.False(ok)
 	bucket, ok = cache.Bucket(2)
 	require.True(ok)
-	checkVoteBucket(require, bucket, 2, identityset.Address(5).String(), identityset.Address(4).String(), 200, 200, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 2, bucket, b2, bt2, contractAddr)
 }
 
 func TestContractStakingCache_BucketsByCandidate(t *testing.T) {
@@ -141,38 +153,44 @@ func TestContractStakingCache_BucketsByCandidate(t *testing.T) {
 	require.Len(buckets, 0)
 
 	// one bucket
-	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
-	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
+	bt1 := &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1}
+	b1 := &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
+	cache.PutBucketType(1, bt1)
+	cache.PutBucketInfo(1, b1)
 	bucketMaps := bucketsToMap(cache.BucketsByCandidate(identityset.Address(1)))
 	require.Len(bucketMaps, 1)
-	checkVoteBucket(require, bucketMaps[1], 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 1, bucketMaps[1], b1, bt1, contractAddr)
 
 	// two buckets
-	cache.PutBucketInfo(2, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
+	b2 := &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
+	cache.PutBucketInfo(2, b2)
 	bucketMaps = bucketsToMap(cache.BucketsByCandidate(identityset.Address(1)))
 	require.Len(bucketMaps, 2)
-	checkVoteBucket(require, bucketMaps[1], 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
-	checkVoteBucket(require, bucketMaps[2], 2, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 1, bucketMaps[1], b1, bt1, contractAddr)
+	checkVoteBucket(require, 2, bucketMaps[2], b2, bt1, contractAddr)
 
 	// add one bucket with different delegate
-	cache.PutBucketInfo(3, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(2)})
+	b3 := &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(2)}
+	cache.PutBucketInfo(3, b3)
 	bucketMaps = bucketsToMap(cache.BucketsByCandidate(identityset.Address(1)))
 	require.Len(bucketMaps, 2)
 	require.Nil(bucketMaps[3])
 	bucketMaps = bucketsToMap(cache.BucketsByCandidate(identityset.Address(3)))
 	require.Len(bucketMaps, 1)
-	checkVoteBucket(require, bucketMaps[3], 3, identityset.Address(3).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 3, bucketMaps[3], b3, bt1, contractAddr)
 
 	// change delegate of bucket 1
-	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(2)})
+	b1 = cache.mustGetBucketInfo(1)
+	b1.Delegate = identityset.Address(3)
+	cache.PutBucketInfo(1, b1)
 	bucketMaps = bucketsToMap(cache.BucketsByCandidate(identityset.Address(1)))
 	require.Len(bucketMaps, 1)
 	require.Nil(bucketMaps[1])
-	checkVoteBucket(require, bucketMaps[2], 2, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 2, bucketMaps[2], b2, bt1, contractAddr)
 	bucketMaps = bucketsToMap(cache.BucketsByCandidate(identityset.Address(3)))
 	require.Len(bucketMaps, 2)
-	checkVoteBucket(require, bucketMaps[1], 1, identityset.Address(3).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
-	checkVoteBucket(require, bucketMaps[3], 3, identityset.Address(3).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 1, bucketMaps[1], b1, bt1, contractAddr)
+	checkVoteBucket(require, 3, bucketMaps[3], b3, bt1, contractAddr)
 
 	// delete bucket 2
 	cache.DeleteBucketInfo(2)
@@ -180,9 +198,8 @@ func TestContractStakingCache_BucketsByCandidate(t *testing.T) {
 	require.Len(bucketMaps, 0)
 	bucketMaps = bucketsToMap(cache.BucketsByCandidate(identityset.Address(3)))
 	require.Len(bucketMaps, 2)
-	checkVoteBucket(require, bucketMaps[1], 1, identityset.Address(3).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
-	checkVoteBucket(require, bucketMaps[3], 3, identityset.Address(3).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
-
+	checkVoteBucket(require, 1, bucketMaps[1], b1, bt1, contractAddr)
+	checkVoteBucket(require, 3, bucketMaps[3], b3, bt1, contractAddr)
 }
 
 func TestContractStakingCache_BucketsByIndices(t *testing.T) {
@@ -196,22 +213,25 @@ func TestContractStakingCache_BucketsByIndices(t *testing.T) {
 	require.Len(buckets, 0)
 
 	// one bucket
-	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
-	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
+	bt1 := &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1}
+	b1 := &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
+	cache.PutBucketType(1, bt1)
+	cache.PutBucketInfo(1, b1)
 	buckets, err = cache.BucketsByIndices([]uint64{1})
 	require.NoError(err)
 	require.Len(buckets, 1)
 	bucketMaps := bucketsToMap(buckets)
-	checkVoteBucket(require, bucketMaps[1], 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 1, bucketMaps[1], b1, bt1, contractAddr)
 
 	// two buckets
-	cache.PutBucketInfo(2, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
+	b2 := &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
+	cache.PutBucketInfo(2, b2)
 	buckets, err = cache.BucketsByIndices([]uint64{1, 2})
 	require.NoError(err)
 	require.Len(buckets, 2)
 	bucketMaps = bucketsToMap(buckets)
-	checkVoteBucket(require, bucketMaps[1], 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
-	checkVoteBucket(require, bucketMaps[2], 2, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 1, bucketMaps[1], b1, bt1, contractAddr)
+	checkVoteBucket(require, 1, bucketMaps[1], b2, bt1, contractAddr)
 
 	// one bucket not found
 	buckets, err = cache.BucketsByIndices([]uint64{3})
@@ -222,8 +242,7 @@ func TestContractStakingCache_BucketsByIndices(t *testing.T) {
 	buckets, err = cache.BucketsByIndices([]uint64{1, 3})
 	require.NoError(err)
 	require.Len(buckets, 1)
-	bucketMaps = bucketsToMap(buckets)
-	checkVoteBucket(require, bucketMaps[1], 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
+	checkVoteBucket(require, 1, buckets[0], b1, bt1, contractAddr)
 
 	// delete bucket 1
 	cache.DeleteBucketInfo(1)
@@ -258,55 +277,80 @@ func TestContractStakingCache_ActiveBucketTypes(t *testing.T) {
 
 	// no bucket type
 	require.Empty(cache.ActiveBucketTypes())
+	id, bucketType, ok := cache.MatchBucketType(big.NewInt(100), 100)
+	require.False(ok)
+	require.Nil(bucketType)
 
-	// one bucket type
-	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
-	activeBucketTypes := cache.ActiveBucketTypes()
-	require.Len(activeBucketTypes, 1)
-	require.EqualValues(100, activeBucketTypes[1].Amount.Int64())
-	require.EqualValues(100, activeBucketTypes[1].Duration)
-	require.EqualValues(1, activeBucketTypes[1].ActivatedAt)
+	bt := []*BucketType{
+		{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1},
+		{Amount: big.NewInt(200), Duration: 100, ActivatedAt: 2},
+		{Amount: big.NewInt(100), Duration: 200, ActivatedAt: 1},
+		{Amount: big.NewInt(200), Duration: 200, ActivatedAt: 2},
+	}
+	for i, v := range bt {
+		cache.PutBucketType(uint64(i), v)
+		activeBucketTypes := cache.ActiveBucketTypes()
+		require.Len(activeBucketTypes, i+1)
+		require.Equal(v, activeBucketTypes[uint64(i)])
 
-	// two bucket types
-	cache.PutBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 200, ActivatedAt: 2})
-	activeBucketTypes = cache.ActiveBucketTypes()
-	require.Len(activeBucketTypes, 2)
-	require.EqualValues(100, activeBucketTypes[1].Amount.Int64())
-	require.EqualValues(100, activeBucketTypes[1].Duration)
-	require.EqualValues(1, activeBucketTypes[1].ActivatedAt)
-	require.EqualValues(200, activeBucketTypes[2].Amount.Int64())
-	require.EqualValues(200, activeBucketTypes[2].Duration)
-	require.EqualValues(2, activeBucketTypes[2].ActivatedAt)
+		// match bucket type with different amount/duration
+		id, bucketType, ok := cache.MatchBucketType(v.Amount, v.Duration)
+		require.True(ok)
+		require.EqualValues(i, id)
+		require.Equal(v, bucketType)
+		_, bucketType, ok = cache.MatchBucketType(new(big.Int).Add(v.Amount, big.NewInt(100)), v.Duration)
+		require.False(ok)
+		require.Nil(bucketType)
+		_, bucketType, ok = cache.MatchBucketType(v.Amount, v.Duration+100)
+		require.False(ok)
+		require.Nil(bucketType)
+		_, bucketType, ok = cache.MatchBucketType(new(big.Int).Add(v.Amount, big.NewInt(100)), v.Duration+100)
+		require.False(ok)
+		require.Nil(bucketType)
+	}
 
 	// add one inactive bucket type
-	cache.PutBucketType(3, &BucketType{Amount: big.NewInt(300), Duration: 300, ActivatedAt: maxBlockNumber})
-	activeBucketTypes = cache.ActiveBucketTypes()
-	require.Len(activeBucketTypes, 2)
-	require.EqualValues(100, activeBucketTypes[1].Amount.Int64())
-	require.EqualValues(100, activeBucketTypes[1].Duration)
-	require.EqualValues(1, activeBucketTypes[1].ActivatedAt)
-	require.EqualValues(200, activeBucketTypes[2].Amount.Int64())
-	require.EqualValues(200, activeBucketTypes[2].Duration)
-	require.EqualValues(2, activeBucketTypes[2].ActivatedAt)
+	bt3 := &BucketType{Amount: big.NewInt(100), Duration: 300, ActivatedAt: maxBlockNumber}
+	cache.PutBucketType(5, bt3)
+	id, bucketType, ok = cache.MatchBucketType(bt3.Amount, bt3.Duration)
+	require.True(ok)
+	require.EqualValues(5, id)
+	require.Equal(bt3, bucketType)
+	activeBucketTypes := cache.ActiveBucketTypes()
+	require.Len(activeBucketTypes, 4)
+	for i := 0; i < len(bt); i++ {
+		require.Equal(bt[i], activeBucketTypes[uint64(i)])
+	}
 
 	// deactivate bucket type 1
-	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: maxBlockNumber})
+	bt[1].ActivatedAt = maxBlockNumber
+	cache.PutBucketType(1, bt[1])
+	id, bucketType, ok = cache.MatchBucketType(bt[1].Amount, bt[1].Duration)
+	require.True(ok)
+	require.EqualValues(1, id)
+	require.Equal(bt[1], bucketType)
 	activeBucketTypes = cache.ActiveBucketTypes()
-	require.Len(activeBucketTypes, 1)
-	require.EqualValues(200, activeBucketTypes[2].Amount.Int64())
-	require.EqualValues(200, activeBucketTypes[2].Duration)
-	require.EqualValues(2, activeBucketTypes[2].ActivatedAt)
+	require.Len(activeBucketTypes, 3)
+	for i := 0; i < len(bt); i++ {
+		if i == 1 {
+			// bucket type 1 de-activated
+			continue
+		}
+		require.Equal(bt[i], activeBucketTypes[uint64(i)])
+	}
 
 	// reactivate bucket type 1
-	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
+	bt[1].ActivatedAt = 1
+	cache.PutBucketType(1, bt[1])
+	id, bucketType, ok = cache.MatchBucketType(bt[1].Amount, bt[1].Duration)
+	require.True(ok)
+	require.EqualValues(1, id)
+	require.Equal(bt[1], bucketType)
 	activeBucketTypes = cache.ActiveBucketTypes()
-	require.Len(activeBucketTypes, 2)
-	require.EqualValues(100, activeBucketTypes[1].Amount.Int64())
-	require.EqualValues(100, activeBucketTypes[1].Duration)
-	require.EqualValues(1, activeBucketTypes[1].ActivatedAt)
-	require.EqualValues(200, activeBucketTypes[2].Amount.Int64())
-	require.EqualValues(200, activeBucketTypes[2].Duration)
-	require.EqualValues(2, activeBucketTypes[2].ActivatedAt)
+	require.Len(activeBucketTypes, 4)
+	for i := 0; i < len(bt); i++ {
+		require.Equal(bt[i], activeBucketTypes[uint64(i)])
+	}
 }
 
 func TestContractStakingCache_Merge(t *testing.T) {
@@ -355,41 +399,6 @@ func TestContractStakingCache_Merge(t *testing.T) {
 	require.NoError(err)
 	// check that bucket was deleted from cache and vote count is 0
 	require.EqualValues(0, cache.CandidateVotes(identityset.Address(3)).Int64())
-}
-
-func TestContractStakingCache_MatchBucketType(t *testing.T) {
-	require := require.New(t)
-	cache := newContractStakingCache("")
-
-	// no bucket types
-	_, bucketType, ok := cache.MatchBucketType(big.NewInt(100), 100)
-	require.False(ok)
-	require.Nil(bucketType)
-
-	// one bucket type
-	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
-	// match exact bucket type
-	id, bucketType, ok := cache.MatchBucketType(big.NewInt(100), 100)
-	require.True(ok)
-	require.EqualValues(1, id)
-	require.EqualValues(100, bucketType.Amount.Int64())
-	require.EqualValues(100, bucketType.Duration)
-	require.EqualValues(1, bucketType.ActivatedAt)
-
-	// match bucket type with different amount
-	_, bucketType, ok = cache.MatchBucketType(big.NewInt(200), 100)
-	require.False(ok)
-	require.Nil(bucketType)
-
-	// match bucket type with different duration
-	_, bucketType, ok = cache.MatchBucketType(big.NewInt(100), 200)
-	require.False(ok)
-	require.Nil(bucketType)
-
-	// no match
-	_, bucketType, ok = cache.MatchBucketType(big.NewInt(200), 200)
-	require.False(ok)
-	require.Nil(bucketType)
 }
 
 func TestContractStakingCache_BucketTypeCount(t *testing.T) {
@@ -470,15 +479,15 @@ func bucketsToMap(buckets []*staking.VoteBucket) map[uint64]*staking.VoteBucket 
 	return m
 }
 
-func checkVoteBucket(r *require.Assertions, bucket *staking.VoteBucket, index uint64, candidate, owner string, amount, duration, createHeight, startHeight, unstakeHeight uint64, autoStake bool, contractAddr string) {
-	r.EqualValues(index, bucket.Index)
-	r.EqualValues(candidate, bucket.Candidate.String())
-	r.EqualValues(owner, bucket.Owner.String())
-	r.EqualValues(amount, bucket.StakedAmount.Int64())
-	r.EqualValues(duration, bucket.StakedDurationBlockNumber)
-	r.EqualValues(createHeight, bucket.CreateBlockHeight)
-	r.EqualValues(startHeight, bucket.StakeStartBlockHeight)
-	r.EqualValues(unstakeHeight, bucket.UnstakeStartBlockHeight)
-	r.EqualValues(autoStake, bucket.AutoStake)
-	r.EqualValues(contractAddr, bucket.ContractAddress)
+func checkVoteBucket(r *require.Assertions, index uint64, bucket *staking.VoteBucket, bi *bucketInfo, bt *BucketType, contractAddr string) {
+	r.Equal(index, bucket.Index)
+	r.Equal(bi.Delegate.String(), bucket.Candidate.String())
+	r.Equal(bi.Owner.String(), bucket.Owner.String())
+	r.Equal(bt.Amount.Int64(), bucket.StakedAmount.Int64())
+	r.Equal(bt.Duration, bucket.StakedDurationBlockNumber)
+	r.Equal(bi.CreatedAt, bucket.CreateBlockHeight)
+	r.Equal(bi.CreatedAt, bucket.StakeStartBlockHeight)
+	r.Equal(bi.UnlockedAt, bucket.UnstakeStartBlockHeight)
+	r.Equal(bi.UnlockedAt == maxBlockNumber, bucket.AutoStake)
+	r.Equal(contractAddr, bucket.ContractAddress)
 }
