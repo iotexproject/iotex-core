@@ -8,7 +8,6 @@ package contractstaking
 import (
 	"context"
 	"math/big"
-	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/iotexproject/iotex-address/address"
@@ -54,7 +53,6 @@ type (
 		cache                *contractStakingCache // in-memory index for clean data, used to query index data
 		contractAddress      string                // stake contract address
 		contractDeployHeight uint64                // height of the contract deployment
-		height               atomic.Value          // uint64, current block height
 	}
 )
 
@@ -93,7 +91,7 @@ func (s *Indexer) Stop(ctx context.Context) error {
 
 // Height returns the tip block height
 func (s *Indexer) Height() (uint64, error) {
-	return s.height.Load().(uint64), nil
+	return s.cache.Height(), nil
 }
 
 // StartHeight returns the start height of the indexer
@@ -143,7 +141,7 @@ func (s *Indexer) BucketTypes() ([]*BucketType, error) {
 
 // PutBlock puts a block into indexer
 func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
-	if blk.Height() < s.contractDeployHeight || blk.Height() <= s.height.Load().(uint64) {
+	if blk.Height() < s.contractDeployHeight || blk.Height() <= s.cache.Height() {
 		return nil
 	}
 	// new event handler for this block
@@ -176,7 +174,7 @@ func (s *Indexer) DeleteTipBlock(context.Context, *block.Block) error {
 func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) error {
 	batch, delta := handler.Result()
 	// update cache
-	if err := s.cache.Merge(delta); err != nil {
+	if err := s.cache.Merge(delta, height); err != nil {
 		s.reloadCache()
 		return err
 	}
@@ -186,8 +184,6 @@ func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) er
 		s.reloadCache()
 		return err
 	}
-	// update indexer height cache
-	s.height.Store(height)
 	return nil
 }
 
@@ -197,19 +193,5 @@ func (s *Indexer) reloadCache() error {
 }
 
 func (s *Indexer) loadFromDB() error {
-	// load height
-	var height uint64
-	h, err := s.kvstore.Get(_StakingNS, _stakingHeightKey)
-	if err != nil {
-		if !errors.Is(err, db.ErrNotExist) {
-			return err
-		}
-		height = 0
-	} else {
-		height = byteutil.BytesToUint64BigEndian(h)
-
-	}
-	s.height.Store(height)
-	// load cache
 	return s.cache.LoadFromDB(s.kvstore)
 }
