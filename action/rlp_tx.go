@@ -5,34 +5,29 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/sha3"
 )
 
-func rlpRawHash(rawTx *types.Transaction, chainID uint32) (hash.Hash256, error) {
-	h := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(rawTx)
-	return hash.BytesToHash256(h[:]), nil
+func rlpRawHash(rawTx *types.Transaction, chainID uint32, encoding iotextypes.Encoding) hash.Hash256 {
+	var h common.Hash
+	if encoding == 2 {
+		h = types.HomesteadSigner{}.Hash(rawTx)
+	} else {
+		h = types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(rawTx)
+	}
+	return hash.BytesToHash256(h[:])
 }
 
-func rlpSignedHash(tx *types.Transaction, chainID uint32, sig []byte) (hash.Hash256, error) {
-	signedTx, err := reconstructSignedRlpTxFromSig(tx, chainID, sig)
-	if err != nil {
-		return hash.ZeroHash256, err
-	}
-	h := sha3.NewLegacyKeccak256()
-	if err = rlp.Encode(h, signedTx); err != nil {
-		return hash.ZeroHash256, err
-	}
-	return hash.BytesToHash256(h.Sum(nil)), nil
-}
-
-func reconstructSignedRlpTxFromSig(rawTx *types.Transaction, chainID uint32, sig []byte) (*types.Transaction, error) {
+func rlpSignedHash(tx *types.Transaction, chainID uint32, encoding iotextypes.Encoding, sig []byte) (hash.Hash256, error) {
 	if len(sig) != 65 {
-		return nil, errors.Errorf("invalid signature length = %d, expecting 65", len(sig))
+		return hash.ZeroHash256, errors.Errorf("invalid signature length = %d, expecting 65", len(sig))
 	}
 	sc := make([]byte, 65)
 	copy(sc, sig)
@@ -40,11 +35,22 @@ func reconstructSignedRlpTxFromSig(rawTx *types.Transaction, chainID uint32, sig
 		sc[64] -= 27
 	}
 
-	signedTx, err := rawTx.WithSignature(types.NewEIP155Signer(big.NewInt(int64(chainID))), sc)
-	if err != nil {
-		return nil, err
+	var signer types.Signer
+	if encoding == 2 {
+		signer = types.HomesteadSigner{}
+	} else {
+		signer = types.NewEIP155Signer(big.NewInt(int64(chainID)))
 	}
-	return signedTx, nil
+	signedTx, err := tx.WithSignature(signer, sc)
+	if err != nil {
+		return hash.ZeroHash256, err
+	}
+
+	h := sha3.NewLegacyKeccak256()
+	if err = rlp.Encode(h, signedTx); err != nil {
+		return hash.ZeroHash256, err
+	}
+	return hash.BytesToHash256(h.Sum(nil)), nil
 }
 
 // DecodeRawTx decodes raw data string into eth tx
@@ -66,8 +72,20 @@ func DecodeRawTx(rawData string, chainID uint32) (tx *types.Transaction, sig []b
 	}
 
 	// extract signature and recover pubkey
-	v, r, s := tx.RawSignatureValues()
-	recID := uint32(v.Int64()) - 2*chainID - 8
+	var (
+		v, r, s = tx.RawSignatureValues()
+		recID   = uint32(v.Int64())
+		rawHash common.Hash
+	)
+	if tx.Protected() {
+		// https://eips.ethereum.org/EIPS/eip-155
+		// for post EIP-155 tx, v is set to {0,1} + CHAIN_ID * 2 + 35
+		// convert it to the canonical value {0,1} + 27
+		recID -= chainID*2 + 8
+		rawHash = types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
+	} else {
+		rawHash = types.HomesteadSigner{}.Hash(tx)
+	}
 	sig = make([]byte, 64, 65)
 	rSize := len(r.Bytes())
 	copy(sig[32-rSize:32], r.Bytes())
@@ -76,7 +94,6 @@ func DecodeRawTx(rawData string, chainID uint32) (tx *types.Transaction, sig []b
 	sig = append(sig, byte(recID))
 
 	// recover public key
-	rawHash := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
 	pubkey, err = crypto.RecoverPubkey(rawHash[:], sig)
 	return
 }

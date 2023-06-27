@@ -30,7 +30,7 @@ type SealedEnvelope struct {
 // an all-0 return value means the transaction is invalid
 func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 	switch sealed.encoding {
-	case iotextypes.Encoding_ETHEREUM_RLP:
+	case iotextypes.Encoding_ETHEREUM_RLP, 2:
 		act, ok := sealed.Action().(EthCompatibleAction)
 		if !ok {
 			return hash.ZeroHash256, ErrInvalidAct
@@ -39,7 +39,7 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
-		return rlpRawHash(tx, sealed.evmNetworkID)
+		return rlpRawHash(tx, sealed.evmNetworkID, sealed.encoding), nil
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Envelope.Proto()))), nil
 	default:
@@ -62,7 +62,7 @@ func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
 
 func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
 	switch sealed.encoding {
-	case iotextypes.Encoding_ETHEREUM_RLP:
+	case iotextypes.Encoding_ETHEREUM_RLP, 2:
 		act, ok := sealed.Action().(EthCompatibleAction)
 		if !ok {
 			return hash.ZeroHash256, ErrInvalidAct
@@ -71,7 +71,7 @@ func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
-		return rlpSignedHash(tx, sealed.evmNetworkID, sealed.Signature())
+		return rlpSignedHash(tx, sealed.evmNetworkID, sealed.encoding, sealed.Signature())
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Proto()))), nil
 	default:
@@ -136,7 +136,7 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 	}
 	encoding := pbAct.GetEncoding()
 	switch encoding {
-	case iotextypes.Encoding_ETHEREUM_RLP:
+	case iotextypes.Encoding_ETHEREUM_RLP, 2:
 		// verify action type can support RLP-encoding
 		act, ok := elp.Action().(EthCompatibleAction)
 		if !ok {
@@ -146,7 +146,7 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 		if err != nil {
 			return err
 		}
-		if _, err = rlpSignedHash(tx, evmID, pbAct.GetSignature()); err != nil {
+		if _, err = rlpSignedHash(tx, evmID, encoding, pbAct.GetSignature()); err != nil {
 			return err
 		}
 		sealed.evmNetworkID = evmID

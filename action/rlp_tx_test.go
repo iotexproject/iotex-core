@@ -7,8 +7,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -79,7 +77,7 @@ func TestGenerateRlp(t *testing.T) {
 			require.Contains(err.Error(), v.err)
 			continue
 		}
-		h, err := rlpSignedHash(tx, _evmNetworkID, v.sig)
+		h, err := rlpSignedHash(tx, _evmNetworkID, iotextypes.Encoding_ETHEREUM_RLP, v.sig)
 		if err != nil {
 			require.Contains(err.Error(), v.err)
 		}
@@ -286,30 +284,28 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"04830579b50e01602c2015c24e72fbc48bca1cca1e601b119ca73abe2e0b5bd61fcb7874567e091030d6b644f927445d80e00b3f9ca0c566c21c30615e94c343da",
 			"8d38efe45794d7fceea10b2262c23c12245959db",
 		},
+		{
+			// deterministic deployment
+			// https://goerli.etherscan.io/tx/0xeddf9e61fb9d8f5111840daef55e5fde0041f5702856532cdbb5a02998033d26
+			"execution",
+			"0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222",
+			0,
+			100000,
+			"100000000000",
+			"0",
+			EmptyAddress,
+			83,
+			"eddf9e61fb9d8f5111840daef55e5fde0041f5702856532cdbb5a02998033d26",
+			"040a98b1acb38ed9cd8d0e8f1f03b1588bae140586f8a8049197b65013a3c17690151ae422e3fdfb26be2e6a4465b1f9cf5c26a5635109929a0d0a11734124d50a",
+			"3fab184622dc19b6109349b94811493bf2a45362",
+		},
 	}
 
 	for _, v := range rlpTests {
-		encoded, err := hex.DecodeString(v.raw)
+		tx, sig, pubkey, err := DecodeRawTx(v.raw, _evmNetworkID)
 		require.NoError(err)
-
-		// decode received RLP tx
-		tx := types.Transaction{}
-		require.NoError(rlp.DecodeBytes(encoded, &tx))
-
-		// extract signature and recover pubkey
-		w, r, s := tx.RawSignatureValues()
-		recID := uint32(w.Int64()) - 2*_evmNetworkID - 8
-		sig := make([]byte, 64, 65)
-		rSize := len(r.Bytes())
-		copy(sig[32-rSize:32], r.Bytes())
-		sSize := len(s.Bytes())
-		copy(sig[64-sSize:], s.Bytes())
-		sig = append(sig, byte(recID))
-
-		// recover public key
-		rawHash := types.NewEIP155Signer(big.NewInt(int64(_evmNetworkID))).Hash(&tx)
-		pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
-		require.NoError(err)
+		require.Zero(tx.Type())
+		require.Equal(v.pkhash != "3fab184622dc19b6109349b94811493bf2a45362", tx.Protected())
 		require.Equal(v.pubkey, pubkey.HexString())
 		require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
 
@@ -317,7 +313,10 @@ func TestRlpDecodeVerify(t *testing.T) {
 		pb := &iotextypes.Action{
 			Encoding: iotextypes.Encoding_ETHEREUM_RLP,
 		}
-		pb.Core = convertToNativeProto(&tx, v.actType)
+		if !tx.Protected() {
+			pb.Encoding = 2
+		}
+		pb.Core = convertToNativeProto(tx, v.actType)
 		pb.SenderPubKey = pubkey.Bytes()
 		pb.Signature = sig
 
@@ -352,6 +351,13 @@ func TestRlpDecodeVerify(t *testing.T) {
 		require.True(bytes.Equal(sig, selp.signature))
 		raw, err := selp.envelopeHash()
 		require.NoError(err)
+		var signer types.Signer
+		if selp.encoding == 2 {
+			signer = types.HomesteadSigner{}
+		} else {
+			signer = types.NewEIP155Signer(big.NewInt(int64(_evmNetworkID)))
+		}
+		rawHash := signer.Hash(tx)
 		require.True(bytes.Equal(rawHash[:], raw[:]))
 		require.NotEqual(raw, h)
 		require.NoError(selp.VerifySignature())
