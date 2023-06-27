@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -1321,6 +1322,14 @@ func TestContractStaking(t *testing.T) {
 	for _, receipt := range receipts {
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipt.Status)
 	}
+	bts, err := indexer.BucketTypes()
+	r.NoError(err)
+	r.ElementsMatch([]*staking.ContractStakingBucketType{
+		{big.NewInt(10), 10, 2},
+		{big.NewInt(10), 100, 2},
+		{big.NewInt(100), 10, 2},
+		{big.NewInt(100), 100, 2},
+	}, bts)
 
 	simpleStake := func(cand common.Address, amount, duration *big.Int) *contractstaking.Bucket {
 		return stake(lsdABI, bc, sf, dao, ap, contractAddresses, indexer, r, cand, amount, duration)
@@ -1349,22 +1358,24 @@ func TestContractStaking(t *testing.T) {
 		})
 		bt := buckets[len(buckets)-1]
 		tokenID := bt.Index
-		r.EqualValues(1, bt.Index)
-		r.True(bt.AutoStake)
-		r.Equal(identityset.Address(delegateIdx).String(), bt.Candidate.String())
-		r.EqualValues(identityset.PrivateKey(adminID).PublicKey().Address().String(), bt.Owner.String())
-		r.EqualValues(0, bt.StakedAmount.Cmp(big.NewInt(10)))
-		r.EqualValues(10, bt.StakedDurationBlockNumber)
-		r.EqualValues(blk.Height(), bt.CreateBlockHeight)
-		r.EqualValues(blk.Height(), bt.StakeStartBlockHeight)
-		r.True(bt.UnstakeStartBlockHeight == math.MaxUint64)
+		expectBt := &staking.VoteBucket{
+			Index:                     1,
+			Candidate:                 identityset.Address(delegateIdx),
+			Owner:                     identityset.Address(adminID),
+			StakedAmount:              big.NewInt(10),
+			AutoStake:                 true,
+			ContractAddress:           contractAddresses,
+			StakedDurationBlockNumber: 10,
+			CreateBlockHeight:         blk.Height(),
+			StakeStartBlockHeight:     blk.Height(),
+			UnstakeStartBlockHeight:   math.MaxUint64,
+		}
+		r.EqualValues(expectBt, bt)
 		r.EqualValues(10, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 		r.EqualValues(1, indexer.TotalBucketCount())
-		r.EqualValues(contractAddresses, bt.ContractAddress)
 		buckets, err = indexer.BucketsByCandidate(identityset.Address(delegateIdx))
 		r.NoError(err)
-		r.Len(buckets, 1)
-		r.EqualValues(bt, buckets[0])
+		r.ElementsMatch([]*contractstaking.Bucket{bt}, buckets)
 
 		t.Run("unlock", func(t *testing.T) {
 			data, err = lsdABI.Pack("unlock0", big.NewInt(int64(bt.Index)))
@@ -1383,7 +1394,9 @@ func TestContractStaking(t *testing.T) {
 			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 			bt, ok := indexer.Bucket(uint64(tokenID))
 			r.True(ok)
-			r.EqualValues(blk.Height(), bt.StakeStartBlockHeight)
+			expectBt.StakeStartBlockHeight = blk.Height()
+			expectBt.AutoStake = false
+			r.EqualValues(expectBt, bt)
 			r.EqualValues(10, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 			r.EqualValues(1, indexer.TotalBucketCount())
 
@@ -1405,7 +1418,8 @@ func TestContractStaking(t *testing.T) {
 				r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 				bt, ok := indexer.Bucket(uint64(tokenID))
 				r.True(ok)
-				r.EqualValues(blk.Height(), bt.UnstakeStartBlockHeight)
+				expectBt.UnstakeStartBlockHeight = blk.Height()
+				r.EqualValues(expectBt, bt)
 				r.EqualValues(0, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 				r.EqualValues(1, indexer.TotalBucketCount())
 
@@ -1467,12 +1481,14 @@ func TestContractStaking(t *testing.T) {
 			sk:           identityset.PrivateKey(adminID),
 		}
 		receipts, _ := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+		expectBt := bt
 		r.Len(receipts, 1)
 		r.EqualValues("", receipts[0].ExecutionRevertMsg())
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 		bt, ok := indexer.Bucket(uint64(tokenID))
 		r.True(ok)
-		r.True(bt.AutoStake)
+		expectBt.AutoStake = true
+		r.EqualValues(expectBt, bt)
 	})
 	t.Run("merge", func(t *testing.T) {
 		// stake 10 bucket
@@ -1528,7 +1544,18 @@ func TestContractStaking(t *testing.T) {
 			if i == 0 {
 				bt, ok := indexer.Bucket(uint64(newBuckets[i].Index))
 				r.True(ok)
-				r.EqualValues(100, bt.StakedDurationBlockNumber)
+				r.EqualValues(&staking.VoteBucket{
+					Index:                     newBuckets[0].Index,
+					Candidate:                 newBuckets[0].Candidate,
+					Owner:                     newBuckets[0].Owner,
+					StakedAmount:              big.NewInt(100),
+					AutoStake:                 true,
+					ContractAddress:           contractAddresses,
+					StakedDurationBlockNumber: 100,
+					CreateBlockHeight:         newBuckets[0].CreateBlockHeight,
+					StakeStartBlockHeight:     newBuckets[0].StakeStartBlockHeight,
+					UnstakeStartBlockHeight:   newBuckets[0].UnstakeStartBlockHeight,
+				}, bt)
 			} else {
 				_, ok := indexer.Bucket(uint64(newBuckets[i].Index))
 				r.False(ok)
@@ -1552,12 +1579,14 @@ func TestContractStaking(t *testing.T) {
 			gasPrice:     big.NewInt(0),
 			sk:           identityset.PrivateKey(adminID),
 		}
+		expectBt := bt
 		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 		r.Len(receipts, 1)
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 		bt, ok := indexer.Bucket(uint64(tokenID))
 		r.True(ok)
-		r.EqualValues(100, bt.StakedDurationBlockNumber)
+		expectBt.StakedDurationBlockNumber = 100
+		r.EqualValues(expectBt, bt)
 	})
 
 	t.Run("increase amount", func(t *testing.T) {
@@ -1574,13 +1603,16 @@ func TestContractStaking(t *testing.T) {
 			gasPrice:     big.NewInt(0),
 			sk:           identityset.PrivateKey(adminID),
 		}
+		expectBt := bt
 		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 		r.Len(receipts, 1)
 		r.EqualValues("", receipts[0].ExecutionRevertMsg())
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 		bt, ok := indexer.Bucket(uint64(tokenID))
 		r.True(ok)
-		r.EqualValues(100, bt.StakedAmount.Int64())
+		expectBt.StakedAmount = big.NewInt(100)
+		r.EqualValues(expectBt, bt)
+		r.EqualValues(100, indexer.CandidateVotes(identityset.Address(4)).Int64())
 	})
 
 	t.Run("expand bucket type", func(t *testing.T) {
@@ -1655,14 +1687,16 @@ func TestContractStaking(t *testing.T) {
 				gasPrice:     big.NewInt(0),
 				sk:           identityset.PrivateKey(adminID),
 			}
+			expectBt := bt
 			receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 			r.Len(receipts, 1)
 			r.EqualValues("", receipts[0].ExecutionRevertMsg())
 			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 			bt, ok := indexer.Bucket(uint64(tokenID))
 			r.True(ok)
-			r.EqualValues(100, bt.StakedAmount.Int64())
-			r.EqualValues(100, bt.StakedDurationBlockNumber)
+			expectBt.StakedAmount = big.NewInt(100)
+			expectBt.StakedDurationBlockNumber = 100
+			r.EqualValues(expectBt, bt)
 		})
 
 		t.Run("unchange", func(t *testing.T) {
@@ -1678,14 +1712,14 @@ func TestContractStaking(t *testing.T) {
 				gasPrice:     big.NewInt(0),
 				sk:           identityset.PrivateKey(adminID),
 			}
+			expectBt := bt
 			receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 			r.Len(receipts, 1)
 			r.EqualValues("", receipts[0].ExecutionRevertMsg())
 			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 			bt, ok := indexer.Bucket(uint64(tokenID))
 			r.True(ok)
-			r.EqualValues(10, bt.StakedAmount.Int64())
-			r.EqualValues(10, bt.StakedDurationBlockNumber)
+			r.EqualValues(expectBt, bt)
 		})
 	})
 
@@ -1694,8 +1728,10 @@ func TestContractStaking(t *testing.T) {
 		bt := simpleStake(_delegates[delegateIdx], big.NewInt(10), big.NewInt(10))
 		tokenID := bt.Index
 		r.EqualValues(identityset.Address(delegateIdx).String(), bt.Candidate.String())
+		expectBt := bt
 
 		delegateIdx = 6
+		r.EqualValues(0, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 		delegate := _delegates[delegateIdx]
 		data, err := lsdABI.Pack("changeDelegate", big.NewInt(int64(tokenID)), delegate)
 		r.NoError(err)
@@ -1713,7 +1749,9 @@ func TestContractStaking(t *testing.T) {
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 		bt, ok := indexer.Bucket(uint64(tokenID))
 		r.True(ok)
-		r.EqualValues(identityset.Address(delegateIdx).String(), bt.Candidate.String())
+		expectBt.Candidate = identityset.Address(delegateIdx)
+		r.EqualValues(expectBt, bt)
+		r.EqualValues(10, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
 	})
 
 	t.Run("transfer token", func(t *testing.T) {
@@ -1725,6 +1763,7 @@ func TestContractStaking(t *testing.T) {
 			from := common.BytesToAddress(identityset.Address(_adminID).Bytes())
 			newOwnerIdx := 25
 			to := common.BytesToAddress(identityset.Address(newOwnerIdx).Bytes())
+			expectBt := bt
 			data, err := lsdABI.Pack("transferFrom", from, to, big.NewInt(int64(tokenID)))
 			r.NoError(err)
 			param = callParam{
@@ -1741,7 +1780,8 @@ func TestContractStaking(t *testing.T) {
 			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 			bt, ok := indexer.Bucket(uint64(tokenID))
 			r.True(ok)
-			r.EqualValues(identityset.Address(newOwnerIdx).String(), bt.Owner.String())
+			expectBt.Owner = identityset.Address(newOwnerIdx)
+			r.EqualValues(expectBt, bt)
 		})
 
 		t.Run("safeTransferFrom", func(t *testing.T) {
@@ -1752,6 +1792,7 @@ func TestContractStaking(t *testing.T) {
 			from := common.BytesToAddress(identityset.Address(_adminID).Bytes())
 			newOwnerIdx := 25
 			to := common.BytesToAddress(identityset.Address(newOwnerIdx).Bytes())
+			expectBt := bt
 			data, err := lsdABI.Pack("safeTransferFrom", from, to, big.NewInt(int64(tokenID)))
 			r.NoError(err)
 			param = callParam{
@@ -1768,7 +1809,57 @@ func TestContractStaking(t *testing.T) {
 			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 			bt, ok := indexer.Bucket(uint64(tokenID))
 			r.True(ok)
-			r.EqualValues(identityset.Address(newOwnerIdx).String(), bt.Owner.String())
+			expectBt.Owner = identityset.Address(newOwnerIdx)
+			r.EqualValues(expectBt, bt)
+		})
+	})
+
+	t.Run("deactivate bucket type", func(t *testing.T) {
+		data, err := lsdABI.Pack("deactivateBucketType", big.NewInt(10), big.NewInt(10))
+		r.NoError(err)
+		param = callParam{
+			contractAddr: contractAddresses,
+			bytecode:     hex.EncodeToString(data),
+			amount:       big.NewInt(0),
+			gasLimit:     1000000,
+			gasPrice:     big.NewInt(0),
+			sk:           identityset.PrivateKey(adminID),
+		}
+		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+		r.Len(receipts, 1)
+		r.EqualValues("", receipts[0].ExecutionRevertMsg())
+		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
+		bts, err := indexer.BucketTypes()
+		r.NoError(err)
+		r.ElementsMatch([]*staking.ContractStakingBucketType{
+			{big.NewInt(10), 100, 2},
+			{big.NewInt(100), 10, 2},
+			{big.NewInt(100), 100, 2},
+		}, bts)
+
+		t.Run("reactivate bucket type", func(t *testing.T) {
+			data, err := lsdABI.Pack("activateBucketType", big.NewInt(10), big.NewInt(10))
+			r.NoError(err)
+			param = callParam{
+				contractAddr: contractAddresses,
+				bytecode:     hex.EncodeToString(data),
+				amount:       big.NewInt(0),
+				gasLimit:     1000000,
+				gasPrice:     big.NewInt(0),
+				sk:           identityset.PrivateKey(adminID),
+			}
+			receipts, blk := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+			r.Len(receipts, 1)
+			r.EqualValues("", receipts[0].ExecutionRevertMsg())
+			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
+			bts, err := indexer.BucketTypes()
+			r.NoError(err)
+			r.ElementsMatch([]*staking.ContractStakingBucketType{
+				{big.NewInt(10), 10, blk.Height()},
+				{big.NewInt(10), 100, 2},
+				{big.NewInt(100), 10, 2},
+				{big.NewInt(100), 100, 2},
+			}, bts)
 		})
 	})
 }
