@@ -46,7 +46,7 @@ var (
 	}
 	_delegateCmdShorts = map[config.Language]string{
 		config.English: "Print consensus delegates information in certain epoch",
-		config.Chinese: "打印在特定epoch内的公认代表的信息",
+		config.Chinese: "打印在特定epoch内的共识代表的信息",
 	}
 	_flagEpochNumUsages = map[config.Language]string{
 		config.English: "specify specific epoch",
