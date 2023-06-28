@@ -62,7 +62,6 @@ func TestNewSGDRegistry(t *testing.T) {
 		r.NoError(err)
 		receiverAddress, err := address.FromHex("78731d3ca6b7e34ac0f824c42a7cc18a495cabab")
 		r.NoError(err)
-		expectPercentage := uint64(30)
 		t.Run("registerContract", func(t *testing.T) {
 			builder := block.NewTestingBuilder()
 			event := _sgdABI.Events["ContractRegistered"]
@@ -79,7 +78,7 @@ func TestNewSGDRegistry(t *testing.T) {
 			r.NoError(sgdRegistry.PutBlock(ctx, blk))
 			receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
 			r.NoError(err)
-			r.Equal(expectPercentage, percentage)
+			r.Equal(_sgdPercentage, percentage)
 			r.Equal(receiverAddress, receiver)
 			r.False(isApproved)
 
@@ -108,7 +107,7 @@ func TestNewSGDRegistry(t *testing.T) {
 			r.NoError(err)
 			r.Equal(receiverAddress, receiver)
 			r.True(isApproved)
-			r.Equal(expectPercentage, percentage)
+			r.Equal(_sgdPercentage, percentage)
 		})
 		t.Run("disapproveContract", func(t *testing.T) {
 			builder := block.NewTestingBuilder()
@@ -128,7 +127,7 @@ func TestNewSGDRegistry(t *testing.T) {
 			r.NoError(err)
 			r.Equal(receiverAddress, receiver)
 			r.False(isApproved)
-			r.Equal(expectPercentage, percentage)
+			r.Equal(_sgdPercentage, percentage)
 		})
 		t.Run("removeContract", func(t *testing.T) {
 			builder := block.NewTestingBuilder()
