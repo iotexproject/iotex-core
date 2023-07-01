@@ -70,7 +70,7 @@ func defaultConfig() Genesis {
 			NewfoundlandBlockHeight: 17662681,
 			OkhotskBlockHeight:      21542761,
 			PalauBlockHeight:        22991401,
-			QuebecBlockHeight:       32991401,
+			QuebecBlockHeight:       24699961,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{

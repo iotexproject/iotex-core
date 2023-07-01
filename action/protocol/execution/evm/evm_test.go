@@ -210,10 +210,19 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			22991400,
 		},
-		// after Palau
+		// Palau - Quebec
 		{
 			action.EmptyAddress,
 			22991401,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			24699960,
+		},
+		// after Quebec
+		{
+			action.EmptyAddress,
+			24699961,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
