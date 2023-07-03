@@ -2647,7 +2647,7 @@ func TestProtocol_HandleExecutorRegister(t *testing.T) {
 	initFunc := func() (protocol.StateManager, *Protocol) {
 		p, err := NewProtocol(depositGasWithLog,
 			&BuilderConfig{Staking: genesis.Default.Staking, PersistStakingPatchBlock: math.MaxUint64},
-			nil, genesis.Default.GreenlandBlockHeight,
+			nil, &emptyContractStakingIndexer{}, genesis.Default.GreenlandBlockHeight,
 		)
 		require.NoError(err)
 		sm := testdb.NewMockStateManager(ctrl)
