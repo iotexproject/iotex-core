@@ -83,7 +83,6 @@ func (c *compositeStakingStateReader) readStateBuckets(ctx context.Context, req 
 	}
 	// merge native and LSD buckets
 	buckets.Buckets = append(buckets.Buckets, lsdIoTeXBuckets.Buckets...)
-
 	buckets.Buckets = getPageOfArray(buckets.Buckets, int(req.GetPagination().GetOffset()), int(req.GetPagination().GetLimit()))
 	return buckets, height, err
 }
