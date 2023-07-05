@@ -217,12 +217,12 @@ func TestConstantinople(t *testing.T) {
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			24699960,
+			24838200,
 		},
 		// after Quebec
 		{
 			action.EmptyAddress,
-			24699961,
+			24838201,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
