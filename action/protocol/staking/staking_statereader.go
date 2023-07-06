@@ -110,7 +110,6 @@ func (c *compositeStakingStateReader) readStateBucketsByVoter(ctx context.Contex
 	}
 	// merge native and LSD buckets
 	buckets.Buckets = append(buckets.Buckets, lsdIoTeXBuckets.Buckets...)
-
 	buckets.Buckets = getPageOfArray(buckets.Buckets, int(req.GetPagination().GetOffset()), int(req.GetPagination().GetLimit()))
 	return buckets, height, err
 }
@@ -142,7 +141,6 @@ func (c *compositeStakingStateReader) readStateBucketsByCandidate(ctx context.Co
 	}
 	// merge native and LSD buckets
 	buckets.Buckets = append(buckets.Buckets, lsdIoTeXBuckets.Buckets...)
-
 	buckets.Buckets = getPageOfArray(buckets.Buckets, int(req.GetPagination().GetOffset()), int(req.GetPagination().GetLimit()))
 	return buckets, height, err
 }
@@ -168,7 +166,6 @@ func (c *compositeStakingStateReader) readStateBucketByIndices(ctx context.Conte
 	}
 	// merge native and LSD buckets
 	buckets.Buckets = append(buckets.Buckets, lsbIoTeXBuckets.Buckets...)
-
 	return buckets, height, nil
 }
 
