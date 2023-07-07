@@ -262,3 +262,10 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	// There should always have at least 1 interval range to sync
 	assert.Len(b.GetBlocksIntervalsToSync(chain.TipHeight(), 0), 1)
 }
+
+func TestBuffer(t *testing.T) {
+	bb := newBlockBuffer(200, 20)
+	bb.blockQueues[3] = newUniQueue()
+	iv := bb.GetBlocksIntervalsToSync(0, 2000)
+	t.Logf("iv: %v", iv)
+}
