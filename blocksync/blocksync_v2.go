@@ -9,6 +9,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/fastrand"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
@@ -19,6 +20,7 @@ import (
 
 type blockSyncerV2 struct {
 	cfg Config
+	lifecycle.Readiness
 	buf *blockBuffer
 
 	tipHeightHandler     TipHeight
@@ -67,7 +69,7 @@ func NewBlockSyncerV2(
 		trigger:              make(chan struct{}),
 	}
 	if bs.cfg.Interval != 0 {
-		bs.syncTask = routine.NewDelayTask(bs.syncBlocks, bs.cfg.Interval)
+		bs.syncTask = routine.NewDelayTask(bs.syncWork, bs.cfg.Interval)
 		bs.syncStageTask = routine.NewRecurringTask(bs.syncStageChecker, bs.cfg.Interval)
 	}
 	atomic.StoreUint64(&bs.syncBlockIncrease, 0)
@@ -95,15 +97,11 @@ func (bs *blockSyncerV2) flushInfo() (time.Time, uint64) {
 
 	return bs.lastTipUpdateTime, bs.targetHeight
 }
-func (bs *blockSyncerV2) syncBlocks() {
+func (bs *blockSyncerV2) syncWork() {
 	bs.sync()
-	for {
-		select {
-		case <-bs.trigger:
-			bs.sync()
-		default:
-			time.Sleep(1 * time.Second)
-		}
+	for range bs.trigger {
+		time.Sleep(1 * time.Second) //limit the frequency of sync
+		bs.sync()
 	}
 }
 
@@ -162,6 +160,9 @@ func (bs *blockSyncerV2) TargetHeight() uint64 {
 // Start starts a block syncer
 func (bs *blockSyncerV2) Start(ctx context.Context) error {
 	log.L().Debug("Starting block syncer.")
+	if err := bs.TurnOn(); err != nil {
+		return err
+	}
 	if bs.syncTask != nil {
 		if err := bs.syncTask.Start(ctx); err != nil {
 			return err
@@ -176,6 +177,10 @@ func (bs *blockSyncerV2) Start(ctx context.Context) error {
 // Stop stops a block syncer
 func (bs *blockSyncerV2) Stop(ctx context.Context) error {
 	log.L().Debug("Stopping block syncer.")
+	if err := bs.TurnOff(); err != nil {
+		return err
+	}
+	close(bs.trigger)
 	if bs.syncStageTask != nil {
 		if err := bs.syncStageTask.Stop(ctx); err != nil {
 			return err
@@ -218,7 +223,7 @@ func (bs *blockSyncerV2) ProcessBlock(ctx context.Context, peer string, blk *blo
 		bs.lastTipUpdateTime = time.Now()
 	}
 	requestMaxHeight := atomic.LoadUint64(&bs.requestMaxHeight)
-	if syncedHeight >= requestMaxHeight {
+	if syncedHeight >= requestMaxHeight && bs.IsReady() {
 		bs.trigger <- struct{}{}
 		atomic.SwapUint64(&bs.requestMaxHeight, 0)
 	}

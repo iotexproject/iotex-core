@@ -465,7 +465,7 @@ func (builder *Builder) buildBlockSyncer() error {
 	chain := builder.cs.chain
 	consens := builder.cs.consensus
 
-	blocksync, err := blocksync.NewBlockSyncer(
+	blocksync, err := blocksync.NewBlockSyncerV2(
 		builder.cfg.BlockSync,
 		chain.TipHeight,
 		builder.cs.blockdao.GetBlockByHeight,
