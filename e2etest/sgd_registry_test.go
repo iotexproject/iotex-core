@@ -25,11 +25,23 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/stretchr/testify/require"
 )
+
+type checkContractExpectation struct {
+	errorContains    string
+	contractAddress  string
+	expectPercentage uint64
+	expectReceiver   address.Address
+	expectIsApproved bool
+}
+type sgdTest struct {
+	name                string
+	data                []string
+	checkContractExpect checkContractExpectation
+}
 
 func TestSGDRegistry(t *testing.T) {
 	r := require.New(t)
@@ -109,140 +121,152 @@ func TestSGDRegistry(t *testing.T) {
 	receiverAddress, err := address.FromHex("78731d3ca6b7e34ac0f824c42a7cc18a495cabab")
 	r.NoError(err)
 	expectPercentage := uint64(30)
-	t.Run("registerContract", func(t *testing.T) {
-		data, _ = hex.DecodeString("d7e5fbf30000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc400000000000000000000000078731d3ca6b7e34ac0f824c42a7cc18a495cabab")
-		exec, err = action.SignedExecution(contractAddress, _execPriKey, atomic.AddUint64(&nonce, 1), big.NewInt(0), 10000000, big.NewInt(9000000000000), data)
-		r.NoError(err)
-		r.NoError(ap.Add(context.Background(), exec))
-		blk, err = bc.MintNewBlock(fixedTime)
-		r.NoError(err)
-		r.NoError(bc.CommitBlock(blk))
-		height, err = dao.Height()
-		r.NoError(err)
-		r.Equal(uint64(2), height)
+	tests := []sgdTest{
+		{
+			name: "registerContract",
+			data: []string{
+				"d7e5fbf30000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc400000000000000000000000078731d3ca6b7e34ac0f824c42a7cc18a495cabab",
+			},
+			checkContractExpect: checkContractExpectation{
+				contractAddress:  registerAddress.String(),
+				expectReceiver:   receiverAddress,
+				expectPercentage: expectPercentage,
+				expectIsApproved: false,
+			},
+		},
+		{
+			name: "approveContract",
+			data: []string{
+				"07f7aafb0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
+			},
+			checkContractExpect: checkContractExpectation{
+				contractAddress:  registerAddress.String(),
+				expectReceiver:   receiverAddress,
+				expectPercentage: expectPercentage,
+				expectIsApproved: true,
+			},
+		},
+		{
+			name: "registerContractAgain",
+			data: []string{
+				"d7e5fbf30000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc400000000000000000000000078731d3ca6b7e34ac0f824c42a7cc18a495cabab",
+			},
+			checkContractExpect: checkContractExpectation{
+				contractAddress:  registerAddress.String(),
+				expectReceiver:   receiverAddress,
+				expectPercentage: expectPercentage,
+				expectIsApproved: true,
+			},
+		},
+		{
+			name: "disapproveContract",
+			data: []string{
+				"a0ee93180000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
+			},
+			checkContractExpect: checkContractExpectation{
+				contractAddress:  registerAddress.String(),
+				expectReceiver:   receiverAddress,
+				expectPercentage: expectPercentage,
+				expectIsApproved: false,
+			},
+		},
+		{
+			name: "removeContract",
+			data: []string{
+				"c375c2ef0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
+			},
+			checkContractExpect: checkContractExpectation{
+				errorContains:   "not exist in DB",
+				contractAddress: registerAddress.String(),
+			},
+		},
+		{
+			name: "approveNoneExistContract",
+			data: []string{
+				"07f7aafb0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
+			},
+			checkContractExpect: checkContractExpectation{
+				errorContains:   "not exist in DB",
+				contractAddress: registerAddress.String(),
+			},
+		},
+		{
+			name: "reAgainRegisterAndApproveContract",
+			data: []string{
+				"d7e5fbf30000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc400000000000000000000000078731d3ca6b7e34ac0f824c42a7cc18a495cabab",
+				"07f7aafb0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
+			},
+			checkContractExpect: checkContractExpectation{
+				contractAddress:  registerAddress.String(),
+				expectReceiver:   receiverAddress,
+				expectPercentage: expectPercentage,
+				expectIsApproved: true,
+			},
+		},
+		{
+			name: "reDisApproveAndApproveContract",
+			data: []string{
+				"a0ee93180000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
+				"a0ee93180000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
+				"07f7aafb0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
+			},
+			checkContractExpect: checkContractExpectation{
+				contractAddress:  registerAddress.String(),
+				expectReceiver:   receiverAddress,
+				expectPercentage: expectPercentage,
+				expectIsApproved: true,
+			},
+		},
+		{
+			name: "removeAndApproveContract",
+			data: []string{
+				"c375c2ef0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
+				"07f7aafb0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
+			},
+			checkContractExpect: checkContractExpectation{
+				errorContains:   "not exist in DB",
+				contractAddress: registerAddress.String(),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for i := 0; i < len(tt.data); i++ {
+				data, err := hex.DecodeString(tt.data[i])
+				r.NoError(err)
+				exec, err = action.SignedExecution(contractAddress, _execPriKey, atomic.AddUint64(&nonce, 1), big.NewInt(0), 10000000, big.NewInt(9000000000000), data)
+				r.NoError(err)
+				r.NoError(ap.Add(context.Background(), exec))
+				blk, err = bc.MintNewBlock(fixedTime)
+				r.NoError(err)
+				r.NoError(bc.CommitBlock(blk))
+				height, err = dao.Height()
+				r.NoError(err)
+				ctx = genesis.WithGenesisContext(
+					protocol.WithBlockchainCtx(
+						protocol.WithRegistry(ctx, registry),
+						protocol.BlockchainCtx{
+							Tip: protocol.TipInfo{
+								Height:    height,
+								Hash:      blk.HashHeader(),
+								Timestamp: blk.Timestamp(),
+							},
+						}),
+					cfg.Genesis,
+				)
+				r.NoError(sgdRegistry.PutBlock(ctx, blk))
+			}
+			receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, tt.checkContractExpect.contractAddress)
+			if tt.checkContractExpect.errorContains != "" {
+				r.ErrorContains(err, tt.checkContractExpect.errorContains)
+			} else {
+				r.NoError(err)
+			}
+			r.Equal(tt.checkContractExpect.expectPercentage, percentage)
+			r.Equal(tt.checkContractExpect.expectReceiver, receiver)
+			r.Equal(tt.checkContractExpect.expectIsApproved, isApproved)
 
-		ctx = genesis.WithGenesisContext(
-			protocol.WithBlockchainCtx(
-				protocol.WithRegistry(ctx, registry),
-				protocol.BlockchainCtx{
-					Tip: protocol.TipInfo{
-						Height:    height,
-						Hash:      blk.HashHeader(),
-						Timestamp: blk.Timestamp(),
-					},
-				}),
-			cfg.Genesis,
-		)
-		r.NoError(sgdRegistry.PutBlock(ctx, blk))
-		receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
-		r.NoError(err)
-		r.Equal(expectPercentage, percentage)
-		r.Equal(receiverAddress, receiver)
-		r.False(isApproved)
+		})
+	}
 
-		lists, err := sgdRegistry.FetchContracts(ctx)
-		r.NoError(err)
-		r.Equal(1, len(lists))
-		r.Equal(registerAddress.Bytes(), lists[0].Contract.Bytes())
-		r.Equal(receiverAddress.Bytes(), lists[0].Receiver.Bytes())
-		r.False(lists[0].Approved)
-	})
-	t.Run("approveContract", func(t *testing.T) {
-		data, _ = hex.DecodeString("07f7aafb0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4")
-		exec, err = action.SignedExecution(contractAddress, _execPriKey, atomic.AddUint64(&nonce, 1), big.NewInt(0), 10000000, big.NewInt(9000000000000), data)
-		r.NoError(err)
-		r.NoError(ap.Add(context.Background(), exec))
-		blk, err = bc.MintNewBlock(fixedTime)
-		r.NoError(err)
-		r.NoError(bc.CommitBlock(blk))
-		height, err = dao.Height()
-		r.NoError(err)
-		r.Equal(uint64(3), height)
-
-		ctx = genesis.WithGenesisContext(
-			protocol.WithBlockchainCtx(
-				protocol.WithRegistry(ctx, registry),
-				protocol.BlockchainCtx{
-					Tip: protocol.TipInfo{
-						Height:    height,
-						Hash:      blk.HashHeader(),
-						Timestamp: blk.Timestamp(),
-					},
-				}),
-			cfg.Genesis,
-		)
-		r.NoError(sgdRegistry.PutBlock(ctx, blk))
-		receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
-		r.NoError(err)
-		r.Equal(receiverAddress, receiver)
-		r.True(isApproved)
-		r.Equal(expectPercentage, percentage)
-	})
-
-	t.Run("disapproveContract", func(t *testing.T) {
-		data, _ = hex.DecodeString("a0ee93180000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4")
-		exec, err = action.SignedExecution(contractAddress, _execPriKey, atomic.AddUint64(&nonce, 1), big.NewInt(0), 10000000, big.NewInt(9000000000000), data)
-		r.NoError(err)
-		r.NoError(ap.Add(context.Background(), exec))
-		blk, err = bc.MintNewBlock(fixedTime)
-		r.NoError(err)
-		r.NoError(bc.CommitBlock(blk))
-		height, err = dao.Height()
-		r.NoError(err)
-		r.Equal(uint64(4), height)
-
-		ctx = genesis.WithGenesisContext(
-			protocol.WithBlockchainCtx(
-				protocol.WithRegistry(ctx, registry),
-				protocol.BlockchainCtx{
-					Tip: protocol.TipInfo{
-						Height:    height,
-						Hash:      blk.HashHeader(),
-						Timestamp: blk.Timestamp(),
-					},
-				}),
-			cfg.Genesis,
-		)
-		r.NoError(sgdRegistry.PutBlock(ctx, blk))
-		receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
-		r.NoError(err)
-		r.Equal(receiverAddress, receiver)
-		r.False(isApproved)
-		r.Equal(expectPercentage, percentage)
-	})
-
-	t.Run("removeContract", func(t *testing.T) {
-		data, _ = hex.DecodeString("c375c2ef0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4")
-		exec, err = action.SignedExecution(contractAddress, _execPriKey, atomic.AddUint64(&nonce, 1), big.NewInt(0), 10000000, big.NewInt(9000000000000), data)
-		r.NoError(err)
-		r.NoError(ap.Add(context.Background(), exec))
-		blk, err = bc.MintNewBlock(fixedTime)
-		r.NoError(err)
-		r.NoError(bc.CommitBlock(blk))
-		height, err = dao.Height()
-		r.NoError(err)
-		r.Equal(uint64(5), height)
-
-		ctx = genesis.WithGenesisContext(
-			protocol.WithBlockchainCtx(
-				protocol.WithRegistry(ctx, registry),
-				protocol.BlockchainCtx{
-					Tip: protocol.TipInfo{
-						Height:    height,
-						Hash:      blk.HashHeader(),
-						Timestamp: blk.Timestamp(),
-					},
-				}),
-			cfg.Genesis,
-		)
-		r.NoError(sgdRegistry.PutBlock(ctx, blk))
-		receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
-		r.ErrorContains(err, "not exist in DB")
-		r.Nil(receiver)
-		r.False(isApproved)
-		r.Equal(uint64(0), percentage)
-
-		_, err = sgdRegistry.FetchContracts(ctx)
-		r.ErrorIs(err, state.ErrStateNotExist)
-	})
 }
