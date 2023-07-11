@@ -11,6 +11,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
+// typedCandidateStateManager is the state manager for typed candidate
 type typedCandidateStateManager struct {
 	protocol.StateManager
 }

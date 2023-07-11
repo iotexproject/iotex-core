@@ -12,6 +12,7 @@ import (
 )
 
 type (
+	// typedCandidateRegister is the interface that every candidate register action should implement
 	typedCandidateRegister interface {
 		OwnerAddress() address.Address
 		OperatorAddress() address.Address
