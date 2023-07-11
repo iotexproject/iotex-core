@@ -846,7 +846,7 @@ func TestIndexer_PutBlock(t *testing.T) {
 				r.NoError(indexer.Stop(context.Background()))
 				testutil.CleanupPath(dbPath)
 			}()
-			indexer.height.Store(height)
+			indexer.cache.putHeight(height)
 			// Create a mock block
 			builder := block.NewBuilder(block.NewRunnableActionsBuilder().Build())
 			builder.SetHeight(c.blockHeight)
@@ -856,7 +856,7 @@ func TestIndexer_PutBlock(t *testing.T) {
 			err = indexer.PutBlock(context.Background(), &blk)
 			r.NoError(err)
 			// Check the block height
-			r.EqualValues(c.expectedHeight, indexer.height.Load().(uint64))
+			r.EqualValues(c.expectedHeight, indexer.cache.Height())
 		})
 	}
 

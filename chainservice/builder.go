@@ -285,15 +285,15 @@ func (builder *Builder) buildSGDRegistry(forTest bool) error {
 	if builder.cs.sgdIndexer != nil {
 		return nil
 	}
-	if forTest {
+	if forTest || builder.cfg.Genesis.SystemSGDContractAddress == "" {
 		builder.cs.sgdIndexer = nil
-	} else {
-		kvStore, err := db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.SGDIndexDBPath, 1000)
-		if err != nil {
-			return err
-		}
-		builder.cs.sgdIndexer = blockindex.NewSGDRegistry(builder.cfg.Genesis.SystemSGDContractAddress, builder.cfg.Genesis.SystemSGDContractHeight, kvStore)
+		return nil
 	}
+	kvStore, err := db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.SGDIndexDBPath, 1000)
+	if err != nil {
+		return err
+	}
+	builder.cs.sgdIndexer = blockindex.NewSGDRegistry(builder.cfg.Genesis.SystemSGDContractAddress, builder.cfg.Genesis.SystemSGDContractHeight, kvStore)
 	return nil
 }
 
@@ -301,17 +301,17 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 	if builder.cs.contractStakingIndexer != nil {
 		return nil
 	}
-	if forTest {
+	if forTest || builder.cfg.Genesis.SystemStakingContractAddress == "" {
 		builder.cs.contractStakingIndexer = contractstaking.NewDummyContractStakingIndexer()
-	} else {
-		dbConfig := builder.cfg.DB
-		dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
-		indexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.SystemStakingContractAddress, builder.cfg.Genesis.SystemStakingContractHeight)
-		if err != nil {
-			return err
-		}
-		builder.cs.contractStakingIndexer = indexer
+		return nil
 	}
+	dbConfig := builder.cfg.DB
+	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
+	indexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.SystemStakingContractAddress, builder.cfg.Genesis.SystemStakingContractHeight)
+	if err != nil {
+		return err
+	}
+	builder.cs.contractStakingIndexer = indexer
 	return nil
 }
 
