@@ -205,3 +205,5 @@ require (
 replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v0.4.2
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
+
+replace github.com/iotexproject/iotex-proto => /Users/chenchen/dev/iotex-proto

@@ -24,15 +24,16 @@ import (
 
 // constants
 const (
-	HandleCreateStake       = "createStake"
-	HandleUnstake           = "unstake"
-	HandleWithdrawStake     = "withdrawStake"
-	HandleChangeCandidate   = "changeCandidate"
-	HandleTransferStake     = "transferStake"
-	HandleDepositToStake    = "depositToStake"
-	HandleRestake           = "restake"
-	HandleCandidateRegister = "candidateRegister"
-	HandleCandidateUpdate   = "candidateUpdate"
+	HandleCreateStake            = "createStake"
+	HandleUnstake                = "unstake"
+	HandleWithdrawStake          = "withdrawStake"
+	HandleChangeCandidate        = "changeCandidate"
+	HandleTransferStake          = "transferStake"
+	HandleDepositToStake         = "depositToStake"
+	HandleRestake                = "restake"
+	HandleCandidateRegister      = "candidateRegister"
+	HandleCandidateUpdate        = "candidateUpdate"
+	HandleTypedCandidateRegister = "typedCandidateRegister"
 )
 
 const _withdrawWaitingTime = 14 * 24 * time.Hour // to maintain backward compatibility with r0.11 code
@@ -66,7 +67,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleCreateStake, featureCtx.NewStakingReceiptFormat)
 
-	staker, fetchErr := fetchCaller(ctx, csm, act.Amount())
+	staker, fetchErr := fetchCaller(ctx, csm.SM(), act.Amount())
 	if fetchErr != nil {
 		return log, nil, fetchErr
 	}
@@ -136,7 +137,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleUnstake, featureCtx.NewStakingReceiptFormat)
 
-	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
+	_, fetchErr := fetchCaller(ctx, csm.SM(), big.NewInt(0))
 	if fetchErr != nil {
 		return log, fetchErr
 	}
@@ -205,7 +206,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleWithdrawStake, featureCtx.NewStakingReceiptFormat)
 
-	withdrawer, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
+	withdrawer, fetchErr := fetchCaller(ctx, csm.SM(), big.NewInt(0))
 	if fetchErr != nil {
 		return log, nil, fetchErr
 	}
@@ -282,7 +283,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleChangeCandidate, featureCtx.NewStakingReceiptFormat)
 
-	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
+	_, fetchErr := fetchCaller(ctx, csm.SM(), big.NewInt(0))
 	if fetchErr != nil {
 		return log, fetchErr
 	}
@@ -365,7 +366,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleTransferStake, featureCtx.NewStakingReceiptFormat)
 
-	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
+	_, fetchErr := fetchCaller(ctx, csm.SM(), big.NewInt(0))
 	if fetchErr != nil {
 		return log, fetchErr
 	}
@@ -449,7 +450,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleDepositToStake, featureCtx.NewStakingReceiptFormat)
 
-	depositor, fetchErr := fetchCaller(ctx, csm, act.Amount())
+	depositor, fetchErr := fetchCaller(ctx, csm.SM(), act.Amount())
 	if fetchErr != nil {
 		return log, nil, fetchErr
 	}
@@ -548,7 +549,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleRestake, featureCtx.NewStakingReceiptFormat)
 
-	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
+	_, fetchErr := fetchCaller(ctx, csm.SM(), big.NewInt(0))
 	if fetchErr != nil {
 		return log, fetchErr
 	}
@@ -628,7 +629,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 
 	registrationFee := new(big.Int).Set(p.config.RegistrationConsts.Fee)
 
-	caller, fetchErr := fetchCaller(ctx, csm, new(big.Int).Add(act.Amount(), registrationFee))
+	caller, fetchErr := fetchCaller(ctx, csm.SM(), new(big.Int).Add(act.Amount(), registrationFee))
 	if fetchErr != nil {
 		return log, nil, fetchErr
 	}
@@ -739,7 +740,7 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleCandidateUpdate, featureCtx.NewStakingReceiptFormat)
 
-	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
+	_, fetchErr := fetchCaller(ctx, csm.SM(), big.NewInt(0))
 	if fetchErr != nil {
 		return log, fetchErr
 	}
@@ -773,6 +774,83 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 
 	log.AddAddress(actCtx.Caller)
 	return log, nil
+}
+
+func (p *Protocol) handleTypedCandidateRegister(ctx context.Context, act typedCandidateRegister, csm CandidateStateManager, esm *typedCandidateStateManager,
+) (*receiptLog, []*action.TransactionLog, error) {
+	actCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	log := newReceiptLog(p.addr.String(), HandleTypedCandidateRegister, featureCtx.NewStakingReceiptFormat)
+	candType := CandidateType(act.CandidateType())
+	actAmount := act.Amount()
+	registrationFee := new(big.Int).Set(p.config.RegistrationConsts.Fee)
+
+	caller, fetchErr := fetchCaller(ctx, esm, new(big.Int).Add(actAmount, registrationFee))
+	if fetchErr != nil {
+		return log, nil, fetchErr
+	}
+	owner := actCtx.Caller
+	if act.OwnerAddress() != nil {
+		owner = act.OwnerAddress()
+	}
+
+	// cannot collide with existing operator at same type
+	if esm.isRegistered(candType, act.OperatorAddress()) {
+		return log, nil, &handleError{
+			err:           ErrInvalidOperator,
+			failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
+		}
+	}
+
+	bucket := NewVoteBucket(owner, owner, actAmount, act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
+	bucketIdx, err := csm.putBucketAndIndex(bucket)
+	if err != nil {
+		return log, nil, err
+	}
+	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), owner.Bytes())
+
+	// create candidate
+	if err := esm.upsert(&TypedCandidate{
+		Owner:              owner,
+		Operator:           act.OperatorAddress(),
+		Reward:             act.RewardAddress(),
+		Type:               candType,
+		SelfStakeBucketIdx: bucketIdx,
+		extraData:          act.ExtraData(),
+	}); err != nil {
+		return log, nil, csmErrorToHandleError(owner.String(), err)
+	}
+
+	// deposit stake
+	stakeTLog, err := depositStake(csm, actAmount, caller, actCtx.Caller, iotextypes.TransactionLogType_TYPED_CANDIDATE_SELF_STAKE)
+	if err != nil {
+		return log, nil, err
+	}
+
+	// deposit gas
+	gasTLog, err := p.depositGasWithType(ctx, esm, registrationFee, iotextypes.TransactionLogType_TYPED_CANDIDATE_REGISTRATION_FEE)
+	if err != nil {
+		return log, nil, errors.Wrap(err, "failed to deposit gas")
+	}
+
+	log.AddAddress(owner)
+	log.AddAddress(actCtx.Caller)
+	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
+
+	return log, []*action.TransactionLog{
+		stakeTLog,
+		gasTLog,
+	}, nil
+}
+
+func (p *Protocol) depositGasWithType(ctx context.Context, sm protocol.StateManager, amount *big.Int, logType iotextypes.TransactionLogType) (*action.TransactionLog, error) {
+	tLog, err := p.depositGas(ctx, sm, amount)
+	if err != nil {
+		return nil, err
+	}
+	tLog.Type = logType
+	return tLog, nil
 }
 
 func (p *Protocol) fetchBucket(
@@ -812,13 +890,13 @@ func (p *Protocol) fetchBucket(
 	return bucket, nil
 }
 
-func fetchCaller(ctx context.Context, csm CandidateStateManager, amount *big.Int) (*state.Account, ReceiptError) {
+func fetchCaller(ctx context.Context, sr protocol.StateReader, amount *big.Int) (*state.Account, ReceiptError) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	accountCreationOpts := []state.AccountCreationOption{}
 	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
 		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
-	caller, err := accountutil.LoadAccount(csm.SM(), actionCtx.Caller, accountCreationOpts...)
+	caller, err := accountutil.LoadAccount(sr, actionCtx.Caller, accountCreationOpts...)
 	if err != nil {
 		return nil, &handleError{
 			err:           errors.Wrapf(err, "failed to load the account of caller %s", actionCtx.Caller.String()),
@@ -886,4 +964,31 @@ func BucketIndexFromReceiptLog(log *iotextypes.Log) (uint64, bool) {
 	default:
 		return 0, false
 	}
+}
+
+// depositStake transfer stake from caller account to bucket pool
+func depositStake(csm CandidateStateManager, amount *big.Int, callerAccount *state.Account, callerAddr address.Address, logType iotextypes.TransactionLogType) (*action.TransactionLog, error) {
+	// update bucket pool
+	if err := csm.DebitBucketPool(amount, true); err != nil {
+		return nil, &handleError{
+			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
+			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
+		}
+	}
+	// update caller account
+	if err := callerAccount.SubBalance(amount); err != nil {
+		return nil, &handleError{
+			err:           errors.Wrapf(err, "failed to update the balance of register %s", callerAddr.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
+		}
+	}
+	if err := accountutil.StoreAccount(csm.SM(), callerAddr, callerAccount); err != nil {
+		return nil, errors.Wrapf(err, "failed to store account %s", callerAddr.String())
+	}
+	return &action.TransactionLog{
+		Type:      logType,
+		Sender:    callerAddr.String(),
+		Recipient: address.StakingBucketPoolAddr,
+		Amount:    amount,
+	}, nil
 }
