@@ -66,6 +66,12 @@ func (c *compositeStakingStateReader) readStateBuckets(ctx context.Context, req 
 			return nil, 0, err
 		}
 	}
+
+	if !c.isContractStakingEnabled() {
+		buckets.Buckets = getPageOfArray(buckets.Buckets, int(req.GetPagination().GetOffset()), int(req.GetPagination().GetLimit()))
+		return buckets, height, nil
+	}
+
 	// read LSD buckets
 	lsdBuckets, err := c.contractIndexer.Buckets()
 	if err != nil {
@@ -75,7 +81,6 @@ func (c *compositeStakingStateReader) readStateBuckets(ctx context.Context, req 
 	if err != nil {
 		return nil, 0, err
 	}
-
 	// merge native and LSD buckets
 	buckets.Buckets = append(buckets.Buckets, lsdIoTeXBuckets.Buckets...)
 	buckets.Buckets = getPageOfArray(buckets.Buckets, int(req.GetPagination().GetOffset()), int(req.GetPagination().GetLimit()))
@@ -88,6 +93,10 @@ func (c *compositeStakingStateReader) readStateBucketsByVoter(ctx context.Contex
 	if err != nil {
 		return nil, 0, err
 	}
+	if !c.isContractStakingEnabled() {
+		buckets.Buckets = getPageOfArray(buckets.Buckets, int(req.GetPagination().GetOffset()), int(req.GetPagination().GetLimit()))
+		return buckets, height, err
+	}
 
 	// read LSD buckets
 	lsdBuckets, err := c.contractIndexer.Buckets()
@@ -99,7 +108,6 @@ func (c *compositeStakingStateReader) readStateBucketsByVoter(ctx context.Contex
 	if err != nil {
 		return nil, 0, err
 	}
-
 	// merge native and LSD buckets
 	buckets.Buckets = append(buckets.Buckets, lsdIoTeXBuckets.Buckets...)
 	buckets.Buckets = getPageOfArray(buckets.Buckets, int(req.GetPagination().GetOffset()), int(req.GetPagination().GetLimit()))
@@ -112,6 +120,12 @@ func (c *compositeStakingStateReader) readStateBucketsByCandidate(ctx context.Co
 	if err != nil {
 		return nil, 0, err
 	}
+
+	if !c.isContractStakingEnabled() {
+		buckets.Buckets = getPageOfArray(buckets.Buckets, int(req.GetPagination().GetOffset()), int(req.GetPagination().GetLimit()))
+		return buckets, height, err
+	}
+
 	// read LSD buckets
 	candidate := c.nativeSR.GetCandidateByName(req.GetCandName())
 	if candidate == nil {
@@ -137,6 +151,10 @@ func (c *compositeStakingStateReader) readStateBucketByIndices(ctx context.Conte
 	if err != nil {
 		return nil, 0, err
 	}
+	if !c.isContractStakingEnabled() {
+		return buckets, height, nil
+	}
+
 	// read LSD buckets
 	lsdBuckets, err := c.contractIndexer.BucketsByIndices(req.GetIndex())
 	if err != nil {
@@ -155,6 +173,9 @@ func (c *compositeStakingStateReader) readStateBucketCount(ctx context.Context, 
 	bucketCnt, height, err := c.nativeSR.readStateBucketCount(ctx, req)
 	if err != nil {
 		return nil, 0, err
+	}
+	if !c.isContractStakingEnabled() {
+		return bucketCnt, height, nil
 	}
 	buckets, err := c.contractIndexer.Buckets()
 	if err != nil {
@@ -192,11 +213,12 @@ func (c *compositeStakingStateReader) readStateCandidates(ctx context.Context, r
 			return nil, 0, err
 		}
 	}
-
 	if !protocol.MustGetFeatureCtx(ctx).AddContractStakingVotes {
 		return candidates, height, nil
 	}
-
+	if !c.isContractStakingEnabled() {
+		return candidates, height, nil
+	}
 	for _, candidate := range candidates.Candidates {
 		if err = addContractStakingVotes(candidate, c.contractIndexer); err != nil {
 			return nil, 0, err
@@ -209,6 +231,9 @@ func (c *compositeStakingStateReader) readStateCandidateByName(ctx context.Conte
 	candidate, height, err := c.nativeSR.readStateCandidateByName(ctx, req)
 	if err != nil {
 		return nil, 0, err
+	}
+	if !c.isContractStakingEnabled() {
+		return candidate, height, nil
 	}
 	if !protocol.MustGetFeatureCtx(ctx).AddContractStakingVotes {
 		return candidate, height, nil
@@ -223,6 +248,9 @@ func (c *compositeStakingStateReader) readStateCandidateByAddress(ctx context.Co
 	candidate, height, err := c.nativeSR.readStateCandidateByAddress(ctx, req)
 	if err != nil {
 		return nil, 0, err
+	}
+	if !c.isContractStakingEnabled() {
+		return candidate, height, nil
 	}
 	if !protocol.MustGetFeatureCtx(ctx).AddContractStakingVotes {
 		return candidate, height, nil
@@ -243,7 +271,9 @@ func (c *compositeStakingStateReader) readStateTotalStakingAmount(ctx context.Co
 	if !ok {
 		return nil, 0, errors.Errorf("invalid balance %s", accountMeta.Balance)
 	}
-
+	if !c.isContractStakingEnabled() {
+		return accountMeta, height, nil
+	}
 	// add contract staking amount
 	buckets, err := c.contractIndexer.Buckets()
 	if err != nil {
@@ -258,6 +288,9 @@ func (c *compositeStakingStateReader) readStateTotalStakingAmount(ctx context.Co
 }
 
 func (c *compositeStakingStateReader) readStateContractStakingBucketTypes(ctx context.Context, _ *iotexapi.ReadStakingDataRequest_ContractStakingBucketTypes) (*iotextypes.ContractStakingBucketTypeList, uint64, error) {
+	if !c.isContractStakingEnabled() {
+		return &iotextypes.ContractStakingBucketTypeList{}, c.nativeSR.Height(), nil
+	}
 	bts, err := c.contractIndexer.BucketTypes()
 	if err != nil {
 		return nil, 0, err
@@ -270,6 +303,10 @@ func (c *compositeStakingStateReader) readStateContractStakingBucketTypes(ctx co
 		})
 	}
 	return &iotextypes.ContractStakingBucketTypeList{BucketTypes: pbBts}, c.nativeSR.Height(), nil
+}
+
+func (c *compositeStakingStateReader) isContractStakingEnabled() bool {
+	return c.contractIndexer != nil
 }
 
 func addContractStakingVotes(candidate *iotextypes.CandidateV2, contractStakingSR ContractStakingIndexer) error {
