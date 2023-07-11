@@ -183,7 +183,9 @@ func (bs *blockSyncer) flushInfo() (time.Time, uint64) {
 	return bs.lastTipUpdateTime, bs.targetHeight
 }
 func (bs *blockSyncer) syncWork() {
-	bs.sync()
+	go time.AfterFunc(bs.cfg.RateLimitInterval, func() {
+		bs.trigger <- struct{}{}
+	})
 	for range bs.trigger {
 		time.Sleep(bs.cfg.RateLimitInterval) //limit the frequency of sync
 		bs.sync()
@@ -309,7 +311,7 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		bs.lastTipUpdateTime = time.Now()
 	}
 	requestMaxHeight := atomic.LoadUint64(&bs.requestMaxHeight)
-	if syncedHeight >= requestMaxHeight && bs.IsReady() {
+	if requestMaxHeight > 0 && syncedHeight >= requestMaxHeight && bs.IsReady() {
 		bs.trigger <- struct{}{}
 		atomic.SwapUint64(&bs.requestMaxHeight, 0)
 	}
