@@ -10,6 +10,7 @@ import "time"
 // Config is the config struct for the BlockSync
 type Config struct {
 	Interval              time.Duration `yaml:"interval"` // update duration
+	RateLimitInterval     time.Duration `yaml:"rateLimitInterval"`
 	ProcessSyncRequestTTL time.Duration `yaml:"processSyncRequestTTL"`
 	BufferSize            uint64        `yaml:"bufferSize"`
 	IntervalSize          uint64        `yaml:"intervalSize"`
@@ -22,6 +23,7 @@ type Config struct {
 // DefaultConfig is the default config
 var DefaultConfig = Config{
 	Interval:              30 * time.Second,
+	RateLimitInterval:     1 * time.Second,
 	ProcessSyncRequestTTL: 10 * time.Second,
 	BufferSize:            200,
 	IntervalSize:          20,

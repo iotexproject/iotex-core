@@ -465,7 +465,7 @@ func (builder *Builder) buildBlockSyncer() error {
 	chain := builder.cs.chain
 	consens := builder.cs.consensus
 
-	blocksync, err := blocksync.NewBlockSyncerV2(
+	blocksync, err := blocksync.NewBlockSyncer(
 		builder.cfg.BlockSync,
 		chain.TipHeight,
 		builder.cs.blockdao.GetBlockByHeight,
@@ -500,7 +500,7 @@ func (builder *Builder) buildBlockSyncer() error {
 				log.L().Debug("Failed to commit block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 				return err
 			}
-			//log.L().Info("Successfully committed block.", zap.Uint64("height", blk.Height()))
+			log.L().Info("Successfully committed block.", zap.Uint64("height", blk.Height()))
 			consens.Calibrate(blk.Height())
 			return nil
 		},

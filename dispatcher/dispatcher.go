@@ -220,7 +220,7 @@ func (d *IotxDispatcher) actionHandler() {
 		case a := <-d.actionChan:
 			d.handleActionMsg(a)
 		case <-d.quit:
-			//log.L().Info("action handler is terminated.")
+			log.L().Info("action handler is terminated.")
 			return
 		}
 	}
