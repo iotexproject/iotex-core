@@ -249,6 +249,33 @@ func makeCommitment(
 	return result, nil
 }
 
+func commit(name string, data []byte, ioController address.Address, controllerAbi abi.ABI) error {
+	commitment, err := makeCommitment(
+		name,
+		common.HexToAddress(owner),
+		duration,
+		secret,
+		common.HexToAddress(resolver),
+		[][]byte{data},
+		true,
+		0,
+	)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("commit commitment for %s: %s ...\n", name, hex.EncodeToString(commitment[:]))
+
+	commitData, err := controllerAbi.Pack("commit", commitment)
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to pack commit arguments", err)
+	}
+	err = action.Execute(ioController.String(), big.NewInt(0), commitData)
+	if err != nil {
+		return output.NewError(output.UpdateError, "failed to commit commitment", err)
+	}
+	return nil
+}
+
 func register(args []string) error {
 	name := args[0]
 
@@ -275,23 +302,8 @@ func register(args []string) error {
 	}
 	setAddrData, err := setAddrAbi.Pack("setAddr", hash, common.HexToAddress(owner))
 	if err != nil {
-		return output.NewError(output.ConvertError, "failed to pack given arguments", err)
+		return output.NewError(output.ConvertError, "failed to pack setAddr arguments", err)
 	}
-
-	commitment, err := makeCommitment(
-		name,
-		common.HexToAddress(owner),
-		duration,
-		secret,
-		common.HexToAddress(resolver),
-		[][]byte{setAddrData},
-		true,
-		0,
-	)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("commit commitment for %s: %s ...\n", name, hex.EncodeToString(commitment[:]))
 
 	ioController, err := address.FromHex(controller)
 	if err != nil {
@@ -301,20 +313,17 @@ func register(args []string) error {
 	if err != nil {
 		return output.NewError(output.SerializationError, "failed to unmarshal abi", err)
 	}
-	commitData, err := controllerAbi.Pack("commit", commitment)
-	if err != nil {
-		return output.NewError(output.ConvertError, "failed to pack given arguments", err)
+
+	if err = commit(name, setAddrData, ioController, controllerAbi); err != nil {
+		return err
 	}
-	err = action.Execute(ioController.String(), big.NewInt(0), commitData)
-	if err != nil {
-		return output.NewError(output.UpdateError, "failed to commit commitment", err)
-	}
+
 	fmt.Printf("sleep for activation commitment ...\n")
 	time.Sleep(60 * time.Second)
 
 	priceData, err := controllerAbi.Pack("rentPrice", name, duration)
 	if err != nil {
-		return output.NewError(output.ConvertError, "failed to pack given arguments", err)
+		return output.NewError(output.ConvertError, "failed to pack price arguments", err)
 	}
 	priceHex, err := action.Read(ioController, "0", priceData)
 	if err != nil {
@@ -336,7 +345,7 @@ func register(args []string) error {
 		uint16(0),
 	)
 	if err != nil {
-		return output.NewError(output.ConvertError, "failed to pack given arguments", err)
+		return output.NewError(output.ConvertError, "failed to pack register arguments", err)
 	}
 
 	return action.Execute(ioController.String(), price, registerData)
