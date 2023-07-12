@@ -29,38 +29,4 @@ type (
 		// BucketTypes returns the active bucket types
 		BucketTypes() ([]*ContractStakingBucketType, error)
 	}
-
-	// TODO (iip-13): remove this empty contract staking indexer
-	emptyContractStakingIndexer struct{}
 )
-
-var _ ContractStakingIndexer = (*emptyContractStakingIndexer)(nil)
-
-// NewEmptyContractStakingIndexer creates an empty contract staking indexer
-func NewEmptyContractStakingIndexer() ContractStakingIndexer {
-	return &emptyContractStakingIndexer{}
-}
-
-func (f *emptyContractStakingIndexer) CandidateVotes(ownerAddr address.Address) *big.Int {
-	return big.NewInt(0)
-}
-
-func (f *emptyContractStakingIndexer) Buckets() ([]*VoteBucket, error) {
-	return nil, nil
-}
-
-func (f *emptyContractStakingIndexer) BucketsByIndices([]uint64) ([]*VoteBucket, error) {
-	return nil, nil
-}
-
-func (f *emptyContractStakingIndexer) TotalBucketCount() uint64 {
-	return 0
-}
-
-func (f *emptyContractStakingIndexer) BucketTypes() ([]*ContractStakingBucketType, error) {
-	return nil, nil
-}
-
-func (f *emptyContractStakingIndexer) BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error) {
-	return nil, nil
-}
