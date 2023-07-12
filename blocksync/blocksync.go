@@ -59,7 +59,6 @@ type (
 	// blockSyncer implements BlockSync interface
 	blockSyncer struct {
 		cfg Config
-		lifecycle.Readiness
 		buf *blockBuffer
 
 		tipHeightHandler     TipHeight
@@ -236,9 +235,6 @@ func (bs *blockSyncer) TargetHeight() uint64 {
 // Start starts a block syncer
 func (bs *blockSyncer) Start(ctx context.Context) error {
 	log.L().Debug("Starting block syncer.")
-	if err := bs.TurnOn(); err != nil {
-		return err
-	}
 	if bs.syncTask != nil {
 		if err := bs.syncTask.Start(ctx); err != nil {
 			return err
@@ -257,9 +253,6 @@ func (bs *blockSyncer) Start(ctx context.Context) error {
 // Stop stops a block syncer
 func (bs *blockSyncer) Stop(ctx context.Context) error {
 	log.L().Debug("Stopping block syncer.")
-	if err := bs.TurnOff(); err != nil {
-		return err
-	}
 	if bs.syncStageTask != nil {
 		if err := bs.syncStageTask.Stop(ctx); err != nil {
 			return err
@@ -303,7 +296,7 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		bs.lastTipUpdateTime = time.Now()
 	}
 	requestMaxHeight := atomic.LoadUint64(&bs.requestMaxHeight)
-	if requestMaxHeight > 0 && syncedHeight >= requestMaxHeight && bs.IsReady() {
+	if requestMaxHeight > 0 && syncedHeight >= requestMaxHeight {
 		bs.syncTask.Trigger()
 		atomic.SwapUint64(&bs.requestMaxHeight, 0)
 	}
