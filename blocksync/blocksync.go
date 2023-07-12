@@ -69,7 +69,7 @@ type (
 		unicastOutbound      UniCastOutbound
 		blockP2pPeer         BlockPeer
 
-		syncTask      *routine.DelayTask
+		syncTask      *routine.TriggerTask
 		syncStageTask *routine.RecurringTask
 
 		syncStageHeight   uint64
@@ -81,7 +81,6 @@ type (
 		targetHeight      uint64 // block number of the highest block header this node has received from peers
 		requestMaxHeight  uint64
 		mu                sync.RWMutex
-		trigger           chan struct{}
 	}
 
 	peerBlock struct {
@@ -151,10 +150,9 @@ func NewBlockSyncer(
 		unicastOutbound:      uniCastHandler,
 		blockP2pPeer:         blockP2pPeer,
 		targetHeight:         0,
-		trigger:              make(chan struct{}),
 	}
 	if bs.cfg.Interval != 0 {
-		bs.syncTask = routine.NewDelayTask(bs.syncWork, bs.cfg.Interval)
+		bs.syncTask = routine.NewTriggerTask(bs.sync, routine.WithTriggerTaskInterval(bs.cfg.RateLimitInterval))
 		bs.syncStageTask = routine.NewRecurringTask(bs.syncStageChecker, bs.cfg.Interval)
 	}
 	atomic.StoreUint64(&bs.syncBlockIncrease, 0)
@@ -181,15 +179,6 @@ func (bs *blockSyncer) flushInfo() (time.Time, uint64) {
 	defer bs.mu.RUnlock()
 
 	return bs.lastTipUpdateTime, bs.targetHeight
-}
-func (bs *blockSyncer) syncWork() {
-	go time.AfterFunc(bs.cfg.RateLimitInterval, func() {
-		bs.trigger <- struct{}{}
-	})
-	for range bs.trigger {
-		time.Sleep(bs.cfg.RateLimitInterval) //limit the frequency of sync
-		bs.sync()
-	}
 }
 
 func (bs *blockSyncer) sync() {
@@ -254,6 +243,10 @@ func (bs *blockSyncer) Start(ctx context.Context) error {
 		if err := bs.syncTask.Start(ctx); err != nil {
 			return err
 		}
+		//we need to wait for the peer to be ready, and then start the sync task
+		go time.AfterFunc(bs.cfg.Interval, func() {
+			bs.syncTask.Trigger()
+		})
 	}
 	if bs.syncStageTask != nil {
 		return bs.syncStageTask.Start(ctx)
@@ -267,7 +260,6 @@ func (bs *blockSyncer) Stop(ctx context.Context) error {
 	if err := bs.TurnOff(); err != nil {
 		return err
 	}
-	close(bs.trigger)
 	if bs.syncStageTask != nil {
 		if err := bs.syncStageTask.Stop(ctx); err != nil {
 			return err
@@ -312,7 +304,7 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 	}
 	requestMaxHeight := atomic.LoadUint64(&bs.requestMaxHeight)
 	if requestMaxHeight > 0 && syncedHeight >= requestMaxHeight && bs.IsReady() {
-		bs.trigger <- struct{}{}
+		bs.syncTask.Trigger()
 		atomic.SwapUint64(&bs.requestMaxHeight, 0)
 	}
 	return nil
