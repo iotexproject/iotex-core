@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blockindex/contractstaking"
 	"github.com/iotexproject/iotex-core/blocksync"
@@ -302,7 +303,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		return nil
 	}
 	if forTest || builder.cfg.Genesis.SystemStakingContractAddress == "" {
-		builder.cs.contractStakingIndexer = contractstaking.NewDummyContractStakingIndexer()
+		builder.cs.contractStakingIndexer = nil
 		return nil
 	}
 	dbConfig := builder.cfg.DB
@@ -434,9 +435,15 @@ func (builder *Builder) buildNodeInfoManager() error {
 	if stk == nil {
 		return errors.New("cannot find staking protocol")
 	}
-
+	chain := builder.cs.chain
 	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func() []string {
-		candidates, err := stk.ActiveCandidates(context.Background(), cs.factory, 0)
+		ctx := protocol.WithFeatureCtx(
+			protocol.WithBlockCtx(
+				genesis.WithGenesisContext(context.Background(), chain.Genesis()),
+				protocol.BlockCtx{BlockHeight: chain.TipHeight()},
+			),
+		)
+		candidates, err := stk.ActiveCandidates(ctx, cs.factory, 0)
 		if err != nil {
 			log.L().Error("failed to get active candidates", zap.Error(errors.WithStack(err)))
 			return nil
