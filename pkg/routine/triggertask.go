@@ -2,10 +2,10 @@ package routine
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 var _ lifecycle.StartStopper = (*TriggerTask)(nil)
@@ -23,11 +23,11 @@ func (o triggerTaskOption) SetTriggerTaskOption(t *TriggerTask) {
 	o.setTriggerTaskOption(t)
 }
 
-// WithTriggerTaskInterval sets the interval of the task
-func WithTriggerTaskInterval(d time.Duration) TriggerTaskOption {
+// DelayTimeBeforeTrigger sets the delay time before trigger
+func DelayTimeBeforeTrigger(d time.Duration) TriggerTaskOption {
 	return triggerTaskOption{
 		setTriggerTaskOption: func(t *TriggerTask) {
-			t.duration = d
+			t.delay = d
 		},
 	}
 }
@@ -35,17 +35,17 @@ func WithTriggerTaskInterval(d time.Duration) TriggerTaskOption {
 // TriggerTask represents a task that can be triggered
 type TriggerTask struct {
 	lifecycle.Readiness
-	duration time.Duration
-	cb       Task
-	ch       chan struct{}
+	delay time.Duration
+	cb    Task
+	ch    chan struct{}
 }
 
 // NewTriggerTask creates an instance of TriggerTask
 func NewTriggerTask(cb Task, ops ...TriggerTaskOption) *TriggerTask {
 	tt := &TriggerTask{
-		cb:       cb,
-		duration: 0,
-		ch:       make(chan struct{}),
+		cb:    cb,
+		delay: 0,
+		ch:    make(chan struct{}),
 	}
 	for _, opt := range ops {
 		opt.SetTriggerTaskOption(tt)
@@ -59,8 +59,8 @@ func (t *TriggerTask) Start(_ context.Context) error {
 	go func() {
 		close(ready)
 		for range t.ch {
-			if t.duration > 0 {
-				time.Sleep(t.duration)
+			if t.delay > 0 {
+				time.Sleep(t.delay)
 			}
 			t.cb()
 		}
@@ -73,7 +73,7 @@ func (t *TriggerTask) Start(_ context.Context) error {
 // Trigger triggers the task
 func (t *TriggerTask) Trigger() {
 	if !t.IsReady() {
-		log.Println("[WARN] trigger task is not ready")
+		log.S().Warnf("trigger task is not ready")
 		return
 	}
 	t.ch <- struct{}{}

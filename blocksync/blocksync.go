@@ -76,9 +76,8 @@ type (
 
 		startingHeight    uint64 // block number this node started to synchronise from
 		lastTip           uint64
-		lastTipUpdateTime time.Time
 		targetHeight      uint64 // block number of the highest block header this node has received from peers
-		requestMaxHeight  uint64
+		lastRequestHeight uint64
 		mu                sync.RWMutex
 	}
 
@@ -140,7 +139,6 @@ func NewBlockSyncer(
 ) (BlockSync, error) {
 	bs := &blockSyncer{
 		cfg:                  cfg,
-		lastTipUpdateTime:    time.Now(),
 		buf:                  newBlockBuffer(cfg.BufferSize, cfg.IntervalSize),
 		tipHeightHandler:     tipHeightHandler,
 		blockByHeightHandler: blockByHeightHandler,
@@ -151,7 +149,7 @@ func NewBlockSyncer(
 		targetHeight:         0,
 	}
 	if bs.cfg.Interval != 0 {
-		bs.syncTask = routine.NewTriggerTask(bs.sync, routine.WithTriggerTaskInterval(bs.cfg.RateLimitInterval))
+		bs.syncTask = routine.NewTriggerTask(bs.sync, routine.DelayTimeBeforeTrigger(bs.cfg.RateLimitInterval))
 		bs.syncStageTask = routine.NewRecurringTask(bs.syncStageChecker, bs.cfg.Interval)
 	}
 	atomic.StoreUint64(&bs.syncBlockIncrease, 0)
@@ -173,15 +171,15 @@ func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
 	return false
 }
 
-func (bs *blockSyncer) flushInfo() (time.Time, uint64) {
+func (bs *blockSyncer) flushInfo() uint64 {
 	bs.mu.RLock()
 	defer bs.mu.RUnlock()
 
-	return bs.lastTipUpdateTime, bs.targetHeight
+	return bs.targetHeight
 }
 
 func (bs *blockSyncer) sync() {
-	_, targetHeight := bs.flushInfo()
+	targetHeight := bs.flushInfo()
 	intervals := bs.buf.GetBlocksIntervalsToSync(bs.tipHeightHandler(), targetHeight)
 	// no sync
 	if len(intervals) == 0 {
@@ -192,7 +190,7 @@ func (bs *blockSyncer) sync() {
 	log.L().Info("block sync intervals.",
 		zap.Any("intervals", intervals),
 		zap.Uint64("targetHeight", targetHeight))
-	atomic.StoreUint64(&bs.requestMaxHeight, intervals[len(intervals)-1].End)
+	atomic.StoreUint64(&bs.lastRequestHeight, intervals[len(intervals)-1].End)
 	for i, interval := range intervals {
 		bs.requestBlock(context.Background(), interval.Start, interval.End, bs.cfg.MaxRepeat-i/bs.cfg.RepeatDecayStep)
 	}
@@ -293,14 +291,17 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 	log.L().Debug("flush blocks", zap.Uint64("start", tip), zap.Uint64("end", syncedHeight))
 	if syncedHeight > bs.lastTip {
 		bs.lastTip = syncedHeight
-		bs.lastTipUpdateTime = time.Now()
 	}
-	requestMaxHeight := atomic.LoadUint64(&bs.requestMaxHeight)
+	bs.checkSync(syncedHeight)
+	return nil
+}
+
+func (bs *blockSyncer) checkSync(syncedHeight uint64) {
+	requestMaxHeight := atomic.LoadUint64(&bs.lastRequestHeight)
 	if requestMaxHeight > 0 && syncedHeight >= requestMaxHeight {
 		bs.syncTask.Trigger()
-		atomic.SwapUint64(&bs.requestMaxHeight, 0)
+		atomic.SwapUint64(&bs.lastRequestHeight, 0)
 	}
-	return nil
 }
 
 // ProcessSyncRequest processes a sync request
