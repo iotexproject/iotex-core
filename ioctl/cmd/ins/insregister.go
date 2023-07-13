@@ -10,11 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/spf13/cobra"
+	"golang.org/x/crypto/sha3"
+
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/spf13/cobra"
-	"golang.org/x/crypto/sha3"
 )
 
 // Multi-language support
@@ -209,11 +210,11 @@ func makeCommitment(
 	owner common.Address,
 	duration *big.Int,
 	secret [32]byte,
-	resolver common.Address,
 	data [][]byte,
 	reverseRecord bool,
 	ownerControlledFuses uint16,
 ) ([32]byte, error) {
+	resolver := common.HexToAddress(resolver)
 	sha := sha3.NewLegacyKeccak256()
 	sha.Write([]byte(name))
 	lable := [32]byte{}
@@ -255,7 +256,6 @@ func commit(name string, data []byte, ioController address.Address, controllerAb
 		common.HexToAddress(owner),
 		duration,
 		secret,
-		common.HexToAddress(resolver),
 		[][]byte{data},
 		true,
 		0,
