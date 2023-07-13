@@ -603,14 +603,19 @@ func TestBlockSyncerBugIssue3889(t *testing.T) {
 	wait.Wait()
 }
 
+/*
+RateLimitInterval = 1 sec, syncd 9600 blocks in 60 sec, 160 blocks/sec
+RateLimitInterval = 2 sec, syncd 4800 blocks in 60 sec, 80 blocks/sec
+*/
 func TestBlockSync(t *testing.T) {
 	//t.SkipNow()
 	require := require.New(t)
 	cfg := DefaultConfig
-	cfg.Interval = 1 * time.Second
+	cfg.Interval = 10 * time.Second
 	cfg.BufferSize = 200
 	cfg.MaxRepeat = 3
 	cfg.RepeatDecayStep = 3
+	cfg.RateLimitInterval = 2 * time.Second
 	var tipHeight uint64
 	chanProcessBlk := make(chan *block.Block)
 
@@ -677,5 +682,5 @@ func TestBlockSync(t *testing.T) {
 		require.NoError(bs.Stop(ctx))
 	}()
 
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 60)
 }

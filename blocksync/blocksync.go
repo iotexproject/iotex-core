@@ -213,7 +213,7 @@ func (bs *blockSyncer) requestBlock(ctx context.Context, start uint64, end uint6
 		repeat = len(peers)
 	}
 	for i := 0; i < repeat; i++ {
-		peer := peers[fastrand.Uint32n(uint32(len(peers)))] //may get the same node
+		peer := peers[fastrand.Uint32n(uint32(len(peers)))]
 		if err := bs.unicastOutbound(
 			ctx,
 			peer,
@@ -334,6 +334,12 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peer.AddrInf
 
 func (bs *blockSyncer) syncStageChecker() {
 	tipHeight := bs.tipHeightHandler()
+	log.S().Errorf("sync stage checker, tip height %d, sync stage height %d", tipHeight, bs.syncStageHeight)
+	// if tipHeight is equal to targetHeight, it means tried to sync to the tip, but failed.
+	// we need to trigger a sync task
+	if tipHeight == bs.syncStageHeight {
+		bs.syncTask.Trigger()
+	}
 	atomic.StoreUint64(&bs.syncBlockIncrease, tipHeight-bs.syncStageHeight)
 	bs.syncStageHeight = tipHeight
 }
