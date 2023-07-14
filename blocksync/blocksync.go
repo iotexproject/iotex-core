@@ -259,7 +259,6 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 	if blk == nil {
 		return errors.New("block is nil")
 	}
-	//fmt.Println("block syncer process block", blk.Height())
 	tip := bs.tipHeightHandler()
 	added, targetHeight := bs.buf.AddBlock(tip, newPeerBlock(peer, blk))
 	bs.mu.Lock()
@@ -286,10 +285,6 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		atomic.SwapUint64(&bs.lastRequestHeight, 0)
 	}
 	return nil
-}
-
-func (bs *blockSyncer) checkSync(syncedHeight uint64) {
-
 }
 
 // ProcessSyncRequest processes a sync request
@@ -322,7 +317,6 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peer.AddrInf
 
 func (bs *blockSyncer) syncStageChecker() {
 	tipHeight := bs.tipHeightHandler()
-	log.S().Errorf("sync stage checker, tip height %d, sync stage height %d", tipHeight, bs.syncStageHeight)
 	// if tipHeight is equal to targetHeight, it means tried to sync to the tip, but failed.
 	// we need to trigger a sync task
 	if tipHeight == bs.syncStageHeight {
@@ -334,11 +328,10 @@ func (bs *blockSyncer) syncStageChecker() {
 
 // SyncStatus returns the status of block syncer
 func (bs *blockSyncer) SyncStatus() (uint64, uint64, uint64, string) {
-	bs.mu.RLock()
-	defer bs.mu.RUnlock()
 	var syncSpeedDesc string
 	syncBlockIncrease := atomic.LoadUint64(&bs.syncBlockIncrease)
 	targetHeight := atomic.LoadUint64(&bs.targetHeight)
+	startingHeight := atomic.LoadUint64(&bs.startingHeight)
 	switch {
 	case syncBlockIncrease == 1:
 		syncSpeedDesc = "synced to blockchain tip"
@@ -347,7 +340,7 @@ func (bs *blockSyncer) SyncStatus() (uint64, uint64, uint64, string) {
 	default:
 		syncSpeedDesc = fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(syncBlockIncrease)/bs.cfg.Interval.Seconds())
 	}
-	return atomic.LoadUint64(&bs.startingHeight), bs.tipHeightHandler(), targetHeight, syncSpeedDesc
+	return startingHeight, bs.tipHeightHandler(), targetHeight, syncSpeedDesc
 }
 
 // BuildReport builds a report of block syncer

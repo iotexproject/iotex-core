@@ -13,7 +13,7 @@ func TestTriggerTask(t *testing.T) {
 	require := require.New(t)
 	h := &MockHandler{Count: 0}
 	ctx := context.Background()
-	task := routine.NewTriggerTask(h.Do, routine.DelayTimeBeforeTrigger(200*time.Millisecond))
+	task := routine.NewTriggerTask(h.Do, routine.DelayTimeBeforeTrigger(180*time.Millisecond))
 	require.NoError(task.Start(ctx))
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
