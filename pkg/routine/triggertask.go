@@ -2,6 +2,7 @@ package routine
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
@@ -38,6 +39,7 @@ type TriggerTask struct {
 	delay time.Duration
 	cb    Task
 	ch    chan struct{}
+	mu    sync.Mutex
 }
 
 // NewTriggerTask creates an instance of TriggerTask
@@ -76,7 +78,12 @@ func (t *TriggerTask) Trigger() {
 		log.S().Warnf("trigger task is not ready")
 		return
 	}
-	t.ch <- struct{}{}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	select {
+	case t.ch <- struct{}{}:
+	default:
+	}
 }
 
 // Stop stops the task
@@ -85,6 +92,8 @@ func (t *TriggerTask) Stop(_ context.Context) error {
 	if err := t.TurnOff(); err != nil {
 		return err
 	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	close(t.ch)
 	return nil
 }

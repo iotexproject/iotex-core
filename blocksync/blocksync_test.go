@@ -611,11 +611,11 @@ func TestBlockSync(t *testing.T) {
 	//t.SkipNow()
 	require := require.New(t)
 	cfg := DefaultConfig
-	cfg.Interval = 10 * time.Second
+	cfg.Interval = 2 * time.Second
 	cfg.BufferSize = 200
 	cfg.MaxRepeat = 3
 	cfg.RepeatDecayStep = 3
-	cfg.RateLimitInterval = 2 * time.Second
+	cfg.RateLimitInterval = 1 * time.Second
 	var tipHeight uint64
 	chanProcessBlk := make(chan *block.Block)
 
@@ -682,5 +682,5 @@ func TestBlockSync(t *testing.T) {
 		require.NoError(bs.Stop(ctx))
 	}()
 
-	time.Sleep(time.Second * 60)
+	time.Sleep(time.Second * 20)
 }
