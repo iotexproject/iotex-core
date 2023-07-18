@@ -10,7 +10,7 @@ import (
 )
 
 // IONode hash for io
-const IONode = "b2b692c69df4aa3b0a24634d20a3ba1b44c3299d09d6c4377577e20b09e68395"
+var IONode, _ = hex.DecodeString("b2b692c69df4aa3b0a24634d20a3ba1b44c3299d09d6c4377577e20b09e68395")
 
 // Multi-language support
 var (
@@ -44,14 +44,8 @@ func init() {
 }
 
 func nameHash(name string) (hash [32]byte, err error) {
-	var ioNode []byte
-	ioNode, err = hex.DecodeString(IONode)
-	if err != nil {
-		return
-	}
-
 	sha := sha3.NewLegacyKeccak256()
-	if _, err = sha.Write(ioNode); err != nil {
+	if _, err = sha.Write(IONode); err != nil {
 		return
 	}
 	nameSha := sha3.NewLegacyKeccak256()
