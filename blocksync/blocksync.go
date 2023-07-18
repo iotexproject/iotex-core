@@ -58,6 +58,7 @@ type (
 
 	// blockSyncer implements BlockSync interface
 	blockSyncer struct {
+		lifecycle.Readiness
 		cfg Config
 		buf *blockBuffer
 
@@ -77,6 +78,7 @@ type (
 		startingHeight    uint64 // block number this node started to synchronise from
 		targetHeight      uint64 // block number of the highest block header this node has received from peers
 		lastRequestHeight uint64
+		lastTipHeight     uint64 //store the last committed block height
 		mu                sync.RWMutex
 	}
 
@@ -259,14 +261,28 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 	if blk == nil {
 		return errors.New("block is nil")
 	}
+	log.L().Error("Processing block.", zap.Uint64("height", blk.Height()), zap.String("peer", peer))
 	tip := bs.tipHeightHandler()
 	added, targetHeight := bs.buf.AddBlock(tip, newPeerBlock(peer, blk))
-	bs.mu.Lock()
-	defer bs.mu.Unlock()
 	loadTargetHeight := atomic.LoadUint64(&bs.targetHeight)
 	if targetHeight > loadTargetHeight {
 		atomic.StoreUint64(&bs.targetHeight, targetHeight)
 	}
+	// If a block in the requested block is lost, try to resend request block in the next interval
+	if !bs.IsReady() {
+		if err := bs.TurnOn(); err == nil {
+			defer func() {
+				time.AfterFunc(bs.cfg.Interval, func() {
+					lastTip := atomic.LoadUint64(&bs.lastTipHeight)
+					if lastTip == bs.tipHeightHandler() && bs.TurnOff() == nil {
+						bs.syncTask.Trigger()
+					}
+				})
+			}()
+		}
+	}
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
 	if !added {
 		return nil
 	}
@@ -277,6 +293,7 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		}
 		syncedHeight++
 	}
+	atomic.StoreUint64(&bs.lastTipHeight, syncedHeight)
 	bs.buf.Cleanup(syncedHeight)
 	log.L().Debug("flush blocks", zap.Uint64("start", tip), zap.Uint64("end", syncedHeight))
 	requestMaxHeight := atomic.LoadUint64(&bs.lastRequestHeight)
@@ -317,11 +334,6 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peer.AddrInf
 
 func (bs *blockSyncer) syncStageChecker() {
 	tipHeight := bs.tipHeightHandler()
-	// if tipHeight is equal to targetHeight, it means tried to sync to the tip, but failed.
-	// we need to trigger a sync task
-	if tipHeight == bs.syncStageHeight {
-		bs.syncTask.Trigger()
-	}
 	atomic.StoreUint64(&bs.syncBlockIncrease, tipHeight-bs.syncStageHeight)
 	bs.syncStageHeight = tipHeight
 }
