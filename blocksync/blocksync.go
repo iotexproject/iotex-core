@@ -261,7 +261,6 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 	if blk == nil {
 		return errors.New("block is nil")
 	}
-	log.L().Error("Processing block.", zap.Uint64("height", blk.Height()), zap.String("peer", peer))
 	tip := bs.tipHeightHandler()
 	added, targetHeight := bs.buf.AddBlock(tip, newPeerBlock(peer, blk))
 	loadTargetHeight := atomic.LoadUint64(&bs.targetHeight)
