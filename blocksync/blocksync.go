@@ -233,7 +233,7 @@ func (bs *blockSyncer) Start(ctx context.Context) error {
 			return err
 		}
 		// we keep this for testing, in production, no need it, other peers will boradcast latest blocks
-		go time.AfterFunc(bs.cfg.Interval, func() {
+		time.AfterFunc(bs.cfg.Interval, func() {
 			bs.syncTask.Trigger()
 		})
 	}
