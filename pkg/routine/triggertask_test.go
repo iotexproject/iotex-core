@@ -33,10 +33,10 @@ done:
 	}
 	time.Sleep(200 * time.Millisecond)
 	require.Equal(uint32(6), succ)
-	require.Equal(uint(6), h.Count)
+	require.Equal(uint(6), h.GetCount())
 	require.NoError(task.Stop(ctx))
 	task.Trigger()
-	require.Equal(uint(6), h.Count)
+	require.Equal(uint(6), h.GetCount())
 }
 
 func TestTriggerTaskWithBufferSize(t *testing.T) {
@@ -72,8 +72,8 @@ func TestTriggerTaskWithBufferSize(t *testing.T) {
 	wg.Wait()
 	time.Sleep(500 * time.Millisecond)
 	require.Equal(uint32(8), succ)
-	require.Equal(uint(8), h.Count)
+	require.Equal(uint(8), h.GetCount())
 	require.NoError(task.Stop(ctx))
 	task.Trigger()
-	require.Equal(uint(8), h.Count)
+	require.Equal(uint(8), h.GetCount())
 }
