@@ -58,7 +58,6 @@ type (
 
 	// blockSyncer implements BlockSync interface
 	blockSyncer struct {
-		lifecycle.Readiness
 		cfg Config
 		buf *blockBuffer
 
@@ -73,12 +72,13 @@ type (
 		syncStageTask *routine.RecurringTask
 
 		syncStageHeight   uint64
+		syncRetryHeight   uint64
+		syncReady         int32
 		syncBlockIncrease uint64
 
 		startingHeight    uint64 // block number this node started to synchronise from
 		targetHeight      uint64 // block number of the highest block header this node has received from peers
 		lastRequestHeight uint64
-		lastTipHeight     uint64 //store the last committed block height
 		mu                sync.RWMutex
 	}
 
@@ -150,7 +150,10 @@ func NewBlockSyncer(
 		targetHeight:         0,
 	}
 	if bs.cfg.Interval != 0 {
-		bs.syncTask = routine.NewTriggerTask(bs.sync, routine.DelayTimeBeforeTrigger(bs.cfg.RateLimitInterval))
+		bs.syncTask = routine.NewTriggerTask(bs.sync,
+			routine.DelayTimeBeforeTrigger(bs.cfg.RateLimitInterval),
+			routine.TriggerBufferSize(bs.cfg.TriggerBufferSize),
+		)
 		bs.syncStageTask = routine.NewRecurringTask(bs.syncStageChecker, bs.cfg.Interval)
 	}
 	atomic.StoreUint64(&bs.syncBlockIncrease, 0)
@@ -229,10 +232,6 @@ func (bs *blockSyncer) Start(ctx context.Context) error {
 		if err := bs.syncTask.Start(ctx); err != nil {
 			return err
 		}
-		//we need to wait for the peer to be ready, and then start the sync task
-		go time.AfterFunc(bs.cfg.Interval, func() {
-			bs.syncTask.Trigger()
-		})
 	}
 	if bs.syncStageTask != nil {
 		return bs.syncStageTask.Start(ctx)
@@ -268,17 +267,9 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		atomic.StoreUint64(&bs.targetHeight, targetHeight)
 	}
 	// If a block in the requested block is lost, try to resend request block in the next interval
-	if !bs.IsReady() {
-		if err := bs.TurnOn(); err == nil {
-			defer func() {
-				time.AfterFunc(bs.cfg.Interval, func() {
-					lastTip := atomic.LoadUint64(&bs.lastTipHeight)
-					if lastTip == bs.tipHeightHandler() && bs.TurnOff() == nil {
-						bs.syncTask.Trigger()
-					}
-				})
-			}()
-		}
+	if atomic.LoadInt32(&bs.syncReady) == 0 {
+		atomic.StoreInt32(&bs.syncReady, 1)
+		time.AfterFunc(bs.cfg.Interval, bs.syncRetryChecker)
 	}
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
@@ -292,11 +283,10 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		}
 		syncedHeight++
 	}
-	atomic.StoreUint64(&bs.lastTipHeight, syncedHeight)
 	bs.buf.Cleanup(syncedHeight)
 	log.L().Debug("flush blocks", zap.Uint64("start", tip), zap.Uint64("end", syncedHeight))
-	requestMaxHeight := atomic.LoadUint64(&bs.lastRequestHeight)
-	if requestMaxHeight > 0 && syncedHeight >= requestMaxHeight {
+	lastRequestHeight := atomic.LoadUint64(&bs.lastRequestHeight)
+	if lastRequestHeight > 0 && syncedHeight >= lastRequestHeight {
 		bs.syncTask.Trigger()
 		atomic.SwapUint64(&bs.lastRequestHeight, 0)
 	}
@@ -329,6 +319,15 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peer.AddrInf
 		}
 	}
 	return nil
+}
+
+func (bs *blockSyncer) syncRetryChecker() {
+	tipHeight := bs.tipHeightHandler()
+	if bs.syncRetryHeight == 0 || bs.syncRetryHeight == tipHeight {
+		bs.syncTask.Trigger()
+	}
+	bs.syncRetryHeight = tipHeight
+	atomic.StoreInt32(&bs.syncReady, 0)
 }
 
 func (bs *blockSyncer) syncStageChecker() {

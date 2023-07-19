@@ -33,11 +33,21 @@ func DelayTimeBeforeTrigger(d time.Duration) TriggerTaskOption {
 	}
 }
 
+// TriggerBufferSize sets the buffer size of trigger channel
+func TriggerBufferSize(sz int) TriggerTaskOption {
+	return triggerTaskOption{
+		setTriggerTaskOption: func(t *TriggerTask) {
+			t.sz = sz
+		},
+	}
+}
+
 // TriggerTask represents a task that can be triggered
 type TriggerTask struct {
 	lifecycle.Readiness
 	delay time.Duration
 	cb    Task
+	sz    int
 	ch    chan struct{}
 	mu    sync.Mutex
 }
@@ -47,11 +57,12 @@ func NewTriggerTask(cb Task, ops ...TriggerTaskOption) *TriggerTask {
 	tt := &TriggerTask{
 		cb:    cb,
 		delay: 0,
-		ch:    make(chan struct{}),
+		sz:    0,
 	}
 	for _, opt := range ops {
 		opt.SetTriggerTaskOption(tt)
 	}
+	tt.ch = make(chan struct{}, tt.sz)
 	return tt
 }
 
@@ -72,18 +83,21 @@ func (t *TriggerTask) Start(_ context.Context) error {
 	return t.TurnOn()
 }
 
-// Trigger triggers the task
-func (t *TriggerTask) Trigger() {
+// Trigger triggers the task, return true if the task is triggered successfully
+// this function is non-blocking
+func (t *TriggerTask) Trigger() bool {
 	if !t.IsReady() {
 		log.S().Warnf("trigger task is not ready")
-		return
+		return false
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	select {
 	case t.ch <- struct{}{}:
+		return true
 	default:
 	}
+	return false
 }
 
 // Stop stops the task
