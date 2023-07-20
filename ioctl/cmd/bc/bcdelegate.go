@@ -14,7 +14,9 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
@@ -30,8 +32,8 @@ var (
 		config.Chinese: "在IoTeX区块链上读取代表信息",
 	}
 	_bcDelegateUses = map[config.Language]string{
-		config.English: "delegate [name]",
-		config.Chinese: "delegate [名字]",
+		config.English: "delegate [name|address]",
+		config.Chinese: "delegate [名字|地址]",
 	}
 )
 
@@ -79,7 +81,13 @@ func (m *delegateMessage) String() string {
 }
 
 func getDelegate(arg string) error {
-	d, err := getDelegateByName(arg)
+	var d *iotextypes.CandidateV2
+	addr, err := util.Address(arg)
+	if err == nil {
+		d, err = getDelegateByAddress(addr)
+	} else {
+		d, err = getDelegateByName(arg)
+	}
 	if err != nil {
 		return err
 	}
@@ -141,4 +149,78 @@ func getDelegateByName(name string) (*iotextypes.CandidateV2, error) {
 		return nil, output.NewError(output.SerializationError, "failed to unmarshal response", err)
 	}
 	return &delegate, nil
+}
+
+func getDelegateByAddress(addr string) (*iotextypes.CandidateV2, error) {
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	if err != nil {
+		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+	}
+	defer conn.Close()
+	cli := iotexapi.NewAPIServiceClient(conn)
+
+	readCandidatesLimit := 20000
+	for i := uint32(0); ; i++ {
+		offset := i * uint32(readCandidatesLimit)
+		size := uint32(readCandidatesLimit)
+		candidateList, err := getDelegates(cli, offset, size)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get candidates")
+		}
+		if idx := slices.IndexFunc(candidateList.Candidates, func(cand *iotextypes.CandidateV2) bool {
+			return cand.OperatorAddress == addr
+		}); idx >= 0 {
+			return candidateList.Candidates[idx], nil
+		}
+		if len(candidateList.Candidates) < readCandidatesLimit {
+			break
+		}
+	}
+	return nil, output.NewError(output.UndefinedError, "failed to find delegate", nil)
+}
+
+func getDelegates(cli iotexapi.APIServiceClient, offset, limit uint32) (candidateList *iotextypes.CandidateListV2, err error) {
+	methodName, err := proto.Marshal(&iotexapi.ReadStakingDataMethod{
+		Method: iotexapi.ReadStakingDataMethod_CANDIDATES,
+	})
+	if err != nil {
+		return nil, err
+	}
+	arg, err := proto.Marshal(&iotexapi.ReadStakingDataRequest{
+		Request: &iotexapi.ReadStakingDataRequest_Candidates_{
+			Candidates: &iotexapi.ReadStakingDataRequest_Candidates{
+				Pagination: &iotexapi.PaginationParam{
+					Offset: offset,
+					Limit:  limit,
+				},
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	readStateRequest := &iotexapi.ReadStateRequest{
+		ProtocolID: []byte("staking"),
+		MethodName: methodName,
+		Arguments:  [][]byte{arg},
+	}
+	ctx := context.Background()
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+	response, err := cli.ReadState(ctx, readStateRequest)
+	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return nil, output.NewError(output.APIError, sta.Message(), nil)
+		}
+		return nil, output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
+	}
+
+	candidateList = &iotextypes.CandidateListV2{}
+	if err := proto.Unmarshal(response.GetData(), candidateList); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal VoteBucketList")
+	}
+	return
 }
