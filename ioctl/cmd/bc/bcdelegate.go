@@ -163,7 +163,7 @@ func getDelegateByAddress(addr string) (*iotextypes.CandidateV2, error) {
 	for i := uint32(0); ; i++ {
 		offset := i * uint32(readCandidatesLimit)
 		size := uint32(readCandidatesLimit)
-		candidateList, err := getDelegates(cli, offset, size)
+		candidateList, err := util.GetStakingCandidates(cli, offset, size)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get candidates")
 		}
@@ -177,50 +177,4 @@ func getDelegateByAddress(addr string) (*iotextypes.CandidateV2, error) {
 		}
 	}
 	return nil, output.NewError(output.UndefinedError, "failed to find delegate", nil)
-}
-
-func getDelegates(cli iotexapi.APIServiceClient, offset, limit uint32) (candidateList *iotextypes.CandidateListV2, err error) {
-	methodName, err := proto.Marshal(&iotexapi.ReadStakingDataMethod{
-		Method: iotexapi.ReadStakingDataMethod_CANDIDATES,
-	})
-	if err != nil {
-		return nil, err
-	}
-	arg, err := proto.Marshal(&iotexapi.ReadStakingDataRequest{
-		Request: &iotexapi.ReadStakingDataRequest_Candidates_{
-			Candidates: &iotexapi.ReadStakingDataRequest_Candidates{
-				Pagination: &iotexapi.PaginationParam{
-					Offset: offset,
-					Limit:  limit,
-				},
-			},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	readStateRequest := &iotexapi.ReadStateRequest{
-		ProtocolID: []byte("staking"),
-		MethodName: methodName,
-		Arguments:  [][]byte{arg},
-	}
-	ctx := context.Background()
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
-	}
-	response, err := cli.ReadState(ctx, readStateRequest)
-	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
-		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
-	}
-
-	candidateList = &iotextypes.CandidateListV2{}
-	if err := proto.Unmarshal(response.GetData(), candidateList); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal VoteBucketList")
-	}
-	return
 }
