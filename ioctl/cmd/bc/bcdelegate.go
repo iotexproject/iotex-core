@@ -159,7 +159,7 @@ func getDelegateByAddress(addr string) (*iotextypes.CandidateV2, error) {
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 
-	readCandidatesLimit := 20000
+	readCandidatesLimit := 200
 	for i := uint32(0); ; i++ {
 		offset := i * uint32(readCandidatesLimit)
 		size := uint32(readCandidatesLimit)
