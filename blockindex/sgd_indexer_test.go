@@ -9,6 +9,8 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -16,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -54,7 +55,9 @@ func TestNewSGDRegistry(t *testing.T) {
 		}()
 
 		nonce := uint64(0)
-		r.Equal(nonce, sgdRegistry.StartHeight())
+		startHeight, err := sgdRegistry.StartHeight()
+		r.NoError(err)
+		r.Equal(nonce, startHeight)
 		hh, err := sgdRegistry.Height()
 		r.NoError(err)
 		r.Equal(nonce, hh)

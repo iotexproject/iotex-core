@@ -93,11 +93,12 @@ func (mr *MockBlockIndexerWithStartMockRecorder) Start(arg0 interface{}) *gomock
 }
 
 // StartHeight mocks base method.
-func (m *MockBlockIndexerWithStart) StartHeight() uint64 {
+func (m *MockBlockIndexerWithStart) StartHeight() (uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartHeight")
 	ret0, _ := ret[0].(uint64)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // StartHeight indicates an expected call of StartHeight.

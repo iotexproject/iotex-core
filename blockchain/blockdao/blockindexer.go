@@ -32,7 +32,7 @@ type (
 	BlockIndexerWithStart interface {
 		BlockIndexer
 		// StartHeight returns the start height of the indexer
-		StartHeight() uint64
+		StartHeight() (uint64, error)
 	}
 
 	// BlockIndexerChecker defines a checker of block indexer
@@ -76,7 +76,10 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 	}
 	startHeight := tipHeight + 1
 	if indexerWS, ok := indexer.(BlockIndexerWithStart); ok {
-		indexStartHeight := indexerWS.StartHeight()
+		indexStartHeight, err := indexerWS.StartHeight()
+		if err != nil {
+			return err
+		}
 		if indexStartHeight > startHeight {
 			startHeight = indexStartHeight
 		}
