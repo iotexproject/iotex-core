@@ -257,7 +257,11 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 
 	var indexers []blockdao.BlockIndexer
-	indexers = append(indexers, builder.cs.factory)
+	if builder.cs.contractStakingIndexer != nil {
+		indexers = append(indexers, blockindex.NewIndexerGroup(builder.cs.factory, builder.cs.contractStakingIndexer))
+	} else {
+		indexers = append(indexers, builder.cs.factory)
+	}
 	if !builder.cfg.Chain.EnableAsyncIndexWrite && builder.cs.indexer != nil {
 		indexers = append(indexers, builder.cs.indexer)
 	}
@@ -266,9 +270,6 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 	if builder.cs.sgdIndexer != nil {
 		indexers = append(indexers, builder.cs.sgdIndexer)
-	}
-	if builder.cs.contractStakingIndexer != nil {
-		indexers = append(indexers, builder.cs.contractStakingIndexer)
 	}
 	if forTest {
 		builder.cs.blockdao = blockdao.NewBlockDAOInMemForTest(indexers)
