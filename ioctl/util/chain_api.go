@@ -13,7 +13,7 @@ const (
 	_stakingProtocol = "staking"
 )
 
-// GetStakingBuckets returns staking buckets
+// GetStakingCandidates returns staking candidates
 func GetStakingCandidates(chainClient iotexapi.APIServiceClient, offset, limit uint32) (candidateList *iotextypes.CandidateListV2, err error) {
 	methodName, err := proto.Marshal(&iotexapi.ReadStakingDataMethod{
 		Method: iotexapi.ReadStakingDataMethod_CANDIDATES,
