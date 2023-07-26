@@ -12,7 +12,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 )
 
-// Index group is a special index that includes multiple indexes,
+// IndexerGroup is a special index that includes multiple indexes,
 // which stay in sync when blocks are added.
 type IndexerGroup struct {
 	indexers []blockdao.BlockIndexer
