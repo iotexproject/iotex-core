@@ -49,7 +49,7 @@ func TestIndexerGroup_StartHeight(t *testing.T) {
 			for _, indexer := range c.indexers {
 				if indexer[0] > 0 {
 					mockIndexerWithStart := mock_blockdao.NewMockBlockIndexerWithStart(ctrl)
-					mockIndexerWithStart.EXPECT().StartHeight().Return(indexer[0]).Times(1)
+					mockIndexerWithStart.EXPECT().StartHeight().Return(indexer[0], nil).Times(1)
 					mockIndexerWithStart.EXPECT().Height().Return(indexer[1], nil).Times(1)
 					indexers = append(indexers, mockIndexerWithStart)
 				} else {

@@ -110,12 +110,12 @@ func (ig *IndexerGroup) StartHeight() (uint64, error) {
 // Height returns the minimum height of the indexers in the group
 func (ig *IndexerGroup) Height() (uint64, error) {
 	var height uint64
-	for _, indexer := range ig.indexers {
+	for i, indexer := range ig.indexers {
 		h, err := indexer.Height()
 		if err != nil {
 			return 0, err
 		}
-		if height == 0 || h < height {
+		if i == 0 || h < height {
 			height = h
 		}
 	}

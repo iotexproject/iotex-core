@@ -257,8 +257,19 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 
 	var indexers []blockdao.BlockIndexer
+	dependencies := [][2]blockdao.BlockIndexer{}
 	if builder.cs.contractStakingIndexer != nil {
-		indexers = append(indexers, blockindex.NewIndexerGroup(builder.cs.factory, builder.cs.contractStakingIndexer))
+		dependencies = append(dependencies, [2]blockdao.BlockIndexer{builder.cs.factory, builder.cs.contractStakingIndexer})
+	}
+	if builder.cs.sgdIndexer != nil {
+		dependencies = append(dependencies, [2]blockdao.BlockIndexer{builder.cs.factory, builder.cs.sgdIndexer})
+	}
+	if len(dependencies) > 0 {
+		dependentIndexer, err := blockindex.NewDependentIndexers(dependencies...)
+		if err != nil {
+			return errors.Wrapf(err, "failed to create dependent indexers")
+		}
+		indexers = append(indexers, dependentIndexer)
 	} else {
 		indexers = append(indexers, builder.cs.factory)
 	}
@@ -267,9 +278,6 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 	if builder.cs.bfIndexer != nil {
 		indexers = append(indexers, builder.cs.bfIndexer)
-	}
-	if builder.cs.sgdIndexer != nil {
-		indexers = append(indexers, builder.cs.sgdIndexer)
 	}
 	if forTest {
 		builder.cs.blockdao = blockdao.NewBlockDAOInMemForTest(indexers)
