@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -34,6 +35,27 @@ type WebsocketHandler struct {
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+}
+
+// type safeWebsocketConn wraps websocket.Conn with a mutex
+// to avoid concurrent write to the connection
+type safeWebsocketConn struct {
+	ws *websocket.Conn
+	mu sync.Mutex
+}
+
+// WiteJSON writes a JSON message to the connection in a thread-safe way
+func (c *safeWebsocketConn) WriteJSON(message interface{}) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.ws.WriteJSON(message)
+}
+
+// WriteMessage writes a message to the connection in a thread-safe way
+func (c *safeWebsocketConn) WriteMessage(messageType int, data []byte) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.ws.WriteMessage(messageType, data)
 }
 
 // NewWebsocketHandler creates a new websocket handler
@@ -70,7 +92,8 @@ func (wsSvr *WebsocketHandler) handleConnection(ctx context.Context, ws *websock
 	})
 
 	ctx, cancel := context.WithCancel(ctx)
-	go ping(ctx, ws, cancel)
+	safeWs := &safeWebsocketConn{ws: ws}
+	go ping(ctx, safeWs, cancel)
 
 	for {
 		select {
@@ -90,7 +113,7 @@ func (wsSvr *WebsocketHandler) handleConnection(ctx context.Context, ws *websock
 						if err = ws.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
 							log.Logger("api").Warn("failed to set write deadline timeout.", zap.Error(err))
 						}
-						return 0, ws.WriteJSON(resp)
+						return 0, safeWs.WriteJSON(resp)
 					}),
 			)
 			if err != nil {
@@ -102,11 +125,11 @@ func (wsSvr *WebsocketHandler) handleConnection(ctx context.Context, ws *websock
 	}
 }
 
-func ping(ctx context.Context, ws *websocket.Conn, cancel context.CancelFunc) {
+func ping(ctx context.Context, ws *safeWebsocketConn, cancel context.CancelFunc) {
 	pingTicker := time.NewTicker(pingPeriod)
 	defer func() {
 		pingTicker.Stop()
-		if err := ws.Close(); err != nil {
+		if err := ws.ws.Close(); err != nil {
 			log.Logger("api").Warn("fail to close websocket connection.", zap.Error(err))
 		}
 	}()
@@ -116,7 +139,7 @@ func ping(ctx context.Context, ws *websocket.Conn, cancel context.CancelFunc) {
 		case <-ctx.Done():
 			return
 		case <-pingTicker.C:
-			if err := ws.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+			if err := ws.ws.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
 				log.Logger("api").Warn("failed to set write deadline timeout.", zap.Error(err))
 			}
 			if err := ws.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
