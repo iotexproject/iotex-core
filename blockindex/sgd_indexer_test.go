@@ -55,9 +55,7 @@ func TestNewSGDRegistry(t *testing.T) {
 		}()
 
 		nonce := uint64(0)
-		startHeight, err := sgdRegistry.StartHeight()
-		r.NoError(err)
-		r.Equal(nonce, startHeight)
+		r.Equal(nonce, sgdRegistry.StartHeight())
 		hh, err := sgdRegistry.Height()
 		r.NoError(err)
 		r.Equal(nonce, hh)

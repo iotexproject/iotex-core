@@ -75,8 +75,8 @@ func (s *Indexer) Height() (uint64, error) {
 }
 
 // StartHeight returns the start height of the indexer
-func (s *Indexer) StartHeight() (uint64, error) {
-	return s.contractDeployHeight, nil
+func (s *Indexer) StartHeight() uint64 {
+	return s.contractDeployHeight
 }
 
 // CandidateVotes returns the candidate votes

@@ -79,8 +79,8 @@ func (ig *IndexerGroup) DeleteTipBlock(ctx context.Context, blk *block.Block) er
 }
 
 // StartHeight returns the minimum start height of the indexers in the group
-func (ig *IndexerGroup) StartHeight() (uint64, error) {
-	return ig.minStartHeight, nil
+func (ig *IndexerGroup) StartHeight() uint64 {
+	return ig.minStartHeight
 }
 
 // Height returns the minimum height of the indexers in the group
@@ -110,10 +110,7 @@ func (ig *IndexerGroup) initStartHeight() error {
 		}
 		indexStartHeight := tipHeight + 1
 		if indexerWithStart, ok := indexer.(blockdao.BlockIndexerWithStart); ok {
-			startHeight, err := indexerWithStart.StartHeight()
-			if err != nil {
-				return err
-			}
+			startHeight := indexerWithStart.StartHeight()
 			if startHeight > indexStartHeight {
 				indexStartHeight = startHeight
 			}

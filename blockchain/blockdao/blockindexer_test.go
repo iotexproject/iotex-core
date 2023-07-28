@@ -125,7 +125,7 @@ func TestCheckIndexerWithStart(t *testing.T) {
 			}).AnyTimes()
 			mockDao.EXPECT().GetReceipts(gomock.Any()).Return(nil, nil).AnyTimes()
 			indexer.EXPECT().Height().Return(c.indexerTipHeight, nil).Times(1)
-			indexer.EXPECT().StartHeight().Return(c.indexerStartHeight, nil).AnyTimes()
+			indexer.EXPECT().StartHeight().Return(c.indexerStartHeight).AnyTimes()
 			indexer.EXPECT().PutBlock(gomock.Any(), gomock.Any()).DoAndReturn(func(arg0 context.Context, arg1 *block.Block) error {
 				putBlocks = append(putBlocks, arg1)
 				return nil
