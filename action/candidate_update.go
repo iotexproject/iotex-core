@@ -244,14 +244,9 @@ func NewCandidateUpdateFromABIBinary(data []byte) (*CandidateUpdate, error) {
 
 // ToEthTx converts action to eth-compatible tx
 func (cu *CandidateUpdate) ToEthTx() (*types.Transaction, error) {
-	addr, err := address.FromString(address.StakingProtocolAddr)
-	if err != nil {
-		return nil, err
-	}
-	ethAddr := common.BytesToAddress(addr.Bytes())
 	data, err := cu.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(cu.Nonce(), ethAddr, big.NewInt(0), cu.GasLimit(), cu.GasPrice(), data), nil
+	return types.NewTransaction(cu.Nonce(), _stakingProtocolEthAddr, big.NewInt(0), cu.GasLimit(), cu.GasPrice(), data), nil
 }

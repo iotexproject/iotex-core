@@ -16,15 +16,15 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
+var (
+	_stakingProtocolEthAddr   = common.BytesToAddress(address.StakingProtocolAddrHash[:])
+	_rewardingProtocolEthAddr = common.BytesToAddress(address.RewardingProtocolAddrHash[:])
+)
+
 // Builder is used to build an action.
 type Builder struct {
 	act AbstractAction
 }
-
-var (
-	_stakingProtocolAddr, _   = address.FromString(address.StakingProtocolAddr)
-	_rewardingProtocolAddr, _ = address.FromString(address.RewardingProtocol)
-)
 
 // SetVersion sets action's version.
 func (b *Builder) SetVersion(v uint32) *Builder {
@@ -191,7 +191,7 @@ func (b *EnvelopeBuilder) BuildExecution(tx *types.Transaction) (Envelope, error
 
 // BuildStakingAction loads staking action into envelope from abi-encoded data
 func (b *EnvelopeBuilder) BuildStakingAction(tx *types.Transaction) (Envelope, error) {
-	if !bytes.Equal(tx.To().Bytes(), _stakingProtocolAddr.Bytes()) {
+	if !bytes.Equal(tx.To().Bytes(), _stakingProtocolEthAddr.Bytes()) {
 		return nil, ErrInvalidAct
 	}
 	b.setEnvelopeCommonFields(tx)
@@ -205,7 +205,7 @@ func (b *EnvelopeBuilder) BuildStakingAction(tx *types.Transaction) (Envelope, e
 
 // BuildRewardingAction loads rewarding action into envelope from abi-encoded data
 func (b *EnvelopeBuilder) BuildRewardingAction(tx *types.Transaction) (Envelope, error) {
-	if !bytes.Equal(tx.To().Bytes(), _rewardingProtocolAddr.Bytes()) {
+	if !bytes.Equal(tx.To().Bytes(), _rewardingProtocolEthAddr.Bytes()) {
 		return nil, ErrInvalidAct
 	}
 	b.setEnvelopeCommonFields(tx)

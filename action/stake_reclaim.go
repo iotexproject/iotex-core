@@ -11,12 +11,10 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -213,16 +211,11 @@ func NewUnstakeFromABIBinary(data []byte) (*Unstake, error) {
 
 // ToEthTx converts action to eth-compatible tx
 func (su *Unstake) ToEthTx() (*types.Transaction, error) {
-	addr, err := address.FromString(address.StakingProtocolAddr)
-	if err != nil {
-		return nil, err
-	}
-	ethAddr := common.BytesToAddress(addr.Bytes())
 	data, err := su.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(su.Nonce(), ethAddr, big.NewInt(0), su.GasLimit(), su.GasPrice(), data), nil
+	return types.NewTransaction(su.Nonce(), _stakingProtocolEthAddr, big.NewInt(0), su.GasLimit(), su.GasPrice(), data), nil
 }
 
 // WithdrawStake defines the action of stake withdraw
@@ -306,14 +299,9 @@ func NewWithdrawStakeFromABIBinary(data []byte) (*WithdrawStake, error) {
 
 // ToEthTx converts action to eth-compatible tx
 func (sw *WithdrawStake) ToEthTx() (*types.Transaction, error) {
-	addr, err := address.FromString(address.StakingProtocolAddr)
-	if err != nil {
-		return nil, err
-	}
-	ethAddr := common.BytesToAddress(addr.Bytes())
 	data, err := sw.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(sw.Nonce(), ethAddr, big.NewInt(0), sw.GasLimit(), sw.GasPrice(), data), nil
+	return types.NewTransaction(sw.Nonce(), _stakingProtocolEthAddr, big.NewInt(0), sw.GasLimit(), sw.GasPrice(), data), nil
 }
