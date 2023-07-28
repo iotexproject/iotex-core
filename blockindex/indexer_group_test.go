@@ -6,6 +6,7 @@
 package blockindex
 
 import (
+	"context"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -49,16 +50,20 @@ func TestIndexerGroup_StartHeight(t *testing.T) {
 			for _, indexer := range c.indexers {
 				if indexer[0] > 0 {
 					mockIndexerWithStart := mock_blockdao.NewMockBlockIndexerWithStart(ctrl)
+					mockIndexerWithStart.EXPECT().Start(gomock.Any()).Return(nil).Times(1)
 					mockIndexerWithStart.EXPECT().StartHeight().Return(indexer[0], nil).Times(1)
 					mockIndexerWithStart.EXPECT().Height().Return(indexer[1], nil).Times(1)
 					indexers = append(indexers, mockIndexerWithStart)
 				} else {
 					mockIndexer := mock_blockdao.NewMockBlockIndexer(ctrl)
+					mockIndexer.EXPECT().Start(gomock.Any()).Return(nil).Times(1)
 					mockIndexer.EXPECT().Height().Return(indexer[1], nil).Times(1)
 					indexers = append(indexers, mockIndexer)
 				}
 			}
 			ig := NewIndexerGroup(indexers...)
+			err := ig.Start(context.Background())
+			require.NoError(err)
 			height, err := ig.StartHeight()
 			require.NoError(err)
 			require.Equal(c.expect, height)

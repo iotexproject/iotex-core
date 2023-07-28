@@ -15,7 +15,9 @@ import (
 // IndexerGroup is a special index that includes multiple indexes,
 // which stay in sync when blocks are added.
 type IndexerGroup struct {
-	indexers []blockdao.BlockIndexer
+	indexers       []blockdao.BlockIndexer
+	startHeights   []uint64
+	minStartHeight uint64
 }
 
 // NewIndexerGroup creates a new indexer group
@@ -30,7 +32,7 @@ func (ig *IndexerGroup) Start(ctx context.Context) error {
 			return err
 		}
 	}
-	return nil
+	return ig.initStartHeight()
 }
 
 // Stop stops the indexer group
@@ -45,16 +47,10 @@ func (ig *IndexerGroup) Stop(ctx context.Context) error {
 
 // PutBlock puts a block into the indexers in the group
 func (ig *IndexerGroup) PutBlock(ctx context.Context, blk *block.Block) error {
-	for _, indexer := range ig.indexers {
-		// check if the indexer is a BlockIndexerWithStart
-		if indexerWithStart, ok := indexer.(blockdao.BlockIndexerWithStart); ok {
-			startHeight, err := indexerWithStart.StartHeight()
-			if err != nil {
-				return err
-			}
-			if blk.Height() < startHeight {
-				continue
-			}
+	for i, indexer := range ig.indexers {
+		// check if the block is higher than the indexer's start height
+		if blk.Height() < ig.startHeights[i] {
+			continue
 		}
 		// check if the block is higher than the indexer's height
 		height, err := indexer.Height()
@@ -84,27 +80,7 @@ func (ig *IndexerGroup) DeleteTipBlock(ctx context.Context, blk *block.Block) er
 
 // StartHeight returns the minimum start height of the indexers in the group
 func (ig *IndexerGroup) StartHeight() (uint64, error) {
-	var result uint64
-	for i, indexer := range ig.indexers {
-		tipHeight, err := indexer.Height()
-		if err != nil {
-			return 0, err
-		}
-		indexStartHeight := tipHeight + 1
-		if indexerWithStart, ok := indexer.(blockdao.BlockIndexerWithStart); ok {
-			startHeight, err := indexerWithStart.StartHeight()
-			if err != nil {
-				return 0, err
-			}
-			if startHeight > indexStartHeight {
-				indexStartHeight = startHeight
-			}
-		}
-		if i == 0 || indexStartHeight < result {
-			result = indexStartHeight
-		}
-	}
-	return result, nil
+	return ig.minStartHeight, nil
 }
 
 // Height returns the minimum height of the indexers in the group
@@ -120,4 +96,32 @@ func (ig *IndexerGroup) Height() (uint64, error) {
 		}
 	}
 	return height, nil
+}
+
+// initStartHeight initializes the start height of the indexers in the group
+// for every indexer, the start height is the maximum of tipheight+1 and startheight
+func (ig *IndexerGroup) initStartHeight() error {
+	ig.minStartHeight = 0
+	ig.startHeights = make([]uint64, len(ig.indexers))
+	for i, indexer := range ig.indexers {
+		tipHeight, err := indexer.Height()
+		if err != nil {
+			return err
+		}
+		indexStartHeight := tipHeight + 1
+		if indexerWithStart, ok := indexer.(blockdao.BlockIndexerWithStart); ok {
+			startHeight, err := indexerWithStart.StartHeight()
+			if err != nil {
+				return err
+			}
+			if startHeight > indexStartHeight {
+				indexStartHeight = startHeight
+			}
+		}
+		ig.startHeights[i] = indexStartHeight
+		if i == 0 || indexStartHeight < ig.minStartHeight {
+			ig.minStartHeight = indexStartHeight
+		}
+	}
+	return nil
 }
