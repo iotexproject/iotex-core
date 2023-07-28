@@ -257,19 +257,16 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 
 	var indexers []blockdao.BlockIndexer
-	dependencies := [][2]blockdao.BlockIndexer{}
+	// indexers in synchronizedIndexers will be putblock one by one for every block
+	synchronizedIndexers := []blockdao.BlockIndexer{builder.cs.factory}
 	if builder.cs.contractStakingIndexer != nil {
-		dependencies = append(dependencies, [2]blockdao.BlockIndexer{builder.cs.factory, builder.cs.contractStakingIndexer})
+		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexer)
 	}
 	if builder.cs.sgdIndexer != nil {
-		dependencies = append(dependencies, [2]blockdao.BlockIndexer{builder.cs.factory, builder.cs.sgdIndexer})
+		synchronizedIndexers = append(synchronizedIndexers, builder.cs.sgdIndexer)
 	}
-	if len(dependencies) > 0 {
-		dependentIndexer, err := blockindex.NewDependentIndexers(dependencies...)
-		if err != nil {
-			return errors.Wrapf(err, "failed to create dependent indexers")
-		}
-		indexers = append(indexers, dependentIndexer)
+	if len(synchronizedIndexers) > 1 {
+		indexers = append(indexers, blockindex.NewIndexerGroup(synchronizedIndexers...))
 	} else {
 		indexers = append(indexers, builder.cs.factory)
 	}
