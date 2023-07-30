@@ -1,5 +1,3 @@
-FROM golang:1.20.5-bullseye
-
 WORKDIR apps/iotex-bot
 
 RUN apt-get install -y --no-install-recommends make
