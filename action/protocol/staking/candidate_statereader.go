@@ -256,6 +256,23 @@ func (c *candSR) getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, er
 	return buckets, nil
 }
 
+// getExistingBucketsWithIndices returns buckets with given indices, if some of bucket
+// does not exist, they will be ignored and return the rest of buckets
+func (c *candSR) getExistingBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error) {
+	buckets := make([]*VoteBucket, 0, len(indices))
+	for _, i := range indices {
+		b, err := c.getBucket(i)
+		if err != nil {
+			if errors.Is(err, state.ErrStateNotExist) {
+				continue
+			}
+			return buckets, err
+		}
+		buckets = append(buckets, b)
+	}
+	return buckets, nil
+}
+
 func (c *candSR) getBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error) {
 	var (
 		bis BucketIndices
@@ -408,7 +425,7 @@ func (c *candSR) readStateBucketByIndices(ctx context.Context, req *iotexapi.Rea
 	if err != nil {
 		return &iotextypes.VoteBucketList{}, height, err
 	}
-	buckets, err := c.getBucketsWithIndices(BucketIndices(req.GetIndex()))
+	buckets, err := c.getExistingBucketsWithIndices(BucketIndices(req.GetIndex()))
 	if err != nil {
 		return nil, height, err
 	}

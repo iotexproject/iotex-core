@@ -39,6 +39,26 @@ func (bi *bucketInfo) Deserialize(b []byte) error {
 	return bi.loadProto(&m)
 }
 
+// clone clones the bucket info
+func (bi *bucketInfo) clone() *bucketInfo {
+	delegate := bi.Delegate
+	if delegate != nil {
+		delegate, _ = address.FromBytes(delegate.Bytes())
+	}
+	owner := bi.Owner
+	if owner != nil {
+		owner, _ = address.FromBytes(owner.Bytes())
+	}
+	return &bucketInfo{
+		TypeIndex:  bi.TypeIndex,
+		CreatedAt:  bi.CreatedAt,
+		UnlockedAt: bi.UnlockedAt,
+		UnstakedAt: bi.UnstakedAt,
+		Delegate:   delegate,
+		Owner:      owner,
+	}
+}
+
 func (bi *bucketInfo) toProto() *contractstakingpb.BucketInfo {
 	pb := &contractstakingpb.BucketInfo{
 		TypeIndex:  bi.TypeIndex,

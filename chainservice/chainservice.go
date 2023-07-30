@@ -36,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -86,9 +87,10 @@ type ChainService struct {
 	candidateIndexer       *poll.CandidateIndexer
 	candBucketsIndexer     *staking.CandidatesBucketsIndexer
 	sgdIndexer             blockindex.SGDRegistry
-	contractStakingIndexer contractstaking.ContractIndexer
+	contractStakingIndexer *contractstaking.Indexer
 	registry               *protocol.Registry
 	nodeInfoManager        *nodeinfo.InfoManager
+	apiStats               *nodestats.APILocalStats
 }
 
 // Start starts the server
@@ -231,6 +233,7 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 			return p2pAgent.BroadcastOutbound(ctx, msg)
 		}),
 		api.WithNativeElection(cs.electionCommittee),
+		api.WithAPIStats(cs.apiStats),
 	}
 
 	svr, err := api.NewServerV2(

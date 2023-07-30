@@ -48,17 +48,17 @@ require (
 	golang.org/x/net v0.7.0
 	golang.org/x/sync v0.1.0
 	google.golang.org/genproto v0.0.0-20230127162408-596548ed4efa
-	google.golang.org/grpc v1.51.0
+	google.golang.org/grpc v1.53.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
-	github.com/cespare/xxhash/v2 v2.1.2
+	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/holiman/uint256 v1.2.0
+	github.com/mackerelio/go-osstat v0.2.4
 	github.com/prometheus/client_model v0.2.0
-	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible
 	github.com/shirou/gopsutil/v3 v3.22.2
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.34.0
 	golang.org/x/exp v0.0.0-20230206171751-46f607a40771
@@ -66,7 +66,6 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/benbjohnson/clock v1.0.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -179,6 +178,7 @@ require (
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/rjeczalik/notify v0.9.2 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
+	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
@@ -193,7 +193,7 @@ require (
 	go.opentelemetry.io/otel/metric v0.31.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/sys v0.6.0 // indirect
 	golang.org/x/term v0.5.0 // indirect
 	golang.org/x/time v0.1.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect

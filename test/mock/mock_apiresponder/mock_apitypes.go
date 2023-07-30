@@ -36,11 +36,12 @@ func (m *MockWeb3ResponseWriter) EXPECT() *MockWeb3ResponseWriterMockRecorder {
 }
 
 // Write mocks base method.
-func (m *MockWeb3ResponseWriter) Write(arg0 interface{}) error {
+func (m *MockWeb3ResponseWriter) Write(arg0 interface{}) (int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Write", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Write indicates an expected call of Write.

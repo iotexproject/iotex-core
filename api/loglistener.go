@@ -36,7 +36,7 @@ func (ll *gRPCLogListener) Respond(_ string, blk *block.Block) error {
 	for _, e := range logs {
 		logPb := e.ConvertToLogPb()
 		logPb.BlkHash = blkHash[:]
-		if err := ll.streamHandle(&iotexapi.StreamLogsResponse{Log: logPb}); err != nil {
+		if _, err := ll.streamHandle(&iotexapi.StreamLogsResponse{Log: logPb}); err != nil {
 			ll.errChan <- err
 			log.L().Info("error streaming the log",
 				zap.Uint64("height", e.BlockHeight),
@@ -81,7 +81,7 @@ func (ll *web3LogListener) Respond(id string, blk *block.Block) error {
 				log:       e,
 			},
 		}
-		if err := ll.streamHandle(res); err != nil {
+		if _, err := ll.streamHandle(res); err != nil {
 			log.L().Info(
 				"Error when streaming the block",
 				zap.Uint64("height", blk.Height()),

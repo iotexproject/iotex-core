@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
 func TestStringToRau(t *testing.T) {
@@ -92,4 +94,29 @@ func TestParseHdwPath(t *testing.T) {
 			r.Contains(err.Error(), v.err)
 		}
 	}
+}
+
+func TestAddress(t *testing.T) {
+	require := require.New(t)
+
+	// Test valid address
+	addr, err := Address("io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza")
+	require.NoError(err)
+	require.Equal("io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza", addr)
+
+	// Test valid alias
+	config.ReadConfig.Aliases["myalias"] = "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza"
+	addr, err = Address("myalias")
+	require.NoError(err)
+	require.Equal("io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza", addr)
+
+	// Test invalid address
+	_, err = Address("invalidaddress")
+	require.Error(err)
+	require.ErrorContains(err, "cannot find address for alias")
+
+	// Test invalid alias
+	_, err = Address("invalidalias")
+	require.Error(err)
+	require.ErrorContains(err, "cannot find address for alias")
 }
