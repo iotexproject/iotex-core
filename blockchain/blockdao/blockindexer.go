@@ -7,6 +7,8 @@ package blockdao
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"time"
 
 	"github.com/pkg/errors"
@@ -46,8 +48,11 @@ func NewBlockIndexerChecker(dao BlockDAO) *BlockIndexerChecker {
 	return &BlockIndexerChecker{dao: dao}
 }
 
-// CheckIndexer checks a block indexer against block dao
-func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockIndexer, targetHeight uint64, progressReporter func(uint64)) error {
+// CheckIndexer checks block indexers against block dao
+func (bic *BlockIndexerChecker) CheckIndexers(ctx context.Context, indexers []BlockIndexer, targetHeight uint64, progressReporter func(uint64)) error {
+	if len(indexers) == 0 {
+		return nil
+	}
 	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
 	if !ok {
 		return errors.New("failed to find blockchain ctx")
@@ -56,32 +61,48 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 	if !ok {
 		return errors.New("failed to find genesis ctx")
 	}
-	tipHeight, err := indexer.Height()
-	if err != nil {
-		return err
-	}
 	daoTip, err := bic.dao.Height()
-	if err != nil {
-		return err
-	}
-	if tipHeight > daoTip {
-		return errors.New("indexer tip height cannot by higher than dao tip height")
-	}
-	tipBlk, err := bic.dao.GetBlockByHeight(tipHeight)
 	if err != nil {
 		return err
 	}
 	if targetHeight == 0 || targetHeight > daoTip {
 		targetHeight = daoTip
 	}
-	startHeight := tipHeight + 1
-	if indexerWS, ok := indexer.(BlockIndexerWithStart); ok {
-		indexStartHeight := indexerWS.StartHeight()
-		if indexStartHeight > startHeight {
-			startHeight = indexStartHeight
+	var (
+		startHeights   []uint64
+		minStartHeight uint64 = math.MaxUint64
+	)
+	for i, idx := range indexers {
+		tipHeight, err := idx.Height()
+		if err != nil {
+			return err
+		}
+		if tipHeight > daoTip {
+			return errors.New(fmt.Sprintf("indexer %d tip height cannot by higher than dao tip height", i))
+		}
+		startHeight := tipHeight + 1
+		if indexerWS, ok := idx.(BlockIndexerWithStart); ok {
+			indexStartHeight := indexerWS.StartHeight()
+			if indexStartHeight > startHeight {
+				startHeight = indexStartHeight
+			}
+		}
+		startHeights = append(startHeights, startHeight)
+		if startHeight < minStartHeight {
+			minStartHeight = startHeight
 		}
 	}
-	for i := startHeight; i <= targetHeight; i++ {
+
+	if minStartHeight == 0 {
+		panic("minStartHeight is 0")
+	}
+
+	tipBlk, err := bic.dao.GetBlockByHeight(minStartHeight - 1)
+	if err != nil {
+		return err
+	}
+
+	for i := minStartHeight; i <= targetHeight; i++ {
 		blk, err := bic.dao.GetBlockByHeight(i)
 		if err != nil {
 			return err
@@ -104,26 +125,32 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 			bcCtx.Tip.Hash = g.Hash()
 			bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)
 		}
-		for {
-			if err = indexer.PutBlock(protocol.WithBlockCtx(
-				protocol.WithBlockchainCtx(ctx, bcCtx),
-				protocol.BlockCtx{
-					BlockHeight:    i,
-					BlockTimeStamp: blk.Timestamp(),
-					Producer:       producer,
-					GasLimit:       g.BlockGasLimit,
-				},
-			), blk); err == nil {
-				break
-			}
-			if i < g.HawaiiBlockHeight && errors.Cause(err) == block.ErrDeltaStateMismatch {
-				log.L().Info("delta state mismatch", zap.Uint64("block", i))
+
+		for j, indexer := range indexers {
+			if i < startHeights[j] {
 				continue
 			}
-			return err
-		}
-		if progressReporter != nil {
-			progressReporter(i)
+			for {
+				if err = indexer.PutBlock(protocol.WithBlockCtx(
+					protocol.WithBlockchainCtx(ctx, bcCtx),
+					protocol.BlockCtx{
+						BlockHeight:    i,
+						BlockTimeStamp: blk.Timestamp(),
+						Producer:       producer,
+						GasLimit:       g.BlockGasLimit,
+					},
+				), blk); err == nil {
+					break
+				}
+				if i < g.HawaiiBlockHeight && errors.Cause(err) == block.ErrDeltaStateMismatch {
+					log.L().Info("delta state mismatch", zap.Uint64("block", i))
+					continue
+				}
+				return err
+			}
+			if progressReporter != nil {
+				progressReporter(i)
+			}
 		}
 		tipBlk = blk
 	}
