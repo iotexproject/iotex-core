@@ -12,9 +12,9 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
