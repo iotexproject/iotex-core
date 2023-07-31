@@ -60,8 +60,6 @@ func (c *safeWebsocketConn) WriteMessage(messageType int, data []byte) error {
 
 // Close closes the underlying network connection without sending or waiting for a close frame
 func (c *safeWebsocketConn) Close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	return c.ws.Close()
 }
 
