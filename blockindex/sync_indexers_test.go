@@ -16,7 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
 )
 
-func TestIndexerGroup_StartHeight(t *testing.T) {
+func TestSyncIndexers_StartHeight(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 
@@ -61,7 +61,7 @@ func TestIndexerGroup_StartHeight(t *testing.T) {
 					indexers = append(indexers, mockIndexer)
 				}
 			}
-			ig := NewIndexerGroup(indexers...)
+			ig := NewSyncIndexers(indexers...)
 			err := ig.Start(context.Background())
 			require.NoError(err)
 			height := ig.StartHeight()

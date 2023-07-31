@@ -12,21 +12,22 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 )
 
-// IndexerGroup is a special index that includes multiple indexes,
+// SyncIndexers is a special index that includes multiple indexes,
 // which stay in sync when blocks are added.
-type IndexerGroup struct {
+type SyncIndexers struct {
 	indexers       []blockdao.BlockIndexer
-	startHeights   []uint64
-	minStartHeight uint64
+	startHeights   []uint64 // start height of each indexer, which will be determined when the indexer is started
+	minStartHeight uint64   // minimum start height of all indexers
 }
 
-// NewIndexerGroup creates a new indexer group
-func NewIndexerGroup(indexers ...blockdao.BlockIndexer) *IndexerGroup {
-	return &IndexerGroup{indexers: indexers}
+// NewSyncIndexers creates a new SyncIndexers
+// each indexer will PutBlock one by one in the order of the indexers
+func NewSyncIndexers(indexers ...blockdao.BlockIndexer) *SyncIndexers {
+	return &SyncIndexers{indexers: indexers}
 }
 
 // Start starts the indexer group
-func (ig *IndexerGroup) Start(ctx context.Context) error {
+func (ig *SyncIndexers) Start(ctx context.Context) error {
 	for _, indexer := range ig.indexers {
 		if err := indexer.Start(ctx); err != nil {
 			return err
@@ -36,7 +37,7 @@ func (ig *IndexerGroup) Start(ctx context.Context) error {
 }
 
 // Stop stops the indexer group
-func (ig *IndexerGroup) Stop(ctx context.Context) error {
+func (ig *SyncIndexers) Stop(ctx context.Context) error {
 	for _, indexer := range ig.indexers {
 		if err := indexer.Stop(ctx); err != nil {
 			return err
@@ -46,7 +47,7 @@ func (ig *IndexerGroup) Stop(ctx context.Context) error {
 }
 
 // PutBlock puts a block into the indexers in the group
-func (ig *IndexerGroup) PutBlock(ctx context.Context, blk *block.Block) error {
+func (ig *SyncIndexers) PutBlock(ctx context.Context, blk *block.Block) error {
 	for i, indexer := range ig.indexers {
 		// check if the block is higher than the indexer's start height
 		if blk.Height() < ig.startHeights[i] {
@@ -69,7 +70,7 @@ func (ig *IndexerGroup) PutBlock(ctx context.Context, blk *block.Block) error {
 }
 
 // DeleteTipBlock deletes the tip block from the indexers in the group
-func (ig *IndexerGroup) DeleteTipBlock(ctx context.Context, blk *block.Block) error {
+func (ig *SyncIndexers) DeleteTipBlock(ctx context.Context, blk *block.Block) error {
 	for _, indexer := range ig.indexers {
 		if err := indexer.DeleteTipBlock(ctx, blk); err != nil {
 			return err
@@ -79,12 +80,12 @@ func (ig *IndexerGroup) DeleteTipBlock(ctx context.Context, blk *block.Block) er
 }
 
 // StartHeight returns the minimum start height of the indexers in the group
-func (ig *IndexerGroup) StartHeight() uint64 {
+func (ig *SyncIndexers) StartHeight() uint64 {
 	return ig.minStartHeight
 }
 
 // Height returns the minimum height of the indexers in the group
-func (ig *IndexerGroup) Height() (uint64, error) {
+func (ig *SyncIndexers) Height() (uint64, error) {
 	var height uint64
 	for i, indexer := range ig.indexers {
 		h, err := indexer.Height()
@@ -100,7 +101,7 @@ func (ig *IndexerGroup) Height() (uint64, error) {
 
 // initStartHeight initializes the start height of the indexers in the group
 // for every indexer, the start height is the maximum of tipheight+1 and startheight
-func (ig *IndexerGroup) initStartHeight() error {
+func (ig *SyncIndexers) initStartHeight() error {
 	ig.minStartHeight = 0
 	ig.startHeights = make([]uint64, len(ig.indexers))
 	for i, indexer := range ig.indexers {

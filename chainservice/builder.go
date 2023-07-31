@@ -257,7 +257,7 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 
 	var indexers []blockdao.BlockIndexer
-	// indexers in synchronizedIndexers will be putblock one by one for every block
+	// indexers in synchronizedIndexers will need to run PutBlock() one by one
 	synchronizedIndexers := []blockdao.BlockIndexer{builder.cs.factory}
 	if builder.cs.contractStakingIndexer != nil {
 		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexer)
@@ -266,7 +266,7 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		synchronizedIndexers = append(synchronizedIndexers, builder.cs.sgdIndexer)
 	}
 	if len(synchronizedIndexers) > 1 {
-		indexers = append(indexers, blockindex.NewIndexerGroup(synchronizedIndexers...))
+		indexers = append(indexers, blockindex.NewSyncIndexers(synchronizedIndexers...))
 	} else {
 		indexers = append(indexers, builder.cs.factory)
 	}
