@@ -39,6 +39,7 @@ var upgrader = websocket.Upgrader{
 
 // type safeWebsocketConn wraps websocket.Conn with a mutex
 // to avoid concurrent write to the connection
+// https://pkg.go.dev/github.com/gorilla/websocket#hdr-Concurrency
 type safeWebsocketConn struct {
 	ws *websocket.Conn
 	mu sync.Mutex
