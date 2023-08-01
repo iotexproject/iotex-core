@@ -1715,6 +1715,62 @@ func TestContractStaking(t *testing.T) {
 		r.True(ok)
 		r.EqualValues(identityset.Address(delegateIdx).String(), bt.Candidate.String())
 	})
+
+	t.Run("transfer token", func(t *testing.T) {
+		t.Run("transferFrom", func(t *testing.T) {
+			delegateIdx := 5
+			bt := simpleStake(_delegates[delegateIdx], big.NewInt(10), big.NewInt(10))
+			tokenID := bt.Index
+			r.EqualValues(identityset.Address(delegateIdx).String(), bt.Candidate.String())
+			from := common.BytesToAddress(identityset.Address(_adminID).Bytes())
+			newOwnerIdx := 25
+			to := common.BytesToAddress(identityset.Address(newOwnerIdx).Bytes())
+			data, err := lsdABI.Pack("transferFrom", from, to, big.NewInt(int64(tokenID)))
+			r.NoError(err)
+			param = callParam{
+				contractAddr: contractAddresses,
+				bytecode:     hex.EncodeToString(data),
+				amount:       big.NewInt(0),
+				gasLimit:     1000000,
+				gasPrice:     big.NewInt(0),
+				sk:           identityset.PrivateKey(adminID),
+			}
+			receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+			r.Len(receipts, 1)
+			r.EqualValues("", receipts[0].ExecutionRevertMsg())
+			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
+			bt, ok := indexer.Bucket(uint64(tokenID))
+			r.True(ok)
+			r.EqualValues(identityset.Address(newOwnerIdx).String(), bt.Owner.String())
+		})
+
+		t.Run("safeTransferFrom", func(t *testing.T) {
+			delegateIdx := 5
+			bt := simpleStake(_delegates[delegateIdx], big.NewInt(10), big.NewInt(10))
+			tokenID := bt.Index
+			r.EqualValues(identityset.Address(delegateIdx).String(), bt.Candidate.String())
+			from := common.BytesToAddress(identityset.Address(_adminID).Bytes())
+			newOwnerIdx := 25
+			to := common.BytesToAddress(identityset.Address(newOwnerIdx).Bytes())
+			data, err := lsdABI.Pack("safeTransferFrom", from, to, big.NewInt(int64(tokenID)))
+			r.NoError(err)
+			param = callParam{
+				contractAddr: contractAddresses,
+				bytecode:     hex.EncodeToString(data),
+				amount:       big.NewInt(0),
+				gasLimit:     1000000,
+				gasPrice:     big.NewInt(0),
+				sk:           identityset.PrivateKey(adminID),
+			}
+			receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+			r.Len(receipts, 1)
+			r.EqualValues("", receipts[0].ExecutionRevertMsg())
+			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
+			bt, ok := indexer.Bucket(uint64(tokenID))
+			r.True(ok)
+			r.EqualValues(identityset.Address(newOwnerIdx).String(), bt.Owner.String())
+		})
+	})
 }
 
 func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r *require.Assertions) (blockchain.Blockchain, factory.Factory, blockdao.BlockDAO, actpool.ActPool, *contractstaking.Indexer) {

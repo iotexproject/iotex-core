@@ -18,7 +18,6 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -46,7 +45,7 @@ var (
 	}
 	_delegateCmdShorts = map[config.Language]string{
 		config.English: "Print consensus delegates information in certain epoch",
-		config.Chinese: "打印在特定epoch内的公认代表的信息",
+		config.Chinese: "打印在特定epoch内的共识代表的信息",
 	}
 	_flagEpochNumUsages = map[config.Language]string{
 		config.English: "specify specific epoch",
@@ -355,7 +354,7 @@ func getAllStakingCandidates(chainClient iotexapi.APIServiceClient) (candidateLi
 	for i := uint32(0); ; i++ {
 		offset := i * _readCandidatesLimit
 		size := uint32(_readCandidatesLimit)
-		candidateList, err := getStakingCandidates(chainClient, offset, size)
+		candidateList, err := util.GetStakingCandidates(chainClient, offset, size)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get candidates")
 		}
@@ -363,42 +362,6 @@ func getAllStakingCandidates(chainClient iotexapi.APIServiceClient) (candidateLi
 		if len(candidateList.Candidates) < _readCandidatesLimit {
 			break
 		}
-	}
-	return
-}
-
-func getStakingCandidates(chainClient iotexapi.APIServiceClient, offset, limit uint32) (candidateList *iotextypes.CandidateListV2, err error) {
-	methodName, err := proto.Marshal(&iotexapi.ReadStakingDataMethod{
-		Method: iotexapi.ReadStakingDataMethod_CANDIDATES,
-	})
-	if err != nil {
-		return nil, err
-	}
-	arg, err := proto.Marshal(&iotexapi.ReadStakingDataRequest{
-		Request: &iotexapi.ReadStakingDataRequest_Candidates_{
-			Candidates: &iotexapi.ReadStakingDataRequest_Candidates{
-				Pagination: &iotexapi.PaginationParam{
-					Offset: offset,
-					Limit:  limit,
-				},
-			},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	readStateRequest := &iotexapi.ReadStateRequest{
-		ProtocolID: []byte(_protocolID),
-		MethodName: methodName,
-		Arguments:  [][]byte{arg},
-	}
-	readStateRes, err := chainClient.ReadState(context.Background(), readStateRequest)
-	if err != nil {
-		return
-	}
-	candidateList = &iotextypes.CandidateListV2{}
-	if err := proto.Unmarshal(readStateRes.GetData(), candidateList); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal VoteBucketList")
 	}
 	return
 }

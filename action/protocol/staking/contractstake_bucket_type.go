@@ -38,6 +38,15 @@ func (bt *ContractStakingBucketType) Deserialize(b []byte) error {
 	return bt.loadProto(&m)
 }
 
+// Clone clones the bucket type
+func (bt *ContractStakingBucketType) Clone() *ContractStakingBucketType {
+	return &ContractStakingBucketType{
+		Amount:      big.NewInt(0).Set(bt.Amount),
+		Duration:    bt.Duration,
+		ActivatedAt: bt.ActivatedAt,
+	}
+}
+
 func (bt *ContractStakingBucketType) toProto() *stakingpb.BucketType {
 	return &stakingpb.BucketType{
 		Amount:      bt.Amount.String(),

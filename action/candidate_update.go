@@ -200,9 +200,15 @@ func (cu *CandidateUpdate) EncodeABIBinary() ([]byte, error) {
 }
 
 func (cu *CandidateUpdate) encodeABIBinary() ([]byte, error) {
-	operatorEthAddr := common.BytesToAddress(cu.operatorAddress.Bytes())
-	rewardEthAddr := common.BytesToAddress(cu.rewardAddress.Bytes())
-	data, err := _candidateUpdateMethod.Inputs.Pack(cu.name, operatorEthAddr, rewardEthAddr)
+	if cu.operatorAddress == nil {
+		return nil, ErrAddress
+	}
+	if cu.rewardAddress == nil {
+		return nil, ErrAddress
+	}
+	data, err := _candidateUpdateMethod.Inputs.Pack(cu.name,
+		common.BytesToAddress(cu.operatorAddress.Bytes()),
+		common.BytesToAddress(cu.rewardAddress.Bytes()))
 	if err != nil {
 		return nil, err
 	}

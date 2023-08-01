@@ -366,9 +366,8 @@ func init() {
 	}
 }
 
-func newContractStakingEventHandler(cache *contractStakingCache, height uint64) *contractStakingEventHandler {
+func newContractStakingEventHandler(cache *contractStakingCache) *contractStakingEventHandler {
 	dirty := newContractStakingDirty(cache)
-	dirty.putHeight(height)
 	return &contractStakingEventHandler{
 		dirty:      dirty,
 		tokenOwner: make(map[uint64]address.Address),
@@ -429,12 +428,20 @@ func (eh *contractStakingEventHandler) handleTransferEvent(event eventParam) err
 	if err != nil {
 		return err
 	}
-	tokenID, err := event.IndexedFieldUint256("tokenId")
+	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
 	if err != nil {
 		return err
 	}
 
-	eh.tokenOwner[tokenID.Uint64()] = to
+	tokenID := tokenIDParam.Uint64()
+	// cache token owner for stake event
+	eh.tokenOwner[tokenID] = to
+	// update bucket owner if token exists
+	if bi, ok := eh.dirty.getBucketInfo(tokenID); ok {
+		bi.Owner = to
+		return eh.dirty.updateBucketInfo(tokenID, bi)
+	}
+
 	return nil
 }
 

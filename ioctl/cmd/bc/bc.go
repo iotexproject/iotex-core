@@ -50,6 +50,7 @@ func init() {
 	BCCmd.AddCommand(_bcInfoCmd)
 	BCCmd.AddCommand(_bcBucketListCmd)
 	BCCmd.AddCommand(_bcBucketCmd)
+	BCCmd.AddCommand(_bcDelegateCmd)
 	BCCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpointUsages, config.UILanguage))
 	BCCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,

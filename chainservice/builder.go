@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blockindex/contractstaking"
 	"github.com/iotexproject/iotex-core/blocksync"
@@ -285,15 +286,15 @@ func (builder *Builder) buildSGDRegistry(forTest bool) error {
 	if builder.cs.sgdIndexer != nil {
 		return nil
 	}
-	if forTest {
+	if forTest || builder.cfg.Genesis.SystemSGDContractAddress == "" {
 		builder.cs.sgdIndexer = nil
-	} else {
-		kvStore, err := db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.SGDIndexDBPath, 1000)
-		if err != nil {
-			return err
-		}
-		builder.cs.sgdIndexer = blockindex.NewSGDRegistry(builder.cfg.Genesis.SystemSGDContractAddress, builder.cfg.Genesis.SystemSGDContractHeight, kvStore)
+		return nil
 	}
+	kvStore, err := db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.SGDIndexDBPath, 1000)
+	if err != nil {
+		return err
+	}
+	builder.cs.sgdIndexer = blockindex.NewSGDRegistry(builder.cfg.Genesis.SystemSGDContractAddress, builder.cfg.Genesis.SystemSGDContractHeight, kvStore)
 	return nil
 }
 
@@ -304,17 +305,17 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 	if builder.cs.contractStakingIndexer != nil {
 		return nil
 	}
-	if forTest {
-		builder.cs.contractStakingIndexer = contractstaking.NewDummyContractStakingIndexer()
-	} else {
-		dbConfig := builder.cfg.DB
-		dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
-		indexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.SystemStakingContractAddress, builder.cfg.Genesis.SystemStakingContractHeight)
-		if err != nil {
-			return err
-		}
-		builder.cs.contractStakingIndexer = indexer
+	if forTest || builder.cfg.Genesis.SystemStakingContractAddress == "" {
+		builder.cs.contractStakingIndexer = nil
+		return nil
 	}
+	dbConfig := builder.cfg.DB
+	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
+	indexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.SystemStakingContractAddress, builder.cfg.Genesis.SystemStakingContractHeight)
+	if err != nil {
+		return err
+	}
+	builder.cs.contractStakingIndexer = indexer
 	return nil
 }
 
@@ -437,9 +438,15 @@ func (builder *Builder) buildNodeInfoManager() error {
 	if stk == nil {
 		return errors.New("cannot find staking protocol")
 	}
-
+	chain := builder.cs.chain
 	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func() []string {
-		candidates, err := stk.ActiveCandidates(context.Background(), cs.factory, 0)
+		ctx := protocol.WithFeatureCtx(
+			protocol.WithBlockCtx(
+				genesis.WithGenesisContext(context.Background(), chain.Genesis()),
+				protocol.BlockCtx{BlockHeight: chain.TipHeight()},
+			),
+		)
+		candidates, err := stk.ActiveCandidates(ctx, cs.factory, 0)
 		if err != nil {
 			log.L().Error("failed to get active candidates", zap.Error(errors.WithStack(err)))
 			return nil
