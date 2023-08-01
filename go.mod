@@ -63,7 +63,6 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.34.0
 	golang.org/x/exp v0.0.0-20230206171751-46f607a40771
 	golang.org/x/text v0.7.0
-	gonum.org/v1/gonum v0.6.0
 )
 
 require (
