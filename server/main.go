@@ -21,7 +21,7 @@ import (
 	"syscall"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	_ "go.uber.org/automaxprocs"
+	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -73,6 +73,8 @@ func init() {
 }
 
 func main() {
+	// set max number of CPUs, disable log printing
+	maxprocs.Set(maxprocs.Logger(nil))
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
 	signal.Notify(stop, syscall.SIGTERM)

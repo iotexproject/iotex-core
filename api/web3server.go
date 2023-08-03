@@ -19,7 +19,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tidwall/gjson"
-	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -137,13 +136,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		size      int
 	)
 	defer func(start time.Time) { svr.coreService.Track(ctx, start, method.(string), int64(size), err == nil) }(time.Now())
-	span := tracer.SpanFromContext(ctx)
-	defer span.End()
-	span.AddEvent("handleWeb3Req")
-	span.SetAttributes(
-		attribute.String("method", method.(string)),
-	)
-	log.Logger("api").Debug("web3Debug", zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
+
+	log.Ctx(ctx).Info("handleWeb3Req", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
 	_web3ServerMtc.WithLabelValues(method.(string)).Inc()
 	_web3ServerMtc.WithLabelValues("requests_total").Inc()
 	switch method {
@@ -252,8 +246,6 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 }
 
 func parseWeb3Reqs(reader io.Reader) (gjson.Result, error) {
-	_, span := tracer.NewSpan(context.Background(), "parseWeb3Reqs")
-	defer span.End()
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return gjson.Result{}, err
