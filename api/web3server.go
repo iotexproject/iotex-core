@@ -1,10 +1,14 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"io"
 	"math/big"
 	"strconv"
@@ -391,6 +395,21 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	result, _ := hex.DecodeString(ret)
+	if bytes.HasPrefix(result, []byte{0x08, 0xc3, 0x79, 0xa0}) {
+		strtyp, _ := abi.NewType("string", "", nil)
+		arguments := abi.Arguments{{Type: strtyp}}
+		args, err := arguments.Unpack(result[4:])
+		if err != nil {
+			log.Logger("api").Error("web3server",
+				zap.String("requestParams", "ret abi unpack"),
+				zap.Error(err))
+			return "0x" + ret, nil
+		}
+		return "0x" + ret, status.Error(codes.InvalidArgument, fmt.Sprintf("execution reverted: %s", args[0].(string)))
+	}
+
 	return "0x" + ret, nil
 }
 

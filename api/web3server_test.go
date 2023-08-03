@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"io"
 	"math/big"
 	"math/rand"
@@ -328,6 +330,22 @@ func TestCall(t *testing.T) {
 		ret, err := web3svr.call(&in)
 		require.NoError(err)
 		require.Equal("0x111111", ret.(string))
+	})
+
+	t.Run("to is contract addr and invoke revert or require", func(t *testing.T) {
+		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c7265717569726520746573740000000000000000000000000000000000000000", nil, nil)
+		in := gjson.Parse(`{"params":[{
+			"from":     "",
+			"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
+			"gas":      "0x4e20",
+			"gasPrice": "0xe8d4a51000",
+			"value":    "0x1",
+			"data":     "0x1"
+		   },
+		   1]}`)
+		ret, err := web3svr.call(&in)
+		require.Equal("0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c7265717569726520746573740000000000000000000000000000000000000000", ret.(string))
+		require.Equal(err, status.Error(codes.InvalidArgument, "execution reverted: require test"))
 	})
 }
 
