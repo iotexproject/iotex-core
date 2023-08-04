@@ -380,16 +380,11 @@ func ethAddrToNativeAddr(in interface{}) (address.Address, error) {
 
 // ToEthTx converts action to eth-compatible tx
 func (cr *CandidateRegister) ToEthTx() (*types.Transaction, error) {
-	addr, err := address.FromString(address.StakingProtocolAddr)
-	if err != nil {
-		return nil, err
-	}
-	ethAddr := common.BytesToAddress(addr.Bytes())
 	data, err := cr.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(cr.Nonce(), ethAddr, big.NewInt(0), cr.GasLimit(), cr.GasPrice(), data), nil
+	return types.NewTransaction(cr.Nonce(), _stakingProtocolEthAddr, big.NewInt(0), cr.GasLimit(), cr.GasPrice(), data), nil
 }
 
 // IsValidCandidateName check if a candidate name string is valid.
