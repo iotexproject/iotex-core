@@ -29,9 +29,8 @@ type (
 	}
 
 	errMessage struct {
-		Code    int         `json:"code"`
-		Message string      `json:"message"`
-		Data    interface{} `json:"data"`
+		Code    int    `json:"code"`
+		Message string `json:"message"`
 	}
 
 	streamResponse struct {
@@ -125,7 +124,6 @@ func (obj *web3Response) MarshalJSON() ([]byte, error) {
 		Error: errMessage{
 			Code:    errCode,
 			Message: errMsg,
-			Data:    obj.result,
 		},
 	})
 }
