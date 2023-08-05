@@ -11,6 +11,11 @@ import (
 	"time"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/committee"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -36,10 +41,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-election/committee"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 )
 
 // Builder is a builder to build chainservice
@@ -385,7 +386,7 @@ func (builder *Builder) buildNodeInfoManager() error {
 	if stk == nil {
 		return errors.New("cannot find staking protocol")
 	}
-	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent.NetworkProxy(p2p.BlockNetwork), cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func(ctx context.Context) (state.CandidateList, error) {
+	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent.NetworkProxy(BlockNetwork), cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func(ctx context.Context) (state.CandidateList, error) {
 		return stk.ActiveCandidates(ctx, cs.factory, 0)
 	})
 	builder.cs.nodeInfoManager = dm
@@ -402,7 +403,7 @@ func (builder *Builder) buildBlockSyncer() error {
 		return nil
 	}
 
-	p2pAgent := builder.cs.p2pAgent.NetworkProxy(p2p.BlockNetwork)
+	p2pAgent := builder.cs.p2pAgent.NetworkProxy(BlockNetwork)
 	chain := builder.cs.chain
 	consens := builder.cs.consensus
 
@@ -560,7 +561,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 }
 
 func (builder *Builder) buildConsensusComponent() error {
-	p2pAgent := builder.cs.p2pAgent.NetworkProxy(p2p.BlockNetwork)
+	p2pAgent := builder.cs.p2pAgent.NetworkProxy(BlockNetwork)
 	copts := []consensus.Option{
 		consensus.WithBroadcast(func(msg proto.Message) error {
 			return p2pAgent.BroadcastOutbound(context.Background(), msg)

@@ -38,6 +38,13 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
+// There are three types of network
+const (
+	BlockNetwork     = ""
+	ConsensusNetwork = "consensus"
+	ActionNetwork    = "action"
+)
+
 var (
 	_apiCallWithChainIDMtc = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -222,7 +229,7 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 	if cfg.GRPCPort == 0 && cfg.HTTPPort == 0 {
 		return nil, nil
 	}
-	p2pAgent := cs.p2pAgent.NetworkProxy(p2p.BlockNetwork)
+	p2pAgent := cs.p2pAgent.NetworkProxy(BlockNetwork)
 	apiServerOptions := []api.Option{
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 			return p2pAgent.BroadcastOutbound(ctx, msg)

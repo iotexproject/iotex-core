@@ -15,8 +15,6 @@ type (
 		BroadcastOutbound(ctx context.Context, msg proto.Message) (err error)
 		// UnicastOutbound sends a unicast message to the given address
 		UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg proto.Message) (err error)
-		// ConnectedPeers returns the connected peers' info
-		ConnectedPeers() ([]peer.AddrInfo, error)
 	}
 
 	networkProxy struct {
@@ -34,5 +32,5 @@ func (ap *networkProxy) UnicastOutbound(ctx context.Context, peer peer.AddrInfo,
 }
 
 func (ap *networkProxy) ConnectedPeers() (peers []peer.AddrInfo, err error) {
-	return ap.agent.ConnectedPeers(ap.network)
+	return ap.agent.connectedPeersByNetwork(ap.network)
 }

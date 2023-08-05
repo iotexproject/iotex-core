@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -59,8 +60,8 @@ func TestLocalActPool(t *testing.T) {
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 
 		},
-		p2p.JoinNetwork(p2p.BlockNetwork),
-	).NetworkProxy(p2p.BlockNetwork)
+		p2p.JoinNetwork(chainservice.BlockNetwork),
+	).NetworkProxy(chainservice.BlockNetwork)
 	require.NotNil(cli)
 	require.NoError(cli.Start(ctx))
 	fmt.Println("p2p agent started")
@@ -138,8 +139,8 @@ func TestPressureActPool(t *testing.T) {
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 
 		},
-		p2p.JoinNetwork(p2p.BlockNetwork),
-	).NetworkProxy(p2p.BlockNetwork)
+		p2p.JoinNetwork(chainservice.BlockNetwork),
+	).NetworkProxy(chainservice.BlockNetwork)
 	require.NotNil(cli)
 	require.NoError(cli.Start(ctx))
 

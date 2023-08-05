@@ -37,13 +37,6 @@ const (
 	_failureStr = "failure"
 )
 
-// There are three types of network
-const (
-	BlockNetwork     = ""
-	ConsensusNetwork = "consensus"
-	ActionNetwork    = "action"
-)
-
 var (
 	_p2pMsgCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -62,8 +55,6 @@ var (
 	)
 	// ErrAgentNotStarted is the error returned when p2p agent has not been started
 	ErrAgentNotStarted = errors.New("p2p agent has not been started")
-	// ErrNoConnectedPeers is a broadcast error when have no connected peers
-	ErrNoConnectedPeers = p2p.ErrNoConnectedPeers
 )
 
 func init() {
@@ -115,6 +106,8 @@ type (
 		BlockPeer(string)
 		// NetworkProxy returns a network proxy to agent
 		NetworkProxy(string) NetworkProxy
+		// ConnectedPeers returns the connected peers' info
+		ConnectedPeers() ([]peer.AddrInfo, error)
 	}
 
 	// Option defines the option function to modify agent
@@ -508,7 +501,14 @@ func (p *agent) Self() ([]multiaddr.Multiaddr, error) {
 	return p.host.Addresses(), nil
 }
 
-func (p *agent) ConnectedPeers(network string) ([]peer.AddrInfo, error) {
+func (p *agent) ConnectedPeers() ([]peer.AddrInfo, error) {
+	if p.host == nil {
+		return nil, ErrAgentNotStarted
+	}
+	return p.host.ConnectedPeers(), nil
+}
+
+func (p *agent) connectedPeersByNetwork(network string) ([]peer.AddrInfo, error) {
 	if p.host == nil {
 		return nil, ErrAgentNotStarted
 	}

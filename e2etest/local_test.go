@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/p2p"
@@ -129,8 +130,8 @@ func TestLocalCommit(t *testing.T) {
 		},
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 		},
-		p2p.JoinNetwork(p2p.BlockNetwork),
-	).NetworkProxy(p2p.BlockNetwork)
+		p2p.JoinNetwork(chainservice.BlockNetwork),
+	).NetworkProxy(chainservice.BlockNetwork)
 	require.NotNil(p)
 	require.NoError(p.Start(ctx))
 	defer func() {
@@ -345,7 +346,7 @@ func TestLocalSync(t *testing.T) {
 		hash.ZeroHash256,
 		func(_ context.Context, _ uint32, _ string, msg proto.Message) {},
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {},
-		p2p.JoinNetwork(p2p.BlockNetwork),
+		p2p.JoinNetwork(chainservice.BlockNetwork),
 	)
 	require.NoError(bootnode.Start(ctx))
 	addrs, err := bootnode.Self()
@@ -411,7 +412,7 @@ func TestLocalSync(t *testing.T) {
 	}()
 
 	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, func() (bool, error) {
-		peers, err := svr.P2PAgent().NetworkProxy(p2p.BlockNetwork).ConnectedPeers()
+		peers, err := svr.P2PAgent().NetworkProxy(chainservice.BlockNetwork).ConnectedPeers()
 		return len(peers) >= 1, err
 	})
 	require.NoError(err)
