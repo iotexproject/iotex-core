@@ -13,8 +13,8 @@ var (
 	_traceLogger = otelzap.New(zap.NewNop())
 )
 
-// Ctx is a wrapper of otelzap.Ctx, returns a logger with context.
-func Ctx(ctx context.Context) otelzap.LoggerWithCtx {
+// T is a wrapper of otelzap.Ctx, returns a logger with context.
+func T(ctx context.Context) otelzap.LoggerWithCtx {
 	return _traceLogger.Ctx(ctx)
 }
 
