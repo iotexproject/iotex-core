@@ -317,7 +317,7 @@ func TestCall(t *testing.T) {
 	})
 
 	t.Run("to is contract addr", func(t *testing.T) {
-		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("111111", nil, nil)
+		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("111111", &iotextypes.Receipt{}, nil)
 		in := gjson.Parse(`{"params":[{
 			"from":     "",
 			"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
@@ -333,7 +333,11 @@ func TestCall(t *testing.T) {
 	})
 
 	t.Run("to is contract addr and invoke revert or require", func(t *testing.T) {
-		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c7265717569726520746573740000000000000000000000000000000000000000", nil, nil)
+		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return("08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c7265717569726520746573740000000000000000000000000000000000000000",
+				&iotextypes.Receipt{ExecutionRevertMsg: "require test"},
+				nil,
+			)
 		in := gjson.Parse(`{"params":[{
 			"from":     "",
 			"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
@@ -345,7 +349,7 @@ func TestCall(t *testing.T) {
 		   1]}`)
 		ret, err := web3svr.call(&in)
 		require.Equal("0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c7265717569726520746573740000000000000000000000000000000000000000", ret.(string))
-		require.Equal(err, status.Error(codes.InvalidArgument, "execution reverted: require test"))
+		require.Equal(err, status.Error(codes.InvalidArgument, "require test"))
 	})
 }
 
