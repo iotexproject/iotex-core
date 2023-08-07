@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -11,7 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -391,23 +389,13 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 		return "0x" + ret, nil
 	}
 	exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
-	ret, _, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
+	ret, receipt, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
 	if err != nil {
 		return nil, err
 	}
 
-	result, _ := hex.DecodeString(ret)
-	if bytes.HasPrefix(result, []byte{0x08, 0xc3, 0x79, 0xa0}) {
-		strtyp, _ := abi.NewType("string", "", nil)
-		arguments := abi.Arguments{{Type: strtyp}}
-		args, err := arguments.Unpack(result[4:])
-		if err != nil {
-			log.Logger("api").Error("web3server",
-				zap.String("requestParams", "ret abi unpack"),
-				zap.Error(err))
-			return "0x" + ret, nil
-		}
-		return "0x" + ret, status.Error(codes.InvalidArgument, fmt.Sprintf("execution reverted: %s", args[0].(string)))
+	if len(receipt.ExecutionRevertMsg) > 0 {
+		return "0x" + ret, status.Error(codes.InvalidArgument, receipt.ExecutionRevertMsg)
 	}
 
 	return "0x" + ret, nil
