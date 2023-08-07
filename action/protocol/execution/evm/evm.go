@@ -8,7 +8,6 @@ package evm
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"math"
 	"math/big"
 
@@ -293,7 +292,7 @@ func ExecuteContract(
 		data := retval[4:]
 		msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
 		revertMsg := string(data[64 : 64+msgLength])
-		receipt.SetExecutionRevertMsg(fmt.Sprintf("execution reverted: %s", revertMsg))
+		receipt.SetExecutionRevertMsg(revertMsg)
 	}
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil

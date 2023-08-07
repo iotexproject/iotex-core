@@ -596,7 +596,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			// TODO: check value of logs
 		}
 		if receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) {
-			r.Equal(fmt.Sprintf("execution reverted: %s", exec.ExpectedErrorMsg), receipt.ExecutionRevertMsg())
+			r.Equal(exec.ExpectedErrorMsg, receipt.ExecutionRevertMsg())
 		}
 	}
 }
