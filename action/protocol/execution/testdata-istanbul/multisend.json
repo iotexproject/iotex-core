@@ -66,7 +66,7 @@
             "rawBalance": "321"
         }],
         "expectedStatus" : 106,
-        "expectedErrorMsg" : "not enough token",
+        "expectedErrorMsg" : "execution reverted: not enough token",
         "comment": "not enough tokens"
     }, {
         "rawPrivateKey": "cff7405126a8e16ea6fd09279836e52abdcae8e4008309effc6d09556535f637",
@@ -107,7 +107,7 @@
             "rawBalance": "321"
         }],
         "expectedStatus" : 106,
-        "expectedErrorMsg" : "number of recipients is larger than 300",
+        "expectedErrorMsg" : "execution reverted: number of recipients is larger than 300",
         "comment": "more than 300 recipients"
     }, {
         "rawPrivateKey": "cff7405126a8e16ea6fd09279836e52abdcae8e4008309effc6d09556535f637",
