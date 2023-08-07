@@ -1600,7 +1600,7 @@ func TestContractStaking(t *testing.T) {
 			}
 			receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 			r.Len(receipts, 1)
-			r.EqualValues("invalid bucket type", receipts[0].ExecutionRevertMsg())
+			r.EqualValues("execution reverted: invalid bucket type", receipts[0].ExecutionRevertMsg())
 			r.EqualValues(iotextypes.ReceiptStatus_ErrExecutionReverted, receipts[0].Status)
 		})
 
@@ -1619,7 +1619,7 @@ func TestContractStaking(t *testing.T) {
 			}
 			receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 			r.Len(receipts, 1)
-			r.EqualValues("invalid duration", receipts[0].ExecutionRevertMsg())
+			r.EqualValues("execution reverted: invalid duration", receipts[0].ExecutionRevertMsg())
 			r.EqualValues(iotextypes.ReceiptStatus_ErrExecutionReverted, receipts[0].Status)
 		})
 
@@ -1638,7 +1638,7 @@ func TestContractStaking(t *testing.T) {
 			}
 			receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 			r.Len(receipts, 1)
-			r.EqualValues("invalid amount", receipts[0].ExecutionRevertMsg())
+			r.EqualValues("execution reverted: invalid amount", receipts[0].ExecutionRevertMsg())
 			r.EqualValues(iotextypes.ReceiptStatus_ErrExecutionReverted, receipts[0].Status)
 		})
 
