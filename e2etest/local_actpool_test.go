@@ -60,8 +60,8 @@ func TestLocalActPool(t *testing.T) {
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 
 		},
-		p2p.JoinNetwork(chainservice.BlockNetwork),
-	).NetworkProxy(chainservice.BlockNetwork)
+		p2p.JoinNetwork(chainservice.CompatibleNetwork),
+	).NetworkProxy(chainservice.CompatibleNetwork)
 	require.NotNil(cli)
 	require.NoError(cli.Start(ctx))
 	fmt.Println("p2p agent started")
@@ -139,8 +139,8 @@ func TestPressureActPool(t *testing.T) {
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 
 		},
-		p2p.JoinNetwork(chainservice.BlockNetwork),
-	).NetworkProxy(chainservice.BlockNetwork)
+		p2p.JoinNetwork(chainservice.CompatibleNetwork),
+	).NetworkProxy(chainservice.CompatibleNetwork)
 	require.NotNil(cli)
 	require.NoError(cli.Start(ctx))
 

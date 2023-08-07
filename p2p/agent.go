@@ -131,9 +131,8 @@ type (
 )
 
 // JoinNetwork choose networks to join.
-// you could recieve messages from or send to networks you have joined, furthermore you also could broadcast messages to you havn't joined.
-// there are three types networks you can join, that is BlockNetwork, ConsensusNetwork, ActionNetwork.
-// it will join BlockNetwork by default.
+// You will only receive messages from the networks you joined.
+// "" is a special network name, which means the whole network before introducing message network.
 func JoinNetwork(networks ...string) Option {
 	return func(a *agent) {
 		for _, network := range networks {

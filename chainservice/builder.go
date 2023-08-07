@@ -386,7 +386,7 @@ func (builder *Builder) buildNodeInfoManager() error {
 	if stk == nil {
 		return errors.New("cannot find staking protocol")
 	}
-	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent.NetworkProxy(BlockNetwork), cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func(ctx context.Context) (state.CandidateList, error) {
+	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent.NetworkProxy(CompatibleNetwork), cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func(ctx context.Context) (state.CandidateList, error) {
 		return stk.ActiveCandidates(ctx, cs.factory, 0)
 	})
 	builder.cs.nodeInfoManager = dm
@@ -403,7 +403,7 @@ func (builder *Builder) buildBlockSyncer() error {
 		return nil
 	}
 
-	p2pAgent := builder.cs.p2pAgent.NetworkProxy(BlockNetwork)
+	p2pAgent := builder.cs.p2pAgent.NetworkProxy(CompatibleNetwork)
 	chain := builder.cs.chain
 	consens := builder.cs.consensus
 
@@ -561,7 +561,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 }
 
 func (builder *Builder) buildConsensusComponent() error {
-	p2pAgent := builder.cs.p2pAgent.NetworkProxy(BlockNetwork)
+	p2pAgent := builder.cs.p2pAgent.NetworkProxy(CompatibleNetwork)
 	copts := []consensus.Option{
 		consensus.WithBroadcast(func(msg proto.Message) error {
 			return p2pAgent.BroadcastOutbound(context.Background(), msg)
