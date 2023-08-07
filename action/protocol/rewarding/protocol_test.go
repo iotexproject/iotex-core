@@ -335,6 +335,9 @@ func TestProtocol_Handle(t *testing.T) {
 
 	// address package also defined protocol address, make sure they match
 	require.Equal(t, p.addr.Bytes(), address.RewardingProtocolAddrHash[:])
+	rwdAddr, err := address.FromString(address.RewardingProtocol)
+	require.NoError(t, err)
+	require.Equal(t, p.addr.Bytes(), rwdAddr.Bytes())
 
 	ctx := protocol.WithBlockCtx(
 		context.Background(),

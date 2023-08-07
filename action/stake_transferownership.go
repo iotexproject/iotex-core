@@ -202,14 +202,9 @@ func NewTransferStakeFromABIBinary(data []byte) (*TransferStake, error) {
 
 // ToEthTx converts action to eth-compatible tx
 func (ts *TransferStake) ToEthTx() (*types.Transaction, error) {
-	addr, err := address.FromString(address.StakingProtocolAddr)
-	if err != nil {
-		return nil, err
-	}
-	ethAddr := common.BytesToAddress(addr.Bytes())
 	data, err := ts.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(ts.Nonce(), ethAddr, big.NewInt(0), ts.GasLimit(), ts.GasPrice(), data), nil
+	return types.NewTransaction(ts.Nonce(), _stakingProtocolEthAddr, big.NewInt(0), ts.GasLimit(), ts.GasPrice(), data), nil
 }

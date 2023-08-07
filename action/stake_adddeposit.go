@@ -11,12 +11,10 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -222,14 +220,9 @@ func NewDepositToStakeFromABIBinary(data []byte) (*DepositToStake, error) {
 
 // ToEthTx converts action to eth-compatible tx
 func (ds *DepositToStake) ToEthTx() (*types.Transaction, error) {
-	addr, err := address.FromString(address.StakingProtocolAddr)
-	if err != nil {
-		return nil, err
-	}
-	ethAddr := common.BytesToAddress(addr.Bytes())
 	data, err := ds.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(ds.Nonce(), ethAddr, big.NewInt(0), ds.GasLimit(), ds.GasPrice(), data), nil
+	return types.NewTransaction(ds.Nonce(), _stakingProtocolEthAddr, big.NewInt(0), ds.GasLimit(), ds.GasPrice(), data), nil
 }
