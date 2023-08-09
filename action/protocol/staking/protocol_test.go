@@ -101,6 +101,9 @@ func TestProtocol(t *testing.T) {
 
 	// address package also defined protocol address, make sure they match
 	r.Equal(stk.addr.Bytes(), address.StakingProtocolAddrHash[:])
+	stkAddr, err := address.FromString(address.StakingProtocolAddr)
+	r.NoError(err)
+	r.Equal(stk.addr.Bytes(), stkAddr.Bytes())
 
 	// write a number of buckets into stateDB
 	for _, e := range tests {

@@ -11,18 +11,9 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
-)
-
-var (
-	// StakingBucketPoolTopic is topic for staking bucket pool
-	StakingBucketPoolTopic = hash.BytesToHash256(address.StakingProtocolAddrHash[:])
-
-	// RewardingPoolTopic is topic for rewarding pool
-	RewardingPoolTopic = hash.BytesToHash256(address.RewardingProtocolAddrHash[:])
 )
 
 type (
