@@ -243,11 +243,15 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	} else {
 		log.Logger("api").Debug("web3Debug", zap.String("response", fmt.Sprintf("%+v", res)))
 	}
-	size, err1 = writer.Write(&web3Response{
-		id:     int(web3Req.Get("id").Int()),
-		result: res,
-		err:    err,
-	})
+
+	var jsonMsg *jsonrpcMessage
+	if err != nil {
+		jsonMsg = errorMessage(err)
+	} else {
+		jsonMsg = successMessage(res)
+	}
+	jsonMsg.ID = web3Req.Get("id").Int()
+	size, err1 = writer.Write(jsonMsg)
 	return err1
 }
 

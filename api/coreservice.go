@@ -519,7 +519,7 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 
 	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, sc, core.dao.GetBlockHash)
 	if err != nil {
-		return "", nil, status.Error(codes.Internal, err.Error())
+		return "", nil, err
 	}
 	// ReadContract() is read-only, if no error returned, we consider it a success
 	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
@@ -1432,12 +1432,9 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 	sc.SetGasLimit(blockGasLimit)
 	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc)
 	if err != nil {
-		return 0, status.Error(codes.Internal, err.Error())
+		return 0, err
 	}
 	if !enough {
-		if receipt.ExecutionRevertMsg() != "" {
-			return 0, status.Errorf(codes.Internal, fmt.Sprintf("execution simulation is reverted due to the reason: %s", receipt.ExecutionRevertMsg()))
-		}
 		return 0, status.Error(codes.Internal, fmt.Sprintf("execution simulation failed: status = %d", receipt.Status))
 	}
 	estimatedGas := receipt.GasConsumed

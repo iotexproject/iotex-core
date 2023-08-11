@@ -26,6 +26,7 @@ type (
 		id     int
 		result interface{}
 		err    error
+		Error  *jsonError `json:"error,omitempty"`
 	}
 
 	errMessage struct {
