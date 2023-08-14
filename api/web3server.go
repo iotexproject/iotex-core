@@ -391,9 +391,16 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 		return "0x" + ret, nil
 	}
 	exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
-	ret, _, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
+	ret, receipt, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
 	if err != nil {
 		return nil, err
+	}
+	if receipt != nil && len(receipt.GetExecutionRevertMsg()) > 0 {
+		retBytes, err := hex.DecodeString(ret)
+		if err != nil {
+			return nil, err
+		}
+		return nil, newRevertError(retBytes)
 	}
 	return "0x" + ret, nil
 }

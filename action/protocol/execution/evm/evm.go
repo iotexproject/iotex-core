@@ -7,13 +7,11 @@ package evm
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -60,36 +58,6 @@ type (
 		CheckContract(context.Context, string) (address.Address, uint64, bool, error)
 	}
 )
-
-func newRevertError(revertReason []byte) *revertError {
-	reason, errUnpack := abi.UnpackRevert(revertReason)
-	err := errors.New("execution reverted")
-	if errUnpack == nil {
-		err = fmt.Errorf("execution reverted: %v", reason)
-	}
-	return &revertError{
-		error:  err,
-		reason: hexutil.Encode(revertReason),
-	}
-}
-
-// revertError is an API error that encompasses an EVM revert with JSON error
-// code and a binary data blob.
-type revertError struct {
-	error
-	reason string // revert reason hex encoded
-}
-
-// ErrorCode returns the JSON error code for a revert.
-// See: https://github.com/ethereum/wiki/wiki/JSON-RPC-Error-Codes-Improvement-Proposal
-func (e *revertError) ErrorCode() int {
-	return 3
-}
-
-// ErrorData returns the hex encoded revert reason.
-func (e *revertError) ErrorData() interface{} {
-	return e.reason
-}
 
 // CanTransfer checks whether the from account has enough balance
 func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool {
@@ -320,9 +288,12 @@ func ExecuteContract(
 	stateDB.clear()
 
 	if featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil {
-		revertErr := newRevertError(retval)
-		receipt.SetExecutionRevertMsg(revertErr.reason)
-		return retval, receipt, revertErr
+		reason, errUnpack := abi.UnpackRevert(retval)
+		//we need to catch custom errors
+		if errUnpack != nil {
+			reason = "execution reverted"
+		}
+		receipt.SetExecutionRevertMsg(reason)
 	}
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil

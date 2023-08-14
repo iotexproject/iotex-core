@@ -519,7 +519,7 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 
 	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, sc, core.dao.GetBlockHash)
 	if err != nil {
-		return "", nil, err
+		return "", nil, status.Error(codes.Internal, err.Error())
 	}
 	// ReadContract() is read-only, if no error returned, we consider it a success
 	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
@@ -1430,16 +1430,19 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 	sc.SetGasPrice(big.NewInt(0))
 	blockGasLimit := core.bc.Genesis().BlockGasLimit
 	sc.SetGasLimit(blockGasLimit)
-	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc)
+	enough, ret, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc)
 	if err != nil {
-		return 0, err
+		return 0, status.Error(codes.Internal, err.Error())
 	}
 	if !enough {
+		if receipt != nil && len(receipt.ExecutionRevertMsg()) > 0 {
+			return 0, newRevertError(ret)
+		}
 		return 0, status.Error(codes.Internal, fmt.Sprintf("execution simulation failed: status = %d", receipt.Status))
 	}
 	estimatedGas := receipt.GasConsumed
 	sc.SetGasLimit(estimatedGas)
-	enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc)
+	enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, sc)
 	if err != nil && err != action.ErrInsufficientFunds {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -1449,7 +1452,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 		for low <= high {
 			mid := (low + high) / 2
 			sc.SetGasLimit(mid)
-			enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc)
+			enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, sc)
 			if err != nil && err != action.ErrInsufficientFunds {
 				return 0, status.Error(codes.Internal, err.Error())
 			}
@@ -1469,18 +1472,18 @@ func (core *coreService) isGasLimitEnough(
 	ctx context.Context,
 	caller address.Address,
 	sc *action.Execution,
-) (bool, *action.Receipt, error) {
+) (bool, []byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "Server.isGasLimitEnough")
 	defer span.End()
 	ctx, err := core.bc.Context(ctx)
 	if err != nil {
-		return false, nil, err
+		return false, nil, nil, err
 	}
-	_, receipt, err := core.sf.SimulateExecution(ctx, caller, sc, core.dao.GetBlockHash)
+	ret, receipt, err := core.sf.SimulateExecution(ctx, caller, sc, core.dao.GetBlockHash)
 	if err != nil {
-		return false, nil, err
+		return false, nil, nil, err
 	}
-	return receipt.Status == uint64(iotextypes.ReceiptStatus_Success), receipt, nil
+	return receipt.Status == uint64(iotextypes.ReceiptStatus_Success), ret, receipt, nil
 }
 
 func (core *coreService) getProductivityByEpoch(
