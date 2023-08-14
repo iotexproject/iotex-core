@@ -36,11 +36,9 @@ func TestWeb3ResponseMarshal(t *testing.T) {
 	require := require.New(t)
 
 	t.Run("Result", func(t *testing.T) {
-		res, err := json.Marshal(&web3Response{
-			id:     1,
-			result: false,
-			err:    nil,
-		})
+		js := successMessage(false)
+		js.ID = 1
+		res, err := json.Marshal(js)
 		require.NoError(err)
 		require.JSONEq(`
 		{
@@ -52,11 +50,9 @@ func TestWeb3ResponseMarshal(t *testing.T) {
 	})
 
 	t.Run("Error", func(t *testing.T) {
-		res, err := json.Marshal(&web3Response{
-			id:     1,
-			result: nil,
-			err:    errInvalidBlock,
-		})
+		js := errorMessage(errInvalidBlock)
+		js.ID = 1
+		res, err := json.Marshal(js)
 		require.NoError(err)
 		require.JSONEq(`
 		{

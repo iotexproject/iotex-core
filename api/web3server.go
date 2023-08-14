@@ -102,7 +102,7 @@ func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, wri
 	if err != nil {
 		err := errors.Wrap(err, "failed to parse web3 requests.")
 		span.RecordError(err)
-		_, err = writer.Write(&web3Response{err: err})
+		_, err = writer.Write(errorMessage(err))
 		return err
 	}
 	if !web3Reqs.IsArray() {
@@ -117,7 +117,7 @@ func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, wri
 			svr.batchRequestLimit,
 		)
 		span.RecordError(err)
-		_, err = writer.Write(&web3Response{err: err})
+		_, err = writer.Write(errorMessage(err))
 		return err
 	}
 	batchWriter := apitypes.NewBatchWriter(writer)
