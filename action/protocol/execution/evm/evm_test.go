@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2023 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -219,11 +219,16 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			24838200,
 		},
-		// after Quebec
+		// Quebec - Redsea
 		{
 			action.EmptyAddress,
 			24838201,
 		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			34838200,
+		},
+		// after Redsea
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			math.MaxUint64,
@@ -303,6 +308,14 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isOkhotsk, evmChainConfig.IsLondon(evm.Context.BlockNumber))
 		require.Equal(isOkhotsk, chainRules.IsLondon)
 		require.False(chainRules.IsMerge)
+
+		// Redsea = enable ArrowGlacier, GrayGlacier, MergeNetsplit
+		isRedsea := g.IsRedsea(e.height)
+		require.Equal(big.NewInt(int64(g.RedseaBlockHeight)), evmChainConfig.ArrowGlacierBlock)
+		require.Equal(big.NewInt(int64(g.RedseaBlockHeight)), evmChainConfig.GrayGlacierBlock)
+		require.Equal(big.NewInt(int64(g.RedseaBlockHeight)), evmChainConfig.MergeNetsplitBlock)
+		require.Equal(isRedsea, evmChainConfig.IsArrowGlacier(evm.Context.BlockNumber))
+		require.Equal(isRedsea, evmChainConfig.IsGrayGlacier(evm.Context.BlockNumber))
 
 		// test basefee
 		require.Equal(new(big.Int), evm.Context.BaseFee)

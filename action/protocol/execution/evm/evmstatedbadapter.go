@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2023 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -14,6 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -57,6 +58,8 @@ type (
 		preimageSnapshot           map[int]preimageMap
 		accessList                 *accessList // per-transaction access list
 		accessListSnapshot         map[int]*accessList
+		transientStorage           transientStorage // Transient storage
+		transientStorageSnapshot   map[int]transientStorage
 		logsSnapshot               map[int]int // logs is an array, save len(logs) at time of snapshot suffices
 		txLogsSnapshot             map[int]int
 		notFixTopicCopyBug         bool
@@ -446,6 +449,16 @@ func (stateDB *StateDBAdapter) HasSuicided(evmAddr common.Address) bool {
 	return ok
 }
 
+// SetTransientState sets transient storage for a given account
+func (stateDB *StateDBAdapter) SetTransientState(addr common.Address, key, value common.Hash) {
+	stateDB.transientStorage.Set(addr, key, value)
+}
+
+// GetTransientState gets transient storage for a given account.
+func (stateDB *StateDBAdapter) GetTransientState(addr common.Address, key common.Hash) common.Hash {
+	return stateDB.transientStorage.Get(addr, key)
+}
+
 // Exist checks the existence of an address
 func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 	addr, err := address.FromBytes(evmAddr.Bytes())
@@ -466,30 +479,43 @@ func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 	return true
 }
 
-// PrepareAccessList handles the preparatory steps for executing a state transition with
-// regards to both EIP-2929 and EIP-2930:
+// Prepare handles the preparatory steps for executing a state transition with
+// This method must be invoked before state transition
 //
+// Berlin fork:
 // - Add sender to access list (2929)
 // - Add destination to access list (2929)
 // - Add precompiles to access list (2929)
 // - Add the contents of the optional tx access list (2930)
 //
-// This method should only be called if Berlin/2929+2930 is applicable at the current number.
-func (stateDB *StateDBAdapter) PrepareAccessList(sender common.Address, dst *common.Address, precompiles []common.Address, list types.AccessList) {
-	stateDB.AddAddressToAccessList(sender)
-	if dst != nil {
-		stateDB.AddAddressToAccessList(*dst)
-		// If it's a create-tx, the destination will be added inside evm.create
-	}
-	for _, addr := range precompiles {
-		stateDB.AddAddressToAccessList(addr)
-	}
-	for _, el := range list {
-		stateDB.AddAddressToAccessList(el.Address)
-		for _, key := range el.StorageKeys {
-			stateDB.AddSlotToAccessList(el.Address, key)
+// Potential EIPs:
+// - Reset access list (Berlin)
+// - Add coinbase to access list (EIP-3651)
+// - Reset transient storage(1153)
+func (stateDB *StateDBAdapter) Prepare(rules params.Rules, sender, coinbase common.Address, dst *common.Address, precompiles []common.Address, list types.AccessList) {
+	if rules.IsBerlin {
+		al := stateDB.accessList
+		al.AddAddress(sender)
+		if dst != nil {
+			al.AddAddress(*dst)
+			// If it's a create-tx, the destination will be added inside evm.create
+		}
+		for _, addr := range precompiles {
+			al.AddAddress(addr)
+		}
+		for _, el := range list {
+			al.AddAddress(el.Address)
+			for _, key := range el.StorageKeys {
+				al.AddSlot(el.Address, key)
+			}
+		}
+		if rules.IsShanghai { // EIP-3651: warm coinbase
+			al.AddAddress(coinbase)
 		}
 	}
+	// Reset transient storage at the beginning of transaction execution
+	stateDB.transientStorage = newTransientStorage()
+	stateDB.transientStorageSnapshot = make(map[int]transientStorage)
 }
 
 // AddressInAccessList returns true if the given address is in the access list
@@ -1039,6 +1065,8 @@ func (stateDB *StateDBAdapter) clear() {
 	stateDB.preimageSnapshot = make(map[int]preimageMap)
 	stateDB.accessList = newAccessList()
 	stateDB.accessListSnapshot = make(map[int]*accessList)
+	stateDB.transientStorage = newTransientStorage()
+	stateDB.transientStorageSnapshot = make(map[int]transientStorage)
 	stateDB.logsSnapshot = make(map[int]int)
 	stateDB.txLogsSnapshot = make(map[int]int)
 	stateDB.logs = []*action.Log{}

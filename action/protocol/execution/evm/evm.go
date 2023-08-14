@@ -393,9 +393,18 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.Chai
 	if g.IsIceland(height) {
 		chainConfig.ChainID = new(big.Int).SetUint64(uint64(id))
 	}
-	// enable Berlin and London
+	// enable Berlin and London at Okhotsk
 	chainConfig.BerlinBlock = new(big.Int).SetUint64(g.OkhotskBlockHeight)
 	chainConfig.LondonBlock = new(big.Int).SetUint64(g.OkhotskBlockHeight)
+	// enable ArrowGlacier, GrayGlacier, MergeNetsplit at Redsea
+	chainConfig.ArrowGlacierBlock = new(big.Int).SetUint64(g.RedseaBlockHeight)
+	chainConfig.GrayGlacierBlock = new(big.Int).SetUint64(g.RedseaBlockHeight)
+	chainConfig.MergeNetsplitBlock = new(big.Int).SetUint64(g.RedseaBlockHeight)
+	// Starting Shanghai, fork scheduling on Ethereum was switched from blocks to timestamps
+	// However we don't need the time-based switch as Ethereum, so continue to use block-based
+	// Hence, config.ShanghaiTime (and time of later forks) was set to the corresponding forking
+	// block height, so that the fork checking code IsShanghai() still works w/o modification
+	chainConfig.ShanghaiTime = new(big.Int).SetUint64(g.RedseaBlockHeight)
 	return &chainConfig
 }
 
@@ -428,13 +437,12 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	remainingGas -= intriGas
 
 	// Set up the initial access list
-	if rules := chainConfig.Rules(evm.Context.BlockNumber, false); rules.IsBerlin {
-		stateDB.PrepareAccessList(evmParams.txCtx.Origin, evmParams.contract, vm.ActivePrecompiles(rules), evmParams.accessList)
-	}
+	rules := chainConfig.Rules(evm.Context.BlockNumber, false, new(big.Int).SetUint64(blockHeight))
+	stateDB.Prepare(rules, evmParams.txCtx.Origin, evmParams.context.Coinbase, evmParams.contract, vm.ActivePrecompiles(rules), evmParams.accessList)
+
 	var (
 		contractRawAddress = action.EmptyAddress
 		executor           = vm.AccountRef(evmParams.txCtx.Origin)
-		london             = evm.ChainConfig().IsLondon(evm.Context.BlockNumber)
 		ret                []byte
 		evmErr             error
 		refund             uint64
@@ -466,7 +474,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	if stateDB.Error() != nil {
 		log.L().Debug("statedb error", zap.Error(stateDB.Error()))
 	}
-	if !london {
+	if !rules.IsLondon {
 		// Before EIP-3529: refunds were capped to gasUsed / 2
 		refund = (evmParams.gas - remainingGas) / params.RefundQuotient
 	} else {
