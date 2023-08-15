@@ -17,6 +17,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
@@ -155,7 +156,7 @@ func GetAddress(in string) (string, error) {
 // Address returns the address corresponding to alias. if 'in' is an IoTeX address, returns 'in'
 func Address(in string) (string, error) {
 	// if in is an eth address, convert it to IoTeX address
-	if len(in) == 42 && (in[:2] == "0x" || in[:2] == "0X") {
+	if common.IsHexAddress(in) {
 		add, err := address.FromHex(in)
 		if err != nil {
 			return "", output.NewError(output.AddressError, "", err)
