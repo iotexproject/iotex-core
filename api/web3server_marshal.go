@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -22,18 +21,6 @@ const (
 )
 
 type (
-	web3Response struct {
-		id     int
-		result interface{}
-		err    error
-	}
-
-	errMessage struct {
-		Code    int         `json:"code"`
-		Message string      `json:"message"`
-		Data    interface{} `json:"data,omitempty"`
-	}
-
 	streamResponse struct {
 		id     string
 		result interface{}
@@ -90,45 +77,6 @@ type (
 var (
 	errInvalidObject = errors.New("invalid object")
 )
-
-func (obj *web3Response) MarshalJSON() ([]byte, error) {
-	if obj.err == nil {
-		return json.Marshal(&struct {
-			Jsonrpc string      `json:"jsonrpc"`
-			ID      int         `json:"id"`
-			Result  interface{} `json:"result"`
-		}{
-			Jsonrpc: "2.0",
-			ID:      obj.id,
-			Result:  obj.result,
-		})
-	}
-
-	var (
-		errCode int
-		errMsg  string
-	)
-	// error code: https://eth.wiki/json-rpc/json-rpc-error-codes-improvement-proposal
-	if s, ok := status.FromError(obj.err); ok {
-		errCode, errMsg = int(s.Code()), s.Message()
-	} else {
-		errCode, errMsg = -32603, obj.err.Error()
-	}
-
-	return json.Marshal(&struct {
-		Jsonrpc string     `json:"jsonrpc"`
-		ID      int        `json:"id"`
-		Error   errMessage `json:"error"`
-	}{
-		Jsonrpc: "2.0",
-		ID:      obj.id,
-		Error: errMessage{
-			Code:    errCode,
-			Message: errMsg,
-			Data:    obj.result,
-		},
-	})
-}
 
 func getLogsBloomHex(logsbloom string) string {
 	if len(logsbloom) == 0 {

@@ -71,7 +71,9 @@ func defaultConfig() Genesis {
 			OkhotskBlockHeight:      21542761,
 			PalauBlockHeight:        22991401,
 			QuebecBlockHeight:       24838201,
-			ToBeEnabledBlockHeight:  math.MaxUint64,
+			//todo: update the block height
+			FixCustomErrorBlockHeight: math.MaxUint64,
+			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -241,6 +243,8 @@ type (
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
+		// FixCustomErrorBlockHeight is the start height to fix contract's custom error in evm
+		FixCustomErrorBlockHeight uint64 `yaml:"fixCustomErrorHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -574,6 +578,11 @@ func (g *Blockchain) IsQuebec(height uint64) bool {
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
 func (g *Blockchain) IsToBeEnabled(height uint64) bool {
 	return g.isPost(g.ToBeEnabledBlockHeight, height)
+}
+
+// IsCustomErrorEnabled checks whether height is equal to or larger than custom error height
+func (g *Blockchain) IsCustomErrorEnabled(height uint64) bool {
+	return g.isPost(g.FixCustomErrorBlockHeight, height)
 }
 
 // InitBalances returns the address that have initial balances and the corresponding amounts. The i-th amount is the

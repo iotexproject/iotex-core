@@ -11,6 +11,7 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -287,12 +288,21 @@ func ExecuteContract(
 	}
 	stateDB.clear()
 
-	if featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], _revertSelector) {
-		// in case of the execution revert error, parse the retVal and add to receipt
-		data := retval[4:]
-		msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
-		revertMsg := string(data[64 : 64+msgLength])
-		receipt.SetExecutionRevertMsg(revertMsg)
+	if featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil {
+		if featureCtx.FixCustomErrorRevertMessage {
+			reason, errUnpack := abi.UnpackRevert(retval)
+			//we need to catch custom errors
+			if errUnpack != nil {
+				reason = "execution reverted"
+			}
+			receipt.SetExecutionRevertMsg(reason)
+		} else if bytes.Equal(retval[:4], _revertSelector) {
+			// in case of the execution revert error, parse the retVal and add to receipt
+			data := retval[4:]
+			msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
+			revertMsg := string(data[64 : 64+msgLength])
+			receipt.SetExecutionRevertMsg(revertMsg)
+		}
 	}
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil

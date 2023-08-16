@@ -21,8 +21,6 @@ import (
 	"github.com/tidwall/gjson"
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
 	rewardingabi "github.com/iotexproject/iotex-core/action/protocol/rewarding/ethabi"
@@ -104,7 +102,7 @@ func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, wri
 	if err != nil {
 		err := errors.Wrap(err, "failed to parse web3 requests.")
 		span.RecordError(err)
-		_, err = writer.Write(&web3Response{err: err})
+		_, err = writer.Write(errorMessage(err))
 		return err
 	}
 	if !web3Reqs.IsArray() {
@@ -119,7 +117,7 @@ func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, wri
 			svr.batchRequestLimit,
 		)
 		span.RecordError(err)
-		_, err = writer.Write(&web3Response{err: err})
+		_, err = writer.Write(errorMessage(err))
 		return err
 	}
 	batchWriter := apitypes.NewBatchWriter(writer)
@@ -245,11 +243,14 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	} else {
 		log.Logger("api").Debug("web3Debug", zap.String("response", fmt.Sprintf("%+v", res)))
 	}
-	size, err1 = writer.Write(&web3Response{
-		id:     int(web3Req.Get("id").Int()),
-		result: res,
-		err:    err,
-	})
+	var jsonMsg *jsonrpcMessage
+	if err != nil {
+		jsonMsg = errorMessage(err)
+	} else {
+		jsonMsg = successMessage(res)
+	}
+	jsonMsg.ID = web3Req.Get("id").Int()
+	size, err1 = writer.Write(jsonMsg)
 	return err1
 }
 
@@ -394,7 +395,11 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 		return nil, err
 	}
 	if receipt != nil && len(receipt.GetExecutionRevertMsg()) > 0 {
-		return "0x" + ret, status.Error(codes.InvalidArgument, "execution reverted: "+receipt.GetExecutionRevertMsg())
+		retBytes, err := hex.DecodeString(ret)
+		if err != nil {
+			return nil, err
+		}
+		return nil, newRevertError(retBytes)
 	}
 	return "0x" + ret, nil
 }
