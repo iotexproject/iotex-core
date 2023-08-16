@@ -5,8 +5,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 )
 
@@ -107,15 +105,11 @@ func TestClaimRewardEncodeABIBinary(t *testing.T) {
 func TestClaimRewardToEthTx(t *testing.T) {
 	r := require.New(t)
 
-	rewardingPool, _ := address.FromString(address.RewardingProtocol)
-	rewardEthAddr := common.BytesToAddress(rewardingPool.Bytes())
-
 	rc := &ClaimFromRewardingFund{}
-
 	rc.amount = big.NewInt(101)
 	tx, err := rc.ToEthTx()
 	r.Nil(err)
-	r.EqualValues(rewardEthAddr, *tx.To())
+	r.EqualValues(_rewardingProtocolEthAddr, *tx.To())
 	r.EqualValues(
 		"2df163ef000000000000000000000000000000000000000000000000000000000000006500000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000",
 		hex.EncodeToString(tx.Data()),
@@ -125,7 +119,7 @@ func TestClaimRewardToEthTx(t *testing.T) {
 	rc.data = []byte{1, 2, 3}
 	tx, err = rc.ToEthTx()
 	r.Nil(err)
-	r.EqualValues(rewardEthAddr, *tx.To())
+	r.EqualValues(_rewardingProtocolEthAddr, *tx.To())
 	r.EqualValues(
 		"2df163ef000000000000000000000000000000000000000000000000000000000000006500000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003",
 		hex.EncodeToString(tx.Data()),

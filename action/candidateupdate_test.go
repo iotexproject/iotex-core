@@ -90,4 +90,11 @@ func TestCandidateUpdateABIEncodeAndDecode(t *testing.T) {
 	require.Equal(_cuName, stake.Name())
 	require.Equal(_cuOperatorAddrStr, stake.OperatorAddress().String())
 	require.Equal(_cuRewardAddrStr, stake.RewardAddress().String())
+
+	stake.rewardAddress = nil
+	_, err = stake.EncodeABIBinary()
+	require.Equal(ErrAddress, err)
+	stake.operatorAddress = nil
+	_, err = stake.EncodeABIBinary()
+	require.Equal(ErrAddress, err)
 }

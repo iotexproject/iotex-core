@@ -306,6 +306,9 @@ func (builder *Builder) buildSGDRegistry(forTest bool) error {
 }
 
 func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
+	if !builder.cfg.Chain.EnableStakingProtocol {
+		return nil
+	}
 	if builder.cs.contractStakingIndexer != nil {
 		return nil
 	}

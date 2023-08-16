@@ -156,6 +156,16 @@ func TestCandidateRegisterABIEncodeAndDecode(t *testing.T) {
 	require.Equal(test.Duration, stake.Duration())
 	require.Equal(test.AutoStake, stake.AutoStake())
 	require.Equal(test.Payload, stake.Payload())
+
+	stake.ownerAddress = nil
+	_, err = stake.EncodeABIBinary()
+	require.Equal(ErrAddress, err)
+	stake.rewardAddress = nil
+	_, err = stake.EncodeABIBinary()
+	require.Equal(ErrAddress, err)
+	stake.operatorAddress = nil
+	_, err = stake.EncodeABIBinary()
+	require.Equal(ErrAddress, err)
 }
 
 func TestIsValidCandidateName(t *testing.T) {
