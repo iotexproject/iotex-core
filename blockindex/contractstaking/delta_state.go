@@ -27,6 +27,7 @@ var (
 		},
 		deltaStateAdded: {
 			deltaActionModify: deltaStateAdded,
+			deltaActionRemove: deltaStateUnchanged,
 		},
 		deltaStateModified: {
 			deltaActionModify: deltaStateModified,
