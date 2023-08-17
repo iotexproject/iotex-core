@@ -225,7 +225,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			SystemWideActionGasLimit:                !g.IsAleutian(height),
 			NotFixTopicCopyBug:                      !g.IsAleutian(height),
 			SetRevertMessageToReceipt:               g.IsHawaii(height),
-			FixCustomErrorRevertMessage:             g.IsCustomErrorEnabled(height),
+			FixCustomErrorRevertMessage:             g.IsToBeEnabled(height),
 			FixGetHashFnHeight:                      g.IsHawaii(height),
 			FixSortCacheContractsAndUsePendingNonce: g.IsHawaii(height),
 			AsyncContractTrie:                       g.IsGreenland(height),
