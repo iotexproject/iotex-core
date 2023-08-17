@@ -257,18 +257,25 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 
 	var indexers []blockdao.BlockIndexer
-	indexers = append(indexers, builder.cs.factory)
+	// indexers in synchronizedIndexers will need to run PutBlock() one by one
+	// factory is dependent on sgdIndexer and contractStakingIndexer, so it should be put in the first place
+	synchronizedIndexers := []blockdao.BlockIndexer{builder.cs.factory}
+	if builder.cs.contractStakingIndexer != nil {
+		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexer)
+	}
+	if builder.cs.sgdIndexer != nil {
+		synchronizedIndexers = append(synchronizedIndexers, builder.cs.sgdIndexer)
+	}
+	if len(synchronizedIndexers) > 1 {
+		indexers = append(indexers, blockindex.NewSyncIndexers(synchronizedIndexers...))
+	} else {
+		indexers = append(indexers, builder.cs.factory)
+	}
 	if !builder.cfg.Chain.EnableAsyncIndexWrite && builder.cs.indexer != nil {
 		indexers = append(indexers, builder.cs.indexer)
 	}
 	if builder.cs.bfIndexer != nil {
 		indexers = append(indexers, builder.cs.bfIndexer)
-	}
-	if builder.cs.sgdIndexer != nil {
-		indexers = append(indexers, builder.cs.sgdIndexer)
-	}
-	if builder.cs.contractStakingIndexer != nil {
-		indexers = append(indexers, builder.cs.contractStakingIndexer)
 	}
 	if forTest {
 		builder.cs.blockdao = blockdao.NewBlockDAOInMemForTest(indexers)
