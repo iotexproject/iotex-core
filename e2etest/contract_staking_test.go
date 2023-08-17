@@ -1432,6 +1432,58 @@ func TestContractStaking(t *testing.T) {
 					bt, ok = indexer.Bucket(uint64(tokenID))
 					r.False(ok)
 					r.EqualValues(1, indexer.TotalBucketCount())
+
+					t.Run("cannot withdraw again", func(t *testing.T) {
+						data, err := lsdABI.Pack("withdraw", big.NewInt(int64(tokenID)), addr)
+						r.NoError(err)
+						param = callParam{
+							contractAddr: contractAddresses,
+							bytecode:     hex.EncodeToString(data),
+							amount:       big.NewInt(0),
+							gasLimit:     1000000,
+							gasPrice:     big.NewInt(0),
+							sk:           identityset.PrivateKey(adminID),
+						}
+						receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+						r.Len(receipts, 1)
+						r.EqualValues("ERC721: invalid token ID", receipts[0].ExecutionRevertMsg())
+						r.EqualValues(iotextypes.ReceiptStatus_ErrExecutionReverted, receipts[0].Status)
+					})
+
+					t.Run("cannot expand after withdraw", func(t *testing.T) {
+						data, err := lsdABI.Pack("expandBucket", big.NewInt(int64(tokenID)), big.NewInt(100), big.NewInt(10))
+						r.NoError(err)
+						param = callParam{
+							contractAddr: contractAddresses,
+							bytecode:     hex.EncodeToString(data),
+							amount:       big.NewInt(90),
+							gasLimit:     1000000,
+							gasPrice:     big.NewInt(0),
+							sk:           identityset.PrivateKey(adminID),
+						}
+						receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+						r.Len(receipts, 1)
+						r.EqualValues("ERC721: invalid token ID", receipts[0].ExecutionRevertMsg())
+						r.EqualValues(iotextypes.ReceiptStatus_ErrExecutionReverted, receipts[0].Status)
+					})
+
+					t.Run("cannot merge after withdraw", func(t *testing.T) {
+						bt := simpleStake(_delegates[3], big.NewInt(10), big.NewInt(10))
+						data, err := lsdABI.Pack("merge", []*big.Int{big.NewInt(int64(bt.Index)), big.NewInt(int64(tokenID))}, big.NewInt(100))
+						r.NoError(err)
+						param := callParam{
+							contractAddr: contractAddresses,
+							bytecode:     hex.EncodeToString(data),
+							amount:       big.NewInt(0),
+							gasLimit:     1000000,
+							gasPrice:     big.NewInt(0),
+							sk:           identityset.PrivateKey(adminID),
+						}
+						receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+						r.Len(receipts, 1)
+						r.EqualValues("ERC721: invalid token ID", receipts[0].ExecutionRevertMsg())
+						r.EqualValues(iotextypes.ReceiptStatus_ErrExecutionReverted, receipts[0].Status)
+					})
 				})
 			})
 		})
@@ -1534,6 +1586,24 @@ func TestContractStaking(t *testing.T) {
 				r.False(ok)
 			}
 		}
+
+		t.Run("cannot expand after merge", func(t *testing.T) {
+			tokenID := newBuckets[1].Index
+			data, err := lsdABI.Pack("expandBucket", big.NewInt(int64(tokenID)), big.NewInt(100), big.NewInt(10))
+			r.NoError(err)
+			param = callParam{
+				contractAddr: contractAddresses,
+				bytecode:     hex.EncodeToString(data),
+				amount:       big.NewInt(90),
+				gasLimit:     1000000,
+				gasPrice:     big.NewInt(0),
+				sk:           identityset.PrivateKey(adminID),
+			}
+			receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+			r.Len(receipts, 1)
+			r.EqualValues("ERC721: invalid token ID", receipts[0].ExecutionRevertMsg())
+			r.EqualValues(iotextypes.ReceiptStatus_ErrExecutionReverted, receipts[0].Status)
+		})
 	})
 
 	t.Run("extend duration", func(t *testing.T) {
@@ -1771,6 +1841,7 @@ func TestContractStaking(t *testing.T) {
 			r.EqualValues(identityset.Address(newOwnerIdx).String(), bt.Owner.String())
 		})
 	})
+
 }
 
 func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r *require.Assertions) (blockchain.Blockchain, factory.Factory, blockdao.BlockDAO, actpool.ActPool, *contractstaking.Indexer) {

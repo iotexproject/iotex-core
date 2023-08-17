@@ -121,8 +121,15 @@ func (s *Indexer) BucketTypes() ([]*BucketType, error) {
 
 // PutBlock puts a block into indexer
 func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
-	if blk.Height() < s.contractDeployHeight || blk.Height() <= s.cache.Height() {
+	expectHeight := s.cache.Height() + 1
+	if expectHeight < s.contractDeployHeight {
+		expectHeight = s.contractDeployHeight
+	}
+	if blk.Height() < expectHeight {
 		return nil
+	}
+	if blk.Height() > expectHeight {
+		return errors.Errorf("invalid block height %d, expect %d", blk.Height(), expectHeight)
 	}
 	// new event handler for this block
 	handler := newContractStakingEventHandler(s.cache)

@@ -697,6 +697,17 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
 	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
 
+	// create & merge bucket 8, 9, 10
+	height++
+	handler = newContractStakingEventHandler(indexer.cache)
+	stake(r, handler, owner, delegate1, 8, 20, 20, height)
+	stake(r, handler, owner, delegate2, 9, 20, 20, height)
+	stake(r, handler, owner, delegate2, 10, 20, 20, height)
+	mergeBuckets(r, handler, []int64{8, 9, 10}, 60, 20)
+	r.NoError(indexer.commit(handler, height))
+	r.EqualValues(110, indexer.CandidateVotes(delegate1).Uint64())
+	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
+
 	t.Run("Height", func(t *testing.T) {
 		h, err := indexer.Height()
 		r.NoError(err)
@@ -723,7 +734,7 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	t.Run("Buckets", func(t *testing.T) {
 		bts, err := indexer.Buckets()
 		r.NoError(err)
-		r.Len(bts, 5)
+		r.Len(bts, 6)
 		slices.SortFunc(bts, func(i, j *staking.VoteBucket) bool {
 			return i.Index < j.Index
 		})
@@ -732,46 +743,55 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 		r.EqualValues(3, bts[2].Index)
 		r.EqualValues(4, bts[3].Index)
 		r.EqualValues(5, bts[4].Index)
+		r.EqualValues(8, bts[5].Index)
 		r.EqualValues(10, bts[0].StakedDurationBlockNumber)
 		r.EqualValues(20, bts[1].StakedDurationBlockNumber)
 		r.EqualValues(20, bts[2].StakedDurationBlockNumber)
 		r.EqualValues(20, bts[3].StakedDurationBlockNumber)
 		r.EqualValues(20, bts[4].StakedDurationBlockNumber)
+		r.EqualValues(20, bts[5].StakedDurationBlockNumber)
 		r.EqualValues(10, bts[0].StakedAmount.Int64())
 		r.EqualValues(30, bts[1].StakedAmount.Int64())
 		r.EqualValues(20, bts[2].StakedAmount.Int64())
 		r.EqualValues(20, bts[3].StakedAmount.Int64())
 		r.EqualValues(60, bts[4].StakedAmount.Int64())
+		r.EqualValues(60, bts[5].StakedAmount.Int64())
 		r.EqualValues(delegate1.String(), bts[0].Candidate.String())
 		r.EqualValues(delegate1.String(), bts[1].Candidate.String())
 		r.EqualValues(delegate1.String(), bts[2].Candidate.String())
 		r.EqualValues(delegate2.String(), bts[3].Candidate.String())
 		r.EqualValues(delegate2.String(), bts[4].Candidate.String())
+		r.EqualValues(delegate1.String(), bts[5].Candidate.String())
 		r.EqualValues(owner.String(), bts[0].Owner.String())
 		r.EqualValues(owner.String(), bts[1].Owner.String())
 		r.EqualValues(owner.String(), bts[2].Owner.String())
 		r.EqualValues(delegate2.String(), bts[3].Owner.String())
 		r.EqualValues(owner.String(), bts[4].Owner.String())
+		r.EqualValues(owner.String(), bts[5].Owner.String())
 		r.False(bts[0].AutoStake)
 		r.True(bts[1].AutoStake)
 		r.True(bts[2].AutoStake)
 		r.True(bts[3].AutoStake)
 		r.False(bts[4].AutoStake)
+		r.True(bts[5].AutoStake)
 		r.EqualValues(1, bts[0].CreateBlockHeight)
 		r.EqualValues(1, bts[1].CreateBlockHeight)
 		r.EqualValues(1, bts[2].CreateBlockHeight)
 		r.EqualValues(1, bts[3].CreateBlockHeight)
 		r.EqualValues(7, bts[4].CreateBlockHeight)
+		r.EqualValues(10, bts[5].CreateBlockHeight)
 		r.EqualValues(3, bts[0].StakeStartBlockHeight)
 		r.EqualValues(1, bts[1].StakeStartBlockHeight)
 		r.EqualValues(1, bts[2].StakeStartBlockHeight)
 		r.EqualValues(1, bts[3].StakeStartBlockHeight)
 		r.EqualValues(9, bts[4].StakeStartBlockHeight)
+		r.EqualValues(10, bts[5].StakeStartBlockHeight)
 		r.EqualValues(4, bts[0].UnstakeStartBlockHeight)
 		r.EqualValues(maxBlockNumber, bts[1].UnstakeStartBlockHeight)
 		r.EqualValues(maxBlockNumber, bts[2].UnstakeStartBlockHeight)
 		r.EqualValues(maxBlockNumber, bts[3].UnstakeStartBlockHeight)
 		r.EqualValues(9, bts[4].UnstakeStartBlockHeight)
+		r.EqualValues(maxBlockNumber, bts[5].UnstakeStartBlockHeight)
 		for _, b := range bts {
 			r.EqualValues(0, b.StakedDuration)
 			r.EqualValues(time.Time{}, b.CreateTime)
@@ -784,13 +804,14 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	t.Run("BucketsByCandidate", func(t *testing.T) {
 		d1Bts, err := indexer.BucketsByCandidate(delegate1)
 		r.NoError(err)
-		r.Len(d1Bts, 3)
+		r.Len(d1Bts, 4)
 		slices.SortFunc(d1Bts, func(i, j *staking.VoteBucket) bool {
 			return i.Index < j.Index
 		})
 		r.EqualValues(1, d1Bts[0].Index)
 		r.EqualValues(2, d1Bts[1].Index)
 		r.EqualValues(3, d1Bts[2].Index)
+		r.EqualValues(8, d1Bts[3].Index)
 		d2Bts, err := indexer.BucketsByCandidate(delegate2)
 		r.NoError(err)
 		r.Len(d2Bts, 2)
@@ -802,9 +823,9 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	})
 
 	t.Run("BucketsByIndices", func(t *testing.T) {
-		bts, err := indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5})
+		bts, err := indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5, 8})
 		r.NoError(err)
-		r.Len(bts, 5)
+		r.Len(bts, 6)
 	})
 }
 
@@ -817,17 +838,19 @@ func TestIndexer_PutBlock(t *testing.T) {
 		startHeight    uint64
 		blockHeight    uint64
 		expectedHeight uint64
+		errMsg         string
 	}{
-		{"block < height < start", 10, 20, 9, 10},
-		{"block = height < start", 10, 20, 10, 10},
-		{"height < block < start", 10, 20, 11, 10},
-		{"height < block = start", 10, 20, 20, 20},
-		{"height < start < block", 10, 20, 21, 21},
-		{"block < start < height", 20, 10, 9, 20},
-		{"block = start < height", 20, 10, 10, 20},
-		{"start < block < height", 20, 10, 11, 20},
-		{"start < block = height", 20, 10, 20, 20},
-		{"start < height < block", 20, 10, 21, 21},
+		{"block < height < start", 10, 20, 9, 10, ""},
+		{"block = height < start", 10, 20, 10, 10, ""},
+		{"height < block < start", 10, 20, 11, 10, ""},
+		{"height < block = start", 10, 20, 20, 20, ""},
+		{"height < start < block", 10, 20, 21, 10, "invalid block height 21, expect 20"},
+		{"block < start < height", 20, 10, 9, 20, ""},
+		{"block = start < height", 20, 10, 10, 20, ""},
+		{"start < block < height", 20, 10, 11, 20, ""},
+		{"start < block = height", 20, 10, 20, 20, ""},
+		{"start < height < block", 20, 10, 21, 21, ""},
+		{"start < height < block+", 20, 10, 22, 20, "invalid block height 22, expect 21"},
 	}
 
 	for _, c := range cases {
@@ -854,7 +877,11 @@ func TestIndexer_PutBlock(t *testing.T) {
 			r.NoError(err)
 			// Put the block
 			err = indexer.PutBlock(context.Background(), &blk)
-			r.NoError(err)
+			if c.errMsg != "" {
+				r.ErrorContains(err, c.errMsg)
+			} else {
+				r.NoError(err)
+			}
 			// Check the block height
 			r.EqualValues(c.expectedHeight, indexer.cache.Height())
 		})
