@@ -817,17 +817,19 @@ func TestIndexer_PutBlock(t *testing.T) {
 		startHeight    uint64
 		blockHeight    uint64
 		expectedHeight uint64
+		errMsg         string
 	}{
-		{"block < height < start", 10, 20, 9, 10},
-		{"block = height < start", 10, 20, 10, 10},
-		{"height < block < start", 10, 20, 11, 10},
-		{"height < block = start", 10, 20, 20, 20},
-		{"height < start < block", 10, 20, 21, 21},
-		{"block < start < height", 20, 10, 9, 20},
-		{"block = start < height", 20, 10, 10, 20},
-		{"start < block < height", 20, 10, 11, 20},
-		{"start < block = height", 20, 10, 20, 20},
-		{"start < height < block", 20, 10, 21, 21},
+		{"block < height < start", 10, 20, 9, 10, ""},
+		{"block = height < start", 10, 20, 10, 10, ""},
+		{"height < block < start", 10, 20, 11, 10, ""},
+		{"height < block = start", 10, 20, 20, 20, ""},
+		{"height < start < block", 10, 20, 21, 10, "invalid block height 21, expect 20"},
+		{"block < start < height", 20, 10, 9, 20, ""},
+		{"block = start < height", 20, 10, 10, 20, ""},
+		{"start < block < height", 20, 10, 11, 20, ""},
+		{"start < block = height", 20, 10, 20, 20, ""},
+		{"start < height < block", 20, 10, 21, 21, ""},
+		{"start < height < block+", 20, 10, 22, 20, "invalid block height 22, expect 21"},
 	}
 
 	for _, c := range cases {
@@ -854,7 +856,11 @@ func TestIndexer_PutBlock(t *testing.T) {
 			r.NoError(err)
 			// Put the block
 			err = indexer.PutBlock(context.Background(), &blk)
-			r.NoError(err)
+			if c.errMsg != "" {
+				r.ErrorContains(err, c.errMsg)
+			} else {
+				r.NoError(err)
+			}
 			// Check the block height
 			r.EqualValues(c.expectedHeight, indexer.cache.Height())
 		})
