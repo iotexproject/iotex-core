@@ -20,7 +20,7 @@ func TestDeltaState_Transfer(t *testing.T) {
 		{"unchanged->remove", deltaStateUnchanged, deltaActionRemove, deltaStateRemoved, ""},
 		{"unchanged->modify", deltaStateUnchanged, deltaActionModify, deltaStateModified, ""},
 		{"added->add", deltaStateAdded, deltaActionAdd, deltaStateUnchanged, "invalid delta action 0 on state 1"},
-		{"added->remove", deltaStateAdded, deltaActionRemove, deltaStateUnchanged, "invalid delta action 1 on state 1"},
+		{"added->remove", deltaStateAdded, deltaActionRemove, deltaStateUnchanged, ""},
 		{"added->modify", deltaStateAdded, deltaActionModify, deltaStateAdded, ""},
 		{"removed->add", deltaStateRemoved, deltaActionAdd, deltaStateUnchanged, "invalid delta state 2"},
 		{"removed->remove", deltaStateRemoved, deltaActionRemove, deltaStateUnchanged, "invalid delta state 2"},
