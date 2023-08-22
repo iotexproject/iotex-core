@@ -476,7 +476,11 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	for i := range list {
 		if p.contractStakingIndexer != nil && featureCtx.AddContractStakingVotes {
-			list[i].Votes.Add(list[i].Votes, p.contractStakingIndexer.CandidateVotes(list[i].Owner))
+			contractVotes, err := p.contractStakingIndexer.CandidateVotes(list[i].Owner, height)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to get CandidateVotes from contractStakingIndexer")
+			}
+			list[i].Votes.Add(list[i].Votes, contractVotes)
 		}
 		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {
 			cand = append(cand, list[i])
