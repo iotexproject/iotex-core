@@ -7,14 +7,17 @@ package contractstaking
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/sha3"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -46,7 +49,6 @@ func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string, contract
 	}
 	return &Indexer{
 		kvstore:              kvStore,
-		cache:                newContractStakingCache(contractAddr),
 		contractAddress:      contractAddr,
 		contractDeployHeight: contractDeployHeight,
 	}, nil
@@ -57,6 +59,7 @@ func (s *Indexer) Start(ctx context.Context) error {
 	if err := s.kvstore.Start(ctx); err != nil {
 		return err
 	}
+	s.cache = newContractStakingCache(s.contractAddress)
 	return s.loadFromDB()
 }
 
@@ -65,7 +68,6 @@ func (s *Indexer) Stop(ctx context.Context) error {
 	if err := s.kvstore.Stop(ctx); err != nil {
 		return err
 	}
-	s.cache = newContractStakingCache(s.contractAddress)
 	return nil
 }
 
@@ -181,4 +183,75 @@ func (s *Indexer) reloadCache() error {
 
 func (s *Indexer) loadFromDB() error {
 	return s.cache.LoadFromDB(s.kvstore)
+}
+
+// the indexer DB contains 4 items:
+// 1. the height of the indexer DB
+// 2. total bucket counts indexed by the DB
+// 3. all buckets
+// 4. all bucket types
+// hash() returns a cryptographic hash of all these contents
+func (s *Indexer) hash() (string, error) {
+	// load height
+	height, err := s.kvstore.Get(_StakingNS, _stakingHeightKey)
+	if err != nil && !errors.Is(err, db.ErrNotExist) {
+		return "", err
+	}
+	// load total bucket count
+	tbc, err := s.kvstore.Get(_StakingNS, _stakingTotalBucketCountKey)
+	if err != nil && !errors.Is(err, db.ErrNotExist) {
+		return "", err
+	}
+	// load bucket info
+	iks, ivs, err := s.kvstore.Filter(_StakingBucketInfoNS, func(k, v []byte) bool { return true }, nil, nil)
+	if err != nil && !errors.Is(err, db.ErrBucketNotExist) {
+		return "", err
+	}
+	// load bucket type
+	tks, tvs, err := s.kvstore.Filter(_StakingBucketTypeNS, func(k, v []byte) bool { return true }, nil, nil)
+	if err != nil && !errors.Is(err, db.ErrBucketNotExist) {
+		return "", err
+	}
+
+	// hash all values
+	h := sha3.New256()
+	if len(height) > 0 {
+		h.Write(height)
+	}
+	if len(tbc) > 0 {
+		h.Write(tbc)
+	}
+	for i := range iks {
+		h.Write(iks[i])
+	}
+	for i := range ivs {
+		h.Write(ivs[i])
+	}
+	for i := range tks {
+		h.Write(tks[i])
+	}
+	for i := range tvs {
+		h.Write(tvs[i])
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// IndexerFingerPrint returns a fingerprint of the indexer DB file
+func IndexerFingerPrint(dbPath string) (string, error) {
+	cfg := config.Default
+	dbConfig := cfg.DB
+	dbConfig.DbPath = dbPath
+	indexer, err := NewContractStakingIndexer(db.NewBoltDB(dbConfig), cfg.Genesis.SystemStakingContractAddress, cfg.Genesis.SystemStakingContractHeight)
+	if err != nil {
+		return "", err
+	}
+
+	ctx := context.Background()
+	if err := indexer.kvstore.Start(ctx); err != nil {
+		return "", err
+	}
+	defer func() {
+		indexer.kvstore.Stop(ctx)
+	}()
+	return indexer.hash()
 }
