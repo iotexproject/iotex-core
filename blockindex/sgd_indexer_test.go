@@ -109,6 +109,31 @@ func TestNewSGDRegistry(t *testing.T) {
 			r.Equal(receiverAddress, receiver)
 			r.True(isApproved)
 			r.Equal(_sgdPercentage, percentage)
+
+			t.Run("heightRestriction", func(t *testing.T) {
+				cases := []struct {
+					height uint64
+					isErr  bool
+				}{
+					{0, false},
+					{1, true},
+					{2, false},
+					{3, true},
+				}
+				for i := range cases {
+					if cases[i].isErr {
+						_, err = sgdRegistry.FetchContracts(ctx, cases[i].height)
+						r.ErrorContains(err, "invalid height")
+						_, _, _, err = sgdRegistry.CheckContract(ctx, registerAddress.String(), cases[i].height)
+						r.ErrorContains(err, "invalid height")
+					} else {
+						_, err = sgdRegistry.FetchContracts(ctx, cases[i].height)
+						r.Nil(err)
+						_, _, _, err = sgdRegistry.CheckContract(ctx, registerAddress.String(), cases[i].height)
+						r.Nil(err)
+					}
+				}
+			})
 		})
 		t.Run("disapproveContract", func(t *testing.T) {
 			builder := block.NewTestingBuilder()

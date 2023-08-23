@@ -307,7 +307,7 @@ func processSGD(ctx context.Context, sm protocol.StateManager, execution *action
 	if err != nil {
 		return nil, 0, err
 	}
-	receiver, percentage, ok, err := sgd.CheckContract(ctx, execution.Contract(), height)
+	receiver, percentage, ok, err := sgd.CheckContract(ctx, execution.Contract(), height-1)
 	if err != nil || !ok {
 		return nil, 0, err
 	}
