@@ -105,7 +105,8 @@ func (dirty *contractStakingDirty) finalize() (batch.KVStoreBatch, *contractStak
 
 func (dirty *contractStakingDirty) finalizeBatch() batch.KVStoreBatch {
 	dirty.once.Do(func() {
-		total := dirty.clean.totalBucketCount + dirty.delta.AddedBucketCnt()
+		tbc, _ := dirty.clean.TotalBucketCount(0)
+		total := tbc + dirty.delta.AddedBucketCnt()
 		dirty.batch.Put(_StakingNS, _stakingTotalBucketCountKey, byteutil.Uint64ToBytesBigEndian(total), "failed to put total bucket count")
 	})
 	return dirty.batch
@@ -125,7 +126,8 @@ func (dirty *contractStakingDirty) matchBucketType(amount *big.Int, duration uin
 }
 
 func (dirty *contractStakingDirty) getBucketTypeCount() uint64 {
-	return uint64(len(dirty.clean.bucketTypeMap)) + dirty.delta.AddedBucketTypeCnt()
+	btc, _ := dirty.clean.BucketTypeCount(0)
+	return uint64(btc) + dirty.delta.AddedBucketTypeCnt()
 }
 
 func (dirty *contractStakingDirty) updateBucketType(id uint64, bt *BucketType) error {

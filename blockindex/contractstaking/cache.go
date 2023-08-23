@@ -455,8 +455,11 @@ func (s *contractStakingCache) validateHeight(height uint64) error {
 	if height == 0 {
 		return nil
 	}
-	// indexer only store latest height
-	if height != s.height {
+	// Currently, historical block data query is not supported.
+	// However, the latest data is actually returned when querying historical block data, for the following reasons:
+	//	1. to maintain compatibility with the current code's invocation of ActiveCandidate
+	//	2. to cause consensus errors when the indexer is lagging behind
+	if height > s.height {
 		return errors.Wrapf(ErrInvalidHeight, "expected %d, actual %d", s.height, height)
 	}
 	return nil

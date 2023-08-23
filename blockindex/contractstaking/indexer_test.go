@@ -916,6 +916,45 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 		r.NoError(err)
 		r.Len(bts, 6)
 	})
+
+	t.Run("heightRestriction", func(t *testing.T) {
+		cases := []struct {
+			height uint64
+			valid  bool
+		}{
+			{0, true},
+			{height - 1, true},
+			{height, true},
+			{height + 1, false},
+		}
+		noErr := func(args ...interface{}) {
+			r.Nil(args[len(args)-1])
+		}
+		hasErr := func(args ...interface{}) {
+			err := args[len(args)-1].(error)
+			r.ErrorIs(err, ErrInvalidHeight)
+		}
+		for i := range cases {
+			h := cases[i].height
+			if cases[i].valid {
+				noErr(indexer.Buckets(h))
+				noErr(indexer.BucketTypes(h))
+				noErr(indexer.BucketsByCandidate(delegate1, h))
+				noErr(indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5, 8}, h))
+				noErr(indexer.CandidateVotes(delegate1, h))
+				noErr(indexer.Bucket(1, h))
+				noErr(indexer.TotalBucketCount(h))
+			} else {
+				hasErr(indexer.Buckets(h))
+				hasErr(indexer.BucketTypes(h))
+				hasErr(indexer.BucketsByCandidate(delegate1, h))
+				hasErr(indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5, 8}, h))
+				hasErr(indexer.CandidateVotes(delegate1, h))
+				hasErr(indexer.Bucket(1, h))
+				hasErr(indexer.TotalBucketCount(h))
+			}
+		}
+	})
 }
 
 func TestIndexer_PutBlock(t *testing.T) {
