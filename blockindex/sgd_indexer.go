@@ -285,10 +285,19 @@ func (sgd *sgdRegistry) StartHeight() uint64 {
 
 // PutBlock puts a block into SGDIndexer
 func (sgd *sgdRegistry) PutBlock(ctx context.Context, blk *block.Block) error {
-	if ignore, err := sgd.validateBlock(blk); err != nil {
+	tipHeight, err := sgd.Height()
+	if err != nil {
 		return err
-	} else if ignore {
+	}
+	expectHeight := tipHeight + 1
+	if expectHeight < sgd.startHeight {
+		expectHeight = sgd.startHeight
+	}
+	if blk.Height() < expectHeight {
 		return nil
+	}
+	if blk.Height() > expectHeight {
+		return errors.Errorf("invalid block height %d, expect %d", blk.Height(), expectHeight)
 	}
 
 	var (
@@ -488,24 +497,6 @@ func (sgd *sgdRegistry) FetchContracts(ctx context.Context, height uint64) ([]*S
 		sgdIndexes = append(sgdIndexes, sgdIndex)
 	}
 	return sgdIndexes, nil
-}
-
-func (sgd *sgdRegistry) validateBlock(blk *block.Block) (ignore bool, err error) {
-	tipHeight, err := sgd.Height()
-	if err != nil {
-		return false, err
-	}
-	expectHeight := tipHeight + 1
-	if expectHeight < sgd.startHeight {
-		expectHeight = sgd.startHeight
-	}
-	if blk.Height() < expectHeight {
-		return true, nil
-	}
-	if blk.Height() > expectHeight {
-		return false, errors.Errorf("invalid block height %d, expect %d", blk.Height(), expectHeight)
-	}
-	return false, nil
 }
 
 func (sgd *sgdRegistry) validateQueryHeight(height uint64) error {
