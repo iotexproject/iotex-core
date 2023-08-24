@@ -927,31 +927,38 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 			{height, true},
 			{height + 1, false},
 		}
-		noErr := func(args ...interface{}) {
-			r.Nil(args[len(args)-1])
-		}
-		hasErr := func(args ...interface{}) {
-			err := args[len(args)-1].(error)
-			r.ErrorIs(err, ErrInvalidHeight)
-		}
 		for i := range cases {
 			h := cases[i].height
 			if cases[i].valid {
-				noErr(indexer.Buckets(h))
-				noErr(indexer.BucketTypes(h))
-				noErr(indexer.BucketsByCandidate(delegate1, h))
-				noErr(indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5, 8}, h))
-				noErr(indexer.CandidateVotes(delegate1, h))
-				noErr(indexer.Bucket(1, h))
-				noErr(indexer.TotalBucketCount(h))
+				_, err = indexer.Buckets(h)
+				r.NoError(err)
+				_, err = indexer.BucketTypes(h)
+				r.NoError(err)
+				_, err = indexer.BucketsByCandidate(delegate1, h)
+				r.NoError(err)
+				_, err = indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5, 8}, h)
+				r.NoError(err)
+				_, err = indexer.CandidateVotes(delegate1, h)
+				r.NoError(err)
+				_, _, err = indexer.Bucket(1, h)
+				r.NoError(err)
+				_, err = indexer.TotalBucketCount(h)
+				r.NoError(err)
 			} else {
-				hasErr(indexer.Buckets(h))
-				hasErr(indexer.BucketTypes(h))
-				hasErr(indexer.BucketsByCandidate(delegate1, h))
-				hasErr(indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5, 8}, h))
-				hasErr(indexer.CandidateVotes(delegate1, h))
-				hasErr(indexer.Bucket(1, h))
-				hasErr(indexer.TotalBucketCount(h))
+				_, err = indexer.Buckets(h)
+				r.ErrorIs(err, ErrInvalidHeight)
+				_, err = indexer.BucketTypes(h)
+				r.ErrorIs(err, ErrInvalidHeight)
+				_, err = indexer.BucketsByCandidate(delegate1, h)
+				r.ErrorIs(err, ErrInvalidHeight)
+				_, err = indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5, 8}, h)
+				r.ErrorIs(err, ErrInvalidHeight)
+				_, err = indexer.CandidateVotes(delegate1, h)
+				r.ErrorIs(err, ErrInvalidHeight)
+				_, _, err = indexer.Bucket(1, h)
+				r.ErrorIs(err, ErrInvalidHeight)
+				_, err = indexer.TotalBucketCount(h)
+				r.ErrorIs(err, ErrInvalidHeight)
 			}
 		}
 	})
