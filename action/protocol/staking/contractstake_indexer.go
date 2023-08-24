@@ -28,7 +28,5 @@ type (
 		TotalBucketCount(height uint64) (uint64, error)
 		// BucketTypes returns the active bucket types
 		BucketTypes(height uint64) ([]*ContractStakingBucketType, error)
-		// Height returns the indexer height
-		Height() (uint64, error)
 	}
 )
