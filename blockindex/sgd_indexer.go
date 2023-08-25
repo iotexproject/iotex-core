@@ -271,11 +271,7 @@ func (sgd *sgdRegistry) Stop(ctx context.Context) error {
 
 // Height returns the current height of the SGDIndexer
 func (sgd *sgdRegistry) Height() (uint64, error) {
-	h, err := sgd.kvStore.Get(_sgdToHeightNS, _sgdCurrentHeight)
-	if err != nil {
-		return 0, err
-	}
-	return byteutil.BytesToUint64BigEndian(h), nil
+	return sgd.height()
 }
 
 // StartHeight returns the start height of the indexer
@@ -285,13 +281,9 @@ func (sgd *sgdRegistry) StartHeight() uint64 {
 
 // PutBlock puts a block into SGDIndexer
 func (sgd *sgdRegistry) PutBlock(ctx context.Context, blk *block.Block) error {
-	tipHeight, err := sgd.Height()
+	expectHeight, err := sgd.expectHeight()
 	if err != nil {
 		return err
-	}
-	expectHeight := tipHeight + 1
-	if expectHeight < sgd.startHeight {
-		expectHeight = sgd.startHeight
 	}
 	if blk.Height() < expectHeight {
 		return nil
@@ -504,7 +496,7 @@ func (sgd *sgdRegistry) validateQueryHeight(height uint64) error {
 	if height == 0 {
 		return nil
 	}
-	tipHeight, err := sgd.Height()
+	tipHeight, err := sgd.height()
 	if err != nil {
 		return err
 	}
@@ -512,6 +504,26 @@ func (sgd *sgdRegistry) validateQueryHeight(height uint64) error {
 		return errors.Errorf("invalid height %d, expect %d", height, tipHeight)
 	}
 	return nil
+}
+
+func (sgd *sgdRegistry) expectHeight() (uint64, error) {
+	tipHeight, err := sgd.height()
+	if err != nil {
+		return 0, err
+	}
+	expectHeight := tipHeight + 1
+	if expectHeight < sgd.startHeight {
+		expectHeight = sgd.startHeight
+	}
+	return expectHeight, nil
+}
+
+func (sgd *sgdRegistry) height() (uint64, error) {
+	h, err := sgd.kvStore.Get(_sgdToHeightNS, _sgdCurrentHeight)
+	if err != nil {
+		return 0, err
+	}
+	return byteutil.BytesToUint64BigEndian(h), nil
 }
 
 func getReceiptsFromBlock(blk *block.Block) map[hash.Hash256]*action.Receipt {
