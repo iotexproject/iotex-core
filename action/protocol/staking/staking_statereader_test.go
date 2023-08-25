@@ -123,7 +123,7 @@ func TestStakingStateReader(t *testing.T) {
 		sf.EXPECT().ReadView(gomock.Any()).Return(testNativeData, nil).Times(1)
 
 		contractIndexer := NewMockContractStakingIndexer(ctrl)
-		contractIndexer.EXPECT().Buckets().Return(testContractBuckets, nil).AnyTimes()
+		contractIndexer.EXPECT().Buckets(gomock.Any()).Return(testContractBuckets, nil).AnyTimes()
 
 		stakeSR, err := newCompositeStakingStateReader(contractIndexer, nil, sf)
 		r.NoError(err)
@@ -241,7 +241,7 @@ func TestStakingStateReader(t *testing.T) {
 			*arg0R = totalBucketCount{count: 1}
 			return uint64(1), nil
 		}).Times(1)
-		contractIndexer.EXPECT().BucketsByCandidate(gomock.Any()).DoAndReturn(func(arg0 address.Address) ([]*VoteBucket, error) {
+		contractIndexer.EXPECT().BucketsByCandidate(gomock.Any(), gomock.Any()).DoAndReturn(func(arg0 address.Address, arg1 uint64) ([]*VoteBucket, error) {
 			buckets := []*VoteBucket{}
 			for i := range testContractBuckets {
 				if testContractBuckets[i].Candidate.String() == arg0.String() {
@@ -285,7 +285,7 @@ func TestStakingStateReader(t *testing.T) {
 			*arg0R = totalBucketCount{count: 1}
 			return uint64(1), nil
 		}).Times(1)
-		contractIndexer.EXPECT().BucketsByIndices(gomock.Any()).DoAndReturn(func(arg0 []uint64) ([]*VoteBucket, error) {
+		contractIndexer.EXPECT().BucketsByIndices(gomock.Any(), gomock.Any()).DoAndReturn(func(arg0 []uint64, arg1 uint64) ([]*VoteBucket, error) {
 			buckets := []*VoteBucket{}
 			for i := range arg0 {
 				buckets = append(buckets, testContractBuckets[arg0[i]])
@@ -318,7 +318,7 @@ func TestStakingStateReader(t *testing.T) {
 			*arg0R = totalBucketCount{count: 1}
 			return uint64(1), nil
 		}).Times(1)
-		contractIndexer.EXPECT().TotalBucketCount().Return(uint64(len(testContractBuckets))).Times(1)
+		contractIndexer.EXPECT().TotalBucketCount(gomock.Any()).Return(uint64(len(testContractBuckets)), nil).Times(1)
 		cfg := genesis.Default
 		cfg.GreenlandBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, cfg)
@@ -332,13 +332,13 @@ func TestStakingStateReader(t *testing.T) {
 	})
 	t.Run("readStateCandidates", func(t *testing.T) {
 		_, contractIndexer, stakeSR, ctx, r := prepare(t)
-		contractIndexer.EXPECT().CandidateVotes(gomock.Any()).DoAndReturn(func(ownerAddr address.Address) *big.Int {
+		contractIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any()).DoAndReturn(func(ownerAddr address.Address, height uint64) (*big.Int, error) {
 			for _, b := range testContractBuckets {
 				if b.Owner.String() == ownerAddr.String() {
-					return b.StakedAmount
+					return b.StakedAmount, nil
 				}
 			}
-			return big.NewInt(0)
+			return big.NewInt(0), nil
 		}).MinTimes(1)
 		req := &iotexapi.ReadStakingDataRequest_Candidates{
 			Pagination: &iotexapi.PaginationParam{
@@ -362,13 +362,13 @@ func TestStakingStateReader(t *testing.T) {
 	})
 	t.Run("readStateCandidateByName", func(t *testing.T) {
 		_, contractIndexer, stakeSR, ctx, r := prepare(t)
-		contractIndexer.EXPECT().CandidateVotes(gomock.Any()).DoAndReturn(func(ownerAddr address.Address) *big.Int {
+		contractIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any()).DoAndReturn(func(ownerAddr address.Address, height uint64) (*big.Int, error) {
 			for _, b := range testContractBuckets {
 				if b.Owner.String() == ownerAddr.String() {
-					return b.StakedAmount
+					return b.StakedAmount, nil
 				}
 			}
-			return big.NewInt(0)
+			return big.NewInt(0), nil
 		}).MinTimes(1)
 		req := &iotexapi.ReadStakingDataRequest_CandidateByName{
 			CandName: "cand1",
@@ -385,13 +385,13 @@ func TestStakingStateReader(t *testing.T) {
 	})
 	t.Run("readStateCandidateByAddress", func(t *testing.T) {
 		_, contractIndexer, stakeSR, ctx, r := prepare(t)
-		contractIndexer.EXPECT().CandidateVotes(gomock.Any()).DoAndReturn(func(ownerAddr address.Address) *big.Int {
+		contractIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any()).DoAndReturn(func(ownerAddr address.Address, height uint64) (*big.Int, error) {
 			for _, b := range testContractBuckets {
 				if b.Owner.String() == ownerAddr.String() {
-					return b.StakedAmount
+					return b.StakedAmount, nil
 				}
 			}
-			return big.NewInt(0)
+			return big.NewInt(0), nil
 		}).MinTimes(1)
 		req := &iotexapi.ReadStakingDataRequest_CandidateByAddress{
 			OwnerAddr: identityset.Address(1).String(),

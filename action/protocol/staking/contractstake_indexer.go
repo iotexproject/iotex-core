@@ -17,16 +17,16 @@ type (
 	ContractStakingIndexer interface {
 		// CandidateVotes returns the total staked votes of a candidate
 		// candidate identified by owner address
-		CandidateVotes(ownerAddr address.Address) *big.Int
+		CandidateVotes(ownerAddr address.Address, height uint64) (*big.Int, error)
 		// Buckets returns active buckets
-		Buckets() ([]*VoteBucket, error)
+		Buckets(height uint64) ([]*VoteBucket, error)
 		// BucketsByIndices returns active buckets by indices
-		BucketsByIndices([]uint64) ([]*VoteBucket, error)
+		BucketsByIndices([]uint64, uint64) ([]*VoteBucket, error)
 		// BucketsByCandidate returns active buckets by candidate
-		BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error)
+		BucketsByCandidate(ownerAddr address.Address, height uint64) ([]*VoteBucket, error)
 		// TotalBucketCount returns the total number of buckets including burned buckets
-		TotalBucketCount() uint64
+		TotalBucketCount(height uint64) (uint64, error)
 		// BucketTypes returns the active bucket types
-		BucketTypes() ([]*ContractStakingBucketType, error)
+		BucketTypes(height uint64) ([]*ContractStakingBucketType, error)
 	}
 )
