@@ -1342,7 +1342,7 @@ func TestContractStaking(t *testing.T) {
 		receipts, blk := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 		r.Len(receipts, 1)
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
-		buckets, err := indexer.Buckets()
+		buckets, err := indexer.Buckets(blk.Height())
 		r.NoError(err)
 		slices.SortFunc(buckets, func(i, j *contractstaking.Bucket) bool {
 			return i.Index < j.Index
@@ -1358,10 +1358,14 @@ func TestContractStaking(t *testing.T) {
 		r.EqualValues(blk.Height(), bt.CreateBlockHeight)
 		r.EqualValues(blk.Height(), bt.StakeStartBlockHeight)
 		r.True(bt.UnstakeStartBlockHeight == math.MaxUint64)
-		r.EqualValues(10, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
-		r.EqualValues(1, indexer.TotalBucketCount())
+		votes, err := indexer.CandidateVotes(identityset.Address(delegateIdx), blk.Height())
+		r.NoError(err)
+		r.EqualValues(10, votes.Int64())
+		tbc, err := indexer.TotalBucketCount(blk.Height())
+		r.NoError(err)
+		r.EqualValues(1, tbc)
 		r.EqualValues(contractAddresses, bt.ContractAddress)
-		buckets, err = indexer.BucketsByCandidate(identityset.Address(delegateIdx))
+		buckets, err = indexer.BucketsByCandidate(identityset.Address(delegateIdx), blk.Height())
 		r.NoError(err)
 		r.Len(buckets, 1)
 		r.EqualValues(bt, buckets[0])
@@ -1381,11 +1385,15 @@ func TestContractStaking(t *testing.T) {
 			r.Len(receipts, 1)
 			r.EqualValues("", receipts[0].ExecutionRevertMsg())
 			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
-			bt, ok := indexer.Bucket(uint64(tokenID))
+			bt, ok, err := indexer.Bucket(uint64(tokenID), blk.Height())
+			r.NoError(err)
 			r.True(ok)
 			r.EqualValues(blk.Height(), bt.StakeStartBlockHeight)
-			r.EqualValues(10, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
-			r.EqualValues(1, indexer.TotalBucketCount())
+			votes, err := indexer.CandidateVotes(identityset.Address(delegateIdx), blk.Height())
+			r.NoError(err)
+			r.EqualValues(10, votes.Int64())
+			tbc, err := indexer.TotalBucketCount(blk.Height())
+			r.EqualValues(1, tbc)
 
 			t.Run("unstake", func(t *testing.T) {
 				jumpBlocks(bc, 10, r)
@@ -1403,11 +1411,16 @@ func TestContractStaking(t *testing.T) {
 				r.Len(receipts, 1)
 				r.EqualValues("", receipts[0].ExecutionRevertMsg())
 				r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
-				bt, ok := indexer.Bucket(uint64(tokenID))
+				bt, ok, err := indexer.Bucket(uint64(tokenID), blk.Height())
+				r.NoError(err)
 				r.True(ok)
 				r.EqualValues(blk.Height(), bt.UnstakeStartBlockHeight)
-				r.EqualValues(0, indexer.CandidateVotes(identityset.Address(delegateIdx)).Int64())
-				r.EqualValues(1, indexer.TotalBucketCount())
+				votes, err := indexer.CandidateVotes(identityset.Address(delegateIdx), blk.Height())
+				r.NoError(err)
+				r.EqualValues(0, votes.Int64())
+				tbc, err := indexer.TotalBucketCount(blk.Height())
+				r.NoError(err)
+				r.EqualValues(1, tbc)
 
 				t.Run("withdraw", func(t *testing.T) {
 					// freeze blocks are changed to 10 in test
@@ -1425,13 +1438,16 @@ func TestContractStaking(t *testing.T) {
 						gasPrice:     big.NewInt(0),
 						sk:           identityset.PrivateKey(adminID),
 					}
-					receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+					receipts, blk = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 					r.Len(receipts, 1)
 					r.EqualValues("", receipts[0].ExecutionRevertMsg())
 					r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
-					bt, ok = indexer.Bucket(uint64(tokenID))
+					bt, ok, err = indexer.Bucket(uint64(tokenID), blk.Height())
+					r.NoError(err)
 					r.False(ok)
-					r.EqualValues(1, indexer.TotalBucketCount())
+					tbc, err := indexer.TotalBucketCount(blk.Height())
+					r.NoError(err)
+					r.EqualValues(1, tbc)
 
 					t.Run("cannot withdraw again", func(t *testing.T) {
 						data, err := lsdABI.Pack("withdraw", big.NewInt(int64(tokenID)), addr)
@@ -1518,11 +1534,12 @@ func TestContractStaking(t *testing.T) {
 			gasPrice:     big.NewInt(0),
 			sk:           identityset.PrivateKey(adminID),
 		}
-		receipts, _ := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+		receipts, blk := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 		r.Len(receipts, 1)
 		r.EqualValues("", receipts[0].ExecutionRevertMsg())
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
-		bt, ok := indexer.Bucket(uint64(tokenID))
+		bt, ok, err := indexer.Bucket(uint64(tokenID), blk.Height())
+		r.NoError(err)
 		r.True(ok)
 		r.True(bt.AutoStake)
 	})
@@ -1545,12 +1562,12 @@ func TestContractStaking(t *testing.T) {
 			}
 			params = append(params, &param)
 		}
-		receipts, _ := writeContract(bc, sf, dao, ap, params, r)
+		receipts, blk := writeContract(bc, sf, dao, ap, params, r)
 		r.Len(receipts, len(params))
 		for _, receipt := range receipts {
 			r.EqualValues(iotextypes.ReceiptStatus_Success, receipt.Status)
 		}
-		buckets, err := indexer.Buckets()
+		buckets, err := indexer.Buckets(blk.Height())
 		r.NoError(err)
 		slices.SortFunc(buckets, func(i, j *contractstaking.Bucket) bool {
 			return i.Index < j.Index
@@ -1572,17 +1589,19 @@ func TestContractStaking(t *testing.T) {
 			gasPrice:     big.NewInt(0),
 			sk:           identityset.PrivateKey(adminID),
 		}
-		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+		receipts, blk = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 		r.Len(receipts, 1)
 		r.EqualValues("", receipts[0].ExecutionRevertMsg())
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 		for i := range newBuckets {
 			if i == 0 {
-				bt, ok := indexer.Bucket(uint64(newBuckets[i].Index))
+				bt, ok, err := indexer.Bucket(uint64(newBuckets[i].Index), blk.Height())
+				r.NoError(err)
 				r.True(ok)
 				r.EqualValues(100, bt.StakedDurationBlockNumber)
 			} else {
-				_, ok := indexer.Bucket(uint64(newBuckets[i].Index))
+				_, ok, err := indexer.Bucket(uint64(newBuckets[i].Index), blk.Height())
+				r.NoError(err)
 				r.False(ok)
 			}
 		}
@@ -1622,10 +1641,11 @@ func TestContractStaking(t *testing.T) {
 			gasPrice:     big.NewInt(0),
 			sk:           identityset.PrivateKey(adminID),
 		}
-		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+		receipts, blk := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 		r.Len(receipts, 1)
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
-		bt, ok := indexer.Bucket(uint64(tokenID))
+		bt, ok, err := indexer.Bucket(uint64(tokenID), blk.Height())
+		r.NoError(err)
 		r.True(ok)
 		r.EqualValues(100, bt.StakedDurationBlockNumber)
 	})
@@ -1644,11 +1664,12 @@ func TestContractStaking(t *testing.T) {
 			gasPrice:     big.NewInt(0),
 			sk:           identityset.PrivateKey(adminID),
 		}
-		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+		receipts, blk := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 		r.Len(receipts, 1)
 		r.EqualValues("", receipts[0].ExecutionRevertMsg())
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
-		bt, ok := indexer.Bucket(uint64(tokenID))
+		bt, ok, err := indexer.Bucket(uint64(tokenID), blk.Height())
+		r.NoError(err)
 		r.True(ok)
 		r.EqualValues(100, bt.StakedAmount.Int64())
 	})
@@ -1725,11 +1746,12 @@ func TestContractStaking(t *testing.T) {
 				gasPrice:     big.NewInt(0),
 				sk:           identityset.PrivateKey(adminID),
 			}
-			receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+			receipts, blk := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 			r.Len(receipts, 1)
 			r.EqualValues("", receipts[0].ExecutionRevertMsg())
 			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
-			bt, ok := indexer.Bucket(uint64(tokenID))
+			bt, ok, err := indexer.Bucket(uint64(tokenID), blk.Height())
+			r.NoError(err)
 			r.True(ok)
 			r.EqualValues(100, bt.StakedAmount.Int64())
 			r.EqualValues(100, bt.StakedDurationBlockNumber)
@@ -1748,11 +1770,12 @@ func TestContractStaking(t *testing.T) {
 				gasPrice:     big.NewInt(0),
 				sk:           identityset.PrivateKey(adminID),
 			}
-			receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+			receipts, blk := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 			r.Len(receipts, 1)
 			r.EqualValues("", receipts[0].ExecutionRevertMsg())
 			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
-			bt, ok := indexer.Bucket(uint64(tokenID))
+			bt, ok, err := indexer.Bucket(uint64(tokenID), blk.Height())
+			r.NoError(err)
 			r.True(ok)
 			r.EqualValues(10, bt.StakedAmount.Int64())
 			r.EqualValues(10, bt.StakedDurationBlockNumber)
@@ -1777,11 +1800,12 @@ func TestContractStaking(t *testing.T) {
 			gasPrice:     big.NewInt(0),
 			sk:           identityset.PrivateKey(adminID),
 		}
-		receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+		receipts, blk := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 		r.Len(receipts, 1)
 		r.EqualValues("", receipts[0].ExecutionRevertMsg())
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
-		bt, ok := indexer.Bucket(uint64(tokenID))
+		bt, ok, err := indexer.Bucket(uint64(tokenID), blk.Height())
+		r.NoError(err)
 		r.True(ok)
 		r.EqualValues(identityset.Address(delegateIdx).String(), bt.Candidate.String())
 	})
@@ -1805,11 +1829,12 @@ func TestContractStaking(t *testing.T) {
 				gasPrice:     big.NewInt(0),
 				sk:           identityset.PrivateKey(adminID),
 			}
-			receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+			receipts, blk := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 			r.Len(receipts, 1)
 			r.EqualValues("", receipts[0].ExecutionRevertMsg())
 			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
-			bt, ok := indexer.Bucket(uint64(tokenID))
+			bt, ok, err := indexer.Bucket(uint64(tokenID), blk.Height())
+			r.NoError(err)
 			r.True(ok)
 			r.EqualValues(identityset.Address(newOwnerIdx).String(), bt.Owner.String())
 		})
@@ -1832,11 +1857,12 @@ func TestContractStaking(t *testing.T) {
 				gasPrice:     big.NewInt(0),
 				sk:           identityset.PrivateKey(adminID),
 			}
-			receipts, _ = writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+			receipts, blk := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 			r.Len(receipts, 1)
 			r.EqualValues("", receipts[0].ExecutionRevertMsg())
 			r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
-			bt, ok := indexer.Bucket(uint64(tokenID))
+			bt, ok, err := indexer.Bucket(uint64(tokenID), blk.Height())
+			r.NoError(err)
 			r.True(ok)
 			r.EqualValues(identityset.Address(newOwnerIdx).String(), bt.Owner.String())
 		})
@@ -2070,10 +2096,10 @@ func stake(lsdABI abi.ABI, bc blockchain.Blockchain, sf factory.Factory, dao blo
 		gasPrice:     big.NewInt(0),
 		sk:           identityset.PrivateKey(_adminID),
 	}
-	receipts, _ := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
+	receipts, blk := writeContract(bc, sf, dao, ap, []*callParam{&param}, r)
 	r.Len(receipts, 1)
 	r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
-	buckets, err := indexer.Buckets()
+	buckets, err := indexer.Buckets(blk.Height())
 	r.NoError(err)
 	slices.SortFunc(buckets, func(i, j *contractstaking.Bucket) bool {
 		return i.Index < j.Index

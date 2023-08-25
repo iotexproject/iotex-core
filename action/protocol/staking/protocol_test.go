@@ -394,3 +394,72 @@ func Test_CreateGenesisStates(t *testing.T) {
 		}
 	}
 }
+
+func TestProtocol_ActiveCandidates(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm := testdb.NewMockStateManagerWithoutHeightFunc(ctrl)
+	csIndexer := NewMockContractStakingIndexer(ctrl)
+
+	selfStake, _ := new(big.Int).SetString("1200000000000000000000000", 10)
+	cfg := genesis.Default.Staking
+	cfg.BootstrapCandidates = []genesis.BootstrapCandidate{
+		{
+			OwnerAddress:      identityset.Address(22).String(),
+			OperatorAddress:   identityset.Address(23).String(),
+			RewardAddress:     identityset.Address(23).String(),
+			Name:              "test1",
+			SelfStakingTokens: selfStake.String(),
+		},
+	}
+	p, err := NewProtocol(nil, &BuilderConfig{
+		Staking:                  cfg,
+		PersistStakingPatchBlock: math.MaxUint64,
+	}, nil, csIndexer, genesis.Default.GreenlandBlockHeight)
+	require.NoError(err)
+
+	blkHeight := genesis.Default.QuebecBlockHeight + 1
+	ctx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), genesis.Default),
+		protocol.BlockCtx{
+			BlockHeight: blkHeight,
+		},
+	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+	sm.EXPECT().Height().Return(blkHeight, nil).AnyTimes()
+
+	v, err := p.Start(ctx, sm)
+	require.NoError(err)
+	require.NoError(sm.WriteView(_protocolID, v))
+
+	err = p.CreateGenesisStates(ctx, sm)
+	require.NoError(err)
+
+	var csIndexerHeight, csVotes uint64
+	csIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any()).DoAndReturn(func(ownerAddr address.Address, height uint64) (*big.Int, error) {
+		if height != csIndexerHeight {
+			return nil, errors.Errorf("invalid height")
+		}
+		return big.NewInt(int64(csVotes)), nil
+	}).AnyTimes()
+
+	t.Run("contract staking indexer falls behind", func(t *testing.T) {
+		csIndexerHeight = 10
+		_, err := p.ActiveCandidates(ctx, sm, 0)
+		require.ErrorContains(err, "invalid height")
+	})
+
+	t.Run("contract staking indexer up to date", func(t *testing.T) {
+		csIndexerHeight = blkHeight - 1
+		csVotes = 0
+		cands, err := p.ActiveCandidates(ctx, sm, 0)
+		require.NoError(err)
+		require.Len(cands, 1)
+		originCandVotes := cands[0].Votes
+		csVotes = 100
+		cands, err = p.ActiveCandidates(ctx, sm, 0)
+		require.NoError(err)
+		require.Len(cands, 1)
+		require.EqualValues(100, cands[0].Votes.Sub(cands[0].Votes, originCandVotes).Uint64())
+	})
+}

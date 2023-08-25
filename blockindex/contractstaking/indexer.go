@@ -80,38 +80,41 @@ func (s *Indexer) StartHeight() uint64 {
 }
 
 // CandidateVotes returns the candidate votes
-func (s *Indexer) CandidateVotes(candidate address.Address) *big.Int {
-	return s.cache.CandidateVotes(candidate)
+func (s *Indexer) CandidateVotes(candidate address.Address, height uint64) (*big.Int, error) {
+	return s.cache.CandidateVotes(candidate, height)
 }
 
 // Buckets returns the buckets
-func (s *Indexer) Buckets() ([]*Bucket, error) {
-	return s.cache.Buckets(), nil
+func (s *Indexer) Buckets(height uint64) ([]*Bucket, error) {
+	return s.cache.Buckets(height)
 }
 
 // Bucket returns the bucket
-func (s *Indexer) Bucket(id uint64) (*Bucket, bool) {
-	return s.cache.Bucket(id)
+func (s *Indexer) Bucket(id uint64, height uint64) (*Bucket, bool, error) {
+	return s.cache.Bucket(id, height)
 }
 
 // BucketsByIndices returns the buckets by indices
-func (s *Indexer) BucketsByIndices(indices []uint64) ([]*Bucket, error) {
-	return s.cache.BucketsByIndices(indices)
+func (s *Indexer) BucketsByIndices(indices []uint64, height uint64) ([]*Bucket, error) {
+	return s.cache.BucketsByIndices(indices, height)
 }
 
 // BucketsByCandidate returns the buckets by candidate
-func (s *Indexer) BucketsByCandidate(candidate address.Address) ([]*Bucket, error) {
-	return s.cache.BucketsByCandidate(candidate), nil
+func (s *Indexer) BucketsByCandidate(candidate address.Address, height uint64) ([]*Bucket, error) {
+	return s.cache.BucketsByCandidate(candidate, height)
 }
 
 // TotalBucketCount returns the total bucket count including active and burnt buckets
-func (s *Indexer) TotalBucketCount() uint64 {
-	return s.cache.TotalBucketCount()
+func (s *Indexer) TotalBucketCount(height uint64) (uint64, error) {
+	return s.cache.TotalBucketCount(height)
 }
 
 // BucketTypes returns the active bucket types
-func (s *Indexer) BucketTypes() ([]*BucketType, error) {
-	btMap := s.cache.ActiveBucketTypes()
+func (s *Indexer) BucketTypes(height uint64) ([]*BucketType, error) {
+	btMap, err := s.cache.ActiveBucketTypes(height)
+	if err != nil {
+		return nil, err
+	}
 	bts := make([]*BucketType, 0, len(btMap))
 	for _, bt := range btMap {
 		bts = append(bts, bt)
