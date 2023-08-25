@@ -77,13 +77,13 @@ func TestNewSGDRegistry(t *testing.T) {
 			}
 			blk := createTestingBlock(builder, 1, h, exec, logs)
 			r.NoError(sgdRegistry.PutBlock(ctx, blk))
-			receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
+			receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String(), 1)
 			r.NoError(err)
 			r.Equal(_sgdPercentage, percentage)
 			r.Equal(receiverAddress, receiver)
 			r.False(isApproved)
 
-			lists, err := sgdRegistry.FetchContracts(ctx)
+			lists, err := sgdRegistry.FetchContracts(ctx, 1)
 			r.NoError(err)
 			r.Equal(1, len(lists))
 			r.Equal(registerAddress.Bytes(), lists[0].Contract.Bytes())
@@ -102,13 +102,38 @@ func TestNewSGDRegistry(t *testing.T) {
 				Topics:  []hash.Hash256{hash.Hash256(event.ID)},
 				Data:    data,
 			}
-			blk := createTestingBlock(builder, 1, h, exec, logs)
+			blk := createTestingBlock(builder, 2, h, exec, logs)
 			r.NoError(sgdRegistry.PutBlock(ctx, blk))
-			receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
+			receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String(), 2)
 			r.NoError(err)
 			r.Equal(receiverAddress, receiver)
 			r.True(isApproved)
 			r.Equal(_sgdPercentage, percentage)
+
+			t.Run("heightRestriction", func(t *testing.T) {
+				cases := []struct {
+					height uint64
+					isErr  bool
+				}{
+					{0, false},
+					{1, true},
+					{2, false},
+					{3, true},
+				}
+				for i := range cases {
+					if cases[i].isErr {
+						_, err = sgdRegistry.FetchContracts(ctx, cases[i].height)
+						r.ErrorContains(err, "invalid height")
+						_, _, _, err = sgdRegistry.CheckContract(ctx, registerAddress.String(), cases[i].height)
+						r.ErrorContains(err, "invalid height")
+					} else {
+						_, err = sgdRegistry.FetchContracts(ctx, cases[i].height)
+						r.Nil(err)
+						_, _, _, err = sgdRegistry.CheckContract(ctx, registerAddress.String(), cases[i].height)
+						r.Nil(err)
+					}
+				}
+			})
 		})
 		t.Run("disapproveContract", func(t *testing.T) {
 			builder := block.NewTestingBuilder()
@@ -122,9 +147,9 @@ func TestNewSGDRegistry(t *testing.T) {
 				Topics:  []hash.Hash256{hash.Hash256(event.ID)},
 				Data:    data,
 			}
-			blk := createTestingBlock(builder, 1, h, exec, logs)
+			blk := createTestingBlock(builder, 3, h, exec, logs)
 			r.NoError(sgdRegistry.PutBlock(ctx, blk))
-			receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
+			receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String(), 3)
 			r.NoError(err)
 			r.Equal(receiverAddress, receiver)
 			r.False(isApproved)
@@ -142,9 +167,9 @@ func TestNewSGDRegistry(t *testing.T) {
 				Topics:  []hash.Hash256{hash.Hash256(event.ID)},
 				Data:    data,
 			}
-			blk := createTestingBlock(builder, 2, h, exec, logs)
+			blk := createTestingBlock(builder, 4, h, exec, logs)
 			r.NoError(sgdRegistry.PutBlock(ctx, blk))
-			receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String())
+			receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String(), 4)
 			r.ErrorContains(err, "not exist in DB")
 			r.Nil(receiver)
 			r.False(isApproved)
@@ -153,7 +178,7 @@ func TestNewSGDRegistry(t *testing.T) {
 			r.Equal(blk.Height(), hh)
 			r.Equal(uint64(0), percentage)
 
-			_, err = sgdRegistry.FetchContracts(ctx)
+			_, err = sgdRegistry.FetchContracts(ctx, blk.Height())
 			r.ErrorIs(err, state.ErrStateNotExist)
 		})
 	})
