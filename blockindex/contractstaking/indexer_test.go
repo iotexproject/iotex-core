@@ -8,6 +8,7 @@ package contractstaking
 import (
 	"context"
 	"math/big"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -916,29 +917,66 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 		r.NoError(err)
 		r.Len(bts, 6)
 	})
+}
 
-	t.Run("heightRestriction", func(t *testing.T) {
-		cases := []struct {
-			height uint64
-			valid  bool
-		}{
-			{0, true},
-			{height - 1, true},
-			{height, true},
-			{height + 1, false},
-		}
-		for i := range cases {
-			h := cases[i].height
-			if cases[i].valid {
+func TestIndexer_ReadHeightRestriction(t *testing.T) {
+	r := require.New(t)
+
+	cases := []struct {
+		startHeight uint64
+		height      uint64
+		readHeight  uint64
+		valid       bool
+	}{
+		{0, 0, 0, true},
+		{0, 0, 1, false},
+		{0, 2, 0, true},
+		{0, 2, 1, true},
+		{0, 2, 2, true},
+		{0, 2, 3, false},
+		{10, 0, 0, true},
+		{10, 0, 1, true},
+		{10, 0, 9, true},
+		{10, 0, 10, false},
+		{10, 0, 11, false},
+		{10, 10, 0, true},
+		{10, 10, 1, true},
+		{10, 10, 9, true},
+		{10, 10, 10, true},
+		{10, 10, 11, false},
+	}
+
+	for idx, c := range cases {
+		name := strconv.FormatInt(int64(idx), 10)
+		t.Run(name, func(t *testing.T) {
+			// Create a new Indexer
+			height := c.height
+			startHeight := c.startHeight
+			cfg := config.Default.DB
+			dbPath, err := testutil.PathOfTempFile("db")
+			r.NoError(err)
+			cfg.DbPath = dbPath
+			indexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), identityset.Address(1).String(), startHeight)
+			r.NoError(err)
+			r.NoError(indexer.Start(context.Background()))
+			defer func() {
+				r.NoError(indexer.Stop(context.Background()))
+				testutil.CleanupPath(dbPath)
+			}()
+			indexer.cache.putHeight(height)
+			// check read api
+			h := c.readHeight
+			delegate := identityset.Address(1)
+			if c.valid {
 				_, err = indexer.Buckets(h)
 				r.NoError(err)
 				_, err = indexer.BucketTypes(h)
 				r.NoError(err)
-				_, err = indexer.BucketsByCandidate(delegate1, h)
+				_, err = indexer.BucketsByCandidate(delegate, h)
 				r.NoError(err)
 				_, err = indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5, 8}, h)
 				r.NoError(err)
-				_, err = indexer.CandidateVotes(delegate1, h)
+				_, err = indexer.CandidateVotes(delegate, h)
 				r.NoError(err)
 				_, _, err = indexer.Bucket(1, h)
 				r.NoError(err)
@@ -949,19 +987,19 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 				r.ErrorIs(err, ErrInvalidHeight)
 				_, err = indexer.BucketTypes(h)
 				r.ErrorIs(err, ErrInvalidHeight)
-				_, err = indexer.BucketsByCandidate(delegate1, h)
+				_, err = indexer.BucketsByCandidate(delegate, h)
 				r.ErrorIs(err, ErrInvalidHeight)
 				_, err = indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5, 8}, h)
 				r.ErrorIs(err, ErrInvalidHeight)
-				_, err = indexer.CandidateVotes(delegate1, h)
+				_, err = indexer.CandidateVotes(delegate, h)
 				r.ErrorIs(err, ErrInvalidHeight)
 				_, _, err = indexer.Bucket(1, h)
 				r.ErrorIs(err, ErrInvalidHeight)
 				_, err = indexer.TotalBucketCount(h)
 				r.ErrorIs(err, ErrInvalidHeight)
 			}
-		}
-	})
+		})
+	}
 }
 
 func TestIndexer_PutBlock(t *testing.T) {
