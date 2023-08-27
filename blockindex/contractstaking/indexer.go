@@ -81,36 +81,57 @@ func (s *Indexer) StartHeight() uint64 {
 
 // CandidateVotes returns the candidate votes
 func (s *Indexer) CandidateVotes(candidate address.Address, height uint64) (*big.Int, error) {
+	if s.isIgnored(height) {
+		return big.NewInt(0), nil
+	}
 	return s.cache.CandidateVotes(candidate, height)
 }
 
 // Buckets returns the buckets
 func (s *Indexer) Buckets(height uint64) ([]*Bucket, error) {
+	if s.isIgnored(height) {
+		return []*Bucket{}, nil
+	}
 	return s.cache.Buckets(height)
 }
 
 // Bucket returns the bucket
 func (s *Indexer) Bucket(id uint64, height uint64) (*Bucket, bool, error) {
+	if s.isIgnored(height) {
+		return nil, false, nil
+	}
 	return s.cache.Bucket(id, height)
 }
 
 // BucketsByIndices returns the buckets by indices
 func (s *Indexer) BucketsByIndices(indices []uint64, height uint64) ([]*Bucket, error) {
+	if s.isIgnored(height) {
+		return []*Bucket{}, nil
+	}
 	return s.cache.BucketsByIndices(indices, height)
 }
 
 // BucketsByCandidate returns the buckets by candidate
 func (s *Indexer) BucketsByCandidate(candidate address.Address, height uint64) ([]*Bucket, error) {
+	if s.isIgnored(height) {
+		return []*Bucket{}, nil
+	}
 	return s.cache.BucketsByCandidate(candidate, height)
 }
 
 // TotalBucketCount returns the total bucket count including active and burnt buckets
 func (s *Indexer) TotalBucketCount(height uint64) (uint64, error) {
+	if s.isIgnored(height) {
+		return 0, nil
+	}
 	return s.cache.TotalBucketCount(height)
 }
 
 // BucketTypes returns the active bucket types
 func (s *Indexer) BucketTypes(height uint64) ([]*BucketType, error) {
+	if s.isIgnored(height) {
+		return []*BucketType{}, nil
+	}
 	btMap, err := s.cache.ActiveBucketTypes(height)
 	if err != nil {
 		return nil, err
@@ -184,4 +205,11 @@ func (s *Indexer) reloadCache() error {
 
 func (s *Indexer) loadFromDB() error {
 	return s.cache.LoadFromDB(s.kvstore)
+}
+
+// isIgnored returns true if before cotractDeployHeight.
+// it aims to be compatible with blocks between feature hard-fork and contract deployed
+// read interface should return empty result instead of invalid height error if it returns true
+func (s *Indexer) isIgnored(height uint64) bool {
+	return height < s.contractDeployHeight
 }
