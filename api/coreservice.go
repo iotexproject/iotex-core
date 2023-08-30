@@ -1750,19 +1750,20 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 				return nil, nil, nil, err
 			}
 		}
-		if t, err := tracers.New(*config.Tracer, new(tracers.Context)); err != nil {
+		t, err := tracers.New(*config.Tracer, new(tracers.Context))
+		if err != nil {
 			return nil, nil, nil, err
-		} else {
-			deadlineCtx, cancel := context.WithTimeout(ctx, timeout)
-			go func() {
-				<-deadlineCtx.Done()
-				if errors.Is(deadlineCtx.Err(), context.DeadlineExceeded) {
-					t.Stop(errors.New("execution timeout"))
-				}
-			}()
-			defer cancel()
-			tracer = t
 		}
+		deadlineCtx, cancel := context.WithTimeout(ctx, timeout)
+		go func() {
+			<-deadlineCtx.Done()
+			if errors.Is(deadlineCtx.Err(), context.DeadlineExceeded) {
+				t.Stop(errors.New("execution timeout"))
+			}
+		}()
+		defer cancel()
+		tracer = t
+
 	default:
 		tracer = logger.NewStructLogger(config.Config)
 	}
