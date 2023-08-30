@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -221,11 +222,13 @@ func TestTraceTransaction(t *testing.T) {
 	blk, err := bc.MintNewBlock(blk1Time)
 	require.NoError(err)
 	require.NoError(bc.CommitBlock(blk))
-	cfg := &logger.Config{
-		EnableMemory:     true,
-		DisableStack:     false,
-		DisableStorage:   false,
-		EnableReturnData: true,
+	cfg := &tracers.TraceConfig{
+		Config: &logger.Config{
+			EnableMemory:     true,
+			DisableStack:     false,
+			DisableStorage:   false,
+			EnableReturnData: true,
+		},
 	}
 	retval, receipt, traces, err := svr.TraceTransaction(ctx, hex.EncodeToString(tsfhash[:]), cfg)
 	require.NoError(err)
@@ -233,7 +236,7 @@ func TestTraceTransaction(t *testing.T) {
 	require.Equal(uint64(1), receipt.Status)
 	require.Equal(uint64(0x2710), receipt.GasConsumed)
 	require.Empty(receipt.ExecutionRevertMsg())
-	require.Equal(0, len(traces.StructLogs()))
+	require.Equal(0, len(traces.(*logger.StructLogger).StructLogs()))
 }
 
 func TestTraceCall(t *testing.T) {
@@ -253,11 +256,13 @@ func TestTraceCall(t *testing.T) {
 	blk, err := bc.MintNewBlock(blk1Time)
 	require.NoError(err)
 	require.NoError(bc.CommitBlock(blk))
-	cfg := &logger.Config{
-		EnableMemory:     true,
-		DisableStack:     false,
-		DisableStorage:   false,
-		EnableReturnData: true,
+	cfg := &tracers.TraceConfig{
+		Config: &logger.Config{
+			EnableMemory:     true,
+			DisableStack:     false,
+			DisableStorage:   false,
+			EnableReturnData: true,
+		},
 	}
 	retval, receipt, traces, err := svr.TraceCall(ctx,
 		identityset.Address(29), blk.Height(),
@@ -269,7 +274,7 @@ func TestTraceCall(t *testing.T) {
 	require.Equal(uint64(1), receipt.Status)
 	require.Equal(uint64(0x2710), receipt.GasConsumed)
 	require.Empty(receipt.ExecutionRevertMsg())
-	require.Equal(0, len(traces.StructLogs()))
+	require.Equal(0, len(traces.(*logger.StructLogger).StructLogs()))
 }
 
 func TestProofAndCompareReverseActions(t *testing.T) {

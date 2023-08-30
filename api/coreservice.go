@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -59,9 +60,18 @@ import (
 	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+
+	// Force-load the tracer engines to trigger registration
+	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
+	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
 )
 
 const _workerNumbers int = 5
+const (
+	// defaultTraceTimeout is the amount of time a single transaction can execute
+	// by default before being forcefully aborted.
+	defaultTraceTimeout = 5 * time.Second
+)
 
 type (
 	// CoreService provides api interface for user to interact with blockchain data
@@ -146,7 +156,7 @@ type (
 		// BlockHashByBlockHeight returns block hash by block height
 		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
 		// TraceTransaction returns the trace result of a transaction
-		TraceTransaction(ctx context.Context, actHash string, config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error)
+		TraceTransaction(ctx context.Context, actHash string, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error)
 		// TraceCall returns the trace result of a call
 		TraceCall(ctx context.Context,
 			callerAddr address.Address,
@@ -156,7 +166,7 @@ type (
 			amount *big.Int,
 			gasLimit uint64,
 			data []byte,
-			config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error)
+			config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error)
 
 		// Track tracks the api call
 		Track(ctx context.Context, start time.Time, method string, size int64, success bool)
@@ -1638,7 +1648,7 @@ func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
 }
 
 // TraceTransaction returns the trace result of transaction
-func (core *coreService) TraceTransaction(ctx context.Context, actHash string, config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error) {
+func (core *coreService) TraceTransaction(ctx context.Context, actHash string, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
 	actInfo, err := core.Action(util.Remove0xPrefix(actHash), false)
 	if err != nil {
 		return nil, nil, nil, err
@@ -1651,15 +1661,11 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	if !ok {
 		return nil, nil, nil, errors.New("the type of action is not supported")
 	}
-	traces := logger.NewStructLogger(config)
-	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
-		Debug:     true,
-		Tracer:    traces,
-		NoBaseFee: true,
-	})
 	addr, _ := address.FromString(address.ZeroAddress)
-	retval, receipt, err := core.SimulateExecution(ctx, addr, sc)
-	return retval, receipt, traces, err
+	retval, receipt, tracer, err := core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
+		return core.SimulateExecution(ctx, addr, sc)
+	})
+	return retval, receipt, tracer, err
 }
 
 // TraceCall returns the trace result of call
@@ -1671,7 +1677,7 @@ func (core *coreService) TraceCall(ctx context.Context,
 	amount *big.Int,
 	gasLimit uint64,
 	data []byte,
-	config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error) {
+	config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
 	var (
 		blkHash hash.Hash256
 		err     error
@@ -1684,12 +1690,6 @@ func (core *coreService) TraceCall(ctx context.Context,
 	if gasLimit == 0 {
 		gasLimit = core.bc.Genesis().BlockGasLimit
 	}
-	traces := logger.NewStructLogger(config)
-	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
-		Debug:     true,
-		Tracer:    traces,
-		NoBaseFee: true,
-	})
 	ctx, err = core.bc.Context(ctx)
 	if err != nil {
 		return nil, nil, nil, err
@@ -1715,8 +1715,10 @@ func (core *coreService) TraceCall(ctx context.Context,
 	getblockHash := func(height uint64) (hash.Hash256, error) {
 		return blkHash, nil
 	}
-	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, exec, getblockHash)
-	return retval, receipt, traces, err
+	retval, receipt, tracer, err := core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
+		return core.sf.SimulateExecution(ctx, callerAddr, exec, getblockHash)
+	})
+	return retval, receipt, tracer, err
 }
 
 // Track tracks the api call
@@ -1730,4 +1732,45 @@ func (core *coreService) Track(ctx context.Context, start time.Time, method stri
 		HandlingTime: elapsed,
 		Success:      success,
 	}, size)
+}
+
+func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig, simulateFn func(ctx context.Context) ([]byte, *action.Receipt, error)) ([]byte, *action.Receipt, any, error) {
+	var (
+		tracer vm.EVMLogger
+		err    error
+	)
+	switch {
+	case config == nil:
+		tracer = logger.NewStructLogger(nil)
+	case config.Tracer != nil:
+		// Define a meaningful timeout of a single transaction trace
+		timeout := defaultTraceTimeout
+		if config.Timeout != nil {
+			if timeout, err = time.ParseDuration(*config.Timeout); err != nil {
+				return nil, nil, nil, err
+			}
+		}
+		if t, err := tracers.New(*config.Tracer, new(tracers.Context)); err != nil {
+			return nil, nil, nil, err
+		} else {
+			deadlineCtx, cancel := context.WithTimeout(ctx, timeout)
+			go func() {
+				<-deadlineCtx.Done()
+				if errors.Is(deadlineCtx.Err(), context.DeadlineExceeded) {
+					t.Stop(errors.New("execution timeout"))
+				}
+			}()
+			defer cancel()
+			tracer = t
+		}
+	default:
+		tracer = logger.NewStructLogger(config.Config)
+	}
+	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
+		Debug:     true,
+		Tracer:    tracer,
+		NoBaseFee: true,
+	})
+	retval, receipt, err := simulateFn(ctx)
+	return retval, receipt, tracer, err
 }

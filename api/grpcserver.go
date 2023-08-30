@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
@@ -656,17 +657,21 @@ func (svr *gRPCHandler) ReadContractStorage(ctx context.Context, in *iotexapi.Re
 
 // TraceTransactionStructLogs get trace transaction struct logs
 func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iotexapi.TraceTransactionStructLogsRequest) (*iotexapi.TraceTransactionStructLogsResponse, error) {
-	cfg := &logger.Config{
-		EnableMemory:     true,
-		DisableStack:     false,
-		DisableStorage:   false,
-		EnableReturnData: true,
+	cfg := &tracers.TraceConfig{
+		Config: &logger.Config{
+			EnableMemory:     true,
+			DisableStack:     false,
+			DisableStorage:   false,
+			EnableReturnData: true,
+		},
 	}
-	_, _, traces, err := svr.coreService.TraceTransaction(ctx, in.GetActionHash(), cfg)
+	_, _, tracer, err := svr.coreService.TraceTransaction(ctx, in.GetActionHash(), cfg)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	structLogs := make([]*iotextypes.TransactionStructLog, 0)
+	//grpc not support javascript tracing, so we only return native traces
+	traces := tracer.(*logger.StructLogger)
 	for _, log := range traces.StructLogs() {
 		var stack []string
 		for _, s := range log.Stack {
