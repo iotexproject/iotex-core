@@ -8,6 +8,7 @@ package contractstaking
 import (
 	"context"
 	"math/big"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -76,10 +77,12 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	stake(r, handler, owner, delegate, 1, 10, 100, height)
 	err = indexer.commit(handler, height)
 	r.NoError(err)
-	buckets, err := indexer.Buckets()
+	buckets, err := indexer.Buckets(height)
 	r.NoError(err)
 	r.EqualValues(1, len(buckets))
-	r.EqualValues(1, indexer.TotalBucketCount())
+	tbc, err := indexer.TotalBucketCount(height)
+	r.EqualValues(1, tbc)
+	r.NoError(err)
 	h, err := indexer.Height()
 	r.NoError(err)
 	r.EqualValues(height, h)
@@ -92,7 +95,7 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	r.NoError(newIndexer.Start(context.Background()))
 
 	// check cache
-	newBuckets, err := newIndexer.Buckets()
+	newBuckets, err := newIndexer.Buckets(height)
 	r.NoError(err)
 	r.Equal(len(buckets), len(newBuckets))
 	for i := range buckets {
@@ -102,7 +105,9 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	r.NoError(err)
 	r.Equal(height, newHeight)
 	r.Equal(startHeight, newIndexer.StartHeight())
-	r.EqualValues(1, newIndexer.TotalBucketCount())
+	tbc, err = newIndexer.TotalBucketCount(height)
+	r.EqualValues(1, tbc)
+	r.NoError(err)
 	r.NoError(newIndexer.Stop(context.Background()))
 }
 
@@ -155,16 +160,16 @@ func TestContractStakingIndexerThreadSafe(t *testing.T) {
 		go func() {
 			defer wait.Done()
 			for i := 0; i < 1000; i++ {
-				_, err := indexer.Buckets()
+				_, err := indexer.Buckets(0)
 				r.NoError(err)
-				_, err = indexer.BucketTypes()
+				_, err = indexer.BucketTypes(0)
 				r.NoError(err)
-				_, err = indexer.BucketsByCandidate(delegate)
+				_, err = indexer.BucketsByCandidate(delegate, 0)
 				r.NoError(err)
-				indexer.CandidateVotes(delegate)
+				indexer.CandidateVotes(delegate, 0)
 				_, err = indexer.Height()
 				r.NoError(err)
-				indexer.TotalBucketCount()
+				indexer.TotalBucketCount(0)
 			}
 		}()
 	}
@@ -224,7 +229,7 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 	}
 	err = indexer.commit(handler, height)
 	r.NoError(err)
-	bucketTypes, err := indexer.BucketTypes()
+	bucketTypes, err := indexer.BucketTypes(height)
 	r.NoError(err)
 	r.Equal(len(bucketTypeData), len(bucketTypes))
 	for _, bt := range bucketTypes {
@@ -240,7 +245,7 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 	}
 	err = indexer.commit(handler, height)
 	r.NoError(err)
-	bucketTypes, err = indexer.BucketTypes()
+	bucketTypes, err = indexer.BucketTypes(height)
 	r.NoError(err)
 	r.Equal(len(bucketTypeData)-2, len(bucketTypes))
 	for _, bt := range bucketTypes {
@@ -256,7 +261,7 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 	}
 	err = indexer.commit(handler, height)
 	r.NoError(err)
-	bucketTypes, err = indexer.BucketTypes()
+	bucketTypes, err = indexer.BucketTypes(height)
 	r.NoError(err)
 	r.Equal(len(bucketTypeData), len(bucketTypes))
 	for _, bt := range bucketTypes {
@@ -307,7 +312,8 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	stake(r, handler, owner, delegate, 1, 10, 100, height)
 	r.NoError(err)
 	r.NoError(indexer.commit(handler, height))
-	bucket, ok := indexer.Bucket(1)
+	bucket, ok, err := indexer.Bucket(1, height)
+	r.NoError(err)
 	r.True(ok)
 	r.EqualValues(1, bucket.Index)
 	r.EqualValues(owner, bucket.Owner)
@@ -319,8 +325,12 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.EqualValues(height, bucket.CreateBlockHeight)
 	r.EqualValues(maxBlockNumber, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(_testStakingContractAddress, bucket.ContractAddress)
-	r.EqualValues(10, indexer.CandidateVotes(delegate).Uint64())
-	r.EqualValues(1, indexer.TotalBucketCount())
+	votes, err := indexer.CandidateVotes(delegate, height)
+	r.NoError(err)
+	r.EqualValues(10, votes.Uint64())
+	tbc, err := indexer.TotalBucketCount(height)
+	r.NoError(err)
+	r.EqualValues(1, tbc)
 
 	// transfer
 	newOwner := identityset.Address(2)
@@ -328,7 +338,8 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	handler = newContractStakingEventHandler(indexer.cache)
 	transfer(r, handler, newOwner, int64(bucket.Index))
 	r.NoError(indexer.commit(handler, height))
-	bucket, ok = indexer.Bucket(bucket.Index)
+	bucket, ok, err = indexer.Bucket(bucket.Index, height)
+	r.NoError(err)
 	r.True(ok)
 	r.EqualValues(newOwner, bucket.Owner)
 
@@ -337,7 +348,8 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	handler = newContractStakingEventHandler(indexer.cache)
 	unlock(r, handler, int64(bucket.Index), height)
 	r.NoError(indexer.commit(handler, height))
-	bucket, ok = indexer.Bucket(bucket.Index)
+	bucket, ok, err = indexer.Bucket(bucket.Index, height)
+	r.NoError(err)
 	r.True(ok)
 	r.EqualValues(1, bucket.Index)
 	r.EqualValues(newOwner, bucket.Owner)
@@ -349,15 +361,20 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.EqualValues(createHeight, bucket.CreateBlockHeight)
 	r.EqualValues(maxBlockNumber, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(_testStakingContractAddress, bucket.ContractAddress)
-	r.EqualValues(10, indexer.CandidateVotes(delegate).Uint64())
-	r.EqualValues(1, indexer.TotalBucketCount())
+	votes, err = indexer.CandidateVotes(delegate, height)
+	r.NoError(err)
+	r.EqualValues(10, votes.Uint64())
+	tbc, err = indexer.TotalBucketCount(height)
+	r.NoError(err)
+	r.EqualValues(1, tbc)
 
 	// lock again
 	height++
 	handler = newContractStakingEventHandler(indexer.cache)
 	lock(r, handler, int64(bucket.Index), int64(10))
 	r.NoError(indexer.commit(handler, height))
-	bucket, ok = indexer.Bucket(bucket.Index)
+	bucket, ok, err = indexer.Bucket(bucket.Index, height)
+	r.NoError(err)
 	r.True(ok)
 	r.EqualValues(1, bucket.Index)
 	r.EqualValues(newOwner, bucket.Owner)
@@ -369,8 +386,12 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.EqualValues(createHeight, bucket.CreateBlockHeight)
 	r.EqualValues(maxBlockNumber, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(_testStakingContractAddress, bucket.ContractAddress)
-	r.EqualValues(10, indexer.CandidateVotes(delegate).Uint64())
-	r.EqualValues(1, indexer.TotalBucketCount())
+	votes, err = indexer.CandidateVotes(delegate, height)
+	r.NoError(err)
+	r.EqualValues(10, votes.Uint64())
+	tbc, err = indexer.TotalBucketCount(height)
+	r.NoError(err)
+	r.EqualValues(1, tbc)
 
 	// unstake
 	height++
@@ -378,7 +399,8 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	unlock(r, handler, int64(bucket.Index), height)
 	unstake(r, handler, int64(bucket.Index), height)
 	r.NoError(indexer.commit(handler, height))
-	bucket, ok = indexer.Bucket(bucket.Index)
+	bucket, ok, err = indexer.Bucket(bucket.Index, height)
+	r.NoError(err)
 	r.True(ok)
 	r.EqualValues(1, bucket.Index)
 	r.EqualValues(newOwner, bucket.Owner)
@@ -390,18 +412,27 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.EqualValues(createHeight, bucket.CreateBlockHeight)
 	r.EqualValues(height, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(_testStakingContractAddress, bucket.ContractAddress)
-	r.EqualValues(0, indexer.CandidateVotes(delegate).Uint64())
-	r.EqualValues(1, indexer.TotalBucketCount())
+	votes, err = indexer.CandidateVotes(delegate, height)
+	r.NoError(err)
+	r.EqualValues(0, votes.Uint64())
+	tbc, err = indexer.TotalBucketCount(height)
+	r.NoError(err)
+	r.EqualValues(1, tbc)
 
 	// withdraw
 	height++
 	handler = newContractStakingEventHandler(indexer.cache)
 	withdraw(r, handler, int64(bucket.Index))
 	r.NoError(indexer.commit(handler, height))
-	bucket, ok = indexer.Bucket(bucket.Index)
+	bucket, ok, err = indexer.Bucket(bucket.Index, height)
+	r.NoError(err)
 	r.False(ok)
-	r.EqualValues(0, indexer.CandidateVotes(delegate).Uint64())
-	r.EqualValues(1, indexer.TotalBucketCount())
+	votes, err = indexer.CandidateVotes(delegate, height)
+	r.NoError(err)
+	r.EqualValues(0, votes.Uint64())
+	tbc, err = indexer.TotalBucketCount(height)
+	r.NoError(err)
+	r.EqualValues(1, tbc)
 }
 
 func TestContractStakingIndexerChangeBucketType(t *testing.T) {
@@ -439,12 +470,14 @@ func TestContractStakingIndexerChangeBucketType(t *testing.T) {
 		stake(r, handler, owner, delegate, 1, 10, 100, height)
 		r.NoError(err)
 		r.NoError(indexer.commit(handler, height))
-		bucket, ok := indexer.Bucket(1)
+		bucket, ok, err := indexer.Bucket(1, height)
+		r.NoError(err)
 		r.True(ok)
 
 		expandBucketType(r, handler, int64(bucket.Index), 20, 100)
 		r.NoError(indexer.commit(handler, height))
-		bucket, ok = indexer.Bucket(bucket.Index)
+		bucket, ok, err = indexer.Bucket(bucket.Index, height)
+		r.NoError(err)
 		r.True(ok)
 		r.EqualValues(20, bucket.StakedAmount.Int64())
 		r.EqualValues(100, bucket.StakedDurationBlockNumber)
@@ -499,7 +532,7 @@ func TestContractStakingIndexerReadBuckets(t *testing.T) {
 	r.NoError(indexer.commit(handler, height))
 
 	t.Run("Buckets", func(t *testing.T) {
-		buckets, err := indexer.Buckets()
+		buckets, err := indexer.Buckets(height)
 		r.NoError(err)
 		r.Len(buckets, len(stakeData))
 	})
@@ -510,7 +543,7 @@ func TestContractStakingIndexerReadBuckets(t *testing.T) {
 			candidateMap[stakeData[i].delegate]++
 		}
 		for cand := range candidateMap {
-			buckets, err := indexer.BucketsByCandidate(identityset.Address(cand))
+			buckets, err := indexer.BucketsByCandidate(identityset.Address(cand), height)
 			r.NoError(err)
 			r.Len(buckets, candidateMap[cand])
 		}
@@ -518,7 +551,7 @@ func TestContractStakingIndexerReadBuckets(t *testing.T) {
 
 	t.Run("BucketsByIndices", func(t *testing.T) {
 		indices := []uint64{0, 1, 2, 3, 4, 5, 6}
-		buckets, err := indexer.BucketsByIndices(indices)
+		buckets, err := indexer.BucketsByIndices(indices, height)
 		r.NoError(err)
 		expectedLen := 0
 		for _, idx := range indices {
@@ -530,7 +563,9 @@ func TestContractStakingIndexerReadBuckets(t *testing.T) {
 	})
 
 	t.Run("TotalBucketCount", func(t *testing.T) {
-		r.EqualValues(len(stakeData), indexer.TotalBucketCount())
+		tbc, err := indexer.TotalBucketCount(height)
+		r.NoError(err)
+		r.EqualValues(len(stakeData), tbc)
 	})
 
 	t.Run("CandidateVotes", func(t *testing.T) {
@@ -541,7 +576,9 @@ func TestContractStakingIndexerReadBuckets(t *testing.T) {
 		candidates := []int{1, 2, 3}
 		for _, cand := range candidates {
 			votes := candidateMap[cand]
-			r.EqualValues(votes, indexer.CandidateVotes(identityset.Address(cand)).Uint64())
+			cvotes, err := indexer.CandidateVotes(identityset.Address(cand), height)
+			r.NoError(err)
+			r.EqualValues(votes, cvotes.Uint64())
 		}
 	})
 }
@@ -571,27 +608,39 @@ func TestContractStakingIndexerCacheClean(t *testing.T) {
 	stake(r, handler, owner, delegate1, 2, 20, 20, height)
 	stake(r, handler, owner, delegate2, 3, 20, 20, height)
 	stake(r, handler, owner, delegate2, 4, 20, 20, height)
-	r.Len(indexer.cache.ActiveBucketTypes(), 0)
-	r.Len(indexer.cache.Buckets(), 0)
+	abt, err := indexer.cache.ActiveBucketTypes(height - 1)
+	r.NoError(err)
+	r.Len(abt, 0)
+	bts, err := indexer.cache.Buckets(height - 1)
+	r.NoError(err)
+	r.Len(bts, 0)
 	r.NoError(indexer.commit(handler, height))
-	r.Len(indexer.cache.ActiveBucketTypes(), 2)
-	r.Len(indexer.cache.Buckets(), 4)
+	abt, err = indexer.cache.ActiveBucketTypes(height)
+	r.NoError(err)
+	r.Len(abt, 2)
+	bts, err = indexer.cache.Buckets(height)
+	r.NoError(err)
+	r.Len(bts, 4)
 
 	height++
 	handler = newContractStakingEventHandler(indexer.cache)
 	changeDelegate(r, handler, delegate1, 3)
 	transfer(r, handler, delegate1, 1)
-	bt, ok := indexer.Bucket(3)
+	bt, ok, err := indexer.Bucket(3, height-1)
+	r.NoError(err)
 	r.True(ok)
 	r.Equal(delegate2.String(), bt.Candidate.String())
-	bt, ok = indexer.Bucket(1)
+	bt, ok, err = indexer.Bucket(1, height-1)
+	r.NoError(err)
 	r.True(ok)
 	r.Equal(owner.String(), bt.Owner.String())
 	r.NoError(indexer.commit(handler, height))
-	bt, ok = indexer.Bucket(3)
+	bt, ok, err = indexer.Bucket(3, height)
+	r.NoError(err)
 	r.True(ok)
 	r.Equal(delegate1.String(), bt.Candidate.String())
-	bt, ok = indexer.Bucket(1)
+	bt, ok, err = indexer.Bucket(1, height)
+	r.NoError(err)
 	r.True(ok)
 	r.Equal(delegate1.String(), bt.Owner.String())
 }
@@ -624,17 +673,26 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	stake(r, handler, owner, delegate2, 3, 20, 20, height)
 	stake(r, handler, owner, delegate2, 4, 20, 20, height)
 	r.NoError(indexer.commit(handler, height))
-	r.EqualValues(30, indexer.CandidateVotes(delegate1).Uint64())
-	r.EqualValues(40, indexer.CandidateVotes(delegate2).Uint64())
-	r.EqualValues(0, indexer.CandidateVotes(owner).Uint64())
+	votes, err := indexer.CandidateVotes(delegate1, height)
+	r.NoError(err)
+	r.EqualValues(30, votes.Uint64())
+	votes, err = indexer.CandidateVotes(delegate2, height)
+	r.NoError(err)
+	r.EqualValues(40, votes.Uint64())
+	votes, err = indexer.CandidateVotes(owner, height)
+	r.EqualValues(0, votes.Uint64())
 
 	// change delegate bucket 3 to delegate1
 	height++
 	handler = newContractStakingEventHandler(indexer.cache)
 	changeDelegate(r, handler, delegate1, 3)
 	r.NoError(indexer.commit(handler, height))
-	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
-	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
+	votes, err = indexer.CandidateVotes(delegate1, height)
+	r.NoError(err)
+	r.EqualValues(50, votes.Uint64())
+	votes, err = indexer.CandidateVotes(delegate2, height)
+	r.NoError(err)
+	r.EqualValues(20, votes.Uint64())
 
 	// unlock bucket 1 & 4
 	height++
@@ -642,8 +700,12 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	unlock(r, handler, 1, height)
 	unlock(r, handler, 4, height)
 	r.NoError(indexer.commit(handler, height))
-	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
-	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
+	votes, err = indexer.CandidateVotes(delegate1, height)
+	r.NoError(err)
+	r.EqualValues(50, votes.Uint64())
+	votes, err = indexer.CandidateVotes(delegate2, height)
+	r.NoError(err)
+	r.EqualValues(20, votes.Uint64())
 
 	// unstake bucket 1 & lock 4
 	height++
@@ -651,24 +713,36 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	unstake(r, handler, 1, height)
 	lock(r, handler, 4, 20)
 	r.NoError(indexer.commit(handler, height))
-	r.EqualValues(40, indexer.CandidateVotes(delegate1).Uint64())
-	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
+	votes, err = indexer.CandidateVotes(delegate1, height)
+	r.NoError(err)
+	r.EqualValues(40, votes.Uint64())
+	votes, err = indexer.CandidateVotes(delegate2, height)
+	r.NoError(err)
+	r.EqualValues(20, votes.Uint64())
 
 	// expand bucket 2
 	height++
 	handler = newContractStakingEventHandler(indexer.cache)
 	expandBucketType(r, handler, 2, 30, 20)
 	r.NoError(indexer.commit(handler, height))
-	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
-	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
+	votes, err = indexer.CandidateVotes(delegate1, height)
+	r.NoError(err)
+	r.EqualValues(50, votes.Uint64())
+	votes, err = indexer.CandidateVotes(delegate2, height)
+	r.NoError(err)
+	r.EqualValues(20, votes.Uint64())
 
 	// transfer bucket 4
 	height++
 	handler = newContractStakingEventHandler(indexer.cache)
 	transfer(r, handler, delegate2, 4)
 	r.NoError(indexer.commit(handler, height))
-	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
-	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
+	votes, err = indexer.CandidateVotes(delegate1, height)
+	r.NoError(err)
+	r.EqualValues(50, votes.Uint64())
+	votes, err = indexer.CandidateVotes(delegate2, height)
+	r.NoError(err)
+	r.EqualValues(20, votes.Uint64())
 
 	// create bucket 5, 6, 7
 	height++
@@ -677,16 +751,24 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	stake(r, handler, owner, delegate2, 6, 20, 20, height)
 	stake(r, handler, owner, delegate2, 7, 20, 20, height)
 	r.NoError(indexer.commit(handler, height))
-	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
-	r.EqualValues(80, indexer.CandidateVotes(delegate2).Uint64())
+	votes, err = indexer.CandidateVotes(delegate1, height)
+	r.NoError(err)
+	r.EqualValues(50, votes.Uint64())
+	votes, err = indexer.CandidateVotes(delegate2, height)
+	r.NoError(err)
+	r.EqualValues(80, votes.Uint64())
 
 	// merge bucket 5, 6, 7
 	height++
 	handler = newContractStakingEventHandler(indexer.cache)
 	mergeBuckets(r, handler, []int64{5, 6, 7}, 60, 20)
 	r.NoError(indexer.commit(handler, height))
-	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
-	r.EqualValues(80, indexer.CandidateVotes(delegate2).Uint64())
+	votes, err = indexer.CandidateVotes(delegate1, height)
+	r.NoError(err)
+	r.EqualValues(50, votes.Uint64())
+	votes, err = indexer.CandidateVotes(delegate2, height)
+	r.NoError(err)
+	r.EqualValues(80, votes.Uint64())
 
 	// unlock & unstake 5
 	height++
@@ -694,8 +776,12 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	unlock(r, handler, 5, height)
 	unstake(r, handler, 5, height)
 	r.NoError(indexer.commit(handler, height))
-	r.EqualValues(50, indexer.CandidateVotes(delegate1).Uint64())
-	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
+	votes, err = indexer.CandidateVotes(delegate1, height)
+	r.NoError(err)
+	r.EqualValues(50, votes.Uint64())
+	votes, err = indexer.CandidateVotes(delegate2, height)
+	r.NoError(err)
+	r.EqualValues(20, votes.Uint64())
 
 	// create & merge bucket 8, 9, 10
 	height++
@@ -705,8 +791,12 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	stake(r, handler, owner, delegate2, 10, 20, 20, height)
 	mergeBuckets(r, handler, []int64{8, 9, 10}, 60, 20)
 	r.NoError(indexer.commit(handler, height))
-	r.EqualValues(110, indexer.CandidateVotes(delegate1).Uint64())
-	r.EqualValues(20, indexer.CandidateVotes(delegate2).Uint64())
+	votes, err = indexer.CandidateVotes(delegate1, height)
+	r.NoError(err)
+	r.EqualValues(110, votes.Uint64())
+	votes, err = indexer.CandidateVotes(delegate2, height)
+	r.NoError(err)
+	r.EqualValues(20, votes.Uint64())
 
 	t.Run("Height", func(t *testing.T) {
 		h, err := indexer.Height()
@@ -715,7 +805,7 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	})
 
 	t.Run("BucketTypes", func(t *testing.T) {
-		bts, err := indexer.BucketTypes()
+		bts, err := indexer.BucketTypes(height)
 		r.NoError(err)
 		r.Len(bts, 4)
 		slices.SortFunc(bts, func(i, j *staking.ContractStakingBucketType) bool {
@@ -732,7 +822,7 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	})
 
 	t.Run("Buckets", func(t *testing.T) {
-		bts, err := indexer.Buckets()
+		bts, err := indexer.Buckets(height)
 		r.NoError(err)
 		r.Len(bts, 6)
 		slices.SortFunc(bts, func(i, j *staking.VoteBucket) bool {
@@ -802,7 +892,7 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	})
 
 	t.Run("BucketsByCandidate", func(t *testing.T) {
-		d1Bts, err := indexer.BucketsByCandidate(delegate1)
+		d1Bts, err := indexer.BucketsByCandidate(delegate1, height)
 		r.NoError(err)
 		r.Len(d1Bts, 4)
 		slices.SortFunc(d1Bts, func(i, j *staking.VoteBucket) bool {
@@ -812,7 +902,7 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 		r.EqualValues(2, d1Bts[1].Index)
 		r.EqualValues(3, d1Bts[2].Index)
 		r.EqualValues(8, d1Bts[3].Index)
-		d2Bts, err := indexer.BucketsByCandidate(delegate2)
+		d2Bts, err := indexer.BucketsByCandidate(delegate2, height)
 		r.NoError(err)
 		r.Len(d2Bts, 2)
 		slices.SortFunc(d2Bts, func(i, j *staking.VoteBucket) bool {
@@ -823,10 +913,93 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	})
 
 	t.Run("BucketsByIndices", func(t *testing.T) {
-		bts, err := indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5, 8})
+		bts, err := indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5, 8}, height)
 		r.NoError(err)
 		r.Len(bts, 6)
 	})
+}
+
+func TestIndexer_ReadHeightRestriction(t *testing.T) {
+	r := require.New(t)
+
+	cases := []struct {
+		startHeight uint64
+		height      uint64
+		readHeight  uint64
+		valid       bool
+	}{
+		{0, 0, 0, true},
+		{0, 0, 1, false},
+		{0, 2, 0, true},
+		{0, 2, 1, true},
+		{0, 2, 2, true},
+		{0, 2, 3, false},
+		{10, 0, 0, true},
+		{10, 0, 1, true},
+		{10, 0, 9, true},
+		{10, 0, 10, false},
+		{10, 0, 11, false},
+		{10, 10, 0, true},
+		{10, 10, 1, true},
+		{10, 10, 9, true},
+		{10, 10, 10, true},
+		{10, 10, 11, false},
+	}
+
+	for idx, c := range cases {
+		name := strconv.FormatInt(int64(idx), 10)
+		t.Run(name, func(t *testing.T) {
+			// Create a new Indexer
+			height := c.height
+			startHeight := c.startHeight
+			cfg := config.Default.DB
+			dbPath, err := testutil.PathOfTempFile("db")
+			r.NoError(err)
+			cfg.DbPath = dbPath
+			indexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), identityset.Address(1).String(), startHeight)
+			r.NoError(err)
+			r.NoError(indexer.Start(context.Background()))
+			defer func() {
+				r.NoError(indexer.Stop(context.Background()))
+				testutil.CleanupPath(dbPath)
+			}()
+			indexer.cache.putHeight(height)
+			// check read api
+			h := c.readHeight
+			delegate := identityset.Address(1)
+			if c.valid {
+				_, err = indexer.Buckets(h)
+				r.NoError(err)
+				_, err = indexer.BucketTypes(h)
+				r.NoError(err)
+				_, err = indexer.BucketsByCandidate(delegate, h)
+				r.NoError(err)
+				_, err = indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5, 8}, h)
+				r.NoError(err)
+				_, err = indexer.CandidateVotes(delegate, h)
+				r.NoError(err)
+				_, _, err = indexer.Bucket(1, h)
+				r.NoError(err)
+				_, err = indexer.TotalBucketCount(h)
+				r.NoError(err)
+			} else {
+				_, err = indexer.Buckets(h)
+				r.ErrorIs(err, ErrInvalidHeight)
+				_, err = indexer.BucketTypes(h)
+				r.ErrorIs(err, ErrInvalidHeight)
+				_, err = indexer.BucketsByCandidate(delegate, h)
+				r.ErrorIs(err, ErrInvalidHeight)
+				_, err = indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5, 8}, h)
+				r.ErrorIs(err, ErrInvalidHeight)
+				_, err = indexer.CandidateVotes(delegate, h)
+				r.ErrorIs(err, ErrInvalidHeight)
+				_, _, err = indexer.Bucket(1, h)
+				r.ErrorIs(err, ErrInvalidHeight)
+				_, err = indexer.TotalBucketCount(h)
+				r.ErrorIs(err, ErrInvalidHeight)
+			}
+		})
+	}
 }
 
 func TestIndexer_PutBlock(t *testing.T) {

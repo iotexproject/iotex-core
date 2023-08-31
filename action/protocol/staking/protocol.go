@@ -467,6 +467,10 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
+	srHeight, err := sr.Height()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get StateReader height")
+	}
 	c, err := ConstructBaseView(sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
@@ -476,7 +480,14 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	for i := range list {
 		if p.contractStakingIndexer != nil && featureCtx.AddContractStakingVotes {
-			list[i].Votes.Add(list[i].Votes, p.contractStakingIndexer.CandidateVotes(list[i].Owner))
+			// specifying the height param instead of query latest from indexer directly, aims to cause error when indexer falls behind
+			// currently there are two possible sr (i.e. factory or workingSet), it means the height could be chain height or current block height
+			// using height-1 will cover the two scenario while detect whether the indexer is lagging behind
+			contractVotes, err := p.contractStakingIndexer.CandidateVotes(list[i].Owner, srHeight-1)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to get CandidateVotes from contractStakingIndexer")
+			}
+			list[i].Votes.Add(list[i].Votes, contractVotes)
 		}
 		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {
 			cand = append(cand, list[i])

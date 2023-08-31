@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -15,63 +17,69 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
+func checkCacheCandidateVotes(r *require.Assertions, cache *contractStakingCache, height uint64, addr address.Address, expectVotes int64) {
+	votes, err := cache.CandidateVotes(addr, height)
+	r.NoError(err)
+	r.EqualValues(expectVotes, votes.Int64())
+}
+
 func TestContractStakingCache_CandidateVotes(t *testing.T) {
 	require := require.New(t)
 	cache := newContractStakingCache("")
 
 	// no bucket
-	require.EqualValues(0, cache.CandidateVotes(identityset.Address(1)).Int64())
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(1), 0)
 
 	// one bucket
 	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
 	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	require.EqualValues(100, cache.CandidateVotes(identityset.Address(1)).Int64())
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(1), 100)
 
 	// two buckets
 	cache.PutBucketInfo(2, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	require.EqualValues(200, cache.CandidateVotes(identityset.Address(1)).Int64())
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(1), 200)
 
 	// add one bucket with different delegate
 	cache.PutBucketInfo(3, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(2)})
-	require.EqualValues(200, cache.CandidateVotes(identityset.Address(1)).Int64())
-	require.EqualValues(100, cache.CandidateVotes(identityset.Address(3)).Int64())
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(1), 200)
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(3), 100)
 
 	// add one bucket with different owner
 	cache.PutBucketInfo(4, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(4)})
-	require.EqualValues(300, cache.CandidateVotes(identityset.Address(1)).Int64())
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(1), 300)
 
 	// add one bucket with different amount
 	cache.PutBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 100, ActivatedAt: 1})
 	cache.PutBucketInfo(5, &bucketInfo{TypeIndex: 2, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	require.EqualValues(500, cache.CandidateVotes(identityset.Address(1)).Int64())
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(1), 500)
 
 	// add one bucket with different duration
 	cache.PutBucketType(3, &BucketType{Amount: big.NewInt(300), Duration: 200, ActivatedAt: 1})
 	cache.PutBucketInfo(6, &bucketInfo{TypeIndex: 3, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	require.EqualValues(800, cache.CandidateVotes(identityset.Address(1)).Int64())
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(1), 800)
 
 	// add one bucket that is unstaked
 	cache.PutBucketInfo(7, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: 1, UnstakedAt: 1, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	require.EqualValues(800, cache.CandidateVotes(identityset.Address(1)).Int64())
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(1), 800)
 
 	// add one bucket that is unlocked and staked
 	cache.PutBucketInfo(8, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: 100, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	require.EqualValues(900, cache.CandidateVotes(identityset.Address(1)).Int64())
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(1), 900)
 
 	// change delegate of bucket 1
 	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(2)})
-	require.EqualValues(800, cache.CandidateVotes(identityset.Address(1)).Int64())
-	require.EqualValues(200, cache.CandidateVotes(identityset.Address(3)).Int64())
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(1), 800)
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(3), 200)
 
 	// change owner of bucket 1
 	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(4)})
-	require.EqualValues(800, cache.CandidateVotes(identityset.Address(1)).Int64())
-	require.EqualValues(200, cache.CandidateVotes(identityset.Address(3)).Int64())
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(1), 800)
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(3), 200)
 
 	// change amount of bucket 1
 	cache.putBucketInfo(1, &bucketInfo{TypeIndex: 2, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(4)})
-	require.EqualValues(800, cache.CandidateVotes(identityset.Address(1)).Int64())
-	require.EqualValues(300, cache.CandidateVotes(identityset.Address(3)).Int64())
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(1), 800)
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(3), 300)
 }
 
 func TestContractStakingCache_Buckets(t *testing.T) {
@@ -79,54 +87,71 @@ func TestContractStakingCache_Buckets(t *testing.T) {
 	contractAddr := identityset.Address(27).String()
 	cache := newContractStakingCache(contractAddr)
 
+	height := uint64(0)
 	// no bucket
-	require.Empty(cache.Buckets())
+	bts, err := cache.Buckets(height)
+	require.NoError(err)
+	require.Empty(bts)
 
 	// add one bucket
 	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
 	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	buckets := cache.Buckets()
+	buckets, err := cache.Buckets(height)
+	require.NoError(err)
 	require.Len(buckets, 1)
 	checkVoteBucket(require, buckets[0], 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
-	bucket, ok := cache.Bucket(1)
+	bucket, ok, err := cache.Bucket(1, height)
+	require.NoError(err)
 	require.True(ok)
 	checkVoteBucket(require, bucket, 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
 
 	// add one bucket with different index
 	cache.PutBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 200, ActivatedAt: 1})
 	cache.PutBucketInfo(2, &bucketInfo{TypeIndex: 2, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(4)})
-	bucketMaps := bucketsToMap(cache.Buckets())
+	bts, err = cache.Buckets(height)
+	require.NoError(err)
+	bucketMaps := bucketsToMap(bts)
 	require.Len(bucketMaps, 2)
 	checkVoteBucket(require, bucketMaps[1], 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
 	checkVoteBucket(require, bucketMaps[2], 2, identityset.Address(3).String(), identityset.Address(4).String(), 200, 200, 1, 1, maxBlockNumber, true, contractAddr)
-	bucket, ok = cache.Bucket(1)
+	bucket, ok, err = cache.Bucket(1, height)
+	require.NoError(err)
 	require.True(ok)
 	checkVoteBucket(require, bucket, 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
-	bucket, ok = cache.Bucket(2)
+	bucket, ok, err = cache.Bucket(2, height)
+	require.NoError(err)
 	require.True(ok)
 	checkVoteBucket(require, bucket, 2, identityset.Address(3).String(), identityset.Address(4).String(), 200, 200, 1, 1, maxBlockNumber, true, contractAddr)
 
 	// update delegate of bucket 2
 	cache.PutBucketInfo(2, &bucketInfo{TypeIndex: 2, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(5), Owner: identityset.Address(4)})
-	bucketMaps = bucketsToMap(cache.Buckets())
+	bts, err = cache.Buckets(height)
+	require.NoError(err)
+	bucketMaps = bucketsToMap(bts)
 	require.Len(bucketMaps, 2)
 	checkVoteBucket(require, bucketMaps[1], 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
 	checkVoteBucket(require, bucketMaps[2], 2, identityset.Address(5).String(), identityset.Address(4).String(), 200, 200, 1, 1, maxBlockNumber, true, contractAddr)
-	bucket, ok = cache.Bucket(1)
+	bucket, ok, err = cache.Bucket(1, height)
+	require.NoError(err)
 	require.True(ok)
 	checkVoteBucket(require, bucket, 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
-	bucket, ok = cache.Bucket(2)
+	bucket, ok, err = cache.Bucket(2, height)
+	require.NoError(err)
 	require.True(ok)
 	checkVoteBucket(require, bucket, 2, identityset.Address(5).String(), identityset.Address(4).String(), 200, 200, 1, 1, maxBlockNumber, true, contractAddr)
 
 	// delete bucket 1
 	cache.DeleteBucketInfo(1)
-	bucketMaps = bucketsToMap(cache.Buckets())
+	bts, err = cache.Buckets(height)
+	require.NoError(err)
+	bucketMaps = bucketsToMap(bts)
 	require.Len(bucketMaps, 1)
 	checkVoteBucket(require, bucketMaps[2], 2, identityset.Address(5).String(), identityset.Address(4).String(), 200, 200, 1, 1, maxBlockNumber, true, contractAddr)
-	_, ok = cache.Bucket(1)
+	_, ok, err = cache.Bucket(1, height)
+	require.NoError(err)
 	require.False(ok)
-	bucket, ok = cache.Bucket(2)
+	bucket, ok, err = cache.Bucket(2, height)
+	require.NoError(err)
 	require.True(ok)
 	checkVoteBucket(require, bucket, 2, identityset.Address(5).String(), identityset.Address(4).String(), 200, 200, 1, 1, maxBlockNumber, true, contractAddr)
 }
@@ -136,49 +161,67 @@ func TestContractStakingCache_BucketsByCandidate(t *testing.T) {
 	contractAddr := identityset.Address(27).String()
 	cache := newContractStakingCache(contractAddr)
 
+	height := uint64(0)
 	// no bucket
-	buckets := cache.BucketsByCandidate(identityset.Address(1))
+	buckets, err := cache.BucketsByCandidate(identityset.Address(1), height)
+	require.NoError(err)
 	require.Len(buckets, 0)
 
 	// one bucket
 	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
 	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	bucketMaps := bucketsToMap(cache.BucketsByCandidate(identityset.Address(1)))
+	bts, err := cache.BucketsByCandidate(identityset.Address(1), height)
+	require.NoError(err)
+	bucketMaps := bucketsToMap(bts)
 	require.Len(bucketMaps, 1)
 	checkVoteBucket(require, bucketMaps[1], 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
 
 	// two buckets
 	cache.PutBucketInfo(2, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	bucketMaps = bucketsToMap(cache.BucketsByCandidate(identityset.Address(1)))
+	bts, err = cache.BucketsByCandidate(identityset.Address(1), height)
+	require.NoError(err)
+	bucketMaps = bucketsToMap(bts)
 	require.Len(bucketMaps, 2)
 	checkVoteBucket(require, bucketMaps[1], 1, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
 	checkVoteBucket(require, bucketMaps[2], 2, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
 
 	// add one bucket with different delegate
 	cache.PutBucketInfo(3, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(2)})
-	bucketMaps = bucketsToMap(cache.BucketsByCandidate(identityset.Address(1)))
+	bts, err = cache.BucketsByCandidate(identityset.Address(1), height)
+	require.NoError(err)
+	bucketMaps = bucketsToMap(bts)
 	require.Len(bucketMaps, 2)
 	require.Nil(bucketMaps[3])
-	bucketMaps = bucketsToMap(cache.BucketsByCandidate(identityset.Address(3)))
+	bts, err = cache.BucketsByCandidate(identityset.Address(3), height)
+	require.NoError(err)
+	bucketMaps = bucketsToMap(bts)
 	require.Len(bucketMaps, 1)
 	checkVoteBucket(require, bucketMaps[3], 3, identityset.Address(3).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
 
 	// change delegate of bucket 1
 	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(2)})
-	bucketMaps = bucketsToMap(cache.BucketsByCandidate(identityset.Address(1)))
+	bts, err = cache.BucketsByCandidate(identityset.Address(1), height)
+	require.NoError(err)
+	bucketMaps = bucketsToMap(bts)
 	require.Len(bucketMaps, 1)
 	require.Nil(bucketMaps[1])
 	checkVoteBucket(require, bucketMaps[2], 2, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
-	bucketMaps = bucketsToMap(cache.BucketsByCandidate(identityset.Address(3)))
+	bts, err = cache.BucketsByCandidate(identityset.Address(3), height)
+	require.NoError(err)
+	bucketMaps = bucketsToMap(bts)
 	require.Len(bucketMaps, 2)
 	checkVoteBucket(require, bucketMaps[1], 1, identityset.Address(3).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
 	checkVoteBucket(require, bucketMaps[3], 3, identityset.Address(3).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
 
 	// delete bucket 2
 	cache.DeleteBucketInfo(2)
-	bucketMaps = bucketsToMap(cache.BucketsByCandidate(identityset.Address(1)))
+	bts, err = cache.BucketsByCandidate(identityset.Address(1), height)
+	require.NoError(err)
+	bucketMaps = bucketsToMap(bts)
 	require.Len(bucketMaps, 0)
-	bucketMaps = bucketsToMap(cache.BucketsByCandidate(identityset.Address(3)))
+	bts, err = cache.BucketsByCandidate(identityset.Address(3), height)
+	require.NoError(err)
+	bucketMaps = bucketsToMap(bts)
 	require.Len(bucketMaps, 2)
 	checkVoteBucket(require, bucketMaps[1], 1, identityset.Address(3).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
 	checkVoteBucket(require, bucketMaps[3], 3, identityset.Address(3).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
@@ -190,15 +233,16 @@ func TestContractStakingCache_BucketsByIndices(t *testing.T) {
 	contractAddr := identityset.Address(27).String()
 	cache := newContractStakingCache(contractAddr)
 
+	height := uint64(0)
 	// no bucket
-	buckets, err := cache.BucketsByIndices([]uint64{1})
+	buckets, err := cache.BucketsByIndices([]uint64{1}, height)
 	require.NoError(err)
 	require.Len(buckets, 0)
 
 	// one bucket
 	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
 	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	buckets, err = cache.BucketsByIndices([]uint64{1})
+	buckets, err = cache.BucketsByIndices([]uint64{1}, height)
 	require.NoError(err)
 	require.Len(buckets, 1)
 	bucketMaps := bucketsToMap(buckets)
@@ -206,7 +250,7 @@ func TestContractStakingCache_BucketsByIndices(t *testing.T) {
 
 	// two buckets
 	cache.PutBucketInfo(2, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
-	buckets, err = cache.BucketsByIndices([]uint64{1, 2})
+	buckets, err = cache.BucketsByIndices([]uint64{1, 2}, height)
 	require.NoError(err)
 	require.Len(buckets, 2)
 	bucketMaps = bucketsToMap(buckets)
@@ -214,12 +258,12 @@ func TestContractStakingCache_BucketsByIndices(t *testing.T) {
 	checkVoteBucket(require, bucketMaps[2], 2, identityset.Address(1).String(), identityset.Address(2).String(), 100, 100, 1, 1, maxBlockNumber, true, contractAddr)
 
 	// one bucket not found
-	buckets, err = cache.BucketsByIndices([]uint64{3})
+	buckets, err = cache.BucketsByIndices([]uint64{3}, height)
 	require.NoError(err)
 	require.Len(buckets, 0)
 
 	// one bucket found, one not found
-	buckets, err = cache.BucketsByIndices([]uint64{1, 3})
+	buckets, err = cache.BucketsByIndices([]uint64{1, 3}, height)
 	require.NoError(err)
 	require.Len(buckets, 1)
 	bucketMaps = bucketsToMap(buckets)
@@ -227,7 +271,7 @@ func TestContractStakingCache_BucketsByIndices(t *testing.T) {
 
 	// delete bucket 1
 	cache.DeleteBucketInfo(1)
-	buckets, err = cache.BucketsByIndices([]uint64{1})
+	buckets, err = cache.BucketsByIndices([]uint64{1}, height)
 	require.NoError(err)
 	require.Len(buckets, 0)
 }
@@ -236,32 +280,45 @@ func TestContractStakingCache_TotalBucketCount(t *testing.T) {
 	require := require.New(t)
 	cache := newContractStakingCache("")
 
+	height := uint64(0)
 	// no bucket
-	require.EqualValues(0, cache.TotalBucketCount())
+	tbc, err := cache.TotalBucketCount(height)
+	require.NoError(err)
+	require.EqualValues(0, tbc)
 
 	// one bucket
 	cache.putTotalBucketCount(1)
-	require.EqualValues(1, cache.TotalBucketCount())
+	tbc, err = cache.TotalBucketCount(height)
+	require.NoError(err)
+	require.EqualValues(1, tbc)
 
 	// two buckets
 	cache.putTotalBucketCount(2)
-	require.EqualValues(2, cache.TotalBucketCount())
+	tbc, err = cache.TotalBucketCount(height)
+	require.NoError(err)
+	require.EqualValues(2, tbc)
 
 	// delete bucket 1
 	cache.DeleteBucketInfo(1)
-	require.EqualValues(2, cache.TotalBucketCount())
+	tbc, err = cache.TotalBucketCount(height)
+	require.NoError(err)
+	require.EqualValues(2, tbc)
 }
 
 func TestContractStakingCache_ActiveBucketTypes(t *testing.T) {
 	require := require.New(t)
 	cache := newContractStakingCache("")
 
+	height := uint64(0)
 	// no bucket type
-	require.Empty(cache.ActiveBucketTypes())
+	abt, err := cache.ActiveBucketTypes(height)
+	require.NoError(err)
+	require.Empty(abt)
 
 	// one bucket type
 	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
-	activeBucketTypes := cache.ActiveBucketTypes()
+	activeBucketTypes, err := cache.ActiveBucketTypes(height)
+	require.NoError(err)
 	require.Len(activeBucketTypes, 1)
 	require.EqualValues(100, activeBucketTypes[1].Amount.Int64())
 	require.EqualValues(100, activeBucketTypes[1].Duration)
@@ -269,7 +326,8 @@ func TestContractStakingCache_ActiveBucketTypes(t *testing.T) {
 
 	// two bucket types
 	cache.PutBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 200, ActivatedAt: 2})
-	activeBucketTypes = cache.ActiveBucketTypes()
+	activeBucketTypes, err = cache.ActiveBucketTypes(height)
+	require.NoError(err)
 	require.Len(activeBucketTypes, 2)
 	require.EqualValues(100, activeBucketTypes[1].Amount.Int64())
 	require.EqualValues(100, activeBucketTypes[1].Duration)
@@ -280,7 +338,8 @@ func TestContractStakingCache_ActiveBucketTypes(t *testing.T) {
 
 	// add one inactive bucket type
 	cache.PutBucketType(3, &BucketType{Amount: big.NewInt(300), Duration: 300, ActivatedAt: maxBlockNumber})
-	activeBucketTypes = cache.ActiveBucketTypes()
+	activeBucketTypes, err = cache.ActiveBucketTypes(height)
+	require.NoError(err)
 	require.Len(activeBucketTypes, 2)
 	require.EqualValues(100, activeBucketTypes[1].Amount.Int64())
 	require.EqualValues(100, activeBucketTypes[1].Duration)
@@ -291,7 +350,8 @@ func TestContractStakingCache_ActiveBucketTypes(t *testing.T) {
 
 	// deactivate bucket type 1
 	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: maxBlockNumber})
-	activeBucketTypes = cache.ActiveBucketTypes()
+	activeBucketTypes, err = cache.ActiveBucketTypes(height)
+	require.NoError(err)
 	require.Len(activeBucketTypes, 1)
 	require.EqualValues(200, activeBucketTypes[2].Amount.Int64())
 	require.EqualValues(200, activeBucketTypes[2].Duration)
@@ -299,7 +359,8 @@ func TestContractStakingCache_ActiveBucketTypes(t *testing.T) {
 
 	// reactivate bucket type 1
 	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
-	activeBucketTypes = cache.ActiveBucketTypes()
+	activeBucketTypes, err = cache.ActiveBucketTypes(height)
+	require.NoError(err)
 	require.Len(activeBucketTypes, 2)
 	require.EqualValues(100, activeBucketTypes[1].Amount.Int64())
 	require.EqualValues(100, activeBucketTypes[1].Duration)
@@ -321,7 +382,8 @@ func TestContractStakingCache_Merge(t *testing.T) {
 	err := cache.Merge(delta, height)
 	require.NoError(err)
 	// check that bucket type was added to cache
-	activeBucketTypes := cache.ActiveBucketTypes()
+	activeBucketTypes, err := cache.ActiveBucketTypes(height)
+	require.NoError(err)
 	require.Len(activeBucketTypes, 1)
 	require.EqualValues(100, activeBucketTypes[1].Amount.Int64())
 	require.EqualValues(100, activeBucketTypes[1].Duration)
@@ -335,7 +397,9 @@ func TestContractStakingCache_Merge(t *testing.T) {
 	err = cache.Merge(delta, height)
 	require.NoError(err)
 	// check that bucket was added to cache and vote count is correct
-	require.EqualValues(100, cache.CandidateVotes(identityset.Address(1)).Int64())
+	votes, err := cache.CandidateVotes(identityset.Address(1), height)
+	require.NoError(err)
+	require.EqualValues(100, votes.Int64())
 
 	// create delta with updated bucket delegate
 	delta = newContractStakingDelta()
@@ -344,8 +408,12 @@ func TestContractStakingCache_Merge(t *testing.T) {
 	err = cache.Merge(delta, height)
 	require.NoError(err)
 	// check that bucket delegate was updated and vote count is correct
-	require.EqualValues(0, cache.CandidateVotes(identityset.Address(1)).Int64())
-	require.EqualValues(100, cache.CandidateVotes(identityset.Address(3)).Int64())
+	votes, err = cache.CandidateVotes(identityset.Address(1), height)
+	require.NoError(err)
+	require.EqualValues(0, votes.Int64())
+	votes, err = cache.CandidateVotes(identityset.Address(3), height)
+	require.NoError(err)
+	require.EqualValues(100, votes.Int64())
 
 	// create delta with deleted bucket
 	delta = newContractStakingDelta()
@@ -354,7 +422,9 @@ func TestContractStakingCache_Merge(t *testing.T) {
 	err = cache.Merge(delta, height)
 	require.NoError(err)
 	// check that bucket was deleted from cache and vote count is 0
-	require.EqualValues(0, cache.CandidateVotes(identityset.Address(3)).Int64())
+	votes, err = cache.CandidateVotes(identityset.Address(3), height)
+	require.NoError(err)
+	require.EqualValues(0, votes.Int64())
 }
 
 func TestContractStakingCache_MatchBucketType(t *testing.T) {
@@ -396,20 +466,29 @@ func TestContractStakingCache_BucketTypeCount(t *testing.T) {
 	require := require.New(t)
 	cache := newContractStakingCache("")
 
+	height := uint64(0)
 	// no bucket type
-	require.EqualValues(0, cache.BucketTypeCount())
+	btc, err := cache.BucketTypeCount(height)
+	require.NoError(err)
+	require.EqualValues(0, btc)
 
 	// one bucket type
 	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
-	require.EqualValues(1, cache.BucketTypeCount())
+	btc, err = cache.BucketTypeCount(height)
+	require.NoError(err)
+	require.EqualValues(1, btc)
 
 	// two bucket types
 	cache.PutBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 200, ActivatedAt: 2})
-	require.EqualValues(2, cache.BucketTypeCount())
+	btc, err = cache.BucketTypeCount(height)
+	require.NoError(err)
+	require.EqualValues(2, btc)
 
 	// deactivate bucket type 1
 	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: maxBlockNumber})
-	require.EqualValues(2, cache.BucketTypeCount())
+	btc, err = cache.BucketTypeCount(height)
+	require.NoError(err)
+	require.EqualValues(2, btc)
 }
 
 func TestContractStakingCache_LoadFromDB(t *testing.T) {
@@ -426,20 +505,34 @@ func TestContractStakingCache_LoadFromDB(t *testing.T) {
 	require.NoError(kvstore.Start(context.Background()))
 	defer kvstore.Stop(context.Background())
 
+	height := uint64(0)
 	err = cache.LoadFromDB(kvstore)
 	require.NoError(err)
-	require.Equal(uint64(0), cache.TotalBucketCount())
-	require.Equal(0, len(cache.Buckets()))
-	require.EqualValues(0, cache.BucketTypeCount())
+	tbc, err := cache.TotalBucketCount(height)
+	require.NoError(err)
+	require.Equal(uint64(0), tbc)
+	bts, err := cache.Buckets(height)
+	require.NoError(err)
+	require.Equal(0, len(bts))
+	btc, err := cache.BucketTypeCount(height)
+	require.NoError(err)
+	require.EqualValues(0, btc)
 
 	// load from db with height and total bucket count
-	kvstore.Put(_StakingNS, _stakingHeightKey, byteutil.Uint64ToBytesBigEndian(12345))
+	height = 12345
+	kvstore.Put(_StakingNS, _stakingHeightKey, byteutil.Uint64ToBytesBigEndian(height))
 	kvstore.Put(_StakingNS, _stakingTotalBucketCountKey, byteutil.Uint64ToBytesBigEndian(10))
 	err = cache.LoadFromDB(kvstore)
 	require.NoError(err)
-	require.Equal(uint64(10), cache.TotalBucketCount())
-	require.Equal(0, len(cache.Buckets()))
-	require.EqualValues(0, cache.BucketTypeCount())
+	tbc, err = cache.TotalBucketCount(height)
+	require.NoError(err)
+	require.Equal(uint64(10), tbc)
+	bts, err = cache.Buckets(height)
+	require.NoError(err)
+	require.Equal(0, len(bts))
+	btc, err = cache.BucketTypeCount(height)
+	require.NoError(err)
+	require.EqualValues(0, btc)
 
 	// load from db with bucket
 	bucketInfo := &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
@@ -448,12 +541,18 @@ func TestContractStakingCache_LoadFromDB(t *testing.T) {
 	kvstore.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(1), bucketType.Serialize())
 	err = cache.LoadFromDB(kvstore)
 	require.NoError(err)
-	require.Equal(uint64(10), cache.TotalBucketCount())
+	tbc, err = cache.TotalBucketCount(height)
+	require.NoError(err)
+	require.Equal(uint64(10), tbc)
 	bi, ok := cache.BucketInfo(1)
 	require.True(ok)
-	require.Equal(1, len(cache.Buckets()))
+	bts, err = cache.Buckets(height)
+	require.NoError(err)
+	require.Equal(1, len(bts))
 	require.Equal(bucketInfo, bi)
-	require.EqualValues(1, cache.BucketTypeCount())
+	btc, err = cache.BucketTypeCount(height)
+	require.NoError(err)
+	require.EqualValues(1, btc)
 	id, bt, ok := cache.MatchBucketType(big.NewInt(100), 100)
 	require.True(ok)
 	require.EqualValues(1, id)

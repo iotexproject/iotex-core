@@ -56,7 +56,7 @@ type (
 
 	// SGDRegistry is the interface for handling Sharing of Gas-fee with DApps
 	SGDRegistry interface {
-		CheckContract(context.Context, string) (address.Address, uint64, bool, error)
+		CheckContract(context.Context, string, uint64) (address.Address, uint64, bool, error)
 	}
 )
 
@@ -313,8 +313,11 @@ func processSGD(ctx context.Context, sm protocol.StateManager, execution *action
 	if execution.Contract() == action.EmptyAddress {
 		return nil, 0, nil
 	}
-
-	receiver, percentage, ok, err := sgd.CheckContract(ctx, execution.Contract())
+	height, err := sm.Height()
+	if err != nil {
+		return nil, 0, err
+	}
+	receiver, percentage, ok, err := sgd.CheckContract(ctx, execution.Contract(), height-1)
 	if err != nil || !ok {
 		return nil, 0, err
 	}
