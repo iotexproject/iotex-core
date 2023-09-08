@@ -193,9 +193,9 @@ type (
 	SGDRegistry interface {
 		blockdao.BlockIndexerWithStart
 		// CheckContract returns the contract's eligibility for SGD and percentage
-		CheckContract(context.Context, string) (address.Address, uint64, bool, error)
+		CheckContract(context.Context, string, uint64) (address.Address, uint64, bool, error)
 		// FetchContracts returns all contracts that are eligible for SGD
-		FetchContracts(context.Context) ([]*SGDIndex, error)
+		FetchContracts(context.Context, uint64) ([]*SGDIndex, error)
 	}
 
 	sgdRegistry struct {
@@ -271,11 +271,7 @@ func (sgd *sgdRegistry) Stop(ctx context.Context) error {
 
 // Height returns the current height of the SGDIndexer
 func (sgd *sgdRegistry) Height() (uint64, error) {
-	h, err := sgd.kvStore.Get(_sgdToHeightNS, _sgdCurrentHeight)
-	if err != nil {
-		return 0, err
-	}
-	return byteutil.BytesToUint64BigEndian(h), nil
+	return sgd.height()
 }
 
 // StartHeight returns the start height of the indexer
@@ -285,9 +281,17 @@ func (sgd *sgdRegistry) StartHeight() uint64 {
 
 // PutBlock puts a block into SGDIndexer
 func (sgd *sgdRegistry) PutBlock(ctx context.Context, blk *block.Block) error {
-	if blk.Height() < sgd.startHeight {
+	expectHeight, err := sgd.expectHeight()
+	if err != nil {
+		return err
+	}
+	if blk.Height() < expectHeight {
 		return nil
 	}
+	if blk.Height() > expectHeight {
+		return errors.Errorf("invalid block height %d, expect %d", blk.Height(), expectHeight)
+	}
+
 	var (
 		r  *action.Receipt
 		ok bool
@@ -430,7 +434,10 @@ func (sgd *sgdRegistry) DeleteTipBlock(context.Context, *block.Block) error {
 }
 
 // CheckContract checks if the contract is a SGD contract
-func (sgd *sgdRegistry) CheckContract(ctx context.Context, contract string) (address.Address, uint64, bool, error) {
+func (sgd *sgdRegistry) CheckContract(ctx context.Context, contract string, height uint64) (address.Address, uint64, bool, error) {
+	if err := sgd.validateQueryHeight(height); err != nil {
+		return nil, 0, false, err
+	}
 	addr, err := address.FromString(contract)
 	if err != nil {
 		return nil, 0, false, err
@@ -458,7 +465,10 @@ func (sgd *sgdRegistry) getSGDIndex(contract []byte) (*indexpb.SGDIndex, error) 
 }
 
 // FetchContracts returns all contracts that are eligible for SGD
-func (sgd *sgdRegistry) FetchContracts(ctx context.Context) ([]*SGDIndex, error) {
+func (sgd *sgdRegistry) FetchContracts(ctx context.Context, height uint64) ([]*SGDIndex, error) {
+	if err := sgd.validateQueryHeight(height); err != nil {
+		return nil, err
+	}
 	_, values, err := sgd.kvStore.Filter(_sgdBucket, func(k, v []byte) bool { return true }, nil, nil)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
@@ -479,6 +489,45 @@ func (sgd *sgdRegistry) FetchContracts(ctx context.Context) ([]*SGDIndex, error)
 		sgdIndexes = append(sgdIndexes, sgdIndex)
 	}
 	return sgdIndexes, nil
+}
+
+func (sgd *sgdRegistry) validateQueryHeight(height uint64) error {
+	// 0 means latest height
+	if height == 0 {
+		return nil
+	}
+	// Compatible with blocks between feature hard-fork and contract deployed
+	if height < sgd.startHeight {
+		return nil
+	}
+	tipHeight, err := sgd.height()
+	if err != nil {
+		return err
+	}
+	if height != tipHeight {
+		return errors.Errorf("invalid height %d, expect %d", height, tipHeight)
+	}
+	return nil
+}
+
+func (sgd *sgdRegistry) expectHeight() (uint64, error) {
+	tipHeight, err := sgd.height()
+	if err != nil {
+		return 0, err
+	}
+	expectHeight := tipHeight + 1
+	if expectHeight < sgd.startHeight {
+		expectHeight = sgd.startHeight
+	}
+	return expectHeight, nil
+}
+
+func (sgd *sgdRegistry) height() (uint64, error) {
+	h, err := sgd.kvStore.Get(_sgdToHeightNS, _sgdCurrentHeight)
+	if err != nil {
+		return 0, err
+	}
+	return byteutil.BytesToUint64BigEndian(h), nil
 }
 
 func getReceiptsFromBlock(blk *block.Block) map[hash.Hash256]*action.Receipt {

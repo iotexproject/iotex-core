@@ -20,6 +20,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
 	rewardingabi "github.com/iotexproject/iotex-core/action/protocol/rewarding/ethabi"
@@ -379,9 +381,12 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 		return "0x" + ret, nil
 	}
 	exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
-	ret, _, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
+	ret, receipt, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
 	if err != nil {
 		return nil, err
+	}
+	if receipt != nil && len(receipt.GetExecutionRevertMsg()) > 0 {
+		return "0x" + ret, status.Error(codes.InvalidArgument, "execution reverted: "+receipt.GetExecutionRevertMsg())
 	}
 	return "0x" + ret, nil
 }

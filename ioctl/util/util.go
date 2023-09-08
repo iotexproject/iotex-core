@@ -17,6 +17,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
@@ -24,6 +25,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
@@ -153,6 +155,14 @@ func GetAddress(in string) (string, error) {
 
 // Address returns the address corresponding to alias. if 'in' is an IoTeX address, returns 'in'
 func Address(in string) (string, error) {
+	// if in is an eth address, convert it to IoTeX address
+	if common.IsHexAddress(in) {
+		add, err := address.FromHex(in)
+		if err != nil {
+			return "", output.NewError(output.AddressError, "", err)
+		}
+		return add.String(), nil
+	}
 	if len(in) >= validator.IoAddrLen {
 		if err := validator.ValidateAddress(in); err != nil {
 			return "", output.NewError(output.ValidationError, in, err)
