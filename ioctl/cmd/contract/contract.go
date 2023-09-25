@@ -64,7 +64,7 @@ func init() {
 	ContractCmd.AddCommand(_contractShareCmd)
 	ContractCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpointUsages, config.UILanguage))
-	ContractCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
+	ContractCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", !config.ReadConfig.SecureConnect,
 		config.TranslateInLang(_flagInsecureUsages, config.UILanguage))
 
 	flag.WithArgumentsFlag.RegisterCommand(_contractDeploySolCmd)

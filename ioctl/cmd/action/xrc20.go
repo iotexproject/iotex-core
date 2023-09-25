@@ -80,7 +80,7 @@ func init() {
 		config.TranslateInLang(_flagContractAddressUsages, config.UILanguage))
 	Xrc20Cmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagXrc20EndPointUsages, config.UILanguage))
-	Xrc20Cmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
+	Xrc20Cmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", !config.ReadConfig.SecureConnect,
 		config.TranslateInLang(_flagXrc20InsecureUsages, config.UILanguage))
 	if err := cobra.MarkFlagRequired(Xrc20Cmd.PersistentFlags(), "contract-address"); err != nil {
 		fmt.Printf("failed to mark flag: %v\n", err)

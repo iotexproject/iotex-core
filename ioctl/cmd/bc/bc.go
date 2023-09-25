@@ -53,13 +53,13 @@ func init() {
 	BCCmd.AddCommand(_bcDelegateCmd)
 	BCCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpointUsages, config.UILanguage))
-	BCCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
+	BCCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", !config.ReadConfig.SecureConnect,
 		config.TranslateInLang(_flagInsecureUsages, config.UILanguage))
 }
 
 // GetChainMeta gets block chain metadata
 func GetChainMeta() (*iotextypes.ChainMeta, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -75,8 +75,10 @@ func GetChainMeta() (*iotextypes.ChainMeta, error) {
 
 	response, err := cli.GetChainMeta(ctx, &request)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return nil, output.NewError(output.APIError, "check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has", nil)
+			}
 			return nil, output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return nil, output.NewError(output.NetworkError, "failed to invoke GetChainMeta api", err)
@@ -86,7 +88,7 @@ func GetChainMeta() (*iotextypes.ChainMeta, error) {
 
 // GetEpochMeta gets blockchain epoch meta
 func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -102,8 +104,10 @@ func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
 
 	response, err := cli.GetEpochMeta(ctx, request)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return nil, output.NewError(output.APIError, "check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has", nil)
+			}
 			return nil, output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return nil, output.NewError(output.NetworkError, "failed to invoke GetEpochMeta api", err)
@@ -113,7 +117,7 @@ func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
 
 // GetProbationList gets probation list
 func GetProbationList(epochNum uint64, epochStartHeight uint64) (*iotexapi.ReadStateResponse, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -135,10 +139,12 @@ func GetProbationList(epochNum uint64, epochStartHeight uint64) (*iotexapi.ReadS
 
 	response, err := cli.ReadState(ctx, request)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok && sta.Code() == codes.NotFound {
-			return nil, nil
-		} else if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.NotFound {
+				return nil, nil
+			} else if sta.Code() == codes.Unavailable {
+				return nil, output.NewError(output.APIError, "check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has", nil)
+			}
 			return nil, output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return nil, output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
@@ -151,7 +157,7 @@ func GetBucketList(
 	methodName iotexapi.ReadStakingDataMethod_Name,
 	readStakingDataRequest *iotexapi.ReadStakingDataRequest,
 ) (*iotextypes.VoteBucketList, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	conn, err := util.ConnectToEndpoint(!config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
@@ -181,8 +187,10 @@ func GetBucketList(
 
 	response, err := cli.ReadState(ctx, request)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+		if sta, ok := status.FromError(err); ok {
+			if sta.Code() == codes.Unavailable {
+				return nil, output.NewError(output.APIError, "check endpoint or secureConnect in ~/.config/ioctl/default/config.default or cmd flag value if has", nil)
+			}
 			return nil, output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return nil, output.NewError(output.NetworkError, "failed to invoke ReadState api", err)

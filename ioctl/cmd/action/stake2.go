@@ -55,7 +55,7 @@ func init() {
 	Stake2Cmd.AddCommand(_stake2RegisterCmd)
 	Stake2Cmd.AddCommand(_stake2ChangeCmd)
 	Stake2Cmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint", config.ReadConfig.Endpoint, config.TranslateInLang(_stake2FlagEndpointUsages, config.UILanguage))
-	Stake2Cmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(_stake2FlagInsecureUsages, config.UILanguage))
+	Stake2Cmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", !config.ReadConfig.SecureConnect, config.TranslateInLang(_stake2FlagInsecureUsages, config.UILanguage))
 }
 
 func parseStakeDuration(stakeDurationString string) (*big.Int, error) {
