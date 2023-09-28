@@ -1177,6 +1177,18 @@ func TestLondonEVM(t *testing.T) {
 	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
 	})
+	t.Run("push0-invalid", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/push0-invalid.json")
+	})
+}
+
+func TestShanghaiEVM(t *testing.T) {
+	t.Run("push0-valid", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/push0-valid.json")
+	})
+	t.Run("large-initcode", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/large-initcode.json")
+	})
 }
 
 func benchmarkHotContractWithFactory(b *testing.B, async bool) {
