@@ -123,7 +123,7 @@ func TestCandidateRegister(t *testing.T) {
 			SetGasPrice(test.GasPrice).
 			SetAction(cr).Build()
 		// sign
-		selp, err := Sign(elp, test.SenderKey)
+		selp, err := Sign(elp, test.SenderKey, false)
 		require.NoError(err)
 		require.NotNil(selp)
 		ser, err := proto.Marshal(selp.Proto())

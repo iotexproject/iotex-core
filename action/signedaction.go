@@ -30,7 +30,7 @@ func SignedTransfer(recipientAddr string, senderPriKey crypto.PrivateKey, nonce 
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(transfer).Build()
-	selp, err := Sign(elp, senderPriKey)
+	selp, err := Sign(elp, senderPriKey, false)
 	if err != nil {
 		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign transfer %v", elp)
 	}
@@ -48,7 +48,7 @@ func SignedExecution(contractAddr string, executorPriKey crypto.PrivateKey, nonc
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(execution).Build()
-	selp, err := Sign(elp, executorPriKey)
+	selp, err := Sign(elp, executorPriKey, false)
 	if err != nil {
 		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign execution %v", elp)
 	}
@@ -76,7 +76,7 @@ func SignedCandidateRegister(
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(cr).Build()
-	selp, err := Sign(elp, registererPriKey)
+	selp, err := Sign(elp, registererPriKey, false)
 	if err != nil {
 		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign candidate register %v", elp)
 	}
@@ -100,7 +100,7 @@ func SignedCandidateUpdate(
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(cu).Build()
-	selp, err := Sign(elp, registererPriKey)
+	selp, err := Sign(elp, registererPriKey, false)
 	if err != nil {
 		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign candidate update %v", elp)
 	}
@@ -127,7 +127,7 @@ func SignedCreateStake(nonce uint64,
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(cs).Build()
-	selp, err := Sign(elp, stakerPriKey)
+	selp, err := Sign(elp, stakerPriKey, false)
 	if err != nil {
 		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign create stake %v", elp)
 	}
@@ -163,7 +163,7 @@ func SignedReclaimStake(
 		}
 		elp = eb.SetAction(w).Build()
 	}
-	selp, err := Sign(elp, reclaimerPriKey)
+	selp, err := Sign(elp, reclaimerPriKey, false)
 	if err != nil {
 		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign reclaim stake %v", elp)
 	}
@@ -189,7 +189,7 @@ func SignedChangeCandidate(
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(cc).Build()
-	selp, err := Sign(elp, stakerPriKey)
+	selp, err := Sign(elp, stakerPriKey, false)
 	if err != nil {
 		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign change candidate %v", elp)
 	}
@@ -215,7 +215,7 @@ func SignedTransferStake(
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(ts).Build()
-	selp, err := Sign(elp, stakerPriKey)
+	selp, err := Sign(elp, stakerPriKey, false)
 	if err != nil {
 		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign transfer stake %v", elp)
 	}
@@ -241,7 +241,7 @@ func SignedDepositToStake(
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(ds).Build()
-	selp, err := Sign(elp, depositorPriKey)
+	selp, err := Sign(elp, depositorPriKey, false)
 	if err != nil {
 		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign deposit to stake %v", elp)
 	}
@@ -268,7 +268,7 @@ func SignedRestake(
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(rs).Build()
-	selp, err := Sign(elp, restakerPriKey)
+	selp, err := Sign(elp, restakerPriKey, false)
 	if err != nil {
 		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign restake %v", elp)
 	}

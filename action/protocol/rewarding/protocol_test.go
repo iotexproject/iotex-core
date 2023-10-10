@@ -378,7 +378,7 @@ func TestProtocol_Handle(t *testing.T) {
 		SetGasLimit(deposit.GasLimit()).
 		SetAction(&deposit).
 		Build()
-	se1, err := action.Sign(e1, identityset.PrivateKey(0))
+	se1, err := action.Sign(e1, identityset.PrivateKey(0), false)
 	require.NoError(t, err)
 
 	_, err = p.Handle(ctx, se1.Action(), sm)
@@ -390,7 +390,7 @@ func TestProtocol_Handle(t *testing.T) {
 	// Grant
 	// Test for createGrantRewardAction
 	e2 := createGrantRewardAction(0, uint64(0))
-	se2, err := action.Sign(e2, identityset.PrivateKey(0))
+	se2, err := action.Sign(e2, identityset.PrivateKey(0), false)
 	require.NoError(t, err)
 	ctx = protocol.WithActionCtx(
 		ctx,
@@ -426,7 +426,7 @@ func TestProtocol_Handle(t *testing.T) {
 		SetGasLimit(claim.GasLimit()).
 		SetAction(&claim).
 		Build()
-	se3, err := action.Sign(e3, identityset.PrivateKey(0))
+	se3, err := action.Sign(e3, identityset.PrivateKey(0), false)
 	require.NoError(t, err)
 	ctx = protocol.WithActionCtx(
 		ctx,

@@ -573,7 +573,7 @@ func createSignedTransfer(
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(transfer).Build()
-	selp, err := action.Sign(elp, sender.PriKey)
+	selp, err := action.Sign(elp, sender.PriKey, false)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign transfer %v", elp)
 	}
@@ -603,7 +603,7 @@ func createSignedExecution(
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(execution).Build()
-	selp, err := action.Sign(elp, executor.PriKey)
+	selp, err := action.Sign(elp, executor.PriKey, false)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign execution %v", elp)
 	}
@@ -631,7 +631,7 @@ func createSignedStake(
 		SetGasLimit(gasLimit).
 		SetAction(createStake).
 		Build()
-	selp, err := action.Sign(elp, executor.PriKey)
+	selp, err := action.Sign(elp, executor.PriKey, false)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, err
 	}

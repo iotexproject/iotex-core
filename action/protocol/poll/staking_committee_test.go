@@ -214,7 +214,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		elp := bd.SetGasLimit(uint64(100000)).
 			SetGasPrice(big.NewInt(10)).
 			SetAction(tsf).Build()
-		selp, err := action.Sign(elp, senderKey)
+		selp, err := action.Sign(elp, senderKey, false)
 		require.NoError(err)
 		require.NotNil(selp)
 		receipt, err := p.Handle(ctx, selp.Action(), nil)
@@ -234,7 +234,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		elp := bd.SetGasLimit(uint64(100000)).
 			SetGasPrice(big.NewInt(10)).
 			SetAction(act2).Build()
-		selp2, err := action.Sign(elp, senderKey)
+		selp2, err := action.Sign(elp, senderKey, false)
 		require.NoError(err)
 		require.NotNil(selp2)
 		receipt, err := p.Handle(ctx2, selp2.Action(), sm2)
@@ -264,7 +264,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		elp := bd.SetGasLimit(uint64(100000)).
 			SetGasPrice(big.NewInt(10)).
 			SetAction(act2).Build()
-		selp2, err := action.Sign(elp, senderKey)
+		selp2, err := action.Sign(elp, senderKey, false)
 		require.NoError(err)
 		require.NotNil(selp2)
 		caller := selp2.SenderAddress()
@@ -301,7 +301,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		elp := bd.SetGasLimit(uint64(100000)).
 			SetGasPrice(big.NewInt(10)).
 			SetAction(act3).Build()
-		selp3, err := action.Sign(elp, senderKey)
+		selp3, err := action.Sign(elp, senderKey, false)
 		require.NoError(err)
 		require.NotNil(selp3)
 		caller := selp3.SenderAddress()
@@ -337,7 +337,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		elp4 := bd4.SetGasLimit(uint64(100000)).
 			SetGasPrice(big.NewInt(10)).
 			SetAction(act4).Build()
-		selp4, err := action.Sign(elp4, senderKey)
+		selp4, err := action.Sign(elp4, senderKey, false)
 		require.NoError(err)
 		require.NotNil(selp4)
 		caller := selp4.SenderAddress()
@@ -373,7 +373,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		elp5 := bd5.SetGasLimit(uint64(100000)).
 			SetGasPrice(big.NewInt(10)).
 			SetAction(act5).Build()
-		selp5, err := action.Sign(elp5, senderKey)
+		selp5, err := action.Sign(elp5, senderKey, false)
 		require.NoError(err)
 		require.NotNil(selp5)
 		caller := selp5.SenderAddress()

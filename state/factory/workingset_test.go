@@ -367,7 +367,7 @@ func makeTransferAction(t *testing.T, nonce uint64) action.SealedEnvelope {
 		SetChainID(1).
 		SetVersion(1).
 		Build()
-	sevlp, err := action.Sign(evlp, identityset.PrivateKey(28))
+	sevlp, err := action.Sign(evlp, identityset.PrivateKey(28), false)
 	require.NoError(t, err)
 	return sevlp
 }
@@ -381,7 +381,7 @@ func makeRewardAction(t *testing.T) action.SealedEnvelope {
 		SetGasLimit(grant.GasLimit()).
 		SetAction(&grant).
 		Build()
-	sevlp, err := action.Sign(evlp, identityset.PrivateKey(28))
+	sevlp, err := action.Sign(evlp, identityset.PrivateKey(28), false)
 	require.NoError(t, err)
 	return sevlp
 }

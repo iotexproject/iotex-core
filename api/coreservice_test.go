@@ -20,10 +20,12 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockindex"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -210,6 +212,9 @@ func TestTraceTransaction(t *testing.T) {
 	svr, bc, _, ap, cleanCallback := setupTestCoreService()
 	defer cleanCallback()
 	ctx := context.Background()
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, bc.Genesis()), protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
 	tsf, err := action.SignedExecution(identityset.Address(29).String(),
 		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64), []byte{})
@@ -243,6 +248,9 @@ func TestTraceCall(t *testing.T) {
 	svr, bc, _, ap, cleanCallback := setupTestCoreService()
 	defer cleanCallback()
 	ctx := context.Background()
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, bc.Genesis()), protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
 	tsf, err := action.SignedExecution(identityset.Address(29).String(),
 		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64), []byte{})

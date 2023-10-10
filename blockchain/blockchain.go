@@ -384,7 +384,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	blockBuilder, err := bc.bbf.NewBlockBuilder(
 		ctx,
 		func(elp action.Envelope) (action.SealedEnvelope, error) {
-			return action.Sign(elp, minterPrivateKey)
+			return action.Sign(elp, minterPrivateKey, protocol.MustGetFeatureCtx(ctx).UseCorrectSigner)
 		},
 	)
 	if err != nil {

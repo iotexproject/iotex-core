@@ -45,6 +45,7 @@ func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvel
 	}
 
 	// Verify action using action sender's public key
+	selp.UseLondonSigner(MustGetFeatureCtx(ctx).UseCorrectSigner)
 	if err := selp.VerifySignature(); err != nil {
 		return err
 	}

@@ -259,7 +259,7 @@ func testCandidates(sf Factory, t *testing.T) {
 	elp := bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(act).Build()
-	selp, err := action.Sign(elp, identityset.PrivateKey(27))
+	selp, err := action.Sign(elp, identityset.PrivateKey(27), false)
 	require.NoError(t, err)
 	require.NotNil(t, selp)
 
@@ -472,7 +472,7 @@ func testState(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf).SetGasLimit(20000).SetNonce(1).Build()
-	selp, err := action.Sign(elp, priKeyA)
+	selp, err := action.Sign(elp, priKeyA, false)
 	require.NoError(t, err)
 	ctx = protocol.WithBlockCtx(
 		ctx,
@@ -536,7 +536,7 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf).SetGasLimit(20000).SetNonce(1).Build()
-	selp, err := action.Sign(elp, priKeyA)
+	selp, err := action.Sign(elp, priKeyA, false)
 	require.NoError(t, err)
 	ctx = protocol.WithBlockCtx(
 		ctx,
@@ -620,7 +620,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf).SetGasLimit(20000).SetNonce(1).Build()
-	selp, err := action.Sign(elp, priKeyA)
+	selp, err := action.Sign(elp, priKeyA, false)
 	require.NoError(t, err)
 	ctx = protocol.WithBlockCtx(
 		ctx,
@@ -789,7 +789,7 @@ func testNonce(ctx context.Context, sf Factory, t *testing.T) {
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tx).SetNonce(0).SetGasLimit(20000).Build()
-	selp, err := action.Sign(elp, priKeyA)
+	selp, err := action.Sign(elp, priKeyA, false)
 	require.NoError(t, err)
 
 	ctx = protocol.WithBlockCtx(ctx,
@@ -825,7 +825,7 @@ func testNonce(ctx context.Context, sf Factory, t *testing.T) {
 	require.NoError(t, err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx).SetNonce(1).SetGasLimit(20000).Build()
-	selp, err = action.Sign(elp, priKeyA)
+	selp, err = action.Sign(elp, priKeyA, false)
 	require.NoError(t, err)
 
 	blk, err := block.NewTestingBuilder().
@@ -1000,14 +1000,14 @@ func testCommit(factory Factory, t *testing.T) {
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).SetAction(tx1).Build()
-	selp1, err := action.Sign(elp, priKeyA)
+	selp1, err := action.Sign(elp, priKeyA, false)
 	require.NoError(err)
 
 	tx2, err := action.NewTransfer(uint64(1), big.NewInt(20), a, nil, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).SetAction(tx2).Build()
-	selp2, err := action.Sign(elp, priKeyB)
+	selp2, err := action.Sign(elp, priKeyB, false)
 	require.NoError(err)
 
 	blkHash, err := selp1.Hash()
@@ -1112,7 +1112,7 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).SetAction(tx1).Build()
-	selp1, err := action.Sign(elp, priKeyA)
+	selp1, err := action.Sign(elp, priKeyA, false)
 	require.NoError(err)
 	accMap[identityset.Address(28).String()] = []action.SealedEnvelope{selp1}
 
@@ -1125,7 +1125,7 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 	require.NoError(err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).SetAction(tx2).Build()
-	selp2, err := action.Sign(elp, priKeyB)
+	selp2, err := action.Sign(elp, priKeyB, false)
 	require.NoError(err)
 	accMap[identityset.Address(29).String()] = []action.SealedEnvelope{selp2}
 	ctrl := gomock.NewController(t)

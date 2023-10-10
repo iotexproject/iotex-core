@@ -44,7 +44,7 @@ func TestExecutionSignVerify(t *testing.T) {
 	require.Equal(ex, ex2)
 
 	// sign the Execution
-	selp, err := Sign(elp, executorKey)
+	selp, err := Sign(elp, executorKey, false)
 	require.NoError(err)
 	require.NotNil(selp)
 	require.EqualValues(21, ex.BasicActionSize())

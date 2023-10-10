@@ -355,7 +355,7 @@ func SendAction(client ioctl.Client,
 		elp.SetNonce(nonce)
 	}
 
-	sealed, err := action.Sign(elp, sk)
+	sealed, err := action.Sign(elp, sk, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to sign action")
 	}

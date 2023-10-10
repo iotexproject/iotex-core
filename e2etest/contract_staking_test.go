@@ -1989,7 +1989,7 @@ func deployContracts(
 		SetGasLimit(gasLimit).
 		SetGasPrice(gasPrice).
 		Build()
-	selp, err := action.Sign(elp, sk)
+	selp, err := action.Sign(elp, sk, false)
 	r.NoError(err)
 	err = ap.Add(context.Background(), selp)
 	r.NoError(err)
@@ -2053,7 +2053,7 @@ func writeContract(bc blockchain.Blockchain,
 			SetGasLimit(gasLimit).
 			SetGasPrice(gasPrice).
 			Build()
-		selp, err := action.Sign(elp, sk)
+		selp, err := action.Sign(elp, sk, false)
 		r.NoError(err)
 		err = ap.Add(context.Background(), selp)
 		r.NoError(err)

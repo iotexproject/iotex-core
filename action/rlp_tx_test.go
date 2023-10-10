@@ -79,7 +79,7 @@ func TestGenerateRlp(t *testing.T) {
 			require.Contains(err.Error(), v.err)
 			continue
 		}
-		h, err := rlpSignedHash(tx, _evmNetworkID, v.sig)
+		h, err := rlpSignedHash(tx, _evmNetworkID, v.sig, false)
 		if err != nil {
 			require.Contains(err.Error(), v.err)
 		}
@@ -354,6 +354,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		require.NoError(err)
 		require.True(bytes.Equal(rawHash[:], raw[:]))
 		require.NotEqual(raw, h)
+		selp.UseLondonSigner(true)
 		require.NoError(selp.VerifySignature())
 	}
 }

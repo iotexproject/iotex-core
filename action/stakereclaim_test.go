@@ -69,7 +69,7 @@ func TestUnstakeSignVerify(t *testing.T) {
 		SetGasPrice(_gasprice).
 		SetAction(stake).Build()
 	// sign
-	selp, err := Sign(elp, _senderKey)
+	selp, err := Sign(elp, _senderKey, false)
 	require.NoError(err)
 	require.NotNil(selp)
 	ser, err := proto.Marshal(selp.Proto())
@@ -138,7 +138,7 @@ func TestWithdrawSignVerify(t *testing.T) {
 		SetGasPrice(_gasprice).
 		SetAction(stake).Build()
 	// sign
-	selp, err := Sign(elp, _senderKey)
+	selp, err := Sign(elp, _senderKey, false)
 	require.NoError(err)
 	require.NotNil(selp)
 	ser, err := proto.Marshal(selp.Proto())

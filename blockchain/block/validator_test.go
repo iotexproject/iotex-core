@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -27,6 +28,9 @@ func TestValidator(t *testing.T) {
 	require := require.New(t)
 
 	ctx := context.Background()
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, genesis.Default), protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
 	blk := &Block{}
 
 	v := NewValidator(nil)

@@ -48,7 +48,7 @@ func TestClient(t *testing.T) {
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).SetAction(tx).Build()
-	selp, err := action.Sign(elp, priKeyA)
+	selp, err := action.Sign(elp, priKeyA, false)
 	require.NoError(err)
 
 	bc := mock_blockchain.NewMockBlockchain(mockCtrl)

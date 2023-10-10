@@ -91,7 +91,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			SetGasLimit(uint64(100000)).
 			SetNonce(3).
 			SetAction(v).Build()
-		selp, err := action.Sign(elp, identityset.PrivateKey(28))
+		selp, err := action.Sign(elp, identityset.PrivateKey(28), false)
 		require.NoError(err)
 		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
 		require.NoError(err)
@@ -104,7 +104,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		elp := bd.SetGasPrice(big.NewInt(10)).
 			SetGasLimit(uint64(10)).
 			SetAction(v).Build()
-		selp, err := action.Sign(elp, identityset.PrivateKey(28))
+		selp, err := action.Sign(elp, identityset.PrivateKey(28), false)
 		require.NoError(err)
 		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
 		require.NoError(err)
@@ -120,7 +120,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			SetGasLimit(uint64(100000)).
 			SetNonce(1).
 			SetAction(v).Build()
-		selp, err := action.Sign(elp, identityset.PrivateKey(27))
+		selp, err := action.Sign(elp, identityset.PrivateKey(27), false)
 		require.NoError(err)
 		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
 		require.NoError(err)
@@ -136,7 +136,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			SetNonce(1).
 			SetGasLimit(uint64(100000)).
 			SetAction(&gr).Build()
-		selp, err := action.Sign(elp, identityset.PrivateKey(28))
+		selp, err := action.Sign(elp, identityset.PrivateKey(28), false)
 		require.NoError(err)
 		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
 		require.NoError(err)
@@ -151,7 +151,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			SetNonce(1).
 			SetGasLimit(uint64(100000)).
 			SetAction(v).Build()
-		selp, err := action.Sign(elp, identityset.PrivateKey(28))
+		selp, err := action.Sign(elp, identityset.PrivateKey(28), false)
 		require.NoError(err)
 		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
 		require.NoError(err)
@@ -166,7 +166,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		elp := bd.SetAction(v).SetGasLimit(100000).
 			SetGasPrice(big.NewInt(10)).
 			SetNonce(1).Build()
-		selp, err := action.Sign(elp, identityset.PrivateKey(27))
+		selp, err := action.Sign(elp, identityset.PrivateKey(27), false)
 		require.NoError(err)
 		require.Error(valid.Validate(ctx, selp))
 	})

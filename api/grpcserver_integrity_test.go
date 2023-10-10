@@ -1306,16 +1306,19 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 	}
 	coreService.messageBatcher = nil
 
+	ctx := context.Background()
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, cfg.genesis), protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
 	for i, test := range _sendActionTests {
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
-		res, err := grpcHandler.SendAction(context.Background(), request)
+		res, err := grpcHandler.SendAction(ctx, request)
 		require.NoError(err)
 		require.Equal(i+1, broadcastHandlerCount)
 		require.Equal(test.actionHash, res.ActionHash)
 	}
 
 	// 3 failure cases
-	ctx := context.Background()
 	tests := []struct {
 		cfg    func() testConfig
 		action *iotextypes.Action
@@ -2417,6 +2420,9 @@ func TestGrpcServer_GetActPoolActionsIntegrity(t *testing.T) {
 	cfg := newConfig()
 	cfg.api.GRPCPort = testutil.RandomPort()
 	ctx := genesis.WithGenesisContext(context.Background(), cfg.genesis)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
 	svr, _, _, _, _, actPool, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -2605,8 +2611,12 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 				testutil.CleanupPath(file)
 			}()
 
+			ctx := context.Background()
+			ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, cfg.genesis), protocol.BlockCtx{
+				BlockHeight: 1,
+			}))
 			for _, action := range test.actions {
-				_, err = grpcHandler.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: action})
+				_, err = grpcHandler.SendAction(ctx, &iotexapi.SendActionRequest{Action: action})
 				if err != nil {
 					break
 				}
@@ -2646,7 +2656,11 @@ func TestGrpcServer_TraceTransactionStructLogsIntegrity(t *testing.T) {
 	data, _ := hex.DecodeString(contractCode)
 	ex1, err := action.SignedExecution(action.EmptyAddress, identityset.PrivateKey(13), 1, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
 	require.NoError(err)
-	actPool.Add(context.Background(), ex1)
+	ctx := context.Background()
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, cfg.genesis), protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
+	actPool.Add(ctx, ex1)
 	require.NoError(err)
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)

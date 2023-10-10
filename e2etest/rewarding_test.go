@@ -519,7 +519,7 @@ func injectClaim(
 		SetGasLimit(100000).
 		SetAction(&act).Build()
 
-	selp, err := action.Sign(elp, beneficiaryPri)
+	selp, err := action.Sign(elp, beneficiaryPri, false)
 	require.NoError(t, err)
 
 	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(retryInterval)*time.Second), uint64(retryNum))

@@ -196,7 +196,7 @@ func makeBlock(tb testing.TB, n int) *Block {
 			SetNonce(tsf.Nonce()).
 			SetVersion(1).
 			Build()
-		sevlp, err := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()))
+		sevlp, err := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()), false)
 		require.NoError(tb, err)
 		sevlps = append(sevlps, sevlp)
 	}

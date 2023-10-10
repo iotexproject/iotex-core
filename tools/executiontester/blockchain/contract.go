@@ -230,7 +230,7 @@ func (c *contract) Transact(data []byte, readOnly bool) (string, error) {
 		return "", crypto.ErrInvalidKey
 	}
 	defer prvKey.Zero()
-	selp, err := action.Sign(elp, prvKey)
+	selp, err := action.Sign(elp, prvKey, false)
 	prvKey.Zero()
 	if err != nil {
 		return "", err

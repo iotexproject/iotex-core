@@ -111,7 +111,7 @@ func makeBody() (body Body, err error) {
 		SetAction(v).
 		SetAction(t).Build()
 
-	selp, err := action.Sign(elp, identityset.PrivateKey(28))
+	selp, err := action.Sign(elp, identityset.PrivateKey(28), false)
 	if err != nil {
 		return
 	}

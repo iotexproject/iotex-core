@@ -55,6 +55,9 @@ func TestStakingContract(t *testing.T) {
 		registry := svr.ChainService(chainID).Registry()
 		require.NotNil(bc)
 		require.NotNil(registry)
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, bc.Genesis()), protocol.BlockCtx{
+			BlockHeight: bc.TipHeight(),
+		}))
 		admin := identityset.PrivateKey(26)
 		state0 := hash.BytesToHash160(identityset.Address(26).Bytes())
 		s := &state.Account{}
@@ -70,7 +73,7 @@ func TestStakingContract(t *testing.T) {
 
 		deployHash, err := ex.Hash()
 		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), ex))
+		require.NoError(ap.Add(ctx, ex))
 		blk, err := bc.MintNewBlock(fixedTime)
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
@@ -93,7 +96,7 @@ func TestStakingContract(t *testing.T) {
 				require.True(len(data) > 0)
 				ex, err := action.SignedExecution(r.ContractAddress, sk, nonce+1, fixedAmount, 1000000, big.NewInt(testutil.TestGasPriceInt64), data)
 				require.NoError(err)
-				require.NoError(ap.Add(context.Background(), ex))
+				require.NoError(ap.Add(ctx, ex))
 			}
 			blk, err = bc.MintNewBlock(fixedTime)
 			require.NoError(err)

@@ -105,7 +105,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 			SetNonce(uint64(i) + 1).
 			SetGasLimit(100000).
 			SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).Build()
-		selp1, err := action.Sign(elp1, identityset.PrivateKey(0))
+		selp1, err := action.Sign(elp1, identityset.PrivateKey(0), false)
 		require.NoError(t, err)
 
 		require.NoError(t, ap.Add(context.Background(), selp1))

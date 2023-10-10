@@ -16,8 +16,10 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -25,6 +27,9 @@ import (
 
 func addTestingTsfBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	ctx := context.Background()
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, bc.Genesis()), protocol.BlockCtx{
+		BlockHeight: bc.TipHeight() + 1,
+	}))
 	addOneTx := func(tx action.SealedEnvelope, err error) error {
 		if err != nil {
 			return err

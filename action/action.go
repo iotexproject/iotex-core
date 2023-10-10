@@ -38,12 +38,13 @@ type (
 )
 
 // Sign signs the action using sender's private key
-func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
+func Sign(act Envelope, sk crypto.PrivateKey, useLondonSigner bool) (SealedEnvelope, error) {
 	sealed := SealedEnvelope{
 		Envelope:  act,
 		srcPubkey: sk.PublicKey(),
 	}
 
+	sealed.UseLondonSigner(useLondonSigner)
 	h, err := sealed.envelopeHash()
 	if err != nil {
 		return sealed, errors.Wrap(err, "failed to generate envelope hash")

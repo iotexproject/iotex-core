@@ -33,7 +33,7 @@ func TestActionIterator(t *testing.T) {
 	elp := bd.SetNonce(1).
 		SetGasPrice(big.NewInt(13)).
 		SetAction(tsf1).Build()
-	selp1, err := action.Sign(elp, priKeyA)
+	selp1, err := action.Sign(elp, priKeyA, false)
 	require.NoError(err)
 
 	tsf2, err := action.NewTransfer(uint64(2), big.NewInt(100), "2", nil, uint64(0), big.NewInt(30))
@@ -42,7 +42,7 @@ func TestActionIterator(t *testing.T) {
 	elp = bd.SetNonce(2).
 		SetGasPrice(big.NewInt(30)).
 		SetAction(tsf2).Build()
-	selp2, err := action.Sign(elp, priKeyA)
+	selp2, err := action.Sign(elp, priKeyA, false)
 	require.NoError(err)
 
 	accMap[a.String()] = []action.SealedEnvelope{selp1, selp2}
@@ -53,7 +53,7 @@ func TestActionIterator(t *testing.T) {
 	elp = bd.SetNonce(1).
 		SetGasPrice(big.NewInt(15)).
 		SetAction(tsf3).Build()
-	selp3, err := action.Sign(elp, priKeyB)
+	selp3, err := action.Sign(elp, priKeyB, false)
 	require.NoError(err)
 
 	tsf4, err := action.NewTransfer(uint64(2), big.NewInt(100), "3", nil, uint64(0), big.NewInt(10))
@@ -62,7 +62,7 @@ func TestActionIterator(t *testing.T) {
 	elp = bd.SetNonce(2).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(tsf4).Build()
-	selp4, err := action.Sign(elp, priKeyB)
+	selp4, err := action.Sign(elp, priKeyB, false)
 	require.NoError(err)
 
 	tsf5, err := action.NewTransfer(uint64(3), big.NewInt(100), a.String(), nil, uint64(0), big.NewInt(2))
@@ -71,7 +71,7 @@ func TestActionIterator(t *testing.T) {
 	elp = bd.SetNonce(3).
 		SetGasPrice(big.NewInt(20)).
 		SetAction(tsf5).Build()
-	selp5, err := action.Sign(elp, priKeyB)
+	selp5, err := action.Sign(elp, priKeyB, false)
 	require.NoError(err)
 
 	accMap[b.String()] = []action.SealedEnvelope{selp3, selp4, selp5}
@@ -82,7 +82,7 @@ func TestActionIterator(t *testing.T) {
 	elp = bd.SetNonce(1).
 		SetGasPrice(big.NewInt(5)).
 		SetAction(tsf6).Build()
-	selp6, err := action.Sign(elp, priKeyC)
+	selp6, err := action.Sign(elp, priKeyC, false)
 	require.NoError(err)
 
 	accMap[c.String()] = []action.SealedEnvelope{selp6}
@@ -112,7 +112,7 @@ func BenchmarkLooping(b *testing.B) {
 		elp := bd.SetNonce(1).
 			SetGasPrice(big.NewInt(5)).
 			SetAction(tsf).Build()
-		selp, err := action.Sign(elp, priKey)
+		selp, err := action.Sign(elp, priKey, false)
 		require.NoError(b, err)
 		accMap[addr.String()] = []action.SealedEnvelope{selp}
 	}

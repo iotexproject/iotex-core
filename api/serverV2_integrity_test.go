@@ -72,6 +72,9 @@ var (
 
 func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	ctx := context.Background()
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, bc.Genesis()), protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
 	addr0 := identityset.Address(27).String()
 	addr1 := identityset.Address(28).String()
 	addr2 := identityset.Address(29).String()
@@ -225,7 +228,11 @@ func deployContractV2(bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool a
 	if err != nil {
 		return "", err
 	}
-	if err := actPool.Add(context.Background(), ex1); err != nil {
+	ctx := context.Background()
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, bc.Genesis()), protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
+	if err := actPool.Add(ctx, ex1); err != nil {
 		return "", err
 	}
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
@@ -445,6 +452,9 @@ func createServerV2(cfg testConfig, needActPool bool) (*ServerV2, blockchain.Blo
 	if needActPool {
 		// Add actions to actpool
 		ctx = protocol.WithRegistry(ctx, registry)
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, bc.Genesis()), protocol.BlockCtx{
+			BlockHeight: 1,
+		}))
 		if err := addActsToActPool(ctx, ap); err != nil {
 			return nil, nil, nil, nil, nil, nil, "", err
 		}

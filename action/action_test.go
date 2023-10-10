@@ -29,7 +29,7 @@ func TestActionProtoAndVerify(t *testing.T) {
 			SetGasLimit(uint64(100000)).
 			SetAction(v).Build()
 
-		selp, err := Sign(elp, identityset.PrivateKey(28))
+		selp, err := Sign(elp, identityset.PrivateKey(28), false)
 		require.NoError(err)
 		require.Equal(65, len(selp.SrcPubkey().Bytes()))
 		require.NoError(selp.VerifySignature())
@@ -49,7 +49,7 @@ func TestActionProtoAndVerify(t *testing.T) {
 			SetGasLimit(uint64(100000)).
 			SetAction(v).Build()
 
-		selp, err := Sign(elp, identityset.PrivateKey(28))
+		selp, err := Sign(elp, identityset.PrivateKey(28), false)
 		require.NoError(err)
 
 		selp.srcPubkey = nil
@@ -62,7 +62,7 @@ func TestActionProtoAndVerify(t *testing.T) {
 			SetGasLimit(uint64(100000)).
 			SetAction(v).Build()
 
-		selp, err := Sign(elp, identityset.PrivateKey(28))
+		selp, err := Sign(elp, identityset.PrivateKey(28), false)
 		require.NoError(err)
 		selp.signature = []byte("invalid signature")
 		require.Equal(ErrInvalidSender, errors.Cause(selp.VerifySignature()))
@@ -112,20 +112,20 @@ func TestIsSystemAction(t *testing.T) {
 	cf := ClaimFromRewardingFundBuilder{}
 	actClaimFromRewarding := cf.Build()
 	act := builder.SetAction(&actClaimFromRewarding).Build()
-	sel, err := Sign(act, identityset.PrivateKey(1))
+	sel, err := Sign(act, identityset.PrivateKey(1), false)
 	require.NoError(err)
 	require.False(IsSystemAction(sel))
 
 	gb := GrantRewardBuilder{}
 	actGrantReward := gb.Build()
 	act = builder.SetAction(&actGrantReward).Build()
-	sel, err = Sign(act, identityset.PrivateKey(1))
+	sel, err = Sign(act, identityset.PrivateKey(1), false)
 	require.NoError(err)
 	require.True(IsSystemAction(sel))
 
 	actPollResult := NewPutPollResult(1, 1, nil)
 	act = builder.SetAction(actPollResult).Build()
-	sel, err = Sign(act, identityset.PrivateKey(1))
+	sel, err = Sign(act, identityset.PrivateKey(1), false)
 	require.NoError(err)
 	require.True(IsSystemAction(sel))
 }

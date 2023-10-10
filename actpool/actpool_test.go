@@ -161,6 +161,9 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf2))
 	require.NoError(ap.Add(ctx, tsf3))
@@ -244,7 +247,7 @@ func TestActPool_AddActs(t *testing.T) {
 	elp := bd.SetNonce(4).
 		SetAction(replaceTransfer).
 		SetGasLimit(100000).Build()
-	selp, err := action.Sign(elp, _priKey1)
+	selp, err := action.Sign(elp, _priKey1, false)
 
 	require.NoError(err)
 
@@ -277,7 +280,7 @@ func TestActPool_AddActs(t *testing.T) {
 		SetGasPrice(big.NewInt(10)).
 		SetGasLimit(10).
 		SetAction(creationExecution).Build()
-	selp, err = action.Sign(elp, _priKey1)
+	selp, err = action.Sign(elp, _priKey1, false)
 	require.NoError(err)
 
 	err = ap.Add(ctx, selp)
@@ -297,6 +300,9 @@ func TestActPool_PickActs(t *testing.T) {
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
 	createActPool := func(cfg Config) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
 		// Create actpool
 		Ap, err := NewActPool(genesis.Default, sf, cfg)
@@ -403,6 +409,9 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	}).Times(5)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf2))
 	require.NoError(ap.Add(ctx, tsf3))
@@ -511,6 +520,9 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
 	require.NoError(ap1.Add(ctx, tsf1))
 	require.NoError(ap1.Add(ctx, tsf2))
 	err = ap1.Add(ctx, tsf3)
@@ -735,7 +747,7 @@ func TestActPool_Reset(t *testing.T) {
 	elp := bd.SetNonce(3).
 		SetGasLimit(20000).
 		SetAction(tsf23).Build()
-	selp23, err := action.Sign(elp, _priKey4)
+	selp23, err := action.Sign(elp, _priKey4, false)
 	require.NoError(err)
 
 	tsf24, err := action.SignedTransfer(_addr5, _priKey5, uint64(1), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
@@ -749,7 +761,7 @@ func TestActPool_Reset(t *testing.T) {
 	elp = bd.SetNonce(3).
 		SetGasLimit(20000).
 		SetAction(tsf26).Build()
-	selp26, err := action.Sign(elp, _priKey5)
+	selp26, err := action.Sign(elp, _priKey5, false)
 	require.NoError(err)
 
 	require.NoError(ap1.Add(ctx, tsf21))
@@ -820,6 +832,9 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	}).Times(5)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf2))
 	require.NoError(ap.Add(ctx, tsf3))
@@ -871,6 +886,9 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf3))
 	require.NoError(ap.Add(ctx, tsf4))
@@ -919,6 +937,9 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	}).Times(6)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf3))
 	require.NoError(ap.Add(ctx, tsf4))
@@ -1020,6 +1041,9 @@ func TestActPool_GetSize(t *testing.T) {
 	}).Times(5)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf2))
 	require.NoError(ap.Add(ctx, tsf3))
@@ -1097,6 +1121,9 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 
 	// A send action tsf1 with nonce 1, B send action tsf2 with nonce 1
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf2))
 

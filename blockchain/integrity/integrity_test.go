@@ -737,7 +737,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 		SetNonce(1).
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
-	selp1, err := action.Sign(elp1, identityset.PrivateKey(0))
+	selp1, err := action.Sign(elp1, identityset.PrivateKey(0), false)
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(ctx, selp1))
 	// This execution should not be included in block because block is out of gas
@@ -745,7 +745,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 		SetNonce(2).
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
-	selp2, err := action.Sign(elp2, identityset.PrivateKey(0))
+	selp2, err := action.Sign(elp2, identityset.PrivateKey(0), false)
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(ctx, selp2))
 
@@ -1875,7 +1875,7 @@ func deployXrc20(bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.Act
 		SetNonce(3).
 		SetGasLimit(1000000).
 		SetGasPrice(big.NewInt(testutil.TestGasPriceInt64)).Build()
-	selp, err := action.Sign(elp, genesisPriKey)
+	selp, err := action.Sign(elp, genesisPriKey, false)
 	require.NoError(err)
 
 	require.NoError(ap.Add(context.Background(), selp))
@@ -2022,7 +2022,7 @@ func makeTransfer(contract string, bc blockchain.Blockchain, ap actpool.ActPool,
 		SetNonce(4).
 		SetGasLimit(1000000).
 		SetGasPrice(big.NewInt(testutil.TestGasPriceInt64)).Build()
-	selp, err := action.Sign(elp, genesisPriKey)
+	selp, err := action.Sign(elp, genesisPriKey, false)
 	require.NoError(err)
 	require.NoError(ap.Add(context.Background(), selp))
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())

@@ -430,6 +430,9 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 
 	// Add to local actpool
 	ctx = protocol.WithRegistry(ctx, core.registry)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, core.bc.Genesis()), protocol.BlockCtx{
+		BlockHeight: core.bc.TipHeight() + 1,
+	}))
 	hash, err := selp.Hash()
 	if err != nil {
 		return "", err

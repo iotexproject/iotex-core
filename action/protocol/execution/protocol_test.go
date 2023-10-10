@@ -328,7 +328,7 @@ func runExecutions(
 			SetGasLimit(ecfg.GasLimit()).
 			SetGasPrice(ecfg.GasPrice()).
 			Build()
-		selp, err := action.Sign(elp, ecfg.PrivateKey())
+		selp, err := action.Sign(elp, ecfg.PrivateKey(), false)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -691,7 +691,7 @@ func TestProtocol_Handle(t *testing.T) {
 		elp := bd.SetAction(execution).
 			SetNonce(1).
 			SetGasLimit(100000).Build()
-		selp, err := action.Sign(elp, identityset.PrivateKey(27))
+		selp, err := action.Sign(elp, identityset.PrivateKey(27), false)
 		require.NoError(err)
 
 		require.NoError(ap.Add(context.Background(), selp))
@@ -746,7 +746,7 @@ func TestProtocol_Handle(t *testing.T) {
 		elp = bd.SetAction(execution).
 			SetNonce(2).
 			SetGasLimit(120000).Build()
-		selp, err = action.Sign(elp, identityset.PrivateKey(27))
+		selp, err = action.Sign(elp, identityset.PrivateKey(27), false)
 		require.NoError(err)
 
 		log.S().Infof("execution %+v", execution)
@@ -782,7 +782,7 @@ func TestProtocol_Handle(t *testing.T) {
 		elp = bd.SetAction(execution).
 			SetNonce(3).
 			SetGasLimit(120000).Build()
-		selp, err = action.Sign(elp, identityset.PrivateKey(27))
+		selp, err = action.Sign(elp, identityset.PrivateKey(27), false)
 		require.NoError(err)
 
 		log.S().Infof("execution %+v", execution)
@@ -806,7 +806,7 @@ func TestProtocol_Handle(t *testing.T) {
 		elp = bd.SetAction(execution1).
 			SetNonce(4).
 			SetGasLimit(100000).SetGasPrice(big.NewInt(10)).Build()
-		selp, err = action.Sign(elp, identityset.PrivateKey(27))
+		selp, err = action.Sign(elp, identityset.PrivateKey(27), false)
 		require.NoError(err)
 
 		require.NoError(ap.Add(context.Background(), selp))

@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blockindex/contractstaking"
 	"github.com/iotexproject/iotex-core/blocksync"
@@ -115,6 +116,9 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 		return err
 	}
 	ctx = protocol.WithRegistry(ctx, cs.registry)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, cs.chain.Genesis()), protocol.BlockCtx{
+		BlockHeight: cs.chain.TipHeight() + 1,
+	}))
 	err = cs.actpool.Add(ctx, act)
 	if err != nil {
 		log.L().Debug(err.Error())

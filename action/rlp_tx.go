@@ -13,13 +13,19 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-func rlpRawHash(rawTx *types.Transaction, chainID uint32) (hash.Hash256, error) {
-	h := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(rawTx)
+func rlpRawHash(rawTx *types.Transaction, chainID uint32, useLondontSigner bool) (hash.Hash256, error) {
+	var signer types.Signer
+	if useLondontSigner {
+		signer = types.NewLondonSigner(big.NewInt(int64(chainID)))
+	} else {
+		signer = types.NewEIP155Signer(big.NewInt(int64(chainID)))
+	}
+	h := signer.Hash(rawTx)
 	return hash.BytesToHash256(h[:]), nil
 }
 
-func rlpSignedHash(tx *types.Transaction, chainID uint32, sig []byte) (hash.Hash256, error) {
-	signedTx, err := reconstructSignedRlpTxFromSig(tx, chainID, sig)
+func rlpSignedHash(tx *types.Transaction, chainID uint32, sig []byte, useLondonSigner bool) (hash.Hash256, error) {
+	signedTx, err := reconstructSignedRlpTxFromSig(tx, chainID, sig, useLondonSigner)
 	if err != nil {
 		return hash.ZeroHash256, err
 	}
@@ -30,7 +36,7 @@ func rlpSignedHash(tx *types.Transaction, chainID uint32, sig []byte) (hash.Hash
 	return hash.BytesToHash256(h.Sum(nil)), nil
 }
 
-func reconstructSignedRlpTxFromSig(rawTx *types.Transaction, chainID uint32, sig []byte) (*types.Transaction, error) {
+func reconstructSignedRlpTxFromSig(rawTx *types.Transaction, chainID uint32, sig []byte, useLondonSigner bool) (*types.Transaction, error) {
 	if len(sig) != 65 {
 		return nil, errors.Errorf("invalid signature length = %d, expecting 65", len(sig))
 	}
@@ -40,7 +46,13 @@ func reconstructSignedRlpTxFromSig(rawTx *types.Transaction, chainID uint32, sig
 		sc[64] -= 27
 	}
 
-	signedTx, err := rawTx.WithSignature(types.NewEIP155Signer(big.NewInt(int64(chainID))), sc)
+	var signer types.Signer
+	if useLondonSigner {
+		signer = types.NewLondonSigner(big.NewInt(int64(chainID)))
+	} else {
+		signer = types.NewEIP155Signer(big.NewInt(int64(chainID)))
+	}
+	signedTx, err := rawTx.WithSignature(signer, sc)
 	if err != nil {
 		return nil, err
 	}

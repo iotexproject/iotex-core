@@ -65,7 +65,7 @@ func TestCandidateUpdateSignVerify(t *testing.T) {
 		SetGasPrice(_gasprice).
 		SetAction(cu).Build()
 	// sign
-	selp, err := Sign(elp, _senderKey)
+	selp, err := Sign(elp, _senderKey, false)
 	require.NoError(err)
 	require.NotNil(selp)
 	ser, err := proto.Marshal(selp.Proto())

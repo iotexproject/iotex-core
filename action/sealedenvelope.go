@@ -18,12 +18,18 @@ import (
 // SealedEnvelope is a signed action envelope.
 type SealedEnvelope struct {
 	Envelope
-	encoding     iotextypes.Encoding
-	evmNetworkID uint32
-	srcPubkey    crypto.PublicKey
-	signature    []byte
-	srcAddress   address.Address
-	hash         hash.Hash256
+	encoding        iotextypes.Encoding
+	evmNetworkID    uint32
+	srcPubkey       crypto.PublicKey
+	signature       []byte
+	srcAddress      address.Address
+	hash            hash.Hash256
+	useLondonSigner bool
+}
+
+// UseLondonSigner sets to use London signer
+func (sealed *SealedEnvelope) UseLondonSigner(use bool) {
+	sealed.useLondonSigner = use
 }
 
 // envelopeHash returns the raw hash of embedded Envelope (this is the hash to be signed)
@@ -39,7 +45,7 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
-		return rlpRawHash(tx, sealed.evmNetworkID)
+		return rlpRawHash(tx, sealed.evmNetworkID, sealed.useLondonSigner)
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Envelope.Proto()))), nil
 	default:
@@ -71,7 +77,7 @@ func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
-		return rlpSignedHash(tx, sealed.evmNetworkID, sealed.Signature())
+		return rlpSignedHash(tx, sealed.evmNetworkID, sealed.Signature(), sealed.useLondonSigner)
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Proto()))), nil
 	default:
@@ -146,7 +152,7 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 		if err != nil {
 			return err
 		}
-		if _, err = rlpSignedHash(tx, evmID, pbAct.GetSignature()); err != nil {
+		if _, err = rlpSignedHash(tx, evmID, pbAct.GetSignature(), sealed.useLondonSigner); err != nil {
 			return err
 		}
 		sealed.evmNetworkID = evmID

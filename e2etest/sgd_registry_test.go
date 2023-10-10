@@ -82,6 +82,9 @@ func TestSGDRegistry(t *testing.T) {
 	r.NoError(ep.Register(registry))
 	r.NoError(bc.Start(ctx))
 	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: bc.TipHeight(),
+	}))
 	r.NoError(sf.Start(ctx))
 	defer r.NoError(bc.Stop(ctx))
 
@@ -93,7 +96,7 @@ func TestSGDRegistry(t *testing.T) {
 	r.NoError(err)
 	deployHash, err := exec.Hash()
 	r.NoError(err)
-	r.NoError(ap.Add(context.Background(), exec))
+	r.NoError(ap.Add(ctx, exec))
 	blk, err := bc.MintNewBlock(fixedTime)
 	r.NoError(err)
 	r.NoError(bc.CommitBlock(blk))
@@ -237,7 +240,7 @@ func TestSGDRegistry(t *testing.T) {
 				r.NoError(err)
 				exec, err = action.SignedExecution(contractAddress, _execPriKey, atomic.AddUint64(&nonce, 1), big.NewInt(0), 10000000, big.NewInt(9000000000000), data)
 				r.NoError(err)
-				r.NoError(ap.Add(context.Background(), exec))
+				r.NoError(ap.Add(ctx, exec))
 				blk, err = bc.MintNewBlock(fixedTime)
 				r.NoError(err)
 				r.NoError(bc.CommitBlock(blk))

@@ -107,7 +107,7 @@ func TestCreateStake(t *testing.T) {
 			SetGasPrice(test.GasPrice).
 			SetAction(stake).Build()
 		// sign
-		selp, err := Sign(elp, test.SenderKey)
+		selp, err := Sign(elp, test.SenderKey, false)
 		require.NoError(err)
 		require.NotNil(selp)
 		ser, err = proto.Marshal(selp.Proto())

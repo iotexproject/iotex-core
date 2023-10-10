@@ -40,7 +40,7 @@ func TestTransferSignVerify(t *testing.T) {
 	require.Equal(tsf, tsf2)
 
 	// sign the transfer
-	selp, err := Sign(elp, senderKey)
+	selp, err := Sign(elp, senderKey, false)
 	require.NoError(err)
 	require.NotNil(selp)
 	require.EqualValues(21, tsf.BasicActionSize())

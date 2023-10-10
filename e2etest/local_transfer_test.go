@@ -698,7 +698,7 @@ func TestEnforceChainID(t *testing.T) {
 			SetNonce(c.nonce).
 			SetGasLimit(100000).
 			SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).Build()
-		selp, err := action.Sign(elp1, identityset.PrivateKey(0))
+		selp, err := action.Sign(elp1, identityset.PrivateKey(0), false)
 		require.NoError(err)
 
 		// simulate API receives tx

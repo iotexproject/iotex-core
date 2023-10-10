@@ -33,7 +33,7 @@ func TestBody_CalculateTxRoot(t *testing.T) {
 			SetNonce(tsf.Nonce()).
 			SetVersion(1).
 			Build()
-		sevlp, err := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()))
+		sevlp, err := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()), false)
 		requireT.NoError(err)
 		sevlps = append(sevlps, sevlp)
 	}
@@ -69,7 +69,7 @@ func TestBody_CalculateTransferAmount(t *testing.T) {
 			SetNonce(tsf.Nonce()).
 			SetVersion(1).
 			Build()
-		sevlp, err := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()))
+		sevlp, err := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()), false)
 		requireT.NoError(err)
 		transferAmount.Add(transferAmount, tsf.Amount())
 		sevlps = append(sevlps, sevlp)

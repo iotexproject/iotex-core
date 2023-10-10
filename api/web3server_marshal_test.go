@@ -94,7 +94,7 @@ func TestBlockObjectMarshal(t *testing.T) {
 		SetNonce(2).
 		SetVersion(1).
 		Build()
-	sevlp, err := action.Sign(evlp, identityset.PrivateKey(24))
+	sevlp, err := action.Sign(evlp, identityset.PrivateKey(24), false)
 	require.NoError(err)
 	ra := (&block.RunnableActionsBuilder{}).AddActions([]action.SealedEnvelope{sevlp}...).Build()
 	blk, err := block.NewBuilder(ra).

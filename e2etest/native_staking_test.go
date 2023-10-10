@@ -91,6 +91,9 @@ func TestNativeStaking(t *testing.T) {
 		ap := svr.ChainService(chainID).ActionPool()
 		dao := svr.ChainService(chainID).BlockDAO()
 		require.NotNil(bc)
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, cfg.Genesis), protocol.BlockCtx{
+			BlockHeight: bc.TipHeight(),
+		}))
 
 		require.True(cfg.Genesis.IsFbkMigration(1))
 
@@ -151,7 +154,7 @@ func TestNativeStaking(t *testing.T) {
 		cs1, err := action.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
 			nil, gasLimit, gasPrice, voter1PriKey)
 		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), cs1))
+		require.NoError(ap.Add(ctx, cs1))
 		cs2, err := addOneTx(action.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
 			nil, gasLimit, gasPrice, voter2PriKey))
 		require.NoError(err)

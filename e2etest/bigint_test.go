@@ -145,9 +145,13 @@ func prepareAction(bc blockchain.Blockchain, sf factory.Factory, ap actpool.ActP
 func prepare(bc blockchain.Blockchain, sf factory.Factory, ap actpool.ActPool, elp action.Envelope, r *require.Assertions) (*block.Block, error) {
 	priKey, err := crypto.HexStringToPrivateKey(_executorPriKey)
 	r.NoError(err)
-	selp, err := action.Sign(elp, priKey)
+	selp, err := action.Sign(elp, priKey, false)
 	r.NoError(err)
-	r.Error(ap.Add(context.Background(), selp))
+	ctx := context.Background()
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, bc.Genesis()), protocol.BlockCtx{
+		BlockHeight: 1,
+	}))
+	r.Error(ap.Add(ctx, selp))
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	r.NoError(err)
 	// when validate/commit a blk, the workingset and receipts of blk should be nil
