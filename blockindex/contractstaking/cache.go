@@ -6,12 +6,16 @@
 package contractstaking
 
 import (
+	"context"
 	"math/big"
 	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -26,6 +30,7 @@ type (
 		height                uint64                      // current block height, it's put in cache for consistency on merge
 		contractAddress       string                      // contract address for the bucket
 		mutex                 sync.RWMutex                // a RW mutex for the cache to protect concurrent access
+		voteConsts            genesis.VoteWeightCalConsts // vote weight constants
 	}
 )
 
@@ -34,15 +39,19 @@ var (
 	ErrBucketNotExist = errors.New("bucket does not exist")
 	// ErrInvalidHeight is the error when height is invalid
 	ErrInvalidHeight = errors.New("invalid height")
+
+	// calculateVoteWeight is a function to calculate vote weight
+	calculateVoteWeight = staking.CalculateVoteWeight
 )
 
-func newContractStakingCache(contractAddr string) *contractStakingCache {
+func newContractStakingCache(contractAddr string, voteConsts genesis.VoteWeightCalConsts) *contractStakingCache {
 	return &contractStakingCache{
 		bucketInfoMap:         make(map[uint64]*bucketInfo),
 		bucketTypeMap:         make(map[uint64]*BucketType),
 		propertyBucketTypeMap: make(map[int64]map[uint64]uint64),
 		candidateBucketMap:    make(map[string]map[uint64]bool),
 		contractAddress:       contractAddr,
+		voteConsts:            voteConsts,
 	}
 }
 
@@ -52,7 +61,7 @@ func (s *contractStakingCache) Height() uint64 {
 	return s.height
 }
 
-func (s *contractStakingCache) CandidateVotes(candidate address.Address, height uint64) (*big.Int, error) {
+func (s *contractStakingCache) CandidateVotes(ctx context.Context, candidate address.Address, height uint64) (*big.Int, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -64,6 +73,7 @@ func (s *contractStakingCache) CandidateVotes(candidate address.Address, height 
 	if !ok {
 		return votes, nil
 	}
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	for id, existed := range m {
 		if !existed {
 			continue
@@ -74,7 +84,11 @@ func (s *contractStakingCache) CandidateVotes(candidate address.Address, height 
 			continue
 		}
 		bt := s.mustGetBucketType(bi.TypeIndex)
-		votes.Add(votes, bt.Amount)
+		if featureCtx.FixContractStakingWeightedVotes {
+			votes.Add(votes, calculateVoteWeight(s.voteConsts, assembleBucket(id, bi, bt, s.contractAddress), false))
+		} else {
+			votes.Add(votes, bt.Amount)
+		}
 	}
 	return votes, nil
 }
