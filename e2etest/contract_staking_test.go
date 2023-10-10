@@ -1259,6 +1259,7 @@ var (
 		common.BytesToAddress(identityset.Address(4).Bytes()),
 		common.BytesToAddress(identityset.Address(5).Bytes()),
 		common.BytesToAddress(identityset.Address(6).Bytes()),
+		common.BytesToAddress(identityset.Address(7).Bytes()),
 	}
 )
 
@@ -1875,11 +1876,11 @@ func TestContractStaking(t *testing.T) {
 	t.Run("afterRedsea", func(t *testing.T) {
 		jumpBlocks(bc, _testRedseaBlockHeight, r)
 		t.Run("weightedVotes", func(t *testing.T) {
-			simpleStake(_delegates[6], big.NewInt(100), big.NewInt(100))
+			simpleStake(_delegates[7], big.NewInt(100), big.NewInt(100))
 			height, err := indexer.Height()
 			r.NoError(err)
 			ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height}))
-			votes, err := indexer.CandidateVotes(ctx, identityset.Address(6), height)
+			votes, err := indexer.CandidateVotes(ctx, identityset.Address(7), height)
 			r.NoError(err)
 			r.EqualValues(103, votes.Int64())
 		})
