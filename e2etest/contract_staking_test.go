@@ -1247,6 +1247,7 @@ const (
 	]`
 	_stakingContractAddress = "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd"
 	_adminID                = 22
+	_testRedseaBlockHeight  = 100
 )
 
 var (
@@ -1871,6 +1872,18 @@ func TestContractStaking(t *testing.T) {
 		})
 	})
 
+	t.Run("afterRedsea", func(t *testing.T) {
+		jumpBlocks(bc, _testRedseaBlockHeight, r)
+		t.Run("weightedVotes", func(t *testing.T) {
+			simpleStake(_delegates[6], big.NewInt(100), big.NewInt(100))
+			height, err := indexer.Height()
+			r.NoError(err)
+			ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height}))
+			votes, err := indexer.CandidateVotes(ctx, identityset.Address(6), height)
+			r.NoError(err)
+			r.EqualValues(103, votes.Int64())
+		})
+	})
 }
 
 func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r *require.Assertions) (blockchain.Blockchain, factory.Factory, blockdao.BlockDAO, actpool.ActPool, *contractstaking.Indexer) {
@@ -1903,6 +1916,7 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 	cfg.Genesis.FairbankBlockHeight = 0
 	cfg.Genesis.GreenlandBlockHeight = 0
 	cfg.Genesis.IcelandBlockHeight = 0
+	cfg.Genesis.RedseaBlockHeight = _testRedseaBlockHeight
 
 	// London is enabled at okhotsk height
 	cfg.Genesis.Blockchain.JutlandBlockHeight = 0
