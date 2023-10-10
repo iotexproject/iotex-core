@@ -1358,7 +1358,8 @@ func TestContractStaking(t *testing.T) {
 		r.EqualValues(blk.Height(), bt.CreateBlockHeight)
 		r.EqualValues(blk.Height(), bt.StakeStartBlockHeight)
 		r.True(bt.UnstakeStartBlockHeight == math.MaxUint64)
-		votes, err := indexer.CandidateVotes(identityset.Address(delegateIdx), blk.Height())
+		ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1}))
+		votes, err := indexer.CandidateVotes(ctx, identityset.Address(delegateIdx), blk.Height())
 		r.NoError(err)
 		r.EqualValues(10, votes.Int64())
 		tbc, err := indexer.TotalBucketCount(blk.Height())
@@ -1389,7 +1390,8 @@ func TestContractStaking(t *testing.T) {
 			r.NoError(err)
 			r.True(ok)
 			r.EqualValues(blk.Height(), bt.StakeStartBlockHeight)
-			votes, err := indexer.CandidateVotes(identityset.Address(delegateIdx), blk.Height())
+			ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1}))
+			votes, err := indexer.CandidateVotes(ctx, identityset.Address(delegateIdx), blk.Height())
 			r.NoError(err)
 			r.EqualValues(10, votes.Int64())
 			tbc, err := indexer.TotalBucketCount(blk.Height())
@@ -1415,7 +1417,8 @@ func TestContractStaking(t *testing.T) {
 				r.NoError(err)
 				r.True(ok)
 				r.EqualValues(blk.Height(), bt.UnstakeStartBlockHeight)
-				votes, err := indexer.CandidateVotes(identityset.Address(delegateIdx), blk.Height())
+				ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1}))
+				votes, err := indexer.CandidateVotes(ctx, identityset.Address(delegateIdx), blk.Height())
 				r.NoError(err)
 				r.EqualValues(0, votes.Int64())
 				tbc, err := indexer.TotalBucketCount(blk.Height())
@@ -1938,7 +1941,7 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 	r.NoError(err)
 	cc := cfg.DB
 	cc.DbPath = testContractStakeIndexerPath
-	contractStakeIndexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(cc), _stakingContractAddress, 0)
+	contractStakeIndexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(cc), _stakingContractAddress, 0, genesis.Default.VoteWeightCalConsts)
 	r.NoError(err)
 	// create BlockDAO
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, contractStakeIndexer})
