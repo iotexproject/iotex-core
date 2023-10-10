@@ -302,7 +302,7 @@ func TestContractStakingCache_BucketsByIndices(t *testing.T) {
 
 func TestContractStakingCache_TotalBucketCount(t *testing.T) {
 	require := require.New(t)
-	cache := newContractStakingCache("", genesis.Default.VoteWeightCalConsts)
+	cache := newContractStakingCache(identityset.Address(27).String(), genesis.Default.VoteWeightCalConsts)
 
 	height := uint64(0)
 	// no bucket
@@ -331,7 +331,7 @@ func TestContractStakingCache_TotalBucketCount(t *testing.T) {
 
 func TestContractStakingCache_ActiveBucketTypes(t *testing.T) {
 	require := require.New(t)
-	cache := newContractStakingCache("", genesis.Default.VoteWeightCalConsts)
+	cache := newContractStakingCache(identityset.Address(27).String(), genesis.Default.VoteWeightCalConsts)
 
 	height := uint64(0)
 	// no bucket type
@@ -396,7 +396,7 @@ func TestContractStakingCache_ActiveBucketTypes(t *testing.T) {
 
 func TestContractStakingCache_Merge(t *testing.T) {
 	require := require.New(t)
-	cache := newContractStakingCache("", genesis.Default.VoteWeightCalConsts)
+	cache := newContractStakingCache(identityset.Address(27).String(), genesis.Default.VoteWeightCalConsts)
 	height := uint64(1)
 	ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: height}))
 
@@ -454,7 +454,7 @@ func TestContractStakingCache_Merge(t *testing.T) {
 
 func TestContractStakingCache_MatchBucketType(t *testing.T) {
 	require := require.New(t)
-	cache := newContractStakingCache("", genesis.Default.VoteWeightCalConsts)
+	cache := newContractStakingCache(identityset.Address(27).String(), genesis.Default.VoteWeightCalConsts)
 
 	// no bucket types
 	_, bucketType, ok := cache.MatchBucketType(big.NewInt(100), 100)
@@ -489,7 +489,7 @@ func TestContractStakingCache_MatchBucketType(t *testing.T) {
 
 func TestContractStakingCache_BucketTypeCount(t *testing.T) {
 	require := require.New(t)
-	cache := newContractStakingCache("", genesis.Default.VoteWeightCalConsts)
+	cache := newContractStakingCache(identityset.Address(27).String(), genesis.Default.VoteWeightCalConsts)
 
 	height := uint64(0)
 	// no bucket type
@@ -518,7 +518,7 @@ func TestContractStakingCache_BucketTypeCount(t *testing.T) {
 
 func TestContractStakingCache_LoadFromDB(t *testing.T) {
 	require := require.New(t)
-	cache := newContractStakingCache("", genesis.Default.VoteWeightCalConsts)
+	cache := newContractStakingCache(identityset.Address(27).String(), genesis.Default.VoteWeightCalConsts)
 
 	// load from empty db
 	path, err := testutil.PathOfTempFile("staking.db")
