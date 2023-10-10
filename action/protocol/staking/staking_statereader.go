@@ -224,7 +224,7 @@ func (c *compositeStakingStateReader) readStateCandidates(ctx context.Context, r
 		return candidates, height, nil
 	}
 	for _, candidate := range candidates.Candidates {
-		if err = addContractStakingVotes(candidate, c.contractIndexer, height); err != nil {
+		if err = addContractStakingVotes(ctx, candidate, c.contractIndexer, height); err != nil {
 			return nil, 0, err
 		}
 	}
@@ -242,7 +242,7 @@ func (c *compositeStakingStateReader) readStateCandidateByName(ctx context.Conte
 	if !protocol.MustGetFeatureCtx(ctx).AddContractStakingVotes {
 		return candidate, height, nil
 	}
-	if err := addContractStakingVotes(candidate, c.contractIndexer, height); err != nil {
+	if err := addContractStakingVotes(ctx, candidate, c.contractIndexer, height); err != nil {
 		return nil, 0, err
 	}
 	return candidate, height, nil
@@ -259,7 +259,7 @@ func (c *compositeStakingStateReader) readStateCandidateByAddress(ctx context.Co
 	if !protocol.MustGetFeatureCtx(ctx).AddContractStakingVotes {
 		return candidate, height, nil
 	}
-	if err := addContractStakingVotes(candidate, c.contractIndexer, height); err != nil {
+	if err := addContractStakingVotes(ctx, candidate, c.contractIndexer, height); err != nil {
 		return nil, 0, err
 	}
 	return candidate, height, nil
@@ -314,7 +314,7 @@ func (c *compositeStakingStateReader) isContractStakingEnabled() bool {
 	return c.contractIndexer != nil
 }
 
-func addContractStakingVotes(candidate *iotextypes.CandidateV2, contractStakingSR ContractStakingIndexer, height uint64) error {
+func addContractStakingVotes(ctx context.Context, candidate *iotextypes.CandidateV2, contractStakingSR ContractStakingIndexer, height uint64) error {
 	votes, ok := big.NewInt(0).SetString(candidate.TotalWeightedVotes, 10)
 	if !ok {
 		return errors.Errorf("invalid total weighted votes %s", candidate.TotalWeightedVotes)
@@ -323,7 +323,7 @@ func addContractStakingVotes(candidate *iotextypes.CandidateV2, contractStakingS
 	if err != nil {
 		return err
 	}
-	contractVotes, err := contractStakingSR.CandidateVotes(addr, height)
+	contractVotes, err := contractStakingSR.CandidateVotes(ctx, addr, height)
 	if err != nil {
 		return err
 	}

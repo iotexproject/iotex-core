@@ -6,6 +6,7 @@
 package staking
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -17,7 +18,7 @@ type (
 	ContractStakingIndexer interface {
 		// CandidateVotes returns the total staked votes of a candidate
 		// candidate identified by owner address
-		CandidateVotes(ownerAddr address.Address, height uint64) (*big.Int, error)
+		CandidateVotes(ctx context.Context, ownerAddr address.Address, height uint64) (*big.Int, error)
 		// Buckets returns active buckets
 		Buckets(height uint64) ([]*VoteBucket, error)
 		// BucketsByIndices returns active buckets by indices
