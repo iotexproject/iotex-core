@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -33,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blockindex/contractstaking"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -1305,6 +1305,7 @@ func TestContractStaking(t *testing.T) {
 		{10, 10},
 		{100, 100},
 		{100, 10},
+		{10000, 30 * 17280},
 	}
 	params := []*callParam{}
 	for i := range bucketTypes {
@@ -1878,13 +1879,13 @@ func TestContractStaking(t *testing.T) {
 	t.Run("afterRedsea", func(t *testing.T) {
 		jumpBlocks(bc, _testRedseaBlockHeight, r)
 		t.Run("weightedVotes", func(t *testing.T) {
-			simpleStake(_delegates[7], big.NewInt(100), big.NewInt(100))
+			simpleStake(_delegates[7], big.NewInt(10000), big.NewInt(30*17280))
 			height, err := indexer.Height()
 			r.NoError(err)
 			ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height}))
 			votes, err := indexer.CandidateVotes(ctx, identityset.Address(7), height)
 			r.NoError(err)
-			r.EqualValues(103, votes.Int64())
+			r.EqualValues(12245, votes.Int64())
 		})
 	})
 }
@@ -1964,7 +1965,7 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 		CalculateVoteWeight: func(v *staking.VoteBucket) *big.Int {
 			return staking.CalculateVoteWeight(genesis.Default.VoteWeightCalConsts, v, false)
 		},
-		BlockInterval: 5 * time.Second,
+		BlockInterval: consensusfsm.DefaultDardanellesUpgradeConfig.BlockInterval,
 	})
 	r.NoError(err)
 	// create BlockDAO

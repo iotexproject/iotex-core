@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -30,7 +31,10 @@ import (
 
 const (
 	_testStakingContractAddress = "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd"
-	_blockInterval              = 5 * time.Second
+)
+
+var (
+	_blockInterval = consensusfsm.DefaultDardanellesUpgradeConfig.BlockInterval
 )
 
 func TestNewContractStakingIndexer(t *testing.T) {

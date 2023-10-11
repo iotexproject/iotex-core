@@ -327,7 +327,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 			CalculateVoteWeight: func(v *staking.VoteBucket) *big.Int {
 				return staking.CalculateVoteWeight(voteCalcConsts, v, false)
 			},
-			BlockInterval: builder.cfg.Genesis.BlockInterval,
+			BlockInterval: builder.cfg.DardanellesUpgrade.BlockInterval,
 		})
 	if err != nil {
 		return err

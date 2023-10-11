@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil/testdb"
@@ -106,6 +107,7 @@ func TestGetPutStaking(t *testing.T) {
 
 func TestCalculateVoteWeight(t *testing.T) {
 	// Define test cases
+	blockInterval := consensusfsm.DefaultDardanellesUpgradeConfig.BlockInterval
 	consts := genesis.Default.VoteWeightCalConsts
 	tests := []struct {
 		name       string
@@ -162,7 +164,7 @@ func TestCalculateVoteWeight(t *testing.T) {
 			name:   "NFT, auto-stake enabled, self-stake enabled",
 			consts: consts,
 			voteBucket: &VoteBucket{
-				StakedDuration:            30 * 24 * time.Hour,
+				StakedDuration:            30 * 17280 * blockInterval,
 				StakedDurationBlockNumber: 30 * 17280,
 				AutoStake:                 true,
 				StakedAmount:              big.NewInt(10000),
@@ -175,7 +177,7 @@ func TestCalculateVoteWeight(t *testing.T) {
 			name:   "NFT, auto-stake enabled, self-stake disabled",
 			consts: consts,
 			voteBucket: &VoteBucket{
-				StakedDuration:            30 * 24 * time.Hour,
+				StakedDuration:            30 * 17280 * blockInterval,
 				StakedDurationBlockNumber: 30 * 17280,
 				AutoStake:                 true,
 				StakedAmount:              big.NewInt(10000),
@@ -188,7 +190,7 @@ func TestCalculateVoteWeight(t *testing.T) {
 			name:   "NFT, auto-stake disabled, self-stake enabled",
 			consts: consts,
 			voteBucket: &VoteBucket{
-				StakedDuration:            30 * 24 * time.Hour,
+				StakedDuration:            30 * 17280 * blockInterval,
 				StakedDurationBlockNumber: 30 * 17280,
 				AutoStake:                 false,
 				StakedAmount:              big.NewInt(10000),
@@ -201,7 +203,7 @@ func TestCalculateVoteWeight(t *testing.T) {
 			name:   "NFT, auto-stake disabled, self-stake disabled",
 			consts: consts,
 			voteBucket: &VoteBucket{
-				StakedDuration:            30 * 24 * time.Hour,
+				StakedDuration:            30 * 17280 * blockInterval,
 				StakedDurationBlockNumber: 30 * 17280,
 				AutoStake:                 false,
 				StakedAmount:              big.NewInt(10000),
