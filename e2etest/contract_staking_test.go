@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -1956,7 +1957,9 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 	r.NoError(err)
 	cc := cfg.DB
 	cc.DbPath = testContractStakeIndexerPath
-	contractStakeIndexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(cc), _stakingContractAddress, 0, genesis.Default.VoteWeightCalConsts)
+	contractStakeIndexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(cc), _stakingContractAddress, 0, func(v *staking.VoteBucket, selfStake bool) *big.Int {
+		return staking.CalculateVoteWeight(genesis.Default.VoteWeightCalConsts, v, selfStake)
+	})
 	r.NoError(err)
 	// create BlockDAO
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, contractStakeIndexer})

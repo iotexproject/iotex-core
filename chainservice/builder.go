@@ -318,7 +318,10 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 	}
 	dbConfig := builder.cfg.DB
 	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
-	indexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.SystemStakingContractAddress, builder.cfg.Genesis.SystemStakingContractHeight, builder.cfg.Genesis.VoteWeightCalConsts)
+	voteCalcConsts := builder.cfg.Genesis.VoteWeightCalConsts
+	indexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.SystemStakingContractAddress, builder.cfg.Genesis.SystemStakingContractHeight, func(v *staking.VoteBucket, selfStake bool) *big.Int {
+		return staking.CalculateVoteWeight(voteCalcConsts, v, selfStake)
+	})
 	if err != nil {
 		return err
 	}

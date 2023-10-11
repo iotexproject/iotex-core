@@ -7,8 +7,6 @@ package contractstaking
 
 import (
 	"math/big"
-
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
 type (
@@ -22,7 +20,7 @@ type (
 
 func newContractStakingDelta() *contractStakingDelta {
 	return &contractStakingDelta{
-		cache:                newContractStakingCache("", genesis.VoteWeightCalConsts{}),
+		cache:                newContractStakingCache("", nil),
 		bucketTypeDeltaState: make(map[uint64]deltaState),
 		bucketInfoDeltaState: make(map[uint64]deltaState),
 	}

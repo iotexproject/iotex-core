@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -30,16 +29,16 @@ type (
 	// 		1. handle contract staking contract events when new block comes to generate index data
 	// 		2. provide query interface for contract staking index data
 	Indexer struct {
-		kvstore              db.KVStore                  // persistent storage, used to initialize index cache at startup
-		cache                *contractStakingCache       // in-memory index for clean data, used to query index data
-		contractAddress      string                      // stake contract address
-		contractDeployHeight uint64                      // height of the contract deployment
-		voteConsts           genesis.VoteWeightCalConsts // vote weight constants
+		kvstore              db.KVStore              // persistent storage, used to initialize index cache at startup
+		cache                *contractStakingCache   // in-memory index for clean data, used to query index data
+		contractAddress      string                  // stake contract address
+		contractDeployHeight uint64                  // height of the contract deployment
+		calculateVoteWeight  calculateVoteWeightFunc // calculate vote weight function
 	}
 )
 
 // NewContractStakingIndexer creates a new contract staking indexer
-func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string, contractDeployHeight uint64, voteConsts genesis.VoteWeightCalConsts) (*Indexer, error) {
+func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string, contractDeployHeight uint64, calculateVoteWeight calculateVoteWeightFunc) (*Indexer, error) {
 	if kvStore == nil {
 		return nil, errors.New("kv store is nil")
 	}
@@ -48,10 +47,10 @@ func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string, contract
 	}
 	return &Indexer{
 		kvstore:              kvStore,
-		cache:                newContractStakingCache(contractAddr, voteConsts),
+		cache:                newContractStakingCache(contractAddr, calculateVoteWeight),
 		contractAddress:      contractAddr,
 		contractDeployHeight: contractDeployHeight,
-		voteConsts:           voteConsts,
+		calculateVoteWeight:  calculateVoteWeight,
 	}, nil
 }
 
@@ -68,7 +67,7 @@ func (s *Indexer) Stop(ctx context.Context) error {
 	if err := s.kvstore.Stop(ctx); err != nil {
 		return err
 	}
-	s.cache = newContractStakingCache(s.contractAddress, s.voteConsts)
+	s.cache = newContractStakingCache(s.contractAddress, s.calculateVoteWeight)
 	return nil
 }
 
@@ -202,7 +201,7 @@ func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) er
 }
 
 func (s *Indexer) reloadCache() error {
-	s.cache = newContractStakingCache(s.contractAddress, s.voteConsts)
+	s.cache = newContractStakingCache(s.contractAddress, s.calculateVoteWeight)
 	return s.loadFromDB()
 }
 

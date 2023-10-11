@@ -36,14 +36,14 @@ func TestNewContractStakingIndexer(t *testing.T) {
 	r := require.New(t)
 
 	t.Run("kvStore is nil", func(t *testing.T) {
-		_, err := NewContractStakingIndexer(nil, "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd", 0, genesis.Default.VoteWeightCalConsts)
+		_, err := NewContractStakingIndexer(nil, "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd", 0, calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts))
 		r.Error(err)
 		r.Contains(err.Error(), "kv store is nil")
 	})
 
 	t.Run("invalid contract address", func(t *testing.T) {
 		kvStore := db.NewMemKVStore()
-		_, err := NewContractStakingIndexer(kvStore, "invalid address", 0, genesis.Default.VoteWeightCalConsts)
+		_, err := NewContractStakingIndexer(kvStore, "invalid address", 0, calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts))
 		r.Error(err)
 		r.Contains(err.Error(), "invalid contract address")
 	})
@@ -51,7 +51,7 @@ func TestNewContractStakingIndexer(t *testing.T) {
 	t.Run("valid input", func(t *testing.T) {
 		contractAddr, err := address.FromString("io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd")
 		r.NoError(err)
-		indexer, err := NewContractStakingIndexer(db.NewMemKVStore(), contractAddr.String(), 0, genesis.Default.VoteWeightCalConsts)
+		indexer, err := NewContractStakingIndexer(db.NewMemKVStore(), contractAddr.String(), 0, calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts))
 		r.NoError(err)
 		r.NotNil(indexer)
 	})
@@ -65,7 +65,7 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, genesis.Default.VoteWeightCalConsts)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts))
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -92,7 +92,7 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	r.NoError(indexer.Stop(context.Background()))
 
 	// load cache from db
-	newIndexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), _testStakingContractAddress, startHeight, genesis.Default.VoteWeightCalConsts)
+	newIndexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), _testStakingContractAddress, startHeight, calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts))
 	r.NoError(err)
 	r.NoError(newIndexer.Start(context.Background()))
 
@@ -121,7 +121,7 @@ func TestContractStakingIndexerDirty(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, genesis.Default.VoteWeightCalConsts)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts))
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -149,7 +149,7 @@ func TestContractStakingIndexerThreadSafe(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, genesis.Default.VoteWeightCalConsts)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts))
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -204,7 +204,7 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, genesis.Default.VoteWeightCalConsts)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts))
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -287,7 +287,7 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, genesis.Default.VoteWeightCalConsts)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts))
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -447,7 +447,7 @@ func TestContractStakingIndexerChangeBucketType(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, genesis.Default.VoteWeightCalConsts)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts))
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -496,7 +496,7 @@ func TestContractStakingIndexerReadBuckets(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, genesis.Default.VoteWeightCalConsts)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts))
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -596,7 +596,7 @@ func TestContractStakingIndexerCacheClean(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, genesis.Default.VoteWeightCalConsts)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts))
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -658,7 +658,7 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, genesis.Default.VoteWeightCalConsts)
+	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0, calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts))
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 	ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1}))
@@ -962,7 +962,7 @@ func TestIndexer_ReadHeightRestriction(t *testing.T) {
 			dbPath, err := testutil.PathOfTempFile("db")
 			r.NoError(err)
 			cfg.DbPath = dbPath
-			indexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), identityset.Address(1).String(), startHeight, genesis.Default.VoteWeightCalConsts)
+			indexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), identityset.Address(1).String(), startHeight, calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts))
 			r.NoError(err)
 			r.NoError(indexer.Start(context.Background()))
 			defer func() {
@@ -1042,7 +1042,7 @@ func TestIndexer_PutBlock(t *testing.T) {
 			dbPath, err := testutil.PathOfTempFile("db")
 			r.NoError(err)
 			cfg.DbPath = dbPath
-			indexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), identityset.Address(1).String(), startHeight, genesis.Default.VoteWeightCalConsts)
+			indexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), identityset.Address(1).String(), startHeight, calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts))
 			r.NoError(err)
 			r.NoError(indexer.Start(context.Background()))
 			defer func() {
