@@ -8,6 +8,7 @@ package contractstaking
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/iotexproject/iotex-address/address"
@@ -29,28 +30,34 @@ type (
 	// 		1. handle contract staking contract events when new block comes to generate index data
 	// 		2. provide query interface for contract staking index data
 	Indexer struct {
-		kvstore              db.KVStore              // persistent storage, used to initialize index cache at startup
-		cache                *contractStakingCache   // in-memory index for clean data, used to query index data
-		contractAddress      string                  // stake contract address
-		contractDeployHeight uint64                  // height of the contract deployment
-		calculateVoteWeight  calculateVoteWeightFunc // calculate vote weight function
+		kvstore db.KVStore            // persistent storage, used to initialize index cache at startup
+		cache   *contractStakingCache // in-memory index for clean data, used to query index data
+		config  Config                // indexer config
 	}
+
+	// Config is the config for contract staking indexer
+	Config struct {
+		ContractAddress      string                  // stake contract ContractAddress
+		ContractDeployHeight uint64                  // height of the contract deployment
+		CalculateVoteWeight  calculateVoteWeightFunc // calculate vote weight function
+		BlockInterval        time.Duration           // block produce interval
+	}
+
+	calculateVoteWeightFunc func(v *Bucket) *big.Int
 )
 
 // NewContractStakingIndexer creates a new contract staking indexer
-func NewContractStakingIndexer(kvStore db.KVStore, contractAddr string, contractDeployHeight uint64, calculateVoteWeight calculateVoteWeightFunc) (*Indexer, error) {
+func NewContractStakingIndexer(kvStore db.KVStore, config Config) (*Indexer, error) {
 	if kvStore == nil {
 		return nil, errors.New("kv store is nil")
 	}
-	if _, err := address.FromString(contractAddr); err != nil {
-		return nil, errors.Wrapf(err, "invalid contract address %s", contractAddr)
+	if _, err := address.FromString(config.ContractAddress); err != nil {
+		return nil, errors.Wrapf(err, "invalid contract address %s", config.ContractAddress)
 	}
 	return &Indexer{
-		kvstore:              kvStore,
-		cache:                newContractStakingCache(contractAddr, calculateVoteWeight),
-		contractAddress:      contractAddr,
-		contractDeployHeight: contractDeployHeight,
-		calculateVoteWeight:  calculateVoteWeight,
+		kvstore: kvStore,
+		cache:   newContractStakingCache(config),
+		config:  config,
 	}, nil
 }
 
@@ -67,7 +74,7 @@ func (s *Indexer) Stop(ctx context.Context) error {
 	if err := s.kvstore.Stop(ctx); err != nil {
 		return err
 	}
-	s.cache = newContractStakingCache(s.contractAddress, s.calculateVoteWeight)
+	s.cache = newContractStakingCache(s.config)
 	return nil
 }
 
@@ -78,7 +85,7 @@ func (s *Indexer) Height() (uint64, error) {
 
 // StartHeight returns the start height of the indexer
 func (s *Indexer) StartHeight() uint64 {
-	return s.contractDeployHeight
+	return s.config.ContractDeployHeight
 }
 
 // CandidateVotes returns the candidate votes
@@ -148,8 +155,8 @@ func (s *Indexer) BucketTypes(height uint64) ([]*BucketType, error) {
 // PutBlock puts a block into indexer
 func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	expectHeight := s.cache.Height() + 1
-	if expectHeight < s.contractDeployHeight {
-		expectHeight = s.contractDeployHeight
+	if expectHeight < s.config.ContractDeployHeight {
+		expectHeight = s.config.ContractDeployHeight
 	}
 	if blk.Height() < expectHeight {
 		return nil
@@ -166,7 +173,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 			continue
 		}
 		for _, log := range receipt.Logs() {
-			if log.Address != s.contractAddress {
+			if log.Address != s.config.ContractAddress {
 				continue
 			}
 			if err := handler.HandleEvent(ctx, blk, log); err != nil {
@@ -201,7 +208,7 @@ func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) er
 }
 
 func (s *Indexer) reloadCache() error {
-	s.cache = newContractStakingCache(s.contractAddress, s.calculateVoteWeight)
+	s.cache = newContractStakingCache(s.config)
 	return s.loadFromDB()
 }
 
@@ -213,5 +220,5 @@ func (s *Indexer) loadFromDB() error {
 // it aims to be compatible with blocks between feature hard-fork and contract deployed
 // read interface should return empty result instead of invalid height error if it returns true
 func (s *Indexer) isIgnored(height uint64) bool {
-	return height < s.contractDeployHeight
+	return height < s.config.ContractDeployHeight
 }

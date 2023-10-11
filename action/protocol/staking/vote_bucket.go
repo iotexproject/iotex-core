@@ -23,8 +23,7 @@ import (
 )
 
 const (
-	maxBlockNumber       = math.MaxUint64
-	blockProduceInterval = 5 // produce one block per 5 seconds
+	maxBlockNumber = math.MaxUint64
 )
 
 type (
@@ -221,10 +220,6 @@ func bucketKey(index uint64) []byte {
 // CalculateVoteWeight calculates the vote weight
 func CalculateVoteWeight(c genesis.VoteWeightCalConsts, v *VoteBucket, selfStake bool) *big.Int {
 	remainingTime := v.StakedDuration.Seconds()
-	if !v.isNative() {
-		// for contract staking, use block number to calculate remaining time
-		remainingTime = float64(v.StakedDurationBlockNumber) * blockProduceInterval
-	}
 	weight := float64(1)
 	var m float64
 	if v.AutoStake {

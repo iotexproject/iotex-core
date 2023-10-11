@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -1957,8 +1958,13 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 	r.NoError(err)
 	cc := cfg.DB
 	cc.DbPath = testContractStakeIndexerPath
-	contractStakeIndexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(cc), _stakingContractAddress, 0, func(v *staking.VoteBucket, selfStake bool) *big.Int {
-		return staking.CalculateVoteWeight(genesis.Default.VoteWeightCalConsts, v, selfStake)
+	contractStakeIndexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(cc), contractstaking.Config{
+		ContractAddress:      _stakingContractAddress,
+		ContractDeployHeight: 0,
+		CalculateVoteWeight: func(v *staking.VoteBucket) *big.Int {
+			return staking.CalculateVoteWeight(genesis.Default.VoteWeightCalConsts, v, false)
+		},
+		BlockInterval: 5 * time.Second,
 	})
 	r.NoError(err)
 	// create BlockDAO

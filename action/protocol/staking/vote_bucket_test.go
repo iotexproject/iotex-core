@@ -162,6 +162,7 @@ func TestCalculateVoteWeight(t *testing.T) {
 			name:   "NFT, auto-stake enabled, self-stake enabled",
 			consts: consts,
 			voteBucket: &VoteBucket{
+				StakedDuration:            30 * 24 * time.Hour,
 				StakedDurationBlockNumber: 30 * 17280,
 				AutoStake:                 true,
 				StakedAmount:              big.NewInt(10000),
@@ -174,6 +175,7 @@ func TestCalculateVoteWeight(t *testing.T) {
 			name:   "NFT, auto-stake enabled, self-stake disabled",
 			consts: consts,
 			voteBucket: &VoteBucket{
+				StakedDuration:            30 * 24 * time.Hour,
 				StakedDurationBlockNumber: 30 * 17280,
 				AutoStake:                 true,
 				StakedAmount:              big.NewInt(10000),
@@ -186,6 +188,7 @@ func TestCalculateVoteWeight(t *testing.T) {
 			name:   "NFT, auto-stake disabled, self-stake enabled",
 			consts: consts,
 			voteBucket: &VoteBucket{
+				StakedDuration:            30 * 24 * time.Hour,
 				StakedDurationBlockNumber: 30 * 17280,
 				AutoStake:                 false,
 				StakedAmount:              big.NewInt(10000),
@@ -198,6 +201,7 @@ func TestCalculateVoteWeight(t *testing.T) {
 			name:   "NFT, auto-stake disabled, self-stake disabled",
 			consts: consts,
 			voteBucket: &VoteBucket{
+				StakedDuration:            30 * 24 * time.Hour,
 				StakedDurationBlockNumber: 30 * 17280,
 				AutoStake:                 false,
 				StakedAmount:              big.NewInt(10000),

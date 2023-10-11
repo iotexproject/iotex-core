@@ -20,7 +20,7 @@ type (
 
 func newContractStakingDelta() *contractStakingDelta {
 	return &contractStakingDelta{
-		cache:                newContractStakingCache("", nil),
+		cache:                newContractStakingCache(Config{}),
 		bucketTypeDeltaState: make(map[uint64]deltaState),
 		bucketInfoDeltaState: make(map[uint64]deltaState),
 	}
