@@ -55,6 +55,9 @@ func NewContractStakingIndexer(kvStore db.KVStore, config Config) (*Indexer, err
 	if _, err := address.FromString(config.ContractAddress); err != nil {
 		return nil, errors.Wrapf(err, "invalid contract address %s", config.ContractAddress)
 	}
+	if config.CalculateVoteWeight == nil {
+		return nil, errors.New("calculate vote weight function is nil")
+	}
 	return &Indexer{
 		kvstore: kvStore,
 		cache:   newContractStakingCache(config),
