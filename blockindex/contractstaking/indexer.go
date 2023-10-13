@@ -37,10 +37,11 @@ type (
 
 	// Config is the config for contract staking indexer
 	Config struct {
-		ContractAddress      string                  // stake contract ContractAddress
-		ContractDeployHeight uint64                  // height of the contract deployment
-		CalculateVoteWeight  calculateVoteWeightFunc // calculate vote weight function
-		BlockInterval        time.Duration           // block produce interval
+		ContractAddress      string // stake contract ContractAddress
+		ContractDeployHeight uint64 // height of the contract deployment
+		// TODO: move calculateVoteWeightFunc out of config
+		CalculateVoteWeight calculateVoteWeightFunc // calculate vote weight function
+		BlockInterval       time.Duration           // block produce interval
 	}
 
 	calculateVoteWeightFunc func(v *Bucket) *big.Int

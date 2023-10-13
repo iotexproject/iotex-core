@@ -78,6 +78,9 @@ func (s *contractStakingCache) CandidateVotes(ctx context.Context, candidate add
 		}
 		bt := s.mustGetBucketType(bi.TypeIndex)
 		if featureCtx.FixContractStakingWeightedVotes {
+			if s.config.CalculateVoteWeight == nil {
+				return nil, errors.New("calculate vote weight function is not set")
+			}
 			votes.Add(votes, s.config.CalculateVoteWeight(assembleBucket(id, bi, bt, s.config.ContractAddress, s.config.BlockInterval)))
 		} else {
 			votes.Add(votes, bt.Amount)

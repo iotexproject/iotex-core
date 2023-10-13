@@ -314,6 +314,7 @@ func (c *compositeStakingStateReader) isContractStakingEnabled() bool {
 	return c.contractIndexer != nil
 }
 
+// TODO: move into compositeStakingStateReader
 func addContractStakingVotes(ctx context.Context, candidate *iotextypes.CandidateV2, contractStakingSR ContractStakingIndexer, height uint64) error {
 	votes, ok := big.NewInt(0).SetString(candidate.TotalWeightedVotes, 10)
 	if !ok {

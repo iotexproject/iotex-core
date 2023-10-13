@@ -161,20 +161,7 @@ func TestCalculateVoteWeight(t *testing.T) {
 			expected:  big.NewInt(125),
 		},
 		{
-			name:   "NFT, auto-stake enabled, self-stake enabled",
-			consts: consts,
-			voteBucket: &VoteBucket{
-				StakedDuration:            30 * 17280 * blockInterval,
-				StakedDurationBlockNumber: 30 * 17280,
-				AutoStake:                 true,
-				StakedAmount:              big.NewInt(10000),
-				ContractAddress:           identityset.Address(1).String(),
-			},
-			selfStake: true,
-			expected:  big.NewInt(12245),
-		},
-		{
-			name:   "NFT, auto-stake enabled, self-stake disabled",
+			name:   "NFT, auto-stake enabled",
 			consts: consts,
 			voteBucket: &VoteBucket{
 				StakedDuration:            30 * 17280 * blockInterval,
@@ -187,20 +174,7 @@ func TestCalculateVoteWeight(t *testing.T) {
 			expected:  big.NewInt(12245),
 		},
 		{
-			name:   "NFT, auto-stake disabled, self-stake enabled",
-			consts: consts,
-			voteBucket: &VoteBucket{
-				StakedDuration:            30 * 17280 * blockInterval,
-				StakedDurationBlockNumber: 30 * 17280,
-				AutoStake:                 false,
-				StakedAmount:              big.NewInt(10000),
-				ContractAddress:           identityset.Address(1).String(),
-			},
-			selfStake: true,
-			expected:  big.NewInt(11865),
-		},
-		{
-			name:   "NFT, auto-stake disabled, self-stake disabled",
+			name:   "NFT, auto-stake disabled",
 			consts: consts,
 			voteBucket: &VoteBucket{
 				StakedDuration:            30 * 17280 * blockInterval,
@@ -211,6 +185,84 @@ func TestCalculateVoteWeight(t *testing.T) {
 			},
 			selfStake: false,
 			expected:  big.NewInt(11865),
+		},
+		{
+			name:   "NFT-I, auto-stake enabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration:            91 * 17280 * blockInterval,
+				StakedDurationBlockNumber: 91 * 17280,
+				AutoStake:                 true,
+				StakedAmount:              big.NewInt(10000),
+				ContractAddress:           identityset.Address(1).String(),
+			},
+			selfStake: false,
+			expected:  big.NewInt(12854),
+		},
+		{
+			name:   "NFT-I, auto-stake disabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration:            91 * 17280 * blockInterval,
+				StakedDurationBlockNumber: 91 * 17280,
+				AutoStake:                 false,
+				StakedAmount:              big.NewInt(10000),
+				ContractAddress:           identityset.Address(1).String(),
+			},
+			selfStake: true,
+			expected:  big.NewInt(12474),
+		},
+		{
+			name:   "NFT-II, auto-stake enabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration:            91 * 17280 * blockInterval,
+				StakedDurationBlockNumber: 91 * 17280,
+				AutoStake:                 true,
+				StakedAmount:              big.NewInt(100000),
+				ContractAddress:           identityset.Address(1).String(),
+			},
+			selfStake: false,
+			expected:  big.NewInt(128543),
+		},
+		{
+			name:   "NFT-II, auto-stake disabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration:            91 * 17280 * blockInterval,
+				StakedDurationBlockNumber: 91 * 17280,
+				AutoStake:                 false,
+				StakedAmount:              big.NewInt(100000),
+				ContractAddress:           identityset.Address(1).String(),
+			},
+			selfStake: true,
+			expected:  big.NewInt(124741),
+		},
+		{
+			name:   "NFT-III, auto-stake enabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration:            2 * 17280 * blockInterval,
+				StakedDurationBlockNumber: 2 * 17280,
+				AutoStake:                 true,
+				StakedAmount:              big.NewInt(1000),
+				ContractAddress:           identityset.Address(1).String(),
+			},
+			selfStake: false,
+			expected:  big.NewInt(1076),
+		},
+		{
+			name:   "NFT-III, auto-stake disabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration:            2 * 17280 * blockInterval,
+				StakedDurationBlockNumber: 2 * 17280,
+				AutoStake:                 false,
+				StakedAmount:              big.NewInt(1000),
+				ContractAddress:           identityset.Address(1).String(),
+			},
+			selfStake: true,
+			expected:  big.NewInt(1038),
 		},
 	}
 
