@@ -5,7 +5,9 @@
 
 package contractstaking
 
-import "math/big"
+import (
+	"math/big"
+)
 
 type (
 	contractStakingDelta struct {
@@ -18,7 +20,7 @@ type (
 
 func newContractStakingDelta() *contractStakingDelta {
 	return &contractStakingDelta{
-		cache:                newContractStakingCache(""),
+		cache:                newContractStakingCache(Config{}),
 		bucketTypeDeltaState: make(map[uint64]deltaState),
 		bucketInfoDeltaState: make(map[uint64]deltaState),
 	}

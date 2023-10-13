@@ -436,7 +436,7 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 	require.NoError(err)
 
 	var csIndexerHeight, csVotes uint64
-	csIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any()).DoAndReturn(func(ownerAddr address.Address, height uint64) (*big.Int, error) {
+	csIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ownerAddr address.Address, height uint64) (*big.Int, error) {
 		if height != csIndexerHeight {
 			return nil, errors.Errorf("invalid height")
 		}
