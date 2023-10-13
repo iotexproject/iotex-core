@@ -114,6 +114,7 @@ type (
 		AllowCorrectChainIDOnly                 bool
 		AddContractStakingVotes                 bool
 		SharedGasWithDapp                       bool
+		FixContractStakingWeightedVotes         bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -253,6 +254,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			AllowCorrectChainIDOnly:                 g.IsQuebec(height),
 			AddContractStakingVotes:                 g.IsQuebec(height),
 			SharedGasWithDapp:                       g.IsToBeEnabled(height),
+			FixContractStakingWeightedVotes:         g.IsRedsea(height),
 		},
 	)
 }

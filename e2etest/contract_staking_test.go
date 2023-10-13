@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -31,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blockindex/contractstaking"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -1247,6 +1249,7 @@ const (
 	]`
 	_stakingContractAddress = "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd"
 	_adminID                = 22
+	_testRedseaBlockHeight  = 100
 )
 
 var (
@@ -1258,6 +1261,7 @@ var (
 		common.BytesToAddress(identityset.Address(4).Bytes()),
 		common.BytesToAddress(identityset.Address(5).Bytes()),
 		common.BytesToAddress(identityset.Address(6).Bytes()),
+		common.BytesToAddress(identityset.Address(7).Bytes()),
 	}
 )
 
@@ -1301,6 +1305,7 @@ func TestContractStaking(t *testing.T) {
 		{10, 10},
 		{100, 100},
 		{100, 10},
+		{10000, 30 * 17280},
 	}
 	params := []*callParam{}
 	for i := range bucketTypes {
@@ -1358,7 +1363,8 @@ func TestContractStaking(t *testing.T) {
 		r.EqualValues(blk.Height(), bt.CreateBlockHeight)
 		r.EqualValues(blk.Height(), bt.StakeStartBlockHeight)
 		r.True(bt.UnstakeStartBlockHeight == math.MaxUint64)
-		votes, err := indexer.CandidateVotes(identityset.Address(delegateIdx), blk.Height())
+		ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1}))
+		votes, err := indexer.CandidateVotes(ctx, identityset.Address(delegateIdx), blk.Height())
 		r.NoError(err)
 		r.EqualValues(10, votes.Int64())
 		tbc, err := indexer.TotalBucketCount(blk.Height())
@@ -1389,7 +1395,8 @@ func TestContractStaking(t *testing.T) {
 			r.NoError(err)
 			r.True(ok)
 			r.EqualValues(blk.Height(), bt.StakeStartBlockHeight)
-			votes, err := indexer.CandidateVotes(identityset.Address(delegateIdx), blk.Height())
+			ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1}))
+			votes, err := indexer.CandidateVotes(ctx, identityset.Address(delegateIdx), blk.Height())
 			r.NoError(err)
 			r.EqualValues(10, votes.Int64())
 			tbc, err := indexer.TotalBucketCount(blk.Height())
@@ -1415,7 +1422,8 @@ func TestContractStaking(t *testing.T) {
 				r.NoError(err)
 				r.True(ok)
 				r.EqualValues(blk.Height(), bt.UnstakeStartBlockHeight)
-				votes, err := indexer.CandidateVotes(identityset.Address(delegateIdx), blk.Height())
+				ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1}))
+				votes, err := indexer.CandidateVotes(ctx, identityset.Address(delegateIdx), blk.Height())
 				r.NoError(err)
 				r.EqualValues(0, votes.Int64())
 				tbc, err := indexer.TotalBucketCount(blk.Height())
@@ -1868,6 +1876,18 @@ func TestContractStaking(t *testing.T) {
 		})
 	})
 
+	t.Run("afterRedsea", func(t *testing.T) {
+		jumpBlocks(bc, _testRedseaBlockHeight, r)
+		t.Run("weightedVotes", func(t *testing.T) {
+			simpleStake(_delegates[7], big.NewInt(10000), big.NewInt(30*17280))
+			height, err := indexer.Height()
+			r.NoError(err)
+			ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height}))
+			votes, err := indexer.CandidateVotes(ctx, identityset.Address(7), height)
+			r.NoError(err)
+			r.EqualValues(12245, votes.Int64())
+		})
+	})
 }
 
 func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r *require.Assertions) (blockchain.Blockchain, factory.Factory, blockdao.BlockDAO, actpool.ActPool, *contractstaking.Indexer) {
@@ -1900,6 +1920,7 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 	cfg.Genesis.FairbankBlockHeight = 0
 	cfg.Genesis.GreenlandBlockHeight = 0
 	cfg.Genesis.IcelandBlockHeight = 0
+	cfg.Genesis.RedseaBlockHeight = _testRedseaBlockHeight
 
 	// London is enabled at okhotsk height
 	cfg.Genesis.Blockchain.JutlandBlockHeight = 0
@@ -1938,7 +1959,14 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 	r.NoError(err)
 	cc := cfg.DB
 	cc.DbPath = testContractStakeIndexerPath
-	contractStakeIndexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(cc), _stakingContractAddress, 0)
+	contractStakeIndexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(cc), contractstaking.Config{
+		ContractAddress:      _stakingContractAddress,
+		ContractDeployHeight: 0,
+		CalculateVoteWeight: func(v *staking.VoteBucket) *big.Int {
+			return staking.CalculateVoteWeight(genesis.Default.VoteWeightCalConsts, v, false)
+		},
+		BlockInterval: consensusfsm.DefaultDardanellesUpgradeConfig.BlockInterval,
+	})
 	r.NoError(err)
 	// create BlockDAO
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, contractStakeIndexer})
