@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -230,6 +231,10 @@ func TestConstantinople(t *testing.T) {
 		},
 		// after Redsea
 		{
+			action.EmptyAddress,
+			34838201,
+		},
+		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			math.MaxUint64,
 		},
@@ -260,7 +265,13 @@ func TestConstantinople(t *testing.T) {
 
 		var evmConfig vm.Config
 		chainConfig := getChainConfig(g.Blockchain, e.height, ps.evmNetworkID)
+		if g.IsRedsea(e.height) {
+			// Merge enabled at Redsea height
+			h := common.BytesToHash(hash.ZeroHash256[:])
+			ps.context.Random = &h
+		}
 		evm := vm.NewEVM(ps.context, ps.txCtx, stateDB, chainConfig, evmConfig)
+		require.Equal(e.height, evm.Context.BlockNumber.Uint64())
 
 		evmChainConfig := evm.ChainConfig()
 		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsHomestead(evm.Context.BlockNumber))
@@ -273,7 +284,7 @@ func TestConstantinople(t *testing.T) {
 		require.True(evmChainConfig.IsPetersburg(evm.Context.BlockNumber))
 
 		// verify chainRules
-		chainRules := evmChainConfig.Rules(ps.context.BlockNumber, g.IsRedsea(e.height))
+		chainRules := evmChainConfig.Rules(ps.context.BlockNumber, evm.Context.Random != nil)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsHomestead)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP150)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP158)
@@ -316,6 +327,7 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isRedsea, evmChainConfig.IsArrowGlacier(evm.Context.BlockNumber))
 		require.Equal(isRedsea, evmChainConfig.IsGrayGlacier(evm.Context.BlockNumber))
 		require.Equal(isRedsea, chainRules.IsMerge)
+		require.Equal(isRedsea, evm.Context.Random != nil)
 
 		// Shanghai and Cancun not yet enabled
 		require.False(chainRules.IsShanghai)

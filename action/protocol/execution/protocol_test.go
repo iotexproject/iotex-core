@@ -642,6 +642,21 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Genesis.EnableGravityChainVoting = false
 		cfg.ActPool.MinGasPriceStr = "0"
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(1000000000).String()
+		// cfg.Genesis.BeringBlockHeight = 1
+		// cfg.Genesis.CookBlockHeight = 1
+		// cfg.Genesis.DardanellesBlockHeight = 1
+		// cfg.Genesis.DaytonaBlockHeight = 1
+		// cfg.Genesis.EasterBlockHeight = 1
+		// cfg.Genesis.FbkMigrationBlockHeight = 1
+		// cfg.Genesis.FairbankBlockHeight = 1
+		// cfg.Genesis.GreenlandBlockHeight = 1
+		// cfg.Genesis.IcelandBlockHeight = 1
+		// cfg.Genesis.JutlandBlockHeight = 1
+		// cfg.Genesis.KamchatkaBlockHeight = 1
+		// cfg.Genesis.LordHoweBlockHeight = 1
+		// cfg.Genesis.MidwayBlockHeight = 1
+		// cfg.Genesis.NewfoundlandBlockHeight = 1
+		// cfg.Genesis.OkhotskBlockHeight = 1
 		ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 
 		registry := protocol.NewRegistry()

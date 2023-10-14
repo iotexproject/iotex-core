@@ -418,6 +418,12 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 		config = vmCfg
 	}
 	chainConfig := getChainConfig(g, blockHeight, evmParams.evmNetworkID)
+	if g.IsRedsea(blockHeight) {
+		// Merge enabled at Redsea height
+		tipHash := protocol.MustGetBlockchainCtx(ctx).Tip.Hash
+		h := common.BytesToHash(tipHash[:])
+		evmParams.context.Random = &h
+	}
 	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, chainConfig, config)
 	if g.IsOkhotsk(blockHeight) {
 		accessList = evmParams.accessList
@@ -432,7 +438,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	remainingGas -= intriGas
 
 	// Set up the initial access list
-	rules := chainConfig.Rules(evm.Context.BlockNumber, g.IsRedsea(blockHeight)) // Merge enabled at Redsea height
+	rules := chainConfig.Rules(evm.Context.BlockNumber, evm.Context.Random != nil)
 	if rules.IsBerlin {
 		stateDB.PrepareAccessList(evmParams.txCtx.Origin, evmParams.contract, vm.ActivePrecompiles(rules), evmParams.accessList)
 	}
