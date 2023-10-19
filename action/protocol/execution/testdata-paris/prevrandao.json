@@ -30,7 +30,7 @@
         "rawAccessList": [],
         "rawExpectedGasConsumed": 10714,
         "expectedStatus": 1,
-        "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000000",
+        "rawReturnValue": "1db9e495b0a12df1e4d113cacd853df98fc3da9dba89959e8210728f9b78c917",
         "comment": "call random()",
         "readOnly": true
     }]
