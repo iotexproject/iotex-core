@@ -1047,7 +1047,7 @@ func TestIstanbulEVM(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/datacopy.json")
 	})
 	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
-		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
+		NewSmartContractTest(t, "testdata-istanbul/CVE-2021-39137-attack-replay.json")
 	})
 	t.Run("err-write-protection", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/write-protection.json")
@@ -1177,7 +1177,7 @@ func TestLondonEVM(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/datacopy.json")
 	})
 	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
-		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
+		NewSmartContractTest(t, "testdata-london/CVE-2021-39137-attack-replay.json")
 	})
 }
 
