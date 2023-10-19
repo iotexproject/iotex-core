@@ -58,6 +58,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/holiman/uint256 v1.2.0
 	github.com/mackerelio/go-osstat v0.2.4
+	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/prometheus/client_model v0.3.0
 	github.com/shirou/gopsutil/v3 v3.22.8
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.34.0
