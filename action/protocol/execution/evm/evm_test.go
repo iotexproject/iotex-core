@@ -1,4 +1,4 @@
-// Copyright (c) 2023 IoTeX Foundation
+// Copyright (c) 2019 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -219,16 +219,11 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			24838200,
 		},
-		// Quebec - Redsea
+		// after Quebec
 		{
 			action.EmptyAddress,
 			24838201,
 		},
-		{
-			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			34838200,
-		},
-		// after Redsea
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			math.MaxUint64,
@@ -273,7 +268,7 @@ func TestConstantinople(t *testing.T) {
 		require.True(evmChainConfig.IsPetersburg(evm.Context.BlockNumber))
 
 		// verify chainRules
-		chainRules := evmChainConfig.Rules(ps.context.BlockNumber, g.IsRedsea(e.height))
+		chainRules := evmChainConfig.Rules(ps.context.BlockNumber, false)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsHomestead)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP150)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP158)
@@ -307,19 +302,7 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isOkhotsk, chainRules.IsBerlin)
 		require.Equal(isOkhotsk, evmChainConfig.IsLondon(evm.Context.BlockNumber))
 		require.Equal(isOkhotsk, chainRules.IsLondon)
-
-		// Redsea = enable ArrowGlacier, GrayGlacier, MergeNetsplit, and Merge
-		isRedsea := g.IsRedsea(e.height)
-		require.Equal(big.NewInt(int64(g.RedseaBlockHeight)), evmChainConfig.ArrowGlacierBlock)
-		require.Equal(big.NewInt(int64(g.RedseaBlockHeight)), evmChainConfig.GrayGlacierBlock)
-		require.Equal(big.NewInt(int64(g.RedseaBlockHeight)), evmChainConfig.MergeNetsplitBlock)
-		require.Equal(isRedsea, evmChainConfig.IsArrowGlacier(evm.Context.BlockNumber))
-		require.Equal(isRedsea, evmChainConfig.IsGrayGlacier(evm.Context.BlockNumber))
-		require.Equal(isRedsea, chainRules.IsMerge)
-
-		// Shanghai and Cancun not yet enabled
-		require.False(chainRules.IsShanghai)
-		require.False(evmChainConfig.IsCancun(evm.Context.BlockNumber))
+		require.False(chainRules.IsMerge)
 
 		// test basefee
 		require.Equal(new(big.Int), evm.Context.BaseFee)
