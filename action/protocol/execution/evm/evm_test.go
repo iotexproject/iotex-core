@@ -12,7 +12,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -265,11 +264,6 @@ func TestConstantinople(t *testing.T) {
 
 		var evmConfig vm.Config
 		chainConfig := getChainConfig(g.Blockchain, e.height, ps.evmNetworkID)
-		if g.IsRedsea(e.height) {
-			// Merge enabled at Redsea height
-			h := common.BytesToHash(hash.ZeroHash256[:])
-			ps.context.Random = &h
-		}
 		evm := vm.NewEVM(ps.context, ps.txCtx, stateDB, chainConfig, evmConfig)
 		require.Equal(e.height, evm.Context.BlockNumber.Uint64())
 

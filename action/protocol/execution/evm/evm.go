@@ -102,11 +102,13 @@ func newParams(
 	stateDB *StateDBAdapter,
 	getBlockHash GetBlockHash,
 ) (*Params, error) {
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	executorAddr := common.BytesToAddress(actionCtx.Caller.Bytes())
-	var contractAddrPointer *common.Address
+	var (
+		actionCtx           = protocol.MustGetActionCtx(ctx)
+		blkCtx              = protocol.MustGetBlockCtx(ctx)
+		featureCtx          = protocol.MustGetFeatureCtx(ctx)
+		g                   = genesis.MustExtractGenesisContext(ctx)
+		contractAddrPointer *common.Address
+	)
 	if dest := execution.Contract(); dest != action.EmptyAddress {
 		contract, err := address.FromString(execution.Contract())
 		if err != nil {
@@ -162,11 +164,17 @@ func newParams(
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		BaseFee:     new(big.Int),
 	}
+	if g.IsRedsea(blkCtx.BlockHeight) {
+		// Merge enabled at Redsea height
+		tipHash := protocol.MustGetBlockchainCtx(ctx).Tip.Hash
+		h := common.BytesToHash(tipHash[:])
+		context.Random = &h
+	}
 
 	return &Params{
 		context,
 		vm.TxContext{
-			Origin:   executorAddr,
+			Origin:   common.BytesToAddress(actionCtx.Caller.Bytes()),
 			GasPrice: execution.GasPrice(),
 		},
 		execution.Nonce(),
@@ -209,10 +217,12 @@ func ExecuteContract(
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	g := genesis.MustExtractGenesisContext(ctx)
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	var (
+		actionCtx  = protocol.MustGetActionCtx(ctx)
+		blkCtx     = protocol.MustGetBlockCtx(ctx)
+		g          = genesis.MustExtractGenesisContext(ctx)
+		featureCtx = protocol.MustGetFeatureCtx(ctx)
+	)
 	stateDB, err := prepareStateDB(ctx, sm)
 	if err != nil {
 		return nil, nil, err
@@ -418,12 +428,6 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 		config = vmCfg
 	}
 	chainConfig := getChainConfig(g, blockHeight, evmParams.evmNetworkID)
-	if g.IsRedsea(blockHeight) {
-		// Merge enabled at Redsea height
-		tipHash := protocol.MustGetBlockchainCtx(ctx).Tip.Hash
-		h := common.BytesToHash(tipHash[:])
-		evmParams.context.Random = &h
-	}
 	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, chainConfig, config)
 	if g.IsOkhotsk(blockHeight) {
 		accessList = evmParams.accessList
