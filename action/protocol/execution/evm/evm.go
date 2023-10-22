@@ -1,4 +1,4 @@
-// Copyright (c) 2023 IoTeX Foundation
+// Copyright (c) 2019 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -393,13 +393,9 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.Chai
 	if g.IsIceland(height) {
 		chainConfig.ChainID = new(big.Int).SetUint64(uint64(id))
 	}
-	// enable Berlin and London at Okhotsk
+	// enable Berlin and London
 	chainConfig.BerlinBlock = new(big.Int).SetUint64(g.OkhotskBlockHeight)
 	chainConfig.LondonBlock = new(big.Int).SetUint64(g.OkhotskBlockHeight)
-	// enable ArrowGlacier, GrayGlacier, MergeNetsplit at Redsea
-	chainConfig.ArrowGlacierBlock = new(big.Int).SetUint64(g.RedseaBlockHeight)
-	chainConfig.GrayGlacierBlock = new(big.Int).SetUint64(g.RedseaBlockHeight)
-	chainConfig.MergeNetsplitBlock = new(big.Int).SetUint64(g.RedseaBlockHeight)
 	return &chainConfig
 }
 
@@ -432,14 +428,13 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	remainingGas -= intriGas
 
 	// Set up the initial access list
-	rules := chainConfig.Rules(evm.Context.BlockNumber, g.IsRedsea(blockHeight)) // Merge enabled at Redsea height
-	if rules.IsBerlin {
+	if rules := chainConfig.Rules(evm.Context.BlockNumber, false); rules.IsBerlin {
 		stateDB.PrepareAccessList(evmParams.txCtx.Origin, evmParams.contract, vm.ActivePrecompiles(rules), evmParams.accessList)
 	}
-
 	var (
 		contractRawAddress = action.EmptyAddress
 		executor           = vm.AccountRef(evmParams.txCtx.Origin)
+		london             = evm.ChainConfig().IsLondon(evm.Context.BlockNumber)
 		ret                []byte
 		evmErr             error
 		refund             uint64
@@ -471,7 +466,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	if stateDB.Error() != nil {
 		log.L().Debug("statedb error", zap.Error(stateDB.Error()))
 	}
-	if !rules.IsLondon {
+	if !london {
 		// Before EIP-3529: refunds were capped to gasUsed / 2
 		refund = (evmParams.gas - remainingGas) / params.RefundQuotient
 	} else {
