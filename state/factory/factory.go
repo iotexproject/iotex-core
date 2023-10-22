@@ -89,7 +89,6 @@ type (
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 		ReadContractStorage(context.Context, address.Address, []byte) ([]byte, error)
 		PutBlock(context.Context, *block.Block) error
-		DeleteTipBlock(context.Context, *block.Block) error
 		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
 		StatesAtHeight(uint64, ...protocol.StateOption) (state.Iterator, error)
 	}
@@ -480,10 +479,6 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	sf.currentChainHeight = h
 
 	return nil
-}
-
-func (sf *factory) DeleteTipBlock(_ context.Context, _ *block.Block) error {
-	return errors.Wrap(ErrNotSupported, "cannot delete tip block from factory")
 }
 
 // StateAtHeight returns a confirmed state at height -- archive mode

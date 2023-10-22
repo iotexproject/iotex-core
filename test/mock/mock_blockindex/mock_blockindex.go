@@ -52,20 +52,6 @@ func (mr *MockBloomFilterIndexerMockRecorder) BlockFilterByHeight(arg0 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockFilterByHeight", reflect.TypeOf((*MockBloomFilterIndexer)(nil).BlockFilterByHeight), arg0)
 }
 
-// DeleteTipBlock mocks base method.
-func (m *MockBloomFilterIndexer) DeleteTipBlock(arg0 context.Context, arg1 *block.Block) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteTipBlock", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteTipBlock indicates an expected call of DeleteTipBlock.
-func (mr *MockBloomFilterIndexerMockRecorder) DeleteTipBlock(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTipBlock", reflect.TypeOf((*MockBloomFilterIndexer)(nil).DeleteTipBlock), arg0, arg1)
-}
-
 // FilterBlocksInRange mocks base method.
 func (m *MockBloomFilterIndexer) FilterBlocksInRange(arg0 *logfilter.LogFilter, arg1, arg2, arg3 uint64) ([]uint64, error) {
 	m.ctrl.T.Helper()

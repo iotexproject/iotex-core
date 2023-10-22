@@ -272,31 +272,10 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	if err != nil {
 		return err
 	}
-	ctx := context.Background()
 	for tipHeight > targetHeight {
-		blk, err := dao.blockStore.GetBlockByHeight(tipHeight)
-		if err != nil {
-			return errors.Wrap(err, "failed to get tip block")
-		}
-		// delete block index if there's indexer
-		for _, indexer := range dao.indexers {
-			if err := indexer.DeleteTipBlock(ctx, blk); err != nil {
-				return err
-			}
-		}
-
 		if err := dao.blockStore.DeleteTipBlock(); err != nil {
 			return err
 		}
-		// purge from cache
-		h := blk.HashBlock()
-		lruCacheDel(dao.headerCache, tipHeight)
-		lruCacheDel(dao.headerCache, h)
-		lruCacheDel(dao.bodyCache, tipHeight)
-		lruCacheDel(dao.bodyCache, h)
-		lruCacheDel(dao.footerCache, tipHeight)
-		lruCacheDel(dao.footerCache, h)
-
 		tipHeight--
 		atomic.StoreUint64(&dao.tipHeight, tipHeight)
 	}
