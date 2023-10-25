@@ -71,7 +71,7 @@ func defaultConfig() Genesis {
 			OkhotskBlockHeight:      21542761,
 			PalauBlockHeight:        22991401,
 			QuebecBlockHeight:       24838201,
-			RedseaBlockHeight:       34838201,
+			RedseaBlockHeight:       26704441,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
@@ -239,7 +239,9 @@ type (
 		// 2. enable IIP-13 liquidity staking
 		// 3. valiate system action layout
 		QuebecBlockHeight uint64 `yaml:"quebecHeight"`
-		// RedseaBlockHeight is the start height to enable Shanghai EVM
+		// RedseaBlockHeight is the start height to
+		// 1. upgrade go-ethereum to Bellatrix release
+		// 2. correct weighted votes for contract staking bucket
 		RedseaBlockHeight uint64 `yaml:"redseaHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
