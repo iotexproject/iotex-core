@@ -10,6 +10,7 @@ import (
 	"context"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -49,6 +50,9 @@ var (
 type (
 	// GetBlockHash gets block hash by height
 	GetBlockHash func(uint64) (hash.Hash256, error)
+
+	// GetBlockTime gets block time by height
+	GetBlockTime func(uint64) (time.Time, error)
 
 	// DepositGasWithSGD deposits gas with Sharing of Gas-fee with DApps
 	DepositGasWithSGD func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error)
@@ -92,6 +96,7 @@ type (
 		gas                uint64
 		data               []byte
 		accessList         types.AccessList
+		chainConfig        *params.ChainConfig
 	}
 )
 
@@ -101,10 +106,12 @@ func newParams(
 	execution *action.Execution,
 	stateDB *StateDBAdapter,
 	getBlockHash GetBlockHash,
+	getBlockTime GetBlockTime,
 ) (*Params, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	executorAddr := common.BytesToAddress(actionCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
 	if dest := execution.Contract(); dest != action.EmptyAddress {
@@ -163,6 +170,11 @@ func newParams(
 		BaseFee:     new(big.Int),
 	}
 
+	evmNetworkID := protocol.MustGetBlockchainCtx(ctx).EvmNetworkID
+	chainConfig, err := getChainConfig(g.Blockchain, blkCtx.BlockHeight, evmNetworkID, getBlockTime)
+	if err != nil {
+		return nil, err
+	}
 	return &Params{
 		context,
 		vm.TxContext{
@@ -170,13 +182,14 @@ func newParams(
 			GasPrice: execution.GasPrice(),
 		},
 		execution.Nonce(),
-		protocol.MustGetBlockchainCtx(ctx).EvmNetworkID,
+		evmNetworkID,
 		actionCtx.Caller.String(),
 		execution.Amount(),
 		contractAddrPointer,
 		gasLimit,
 		execution.Data(),
 		execution.AccessList(),
+		chainConfig,
 	}, nil
 }
 
@@ -206,6 +219,7 @@ func ExecuteContract(
 	getBlockHash GetBlockHash,
 	depositGasFunc DepositGasWithSGD,
 	sgd SGDRegistry,
+	getBlockTime GetBlockTime,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
@@ -217,7 +231,7 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	ps, err := newParams(ctx, execution, stateDB, getBlockHash)
+	ps, err := newParams(ctx, execution, stateDB, getBlockHash, getBlockTime)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -381,7 +395,7 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	)
 }
 
-func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.ChainConfig {
+func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime GetBlockTime) (*params.ChainConfig, error) {
 	var chainConfig params.ChainConfig
 	chainConfig.ConstantinopleBlock = new(big.Int).SetUint64(0) // Constantinople switch block (nil = no fork, 0 = already activated)
 	chainConfig.BeringBlock = new(big.Int).SetUint64(g.BeringBlockHeight)
@@ -404,8 +418,12 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.Chai
 	// However we don't need the time-based switch as Ethereum, so continue to use block-based
 	// Hence, config.ShanghaiTime (and time of later forks) was set to the corresponding forking
 	// block height, so that the fork checking code IsShanghai() still works w/o modification
-	chainConfig.ShanghaiTime = new(big.Int).SetUint64(g.RedseaBlockHeight)
-	return &chainConfig
+	redseaTime, err := getBlockTime(g.RedseaBlockHeight)
+	if err != nil {
+		return nil, err
+	}
+	chainConfig.ShanghaiTime = new(big.Int).SetInt64(redseaTime.Unix())
+	return &chainConfig, nil
 }
 
 // Error in executeInEVM is a consensus issue
@@ -422,8 +440,8 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
 		config = vmCfg
 	}
-	chainConfig := getChainConfig(g, blockHeight, evmParams.evmNetworkID)
-	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, chainConfig, config)
+
+	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, evmParams.chainConfig, config)
 	if g.IsOkhotsk(blockHeight) {
 		accessList = evmParams.accessList
 	}
@@ -437,7 +455,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	remainingGas -= intriGas
 
 	// Set up the initial access list
-	rules := chainConfig.Rules(evm.Context.BlockNumber, false, new(big.Int).SetUint64(blockHeight))
+	rules := evmParams.chainConfig.Rules(evm.Context.BlockNumber, false, new(big.Int).Set(evm.Context.Time))
 	stateDB.Prepare(rules, evmParams.txCtx.Origin, evmParams.context.Coinbase, evmParams.contract, vm.ActivePrecompiles(rules), evmParams.accessList)
 
 	var (
@@ -597,6 +615,7 @@ func SimulateExecution(
 	caller address.Address,
 	ex *action.Execution,
 	getBlockHash GetBlockHash,
+	getBlockTime GetBlockTime,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.SimulateExecution")
 	defer span.End()
@@ -633,5 +652,6 @@ func SimulateExecution(
 			return nil, nil
 		},
 		nil,
+		getBlockTime,
 	)
 }
