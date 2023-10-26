@@ -226,12 +226,12 @@ func TestConstantinople(t *testing.T) {
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			34838200,
+			26704440,
 		},
 		// after Redsea
 		{
 			action.EmptyAddress,
-			34838201,
+			26704441,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
