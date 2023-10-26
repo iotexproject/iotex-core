@@ -30,6 +30,7 @@ func rlpSignedHash(tx *types.Transaction, chainID uint32, sig []byte) (hash.Hash
 	return hash.BytesToHash256(h.Sum(nil)), nil
 }
 
+// RawTxToSignedTx converts the raw tx to corresponding signed tx
 func RawTxToSignedTx(rawTx *types.Transaction, chainID uint32, sig []byte) (*types.Transaction, error) {
 	if len(sig) != 65 {
 		return nil, errors.Errorf("invalid signature length = %d, expecting 65", len(sig))
