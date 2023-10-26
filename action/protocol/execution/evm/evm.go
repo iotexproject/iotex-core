@@ -106,11 +106,11 @@ func newParams(
 	execution *action.Execution,
 	stateDB *StateDBAdapter,
 	getBlockHash GetBlockHash,
-	getBlockTime GetBlockTime,
 ) (*Params, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	helperCtx := mustGetHelperCtx(ctx)
 	g := genesis.MustExtractGenesisContext(ctx)
 	executorAddr := common.BytesToAddress(actionCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
@@ -171,7 +171,7 @@ func newParams(
 	}
 
 	evmNetworkID := protocol.MustGetBlockchainCtx(ctx).EvmNetworkID
-	chainConfig, err := getChainConfig(g.Blockchain, blkCtx.BlockHeight, evmNetworkID, getBlockTime)
+	chainConfig, err := getChainConfig(g.Blockchain, blkCtx.BlockHeight, evmNetworkID, helperCtx.getBlockTime)
 	if err != nil {
 		return nil, err
 	}
@@ -216,10 +216,12 @@ func ExecuteContract(
 	ctx context.Context,
 	sm protocol.StateManager,
 	execution *action.Execution,
+	// TODO: refactor
+	// 1. move getBlockHash into helperContext
+	// 2. depositGasFunc maybe a optional parameter, and sgd should be part of it
 	getBlockHash GetBlockHash,
 	depositGasFunc DepositGasWithSGD,
 	sgd SGDRegistry,
-	getBlockTime GetBlockTime,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
@@ -231,7 +233,7 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	ps, err := newParams(ctx, execution, stateDB, getBlockHash, getBlockTime)
+	ps, err := newParams(ctx, execution, stateDB, getBlockHash)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -615,7 +617,6 @@ func SimulateExecution(
 	caller address.Address,
 	ex *action.Execution,
 	getBlockHash GetBlockHash,
-	getBlockTime GetBlockTime,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.SimulateExecution")
 	defer span.End()
@@ -636,7 +637,7 @@ func SimulateExecution(
 		ctx,
 		protocol.BlockCtx{
 			BlockHeight: bcCtx.Tip.Height + 1,
-			// TODO: should use dardanelles interval
+			// TODO: should use getBlockTime to get the timestamp of the next block
 			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(g.BlockInterval),
 			GasLimit:       g.BlockGasLimit,
 			Producer:       zeroAddr,
@@ -653,6 +654,5 @@ func SimulateExecution(
 			return nil, nil
 		},
 		nil,
-		getBlockTime,
 	)
 }
