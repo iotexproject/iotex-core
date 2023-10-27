@@ -135,6 +135,9 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	}
 	ctx = protocol.WithActionCtx(ctx, actionCtx)
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
+	ctx = evm.WithHelperCtx(ctx, evm.NewHelperCtx(func(u uint64) (time.Time, error) {
+		return time.Time{}, nil
+	}))
 	// deploy native staking contract
 	_, receipt, err := evm.ExecuteContract(
 		ctx,

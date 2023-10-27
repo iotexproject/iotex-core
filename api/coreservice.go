@@ -55,6 +55,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	batch "github.com/iotexproject/iotex-core/pkg/messagebatcher"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
+	"github.com/iotexproject/iotex-core/pkg/util/blockutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/state"
@@ -164,22 +165,23 @@ type (
 
 	// coreService implements the CoreService interface
 	coreService struct {
-		bc                blockchain.Blockchain
-		bs                blocksync.BlockSync
-		sf                factory.Factory
-		dao               blockdao.BlockDAO
-		indexer           blockindex.Indexer
-		bfIndexer         blockindex.BloomFilterIndexer
-		ap                actpool.ActPool
-		gs                *gasstation.GasStation
-		broadcastHandler  BroadcastOutbound
-		cfg               Config
-		registry          *protocol.Registry
-		chainListener     apitypes.Listener
-		electionCommittee committee.Committee
-		readCache         *ReadCache
-		messageBatcher    *batch.Manager
-		apiStats          *nodestats.APILocalStats
+		bc                  blockchain.Blockchain
+		bs                  blocksync.BlockSync
+		sf                  factory.Factory
+		dao                 blockdao.BlockDAO
+		indexer             blockindex.Indexer
+		bfIndexer           blockindex.BloomFilterIndexer
+		ap                  actpool.ActPool
+		gs                  *gasstation.GasStation
+		broadcastHandler    BroadcastOutbound
+		cfg                 Config
+		registry            *protocol.Registry
+		chainListener       apitypes.Listener
+		electionCommittee   committee.Committee
+		readCache           *ReadCache
+		messageBatcher      *batch.Manager
+		apiStats            *nodestats.APILocalStats
+		blockTimeCalculator *blockutil.BlockTimeCalculator
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -213,6 +215,12 @@ func WithNativeElection(committee committee.Committee) Option {
 func WithAPIStats(stats *nodestats.APILocalStats) Option {
 	return func(svr *coreService) {
 		svr.apiStats = stats
+	}
+}
+
+func WithBlockTimeCalculator(calculator *blockutil.BlockTimeCalculator) Option {
+	return func(svr *coreService) {
+		svr.blockTimeCalculator = calculator
 	}
 }
 
@@ -510,6 +518,7 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	if ctx, err = core.bc.Context(ctx); err != nil {
 		return "", nil, err
 	}
+	ctx = evm.WithHelperCtx(ctx, evm.NewHelperCtx(core.blockTimeCalculator.CalculateBlockTime))
 	sc.SetNonce(state.PendingNonce())
 	blockGasLimit := core.bc.Genesis().BlockGasLimit
 	if sc.GasLimit() == 0 || blockGasLimit < sc.GasLimit() {
@@ -1479,6 +1488,7 @@ func (core *coreService) isGasLimitEnough(
 	if err != nil {
 		return false, nil, err
 	}
+	ctx = evm.WithHelperCtx(ctx, evm.NewHelperCtx(core.blockTimeCalculator.CalculateBlockTime))
 	_, receipt, err := core.sf.SimulateExecution(ctx, caller, sc, core.dao.GetBlockHash)
 	if err != nil {
 		return false, nil, err
@@ -1622,6 +1632,7 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 	if err != nil {
 		return nil, nil, err
 	}
+	ctx = evm.WithHelperCtx(ctx, evm.NewHelperCtx(core.blockTimeCalculator.CalculateBlockTime))
 	// TODO (liuhaai): Use original nonce and gas limit properly
 	exec.SetNonce(state.PendingNonce())
 	if err != nil {
@@ -1694,6 +1705,7 @@ func (core *coreService) TraceCall(ctx context.Context,
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	ctx = evm.WithHelperCtx(ctx, evm.NewHelperCtx(core.blockTimeCalculator.CalculateBlockTime))
 	if nonce == 0 {
 		state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
 		if err != nil {

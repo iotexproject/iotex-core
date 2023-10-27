@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -11,6 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
@@ -18,9 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 var (
@@ -124,7 +126,12 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	}
 	ctx = protocol.WithActionCtx(ctx, actionCtx)
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
-
+	emptyBlockTime := func(u uint64) (time.Time, error) {
+		// DOUBT: is it right for genesis state?
+		return time.Time{}, nil
+	}
+	hCtx := evm.NewHelperCtx(emptyBlockTime)
+	ctx = evm.WithHelperCtx(ctx, hCtx)
 	// deploy consortiumCommittee contract
 	_, receipt, err := evm.ExecuteContract(
 		ctx,
@@ -146,7 +153,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	}
 	cc.contract = receipt.ContractAddress
 
-	r := getContractReaderForGenesisStates(ctx, sm, cc.getBlockHash)
+	r := getContractReaderForGenesisStates(ctx, sm, cc.getBlockHash, emptyBlockTime)
 	cands, err := cc.readDelegatesWithContractReader(ctx, r)
 	if err != nil {
 		return err
@@ -278,7 +285,7 @@ func genContractReaderFromReadContract(r ReadContract, setting bool) contractRea
 	}
 }
 
-func getContractReaderForGenesisStates(ctx context.Context, sm protocol.StateManager, getBlockHash evm.GetBlockHash) contractReaderFunc {
+func getContractReaderForGenesisStates(ctx context.Context, sm protocol.StateManager, getBlockHash evm.GetBlockHash, getBlockTime evm.GetBlockTime) contractReaderFunc {
 	return func(ctx context.Context, contract string, data []byte) ([]byte, error) {
 		gasLimit := uint64(10000000)
 		ex, err := action.NewExecution(contract, 1, big.NewInt(0), gasLimit, big.NewInt(0), data)
@@ -290,8 +297,8 @@ func getContractReaderForGenesisStates(ctx context.Context, sm protocol.StateMan
 		if err != nil {
 			return nil, err
 		}
-
-		res, _, err := evm.SimulateExecution(ctx, sm, addr, ex, getBlockHash)
+		simulate := evm.NewExecutionSimulator(evm.NewHelperCtx(getBlockTime))
+		res, _, err := simulate(ctx, sm, addr, ex, getBlockHash)
 
 		return res, err
 	}

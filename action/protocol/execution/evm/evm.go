@@ -635,3 +635,17 @@ func SimulateExecution(
 		nil,
 	)
 }
+
+type SimulateExecutionFunc func(
+	ctx context.Context,
+	sm protocol.StateManager,
+	caller address.Address,
+	ex *action.Execution,
+	getBlockHash GetBlockHash,
+) ([]byte, *action.Receipt, error)
+
+func NewExecutionSimulator(hctx HelperContext) SimulateExecutionFunc {
+	return func(ctx context.Context, sm protocol.StateManager, caller address.Address, ex *action.Execution, getBlockHash GetBlockHash) ([]byte, *action.Receipt, error) {
+		return SimulateExecution(WithHelperCtx(ctx, hctx), sm, caller, ex, getBlockHash)
+	}
+}
