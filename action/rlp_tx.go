@@ -71,12 +71,12 @@ func DecodeRawTx(rawData string, chainID uint32) (tx *types.Transaction, sig []b
 	// extract signature and recover pubkey
 	v, r, s := tx.RawSignatureValues()
 	recID := uint32(v.Int64()) - 2*chainID - 8
-	sig = make([]byte, 64, 65)
+	sig = make([]byte, 65)
 	rSize := len(r.Bytes())
 	copy(sig[32-rSize:32], r.Bytes())
 	sSize := len(s.Bytes())
 	copy(sig[64-sSize:], s.Bytes())
-	sig = append(sig, byte(recID))
+	sig[64] = byte(recID)
 
 	// recover public key
 	rawHash := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
