@@ -1,6 +1,9 @@
 package blockutil
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 type (
 	// BlockTimeCalculator calculates block time of a given height.
@@ -16,12 +19,21 @@ type (
 )
 
 // NewBlockTimeCalculator creates a new BlockTimeCalculator.
-func NewBlockTimeCalculator(getBlockInterval getBlockIntervalFn, getTipHeight getTipHeightFn, getHistoryBlockTime getHistoryblockTimeFn) *BlockTimeCalculator {
+func NewBlockTimeCalculator(getBlockInterval getBlockIntervalFn, getTipHeight getTipHeightFn, getHistoryBlockTime getHistoryblockTimeFn) (*BlockTimeCalculator, error) {
+	if getBlockInterval == nil {
+		return nil, errors.New("nil getBlockInterval")
+	}
+	if getTipHeight == nil {
+		return nil, errors.New("nil getTipHeight")
+	}
+	if getHistoryBlockTime == nil {
+		return nil, errors.New("nil getHistoryBlockTime")
+	}
 	return &BlockTimeCalculator{
 		getBlockInterval:    getBlockInterval,
 		getTipHeight:        getTipHeight,
 		getHistoryBlockTime: getHistoryBlockTime,
-	}
+	}, nil
 }
 
 // CalculateBlockTime returns the block time of the given height.
@@ -39,5 +51,5 @@ func (btc *BlockTimeCalculator) CalculateBlockTime(height uint64) (time.Time, er
 	if err != nil {
 		return time.Time{}, err
 	}
-	return tipBlockTime.Add(time.Duration(height-tipHeight) * btc.getBlockInterval(height)), nil
+	return tipBlockTime.Add(time.Duration(height-tipHeight) * btc.getBlockInterval(tipHeight)), nil
 }

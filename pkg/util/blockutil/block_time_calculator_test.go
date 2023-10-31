@@ -18,7 +18,8 @@ func TestBlockTimeCalculator_CalculateBlockTime(t *testing.T) {
 	baseTime, err := time.Parse("2006-01-02T15:04:05.000Z", "2022-01-01T00:00:00.000Z")
 	r.NoError(err)
 	historyBlockTimeF := func(height uint64) (time.Time, error) { return baseTime.Add(time.Hour * time.Duration(height)), nil }
-	btc := NewBlockTimeCalculator(intervalFn, tipHeightF, historyBlockTimeF)
+	btc, err := NewBlockTimeCalculator(intervalFn, tipHeightF, historyBlockTimeF)
+	r.NoError(err)
 
 	historyWrapper := func(height uint64) time.Time {
 		t, err := historyBlockTimeF(height)
