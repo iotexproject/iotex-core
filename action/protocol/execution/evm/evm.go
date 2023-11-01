@@ -92,6 +92,9 @@ type (
 		gas                uint64
 		data               []byte
 		accessList         types.AccessList
+		evmConfig          vm.Config
+		chainConfig        *params.ChainConfig
+		blkCtx             protocol.BlockCtx
 	}
 )
 
@@ -105,6 +108,7 @@ func newParams(
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	executorAddr := common.BytesToAddress(actionCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
 	if dest := execution.Contract(); dest != action.EmptyAddress {
@@ -162,6 +166,12 @@ func newParams(
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		BaseFee:     new(big.Int),
 	}
+	evmNetworkID := protocol.MustGetBlockchainCtx(ctx).EvmNetworkID
+	vmConfig := vm.Config{}
+	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
+		vmConfig = vmCfg
+	}
+	chainConfig := getChainConfig(g.Blockchain, blkCtx.BlockHeight, evmNetworkID)
 
 	return &Params{
 		context,
@@ -170,13 +180,16 @@ func newParams(
 			GasPrice: execution.GasPrice(),
 		},
 		execution.Nonce(),
-		protocol.MustGetBlockchainCtx(ctx).EvmNetworkID,
+		evmNetworkID,
 		actionCtx.Caller.String(),
 		execution.Amount(),
 		contractAddrPointer,
 		gasLimit,
 		execution.Data(),
 		execution.AccessList(),
+		vmConfig,
+		chainConfig,
+		blkCtx,
 	}, nil
 }
 
@@ -221,7 +234,7 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ctx, ps, stateDB, g.Blockchain, blkCtx.GasLimit, blkCtx.BlockHeight)
+	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ctx, ps, stateDB, g.Blockchain)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -403,20 +416,19 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.Chai
 }
 
 // Error in executeInEVM is a consensus issue
-func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockchain, gasLimit uint64, blockHeight uint64) ([]byte, uint64, uint64, string, iotextypes.ReceiptStatus, error) {
+func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockchain) ([]byte, uint64, uint64, string, iotextypes.ReceiptStatus, error) {
+	gasLimit := evmParams.blkCtx.GasLimit
+	blockHeight := evmParams.blkCtx.BlockHeight
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
 		return nil, 0, 0, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
 	}
 	var (
-		config     vm.Config
 		accessList types.AccessList
 	)
-	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
-		config = vmCfg
-	}
-	chainConfig := getChainConfig(g, blockHeight, evmParams.evmNetworkID)
+	config := evmParams.evmConfig
+	chainConfig := evmParams.chainConfig
 	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, chainConfig, config)
 	if g.IsOkhotsk(blockHeight) {
 		accessList = evmParams.accessList
