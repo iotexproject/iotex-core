@@ -2,6 +2,7 @@ package blockutil
 
 import (
 	"errors"
+	"math"
 	"time"
 )
 
@@ -47,9 +48,14 @@ func (btc *BlockTimeCalculator) CalculateBlockTime(height uint64) (time.Time, er
 	}
 
 	// predict block time according to tip block time and interval
+	blockInterval := btc.getBlockInterval(tipHeight)
+	blockNumer := time.Duration(height - tipHeight)
+	if blockNumer > math.MaxInt64/blockInterval {
+		return time.Time{}, errors.New("height overflow")
+	}
 	tipBlockTime, err := btc.getHistoryBlockTime(tipHeight)
 	if err != nil {
 		return time.Time{}, err
 	}
-	return tipBlockTime.Add(time.Duration(height-tipHeight) * btc.getBlockInterval(tipHeight)), nil
+	return tipBlockTime.Add(blockNumer * blockInterval), nil
 }
