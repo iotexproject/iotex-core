@@ -95,6 +95,9 @@ type (
 		evmConfig          vm.Config
 		chainConfig        *params.ChainConfig
 		blkCtx             protocol.BlockCtx
+		genesis            genesis.Blockchain
+		featureCtx         protocol.FeatureCtx
+		actionCtx          protocol.ActionCtx
 	}
 )
 
@@ -190,6 +193,9 @@ func newParams(
 		vmConfig,
 		chainConfig,
 		blkCtx,
+		g.Blockchain,
+		featureCtx,
+		actionCtx,
 	}, nil
 }
 
@@ -222,10 +228,7 @@ func ExecuteContract(
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	g := genesis.MustExtractGenesisContext(ctx)
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
+
 	stateDB, err := prepareStateDB(ctx, sm)
 	if err != nil {
 		return nil, nil, err
@@ -234,7 +237,10 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ctx, ps, stateDB, g.Blockchain)
+	actionCtx := ps.actionCtx
+	blkCtx := ps.blkCtx
+	featureCtx := ps.featureCtx
+	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -416,9 +422,10 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.Chai
 }
 
 // Error in executeInEVM is a consensus issue
-func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockchain) ([]byte, uint64, uint64, string, iotextypes.ReceiptStatus, error) {
+func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, uint64, string, iotextypes.ReceiptStatus, error) {
 	gasLimit := evmParams.blkCtx.GasLimit
 	blockHeight := evmParams.blkCtx.BlockHeight
+	g := evmParams.genesis
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
@@ -493,7 +500,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	// the tx is reverted. After Okhotsk height, it is fixed inside RevertToSnapshot()
 	var (
 		deltaRefundByDynamicGas = evm.DeltaRefundByDynamicGas
-		featureCtx              = protocol.MustGetFeatureCtx(ctx)
+		featureCtx              = evmParams.featureCtx
 	)
 	if !featureCtx.CorrectGasRefund && deltaRefundByDynamicGas != 0 {
 		if deltaRefundByDynamicGas > 0 {
