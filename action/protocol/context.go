@@ -85,6 +85,7 @@ type (
 		SystemWideActionGasLimit                bool
 		NotFixTopicCopyBug                      bool
 		SetRevertMessageToReceipt               bool
+		FixCustomErrorRevertMessage             bool
 		FixGetHashFnHeight                      bool
 		FixSortCacheContractsAndUsePendingNonce bool
 		AsyncContractTrie                       bool
@@ -225,6 +226,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			SystemWideActionGasLimit:                !g.IsAleutian(height),
 			NotFixTopicCopyBug:                      !g.IsAleutian(height),
 			SetRevertMessageToReceipt:               g.IsHawaii(height),
+			FixCustomErrorRevertMessage:             g.IsToBeEnabled(height),
 			FixGetHashFnHeight:                      g.IsHawaii(height),
 			FixSortCacheContractsAndUsePendingNonce: g.IsHawaii(height),
 			AsyncContractTrie:                       g.IsGreenland(height),
