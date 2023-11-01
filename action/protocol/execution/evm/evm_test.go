@@ -60,13 +60,16 @@ func TestExecuteContractFailure(t *testing.T) {
 		ChainID:      1,
 		EvmNetworkID: 100,
 	})
-	retval, receipt, err := ExecuteContract(ctx, sm, e,
-		func(uint64) (hash.Hash256, error) {
+	ctx = WithHelperCtx(ctx, HelperContext{
+		GetBlockHash: func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
-		func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
+		DepositGasFunc: func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
 			return nil, nil
-		}, nil)
+		},
+		Sgd: nil,
+	})
+	retval, receipt, err := ExecuteContract(ctx, sm, e)
 	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)
@@ -255,11 +258,14 @@ func TestConstantinople(t *testing.T) {
 			GasLimit:    testutil.TestGasLimit,
 			BlockHeight: e.height,
 		}))
+		fCtx = WithHelperCtx(fCtx, HelperContext{
+			GetBlockHash: func(uint64) (hash.Hash256, error) {
+				return hash.ZeroHash256, nil
+			},
+		})
 		stateDB, err := prepareStateDB(fCtx, sm)
 		require.NoError(err)
-		ps, err := newParams(fCtx, ex, stateDB, func(uint64) (hash.Hash256, error) {
-			return hash.ZeroHash256, nil
-		})
+		ps, err := newParams(fCtx, ex, stateDB)
 		require.NoError(err)
 
 		var evmConfig vm.Config
