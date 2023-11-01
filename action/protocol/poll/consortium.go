@@ -11,6 +11,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
@@ -18,9 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 var (
@@ -124,19 +125,21 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	}
 	ctx = protocol.WithActionCtx(ctx, actionCtx)
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash: func(height uint64) (hash.Hash256, error) {
+			return hash.ZeroHash256, nil
+		},
+		DepositGasFunc: func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
+			return nil, nil
+		},
+		Sgd: nil,
+	})
 
 	// deploy consortiumCommittee contract
 	_, receipt, err := evm.ExecuteContract(
 		ctx,
 		sm,
 		execution,
-		func(height uint64) (hash.Hash256, error) {
-			return hash.ZeroHash256, nil
-		},
-		func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
-			return nil, nil
-		},
-		nil,
 	)
 	if err != nil {
 		return err
@@ -291,7 +294,10 @@ func getContractReaderForGenesisStates(ctx context.Context, sm protocol.StateMan
 			return nil, err
 		}
 
-		res, _, err := evm.SimulateExecution(ctx, sm, addr, ex, getBlockHash)
+		ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+			GetBlockHash: getBlockHash,
+		})
+		res, _, err := evm.SimulateExecution(ctx, sm, addr, ex)
 
 		return res, err
 	}

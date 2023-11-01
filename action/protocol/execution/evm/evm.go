@@ -97,6 +97,7 @@ type (
 		genesis      genesis.Blockchain
 		featureCtx   protocol.FeatureCtx
 		actionCtx    protocol.ActionCtx
+		helperCtx    HelperContext
 	}
 )
 
@@ -105,15 +106,16 @@ func newParams(
 	ctx context.Context,
 	execution *action.Execution,
 	stateDB *StateDBAdapter,
-	getBlockHash GetBlockHash,
 ) (*Params, error) {
 	var (
 		actionCtx    = protocol.MustGetActionCtx(ctx)
 		blkCtx       = protocol.MustGetBlockCtx(ctx)
 		featureCtx   = protocol.MustGetFeatureCtx(ctx)
 		g            = genesis.MustExtractGenesisContext(ctx)
+		helperCtx    = mustGetHelperCtx(ctx)
 		evmNetworkID = protocol.MustGetBlockchainCtx(ctx).EvmNetworkID
 		executorAddr = common.BytesToAddress(actionCtx.Caller.Bytes())
+		getBlockHash = helperCtx.GetBlockHash
 
 		vmConfig            vm.Config
 		contractAddrPointer *common.Address
@@ -198,6 +200,7 @@ func newParams(
 		g.Blockchain,
 		featureCtx,
 		actionCtx,
+		helperCtx,
 	}, nil
 }
 
@@ -224,9 +227,6 @@ func ExecuteContract(
 	ctx context.Context,
 	sm protocol.StateManager,
 	execution *action.Execution,
-	getBlockHash GetBlockHash,
-	depositGasFunc DepositGasWithSGD,
-	sgd SGDRegistry,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
@@ -235,10 +235,11 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	ps, err := newParams(ctx, execution, stateDB, getBlockHash)
+	ps, err := newParams(ctx, execution, stateDB)
 	if err != nil {
 		return nil, nil, err
 	}
+	sgd := ps.helperCtx.Sgd
 	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB)
 	if err != nil {
 		return nil, nil, err
@@ -289,7 +290,7 @@ func ExecuteContract(
 			sharedGasFee.Mul(sharedGasFee, ps.txCtx.GasPrice)
 		}
 		totalGasFee = new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), ps.txCtx.GasPrice)
-		depositLog, err = depositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
+		depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -610,7 +611,6 @@ func SimulateExecution(
 	sm protocol.StateManager,
 	caller address.Address,
 	ex *action.Execution,
-	getBlockHash GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.SimulateExecution")
 	defer span.End()
@@ -638,14 +638,17 @@ func SimulateExecution(
 	)
 
 	ctx = protocol.WithFeatureCtx(ctx)
+	helperCtx := mustGetHelperCtx(ctx)
+	ctx = WithHelperCtx(ctx, HelperContext{
+		GetBlockHash: helperCtx.GetBlockHash,
+		DepositGasFunc: func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
+			return nil, nil
+		},
+		Sgd: nil,
+	})
 	return ExecuteContract(
 		ctx,
 		sm,
 		ex,
-		getBlockHash,
-		func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
-			return nil, nil
-		},
-		nil,
 	)
 }
