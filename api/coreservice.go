@@ -184,6 +184,7 @@ type (
 		messageBatcher    *batch.Manager
 		apiStats          *nodestats.APILocalStats
 		sgdIndexer        blockindex.SGDRegistry
+		getBlockTime      evm.GetBlockTime
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -247,6 +248,7 @@ func newCoreService(
 	bfIndexer blockindex.BloomFilterIndexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
+	getBlockTime evm.GetBlockTime,
 	opts ...Option,
 ) (CoreService, error) {
 	if cfg == (Config{}) {
@@ -271,6 +273,7 @@ func newCoreService(
 		chainListener: NewChainListener(500),
 		gs:            gasstation.NewGasStation(chain, dao, cfg.GasStation),
 		readCache:     NewReadCache(),
+		getBlockTime:  getBlockTime,
 	}
 
 	for _, opt := range opts {
@@ -528,7 +531,7 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	}
 	sc.SetGasPrice(big.NewInt(0)) // ReadContract() is read-only, use 0 to prevent insufficient gas
 
-	retval, receipt, err := core.simulateExecution(ctx, callerAddr, sc, core.dao.GetBlockHash)
+	retval, receipt, err := core.simulateExecution(ctx, callerAddr, sc, core.dao.GetBlockHash, core.getBlockTime)
 	if err != nil {
 		return "", nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1490,7 +1493,7 @@ func (core *coreService) isGasLimitEnough(
 		return false, nil, err
 	}
 
-	_, receipt, err := core.simulateExecution(ctx, caller, sc, core.dao.GetBlockHash)
+	_, receipt, err := core.simulateExecution(ctx, caller, sc, core.dao.GetBlockHash, core.getBlockTime)
 	if err != nil {
 		return false, nil, err
 	}
@@ -1644,7 +1647,7 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 		return nil, nil, err
 	}
 	exec.SetGasLimit(core.bc.Genesis().BlockGasLimit)
-	return core.simulateExecution(ctx, addr, exec, core.dao.GetBlockHash)
+	return core.simulateExecution(ctx, addr, exec, core.dao.GetBlockHash, core.getBlockTime)
 }
 
 // SyncingProgress returns the syncing status of node
@@ -1731,7 +1734,7 @@ func (core *coreService) TraceCall(ctx context.Context,
 	getblockHash := func(height uint64) (hash.Hash256, error) {
 		return blkHash, nil
 	}
-	retval, receipt, err := core.simulateExecution(ctx, callerAddr, exec, getblockHash)
+	retval, receipt, err := core.simulateExecution(ctx, callerAddr, exec, getblockHash, core.getBlockTime)
 	return retval, receipt, traces, err
 }
 
@@ -1748,9 +1751,10 @@ func (core *coreService) Track(ctx context.Context, start time.Time, method stri
 	}, size)
 }
 
-func (core *coreService) simulateExecution(ctx context.Context, addr address.Address, exec *action.Execution, getBlockHash evm.GetBlockHash) ([]byte, *action.Receipt, error) {
+func (core *coreService) simulateExecution(ctx context.Context, addr address.Address, exec *action.Execution, getBlockHash evm.GetBlockHash, getBlockTime evm.GetBlockTime) ([]byte, *action.Receipt, error) {
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash:   getBlockHash,
+		GetBlockTime:   getBlockTime,
 		DepositGasFunc: rewarding.DepositGasWithSGD,
 		Sgd:            core.sgdIndexer,
 	})

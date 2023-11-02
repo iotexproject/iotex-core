@@ -47,6 +47,7 @@ type stakingCommittee struct {
 	scoreThreshold       *big.Int
 	currentNativeBuckets []*types.Bucket
 	timerFactory         *prometheustimer.TimerFactory
+	getBlockTime         evm.GetBlockTime
 }
 
 // NewStakingCommittee creates a staking committee which fetch result from governance chain and native staking
@@ -57,6 +58,7 @@ func NewStakingCommittee(
 	nativeStakingContractAddress string,
 	nativeStakingContractCode string,
 	scoreThreshold *big.Int,
+	getBlockTime evm.GetBlockTime,
 ) (Protocol, error) {
 	var ns *NativeStaking
 	if nativeStakingContractAddress != "" || nativeStakingContractCode != "" {
@@ -84,6 +86,7 @@ func NewStakingCommittee(
 		governanceStaking: gs,
 		nativeStaking:     ns,
 		scoreThreshold:    scoreThreshold,
+		getBlockTime:      getBlockTime,
 	}
 	sc.timerFactory = timerFactory
 
@@ -139,6 +142,7 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		GetBlockHash: func(height uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
+		GetBlockTime: sc.getBlockTime,
 		DepositGasFunc: func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
 			return nil, nil
 		},

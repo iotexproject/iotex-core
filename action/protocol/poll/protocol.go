@@ -136,6 +136,7 @@ func NewProtocol(
 	getBlockTimeFunc GetBlockTime,
 	productivity Productivity,
 	getBlockHash evm.GetBlockHash,
+	getBlockTime evm.GetBlockTime,
 ) (Protocol, error) {
 	if scheme != _rollDPoSScheme {
 		return nil, nil
@@ -197,6 +198,7 @@ func NewProtocol(
 			genesisConfig.NativeStakingContractAddress,
 			genesisConfig.NativeStakingContractCode,
 			scoreThreshold,
+			getBlockTime,
 		)
 		if err != nil {
 			return nil, err
@@ -219,7 +221,7 @@ func NewProtocol(
 		}
 		return NewStakingCommand(stakingV1, stakingV2)
 	case _modeConsortium:
-		return NewConsortiumCommittee(candidateIndexer, readContract, getBlockHash)
+		return NewConsortiumCommittee(candidateIndexer, readContract, getBlockHash, getBlockTime)
 	default:
 		return nil, errors.Errorf("unsupported poll mode %s", genesisConfig.PollMode)
 	}

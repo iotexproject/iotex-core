@@ -19,6 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -73,6 +74,7 @@ type ChainService struct {
 	registry               *protocol.Registry
 	nodeInfoManager        *nodeinfo.InfoManager
 	apiStats               *nodestats.APILocalStats
+	getBlockTime           evm.GetBlockTime
 }
 
 // Start starts the server
@@ -204,6 +206,7 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 		cs.bfIndexer,
 		cs.actpool,
 		cs.registry,
+		cs.getBlockTime,
 		apiServerOptions...,
 	)
 	if err != nil {

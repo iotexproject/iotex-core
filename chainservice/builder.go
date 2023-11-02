@@ -580,7 +580,7 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGasWithSGD, builder.cs.sgdIndexer).Register(builder.cs.registry)
+	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGasWithSGD, builder.cs.sgdIndexer, builder.cs.getBlockTime).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
@@ -598,6 +598,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 	factory := builder.cs.factory
 	dao := builder.cs.blockdao
 	chain := builder.cs.chain
+	getBlockTime := builder.cs.getBlockTime
 	pollProtocol, err := poll.NewProtocol(
 		builder.cfg.Consensus.Scheme,
 		builder.cfg.Chain,
@@ -619,8 +620,13 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 			}
 
 			// TODO: add depositGas
+			// TODO: replace the fake function with a real one
+			getBlockTime := func(uint64) (time.Time, error) {
+				return time.Time{}, nil
+			}
 			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 				GetBlockHash: dao.GetBlockHash,
+				GetBlockTime: getBlockTime,
 			})
 			data, _, err := factory.SimulateExecution(ctx, addr, ex)
 
@@ -645,11 +651,20 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 			return blockchain.Productivity(chain, start, end)
 		},
 		dao.GetBlockHash,
+		getBlockTime,
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate poll protocol")
 	}
 	return pollProtocol.Register(builder.cs.registry)
+}
+
+func (builder *Builder) buildGetBlockTime() error {
+	// TODO: replace the fake getBlockTime with a real one
+	builder.cs.getBlockTime = func(u uint64) (time.Time, error) {
+		return time.Time{}, nil
+	}
+	return nil
 }
 
 func (builder *Builder) buildConsensusComponent() error {
@@ -713,6 +728,9 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildBlockchain(forSubChain, forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildGetBlockTime(); err != nil {
 		return nil, err
 	}
 	// staking protocol need to be put in registry before poll protocol when enabling
