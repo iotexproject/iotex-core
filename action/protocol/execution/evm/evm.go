@@ -10,6 +10,7 @@ import (
 	"context"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -49,6 +50,9 @@ var (
 type (
 	// GetBlockHash gets block hash by height
 	GetBlockHash func(uint64) (hash.Hash256, error)
+
+	// GetBlockTime gets block time by height
+	GetBlockTime func(uint64) (time.Time, error)
 
 	// DepositGasWithSGD deposits gas with Sharing of Gas-fee with DApps
 	DepositGasWithSGD func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error)
