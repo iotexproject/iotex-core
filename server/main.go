@@ -58,6 +58,8 @@ func (ss *strs) Set(str string) error {
 }
 
 func init() {
+	// set max number of CPUs, disable log printing
+	maxprocs.Set(maxprocs.Logger(nil))
 	flag.StringVar(&_genesisPath, "genesis-path", "", "Genesis path")
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
@@ -73,8 +75,6 @@ func init() {
 }
 
 func main() {
-	// set max number of CPUs, disable log printing
-	maxprocs.Set(maxprocs.Logger(nil))
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
 	signal.Notify(stop, syscall.SIGTERM)
