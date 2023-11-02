@@ -117,7 +117,7 @@ func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp 
 	if err != nil {
 		return nil, err
 	}
-	tx, err := action.RawTxToSignedTx(ethTx, svr.coreService.ChainID(), selp.Signature())
+	tx, err := action.RawTxToSignedTx(ethTx, svr.coreService.EVMNetworkID(), selp.Signature())
 	if err != nil {
 		return nil, err
 	}
