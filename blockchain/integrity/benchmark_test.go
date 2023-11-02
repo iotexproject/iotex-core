@@ -277,7 +277,7 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	if bc == nil {
 		return nil, nil, errors.New("pointer is nil")
 	}
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, func(u uint64) (time.Time, error) { return time.Time{}, nil })
 	if err = ep.Register(registry); err != nil {
 		return nil, nil, err
 	}

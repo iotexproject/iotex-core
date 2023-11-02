@@ -15,6 +15,7 @@ import (
 	"math/big"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -285,6 +286,9 @@ func readExecution(
 	}
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash: dao.GetBlockHash,
+		GetBlockTime: func(uint64) (time.Time, error) {
+			return time.Time{}, nil
+		},
 	})
 	return sf.SimulateExecution(ctx, addr, exec)
 }
@@ -457,7 +461,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	execution := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
+	execution := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, func(u uint64) (time.Time, error) { return time.Time{}, nil })
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
 
@@ -607,7 +611,9 @@ func TestProtocol_Validate(t *testing.T) {
 	require := require.New(t)
 	p := NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, rewarding.DepositGasWithSGD, nil)
+	}, rewarding.DepositGasWithSGD, nil, func(u uint64) (time.Time, error) {
+		return time.Time{}, nil
+	})
 
 	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), make([]byte, 32684))
 	require.NoError(err)
@@ -677,7 +683,7 @@ func TestProtocol_Handle(t *testing.T) {
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
 		)
-		exeProtocol := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
+		exeProtocol := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, func(u uint64) (time.Time, error) { return time.Time{}, nil })
 		require.NoError(exeProtocol.Register(registry))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)

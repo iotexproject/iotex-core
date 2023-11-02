@@ -45,6 +45,9 @@ func TestNewProtocol(t *testing.T) {
 		func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
+		func(u uint64) (time.Time, error) {
+			return time.Time{}, nil
+		},
 	)
 	require.NoError(err)
 	require.NotNil(p)

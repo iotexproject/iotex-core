@@ -336,7 +336,7 @@ func setupChain(cfg testConfig) (blockchain.Blockchain, blockdao.BlockDAO, block
 	}()
 
 	acc := account.NewProtocol(rewarding.DepositGas)
-	evm := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
+	evm := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, func(u uint64) (time.Time, error) { return time.Time{}, nil })
 	p := poll.NewLifeLongDelegatesProtocol(cfg.genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
@@ -452,7 +452,7 @@ func createServerV2(cfg testConfig, needActPool bool) (*ServerV2, blockchain.Blo
 	opts := []Option{WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 		return nil
 	})}
-	svr, err := NewServerV2(cfg.api, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
+	svr, err := NewServerV2(cfg.api, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, func(u uint64) (time.Time, error) { return time.Time{}, nil }, opts...)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, "", err
 	}
