@@ -393,9 +393,12 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.Chai
 	if g.IsIceland(height) {
 		chainConfig.ChainID = new(big.Int).SetUint64(uint64(id))
 	}
-	// enable Berlin and London
+	// enable Berlin and London at Okhotsk
 	chainConfig.BerlinBlock = new(big.Int).SetUint64(g.OkhotskBlockHeight)
 	chainConfig.LondonBlock = new(big.Int).SetUint64(g.OkhotskBlockHeight)
+	// enable ArrowGlacier, GrayGlacier at Redsea
+	chainConfig.ArrowGlacierBlock = new(big.Int).SetUint64(g.RedseaBlockHeight)
+	chainConfig.GrayGlacierBlock = new(big.Int).SetUint64(g.RedseaBlockHeight)
 	return &chainConfig
 }
 

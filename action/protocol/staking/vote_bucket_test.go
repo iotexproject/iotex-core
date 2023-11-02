@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil/testdb"
@@ -100,5 +102,175 @@ func TestGetPutStaking(t *testing.T) {
 		require.NoError(csm.delBucket(e.index))
 		_, err := csr.getBucket(e.index)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
+	}
+}
+
+func TestCalculateVoteWeight(t *testing.T) {
+	// Define test cases
+	blockInterval := consensusfsm.DefaultDardanellesUpgradeConfig.BlockInterval
+	consts := genesis.Default.VoteWeightCalConsts
+	tests := []struct {
+		name       string
+		consts     genesis.VoteWeightCalConsts
+		voteBucket *VoteBucket
+		selfStake  bool
+		expected   *big.Int
+	}{
+		{
+			name:   "Native, auto-stake enabled, self-stake enabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration: time.Duration(100) * 24 * time.Hour,
+				AutoStake:      true,
+				StakedAmount:   big.NewInt(100),
+			},
+			selfStake: true,
+			expected:  big.NewInt(136),
+		},
+		{
+			name:   "Native, auto-stake enabled, self-stake disabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration: time.Duration(100) * 24 * time.Hour,
+				AutoStake:      true,
+				StakedAmount:   big.NewInt(100),
+			},
+			selfStake: false,
+			expected:  big.NewInt(129),
+		},
+		{
+			name:   "Native, auto-stake disabled, self-stake enabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration: time.Duration(100) * 24 * time.Hour,
+				AutoStake:      false,
+				StakedAmount:   big.NewInt(100),
+			},
+			selfStake: true,
+			expected:  big.NewInt(125),
+		},
+		{
+			name:   "Native, auto-stake disabled, self-stake disabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration: time.Duration(100) * 24 * time.Hour,
+				AutoStake:      false,
+				StakedAmount:   big.NewInt(100),
+			},
+			selfStake: false,
+			expected:  big.NewInt(125),
+		},
+		{
+			name:   "NFT, auto-stake enabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration:            30 * 17280 * blockInterval,
+				StakedDurationBlockNumber: 30 * 17280,
+				AutoStake:                 true,
+				StakedAmount:              big.NewInt(10000),
+				ContractAddress:           identityset.Address(1).String(),
+			},
+			selfStake: false,
+			expected:  big.NewInt(12245),
+		},
+		{
+			name:   "NFT, auto-stake disabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration:            30 * 17280 * blockInterval,
+				StakedDurationBlockNumber: 30 * 17280,
+				AutoStake:                 false,
+				StakedAmount:              big.NewInt(10000),
+				ContractAddress:           identityset.Address(1).String(),
+			},
+			selfStake: false,
+			expected:  big.NewInt(11865),
+		},
+		{
+			name:   "NFT-I, auto-stake enabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration:            91 * 17280 * blockInterval,
+				StakedDurationBlockNumber: 91 * 17280,
+				AutoStake:                 true,
+				StakedAmount:              big.NewInt(10000),
+				ContractAddress:           identityset.Address(1).String(),
+			},
+			selfStake: false,
+			expected:  big.NewInt(12854),
+		},
+		{
+			name:   "NFT-I, auto-stake disabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration:            91 * 17280 * blockInterval,
+				StakedDurationBlockNumber: 91 * 17280,
+				AutoStake:                 false,
+				StakedAmount:              big.NewInt(10000),
+				ContractAddress:           identityset.Address(1).String(),
+			},
+			selfStake: true,
+			expected:  big.NewInt(12474),
+		},
+		{
+			name:   "NFT-II, auto-stake enabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration:            91 * 17280 * blockInterval,
+				StakedDurationBlockNumber: 91 * 17280,
+				AutoStake:                 true,
+				StakedAmount:              big.NewInt(100000),
+				ContractAddress:           identityset.Address(1).String(),
+			},
+			selfStake: false,
+			expected:  big.NewInt(128543),
+		},
+		{
+			name:   "NFT-II, auto-stake disabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration:            91 * 17280 * blockInterval,
+				StakedDurationBlockNumber: 91 * 17280,
+				AutoStake:                 false,
+				StakedAmount:              big.NewInt(100000),
+				ContractAddress:           identityset.Address(1).String(),
+			},
+			selfStake: true,
+			expected:  big.NewInt(124741),
+		},
+		{
+			name:   "NFT-III, auto-stake enabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration:            2 * 17280 * blockInterval,
+				StakedDurationBlockNumber: 2 * 17280,
+				AutoStake:                 true,
+				StakedAmount:              big.NewInt(1000),
+				ContractAddress:           identityset.Address(1).String(),
+			},
+			selfStake: false,
+			expected:  big.NewInt(1076),
+		},
+		{
+			name:   "NFT-III, auto-stake disabled",
+			consts: consts,
+			voteBucket: &VoteBucket{
+				StakedDuration:            2 * 17280 * blockInterval,
+				StakedDurationBlockNumber: 2 * 17280,
+				AutoStake:                 false,
+				StakedAmount:              big.NewInt(1000),
+				ContractAddress:           identityset.Address(1).String(),
+			},
+			selfStake: true,
+			expected:  big.NewInt(1038),
+		},
+	}
+
+	// Run tests
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := CalculateVoteWeight(tt.consts, tt.voteBucket, tt.selfStake)
+			require.Equal(t, tt.expected, actual)
+		})
 	}
 }

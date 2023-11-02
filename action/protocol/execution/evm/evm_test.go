@@ -219,10 +219,19 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			24838200,
 		},
-		// after Quebec
+		// after Quebec - Redsea
 		{
 			action.EmptyAddress,
 			24838201,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			26704440,
+		},
+		// after Redsea
+		{
+			action.EmptyAddress,
+			26704441,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
@@ -302,7 +311,18 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isOkhotsk, chainRules.IsBerlin)
 		require.Equal(isOkhotsk, evmChainConfig.IsLondon(evm.Context.BlockNumber))
 		require.Equal(isOkhotsk, chainRules.IsLondon)
+
+		// Redsea = enable ArrowGlacier, GrayGlacier
+		isRedsea := g.IsRedsea(e.height)
+		require.Equal(big.NewInt(int64(g.RedseaBlockHeight)), evmChainConfig.ArrowGlacierBlock)
+		require.Equal(big.NewInt(int64(g.RedseaBlockHeight)), evmChainConfig.GrayGlacierBlock)
+		require.Equal(isRedsea, evmChainConfig.IsArrowGlacier(evm.Context.BlockNumber))
+		require.Equal(isRedsea, evmChainConfig.IsGrayGlacier(evm.Context.BlockNumber))
+
+		// Merge, Shanghai and Cancun not yet enabled
 		require.False(chainRules.IsMerge)
+		require.False(chainRules.IsShanghai)
+		require.False(evmChainConfig.IsCancun(evm.Context.BlockNumber))
 
 		// test basefee
 		require.Equal(new(big.Int), evm.Context.BaseFee)

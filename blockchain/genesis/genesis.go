@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2023 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -71,6 +71,7 @@ func defaultConfig() Genesis {
 			OkhotskBlockHeight:      21542761,
 			PalauBlockHeight:        22991401,
 			QuebecBlockHeight:       24838201,
+			RedseaBlockHeight:       26704441,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
@@ -224,7 +225,7 @@ type (
 		// 3. enable web3 staking transaction
 		NewfoundlandBlockHeight uint64 `yaml:"newfoundlandHeight"`
 		// OkhotskBlockHeight is the start height to
-		// 1. enabled London EVM
+		// 1. enable London EVM
 		// 2. create zero-nonce account
 		// 3. fix gas and nonce update
 		// 4. fix unproductive delegates in staking protocol
@@ -238,6 +239,10 @@ type (
 		// 2. enable IIP-13 liquidity staking
 		// 3. valiate system action layout
 		QuebecBlockHeight uint64 `yaml:"quebecHeight"`
+		// RedseaBlockHeight is the start height to
+		// 1. upgrade go-ethereum to Bellatrix release
+		// 2. correct weighted votes for contract staking bucket
+		RedseaBlockHeight uint64 `yaml:"redseaHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -569,6 +574,11 @@ func (g *Blockchain) IsPalau(height uint64) bool {
 // IsQuebec checks whether height is equal to or larger than quebec height
 func (g *Blockchain) IsQuebec(height uint64) bool {
 	return g.isPost(g.QuebecBlockHeight, height)
+}
+
+// IsRedsea checks whether height is equal to or larger than redsea height
+func (g *Blockchain) IsRedsea(height uint64) bool {
+	return g.isPost(g.RedseaBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height

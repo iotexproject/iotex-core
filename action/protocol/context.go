@@ -113,6 +113,7 @@ type (
 		ValidateSystemAction                    bool
 		AllowCorrectChainIDOnly                 bool
 		AddContractStakingVotes                 bool
+		FixContractStakingWeightedVotes         bool
 		SharedGasWithDapp                       bool
 	}
 
@@ -252,6 +253,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			ValidateSystemAction:                    g.IsQuebec(height),
 			AllowCorrectChainIDOnly:                 g.IsQuebec(height),
 			AddContractStakingVotes:                 g.IsQuebec(height),
+			FixContractStakingWeightedVotes:         g.IsRedsea(height),
 			SharedGasWithDapp:                       g.IsToBeEnabled(height),
 		},
 	)

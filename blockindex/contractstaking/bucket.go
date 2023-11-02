@@ -6,16 +6,19 @@
 package contractstaking
 
 import (
+	"time"
+
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 )
 
 // Bucket defines the bucket struct for contract staking
 type Bucket = staking.VoteBucket
 
-func assembleBucket(token uint64, bi *bucketInfo, bt *BucketType, contractAddr string) *Bucket {
+func assembleBucket(token uint64, bi *bucketInfo, bt *BucketType, contractAddr string, blockInterval time.Duration) *Bucket {
 	vb := Bucket{
 		Index:                     token,
 		StakedAmount:              bt.Amount,
+		StakedDuration:            time.Duration(bt.Duration) * blockInterval,
 		StakedDurationBlockNumber: bt.Duration,
 		CreateBlockHeight:         bi.CreatedAt,
 		StakeStartBlockHeight:     bi.CreatedAt,

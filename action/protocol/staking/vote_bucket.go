@@ -186,10 +186,14 @@ func (vb *VoteBucket) Serialize() ([]byte, error) {
 }
 
 func (vb *VoteBucket) isUnstaked() bool {
-	if vb.ContractAddress == "" {
+	if vb.isNative() {
 		return vb.UnstakeStartTime.After(vb.StakeStartTime)
 	}
 	return vb.UnstakeStartBlockHeight < maxBlockNumber
+}
+
+func (vb *VoteBucket) isNative() bool {
+	return vb.ContractAddress == ""
 }
 
 // Deserialize deserializes bytes into bucket count
@@ -213,7 +217,8 @@ func bucketKey(index uint64) []byte {
 	return append(key, byteutil.Uint64ToBytesBigEndian(index)...)
 }
 
-func calculateVoteWeight(c genesis.VoteWeightCalConsts, v *VoteBucket, selfStake bool) *big.Int {
+// CalculateVoteWeight calculates the vote weight
+func CalculateVoteWeight(c genesis.VoteWeightCalConsts, v *VoteBucket, selfStake bool) *big.Int {
 	remainingTime := v.StakedDuration.Seconds()
 	weight := float64(1)
 	var m float64
