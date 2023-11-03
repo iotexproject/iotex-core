@@ -82,22 +82,21 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 type (
 	// Params is the context and parameters
 	Params struct {
-		context            vm.BlockContext
-		txCtx              vm.TxContext
-		nonce              uint64
-		evmNetworkID       uint32
-		executorRawAddress string
-		amount             *big.Int
-		contract           *common.Address
-		gas                uint64
-		data               []byte
-		accessList         types.AccessList
-		evmConfig          vm.Config
-		chainConfig        *params.ChainConfig
-		blkCtx             protocol.BlockCtx
-		genesis            genesis.Blockchain
-		featureCtx         protocol.FeatureCtx
-		actionCtx          protocol.ActionCtx
+		context      vm.BlockContext
+		txCtx        vm.TxContext
+		nonce        uint64
+		evmNetworkID uint32
+		amount       *big.Int
+		contract     *common.Address
+		gas          uint64
+		data         []byte
+		accessList   types.AccessList
+		evmConfig    vm.Config
+		chainConfig  *params.ChainConfig
+		blkCtx       protocol.BlockCtx
+		genesis      genesis.Blockchain
+		featureCtx   protocol.FeatureCtx
+		actionCtx    protocol.ActionCtx
 	}
 )
 
@@ -114,12 +113,13 @@ func newParams(
 		featureCtx   = protocol.MustGetFeatureCtx(ctx)
 		g            = genesis.MustExtractGenesisContext(ctx)
 		evmNetworkID = protocol.MustGetBlockchainCtx(ctx).EvmNetworkID
+		executorAddr = common.BytesToAddress(actionCtx.Caller.Bytes())
 
 		vmConfig            vm.Config
 		contractAddrPointer *common.Address
 		getHashFn           vm.GetHashFunc
 	)
-	executorAddr := common.BytesToAddress(actionCtx.Caller.Bytes())
+
 	if dest := execution.Contract(); dest != action.EmptyAddress {
 		contract, err := address.FromString(execution.Contract())
 		if err != nil {
@@ -187,7 +187,6 @@ func newParams(
 		},
 		execution.Nonce(),
 		evmNetworkID,
-		actionCtx.Caller.String(),
 		execution.Amount(),
 		contractAddrPointer,
 		gasLimit,
