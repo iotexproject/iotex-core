@@ -108,12 +108,18 @@ func newParams(
 	stateDB *StateDBAdapter,
 	getBlockHash GetBlockHash,
 ) (*Params, error) {
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	g := genesis.MustExtractGenesisContext(ctx)
+	var (
+		actionCtx    = protocol.MustGetActionCtx(ctx)
+		blkCtx       = protocol.MustGetBlockCtx(ctx)
+		featureCtx   = protocol.MustGetFeatureCtx(ctx)
+		g            = genesis.MustExtractGenesisContext(ctx)
+		evmNetworkID = protocol.MustGetBlockchainCtx(ctx).EvmNetworkID
+
+		vmConfig            vm.Config
+		contractAddrPointer *common.Address
+		getHashFn           vm.GetHashFunc
+	)
 	executorAddr := common.BytesToAddress(actionCtx.Caller.Bytes())
-	var contractAddrPointer *common.Address
 	if dest := execution.Contract(); dest != action.EmptyAddress {
 		contract, err := address.FromString(execution.Contract())
 		if err != nil {
@@ -129,7 +135,6 @@ func newParams(
 		gasLimit = _preAleutianActionGasLimit
 	}
 
-	var getHashFn vm.GetHashFunc
 	switch {
 	case featureCtx.CorrectGetHashFn:
 		getHashFn = func(n uint64) common.Hash {
@@ -169,8 +174,6 @@ func newParams(
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		BaseFee:     new(big.Int),
 	}
-	evmNetworkID := protocol.MustGetBlockchainCtx(ctx).EvmNetworkID
-	vmConfig := vm.Config{}
 	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
 		vmConfig = vmCfg
 	}
@@ -237,17 +240,14 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	actionCtx := ps.actionCtx
-	blkCtx := ps.blkCtx
-	featureCtx := ps.featureCtx
 	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB)
 	if err != nil {
 		return nil, nil, err
 	}
 	receipt := &action.Receipt{
 		GasConsumed:     ps.gas - remainingGas,
-		BlockHeight:     blkCtx.BlockHeight,
-		ActionHash:      actionCtx.ActionHash,
+		BlockHeight:     ps.blkCtx.BlockHeight,
+		ActionHash:      ps.actionCtx.ActionHash,
 		ContractAddress: contractAddress,
 	}
 
@@ -256,7 +256,7 @@ func ExecuteContract(
 		depositLog, burnLog *action.TransactionLog
 		consumedGas         = depositGas - remainingGas
 	)
-	if featureCtx.FixDoubleChargeGas {
+	if ps.featureCtx.FixDoubleChargeGas {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.txCtx.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.txCtx.GasPrice))
 	} else {
@@ -267,7 +267,7 @@ func ExecuteContract(
 		if consumedGas > 0 {
 			burnLog = &action.TransactionLog{
 				Type:      iotextypes.TransactionLogType_GAS_FEE,
-				Sender:    actionCtx.Caller.String(),
+				Sender:    ps.actionCtx.Caller.String(),
 				Recipient: "", // burned
 				Amount:    new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), ps.txCtx.GasPrice),
 			}
@@ -279,7 +279,7 @@ func ExecuteContract(
 			sharedGas                 uint64
 			sharedGasFee, totalGasFee *big.Int
 		)
-		if featureCtx.SharedGasWithDapp && sgd != nil {
+		if ps.featureCtx.SharedGasWithDapp && sgd != nil {
 			receiver, sharedGas, err = processSGD(ctx, sm, execution, consumedGas, sgd)
 			if err != nil {
 				return nil, nil, errors.Wrap(err, "failed to process Sharing of Gas-fee with DApps")
@@ -301,12 +301,12 @@ func ExecuteContract(
 	}
 	receipt.AddLogs(stateDB.Logs()...).AddTransactionLogs(depositLog, burnLog)
 	if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) ||
-		featureCtx.AddOutOfGasToTransactionLog && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
+		ps.featureCtx.AddOutOfGasToTransactionLog && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
 		receipt.AddTransactionLogs(stateDB.TransactionLogs()...)
 	}
 	stateDB.clear()
 
-	if featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], _revertSelector) {
+	if ps.featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], _revertSelector) {
 		// in case of the execution revert error, parse the retVal and add to receipt
 		data := retval[4:]
 		msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
@@ -423,10 +423,13 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.Chai
 
 // Error in executeInEVM is a consensus issue
 func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, uint64, string, iotextypes.ReceiptStatus, error) {
-	gasLimit := evmParams.blkCtx.GasLimit
-	blockHeight := evmParams.blkCtx.BlockHeight
-	g := evmParams.genesis
-	remainingGas := evmParams.gas
+	var (
+		gasLimit     = evmParams.blkCtx.GasLimit
+		blockHeight  = evmParams.blkCtx.BlockHeight
+		g            = evmParams.genesis
+		remainingGas = evmParams.gas
+		chainConfig  = evmParams.chainConfig
+	)
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
 		return nil, 0, 0, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
@@ -434,9 +437,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 	var (
 		accessList types.AccessList
 	)
-	config := evmParams.evmConfig
-	chainConfig := evmParams.chainConfig
-	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, chainConfig, config)
+	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, chainConfig, evmParams.evmConfig)
 	if g.IsOkhotsk(blockHeight) {
 		accessList = evmParams.accessList
 	}
