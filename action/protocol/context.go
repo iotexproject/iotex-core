@@ -104,7 +104,6 @@ type (
 		CorrectTxLogIndex                       bool
 		RevertLog                               bool
 		TolerateLegacyAddress                   bool
-		ValidateRewardProtocol                  bool
 		CreateLegacyNonceAccount                bool
 		FixGasAndNonceUpdate                    bool
 		FixUnproductiveDelegates                bool
@@ -244,7 +243,6 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CorrectTxLogIndex:                       g.IsMidway(height),
 			RevertLog:                               g.IsMidway(height),
 			TolerateLegacyAddress:                   !g.IsNewfoundland(height),
-			ValidateRewardProtocol:                  g.IsNewfoundland(height),
 			CreateLegacyNonceAccount:                !g.IsOkhotsk(height),
 			FixGasAndNonceUpdate:                    g.IsOkhotsk(height),
 			FixUnproductiveDelegates:                g.IsOkhotsk(height),

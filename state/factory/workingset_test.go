@@ -278,13 +278,11 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(f2.Stop(ctx))
 	}()
 
-	zctx := protocol.WithBlockCtx(context.Background(),
-		protocol.BlockCtx{
-			BlockHeight: uint64(1),
-			Producer:    identityset.Address(27),
-			GasLimit:    testutil.TestGasLimit * 100000,
-		})
-	zctx = genesis.WithGenesisContext(zctx, cfg.Genesis)
+	zctx := protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: uint64(1),
+		Producer:    identityset.Address(28),
+		GasLimit:    testutil.TestGasLimit * 100000,
+	})
 	zctx = protocol.WithFeatureCtx(protocol.WithBlockchainCtx(zctx, protocol.BlockchainCtx{
 		ChainID: 1,
 	}))
@@ -305,7 +303,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(err)
 		receiptRoot, err := hash.HexStringToHash256("f04673451e31386a8fddfcf7750665bfcf33f239f6c4919430bb11a144e1aa95")
 		require.NoError(err)
-		actions := []action.SealedEnvelope{makeRewardAction(t), makeTransferAction(t, 1)}
+		actions := []action.SealedEnvelope{makeRewardAction(t, 28), makeTransferAction(t, 1)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
 			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
@@ -316,10 +314,21 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(err)
 		receiptRoot, err := hash.HexStringToHash256("a59bd06fe4d2bb537895f170dec1f9213045cb13480e4941f1abdc8d13b16fae")
 		require.NoError(err)
-		actions := []action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t)}
+		actions := []action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t, 28)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
 			require.ErrorIs(f.Validate(zctx, block), nil)
+		}
+	})
+	t.Run("wrong reward action signer", func(t *testing.T) {
+		digestHash, err := hash.HexStringToHash256("ade24a5c647b5af34c4e74fe0d8f1fa410f6fb115f8fc2d39e45ca2f895de9ca")
+		require.NoError(err)
+		receiptRoot, err := hash.HexStringToHash256("a59bd06fe4d2bb537895f170dec1f9213045cb13480e4941f1abdc8d13b16fae")
+		require.NoError(err)
+		actions := []action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t, 27)}
+		for _, f := range factories {
+			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
+			require.ErrorContains(f.Validate(zctx, block), "Only producer could create reward")
 		}
 	})
 	t.Run("postiche system action", func(t *testing.T) {
@@ -327,7 +336,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(err)
 		receiptRoot, err := hash.HexStringToHash256("a59bd06fe4d2bb537895f170dec1f9213045cb13480e4941f1abdc8d13b16fae")
 		require.NoError(err)
-		actions := []action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t), makeRewardAction(t)}
+		actions := []action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t, 28), makeRewardAction(t, 28)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
 			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
@@ -338,7 +347,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(err)
 		receiptRoot, err := hash.HexStringToHash256("f04673451e31386a8fddfcf7750665bfcf33f239f6c4919430bb11a144e1aa95")
 		require.NoError(err)
-		rewardAct := makeRewardAction(t)
+		rewardAct := makeRewardAction(t, 28)
 		rewardAct.SetNonce(2)
 		actions := []action.SealedEnvelope{makeTransferAction(t, 1), rewardAct}
 		for _, f := range factories {
@@ -372,7 +381,7 @@ func makeTransferAction(t *testing.T, nonce uint64) action.SealedEnvelope {
 	return sevlp
 }
 
-func makeRewardAction(t *testing.T) action.SealedEnvelope {
+func makeRewardAction(t *testing.T, signer int) action.SealedEnvelope {
 	gb := action.GrantRewardBuilder{}
 	grant := gb.SetRewardType(action.BlockReward).SetHeight(1).Build()
 	eb2 := action.EnvelopeBuilder{}
@@ -381,7 +390,7 @@ func makeRewardAction(t *testing.T) action.SealedEnvelope {
 		SetGasLimit(grant.GasLimit()).
 		SetAction(&grant).
 		Build()
-	sevlp, err := action.Sign(evlp, identityset.PrivateKey(28))
+	sevlp, err := action.Sign(evlp, identityset.PrivateKey(signer))
 	require.NoError(t, err)
 	return sevlp
 }
