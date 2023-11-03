@@ -6,9 +6,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -289,26 +288,8 @@ func TestRlpDecodeVerify(t *testing.T) {
 	}
 
 	for _, v := range rlpTests {
-		encoded, err := hex.DecodeString(v.raw)
-		require.NoError(err)
-
 		// decode received RLP tx
-		tx := types.Transaction{}
-		require.NoError(rlp.DecodeBytes(encoded, &tx))
-
-		// extract signature and recover pubkey
-		w, r, s := tx.RawSignatureValues()
-		recID := uint32(w.Int64()) - 2*_evmNetworkID - 8
-		sig := make([]byte, 64, 65)
-		rSize := len(r.Bytes())
-		copy(sig[32-rSize:32], r.Bytes())
-		sSize := len(s.Bytes())
-		copy(sig[64-sSize:], s.Bytes())
-		sig = append(sig, byte(recID))
-
-		// recover public key
-		rawHash := types.NewEIP155Signer(big.NewInt(int64(_evmNetworkID))).Hash(&tx)
-		pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
+		tx, sig, pubkey, err := DecodeRawTx(v.raw, _evmNetworkID)
 		require.NoError(err)
 		require.Equal(v.pubkey, pubkey.HexString())
 		require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
@@ -317,7 +298,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		pb := &iotextypes.Action{
 			Encoding: iotextypes.Encoding_ETHEREUM_RLP,
 		}
-		pb.Core = convertToNativeProto(&tx, v.actType)
+		pb.Core = convertToNativeProto(tx, v.actType)
 		pb.SenderPubKey = pubkey.Bytes()
 		pb.Signature = sig
 
@@ -352,6 +333,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		require.True(bytes.Equal(sig, selp.signature))
 		raw, err := selp.envelopeHash()
 		require.NoError(err)
+		rawHash := types.NewEIP155Signer(big.NewInt(int64(_evmNetworkID))).Hash(tx)
 		require.True(bytes.Equal(rawHash[:], raw[:]))
 		require.NotEqual(raw, h)
 		require.NoError(selp.VerifySignature())
@@ -378,4 +360,46 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 	default:
 		panic("unsupported")
 	}
+}
+
+func TestIssue3944(t *testing.T) {
+	r := require.New(t)
+	// the sample tx below is the web3 format tx on the testnet:
+	// https://testnet.iotexscan.io/tx/fcaf377ff3cc785d60c58de7e121d6a2e79e1c58c189ea8641f3ea61f7605285
+	// or you can get it using ethclient code:
+	// {
+	//		cli, _ := ethclient.Dial("https://babel-api.testnet.iotex.io")
+	// 		tx, _, err := cli.TransactionByHash(context.Background(), common.HexToHash("0xfcaf377ff3cc785d60c58de7e121d6a2e79e1c58c189ea8641f3ea61f7605285"))
+	// }
+	var (
+		hash    = "0xfcaf377ff3cc785d60c58de7e121d6a2e79e1c58c189ea8641f3ea61f7605285"
+		data, _ = hex.DecodeString("f3fef3a3000000000000000000000000fdff3eafde9a0cc42d18aab2a7454b1105f19edf00000000000000000000000000000000000000000000002086ac351052600000")
+		to      = common.HexToAddress("0xd313b3131e238C635f2fE4a84EaDaD71b3ed25fa")
+		sig, _  = hex.DecodeString("adff1da88c93f4e80c27bab0d613147fb7aeeed6e976231695de52cd9ac5aa8a3094e02759b838514f8376e05ceb266badc791ac2e7045ee7c15e58fc626980b1b")
+	)
+	tx := types.NewTx(&types.LegacyTx{
+		Nonce:    83,
+		To:       &to,
+		Value:    new(big.Int),
+		Gas:      39295,
+		GasPrice: big.NewInt(1000000000000),
+		Data:     data,
+		V:        big.NewInt(int64(sig[64])),
+		R:        new(big.Int).SetBytes(sig[:32]),
+		S:        new(big.Int).SetBytes(sig[32:64]),
+	})
+
+	v, q, s := tx.RawSignatureValues()
+	r.Equal(sig[:32], q.Bytes())
+	r.Equal(sig[32:64], s.Bytes())
+	r.Equal("1b", v.Text(16))
+	r.NotEqual(hash, tx.Hash().Hex()) // hash does not match with wrong V value in signature
+
+	tx1, err := RawTxToSignedTx(tx, 4690, sig)
+	r.NoError(err)
+	v, q, s = tx1.RawSignatureValues()
+	r.Equal(sig[:32], q.Bytes())
+	r.Equal(sig[32:64], s.Bytes())
+	r.Equal("9415", v.String()) // this is the correct V value corresponding to chainID = 4690
+	r.Equal(hash, tx1.Hash().Hex())
 }

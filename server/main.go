@@ -21,7 +21,7 @@ import (
 	"syscall"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	_ "go.uber.org/automaxprocs"
+	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -58,6 +58,8 @@ func (ss *strs) Set(str string) error {
 }
 
 func init() {
+	// set max number of CPUs, disable log printing
+	maxprocs.Set(maxprocs.Logger(nil))
 	flag.StringVar(&_genesisPath, "genesis-path", "", "Genesis path")
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")

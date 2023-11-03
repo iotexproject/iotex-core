@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/hex"
 	"encoding/json"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -57,7 +56,6 @@ type (
 		ethTx     *types.Transaction
 		receipt   *action.Receipt
 		pubkey    crypto.PublicKey
-		signature []byte
 	}
 
 	getReceiptResult struct {
@@ -229,12 +227,7 @@ func (obj *getTransactionResult) MarshalJSON() ([]byte, error) {
 	}
 	value, _ := intStrToHex(obj.ethTx.Value().String())
 	gasPrice, _ := intStrToHex(obj.ethTx.GasPrice().String())
-
-	// TODO: if transaction is support EIP-155, we need to add chainID to v
-	vVal := uint64(obj.signature[64])
-	if vVal < 27 {
-		vVal += 27
-	}
+	v, r, s := obj.ethTx.RawSignatureValues()
 
 	return json.Marshal(&struct {
 		Hash             string  `json:"hash"`
@@ -263,9 +256,9 @@ func (obj *getTransactionResult) MarshalJSON() ([]byte, error) {
 		GasPrice:         gasPrice,
 		Gas:              uint64ToHex(obj.ethTx.Gas()),
 		Input:            byteToHex(obj.ethTx.Data()),
-		R:                hexutil.EncodeBig(new(big.Int).SetBytes(obj.signature[:32])),
-		S:                hexutil.EncodeBig(new(big.Int).SetBytes(obj.signature[32:64])),
-		V:                uint64ToHex(vVal),
+		R:                hexutil.EncodeBig(r),
+		S:                hexutil.EncodeBig(s),
+		V:                hexutil.EncodeBig(v),
 	})
 }
 
