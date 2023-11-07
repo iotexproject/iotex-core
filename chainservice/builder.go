@@ -37,11 +37,13 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
+	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	rp "github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/nodeinfo"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/blockutil"
 	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -580,7 +582,7 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGasWithSGD, builder.cs.sgdIndexer, builder.cs.getBlockTime).Register(builder.cs.registry)
+	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGasWithSGD, builder.cs.sgdIndexer, builder.cs.blockTimeCalculator.CalculateBlockTime).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
@@ -598,7 +600,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 	factory := builder.cs.factory
 	dao := builder.cs.blockdao
 	chain := builder.cs.chain
-	getBlockTime := builder.cs.getBlockTime
+	getBlockTime := builder.cs.blockTimeCalculator.CalculateBlockTime
 	pollProtocol, err := poll.NewProtocol(
 		builder.cfg.Consensus.Scheme,
 		builder.cfg.Chain,
@@ -659,12 +661,17 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 	return pollProtocol.Register(builder.cs.registry)
 }
 
-func (builder *Builder) buildGetBlockTime() error {
-	// TODO: replace the fake getBlockTime with a real one
-	builder.cs.getBlockTime = func(u uint64) (time.Time, error) {
-		return time.Time{}, nil
-	}
-	return nil
+func (builder *Builder) buildGetBlockTime() (err error) {
+	consensusCfg := consensusfsm.NewConsensusConfig(builder.cfg.Consensus.RollDPoS.FSM, builder.cfg.DardanellesUpgrade, builder.cfg.Genesis, builder.cfg.Consensus.RollDPoS.Delay)
+	dao := builder.cs.BlockDAO()
+	builder.cs.blockTimeCalculator, err = blockutil.NewBlockTimeCalculator(consensusCfg.BlockInterval, builder.cs.Blockchain().TipHeight, func(height uint64) (time.Time, error) {
+		blk, err := dao.GetBlockByHeight(height)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return blk.Timestamp(), nil
+	})
+	return err
 }
 
 func (builder *Builder) buildConsensusComponent() error {
