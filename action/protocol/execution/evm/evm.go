@@ -176,14 +176,17 @@ func newParams(
 		Coinbase:    common.BytesToAddress(blkCtx.Producer.Bytes()),
 		GasLimit:    gasLimit,
 		BlockNumber: new(big.Int).SetUint64(blkCtx.BlockHeight),
-		Time:        new(big.Int).SetInt64(blkCtx.BlockTimeStamp.Unix()),
+		Time:        new(big.Int).SetInt64(blkCtx.BlockTimeStamp.Unix()).Uint64(),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		BaseFee:     new(big.Int),
 	}
 	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
 		vmConfig = vmCfg
 	}
-	chainConfig := getChainConfig(g.Blockchain, blkCtx.BlockHeight, evmNetworkID)
+	chainConfig, err := getChainConfig(g.Blockchain, blkCtx.BlockHeight, evmNetworkID, helperCtx.GetBlockTime)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Params{
 		context,
@@ -408,7 +411,7 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	)
 }
 
-func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.ChainConfig {
+func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime GetBlockTime) (*params.ChainConfig, error) {
 	var chainConfig params.ChainConfig
 	chainConfig.ConstantinopleBlock = new(big.Int).SetUint64(0) // Constantinople switch block (nil = no fork, 0 = already activated)
 	chainConfig.BeringBlock = new(big.Int).SetUint64(g.BeringBlockHeight)
@@ -426,7 +429,16 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.Chai
 	// enable ArrowGlacier, GrayGlacier at Redsea
 	chainConfig.ArrowGlacierBlock = new(big.Int).SetUint64(g.RedseaBlockHeight)
 	chainConfig.GrayGlacierBlock = new(big.Int).SetUint64(g.RedseaBlockHeight)
-	return &chainConfig
+	// enable Merge, Shanghai at Sumatra
+	chainConfig.MergeNetsplitBlock = new(big.Int).SetUint64(g.SumatraBlockHeight)
+	// Starting Shanghai, fork scheduling on Ethereum was switched from blocks to timestamps
+	sumatraTime, err := getBlockTime(g.SumatraBlockHeight)
+	if err != nil {
+		return nil, err
+	}
+	sumatraTimestamp := (uint64)(sumatraTime.Unix())
+	chainConfig.ShanghaiTime = &sumatraTimestamp
+	return &chainConfig, nil
 }
 
 // Error in executeInEVM is a consensus issue
@@ -459,13 +471,13 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 	remainingGas -= intriGas
 
 	// Set up the initial access list
-	if rules := chainConfig.Rules(evm.Context.BlockNumber, false); rules.IsBerlin {
-		stateDB.PrepareAccessList(evmParams.txCtx.Origin, evmParams.contract, vm.ActivePrecompiles(rules), evmParams.accessList)
+	rules := chainConfig.Rules(evm.Context.BlockNumber, g.IsSumatra(evmParams.blkCtx.BlockHeight), evmParams.context.Time)
+	if rules.IsBerlin {
+		stateDB.Prepare(rules, evmParams.txCtx.Origin, evmParams.context.Coinbase, evmParams.contract, vm.ActivePrecompiles(rules), evmParams.accessList)
 	}
 	var (
 		contractRawAddress = action.EmptyAddress
 		executor           = vm.AccountRef(evmParams.txCtx.Origin)
-		london             = evm.ChainConfig().IsLondon(evm.Context.BlockNumber)
 		ret                []byte
 		evmErr             error
 		refund             uint64
@@ -497,7 +509,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 	if stateDB.Error() != nil {
 		log.L().Debug("statedb error", zap.Error(stateDB.Error()))
 	}
-	if !london {
+	if !rules.IsLondon {
 		// Before EIP-3529: refunds were capped to gasUsed / 2
 		refund = (evmParams.gas - remainingGas) / params.RefundQuotient
 	} else {
