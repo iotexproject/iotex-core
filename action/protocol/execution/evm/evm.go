@@ -239,7 +239,6 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	sgd := ps.helperCtx.Sgd
 	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB)
 	if err != nil {
 		return nil, nil, err
@@ -274,23 +273,7 @@ func ExecuteContract(
 		}
 	}
 	if consumedGas > 0 {
-		var (
-			receiver                  address.Address
-			sharedGas                 uint64
-			sharedGasFee, totalGasFee *big.Int
-		)
-		if ps.featureCtx.SharedGasWithDapp && sgd != nil {
-			receiver, sharedGas, err = processSGD(ctx, sm, execution, consumedGas, sgd)
-			if err != nil {
-				return nil, nil, errors.Wrap(err, "failed to process Sharing of Gas-fee with DApps")
-			}
-		}
-		if sharedGas > 0 {
-			sharedGasFee = big.NewInt(int64(sharedGas))
-			sharedGasFee.Mul(sharedGasFee, ps.txCtx.GasPrice)
-		}
-		totalGasFee = new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), ps.txCtx.GasPrice)
-		depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
+		depositLog, err = depositeGas(ctx, sm, execution, consumedGas, ps.txCtx.GasPrice, ps.helperCtx, ps.featureCtx)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -315,6 +298,27 @@ func ExecuteContract(
 	}
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil
+}
+
+func depositeGas(ctx context.Context, sm protocol.StateManager, execution *action.Execution, consumedGas uint64, gasPrice *big.Int, hCtx HelperContext, fCtx protocol.FeatureCtx) (*action.TransactionLog, error) {
+	var (
+		receiver                  address.Address
+		sharedGas                 uint64
+		sharedGasFee, totalGasFee *big.Int
+		err                       error
+	)
+	if fCtx.SharedGasWithDapp && hCtx.Sgd != nil {
+		receiver, sharedGas, err = processSGD(ctx, sm, execution, consumedGas, hCtx.Sgd)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to process Sharing of Gas-fee with DApps")
+		}
+	}
+	if sharedGas > 0 {
+		sharedGasFee = big.NewInt(int64(sharedGas))
+		sharedGasFee.Mul(sharedGasFee, gasPrice)
+	}
+	totalGasFee = new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), gasPrice)
+	return hCtx.DepositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
 }
 
 func processSGD(ctx context.Context, sm protocol.StateManager, execution *action.Execution, consumedGas uint64, sgd SGDRegistry,
@@ -638,6 +642,7 @@ func SimulateExecution(
 	)
 
 	ctx = protocol.WithFeatureCtx(ctx)
+	// TODO: move the logic out of SimulateExecution
 	helperCtx := mustGetHelperCtx(ctx)
 	ctx = WithHelperCtx(ctx, HelperContext{
 		GetBlockHash: helperCtx.GetBlockHash,
