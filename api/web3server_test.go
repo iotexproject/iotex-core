@@ -221,7 +221,6 @@ func TestGetBlockByNumber(t *testing.T) {
 		Block:    &blk,
 		Receipts: receipts,
 	}, nil)
-	core.EXPECT().EVMNetworkID().Return(uint32(0))
 
 	in := gjson.Parse(`{"params":["1", true]}`)
 	ret, err := web3svr.getBlockByNumber(&in)
@@ -505,7 +504,6 @@ func TestGetBlockByHash(t *testing.T) {
 		Block:    &blk,
 		Receipts: receipts,
 	}, nil)
-	core.EXPECT().EVMNetworkID().Return(uint32(0))
 
 	blkHash := blk.HashBlock()
 	in := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", true]}`, hex.EncodeToString(blkHash[:])))
@@ -542,7 +540,6 @@ func TestGetTransactionByHash(t *testing.T) {
 	}
 	core.EXPECT().ActionByActionHash(gomock.Any()).Return(selp, hash.Hash256b([]byte("test")), uint64(0), uint32(0), nil)
 	core.EXPECT().ReceiptByActionHash(gomock.Any()).Return(receipt, nil)
-	core.EXPECT().EVMNetworkID().Return(uint32(0))
 
 	in := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", true]}`, hex.EncodeToString(txHash[:])))
 	ret, err := web3svr.getTransactionByHash(&in)
@@ -698,7 +695,6 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 		Block:    &blk,
 		Receipts: receipts,
 	}, nil)
-	core.EXPECT().EVMNetworkID().Return(uint32(0))
 
 	blkHash := blk.HashBlock()
 	in := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", "0"]}`, hex.EncodeToString(blkHash[:])))
@@ -737,7 +733,6 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 		Block:    &blk,
 		Receipts: receipts,
 	}, nil)
-	core.EXPECT().EVMNetworkID().Return(uint32(0))
 
 	in := gjson.Parse(`{"params":["0x1", "0"]}`)
 	ret, err := web3svr.getTransactionByBlockNumberAndIndex(&in)

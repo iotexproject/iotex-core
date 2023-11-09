@@ -9,17 +9,18 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/sha3"
 )
 
-func rlpRawHash(rawTx *types.Transaction, chainID uint32) (hash.Hash256, error) {
-	h := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(rawTx)
+func rlpRawHash(rawTx *types.Transaction, signer types.Signer) (hash.Hash256, error) {
+	h := signer.Hash(rawTx)
 	return hash.BytesToHash256(h[:]), nil
 }
 
-func rlpSignedHash(tx *types.Transaction, chainID uint32, sig []byte) (hash.Hash256, error) {
-	signedTx, err := RawTxToSignedTx(tx, chainID, sig)
+func rlpSignedHash(tx *types.Transaction, signer types.Signer, sig []byte) (hash.Hash256, error) {
+	signedTx, err := RawTxToSignedTx(tx, signer, sig)
 	if err != nil {
 		return hash.ZeroHash256, err
 	}
@@ -31,7 +32,7 @@ func rlpSignedHash(tx *types.Transaction, chainID uint32, sig []byte) (hash.Hash
 }
 
 // RawTxToSignedTx converts the raw tx to corresponding signed tx
-func RawTxToSignedTx(rawTx *types.Transaction, chainID uint32, sig []byte) (*types.Transaction, error) {
+func RawTxToSignedTx(rawTx *types.Transaction, signer types.Signer, sig []byte) (*types.Transaction, error) {
 	if len(sig) != 65 {
 		return nil, errors.Errorf("invalid signature length = %d, expecting 65", len(sig))
 	}
@@ -43,7 +44,7 @@ func RawTxToSignedTx(rawTx *types.Transaction, chainID uint32, sig []byte) (*typ
 
 	// TODO: currently all our web3 tx are EIP-155 protected tx
 	// in the future release, use proper signer for other supported tx types (EIP-1559, EIP-2930)
-	signedTx, err := rawTx.WithSignature(types.NewEIP155Signer(big.NewInt(int64(chainID))), sc)
+	signedTx, err := rawTx.WithSignature(signer, sc)
 	if err != nil {
 		return nil, err
 	}
@@ -82,4 +83,10 @@ func DecodeRawTx(rawData string, chainID uint32) (tx *types.Transaction, sig []b
 	rawHash := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
 	pubkey, err = crypto.RecoverPubkey(rawHash[:], sig)
 	return
+}
+
+// NewEthSigner returns the proper signer for Eth-compatible tx
+func NewEthSigner(txType iotextypes.Encoding, chainID uint32) (types.Signer, error) {
+	// TODO: use proper signer according to tx type
+	return types.NewEIP155Signer(big.NewInt(int64(chainID))), nil
 }

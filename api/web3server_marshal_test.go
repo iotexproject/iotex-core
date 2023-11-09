@@ -11,6 +11,7 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -155,7 +156,8 @@ func TestBlockObjectMarshal(t *testing.T) {
 
 	t.Run("BlockWithDetail", func(t *testing.T) {
 		raw := types.NewContractCreation(2, unit.ConvertIotxToRau(1000), 21000, unit.ConvertIotxToRau(1), []byte{})
-		ethTx, err := action.RawTxToSignedTx(raw, 0, sevlp.Signature())
+		signer, _ := action.NewEthSigner(iotextypes.Encoding_ETHEREUM_RLP, 0)
+		ethTx, err := action.RawTxToSignedTx(raw, signer, sevlp.Signature())
 		require.NoError(err)
 		tx := &getTransactionResult{
 			blockHash: _testBlkHash,
@@ -230,7 +232,8 @@ func TestTransactionObjectMarshal(t *testing.T) {
 	t.Run("ContractCreation", func(t *testing.T) {
 		raw := types.NewContractCreation(1, big.NewInt(10), 21000, big.NewInt(0), []byte{})
 		sig, _ := hex.DecodeString("363964383961306166323764636161363766316236326133383335393464393735393961616464326237623136346362343131326161386464666434326638391b")
-		tx, err := action.RawTxToSignedTx(raw, 4690, sig)
+		signer, _ := action.NewEthSigner(iotextypes.Encoding_ETHEREUM_RLP, 4690)
+		tx, err := action.RawTxToSignedTx(raw, signer, sig)
 		res, err := json.Marshal(&getTransactionResult{
 			blockHash: _testBlkHash,
 			to:        nil,
@@ -266,7 +269,8 @@ func TestTransactionObjectMarshal(t *testing.T) {
 		pubkey, _ := crypto.HexStringToPublicKey("04806b217cb0b6a675974689fd99549e525d967287eee9a62dc4e598eea981b8158acfe026da7bf58397108abd0607672832c28ef3bc7b5855077f6e67ab5fc096")
 		actHash, _ := hash.HexStringToHash256("cbc2560d986d79a46bfd96a08d18c6045b29f97352c1360289e371d9cffd6b6a")
 		raw := types.NewContractCreation(305, big.NewInt(0), 297131, big.NewInt(1000000000000), data)
-		tx, err := action.RawTxToSignedTx(raw, 0, sig)
+		signer, _ := action.NewEthSigner(iotextypes.Encoding_ETHEREUM_RLP, 0)
+		tx, err := action.RawTxToSignedTx(raw, signer, sig)
 		require.NoError(err)
 		res, err := json.Marshal(&getTransactionResult{
 			blockHash: blkHash,
