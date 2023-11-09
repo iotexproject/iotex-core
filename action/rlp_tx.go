@@ -42,8 +42,6 @@ func RawTxToSignedTx(rawTx *types.Transaction, signer types.Signer, sig []byte) 
 		sc[64] -= 27
 	}
 
-	// TODO: currently all our web3 tx are EIP-155 protected tx
-	// in the future release, use proper signer for other supported tx types (EIP-1559, EIP-2930)
 	signedTx, err := rawTx.WithSignature(signer, sc)
 	if err != nil {
 		return nil, err
@@ -87,14 +85,80 @@ func DecodeRawTx(rawData string, chainID uint32) (tx *types.Transaction, sig []b
 
 // NewEthSigner returns the proper signer for Eth-compatible tx
 func NewEthSigner(txType iotextypes.Encoding, chainID uint32) (types.Signer, error) {
-	// TODO: use proper signer according to tx type
 	switch txType {
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		// native tx use same signature format as that of Homestead
 		return types.HomesteadSigner{}, nil
-	case iotextypes.Encoding_ETHEREUM_RLP:
+	case iotextypes.Encoding_ETHEREUM_EIP155:
 		return types.NewEIP155Signer(big.NewInt(int64(chainID))), nil
+	case iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		return types.HomesteadSigner{}, nil
 	default:
 		return nil, ErrInvalidAct
 	}
+}
+
+// DecodeEtherTx decodes raw data string into eth tx
+func DecodeEtherTx(rawData string) (*types.Transaction, error) {
+	//remove Hex prefix and decode string to byte
+	if strings.HasPrefix(rawData, "0x") || strings.HasPrefix(rawData, "0X") {
+		rawData = rawData[2:]
+	}
+	rawTxBytes, err := hex.DecodeString(rawData)
+	if err != nil {
+		return nil, err
+	}
+
+	// decode raw data into eth tx
+	tx := types.Transaction{}
+	if err = tx.UnmarshalBinary(rawTxBytes); err != nil {
+		return nil, err
+	}
+	return &tx, nil
+}
+
+// ExtractTypeSigPubkey extracts tx type, signature, and pubkey
+func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, crypto.PublicKey, error) {
+	var (
+		encoding iotextypes.Encoding
+		signer   types.Signer
+		V, R, S  = tx.RawSignatureValues()
+	)
+	// extract correct V value
+	switch tx.Type() {
+	case types.LegacyTxType:
+		if tx.Protected() {
+			chainIDMul := tx.ChainId()
+			V = new(big.Int).Sub(V, chainIDMul.Lsh(chainIDMul, 1))
+			V.Sub(V, big.NewInt(8))
+			encoding = iotextypes.Encoding_ETHEREUM_EIP155
+			signer = types.NewEIP155Signer(tx.ChainId())
+		} else {
+			// tx has pre-EIP155 signature
+			encoding = iotextypes.Encoding_ETHEREUM_UNPROTECTED
+			signer = types.HomesteadSigner{}
+		}
+	default:
+		return encoding, nil, nil, ErrNotSupported
+	}
+
+	// construct signature
+	if V.BitLen() > 8 {
+		return encoding, nil, nil, ErrNotSupported
+	}
+
+	var (
+		r, s   = R.Bytes(), S.Bytes()
+		sig    = make([]byte, 65)
+		pubkey crypto.PublicKey
+		err    error
+	)
+	copy(sig[32-len(r):32], r)
+	copy(sig[64-len(s):64], s)
+	sig[64] = byte(V.Uint64())
+
+	// recover public key
+	rawHash := signer.Hash(tx)
+	pubkey, err = crypto.RecoverPubkey(rawHash[:], sig)
+	return encoding, sig, pubkey, err
 }

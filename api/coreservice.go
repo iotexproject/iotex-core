@@ -125,6 +125,8 @@ type (
 		LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*action.Log, error)
 		// LogsInRange filter logs among [start, end] blocks
 		LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*action.Log, []hash.Hash256, error)
+		// Genesis returns the genesis of the chain
+		Genesis() genesis.Genesis
 		// EVMNetworkID returns the network id of evm
 		EVMNetworkID() uint32
 		// ChainID returns the chain id of evm
@@ -1587,6 +1589,11 @@ func (core *coreService) ActionsInActPool(actHashes []string) ([]action.SealedEn
 		ret = append(ret, sealed)
 	}
 	return ret, nil
+}
+
+// Genesis returns the genesis of the chain
+func (core *coreService) Genesis() genesis.Genesis {
+	return core.bc.Genesis()
 }
 
 // EVMNetworkID returns the network id of evm
