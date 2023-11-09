@@ -92,7 +92,7 @@ func TestGenerateRlp(t *testing.T) {
 func TestRlpDecodeVerify(t *testing.T) {
 	require := require.New(t)
 
-	oldTests := rlpTests[:len(rlpTests)-1]
+	oldTests := rlpTests[:len(rlpTests)-2]
 	for _, v := range oldTests {
 		// decode received RLP tx
 		tx, sig, pubkey, err := DecodeRawTx(v.raw, _evmNetworkID)
@@ -392,6 +392,21 @@ var (
 			"040a98b1acb38ed9cd8d0e8f1f03b1588bae140586f8a8049197b65013a3c17690151ae422e3fdfb26be2e6a4465b1f9cf5c26a5635109929a0d0a11734124d50a",
 			"3fab184622dc19b6109349b94811493bf2a45362",
 		},
+		{
+			"accesslist",
+			"0x01f8a0827a690184ee6b280082520894a0ee7a142d267c1f36714e4a8f75612f20a797206480f838f794a0ee7a142d267c1f36714e4a8f75612f20a79720e1a0000000000000000000000000000000000000000000000000000000000000000001a0eb211dfd353d76d43ea31a130ff36ac4eb7b379eae4d49fa2376741daf32f9ffa07ab673241d75e103f81ddd4aa34dd6849faf2f0f593eebe61a68fed74490a348",
+			1,
+			21000,
+			"4000000000",
+			"100",
+			"0xa0Ee7A142d267C1f36714E4a8F75612F20a79720",
+			31337,
+			iotextypes.Encoding_ETHEREUM_ACCESSLIST,
+			0,
+			"a57cf9e47beede973c5725a92176c631e51d96bcec41310c6371a4cc72b0658d",
+			"048318535b54105d4a7aae60c08fc45f9687181b4fdfc625bd1a753fa7397fed753547f11ca8696646f2f3acb08e31016afac23e630c5d11f59f61fef57b0d2aa5",
+			"f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+		},
 	}
 )
 
@@ -417,6 +432,13 @@ func TestEthTxDecodeVerify(t *testing.T) {
 			// unprotected tx has V = 27, 28
 			require.True(27 == recID || 28 == recID)
 			require.True(27 == sig[64] || 28 == sig[64])
+		} else if encoding == iotextypes.Encoding_ETHEREUM_ACCESSLIST {
+			require.EqualValues(types.AccessListTxType, tx.Type())
+			require.True(tx.Protected())
+			// // accesslist tx has V = 0, 1
+			require.LessOrEqual(recID, uint64(1))
+			require.True(27 == sig[64] || 28 == sig[64])
+			require.Equal(1, len(tx.AccessList()))
 		}
 		require.EqualValues(v.chainID, tx.ChainId().Uint64())
 		require.Equal(v.pubkey, pubkey.HexString())
@@ -477,7 +499,7 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 	case "transfer":
 		elp, _ := elpBuilder.BuildTransfer(tx)
 		return elp.Proto()
-	case "execution", "unprotected":
+	case "execution", "unprotected", "accesslist":
 		elp, _ := elpBuilder.BuildExecution(tx)
 		return elp.Proto()
 	case "stakeCreate", "stakeAddDeposit", "changeCandidate", "unstake", "withdrawStake", "restake",
@@ -542,10 +564,16 @@ func TestIssue3944(t *testing.T) {
 
 func TestBackwardComp(t *testing.T) {
 	r := require.New(t)
-	// example unprotected tx at https://etherscan.io/tx/0xeddf9e61fb9d8f5111840daef55e5fde0041f5702856532cdbb5a02998033d26
-	unprotectedTx := "0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222"
+	var (
+		// example unprotected tx at https://etherscan.io/tx/0xeddf9e61fb9d8f5111840daef55e5fde0041f5702856532cdbb5a02998033d26
+		unprotectedTx = "0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222"
+		// example access list tx with chainID = 0x7a69 = 31337
+		accessListTx = "0x01f8a0827a690184ee6b280082520894a0ee7a142d267c1f36714e4a8f75612f20a797206480f838f794a0ee7a142d267c1f36714e4a8f75612f20a79720e1a0000000000000000000000000000000000000000000000000000000000000000001a0eb211dfd353d76d43ea31a130ff36ac4eb7b379eae4d49fa2376741daf32f9ffa07ab673241d75e103f81ddd4aa34dd6849faf2f0f593eebe61a68fed74490a348"
+	)
 	for _, chainID := range []uint32{_evmNetworkID, _evmNetworkID + 1, 0} {
 		_, _, _, err := DecodeRawTx(unprotectedTx, chainID)
 		r.Equal(crypto.ErrInvalidKey, err)
+		_, _, _, err = DecodeRawTx(accessListTx, chainID)
+		r.ErrorContains(err, "typed transaction too short")
 	}
 }

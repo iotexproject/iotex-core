@@ -11,7 +11,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/sha3"
 )
 
 func rlpRawHash(rawTx *types.Transaction, signer types.Signer) (hash.Hash256, error) {
@@ -24,11 +23,8 @@ func rlpSignedHash(tx *types.Transaction, signer types.Signer, sig []byte) (hash
 	if err != nil {
 		return hash.ZeroHash256, err
 	}
-	h := sha3.NewLegacyKeccak256()
-	if err = rlp.Encode(h, signedTx); err != nil {
-		return hash.ZeroHash256, err
-	}
-	return hash.BytesToHash256(h.Sum(nil)), nil
+	h := signedTx.Hash()
+	return hash.BytesToHash256(h[:]), nil
 }
 
 // RawTxToSignedTx converts the raw tx to corresponding signed tx
@@ -93,6 +89,8 @@ func NewEthSigner(txType iotextypes.Encoding, chainID uint32) (types.Signer, err
 		return types.NewEIP155Signer(big.NewInt(int64(chainID))), nil
 	case iotextypes.Encoding_ETHEREUM_UNPROTECTED:
 		return types.HomesteadSigner{}, nil
+	case iotextypes.Encoding_ETHEREUM_ACCESSLIST:
+		return types.NewEIP2930Signer(big.NewInt(int64(chainID))), nil
 	default:
 		return nil, ErrInvalidAct
 	}
@@ -138,6 +136,12 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 			encoding = iotextypes.Encoding_ETHEREUM_UNPROTECTED
 			signer = types.HomesteadSigner{}
 		}
+	case types.AccessListTxType:
+		// AL txs are defined to use 0 and 1 as their recovery
+		// id, add 27 to become equivalent to unprotected Homestead signatures.
+		V = new(big.Int).Add(V, big.NewInt(27))
+		encoding = iotextypes.Encoding_ETHEREUM_ACCESSLIST
+		signer = types.NewEIP2930Signer(tx.ChainId())
 	default:
 		return encoding, nil, nil, ErrNotSupported
 	}
