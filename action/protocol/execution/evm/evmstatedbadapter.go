@@ -492,24 +492,25 @@ func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 // - Add coinbase to access list (EIP-3651)
 // - Reset transient storage (EIP-1153)
 func (stateDB *StateDBAdapter) Prepare(rules params.Rules, sender, coinbase common.Address, dst *common.Address, precompiles []common.Address, list types.AccessList) {
-	if rules.IsBerlin {
-		stateDB.AddAddressToAccessList(sender)
-		if dst != nil {
-			stateDB.AddAddressToAccessList(*dst)
-			// If it's a create-tx, the destination will be added inside evm.create
+	if !rules.IsBerlin {
+		return
+	}
+	stateDB.AddAddressToAccessList(sender)
+	if dst != nil {
+		stateDB.AddAddressToAccessList(*dst)
+		// If it's a create-tx, the destination will be added inside evm.create
+	}
+	for _, addr := range precompiles {
+		stateDB.AddAddressToAccessList(addr)
+	}
+	for _, el := range list {
+		stateDB.AddAddressToAccessList(el.Address)
+		for _, key := range el.StorageKeys {
+			stateDB.AddSlotToAccessList(el.Address, key)
 		}
-		for _, addr := range precompiles {
-			stateDB.AddAddressToAccessList(addr)
-		}
-		for _, el := range list {
-			stateDB.AddAddressToAccessList(el.Address)
-			for _, key := range el.StorageKeys {
-				stateDB.AddSlotToAccessList(el.Address, key)
-			}
-		}
-		if rules.IsShanghai { // EIP-3651: warm coinbase
-			stateDB.AddAddressToAccessList(coinbase)
-		}
+	}
+	if rules.IsShanghai { // EIP-3651: warm coinbase
+		stateDB.AddAddressToAccessList(coinbase)
 	}
 }
 
