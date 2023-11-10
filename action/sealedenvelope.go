@@ -142,8 +142,8 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 	if err != nil {
 		return err
 	}
-	sealed.encoding = pbAct.GetEncoding()
-	switch sealed.encoding {
+	encoding := pbAct.GetEncoding()
+	switch encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
 		// verify action type can support RLP-encoding
 		act, ok := elp.Action().(EthCompatibleAction)
@@ -154,7 +154,7 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 		if err != nil {
 			return err
 		}
-		signer, err := NewEthSigner(sealed.encoding, evmID)
+		signer, err := NewEthSigner(encoding, evmID)
 		if err != nil {
 			return err
 		}
@@ -165,7 +165,7 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		break
 	default:
-		return errors.Errorf("unknown encoding type %v", sealed.encoding)
+		return errors.Errorf("unknown encoding type %v", encoding)
 	}
 
 	// clear 'sealed' and populate new value
@@ -173,6 +173,7 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 	sealed.srcPubkey = srcPub
 	sealed.signature = make([]byte, sigSize)
 	copy(sealed.signature, pbAct.GetSignature())
+	sealed.encoding = encoding
 	sealed.hash = hash.ZeroHash256
 	sealed.srcAddress = nil
 	return nil

@@ -694,7 +694,8 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 			big.NewInt(0),
 			test.data,
 		)
-		signer, _ := action.NewEthSigner(iotextypes.Encoding_ETHEREUM_RLP, _evmNetworkID)
+		signer, err := action.NewEthSigner(iotextypes.Encoding_ETHEREUM_RLP, _evmNetworkID)
+		require.NoError(err)
 		tx, err := types.SignTx(rawTx, signer, ecdsaPvk)
 		require.NoError(err)
 		BinaryData, err := tx.MarshalBinary()

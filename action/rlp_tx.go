@@ -88,5 +88,13 @@ func DecodeRawTx(rawData string, chainID uint32) (tx *types.Transaction, sig []b
 // NewEthSigner returns the proper signer for Eth-compatible tx
 func NewEthSigner(txType iotextypes.Encoding, chainID uint32) (types.Signer, error) {
 	// TODO: use proper signer according to tx type
-	return types.NewEIP155Signer(big.NewInt(int64(chainID))), nil
+	switch txType {
+	case iotextypes.Encoding_IOTEX_PROTOBUF:
+		// native tx use same signature format as that of Homestead
+		return types.HomesteadSigner{}, nil
+	case iotextypes.Encoding_ETHEREUM_RLP:
+		return types.NewEIP155Signer(big.NewInt(int64(chainID))), nil
+	default:
+		return nil, ErrInvalidAct
+	}
 }

@@ -118,17 +118,9 @@ func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp 
 	if err != nil {
 		return nil, err
 	}
-	var (
-		signer   types.Signer
-		encoding = iotextypes.Encoding(selp.Encoding())
-	)
-	if encoding != iotextypes.Encoding_IOTEX_PROTOBUF {
-		signer, err = action.NewEthSigner(encoding, svr.coreService.EVMNetworkID())
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		signer = types.HomesteadSigner{}
+	signer, err := action.NewEthSigner(iotextypes.Encoding(selp.Encoding()), svr.coreService.EVMNetworkID())
+	if err != nil {
+		return nil, err
 	}
 	tx, err := action.RawTxToSignedTx(ethTx, signer, selp.Signature())
 	if err != nil {
