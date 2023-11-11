@@ -78,7 +78,9 @@ func TestGenerateRlp(t *testing.T) {
 			require.Contains(err.Error(), v.err)
 			continue
 		}
-		h, err := rlpSignedHash(tx, _evmNetworkID, v.sig)
+		signer, err := NewEthSigner(iotextypes.Encoding_ETHEREUM_RLP, _evmNetworkID)
+		require.NoError(err)
+		h, err := rlpSignedHash(tx, signer, v.sig)
 		if err != nil {
 			require.Contains(err.Error(), v.err)
 		}
@@ -333,7 +335,9 @@ func TestRlpDecodeVerify(t *testing.T) {
 		require.True(bytes.Equal(sig, selp.signature))
 		raw, err := selp.envelopeHash()
 		require.NoError(err)
-		rawHash := types.NewEIP155Signer(big.NewInt(int64(_evmNetworkID))).Hash(tx)
+		signer, err := NewEthSigner(iotextypes.Encoding_ETHEREUM_RLP, _evmNetworkID)
+		require.NoError(err)
+		rawHash := signer.Hash(tx)
 		require.True(bytes.Equal(rawHash[:], raw[:]))
 		require.NotEqual(raw, h)
 		require.NoError(selp.VerifySignature())
@@ -395,7 +399,9 @@ func TestIssue3944(t *testing.T) {
 	r.Equal("1b", v.Text(16))
 	r.NotEqual(hash, tx.Hash().Hex()) // hash does not match with wrong V value in signature
 
-	tx1, err := RawTxToSignedTx(tx, 4690, sig)
+	signer, err := NewEthSigner(iotextypes.Encoding_ETHEREUM_RLP, 4690)
+	r.NoError(err)
+	tx1, err := RawTxToSignedTx(tx, signer, sig)
 	r.NoError(err)
 	v, q, s = tx1.RawSignatureValues()
 	r.Equal(sig[:32], q.Bytes())
