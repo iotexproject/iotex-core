@@ -618,6 +618,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 				return nil, err
 			}
 
+			// TODO: add depositGas
 			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 				GetBlockHash: dao.GetBlockHash,
 			})

@@ -294,6 +294,7 @@ func getContractReaderForGenesisStates(ctx context.Context, sm protocol.StateMan
 			return nil, err
 		}
 
+		// TODO: move to the caller, then getBlockHash param can be removed
 		ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 			GetBlockHash: getBlockHash,
 		})

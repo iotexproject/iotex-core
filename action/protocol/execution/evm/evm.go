@@ -280,6 +280,7 @@ func ExecuteContract(
 			sharedGasFee, totalGasFee *big.Int
 		)
 		if ps.featureCtx.SharedGasWithDapp && sgd != nil {
+			// TODO: sgd is whether nil should be checked in processSGD
 			receiver, sharedGas, err = processSGD(ctx, sm, execution, consumedGas, sgd)
 			if err != nil {
 				return nil, nil, errors.Wrap(err, "failed to process Sharing of Gas-fee with DApps")
@@ -638,6 +639,7 @@ func SimulateExecution(
 	)
 
 	ctx = protocol.WithFeatureCtx(ctx)
+	// TODO: move the logic out of SimulateExecution
 	helperCtx := mustGetHelperCtx(ctx)
 	ctx = WithHelperCtx(ctx, HelperContext{
 		GetBlockHash: helperCtx.GetBlockHash,
