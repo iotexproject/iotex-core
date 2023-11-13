@@ -1734,7 +1734,6 @@ func (core *coreService) Track(ctx context.Context, start time.Time, method stri
 }
 
 func (core *coreService) simulateExecution(ctx context.Context, addr address.Address, exec *action.Execution, getBlockHash evm.GetBlockHash) ([]byte, *action.Receipt, error) {
-	// TODO: add depositGas
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash: getBlockHash,
 	})
