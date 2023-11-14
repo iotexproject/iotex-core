@@ -267,7 +267,6 @@ func (sdb *stateDB) SimulateExecution(
 	ctx context.Context,
 	caller address.Address,
 	ex *action.Execution,
-	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "stateDB.SimulateExecution")
 	defer span.End()
@@ -280,7 +279,7 @@ func (sdb *stateDB) SimulateExecution(
 		return nil, nil, err
 	}
 
-	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
+	return evm.SimulateExecution(ctx, ws, caller, ex)
 }
 
 // ReadContractStorage reads contract's storage

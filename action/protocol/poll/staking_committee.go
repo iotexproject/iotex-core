@@ -135,18 +135,20 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	}
 	ctx = protocol.WithActionCtx(ctx, actionCtx)
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash: func(height uint64) (hash.Hash256, error) {
+			return hash.ZeroHash256, nil
+		},
+		DepositGasFunc: func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
+			return nil, nil
+		},
+		Sgd: nil,
+	})
 	// deploy native staking contract
 	_, receipt, err := evm.ExecuteContract(
 		ctx,
 		sm,
 		execution,
-		func(height uint64) (hash.Hash256, error) {
-			return hash.ZeroHash256, nil
-		},
-		func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
-			return nil, nil
-		},
-		nil,
 	)
 	if err != nil {
 		return err
