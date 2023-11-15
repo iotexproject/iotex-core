@@ -122,7 +122,7 @@ else
 fi
 
 if [ "${OS}" = "darwin" ];then
-    if test -x "$(command -v brew)"; then      
+    if test -x "$(command -v brew)"; then
         if [ "$1" = "unstable" ]; then
             if [ `command -v ioctl-unstable` ]; then
                 $BREW_UNSTABLE_REINSTALL_CMD
