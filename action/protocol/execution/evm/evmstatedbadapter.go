@@ -14,6 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -446,6 +447,17 @@ func (stateDB *StateDBAdapter) HasSuicided(evmAddr common.Address) bool {
 	return ok
 }
 
+// SetTransientState sets transient storage for a given account
+func (stateDB *StateDBAdapter) SetTransientState(addr common.Address, key, value common.Hash) {
+	log.S().Panic("SetTransientState not implemented")
+}
+
+// GetTransientState gets transient storage for a given account.
+func (stateDB *StateDBAdapter) GetTransientState(addr common.Address, key common.Hash) common.Hash {
+	log.S().Panic("GetTransientState not implemented")
+	return common.Hash{}
+}
+
 // Exist checks the existence of an address
 func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 	addr, err := address.FromBytes(evmAddr.Bytes())
@@ -464,6 +476,42 @@ func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 		return false
 	}
 	return true
+}
+
+// Prepare handles the preparatory steps for executing a state transition with.
+// This method must be invoked before state transition.
+//
+// Berlin fork:
+// - Add sender to access list (2929)
+// - Add destination to access list (2929)
+// - Add precompiles to access list (2929)
+// - Add the contents of the optional tx access list (2930)
+//
+// Potential EIPs:
+// - Reset access list (Berlin)
+// - Add coinbase to access list (EIP-3651)
+// - Reset transient storage (EIP-1153)
+func (stateDB *StateDBAdapter) Prepare(rules params.Rules, sender, coinbase common.Address, dst *common.Address, precompiles []common.Address, list types.AccessList) {
+	if !rules.IsBerlin {
+		return
+	}
+	stateDB.AddAddressToAccessList(sender)
+	if dst != nil {
+		stateDB.AddAddressToAccessList(*dst)
+		// If it's a create-tx, the destination will be added inside evm.create
+	}
+	for _, addr := range precompiles {
+		stateDB.AddAddressToAccessList(addr)
+	}
+	for _, el := range list {
+		stateDB.AddAddressToAccessList(el.Address)
+		for _, key := range el.StorageKeys {
+			stateDB.AddSlotToAccessList(el.Address, key)
+		}
+	}
+	if rules.IsShanghai { // EIP-3651: warm coinbase
+		stateDB.AddAddressToAccessList(coinbase)
+	}
 }
 
 // PrepareAccessList handles the preparatory steps for executing a state transition with

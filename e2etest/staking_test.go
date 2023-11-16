@@ -22,6 +22,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -121,7 +122,10 @@ func TestStakingContract(t *testing.T) {
 				return nil, err
 			}
 
-			data, _, err := sf.SimulateExecution(ctx, addr, ex, dao.GetBlockHash)
+			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+				GetBlockHash: dao.GetBlockHash,
+			})
+			data, _, err := sf.SimulateExecution(ctx, addr, ex)
 
 			return data, err
 		})

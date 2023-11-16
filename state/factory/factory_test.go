@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -1223,9 +1224,12 @@ func testSimulateExecution(ctx context.Context, sf Factory, t *testing.T) {
 	addr, err := address.FromString(address.ZeroAddress)
 	require.NoError(err)
 
-	_, _, err = sf.SimulateExecution(ctx, addr, ex, func(uint64) (hash.Hash256, error) {
-		return hash.ZeroHash256, nil
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash: func(uint64) (hash.Hash256, error) {
+			return hash.ZeroHash256, nil
+		},
 	})
+	_, _, err = sf.SimulateExecution(ctx, addr, ex)
 	require.NoError(err)
 }
 

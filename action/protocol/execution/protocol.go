@@ -8,11 +8,11 @@ package execution
 import (
 	"context"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
@@ -66,7 +66,12 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if !ok {
 		return nil, nil
 	}
-	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.getBlockHash, p.depositGas, p.sgdRegistry)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash:   p.getBlockHash,
+		DepositGasFunc: p.depositGas,
+		Sgd:            p.sgdRegistry,
+	})
+	_, receipt, err := evm.ExecuteContract(ctx, sm, exec)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute contract")
