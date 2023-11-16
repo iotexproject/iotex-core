@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -318,7 +319,17 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 	}
 	dbConfig := builder.cfg.DB
 	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
-	indexer, err := contractstaking.NewContractStakingIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.SystemStakingContractAddress, builder.cfg.Genesis.SystemStakingContractHeight)
+	voteCalcConsts := builder.cfg.Genesis.VoteWeightCalConsts
+	indexer, err := contractstaking.NewContractStakingIndexer(
+		db.NewBoltDB(dbConfig),
+		contractstaking.Config{
+			ContractAddress:      builder.cfg.Genesis.SystemStakingContractAddress,
+			ContractDeployHeight: builder.cfg.Genesis.SystemStakingContractHeight,
+			CalculateVoteWeight: func(v *staking.VoteBucket) *big.Int {
+				return staking.CalculateVoteWeight(voteCalcConsts, v, false)
+			},
+			BlockInterval: builder.cfg.DardanellesUpgrade.BlockInterval,
+		})
 	if err != nil {
 		return err
 	}
@@ -607,7 +618,11 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 				return nil, err
 			}
 
-			data, _, err := factory.SimulateExecution(ctx, addr, ex, dao.GetBlockHash)
+			// TODO: add depositGas
+			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+				GetBlockHash: dao.GetBlockHash,
+			})
+			data, _, err := factory.SimulateExecution(ctx, addr, ex)
 
 			return data, err
 		},

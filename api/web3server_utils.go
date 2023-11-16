@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
@@ -117,13 +118,20 @@ func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp 
 	if err != nil {
 		return nil, err
 	}
+	signer, err := action.NewEthSigner(iotextypes.Encoding(selp.Encoding()), svr.coreService.EVMNetworkID())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := action.RawTxToSignedTx(ethTx, signer, selp.Signature())
+	if err != nil {
+		return nil, err
+	}
 	return &getTransactionResult{
 		blockHash: blkHash,
 		to:        to,
-		ethTx:     ethTx,
+		ethTx:     tx,
 		receipt:   receipt,
 		pubkey:    selp.SrcPubkey(),
-		signature: selp.Signature(),
 	}, nil
 }
 

@@ -60,13 +60,16 @@ func TestExecuteContractFailure(t *testing.T) {
 		ChainID:      1,
 		EvmNetworkID: 100,
 	})
-	retval, receipt, err := ExecuteContract(ctx, sm, e,
-		func(uint64) (hash.Hash256, error) {
+	ctx = WithHelperCtx(ctx, HelperContext{
+		GetBlockHash: func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
-		func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
+		DepositGasFunc: func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
 			return nil, nil
-		}, nil)
+		},
+		Sgd: nil,
+	})
+	retval, receipt, err := ExecuteContract(ctx, sm, e)
 	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)
@@ -219,10 +222,19 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			24838200,
 		},
-		// after Quebec
+		// after Quebec - Redsea
 		{
 			action.EmptyAddress,
 			24838201,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			26704440,
+		},
+		// after Redsea
+		{
+			action.EmptyAddress,
+			26704441,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
@@ -246,11 +258,14 @@ func TestConstantinople(t *testing.T) {
 			GasLimit:    testutil.TestGasLimit,
 			BlockHeight: e.height,
 		}))
+		fCtx = WithHelperCtx(fCtx, HelperContext{
+			GetBlockHash: func(uint64) (hash.Hash256, error) {
+				return hash.ZeroHash256, nil
+			},
+		})
 		stateDB, err := prepareStateDB(fCtx, sm)
 		require.NoError(err)
-		ps, err := newParams(fCtx, ex, stateDB, func(uint64) (hash.Hash256, error) {
-			return hash.ZeroHash256, nil
-		})
+		ps, err := newParams(fCtx, ex, stateDB)
 		require.NoError(err)
 
 		var evmConfig vm.Config
@@ -302,7 +317,18 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isOkhotsk, chainRules.IsBerlin)
 		require.Equal(isOkhotsk, evmChainConfig.IsLondon(evm.Context.BlockNumber))
 		require.Equal(isOkhotsk, chainRules.IsLondon)
+
+		// Redsea = enable ArrowGlacier, GrayGlacier
+		isRedsea := g.IsRedsea(e.height)
+		require.Equal(big.NewInt(int64(g.RedseaBlockHeight)), evmChainConfig.ArrowGlacierBlock)
+		require.Equal(big.NewInt(int64(g.RedseaBlockHeight)), evmChainConfig.GrayGlacierBlock)
+		require.Equal(isRedsea, evmChainConfig.IsArrowGlacier(evm.Context.BlockNumber))
+		require.Equal(isRedsea, evmChainConfig.IsGrayGlacier(evm.Context.BlockNumber))
+
+		// Merge, Shanghai and Cancun not yet enabled
 		require.False(chainRules.IsMerge)
+		require.False(chainRules.IsShanghai)
+		require.False(evmChainConfig.IsCancun(evm.Context.BlockNumber))
 
 		// test basefee
 		require.Equal(new(big.Int), evm.Context.BaseFee)

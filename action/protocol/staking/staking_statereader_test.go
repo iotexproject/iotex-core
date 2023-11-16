@@ -332,7 +332,7 @@ func TestStakingStateReader(t *testing.T) {
 	})
 	t.Run("readStateCandidates", func(t *testing.T) {
 		_, contractIndexer, stakeSR, ctx, r := prepare(t)
-		contractIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any()).DoAndReturn(func(ownerAddr address.Address, height uint64) (*big.Int, error) {
+		contractIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ownerAddr address.Address, height uint64) (*big.Int, error) {
 			for _, b := range testContractBuckets {
 				if b.Owner.String() == ownerAddr.String() {
 					return b.StakedAmount, nil
@@ -362,7 +362,7 @@ func TestStakingStateReader(t *testing.T) {
 	})
 	t.Run("readStateCandidateByName", func(t *testing.T) {
 		_, contractIndexer, stakeSR, ctx, r := prepare(t)
-		contractIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any()).DoAndReturn(func(ownerAddr address.Address, height uint64) (*big.Int, error) {
+		contractIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ownerAddr address.Address, height uint64) (*big.Int, error) {
 			for _, b := range testContractBuckets {
 				if b.Owner.String() == ownerAddr.String() {
 					return b.StakedAmount, nil
@@ -385,7 +385,7 @@ func TestStakingStateReader(t *testing.T) {
 	})
 	t.Run("readStateCandidateByAddress", func(t *testing.T) {
 		_, contractIndexer, stakeSR, ctx, r := prepare(t)
-		contractIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any()).DoAndReturn(func(ownerAddr address.Address, height uint64) (*big.Int, error) {
+		contractIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ownerAddr address.Address, height uint64) (*big.Int, error) {
 			for _, b := range testContractBuckets {
 				if b.Owner.String() == ownerAddr.String() {
 					return b.StakedAmount, nil

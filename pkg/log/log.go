@@ -20,10 +20,11 @@ import (
 
 // GlobalConfig defines the global logger configurations.
 type GlobalConfig struct {
-	Zap                *zap.Config `json:"zap" yaml:"zap"`
-	StderrRedirectFile *string     `json:"stderrRedirectFile" yaml:"stderrRedirectFile"`
-	RedirectStdLog     bool        `json:"stdLogRedirect" yaml:"stdLogRedirect"`
-	EcsIntegration     bool        `json:"ecsIntegration" yaml:"ecsIntegration"`
+	Zap                *zap.Config  `json:"zap" yaml:"zap"`
+	Trace              *TraceConfig `json:"trace" yaml:"trace"`
+	StderrRedirectFile *string      `json:"stderrRedirectFile" yaml:"stderrRedirectFile"`
+	RedirectStdLog     bool         `json:"stdLogRedirect" yaml:"stdLogRedirect"`
+	EcsIntegration     bool         `json:"ecsIntegration" yaml:"ecsIntegration"`
 }
 
 var (
@@ -97,13 +98,23 @@ func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts .
 				zapcore.AddSync(stderrF),
 				cfg.Zap.Level))
 		}
-
-		consoleCfg := zap.NewDevelopmentConfig()
-		consoleCfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-		cores = append(cores, zapcore.NewCore(
-			zapcore.NewConsoleEncoder(consoleCfg.EncoderConfig),
-			zapcore.AddSync(os.Stdout),
-			cfg.Zap.Level))
+		switch cfg.Zap.Encoding {
+		case "console":
+			consoleCfg := zap.NewDevelopmentConfig()
+			consoleCfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+			cores = append(cores, zapcore.NewCore(
+				zapcore.NewConsoleEncoder(consoleCfg.EncoderConfig),
+				zapcore.AddSync(os.Stdout),
+				cfg.Zap.Level))
+		case "json":
+			cfg.Zap.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+			cores = append(cores, zapcore.NewCore(
+				zapcore.NewJSONEncoder(cfg.Zap.EncoderConfig),
+				zapcore.AddSync(os.Stdout),
+				cfg.Zap.Level))
+		default:
+			return errors.Errorf("unknown encoding: %s", cfg.Zap.Encoding)
+		}
 
 		core := zapcore.NewTee(cores...)
 		logger := zap.New(core, opts...)
@@ -115,6 +126,9 @@ func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts .
 				zap.RedirectStdLog(logger)
 			}
 			zap.ReplaceGlobals(logger)
+			if err := initTraceLogger(logger, cfg.Trace); err != nil {
+				return err
+			}
 		} else {
 			_subLoggers[name] = logger
 		}

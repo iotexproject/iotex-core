@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
@@ -19,7 +20,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tidwall/gjson"
-	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -74,6 +74,7 @@ var (
 	errInvalidFormat     = errors.New("invalid format of request")
 	errNotImplemented    = errors.New("method not implemented")
 	errInvalidFilterID   = errors.New("filter not found")
+	errInvalidEvmChainID = errors.New("invalid EVM chain ID")
 	errInvalidBlock      = errors.New("invalid block")
 	errUnsupportedAction = errors.New("the type of action is not supported")
 	errMsgBatchTooLarge  = errors.New("batch too large")
@@ -139,13 +140,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		size      int
 	)
 	defer func(start time.Time) { svr.coreService.Track(ctx, start, method.(string), int64(size), err == nil) }(time.Now())
-	span := tracer.SpanFromContext(ctx)
-	defer span.End()
-	span.AddEvent("handleWeb3Req")
-	span.SetAttributes(
-		attribute.String("method", method.(string)),
-	)
-	log.Logger("api").Debug("web3Debug", zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
+
+	log.T(ctx).Info("handleWeb3Req", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
 	_web3ServerMtc.WithLabelValues(method.(string)).Inc()
 	_web3ServerMtc.WithLabelValues("requests_total").Inc()
 	switch method {
@@ -254,8 +250,6 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 }
 
 func parseWeb3Reqs(reader io.Reader) (gjson.Result, error) {
-	_, span := tracer.NewSpan(context.Background(), "parseWeb3Reqs")
-	defer span.End()
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return gjson.Result{}, err
@@ -441,9 +435,33 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 		return nil, errInvalidFormat
 	}
 	// parse raw data string from json request
-	tx, sig, pubkey, err := action.DecodeRawTx(dataStr.String(), svr.coreService.EVMNetworkID())
-	if err != nil {
-		return nil, err
+	var (
+		cs       = svr.coreService
+		tx       *types.Transaction
+		encoding iotextypes.Encoding
+		sig      []byte
+		pubkey   crypto.PublicKey
+		err      error
+	)
+	if g := cs.Genesis(); g.IsSumatra(cs.TipHeight()) {
+		tx, err = action.DecodeEtherTx(dataStr.String())
+		if err != nil {
+			return nil, err
+		}
+		if tx.Protected() && tx.ChainId().Uint64() != uint64(cs.EVMNetworkID()) {
+			return nil, errors.Wrapf(errInvalidEvmChainID, "expect chainID = %d, got %d", cs.EVMNetworkID(), tx.ChainId().Uint64())
+		}
+		encoding, sig, pubkey, err = action.ExtractTypeSigPubkey(tx)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		tx, sig, pubkey, err = action.DecodeRawTx(dataStr.String(), cs.EVMNetworkID())
+		if err != nil {
+			return nil, err
+		}
+		// before Sumatra height, all tx are EIP-155 format
+		encoding = iotextypes.Encoding_ETHEREUM_EIP155
 	}
 	elp, err := svr.ethTxToEnvelope(tx)
 	if err != nil {
@@ -453,9 +471,9 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 		Core:         elp.Proto(),
 		SenderPubKey: pubkey.Bytes(),
 		Signature:    sig,
-		Encoding:     iotextypes.Encoding_ETHEREUM_RLP,
+		Encoding:     encoding,
 	}
-	actionHash, err := svr.coreService.SendAction(context.Background(), req)
+	actionHash, err := cs.SendAction(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}

@@ -36,6 +36,20 @@ func (m *MockBlockSync) EXPECT() *MockBlockSyncMockRecorder {
 	return m.recorder
 }
 
+// BuildReport mocks base method.
+func (m *MockBlockSync) BuildReport() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BuildReport")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// BuildReport indicates an expected call of BuildReport.
+func (mr *MockBlockSyncMockRecorder) BuildReport() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BuildReport", reflect.TypeOf((*MockBlockSync)(nil).BuildReport))
+}
+
 // ProcessBlock mocks base method.
 func (m *MockBlockSync) ProcessBlock(arg0 context.Context, arg1 string, arg2 *block.Block) error {
 	m.ctrl.T.Helper()
