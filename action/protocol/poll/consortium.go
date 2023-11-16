@@ -155,10 +155,6 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash: cc.getBlockHash,
 		GetBlockTime: cc.getBlockTime,
-		DepositGasFunc: func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
-			return nil, nil
-		},
-		Sgd: nil,
 	})
 	r := getContractReaderForGenesisStates(ctx, sm)
 	cands, err := cc.readDelegatesWithContractReader(ctx, r)

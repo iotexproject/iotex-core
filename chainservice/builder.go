@@ -622,10 +622,6 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 			}
 
 			// TODO: add depositGas
-			// TODO: replace the fake function with a real one
-			getBlockTime := func(uint64) (time.Time, error) {
-				return time.Time{}, nil
-			}
 			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 				GetBlockHash: dao.GetBlockHash,
 				GetBlockTime: getBlockTime,
