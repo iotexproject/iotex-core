@@ -110,7 +110,7 @@ func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp 
 		actHash, _ := selp.Hash()
 		return nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
 	}
-	ethTx, err := act.ToEthTx()
+	ethTx, err := act.ToEthTx(0)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func getRecipientAndContractAddrFromAction(selp action.SealedEnvelope, receipt *
 		actHash, _ := selp.Hash()
 		return nil, nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
 	}
-	ethTx, err := act.ToEthTx()
+	ethTx, err := act.ToEthTx(0)
 	if err != nil {
 		return nil, nil, err
 	}

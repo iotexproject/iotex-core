@@ -54,6 +54,7 @@ const (
 var (
 	// _transferStakeMethod is the interface of the abi encoding of stake action
 	_transferStakeMethod abi.Method
+	_                    EthCompatibleAction = (*TransferStake)(nil)
 )
 
 // TransferStake defines the action of transfering stake ownership ts the other
@@ -201,7 +202,7 @@ func NewTransferStakeFromABIBinary(data []byte) (*TransferStake, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (ts *TransferStake) ToEthTx() (*types.Transaction, error) {
+func (ts *TransferStake) ToEthTx(_ uint32) (*types.Transaction, error) {
 	data, err := ts.encodeABIBinary()
 	if err != nil {
 		return nil, err

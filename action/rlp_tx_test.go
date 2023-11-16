@@ -74,7 +74,7 @@ func TestGenerateRlp(t *testing.T) {
 			require.Contains(v.err, ErrNilAction.Error())
 			continue
 		}
-		tx, err := act.ToEthTx()
+		tx, err := act.ToEthTx(0)
 		if err != nil {
 			require.Contains(err.Error(), v.err)
 			continue
@@ -121,7 +121,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		require.NoError(selp.loadProto(pb, _evmNetworkID))
 		act, ok := selp.Action().(EthCompatibleAction)
 		require.True(ok)
-		rlpTx, err := act.ToEthTx()
+		rlpTx, err := act.ToEthTx(_evmNetworkID)
 		require.NoError(err)
 
 		// verify against original tx
@@ -440,7 +440,7 @@ func TestEthTxDecodeVerify(t *testing.T) {
 		require.NoError(selp.loadProto(pb, uint32(tx.ChainId().Uint64())))
 		act, ok := selp.Action().(EthCompatibleAction)
 		require.True(ok)
-		rlpTx, err := act.ToEthTx()
+		rlpTx, err := act.ToEthTx(uint32(tx.ChainId().Uint64()))
 		require.NoError(err)
 
 		// verify against original tx
