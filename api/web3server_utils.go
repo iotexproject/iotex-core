@@ -332,7 +332,12 @@ func parseCallObject(in *gjson.Result) (address.Address, string, uint64, *big.In
 		}
 	}
 
-	data = common.FromHex(in.Get("params.0.data").String())
+	input := in.Get("params.0.input")
+	if input.Exists() {
+		data = common.FromHex(input.String())
+	} else {
+		data = common.FromHex(in.Get("params.0.data").String())
+	}
 	return from, to, gasLimit, value, data, nil
 }
 
