@@ -177,7 +177,6 @@ func TestSGDRegistry(t *testing.T) {
 				"c375c2ef0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
 			},
 			checkContractExpect: checkContractExpectation{
-				errorContains:   "not exist in DB",
 				contractAddress: registerAddress.String(),
 			},
 		},
@@ -187,7 +186,6 @@ func TestSGDRegistry(t *testing.T) {
 				"07f7aafb0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
 			},
 			checkContractExpect: checkContractExpectation{
-				errorContains:   "not exist in DB",
 				contractAddress: registerAddress.String(),
 			},
 		},
@@ -225,7 +223,6 @@ func TestSGDRegistry(t *testing.T) {
 				"07f7aafb0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
 			},
 			checkContractExpect: checkContractExpectation{
-				errorContains:   "not exist in DB",
 				contractAddress: registerAddress.String(),
 			},
 		},
