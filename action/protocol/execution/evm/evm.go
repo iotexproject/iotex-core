@@ -639,15 +639,6 @@ func SimulateExecution(
 	)
 
 	ctx = protocol.WithFeatureCtx(ctx)
-	// TODO: move the logic out of SimulateExecution
-	helperCtx := mustGetHelperCtx(ctx)
-	ctx = WithHelperCtx(ctx, HelperContext{
-		GetBlockHash: helperCtx.GetBlockHash,
-		DepositGasFunc: func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
-			return nil, nil
-		},
-		Sgd: nil,
-	})
 	return ExecuteContract(
 		ctx,
 		sm,
