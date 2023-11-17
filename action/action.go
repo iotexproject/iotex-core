@@ -22,7 +22,7 @@ type (
 
 	// EthCompatibleAction is the action which is compatible to be converted to eth tx
 	EthCompatibleAction interface {
-		ToEthTx() (*types.Transaction, error)
+		ToEthTx(uint32) (*types.Transaction, error)
 	}
 
 	actionPayload interface {

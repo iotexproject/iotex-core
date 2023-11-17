@@ -99,7 +99,7 @@ func TestDepositRewardToEthTx(t *testing.T) {
 
 	rp := &DepositToRewardingFund{}
 	rp.amount = big.NewInt(101)
-	tx, err := rp.ToEthTx()
+	tx, err := rp.ToEthTx(0)
 	r.NoError(err)
 	r.EqualValues(_rewardingProtocolEthAddr, *tx.To())
 	r.EqualValues(
@@ -109,7 +109,7 @@ func TestDepositRewardToEthTx(t *testing.T) {
 	r.EqualValues("0", tx.Value().String())
 
 	rp.data = []byte{1, 2, 3}
-	tx, err = rp.ToEthTx()
+	tx, err = rp.ToEthTx(0)
 	r.NoError(err)
 	r.EqualValues(_rewardingProtocolEthAddr, *tx.To())
 	r.EqualValues(
