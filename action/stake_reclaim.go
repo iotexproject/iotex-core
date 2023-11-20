@@ -72,6 +72,8 @@ var (
 	_unstakeMethod abi.Method
 	// _withdrawStakeMethod is the interface of the abi encoding of withdrawStake action
 	_withdrawStakeMethod abi.Method
+	_                    EthCompatibleAction = (*Unstake)(nil)
+	_                    EthCompatibleAction = (*WithdrawStake)(nil)
 )
 
 func init() {
@@ -210,7 +212,7 @@ func NewUnstakeFromABIBinary(data []byte) (*Unstake, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (su *Unstake) ToEthTx() (*types.Transaction, error) {
+func (su *Unstake) ToEthTx(_ uint32) (*types.Transaction, error) {
 	data, err := su.encodeABIBinary()
 	if err != nil {
 		return nil, err
@@ -298,7 +300,7 @@ func NewWithdrawStakeFromABIBinary(data []byte) (*WithdrawStake, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (sw *WithdrawStake) ToEthTx() (*types.Transaction, error) {
+func (sw *WithdrawStake) ToEthTx(_ uint32) (*types.Transaction, error) {
 	data, err := sw.encodeABIBinary()
 	if err != nil {
 		return nil, err
