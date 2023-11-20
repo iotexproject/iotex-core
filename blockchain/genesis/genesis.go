@@ -72,6 +72,7 @@ func defaultConfig() Genesis {
 			PalauBlockHeight:        22991401,
 			QuebecBlockHeight:       24838201,
 			RedseaBlockHeight:       26704441,
+			SumatraBlockHeight:      36704441,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
@@ -243,6 +244,8 @@ type (
 		// 1. upgrade go-ethereum to Bellatrix release
 		// 2. correct weighted votes for contract staking bucket
 		RedseaBlockHeight uint64 `yaml:"redseaHeight"`
+		// SumatraBlockHeight is the start height to enable Shanghai EVM
+		SumatraBlockHeight uint64 `yaml:"sumatraHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -579,6 +582,11 @@ func (g *Blockchain) IsQuebec(height uint64) bool {
 // IsRedsea checks whether height is equal to or larger than redsea height
 func (g *Blockchain) IsRedsea(height uint64) bool {
 	return g.isPost(g.RedseaBlockHeight, height)
+}
+
+// IsSumatra checks whether height is equal to or larger than sumatra height
+func (g *Blockchain) IsSumatra(height uint64) bool {
+	return g.isPost(g.SumatraBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height

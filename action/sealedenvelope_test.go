@@ -62,7 +62,7 @@ func TestSealedEnvelope_InvalidType(t *testing.T) {
 		SetAction(r).
 		SetGasLimit(100000).Build()
 	selp := FakeSeal(elp, identityset.PrivateKey(27).PublicKey())
-	selp.encoding = iotextypes.Encoding_ETHEREUM_RLP
+	selp.encoding = iotextypes.Encoding_ETHEREUM_EIP155
 	hash1, err := selp.envelopeHash()
 	require.Equal(hash1, hash.ZeroHash256)
 	require.Contains(err.Error(), "invalid action type")
@@ -118,7 +118,7 @@ func TestSealedEnvelope_Actions(t *testing.T) {
 		selp := FakeSeal(elp, identityset.PrivateKey(27).PublicKey())
 		act, ok := selp.Action().(EthCompatibleAction)
 		require.True(ok)
-		rlp, err := act.ToEthTx()
+		rlp, err := act.ToEthTx(0)
 		require.NoError(err)
 
 		require.Equal(elp.Nonce(), rlp.Nonce())

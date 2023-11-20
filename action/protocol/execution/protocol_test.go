@@ -283,8 +283,10 @@ func readExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-
-	return sf.SimulateExecution(ctx, addr, exec, dao.GetBlockHash)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash: dao.GetBlockHash,
+	})
+	return sf.SimulateExecution(ctx, addr, exec)
 }
 
 func runExecutions(

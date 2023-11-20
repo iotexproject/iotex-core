@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
@@ -109,7 +110,7 @@ func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp 
 		actHash, _ := selp.Hash()
 		return nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
 	}
-	ethTx, err := act.ToEthTx()
+	ethTx, err := act.ToEthTx(0)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +118,11 @@ func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp 
 	if err != nil {
 		return nil, err
 	}
-	tx, err := action.RawTxToSignedTx(ethTx, svr.coreService.ChainID(), selp.Signature())
+	signer, err := action.NewEthSigner(iotextypes.Encoding(selp.Encoding()), svr.coreService.EVMNetworkID())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := action.RawTxToSignedTx(ethTx, signer, selp.Signature())
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +149,7 @@ func getRecipientAndContractAddrFromAction(selp action.SealedEnvelope, receipt *
 		actHash, _ := selp.Hash()
 		return nil, nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
 	}
-	ethTx, err := act.ToEthTx()
+	ethTx, err := act.ToEthTx(0)
 	if err != nil {
 		return nil, nil, err
 	}

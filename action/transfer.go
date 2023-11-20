@@ -26,7 +26,10 @@ const (
 	TransferBaseIntrinsicGas = uint64(10000)
 )
 
-var _ hasDestination = (*Transfer)(nil)
+var (
+	_ hasDestination      = (*Transfer)(nil)
+	_ EthCompatibleAction = (*Transfer)(nil)
+)
 
 // Transfer defines the struct of account-based transfer
 type Transfer struct {
@@ -152,7 +155,7 @@ func (tsf *Transfer) SanityCheck() error {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (tsf *Transfer) ToEthTx() (*types.Transaction, error) {
+func (tsf *Transfer) ToEthTx(_ uint32) (*types.Transaction, error) {
 	addr, err := address.FromString(tsf.recipient)
 	if err != nil {
 		return nil, err

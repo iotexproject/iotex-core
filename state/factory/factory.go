@@ -86,7 +86,7 @@ type (
 		Validate(context.Context, *block.Block) error
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error)
-		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
+		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
 		ReadContractStorage(context.Context, address.Address, []byte) ([]byte, error)
 		PutBlock(context.Context, *block.Block) error
 		DeleteTipBlock(context.Context, *block.Block) error
@@ -387,7 +387,6 @@ func (sf *factory) SimulateExecution(
 	ctx context.Context,
 	caller address.Address,
 	ex *action.Execution,
-	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "factory.SimulateExecution")
 	defer span.End()
@@ -399,7 +398,7 @@ func (sf *factory) SimulateExecution(
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 
-	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
+	return evm.SimulateExecution(ctx, ws, caller, ex)
 }
 
 // ReadContractStorage reads contract's storage

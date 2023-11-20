@@ -66,6 +66,7 @@ const (
 var (
 	// _createStakeMethod is the interface of the abi encoding of stake action
 	_createStakeMethod abi.Method
+	_                  EthCompatibleAction = (*CreateStake)(nil)
 
 	errDecodeFailure = errors.New("failed to decode the data")
 )
@@ -260,7 +261,7 @@ func NewCreateStakeFromABIBinary(data []byte) (*CreateStake, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (cs *CreateStake) ToEthTx() (*types.Transaction, error) {
+func (cs *CreateStake) ToEthTx(_ uint32) (*types.Transaction, error) {
 	data, err := cs.encodeABIBinary()
 	if err != nil {
 		return nil, err
