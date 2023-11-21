@@ -144,6 +144,7 @@ func (c *info) reset() error {
 	c.readConfig.Explorer = _validExpl[0]
 	c.readConfig.Language = _supportedLanguage[0]
 	c.readConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
+	c.readConfig.WsEndpoint = ""
 
 	err := c.writeConfig()
 	if err != nil {
@@ -202,6 +203,8 @@ func (c *info) set(args []string, insecure bool, client ioctl.Client) (string, e
 			return "", errors.Wrapf(err, "invalid height %d", height)
 		}
 		c.readConfig.Nsv2height = height
+	case "wsEndpoint":
+		c.readConfig.WsEndpoint = args[1]
 	default:
 		return "", config.ErrConfigNotMatch
 	}
@@ -237,6 +240,8 @@ func (c *info) get(arg string) (string, error) {
 		return strconv.FormatUint(c.readConfig.Nsv2height, 10), nil
 	case "analyserEndpoint":
 		return c.readConfig.AnalyserEndpoint, nil
+	case "wsEndpoint":
+		return c.readConfig.WsEndpoint, nil
 	case "all":
 		return jsonString(c.readConfig)
 	default:
