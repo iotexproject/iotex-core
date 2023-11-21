@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
-	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -280,10 +279,6 @@ func ExecuteContract(
 			sharedGas                 uint64
 			sharedGasFee, totalGasFee *big.Int
 		)
-		// if gas price is zero, set it to smallest unit
-		if ps.txCtx.GasPrice.Sign() == 0 {
-			ps.txCtx.GasPrice = big.NewInt(unit.Qev)
-		}
 		if ps.featureCtx.SharedGasWithDapp && sgd != nil {
 			// TODO: sgd is whether nil should be checked in processSGD
 			receiver, sharedGas, err = processSGD(ctx, sm, execution, consumedGas, sgd)
