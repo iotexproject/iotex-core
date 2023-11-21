@@ -29,7 +29,10 @@ const (
 	TxAccessListStorageKeyGas uint64 = 1900  // Per storage key specified in EIP 2930 access list
 )
 
-var _ hasDestination = (*Execution)(nil)
+var (
+	_ hasDestination      = (*Execution)(nil)
+	_ EthCompatibleAction = (*Execution)(nil)
+)
 
 // Execution defines the struct of account-based contract execution
 type Execution struct {
@@ -231,7 +234,7 @@ func (ex *Execution) SanityCheck() error {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (ex *Execution) ToEthTx() (*types.Transaction, error) {
+func (ex *Execution) ToEthTx(_ uint32) (*types.Transaction, error) {
 	if ex.contract == EmptyAddress {
 		return types.NewContractCreation(ex.Nonce(), ex.amount, ex.GasLimit(), ex.GasPrice(), ex.data), nil
 	}

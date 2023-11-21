@@ -62,6 +62,7 @@ const (
 var (
 	// _restakeMethod is the interface of the abi encoding of stake action
 	_restakeMethod abi.Method
+	_              EthCompatibleAction = (*Restake)(nil)
 )
 
 // Restake defines the action of stake again
@@ -211,7 +212,7 @@ func NewRestakeFromABIBinary(data []byte) (*Restake, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (rs *Restake) ToEthTx() (*types.Transaction, error) {
+func (rs *Restake) ToEthTx(_ uint32) (*types.Transaction, error) {
 	data, err := rs.encodeABIBinary()
 	if err != nil {
 		return nil, err
