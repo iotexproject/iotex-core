@@ -2,11 +2,12 @@ package znode
 
 import (
 	"encoding/json"
-	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
 	"io"
 	"net/http"
 	"net/url"
+
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
