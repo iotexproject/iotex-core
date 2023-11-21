@@ -67,6 +67,10 @@ type Config struct {
 	Language         string            `json:"language" yaml:"language"`
 	Nsv2height       uint64            `json:"nsv2height" yaml:"nsv2height"`
 	AnalyserEndpoint string            `json:"analyserEndpoint" yaml:"analyserEndpoint"`
+	// ZnodeEndpint IoTeX Zero-node endpint
+	ZnodeEndpoint string `json:"znodeEndpoint" yaml:"znodeEndpoint"`
+	// ZnodeContractAddress znode contract address
+	ZnodeContractAddress string `json:"znodeContractAddress" yaml:"znodeContractAddress"`
 }
 
 var (
