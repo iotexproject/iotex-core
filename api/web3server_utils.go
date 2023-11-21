@@ -110,7 +110,7 @@ func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp 
 		actHash, _ := selp.Hash()
 		return nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
 	}
-	ethTx, err := act.ToEthTx()
+	ethTx, err := act.ToEthTx(0)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func getRecipientAndContractAddrFromAction(selp action.SealedEnvelope, receipt *
 		actHash, _ := selp.Hash()
 		return nil, nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
 	}
-	ethTx, err := act.ToEthTx()
+	ethTx, err := act.ToEthTx(0)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -332,7 +332,12 @@ func parseCallObject(in *gjson.Result) (address.Address, string, uint64, *big.In
 		}
 	}
 
-	data = common.FromHex(in.Get("params.0.data").String())
+	input := in.Get("params.0.input")
+	if input.Exists() {
+		data = common.FromHex(input.String())
+	} else {
+		data = common.FromHex(in.Get("params.0.data").String())
+	}
 	return from, to, gasLimit, value, data, nil
 }
 

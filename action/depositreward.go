@@ -47,6 +47,7 @@ var (
 	DepositToRewardingFundGasPerByte = uint64(100)
 
 	_depositRewardMethod abi.Method
+	_                    EthCompatibleAction = (*DepositToRewardingFund)(nil)
 )
 
 func init() {
@@ -158,7 +159,7 @@ func (d *DepositToRewardingFund) encodeABIBinary() ([]byte, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (d *DepositToRewardingFund) ToEthTx() (*types.Transaction, error) {
+func (d *DepositToRewardingFund) ToEthTx(_ uint32) (*types.Transaction, error) {
 	data, err := d.encodeABIBinary()
 	if err != nil {
 		return nil, err
