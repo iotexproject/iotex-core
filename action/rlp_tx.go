@@ -82,14 +82,10 @@ func DecodeRawTx(rawData string, chainID uint32) (tx *types.Transaction, sig []b
 // NewEthSigner returns the proper signer for Eth-compatible tx
 func NewEthSigner(txType iotextypes.Encoding, chainID uint32) (types.Signer, error) {
 	switch txType {
-	case iotextypes.Encoding_IOTEX_PROTOBUF:
-		// native tx use same signature format as that of Homestead
+	case iotextypes.Encoding_IOTEX_PROTOBUF, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		// native tx use same signature format as that of Homestead (for pre-EIP155 unprotected tx)
 		return types.HomesteadSigner{}, nil
-	case iotextypes.Encoding_ETHEREUM_EIP155:
-		return types.NewEIP155Signer(big.NewInt(int64(chainID))), nil
-	case iotextypes.Encoding_ETHEREUM_UNPROTECTED:
-		return types.HomesteadSigner{}, nil
-	case iotextypes.Encoding_ETHEREUM_ACCESSLIST:
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_ACCESSLIST:
 		return types.NewEIP2930Signer(big.NewInt(int64(chainID))), nil
 	default:
 		return nil, ErrInvalidAct
@@ -119,7 +115,7 @@ func DecodeEtherTx(rawData string) (*types.Transaction, error) {
 func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, crypto.PublicKey, error) {
 	var (
 		encoding iotextypes.Encoding
-		signer   types.Signer
+		signer   = types.NewEIP2930Signer(tx.ChainId()) // by default assume latest signer
 		V, R, S  = tx.RawSignatureValues()
 	)
 	// extract correct V value
@@ -127,10 +123,9 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 	case types.LegacyTxType:
 		if tx.Protected() {
 			chainIDMul := tx.ChainId()
-			V = new(big.Int).Sub(V, chainIDMul.Lsh(chainIDMul, 1))
+			V = new(big.Int).Sub(V, new(big.Int).Lsh(chainIDMul, 1))
 			V.Sub(V, big.NewInt(8))
 			encoding = iotextypes.Encoding_ETHEREUM_EIP155
-			signer = types.NewEIP155Signer(tx.ChainId())
 		} else {
 			// tx has pre-EIP155 signature
 			encoding = iotextypes.Encoding_ETHEREUM_UNPROTECTED
@@ -141,7 +136,6 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 		// id, add 27 to become equivalent to unprotected Homestead signatures.
 		V = new(big.Int).Add(V, big.NewInt(27))
 		encoding = iotextypes.Encoding_ETHEREUM_ACCESSLIST
-		signer = types.NewEIP2930Signer(tx.ChainId())
 	default:
 		return encoding, nil, nil, ErrNotSupported
 	}
