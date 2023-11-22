@@ -36,6 +36,7 @@ var (
 
 func init() {
 	ZnodeCmd.AddCommand(znodeMessage)
+	ZnodeCmd.AddCommand(znodeCode)
 
 	ZnodeCmd.PersistentFlags().StringVar(
 		&config.ReadConfig.Endpoint, "endpoint",
