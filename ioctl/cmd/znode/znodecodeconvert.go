@@ -6,12 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
 	"io/fs"
 	"os"
+
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 var (
