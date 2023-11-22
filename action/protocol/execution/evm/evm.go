@@ -278,7 +278,6 @@ func ExecuteContract(
 			receiver                  address.Address
 			sharedGas                 uint64
 			sharedGasFee, totalGasFee *big.Int
-			depositGasFunc            DepositGasWithSGD
 		)
 		if ps.featureCtx.SharedGasWithDapp && sgd != nil {
 			// TODO: sgd is whether nil should be checked in processSGD
@@ -292,17 +291,13 @@ func ExecuteContract(
 			sharedGasFee.Mul(sharedGasFee, ps.txCtx.GasPrice)
 		}
 		totalGasFee = new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), ps.txCtx.GasPrice)
-		if ps.helperCtx.DepositGasFunc == nil {
-			depositGasFunc = func(ctx context.Context, sm protocol.StateManager, a address.Address, i1, i2 *big.Int) (*action.TransactionLog, error) {
-				return nil, nil
+		if ps.helperCtx.DepositGasFunc != nil {
+			depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
+			if err != nil {
+				return nil, nil, err
 			}
-		} else {
-			depositGasFunc = ps.helperCtx.DepositGasFunc
 		}
-		depositLog, err = depositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
-		if err != nil {
-			return nil, nil, err
-		}
+
 	}
 
 	if err := stateDB.CommitContracts(); err != nil {
