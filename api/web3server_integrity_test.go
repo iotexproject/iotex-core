@@ -686,14 +686,15 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 		require.NoError(err)
 
 		// create tx
-		rawTx := types.NewTransaction(
-			uint64(9+i),
-			common.HexToAddress(toAddr),
-			big.NewInt(0),
-			gasLimit,
-			big.NewInt(0),
-			test.data,
-		)
+		to := common.HexToAddress(toAddr)
+		rawTx := types.NewTx(&types.LegacyTx{
+			Nonce:    uint64(9 + i),
+			GasPrice: big.NewInt(0),
+			Gas:      gasLimit,
+			To:       &to,
+			Value:    big.NewInt(0),
+			Data:     test.data,
+		})
 		signer, err := action.NewEthSigner(iotextypes.Encoding_ETHEREUM_EIP155, _evmNetworkID)
 		require.NoError(err)
 		tx, err := types.SignTx(rawTx, signer, ecdsaPvk)

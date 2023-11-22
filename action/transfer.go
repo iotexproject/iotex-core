@@ -161,5 +161,13 @@ func (tsf *Transfer) ToEthTx(_ uint32) (*types.Transaction, error) {
 		return nil, err
 	}
 	ethAddr := common.BytesToAddress(addr.Bytes())
-	return types.NewTransaction(tsf.Nonce(), ethAddr, tsf.amount, tsf.GasLimit(), tsf.GasPrice(), tsf.payload), nil
+	tx := types.NewTx(&types.LegacyTx{
+		Nonce:    tsf.Nonce(),
+		GasPrice: tsf.GasPrice(),
+		Gas:      tsf.GasLimit(),
+		To:       &ethAddr,
+		Value:    tsf.amount,
+		Data:     tsf.payload,
+	})
+	return tx, nil
 }

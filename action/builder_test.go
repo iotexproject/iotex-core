@@ -48,13 +48,28 @@ func TestBuildRewardingAction(t *testing.T) {
 	eb.SetChainID(2)
 
 	claimData, _ := hex.DecodeString("2df163ef000000000000000000000000000000000000000000000000000000000000006500000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000")
-	tx := types.NewTransaction(1, common.HexToAddress("0x0000000000000000000000000000000000000001"), big.NewInt(100), 10000, big.NewInt(10004), claimData)
+	to := common.HexToAddress("0x0000000000000000000000000000000000000001")
+	tx := types.NewTx(&types.LegacyTx{
+		Nonce:    1,
+		GasPrice: big.NewInt(10004),
+		Gas:      10000,
+		To:       &to,
+		Value:    big.NewInt(100),
+		Data:     claimData,
+	})
 
 	env, err := eb.BuildRewardingAction(tx)
 	r.Nil(env)
 	r.EqualValues("invalid action type", err.Error())
 
-	tx = types.NewTransaction(1, _rewardingProtocolEthAddr, big.NewInt(100), 10000, big.NewInt(10004), claimData)
+	tx = types.NewTx(&types.LegacyTx{
+		Nonce:    1,
+		GasPrice: big.NewInt(10004),
+		Gas:      10000,
+		To:       &_rewardingProtocolEthAddr,
+		Value:    big.NewInt(100),
+		Data:     claimData,
+	})
 	env, err = eb.BuildRewardingAction(tx)
 	r.Nil(err)
 	r.IsType(&ClaimFromRewardingFund{}, env.Action())
@@ -63,13 +78,27 @@ func TestBuildRewardingAction(t *testing.T) {
 	r.EqualValues(big.NewInt(101), env.Action().(*ClaimFromRewardingFund).Amount())
 
 	depositData, _ := hex.DecodeString("27852a6b000000000000000000000000000000000000000000000000000000000000006500000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003")
-	tx = types.NewTransaction(1, common.HexToAddress("0x0000000000000000000000000000000000000001"), big.NewInt(100), 10000, big.NewInt(10004), depositData)
-
+	to = common.HexToAddress("0x0000000000000000000000000000000000000001")
+	tx = types.NewTx(&types.LegacyTx{
+		Nonce:    1,
+		GasPrice: big.NewInt(10004),
+		Gas:      10000,
+		To:       &to,
+		Value:    big.NewInt(100),
+		Data:     depositData,
+	})
 	env, err = eb.BuildRewardingAction(tx)
 	r.Nil(env)
 	r.EqualValues("invalid action type", err.Error())
 
-	tx = types.NewTransaction(1, _rewardingProtocolEthAddr, big.NewInt(100), 10000, big.NewInt(10004), depositData)
+	tx = types.NewTx(&types.LegacyTx{
+		Nonce:    1,
+		GasPrice: big.NewInt(10004),
+		Gas:      10000,
+		To:       &_rewardingProtocolEthAddr,
+		Value:    big.NewInt(100),
+		Data:     depositData,
+	})
 	env, err = eb.BuildRewardingAction(tx)
 	r.Nil(err)
 	r.IsType(&DepositToRewardingFund{}, env.Action())

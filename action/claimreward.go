@@ -164,7 +164,15 @@ func (c *ClaimFromRewardingFund) ToEthTx(_ uint32) (*types.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(c.Nonce(), _rewardingProtocolEthAddr, big.NewInt(0), c.GasLimit(), c.GasPrice(), data), nil
+	tx := types.NewTx(&types.LegacyTx{
+		Nonce:    c.Nonce(),
+		GasPrice: c.GasPrice(),
+		Gas:      c.GasLimit(),
+		To:       &_rewardingProtocolEthAddr,
+		Value:    big.NewInt(0),
+		Data:     data,
+	})
+	return tx, nil
 }
 
 // NewClaimFromRewardingFundFromABIBinary decodes data into action

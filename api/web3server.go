@@ -401,13 +401,26 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 
 	var tx *types.Transaction
 	if len(to) == 0 {
-		tx = types.NewContractCreation(0, value, gasLimit, big.NewInt(0), data)
+		tx = types.NewTx(&types.LegacyTx{
+			Nonce:    0,
+			Value:    value,
+			Gas:      gasLimit,
+			GasPrice: big.NewInt(0),
+			Data:     data,
+		})
 	} else {
 		toAddr, err := addrutil.IoAddrToEvmAddr(to)
 		if err != nil {
 			return "", err
 		}
-		tx = types.NewTransaction(0, toAddr, value, gasLimit, big.NewInt(0), data)
+		tx = types.NewTx(&types.LegacyTx{
+			Nonce:    0,
+			GasPrice: big.NewInt(0),
+			Gas:      gasLimit,
+			To:       &toAddr,
+			Value:    value,
+			Data:     data,
+		})
 	}
 	elp, err := svr.ethTxToEnvelope(tx)
 	if err != nil {
