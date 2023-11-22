@@ -657,7 +657,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 	return pollProtocol.Register(builder.cs.registry)
 }
 
-func (builder *Builder) buildGetBlockTime() (err error) {
+func (builder *Builder) buildBlockTimeCalculator() (err error) {
 	consensusCfg := consensusfsm.NewConsensusConfig(builder.cfg.Consensus.RollDPoS.FSM, builder.cfg.DardanellesUpgrade, builder.cfg.Genesis, builder.cfg.Consensus.RollDPoS.Delay)
 	dao := builder.cs.BlockDAO()
 	builder.cs.blockTimeCalculator, err = blockutil.NewBlockTimeCalculator(consensusCfg.BlockInterval, builder.cs.Blockchain().TipHeight, func(height uint64) (time.Time, error) {
@@ -733,7 +733,7 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.buildBlockchain(forSubChain, forTest); err != nil {
 		return nil, err
 	}
-	if err := builder.buildGetBlockTime(); err != nil {
+	if err := builder.buildBlockTimeCalculator(); err != nil {
 		return nil, err
 	}
 	// staking protocol need to be put in registry before poll protocol when enabling

@@ -127,7 +127,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	ctx = protocol.WithActionCtx(ctx, actionCtx)
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
 	getBlockTime := func(u uint64) (time.Time, error) {
-		// make sure the returned timestamp is after the genesis time so that evm future upgrade is disabled
+		// make sure the returned timestamp is after the current block time so that evm upgrades based on timestamp (Shanghai and onwards) are disabled
 		return blkCtx.BlockTimeStamp.Add(5 * time.Second), nil
 	}
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
