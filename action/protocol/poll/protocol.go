@@ -198,7 +198,6 @@ func NewProtocol(
 			genesisConfig.NativeStakingContractAddress,
 			genesisConfig.NativeStakingContractCode,
 			scoreThreshold,
-			getBlockTime,
 		)
 		if err != nil {
 			return nil, err
@@ -221,7 +220,7 @@ func NewProtocol(
 		}
 		return NewStakingCommand(stakingV1, stakingV2)
 	case _modeConsortium:
-		return NewConsortiumCommittee(candidateIndexer, readContract, getBlockHash, getBlockTime)
+		return NewConsortiumCommittee(candidateIndexer, readContract, getBlockHash)
 	default:
 		return nil, errors.Errorf("unsupported poll mode %s", genesisConfig.PollMode)
 	}

@@ -141,7 +141,6 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 		cfg.Genesis.NativeStakingContractAddress,
 		cfg.Genesis.NativeStakingContractCode,
 		scoreThreshold,
-		func(u uint64) (time.Time, error) { return time.Time{}, nil },
 	)
 
 	return p, ctx, sm, r, err

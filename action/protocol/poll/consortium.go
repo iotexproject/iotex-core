@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -50,11 +51,10 @@ type consortiumCommittee struct {
 	indexer        *CandidateIndexer
 	addr           address.Address
 	getBlockHash   evm.GetBlockHash
-	getBlockTime   evm.GetBlockTime
 }
 
 // NewConsortiumCommittee creates a committee for consorium chain
-func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract, getBlockHash evm.GetBlockHash, getBlockTime evm.GetBlockTime) (Protocol, error) {
+func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract, getBlockHash evm.GetBlockHash) (Protocol, error) {
 	abi, err := abi.JSON(strings.NewReader(ConsortiumManagementABI))
 	if err != nil {
 		return nil, err
@@ -74,7 +74,6 @@ func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract
 		addr:           addr,
 		indexer:        indexer,
 		getBlockHash:   getBlockHash,
-		getBlockTime:   getBlockTime,
 	}, nil
 }
 
@@ -127,11 +126,15 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	}
 	ctx = protocol.WithActionCtx(ctx, actionCtx)
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
+	getBlockTime := func(u uint64) (time.Time, error) {
+		// make sure the returned timestamp is after the genesis time so that evm future upgrade is disabled
+		return blkCtx.BlockTimeStamp.Add(5 * time.Second), nil
+	}
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash: func(height uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
-		GetBlockTime: cc.getBlockTime,
+		GetBlockTime: getBlockTime,
 		DepositGasFunc: func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
 			return nil, nil
 		},
@@ -154,7 +157,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash: cc.getBlockHash,
-		GetBlockTime: cc.getBlockTime,
+		GetBlockTime: getBlockTime,
 	})
 	r := getContractReaderForGenesisStates(ctx, sm)
 	cands, err := cc.readDelegatesWithContractReader(ctx, r)
