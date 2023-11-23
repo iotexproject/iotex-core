@@ -39,6 +39,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
@@ -182,6 +183,7 @@ type (
 		readCache         *ReadCache
 		messageBatcher    *batch.Manager
 		apiStats          *nodestats.APILocalStats
+		sgdIndexer        blockindex.SGDRegistry
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -215,6 +217,13 @@ func WithNativeElection(committee committee.Committee) Option {
 func WithAPIStats(stats *nodestats.APILocalStats) Option {
 	return func(svr *coreService) {
 		svr.apiStats = stats
+	}
+}
+
+// WithSGDIndexer is the option to return SGD Indexer through API.
+func WithSGDIndexer(sgdIndexer blockindex.SGDRegistry) Option {
+	return func(svr *coreService) {
+		svr.sgdIndexer = sgdIndexer
 	}
 }
 
@@ -1740,9 +1749,10 @@ func (core *coreService) Track(ctx context.Context, start time.Time, method stri
 }
 
 func (core *coreService) simulateExecution(ctx context.Context, addr address.Address, exec *action.Execution, getBlockHash evm.GetBlockHash) ([]byte, *action.Receipt, error) {
-	// TODO: add depositGas
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-		GetBlockHash: getBlockHash,
+		GetBlockHash:   getBlockHash,
+		DepositGasFunc: rewarding.DepositGasWithSGD,
+		Sgd:            core.sgdIndexer,
 	})
 	return core.sf.SimulateExecution(ctx, addr, exec)
 }
