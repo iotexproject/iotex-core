@@ -210,13 +210,12 @@ func (cc *ChangeCandidate) ToEthTx(_ uint32) (*types.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	tx := types.NewTx(&types.LegacyTx{
+	return types.NewTx(&types.LegacyTx{
 		Nonce:    cc.Nonce(),
 		GasPrice: cc.GasPrice(),
 		Gas:      cc.GasLimit(),
 		To:       &_stakingProtocolEthAddr,
 		Value:    big.NewInt(0),
 		Data:     data,
-	})
-	return tx, nil
+	}), nil
 }

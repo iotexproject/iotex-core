@@ -386,15 +386,14 @@ func (cr *CandidateRegister) ToEthTx(_ uint32) (*types.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	tx := types.NewTx(&types.LegacyTx{
+	return types.NewTx(&types.LegacyTx{
 		Nonce:    cr.Nonce(),
 		GasPrice: cr.GasPrice(),
 		Gas:      cr.GasLimit(),
 		To:       &_stakingProtocolEthAddr,
 		Value:    big.NewInt(0),
 		Data:     data,
-	})
-	return tx, nil
+	}), nil
 }
 
 // IsValidCandidateName check if a candidate name string is valid.

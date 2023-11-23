@@ -207,13 +207,12 @@ func (ts *TransferStake) ToEthTx(_ uint32) (*types.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	tx := types.NewTx(&types.LegacyTx{
+	return types.NewTx(&types.LegacyTx{
 		Nonce:    ts.Nonce(),
 		GasPrice: ts.GasPrice(),
 		Gas:      ts.GasLimit(),
 		To:       &_stakingProtocolEthAddr,
 		Value:    big.NewInt(0),
 		Data:     data,
-	})
-	return tx, nil
+	}), nil
 }

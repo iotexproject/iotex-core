@@ -164,15 +164,14 @@ func (d *DepositToRewardingFund) ToEthTx(_ uint32) (*types.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	tx := types.NewTx(&types.LegacyTx{
+	return types.NewTx(&types.LegacyTx{
 		Nonce:    d.Nonce(),
 		GasPrice: d.GasPrice(),
 		Gas:      d.GasLimit(),
 		To:       &_rewardingProtocolEthAddr,
 		Value:    big.NewInt(0),
 		Data:     data,
-	})
-	return tx, nil
+	}), nil
 }
 
 // NewDepositToRewardingFundFromABIBinary decodes data into action
