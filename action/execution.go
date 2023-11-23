@@ -235,36 +235,32 @@ func (ex *Execution) SanityCheck() error {
 
 // ToEthTx converts action to eth-compatible tx
 func (ex *Execution) ToEthTx(evmNetworkID uint32) (*types.Transaction, error) {
-	if ex.contract == EmptyAddress {
-		if len(ex.accessList) > 0 {
-			return types.NewTx(&types.AccessListTx{
-				ChainID:    big.NewInt(int64(evmNetworkID)),
-				Nonce:      ex.Nonce(),
-				GasPrice:   ex.GasPrice(),
-				Gas:        ex.GasLimit(),
-				Value:      ex.amount,
-				Data:       ex.data,
-				AccessList: ex.accessList,
-			}), nil
+	var ethAddr *common.Address
+	if ex.contract != EmptyAddress {
+		addr, err := address.FromString(ex.contract)
+		if err != nil {
+			return nil, err
 		}
-		return types.NewContractCreation(ex.Nonce(), ex.amount, ex.GasLimit(), ex.GasPrice(), ex.data), nil
+		*ethAddr = common.BytesToAddress(addr.Bytes())
 	}
-	addr, err := address.FromString(ex.contract)
-	if err != nil {
-		return nil, err
-	}
-	ethAddr := common.BytesToAddress(addr.Bytes())
 	if len(ex.accessList) > 0 {
 		return types.NewTx(&types.AccessListTx{
 			ChainID:    big.NewInt(int64(evmNetworkID)),
 			Nonce:      ex.Nonce(),
 			GasPrice:   ex.GasPrice(),
 			Gas:        ex.GasLimit(),
-			To:         &ethAddr,
+			To:         ethAddr,
 			Value:      ex.amount,
 			Data:       ex.data,
 			AccessList: ex.accessList,
 		}), nil
 	}
-	return types.NewTransaction(ex.Nonce(), ethAddr, ex.amount, ex.GasLimit(), ex.GasPrice(), ex.data), nil
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    ex.Nonce(),
+		GasPrice: ex.GasPrice(),
+		Gas:      ex.GasLimit(),
+		To:       ethAddr,
+		Value:    ex.amount,
+		Data:     ex.data,
+	}), nil
 }
