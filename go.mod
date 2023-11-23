@@ -23,7 +23,7 @@ require (
 	github.com/iotexproject/iotex-address v0.2.8
 	github.com/iotexproject/iotex-antenna-go/v2 v2.5.1
 	github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d
-	github.com/iotexproject/iotex-proto v0.5.14
+	github.com/iotexproject/iotex-proto v0.5.15-0.20231122045957-12615a5b58b2
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/mackerelio/go-osstat v0.2.4
 	github.com/miguelmota/go-ethereum-hdwallet v0.1.1
