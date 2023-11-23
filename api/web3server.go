@@ -400,8 +400,10 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 		return nil, err
 	}
 
-	var tx *types.Transaction
-	var toAddr *common.Address
+	var (
+		tx     *types.Transaction
+		toAddr *common.Address
+	)
 	if len(to) != 0 {
 		addr, err := addrutil.IoAddrToEvmAddr(to)
 		if err != nil {
