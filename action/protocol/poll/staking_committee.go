@@ -139,6 +139,10 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		GetBlockHash: func(height uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
+		GetBlockTime: func(u uint64) (time.Time, error) {
+			// make sure the returned timestamp is after the current block time so that evm upgrades based on timestamp (Shanghai and onwards) are disabled
+			return blkCtx.BlockTimeStamp.Add(5 * time.Second), nil
+		},
 		DepositGasFunc: func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
 			return nil, nil
 		},

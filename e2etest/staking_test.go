@@ -124,6 +124,7 @@ func TestStakingContract(t *testing.T) {
 
 			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 				GetBlockHash: dao.GetBlockHash,
+				GetBlockTime: fakeGetBlockTime,
 			})
 			data, _, err := sf.SimulateExecution(ctx, addr, ex)
 

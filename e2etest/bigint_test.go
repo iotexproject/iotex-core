@@ -9,6 +9,7 @@ import (
 	"context"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/stretchr/testify/require"
@@ -38,6 +39,8 @@ const (
 	_recipient      = "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6"
 	_executorPriKey = "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1"
 )
+
+func fakeGetBlockTime(uint64) (time.Time, error) { return time.Time{}, nil }
 
 func TestTransfer_Negative(t *testing.T) {
 	r := require.New(t)
@@ -110,7 +113,7 @@ func prepareBlockchain(ctx context.Context, _executor string, r *require.Asserti
 	reward := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	r.NoError(reward.Register(registry))
 
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, fakeGetBlockTime)
 	r.NoError(ep.Register(registry))
 	r.NoError(bc.Start(ctx))
 	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)

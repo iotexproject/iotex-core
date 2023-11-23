@@ -34,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/blockutil"
 	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -73,6 +74,7 @@ type ChainService struct {
 	registry               *protocol.Registry
 	nodeInfoManager        *nodeinfo.InfoManager
 	apiStats               *nodestats.APILocalStats
+	blockTimeCalculator    *blockutil.BlockTimeCalculator
 }
 
 // Start starts the server
@@ -204,6 +206,7 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 		cs.bfIndexer,
 		cs.actpool,
 		cs.registry,
+		cs.blockTimeCalculator.CalculateBlockTime,
 		apiServerOptions...,
 	)
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	"math"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/golang/mock/gomock"
@@ -63,6 +64,9 @@ func TestExecuteContractFailure(t *testing.T) {
 	ctx = WithHelperCtx(ctx, HelperContext{
 		GetBlockHash: func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
+		},
+		GetBlockTime: func(uint64) (time.Time, error) {
+			return time.Time{}, nil
 		},
 		DepositGasFunc: func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
 			return nil, nil
@@ -261,6 +265,9 @@ func TestConstantinople(t *testing.T) {
 		fCtx = WithHelperCtx(fCtx, HelperContext{
 			GetBlockHash: func(uint64) (hash.Hash256, error) {
 				return hash.ZeroHash256, nil
+			},
+			GetBlockTime: func(uint64) (time.Time, error) {
+				return time.Time{}, nil
 			},
 		})
 		stateDB, err := prepareStateDB(fCtx, sm)
