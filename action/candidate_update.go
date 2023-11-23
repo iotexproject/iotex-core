@@ -249,5 +249,12 @@ func (cu *CandidateUpdate) ToEthTx(_ uint32) (*types.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(cu.Nonce(), _stakingProtocolEthAddr, big.NewInt(0), cu.GasLimit(), cu.GasPrice(), data), nil
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    cu.Nonce(),
+		GasPrice: cu.GasPrice(),
+		Gas:      cu.GasLimit(),
+		To:       &_stakingProtocolEthAddr,
+		Value:    big.NewInt(0),
+		Data:     data,
+	}), nil
 }

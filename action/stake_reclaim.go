@@ -217,7 +217,14 @@ func (su *Unstake) ToEthTx(_ uint32) (*types.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(su.Nonce(), _stakingProtocolEthAddr, big.NewInt(0), su.GasLimit(), su.GasPrice(), data), nil
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    su.Nonce(),
+		GasPrice: su.GasPrice(),
+		Gas:      su.GasLimit(),
+		To:       &_stakingProtocolEthAddr,
+		Value:    big.NewInt(0),
+		Data:     data,
+	}), nil
 }
 
 // WithdrawStake defines the action of stake withdraw
@@ -305,5 +312,12 @@ func (sw *WithdrawStake) ToEthTx(_ uint32) (*types.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(sw.Nonce(), _stakingProtocolEthAddr, big.NewInt(0), sw.GasLimit(), sw.GasPrice(), data), nil
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    sw.Nonce(),
+		GasPrice: sw.GasPrice(),
+		Gas:      sw.GasLimit(),
+		To:       &_stakingProtocolEthAddr,
+		Value:    big.NewInt(0),
+		Data:     data,
+	}), nil
 }

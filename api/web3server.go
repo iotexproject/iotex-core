@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -399,16 +400,25 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 		return nil, err
 	}
 
-	var tx *types.Transaction
-	if len(to) == 0 {
-		tx = types.NewContractCreation(0, value, gasLimit, gasPrice, data)
-	} else {
-		toAddr, err := addrutil.IoAddrToEvmAddr(to)
+	var (
+		tx     *types.Transaction
+		toAddr *common.Address
+	)
+	if len(to) != 0 {
+		addr, err := addrutil.IoAddrToEvmAddr(to)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		tx = types.NewTransaction(0, toAddr, value, gasLimit, gasPrice, data)
+		toAddr = &addr
 	}
+	tx = types.NewTx(&types.LegacyTx{
+		Nonce:    0,
+		GasPrice: gasPrice,
+		Gas:      gasLimit,
+		To:       toAddr,
+		Value:    value,
+		Data:     data,
+	})
 	elp, err := svr.ethTxToEnvelope(tx)
 	if err != nil {
 		return nil, err
