@@ -30,7 +30,7 @@ type SealedEnvelope struct {
 // an all-0 return value means the transaction is invalid
 func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 	switch sealed.encoding {
-	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED, iotextypes.Encoding_ETHEREUM_ACCESSLIST:
 		act, ok := sealed.Action().(EthCompatibleAction)
 		if !ok {
 			return hash.ZeroHash256, ErrInvalidAct
@@ -66,7 +66,7 @@ func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
 
 func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
 	switch sealed.encoding {
-	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED, iotextypes.Encoding_ETHEREUM_ACCESSLIST:
 		act, ok := sealed.Action().(EthCompatibleAction)
 		if !ok {
 			return hash.ZeroHash256, ErrInvalidAct
@@ -144,13 +144,13 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 	}
 	encoding := pbAct.GetEncoding()
 	switch encoding {
-	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED, iotextypes.Encoding_ETHEREUM_ACCESSLIST:
 		// verify action type can support RLP-encoding
 		act, ok := elp.Action().(EthCompatibleAction)
 		if !ok {
 			return ErrInvalidAct
 		}
-		tx, err := act.ToEthTx(sealed.evmNetworkID)
+		tx, err := act.ToEthTx(evmID)
 		if err != nil {
 			return err
 		}
