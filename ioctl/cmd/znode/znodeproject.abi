@@ -1,15 +1,4 @@
-package znode
-
-import (
-	"strings"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"go.uber.org/zap"
-
-	"github.com/iotexproject/iotex-core/pkg/log"
-)
-
-const _znodeProjectContractJsonABI = `[
+[
 	{
 		"inputs": [],
 		"stateMutability": "nonpayable",
@@ -698,17 +687,4 @@ const _znodeProjectContractJsonABI = `[
 		"stateMutability": "nonpayable",
 		"type": "function"
 	}
-]`
-
-var (
-	_znodeProjectContractAddress string
-	_znodeProjectContractABI     abi.ABI
-)
-
-func init() {
-	var err error
-	_znodeProjectContractABI, err = abi.JSON(strings.NewReader(_znodeProjectContractJsonABI))
-	if err != nil {
-		log.L().Panic("cannot get abi JSON data", zap.Error(err))
-	}
-}
+]
