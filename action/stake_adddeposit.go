@@ -225,5 +225,12 @@ func (ds *DepositToStake) ToEthTx(_ uint32) (*types.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(ds.Nonce(), _stakingProtocolEthAddr, big.NewInt(0), ds.GasLimit(), ds.GasPrice(), data), nil
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    ds.Nonce(),
+		GasPrice: ds.GasPrice(),
+		Gas:      ds.GasLimit(),
+		To:       &_stakingProtocolEthAddr,
+		Value:    big.NewInt(0),
+		Data:     data,
+	}), nil
 }
