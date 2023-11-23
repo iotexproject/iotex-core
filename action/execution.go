@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
@@ -237,11 +238,11 @@ func (ex *Execution) SanityCheck() error {
 func (ex *Execution) ToEthTx(evmNetworkID uint32) (*types.Transaction, error) {
 	var ethAddr *common.Address
 	if ex.contract != EmptyAddress {
-		addr, err := address.FromString(ex.contract)
+		addr, err := addrutil.IoAddrToEvmAddr(ex.contract)
 		if err != nil {
 			return nil, err
 		}
-		*ethAddr = common.BytesToAddress(addr.Bytes())
+		ethAddr = &addr
 	}
 	if len(ex.accessList) > 0 {
 		return types.NewTx(&types.AccessListTx{
