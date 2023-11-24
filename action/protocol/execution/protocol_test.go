@@ -1219,6 +1219,9 @@ func TestLondonEVM(t *testing.T) {
 	t.Run("difficulty", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/difficulty.json")
 	})
+	t.Run("push0-invalid", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/push0.json")
+	})
 }
 
 func TestShanghaiEVM(t *testing.T) {
@@ -1302,6 +1305,9 @@ func TestShanghaiEVM(t *testing.T) {
 	})
 	t.Run("prevrandao", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-shanghai/prevrandao.json")
+	})
+	t.Run("push0-valid", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/push0.json")
 	})
 }
 
