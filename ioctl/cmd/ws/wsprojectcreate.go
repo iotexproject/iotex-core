@@ -1,4 +1,4 @@
-package znode
+package ws
 
 import (
 	"fmt"
@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	// znodeProjectCreate represents the create znode project command
-	znodeProjectCreate = &cobra.Command{
+	// wsProjectCreate represents the create w3bstream project command
+	wsProjectCreate = &cobra.Command{
 		Use:   "create",
-		Short: config.TranslateInLang(znodeProjectCreateShorts, config.UILanguage),
+		Short: config.TranslateInLang(wsProjectCreateShorts, config.UILanguage),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			uri, err := cmd.Flags().GetString("project-uri")
 			if err != nil {
@@ -34,9 +34,9 @@ var (
 		},
 	}
 
-	// znodeProjectSendShorts create znode project shorts multi-lang support
-	znodeProjectCreateShorts = map[config.Language]string{
-		config.English: "create znode project",
+	// wsProjectCreateShorts create w3bstream project shorts multi-lang support
+	wsProjectCreateShorts = map[config.Language]string{
+		config.English: "create w3bstream project",
 		config.Chinese: "创建项目",
 	}
 
@@ -48,51 +48,19 @@ var (
 		config.English: "project config hash for validating",
 		config.Chinese: "项目配置hash",
 	}
-	/*
-		{
-			"inputs": [
-				{
-					"internalType": "uint64",
-					"name": "",
-					"type": "uint64"
-				}
-			],
-			"name": "projects",
-			"outputs": [
-				{
-					"internalType": "string",
-					"name": "uri",
-					"type": "string"
-				},
-				{
-					"internalType": "bytes32",
-					"name": "hash",
-					"type": "bytes32"
-				},
-				{
-					"internalType": "bool",
-					"name": "paused",
-					"type": "bool"
-				}
-			],
-			"stateMutability": "view",
-			"type": "function"
-		},
-
-	*/
 )
 
 func init() {
-	znodeProjectCreate.Flags().StringP("project-uri", "u", "", config.TranslateInLang(_flagProjectUriUsages, config.UILanguage))
-	znodeProjectCreate.Flags().StringP("project-hash", "v", "", config.TranslateInLang(_flagProjectHashUsages, config.UILanguage))
-	znodeProjectCreate.Flags().StringP("contract-address", "v", "", config.TranslateInLang(_flagProjectHashUsages, config.UILanguage))
+	wsProjectCreate.Flags().StringP("project-uri", "u", "", config.TranslateInLang(_flagProjectUriUsages, config.UILanguage))
+	wsProjectCreate.Flags().StringP("project-hash", "v", "", config.TranslateInLang(_flagProjectHashUsages, config.UILanguage))
+	wsProjectCreate.Flags().StringP("contract-address", "v", "", config.TranslateInLang(_flagProjectHashUsages, config.UILanguage))
 
-	_ = znodeProjectCreate.MarkFlagRequired("project-uri")
-	_ = znodeProjectCreate.MarkFlagRequired("project-hash")
+	_ = wsProjectCreate.MarkFlagRequired("project-uri")
+	_ = wsProjectCreate.MarkFlagRequired("project-hash")
 }
 
 func createProject(uri, hash string) (string, error) {
-	contract, err := util.Address(znodeProjectRegisterContractAddress)
+	contract, err := util.Address(wsProjectRegisterContractAddress)
 	if err != nil {
 		return "", output.NewError(output.AddressError, "failed to get project register contract address", err)
 	}
@@ -102,8 +70,8 @@ func createProject(uri, hash string) (string, error) {
 		return "", err
 	}
 
-	bytecode, err := znodeProjectRegisterContractABI.Pack(
-		createZnodeProjectFuncName,
+	bytecode, err := wsProjectRegisterContractABI.Pack(
+		createWsProjectFuncName,
 		uri, hashArg,
 	)
 	if err != nil {
@@ -120,7 +88,7 @@ func createProject(uri, hash string) (string, error) {
 		return "", errors.Wrap(err, "wait contract execution receipt failed")
 	}
 
-	inputs, err := getEventInputsByName(r.ReceiptInfo.Receipt.Logs, createZnodeProjectEventName)
+	inputs, err := getEventInputsByName(r.ReceiptInfo.Receipt.Logs, createWsProjectEventName)
 	if err != nil {
 		return "", errors.Wrap(err, "get receipt event failed")
 	}

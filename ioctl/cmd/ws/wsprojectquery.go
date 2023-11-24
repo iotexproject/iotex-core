@@ -1,4 +1,4 @@
-package znode
+package ws
 
 import (
 	"fmt"
@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	// znodeProjectQuery represents the query znode project command
-	znodeProjectQuery = &cobra.Command{
+	// wsProjectQuery represents the query w3bstream project command
+	wsProjectQuery = &cobra.Command{
 		Use:   "query",
-		Short: config.TranslateInLang(znodeProjectQueryShorts, config.UILanguage),
+		Short: config.TranslateInLang(wsProjectQueryShorts, config.UILanguage),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := cmd.Flags().GetUint64("project-id")
 			if err != nil {
@@ -30,26 +30,26 @@ var (
 		},
 	}
 
-	// znodeProjectQueryShorts query znode project shorts multi-lang support
-	znodeProjectQueryShorts = map[config.Language]string{
-		config.English: "query znode project",
+	// wsProjectQueryShorts query w3bstream project shorts multi-lang support
+	wsProjectQueryShorts = map[config.Language]string{
+		config.English: "query w3bstream project",
 		config.Chinese: "查询项目",
 	}
 )
 
 func init() {
-	znodeProjectQuery.Flags().Uint64P("project-id", "i", 0, config.TranslateInLang(_flagProjectIDUsages, config.UILanguage))
+	wsProjectQuery.Flags().Uint64P("project-id", "i", 0, config.TranslateInLang(_flagProjectIDUsages, config.UILanguage))
 
-	_ = znodeProjectQuery.MarkFlagRequired("project-id")
+	_ = wsProjectQuery.MarkFlagRequired("project-id")
 }
 
 func queryProject(id uint64) (string, error) {
-	contract, err := util.Address(znodeProjectRegisterContractAddress)
+	contract, err := util.Address(wsProjectRegisterContractAddress)
 	if err != nil {
 		return "", output.NewError(output.AddressError, "failed to get project register contract address", err)
 	}
 
-	bytecode, err := znodeProjectRegisterContractABI.Pack(queryZnodeProjectFuncName, id)
+	bytecode, err := wsProjectRegisterContractABI.Pack(queryWsProjectFuncName, id)
 	if err != nil {
 		return "", output.NewError(output.ConvertError, fmt.Sprintf("failed to pack abi"), err)
 	}
@@ -59,5 +59,5 @@ func queryProject(id uint64) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "read contract failed")
 	}
-	return parseOutput(&znodeProjectRegisterContractABI, queryZnodeProjectFuncName, data)
+	return parseOutput(&wsProjectRegisterContractABI, queryWsProjectFuncName, data)
 }

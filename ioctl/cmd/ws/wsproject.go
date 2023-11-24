@@ -1,4 +1,4 @@
-package znode
+package ws
 
 import (
 	"bytes"
@@ -30,16 +30,16 @@ import (
 )
 
 var (
-	// znodeProject represents the znode project management command
-	znodeProject = &cobra.Command{
+	// wsProject represents the w3bstream project management command
+	wsProject = &cobra.Command{
 		Use:   "project",
-		Short: config.TranslateInLang(znodeProjectShorts, config.UILanguage),
+		Short: config.TranslateInLang(wsProjectShorts, config.UILanguage),
 	}
 
-	// znodeProjectShorts znode project shorts multi-lang support
-	znodeProjectShorts = map[config.Language]string{
-		config.English: "znode project management",
-		config.Chinese: "znode项目管理",
+	// wsProjectShorts w3bstream project shorts multi-lang support
+	wsProjectShorts = map[config.Language]string{
+		config.English: "w3bstream project management",
+		config.Chinese: "w3bstream项目管理",
 	}
 
 	_flagProjectRegisterContractAddressUsages = map[config.Language]string{
@@ -47,39 +47,39 @@ var (
 		config.Chinese: "项目注册合约地址",
 	}
 
-	znodeProjectRegisterContractAddress string
-	znodeProjectRegisterContractABI     abi.ABI
+	wsProjectRegisterContractAddress string
+	wsProjectRegisterContractABI     abi.ABI
 
-	//go:embed znodeproject.abi
-	znodeProjectRegisterContractJsonABI []byte
+	//go:embed wsproject.json
+	wsProjectRegisterContractJsonABI []byte
 )
 
 const (
-	createZnodeProjectFuncName  = "createProject"
-	createZnodeProjectEventName = "ProjectUpserted"
-	updateZnodeProjectFuncName  = "updateProject"
-	queryZnodeProjectFuncName   = "projects"
+	createWsProjectFuncName  = "createProject"
+	createWsProjectEventName = "ProjectUpserted"
+	updateWsProjectFuncName  = "updateProject"
+	queryWsProjectFuncName   = "projects"
 )
 
 func init() {
 	var err error
-	znodeProjectRegisterContractABI, err = abi.JSON(bytes.NewReader(znodeProjectRegisterContractJsonABI))
+	wsProjectRegisterContractABI, err = abi.JSON(bytes.NewReader(wsProjectRegisterContractJsonABI))
 	if err != nil {
 		log.L().Panic("cannot get abi JSON data", zap.Error(err))
 	}
 
-	znodeProject.AddCommand(znodeProjectCreate)
-	znodeProject.AddCommand(znodeProjectUpdate)
-	znodeProject.AddCommand(znodeProjectQuery)
+	wsProject.AddCommand(wsProjectCreate)
+	wsProject.AddCommand(wsProjectUpdate)
+	wsProject.AddCommand(wsProjectQuery)
 
-	znodeProject.PersistentFlags().StringVarP(
-		&znodeProjectRegisterContractAddress,
+	wsProject.PersistentFlags().StringVarP(
+		&wsProjectRegisterContractAddress,
 		"contract-address",
 		"c",
 		"",
 		config.TranslateInLang(_flagProjectRegisterContractAddressUsages, config.UILanguage),
 	)
-	_ = znodeProject.MarkFlagRequired("contract-address")
+	_ = wsProject.MarkFlagRequired("contract-address")
 }
 
 func convertStringToAbiBytes32(hash string) (interface{}, error) {
@@ -143,7 +143,7 @@ func getEventInputsByName(logs []*iotextypes.Log, eventName string) (map[string]
 		log      *iotextypes.Log
 	)
 	for _, l := range logs {
-		evabi, err := znodeProjectRegisterContractABI.EventByID(common.BytesToHash(l.Topics[0]))
+		evabi, err := wsProjectRegisterContractABI.EventByID(common.BytesToHash(l.Topics[0]))
 		if err != nil {
 			return nil, errors.Wrapf(err, "get event abi from topic %v failed", l.Topics[0])
 		}

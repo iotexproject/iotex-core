@@ -1,4 +1,4 @@
-package znode
+package ws
 
 import (
 	"fmt"
@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	// znodeProjectUpdate represents the update znode project command
-	znodeProjectUpdate = &cobra.Command{
+	// wsProjectUpdate represents the update w3bstream project command
+	wsProjectUpdate = &cobra.Command{
 		Use:   "update",
-		Short: config.TranslateInLang(znodeProjectUpdateShorts, config.UILanguage),
+		Short: config.TranslateInLang(wsProjectUpdateShorts, config.UILanguage),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := cmd.Flags().GetUint64("project-id")
 			if err != nil {
@@ -33,25 +33,25 @@ var (
 		},
 	}
 
-	// znodeProjectUpdateShorts update znode project shorts multi-lang support
-	znodeProjectUpdateShorts = map[config.Language]string{
-		config.English: "update znode project",
+	// wsProjectUpdateShorts update w3bstream project shorts multi-lang support
+	wsProjectUpdateShorts = map[config.Language]string{
+		config.English: "update w3bstream project",
 		config.Chinese: "更新项目",
 	}
 )
 
 func init() {
-	znodeProjectUpdate.Flags().Uint64P("project-id", "p", 0, config.TranslateInLang(_flagProjectIDUsages, config.UILanguage))
-	znodeProjectUpdate.Flags().StringP("project-uri", "u", "", config.TranslateInLang(_flagProjectUriUsages, config.UILanguage))
-	znodeProjectUpdate.Flags().StringP("project-hash", "h", "", config.TranslateInLang(_flagProjectHashUsages, config.UILanguage))
+	wsProjectUpdate.Flags().Uint64P("project-id", "p", 0, config.TranslateInLang(_flagProjectIDUsages, config.UILanguage))
+	wsProjectUpdate.Flags().StringP("project-uri", "u", "", config.TranslateInLang(_flagProjectUriUsages, config.UILanguage))
+	wsProjectUpdate.Flags().StringP("project-hash", "h", "", config.TranslateInLang(_flagProjectHashUsages, config.UILanguage))
 
-	_ = znodeProjectCreate.MarkFlagRequired("project-id")
-	_ = znodeProjectCreate.MarkFlagRequired("project-uri")
-	_ = znodeProjectCreate.MarkFlagRequired("project-hash")
+	_ = wsProjectCreate.MarkFlagRequired("project-id")
+	_ = wsProjectCreate.MarkFlagRequired("project-uri")
+	_ = wsProjectCreate.MarkFlagRequired("project-hash")
 }
 
 func updateProject(projectID uint64, uri, hash string) error {
-	contract, err := util.Address(znodeProjectRegisterContractAddress)
+	contract, err := util.Address(wsProjectRegisterContractAddress)
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get project register contract address", err)
 	}
@@ -61,8 +61,8 @@ func updateProject(projectID uint64, uri, hash string) error {
 		return errors.Wrap(err, "convert input arg failed")
 	}
 
-	bytecode, err := znodeProjectRegisterContractABI.Pack(
-		updateZnodeProjectFuncName,
+	bytecode, err := wsProjectRegisterContractABI.Pack(
+		updateWsProjectFuncName,
 		projectID, uri, hashArg,
 	)
 	if err != nil {
