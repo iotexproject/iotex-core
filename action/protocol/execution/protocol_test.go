@@ -106,6 +106,10 @@ type (
 	}
 )
 
+var (
+	fixedTime = time.Unix(genesis.Default.Timestamp, 0)
+)
+
 func (eb *ExpectedBalance) Balance() *big.Int {
 	balance, ok := new(big.Int).SetString(eb.RawBalance, 10)
 	if !ok {
@@ -352,7 +356,7 @@ func (sct *SmartContractTest) runExecutions(
 		}
 		hashes = append(hashes, selpHash)
 	}
-	blk, err := bc.MintNewBlock(time.Unix(1234567890, 0))
+	blk, err := bc.MintNewBlock(fixedTime)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -424,6 +428,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.Blockchain.QuebecBlockHeight = 0
 		cfg.Genesis.Blockchain.RedseaBlockHeight = 0
 		cfg.Genesis.Blockchain.SumatraBlockHeight = 0
+		cfg.Genesis.ActionGasLimit = 10000000
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
@@ -472,7 +477,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	execution := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, func(u uint64) (time.Time, error) { return time.Time{}, nil })
+	execution := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, func(h uint64) (time.Time, error) {
+		return fixedTime.Add(time.Duration(h) * 5 * time.Second), nil
+	})
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
 
