@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -345,7 +346,7 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 }
 
 func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
-	callerAddr, to, gasLimit, value, data, err := parseCallObject(in)
+	callerAddr, to, gasLimit, gasPrice, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
@@ -382,7 +383,7 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 		}
 		return "0x" + ret, nil
 	}
-	exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
+	exec, _ := action.NewExecution(to, 0, value, gasLimit, gasPrice, data)
 	ret, receipt, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
 	if err != nil {
 		return nil, err
@@ -394,21 +395,30 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 }
 
 func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
-	from, to, gasLimit, value, data, err := parseCallObject(in)
+	from, to, gasLimit, gasPrice, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
 
-	var tx *types.Transaction
-	if len(to) == 0 {
-		tx = types.NewContractCreation(0, value, gasLimit, big.NewInt(0), data)
-	} else {
-		toAddr, err := addrutil.IoAddrToEvmAddr(to)
+	var (
+		tx     *types.Transaction
+		toAddr *common.Address
+	)
+	if len(to) != 0 {
+		addr, err := addrutil.IoAddrToEvmAddr(to)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		tx = types.NewTransaction(0, toAddr, value, gasLimit, big.NewInt(0), data)
+		toAddr = &addr
 	}
+	tx = types.NewTx(&types.LegacyTx{
+		Nonce:    0,
+		GasPrice: gasPrice,
+		Gas:      gasLimit,
+		To:       toAddr,
+		Value:    value,
+		Data:     data,
+	})
 	elp, err := svr.ethTxToEnvelope(tx)
 	if err != nil {
 		return nil, err
@@ -972,7 +982,7 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		callerAddr   address.Address
 	)
 	blkNumOrHashObj, options := in.Get("params.1"), in.Get("params.2")
-	callerAddr, contractAddr, gasLimit, value, callData, err = parseCallObject(in)
+	callerAddr, contractAddr, gasLimit, _, value, callData, err = parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}

@@ -1228,6 +1228,9 @@ func testSimulateExecution(ctx context.Context, sf Factory, t *testing.T) {
 		GetBlockHash: func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
+		GetBlockTime: func(u uint64) (time.Time, error) {
+			return time.Time{}, nil
+		},
 	})
 	_, _, err = sf.SimulateExecution(ctx, addr, ex)
 	require.NoError(err)

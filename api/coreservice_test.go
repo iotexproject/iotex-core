@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/golang/mock/gomock"
@@ -174,7 +175,7 @@ func setupTestCoreService() (CoreService, blockchain.Blockchain, blockdao.BlockD
 	opts := []Option{WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 		return nil
 	})}
-	svr, err := newCoreService(cfg.api, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
+	svr, err := newCoreService(cfg.api, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, func(u uint64) (time.Time, error) { return time.Time{}, nil }, opts...)
 	if err != nil {
 		panic(err)
 	}

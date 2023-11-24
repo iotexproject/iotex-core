@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -125,10 +126,15 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	}
 	ctx = protocol.WithActionCtx(ctx, actionCtx)
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
+	getBlockTime := func(u uint64) (time.Time, error) {
+		// make sure the returned timestamp is after the current block time so that evm upgrades based on timestamp (Shanghai and onwards) are disabled
+		return blkCtx.BlockTimeStamp.Add(5 * time.Second), nil
+	}
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash: func(height uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
+		GetBlockTime: getBlockTime,
 		DepositGasFunc: func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
 			return nil, nil
 		},
@@ -149,7 +155,11 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	}
 	cc.contract = receipt.ContractAddress
 
-	r := getContractReaderForGenesisStates(ctx, sm, cc.getBlockHash)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash: cc.getBlockHash,
+		GetBlockTime: getBlockTime,
+	})
+	r := getContractReaderForGenesisStates(ctx, sm)
 	cands, err := cc.readDelegatesWithContractReader(ctx, r)
 	if err != nil {
 		return err
@@ -281,7 +291,7 @@ func genContractReaderFromReadContract(r ReadContract, setting bool) contractRea
 	}
 }
 
-func getContractReaderForGenesisStates(ctx context.Context, sm protocol.StateManager, getBlockHash evm.GetBlockHash) contractReaderFunc {
+func getContractReaderForGenesisStates(ctx context.Context, sm protocol.StateManager) contractReaderFunc {
 	return func(ctx context.Context, contract string, data []byte) ([]byte, error) {
 		gasLimit := uint64(10000000)
 		ex, err := action.NewExecution(contract, 1, big.NewInt(0), gasLimit, big.NewInt(0), data)
@@ -294,10 +304,6 @@ func getContractReaderForGenesisStates(ctx context.Context, sm protocol.StateMan
 			return nil, err
 		}
 
-		// TODO: move to the caller, then getBlockHash param can be removed
-		ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-			GetBlockHash: getBlockHash,
-		})
 		res, _, err := evm.SimulateExecution(ctx, sm, addr, ex)
 
 		return res, err
