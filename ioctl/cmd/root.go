@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/cmd/node"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/update"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/version"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/znode"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/ws"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
@@ -72,7 +72,7 @@ func NewIoctl() *cobra.Command {
 	rootCmd.AddCommand(hdwallet.HdwalletCmd)
 	rootCmd.AddCommand(jwt.JwtCmd)
 	rootCmd.AddCommand(ins.InsCmd)
-	rootCmd.AddCommand(znode.ZnodeCmd)
+	rootCmd.AddCommand(ws.WsCmd)
 	rootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
 		config.TranslateInLang(_flagOutputFormatUsages, config.UILanguage))
 
