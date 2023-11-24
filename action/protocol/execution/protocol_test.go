@@ -1216,6 +1216,9 @@ func TestLondonEVM(t *testing.T) {
 	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/CVE-2021-39137-attack-replay.json")
 	})
+	t.Run("difficulty", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/difficulty.json")
+	})
 }
 
 func TestShanghaiEVM(t *testing.T) {
@@ -1296,6 +1299,9 @@ func TestShanghaiEVM(t *testing.T) {
 	})
 	t.Run("wireconnection", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-shanghai/wireconnection.json")
+	})
+	t.Run("prevrandao", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/prevrandao.json")
 	})
 }
 
