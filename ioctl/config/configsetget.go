@@ -27,8 +27,6 @@ const (
 	_localPattern            = "localhost"
 	_endpointPattern         = "(" + _ipPattern + "|(" + _domainPattern + ")" + "|(" + _localPattern + "))" + `(:\d{1,5})?`
 	_defaultAnalyserEndpoint = "https://iotex-analyser-api-mainnet.chainanalytics.org"
-	// _defaultZnodeContractAddress default znode contract address
-	_defaultZnodeContractAddress = "0x190Cc9af23504ac5Dc461376C1e2319bc3B9cD29"
 )
 
 var (
