@@ -3,7 +3,7 @@ package ws
 import (
 	"bytes"
 	"context"
-	"embed"
+	_ "embed" // import ws project ABI
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -53,7 +53,6 @@ var (
 
 	//go:embed wsproject.json
 	wsProjectRegisterContractJSONABI []byte
-	_                                = embed.FS{}
 )
 
 const (
