@@ -40,7 +40,7 @@ var (
 		config.Chinese: "创建项目",
 	}
 
-	_flagProjectUriUsages = map[config.Language]string{
+	_flagProjectURIUsages = map[config.Language]string{
 		config.English: "project config fetch uri",
 		config.Chinese: "项目配置拉取地址",
 	}
@@ -51,7 +51,7 @@ var (
 )
 
 func init() {
-	wsProjectCreate.Flags().StringP("project-uri", "u", "", config.TranslateInLang(_flagProjectUriUsages, config.UILanguage))
+	wsProjectCreate.Flags().StringP("project-uri", "u", "", config.TranslateInLang(_flagProjectURIUsages, config.UILanguage))
 	wsProjectCreate.Flags().StringP("project-hash", "v", "", config.TranslateInLang(_flagProjectHashUsages, config.UILanguage))
 
 	_ = wsProjectCreate.MarkFlagRequired("project-uri")
