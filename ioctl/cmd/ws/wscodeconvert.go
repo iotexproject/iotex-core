@@ -55,8 +55,8 @@ var (
 	}
 
 	_flagVmTypeUsages = map[config.Language]string{
-		config.English: "vm type",
-		config.Chinese: "虚拟机类型",
+		config.English: "vm type, support risc0, halo2",
+		config.Chinese: "虚拟机类型，目前支持risc0和halo2",
 	}
 	_flagCodeFileUsages = map[config.Language]string{
 		config.English: "code file",
@@ -67,8 +67,8 @@ var (
 		config.Chinese: "配置文件",
 	}
 	_flagExpandParamUsages = map[config.Language]string{
-		config.English: "expand param",
-		config.Chinese: "扩展参数",
+		config.English: "expand param, if you use risc0 vm, need it.",
+		config.Chinese: "扩展参数，risc0虚拟机需要此参数",
 	}
 )
 
