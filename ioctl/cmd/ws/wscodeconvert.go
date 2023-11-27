@@ -1,4 +1,4 @@
-package znode
+package ws
 
 import (
 	"bytes"
@@ -17,10 +17,10 @@ import (
 )
 
 var (
-	// znodeCodeConvert represents the znode code convert command
-	znodeCodeConvert = &cobra.Command{
+	// wsCodeConvert represents the w3bstream code convert command
+	wsCodeConvert = &cobra.Command{
 		Use:   "convert",
-		Short: config.TranslateInLang(znodeCodeConvertShorts, config.UILanguage),
+		Short: config.TranslateInLang(wsCodeConvertShorts, config.UILanguage),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			vmType, err := cmd.Flags().GetString("vm-type")
 			if err != nil {
@@ -48,8 +48,8 @@ var (
 		},
 	}
 
-	// znodeCodeConvertShorts znode code convert shorts multi-lang support
-	znodeCodeConvertShorts = map[config.Language]string{
+	// wsCodeConvertShorts w3bstream code convert shorts multi-lang support
+	wsCodeConvertShorts = map[config.Language]string{
 		config.English: "convert zkp code to hex string compressed with zlib",
 		config.Chinese: "将zkp代码通过zlib进行压缩之后转成hex字符串",
 	}
@@ -73,13 +73,13 @@ var (
 )
 
 func init() {
-	znodeCodeConvert.Flags().StringP("vm-type", "t", "", config.TranslateInLang(_flagVmTypeUsages, config.UILanguage))
-	znodeCodeConvert.Flags().StringP("code-file", "i", "", config.TranslateInLang(_flagCodeFileUsages, config.UILanguage))
-	znodeCodeConvert.Flags().StringP("conf-file", "c", "", config.TranslateInLang(_flagConfFileUsages, config.UILanguage))
-	znodeCodeConvert.Flags().StringP("expand-param", "e", "", config.TranslateInLang(_flagExpandParamUsages, config.UILanguage))
+	wsCodeConvert.Flags().StringP("vm-type", "t", "", config.TranslateInLang(_flagVmTypeUsages, config.UILanguage))
+	wsCodeConvert.Flags().StringP("code-file", "i", "", config.TranslateInLang(_flagCodeFileUsages, config.UILanguage))
+	wsCodeConvert.Flags().StringP("conf-file", "c", "", config.TranslateInLang(_flagConfFileUsages, config.UILanguage))
+	wsCodeConvert.Flags().StringP("expand-param", "e", "", config.TranslateInLang(_flagExpandParamUsages, config.UILanguage))
 
-	_ = znodeCodeConvert.MarkFlagRequired("vm-type")
-	_ = znodeCodeConvert.MarkFlagRequired("code-file")
+	_ = wsCodeConvert.MarkFlagRequired("vm-type")
+	_ = wsCodeConvert.MarkFlagRequired("code-file")
 }
 
 func convertCodeToZlibHex(vmType string, codeFile string, confFile string, expParam string) (string, error) {

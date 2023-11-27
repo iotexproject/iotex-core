@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
@@ -234,14 +235,33 @@ func (ex *Execution) SanityCheck() error {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (ex *Execution) ToEthTx(_ uint32) (*types.Transaction, error) {
-	if ex.contract == EmptyAddress {
-		return types.NewContractCreation(ex.Nonce(), ex.amount, ex.GasLimit(), ex.GasPrice(), ex.data), nil
+func (ex *Execution) ToEthTx(evmNetworkID uint32) (*types.Transaction, error) {
+	var ethAddr *common.Address
+	if ex.contract != EmptyAddress {
+		addr, err := addrutil.IoAddrToEvmAddr(ex.contract)
+		if err != nil {
+			return nil, err
+		}
+		ethAddr = &addr
 	}
-	addr, err := address.FromString(ex.contract)
-	if err != nil {
-		return nil, err
+	if len(ex.accessList) > 0 {
+		return types.NewTx(&types.AccessListTx{
+			ChainID:    big.NewInt(int64(evmNetworkID)),
+			Nonce:      ex.Nonce(),
+			GasPrice:   ex.GasPrice(),
+			Gas:        ex.GasLimit(),
+			To:         ethAddr,
+			Value:      ex.amount,
+			Data:       ex.data,
+			AccessList: ex.accessList,
+		}), nil
 	}
-	ethAddr := common.BytesToAddress(addr.Bytes())
-	return types.NewTransaction(ex.Nonce(), ethAddr, ex.amount, ex.GasLimit(), ex.GasPrice(), ex.data), nil
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    ex.Nonce(),
+		GasPrice: ex.GasPrice(),
+		Gas:      ex.GasLimit(),
+		To:       ethAddr,
+		Value:    ex.amount,
+		Data:     ex.data,
+	}), nil
 }

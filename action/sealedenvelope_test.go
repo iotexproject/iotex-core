@@ -148,7 +148,7 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 		err      string
 	}{
 		{0, _signByte, "invalid signature length ="},
-		{3, _validSig, "unknown encoding type"},
+		{iotextypes.Encoding_ETHEREUM_ACCESSLIST + 1, _validSig, "unknown encoding type"},
 	} {
 		se.encoding = v.encoding
 		se.signature = v.sig

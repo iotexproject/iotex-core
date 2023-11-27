@@ -47,15 +47,14 @@ func TestConfigGet(t *testing.T) {
 	require := require.New(t)
 	testPath := t.TempDir()
 	info := newInfo(config.Config{
-		Wallet:               testPath,
-		SecureConnect:        true,
-		Aliases:              make(map[string]string),
-		DefaultAccount:       config.Context{AddressOrAlias: "test"},
-		Explorer:             "iotexscan",
-		Language:             "English",
-		AnalyserEndpoint:     "testAnalyser",
-		ZnodeEndpoint:        "testZnodeEndpoint",
-		ZnodeContractAddress: "testZnodeContractAddress",
+		Wallet:           testPath,
+		SecureConnect:    true,
+		Aliases:          make(map[string]string),
+		DefaultAccount:   config.Context{AddressOrAlias: "test"},
+		Explorer:         "iotexscan",
+		Language:         "English",
+		AnalyserEndpoint: "testAnalyser",
+		WsEndpoint:       "testWsEndpoint",
 	}, testPath)
 
 	tcs := []struct {
@@ -91,16 +90,12 @@ func TestConfigGet(t *testing.T) {
 			"testAnalyser",
 		},
 		{
-			"znodeEndpoint",
-			"testZnodeEndpoint",
-		},
-		{
-			"znodeContractAddress",
-			"testZnodeContractAddress",
+			"wsEndpoint",
+			"testWsEndpoint",
 		},
 		{
 			"all",
-			"\"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\",\n  \"znodeEndpoint\": \"testZnodeEndpoint\",\n  \"znodeContractAddress\": \"testZnodeContractAddress\"\n}",
+			"\"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\",\n  \"wsEndpoint\": \"testWsEndpoint\"\n}",
 		},
 	}
 
@@ -120,15 +115,14 @@ func TestConfigReset(t *testing.T) {
 	cfgFile := fmt.Sprintf("%s/%s", cfgDir, "config.test")
 
 	info := newInfo(config.Config{
-		Wallet:               "wallet",
-		Endpoint:             "testEndpoint",
-		SecureConnect:        false,
-		DefaultAccount:       config.Context{AddressOrAlias: ""},
-		Explorer:             "explorer",
-		Language:             "Croatian",
-		AnalyserEndpoint:     "testAnalyser",
-		ZnodeEndpoint:        "testZnodeEndpoint",
-		ZnodeContractAddress: "testZnodeContractAddress",
+		Wallet:           "wallet",
+		Endpoint:         "testEndpoint",
+		SecureConnect:    false,
+		DefaultAccount:   config.Context{AddressOrAlias: ""},
+		Explorer:         "explorer",
+		Language:         "Croatian",
+		AnalyserEndpoint: "testAnalyser",
+		WsEndpoint:       "testWsEndpoint",
 	}, cfgFile)
 
 	// write the config to the temp dir and then reset
@@ -143,8 +137,7 @@ func TestConfigReset(t *testing.T) {
 	require.Equal("testAnalyser", cfg.AnalyserEndpoint)
 	require.Equal("explorer", cfg.Explorer)
 	require.Equal(config.Context{AddressOrAlias: ""}, cfg.DefaultAccount)
-	require.Equal("testZnodeEndpoint", cfg.ZnodeEndpoint)
-	require.Equal("testZnodeContractAddress", cfg.ZnodeContractAddress)
+	require.Equal("testWsEndpoint", cfg.WsEndpoint)
 
 	require.NoError(info.reset())
 	require.NoError(info.loadConfig())
@@ -158,8 +151,7 @@ func TestConfigReset(t *testing.T) {
 	require.Equal(_defaultAnalyserEndpoint, resetCfg.AnalyserEndpoint)
 	require.Equal("iotexscan", resetCfg.Explorer)
 	require.Equal(*new(config.Context), resetCfg.DefaultAccount)
-	require.Equal("", resetCfg.ZnodeEndpoint)
-	require.Equal(_defaultZnodeContractAddress, resetCfg.ZnodeContractAddress)
+	require.Equal("", resetCfg.WsEndpoint)
 }
 
 func TestConfigSet(t *testing.T) {
@@ -226,12 +218,8 @@ func TestConfigSet(t *testing.T) {
 			"no matching config",
 		},
 		{
-			[]string{"znodeEndpoint", "testZnodeEndpoint"},
-			"testZnodeEndpoint",
-		},
-		{
-			[]string{"znodeContractAddress", "testZnodeContractAddress"},
-			"testZnodeContractAddress",
+			[]string{"wsEndpoint", "testWsEndpoint"},
+			"testWsEndpoint",
 		},
 	}
 

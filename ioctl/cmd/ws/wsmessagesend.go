@@ -1,4 +1,4 @@
-package znode
+package ws
 
 import (
 	"bytes"
@@ -15,10 +15,10 @@ import (
 )
 
 var (
-	// znodeMessageSend represents the znode send message command
-	znodeMessageSend = &cobra.Command{
+	// wsMessageSend represents the w3bstream send message command
+	wsMessageSend = &cobra.Command{
 		Use:   "send",
-		Short: config.TranslateInLang(znodeMessageSendShorts, config.UILanguage),
+		Short: config.TranslateInLang(wsMessageSendShorts, config.UILanguage),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projectID, err := cmd.Flags().GetUint64("project-id")
 			if err != nil {
@@ -32,7 +32,7 @@ var (
 			if err != nil {
 				return output.PrintError(err)
 			}
-			out, err := sendMessageToZnode(projectID, projectVersion, data)
+			out, err := sendMessage(projectID, projectVersion, data)
 			if err != nil {
 				return output.PrintError(err)
 			}
@@ -41,10 +41,10 @@ var (
 		},
 	}
 
-	// znodeMessageSendShorts znode message send shorts multi-lang support
-	znodeMessageSendShorts = map[config.Language]string{
-		config.English: "send message to znode for zk proofing",
-		config.Chinese: "向znode发送消息请求zk证明",
+	// wsMessageSendShorts w3bstream message send shorts multi-lang support
+	wsMessageSendShorts = map[config.Language]string{
+		config.English: "send message to w3bstream for zk proofing",
+		config.Chinese: "向w3bstream发送消息请求zk证明",
 	}
 
 	_flagProjectIDUsages = map[config.Language]string{
@@ -62,16 +62,16 @@ var (
 )
 
 func init() {
-	znodeMessageSend.Flags().Uint64P("project-id", "p", 0, config.TranslateInLang(_flagProjectIDUsages, config.UILanguage))
-	znodeMessageSend.Flags().StringP("project-version", "v", "", config.TranslateInLang(_flagProjectVersionUsages, config.UILanguage))
-	znodeMessageSend.Flags().StringP("data", "d", "", config.TranslateInLang(_flagSendDataUsages, config.UILanguage))
+	wsMessageSend.Flags().Uint64P("project-id", "p", 0, config.TranslateInLang(_flagProjectIDUsages, config.UILanguage))
+	wsMessageSend.Flags().StringP("project-version", "v", "", config.TranslateInLang(_flagProjectVersionUsages, config.UILanguage))
+	wsMessageSend.Flags().StringP("data", "d", "", config.TranslateInLang(_flagSendDataUsages, config.UILanguage))
 
-	_ = znodeMessageSend.MarkFlagRequired("project-id")
-	_ = znodeMessageSend.MarkFlagRequired("project-version")
-	_ = znodeMessageSend.MarkFlagRequired("data")
+	_ = wsMessageSend.MarkFlagRequired("project-id")
+	_ = wsMessageSend.MarkFlagRequired("project-version")
+	_ = wsMessageSend.MarkFlagRequired("data")
 }
 
-func sendMessageToZnode(projectID uint64, projectVersion string, data string) (string, error) {
+func sendMessage(projectID uint64, projectVersion string, data string) (string, error) {
 	reqbody, err := json.Marshal(&sendMessageReq{
 		ProjectID:      projectID,
 		ProjectVersion: projectVersion,
@@ -83,18 +83,18 @@ func sendMessageToZnode(projectID uint64, projectVersion string, data string) (s
 
 	u := url.URL{
 		Scheme: "http",
-		Host:   config.ReadConfig.ZnodeEndpoint,
+		Host:   config.ReadConfig.WsEndpoint,
 		Path:   "/message",
 	}
 
 	rsp, err := http.Post(u.String(), "application/json", bytes.NewReader(reqbody))
 	if err != nil {
-		return "", errors.Wrap(err, "call znode failed")
+		return "", errors.Wrap(err, "call w3bsteam failed")
 	}
 	defer rsp.Body.Close()
 
 	if rsp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("call znode failed: %s", rsp.Status)
+		return "", errors.Errorf("call w3bsteam failed: %s", rsp.Status)
 	}
 
 	rspbody, err := io.ReadAll(rsp.Body)

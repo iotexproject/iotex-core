@@ -78,7 +78,7 @@ func TestSGDRegistry(t *testing.T) {
 	reward := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	r.NoError(reward.Register(registry))
 
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, fakeGetBlockTime)
 	r.NoError(ep.Register(registry))
 	r.NoError(bc.Start(ctx))
 	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)

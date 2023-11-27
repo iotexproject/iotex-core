@@ -33,8 +33,8 @@ const (
 
 var (
 	_supportedLanguage = []string{"English", "中文"}
-	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "znodeEndpoint", "znodeContractAddress"}
-	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "analyserEndpoint", "znodeEndpoint", "znodeContractAddress", "all"}
+	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint"}
+	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "analyserEndpoint", "wsEndpoint", "all"}
 	_validExpl         = []string{"iotexscan", "iotxplorer"}
 	_endpointCompile   = regexp.MustCompile("^" + _endpointPattern + "$")
 )
@@ -150,10 +150,8 @@ func Get(arg string) error {
 		fmt.Println(ReadConfig.Nsv2height)
 	case "analyserEndpoint":
 		fmt.Println(ReadConfig.AnalyserEndpoint)
-	case "znodeEndpoint":
-		fmt.Println(ReadConfig.ZnodeEndpoint)
-	case "znodeContractAddress":
-		fmt.Println(ReadConfig.ZnodeContractAddress)
+	case "wsEndpoint":
+		fmt.Println(ReadConfig.WsEndpoint)
 	case "all":
 		fmt.Println(ReadConfig.String())
 	}
@@ -282,10 +280,8 @@ func set(args []string) error {
 			return output.NewError(output.ValidationError, "invalid height", nil)
 		}
 		ReadConfig.Nsv2height = height
-	case "znodeEndpoint":
-		ReadConfig.ZnodeEndpoint = args[1]
-	case "znodeContractAddress":
-		ReadConfig.ZnodeContractAddress = args[1]
+	case "wsEndpoint":
+		ReadConfig.WsEndpoint = args[1]
 	}
 	err := writeConfig()
 	if err != nil {
@@ -304,8 +300,7 @@ func reset() error {
 	ReadConfig.Explorer = "iotexscan"
 	ReadConfig.Language = "English"
 	ReadConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
-	ReadConfig.ZnodeEndpoint = ""
-	ReadConfig.ZnodeContractAddress = _defaultZnodeContractAddress
+	ReadConfig.WsEndpoint = ""
 
 	err := writeConfig()
 	if err != nil {

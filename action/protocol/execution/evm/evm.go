@@ -10,6 +10,7 @@ import (
 	"context"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -49,6 +50,9 @@ var (
 type (
 	// GetBlockHash gets block hash by height
 	GetBlockHash func(uint64) (hash.Hash256, error)
+
+	// GetBlockTime gets block time by height
+	GetBlockTime func(uint64) (time.Time, error)
 
 	// DepositGasWithSGD deposits gas with Sharing of Gas-fee with DApps
 	DepositGasWithSGD func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error)
@@ -291,10 +295,13 @@ func ExecuteContract(
 			sharedGasFee.Mul(sharedGasFee, ps.txCtx.GasPrice)
 		}
 		totalGasFee = new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), ps.txCtx.GasPrice)
-		depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
-		if err != nil {
-			return nil, nil, err
+		if ps.helperCtx.DepositGasFunc != nil {
+			depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
+
 	}
 
 	if err := stateDB.CommitContracts(); err != nil {
@@ -639,15 +646,6 @@ func SimulateExecution(
 	)
 
 	ctx = protocol.WithFeatureCtx(ctx)
-	// TODO: move the logic out of SimulateExecution
-	helperCtx := mustGetHelperCtx(ctx)
-	ctx = WithHelperCtx(ctx, HelperContext{
-		GetBlockHash: helperCtx.GetBlockHash,
-		DepositGasFunc: func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
-			return nil, nil
-		},
-		Sgd: nil,
-	})
 	return ExecuteContract(
 		ctx,
 		sm,

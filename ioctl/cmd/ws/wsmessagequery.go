@@ -1,4 +1,4 @@
-package znode
+package ws
 
 import (
 	"encoding/json"
@@ -14,10 +14,10 @@ import (
 )
 
 var (
-	// znodeMessageQuery represents the znode query message command
-	znodeMessageQuery = &cobra.Command{
+	// wsMessageQuery represents the w3bstream query message command
+	wsMessageQuery = &cobra.Command{
 		Use:   "query",
-		Short: config.TranslateInLang(znodeMessageQueryShorts, config.UILanguage),
+		Short: config.TranslateInLang(wsMessageQueryShorts, config.UILanguage),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := cmd.Flags().GetString("message-id")
 			if err != nil {
@@ -33,10 +33,10 @@ var (
 		},
 	}
 
-	// znodeMessageSendShorts znode message query shorts multi-lang support
-	znodeMessageQueryShorts = map[config.Language]string{
-		config.English: "query message status from znode",
-		config.Chinese: "向znode查询消息状态",
+	// wsMessageSendShorts w3bstream message query shorts multi-lang support
+	wsMessageQueryShorts = map[config.Language]string{
+		config.English: "query message status from w3bstream",
+		config.Chinese: "向w3bstream查询消息状态",
 	}
 
 	_flagMessageIDUsages = map[config.Language]string{
@@ -46,20 +46,20 @@ var (
 )
 
 func init() {
-	znodeMessageQuery.Flags().StringP("message-id", "i", "", config.TranslateInLang(_flagMessageIDUsages, config.UILanguage))
-	_ = znodeMessageQuery.MarkFlagRequired("message-id")
+	wsMessageQuery.Flags().StringP("message-id", "i", "", config.TranslateInLang(_flagMessageIDUsages, config.UILanguage))
+	_ = wsMessageQuery.MarkFlagRequired("message-id")
 }
 
 func queryMessageStatus(id string) (string, error) {
 	u := url.URL{
 		Scheme: "http",
-		Host:   config.ReadConfig.ZnodeEndpoint,
+		Host:   config.ReadConfig.WsEndpoint,
 		Path:   "/message/" + id,
 	}
 
 	rsp, err := http.Get(u.String())
 	if err != nil {
-		return "", errors.Wrap(err, "call znode failed")
+		return "", errors.Wrap(err, "call w3bstream failed")
 	}
 	defer rsp.Body.Close()
 

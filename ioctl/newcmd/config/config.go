@@ -117,10 +117,6 @@ func InitConfig() (config.Config, string, error) {
 		info.readConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
 		completeness = false
 	}
-	if info.readConfig.ZnodeContractAddress == "" {
-		info.readConfig.ZnodeContractAddress = _defaultZnodeContractAddress
-		completeness = false
-	}
 	if !completeness {
 		if err = info.writeConfig(); err != nil {
 			return info.readConfig, info.defaultConfigFile, err
@@ -150,8 +146,7 @@ func (c *info) reset() error {
 	c.readConfig.Explorer = _validExpl[0]
 	c.readConfig.Language = _supportedLanguage[0]
 	c.readConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
-	c.readConfig.ZnodeEndpoint = ""
-	c.readConfig.ZnodeContractAddress = _defaultZnodeContractAddress
+	c.readConfig.WsEndpoint = ""
 
 	err := c.writeConfig()
 	if err != nil {
@@ -210,10 +205,8 @@ func (c *info) set(args []string, insecure bool, client ioctl.Client) (string, e
 			return "", errors.Wrapf(err, "invalid height %d", height)
 		}
 		c.readConfig.Nsv2height = height
-	case "znodeEndpoint":
-		c.readConfig.ZnodeEndpoint = args[1]
-	case "znodeContractAddress":
-		c.readConfig.ZnodeContractAddress = args[1]
+	case "wsEndpoint":
+		c.readConfig.WsEndpoint = args[1]
 	default:
 		return "", config.ErrConfigNotMatch
 	}
@@ -249,10 +242,8 @@ func (c *info) get(arg string) (string, error) {
 		return strconv.FormatUint(c.readConfig.Nsv2height, 10), nil
 	case "analyserEndpoint":
 		return c.readConfig.AnalyserEndpoint, nil
-	case "znodeEndpoint":
-		return c.readConfig.ZnodeEndpoint, nil
-	case "znodeContractAddress":
-		return c.readConfig.ZnodeContractAddress, nil
+	case "wsEndpoint":
+		return c.readConfig.WsEndpoint, nil
 	case "all":
 		return jsonString(c.readConfig)
 	default:

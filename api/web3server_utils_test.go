@@ -19,6 +19,7 @@ func TestParseCallObject(t *testing.T) {
 		from     string
 		to       string
 		gasLimit uint64
+		gasPrice *big.Int
 		value    *big.Int
 		data     []byte
 		err      error
@@ -37,6 +38,7 @@ func TestParseCallObject(t *testing.T) {
 			from:     address.ZeroAddress,
 			to:       "io10sfcvmuj2000083qqd8d6qg7r457vll9gly090",
 			gasLimit: 20000,
+			gasPrice: new(big.Int).SetInt64(1000000000000),
 			value:    new(big.Int).SetInt64(1),
 			data:     []byte{0x6d, 0x4c, 0xe6, 0x3c},
 		},
@@ -54,6 +56,7 @@ func TestParseCallObject(t *testing.T) {
 			from:     address.ZeroAddress,
 			to:       "io10sfcvmuj2000083qqd8d6qg7r457vll9gly090",
 			gasLimit: 20000,
+			gasPrice: new(big.Int).SetInt64(1000000000000),
 			value:    new(big.Int).SetInt64(1),
 			data:     []byte{0x6d, 0x4c, 0xe6, 0x3c},
 		},
@@ -62,10 +65,11 @@ func TestParseCallObject(t *testing.T) {
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
 			in := gjson.Parse(test.input)
-			from, to, gasLimit, value, data, err := parseCallObject(&in)
+			from, to, gasLimit, gasPrice, value, data, err := parseCallObject(&in)
 			require.Equal(test.from, from.String())
 			require.Equal(test.to, to)
 			require.Equal(test.gasLimit, gasLimit)
+			require.Equal(test.gasPrice, gasPrice)
 			require.Equal(test.value, value)
 			require.Equal(test.data, data)
 			require.Equal(test.err, err)
