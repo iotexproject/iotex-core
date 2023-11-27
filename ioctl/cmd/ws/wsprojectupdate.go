@@ -41,9 +41,9 @@ var (
 )
 
 func init() {
-	wsProjectUpdate.Flags().Uint64P("project-id", "p", 0, config.TranslateInLang(_flagProjectIDUsages, config.UILanguage))
+	wsProjectUpdate.Flags().Uint64P("project-id", "i", 0, config.TranslateInLang(_flagProjectIDUsages, config.UILanguage))
 	wsProjectUpdate.Flags().StringP("project-uri", "u", "", config.TranslateInLang(_flagProjectURIUsages, config.UILanguage))
-	wsProjectUpdate.Flags().StringP("project-hash", "h", "", config.TranslateInLang(_flagProjectHashUsages, config.UILanguage))
+	wsProjectUpdate.Flags().StringP("project-hash", "v", "", config.TranslateInLang(_flagProjectHashUsages, config.UILanguage))
 
 	_ = wsProjectCreate.MarkFlagRequired("project-id")
 	_ = wsProjectCreate.MarkFlagRequired("project-uri")

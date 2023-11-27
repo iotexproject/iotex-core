@@ -92,5 +92,5 @@ func createProject(uri, hash string) (string, error) {
 	if !ok {
 		return "", errors.New("result not found in event inputs")
 	}
-	return fmt.Sprint(projectid), nil
+	return fmt.Sprintf("Your project is successfully created. project id is : %d", projectid), nil
 }
