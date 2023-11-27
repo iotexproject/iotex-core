@@ -114,7 +114,7 @@ type (
 		AddContractStakingVotes                 bool
 		FixContractStakingWeightedVotes         bool
 		SharedGasWithDapp                       bool
-		IncreaseExecutionSizeLimitTo64          bool
+		IncreaseExecutionSizeLimitTo48KB        bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -254,7 +254,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			AddContractStakingVotes:                 g.IsQuebec(height),
 			FixContractStakingWeightedVotes:         g.IsRedsea(height),
 			SharedGasWithDapp:                       g.IsToBeEnabled(height),
-			IncreaseExecutionSizeLimitTo64:          g.IsToBeEnabled(height),
+			IncreaseExecutionSizeLimitTo48KB:        g.IsToBeEnabled(height),
 		},
 	)
 }

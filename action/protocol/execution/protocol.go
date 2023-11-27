@@ -20,9 +20,9 @@ import (
 )
 
 const (
-	// ExecutionSizeLimit is the maximum size of execution allowed
-	ExecutionSizeLimit    = 64 * 1024
-	_executionSizeLimit32 = 32 * 1024
+	// the maximum size of execution allowed
+	_executionSizeLimit48KB = 48 * 1024
+	_executionSizeLimit32KB = 32 * 1024
 	// TODO: it works only for one instance per protocol definition now
 	_protocolID = "smart_contract"
 )
@@ -89,10 +89,10 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, _ protocol.S
 	if !ok {
 		return nil
 	}
-	sizeLimit := uint32(_executionSizeLimit32)
+	sizeLimit := uint32(_executionSizeLimit32KB)
 	fCtx := protocol.MustGetFeatureCtx(ctx)
-	if fCtx.IncreaseExecutionSizeLimitTo64 {
-		sizeLimit = uint32(ExecutionSizeLimit)
+	if fCtx.IncreaseExecutionSizeLimitTo48KB {
+		sizeLimit = uint32(_executionSizeLimit48KB)
 	}
 
 	// Reject oversize execution
