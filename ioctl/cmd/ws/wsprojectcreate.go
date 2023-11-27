@@ -53,7 +53,6 @@ var (
 func init() {
 	wsProjectCreate.Flags().StringP("project-uri", "u", "", config.TranslateInLang(_flagProjectUriUsages, config.UILanguage))
 	wsProjectCreate.Flags().StringP("project-hash", "v", "", config.TranslateInLang(_flagProjectHashUsages, config.UILanguage))
-	wsProjectCreate.Flags().StringP("contract-address", "v", "", config.TranslateInLang(_flagProjectHashUsages, config.UILanguage))
 
 	_ = wsProjectCreate.MarkFlagRequired("project-uri")
 	_ = wsProjectCreate.MarkFlagRequired("project-hash")
@@ -70,10 +69,7 @@ func createProject(uri, hash string) (string, error) {
 		return "", err
 	}
 
-	bytecode, err := wsProjectRegisterContractABI.Pack(
-		createWsProjectFuncName,
-		uri, hashArg,
-	)
+	bytecode, err := wsProjectRegisterContractABI.Pack(createWsProjectFuncName, uri, hashArg)
 	if err != nil {
 		return "", output.NewError(output.ConvertError, fmt.Sprintf("failed to pack abi"), err)
 	}

@@ -6,27 +6,28 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"fmt"
-	"github.com/cenkalti/backoff"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"math/big"
 	"reflect"
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 var (
@@ -51,7 +52,7 @@ var (
 	wsProjectRegisterContractABI     abi.ABI
 
 	//go:embed wsproject.json
-	wsProjectRegisterContractJsonABI []byte
+	wsProjectRegisterContractJSONABI []byte
 )
 
 const (
@@ -63,7 +64,7 @@ const (
 
 func init() {
 	var err error
-	wsProjectRegisterContractABI, err = abi.JSON(bytes.NewReader(wsProjectRegisterContractJsonABI))
+	wsProjectRegisterContractABI, err = abi.JSON(bytes.NewReader(wsProjectRegisterContractJSONABI))
 	if err != nil {
 		log.L().Panic("cannot get abi JSON data", zap.Error(err))
 	}
