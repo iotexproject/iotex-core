@@ -8,9 +8,8 @@ package contract
 import (
 	"math/big"
 
-	"github.com/spf13/cobra"
-
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -80,7 +79,7 @@ func contractTestFunction(args []string) error {
 		return err
 	}
 
-	result, err := parseOutput(abi, methodName, rowResult)
+	result, err := ParseOutput(abi, methodName, rowResult)
 	if err != nil {
 		result = rowResult
 	}

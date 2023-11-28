@@ -4,8 +4,9 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 const _abiConst = `[

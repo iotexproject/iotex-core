@@ -5,29 +5,25 @@ import (
 	"context"
 	_ "embed" // import ws project ABI
 	"encoding/hex"
-	"fmt"
-	"math/big"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 var (
@@ -181,117 +177,4 @@ func getEventInputsByName(logs []*iotextypes.Log, eventName string) (map[string]
 	}
 
 	return inputs, nil
-}
-
-func parseOutput(targetAbi *abi.ABI, targetMethod string, result string) (string, error) {
-	resultBytes, err := hex.DecodeString(result)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to decode result")
-	}
-
-	var (
-		outputArgs = targetAbi.Methods[targetMethod].Outputs
-		tupleStr   = make([]string, 0, len(outputArgs))
-	)
-
-	v, err := targetAbi.Unpack(targetMethod, resultBytes)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to parse output")
-	}
-
-	if len(outputArgs) == 1 {
-		elemStr, _ := parseOutputArgument(v[0], &outputArgs[0].Type)
-		return elemStr, nil
-	}
-
-	for i, field := range v {
-		elemStr, _ := parseOutputArgument(field, &outputArgs[i].Type)
-		tupleStr = append(tupleStr, outputArgs[i].Name+":"+elemStr)
-	}
-	return "{" + strings.Join(tupleStr, " ") + "}", nil
-}
-
-func parseOutputArgument(v interface{}, t *abi.Type) (string, bool) {
-	str := fmt.Sprint(v)
-	ok := false
-
-	switch t.T {
-	case abi.StringTy, abi.BoolTy:
-		// case abi.StringTy & abi.BoolTy can be handled by fmt.Sprint()
-		ok = true
-
-	case abi.TupleTy:
-		if reflect.TypeOf(v).Kind() == reflect.Struct {
-			ok = true
-
-			tupleStr := make([]string, 0, len(t.TupleElems))
-			for i, elem := range t.TupleElems {
-				elemStr, elemOk := parseOutputArgument(reflect.ValueOf(v).Field(i).Interface(), elem)
-				tupleStr = append(tupleStr, t.TupleRawNames[i]+":"+elemStr)
-				ok = ok && elemOk
-			}
-
-			str = "{" + strings.Join(tupleStr, " ") + "}"
-		}
-
-	case abi.SliceTy, abi.ArrayTy:
-		if reflect.TypeOf(v).Kind() == reflect.Slice || reflect.TypeOf(v).Kind() == reflect.Array {
-			ok = true
-
-			value := reflect.ValueOf(v)
-			sliceStr := make([]string, 0, value.Len())
-			for i := 0; i < value.Len(); i++ {
-				elemStr, elemOk := parseOutputArgument(value.Index(i).Interface(), t.Elem)
-				sliceStr = append(sliceStr, elemStr)
-				ok = ok && elemOk
-			}
-
-			str = "[" + strings.Join(sliceStr, " ") + "]"
-		}
-
-	case abi.IntTy, abi.UintTy:
-		if reflect.TypeOf(v) == reflect.TypeOf(big.NewInt(0)) {
-			var bigInt *big.Int
-			bigInt, ok = v.(*big.Int)
-			if ok {
-				str = bigInt.String()
-			}
-		} else if 2 <= reflect.TypeOf(v).Kind() && reflect.TypeOf(v).Kind() <= 11 {
-			// other integer types (int8,uint16,...) can be handled by fmt.Sprint(v)
-			ok = true
-		}
-
-	case abi.AddressTy:
-		if reflect.TypeOf(v) == reflect.TypeOf(common.Address{}) {
-			var ethAddr common.Address
-			ethAddr, ok = v.(common.Address)
-			if ok {
-				ioAddress, err := address.FromBytes(ethAddr.Bytes())
-				if err == nil {
-					str = ioAddress.String()
-				}
-			}
-		}
-
-	case abi.BytesTy:
-		if reflect.TypeOf(v) == reflect.TypeOf([]byte{}) {
-			var bytes []byte
-			bytes, ok = v.([]byte)
-			if ok {
-				str = "0x" + hex.EncodeToString(bytes)
-			}
-		}
-
-	case abi.FixedBytesTy, abi.FunctionTy:
-		if reflect.TypeOf(v).Kind() == reflect.Array && reflect.TypeOf(v).Elem() == reflect.TypeOf(byte(0)) {
-			bytesValue := reflect.ValueOf(v)
-			byteSlice := reflect.MakeSlice(reflect.TypeOf([]byte{}), bytesValue.Len(), bytesValue.Len())
-			reflect.Copy(byteSlice, bytesValue)
-
-			str = "0x" + hex.EncodeToString(byteSlice.Bytes())
-			ok = true
-		}
-	}
-
-	return str, ok
 }

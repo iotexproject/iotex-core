@@ -108,7 +108,7 @@ func TestParseOutput(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		v, err := parseOutput(testAbi, test.method, test.outputs)
+		v, err := ParseOutput(testAbi, test.method, test.outputs)
 		r.NoError(err)
 		r.Equal(test.expectResult, fmt.Sprint(v))
 	}

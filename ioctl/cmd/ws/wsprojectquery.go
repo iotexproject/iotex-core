@@ -2,13 +2,16 @@ package ws
 
 import (
 	"fmt"
+
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/contract"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -44,7 +47,7 @@ func init() {
 }
 
 func queryProject(id uint64) (string, error) {
-	contract, err := util.Address(wsProjectRegisterContractAddress)
+	contractAddr, err := util.Address(wsProjectRegisterContractAddress)
 	if err != nil {
 		return "", output.NewError(output.AddressError, "failed to get project register contract address", err)
 	}
@@ -54,10 +57,10 @@ func queryProject(id uint64) (string, error) {
 		return "", output.NewError(output.ConvertError, fmt.Sprintf("failed to pack abi"), err)
 	}
 
-	addr, _ := address.FromString(contract)
+	addr, _ := address.FromString(contractAddr)
 	data, err := action.Read(addr, "0", bytecode)
 	if err != nil {
 		return "", errors.Wrap(err, "read contract failed")
 	}
-	return parseOutput(&wsProjectRegisterContractABI, queryWsProjectFuncName, data)
+	return contract.ParseOutput(&wsProjectRegisterContractABI, queryWsProjectFuncName, data)
 }

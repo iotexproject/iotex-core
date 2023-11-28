@@ -13,14 +13,13 @@ import (
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
-	"github.com/spf13/cobra"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
@@ -212,6 +211,11 @@ func fixGasLimit(caller string, execution *action.Execution) (*action.Execution,
 
 // SendRaw sends raw action to blockchain
 func SendRaw(selp *iotextypes.Action) error {
+	_, err := SendRawAndRespond(selp)
+	if err != nil {
+		return err
+	}
+
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
 	txhash := hex.EncodeToString(shash[:])
 	message := sendMessage{Info: "Action has been sent to blockchain.", TxHash: txhash, URL: "https://"}
