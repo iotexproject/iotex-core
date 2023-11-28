@@ -44,6 +44,7 @@ func parseInput(rowInput string) (map[string]interface{}, error) {
 	return input, nil
 }
 
+// ParseOutput parse contract output data
 func ParseOutput(targetAbi *abi.ABI, targetMethod string, result string) (string, error) {
 	resultBytes, err := hex.DecodeString(result)
 	if err != nil {
