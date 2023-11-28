@@ -35,7 +35,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 160681,
+        "rawExpectedGasConsumed": 160719,
         "expectedStatus": 1,
         "readOnly": true,
         "rawReturnValue": "000000000000000000000000c4bac5589e69c33da86356a75cfde95019e1dd6a",

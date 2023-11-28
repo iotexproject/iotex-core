@@ -292,9 +292,7 @@ func readExecution(
 	}
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash: dao.GetBlockHash,
-		GetBlockTime: func(uint64) (time.Time, error) {
-			return time.Time{}, nil
-		},
+		GetBlockTime: getBlockTimeForTest,
 	})
 	return sf.SimulateExecution(ctx, addr, exec)
 }
@@ -477,9 +475,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	execution := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, func(h uint64) (time.Time, error) {
-		return fixedTime.Add(time.Duration(h) * 5 * time.Second), nil
-	})
+	execution := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, getBlockTimeForTest)
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
 
@@ -629,9 +625,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require := require.New(t)
 	p := NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, rewarding.DepositGasWithSGD, nil, func(u uint64) (time.Time, error) {
-		return time.Time{}, nil
-	})
+	}, rewarding.DepositGasWithSGD, nil, getBlockTimeForTest)
 
 	cases := []struct {
 		name      string
@@ -721,7 +715,7 @@ func TestProtocol_Handle(t *testing.T) {
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
 		)
-		exeProtocol := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, func(u uint64) (time.Time, error) { return time.Time{}, nil })
+		exeProtocol := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, getBlockTimeForTest)
 		require.NoError(exeProtocol.Register(registry))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
@@ -1489,4 +1483,8 @@ func BenchmarkHotContract(b *testing.B) {
 	b.Run("defaultStateDB", func(b *testing.B) {
 		benchmarkHotContractWithStateDB(b, false)
 	})
+}
+
+func getBlockTimeForTest(h uint64) (time.Time, error) {
+	return fixedTime.Add(time.Duration(h) * 5 * time.Second), nil
 }
