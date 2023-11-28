@@ -32,6 +32,7 @@ var (
 
 func init() {
 	WsCmd.AddCommand(wsMessage)
+	WsCmd.AddCommand(wsProject)
 
 	WsCmd.PersistentFlags().StringVar(
 		&config.ReadConfig.Endpoint, "endpoint",
