@@ -615,9 +615,29 @@ func TestProtocol_Validate(t *testing.T) {
 		return time.Time{}, nil
 	})
 
-	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), make([]byte, 32684))
-	require.NoError(err)
-	require.Equal(action.ErrOversizedData, errors.Cause(p.Validate(context.Background(), ex, nil)))
+	cases := []struct {
+		name      string
+		height    uint64
+		size      uint64
+		expectErr error
+	}{
+		{"limit 32KB", 0, 32684, action.ErrOversizedData},
+		{"limit 48KB I", genesis.Default.ToBeEnabledBlockHeight, 32684, nil},
+		{"limit 48KB II", genesis.Default.ToBeEnabledBlockHeight, 49153, action.ErrOversizedData},
+	}
+
+	for i := range cases {
+		t.Run(cases[i].name, func(t *testing.T) {
+			ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), make([]byte, cases[i].size))
+			require.NoError(err)
+			ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
+			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+				BlockHeight: cases[i].height,
+			})
+			ctx = protocol.WithFeatureCtx(ctx)
+			require.Equal(cases[i].expectErr, errors.Cause(p.Validate(ctx, ex, nil)))
+		})
+	}
 }
 
 func TestProtocol_Handle(t *testing.T) {
