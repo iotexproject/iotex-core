@@ -39,7 +39,7 @@ var (
 				return errors.Wrap(err, "failed to get flag expand-param")
 			}
 
-			out, err := convertCodeToZlibHex(vmType, codeFile, confFile, expParam)
+			out, err := generateProjectFile(vmType, codeFile, confFile, expParam)
 			if err != nil {
 				return output.PrintError(err)
 			}
@@ -82,7 +82,32 @@ func init() {
 	_ = wsCodeConvert.MarkFlagRequired("code-file")
 }
 
-func convertCodeToZlibHex(vmType string, codeFile string, confFile string, expParam string) (string, error) {
+func generateProjectFile(vmType string, codeFile string, confFile string, expParam string) (string, error) {
+	hexString, err := convertCodeToZlibHex(codeFile)
+	if err != nil {
+		return "", err
+	}
+
+	confMap := make(map[string]interface{})
+	if expParam != "" {
+		confMap["codeExpParam"] = expParam
+	}
+	confMap["vmType"] = vmType
+	confMap["code"] = hexString
+	jsonConf, err := json.MarshalIndent(confMap, "", "  ")
+
+	if confFile == "" {
+		confFile = fmt.Sprintf("./%s-config.json", vmType)
+	}
+	err = os.WriteFile(confFile, jsonConf, fs.FileMode(0666))
+	if err != nil {
+		return "", errors.Wrap(err, fmt.Sprintf("failed to write conf-file %s", confFile))
+	}
+
+	return fmt.Sprintf("conf file: %s", confFile), err
+}
+
+func convertCodeToZlibHex(codeFile string) (string, error) {
 	content, err := os.ReadFile(codeFile)
 	if err != nil {
 		return "", errors.Wrap(err, fmt.Sprintf("failed to read code-file %s", codeFile))
@@ -97,22 +122,5 @@ func convertCodeToZlibHex(vmType string, codeFile string, confFile string, expPa
 
 	hexString := hex.EncodeToString(b.Bytes())
 
-	confMap := make(map[string]interface{})
-	if expParam != "" {
-		confMap["codeExpParam"] = expParam
-	}
-	confMap["vmType"] = vmType
-	confMap["code"] = hexString
-
-	jsonConf, err := json.MarshalIndent(confMap, "", "  ")
-
-	if confFile == "" {
-		confFile = fmt.Sprintf("./%s-config.json", vmType)
-	}
-	err = os.WriteFile(confFile, jsonConf, fs.FileMode(0666))
-	if err != nil {
-		return "", errors.Wrap(err, fmt.Sprintf("failed to write conf-file %s", confFile))
-	}
-
-	return fmt.Sprintf("conf file: %s", confFile), err
+	return hexString, err
 }
