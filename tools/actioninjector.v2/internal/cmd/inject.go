@@ -309,6 +309,7 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 	// estimate execution gaslimit
 	if actionType == actionTypeTransfer {
 		gaslimit = 10000
+		payLoad = ""
 		if rawInjectCfg.transferPayloadSize != "0" {
 			payloadSz := parseHumanSize(rawInjectCfg.transferPayloadSize)
 			if payloadSz > 0 {
