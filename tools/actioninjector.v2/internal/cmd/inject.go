@@ -8,11 +8,14 @@ package cmd
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
 	"math/big"
-	"math/rand"
+	rnd "math/rand"
 	"os"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -169,7 +172,7 @@ func (p *injectProcessor) loadAccounts(keypairsPath string, transferValue *big.I
 		recipient, _ := address.FromString(recipientAddr)
 
 		log.L().Info("generated account", zap.String("addr", recipient.String()))
-		c := iotex.NewAuthedClient(p.api, testnetChainID, operatorAccount)
+		c := iotex.NewAuthedClient(p.api, rawInjectCfg.chainID, operatorAccount)
 		caller := c.Transfer(recipient, transferValue).SetGasPrice(big.NewInt(rawInjectCfg.transferGasPrice)).SetGasLimit(rawInjectCfg.transferGasLimit)
 		if _, err := caller.Call(context.Background()); err != nil {
 			log.L().Error("Failed to inject.", zap.Error(err), zap.String("sender", operatorAccount.Address().String()))
@@ -268,6 +271,28 @@ func (p *injectProcessor) syncNonces(ctx context.Context) error {
 // 	}
 
 // }
+func parseHumanSize(s string) int64 {
+	s = strings.TrimSpace(s)
+	unit := s[len(s)-1:]
+	var valueStr string
+	if unit == "K" {
+		valueStr = s[:len(s)-1]
+	} else {
+		valueStr = s
+	}
+
+	value, err := strconv.ParseFloat(valueStr, 64)
+	if err != nil {
+		return 0
+	}
+
+	switch strings.ToUpper(unit) {
+	case "K":
+		return int64(value * 1024)
+	default:
+		return int64(value)
+	}
+}
 
 func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 	var (
@@ -284,7 +309,17 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 	// estimate execution gaslimit
 	if actionType == actionTypeTransfer {
 		gaslimit = 10000
-		payLoad = ""
+		if rawInjectCfg.transferPayloadSize != "0" {
+			payloadSz := parseHumanSize(rawInjectCfg.transferPayloadSize)
+			if payloadSz > 0 {
+				randomBytes := make([]byte, payloadSz)
+				_, err := rand.Read(randomBytes)
+				if err != nil {
+					panic(err)
+				}
+				payLoad = hex.EncodeToString(randomBytes)
+			}
+		}
 	} else {
 		payLoad = opMul
 		//deploy contract
@@ -292,10 +327,10 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 		if err != nil {
 			panic(err)
 		}
-		acc := p.accountManager.AccountList[rand.Intn(len(p.accountManager.AccountList))]
+		acc := p.accountManager.AccountList[rnd.Intn(len(p.accountManager.AccountList))]
 		contract, err = util.DeployContract(p.api, acc, p.accountManager.GetAndInc(acc.EncodedAddr), int(contractGas),
 			gasPrice.Int64(),
-			contractByteCode, int(rawInjectCfg.retryNum), rawInjectCfg.retryInterval, testnetChainID)
+			contractByteCode, int(rawInjectCfg.retryNum), rawInjectCfg.retryInterval, rawInjectCfg.chainID)
 		if err != nil {
 			panic(err)
 		}
@@ -319,7 +354,7 @@ func (p *injectProcessor) txGenerate(
 	contractAddr string,
 ) {
 	for {
-		tx, _ := util.ActionGenerator(actionType, p.accountManager, testnetChainID, gasLimit, gasPrice, contractAddr, payLoad)
+		tx, _ := util.ActionGenerator(actionType, p.accountManager, rawInjectCfg.chainID, gasLimit, gasPrice, contractAddr, payLoad)
 		select {
 		case ch <- tx:
 			continue
@@ -332,7 +367,7 @@ func (p *injectProcessor) txGenerate(
 
 func (p *injectProcessor) estimateGasLimitForExecution(actionType int, contractAddr string, gasPrice *big.Int, data string) (uint64, error) {
 	var (
-		acc = p.accountManager.AccountList[rand.Intn(len(p.accountManager.AccountList))]
+		acc = p.accountManager.AccountList[rnd.Intn(len(p.accountManager.AccountList))]
 	)
 	tx, err := action.NewExecution(contractAddr, p.accountManager.Get(acc.EncodedAddr), big.NewInt(0), 0, gasPrice, byteutil.Must(hex.DecodeString(data)))
 	if err != nil {
@@ -556,11 +591,12 @@ var injectCmd = &cobra.Command{
 }
 
 var rawInjectCfg = struct {
-	configPath       string
-	serverAddr       string
-	transferGasLimit uint64
-	transferGasPrice int64
-	transferAmount   int64
+	configPath          string
+	serverAddr          string
+	transferGasLimit    uint64
+	transferGasPrice    int64
+	transferAmount      int64
+	transferPayloadSize string
 
 	contract          string
 	executionAmount   int64
@@ -576,6 +612,7 @@ var rawInjectCfg = struct {
 	workers       uint64
 	checkReceipt  bool
 	insecure      bool
+	chainID       uint32
 
 	randAccounts    int
 	loadTokenAmount string
@@ -587,10 +624,12 @@ func init() {
 		"path of config file of genesis transfer addresses")
 	// flag.StringVar(&rawInjectCfg.serverAddr, "addr", "ab0ab34e44e114ae5b0ee35da91c8422-1001689351.eu-west-2.elb.amazonaws.com:14014", "target ip:port for grpc connection")
 	// flag.StringVar(&rawInjectCfg.serverAddr, "addr", "35.247.25.167:14014", "target ip:port for grpc connection")
+	flag.Uint32Var(&rawInjectCfg.chainID, "chain-id", 2, "chain id")
 	flag.StringVar(&rawInjectCfg.serverAddr, "addr", "api.testnet.iotex.one:443", "target ip:port for grpc connection")
 	flag.Int64Var(&rawInjectCfg.transferAmount, "transfer-amount", 0, "transfer amount")
 	flag.Uint64Var(&rawInjectCfg.transferGasLimit, "transfer-gas-limit", 20000, "transfer gas limit")
 	flag.Int64Var(&rawInjectCfg.transferGasPrice, "transfer-gas-price", 1000000000000, "transfer gas price")
+	flag.StringVar(&rawInjectCfg.transferPayloadSize, "transfer-payload-size", "0", "transfer payload size")
 	flag.StringVar(&rawInjectCfg.contract, "contract", "io1pmjhyksxmz2xpxn2qmz4gx9qq2kn2gdr8un4xq", "smart contract address")
 	flag.Int64Var(&rawInjectCfg.executionAmount, "execution-amount", 0, "execution amount")
 	flag.Uint64Var(&rawInjectCfg.executionGasLimit, "execution-gas-limit", 100000, "execution gas limit")
