@@ -149,9 +149,9 @@ func TestConfigReset(t *testing.T) {
 	require.Equal(true, resetCfg.SecureConnect)
 	require.Equal("English", resetCfg.Language)
 	require.Equal(_defaultAnalyserEndpoint, resetCfg.AnalyserEndpoint)
+	require.Equal(_defaultWsEndpoint, resetCfg.WsEndpoint)
 	require.Equal("iotexscan", resetCfg.Explorer)
 	require.Equal(*new(config.Context), resetCfg.DefaultAccount)
-	require.Equal("", resetCfg.WsEndpoint)
 }
 
 func TestConfigSet(t *testing.T) {
