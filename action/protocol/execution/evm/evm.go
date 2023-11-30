@@ -181,9 +181,8 @@ func newParams(
 		BaseFee:     new(big.Int),
 	}
 	if g.IsSumatra(blkCtx.BlockHeight) {
-		// Random opcode (EIP-4399) is not supported on IoTeX
-		zeroHash := common.BytesToHash(nil)
-		context.Random = &zeroHash
+		// Random opcode (EIP-4399) is not supported
+		context.Random = &common.Hash{}
 	}
 
 	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {

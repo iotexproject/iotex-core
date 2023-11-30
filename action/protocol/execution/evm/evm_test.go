@@ -253,7 +253,10 @@ func TestConstantinople(t *testing.T) {
 			1261440000, // = 200*365*24*3600/5, around 200 years later
 		},
 	}
-
+	now := time.Now()
+	getBlockTime := func(height uint64) (time.Time, error) {
+		return now.Add(time.Duration(height) * time.Second * 5), nil
+	}
 	for _, e := range execHeights {
 		ex, err := action.NewExecution(
 			e.contract,
@@ -265,10 +268,6 @@ func TestConstantinople(t *testing.T) {
 		)
 		require.NoError(err)
 
-		now := time.Now()
-		getBlockTime := func(height uint64) (time.Time, error) {
-			return now.Add(time.Duration(height) * time.Second * 5), nil
-		}
 		timestamp, err := getBlockTime(e.height)
 		require.NoError(err)
 		fCtx := protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
