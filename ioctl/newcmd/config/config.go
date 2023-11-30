@@ -33,6 +33,7 @@ const (
 	_localPattern            = "localhost"
 	_endpointPattern         = "(" + _ipPattern + "|(" + _domainPattern + ")" + "|(" + _localPattern + "))" + `(:\d{1,5})?`
 	_defaultAnalyserEndpoint = "https://iotex-analyser-api-mainnet.chainanalytics.org"
+	_defaultWsEndpoint       = "sprout-staging.w3bstream.com:9000"
 	_defaultConfigFileName   = "config.default"
 )
 
@@ -115,6 +116,10 @@ func InitConfig() (config.Config, string, error) {
 		info.readConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
 		completeness = false
 	}
+	if info.readConfig.WsEndpoint == "" {
+		info.readConfig.WsEndpoint = _defaultWsEndpoint
+		completeness = false
+	}
 	if !completeness {
 		if err = info.writeConfig(); err != nil {
 			return info.readConfig, info.defaultConfigFile, err
@@ -144,7 +149,7 @@ func (c *info) reset() error {
 	c.readConfig.Explorer = _validExpl[0]
 	c.readConfig.Language = _supportedLanguage[0]
 	c.readConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
-	c.readConfig.WsEndpoint = ""
+	c.readConfig.WsEndpoint = _defaultWsEndpoint
 
 	err := c.writeConfig()
 	if err != nil {

@@ -27,6 +27,7 @@ const (
 	_localPattern            = "localhost"
 	_endpointPattern         = "(" + _ipPattern + "|(" + _domainPattern + ")" + "|(" + _localPattern + "))" + `(:\d{1,5})?`
 	_defaultAnalyserEndpoint = "https://iotex-analyser-api-mainnet.chainanalytics.org"
+	_defaultWsEndpoint       = "sprout-staging.w3bstream.com:9000"
 )
 
 var (
@@ -298,7 +299,7 @@ func reset() error {
 	ReadConfig.Explorer = "iotexscan"
 	ReadConfig.Language = "English"
 	ReadConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
-	ReadConfig.WsEndpoint = ""
+	ReadConfig.WsEndpoint = _defaultWsEndpoint
 
 	err := writeConfig()
 	if err != nil {

@@ -13,14 +13,13 @@ import (
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
-	"github.com/spf13/cobra"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
@@ -212,26 +211,11 @@ func fixGasLimit(caller string, execution *action.Execution) (*action.Execution,
 
 // SendRaw sends raw action to blockchain
 func SendRaw(selp *iotextypes.Action) error {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	_, err := SendRawAndRespond(selp)
 	if err != nil {
-		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
-	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+		return err
 	}
 
-	request := &iotexapi.SendActionRequest{Action: selp}
-	if _, err = cli.SendAction(ctx, request); err != nil {
-		if sta, ok := status.FromError(err); ok {
-			return output.NewError(output.APIError, sta.Message(), nil)
-		}
-		return output.NewError(output.NetworkError, "failed to invoke SendAction api", err)
-	}
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
 	txhash := hex.EncodeToString(shash[:])
 	message := sendMessage{Info: "Action has been sent to blockchain.", TxHash: txhash, URL: "https://"}
@@ -250,16 +234,48 @@ func SendRaw(selp *iotextypes.Action) error {
 	return nil
 }
 
+// SendRawAndRespond sends raw action to blockchain with response and error return
+func SendRawAndRespond(selp *iotextypes.Action) (*iotexapi.SendActionResponse, error) {
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	if err != nil {
+		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+	}
+	defer conn.Close()
+	cli := iotexapi.NewAPIServiceClient(conn)
+	ctx := context.Background()
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
+	request := &iotexapi.SendActionRequest{Action: selp}
+	response, err := cli.SendAction(ctx, request)
+	if err != nil {
+		if sta, ok := status.FromError(err); ok {
+			return nil, output.NewError(output.APIError, sta.Message(), nil)
+		}
+		return nil, output.NewError(output.NetworkError, "failed to invoke SendAction api", err)
+	}
+	return response, nil
+}
+
 // SendAction sends signed action to blockchain
 func SendAction(elp action.Envelope, signer string) error {
+	_, err := SendActionAndResponse(elp, signer)
+	return err
+}
+
+// SendActionAndResponse sends signed action to blockchain with response and error return
+func SendActionAndResponse(elp action.Envelope, signer string) (*iotexapi.SendActionResponse, error) {
 	prvKey, err := account.PrivateKeyFromSigner(signer, _passwordFlag.Value().(string))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	chainMeta, err := bc.GetChainMeta()
 	if err != nil {
-		return output.NewError(0, "failed to get chain meta", err)
+		return nil, output.NewError(0, "failed to get chain meta", err)
 	}
 	elp.SetChainID(chainMeta.GetChainID())
 
@@ -268,7 +284,7 @@ func SendAction(elp action.Envelope, signer string) error {
 		signer = addr.String()
 		nonce, err := nonce(signer)
 		if err != nil {
-			return output.NewError(0, "failed to get nonce ", err)
+			return nil, output.NewError(0, "failed to get nonce ", err)
 		}
 		elp.SetNonce(nonce)
 	}
@@ -276,16 +292,16 @@ func SendAction(elp action.Envelope, signer string) error {
 	sealed, err := action.Sign(elp, prvKey)
 	prvKey.Zero()
 	if err != nil {
-		return output.NewError(output.CryptoError, "failed to sign action", err)
+		return nil, output.NewError(output.CryptoError, "failed to sign action", err)
 	}
 	if err := isBalanceEnough(signer, sealed); err != nil {
-		return output.NewError(0, "failed to pass balance check", err) // TODO: undefined error
+		return nil, output.NewError(0, "failed to pass balance check", err) // TODO: undefined error
 	}
 
 	selp := sealed.Proto()
 	actionInfo, err := printActionProto(selp)
 	if err != nil {
-		return output.NewError(0, "failed to print action proto message", err)
+		return nil, output.NewError(0, "failed to print action proto message", err)
 	}
 
 	if _yesFlag.Value() == false {
@@ -295,47 +311,53 @@ func SendAction(elp action.Envelope, signer string) error {
 		fmt.Println(message.String())
 
 		if _, err := fmt.Scanf("%s", &confirm); err != nil {
-			return output.NewError(output.InputError, "failed to input yes", err)
+			return nil, output.NewError(output.InputError, "failed to input yes", err)
 		}
 		if !strings.EqualFold(confirm, "yes") {
 			output.PrintResult("quit")
-			return nil
+			return nil, nil
 		}
 	}
 
-	return SendRaw(selp)
+	return SendRawAndRespond(selp)
 }
 
 // Execute sends signed execution transaction to blockchain
 func Execute(contract string, amount *big.Int, bytecode []byte) error {
+	_, err := ExecuteAndResponse(contract, amount, bytecode)
+	return err
+}
+
+// ExecuteAndResponse sends signed execution transaction to blockchain and with response and error return
+func ExecuteAndResponse(contract string, amount *big.Int, bytecode []byte) (*iotexapi.SendActionResponse, error) {
 	if len(contract) == 0 && len(bytecode) == 0 {
-		return output.NewError(output.InputError, "failed to deploy contract with empty bytecode", nil)
+		return nil, output.NewError(output.InputError, "failed to deploy contract with empty bytecode", nil)
 	}
 	gasPriceRau, err := gasPriceInRau()
 	if err != nil {
-		return output.NewError(0, "failed to get gas price", err)
+		return nil, output.NewError(0, "failed to get gas price", err)
 	}
 	signer, err := Signer()
 	if err != nil {
-		return output.NewError(output.AddressError, "failed to get signer address", err)
+		return nil, output.NewError(output.AddressError, "failed to get signer address", err)
 	}
 	nonce, err := nonce(signer)
 	if err != nil {
-		return output.NewError(0, "failed to get nonce", err)
+		return nil, output.NewError(0, "failed to get nonce", err)
 	}
 	gasLimit := _gasLimitFlag.Value().(uint64)
 	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
 	if err != nil || tx == nil {
-		return output.NewError(output.InstantiationError, "failed to make a Execution instance", err)
+		return nil, output.NewError(output.InstantiationError, "failed to make a Execution instance", err)
 	}
 	if gasLimit == 0 {
 		tx, err = fixGasLimit(signer, tx)
 		if err != nil || tx == nil {
-			return output.NewError(0, "failed to fix Execution gaslimit", err)
+			return nil, output.NewError(0, "failed to fix Execution gaslimit", err)
 		}
 		gasLimit = tx.GasLimit()
 	}
-	return SendAction(
+	return SendActionAndResponse(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).
 			SetGasPrice(gasPriceRau).

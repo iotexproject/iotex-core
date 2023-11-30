@@ -8,10 +8,9 @@ package action
 import (
 	"encoding/hex"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
