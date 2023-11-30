@@ -491,7 +491,21 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 }
 
 func (core *coreService) PendingNonce(addr address.Address) (uint64, error) {
-	return core.ap.GetPendingNonce(addr.String())
+	nonce, err := core.ap.GetPendingNonce(addr.String())
+	if err != nil {
+		return nonce, err
+	}
+	g := core.Genesis()
+	if nonce > 1 || !g.IsSumatra(core.TipHeight()) {
+		return nonce, nil
+	}
+	// check possible convert fresh address to zero-type
+	ctx := genesis.WithGenesisContext(context.Background(), g)
+	state, err := accountutil.AccountState(ctx, core.sf, addr)
+	if err != nil {
+		return 0, err
+	}
+	return state.PendingNonceConsideringFreshAccount(), nil
 }
 
 func (core *coreService) validateChainID(chainID uint32) error {

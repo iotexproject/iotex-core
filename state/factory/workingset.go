@@ -358,6 +358,10 @@ func (ws *workingSet) validateNonceSkipSystemAction(ctx context.Context, blk *bl
 }
 
 func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap map[string][]uint64) error {
+	var (
+		pendingNonce uint64
+		useZeroNonce = protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount
+	)
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
 		addr, _ := address.FromString(srcAddr)
@@ -366,7 +370,11 @@ func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap 
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}
 		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
-		pendingNonce := confirmedState.PendingNonce()
+		if useZeroNonce {
+			pendingNonce = confirmedState.PendingNonceConsideringFreshAccount()
+		} else {
+			pendingNonce = confirmedState.PendingNonce()
+		}
 		for i, nonce := range receivedNonces {
 			if nonce != pendingNonce+uint64(i) {
 				return errors.Wrapf(

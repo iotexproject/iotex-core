@@ -69,6 +69,7 @@ type (
 		revertLog                  bool
 		notCheckPutStateError      bool
 		manualCorrectGasRefund     bool
+		convertFreshAddress        bool
 	}
 )
 
@@ -99,7 +100,7 @@ func AsyncContractTrieOption() StateDBAdapterOption {
 	}
 }
 
-// UseConfirmedNonceOption set usePendingNonce as true
+// UseConfirmedNonceOption set useConfirmedNonce as true
 func UseConfirmedNonceOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.useConfirmedNonce = true
@@ -146,6 +147,17 @@ func ManualCorrectGasRefundOption() StateDBAdapterOption {
 		// has caused gas refund to change, which needs to be manually adjusted after
 		// the tx is reverted. After Okhotsk height, it is fixed inside RevertToSnapshot()
 		adapter.manualCorrectGasRefund = true
+		return nil
+	}
+}
+
+// ConvertFreshAddressOption set convertFreshAddress as true
+func ConvertFreshAddressOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		// Starting Sumatra height, a fresh legacy address (which had never initiated an
+		// outgoing transaction) will be converted to zero-nonce type address. This is to
+		// enable deterministic deployment
+		adapter.convertFreshAddress = true
 		return nil
 	}
 }
@@ -329,6 +341,9 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 		}
 		pendingNonce--
 	}
+	if stateDB.convertFreshAddress {
+		pendingNonce = state.PendingNonceConsideringFreshAccount()
+	}
 	log.L().Debug("Called GetNonce.",
 		zap.String("address", evmAddr.Hex()),
 		zap.Uint64("pendingNonce", pendingNonce))
@@ -358,6 +373,9 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
 	log.L().Debug("Called SetNonce.",
 		zap.String("address", addr.String()),
 		zap.Uint64("nonce", nonce))
+	if stateDB.convertFreshAddress {
+		s.ConvertFreshAccountToZeroNonceType(nonce)
+	}
 	if !s.IsNewbieAccount() || s.AccountType() != 0 || nonce != 0 {
 		if err := s.SetPendingNonce(nonce + 1); err != nil {
 			log.L().Panic("Failed to set nonce.", zap.Error(err), zap.String("addr", addr.Hex()), zap.Uint64("pendingNonce", s.PendingNonce()), zap.Uint64("nonce", nonce), zap.String("execution", hex.EncodeToString(stateDB.executionHash[:])))

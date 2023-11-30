@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -128,7 +129,13 @@ func (worker *queueWorker) getConfirmedState(ctx context.Context, sender address
 		if err != nil {
 			return 0, nil, err
 		}
-		return confirmedState.PendingNonce(), confirmedState.Balance, nil
+		var nonce uint64
+		if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+			nonce = confirmedState.PendingNonceConsideringFreshAccount()
+		} else {
+			nonce = confirmedState.PendingNonce()
+		}
+		return nonce, confirmedState.Balance, nil
 	}
 	nonce, balance := queue.AccountState()
 	return nonce, balance, nil

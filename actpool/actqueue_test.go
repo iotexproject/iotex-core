@@ -133,7 +133,10 @@ func TestActQueuePendingActs(t *testing.T) {
 		accountState.Balance = big.NewInt(maxBalance)
 	}).Return(uint64(0), nil).Times(1)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{
+			BlockHeight: 1,
+		}))
 	ap, err := NewActPool(genesis.Default, sf, DefaultConfig)
 	require.NoError(err)
 	q := NewActQueue(ap.(*actPool), identityset.Address(0).String(), 1, big.NewInt(maxBalance)).(*actQueue)

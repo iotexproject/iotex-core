@@ -405,6 +405,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if !featureCtx.CorrectGasRefund {
 		opts = append(opts, ManualCorrectGasRefundOption())
 	}
+	if featureCtx.UseZeroNonceForFreshAccount {
+		opts = append(opts, ConvertFreshAddressOption())
+	}
 
 	return NewStateDBAdapter(
 		sm,

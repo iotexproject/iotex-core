@@ -66,6 +66,9 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 
 	if fCtx.FixGasAndNonceUpdate || tsf.Nonce() != 0 {
 		// update sender Nonce
+		if fCtx.UseZeroNonceForFreshAccount {
+			sender.ConvertFreshAccountToZeroNonceType(tsf.Nonce())
+		}
 		if err := sender.SetPendingNonce(tsf.Nonce() + 1); err != nil {
 			return nil, errors.Wrapf(err, "failed to update pending nonce of sender %s", actionCtx.Caller.String())
 		}

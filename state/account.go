@@ -8,10 +8,10 @@ package state
 import (
 	"math/big"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action/protocol/account/accountpb"
 )
 
@@ -135,6 +135,11 @@ func (st *Account) IsNewbieAccount() bool {
 	return st.nonce == 0
 }
 
+// IsLegacyFreshAccount returns true if a legacy account has not sent any actions
+func (st *Account) IsLegacyFreshAccount() bool {
+	return st.accountType == 0 && st.nonce == 0
+}
+
 // AccountType returns the account type
 func (st *Account) AccountType() int32 {
 	return st.accountType
@@ -166,6 +171,17 @@ func (st *Account) SetPendingNonce(nonce uint64) error {
 	return nil
 }
 
+// ConvertFreshAccountToZeroNonceType converts a fresh legacy account to zero-nonce account
+func (st *Account) ConvertFreshAccountToZeroNonceType(nonce uint64) bool {
+	if st.accountType == 0 && st.nonce == 0 && nonce == 0 {
+		// this is a legacy account that had never initiated an outgoing transaction
+		// so we can convert it to zero-nonce account
+		st.accountType = 1
+		return true
+	}
+	return false
+}
+
 // PendingNonce returns the pending nonce of the account
 func (st *Account) PendingNonce() uint64 {
 	switch st.accountType {
@@ -176,6 +192,16 @@ func (st *Account) PendingNonce() uint64 {
 	default:
 		panic(errors.Wrapf(ErrUnknownAccountType, "account type %d", st.accountType))
 	}
+}
+
+// PendingNonceConsideringFreshAccount return the pending nonce considering fresh legacy account
+func (st *Account) PendingNonceConsideringFreshAccount() uint64 {
+	if st.accountType == 0 && st.nonce == 0 {
+		// this is a legacy account that had never initiated an outgoing transaction
+		// so we can use 0 as the nonce for its very first transaction
+		return 0
+	}
+	return st.PendingNonce()
 }
 
 // MarkAsCandidate marks the account as a candidate

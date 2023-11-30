@@ -609,20 +609,26 @@ func (p *Protocol) settleAction(
 	logs []*action.Log,
 	tLogs []*action.TransactionLog,
 ) (*action.Receipt, error) {
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
+	var (
+		actionCtx           = protocol.MustGetActionCtx(ctx)
+		blkCtx              = protocol.MustGetBlockCtx(ctx)
+		fCtx                = protocol.MustGetFeatureCtx(ctx)
+		gasFee              = big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
+		accountCreationOpts = []state.AccountCreationOption{}
+	)
 	depositLog, err := p.depositGas(ctx, sm, gasFee)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deposit gas")
 	}
-	accountCreationOpts := []state.AccountCreationOption{}
-	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+	if fCtx.CreateLegacyNonceAccount {
 		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
 	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)
 	if err != nil {
 		return nil, err
+	}
+	if fCtx.UseZeroNonceForFreshAccount {
+		acc.ConvertFreshAccountToZeroNonceType(actionCtx.Nonce)
 	}
 	if err := acc.SetPendingNonce(actionCtx.Nonce + 1); err != nil {
 		return nil, errors.Wrap(err, "failed to set nonce")
