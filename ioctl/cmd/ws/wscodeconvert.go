@@ -83,6 +83,11 @@ func init() {
 }
 
 func generateProjectFile(vmType string, codeFile string, confFile string, expParam string) (string, error) {
+	tye, err := stringToVmType(vmType)
+	if err != nil {
+		return "", err
+	}
+
 	hexString, err := convertCodeToZlibHex(codeFile)
 	if err != nil {
 		return "", err
@@ -92,7 +97,7 @@ func generateProjectFile(vmType string, codeFile string, confFile string, expPar
 	if expParam != "" {
 		confMap["codeExpParam"] = expParam
 	}
-	confMap["vmType"] = vmType
+	confMap["vmType"] = string(tye)
 	confMap["code"] = hexString
 	jsonConf, err := json.MarshalIndent(confMap, "", "  ")
 
