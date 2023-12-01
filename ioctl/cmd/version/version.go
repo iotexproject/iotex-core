@@ -7,6 +7,7 @@ package version
 
 import (
 	"context"
+	_ "embed" // embed ioctl standalone version file
 	"fmt"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
@@ -35,6 +36,8 @@ var (
 		config.English: "insecure connection for once",
 		config.Chinese: "一次不安全的连接",
 	}
+	//go:embed version
+	_ioctlStandaloneVersion string
 )
 
 // VersionCmd represents the version command
@@ -62,6 +65,8 @@ func init() {
 }
 
 func version() error {
+	fmt.Printf("Version: \n%s\n\n", _ioctlStandaloneVersion)
+
 	message := versionMessage{}
 
 	message.Object = "Client"
