@@ -54,7 +54,7 @@ var (
 		config.Chinese: "将zkp代码通过zlib进行压缩之后转成hex字符串",
 	}
 
-	_flagVmTypeUsages = map[config.Language]string{
+	_flagVMTypeUsages = map[config.Language]string{
 		config.English: "vm type, support risc0, halo2",
 		config.Chinese: "虚拟机类型，目前支持risc0和halo2",
 	}
@@ -73,7 +73,7 @@ var (
 )
 
 func init() {
-	wsCodeConvert.Flags().StringP("vm-type", "t", "", config.TranslateInLang(_flagVmTypeUsages, config.UILanguage))
+	wsCodeConvert.Flags().StringP("vm-type", "t", "", config.TranslateInLang(_flagVMTypeUsages, config.UILanguage))
 	wsCodeConvert.Flags().StringP("code-file", "i", "", config.TranslateInLang(_flagCodeFileUsages, config.UILanguage))
 	wsCodeConvert.Flags().StringP("conf-file", "c", "", config.TranslateInLang(_flagConfFileUsages, config.UILanguage))
 	wsCodeConvert.Flags().StringP("expand-param", "e", "", config.TranslateInLang(_flagExpandParamUsages, config.UILanguage))
@@ -83,7 +83,7 @@ func init() {
 }
 
 func generateProjectFile(vmType string, codeFile string, confFile string, expParam string) (string, error) {
-	tye, err := stringToVmType(vmType)
+	tye, err := stringToVMType(vmType)
 	if err != nil {
 		return "", err
 	}

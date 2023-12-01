@@ -27,23 +27,24 @@ func init() {
 	wsCode.AddCommand(wsCodeConvert)
 }
 
-type VmType string
+// zkp vm type
+type vmType string
 
 const (
-	Risc0  VmType = "risc0"
-	Halo2  VmType = "halo2"
-	ZkWasm VmType = "zkwasm"
+	risc0  vmType = "risc0"  // risc0 vm
+	halo2  vmType = "halo2"  // halo2 vm
+	zkWasm vmType = "zkwasm" // zkwasm vm
 )
 
-func stringToVmType(vmType string) (VmType, error) {
+func stringToVMType(vmType string) (vmType, error) {
 	switch vmType {
-	case string(Risc0):
-		return Risc0, nil
-	case string(Halo2):
-		return Halo2, nil
-	case string(ZkWasm):
-		return ZkWasm, nil
+	case string(risc0):
+		return risc0, nil
+	case string(halo2):
+		return halo2, nil
+	case string(zkWasm):
+		return zkWasm, nil
 	default:
-		return "", errors.New(fmt.Sprintf("not support %s type, just support %s, %s, and %s", vmType, Risc0, Halo2, ZkWasm))
+		return "", errors.New(fmt.Sprintf("not support %s type, just support %s, %s, and %s", vmType, risc0, halo2, zkWasm))
 	}
 }
