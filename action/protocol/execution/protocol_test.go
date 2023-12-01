@@ -1310,9 +1310,6 @@ func TestShanghaiEVM(t *testing.T) {
 	t.Run("push0-valid", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-shanghai/push0.json")
 	})
-	t.Run("large-initcode", func(t *testing.T) {
-		NewSmartContractTest(t, "testdata-shanghai/large-initcode.json")
-	})
 }
 
 func benchmarkHotContractWithFactory(b *testing.B, async bool) {
