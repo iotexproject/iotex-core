@@ -9,11 +9,12 @@ import (
 	_ "embed" // embed ioctl standalone version file
 	"fmt"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/spf13/cobra"
+
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	ver "github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/spf13/cobra"
 )
 
 // Multi-language support
