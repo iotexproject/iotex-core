@@ -815,7 +815,7 @@ func (p *Protocol) fetchBucket(
 func (p *Protocol) createBucket(ctx context.Context, csm CandidateStateManager, bucket *VoteBucket) (*VoteBucket, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	callerAddr := actCtx.Caller
-	caller, rErr := fetchCaller(ctx, csm, big.NewInt(0))
+	caller, rErr := fetchCaller(ctx, csm, bucket.StakedAmount)
 	if rErr != nil {
 		return nil, rErr
 	}
@@ -833,7 +833,7 @@ func (p *Protocol) createBucket(ctx context.Context, csm CandidateStateManager, 
 	// update caller balance
 	if err := caller.SubBalance(bucket.StakedAmount); err != nil {
 		return nil, &handleError{
-			err:           errors.Wrapf(err, "failed to update the balance of register %s", actCtx.Caller.String()),
+			err:           errors.Wrapf(err, "failed to update the balance of staker %s", actCtx.Caller.String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
 	}
