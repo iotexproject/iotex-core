@@ -82,21 +82,20 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 type (
 	// Params is the context and parameters
 	Params struct {
-		context      vm.BlockContext
-		txCtx        vm.TxContext
-		nonce        uint64
-		evmNetworkID uint32
-		amount       *big.Int
-		contract     *common.Address
-		gas          uint64
-		data         []byte
-		accessList   types.AccessList
-		evmConfig    vm.Config
-		chainConfig  *params.ChainConfig
-		blkCtx       protocol.BlockCtx
-		genesis      genesis.Blockchain
-		featureCtx   protocol.FeatureCtx
-		actionCtx    protocol.ActionCtx
+		context     vm.BlockContext
+		txCtx       vm.TxContext
+		nonce       uint64
+		amount      *big.Int
+		contract    *common.Address
+		gas         uint64
+		data        []byte
+		accessList  types.AccessList
+		evmConfig   vm.Config
+		chainConfig *params.ChainConfig
+		genesis     genesis.Blockchain
+		blkCtx      protocol.BlockCtx
+		featureCtx  protocol.FeatureCtx
+		actionCtx   protocol.ActionCtx
 	}
 )
 
@@ -186,7 +185,6 @@ func newParams(
 			GasPrice: execution.GasPrice(),
 		},
 		execution.Nonce(),
-		evmNetworkID,
 		execution.Amount(),
 		contractAddrPointer,
 		gasLimit,
@@ -194,8 +192,8 @@ func newParams(
 		execution.AccessList(),
 		vmConfig,
 		chainConfig,
-		blkCtx,
 		g.Blockchain,
+		blkCtx,
 		featureCtx,
 		actionCtx,
 	}, nil
