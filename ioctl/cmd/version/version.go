@@ -6,19 +6,15 @@
 package version
 
 import (
-	"context"
+	_ "embed" // embed ioctl standalone version file
 	"fmt"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 	ver "github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Multi-language support
@@ -35,6 +31,8 @@ var (
 		config.English: "insecure connection for once",
 		config.Chinese: "一次不安全的连接",
 	}
+	//go:embed version
+	_ioctlStandaloneVersion string
 )
 
 // VersionCmd represents the version command
@@ -62,9 +60,11 @@ func init() {
 }
 
 func version() error {
+	fmt.Printf("Version: %s\n\n", _ioctlStandaloneVersion)
+
 	message := versionMessage{}
 
-	message.Object = "Client"
+	message.Object = "Build Info"
 	message.VersionInfo = &iotextypes.ServerMeta{
 		PackageVersion:  ver.PackageVersion,
 		PackageCommitID: ver.PackageCommitID,
@@ -72,34 +72,6 @@ func version() error {
 		GoVersion:       ver.GoVersion,
 		BuildTime:       ver.BuildTime,
 	}
-	fmt.Println(message.String())
-
-	message = versionMessage{Object: config.ReadConfig.Endpoint}
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
-	if err != nil {
-		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
-	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
-	request := &iotexapi.GetServerMetaRequest{}
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
-	}
-
-	response, err := cli.GetServerMeta(ctx, request)
-	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
-			return output.NewError(output.APIError, sta.Message(), nil)
-		}
-		return output.NewError(output.NetworkError,
-			"failed to get version from server", err)
-	}
-
-	message.VersionInfo = response.ServerMeta
 	fmt.Println(message.String())
 	return nil
 }
