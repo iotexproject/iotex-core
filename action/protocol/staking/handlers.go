@@ -812,6 +812,80 @@ func (p *Protocol) fetchBucket(
 	return bucket, nil
 }
 
+func (p *Protocol) createBucket(ctx context.Context, csm CandidateStateManager, bucket *VoteBucket) (*VoteBucket, error) {
+	actCtx := protocol.MustGetActionCtx(ctx)
+	callerAddr := actCtx.Caller
+	caller, rErr := fetchCaller(ctx, csm, big.NewInt(0))
+	if rErr != nil {
+		return nil, rErr
+	}
+	_, err := csm.putBucketAndIndex(bucket)
+	if err != nil {
+		return nil, err
+	}
+	// update bucket pool
+	if err := csm.DebitBucketPool(bucket.StakedAmount, true); err != nil {
+		return nil, &handleError{
+			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
+			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
+		}
+	}
+	// update caller balance
+	if err := caller.SubBalance(bucket.StakedAmount); err != nil {
+		return nil, &handleError{
+			err:           errors.Wrapf(err, "failed to update the balance of register %s", actCtx.Caller.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
+		}
+	}
+	// put updated caller's account state to trie
+	if err := accountutil.StoreAccount(csm.SM(), callerAddr, caller); err != nil {
+		return nil, errors.Wrapf(err, "failed to store account %s", callerAddr.String())
+	}
+	return bucket, nil
+}
+
+func (p *Protocol) createSelfStakeBucket(ctx context.Context, csm CandidateStateManager, bucket *VoteBucket) (*VoteBucket, []*action.TransactionLog, error) {
+	var (
+		err        error
+		actCtx     = protocol.MustGetActionCtx(ctx)
+		callerAddr = actCtx.Caller
+	)
+
+	bucket, err = p.createBucket(ctx, csm, bucket)
+	if err != nil {
+		return nil, nil, err
+	}
+	return bucket, []*action.TransactionLog{
+		{
+			Type:      iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE,
+			Sender:    callerAddr.String(),
+			Recipient: address.StakingBucketPoolAddr,
+			Amount:    bucket.StakedAmount,
+		},
+	}, err
+}
+
+func (p *Protocol) createVoteBucket(ctx context.Context, csm CandidateStateManager, bucket *VoteBucket) (*VoteBucket, []*action.TransactionLog, error) {
+	var (
+		err        error
+		actCtx     = protocol.MustGetActionCtx(ctx)
+		callerAddr = actCtx.Caller
+	)
+
+	bucket, err = p.createBucket(ctx, csm, bucket)
+	if err != nil {
+		return nil, nil, err
+	}
+	return bucket, []*action.TransactionLog{
+		{
+			Type:      iotextypes.TransactionLogType_CREATE_BUCKET,
+			Sender:    callerAddr.String(),
+			Recipient: address.StakingBucketPoolAddr,
+			Amount:    bucket.StakedAmount,
+		},
+	}, err
+}
+
 func fetchCaller(ctx context.Context, csm CandidateStateManager, amount *big.Int) (*state.Account, ReceiptError) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	accountCreationOpts := []state.AccountCreationOption{}
