@@ -800,7 +800,7 @@ func (p *Protocol) createSelfStakeBucket(ctx context.Context, csm CandidateState
 			Recipient: address.StakingBucketPoolAddr,
 			Amount:    bucket.StakedAmount,
 		},
-	}, err
+	}, nil
 }
 
 func (p *Protocol) createVoteBucket(ctx context.Context, csm CandidateStateManager, bucket *VoteBucket) (*VoteBucket, []*action.TransactionLog, error) {
@@ -821,7 +821,7 @@ func (p *Protocol) createVoteBucket(ctx context.Context, csm CandidateStateManag
 			Recipient: address.StakingBucketPoolAddr,
 			Amount:    bucket.StakedAmount,
 		},
-	}, err
+	}, nil
 }
 
 func fetchCaller(ctx context.Context, csm CandidateStateManager, amount *big.Int) (*state.Account, ReceiptError) {
