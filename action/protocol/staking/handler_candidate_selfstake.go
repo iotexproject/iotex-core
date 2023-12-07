@@ -43,7 +43,7 @@ func (p *Protocol) handleCandidateSelfStake(ctx context.Context, act *action.Can
 
 	// bucket check
 	if act.IsUsingExistingBucket() {
-		bucket, rErr = p.fetchBucket(csm, actCtx.Caller, act.BucketID(), true, false)
+		bucket, rErr = p.fetchBucketAndValidate(csm, actCtx.Caller, act.BucketID(), true, false)
 		if rErr != nil {
 			return log, nil, rErr
 		}
