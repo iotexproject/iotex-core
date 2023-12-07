@@ -308,7 +308,8 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 
 	// estimate execution gaslimit
 	if actionType == actionTypeTransfer {
-		gaslimit = 10000
+		gaslimit = 20000000
+		gasPrice = big.NewInt(1000000000000)
 		payLoad = ""
 		if rawInjectCfg.transferPayloadSize != "0" {
 			payloadSz := parseHumanSize(rawInjectCfg.transferPayloadSize)
@@ -321,6 +322,8 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 				payLoad = hex.EncodeToString(randomBytes)
 			}
 		}
+		log.L().Info("transfer meta", zap.Uint64("gasLimit", gaslimit), zap.String("gasPrice", gasPrice.String()), zap.Int("payloadSize", len(payLoad)))
+		time.Sleep(3 * time.Second)
 	} else {
 		payLoad = opMul
 		//deploy contract
