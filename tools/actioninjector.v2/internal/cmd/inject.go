@@ -308,7 +308,7 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 
 	// estimate execution gaslimit
 	if actionType == actionTypeTransfer {
-		gaslimit = 20000000
+		gaslimit = 2000000
 		gasPrice = big.NewInt(1000000000000)
 		payLoad = ""
 		if rawInjectCfg.transferPayloadSize != "0" {
