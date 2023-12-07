@@ -287,11 +287,7 @@ func TestConstantinople(t *testing.T) {
 		ps, err := newParams(fCtx, ex, stateDB)
 		require.NoError(err)
 
-		var evmConfig vm.Config
-		chainConfig, err := getChainConfig(g.Blockchain, e.height, ps.evmNetworkID, getBlockTime)
-		require.NoError(err)
-		evm := vm.NewEVM(ps.context, ps.txCtx, stateDB, chainConfig, evmConfig)
-
+		evm := vm.NewEVM(ps.context, ps.txCtx, stateDB, ps.chainConfig, ps.evmConfig)
 		evmChainConfig := evm.ChainConfig()
 		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsHomestead(evm.Context.BlockNumber))
 		require.False(evmChainConfig.IsDAOFork(evm.Context.BlockNumber))
