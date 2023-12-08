@@ -453,7 +453,7 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 		pubkey   crypto.PublicKey
 		err      error
 	)
-	if g := cs.Genesis(); g.IsSumatra(cs.TipHeight()) {
+	if g := cs.Genesis(); g.IsToBeEnabled(cs.TipHeight()) {
 		tx, err = action.DecodeEtherTx(dataStr.String())
 		if err != nil {
 			return nil, err

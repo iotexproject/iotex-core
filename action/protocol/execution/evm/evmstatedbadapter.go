@@ -154,7 +154,7 @@ func ManualCorrectGasRefundOption() StateDBAdapterOption {
 // ConvertFreshAddressOption set convertFreshAddress as true
 func ConvertFreshAddressOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
-		// Starting Sumatra height, a fresh legacy address (which had never initiated an
+		// With this option, a fresh legacy address (which had never initiated an
 		// outgoing transaction) will be converted to zero-nonce type address. This is to
 		// enable deterministic deployment
 		adapter.convertFreshAddress = true

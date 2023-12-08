@@ -496,7 +496,7 @@ func (core *coreService) PendingNonce(addr address.Address) (uint64, error) {
 		return nonce, err
 	}
 	g := core.Genesis()
-	if nonce > 1 || !g.IsSumatra(core.TipHeight()) {
+	if nonce > 1 || !g.IsToBeEnabled(core.TipHeight()) {
 		return nonce, nil
 	}
 	// check possible convert fresh address to zero-type
