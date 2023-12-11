@@ -1,10 +1,11 @@
 package action
 
 import (
-	"math"
 	"math/big"
 
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -17,29 +18,11 @@ type CandidateSelfStake struct {
 	AbstractAction
 
 	// bucketID is the bucket index want to be changed to
-	// if bucketID is max uint64, it means should be changed to newly self-stake bucket
 	bucketID uint64
-
-	// newly self-stake bucket info
-	amount    *big.Int
-	duration  uint32
-	autoStake bool
 }
 
 // BucketID returns the bucket index want to be changed to
 func (cr *CandidateSelfStake) BucketID() uint64 { return cr.bucketID }
-
-// IsUsingExistingBucket returns if the bucket is existing
-func (cr *CandidateSelfStake) IsUsingExistingBucket() bool { return cr.bucketID < math.MaxUint64 }
-
-// Amount returns the amount of the newly self-stake bucket
-func (cr *CandidateSelfStake) Amount() *big.Int { return cr.amount }
-
-// Duration returns the duration of the newly self-stake bucket
-func (cr *CandidateSelfStake) Duration() uint32 { return cr.duration }
-
-// AutoStake returns the auto-stake flag of the newly self-stake bucket
-func (cr *CandidateSelfStake) AutoStake() bool { return cr.autoStake }
 
 // IntrinsicGas returns the intrinsic gas of a CandidateRegister
 func (cr *CandidateSelfStake) IntrinsicGas() (uint64, error) {
@@ -54,4 +37,17 @@ func (cr *CandidateSelfStake) Cost() (*big.Int, error) {
 	}
 	fee := big.NewInt(0).Mul(cr.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return fee, nil
+}
+
+// NewCandidateSelfStake returns a CandidateSelfStake action
+func NewCandidateSelfStake(nonce, gasLimit uint64, gasPrice *big.Int, bucketID uint64) *CandidateSelfStake {
+	return &CandidateSelfStake{
+		AbstractAction: AbstractAction{
+			version:  version.ProtocolVersion,
+			nonce:    nonce,
+			gasLimit: gasLimit,
+			gasPrice: gasPrice,
+		},
+		bucketID: bucketID,
+	}
 }
