@@ -29,7 +29,6 @@ func (p *Protocol) handleCandidateSelfStake(ctx context.Context, act *action.Can
 		bucketCand *Candidate
 
 		actCtx     = protocol.MustGetActionCtx(ctx)
-		blkCtx     = protocol.MustGetBlockCtx(ctx)
 		featureCtx = protocol.MustGetFeatureCtx(ctx)
 		log        = newReceiptLog(p.addr.String(), handleCandidateSelfStake, featureCtx.NewStakingReceiptFormat)
 	)
@@ -45,22 +44,15 @@ func (p *Protocol) handleCandidateSelfStake(ctx context.Context, act *action.Can
 		}
 	}
 
-	// bucket check
-	if act.IsUsingExistingBucket() {
-		bucket, rErr = p.fetchBucket(csm, act.BucketID())
-		if rErr != nil {
-			return log, nil, rErr
+	bucket, rErr = p.fetchBucket(csm, act.BucketID())
+	if rErr != nil {
+		return log, nil, rErr
+	}
+	if bucketCand = csm.GetByOwner(bucket.Candidate); bucketCand == nil {
+		return log, nil, &handleError{
+			err:           errors.New("bucket candidate does not exist"),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
-		if bucketCand = csm.GetByOwner(bucket.Candidate); bucketCand == nil {
-			return log, nil, errCandNotExist
-		}
-	} else {
-		bucket = NewVoteBucket(cand.Owner, cand.Owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
-		bucket, txLogs, err = p.createSelfStakeBucket(ctx, csm, bucket)
-		if err != nil {
-			return log, nil, err
-		}
-		bucketCand = cand
 	}
 
 	if err = p.validateBucketSelfStake(csm, bucket, cand); err != nil {
