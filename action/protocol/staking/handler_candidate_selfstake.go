@@ -74,7 +74,7 @@ func (p *Protocol) handleCandidateSelfStake(ctx context.Context, act *action.Can
 	}
 	// bind new bucket
 	cand.SelfStakeBucketIdx = bucket.Index
-	cand.SelfStake = big.NewInt(bucket.StakedAmount.Int64())
+	cand.SelfStake = big.NewInt(0).SetBytes(bucket.StakedAmount.Bytes())
 	cand.SubVote(p.calculateVoteWeight(bucket, false))
 	cand.AddVote(p.calculateVoteWeight(bucket, true))
 
