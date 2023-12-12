@@ -1,0 +1,15 @@
+[
+    {
+        "inputs": [
+            {
+                "internalType": "uint64",
+                "name": "bucketIndex",
+                "type": "uint64"
+            }
+        ],
+        "name": "candidateSelfStake",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    }
+]

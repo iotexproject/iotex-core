@@ -248,6 +248,9 @@ func newStakingActionFromABIBinary(data []byte) (actionPayload, error) {
 	if act, err := NewCandidateUpdateFromABIBinary(data); err == nil {
 		return act, nil
 	}
+	if act, err := NewCandidateSelfStakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
 	return nil, ErrInvalidABI
 }
 
