@@ -480,6 +480,12 @@ func (svr *gRPCHandler) EstimateActionGasConsumption(ctx context.Context, in *io
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 		act = tmpAct
+	case in.GetCandidateSelfStake() != nil:
+		tmpAct := &action.CandidateSelfStake{}
+		if err := tmpAct.LoadProto(in.GetCandidateSelfStake()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		act = tmpAct
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid argument")
 	}

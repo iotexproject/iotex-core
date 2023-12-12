@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -66,6 +67,23 @@ func (cr *CandidateSelfStake) Cost() (*big.Int, error) {
 	}
 	fee := big.NewInt(0).Mul(cr.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return fee, nil
+}
+
+// Proto converts CandidateSelfStake to protobuf's Action
+func (cr *CandidateSelfStake) Proto() *iotextypes.CandidateSelfStake {
+	return &iotextypes.CandidateSelfStake{
+		BucketIndex: cr.bucketID,
+	}
+}
+
+// LoadProto converts a protobuf's Action to CandidateSelfStake
+func (cr *CandidateSelfStake) LoadProto(pbAct *iotextypes.CandidateSelfStake) error {
+	if pbAct == nil {
+		return ErrNilProto
+	}
+
+	cr.bucketID = pbAct.GetBucketIndex()
+	return nil
 }
 
 func (cr *CandidateSelfStake) encodeABIBinary() ([]byte, error) {

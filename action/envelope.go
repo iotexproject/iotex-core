@@ -125,6 +125,8 @@ func (elp *envelope) Proto() *iotextypes.ActionCore {
 		actCore.Action = &iotextypes.ActionCore_CandidateRegister{CandidateRegister: act.Proto()}
 	case *CandidateUpdate:
 		actCore.Action = &iotextypes.ActionCore_CandidateUpdate{CandidateUpdate: act.Proto()}
+	case *CandidateSelfStake:
+		actCore.Action = &iotextypes.ActionCore_CandidateSelfStake{CandidateSelfStake: act.Proto()}
 	default:
 		log.S().Panicf("Cannot convert type of action %T.\r\n", act)
 	}
@@ -243,6 +245,12 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	case pbAct.GetCandidateUpdate() != nil:
 		act := &CandidateUpdate{}
 		if err := act.LoadProto(pbAct.GetCandidateUpdate()); err != nil {
+			return err
+		}
+		elp.payload = act
+	case pbAct.GetCandidateSelfStake() != nil:
+		act := &CandidateSelfStake{}
+		if err := act.LoadProto(pbAct.GetCandidateSelfStake()); err != nil {
 			return err
 		}
 		elp.payload = act
