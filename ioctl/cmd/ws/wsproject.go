@@ -3,8 +3,11 @@ package ws
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	_ "embed" // import ws project ABI
 	"encoding/hex"
+	"fmt"
+	"os"
 	"reflect"
 	"time"
 
@@ -12,8 +15,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	shell "github.com/ipfs/go-ipfs-api"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -44,14 +49,30 @@ var (
 
 	//go:embed wsproject.json
 	wsProjectRegisterContractJSONABI []byte
+	wsProjectIPFSEndpoint            string
+	wsProjectIPFSGatewayEndpoint     string
 )
 
-const (
-	createWsProjectFuncName  = "createProject"
-	createWsProjectEventName = "ProjectUpserted"
-	updateWsProjectFuncName  = "updateProject"
-	queryWsProjectFuncName   = "projects"
+// Errors
+var (
+	errProjectConfigHashUnmatched = errors.New("project config hash unmatched")
+	errProjectConfigReadFailed    = errors.New("failed to read project config file")
+	errUploadProjectConfigFailed  = errors.New("failed to upload project config file")
 )
+
+// Constants
+const (
+	createWsProjectFuncName    = "createProject"
+	updateWsProjectFuncName    = "updateProject"
+	queryWsProjectFuncName     = "projects"
+	wsProjectUpsertedEventName = "ProjectUpserted"
+)
+
+type projectMeta struct {
+	ProjectID  uint64 `json:"projectID"`
+	URI        string `json:"uri"`
+	HashSha256 string `json:"hashSha256"`
+}
 
 func init() {
 	var err error
@@ -65,6 +86,8 @@ func init() {
 	wsProject.AddCommand(wsProjectQuery)
 
 	wsProjectRegisterContractAddress = config.ReadConfig.WsRegisterContract
+	wsProjectIPFSEndpoint = config.ReadConfig.IPFSEndpoint
+	wsProjectIPFSGatewayEndpoint = config.ReadConfig.IPFSGateway
 }
 
 func convertStringToAbiBytes32(hash string) (interface{}, error) {
@@ -165,4 +188,45 @@ func getEventInputsByName(logs []*iotextypes.Log, eventName string) (map[string]
 	}
 
 	return inputs, nil
+}
+
+// upload content to endpoint, returns fetch url, content hash and error
+func upload(endpoint string, filename, hashstr string) (string, hash.Hash256, error) {
+	// read file content
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		err = errors.Wrap(err, errProjectConfigReadFailed.Error())
+		return "", hash.ZeroHash256, err
+	}
+
+	// calculate and validate hash
+	hash256b := sha256.Sum256(content)
+	if hashstr != "" {
+		var hashInput hash.Hash256
+		hashInput, err = hash.HexStringToHash256(hashstr)
+		if err != nil {
+			return "", hash.ZeroHash256, err
+		}
+		if hashInput != hash256b {
+			return "", hash.ZeroHash256, errProjectConfigHashUnmatched
+		}
+	}
+
+	// upload content to ipfs endpoint
+	var (
+		sh  = shell.NewShell(endpoint)
+		cid string
+	)
+	cid, err = sh.Add(bytes.NewReader(content))
+	if err != nil {
+		return "", hash.ZeroHash256, errors.Wrap(err, errUploadProjectConfigFailed.Error())
+	}
+
+	err = sh.Pin(cid)
+	if err != nil {
+		return "", hash.ZeroHash256, errors.Wrap(err, errUploadProjectConfigFailed.Error())
+	}
+
+	// generate fetch url
+	return fmt.Sprintf("%s/ipfs/%s", wsProjectIPFSGatewayEndpoint, cid), hash256b, nil
 }
