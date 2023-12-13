@@ -398,7 +398,7 @@ func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan action.Sealed
 	time.Sleep(time.Second)
 
 	log.L().Info("Begin inject!")
-	ticker := time.NewTicker(time.Duration(time.Second.Nanoseconds() / int64(rawInjectCfg.aps)))
+	ticker := time.NewTicker(time.Duration(float64(time.Second.Nanoseconds()) / rawInjectCfg.aps))
 	defer ticker.Stop()
 	for {
 		select {
@@ -612,7 +612,7 @@ var rawInjectCfg = struct {
 	retryInterval int
 	duration      time.Duration
 	resetInterval time.Duration
-	aps           int
+	aps           float64
 	workers       uint64
 	checkReceipt  bool
 	insecure      bool
@@ -643,7 +643,7 @@ func init() {
 	flag.IntVar(&rawInjectCfg.retryInterval, "retry-interval", 1, "sleep interval between two consecutive rpc retries")
 	flag.DurationVar(&rawInjectCfg.duration, "duration", 10*time.Minute, "duration when the injection will run")
 	flag.DurationVar(&rawInjectCfg.resetInterval, "reset-interval", 10*time.Second, "time interval to reset nonce counter")
-	flag.IntVar(&rawInjectCfg.aps, "aps", 200, "actions to be injected per second")
+	flag.Float64Var(&rawInjectCfg.aps, "aps", 200, "actions to be injected per second")
 	flag.IntVar(&rawInjectCfg.randAccounts, "rand-accounts", 20, "number of accounst to use")
 	flag.Uint64Var(&rawInjectCfg.workers, "workers", 10, "number of workers")
 	flag.BoolVar(&rawInjectCfg.insecure, "insecure", false, "insecure network")
