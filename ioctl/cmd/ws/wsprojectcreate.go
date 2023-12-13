@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -19,15 +20,15 @@ var (
 		Use:   "create",
 		Short: config.TranslateInLang(wsProjectCreateShorts, config.UILanguage),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			uri, err := cmd.Flags().GetString("project-uri")
+			filename, err := cmd.Flags().GetString("project-config-file")
 			if err != nil {
 				return output.PrintError(err)
 			}
-			hash, err := cmd.Flags().GetString("project-hash")
+			hash, err := cmd.Flags().GetString("project-config-hash")
 			if err != nil {
 				return output.PrintError(err)
 			}
-			out, err := createProject(uri, hash)
+			out, err := createProject(filename, hash)
 			if err != nil {
 				return output.PrintError(err)
 			}
@@ -42,36 +43,38 @@ var (
 		config.Chinese: "创建项目",
 	}
 
-	_flagProjectURIUsages = map[config.Language]string{
-		config.English: "project config fetch uri",
-		config.Chinese: "项目配置拉取地址",
+	_flagProjectConfigFileUsages = map[config.Language]string{
+		config.English: "project config file path",
+		config.Chinese: "项目配置文件路径",
 	}
-	_flagProjectHashUsages = map[config.Language]string{
-		config.English: "project config hash for validating",
-		config.Chinese: "项目配置hash",
+	_flagProjectConfigHashUsages = map[config.Language]string{
+		config.English: "project config file hash(sha256) for validating",
+		config.Chinese: "项目配置文件sha256哈希",
 	}
 )
 
 func init() {
-	wsProjectCreate.Flags().StringP("project-uri", "u", "", config.TranslateInLang(_flagProjectURIUsages, config.UILanguage))
-	wsProjectCreate.Flags().StringP("project-hash", "v", "", config.TranslateInLang(_flagProjectHashUsages, config.UILanguage))
+	wsProjectCreate.Flags().StringP("project-config-file", "u", "", config.TranslateInLang(_flagProjectConfigFileUsages, config.UILanguage))
+	wsProjectCreate.Flags().StringP("project-config-hash", "v", "", config.TranslateInLang(_flagProjectConfigHashUsages, config.UILanguage))
 
-	_ = wsProjectCreate.MarkFlagRequired("project-uri")
-	_ = wsProjectCreate.MarkFlagRequired("project-hash")
+	_ = wsProjectCreate.MarkFlagRequired("project-config-file")
 }
 
-func createProject(uri, hash string) (string, error) {
+func createProject(filename, hashstr string) (string, error) {
+	uri, hashv, err := upload(wsProjectIPFSEndpoint, filename, hashstr)
+	if err != nil {
+		return "", err
+	}
+	fmt.Printf("project config file validated and uploaded:\n"+
+		"\tipfs uri: %s\n"+
+		"\thash256:  %s\n\n\n", uri, hex.EncodeToString(hashv[:]))
+
 	contract, err := util.Address(wsProjectRegisterContractAddress)
 	if err != nil {
 		return "", output.NewError(output.AddressError, "failed to get project register contract address", err)
 	}
 
-	hashArg, err := convertStringToAbiBytes32(hash)
-	if err != nil {
-		return "", err
-	}
-
-	bytecode, err := wsProjectRegisterContractABI.Pack(createWsProjectFuncName, uri, hashArg)
+	bytecode, err := wsProjectRegisterContractABI.Pack(createWsProjectFuncName, uri, hashv)
 	if err != nil {
 		return "", output.NewError(output.ConvertError, fmt.Sprintf("failed to pack abi"), err)
 	}
@@ -94,5 +97,8 @@ func createProject(uri, hash string) (string, error) {
 	if !ok {
 		return "", errors.New("result not found in event inputs")
 	}
-	return fmt.Sprintf("Your project is successfully created. project id is : %d", projectid), nil
+	hashstr = hex.EncodeToString(hashv[:])
+	return fmt.Sprintf("Your project is successfully created. project id is : %d\n"+
+		"project config url:  %s\n"+
+		"project config hash: %s", projectid, uri, hashstr), nil
 }

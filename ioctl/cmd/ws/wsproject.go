@@ -5,6 +5,8 @@ import (
 	"context"
 	_ "embed" // import ws project ABI
 	"encoding/hex"
+	"fmt"
+	"os"
 	"reflect"
 	"time"
 
@@ -12,8 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	shell "github.com/ipfs/go-ipfs-api"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -49,8 +53,18 @@ var (
 
 	//go:embed wsproject.json
 	wsProjectRegisterContractJSONABI []byte
+	wsProjectIPFSEndpoint            string
+	wsProjectIPFSGatewayEndpoint     string
 )
 
+// Errors
+var (
+	errProjectConfigHashUnmatched = errors.New("project config hash unmatched")
+	errProjectConfigReadFailed    = errors.New("failed to read project config file")
+	errUploadProjectConfigFailed  = errors.New("failed to upload project config file")
+)
+
+// Constants
 const (
 	createWsProjectFuncName  = "createProject"
 	createWsProjectEventName = "ProjectUpserted"
@@ -77,6 +91,11 @@ func init() {
 		config.TranslateInLang(_flagProjectRegisterContractAddressUsages, config.UILanguage),
 	)
 	_ = wsProject.MarkFlagRequired("contract-address")
+
+	if wsProjectIPFSEndpoint == "" {
+		wsProjectIPFSEndpoint = "localhost:5001"
+		wsProjectIPFSGatewayEndpoint = "127.0.0.1:8080"
+	}
 }
 
 func convertStringToAbiBytes32(hash string) (interface{}, error) {
@@ -177,4 +196,50 @@ func getEventInputsByName(logs []*iotextypes.Log, eventName string) (map[string]
 	}
 
 	return inputs, nil
+}
+
+// upload content to endpoint, returns fetch url, content hash and error
+func upload(endpoint string, filename, hashstr string) (url string, hash256b *hash.Hash256, err error) {
+	// read file content
+	var content []byte
+	content, err = os.ReadFile(filename)
+	if err != nil {
+		err = errors.Wrap(err, errProjectConfigReadFailed.Error())
+		return
+	}
+
+	// calculate and validate hash
+	hash256b = new(hash.Hash256)
+	*hash256b = hash.Hash256b(content)
+	if hashstr != "" {
+		var hashInput hash.Hash256
+		hashInput, err = hash.HexStringToHash256(hashstr)
+		if err != nil {
+			return
+		}
+		if hashInput != *hash256b {
+			err = errProjectConfigHashUnmatched
+			return
+		}
+	}
+
+	// upload content to ipfs endpoint
+	var (
+		sh  = shell.NewShell(endpoint)
+		cid string
+	)
+	cid, err = sh.Add(bytes.NewReader(content))
+	if err != nil {
+		return "", nil, errors.Wrap(err, errUploadProjectConfigFailed.Error())
+	}
+
+	err = sh.Pin(cid)
+	if err != nil {
+		return "", nil, errors.Wrap(err, errUploadProjectConfigFailed.Error())
+	}
+
+	// generate fetch url
+	url = fmt.Sprintf("http://%s/ipfs/%s", wsProjectIPFSGatewayEndpoint, cid)
+
+	return
 }
