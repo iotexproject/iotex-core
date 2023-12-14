@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	_verbose bool
+	verbose bool
 )
 
 // Multi-language support
@@ -34,8 +34,8 @@ var (
 		config.Chinese: "获取IoTeX区块链中的区块",
 	}
 	_bcBlockCmdUses = map[config.Language]string{
-		config.English: "block [HEIGHT|HASH] [--_verbose]",
-		config.Chinese: "block [高度|哈希] [--_verbose]",
+		config.English: "block [HEIGHT|HASH] [--verbose]",
+		config.Chinese: "block [高度|哈希] [--verbose]",
 	}
 	_flagVerboseUsage = map[config.Language]string{
 		config.English: "returns block info and all actions within this block.",
@@ -56,7 +56,7 @@ var _bcBlockCmd = &cobra.Command{
 }
 
 func init() {
-	_bcBlockCmd.Flags().BoolVar(&_verbose, "_verbose", false, config.TranslateInLang(_flagVerboseUsage, config.UILanguage))
+	_bcBlockCmd.Flags().BoolVar(&verbose, "verbose", false, config.TranslateInLang(_flagVerboseUsage, config.UILanguage))
 }
 
 type blockMessage struct {
@@ -158,7 +158,7 @@ func getBlock(args []string) error {
 		Node:  config.ReadConfig.Endpoint,
 		Block: blockMeta,
 	}
-	if _verbose {
+	if verbose {
 		blocksInfos, err = getActionInfoWithinBlock(blockMeta.Height)
 		if err != nil {
 			return output.NewError(0, "failed to get actions info", err)
