@@ -141,7 +141,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		return log, fetchErr
 	}
 
-	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, true)
+	bucket, fetchErr := p.fetchBucketAndValidate(csm, actionCtx.Caller, act.BucketIndex(), true, true)
 	if fetchErr != nil {
 		return log, fetchErr
 	}
@@ -210,7 +210,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		return log, nil, fetchErr
 	}
 
-	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, true)
+	bucket, fetchErr := p.fetchBucketAndValidate(csm, actionCtx.Caller, act.BucketIndex(), true, true)
 	if fetchErr != nil {
 		return log, nil, fetchErr
 	}
@@ -292,7 +292,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 		return log, errCandNotExist
 	}
 
-	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, false)
+	bucket, fetchErr := p.fetchBucketAndValidate(csm, actionCtx.Caller, act.BucketIndex(), true, false)
 	if fetchErr != nil {
 		return log, fetchErr
 	}
@@ -371,7 +371,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	}
 
 	newOwner := act.VoterAddress()
-	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, false)
+	bucket, fetchErr := p.fetchBucketAndValidate(csm, actionCtx.Caller, act.BucketIndex(), true, false)
 	if fetchErr != nil {
 		if featureCtx.ReturnFetchError ||
 			fetchErr.ReceiptStatus() != uint64(iotextypes.ReceiptStatus_ErrUnauthorizedOperator) {
@@ -454,7 +454,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 		return log, nil, fetchErr
 	}
 
-	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), false, true)
+	bucket, fetchErr := p.fetchBucketAndValidate(csm, actionCtx.Caller, act.BucketIndex(), false, true)
 	if fetchErr != nil {
 		return log, nil, fetchErr
 	}
@@ -553,7 +553,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 		return log, fetchErr
 	}
 
-	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, true)
+	bucket, fetchErr := p.fetchBucketAndValidate(csm, actionCtx.Caller, act.BucketIndex(), true, true)
 	if fetchErr != nil {
 		return log, fetchErr
 	}
@@ -775,13 +775,7 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	return log, nil
 }
 
-func (p *Protocol) fetchBucket(
-	csm CandidateStateManager,
-	caller address.Address,
-	index uint64,
-	checkOwner bool,
-	allowSelfStaking bool,
-) (*VoteBucket, ReceiptError) {
+func (p *Protocol) fetchBucket(csm CandidateStateManager, index uint64) (*VoteBucket, ReceiptError) {
 	bucket, err := csm.getBucket(index)
 	if err != nil {
 		fetchErr := &handleError{
@@ -792,6 +786,20 @@ func (p *Protocol) fetchBucket(
 			fetchErr.failureStatus = iotextypes.ReceiptStatus_ErrInvalidBucketIndex
 		}
 		return nil, fetchErr
+	}
+	return bucket, nil
+}
+
+func (p *Protocol) fetchBucketAndValidate(
+	csm CandidateStateManager,
+	caller address.Address,
+	index uint64,
+	checkOwner bool,
+	allowSelfStaking bool,
+) (*VoteBucket, ReceiptError) {
+	bucket, err := p.fetchBucket(csm, index)
+	if err != nil {
+		return nil, err
 	}
 
 	// ReceiptStatus_ErrUnauthorizedOperator indicates action caller is not bucket owner
