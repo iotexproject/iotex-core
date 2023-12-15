@@ -1441,6 +1441,8 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
 	sc.SetNonce(state.PendingNonce())
+	//gasprice should be 0, otherwise it may cause the API to return an error, such as insufficient balance.
+	sc.SetGasPrice(big.NewInt(0))
 	blockGasLimit := core.bc.Genesis().BlockGasLimit
 	sc.SetGasLimit(blockGasLimit)
 	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc)
