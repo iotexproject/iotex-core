@@ -92,6 +92,7 @@ type (
 		MinStakeAmount           *big.Int
 		BootstrapCandidates      []genesis.BootstrapCandidate
 		PersistStakingPatchBlock uint64
+		UnEndorseWaitingBlocks   uint64
 	}
 
 	// DepositGas deposits gas to some pool
@@ -159,6 +160,7 @@ func NewProtocol(
 			MinStakeAmount:           minStakeAmount,
 			BootstrapCandidates:      cfg.Staking.BootstrapCandidates,
 			PersistStakingPatchBlock: cfg.PersistStakingPatchBlock,
+			UnEndorseWaitingBlocks:   cfg.Staking.UnEndorseWaitingBlocks,
 		},
 		depositGas:             depositGas,
 		candBucketsIndexer:     candBucketsIndexer,
@@ -420,6 +422,8 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
 	case *action.CandidateActivate:
 		rLog, tLogs, err = p.handleCandidateActivate(ctx, act, csm)
+	case *action.CandidateEndorsement:
+		rLog, tLogs, err = p.handleCandidateEndorsement(ctx, act, csm)
 	default:
 		return nil, nil
 	}
