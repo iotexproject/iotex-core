@@ -204,6 +204,31 @@ func TestEstimateGasForAction(t *testing.T) {
 	require.Contains(err.Error(), action.ErrNilProto.Error())
 }
 
+func TestEstimateExecutionGasConsumption(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	svr, _, _, _, cleanCallback := setupTestCoreService()
+	defer cleanCallback()
+
+	callAddr := identityset.Address(29)
+	sc, err := action.NewExecution("", 0, big.NewInt(0), 0, big.NewInt(0), []byte{})
+	require.NoError(err)
+
+	//gasprice is zero
+	sc.SetGasPrice(big.NewInt(0))
+	estimatedGas, err := svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
+	require.NoError(err)
+	require.Equal(uint64(10000), estimatedGas)
+
+	//gasprice no zero, should return error before fixed
+	sc.SetGasPrice(big.NewInt(100))
+	estimatedGas, err = svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
+	require.NoError(err)
+	require.Equal(uint64(10000), estimatedGas)
+
+}
+
 func TestTraceTransaction(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
