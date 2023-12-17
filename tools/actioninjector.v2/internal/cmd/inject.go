@@ -296,10 +296,10 @@ func parseHumanSize(s string) int64 {
 
 func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 	var (
-		gaslimit    uint64
-		payLoad     string = opMul
-		contract    string
-		bufferedTxs = make(chan action.SealedEnvelope, 1000)
+		gaslimit uint64
+		payLoad  string = opMul
+		contract string
+		// bufferedTxs = make(chan action.SealedEnvelope, 1000)
 	)
 
 	// query gasPrice
@@ -344,8 +344,9 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 		}
 	}
 	log.L().Info("info", zap.String("contract addr", contract), zap.Uint64("gas limit", gaslimit))
-	go p.txGenerate(ctx, bufferedTxs, actionType, gaslimit, gasPrice, payLoad, contract)
-	go p.InjectionV3(ctx, bufferedTxs)
+	// go p.txGenerate(ctx, bufferedTxs, actionType, gaslimit, gasPrice, payLoad, contract)
+	// go p.InjectionV3(ctx, bufferedTxs)
+	go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
 }
 
 func (p *injectProcessor) txGenerate(
@@ -411,6 +412,60 @@ func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan action.Sealed
 	}
 }
 
+func (p *injectProcessor) InjectionV4(ctx context.Context, actionType int,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	payLoad string,
+	contractAddr string) {
+	log.L().Info("Begin inject!")
+	ticker := time.NewTicker(time.Duration(float64(time.Second.Nanoseconds()) / rawInjectCfg.aps))
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			var (
+				err       error
+				delegates = p.accountManager.AccountList
+				randNum   = rnd.Intn(len(delegates))
+				sender    = delegates[randNum]
+				recipient = delegates[(randNum+1)%len(delegates)]
+				nonce     = p.accountManager.GetAndInc(sender.EncodedAddr)
+			)
+			transferPayload, err := hex.DecodeString(payLoad)
+			if err != nil {
+				log.L().Error("Failed to decode payload", zap.Error(err))
+				continue
+			}
+			resp, err := p.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: sender.EncodedAddr})
+			if err != nil {
+				log.L().Error("Failed to get account", zap.Error(err))
+				continue
+			}
+			transfer, err := action.NewTransfer(
+				resp.AccountMeta.Nonce, big.NewInt(0), recipient.EncodedAddr, transferPayload, gasLimit, gasPrice)
+			if err != nil {
+				log.L().Error("Failed to create transfer", zap.Error(err))
+				continue
+			}
+			bd := &action.EnvelopeBuilder{}
+			elp := bd.SetNonce(nonce).
+				SetChainID(rawInjectCfg.chainID).
+				SetGasPrice(gasPrice).
+				SetGasLimit(gasLimit).
+				SetAction(transfer).Build()
+			selp, err := action.Sign(elp, sender.PriKey)
+			if err != nil {
+				log.L().Error("Failed to sign transfer", zap.Error(err))
+				continue
+			}
+
+			go p.injectV3(selp)
+		}
+	}
+}
+
 // func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 // 	defer workers.Done()
 // 	for range ticks {
@@ -472,14 +527,10 @@ var (
 )
 
 func (p *injectProcessor) injectV3(selp action.SealedEnvelope) {
-
 	actHash, _ := selp.Hash()
 	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(rawInjectCfg.retryInterval)*time.Second), rawInjectCfg.retryNum)
 	rerr := backoff.Retry(func() error {
 		_, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
-		if err != nil {
-			log.L().Error("Failed to inject.", zap.Error(err))
-		}
 		return err
 	}, bo)
 	if rerr != nil {
