@@ -275,6 +275,7 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 		payLoad     string
 		contract    string
 		bufferedTxs = make(chan action.SealedEnvelope, 1000)
+		full        = make(chan error, 100)
 	)
 
 	// query gasPrice
@@ -309,13 +310,14 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 		}
 	}
 	log.L().Info("info", zap.String("contract addr", contract), zap.Uint64("gas limit", gaslimit))
-	go p.txGenerate(ctx, bufferedTxs, actionType, gaslimit, gasPrice, payLoad, contract)
-	go p.InjectionV3(ctx, bufferedTxs)
+	go p.txGenerate(ctx, bufferedTxs, full, actionType, gaslimit, gasPrice, payLoad, contract)
+	go p.InjectionV3(ctx, bufferedTxs, full)
 }
 
 func (p *injectProcessor) txGenerate(
 	ctx context.Context,
 	ch chan action.SealedEnvelope,
+	full chan error,
 	actionType int,
 	gasLimit uint64,
 	gasPrice *big.Int,
@@ -327,6 +329,11 @@ func (p *injectProcessor) txGenerate(
 		select {
 		case ch <- tx:
 			continue
+		case <-full:
+			// time.Sleep(time.Second)
+			// nonce := chain.GetNonce() = 41
+			// accountManager keeps track of latest send out nonce = 100
+			// generate action (nonce =41), send out
 		case <-ctx.Done():
 			return
 		}
@@ -354,10 +361,10 @@ func (p *injectProcessor) estimateGasLimitForExecution(actionType int, contractA
 	return gas.GetGas(), nil
 }
 
-func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan action.SealedEnvelope) {
+func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan action.SealedEnvelope, full chan error) {
 	log.L().Info("Initalize the first tx")
 	for i := 0; i < len(p.accountManager.AccountList); i++ {
-		p.injectV3(<-ch)
+		p.injectV3(<-ch, full)
 		time.Sleep(200 * time.Millisecond)
 	}
 
@@ -370,7 +377,7 @@ func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan action.Sealed
 			return
 		case <-ticker.C:
 			// log.L().Info("buffer", zap.Int("size", len(ch)))
-			go p.injectV3(<-ch)
+			go p.injectV3(<-ch, full)
 		}
 	}
 }
@@ -435,7 +442,7 @@ var (
 	_injectedActs uint64 = 0
 )
 
-func (p *injectProcessor) injectV3(selp action.SealedEnvelope) {
+func (p *injectProcessor) injectV3(selp action.SealedEnvelope, e chan error) {
 
 	actHash, _ := selp.Hash()
 	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(rawInjectCfg.retryInterval)*time.Second), rawInjectCfg.retryNum)
@@ -443,6 +450,10 @@ func (p *injectProcessor) injectV3(selp action.SealedEnvelope) {
 		_, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
 		if err != nil {
 			log.L().Error("Failed to inject.", zap.Error(err))
+		}
+		cause := errors.Cause(err)
+		if cause == action.ErrGasLimit {
+			e <- cause
 		}
 		return err
 	}, bo)

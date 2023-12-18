@@ -11,10 +11,10 @@ import (
 var (
 	// DefaultConfig is the default config for actpool
 	DefaultConfig = Config{
-		MaxNumActsPerPool:  32000,
-		MaxGasLimitPerPool: 320000000,
+		MaxNumActsPerPool:  80000,
+		MaxGasLimitPerPool: 1280000000,
 		MaxNumActsPerAcct:  2000,
-		ActionExpiry:       10 * time.Minute,
+		ActionExpiry:       5 * time.Minute,
 		MinGasPriceStr:     big.NewInt(unit.Qev).String(),
 		BlackList:          []string{},
 	}
