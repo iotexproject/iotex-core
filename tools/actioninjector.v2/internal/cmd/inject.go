@@ -417,52 +417,46 @@ func (p *injectProcessor) InjectionV4(ctx context.Context, actionType int,
 	payLoad string,
 	contractAddr string) {
 	log.L().Info("Begin inject!")
-	ticker := time.NewTicker(time.Duration(float64(time.Second.Nanoseconds()) / rawInjectCfg.aps))
-	defer ticker.Stop()
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			var (
-				err       error
-				delegates = p.accountManager.AccountList
-				randNum   = rnd.Intn(len(delegates))
-				sender    = delegates[randNum]
-				recipient = delegates[(randNum+1)%len(delegates)]
-				// nonce     = p.accountManager.GetAndInc(sender.EncodedAddr)
-			)
-			transferPayload, err := hex.DecodeString(payLoad)
-			if err != nil {
-				log.L().Error("Failed to decode payload", zap.Error(err))
-				continue
-			}
-			resp, err := p.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: sender.EncodedAddr})
-			if err != nil {
-				log.L().Error("Failed to get account", zap.Error(err))
-				continue
-			}
-			transfer, err := action.NewTransfer(
-				resp.AccountMeta.PendingNonce, big.NewInt(0), recipient.EncodedAddr, transferPayload, gasLimit, gasPrice)
-			if err != nil {
-				log.L().Error("Failed to create transfer", zap.Error(err))
-				continue
-			}
-			bd := &action.EnvelopeBuilder{}
-			elp := bd.SetNonce(resp.AccountMeta.PendingNonce).
-				SetChainID(rawInjectCfg.chainID).
-				SetGasPrice(gasPrice).
-				SetGasLimit(gasLimit).
-				SetAction(transfer).Build()
-			selp, err := action.Sign(elp, sender.PriKey)
-			if err != nil {
-				log.L().Error("Failed to sign transfer", zap.Error(err))
-				continue
-			}
-
-			go p.injectV3(selp)
+		var (
+			err       error
+			delegates = p.accountManager.AccountList
+			randNum   = rnd.Intn(len(delegates))
+			sender    = delegates[randNum]
+			recipient = delegates[(randNum+1)%len(delegates)]
+			// nonce     = p.accountManager.GetAndInc(sender.EncodedAddr)
+		)
+		transferPayload, err := hex.DecodeString(payLoad)
+		if err != nil {
+			log.L().Error("Failed to decode payload", zap.Error(err))
+			continue
 		}
+		resp, err := p.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: sender.EncodedAddr})
+		if err != nil {
+			log.L().Error("Failed to get account", zap.Error(err))
+			continue
+		}
+		transfer, err := action.NewTransfer(
+			resp.AccountMeta.PendingNonce, big.NewInt(0), recipient.EncodedAddr, transferPayload, gasLimit, gasPrice)
+		if err != nil {
+			log.L().Error("Failed to create transfer", zap.Error(err))
+			continue
+		}
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetNonce(resp.AccountMeta.PendingNonce).
+			SetChainID(rawInjectCfg.chainID).
+			SetGasPrice(gasPrice).
+			SetGasLimit(gasLimit).
+			SetAction(transfer).Build()
+		selp, err := action.Sign(elp, sender.PriKey)
+		if err != nil {
+			log.L().Error("Failed to sign transfer", zap.Error(err))
+			continue
+		}
+
+		go p.injectV3(selp)
 	}
+
 }
 
 // func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
