@@ -111,16 +111,16 @@ func newInjectionProcessor() (*injectProcessor, error) {
 			return p, err
 		}
 	}
-	if err := p.syncNonces(context.Background()); err != nil {
-		return nil, err
-	}
+	// if err := p.syncNonces(context.Background()); err != nil {
+	// 	return nil, err
+	// }
 	return p, nil
 }
 
 func (p *injectProcessor) randAccounts(num int) error {
 	addrKeys := make([]*util.AddressKey, 0, num)
 	for i := 0; i < num; i++ {
-		s := hash.Hash256b([]byte{byte(i)})
+		s := hash.Hash256b([]byte{byte(i), byte(100)})
 		private, err := crypto.BytesToPrivateKey(s[:])
 		if err != nil {
 			return err
@@ -295,10 +295,10 @@ func parseHumanSize(s string) int64 {
 
 func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 	var (
-		gaslimit uint64
-		payLoad  string = opMul
-		contract string
-		// bufferedTxs = make(chan action.SealedEnvelope, 1000)
+		gaslimit    uint64
+		payLoad     string = opMul
+		contract    string
+		bufferedTxs = make(chan action.SealedEnvelope, 1000)
 	)
 
 	// query gasPrice
@@ -343,9 +343,9 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 		}
 	}
 	log.L().Info("info", zap.String("contract addr", contract), zap.Uint64("gas limit", gaslimit))
-	// go p.txGenerate(ctx, bufferedTxs, actionType, gaslimit, gasPrice, payLoad, contract)
-	// go p.InjectionV3(ctx, bufferedTxs)
-	go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
+	go p.txGenerate(ctx, bufferedTxs, actionType, gaslimit, gasPrice, payLoad, contract)
+	go p.InjectionV3(ctx, bufferedTxs)
+	// go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
 }
 
 func (p *injectProcessor) txGenerate(
@@ -393,9 +393,8 @@ func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan action.Sealed
 	log.L().Info("Initalize the first tx")
 	for i := 0; i < len(p.accountManager.AccountList); i++ {
 		p.injectV3(<-ch)
-		time.Sleep(500 * time.Millisecond)
+		// time.Sleep(500 * time.Millisecond)
 	}
-	time.Sleep(time.Second)
 
 	log.L().Info("Begin inject!")
 	ticker := time.NewTicker(time.Duration(float64(time.Second.Nanoseconds()) / rawInjectCfg.aps))
@@ -529,7 +528,13 @@ func (p *injectProcessor) injectV3(selp action.SealedEnvelope) {
 	actHash, _ := selp.Hash()
 	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(rawInjectCfg.retryInterval)*time.Second), rawInjectCfg.retryNum)
 	rerr := backoff.Retry(func() error {
-		_, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
+		resp, err := p.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: selp.SrcPubkey().Address().String()})
+		if err != nil {
+			log.L().Error("Failed to get account", zap.Error(err))
+			return err
+		}
+		selp.SetNonce(resp.AccountMeta.Nonce)
+		_, err = p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
 		return err
 	}, bo)
 	if rerr != nil {
