@@ -430,7 +430,7 @@ func (p *injectProcessor) InjectionV4(ctx context.Context, actionType int,
 				randNum   = rnd.Intn(len(delegates))
 				sender    = delegates[randNum]
 				recipient = delegates[(randNum+1)%len(delegates)]
-				nonce     = p.accountManager.GetAndInc(sender.EncodedAddr)
+				// nonce     = p.accountManager.GetAndInc(sender.EncodedAddr)
 			)
 			transferPayload, err := hex.DecodeString(payLoad)
 			if err != nil {
@@ -449,7 +449,7 @@ func (p *injectProcessor) InjectionV4(ctx context.Context, actionType int,
 				continue
 			}
 			bd := &action.EnvelopeBuilder{}
-			elp := bd.SetNonce(nonce).
+			elp := bd.SetNonce(resp.AccountMeta.PendingNonce).
 				SetChainID(rawInjectCfg.chainID).
 				SetGasPrice(gasPrice).
 				SetGasLimit(gasLimit).
