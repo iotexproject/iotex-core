@@ -65,6 +65,11 @@ type (
 		sender     string
 		recepient  string
 	}
+
+	feedback struct {
+		sender string
+		err    error
+	}
 )
 
 var (
@@ -111,9 +116,9 @@ func newInjectionProcessor() (*injectProcessor, error) {
 			return p, err
 		}
 	}
-	// if err := p.syncNonces(context.Background()); err != nil {
-	// 	return nil, err
-	// }
+	if err := p.syncNonces(context.Background()); err != nil {
+		return nil, err
+	}
 	return p, nil
 }
 
@@ -295,10 +300,11 @@ func parseHumanSize(s string) int64 {
 
 func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 	var (
-		gaslimit uint64
-		payLoad  string = opMul
-		contract string
-		// bufferedTxs = make(chan action.SealedEnvelope, 1000)
+		gaslimit    uint64
+		payLoad     string = opMul
+		contract    string
+		bufferedTxs = make(chan action.SealedEnvelope, 1000)
+		feedbackCh  = make(chan feedback, 3)
 	)
 
 	// query gasPrice
@@ -343,37 +349,69 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 		}
 	}
 	log.L().Info("info", zap.String("contract addr", contract), zap.Uint64("gas limit", gaslimit))
-	// go p.txGenerate(ctx, bufferedTxs, actionType, gaslimit, gasPrice, payLoad, contract)
-	// go p.InjectionV3(ctx, bufferedTxs)
-	go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
-	go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
-	go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
-	go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
-	go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
-	go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
+	go p.txGenerate(ctx, bufferedTxs, feedbackCh, actionType, gaslimit, gasPrice, payLoad, contract)
+	go p.InjectionV3(ctx, bufferedTxs, feedbackCh)
+	// go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
 }
 
 func (p *injectProcessor) txGenerate(
 	ctx context.Context,
 	ch chan action.SealedEnvelope,
+	feedbackCh chan feedback,
 	actionType int,
 	gasLimit uint64,
 	gasPrice *big.Int,
 	payLoad string,
 	contractAddr string,
 ) {
+	canSend := make(chan bool, 1)
+	canSend <- true // 初始状态可以发送 tx
+	go func() {
+		for feedback := range feedbackCh {
+			if feedback.err == action.ErrGasLimit {
+				<-canSend // 从 canSend 接收数据，以确保主循环暂停发送 tx
+				time.Sleep(500 * time.Microsecond)
+			}
+			p.resetAccountNonce(ctx, feedback.sender)
+			select {
+			case canSend <- true: // 使用 select 语句，避免阻塞
+			default:
+			}
+		}
+	}()
 	for {
-		tx, _ := util.ActionGenerator(actionType, p.accountManager, rawInjectCfg.chainID, gasLimit, gasPrice, contractAddr, payLoad)
-		select {
-		case ch <- tx:
+		tx, err := util.ActionGenerator(actionType, p.accountManager, rawInjectCfg.chainID, gasLimit, gasPrice, contractAddr, payLoad)
+		if err != nil {
+			log.L().Error("no act", zap.Error(err))
 			continue
+		}
+		select {
+		case <-canSend:
+			ch <- tx
+			select {
+			case canSend <- true:
+			default:
+			}
 		case <-ctx.Done():
 			return
 		}
 	}
 
 }
-
+func (p *injectProcessor) resetAccountNonce(ctx context.Context, addr string) {
+	err := backoff.Retry(func() error {
+		resp, err := p.api.GetAccount(ctx, &iotexapi.GetAccountRequest{Address: addr})
+		if err != nil {
+			return err
+		}
+		p.accountManager.Set(addr, resp.GetAccountMeta().GetPendingNonce())
+		return nil
+	}, backoff.NewExponentialBackOff())
+	if err != nil {
+		log.L().Error("Failed to reset nonce.", zap.Error(err), zap.String("addr", addr))
+	}
+	time.Sleep(100 * time.Millisecond)
+}
 func (p *injectProcessor) estimateGasLimitForExecution(actionType int, contractAddr string, gasPrice *big.Int, data string) (uint64, error) {
 	var (
 		acc = p.accountManager.AccountList[rnd.Intn(len(p.accountManager.AccountList))]
@@ -394,16 +432,17 @@ func (p *injectProcessor) estimateGasLimitForExecution(actionType int, contractA
 	return gas.GetGas(), nil
 }
 
-func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan action.SealedEnvelope) {
+func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan action.SealedEnvelope,
+	feedbackCh chan feedback) {
 	log.L().Info("Initalize the first tx")
 	for i := 0; i < len(p.accountManager.AccountList); i++ {
-		p.injectV3(<-ch)
+		p.injectV3(<-ch, feedbackCh)
 		time.Sleep(500 * time.Millisecond)
 	}
 	time.Sleep(time.Second)
 
 	log.L().Info("Begin inject!")
-	ticker := time.NewTicker(time.Duration(float64(time.Second.Nanoseconds()) / rawInjectCfg.aps))
+	ticker := time.NewTicker(time.Duration(time.Second.Nanoseconds() / int64(rawInjectCfg.aps)))
 	defer ticker.Stop()
 	for {
 		select {
@@ -411,57 +450,9 @@ func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan action.Sealed
 			return
 		case <-ticker.C:
 			// log.L().Info("buffer", zap.Int("size", len(ch)))
-			go p.injectV3(<-ch)
+			go p.injectV3(<-ch, feedbackCh)
 		}
 	}
-}
-
-func (p *injectProcessor) InjectionV4(ctx context.Context, actionType int,
-	gasLimit uint64,
-	gasPrice *big.Int,
-	payLoad string,
-	contractAddr string) {
-	log.L().Info("Begin inject!")
-	for {
-		var (
-			err       error
-			delegates = p.accountManager.AccountList
-			randNum   = rnd.Intn(len(delegates))
-			sender    = delegates[randNum]
-			recipient = delegates[(randNum+1)%len(delegates)]
-			// nonce     = p.accountManager.GetAndInc(sender.EncodedAddr)
-		)
-		transferPayload, err := hex.DecodeString(payLoad)
-		if err != nil {
-			log.L().Error("Failed to decode payload", zap.Error(err))
-			continue
-		}
-		resp, err := p.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: sender.EncodedAddr})
-		if err != nil {
-			log.L().Error("Failed to get account", zap.Error(err))
-			continue
-		}
-		transfer, err := action.NewTransfer(
-			resp.AccountMeta.PendingNonce, big.NewInt(0), recipient.EncodedAddr, transferPayload, gasLimit, gasPrice)
-		if err != nil {
-			log.L().Error("Failed to create transfer", zap.Error(err))
-			continue
-		}
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetNonce(resp.AccountMeta.PendingNonce).
-			SetChainID(rawInjectCfg.chainID).
-			SetGasPrice(gasPrice).
-			SetGasLimit(gasLimit).
-			SetAction(transfer).Build()
-		selp, err := action.Sign(elp, sender.PriKey)
-		if err != nil {
-			log.L().Error("Failed to sign transfer", zap.Error(err))
-			continue
-		}
-
-		go p.injectV3(selp)
-	}
-
 }
 
 // func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
@@ -524,18 +515,30 @@ var (
 	_injectedActs uint64 = 0
 )
 
-func (p *injectProcessor) injectV3(selp action.SealedEnvelope) {
-	actHash, _ := selp.Hash()
+func (p *injectProcessor) injectV3(selp action.SealedEnvelope, feedbackCh chan feedback) {
+	//actHash, _ := selp.Hash()
 	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(rawInjectCfg.retryInterval)*time.Second), rawInjectCfg.retryNum)
 	rerr := backoff.Retry(func() error {
 		_, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
+		if err != nil {
+			if strings.Contains(err.Error(), action.ErrExistedInPool.Error()) {
+				return nil
+			} else if strings.Contains(err.Error(), action.ErrNonceTooLow.Error()) {
+				feedbackCh <- feedback{sender: selp.SrcPubkey().Address().String(), err: action.ErrNonceTooLow}
+			} else if strings.Contains(err.Error(), action.ErrNonceTooHigh.Error()) {
+				feedbackCh <- feedback{sender: selp.SrcPubkey().Address().String(), err: action.ErrNonceTooHigh}
+			} else if strings.Contains(err.Error(), action.ErrGasLimit.Error()) {
+				feedbackCh <- feedback{sender: selp.SrcPubkey().Address().String(), err: action.ErrGasLimit}
+			}
+		}
+
 		return err
 	}, bo)
 	if rerr != nil {
 		log.L().Error("Failed to inject.", zap.Error(rerr))
 	}
 	atomic.AddUint64(&_injectedActs, 1)
-	log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])), zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)))
+	//log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])), zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)))
 }
 
 // func (p *injectProcessor) pickAction() (iotex.SendActionCaller, error) {
@@ -661,7 +664,7 @@ var rawInjectCfg = struct {
 	retryInterval int
 	duration      time.Duration
 	resetInterval time.Duration
-	aps           float64
+	aps           int
 	workers       uint64
 	checkReceipt  bool
 	insecure      bool
@@ -692,7 +695,7 @@ func init() {
 	flag.IntVar(&rawInjectCfg.retryInterval, "retry-interval", 1, "sleep interval between two consecutive rpc retries")
 	flag.DurationVar(&rawInjectCfg.duration, "duration", 10*time.Minute, "duration when the injection will run")
 	flag.DurationVar(&rawInjectCfg.resetInterval, "reset-interval", 10*time.Second, "time interval to reset nonce counter")
-	flag.Float64Var(&rawInjectCfg.aps, "aps", 200, "actions to be injected per second")
+	flag.IntVar(&rawInjectCfg.aps, "aps", 200, "actions to be injected per second")
 	flag.IntVar(&rawInjectCfg.randAccounts, "rand-accounts", 20, "number of accounst to use")
 	flag.Uint64Var(&rawInjectCfg.workers, "workers", 10, "number of workers")
 	flag.BoolVar(&rawInjectCfg.insecure, "insecure", false, "insecure network")
