@@ -443,7 +443,7 @@ func (p *injectProcessor) InjectionV4(ctx context.Context, actionType int,
 				continue
 			}
 			transfer, err := action.NewTransfer(
-				resp.AccountMeta.Nonce, big.NewInt(0), recipient.EncodedAddr, transferPayload, gasLimit, gasPrice)
+				resp.AccountMeta.PendingNonce, big.NewInt(0), recipient.EncodedAddr, transferPayload, gasLimit, gasPrice)
 			if err != nil {
 				log.L().Error("Failed to create transfer", zap.Error(err))
 				continue
