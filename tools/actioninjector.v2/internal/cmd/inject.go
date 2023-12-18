@@ -8,7 +8,6 @@ package cmd
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
 	"math/big"
@@ -310,18 +309,18 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 	if actionType == actionTypeTransfer {
 		gaslimit = 2000000
 		gasPrice = big.NewInt(1000000000000)
-		payLoad = ""
-		if rawInjectCfg.transferPayloadSize != "0" {
-			payloadSz := parseHumanSize(rawInjectCfg.transferPayloadSize)
-			if payloadSz > 0 {
-				randomBytes := make([]byte, payloadSz)
-				_, err := rand.Read(randomBytes)
-				if err != nil {
-					panic(err)
-				}
-				payLoad = hex.EncodeToString(randomBytes)
-			}
-		}
+		payLoad = "646174613a6170706c69636174696f6e2f6a736f6e2c7b2270223a22696f2d3230222c226f70223a226d696e74222c227469636b223a2274657374222c22616d74223a2231303030222c226e6f6e6365223a2231373032383430353336313932227d"
+		// if rawInjectCfg.transferPayloadSize != "0" {
+		// 	payloadSz := parseHumanSize(rawInjectCfg.transferPayloadSize)
+		// 	if payloadSz > 0 {
+		// 		randomBytes := make([]byte, payloadSz)
+		// 		_, err := rand.Read(randomBytes)
+		// 		if err != nil {
+		// 			panic(err)
+		// 		}
+		// 		payLoad = hex.EncodeToString(randomBytes)
+		// 	}
+		// }
 		log.L().Info("transfer meta", zap.Uint64("gasLimit", gaslimit), zap.String("gasPrice", gasPrice.String()), zap.Int("payloadSize", len(payLoad)))
 		time.Sleep(3 * time.Second)
 	} else {
