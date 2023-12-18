@@ -346,6 +346,11 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 	// go p.txGenerate(ctx, bufferedTxs, actionType, gaslimit, gasPrice, payLoad, contract)
 	// go p.InjectionV3(ctx, bufferedTxs)
 	go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
+	go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
+	go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
+	go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
+	go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
+	go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
 }
 
 func (p *injectProcessor) txGenerate(
