@@ -38,11 +38,6 @@ var (
 		config.English: "query message status from w3bstream",
 		config.Chinese: "向w3bstream查询消息状态",
 	}
-
-	_flagMessageIDUsages = map[config.Language]string{
-		config.English: "message id",
-		config.Chinese: "消息ID",
-	}
 )
 
 func init() {

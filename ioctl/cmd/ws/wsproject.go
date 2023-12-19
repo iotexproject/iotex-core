@@ -66,10 +66,14 @@ var (
 
 // Constants
 const (
-	createWsProjectFuncName  = "createProject"
-	createWsProjectEventName = "ProjectUpserted"
-	updateWsProjectFuncName  = "updateProject"
-	queryWsProjectFuncName   = "projects"
+	createWsProjectEventName   = "ProjectUpserted"
+	createWsProjectFuncName    = "createProject"
+	startWsProjectFuncName     = "unpauseProject"
+	stopWsProjectFuncName      = "pauseProject"
+	updateWsProjectFuncName    = "updateProject"
+	queryWsProjectFuncName     = "projects"
+	addProjectOperatorFuncName = "addOperator"
+	delProjectOperatorFuncName = "removeOperator"
 )
 
 func init() {
@@ -82,6 +86,10 @@ func init() {
 	wsProject.AddCommand(wsProjectCreate)
 	wsProject.AddCommand(wsProjectUpdate)
 	wsProject.AddCommand(wsProjectQuery)
+	wsProject.AddCommand(wsProjectStart)
+	wsProject.AddCommand(wsProjectStop)
+	wsProject.AddCommand(wsProjectAddOperator)
+	wsProject.AddCommand(wsProjectDelOperator)
 
 	wsProject.PersistentFlags().StringVarP(
 		&wsProjectRegisterContractAddress,
