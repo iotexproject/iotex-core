@@ -25,12 +25,14 @@ type (
 		ap            *actPool
 		mu            sync.RWMutex
 		accountActs   map[string]ActQueue
+		accountQueue  []ActQueue
 		emptyAccounts *ttl.Cache
 	}
 
 	workerJob struct {
 		ctx context.Context
 		act action.SealedEnvelope
+		rep bool
 		err chan error
 	}
 
@@ -46,6 +48,7 @@ func newQueueWorker(ap *actPool, jobQueue chan workerJob) *queueWorker {
 		queue:         jobQueue,
 		ap:            ap,
 		accountActs:   make(map[string]ActQueue),
+		accountQueue:  []ActQueue{},
 		emptyAccounts: acc,
 	}
 }
@@ -85,6 +88,7 @@ func (worker *queueWorker) Handle(job workerJob) error {
 		sender          = act.SenderAddress().String()
 		actHash, _      = act.Hash()
 		intrinsicGas, _ = act.IntrinsicGas()
+		replace         = job.rep
 	)
 	defer span.End()
 
@@ -96,7 +100,6 @@ func (worker *queueWorker) Handle(job workerJob) error {
 	if err := worker.checkSelpWithState(&act, nonce, balance); err != nil {
 		return err
 	}
-
 	if err := worker.putAction(sender, act, nonce, balance); err != nil {
 		return err
 	}
@@ -110,6 +113,16 @@ func (worker *queueWorker) Handle(job workerJob) error {
 	}
 
 	atomic.AddUint64(&worker.ap.gasInPool, intrinsicGas)
+
+	if replace {
+		acct2Replace := worker.accountToPop()
+		if acct2Replace == nil {
+			return errors.New("nothing to replace")
+		}
+		actToReplace := acct2Replace.PopActionWithLargestNonce()
+
+		worker.ap.removeInvalidActs([]action.SealedEnvelope{*actToReplace})
+	}
 
 	worker.mu.Lock()
 	defer worker.mu.Unlock()
@@ -166,13 +179,20 @@ func (worker *queueWorker) checkSelpWithState(act *action.SealedEnvelope, pendin
 	return nil
 }
 
+func (worker *queueWorker) accountToPop() ActQueue {
+	worker.mu.RLock()
+	defer worker.mu.RUnlock()
+	return nil
+}
+
 func (worker *queueWorker) putAction(sender string, act action.SealedEnvelope, pendingNonce uint64, confirmedBalance *big.Int) error {
 	worker.mu.RLock()
 	queue := worker.accountActs[sender]
 	worker.mu.RUnlock()
 
 	if queue == nil {
-		queue = NewActQueue(worker.ap,
+		queue = NewActQueue(
+			worker.ap,
 			sender,
 			pendingNonce,
 			confirmedBalance,

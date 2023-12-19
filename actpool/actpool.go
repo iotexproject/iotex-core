@@ -231,18 +231,20 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 		return err
 	}
 
-	// Reject action if pool space is full
-	if uint64(ap.allActions.Count()) >= ap.cfg.MaxNumActsPerPool {
-		_actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
+	intrinsicGas, err := act.IntrinsicGas()
+	if err != nil {
+		return err
+	}
+	if intrinsicGas > ap.cfg.MaxGasLimitPerPool {
 		return action.ErrTxPoolOverflow
 	}
 
-	if intrinsicGas, _ := act.IntrinsicGas(); atomic.LoadUint64(&ap.gasInPool)+intrinsicGas > ap.cfg.MaxGasLimitPerPool {
-		_actpoolMtc.WithLabelValues("overMaxGasLimitPerPool").Inc()
-		return action.ErrGasLimit
-	}
-
-	return ap.enqueue(ctx, act)
+	return ap.enqueue(
+		ctx,
+		act,
+		atomic.LoadUint64(&ap.gasInPool) > ap.cfg.MaxGasLimitPerPool-intrinsicGas ||
+			uint64(ap.allActions.Count()) >= ap.cfg.MaxNumActsPerPool,
+	)
 }
 
 func checkSelpData(act *action.SealedEnvelope) error {
@@ -422,9 +424,14 @@ func (ap *actPool) context(ctx context.Context) context.Context {
 	return genesis.WithGenesisContext(ctx, ap.g)
 }
 
-func (ap *actPool) enqueue(ctx context.Context, act action.SealedEnvelope) error {
+func (ap *actPool) enqueue(ctx context.Context, act action.SealedEnvelope, replace bool) error {
 	var errChan = make(chan error) // unused errChan will be garbage-collected
-	ap.jobQueue[ap.allocatedWorker(act.SenderAddress())] <- workerJob{ctx, act, errChan}
+	ap.jobQueue[ap.allocatedWorker(act.SenderAddress())] <- workerJob{
+		ctx,
+		act,
+		replace,
+		errChan,
+	}
 
 	for {
 		select {
