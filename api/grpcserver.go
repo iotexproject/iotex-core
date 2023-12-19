@@ -65,8 +65,9 @@ var (
 		PermitWithoutStream: true,            // Allow pings even when there are no active streams
 	}
 	kasp = keepalive.ServerParameters{
-		Time:    60 * time.Second, // Ping the client if it is idle for 60 seconds to ensure the connection is still active
-		Timeout: 10 * time.Second, // Wait 10 seconds for the ping ack before assuming the connection is dead
+		Time:              60 * time.Second, // Ping the client if it is idle for 60 seconds to ensure the connection is still active
+		Timeout:           10 * time.Second, // Wait 10 seconds for the ping ack before assuming the connection is dead
+		MaxConnectionIdle: 5 * time.Minute,  // If a client is idle for 5 minutes, send a GOAWAY
 	}
 )
 
