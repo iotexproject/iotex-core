@@ -553,6 +553,17 @@ func TestGetTransactionByHash(t *testing.T) {
 	rlt, ok := ret.(*getTransactionResult)
 	require.True(ok)
 	require.Equal(receipt, rlt.receipt)
+
+	// get pending transaction
+	core.EXPECT().ActionByActionHash(gomock.Any()).Return(action.SealedEnvelope{}, hash.ZeroHash256, uint64(0), uint32(0), ErrNotFound)
+	core.EXPECT().PendingActionByActionHash(gomock.Any()).Return(selp, nil)
+	core.EXPECT().EVMNetworkID().Return(uint32(0))
+	ret, err = web3svr.getTransactionByHash(&in)
+	require.NoError(err)
+	rlt, ok = ret.(*getTransactionResult)
+	require.True(ok)
+	require.Equal(hash.ZeroHash256, rlt.blockHash)
+	require.Nil(rlt.receipt)
 }
 
 func TestGetLogs(t *testing.T) {
