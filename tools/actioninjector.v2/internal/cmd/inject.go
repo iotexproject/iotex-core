@@ -365,28 +365,29 @@ func (p *injectProcessor) txGenerate(
 	contractAddr string,
 ) {
 	canSend := make(chan bool, 1)
-	canSend <- true // 初始状态可以发送 tx
+	canSend <- true
 	go func() {
 		for feedback := range feedbackCh {
+			<-canSend
+			log.L().Warn("failed to inject, sending willbe delayed.", zap.String("sender", feedback.sender), zap.Error(feedback.err))
 			if feedback.err == action.ErrGasLimit {
-				<-canSend // 从 canSend 接收数据，以确保主循环暂停发送 tx
 				time.Sleep(500 * time.Microsecond)
 			}
 			p.resetAccountNonce(ctx, feedback.sender)
 			select {
-			case canSend <- true: // 使用 select 语句，避免阻塞
+			case canSend <- true:
 			default:
 			}
 		}
 	}()
 	for {
-		tx, err := util.ActionGenerator(actionType, p.accountManager, rawInjectCfg.chainID, gasLimit, gasPrice, contractAddr, payLoad)
-		if err != nil {
-			log.L().Error("no act", zap.Error(err))
-			continue
-		}
 		select {
 		case <-canSend:
+			tx, err := util.ActionGenerator(actionType, p.accountManager, rawInjectCfg.chainID, gasLimit, gasPrice, contractAddr, payLoad)
+			if err != nil {
+				log.L().Error("no act", zap.Error(err))
+				continue
+			}
 			ch <- tx
 			select {
 			case canSend <- true:
