@@ -7,6 +7,7 @@ package factory
 
 import (
 	"context"
+	"math"
 	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -495,7 +496,18 @@ func (ws *workingSet) pickAndRunActions(
 			if !ok {
 				break
 			}
-			if nextAction.GasLimit() > blkCtx.GasLimit {
+
+			// IntrinsicGas is used for all non-execution actions, and GasLimit is used for execution actions
+			var gaslimit uint64 = math.MaxUint64
+			if _, ok := nextAction.Action().(*action.Execution); ok {
+				gaslimit = nextAction.GasLimit()
+			} else {
+				gaslimit, err = nextAction.IntrinsicGas()
+				if err != nil {
+					return nil, errors.New("failed to get intrinsicGas")
+				}
+			}
+			if gaslimit > blkCtx.GasLimit {
 				actionIterator.PopAccount()
 				continue
 			}
