@@ -107,7 +107,7 @@ func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp 
 		return nil, err
 	}
 	to := ethTx.To().String()
-	if receipt == nil {
+	if receipt != nil {
 		pTo, _, err := getRecipientAndContractAddrFromAction(selp, receipt)
 		if err != nil {
 			return nil, err
