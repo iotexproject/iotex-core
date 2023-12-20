@@ -47,6 +47,7 @@ func (ap *accountPool) Account(addr string) ActQueue {
 func (ap *accountPool) PopAccount(addr string) ActQueue {
 	if account, ok := ap.accounts[addr]; ok {
 		heap.Remove(&ap.priorityQueue, account.index)
+		delete(ap.accounts, addr)
 		return account.actQueue
 	}
 
