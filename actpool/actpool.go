@@ -40,6 +40,7 @@ var (
 		Name: "iotex_actpool_rejection_metrics",
 		Help: "actpool metrics.",
 	}, []string{"type"})
+	ErrGasTooHigh = errors.New("action gas is too high")
 )
 
 func init() {
@@ -236,7 +237,7 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 		return err
 	}
 	if intrinsicGas > ap.cfg.MaxGasLimitPerPool {
-		return action.ErrTxPoolOverflow
+		return ErrGasTooHigh
 	}
 
 	return ap.enqueue(

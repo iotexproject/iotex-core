@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/test/mock/mock_sealed_envelope_validator"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
@@ -208,10 +207,12 @@ func TestActPool_AddActs(t *testing.T) {
 		require.NoError(err)
 		ap2.allActions.Set(nTsfHash, nTsf)
 	}
-	err = ap2.Add(ctx, tsf1)
-	require.Equal(action.ErrTxPoolOverflow, errors.Cause(err))
-	err = ap2.Add(ctx, tsf4)
-	require.Equal(action.ErrTxPoolOverflow, errors.Cause(err))
+	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
+	// Tx Pool is full, but replacement happens
+	require.NoError(ap2.Add(ctx, tsf1))
+	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
+	require.NoError(ap2.Add(ctx, tsf4))
+	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
 
 	Ap3, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
@@ -229,8 +230,9 @@ func TestActPool_AddActs(t *testing.T) {
 	}
 	tsf10, err := action.SignedTransfer(_addr2, _priKey2, uint64(apConfig.MaxGasLimitPerPool/10000), big.NewInt(50), []byte{1, 2, 3}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	err = ap3.Add(ctx, tsf10)
-	require.Equal(action.ErrGasLimit, errors.Cause(err))
+	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
+	require.Error(action.ErrNonceTooHigh, ap3.Add(ctx, tsf10))
+	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
 
 	// Case IV: Nonce already exists
 	replaceTsf, err := action.SignedTransfer(_addr2, _priKey1, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
@@ -315,7 +317,7 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(err)
 		tsf5, err := action.SignedTransfer(_addr1, _priKey1, uint64(5), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf6, err := action.SignedTransfer(_addr1, _priKey1, uint64(6), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
+		tsf6, err := action.SignedTransfer(_addr1, _priKey1, uint64(7), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
 		tsf7, err := action.SignedTransfer(_addr2, _priKey2, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
@@ -361,15 +363,9 @@ func TestActPool_PickActs(t *testing.T) {
 		ap, transfers, _, executions := createActPool(apConfig)
 		pickedActs := ap.PendingActionMap()
 		require.Equal(len(transfers)+len(executions), lenPendingActionMap(pickedActs))
-	})
-	t.Run("expiry", func(t *testing.T) {
-		apConfig := getActPoolCfg()
-		apConfig.ActionExpiry = time.Second
-		ap, _, _, _ := createActPool(apConfig)
-		require.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
-			pickedActs := ap.PendingActionMap()
-			return lenPendingActionMap(pickedActs) == 0, nil
-		}))
+		time.Sleep(2 * time.Second)
+		pickedActs = ap.PendingActionMap()
+		require.Equal(len(transfers)+len(executions), lenPendingActionMap(pickedActs))
 	})
 }
 

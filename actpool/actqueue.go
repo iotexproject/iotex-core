@@ -30,22 +30,13 @@ type ActQueue interface {
 	UpdateAccountState(uint64, *big.Int) []action.SealedEnvelope
 	AccountState() (uint64, *big.Int)
 	PendingNonce() uint64
+	NextAction() (bool, *big.Int)
 	Len() int
 	Empty() bool
-	Index() int
 	PendingActs(context.Context) []action.SealedEnvelope
 	AllActs() []action.SealedEnvelope
 	PopActionWithLargestNonce() *action.SealedEnvelope
 	Reset()
-}
-
-Pop
-Push
-Swap
-Less() {
-	// TODO: 
-	1. 比较“nonce是不是连续”
-	2. 比较ascNoncePriorityQueue[0].gasPrice
 }
 
 // actQueue is a queue of actions from an account
@@ -89,6 +80,15 @@ func NewActQueue(ap *actPool, address string, pendingNonce uint64, balance *big.
 		op.SetActQueueOption(aq)
 	}
 	return aq
+}
+
+func (q *actQueue) NextAction() (bool, *big.Int) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if len(q.ascQueue) == 0 {
+		return false, big.NewInt(0)
+	}
+	return q.pendingNonce > q.accountNonce, q.items[q.ascQueue[0].nonce].GasPrice()
 }
 
 // Put inserts a new action into the map, also updating the queue's nonce index
@@ -181,8 +181,8 @@ func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
 		size             = len(q.ascQueue)
 	)
 	for i := 0; i < size; {
-		nonce := q.index[i].nonce
-		if timeNow.After(q.index[i].deadline) && nonce > q.pendingNonce {
+		nonce := q.ascQueue[i].nonce
+		if timeNow.After(q.ascQueue[i].deadline) && nonce > q.pendingNonce {
 			removedFromQueue = append(removedFromQueue, q.items[nonce])
 			delete(q.items, nonce)
 			delete(q.pendingBalance, nonce)
