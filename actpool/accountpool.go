@@ -90,7 +90,7 @@ func (ap *accountPool) PutAction(
 	return nil
 }
 
-func (ap *accountPool) PopPeak() *action.SealedEnvelope {
+func (ap *accountPool) PopPeek() *action.SealedEnvelope {
 	if len(ap.accounts) == 0 {
 		return nil
 	}
@@ -122,10 +122,10 @@ func (aq accountPriorityQueue) Len() int { return len(aq) }
 func (aq accountPriorityQueue) Less(i, j int) bool {
 	is, igp := aq[i].actQueue.NextAction()
 	js, jgp := aq[j].actQueue.NextAction()
-	if igp == nil {
+	if jgp == nil {
 		return true
 	}
-	if jgp == nil {
+	if igp == nil {
 		return false
 	}
 	if !is && js {

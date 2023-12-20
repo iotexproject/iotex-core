@@ -116,7 +116,7 @@ func (worker *queueWorker) Handle(job workerJob) error {
 	defer worker.mu.Unlock()
 	if replace {
 		// TODO: early return if sender is the account to pop and nonce is larger than largest in the queue
-		actToReplace := worker.accountActs.PopPeak()
+		actToReplace := worker.accountActs.PopPeek()
 		if actToReplace == nil {
 			log.L().Warn("UNEXPECTED ERROR: action pool is full, but no action to drop")
 			return nil
