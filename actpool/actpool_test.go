@@ -209,7 +209,7 @@ func TestActPool_AddActs(t *testing.T) {
 	}
 	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
 	// Tx Pool is full, but replacement happens
-	require.NoError(ap2.Add(ctx, tsf1))
+	require.Error(action.ErrTxPoolOverflow, ap2.Add(ctx, tsf1))
 	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
 	require.NoError(ap2.Add(ctx, tsf4))
 	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
@@ -407,7 +407,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.Equal(4, ap.allActions.Count())
 	addr, err := address.FromString(_addr1)
 	require.NoError(err)
-	require.NotNil(ap.worker[ap.allocatedWorker(addr)].GetQueue(addr))
+	require.NotNil(ap.worker[ap.allocatedWorker(addr)].accountActs.Account(addr.String()))
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
@@ -420,7 +420,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	}).Times(1)
 	ap.Reset()
 	require.Equal(0, ap.allActions.Count())
-	require.True(ap.worker[ap.allocatedWorker(addr)].GetQueue(addr).Empty())
+	require.True(ap.worker[ap.allocatedWorker(addr)].accountActs.Account(addr.String()).Empty())
 }
 
 func TestActPool_Reset(t *testing.T) {
@@ -1140,7 +1140,7 @@ func getPendingBalance(ap *actPool, addrStr string) (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	if queue := ap.worker[ap.allocatedWorker(addr)].GetQueue(addr); queue != nil {
+	if queue := ap.worker[ap.allocatedWorker(addr)].accountActs.Account(addr.String()); queue != nil {
 		q := queue.(*actQueue)
 		return q.getPendingBalanceAtNonce(q.pendingNonce), nil
 	}

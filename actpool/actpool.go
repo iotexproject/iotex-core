@@ -309,8 +309,8 @@ func (ap *actPool) GetPendingNonce(addrStr string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if queue := ap.worker[ap.allocatedWorker(addr)].GetQueue(addr); queue != nil {
-		return queue.PendingNonce(), nil
+	if pendingNonce, ok := ap.worker[ap.allocatedWorker(addr)].PendingNonce(addr); ok {
+		return pendingNonce, nil
 	}
 	ctx := ap.context(context.Background())
 	confirmedState, err := accountutil.AccountState(ctx, ap.sf, addr)
@@ -328,8 +328,8 @@ func (ap *actPool) GetUnconfirmedActs(addrStr string) []action.SealedEnvelope {
 	}
 
 	var ret []action.SealedEnvelope
-	if queue := ap.worker[ap.allocatedWorker(addr)].GetQueue(addr); queue != nil {
-		ret = append(ret, queue.AllActs()...)
+	if actions, ok := ap.worker[ap.allocatedWorker(addr)].AllActions(addr); ok {
+		ret = append(ret, actions...)
 	}
 	ret = append(ret, ap.accountDesActs.actionsByDestination(addrStr)...)
 	return ret

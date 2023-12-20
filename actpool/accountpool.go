@@ -7,6 +7,10 @@ package actpool
 
 import (
 	"container/heap"
+	"math/big"
+	"time"
+
+	"github.com/iotexproject/iotex-core/action"
 )
 
 type (
@@ -40,25 +44,66 @@ func (ap *accountPool) Account(addr string) ActQueue {
 	return nil
 }
 
-func (ap *accountPool) Peek() ActQueue {
+func (ap *accountPool) PopAccount(addr string) ActQueue {
+	if account, ok := ap.accounts[addr]; ok {
+		heap.Remove(&ap.priorityQueue, account.index)
+		return account.actQueue
+	}
+
+	return nil
+}
+
+func (ap *accountPool) PutAction(
+	addr string,
+	actpool *actPool,
+	pendingNonce uint64,
+	confirmedBalance *big.Int,
+	expiry time.Duration,
+	act action.SealedEnvelope,
+) error {
+	account, ok := ap.accounts[addr]
+	if !ok {
+		queue := NewActQueue(
+			actpool,
+			addr,
+			pendingNonce,
+			confirmedBalance,
+			WithTimeOut(expiry),
+		)
+		if err := queue.Put(act); err != nil {
+			return err
+		}
+		ap.accounts[addr] = &accountItem{
+			index:    len(ap.accounts),
+			actQueue: queue,
+		}
+		heap.Push(&ap.priorityQueue, ap.accounts[addr])
+		return nil
+	}
+
+	if err := account.actQueue.Put(act); err != nil {
+		return err
+	}
+	heap.Fix(&ap.priorityQueue, account.index)
+
+	return nil
+}
+
+func (ap *accountPool) PopPeak() *action.SealedEnvelope {
 	if len(ap.accounts) == 0 {
 		return nil
 	}
-	return ap.priorityQueue[0].actQueue
+	act := ap.priorityQueue[0].actQueue.PopActionWithLargestNonce()
+	heap.Fix(&ap.priorityQueue, 0)
+
+	return act
 }
 
 func (ap *accountPool) Range(callback func(addr string, acct ActQueue)) {
 	for addr, account := range ap.accounts {
 		callback(addr, account.actQueue)
+		heap.Fix(&ap.priorityQueue, account.index)
 	}
-}
-
-func (ap *accountPool) AddAccount(addr string, acct ActQueue) {
-	ap.accounts[addr] = &accountItem{
-		index:    len(ap.accounts),
-		actQueue: acct,
-	}
-	heap.Push(&ap.priorityQueue, ap.accounts[addr])
 }
 
 func (ap *accountPool) DeleteIfEmpty(addr string) {
@@ -76,6 +121,12 @@ func (aq accountPriorityQueue) Len() int { return len(aq) }
 func (aq accountPriorityQueue) Less(i, j int) bool {
 	is, igp := aq[i].actQueue.NextAction()
 	js, jgp := aq[j].actQueue.NextAction()
+	if igp == nil {
+		return true
+	}
+	if jgp == nil {
+		return false
+	}
 	if !is && js {
 		return true
 	}

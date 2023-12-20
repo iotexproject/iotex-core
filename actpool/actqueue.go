@@ -83,10 +83,10 @@ func NewActQueue(ap *actPool, address string, pendingNonce uint64, balance *big.
 }
 
 func (q *actQueue) NextAction() (bool, *big.Int) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
+	q.mu.RLock()
+	defer q.mu.RUnlock()
 	if len(q.ascQueue) == 0 {
-		return false, big.NewInt(0)
+		return false, nil
 	}
 	return q.pendingNonce > q.accountNonce, q.items[q.ascQueue[0].nonce].GasPrice()
 }
@@ -276,6 +276,7 @@ func (q *actQueue) PendingActs(ctx context.Context) []action.SealedEnvelope {
 		log.L().Error("Error when getting the address", zap.String("address", q.address), zap.Error(err))
 		return nil
 	}
+	// TODO: no need to refetch confirmed state, leave it to block builder to validate
 	confirmedState, err := accountutil.AccountState(ctx, q.ap.sf, addr)
 	if err != nil {
 		log.L().Error("Error when getting the nonce", zap.String("address", q.address), zap.Error(err))
@@ -308,8 +309,8 @@ func (q *actQueue) PendingActs(ctx context.Context) []action.SealedEnvelope {
 
 // AllActs returns all the actions currently in queue
 func (q *actQueue) AllActs() []action.SealedEnvelope {
-	q.mu.Lock()
-	defer q.mu.Unlock()
+	q.mu.RLock()
+	defer q.mu.RUnlock()
 	acts := make([]action.SealedEnvelope, 0, len(q.items))
 	if len(q.items) == 0 {
 		return acts
