@@ -119,6 +119,8 @@ type (
 		ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// ActionByActionHash returns action by action hash
 		ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
+		// PendingActionByActionHash returns action by action hash
+		PendingActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error)
 		// ActPoolActions returns the all Transaction Identifiers in the actpool
 		ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error)
 		// BlockByHeightRange returns blocks within the height range
@@ -1083,6 +1085,15 @@ func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelo
 		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
 	return selp, blk.HashBlock(), actIndex.BlockHeight(), index, nil
+}
+
+// ActionByActionHash returns action by action hash
+func (core *coreService) PendingActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
+	selp, err := core.ap.GetActionByHash(h)
+	if err != nil {
+		return action.SealedEnvelope{}, errors.Wrap(ErrNotFound, err.Error())
+	}
+	return selp, nil
 }
 
 // UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
