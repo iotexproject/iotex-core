@@ -222,13 +222,25 @@ func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 }
 
 func (obj *getTransactionResult) MarshalJSON() ([]byte, error) {
-	if obj.receipt == nil || obj.pubkey == nil || obj.ethTx == nil {
+	if obj.pubkey == nil || obj.ethTx == nil {
 		return nil, errInvalidObject
 	}
 	value, _ := intStrToHex(obj.ethTx.Value().String())
 	gasPrice, _ := intStrToHex(obj.ethTx.GasPrice().String())
 	v, r, s := obj.ethTx.RawSignatureValues()
 
+	txHash := obj.ethTx.Hash().Bytes()
+	if obj.receipt != nil {
+		txHash = obj.receipt.ActionHash[:]
+	}
+	blkNum := uint64(0)
+	if obj.receipt != nil {
+		blkNum = obj.receipt.BlockHeight
+	}
+	txIndex := uint32(0)
+	if obj.receipt != nil {
+		txIndex = obj.receipt.TxIndex
+	}
 	return json.Marshal(&struct {
 		Hash             string  `json:"hash"`
 		Nonce            string  `json:"nonce"`
@@ -245,11 +257,11 @@ func (obj *getTransactionResult) MarshalJSON() ([]byte, error) {
 		S                string  `json:"s"`
 		V                string  `json:"v"`
 	}{
-		Hash:             "0x" + hex.EncodeToString(obj.receipt.ActionHash[:]),
+		Hash:             "0x" + hex.EncodeToString(txHash),
 		Nonce:            uint64ToHex(obj.ethTx.Nonce()),
 		BlockHash:        "0x" + hex.EncodeToString(obj.blockHash[:]),
-		BlockNumber:      uint64ToHex(obj.receipt.BlockHeight),
-		TransactionIndex: uint64ToHex(uint64(obj.receipt.TxIndex)),
+		BlockNumber:      uint64ToHex(blkNum),
+		TransactionIndex: uint64ToHex(uint64(txIndex)),
 		From:             obj.pubkey.Address().Hex(),
 		To:               obj.to,
 		Value:            value,

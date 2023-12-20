@@ -588,7 +588,14 @@ func (svr *web3Handler) getTransactionByHash(in *gjson.Result) (interface{}, err
 	selp, blkHash, _, _, err := svr.coreService.ActionByActionHash(actHash)
 	if err != nil {
 		if errors.Cause(err) == ErrNotFound {
-			return nil, nil
+			selp, err = svr.coreService.PendingActionByActionHash(actHash)
+			if err != nil {
+				if errors.Cause(err) == ErrNotFound {
+					return nil, nil
+				}
+				return nil, err
+			}
+			return svr.getPendingTransactionFromActionInfo(selp)
 		}
 		return nil, err
 	}
@@ -599,7 +606,7 @@ func (svr *web3Handler) getTransactionByHash(in *gjson.Result) (interface{}, err
 		}
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(blkHash, selp, receipt)
+	return svr.getConfirmedTransactionFromActionInfo(blkHash, selp, receipt)
 }
 
 func (svr *web3Handler) getLogs(filter *filterObject) (interface{}, error) {
@@ -704,7 +711,7 @@ func (svr *web3Handler) getTransactionByBlockHashAndIndex(in *gjson.Result) (int
 	if err != nil {
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(blkHash, blk.Block.Actions[idx], blk.Receipts[idx])
+	return svr.getConfirmedTransactionFromActionInfo(blkHash, blk.Block.Actions[idx], blk.Receipts[idx])
 }
 
 func (svr *web3Handler) getTransactionByBlockNumberAndIndex(in *gjson.Result) (interface{}, error) {
@@ -727,7 +734,7 @@ func (svr *web3Handler) getTransactionByBlockNumberAndIndex(in *gjson.Result) (i
 	if err != nil {
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(blk.Block.HashBlock(), blk.Block.Actions[idx], blk.Receipts[idx])
+	return svr.getConfirmedTransactionFromActionInfo(blk.Block.HashBlock(), blk.Block.Actions[idx], blk.Receipts[idx])
 }
 
 func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {

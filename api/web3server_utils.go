@@ -73,7 +73,7 @@ func (svr *web3Handler) getBlockWithTransactions(blk *block.Block, receipts []*a
 	transactions := make([]interface{}, 0)
 	for i, selp := range blk.Actions {
 		if isDetailed {
-			tx, err := svr.getTransactionFromActionInfo(blk.HashBlock(), selp, receipts[i])
+			tx, err := svr.getConfirmedTransactionFromActionInfo(blk.HashBlock(), selp, receipts[i])
 			if err != nil {
 				if errors.Cause(err) != errUnsupportedAction {
 					h, _ := selp.Hash()
@@ -97,14 +97,6 @@ func (svr *web3Handler) getBlockWithTransactions(blk *block.Block, receipts []*a
 }
 
 func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
-	// sanity check
-	if receipt == nil {
-		return nil, errors.New("receipt is empty")
-	}
-	actHash, err := selp.Hash()
-	if err != nil || actHash != receipt.ActionHash {
-		return nil, errors.Errorf("the action %s of receipt doesn't match", hex.EncodeToString(actHash[:]))
-	}
 	act, ok := selp.Action().(action.EthCompatibleAction)
 	if !ok {
 		actHash, _ := selp.Hash()
@@ -114,10 +106,15 @@ func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp 
 	if err != nil {
 		return nil, err
 	}
-	to, _, err := getRecipientAndContractAddrFromAction(selp, receipt)
-	if err != nil {
-		return nil, err
+	to := ethTx.To().String()
+	if receipt == nil {
+		pTo, _, err := getRecipientAndContractAddrFromAction(selp, receipt)
+		if err != nil {
+			return nil, err
+		}
+		to = *pTo
 	}
+
 	signer, err := action.NewEthSigner(iotextypes.Encoding(selp.Encoding()), svr.coreService.EVMNetworkID())
 	if err != nil {
 		return nil, err
@@ -128,11 +125,27 @@ func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp 
 	}
 	return &getTransactionResult{
 		blockHash: blkHash,
-		to:        to,
+		to:        &to,
 		ethTx:     tx,
 		receipt:   receipt,
 		pubkey:    selp.SrcPubkey(),
 	}, nil
+}
+
+func (svr *web3Handler) getConfirmedTransactionFromActionInfo(blkHash hash.Hash256, selp action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
+	// sanity check
+	if receipt == nil {
+		return nil, errors.New("receipt is empty")
+	}
+	actHash, err := selp.Hash()
+	if err != nil || actHash != receipt.ActionHash {
+		return nil, errors.Errorf("the action %s of receipt doesn't match", hex.EncodeToString(actHash[:]))
+	}
+	return svr.getTransactionFromActionInfo(blkHash, selp, receipt)
+}
+
+func (svr *web3Handler) getPendingTransactionFromActionInfo(selp action.SealedEnvelope) (*getTransactionResult, error) {
+	return svr.getTransactionFromActionInfo(hash.ZeroHash256, selp, nil)
 }
 
 func getRecipientAndContractAddrFromAction(selp action.SealedEnvelope, receipt *action.Receipt) (*string, *string, error) {
