@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -266,7 +267,11 @@ func (worker *queueWorker) AllActions(sender address.Address) ([]action.SealedEn
 	worker.mu.RLock()
 	defer worker.mu.RUnlock()
 	if actQueue := worker.accountActs.Account(sender.String()); actQueue != nil {
-		return actQueue.AllActs(), true
+		acts := actQueue.AllActs()
+		sort.Slice(acts, func(i, j int) bool {
+			return acts[i].Nonce() < acts[j].Nonce()
+		})
+		return acts, true
 	}
 	return nil, false
 }
@@ -290,9 +295,8 @@ func (worker *queueWorker) ResetAccount(sender address.Address) []action.SealedE
 	if actQueue != nil {
 		pendingActs := actQueue.AllActs()
 		actQueue.Reset()
-		worker.mu.Lock()
+		// the following line is thread safe with worker.mu.RLock
 		worker.emptyAccounts.Set(senderStr, struct{}{})
-		worker.mu.Unlock()
 		return pendingActs
 	}
 	return nil
