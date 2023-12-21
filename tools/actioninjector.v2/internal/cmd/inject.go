@@ -517,7 +517,8 @@ var (
 )
 
 func (p *injectProcessor) injectV3(selp action.SealedEnvelope, feedbackCh chan feedback) {
-	//actHash, _ := selp.Hash()
+	actHash, _ := selp.Hash()
+	sender := selp.SrcPubkey().Address().String()
 	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(rawInjectCfg.retryInterval)*time.Second), rawInjectCfg.retryNum)
 	rerr := backoff.Retry(func() error {
 		_, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
@@ -525,11 +526,11 @@ func (p *injectProcessor) injectV3(selp action.SealedEnvelope, feedbackCh chan f
 			if strings.Contains(err.Error(), action.ErrExistedInPool.Error()) {
 				return nil
 			} else if strings.Contains(err.Error(), action.ErrNonceTooLow.Error()) {
-				feedbackCh <- feedback{sender: selp.SrcPubkey().Address().String(), err: action.ErrNonceTooLow}
+				feedbackCh <- feedback{sender: sender, err: action.ErrNonceTooLow}
 			} else if strings.Contains(err.Error(), action.ErrNonceTooHigh.Error()) {
-				feedbackCh <- feedback{sender: selp.SrcPubkey().Address().String(), err: action.ErrNonceTooHigh}
+				feedbackCh <- feedback{sender: sender, err: action.ErrNonceTooHigh}
 			} else if strings.Contains(err.Error(), action.ErrGasLimit.Error()) {
-				feedbackCh <- feedback{sender: selp.SrcPubkey().Address().String(), err: action.ErrGasLimit}
+				feedbackCh <- feedback{sender: sender, err: action.ErrGasLimit}
 			}
 		}
 
@@ -539,7 +540,7 @@ func (p *injectProcessor) injectV3(selp action.SealedEnvelope, feedbackCh chan f
 		log.L().Error("Failed to inject.", zap.Error(rerr))
 	}
 	atomic.AddUint64(&_injectedActs, 1)
-	//log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])), zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)))
+	log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])), zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)), zap.String("sender", sender))
 }
 
 // func (p *injectProcessor) pickAction() (iotex.SendActionCaller, error) {
