@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
+	"golang.org/x/time/rate"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
@@ -65,7 +66,8 @@ func NewServerV2(
 
 	wrappedWeb3Handler := otelhttp.NewHandler(newHTTPHandler(web3Handler), "web3.jsonrpc")
 
-	wrappedWebsocketHandler := otelhttp.NewHandler(NewWebsocketHandler(web3Handler), "web3.websocket")
+	limiter := rate.NewLimiter(rate.Limit(cfg.WebsocketMaxRateMessages), 1)
+	wrappedWebsocketHandler := otelhttp.NewHandler(NewWebsocketHandler(web3Handler, limiter), "web3.websocket")
 
 	return &ServerV2{
 		core:         coreAPI,

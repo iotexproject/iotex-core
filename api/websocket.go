@@ -2,12 +2,14 @@ package api
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
+	"golang.org/x/time/rate"
 
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -30,6 +32,7 @@ const (
 // WebsocketHandler handles requests from websocket protocol
 type WebsocketHandler struct {
 	msgHandler Web3Handler
+	limiter    *rate.Limiter
 }
 
 var upgrader = websocket.Upgrader{
@@ -72,9 +75,14 @@ func (c *safeWebsocketConn) SetWriteDeadline(t time.Time) error {
 }
 
 // NewWebsocketHandler creates a new websocket handler
-func NewWebsocketHandler(web3Handler Web3Handler) *WebsocketHandler {
+func NewWebsocketHandler(web3Handler Web3Handler, limiter *rate.Limiter) *WebsocketHandler {
+	if limiter == nil {
+		// set the limiter to the maximum possible rate
+		limiter = rate.NewLimiter(rate.Limit(math.MaxFloat64), 1)
+	}
 	return &WebsocketHandler{
 		msgHandler: web3Handler,
+		limiter:    limiter,
 	}
 }
 
@@ -113,6 +121,10 @@ func (wsSvr *WebsocketHandler) handleConnection(ctx context.Context, ws *websock
 		case <-ctx.Done():
 			return
 		default:
+			if err := wsSvr.limiter.Wait(ctx); err != nil {
+				cancel()
+				return
+			}
 			_, reader, err := ws.NextReader()
 			if err != nil {
 				log.Logger("api").Debug("Client Disconnected", zap.Error(err))
