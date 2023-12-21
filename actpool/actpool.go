@@ -285,7 +285,7 @@ func (ap *actPool) checkSelpWithoutState(ctx context.Context, selp *action.Seale
 	if selp.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
 		_actpoolMtc.WithLabelValues("gasPriceLower").Inc()
 		actHash, _ := selp.Hash()
-		log.L().Info("action rejected due to low gas price",
+		log.L().Debug("action rejected due to low gas price",
 			zap.String("actionHash", hex.EncodeToString(actHash[:])),
 			zap.String("gasPrice", selp.GasPrice().String()))
 		return action.ErrUnderpriced
