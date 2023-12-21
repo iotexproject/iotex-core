@@ -9,7 +9,6 @@ import (
 	"container/heap"
 	"context"
 	"math/big"
-	"sort"
 	"sync"
 	"time"
 
@@ -315,8 +314,6 @@ func (q *actQueue) AllActs() []action.SealedEnvelope {
 	if len(q.items) == 0 {
 		return acts
 	}
-	// WARNING: after calling this function, the queue should be destroyed
-	sort.Sort(q.ascQueue)
 	for _, nonce := range q.ascQueue {
 		acts = append(acts, q.items[nonce.nonce])
 	}
@@ -333,6 +330,7 @@ func (q *actQueue) PopActionWithLargestNonce() *action.SealedEnvelope {
 	heap.Remove(&q.ascQueue, itemMeta.ascIdx)
 	item := q.items[itemMeta.nonce]
 	delete(q.items, itemMeta.nonce)
+	q.updateFromNonce(itemMeta.nonce)
 
 	return &item
 }
