@@ -564,6 +564,22 @@ func TestGetTransactionByHash(t *testing.T) {
 	require.True(ok)
 	require.Equal(hash.ZeroHash256, rlt.blockHash)
 	require.Nil(rlt.receipt)
+
+	// get pending contract deploy transaction
+	selp, err = action.SignedExecution("", identityset.PrivateKey(27), 1, big.NewInt(1), 10000, big.NewInt(0), []byte("test"))
+	require.NoError(err)
+	txHash, err = selp.Hash()
+	require.NoError(err)
+	core.EXPECT().ActionByActionHash(gomock.Any()).Return(action.SealedEnvelope{}, hash.ZeroHash256, uint64(0), uint32(0), ErrNotFound)
+	core.EXPECT().PendingActionByActionHash(gomock.Any()).Return(selp, nil)
+	core.EXPECT().EVMNetworkID().Return(uint32(0))
+	ret, err = web3svr.getTransactionByHash(&in)
+	require.NoError(err)
+	rlt, ok = ret.(*getTransactionResult)
+	require.True(ok)
+	require.Equal(hash.ZeroHash256, rlt.blockHash)
+	require.Nil(rlt.receipt)
+	require.Nil(rlt.to)
 }
 
 func TestGetLogs(t *testing.T) {

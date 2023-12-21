@@ -106,13 +106,16 @@ func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp 
 	if err != nil {
 		return nil, err
 	}
-	to := ethTx.To().String()
+	var to *string
 	if receipt != nil {
 		pTo, _, err := getRecipientAndContractAddrFromAction(selp, receipt)
 		if err != nil {
 			return nil, err
 		}
-		to = *pTo
+		to = pTo
+	} else if ethTx.To() != nil {
+		tmp := ethTx.To().String()
+		to = &tmp
 	}
 
 	signer, err := action.NewEthSigner(iotextypes.Encoding(selp.Encoding()), svr.coreService.EVMNetworkID())
@@ -125,7 +128,7 @@ func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp 
 	}
 	return &getTransactionResult{
 		blockHash: blkHash,
-		to:        &to,
+		to:        to,
 		ethTx:     tx,
 		receipt:   receipt,
 		pubkey:    selp.SrcPubkey(),
