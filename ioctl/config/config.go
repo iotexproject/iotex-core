@@ -67,6 +67,8 @@ type Config struct {
 	Language         string            `json:"language" yaml:"language"`
 	Nsv2height       uint64            `json:"nsv2height" yaml:"nsv2height"`
 	AnalyserEndpoint string            `json:"analyserEndpoint" yaml:"analyserEndpoint"`
+	// WsEndpoint w3bstream endpoint
+	WsEndpoint string `json:"wsEndpoint" yaml:"wsEndpoint"`
 }
 
 var (
@@ -112,6 +114,10 @@ func init() {
 	}
 	if ReadConfig.AnalyserEndpoint == "" {
 		ReadConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
+		completeness = false
+	}
+	if ReadConfig.WsEndpoint == "" {
+		ReadConfig.WsEndpoint = _defaultWsEndpoint
 		completeness = false
 	}
 	if !completeness {

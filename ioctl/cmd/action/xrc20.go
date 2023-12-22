@@ -11,9 +11,8 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/spf13/cobra"
-
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"

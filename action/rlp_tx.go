@@ -11,7 +11,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/sha3"
 )
 
 func rlpRawHash(rawTx *types.Transaction, signer types.Signer) (hash.Hash256, error) {
@@ -24,11 +23,8 @@ func rlpSignedHash(tx *types.Transaction, signer types.Signer, sig []byte) (hash
 	if err != nil {
 		return hash.ZeroHash256, err
 	}
-	h := sha3.NewLegacyKeccak256()
-	if err = rlp.Encode(h, signedTx); err != nil {
-		return hash.ZeroHash256, err
-	}
-	return hash.BytesToHash256(h.Sum(nil)), nil
+	h := signedTx.Hash()
+	return hash.BytesToHash256(h[:]), nil
 }
 
 // RawTxToSignedTx converts the raw tx to corresponding signed tx
@@ -42,8 +38,6 @@ func RawTxToSignedTx(rawTx *types.Transaction, signer types.Signer, sig []byte) 
 		sc[64] -= 27
 	}
 
-	// TODO: currently all our web3 tx are EIP-155 protected tx
-	// in the future release, use proper signer for other supported tx types (EIP-1559, EIP-2930)
 	signedTx, err := rawTx.WithSignature(signer, sc)
 	if err != nil {
 		return nil, err
@@ -87,14 +81,82 @@ func DecodeRawTx(rawData string, chainID uint32) (tx *types.Transaction, sig []b
 
 // NewEthSigner returns the proper signer for Eth-compatible tx
 func NewEthSigner(txType iotextypes.Encoding, chainID uint32) (types.Signer, error) {
-	// TODO: use proper signer according to tx type
 	switch txType {
-	case iotextypes.Encoding_IOTEX_PROTOBUF:
-		// native tx use same signature format as that of Homestead
+	case iotextypes.Encoding_IOTEX_PROTOBUF, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		// native tx use same signature format as that of Homestead (for pre-EIP155 unprotected tx)
 		return types.HomesteadSigner{}, nil
-	case iotextypes.Encoding_ETHEREUM_RLP:
-		return types.NewEIP155Signer(big.NewInt(int64(chainID))), nil
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_ACCESSLIST:
+		return types.NewEIP2930Signer(big.NewInt(int64(chainID))), nil
 	default:
 		return nil, ErrInvalidAct
 	}
+}
+
+// DecodeEtherTx decodes raw data string into eth tx
+func DecodeEtherTx(rawData string) (*types.Transaction, error) {
+	//remove Hex prefix and decode string to byte
+	if strings.HasPrefix(rawData, "0x") || strings.HasPrefix(rawData, "0X") {
+		rawData = rawData[2:]
+	}
+	rawTxBytes, err := hex.DecodeString(rawData)
+	if err != nil {
+		return nil, err
+	}
+
+	// decode raw data into eth tx
+	tx := types.Transaction{}
+	if err = tx.UnmarshalBinary(rawTxBytes); err != nil {
+		return nil, err
+	}
+	return &tx, nil
+}
+
+// ExtractTypeSigPubkey extracts tx type, signature, and pubkey
+func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, crypto.PublicKey, error) {
+	var (
+		encoding iotextypes.Encoding
+		signer   = types.NewEIP2930Signer(tx.ChainId()) // by default assume latest signer
+		V, R, S  = tx.RawSignatureValues()
+	)
+	// extract correct V value
+	switch tx.Type() {
+	case types.LegacyTxType:
+		if tx.Protected() {
+			chainIDMul := tx.ChainId()
+			V = new(big.Int).Sub(V, new(big.Int).Lsh(chainIDMul, 1))
+			V.Sub(V, big.NewInt(8))
+			encoding = iotextypes.Encoding_ETHEREUM_EIP155
+		} else {
+			// tx has pre-EIP155 signature
+			encoding = iotextypes.Encoding_ETHEREUM_UNPROTECTED
+			signer = types.HomesteadSigner{}
+		}
+	case types.AccessListTxType:
+		// AL txs are defined to use 0 and 1 as their recovery
+		// id, add 27 to become equivalent to unprotected Homestead signatures.
+		V = new(big.Int).Add(V, big.NewInt(27))
+		encoding = iotextypes.Encoding_ETHEREUM_ACCESSLIST
+	default:
+		return encoding, nil, nil, ErrNotSupported
+	}
+
+	// construct signature
+	if V.BitLen() > 8 {
+		return encoding, nil, nil, ErrNotSupported
+	}
+
+	var (
+		r, s   = R.Bytes(), S.Bytes()
+		sig    = make([]byte, 65)
+		pubkey crypto.PublicKey
+		err    error
+	)
+	copy(sig[32-len(r):32], r)
+	copy(sig[64-len(s):64], s)
+	sig[64] = byte(V.Uint64())
+
+	// recover public key
+	rawHash := signer.Hash(tx)
+	pubkey, err = crypto.RecoverPubkey(rawHash[:], sig)
+	return encoding, sig, pubkey, err
 }

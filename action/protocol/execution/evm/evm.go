@@ -10,6 +10,7 @@ import (
 	"context"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -50,6 +51,9 @@ type (
 	// GetBlockHash gets block hash by height
 	GetBlockHash func(uint64) (hash.Hash256, error)
 
+	// GetBlockTime gets block time by height
+	GetBlockTime func(uint64) (time.Time, error)
+
 	// DepositGasWithSGD deposits gas with Sharing of Gas-fee with DApps
 	DepositGasWithSGD func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error)
 
@@ -82,21 +86,21 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 type (
 	// Params is the context and parameters
 	Params struct {
-		context      vm.BlockContext
-		txCtx        vm.TxContext
-		nonce        uint64
-		evmNetworkID uint32
-		amount       *big.Int
-		contract     *common.Address
-		gas          uint64
-		data         []byte
-		accessList   types.AccessList
-		evmConfig    vm.Config
-		chainConfig  *params.ChainConfig
-		blkCtx       protocol.BlockCtx
-		genesis      genesis.Blockchain
-		featureCtx   protocol.FeatureCtx
-		actionCtx    protocol.ActionCtx
+		context     vm.BlockContext
+		txCtx       vm.TxContext
+		nonce       uint64
+		amount      *big.Int
+		contract    *common.Address
+		gas         uint64
+		data        []byte
+		accessList  types.AccessList
+		evmConfig   vm.Config
+		chainConfig *params.ChainConfig
+		genesis     genesis.Blockchain
+		blkCtx      protocol.BlockCtx
+		featureCtx  protocol.FeatureCtx
+		actionCtx   protocol.ActionCtx
+		helperCtx   HelperContext
 	}
 )
 
@@ -105,15 +109,16 @@ func newParams(
 	ctx context.Context,
 	execution *action.Execution,
 	stateDB *StateDBAdapter,
-	getBlockHash GetBlockHash,
 ) (*Params, error) {
 	var (
 		actionCtx    = protocol.MustGetActionCtx(ctx)
 		blkCtx       = protocol.MustGetBlockCtx(ctx)
 		featureCtx   = protocol.MustGetFeatureCtx(ctx)
 		g            = genesis.MustExtractGenesisContext(ctx)
+		helperCtx    = mustGetHelperCtx(ctx)
 		evmNetworkID = protocol.MustGetBlockchainCtx(ctx).EvmNetworkID
 		executorAddr = common.BytesToAddress(actionCtx.Caller.Bytes())
+		getBlockHash = helperCtx.GetBlockHash
 
 		vmConfig            vm.Config
 		contractAddrPointer *common.Address
@@ -170,14 +175,22 @@ func newParams(
 		Coinbase:    common.BytesToAddress(blkCtx.Producer.Bytes()),
 		GasLimit:    gasLimit,
 		BlockNumber: new(big.Int).SetUint64(blkCtx.BlockHeight),
-		Time:        new(big.Int).SetInt64(blkCtx.BlockTimeStamp.Unix()),
+		Time:        new(big.Int).SetInt64(blkCtx.BlockTimeStamp.Unix()).Uint64(),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		BaseFee:     new(big.Int),
 	}
+	if g.IsSumatra(blkCtx.BlockHeight) {
+		// Random opcode (EIP-4399) is not supported
+		context.Random = &common.Hash{}
+	}
+
 	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
 		vmConfig = vmCfg
 	}
-	chainConfig := getChainConfig(g.Blockchain, blkCtx.BlockHeight, evmNetworkID)
+	chainConfig, err := getChainConfig(g.Blockchain, blkCtx.BlockHeight, evmNetworkID, helperCtx.GetBlockTime)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Params{
 		context,
@@ -186,7 +199,6 @@ func newParams(
 			GasPrice: execution.GasPrice(),
 		},
 		execution.Nonce(),
-		evmNetworkID,
 		execution.Amount(),
 		contractAddrPointer,
 		gasLimit,
@@ -194,10 +206,11 @@ func newParams(
 		execution.AccessList(),
 		vmConfig,
 		chainConfig,
-		blkCtx,
 		g.Blockchain,
+		blkCtx,
 		featureCtx,
 		actionCtx,
+		helperCtx,
 	}, nil
 }
 
@@ -224,9 +237,6 @@ func ExecuteContract(
 	ctx context.Context,
 	sm protocol.StateManager,
 	execution *action.Execution,
-	getBlockHash GetBlockHash,
-	depositGasFunc DepositGasWithSGD,
-	sgd SGDRegistry,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
@@ -235,10 +245,11 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	ps, err := newParams(ctx, execution, stateDB, getBlockHash)
+	ps, err := newParams(ctx, execution, stateDB)
 	if err != nil {
 		return nil, nil, err
 	}
+	sgd := ps.helperCtx.Sgd
 	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB)
 	if err != nil {
 		return nil, nil, err
@@ -279,6 +290,7 @@ func ExecuteContract(
 			sharedGasFee, totalGasFee *big.Int
 		)
 		if ps.featureCtx.SharedGasWithDapp && sgd != nil {
+			// TODO: sgd is whether nil should be checked in processSGD
 			receiver, sharedGas, err = processSGD(ctx, sm, execution, consumedGas, sgd)
 			if err != nil {
 				return nil, nil, errors.Wrap(err, "failed to process Sharing of Gas-fee with DApps")
@@ -289,10 +301,13 @@ func ExecuteContract(
 			sharedGasFee.Mul(sharedGasFee, ps.txCtx.GasPrice)
 		}
 		totalGasFee = new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), ps.txCtx.GasPrice)
-		depositLog, err = depositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
-		if err != nil {
-			return nil, nil, err
+		if ps.helperCtx.DepositGasFunc != nil {
+			depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
+
 	}
 
 	if err := stateDB.CommitContracts(); err != nil {
@@ -399,7 +414,7 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	)
 }
 
-func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.ChainConfig {
+func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime GetBlockTime) (*params.ChainConfig, error) {
 	var chainConfig params.ChainConfig
 	chainConfig.ConstantinopleBlock = new(big.Int).SetUint64(0) // Constantinople switch block (nil = no fork, 0 = already activated)
 	chainConfig.BeringBlock = new(big.Int).SetUint64(g.BeringBlockHeight)
@@ -417,7 +432,16 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.Chai
 	// enable ArrowGlacier, GrayGlacier at Redsea
 	chainConfig.ArrowGlacierBlock = new(big.Int).SetUint64(g.RedseaBlockHeight)
 	chainConfig.GrayGlacierBlock = new(big.Int).SetUint64(g.RedseaBlockHeight)
-	return &chainConfig
+	// enable Merge, Shanghai at Sumatra
+	chainConfig.MergeNetsplitBlock = new(big.Int).SetUint64(g.SumatraBlockHeight)
+	// Starting Shanghai, fork scheduling on Ethereum was switched from blocks to timestamps
+	sumatraTime, err := getBlockTime(g.SumatraBlockHeight)
+	if err != nil {
+		return nil, err
+	}
+	sumatraTimestamp := (uint64)(sumatraTime.Unix())
+	chainConfig.ShanghaiTime = &sumatraTimestamp
+	return &chainConfig, nil
 }
 
 // Error in executeInEVM is a consensus issue
@@ -450,13 +474,13 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 	remainingGas -= intriGas
 
 	// Set up the initial access list
-	if rules := chainConfig.Rules(evm.Context.BlockNumber, false); rules.IsBerlin {
-		stateDB.PrepareAccessList(evmParams.txCtx.Origin, evmParams.contract, vm.ActivePrecompiles(rules), evmParams.accessList)
+	rules := chainConfig.Rules(evm.Context.BlockNumber, g.IsSumatra(evmParams.blkCtx.BlockHeight), evmParams.context.Time)
+	if rules.IsBerlin {
+		stateDB.Prepare(rules, evmParams.txCtx.Origin, evmParams.context.Coinbase, evmParams.contract, vm.ActivePrecompiles(rules), evmParams.accessList)
 	}
 	var (
 		contractRawAddress = action.EmptyAddress
 		executor           = vm.AccountRef(evmParams.txCtx.Origin)
-		london             = evm.ChainConfig().IsLondon(evm.Context.BlockNumber)
 		ret                []byte
 		evmErr             error
 		refund             uint64
@@ -488,7 +512,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 	if stateDB.Error() != nil {
 		log.L().Debug("statedb error", zap.Error(stateDB.Error()))
 	}
-	if !london {
+	if !rules.IsLondon {
 		// Before EIP-3529: refunds were capped to gasUsed / 2
 		refund = (evmParams.gas - remainingGas) / params.RefundQuotient
 	} else {
@@ -610,7 +634,6 @@ func SimulateExecution(
 	sm protocol.StateManager,
 	caller address.Address,
 	ex *action.Execution,
-	getBlockHash GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.SimulateExecution")
 	defer span.End()
@@ -642,10 +665,5 @@ func SimulateExecution(
 		ctx,
 		sm,
 		ex,
-		getBlockHash,
-		func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
-			return nil, nil
-		},
-		nil,
 	)
 }

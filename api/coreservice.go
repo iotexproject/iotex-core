@@ -39,6 +39,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
@@ -125,6 +126,8 @@ type (
 		LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*action.Log, error)
 		// LogsInRange filter logs among [start, end] blocks
 		LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*action.Log, []hash.Hash256, error)
+		// Genesis returns the genesis of the chain
+		Genesis() genesis.Genesis
 		// EVMNetworkID returns the network id of evm
 		EVMNetworkID() uint32
 		// ChainID returns the chain id of evm
@@ -180,6 +183,8 @@ type (
 		readCache         *ReadCache
 		messageBatcher    *batch.Manager
 		apiStats          *nodestats.APILocalStats
+		sgdIndexer        blockindex.SGDRegistry
+		getBlockTime      evm.GetBlockTime
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -216,6 +221,13 @@ func WithAPIStats(stats *nodestats.APILocalStats) Option {
 	}
 }
 
+// WithSGDIndexer is the option to return SGD Indexer through API.
+func WithSGDIndexer(sgdIndexer blockindex.SGDRegistry) Option {
+	return func(svr *coreService) {
+		svr.sgdIndexer = sgdIndexer
+	}
+}
+
 type intrinsicGasCalculator interface {
 	IntrinsicGas() (uint64, error)
 }
@@ -236,6 +248,7 @@ func newCoreService(
 	bfIndexer blockindex.BloomFilterIndexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
+	getBlockTime evm.GetBlockTime,
 	opts ...Option,
 ) (CoreService, error) {
 	if cfg == (Config{}) {
@@ -260,6 +273,7 @@ func newCoreService(
 		chainListener: NewChainListener(500),
 		gs:            gasstation.NewGasStation(chain, dao, cfg.GasStation),
 		readCache:     NewReadCache(),
+		getBlockTime:  getBlockTime,
 	}
 
 	for _, opt := range opts {
@@ -517,7 +531,7 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	}
 	sc.SetGasPrice(big.NewInt(0)) // ReadContract() is read-only, use 0 to prevent insufficient gas
 
-	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, sc, core.dao.GetBlockHash)
+	retval, receipt, err := core.simulateExecution(ctx, callerAddr, sc, core.dao.GetBlockHash, core.getBlockTime)
 	if err != nil {
 		return "", nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1427,6 +1441,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
 	sc.SetNonce(state.PendingNonce())
+	//gasprice should be 0, otherwise it may cause the API to return an error, such as insufficient balance.
 	sc.SetGasPrice(big.NewInt(0))
 	blockGasLimit := core.bc.Genesis().BlockGasLimit
 	sc.SetGasLimit(blockGasLimit)
@@ -1479,7 +1494,8 @@ func (core *coreService) isGasLimitEnough(
 	if err != nil {
 		return false, nil, err
 	}
-	_, receipt, err := core.sf.SimulateExecution(ctx, caller, sc, core.dao.GetBlockHash)
+
+	_, receipt, err := core.simulateExecution(ctx, caller, sc, core.dao.GetBlockHash, core.getBlockTime)
 	if err != nil {
 		return false, nil, err
 	}
@@ -1588,6 +1604,11 @@ func (core *coreService) ActionsInActPool(actHashes []string) ([]action.SealedEn
 	return ret, nil
 }
 
+// Genesis returns the genesis of the chain
+func (core *coreService) Genesis() genesis.Genesis {
+	return core.bc.Genesis()
+}
+
 // EVMNetworkID returns the network id of evm
 func (core *coreService) EVMNetworkID() uint32 {
 	return core.bc.EvmNetworkID()
@@ -1628,7 +1649,7 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 		return nil, nil, err
 	}
 	exec.SetGasLimit(core.bc.Genesis().BlockGasLimit)
-	return core.sf.SimulateExecution(ctx, addr, exec, core.dao.GetBlockHash)
+	return core.simulateExecution(ctx, addr, exec, core.dao.GetBlockHash, core.getBlockTime)
 }
 
 // SyncingProgress returns the syncing status of node
@@ -1715,7 +1736,7 @@ func (core *coreService) TraceCall(ctx context.Context,
 	getblockHash := func(height uint64) (hash.Hash256, error) {
 		return blkHash, nil
 	}
-	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, exec, getblockHash)
+	retval, receipt, err := core.simulateExecution(ctx, callerAddr, exec, getblockHash, core.getBlockTime)
 	return retval, receipt, traces, err
 }
 
@@ -1730,4 +1751,14 @@ func (core *coreService) Track(ctx context.Context, start time.Time, method stri
 		HandlingTime: elapsed,
 		Success:      success,
 	}, size)
+}
+
+func (core *coreService) simulateExecution(ctx context.Context, addr address.Address, exec *action.Execution, getBlockHash evm.GetBlockHash, getBlockTime evm.GetBlockTime) ([]byte, *action.Receipt, error) {
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash:   getBlockHash,
+		GetBlockTime:   getBlockTime,
+		DepositGasFunc: rewarding.DepositGasWithSGD,
+		Sgd:            core.sgdIndexer,
+	})
+	return core.sf.SimulateExecution(ctx, addr, exec)
 }

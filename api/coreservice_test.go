@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/golang/mock/gomock"
@@ -174,7 +175,7 @@ func setupTestCoreService() (CoreService, blockchain.Blockchain, blockdao.BlockD
 	opts := []Option{WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 		return nil
 	})}
-	svr, err := newCoreService(cfg.api, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
+	svr, err := newCoreService(cfg.api, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, func(u uint64) (time.Time, error) { return time.Time{}, nil }, opts...)
 	if err != nil {
 		panic(err)
 	}
@@ -201,6 +202,31 @@ func TestEstimateGasForAction(t *testing.T) {
 
 	_, err = svr.EstimateGasForAction(context.Background(), nil)
 	require.Contains(err.Error(), action.ErrNilProto.Error())
+}
+
+func TestEstimateExecutionGasConsumption(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	svr, _, _, _, cleanCallback := setupTestCoreService()
+	defer cleanCallback()
+
+	callAddr := identityset.Address(29)
+	sc, err := action.NewExecution("", 0, big.NewInt(0), 0, big.NewInt(0), []byte{})
+	require.NoError(err)
+
+	//gasprice is zero
+	sc.SetGasPrice(big.NewInt(0))
+	estimatedGas, err := svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
+	require.NoError(err)
+	require.Equal(uint64(10000), estimatedGas)
+
+	//gasprice no zero, should return error before fixed
+	sc.SetGasPrice(big.NewInt(100))
+	estimatedGas, err = svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
+	require.NoError(err)
+	require.Equal(uint64(10000), estimatedGas)
+
 }
 
 func TestTraceTransaction(t *testing.T) {

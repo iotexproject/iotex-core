@@ -402,6 +402,17 @@ func (svr *gRPCHandler) EstimateActionGasConsumption(ctx context.Context, in *io
 		if err := sc.LoadProto(in.GetExecution()); err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
+		var (
+			gasPrice *big.Int = big.NewInt(0)
+			ok       bool
+		)
+		if in.GetGasPrice() != "" {
+			gasPrice, ok = big.NewInt(0).SetString(in.GetGasPrice(), 10)
+			if !ok {
+				return nil, status.Error(codes.InvalidArgument, "invalid gas price")
+			}
+		}
+		sc.SetGasPrice(gasPrice)
 		ret, err := svr.coreService.EstimateExecutionGasConsumption(ctx, sc, callerAddr)
 		if err != nil {
 			return nil, err

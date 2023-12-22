@@ -8,9 +8,9 @@ package evm
 import (
 	"context"
 	"errors"
-	"math"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/golang/mock/gomock"
@@ -60,13 +60,19 @@ func TestExecuteContractFailure(t *testing.T) {
 		ChainID:      1,
 		EvmNetworkID: 100,
 	})
-	retval, receipt, err := ExecuteContract(ctx, sm, e,
-		func(uint64) (hash.Hash256, error) {
+	ctx = WithHelperCtx(ctx, HelperContext{
+		GetBlockHash: func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
-		func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
+		GetBlockTime: func(uint64) (time.Time, error) {
+			return time.Time{}, nil
+		},
+		DepositGasFunc: func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
 			return nil, nil
-		}, nil)
+		},
+		Sgd: nil,
+	})
+	retval, receipt, err := ExecuteContract(ctx, sm, e)
 	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)
@@ -228,17 +234,29 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			26704440,
 		},
-		// after Redsea
+		// after Redsea - Sumatra
 		{
 			action.EmptyAddress,
 			26704441,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			math.MaxUint64,
+			36704440,
+		},
+		// after Sumatra
+		{
+			action.EmptyAddress,
+			36704441,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			1261440000, // = 200*365*24*3600/5, around 200 years later
 		},
 	}
-
+	now := time.Now()
+	getBlockTime := func(height uint64) (time.Time, error) {
+		return now.Add(time.Duration(height) * time.Second * 5), nil
+	}
 	for _, e := range execHeights {
 		ex, err := action.NewExecution(
 			e.contract,
@@ -250,22 +268,26 @@ func TestConstantinople(t *testing.T) {
 		)
 		require.NoError(err)
 
+		timestamp, err := getBlockTime(e.height)
+		require.NoError(err)
 		fCtx := protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-			Producer:    identityset.Address(27),
-			GasLimit:    testutil.TestGasLimit,
-			BlockHeight: e.height,
+			Producer:       identityset.Address(27),
+			GasLimit:       testutil.TestGasLimit,
+			BlockHeight:    e.height,
+			BlockTimeStamp: timestamp,
 		}))
+		fCtx = WithHelperCtx(fCtx, HelperContext{
+			GetBlockHash: func(uint64) (hash.Hash256, error) {
+				return hash.ZeroHash256, nil
+			},
+			GetBlockTime: getBlockTime,
+		})
 		stateDB, err := prepareStateDB(fCtx, sm)
 		require.NoError(err)
-		ps, err := newParams(fCtx, ex, stateDB, func(uint64) (hash.Hash256, error) {
-			return hash.ZeroHash256, nil
-		})
+		ps, err := newParams(fCtx, ex, stateDB)
 		require.NoError(err)
 
-		var evmConfig vm.Config
-		chainConfig := getChainConfig(g.Blockchain, e.height, ps.evmNetworkID)
-		evm := vm.NewEVM(ps.context, ps.txCtx, stateDB, chainConfig, evmConfig)
-
+		evm := vm.NewEVM(ps.context, ps.txCtx, stateDB, ps.chainConfig, ps.evmConfig)
 		evmChainConfig := evm.ChainConfig()
 		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsHomestead(evm.Context.BlockNumber))
 		require.False(evmChainConfig.IsDAOFork(evm.Context.BlockNumber))
@@ -277,7 +299,7 @@ func TestConstantinople(t *testing.T) {
 		require.True(evmChainConfig.IsPetersburg(evm.Context.BlockNumber))
 
 		// verify chainRules
-		chainRules := evmChainConfig.Rules(ps.context.BlockNumber, false)
+		chainRules := evmChainConfig.Rules(ps.context.BlockNumber, g.IsSumatra(e.height), ps.context.Time)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsHomestead)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP150)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP158)
@@ -319,10 +341,14 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isRedsea, evmChainConfig.IsArrowGlacier(evm.Context.BlockNumber))
 		require.Equal(isRedsea, evmChainConfig.IsGrayGlacier(evm.Context.BlockNumber))
 
-		// Merge, Shanghai and Cancun not yet enabled
-		require.False(chainRules.IsMerge)
-		require.False(chainRules.IsShanghai)
-		require.False(evmChainConfig.IsCancun(evm.Context.BlockNumber))
+		// Sumatra = enable Merge, Shanghai
+		isSumatra := g.IsSumatra(e.height)
+		require.Equal(isSumatra, chainRules.IsMerge)
+		require.Equal(isSumatra, chainRules.IsShanghai)
+
+		// Cancun, Prague not yet enabled
+		require.False(evmChainConfig.IsCancun(evm.Context.Time))
+		require.False(evmChainConfig.IsPrague(evm.Context.Time))
 
 		// test basefee
 		require.Equal(new(big.Int), evm.Context.BaseFee)

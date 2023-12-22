@@ -56,6 +56,7 @@ const (
 var (
 	// _candidateUpdateMethod is the interface of the abi encoding of stake action
 	_candidateUpdateMethod abi.Method
+	_                      EthCompatibleAction = (*CandidateUpdate)(nil)
 )
 
 // CandidateUpdate is the action to update a candidate
@@ -243,10 +244,17 @@ func NewCandidateUpdateFromABIBinary(data []byte) (*CandidateUpdate, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (cu *CandidateUpdate) ToEthTx() (*types.Transaction, error) {
+func (cu *CandidateUpdate) ToEthTx(_ uint32) (*types.Transaction, error) {
 	data, err := cu.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(cu.Nonce(), _stakingProtocolEthAddr, big.NewInt(0), cu.GasLimit(), cu.GasPrice(), data), nil
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    cu.Nonce(),
+		GasPrice: cu.GasPrice(),
+		Gas:      cu.GasLimit(),
+		To:       &_stakingProtocolEthAddr,
+		Value:    big.NewInt(0),
+		Data:     data,
+	}), nil
 }
