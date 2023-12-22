@@ -40,6 +40,7 @@ var (
 		Name: "iotex_actpool_rejection_metrics",
 		Help: "actpool metrics.",
 	}, []string{"type"})
+	// ErrGasTooHigh error when the intrinsic gas of an action is too high
 	ErrGasTooHigh = errors.New("action gas is too high")
 )
 
