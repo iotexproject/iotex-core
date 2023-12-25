@@ -101,8 +101,8 @@ func init() {
 	_ = wsProject.MarkFlagRequired("contract-address")
 
 	if wsProjectIPFSEndpoint == "" {
-		wsProjectIPFSEndpoint = "localhost:5001"
-		wsProjectIPFSGatewayEndpoint = "127.0.0.1:8080"
+		wsProjectIPFSEndpoint = "ipfs.mainnet.iotex.io"
+		wsProjectIPFSGatewayEndpoint = "https://ipfs.io"
 	}
 }
 
@@ -247,7 +247,7 @@ func upload(endpoint string, filename, hashstr string) (url string, hash256b *ha
 	}
 
 	// generate fetch url
-	url = fmt.Sprintf("http://%s/ipfs/%s", wsProjectIPFSGatewayEndpoint, cid)
+	url = fmt.Sprintf("%s/ipfs/%s", wsProjectIPFSGatewayEndpoint, cid)
 
 	return
 }
