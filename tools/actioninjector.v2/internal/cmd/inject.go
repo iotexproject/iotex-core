@@ -513,7 +513,8 @@ func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan action.Sealed
 // }
 
 var (
-	_injectedActs uint64 = 0
+	_injectedActs      uint64 = 0
+	_injectedActHashes        = []hash.Hash256{}
 )
 
 func (p *injectProcessor) injectV3(selp action.SealedEnvelope, feedbackCh chan feedback) {
@@ -538,9 +539,11 @@ func (p *injectProcessor) injectV3(selp action.SealedEnvelope, feedbackCh chan f
 	}, bo)
 	if rerr != nil {
 		log.L().Error("Failed to inject.", zap.Error(rerr))
+	} else {
+		_injectedActHashes = append(_injectedActHashes, actHash)
 	}
 	atomic.AddUint64(&_injectedActs, 1)
-	log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])), zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)), zap.String("sender", sender))
+	log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])), zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)), zap.String("sender", sender), zap.Uint64("nonce", selp.Nonce()))
 }
 
 // func (p *injectProcessor) pickAction() (iotex.SendActionCaller, error) {
@@ -645,6 +648,23 @@ var injectCmd = &cobra.Command{
 		}
 		go p.injectProcessV3(ctx, actiontype)
 		<-ctx.Done()
+		if rawInjectCfg.checkReceipt {
+			time.Sleep(5 * time.Minute)
+			success := 0
+			total := len(_injectedActHashes)
+			for _, actHash := range _injectedActHashes {
+				c := iotex.NewReadOnlyClient(p.api)
+				response, err := c.GetReceipt(actHash).Call(context.Background())
+				if err != nil {
+					log.L().Error("Failed to get receipt.", zap.Error(err))
+				} else if response.ReceiptInfo.Receipt.Status != 1 {
+					log.L().Error("Receipt has failed status.", zap.Uint64("status", response.ReceiptInfo.Receipt.Status))
+				} else {
+					success++
+				}
+			}
+			log.L().Info("injected", zap.Int("total", total), zap.Int("success", success))
+		}
 	},
 }
 
