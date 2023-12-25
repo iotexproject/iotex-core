@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
@@ -73,7 +72,7 @@ func (svr *web3Handler) getBlockWithTransactions(blk *block.Block, receipts []*a
 	transactions := make([]interface{}, 0)
 	for i, selp := range blk.Actions {
 		if isDetailed {
-			tx, err := svr.getConfirmedTransactionFromActionInfo(blk.HashBlock(), selp, receipts[i])
+			tx, err := svr.assembleConfirmedTransaction(blk.HashBlock(), selp, receipts[i])
 			if err != nil {
 				if errors.Cause(err) != errUnsupportedAction {
 					h, _ := selp.Hash()
@@ -96,46 +95,7 @@ func (svr *web3Handler) getBlockWithTransactions(blk *block.Block, receipts []*a
 	}, nil
 }
 
-func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
-	act, ok := selp.Action().(action.EthCompatibleAction)
-	if !ok {
-		actHash, _ := selp.Hash()
-		return nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
-	}
-	ethTx, err := act.ToEthTx(0)
-	if err != nil {
-		return nil, err
-	}
-	var to *string
-	if receipt != nil {
-		pTo, _, err := getRecipientAndContractAddrFromAction(selp, receipt)
-		if err != nil {
-			return nil, err
-		}
-		to = pTo
-	} else if ethTx.To() != nil {
-		tmp := ethTx.To().String()
-		to = &tmp
-	}
-
-	signer, err := action.NewEthSigner(iotextypes.Encoding(selp.Encoding()), svr.coreService.EVMNetworkID())
-	if err != nil {
-		return nil, err
-	}
-	tx, err := action.RawTxToSignedTx(ethTx, signer, selp.Signature())
-	if err != nil {
-		return nil, err
-	}
-	return &getTransactionResult{
-		blockHash: blkHash,
-		to:        to,
-		ethTx:     tx,
-		receipt:   receipt,
-		pubkey:    selp.SrcPubkey(),
-	}, nil
-}
-
-func (svr *web3Handler) getConfirmedTransactionFromActionInfo(blkHash hash.Hash256, selp action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
+func (svr *web3Handler) assembleConfirmedTransaction(blkHash hash.Hash256, selp action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
 	// sanity check
 	if receipt == nil {
 		return nil, errors.New("receipt is empty")
@@ -144,11 +104,11 @@ func (svr *web3Handler) getConfirmedTransactionFromActionInfo(blkHash hash.Hash2
 	if err != nil || actHash != receipt.ActionHash {
 		return nil, errors.Errorf("the action %s of receipt doesn't match", hex.EncodeToString(actHash[:]))
 	}
-	return svr.getTransactionFromActionInfo(blkHash, selp, receipt)
+	return newGetTransactionResult(blkHash, selp, receipt, svr.coreService.EVMNetworkID())
 }
 
-func (svr *web3Handler) getPendingTransactionFromActionInfo(selp action.SealedEnvelope) (*getTransactionResult, error) {
-	return svr.getTransactionFromActionInfo(hash.ZeroHash256, selp, nil)
+func (svr *web3Handler) assemblePendingTransaction(selp action.SealedEnvelope) (*getTransactionResult, error) {
+	return newGetTransactionResult(hash.ZeroHash256, selp, nil, svr.coreService.EVMNetworkID())
 }
 
 func getRecipientAndContractAddrFromAction(selp action.SealedEnvelope, receipt *action.Receipt) (*string, *string, error) {
