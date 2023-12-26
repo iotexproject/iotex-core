@@ -69,6 +69,8 @@ type Config struct {
 	AnalyserEndpoint string            `json:"analyserEndpoint" yaml:"analyserEndpoint"`
 	// WsEndpoint w3bstream endpoint
 	WsEndpoint string `json:"wsEndpoint" yaml:"wsEndpoint"`
+	// WsRegisterContract w3bstream project register contract address
+	WsRegisterContract string `json:"wsProjectRegisterContract" yaml:"wsProjectRegisterContract"`
 }
 
 var (
@@ -118,6 +120,10 @@ func init() {
 	}
 	if ReadConfig.WsEndpoint == "" {
 		ReadConfig.WsEndpoint = _defaultWsEndpoint
+		completeness = false
+	}
+	if ReadConfig.WsRegisterContract == "" {
+		ReadConfig.WsRegisterContract = _defaultProjectRegisterContract
 		completeness = false
 	}
 	if !completeness {
