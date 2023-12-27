@@ -54,8 +54,8 @@ func (p *Protocol) handleCandidateSelfStake(ctx context.Context, act *action.Can
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
 	}
-
-	if err = p.validateBucketSelfStake(csm, bucket, cand); err != nil {
+	esm := NewEndorsementStateManager(csm.SM())
+	if err = p.validateBucketSelfStake(ctx, csm, esm, bucket, cand); err != nil {
 		return log, nil, err
 	}
 
@@ -85,32 +85,19 @@ func (p *Protocol) handleCandidateSelfStake(ctx context.Context, act *action.Can
 	return log, txLogs, nil
 }
 
-func (p *Protocol) validateBucketSelfStake(csm CandidateStateManager, bucket *VoteBucket, cand *Candidate) ReceiptError {
-	// check bucket amount
-	if bucket.StakedAmount.Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
-		return &handleError{
-			err:           errors.New("bucket amount is unsufficient to be self-staked"),
-			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
-		}
+func (p *Protocol) validateBucketSelfStake(ctx context.Context, csm CandidateStateManager, esm *EndorsementStateManager, bucket *VoteBucket, cand *Candidate) ReceiptError {
+	if rErr := validateBucket(ctx, csm, esm, bucket,
+		withBucketMinAmount(p.config.RegistrationConsts.MinSelfStake),
+		withBucketStake(true),
+		withBucketSelfStaked(false),
+	); rErr != nil {
+		return rErr
 	}
-	// check bucket has not been unstaked
-	if bucket.isUnstaked() {
+
+	if validateBucket(ctx, csm, esm, bucket, withBucketOwner(cand.Owner)) != nil &&
+		validateBucket(ctx, csm, esm, bucket, withBucketEndorsed(true), withBucketCandidate(cand.Owner)) != nil {
 		return &handleError{
-			err:           errors.New("bucket is unstaked"),
-			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
-		}
-	}
-	// check bucket owner is the candidate owner
-	if !address.Equal(bucket.Owner, cand.Owner) {
-		return &handleError{
-			err:           errors.New("bucket owner is not the same as candidate owner"),
-			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
-		}
-	}
-	// check bucket is not self-stake bucket
-	if csm.ContainsSelfStakingBucket(bucket.Index) {
-		return &handleError{
-			err:           errors.New("self staking bucket cannot be processed"),
+			err:           errors.New("bucket is not a self-owned or endorsed bucket"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
 	}
