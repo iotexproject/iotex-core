@@ -586,27 +586,25 @@ func (svr *web3Handler) getTransactionByHash(in *gjson.Result) (interface{}, err
 	}
 
 	selp, blkHash, _, _, err := svr.coreService.ActionByActionHash(actHash)
-	if err != nil {
-		if errors.Cause(err) == ErrNotFound {
-			selp, err = svr.coreService.PendingActionByActionHash(actHash)
-			if err != nil {
-				if errors.Cause(err) == ErrNotFound {
-					return nil, nil
-				}
-				return nil, err
-			}
-			return svr.assemblePendingTransaction(selp)
-		}
-		return nil, err
-	}
-	receipt, err := svr.coreService.ReceiptByActionHash(actHash)
-	if err != nil {
-		if errors.Cause(err) == ErrNotFound {
+	if err == nil {
+		receipt, err := svr.coreService.ReceiptByActionHash(actHash)
+		if err != nil && errors.Cause(err) == ErrNotFound {
 			return nil, nil
+		} else if err != nil {
+			return nil, err
 		}
-		return nil, err
+		return svr.assembleConfirmedTransaction(blkHash, selp, receipt)
 	}
-	return svr.assembleConfirmedTransaction(blkHash, selp, receipt)
+	if errors.Cause(err) == ErrNotFound {
+		selp, err = svr.coreService.PendingActionByActionHash(actHash)
+		if err != nil && errors.Cause(err) == ErrNotFound {
+			return nil, nil
+		} else if err != nil {
+			return nil, err
+		}
+		return svr.assemblePendingTransaction(selp)
+	}
+	return nil, err
 }
 
 func (svr *web3Handler) getLogs(filter *filterObject) (interface{}, error) {

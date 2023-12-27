@@ -9,7 +9,6 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -220,44 +219,6 @@ func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 		Step:             "373422302",
 		Uncles:           []string{},
 	})
-}
-
-func newGetTransactionResult(
-	blkHash hash.Hash256,
-	selp action.SealedEnvelope,
-	receipt *action.Receipt,
-	chainID uint32,
-) (*getTransactionResult, error) {
-	act, ok := selp.Action().(action.EthCompatibleAction)
-	if !ok {
-		actHash, _ := selp.Hash()
-		return nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
-	}
-	ethTx, err := act.ToEthTx(0)
-	if err != nil {
-		return nil, err
-	}
-	var to *string
-	if ethTx.To() != nil {
-		tmp := ethTx.To().String()
-		to = &tmp
-	}
-
-	signer, err := action.NewEthSigner(iotextypes.Encoding(selp.Encoding()), chainID)
-	if err != nil {
-		return nil, err
-	}
-	tx, err := action.RawTxToSignedTx(ethTx, signer, selp.Signature())
-	if err != nil {
-		return nil, err
-	}
-	return &getTransactionResult{
-		blockHash: blkHash,
-		to:        to,
-		ethTx:     tx,
-		receipt:   receipt,
-		pubkey:    selp.SrcPubkey(),
-	}, nil
 }
 
 func (obj *getTransactionResult) MarshalJSON() ([]byte, error) {
