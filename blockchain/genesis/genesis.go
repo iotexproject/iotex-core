@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/config"
 	"go.uber.org/zap"
@@ -606,7 +607,7 @@ func (a *Account) IsDeployerWhitelisted(deployer address.Address) bool {
 					return true
 				}
 			}
-		} else if v[:2] == "0x" || v[:2] == "0X" {
+		} else if common.IsHexAddress(v) {
 			if addr, err := address.FromHex(v); err == nil {
 				if address.Equal(deployer, addr) {
 					return true

@@ -55,7 +55,13 @@ func TestDeployerWhitelist(t *testing.T) {
 	addr, err := address.FromHex("0x3fab184622dc19b6109349b94811493bf2a45362")
 	r.NoError(err)
 	r.True(g.IsDeployerWhitelisted(addr))
+	addr, err = address.FromString("io18743s33zmsvmvyynfxu5sy2f80e2g5mzk3y5ue")
+	r.NoError(err)
+	r.True(g.IsDeployerWhitelisted(addr))
 	addr, err = address.FromHex("0x3fab184622dc19b6109349b94811493bf2a45361")
+	r.NoError(err)
+	r.False(g.IsDeployerWhitelisted(addr))
+	addr, err = address.FromString("io18743s33zmsvmvyynfxu5sy2f80e2g5mpcz3zjx")
 	r.NoError(err)
 	r.False(g.IsDeployerWhitelisted(addr))
 }
