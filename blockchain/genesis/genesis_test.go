@@ -11,6 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-address/address"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -39,10 +41,21 @@ func TestAccount_InitBalances(t *testing.T) {
 	InitBalanceMap := make(map[string]string, 0)
 	InitBalanceMap["io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6"] = "1"
 	InitBalanceMap["io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms"] = "2"
-	acc := Account{InitBalanceMap}
+	acc := Account{InitBalanceMap: InitBalanceMap}
 	adds, balances := acc.InitBalances()
 	require.Equal("io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", adds[0].String())
 	require.Equal("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms", adds[1].String())
 	require.Equal(InitBalanceMap["io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6"], balances[0].Text(10))
 	require.Equal(InitBalanceMap["io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms"], balances[1].Text(10))
+}
+
+func TestDeployerWhitelist(t *testing.T) {
+	r := require.New(t)
+	g := Default
+	addr, err := address.FromHex("0x3fab184622dc19b6109349b94811493bf2a45362")
+	r.NoError(err)
+	r.True(g.IsDeployerWhitelisted(addr))
+	addr, err = address.FromHex("0x3fab184622dc19b6109349b94811493bf2a45361")
+	r.NoError(err)
+	r.False(g.IsDeployerWhitelisted(addr))
 }
