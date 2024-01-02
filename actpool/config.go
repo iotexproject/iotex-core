@@ -14,6 +14,7 @@ var (
 		MaxNumActsPerPool:  32000,
 		MaxGasLimitPerPool: 320000000,
 		MaxNumActsPerAcct:  2000,
+		WorkerBufferSize:   2000,
 		ActionExpiry:       10 * time.Minute,
 		MinGasPriceStr:     big.NewInt(unit.Qev).String(),
 		BlackList:          []string{},
@@ -28,6 +29,8 @@ type Config struct {
 	MaxGasLimitPerPool uint64 `yaml:"maxGasLimitPerPool"`
 	// MaxNumActsPerAcct indicates maximum number of actions an account queue can hold
 	MaxNumActsPerAcct uint64 `yaml:"maxNumActsPerAcct"`
+	// WorkerBufferSize indicates the buffer size for each worker's job queue
+	WorkerBufferSize uint64 `yaml:"bufferPerAcct"`
 	// ActionExpiry defines how long an action will be kept in action pool.
 	ActionExpiry time.Duration `yaml:"actionExpiry"`
 	// MinGasPriceStr defines the minimal gas price the delegate will accept for an action
