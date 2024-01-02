@@ -37,11 +37,13 @@ type sendMessageRsp struct {
 	MessageID string `json:"messageID"`
 }
 
+type stateLog struct {
+	State   string    `json:"state"`
+	Time    time.Time `json:"time"`
+	Comment string    `json:"comment"`
+}
+
 type queryMessageRsp struct {
-	MessageID string `json:"messageID"`
-	States    []struct {
-		State       string    `json:"state"`
-		Time        time.Time `json:"time"`
-		Description string    `json:"description"`
-	} `json:"states"`
+	MessageID string      `json:"messageID"`
+	States    []*stateLog `json:"states"`
 }
