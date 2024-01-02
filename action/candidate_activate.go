@@ -9,12 +9,12 @@ import (
 )
 
 const (
-	// CandidateSelfStakeBaseIntrinsicGas represents the base intrinsic gas for CandidateSelfStake
-	CandidateSelfStakeBaseIntrinsicGas = uint64(10000)
+	// CandidateActivateBaseIntrinsicGas represents the base intrinsic gas for CandidateActivate
+	CandidateActivateBaseIntrinsicGas = uint64(10000)
 )
 
-// CandidateSelfStake is the action to update a candidate's bucket
-type CandidateSelfStake struct {
+// CandidateActivate is the action to update a candidate's bucket
+type CandidateActivate struct {
 	AbstractAction
 
 	// bucketID is the bucket index want to be changed to
@@ -22,15 +22,15 @@ type CandidateSelfStake struct {
 }
 
 // BucketID returns the bucket index want to be changed to
-func (cr *CandidateSelfStake) BucketID() uint64 { return cr.bucketID }
+func (cr *CandidateActivate) BucketID() uint64 { return cr.bucketID }
 
 // IntrinsicGas returns the intrinsic gas of a CandidateRegister
-func (cr *CandidateSelfStake) IntrinsicGas() (uint64, error) {
-	return CandidateSelfStakeBaseIntrinsicGas, nil
+func (cr *CandidateActivate) IntrinsicGas() (uint64, error) {
+	return CandidateActivateBaseIntrinsicGas, nil
 }
 
 // Cost returns the total cost of a CandidateRegister
-func (cr *CandidateSelfStake) Cost() (*big.Int, error) {
+func (cr *CandidateActivate) Cost() (*big.Int, error) {
 	intrinsicGas, err := cr.IntrinsicGas()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get intrinsic gas for the CandidateRegister creates")
@@ -39,9 +39,9 @@ func (cr *CandidateSelfStake) Cost() (*big.Int, error) {
 	return fee, nil
 }
 
-// NewCandidateSelfStake returns a CandidateSelfStake action
-func NewCandidateSelfStake(nonce, gasLimit uint64, gasPrice *big.Int, bucketID uint64) *CandidateSelfStake {
-	return &CandidateSelfStake{
+// NewCandidateActivate returns a CandidateActivate action
+func NewCandidateActivate(nonce, gasLimit uint64, gasPrice *big.Int, bucketID uint64) *CandidateActivate {
+	return &CandidateActivate{
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
