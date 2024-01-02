@@ -13,7 +13,7 @@ var (
 	DefaultConfig = Config{
 		MaxNumActsPerPool:  32000,
 		MaxGasLimitPerPool: 320000000,
-		MaxNumActsPerAcct:  500,
+		MaxNumActsPerAcct:  2000,
 		WorkerBufferSize:   2000,
 		ActionExpiry:       10 * time.Minute,
 		MinGasPriceStr:     big.NewInt(unit.Qev).String(),
