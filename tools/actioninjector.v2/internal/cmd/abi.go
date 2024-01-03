@@ -1,46 +1,50 @@
 package cmd
 
+/*
+pragma solidity ^0.8.0;
+// SPDX-License-Identifier: MIT
+
+	contract GasConsumer {
+	    uint[] public results;
+
+	    function consumeGas(uint size) public {
+	        uint[] memory array = new uint[](size);
+
+	        for(uint i = 0; i < size; i++) {
+	            array[i] = i * 2;
+	            results.push(array[i]);
+	        }
+	    }
+	}
+
+//5 10W gas
+*/
 var _abiStr = `
 [
 	{
-		"constant": true,
 		"inputs": [
 			{
-				"name": "_member",
-				"type": "address"
-			},
-			{
-				"name": "_timestamp",
-				"type": "uint64"
+				"internalType": "uint256",
+				"name": "iterations",
+				"type": "uint256"
 			}
 		],
-		"name": "hash",
-		"outputs": [
-			{
-				"name": "",
-				"type": "string"
-			}
-		],
-		"payable": false,
-		"stateMutability": "view",
+		"name": "consumeGas",
+		"outputs": [],
+		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
-		"constant": false,
-		"inputs": [
+		"inputs": [],
+		"name": "count",
+		"outputs": [
 			{
-				"name": "_timestamp",
-				"type": "uint64"
-			},
-			{
-				"name": "_hash",
-				"type": "string"
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
 			}
 		],
-		"name": "addHash",
-		"outputs": [],
-		"payable": false,
-		"stateMutability": "nonpayable",
+		"stateMutability": "view",
 		"type": "function"
 	}
 ]
