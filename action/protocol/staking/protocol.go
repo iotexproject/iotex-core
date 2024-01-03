@@ -472,6 +472,23 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 	return nil
 }
 
+func (p *Protocol) isValidActivateBucket(ctx context.Context, csr CandidateStateReader, bktIdx uint64) (bool, error) {
+	selfStake := csr.ContainsSelfStakingBucket(bktIdx)
+	if !selfStake {
+		return false, nil
+	}
+	esr := NewEndorsementStateReader(csr.SR())
+	endorse, err := esr.Get(bktIdx)
+	if err != nil {
+		return false, err
+	}
+	if endorse == nil {
+		return true, nil
+	}
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	return endorse.Status(blkCtx.BlockHeight) != NotEndorsed, nil
+}
+
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
 	srHeight, err := sr.Height()
@@ -486,6 +503,15 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 	cand := make(CandidateList, 0, len(list))
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	for i := range list {
+		if !featureCtx.DisableDelegateEndorsement {
+			valid, err := p.isValidActivateBucket(ctx, c, list[i].SelfStakeBucketIdx)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to get isValidActivateBucket")
+			}
+			if !valid {
+				continue
+			}
+		}
 		if p.contractStakingIndexer != nil && featureCtx.AddContractStakingVotes {
 			// specifying the height param instead of query latest from indexer directly, aims to cause error when indexer falls behind
 			// currently there are two possible sr (i.e. factory or workingSet), it means the height could be chain height or current block height
