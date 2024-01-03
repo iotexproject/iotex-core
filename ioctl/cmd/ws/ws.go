@@ -38,6 +38,11 @@ var (
 		config.English: "set ipfs gateway for resource fetching for once",
 		config.Chinese: "一次设置ipfs网关",
 	}
+
+	_flagContractAddressUsages = map[config.Language]string{
+		config.English: "set w3bsteram project register contract address for once",
+		config.Chinese: "一次设置w3bstream项目注册合约地址",
+	}
 )
 
 func init() {
@@ -58,7 +63,11 @@ func init() {
 		config.ReadConfig.IPFSEndpoint, config.TranslateInLang(_flagIPFSEndpointUsages, config.UILanguage),
 	)
 	WsCmd.PersistentFlags().StringVar(
-		&config.ReadConfig.IPFSEndpoint, "ipfs-gateway",
-		config.ReadConfig.IPFSEndpoint, config.TranslateInLang(_flagIPFSGatewayUsages, config.UILanguage),
+		&config.ReadConfig.IPFSGateway, "ipfs-gateway",
+		config.ReadConfig.IPFSGateway, config.TranslateInLang(_flagIPFSGatewayUsages, config.UILanguage),
+	)
+	WsCmd.PersistentFlags().StringVar(
+		&config.ReadConfig.WsRegisterContract, "contract-address",
+		config.ReadConfig.WsRegisterContract, config.TranslateInLang(_flagContractAddressUsages, config.UILanguage),
 	)
 }

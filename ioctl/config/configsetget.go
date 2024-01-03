@@ -33,12 +33,14 @@ const (
 	_defaultIPFSEndpoint = "ipfs.mainnet.iotex.io"
 	// _defaultIPFSGateway default IPFS gateway for resource fetching
 	_defaultIPFSGateway = "https://ipfs.io"
+	// _defaultWsRegisterContract  default project register contract address
+	_defaultWsRegisterContract = "0x4F7e678B0203e0444E17512108dba4B08B39512e"
 )
 
 var (
 	_supportedLanguage = []string{"English", "中文"}
-	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway"}
-	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "analyserEndpoint", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "all"}
+	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "wsRegisterContract"}
+	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "analyserEndpoint", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "wsRegisterContract", "all"}
 	_validExpl         = []string{"iotexscan", "iotxplorer"}
 	_endpointCompile   = regexp.MustCompile("^" + _endpointPattern + "$")
 )
@@ -160,6 +162,8 @@ func Get(arg string) error {
 		fmt.Println(ReadConfig.IPFSEndpoint)
 	case "ipfsGateway":
 		fmt.Println(ReadConfig.IPFSGateway)
+	case "wsRegisterContract":
+		fmt.Println(ReadConfig.WsRegisterContract)
 	case "all":
 		fmt.Println(ReadConfig.String())
 	}
@@ -294,6 +298,8 @@ func set(args []string) error {
 		ReadConfig.IPFSEndpoint = args[1]
 	case "ipfsGateway":
 		ReadConfig.IPFSGateway = args[1]
+	case "wsRegisterContract":
+		ReadConfig.WsRegisterContract = args[1]
 	}
 	err := writeConfig()
 	if err != nil {
@@ -315,6 +321,7 @@ func reset() error {
 	ReadConfig.WsEndpoint = _defaultWsEndpoint
 	ReadConfig.IPFSEndpoint = _defaultIPFSEndpoint
 	ReadConfig.IPFSGateway = _defaultIPFSGateway
+	ReadConfig.WsRegisterContract = _defaultWsRegisterContract
 
 	err := writeConfig()
 	if err != nil {

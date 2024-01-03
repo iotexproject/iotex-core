@@ -39,11 +39,6 @@ var (
 		config.Chinese: "w3bstream项目管理",
 	}
 
-	_flagProjectRegisterContractAddressUsages = map[config.Language]string{
-		config.English: "project register contract address",
-		config.Chinese: "项目注册合约地址",
-	}
-
 	wsProjectRegisterContractAddress string
 	wsProjectRegisterContractABI     abi.ABI
 
@@ -69,14 +64,7 @@ func init() {
 	wsProject.AddCommand(wsProjectUpdate)
 	wsProject.AddCommand(wsProjectQuery)
 
-	wsProject.PersistentFlags().StringVarP(
-		&wsProjectRegisterContractAddress,
-		"contract-address",
-		"c",
-		"",
-		config.TranslateInLang(_flagProjectRegisterContractAddressUsages, config.UILanguage),
-	)
-	_ = wsProject.MarkFlagRequired("contract-address")
+	wsProjectRegisterContractAddress = config.ReadConfig.WsRegisterContract
 }
 
 func convertStringToAbiBytes32(hash string) (interface{}, error) {

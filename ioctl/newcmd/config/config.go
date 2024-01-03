@@ -40,12 +40,14 @@ const (
 	_defaultIPFSEndpoint = "ipfs.mainnet.iotex.io"
 	// _defaultIPFSGateway default IPFS gateway for resource fetching
 	_defaultIPFSGateway = "https://ipfs.io"
+	// _defaultWsRegisterContract default w3bstream project register contract address
+	_defaultWsRegisterContract = "0x4F7e678B0203e0444E17512108dba4B08B39512e"
 )
 
 var (
 	_supportedLanguage = []string{"English", "中文"}
-	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway"}
-	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "analyserEndpoint", "all"}
+	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "wsRegisterContract"}
+	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "analyserEndpoint", "wsRegisterContract", "all"}
 	_validExpl         = []string{"iotexscan", "iotxplorer"}
 	_endpointCompile   = regexp.MustCompile("^" + _endpointPattern + "$")
 	_configDir         = os.Getenv("HOME") + "/.config/ioctl/default"
@@ -131,6 +133,9 @@ func InitConfig() (config.Config, string, error) {
 	if info.readConfig.IPFSGateway == "" {
 		info.readConfig.IPFSGateway = _defaultIPFSGateway
 	}
+	if info.readConfig.WsRegisterContract == "" {
+		info.readConfig.WsRegisterContract = _defaultWsRegisterContract
+	}
 	if !completeness {
 		if err = info.writeConfig(); err != nil {
 			return info.readConfig, info.defaultConfigFile, err
@@ -163,6 +168,7 @@ func (c *info) reset() error {
 	c.readConfig.WsEndpoint = _defaultWsEndpoint
 	c.readConfig.IPFSEndpoint = _defaultIPFSEndpoint
 	c.readConfig.IPFSGateway = _defaultIPFSGateway
+	c.readConfig.WsRegisterContract = _defaultWsRegisterContract
 
 	err := c.writeConfig()
 	if err != nil {
@@ -227,6 +233,8 @@ func (c *info) set(args []string, insecure bool, client ioctl.Client) (string, e
 		c.readConfig.IPFSEndpoint = args[1]
 	case "ipfsGateway":
 		c.readConfig.IPFSGateway = args[1]
+	case "wsRegisterContract":
+		c.readConfig.WsRegisterContract = args[1]
 	default:
 		return "", config.ErrConfigNotMatch
 	}
@@ -268,6 +276,8 @@ func (c *info) get(arg string) (string, error) {
 		return c.readConfig.IPFSEndpoint, nil
 	case "ipfsGateway":
 		return c.readConfig.IPFSGateway, nil
+	case "wsRegisterContract":
+		return c.readConfig.WsRegisterContract, nil
 	case "all":
 		return jsonString(c.readConfig)
 	default:

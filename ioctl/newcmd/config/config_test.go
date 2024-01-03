@@ -50,16 +50,17 @@ func TestConfigGet(t *testing.T) {
 	require := require.New(t)
 	testPath := t.TempDir()
 	info := newInfo(config.Config{
-		Wallet:           testPath,
-		SecureConnect:    true,
-		Aliases:          make(map[string]string),
-		DefaultAccount:   config.Context{AddressOrAlias: "test"},
-		Explorer:         "iotexscan",
-		Language:         "English",
-		AnalyserEndpoint: "testAnalyser",
-		WsEndpoint:       "testWsEndpoint",
-		IPFSEndpoint:     "testIPFSEndpoint",
-		IPFSGateway:      "testIPFSGateway",
+		Wallet:             testPath,
+		SecureConnect:      true,
+		Aliases:            make(map[string]string),
+		DefaultAccount:     config.Context{AddressOrAlias: "test"},
+		Explorer:           "iotexscan",
+		Language:           "English",
+		AnalyserEndpoint:   "testAnalyser",
+		WsEndpoint:         "testWsEndpoint",
+		IPFSEndpoint:       "testIPFSEndpoint",
+		IPFSGateway:        "testIPFSGateway",
+		WsRegisterContract: "testWsRegisterContract",
 	}, testPath)
 
 	tcs := []struct {
@@ -107,8 +108,12 @@ func TestConfigGet(t *testing.T) {
 			"testIPFSGateway",
 		},
 		{
+			"wsRegisterContract",
+			"testWsRegisterContract",
+		},
+		{
 			"all",
-			"\"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\",\n  \"wsEndpoint\": \"testWsEndpoint\",\n  \"ipfsEndpoint\": \"testIPFSEndpoint\",\n  \"ipfsGateway\": \"testIPFSGateway\"\n}",
+			"\"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\",\n  \"wsEndpoint\": \"testWsEndpoint\",\n  \"ipfsEndpoint\": \"testIPFSEndpoint\",\n  \"ipfsGateway\": \"testIPFSGateway\",\n  \"wsRegisterContract\": \"testWsRegisterContract\"\n}",
 		},
 	}
 
@@ -128,16 +133,17 @@ func TestConfigReset(t *testing.T) {
 	cfgFile := fmt.Sprintf("%s/%s", cfgDir, "config.test")
 
 	info := newInfo(config.Config{
-		Wallet:           "wallet",
-		Endpoint:         "testEndpoint",
-		SecureConnect:    false,
-		DefaultAccount:   config.Context{AddressOrAlias: ""},
-		Explorer:         "explorer",
-		Language:         "Croatian",
-		AnalyserEndpoint: "testAnalyser",
-		WsEndpoint:       "testWsEndpoint",
-		IPFSEndpoint:     "testIPFSEndpoint",
-		IPFSGateway:      "testIPFSGateway",
+		Wallet:             "wallet",
+		Endpoint:           "testEndpoint",
+		SecureConnect:      false,
+		DefaultAccount:     config.Context{AddressOrAlias: ""},
+		Explorer:           "explorer",
+		Language:           "Croatian",
+		AnalyserEndpoint:   "testAnalyser",
+		WsEndpoint:         "testWsEndpoint",
+		IPFSEndpoint:       "testIPFSEndpoint",
+		IPFSGateway:        "testIPFSGateway",
+		WsRegisterContract: "testWsRegisterContract",
 	}, cfgFile)
 
 	// write the config to the temp dir and then reset
@@ -155,6 +161,7 @@ func TestConfigReset(t *testing.T) {
 	require.Equal("testWsEndpoint", cfg.WsEndpoint)
 	require.Equal("testIPFSEndpoint", cfg.IPFSEndpoint)
 	require.Equal("testIPFSGateway", cfg.IPFSGateway)
+	require.Equal("testWsRegisterContract", cfg.WsRegisterContract)
 
 	require.NoError(info.reset())
 	require.NoError(info.loadConfig())
@@ -169,6 +176,7 @@ func TestConfigReset(t *testing.T) {
 	require.Equal(_defaultWsEndpoint, resetCfg.WsEndpoint)
 	require.Equal(_defaultIPFSEndpoint, resetCfg.IPFSEndpoint)
 	require.Equal(_defaultIPFSGateway, resetCfg.IPFSGateway)
+	require.Equal(_defaultWsRegisterContract, resetCfg.WsRegisterContract)
 	require.Equal("iotexscan", resetCfg.Explorer)
 	require.Equal(*new(config.Context), resetCfg.DefaultAccount)
 }
@@ -250,6 +258,10 @@ func TestConfigSet(t *testing.T) {
 		{
 			[]string{"ipfsGateway", "testIPFSGateway"},
 			"testIPFSGateway",
+		},
+		{
+			[]string{"wsRegisterContract", "testWsRegisterContract"},
+			"testWsRegisterContract",
 		},
 	}
 

@@ -73,6 +73,8 @@ type Config struct {
 	IPFSEndpoint string `json:"ipfsEndpoint" yaml:"ipfsEndpoint"`
 	// IPFSGateway ipfs gateway for resource fetching (with scheme)
 	IPFSGateway string `json:"ipfsGateway" yaml:"ipfsGateway"`
+	// WsRegisterContract w3bstream project register contract address
+	WsRegisterContract string `json:"wsRegisterContract" yaml:"wsRegisterContract"`
 }
 
 var (
@@ -130,6 +132,10 @@ func init() {
 	}
 	if ReadConfig.IPFSGateway == "" {
 		ReadConfig.IPFSGateway = _defaultIPFSGateway
+		completeness = false
+	}
+	if ReadConfig.WsRegisterContract == "" {
+		ReadConfig.WsRegisterContract = _defaultWsRegisterContract
 		completeness = false
 	}
 	if !completeness {
