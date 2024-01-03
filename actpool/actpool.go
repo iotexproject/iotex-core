@@ -141,7 +141,7 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 	ap.timerFactory = timerFactory
 
 	for i := 0; i < _numWorker; i++ {
-		ap.jobQueue[i] = make(chan workerJob, ap.cfg.MaxNumActsPerAcct)
+		ap.jobQueue[i] = make(chan workerJob, ap.cfg.WorkerBufferSize)
 		ap.worker[i] = newQueueWorker(ap, ap.jobQueue[i])
 		if err := ap.worker[i].Start(); err != nil {
 			return nil, err
