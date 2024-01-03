@@ -35,12 +35,14 @@ const (
 	_defaultAnalyserEndpoint = "https://iotex-analyser-api-mainnet.chainanalytics.org"
 	_defaultWsEndpoint       = "sprout-staging.w3bstream.com:9000"
 	_defaultConfigFileName   = "config.default"
+	// _defaultWsProjectRegisterContract default w3bstream project register contract address
+	_defaultWsProjectRegisterContract = "0x4F7e678B0203e0444E17512108dba4B08B39512e"
 )
 
 var (
 	_supportedLanguage = []string{"English", "中文"}
-	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height"}
-	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "analyserEndpoint", "all"}
+	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "wsProjectRegisterContract"}
+	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "analyserEndpoint", "wsEndpoint", "wsProjectRegisterContract", "all"}
 	_validExpl         = []string{"iotexscan", "iotxplorer"}
 	_endpointCompile   = regexp.MustCompile("^" + _endpointPattern + "$")
 	_configDir         = os.Getenv("HOME") + "/.config/ioctl/default"
@@ -120,6 +122,9 @@ func InitConfig() (config.Config, string, error) {
 		info.readConfig.WsEndpoint = _defaultWsEndpoint
 		completeness = false
 	}
+	if info.readConfig.WsRegisterContract == "" {
+		info.readConfig.WsRegisterContract = _defaultWsProjectRegisterContract
+	}
 	if !completeness {
 		if err = info.writeConfig(); err != nil {
 			return info.readConfig, info.defaultConfigFile, err
@@ -150,6 +155,7 @@ func (c *info) reset() error {
 	c.readConfig.Language = _supportedLanguage[0]
 	c.readConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
 	c.readConfig.WsEndpoint = _defaultWsEndpoint
+	c.readConfig.WsRegisterContract = _defaultWsProjectRegisterContract
 
 	err := c.writeConfig()
 	if err != nil {
@@ -210,6 +216,8 @@ func (c *info) set(args []string, insecure bool, client ioctl.Client) (string, e
 		c.readConfig.Nsv2height = height
 	case "wsEndpoint":
 		c.readConfig.WsEndpoint = args[1]
+	case "wsProjectRegisterContract":
+		c.readConfig.WsRegisterContract = args[1]
 	default:
 		return "", config.ErrConfigNotMatch
 	}
@@ -247,6 +255,8 @@ func (c *info) get(arg string) (string, error) {
 		return c.readConfig.AnalyserEndpoint, nil
 	case "wsEndpoint":
 		return c.readConfig.WsEndpoint, nil
+	case "wsProjectRegisterContract":
+		return c.readConfig.WsRegisterContract, nil
 	case "all":
 		return jsonString(c.readConfig)
 	default:

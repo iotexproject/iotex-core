@@ -28,6 +28,10 @@ var (
 		config.English: "set w3bsteram endpoint for once",
 		config.Chinese: "一次设置w3bstream端点",
 	}
+	_flagContractAddressUsages = map[config.Language]string{
+		config.English: "set w3bsteram project register contract address for once",
+		config.Chinese: "一次设置w3bstream项目注册合约地址",
+	}
 )
 
 func init() {
@@ -42,5 +46,9 @@ func init() {
 	WsCmd.PersistentFlags().StringVar(
 		&config.ReadConfig.WsEndpoint, "ws-endpoint",
 		config.ReadConfig.WsEndpoint, config.TranslateInLang(_flagWsEndpointUsages, config.UILanguage),
+	)
+	WsCmd.PersistentFlags().StringVar(
+		&config.ReadConfig.WsRegisterContract, "contract-address",
+		config.ReadConfig.WsRegisterContract, config.TranslateInLang(_flagContractAddressUsages, config.UILanguage),
 	)
 }

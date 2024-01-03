@@ -47,14 +47,15 @@ func TestConfigGet(t *testing.T) {
 	require := require.New(t)
 	testPath := t.TempDir()
 	info := newInfo(config.Config{
-		Wallet:           testPath,
-		SecureConnect:    true,
-		Aliases:          make(map[string]string),
-		DefaultAccount:   config.Context{AddressOrAlias: "test"},
-		Explorer:         "iotexscan",
-		Language:         "English",
-		AnalyserEndpoint: "testAnalyser",
-		WsEndpoint:       "testWsEndpoint",
+		Wallet:             testPath,
+		SecureConnect:      true,
+		Aliases:            make(map[string]string),
+		DefaultAccount:     config.Context{AddressOrAlias: "test"},
+		Explorer:           "iotexscan",
+		Language:           "English",
+		AnalyserEndpoint:   "testAnalyser",
+		WsEndpoint:         "testWsEndpoint",
+		WsRegisterContract: "testWsProjectRegisterContract",
 	}, testPath)
 
 	tcs := []struct {
@@ -94,8 +95,12 @@ func TestConfigGet(t *testing.T) {
 			"testWsEndpoint",
 		},
 		{
+			"wsProjectRegisterContract",
+			"testWsProjectRegisterContract",
+		},
+		{
 			"all",
-			"\"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\",\n  \"wsEndpoint\": \"testWsEndpoint\"\n}",
+			"\"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\",\n  \"wsEndpoint\": \"testWsEndpoint\",\n  \"wsProjectRegisterContract\": \"testWsProjectRegisterContract\"\n}",
 		},
 	}
 
@@ -115,14 +120,15 @@ func TestConfigReset(t *testing.T) {
 	cfgFile := fmt.Sprintf("%s/%s", cfgDir, "config.test")
 
 	info := newInfo(config.Config{
-		Wallet:           "wallet",
-		Endpoint:         "testEndpoint",
-		SecureConnect:    false,
-		DefaultAccount:   config.Context{AddressOrAlias: ""},
-		Explorer:         "explorer",
-		Language:         "Croatian",
-		AnalyserEndpoint: "testAnalyser",
-		WsEndpoint:       "testWsEndpoint",
+		Wallet:             "wallet",
+		Endpoint:           "testEndpoint",
+		SecureConnect:      false,
+		DefaultAccount:     config.Context{AddressOrAlias: ""},
+		Explorer:           "explorer",
+		Language:           "Croatian",
+		AnalyserEndpoint:   "testAnalyser",
+		WsEndpoint:         "testWsEndpoint",
+		WsRegisterContract: "testProjectRegisterContract",
 	}, cfgFile)
 
 	// write the config to the temp dir and then reset
@@ -138,6 +144,7 @@ func TestConfigReset(t *testing.T) {
 	require.Equal("explorer", cfg.Explorer)
 	require.Equal(config.Context{AddressOrAlias: ""}, cfg.DefaultAccount)
 	require.Equal("testWsEndpoint", cfg.WsEndpoint)
+	require.Equal("testProjectRegisterContract", cfg.WsRegisterContract)
 
 	require.NoError(info.reset())
 	require.NoError(info.loadConfig())
@@ -150,6 +157,7 @@ func TestConfigReset(t *testing.T) {
 	require.Equal("English", resetCfg.Language)
 	require.Equal(_defaultAnalyserEndpoint, resetCfg.AnalyserEndpoint)
 	require.Equal(_defaultWsEndpoint, resetCfg.WsEndpoint)
+	require.Equal(_defaultWsProjectRegisterContract, resetCfg.WsRegisterContract)
 	require.Equal("iotexscan", resetCfg.Explorer)
 	require.Equal(*new(config.Context), resetCfg.DefaultAccount)
 }
@@ -220,6 +228,10 @@ func TestConfigSet(t *testing.T) {
 		{
 			[]string{"wsEndpoint", "testWsEndpoint"},
 			"testWsEndpoint",
+		},
+		{
+			[]string{"wsProjectRegisterContract", "testWsProjectRegisterContract"},
+			"testWsProjectRegisterContract",
 		},
 	}
 
