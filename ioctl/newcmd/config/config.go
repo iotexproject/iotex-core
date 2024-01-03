@@ -33,16 +33,21 @@ const (
 	_localPattern            = "localhost"
 	_endpointPattern         = "(" + _ipPattern + "|(" + _domainPattern + ")" + "|(" + _localPattern + "))" + `(:\d{1,5})?`
 	_defaultAnalyserEndpoint = "https://iotex-analyser-api-mainnet.chainanalytics.org"
-	_defaultWsEndpoint       = "sprout-staging.w3bstream.com:9000"
 	_defaultConfigFileName   = "config.default"
-	// _defaultWsProjectRegisterContract default w3bstream project register contract address
-	_defaultWsProjectRegisterContract = "0x4F7e678B0203e0444E17512108dba4B08B39512e"
+	// _defaultWsEndpoint default w3bstream endpoint
+	_defaultWsEndpoint = "sprout-staging.w3bstream.com:9000"
+	// _defaultIPFSEndpoint default IPFS endpoint for uploading
+	_defaultIPFSEndpoint = "ipfs.mainnet.iotex.io"
+	// _defaultIPFSGateway default IPFS gateway for resource fetching
+	_defaultIPFSGateway = "https://ipfs.io"
+	// _defaultWsRegisterContract default w3bstream project register contract address
+	_defaultWsRegisterContract = "0x4F7e678B0203e0444E17512108dba4B08B39512e"
 )
 
 var (
 	_supportedLanguage = []string{"English", "中文"}
-	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "wsProjectRegisterContract"}
-	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "analyserEndpoint", "wsEndpoint", "wsProjectRegisterContract", "all"}
+	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "wsRegisterContract"}
+	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "analyserEndpoint", "wsRegisterContract", "all"}
 	_validExpl         = []string{"iotexscan", "iotxplorer"}
 	_endpointCompile   = regexp.MustCompile("^" + _endpointPattern + "$")
 	_configDir         = os.Getenv("HOME") + "/.config/ioctl/default"
@@ -122,8 +127,14 @@ func InitConfig() (config.Config, string, error) {
 		info.readConfig.WsEndpoint = _defaultWsEndpoint
 		completeness = false
 	}
+	if info.readConfig.IPFSEndpoint == "" {
+		info.readConfig.IPFSEndpoint = _defaultIPFSEndpoint
+	}
+	if info.readConfig.IPFSGateway == "" {
+		info.readConfig.IPFSGateway = _defaultIPFSGateway
+	}
 	if info.readConfig.WsRegisterContract == "" {
-		info.readConfig.WsRegisterContract = _defaultWsProjectRegisterContract
+		info.readConfig.WsRegisterContract = _defaultWsRegisterContract
 	}
 	if !completeness {
 		if err = info.writeConfig(); err != nil {
@@ -155,7 +166,9 @@ func (c *info) reset() error {
 	c.readConfig.Language = _supportedLanguage[0]
 	c.readConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
 	c.readConfig.WsEndpoint = _defaultWsEndpoint
-	c.readConfig.WsRegisterContract = _defaultWsProjectRegisterContract
+	c.readConfig.IPFSEndpoint = _defaultIPFSEndpoint
+	c.readConfig.IPFSGateway = _defaultIPFSGateway
+	c.readConfig.WsRegisterContract = _defaultWsRegisterContract
 
 	err := c.writeConfig()
 	if err != nil {
@@ -216,7 +229,11 @@ func (c *info) set(args []string, insecure bool, client ioctl.Client) (string, e
 		c.readConfig.Nsv2height = height
 	case "wsEndpoint":
 		c.readConfig.WsEndpoint = args[1]
-	case "wsProjectRegisterContract":
+	case "ipfsEndpoint":
+		c.readConfig.IPFSEndpoint = args[1]
+	case "ipfsGateway":
+		c.readConfig.IPFSGateway = args[1]
+	case "wsRegisterContract":
 		c.readConfig.WsRegisterContract = args[1]
 	default:
 		return "", config.ErrConfigNotMatch
@@ -255,7 +272,11 @@ func (c *info) get(arg string) (string, error) {
 		return c.readConfig.AnalyserEndpoint, nil
 	case "wsEndpoint":
 		return c.readConfig.WsEndpoint, nil
-	case "wsProjectRegisterContract":
+	case "ipfsEndpoint":
+		return c.readConfig.IPFSEndpoint, nil
+	case "ipfsGateway":
+		return c.readConfig.IPFSGateway, nil
+	case "wsRegisterContract":
 		return c.readConfig.WsRegisterContract, nil
 	case "all":
 		return jsonString(c.readConfig)

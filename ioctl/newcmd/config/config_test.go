@@ -41,6 +41,9 @@ func TestInitConfig(t *testing.T) {
 	require.Equal(_validExpl[0], cfg.Explorer)
 	require.Equal(_supportedLanguage[0], cfg.Language)
 	require.Equal(filepath.Join(testPath, _defaultConfigFileName), cfgFilePath)
+	require.Equal(_defaultWsEndpoint, cfg.WsEndpoint)
+	require.Equal(_defaultIPFSEndpoint, cfg.IPFSEndpoint)
+	require.Equal(_defaultIPFSGateway, cfg.IPFSGateway)
 }
 
 func TestConfigGet(t *testing.T) {
@@ -55,7 +58,9 @@ func TestConfigGet(t *testing.T) {
 		Language:           "English",
 		AnalyserEndpoint:   "testAnalyser",
 		WsEndpoint:         "testWsEndpoint",
-		WsRegisterContract: "testWsProjectRegisterContract",
+		IPFSEndpoint:       "testIPFSEndpoint",
+		IPFSGateway:        "testIPFSGateway",
+		WsRegisterContract: "testWsRegisterContract",
 	}, testPath)
 
 	tcs := []struct {
@@ -95,12 +100,20 @@ func TestConfigGet(t *testing.T) {
 			"testWsEndpoint",
 		},
 		{
-			"wsProjectRegisterContract",
-			"testWsProjectRegisterContract",
+			"ipfsEndpoint",
+			"testIPFSEndpoint",
+		},
+		{
+			"ipfsGateway",
+			"testIPFSGateway",
+		},
+		{
+			"wsRegisterContract",
+			"testWsRegisterContract",
 		},
 		{
 			"all",
-			"\"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\",\n  \"wsEndpoint\": \"testWsEndpoint\",\n  \"wsProjectRegisterContract\": \"testWsProjectRegisterContract\"\n}",
+			"\"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\",\n  \"wsEndpoint\": \"testWsEndpoint\",\n  \"ipfsEndpoint\": \"testIPFSEndpoint\",\n  \"ipfsGateway\": \"testIPFSGateway\",\n  \"wsRegisterContract\": \"testWsRegisterContract\"\n}",
 		},
 	}
 
@@ -128,7 +141,9 @@ func TestConfigReset(t *testing.T) {
 		Language:           "Croatian",
 		AnalyserEndpoint:   "testAnalyser",
 		WsEndpoint:         "testWsEndpoint",
-		WsRegisterContract: "testProjectRegisterContract",
+		IPFSEndpoint:       "testIPFSEndpoint",
+		IPFSGateway:        "testIPFSGateway",
+		WsRegisterContract: "testWsRegisterContract",
 	}, cfgFile)
 
 	// write the config to the temp dir and then reset
@@ -144,7 +159,9 @@ func TestConfigReset(t *testing.T) {
 	require.Equal("explorer", cfg.Explorer)
 	require.Equal(config.Context{AddressOrAlias: ""}, cfg.DefaultAccount)
 	require.Equal("testWsEndpoint", cfg.WsEndpoint)
-	require.Equal("testProjectRegisterContract", cfg.WsRegisterContract)
+	require.Equal("testIPFSEndpoint", cfg.IPFSEndpoint)
+	require.Equal("testIPFSGateway", cfg.IPFSGateway)
+	require.Equal("testWsRegisterContract", cfg.WsRegisterContract)
 
 	require.NoError(info.reset())
 	require.NoError(info.loadConfig())
@@ -157,7 +174,9 @@ func TestConfigReset(t *testing.T) {
 	require.Equal("English", resetCfg.Language)
 	require.Equal(_defaultAnalyserEndpoint, resetCfg.AnalyserEndpoint)
 	require.Equal(_defaultWsEndpoint, resetCfg.WsEndpoint)
-	require.Equal(_defaultWsProjectRegisterContract, resetCfg.WsRegisterContract)
+	require.Equal(_defaultIPFSEndpoint, resetCfg.IPFSEndpoint)
+	require.Equal(_defaultIPFSGateway, resetCfg.IPFSGateway)
+	require.Equal(_defaultWsRegisterContract, resetCfg.WsRegisterContract)
 	require.Equal("iotexscan", resetCfg.Explorer)
 	require.Equal(*new(config.Context), resetCfg.DefaultAccount)
 }
@@ -175,6 +194,9 @@ func TestConfigSet(t *testing.T) {
 		Explorer:         "iotexscan",
 		Language:         "English",
 		AnalyserEndpoint: "testAnalyser",
+		WsEndpoint:       "testWsEndpoint",
+		IPFSEndpoint:     "testIPFSEndpoint",
+		IPFSGateway:      "testIPFSGateway",
 	}, cfgFile)
 
 	tcs := []struct {
@@ -230,8 +252,16 @@ func TestConfigSet(t *testing.T) {
 			"testWsEndpoint",
 		},
 		{
-			[]string{"wsProjectRegisterContract", "testWsProjectRegisterContract"},
-			"testWsProjectRegisterContract",
+			[]string{"ipfsEndpoint", "testIPFSEndpoint"},
+			"testIPFSEndpoint",
+		},
+		{
+			[]string{"ipfsGateway", "testIPFSGateway"},
+			"testIPFSGateway",
+		},
+		{
+			[]string{"wsRegisterContract", "testWsRegisterContract"},
+			"testWsRegisterContract",
 		},
 	}
 
