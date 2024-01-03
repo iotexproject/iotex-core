@@ -90,15 +90,16 @@ func (p *Protocol) validateBucketSelfStake(ctx context.Context, csm CandidateSta
 		withBucketMinAmount(p.config.RegistrationConsts.MinSelfStake),
 		withBucketStake(true),
 		withBucketSelfStaked(false),
+		withBucketCandidate(cand.Owner),
 	); rErr != nil {
 		return rErr
 	}
 
 	if validateBucket(ctx, csm, esm, bucket, withBucketOwner(cand.Owner)) != nil &&
-		validateBucket(ctx, csm, esm, bucket, withBucketEndorsed(true), withBucketCandidate(cand.Owner)) != nil {
+		validateBucket(ctx, csm, esm, bucket, withBucketEndorsed(true)) != nil {
 		return &handleError{
 			err:           errors.New("bucket is not a self-owned or endorsed bucket"),
-			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
 		}
 	}
 	return nil

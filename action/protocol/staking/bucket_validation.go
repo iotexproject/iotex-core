@@ -127,16 +127,23 @@ func validateBucket(ctx context.Context, csm CandidateStateManager, esm *Endorse
 				failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
 			}
 		}
-		status := endorse.Status(blkCtx.BlockHeight)
-		if *validation.endorsed && status == NotEndorsed {
+		if endorse != nil {
+			status := endorse.Status(blkCtx.BlockHeight)
+			if *validation.endorsed && status == NotEndorsed {
+				return &handleError{
+					err:           errors.New("bucket is not endorsed"),
+					failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+				}
+			}
+			if !*validation.endorsed && status != NotEndorsed {
+				return &handleError{
+					err:           errors.New("bucket is already endorsed"),
+					failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+				}
+			}
+		} else if *validation.endorsed {
 			return &handleError{
 				err:           errors.New("bucket is not endorsed"),
-				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
-			}
-		}
-		if !*validation.endorsed && status != NotEndorsed {
-			return &handleError{
-				err:           errors.New("bucket is already endorsed"),
 				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 			}
 		}
