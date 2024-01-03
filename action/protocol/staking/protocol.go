@@ -472,6 +472,55 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 	return nil
 }
 
+func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidateStateReader, cand *Candidate) (bool, error) {
+	// at least min self stake
+	if cand.SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
+		return false, nil
+	}
+
+	// endorsement must not exipred if the self-stake bucket is an endorse bucket
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.DisableDelegateEndorsement {
+		return true, nil
+	}
+	srHeight, err := csr.SR().Height()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to get StateReader height")
+	}
+	vb, err := csr.getBucket(cand.SelfStakeBucketIdx)
+	if err != nil {
+		if errors.Is(err, state.ErrStateNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	// bucket is self-owned
+	if address.Equal(vb.Owner, cand.Owner) {
+		return true, nil
+	}
+	// bucket is not endorsed to the candidate
+	if !address.Equal(vb.Candidate, cand.Owner) {
+		return false, nil
+	}
+	esr := NewEndorsementStateReader(csr.SR())
+	endorse, err := esr.Get(cand.SelfStakeBucketIdx)
+	switch {
+	case err == nil:
+		// endorsement exists and expired before end of next epoch
+		rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+		currentEpochNum := rp.GetEpochNum(srHeight)
+		if endorse.Status(rp.GetEpochLastBlockHeight(currentEpochNum+1)) == EndorseExpired {
+			return false, nil
+		}
+	case !errors.Is(err, state.ErrStateNotExist):
+		// other error
+		return false, err
+	default:
+		// endorsement does not exist
+	}
+	return true, nil
+}
+
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
 	srHeight, err := sr.Height()
@@ -496,7 +545,11 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 			}
 			list[i].Votes.Add(list[i].Votes, contractVotes)
 		}
-		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {
+		active, err := p.isActiveCandidate(ctx, c, list[i])
+		if err != nil {
+			return nil, err
+		}
+		if active {
 			cand = append(cand, list[i])
 		}
 	}
