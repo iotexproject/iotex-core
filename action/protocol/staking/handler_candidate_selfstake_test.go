@@ -37,6 +37,7 @@ type (
 		AutoStake       bool
 		SelfStake       bool
 		UnstakeTime     *time.Time
+		EndorseExpire   uint64
 	}
 	candidateConfig struct {
 		Owner    address.Address
@@ -60,6 +61,7 @@ func initTestState(t *testing.T, ctrl *gomock.Controller, bucketCfgs []*bucketCo
 	require := require.New(t)
 	sm := testdb.NewMockStateManager(ctrl)
 	csm := newCandidateStateManager(sm)
+	esm := NewEndorsementStateManager(sm)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
 		protocol.NamespaceOption(_stakingNameSpace),
@@ -104,6 +106,9 @@ func initTestState(t *testing.T, ctrl *gomock.Controller, bucketCfgs []*bucketCo
 		if bktCfg.SelfStake {
 			selfStakeMap[bkt.Candidate.String()] = bkt.Index
 		}
+		if bktCfg.EndorseExpire != 0 {
+			require.NoError(esm.Put(bkt.Index, &Endorsement{ExpireHeight: bktCfg.EndorseExpire}))
+		}
 	}
 
 	// set up candidate
@@ -147,13 +152,16 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 	// NOT change existed items in initBucketCfgs and initCandidateCfgs
 	// only append new items to the end of the list if needed
 	initBucketCfgs := []*bucketConfig{
-		{identityset.Address(1), identityset.Address(1), "1", 1, true, false, nil},
-		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, true, false, nil},
-		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, true, false, &timeBeforeBlockII},
-		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil},
-		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 30, true, false, nil},
-		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, false, nil},
-		{identityset.Address(2), identityset.Address(2), "1200000000000000000000000", 30, true, true, nil},
+		{identityset.Address(1), identityset.Address(1), "1", 1, true, false, nil, 0},
+		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, true, false, nil, 0},
+		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, true, false, &timeBeforeBlockII, 0},
+		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, 0},
+		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 30, true, false, nil, 0},
+		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, false, nil, 0},
+		{identityset.Address(2), identityset.Address(2), "1200000000000000000000000", 30, true, true, nil, 0},
+		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 91, true, false, nil, endorsementNotExpireHeight},
+		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 91, true, false, nil, 1},
+		{identityset.Address(2), identityset.Address(2), "1200000000000000000000000", 91, true, false, nil, 0},
 	}
 	initCandidateCfgs := []*candidateConfig{
 		{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
@@ -291,19 +299,14 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 			1,
 			true,
 			nil,
-			iotextypes.ReceiptStatus_Success,
-			[]expectCandidate{
-				{identityset.Address(1), 1, "1200000000000000000000000", "1469480667073232815766915"},
-				{identityset.Address(2), 2, "1200000000000000000000000", "1469480667073232815766914"},
-			},
-			[]expectBucket{
-				{1, identityset.Address(1)},
-			},
+			iotextypes.ReceiptStatus_ErrInvalidBucketType,
+			nil,
+			nil,
 		},
 		{
-			"bucket has been voted to other candidate II",
-			[]uint64{0, 5},
-			[]uint64{0, 1},
+			"bucket is endorsed to candidate",
+			[]uint64{0, 7},
+			[]uint64{0},
 			1300000,
 			identityset.Address(1),
 			1,
@@ -315,11 +318,48 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 			nil,
 			iotextypes.ReceiptStatus_Success,
 			[]expectCandidate{
-				{identityset.Address(1), 1, "1200000000000000000000000", "1469480667073232815766915"},
-				{identityset.Address(2), 0, "0", "0"},
+				{identityset.Address(1), 1, "1200000000000000000000000", "1635067133824581908640995"},
 			},
 			[]expectBucket{
 				{1, identityset.Address(1)},
+			},
+		},
+		{
+			"bucket endorsement is expired",
+			[]uint64{0, 8},
+			[]uint64{0},
+			1300000,
+			identityset.Address(1),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			1,
+			true,
+			nil,
+			iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+			nil,
+			nil,
+		},
+		{
+			"candidate has already been selfstaked",
+			[]uint64{3, 9},
+			[]uint64{1},
+			1300000,
+			identityset.Address(2),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			1,
+			true,
+			nil,
+			iotextypes.ReceiptStatus_Success,
+			[]expectCandidate{
+				{identityset.Address(2), 1, "1200000000000000000000000", "3104547800897814724407908"},
+			},
+			[]expectBucket{
+				{1, identityset.Address(2)},
 			},
 		},
 	}
