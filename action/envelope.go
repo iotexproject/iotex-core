@@ -127,6 +127,8 @@ func (elp *envelope) Proto() *iotextypes.ActionCore {
 		actCore.Action = &iotextypes.ActionCore_CandidateUpdate{CandidateUpdate: act.Proto()}
 	case *CandidateActivate:
 		actCore.Action = &iotextypes.ActionCore_CandidateActivate{CandidateActivate: act.Proto()}
+	case *CandidateEndorsement:
+		actCore.Action = &iotextypes.ActionCore_CandidateEndorsement{CandidateEndorsement: act.Proto()}
 	default:
 		log.S().Panicf("Cannot convert type of action %T.\r\n", act)
 	}
@@ -251,6 +253,12 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	case pbAct.GetCandidateActivate() != nil:
 		act := &CandidateActivate{}
 		if err := act.LoadProto(pbAct.GetCandidateActivate()); err != nil {
+			return err
+		}
+		elp.payload = act
+	case pbAct.GetCandidateEndorsement() != nil:
+		act := &CandidateEndorsement{}
+		if err := act.LoadProto(pbAct.GetCandidateEndorsement()); err != nil {
 			return err
 		}
 		elp.payload = act
