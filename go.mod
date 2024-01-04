@@ -208,4 +208,4 @@ replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
 
-replace github.com/iotexproject/iotex-proto => github.com/envestcc/iotex-proto v0.0.0-20231212032848-4fdc37ad5ac6
+replace github.com/iotexproject/iotex-proto => github.com/envestcc/iotex-proto v0.0.0-20240104103408-24ce07944280

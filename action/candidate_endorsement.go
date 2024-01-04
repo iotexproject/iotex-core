@@ -3,7 +3,10 @@ package action
 import (
 	"math/big"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -42,4 +45,36 @@ func (act *CandidateEndorsement) Cost() (*big.Int, error) {
 	}
 	fee := big.NewInt(0).Mul(act.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return fee, nil
+}
+
+// Proto converts CandidateEndorsement to protobuf's Action
+func (cr *CandidateEndorsement) Proto() *iotextypes.CandidateEndorsement {
+	return &iotextypes.CandidateEndorsement{
+		BucketIndex: cr.bucketIndex,
+		Endorse:     cr.endorse,
+	}
+}
+
+// LoadProto converts a protobuf's Action to CandidateEndorsement
+func (cr *CandidateEndorsement) LoadProto(pbAct *iotextypes.CandidateEndorsement) error {
+	if pbAct == nil {
+		return ErrNilProto
+	}
+
+	cr.bucketIndex = pbAct.GetBucketIndex()
+	cr.endorse = pbAct.GetEndorse()
+	return nil
+}
+
+func NewCandidateEndorsement(nonce, gasLimit uint64, gasPrice *big.Int, bucketIndex uint64, endorse bool) *CandidateEndorsement {
+	return &CandidateEndorsement{
+		AbstractAction: AbstractAction{
+			version:  version.ProtocolVersion,
+			nonce:    nonce,
+			gasLimit: gasLimit,
+			gasPrice: gasPrice,
+		},
+		bucketIndex: bucketIndex,
+		endorse:     endorse,
+	}
 }
