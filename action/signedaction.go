@@ -107,6 +107,49 @@ func SignedCandidateUpdate(
 	return selp, nil
 }
 
+// SignedCandidateSelfStake returns a signed candidate selfstake
+func SignedCandidateSelfStake(
+	nonce uint64,
+	bucketIndex uint64,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	registererPriKey crypto.PrivateKey,
+) (SealedEnvelope, error) {
+	cu := NewCandidateSelfStake(nonce, gasLimit, gasPrice, bucketIndex)
+	bd := &EnvelopeBuilder{}
+	elp := bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).
+		SetAction(cu).Build()
+	selp, err := Sign(elp, registererPriKey)
+	if err != nil {
+		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign candidate selfstake %v", elp)
+	}
+	return selp, nil
+}
+
+// SignedCandidateEndorsement returns a signed candidate endorsement
+func SignedCandidateEndorsement(
+	nonce uint64,
+	bucketIndex uint64,
+	endorse bool,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	registererPriKey crypto.PrivateKey,
+) (SealedEnvelope, error) {
+	cu := NewCandidateEndorsement(nonce, gasLimit, gasPrice, bucketIndex, endorse)
+	bd := &EnvelopeBuilder{}
+	elp := bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).
+		SetAction(cu).Build()
+	selp, err := Sign(elp, registererPriKey)
+	if err != nil {
+		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign candidate endorsement %v", elp)
+	}
+	return selp, nil
+}
+
 // SignedCreateStake returns a signed create stake
 func SignedCreateStake(nonce uint64,
 	candidateName, amount string,
