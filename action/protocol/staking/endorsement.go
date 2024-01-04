@@ -11,8 +11,11 @@ import (
 
 // EndorsementStatus
 const (
-	NotEndorsed = EndorsementStatus(iota)
+	// EndorseExpired means the endorsement is expired
+	EndorseExpired = EndorsementStatus(iota)
+	// UnEndorsing means the endorser has submitted unendorsement, but it is not expired yet
 	UnEndorsing
+	// Endorsed means the endorsement is valid
 	Endorsed
 )
 
@@ -34,8 +37,9 @@ type (
 func (e *Endorsement) Status(height uint64) EndorsementStatus {
 	if e.ExpireHeight == endorsementNotExpireHeight {
 		return Endorsed
-	} else if height >= e.ExpireHeight {
-		return NotEndorsed
+	}
+	if height >= e.ExpireHeight {
+		return EndorseExpired
 	}
 	return UnEndorsing
 }
