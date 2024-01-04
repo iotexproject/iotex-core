@@ -2,12 +2,12 @@ package staking
 
 import (
 	"context"
+	"math"
 	"math/big"
-
-	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -15,6 +15,8 @@ import (
 
 const (
 	handleCandidateSelfStake = "candidateSelfStake"
+
+	candidateNoSelfStakeBucketIndex = math.MaxUint64
 )
 
 func (p *Protocol) handleCandidateSelfStake(ctx context.Context, act *action.CandidateSelfStake, csm CandidateStateManager,
@@ -37,7 +39,7 @@ func (p *Protocol) handleCandidateSelfStake(ctx context.Context, act *action.Can
 	if cand == nil {
 		return log, nil, errCandNotExist
 	}
-	if cand.SelfStakeBucketIdx != 0 {
+	if cand.SelfStakeBucketIdx != candidateNoSelfStakeBucketIndex {
 		prevBucket, err = p.fetchBucket(csm, cand.SelfStakeBucketIdx)
 		if err != nil {
 			return log, nil, err
@@ -63,7 +65,6 @@ func (p *Protocol) handleCandidateSelfStake(ctx context.Context, act *action.Can
 	if prevBucket != nil {
 		cand.SubVote(p.calculateVoteWeight(prevBucket, true))
 		cand.AddVote(p.calculateVoteWeight(prevBucket, false))
-		cand.SelfStakeBucketIdx = 0
 		cand.SelfStake = big.NewInt(0)
 	}
 	// change bucket candidate
