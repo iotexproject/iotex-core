@@ -79,6 +79,14 @@ var (
 		config.English: "set w3bsteram project register contract address for once",
 		config.Chinese: "一次设置w3bstream项目注册合约地址",
 	}
+	_flagProjectConfigFileUsages = map[config.Language]string{
+		config.English: "project config file path",
+		config.Chinese: "项目配置文件路径",
+	}
+	_flagProjectConfigHashUsages = map[config.Language]string{
+		config.English: "project config file hash(sha256) for validating",
+		config.Chinese: "项目配置文件sha256哈希",
+	}
 )
 
 func init() {
