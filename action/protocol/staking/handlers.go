@@ -663,19 +663,33 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		}
 	}
 
-	bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
-	bucketIdx, err := csm.putBucketAndIndex(bucket)
-	if err != nil {
-		return log, nil, err
+	// register with self-stake
+	bucketIdx := uint64(candidateNoSelfStakeBucketIndex)
+	var bucketLogs []*action.TransactionLog
+	votes := big.NewInt(0)
+	if act.Amount().Sign() > 0 {
+		bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
+		bktIdx, err := csm.putBucketAndIndex(bucket)
+		if err != nil {
+			return log, nil, err
+		}
+		bucketIdx = bktIdx
+		bucketLogs = append(bucketLogs, &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE,
+			Sender:    actCtx.Caller.String(),
+			Recipient: address.StakingBucketPoolAddr,
+			Amount:    act.Amount(),
+		})
+		votes = p.calculateVoteWeight(bucket, true)
+		log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), owner.Bytes())
 	}
-	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), owner.Bytes())
 
 	c = &Candidate{
 		Owner:              owner,
 		Operator:           act.OperatorAddress(),
 		Reward:             act.RewardAddress(),
 		Name:               act.Name(),
-		Votes:              p.calculateVoteWeight(bucket, true),
+		Votes:              votes,
 		SelfStakeBucketIdx: bucketIdx,
 		SelfStake:          act.Amount(),
 	}
@@ -688,28 +702,29 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		csm.DirtyView().candCenter.base.recordOwner(c)
 	}
 
-	// update bucket pool
-	if err := csm.DebitBucketPool(act.Amount(), true); err != nil {
-		return log, nil, &handleError{
-			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
-			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
+	if act.Amount().Sign() > 0 {
+		// update bucket pool
+		if err := csm.DebitBucketPool(act.Amount(), true); err != nil {
+			return log, nil, &handleError{
+				err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
+				failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
+			}
 		}
-	}
-
-	// update caller balance
-	if err := caller.SubBalance(act.Amount()); err != nil {
-		return log, nil, &handleError{
-			err:           errors.Wrapf(err, "failed to update the balance of register %s", actCtx.Caller.String()),
-			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
+		// update caller balance
+		if err := caller.SubBalance(act.Amount()); err != nil {
+			return log, nil, &handleError{
+				err:           errors.Wrapf(err, "failed to update the balance of register %s", actCtx.Caller.String()),
+				failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
+			}
 		}
-	}
-	// put updated caller's account state to trie
-	if err := accountutil.StoreAccount(csm.SM(), actCtx.Caller, caller); err != nil {
-		return log, nil, errors.Wrapf(err, "failed to store account %s", actCtx.Caller.String())
+		// put updated caller's account state to trie
+		if err := accountutil.StoreAccount(csm.SM(), actCtx.Caller, caller); err != nil {
+			return log, nil, errors.Wrapf(err, "failed to store account %s", actCtx.Caller.String())
+		}
 	}
 
 	// put registrationFee to reward pool
-	if _, err = p.depositGas(ctx, csm.SM(), registrationFee); err != nil {
+	if _, err := p.depositGas(ctx, csm.SM(), registrationFee); err != nil {
 		return log, nil, errors.Wrap(err, "failed to deposit gas")
 	}
 
@@ -717,20 +732,13 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	log.AddAddress(actCtx.Caller)
 	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
 
-	return log, []*action.TransactionLog{
-		{
-			Type:      iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE,
-			Sender:    actCtx.Caller.String(),
-			Recipient: address.StakingBucketPoolAddr,
-			Amount:    act.Amount(),
-		},
-		{
-			Type:      iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE,
-			Sender:    actCtx.Caller.String(),
-			Recipient: address.RewardingPoolAddr,
-			Amount:    registrationFee,
-		},
-	}, nil
+	txLogs := append(bucketLogs, &action.TransactionLog{
+		Type:      iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE,
+		Sender:    actCtx.Caller.String(),
+		Recipient: address.RewardingPoolAddr,
+		Amount:    registrationFee,
+	})
+	return log, txLogs, nil
 }
 
 func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.CandidateUpdate, csm CandidateStateManager,
