@@ -86,7 +86,7 @@ func updateProject(projectID uint64, filename, hashstr string) (string, error) {
 		return "", errors.Wrap(err, "wait contract execution receipt failed")
 	}
 
-	inputs, err := getEventInputsByName(r.ReceiptInfo.Receipt.Logs, createWsProjectEventName)
+	inputs, err := getEventInputsByName(r.ReceiptInfo.Receipt.Logs, wsProjectUpsertedEventName)
 	if err != nil {
 		return "", errors.Wrap(err, "get receipt event failed")
 	}
@@ -103,9 +103,9 @@ func updateProject(projectID uint64, filename, hashstr string) (string, error) {
 		return "", errors.New("result `hash` not found in event inputs")
 	}
 	hashstr = hex.EncodeToString(_hash[:])
-
-	return fmt.Sprintf("Your project is successfully created. project id is : %d\n"+
-		"project config url:  %s\n"+
-		"project config hash: %s", _projectid, _uri, hashstr), nil
-
+	return fmt.Sprintf("Your project is successfully updated:\n%s", output.JSONString(projectMeta{
+		ProjectID:  _projectid.(uint64),
+		URI:        _uri.(string),
+		HashSha256: hashstr,
+	})), nil
 }

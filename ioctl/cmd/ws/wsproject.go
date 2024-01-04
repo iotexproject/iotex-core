@@ -3,6 +3,7 @@ package ws
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	_ "embed" // import ws project ABI
 	"encoding/hex"
 	"fmt"
@@ -61,15 +62,19 @@ var (
 
 // Constants
 const (
-	createWsProjectEventName   = "ProjectUpserted"
 	createWsProjectFuncName    = "createProject"
-	startWsProjectFuncName     = "unpauseProject"
-	stopWsProjectFuncName      = "pauseProject"
 	updateWsProjectFuncName    = "updateProject"
 	queryWsProjectFuncName     = "projects"
+	wsProjectUpsertedEventName = "ProjectUpserted"
 	addProjectOperatorFuncName = "addOperator"
 	delProjectOperatorFuncName = "removeOperator"
 )
+
+type projectMeta struct {
+	ProjectID  uint64 `json:"projectID"`
+	URI        string `json:"uri"`
+	HashSha256 string `json:"hashSha256"`
+}
 
 func init() {
 	var err error
@@ -87,6 +92,8 @@ func init() {
 	wsProject.AddCommand(wsProjectDelOperator)
 
 	wsProjectRegisterContractAddress = config.ReadConfig.WsRegisterContract
+	wsProjectIPFSEndpoint = config.ReadConfig.IPFSEndpoint
+	wsProjectIPFSGatewayEndpoint = config.ReadConfig.IPFSGateway
 }
 
 func convertStringToAbiBytes32(hash string) (interface{}, error) {
@@ -190,27 +197,24 @@ func getEventInputsByName(logs []*iotextypes.Log, eventName string) (map[string]
 }
 
 // upload content to endpoint, returns fetch url, content hash and error
-func upload(endpoint string, filename, hashstr string) (url string, hash256b *hash.Hash256, err error) {
+func upload(endpoint string, filename, hashstr string) (string, hash.Hash256, error) {
 	// read file content
-	var content []byte
-	content, err = os.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		err = errors.Wrap(err, errProjectConfigReadFailed.Error())
-		return
+		return "", hash.ZeroHash256, err
 	}
 
 	// calculate and validate hash
-	hash256b = new(hash.Hash256)
-	*hash256b = hash.Hash256b(content)
+	hash256b := sha256.Sum256(content)
 	if hashstr != "" {
 		var hashInput hash.Hash256
 		hashInput, err = hash.HexStringToHash256(hashstr)
 		if err != nil {
-			return
+			return "", hash.ZeroHash256, err
 		}
-		if hashInput != *hash256b {
-			err = errProjectConfigHashUnmatched
-			return
+		if hashInput != hash256b {
+			return "", hash.ZeroHash256, errProjectConfigHashUnmatched
 		}
 	}
 
@@ -221,16 +225,14 @@ func upload(endpoint string, filename, hashstr string) (url string, hash256b *ha
 	)
 	cid, err = sh.Add(bytes.NewReader(content))
 	if err != nil {
-		return "", nil, errors.Wrap(err, errUploadProjectConfigFailed.Error())
+		return "", hash.ZeroHash256, errors.Wrap(err, errUploadProjectConfigFailed.Error())
 	}
 
 	err = sh.Pin(cid)
 	if err != nil {
-		return "", nil, errors.Wrap(err, errUploadProjectConfigFailed.Error())
+		return "", hash.ZeroHash256, errors.Wrap(err, errUploadProjectConfigFailed.Error())
 	}
 
 	// generate fetch url
-	url = fmt.Sprintf("%s/ipfs/%s", wsProjectIPFSGatewayEndpoint, cid)
-
-	return
+	return fmt.Sprintf("%s/ipfs/%s", wsProjectIPFSGatewayEndpoint, cid), hash256b, nil
 }
