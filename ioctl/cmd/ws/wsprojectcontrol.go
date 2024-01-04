@@ -88,8 +88,13 @@ func controlProjectState(projectID uint64, command int) (string, error) {
 		return "", output.NewError(output.ConvertError, fmt.Sprintf("failed to pack abi"), err)
 	}
 
-	if err = action.Execute(contract, big.NewInt(0), bytecode); err != nil {
+	rsp, err := action.ExecuteAndResponse(contract, big.NewInt(0), bytecode)
+	if err != nil {
 		return "", errors.Wrap(err, "failed to execute contract")
+	}
+	_, err = waitReceiptByActionHash(rsp.ActionHash)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to wait event")
 	}
 	if command == startProject {
 		return fmt.Sprintf("project %d started", projectID), nil

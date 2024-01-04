@@ -65,11 +65,13 @@ const (
 	createWsProjectFuncName    = "createProject"
 	updateWsProjectFuncName    = "updateProject"
 	queryWsProjectFuncName     = "projects"
-	wsProjectUpsertedEventName = "ProjectUpserted"
 	addProjectOperatorFuncName = "addOperator"
 	delProjectOperatorFuncName = "removeOperator"
 	startWsProjectFuncName     = "unpauseProject"
 	stopWsProjectFuncName      = "pauseProject"
+	wsProjectUpsertedEventName = "ProjectUpserted"
+	wsProjectPausedEventName   = "ProjectPaused"
+	wsProjectUnpausedEventName = "ProjectUnpaused"
 )
 
 type projectMeta struct {
