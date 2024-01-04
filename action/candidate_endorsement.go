@@ -15,8 +15,10 @@ const (
 type CandidateEndorsement struct {
 	AbstractAction
 
+	// bucketIndex is the bucket index want to be endorsed or unendorsed
 	bucketIndex uint64
-	endorse     bool
+	// endorse is true if the action is to endorse a candidate, false if unendorse
+	endorse bool
 }
 
 // BucketIndex returns the bucket index of the action
@@ -31,7 +33,7 @@ func (act *CandidateEndorsement) Endorse() bool {
 
 // IntrinsicGas returns the intrinsic gas of a CandidateEndorsement
 func (act *CandidateEndorsement) IntrinsicGas() (uint64, error) {
-	return CandidateSelfStakeBaseIntrinsicGas, nil
+	return CandidateEndorsementBaseIntrinsicGas, nil
 }
 
 // Cost returns the total cost of a CandidateEndorsement
