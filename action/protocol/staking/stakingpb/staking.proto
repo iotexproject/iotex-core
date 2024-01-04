@@ -56,3 +56,7 @@ message BucketType {
     uint64 duration = 2;
     uint64 activatedAt = 3;
 }
+
+message Endorsement {
+    uint64 expireHeight = 1;
+}
