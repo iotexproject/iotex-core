@@ -116,6 +116,7 @@ type (
 		SharedGasWithDapp                       bool
 		ExecutionSizeLimit32KB                  bool
 		DisableDelegateEndorsement              bool
+		CandidateRegisterMustWithStake          bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -257,6 +258,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			SharedGasWithDapp:                       g.IsToBeEnabled(height),
 			ExecutionSizeLimit32KB:                  !g.IsToBeEnabled(height),
 			DisableDelegateEndorsement:              !g.IsToBeEnabled(height),
+			CandidateRegisterMustWithStake:          !g.IsToBeEnabled(height),
 		},
 	)
 }

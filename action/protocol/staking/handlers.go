@@ -671,20 +671,28 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		}
 	}
 
-	bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
-	bucket, bucketLogs, err := p.createSelfStakeBucket(ctx, csm, bucket)
-	if err != nil {
-		return log, nil, err
+	// register with self-stake
+	bucketIdx := uint64(candidateNoSelfStakeBucketIndex)
+	var bucketLogs []*action.TransactionLog
+	votes := big.NewInt(0)
+	if act.Amount().Cmp(big.NewInt(0)) != 0 {
+		bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
+		bucket, bktLogs, err := p.createSelfStakeBucket(ctx, csm, bucket)
+		if err != nil {
+			return log, nil, err
+		}
+		bucketIdx = bucket.Index
+		bucketLogs = bktLogs
+		votes = p.calculateVoteWeight(bucket, true)
+		log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), owner.Bytes())
 	}
-	bucketIdx := bucket.Index
-	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), owner.Bytes())
 
 	c = &Candidate{
 		Owner:              owner,
 		Operator:           act.OperatorAddress(),
 		Reward:             act.RewardAddress(),
 		Name:               act.Name(),
-		Votes:              p.calculateVoteWeight(bucket, true),
+		Votes:              votes,
 		SelfStakeBucketIdx: bucketIdx,
 		SelfStake:          act.Amount(),
 	}
@@ -698,7 +706,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	}
 
 	// put registrationFee to reward pool
-	if _, err = p.depositGas(ctx, csm.SM(), registrationFee); err != nil {
+	if _, err := p.depositGas(ctx, csm.SM(), registrationFee); err != nil {
 		return log, nil, errors.Wrap(err, "failed to deposit gas")
 	}
 
