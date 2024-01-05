@@ -52,7 +52,6 @@ func (cr *CandidateActivate) LoadProto(pbAct *iotextypes.CandidateActivate) erro
 	if pbAct == nil {
 		return ErrNilProto
 	}
-
 	cr.bucketID = pbAct.GetBucketIndex()
 	return nil
 }

@@ -50,21 +50,20 @@ func (act *CandidateEndorsement) Cost() (*big.Int, error) {
 }
 
 // Proto converts CandidateEndorsement to protobuf's Action
-func (cr *CandidateEndorsement) Proto() *iotextypes.CandidateEndorsement {
+func (act *CandidateEndorsement) Proto() *iotextypes.CandidateEndorsement {
 	return &iotextypes.CandidateEndorsement{
-		BucketIndex: cr.bucketIndex,
-		Endorse:     cr.endorse,
+		BucketIndex: act.bucketIndex,
+		Endorse:     act.endorse,
 	}
 }
 
 // LoadProto converts a protobuf's Action to CandidateEndorsement
-func (cr *CandidateEndorsement) LoadProto(pbAct *iotextypes.CandidateEndorsement) error {
+func (act *CandidateEndorsement) LoadProto(pbAct *iotextypes.CandidateEndorsement) error {
 	if pbAct == nil {
 		return ErrNilProto
 	}
-
-	cr.bucketIndex = pbAct.GetBucketIndex()
-	cr.endorse = pbAct.GetEndorse()
+	act.bucketIndex = pbAct.GetBucketIndex()
+	act.endorse = pbAct.GetEndorse()
 	return nil
 }
 
