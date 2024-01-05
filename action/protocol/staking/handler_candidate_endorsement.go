@@ -68,8 +68,16 @@ func (p *Protocol) unEndorseCandidate(ctx context.Context, csm CandidateStateMan
 	if err := p.validateUnEndorse(ctx, csm, esm, caller, bucket); err != nil {
 		return err
 	}
+	selfStake, err := p.isSelfStakeBucketAndValid(ctx, csm, bucket.Index)
+	if err != nil {
+		return err
+	}
+	expireHeight := blkCtx.BlockHeight
+	if selfStake {
+		expireHeight += p.config.UnEndorseWaitingBlocks
+	}
 	if err := esm.Put(bucket.Index, &Endorsement{
-		ExpireHeight: blkCtx.BlockHeight + p.config.UnEndorseWaitingBlocks,
+		ExpireHeight: expireHeight,
 	}); err != nil {
 		return csmErrorToHandleError(caller.String(), err)
 	}
