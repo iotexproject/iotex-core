@@ -67,6 +67,7 @@ func (act *CandidateEndorsement) LoadProto(pbAct *iotextypes.CandidateEndorsemen
 	return nil
 }
 
+// NewCandidateEndorsement returns a CandidateEndorsement action
 func NewCandidateEndorsement(nonce, gasLimit uint64, gasPrice *big.Int, bucketIndex uint64, endorse bool) *CandidateEndorsement {
 	return &CandidateEndorsement{
 		AbstractAction: AbstractAction{
