@@ -55,7 +55,7 @@ var (
 
 	wsProjectStopShorts = map[config.Language]string{
 		config.English: "stop w3bstream project",
-		config.Chinese: "暂停项目",
+		config.Chinese: "停止项目",
 	}
 )
 
@@ -73,9 +73,14 @@ func init() {
 }
 
 func controlProjectState(projectID uint64, command int) (string, error) {
-	funcName := startWsProjectFuncName
-	if command == stopProject {
+	var funcName string
+	switch command {
+	case startProject:
+		funcName = startWsProjectFuncName
+	case stopProject:
 		funcName = stopWsProjectFuncName
+	default:
+		return "", errors.New("invalid control command")
 	}
 
 	contract, err := util.Address(wsProjectRegisterContractAddress)

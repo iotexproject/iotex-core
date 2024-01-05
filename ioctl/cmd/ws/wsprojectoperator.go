@@ -15,6 +15,16 @@ import (
 )
 
 var (
+	wsProjectAddOperatorShorts = map[config.Language]string{
+		config.English: "add operator to project",
+		config.Chinese: "添加项目操作者",
+	}
+
+	wsProjectDelOperatorShorts = map[config.Language]string{
+		config.English: "remove operator to project",
+		config.Chinese: "移除项目操作者",
+	}
+
 	wsProjectAddOperator = &cobra.Command{
 		Use:   "addoperator",
 		Short: config.TranslateInLang(wsProjectAddOperatorShorts, config.UILanguage),
@@ -56,16 +66,6 @@ var (
 			return nil
 		},
 	}
-
-	wsProjectAddOperatorShorts = map[config.Language]string{
-		config.English: "add operator to project",
-		config.Chinese: "添加项目操作者",
-	}
-
-	wsProjectDelOperatorShorts = map[config.Language]string{
-		config.English: "remove operator to project",
-		config.Chinese: "移除项目操作者",
-	}
 )
 
 const (
@@ -86,9 +86,14 @@ func init() {
 }
 
 func operator(projectID uint64, operator string, op int) (string, error) {
-	funcName := addProjectOperatorFuncName
-	if op == opOperatorDel {
+	var funcName string
+	switch op {
+	case opOperatorAdd:
+		funcName = addProjectOperatorFuncName
+	case opOperatorDel:
 		funcName = delProjectOperatorFuncName
+	default:
+		return "", errors.New("invalid operate")
 	}
 
 	operatorAddr, err := address.FromString(operator)
