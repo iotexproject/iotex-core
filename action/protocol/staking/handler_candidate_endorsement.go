@@ -89,8 +89,7 @@ func (p *Protocol) validateEndorse(ctx context.Context, csm CandidateStateManage
 }
 
 func (p *Protocol) validateUnEndorse(ctx context.Context, csm CandidateStateManager, esm *EndorsementStateManager, caller address.Address, bucket *VoteBucket) ReceiptError {
-	if validateBucket(ctx, csm, esm, bucket, withBucketOwner(caller)) != nil &&
-		validateBucket(ctx, csm, esm, bucket, withBucketOwner(caller)) != nil {
+	if validateBucket(ctx, csm, esm, bucket, withBucketOwner(caller)) != nil {
 		return &handleError{
 			err:           errors.New("bucket owner or candidate does not match"),
 			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
