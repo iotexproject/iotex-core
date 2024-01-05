@@ -3,6 +3,7 @@ package action
 import (
 	"math/big"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -37,6 +38,23 @@ func (cr *CandidateActivate) Cost() (*big.Int, error) {
 	}
 	fee := big.NewInt(0).Mul(cr.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return fee, nil
+}
+
+// Proto converts CandidateActivate to protobuf's Action
+func (cr *CandidateActivate) Proto() *iotextypes.CandidateActivate {
+	return &iotextypes.CandidateActivate{
+		BucketIndex: cr.bucketID,
+	}
+}
+
+// LoadProto converts a protobuf's Action to CandidateActivate
+func (cr *CandidateActivate) LoadProto(pbAct *iotextypes.CandidateActivate) error {
+	if pbAct == nil {
+		return ErrNilProto
+	}
+
+	cr.bucketID = pbAct.GetBucketIndex()
+	return nil
 }
 
 // NewCandidateActivate returns a CandidateActivate action
