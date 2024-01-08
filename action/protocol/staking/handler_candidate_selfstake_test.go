@@ -10,6 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/mohae/deepcopy"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -115,8 +116,10 @@ func initTestState(t *testing.T, ctrl *gomock.Controller, bucketCfgs []*bucketCo
 	candidates := []*Candidate{}
 	for _, candCfg := range candidateCfgs {
 		selfStakeAmount := big.NewInt(0)
-		if selfStakeMap[candCfg.Owner.String()] != 0 {
+		selfStakeBucketId := uint64(candidateNoSelfStakeBucketIndex)
+		if _, ok := selfStakeMap[candCfg.Owner.String()]; ok {
 			selfStakeAmount = selfStakeAmount.SetBytes(buckets[selfStakeMap[candCfg.Owner.String()]].StakedAmount.Bytes())
+			selfStakeBucketId = selfStakeMap[candCfg.Owner.String()]
 		}
 		votes := big.NewInt(0)
 		if candVotesMap[candCfg.Owner.String()] != nil {
@@ -128,14 +131,15 @@ func initTestState(t *testing.T, ctrl *gomock.Controller, bucketCfgs []*bucketCo
 			Reward:             candCfg.Reward,
 			Name:               candCfg.Name,
 			Votes:              votes,
-			SelfStakeBucketIdx: selfStakeMap[candCfg.Owner.String()],
+			SelfStakeBucketIdx: selfStakeBucketId,
 			SelfStake:          selfStakeAmount,
 		}
 		require.NoError(csm.putCandidate(cand))
 		candidates = append(candidates, cand)
 	}
-
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+	cfg.ToBeEnabledBlockHeight = 1
+	ctx := genesis.WithGenesisContext(context.Background(), cfg)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
@@ -384,7 +388,9 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 				BlockTimeStamp: timeBlock,
 				GasLimit:       test.blkGasLimit,
 			})
-			ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+			cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+			cfg.ToBeEnabledBlockHeight = 1
+			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 			require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
 			if test.err != nil {

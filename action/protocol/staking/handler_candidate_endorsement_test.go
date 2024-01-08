@@ -8,15 +8,17 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/mohae/deepcopy"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/require"
 )
 
 type appendAction struct {
@@ -230,7 +232,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 			nil,
 			iotextypes.ReceiptStatus_Success,
 			[]expectCandidate{
-				{identityset.Address(1), 0, "0", "1542516163985454635820817"},
+				{identityset.Address(1), candidateNoSelfStakeBucketIndex, "0", "1542516163985454635820817"},
 			},
 			[]expectBucket{
 				{0, identityset.Address(1)},
@@ -404,6 +406,8 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				BlockTimeStamp: timeBlock,
 				GasLimit:       test.blkGasLimit,
 			})
+			cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+			cfg.ToBeEnabledBlockHeight = 1
 			ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 			require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
@@ -432,7 +436,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 					BlockTimeStamp: timeBlock,
 					GasLimit:       test.blkGasLimit,
 				})
-				ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+				ctx = genesis.WithGenesisContext(ctx, cfg)
 				ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 				r, err = p.Handle(ctx, test.append.act(), sm)
 				require.NoError(err)
