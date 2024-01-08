@@ -2,9 +2,10 @@ package ws
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"math/big"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
@@ -86,17 +87,22 @@ func init() {
 }
 
 func operator(projectID uint64, operator string, op int) (string, error) {
-	var funcName string
+	var (
+		funcName  string
+		eventName string
+	)
 	switch op {
 	case opOperatorAdd:
 		funcName = addProjectOperatorFuncName
+		eventName = wsOperatorAddedEventName
 	case opOperatorDel:
 		funcName = delProjectOperatorFuncName
+		eventName = wsOperatorRemovedEventName
 	default:
 		return "", errors.New("invalid operate")
 	}
 
-	operatorAddr, err := address.FromString(operator)
+	operatorAddr, err := alias.EtherAddress(operator)
 	if err != nil {
 		return "", output.NewError(output.AddressError, "invalid operator address", err)
 	}
@@ -111,12 +117,33 @@ func operator(projectID uint64, operator string, op int) (string, error) {
 		return "", output.NewError(output.ConvertError, fmt.Sprintf("failed to pack abi"), err)
 	}
 
-	if err = action.Execute(contract, big.NewInt(0), bytecode); err != nil {
+	res, err := action.ExecuteAndResponse(contract, big.NewInt(0), bytecode)
+	if err != nil {
 		return "", errors.Wrap(err, "failed to execute contract")
 	}
 
-	if op == opOperatorAdd {
-		return fmt.Sprintf("operatro %s added", operator), nil
+	r, err := waitReceiptByActionHash(res.ActionHash)
+	if err != nil {
+		return "", errors.Wrap(err, "wait contract execution receipt failed")
 	}
-	return fmt.Sprintf("operatro %s removed", operator), nil
+
+	inputs, err := getEventInputsByName(r.ReceiptInfo.Receipt.Logs, eventName)
+	if err != nil {
+		return "", errors.Wrap(err, "get receipt event failed")
+	}
+
+	_projectid, ok := inputs["projectId"].(uint64)
+	if !ok {
+		return "", errors.New("result `projectId` not found in event inputs")
+	}
+
+	_operator, ok := inputs["operator"].(common.Address)
+	if !ok {
+		return "", errors.New("result `operator` not found in event inputs")
+	}
+
+	if op == opOperatorAdd {
+		return fmt.Sprintf("project %d operator %s added", _projectid, _operator), nil
+	}
+	return fmt.Sprintf("project %d operator %s removed", _projectid, _operator), nil
 }

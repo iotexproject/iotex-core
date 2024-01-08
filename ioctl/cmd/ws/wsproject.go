@@ -72,6 +72,8 @@ const (
 	wsProjectUpsertedEventName = "ProjectUpserted"
 	wsProjectPausedEventName   = "ProjectPaused"
 	wsProjectUnpausedEventName = "ProjectUnpaused"
+	wsOperatorRemovedEventName = "OperatorRemoved"
+	wsOperatorAddedEventName   = "OperatorAdded"
 )
 
 type projectMeta struct {
