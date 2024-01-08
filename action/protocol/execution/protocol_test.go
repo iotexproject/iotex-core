@@ -15,9 +15,11 @@ import (
 	"math/big"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/mohae/deepcopy"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -64,9 +66,10 @@ type (
 
 	// GenesisBlockHeight defines an genesis blockHeight
 	GenesisBlockHeight struct {
-		IsBering  bool `json:"isBering"`
-		IsIceland bool `json:"isIceland"`
-		IsLondon  bool `json:"isLondon"`
+		IsBering   bool `json:"isBering"`
+		IsIceland  bool `json:"isIceland"`
+		IsLondon   bool `json:"isLondon"`
+		IsShanghai bool `json:"isShanghai"`
 	}
 
 	Log struct {
@@ -101,6 +104,10 @@ type (
 		ExpectedErrorMsg        string            `json:"expectedErrorMsg"`
 		ExpectedBlockInfos      ExpectedBlockInfo `json:"expectedBlockInfos"`
 	}
+)
+
+var (
+	fixedTime = time.Unix(genesis.Default.Timestamp, 0)
 )
 
 func (eb *ExpectedBalance) Balance() *big.Int {
@@ -283,11 +290,14 @@ func readExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-
-	return sf.SimulateExecution(ctx, addr, exec, dao.GetBlockHash)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash: dao.GetBlockHash,
+		GetBlockTime: getBlockTimeForTest,
+	})
+	return sf.SimulateExecution(ctx, addr, exec)
 }
 
-func runExecutions(
+func (sct *SmartContractTest) runExecutions(
 	bc blockchain.Blockchain,
 	sf factory.Factory,
 	dao blockdao.BlockDAO,
@@ -323,11 +333,14 @@ func runExecutions(
 			return nil, nil, err
 		}
 		builder := &action.EnvelopeBuilder{}
-		elp := builder.SetAction(exec).
+		builder.SetAction(exec).
 			SetNonce(exec.Nonce()).
 			SetGasLimit(ecfg.GasLimit()).
-			SetGasPrice(ecfg.GasPrice()).
-			Build()
+			SetGasPrice(ecfg.GasPrice())
+		if sct.InitGenesis.IsShanghai {
+			builder.SetChainID(bc.ChainID())
+		}
+		elp := builder.Build()
 		selp, err := action.Sign(elp, ecfg.PrivateKey())
 		if err != nil {
 			return nil, nil, err
@@ -341,7 +354,7 @@ func runExecutions(
 		}
 		hashes = append(hashes, selpHash)
 	}
-	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	blk, err := bc.MintNewBlock(fixedTime)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -363,7 +376,6 @@ func runExecutions(
 		hex.EncodeToString(stateRootHash[:]),
 		hex.EncodeToString(receiptRootHash[:]),
 	}
-
 	return receipts, blkInfo, nil
 }
 
@@ -407,6 +419,14 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.Blockchain.MidwayBlockHeight = 0
 		cfg.Genesis.Blockchain.NewfoundlandBlockHeight = 0
 		cfg.Genesis.Blockchain.OkhotskBlockHeight = 0
+	}
+	if sct.InitGenesis.IsShanghai {
+		// Shanghai is enabled at Sumatra height
+		cfg.Genesis.Blockchain.PalauBlockHeight = 0
+		cfg.Genesis.Blockchain.QuebecBlockHeight = 0
+		cfg.Genesis.Blockchain.RedseaBlockHeight = 0
+		cfg.Genesis.Blockchain.SumatraBlockHeight = 0
+		cfg.Genesis.ActionGasLimit = 10000000
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
@@ -455,7 +475,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	execution := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
+	execution := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, getBlockTimeForTest)
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
 
@@ -473,7 +493,7 @@ func (sct *SmartContractTest) deployContracts(
 		if contract.AppendContractAddress {
 			contract.ContractAddressToAppend = contractAddresses[contract.ContractIndexToAppend]
 		}
-		receipts, _, err := runExecutions(bc, sf, dao, ap, []*ExecutionConfig{&contract}, []string{action.EmptyAddress})
+		receipts, _, err := sct.runExecutions(bc, sf, dao, ap, []*ExecutionConfig{&contract}, []string{action.EmptyAddress})
 		r.NoError(err)
 		r.Equal(1, len(receipts))
 		receipt := receipts[0]
@@ -513,7 +533,7 @@ func (sct *SmartContractTest) deployContracts(
 func (sct *SmartContractTest) run(r *require.Assertions) {
 	// prepare blockchain
 	ctx := context.Background()
-	cfg := config.Default
+	cfg := deepcopy.Copy(config.Default).(config.Config)
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(28).HexString()
 	cfg.Chain.EnableTrielessStateDB = false
 	bc, sf, dao, ap := sct.prepareBlockchain(ctx, cfg, r)
@@ -548,7 +568,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			}
 		} else {
 			var receipts []*action.Receipt
-			receipts, blkInfo, err = runExecutions(bc, sf, dao, ap, []*ExecutionConfig{&exec}, []string{contractAddr})
+			receipts, blkInfo, err = sct.runExecutions(bc, sf, dao, ap, []*ExecutionConfig{&exec}, []string{contractAddr})
 			r.NoError(err)
 			r.Equal(1, len(receipts))
 			receipt = receipts[0]
@@ -605,11 +625,31 @@ func TestProtocol_Validate(t *testing.T) {
 	require := require.New(t)
 	p := NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, rewarding.DepositGasWithSGD, nil)
+	}, rewarding.DepositGasWithSGD, nil, getBlockTimeForTest)
 
-	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), make([]byte, 32684))
-	require.NoError(err)
-	require.Equal(action.ErrOversizedData, errors.Cause(p.Validate(context.Background(), ex, nil)))
+	cases := []struct {
+		name      string
+		height    uint64
+		size      uint64
+		expectErr error
+	}{
+		{"limit 32KB", 0, 32684, action.ErrOversizedData},
+		{"limit 48KB I", genesis.Default.ToBeEnabledBlockHeight, 32684, nil},
+		{"limit 48KB II", genesis.Default.ToBeEnabledBlockHeight, 49153, action.ErrOversizedData},
+	}
+
+	for i := range cases {
+		t.Run(cases[i].name, func(t *testing.T) {
+			ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), make([]byte, cases[i].size))
+			require.NoError(err)
+			ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
+			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+				BlockHeight: cases[i].height,
+			})
+			ctx = protocol.WithFeatureCtx(ctx)
+			require.Equal(cases[i].expectErr, errors.Cause(p.Validate(ctx, ex, nil)))
+		})
+	}
 }
 
 func TestProtocol_Handle(t *testing.T) {
@@ -675,7 +715,7 @@ func TestProtocol_Handle(t *testing.T) {
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
 		)
-		exeProtocol := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
+		exeProtocol := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, getBlockTimeForTest)
 		require.NoError(exeProtocol.Register(registry))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
@@ -1045,7 +1085,7 @@ func TestIstanbulEVM(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/datacopy.json")
 	})
 	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
-		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
+		NewSmartContractTest(t, "testdata-istanbul/CVE-2021-39137-attack-replay.json")
 	})
 	t.Run("err-write-protection", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/write-protection.json")
@@ -1175,7 +1215,100 @@ func TestLondonEVM(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/datacopy.json")
 	})
 	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
-		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
+		NewSmartContractTest(t, "testdata-london/CVE-2021-39137-attack-replay.json")
+	})
+	t.Run("difficulty", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/difficulty.json")
+	})
+	t.Run("push0-invalid", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/push0.json")
+	})
+}
+
+func TestShanghaiEVM(t *testing.T) {
+	t.Run("array-return", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/array-return.json")
+	})
+	t.Run("basefee", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/basefee.json")
+	})
+	t.Run("basic-token", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/basic-token.json")
+	})
+	t.Run("call-dynamic", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/call-dynamic.json")
+	})
+	t.Run("chainid-selfbalance", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/chainid-selfbalance.json")
+	})
+	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/CVE-2021-39137-attack-replay.json")
+	})
+	t.Run("datacopy", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/datacopy.json")
+	})
+	t.Run("f.value", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/f.value.json")
+	})
+	t.Run("factory", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/factory.json")
+	})
+	t.Run("gas-test", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/gas-test.json")
+	})
+	t.Run("infiniteloop", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/infiniteloop.json")
+	})
+	t.Run("mapping-delete", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/mapping-delete.json")
+	})
+	t.Run("maxtime", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/maxtime.json")
+	})
+	t.Run("modifiers", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/modifiers.json")
+	})
+	t.Run("multisend", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/multisend.json")
+	})
+	t.Run("no-variable-length-returns", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/no-variable-length-returns.json")
+	})
+	t.Run("public-mapping", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/public-mapping.json")
+	})
+	t.Run("reentry-attack", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/reentry-attack.json")
+	})
+	t.Run("remove-from-array", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/remove-from-array.json")
+	})
+	t.Run("self-destruct", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/self-destruct.json")
+	})
+	t.Run("send-eth", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/send-eth.json")
+	})
+	t.Run("sha3", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/sha3.json")
+	})
+	t.Run("storage-test", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/storage-test.json")
+	})
+	t.Run("tail-recursion", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/tail-recursion.json")
+	})
+	t.Run("tuple", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/tuple.json")
+	})
+	t.Run("wireconnection", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/wireconnection.json")
+	})
+	t.Run("prevrandao", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/prevrandao.json")
+	})
+	t.Run("push0-valid", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/push0.json")
 	})
 }
 
@@ -1217,7 +1350,7 @@ func benchmarkHotContractWithFactory(b *testing.B, async bool) {
 	contractAddr := contractAddresses[0]
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		receipts, _, err := runExecutions(
+		receipts, _, err := sct.runExecutions(
 			bc, sf, dao, ap, []*ExecutionConfig{
 				{
 					RawPrivateKey: "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
@@ -1248,7 +1381,7 @@ func benchmarkHotContractWithFactory(b *testing.B, async bool) {
 			})
 			contractAddrs = append(contractAddrs, contractAddr)
 		}
-		receipts, _, err = runExecutions(bc, sf, dao, ap, ecfgs, contractAddrs)
+		receipts, _, err = sct.runExecutions(bc, sf, dao, ap, ecfgs, contractAddrs)
 		r.NoError(err)
 		for _, receipt := range receipts {
 			r.Equal(uint64(1), receipt.Status)
@@ -1294,7 +1427,7 @@ func benchmarkHotContractWithStateDB(b *testing.B, cachedStateDBOption bool) {
 	contractAddr := contractAddresses[0]
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		receipts, _, err := runExecutions(
+		receipts, _, err := sct.runExecutions(
 			bc, sf, dao, ap, []*ExecutionConfig{
 				{
 					RawPrivateKey: "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
@@ -1325,7 +1458,7 @@ func benchmarkHotContractWithStateDB(b *testing.B, cachedStateDBOption bool) {
 			})
 			contractAddrs = append(contractAddrs, contractAddr)
 		}
-		receipts, _, err = runExecutions(bc, sf, dao, ap, ecfgs, contractAddrs)
+		receipts, _, err = sct.runExecutions(bc, sf, dao, ap, ecfgs, contractAddrs)
 		r.NoError(err)
 		for _, receipt := range receipts {
 			r.Equal(uint64(1), receipt.Status)
@@ -1347,4 +1480,8 @@ func BenchmarkHotContract(b *testing.B) {
 	b.Run("defaultStateDB", func(b *testing.B) {
 		benchmarkHotContractWithStateDB(b, false)
 	})
+}
+
+func getBlockTimeForTest(h uint64) (time.Time, error) {
+	return fixedTime.Add(time.Duration(h) * 5 * time.Second), nil
 }

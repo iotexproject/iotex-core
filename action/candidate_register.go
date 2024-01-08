@@ -89,6 +89,8 @@ var (
 
 	//ErrInvalidCanName represents that candidate name is invalid
 	ErrInvalidCanName = errors.New("invalid candidate name")
+
+	_ EthCompatibleAction = (*CandidateRegister)(nil)
 )
 
 // CandidateRegister is the action to register a candidate
@@ -379,12 +381,19 @@ func ethAddrToNativeAddr(in interface{}) (address.Address, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (cr *CandidateRegister) ToEthTx() (*types.Transaction, error) {
+func (cr *CandidateRegister) ToEthTx(_ uint32) (*types.Transaction, error) {
 	data, err := cr.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(cr.Nonce(), _stakingProtocolEthAddr, big.NewInt(0), cr.GasLimit(), cr.GasPrice(), data), nil
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    cr.Nonce(),
+		GasPrice: cr.GasPrice(),
+		Gas:      cr.GasLimit(),
+		To:       &_stakingProtocolEthAddr,
+		Value:    big.NewInt(0),
+		Data:     data,
+	}), nil
 }
 
 // IsValidCandidateName check if a candidate name string is valid.

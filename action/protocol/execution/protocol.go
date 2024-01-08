@@ -8,11 +8,11 @@ package execution
 import (
 	"context"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	// ExecutionSizeLimit is the maximum size of execution allowed
-	ExecutionSizeLimit = 32 * 1024
+	// the maximum size of execution allowed
+	_executionSizeLimit48KB = uint32(48 * 1024)
+	_executionSizeLimit32KB = uint32(32 * 1024)
 	// TODO: it works only for one instance per protocol definition now
 	_protocolID = "smart_contract"
 )
@@ -29,19 +30,20 @@ const (
 // Protocol defines the protocol of handling executions
 type Protocol struct {
 	getBlockHash evm.GetBlockHash
+	getBlockTime evm.GetBlockTime
 	depositGas   evm.DepositGasWithSGD
 	addr         address.Address
 	sgdRegistry  evm.SGDRegistry
 }
 
 // NewProtocol instantiates the protocol of exeuction
-func NewProtocol(getBlockHash evm.GetBlockHash, depositGasWithSGD evm.DepositGasWithSGD, sgd evm.SGDRegistry) *Protocol {
+func NewProtocol(getBlockHash evm.GetBlockHash, depositGasWithSGD evm.DepositGasWithSGD, sgd evm.SGDRegistry, getBlockTime evm.GetBlockTime) *Protocol {
 	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of vote protocol", zap.Error(err))
 	}
-	return &Protocol{getBlockHash: getBlockHash, depositGas: depositGasWithSGD, addr: addr, sgdRegistry: sgd}
+	return &Protocol{getBlockHash: getBlockHash, depositGas: depositGasWithSGD, addr: addr, sgdRegistry: sgd, getBlockTime: getBlockTime}
 }
 
 // FindProtocol finds the registered protocol from registry
@@ -66,7 +68,13 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if !ok {
 		return nil, nil
 	}
-	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.getBlockHash, p.depositGas, p.sgdRegistry)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash:   p.getBlockHash,
+		GetBlockTime:   p.getBlockTime,
+		DepositGasFunc: p.depositGas,
+		Sgd:            p.sgdRegistry,
+	})
+	_, receipt, err := evm.ExecuteContract(ctx, sm, exec)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute contract")
@@ -76,13 +84,19 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 }
 
 // Validate validates an execution
-func (p *Protocol) Validate(_ context.Context, act action.Action, _ protocol.StateReader) error {
+func (p *Protocol) Validate(ctx context.Context, act action.Action, _ protocol.StateReader) error {
 	exec, ok := act.(*action.Execution)
 	if !ok {
 		return nil
 	}
+	sizeLimit := _executionSizeLimit48KB
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	if fCtx.ExecutionSizeLimit32KB {
+		sizeLimit = _executionSizeLimit32KB
+	}
+
 	// Reject oversize execution
-	if exec.TotalSize() > ExecutionSizeLimit {
+	if exec.TotalSize() > sizeLimit {
 		return action.ErrOversizedData
 	}
 	return nil

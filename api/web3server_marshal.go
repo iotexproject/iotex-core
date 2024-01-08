@@ -4,14 +4,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -55,7 +56,6 @@ type (
 		ethTx     *types.Transaction
 		receipt   *action.Receipt
 		pubkey    crypto.PublicKey
-		signature []byte
 	}
 
 	getReceiptResult struct {
@@ -227,11 +227,7 @@ func (obj *getTransactionResult) MarshalJSON() ([]byte, error) {
 	}
 	value, _ := intStrToHex(obj.ethTx.Value().String())
 	gasPrice, _ := intStrToHex(obj.ethTx.GasPrice().String())
-
-	vVal := uint64(obj.signature[64])
-	if vVal < 27 {
-		vVal += 27
-	}
+	v, r, s := obj.ethTx.RawSignatureValues()
 
 	return json.Marshal(&struct {
 		Hash             string  `json:"hash"`
@@ -260,9 +256,9 @@ func (obj *getTransactionResult) MarshalJSON() ([]byte, error) {
 		GasPrice:         gasPrice,
 		Gas:              uint64ToHex(obj.ethTx.Gas()),
 		Input:            byteToHex(obj.ethTx.Data()),
-		R:                byteToHex(obj.signature[:32]),
-		S:                byteToHex(obj.signature[32:64]),
-		V:                uint64ToHex(vVal),
+		R:                hexutil.EncodeBig(r),
+		S:                hexutil.EncodeBig(s),
+		V:                hexutil.EncodeBig(v),
 	})
 }
 

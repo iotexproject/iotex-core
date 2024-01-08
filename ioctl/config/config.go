@@ -67,6 +67,14 @@ type Config struct {
 	Language         string            `json:"language" yaml:"language"`
 	Nsv2height       uint64            `json:"nsv2height" yaml:"nsv2height"`
 	AnalyserEndpoint string            `json:"analyserEndpoint" yaml:"analyserEndpoint"`
+	// WsEndpoint w3bstream endpoint
+	WsEndpoint string `json:"wsEndpoint" yaml:"wsEndpoint"`
+	// IPFSEndpoint ipfs endpoint for uploading
+	IPFSEndpoint string `json:"ipfsEndpoint" yaml:"ipfsEndpoint"`
+	// IPFSGateway ipfs gateway for resource fetching (with scheme)
+	IPFSGateway string `json:"ipfsGateway" yaml:"ipfsGateway"`
+	// WsRegisterContract w3bstream project register contract address
+	WsRegisterContract string `json:"wsRegisterContract" yaml:"wsRegisterContract"`
 }
 
 var (
@@ -112,6 +120,22 @@ func init() {
 	}
 	if ReadConfig.AnalyserEndpoint == "" {
 		ReadConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
+		completeness = false
+	}
+	if ReadConfig.WsEndpoint == "" {
+		ReadConfig.WsEndpoint = _defaultWsEndpoint
+		completeness = false
+	}
+	if ReadConfig.IPFSEndpoint == "" {
+		ReadConfig.IPFSEndpoint = _defaultIPFSEndpoint
+		completeness = false
+	}
+	if ReadConfig.IPFSGateway == "" {
+		ReadConfig.IPFSGateway = _defaultIPFSGateway
+		completeness = false
+	}
+	if ReadConfig.WsRegisterContract == "" {
+		ReadConfig.WsRegisterContract = _defaultWsRegisterContract
 		completeness = false
 	}
 	if !completeness {

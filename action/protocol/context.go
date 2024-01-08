@@ -104,7 +104,6 @@ type (
 		CorrectTxLogIndex                       bool
 		RevertLog                               bool
 		TolerateLegacyAddress                   bool
-		ValidateRewardProtocol                  bool
 		CreateLegacyNonceAccount                bool
 		FixGasAndNonceUpdate                    bool
 		FixUnproductiveDelegates                bool
@@ -113,7 +112,9 @@ type (
 		ValidateSystemAction                    bool
 		AllowCorrectChainIDOnly                 bool
 		AddContractStakingVotes                 bool
+		FixContractStakingWeightedVotes         bool
 		SharedGasWithDapp                       bool
+		ExecutionSizeLimit32KB                  bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -243,7 +244,6 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CorrectTxLogIndex:                       g.IsMidway(height),
 			RevertLog:                               g.IsMidway(height),
 			TolerateLegacyAddress:                   !g.IsNewfoundland(height),
-			ValidateRewardProtocol:                  g.IsNewfoundland(height),
 			CreateLegacyNonceAccount:                !g.IsOkhotsk(height),
 			FixGasAndNonceUpdate:                    g.IsOkhotsk(height),
 			FixUnproductiveDelegates:                g.IsOkhotsk(height),
@@ -252,7 +252,9 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			ValidateSystemAction:                    g.IsQuebec(height),
 			AllowCorrectChainIDOnly:                 g.IsQuebec(height),
 			AddContractStakingVotes:                 g.IsQuebec(height),
+			FixContractStakingWeightedVotes:         g.IsRedsea(height),
 			SharedGasWithDapp:                       g.IsToBeEnabled(height),
+			ExecutionSizeLimit32KB:                  !g.IsToBeEnabled(height),
 		},
 	)
 }

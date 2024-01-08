@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2023 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -372,6 +372,12 @@ func TestValidateForkHeights(t *testing.T) {
 			"Palau", ErrInvalidCfg, "Palau is heigher than Quebec",
 		},
 		{
+			"Quebec", ErrInvalidCfg, "Quebec is heigher than Redsea",
+		},
+		{
+			"Redsea", ErrInvalidCfg, "Redsea is heigher than Sumatra",
+		},
+		{
 			"", nil, "",
 		},
 	}
@@ -425,6 +431,10 @@ func newTestCfg(fork string) Config {
 		cfg.Genesis.OkhotskBlockHeight = cfg.Genesis.PalauBlockHeight + 1
 	case "Palau":
 		cfg.Genesis.PalauBlockHeight = cfg.Genesis.QuebecBlockHeight + 1
+	case "Quebec":
+		cfg.Genesis.QuebecBlockHeight = cfg.Genesis.RedseaBlockHeight + 1
+	case "Redsea":
+		cfg.Genesis.RedseaBlockHeight = cfg.Genesis.SumatraBlockHeight + 1
 	}
 	return cfg
 }

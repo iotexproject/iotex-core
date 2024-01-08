@@ -18,9 +18,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -30,18 +33,32 @@ const (
 	_testStakingContractAddress = "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd"
 )
 
+var (
+	_blockInterval = consensusfsm.DefaultDardanellesUpgradeConfig.BlockInterval
+)
+
 func TestNewContractStakingIndexer(t *testing.T) {
 	r := require.New(t)
 
 	t.Run("kvStore is nil", func(t *testing.T) {
-		_, err := NewContractStakingIndexer(nil, "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd", 0)
+		_, err := NewContractStakingIndexer(nil, Config{
+			ContractAddress:      "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd",
+			ContractDeployHeight: 0,
+			CalculateVoteWeight:  calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts),
+			BlockInterval:        _blockInterval,
+		})
 		r.Error(err)
 		r.Contains(err.Error(), "kv store is nil")
 	})
 
 	t.Run("invalid contract address", func(t *testing.T) {
 		kvStore := db.NewMemKVStore()
-		_, err := NewContractStakingIndexer(kvStore, "invalid address", 0)
+		_, err := NewContractStakingIndexer(kvStore, Config{
+			ContractAddress:      "invalid address",
+			ContractDeployHeight: 0,
+			CalculateVoteWeight:  calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts),
+			BlockInterval:        _blockInterval,
+		})
 		r.Error(err)
 		r.Contains(err.Error(), "invalid contract address")
 	})
@@ -49,7 +66,12 @@ func TestNewContractStakingIndexer(t *testing.T) {
 	t.Run("valid input", func(t *testing.T) {
 		contractAddr, err := address.FromString("io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd")
 		r.NoError(err)
-		indexer, err := NewContractStakingIndexer(db.NewMemKVStore(), contractAddr.String(), 0)
+		indexer, err := NewContractStakingIndexer(db.NewMemKVStore(), Config{
+			ContractAddress:      contractAddr.String(),
+			ContractDeployHeight: 0,
+			CalculateVoteWeight:  calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts),
+			BlockInterval:        _blockInterval,
+		})
 		r.NoError(err)
 		r.NotNil(indexer)
 	})
@@ -63,7 +85,12 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, Config{
+		ContractAddress:      _testStakingContractAddress,
+		ContractDeployHeight: 0,
+		CalculateVoteWeight:  calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts),
+		BlockInterval:        _blockInterval,
+	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -90,7 +117,12 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	r.NoError(indexer.Stop(context.Background()))
 
 	// load cache from db
-	newIndexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), _testStakingContractAddress, startHeight)
+	newIndexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), Config{
+		ContractAddress:      _testStakingContractAddress,
+		ContractDeployHeight: startHeight,
+		CalculateVoteWeight:  calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts),
+		BlockInterval:        _blockInterval,
+	})
 	r.NoError(err)
 	r.NoError(newIndexer.Start(context.Background()))
 
@@ -119,7 +151,12 @@ func TestContractStakingIndexerDirty(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, Config{
+		ContractAddress:      _testStakingContractAddress,
+		ContractDeployHeight: 0,
+		CalculateVoteWeight:  calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts),
+		BlockInterval:        _blockInterval,
+	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -147,7 +184,12 @@ func TestContractStakingIndexerThreadSafe(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, Config{
+		ContractAddress:      _testStakingContractAddress,
+		ContractDeployHeight: 0,
+		CalculateVoteWeight:  calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts),
+		BlockInterval:        _blockInterval,
+	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -155,6 +197,7 @@ func TestContractStakingIndexerThreadSafe(t *testing.T) {
 	wait.Add(6)
 	owner := identityset.Address(0)
 	delegate := identityset.Address(1)
+	ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1}))
 	// read concurrently
 	for i := 0; i < 5; i++ {
 		go func() {
@@ -166,7 +209,7 @@ func TestContractStakingIndexerThreadSafe(t *testing.T) {
 				r.NoError(err)
 				_, err = indexer.BucketsByCandidate(delegate, 0)
 				r.NoError(err)
-				indexer.CandidateVotes(delegate, 0)
+				indexer.CandidateVotes(ctx, delegate, 0)
 				_, err = indexer.Height()
 				r.NoError(err)
 				indexer.TotalBucketCount(0)
@@ -201,7 +244,12 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, Config{
+		ContractAddress:      _testStakingContractAddress,
+		ContractDeployHeight: 0,
+		CalculateVoteWeight:  calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts),
+		BlockInterval:        _blockInterval,
+	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -284,7 +332,12 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, Config{
+		ContractAddress:      _testStakingContractAddress,
+		ContractDeployHeight: 0,
+		CalculateVoteWeight:  calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts),
+		BlockInterval:        _blockInterval,
+	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -302,6 +355,7 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	}
 	err = indexer.commit(handler, height)
 	r.NoError(err)
+	ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1}))
 
 	// stake
 	owner := identityset.Address(0)
@@ -325,7 +379,7 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.EqualValues(height, bucket.CreateBlockHeight)
 	r.EqualValues(maxBlockNumber, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(_testStakingContractAddress, bucket.ContractAddress)
-	votes, err := indexer.CandidateVotes(delegate, height)
+	votes, err := indexer.CandidateVotes(ctx, delegate, height)
 	r.NoError(err)
 	r.EqualValues(10, votes.Uint64())
 	tbc, err := indexer.TotalBucketCount(height)
@@ -361,7 +415,7 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.EqualValues(createHeight, bucket.CreateBlockHeight)
 	r.EqualValues(maxBlockNumber, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(_testStakingContractAddress, bucket.ContractAddress)
-	votes, err = indexer.CandidateVotes(delegate, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate, height)
 	r.NoError(err)
 	r.EqualValues(10, votes.Uint64())
 	tbc, err = indexer.TotalBucketCount(height)
@@ -386,7 +440,7 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.EqualValues(createHeight, bucket.CreateBlockHeight)
 	r.EqualValues(maxBlockNumber, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(_testStakingContractAddress, bucket.ContractAddress)
-	votes, err = indexer.CandidateVotes(delegate, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate, height)
 	r.NoError(err)
 	r.EqualValues(10, votes.Uint64())
 	tbc, err = indexer.TotalBucketCount(height)
@@ -412,7 +466,7 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	r.EqualValues(createHeight, bucket.CreateBlockHeight)
 	r.EqualValues(height, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(_testStakingContractAddress, bucket.ContractAddress)
-	votes, err = indexer.CandidateVotes(delegate, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate, height)
 	r.NoError(err)
 	r.EqualValues(0, votes.Uint64())
 	tbc, err = indexer.TotalBucketCount(height)
@@ -427,7 +481,7 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 	bucket, ok, err = indexer.Bucket(bucket.Index, height)
 	r.NoError(err)
 	r.False(ok)
-	votes, err = indexer.CandidateVotes(delegate, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate, height)
 	r.NoError(err)
 	r.EqualValues(0, votes.Uint64())
 	tbc, err = indexer.TotalBucketCount(height)
@@ -443,7 +497,12 @@ func TestContractStakingIndexerChangeBucketType(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, Config{
+		ContractAddress:      _testStakingContractAddress,
+		ContractDeployHeight: 0,
+		CalculateVoteWeight:  calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts),
+		BlockInterval:        _blockInterval,
+	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -492,7 +551,12 @@ func TestContractStakingIndexerReadBuckets(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, Config{
+		ContractAddress:      _testStakingContractAddress,
+		ContractDeployHeight: 0,
+		CalculateVoteWeight:  calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts),
+		BlockInterval:        _blockInterval,
+	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -569,6 +633,7 @@ func TestContractStakingIndexerReadBuckets(t *testing.T) {
 	})
 
 	t.Run("CandidateVotes", func(t *testing.T) {
+		ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1}))
 		candidateMap := make(map[int]int64)
 		for i := range stakeData {
 			candidateMap[stakeData[i].delegate] += int64(stakeData[i].amount)
@@ -576,7 +641,7 @@ func TestContractStakingIndexerReadBuckets(t *testing.T) {
 		candidates := []int{1, 2, 3}
 		for _, cand := range candidates {
 			votes := candidateMap[cand]
-			cvotes, err := indexer.CandidateVotes(identityset.Address(cand), height)
+			cvotes, err := indexer.CandidateVotes(ctx, identityset.Address(cand), height)
 			r.NoError(err)
 			r.EqualValues(votes, cvotes.Uint64())
 		}
@@ -591,7 +656,12 @@ func TestContractStakingIndexerCacheClean(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, Config{
+		ContractAddress:      _testStakingContractAddress,
+		ContractDeployHeight: 0,
+		CalculateVoteWeight:  calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts),
+		BlockInterval:        _blockInterval,
+	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
 
@@ -653,9 +723,15 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testDBPath
 	kvStore := db.NewBoltDB(cfg)
-	indexer, err := NewContractStakingIndexer(kvStore, _testStakingContractAddress, 0)
+	indexer, err := NewContractStakingIndexer(kvStore, Config{
+		ContractAddress:      _testStakingContractAddress,
+		ContractDeployHeight: 0,
+		CalculateVoteWeight:  calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts),
+		BlockInterval:        _blockInterval,
+	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
+	ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1}))
 
 	// init bucket type
 	height := uint64(1)
@@ -673,13 +749,13 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	stake(r, handler, owner, delegate2, 3, 20, 20, height)
 	stake(r, handler, owner, delegate2, 4, 20, 20, height)
 	r.NoError(indexer.commit(handler, height))
-	votes, err := indexer.CandidateVotes(delegate1, height)
+	votes, err := indexer.CandidateVotes(ctx, delegate1, height)
 	r.NoError(err)
 	r.EqualValues(30, votes.Uint64())
-	votes, err = indexer.CandidateVotes(delegate2, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate2, height)
 	r.NoError(err)
 	r.EqualValues(40, votes.Uint64())
-	votes, err = indexer.CandidateVotes(owner, height)
+	votes, err = indexer.CandidateVotes(ctx, owner, height)
 	r.EqualValues(0, votes.Uint64())
 
 	// change delegate bucket 3 to delegate1
@@ -687,10 +763,10 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	handler = newContractStakingEventHandler(indexer.cache)
 	changeDelegate(r, handler, delegate1, 3)
 	r.NoError(indexer.commit(handler, height))
-	votes, err = indexer.CandidateVotes(delegate1, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate1, height)
 	r.NoError(err)
 	r.EqualValues(50, votes.Uint64())
-	votes, err = indexer.CandidateVotes(delegate2, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate2, height)
 	r.NoError(err)
 	r.EqualValues(20, votes.Uint64())
 
@@ -700,10 +776,10 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	unlock(r, handler, 1, height)
 	unlock(r, handler, 4, height)
 	r.NoError(indexer.commit(handler, height))
-	votes, err = indexer.CandidateVotes(delegate1, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate1, height)
 	r.NoError(err)
 	r.EqualValues(50, votes.Uint64())
-	votes, err = indexer.CandidateVotes(delegate2, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate2, height)
 	r.NoError(err)
 	r.EqualValues(20, votes.Uint64())
 
@@ -713,10 +789,10 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	unstake(r, handler, 1, height)
 	lock(r, handler, 4, 20)
 	r.NoError(indexer.commit(handler, height))
-	votes, err = indexer.CandidateVotes(delegate1, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate1, height)
 	r.NoError(err)
 	r.EqualValues(40, votes.Uint64())
-	votes, err = indexer.CandidateVotes(delegate2, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate2, height)
 	r.NoError(err)
 	r.EqualValues(20, votes.Uint64())
 
@@ -725,10 +801,10 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	handler = newContractStakingEventHandler(indexer.cache)
 	expandBucketType(r, handler, 2, 30, 20)
 	r.NoError(indexer.commit(handler, height))
-	votes, err = indexer.CandidateVotes(delegate1, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate1, height)
 	r.NoError(err)
 	r.EqualValues(50, votes.Uint64())
-	votes, err = indexer.CandidateVotes(delegate2, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate2, height)
 	r.NoError(err)
 	r.EqualValues(20, votes.Uint64())
 
@@ -737,10 +813,10 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	handler = newContractStakingEventHandler(indexer.cache)
 	transfer(r, handler, delegate2, 4)
 	r.NoError(indexer.commit(handler, height))
-	votes, err = indexer.CandidateVotes(delegate1, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate1, height)
 	r.NoError(err)
 	r.EqualValues(50, votes.Uint64())
-	votes, err = indexer.CandidateVotes(delegate2, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate2, height)
 	r.NoError(err)
 	r.EqualValues(20, votes.Uint64())
 
@@ -751,10 +827,10 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	stake(r, handler, owner, delegate2, 6, 20, 20, height)
 	stake(r, handler, owner, delegate2, 7, 20, 20, height)
 	r.NoError(indexer.commit(handler, height))
-	votes, err = indexer.CandidateVotes(delegate1, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate1, height)
 	r.NoError(err)
 	r.EqualValues(50, votes.Uint64())
-	votes, err = indexer.CandidateVotes(delegate2, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate2, height)
 	r.NoError(err)
 	r.EqualValues(80, votes.Uint64())
 
@@ -763,10 +839,10 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	handler = newContractStakingEventHandler(indexer.cache)
 	mergeBuckets(r, handler, []int64{5, 6, 7}, 60, 20)
 	r.NoError(indexer.commit(handler, height))
-	votes, err = indexer.CandidateVotes(delegate1, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate1, height)
 	r.NoError(err)
 	r.EqualValues(50, votes.Uint64())
-	votes, err = indexer.CandidateVotes(delegate2, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate2, height)
 	r.NoError(err)
 	r.EqualValues(80, votes.Uint64())
 
@@ -776,10 +852,10 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	unlock(r, handler, 5, height)
 	unstake(r, handler, 5, height)
 	r.NoError(indexer.commit(handler, height))
-	votes, err = indexer.CandidateVotes(delegate1, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate1, height)
 	r.NoError(err)
 	r.EqualValues(50, votes.Uint64())
-	votes, err = indexer.CandidateVotes(delegate2, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate2, height)
 	r.NoError(err)
 	r.EqualValues(20, votes.Uint64())
 
@@ -791,10 +867,10 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 	stake(r, handler, owner, delegate2, 10, 20, 20, height)
 	mergeBuckets(r, handler, []int64{8, 9, 10}, 60, 20)
 	r.NoError(indexer.commit(handler, height))
-	votes, err = indexer.CandidateVotes(delegate1, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate1, height)
 	r.NoError(err)
 	r.EqualValues(110, votes.Uint64())
-	votes, err = indexer.CandidateVotes(delegate2, height)
+	votes, err = indexer.CandidateVotes(ctx, delegate2, height)
 	r.NoError(err)
 	r.EqualValues(20, votes.Uint64())
 
@@ -834,6 +910,12 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 		r.EqualValues(4, bts[3].Index)
 		r.EqualValues(5, bts[4].Index)
 		r.EqualValues(8, bts[5].Index)
+		r.EqualValues(10*_blockInterval, bts[0].StakedDuration)
+		r.EqualValues(20*_blockInterval, bts[1].StakedDuration)
+		r.EqualValues(20*_blockInterval, bts[2].StakedDuration)
+		r.EqualValues(20*_blockInterval, bts[3].StakedDuration)
+		r.EqualValues(20*_blockInterval, bts[4].StakedDuration)
+		r.EqualValues(20*_blockInterval, bts[5].StakedDuration)
 		r.EqualValues(10, bts[0].StakedDurationBlockNumber)
 		r.EqualValues(20, bts[1].StakedDurationBlockNumber)
 		r.EqualValues(20, bts[2].StakedDurationBlockNumber)
@@ -883,7 +965,6 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 		r.EqualValues(9, bts[4].UnstakeStartBlockHeight)
 		r.EqualValues(maxBlockNumber, bts[5].UnstakeStartBlockHeight)
 		for _, b := range bts {
-			r.EqualValues(0, b.StakedDuration)
 			r.EqualValues(time.Time{}, b.CreateTime)
 			r.EqualValues(time.Time{}, b.StakeStartTime)
 			r.EqualValues(time.Time{}, b.UnstakeStartTime)
@@ -956,7 +1037,12 @@ func TestIndexer_ReadHeightRestriction(t *testing.T) {
 			dbPath, err := testutil.PathOfTempFile("db")
 			r.NoError(err)
 			cfg.DbPath = dbPath
-			indexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), identityset.Address(1).String(), startHeight)
+			indexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), Config{
+				ContractAddress:      identityset.Address(1).String(),
+				ContractDeployHeight: startHeight,
+				CalculateVoteWeight:  calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts),
+				BlockInterval:        _blockInterval,
+			})
 			r.NoError(err)
 			r.NoError(indexer.Start(context.Background()))
 			defer func() {
@@ -965,6 +1051,7 @@ func TestIndexer_ReadHeightRestriction(t *testing.T) {
 			}()
 			indexer.cache.putHeight(height)
 			// check read api
+			ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1}))
 			h := c.readHeight
 			delegate := identityset.Address(1)
 			if c.valid {
@@ -976,7 +1063,7 @@ func TestIndexer_ReadHeightRestriction(t *testing.T) {
 				r.NoError(err)
 				_, err = indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5, 8}, h)
 				r.NoError(err)
-				_, err = indexer.CandidateVotes(delegate, h)
+				_, err = indexer.CandidateVotes(ctx, delegate, h)
 				r.NoError(err)
 				_, _, err = indexer.Bucket(1, h)
 				r.NoError(err)
@@ -991,7 +1078,7 @@ func TestIndexer_ReadHeightRestriction(t *testing.T) {
 				r.ErrorIs(err, ErrInvalidHeight)
 				_, err = indexer.BucketsByIndices([]uint64{1, 2, 3, 4, 5, 8}, h)
 				r.ErrorIs(err, ErrInvalidHeight)
-				_, err = indexer.CandidateVotes(delegate, h)
+				_, err = indexer.CandidateVotes(ctx, delegate, h)
 				r.ErrorIs(err, ErrInvalidHeight)
 				_, _, err = indexer.Bucket(1, h)
 				r.ErrorIs(err, ErrInvalidHeight)
@@ -1035,7 +1122,12 @@ func TestIndexer_PutBlock(t *testing.T) {
 			dbPath, err := testutil.PathOfTempFile("db")
 			r.NoError(err)
 			cfg.DbPath = dbPath
-			indexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), identityset.Address(1).String(), startHeight)
+			indexer, err := NewContractStakingIndexer(db.NewBoltDB(cfg), Config{
+				ContractAddress:      identityset.Address(1).String(),
+				ContractDeployHeight: startHeight,
+				CalculateVoteWeight:  calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts),
+				BlockInterval:        _blockInterval,
+			})
 			r.NoError(err)
 			r.NoError(indexer.Start(context.Background()))
 			defer func() {
@@ -1064,7 +1156,7 @@ func TestIndexer_PutBlock(t *testing.T) {
 
 func BenchmarkIndexer_PutBlockBeforeContractHeight(b *testing.B) {
 	// Create a new Indexer with a contract height of 100
-	indexer := &Indexer{contractDeployHeight: 100}
+	indexer := &Indexer{config: Config{ContractDeployHeight: 100}}
 
 	// Create a mock block with a height of 50
 	blk := &block.Block{}

@@ -136,6 +136,7 @@ func NewProtocol(
 	getBlockTimeFunc GetBlockTime,
 	productivity Productivity,
 	getBlockHash evm.GetBlockHash,
+	getBlockTime evm.GetBlockTime,
 ) (Protocol, error) {
 	if scheme != _rollDPoSScheme {
 		return nil, nil

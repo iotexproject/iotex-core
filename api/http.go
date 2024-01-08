@@ -11,7 +11,6 @@ import (
 
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/httputil"
 )
 
@@ -64,14 +63,12 @@ func newHTTPHandler(web3Handler Web3Handler) *hTTPHandler {
 }
 
 func (handler *hTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	ctx, span := tracer.NewSpan(req.Context(), "handler.ServeHTTP")
-	defer span.End()
 	if req.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
-	if err := handler.msgHandler.HandlePOSTReq(ctx, req.Body,
+	if err := handler.msgHandler.HandlePOSTReq(req.Context(), req.Body,
 		apitypes.NewResponseWriter(
 			func(resp interface{}) (int, error) {
 				w.Header().Set("Access-Control-Allow-Origin", "*")

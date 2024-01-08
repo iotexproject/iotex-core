@@ -78,7 +78,7 @@ func TestSGDRegistry(t *testing.T) {
 	reward := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	r.NoError(reward.Register(registry))
 
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, fakeGetBlockTime)
 	r.NoError(ep.Register(registry))
 	r.NoError(bc.Start(ctx))
 	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
@@ -177,7 +177,6 @@ func TestSGDRegistry(t *testing.T) {
 				"c375c2ef0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
 			},
 			checkContractExpect: checkContractExpectation{
-				errorContains:   "not exist in DB",
 				contractAddress: registerAddress.String(),
 			},
 		},
@@ -187,7 +186,6 @@ func TestSGDRegistry(t *testing.T) {
 				"07f7aafb0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
 			},
 			checkContractExpect: checkContractExpectation{
-				errorContains:   "not exist in DB",
 				contractAddress: registerAddress.String(),
 			},
 		},
@@ -225,7 +223,6 @@ func TestSGDRegistry(t *testing.T) {
 				"07f7aafb0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc4",
 			},
 			checkContractExpect: checkContractExpectation{
-				errorContains:   "not exist in DB",
 				contractAddress: registerAddress.String(),
 			},
 		},

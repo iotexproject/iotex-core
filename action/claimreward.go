@@ -47,6 +47,7 @@ var (
 	ClaimFromRewardingFundGasPerByte = uint64(100)
 
 	_claimRewardingMethod abi.Method
+	_                     EthCompatibleAction = (*ClaimFromRewardingFund)(nil)
 )
 
 func init() {
@@ -158,12 +159,19 @@ func (c *ClaimFromRewardingFund) encodeABIBinary() ([]byte, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (c *ClaimFromRewardingFund) ToEthTx() (*types.Transaction, error) {
+func (c *ClaimFromRewardingFund) ToEthTx(_ uint32) (*types.Transaction, error) {
 	data, err := c.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(c.Nonce(), _rewardingProtocolEthAddr, big.NewInt(0), c.GasLimit(), c.GasPrice(), data), nil
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    c.Nonce(),
+		GasPrice: c.GasPrice(),
+		Gas:      c.GasLimit(),
+		To:       &_rewardingProtocolEthAddr,
+		Value:    big.NewInt(0),
+		Data:     data,
+	}), nil
 }
 
 // NewClaimFromRewardingFundFromABIBinary decodes data into action

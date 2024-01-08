@@ -12,7 +12,6 @@ import (
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
-	evm "github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	actpool "github.com/iotexproject/iotex-core/actpool"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	state "github.com/iotexproject/iotex-core/state"
@@ -144,9 +143,9 @@ func (mr *MockFactoryMockRecorder) Register(arg0 interface{}) *gomock.Call {
 }
 
 // SimulateExecution mocks base method.
-func (m *MockFactory) SimulateExecution(arg0 context.Context, arg1 address.Address, arg2 *action.Execution, arg3 evm.GetBlockHash) ([]byte, *action.Receipt, error) {
+func (m *MockFactory) SimulateExecution(arg0 context.Context, arg1 address.Address, arg2 *action.Execution) ([]byte, *action.Receipt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SimulateExecution", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "SimulateExecution", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(*action.Receipt)
 	ret2, _ := ret[2].(error)
@@ -154,9 +153,9 @@ func (m *MockFactory) SimulateExecution(arg0 context.Context, arg1 address.Addre
 }
 
 // SimulateExecution indicates an expected call of SimulateExecution.
-func (mr *MockFactoryMockRecorder) SimulateExecution(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockFactoryMockRecorder) SimulateExecution(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockFactory)(nil).SimulateExecution), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockFactory)(nil).SimulateExecution), arg0, arg1, arg2)
 }
 
 // Start mocks base method.

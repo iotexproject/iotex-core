@@ -5,6 +5,7 @@
 package staking
 
 import (
+	context "context"
 	big "math/big"
 	reflect "reflect"
 
@@ -96,18 +97,18 @@ func (mr *MockContractStakingIndexerMockRecorder) BucketsByIndices(arg0, arg1 in
 }
 
 // CandidateVotes mocks base method.
-func (m *MockContractStakingIndexer) CandidateVotes(ownerAddr address.Address, height uint64) (*big.Int, error) {
+func (m *MockContractStakingIndexer) CandidateVotes(ctx context.Context, ownerAddr address.Address, height uint64) (*big.Int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CandidateVotes", ownerAddr, height)
+	ret := m.ctrl.Call(m, "CandidateVotes", ctx, ownerAddr, height)
 	ret0, _ := ret[0].(*big.Int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CandidateVotes indicates an expected call of CandidateVotes.
-func (mr *MockContractStakingIndexerMockRecorder) CandidateVotes(ownerAddr, height interface{}) *gomock.Call {
+func (mr *MockContractStakingIndexerMockRecorder) CandidateVotes(ctx, ownerAddr, height interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidateVotes", reflect.TypeOf((*MockContractStakingIndexer)(nil).CandidateVotes), ownerAddr, height)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidateVotes", reflect.TypeOf((*MockContractStakingIndexer)(nil).CandidateVotes), ctx, ownerAddr, height)
 }
 
 // TotalBucketCount mocks base method.

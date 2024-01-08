@@ -1,0 +1,37 @@
+{
+    "initGenesis": {
+        "isBering" : true,
+        "isIceland" : true,
+        "isLondon" : true,
+        "isShanghai" : true
+    },
+    "initBalances": [{
+        "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+        "rawBalance": "1000000000000000000000000000"
+    }],
+    "deployments": [{
+        "rawByteCode": "608060405234801561001057600080fd5b5060b58061001f6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c80635ec01e4d14602d575b600080fd5b60336047565b604051603e91906066565b60405180910390f35b600044905090565b6000819050919050565b606081604f565b82525050565b6000602082019050607960008301846059565b9291505056fea26469706673582212208b5853db7006e0a6e6fcfc37145359c4f7cbec8d42e6cd8c99d998a696a4d3d964736f6c63430008120033",
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawAmount": "0",
+        "rawGasLimit": 5000000,
+        "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 67487,
+        "expectedStatus": 1,
+        "expectedBalances": [],
+        "comment": "deploy contract with prevrandao opcode"
+    }],
+    "executions": [{
+        "contractIndex": 0,
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "5ec01e4d",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10714,
+        "expectedStatus": 1,
+        "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000000",
+        "comment": "call random()",
+        "readOnly": true
+    }]
+}

@@ -57,6 +57,7 @@ const (
 var (
 	// _depositToStakeMethod is the interface of the abi encoding of stake action
 	_depositToStakeMethod abi.Method
+	_                     EthCompatibleAction = (*DepositToStake)(nil)
 )
 
 // DepositToStake defines the action of stake add deposit
@@ -219,10 +220,17 @@ func NewDepositToStakeFromABIBinary(data []byte) (*DepositToStake, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (ds *DepositToStake) ToEthTx() (*types.Transaction, error) {
+func (ds *DepositToStake) ToEthTx(_ uint32) (*types.Transaction, error) {
 	data, err := ds.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(ds.Nonce(), _stakingProtocolEthAddr, big.NewInt(0), ds.GasLimit(), ds.GasPrice(), data), nil
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    ds.Nonce(),
+		GasPrice: ds.GasPrice(),
+		Gas:      ds.GasLimit(),
+		To:       &_stakingProtocolEthAddr,
+		Value:    big.NewInt(0),
+		Data:     data,
+	}), nil
 }

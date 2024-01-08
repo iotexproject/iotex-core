@@ -18,6 +18,7 @@ import (
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
+	genesis "github.com/iotexproject/iotex-core/blockchain/genesis"
 	iotexapi "github.com/iotexproject/iotex-proto/golang/iotexapi"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -332,6 +333,20 @@ func (m *MockCoreService) EstimateGasForNonExecution(arg0 action.Action) (uint64
 func (mr *MockCoreServiceMockRecorder) EstimateGasForNonExecution(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForNonExecution", reflect.TypeOf((*MockCoreService)(nil).EstimateGasForNonExecution), arg0)
+}
+
+// Genesis mocks base method.
+func (m *MockCoreService) Genesis() genesis.Genesis {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Genesis")
+	ret0, _ := ret[0].(genesis.Genesis)
+	return ret0
+}
+
+// Genesis indicates an expected call of Genesis.
+func (mr *MockCoreServiceMockRecorder) Genesis() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Genesis", reflect.TypeOf((*MockCoreService)(nil).Genesis))
 }
 
 // LogsInBlockByHash mocks base method.

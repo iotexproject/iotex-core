@@ -107,7 +107,7 @@ func TestClaimRewardToEthTx(t *testing.T) {
 
 	rc := &ClaimFromRewardingFund{}
 	rc.amount = big.NewInt(101)
-	tx, err := rc.ToEthTx()
+	tx, err := rc.ToEthTx(0)
 	r.Nil(err)
 	r.EqualValues(_rewardingProtocolEthAddr, *tx.To())
 	r.EqualValues(
@@ -117,7 +117,7 @@ func TestClaimRewardToEthTx(t *testing.T) {
 	r.EqualValues("0", tx.Value().String())
 
 	rc.data = []byte{1, 2, 3}
-	tx, err = rc.ToEthTx()
+	tx, err = rc.ToEthTx(0)
 	r.Nil(err)
 	r.EqualValues(_rewardingProtocolEthAddr, *tx.To())
 	r.EqualValues(

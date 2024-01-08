@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -685,15 +686,18 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 		require.NoError(err)
 
 		// create tx
-		rawTx := types.NewTransaction(
-			uint64(9+i),
-			common.HexToAddress(toAddr),
-			big.NewInt(0),
-			gasLimit,
-			big.NewInt(0),
-			test.data,
-		)
-		tx, err := types.SignTx(rawTx, types.NewEIP155Signer(big.NewInt(int64(_evmNetworkID))), ecdsaPvk)
+		to := common.HexToAddress(toAddr)
+		rawTx := types.NewTx(&types.LegacyTx{
+			Nonce:    uint64(9 + i),
+			GasPrice: big.NewInt(0),
+			Gas:      gasLimit,
+			To:       &to,
+			Value:    big.NewInt(0),
+			Data:     test.data,
+		})
+		signer, err := action.NewEthSigner(iotextypes.Encoding_ETHEREUM_EIP155, _evmNetworkID)
+		require.NoError(err)
+		tx, err := types.SignTx(rawTx, signer, ecdsaPvk)
 		require.NoError(err)
 		BinaryData, err := tx.MarshalBinary()
 		require.NoError(err)

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2023 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -325,6 +325,10 @@ func ValidateForkHeights(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "Okhotsk is heigher than Palau")
 	case hu.PalauBlockHeight > hu.QuebecBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Palau is heigher than Quebec")
+	case hu.QuebecBlockHeight > hu.RedseaBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Quebec is heigher than Redsea")
+	case hu.RedseaBlockHeight > hu.SumatraBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Redsea is heigher than Sumatra")
 	}
 	return nil
 }
