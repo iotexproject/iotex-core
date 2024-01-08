@@ -17,7 +17,7 @@
 set -e
 
 RELEASES_URL="https://github.com/iotexproject/iotex-core/releases"
-S3URL="https://s3-ap-southeast-1.amazonaws.com/ioctl"
+S3URL="https://s3.us-west-1.amazonaws.com/iotexproject-ioctl"
 INSTALL_DIRECTORY='/usr/local/bin'
 
 BREW_UPDATE_CMD="brew update"
