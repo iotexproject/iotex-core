@@ -142,6 +142,12 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		}
 	}
 
+	if !featureCtx.DisableDelegateEndorsement {
+		if rErr := validateBucket(ctx, csm, NewEndorsementStateManager(csm.SM()), bucket, withBucketEndorsed(false)); rErr != nil {
+			return log, rErr
+		}
+	}
+
 	// update bucket
 	bucket.UnstakeStartTime = blkCtx.BlockTimeStamp.UTC()
 	if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
@@ -287,6 +293,13 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 		return log, &handleError{
 			err:           errors.New("change to same candidate"),
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
+		}
+	}
+
+	if !featureCtx.DisableDelegateEndorsement {
+		rErr := validateBucket(ctx, csm, NewEndorsementStateManager(csm.SM()), bucket, withBucketEndorsed(false))
+		if rErr != nil {
+			return log, rErr
 		}
 	}
 
