@@ -562,7 +562,7 @@ func TestGetTransactionByHash(t *testing.T) {
 	require.NoError(err)
 	rlt, ok = ret.(*getTransactionResult)
 	require.True(ok)
-	require.Equal(hash.ZeroHash256, rlt.blockHash)
+	require.Nil(rlt.blockHash)
 	require.Nil(rlt.receipt)
 
 	// get pending contract deploy transaction
@@ -577,7 +577,7 @@ func TestGetTransactionByHash(t *testing.T) {
 	require.NoError(err)
 	rlt, ok = ret.(*getTransactionResult)
 	require.True(ok)
-	require.Equal(hash.ZeroHash256, rlt.blockHash)
+	require.Nil(rlt.blockHash)
 	require.Nil(rlt.receipt)
 	require.Nil(rlt.to)
 }
@@ -737,7 +737,7 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 	rlt, ok := ret.(*getTransactionResult)
 	require.True(ok)
 	require.Equal(receipts[0], rlt.receipt)
-	require.Equal(blkHash, rlt.blockHash)
+	require.Equal(blkHash, *rlt.blockHash)
 }
 
 func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
@@ -775,7 +775,7 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 	rlt, ok := ret.(*getTransactionResult)
 	require.True(ok)
 	require.Equal(receipts[0], rlt.receipt)
-	require.Equal(blk.HashBlock(), rlt.blockHash)
+	require.Equal(blk.HashBlock(), *rlt.blockHash)
 }
 
 func TestGetStorageAt(t *testing.T) {
