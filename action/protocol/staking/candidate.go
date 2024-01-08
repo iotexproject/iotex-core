@@ -105,7 +105,7 @@ func (d *Candidate) Collision(c *Candidate) error {
 	if address.Equal(c.Operator, d.Operator) {
 		return ErrInvalidOperator
 	}
-	if c.SelfStakeBucketIdx == d.SelfStakeBucketIdx {
+	if c.SelfStakeBucketIdx == d.SelfStakeBucketIdx && c.SelfStakeBucketIdx != candidateNoSelfStakeBucketIndex {
 		return ErrInvalidSelfStkIndex
 	}
 	return nil
