@@ -105,11 +105,11 @@ func (svr *web3Handler) assembleConfirmedTransaction(blkHash hash.Hash256, selp 
 	if err != nil || actHash != receipt.ActionHash {
 		return nil, errors.Errorf("the action %s of receipt doesn't match", hex.EncodeToString(actHash[:]))
 	}
-	return newGetTransactionResult(blkHash, selp, receipt, svr.coreService.EVMNetworkID())
+	return newGetTransactionResult(&blkHash, selp, receipt, svr.coreService.EVMNetworkID())
 }
 
 func (svr *web3Handler) assemblePendingTransaction(selp action.SealedEnvelope) (*getTransactionResult, error) {
-	return newGetTransactionResult(hash.ZeroHash256, selp, nil, svr.coreService.EVMNetworkID())
+	return newGetTransactionResult(nil, selp, nil, svr.coreService.EVMNetworkID())
 }
 
 func getRecipientAndContractAddrFromAction(selp action.SealedEnvelope, receipt *action.Receipt) (*string, *string, error) {
@@ -472,7 +472,7 @@ func fromLoggerStructLogs(logs []logger.StructLog) []apitypes.StructLog {
 }
 
 func newGetTransactionResult(
-	blkHash hash.Hash256,
+	blkHash *hash.Hash256,
 	selp action.SealedEnvelope,
 	receipt *action.Receipt,
 	evmChainID uint32,
