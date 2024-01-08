@@ -37,13 +37,15 @@ jobs:
         run: |
           make ioctl
 
-      - name: Upload ioctl binaries to release
-        uses: svenstaro/upload-release-action@v2
+      - name: Upload ioctl binaries to s3
+        uses: keithweaver/aws-s3-github-action@v1.0.0
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ./bin/ioctl
-          asset_name: ${{ matrix.artifact_name }}
-          tag: ${{ github.ref }}
+          command: cp
+          source: ./bin/ioctl
+          destination: s3://iotexproject-ioctl/${{ matrix.artifact_name }}
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: us-west-1
 
       - name: Configure ioctl GPG Linux/MacOS
         if: startsWith(matrix.os, 'windows-latest') != true
@@ -64,10 +66,12 @@ jobs:
           echo $env:GPG_SIGNING_KEY | gpg --batch --import
           gpg --passphrase "$env:GPG_PASSPHRASE" --batch --pinentry-mode loopback -ab ./bin/ioctl
 
-      - name: Upload ioctl signature
-        uses: svenstaro/upload-release-action@v2
+      - name: Upload ioctl signature to s3
+        uses: keithweaver/aws-s3-github-action@v1.0.0
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          asset_name: ${{ matrix.artifact_name }}.asc
-          file: ./bin/ioctl.asc
-          tag: ${{ github.ref }}
+          command: cp
+          source: ./bin/ioctl.asc
+          destination: s3://iotexproject-ioctl/${{ matrix.artifact_name }}.asc
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: us-west-1
