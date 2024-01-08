@@ -532,19 +532,19 @@ func (p *Protocol) isSelfStakeBucketAndValid(ctx context.Context, csm CandidateS
 			return false, nil
 		}
 		endorse, err := esm.Get(bucketIndex)
-		if err != nil {
-			return false, err
-		}
-		// is endorse bucket
-		if endorse != nil {
+		switch {
+		case err == nil:
 			status := endorse.Status(blkCtx.BlockHeight)
 			if status == Endorsed || status == UnEndorsing {
 				return true, nil
 			}
 			return false, nil
+		case errors.Cause(err) == state.ErrStateNotExist:
+			// is selfstake bucket
+			return true, nil
+		default:
+			return false, err
 		}
-		// is selfstake bucket
-		return true, nil
 	}
 	return isSelfStake, nil
 }

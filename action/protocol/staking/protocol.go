@@ -479,14 +479,15 @@ func (p *Protocol) isValidActivateBucket(ctx context.Context, csr CandidateState
 	}
 	esr := NewEndorsementStateReader(csr.SR())
 	endorse, err := esr.Get(bktIdx)
-	if err != nil {
+	switch {
+	case err == nil:
+		blkCtx := protocol.MustGetBlockCtx(ctx)
+		return endorse.Status(blkCtx.BlockHeight) != NotEndorsed, nil
+	case errors.Cause(err) == state.ErrStateNotExist:
+		return true, nil
+	default:
 		return false, err
 	}
-	if endorse == nil {
-		return true, nil
-	}
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	return endorse.Status(blkCtx.BlockHeight) != NotEndorsed, nil
 }
 
 // ActiveCandidates returns all active candidates in candidate center

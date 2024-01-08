@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 type bucketValidator func(*bucketValidation)
@@ -121,13 +122,8 @@ func validateBucket(ctx context.Context, csm CandidateStateManager, esm *Endorse
 	if validation.endorsed != nil {
 		blkCtx := protocol.MustGetBlockCtx(ctx)
 		endorse, err := esm.Get(bucket.Index)
-		if err != nil {
-			return &handleError{
-				err:           err,
-				failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
-			}
-		}
-		if endorse != nil {
+		switch {
+		case err == nil:
 			status := endorse.Status(blkCtx.BlockHeight)
 			if *validation.endorsed && status == NotEndorsed {
 				return &handleError{
@@ -141,10 +137,17 @@ func validateBucket(ctx context.Context, csm CandidateStateManager, esm *Endorse
 					failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 				}
 			}
-		} else if *validation.endorsed {
+		case errors.Is(err, state.ErrStateNotExist):
+			if *validation.endorsed {
+				return &handleError{
+					err:           errors.New("bucket is not endorsed"),
+					failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+				}
+			}
+		default:
 			return &handleError{
-				err:           errors.New("bucket is not endorsed"),
-				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+				err:           err,
+				failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
 			}
 		}
 	}
