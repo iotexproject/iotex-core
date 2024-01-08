@@ -1,9 +1,9 @@
-name: Release
+name: Master branch Release
 
 on:
   push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+    branches:
+      - "master"
 
 jobs:
   build:
@@ -14,13 +14,10 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: ioctl-linux-amd64
-            server_artifact_name: iotex-core-linux-amd64
           - os: windows-latest
             artifact_name: ioctl-windows-amd64.exe
-            server_artifact_name: iotex-core-windows-amd64.exe
           - os: macos-latest
             artifact_name: ioctl-darwin-amd64
-            server_artifact_name: iotex-core-darwin-amd64
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -39,34 +36,6 @@ jobs:
         if: startsWith(matrix.os, 'windows-latest')
         run: |
           make ioctl
-
-      - name: Upload iotex-core binaries to release
-        if: startsWith(matrix.os, 'windows-latest') != true
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ./bin/server
-          asset_name: ${{ matrix.server_artifact_name }}
-          tag: ${{ github.ref }}
-
-      - name: Configure iotex-core GPG Linux/MacOS
-        if: startsWith(matrix.os, 'windows-latest') != true
-        env:
-          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: |
-          export GPG_TTY=$(tty)
-          echo "$GPG_SIGNING_KEY" | gpg --batch --import
-          echo "$GPG_PASSPHRASE" | gpg --passphrase-fd 0 --pinentry-mode loopback --batch -ab ./bin/server
-
-      - name: Upload iotex-core signature
-        if: startsWith(matrix.os, 'windows-latest') != true
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          asset_name: ${{ matrix.server_artifact_name }}.asc
-          file: ./bin/server.asc
-          tag: ${{ github.ref }}
 
       - name: Upload ioctl binaries to release
         uses: svenstaro/upload-release-action@v2
