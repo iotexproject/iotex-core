@@ -1,11 +1,8 @@
 package staking
 
 import (
-	"github.com/pkg/errors"
-
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 type (
@@ -40,16 +37,12 @@ func NewEndorsementStateReader(sr protocol.StateReader) *EndorsementStateReader 
 }
 
 // Get gets the endorsement of a bucket
-func (esm *EndorsementStateReader) Get(bucketIndex uint64) (*Endorsement, error) {
+func (esr *EndorsementStateReader) Get(bucketIndex uint64) (*Endorsement, error) {
 	value := Endorsement{}
-	switch _, err := esm.State(&value, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(endorsementKey(bucketIndex))); errors.Cause(err) {
-	case nil:
-		return &value, nil
-	case state.ErrStateNotExist:
-		return nil, nil
-	default:
+	if _, err := esr.State(&value, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(endorsementKey(bucketIndex))); err != nil {
 		return nil, err
 	}
+	return &value, nil
 }
 
 func endorsementKey(bucketIndex uint64) []byte {
