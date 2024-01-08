@@ -478,12 +478,28 @@ func TestNativeStaking(t *testing.T) {
 		cands, err = stkPrtcl.ActiveCandidates(ctx, sf, 0)
 		require.NoError(err)
 		require.Equal(5, len(cands))
-		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-			BlockHeight: bc.TipHeight() + 60*60*24/5,
+		t.Run("endorsement is retiring, candidate can also be chosen as delegate", func(t *testing.T) {
+			ctx, err = bc.Context(ctx)
+			require.NoError(err)
+			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+				BlockHeight: bc.TipHeight() + 60*60*24/5 - 1,
+			})
+			ctx = protocol.WithFeatureCtx(ctx)
+			cands, err = stkPrtcl.ActiveCandidates(ctx, sf, 0)
+			require.NoError(err)
+			require.Equal(5, len(cands))
 		})
-		cands, err = stkPrtcl.ActiveCandidates(ctx, sf, 0)
-		require.NoError(err)
-		require.Equal(4, len(cands))
+		t.Run("endorsement is retired, candidate can not be chosen as delegate any more", func(t *testing.T) {
+			ctx, err = bc.Context(ctx)
+			require.NoError(err)
+			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+				BlockHeight: bc.TipHeight() + 60*60*24/5,
+			})
+			ctx = protocol.WithFeatureCtx(ctx)
+			cands, err = stkPrtcl.ActiveCandidates(ctx, sf, 0)
+			require.NoError(err)
+			require.Equal(4, len(cands))
+		})
 	}
 
 	cfg := config.Default
