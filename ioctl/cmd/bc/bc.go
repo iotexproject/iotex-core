@@ -10,13 +10,12 @@ import (
 	"strconv"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -51,6 +50,7 @@ func init() {
 	BCCmd.AddCommand(_bcBucketListCmd)
 	BCCmd.AddCommand(_bcBucketCmd)
 	BCCmd.AddCommand(_bcDelegateCmd)
+	BCCmd.AddCommand(_bcVersionCmd)
 	BCCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpointUsages, config.UILanguage))
 	BCCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
