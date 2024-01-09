@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -76,6 +77,17 @@ func (*GrantReward) IntrinsicGas() (uint64, error) {
 // Cost returns the total cost of a grant reward action
 func (*GrantReward) Cost() (*big.Int, error) {
 	return big.NewInt(0), nil
+}
+
+// ToEthTx converts a grant reward action to an ethereum transaction
+func (g *GrantReward) ToEthTx(_ uint32) (*types.Transaction, error) {
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    g.Nonce(),
+		GasPrice: g.GasPrice(),
+		Gas:      g.GasLimit(),
+		To:       &_rewardingProtocolEthAddr,
+		Value:    big.NewInt(0),
+	}), nil
 }
 
 // GrantRewardBuilder is the struct to build GrantReward
