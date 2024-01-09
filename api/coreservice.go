@@ -1783,6 +1783,9 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{})
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	ctx = protocol.WithBlockchainCtx(protocol.WithFeatureCtx(ctx), protocol.BlockchainCtx{})
 	retval, receipt, err := simulateFn(ctx)
 	return retval, receipt, tracer, err
 }
