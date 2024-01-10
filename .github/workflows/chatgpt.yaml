@@ -10,7 +10,7 @@ jobs:
     name: ChatGPT Code Review
     runs-on: ubuntu-latest
     steps:
-      - uses: xianhuawei/github-chatgpt-integration@main
+      - uses: fitomad/github-chatgpt-integration@main
         with:
           openai-api-key: ${{ secrets.OPENAI_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
