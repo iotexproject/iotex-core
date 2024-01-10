@@ -117,6 +117,11 @@ func init() {
 	}
 	if ReadConfig.Nsv2height == 0 {
 		ReadConfig.Nsv2height = genesis.Default.FairbankBlockHeight
+		completeness = false
+	}
+	if ReadConfig.Endpoint == "" {
+		ReadConfig.Endpoint = _defaultEndpoint
+		completeness = false
 	}
 	if ReadConfig.AnalyserEndpoint == "" {
 		ReadConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
