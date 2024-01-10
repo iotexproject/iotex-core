@@ -440,11 +440,8 @@ func (p *Protocol) settleAction(
 }
 
 func (p *Protocol) increaseNonce(ctx context.Context, sm protocol.StateManager, addr address.Address, nonce uint64, skipSetNonce bool) error {
-	var (
-		fCtx                = protocol.MustGetFeatureCtx(ctx)
-		accountCreationOpts = []state.AccountCreationOption{}
-	)
-	if fCtx.CreateLegacyNonceAccount {
+	accountCreationOpts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
 		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
 	acc, err := accountutil.LoadOrCreateAccount(sm, addr, accountCreationOpts...)
@@ -452,9 +449,6 @@ func (p *Protocol) increaseNonce(ctx context.Context, sm protocol.StateManager, 
 		return err
 	}
 	if !skipSetNonce {
-		if fCtx.UseZeroNonceForFreshAccount {
-			acc.ConvertFreshAccountToZeroNonceType(nonce)
-		}
 		if err := acc.SetPendingNonce(nonce + 1); err != nil {
 			return errors.Wrapf(err, "invalid nonce %d", nonce)
 		}

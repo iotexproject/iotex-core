@@ -944,12 +944,27 @@ func TestConvertCleanAddress(t *testing.T) {
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.ActPool.MinGasPriceStr = "0"
+	cfg.Genesis.PacificBlockHeight = 2
 	cfg.Genesis.AleutianBlockHeight = 2
 	cfg.Genesis.BeringBlockHeight = 2
+	cfg.Genesis.CookBlockHeight = 2
+	cfg.Genesis.DaytonaBlockHeight = 2
+	cfg.Genesis.DardanellesBlockHeight = 2
+	cfg.Genesis.EasterBlockHeight = 2
+	cfg.Genesis.FbkMigrationBlockHeight = 2
+	cfg.Genesis.FairbankBlockHeight = 2
+	cfg.Genesis.GreenlandBlockHeight = 2
 	cfg.Genesis.HawaiiBlockHeight = 2
+	cfg.Genesis.IcelandBlockHeight = 2
+	cfg.Genesis.JutlandBlockHeight = 2
+	cfg.Genesis.KamchatkaBlockHeight = 2
+	cfg.Genesis.LordHoweBlockHeight = 2
+	cfg.Genesis.MidwayBlockHeight = 2
+	cfg.Genesis.NewfoundlandBlockHeight = 2
 	cfg.Genesis.OkhotskBlockHeight = 2
 	cfg.Genesis.PalauBlockHeight = 2
-	// cfg.Genesis.QuebecBlockHeight = 2
+	cfg.Genesis.QuebecBlockHeight = 2
+	cfg.Genesis.RedseaBlockHeight = 2
 	cfg.Genesis.ToBeEnabledBlockHeight = 2
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 
@@ -1003,16 +1018,34 @@ func TestConvertCleanAddress(t *testing.T) {
 	apCtx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: 2,
 	}))
-	tsf1, err = action.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(25), 0, big.NewInt(100), nil, 500000, big.NewInt(testutil.TestGasPriceInt64))
+	t1, _ := action.NewTransfer(0, big.NewInt(100), identityset.Address(27).String(), nil, 500000, big.NewInt(testutil.TestGasPriceInt64))
+	elp := (&action.EnvelopeBuilder{}).SetNonce(t1.Nonce()).
+		SetChainID(cfg.Chain.ID).
+		SetGasPrice(t1.GasPrice()).
+		SetGasLimit(t1.GasLimit()).
+		SetAction(t1).Build()
+	tsf1, err = action.Sign(elp, identityset.PrivateKey(25))
 	require.NoError(err)
 	require.NoError(ap.Add(apCtx, tsf1))
-	tsf2, err = action.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(25), 1, big.NewInt(100), nil, 500000, big.NewInt(testutil.TestGasPriceInt64))
+	t2, _ := action.NewTransfer(1, big.NewInt(100), identityset.Address(27).String(), nil, 500000, big.NewInt(testutil.TestGasPriceInt64))
+	elp = (&action.EnvelopeBuilder{}).SetNonce(t2.Nonce()).
+		SetChainID(cfg.Chain.ID).
+		SetGasPrice(t2.GasPrice()).
+		SetGasLimit(t2.GasLimit()).
+		SetAction(t2).Build()
+	tsf2, err = action.Sign(elp, identityset.PrivateKey(25))
 	require.NoError(err)
 	require.NoError(ap.Add(apCtx, tsf2))
 	// call set() to set storedData = 0xfe...1f40
 	funcSig := hash.Hash256b([]byte("set(uint256)"))
 	data := append(funcSig[:4], _setTopic...)
-	ex1, err = action.SignedExecution(r.ContractAddress, identityset.PrivateKey(24), 0, new(big.Int), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
+	e1, _ := action.NewExecution(r.ContractAddress, 0, new(big.Int), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
+	elp = (&action.EnvelopeBuilder{}).SetNonce(e1.Nonce()).
+		SetChainID(cfg.Chain.ID).
+		SetGasPrice(e1.GasPrice()).
+		SetGasLimit(e1.GasLimit()).
+		SetAction(e1).Build()
+	ex1, err = action.Sign(elp, identityset.PrivateKey(24))
 	require.NoError(err)
 	require.NoError(ap.Add(apCtx, ex1))
 	blockTime = blockTime.Add(time.Second)
