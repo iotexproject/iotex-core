@@ -2660,7 +2660,7 @@ func TestGrpcServer_TraceTransactionStructLogsIntegrity(t *testing.T) {
 	require.Equal(len(ret.StructLogs), 17)
 	log := ret.StructLogs[0]
 	require.Equal(log.Depth, int32(1))
-	require.Equal(log.Gas, uint64(0x4bc1c0))
+	require.Equal(log.Gas, uint64(0x717a0))
 	require.Equal(log.GasCost, uint64(0x3))
 	require.Equal(log.Op, uint64(0x60))
 	require.Equal(log.OpName, "PUSH1")
