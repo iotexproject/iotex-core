@@ -121,6 +121,7 @@ func init() {
 	}
 	if ReadConfig.Endpoint == "" {
 		ReadConfig.Endpoint = _defaultEndpoint
+		ReadConfig.SecureConnect = true
 		completeness = false
 	}
 	if ReadConfig.AnalyserEndpoint == "" {
