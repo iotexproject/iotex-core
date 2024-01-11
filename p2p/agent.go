@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -264,7 +264,7 @@ func (p *agent) Start(ctx context.Context) error {
 			err = errors.New("error when asserting broadcast msg context")
 			return
 		}
-		peerID = rawmsg.GetFrom().Pretty()
+		peerID = rawmsg.GetFrom().String()
 		if p.host.HostIdentity() == peerID {
 			skip = true
 			return
@@ -294,7 +294,7 @@ func (p *agent) Start(ctx context.Context) error {
 		<-ready
 		var (
 			unicast iotexrpc.UnicastMsg
-			peerID  = peerInfo.ID.Pretty()
+			peerID  = peerInfo.ID.String()
 			latency int64
 		)
 		defer func() {
@@ -431,7 +431,7 @@ func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 		return ErrAgentNotStarted
 	}
 	var (
-		peerName = peer.ID.Pretty()
+		peerName = peer.ID.String()
 		msgType  iotexrpc.MessageType
 		msgBody  []byte
 	)
@@ -440,7 +440,7 @@ func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 		if err != nil {
 			status = _failureStr
 		}
-		_p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", peer.ID.Pretty(), status).Inc()
+		_p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", peer.ID.String(), status).Inc()
 	}()
 
 	msgType, msgBody, err = convertAppMsg(msg)

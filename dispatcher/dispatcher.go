@@ -11,16 +11,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	goproto "github.com/iotexproject/iotex-proto/golang"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 type (
@@ -390,7 +391,7 @@ func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint3
 		return
 	}
 	now := time.Now()
-	peerID := peer.ID.Pretty()
+	peerID := peer.ID.String()
 	d.syncChanLock.Lock()
 	defer d.syncChanLock.Unlock()
 	last, ok := d.peerLastSync[peerID]
@@ -456,11 +457,11 @@ func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer pe
 	case iotexrpc.MessageType_BLOCK_REQUEST:
 		d.dispatchBlockSyncReq(ctx, chainID, peer, message)
 	case iotexrpc.MessageType_BLOCK:
-		d.dispatchBlock(ctx, chainID, peer.ID.Pretty(), message.(*iotextypes.Block))
+		d.dispatchBlock(ctx, chainID, peer.ID.String(), message.(*iotextypes.Block))
 	case iotexrpc.MessageType_NODE_INFO_REQUEST:
 		d.dispatchNodeInfoRequest(ctx, chainID, peer, message.(*iotextypes.NodeInfoRequest))
 	case iotexrpc.MessageType_NODE_INFO:
-		d.dispatchNodeInfo(ctx, chainID, peer.ID.Pretty(), message.(*iotextypes.NodeInfo))
+		d.dispatchNodeInfo(ctx, chainID, peer.ID.String(), message.(*iotextypes.NodeInfo))
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleTell.", zap.Any("msgType", msgType))
 	}

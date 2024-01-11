@@ -10,7 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	peer "github.com/libp2p/go-libp2p/core/peer"
 )
 
 // MockBlockSync is a mock of BlockSync interface.
