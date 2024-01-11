@@ -24,3 +24,18 @@ type StructLog struct {
 	OpName        string                      `json:"opName"`
 	ErrorString   string                      `json:"error"`
 }
+
+// DebugTxTraceResult is the result of a single transaction trace.
+type DebugTxTraceResult struct {
+	Failed      bool        `json:"failed"`
+	Revert      string      `json:"revert"`
+	ReturnValue string      `json:"returnValue"`
+	Gas         uint64      `json:"gas"`
+	StructLogs  []StructLog `json:"structLogs"`
+}
+
+// TxTraceResult is the result of a single transaction trace.
+type TxTraceResult struct {
+	Result interface{} `json:"result,omitempty"` // Trace results produced by the tracer
+	Error  string      `json:"error,omitempty"`  // Trace failure produced by the tracer
+}

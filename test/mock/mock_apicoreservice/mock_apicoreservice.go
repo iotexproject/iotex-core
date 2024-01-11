@@ -607,6 +607,36 @@ func (mr *MockCoreServiceMockRecorder) TipHeight() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*MockCoreService)(nil).TipHeight))
 }
 
+// TraceBlockByHash mocks base method.
+func (m *MockCoreService) TraceBlockByHash(ctx context.Context, blockHash hash.Hash256, config *tracers.TraceConfig) ([]*apitypes.TxTraceResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TraceBlockByHash", ctx, blockHash, config)
+	ret0, _ := ret[0].([]*apitypes.TxTraceResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TraceBlockByHash indicates an expected call of TraceBlockByHash.
+func (mr *MockCoreServiceMockRecorder) TraceBlockByHash(ctx, blockHash, config interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceBlockByHash", reflect.TypeOf((*MockCoreService)(nil).TraceBlockByHash), ctx, blockHash, config)
+}
+
+// TraceBlockByNumber mocks base method.
+func (m *MockCoreService) TraceBlockByNumber(ctx context.Context, number uint64, config *tracers.TraceConfig) ([]*apitypes.TxTraceResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TraceBlockByNumber", ctx, number, config)
+	ret0, _ := ret[0].([]*apitypes.TxTraceResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TraceBlockByNumber indicates an expected call of TraceBlockByNumber.
+func (mr *MockCoreServiceMockRecorder) TraceBlockByNumber(ctx, number, config interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceBlockByNumber", reflect.TypeOf((*MockCoreService)(nil).TraceBlockByNumber), ctx, number, config)
+}
+
 // TraceCall mocks base method.
 func (m *MockCoreService) TraceCall(ctx context.Context, callerAddr address.Address, blkNumOrHash any, contractAddress string, nonce uint64, amount *big.Int, gasLimit uint64, data []byte, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
 	m.ctrl.T.Helper()

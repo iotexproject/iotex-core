@@ -159,6 +159,10 @@ type (
 		ReceiveBlock(blk *block.Block) error
 		// BlockHashByBlockHeight returns block hash by block height
 		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
+		//TraceBlockByNumber returns the structured logs created during the execution of EVM
+		TraceBlockByNumber(ctx context.Context, number uint64, config *tracers.TraceConfig) ([]*apitypes.TxTraceResult, error)
+		// TraceBlockByHash returns the structured logs created during the execution of EVM
+		TraceBlockByHash(ctx context.Context, blockHash hash.Hash256, config *tracers.TraceConfig) ([]*apitypes.TxTraceResult, error)
 		// TraceTransaction returns the trace result of a transaction
 		TraceTransaction(ctx context.Context, actHash string, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error)
 		// TraceCall returns the trace result of a call
@@ -1669,6 +1673,27 @@ func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
 	return startingHeight, currentHeight, targetHeight
 }
 
+// TraceBlockByNumber returns the structured logs created during the execution of EVM
+func (core *coreService) TraceBlockByNumber(ctx context.Context, number uint64, config *tracers.TraceConfig) ([]*apitypes.TxTraceResult, error) {
+	block, err := core.dao.GetBlockByHeight(number)
+	if err != nil {
+		return nil, err
+	}
+	return core.traceBlock(ctx, block, config)
+}
+
+// TraceBlockByHash returns the structured logs created during the execution of EVM
+func (core *coreService) TraceBlockByHash(ctx context.Context, blockHash hash.Hash256, config *tracers.TraceConfig) ([]*apitypes.TxTraceResult, error) {
+	block, err := core.dao.GetBlock(blockHash)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, err
+	}
+	return core.traceBlock(ctx, block, config)
+}
+
 // TraceTransaction returns the trace result of transaction
 func (core *coreService) TraceTransaction(ctx context.Context, actHash string, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
 	actInfo, err := core.Action(util.Remove0xPrefix(actHash), false)
@@ -1743,6 +1768,51 @@ func (core *coreService) Track(ctx context.Context, start time.Time, method stri
 		HandlingTime: elapsed,
 		Success:      success,
 	}, size)
+}
+
+func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, config *tracers.TraceConfig) ([]*apitypes.TxTraceResult, error) {
+	if blk.Height() == 0 {
+		return nil, errors.New("genesis is not traceable")
+	}
+	if err := core.checkActionIndex(); err != nil {
+		return nil, errors.Wrap(err, "failed to check action index")
+	}
+	var results = make([]*apitypes.TxTraceResult, 0)
+	for _, tx := range blk.Actions {
+		sc, ok := tx.Action().(*action.Execution)
+		if !ok {
+			// skip non-execution actions
+			continue
+		}
+		addr, _ := address.FromString(address.ZeroAddress)
+		retval, receipt, tracer, err := core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
+			return core.simulateExecution(ctx, addr, sc, core.dao.GetBlockHash, core.getBlockTime)
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to traceTx")
+		}
+		switch tracer := tracer.(type) {
+		case *logger.StructLogger:
+			results = append(results, &apitypes.TxTraceResult{
+				Result: &apitypes.DebugTxTraceResult{
+					Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+					Revert:      receipt.ExecutionRevertMsg(),
+					ReturnValue: byteToHex(retval),
+					StructLogs:  fromLoggerStructLogs(tracer.StructLogs()),
+					Gas:         receipt.GasConsumed,
+				},
+			})
+		case tracers.Tracer:
+			res, err := tracer.GetResult()
+			if err != nil {
+				return nil, err
+			}
+			results = append(results, &apitypes.TxTraceResult{Result: res})
+		default:
+			return nil, fmt.Errorf("unknown tracer type: %T", tracer)
+		}
+	}
+	return results, nil
 }
 
 func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig, simulateFn func(ctx context.Context) ([]byte, *action.Receipt, error)) ([]byte, *action.Receipt, any, error) {

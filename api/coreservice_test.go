@@ -230,6 +230,68 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 
 }
 
+func TestTraceBlockByNumber(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	svr, bc, _, ap, cleanCallback := setupTestCoreService()
+	defer cleanCallback()
+	ctx := context.Background()
+	tsf, err := action.SignedExecution(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64), []byte{})
+	require.NoError(err)
+
+	blk1Time := testutil.TimestampNow()
+	require.NoError(ap.Add(ctx, tsf))
+	blk, err := bc.MintNewBlock(blk1Time)
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk))
+	cfg := &tracers.TraceConfig{
+		Config: &logger.Config{
+			EnableMemory:     true,
+			DisableStack:     false,
+			DisableStorage:   false,
+			EnableReturnData: true,
+		},
+	}
+	traces, err := svr.TraceBlockByNumber(ctx, blk.Height(), cfg)
+	require.NoError(err)
+	require.NotNil(traces)
+	require.Equal(1, len(traces))
+}
+
+func TestTraceBlockByHash(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	svr, bc, _, ap, cleanCallback := setupTestCoreService()
+	defer cleanCallback()
+	ctx := context.Background()
+	tsf, err := action.SignedExecution(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64), []byte{})
+	require.NoError(err)
+
+	blk1Time := testutil.TimestampNow()
+	require.NoError(ap.Add(ctx, tsf))
+	blk, err := bc.MintNewBlock(blk1Time)
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk))
+	cfg := &tracers.TraceConfig{
+		Config: &logger.Config{
+			EnableMemory:     true,
+			DisableStack:     false,
+			DisableStorage:   false,
+			EnableReturnData: true,
+		},
+	}
+	traces, err := svr.TraceBlockByHash(ctx, blk.HashBlock(), cfg)
+	require.NoError(err)
+	require.NotNil(traces)
+	require.Equal(1, len(traces))
+}
+
 func TestTraceTransaction(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)

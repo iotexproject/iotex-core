@@ -225,6 +225,10 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.subscribe(web3Req, writer)
 	case "eth_unsubscribe":
 		res, err = svr.unsubscribe(web3Req)
+	case "debug_traceBlockByNumber":
+		res, err = svr.traceBlockByNumber(ctx, web3Req)
+	case "debug_traceBlockByHash":
+		res, err = svr.traceBlockByHash(ctx, web3Req)
 	case "debug_traceTransaction":
 		res, err = svr.traceTransaction(ctx, web3Req)
 	case "debug_traceCall":
@@ -939,6 +943,92 @@ func (svr *web3Handler) unsubscribe(in *gjson.Result) (interface{}, error) {
 	return chainListener.RemoveResponder(id.String())
 }
 
+func (svr *web3Handler) traceBlockByNumber(ctx context.Context, in *gjson.Result) (interface{}, error) {
+	number, options := in.Get("params.0"), in.Get("params.1")
+	if !number.Exists() {
+		return nil, errInvalidFormat
+	}
+
+	blockNumber, err := svr.parseBlockNumber(number.String())
+	if err != nil {
+		return nil, err
+	}
+	var (
+		enableMemory, disableStack, disableStorage, enableReturnData bool
+		tracerJs, tracerTimeout                                      *string
+	)
+	if options.Exists() {
+		enableMemory = options.Get("enableMemory").Bool()
+		disableStack = options.Get("disableStack").Bool()
+		disableStorage = options.Get("disableStorage").Bool()
+		enableReturnData = options.Get("enableReturnData").Bool()
+		trace := options.Get("tracer")
+		if trace.Exists() {
+			tracerJs = new(string)
+			*tracerJs = trace.String()
+		}
+		traceTimeout := options.Get("timeout")
+		if traceTimeout.Exists() {
+			tracerTimeout = new(string)
+			*tracerTimeout = traceTimeout.String()
+		}
+	}
+	cfg := &tracers.TraceConfig{
+		Tracer:  tracerJs,
+		Timeout: tracerTimeout,
+		Config: &logger.Config{
+			EnableMemory:     enableMemory,
+			DisableStack:     disableStack,
+			DisableStorage:   disableStorage,
+			EnableReturnData: enableReturnData,
+		},
+	}
+	return svr.coreService.TraceBlockByNumber(ctx, blockNumber, cfg)
+}
+
+func (svr *web3Handler) traceBlockByHash(ctx context.Context, in *gjson.Result) (interface{}, error) {
+	blkHash, options := in.Get("params.0"), in.Get("params.1")
+	if !blkHash.Exists() {
+		return nil, errInvalidFormat
+	}
+
+	hash, err := hash.HexStringToHash256(blkHash.String())
+	if err != nil {
+		return nil, err
+	}
+	var (
+		enableMemory, disableStack, disableStorage, enableReturnData bool
+		tracerJs, tracerTimeout                                      *string
+	)
+	if options.Exists() {
+		enableMemory = options.Get("enableMemory").Bool()
+		disableStack = options.Get("disableStack").Bool()
+		disableStorage = options.Get("disableStorage").Bool()
+		enableReturnData = options.Get("enableReturnData").Bool()
+		trace := options.Get("tracer")
+		if trace.Exists() {
+			tracerJs = new(string)
+			*tracerJs = trace.String()
+		}
+		traceTimeout := options.Get("timeout")
+		if traceTimeout.Exists() {
+			tracerTimeout = new(string)
+			*tracerTimeout = traceTimeout.String()
+		}
+	}
+	cfg := &tracers.TraceConfig{
+		Tracer:  tracerJs,
+		Timeout: tracerTimeout,
+		Config: &logger.Config{
+			EnableMemory:     enableMemory,
+			DisableStack:     disableStack,
+			DisableStorage:   disableStorage,
+			EnableReturnData: enableReturnData,
+		},
+	}
+	return svr.coreService.TraceBlockByHash(ctx, hash, cfg)
+}
+
 func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) (interface{}, error) {
 	actHash, options := in.Get("params.0"), in.Get("params.1")
 	if !actHash.Exists() {
@@ -967,7 +1057,7 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 	}
 	switch tracer := tracer.(type) {
 	case *logger.StructLogger:
-		return &debugTraceTransactionResult{
+		return &apitypes.DebugTxTraceResult{
 			Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
 			Revert:      receipt.ExecutionRevertMsg(),
 			ReturnValue: byteToHex(retval),
@@ -1040,7 +1130,7 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 	}
 	switch tracer := tracer.(type) {
 	case *logger.StructLogger:
-		return &debugTraceTransactionResult{
+		return &apitypes.DebugTxTraceResult{
 			Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
 			Revert:      receipt.ExecutionRevertMsg(),
 			ReturnValue: byteToHex(retval),
