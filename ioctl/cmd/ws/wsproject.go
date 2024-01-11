@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	_ "embed" // import ws project ABI
 	"encoding/hex"
-	"fmt"
 	"os"
 	"reflect"
 	"time"
@@ -227,6 +226,5 @@ func upload(endpoint string, filename, hashstr string) (string, hash.Hash256, er
 		return "", hash.ZeroHash256, errors.Wrap(err, errUploadProjectConfigFailed.Error())
 	}
 
-	// generate fetch url
-	return fmt.Sprintf("%s/ipfs/%s", wsProjectIPFSGatewayEndpoint, cid), hash256b, nil
+	return cid, hash256b, nil
 }
