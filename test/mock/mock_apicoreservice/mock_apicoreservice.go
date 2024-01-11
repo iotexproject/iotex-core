@@ -10,7 +10,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	logger "github.com/ethereum/go-ethereum/eth/tracers/logger"
+	tracers "github.com/ethereum/go-ethereum/eth/tracers"
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	address "github.com/iotexproject/iotex-address/address"
@@ -608,12 +608,12 @@ func (mr *MockCoreServiceMockRecorder) TipHeight() *gomock.Call {
 }
 
 // TraceCall mocks base method.
-func (m *MockCoreService) TraceCall(ctx context.Context, callerAddr address.Address, blkNumOrHash any, contractAddress string, nonce uint64, amount *big.Int, gasLimit uint64, data []byte, config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error) {
+func (m *MockCoreService) TraceCall(ctx context.Context, callerAddr address.Address, blkNumOrHash any, contractAddress string, nonce uint64, amount *big.Int, gasLimit uint64, data []byte, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TraceCall", ctx, callerAddr, blkNumOrHash, contractAddress, nonce, amount, gasLimit, data, config)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(*action.Receipt)
-	ret2, _ := ret[2].(*logger.StructLogger)
+	ret2, _ := ret[2].(any)
 	ret3, _ := ret[3].(error)
 	return ret0, ret1, ret2, ret3
 }
@@ -625,12 +625,12 @@ func (mr *MockCoreServiceMockRecorder) TraceCall(ctx, callerAddr, blkNumOrHash, 
 }
 
 // TraceTransaction mocks base method.
-func (m *MockCoreService) TraceTransaction(ctx context.Context, actHash string, config *logger.Config) ([]byte, *action.Receipt, *logger.StructLogger, error) {
+func (m *MockCoreService) TraceTransaction(ctx context.Context, actHash string, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TraceTransaction", ctx, actHash, config)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(*action.Receipt)
-	ret2, _ := ret[2].(*logger.StructLogger)
+	ret2, _ := ret[2].(any)
 	ret3, _ := ret[3].(error)
 	return ret0, ret1, ret2, ret3
 }
