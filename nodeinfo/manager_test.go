@@ -12,13 +12,14 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-core/test/mock/mock_nodeinfo"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/iotexproject/iotex-core/test/mock/mock_nodeinfo"
 )
 
 func getEmptyWhiteList() []string {
@@ -159,7 +160,7 @@ func TestDelegateManager_BroadcastNodeInfo(t *testing.T) {
 		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey, getEmptyWhiteList)
 		height := uint64(200)
-		peerID, err := peer.IDFromString("12D3KooWF2fns5ZWKbPfx2U1wQDdxoTK2D6HC3ortbSAQYR4BQp4")
+		peerID, err := peer.IDFromBytes([]byte("12D3KooWF2fns5ZWKbPfx2U1wQDdxoTK2D6HC3ortbSAQYR4BQp4"))
 		require.NoError(err)
 		hMock.EXPECT().TipHeight().Return(height).Times(1)
 		tMock.EXPECT().Info().Return(peer.AddrInfo{ID: peerID}, nil).Times(1)
@@ -173,7 +174,7 @@ func TestDelegateManager_BroadcastNodeInfo(t *testing.T) {
 		require.Equal(height, nodeInfo.Height)
 		require.Equal(dm.version, nodeInfo.Version)
 		require.Equal(addr, nodeInfo.Address)
-		require.Equal(peerID.Pretty(), nodeInfo.PeerID)
+		require.Equal(peerID.String(), nodeInfo.PeerID)
 	})
 }
 
@@ -220,7 +221,7 @@ func TestDelegateManager_RequestSingleNodeInfoAsync(t *testing.T) {
 		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey, getEmptyWhiteList)
 		var paramPeer peer.AddrInfo
 		var paramMsg *iotextypes.NodeInfoRequest
-		peerID, err := peer.IDFromString("12D3KooWF2fns5ZWKbPfx2U1wQDdxoTK2D6HC3ortbSAQYR4BQp4")
+		peerID, err := peer.IDFromBytes([]byte("12D3KooWF2fns5ZWKbPfx2U1wQDdxoTK2D6HC3ortbSAQYR4BQp4"))
 		require.NoError(err)
 		targetPeer := peer.AddrInfo{ID: peerID}
 		tMock.EXPECT().UnicastOutbound(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, p peer.AddrInfo, msg proto.Message) {

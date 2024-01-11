@@ -14,7 +14,7 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -182,20 +182,20 @@ func (dm *InfoManager) BroadcastNodeInfo(ctx context.Context) error {
 		Height:    req.Info.Height,
 		Timestamp: req.Info.Timestamp.AsTime(),
 		Address:   req.Info.Address,
-		PeerID:    peer.ID.Pretty(),
+		PeerID:    peer.ID.String(),
 	})
 	return nil
 }
 
 // RequestSingleNodeInfoAsync unicast request node info message
 func (dm *InfoManager) RequestSingleNodeInfoAsync(ctx context.Context, peer peer.AddrInfo) error {
-	log.L().Debug("nodeinfo manager request one node info", zap.String("peer", peer.ID.Pretty()))
+	log.L().Debug("nodeinfo manager request one node info", zap.String("peer", peer.ID.String()))
 	return dm.transmitter.UnicastOutbound(ctx, peer, &iotextypes.NodeInfoRequest{})
 }
 
 // HandleNodeInfoRequest tell node info to peer
 func (dm *InfoManager) HandleNodeInfoRequest(ctx context.Context, peer peer.AddrInfo) error {
-	log.L().Debug("nodeinfo manager tell node info", zap.Any("peer", peer.ID.Pretty()))
+	log.L().Debug("nodeinfo manager tell node info", zap.Any("peer", peer.ID.String()))
 	req, err := dm.genNodeInfoMsg()
 	if err != nil {
 		return err
