@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -222,7 +222,7 @@ func (bs *blockSyncer) requestBlock(ctx context.Context, start uint64, end uint6
 			peer,
 			&iotexrpc.BlockSync{Start: start, End: end},
 		); err != nil {
-			log.L().Error("failed to request blocks", zap.Error(err), zap.String("peer", peer.ID.Pretty()), zap.Uint64("start", start), zap.Uint64("end", end))
+			log.L().Error("failed to request blocks", zap.Error(err), zap.String("peer", peer.ID.String()), zap.Uint64("start", start), zap.Uint64("end", end))
 		}
 	}
 }
