@@ -12,7 +12,7 @@ import (
 	dispatcher "github.com/iotexproject/iotex-core/dispatcher"
 	iotexrpc "github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	peer "github.com/libp2p/go-libp2p/core/peer"
 	proto "google.golang.org/protobuf/proto"
 )
 

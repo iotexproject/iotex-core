@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -128,7 +128,7 @@ func TestUnicast(t *testing.T) {
 		} else {
 			counts[idx] = 1
 		}
-		src = peer.ID.Pretty()
+		src = peer.ID.String()
 	}
 
 	bootnode, err := p2p.NewHost(context.Background(), p2p.DHTProtocolID(2), p2p.Port(testutil.RandomPort()), p2p.SecureIO(), p2p.MasterKey("bootnode"))
@@ -160,7 +160,7 @@ func TestUnicast(t *testing.T) {
 			defer mutex.RUnlock()
 			info, err := agents[i].Info()
 			r.NoError(err)
-			return counts[uint8(i)] == len(neighbors) && src == info.ID.Pretty(), nil
+			return counts[uint8(i)] == len(neighbors) && src == info.ID.String(), nil
 		}))
 	}
 }

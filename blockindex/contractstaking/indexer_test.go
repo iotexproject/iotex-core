@@ -884,8 +884,8 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 		bts, err := indexer.BucketTypes(height)
 		r.NoError(err)
 		r.Len(bts, 4)
-		slices.SortFunc(bts, func(i, j *staking.ContractStakingBucketType) bool {
-			return i.Amount.Int64() < j.Amount.Int64()
+		slices.SortFunc(bts, func(i, j *staking.ContractStakingBucketType) int {
+			return i.Amount.Cmp(j.Amount)
 		})
 		r.EqualValues(10, bts[0].Duration)
 		r.EqualValues(20, bts[1].Duration)
@@ -901,8 +901,8 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 		bts, err := indexer.Buckets(height)
 		r.NoError(err)
 		r.Len(bts, 6)
-		slices.SortFunc(bts, func(i, j *staking.VoteBucket) bool {
-			return i.Index < j.Index
+		slices.SortFunc(bts, func(i, j *staking.VoteBucket) int {
+			return int(i.Index - j.Index)
 		})
 		r.EqualValues(1, bts[0].Index)
 		r.EqualValues(2, bts[1].Index)
@@ -976,8 +976,8 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 		d1Bts, err := indexer.BucketsByCandidate(delegate1, height)
 		r.NoError(err)
 		r.Len(d1Bts, 4)
-		slices.SortFunc(d1Bts, func(i, j *staking.VoteBucket) bool {
-			return i.Index < j.Index
+		slices.SortFunc(d1Bts, func(i, j *staking.VoteBucket) int {
+			return int(i.Index - j.Index)
 		})
 		r.EqualValues(1, d1Bts[0].Index)
 		r.EqualValues(2, d1Bts[1].Index)
@@ -986,8 +986,8 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 		d2Bts, err := indexer.BucketsByCandidate(delegate2, height)
 		r.NoError(err)
 		r.Len(d2Bts, 2)
-		slices.SortFunc(d2Bts, func(i, j *staking.VoteBucket) bool {
-			return i.Index < j.Index
+		slices.SortFunc(d2Bts, func(i, j *staking.VoteBucket) int {
+			return int(i.Index - j.Index)
 		})
 		r.EqualValues(4, d2Bts[0].Index)
 		r.EqualValues(5, d2Bts[1].Index)
