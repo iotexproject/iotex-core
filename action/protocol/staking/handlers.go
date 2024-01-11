@@ -143,7 +143,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 	}
 
 	if !featureCtx.DisableDelegateEndorsement {
-		if rErr := validateBucket(ctx, csm, NewEndorsementStateManager(csm.SM()), bucket, withBucketEndorsed(false)); rErr != nil {
+		if rErr := validateBucketEndorsement(NewEndorsementStateManager(csm.SM()), bucket, false, blkCtx.BlockHeight); rErr != nil {
 			return log, rErr
 		}
 	}
@@ -258,6 +258,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleChangeCandidate, featureCtx.NewStakingReceiptFormat)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
@@ -297,7 +298,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	}
 
 	if !featureCtx.DisableDelegateEndorsement {
-		rErr := validateBucket(ctx, csm, NewEndorsementStateManager(csm.SM()), bucket, withBucketEndorsed(false))
+		rErr := validateBucketEndorsement(NewEndorsementStateManager(csm.SM()), bucket, false, blkCtx.BlockHeight)
 		if rErr != nil {
 			return log, rErr
 		}

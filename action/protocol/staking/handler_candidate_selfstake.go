@@ -87,17 +87,21 @@ func (p *Protocol) handleCandidateSelfStake(ctx context.Context, act *action.Can
 }
 
 func (p *Protocol) validateBucketSelfStake(ctx context.Context, csm CandidateStateManager, esm *EndorsementStateManager, bucket *VoteBucket, cand *Candidate) ReceiptError {
-	if rErr := validateBucket(ctx, csm, esm, bucket,
-		withBucketMinAmount(p.config.RegistrationConsts.MinSelfStake),
-		withBucketStake(true),
-		withBucketSelfStaked(false),
-		withBucketCandidate(cand.Owner),
-	); rErr != nil {
-		return rErr
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	if err := validateBucketMinAmount(bucket, p.config.RegistrationConsts.MinSelfStake); err != nil {
+		return err
 	}
-
-	if validateBucket(ctx, csm, esm, bucket, withBucketOwner(cand.Owner)) != nil &&
-		validateBucket(ctx, csm, esm, bucket, withBucketEndorsed(true)) != nil {
+	if err := validateBucketStake(bucket, true); err != nil {
+		return err
+	}
+	if err := validateBucketSelfStake(csm, bucket, false); err != nil {
+		return err
+	}
+	if err := validateBucketCandidate(bucket, cand.Owner); err != nil {
+		return err
+	}
+	if validateBucketOwner(bucket, cand.Owner) != nil &&
+		validateBucketEndorsement(esm, bucket, true, blkCtx.BlockHeight) != nil {
 		return &handleError{
 			err:           errors.New("bucket is not a self-owned or endorsed bucket"),
 			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
