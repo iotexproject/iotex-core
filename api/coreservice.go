@@ -113,6 +113,7 @@ type (
 		Stop(ctx context.Context) error
 		// Actions returns actions within the range
 		Actions(start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
+		// TODO: unify the three get action by hash methods: Action, ActionByActionHash, PendingActionByActionHash
 		// Action returns action by action hash
 		Action(actionHash string, checkPending bool) (*iotexapi.ActionInfo, error)
 		// ActionsByAddress returns all actions associated with an address
