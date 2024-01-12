@@ -709,6 +709,93 @@ func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iote
 	}, nil
 }
 
+// TraceBlockByNumber get trace block by number
+func (svr *gRPCHandler) TraceBlockByNumber(ctx context.Context, in *iotexapi.TraceBlockByNumberRequest) (*iotexapi.TraceBlockByNumberResponse, error) {
+	cfg := getTraceConfig(in.GetTraceConfig())
+	tracer, err := svr.coreService.TraceBlockByNumber(ctx, in.GetBlockNumber(), cfg)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &iotexapi.TraceBlockByNumberResponse{
+		Traces: getNativeTraceTxResult(tracer),
+	}, nil
+}
+
+// TraceBlockByHash get trace block by hash
+func (svr *gRPCHandler) TraceBlockByHash(ctx context.Context, in *iotexapi.TraceBlockByHashRequest) (*iotexapi.TraceBlockByHashResponse, error) {
+	blkHash, err := hash.HexStringToHash256(in.GetBlockHash())
+	if err != nil {
+		return nil, err
+	}
+	cfg := getTraceConfig(in.GetTraceConfig())
+	tracer, err := svr.coreService.TraceBlockByHash(ctx, blkHash, cfg)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &iotexapi.TraceBlockByHashResponse{
+		Traces: getNativeTraceTxResult(tracer),
+	}, nil
+}
+
+func getTraceConfig(in *iotextypes.TraceConfig) *tracers.TraceConfig {
+	var (
+		tracerJs, tracerTimeout *string
+	)
+	if in.GetTracer() != "" {
+		*tracerJs = in.Tracer
+	}
+	if in.GetTimeout() != "" {
+		*tracerTimeout = in.Timeout
+	}
+	return &tracers.TraceConfig{
+		Config: &logger.Config{
+			EnableMemory:     in.GetEnableMemory(),
+			DisableStack:     in.GetDisableStack(),
+			DisableStorage:   in.GetDisableStorage(),
+			EnableReturnData: in.GetEnableReturnData(),
+		},
+		Tracer:  tracerJs,
+		Timeout: tracerTimeout,
+	}
+}
+
+func getNativeTraceTxResult(results []*apitypes.TxTraceResult) []*iotexapi.TraceTxResult {
+	var pbResults []*iotexapi.TraceTxResult
+	for _, result := range results {
+		if tracer, ok := result.Result.(*apitypes.DebugTxTraceResult); ok {
+			res := &iotexapi.TraceTxResult{
+				Failed:      tracer.Failed,
+				Revert:      tracer.Revert,
+				ReturnValue: fmt.Sprintf("%#x", tracer.ReturnValue),
+				Gas:         tracer.Gas,
+				StructLogs:  make([]*iotextypes.TransactionStructLog, 0),
+			}
+			for _, log := range tracer.StructLogs {
+				var stack []string
+				for _, s := range log.Stack {
+					stack = append(stack, s.String())
+				}
+				res.StructLogs = append(res.StructLogs, &iotextypes.TransactionStructLog{
+					Pc:         log.Pc,
+					Op:         uint64(log.Op),
+					Gas:        uint64(log.Gas),
+					GasCost:    uint64(log.GasCost),
+					Memory:     fmt.Sprintf("%#x", log.Memory),
+					MemSize:    int32(log.MemorySize),
+					Stack:      stack,
+					ReturnData: fmt.Sprintf("%#x", log.ReturnData),
+					Depth:      int32(log.Depth),
+					Refund:     log.RefundCounter,
+					OpName:     log.OpName,
+					Error:      log.ErrorString,
+				})
+			}
+			pbResults = append(pbResults, res)
+		}
+	}
+	return pbResults
+}
+
 // generateBlockMeta generates BlockMeta from block
 func generateBlockMeta(blkStore *apitypes.BlockWithReceipts) *iotextypes.BlockMeta {
 	blk := blkStore.Block
