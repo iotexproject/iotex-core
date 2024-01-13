@@ -314,7 +314,10 @@ func (ap *actPool) GetPendingNonce(addrStr string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return confirmedState.PendingNonce(), err
+	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+		return confirmedState.PendingNonceConsideringFreshAccount(), nil
+	}
+	return confirmedState.PendingNonce(), nil
 }
 
 // GetUnconfirmedActs returns unconfirmed actions in pool given an account address

@@ -977,21 +977,23 @@ func TestConvertCleanAddress(t *testing.T) {
 	}()
 
 	// Add block 1
-	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
-	apCtx := protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: 1,
-	}))
+	nonce, err := ap.GetPendingNonce(identityset.Address(27).String())
+	require.NoError(err)
+	require.EqualValues(1, nonce)
+	nonce, err = ap.GetPendingNonce(identityset.Address(25).String())
+	require.NoError(err)
+	require.EqualValues(1, nonce)
 	priKey0 := identityset.PrivateKey(27)
 	ex1, err := action.SignedExecution(action.EmptyAddress, priKey0, 1, new(big.Int), 500000, big.NewInt(testutil.TestGasPriceInt64), _constantinopleOpCodeContract)
 	require.NoError(err)
 	h, _ := ex1.Hash()
-	require.NoError(ap.Add(apCtx, ex1))
+	require.NoError(ap.Add(ctx, ex1))
 	tsf1, err := action.SignedTransfer(identityset.Address(25).String(), priKey0, 2, big.NewInt(10000), nil, 500000, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
-	require.NoError(ap.Add(apCtx, tsf1))
+	require.NoError(ap.Add(ctx, tsf1))
 	tsf2, err := action.SignedTransfer(identityset.Address(24).String(), priKey0, 3, big.NewInt(10000), nil, 500000, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
-	require.NoError(ap.Add(apCtx, tsf2))
+	require.NoError(ap.Add(ctx, tsf2))
 	blockTime := time.Unix(1546329600, 0)
 	blk, err := bc.MintNewBlock(blockTime)
 	require.NoError(err)
@@ -1007,17 +1009,27 @@ func TestConvertCleanAddress(t *testing.T) {
 	}
 
 	// verify 2 recipients remain legacy fresh accounts
-	for _, v := range []address.Address{identityset.Address(24), identityset.Address(25)} {
-		a, err := accountutil.AccountState(ctx, sf, v)
+	for _, v := range []struct {
+		a address.Address
+		b string
+	}{
+		{identityset.Address(24), "100000000000000000000010000"},
+		{identityset.Address(25), "100000000000000000000010000"},
+	} {
+		a, err := accountutil.AccountState(ctx, sf, v.a)
 		require.NoError(err)
 		require.True(a.IsLegacyFreshAccount())
 		require.EqualValues(1, a.PendingNonce())
+		require.Equal(v.b, a.Balance.String())
 	}
 
 	// Add block 2
-	apCtx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: 2,
-	}))
+	nonce, err = ap.GetPendingNonce(identityset.Address(24).String())
+	require.NoError(err)
+	require.Zero(nonce)
+	nonce, err = ap.GetPendingNonce(identityset.Address(25).String())
+	require.NoError(err)
+	require.Zero(nonce)
 	t1, _ := action.NewTransfer(0, big.NewInt(100), identityset.Address(27).String(), nil, 500000, big.NewInt(testutil.TestGasPriceInt64))
 	elp := (&action.EnvelopeBuilder{}).SetNonce(t1.Nonce()).
 		SetChainID(cfg.Chain.ID).
@@ -1026,7 +1038,7 @@ func TestConvertCleanAddress(t *testing.T) {
 		SetAction(t1).Build()
 	tsf1, err = action.Sign(elp, identityset.PrivateKey(25))
 	require.NoError(err)
-	require.NoError(ap.Add(apCtx, tsf1))
+	require.NoError(ap.Add(ctx, tsf1))
 	t2, _ := action.NewTransfer(1, big.NewInt(100), identityset.Address(27).String(), nil, 500000, big.NewInt(testutil.TestGasPriceInt64))
 	elp = (&action.EnvelopeBuilder{}).SetNonce(t2.Nonce()).
 		SetChainID(cfg.Chain.ID).
@@ -1035,7 +1047,7 @@ func TestConvertCleanAddress(t *testing.T) {
 		SetAction(t2).Build()
 	tsf2, err = action.Sign(elp, identityset.PrivateKey(25))
 	require.NoError(err)
-	require.NoError(ap.Add(apCtx, tsf2))
+	require.NoError(ap.Add(ctx, tsf2))
 	// call set() to set storedData = 0xfe...1f40
 	funcSig := hash.Hash256b([]byte("set(uint256)"))
 	data := append(funcSig[:4], _setTopic...)
@@ -1047,7 +1059,7 @@ func TestConvertCleanAddress(t *testing.T) {
 		SetAction(e1).Build()
 	ex1, err = action.Sign(elp, identityset.PrivateKey(24))
 	require.NoError(err)
-	require.NoError(ap.Add(apCtx, ex1))
+	require.NoError(ap.Add(ctx, ex1))
 	blockTime = blockTime.Add(time.Second)
 	blk1, err := bc.MintNewBlock(blockTime)
 	require.NoError(err)
