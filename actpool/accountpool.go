@@ -103,8 +103,8 @@ func (ap *accountPool) PopPeek() *action.SealedEnvelope {
 func (ap *accountPool) Range(callback func(addr string, acct ActQueue)) {
 	for addr, account := range ap.accounts {
 		callback(addr, account.actQueue)
-		heap.Fix(&ap.priorityQueue, account.index)
 	}
+	heap.Init(&ap.priorityQueue)
 }
 
 func (ap *accountPool) DeleteIfEmpty(addr string) {

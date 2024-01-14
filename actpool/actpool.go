@@ -238,6 +238,7 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 		return err
 	}
 	if intrinsicGas > ap.cfg.MaxGasLimitPerPool {
+		_actpoolMtc.WithLabelValues("overMaxGasLimitPerPool").Inc()
 		return ErrGasTooHigh
 	}
 

@@ -125,6 +125,7 @@ func (worker *queueWorker) Handle(job workerJob) error {
 		worker.ap.removeInvalidActs([]action.SealedEnvelope{*actToReplace})
 		if actToReplace.SenderAddress().String() == sender && actToReplace.Nonce() == nonce {
 			err = action.ErrTxPoolOverflow
+			_actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
 		}
 	}
 
