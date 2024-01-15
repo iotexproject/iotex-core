@@ -5,7 +5,6 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
@@ -21,69 +20,53 @@ const (
 
 func (p *Protocol) handleCandidateSelfStake(ctx context.Context, act *action.CandidateActivate, csm CandidateStateManager,
 ) (*receiptLog, []*action.TransactionLog, error) {
-	var (
-		bucket     *VoteBucket
-		prevBucket *VoteBucket
-		err        error
-		rErr       ReceiptError
-		txLogs     []*action.TransactionLog
-		cand       *Candidate
-		bucketCand *Candidate
+	actCtx := protocol.MustGetActionCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	log := newReceiptLog(p.addr.String(), handleCandidateSelfStake, featureCtx.NewStakingReceiptFormat)
 
-		actCtx     = protocol.MustGetActionCtx(ctx)
-		featureCtx = protocol.MustGetFeatureCtx(ctx)
-		log        = newReceiptLog(p.addr.String(), handleCandidateSelfStake, featureCtx.NewStakingReceiptFormat)
-	)
 	// caller must be the owner of a candidate
-	cand = csm.GetByOwner(actCtx.Caller)
+	cand := csm.GetByOwner(actCtx.Caller)
 	if cand == nil {
 		return log, nil, errCandNotExist
 	}
-	if cand.SelfStakeBucketIdx != candidateNoSelfStakeBucketIndex {
-		prevBucket, err = p.fetchBucket(csm, cand.SelfStakeBucketIdx)
-		if err != nil {
-			return log, nil, err
-		}
-	}
 
-	bucket, rErr = p.fetchBucket(csm, act.BucketID())
+	bucket, rErr := p.fetchBucket(csm, act.BucketID())
 	if rErr != nil {
 		return log, nil, rErr
 	}
-	if bucketCand = csm.GetByOwner(bucket.Candidate); bucketCand == nil {
-		return log, nil, &handleError{
-			err:           errors.New("bucket candidate does not exist"),
-			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
-		}
-	}
-	esm := NewEndorsementStateManager(csm.SM())
-	if err = p.validateBucketSelfStake(ctx, csm, esm, bucket, cand); err != nil {
+
+	if err := p.validateBucketSelfStake(ctx, csm, NewEndorsementStateManager(csm.SM()), bucket, cand); err != nil {
 		return log, nil, err
 	}
 
-	// unbind previous bucket
-	if prevBucket != nil {
-		cand.SubVote(p.calculateVoteWeight(prevBucket, true))
-		cand.AddVote(p.calculateVoteWeight(prevBucket, false))
-		cand.SelfStake = big.NewInt(0)
-	}
-	// change bucket candidate
-	if !address.Equal(bucket.Candidate, cand.Owner) {
-		if err = p.changeBucketCandidate(csm, bucket, bucketCand, cand); err != nil {
+	// convert previous self-stake bucket to vote bucket
+	if cand.SelfStake.Cmp(big.NewInt(0)) > 0 {
+		prevBucket, err := p.fetchBucket(csm, cand.SelfStakeBucketIdx)
+		if err != nil {
 			return log, nil, err
 		}
+		prevVotes := p.calculateVoteWeight(prevBucket, true)
+		postVotes := p.calculateVoteWeight(prevBucket, false)
+		if err := cand.SubVote(prevVotes.Sub(prevVotes, postVotes)); err != nil {
+			return log, nil, err
+		}
+		cand.SelfStake = big.NewInt(0)
 	}
-	// bind new bucket
+
+	// convert vote bucket to self-stake bucket
 	cand.SelfStakeBucketIdx = bucket.Index
 	cand.SelfStake = big.NewInt(0).SetBytes(bucket.StakedAmount.Bytes())
-	cand.SubVote(p.calculateVoteWeight(bucket, false))
-	cand.AddVote(p.calculateVoteWeight(bucket, true))
+	prevVotes := p.calculateVoteWeight(bucket, false)
+	postVotes := p.calculateVoteWeight(bucket, true)
+	if err := cand.AddVote(postVotes.Sub(postVotes, prevVotes)); err != nil {
+		return log, nil, err
+	}
 
-	if err = csm.Upsert(cand); err != nil {
+	if err := csm.Upsert(cand); err != nil {
 		return log, nil, csmErrorToHandleError(cand.Owner.String(), err)
 	}
 
-	return log, txLogs, nil
+	return log, nil, nil
 }
 
 func (p *Protocol) validateBucketSelfStake(ctx context.Context, csm CandidateStateManager, esm *EndorsementStateManager, bucket *VoteBucket, cand *Candidate) ReceiptError {
@@ -107,44 +90,5 @@ func (p *Protocol) validateBucketSelfStake(ctx context.Context, csm CandidateSta
 			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
 		}
 	}
-	return nil
-}
-
-func (p *Protocol) changeBucketCandidate(csm CandidateStateManager, bucket *VoteBucket, prevCand, cand *Candidate) error {
-	// update bucket index
-	if err := csm.delCandBucketIndex(bucket.Candidate, bucket.Index); err != nil {
-		return err
-	}
-	if err := csm.putCandBucketIndex(cand.Owner, bucket.Index); err != nil {
-		return err
-	}
-	// update bucket candidate
-	bucket.Candidate = cand.Owner
-	if err := csm.updateBucket(bucket.Index, bucket); err != nil {
-		return err
-	}
-	// update previous candidate
-	weightedVotes := p.calculateVoteWeight(bucket, false)
-	if err := prevCand.SubVote(weightedVotes); err != nil {
-		return &handleError{
-			err:           errors.Wrapf(err, "failed to subtract vote for previous candidate %s", prevCand.Owner.String()),
-			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
-		}
-	}
-	if err := csm.Upsert(prevCand); err != nil {
-		return csmErrorToHandleError(prevCand.Owner.String(), err)
-	}
-
-	// update current candidate
-	if err := cand.AddVote(weightedVotes); err != nil {
-		return &handleError{
-			err:           errors.Wrapf(err, "failed to add vote for candidate %s", cand.Owner.String()),
-			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
-		}
-	}
-	if err := csm.Upsert(cand); err != nil {
-		return csmErrorToHandleError(cand.Owner.String(), err)
-	}
-
 	return nil
 }
