@@ -260,16 +260,16 @@ func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 	}
 }
 
-func (p *injectProcessor) pickAction() (iotex.ExecuteContractCaller, error) {
+func (p *injectProcessor) pickAction() (iotex.Caller, error) {
 	switch injectCfg.actionType {
-	// case "transfer":
-	// 	return p.transferCaller()
+	case "transfer":
+		return p.transferCaller()
 	case "execution":
 		return p.executionCaller()
 	case "mixed":
-		// if rand.Intn(2) == 0 {
-		// 	return p.transferCaller()
-		// }
+		if rand.Intn(2) == 0 {
+			return p.transferCaller()
+		}
 		return p.executionCaller()
 	default:
 		return p.executionCaller()
@@ -440,7 +440,7 @@ func init() {
 	flag := injectCmd.Flags()
 	flag.StringVar(&rawInjectCfg.configPath, "injector-config-path", "./tools/actioninjector.v2/gentsfaddrs.yaml",
 		"path of config file of genesis transfer addresses")
-	flag.StringVar(&rawInjectCfg.serverAddr, "addr", "127.0.0.1:14014", "target ip:port for grpc connection")
+	flag.StringVar(&rawInjectCfg.serverAddr, "addr", "api.testnet.iotex.one:443", "target ip:port for grpc connection")
 	flag.Uint32Var(&rawInjectCfg.chainID, "chain-id", 2, "chain id")
 	flag.Int64Var(&rawInjectCfg.transferAmount, "transfer-amount", 0, "execution amount")
 	flag.Uint64Var(&rawInjectCfg.transferGasLimit, "transfer-gas-limit", 20000, "transfer gas limit")
