@@ -41,6 +41,7 @@ jobs:
         id: unittest
         shell: bash
         run: |
+          go clean -modcache
           go mod tidy
           ./go.test.sh
           #make test
