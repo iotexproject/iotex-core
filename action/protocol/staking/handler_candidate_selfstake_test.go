@@ -116,10 +116,10 @@ func initTestState(t *testing.T, ctrl *gomock.Controller, bucketCfgs []*bucketCo
 	candidates := []*Candidate{}
 	for _, candCfg := range candidateCfgs {
 		selfStakeAmount := big.NewInt(0)
-		selfStakeBucketId := uint64(candidateNoSelfStakeBucketIndex)
+		selfStakeBucketID := uint64(candidateNoSelfStakeBucketIndex)
 		if _, ok := selfStakeMap[candCfg.Owner.String()]; ok {
 			selfStakeAmount = selfStakeAmount.SetBytes(buckets[selfStakeMap[candCfg.Owner.String()]].StakedAmount.Bytes())
-			selfStakeBucketId = selfStakeMap[candCfg.Owner.String()]
+			selfStakeBucketID = selfStakeMap[candCfg.Owner.String()]
 		}
 		votes := big.NewInt(0)
 		if candVotesMap[candCfg.Owner.String()] != nil {
@@ -131,7 +131,7 @@ func initTestState(t *testing.T, ctrl *gomock.Controller, bucketCfgs []*bucketCo
 			Reward:             candCfg.Reward,
 			Name:               candCfg.Name,
 			Votes:              votes,
-			SelfStakeBucketIdx: selfStakeBucketId,
+			SelfStakeBucketIdx: selfStakeBucketID,
 			SelfStake:          selfStakeAmount,
 		}
 		require.NoError(csm.putCandidate(cand))
