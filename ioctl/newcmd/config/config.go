@@ -41,7 +41,7 @@ const (
 	// _defaultIPFSGateway default IPFS gateway for resource fetching
 	_defaultIPFSGateway = "https://ipfs.io"
 	// _defaultWsRegisterContract default w3bstream project register contract address
-	_defaultWsRegisterContract = "0x4F7e678B0203e0444E17512108dba4B08B39512e"
+	_defaultWsRegisterContract = "0x184C72E39a642058CCBc369485c7fd614B40a03d"
 )
 
 var (
