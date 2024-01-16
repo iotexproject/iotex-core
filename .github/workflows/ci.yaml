@@ -42,7 +42,7 @@ jobs:
         shell: bash
         run: |
           go install github.com/dave/courtney@latest
-          go clean -cache
+          go clean -cache -modcache -r
           go mod tidy
           ./go.test.sh
           #make test
