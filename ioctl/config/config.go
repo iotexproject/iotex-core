@@ -69,6 +69,12 @@ type Config struct {
 	AnalyserEndpoint string            `json:"analyserEndpoint" yaml:"analyserEndpoint"`
 	// WsEndpoint w3bstream endpoint
 	WsEndpoint string `json:"wsEndpoint" yaml:"wsEndpoint"`
+	// IPFSEndpoint ipfs endpoint for uploading
+	IPFSEndpoint string `json:"ipfsEndpoint" yaml:"ipfsEndpoint"`
+	// IPFSGateway ipfs gateway for resource fetching (with scheme)
+	IPFSGateway string `json:"ipfsGateway" yaml:"ipfsGateway"`
+	// WsRegisterContract w3bstream project register contract address
+	WsRegisterContract string `json:"wsRegisterContract" yaml:"wsRegisterContract"`
 }
 
 var (
@@ -111,6 +117,12 @@ func init() {
 	}
 	if ReadConfig.Nsv2height == 0 {
 		ReadConfig.Nsv2height = genesis.Default.FairbankBlockHeight
+		completeness = false
+	}
+	if ReadConfig.Endpoint == "" {
+		ReadConfig.Endpoint = _defaultEndpoint
+		ReadConfig.SecureConnect = true
+		completeness = false
 	}
 	if ReadConfig.AnalyserEndpoint == "" {
 		ReadConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
@@ -118,6 +130,18 @@ func init() {
 	}
 	if ReadConfig.WsEndpoint == "" {
 		ReadConfig.WsEndpoint = _defaultWsEndpoint
+		completeness = false
+	}
+	if ReadConfig.IPFSEndpoint == "" {
+		ReadConfig.IPFSEndpoint = _defaultIPFSEndpoint
+		completeness = false
+	}
+	if ReadConfig.IPFSGateway == "" {
+		ReadConfig.IPFSGateway = _defaultIPFSGateway
+		completeness = false
+	}
+	if ReadConfig.WsRegisterContract == "" {
+		ReadConfig.WsRegisterContract = _defaultWsRegisterContract
 		completeness = false
 	}
 	if !completeness {

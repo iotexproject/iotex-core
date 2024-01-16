@@ -51,6 +51,7 @@ const (
 	_bucket
 	_voterIndex
 	_candIndex
+	_endorsement
 )
 
 // Errors

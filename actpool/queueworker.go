@@ -255,9 +255,13 @@ func (worker *queueWorker) PendingActions(ctx context.Context) []*pendingActions
 		// Remove the actions that are already timeout
 		acts := queue.UpdateQueue()
 		worker.ap.removeInvalidActs(acts)
+		pd := queue.PendingActs(ctx)
+		if len(pd) == 0 {
+			continue
+		}
 		actionArr = append(actionArr, &pendingActions{
 			sender: from,
-			acts:   queue.PendingActs(ctx),
+			acts:   pd,
 		})
 	})
 	return actionArr

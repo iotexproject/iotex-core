@@ -189,6 +189,13 @@ func (s *Server) StopChainService(ctx context.Context, id uint32) error {
 	return c.Stop(ctx)
 }
 
+// Config returns the server's config
+func (s *Server) Config() config.Config {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.cfg
+}
+
 // P2PAgent returns the P2P agent
 func (s *Server) P2PAgent() p2p.Agent {
 	return s.p2pAgent
