@@ -257,7 +257,7 @@ func (worker *queueWorker) PendingActions(ctx context.Context) []*pendingActions
 		worker.ap.removeInvalidActs(acts)
 		pd := queue.PendingActs(ctx)
 		if len(pd) == 0 {
-			continue
+			return
 		}
 		actionArr = append(actionArr, &pendingActions{
 			sender: from,
