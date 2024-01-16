@@ -171,7 +171,7 @@ func (worker *queueWorker) checkSelpWithState(act *action.SealedEnvelope, pendin
 		_actpoolMtc.WithLabelValues("insufficientBalance").Inc()
 		sender := act.SenderAddress().String()
 		actHash, _ := act.Hash()
-		log.L().Info("insufficient balance for action",
+		log.L().Debug("insufficient balance for action",
 			zap.String("actionHash", hex.EncodeToString(actHash[:])),
 			zap.String("cost", cost.String()),
 			zap.String("balance", balance.String()),
@@ -196,7 +196,7 @@ func (worker *queueWorker) putAction(sender string, act action.SealedEnvelope, p
 	if err != nil {
 		actHash, _ := act.Hash()
 		_actpoolMtc.WithLabelValues("failedPutActQueue").Inc()
-		log.L().Info("failed put action into ActQueue",
+		log.L().Debug("failed put action into ActQueue",
 			zap.String("actionHash", hex.EncodeToString(actHash[:])),
 			zap.Error(err))
 		return err
