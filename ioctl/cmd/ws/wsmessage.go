@@ -20,6 +20,11 @@ var (
 		config.English: "w3bstream message operations",
 		config.Chinese: "w3bstream消息操作",
 	}
+
+	_flagDIDVCTokenUsages = map[config.Language]string{
+		config.English: "DID VC token",
+		config.Chinese: "DID VC 令牌",
+	}
 )
 
 func init() {
