@@ -41,7 +41,7 @@ jobs:
         id: unittest
         shell: bash
         run: |
-          go install github.com/dave/courtney@latest
+          GODEBUG=installgoroot=all && go install github.com/dave/courtney@latest
           go clean -cache -modcache -r -x -i
           go mod tidy
           ./go.test.sh
