@@ -76,7 +76,7 @@ func TestEncodeCompositeVoteBucketListToEth(t *testing.T) {
 		UnstakeStartBlockHeight:   1_000_000_002,
 	}
 
-	data, err := encodeVoteBucketListToEth(_compositeBucketsMethod.Outputs, iotextypes.VoteBucketList{
+	data, err := encodeVoteBucketListToEth(_compositeBucketsMethod.Outputs, &iotextypes.VoteBucketList{
 		Buckets: buckets,
 	})
 	t.Logf("data: %s\n", data)

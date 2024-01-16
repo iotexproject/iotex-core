@@ -358,7 +358,7 @@ var (
 		numActions int64
 		tps        int64
 		tpsFloat   float32
-		epoch      iotextypes.EpochData
+		epoch      *iotextypes.EpochData
 	}{
 		{
 			emptyChain: true,
@@ -372,7 +372,7 @@ var (
 			15,
 			1,
 			5 / 10.0,
-			iotextypes.EpochData{
+			&iotextypes.EpochData{
 				Num:                     1,
 				Height:                  1,
 				GravityChainStartHeight: 1,
@@ -386,7 +386,7 @@ var (
 			15,
 			2,
 			15 / 13.0,
-			iotextypes.EpochData{
+			&iotextypes.EpochData{
 				Num:                     1,
 				Height:                  1,
 				GravityChainStartHeight: 100,
@@ -680,7 +680,7 @@ var (
 		EpochNumber      uint64
 		pollProtocolType string
 		// Expected Values
-		epochData                     iotextypes.EpochData
+		epochData                     *iotextypes.EpochData
 		numBlksInEpoch                int
 		numConsenusBlockProducers     int
 		numActiveCensusBlockProducers int
@@ -688,7 +688,7 @@ var (
 		{
 			1,
 			lld,
-			iotextypes.EpochData{
+			&iotextypes.EpochData{
 				Num:                     1,
 				Height:                  1,
 				GravityChainStartHeight: 1,
@@ -700,7 +700,7 @@ var (
 		{
 			1,
 			"governanceChainCommittee",
-			iotextypes.EpochData{
+			&iotextypes.EpochData{
 				Num:                     1,
 				Height:                  1,
 				GravityChainStartHeight: 100,
@@ -1279,9 +1279,11 @@ func TestGrpcServer_GetChainMetaIntegrity(t *testing.T) {
 		require.Equal(test.height, chainMetaPb.Height)
 		require.Equal(test.numActions, chainMetaPb.NumActions)
 		require.Equal(test.tps, chainMetaPb.Tps)
-		require.Equal(test.epoch.Num, chainMetaPb.Epoch.Num)
-		require.Equal(test.epoch.Height, chainMetaPb.Epoch.Height)
-		require.Equal(test.epoch.GravityChainStartHeight, chainMetaPb.Epoch.GravityChainStartHeight)
+		if test.epoch != nil {
+			require.Equal(test.epoch.Num, chainMetaPb.Epoch.Num)
+			require.Equal(test.epoch.Height, chainMetaPb.Epoch.Height)
+			require.Equal(test.epoch.GravityChainStartHeight, chainMetaPb.Epoch.GravityChainStartHeight)
+		}
 	}
 }
 
