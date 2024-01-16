@@ -31,7 +31,7 @@ const (
 
 func TestNoncePriorityQueue(t *testing.T) {
 	require := require.New(t)
-	pq := noncePriorityQueue{}
+	pq := ascNoncePriorityQueue{}
 	// Push four dummy nonce to the queue
 	heap.Push(&pq, &nonceWithTTL{nonce: uint64(1)})
 	heap.Push(&pq, &nonceWithTTL{nonce: uint64(3)})
@@ -65,14 +65,14 @@ func TestActQueuePut(t *testing.T) {
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(1))
 	require.NoError(err)
 	require.NoError(q.Put(tsf1))
-	require.Equal(uint64(2), q.index[0].nonce)
+	require.Equal(uint64(2), q.ascQueue[0].nonce)
 	require.NotNil(q.items[tsf1.Nonce()])
 	tsf2, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(1))
 	require.NoError(err)
 	require.NoError(q.Put(tsf2))
-	require.Equal(uint64(1), heap.Pop(&q.index).(*nonceWithTTL).nonce)
+	require.Equal(uint64(1), heap.Pop(&q.ascQueue).(*nonceWithTTL).nonce)
 	require.Equal(tsf2, q.items[uint64(1)])
-	require.Equal(uint64(2), heap.Pop(&q.index).(*nonceWithTTL).nonce)
+	require.Equal(uint64(2), heap.Pop(&q.ascQueue).(*nonceWithTTL).nonce)
 	require.Equal(tsf1, q.items[uint64(2)])
 	// tsf3 is a act which fails to cut in line
 	tsf3, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
@@ -98,8 +98,8 @@ func TestActQueueFilterNonce(t *testing.T) {
 	require.NoError(q.Put(tsf3))
 	q.UpdateAccountState(3, big.NewInt(maxBalance))
 	require.Equal(1, len(q.items))
-	require.Equal(uint64(3), q.index[0].nonce)
-	require.Equal(tsf3, q.items[q.index[0].nonce])
+	require.Equal(uint64(3), q.ascQueue[0].nonce)
+	require.Equal(tsf3, q.items[q.ascQueue[0].nonce])
 }
 
 func TestActQueueUpdateNonce(t *testing.T) {
@@ -186,53 +186,42 @@ func TestActQueueTimeOutAction(t *testing.T) {
 	require.Equal(t, 2, q.Len())
 	c.Add(2 * time.Minute)
 	q.(*actQueue).cleanTimeout()
+	require.Equal(t, 2, q.Len())
+	c.Add(2 * time.Minute)
+	q.(*actQueue).cleanTimeout()
 	require.Equal(t, 1, q.Len())
 }
 
 func TestActQueueCleanTimeout(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue(nil, "", 1, big.NewInt(0)).(*actQueue)
-	q.ttl = 1
-	invalidTime := time.Now()
-	validTime := time.Now().Add(10 * time.Minute)
+	q := NewActQueue(nil, "", 1, big.NewInt(1000)).(*actQueue)
+	mockClock := clock.NewMock()
+	q.clock = mockClock
+	q.ttl = 2 * time.Minute
 	tsf1, _ := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	tsf2, _ := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	tsf3, _ := action.SignedTransfer(_addr2, _priKey1, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	tsf5, _ := action.SignedTransfer(_addr2, _priKey1, 5, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	tsf6, _ := action.SignedTransfer(_addr2, _priKey1, 6, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	tsf7, _ := action.SignedTransfer(_addr2, _priKey1, 7, big.NewInt(100), nil, uint64(0), big.NewInt(0))
-	q.items[1] = tsf1
-	q.items[2] = tsf2
-	q.items[3] = tsf3
-	q.items[5] = tsf5
-	q.items[6] = tsf6
-	q.items[7] = tsf7
+	require.NoError(q.Put(tsf7))
+	mockClock.Add(10 * time.Minute)
+	require.NoError(q.Put(tsf1))
+	require.NoError(q.Put(tsf5))
+	mockClock.Add(1 * time.Minute)
+	require.NoError(q.Put(tsf2))
+	require.NoError(q.Put(tsf6))
+	require.NoError(q.Put(tsf3))
 
-	q.index = []*nonceWithTTL{
-		{idx: 0, nonce: 1, deadline: validTime},
-		{idx: 1, nonce: 5, deadline: validTime},
-		{idx: 2, nonce: 2, deadline: validTime},
-		{idx: 3, nonce: 6, deadline: validTime},
-		{idx: 4, nonce: 7, deadline: invalidTime},
-		{idx: 5, nonce: 3, deadline: validTime},
-	}
 	q.cleanTimeout()
-	require.Equal(5, len(q.index))
-	expectedHeap := []uint64{1, 3, 2, 6, 5}
+	require.Equal(5, len(q.ascQueue))
+	expectedHeap := []uint64{1, 2, 3, 5, 6}
 	for i := range expectedHeap {
-		require.Equal(expectedHeap[i], q.index[i].nonce)
+		require.Equal(expectedHeap[i], q.ascQueue[i].nonce)
 	}
-
-	q.index = []*nonceWithTTL{
-		{idx: 0, nonce: 1, deadline: validTime},
-		{idx: 1, nonce: 5, deadline: validTime},
-		{idx: 2, nonce: 2, deadline: validTime},
-		{idx: 3, nonce: 6, deadline: validTime},
-		{idx: 4, nonce: 7, deadline: invalidTime},
-		{idx: 5, nonce: 3, deadline: invalidTime},
-	}
+	mockClock.Add(2 * time.Minute)
 	ret := q.cleanTimeout()
-	require.Equal(2, len(ret))
+	require.Equal(1, len(ret))
 }
 
 // BenchmarkHeapInitAndRemove compare the heap re-establish performance between
@@ -242,8 +231,8 @@ func TestActQueueCleanTimeout(t *testing.T) {
 // More detail to see the discusses in https://github.com/iotexproject/iotex-core/pull/3013
 func BenchmarkHeapInitAndRemove(b *testing.B) {
 	const batch = 20
-	testIndex := noncePriorityQueue{}
-	index := noncePriorityQueue{}
+	testIndex := ascNoncePriorityQueue{}
+	index := ascNoncePriorityQueue{}
 	invalidTime := time.Now()
 	validTime := time.Now().Add(10 * time.Minute)
 	for k := uint64(1); k <= batch; k++ {
@@ -271,7 +260,7 @@ func BenchmarkHeapInitAndRemove(b *testing.B) {
 					}
 				}
 				for _, removedNonce := range removedNonceList {
-					heap.Remove(&index, removedNonce.idx)
+					heap.Remove(&index, removedNonce.ascIdx)
 				}
 			}
 		})

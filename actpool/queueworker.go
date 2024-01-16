@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -24,13 +25,14 @@ type (
 		queue         chan workerJob
 		ap            *actPool
 		mu            sync.RWMutex
-		accountActs   map[string]ActQueue
+		accountActs   *accountPool
 		emptyAccounts *ttl.Cache
 	}
 
 	workerJob struct {
 		ctx context.Context
 		act action.SealedEnvelope
+		rep bool
 		err chan error
 	}
 
@@ -45,7 +47,7 @@ func newQueueWorker(ap *actPool, jobQueue chan workerJob) *queueWorker {
 	return &queueWorker{
 		queue:         jobQueue,
 		ap:            ap,
-		accountActs:   make(map[string]ActQueue),
+		accountActs:   newAccountPool(),
 		emptyAccounts: acc,
 	}
 }
@@ -85,6 +87,7 @@ func (worker *queueWorker) Handle(job workerJob) error {
 		sender          = act.SenderAddress().String()
 		actHash, _      = act.Hash()
 		intrinsicGas, _ = act.IntrinsicGas()
+		replace         = job.rep
 	)
 	defer span.End()
 
@@ -96,7 +99,6 @@ func (worker *queueWorker) Handle(job workerJob) error {
 	if err := worker.checkSelpWithState(&act, nonce, balance); err != nil {
 		return err
 	}
-
 	if err := worker.putAction(sender, act, nonce, balance); err != nil {
 		return err
 	}
@@ -113,14 +115,28 @@ func (worker *queueWorker) Handle(job workerJob) error {
 
 	worker.mu.Lock()
 	defer worker.mu.Unlock()
+	if replace {
+		// TODO: early return if sender is the account to pop and nonce is larger than largest in the queue
+		actToReplace := worker.accountActs.PopPeek()
+		if actToReplace == nil {
+			log.L().Warn("UNEXPECTED ERROR: action pool is full, but no action to drop")
+			return nil
+		}
+		worker.ap.removeInvalidActs([]action.SealedEnvelope{*actToReplace})
+		if actToReplace.SenderAddress().String() == sender && actToReplace.Nonce() == nonce {
+			err = action.ErrTxPoolOverflow
+			_actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
+		}
+	}
+
 	worker.removeEmptyAccounts()
 
-	return nil
+	return err
 }
 
 func (worker *queueWorker) getConfirmedState(ctx context.Context, sender address.Address) (uint64, *big.Int, error) {
 	worker.mu.RLock()
-	queue := worker.accountActs[sender.String()]
+	queue := worker.accountActs.Account(sender.String())
 	worker.mu.RUnlock()
 	// account state isn't cached in the actpool
 	if queue == nil {
@@ -167,23 +183,17 @@ func (worker *queueWorker) checkSelpWithState(act *action.SealedEnvelope, pendin
 }
 
 func (worker *queueWorker) putAction(sender string, act action.SealedEnvelope, pendingNonce uint64, confirmedBalance *big.Int) error {
-	worker.mu.RLock()
-	queue := worker.accountActs[sender]
-	worker.mu.RUnlock()
-
-	if queue == nil {
-		queue = NewActQueue(worker.ap,
-			sender,
-			pendingNonce,
-			confirmedBalance,
-			WithTimeOut(worker.ap.cfg.ActionExpiry),
-		)
-		worker.mu.Lock()
-		worker.accountActs[sender] = queue
-		worker.mu.Unlock()
-	}
-
-	if err := queue.Put(act); err != nil {
+	worker.mu.Lock()
+	err := worker.accountActs.PutAction(
+		sender,
+		worker.ap,
+		pendingNonce,
+		confirmedBalance,
+		worker.ap.cfg.ActionExpiry,
+		act,
+	)
+	worker.mu.Unlock()
+	if err != nil {
 		actHash, _ := act.Hash()
 		_actpoolMtc.WithLabelValues("failedPutActQueue").Inc()
 		log.L().Info("failed put action into ActQueue",
@@ -201,10 +211,7 @@ func (worker *queueWorker) removeEmptyAccounts() {
 	}
 
 	worker.emptyAccounts.Range(func(key, _ interface{}) error {
-		sender := key.(string)
-		if worker.accountActs[sender].Empty() {
-			delete(worker.accountActs, sender)
-		}
+		worker.accountActs.DeleteIfEmpty(key.(string))
 		return nil
 	})
 
@@ -215,14 +222,14 @@ func (worker *queueWorker) Reset(ctx context.Context) {
 	worker.mu.RLock()
 	defer worker.mu.RUnlock()
 
-	for from, queue := range worker.accountActs {
+	worker.accountActs.Range(func(from string, queue ActQueue) {
 		addr, _ := address.FromString(from)
 		confirmedState, err := accountutil.AccountState(ctx, worker.ap.sf, addr)
 		if err != nil {
 			log.L().Error("Error when removing confirmed actions", zap.Error(err))
 			queue.Reset()
 			worker.emptyAccounts.Set(from, struct{}{})
-			continue
+			return
 		}
 		// Remove all actions that are committed to new block
 		acts := queue.UpdateAccountState(confirmedState.PendingNonce(), confirmedState.Balance)
@@ -232,7 +239,7 @@ func (worker *queueWorker) Reset(ctx context.Context) {
 		if queue.Empty() {
 			worker.emptyAccounts.Set(from, struct{}{})
 		}
-	}
+	})
 }
 
 // PendingActions returns all accepted actions
@@ -241,40 +248,59 @@ func (worker *queueWorker) PendingActions(ctx context.Context) []*pendingActions
 
 	worker.mu.RLock()
 	defer worker.mu.RUnlock()
-	for from, queue := range worker.accountActs {
+	worker.accountActs.Range(func(from string, queue ActQueue) {
 		if queue.Empty() {
-			continue
+			return
 		}
 		// Remove the actions that are already timeout
 		acts := queue.UpdateQueue()
 		worker.ap.removeInvalidActs(acts)
 		pd := queue.PendingActs(ctx)
 		if len(pd) == 0 {
-			continue
+			return
 		}
 		actionArr = append(actionArr, &pendingActions{
 			sender: from,
 			acts:   pd,
 		})
-	}
+	})
 	return actionArr
 }
 
-// GetQueue returns the actQueue of sender
-func (worker *queueWorker) GetQueue(sender address.Address) ActQueue {
+// AllActions returns the all actions of sender
+func (worker *queueWorker) AllActions(sender address.Address) ([]action.SealedEnvelope, bool) {
 	worker.mu.RLock()
 	defer worker.mu.RUnlock()
-	return worker.accountActs[sender.String()]
+	if actQueue := worker.accountActs.Account(sender.String()); actQueue != nil {
+		acts := actQueue.AllActs()
+		sort.Slice(acts, func(i, j int) bool {
+			return acts[i].Nonce() < acts[j].Nonce()
+		})
+		return acts, true
+	}
+	return nil, false
+}
+
+// PendingNonce returns the pending nonce of sender
+func (worker *queueWorker) PendingNonce(sender address.Address) (uint64, bool) {
+	worker.mu.RLock()
+	defer worker.mu.RUnlock()
+	if actQueue := worker.accountActs.Account(sender.String()); actQueue != nil {
+		return actQueue.PendingNonce(), true
+	}
+	return 0, false
 }
 
 // ResetAccount resets account in the accountActs of worker
 func (worker *queueWorker) ResetAccount(sender address.Address) []action.SealedEnvelope {
 	senderStr := sender.String()
 	worker.mu.RLock()
-	defer worker.mu.RUnlock()
-	if queue := worker.accountActs[senderStr]; queue != nil {
-		pendingActs := queue.AllActs()
-		queue.Reset()
+	actQueue := worker.accountActs.PopAccount(senderStr)
+	worker.mu.RUnlock()
+	if actQueue != nil {
+		pendingActs := actQueue.AllActs()
+		actQueue.Reset()
+		// the following line is thread safe with worker.mu.RLock
 		worker.emptyAccounts.Set(senderStr, struct{}{})
 		return pendingActs
 	}
