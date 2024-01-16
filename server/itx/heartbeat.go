@@ -67,8 +67,9 @@ func NewHeartbeatHandler(s *Server, cfg p2p.Config) *HeartbeatHandler {
 
 // Log executes the logging logic
 func (h *HeartbeatHandler) Log() {
-	// Network metrics
-	p2pAgent := h.s.P2PAgent()
+	// operator address
+	cfg := h.s.Config().Chain
+	_heartbeatMtc.WithLabelValues("operatorAddress", cfg.ProducerAddress().String()).Set(1)
 
 	// Dispatcher metrics
 	dp, ok := h.s.Dispatcher().(*dispatcher.IotxDispatcher)
@@ -89,7 +90,8 @@ func (h *HeartbeatHandler) Log() {
 		return
 	}
 
-	peers, err := p2pAgent.ConnectedPeers()
+	// Network metrics
+	peers, err := h.s.P2PAgent().ConnectedPeers()
 	if err != nil {
 		h.l.Debug("error when get connectedPeers.", zap.Error(err))
 		peers = nil

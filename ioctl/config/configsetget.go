@@ -26,6 +26,7 @@ const (
 	_urlPattern              = `[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`
 	_localPattern            = "localhost"
 	_endpointPattern         = "(" + _ipPattern + "|(" + _domainPattern + ")" + "|(" + _localPattern + "))" + `(:\d{1,5})?`
+	_defaultEndpoint         = "api.iotex.one:443"
 	_defaultAnalyserEndpoint = "https://iotex-analyser-api-mainnet.chainanalytics.org"
 	// _defaultWsEndpoint default w3bstream endpoint
 	_defaultWsEndpoint = "sprout-staging.w3bstream.com:9000"
