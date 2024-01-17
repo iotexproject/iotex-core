@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -142,7 +143,7 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	)
 	defer func(start time.Time) { svr.coreService.Track(ctx, start, method.(string), int64(size), err == nil) }(time.Now())
 
-	log.T(ctx).Info("handleWeb3Req", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
+	log.T(ctx).Debug("handleWeb3Req", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
 	_web3ServerMtc.WithLabelValues(method.(string)).Inc()
 	_web3ServerMtc.WithLabelValues("requests_total").Inc()
 	switch method {
@@ -236,7 +237,7 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = nil, errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
 	}
 	if err != nil {
-		log.Logger("api").Error("web3server",
+		log.Logger("api").Debug("web3server",
 			zap.String("requestParams", fmt.Sprintf("%+v", web3Req)),
 			zap.Error(err))
 	} else {
@@ -585,20 +586,27 @@ func (svr *web3Handler) getTransactionByHash(in *gjson.Result) (interface{}, err
 	}
 
 	selp, blkHash, _, _, err := svr.coreService.ActionByActionHash(actHash)
-	if err != nil {
+	if err == nil {
+		receipt, err := svr.coreService.ReceiptByActionHash(actHash)
+		if err == nil {
+			return svr.assembleConfirmedTransaction(blkHash, selp, receipt)
+		}
 		if errors.Cause(err) == ErrNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	receipt, err := svr.coreService.ReceiptByActionHash(actHash)
-	if err != nil {
+	if errors.Cause(err) == ErrNotFound {
+		selp, err = svr.coreService.PendingActionByActionHash(actHash)
+		if err == nil {
+			return svr.assemblePendingTransaction(selp)
+		}
 		if errors.Cause(err) == ErrNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(blkHash, selp, receipt)
+	return nil, err
 }
 
 func (svr *web3Handler) getLogs(filter *filterObject) (interface{}, error) {
@@ -703,7 +711,7 @@ func (svr *web3Handler) getTransactionByBlockHashAndIndex(in *gjson.Result) (int
 	if err != nil {
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(blkHash, blk.Block.Actions[idx], blk.Receipts[idx])
+	return svr.assembleConfirmedTransaction(blkHash, blk.Block.Actions[idx], blk.Receipts[idx])
 }
 
 func (svr *web3Handler) getTransactionByBlockNumberAndIndex(in *gjson.Result) (interface{}, error) {
@@ -726,7 +734,7 @@ func (svr *web3Handler) getTransactionByBlockNumberAndIndex(in *gjson.Result) (i
 	if err != nil {
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(blk.Block.HashBlock(), blk.Block.Actions[idx], blk.Receipts[idx])
+	return svr.assembleConfirmedTransaction(blk.Block.HashBlock(), blk.Block.Actions[idx], blk.Receipts[idx])
 }
 
 func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
@@ -952,24 +960,32 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 		disableStorage = options.Get("disableStorage").Bool()
 		enableReturnData = options.Get("enableReturnData").Bool()
 	}
-	cfg := &logger.Config{
-		EnableMemory:     enableMemory,
-		DisableStack:     disableStack,
-		DisableStorage:   disableStorage,
-		EnableReturnData: enableReturnData,
+	cfg := &tracers.TraceConfig{
+		Config: &logger.Config{
+			EnableMemory:     enableMemory,
+			DisableStack:     disableStack,
+			DisableStorage:   disableStorage,
+			EnableReturnData: enableReturnData,
+		},
 	}
-	retval, receipt, traces, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
+	retval, receipt, tracer, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
 	if err != nil {
 		return nil, err
 	}
-
-	return &debugTraceTransactionResult{
-		Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
-		Revert:      receipt.ExecutionRevertMsg(),
-		ReturnValue: byteToHex(retval),
-		StructLogs:  fromLoggerStructLogs(traces.StructLogs()),
-		Gas:         receipt.GasConsumed,
-	}, nil
+	switch tracer := tracer.(type) {
+	case *logger.StructLogger:
+		return &debugTraceTransactionResult{
+			Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+			Revert:      receipt.ExecutionRevertMsg(),
+			ReturnValue: byteToHex(retval),
+			StructLogs:  fromLoggerStructLogs(tracer.StructLogs()),
+			Gas:         receipt.GasConsumed,
+		}, nil
+	case tracers.Tracer:
+		return tracer.GetResult()
+	default:
+		return nil, fmt.Errorf("unknown tracer type: %T", tracer)
+	}
 }
 
 func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interface{}, error) {
@@ -996,32 +1012,53 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 
 	var (
 		enableMemory, disableStack, disableStorage, enableReturnData bool
+		tracerJs, tracerTimeout                                      *string
 	)
 	if options.Exists() {
 		enableMemory = options.Get("enableMemory").Bool()
 		disableStack = options.Get("disableStack").Bool()
 		disableStorage = options.Get("disableStorage").Bool()
 		enableReturnData = options.Get("enableReturnData").Bool()
+		trace := options.Get("tracer")
+		if trace.Exists() {
+			tracerJs = new(string)
+			*tracerJs = trace.String()
+		}
+		traceTimeout := options.Get("timeout")
+		if traceTimeout.Exists() {
+			tracerTimeout = new(string)
+			*tracerTimeout = traceTimeout.String()
+		}
 	}
-	cfg := &logger.Config{
-		EnableMemory:     enableMemory,
-		DisableStack:     disableStack,
-		DisableStorage:   disableStorage,
-		EnableReturnData: enableReturnData,
+	cfg := &tracers.TraceConfig{
+		Tracer:  tracerJs,
+		Timeout: tracerTimeout,
+		Config: &logger.Config{
+			EnableMemory:     enableMemory,
+			DisableStack:     disableStack,
+			DisableStorage:   disableStorage,
+			EnableReturnData: enableReturnData,
+		},
 	}
 
-	retval, receipt, traces, err := svr.coreService.TraceCall(ctx, callerAddr, blkNumOrHash, contractAddr, 0, value, gasLimit, callData, cfg)
+	retval, receipt, tracer, err := svr.coreService.TraceCall(ctx, callerAddr, blkNumOrHash, contractAddr, 0, value, gasLimit, callData, cfg)
 	if err != nil {
 		return nil, err
 	}
-
-	return &debugTraceTransactionResult{
-		Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
-		Revert:      receipt.ExecutionRevertMsg(),
-		ReturnValue: byteToHex(retval),
-		StructLogs:  fromLoggerStructLogs(traces.StructLogs()),
-		Gas:         receipt.GasConsumed,
-	}, nil
+	switch tracer := tracer.(type) {
+	case *logger.StructLogger:
+		return &debugTraceTransactionResult{
+			Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+			Revert:      receipt.ExecutionRevertMsg(),
+			ReturnValue: byteToHex(retval),
+			StructLogs:  fromLoggerStructLogs(tracer.StructLogs()),
+			Gas:         receipt.GasConsumed,
+		}, nil
+	case tracers.Tracer:
+		return tracer.GetResult()
+	default:
+		return nil, fmt.Errorf("unknown tracer type: %T", tracer)
+	}
 }
 
 func (svr *web3Handler) unimplemented() (interface{}, error) {
