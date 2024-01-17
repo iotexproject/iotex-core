@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -283,10 +284,15 @@ func (q *actQueue) PendingActs(ctx context.Context) []action.SealedEnvelope {
 	}
 
 	var (
-		nonce   = confirmedState.PendingNonce()
+		nonce   uint64
 		balance = new(big.Int).Set(confirmedState.Balance)
 		acts    = make([]action.SealedEnvelope, 0, len(q.items))
 	)
+	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+		nonce = confirmedState.PendingNonceConsideringFreshAccount()
+	} else {
+		nonce = confirmedState.PendingNonce()
+	}
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 	for ; ; nonce++ {
