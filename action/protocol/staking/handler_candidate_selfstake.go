@@ -3,7 +3,6 @@ package staking
 import (
 	"context"
 	"math"
-	"math/big"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -24,6 +23,7 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 	actCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	log := newReceiptLog(p.addr.String(), handleCandidateActivate, featureCtx.NewStakingReceiptFormat)
+
 	bucket, rErr := p.fetchBucket(csm, act.BucketID())
 	if rErr != nil {
 		return log, nil, rErr
@@ -40,7 +40,7 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
 	// convert previous self-stake bucket to vote bucket
-	if cand.SelfStake.Cmp(big.NewInt(0)) > 0 {
+	if cand.SelfStake.Sign() > 0 {
 		prevBucket, err := p.fetchBucket(csm, cand.SelfStakeBucketIdx)
 		if err != nil {
 			return log, nil, err
@@ -55,7 +55,7 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 
 	// convert vote bucket to self-stake bucket
 	cand.SelfStakeBucketIdx = bucket.Index
-	cand.SelfStake = big.NewInt(0).SetBytes(bucket.StakedAmount.Bytes())
+	cand.SelfStake.SetBytes(bucket.StakedAmount.Bytes())
 	if err := cand.SubVote(p.calculateVoteWeight(bucket, false)); err != nil {
 		return log, nil, err
 	}
@@ -66,7 +66,6 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 	if err := csm.Upsert(cand); err != nil {
 		return log, nil, csmErrorToHandleError(cand.Owner.String(), err)
 	}
-
 	return log, nil, nil
 }
 
