@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 const (
@@ -14,27 +15,22 @@ const (
 )
 
 func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.CandidateEndorsement, csm CandidateStateManager) (*receiptLog, []*action.TransactionLog, error) {
-	var (
-		bucket *VoteBucket
-		err    error
-		rErr   ReceiptError
-		txLogs []*action.TransactionLog
-		cand   *Candidate
+	actCtx := protocol.MustGetActionCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	log := newReceiptLog(p.addr.String(), handleCandidateEndorsement, featureCtx.NewStakingReceiptFormat)
 
-		actCtx     = protocol.MustGetActionCtx(ctx)
-		featureCtx = protocol.MustGetFeatureCtx(ctx)
-		log        = newReceiptLog(p.addr.String(), handleCandidateEndorsement, featureCtx.NewStakingReceiptFormat)
-	)
 	esm := NewEndorsementStateManager(csm.SM())
-	bucket, rErr = p.fetchBucket(csm, act.BucketIndex())
+	bucket, rErr := p.fetchBucket(csm, act.BucketIndex())
 	if rErr != nil {
 		return log, nil, rErr
 	}
-	cand = csm.GetByOwner(bucket.Candidate)
+	cand := csm.GetByOwner(bucket.Candidate)
 	if cand == nil {
 		return log, nil, errCandNotExist
 	}
+	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes(), []byte{byteutil.BoolToByte(act.Endorse())})
 
+	var err error
 	if act.Endorse() {
 		err = p.endorseCandidate(ctx, csm, esm, actCtx.Caller, bucket, cand)
 	} else {
@@ -43,8 +39,7 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 	if err != nil {
 		return log, nil, err
 	}
-
-	return log, txLogs, nil
+	return log, nil, nil
 }
 
 func (p *Protocol) endorseCandidate(ctx context.Context, csm CandidateStateManager, esm *EndorsementStateManager, caller address.Address, bucket *VoteBucket, cand *Candidate) error {
@@ -66,8 +61,13 @@ func (p *Protocol) unEndorseCandidate(ctx context.Context, csm CandidateStateMan
 	if err := p.validateUnEndorse(ctx, esm, caller, bucket); err != nil {
 		return err
 	}
+
+	expireHeight := blkCtx.BlockHeight
+	if csm.ContainsSelfStakingBucket(bucket.Index) {
+		expireHeight += p.config.UnEndorseWaitingBlocks
+	}
 	if err := esm.Put(bucket.Index, &Endorsement{
-		ExpireHeight: blkCtx.BlockHeight + p.config.UnEndorseWaitingBlocks,
+		ExpireHeight: expireHeight,
 	}); err != nil {
 		return csmErrorToHandleError(caller.String(), err)
 	}
