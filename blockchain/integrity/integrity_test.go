@@ -938,12 +938,13 @@ func TestConvertCleanAddress(t *testing.T) {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
+	minGas := big.NewInt(unit.Qev)
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
-	cfg.ActPool.MinGasPriceStr = "0"
+	cfg.ActPool.MinGasPriceStr = minGas.String()
 	cfg.Genesis.PacificBlockHeight = 2
 	cfg.Genesis.AleutianBlockHeight = 2
 	cfg.Genesis.BeringBlockHeight = 2
@@ -984,21 +985,26 @@ func TestConvertCleanAddress(t *testing.T) {
 	require.NoError(err)
 	require.EqualValues(1, nonce)
 	priKey0 := identityset.PrivateKey(27)
-	ex1, err := action.SignedExecution(action.EmptyAddress, priKey0, 1, new(big.Int), 500000, big.NewInt(testutil.TestGasPriceInt64), _constantinopleOpCodeContract)
+	ex1, err := action.SignedExecution(action.EmptyAddress, priKey0, 1, new(big.Int), 500000, minGas, _constantinopleOpCodeContract)
 	require.NoError(err)
 	h, _ := ex1.Hash()
 	require.NoError(ap.Add(ctx, ex1))
-	tsf1, err := action.SignedTransfer(identityset.Address(25).String(), priKey0, 2, big.NewInt(10000), nil, 500000, big.NewInt(testutil.TestGasPriceInt64))
+	tsf1, err := action.SignedTransfer(identityset.Address(25).String(), priKey0, 2, big.NewInt(10000), nil, 500000, minGas)
 	require.NoError(err)
 	require.NoError(ap.Add(ctx, tsf1))
-	tsf2, err := action.SignedTransfer(identityset.Address(24).String(), priKey0, 3, big.NewInt(10000), nil, 500000, big.NewInt(testutil.TestGasPriceInt64))
+	tsf2, err := action.SignedTransfer(identityset.Address(24).String(), priKey0, 3, big.NewInt(10000), nil, 500000, minGas)
 	require.NoError(err)
 	require.NoError(ap.Add(ctx, tsf2))
+	deterministic, err := address.FromHex("3fab184622dc19b6109349b94811493bf2a45362")
+	require.NoError(err)
+	tsf3, err := action.SignedTransfer(deterministic.String(), priKey0, 4, big.NewInt(10000000000000000), nil, 500000, minGas)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tsf3))
 	blockTime := time.Unix(1546329600, 0)
 	blk, err := bc.MintNewBlock(blockTime)
 	require.NoError(err)
 	require.EqualValues(1, blk.Height())
-	require.Equal(4, len(blk.Body.Actions))
+	require.Equal(5, len(blk.Body.Actions))
 	require.NoError(bc.CommitBlock(blk))
 
 	// get deployed contract address
@@ -1008,29 +1014,28 @@ func TestConvertCleanAddress(t *testing.T) {
 		require.NoError(err)
 	}
 
-	// verify 2 recipients remain legacy fresh accounts
+	// verify 3 recipients remain legacy fresh accounts
 	for _, v := range []struct {
 		a address.Address
 		b string
 	}{
 		{identityset.Address(24), "100000000000000000000010000"},
 		{identityset.Address(25), "100000000000000000000010000"},
+		{deterministic, "10000000000000000"},
 	} {
 		a, err := accountutil.AccountState(ctx, sf, v.a)
 		require.NoError(err)
 		require.True(a.IsLegacyFreshAccount())
 		require.EqualValues(1, a.PendingNonce())
 		require.Equal(v.b, a.Balance.String())
+		// actpool returns nonce considering legacy fresh account
+		nonce, err = ap.GetPendingNonce(v.a.String())
+		require.NoError(err)
+		require.Zero(nonce)
 	}
 
 	// Add block 2
-	nonce, err = ap.GetPendingNonce(identityset.Address(24).String())
-	require.NoError(err)
-	require.Zero(nonce)
-	nonce, err = ap.GetPendingNonce(identityset.Address(25).String())
-	require.NoError(err)
-	require.Zero(nonce)
-	t1, _ := action.NewTransfer(0, big.NewInt(100), identityset.Address(27).String(), nil, 500000, big.NewInt(testutil.TestGasPriceInt64))
+	t1, _ := action.NewTransfer(0, big.NewInt(100), identityset.Address(27).String(), nil, 500000, minGas)
 	elp := (&action.EnvelopeBuilder{}).SetNonce(t1.Nonce()).
 		SetChainID(cfg.Chain.ID).
 		SetGasPrice(t1.GasPrice()).
@@ -1039,7 +1044,7 @@ func TestConvertCleanAddress(t *testing.T) {
 	tsf1, err = action.Sign(elp, identityset.PrivateKey(25))
 	require.NoError(err)
 	require.NoError(ap.Add(ctx, tsf1))
-	t2, _ := action.NewTransfer(1, big.NewInt(100), identityset.Address(27).String(), nil, 500000, big.NewInt(testutil.TestGasPriceInt64))
+	t2, _ := action.NewTransfer(1, big.NewInt(200), identityset.Address(27).String(), nil, 500000, minGas)
 	elp = (&action.EnvelopeBuilder{}).SetNonce(t2.Nonce()).
 		SetChainID(cfg.Chain.ID).
 		SetGasPrice(t2.GasPrice()).
@@ -1051,7 +1056,7 @@ func TestConvertCleanAddress(t *testing.T) {
 	// call set() to set storedData = 0xfe...1f40
 	funcSig := hash.Hash256b([]byte("set(uint256)"))
 	data := append(funcSig[:4], _setTopic...)
-	e1, _ := action.NewExecution(r.ContractAddress, 0, new(big.Int), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
+	e1, _ := action.NewExecution(r.ContractAddress, 0, new(big.Int), 500000, minGas, data)
 	elp = (&action.EnvelopeBuilder{}).SetNonce(e1.Nonce()).
 		SetChainID(cfg.Chain.ID).
 		SetGasPrice(e1.GasPrice()).
@@ -1060,27 +1065,78 @@ func TestConvertCleanAddress(t *testing.T) {
 	ex1, err = action.Sign(elp, identityset.PrivateKey(24))
 	require.NoError(err)
 	require.NoError(ap.Add(ctx, ex1))
+	// deterministic deployment transaction
+	tx, err := action.DecodeEtherTx("0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222")
+	require.NoError(err)
+	require.False(tx.Protected())
+	require.Nil(tx.To())
+	require.Equal("100000000000", tx.GasPrice().String())
+	encoding, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
+	require.NoError(err)
+	require.Equal(iotextypes.Encoding_ETHEREUM_UNPROTECTED, encoding)
+	// convert tx to envelope
+	elp, err = (&action.EnvelopeBuilder{}).SetChainID(cfg.Chain.ID).BuildExecution(tx)
+	require.NoError(err)
+	ex2, err := (&action.Deserializer{}).SetEvmNetworkID(cfg.Chain.EVMNetworkID).
+		ActionToSealedEnvelope(&iotextypes.Action{
+			Core:         elp.Proto(),
+			SenderPubKey: pubkey.Bytes(),
+			Signature:    sig,
+			Encoding:     encoding,
+		})
+	require.NoError(err)
+	require.True(address.Equal(ex2.SenderAddress(), deterministic))
+	require.True(cfg.Genesis.IsDeployerWhitelisted(ex2.SenderAddress()))
+	require.NoError(ap.Add(ctx, ex2))
 	blockTime = blockTime.Add(time.Second)
 	blk1, err := bc.MintNewBlock(blockTime)
 	require.NoError(err)
 	require.EqualValues(2, blk1.Height())
-	require.Equal(4, len(blk1.Body.Actions))
+	require.Equal(5, len(blk1.Body.Actions))
 	require.NoError(bc.CommitBlock(blk1))
 
-	// 2 legacy fresh accounts are converted to zero-nonce account
-	for i, v := range []struct {
-		a address.Address
-		b string
+	// 3 legacy fresh accounts are converted to zero-nonce account
+	for _, v := range []struct {
+		a     address.Address
+		nonce uint64
+		b     string
 	}{
-		{identityset.Address(24), "100000000000000000000010000"},
-		{identityset.Address(25), "100000000000000000000009800"},
+		{identityset.Address(24), 1, "99999999962880000000010000"},
+		{identityset.Address(25), 2, "99999999980000000000009700"},
+		{deterministic, 1, "6786100000000000"},
 	} {
 		a, err := accountutil.AccountState(ctx, sf, v.a)
 		require.NoError(err)
 		require.EqualValues(1, a.AccountType())
-		require.EqualValues(i+1, a.PendingNonce())
+		require.Equal(v.nonce, a.PendingNonce())
 		require.Equal(v.b, a.Balance.String())
 	}
+
+	// verify contract execution
+	h, err = ex1.Hash()
+	require.NoError(err)
+	r, err = dao.GetReceiptByActionHash(h, 2)
+	require.NoError(err)
+	require.EqualValues(iotextypes.ReceiptStatus_Success, r.Status)
+	require.EqualValues(2, r.BlockHeight)
+	require.Equal(h, r.ActionHash)
+	require.EqualValues(37120, r.GasConsumed)
+	require.Empty(r.ContractAddress)
+
+	// verify deterministic deployment transaction
+	h, err = ex2.Hash()
+	require.NoError(err)
+	require.Equal("eddf9e61fb9d8f5111840daef55e5fde0041f5702856532cdbb5a02998033d26", hex.EncodeToString(h[:]))
+	r, err = dao.GetReceiptByActionHash(h, 2)
+	require.NoError(err)
+	require.EqualValues(iotextypes.ReceiptStatus_Success, r.Status)
+	require.EqualValues(2, r.BlockHeight)
+	require.Equal(h, r.ActionHash)
+	require.EqualValues(32139, r.GasConsumed)
+	require.Equal("io1fevmgjz8kdu40pvgjgx20ralymqtf9tv3mdu7f", r.ContractAddress)
+	tl, err := dao.TransactionLogs(2)
+	require.NoError(err)
+	require.Equal(4, len(tl.Logs))
 
 	// commit 2 blocks to a new chain
 	testTriePath2, err := testutil.PathOfTempFile("trie")
@@ -1101,7 +1157,7 @@ func TestConvertCleanAddress(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = testIndexPath2
-	bc2, sf2, _, _, err := createChain(cfg, false)
+	bc2, sf2, dao2, _, err := createChain(cfg, false)
 	require.NoError(err)
 	require.NoError(bc2.Start(ctx))
 	defer func() {
@@ -1110,20 +1166,34 @@ func TestConvertCleanAddress(t *testing.T) {
 	require.NoError(bc2.CommitBlock(blk))
 	require.NoError(bc2.CommitBlock(blk1))
 
-	// 2 legacy fresh accounts are converted to zero-nonce account
-	for i, v := range []struct {
-		a address.Address
-		b string
+	// 3 legacy fresh accounts are converted to zero-nonce account
+	for _, v := range []struct {
+		a     address.Address
+		nonce uint64
+		b     string
 	}{
-		{identityset.Address(24), "100000000000000000000010000"},
-		{identityset.Address(25), "100000000000000000000009800"},
+		{identityset.Address(24), 1, "99999999962880000000010000"},
+		{identityset.Address(25), 2, "99999999980000000000009700"},
+		{deterministic, 1, "6786100000000000"},
 	} {
 		a, err := accountutil.AccountState(ctx, sf2, v.a)
 		require.NoError(err)
 		require.EqualValues(1, a.AccountType())
-		require.EqualValues(i+1, a.PendingNonce())
+		require.EqualValues(v.nonce, a.PendingNonce())
 		require.Equal(v.b, a.Balance.String())
 	}
+
+	// verify deterministic deployment transaction
+	r, err = dao2.GetReceiptByActionHash(h, 2)
+	require.NoError(err)
+	require.EqualValues(iotextypes.ReceiptStatus_Success, r.Status)
+	require.EqualValues(2, r.BlockHeight)
+	require.Equal(h, r.ActionHash)
+	require.EqualValues(32139, r.GasConsumed)
+	require.Equal("io1fevmgjz8kdu40pvgjgx20ralymqtf9tv3mdu7f", r.ContractAddress)
+	tl, err = dao2.TransactionLogs(2)
+	require.NoError(err)
+	require.Equal(4, len(tl.Logs))
 }
 
 func TestConstantinople(t *testing.T) {

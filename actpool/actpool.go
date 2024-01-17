@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -282,7 +283,7 @@ func (ap *actPool) checkSelpWithoutState(ctx context.Context, selp *action.Seale
 	}
 
 	// Reject action if the gas price is lower than the threshold
-	if selp.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
+	if selp.Encoding() != uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && selp.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
 		_actpoolMtc.WithLabelValues("gasPriceLower").Inc()
 		actHash, _ := selp.Hash()
 		log.L().Debug("action rejected due to low gas price",
