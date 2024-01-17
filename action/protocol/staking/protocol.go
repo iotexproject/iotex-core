@@ -419,7 +419,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 	case *action.CandidateUpdate:
 		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
 	case *action.CandidateActivate:
-		rLog, tLogs, err = p.handleCandidateSelfStake(ctx, act, csm)
+		rLog, tLogs, err = p.handleCandidateActivate(ctx, act, csm)
 	default:
 		return nil, nil
 	}
