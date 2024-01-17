@@ -468,7 +468,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		if serErr != nil {
 			l.Error("Data corruption", zap.Error(serErr))
 		} else {
-			l.With(zap.String("txBytes", hex.EncodeToString(txBytes))).Error("Failed to accept action", zap.Error(err))
+			l.With(zap.String("txBytes", hex.EncodeToString(txBytes))).Debug("Failed to accept action", zap.Error(err))
 		}
 		st := status.New(codes.Internal, err.Error())
 		br := &errdetails.BadRequest{

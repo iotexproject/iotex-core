@@ -81,16 +81,12 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 		// return default price
 		return gs.cfg.DefaultGas, nil
 	}
-	sort.Sort(bigIntArray(smallestPrices))
+	sort.Slice(smallestPrices, func(i, j int) bool {
+		return smallestPrices[i].Cmp(smallestPrices[j]) < 0
+	})
 	gasPrice := smallestPrices[(len(smallestPrices)-1)*gs.cfg.Percentile/100].Uint64()
 	if gasPrice < gs.cfg.DefaultGas {
 		gasPrice = gs.cfg.DefaultGas
 	}
 	return gasPrice, nil
 }
-
-type bigIntArray []*big.Int
-
-func (s bigIntArray) Len() int           { return len(s) }
-func (s bigIntArray) Less(i, j int) bool { return s[i].Cmp(s[j]) < 0 }
-func (s bigIntArray) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
