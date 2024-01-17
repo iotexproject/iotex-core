@@ -1040,6 +1040,7 @@ func TestActPool_GetSize(t *testing.T) {
 func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
+	sf.EXPECT().Height().Return(uint64(0), nil).Times(2)
 
 	apConfig := DefaultConfig
 	ap, err := NewActPool(genesis.Default, sf, apConfig)
@@ -1056,7 +1057,10 @@ func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
-	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(
+		genesis.WithGenesisContext(ctx, genesis.Default), protocol.BlockCtx{
+			BlockHeight: 1,
+		}))
 	require.Error(t, ap.Add(ctx, tsf))
 }
 

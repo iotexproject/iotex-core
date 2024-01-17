@@ -58,13 +58,21 @@ func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvel
 			return action.ErrSystemActionNonce
 		}
 	} else {
-		featureCtx, ok := GetFeatureCtx(ctx)
+		var (
+			nonce          uint64
+			featureCtx, ok = GetFeatureCtx(ctx)
+		)
 		if ok && featureCtx.FixGasAndNonceUpdate || selp.Nonce() != 0 {
 			confirmedState, err := v.accountState(ctx, v.sr, caller)
 			if err != nil {
 				return errors.Wrapf(err, "invalid state of account %s", caller.String())
 			}
-			if confirmedState.PendingNonce() > selp.Nonce() {
+			if featureCtx.UseZeroNonceForFreshAccount {
+				nonce = confirmedState.PendingNonceConsideringFreshAccount()
+			} else {
+				nonce = confirmedState.PendingNonce()
+			}
+			if nonce > selp.Nonce() {
 				return action.ErrNonceTooLow
 			}
 		}

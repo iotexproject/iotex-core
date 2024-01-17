@@ -175,3 +175,45 @@ func TestClone(t *testing.T) {
 	require.Equal(big.NewInt(200), ss.Balance)
 	require.Equal(big.NewInt(200+100), account.Balance)
 }
+
+func TestConvertFreshAddress(t *testing.T) {
+	require := require.New(t)
+
+	var (
+		s1, _ = NewAccount(LegacyNonceAccountTypeOption())
+		s2, _ = NewAccount(LegacyNonceAccountTypeOption())
+		s3, _ = NewAccount()
+		s4, _ = NewAccount()
+	)
+	s2.nonce, s4.nonce = 1, 1
+
+	for i, v := range []struct {
+		s                    *Account
+		accType, cvtType     int32
+		first, second, third uint64
+	}{
+		{s1, 0, 1, 1, 0, 1},
+		{s2, 0, 0, 2, 2, 3},
+		{s3, 1, 1, 0, 0, 1},
+		{s4, 1, 1, 1, 1, 2},
+	} {
+		require.Equal(v.accType, v.s.accountType)
+		require.Equal(v.first, v.s.PendingNonce())
+		require.Equal(v.second, v.s.PendingNonceConsideringFreshAccount())
+		// trying convert using pending nonce does not take effect
+		require.False(v.s.ConvertFreshAccountToZeroNonceType(v.first))
+		require.Equal(v.accType, v.s.accountType)
+		// only adjusted nonce can convert legacy fresh address to zero-nonce type
+		require.Equal(v.s.IsLegacyFreshAccount() && v.second == 0, v.s.ConvertFreshAccountToZeroNonceType(v.second))
+		require.Equal(v.cvtType, v.s.accountType)
+		// after conversion, fresh address is still fresh
+		require.Equal(i == 0 || i == 2, v.s.IsNewbieAccount())
+		// after conversion, 2 pending nonces become the same
+		require.Equal(v.second, v.s.PendingNonce())
+		require.Equal(v.second, v.s.PendingNonceConsideringFreshAccount())
+		require.NoError(v.s.SetPendingNonce(v.second + 1))
+		// for dirty address, 2 pending nonces are the same
+		require.Equal(v.third, v.s.PendingNonce())
+		require.Equal(v.third, v.s.PendingNonceConsideringFreshAccount())
+	}
+}

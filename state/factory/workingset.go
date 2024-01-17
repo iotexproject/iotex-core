@@ -144,7 +144,8 @@ func (ws *workingSet) runAction(
 	ctx context.Context,
 	elp action.SealedEnvelope,
 ) (*action.Receipt, error) {
-	if protocol.MustGetBlockCtx(ctx).GasLimit < protocol.MustGetActionCtx(ctx).IntrinsicGas {
+	actCtx := protocol.MustGetActionCtx(ctx)
+	if protocol.MustGetBlockCtx(ctx).GasLimit < actCtx.IntrinsicGas {
 		return nil, action.ErrGasLimit
 	}
 	// Reject execution of chainID not equal the node's chainID
@@ -163,6 +164,18 @@ func (ws *workingSet) runAction(
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
 	defer ws.ResetSnapshots()
+	// check legacy fresh account conversion
+	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+		sender, err := accountutil.AccountState(ctx, ws, actCtx.Caller)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get the confirmed nonce of sender %s", actCtx.Caller.String())
+		}
+		if sender.ConvertFreshAccountToZeroNonceType(actCtx.Nonce) {
+			if err = accountutil.StoreAccount(ws, actCtx.Caller, sender); err != nil {
+				return nil, errors.Wrapf(err, "failed to store converted sender %s", actCtx.Caller.String())
+			}
+		}
+	}
 	for _, actionHandler := range reg.All() {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
 		if err != nil {
@@ -358,6 +371,10 @@ func (ws *workingSet) validateNonceSkipSystemAction(ctx context.Context, blk *bl
 }
 
 func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap map[string][]uint64) error {
+	var (
+		pendingNonce uint64
+		useZeroNonce = protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount
+	)
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
 		addr, _ := address.FromString(srcAddr)
@@ -366,7 +383,11 @@ func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap 
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}
 		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
-		pendingNonce := confirmedState.PendingNonce()
+		if useZeroNonce {
+			pendingNonce = confirmedState.PendingNonceConsideringFreshAccount()
+		} else {
+			pendingNonce = confirmedState.PendingNonce()
+		}
 		for i, nonce := range receivedNonces {
 			if nonce != pendingNonce+uint64(i) {
 				return errors.Wrapf(
