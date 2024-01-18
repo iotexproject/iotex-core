@@ -94,6 +94,11 @@ func (d *Candidate) Validate() error {
 	return nil
 }
 
+// selfStaked checks if the candidate is self staked
+func (d *Candidate) selfStaked() bool {
+	return d.SelfStakeBucketIdx != candidateNoSelfStakeBucketIndex && d.SelfStake.Sign() > 0
+}
+
 // Collision checks collsion of 2 candidates
 func (d *Candidate) Collision(c *Candidate) error {
 	if address.Equal(d.Owner, c.Owner) {
@@ -105,7 +110,7 @@ func (d *Candidate) Collision(c *Candidate) error {
 	if address.Equal(c.Operator, d.Operator) {
 		return ErrInvalidOperator
 	}
-	if c.SelfStakeBucketIdx == d.SelfStakeBucketIdx {
+	if c.SelfStakeBucketIdx == d.SelfStakeBucketIdx && c.selfStaked() {
 		return ErrInvalidSelfStkIndex
 	}
 	return nil
