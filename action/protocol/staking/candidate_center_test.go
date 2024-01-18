@@ -33,10 +33,10 @@ func testEqual(m *CandidateCenter, l CandidateList) bool {
 		}
 
 		d = m.GetBySelfStakingIndex(v.SelfStakeBucketIdx)
-		if d == nil {
+		if d == nil && v.selfStaked() {
 			return false
 		}
-		if !v.Equal(d) {
+		if d != nil && !v.Equal(d) {
 			return false
 		}
 	}
@@ -427,6 +427,93 @@ func TestFixAlias(t *testing.T) {
 			r.True(center.ContainsOperator(op))
 		}
 	}
+}
+
+func TestMultipleNonStakingCandidate(t *testing.T) {
+	r := require.New(t)
+	candcenter, err := NewCandidateCenter(nil)
+	r.NoError(err)
+
+	candStaked := &Candidate{
+		Owner:              identityset.Address(1),
+		Operator:           identityset.Address(11),
+		Reward:             identityset.Address(3),
+		Name:               "self-staked",
+		Votes:              unit.ConvertIotxToRau(1200000),
+		SelfStakeBucketIdx: 1,
+		SelfStake:          unit.ConvertIotxToRau(1200000),
+	}
+	candNonStaked1 := &Candidate{
+		Owner:              identityset.Address(2),
+		Operator:           identityset.Address(12),
+		Reward:             identityset.Address(3),
+		Name:               "non-self-staked1",
+		Votes:              big.NewInt(0),
+		SelfStakeBucketIdx: candidateNoSelfStakeBucketIndex,
+		SelfStake:          big.NewInt(0),
+	}
+	candNonStaked2 := &Candidate{
+		Owner:              identityset.Address(3),
+		Operator:           identityset.Address(13),
+		Reward:             identityset.Address(3),
+		Name:               "non-self-staked2",
+		Votes:              big.NewInt(0),
+		SelfStakeBucketIdx: candidateNoSelfStakeBucketIndex,
+		SelfStake:          big.NewInt(0),
+	}
+	cands := []*Candidate{candStaked, candNonStaked1, candNonStaked2}
+	checkCandidates := func(candcenter *CandidateCenter, cands []*Candidate) {
+		r.True(testEqual(candcenter, CandidateList(cands)))
+	}
+	// add candidates
+	r.NoError(candcenter.Upsert(candStaked))
+	r.NoError(candcenter.Upsert(candNonStaked1))
+	r.NoError(candcenter.Upsert(candNonStaked2))
+	checkCandidates(candcenter, cands)
+	// commit
+	r.NoError(candcenter.Commit())
+	checkCandidates(candcenter, cands)
+	// from state manager
+	dk := protocol.NewDock()
+	view := protocol.View{}
+	r.NoError(view.Write(_protocolID, candcenter))
+	dk.Reset()
+	candcenter = candCenterFromNewCandidateStateManager(r, view, dk)
+	checkCandidates(candcenter, cands)
+}
+
+func TestUpdateSelfStakeBucket(t *testing.T) {
+	r := require.New(t)
+	candcenter, err := NewCandidateCenter(nil)
+	r.NoError(err)
+
+	cand := &Candidate{
+		Owner:              identityset.Address(2),
+		Operator:           identityset.Address(12),
+		Reward:             identityset.Address(3),
+		Name:               "non-self-staked1",
+		Votes:              big.NewInt(0),
+		SelfStakeBucketIdx: candidateNoSelfStakeBucketIndex,
+		SelfStake:          big.NewInt(0),
+	}
+	checkCandidates := func(candcenter *CandidateCenter, cands []*Candidate) {
+		r.True(testEqual(candcenter, CandidateList(cands)))
+	}
+	// add candidates
+	r.NoError(candcenter.Upsert(cand))
+	checkCandidates(candcenter, []*Candidate{cand})
+	// self stake candidate
+	candStaked := cand.Clone()
+	candStaked.SelfStakeBucketIdx = 1
+	candStaked.SelfStake = unit.ConvertIotxToRau(1200000)
+	r.NoError(candcenter.Upsert(candStaked))
+	checkCandidates(candcenter, []*Candidate{candStaked})
+	// change self stake bucket index
+	candUpdated := candStaked.Clone()
+	candUpdated.SelfStakeBucketIdx = 2
+	r.NoError(candcenter.Upsert(candUpdated))
+	checkCandidates(candcenter, []*Candidate{candUpdated})
+	r.False(candcenter.ContainsSelfStakingBucket(candStaked.SelfStakeBucketIdx))
 }
 
 func candCenterFromNewCandidateStateManager(r *require.Assertions, view protocol.View, dk protocol.Dock) *CandidateCenter {
