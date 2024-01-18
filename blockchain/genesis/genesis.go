@@ -114,10 +114,10 @@ func defaultConfig() Genesis {
 				Fee:          unit.ConvertIotxToRau(100).String(),
 				MinSelfStake: unit.ConvertIotxToRau(1200000).String(),
 			},
-			WithdrawWaitingPeriod:  3 * 24 * time.Hour,
-			MinStakeAmount:         unit.ConvertIotxToRau(100).String(),
-			BootstrapCandidates:    []BootstrapCandidate{},
-			UnEndorseWaitingBlocks: 24 * 60 * 60 / 5,
+			WithdrawWaitingPeriod:            3 * 24 * time.Hour,
+			MinStakeAmount:                   unit.ConvertIotxToRau(100).String(),
+			BootstrapCandidates:              []BootstrapCandidate{},
+			EndorsementWithdrawWaitingBlocks: 24 * 60 * 60 / 5,
 		},
 	}
 }
@@ -345,12 +345,12 @@ type (
 	}
 	// Staking contains the configs for staking protocol
 	Staking struct {
-		VoteWeightCalConsts    VoteWeightCalConsts  `yaml:"voteWeightCalConsts"`
-		RegistrationConsts     RegistrationConsts   `yaml:"registrationConsts"`
-		WithdrawWaitingPeriod  time.Duration        `yaml:"withdrawWaitingPeriod"`
-		MinStakeAmount         string               `yaml:"minStakeAmount"`
-		BootstrapCandidates    []BootstrapCandidate `yaml:"bootstrapCandidates"`
-		UnEndorseWaitingBlocks uint64               `yaml:"unEndorseWaitingBlocks"`
+		VoteWeightCalConsts              VoteWeightCalConsts  `yaml:"voteWeightCalConsts"`
+		RegistrationConsts               RegistrationConsts   `yaml:"registrationConsts"`
+		WithdrawWaitingPeriod            time.Duration        `yaml:"withdrawWaitingPeriod"`
+		MinStakeAmount                   string               `yaml:"minStakeAmount"`
+		BootstrapCandidates              []BootstrapCandidate `yaml:"bootstrapCandidates"`
+		EndorsementWithdrawWaitingBlocks uint64               `yaml:"endorsementWithdrawWaitingBlocks"`
 	}
 
 	// VoteWeightCalConsts contains the configs for calculating vote weight
