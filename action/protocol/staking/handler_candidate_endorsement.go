@@ -31,30 +31,26 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes(), []byte{byteutil.BoolToByte(act.Endorse())})
 
 	esm := NewEndorsementStateManager(csm.SM())
-	// handle endorsement
+	expireHeight := uint64(0)
 	if act.Endorse() {
+		// handle endorsement
 		if err := p.validateEndorsement(ctx, csm, esm, actCtx.Caller, bucket, cand); err != nil {
 			return log, nil, err
 		}
-		// new endorsement with not expire height
-		if err := esm.Put(bucket.Index, &Endorsement{
-			ExpireHeight: endorsementNotExpireHeight,
-		}); err != nil {
-			return log, nil, errors.Wrapf(err, "failed to put endorsement with bucket index %d", bucket.Index)
+		expireHeight = uint64(endorsementNotExpireHeight)
+	} else {
+		// handle withdrawal
+		if err := p.validateEndorsementWithdrawal(ctx, esm, actCtx.Caller, bucket); err != nil {
+			return log, nil, err
 		}
-		return log, nil, nil
+		// expire immediately if the bucket is not self-staked
+		// otherwise, expire after withdraw waiting period
+		expireHeight = protocol.MustGetBlockCtx(ctx).BlockHeight
+		if csm.ContainsSelfStakingBucket(bucket.Index) {
+			expireHeight += p.config.EndorsementWithdrawWaitingBlocks
+		}
 	}
-
-	// handle withdrawal
-	if err := p.validateEndorsementWithdrawal(ctx, esm, actCtx.Caller, bucket); err != nil {
-		return log, nil, err
-	}
-	// expire immediately if the bucket is not self-staked
-	// otherwise, expire after withdraw waiting period
-	expireHeight := protocol.MustGetBlockCtx(ctx).BlockHeight
-	if csm.ContainsSelfStakingBucket(bucket.Index) {
-		expireHeight += p.config.EndorsementWithdrawWaitingBlocks
-	}
+	// update endorsement state
 	if err := esm.Put(bucket.Index, &Endorsement{
 		ExpireHeight: expireHeight,
 	}); err != nil {
