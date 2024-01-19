@@ -10,6 +10,7 @@ import (
 	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -22,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -142,24 +144,29 @@ func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Con
 
 func (ws *workingSet) runAction(
 	ctx context.Context,
-	elp action.SealedEnvelope,
+	selp action.SealedEnvelope,
 ) (*action.Receipt, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	if protocol.MustGetBlockCtx(ctx).GasLimit < actCtx.IntrinsicGas {
 		return nil, action.ErrGasLimit
 	}
 	// Reject execution of chainID not equal the node's chainID
-	if !action.IsSystemAction(elp) {
-		if err := validateChainID(ctx, elp.ChainID()); err != nil {
+	if !action.IsSystemAction(selp) {
+		if err := validateChainID(ctx, selp.ChainID()); err != nil {
 			return nil, err
 		}
+	}
+	// for replay tx, check against deployer whitelist
+	g := genesis.MustExtractGenesisContext(ctx)
+	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && !g.IsDeployerWhitelisted(selp.SenderAddress()) {
+		return nil, errors.Errorf("replay deployer %v not whitelisted", selp.SenderAddress().String())
 	}
 	// Handle action
 	reg, ok := protocol.GetRegistry(ctx)
 	if !ok {
 		return nil, errors.New("protocol is empty")
 	}
-	elpHash, err := elp.Hash()
+	selpHash, err := selp.Hash()
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
@@ -177,12 +184,12 @@ func (ws *workingSet) runAction(
 		}
 	}
 	for _, actionHandler := range reg.All() {
-		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
+		receipt, err := actionHandler.Handle(ctx, selp.Action(), ws)
 		if err != nil {
 			return nil, errors.Wrapf(
 				err,
 				"error when action %x mutates states",
-				elpHash,
+				selpHash,
 			)
 		}
 		if receipt != nil {
