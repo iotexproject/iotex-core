@@ -7,9 +7,7 @@ package cmd
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
-	"encoding/binary"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -21,7 +19,6 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -33,9 +30,15 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/tools/util"
+)
+
+var (
+	transferPayload = []byte{}
 )
 
 // KeyPairs indicate the keypair of accounts getting transfers from Creator in genesis block
@@ -49,16 +52,9 @@ type KeyPair struct {
 	SK string `yaml:"priKey"`
 }
 
-// AddressKey contains the encoded address and private key of an account
-type AddressKey struct {
-	EncodedAddr string
-	PriKey      crypto.PrivateKey
-}
-
 type injectProcessor struct {
-	api      iotexapi.APIServiceClient
-	nonces   *ttl.Cache
-	accounts []*AddressKey
+	api            iotexapi.APIServiceClient
+	accountManager *util.AccountManager
 }
 
 func newInjectionProcessor() (*injectProcessor, error) {
@@ -68,23 +64,33 @@ func newInjectionProcessor() (*injectProcessor, error) {
 	log.L().Info("Server Addr", zap.String("endpoint", injectCfg.serverAddr))
 	if injectCfg.insecure {
 		log.L().Info("insecure connection")
-		conn, err = grpc.DialContext(grpcctx, injectCfg.serverAddr, grpc.WithBlock(), grpc.WithInsecure())
+		conn, err = grpc.DialContext(grpcctx, rawInjectCfg.serverAddr, grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		log.L().Info("secure connection")
-		conn, err = grpc.DialContext(grpcctx, injectCfg.serverAddr, grpc.WithBlock(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
+		conn, err = grpc.DialContext(grpcctx, rawInjectCfg.serverAddr, grpc.WithBlock(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+	}
+	if rawInjectCfg.transferPayloadSize != "0" {
+		payloadSz := util.ParseHumanSize(rawInjectCfg.transferPayloadSize)
+		if payloadSz > 0 {
+			randomBytes := make([]byte, payloadSz)
+			_, err := rand.Read(randomBytes)
+			if err != nil {
+				panic(err)
+			}
+			transferPayload = randomBytes
+		}
 	}
 	if err != nil {
 		return nil, err
 	}
 	api := iotexapi.NewAPIServiceClient(conn)
-	nonceCache, err := ttl.NewCache()
 	if err != nil {
 		return nil, err
 	}
 	p := &injectProcessor{
-		api:    api,
-		nonces: nonceCache,
+		api: api,
 	}
+	log.L().Info("generate random accounts for injector")
 	if err = p.randAccounts(injectCfg.randAccounts); err != nil {
 		return p, err
 	}
@@ -93,12 +99,13 @@ func newInjectionProcessor() (*injectProcessor, error) {
 			return p, err
 		}
 	}
+	log.L().Info("sync nonce for injector")
 	p.syncNonces(context.Background())
 	return p, nil
 }
 
 func (p *injectProcessor) randAccounts(num int) error {
-	addrKeys := make([]*AddressKey, 0, num)
+	addrKeys := make([]*util.AddressKey, 0, num)
 	for i := 0; i < num; i++ {
 		s := hash.Hash256b([]byte{byte(i), byte(100)})
 		private, err := crypto.BytesToPrivateKey(s[:])
@@ -106,10 +113,9 @@ func (p *injectProcessor) randAccounts(num int) error {
 			return err
 		}
 		a, _ := account.PrivateKeyToAccount(private)
-		p.nonces.Set(a.Address().String(), 1)
-		addrKeys = append(addrKeys, &AddressKey{PriKey: private, EncodedAddr: a.Address().String()})
+		addrKeys = append(addrKeys, &util.AddressKey{PriKey: private, EncodedAddr: a.Address().String()})
 	}
-	p.accounts = addrKeys
+	p.accountManager = util.NewAccountManager(addrKeys)
 	return nil
 }
 
@@ -124,7 +130,7 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 	}
 
 	// Construct iotex addresses from loaded key pairs
-	addrKeys := make([]*AddressKey, 0)
+	addrKeys := make([]*util.AddressKey, 0)
 	for _, pair := range keypairs.Pairs {
 		pk, err := crypto.HexStringToPublicKey(pair.PK)
 		if err != nil {
@@ -139,16 +145,14 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 		if addr == nil {
 			return errors.New("failed to get address")
 		}
-		p.nonces.Set(addr.String(), 0)
-		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: addr.String(), PriKey: sk})
+		addrKeys = append(addrKeys, &util.AddressKey{EncodedAddr: addr.String(), PriKey: sk})
 	}
 
 	// send tokens
-	for i, r := range p.accounts {
+	for i, recipientAddr := range p.accountManager.GetAllAddr() {
 		sender := addrKeys[i%len(addrKeys)]
 		operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
-
-		recipient, _ := address.FromString(r.EncodedAddr)
+		recipient, _ := address.FromString(recipientAddr)
 		log.L().Info("generated account", zap.String("addr", recipient.String()))
 		c := iotex.NewAuthedClient(p.api, injectCfg.chainID, operatorAccount)
 		caller := c.Transfer(recipient, injectCfg.loadTokenAmount).SetGasPrice(injectCfg.transferGasPrice).SetGasLimit(injectCfg.transferGasLimit)
@@ -175,17 +179,13 @@ func (p *injectProcessor) syncNoncesProcess(ctx context.Context) {
 }
 
 func (p *injectProcessor) syncNonces(ctx context.Context) {
-	var addrPool []string
-	for _, v := range p.nonces.Keys() {
-		addrPool = append(addrPool, v.(string))
-	}
-	for _, addr := range addrPool {
+	for _, addr := range p.accountManager.GetAllAddr() {
 		err := backoff.Retry(func() error {
 			resp, err := p.api.GetAccount(ctx, &iotexapi.GetAccountRequest{Address: addr})
 			if err != nil {
 				return err
 			}
-			p.nonces.Set(addr, resp.GetAccountMeta().GetPendingNonce())
+			p.accountManager.Set(addr, resp.GetAccountMeta().GetPendingNonce())
 			return nil
 		}, backoff.NewExponentialBackOff())
 		if err != nil {
@@ -198,6 +198,7 @@ func (p *injectProcessor) syncNonces(ctx context.Context) {
 }
 
 func (p *injectProcessor) injectProcess(ctx context.Context) {
+	log.L().Info("Start to inject actions")
 	var workers sync.WaitGroup
 	ticks := make(chan uint64)
 	for i := uint64(0); i < injectCfg.workers; i++ {
@@ -278,11 +279,8 @@ func (p *injectProcessor) pickAction() (iotex.Caller, error) {
 
 func (p *injectProcessor) executionCaller() (iotex.ExecuteContractCaller, error) {
 	var nonce uint64
-	sender := p.accounts[rand.Intn(len(p.accounts))]
-	if val, ok := p.nonces.Get(sender.EncodedAddr); ok {
-		nonce = val.(uint64)
-	}
-	p.nonces.Set(sender.EncodedAddr, nonce+1)
+	sender := p.accountManager.AccountList[rand.Intn(len(p.accountManager.AccountList))]
+	nonce = p.accountManager.GetAndInc(sender.EncodedAddr)
 
 	operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
 	c := iotex.NewAuthedClient(p.api, injectCfg.chainID, operatorAccount)
@@ -301,22 +299,15 @@ func (p *injectProcessor) executionCaller() (iotex.ExecuteContractCaller, error)
 
 func (p *injectProcessor) transferCaller() (iotex.SendActionCaller, error) {
 	var nonce uint64
-	sender := p.accounts[rand.Intn(len(p.accounts))]
-	if val, ok := p.nonces.Get(sender.EncodedAddr); ok {
-		nonce = val.(uint64)
-	}
-	p.nonces.Set(sender.EncodedAddr, nonce+1)
+	sender := p.accountManager.AccountList[rand.Intn(len(p.accountManager.AccountList))]
+	nonce = p.accountManager.GetAndInc(sender.EncodedAddr)
 
 	operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
 	c := iotex.NewAuthedClient(p.api, injectCfg.chainID, operatorAccount)
 
-	recipient, _ := address.FromString(p.accounts[rand.Intn(len(p.accounts))].EncodedAddr)
-	data := rand.Int63()
-	var dataBuf = make([]byte, 8)
-	binary.BigEndian.PutUint64(dataBuf, uint64(data))
-	dataHash := sha256.Sum256(dataBuf)
+	recipient, _ := address.FromString(p.accountManager.AccountList[rand.Intn(len(p.accountManager.AccountList))].EncodedAddr)
 	caller := c.Transfer(recipient, injectCfg.transferAmount).
-		SetPayload(dataHash[:]).
+		SetPayload(transferPayload).
 		SetNonce(nonce).
 		SetGasPrice(injectCfg.transferGasPrice).
 		SetGasLimit(injectCfg.transferGasLimit)
@@ -334,12 +325,13 @@ var injectCmd = &cobra.Command{
 }
 
 var rawInjectCfg = struct {
-	configPath       string
-	serverAddr       string
-	chainID          uint32
-	transferGasLimit uint64
-	transferGasPrice int64
-	transferAmount   int64
+	configPath          string
+	serverAddr          string
+	chainID             uint32
+	transferGasLimit    uint64
+	transferGasPrice    int64
+	transferAmount      int64
+	transferPayloadSize string
 
 	contract          string
 	executionAmount   int64
@@ -445,6 +437,7 @@ func init() {
 	flag.Int64Var(&rawInjectCfg.transferAmount, "transfer-amount", 0, "execution amount")
 	flag.Uint64Var(&rawInjectCfg.transferGasLimit, "transfer-gas-limit", 20000, "transfer gas limit")
 	flag.Int64Var(&rawInjectCfg.transferGasPrice, "transfer-gas-price", 1000000000000, "transfer gas price")
+	flag.StringVar(&rawInjectCfg.transferPayloadSize, "transfer-payload-size", "0", "transfer payload size")
 	flag.StringVar(&rawInjectCfg.contract, "contract", "io1pmjhyksxmz2xpxn2qmz4gx9qq2kn2gdr8un4xq", "smart contract address")
 	flag.Int64Var(&rawInjectCfg.executionAmount, "execution-amount", 0, "execution amount")
 	flag.Uint64Var(&rawInjectCfg.executionGasLimit, "execution-gas-limit", 100000, "execution gas limit")

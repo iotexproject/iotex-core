@@ -200,7 +200,7 @@ func main() {
 
 		// First deploy a user specified smart contract which can be interacted by injected executions
 		eHash, err := util.DeployContract(client, counter, delegates, executionGasLimit, executionGasPrice,
-			deployExecData, retryNum, retryInterval)
+			deployExecData, retryNum, retryInterval, 1)
 		if err != nil {
 			log.L().Fatal("Failed to deploy smart contract", zap.Error(err))
 		}
@@ -276,7 +276,7 @@ func main() {
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit,
 			voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, fpToken,
 			fpContract, debtor, creditor, client, admins, delegates, d, retryNum, retryInterval, resetInterval,
-			expectedBalancesMap, as.CoreService(), pendingActionMap)
+			expectedBalancesMap, as.CoreService(), pendingActionMap, 1)
 		wg.Wait()
 
 		err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {

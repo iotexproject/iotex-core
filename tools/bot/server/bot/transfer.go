@@ -115,7 +115,7 @@ func (s *Transfer) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 	if err != nil {
 		return
 	}
-	cli := iotex.NewAuthedClient(iotexapi.NewAPIServiceClient(conn), acc)
+	cli := iotex.NewAuthedClient(iotexapi.NewAPIServiceClient(conn), 1, acc)
 
 	shash, err := cli.Transfer(addr, amount).SetNonce(nonce).SetGasLimit(s.cfg.GasLimit).SetGasPrice(gasprice).Call(context.Background())
 	if err != nil {
