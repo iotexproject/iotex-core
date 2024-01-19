@@ -53,11 +53,13 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 	if tip > uint64(gs.cfg.SuggestBlockWindow) {
 		endBlockHeight = tip - uint64(gs.cfg.SuggestBlockWindow)
 	}
-
+	maxGas := gs.bc.Genesis().BlockGasLimit * (tip - endBlockHeight)
+	defaultGasPrice := gs.cfg.DefaultGas
+	gasConsumed := uint64(0)
 	for height := tip; height > endBlockHeight; height-- {
 		blk, err := gs.dao.GetBlockByHeight(height)
 		if err != nil {
-			return gs.cfg.DefaultGas, err
+			return defaultGasPrice, err
 		}
 		if len(blk.Actions) == 0 {
 			continue
@@ -66,6 +68,9 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 			continue
 		}
 		smallestPrice := blk.Actions[0].GasPrice()
+		for _, receipt := range blk.Receipts {
+			gasConsumed += receipt.GasConsumed
+		}
 		for _, act := range blk.Actions {
 			if action.IsSystemAction(act) {
 				continue
@@ -76,17 +81,22 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 		}
 		smallestPrices = append(smallestPrices, smallestPrice)
 	}
-
 	if len(smallestPrices) == 0 {
 		// return default price
-		return gs.cfg.DefaultGas, nil
+		return defaultGasPrice, nil
 	}
 	sort.Slice(smallestPrices, func(i, j int) bool {
 		return smallestPrices[i].Cmp(smallestPrices[j]) < 0
 	})
 	gasPrice := smallestPrices[(len(smallestPrices)-1)*gs.cfg.Percentile/100].Uint64()
-	if gasPrice < gs.cfg.DefaultGas {
-		gasPrice = gs.cfg.DefaultGas
+	switch {
+	case gasConsumed > maxGas/2:
+		gasPrice += gasPrice / 10
+	case gasConsumed < maxGas/5:
+		gasPrice -= gasPrice / 10
+	}
+	if gasPrice < defaultGasPrice {
+		gasPrice = defaultGasPrice
 	}
 	return gasPrice, nil
 }
