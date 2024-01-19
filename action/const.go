@@ -25,6 +25,7 @@ var (
 	ErrInvalidSender      = errors.New("invalid sender")
 	ErrTxPoolOverflow     = errors.New("txpool is full")
 	ErrGasLimit           = errors.New("exceeds block gas limit")
+	ErrGasTooHigh         = errors.New("action gas is too high")
 	ErrOversizedData      = errors.New("oversized data")
 	ErrNilProto           = errors.New("empty action proto to load")
 	ErrNilAction          = errors.New("nil action to load proto")

@@ -41,8 +41,6 @@ var (
 		Name: "iotex_actpool_rejection_metrics",
 		Help: "actpool metrics.",
 	}, []string{"type"})
-	// ErrGasTooHigh error when the intrinsic gas of an action is too high
-	ErrGasTooHigh = errors.New("action gas is too high")
 )
 
 func init() {
@@ -240,7 +238,7 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	}
 	if intrinsicGas > ap.cfg.MaxGasLimitPerPool {
 		_actpoolMtc.WithLabelValues("overMaxGasLimitPerPool").Inc()
-		return ErrGasTooHigh
+		return action.ErrGasTooHigh
 	}
 
 	return ap.enqueue(
