@@ -214,6 +214,7 @@ func (p *agent) Start(ctx context.Context) error {
 		p2p.DHTProtocolID(p.chainID),
 		p2p.DHTGroupID(p.chainID),
 		p2p.WithMaxPeer(uint32(p.cfg.MaxPeers)),
+		p2p.WithConnectionManagerConfig(p.cfg.MaxPeers, p.cfg.MaxPeers*2, 0),
 	}
 	if p.cfg.EnableRateLimit {
 		opts = append(opts, p2p.WithRateLimit(p.cfg.RateLimit))
