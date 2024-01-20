@@ -1,0 +1,78 @@
+name: Master branch Release
+
+on:
+  push:
+    branches:
+      - "master"
+
+jobs:
+  build:
+    name: Release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: ioctl-linux-amd64
+          - os: windows-latest
+            artifact_name: ioctl-windows-amd64.exe
+          - os: macos-latest
+            artifact_name: ioctl-darwin-amd64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.20.3
+          cache: false
+
+      - name: make iotex-server/ioctl
+        if: startsWith(matrix.os, 'windows-latest') != true
+        run: |
+          make build
+
+      - name: make iotex-server/ioctl windows
+        if: startsWith(matrix.os, 'windows-latest')
+        run: |
+          make ioctl
+
+      - name: Upload ioctl binaries to s3
+        uses: keithweaver/aws-s3-github-action@v1.0.0
+        with:
+          command: cp
+          source: ./bin/ioctl
+          destination: s3://iotexproject-ioctl/${{ matrix.artifact_name }}
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: us-west-1
+
+      - name: Configure ioctl GPG Linux/MacOS
+        if: startsWith(matrix.os, 'windows-latest') != true
+        env:
+          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          export GPG_TTY=$(tty)
+          echo "$GPG_SIGNING_KEY" | gpg --batch --import
+          echo "$GPG_PASSPHRASE" | gpg --passphrase-fd 0 --pinentry-mode loopback --batch -ab ./bin/ioctl
+
+      - name: Configure ioctl GPG Windows
+        if: startsWith(matrix.os, 'windows-latest')
+        env:
+          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          echo $env:GPG_SIGNING_KEY | gpg --batch --import
+          gpg --passphrase "$env:GPG_PASSPHRASE" --batch --pinentry-mode loopback -ab ./bin/ioctl
+
+      - name: Upload ioctl signature to s3
+        uses: keithweaver/aws-s3-github-action@v1.0.0
+        with:
+          command: cp
+          source: ./bin/ioctl.asc
+          destination: s3://iotexproject-ioctl/${{ matrix.artifact_name }}.asc
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: us-west-1
