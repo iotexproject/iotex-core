@@ -8,7 +8,7 @@ coverage:
     patch:
       default:
         enabled: yes
-        target: auto
+        # allow the coverage to drop by X%
         threshold: 0%
 ignore:
   - "action/protocol/rewarding/rewardingpb"
