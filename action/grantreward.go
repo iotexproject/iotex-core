@@ -7,12 +7,19 @@ package action
 
 import (
 	"math/big"
+	"strings"
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+)
+
+var (
+	_grantRewardMethod abi.Method
+	_                  EthCompatibleAction = (*GrantReward)(nil)
 )
 
 const (
@@ -20,7 +27,40 @@ const (
 	BlockReward = iota
 	// EpochReward indicates that the action is to grant epoch reward
 	EpochReward
+
+	_grantrewardInterfaceABI = `[
+		{
+			"inputs": [
+				{
+					"internalType": "int8",
+					"name": "rewardType",
+					"type": "int8"
+				},
+				{
+					"internalType": "uint64",
+					"name": "height",
+					"type": "uint64"
+				}
+			],
+			"name": "grantReward",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]`
 )
+
+func init() {
+	grantRewardInterface, err := abi.JSON(strings.NewReader(_grantrewardInterfaceABI))
+	if err != nil {
+		panic(err)
+	}
+	var ok bool
+	_grantRewardMethod, ok = grantRewardInterface.Methods["grantReward"]
+	if !ok {
+		panic("fail to load the method")
+	}
+}
 
 // GrantReward is the action to grant either block or epoch reward
 type GrantReward struct {
@@ -79,13 +119,29 @@ func (*GrantReward) Cost() (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
+func (gr *GrantReward) encodeABIBinary() ([]byte, error) {
+	data, err := _grantRewardMethod.Inputs.Pack(
+		int8(gr.rewardType),
+		gr.height,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return append(_grantRewardMethod.ID, data...), nil
+}
+
 // ToEthTx converts a grant reward action to an ethereum transaction
 func (g *GrantReward) ToEthTx(_ uint32) (*types.Transaction, error) {
+	data, err := g.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
 	return types.NewTx(&types.LegacyTx{
 		Nonce:    g.Nonce(),
 		GasPrice: g.GasPrice(),
 		Gas:      g.GasLimit(),
 		To:       &_rewardingProtocolEthAddr,
+		Data:     data,
 		Value:    big.NewInt(0),
 	}), nil
 }

@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,7 +35,7 @@ func TestGrandReward(t *testing.T) {
 		ethTx, err := g.ToEthTx(0)
 		require.NoError(err)
 		require.NotNil(ethTx)
-		require.Nil(ethTx.Data())
+		require.Equal(byteutil.Must(g.encodeABIBinary()), ethTx.Data())
 		require.Equal(big.NewInt(0), ethTx.GasPrice())
 		require.Equal(uint64(0), ethTx.Gas())
 		require.Equal(big.NewInt(0), ethTx.Value())
