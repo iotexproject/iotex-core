@@ -87,6 +87,10 @@ var (
 		config.English: "project config file hash(sha256) for validating",
 		config.Chinese: "项目配置文件sha256哈希",
 	}
+	_flagVersionUsages = map[config.Language]string{
+		config.English: "version for the project config",
+		config.Chinese: "该project config的版本号",
+	}
 )
 
 func init() {

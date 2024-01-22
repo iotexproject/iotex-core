@@ -26,6 +26,7 @@ const (
 	_urlPattern              = `[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`
 	_localPattern            = "localhost"
 	_endpointPattern         = "(" + _ipPattern + "|(" + _domainPattern + ")" + "|(" + _localPattern + "))" + `(:\d{1,5})?`
+	_defaultEndpoint         = "api.iotex.one:443"
 	_defaultAnalyserEndpoint = "https://iotex-analyser-api-mainnet.chainanalytics.org"
 	// _defaultWsEndpoint default w3bstream endpoint
 	_defaultWsEndpoint = "sprout-staging.w3bstream.com:9000"
@@ -34,7 +35,7 @@ const (
 	// _defaultIPFSGateway default IPFS gateway for resource fetching
 	_defaultIPFSGateway = "https://ipfs.io"
 	// _defaultWsRegisterContract  default project register contract address
-	_defaultWsRegisterContract = "0x4F7e678B0203e0444E17512108dba4B08B39512e"
+	_defaultWsRegisterContract = "0x184C72E39a642058CCBc369485c7fd614B40a03d"
 )
 
 var (

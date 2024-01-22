@@ -32,7 +32,11 @@ var (
 			if err != nil {
 				return output.PrintError(err)
 			}
-			out, err := sendMessage(projectID, projectVersion, data)
+			tok, err := cmd.Flags().GetString("did-vc-token")
+			if err != nil {
+				return errors.Wrap(err, "failed to get flag did-vc-token")
+			}
+			out, err := sendMessage(projectID, projectVersion, data, tok)
 			if err != nil {
 				return output.PrintError(err)
 			}
@@ -52,13 +56,14 @@ func init() {
 	wsMessageSend.Flags().Uint64P("project-id", "p", 0, config.TranslateInLang(_flagProjectIDUsages, config.UILanguage))
 	wsMessageSend.Flags().StringP("project-version", "v", "", config.TranslateInLang(_flagProjectVersionUsages, config.UILanguage))
 	wsMessageSend.Flags().StringP("data", "d", "", config.TranslateInLang(_flagSendDataUsages, config.UILanguage))
+	wsMessageSend.Flags().StringP("did-vc-token", "t", "", config.TranslateInLang(_flagDIDVCTokenUsages, config.UILanguage))
 
 	_ = wsMessageSend.MarkFlagRequired("project-id")
 	_ = wsMessageSend.MarkFlagRequired("project-version")
 	_ = wsMessageSend.MarkFlagRequired("data")
 }
 
-func sendMessage(projectID uint64, projectVersion string, data string) (string, error) {
+func sendMessage(projectID uint64, projectVersion string, data string, tok string) (string, error) {
 	reqbody, err := json.Marshal(&sendMessageReq{
 		ProjectID:      projectID,
 		ProjectVersion: projectVersion,
@@ -68,13 +73,21 @@ func sendMessage(projectID uint64, projectVersion string, data string) (string, 
 		return "", errors.Wrap(err, "failed to build call message")
 	}
 
-	u := url.URL{
+	u := &url.URL{
 		Scheme: "http",
 		Host:   config.ReadConfig.WsEndpoint,
 		Path:   "/message",
 	}
+	req, err := http.NewRequest(http.MethodPost, u.String(), bytes.NewReader(reqbody))
+	if err != nil {
+		return "", errors.Wrap(err, "failed to new http request")
+	}
 
-	rsp, err := http.Post(u.String(), "application/json", bytes.NewReader(reqbody))
+	if tok != "" {
+		req.Header.Set("Authorization", tok)
+	}
+
+	rsp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", errors.Wrap(err, "call w3bsteam failed")
 	}

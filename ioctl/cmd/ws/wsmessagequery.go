@@ -23,8 +23,12 @@ var (
 			if err != nil {
 				return errors.Wrap(err, "failed to get flag message-id")
 			}
+			tok, err := cmd.Flags().GetString("did-vc-token")
+			if err != nil {
+				return errors.Wrap(err, "failed to get flag did-vc-token")
+			}
 
-			out, err := queryMessageStatus(id)
+			out, err := queryMessageStatus(id, tok)
 			if err != nil {
 				return output.PrintError(err)
 			}
@@ -42,17 +46,28 @@ var (
 
 func init() {
 	wsMessageQuery.Flags().StringP("message-id", "i", "", config.TranslateInLang(_flagMessageIDUsages, config.UILanguage))
+	wsMessageQuery.Flags().StringP("did-vc-token", "t", "", config.TranslateInLang(_flagDIDVCTokenUsages, config.UILanguage))
+
 	_ = wsMessageQuery.MarkFlagRequired("message-id")
 }
 
-func queryMessageStatus(id string) (string, error) {
+func queryMessageStatus(id string, tok string) (string, error) {
 	u := url.URL{
 		Scheme: "http",
 		Host:   config.ReadConfig.WsEndpoint,
 		Path:   "/message/" + id,
 	}
 
-	rsp, err := http.Get(u.String())
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to new http request")
+	}
+
+	if tok != "" {
+		req.Header.Set("Authorization", tok)
+	}
+
+	rsp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", errors.Wrap(err, "call w3bstream failed")
 	}
