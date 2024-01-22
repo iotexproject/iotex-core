@@ -9,7 +9,6 @@ coverage:
       default:
         enabled: yes
         target: auto
-        only_pulls: false
         base: auto
         threshold: 0%
 ignore:
