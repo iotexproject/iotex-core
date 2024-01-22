@@ -270,10 +270,17 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	if candidate == nil {
 		return log, errCandNotExist
 	}
-
-	bucket, fetchErr := p.fetchBucketAndValidate(ctx, csm, actionCtx.Caller, act.BucketIndex(), true, false)
-	if fetchErr != nil {
-		return log, fetchErr
+	bucket, rErr := p.fetchBucket(csm, act.BucketIndex())
+	if rErr != nil {
+		return log, rErr
+	}
+	if rErr = validateBucketOwner(bucket, actionCtx.Caller); rErr != nil {
+		return log, rErr
+	}
+	if featureCtx.DisableDelegateEndorsement {
+		if rErr = validateBucketSelfStake(csm, bucket, false); rErr != nil {
+			return log, rErr
+		}
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes(), candidate.Owner.Bytes())
 
@@ -296,11 +303,20 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
 		}
 	}
-
+	selfStake := false
 	if !featureCtx.DisableDelegateEndorsement {
-		rErr := validateBucketEndorsement(NewEndorsementStateManager(csm.SM()), bucket, false, blkCtx.BlockHeight)
-		if rErr != nil {
-			return log, rErr
+		selfStake = csm.ContainsSelfStakingBucket(bucket.Index)
+		if selfStake {
+			if address.Equal(bucket.Candidate, prevCandidate.Owner) {
+				return log, &handleError{
+					err:           errors.New("self staking bucket cannot change candidate"),
+					failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+				}
+			}
+			rErr := validateBucketEndorsement(NewEndorsementStateManager(csm.SM()), bucket, false, blkCtx.BlockHeight)
+			if rErr != nil {
+				return log, rErr
+			}
 		}
 	}
 
@@ -318,12 +334,17 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	}
 
 	// update previous candidate
-	weightedVotes := p.calculateVoteWeight(bucket, false)
+	weightedVotes := p.calculateVoteWeight(bucket, selfStake)
 	if err := prevCandidate.SubVote(weightedVotes); err != nil {
 		return log, &handleError{
 			err:           errors.Wrapf(err, "failed to subtract vote for previous candidate %s", prevCandidate.Owner.String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
+	}
+	if selfStake {
+		// clear previous candidate's self stake
+		prevCandidate.SelfStake.SetInt64(0)
+		prevCandidate.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
 	}
 	if err := csm.Upsert(prevCandidate); err != nil {
 		return log, csmErrorToHandleError(prevCandidate.Owner.String(), err)
