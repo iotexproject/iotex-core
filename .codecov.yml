@@ -8,7 +8,8 @@ coverage:
     patch:
       default:
         enabled: yes
-        threshold: 0%
+        target: auto
+        #threshold: 0%
 ignore:
   - "action/protocol/rewarding/rewardingpb"
   - "action/protocol/account/accountpb"
