@@ -380,6 +380,21 @@ func (mr *MockCoreServiceMockRecorder) LogsInRange(filter, start, end, paginatio
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogsInRange", reflect.TypeOf((*MockCoreService)(nil).LogsInRange), filter, start, end, paginationSize)
 }
 
+// PendingActionByActionHash mocks base method.
+func (m *MockCoreService) PendingActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PendingActionByActionHash", h)
+	ret0, _ := ret[0].(action.SealedEnvelope)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PendingActionByActionHash indicates an expected call of PendingActionByActionHash.
+func (mr *MockCoreServiceMockRecorder) PendingActionByActionHash(h interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingActionByActionHash", reflect.TypeOf((*MockCoreService)(nil).PendingActionByActionHash), h)
+}
+
 // PendingNonce mocks base method.
 func (m *MockCoreService) PendingNonce(arg0 address.Address) (uint64, error) {
 	m.ctrl.T.Helper()

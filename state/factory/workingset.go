@@ -10,6 +10,7 @@ import (
 	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -22,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -142,34 +144,52 @@ func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Con
 
 func (ws *workingSet) runAction(
 	ctx context.Context,
-	elp action.SealedEnvelope,
+	selp action.SealedEnvelope,
 ) (*action.Receipt, error) {
-	if protocol.MustGetBlockCtx(ctx).GasLimit < protocol.MustGetActionCtx(ctx).IntrinsicGas {
+	actCtx := protocol.MustGetActionCtx(ctx)
+	if protocol.MustGetBlockCtx(ctx).GasLimit < actCtx.IntrinsicGas {
 		return nil, action.ErrGasLimit
 	}
 	// Reject execution of chainID not equal the node's chainID
-	if !action.IsSystemAction(elp) {
-		if err := validateChainID(ctx, elp.ChainID()); err != nil {
+	if !action.IsSystemAction(selp) {
+		if err := validateChainID(ctx, selp.ChainID()); err != nil {
 			return nil, err
 		}
+	}
+	// for replay tx, check against deployer whitelist
+	g := genesis.MustExtractGenesisContext(ctx)
+	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && !g.IsDeployerWhitelisted(selp.SenderAddress()) {
+		return nil, errors.Errorf("replay deployer %v not whitelisted", selp.SenderAddress().String())
 	}
 	// Handle action
 	reg, ok := protocol.GetRegistry(ctx)
 	if !ok {
 		return nil, errors.New("protocol is empty")
 	}
-	elpHash, err := elp.Hash()
+	selpHash, err := selp.Hash()
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
 	defer ws.ResetSnapshots()
+	// check legacy fresh account conversion
+	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+		sender, err := accountutil.AccountState(ctx, ws, actCtx.Caller)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get the confirmed nonce of sender %s", actCtx.Caller.String())
+		}
+		if sender.ConvertFreshAccountToZeroNonceType(actCtx.Nonce) {
+			if err = accountutil.StoreAccount(ws, actCtx.Caller, sender); err != nil {
+				return nil, errors.Wrapf(err, "failed to store converted sender %s", actCtx.Caller.String())
+			}
+		}
+	}
 	for _, actionHandler := range reg.All() {
-		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
+		receipt, err := actionHandler.Handle(ctx, selp.Action(), ws)
 		if err != nil {
 			return nil, errors.Wrapf(
 				err,
 				"error when action %x mutates states",
-				elpHash,
+				selpHash,
 			)
 		}
 		if receipt != nil {
@@ -358,6 +378,10 @@ func (ws *workingSet) validateNonceSkipSystemAction(ctx context.Context, blk *bl
 }
 
 func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap map[string][]uint64) error {
+	var (
+		pendingNonce uint64
+		useZeroNonce = protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount
+	)
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
 		addr, _ := address.FromString(srcAddr)
@@ -366,7 +390,11 @@ func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap 
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}
 		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
-		pendingNonce := confirmedState.PendingNonce()
+		if useZeroNonce {
+			pendingNonce = confirmedState.PendingNonceConsideringFreshAccount()
+		} else {
+			pendingNonce = confirmedState.PendingNonce()
+		}
 		for i, nonce := range receivedNonces {
 			if nonce != pendingNonce+uint64(i) {
 				return errors.Wrapf(

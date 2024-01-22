@@ -22,6 +22,10 @@ var (
 		Use:   "convert",
 		Short: config.TranslateInLang(wsCodeConvertShorts, config.UILanguage),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			version, err := cmd.Flags().GetString("version")
+			if err != nil {
+				return errors.Wrap(err, "failed to get flag version")
+			}
 			vmType, err := cmd.Flags().GetString("vm-type")
 			if err != nil {
 				return errors.Wrap(err, "failed to get flag vm-type")
@@ -39,7 +43,7 @@ var (
 				return errors.Wrap(err, "failed to get flag expand-param")
 			}
 
-			out, err := generateProjectFile(vmType, codeFile, confFile, expParam)
+			out, err := generateProjectFile(version, vmType, codeFile, confFile, expParam)
 			if err != nil {
 				return output.PrintError(err)
 			}
@@ -54,6 +58,10 @@ var (
 		config.Chinese: "将zkp代码通过zlib进行压缩之后转成hex字符串",
 	}
 
+	_flagVersionUsages = map[config.Language]string{
+		config.English: "version for the project config",
+		config.Chinese: "该project config的版本号",
+	}
 	_flagVMTypeUsages = map[config.Language]string{
 		config.English: "vm type, support risc0, halo2",
 		config.Chinese: "虚拟机类型，目前支持risc0和halo2",
@@ -73,16 +81,18 @@ var (
 )
 
 func init() {
+	wsCodeConvert.Flags().StringP("version", "v", "", config.TranslateInLang(_flagVersionUsages, config.UILanguage))
 	wsCodeConvert.Flags().StringP("vm-type", "t", "", config.TranslateInLang(_flagVMTypeUsages, config.UILanguage))
 	wsCodeConvert.Flags().StringP("code-file", "i", "", config.TranslateInLang(_flagCodeFileUsages, config.UILanguage))
 	wsCodeConvert.Flags().StringP("conf-file", "c", "", config.TranslateInLang(_flagConfFileUsages, config.UILanguage))
 	wsCodeConvert.Flags().StringP("expand-param", "e", "", config.TranslateInLang(_flagExpandParamUsages, config.UILanguage))
 
+	_ = wsCodeConvert.MarkFlagRequired("version")
 	_ = wsCodeConvert.MarkFlagRequired("vm-type")
 	_ = wsCodeConvert.MarkFlagRequired("code-file")
 }
 
-func generateProjectFile(vmType string, codeFile string, confFile string, expParam string) (string, error) {
+func generateProjectFile(version, vmType, codeFile, confFile, expParam string) (string, error) {
 	tye, err := stringToVMType(vmType)
 	if err != nil {
 		return "", err
@@ -93,13 +103,21 @@ func generateProjectFile(vmType string, codeFile string, confFile string, expPar
 		return "", err
 	}
 
+	confMaps := make([]map[string]interface{}, 0)
+
 	confMap := make(map[string]interface{})
 	if expParam != "" {
 		confMap["codeExpParam"] = expParam
 	}
 	confMap["vmType"] = string(tye)
 	confMap["code"] = hexString
-	jsonConf, err := json.MarshalIndent(confMap, "", "  ")
+	confMap["version"] = version
+
+	confMaps = append(confMaps, confMap)
+	jsonConf, err := json.MarshalIndent(confMaps, "", "  ")
+	if err != nil {
+		return "", errors.Wrap(err, "failed to marshal config maps")
+	}
 
 	if confFile == "" {
 		confFile = fmt.Sprintf("./%s-config.json", vmType)

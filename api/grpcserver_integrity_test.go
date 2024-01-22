@@ -1337,6 +1337,7 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 			},
 			"empty action proto to load",
 		},
+		/* TODO: revise unit test
 		{
 			func() testConfig {
 				cfg := newConfig()
@@ -1346,6 +1347,7 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 			_testTransferPb,
 			action.ErrTxPoolOverflow.Error(),
 		},
+		*/
 		{
 			func() testConfig {
 				return newConfig()

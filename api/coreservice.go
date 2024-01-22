@@ -113,12 +113,15 @@ type (
 		Stop(ctx context.Context) error
 		// Actions returns actions within the range
 		Actions(start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
+		// TODO: unify the three get action by hash methods: Action, ActionByActionHash, PendingActionByActionHash
 		// Action returns action by action hash
 		Action(actionHash string, checkPending bool) (*iotexapi.ActionInfo, error)
 		// ActionsByAddress returns all actions associated with an address
 		ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// ActionByActionHash returns action by action hash
 		ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
+		// PendingActionByActionHash returns action by action hash
+		PendingActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error)
 		// ActPoolActions returns the all Transaction Identifiers in the actpool
 		ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error)
 		// BlockByHeightRange returns blocks within the height range
@@ -456,6 +459,14 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	if err := core.validateChainID(in.GetCore().GetChainID()); err != nil {
 		return "", err
 	}
+	// reject action if a replay tx is not whitelisted
+	var (
+		g        = core.Genesis()
+		deployer = selp.SrcPubkey().Address()
+	)
+	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && !g.IsDeployerWhitelisted(deployer) {
+		return "", status.Errorf(codes.InvalidArgument, "replay deployer %v not whitelisted", deployer.Hex())
+	}
 
 	// Add to local actpool
 	ctx = protocol.WithRegistry(ctx, core.registry)
@@ -469,7 +480,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		if serErr != nil {
 			l.Error("Data corruption", zap.Error(serErr))
 		} else {
-			l.With(zap.String("txBytes", hex.EncodeToString(txBytes))).Error("Failed to accept action", zap.Error(err))
+			l.With(zap.String("txBytes", hex.EncodeToString(txBytes))).Debug("Failed to accept action", zap.Error(err))
 		}
 		st := status.New(codes.Internal, err.Error())
 		br := &errdetails.BadRequest{
@@ -1087,6 +1098,15 @@ func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelo
 		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
 	return selp, blk.HashBlock(), actIndex.BlockHeight(), index, nil
+}
+
+// ActionByActionHash returns action by action hash
+func (core *coreService) PendingActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
+	selp, err := core.ap.GetActionByHash(h)
+	if err != nil {
+		return action.SealedEnvelope{}, errors.Wrap(ErrNotFound, err.Error())
+	}
+	return selp, nil
 }
 
 // UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address

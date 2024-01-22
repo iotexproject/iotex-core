@@ -143,7 +143,7 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	)
 	defer func(start time.Time) { svr.coreService.Track(ctx, start, method.(string), int64(size), err == nil) }(time.Now())
 
-	log.T(ctx).Info("handleWeb3Req", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
+	log.T(ctx).Debug("handleWeb3Req", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
 	_web3ServerMtc.WithLabelValues(method.(string)).Inc()
 	_web3ServerMtc.WithLabelValues("requests_total").Inc()
 	switch method {
@@ -241,7 +241,7 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = nil, errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
 	}
 	if err != nil {
-		log.Logger("api").Error("web3server",
+		log.Logger("api").Debug("web3server",
 			zap.String("requestParams", fmt.Sprintf("%+v", web3Req)),
 			zap.Error(err))
 	} else {
@@ -458,7 +458,7 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 		pubkey   crypto.PublicKey
 		err      error
 	)
-	if g := cs.Genesis(); g.IsSumatra(cs.TipHeight()) {
+	if g := cs.Genesis(); g.IsToBeEnabled(cs.TipHeight()) {
 		tx, err = action.DecodeEtherTx(dataStr.String())
 		if err != nil {
 			return nil, err
@@ -590,20 +590,27 @@ func (svr *web3Handler) getTransactionByHash(in *gjson.Result) (interface{}, err
 	}
 
 	selp, blkHash, _, _, err := svr.coreService.ActionByActionHash(actHash)
-	if err != nil {
+	if err == nil {
+		receipt, err := svr.coreService.ReceiptByActionHash(actHash)
+		if err == nil {
+			return svr.assembleConfirmedTransaction(blkHash, selp, receipt)
+		}
 		if errors.Cause(err) == ErrNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	receipt, err := svr.coreService.ReceiptByActionHash(actHash)
-	if err != nil {
+	if errors.Cause(err) == ErrNotFound {
+		selp, err = svr.coreService.PendingActionByActionHash(actHash)
+		if err == nil {
+			return svr.assemblePendingTransaction(selp)
+		}
 		if errors.Cause(err) == ErrNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(blkHash, selp, receipt)
+	return nil, err
 }
 
 func (svr *web3Handler) getLogs(filter *filterObject) (interface{}, error) {
@@ -708,7 +715,7 @@ func (svr *web3Handler) getTransactionByBlockHashAndIndex(in *gjson.Result) (int
 	if err != nil {
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(blkHash, blk.Block.Actions[idx], blk.Receipts[idx])
+	return svr.assembleConfirmedTransaction(blkHash, blk.Block.Actions[idx], blk.Receipts[idx])
 }
 
 func (svr *web3Handler) getTransactionByBlockNumberAndIndex(in *gjson.Result) (interface{}, error) {
@@ -731,7 +738,7 @@ func (svr *web3Handler) getTransactionByBlockNumberAndIndex(in *gjson.Result) (i
 	if err != nil {
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(blk.Block.HashBlock(), blk.Block.Actions[idx], blk.Receipts[idx])
+	return svr.assembleConfirmedTransaction(blk.Block.HashBlock(), blk.Block.Actions[idx], blk.Receipts[idx])
 }
 
 func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {

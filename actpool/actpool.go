@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -40,6 +41,8 @@ var (
 		Name: "iotex_actpool_rejection_metrics",
 		Help: "actpool metrics.",
 	}, []string{"type"})
+	// ErrGasTooHigh error when the intrinsic gas of an action is too high
+	ErrGasTooHigh = errors.New("action gas is too high")
 )
 
 func init() {
@@ -231,18 +234,21 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 		return err
 	}
 
-	// Reject action if pool space is full
-	if uint64(ap.allActions.Count()) >= ap.cfg.MaxNumActsPerPool {
-		_actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
-		return action.ErrTxPoolOverflow
+	intrinsicGas, err := act.IntrinsicGas()
+	if err != nil {
+		return err
 	}
-
-	if intrinsicGas, _ := act.IntrinsicGas(); atomic.LoadUint64(&ap.gasInPool)+intrinsicGas > ap.cfg.MaxGasLimitPerPool {
+	if intrinsicGas > ap.cfg.MaxGasLimitPerPool {
 		_actpoolMtc.WithLabelValues("overMaxGasLimitPerPool").Inc()
-		return action.ErrGasLimit
+		return ErrGasTooHigh
 	}
 
-	return ap.enqueue(ctx, act)
+	return ap.enqueue(
+		ctx,
+		act,
+		atomic.LoadUint64(&ap.gasInPool) > ap.cfg.MaxGasLimitPerPool-intrinsicGas ||
+			uint64(ap.allActions.Count()) >= ap.cfg.MaxNumActsPerPool,
+	)
 }
 
 func checkSelpData(act *action.SealedEnvelope) error {
@@ -277,10 +283,10 @@ func (ap *actPool) checkSelpWithoutState(ctx context.Context, selp *action.Seale
 	}
 
 	// Reject action if the gas price is lower than the threshold
-	if selp.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
+	if selp.Encoding() != uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && selp.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
 		_actpoolMtc.WithLabelValues("gasPriceLower").Inc()
 		actHash, _ := selp.Hash()
-		log.L().Info("action rejected due to low gas price",
+		log.L().Debug("action rejected due to low gas price",
 			zap.String("actionHash", hex.EncodeToString(actHash[:])),
 			zap.String("gasPrice", selp.GasPrice().String()))
 		return action.ErrUnderpriced
@@ -306,15 +312,18 @@ func (ap *actPool) GetPendingNonce(addrStr string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if queue := ap.worker[ap.allocatedWorker(addr)].GetQueue(addr); queue != nil {
-		return queue.PendingNonce(), nil
+	if pendingNonce, ok := ap.worker[ap.allocatedWorker(addr)].PendingNonce(addr); ok {
+		return pendingNonce, nil
 	}
 	ctx := ap.context(context.Background())
 	confirmedState, err := accountutil.AccountState(ctx, ap.sf, addr)
 	if err != nil {
 		return 0, err
 	}
-	return confirmedState.PendingNonce(), err
+	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+		return confirmedState.PendingNonceConsideringFreshAccount(), nil
+	}
+	return confirmedState.PendingNonce(), nil
 }
 
 // GetUnconfirmedActs returns unconfirmed actions in pool given an account address
@@ -325,8 +334,8 @@ func (ap *actPool) GetUnconfirmedActs(addrStr string) []action.SealedEnvelope {
 	}
 
 	var ret []action.SealedEnvelope
-	if queue := ap.worker[ap.allocatedWorker(addr)].GetQueue(addr); queue != nil {
-		ret = append(ret, queue.AllActs()...)
+	if actions, ok := ap.worker[ap.allocatedWorker(addr)].AllActions(addr); ok {
+		ret = append(ret, actions...)
 	}
 	ret = append(ret, ap.accountDesActs.actionsByDestination(addrStr)...)
 	return ret
@@ -419,12 +428,21 @@ func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 }
 
 func (ap *actPool) context(ctx context.Context) context.Context {
-	return genesis.WithGenesisContext(ctx, ap.g)
+	height, _ := ap.sf.Height()
+	return protocol.WithFeatureCtx(protocol.WithBlockCtx(
+		genesis.WithGenesisContext(ctx, ap.g), protocol.BlockCtx{
+			BlockHeight: height + 1,
+		}))
 }
 
-func (ap *actPool) enqueue(ctx context.Context, act action.SealedEnvelope) error {
+func (ap *actPool) enqueue(ctx context.Context, act action.SealedEnvelope, replace bool) error {
 	var errChan = make(chan error) // unused errChan will be garbage-collected
-	ap.jobQueue[ap.allocatedWorker(act.SenderAddress())] <- workerJob{ctx, act, errChan}
+	ap.jobQueue[ap.allocatedWorker(act.SenderAddress())] <- workerJob{
+		ctx,
+		act,
+		replace,
+		errChan,
+	}
 
 	for {
 		select {

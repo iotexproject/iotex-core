@@ -50,7 +50,7 @@ type (
 	}
 
 	getTransactionResult struct {
-		blockHash hash.Hash256
+		blockHash *hash.Hash256
 		to        *string
 		ethTx     *types.Transaction
 		receipt   *action.Receipt
@@ -213,19 +213,40 @@ func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 }
 
 func (obj *getTransactionResult) MarshalJSON() ([]byte, error) {
-	if obj.receipt == nil || obj.pubkey == nil || obj.ethTx == nil {
+	if obj.pubkey == nil || obj.ethTx == nil {
 		return nil, errInvalidObject
 	}
-	value, _ := intStrToHex(obj.ethTx.Value().String())
-	gasPrice, _ := intStrToHex(obj.ethTx.GasPrice().String())
-	v, r, s := obj.ethTx.RawSignatureValues()
+	var (
+		value, _    = intStrToHex(obj.ethTx.Value().String())
+		gasPrice, _ = intStrToHex(obj.ethTx.GasPrice().String())
+		v, r, s     = obj.ethTx.RawSignatureValues()
+		txHash      = obj.ethTx.Hash().Bytes()
+		blkNum      *string
+		txIndex     *string
+		blkHash     *string
+	)
 
+	if obj.receipt != nil {
+		txHash = obj.receipt.ActionHash[:]
+	}
+	if obj.receipt != nil {
+		tmp := uint64ToHex(obj.receipt.BlockHeight)
+		blkNum = &tmp
+	}
+	if obj.receipt != nil {
+		tmp := uint64ToHex(uint64(obj.receipt.TxIndex))
+		txIndex = &tmp
+	}
+	if obj.blockHash != nil {
+		tmp := "0x" + hex.EncodeToString(obj.blockHash[:])
+		blkHash = &tmp
+	}
 	return json.Marshal(&struct {
 		Hash             string  `json:"hash"`
 		Nonce            string  `json:"nonce"`
-		BlockHash        string  `json:"blockHash"`
-		BlockNumber      string  `json:"blockNumber"`
-		TransactionIndex string  `json:"transactionIndex"`
+		BlockHash        *string `json:"blockHash"`
+		BlockNumber      *string `json:"blockNumber"`
+		TransactionIndex *string `json:"transactionIndex"`
 		From             string  `json:"from"`
 		To               *string `json:"to"`
 		Value            string  `json:"value"`
@@ -236,11 +257,11 @@ func (obj *getTransactionResult) MarshalJSON() ([]byte, error) {
 		S                string  `json:"s"`
 		V                string  `json:"v"`
 	}{
-		Hash:             "0x" + hex.EncodeToString(obj.receipt.ActionHash[:]),
+		Hash:             "0x" + hex.EncodeToString(txHash),
 		Nonce:            uint64ToHex(obj.ethTx.Nonce()),
-		BlockHash:        "0x" + hex.EncodeToString(obj.blockHash[:]),
-		BlockNumber:      uint64ToHex(obj.receipt.BlockHeight),
-		TransactionIndex: uint64ToHex(uint64(obj.receipt.TxIndex)),
+		BlockHash:        blkHash,
+		BlockNumber:      blkNum,
+		TransactionIndex: txIndex,
 		From:             obj.pubkey.Address().Hex(),
 		To:               obj.to,
 		Value:            value,
