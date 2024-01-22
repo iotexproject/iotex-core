@@ -119,10 +119,10 @@ func (*GrantReward) Cost() (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (gr *GrantReward) encodeABIBinary() ([]byte, error) {
+func (g *GrantReward) encodeABIBinary() ([]byte, error) {
 	data, err := _grantRewardMethod.Inputs.Pack(
-		int8(gr.rewardType),
-		gr.height,
+		int8(g.rewardType),
+		g.height,
 	)
 	if err != nil {
 		return nil, err
