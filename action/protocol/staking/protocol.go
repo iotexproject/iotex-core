@@ -498,10 +498,6 @@ func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidateStateRead
 	if address.Equal(vb.Owner, cand.Owner) {
 		return true, nil
 	}
-	// bucket is not endorsed to the candidate
-	if !address.Equal(vb.Candidate, cand.Owner) {
-		return false, nil
-	}
 	esr := NewEndorsementStateReader(csr.SR())
 	endorse, err := esr.Get(cand.SelfStakeBucketIdx)
 	switch {
@@ -517,6 +513,7 @@ func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidateStateRead
 		return false, err
 	default:
 		// endorsement does not exist
+		return false, errors.New("endorsement does not exist")
 	}
 	return true, nil
 }
