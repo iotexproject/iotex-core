@@ -115,6 +115,7 @@ type (
 		FixContractStakingWeightedVotes         bool
 		SharedGasWithDapp                       bool
 		ExecutionSizeLimit32KB                  bool
+		UseZeroNonceForFreshAccount             bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -255,6 +256,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixContractStakingWeightedVotes:         g.IsRedsea(height),
 			SharedGasWithDapp:                       g.IsToBeEnabled(height),
 			ExecutionSizeLimit32KB:                  !g.IsToBeEnabled(height),
+			UseZeroNonceForFreshAccount:             g.IsToBeEnabled(height),
 		},
 	)
 }

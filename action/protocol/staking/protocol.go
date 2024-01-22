@@ -51,6 +51,7 @@ const (
 	_bucket
 	_voterIndex
 	_candIndex
+	_endorsement
 )
 
 // Errors
@@ -417,6 +418,8 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		rLog, tLogs, err = p.handleCandidateRegister(ctx, act, csm)
 	case *action.CandidateUpdate:
 		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
+	case *action.CandidateActivate:
+		rLog, tLogs, err = p.handleCandidateActivate(ctx, act, csm)
 	default:
 		return nil, nil
 	}
