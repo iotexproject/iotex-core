@@ -9,8 +9,8 @@ coverage:
       default:
         enabled: yes
         target: auto
-        base: auto
-        threshold: 0%
+#        base: auto
+#        threshold: 0%
 ignore:
   - "action/protocol/rewarding/rewardingpb"
   - "action/protocol/account/accountpb"
