@@ -33,7 +33,7 @@ func testEqual(m *CandidateCenter, l CandidateList) bool {
 		}
 
 		d = m.GetBySelfStakingIndex(v.SelfStakeBucketIdx)
-		if d == nil && v.selfStaked() {
+		if d == nil && v.isSelfStakeBucketSettled() {
 			return false
 		}
 		if d != nil && !v.Equal(d) {

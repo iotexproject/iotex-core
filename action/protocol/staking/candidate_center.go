@@ -369,7 +369,7 @@ func (cc *candChange) containsOperator(operator address.Address) bool {
 
 func (cc *candChange) containsSelfStakingBucket(index uint64) bool {
 	for _, d := range cc.dirty {
-		if d.selfStaked() && index == d.SelfStakeBucketIdx {
+		if d.isSelfStakeBucketSettled() && index == d.SelfStakeBucketIdx {
 			return true
 		}
 	}
@@ -398,7 +398,7 @@ func (cc *candChange) getByOwner(owner address.Address) *Candidate {
 
 func (cc *candChange) getBySelfStakingIndex(index uint64) *Candidate {
 	for _, d := range cc.dirty {
-		if d.selfStaked() && index == d.SelfStakeBucketIdx {
+		if d.isSelfStakeBucketSettled() && index == d.SelfStakeBucketIdx {
 			return d.Clone()
 		}
 	}
@@ -484,7 +484,7 @@ func (cb *candBase) commit(change *candChange, keepAliasBug bool) (int, error) {
 			cb.ownerMap[d.Owner.String()] = d
 			cb.nameMap[d.Name] = d
 			cb.operatorMap[d.Operator.String()] = d
-			if d.selfStaked() {
+			if d.isSelfStakeBucketSettled() {
 				cb.selfStkBucketMap[d.SelfStakeBucketIdx] = d
 			}
 		}
