@@ -23,7 +23,7 @@ var (
 func SignedTransfer(recipientAddr string, senderPriKey crypto.PrivateKey, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int) (*SealedEnvelope, error) {
 	transfer, err := NewTransfer(nonce, amount, recipientAddr, payload, gasLimit, gasPrice)
 	if err != nil {
-		return &SealedEnvelope{}, err
+		return nil, err
 	}
 	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
@@ -32,7 +32,7 @@ func SignedTransfer(recipientAddr string, senderPriKey crypto.PrivateKey, nonce 
 		SetAction(transfer).Build()
 	selp, err := Sign(elp, senderPriKey)
 	if err != nil {
-		return &SealedEnvelope{}, errors.Wrapf(err, "failed to sign transfer %v", elp)
+		return nil, errors.Wrapf(err, "failed to sign transfer %v", elp)
 	}
 	return selp, nil
 }
@@ -41,7 +41,7 @@ func SignedTransfer(recipientAddr string, senderPriKey crypto.PrivateKey, nonce 
 func SignedExecution(contractAddr string, executorPriKey crypto.PrivateKey, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (*SealedEnvelope, error) {
 	execution, err := NewExecution(contractAddr, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
-		return &SealedEnvelope{}, err
+		return nil, err
 	}
 	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
@@ -50,7 +50,7 @@ func SignedExecution(contractAddr string, executorPriKey crypto.PrivateKey, nonc
 		SetAction(execution).Build()
 	selp, err := Sign(elp, executorPriKey)
 	if err != nil {
-		return &SealedEnvelope{}, errors.Wrapf(err, "failed to sign execution %v", elp)
+		return nil, errors.Wrapf(err, "failed to sign execution %v", elp)
 	}
 	return selp, nil
 }
@@ -69,7 +69,7 @@ func SignedCandidateRegister(
 	cr, err := NewCandidateRegister(nonce, name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr,
 		duration, autoStake, payload, gasLimit, gasPrice)
 	if err != nil {
-		return &SealedEnvelope{}, err
+		return nil, err
 	}
 	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
@@ -78,7 +78,7 @@ func SignedCandidateRegister(
 		SetAction(cr).Build()
 	selp, err := Sign(elp, registererPriKey)
 	if err != nil {
-		return &SealedEnvelope{}, errors.Wrapf(err, "failed to sign candidate register %v", elp)
+		return nil, errors.Wrapf(err, "failed to sign candidate register %v", elp)
 	}
 	return selp, nil
 }
@@ -93,7 +93,7 @@ func SignedCandidateUpdate(
 ) (*SealedEnvelope, error) {
 	cu, err := NewCandidateUpdate(nonce, name, operatorAddrStr, rewardAddrStr, gasLimit, gasPrice)
 	if err != nil {
-		return &SealedEnvelope{}, err
+		return nil, err
 	}
 	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
@@ -102,7 +102,7 @@ func SignedCandidateUpdate(
 		SetAction(cu).Build()
 	selp, err := Sign(elp, registererPriKey)
 	if err != nil {
-		return &SealedEnvelope{}, errors.Wrapf(err, "failed to sign candidate update %v", elp)
+		return nil, errors.Wrapf(err, "failed to sign candidate update %v", elp)
 	}
 	return selp, nil
 }
@@ -120,7 +120,7 @@ func SignedCreateStake(nonce uint64,
 	cs, err := NewCreateStake(nonce, candidateName, amount, duration, autoStake,
 		payload, gasLimit, gasPrice)
 	if err != nil {
-		return &SealedEnvelope{}, err
+		return nil, err
 	}
 	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
@@ -129,7 +129,7 @@ func SignedCreateStake(nonce uint64,
 		SetAction(cs).Build()
 	selp, err := Sign(elp, stakerPriKey)
 	if err != nil {
-		return &SealedEnvelope{}, errors.Wrapf(err, "failed to sign create stake %v", elp)
+		return nil, errors.Wrapf(err, "failed to sign create stake %v", elp)
 	}
 	return selp, nil
 }
@@ -153,19 +153,19 @@ func SignedReclaimStake(
 	if !withdraw {
 		us, err := NewUnstake(nonce, bucketIndex, payload, gasLimit, gasPrice)
 		if err != nil {
-			return &SealedEnvelope{}, err
+			return nil, err
 		}
 		elp = eb.SetAction(us).Build()
 	} else {
 		w, err := NewWithdrawStake(nonce, bucketIndex, payload, gasLimit, gasPrice)
 		if err != nil {
-			return &SealedEnvelope{}, err
+			return nil, err
 		}
 		elp = eb.SetAction(w).Build()
 	}
 	selp, err := Sign(elp, reclaimerPriKey)
 	if err != nil {
-		return &SealedEnvelope{}, errors.Wrapf(err, "failed to sign reclaim stake %v", elp)
+		return nil, errors.Wrapf(err, "failed to sign reclaim stake %v", elp)
 	}
 	return selp, nil
 }
@@ -182,7 +182,7 @@ func SignedChangeCandidate(
 ) (*SealedEnvelope, error) {
 	cc, err := NewChangeCandidate(nonce, candName, bucketIndex, payload, gasLimit, gasPrice)
 	if err != nil {
-		return &SealedEnvelope{}, err
+		return nil, err
 	}
 	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
@@ -191,7 +191,7 @@ func SignedChangeCandidate(
 		SetAction(cc).Build()
 	selp, err := Sign(elp, stakerPriKey)
 	if err != nil {
-		return &SealedEnvelope{}, errors.Wrapf(err, "failed to sign change candidate %v", elp)
+		return nil, errors.Wrapf(err, "failed to sign change candidate %v", elp)
 	}
 	return selp, nil
 }
@@ -208,7 +208,7 @@ func SignedTransferStake(
 ) (*SealedEnvelope, error) {
 	ts, err := NewTransferStake(nonce, voterAddress, bucketIndex, payload, gasLimit, gasPrice)
 	if err != nil {
-		return &SealedEnvelope{}, err
+		return nil, err
 	}
 	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
@@ -217,7 +217,7 @@ func SignedTransferStake(
 		SetAction(ts).Build()
 	selp, err := Sign(elp, stakerPriKey)
 	if err != nil {
-		return &SealedEnvelope{}, errors.Wrapf(err, "failed to sign transfer stake %v", elp)
+		return nil, errors.Wrapf(err, "failed to sign transfer stake %v", elp)
 	}
 	return selp, nil
 }
@@ -234,7 +234,7 @@ func SignedDepositToStake(
 ) (*SealedEnvelope, error) {
 	ds, err := NewDepositToStake(nonce, index, amount, payload, gasLimit, gasPrice)
 	if err != nil {
-		return &SealedEnvelope{}, err
+		return nil, err
 	}
 	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
@@ -243,7 +243,7 @@ func SignedDepositToStake(
 		SetAction(ds).Build()
 	selp, err := Sign(elp, depositorPriKey)
 	if err != nil {
-		return &SealedEnvelope{}, errors.Wrapf(err, "failed to sign deposit to stake %v", elp)
+		return nil, errors.Wrapf(err, "failed to sign deposit to stake %v", elp)
 	}
 	return selp, nil
 }
@@ -261,7 +261,7 @@ func SignedRestake(
 ) (*SealedEnvelope, error) {
 	rs, err := NewRestake(nonce, index, duration, autoStake, payload, gasLimit, gasPrice)
 	if err != nil {
-		return &SealedEnvelope{}, err
+		return nil, err
 	}
 	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
@@ -270,7 +270,7 @@ func SignedRestake(
 		SetAction(rs).Build()
 	selp, err := Sign(elp, restakerPriKey)
 	if err != nil {
-		return &SealedEnvelope{}, errors.Wrapf(err, "failed to sign restake %v", elp)
+		return nil, errors.Wrapf(err, "failed to sign restake %v", elp)
 	}
 	return selp, nil
 }
