@@ -39,7 +39,7 @@ func (m *MockActPool) EXPECT() *MockActPoolMockRecorder {
 }
 
 // Add mocks base method.
-func (m *MockActPool) Add(ctx context.Context, act action.SealedEnvelope) error {
+func (m *MockActPool) Add(ctx context.Context, act *action.SealedEnvelope) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Add", ctx, act)
 	ret0, _ := ret[0].(error)
@@ -81,10 +81,10 @@ func (mr *MockActPoolMockRecorder) DeleteAction(arg0 interface{}) *gomock.Call {
 }
 
 // GetActionByHash mocks base method.
-func (m *MockActPool) GetActionByHash(hash hash.Hash256) (action.SealedEnvelope, error) {
+func (m *MockActPool) GetActionByHash(hash hash.Hash256) (*action.SealedEnvelope, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetActionByHash", hash)
-	ret0, _ := ret[0].(action.SealedEnvelope)
+	ret0, _ := ret[0].(*action.SealedEnvelope)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -167,10 +167,10 @@ func (mr *MockActPoolMockRecorder) GetSize() *gomock.Call {
 }
 
 // GetUnconfirmedActs mocks base method.
-func (m *MockActPool) GetUnconfirmedActs(addr string) []action.SealedEnvelope {
+func (m *MockActPool) GetUnconfirmedActs(addr string) []*action.SealedEnvelope {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnconfirmedActs", addr)
-	ret0, _ := ret[0].([]action.SealedEnvelope)
+	ret0, _ := ret[0].([]*action.SealedEnvelope)
 	return ret0
 }
 
@@ -181,10 +181,10 @@ func (mr *MockActPoolMockRecorder) GetUnconfirmedActs(addr interface{}) *gomock.
 }
 
 // PendingActionMap mocks base method.
-func (m *MockActPool) PendingActionMap() map[string][]action.SealedEnvelope {
+func (m *MockActPool) PendingActionMap() map[string][]*action.SealedEnvelope {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PendingActionMap")
-	ret0, _ := ret[0].(map[string][]action.SealedEnvelope)
+	ret0, _ := ret[0].(map[string][]*action.SealedEnvelope)
 	return ret0
 }
 
@@ -221,7 +221,7 @@ func (mr *MockActPoolMockRecorder) Reset() *gomock.Call {
 }
 
 // Validate mocks base method.
-func (m *MockActPool) Validate(arg0 context.Context, arg1 action.SealedEnvelope) error {
+func (m *MockActPool) Validate(arg0 context.Context, arg1 *action.SealedEnvelope) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
 	ret0, _ := ret[0].(error)

@@ -102,7 +102,7 @@ func TestNativeStaking(t *testing.T) {
 		cand2PriKey := identityset.PrivateKey(1)
 
 		fixedTime := time.Unix(cfg.Genesis.Timestamp, 0)
-		addOneTx := func(tx action.SealedEnvelope, err error) (action.SealedEnvelope, error) {
+		addOneTx := func(tx *action.SealedEnvelope, err error) (*action.SealedEnvelope, error) {
 			if err != nil {
 				return tx, err
 			}
@@ -299,7 +299,7 @@ func TestNativeStaking(t *testing.T) {
 		require.Equal(hash.BytesToHash256(cand1Addr.Bytes()), logs[0].Topics[2])
 
 		unstakeTime := fixedTime.Add(time.Duration(1) * 24 * time.Hour)
-		addOneTx = func(tx action.SealedEnvelope, err error) (action.SealedEnvelope, error) {
+		addOneTx = func(tx *action.SealedEnvelope, err error) (*action.SealedEnvelope, error) {
 			if err != nil {
 				return tx, err
 			}
@@ -463,7 +463,7 @@ func checkCandidateState(
 func checkAccountState(
 	cfg config.Config,
 	sr protocol.StateReader,
-	act action.SealedEnvelope,
+	act *action.SealedEnvelope,
 	registrationFee bool,
 	expectedBalance *big.Int,
 	accountAddr address.Address,

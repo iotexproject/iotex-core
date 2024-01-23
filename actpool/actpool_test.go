@@ -299,7 +299,7 @@ func TestActPool_PickActs(t *testing.T) {
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
-	createActPool := func(cfg Config) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
+	createActPool := func(cfg Config) (*actPool, []*action.SealedEnvelope, []*action.SealedEnvelope, []*action.SealedEnvelope) {
 		// Create actpool
 		Ap, err := NewActPool(genesis.Default, sf, cfg)
 		require.NoError(err)
@@ -355,7 +355,7 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(ap.Add(ctx, tsf9))
 		require.NoError(ap.Add(ctx, tsf10))
 
-		return ap, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}, []action.SealedEnvelope{}, []action.SealedEnvelope{}
+		return ap, []*action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}, []*action.SealedEnvelope{}, []*action.SealedEnvelope{}
 	}
 
 	t.Run("no-expiry", func(t *testing.T) {
@@ -825,7 +825,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require.NoError(err)
 	hash2, err := tsf4.Hash()
 	require.NoError(err)
-	acts := []action.SealedEnvelope{tsf1, tsf4}
+	acts := []*action.SealedEnvelope{tsf1, tsf4}
 	_, exist1 := ap.allActions.Get(hash1)
 	require.True(exist1)
 	_, exist2 := ap.allActions.Get(hash2)
@@ -921,10 +921,10 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.NoError(ap.Add(ctx, tsf5))
 
 	acts := ap.GetUnconfirmedActs(_addr3)
-	require.Equal([]action.SealedEnvelope(nil), acts)
+	require.Equal([]*action.SealedEnvelope(nil), acts)
 
 	acts = ap.GetUnconfirmedActs(_addr1)
-	validated := []action.SealedEnvelope{tsf1, tsf3, tsf4, tsf5}
+	validated := []*action.SealedEnvelope{tsf1, tsf3, tsf4, tsf5}
 	require.Equal(len(acts), len(validated))
 	for i := 0; i < len(acts); i++ {
 		hashVal1, hashErr1 := validated[i].Hash()
@@ -962,7 +962,7 @@ func TestActPool_GetActionByHash(t *testing.T) {
 	require.Equal(tsf1, act)
 	act, err = ap.GetActionByHash(hash2)
 	require.Equal(action.ErrNotFound, errors.Cause(err))
-	require.Equal(action.SealedEnvelope{}, act)
+	require.Nil(act)
 
 	ap.allActions.Set(hash2, tsf2)
 	act, err = ap.GetActionByHash(hash2)
@@ -1118,7 +1118,7 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 	require.Equal(uint64(2), pNonce3)
 
 	ai := actioniterator.NewActionIterator(ap.PendingActionMap())
-	appliedActionList := make([]action.SealedEnvelope, 0)
+	appliedActionList := make([]*action.SealedEnvelope, 0)
 	for {
 		bestAction, ok := ai.Next()
 		if !ok {
@@ -1127,7 +1127,7 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 		appliedActionList = append(appliedActionList, bestAction)
 	}
 	// tsf1 is replaced by tsf3 with higher gas price
-	validated := []action.SealedEnvelope{tsf3, tsf2}
+	validated := []*action.SealedEnvelope{tsf3, tsf2}
 	require.Equal(len(appliedActionList), len(validated))
 	for i := 0; i < len(appliedActionList); i++ {
 		hashVal1, hashErr1 := validated[i].Hash()
@@ -1165,7 +1165,7 @@ func getActPoolCfg() Config {
 	}
 }
 
-func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
+func lenPendingActionMap(acts map[string][]*action.SealedEnvelope) int {
 	l := 0
 	for _, part := range acts {
 		l += len(part)

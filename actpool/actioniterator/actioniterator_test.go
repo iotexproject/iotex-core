@@ -26,7 +26,7 @@ func TestActionIterator(t *testing.T) {
 	priKeyB := identityset.PrivateKey(29)
 	c := identityset.Address(30)
 	priKeyC := identityset.PrivateKey(30)
-	accMap := make(map[string][]action.SealedEnvelope)
+	accMap := make(map[string][]*action.SealedEnvelope)
 	tsf1, err := action.NewTransfer(uint64(1), big.NewInt(100), b.String(), nil, uint64(0), big.NewInt(13))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
@@ -45,7 +45,7 @@ func TestActionIterator(t *testing.T) {
 	selp2, err := action.Sign(elp, priKeyA)
 	require.NoError(err)
 
-	accMap[a.String()] = []action.SealedEnvelope{selp1, selp2}
+	accMap[a.String()] = []*action.SealedEnvelope{selp1, selp2}
 
 	tsf3, err := action.NewTransfer(uint64(1), big.NewInt(100), c.String(), nil, uint64(0), big.NewInt(15))
 	require.NoError(err)
@@ -74,7 +74,7 @@ func TestActionIterator(t *testing.T) {
 	selp5, err := action.Sign(elp, priKeyB)
 	require.NoError(err)
 
-	accMap[b.String()] = []action.SealedEnvelope{selp3, selp4, selp5}
+	accMap[b.String()] = []*action.SealedEnvelope{selp3, selp4, selp5}
 
 	tsf6, err := action.NewTransfer(uint64(1), big.NewInt(100), "1", nil, uint64(0), big.NewInt(5))
 	require.NoError(err)
@@ -85,10 +85,10 @@ func TestActionIterator(t *testing.T) {
 	selp6, err := action.Sign(elp, priKeyC)
 	require.NoError(err)
 
-	accMap[c.String()] = []action.SealedEnvelope{selp6}
+	accMap[c.String()] = []*action.SealedEnvelope{selp6}
 
 	ai := NewActionIterator(accMap)
-	appliedActionList := make([]action.SealedEnvelope, 0)
+	appliedActionList := make([]*action.SealedEnvelope, 0)
 	for {
 		bestAction, ok := ai.Next()
 		if !ok {
@@ -96,11 +96,11 @@ func TestActionIterator(t *testing.T) {
 		}
 		appliedActionList = append(appliedActionList, bestAction)
 	}
-	require.Equal(appliedActionList, []action.SealedEnvelope{selp3, selp1, selp2, selp4, selp5, selp6})
+	require.Equal(appliedActionList, []*action.SealedEnvelope{selp3, selp1, selp2, selp4, selp5, selp6})
 }
 
 func BenchmarkLooping(b *testing.B) {
-	accMap := make(map[string][]action.SealedEnvelope)
+	accMap := make(map[string][]*action.SealedEnvelope)
 	for i := 0; i < b.N; i++ {
 		priKey, err := crypto.HexStringToPrivateKey(fmt.Sprintf("1%063x", i))
 		require.NoError(b, err)
@@ -114,7 +114,7 @@ func BenchmarkLooping(b *testing.B) {
 			SetAction(tsf).Build()
 		selp, err := action.Sign(elp, priKey)
 		require.NoError(b, err)
-		accMap[addr.String()] = []action.SealedEnvelope{selp}
+		accMap[addr.String()] = []*action.SealedEnvelope{selp}
 	}
 	ai := NewActionIterator(accMap)
 	b.ResetTimer()

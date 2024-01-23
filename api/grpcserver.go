@@ -749,7 +749,7 @@ func generateBlockMeta(blkStore *apitypes.BlockWithReceipts) *iotextypes.BlockMe
 	return &blockMeta
 }
 
-func gasLimitAndUsed(acts []action.SealedEnvelope, receipts []*action.Receipt) (uint64, uint64) {
+func gasLimitAndUsed(acts []*action.SealedEnvelope, receipts []*action.Receipt) (uint64, uint64) {
 	var gasLimit, gasUsed uint64
 	for _, tx := range acts {
 		gasLimit += tx.GasLimit()

@@ -119,11 +119,11 @@ type (
 		// ActionsByAddress returns all actions associated with an address
 		ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// ActionByActionHash returns action by action hash
-		ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
+		ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
 		// PendingActionByActionHash returns action by action hash
-		PendingActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error)
+		PendingActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, error)
 		// ActPoolActions returns the all Transaction Identifiers in the actpool
-		ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error)
+		ActionsInActPool(actHashes []string) ([]*action.SealedEnvelope, error)
 		// BlockByHeightRange returns blocks within the height range
 		BlockByHeightRange(uint64, uint64) ([]*apitypes.BlockWithReceipts, error)
 		// BlockByHeight returns the block and its receipt from block height
@@ -1076,31 +1076,31 @@ func (core *coreService) BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256,
 }
 
 // ActionByActionHash returns action by action hash
-func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
+func (core *coreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
 	if err := core.checkActionIndex(); err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+		return nil, hash.ZeroHash256, 0, 0, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 
 	actIndex, err := core.indexer.GetActionIndex(h[:])
 	if err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
+		return nil, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
 	blk, err := core.dao.GetBlockByHeight(actIndex.BlockHeight())
 	if err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
+		return nil, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
 	selp, index, err := core.dao.GetActionByActionHash(h, actIndex.BlockHeight())
 	if err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
+		return nil, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
 	return selp, blk.HashBlock(), actIndex.BlockHeight(), index, nil
 }
 
 // ActionByActionHash returns action by action hash
-func (core *coreService) PendingActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
+func (core *coreService) PendingActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, error) {
 	selp, err := core.ap.GetActionByHash(h)
 	if err != nil {
-		return action.SealedEnvelope{}, errors.Wrap(ErrNotFound, err.Error())
+		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
 	return selp, nil
 }
@@ -1227,7 +1227,7 @@ func (core *coreService) getGravityChainStartHeight(epochHeight uint64) (uint64,
 	return gravityChainStartHeight, nil
 }
 
-func (core *coreService) committedAction(selp action.SealedEnvelope, blkHash hash.Hash256, blkHeight uint64) (*iotexapi.ActionInfo, error) {
+func (core *coreService) committedAction(selp *action.SealedEnvelope, blkHash hash.Hash256, blkHeight uint64) (*iotexapi.ActionInfo, error) {
 	actHash, err := selp.Hash()
 	if err != nil {
 		return nil, err
@@ -1255,7 +1255,7 @@ func (core *coreService) committedAction(selp action.SealedEnvelope, blkHash has
 	}, nil
 }
 
-func (core *coreService) pendingAction(selp action.SealedEnvelope) (*iotexapi.ActionInfo, error) {
+func (core *coreService) pendingAction(selp *action.SealedEnvelope) (*iotexapi.ActionInfo, error) {
 	actHash, err := selp.Hash()
 	if err != nil {
 		return nil, err
@@ -1612,8 +1612,8 @@ func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*
 }
 
 // ActionsInActPool returns the all Transaction Identifiers in the actpool
-func (core *coreService) ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error) {
-	var ret []action.SealedEnvelope
+func (core *coreService) ActionsInActPool(actHashes []string) ([]*action.SealedEnvelope, error) {
+	var ret []*action.SealedEnvelope
 	if len(actHashes) == 0 {
 		for _, sealeds := range core.ap.PendingActionMap() {
 			ret = append(ret, sealeds...)

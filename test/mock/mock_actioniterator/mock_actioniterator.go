@@ -35,10 +35,10 @@ func (m *MockActionIterator) EXPECT() *MockActionIteratorMockRecorder {
 }
 
 // Next mocks base method.
-func (m *MockActionIterator) Next() (action.SealedEnvelope, bool) {
+func (m *MockActionIterator) Next() (*action.SealedEnvelope, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Next")
-	ret0, _ := ret[0].(action.SealedEnvelope)
+	ret0, _ := ret[0].(*action.SealedEnvelope)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
