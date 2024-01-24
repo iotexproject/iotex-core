@@ -7,7 +7,7 @@
 
 # Go parameters
 GOCMD=go
-GOLINT=golint
+GOVET=$(GOCMD) vet
 GOBUILD=$(GOCMD) build
 GOINSTALL=$(GOCMD) install
 GOCLEAN=$(GOCMD) clean

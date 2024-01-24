@@ -7,7 +7,7 @@
 
 # Go parameters
 GOCMD=go
-GOLINT=golint
+GOVET=$(GOCMD) vet
 GOBUILD=$(GOCMD) build
 GOINSTALL=$(GOCMD) install
 GOCLEAN=$(GOCMD) clean
@@ -113,7 +113,7 @@ fmt:
 
 .PHONY: lint
 lint:
-	go list ./... | xargs $(GOLINT)
+	go list ./... | xargs $(GOVET)
 
 .PHONY: lint-rich
 lint-rich:
