@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -282,7 +283,7 @@ func (ap *actPool) checkSelpWithoutState(ctx context.Context, selp *action.Seale
 	}
 
 	// Reject action if the gas price is lower than the threshold
-	if selp.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
+	if selp.Encoding() != uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && selp.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
 		_actpoolMtc.WithLabelValues("gasPriceLower").Inc()
 		actHash, _ := selp.Hash()
 		log.L().Debug("action rejected due to low gas price",
@@ -319,7 +320,10 @@ func (ap *actPool) GetPendingNonce(addrStr string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return confirmedState.PendingNonce(), err
+	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+		return confirmedState.PendingNonceConsideringFreshAccount(), nil
+	}
+	return confirmedState.PendingNonce(), nil
 }
 
 // GetUnconfirmedActs returns unconfirmed actions in pool given an account address
@@ -424,7 +428,11 @@ func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 }
 
 func (ap *actPool) context(ctx context.Context) context.Context {
-	return genesis.WithGenesisContext(ctx, ap.g)
+	height, _ := ap.sf.Height()
+	return protocol.WithFeatureCtx(protocol.WithBlockCtx(
+		genesis.WithGenesisContext(ctx, ap.g), protocol.BlockCtx{
+			BlockHeight: height + 1,
+		}))
 }
 
 func (ap *actPool) enqueue(ctx context.Context, act action.SealedEnvelope, replace bool) error {

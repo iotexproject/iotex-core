@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/config"
 	"go.uber.org/zap"
@@ -76,7 +77,8 @@ func defaultConfig() Genesis {
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
-			InitBalanceMap: make(map[string]string),
+			InitBalanceMap:          make(map[string]string),
+			ReplayDeployerWhitelist: []string{"0x3fab184622dc19b6109349b94811493bf2a45362"},
 		},
 		Poll: Poll{
 			PollMode:                         "nativeMix",
@@ -254,6 +256,8 @@ type (
 	Account struct {
 		// InitBalanceMap is the address and initial balance mapping before the first block.
 		InitBalanceMap map[string]string `yaml:"initBalances"`
+		// ReplayDeployerWhitelist is the whitelist address for unprotected (pre-EIP155) transaction
+		ReplayDeployerWhitelist []string `yaml:"replayDeployerWhitelist"`
 	}
 	// Poll contains the configs for poll protocol
 	Poll struct {
@@ -592,6 +596,26 @@ func (g *Blockchain) IsSumatra(height uint64) bool {
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
 func (g *Blockchain) IsToBeEnabled(height uint64) bool {
 	return g.isPost(g.ToBeEnabledBlockHeight, height)
+}
+
+// IsDeployerWhitelisted returns if the replay deployer is whitelisted
+func (a *Account) IsDeployerWhitelisted(deployer address.Address) bool {
+	for _, v := range a.ReplayDeployerWhitelist {
+		if v[:3] == "io1" {
+			if addr, err := address.FromString(v); err == nil {
+				if address.Equal(deployer, addr) {
+					return true
+				}
+			}
+		} else if common.IsHexAddress(v) {
+			if addr, err := address.FromHex(v); err == nil {
+				if address.Equal(deployer, addr) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // InitBalances returns the address that have initial balances and the corresponding amounts. The i-th amount is the
