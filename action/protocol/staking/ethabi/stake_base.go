@@ -57,7 +57,7 @@ type (
 	}
 )
 
-func encodeVoteBucketListToEth(outputs abi.Arguments, buckets iotextypes.VoteBucketList) (string, error) {
+func encodeVoteBucketListToEth(outputs abi.Arguments, buckets *iotextypes.VoteBucketList) (string, error) {
 	args := make([]BucketEth, len(buckets.Buckets))
 	for i, bucket := range buckets.Buckets {
 		args[i] = BucketEth{}
@@ -139,7 +139,7 @@ func encodeCandidateToEth(candidate *iotextypes.CandidateV2) (*CandidateEth, err
 	return result, nil
 }
 
-func encodeBucketTypeListToEth(outputs abi.Arguments, bucketTypes iotextypes.ContractStakingBucketTypeList) (string, error) {
+func encodeBucketTypeListToEth(outputs abi.Arguments, bucketTypes *iotextypes.ContractStakingBucketTypeList) (string, error) {
 	args := make([]BucketTypeEth, len(bucketTypes.BucketTypes))
 	for i, bt := range bucketTypes.BucketTypes {
 		args[i] = BucketTypeEth{}

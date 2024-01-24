@@ -60,7 +60,7 @@ func TestEncodeBucketTypeListToEth(t *testing.T) {
 		StakedDuration: 2_000_000,
 	}
 
-	data, err := encodeBucketTypeListToEth(_contractBucketTypesMethod.Outputs, iotextypes.ContractStakingBucketTypeList{
+	data, err := encodeBucketTypeListToEth(_contractBucketTypesMethod.Outputs, &iotextypes.ContractStakingBucketTypeList{
 		BucketTypes: bts,
 	})
 

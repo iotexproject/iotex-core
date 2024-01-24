@@ -45,7 +45,7 @@ func TestLogsInRange(t *testing.T) {
 		to, err := strconv.ParseUint(testData.ToBlock, 10, 64)
 		require.NoError(err)
 
-		logs, hashes, err := svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
+		logs, hashes, err := svr.LogsInRange(logfilter.NewLogFilter(filter), from, to, uint64(0))
 		require.NoError(err)
 		require.Equal(4, len(logs))
 		require.Equal(4, len(hashes))
@@ -59,7 +59,7 @@ func TestLogsInRange(t *testing.T) {
 		to, err := strconv.ParseUint(testData.ToBlock, 10, 64)
 		require.NoError(err)
 
-		logs, hashes, err := svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
+		logs, hashes, err := svr.LogsInRange(logfilter.NewLogFilter(filter), from, to, uint64(0))
 		require.NoError(err)
 		require.Equal(0, len(logs))
 		require.Equal(0, len(hashes))
@@ -73,7 +73,7 @@ func TestLogsInRange(t *testing.T) {
 		to, err := strconv.ParseUint(testData.ToBlock, 10, 64)
 		require.NoError(err)
 
-		logs, hashes, err := svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(5001))
+		logs, hashes, err := svr.LogsInRange(logfilter.NewLogFilter(filter), from, to, uint64(5001))
 		require.NoError(err)
 		require.Equal(4, len(logs))
 		require.Equal(4, len(hashes))
@@ -87,7 +87,7 @@ func TestLogsInRange(t *testing.T) {
 		to, err := strconv.ParseUint(testData.ToBlock, 10, 64)
 		require.NoError(err)
 
-		_, _, err = svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
+		_, _, err = svr.LogsInRange(logfilter.NewLogFilter(filter), from, to, uint64(0))
 		expectedErr := errors.New("invalid start or end height")
 		require.Error(err)
 		require.Equal(expectedErr.Error(), err.Error())
@@ -101,7 +101,7 @@ func TestLogsInRange(t *testing.T) {
 		to, err := strconv.ParseUint(testData.ToBlock, 10, 64)
 		require.NoError(err)
 
-		_, _, err = svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
+		_, _, err = svr.LogsInRange(logfilter.NewLogFilter(filter), from, to, uint64(0))
 		expectedErr := errors.New("start block > tip height")
 		require.Error(err)
 		require.Equal(expectedErr.Error(), err.Error())
@@ -122,19 +122,19 @@ func BenchmarkLogsInRange(b *testing.B) {
 	to, _ := strconv.ParseInt(testData.ToBlock, 10, 64)
 
 	b.Run("five workers to extract logs", func(b *testing.B) {
-		blk.EXPECT().FilterBlocksInRange(logfilter.NewLogFilter(&filter), uint64(from), uint64(to), 0).Return([]uint64{1, 2, 3, 4}, nil).AnyTimes()
+		blk.EXPECT().FilterBlocksInRange(logfilter.NewLogFilter(filter), uint64(from), uint64(to), 0).Return([]uint64{1, 2, 3, 4}, nil).AnyTimes()
 		for i := 0; i < b.N; i++ {
-			svr.LogsInRange(logfilter.NewLogFilter(&filter), uint64(from), uint64(to), uint64(0))
+			svr.LogsInRange(logfilter.NewLogFilter(filter), uint64(from), uint64(to), uint64(0))
 		}
 	})
 }
 
-func getTopicsAddress(addr []string, topics [][]string) (iotexapi.LogsFilter, error) {
+func getTopicsAddress(addr []string, topics [][]string) (*iotexapi.LogsFilter, error) {
 	var filter iotexapi.LogsFilter
 	for _, ethAddr := range addr {
 		ioAddr, err := ethAddrToIoAddr(ethAddr)
 		if err != nil {
-			return iotexapi.LogsFilter{}, err
+			return nil, err
 		}
 		filter.Address = append(filter.Address, ioAddr.String())
 	}
@@ -143,14 +143,14 @@ func getTopicsAddress(addr []string, topics [][]string) (iotexapi.LogsFilter, er
 		for _, str := range tp {
 			b, err := hexToBytes(str)
 			if err != nil {
-				return iotexapi.LogsFilter{}, err
+				return nil, err
 			}
 			topic = append(topic, b)
 		}
 		filter.Topics = append(filter.Topics, &iotexapi.Topics{Topic: topic})
 	}
 
-	return filter, nil
+	return &filter, nil
 }
 
 func setupTestCoreService() (CoreService, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {

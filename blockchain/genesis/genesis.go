@@ -294,7 +294,7 @@ type (
 		// ProbationIntensityRate is a intensity rate of probation range from [0, 100], where 100 is hard-probation
 		ProbationIntensityRate uint32 `yaml:"probationIntensityRate"`
 		// UnproductiveDelegateMaxCacheSize is a max cache size of upd which is stored into state DB (probationEpochPeriod <= UnproductiveDelegateMaxCacheSize)
-		UnproductiveDelegateMaxCacheSize uint64 `yaml:unproductiveDelegateMaxCacheSize`
+		UnproductiveDelegateMaxCacheSize uint64 `yaml:"unproductiveDelegateMaxCacheSize"`
 		// SystemStakingContractAddress is the address of system staking contract
 		SystemStakingContractAddress string `yaml:"systemStakingContractAddress"`
 		// SystemStakingContractHeight is the height of system staking contract
