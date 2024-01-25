@@ -56,8 +56,9 @@ const (
 
 // Errors
 var (
-	ErrWithdrawnBucket = errors.New("the bucket is already withdrawn")
-	TotalBucketKey     = append([]byte{_const}, []byte("totalBucket")...)
+	ErrWithdrawnBucket     = errors.New("the bucket is already withdrawn")
+	ErrEndorsementNotExist = errors.New("the endorsement does not exist")
+	TotalBucketKey         = append([]byte{_const}, []byte("totalBucket")...)
 )
 
 var (
@@ -489,10 +490,7 @@ func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidateStateRead
 	}
 	vb, err := csr.getBucket(cand.SelfStakeBucketIdx)
 	if err != nil {
-		if errors.Is(err, state.ErrStateNotExist) {
-			return false, nil
-		}
-		return false, err
+		return false, errors.Wrapf(err, "failed to get bucket %d", cand.SelfStakeBucketIdx)
 	}
 	// bucket is self-owned
 	if address.Equal(vb.Owner, cand.Owner) {
@@ -513,7 +511,7 @@ func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidateStateRead
 		return false, err
 	default:
 		// endorsement does not exist
-		return false, errors.New("endorsement does not exist")
+		return false, errors.Wrapf(ErrEndorsementNotExist, "bucket index %d", cand.SelfStakeBucketIdx)
 	}
 	return true, nil
 }
