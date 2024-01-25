@@ -664,25 +664,27 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	}
 
 	// register with self-stake
-	bucketIdx := uint64(candidateNoSelfStakeBucketIndex)
-	var bucketLogs []*action.TransactionLog
-	votes := big.NewInt(0)
+	var (
+		bucketIdx = uint64(candidateNoSelfStakeBucketIndex)
+		txLogs    []*action.TransactionLog
+		votes     = big.NewInt(0)
+		err       error
+	)
 	if act.Amount().Sign() > 0 {
 		bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
-		bktIdx, err := csm.putBucketAndIndex(bucket)
+		bucketIdx, err = csm.putBucketAndIndex(bucket)
 		if err != nil {
 			return log, nil, err
 		}
-		bucketIdx = bktIdx
-		bucketLogs = append(bucketLogs, &action.TransactionLog{
+		txLogs = append(txLogs, &action.TransactionLog{
 			Type:      iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE,
 			Sender:    actCtx.Caller.String(),
 			Recipient: address.StakingBucketPoolAddr,
 			Amount:    act.Amount(),
 		})
 		votes = p.calculateVoteWeight(bucket, true)
-		log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), owner.Bytes())
 	}
+	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), owner.Bytes())
 
 	c = &Candidate{
 		Owner:              owner,
@@ -732,7 +734,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	log.AddAddress(actCtx.Caller)
 	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
 
-	txLogs := append(bucketLogs, &action.TransactionLog{
+	txLogs = append(txLogs, &action.TransactionLog{
 		Type:      iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE,
 		Sender:    actCtx.Caller.String(),
 		Recipient: address.RewardingPoolAddr,
