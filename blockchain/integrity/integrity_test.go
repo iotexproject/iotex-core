@@ -966,7 +966,7 @@ func TestConvertCleanAddress(t *testing.T) {
 	cfg.Genesis.PalauBlockHeight = 2
 	cfg.Genesis.QuebecBlockHeight = 2
 	cfg.Genesis.RedseaBlockHeight = 2
-	cfg.Genesis.ToBeEnabledBlockHeight = 2
+	cfg.Genesis.SumatraBlockHeight = 2
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 
 	ctx := context.Background()
