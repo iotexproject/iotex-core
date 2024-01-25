@@ -15,6 +15,9 @@ import (
 
 // testEqual verifies m contains exactly the list
 func testEqual(m *CandidateCenter, l CandidateList) bool {
+	if m.All().Len() != len(l) {
+		return false
+	}
 	for _, v := range l {
 		d := m.GetByOwner(v.Owner)
 		if d == nil {
@@ -431,8 +434,6 @@ func TestFixAlias(t *testing.T) {
 
 func TestMultipleNonStakingCandidate(t *testing.T) {
 	r := require.New(t)
-	candcenter, err := NewCandidateCenter(nil)
-	r.NoError(err)
 
 	candStaked := &Candidate{
 		Owner:              identityset.Address(1),
@@ -461,59 +462,106 @@ func TestMultipleNonStakingCandidate(t *testing.T) {
 		SelfStakeBucketIdx: candidateNoSelfStakeBucketIndex,
 		SelfStake:          big.NewInt(0),
 	}
-	cands := []*Candidate{candStaked, candNonStaked1, candNonStaked2}
-	checkCandidates := func(candcenter *CandidateCenter, cands []*Candidate) {
-		r.True(testEqual(candcenter, CandidateList(cands)))
-	}
-	// add candidates
-	r.NoError(candcenter.Upsert(candStaked))
-	r.NoError(candcenter.Upsert(candNonStaked1))
-	r.NoError(candcenter.Upsert(candNonStaked2))
-	checkCandidates(candcenter, cands)
-	// commit
-	r.NoError(candcenter.Commit())
-	checkCandidates(candcenter, cands)
-	// from state manager
-	dk := protocol.NewDock()
-	view := protocol.View{}
-	r.NoError(view.Write(_protocolID, candcenter))
-	dk.Reset()
-	candcenter = candCenterFromNewCandidateStateManager(r, view, dk)
-	checkCandidates(candcenter, cands)
-}
-
-func TestUpdateSelfStakeBucket(t *testing.T) {
-	r := require.New(t)
-	candcenter, err := NewCandidateCenter(nil)
-	r.NoError(err)
-
-	cand := &Candidate{
+	candNonStaked1ColOwner := &Candidate{
 		Owner:              identityset.Address(2),
+		Operator:           identityset.Address(22),
+		Reward:             identityset.Address(3),
+		Name:               "non-self-staked1-col-owner",
+		Votes:              big.NewInt(0),
+		SelfStakeBucketIdx: candidateNoSelfStakeBucketIndex,
+		SelfStake:          big.NewInt(0),
+	}
+	candNonStaked1ColOpt := &Candidate{
+		Owner:              identityset.Address(20),
 		Operator:           identityset.Address(12),
+		Reward:             identityset.Address(3),
+		Name:               "non-self-staked1-col-opt",
+		Votes:              big.NewInt(0),
+		SelfStakeBucketIdx: candidateNoSelfStakeBucketIndex,
+		SelfStake:          big.NewInt(0),
+	}
+	candNonStaked1ColName := &Candidate{
+		Owner:              identityset.Address(21),
+		Operator:           identityset.Address(23),
 		Reward:             identityset.Address(3),
 		Name:               "non-self-staked1",
 		Votes:              big.NewInt(0),
 		SelfStakeBucketIdx: candidateNoSelfStakeBucketIndex,
 		SelfStake:          big.NewInt(0),
 	}
+	candStakedColBucket := &Candidate{
+		Owner:              identityset.Address(4),
+		Operator:           identityset.Address(14),
+		Reward:             identityset.Address(3),
+		Name:               "self-staked-col-bucket",
+		Votes:              unit.ConvertIotxToRau(1200000),
+		SelfStakeBucketIdx: 1,
+		SelfStake:          unit.ConvertIotxToRau(1200000),
+	}
+
 	checkCandidates := func(candcenter *CandidateCenter, cands []*Candidate) {
 		r.True(testEqual(candcenter, CandidateList(cands)))
+		// commit
+		r.NoError(candcenter.Commit())
+		r.True(testEqual(candcenter, CandidateList(cands)))
+		// from state manager
+		dk := protocol.NewDock()
+		view := protocol.View{}
+		r.NoError(view.Write(_protocolID, candcenter))
+		dk.Reset()
+		candcenter = candCenterFromNewCandidateStateManager(r, view, dk)
+		r.True(testEqual(candcenter, CandidateList(cands)))
 	}
-	// add candidates
-	r.NoError(candcenter.Upsert(cand))
-	checkCandidates(candcenter, []*Candidate{cand})
-	// self stake candidate
-	candStaked := cand.Clone()
-	candStaked.SelfStakeBucketIdx = 1
-	candStaked.SelfStake = unit.ConvertIotxToRau(1200000)
-	r.NoError(candcenter.Upsert(candStaked))
-	checkCandidates(candcenter, []*Candidate{candStaked})
-	// change self stake bucket index
-	candUpdated := candStaked.Clone()
-	candUpdated.SelfStakeBucketIdx = 2
-	r.NoError(candcenter.Upsert(candUpdated))
-	checkCandidates(candcenter, []*Candidate{candUpdated})
-	r.False(candcenter.ContainsSelfStakingBucket(candStaked.SelfStakeBucketIdx))
+	t.Run("nonstaked candidate not collision on bucket", func(t *testing.T) {
+		candcenter, err := NewCandidateCenter(nil)
+		r.NoError(err)
+		r.NoError(candcenter.Upsert(candNonStaked1))
+		r.NoError(candcenter.Upsert(candNonStaked2))
+		checkCandidates(candcenter, []*Candidate{candNonStaked1, candNonStaked2})
+	})
+	t.Run("staked candidate collision on bucket", func(t *testing.T) {
+		candcenter, err := NewCandidateCenter(nil)
+		r.NoError(err)
+		r.NoError(candcenter.Upsert(candStaked))
+		r.ErrorIs(candcenter.Upsert(candStakedColBucket), ErrInvalidSelfStkIndex)
+		checkCandidates(candcenter, []*Candidate{candStaked})
+	})
+	t.Run("nonstaked candidate collision on operator", func(t *testing.T) {
+		candcenter, err := NewCandidateCenter(nil)
+		r.NoError(err)
+		r.NoError(candcenter.Upsert(candNonStaked1))
+		r.ErrorIs(candcenter.Upsert(candNonStaked1ColOpt), ErrInvalidOperator)
+		checkCandidates(candcenter, []*Candidate{candNonStaked1})
+	})
+	t.Run("nonstaked candidate collision on name", func(t *testing.T) {
+		candcenter, err := NewCandidateCenter(nil)
+		r.NoError(err)
+		r.NoError(candcenter.Upsert(candNonStaked1))
+		r.ErrorIs(candcenter.Upsert(candNonStaked1ColName), action.ErrInvalidCanName)
+		checkCandidates(candcenter, []*Candidate{candNonStaked1})
+	})
+	t.Run("nonstaked candidate update on owner", func(t *testing.T) {
+		candcenter, err := NewCandidateCenter(nil)
+		r.NoError(err)
+		r.NoError(candcenter.Upsert(candNonStaked1))
+		r.NoError(candcenter.Upsert(candNonStaked1ColOwner))
+		checkCandidates(candcenter, []*Candidate{candNonStaked1ColOwner})
+	})
+	t.Run("change bucket", func(t *testing.T) {
+		candcenter, err := NewCandidateCenter(nil)
+		r.NoError(err)
+		r.NoError(candcenter.Upsert(candNonStaked1))
+		// settle self-stake bucket
+		candStaked := candNonStaked1.Clone()
+		candStaked.SelfStakeBucketIdx = 1
+		candStaked.SelfStake = unit.ConvertIotxToRau(1200000)
+		r.NoError(candcenter.Upsert(candStaked))
+		// change self-stake bucket
+		candUpdated := candStaked.Clone()
+		candUpdated.SelfStakeBucketIdx = 2
+		r.NoError(candcenter.Upsert(candUpdated))
+		checkCandidates(candcenter, []*Candidate{candUpdated})
+	})
 }
 
 func candCenterFromNewCandidateStateManager(r *require.Assertions, view protocol.View, dk protocol.Dock) *CandidateCenter {
