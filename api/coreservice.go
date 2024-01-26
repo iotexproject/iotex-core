@@ -458,7 +458,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	// reject action if a replay tx is not whitelisted
 	var (
 		g        = core.Genesis()
-		deployer = selp.SrcPubkey().Address()
+		deployer = selp.SenderAddress()
 	)
 	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && !g.IsDeployerWhitelisted(deployer) {
 		return "", status.Errorf(codes.InvalidArgument, "replay deployer %v not whitelisted", deployer.Hex())
