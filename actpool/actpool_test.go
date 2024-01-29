@@ -1178,3 +1178,36 @@ func TestValidateMinGasPrice(t *testing.T) {
 	mgp := ap.MinGasPrice()
 	require.IsType(t, &big.Int{}, mgp)
 }
+
+func doSomethingWithValue(s action.SealedEnvelope) uint32 {
+	return s.ChainID()
+}
+
+func doSomethingWithPointer(s *action.SealedEnvelope) uint32 {
+	return s.ChainID()
+}
+
+func BenchmarkPassSealedEnvelope(b *testing.B) {
+	s, _ := action.SignedTransfer(_addr1, _priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+
+	var valueTime, pointerTime int
+
+	b.Run("PassByValue", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			doSomethingWithValue(*s)
+		}
+		valueTime = b.N
+	})
+
+	b.Run("PassByPointer", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			doSomethingWithPointer(s)
+		}
+		pointerTime = b.N
+	})
+
+	percentFaster := float64(pointerTime-valueTime) / float64(pointerTime) * 100
+	b.Logf("PassByPointer is %.0f%% faster than PassByValue", percentFaster)
+}
