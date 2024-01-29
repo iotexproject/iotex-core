@@ -99,7 +99,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		require.NoError(err)
 		require.EqualValues(types.LegacyTxType, tx.Type())
 		require.True(tx.Protected())
-		require.EqualValues(_evmNetworkID, tx.ChainId().Uint64())
+		require.EqualValues(v.chainID, tx.ChainId().Uint64())
 		require.Equal(v.pubkey, pubkey.HexString())
 		require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
 
@@ -440,8 +440,8 @@ func TestEthTxDecodeVerify(t *testing.T) {
 
 		// receive from API
 		proto.Unmarshal(bs, pb)
-		selp := &SealedEnvelope{}
-		require.NoError(selp.loadProto(pb, uint32(tx.ChainId().Uint64())))
+		selp, err := (&Deserializer{}).SetEvmNetworkID(v.chainID).ActionToSealedEnvelope(pb)
+		require.NoError(err)
 		act, ok := selp.Action().(EthCompatibleAction)
 		require.True(ok)
 		rlpTx, err := act.ToEthTx(uint32(tx.ChainId().Uint64()))
