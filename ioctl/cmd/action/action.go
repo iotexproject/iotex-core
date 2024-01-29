@@ -406,7 +406,7 @@ func Read(contract address.Address, amount string, bytecode []byte) (string, err
 	return "", output.NewError(output.NetworkError, "failed to invoke ReadContract api", err)
 }
 
-func isBalanceEnough(address string, act action.SealedEnvelope) error {
+func isBalanceEnough(address string, act *action.SealedEnvelope) error {
 	accountMeta, err := account.GetAccountMeta(address)
 	if err != nil {
 		return output.NewError(0, "failed to get account meta", err)

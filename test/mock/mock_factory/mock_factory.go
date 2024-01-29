@@ -70,7 +70,7 @@ func (mr *MockFactoryMockRecorder) Height() *gomock.Call {
 }
 
 // NewBlockBuilder mocks base method.
-func (m *MockFactory) NewBlockBuilder(arg0 context.Context, arg1 actpool.ActPool, arg2 func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error) {
+func (m *MockFactory) NewBlockBuilder(arg0 context.Context, arg1 actpool.ActPool, arg2 func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewBlockBuilder", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*block.Builder)

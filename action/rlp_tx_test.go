@@ -117,7 +117,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 
 		// receive from API
 		proto.Unmarshal(bs, pb)
-		selp := SealedEnvelope{}
+		selp := &SealedEnvelope{}
 		require.NoError(selp.loadProto(pb, _evmNetworkID))
 		act, ok := selp.Action().(EthCompatibleAction)
 		require.True(ok)
@@ -462,7 +462,7 @@ func TestEthTxDecodeVerify(t *testing.T) {
 
 		// receive from API
 		proto.Unmarshal(bs, pb)
-		selp := SealedEnvelope{}
+		selp := &SealedEnvelope{}
 		require.NoError(selp.loadProto(pb, uint32(tx.ChainId().Uint64())))
 		act, ok := selp.Action().(EthCompatibleAction)
 		require.True(ok)

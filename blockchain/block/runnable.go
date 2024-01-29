@@ -16,14 +16,14 @@ import (
 // RunnableActions is abstructed from block which contains information to execute all actions in a block.
 type RunnableActions struct {
 	txHash  hash.Hash256
-	actions []action.SealedEnvelope
+	actions []*action.SealedEnvelope
 }
 
 // TxHash returns TxHash.
 func (ra RunnableActions) TxHash() hash.Hash256 { return ra.txHash }
 
 // Actions returns Actions.
-func (ra RunnableActions) Actions() []action.SealedEnvelope {
+func (ra RunnableActions) Actions() []*action.SealedEnvelope {
 	return ra.actions
 }
 
@@ -34,9 +34,9 @@ type RunnableActionsBuilder struct{ ra RunnableActions }
 func NewRunnableActionsBuilder() *RunnableActionsBuilder { return &RunnableActionsBuilder{} }
 
 // AddActions adds actions for block which is building.
-func (b *RunnableActionsBuilder) AddActions(acts ...action.SealedEnvelope) *RunnableActionsBuilder {
+func (b *RunnableActionsBuilder) AddActions(acts ...*action.SealedEnvelope) *RunnableActionsBuilder {
 	if b.ra.actions == nil {
-		b.ra.actions = make([]action.SealedEnvelope, 0)
+		b.ra.actions = make([]*action.SealedEnvelope, 0)
 	}
 	b.ra.actions = append(b.ra.actions, acts...)
 	return b

@@ -32,14 +32,14 @@ type (
 
 	workerJob struct {
 		ctx context.Context
-		act action.SealedEnvelope
+		act *action.SealedEnvelope
 		rep bool
 		err chan error
 	}
 
 	pendingActions struct {
 		sender string
-		acts   []action.SealedEnvelope
+		acts   []*action.SealedEnvelope
 	}
 )
 
@@ -97,7 +97,7 @@ func (worker *queueWorker) Handle(job workerJob) error {
 		return err
 	}
 
-	if err := worker.checkSelpWithState(&act, nonce, balance); err != nil {
+	if err := worker.checkSelpWithState(act, nonce, balance); err != nil {
 		return err
 	}
 	if err := worker.putAction(sender, act, nonce, balance); err != nil {
@@ -123,7 +123,7 @@ func (worker *queueWorker) Handle(job workerJob) error {
 			log.L().Warn("UNEXPECTED ERROR: action pool is full, but no action to drop")
 			return nil
 		}
-		worker.ap.removeInvalidActs([]action.SealedEnvelope{*actToReplace})
+		worker.ap.removeInvalidActs([]*action.SealedEnvelope{actToReplace})
 		if actToReplace.SenderAddress().String() == sender && actToReplace.Nonce() == nonce {
 			err = action.ErrTxPoolOverflow
 			_actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
@@ -189,7 +189,7 @@ func (worker *queueWorker) checkSelpWithState(act *action.SealedEnvelope, pendin
 	return nil
 }
 
-func (worker *queueWorker) putAction(sender string, act action.SealedEnvelope, pendingNonce uint64, confirmedBalance *big.Int) error {
+func (worker *queueWorker) putAction(sender string, act *action.SealedEnvelope, pendingNonce uint64, confirmedBalance *big.Int) error {
 	worker.mu.Lock()
 	err := worker.accountActs.PutAction(
 		sender,
@@ -275,7 +275,7 @@ func (worker *queueWorker) PendingActions(ctx context.Context) []*pendingActions
 }
 
 // AllActions returns the all actions of sender
-func (worker *queueWorker) AllActions(sender address.Address) ([]action.SealedEnvelope, bool) {
+func (worker *queueWorker) AllActions(sender address.Address) ([]*action.SealedEnvelope, bool) {
 	worker.mu.RLock()
 	defer worker.mu.RUnlock()
 	if actQueue := worker.accountActs.Account(sender.String()); actQueue != nil {
@@ -299,7 +299,7 @@ func (worker *queueWorker) PendingNonce(sender address.Address) (uint64, bool) {
 }
 
 // ResetAccount resets account in the accountActs of worker
-func (worker *queueWorker) ResetAccount(sender address.Address) []action.SealedEnvelope {
+func (worker *queueWorker) ResetAccount(sender address.Address) []*action.SealedEnvelope {
 	senderStr := sender.String()
 	worker.mu.RLock()
 	actQueue := worker.accountActs.PopAccount(senderStr)

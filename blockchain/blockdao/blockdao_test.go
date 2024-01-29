@@ -480,7 +480,7 @@ func BenchmarkBlockCache(b *testing.B) {
 		prevHash := hash.ZeroHash256
 		numBlks := 8640
 		for i := 1; i <= numBlks; i++ {
-			actions := make([]action.SealedEnvelope, 10)
+			actions := make([]*action.SealedEnvelope, 10)
 			for j := 0; j < 10; j++ {
 				actions[j], err = action.SignedTransfer(
 					identityset.Address(j).String(),

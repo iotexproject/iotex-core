@@ -141,7 +141,7 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 	}
 	req.Equal(ac, proto)
 
-	se2 := SealedEnvelope{}
+	se2 := &SealedEnvelope{}
 	for _, v := range []struct {
 		encoding iotextypes.Encoding
 		sig      []byte
@@ -181,7 +181,7 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 	}
 }
 
-func createSealedEnvelope(chainID uint32) (SealedEnvelope, error) {
+func createSealedEnvelope(chainID uint32) (*SealedEnvelope, error) {
 	tsf, _ := NewTransfer(
 		uint64(10),
 		unit.ConvertIotxToRau(1000+int64(10)),
@@ -200,7 +200,7 @@ func createSealedEnvelope(chainID uint32) (SealedEnvelope, error) {
 		SetChainID(chainID).Build()
 
 	cPubKey, err := crypto.HexStringToPublicKey(_publicKey)
-	se := SealedEnvelope{}
+	se := &SealedEnvelope{}
 	se.Envelope = evlp
 	se.srcPubkey = cPubKey
 	se.signature = _signByte

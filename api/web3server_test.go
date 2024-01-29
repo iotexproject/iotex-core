@@ -555,7 +555,7 @@ func TestGetTransactionByHash(t *testing.T) {
 	require.Equal(receipt, rlt.receipt)
 
 	// get pending transaction
-	core.EXPECT().ActionByActionHash(gomock.Any()).Return(action.SealedEnvelope{}, hash.ZeroHash256, uint64(0), uint32(0), ErrNotFound)
+	core.EXPECT().ActionByActionHash(gomock.Any()).Return(nil, hash.ZeroHash256, uint64(0), uint32(0), ErrNotFound)
 	core.EXPECT().PendingActionByActionHash(gomock.Any()).Return(selp, nil)
 	core.EXPECT().EVMNetworkID().Return(uint32(0))
 	ret, err = web3svr.getTransactionByHash(&in)
@@ -570,7 +570,7 @@ func TestGetTransactionByHash(t *testing.T) {
 	require.NoError(err)
 	txHash, err = selp.Hash()
 	require.NoError(err)
-	core.EXPECT().ActionByActionHash(gomock.Any()).Return(action.SealedEnvelope{}, hash.ZeroHash256, uint64(0), uint32(0), ErrNotFound)
+	core.EXPECT().ActionByActionHash(gomock.Any()).Return(nil, hash.ZeroHash256, uint64(0), uint32(0), ErrNotFound)
 	core.EXPECT().PendingActionByActionHash(gomock.Any()).Return(selp, nil)
 	core.EXPECT().EVMNetworkID().Return(uint32(0))
 	ret, err = web3svr.getTransactionByHash(&in)

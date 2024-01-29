@@ -400,7 +400,7 @@ func (x *blockIndexer) getIndexerForAddr(addr []byte, batch bool) (db.CountingIn
 }
 
 // indexAction builds index for an action
-func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelope, insert, tolerateLegacyAddress bool) error {
+func (x *blockIndexer) indexAction(actHash hash.Hash256, elp *action.SealedEnvelope, insert, tolerateLegacyAddress bool) error {
 	// add to sender's index
 	callerAddrBytes := elp.SrcPubkey().Hash()
 	sender, err := x.getIndexerForAddr(callerAddrBytes, insert)

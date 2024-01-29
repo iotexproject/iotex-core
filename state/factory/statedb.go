@@ -228,7 +228,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 func (sdb *stateDB) NewBlockBuilder(
 	ctx context.Context,
 	ap actpool.ActPool,
-	sign func(action.Envelope) (action.SealedEnvelope, error),
+	sign func(action.Envelope) (*action.SealedEnvelope, error),
 ) (*block.Builder, error) {
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	sdb.mutex.RLock()
@@ -238,7 +238,7 @@ func (sdb *stateDB) NewBlockBuilder(
 	if err != nil {
 		return nil, err
 	}
-	postSystemActions := make([]action.SealedEnvelope, 0)
+	postSystemActions := make([]*action.SealedEnvelope, 0)
 	unsignedSystemActions, err := ws.generateSystemActions(ctx)
 	if err != nil {
 		return nil, err

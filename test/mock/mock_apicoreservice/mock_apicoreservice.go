@@ -78,10 +78,10 @@ func (mr *MockCoreServiceMockRecorder) Action(actionHash, checkPending interface
 }
 
 // ActionByActionHash mocks base method.
-func (m *MockCoreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
+func (m *MockCoreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ActionByActionHash", h)
-	ret0, _ := ret[0].(action.SealedEnvelope)
+	ret0, _ := ret[0].(*action.SealedEnvelope)
 	ret1, _ := ret[1].(hash.Hash256)
 	ret2, _ := ret[2].(uint64)
 	ret3, _ := ret[3].(uint32)
@@ -126,10 +126,10 @@ func (mr *MockCoreServiceMockRecorder) ActionsByAddress(addr, start, count inter
 }
 
 // ActionsInActPool mocks base method.
-func (m *MockCoreService) ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error) {
+func (m *MockCoreService) ActionsInActPool(actHashes []string) ([]*action.SealedEnvelope, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ActionsInActPool", actHashes)
-	ret0, _ := ret[0].([]action.SealedEnvelope)
+	ret0, _ := ret[0].([]*action.SealedEnvelope)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -381,10 +381,10 @@ func (mr *MockCoreServiceMockRecorder) LogsInRange(filter, start, end, paginatio
 }
 
 // PendingActionByActionHash mocks base method.
-func (m *MockCoreService) PendingActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
+func (m *MockCoreService) PendingActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PendingActionByActionHash", h)
-	ret0, _ := ret[0].(action.SealedEnvelope)
+	ret0, _ := ret[0].(*action.SealedEnvelope)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

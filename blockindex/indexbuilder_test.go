@@ -191,7 +191,7 @@ func TestIndexBuilder(t *testing.T) {
 }
 
 // classifyActions classfies actions
-func classifyActions(actions []action.SealedEnvelope) ([]*action.Transfer, []*action.Execution) {
+func classifyActions(actions []*action.SealedEnvelope) ([]*action.Transfer, []*action.Execution) {
 	tsfs := make([]*action.Transfer, 0)
 	exes := make([]*action.Execution, 0)
 	for _, elp := range actions {

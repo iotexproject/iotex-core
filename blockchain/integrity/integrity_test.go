@@ -1981,8 +1981,8 @@ func TestBlocks(t *testing.T) {
 	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
 
 	for i := 0; i < 10; i++ {
-		actionMap := make(map[string][]action.SealedEnvelope)
-		actionMap[a] = []action.SealedEnvelope{}
+		actionMap := make(map[string][]*action.SealedEnvelope)
+		actionMap[a] = []*action.SealedEnvelope{}
 		for i := 0; i < 1000; i++ {
 			tsf, err := action.SignedTransfer(c, priKeyA, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 			require.NoError(err)
@@ -2129,8 +2129,8 @@ func testHistoryForAccount(t *testing.T, statetx bool) {
 	require.Equal(big.NewInt(100), AccountB.Balance)
 
 	// make a transfer from a to b
-	actionMap := make(map[string][]action.SealedEnvelope)
-	actionMap[a.String()] = []action.SealedEnvelope{}
+	actionMap := make(map[string][]*action.SealedEnvelope)
+	actionMap[a.String()] = []*action.SealedEnvelope{}
 	tsf, err := action.SignedTransfer(b.String(), priKeyA, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
 	require.NoError(ap.Add(context.Background(), tsf))
@@ -2380,7 +2380,7 @@ func makeTransfer(contract string, bc blockchain.Blockchain, ap actpool.ActPool,
 }
 
 // classifyActions classfies actions
-func classifyActions(actions []action.SealedEnvelope) ([]*action.Transfer, []*action.Execution) {
+func classifyActions(actions []*action.SealedEnvelope) ([]*action.Transfer, []*action.Execution) {
 	tsfs := make([]*action.Transfer, 0)
 	exes := make([]*action.Execution, 0)
 	for _, elp := range actions {

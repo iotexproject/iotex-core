@@ -25,6 +25,6 @@ func NewMinter(f Factory, ap actpool.ActPool) blockchain.BlockBuilderFactory {
 }
 
 // NewBlockBuilder implements the BlockMinter interface
-func (m *minter) NewBlockBuilder(ctx context.Context, sign func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error) {
+func (m *minter) NewBlockBuilder(ctx context.Context, sign func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error) {
 	return m.f.NewBlockBuilder(ctx, m.ap, sign)
 }
