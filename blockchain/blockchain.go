@@ -105,7 +105,7 @@ type (
 	// BlockBuilderFactory is the factory interface of block builder
 	BlockBuilderFactory interface {
 		// NewBlockBuilder creates block builder
-		NewBlockBuilder(context.Context, func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error)
+		NewBlockBuilder(context.Context, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
 	}
 
 	// blockchain implements the Blockchain interface
@@ -383,7 +383,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	minterPrivateKey := bc.config.ProducerPrivateKey()
 	blockBuilder, err := bc.bbf.NewBlockBuilder(
 		ctx,
-		func(elp action.Envelope) (action.SealedEnvelope, error) {
+		func(elp action.Envelope) (*action.SealedEnvelope, error) {
 			return action.Sign(elp, minterPrivateKey)
 		},
 	)

@@ -25,7 +25,7 @@ import (
 
 func addTestingTsfBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	ctx := context.Background()
-	addOneTx := func(tx action.SealedEnvelope, err error) error {
+	addOneTx := func(tx *action.SealedEnvelope, err error) error {
 		if err != nil {
 			return err
 		}

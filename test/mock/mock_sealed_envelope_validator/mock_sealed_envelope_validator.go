@@ -36,7 +36,7 @@ func (m *MockSealedEnvelopeValidator) EXPECT() *MockSealedEnvelopeValidatorMockR
 }
 
 // Validate mocks base method.
-func (m *MockSealedEnvelopeValidator) Validate(arg0 context.Context, arg1 action.SealedEnvelope) error {
+func (m *MockSealedEnvelopeValidator) Validate(arg0 context.Context, arg1 *action.SealedEnvelope) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
 	ret0, _ := ret[0].(error)

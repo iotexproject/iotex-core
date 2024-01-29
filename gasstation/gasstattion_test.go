@@ -274,7 +274,7 @@ func TestSuggestGasPrice_GasConsumed(t *testing.T) {
 func prepareBlocks(r *require.Assertions, cases []testActionGas) map[uint64]*block.Block {
 	blocks := map[uint64]*block.Block{}
 	for i := range cases {
-		actions := []action.SealedEnvelope{}
+		actions := []*action.SealedEnvelope{}
 		receipts := []*action.Receipt{}
 		for _, gas := range cases[i] {
 			seale, err := action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(1), 1, big.NewInt(0), []byte{}, 1000, big.NewInt(int64(gas.gasPrice)))

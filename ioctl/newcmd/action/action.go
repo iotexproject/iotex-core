@@ -481,7 +481,7 @@ func Read(client ioctl.Client,
 	return res.Data, nil
 }
 
-func isBalanceEnough(client ioctl.Client, address string, act action.SealedEnvelope) error {
+func isBalanceEnough(client ioctl.Client, address string, act *action.SealedEnvelope) error {
 	accountMeta, err := account.Meta(client, address)
 	if err != nil {
 		return errors.Wrap(err, "failed to get account meta")

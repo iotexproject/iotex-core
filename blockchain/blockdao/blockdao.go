@@ -41,7 +41,7 @@ type (
 	// BlockDAO represents the block data access object
 	BlockDAO interface {
 		filedao.FileDAO
-		GetActionByActionHash(hash.Hash256, uint64) (action.SealedEnvelope, uint32, error)
+		GetActionByActionHash(hash.Hash256, uint64) (*action.SealedEnvelope, uint32, error)
 		GetReceiptByActionHash(hash.Hash256, uint64) (*action.Receipt, error)
 		DeleteBlockToTarget(uint64) error
 	}
@@ -192,21 +192,21 @@ func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
 	return header, nil
 }
 
-func (dao *blockDAO) GetActionByActionHash(h hash.Hash256, height uint64) (action.SealedEnvelope, uint32, error) {
+func (dao *blockDAO) GetActionByActionHash(h hash.Hash256, height uint64) (*action.SealedEnvelope, uint32, error) {
 	blk, err := dao.blockStore.GetBlockByHeight(height)
 	if err != nil {
-		return action.SealedEnvelope{}, 0, err
+		return nil, 0, err
 	}
 	for i, act := range blk.Actions {
 		actHash, err := act.Hash()
 		if err != nil {
-			return action.SealedEnvelope{}, 0, errors.Errorf("hash failed for block %d", height)
+			return nil, 0, errors.Errorf("hash failed for block %d", height)
 		}
 		if actHash == h {
 			return act, uint32(i), nil
 		}
 	}
-	return action.SealedEnvelope{}, 0, errors.Errorf("block %d does not have action %x", height, h)
+	return nil, 0, errors.Errorf("block %d does not have action %x", height, h)
 }
 
 func (dao *blockDAO) GetReceiptByActionHash(h hash.Hash256, height uint64) (*action.Receipt, error) {

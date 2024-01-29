@@ -618,7 +618,7 @@ func newTransferConfig(
 	return cfg, nil
 }
 
-func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
+func lenPendingActionMap(acts map[string][]*action.SealedEnvelope) int {
 	l := 0
 	for _, part := range acts {
 		l += len(part)

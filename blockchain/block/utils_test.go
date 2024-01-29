@@ -14,7 +14,7 @@ import (
 
 func TestBody_CalculateTxRoot(t *testing.T) {
 	requireT := require.New(t)
-	var sevlps []action.SealedEnvelope
+	var sevlps []*action.SealedEnvelope
 
 	for i := 1; i <= 10; i++ {
 		tsf, _ := action.NewTransfer(
@@ -49,7 +49,7 @@ func TestBody_CalculateTxRoot(t *testing.T) {
 
 func TestBody_CalculateTransferAmount(t *testing.T) {
 	requireT := require.New(t)
-	var sevlps []action.SealedEnvelope
+	var sevlps []*action.SealedEnvelope
 	transferAmount := big.NewInt(0)
 
 	for i := 1; i <= 10; i++ {

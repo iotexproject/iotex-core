@@ -317,7 +317,7 @@ func testCandidates(sf Factory, t *testing.T) {
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions([]action.SealedEnvelope{selp}...).
+		AddActions([]*action.SealedEnvelope{selp}...).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, sf.PutBlock(
@@ -487,7 +487,7 @@ func testState(sf Factory, t *testing.T) {
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions([]action.SealedEnvelope{selp}...).
+		AddActions([]*action.SealedEnvelope{selp}...).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, sf.PutBlock(ctx, &blk))
@@ -554,7 +554,7 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions([]action.SealedEnvelope{selp}...).
+		AddActions([]*action.SealedEnvelope{selp}...).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, sf.PutBlock(ctx, &blk))
@@ -638,7 +638,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions([]action.SealedEnvelope{selp}...).
+		AddActions([]*action.SealedEnvelope{selp}...).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, sf.PutBlock(ctx, &blk))
@@ -833,7 +833,7 @@ func testNonce(ctx context.Context, sf Factory, t *testing.T) {
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions([]action.SealedEnvelope{selp}...).
+		AddActions([]*action.SealedEnvelope{selp}...).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 
@@ -920,7 +920,7 @@ func testLoadStoreHeight(sf Factory, t *testing.T) {
 			SetHeight(i).
 			SetPrevBlockHash(lastBlockHash).
 			SetTimeStamp(testutil.TimestampNow()).
-			AddActions([]action.SealedEnvelope{}...).
+			AddActions([]*action.SealedEnvelope{}...).
 			SignAndBuild(identityset.PrivateKey(27))
 		require.NoError(err)
 		require.NoError(sf.PutBlock(ctx, &blk))
@@ -1108,19 +1108,19 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 	b := identityset.Address(29).String()
 	priKeyB := identityset.PrivateKey(29)
 
-	accMap := make(map[string][]action.SealedEnvelope)
+	accMap := make(map[string][]*action.SealedEnvelope)
 	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).SetAction(tx1).Build()
 	selp1, err := action.Sign(elp, priKeyA)
 	require.NoError(err)
-	accMap[identityset.Address(28).String()] = []action.SealedEnvelope{selp1}
+	accMap[identityset.Address(28).String()] = []*action.SealedEnvelope{selp1}
 
 	addr0 := identityset.Address(27).String()
 	tsf0, err := action.SignedTransfer(addr0, identityset.PrivateKey(0), 1, big.NewInt(90000000), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
-	accMap[identityset.Address(0).String()] = []action.SealedEnvelope{tsf0}
+	accMap[identityset.Address(0).String()] = []*action.SealedEnvelope{tsf0}
 
 	tx2, err := action.NewTransfer(uint64(1), big.NewInt(20), a, nil, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -1128,7 +1128,7 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 	elp = bd.SetNonce(1).SetAction(tx2).Build()
 	selp2, err := action.Sign(elp, priKeyB)
 	require.NoError(err)
-	accMap[identityset.Address(29).String()] = []action.SealedEnvelope{selp2}
+	accMap[identityset.Address(29).String()] = []*action.SealedEnvelope{selp2}
 	ctrl := gomock.NewController(t)
 	ap := mock_actpool.NewMockActPool(ctrl)
 	ap.EXPECT().PendingActionMap().Return(accMap).Times(1)
@@ -1572,7 +1572,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 		// put 500 actions together to run
 		b.StopTimer()
 		total := 500
-		acts := make([]action.SealedEnvelope, 0, total)
+		acts := make([]*action.SealedEnvelope, 0, total)
 		for numActs := 0; numActs < total; numActs++ {
 			senderIdx := rand.Int() % len(accounts)
 
@@ -1701,7 +1701,7 @@ func benchState(sf Factory, b *testing.B) {
 	gasLimit := testutil.TestGasLimit * 100000
 
 	total := 500
-	acts := make([]action.SealedEnvelope, 0, total)
+	acts := make([]*action.SealedEnvelope, 0, total)
 	for numActs := 0; numActs < total; numActs++ {
 		senderIdx := rand.Int() % len(accounts)
 

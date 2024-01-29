@@ -96,7 +96,7 @@ func TestCalculateTransferAmount(t *testing.T) {
 }
 
 func makeBody() (body Body, err error) {
-	A := make([]action.SealedEnvelope, 0)
+	A := make([]*action.SealedEnvelope, 0)
 	v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), []byte("data"))
 	if err != nil {
 		return

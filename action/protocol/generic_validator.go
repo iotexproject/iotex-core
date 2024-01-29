@@ -35,7 +35,7 @@ func NewGenericValidator(sr StateReader, accountState AccountState) *GenericVali
 }
 
 // Validate validates a generic action
-func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvelope) error {
+func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnvelope) error {
 	intrinsicGas, err := selp.IntrinsicGas()
 	if err != nil {
 		return err
