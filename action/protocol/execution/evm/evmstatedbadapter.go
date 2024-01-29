@@ -779,7 +779,6 @@ func (stateDB *StateDBAdapter) ForEachStorage(addr common.Address, cb func(commo
 			return nil
 		}
 	}
-	return nil
 }
 
 // accountState returns an account state

@@ -102,19 +102,19 @@ func TestExecutionAccessList(t *testing.T) {
 		{nil, 10400},
 		{
 			types.AccessList{
-				{common.Address{}, nil},
+				{Address: common.Address{}, StorageKeys: nil},
 			}, 12800,
 		},
 		{
 			types.AccessList{
-				{_c2, []common.Hash{{}, _k1}},
+				{Address: _c2, StorageKeys: []common.Hash{{}, _k1}},
 			}, 16600,
 		},
 		{
 			types.AccessList{
-				{common.Address{}, nil},
-				{_c1, []common.Hash{_k1, {}, _k3}},
-				{_c2, []common.Hash{_k2, _k3, _k4, _k1}},
+				{Address: common.Address{}, StorageKeys: nil},
+				{Address: _c1, StorageKeys: []common.Hash{_k1, {}, _k3}},
+				{Address: _c2, StorageKeys: []common.Hash{_k2, _k3, _k4, _k1}},
 			}, 30900,
 		},
 	} {

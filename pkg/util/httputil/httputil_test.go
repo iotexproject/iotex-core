@@ -14,16 +14,13 @@ func TestServer(t *testing.T) {
 		var handler http.Handler
 		addr := "myAddress"
 
-		expectValue := http.Server{
-			ReadHeaderTimeout: 2 * time.Second,
-			ReadTimeout:       DefaultServerConfig.ReadTimeout,
-			WriteTimeout:      DefaultServerConfig.WriteTimeout,
-			IdleTimeout:       DefaultServerConfig.IdleTimeout,
-			Addr:              addr,
-			Handler:           handler,
-		}
 		result := NewServer(addr, handler, ReadHeaderTimeout(2*time.Second))
-		require.Equal(t, expectValue, result)
+		require.Equal(t, 2*time.Second, result.ReadHeaderTimeout)
+		require.Equal(t, DefaultServerConfig.ReadTimeout, result.ReadTimeout)
+		require.Equal(t, DefaultServerConfig.WriteTimeout, result.WriteTimeout)
+		require.Equal(t, DefaultServerConfig.IdleTimeout, result.IdleTimeout)
+		require.Equal(t, addr, result.Addr)
+		require.Equal(t, handler, result.Handler)
 	})
 }
 

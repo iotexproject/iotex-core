@@ -59,18 +59,18 @@ func TestNativeStaking(t *testing.T) {
 
 	testInitCands := []genesis.BootstrapCandidate{
 		{
-			identityset.Address(22).String(),
-			identityset.Address(23).String(),
-			identityset.Address(23).String(),
-			"test1",
-			selfStake.String(),
+			OwnerAddress:      identityset.Address(22).String(),
+			OperatorAddress:   identityset.Address(23).String(),
+			RewardAddress:     identityset.Address(23).String(),
+			Name:              "test1",
+			SelfStakingTokens: selfStake.String(),
 		},
 		{
-			identityset.Address(24).String(),
-			identityset.Address(25).String(),
-			identityset.Address(25).String(),
-			"test2",
-			selfStake.String(),
+			OwnerAddress:      identityset.Address(24).String(),
+			OperatorAddress:   identityset.Address(25).String(),
+			RewardAddress:     identityset.Address(25).String(),
+			Name:              "test2",
+			SelfStakingTokens: selfStake.String(),
 		},
 	}
 

@@ -113,9 +113,9 @@ type (
 		AllowCorrectChainIDOnly                 bool
 		AddContractStakingVotes                 bool
 		FixContractStakingWeightedVotes         bool
-		SharedGasWithDapp                       bool
 		ExecutionSizeLimit32KB                  bool
 		UseZeroNonceForFreshAccount             bool
+		SharedGasWithDapp                       bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -254,9 +254,9 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			AllowCorrectChainIDOnly:                 g.IsQuebec(height),
 			AddContractStakingVotes:                 g.IsQuebec(height),
 			FixContractStakingWeightedVotes:         g.IsRedsea(height),
+			ExecutionSizeLimit32KB:                  !g.IsSumatra(height),
+			UseZeroNonceForFreshAccount:             g.IsSumatra(height),
 			SharedGasWithDapp:                       g.IsToBeEnabled(height),
-			ExecutionSizeLimit32KB:                  !g.IsToBeEnabled(height),
-			UseZeroNonceForFreshAccount:             g.IsToBeEnabled(height),
 		},
 	)
 }
