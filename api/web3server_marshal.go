@@ -14,7 +14,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action"
-	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 )
 
@@ -76,14 +75,6 @@ type (
 		StartingBlock string `json:"startingBlock"`
 		CurrentBlock  string `json:"currentBlock"`
 		HighestBlock  string `json:"highestBlock"`
-	}
-
-	debugTraceTransactionResult struct {
-		Failed      bool                 `json:"failed"`
-		Revert      string               `json:"revert"`
-		ReturnValue string               `json:"returnValue"`
-		Gas         uint64               `json:"gas"`
-		StructLogs  []apitypes.StructLog `json:"structLogs"`
 	}
 )
 
