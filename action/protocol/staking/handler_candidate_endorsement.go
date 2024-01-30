@@ -28,11 +28,11 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 	if cand == nil {
 		return log, nil, errCandNotExist
 	}
-	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes(), []byte{byteutil.BoolToByte(act.Endorse())})
+	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes(), []byte{byteutil.BoolToByte(act.IsEndorse())})
 
 	esm := NewEndorsementStateManager(csm.SM())
 	expireHeight := uint64(0)
-	if act.Endorse() {
+	if act.IsEndorse() {
 		// handle endorsement
 		if err := p.validateEndorsement(ctx, csm, esm, actCtx.Caller, bucket, cand); err != nil {
 			return log, nil, err
