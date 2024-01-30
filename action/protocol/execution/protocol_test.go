@@ -635,8 +635,8 @@ func TestProtocol_Validate(t *testing.T) {
 	}{
 		{"limit 32KB", 0, 32683, nil},
 		{"exceed 32KB", 0, 32684, action.ErrOversizedData},
-		{"limit 48KB", genesis.Default.SumatraBlockHeight, 49067, nil},
-		{"exceed 48KB", genesis.Default.SumatraBlockHeight, 49068, action.ErrOversizedData},
+		{"limit 48KB", genesis.Default.SumatraBlockHeight, uint64(_executionSizeLimit48KB), nil},
+		{"exceed 48KB", genesis.Default.SumatraBlockHeight, uint64(_executionSizeLimit48KB) + 1, action.ErrOversizedData},
 	}
 
 	for i := range cases {
