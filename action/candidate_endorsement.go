@@ -29,8 +29,8 @@ func (act *CandidateEndorsement) BucketIndex() uint64 {
 	return act.bucketIndex
 }
 
-// Endorse returns true if the action is to endorse a candidate
-func (act *CandidateEndorsement) Endorse() bool {
+// IsEndorse returns true if the action is to endorse a candidate
+func (act *CandidateEndorsement) IsEndorse() bool {
 	return act.endorse
 }
 

@@ -86,12 +86,13 @@ type (
 
 	// Configuration is the staking protocol configuration.
 	Configuration struct {
-		VoteWeightCalConsts      genesis.VoteWeightCalConsts
-		RegistrationConsts       RegistrationConsts
-		WithdrawWaitingPeriod    time.Duration
-		MinStakeAmount           *big.Int
-		BootstrapCandidates      []genesis.BootstrapCandidate
-		PersistStakingPatchBlock uint64
+		VoteWeightCalConsts              genesis.VoteWeightCalConsts
+		RegistrationConsts               RegistrationConsts
+		WithdrawWaitingPeriod            time.Duration
+		MinStakeAmount                   *big.Int
+		BootstrapCandidates              []genesis.BootstrapCandidate
+		PersistStakingPatchBlock         uint64
+		EndorsementWithdrawWaitingBlocks uint64
 	}
 
 	// DepositGas deposits gas to some pool
@@ -155,10 +156,11 @@ func NewProtocol(
 				Fee:          regFee,
 				MinSelfStake: minSelfStake,
 			},
-			WithdrawWaitingPeriod:    cfg.Staking.WithdrawWaitingPeriod,
-			MinStakeAmount:           minStakeAmount,
-			BootstrapCandidates:      cfg.Staking.BootstrapCandidates,
-			PersistStakingPatchBlock: cfg.PersistStakingPatchBlock,
+			WithdrawWaitingPeriod:            cfg.Staking.WithdrawWaitingPeriod,
+			MinStakeAmount:                   minStakeAmount,
+			BootstrapCandidates:              cfg.Staking.BootstrapCandidates,
+			PersistStakingPatchBlock:         cfg.PersistStakingPatchBlock,
+			EndorsementWithdrawWaitingBlocks: cfg.Staking.EndorsementWithdrawWaitingBlocks,
 		},
 		depositGas:             depositGas,
 		candBucketsIndexer:     candBucketsIndexer,
@@ -420,6 +422,8 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
 	case *action.CandidateActivate:
 		rLog, tLogs, err = p.handleCandidateActivate(ctx, act, csm)
+	case *action.CandidateEndorsement:
+		rLog, tLogs, err = p.handleCandidateEndorsement(ctx, act, csm)
 	default:
 		return nil, nil
 	}
