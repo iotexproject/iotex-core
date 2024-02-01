@@ -43,6 +43,7 @@ type Execution struct {
 	amount     *big.Int
 	data       []byte
 	accessList types.AccessList
+	isACL      bool
 }
 
 // NewExecution returns an Execution instance (w/o access list)
@@ -88,6 +89,7 @@ func NewExecutionWithAccessList(
 		amount:     amount,
 		data:       data,
 		accessList: list,
+		isACL:      true,
 	}, nil
 }
 
@@ -111,6 +113,9 @@ func (ex *Execution) Payload() []byte { return ex.data }
 
 // AccessList returns the access list
 func (ex *Execution) AccessList() types.AccessList { return ex.accessList }
+
+// IsAccessList indicates whether the execution is access list tx or not
+func (ex *Execution) IsAccessList() bool { return ex.isACL }
 
 func toAccessListProto(list types.AccessList) []*iotextypes.AccessTuple {
 	if len(list) == 0 {
@@ -164,7 +169,7 @@ func (ex *Execution) Serialize() []byte {
 
 // Proto converts Execution to protobuf's Execution
 func (ex *Execution) Proto() *iotextypes.Execution {
-	act := &iotextypes.Execution{
+	act := iotextypes.Execution{
 		Contract: ex.contract,
 		Data:     ex.data,
 	}
@@ -172,7 +177,8 @@ func (ex *Execution) Proto() *iotextypes.Execution {
 		act.Amount = ex.amount.String()
 	}
 	act.AccessList = toAccessListProto(ex.accessList)
-	return act
+	act.HasAccessList = ex.isACL
+	return &act
 }
 
 // LoadProto converts a protobuf's Execution to Execution
@@ -197,6 +203,7 @@ func (ex *Execution) LoadProto(pbAct *iotextypes.Execution) error {
 	}
 	ex.data = pbAct.GetData()
 	ex.accessList = fromAccessListProto(pbAct.AccessList)
+	ex.isACL = pbAct.HasAccessList
 	return nil
 }
 
@@ -244,7 +251,7 @@ func (ex *Execution) ToEthTx(evmNetworkID uint32) (*types.Transaction, error) {
 		}
 		ethAddr = &addr
 	}
-	if len(ex.accessList) > 0 {
+	if ex.isACL {
 		return types.NewTx(&types.AccessListTx{
 			ChainID:    big.NewInt(int64(evmNetworkID)),
 			Nonce:      ex.Nonce(),
