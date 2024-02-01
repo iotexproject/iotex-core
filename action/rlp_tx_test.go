@@ -79,6 +79,7 @@ func TestGenerateRlp(t *testing.T) {
 			require.Contains(err.Error(), v.err)
 			continue
 		}
+		require.EqualValues(types.LegacyTxType, tx.Type())
 		signer, err := NewEthSigner(iotextypes.Encoding_ETHEREUM_EIP155, _evmNetworkID)
 		require.NoError(err)
 		h, err := rlpSignedHash(tx, signer, v.sig)
@@ -92,11 +93,21 @@ func TestGenerateRlp(t *testing.T) {
 func TestRlpDecodeVerify(t *testing.T) {
 	require := require.New(t)
 
-	oldTests := rlpTests[:len(rlpTests)-2]
+	oldTests := rlpTests[:len(rlpTests)-3]
 	for _, v := range oldTests {
 		// decode received RLP tx
 		tx, sig, pubkey, err := DecodeRawTx(v.raw, _evmNetworkID)
 		require.NoError(err)
+		require.Equal(v.nonce, tx.Nonce())
+		require.Equal(v.price, tx.GasPrice().String())
+		require.Equal(v.limit, tx.Gas())
+		if v.to == "" {
+			require.Nil(tx.To())
+		} else {
+			require.Equal(v.to, tx.To().Hex())
+		}
+		require.Equal(v.amount, tx.Value().String())
+		require.Equal(v.dataLen, len(tx.Data()))
 		require.EqualValues(types.LegacyTxType, tx.Type())
 		require.True(tx.Protected())
 		require.EqualValues(_evmNetworkID, tx.ChainId().Uint64())
@@ -123,6 +134,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		require.True(ok)
 		rlpTx, err := act.ToEthTx(_evmNetworkID)
 		require.NoError(err)
+		require.EqualValues(types.LegacyTxType, tx.Type())
 
 		// verify against original tx
 		require.Equal(v.nonce, rlpTx.Nonce())
@@ -411,6 +423,21 @@ var (
 			"048318535b54105d4a7aae60c08fc45f9687181b4fdfc625bd1a753fa7397fed753547f11ca8696646f2f3acb08e31016afac23e630c5d11f59f61fef57b0d2aa5",
 			"f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
 		},
+		{
+			"accesslist",
+			"01f86c8212527885e8d4a5100082520894bbd4e6e5da2553a58a1e6b114e68cd37974e87a980845ec01e4dc001a055fe6b695198611919ab2260e60a6be042c11aebfdf8054b2e64e88ea4c66617a04a38164e0933a44a7bbfc8f1ae739df8d321008bb27a1f3f0332dd2b54f8bf89",
+			120,
+			21000,
+			"1000000000000",
+			"0",
+			"0xBBd4e6E5dA2553a58a1E6b114E68cd37974e87a9",
+			4690,
+			iotextypes.Encoding_ETHEREUM_ACCESSLIST,
+			4,
+			"bc2d6c7699d0e3fa4f776b9acec2aaa37cf9f2c0f553db68caba5709ae05a149",
+			"04d92e345a51eb99efa71df0b452fa11246fd30516f4ee548f4edf999a3fb0e089993e58a2f137646911a89efd33100ec550ac535aa658f22f468af96583d06081",
+			"c592e5b215d639ed7889b5eaae1f98f9d09c9c86",
+		},
 	}
 )
 
@@ -442,7 +469,12 @@ func TestEthTxDecodeVerify(t *testing.T) {
 			// // accesslist tx has V = 0, 1
 			require.LessOrEqual(recID, uint64(1))
 			require.True(27 == sig[64] || 28 == sig[64])
-			require.Equal(1, len(tx.AccessList()))
+			if len(tx.AccessList()) == 1 {
+				acl := tx.AccessList()[0]
+				require.Equal("0xa0Ee7A142d267C1f36714E4a8F75612F20a79720", acl.Address.Hex())
+				require.Equal(1, len(acl.StorageKeys))
+				require.Zero(acl.StorageKeys[0])
+			}
 		}
 		require.EqualValues(v.chainID, tx.ChainId().Uint64())
 		require.Equal(v.pubkey, pubkey.HexString())
@@ -468,6 +500,11 @@ func TestEthTxDecodeVerify(t *testing.T) {
 		require.True(ok)
 		rlpTx, err := act.ToEthTx(uint32(tx.ChainId().Uint64()))
 		require.NoError(err)
+		if v.encoding == iotextypes.Encoding_ETHEREUM_ACCESSLIST {
+			require.EqualValues(types.AccessListTxType, rlpTx.Type())
+		} else {
+			require.EqualValues(types.LegacyTxType, rlpTx.Type())
+		}
 
 		// verify against original tx
 		require.Equal(v.nonce, rlpTx.Nonce())

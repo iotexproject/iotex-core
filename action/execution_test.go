@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -25,6 +26,7 @@ func TestExecutionSignVerify(t *testing.T) {
 	data, err := hex.DecodeString("")
 	require.NoError(err)
 	ex, err := NewExecution(contractAddr.String(), 2, big.NewInt(10), uint64(100000), big.NewInt(10), data)
+	require.False(ex.IsAccessList())
 	require.NoError(err)
 	require.EqualValues(21, ex.BasicActionSize())
 	require.EqualValues(87, ex.TotalSize())
@@ -128,11 +130,23 @@ func TestExecutionAccessList(t *testing.T) {
 			v.list,
 		)
 		require.NoError(err)
+		require.True(ex.IsAccessList())
 		require.NoError(ex1.LoadProto(ex.Proto()))
 		ex1.AbstractAction = ex.AbstractAction
 		require.Equal(ex, ex1)
 		gas, err := ex.IntrinsicGas()
 		require.NoError(err)
 		require.Equal(v.gas, gas)
+		tx, err := ex.ToEthTx(222)
+		require.NoError(err)
+		require.EqualValues(222, tx.ChainId().Uint64())
+		require.Equal(ex.Nonce(), tx.Nonce())
+		require.Equal(ex.GasLimit(), tx.Gas())
+		require.Equal(ex.GasPrice(), tx.GasPrice())
+		addr, err := address.FromString(ex.Contract())
+		require.NoError(err)
+		require.Equal(addr.Bytes(), tx.To().Bytes())
+		require.Equal(ex.Amount().String(), tx.Value().String())
+		require.Equal(ex.Data(), tx.Data())
 	}
 }

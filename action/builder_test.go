@@ -41,6 +41,50 @@ func TestActionBuilder(t *testing.T) {
 	r.Equal(big.NewInt(10004), act.GasPrice())
 }
 
+func TestBuildExecution(t *testing.T) {
+	r := require.New(t)
+
+	for _, v := range []struct {
+		inner types.TxData
+		acl   bool
+	}{
+		{&types.LegacyTx{
+			Nonce:    1,
+			GasPrice: nil,
+			Gas:      10000,
+			To:       nil,
+			Value:    nil,
+			Data:     nil,
+		}, false},
+		{&types.AccessListTx{
+			ChainID:  big.NewInt(333),
+			Nonce:    2,
+			GasPrice: big.NewInt(0),
+			Gas:      20000,
+			To:       &common.Address{},
+			Value:    big.NewInt(0),
+			Data:     nil,
+		}, true},
+	} {
+		tx := types.NewTx(v.inner)
+		elp, err := (&EnvelopeBuilder{}).BuildExecution(tx)
+		r.NoError(err)
+		r.Equal(v.acl, elp.Action().(*Execution).IsAccessList())
+		tx1, err := elp.Action().(EthCompatibleAction).ToEthTx(uint32(tx.ChainId().Uint64()))
+		r.NoError(err)
+		if v.acl {
+			r.EqualValues(types.AccessListTxType, tx1.Type())
+		} else {
+			r.EqualValues(types.LegacyTxType, tx1.Type())
+		}
+		b, err := tx.MarshalJSON()
+		r.NoError(err)
+		b1, err := tx1.MarshalJSON()
+		r.NoError(err)
+		r.Equal(b, b1)
+	}
+}
+
 func TestBuildRewardingAction(t *testing.T) {
 	r := require.New(t)
 

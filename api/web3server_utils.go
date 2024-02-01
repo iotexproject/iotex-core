@@ -167,6 +167,9 @@ func (svr *web3Handler) ethTxToEnvelope(tx *types.Transaction) (action.Envelope,
 	if to == address.RewardingProtocol {
 		return elpBuilder.BuildRewardingAction(tx)
 	}
+	if tx.Type() == types.AccessListTxType {
+		return elpBuilder.BuildExecution(tx)
+	}
 	isContract, err := svr.checkContractAddr(to)
 	if err != nil {
 		return nil, err

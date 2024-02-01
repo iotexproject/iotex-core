@@ -257,7 +257,7 @@ func NewSmartContractTest(t *testing.T, file string) {
 	sct.run(require)
 }
 
-func readExecution(
+func (sct *SmartContractTest) readExecution(
 	bc blockchain.Blockchain,
 	sf factory.Factory,
 	dao blockdao.BlockDAO,
@@ -270,15 +270,29 @@ func readExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-	exec, err := action.NewExecutionWithAccessList(
-		contractAddr,
-		state.PendingNonce(),
-		ecfg.Amount(),
-		ecfg.GasLimit(),
-		ecfg.GasPrice(),
-		ecfg.ByteCode(),
-		ecfg.AccessList(),
+	var (
+		exec *action.Execution
 	)
+	if sct.InitGenesis.IsLondon || sct.InitGenesis.IsShanghai {
+		exec, err = action.NewExecutionWithAccessList(
+			contractAddr,
+			state.PendingNonce(),
+			ecfg.Amount(),
+			ecfg.GasLimit(),
+			ecfg.GasPrice(),
+			ecfg.ByteCode(),
+			ecfg.AccessList(),
+		)
+	} else {
+		exec, err = action.NewExecution(
+			contractAddr,
+			state.PendingNonce(),
+			ecfg.Amount(),
+			ecfg.GasLimit(),
+			ecfg.GasPrice(),
+			ecfg.ByteCode(),
+		)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -320,15 +334,30 @@ func (sct *SmartContractTest) runExecutions(
 			nonce = state.PendingNonce()
 		}
 		nonces[executor.String()] = nonce
-		exec, err := action.NewExecutionWithAccessList(
-			contractAddrs[i],
-			nonce,
-			ecfg.Amount(),
-			ecfg.GasLimit(),
-			ecfg.GasPrice(),
-			ecfg.ByteCode(),
-			ecfg.AccessList(),
+		var (
+			exec *action.Execution
+			err  error
 		)
+		if sct.InitGenesis.IsLondon || sct.InitGenesis.IsShanghai {
+			exec, err = action.NewExecutionWithAccessList(
+				contractAddrs[i],
+				nonce,
+				ecfg.Amount(),
+				ecfg.GasLimit(),
+				ecfg.GasPrice(),
+				ecfg.ByteCode(),
+				ecfg.AccessList(),
+			)
+		} else {
+			exec, err = action.NewExecution(
+				contractAddrs[i],
+				nonce,
+				ecfg.Amount(),
+				ecfg.GasLimit(),
+				ecfg.GasPrice(),
+				ecfg.ByteCode(),
+			)
+		}
 		if err != nil {
 			return nil, nil, err
 		}
@@ -558,7 +587,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		var blkInfo *ExpectedBlockInfo
 		var err error
 		if exec.ReadOnly {
-			retval, receipt, err = readExecution(bc, sf, dao, ap, &exec, contractAddr)
+			retval, receipt, err = sct.readExecution(bc, sf, dao, ap, &exec, contractAddr)
 			r.NoError(err)
 			expected := exec.ExpectedReturnValue()
 			if len(expected) == 0 {
