@@ -236,21 +236,25 @@ func TestGetBlockByNumber(t *testing.T) {
 	}, nil)
 	core.EXPECT().EVMNetworkID().Return(uint32(0))
 
-	inNil := gjson.Parse(`{"params":[]}`)
-	ret, err := web3svr.getBlockByNumber(&inNil)
-	require.EqualError(err, errInvalidFormat.Error())
+	t.Run("nil params", func(t *testing.T) {
+		inNil := gjson.Parse(`{"params":[]}`)
+		_, err := web3svr.getBlockByNumber(&inNil)
+		require.EqualError(err, errInvalidFormat.Error())
+	})
 
-	in := gjson.Parse(`{"params":["1", true]}`)
-	ret, err = web3svr.getBlockByNumber(&in)
-	require.NoError(err)
-	rlt, ok := ret.(*getBlockResult)
-	require.True(ok)
-	require.Equal(blk.Header, rlt.blk.Header)
-	require.Equal(receipts, rlt.blk.Receipts)
-	require.Len(rlt.transactions, 1)
-	tsrlt, ok := rlt.transactions[0].(*getTransactionResult)
-	require.True(ok)
-	require.Equal(receipts[0], tsrlt.receipt)
+	t.Run("nil params", func(t *testing.T) {
+		in := gjson.Parse(`{"params":["1", true]}`)
+		ret, err := web3svr.getBlockByNumber(&in)
+		require.NoError(err)
+		rlt, ok := ret.(*getBlockResult)
+		require.True(ok)
+		require.Equal(blk.Header, rlt.blk.Header)
+		require.Equal(receipts, rlt.blk.Receipts)
+		require.Len(rlt.transactions, 1)
+		tsrlt, ok := rlt.transactions[0].(*getTransactionResult)
+		require.True(ok)
+		require.Equal(receipts[0], tsrlt.receipt)
+	})
 }
 
 func TestGetBalance(t *testing.T) {
@@ -1128,7 +1132,7 @@ func TestSubscribe(t *testing.T) {
 		require.Equal("streamid_1", ret.(string))
 	})
 
-	t.Run("", func(t *testing.T) {
+	t.Run("nil params", func(t *testing.T) {
 		inNil := gjson.Parse(`{"params":[]}`)
 		_, err := web3svr.subscribe(&inNil, writer)
 		require.EqualError(err, errInvalidFormat.Error())
