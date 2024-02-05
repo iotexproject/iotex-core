@@ -474,46 +474,22 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 }
 
 func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidateStateReader, cand *Candidate) (bool, error) {
-	// at least min self stake
-	if cand.SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
-		return false, nil
-	}
-
-	// endorsement must not exipred if the self-stake bucket is an endorse bucket
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	// before delegate endorsement enabled, candidate is always active unless it's self-stake bucket is unstaked
 	if featureCtx.DisableDelegateEndorsement {
+		if cand.SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
+			return false, nil
+		}
 		return true, nil
 	}
+
 	srHeight, err := csr.SR().Height()
 	if err != nil {
 		return false, errors.Wrap(err, "failed to get StateReader height")
 	}
-	vb, err := csr.getBucket(cand.SelfStakeBucketIdx)
-	if err != nil {
-		return false, errors.Wrapf(err, "failed to get bucket %d", cand.SelfStakeBucketIdx)
-	}
-	// bucket is self-owned
-	if address.Equal(vb.Owner, cand.Owner) {
-		return true, nil
-	}
-	esr := NewEndorsementStateReader(csr.SR())
-	endorse, err := esr.Get(cand.SelfStakeBucketIdx)
-	switch {
-	case err == nil:
-		// endorsement exists and expired before end of next epoch
-		rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-		currentEpochNum := rp.GetEpochNum(srHeight)
-		if endorse.Status(rp.GetEpochLastBlockHeight(currentEpochNum+1)) == EndorseExpired {
-			return false, nil
-		}
-	case !errors.Is(err, state.ErrStateNotExist):
-		// other error
-		return false, err
-	default:
-		// endorsement does not exist
-		return false, errors.Wrapf(ErrEndorsementNotExist, "bucket index %d", cand.SelfStakeBucketIdx)
-	}
-	return true, nil
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	currentEpochNum := rp.GetEpochNum(srHeight)
+	return csr.IsActiveCandidateAt(cand, rp.GetEpochLastBlockHeight(currentEpochNum+1))
 }
 
 // ActiveCandidates returns all active candidates in candidate center
