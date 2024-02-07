@@ -1709,6 +1709,16 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 	}
 	_, err = grpcHandler.EstimateActionGasConsumption(context.Background(), request)
 	require.Error(err)
+	// Case XI: test for invalid gas
+	request = &iotexapi.EstimateActionGasConsumptionRequest{
+		GasPrice: "abc",
+		Action: &iotexapi.EstimateActionGasConsumptionRequest_Execution{
+			Execution: &iotextypes.Execution{},
+		},
+		CallerAddress: identityset.Address(0).String(),
+	}
+	_, err = grpcHandler.EstimateActionGasConsumption(context.Background(), request)
+	require.ErrorContains(err, "invalid gas price")
 }
 
 func TestGrpcServer_ReadUnclaimedBalanceIntegrity(t *testing.T) {
