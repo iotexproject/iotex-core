@@ -736,7 +736,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 
 		require.NoError(ap.Add(context.Background(), selp))
-		blk, err := bc.MintNewBlock(testutil.TimestampNow())
+		blk, err := bc.MintNewBlock(fixedTime)
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
@@ -793,7 +793,7 @@ func TestProtocol_Handle(t *testing.T) {
 		log.S().Infof("execution %+v", execution)
 
 		require.NoError(ap.Add(context.Background(), selp))
-		blk, err = bc.MintNewBlock(testutil.TimestampNow())
+		blk, err = bc.MintNewBlock(fixedTime)
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
@@ -828,7 +828,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		log.S().Infof("execution %+v", execution)
 		require.NoError(ap.Add(context.Background(), selp))
-		blk, err = bc.MintNewBlock(testutil.TimestampNow())
+		blk, err = bc.MintNewBlock(fixedTime)
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
@@ -851,7 +851,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 
 		require.NoError(ap.Add(context.Background(), selp))
-		blk, err = bc.MintNewBlock(testutil.TimestampNow())
+		blk, err = bc.MintNewBlock(fixedTime)
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))

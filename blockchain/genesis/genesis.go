@@ -73,7 +73,7 @@ func defaultConfig() Genesis {
 			PalauBlockHeight:        22991401,
 			QuebecBlockHeight:       24838201,
 			RedseaBlockHeight:       26704441,
-			SumatraBlockHeight:      36704441,
+			SumatraBlockHeight:      28516681,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
