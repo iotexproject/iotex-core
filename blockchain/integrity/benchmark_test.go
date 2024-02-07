@@ -286,7 +286,7 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	}
 
 	genesisPriKey := identityset.PrivateKey(27)
-	var genesisNonce uint64 = 0
+	var genesisNonce uint64 = 1
 
 	// make a transfer from genesisAccount to a and b,because stateTX cannot store data in height 0
 	tsf, err := action.SignedTransfer(userA.String(), genesisPriKey, genesisNonce, big.NewInt(1e17), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
