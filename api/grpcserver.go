@@ -170,6 +170,27 @@ func (svr *gRPCHandler) GetAccount(ctx context.Context, in *iotexapi.GetAccountR
 	}, nil
 }
 
+// GetAccount returns the metadata of multiple accounts
+func (svr *gRPCHandler) GetAccounts(ctx context.Context, in *iotexapi.GetAccountsRequest) (*iotexapi.GetAccountsResponse, error) {
+	span := tracer.SpanFromContext(ctx)
+	defer span.End()
+	accountMetas := make([]*iotextypes.AccountMeta, 0)
+	for _, inaddr := range in.GetAddress() {
+		addr, err := address.FromString(inaddr)
+		if err != nil {
+			return nil, err
+		}
+		accountMeta, _, err := svr.coreService.Account(addr)
+		if err != nil {
+			return nil, err
+		}
+		accountMetas = append(accountMetas, accountMeta)
+	}
+	return &iotexapi.GetAccountsResponse{
+		AccountMeta: accountMetas,
+	}, nil
+}
+
 // GetActions returns actions
 func (svr *gRPCHandler) GetActions(ctx context.Context, in *iotexapi.GetActionsRequest) (*iotexapi.GetActionsResponse, error) {
 	var (
