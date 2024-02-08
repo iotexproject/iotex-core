@@ -286,6 +286,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleChangeCandidate, featureCtx.NewStakingReceiptFormat)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
@@ -301,6 +302,9 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	bucket, fetchErr := p.fetchBucketAndValidate(featureCtx, csm, actionCtx.Caller, act.BucketIndex(), true, false)
 	if fetchErr != nil {
 		return log, fetchErr
+	}
+	if rErr := validateBucketEndorsement(NewEndorsementStateManager(csm.SM()), bucket, false, blkCtx.BlockHeight); rErr != nil {
+		return log, rErr
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes(), candidate.Owner.Bytes())
 
@@ -344,6 +348,11 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 			err:           errors.Wrapf(err, "failed to subtract vote for previous candidate %s", prevCandidate.Owner.String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
+	}
+	// clear previous candidate's self stake if the bucket is expired
+	if csm.ContainsSelfStakingBucket(prevCandidate.SelfStakeBucketIdx) {
+		prevCandidate.SelfStake.SetInt64(0)
+		prevCandidate.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
 	}
 	if err := csm.Upsert(prevCandidate); err != nil {
 		return log, csmErrorToHandleError(prevCandidate.Owner.String(), err)
