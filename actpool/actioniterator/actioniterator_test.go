@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -97,6 +98,29 @@ func TestActionIterator(t *testing.T) {
 		appliedActionList = append(appliedActionList, bestAction)
 	}
 	require.Equal(appliedActionList, []*action.SealedEnvelope{selp3, selp1, selp2, selp4, selp5, selp6})
+}
+
+func TestActionByPrice(t *testing.T) {
+	require := require.New(t)
+
+	s := &actionByPrice{}
+	require.Equal(0, s.Len())
+
+	tsf1, err := action.NewTransfer(uint64(1), big.NewInt(100), "100", nil, uint64(0), big.NewInt(13))
+	require.NoError(err)
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(1).
+		SetGasPrice(big.NewInt(5)).
+		SetAction(tsf1).Build()
+	selp, err := action.Sign(elp, identityset.PrivateKey(28))
+	require.NoError(err)
+
+	s.Push(selp)
+	require.Equal(1, s.Len())
+
+	se := s.Pop()
+	require.Equal(0, s.Len())
+	require.Equal(selp, se)
 }
 
 func BenchmarkLooping(b *testing.B) {
