@@ -72,6 +72,10 @@ type (
 		sender string
 		err    error
 	}
+	WrapSealedEnvelope struct {
+		Time           int64
+		SealedEnvelope action.SealedEnvelope
+	}
 )
 
 var (
@@ -307,8 +311,7 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 		gaslimit    uint64
 		payLoad     string = opMul
 		contract    string
-		bufferedTxs = make(chan action.SealedEnvelope, 1000)
-		feedbackCh  = make(chan feedback, 3)
+		bufferedTxs = make(chan WrapSealedEnvelope, 2000)
 	)
 
 	// query gasPrice
@@ -352,47 +355,29 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 		}
 	}
 	log.L().Info("info", zap.String("contract addr", contract), zap.Uint64("gas limit", gaslimit))
-	go p.txGenerate(ctx, bufferedTxs, feedbackCh, actionType, gaslimit, gasPrice, payLoad, contract)
-	go p.InjectionV3(ctx, bufferedTxs, feedbackCh)
+	go p.txGenerate(ctx, bufferedTxs, actionType, gaslimit, gasPrice, payLoad, contract)
+	go p.InjectionV3(ctx, bufferedTxs)
 	// go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
 }
 
 func (p *injectProcessor) txGenerate(
 	ctx context.Context,
-	ch chan action.SealedEnvelope,
-	feedbackCh chan feedback,
+	ch chan WrapSealedEnvelope,
 	actionType int,
 	gasLimit uint64,
 	gasPrice *big.Int,
 	payLoad string,
 	contractAddr string,
 ) {
-	canSend := make(chan bool, 1)
-	canSend <- true
-	go func() {
-		for feedback := range feedbackCh {
-			<-canSend
-			log.L().Warn("failed to inject, sending willbe delayed.", zap.String("sender", feedback.sender), zap.Error(feedback.err))
-			p.resetAccountNonce(ctx, feedback.sender)
-			select {
-			case canSend <- true:
-			default:
-			}
-		}
-	}()
 	for {
 		select {
-		case <-canSend:
+		default:
 			tx, err := util.ActionGenerator(actionType, p.accountManager, rawInjectCfg.chainID, gasLimit, gasPrice, contractAddr, payLoad)
 			if err != nil {
 				log.L().Error("no act", zap.Error(err))
 				continue
 			}
-			ch <- tx
-			select {
-			case canSend <- true:
-			default:
-			}
+			ch <- WrapSealedEnvelope{Time: time.Now().UnixNano(), SealedEnvelope: tx}
 		case <-ctx.Done():
 			return
 		}
@@ -401,11 +386,6 @@ func (p *injectProcessor) txGenerate(
 }
 
 func (p *injectProcessor) resetAccountNonce(ctx context.Context, addr string) {
-	if t, ok := lastNonceTimes.Load(addr); ok {
-		if time.Since(t.(time.Time)) < 3*time.Second {
-			return
-		}
-	}
 	err := backoff.Retry(func() error {
 		resp, err := p.api.GetAccount(ctx, &iotexapi.GetAccountRequest{Address: addr})
 		if err != nil {
@@ -417,8 +397,9 @@ func (p *injectProcessor) resetAccountNonce(ctx context.Context, addr string) {
 	if err != nil {
 		log.L().Error("Failed to reset nonce.", zap.Error(err), zap.String("addr", addr))
 	}
-	lastNonceTimes.Store(addr, time.Now())
+	lastNonceTimes.Store(addr, time.Now().UnixNano())
 }
+
 func (p *injectProcessor) estimateGasLimitForExecution(actionType int, contractAddr string, gasPrice *big.Int, data string) (uint64, error) {
 	var (
 		acc = p.accountManager.AccountList[rnd.Intn(len(p.accountManager.AccountList))]
@@ -439,12 +420,10 @@ func (p *injectProcessor) estimateGasLimitForExecution(actionType int, contractA
 	return gas.GetGas(), nil
 }
 
-func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan action.SealedEnvelope,
-	feedbackCh chan feedback) {
+func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan WrapSealedEnvelope) {
 	log.L().Info("Initalize the first tx")
 	for i := 0; i < len(p.accountManager.AccountList); i++ {
-		p.injectV3(<-ch, feedbackCh)
-		time.Sleep(500 * time.Millisecond)
+		p.injectV3(<-ch)
 	}
 	time.Sleep(time.Second)
 
@@ -457,7 +436,7 @@ func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan action.Sealed
 			return
 		case <-ticker.C:
 			// log.L().Info("buffer", zap.Int("size", len(ch)))
-			go p.injectV3(<-ch, feedbackCh)
+			go p.injectV3(<-ch)
 		}
 	}
 }
@@ -519,23 +498,39 @@ func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan action.Sealed
 // }
 
 var (
-	_injectedActs      uint64 = 0
-	_injectedActHashes        = []hash.Hash256{}
+	_injectedActs       uint64 = 0
+	_injectedActHashes         = []hash.Hash256{}
+	_nonceProcessingMap        = sync.Map{}
 )
 
-func (p *injectProcessor) injectV3(selp action.SealedEnvelope, feedbackCh chan feedback) {
-	actHash, _ := selp.Hash()
+func (p *injectProcessor) processFeedback(feed feedback) {
+	_, isProcessing := _nonceProcessingMap.Load(feed.sender)
+	if isProcessing {
+		return
+	}
+	_nonceProcessingMap.Store(feed.sender, struct{}{})
+	if strings.Contains(feed.err.Error(), action.ErrNonceTooLow.Error()) ||
+		strings.Contains(feed.err.Error(), action.ErrNonceTooHigh.Error()) {
+		p.resetAccountNonce(context.Background(), feed.sender)
+	}
+	_nonceProcessingMap.Delete(feed.sender)
+}
+
+func (p *injectProcessor) injectV3(wrapSelp WrapSealedEnvelope) {
+	selp := wrapSelp.SealedEnvelope
 	sender := selp.SrcPubkey().Address().String()
+	nonceTime, ok := lastNonceTimes.Load(sender)
+	if !ok {
+		panic("nonce time not found")
+	}
+	if nonceTime.(int64) > wrapSelp.Time {
+		return
+	}
+	actHash, _ := selp.Hash()
 	_, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
 	if err != nil {
 		log.L().Error("Failed to inject.", zap.Error(err))
-		if strings.Contains(err.Error(), action.ErrExistedInPool.Error()) {
-			feedbackCh <- feedback{sender: sender, err: action.ErrExistedInPool}
-		} else if strings.Contains(err.Error(), action.ErrNonceTooLow.Error()) {
-			feedbackCh <- feedback{sender: sender, err: action.ErrNonceTooLow}
-		} else if strings.Contains(err.Error(), action.ErrNonceTooHigh.Error()) {
-			feedbackCh <- feedback{sender: sender, err: action.ErrNonceTooHigh}
-		}
+		go p.processFeedback(feedback{err: err, sender: sender})
 	} else {
 		_injectedActHashes = append(_injectedActHashes, actHash)
 	}
