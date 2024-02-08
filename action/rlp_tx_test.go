@@ -399,6 +399,36 @@ var (
 			"040a98b1acb38ed9cd8d0e8f1f03b1588bae140586f8a8049197b65013a3c17690151ae422e3fdfb26be2e6a4465b1f9cf5c26a5635109929a0d0a11734124d50a",
 			"3fab184622dc19b6109349b94811493bf2a45362",
 		},
+		{
+			"candidateActivate",
+			"f88a7885e8d4a510008252089404c22afae6a03438b8fed74cb1cf441168df3f1280a4ef68b1a400000000000000000000000000000000000000000000000000000000000000018224c6a05d21ebb92203797ce49a95febe4430cfdfd32deb9284c80fee5d600124a77791a05ac4871b1b1200433f197aee068007b52f2b096e27fe473874ceab89661fad2a",
+			120,
+			21000,
+			"1000000000000",
+			"0",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			36,
+			"db61959a804781ea9da78d6d4ce6054e1ea940ae4a2cac3853f5262728a9369e",
+			"049ea260dc05a824a8a7e92d3b87e47ce06384e1eee15d446494a20d299c1bd11900edc2df5697aa00b2256c286193239f83740d079b032b9fbe085b791fa10950",
+			"065e1164818487818e6ba714e8d80b91718ad758",
+		},
+		{
+			"candidateEndorsement",
+			"f8ab7885e8d4a510008252089404c22afae6a03438b8fed74cb1cf441168df3f1280b8448a8a5d51000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000018224c5a0cb0c5d443925b98776645793fe8bfdeb34ca1d364d1c389521f5a4c715a42a91a07c1bb620307a78fb463bb8204a43d4bf32acd6efed0cb6b7c00eb7ae13da1ad6",
+			120,
+			21000,
+			"1000000000000",
+			"0",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			68,
+			"008d08ae3327ae395fdc0b16497e181c4eb6633cf796c174e8819cbb2a29194c",
+			"049ea260dc05a824a8a7e92d3b87e47ce06384e1eee15d446494a20d299c1bd11900edc2df5697aa00b2256c286193239f83740d079b032b9fbe085b791fa10950",
+			"065e1164818487818e6ba714e8d80b91718ad758",
+		},
 	}
 )
 
@@ -506,7 +536,7 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 		elp, _ := elpBuilder.BuildExecution(tx)
 		return elp.Proto()
 	case "stakeCreate", "stakeAddDeposit", "changeCandidate", "unstake", "withdrawStake", "restake",
-		"transferStake", "candidateRegister", "candidateUpdate":
+		"transferStake", "candidateRegister", "candidateUpdate", "candidateActivate", "candidateEndorsement":
 		elp, _ := elpBuilder.BuildStakingAction(tx)
 		return elp.Proto()
 	case "rewardingClaim", "rewardingDeposit":

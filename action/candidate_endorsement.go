@@ -1,8 +1,10 @@
 package action
 
 import (
+	"bytes"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
@@ -67,6 +69,30 @@ func (act *CandidateEndorsement) LoadProto(pbAct *iotextypes.CandidateEndorsemen
 	return nil
 }
 
+func (act *CandidateEndorsement) encodeABIBinary() ([]byte, error) {
+	data, err := candidateEndorsementMethod.Inputs.Pack(act.bucketIndex, act.endorse)
+	if err != nil {
+		return nil, err
+	}
+	return append(candidateEndorsementMethod.ID, data...), nil
+}
+
+// ToEthTx returns an Ethereum transaction which corresponds to this action
+func (act *CandidateEndorsement) ToEthTx(_ uint32) (*types.Transaction, error) {
+	data, err := act.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    act.Nonce(),
+		GasPrice: act.GasPrice(),
+		Gas:      act.GasLimit(),
+		To:       &_stakingProtocolEthAddr,
+		Value:    big.NewInt(0),
+		Data:     data,
+	}), nil
+}
+
 // NewCandidateEndorsement returns a CandidateEndorsement action
 func NewCandidateEndorsement(nonce, gasLimit uint64, gasPrice *big.Int, bucketIndex uint64, endorse bool) *CandidateEndorsement {
 	return &CandidateEndorsement{
@@ -79,4 +105,30 @@ func NewCandidateEndorsement(nonce, gasLimit uint64, gasPrice *big.Int, bucketIn
 		bucketIndex: bucketIndex,
 		endorse:     endorse,
 	}
+}
+
+// NewCandidateEndorsementFromABIBinary parses the smart contract input and creates an action
+func NewCandidateEndorsementFromABIBinary(data []byte) (*CandidateEndorsement, error) {
+	var (
+		paramsMap = map[string]any{}
+		cr        CandidateEndorsement
+	)
+	// sanity check
+	if len(data) <= 4 || !bytes.Equal(candidateEndorsementMethod.ID, data[:4]) {
+		return nil, errDecodeFailure
+	}
+	if err := candidateEndorsementMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
+	}
+	bucketID, ok := paramsMap["bucketIndex"].(uint64)
+	if !ok {
+		return nil, errDecodeFailure
+	}
+	endorse, ok := paramsMap["endorse"].(bool)
+	if !ok {
+		return nil, errDecodeFailure
+	}
+	cr.bucketIndex = bucketID
+	cr.endorse = endorse
+	return &cr, nil
 }

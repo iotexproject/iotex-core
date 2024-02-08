@@ -1,0 +1,33 @@
+[
+    {
+        "inputs": [
+            {
+                "internalType": "uint64",
+                "name": "bucketIndex",
+                "type": "uint64"
+            }
+        ],
+        "name": "candidateActivate",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint64",
+                "name": "bucketIndex",
+                "type": "uint64"
+            },
+            {
+                "internalType": "bool",
+                "name": "endorse",
+                "type": "bool"
+            }
+        ],
+        "name": "candidateEndorsement",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    }
+]

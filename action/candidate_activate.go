@@ -1,8 +1,10 @@
 package action
 
 import (
+	"bytes"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
@@ -56,6 +58,30 @@ func (cr *CandidateActivate) LoadProto(pbAct *iotextypes.CandidateActivate) erro
 	return nil
 }
 
+func (cr *CandidateActivate) encodeABIBinary() ([]byte, error) {
+	data, err := candidateActivateMethod.Inputs.Pack(cr.bucketID)
+	if err != nil {
+		return nil, err
+	}
+	return append(candidateActivateMethod.ID, data...), nil
+}
+
+// ToEthTx returns an Ethereum transaction which corresponds to this action
+func (cr *CandidateActivate) ToEthTx(_ uint32) (*types.Transaction, error) {
+	data, err := cr.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    cr.Nonce(),
+		GasPrice: cr.GasPrice(),
+		Gas:      cr.GasLimit(),
+		To:       &_stakingProtocolEthAddr,
+		Value:    big.NewInt(0),
+		Data:     data,
+	}), nil
+}
+
 // NewCandidateActivate returns a CandidateActivate action
 func NewCandidateActivate(nonce, gasLimit uint64, gasPrice *big.Int, bucketID uint64) *CandidateActivate {
 	return &CandidateActivate{
@@ -67,4 +93,25 @@ func NewCandidateActivate(nonce, gasLimit uint64, gasPrice *big.Int, bucketID ui
 		},
 		bucketID: bucketID,
 	}
+}
+
+// NewCandidateActivateFromABIBinary parses the smart contract input and creates an action
+func NewCandidateActivateFromABIBinary(data []byte) (*CandidateActivate, error) {
+	var (
+		paramsMap = map[string]any{}
+		cr        CandidateActivate
+	)
+	// sanity check
+	if len(data) <= 4 || !bytes.Equal(candidateActivateMethod.ID, data[:4]) {
+		return nil, errDecodeFailure
+	}
+	if err := candidateActivateMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
+	}
+	bucketID, ok := paramsMap["bucketIndex"].(uint64)
+	if !ok {
+		return nil, errDecodeFailure
+	}
+	cr.bucketID = bucketID
+	return &cr, nil
 }
