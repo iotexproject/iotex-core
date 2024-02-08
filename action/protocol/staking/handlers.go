@@ -172,6 +172,10 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 			failureStatus: iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity,
 		}
 	}
+	if rErr := validateBucketEndorsement(NewEndorsementStateManager(csm.SM()), bucket, false, blkCtx.BlockHeight); rErr != nil {
+		return log, rErr
+	}
+	// TODO: cannot unstake if selected as candidates in this or next epoch
 
 	// update bucket
 	bucket.UnstakeStartTime = blkCtx.BlockTimeStamp.UTC()
