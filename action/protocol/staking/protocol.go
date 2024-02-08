@@ -684,3 +684,37 @@ func writeCandCenterStateToStateDB(sm protocol.StateManager, name, op, owners Ca
 	_, err := sm.PutState(owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
 	return err
 }
+
+// isSelfStakeBucket returns true if the bucket is self-stake bucket and not expired
+func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csm CandidateStateManager, index uint64) (bool, error) {
+	// bucket index should be settled in one of candidates
+	selfStake := csm.ContainsSelfStakingBucket(index)
+	if featureCtx.DisableDelegateEndorsement || !selfStake {
+		return selfStake, nil
+	}
+
+	bucket, err := csm.getBucket(index)
+	switch {
+	case err == nil:
+	case errors.Is(err, ErrWithdrawnBucket):
+		// the bucket is withdrawn
+		return false, nil
+	default:
+		return false, err
+	}
+	// bucket should not be unstaked if it is self-owned
+	if address.Equal(bucket.Owner, bucket.Candidate) {
+		return !bucket.isUnstaked(), nil
+	}
+	// otherwise bucket should be an endorse bucket which is not expired
+	esm := NewEndorsementStateManager(csm.SM())
+	height, err := esm.Height()
+	if err != nil {
+		return false, err
+	}
+	endorse, err := esm.Get(index)
+	if err != nil {
+		return false, err
+	}
+	return endorse.Status(height) != EndorseExpired, nil
+}
