@@ -11,13 +11,11 @@ import (
 	"math/big"
 	"math/rand"
 	"sync"
-	"sync/atomic"
 
 	"github.com/cenkalti/backoff"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -98,58 +96,17 @@ func (ac *AccountManager) UpdateNonce(client iotexapi.APIServiceClient) error {
 	return nil
 }
 
-// TxGenerator injects Actions in APS Mode
-func TxGenerator(
-	txTotal uint64,
-	client iotexapi.APIServiceClient,
-	delegates []*AddressKey,
-	gasLimit uint64,
-	gasPrice *big.Int,
-	actionType int,
-	contractAddr string,
-	chainID uint32,
-) ([]action.SealedEnvelope, error) {
-
-	accountManager := NewAccountManager(delegates)
-	err := accountManager.UpdateNonce(client)
-	if err != nil {
-		panic(err)
-	}
-
-	ret := make([]action.SealedEnvelope, txTotal)
-	var wg sync.WaitGroup
-	var txGenerated uint64
-	for i := 0; i < int(txTotal); i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			selp, err := ActionGenerator(actionType, accountManager, chainID, gasLimit, gasPrice, contractAddr, "")
-			if err != nil {
-				log.L().Fatal("Failed to inject transfer", zap.Error(err))
-			}
-
-			ret[i] = selp
-			atomic.AddUint64(&txGenerated, 1)
-			// TODO: collect balance info
-		}(i)
-
-	}
-	wg.Wait()
-	if txGenerated != txTotal {
-		return nil, errors.New("gen failed")
-	}
-	return ret, nil
-}
-
 // ActionGenerator is tbd
 func ActionGenerator(
 	actionType int,
 	accountManager *AccountManager,
 	chainID uint32,
-	gasLimit uint64,
-	gasPrice *big.Int,
+	transferGasLimit uint64,
+	transferGasPrice *big.Int,
+	executionGasLimit uint64,
+	executionGasPrice *big.Int,
 	contractAddr string,
-	payLoad string,
+	transferPayload, executionPayload []byte,
 ) (action.SealedEnvelope, error) {
 	var (
 		selp      action.SealedEnvelope
@@ -162,9 +119,15 @@ func ActionGenerator(
 	)
 	switch actionType {
 	case 1:
-		selp, _, err = createSignedTransfer(sender, recipient, big.NewInt(0), chainID, nonce, gasLimit, gasPrice, payLoad)
+		selp, _, err = createSignedTransfer(sender, recipient, big.NewInt(0), chainID, nonce, transferGasLimit, transferGasPrice, transferPayload)
 	case 2:
-		selp, _, err = createSignedExecution(sender, contractAddr, chainID, nonce, big.NewInt(0), gasLimit, gasPrice, payLoad)
+		selp, _, err = createSignedExecution(sender, contractAddr, chainID, nonce, big.NewInt(0), executionGasLimit, executionGasPrice, executionPayload)
+	case 3:
+		if rand.Intn(2) == 0 {
+			selp, _, err = createSignedTransfer(sender, recipient, big.NewInt(0), chainID, nonce, transferGasLimit, transferGasPrice, transferPayload)
+		} else {
+			selp, _, err = createSignedExecution(sender, contractAddr, chainID, nonce, big.NewInt(0), executionGasLimit, executionGasPrice, executionPayload)
+		}
 	}
 	return selp, err
 }

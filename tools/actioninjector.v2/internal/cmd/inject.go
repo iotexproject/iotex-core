@@ -36,7 +36,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/tools/util"
 )
 
@@ -71,6 +70,7 @@ type (
 	feedback struct {
 		sender string
 		err    error
+		time   int64
 	}
 	WrapSealedEnvelope struct {
 		Time           int64
@@ -109,13 +109,11 @@ func newInjectionProcessor() (*injectProcessor, error) {
 	}
 	log.L().Info("server connected")
 	api := iotexapi.NewAPIServiceClient(conn)
-	// nonceCache, err := ttl.NewCache()
 	if err != nil {
 		return nil, err
 	}
 	p := &injectProcessor{
 		api: api,
-		// nonces: nonceCache,
 	}
 	p.randAccounts(rawInjectCfg.randAccounts)
 	loadValue, _ := new(big.Int).SetString(rawInjectCfg.loadTokenAmount, 10)
@@ -197,18 +195,6 @@ func (p *injectProcessor) loadAccounts(keypairsPath string, transferValue *big.I
 	return nil
 }
 
-// func (p *injectProcessor) syncNoncesProcess(ctx context.Context) {
-// 	reset := time.NewTicker(rawInjectCfg.resetInterval * 3)
-// 	for {
-// 		select {
-// 		case <-ctx.Done():
-// 			return
-// 		case <-reset.C:
-// 			p.syncNonces(context.Background())
-// 		}
-// 	}
-// }
-
 func (p *injectProcessor) syncNonces(ctx context.Context) error {
 	for _, addr := range p.accountManager.GetAllAddr() {
 		err := backoff.Retry(func() error {
@@ -222,67 +208,10 @@ func (p *injectProcessor) syncNonces(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		time.Sleep(10 * time.Millisecond)
 	}
 	return nil
 }
 
-// func (p *injectProcessor) injectProcess(ctx context.Context) {
-// 	var workers sync.WaitGroup
-// 	ticks := make(chan uint64)
-// 	for i := uint64(0); i < injectCfg.workers; i++ {
-// 		workers.Add(1)
-// 		go p.inject(&workers, ticks)
-// 	}
-
-// 	defer workers.Wait()
-// 	defer close(ticks)
-// 	interval := uint64(time.Second.Nanoseconds() / int64(injectCfg.aps))
-// 	began, count := time.Now(), uint64(0)
-// 	for {
-// 		now, next := time.Now(), began.Add(time.Duration(count*interval))
-// 		time.Sleep(next.Sub(now))
-// 		select {
-// 		case <-ctx.Done():
-// 			return
-// 		case ticks <- count:
-// 			count++
-// 		default:
-// 			workers.Add(1)
-// 			go p.inject(&workers, ticks)
-// 		}
-// 	}
-// }
-
-// func (p *injectProcessor) injectProcessV2(ctx context.Context) {
-// 	var numTx uint64 = 15000
-// 	txs, err := util.TxGenerator(numTx, p.api, p.accounts, injectCfg.transferGasLimit, injectCfg.transferGasPrice, 1, "")
-// 	if err != nil {
-// 		log.L().Error("no act", zap.Error(err))
-// 		return
-// 	}
-// 	p.tx = txs
-// 	fmt.Println(len(txs))
-// 	for i := 0; i < len(p.accounts); i++ {
-// 		p.injectV2()
-// 		time.Sleep(1 * time.Second)
-// 	}
-
-// 	time.Sleep(15 * time.Second)
-// 	log.L().Info("begin inject")
-// 	ticker := time.NewTicker(time.Duration(time.Second.Nanoseconds() / int64(injectCfg.aps)))
-// 	defer ticker.Stop()
-// 	for {
-// 		select {
-// 		case <-ctx.Done():
-// 			return
-// 		case <-ticker.C:
-// 			// fmt.Println("Tick at")
-// 			go p.injectV2()
-// 		}
-// 	}
-
-// }
 func parseHumanSize(s string) int64 {
 	s = strings.TrimSpace(s)
 	unit := s[len(s)-1:]
@@ -306,73 +235,59 @@ func parseHumanSize(s string) int64 {
 	}
 }
 
-func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
+func (p *injectProcessor) injectProcess(ctx context.Context, actionType int) {
 	var (
-		gaslimit    uint64
-		payLoad     string = opMul
-		contract    string
-		bufferedTxs = make(chan WrapSealedEnvelope, 2000)
+		transferGaslimit  = rawInjectCfg.transferGasLimit
+		transferGasPrice  = big.NewInt(rawInjectCfg.transferGasPrice)
+		executionGasLimit = rawInjectCfg.executionGasLimit
+		executionGasPrice = big.NewInt(rawInjectCfg.executionGasPrice)
+		contract          string
+		bufferedTxs       = make(chan WrapSealedEnvelope, 2000)
+		transferPayload   []byte
+		executionData     []byte
+		err               error
 	)
-
-	// query gasPrice
-	apiRet2, _ := p.api.SuggestGasPrice(context.Background(), &iotexapi.SuggestGasPriceRequest{})
-	gasPrice := new(big.Int).SetUint64(apiRet2.GasPrice)
-
-	// estimate execution gaslimit
-	if actionType == actionTypeTransfer {
-		gaslimit = 100000
-		gasPrice = big.NewInt(1000000000000)
-		if rawInjectCfg.transferPayloadSize != "0" {
-			payloadSz := parseHumanSize(rawInjectCfg.transferPayloadSize)
-			if payloadSz > 0 {
-				randomBytes := make([]byte, payloadSz)
-				_, err := rand.Read(randomBytes)
-				if err != nil {
-					panic(err)
-				}
-				payLoad = hex.EncodeToString(randomBytes)
+	if rawInjectCfg.transferPayloadSize != "0" {
+		payloadSz := parseHumanSize(rawInjectCfg.transferPayloadSize)
+		if payloadSz > 0 {
+			randomBytes := make([]byte, payloadSz)
+			_, err := rand.Read(randomBytes)
+			if err != nil {
+				panic(err)
 			}
+			transferPayload = randomBytes
 		}
-		log.L().Info("transfer meta", zap.Uint64("gasLimit", gaslimit), zap.String("gasPrice", gasPrice.String()), zap.Int("payloadSize", len(payLoad)))
-		time.Sleep(3 * time.Second)
-	} else {
-		payLoad = opMul
-		//deploy contract
-		contractGas, err := p.estimateGasLimitForExecution(actionType, action.EmptyAddress, gasPrice, contractByteCode)
-		if err != nil {
-			panic(err)
-		}
-		acc := p.accountManager.AccountList[rnd.Intn(len(p.accountManager.AccountList))]
-		contract, err = util.DeployContract(p.api, acc, p.accountManager.GetAndInc(acc.EncodedAddr), int(contractGas),
-			gasPrice.Int64(),
-			contractByteCode, int(rawInjectCfg.retryNum), rawInjectCfg.retryInterval, rawInjectCfg.chainID)
-		if err != nil {
-			panic(err)
-		}
-		gaslimit, err = p.estimateGasLimitForExecution(actionType, contract, gasPrice, payLoad)
+	}
+	if rawInjectCfg.executionData != "" {
+		rawData := strings.Replace(rawInjectCfg.executionData, "0x", "", -1)
+		rawData = strings.Replace(rawData, "0X", "", -1)
+		executionData, err = hex.DecodeString(rawData)
 		if err != nil {
 			panic(err)
 		}
 	}
-	log.L().Info("info", zap.String("contract addr", contract), zap.Uint64("gas limit", gaslimit))
-	go p.txGenerate(ctx, bufferedTxs, actionType, gaslimit, gasPrice, payLoad, contract)
-	go p.InjectionV3(ctx, bufferedTxs)
-	// go p.InjectionV4(ctx, actionType, gaslimit, gasPrice, payLoad, contract)
+	contract = rawInjectCfg.contract
+
+	go p.txGenerate(ctx, bufferedTxs, actionType, transferGaslimit, transferGasPrice, executionGasLimit, executionGasPrice, transferPayload, executionData, contract)
+	go p.Injection(ctx, bufferedTxs)
 }
 
 func (p *injectProcessor) txGenerate(
 	ctx context.Context,
 	ch chan WrapSealedEnvelope,
 	actionType int,
-	gasLimit uint64,
-	gasPrice *big.Int,
-	payLoad string,
+	transferGasLimit uint64,
+	transferGasPrice *big.Int,
+	executionGasLimit uint64,
+	executionGasPrice *big.Int,
+	transferPayload []byte,
+	executionPayload []byte,
 	contractAddr string,
 ) {
 	for {
 		select {
 		default:
-			tx, err := util.ActionGenerator(actionType, p.accountManager, rawInjectCfg.chainID, gasLimit, gasPrice, contractAddr, payLoad)
+			tx, err := util.ActionGenerator(actionType, p.accountManager, rawInjectCfg.chainID, transferGasLimit, transferGasPrice, executionGasLimit, executionGasPrice, contractAddr, transferPayload, executionPayload)
 			if err != nil {
 				log.L().Error("no act", zap.Error(err))
 				continue
@@ -400,11 +315,11 @@ func (p *injectProcessor) resetAccountNonce(ctx context.Context, addr string) {
 	lastNonceTimes.Store(addr, time.Now().UnixNano())
 }
 
-func (p *injectProcessor) estimateGasLimitForExecution(actionType int, contractAddr string, gasPrice *big.Int, data string) (uint64, error) {
+func (p *injectProcessor) estimateGasLimitForExecution(actionType int, contractAddr string, gasPrice *big.Int, data []byte) (uint64, error) {
 	var (
 		acc = p.accountManager.AccountList[rnd.Intn(len(p.accountManager.AccountList))]
 	)
-	tx, err := action.NewExecution(contractAddr, p.accountManager.Get(acc.EncodedAddr), big.NewInt(0), 0, gasPrice, byteutil.Must(hex.DecodeString(data)))
+	tx, err := action.NewExecution(contractAddr, p.accountManager.Get(acc.EncodedAddr), big.NewInt(0), 0, gasPrice, data)
 	if err != nil {
 		return 0, err
 	}
@@ -420,119 +335,87 @@ func (p *injectProcessor) estimateGasLimitForExecution(actionType int, contractA
 	return gas.GetGas(), nil
 }
 
-func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan WrapSealedEnvelope) {
+func (p *injectProcessor) Injection(ctx context.Context, ch chan WrapSealedEnvelope) {
 	log.L().Info("Initalize the first tx")
 	for i := 0; i < len(p.accountManager.AccountList); i++ {
-		p.injectV3(<-ch)
+		p.inject(<-ch)
 	}
 	time.Sleep(time.Second)
 
 	log.L().Info("Begin inject!")
 	ticker := time.NewTicker(time.Duration(time.Second.Nanoseconds() / int64(rawInjectCfg.aps)))
 	defer ticker.Stop()
+	ticker2 := time.NewTicker(time.Second)
+	defer ticker2.Stop()
+	var ticks uint64
+	var latestCount, latestActs, latestErrActs uint64
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-ticker2.C:
+			log.L().Info("injector report", zap.Uint64("actual TPS", atomic.LoadUint64(&_injectedActs)-latestActs), zap.Uint64("expect TPS", atomic.LoadUint64(&ticks)-latestCount), zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)), zap.Uint64("errActs", atomic.LoadUint64(&_injectedErrActs)-latestErrActs))
+			latestCount = atomic.LoadUint64(&ticks)
+			latestActs = atomic.LoadUint64(&_injectedActs)
+			latestErrActs = atomic.LoadUint64(&_injectedErrActs)
 		case <-ticker.C:
-			// log.L().Info("buffer", zap.Int("size", len(ch)))
-			go p.injectV3(<-ch)
+			atomic.AddUint64(&ticks, 1)
+			go p.inject(<-ch)
 		}
 	}
 }
 
-// func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
-// 	defer workers.Done()
-// 	for range ticks {
-// 		go func() {
-// 			caller, err := p.pickAction()
-// 			if err != nil {
-// 				log.L().Error("Failed to create an action", zap.Error(err))
-// 			}
-// 			var actionHash hash.Hash256
-// 			bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(injectCfg.retryInterval), injectCfg.retryNum)
-// 			if rerr := backoff.Retry(func() error {
-// 				actionHash, err = caller.Call(context.Background())
-// 				return err
-// 			}, bo); rerr != nil {
-// 				log.L().Error("Failed to inject.", zap.Error(rerr))
-// 			}
-
-// 			c := iotex.NewReadOnlyClient(p.api)
-
-// 			if injectCfg.checkReceipt {
-// 				time.Sleep(25 * time.Second)
-// 				var response *iotexapi.GetReceiptByActionResponse
-// 				if rerr := backoff.Retry(func() error {
-// 					response, err = c.GetReceipt(actionHash).Call(context.Background())
-// 					return err
-// 				}, bo); rerr != nil {
-// 					log.L().Error("Failed to get receipt.", zap.Error(rerr))
-// 				}
-// 				if response.ReceiptInfo.Receipt.Status != 1 {
-// 					log.L().Error("Receipt has failed status.", zap.Uint64("status", response.ReceiptInfo.Receipt.Status))
-// 				}
-// 			}
-// 		}()
-// 	}
-// }
-
-// func (p *injectProcessor) injectV2() {
-// 	selp, err := p.pickActionV2()
-// 	if err != nil {
-// 		log.L().Error("no act", zap.Error(err))
-// 		return
-// 	}
-// 	actHash, _ := selp.Hash()
-// 	log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])))
-// 	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(injectCfg.retryInterval), injectCfg.retryNum)
-// 	if rerr := backoff.Retry(func() error {
-// 		_, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
-// 		if err != nil {
-// 			log.L().Error("Failed to inject.", zap.Error(err))
-// 		}
-// 		return err
-// 	}, bo); rerr != nil {
-// 		log.L().Error("Failed to inject.", zap.Error(rerr))
-// 	}
-// }
-
 var (
 	_injectedActs       uint64 = 0
+	_injectedErrActs    uint64 = 0
 	_injectedActHashes         = []hash.Hash256{}
 	_nonceProcessingMap        = sync.Map{}
 )
 
 func (p *injectProcessor) processFeedback(feed feedback) {
-	_, isProcessing := _nonceProcessingMap.Load(feed.sender)
-	if isProcessing {
-		return
+	type feedT struct {
+		processing bool
+		time       int64
 	}
-	_nonceProcessingMap.Store(feed.sender, struct{}{})
+	pm, ok := _nonceProcessingMap.Load(feed.sender)
+	if ok {
+		if pm.(feedT).processing || pm.(feedT).time > feed.time {
+			return
+		}
+	}
+	t := time.Now().UnixNano()
+	_nonceProcessingMap.Store(feed.sender, feedT{
+		processing: true,
+		time:       t,
+	})
 	if strings.Contains(feed.err.Error(), action.ErrNonceTooLow.Error()) ||
 		strings.Contains(feed.err.Error(), action.ErrNonceTooHigh.Error()) {
 		p.resetAccountNonce(context.Background(), feed.sender)
 	}
-	_nonceProcessingMap.Delete(feed.sender)
+	_nonceProcessingMap.Store(feed.sender, feedT{
+		processing: false,
+		time:       t,
+	})
 }
 
-func (p *injectProcessor) injectV3(wrapSelp WrapSealedEnvelope) {
+func (p *injectProcessor) inject(wrapSelp WrapSealedEnvelope) {
 	selp := wrapSelp.SealedEnvelope
 	sender := selp.SrcPubkey().Address().String()
 	nonceTime, ok := lastNonceTimes.Load(sender)
-	if !ok {
-		panic("nonce time not found")
+	if ok {
+		if nonceTime.(int64) > wrapSelp.Time {
+			return
+		}
 	}
-	if nonceTime.(int64) > wrapSelp.Time {
-		return
-	}
-	actHash, _ := selp.Hash()
+
+	// actHash, _ := selp.Hash()
 	_, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
 	if err != nil {
 		log.L().Error("Failed to inject.", zap.Error(err))
-		go p.processFeedback(feedback{err: err, sender: sender})
+		atomic.AddUint64(&_injectedErrActs, 1)
+		go p.processFeedback(feedback{err: err, sender: sender, time: wrapSelp.Time})
 	} else {
-		_injectedActHashes = append(_injectedActHashes, actHash)
+		// _injectedActHashes = append(_injectedActHashes, actHash)
 	}
 	atomic.AddUint64(&_injectedActs, 1)
 	// log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])), zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)), zap.String("sender", sender), zap.Uint64("nonce", selp.Nonce()))
@@ -638,7 +521,7 @@ var injectCmd = &cobra.Command{
 		default:
 			actiontype = actionTypeTransfer
 		}
-		go p.injectProcessV3(ctx, actiontype)
+		go p.injectProcess(ctx, actiontype)
 		<-ctx.Done()
 		if rawInjectCfg.checkReceipt {
 			time.Sleep(5 * time.Minute)
@@ -669,6 +552,7 @@ var rawInjectCfg = struct {
 	transferPayloadSize string
 
 	contract          string
+	executionData     string
 	executionAmount   int64
 	executionGasLimit uint64
 	executionGasPrice int64
@@ -701,6 +585,7 @@ func init() {
 	flag.Int64Var(&rawInjectCfg.transferGasPrice, "transfer-gas-price", 1000000000000, "transfer gas price")
 	flag.StringVar(&rawInjectCfg.transferPayloadSize, "transfer-payload-size", "0", "transfer payload size")
 	flag.StringVar(&rawInjectCfg.contract, "contract", "io1pmjhyksxmz2xpxn2qmz4gx9qq2kn2gdr8un4xq", "smart contract address")
+	flag.StringVar(&rawInjectCfg.executionData, "execution-data", "", "execution call data")
 	flag.Int64Var(&rawInjectCfg.executionAmount, "execution-amount", 0, "execution amount")
 	flag.Uint64Var(&rawInjectCfg.executionGasLimit, "execution-gas-limit", 100000, "execution gas limit")
 	flag.Int64Var(&rawInjectCfg.executionGasPrice, "execution-gas-price", 1000000000000, "execution gas price")
@@ -711,7 +596,6 @@ func init() {
 	flag.DurationVar(&rawInjectCfg.resetInterval, "reset-interval", 10*time.Second, "time interval to reset nonce counter")
 	flag.IntVar(&rawInjectCfg.aps, "aps", 200, "actions to be injected per second")
 	flag.IntVar(&rawInjectCfg.randAccounts, "rand-accounts", 20, "number of accounst to use")
-	flag.Uint64Var(&rawInjectCfg.workers, "workers", 10, "number of workers")
 	flag.BoolVar(&rawInjectCfg.insecure, "insecure", false, "insecure network")
 	flag.BoolVar(&rawInjectCfg.checkReceipt, "check-recipt", false, "check recept")
 	flag.StringVar(&rawInjectCfg.loadTokenAmount, "load-token-amount", "5000000000000000000", "init load how much token to inject accounts")
