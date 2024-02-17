@@ -413,7 +413,7 @@ func (p *injectProcessor) inject(wrapSelp WrapSealedEnvelope) {
 	if err != nil {
 		log.L().Error("Failed to inject.", zap.Error(err))
 		atomic.AddUint64(&_injectedErrActs, 1)
-		go p.processFeedback(feedback{err: err, sender: sender, time: wrapSelp.Time})
+		p.processFeedback(feedback{err: err, sender: sender, time: wrapSelp.Time})
 	} else {
 		// _injectedActHashes = append(_injectedActHashes, actHash)
 	}
