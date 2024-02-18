@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
+	"math"
 	"math/big"
 	rnd "math/rand"
 	"os"
@@ -85,7 +86,17 @@ var (
 	opMul    = "58931c46"
 
 	lastNonceTimes = sync.Map{}
+
+	gasPriceMultiplier = uint64(math.Float64bits(1.0))
 )
+
+func loadAtomicGasPriceMultiplier() float64 {
+	return math.Float64frombits(atomic.LoadUint64(&gasPriceMultiplier))
+}
+
+func storeAtomicGasPriceMultiplier(v float64) {
+	atomic.StoreUint64(&gasPriceMultiplier, math.Float64bits(v))
+}
 
 const (
 	actionTypeTransfer  = 1
@@ -287,7 +298,10 @@ func (p *injectProcessor) txGenerate(
 	for {
 		select {
 		default:
-			tx, err := util.ActionGenerator(actionType, p.accountManager, rawInjectCfg.chainID, transferGasLimit, transferGasPrice, executionGasLimit, executionGasPrice, contractAddr, transferPayload, executionPayload)
+			gasPriceX := loadAtomicGasPriceMultiplier()
+			transferGasPriceUpdated := big.NewInt(int64(float64(transferGasPrice.Int64()) * gasPriceX))
+			executionGasPriceUpdated := big.NewInt(int64(float64(executionGasPrice.Int64()) * gasPriceX))
+			tx, err := util.ActionGenerator(actionType, p.accountManager, rawInjectCfg.chainID, transferGasLimit, transferGasPriceUpdated, executionGasLimit, executionGasPriceUpdated, contractAddr, transferPayload, executionPayload)
 			if err != nil {
 				log.L().Error("no act", zap.Error(err))
 				continue
@@ -354,7 +368,10 @@ func (p *injectProcessor) Injection(ctx context.Context, ch chan WrapSealedEnvel
 		case <-ctx.Done():
 			return
 		case <-ticker2.C:
-			log.L().Info("injector report", zap.Uint64("actual TPS", atomic.LoadUint64(&_injectedActs)-latestActs), zap.Uint64("expect TPS", atomic.LoadUint64(&ticks)-latestCount), zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)), zap.Uint64("errActs", atomic.LoadUint64(&_injectedErrActs)-latestErrActs))
+			actualTPS := atomic.LoadUint64(&_injectedActs) - latestActs
+			errActs := atomic.LoadUint64(&_injectedErrActs) - latestErrActs
+			successActs := actualTPS - errActs
+			log.L().Info("injector report", zap.Uint64("actual TPS", actualTPS), zap.Uint64("ok TPS", successActs), zap.Uint64("expect TPS", atomic.LoadUint64(&ticks)-latestCount), zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)), zap.Uint64("errActs", errActs))
 			latestCount = atomic.LoadUint64(&ticks)
 			latestActs = atomic.LoadUint64(&_injectedActs)
 			latestErrActs = atomic.LoadUint64(&_injectedErrActs)
@@ -391,6 +408,9 @@ func (p *injectProcessor) processFeedback(feed feedback) {
 	if strings.Contains(feed.err.Error(), action.ErrNonceTooLow.Error()) ||
 		strings.Contains(feed.err.Error(), action.ErrNonceTooHigh.Error()) {
 		p.resetAccountNonce(context.Background(), feed.sender)
+	} else if strings.Contains(feed.err.Error(), action.ErrReplaceUnderpriced.Error()) {
+		gasPrice := loadAtomicGasPriceMultiplier()
+		storeAtomicGasPriceMultiplier(gasPrice * 1.1)
 	}
 	_nonceProcessingMap.Store(feed.sender, feedT{
 		processing: false,
@@ -409,13 +429,15 @@ func (p *injectProcessor) inject(wrapSelp WrapSealedEnvelope) {
 	}
 
 	// actHash, _ := selp.Hash()
-	_, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	_, err := p.api.SendAction(ctx, &iotexapi.SendActionRequest{Action: selp.Proto()})
 	if err != nil {
-		log.L().Error("Failed to inject.", zap.Error(err))
+		log.L().Error("Failed to inject.", zap.Error(err), zap.String("sender", selp.SenderAddress().String()))
 		atomic.AddUint64(&_injectedErrActs, 1)
 		p.processFeedback(feedback{err: err, sender: sender, time: wrapSelp.Time})
 	} else {
 		// _injectedActHashes = append(_injectedActHashes, actHash)
+		// log.L().Info("Success to inject", zap.String("hash", resp.ActionHash), zap.String("sender", selp.SenderAddress().String()), zap.Uint64("nonce", selp.Nonce()))
 	}
 	atomic.AddUint64(&_injectedActs, 1)
 	// log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])), zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)), zap.String("sender", sender), zap.Uint64("nonce", selp.Nonce()))
