@@ -102,11 +102,11 @@ func newInjectionProcessor() (*injectProcessor, error) {
 	options := &pool.Options{
 		InitTargets:  []string{rawInjectCfg.serverAddr},
 		InitCap:      30,
-		MaxCap:       30,
-		DialTimeout:  time.Second * 5,
+		MaxCap:       100,
+		DialTimeout:  time.Second * 10,
 		IdleTimeout:  time.Second * 60,
-		ReadTimeout:  time.Second * 5,
-		WriteTimeout: time.Second * 5,
+		ReadTimeout:  time.Second * 10,
+		WriteTimeout: time.Second * 10,
 	}
 	var opt grpc.DialOption
 	if rawInjectCfg.insecure {
@@ -317,7 +317,7 @@ func (p *injectProcessor) txGenerate(
 
 }
 
-func (p *injectProcessor) resetAccountNonce(ctx context.Context, addr string) {
+func (p *injectProcessor) resetAccountNonce(ctx context.Context, addr string) error {
 	err := backoff.Retry(func() error {
 		conn, err := p.pool.Get()
 		if err != nil {
@@ -332,11 +332,7 @@ func (p *injectProcessor) resetAccountNonce(ctx context.Context, addr string) {
 		p.accountManager.Set(addr, resp.GetAccountMeta().GetPendingNonce())
 		return nil
 	}, backoff.NewExponentialBackOff())
-	if err != nil {
-		log.L().Error("Failed to reset nonce.", zap.Error(err), zap.String("addr", addr))
-	}
-	log.L().Info("Success to reset nonce", zap.String("addr", addr), zap.Uint64("nonce", p.accountManager.Get(addr)))
-	lastNonceTimes.Store(addr, time.Now().UnixNano())
+	return err
 }
 
 func (p *injectProcessor) estimateGasLimitForExecution(actionType int, contractAddr string, gasPrice *big.Int, data []byte) (uint64, error) {
@@ -420,8 +416,12 @@ func (p *injectProcessor) processFeedback(feed feedback) {
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	p.resetAccountNonce(ctx, feed.sender)
-
+	err := p.resetAccountNonce(ctx, feed.sender)
+	if err != nil {
+		log.L().Error("Failed to reset nonce.", zap.Error(err))
+	} else {
+		lastNonceTimes.Store(feed.sender, time.Now().UnixNano())
+	}
 	_nonceProcessingMap.Store(feed.sender, feedT{
 		processing: false,
 		time:       time.Now().UnixNano(),
@@ -448,7 +448,6 @@ func (p *injectProcessor) inject(wrapSelp WrapSealedEnvelope) {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 7*time.Second)
 	defer cancel()
-	time1 := time.Now()
 	_, err = api.SendAction(ctx, &iotexapi.SendActionRequest{Action: selp.Proto()})
 	if err != nil {
 		log.L().Error("Failed to inject.", zap.Error(err))
@@ -457,7 +456,6 @@ func (p *injectProcessor) inject(wrapSelp WrapSealedEnvelope) {
 	} else {
 		// _injectedActHashes = append(_injectedActHashes, actHash)
 	}
-	log.L().Info("inject one", zap.String("sender", sender), zap.Uint64("nonce", selp.Nonce()), zap.Duration("spent", time.Since(time1)))
 	atomic.AddUint64(&_injectedActs, 1)
 	// log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])), zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)), zap.String("sender", sender), zap.Uint64("nonce", selp.Nonce()))
 }
