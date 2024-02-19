@@ -327,6 +327,7 @@ func (p *injectProcessor) resetAccountNonce(ctx context.Context, addr string) {
 		log.L().Error("Failed to reset nonce.", zap.Error(err), zap.String("addr", addr))
 	}
 	lastNonceTimes.Store(addr, time.Now().UnixNano())
+	log.L().Info("Success to reset nonce", zap.String("addr", addr), zap.Uint64("nonce", p.accountManager.Get(addr)))
 }
 
 func (p *injectProcessor) estimateGasLimitForExecution(actionType int, contractAddr string, gasPrice *big.Int, data []byte) (uint64, error) {
@@ -397,21 +398,21 @@ func (p *injectProcessor) processFeedback(feed feedback) {
 	pm, ok := _nonceProcessingMap.Load(feed.sender)
 	if ok {
 		if pm.(feedT).processing || pm.(feedT).time > feed.time {
+			log.L().Info("feedback ingored", zap.String("sender", feed.sender), zap.String("time", time.Unix(pm.(feedT).time, 0).Local().String()))
 			return
 		}
+	}
+	if strings.Contains(feed.err.Error(), action.ErrExistedInPool.Error()) ||
+		strings.Contains(feed.err.Error(), action.ErrReplaceUnderpriced.Error()) {
+		return
 	}
 	t := time.Now().UnixNano()
 	_nonceProcessingMap.Store(feed.sender, feedT{
 		processing: true,
 		time:       t,
 	})
-	if strings.Contains(feed.err.Error(), action.ErrNonceTooLow.Error()) ||
-		strings.Contains(feed.err.Error(), action.ErrNonceTooHigh.Error()) {
-		p.resetAccountNonce(context.Background(), feed.sender)
-	} else if strings.Contains(feed.err.Error(), action.ErrReplaceUnderpriced.Error()) {
-		gasPrice := loadAtomicGasPriceMultiplier()
-		storeAtomicGasPriceMultiplier(gasPrice * 1.1)
-	}
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	p.resetAccountNonce(ctx, feed.sender)
 	_nonceProcessingMap.Store(feed.sender, feedT{
 		processing: false,
 		time:       t,
@@ -430,14 +431,14 @@ func (p *injectProcessor) inject(wrapSelp WrapSealedEnvelope) {
 
 	// actHash, _ := selp.Hash()
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	_, err := p.api.SendAction(ctx, &iotexapi.SendActionRequest{Action: selp.Proto()})
+	resp, err := p.api.SendAction(ctx, &iotexapi.SendActionRequest{Action: selp.Proto()})
 	if err != nil {
-		log.L().Error("Failed to inject.", zap.Error(err), zap.String("sender", selp.SenderAddress().String()))
+		log.L().Error("Failed to inject.", zap.Error(err), zap.String("sender", selp.SenderAddress().String()), zap.Uint64("nonce", selp.Nonce()))
 		atomic.AddUint64(&_injectedErrActs, 1)
 		p.processFeedback(feedback{err: err, sender: sender, time: wrapSelp.Time})
 	} else {
 		// _injectedActHashes = append(_injectedActHashes, actHash)
-		// log.L().Info("Success to inject", zap.String("hash", resp.ActionHash), zap.String("sender", selp.SenderAddress().String()), zap.Uint64("nonce", selp.Nonce()))
+		log.L().Info("Success to inject", zap.String("hash", resp.ActionHash), zap.String("sender", selp.SenderAddress().String()), zap.Uint64("nonce", selp.Nonce()))
 	}
 	atomic.AddUint64(&_injectedActs, 1)
 	// log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])), zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)), zap.String("sender", sender), zap.Uint64("nonce", selp.Nonce()))
