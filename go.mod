@@ -56,6 +56,7 @@ require (
 require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cespare/xxhash/v2 v2.1.2
+	github.com/flyaways/pool v1.0.1
 	github.com/holiman/uint256 v1.2.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible

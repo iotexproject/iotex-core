@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/flyaways/pool"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -32,6 +33,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -53,7 +55,8 @@ type (
 	}
 
 	injectProcessor struct {
-		api iotexapi.APIServiceClient
+		pool *pool.GRPCPool
+		// api  iotexapi.APIServiceClient
 		// nonces         *ttl.Cache
 		// accounts       []*util.AddressKey
 		accountManager *util.AccountManager
@@ -95,25 +98,28 @@ const (
 )
 
 func newInjectionProcessor() (*injectProcessor, error) {
-	var conn *grpc.ClientConn
 	var err error
-	grpcctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	log.L().Info("Server Addr", zap.String("endpoint", rawInjectCfg.serverAddr))
+	options := &pool.Options{
+		InitTargets:  []string{rawInjectCfg.serverAddr},
+		InitCap:      30,
+		MaxCap:       30,
+		DialTimeout:  time.Second * 5,
+		IdleTimeout:  time.Second * 60,
+		ReadTimeout:  time.Second * 5,
+		WriteTimeout: time.Second * 5,
+	}
+	var opt grpc.DialOption
 	if rawInjectCfg.insecure {
-		conn, err = grpc.DialContext(grpcctx, rawInjectCfg.serverAddr, grpc.WithBlock(), grpc.WithInsecure())
+		opt = grpc.WithTransportCredentials(insecure.NewCredentials())
 	} else {
-		conn, err = grpc.DialContext(grpcctx, rawInjectCfg.serverAddr, grpc.WithBlock(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+		opt = grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{}))
 	}
-	if err != nil {
-		return nil, err
-	}
-	log.L().Info("server connected")
-	api := iotexapi.NewAPIServiceClient(conn)
+	grpcPool, err := pool.NewGRPCPool(options, opt)
 	if err != nil {
 		return nil, err
 	}
 	p := &injectProcessor{
-		api: api,
+		pool: grpcPool,
 	}
 	p.randAccounts(rawInjectCfg.randAccounts)
 	loadValue, _ := new(big.Int).SetString(rawInjectCfg.loadTokenAmount, 10)
@@ -130,7 +136,7 @@ func newInjectionProcessor() (*injectProcessor, error) {
 
 func (p *injectProcessor) randAccounts(num int) error {
 	addrKeys := make([]*util.AddressKey, 0, num)
-	for i := 0; i < num; i++ {
+	for i := 200; i < num+200; i++ {
 		s := hash.Hash256b([]byte{byte(i), byte(100)})
 		private, err := crypto.BytesToPrivateKey(s[:])
 		if err != nil {
@@ -174,7 +180,12 @@ func (p *injectProcessor) loadAccounts(keypairsPath string, transferValue *big.I
 		// p.nonces.Set(addr.String(), 0)
 		addrKeys = append(addrKeys, &util.AddressKey{EncodedAddr: addr.String(), PriKey: sk})
 	}
-
+	conn, err := p.pool.Get()
+	if err != nil {
+		return err
+	}
+	defer p.pool.Put(conn)
+	api := iotexapi.NewAPIServiceClient(conn)
 	// send tokens
 	for i, recipientAddr := range p.accountManager.GetAllAddr() {
 		sender := addrKeys[i%len(addrKeys)]
@@ -182,7 +193,7 @@ func (p *injectProcessor) loadAccounts(keypairsPath string, transferValue *big.I
 		recipient, _ := address.FromString(recipientAddr)
 
 		log.L().Info("generated account", zap.String("addr", recipient.String()))
-		c := iotex.NewAuthedClient(p.api, rawInjectCfg.chainID, operatorAccount)
+		c := iotex.NewAuthedClient(api, rawInjectCfg.chainID, operatorAccount)
 		caller := c.Transfer(recipient, transferValue).SetGasPrice(big.NewInt(rawInjectCfg.transferGasPrice)).SetGasLimit(rawInjectCfg.transferGasLimit)
 		if _, err := caller.Call(context.Background()); err != nil {
 			log.L().Error("Failed to inject.", zap.Error(err), zap.String("sender", operatorAccount.Address().String()))
@@ -198,7 +209,13 @@ func (p *injectProcessor) loadAccounts(keypairsPath string, transferValue *big.I
 func (p *injectProcessor) syncNonces(ctx context.Context) error {
 	for _, addr := range p.accountManager.GetAllAddr() {
 		err := backoff.Retry(func() error {
-			resp, err := p.api.GetAccount(ctx, &iotexapi.GetAccountRequest{Address: addr})
+			conn, err := p.pool.Get()
+			if err != nil {
+				return err
+			}
+			defer p.pool.Put(conn)
+			api := iotexapi.NewAPIServiceClient(conn)
+			resp, err := api.GetAccount(ctx, &iotexapi.GetAccountRequest{Address: addr})
 			if err != nil {
 				return err
 			}
@@ -302,7 +319,13 @@ func (p *injectProcessor) txGenerate(
 
 func (p *injectProcessor) resetAccountNonce(ctx context.Context, addr string) {
 	err := backoff.Retry(func() error {
-		resp, err := p.api.GetAccount(ctx, &iotexapi.GetAccountRequest{Address: addr})
+		conn, err := p.pool.Get()
+		if err != nil {
+			return err
+		}
+		defer p.pool.Put(conn)
+		api := iotexapi.NewAPIServiceClient(conn)
+		resp, err := api.GetAccount(ctx, &iotexapi.GetAccountRequest{Address: addr})
 		if err != nil {
 			return err
 		}
@@ -312,6 +335,7 @@ func (p *injectProcessor) resetAccountNonce(ctx context.Context, addr string) {
 	if err != nil {
 		log.L().Error("Failed to reset nonce.", zap.Error(err), zap.String("addr", addr))
 	}
+	log.L().Info("Success to reset nonce", zap.String("addr", addr), zap.Uint64("nonce", p.accountManager.Get(addr)))
 	lastNonceTimes.Store(addr, time.Now().UnixNano())
 }
 
@@ -323,7 +347,13 @@ func (p *injectProcessor) estimateGasLimitForExecution(actionType int, contractA
 	if err != nil {
 		return 0, err
 	}
-	gas, err := p.api.EstimateActionGasConsumption(context.Background(), &iotexapi.EstimateActionGasConsumptionRequest{
+	conn, err := p.pool.Get()
+	if err != nil {
+		return 0, err
+	}
+	defer p.pool.Put(conn)
+	api := iotexapi.NewAPIServiceClient(conn)
+	gas, err := api.EstimateActionGasConsumption(context.Background(), &iotexapi.EstimateActionGasConsumptionRequest{
 		Action: &iotexapi.EstimateActionGasConsumptionRequest_Execution{
 			Execution: tx.Proto(),
 		},
@@ -336,10 +366,6 @@ func (p *injectProcessor) estimateGasLimitForExecution(actionType int, contractA
 }
 
 func (p *injectProcessor) Injection(ctx context.Context, ch chan WrapSealedEnvelope) {
-	log.L().Info("Initalize the first tx")
-	for i := 0; i < len(p.accountManager.AccountList); i++ {
-		p.inject(<-ch)
-	}
 	time.Sleep(time.Second)
 
 	log.L().Info("Begin inject!")
@@ -380,21 +406,25 @@ func (p *injectProcessor) processFeedback(feed feedback) {
 	pm, ok := _nonceProcessingMap.Load(feed.sender)
 	if ok {
 		if pm.(feedT).processing || pm.(feedT).time > feed.time {
+			log.L().Info("feedback ingored", zap.String("sender", feed.sender), zap.String("time", time.Unix(pm.(feedT).time, 0).Local().String()))
 			return
 		}
 	}
-	t := time.Now().UnixNano()
-	_nonceProcessingMap.Store(feed.sender, feedT{
-		processing: true,
-		time:       t,
-	})
-	if strings.Contains(feed.err.Error(), action.ErrNonceTooLow.Error()) ||
-		strings.Contains(feed.err.Error(), action.ErrNonceTooHigh.Error()) {
-		p.resetAccountNonce(context.Background(), feed.sender)
+	if strings.Contains(feed.err.Error(), action.ErrExistedInPool.Error()) ||
+		strings.Contains(feed.err.Error(), action.ErrReplaceUnderpriced.Error()) {
+		return
 	}
 	_nonceProcessingMap.Store(feed.sender, feedT{
+		processing: true,
+		time:       time.Now().UnixNano(),
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	p.resetAccountNonce(ctx, feed.sender)
+
+	_nonceProcessingMap.Store(feed.sender, feedT{
 		processing: false,
-		time:       t,
+		time:       time.Now().UnixNano(),
 	})
 }
 
@@ -407,9 +437,19 @@ func (p *injectProcessor) inject(wrapSelp WrapSealedEnvelope) {
 			return
 		}
 	}
-
+	conn, err := p.pool.Get()
+	if err != nil {
+		log.L().Error("Failed to get connection.", zap.Error(err))
+		return
+	}
+	defer p.pool.Put(conn)
+	api := iotexapi.NewAPIServiceClient(conn)
 	// actHash, _ := selp.Hash()
-	_, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 7*time.Second)
+	defer cancel()
+	time1 := time.Now()
+	_, err = api.SendAction(ctx, &iotexapi.SendActionRequest{Action: selp.Proto()})
 	if err != nil {
 		log.L().Error("Failed to inject.", zap.Error(err))
 		atomic.AddUint64(&_injectedErrActs, 1)
@@ -417,86 +457,10 @@ func (p *injectProcessor) inject(wrapSelp WrapSealedEnvelope) {
 	} else {
 		// _injectedActHashes = append(_injectedActHashes, actHash)
 	}
+	log.L().Info("inject one", zap.String("sender", sender), zap.Uint64("nonce", selp.Nonce()), zap.Duration("spent", time.Since(time1)))
 	atomic.AddUint64(&_injectedActs, 1)
 	// log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])), zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)), zap.String("sender", sender), zap.Uint64("nonce", selp.Nonce()))
 }
-
-// func (p *injectProcessor) pickAction() (iotex.SendActionCaller, error) {
-// 	switch injectCfg.actionType {
-// 	case "transfer":
-// 		return p.transferCaller()
-// 	case "execution":
-// 		return p.executionCaller()
-// 	case "mixed":
-// 		if rand.Intn(2) == 0 {
-// 			return p.transferCaller()
-// 		}
-// 		return p.executionCaller()
-// 	default:
-// 		return p.transferCaller()
-// 	}
-// }
-
-// func (p *injectProcessor) pickActionV2() (action.SealedEnvelope, error) {
-// 	if p.txIdx >= uint64(len(p.tx)) {
-// 		return action.SealedEnvelope{}, errors.New("no tx")
-// 	}
-// 	selp := p.tx[p.txIdx]
-// 	atomic.AddUint64(&p.txIdx, 1)
-// 	return selp, nil
-// }
-
-// func (p *injectProcessor) executionCaller() (iotex.SendActionCaller, error) {
-// 	var nonce uint64
-// 	sender := p.accounts[rand.Intn(len(p.accounts))]
-// 	if val, ok := p.nonces.Get(sender.EncodedAddr); ok {
-// 		nonce = val.(uint64)
-// 	}
-// 	p.nonces.Set(sender.EncodedAddr, nonce+1)
-
-// 	operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
-// 	c := iotex.NewAuthedClient(p.api, operatorAccount)
-// 	address, _ := address.FromString(injectCfg.contract)
-// 	abiJSONVar, _ := abi.JSON(strings.NewReader(_abiStr))
-// 	contract := c.Contract(address, abiJSONVar)
-
-// 	data := rand.Int63()
-// 	var dataBuf = make([]byte, 8)
-// 	binary.BigEndian.PutUint64(dataBuf, uint64(data))
-// 	dataHash := sha256.Sum256(dataBuf)
-
-// 	caller := contract.Execute("addHash", uint64(time.Now().Unix()), hex.EncodeToString(dataHash[:])).
-// 		SetNonce(nonce).
-// 		SetAmount(injectCfg.executionAmount).
-// 		SetGasPrice(injectCfg.executionGasPrice).
-// 		SetGasLimit(injectCfg.executionGasLimit)
-
-// 	return caller, nil
-// }
-
-// func (p *injectProcessor) transferCaller() (iotex.SendActionCaller, error) {
-// 	var nonce uint64
-// 	sender := p.accounts[rand.Intn(len(p.accounts))]
-// 	if val, ok := p.nonces.Get(sender.EncodedAddr); ok {
-// 		nonce = val.(uint64)
-// 	}
-// 	p.nonces.Set(sender.EncodedAddr, nonce+1)
-
-// 	operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
-// 	c := iotex.NewAuthedClient(p.api, operatorAccount)
-
-// 	recipient, _ := address.FromString(p.accounts[rand.Intn(len(p.accounts))].EncodedAddr)
-// 	data := rand.Int63()
-// 	var dataBuf = make([]byte, 8)
-// 	binary.BigEndian.PutUint64(dataBuf, uint64(data))
-// 	dataHash := sha256.Sum256(dataBuf)
-// 	caller := c.Transfer(recipient, injectCfg.transferAmount).
-// 		SetPayload(dataHash[:]).
-// 		SetNonce(nonce).
-// 		SetGasPrice(injectCfg.transferGasPrice).
-// 		SetGasLimit(injectCfg.transferGasLimit)
-// 	return caller, nil
-// }
 
 // injectCmd represents the inject command
 var injectCmd = &cobra.Command{
@@ -527,8 +491,15 @@ var injectCmd = &cobra.Command{
 			time.Sleep(5 * time.Minute)
 			success := 0
 			total := len(_injectedActHashes)
+			conn, err := p.pool.Get()
+			if err != nil {
+				log.L().Error("Failed to get connection.", zap.Error(err))
+				return
+			}
+			defer p.pool.Put(conn)
+			api := iotexapi.NewAPIServiceClient(conn)
 			for _, actHash := range _injectedActHashes {
-				c := iotex.NewReadOnlyClient(p.api)
+				c := iotex.NewReadOnlyClient(api)
 				response, err := c.GetReceipt(actHash).Call(context.Background())
 				if err != nil {
 					log.L().Error("Failed to get receipt.", zap.Error(err))
