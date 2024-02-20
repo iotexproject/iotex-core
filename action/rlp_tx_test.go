@@ -399,6 +399,24 @@ var (
 	}
 )
 
+func TestIssue4104(t *testing.T) {
+	require := require.New(t)
+	singer, err := NewEthSigner(iotextypes.Encoding_ETHEREUM_ACCESSLIST, 1)
+	require.ErrorIs(err, ErrInvalidAct)
+	require.Nil(singer)
+
+	tx := types.NewTx(&types.DynamicFeeTx{
+		To:        nil,
+		Nonce:     4,
+		Value:     big.NewInt(4),
+		Gas:       4,
+		GasTipCap: big.NewInt(44),
+		GasFeeCap: big.NewInt(1045),
+	})
+	_, _, _, err = ExtractTypeSigPubkey(tx)
+	require.ErrorIs(err, ErrNotSupported)
+}
+
 func TestEthTxDecodeVerify(t *testing.T) {
 	require := require.New(t)
 
