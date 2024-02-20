@@ -135,6 +135,7 @@ func newInjectionProcessor() (*injectProcessor, error) {
 }
 
 func (p *injectProcessor) randAccounts(num int) error {
+	log.L().Info("generate random accounts", zap.Int("num", num))
 	addrKeys := make([]*util.AddressKey, 0, num)
 	for i := 200; i < num+200; i++ {
 		s := hash.Hash256b([]byte{byte(i), byte(100)})
@@ -148,6 +149,7 @@ func (p *injectProcessor) randAccounts(num int) error {
 	}
 	// p.accounts = addrKeys
 	p.accountManager = util.NewAccountManager(addrKeys)
+	log.L().Info("generated random accounts", zap.Int("num", len(addrKeys)))
 	return nil
 }
 
@@ -207,6 +209,7 @@ func (p *injectProcessor) loadAccounts(keypairsPath string, transferValue *big.I
 }
 
 func (p *injectProcessor) syncNonces(ctx context.Context) error {
+	log.L().Info("sync nonces")
 	for _, addr := range p.accountManager.GetAllAddr() {
 		err := backoff.Retry(func() error {
 			conn, err := p.pool.Get()
@@ -226,6 +229,7 @@ func (p *injectProcessor) syncNonces(ctx context.Context) error {
 			return err
 		}
 	}
+	log.L().Info("sync nonces done")
 	return nil
 }
 
@@ -284,7 +288,7 @@ func (p *injectProcessor) injectProcess(ctx context.Context, actionType int) {
 		}
 	}
 	contract = rawInjectCfg.contract
-
+	log.L().Info("Begin to inject", zap.String("actionType", rawInjectCfg.actionType), zap.String("contract", contract))
 	go p.txGenerate(ctx, bufferedTxs, actionType, transferGaslimit, transferGasPrice, executionGasLimit, executionGasPrice, transferPayload, executionData, contract)
 	go p.Injection(ctx, bufferedTxs)
 }
