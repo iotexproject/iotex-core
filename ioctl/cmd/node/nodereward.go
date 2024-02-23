@@ -164,7 +164,7 @@ func reward(arg string) error {
 	address, err := util.Address(arg)
 	if err != nil {
 		var found bool
-		address, found, err = getCandidateOwnerAddressByName(cli, arg)
+		address, found, err = getCandidateRewardAddressByName(cli, arg)
 		if err != nil {
 			return output.NewError(output.APIError, err.Error(), nil)
 		}
