@@ -706,16 +706,19 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 		result = serveTestHTTP(require, handler, "eth_sendRawTransaction", fmt.Sprintf(`["%s"]`, hex.EncodeToString(BinaryData)))
 		ret, ok := result.(string)
 		require.True(ok)
-		require.Equal(64, len(util.Remove0xPrefix(ret)))
+		require.Equal(tx.Hash().Hex(), ret)
 	}
 }
 
 func sendRawTransaction(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
-	result := serveTestHTTP(require, handler, "eth_sendRawTransaction", `["f8600180830186a09412745fec82b585f239c01090882eb40702c32b04808025a0b0e1aab5b64d744ae01fc9f1c3e9919844a799e90c23129d611f7efe6aec8a29a0195e28d22d9b280e00d501ff63525bb76f5c87b8646c89d5d9c5485edcb1b498"]`)
+	rawData := "0xf8600180830186a09412745fec82b585f239c01090882eb40702c32b04808025a0b0e1aab5b64d744ae01fc9f1c3e9919844a799e90c23129d611f7efe6aec8a29a0195e28d22d9b280e00d501ff63525bb76f5c87b8646c89d5d9c5485edcb1b498"
+	tx, err := action.DecodeEtherTx(rawData)
+	require.NoError(err)
+	result := serveTestHTTP(require, handler, "eth_sendRawTransaction", fmt.Sprintf(`["%s"]`, rawData))
 	actual, ok := result.(string)
 	require.True(ok)
-	require.Equal("0x778fd5a054e74e9055bf68ef5f9d559fa306e8ba7dee608d0a3624cca0b63b3e", actual)
+	require.Equal(tx.Hash().Hex(), actual)
 }
 
 func estimateGas(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool actpool.ActPool) {
