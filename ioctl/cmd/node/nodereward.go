@@ -24,8 +24,8 @@ import (
 // Multi-language support
 var (
 	_rewardCmdUses = map[config.Language]string{
-		config.English: "reward unclaimed|pool [ALIAS|DELEGATE_ADDRESS]",
-		config.Chinese: "reward 未支取|奖金池 [别名|委托地址]",
+		config.English: "reward unclaimed|pool [ALIAS|DELEGATE_ADDRESS|NAME]",
+		config.Chinese: "reward 未支取|奖金池 [别名|委托地址|名称]",
 	}
 	_rewardCmdShorts = map[config.Language]string{
 		config.English: "Query rewards",
