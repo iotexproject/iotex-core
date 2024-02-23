@@ -155,16 +155,23 @@ func rewardPool() error {
 }
 
 func reward(arg string) error {
-	address, err := util.Address(arg)
-	if err != nil {
-		return output.NewError(output.AddressError, "failed to get address", err)
-	}
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
+	address, err := util.Address(arg)
+	if err != nil {
+		var found bool
+		address, found, err = getCandidateOwnerAddressByName(cli, arg)
+		if err != nil {
+			return output.NewError(output.APIError, err.Error(), nil)
+		}
+		if !found {
+			return output.NewError(output.AddressError, "failed to get address", err)
+		}
+	}
 	ctx := context.Background()
 
 	jwtMD, err := util.JwtAuth()
