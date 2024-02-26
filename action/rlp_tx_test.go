@@ -399,7 +399,7 @@ var (
 	}
 )
 
-func TestIssue4104(t *testing.T) {
+func TestNewEthSignerError(t *testing.T) {
 	require := require.New(t)
 	singer, err := NewEthSigner(iotextypes.Encoding_ETHEREUM_ACCESSLIST, 1)
 	require.ErrorIs(err, ErrInvalidAct)
