@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"math/big"
 	rnd "math/rand"
@@ -283,6 +284,19 @@ func (p *injectProcessor) injectProcess(ctx context.Context, actionType int) {
 	go p.Injection(ctx, bufferedTxs)
 }
 
+func executionPayloadGenerate() []byte {
+	var key, value int
+	key = rnd.Intn(10000)
+	value = rnd.Intn(10000)
+	method := "7f07cccd"
+	txt := method + fmt.Sprintf("%064x", key) + fmt.Sprintf("%064x", value)
+	data, err := hex.DecodeString(txt)
+	if err != nil {
+		panic(err)
+	}
+	return data
+}
+
 func (p *injectProcessor) txGenerate(
 	ctx context.Context,
 	ch chan WrapSealedEnvelope,
@@ -301,7 +315,7 @@ func (p *injectProcessor) txGenerate(
 			gasPriceX := loadAtomicGasPriceMultiplier()
 			transferGasPriceUpdated := big.NewInt(int64(float64(transferGasPrice.Int64()) * gasPriceX))
 			executionGasPriceUpdated := big.NewInt(int64(float64(executionGasPrice.Int64()) * gasPriceX))
-			tx, err := util.ActionGenerator(actionType, p.accountManager, rawInjectCfg.chainID, transferGasLimit, transferGasPriceUpdated, executionGasLimit, executionGasPriceUpdated, contractAddr, transferPayload, executionPayload)
+			tx, err := util.ActionGenerator(actionType, p.accountManager, rawInjectCfg.chainID, transferGasLimit, transferGasPriceUpdated, executionGasLimit, executionGasPriceUpdated, contractAddr, transferPayload, executionPayloadGenerate())
 			if err != nil {
 				log.L().Error("no act", zap.Error(err))
 				continue

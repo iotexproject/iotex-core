@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"crypto/tls"
+	"encoding/hex"
 	"fmt"
 	"testing"
 	"time"
@@ -60,4 +61,18 @@ func TestFloat64(t *testing.T) {
 	r.Equal(1.0, loadAtomicGasPriceMultiplier())
 	storeAtomicGasPriceMultiplier(1.2)
 	r.Equal(1.2, loadAtomicGasPriceMultiplier())
+}
+
+func TestPayload(t *testing.T) {
+	key := 11
+	value := 10
+	method := "7f07cccd"
+	txt := method + fmt.Sprintf("%064x", key) + fmt.Sprintf("%064x", value)
+	data := "7f07cccd000000000000000000000000000000000000000000000000000000000000000b000000000000000000000000000000000000000000000000000000000000000a"
+	r := require.New(t)
+	r.Equal(txt, data)
+
+	fmt.Println(hex.EncodeToString(executionPayloadGenerate()))
+	fmt.Println(hex.EncodeToString(executionPayloadGenerate()))
+	fmt.Println(hex.EncodeToString(executionPayloadGenerate()))
 }
