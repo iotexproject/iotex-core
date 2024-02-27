@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action"
 	rewardingabi "github.com/iotexproject/iotex-core/action/protocol/rewarding/ethabi"
@@ -453,6 +454,7 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 		sig      []byte
 		pubkey   crypto.PublicKey
 		err      error
+		debug    bool
 	)
 	if g := cs.Genesis(); g.IsSumatra(cs.TipHeight()) {
 		tx, err = action.DecodeEtherTx(dataStr.String())
@@ -465,6 +467,10 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 		encoding, sig, pubkey, err = action.ExtractTypeSigPubkey(tx)
 		if err != nil {
 			return nil, err
+		}
+		if pubkey.Address().String() == "io1qqhfs0p3xn8hu7c09gu997mxl23555rzt740ye" {
+			debug = true
+			log.L().Warn("nonce0", zap.String("rawBytes", dataStr.String()), log.Hex("sig", sig), zap.Int("encoding", int(encoding)))
 		}
 	} else {
 		tx, sig, pubkey, err = action.DecodeRawTx(dataStr.String(), cs.EVMNetworkID())
@@ -483,6 +489,10 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 		SenderPubKey: pubkey.Bytes(),
 		Signature:    sig,
 		Encoding:     encoding,
+	}
+	if debug {
+		native, _ := proto.Marshal(req.Core)
+		log.L().Warn("nonce0", log.Hex("nativeBytes", native))
 	}
 	actionHash, err := cs.SendAction(context.Background(), req)
 	if err != nil {
