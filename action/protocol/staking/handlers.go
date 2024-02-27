@@ -141,12 +141,9 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		return log, fetchErr
 	}
 
-	bucket, rErr := p.fetchBucket(csm, act.BucketIndex())
-	if rErr != nil {
-		return log, rErr
-	}
-	if rErr = validateBucketOwner(bucket, actionCtx.Caller); rErr != nil {
-		return log, rErr
+	bucket, fetchErr := p.fetchBucketAndValidate(featureCtx, csm, actionCtx.Caller, act.BucketIndex(), true, true)
+	if fetchErr != nil {
+		return log, fetchErr
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
 
@@ -219,12 +216,9 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		return log, nil, fetchErr
 	}
 
-	bucket, rErr := p.fetchBucket(csm, act.BucketIndex())
-	if rErr != nil {
-		return log, nil, rErr
-	}
-	if rErr = validateBucketOwner(bucket, actionCtx.Caller); rErr != nil {
-		return log, nil, rErr
+	bucket, fetchErr := p.fetchBucketAndValidate(featureCtx, csm, actionCtx.Caller, act.BucketIndex(), true, true)
+	if fetchErr != nil {
+		return log, nil, fetchErr
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
 
@@ -304,15 +298,9 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 		return log, errCandNotExist
 	}
 
-	bucket, rErr := p.fetchBucket(csm, act.BucketIndex())
-	if rErr != nil {
-		return log, rErr
-	}
-	if rErr = validateBucketOwner(bucket, actionCtx.Caller); rErr != nil {
-		return log, rErr
-	}
-	if rErr = validateBucketSelfStake(featureCtx, csm, bucket, false); rErr != nil {
-		return log, rErr
+	bucket, fetchErr := p.fetchBucketAndValidate(featureCtx, csm, actionCtx.Caller, act.BucketIndex(), true, false)
+	if fetchErr != nil {
+		return log, fetchErr
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes(), candidate.Owner.Bytes())
 
@@ -389,11 +377,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	}
 
 	newOwner := act.VoterAddress()
-	bucket, fetchErr := p.fetchBucket(csm, act.BucketIndex())
-	if fetchErr != nil {
-		return log, fetchErr
-	}
-	fetchErr = p.validateTransferStakeBucket(featureCtx, csm, bucket, actionCtx.Caller)
+	bucket, fetchErr := p.fetchBucketAndValidate(featureCtx, csm, actionCtx.Caller, act.BucketIndex(), true, false)
 	if fetchErr != nil {
 		if featureCtx.ReturnFetchError ||
 			fetchErr.ReceiptStatus() != uint64(iotextypes.ReceiptStatus_ErrUnauthorizedOperator) {
@@ -486,9 +470,9 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 		return log, nil, fetchErr
 	}
 
-	bucket, rErr := p.fetchBucket(csm, act.BucketIndex())
-	if rErr != nil {
-		return log, nil, rErr
+	bucket, fetchErr := p.fetchBucketAndValidate(featureCtx, csm, actionCtx.Caller, act.BucketIndex(), false, true)
+	if fetchErr != nil {
+		return log, nil, fetchErr
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Owner.Bytes(), bucket.Candidate.Bytes())
 	if !bucket.AutoStake {
@@ -591,12 +575,9 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 		return log, fetchErr
 	}
 
-	bucket, rErr := p.fetchBucket(csm, act.BucketIndex())
-	if rErr != nil {
-		return log, rErr
-	}
-	if rErr = validateBucketOwner(bucket, actionCtx.Caller); rErr != nil {
-		return log, rErr
+	bucket, fetchErr := p.fetchBucketAndValidate(featureCtx, csm, actionCtx.Caller, act.BucketIndex(), true, true)
+	if fetchErr != nil {
+		return log, fetchErr
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
 
@@ -833,6 +814,46 @@ func (p *Protocol) fetchBucket(csm CandidateStateManager, index uint64) (*VoteBu
 			fetchErr.failureStatus = iotextypes.ReceiptStatus_ErrInvalidBucketIndex
 		}
 		return nil, fetchErr
+	}
+	return bucket, nil
+}
+
+func (p *Protocol) fetchBucketAndValidate(
+	featureCtx protocol.FeatureCtx,
+	csm CandidateStateManager,
+	caller address.Address,
+	index uint64,
+	checkOwner bool,
+	allowSelfStaking bool,
+) (*VoteBucket, ReceiptError) {
+	bucket, err := p.fetchBucket(csm, index)
+	if err != nil {
+		return nil, err
+	}
+
+	// ReceiptStatus_ErrUnauthorizedOperator indicates action caller is not bucket owner
+	// upon return, the action will be subject to check whether it contains a valid consignment transfer
+	// do NOT return this value in case changes are added in the future
+	if checkOwner && !address.Equal(bucket.Owner, caller) {
+		return bucket, &handleError{
+			err:           errors.New("bucket owner does not match action caller"),
+			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		}
+	}
+	if !allowSelfStaking {
+		selfStaking, serr := isSelfStakeBucket(featureCtx, csm, index)
+		if err != nil {
+			return bucket, &handleError{
+				err:           serr,
+				failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
+			}
+		}
+		if selfStaking {
+			return bucket, &handleError{
+				err:           errors.New("self staking bucket cannot be processed"),
+				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+			}
+		}
 	}
 	return bucket, nil
 }
