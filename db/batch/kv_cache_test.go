@@ -137,12 +137,14 @@ func TestWriteIfNotExist(t *testing.T) {
 
 func BenchmarkMapKey_ValueOperate(b *testing.B) {
 	keyTags := map[kvCacheKey]*kvCacheValue{}
+	keyTags2 := map[kvCacheKey][]int{}
 	for i := 0; i < 10000; i++ {
 		key := kvCacheKey{
 			key1: string(make([]byte, 5)),
 			key2: string(make([]byte, 32)),
 		}
 		keyTags[key] = newkvCacheValue([]int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
+		keyTags2[key] = []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 	}
 	b.Run("reset by map key", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
@@ -155,6 +157,13 @@ func BenchmarkMapKey_ValueOperate(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for _, v := range keyTags {
 				v.reset()
+			}
+		}
+	})
+	b.Run("orign map assign", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for k := range keyTags2 {
+				keyTags2[k] = []int{0}
 			}
 		}
 	})
