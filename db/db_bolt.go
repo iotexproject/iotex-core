@@ -305,13 +305,27 @@ func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 	kvsb.Lock()
 	defer kvsb.Unlock()
 
+	type doubleKey struct {
+		ns  string
+		key string
+	}
+	// remove duplicate keys, only keep the last write for each key
+	entryMap := make(map[doubleKey]*batch.WriteInfo)
+	for i := kvsb.Size() - 1; i >= 0; i-- {
+		write, e := kvsb.Entry(i)
+		if e != nil {
+			return e
+		}
+		k := doubleKey{ns: write.Namespace(), key: string(write.Key())}
+		if _, ok := entryMap[k]; !ok {
+			entryMap[k] = write
+		}
+	}
+
 	for c := uint8(0); c < b.config.NumRetries; c++ {
 		if err = b.db.Update(func(tx *bolt.Tx) error {
-			for i := 0; i < kvsb.Size(); i++ {
-				write, e := kvsb.Entry(i)
-				if e != nil {
-					return e
-				}
+			// though range entryMap is random, but it doesn't matter which key is processed first
+			for _, write := range entryMap {
 				ns := write.Namespace()
 				switch write.WriteType() {
 				case batch.Put:
