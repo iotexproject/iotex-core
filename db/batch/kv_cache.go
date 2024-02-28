@@ -27,6 +27,7 @@ type (
 		key1 string
 		key2 string
 	}
+	kvCacheValue []int
 
 	node struct {
 		value   []byte
@@ -38,6 +39,38 @@ type (
 		cache map[string]map[string]*node // local cache of batched <k, v> for fast query
 	}
 )
+
+func newkvCacheValue(v []int) *kvCacheValue {
+	return (*kvCacheValue)(&v)
+}
+
+func (kv *kvCacheValue) reset() {
+	([]int)(*kv)[0] = 0
+	*kv = (*kv)[0:1]
+}
+
+func (kv *kvCacheValue) pop() {
+	*kv = (*kv)[0 : kv.len()-1]
+}
+func (kv *kvCacheValue) get() []int {
+	return ([]int)(*kv)
+}
+
+func (kv *kvCacheValue) getAt(i int) int {
+	return ([]int)(*kv)[i]
+}
+
+func (kv *kvCacheValue) append(v int) {
+	*kv = append(*kv, v)
+}
+
+func (kv *kvCacheValue) len() int {
+	return len(*kv)
+}
+
+func (kv *kvCacheValue) last() int {
+	return (*kv)[len(*kv)-1]
+}
 
 // NewKVCache returns a KVCache
 func NewKVCache() KVStoreCache {

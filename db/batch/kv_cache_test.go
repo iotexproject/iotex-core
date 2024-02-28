@@ -95,6 +95,26 @@ func TestKvCache(t *testing.T) {
 	require.Equal(v, v3)
 }
 
+func TestKvCacheValue(t *testing.T) {
+	require := require.New(t)
+
+	c := newkvCacheValue([]int{1})
+	require.Equal([]int{1}, c.get())
+	require.Equal(1, c.len())
+
+	c.reset()
+	require.Equal([]int{0}, c.get())
+
+	c.append(3)
+	require.Equal([]int{0, 3}, c.get())
+	require.Equal(0, c.getAt(0))
+	require.Equal(3, c.last())
+	require.Equal(2, c.len())
+	c.pop()
+	require.Equal([]int{0}, c.get())
+	require.Equal(1, c.len())
+}
+
 func TestWriteIfNotExist(t *testing.T) {
 	require := require.New(t)
 
