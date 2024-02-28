@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
 
@@ -25,7 +26,16 @@ const _fileMode = 0600
 var (
 	// ErrDBNotStarted represents the error when a db has not started
 	ErrDBNotStarted = errors.New("db has not started")
+
+	boltdbMtc = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "iotex_boltdb_metrics",
+		Help: "boltdb metrics.",
+	}, []string{"type", "method"})
 )
+
+func init() {
+	prometheus.MustRegister(boltdbMtc)
+}
 
 // BoltDB is KVStore implementation based bolt DB
 type BoltDB struct {
@@ -321,7 +331,8 @@ func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 			entryMap[k] = write
 		}
 	}
-
+	boltdbMtc.WithLabelValues(b.path, "entrySize").Set(float64(kvsb.Size()))
+	boltdbMtc.WithLabelValues(b.path, "entryMapSize").Set(float64(len(entryMap)))
 	for c := uint8(0); c < b.config.NumRetries; c++ {
 		if err = b.db.Update(func(tx *bolt.Tx) error {
 			// though range entryMap is random, but it doesn't matter which key is processed first
