@@ -326,13 +326,17 @@ func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 		if e != nil {
 			return e
 		}
+		// only handle Put and Delete
+		if write.WriteType() != batch.Put && write.WriteType() != batch.Delete {
+			continue
+		}
 		k := doubleKey{ns: write.Namespace(), key: string(write.Key())}
 		if _, ok := entryMap[k]; !ok {
 			entryMap[k] = write
 		}
 	}
 	boltdbMtc.WithLabelValues(b.path, "entrySize").Set(float64(kvsb.Size()))
-	boltdbMtc.WithLabelValues(b.path, "entryMapSize").Set(float64(len(entryMap)))
+	boltdbMtc.WithLabelValues(b.path, "uniqueEntrySize").Set(float64(len(entryMap)))
 	for c := uint8(0); c < b.config.NumRetries; c++ {
 		if err = b.db.Update(func(tx *bolt.Tx) error {
 			// though range entryMap is random, but it doesn't matter which key is processed first
