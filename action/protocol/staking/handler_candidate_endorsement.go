@@ -45,7 +45,7 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 		}
 		// expire immediately if the bucket is not self-staked
 		// otherwise, expire after withdraw waiting period
-		selfStake, err := isSelfStakeBucket(featureCtx, csm, bucket.Index)
+		selfStake, err := isSelfStakeBucket(featureCtx, csm, bucket)
 		if err != nil {
 			return log, nil, err
 		}

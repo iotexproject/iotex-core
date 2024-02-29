@@ -178,7 +178,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 	if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
 		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
-	selfStake, err := isSelfStakeBucket(featureCtx, csm, bucket.Index)
+	selfStake, err := isSelfStakeBucket(featureCtx, csm, bucket)
 	if err != nil {
 		return log, &handleError{
 			err:           err,
@@ -438,7 +438,7 @@ func (p *Protocol) handleConsignmentTransfer(
 	// self-stake cannot be transferred
 	actCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	selfStake, err := isSelfStakeBucket(featureCtx, csm, bucket.Index)
+	selfStake, err := isSelfStakeBucket(featureCtx, csm, bucket)
 	if err != nil || selfStake {
 		return nil, false
 	}
@@ -492,7 +492,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
 	}
-	selfStake, err := isSelfStakeBucket(featureCtx, csm, act.BucketIndex())
+	selfStake, err := isSelfStakeBucket(featureCtx, csm, bucket)
 	if err != nil {
 		return log, nil, &handleError{
 			err:           err,
@@ -592,7 +592,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
 	}
-	selfStake, err := isSelfStakeBucket(featureCtx, csm, act.BucketIndex())
+	selfStake, err := isSelfStakeBucket(featureCtx, csm, bucket)
 	if err != nil {
 		return log, &handleError{
 			err:           err,
@@ -841,7 +841,7 @@ func (p *Protocol) fetchBucketAndValidate(
 		}
 	}
 	if !allowSelfStaking {
-		selfStaking, serr := isSelfStakeBucket(featureCtx, csm, index)
+		selfStaking, serr := isSelfStakeBucket(featureCtx, csm, bucket)
 		if err != nil {
 			return bucket, &handleError{
 				err:           serr,

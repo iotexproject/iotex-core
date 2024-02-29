@@ -56,7 +56,7 @@ func validateBucketCandidate(bucket *VoteBucket, candidate address.Address) Rece
 }
 
 func validateBucketSelfStake(featureCtx protocol.FeatureCtx, csm CandidateStateManager, bucket *VoteBucket, isSelfStaked bool) ReceiptError {
-	selfstake, err := isSelfStakeBucket(featureCtx, csm, bucket.Index)
+	selfstake, err := isSelfStakeBucket(featureCtx, csm, bucket)
 	if err != nil {
 		return &handleError{
 			err:           err,
