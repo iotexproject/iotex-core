@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
@@ -58,9 +59,14 @@ type (
 	}
 )
 
-func initTestState(t *testing.T, ctrl *gomock.Controller, bucketCfgs []*bucketConfig, candidateCfgs []*candidateConfig) (protocol.StateManager, *Protocol, []*VoteBucket, []*Candidate) {
+func initTestState(t *testing.T, ctrl *gomock.Controller, bucketCfgs []*bucketConfig, candidateCfgs []*candidateConfig) (*mock_chainmanager.MockStateManager, *Protocol, []*VoteBucket, []*Candidate) {
+	return initTestStateWithHeight(t, ctrl, bucketCfgs, candidateCfgs, 0)
+}
+
+func initTestStateWithHeight(t *testing.T, ctrl *gomock.Controller, bucketCfgs []*bucketConfig, candidateCfgs []*candidateConfig, height uint64) (*mock_chainmanager.MockStateManager, *Protocol, []*VoteBucket, []*Candidate) {
 	require := require.New(t)
-	sm := testdb.NewMockStateManager(ctrl)
+	sm := testdb.NewMockStateManagerWithoutHeightFunc(ctrl)
+	sm.EXPECT().Height().Return(height, nil).AnyTimes()
 	csm := newCandidateStateManager(sm)
 	esm := NewEndorsementStateManager(sm)
 	_, err := sm.PutState(
@@ -172,7 +178,7 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 		{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
 		{identityset.Address(2), identityset.Address(8), identityset.Address(1), "test2"},
 	}
-	initTestStateFromIds := func(bucketCfgIdx, candCfgIds []uint64) (protocol.StateManager, *Protocol, []*VoteBucket, []*Candidate) {
+	initTestStateFromIds := func(bucketCfgIdx, candCfgIds []uint64) (*mock_chainmanager.MockStateManager, *Protocol, []*VoteBucket, []*Candidate) {
 		bucketCfgs := []*bucketConfig{}
 		for _, idx := range bucketCfgIdx {
 			bucketCfgs = append(bucketCfgs, initBucketCfgs[idx])
