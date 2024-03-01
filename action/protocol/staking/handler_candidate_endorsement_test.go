@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
 type appendAction struct {
@@ -49,7 +48,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 		{identityset.Address(2), identityset.Address(8), identityset.Address(1), "test2"},
 		{identityset.Address(3), identityset.Address(9), identityset.Address(11), "test3"},
 	}
-	initTestStateFromIds := func(bucketCfgIdx, candCfgIds []uint64) (*mock_chainmanager.MockStateManager, *Protocol, []*VoteBucket, []*Candidate) {
+	initTestStateFromIds := func(bucketCfgIdx, candCfgIds []uint64) (protocol.StateManager, *Protocol, []*VoteBucket, []*Candidate) {
 		bucketCfgs := []*bucketConfig{}
 		for _, idx := range bucketCfgIdx {
 			bucketCfgs = append(bucketCfgs, initBucketCfgs[idx])
