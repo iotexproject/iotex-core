@@ -350,7 +350,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 		}
 	}
 	// clear previous candidate's self stake if the bucket is expired
-	if csm.ContainsSelfStakingBucket(prevCandidate.SelfStakeBucketIdx) {
+	if !featureCtx.DisableDelegateEndorsement && prevCandidate.SelfStakeBucketIdx == bucket.Index {
 		prevCandidate.SelfStake.SetInt64(0)
 		prevCandidate.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
 	}
