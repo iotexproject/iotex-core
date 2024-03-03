@@ -182,7 +182,7 @@ func (q *actQueue) cleanTimeout() []*action.SealedEnvelope {
 	)
 	for i := 0; i < size; {
 		nonce := q.ascQueue[i].nonce
-		if timeNow.After(q.ascQueue[i].deadline) && nonce > q.pendingNonce {
+		if timeNow.After(q.ascQueue[i].deadline) && nonce != q.pendingNonce {
 			removedFromQueue = append(removedFromQueue, q.items[nonce])
 			delete(q.items, nonce)
 			delete(q.pendingBalance, nonce)
