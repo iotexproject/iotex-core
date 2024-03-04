@@ -238,8 +238,14 @@ func (worker *queueWorker) Reset(ctx context.Context) {
 			worker.emptyAccounts.Set(from, struct{}{})
 			return
 		}
+		var pendingNonce uint64
+		if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+			pendingNonce = confirmedState.PendingNonceConsideringFreshAccount()
+		} else {
+			pendingNonce = confirmedState.PendingNonce()
+		}
 		// Remove all actions that are committed to new block
-		acts := queue.UpdateAccountState(confirmedState.PendingNonce(), confirmedState.Balance)
+		acts := queue.UpdateAccountState(pendingNonce, confirmedState.Balance)
 		acts2 := queue.UpdateQueue()
 		worker.ap.removeInvalidActs(append(acts, acts2...))
 		// Delete the queue entry if it becomes empty
