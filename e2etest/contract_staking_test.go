@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blockindex/contractstaking"
@@ -1969,7 +1970,13 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 	})
 	r.NoError(err)
 	// create BlockDAO
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, contractStakeIndexer})
+	store, err := filedao.NewFileDAOInMemForTest()
+	r.NoError(err)
+	dao := blockdao.NewBlockDAOWithIndexersAndCache(
+		store,
+		[]blockdao.BlockIndexer{sf, indexer, contractStakeIndexer},
+		cfg.DB.MaxCacheSize,
+	)
 	r.NotNil(dao)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
@@ -2028,7 +2035,8 @@ func deployContracts(
 	err = bc.CommitBlock(blk)
 	r.NoError(err)
 
-	receipt, err := dao.GetReceiptByActionHash(selpHash, blk.Height())
+	receipt := blk.Receipts[0]
+	r.Equal(selpHash, receipt.ActionHash)
 	r.NoError(err)
 	r.NotNil(receipt)
 	r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
@@ -2094,10 +2102,14 @@ func writeContract(bc blockchain.Blockchain,
 	err = bc.CommitBlock(blk)
 	r.NoError(err)
 
+	receiptMap := make(map[hash.Hash256]*action.Receipt, len(blk.Receipts))
+	for _, receipt := range blk.Receipts {
+		receiptMap[receipt.ActionHash] = receipt
+	}
 	receipts := []*action.Receipt{}
 	for _, hash := range hashes {
-		receipt, err := dao.GetReceiptByActionHash(hash, blk.Height())
-		r.NoError(err)
+		receipt, ok := receiptMap[hash]
+		r.True(ok)
 		receipts = append(receipts, receipt)
 	}
 	return receipts, blk

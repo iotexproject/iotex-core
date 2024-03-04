@@ -19,8 +19,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/filedao"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -40,14 +38,24 @@ var (
 type (
 	// BlockDAO represents the block data access object
 	BlockDAO interface {
-		filedao.FileDAO
-		GetActionByActionHash(hash.Hash256, uint64) (*action.SealedEnvelope, uint32, error)
-		GetReceiptByActionHash(hash.Hash256, uint64) (*action.Receipt, error)
-		DeleteBlockToTarget(uint64) error
+		Start(ctx context.Context) error
+		Stop(ctx context.Context) error
+		Height() (uint64, error)
+		GetBlockHash(uint64) (hash.Hash256, error)
+		GetBlockHeight(hash.Hash256) (uint64, error)
+		GetBlock(hash.Hash256) (*block.Block, error)
+		GetBlockByHeight(uint64) (*block.Block, error)
+		GetReceipts(uint64) ([]*action.Receipt, error)
+		ContainsTransactionLog() bool
+		TransactionLogs(uint64) (*iotextypes.TransactionLogs, error)
+		PutBlock(context.Context, *block.Block) error
+		Header(hash.Hash256) (*block.Header, error)
+		HeaderByHeight(uint64) (*block.Header, error)
+		FooterByHeight(uint64) (*block.Footer, error)
 	}
 
 	blockDAO struct {
-		blockStore   filedao.FileDAO
+		blockStore   BlockDAO
 		indexers     []BlockIndexer
 		timerFactory *prometheustimer.TimerFactory
 		lifecycle    lifecycle.Lifecycle
@@ -58,23 +66,38 @@ type (
 	}
 )
 
-// NewBlockDAO instantiates a block DAO
-func NewBlockDAO(indexers []BlockIndexer, cfg db.Config, deser *block.Deserializer) BlockDAO {
-	blkStore, err := filedao.NewFileDAO(cfg, deser)
-	if err != nil {
-		log.L().Fatal(err.Error(), zap.Any("cfg", cfg))
+// NewBlockDAOWithIndexersAndCache returns a BlockDAO with indexers which will consume blocks appended, and
+// caches which will speed up reading
+func NewBlockDAOWithIndexersAndCache(blkStore BlockDAO, indexers []BlockIndexer, cacheSize int) BlockDAO {
+	if blkStore == nil {
 		return nil
 	}
-	return createBlockDAO(blkStore, indexers, cfg)
-}
 
-// NewBlockDAOInMemForTest creates a in-memory block DAO for testing
-func NewBlockDAOInMemForTest(indexers []BlockIndexer) BlockDAO {
-	blkStore, err := filedao.NewFileDAOInMemForTest()
+	blockDAO := &blockDAO{
+		blockStore: blkStore,
+		indexers:   indexers,
+	}
+
+	blockDAO.lifecycle.Add(blkStore)
+	for _, indexer := range indexers {
+		blockDAO.lifecycle.Add(indexer)
+	}
+	if cacheSize > 0 {
+		blockDAO.headerCache = cache.NewThreadSafeLruCache(cacheSize)
+		blockDAO.bodyCache = cache.NewThreadSafeLruCache(cacheSize)
+		blockDAO.footerCache = cache.NewThreadSafeLruCache(cacheSize)
+	}
+	timerFactory, err := prometheustimer.New(
+		"iotex_block_dao_perf",
+		"Performance of block DAO",
+		[]string{"type"},
+		[]string{"default"},
+	)
 	if err != nil {
 		return nil
 	}
-	return createBlockDAO(blkStore, indexers, db.Config{MaxCacheSize: 16})
+	blockDAO.timerFactory = timerFactory
+	return blockDAO
 }
 
 // Start starts block DAO and initiates the top height if it doesn't exist
@@ -192,28 +215,7 @@ func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
 	return header, nil
 }
 
-func (dao *blockDAO) GetActionByActionHash(h hash.Hash256, height uint64) (*action.SealedEnvelope, uint32, error) {
-	blk, err := dao.blockStore.GetBlockByHeight(height)
-	if err != nil {
-		return nil, 0, err
-	}
-	for i, act := range blk.Actions {
-		actHash, err := act.Hash()
-		if err != nil {
-			return nil, 0, errors.Errorf("hash failed for block %d", height)
-		}
-		if actHash == h {
-			return act, uint32(i), nil
-		}
-	}
-	return nil, 0, errors.Errorf("block %d does not have action %x", height, h)
-}
-
-func (dao *blockDAO) GetReceiptByActionHash(h hash.Hash256, height uint64) (*action.Receipt, error) {
-	receipts, err := dao.blockStore.GetReceipts(height)
-	if err != nil {
-		return nil, err
-	}
+func receiptByActionHash(receipts []*action.Receipt, h hash.Hash256) (*action.Receipt, error) {
 	for _, r := range receipts {
 		if r.ActionHash == h {
 			return r, nil
@@ -261,80 +263,6 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-func (dao *blockDAO) DeleteTipBlock() error {
-	timer := dao.timerFactory.NewTimer("del_block")
-	defer timer.End()
-	return dao.blockStore.DeleteTipBlock()
-}
-
-func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
-	tipHeight, err := dao.blockStore.Height()
-	if err != nil {
-		return err
-	}
-	ctx := context.Background()
-	for tipHeight > targetHeight {
-		blk, err := dao.blockStore.GetBlockByHeight(tipHeight)
-		if err != nil {
-			return errors.Wrap(err, "failed to get tip block")
-		}
-		// delete block index if there's indexer
-		for _, indexer := range dao.indexers {
-			if err := indexer.DeleteTipBlock(ctx, blk); err != nil {
-				return err
-			}
-		}
-
-		if err := dao.blockStore.DeleteTipBlock(); err != nil {
-			return err
-		}
-		// purge from cache
-		h := blk.HashBlock()
-		lruCacheDel(dao.headerCache, tipHeight)
-		lruCacheDel(dao.headerCache, h)
-		lruCacheDel(dao.bodyCache, tipHeight)
-		lruCacheDel(dao.bodyCache, h)
-		lruCacheDel(dao.footerCache, tipHeight)
-		lruCacheDel(dao.footerCache, h)
-
-		tipHeight--
-		atomic.StoreUint64(&dao.tipHeight, tipHeight)
-	}
-	return nil
-}
-
-func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg db.Config) BlockDAO {
-	if blkStore == nil {
-		return nil
-	}
-
-	blockDAO := &blockDAO{
-		blockStore: blkStore,
-		indexers:   indexers,
-	}
-
-	blockDAO.lifecycle.Add(blkStore)
-	for _, indexer := range indexers {
-		blockDAO.lifecycle.Add(indexer)
-	}
-	if cfg.MaxCacheSize > 0 {
-		blockDAO.headerCache = cache.NewThreadSafeLruCache(cfg.MaxCacheSize)
-		blockDAO.bodyCache = cache.NewThreadSafeLruCache(cfg.MaxCacheSize)
-		blockDAO.footerCache = cache.NewThreadSafeLruCache(cfg.MaxCacheSize)
-	}
-	timerFactory, err := prometheustimer.New(
-		"iotex_block_dao_perf",
-		"Performance of block DAO",
-		[]string{"type"},
-		[]string{"default"},
-	)
-	if err != nil {
-		return nil
-	}
-	blockDAO.timerFactory = timerFactory
-	return blockDAO
-}
-
 func lruCacheGet(c cache.LRUCache, key interface{}) (interface{}, bool) {
 	if c != nil {
 		return c.Get(key)
@@ -345,11 +273,5 @@ func lruCacheGet(c cache.LRUCache, key interface{}) (interface{}, bool) {
 func lruCachePut(c cache.LRUCache, k, v interface{}) {
 	if c != nil {
 		c.Add(k, v)
-	}
-}
-
-func lruCacheDel(c cache.LRUCache, k interface{}) {
-	if c != nil {
-		c.Remove(k)
 	}
 }

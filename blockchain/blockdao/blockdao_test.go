@@ -84,6 +84,9 @@ func getTestBlocks(t *testing.T) []*block.Block {
 	return []*block.Block{&blk1, &blk2, &blk3}
 }
 
+// TODO: Move the test to filedao. The test is not for BlockDAO, but filedao.
+// The current blockDAO's implementation is more about indexers and cache, which
+// are not covered in the unit tests.
 func TestBlockDAO(t *testing.T) {
 	require := require.New(t)
 
@@ -273,21 +276,21 @@ func TestBlockDAO(t *testing.T) {
 		for i, v := range daoTests[0].hashTotal {
 			blk := blks[i/3]
 			h := hash.BytesToHash256(v)
-			receipt, err := dao.GetReceiptByActionHash(h, blk.Height())
+			receipt, err := receiptByActionHash(receipts[i/3], h)
 			require.NoError(err)
 			b1, err := receipt.Serialize()
 			require.NoError(err)
 			b2, err := receipts[i/3][i%3].Serialize()
 			require.NoError(err)
 			require.Equal(b1, b2)
-			action, actIndex, err := dao.GetActionByActionHash(h, blk.Height())
+			action, actIndex, err := blk.ActionByHash(h)
 			require.NoError(err)
 			require.Equal(int(actIndex), i%3)
 			require.Equal(blk.Actions[i%3], action)
 		}
 	}
 
-	testDeleteDao := func(dao BlockDAO, t *testing.T) {
+	testDeleteDao := func(dao filedao.FileDAO, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
 			genesis.WithGenesisContext(context.Background(), genesis.Default),
 			protocol.BlockchainCtx{
@@ -315,7 +318,14 @@ func TestBlockDAO(t *testing.T) {
 			require.NoError(err)
 			prevTipHash, err := dao.GetBlockHash(prevTipHeight)
 			require.NoError(err)
-			require.NoError(dao.DeleteBlockToTarget(prevTipHeight - 1))
+			for {
+				height, err := dao.Height()
+				require.NoError(err)
+				if height <= prevTipHeight-1 {
+					break
+				}
+				require.NoError(dao.DeleteTipBlock())
+			}
 			tipHeight, err := dao.Height()
 			require.NoError(err)
 			require.EqualValues(prevTipHeight-1, tipHeight)
@@ -378,14 +388,14 @@ func TestBlockDAO(t *testing.T) {
 			for i, v := range action.hashTotal {
 				blk := blks[i/3]
 				h := hash.BytesToHash256(v)
-				receipt, err := dao.GetReceiptByActionHash(h, blk.Height())
+				receipt, err := receiptByActionHash(receipts[i/3], h)
 				require.NoError(err)
 				b1, err := receipt.Serialize()
 				require.NoError(err)
 				b2, err := receipts[i/3][i%3].Serialize()
 				require.NoError(err)
 				require.Equal(b1, b2)
-				action, actIndex, err := dao.GetActionByActionHash(h, blk.Height())
+				action, actIndex, err := blk.ActionByHash(h)
 				require.NoError(err)
 				require.Equal(int(actIndex), i%3)
 				require.Equal(blk.Actions[i%3], action)
@@ -417,7 +427,7 @@ func TestBlockDAO(t *testing.T) {
 	block.LoadGenesisHash(&genesis.Default)
 	for _, v := range daoList {
 		testutil.CleanupPath(testPath)
-		dao, err := createTestBlockDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
+		dao, err := createFileDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
 		require.NoError(err)
 		require.NotNil(dao)
 		t.Run("test store blocks", func(t *testing.T) {
@@ -427,7 +437,7 @@ func TestBlockDAO(t *testing.T) {
 
 	for _, v := range daoList {
 		testutil.CleanupPath(testPath)
-		dao, err := createTestBlockDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
+		dao, err := createFileDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
 		require.NoError(err)
 		require.NotNil(dao)
 		t.Run("test delete blocks", func(t *testing.T) {
@@ -436,21 +446,17 @@ func TestBlockDAO(t *testing.T) {
 	}
 }
 
-func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg db.Config) (BlockDAO, error) {
+func createFileDAO(inMemory, legacy bool, compressBlock string, cfg db.Config) (filedao.FileDAO, error) {
 	if inMemory {
-		return NewBlockDAOInMemForTest(nil), nil
+		return filedao.NewFileDAOInMemForTest()
 	}
 	deser := block.NewDeserializer(4689)
 	if legacy {
-		fileDAO, err := filedao.CreateFileDAO(true, cfg, deser)
-		if err != nil {
-			return nil, err
-		}
-		return createBlockDAO(fileDAO, nil, cfg), nil
+		return filedao.CreateFileDAO(true, cfg, deser)
 	}
 
 	cfg.Compressor = compressBlock
-	return NewBlockDAO(nil, cfg, deser), nil
+	return filedao.NewFileDAO(cfg, deser)
 }
 
 func BenchmarkBlockCache(b *testing.B) {
@@ -472,7 +478,9 @@ func BenchmarkBlockCache(b *testing.B) {
 		cfg.DbPath = testPath
 		cfg.MaxCacheSize = cacheSize
 		deser := block.NewDeserializer(4689)
-		blkDao := NewBlockDAO([]BlockIndexer{}, cfg, deser)
+		fileDAO, err := filedao.NewFileDAO(cfg, deser)
+		require.NoError(b, err)
+		blkDao := NewBlockDAOWithIndexersAndCache(fileDAO, []BlockIndexer{}, cfg.MaxCacheSize)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {
 			require.NoError(b, blkDao.Stop(context.Background()))

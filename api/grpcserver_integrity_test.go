@@ -1470,7 +1470,9 @@ func TestGrpcServer_ReadContractIntegrity(t *testing.T) {
 		require.NoError(err)
 		ai, err := indexer.GetActionIndex(hash[:])
 		require.NoError(err)
-		exec, _, err := dao.GetActionByActionHash(hash, ai.BlockHeight())
+		blk, err := dao.GetBlockByHeight(ai.BlockHeight())
+		require.NoError(err)
+		exec, _, err := blk.ActionByHash(hash)
 		require.NoError(err)
 		request := &iotexapi.ReadContractRequest{
 			Execution:     exec.Proto().GetCore().GetExecution(),
@@ -1522,7 +1524,9 @@ func TestGrpcServer_EstimateGasForActionIntegrity(t *testing.T) {
 		require.NoError(err)
 		ai, err := indexer.GetActionIndex(hash[:])
 		require.NoError(err)
-		act, _, err := dao.GetActionByActionHash(hash, ai.BlockHeight())
+		blk, err := dao.GetBlockByHeight(ai.BlockHeight())
+		require.NoError(err)
+		act, _, err := blk.ActionByHash(hash)
 		require.NoError(err)
 		request := &iotexapi.EstimateGasForActionRequest{Action: act.Proto()}
 

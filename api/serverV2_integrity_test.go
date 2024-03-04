@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/consensus"
@@ -237,19 +238,7 @@ func deployContractV2(bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool a
 	}
 	actPool.Reset()
 	// get deployed contract address
-	var contract string
-	if dao != nil {
-		ex1Hash, err := ex1.Hash()
-		if err != nil {
-			return "", err
-		}
-		r, err := dao.GetReceiptByActionHash(ex1Hash, height+1)
-		if err != nil {
-			return "", err
-		}
-		contract = r.ContractAddress
-	}
-	return contract, nil
+	return blk.Receipts[0].ContractAddress, nil
 }
 
 func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
@@ -313,7 +302,11 @@ func setupChain(cfg testConfig) (blockchain.Blockchain, blockdao.BlockDAO, block
 		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create bloomfilter indexer")
 	}
 	// create BlockDAO
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, bfIndexer})
+	store, err := filedao.NewFileDAOInMemForTest()
+	if err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, "", errors.Wrap(err, "failed to create dao in memory")
+	}
+	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf, indexer, bfIndexer}, 16)
 	if dao == nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockdao")
 	}

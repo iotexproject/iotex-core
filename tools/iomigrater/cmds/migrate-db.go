@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/schollz/progressbar/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/tools/iomigrater/common"
 )
@@ -115,10 +116,16 @@ func migrateDbFile() (err error) {
 
 	cfg.DB.DbPath = oldFile
 	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
-	oldDAO := blockdao.NewBlockDAO(nil, cfg.DB, deser)
+	oldDAO, err := filedao.NewFileDAO(cfg.DB, deser)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create dao from %s", oldFile)
+	}
 
 	cfg.DB.DbPath = newFile
-	newDAO := blockdao.NewBlockDAO(nil, cfg.DB, deser)
+	newDAO, err := filedao.NewFileDAO(cfg.DB, deser)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create dao from %s", newFile)
+	}
 
 	ctx := context.Background()
 	if err := oldDAO.Start(ctx); err != nil {
