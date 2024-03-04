@@ -99,7 +99,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		require.NoError(err)
 		require.EqualValues(types.LegacyTxType, tx.Type())
 		require.True(tx.Protected())
-		require.EqualValues(_evmNetworkID, tx.ChainId().Uint64())
+		require.EqualValues(v.chainID, tx.ChainId().Uint64())
 		require.Equal(v.pubkey, pubkey.HexString())
 		require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
 
@@ -155,6 +155,9 @@ var (
 	// deterministic deployment: https://github.com/Arachnid/deterministic-deployment-proxy
 	// see example at https://etherscan.io/tx/0xeddf9e61fb9d8f5111840daef55e5fde0041f5702856532cdbb5a02998033d26
 	deterministicDeploymentTx = "0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222"
+
+	// example access list tx, created with a random chainID value = 0x7a69 = 31337
+	accessListTx = "0x01f8a0827a690184ee6b280082520894a0ee7a142d267c1f36714e4a8f75612f20a797206480f838f794a0ee7a142d267c1f36714e4a8f75612f20a79720e1a0000000000000000000000000000000000000000000000000000000000000000001a0eb211dfd353d76d43ea31a130ff36ac4eb7b379eae4d49fa2376741daf32f9ffa07ab673241d75e103f81ddd4aa34dd6849faf2f0f593eebe61a68fed74490a348"
 
 	rlpTests = []struct {
 		actType  string
@@ -399,6 +402,24 @@ var (
 	}
 )
 
+func TestNewEthSignerError(t *testing.T) {
+	require := require.New(t)
+	singer, err := NewEthSigner(iotextypes.Encoding_ETHEREUM_ACCESSLIST, 1)
+	require.ErrorIs(err, ErrInvalidAct)
+	require.Nil(singer)
+
+	tx := types.NewTx(&types.DynamicFeeTx{
+		To:        nil,
+		Nonce:     4,
+		Value:     big.NewInt(4),
+		Gas:       4,
+		GasTipCap: big.NewInt(44),
+		GasFeeCap: big.NewInt(1045),
+	})
+	_, _, _, err = ExtractTypeSigPubkey(tx)
+	require.ErrorIs(err, ErrNotSupported)
+}
+
 func TestEthTxDecodeVerify(t *testing.T) {
 	require := require.New(t)
 
@@ -440,8 +461,8 @@ func TestEthTxDecodeVerify(t *testing.T) {
 
 		// receive from API
 		proto.Unmarshal(bs, pb)
-		selp := &SealedEnvelope{}
-		require.NoError(selp.loadProto(pb, uint32(tx.ChainId().Uint64())))
+		selp, err := (&Deserializer{}).SetEvmNetworkID(v.chainID).ActionToSealedEnvelope(pb)
+		require.NoError(err)
 		act, ok := selp.Action().(EthCompatibleAction)
 		require.True(ok)
 		rlpTx, err := act.ToEthTx(uint32(tx.ChainId().Uint64()))
@@ -546,10 +567,6 @@ func TestIssue3944(t *testing.T) {
 
 func TestBackwardComp(t *testing.T) {
 	r := require.New(t)
-	var (
-		// example access list tx, created with a random chainID value = 0x7a69 = 31337
-		accessListTx = "0x01f8a0827a690184ee6b280082520894a0ee7a142d267c1f36714e4a8f75612f20a797206480f838f794a0ee7a142d267c1f36714e4a8f75612f20a79720e1a0000000000000000000000000000000000000000000000000000000000000000001a0eb211dfd353d76d43ea31a130ff36ac4eb7b379eae4d49fa2376741daf32f9ffa07ab673241d75e103f81ddd4aa34dd6849faf2f0f593eebe61a68fed74490a348"
-	)
 	for _, chainID := range []uint32{_evmNetworkID, _evmNetworkID + 1, 31337, 0} {
 		_, _, _, err := DecodeRawTx(deterministicDeploymentTx, chainID)
 		r.Equal(crypto.ErrInvalidKey, err)

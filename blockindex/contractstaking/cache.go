@@ -436,6 +436,9 @@ func (s *contractStakingCache) putHeight(height uint64) {
 }
 
 func (s *contractStakingCache) mergeDelta(delta *contractStakingDelta) error {
+	if delta == nil {
+		return errors.New("invalid contract staking delta")
+	}
 	for state, btMap := range delta.BucketTypeDelta() {
 		if state == deltaStateAdded || state == deltaStateModified {
 			for id, bt := range btMap {
