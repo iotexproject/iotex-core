@@ -274,3 +274,22 @@ func TestCalculateVoteWeight(t *testing.T) {
 		})
 	}
 }
+func TestIsUnstaked(t *testing.T) {
+	r := require.New(t)
+
+	// Test for native vote bucket
+	vb := NewVoteBucket(identityset.Address(1), identityset.Address(2), big.NewInt(10), 1, time.Now(), false)
+	r.False(vb.isUnstaked())
+	vb.UnstakeStartTime = vb.StakeStartTime.Add(1 * time.Hour)
+	r.True(vb.isUnstaked())
+
+	// Test for nft vote bucket
+	vb = NewVoteBucket(identityset.Address(1), identityset.Address(2), big.NewInt(10), 1, time.Now(), false)
+	vb.ContractAddress = identityset.Address(1).String()
+	vb.CreateBlockHeight = 1
+	vb.StakeStartBlockHeight = 1
+	vb.UnstakeStartBlockHeight = maxBlockNumber
+	r.False(vb.isUnstaked())
+	vb.UnstakeStartBlockHeight = 2
+	r.True(vb.isUnstaked())
+}
