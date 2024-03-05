@@ -214,15 +214,17 @@ func newParams(
 	}, nil
 }
 
-func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
+func securityDeposit(ctx context.Context, ps *Params, stateDB vm.StateDB) error {
 	executorNonce := stateDB.GetNonce(ps.txCtx.Origin)
 	if executorNonce > ps.nonce {
 		log.S().Errorf("Nonce on %v: %d vs %d", ps.txCtx.Origin, executorNonce, ps.nonce)
 		// TODO ignore inconsistent nonce problem until the actions are executed sequentially
 		// return ErrInconsistentNonce
 	}
-	if gasLimit < ps.gas {
-		return action.ErrGasLimit
+	if protocol.MustGetFeatureCtx(ctx).RedundantGasCheck {
+		if ps.blkCtx.GasLimit < ps.gas {
+			return action.ErrGasLimit
+		}
 	}
 	gasConsumed := new(big.Int).Mul(new(big.Int).SetUint64(ps.gas), ps.txCtx.GasPrice)
 	if stateDB.GetBalance(ps.txCtx.Origin).Cmp(gasConsumed) < 0 {
@@ -249,7 +251,10 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	sgd := ps.helperCtx.Sgd
+	if err := securityDeposit(ctx, ps, stateDB); err != nil {
+		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
+		return nil, nil, err
+	}
 	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB)
 	if err != nil {
 		return nil, nil, err
@@ -288,6 +293,7 @@ func ExecuteContract(
 			receiver                  address.Address
 			sharedGas                 uint64
 			sharedGasFee, totalGasFee *big.Int
+			sgd                       = ps.helperCtx.Sgd
 		)
 		if ps.featureCtx.SharedGasWithDapp && sgd != nil {
 			// TODO: sgd is whether nil should be checked in processSGD
@@ -444,18 +450,11 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 // Error in executeInEVM is a consensus issue
 func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, uint64, string, iotextypes.ReceiptStatus, error) {
 	var (
-		gasLimit     = evmParams.blkCtx.GasLimit
 		blockHeight  = evmParams.blkCtx.BlockHeight
 		g            = evmParams.genesis
 		remainingGas = evmParams.gas
 		chainConfig  = evmParams.chainConfig
-	)
-	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
-		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
-		return nil, 0, 0, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
-	}
-	var (
-		accessList types.AccessList
+		accessList   types.AccessList
 	)
 	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, chainConfig, evmParams.evmConfig)
 	if g.IsOkhotsk(blockHeight) {
