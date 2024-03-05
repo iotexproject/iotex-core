@@ -71,13 +71,14 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 
 func (p *Protocol) validateBucketSelfStake(ctx context.Context, csm CandidateStateManager, esm *EndorsementStateManager, bucket *VoteBucket, cand *Candidate) ReceiptError {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	if err := validateBucketMinAmount(bucket, p.config.RegistrationConsts.MinSelfStake); err != nil {
 		return err
 	}
 	if err := validateBucketStake(bucket, true); err != nil {
 		return err
 	}
-	if err := validateBucketSelfStake(csm, bucket, false); err != nil {
+	if err := validateBucketSelfStake(featureCtx, csm, bucket, false); err != nil {
 		return err
 	}
 	if err := validateBucketCandidate(bucket, cand.Owner); err != nil {

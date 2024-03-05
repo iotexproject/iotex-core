@@ -27,7 +27,7 @@ type (
 		tag          int            // latest snapshot + 1
 		batchShots   []int          // snapshots of batch are merely size of write queue at time of snapshot
 		caches       []KVStoreCache // snapshots of cache
-		keyTags      map[kvCacheKey][]int
+		keyTags      map[kvCacheKey]*kvCacheValue
 		tagKeys      [][]kvCacheKey
 	}
 )
@@ -254,19 +254,19 @@ func (cb *cachedBatch) clear() {
 	cb.tag = 0
 	cb.batchShots = make([]int, 0)
 	cb.caches = []KVStoreCache{NewKVCache()}
-	cb.keyTags = map[kvCacheKey][]int{}
+	cb.keyTags = map[kvCacheKey]*kvCacheValue{}
 	cb.tagKeys = [][]kvCacheKey{{}}
 }
 
 func (cb *cachedBatch) touchKey(h kvCacheKey) {
 	tags, ok := cb.keyTags[h]
 	if !ok {
-		cb.keyTags[h] = []int{cb.tag}
+		cb.keyTags[h] = newkvCacheValue([]int{cb.tag})
 		cb.tagKeys[cb.tag] = append(cb.tagKeys[cb.tag], h)
 		return
 	}
-	if tags[len(tags)-1] != cb.tag {
-		cb.keyTags[h] = append(tags, cb.tag)
+	if tags.last() != cb.tag {
+		tags.append(cb.tag)
 		cb.tagKeys[cb.tag] = append(cb.tagKeys[cb.tag], h)
 	}
 }
@@ -306,8 +306,8 @@ func (cb *cachedBatch) Get(namespace string, key []byte) ([]byte, error) {
 	var v []byte
 	err := ErrNotExist
 	if tags, ok := cb.keyTags[h]; ok {
-		for i := len(tags) - 1; i >= 0; i-- {
-			v, err = cb.caches[tags[i]].Read(&h)
+		for i := tags.len() - 1; i >= 0; i-- {
+			v, err = cb.caches[tags.getAt(i)].Read(&h)
 			if errors.Cause(err) == ErrNotExist {
 				continue
 			}
@@ -344,8 +344,9 @@ func (cb *cachedBatch) RevertSnapshot(snapshot int) error {
 	for tag := cb.tag; tag < len(cb.tagKeys); tag++ {
 		keys := cb.tagKeys[tag]
 		for _, key := range keys {
-			cb.keyTags[key] = cb.keyTags[key][:len(cb.keyTags[key])-1]
-			if len(cb.keyTags[key]) == 0 {
+			kv := cb.keyTags[key]
+			kv.pop()
+			if kv.len() == 0 {
 				delete(cb.keyTags, key)
 			}
 		}
@@ -369,11 +370,9 @@ func (cb *cachedBatch) ResetSnapshots() {
 		cb.caches = cb.caches[:1]
 	}
 	keys := make([]kvCacheKey, 0, len(cb.keyTags))
-	for key := range cb.keyTags {
+	for key, v := range cb.keyTags {
+		v.reset()
 		keys = append(keys, key)
-	}
-	for _, key := range keys {
-		cb.keyTags[key] = []int{0}
 	}
 	cb.tagKeys = [][]kvCacheKey{keys}
 }
