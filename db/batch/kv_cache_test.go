@@ -110,7 +110,7 @@ func TestKvCacheValue(t *testing.T) {
 	require.Equal(0, c.getAt(0))
 	require.Equal(3, c.last())
 	require.Equal(2, c.len())
-	c.reverse()
+	c.pop()
 	require.Equal([]int{0}, c.get())
 	require.Equal(1, c.len())
 }

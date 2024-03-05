@@ -46,11 +46,11 @@ func newkvCacheValue(v []int) *kvCacheValue {
 
 func (kv *kvCacheValue) reset() {
 	([]int)(*kv)[0] = 0
-	*kv = (*kv)[0:1]
+	*kv = (*kv)[:1]
 }
 
-func (kv *kvCacheValue) reverse() {
-	*kv = (*kv)[0 : kv.len()-1]
+func (kv *kvCacheValue) pop() {
+	*kv = (*kv)[:kv.len()-1]
 }
 func (kv *kvCacheValue) get() []int {
 	return ([]int)(*kv)
