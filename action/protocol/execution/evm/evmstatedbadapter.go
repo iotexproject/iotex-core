@@ -153,10 +153,10 @@ func SuicideTxLogMismatchPanicOption() StateDBAdapterOption {
 	}
 }
 
-// UseZeroNonceForFreshAccountOption set useZeroNonceForFreshAccount as true
-func UseZeroNonceForFreshAccountOption() StateDBAdapterOption {
+// ZeroNonceForFreshAccountOption set zeroNonceForFreshAccount as true
+func ZeroNonceForFreshAccountOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
-		adapter.useZeroNonceForFreshAccount = true
+		adapter.zeroNonceForFreshAccount = true
 		return nil
 	}
 }
@@ -341,7 +341,7 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 		log.L().Error("Failed to get nonce.", zap.Error(err))
 		// stateDB.logError(err)
 	} else {
-		if stateDB.useZeroNonceForFreshAccount {
+		if stateDB.zeroNonceForFreshAccount {
 			pendingNonce = state.PendingNonceConsideringFreshAccount()
 		} else {
 			pendingNonce = state.PendingNonce()
@@ -382,7 +382,7 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
 	log.L().Debug("Called SetNonce.",
 		zap.String("address", addr.String()),
 		zap.Uint64("nonce", nonce))
-	if !s.IsNewbieAccount() || s.AccountType() != 0 || nonce != 0 || stateDB.useZeroNonceForFreshAccount {
+	if !s.IsNewbieAccount() || s.AccountType() != 0 || nonce != 0 || stateDB.zeroNonceForFreshAccount {
 		if err := s.SetPendingNonce(nonce + 1); err != nil {
 			log.L().Panic("Failed to set nonce.", zap.Error(err), zap.String("addr", addr.Hex()), zap.Uint64("pendingNonce", s.PendingNonce()), zap.Uint64("nonce", nonce), zap.String("execution", hex.EncodeToString(stateDB.executionHash[:])))
 			stateDB.logError(err)

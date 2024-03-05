@@ -306,7 +306,7 @@ func TestNonce(t *testing.T) {
 		opt := []StateDBAdapterOption{
 			NotFixTopicCopyBugOption(),
 			FixSnapshotOrderOption(),
-			UseZeroNonceForFreshAccountOption(),
+			ZeroNonceForFreshAccountOption(),
 		}
 		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 		require.NoError(err)

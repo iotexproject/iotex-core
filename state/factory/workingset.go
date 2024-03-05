@@ -171,6 +171,9 @@ func (ws *workingSet) runAction(
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
 	defer ws.ResetSnapshots()
+	if err := ws.freshAccountConversion(ctx, &actCtx); err != nil {
+		return nil, err
+	}
 	for _, actionHandler := range reg.All() {
 		receipt, err := actionHandler.Handle(ctx, selp.Action(), ws)
 		if err != nil {
@@ -221,6 +224,25 @@ func (ws *workingSet) Revert(snapshot int) error {
 
 func (ws *workingSet) ResetSnapshots() {
 	ws.store.ResetSnapshots()
+}
+
+// freshAccountConversion happens between UseZeroNonceForFreshAccount height
+// and RefactorFreshAccountConversion height
+func (ws *workingSet) freshAccountConversion(ctx context.Context, actCtx *protocol.ActionCtx) error {
+	// check legacy fresh account conversion
+	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount &&
+		!protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+		sender, err := accountutil.AccountState(ctx, ws, actCtx.Caller)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get the confirmed nonce of sender %s", actCtx.Caller.String())
+		}
+		if sender.ConvertFreshAccountToZeroNonceType(actCtx.Nonce) {
+			if err = accountutil.StoreAccount(ws, actCtx.Caller, sender); err != nil {
+				return errors.Wrapf(err, "failed to store converted sender %s", actCtx.Caller.String())
+			}
+		}
+	}
+	return nil
 }
 
 // Commit persists all changes in RunActions() into the DB

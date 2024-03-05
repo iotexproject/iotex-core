@@ -547,7 +547,7 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 		BlockHeight: core.bc.TipHeight(),
 	}))
 	var pendingNonce uint64
-	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
 		pendingNonce = state.PendingNonceConsideringFreshAccount()
 	} else {
 		pendingNonce = state.PendingNonce()
@@ -1499,7 +1499,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 		BlockHeight: core.bc.TipHeight(),
 	}))
 	var pendingNonce uint64
-	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
 		pendingNonce = state.PendingNonceConsideringFreshAccount()
 	} else {
 		pendingNonce = state.PendingNonce()
@@ -1712,7 +1712,7 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 		BlockHeight: core.bc.TipHeight(),
 	}))
 	var pendingNonce uint64
-	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
 		pendingNonce = state.PendingNonceConsideringFreshAccount()
 	} else {
 		pendingNonce = state.PendingNonce()
@@ -1776,7 +1776,7 @@ func (core *coreService) TraceCall(ctx context.Context,
 			BlockHeight: core.bc.TipHeight(),
 		}))
 		var pendingNonce uint64
-		if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+		if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
 			pendingNonce = state.PendingNonceConsideringFreshAccount()
 		} else {
 			pendingNonce = state.PendingNonce()

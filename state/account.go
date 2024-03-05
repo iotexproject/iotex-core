@@ -177,6 +177,17 @@ func (st *Account) SetPendingNonce(nonce uint64) error {
 	return nil
 }
 
+// ConvertFreshAccountToZeroNonceType converts a fresh legacy account to zero-nonce account
+func (st *Account) ConvertFreshAccountToZeroNonceType(nonce uint64) bool {
+	if st.accountType == 0 && st.nonce == 0 && nonce == 0 {
+		// this is a legacy account that had never initiated an outgoing transaction
+		// so we can convert it to zero-nonce account
+		st.accountType = 1
+		return true
+	}
+	return false
+}
+
 // PendingNonce returns the pending nonce of the account
 func (st *Account) PendingNonce() uint64 {
 	switch st.accountType {
