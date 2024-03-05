@@ -95,6 +95,26 @@ func TestKvCache(t *testing.T) {
 	require.Equal(v, v3)
 }
 
+func TestKvCacheValue(t *testing.T) {
+	require := require.New(t)
+
+	c := newkvCacheValue([]int{1})
+	require.Equal([]int{1}, c.get())
+	require.Equal(1, c.len())
+
+	c.reset()
+	require.Equal([]int{0}, c.get())
+
+	c.append(3)
+	require.Equal([]int{0, 3}, c.get())
+	require.Equal(0, c.getAt(0))
+	require.Equal(3, c.last())
+	require.Equal(2, c.len())
+	c.pop()
+	require.Equal([]int{0}, c.get())
+	require.Equal(1, c.len())
+}
+
 func TestWriteIfNotExist(t *testing.T) {
 	require := require.New(t)
 
@@ -113,4 +133,38 @@ func TestWriteIfNotExist(t *testing.T) {
 	c.Evict(k1)
 	err = c.WriteIfNotExist(k1, v1)
 	require.NoError(err)
+}
+
+func BenchmarkMapKey_ValueOperate(b *testing.B) {
+	keyTags := map[kvCacheKey]*kvCacheValue{}
+	keyTags2 := map[kvCacheKey][]int{}
+	for i := 0; i < 10000; i++ {
+		key := kvCacheKey{
+			key1: string(make([]byte, 5)),
+			key2: string(make([]byte, 32)),
+		}
+		keyTags[key] = newkvCacheValue([]int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
+		keyTags2[key] = []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+	}
+	b.Run("reset by map key", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for k := range keyTags {
+				keyTags[k].reset()
+			}
+		}
+	})
+	b.Run("reset by map value, 2x faster", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for _, v := range keyTags {
+				v.reset()
+			}
+		}
+	})
+	b.Run("orign map assign", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for k := range keyTags2 {
+				keyTags2[k] = []int{0}
+			}
+		}
+	})
 }

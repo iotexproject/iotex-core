@@ -1114,8 +1114,8 @@ func TestSubscribe(t *testing.T) {
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	listener := mock_apitypes.NewMockListener(ctrl)
-	listener.EXPECT().AddResponder(gomock.Any()).Return("streamid_1", nil).Times(2)
-	core.EXPECT().ChainListener().Return(listener).Times(2)
+	listener.EXPECT().AddResponder(gomock.Any()).Return("streamid_1", nil).Times(3)
+	core.EXPECT().ChainListener().Return(listener).Times(3)
 	writer := mock_apitypes.NewMockWeb3ResponseWriter(ctrl)
 
 	t.Run("newHeads subscription", func(t *testing.T) {
@@ -1132,8 +1132,21 @@ func TestSubscribe(t *testing.T) {
 		require.Equal("streamid_1", ret.(string))
 	})
 
+	t.Run("logs topic not array", func(t *testing.T) {
+		in := gjson.Parse(`{"params":["logs",{"fromBlock":"1","fromBlock":"2","address":["0x0000000000000000000000000000000000000001"],"topics":["0x5f746f70696331"]}]}`)
+		ret, err := web3svr.subscribe(&in, writer)
+		require.NoError(err)
+		require.Equal("streamid_1", ret.(string))
+	})
+
 	t.Run("nil params", func(t *testing.T) {
 		inNil := gjson.Parse(`{"params":[]}`)
+		_, err := web3svr.subscribe(&inNil, writer)
+		require.EqualError(err, errInvalidFormat.Error())
+	})
+
+	t.Run("nil logs", func(t *testing.T) {
+		inNil := gjson.Parse(`{"params":["logs"]}`)
 		_, err := web3svr.subscribe(&inNil, writer)
 		require.EqualError(err, errInvalidFormat.Error())
 	})
