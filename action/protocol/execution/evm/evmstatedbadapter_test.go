@@ -300,6 +300,20 @@ func TestNonce(t *testing.T) {
 		stateDB.SetNonce(addr, 1)
 		require.Equal(uint64(1), stateDB.GetNonce(addr))
 	})
+	t.Run("legacy fresh nonce account with pending nonce", func(t *testing.T) {
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
+		opt := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+			UseZeroNonceForFreshAccountOption(),
+		}
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
+		require.NoError(err)
+		require.Equal(uint64(0), stateDB.GetNonce(addr))
+		stateDB.SetNonce(addr, 1)
+		require.Equal(uint64(1), stateDB.GetNonce(addr))
+	})
 }
 
 var tests = []stateDBTest{

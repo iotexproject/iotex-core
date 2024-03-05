@@ -42,35 +42,36 @@ type (
 
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
-		sm                         protocol.StateManager
-		logs                       []*action.Log
-		transactionLogs            []*action.TransactionLog
-		err                        error
-		blockHeight                uint64
-		executionHash              hash.Hash256
-		lastAddBalanceAddr         string
-		lastAddBalanceAmount       *big.Int
-		refund                     uint64
-		refundSnapshot             map[int]uint64
-		cachedContract             contractMap
-		contractSnapshot           map[int]contractMap   // snapshots of contracts
-		suicided                   deleteAccount         // account/contract calling Suicide
-		suicideSnapshot            map[int]deleteAccount // snapshots of suicide accounts
-		preimages                  preimageMap
-		preimageSnapshot           map[int]preimageMap
-		accessList                 *accessList // per-transaction access list
-		accessListSnapshot         map[int]*accessList
-		logsSnapshot               map[int]int // logs is an array, save len(logs) at time of snapshot suffices
-		txLogsSnapshot             map[int]int
-		notFixTopicCopyBug         bool
-		asyncContractTrie          bool
-		disableSortCachedContracts bool
-		useConfirmedNonce          bool
-		legacyNonceAccount         bool
-		fixSnapshotOrder           bool
-		revertLog                  bool
-		manualCorrectGasRefund     bool
-		suicideTxLogMismatchPanic  bool
+		sm                          protocol.StateManager
+		logs                        []*action.Log
+		transactionLogs             []*action.TransactionLog
+		err                         error
+		blockHeight                 uint64
+		executionHash               hash.Hash256
+		lastAddBalanceAddr          string
+		lastAddBalanceAmount        *big.Int
+		refund                      uint64
+		refundSnapshot              map[int]uint64
+		cachedContract              contractMap
+		contractSnapshot            map[int]contractMap   // snapshots of contracts
+		suicided                    deleteAccount         // account/contract calling Suicide
+		suicideSnapshot             map[int]deleteAccount // snapshots of suicide accounts
+		preimages                   preimageMap
+		preimageSnapshot            map[int]preimageMap
+		accessList                  *accessList // per-transaction access list
+		accessListSnapshot          map[int]*accessList
+		logsSnapshot                map[int]int // logs is an array, save len(logs) at time of snapshot suffices
+		txLogsSnapshot              map[int]int
+		notFixTopicCopyBug          bool
+		asyncContractTrie           bool
+		disableSortCachedContracts  bool
+		useConfirmedNonce           bool
+		legacyNonceAccount          bool
+		fixSnapshotOrder            bool
+		revertLog                   bool
+		manualCorrectGasRefund      bool
+		suicideTxLogMismatchPanic   bool
+		useZeroNonceForFreshAccount bool
 	}
 )
 
@@ -152,6 +153,14 @@ func SuicideTxLogMismatchPanicOption() StateDBAdapterOption {
 	}
 }
 
+// UseZeroNonceForFreshAccountOption set useZeroNonceForFreshAccount as true
+func UseZeroNonceForFreshAccountOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.useZeroNonceForFreshAccount = true
+		return nil
+	}
+}
+
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(
 	sm protocol.StateManager,
@@ -183,6 +192,7 @@ func NewStateDBAdapter(
 			return nil, errors.Wrap(err, "failed to execute stateDB creation option")
 		}
 	}
+	// TODO: add combination limitation for useZeroNonceForFreshAccount
 	if !s.legacyNonceAccount && s.useConfirmedNonce {
 		return nil, errors.New("invalid parameter combination")
 	}
@@ -331,7 +341,11 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 		log.L().Error("Failed to get nonce.", zap.Error(err))
 		// stateDB.logError(err)
 	} else {
-		pendingNonce = state.PendingNonce()
+		if stateDB.useZeroNonceForFreshAccount {
+			pendingNonce = state.PendingNonceConsideringFreshAccount()
+		} else {
+			pendingNonce = state.PendingNonce()
+		}
 	}
 	if stateDB.useConfirmedNonce {
 		if pendingNonce == 0 {
@@ -368,7 +382,7 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
 	log.L().Debug("Called SetNonce.",
 		zap.String("address", addr.String()),
 		zap.Uint64("nonce", nonce))
-	if !s.IsNewbieAccount() || s.AccountType() != 0 || nonce != 0 {
+	if !s.IsNewbieAccount() || s.AccountType() != 0 || nonce != 0 || stateDB.useZeroNonceForFreshAccount {
 		if err := s.SetPendingNonce(nonce + 1); err != nil {
 			log.L().Panic("Failed to set nonce.", zap.Error(err), zap.String("addr", addr.Hex()), zap.Uint64("pendingNonce", s.PendingNonce()), zap.Uint64("nonce", nonce), zap.String("execution", hex.EncodeToString(stateDB.executionHash[:])))
 			stateDB.logError(err)

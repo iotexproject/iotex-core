@@ -387,6 +387,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if !featureCtx.FixSortCacheContractsAndUsePendingNonce {
 		opts = append(opts, DisableSortCachedContractsOption(), UseConfirmedNonceOption())
 	}
+	if featureCtx.UseZeroNonceForFreshAccount {
+		opts = append(opts, UseZeroNonceForFreshAccountOption())
+	}
 	if featureCtx.NotFixTopicCopyBug {
 		opts = append(opts, NotFixTopicCopyBugOption())
 	}
