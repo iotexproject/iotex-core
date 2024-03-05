@@ -419,13 +419,6 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	return log, nil
 }
 
-func (p *Protocol) validateTransferStakeBucket(featureCtx protocol.FeatureCtx, csm CandidateStateManager, bucket *VoteBucket, caller address.Address) ReceiptError {
-	if rErr := validateBucketOwner(bucket, caller); rErr != nil {
-		return rErr
-	}
-	return validateBucketSelfStake(featureCtx, csm, bucket, false)
-}
-
 func (p *Protocol) handleConsignmentTransfer(
 	csm CandidateStateManager,
 	ctx context.Context,
