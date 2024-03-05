@@ -59,8 +59,13 @@ type (
 )
 
 func initTestState(t *testing.T, ctrl *gomock.Controller, bucketCfgs []*bucketConfig, candidateCfgs []*candidateConfig) (protocol.StateManager, *Protocol, []*VoteBucket, []*Candidate) {
+	return initTestStateWithHeight(t, ctrl, bucketCfgs, candidateCfgs, 0)
+}
+
+func initTestStateWithHeight(t *testing.T, ctrl *gomock.Controller, bucketCfgs []*bucketConfig, candidateCfgs []*candidateConfig, height uint64) (protocol.StateManager, *Protocol, []*VoteBucket, []*Candidate) {
 	require := require.New(t)
-	sm := testdb.NewMockStateManager(ctrl)
+	sm := testdb.NewMockStateManagerWithoutHeightFunc(ctrl)
+	sm.EXPECT().Height().Return(height, nil).AnyTimes()
 	csm := newCandidateStateManager(sm)
 	esm := NewEndorsementStateManager(sm)
 	_, err := sm.PutState(
@@ -159,13 +164,14 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 		{identityset.Address(1), identityset.Address(1), "1", 1, true, false, nil, 0},
 		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, true, false, nil, 0},
 		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, true, false, &timeBeforeBlockII, 0},
-		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, 0},
+		{identityset.Address(2), identityset.Address(2), "1200000000000000000000000", 30, true, true, nil, 0},
 		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 30, true, false, nil, 0},
 		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, false, nil, 0},
 		{identityset.Address(2), identityset.Address(2), "1200000000000000000000000", 30, true, true, nil, 0},
 		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 91, true, false, nil, endorsementNotExpireHeight},
 		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 91, true, false, nil, 1},
 		{identityset.Address(2), identityset.Address(2), "1200000000000000000000000", 91, true, false, nil, 0},
+		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, 0},
 	}
 	initCandidateCfgs := []*candidateConfig{
 		{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
@@ -258,7 +264,7 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 		},
 		{
 			"bucket is already selfstaked",
-			[]uint64{0, 3},
+			[]uint64{0, 10},
 			[]uint64{0, 1},
 			1300000,
 			identityset.Address(1),
