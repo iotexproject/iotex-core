@@ -1,6 +1,7 @@
 package staking
 
 import (
+	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -8,6 +9,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
@@ -79,8 +82,15 @@ func TestValidateBucket(t *testing.T) {
 		bkt := NewVoteBucket(candidate, owner, big.NewInt(10000), 1, time.Now(), false)
 		bktIdx, err := csm.putBucketAndIndex(bkt)
 		r.NoError(err)
-		r.Nil(validateBucketSelfStake(csm, bkt, false))
-		r.ErrorContains(validateBucketSelfStake(csm, bkt, true), "bucket is not self staking")
+		ctx := protocol.WithBlockCtx(context.Background(),
+			protocol.BlockCtx{
+				BlockHeight: 0,
+			},
+		)
+		ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(ctx, genesis.Default))
+		featureCtx := protocol.MustGetFeatureCtx(ctx)
+		r.Nil(validateBucketSelfStake(featureCtx, csm, bkt, false))
+		r.ErrorContains(validateBucketSelfStake(featureCtx, csm, bkt, true), "bucket is not self staking")
 		// selfstaked bucket
 		r.NoError(csm.Upsert(&Candidate{
 			Owner:              candidate,
@@ -91,8 +101,8 @@ func TestValidateBucket(t *testing.T) {
 			SelfStakeBucketIdx: bktIdx,
 			SelfStake:          big.NewInt(10000),
 		}))
-		r.Nil(validateBucketSelfStake(csm, bkt, true))
-		r.ErrorContains(validateBucketSelfStake(csm, bkt, false), "self staking bucket cannot be processed")
+		r.Nil(validateBucketSelfStake(featureCtx, csm, bkt, true))
+		r.ErrorContains(validateBucketSelfStake(featureCtx, csm, bkt, false), "self staking bucket cannot be processed")
 	})
 	t.Run("validate bucket endorsed", func(t *testing.T) {
 		csm, esm := initState()

@@ -7,6 +7,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -54,8 +55,15 @@ func validateBucketCandidate(bucket *VoteBucket, candidate address.Address) Rece
 	return nil
 }
 
-func validateBucketSelfStake(csm CandidateStateManager, bucket *VoteBucket, isSelfStaked bool) ReceiptError {
-	if csm.ContainsSelfStakingBucket(bucket.Index) != isSelfStaked {
+func validateBucketSelfStake(featureCtx protocol.FeatureCtx, csm CandidateStateManager, bucket *VoteBucket, isSelfStaked bool) ReceiptError {
+	selfstake, err := isSelfStakeBucket(featureCtx, csm, bucket)
+	if err != nil {
+		return &handleError{
+			err:           err,
+			failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
+		}
+	}
+	if selfstake != isSelfStaked {
 		err := errors.New("self staking bucket cannot be processed")
 		if isSelfStaked {
 			err = errors.New("bucket is not self staking")
