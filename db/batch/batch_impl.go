@@ -11,6 +11,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	// resetSnapshotIgnoreThreshold is the threshold of snapshot number to ignore reset snapshots
+	resetSnapshotIgnoreThreshold = 10
+)
+
 type (
 	// baseKVStoreBatch is the base implementation of KVStoreBatch
 	baseKVStoreBatch struct {
@@ -360,6 +365,10 @@ func (cb *cachedBatch) ResetSnapshots() {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 
+	// ignore reset snapshots if the snapshot number is less than threshold
+	if cb.tag <= resetSnapshotIgnoreThreshold {
+		return
+	}
 	cb.tag = 0
 	cb.batchShots = nil
 	cb.batchShots = make([]int, 0)
