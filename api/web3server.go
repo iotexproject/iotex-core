@@ -243,8 +243,16 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	} else {
 		log.Logger("api").Debug("web3Debug", zap.String("response", fmt.Sprintf("%+v", res)))
 	}
+	var id any
+	reqID := web3Req.Get("id")
+	switch reqID.Type {
+	case gjson.String:
+		id = reqID.String()
+	case gjson.Number:
+		id = reqID.Int()
+	}
 	size, err1 = writer.Write(&web3Response{
-		id:     int(web3Req.Get("id").Int()),
+		id:     id,
 		result: res,
 		err:    err,
 	})
