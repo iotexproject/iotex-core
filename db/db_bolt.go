@@ -320,7 +320,8 @@ func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 		key string
 	}
 	// remove duplicate keys, only keep the last write for each key
-	entryMap := make(map[doubleKey]*batch.WriteInfo)
+	entryKeySet := make(map[doubleKey]struct{})
+	uniqEntries := make([]*batch.WriteInfo, 0)
 	for i := kvsb.Size() - 1; i >= 0; i-- {
 		write, e := kvsb.Entry(i)
 		if e != nil {
@@ -331,16 +332,18 @@ func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 			continue
 		}
 		k := doubleKey{ns: write.Namespace(), key: string(write.Key())}
-		if _, ok := entryMap[k]; !ok {
-			entryMap[k] = write
+		if _, ok := entryKeySet[k]; !ok {
+			entryKeySet[k] = struct{}{}
+			uniqEntries = append(uniqEntries, write)
 		}
 	}
 	boltdbMtc.WithLabelValues(b.path, "entrySize").Set(float64(kvsb.Size()))
-	boltdbMtc.WithLabelValues(b.path, "uniqueEntrySize").Set(float64(len(entryMap)))
+	boltdbMtc.WithLabelValues(b.path, "uniqueEntrySize").Set(float64(len(entryKeySet)))
 	for c := uint8(0); c < b.config.NumRetries; c++ {
 		if err = b.db.Update(func(tx *bolt.Tx) error {
-			// though range entryMap is random, but it doesn't matter which key is processed first
-			for _, write := range entryMap {
+			// keep order of the writes same as the original batch
+			for i := len(uniqEntries) - 1; i >= 0; i-- {
+				write := uniqEntries[i]
 				ns := write.Namespace()
 				switch write.WriteType() {
 				case batch.Put:
