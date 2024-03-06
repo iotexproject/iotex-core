@@ -250,6 +250,9 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		id = reqID.String()
 	case gjson.Number:
 		id = reqID.Int()
+	default:
+		id = 0
+		res, err = nil, errors.New("invalid id type")
 	}
 	size, err1 = writer.Write(&web3Response{
 		id:     id,
