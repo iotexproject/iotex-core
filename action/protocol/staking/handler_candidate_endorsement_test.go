@@ -259,6 +259,33 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 			nil,
 		},
 		{
+			"once endorsed, bucket cannot be unstaked",
+			[]uint64{0, 10},
+			[]uint64{0, 1},
+			1300000,
+			identityset.Address(1),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			1,
+			true,
+			true,
+			&appendAction{
+				func() action.Action {
+					act, err := action.NewUnstake(0, 1, []byte{}, uint64(1000000), big.NewInt(1000))
+					require.NoError(err)
+					return act
+				},
+				iotextypes.ReceiptStatus_ErrInvalidBucketType,
+				nil,
+			},
+			nil,
+			iotextypes.ReceiptStatus_Success,
+			[]expectCandidate{},
+			nil,
+		},
+		{
 			"unendorse a valid bucket",
 			[]uint64{0, 9},
 			[]uint64{0, 1},

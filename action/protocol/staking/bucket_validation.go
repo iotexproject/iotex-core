@@ -83,7 +83,7 @@ func validateBucketEndorsement(esm *EndorsementStateManager, bucket *VoteBucket,
 		status := endorse.Status(height)
 		if isEndorsed && status == EndorseExpired {
 			return &handleError{
-				err:           errors.New("bucket is not endorsed"),
+				err:           errors.New("endorse bucket is expired"),
 				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 			}
 		}
@@ -96,7 +96,7 @@ func validateBucketEndorsement(esm *EndorsementStateManager, bucket *VoteBucket,
 	case errors.Is(err, state.ErrStateNotExist):
 		if isEndorsed {
 			return &handleError{
-				err:           errors.New("bucket is not endorsed"),
+				err:           errors.New("bucket is not an endorse bucket"),
 				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 			}
 		}
