@@ -349,7 +349,8 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
 	}
-	// clear previous candidate's self stake if the bucket is expired
+	// if the bucket equals to the previous candidate's self-stake bucket, it must be expired endorse bucket
+	// so we need to clear the self-stake of the previous candidate
 	if !featureCtx.DisableDelegateEndorsement && prevCandidate.SelfStakeBucketIdx == bucket.Index {
 		prevCandidate.SelfStake.SetInt64(0)
 		prevCandidate.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
