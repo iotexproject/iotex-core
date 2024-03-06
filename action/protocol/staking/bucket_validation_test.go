@@ -126,6 +126,6 @@ func TestValidateBucket(t *testing.T) {
 		// endorse expired bucket
 		r.NoError(esm.Put(bktIdx, &Endorsement{ExpireHeight: blkHeight}))
 		r.Nil(validateBucketEndorsement(esm, bkt, false, blkHeight))
-		r.ErrorContains(validateBucketEndorsement(esm, bkt, true, blkHeight), "bucket is not an endorse bucket")
+		r.ErrorContains(validateBucketEndorsement(esm, bkt, true, blkHeight), "endorse bucket is expired")
 	})
 }
