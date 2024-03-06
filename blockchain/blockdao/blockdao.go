@@ -215,15 +215,6 @@ func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
 	return header, nil
 }
 
-func receiptByActionHash(receipts []*action.Receipt, h hash.Hash256) (*action.Receipt, error) {
-	for _, r := range receipts {
-		if r.ActionHash == h {
-			return r, nil
-		}
-	}
-	return nil, errors.Errorf("receipt of action %x isn't found", h)
-}
-
 func (dao *blockDAO) GetReceipts(height uint64) ([]*action.Receipt, error) {
 	timer := dao.timerFactory.NewTimer("get_receipt")
 	defer timer.End()

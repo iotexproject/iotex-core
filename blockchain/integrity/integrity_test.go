@@ -104,7 +104,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// get deployed contract address
 	var contract string
 	if dao != nil {
-		r, err := ReceiptByActionHash(dao, 1, _deployHash)
+		r, err := receiptByActionHash(dao, 1, _deployHash)
 		if err != nil {
 			return err
 		}
@@ -209,7 +209,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	}
 
 	if dao != nil {
-		r, err := ReceiptByActionHash(dao, 8, _storeHash)
+		r, err := receiptByActionHash(dao, 8, _storeHash)
 		if err != nil {
 			return err
 		}
@@ -231,7 +231,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	}
 
 	if dao != nil {
-		r, err := ReceiptByActionHash(dao, 9, _store2Hash)
+		r, err := receiptByActionHash(dao, 9, _store2Hash)
 		if err != nil {
 			return err
 		}
@@ -342,7 +342,7 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	var contract string
 	_, gateway := cfg.Plugins[config.GatewayPlugin]
 	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
-		r, err := ReceiptByActionHash(dao, 2, _deployHash)
+		r, err := receiptByActionHash(dao, 2, _deployHash)
 		if err != nil {
 			return err
 		}
@@ -606,7 +606,7 @@ func addTestingGetBlockHash(t *testing.T, g genesis.Genesis, bc blockchain.Block
 	// get deployed contract address
 	var contract string
 	if dao != nil {
-		r, err := ReceiptByActionHash(dao, 1, _deployHash)
+		r, err := receiptByActionHash(dao, 1, _deployHash)
 		require.NoError(err)
 		contract = r.ContractAddress
 	}
@@ -669,7 +669,7 @@ func addTestingGetBlockHash(t *testing.T, g genesis.Genesis, bc blockchain.Block
 	for _, test := range tests {
 		h, err := addOneBlock(contract, nonce, zero, gasLimit, gasPrice, getBlockHashCallData(int64(test.getHashHeight)))
 		require.NoError(err)
-		r, err := ReceiptByActionHash(dao, test.commitHeight, h)
+		r, err := receiptByActionHash(dao, test.commitHeight, h)
 		require.NoError(err)
 		if test.getHashHeight >= test.commitHeight {
 			bcHash = hash.ZeroHash256
@@ -1030,7 +1030,7 @@ func TestConvertCleanAddress(t *testing.T) {
 	// get deployed contract address
 	var r *action.Receipt
 	if dao != nil {
-		r, err = ReceiptByActionHash(dao, 1, h)
+		r, err = receiptByActionHash(dao, 1, h)
 		require.NoError(err)
 	}
 
@@ -1135,7 +1135,7 @@ func TestConvertCleanAddress(t *testing.T) {
 	// verify contract execution
 	h, err = ex1.Hash()
 	require.NoError(err)
-	r, err = ReceiptByActionHash(dao, 2, h)
+	r, err = receiptByActionHash(dao, 2, h)
 	require.NoError(err)
 	require.EqualValues(iotextypes.ReceiptStatus_Success, r.Status)
 	require.EqualValues(2, r.BlockHeight)
@@ -1147,7 +1147,7 @@ func TestConvertCleanAddress(t *testing.T) {
 	h, err = ex2.Hash()
 	require.NoError(err)
 	require.Equal("eddf9e61fb9d8f5111840daef55e5fde0041f5702856532cdbb5a02998033d26", hex.EncodeToString(h[:]))
-	r, err = ReceiptByActionHash(dao, 2, h)
+	r, err = receiptByActionHash(dao, 2, h)
 	require.NoError(err)
 	require.EqualValues(iotextypes.ReceiptStatus_Success, r.Status)
 	require.EqualValues(2, r.BlockHeight)
@@ -1204,7 +1204,7 @@ func TestConvertCleanAddress(t *testing.T) {
 	}
 
 	// verify deterministic deployment transaction
-	r, err = ReceiptByActionHash(dao2, 2, h)
+	r, err = receiptByActionHash(dao2, 2, h)
 	require.NoError(err)
 	require.EqualValues(iotextypes.ReceiptStatus_Success, r.Status)
 	require.EqualValues(2, r.BlockHeight)
@@ -1324,7 +1324,7 @@ func TestConstantinople(t *testing.T) {
 			ai, err := indexer.GetActionIndex(v.h[:])
 			require.NoError(err)
 			require.Equal(v.height, ai.BlockHeight())
-			r, err := ReceiptByActionHash(dao, v.height, v.h)
+			r, err := receiptByActionHash(dao, v.height, v.h)
 			require.NoError(err)
 			require.NotNil(r)
 			require.Equal(uint64(1), r.Status)
@@ -1375,7 +1375,7 @@ func TestConstantinople(t *testing.T) {
 		}
 		caller := identityset.Address(27)
 		for _, v := range storeOutGasTests {
-			r, err := ReceiptByActionHash(dao, v.height, v.actHash)
+			r, err := receiptByActionHash(dao, v.height, v.actHash)
 			require.NoError(err)
 			require.EqualValues(v.status, r.Status)
 
@@ -1624,7 +1624,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			// verify deployed contract
 			ai, err := indexer.GetActionIndex(_deployHash[:])
 			require.NoError(err)
-			r, err := ReceiptByActionHash(dao, ai.BlockHeight(), _deployHash)
+			r, err := receiptByActionHash(dao, ai.BlockHeight(), _deployHash)
 			require.NoError(err)
 			require.NotNil(r)
 			require.Equal(uint64(1), r.Status)
@@ -1638,7 +1638,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			require.NotNil(f)
 			require.True(f.Exist(funcSig[:]))
 			require.True(f.Exist(_setTopic))
-			r, err = ReceiptByActionHash(dao, 3, _setHash)
+			r, err = receiptByActionHash(dao, 3, _setHash)
 			require.NoError(err)
 			require.EqualValues(1, r.Status)
 			require.EqualValues(3, r.BlockHeight)
@@ -1653,7 +1653,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			require.True(f.Exist(funcSig[:]))
 			require.True(f.Exist(_setTopic))
 			require.True(f.Exist(_getTopic))
-			r, err = ReceiptByActionHash(dao, 4, _sarHash)
+			r, err = receiptByActionHash(dao, 4, _sarHash)
 			require.NoError(err)
 			require.EqualValues(1, r.Status)
 			require.EqualValues(4, r.BlockHeight)
@@ -2268,7 +2268,7 @@ func deployXrc20(bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.Act
 	require.NoError(bc.CommitBlock(blk))
 	selpHash, err := selp.Hash()
 	require.NoError(err)
-	r, err := ReceiptByActionHash(dao, blk.Height(), selpHash)
+	r, err := receiptByActionHash(dao, blk.Height(), selpHash)
 	require.NoError(err)
 	return r.ContractAddress
 }
@@ -2431,7 +2431,7 @@ func classifyActions(actions []*action.SealedEnvelope) ([]*action.Transfer, []*a
 	return tsfs, exes
 }
 
-func ReceiptByActionHash(dao blockdao.BlockDAO, height uint64, h hash.Hash256) (*action.Receipt, error) {
+func receiptByActionHash(dao blockdao.BlockDAO, height uint64, h hash.Hash256) (*action.Receipt, error) {
 	receipts, err := dao.GetReceipts(height)
 	if err != nil {
 		return nil, err

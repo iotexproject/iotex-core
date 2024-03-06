@@ -522,3 +522,12 @@ func BenchmarkBlockCache(b *testing.B) {
 		test(0, b)
 	})
 }
+
+func receiptByActionHash(receipts []*action.Receipt, h hash.Hash256) (*action.Receipt, error) {
+	for _, r := range receipts {
+		if r.ActionHash == h {
+			return r, nil
+		}
+	}
+	return nil, errors.Errorf("receipt of action %x isn't found", h)
+}
