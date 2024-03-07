@@ -241,12 +241,12 @@ func TestConstantinople(t *testing.T) {
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			36704440,
+			28516680,
 		},
 		// after Sumatra
 		{
 			action.EmptyAddress,
-			36704441,
+			28516681,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",

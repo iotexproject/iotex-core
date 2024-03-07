@@ -635,8 +635,8 @@ func TestProtocol_Validate(t *testing.T) {
 	}{
 		{"limit 32KB", 0, 32683, nil},
 		{"exceed 32KB", 0, 32684, action.ErrOversizedData},
-		{"limit 48KB", genesis.Default.SumatraBlockHeight, 49067, nil},
-		{"exceed 48KB", genesis.Default.SumatraBlockHeight, 49068, action.ErrOversizedData},
+		{"limit 48KB", genesis.Default.SumatraBlockHeight, uint64(_executionSizeLimit48KB), nil},
+		{"exceed 48KB", genesis.Default.SumatraBlockHeight, uint64(_executionSizeLimit48KB) + 1, action.ErrOversizedData},
 	}
 
 	for i := range cases {
@@ -736,7 +736,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 
 		require.NoError(ap.Add(context.Background(), selp))
-		blk, err := bc.MintNewBlock(testutil.TimestampNow())
+		blk, err := bc.MintNewBlock(fixedTime)
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
@@ -793,7 +793,7 @@ func TestProtocol_Handle(t *testing.T) {
 		log.S().Infof("execution %+v", execution)
 
 		require.NoError(ap.Add(context.Background(), selp))
-		blk, err = bc.MintNewBlock(testutil.TimestampNow())
+		blk, err = bc.MintNewBlock(fixedTime)
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
@@ -828,7 +828,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		log.S().Infof("execution %+v", execution)
 		require.NoError(ap.Add(context.Background(), selp))
-		blk, err = bc.MintNewBlock(testutil.TimestampNow())
+		blk, err = bc.MintNewBlock(fixedTime)
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
@@ -851,7 +851,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 
 		require.NoError(ap.Add(context.Background(), selp))
-		blk, err = bc.MintNewBlock(testutil.TimestampNow())
+		blk, err = bc.MintNewBlock(fixedTime)
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))

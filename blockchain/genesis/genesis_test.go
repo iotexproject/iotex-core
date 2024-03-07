@@ -51,17 +51,38 @@ func TestAccount_InitBalances(t *testing.T) {
 
 func TestDeployerWhitelist(t *testing.T) {
 	r := require.New(t)
-	g := Default
-	addr, err := address.FromHex("0x3fab184622dc19b6109349b94811493bf2a45362")
-	r.NoError(err)
-	r.True(g.IsDeployerWhitelisted(addr))
-	addr, err = address.FromString("io18743s33zmsvmvyynfxu5sy2f80e2g5mzk3y5ue")
-	r.NoError(err)
-	r.True(g.IsDeployerWhitelisted(addr))
-	addr, err = address.FromHex("0x3fab184622dc19b6109349b94811493bf2a45361")
-	r.NoError(err)
-	r.False(g.IsDeployerWhitelisted(addr))
-	addr, err = address.FromString("io18743s33zmsvmvyynfxu5sy2f80e2g5mpcz3zjx")
-	r.NoError(err)
-	r.False(g.IsDeployerWhitelisted(addr))
+
+	cases := []struct {
+		addr   string
+		expect bool
+	}{
+		{"0x3fab184622dc19b6109349b94811493bf2a45362", true},
+		{"io18743s33zmsvmvyynfxu5sy2f80e2g5mzk3y5ue", true},
+		{"0x3fab184622dc19b6109349b94811493bf2a45361", false},
+		{"io18743s33zmsvmvyynfxu5sy2f80e2g5mpcz3zjx", false},
+	}
+	runTest := func(g *Genesis) {
+		var (
+			addr address.Address
+			err  error
+		)
+		for _, c := range cases {
+			if c.addr[:2] == "0x" {
+				addr, err = address.FromHex(c.addr)
+				r.NoError(err)
+			} else {
+				addr, err = address.FromString(c.addr)
+				r.NoError(err)
+			}
+			r.Equal(c.expect, g.IsDeployerWhitelisted(addr))
+		}
+	}
+	t.Run("0x address", func(t *testing.T) {
+		runTest(&Default)
+	})
+	t.Run("io address", func(t *testing.T) {
+		g := Default
+		g.ReplayDeployerWhitelist = []string{"io18743s33zmsvmvyynfxu5sy2f80e2g5mzk3y5ue"}
+		runTest(&g)
+	})
 }

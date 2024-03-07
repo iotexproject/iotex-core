@@ -117,6 +117,7 @@ type (
 		UseZeroNonceForFreshAccount             bool
 		SharedGasWithDapp                       bool
 		CandidateRegisterMustWithStake          bool
+		DisableDelegateEndorsement              bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -259,6 +260,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			UseZeroNonceForFreshAccount:             g.IsSumatra(height),
 			SharedGasWithDapp:                       g.IsToBeEnabled(height),
 			CandidateRegisterMustWithStake:          !g.IsToBeEnabled(height),
+			DisableDelegateEndorsement:              !g.IsToBeEnabled(height),
 		},
 	)
 }

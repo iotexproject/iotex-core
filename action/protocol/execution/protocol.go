@@ -89,14 +89,18 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, _ protocol.S
 	if !ok {
 		return nil
 	}
-	sizeLimit := _executionSizeLimit48KB
+	var (
+		sizeLimit = _executionSizeLimit48KB
+		dataSize  = uint32(len(exec.Data()))
+	)
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	if fCtx.ExecutionSizeLimit32KB {
 		sizeLimit = _executionSizeLimit32KB
+		dataSize = exec.TotalSize()
 	}
 
 	// Reject oversize execution
-	if exec.TotalSize() > sizeLimit {
+	if dataSize > sizeLimit {
 		return action.ErrOversizedData
 	}
 	return nil
