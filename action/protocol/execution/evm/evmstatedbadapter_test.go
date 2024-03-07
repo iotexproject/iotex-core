@@ -99,11 +99,15 @@ func TestAddBalance(t *testing.T) {
 	require.NoError(err)
 	addAmount := big.NewInt(40000)
 	stateDB.AddBalance(addr, addAmount)
+	require.Equal(addAmount, stateDB.lastAddBalanceAmount)
+	require.Equal(addr.Bytes(), stateDB.lastAddBalanceAddr.Bytes())
 	amount := stateDB.GetBalance(addr)
-	require.Equal(0, amount.Cmp(addAmount))
+	require.Equal(amount, addAmount)
 	stateDB.AddBalance(addr, addAmount)
 	amount = stateDB.GetBalance(addr)
-	require.Equal(0, amount.Cmp(big.NewInt(80000)))
+	require.Equal(amount, big.NewInt(80000))
+	stateDB.AddBalance(addr, new(big.Int))
+	require.Zero(len(stateDB.lastAddBalanceAmount.Bytes()))
 }
 
 func TestRefundAPIs(t *testing.T) {
@@ -462,9 +466,8 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			for _, l := range test.logs {
 				stateDB.AddLog(l)
 			}
-			for _, l := range test.txLogs {
-				stateDB.transactionLogs = append(stateDB.transactionLogs, l)
-			}
+			stateDB.transactionLogs = append(stateDB.transactionLogs, test.txLogs...)
+
 			require.Equal(test.logSize, len(stateDB.logs))
 			require.Equal(test.txLogSize, len(stateDB.transactionLogs))
 			require.Equal(test.logAddr, stateDB.logs[test.logSize-1].Address)
