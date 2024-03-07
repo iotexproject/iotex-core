@@ -162,8 +162,8 @@ func reward(arg string) error {
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 
-	address, found, err := getCandidateRewardAddressByAddressOrName(cli, arg)
-	if !found {
+	address, err := getCandidateRewardAddressByAddressOrName(cli, arg)
+	if err != nil {
 		return output.NewError(output.AddressError, "failed to get address", err)
 	}
 
