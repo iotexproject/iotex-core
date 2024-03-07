@@ -839,7 +839,7 @@ func (p *Protocol) fetchBucketAndValidate(
 	}
 	if !allowSelfStaking {
 		selfStaking, serr := isSelfStakeBucket(featureCtx, csm, bucket)
-		if err != nil {
+		if serr != nil {
 			return bucket, &handleError{
 				err:           serr,
 				failureStatus: iotextypes.ReceiptStatus_ErrUnknown,

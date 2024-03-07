@@ -3,6 +3,7 @@ module github.com/iotexproject/iotex-core
 go 1.19
 
 require (
+	github.com/agiledragon/gomonkey/v2 v2.11.0
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cespare/xxhash/v2 v2.2.0
@@ -36,6 +37,7 @@ require (
 	github.com/rodaine/table v1.0.1
 	github.com/schollz/progressbar/v2 v2.15.0
 	github.com/shirou/gopsutil/v3 v3.22.8
+	github.com/smartystreets/goconvey v1.7.2
 	github.com/spf13/cobra v1.5.0
 	github.com/stretchr/testify v1.8.3
 	github.com/tidwall/gjson v1.11.0
@@ -75,11 +77,14 @@ require (
 	github.com/getsentry/sentry-go v0.18.0 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
+	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/ipfs/go-ipfs-files v0.0.8 // indirect
+	github.com/jtolds/gls v4.20.0+incompatible // indirect
 	github.com/klauspost/compress v1.15.15 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/smartystreets/assertions v1.13.0 // indirect
 	github.com/whyrusleeping/tar-utils v0.0.0-20180509141711-8c6c8ba81d5c // indirect
 )
 
