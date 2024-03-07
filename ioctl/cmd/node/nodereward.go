@@ -24,8 +24,8 @@ import (
 // Multi-language support
 var (
 	_rewardCmdUses = map[config.Language]string{
-		config.English: "reward unclaimed|pool [ALIAS|DELEGATE_ADDRESS|NAME]",
-		config.Chinese: "reward 未支取|奖金池 [别名|委托地址|名称]",
+		config.English: "reward unclaimed|pool [ALIAS|REWARD_ADDRESS|NAME]",
+		config.Chinese: "reward 未支取|奖金池 [别名|奖励地址|名称]",
 	}
 	_rewardCmdShorts = map[config.Language]string{
 		config.English: "Query rewards",
@@ -161,17 +161,12 @@ func reward(arg string) error {
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
-	address, err := util.Address(arg)
-	if err != nil {
-		var found bool
-		address, found, err = getCandidateRewardAddressByName(cli, arg)
-		if err != nil {
-			return output.NewError(output.APIError, err.Error(), nil)
-		}
-		if !found {
-			return output.NewError(output.AddressError, "failed to get address", err)
-		}
+
+	address, found, err := getCandidateRewardAddressByAddressOrName(cli, arg)
+	if !found {
+		return output.NewError(output.AddressError, "failed to get address", err)
 	}
+
 	ctx := context.Background()
 
 	jwtMD, err := util.JwtAuth()
