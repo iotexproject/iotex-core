@@ -366,19 +366,19 @@ func getAllStakingCandidates(chainClient iotexapi.APIServiceClient) (candidateLi
 	return
 }
 
-func getCandidateRewardAddressByAddressOrName(cli iotexapi.APIServiceClient, name string) (string, bool, error) {
+func getCandidateRewardAddressByAddressOrName(cli iotexapi.APIServiceClient, name string) (string, error) {
 	address, err1 := util.Address(name)
 	if err1 == nil {
-		return address, true, nil
+		return address, nil
 	}
 	cl, err := getAllStakingCandidates(cli)
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 	for _, candidate := range cl.Candidates {
 		if candidate.Name == name {
-			return candidate.RewardAddress, true, nil
+			return candidate.RewardAddress, nil
 		}
 	}
-	return "", false, err1
+	return "", err1
 }
