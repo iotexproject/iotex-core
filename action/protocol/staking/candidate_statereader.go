@@ -66,7 +66,6 @@ type (
 		TotalStakedAmount() *big.Int
 		ActiveBucketsCount() uint64
 		ContainsSelfStakingBucket(index uint64) bool
-		IsActiveCandidateAt(cand *Candidate, height uint64) (bool, error)
 	}
 
 	candSR struct {
@@ -110,37 +109,6 @@ func (c *candSR) GetCandidateByOwner(owner address.Address) *Candidate {
 
 func (c *candSR) AllCandidates() CandidateList {
 	return c.view.candCenter.All()
-}
-
-func (c *candSR) IsActiveCandidateAt(cand *Candidate, height uint64) (bool, error) {
-	// self-stake bucket should be either self-owned or endorsed
-	vb, err := c.getBucket(cand.SelfStakeBucketIdx)
-	if err != nil {
-		return false, errors.Wrapf(err, "failed to get bucket %d", cand.SelfStakeBucketIdx)
-	}
-	// self-owned bucket should not be unstaked
-	if address.Equal(vb.Owner, cand.Owner) {
-		return !vb.isUnstaked(), nil
-	}
-	// endorsed bucket should not be expired
-	if !address.Equal(vb.Candidate, cand.Owner) {
-		return false, nil
-	}
-	esr := NewEndorsementStateReader(c.SR())
-	endorse, err := esr.Get(cand.SelfStakeBucketIdx)
-	switch {
-	case err == nil:
-		// endorsement should not be expired
-		if endorse.Status(height) == EndorseExpired {
-			return false, nil
-		}
-		return true, nil
-	case errors.Is(err, state.ErrStateNotExist):
-		// impossible to happen
-		return false, errors.Wrapf(ErrEndorsementNotExist, "bucket index %d", cand.SelfStakeBucketIdx)
-	default:
-		return false, err
-	}
 }
 
 func (c *candSR) ContainsSelfStakingBucket(index uint64) bool {

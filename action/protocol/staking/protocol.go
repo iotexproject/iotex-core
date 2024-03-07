@@ -474,22 +474,28 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 }
 
 func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidateStateReader, cand *Candidate) (bool, error) {
+	if cand.SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
+		return false, nil
+	}
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	// before delegate endorsement enabled, candidate is always active unless it's self-stake bucket is unstaked
 	if featureCtx.DisableDelegateEndorsement {
-		if cand.SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
-			return false, nil
-		}
+		// before endorsement feature, candidates with enough amount must be active
 		return true, nil
 	}
-
-	srHeight, err := csr.SR().Height()
-	if err != nil {
-		return false, errors.Wrap(err, "failed to get StateReader height")
+	bucket, err := csr.getBucket(cand.SelfStakeBucketIdx)
+	switch {
+	case errors.Cause(err) == state.ErrStateNotExist:
+		// endorse bucket has been withdrawn
+		return false, nil
+	case err != nil:
+		return false, errors.Wrapf(err, "failed to get bucket %d", cand.SelfStakeBucketIdx)
+	default:
 	}
-	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	currentEpochNum := rp.GetEpochNum(srHeight)
-	return csr.IsActiveCandidateAt(cand, rp.GetEpochLastBlockHeight(currentEpochNum+1))
+	selfStake, err := isSelfStakeBucketCommon(featureCtx, csr.ContainsSelfStakingBucket, csr.SR(), bucket)
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to check self-stake bucket %d", cand.SelfStakeBucketIdx)
+	}
+	return selfStake, nil
 }
 
 // ActiveCandidates returns all active candidates in candidate center
@@ -711,8 +717,16 @@ func writeCandCenterStateToStateDB(sm protocol.StateManager, name, op, owners Ca
 
 // isSelfStakeBucket returns true if the bucket is self-stake bucket and not expired
 func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csm CandidateStateManager, bucket *VoteBucket) (bool, error) {
+	return isSelfStakeBucketCommon(featureCtx, csm.ContainsSelfStakingBucket, csm.SM(), bucket)
+}
+
+func isSelfStakeBucketCommon(
+	featureCtx protocol.FeatureCtx,
+	containsSelfStakingBucket func(uint64) bool,
+	sr protocol.StateReader,
+	bucket *VoteBucket) (bool, error) {
 	// bucket index should be settled in one of candidates
-	selfStake := csm.ContainsSelfStakingBucket(bucket.Index)
+	selfStake := containsSelfStakingBucket(bucket.Index)
 	if featureCtx.DisableDelegateEndorsement || !selfStake {
 		return selfStake, nil
 	}
@@ -722,7 +736,7 @@ func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csm CandidateStateManager
 		return !bucket.isUnstaked(), nil
 	}
 	// otherwise bucket should be an endorse bucket which is not expired
-	esm := NewEndorsementStateManager(csm.SM())
+	esm := NewEndorsementStateReader(sr)
 	height, err := esm.Height()
 	if err != nil {
 		return false, err
