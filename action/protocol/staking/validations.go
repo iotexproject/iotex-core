@@ -7,14 +7,11 @@ package staking
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // Errors
@@ -70,11 +67,11 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	}
 
 	if act.Amount().Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
-		featureCtx := protocol.MustGetFeatureCtx(ctx)
-		if featureCtx.CandidateRegisterMustWithStake || act.Amount().Cmp(big.NewInt(0)) != 0 {
-			log.L().Warn("Candidate register amount is less than the minimum requirement", zap.Bool("feature", featureCtx.CandidateRegisterMustWithStake), zap.String("amount", act.Amount().String()))
-			return errors.Wrap(action.ErrInvalidAmount, "self staking amount is not valid")
+		if !protocol.MustGetFeatureCtx(ctx).CandidateRegisterMustWithStake &&
+			act.Amount().Sign() == 0 {
+			return nil
 		}
+		return errors.Wrap(action.ErrInvalidAmount, "self staking amount is not valid")
 	}
 	return nil
 }
