@@ -172,8 +172,10 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 			failureStatus: iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity,
 		}
 	}
-	if rErr := validateBucketEndorsement(NewEndorsementStateManager(csm.SM()), bucket, false, blkCtx.BlockHeight); rErr != nil {
-		return log, rErr
+	if !featureCtx.DisableDelegateEndorsement {
+		if rErr := validateBucketEndorsement(NewEndorsementStateManager(csm.SM()), bucket, false, blkCtx.BlockHeight); rErr != nil {
+			return log, rErr
+		}
 	}
 	// TODO: cannot unstake if selected as candidates in this or next epoch
 
@@ -307,8 +309,10 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	if fetchErr != nil {
 		return log, fetchErr
 	}
-	if rErr := validateBucketEndorsement(NewEndorsementStateManager(csm.SM()), bucket, false, blkCtx.BlockHeight); rErr != nil {
-		return log, rErr
+	if !featureCtx.DisableDelegateEndorsement {
+		if rErr := validateBucketEndorsement(NewEndorsementStateManager(csm.SM()), bucket, false, blkCtx.BlockHeight); rErr != nil {
+			return log, rErr
+		}
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes(), candidate.Owner.Bytes())
 
