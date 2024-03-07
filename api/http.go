@@ -64,7 +64,7 @@ func newHTTPHandler(web3Handler Web3Handler) *hTTPHandler {
 
 func (handler *hTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Write([]byte("IoTeX RPC endpoint is ready."))
 		return
 	}
 

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -28,7 +29,9 @@ func TestServeHTTP(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		resp := httptest.NewRecorder()
 		svr.ServeHTTP(resp, req)
-		require.Equal(http.StatusMethodNotAllowed, resp.Result().StatusCode)
+		require.Equal(http.StatusOK, resp.Result().StatusCode)
+		bytes, _ := io.ReadAll(resp.Result().Body)
+		require.Equal("IoTeX RPC endpoint is ready.", string(bytes))
 	})
 
 	t.Run("Success", func(t *testing.T) {
