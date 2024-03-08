@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/golang/mock/gomock"
 	"github.com/mohae/deepcopy"
 	"github.com/pkg/errors"
@@ -2766,6 +2767,78 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, createCost))
 		}
 	}
+}
+
+func TestProtocol_FetchBucketAndValidate(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm, p, _, _ := initAll(t, ctrl)
+
+	t.Run("bucket not exist", func(t *testing.T) {
+		csm, err := NewCandidateStateManager(sm, false)
+		require.NoError(err)
+		patches := gomonkey.ApplyPrivateMethod(csm, "getBucket", func(index uint64) (*VoteBucket, error) {
+			return nil, state.ErrStateNotExist
+		})
+		defer patches.Reset()
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, true, true)
+		require.ErrorContains(err, "failed to fetch bucket")
+	})
+	t.Run("validate owner", func(t *testing.T) {
+		csm, err := NewCandidateStateManager(sm, false)
+		require.NoError(err)
+		patches := gomonkey.ApplyPrivateMethod(csm, "getBucket", func(index uint64) (*VoteBucket, error) {
+			return &VoteBucket{
+				Owner: identityset.Address(1),
+			}, nil
+		})
+		defer patches.Reset()
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(2), 1, true, true)
+		require.ErrorContains(err, "bucket owner does not match")
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, true, true)
+		require.NoError(err)
+	})
+	t.Run("validate selfstake", func(t *testing.T) {
+		csm, err := NewCandidateStateManager(sm, false)
+		require.NoError(err)
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyPrivateMethod(csm, "getBucket", func(index uint64) (*VoteBucket, error) {
+			return &VoteBucket{
+				Owner: identityset.Address(1),
+			}, nil
+		})
+		isSelfStake := true
+		isSelfStakeErr := error(nil)
+		patches.ApplyFunc(isSelfStakeBucket, func(featureCtx protocol.FeatureCtx, csm CandidateStateManager, bucket *VoteBucket) (bool, error) {
+			return isSelfStake, isSelfStakeErr
+		})
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, false, false)
+		require.ErrorContains(err, "self staking bucket cannot be processed")
+		isSelfStake = false
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, false, false)
+		require.NoError(err)
+		isSelfStakeErr = errors.New("unknown error")
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, false, false)
+		require.ErrorContains(err, "unknown error")
+	})
+	t.Run("validate owner and selfstake", func(t *testing.T) {
+		csm, err := NewCandidateStateManager(sm, false)
+		require.NoError(err)
+		patches := gomonkey.NewPatches()
+		patches.ApplyPrivateMethod(csm, "getBucket", func(index uint64) (*VoteBucket, error) {
+			return &VoteBucket{
+				Owner: identityset.Address(1),
+			}, nil
+		})
+		patches.ApplyFunc(isSelfStakeBucket, func(featureCtx protocol.FeatureCtx, csm CandidateStateManager, bucket *VoteBucket) (bool, error) {
+			return false, nil
+		})
+		defer patches.Reset()
+
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, true, false)
+		require.NoError(err)
+	})
 }
 
 func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.Address, initBalance int64, gasPrice *big.Int, gasLimit uint64, nonce uint64, blkHeight uint64, blkTimestamp time.Time, blkGasLimit uint64, p *Protocol, candidate *Candidate, amount string, autoStake bool) (context.Context, *big.Int) {
