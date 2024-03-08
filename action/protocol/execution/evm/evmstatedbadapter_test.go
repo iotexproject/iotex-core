@@ -15,11 +15,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -100,7 +100,8 @@ func TestAddBalance(t *testing.T) {
 	addAmount := big.NewInt(40000)
 	stateDB.AddBalance(addr, addAmount)
 	require.Equal(addAmount, stateDB.lastAddBalanceAmount)
-	require.Equal(addr.Bytes(), stateDB.lastAddBalanceAddr.Bytes())
+	beneficiary, _ := address.FromBytes(addr[:])
+	require.Equal(beneficiary.String(), stateDB.lastAddBalanceAddr)
 	amount := stateDB.GetBalance(addr)
 	require.Equal(amount, addAmount)
 	stateDB.AddBalance(addr, addAmount)
@@ -316,8 +317,8 @@ var tests = []stateDBTest{
 		},
 		15000,
 		[]sui{
-			{_c2, false, false},
-			{_c4, false, false},
+			{nil, _c4, _c2, false, false},
+			{nil, _c2, _c4, false, false},
 		},
 		[]image{
 			{common.BytesToHash(_v1[:]), []byte("cat")},
@@ -329,11 +330,8 @@ var tests = []stateDBTest{
 		[]*types.Log{
 			newTestLog(_c3), newTestLog(_c2), newTestLog(_c1),
 		},
-		[]*action.TransactionLog{
-			newTestTxLog(_c3), newTestTxLog(_c1),
-		},
-		3, 2,
-		"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
+		3, 0,
+		"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "",
 	},
 	{
 		[]bal{
@@ -350,8 +348,8 @@ var tests = []stateDBTest{
 		},
 		2000,
 		[]sui{
-			{_c1, true, true},
-			{_c3, true, true},
+			{nil, _c4, _c1, true, true},
+			{big.NewInt(1000), _c2, _c3, true, true},
 		},
 		[]image{
 			{common.BytesToHash(_v3[:]), []byte("hen")},
@@ -363,11 +361,10 @@ var tests = []stateDBTest{
 		[]*types.Log{
 			newTestLog(_c4),
 		},
-		[]*action.TransactionLog{
-			newTestTxLog(_c2), newTestTxLog(_c1), newTestTxLog(_c4),
-		},
-		4, 5,
-		"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
+		4, 1,
+		"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
+		"io1j4kjr6x5s8p6dyqlcfrxxdrsea32u2hpvpl5us",
+		"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
 	},
 	{
 		nil,
@@ -378,7 +375,7 @@ var tests = []stateDBTest{
 		},
 		15000,
 		[]sui{
-			{_addr1, true, true},
+			{big.NewInt(0), _c1, _addr1, true, true},
 		},
 		[]image{
 			{common.BytesToHash(_v4[:]), []byte("fox")},
@@ -389,9 +386,10 @@ var tests = []stateDBTest{
 		[]*types.Log{
 			newTestLog(_c1), newTestLog(_c2),
 		},
-		nil,
-		6, 5,
-		"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
+		6, 2,
+		"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
+		"io1q2hz49tdy85dfqwr560pge3ngux0vf0vmhanad",
+		"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
 	},
 }
 
@@ -404,6 +402,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		require.NoError(err)
 		opt := []StateDBAdapterOption{
 			NotFixTopicCopyBugOption(),
+			SuicideTxLogMismatchPanicOption(),
 		}
 		if async {
 			opt = append(opt, AsyncContractTrieOption())
@@ -436,8 +435,13 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			stateDB.refund = test.refund
 			// set suicide
 			for _, e := range test.suicide {
+				if e.amount != nil {
+					stateDB.AddBalance(e.addr, e.amount)
+				}
+				stateDB.AddBalance(e.beneficiary, stateDB.GetBalance(e.addr)) // simulate transfer to beneficiary inside Suicide()
 				require.Equal(e.suicide, stateDB.Suicide(e.addr))
 				require.Equal(e.exist, stateDB.Exist(e.addr))
+				require.Zero(new(big.Int).Cmp(stateDB.GetBalance(e.addr)))
 			}
 			// set preimage
 			for _, e := range test.preimage {
@@ -466,12 +470,14 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			for _, l := range test.logs {
 				stateDB.AddLog(l)
 			}
-			stateDB.transactionLogs = append(stateDB.transactionLogs, test.txLogs...)
 
 			require.Equal(test.logSize, len(stateDB.logs))
 			require.Equal(test.txLogSize, len(stateDB.transactionLogs))
 			require.Equal(test.logAddr, stateDB.logs[test.logSize-1].Address)
-			require.Equal(test.txLogAddr, stateDB.transactionLogs[test.txLogSize-1].Sender)
+			if test.txLogSize > 0 {
+				require.Equal(test.txSender, stateDB.transactionLogs[test.txLogSize-1].Sender)
+				require.Equal(test.txReceiver, stateDB.transactionLogs[test.txLogSize-1].Recipient)
+			}
 			require.Equal(i, stateDB.Snapshot())
 		}
 
@@ -489,11 +495,11 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				},
 				tests[2].refund,
 				[]sui{
-					{_c1, true, true},
-					{_c3, true, true},
-					{_c2, false, true},
-					{_c4, false, false},
-					{_addr1, true, true},
+					{nil, common.Address{}, _c1, true, true},
+					{nil, common.Address{}, _c3, true, true},
+					{nil, common.Address{}, _c2, false, true},
+					{nil, common.Address{}, _c4, false, false},
+					{nil, common.Address{}, _addr1, true, true},
 				},
 				[]image{
 					{common.BytesToHash(_v1[:]), []byte("cat")},
@@ -505,9 +511,11 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{_c1, []common.Hash{_k1, _k2, _k3, _k4}, nil, true},
 					{_c2, []common.Hash{_k1, _k2, _k3, _k4}, nil, true},
 				},
-				nil, nil,
-				6, 5,
-				"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
+				nil,
+				6, 2,
+				"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
+				"io1q2hz49tdy85dfqwr560pge3ngux0vf0vmhanad",
+				"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
 			},
 			{
 				[]bal{
@@ -517,11 +525,11 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				tests[1].states,
 				tests[1].refund,
 				[]sui{
-					{_c1, true, true},
-					{_c3, true, true},
-					{_c2, false, true},
-					{_c4, false, false},
-					{_addr1, false, true},
+					{nil, common.Address{}, _c1, true, true},
+					{nil, common.Address{}, _c3, true, true},
+					{nil, common.Address{}, _c2, false, true},
+					{nil, common.Address{}, _c4, false, false},
+					{nil, common.Address{}, _addr1, false, true},
 				},
 				[]image{
 					{common.BytesToHash(_v1[:]), []byte("cat")},
@@ -533,9 +541,11 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{_c1, []common.Hash{_k1, _k2, _k3, _k4}, nil, true},
 					{_c2, []common.Hash{_k1, _k3}, []common.Hash{_k2, _k4}, true},
 				},
-				nil, nil,
-				4, 5,
-				"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
+				nil,
+				4, 1,
+				"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
+				"io1j4kjr6x5s8p6dyqlcfrxxdrsea32u2hpvpl5us",
+				"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
 			},
 			{
 				[]bal{
@@ -549,11 +559,11 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				},
 				tests[0].refund,
 				[]sui{
-					{_c1, false, true},
-					{_c3, false, true},
-					{_c2, false, false},
-					{_c4, false, false},
-					{_addr1, false, true},
+					{nil, common.Address{}, _c1, false, true},
+					{nil, common.Address{}, _c3, false, true},
+					{nil, common.Address{}, _c2, false, false},
+					{nil, common.Address{}, _c4, false, false},
+					{nil, common.Address{}, _addr1, false, true},
 				},
 				[]image{
 					{common.BytesToHash(_v1[:]), []byte("cat")},
@@ -565,9 +575,11 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{_c1, []common.Hash{_k1, _k2}, []common.Hash{_k3, _k4}, true},
 					{_c2, nil, []common.Hash{_k1, _k2, _k3, _k4}, false},
 				},
-				nil, nil,
-				3, 2,
-				"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
+				nil,
+				3, 0,
+				"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
+				"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
+				"",
 			},
 		}
 
@@ -622,12 +634,16 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				require.Equal(test.logSize, len(stateDB.logs))
 				require.Equal(test.txLogSize, len(stateDB.transactionLogs))
 				require.Equal(test.logAddr, stateDB.logs[test.logSize-1].Address)
-				require.Equal(test.txLogAddr, stateDB.transactionLogs[test.txLogSize-1].Sender)
+				if test.txLogSize > 0 {
+					require.Equal(test.txSender, stateDB.transactionLogs[test.txLogSize-1].Sender)
+					require.Equal(test.txReceiver, stateDB.transactionLogs[test.txLogSize-1].Recipient)
+				}
 			} else {
 				require.Equal(6, len(stateDB.logs))
-				require.Equal(5, len(stateDB.transactionLogs))
+				require.Equal(2, len(stateDB.transactionLogs))
 				require.Equal("io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe", stateDB.logs[5].Address)
-				require.Equal("io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q", stateDB.transactionLogs[4].Sender)
+				require.Equal("io1q2hz49tdy85dfqwr560pge3ngux0vf0vmhanad", stateDB.transactionLogs[1].Sender)
+				require.Equal("io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", stateDB.transactionLogs[1].Recipient)
 			}
 		}
 

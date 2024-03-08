@@ -402,6 +402,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if !featureCtx.CorrectGasRefund {
 		opts = append(opts, ManualCorrectGasRefundOption())
 	}
+	if featureCtx.SuicideTxLogMismatchPanic {
+		opts = append(opts, SuicideTxLogMismatchPanicOption())
+	}
 
 	return NewStateDBAdapter(
 		sm,

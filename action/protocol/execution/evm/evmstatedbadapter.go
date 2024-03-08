@@ -70,6 +70,7 @@ type (
 		fixSnapshotOrder           bool
 		revertLog                  bool
 		manualCorrectGasRefund     bool
+		suicideTxLogMismatchPanic  bool
 	}
 )
 
@@ -139,6 +140,14 @@ func ManualCorrectGasRefundOption() StateDBAdapterOption {
 		// has caused gas refund to change, which needs to be manually adjusted after
 		// the tx is reverted. After Okhotsk height, it is fixed inside RevertToSnapshot()
 		adapter.manualCorrectGasRefund = true
+		return nil
+	}
+}
+
+// SuicideTxLogMismatchPanicOption set suicideTxLogMismatchPanic as true
+func SuicideTxLogMismatchPanicOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.suicideTxLogMismatchPanic = true
 		return nil
 	}
 }
@@ -406,6 +415,7 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 		return false
 	}
 	// clears the account balance
+	actBalance := new(big.Int).Set(s.Balance)
 	if err := s.SubBalance(s.Balance); err != nil {
 		log.L().Debug("failed to clear balance", zap.Error(err), zap.String("address", evmAddr.Hex()))
 		return false
@@ -418,14 +428,22 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 	}
 	// before calling Suicide, EVM will transfer the contract's balance to beneficiary
 	// need to create a transaction log on successful suicide
-	if len(stateDB.lastAddBalanceAmount.Bytes()) > 0 {
-		from, _ := address.FromBytes(evmAddr[:])
-		stateDB.addTransactionLogs(&action.TransactionLog{
-			Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
-			Sender:    from.String(),
-			Recipient: stateDB.lastAddBalanceAddr,
-			Amount:    stateDB.lastAddBalanceAmount,
-		})
+	if stateDB.lastAddBalanceAmount.Cmp(actBalance) == 0 {
+		if len(stateDB.lastAddBalanceAmount.Bytes()) > 0 {
+			from, _ := address.FromBytes(evmAddr[:])
+			stateDB.addTransactionLogs(&action.TransactionLog{
+				Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
+				Sender:    from.String(),
+				Recipient: stateDB.lastAddBalanceAddr,
+				Amount:    stateDB.lastAddBalanceAmount,
+			})
+		}
+	} else {
+		if stateDB.suicideTxLogMismatchPanic {
+			log.L().Panic("suicide contract's balance does not match",
+				zap.String("suicide", actBalance.String()),
+				zap.String("beneficiary", stateDB.lastAddBalanceAmount.String()))
+		}
 	}
 	// mark it as deleted
 	stateDB.suicided[addrHash] = struct{}{}

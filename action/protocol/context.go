@@ -118,6 +118,7 @@ type (
 		SharedGasWithDapp                       bool
 		CandidateRegisterMustWithStake          bool
 		DisableDelegateEndorsement              bool
+		SuicideTxLogMismatchPanic               bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -261,6 +262,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			SharedGasWithDapp:                       g.IsToBeEnabled(height),
 			CandidateRegisterMustWithStake:          !g.IsToBeEnabled(height),
 			DisableDelegateEndorsement:              !g.IsToBeEnabled(height),
+			SuicideTxLogMismatchPanic:               g.IsToBeEnabled(height),
 		},
 	)
 }
