@@ -702,14 +702,17 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		}
 	}
 
-	// register with self-stake
 	var (
+		// initial bucket index and votes as register without self-stake
 		bucketIdx = uint64(candidateNoSelfStakeBucketIndex)
-		txLogs    []*action.TransactionLog
 		votes     = big.NewInt(0)
-		err       error
+
+		withSelfStake = act.Amount().Sign() > 0
+		txLogs        []*action.TransactionLog
+		err           error
 	)
-	if act.Amount().Sign() > 0 {
+	if withSelfStake {
+		// register with self-stake
 		bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
 		bucketIdx, err = csm.putBucketAndIndex(bucket)
 		if err != nil {
@@ -743,7 +746,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		csm.DirtyView().candCenter.base.recordOwner(c)
 	}
 
-	if act.Amount().Sign() > 0 {
+	if withSelfStake {
 		// update bucket pool
 		if err := csm.DebitBucketPool(act.Amount(), true); err != nil {
 			return log, nil, &handleError{
