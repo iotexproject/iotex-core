@@ -3,6 +3,7 @@ module github.com/iotexproject/iotex-core
 go 1.19
 
 require (
+	github.com/agiledragon/gomonkey/v2 v2.11.0
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cespare/xxhash/v2 v2.2.0
