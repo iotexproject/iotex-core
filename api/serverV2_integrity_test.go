@@ -226,6 +226,10 @@ func deployContractV2(bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool a
 	if err != nil {
 		return "", err
 	}
+	h1, err := ex1.Hash()
+	if err != nil {
+		return "", err
+	}
 	if err := actPool.Add(context.Background(), ex1); err != nil {
 		return "", err
 	}
@@ -238,7 +242,12 @@ func deployContractV2(bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool a
 	}
 	actPool.Reset()
 	// get deployed contract address
-	return blk.Receipts[0].ContractAddress, nil
+	for _, receipt := range blk.Receipts {
+		if receipt.ActionHash == h1 {
+			return receipt.ContractAddress, nil
+		}
+	}
+	return "", errors.New("failed to find execution receipt")
 }
 
 func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
