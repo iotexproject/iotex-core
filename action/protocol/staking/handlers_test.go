@@ -14,7 +14,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/golang/mock/gomock"
+	"github.com/mohae/deepcopy"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -1699,6 +1701,141 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 	}
 }
 
+func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	t.Run("clear if bucket is an expired endorse bucket", func(t *testing.T) {
+		sm, p, buckets, _ := initTestStateWithHeight(t, ctrl,
+			[]*bucketConfig{
+				{identityset.Address(1), identityset.Address(5), "100000000000000000000", 1, true, true, nil, 1},
+			},
+			[]*candidateConfig{
+				{identityset.Address(1), identityset.Address(11), identityset.Address(21), "test1"},
+				{identityset.Address(2), identityset.Address(12), identityset.Address(22), "test2"},
+			}, 1)
+		r.NoError(setupAccount(sm, identityset.Address(5), 10000))
+		nonce := uint64(1)
+		act, err := action.NewChangeCandidate(nonce, "test2", buckets[0].Index, nil, 10000, big.NewInt(unit.Qev))
+		r.NoError(err)
+		intrinsic, err := act.IntrinsicGas()
+		r.NoError(err)
+		ctx := context.Background()
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g.ToBeEnabledBlockHeight = 0
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+			Caller:       identityset.Address(5),
+			GasPrice:     big.NewInt(unit.Qev),
+			IntrinsicGas: intrinsic,
+			Nonce:        nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    2,
+			BlockTimeStamp: time.Now(),
+			GasLimit:       1000000,
+		})
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		recipt, err := p.Handle(ctx, act, sm)
+		r.NoError(err)
+		r.EqualValues(iotextypes.ReceiptStatus_Success, recipt.Status)
+		// test previous candidate self stake
+		csm, err := NewCandidateStateManager(sm, false)
+		r.NoError(err)
+		prevCand := csm.GetByOwner(identityset.Address(1))
+		r.Equal("0", prevCand.SelfStake.String())
+		r.EqualValues(uint64(candidateNoSelfStakeBucketIndex), prevCand.SelfStakeBucketIdx)
+		r.Equal("0", prevCand.Votes.String())
+	})
+	t.Run("not clear if bucket is a vote bucket", func(t *testing.T) {
+		sm, p, buckets, _ := initTestStateWithHeight(t, ctrl,
+			[]*bucketConfig{
+				{identityset.Address(1), identityset.Address(1), "120000000000000000000", 1, true, true, nil, 0},
+				{identityset.Address(2), identityset.Address(2), "120000000000000000000", 1, true, true, nil, 0},
+				{identityset.Address(1), identityset.Address(1), "100000000000000000000", 1, true, false, nil, 0},
+			},
+			[]*candidateConfig{
+				{identityset.Address(1), identityset.Address(11), identityset.Address(21), "test1"},
+				{identityset.Address(2), identityset.Address(12), identityset.Address(22), "test2"},
+			}, 1)
+		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
+		nonce := uint64(1)
+		act, err := action.NewChangeCandidate(nonce, "test2", buckets[2].Index, nil, 10000, big.NewInt(unit.Qev))
+		r.NoError(err)
+		intrinsic, err := act.IntrinsicGas()
+		r.NoError(err)
+		ctx := context.Background()
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g.ToBeEnabledBlockHeight = 0
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+			Caller:       identityset.Address(1),
+			GasPrice:     big.NewInt(unit.Qev),
+			IntrinsicGas: intrinsic,
+			Nonce:        nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    2,
+			BlockTimeStamp: time.Now(),
+			GasLimit:       1000000,
+		})
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		recipt, err := p.Handle(ctx, act, sm)
+		r.NoError(err)
+		r.EqualValues(iotextypes.ReceiptStatus_Success, recipt.Status)
+		// test previous candidate self stake
+		csm, err := NewCandidateStateManager(sm, false)
+		r.NoError(err)
+		prevCand := csm.GetByOwner(buckets[2].Candidate)
+		r.Equal("120000000000000000000", prevCand.SelfStake.String())
+		r.EqualValues(0, prevCand.SelfStakeBucketIdx)
+		r.Equal("124562140820308711042", prevCand.Votes.String())
+	})
+	t.Run("not clear if bucket is a vote bucket", func(t *testing.T) {
+		sm, p, buckets, _ := initTestStateWithHeight(t, ctrl,
+			[]*bucketConfig{
+				{identityset.Address(1), identityset.Address(1), "120000000000000000000", 1, true, true, nil, 0},
+				{identityset.Address(2), identityset.Address(2), "120000000000000000000", 1, true, true, nil, 0},
+				{identityset.Address(1), identityset.Address(1), "100000000000000000000", 1, true, false, nil, 0},
+			},
+			[]*candidateConfig{
+				{identityset.Address(1), identityset.Address(11), identityset.Address(21), "test1"},
+				{identityset.Address(2), identityset.Address(12), identityset.Address(22), "test2"},
+			}, 1)
+		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
+		nonce := uint64(1)
+		act, err := action.NewChangeCandidate(nonce, "test2", buckets[2].Index, nil, 10000, big.NewInt(unit.Qev))
+		r.NoError(err)
+		intrinsic, err := act.IntrinsicGas()
+		r.NoError(err)
+		ctx := context.Background()
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g.ToBeEnabledBlockHeight = 0
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+			Caller:       identityset.Address(1),
+			GasPrice:     big.NewInt(unit.Qev),
+			IntrinsicGas: intrinsic,
+			Nonce:        nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    2,
+			BlockTimeStamp: time.Now(),
+			GasLimit:       1000000,
+		})
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		recipt, err := p.Handle(ctx, act, sm)
+		r.NoError(err)
+		r.EqualValues(iotextypes.ReceiptStatus_Success, recipt.Status)
+		// test previous candidate self stake
+		csm, err := NewCandidateStateManager(sm, false)
+		r.NoError(err)
+		prevCand := csm.GetByOwner(buckets[2].Candidate)
+		r.Equal("120000000000000000000", prevCand.SelfStake.String())
+		r.EqualValues(0, prevCand.SelfStakeBucketIdx)
+		r.Equal("124562140820308711042", prevCand.Votes.String())
+	})
+}
+
 func TestProtocol_HandleTransferStake(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -2630,6 +2767,78 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, createCost))
 		}
 	}
+}
+
+func TestProtocol_FetchBucketAndValidate(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm, p, _, _ := initAll(t, ctrl)
+
+	t.Run("bucket not exist", func(t *testing.T) {
+		csm, err := NewCandidateStateManager(sm, false)
+		require.NoError(err)
+		patches := gomonkey.ApplyPrivateMethod(csm, "getBucket", func(index uint64) (*VoteBucket, error) {
+			return nil, state.ErrStateNotExist
+		})
+		defer patches.Reset()
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, true, true)
+		require.ErrorContains(err, "failed to fetch bucket")
+	})
+	t.Run("validate owner", func(t *testing.T) {
+		csm, err := NewCandidateStateManager(sm, false)
+		require.NoError(err)
+		patches := gomonkey.ApplyPrivateMethod(csm, "getBucket", func(index uint64) (*VoteBucket, error) {
+			return &VoteBucket{
+				Owner: identityset.Address(1),
+			}, nil
+		})
+		defer patches.Reset()
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(2), 1, true, true)
+		require.ErrorContains(err, "bucket owner does not match")
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, true, true)
+		require.NoError(err)
+	})
+	t.Run("validate selfstake", func(t *testing.T) {
+		csm, err := NewCandidateStateManager(sm, false)
+		require.NoError(err)
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyPrivateMethod(csm, "getBucket", func(index uint64) (*VoteBucket, error) {
+			return &VoteBucket{
+				Owner: identityset.Address(1),
+			}, nil
+		})
+		isSelfStake := true
+		isSelfStakeErr := error(nil)
+		patches.ApplyFunc(isSelfStakeBucket, func(featureCtx protocol.FeatureCtx, csm CandidateStateManager, bucket *VoteBucket) (bool, error) {
+			return isSelfStake, isSelfStakeErr
+		})
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, false, false)
+		require.ErrorContains(err, "self staking bucket cannot be processed")
+		isSelfStake = false
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, false, false)
+		require.NoError(err)
+		isSelfStakeErr = errors.New("unknown error")
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, false, false)
+		require.ErrorContains(err, "unknown error")
+	})
+	t.Run("validate owner and selfstake", func(t *testing.T) {
+		csm, err := NewCandidateStateManager(sm, false)
+		require.NoError(err)
+		patches := gomonkey.NewPatches()
+		patches.ApplyPrivateMethod(csm, "getBucket", func(index uint64) (*VoteBucket, error) {
+			return &VoteBucket{
+				Owner: identityset.Address(1),
+			}, nil
+		})
+		patches.ApplyFunc(isSelfStakeBucket, func(featureCtx protocol.FeatureCtx, csm CandidateStateManager, bucket *VoteBucket) (bool, error) {
+			return false, nil
+		})
+		defer patches.Reset()
+
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, true, false)
+		require.NoError(err)
+	})
 }
 
 func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.Address, initBalance int64, gasPrice *big.Int, gasLimit uint64, nonce uint64, blkHeight uint64, blkTimestamp time.Time, blkGasLimit uint64, p *Protocol, candidate *Candidate, amount string, autoStake bool) (context.Context, *big.Int) {

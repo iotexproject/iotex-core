@@ -172,8 +172,10 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 			failureStatus: iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity,
 		}
 	}
-	if rErr := validateBucketEndorsement(NewEndorsementStateManager(csm.SM()), bucket, false, blkCtx.BlockHeight); rErr != nil {
-		return log, rErr
+	if !featureCtx.DisableDelegateEndorsement {
+		if rErr := validateBucketEndorsement(NewEndorsementStateManager(csm.SM()), bucket, false, blkCtx.BlockHeight); rErr != nil {
+			return log, rErr
+		}
 	}
 	// TODO: cannot unstake if selected as candidates in this or next epoch
 
@@ -290,6 +292,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleChangeCandidate, featureCtx.NewStakingReceiptFormat)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
@@ -305,6 +308,11 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	bucket, fetchErr := p.fetchBucketAndValidate(featureCtx, csm, actionCtx.Caller, act.BucketIndex(), true, false)
 	if fetchErr != nil {
 		return log, fetchErr
+	}
+	if !featureCtx.DisableDelegateEndorsement {
+		if rErr := validateBucketEndorsement(NewEndorsementStateManager(csm.SM()), bucket, false, blkCtx.BlockHeight); rErr != nil {
+			return log, rErr
+		}
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes(), candidate.Owner.Bytes())
 
@@ -348,6 +356,12 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 			err:           errors.Wrapf(err, "failed to subtract vote for previous candidate %s", prevCandidate.Owner.String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
+	}
+	// if the bucket equals to the previous candidate's self-stake bucket, it must be expired endorse bucket
+	// so we need to clear the self-stake of the previous candidate
+	if !featureCtx.DisableDelegateEndorsement && prevCandidate.SelfStakeBucketIdx == bucket.Index {
+		prevCandidate.SelfStake.SetInt64(0)
+		prevCandidate.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
 	}
 	if err := csm.Upsert(prevCandidate); err != nil {
 		return log, csmErrorToHandleError(prevCandidate.Owner.String(), err)
@@ -839,7 +853,7 @@ func (p *Protocol) fetchBucketAndValidate(
 	}
 	if !allowSelfStaking {
 		selfStaking, serr := isSelfStakeBucket(featureCtx, csm, bucket)
-		if err != nil {
+		if serr != nil {
 			return bucket, &handleError{
 				err:           serr,
 				failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
