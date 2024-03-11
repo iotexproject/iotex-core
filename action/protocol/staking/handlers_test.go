@@ -2841,7 +2841,7 @@ func TestProtocol_FetchBucketAndValidate(t *testing.T) {
 		})
 		isSelfStake := true
 		isSelfStakeErr := error(nil)
-		patches.ApplyFunc(isSelfStakeBucket, func(featureCtx protocol.FeatureCtx, csm CandidateStateManager, bucket *VoteBucket) (bool, error) {
+		patches.ApplyFunc(isSelfStakeBucket, func(featureCtx protocol.FeatureCtx, csm CandidiateStateCommon, bucket *VoteBucket) (bool, error) {
 			return isSelfStake, isSelfStakeErr
 		})
 		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, false, false)
@@ -2862,7 +2862,7 @@ func TestProtocol_FetchBucketAndValidate(t *testing.T) {
 				Owner: identityset.Address(1),
 			}, nil
 		})
-		patches.ApplyFunc(isSelfStakeBucket, func(featureCtx protocol.FeatureCtx, csm CandidateStateManager, bucket *VoteBucket) (bool, error) {
+		patches.ApplyFunc(isSelfStakeBucket, func(featureCtx protocol.FeatureCtx, csm CandidiateStateCommon, bucket *VoteBucket) (bool, error) {
 			return false, nil
 		})
 		defer patches.Reset()
