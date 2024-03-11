@@ -493,18 +493,15 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		}
 		return "", st.Err()
 	}
-	// If there is no error putting into local actpool,
-	// Broadcast it to the network
-	msg := in
-	if ge := core.bc.Genesis(); ge.IsQuebec(core.bc.TipHeight()) {
+	// If there is no error putting into local actpool, broadcast it to the network
+	if core.messageBatcher != nil {
 		err = core.messageBatcher.Put(&batch.Message{
 			ChainID: core.bc.ChainID(),
 			Target:  nil,
-			Data:    msg,
+			Data:    in,
 		})
 	} else {
-		//TODO: remove height check after activated
-		err = core.broadcastHandler(ctx, core.bc.ChainID(), msg)
+		err = core.broadcastHandler(ctx, core.bc.ChainID(), in)
 	}
 	if err != nil {
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
