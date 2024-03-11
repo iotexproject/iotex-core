@@ -16,6 +16,7 @@ var (
 
 	candidateActivateMethod    abi.Method
 	candidateEndorsementMethod abi.Method
+	// TODO: move other action ABI definition here
 )
 
 func init() {
