@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blockindex/contractstaking"
@@ -280,14 +281,21 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.bfIndexer != nil {
 		indexers = append(indexers, builder.cs.bfIndexer)
 	}
+	var (
+		err   error
+		store blockdao.BlockDAO
+	)
 	if forTest {
-		builder.cs.blockdao = blockdao.NewBlockDAOInMemForTest(indexers)
+		store, err = filedao.NewFileDAOInMemForTest()
 	} else {
 		dbConfig := builder.cfg.DB
 		dbConfig.DbPath = builder.cfg.Chain.ChainDBPath
-		deser := block.NewDeserializer(builder.cfg.Chain.EVMNetworkID)
-		builder.cs.blockdao = blockdao.NewBlockDAO(indexers, dbConfig, deser)
+		store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
 	}
+	if err != nil {
+		return err
+	}
+	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, builder.cfg.DB.MaxCacheSize)
 
 	return nil
 }
