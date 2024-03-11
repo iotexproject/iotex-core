@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
 // Errors
@@ -66,6 +67,10 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	}
 
 	if act.Amount().Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
+		if !protocol.MustGetFeatureCtx(ctx).CandidateRegisterMustWithStake &&
+			act.Amount().Sign() == 0 {
+			return nil
+		}
 		return errors.Wrap(action.ErrInvalidAmount, "self staking amount is not valid")
 	}
 	return nil
