@@ -703,10 +703,8 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	}
 
 	var (
-		// initial bucket index and votes as register without self-stake
-		bucketIdx = uint64(candidateNoSelfStakeBucketIndex)
-		votes     = big.NewInt(0)
-
+		bucketIdx     uint64
+		votes         = big.NewInt(0)
 		withSelfStake = act.Amount().Sign() > 0
 		txLogs        []*action.TransactionLog
 		err           error
@@ -725,6 +723,10 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 			Amount:    act.Amount(),
 		})
 		votes = p.calculateVoteWeight(bucket, true)
+	} else {
+		// register w/o self-stake, waiting to be endorsed
+		bucketIdx = uint64(candidateNoSelfStakeBucketIndex)
+		votes = big.NewInt(0)
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), owner.Bytes())
 
