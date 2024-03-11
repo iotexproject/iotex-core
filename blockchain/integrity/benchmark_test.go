@@ -8,12 +8,12 @@ package integrity
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"math/big"
 	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	ethCrypto "github.com/iotexproject/go-pkgs/crypto"
@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
@@ -260,7 +261,11 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	// create BlockDAO
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
-	dao := blockdao.NewBlockDAO(indexers, cfg.DB, deser)
+	store, err := filedao.NewFileDAO(cfg.DB, deser)
+	if err != nil {
+		return nil, nil, err
+	}
+	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, cfg.DB.MaxCacheSize)
 	if dao == nil {
 		return nil, nil, errors.New("pointer is nil")
 	}
@@ -340,11 +345,17 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	r, err := dao.GetReceiptByActionHash(ex1Hash, 1)
-	if err != nil {
-		return nil, nil, err
+	var receipt *action.Receipt
+	for _, r := range blk.Receipts {
+		if r.ActionHash == ex1Hash {
+			receipt = r
+			break
+		}
 	}
-	_contractAddr = r.ContractAddress
+	if receipt == nil {
+		return nil, nil, errors.Errorf("failed to find receipt for %x", ex1Hash)
+	}
+	_contractAddr = receipt.ContractAddress
 
 	return bc, ap, nil
 }

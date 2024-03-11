@@ -34,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	cp "github.com/iotexproject/iotex-core/crypto"
@@ -461,7 +462,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 			require.NoError(t, acc.Register(registry))
 			rp := rolldpos.NewProtocol(g.NumCandidateDelegates, g.NumDelegates, g.NumSubEpochs)
 			require.NoError(t, rp.Register(registry))
-			dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+			store, err := filedao.NewFileDAOInMemForTest()
+			require.NoError(t, err)
+			dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, db.DefaultConfig.MaxCacheSize)
 			chain := blockchain.NewBlockchain(
 				bc,
 				g,

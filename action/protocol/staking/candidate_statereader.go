@@ -65,6 +65,7 @@ type (
 		AllCandidates() CandidateList
 		TotalStakedAmount() *big.Int
 		ActiveBucketsCount() uint64
+		ContainsSelfStakingBucket(index uint64) bool
 	}
 
 	candSR struct {
@@ -108,6 +109,10 @@ func (c *candSR) GetCandidateByOwner(owner address.Address) *Candidate {
 
 func (c *candSR) AllCandidates() CandidateList {
 	return c.view.candCenter.All()
+}
+
+func (c *candSR) ContainsSelfStakingBucket(index uint64) bool {
+	return c.view.candCenter.ContainsSelfStakingBucket(index)
 }
 
 func (c *candSR) TotalStakedAmount() *big.Int {
