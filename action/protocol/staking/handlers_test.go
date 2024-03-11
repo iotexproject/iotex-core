@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/golang/mock/gomock"
 	"github.com/mohae/deepcopy"
 	"github.com/pkg/errors"
@@ -532,6 +533,27 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			nil,
 			iotextypes.ReceiptStatus_ErrCandidateConflict,
 		},
+		// register without self-stake
+		{
+			1201000,
+			identityset.Address(27),
+			1,
+			"test",
+			identityset.Address(28).String(),
+			identityset.Address(29).String(),
+			identityset.Address(30).String(),
+			"0",
+			"0",
+			uint32(10000),
+			false,
+			nil,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1),
+			true,
+			nil,
+			iotextypes.ReceiptStatus_Success,
+		},
 	}
 
 	for _, test := range tests {
@@ -554,7 +576,9 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
-		ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g.ToBeEnabledBlockHeight = 0
+		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
 		if test.err != nil {
@@ -571,16 +595,24 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// check the special create bucket and candidate register log
 			tLogs := r.TransactionLogs()
-			require.Equal(2, len(tLogs))
-			cLog := tLogs[0]
-			require.Equal(test.caller.String(), cLog.Sender)
-			require.Equal(address.StakingBucketPoolAddr, cLog.Recipient)
-			require.Equal(test.amountStr, cLog.Amount.String())
+			if test.amountStr == "0" {
+				require.Equal(1, len(tLogs))
+				cLog := tLogs[0]
+				require.Equal(test.caller.String(), cLog.Sender)
+				require.Equal(address.RewardingPoolAddr, cLog.Recipient)
+				require.Equal(p.config.RegistrationConsts.Fee.String(), cLog.Amount.String())
+			} else {
+				require.Equal(2, len(tLogs))
+				cLog := tLogs[0]
+				require.Equal(test.caller.String(), cLog.Sender)
+				require.Equal(address.StakingBucketPoolAddr, cLog.Recipient)
+				require.Equal(test.amountStr, cLog.Amount.String())
 
-			cLog = tLogs[1]
-			require.Equal(test.caller.String(), cLog.Sender)
-			require.Equal(address.RewardingPoolAddr, cLog.Recipient)
-			require.Equal(p.config.RegistrationConsts.Fee.String(), cLog.Amount.String())
+				cLog = tLogs[1]
+				require.Equal(test.caller.String(), cLog.Sender)
+				require.Equal(address.RewardingPoolAddr, cLog.Recipient)
+				require.Equal(p.config.RegistrationConsts.Fee.String(), cLog.Amount.String())
+			}
 
 			// test candidate
 			candidate, _, err := csr.getCandidate(act.OwnerAddress())
@@ -2766,6 +2798,78 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, createCost))
 		}
 	}
+}
+
+func TestProtocol_FetchBucketAndValidate(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm, p, _, _ := initAll(t, ctrl)
+
+	t.Run("bucket not exist", func(t *testing.T) {
+		csm, err := NewCandidateStateManager(sm, false)
+		require.NoError(err)
+		patches := gomonkey.ApplyPrivateMethod(csm, "getBucket", func(index uint64) (*VoteBucket, error) {
+			return nil, state.ErrStateNotExist
+		})
+		defer patches.Reset()
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, true, true)
+		require.ErrorContains(err, "failed to fetch bucket")
+	})
+	t.Run("validate owner", func(t *testing.T) {
+		csm, err := NewCandidateStateManager(sm, false)
+		require.NoError(err)
+		patches := gomonkey.ApplyPrivateMethod(csm, "getBucket", func(index uint64) (*VoteBucket, error) {
+			return &VoteBucket{
+				Owner: identityset.Address(1),
+			}, nil
+		})
+		defer patches.Reset()
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(2), 1, true, true)
+		require.ErrorContains(err, "bucket owner does not match")
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, true, true)
+		require.NoError(err)
+	})
+	t.Run("validate selfstake", func(t *testing.T) {
+		csm, err := NewCandidateStateManager(sm, false)
+		require.NoError(err)
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyPrivateMethod(csm, "getBucket", func(index uint64) (*VoteBucket, error) {
+			return &VoteBucket{
+				Owner: identityset.Address(1),
+			}, nil
+		})
+		isSelfStake := true
+		isSelfStakeErr := error(nil)
+		patches.ApplyFunc(isSelfStakeBucket, func(featureCtx protocol.FeatureCtx, csm CandidiateStateCommon, bucket *VoteBucket) (bool, error) {
+			return isSelfStake, isSelfStakeErr
+		})
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, false, false)
+		require.ErrorContains(err, "self staking bucket cannot be processed")
+		isSelfStake = false
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, false, false)
+		require.NoError(err)
+		isSelfStakeErr = errors.New("unknown error")
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, false, false)
+		require.ErrorContains(err, "unknown error")
+	})
+	t.Run("validate owner and selfstake", func(t *testing.T) {
+		csm, err := NewCandidateStateManager(sm, false)
+		require.NoError(err)
+		patches := gomonkey.NewPatches()
+		patches.ApplyPrivateMethod(csm, "getBucket", func(index uint64) (*VoteBucket, error) {
+			return &VoteBucket{
+				Owner: identityset.Address(1),
+			}, nil
+		})
+		patches.ApplyFunc(isSelfStakeBucket, func(featureCtx protocol.FeatureCtx, csm CandidiateStateCommon, bucket *VoteBucket) (bool, error) {
+			return false, nil
+		})
+		defer patches.Reset()
+
+		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, true, false)
+		require.NoError(err)
+	})
 }
 
 func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.Address, initBalance int64, gasPrice *big.Int, gasLimit uint64, nonce uint64, blkHeight uint64, blkTimestamp time.Time, blkGasLimit uint64, p *Protocol, candidate *Candidate, amount string, autoStake bool) (context.Context, *big.Int) {

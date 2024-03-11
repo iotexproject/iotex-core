@@ -75,8 +75,8 @@ func TestStakingContract(t *testing.T) {
 		blk, err := bc.MintNewBlock(fixedTime)
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
-		r, err := dao.GetReceiptByActionHash(deployHash, 1)
-		require.NoError(err)
+		r := blk.Receipts[0]
+		require.Equal(r.ActionHash, deployHash)
 		require.Equal(r.ContractAddress, "io1nw4l6qpph9apnzrmfk3u2dk28y5e05dpnk6nv0")
 
 		// 20 voters, each create 60 buckets
