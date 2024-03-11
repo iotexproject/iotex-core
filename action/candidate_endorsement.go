@@ -3,7 +3,9 @@ package action
 import (
 	"bytes"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -14,6 +16,31 @@ import (
 const (
 	// CandidateEndorsementBaseIntrinsicGas represents the base intrinsic gas for CandidateEndorsement
 	CandidateEndorsementBaseIntrinsicGas = uint64(10000)
+
+	candidateEndorsementInterfaceABI = `[
+		{
+			"inputs": [
+				{
+					"internalType": "uint64",
+					"name": "bucketIndex",
+					"type": "uint64"
+				},
+				{
+					"internalType": "bool",
+					"name": "endorse",
+					"type": "bool"
+				}
+			],
+			"name": "candidateEndorsement",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]`
+)
+
+var (
+	candidateEndorsementMethod abi.Method
 )
 
 // CandidateEndorsement is the action to endorse or unendorse a candidate
@@ -24,6 +51,18 @@ type CandidateEndorsement struct {
 	bucketIndex uint64
 	// endorse is true if the action is to endorse a candidate, false if unendorse
 	endorse bool
+}
+
+func init() {
+	candidateEndorsementInterface, err := abi.JSON(strings.NewReader(candidateEndorsementInterfaceABI))
+	if err != nil {
+		panic(err)
+	}
+	var ok bool
+	candidateEndorsementMethod, ok = candidateEndorsementInterface.Methods["candidateEndorsement"]
+	if !ok {
+		panic("fail to load the candidateEndorsement method")
+	}
 }
 
 // BucketIndex returns the bucket index of the action
