@@ -2119,8 +2119,7 @@ func jumpBlocks(bc blockchain.Blockchain, count int, r *require.Assertions) {
 	for i := 0; i < count; i++ {
 		blk, err := bc.MintNewBlock(testutil.TimestampNow())
 		r.NoError(err)
-		err = bc.CommitBlock(blk)
-		r.NoError(err)
+		r.NoError(bc.CommitBlock(blk))
 	}
 }
 

@@ -373,12 +373,8 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkAccountState(cfg, sf, ws, true, big.NewInt(0).Sub(initBalance, selfStake), cand1Addr))
 
 		// register without stake
-		register3, err := addOneTx(action.SignedCandidateRegister(1, candidate3Name, cand3Addr.String(), cand3Addr.String(),
+		register3, r3, err := addOneTx(action.SignedCandidateRegister(1, candidate3Name, cand3Addr.String(), cand3Addr.String(),
 			cand3Addr.String(), "0", 1, false, nil, gasLimit, gasPrice, cand3PriKey))
-		require.NoError(err)
-		register3Hash, err := register3.Hash()
-		require.NoError(err)
-		r3, err := dao.GetReceiptByActionHash(register3Hash, bc.TipHeight())
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, r3.Status)
 		require.NoError(checkCandidateState(sf, candidate3Name, cand3Addr.String(), big.NewInt(0), big.NewInt(0), cand3Addr))
@@ -397,35 +393,24 @@ func TestNativeStaking(t *testing.T) {
 			t.Logf("\ncandidate=%+v, %+v\n", string(cand.CanName), cand.Votes.String())
 		}
 		// stake bucket
-		cs3, err := addOneTx(action.SignedCreateStake(3, candidate3Name, selfStake.String(), 1, false,
+		_, cr3, err := addOneTx(action.SignedCreateStake(3, candidate3Name, selfStake.String(), 1, false,
 			nil, gasLimit, gasPrice, voter1PriKey))
 		require.NoError(err)
-		cs3Hash, err := cs3.Hash()
-		require.NoError(err)
-		r1, err = dao.GetReceiptByActionHash(cs3Hash, bc.TipHeight())
-		require.NoError(err)
-		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
-		logs = r1.Logs()
+		require.EqualValues(iotextypes.ReceiptStatus_Success, cr3.Status)
+		logs = cr3.Logs()
 		require.Equal(3, len(logs[0].Topics))
 		require.Equal(hash.BytesToHash256([]byte(staking.HandleCreateStake)), logs[0].Topics[0])
 		endorseBucketIndex := byteutil.BytesToUint64BigEndian(logs[0].Topics[1][24:])
 		t.Logf("endorseBucketIndex=%+v", endorseBucketIndex)
 		// endorse bucket
-		es, err := addOneTx(action.SignedCandidateEndorsement(4, endorseBucketIndex, true, gasLimit, gasPrice, voter1PriKey))
+		_, esr, err := addOneTx(action.SignedCandidateEndorsement(4, endorseBucketIndex, true, gasLimit, gasPrice, voter1PriKey))
 		require.NoError(err)
-		esHash, err := es.Hash()
 		require.NoError(err)
-		r1, err = dao.GetReceiptByActionHash(esHash, bc.TipHeight())
-		require.NoError(err)
-		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
+		require.EqualValues(iotextypes.ReceiptStatus_Success, esr.Status)
 		// candidate self stake
-		css, err := addOneTx(action.SignedCandidateActivate(2, endorseBucketIndex, gasLimit, gasPrice, cand3PriKey))
+		_, cssr, err := addOneTx(action.SignedCandidateActivate(2, endorseBucketIndex, gasLimit, gasPrice, cand3PriKey))
 		require.NoError(err)
-		cssHash, err := css.Hash()
-		require.NoError(err)
-		r1, err = dao.GetReceiptByActionHash(cssHash, bc.TipHeight())
-		require.NoError(err)
-		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
+		require.EqualValues(iotextypes.ReceiptStatus_Success, cssr.Status)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			BlockHeight: bc.TipHeight() + 1,
 		})
@@ -437,13 +422,9 @@ func TestNativeStaking(t *testing.T) {
 			t.Logf("\ncandidate=%+v, %+v\n", string(cand.CanName), cand.Votes.String())
 		}
 		// unendorse bucket
-		es, err = addOneTx(action.SignedCandidateEndorsement(5, endorseBucketIndex, false, gasLimit, gasPrice, voter1PriKey))
+		_, esr, err = addOneTx(action.SignedCandidateEndorsement(5, endorseBucketIndex, false, gasLimit, gasPrice, voter1PriKey))
 		require.NoError(err)
-		esHash, err = es.Hash()
-		require.NoError(err)
-		r1, err = dao.GetReceiptByActionHash(esHash, bc.TipHeight())
-		require.NoError(err)
-		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
+		require.EqualValues(iotextypes.ReceiptStatus_Success, esr.Status)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			BlockHeight: bc.TipHeight() + 1,
 		})
