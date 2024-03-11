@@ -704,7 +704,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 
 	var (
 		bucketIdx     uint64
-		votes         = big.NewInt(0)
+		votes         *big.Int
 		withSelfStake = act.Amount().Sign() > 0
 		txLogs        []*action.TransactionLog
 		err           error
