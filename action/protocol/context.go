@@ -116,6 +116,7 @@ type (
 		ExecutionSizeLimit32KB                  bool
 		UseZeroNonceForFreshAccount             bool
 		SharedGasWithDapp                       bool
+		CandidateRegisterMustWithStake          bool
 		DisableDelegateEndorsement              bool
 	}
 
@@ -258,6 +259,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			ExecutionSizeLimit32KB:                  !g.IsSumatra(height),
 			UseZeroNonceForFreshAccount:             g.IsSumatra(height),
 			SharedGasWithDapp:                       g.IsToBeEnabled(height),
+			CandidateRegisterMustWithStake:          !g.IsToBeEnabled(height),
 			DisableDelegateEndorsement:              !g.IsToBeEnabled(height),
 		},
 	)
