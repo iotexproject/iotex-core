@@ -72,6 +72,7 @@ type (
 		manualCorrectGasRefund     bool
 		suicideTxLogMismatchPanic  bool
 		zeroNonceForFreshAccount   bool
+		panicUnrecoverableError    bool
 	}
 )
 
@@ -157,6 +158,14 @@ func SuicideTxLogMismatchPanicOption() StateDBAdapterOption {
 func ZeroNonceForFreshAccountOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.zeroNonceForFreshAccount = true
+		return nil
+	}
+}
+
+// PanicUnrecoverableErrorOption set panicUnrecoverableError as true
+func PanicUnrecoverableErrorOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.panicUnrecoverableError = true
 		return nil
 	}
 }
@@ -575,16 +584,19 @@ func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
 
 // RevertToSnapshot reverts the state factory to the state at a given snapshot
 func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
+	ds, ok := stateDB.suicideSnapshot[snapshot]
+	if !ok && stateDB.panicUnrecoverableError {
+		log.L().Panic("Failed to revert to snapshot.", zap.Int("snapshot", snapshot))
+	}
 	if err := stateDB.sm.Revert(snapshot); err != nil {
 		err := errors.New("unexpected error: state manager's Revert() failed")
 		log.L().Error("Failed to revert to snapshot.", zap.Error(err))
 		stateDB.logError(err)
 		return
 	}
-	ds, ok := stateDB.suicideSnapshot[snapshot]
 	if !ok {
 		// this should not happen, b/c we save the suicide accounts on a successful return of Snapshot(), but check anyway
-		log.L().Error("Failed to get snapshot.", zap.Int("snapshot", snapshot))
+		log.L().Error("Failed to revert to snapshot.", zap.Int("snapshot", snapshot))
 		return
 	}
 	// restore gas refund
