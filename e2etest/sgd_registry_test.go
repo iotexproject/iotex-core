@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
@@ -63,7 +64,9 @@ func TestSGDRegistry(t *testing.T) {
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	r.NoError(err)
 	ap.AddActionEnvelopeValidators(genericValidator)
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	store, err := filedao.NewFileDAOInMemForTest()
+	r.NoError(err)
+	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, cfg.DB.MaxCacheSize)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
@@ -97,8 +100,8 @@ func TestSGDRegistry(t *testing.T) {
 	blk, err := bc.MintNewBlock(fixedTime)
 	r.NoError(err)
 	r.NoError(bc.CommitBlock(blk))
-	receipt, err := dao.GetReceiptByActionHash(deployHash, 1)
-	r.NoError(err)
+	receipt := blk.Receipts[0]
+	r.Equal(receipt.ActionHash, deployHash)
 	r.Equal(receipt.ContractAddress, "io1va03q4lcr608dr3nltwm64sfcz05czjuycsqgn")
 	height, err := dao.Height()
 	r.NoError(err)

@@ -6,6 +6,7 @@
 package actioniterator
 
 import (
+	"bytes"
 	"container/heap"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -16,9 +17,21 @@ import (
 // It's essentially a big root heap of actions
 type actionByPrice []*action.SealedEnvelope
 
-func (s actionByPrice) Len() int           { return len(s) }
-func (s actionByPrice) Less(i, j int) bool { return s[i].GasPrice().Cmp(s[j].GasPrice()) > 0 }
-func (s actionByPrice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s actionByPrice) Len() int { return len(s) }
+func (s actionByPrice) Less(i, j int) bool {
+	switch s[i].GasPrice().Cmp(s[j].GasPrice()) {
+	case 1:
+		return true
+	case 0:
+		hi, _ := s[i].Hash()
+		hj, _ := s[j].Hash()
+		return bytes.Compare(hi[:], hj[:]) > 0
+	default:
+		return false
+	}
+}
+
+func (s actionByPrice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
 // Push define the push function of heap
 func (s *actionByPrice) Push(x interface{}) {

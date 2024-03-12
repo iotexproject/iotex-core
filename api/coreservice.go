@@ -493,18 +493,15 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		}
 		return "", st.Err()
 	}
-	// If there is no error putting into local actpool,
-	// Broadcast it to the network
-	msg := in
-	if ge := core.bc.Genesis(); ge.IsQuebec(core.bc.TipHeight()) {
+	// If there is no error putting into local actpool, broadcast it to the network
+	if core.messageBatcher != nil {
 		err = core.messageBatcher.Put(&batch.Message{
 			ChainID: core.bc.ChainID(),
 			Target:  nil,
-			Data:    msg,
+			Data:    in,
 		})
 	} else {
-		//TODO: remove height check after activated
-		err = core.broadcastHandler(ctx, core.bc.ChainID(), msg)
+		err = core.broadcastHandler(ctx, core.bc.ChainID(), in)
 	}
 	if err != nil {
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
@@ -781,11 +778,15 @@ func (core *coreService) ReceiptByActionHash(h hash.Hash256) (*action.Receipt, e
 	if err != nil {
 		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
-	receipt, err := core.dao.GetReceiptByActionHash(h, actIndex.BlockHeight())
+
+	receipts, err := core.dao.GetReceipts(actIndex.BlockHeight())
 	if err != nil {
-		return nil, errors.Wrap(ErrNotFound, err.Error())
+		return nil, err
 	}
-	return receipt, nil
+	if receipt := filterReceipts(receipts, h); receipt != nil {
+		return receipt, nil
+	}
+	return nil, errors.Wrapf(ErrNotFound, "failed to find receipt for action %x", h)
 }
 
 // TransactionLogByActionHash returns transaction log by action hash
@@ -1089,7 +1090,7 @@ func (core *coreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvel
 	if err != nil {
 		return nil, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
-	selp, index, err := core.dao.GetActionByActionHash(h, actIndex.BlockHeight())
+	selp, index, err := blk.ActionByHash(h)
 	if err != nil {
 		return nil, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
@@ -1237,9 +1238,13 @@ func (core *coreService) committedAction(selp *action.SealedEnvelope, blkHash ha
 		return nil, err
 	}
 	sender := selp.SenderAddress()
-	receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
+	receipts, err := core.dao.GetReceipts(blkHeight)
 	if err != nil {
 		return nil, err
+	}
+	receipt := filterReceipts(receipts, actHash)
+	if receipt == nil {
+		return nil, errors.Wrapf(ErrNotFound, "failed to find receipt for action %x", actHash)
 	}
 
 	gas := new(big.Int)
@@ -1301,12 +1306,22 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	if reverseStart > size || count == 0 {
 		return nil
 	}
+	// TODO (saito): fix overflow
 	start := size - (reverseStart + count)
 	if start < 0 {
 		start = 0
 	}
 	end := size - 1 - reverseStart
 	res := make([]*iotexapi.ActionInfo, 0, start-end+1)
+	receipts, err := core.dao.GetReceipts(blkHeight)
+	if err != nil {
+		log.Logger("api").Debug("Skipping action due to failing to get receipt", zap.Error(err))
+		return nil
+	}
+	receiptMap := make(map[hash.Hash256]*action.Receipt, len(receipts))
+	for _, receipt := range receipts {
+		receiptMap[receipt.ActionHash] = receipt
+	}
 	for idx := start; idx <= end; idx++ {
 		selp := blk.Actions[idx]
 		actHash, err := selp.Hash()
@@ -1314,9 +1329,9 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 			log.Logger("api").Debug("Skipping action due to hash error", zap.Error(err))
 			continue
 		}
-		receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
-		if err != nil {
-			log.Logger("api").Debug("Skipping action due to failing to get receipt", zap.Error(err))
+		receipt, ok := receiptMap[actHash]
+		if !ok {
+			log.Logger("api").With(zap.String("actionHash", hex.EncodeToString(actHash[:]))).Debug("Skipping action due to failing to get receipt")
 			continue
 		}
 		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
@@ -1818,4 +1833,13 @@ func (core *coreService) simulateExecution(ctx context.Context, addr address.Add
 		Sgd:            core.sgdIndexer,
 	})
 	return core.sf.SimulateExecution(ctx, addr, exec)
+}
+
+func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Receipt {
+	for _, r := range receipts {
+		if r.ActionHash == actHash {
+			return r
+		}
+	}
+	return nil
 }

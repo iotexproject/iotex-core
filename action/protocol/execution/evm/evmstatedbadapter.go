@@ -48,6 +48,8 @@ type (
 		err                        error
 		blockHeight                uint64
 		executionHash              hash.Hash256
+		lastAddBalanceAddr         string
+		lastAddBalanceAmount       *big.Int
 		refund                     uint64
 		refundSnapshot             map[int]uint64
 		cachedContract             contractMap
@@ -68,6 +70,7 @@ type (
 		fixSnapshotOrder           bool
 		revertLog                  bool
 		manualCorrectGasRefund     bool
+		suicideTxLogMismatchPanic  bool
 	}
 )
 
@@ -141,6 +144,14 @@ func ManualCorrectGasRefundOption() StateDBAdapterOption {
 	}
 }
 
+// SuicideTxLogMismatchPanicOption set suicideTxLogMismatchPanic as true
+func SuicideTxLogMismatchPanicOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.suicideTxLogMismatchPanic = true
+		return nil
+	}
+}
+
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(
 	sm protocol.StateManager,
@@ -149,22 +160,23 @@ func NewStateDBAdapter(
 	opts ...StateDBAdapterOption,
 ) (*StateDBAdapter, error) {
 	s := &StateDBAdapter{
-		sm:                 sm,
-		logs:               []*action.Log{},
-		err:                nil,
-		blockHeight:        blockHeight,
-		executionHash:      executionHash,
-		refundSnapshot:     make(map[int]uint64),
-		cachedContract:     make(contractMap),
-		contractSnapshot:   make(map[int]contractMap),
-		suicided:           make(deleteAccount),
-		suicideSnapshot:    make(map[int]deleteAccount),
-		preimages:          make(preimageMap),
-		preimageSnapshot:   make(map[int]preimageMap),
-		accessList:         newAccessList(),
-		accessListSnapshot: make(map[int]*accessList),
-		logsSnapshot:       make(map[int]int),
-		txLogsSnapshot:     make(map[int]int),
+		sm:                   sm,
+		logs:                 []*action.Log{},
+		err:                  nil,
+		blockHeight:          blockHeight,
+		executionHash:        executionHash,
+		lastAddBalanceAmount: new(big.Int),
+		refundSnapshot:       make(map[int]uint64),
+		cachedContract:       make(contractMap),
+		contractSnapshot:     make(map[int]contractMap),
+		suicided:             make(deleteAccount),
+		suicideSnapshot:      make(map[int]deleteAccount),
+		preimages:            make(preimageMap),
+		preimageSnapshot:     make(map[int]preimageMap),
+		accessList:           newAccessList(),
+		accessListSnapshot:   make(map[int]*accessList),
+		logsSnapshot:         make(map[int]int),
+		txLogsSnapshot:       make(map[int]int),
 	}
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
@@ -242,6 +254,7 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.In
 
 // AddBalance adds balance to account
 func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.Int) {
+	stateDB.lastAddBalanceAmount.SetUint64(0)
 	if amount.Cmp(big.NewInt(int64(0))) == 0 {
 		return
 	}
@@ -253,8 +266,10 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 		log.L().Error("Failed to convert evm address.", zap.Error(err))
 		return
 	}
-	var state *state.Account
-	addrHash := hash.BytesToHash160(evmAddr[:])
+	var (
+		state    *state.Account
+		addrHash = hash.BytesToHash160(evmAddr[:])
+	)
 	if contract, ok := stateDB.cachedContract[addrHash]; ok {
 		state = contract.SelfState()
 	} else {
@@ -273,6 +288,10 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 	if err := accountutil.StoreAccount(stateDB.sm, addr, state); err != nil {
 		log.L().Error("Failed to update pending account changes to trie.", zap.Error(err))
 		stateDB.logError(err)
+	} else {
+		// keep a record of latest add balance
+		stateDB.lastAddBalanceAddr = addr.String()
+		stateDB.lastAddBalanceAmount.SetBytes(amount.Bytes())
 	}
 }
 
@@ -396,6 +415,7 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 		return false
 	}
 	// clears the account balance
+	actBalance := new(big.Int).Set(s.Balance)
 	if err := s.SubBalance(s.Balance); err != nil {
 		log.L().Debug("failed to clear balance", zap.Error(err), zap.String("address", evmAddr.Hex()))
 		return false
@@ -405,6 +425,25 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 		log.L().Error("Failed to kill contract.", zap.Error(err))
 		stateDB.logError(err)
 		return false
+	}
+	// before calling Suicide, EVM will transfer the contract's balance to beneficiary
+	// need to create a transaction log on successful suicide
+	if stateDB.lastAddBalanceAmount.Cmp(actBalance) == 0 {
+		if stateDB.lastAddBalanceAmount.Cmp(big.NewInt(0)) > 0 {
+			from, _ := address.FromBytes(evmAddr[:])
+			stateDB.addTransactionLogs(&action.TransactionLog{
+				Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
+				Sender:    from.String(),
+				Recipient: stateDB.lastAddBalanceAddr,
+				Amount:    stateDB.lastAddBalanceAmount,
+			})
+		}
+	} else {
+		if stateDB.suicideTxLogMismatchPanic {
+			log.L().Panic("suicide contract's balance does not match",
+				zap.String("suicide", actBalance.String()),
+				zap.String("beneficiary", stateDB.lastAddBalanceAmount.String()))
+		}
 	}
 	// mark it as deleted
 	stateDB.suicided[addrHash] = struct{}{}
@@ -710,7 +749,7 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		if amount, zero := new(big.Int).SetBytes(evmLog.Data), big.NewInt(0); amount.Cmp(zero) == 1 {
 			from, _ := address.FromBytes(topics[1][12:])
 			to, _ := address.FromBytes(topics[2][12:])
-			stateDB.transactionLogs = append(stateDB.transactionLogs, &action.TransactionLog{
+			stateDB.addTransactionLogs(&action.TransactionLog{
 				Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
 				Sender:    from.String(),
 				Recipient: to.String(),
@@ -788,6 +827,10 @@ func (stateDB *StateDBAdapter) accountState(evmAddr common.Address) (*state.Acco
 		return contract.SelfState(), nil
 	}
 	return accountutil.LoadAccountByHash160(stateDB.sm, addrHash, stateDB.accountCreationOpts()...)
+}
+
+func (stateDB *StateDBAdapter) addTransactionLogs(tlog *action.TransactionLog) {
+	stateDB.transactionLogs = append(stateDB.transactionLogs, tlog)
 }
 
 //======================================

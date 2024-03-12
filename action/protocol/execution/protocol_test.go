@@ -40,6 +40,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
@@ -362,11 +363,19 @@ func (sct *SmartContractTest) runExecutions(
 	if err := bc.CommitBlock(blk); err != nil {
 		return nil, nil, err
 	}
-	receipts := []*action.Receipt{}
-	for _, hash := range hashes {
-		receipt, err := dao.GetReceiptByActionHash(hash, blk.Height())
-		if err != nil {
-			return nil, nil, err
+	receipts, err := dao.GetReceipts(blk.Height())
+	if err != nil {
+		return nil, nil, err
+	}
+	receiptMap := make(map[hash.Hash256]*action.Receipt, len(receipts))
+	for _, receipt := range receipts {
+		receiptMap[receipt.ActionHash] = receipt
+	}
+	receipts = receipts[:0]
+	for _, h := range hashes {
+		receipt, ok := receiptMap[h]
+		if !ok {
+			return nil, nil, errors.Errorf("failed to find receipt for action %x", h)
 		}
 		receipts = append(receipts, receipt)
 	}
@@ -459,7 +468,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	r.NoError(err)
 	// create BlockDAO
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer})
+	store, err := filedao.NewFileDAOInMemForTest()
+	r.NoError(err)
+	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf, indexer}, cfg.DB.MaxCacheSize)
 	r.NotNil(dao)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
@@ -704,7 +715,9 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer})
+		store, err := filedao.NewFileDAOInMemForTest()
+		require.NoError(err)
+		dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf, indexer}, cfg.DB.MaxCacheSize)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
 			cfg.Chain,
@@ -743,8 +756,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		eHash, err := selp.Hash()
 		require.NoError(err)
-		r, _ := dao.GetReceiptByActionHash(eHash, blk.Height())
-		require.NotNil(r)
+		r := blk.Receipts[0]
 		require.Equal(eHash, r.ActionHash)
 		contract, err := address.FromString(r.ContractAddress)
 		require.NoError(err)
@@ -758,7 +770,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		require.Equal(data[31:], c)
 
-		exe, _, err := dao.GetActionByActionHash(eHash, blk.Height())
+		exe, _, err := blk.ActionByHash(eHash)
 		require.NoError(err)
 		exeHash, err := exe.Hash()
 		require.NoError(err)
@@ -809,9 +821,7 @@ func TestProtocol_Handle(t *testing.T) {
 		*/
 		eHash, err = selp.Hash()
 		require.NoError(err)
-		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
-		require.NoError(err)
-		require.Equal(eHash, r.ActionHash)
+		require.Equal(eHash, blk.Receipts[0].ActionHash)
 
 		// read from key 0
 		data, err = hex.DecodeString("6d4ce63c")
@@ -835,9 +845,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		eHash, err = selp.Hash()
 		require.NoError(err)
-		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
-		require.NoError(err)
-		require.Equal(eHash, r.ActionHash)
+		require.Equal(eHash, blk.Receipts[0].ActionHash)
 
 		data, _ = hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
 		execution1, err := action.NewExecution(action.EmptyAddress, 4, big.NewInt(0), uint64(100000), big.NewInt(10), data)

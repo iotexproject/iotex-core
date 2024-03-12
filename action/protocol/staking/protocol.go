@@ -56,8 +56,9 @@ const (
 
 // Errors
 var (
-	ErrWithdrawnBucket = errors.New("the bucket is already withdrawn")
-	TotalBucketKey     = append([]byte{_const}, []byte("totalBucket")...)
+	ErrWithdrawnBucket     = errors.New("the bucket is already withdrawn")
+	ErrEndorsementNotExist = errors.New("the endorsement does not exist")
+	TotalBucketKey         = append([]byte{_const}, []byte("totalBucket")...)
 )
 
 var (
@@ -472,6 +473,31 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 	return nil
 }
 
+func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidateStateReader, cand *Candidate) (bool, error) {
+	if cand.SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
+		return false, nil
+	}
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.DisableDelegateEndorsement {
+		// before endorsement feature, candidates with enough amount must be active
+		return true, nil
+	}
+	bucket, err := csr.getBucket(cand.SelfStakeBucketIdx)
+	switch {
+	case errors.Cause(err) == state.ErrStateNotExist:
+		// endorse bucket has been withdrawn
+		return false, nil
+	case err != nil:
+		return false, errors.Wrapf(err, "failed to get bucket %d", cand.SelfStakeBucketIdx)
+	default:
+	}
+	selfStake, err := isSelfStakeBucket(featureCtx, csr, bucket)
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to check self-stake bucket %d", cand.SelfStakeBucketIdx)
+	}
+	return selfStake, nil
+}
+
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
 	srHeight, err := sr.Height()
@@ -496,7 +522,11 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 			}
 			list[i].Votes.Add(list[i].Votes, contractVotes)
 		}
-		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {
+		active, err := p.isActiveCandidate(ctx, c, list[i])
+		if err != nil {
+			return nil, err
+		}
+		if active {
 			cand = append(cand, list[i])
 		}
 	}
@@ -686,9 +716,9 @@ func writeCandCenterStateToStateDB(sm protocol.StateManager, name, op, owners Ca
 }
 
 // isSelfStakeBucket returns true if the bucket is self-stake bucket and not expired
-func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csm CandidateStateManager, bucket *VoteBucket) (bool, error) {
+func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csc CandidiateStateCommon, bucket *VoteBucket) (bool, error) {
 	// bucket index should be settled in one of candidates
-	selfStake := csm.ContainsSelfStakingBucket(bucket.Index)
+	selfStake := csc.ContainsSelfStakingBucket(bucket.Index)
 	if featureCtx.DisableDelegateEndorsement || !selfStake {
 		return selfStake, nil
 	}
@@ -698,7 +728,7 @@ func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csm CandidateStateManager
 		return !bucket.isUnstaked(), nil
 	}
 	// otherwise bucket should be an endorse bucket which is not expired
-	esm := NewEndorsementStateManager(csm.SM())
+	esm := NewEndorsementStateReader(csc.SR())
 	height, err := esm.Height()
 	if err != nil {
 		return false, err
