@@ -42,36 +42,36 @@ type (
 
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
-		sm                          protocol.StateManager
-		logs                        []*action.Log
-		transactionLogs             []*action.TransactionLog
-		err                         error
-		blockHeight                 uint64
-		executionHash               hash.Hash256
-		lastAddBalanceAddr          string
-		lastAddBalanceAmount        *big.Int
-		refund                      uint64
-		refundSnapshot              map[int]uint64
-		cachedContract              contractMap
-		contractSnapshot            map[int]contractMap   // snapshots of contracts
-		suicided                    deleteAccount         // account/contract calling Suicide
-		suicideSnapshot             map[int]deleteAccount // snapshots of suicide accounts
-		preimages                   preimageMap
-		preimageSnapshot            map[int]preimageMap
-		accessList                  *accessList // per-transaction access list
-		accessListSnapshot          map[int]*accessList
-		logsSnapshot                map[int]int // logs is an array, save len(logs) at time of snapshot suffices
-		txLogsSnapshot              map[int]int
-		notFixTopicCopyBug          bool
-		asyncContractTrie           bool
-		disableSortCachedContracts  bool
-		useConfirmedNonce           bool
-		legacyNonceAccount          bool
-		fixSnapshotOrder            bool
-		revertLog                   bool
-		manualCorrectGasRefund      bool
-		suicideTxLogMismatchPanic   bool
-		useZeroNonceForFreshAccount bool
+		sm                         protocol.StateManager
+		logs                       []*action.Log
+		transactionLogs            []*action.TransactionLog
+		err                        error
+		blockHeight                uint64
+		executionHash              hash.Hash256
+		lastAddBalanceAddr         string
+		lastAddBalanceAmount       *big.Int
+		refund                     uint64
+		refundSnapshot             map[int]uint64
+		cachedContract             contractMap
+		contractSnapshot           map[int]contractMap   // snapshots of contracts
+		suicided                   deleteAccount         // account/contract calling Suicide
+		suicideSnapshot            map[int]deleteAccount // snapshots of suicide accounts
+		preimages                  preimageMap
+		preimageSnapshot           map[int]preimageMap
+		accessList                 *accessList // per-transaction access list
+		accessListSnapshot         map[int]*accessList
+		logsSnapshot               map[int]int // logs is an array, save len(logs) at time of snapshot suffices
+		txLogsSnapshot             map[int]int
+		notFixTopicCopyBug         bool
+		asyncContractTrie          bool
+		disableSortCachedContracts bool
+		useConfirmedNonce          bool
+		legacyNonceAccount         bool
+		fixSnapshotOrder           bool
+		revertLog                  bool
+		manualCorrectGasRefund     bool
+		suicideTxLogMismatchPanic  bool
+		zeroNonceForFreshAccount   bool
 	}
 )
 
