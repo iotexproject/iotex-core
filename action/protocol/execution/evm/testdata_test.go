@@ -6,9 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
-
-	"github.com/iotexproject/iotex-core/action"
 )
 
 type (
@@ -38,9 +35,11 @@ type (
 		v    common.Hash
 	}
 	sui struct {
-		addr    common.Address
-		suicide bool
-		exist   bool
+		amount      *big.Int
+		beneficiary common.Address
+		addr        common.Address
+		suicide     bool
+		exist       bool
 	}
 	image struct {
 		hash common.Hash
@@ -53,17 +52,16 @@ type (
 		exist bool
 	}
 	stateDBTest struct {
-		balance            []bal
-		codes              []code
-		states             []evmSet
-		refund             uint64
-		suicide            []sui
-		preimage           []image
-		accessList         []access
-		logs               []*types.Log
-		txLogs             []*action.TransactionLog
-		logSize, txLogSize int
-		logAddr, txLogAddr string
+		balance                       []bal
+		codes                         []code
+		states                        []evmSet
+		refund                        uint64
+		suicide                       []sui
+		preimage                      []image
+		accessList                    []access
+		logs                          []*types.Log
+		logSize, txLogSize            int
+		logAddr, txSender, txReceiver string
 	}
 )
 
@@ -98,12 +96,5 @@ func newTestLog(addr common.Address) *types.Log {
 	return &types.Log{
 		Address: addr,
 		Topics:  []common.Hash{_k1},
-	}
-}
-
-func newTestTxLog(addr common.Address) *action.TransactionLog {
-	a, _ := address.FromBytes(addr.Bytes())
-	return &action.TransactionLog{
-		Sender: a.String(),
 	}
 }
