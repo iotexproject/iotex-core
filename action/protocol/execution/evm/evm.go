@@ -387,6 +387,11 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if !featureCtx.FixSortCacheContractsAndUsePendingNonce {
 		opts = append(opts, DisableSortCachedContractsOption(), UseConfirmedNonceOption())
 	}
+	// Before featureCtx.RefactorFreshAccountConversion is activated,
+	// the type of a legacy fresh account is always 1
+	if featureCtx.RefactorFreshAccountConversion {
+		opts = append(opts, ZeroNonceForFreshAccountOption())
+	}
 	if featureCtx.NotFixTopicCopyBug {
 		opts = append(opts, NotFixTopicCopyBugOption())
 	}
