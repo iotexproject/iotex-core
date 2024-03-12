@@ -1261,3 +1261,37 @@ func TestDebugTraceCall(t *testing.T) {
 	require.Empty(rlt.Revert)
 	require.Equal(0, len(rlt.StructLogs))
 }
+
+func TestResponseIDMatchTypeWithRequest(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core.EXPECT().TipHeight().Return(uint64(1)).AnyTimes()
+	core.EXPECT().Track(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
+	svr := newHTTPHandler(NewWeb3Handler(core, "", _defaultBatchRequestLimit))
+	getServerResp := func(svr *hTTPHandler, req *http.Request) *httptest.ResponseRecorder {
+		req.Header.Set("Content-Type", "application/json")
+		resp := httptest.NewRecorder()
+		svr.ServeHTTP(resp, req)
+		return resp
+	}
+	tests := []struct {
+		req string
+		sub string
+	}{
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":1}`, `"id":1`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":"1"}`, `"id":"1"`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":"0x32"}`, `"id":"0x32"`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":[]}`, `error`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":[1]}`, `error`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":0x32}`, `error`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":{1}}`, `error`},
+	}
+	for _, tt := range tests {
+		request, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(tt.req))
+		response := getServerResp(svr, request)
+		bodyBytes, _ := io.ReadAll(response.Body)
+		require.Contains(string(bodyBytes), tt.sub)
+	}
+}
