@@ -12,11 +12,13 @@ import (
 // EndorsementStatus
 const (
 	// EndorseExpired means the endorsement is expired
-	EndorseExpired = EndorsementStatus(iota)
+	EndorseExpired = EndorsementStatus(1 << iota)
 	// UnEndorsing means the endorser has submitted unendorsement, but it is not expired yet
 	UnEndorsing
 	// Endorsed means the endorsement is valid
 	Endorsed
+	// WithoutEndorsement means the endorser has not submitted endorsement
+	WithoutEndorsement
 )
 
 const (
@@ -32,6 +34,11 @@ type (
 		ExpireHeight uint64
 	}
 )
+
+// Contain checks if the endorsement status contains the given status
+func (s EndorsementStatus) Contain(status EndorsementStatus) bool {
+	return s&status != 0
+}
 
 // Status returns the status of the endorsement
 func (e *Endorsement) Status(height uint64) EndorsementStatus {

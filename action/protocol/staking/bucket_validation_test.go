@@ -118,14 +118,14 @@ func TestValidateBucket(t *testing.T) {
 		// endorsed bucket
 		r.NoError(esm.Put(bktIdx, &Endorsement{ExpireHeight: endorsementNotExpireHeight}))
 		r.Nil(validateBucketEndorsement(esm, bkt, true, blkHeight))
-		r.ErrorContains(validateBucketEndorsement(esm, bkt, false, blkHeight), "bucket is already endorsed")
+		r.ErrorContains(validateBucketEndorsement(esm, bkt, false, blkHeight), "bucket endorsement is not in status 9")
 		// unendorsing bucket
 		r.NoError(esm.Put(bktIdx, &Endorsement{ExpireHeight: blkHeight + 1}))
 		r.Nil(validateBucketEndorsement(esm, bkt, true, blkHeight))
-		r.ErrorContains(validateBucketEndorsement(esm, bkt, false, blkHeight), "bucket is already endorsed")
+		r.ErrorContains(validateBucketEndorsement(esm, bkt, false, blkHeight), "bucket endorsement is not in status 9")
 		// endorse expired bucket
 		r.NoError(esm.Put(bktIdx, &Endorsement{ExpireHeight: blkHeight}))
 		r.Nil(validateBucketEndorsement(esm, bkt, false, blkHeight))
-		r.ErrorContains(validateBucketEndorsement(esm, bkt, true, blkHeight), "endorse bucket is expired")
+		r.ErrorContains(validateBucketEndorsement(esm, bkt, true, blkHeight), "bucket endorsement is not in status 6")
 	})
 }

@@ -77,24 +77,27 @@ func validateBucketSelfStake(featureCtx protocol.FeatureCtx, csm CandidateStateM
 }
 
 func validateBucketEndorsement(esm *EndorsementStateManager, bucket *VoteBucket, isEndorsed bool, height uint64) ReceiptError {
+	var status EndorsementStatus
+	if isEndorsed {
+		status = Endorsed | UnEndorsing
+	} else {
+		status = WithoutEndorsement | EndorseExpired
+	}
+	return validateBucketEndorsementByStatus(esm, bucket, status, height)
+}
+
+func validateBucketEndorsementByStatus(esm *EndorsementStateManager, bucket *VoteBucket, status EndorsementStatus, height uint64) ReceiptError {
 	endorse, err := esm.Get(bucket.Index)
 	switch {
 	case err == nil:
-		status := endorse.Status(height)
-		if isEndorsed && status == EndorseExpired {
+		if !status.Contain(endorse.Status(height)) {
 			return &handleError{
-				err:           errors.New("endorse bucket is expired"),
-				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
-			}
-		}
-		if !isEndorsed && status != EndorseExpired {
-			return &handleError{
-				err:           errors.New("bucket is already endorsed"),
+				err:           errors.Errorf("bucket endorsement is not in status %d", status),
 				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 			}
 		}
 	case errors.Is(err, state.ErrStateNotExist):
-		if isEndorsed {
+		if !status.Contain(WithoutEndorsement) {
 			return &handleError{
 				err:           errors.New("bucket is not an endorse bucket"),
 				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
