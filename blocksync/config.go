@@ -10,8 +10,10 @@ import "time"
 // Config is the config struct for the BlockSync
 type Config struct {
 	Interval              time.Duration `yaml:"interval"` // update duration
+	RateLimitInterval     time.Duration `yaml:"rateLimitInterval"`
 	ProcessSyncRequestTTL time.Duration `yaml:"processSyncRequestTTL"`
 	BufferSize            uint64        `yaml:"bufferSize"`
+	TriggerBufferSize     int           `yaml:"triggerBufferSize"`
 	IntervalSize          uint64        `yaml:"intervalSize"`
 	// MaxRepeat is the maximal number of repeat of a block sync request
 	MaxRepeat int `yaml:"maxRepeat"`
@@ -22,8 +24,10 @@ type Config struct {
 // DefaultConfig is the default config
 var DefaultConfig = Config{
 	Interval:              30 * time.Second,
+	RateLimitInterval:     1 * time.Second,
 	ProcessSyncRequestTTL: 10 * time.Second,
 	BufferSize:            200,
+	TriggerBufferSize:     2,
 	IntervalSize:          20,
 	MaxRepeat:             3,
 	RepeatDecayStep:       1,

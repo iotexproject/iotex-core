@@ -28,6 +28,12 @@ func (h *MockHandler) Do() {
 	h.mu.Unlock()
 }
 
+func (h *MockHandler) GetCount() uint {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.Count
+}
+
 func TestRecurringTask(t *testing.T) {
 	require := require.New(t)
 	h := &MockHandler{Count: 0}

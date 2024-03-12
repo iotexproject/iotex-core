@@ -7,17 +7,12 @@ package blocksync
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -38,6 +33,13 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	"github.com/iotexproject/iotex-core/testutil"
+	goproto "github.com/iotexproject/iotex-proto/golang"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 type testConfig struct {
@@ -547,4 +549,86 @@ func TestDummyBlockSync(t *testing.T) {
 	require.Zero(currentHeight)
 	require.Zero(targetHeight)
 	require.Empty(desc)
+}
+
+/*
+RateLimitInterval = 1 sec, syncd 9600 blocks in 60 sec, 160 blocks/sec
+RateLimitInterval = 2 sec, syncd 4800 blocks in 60 sec, 80 blocks/sec
+*/
+func TestBlockSync(t *testing.T) {
+	//t.SkipNow()
+	require := require.New(t)
+	cfg := DefaultConfig
+	cfg.Interval = 2 * time.Second
+	cfg.BufferSize = 200
+	cfg.MaxRepeat = 3
+	cfg.RepeatDecayStep = 3
+	cfg.RateLimitInterval = 1 * time.Second
+	var tipHeight uint64
+	chanProcessBlk := make(chan *block.Block)
+
+	bs, err := NewBlockSyncer(cfg, func() uint64 {
+		return atomic.LoadUint64(&tipHeight)
+	}, nil, func(b *block.Block) error {
+		//t.Logf("commit block %d", b.Height())
+		atomic.StoreUint64(&tipHeight, b.Height())
+		return nil
+	}, func() ([]peer.AddrInfo, error) {
+		return []peer.AddrInfo{{
+			ID: peer.ID("test"),
+		}}, nil
+	}, func(ctx context.Context, ai peer.AddrInfo, m proto.Message) error {
+		msgType, err := goproto.GetTypeFromRPCMsg(m)
+		if err != nil {
+			return err
+		}
+		switch msgType {
+		case iotexrpc.MessageType_BLOCK_REQUEST:
+			msgBody, err := proto.Marshal(m)
+			if err != nil {
+				return err
+			}
+			var req iotexrpc.BlockSync
+			if err := proto.Unmarshal(msgBody, &req); err != nil {
+				return err
+			}
+			// send block
+			for i := req.Start; i <= req.End; i++ {
+				blk, _ := block.NewTestingBuilder().
+					SetHeight(i).SignAndBuild(identityset.PrivateKey(0))
+				chanProcessBlk <- &blk
+			}
+		}
+		return nil
+	}, func(s string) {
+		t.Logf("block p2p %s", s)
+	})
+	ctx := context.Background()
+	require.NoError(err)
+	require.NotNil(bs)
+	go func(bs BlockSync) {
+		for blk := range chanProcessBlk {
+			bs.ProcessBlock(ctx, "test", blk)
+		}
+	}(bs)
+	go func(bs BlockSync) {
+		for {
+			blk, _ := block.NewTestingBuilder().
+				SetHeight(20000000).SignAndBuild(identityset.PrivateKey(0))
+			bs.ProcessBlock(ctx, "test", &blk)
+			time.Sleep(time.Second * 1)
+		}
+	}(bs)
+	require.NoError(bs.Start(ctx))
+	go func(bs BlockSync) {
+		for {
+			time.Sleep(cfg.Interval)
+			t.Log(bs.BuildReport())
+		}
+	}(bs)
+	defer func() {
+		require.NoError(bs.Stop(ctx))
+	}()
+
+	time.Sleep(time.Second * 10)
 }
