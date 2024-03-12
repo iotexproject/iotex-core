@@ -700,7 +700,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 }
 
 func TestClearSnapshots(t *testing.T) {
-	testClearSnapshots := func(t *testing.T, async, fixSnapshotOrder bool) {
+	testClearSnapshots := func(t *testing.T, async, fixSnapshotOrder, panicUnrecoverableError bool) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 
@@ -715,6 +715,9 @@ func TestClearSnapshots(t *testing.T) {
 		}
 		if fixSnapshotOrder {
 			opts = append(opts, FixSnapshotOrderOption())
+		}
+		if panicUnrecoverableError {
+			opts = append(opts, PanicUnrecoverableErrorOption())
 		}
 		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
 		require.NoError(err)
@@ -774,13 +777,20 @@ func TestClearSnapshots(t *testing.T) {
 			// log snapshot added after fixSnapshotOrder, so it is cleared and 1 remains
 			require.Equal(1, len(stateDB.logsSnapshot))
 		}
-
+		if panicUnrecoverableError {
+			require.Panics(func() { stateDB.RevertToSnapshot(1) })
+		} else {
+			stateDB.RevertToSnapshot(1)
+		}
 	}
 	t.Run("contract w/o clear snapshots", func(t *testing.T) {
-		testClearSnapshots(t, false, false)
+		testClearSnapshots(t, false, false, false)
 	})
 	t.Run("contract with clear snapshots", func(t *testing.T) {
-		testClearSnapshots(t, false, true)
+		testClearSnapshots(t, false, true, false)
+	})
+	t.Run("contract with clear snapshots and panic on duplicate revert", func(t *testing.T) {
+		testClearSnapshots(t, false, true, true)
 	})
 }
 
