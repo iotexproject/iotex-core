@@ -7,15 +7,18 @@ package blockdao
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -141,4 +144,124 @@ func TestCheckIndexerWithStart(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBlockIndexerChecker_CheckIndexer(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+	store := mock_blockdao.NewMockBlockDAO(ctrl)
+	dao := &blockDAO{blockStore: store}
+	bic := NewBlockIndexerChecker(dao)
+	indexer := mock_blockdao.NewMockBlockIndexer(ctrl)
+
+	t.Run("WithoutBlockchainContext", func(t *testing.T) {
+		err := bic.CheckIndexer(ctx, indexer, 0, nil)
+		r.ErrorContains(err, "failed to find blockchain ctx")
+	})
+
+	t.Run("WithoutGenesisContext", func(t *testing.T) {
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{})
+
+		err := bic.CheckIndexer(ctx, indexer, 0, nil)
+		r.ErrorContains(err, "failed to find genesis ctx")
+	})
+
+	t.Run("FailedToGetIndexerHeight", func(t *testing.T) {
+		ctx = genesis.WithGenesisContext(ctx, genesis.Genesis{})
+
+		indexer.EXPECT().Height().Return(uint64(0), errors.New(t.Name())).Times(1)
+
+		err := bic.CheckIndexer(ctx, indexer, 0, nil)
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("FailedToGetDaoTipHeight", func(t *testing.T) {
+		indexer.EXPECT().Height().Return(uint64(1), nil).Times(1)
+		store.EXPECT().Height().Return(uint64(0), errors.New(t.Name())).Times(1)
+
+		err := bic.CheckIndexer(ctx, indexer, 0, nil)
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("IndexerTipHeightHigherThanDaoTipHeight", func(t *testing.T) {
+		tipHeight := uint64(100)
+		daoTip := uint64(99)
+
+		indexer.EXPECT().Height().Return(tipHeight, nil).Times(1)
+		store.EXPECT().Height().Return(daoTip, nil).Times(1)
+
+		err := bic.CheckIndexer(ctx, indexer, 0, nil)
+		r.ErrorContains(err, "indexer tip height cannot by higher than dao tip height")
+	})
+
+	t.Run("FailedToGetBlockByHeight", func(t *testing.T) {
+		tipHeight := uint64(98)
+		daoTip := uint64(99)
+
+		indexer.EXPECT().Height().Return(tipHeight, nil).Times(1)
+		store.EXPECT().Height().Return(daoTip, nil).Times(1)
+		store.EXPECT().GetBlockByHeight(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+
+		err := bic.CheckIndexer(ctx, indexer, 0, nil)
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("LoopFromStartHeightToTargetHeight", func(t *testing.T) {
+		tipHeight := uint64(98)
+		daoTip := uint64(99)
+
+		t.Run("FailedToGetBlockByHeight", func(t *testing.T) {
+			indexer.EXPECT().Height().Return(tipHeight, nil).Times(1)
+			store.EXPECT().Height().Return(daoTip, nil).Times(1)
+			store.EXPECT().GetBlockByHeight(gomock.Any()).Return(&block.Block{}, nil).Times(1)
+			store.EXPECT().GetBlockByHeight(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+
+			err := bic.CheckIndexer(ctx, indexer, 0, nil)
+			r.ErrorContains(err, t.Name())
+		})
+
+		t.Run("FailedToGetReceipts", func(t *testing.T) {
+			indexer.EXPECT().Height().Return(tipHeight, nil).Times(1)
+			store.EXPECT().Height().Return(daoTip, nil).Times(1)
+			store.EXPECT().GetBlockByHeight(gomock.Any()).Return(&block.Block{}, nil).Times(2)
+			store.EXPECT().GetReceipts(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+
+			err := bic.CheckIndexer(ctx, indexer, 0, nil)
+			r.ErrorContains(err, t.Name())
+		})
+
+		t.Run("FailedToGetPubKey", func(t *testing.T) {
+			indexer.EXPECT().Height().Return(tipHeight, nil).Times(1)
+			store.EXPECT().Height().Return(daoTip, nil).Times(1)
+			store.EXPECT().GetBlockByHeight(gomock.Any()).Return(&block.Block{
+				Header: block.Header{},
+			}, nil).Times(2)
+			store.EXPECT().GetReceipts(gomock.Any()).Return([]*action.Receipt{}, nil).Times(1)
+
+			err := bic.CheckIndexer(ctx, indexer, 0, nil)
+			r.ErrorContains(err, "failed to get pubkey")
+		})
+
+		pubkey, _ := crypto.HexStringToPublicKey("04806b217cb0b6a675974689fd99549e525d967287eee9a62dc4e598eea981b8158acfe026da7bf58397108abd0607672832c28ef3bc7b5855077f6e67ab5fc096")
+
+		t.Run("FailedToGetAddress", func(t *testing.T) {
+			indexer.EXPECT().Height().Return(tipHeight, nil).Times(1)
+			store.EXPECT().Height().Return(daoTip, nil).Times(1)
+			store.EXPECT().GetBlockByHeight(gomock.Any()).Return(&block.Block{}, nil).Times(2)
+			store.EXPECT().GetReceipts(gomock.Any()).Return([]*action.Receipt{}, nil).Times(1)
+
+			p := gomonkey.NewPatches()
+			defer p.Reset()
+
+			p.ApplyMethodReturn(&block.Header{}, "PublicKey", pubkey)
+			p.ApplyMethodReturn(pubkey, "Address", nil)
+
+			err := bic.CheckIndexer(ctx, indexer, 0, nil)
+			r.ErrorContains(err, "failed to get producer address")
+		})
+	})
 }

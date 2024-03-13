@@ -7,10 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
+	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/go-pkgs/cache"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -19,10 +22,593 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
 	"github.com/iotexproject/iotex-core/testutil"
 )
+
+func TestNewBlockDAOWithIndexersAndCache(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	var (
+		blockdao = mock_blockdao.NewMockBlockDAO(ctrl)
+		indexers = []BlockIndexer{mock_blockdao.NewMockBlockIndexer(ctrl)}
+	)
+
+	t.Run("BlockStoreIsNil", func(t *testing.T) {
+		dao := NewBlockDAOWithIndexersAndCache(nil, []BlockIndexer{}, 100)
+		r.Nil(dao)
+	})
+	t.Run("NeedNewCache", func(t *testing.T) {
+		t.Run("FailedToNewPrometheusTimer", func(t *testing.T) {
+			p := gomonkey.NewPatches()
+			defer p.Reset()
+
+			p = p.ApplyFuncReturn(prometheustimer.New, nil, errors.New(t.Name()))
+
+			dao := NewBlockDAOWithIndexersAndCache(blockdao, indexers, 1)
+			r.Nil(dao)
+		})
+	})
+	t.Run("Success", func(t *testing.T) {
+		p := gomonkey.NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyFuncReturn(prometheustimer.New, nil, nil)
+
+		dao := NewBlockDAOWithIndexersAndCache(blockdao, indexers, 1)
+		r.NotNil(dao)
+	})
+}
+
+func Test_blockDAO_Start(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockblockdao := mock_blockdao.NewMockBlockDAO(ctrl)
+	blockdao := &blockDAO{
+		lifecycle:  lifecycle.Lifecycle{},
+		blockStore: mockblockdao,
+	}
+
+	t.Run("FailedToStartLifeCycle", func(t *testing.T) {
+		p := gomonkey.NewPatches()
+		defer p.Reset()
+
+		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStart", errors.New(t.Name()))
+
+		err := blockdao.Start(context.Background())
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("FailedToGetBlockStoreHeight", func(t *testing.T) {
+		p := gomonkey.NewPatches()
+		defer p.Reset()
+
+		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStart", nil)
+		mockblockdao.EXPECT().Height().Return(uint64(0), errors.New(t.Name())).Times(1)
+
+		err := blockdao.Start(context.Background())
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		p := gomonkey.NewPatches()
+		defer p.Reset()
+
+		expectedHeight := uint64(1)
+
+		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStart", nil)
+		mockblockdao.EXPECT().Height().Return(expectedHeight, nil).Times(1)
+		p.ApplyPrivateMethod(&blockDAO{}, "checkIndexers", func(*blockDAO, context.Context) error { return nil })
+
+		err := blockdao.Start(context.Background())
+		r.Nil(err)
+		r.Equal(blockdao.tipHeight, expectedHeight)
+	})
+}
+
+func Test_blockDAO_checkIndexers(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockblockdao := mock_blockdao.NewMockBlockDAO(ctrl)
+	mockblockindexer := mock_blockdao.NewMockBlockIndexer(ctrl)
+
+	blockdao := &blockDAO{
+		lifecycle:  lifecycle.Lifecycle{},
+		blockStore: mockblockdao,
+		indexers:   []BlockIndexer{mockblockindexer},
+	}
+
+	t.Run("FailedToCheckIndexer", func(t *testing.T) {
+		p := gomonkey.NewPatches()
+		defer p.Reset()
+
+		p.ApplyMethodReturn(&BlockIndexerChecker{}, "CheckIndexer", errors.New(t.Name()))
+
+		err := blockdao.checkIndexers(context.Background())
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		// p := gomonkey.NewPatches()
+		// defer p.Reset()
+
+		// p.ApplyMethodReturn(&BlockIndexerChecker{}, "CheckIndexer", nil)
+
+		var (
+			tipHeight = uint64(0)
+			daoTip    = uint64(0)
+		)
+
+		// // mock required context
+		ctx := context.Background()
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{})
+		ctx = genesis.WithGenesisContext(ctx, genesis.Genesis{})
+
+		// mock tipHeight return
+		mockblockindexer.EXPECT().Height().Return(tipHeight, nil).Times(1)
+		// mock doaTip return
+		mockblockdao.EXPECT().Height().Return(daoTip, nil).Times(1)
+		mockblockdao.EXPECT().GetBlockByHeight(gomock.Any()).Return(&block.Block{}, nil).Times(1)
+
+		err := blockdao.checkIndexers(ctx)
+		r.Nil(err)
+	})
+}
+
+func Test_blockDAO_Stop(t *testing.T) {
+	r := require.New(t)
+
+	dao := &blockDAO{lifecycle: lifecycle.Lifecycle{}}
+
+	t.Run("FailedToStopLifecycle", func(t *testing.T) {
+		p := gomonkey.NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStop", errors.New(t.Name()))
+
+		err := dao.Stop(context.Background())
+
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		p := gomonkey.NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStop", nil)
+
+		err := dao.Stop(context.Background())
+
+		r.NoError(err)
+	})
+}
+
+func Test_blockDAO_GetBlockHash(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := mock_blockdao.NewMockBlockDAO(ctrl)
+
+	dao := &blockDAO{blockStore: store}
+
+	t.Run("FailedToGetBlock", func(t *testing.T) {
+		store.EXPECT().GetBlockHash(gomock.Any()).Return(hash.Hash256{}, errors.New(t.Name())).Times(1)
+
+		h, err := dao.GetBlockHash(100)
+
+		r.Empty(h)
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		store.EXPECT().GetBlockHash(gomock.Any()).Return(hash.Hash256{}, nil).Times(1)
+
+		_, err := dao.GetBlockHash(100)
+
+		r.NoError(err)
+	})
+}
+
+func Test_blockDAO_GetBlockHeight(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := mock_blockdao.NewMockBlockDAO(ctrl)
+
+	dao := &blockDAO{blockStore: store}
+
+	t.Run("FailedToGetBlock", func(t *testing.T) {
+		store.EXPECT().GetBlockHeight(gomock.Any()).Return(uint64(0), errors.New(t.Name())).Times(1)
+
+		_, err := dao.GetBlockHeight(hash.Hash256{})
+
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		store.EXPECT().GetBlockHeight(gomock.Any()).Return(uint64(100), nil).Times(1)
+
+		height, err := dao.GetBlockHeight(hash.Hash256{})
+
+		r.Equal(height, uint64(100))
+		r.NoError(err)
+	})
+}
+
+func Test_blockDAO_GetBlock(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := mock_blockdao.NewMockBlockDAO(ctrl)
+
+	dao := &blockDAO{blockStore: store}
+
+	t.Run("FailedToGetBlock", func(t *testing.T) {
+		store.EXPECT().GetBlock(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+
+		blk, err := dao.GetBlock(hash.Hash256{})
+
+		r.Nil(blk)
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		store.EXPECT().GetBlock(gomock.Any()).Return(&block.Block{}, nil).Times(1)
+
+		blk, err := dao.GetBlock(hash.Hash256{})
+
+		r.NotNil(blk)
+		r.NoError(err)
+	})
+}
+
+func Test_blockDAO_GetBlockByHeight(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := mock_blockdao.NewMockBlockDAO(ctrl)
+
+	dao := &blockDAO{blockStore: store}
+
+	t.Run("FailedToGetBlockByHash", func(t *testing.T) {
+		store.EXPECT().GetBlockByHeight(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+
+		blk, err := dao.GetBlockByHeight(100)
+
+		r.Nil(blk)
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		store.EXPECT().GetBlockByHeight(gomock.Any()).Return(&block.Block{}, nil).Times(1)
+
+		blk, err := dao.GetBlockByHeight(100)
+
+		r.NotNil(blk)
+		r.NoError(err)
+	})
+}
+
+func Test_blockDAO_HeaderByHeight(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := mock_blockdao.NewMockBlockDAO(ctrl)
+
+	dao := &blockDAO{
+		blockStore:  store,
+		headerCache: cache.NewThreadSafeLruCache(100),
+	}
+
+	t.Run("HitCache", func(t *testing.T) {
+		dao.headerCache.Add(uint64(100), &block.Header{})
+
+		blk, err := dao.HeaderByHeight(100)
+
+		r.NotNil(blk)
+		r.NoError(err)
+	})
+
+	t.Run("FailedToGetHeaderFromBlockStore", func(t *testing.T) {
+		store.EXPECT().HeaderByHeight(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+
+		header, err := dao.HeaderByHeight(101)
+
+		r.Nil(header)
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		store.EXPECT().HeaderByHeight(gomock.Any()).Return(&block.Header{}, nil).Times(1)
+
+		header, err := dao.HeaderByHeight(102)
+
+		r.NotNil(header)
+		r.NoError(err)
+	})
+
+}
+
+func Test_blockDAO_FooterByHeight(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := mock_blockdao.NewMockBlockDAO(ctrl)
+
+	dao := &blockDAO{
+		blockStore:  store,
+		footerCache: cache.NewThreadSafeLruCache(3),
+	}
+
+	t.Run("HitCache", func(t *testing.T) {
+		dao.footerCache.Add(uint64(100), &block.Footer{})
+
+		footer, err := dao.FooterByHeight(100)
+
+		r.NotNil(footer)
+		r.NoError(err)
+	})
+
+	t.Run("FailedToGetFooterFromBlockStore", func(t *testing.T) {
+		store.EXPECT().FooterByHeight(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+
+		footer, err := dao.FooterByHeight(101)
+
+		r.Nil(footer)
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		store.EXPECT().FooterByHeight(gomock.Any()).Return(&block.Footer{}, nil).Times(1)
+
+		footer, err := dao.FooterByHeight(102)
+
+		r.NotNil(footer)
+		r.NoError(err)
+	})
+}
+
+func Test_blockDAO_Height(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := mock_blockdao.NewMockBlockDAO(ctrl)
+
+	dao := &blockDAO{blockStore: store}
+
+	t.Run("FailedToGetHeightFromBlockStore", func(t *testing.T) {
+		store.EXPECT().Height().Return(uint64(0), errors.New(t.Name())).Times(1)
+
+		height, err := dao.Height()
+
+		r.Zero(height)
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		store.EXPECT().Height().Return(uint64(1000), nil).Times(1)
+
+		height, err := dao.Height()
+
+		r.Equal(height, uint64(1000))
+		r.NoError(err)
+	})
+}
+
+func Test_blockDAO_Header(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := mock_blockdao.NewMockBlockDAO(ctrl)
+
+	dao := &blockDAO{
+		blockStore:  store,
+		headerCache: cache.NewThreadSafeLruCache(3),
+	}
+
+	t.Run("HitCache", func(t *testing.T) {
+		h := hash.Hash256{0x76, 0x6d, 0x8b, 0x5b, 0x98, 0xa5, 0xb2, 0xdb, 0x8d, 0x99, 0x0, 0xd2, 0x9c, 0xd1, 0x31, 0xf1, 0x59, 0xb6, 0x2f, 0x7e, 0x74, 0x6b, 0x92, 0x1b, 0x42, 0x68, 0x97, 0x4a, 0x47, 0x3e, 0x8d, 0xc5}
+		dao.headerCache.Add(h, &block.Header{})
+
+		header, err := dao.Header(h)
+
+		r.NotNil(header)
+		r.NoError(err)
+	})
+
+	t.Run("FailedToGetHeaderFromBlockStore", func(t *testing.T) {
+		store.EXPECT().Header(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+
+		header, err := dao.Header(hash.Hash256{})
+
+		r.Nil(header)
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		store.EXPECT().Header(gomock.Any()).Return(&block.Header{}, nil).Times(1)
+
+		header, err := dao.Header(hash.Hash256{})
+
+		r.NotNil(header)
+		r.NoError(err)
+	})
+}
+
+func Test_blockDAO_GetReceipts(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := mock_blockdao.NewMockBlockDAO(ctrl)
+
+	dao := &blockDAO{blockStore: store}
+
+	t.Run("FailedToGetReceipts", func(t *testing.T) {
+		store.EXPECT().GetReceipts(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+
+		receipts, err := dao.GetReceipts(100)
+
+		r.Nil(receipts)
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		store.EXPECT().GetReceipts(gomock.Any()).Return([]*action.Receipt{{}, {}}, nil).Times(1)
+
+		receipts, err := dao.GetReceipts(100)
+
+		r.Len(receipts, 2)
+		r.NoError(err)
+	})
+}
+
+func Test_blockDAO_ContainsTransactionLog(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := mock_blockdao.NewMockBlockDAO(ctrl)
+
+	dao := &blockDAO{blockStore: store}
+
+	store.EXPECT().ContainsTransactionLog().Return(true).Times(1)
+	r.True(dao.ContainsTransactionLog())
+	store.EXPECT().ContainsTransactionLog().Return(false).Times(1)
+	r.False(dao.ContainsTransactionLog())
+}
+
+func Test_blockDAO_TransactionLogs(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := mock_blockdao.NewMockBlockDAO(ctrl)
+
+	dao := &blockDAO{blockStore: store}
+
+	t.Run("FailedToTransactionLogs", func(t *testing.T) {
+		store.EXPECT().TransactionLogs(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+
+		txlogs, err := dao.TransactionLogs(0)
+
+		r.Nil(txlogs)
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		store.EXPECT().TransactionLogs(gomock.Any()).Return(&iotextypes.TransactionLogs{}, nil).Times(1)
+
+		txlogs, err := dao.TransactionLogs(0)
+
+		r.NotNil(txlogs)
+		r.NoError(err)
+	})
+}
+
+func Test_blockDAO_PutBlock(t *testing.T) {
+	r := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	indexer := mock_blockdao.NewMockBlockIndexer(ctrl)
+	store := mock_blockdao.NewMockBlockDAO(ctrl)
+
+	dao := &blockDAO{
+		indexers:   []BlockIndexer{indexer},
+		blockStore: store,
+	}
+
+	t.Run("FailedToPutBlockToBlockStore", func(t *testing.T) {
+		store.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(errors.New(t.Name())).Times(1)
+
+		err := dao.PutBlock(context.Background(), &block.Block{})
+
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("FailedToPutBlockToIndexer", func(t *testing.T) {
+		store.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+		indexer.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(errors.New(t.Name())).Times(1)
+
+		err := dao.PutBlock(context.Background(), &block.Block{})
+
+		r.ErrorContains(err, t.Name())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		store.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+		indexer.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+
+		err := dao.PutBlock(context.Background(), &block.Block{})
+
+		r.NoError(err)
+	})
+}
+
+func Test_lruCache(t *testing.T) {
+	r := require.New(t)
+
+	_cache := cache.NewThreadSafeLruCache(5)
+
+	t.Run("EmptyCache", func(t *testing.T) {
+		lruCachePut(nil, "any", "any")
+		v, ok := lruCacheGet(nil, "any")
+		r.Nil(v)
+		r.False(ok)
+	})
+
+	t.Run("ShouldEqualAndFalse", func(t *testing.T) {
+		v1, ok1 := lruCacheGet(_cache, "any")
+		v2, ok2 := _cache.Get("any")
+		r.Equal(v1, v2)
+		r.Equal(ok1, ok2)
+		r.False(ok1)
+	})
+
+	t.Run("AfterPutShouldEqualAndTrue", func(t *testing.T) {
+		lruCachePut(_cache, "any", "any")
+
+		v1, ok1 := lruCacheGet(_cache, "any")
+		v2, ok2 := _cache.Get("any")
+		r.Equal(v1, v2)
+		r.Equal(ok1, ok2)
+		r.True(ok1)
+	})
+}
 
 func getTestBlocks(t *testing.T) []*block.Block {
 	amount := uint64(50 << 22)

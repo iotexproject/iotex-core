@@ -92,9 +92,13 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 				return err
 			}
 		}
-		producer := blk.PublicKey().Address()
+		pk := blk.PublicKey()
+		if pk == nil {
+			return errors.New("failed to get pubkey")
+		}
+		producer := pk.Address()
 		if producer == nil {
-			return errors.New("failed to get address")
+			return errors.New("failed to get producer address")
 		}
 		bcCtx.Tip.Height = tipBlk.Height()
 		if bcCtx.Tip.Height > 0 {
