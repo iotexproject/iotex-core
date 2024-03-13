@@ -2872,6 +2872,301 @@ func TestProtocol_FetchBucketAndValidate(t *testing.T) {
 	})
 }
 
+func TestChangeCandidate(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	t.Run("Self-Staked as owned", func(t *testing.T) {
+		bucketCfgs := []*bucketConfig{
+			{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 100, true, true, nil, 0},
+		}
+		candCfgs := []*candidateConfig{
+			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "test1"},
+		}
+		sm, p, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
+		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
+		// csm, err := NewCandidateStateManager(sm, false)
+		nonce := uint64(1)
+		act, err := action.NewChangeCandidate(nonce, "test1", buckets[0].Index, nil, 10000, big.NewInt(unit.Qev))
+		r.NoError(err)
+		intrinsic, err := act.IntrinsicGas()
+		r.NoError(err)
+		ctx := context.Background()
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g.ToBeEnabledBlockHeight = 0
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+			Caller:       identityset.Address(1),
+			GasPrice:     big.NewInt(unit.Qev),
+			IntrinsicGas: intrinsic,
+			Nonce:        nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    2,
+			BlockTimeStamp: time.Now(),
+			GasLimit:       1000000,
+		})
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		recipt, err := p.Handle(ctx, act, sm)
+		r.NoError(err)
+		r.EqualValues(iotextypes.ReceiptStatus_ErrInvalidBucketType, recipt.Status)
+	})
+	t.Run("Self-Staked with endorsement", func(t *testing.T) {
+		bucketCfgs := []*bucketConfig{
+			{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 100, true, true, nil, 0},
+		}
+		candCfgs := []*candidateConfig{
+			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "test1"},
+		}
+		sm, p, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
+		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
+		esm := NewEndorsementStateManager(sm)
+		err := esm.Put(buckets[0].Index, &Endorsement{ExpireHeight: endorsementNotExpireHeight})
+		r.NoError(err)
+		nonce := uint64(1)
+		act, err := action.NewChangeCandidate(nonce, "test1", buckets[0].Index, nil, 10000, big.NewInt(unit.Qev))
+		r.NoError(err)
+		intrinsic, err := act.IntrinsicGas()
+		r.NoError(err)
+		ctx := context.Background()
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g.ToBeEnabledBlockHeight = 0
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+			Caller:       identityset.Address(1),
+			GasPrice:     big.NewInt(unit.Qev),
+			IntrinsicGas: intrinsic,
+			Nonce:        nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    2,
+			BlockTimeStamp: time.Now(),
+			GasLimit:       1000000,
+		})
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		recipt, err := p.Handle(ctx, act, sm)
+		r.NoError(err)
+		r.EqualValues(iotextypes.ReceiptStatus_ErrInvalidBucketType, recipt.Status)
+	})
+	t.Run("Endorsement is withdrawing", func(t *testing.T) {
+		bucketCfgs := []*bucketConfig{
+			{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 100, true, false, nil, 0},
+		}
+		candCfgs := []*candidateConfig{
+			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "test1"},
+		}
+		sm, p, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
+		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
+		esm := NewEndorsementStateManager(sm)
+		err := esm.Put(buckets[0].Index, &Endorsement{ExpireHeight: 10})
+		r.NoError(err)
+		nonce := uint64(1)
+		act, err := action.NewChangeCandidate(nonce, "test1", buckets[0].Index, nil, 10000, big.NewInt(unit.Qev))
+		r.NoError(err)
+		intrinsic, err := act.IntrinsicGas()
+		r.NoError(err)
+		ctx := context.Background()
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g.ToBeEnabledBlockHeight = 0
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+			Caller:       identityset.Address(1),
+			GasPrice:     big.NewInt(unit.Qev),
+			IntrinsicGas: intrinsic,
+			Nonce:        nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    2,
+			BlockTimeStamp: time.Now(),
+			GasLimit:       1000000,
+		})
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		recipt, err := p.Handle(ctx, act, sm)
+		r.NoError(err)
+		r.EqualValues(iotextypes.ReceiptStatus_ErrInvalidBucketType, recipt.Status)
+	})
+	t.Run("Endorsement is expired", func(t *testing.T) {
+		bucketCfgs := []*bucketConfig{
+			{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 100, true, false, nil, 1},
+		}
+		candCfgs := []*candidateConfig{
+			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "test1"},
+		}
+		sm, p, buckets, _ := initTestStateWithHeight(t, ctrl, bucketCfgs, candCfgs, 2)
+		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
+		nonce := uint64(1)
+		act, err := action.NewChangeCandidate(nonce, "test1", buckets[0].Index, nil, 10000, big.NewInt(unit.Qev))
+		r.NoError(err)
+		intrinsic, err := act.IntrinsicGas()
+		r.NoError(err)
+		ctx := context.Background()
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g.ToBeEnabledBlockHeight = 0
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+			Caller:       identityset.Address(1),
+			GasPrice:     big.NewInt(unit.Qev),
+			IntrinsicGas: intrinsic,
+			Nonce:        nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    2,
+			BlockTimeStamp: time.Now(),
+			GasLimit:       1000000,
+		})
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		recipt, err := p.Handle(ctx, act, sm)
+		r.NoError(err)
+		r.EqualValues(iotextypes.ReceiptStatus_Success, recipt.Status)
+	})
+}
+
+func TestUnstake(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	t.Run("Self-Staked as owned", func(t *testing.T) {
+		bucketCfgs := []*bucketConfig{
+			{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 100, false, true, nil, 0},
+		}
+		candCfgs := []*candidateConfig{
+			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "test1"},
+		}
+		sm, p, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
+		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
+		nonce := uint64(1)
+		act, err := action.NewUnstake(nonce, buckets[0].Index, nil, 10000, big.NewInt(unit.Qev))
+		r.NoError(err)
+		intrinsic, err := act.IntrinsicGas()
+		r.NoError(err)
+		ctx := context.Background()
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g.ToBeEnabledBlockHeight = 0
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+			Caller:       identityset.Address(1),
+			GasPrice:     big.NewInt(unit.Qev),
+			IntrinsicGas: intrinsic,
+			Nonce:        nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    2,
+			BlockTimeStamp: time.Now(),
+			GasLimit:       1000000,
+		})
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		recipt, err := p.Handle(ctx, act, sm)
+		r.NoError(err)
+		r.EqualValues(iotextypes.ReceiptStatus_Success, recipt.Status)
+	})
+	t.Run("Self-Staked with endorsement", func(t *testing.T) {
+		bucketCfgs := []*bucketConfig{
+			{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 100, false, true, nil, 0},
+		}
+		candCfgs := []*candidateConfig{
+			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "test1"},
+		}
+		sm, p, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
+		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
+		esm := NewEndorsementStateManager(sm)
+		err := esm.Put(buckets[0].Index, &Endorsement{ExpireHeight: endorsementNotExpireHeight})
+		r.NoError(err)
+		nonce := uint64(1)
+		act, err := action.NewUnstake(nonce, buckets[0].Index, nil, 10000, big.NewInt(unit.Qev))
+		r.NoError(err)
+		intrinsic, err := act.IntrinsicGas()
+		r.NoError(err)
+		ctx := context.Background()
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g.ToBeEnabledBlockHeight = 0
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+			Caller:       identityset.Address(1),
+			GasPrice:     big.NewInt(unit.Qev),
+			IntrinsicGas: intrinsic,
+			Nonce:        nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    2,
+			BlockTimeStamp: time.Now(),
+			GasLimit:       1000000,
+		})
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		recipt, err := p.Handle(ctx, act, sm)
+		r.NoError(err)
+		r.EqualValues(iotextypes.ReceiptStatus_ErrInvalidBucketType, recipt.Status)
+	})
+	t.Run("Endorsement is withdrawing", func(t *testing.T) {
+		bucketCfgs := []*bucketConfig{
+			{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 100, true, false, nil, 0},
+		}
+		candCfgs := []*candidateConfig{
+			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "test1"},
+		}
+		sm, p, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
+		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
+		esm := NewEndorsementStateManager(sm)
+		err := esm.Put(buckets[0].Index, &Endorsement{ExpireHeight: 10})
+		r.NoError(err)
+		nonce := uint64(1)
+		act, err := action.NewUnstake(nonce, buckets[0].Index, nil, 10000, big.NewInt(unit.Qev))
+		r.NoError(err)
+		intrinsic, err := act.IntrinsicGas()
+		r.NoError(err)
+		ctx := context.Background()
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g.ToBeEnabledBlockHeight = 0
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+			Caller:       identityset.Address(1),
+			GasPrice:     big.NewInt(unit.Qev),
+			IntrinsicGas: intrinsic,
+			Nonce:        nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    2,
+			BlockTimeStamp: time.Now(),
+			GasLimit:       1000000,
+		})
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		recipt, err := p.Handle(ctx, act, sm)
+		r.NoError(err)
+		r.EqualValues(iotextypes.ReceiptStatus_ErrInvalidBucketType, recipt.Status)
+	})
+	t.Run("Endorsement is expired", func(t *testing.T) {
+		bucketCfgs := []*bucketConfig{
+			{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 100, false, false, nil, 1},
+		}
+		candCfgs := []*candidateConfig{
+			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "test1"},
+		}
+		sm, p, buckets, _ := initTestStateWithHeight(t, ctrl, bucketCfgs, candCfgs, 1)
+		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
+		nonce := uint64(1)
+		act, err := action.NewUnstake(nonce, buckets[0].Index, nil, 10000, big.NewInt(unit.Qev))
+		r.NoError(err)
+		intrinsic, err := act.IntrinsicGas()
+		r.NoError(err)
+		ctx := context.Background()
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g.ToBeEnabledBlockHeight = 0
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+			Caller:       identityset.Address(1),
+			GasPrice:     big.NewInt(unit.Qev),
+			IntrinsicGas: intrinsic,
+			Nonce:        nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    2,
+			BlockTimeStamp: time.Now(),
+			GasLimit:       1000000,
+		})
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		recipt, err := p.Handle(ctx, act, sm)
+		r.NoError(err)
+		r.EqualValues(iotextypes.ReceiptStatus_Success, recipt.Status)
+	})
+}
+
 func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.Address, initBalance int64, gasPrice *big.Int, gasLimit uint64, nonce uint64, blkHeight uint64, blkTimestamp time.Time, blkGasLimit uint64, p *Protocol, candidate *Candidate, amount string, autoStake bool) (context.Context, *big.Int) {
 	require := require.New(t)
 	require.NoError(setupAccount(sm, callerAddr, initBalance))
