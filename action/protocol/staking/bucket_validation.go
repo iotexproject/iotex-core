@@ -6,6 +6,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slices"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/state"
@@ -76,28 +77,27 @@ func validateBucketSelfStake(featureCtx protocol.FeatureCtx, csm CandidateStateM
 	return nil
 }
 
-func validateBucketEndorsement(esm *EndorsementStateManager, bucket *VoteBucket, isEndorsed bool, height uint64) ReceiptError {
-	var status EndorsementStatus
-	if isEndorsed {
-		status = Endorsed | UnEndorsing
-	} else {
-		status = WithoutEndorsement | EndorseExpired
-	}
-	return validateBucketEndorsementByStatus(esm, bucket, status, height)
+func validateBucketWithEndorsement(esm *EndorsementStateManager, bucket *VoteBucket, height uint64) ReceiptError {
+	return validateBucketEndorsementByStatus(esm, bucket, []EndorsementStatus{Endorsed, UnEndorsing}, height)
 }
 
-func validateBucketEndorsementByStatus(esm *EndorsementStateManager, bucket *VoteBucket, status EndorsementStatus, height uint64) ReceiptError {
+func validateBucketWithoutEndorsement(esm *EndorsementStateManager, bucket *VoteBucket, height uint64) ReceiptError {
+	return validateBucketEndorsementByStatus(esm, bucket, []EndorsementStatus{EndorseExpired}, height)
+}
+
+func validateBucketEndorsementByStatus(esm *EndorsementStateManager, bucket *VoteBucket, validStatus []EndorsementStatus, height uint64) ReceiptError {
 	endorse, err := esm.Get(bucket.Index)
 	switch {
 	case err == nil:
-		if !status.Contain(endorse.Status(height)) {
+		st := endorse.Status(height)
+		if slices.Index(validStatus, st) < 0 {
 			return &handleError{
-				err:           errors.Errorf("bucket endorsement is not in status %d", status),
+				err:           errors.Errorf("bucket endorsement status is %s", st),
 				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 			}
 		}
 	case errors.Is(err, state.ErrStateNotExist):
-		if !status.Contain(WithoutEndorsement) {
+		if slices.Index(validStatus, EndorseExpired) < 0 {
 			return &handleError{
 				err:           errors.New("bucket is not an endorse bucket"),
 				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
