@@ -1,4 +1,4 @@
-// Copyright (c) 2023 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -74,6 +74,7 @@ func defaultConfig() Genesis {
 			QuebecBlockHeight:       24838201,
 			RedseaBlockHeight:       26704441,
 			SumatraBlockHeight:      28516681,
+			TsunamiBlockHeight:      38516681,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
@@ -249,6 +250,11 @@ type (
 		RedseaBlockHeight uint64 `yaml:"redseaHeight"`
 		// SumatraBlockHeight is the start height to enable Shanghai EVM
 		SumatraBlockHeight uint64 `yaml:"sumatraHeight"`
+		// TsunamiBlockHeight is the start height to
+		// 1. enable delegate endorsement
+		// 2. generate transaction log for Suicide() call in EVM
+		// 3. raise block gas limit to 50M
+		TsunamiBlockHeight uint64 `yaml:"tsunamiHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -593,6 +599,11 @@ func (g *Blockchain) IsRedsea(height uint64) bool {
 // IsSumatra checks whether height is equal to or larger than sumatra height
 func (g *Blockchain) IsSumatra(height uint64) bool {
 	return g.isPost(g.SumatraBlockHeight, height)
+}
+
+// IsTsunami checks whether height is equal to or larger than tsunami height
+func (g *Blockchain) IsTsunami(height uint64) bool {
+	return g.isPost(g.TsunamiBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
