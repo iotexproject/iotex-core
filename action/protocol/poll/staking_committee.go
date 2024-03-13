@@ -105,7 +105,7 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		return nil
 	}
 	blkCtx.Producer, _ = address.FromString(address.ZeroAddress)
-	blkCtx.GasLimit = g.BlockGasLimit
+	blkCtx.GasLimit = g.BlockGasLimitByHeight(0)
 	bytes, err := hexutil.Decode(g.NativeStakingContractCode)
 	if err != nil {
 		return err
@@ -114,7 +114,7 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		"",
 		_nativeStakingContractNonce,
 		big.NewInt(0),
-		g.BlockGasLimit,
+		g.BlockGasLimitByHeight(0),
 		big.NewInt(0),
 		bytes,
 	)

@@ -660,7 +660,7 @@ func SimulateExecution(
 		protocol.BlockCtx{
 			BlockHeight:    bcCtx.Tip.Height + 1,
 			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(g.BlockInterval),
-			GasLimit:       g.BlockGasLimit,
+			GasLimit:       g.BlockGasLimitByHeight(bcCtx.Tip.Height + 1),
 			Producer:       zeroAddr,
 		},
 	)
