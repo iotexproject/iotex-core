@@ -632,6 +632,18 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		stateDB.logError(err)
 		return
 	}
+	// restore transientStorage
+	stateDB.transientStorage = stateDB.transientStorageSnapshot[snapshot]
+	{
+		delete(stateDB.transientStorageSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.transientStorageSnapshot[i]; ok {
+				delete(stateDB.transientStorageSnapshot, i)
+			} else {
+				break
+			}
+		}
+	}
 	ds, ok := stateDB.suicideSnapshot[snapshot]
 	if !ok {
 		// this should not happen, b/c we save the suicide accounts on a successful return of Snapshot(), but check anyway

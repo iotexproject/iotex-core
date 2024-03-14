@@ -936,41 +936,44 @@ func TestSortMap(t *testing.T) {
 }
 
 func TestStateDBTransientStorage(t *testing.T) {
-	// ctrl := gomock.NewController(t)
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
+	var opts []StateDBAdapterOption
+	opts = append(opts,
+		NotFixTopicCopyBugOption(),
+		FixSnapshotOrderOption(),
+	)
+	state, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := common.Hash{0x01}
+	value := common.Hash{0x02}
+	addr := common.Address{}
 
-	// sm := mock_chainmanager.NewMockStateManager(ctrl)
-	// var opts []StateDBAdapterOption
-	// opts = append(opts,
-	// 	NotFixTopicCopyBugOption(),
-	// 	FixSnapshotOrderOption(),
-	// )
-	// stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// key := common.Hash{0x01}
-	// value := common.Hash{0x02}
-	// addr := common.Address{}
+	sn := state.Snapshot()
+	state.SetTransientState(addr, key, value)
+	if exp, got := 0, sn; exp != got {
+		t.Fatalf("journal length mismatch: have %d, want %d", got, exp)
+	}
+	// the retrieved value should equal what was set
+	if got := state.GetTransientState(addr, key); got != value {
+		t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
+	}
 
-	// state.SetTransientState(addr, key, value)
-	// if exp, got := 1, state.journal.length(); exp != got {
-	// 	t.Fatalf("journal length mismatch: have %d, want %d", got, exp)
-	// }
-	// // the retrieved value should equal what was set
-	// if got := state.GetTransientState(addr, key); got != value {
-	// 	t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
-	// }
-
-	// // revert the transient state being set and then check that the
-	// // value is now the empty hash
+	// revert the transient state being set and then check that the
+	// value is now the empty hash
 	// state.journal.revert(state, 0)
-	// if got, exp := state.GetTransientState(addr, key), (common.Hash{}); exp != got {
-	// 	t.Fatalf("transient storage mismatch: have %x, want %x", got, exp)
-	// }
+	state.RevertToSnapshot(sn)
+	if got, exp := state.GetTransientState(addr, key), (common.Hash{}); exp != got {
+		t.Fatalf("transient storage mismatch: have %x, want %x", got, exp)
+	}
 
-	// // set transient state and then copy the statedb and ensure that
-	// // the transient state is copied
-	// state.SetTransientState(addr, key, value)
+	// set transient state and then copy the statedb and ensure that
+	// the transient state is copied
+	state.SetTransientState(addr, key, value)
 	// cpy := state.Copy()
 	// if got := cpy.GetTransientState(addr, key); got != value {
 	// 	t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
