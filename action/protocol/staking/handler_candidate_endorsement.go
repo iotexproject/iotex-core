@@ -87,5 +87,5 @@ func (p *Protocol) validateEndorsementWithdrawal(ctx context.Context, esm *Endor
 	if err := validateBucketOwner(bucket, caller); err != nil {
 		return err
 	}
-	return validateBucketEndorsementByStatus(esm, bucket, []EndorsementStatus{Endorsed}, protocol.MustGetBlockCtx(ctx).BlockHeight)
+	return validateBucketEndorsementWithdrawal(esm, bucket, protocol.MustGetBlockCtx(ctx).BlockHeight)
 }
