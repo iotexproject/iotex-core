@@ -46,14 +46,16 @@ func NewGasStation(bc blockchain.Blockchain, dao BlockDAO, cfg Config) *GasStati
 
 // SuggestGasPrice suggest gas price
 func (gs *GasStation) SuggestGasPrice() (uint64, error) {
-	var smallestPrices []*big.Int
-	tip := gs.bc.TipHeight()
-
-	endBlockHeight := uint64(0)
+	var (
+		smallestPrices []*big.Int
+		endBlockHeight uint64
+		tip            = gs.bc.TipHeight()
+		g              = gs.bc.Genesis()
+	)
 	if tip > uint64(gs.cfg.SuggestBlockWindow) {
 		endBlockHeight = tip - uint64(gs.cfg.SuggestBlockWindow)
 	}
-	maxGas := gs.bc.Genesis().BlockGasLimit * (tip - endBlockHeight)
+	maxGas := g.BlockGasLimitByHeight(tip) * (tip - endBlockHeight)
 	defaultGasPrice := gs.cfg.DefaultGas
 	gasConsumed := uint64(0)
 	for height := tip; height > endBlockHeight; height-- {
