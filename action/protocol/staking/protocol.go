@@ -469,6 +469,10 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 		return p.validateCandidateRegister(ctx, act)
 	case *action.CandidateUpdate:
 		return p.validateCandidateUpdate(ctx, act)
+	case *action.CandidateActivate:
+		return p.validateCandidateActivate(ctx, act)
+	case *action.CandidateEndorsement:
+		return p.validateCandidateEndorsement(ctx, act)
 	}
 	return nil
 }
