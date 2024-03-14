@@ -35,7 +35,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 		{identityset.Address(1), identityset.Address(1), "1", 1, true, false, nil, 0},
 		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, true, false, nil, 0},
 		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, true, false, &timeBeforeBlockII, 0},
-		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, 0},
+		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, endorsementNotExpireHeight},
 		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 30, true, false, nil, 0},
 		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, false, nil, 0},
 		{identityset.Address(2), identityset.Address(2), "1200000000000000000000000", 30, true, true, nil, 0},
@@ -511,7 +511,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 			})
 			cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
 			cfg.ToBeEnabledBlockHeight = 1
-			ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 			require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
 			if test.err != nil {
