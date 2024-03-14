@@ -489,7 +489,7 @@ func TestNativeStaking(t *testing.T) {
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.BootstrapCandidates = testInitCands
 	cfg.Genesis.FbkMigrationBlockHeight = 1
-	cfg.Genesis.ToBeEnabledBlockHeight = 0
+	cfg.Genesis.TsunamiBlockHeight = 0
 	cfg.Genesis.EndorsementWithdrawWaitingBlocks = 10
 
 	t.Run("test native staking", func(t *testing.T) {

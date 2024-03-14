@@ -510,7 +510,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				GasLimit:       test.blkGasLimit,
 			})
 			cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
-			cfg.ToBeEnabledBlockHeight = 1
+			cfg.TsunamiBlockHeight = 1
 			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 			require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
