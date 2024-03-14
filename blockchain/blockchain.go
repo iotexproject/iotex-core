@@ -7,6 +7,7 @@ package blockchain
 
 import (
 	"context"
+	"os"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -28,12 +29,15 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
 // const
 const (
 	SigP256k1  = "secp256k1"
 	SigP256sm2 = "p256sm2"
+
+	fileSizeCollectInterval = 30 * time.Second
 )
 
 var (
@@ -45,6 +49,14 @@ var (
 		},
 		[]string{"type"},
 	)
+	fileSizeMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_file_size_metrics",
+			Help: "File size metrics.",
+		},
+		[]string{"path"},
+	)
+
 	// ErrInvalidTipHeight is the error returned when the block height is not valid
 	ErrInvalidTipHeight = errors.New("invalid tip height")
 	// ErrInvalidBlock is the error returned when the block is not valid
@@ -59,6 +71,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(_blockMtc)
+	prometheus.MustRegister(fileSizeMtc)
 }
 
 type (
@@ -190,7 +203,29 @@ func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf Blo
 	}
 	chain.lifecycle.Add(chain.dao)
 	chain.lifecycle.Add(chain.pubSubManager)
-
+	// add file size collect task
+	files := []string{
+		cfg.ChainDBPath,
+		cfg.TrieDBPath,
+		cfg.TrieDBPatchFile,
+		cfg.IndexDBPath,
+		cfg.BloomfilterIndexDBPath,
+		cfg.CandidateIndexDBPath,
+		cfg.StakingIndexDBPath,
+		cfg.SGDIndexDBPath,
+		cfg.ContractStakingIndexDBPath,
+	}
+	collectTask := routine.NewRecurringTask(func() {
+		for _, file := range files {
+			size, err := fileSize(file)
+			if err != nil {
+				log.L().Warn("Failed to get file size.", zap.Error(err))
+				continue
+			}
+			fileSizeMtc.WithLabelValues(file).Set(float64(size))
+		}
+	}, fileSizeCollectInterval)
+	chain.lifecycle.Add(collectTask)
 	return chain
 }
 
@@ -488,4 +523,12 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 		return
 	}
 	bc.pubSubManager.SendBlockToSubscribers(blk)
+}
+
+func fileSize(path string) (int64, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0, err
+	}
+	return info.Size(), nil
 }
