@@ -1350,8 +1350,8 @@ func TestContractStaking(t *testing.T) {
 		r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 		buckets, err := indexer.Buckets(blk.Height())
 		r.NoError(err)
-		slices.SortFunc(buckets, func(i, j *contractstaking.Bucket) bool {
-			return i.Index < j.Index
+		slices.SortFunc(buckets, func(i, j *contractstaking.Bucket) int {
+			return int(i.Index - j.Index)
 		})
 		bt := buckets[len(buckets)-1]
 		tokenID := bt.Index
@@ -1578,8 +1578,8 @@ func TestContractStaking(t *testing.T) {
 		}
 		buckets, err := indexer.Buckets(blk.Height())
 		r.NoError(err)
-		slices.SortFunc(buckets, func(i, j *contractstaking.Bucket) bool {
-			return i.Index < j.Index
+		slices.SortFunc(buckets, func(i, j *contractstaking.Bucket) int {
+			return int(i.Index - j.Index)
 		})
 		r.True(len(buckets) >= 10)
 		// merge
@@ -2140,8 +2140,8 @@ func stake(lsdABI abi.ABI, bc blockchain.Blockchain, sf factory.Factory, dao blo
 	r.EqualValues(iotextypes.ReceiptStatus_Success, receipts[0].Status)
 	buckets, err := indexer.Buckets(blk.Height())
 	r.NoError(err)
-	slices.SortFunc(buckets, func(i, j *contractstaking.Bucket) bool {
-		return i.Index < j.Index
+	slices.SortFunc(buckets, func(i, j *contractstaking.Bucket) int {
+		return int(i.Index - j.Index)
 	})
 	bt := buckets[len(buckets)-1]
 	return bt

@@ -168,14 +168,14 @@ func TestMustGetActionCtx(t *testing.T) {
 
 func TestWithVMConfigCtx(t *testing.T) {
 	require := require.New(t)
-	require.NotNil(WithVMConfigCtx(context.Background(), vm.Config{Debug: true}))
+	require.NotNil(WithVMConfigCtx(context.Background(), vm.Config{}))
 }
 
 func TestGetVMConfigCtx(t *testing.T) {
 	require := require.New(t)
-	ctx := WithVMConfigCtx(context.Background(), vm.Config{Debug: true})
+	ctx := WithVMConfigCtx(context.Background(), vm.Config{NoBaseFee: true})
 	require.NotNil(ctx)
 	ret, ok := GetVMConfigCtx(ctx)
 	require.True(ok)
-	require.True(ret.Debug)
+	require.True(ret.NoBaseFee)
 }

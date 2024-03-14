@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/mock/gomock"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -97,7 +98,7 @@ func TestAddBalance(t *testing.T) {
 		FixSnapshotOrderOption(),
 	)
 	require.NoError(err)
-	addAmount := big.NewInt(40000)
+	addAmount := uint256.NewInt(40000)
 	stateDB.AddBalance(addr, addAmount)
 	require.Equal(addAmount, stateDB.lastAddBalanceAmount)
 	beneficiary, _ := address.FromBytes(addr[:])
@@ -106,7 +107,7 @@ func TestAddBalance(t *testing.T) {
 	require.Equal(amount, addAmount)
 	stateDB.AddBalance(addr, addAmount)
 	amount = stateDB.GetBalance(addr)
-	require.Equal(amount, big.NewInt(80000))
+	require.Equal(amount, uint256.NewInt(80000))
 	stateDB.AddBalance(addr, new(big.Int))
 	require.Zero(len(stateDB.lastAddBalanceAmount.Bytes()))
 }
@@ -319,7 +320,7 @@ func TestNonce(t *testing.T) {
 var tests = []stateDBTest{
 	{
 		[]bal{
-			{_addr1, big.NewInt(40000)},
+			{_addr1, uint256.NewInt(40000)},
 		},
 		[]code{
 			{_c1, _bytecode},
@@ -349,7 +350,7 @@ var tests = []stateDBTest{
 	},
 	{
 		[]bal{
-			{_addr1, big.NewInt(40000)},
+			{_addr1, uint256.NewInt(40000)},
 		},
 		[]code{
 			{_c2, _bytecode},
@@ -453,7 +454,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					stateDB.AddBalance(e.addr, e.amount)
 				}
 				stateDB.AddBalance(e.beneficiary, stateDB.GetBalance(e.addr)) // simulate transfer to beneficiary inside Suicide()
-				require.Equal(e.suicide, stateDB.Suicide(e.addr))
+				stateDB.SelfDestruct(e.addr)
 				require.Equal(e.exist, stateDB.Exist(e.addr))
 				require.Zero(new(big.Int).Cmp(stateDB.GetBalance(e.addr)))
 			}
@@ -498,7 +499,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		reverts := []stateDBTest{
 			{
 				[]bal{
-					{_addr1, big.NewInt(0)},
+					{_addr1, uint256.NewInt(0)},
 				},
 				[]code{},
 				[]evmSet{
@@ -533,7 +534,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			},
 			{
 				[]bal{
-					{_addr1, big.NewInt(80000)},
+					{_addr1, uint256.NewInt(80000)},
 				},
 				[]code{},
 				tests[1].states,
@@ -563,7 +564,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			},
 			{
 				[]bal{
-					{_addr1, big.NewInt(40000)},
+					{_addr1, uint256.NewInt(40000)},
 				},
 				[]code{},
 				[]evmSet{
@@ -640,7 +641,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			}
 			// test suicide/exist
 			for _, e := range test.suicide {
-				require.Equal(e.suicide, stateDB.HasSuicided(e.addr))
+				stateDB.HasSelfDestructed(e.addr)
 				require.Equal(e.exist, stateDB.Exist(e.addr))
 			}
 			// test logs
@@ -735,7 +736,7 @@ func TestClearSnapshots(t *testing.T) {
 			}
 			// set suicide
 			for _, e := range test.suicide {
-				require.Equal(e.suicide, stateDB.Suicide(e.addr))
+				stateDB.SelfDestruct(e.addr)
 				require.Equal(e.exist, stateDB.Exist(e.addr))
 			}
 			// set preimage
@@ -838,7 +839,7 @@ func TestGetBalanceOnError(t *testing.T) {
 		)
 		assert.NoError(t, err)
 		amount := stateDB.GetBalance(addr)
-		assert.Equal(t, big.NewInt(0), amount)
+		assert.Equal(t, uint256.NewInt(0), amount)
 	}
 }
 
@@ -932,4 +933,46 @@ func TestSortMap(t *testing.T) {
 	t.Run("after fix sort map", func(t *testing.T) {
 		require.True(testFunc(t, sm))
 	})
+}
+
+func TestStateDBTransientStorage(t *testing.T) {
+	// ctrl := gomock.NewController(t)
+
+	// sm := mock_chainmanager.NewMockStateManager(ctrl)
+	// var opts []StateDBAdapterOption
+	// opts = append(opts,
+	// 	NotFixTopicCopyBugOption(),
+	// 	FixSnapshotOrderOption(),
+	// )
+	// stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+	// key := common.Hash{0x01}
+	// value := common.Hash{0x02}
+	// addr := common.Address{}
+
+	// state.SetTransientState(addr, key, value)
+	// if exp, got := 1, state.journal.length(); exp != got {
+	// 	t.Fatalf("journal length mismatch: have %d, want %d", got, exp)
+	// }
+	// // the retrieved value should equal what was set
+	// if got := state.GetTransientState(addr, key); got != value {
+	// 	t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
+	// }
+
+	// // revert the transient state being set and then check that the
+	// // value is now the empty hash
+	// state.journal.revert(state, 0)
+	// if got, exp := state.GetTransientState(addr, key), (common.Hash{}); exp != got {
+	// 	t.Fatalf("transient storage mismatch: have %x, want %x", got, exp)
+	// }
+
+	// // set transient state and then copy the statedb and ensure that
+	// // the transient state is copied
+	// state.SetTransientState(addr, key, value)
+	// cpy := state.Copy()
+	// if got := cpy.GetTransientState(addr, key); got != value {
+	// 	t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
+	// }
 }

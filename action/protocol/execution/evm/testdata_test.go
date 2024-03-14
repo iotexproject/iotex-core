@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/hash"
 )
 
@@ -23,7 +24,7 @@ type (
 	// test vector for StateDBAdapter
 	bal struct {
 		addr common.Address
-		v    *big.Int
+		v    *uint256.Int
 	}
 	code struct {
 		addr common.Address

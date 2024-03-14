@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -239,8 +240,8 @@ func (stateDB *StateDBAdapter) CreateAccount(evmAddr common.Address) {
 }
 
 // SubBalance subtracts balance from account
-func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.Int) {
-	if amount.Cmp(big.NewInt(int64(0))) == 0 {
+func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *uint256.Int) {
+	if amount.Cmp(uint256.NewInt(0)) == 0 {
 		return
 	}
 	// stateDB.GetBalance(evmAddr)
@@ -256,7 +257,7 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.In
 		stateDB.logError(err)
 		return
 	}
-	if err := state.SubBalance(amount); err != nil {
+	if err := state.SubBalance(amount.ToBig()); err != nil {
 		log.L().Error("Failed to sub balance.", zap.Error(err))
 		stateDB.logError(err)
 		return
@@ -268,9 +269,9 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.In
 }
 
 // AddBalance adds balance to account
-func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.Int) {
+func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *uint256.Int) {
 	stateDB.lastAddBalanceAmount.SetUint64(0)
-	if amount.Cmp(big.NewInt(int64(0))) == 0 {
+	if amount.Cmp(uint256.NewInt(0)) == 0 {
 		return
 	}
 	// stateDB.GetBalance(evmAddr)
@@ -295,7 +296,7 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 			return
 		}
 	}
-	if err := state.AddBalance(amount); err != nil {
+	if err := state.AddBalance(amount.ToBig()); err != nil {
 		log.L().Error("failed to add balance", zap.Error(err), zap.String("amount", amount.String()))
 		stateDB.logError(err)
 		return
@@ -311,15 +312,15 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 }
 
 // GetBalance gets the balance of account
-func (stateDB *StateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
+func (stateDB *StateDBAdapter) GetBalance(evmAddr common.Address) *uint256.Int {
 	state, err := stateDB.accountState(evmAddr)
 	if err != nil {
 		log.L().Error("Failed to get balance.", zap.Error(err))
-		return big.NewInt(0)
+		return uint256.NewInt(0)
 	}
 	log.L().Debug(fmt.Sprintf("Balance of %s is %v", evmAddr.Hex(), state.Balance))
 
-	return state.Balance
+	return uint256.MustFromBig(state.Balance)
 }
 
 // IsNewAccount returns true if this is a new account
@@ -422,28 +423,50 @@ func (stateDB *StateDBAdapter) GetRefund() uint64 {
 	return stateDB.refund
 }
 
-// Suicide kills the contract
-func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
+// SelfDestruct kills the contract
+func (stateDB *StateDBAdapter) SelfDestruct(evmAddr common.Address) {
 	if !stateDB.Exist(evmAddr) {
 		log.L().Debug("Account does not exist.", zap.String("address", evmAddr.Hex()))
-		return false
+		return
 	}
 	s, err := stateDB.accountState(evmAddr)
 	if err != nil {
 		log.L().Debug("Failed to get account.", zap.String("address", evmAddr.Hex()))
-		return false
+		return
 	}
 	// clears the account balance
 	actBalance := new(big.Int).Set(s.Balance)
 	if err := s.SubBalance(s.Balance); err != nil {
 		log.L().Debug("failed to clear balance", zap.Error(err), zap.String("address", evmAddr.Hex()))
-		return false
+		return
 	}
 	addrHash := hash.BytesToHash160(evmAddr.Bytes())
 	if _, err := stateDB.sm.PutState(s, protocol.LegacyKeyOption(addrHash)); err != nil {
 		log.L().Error("Failed to kill contract.", zap.Error(err))
 		stateDB.logError(err)
-		return false
+		return
+	}
+	// To ensure data consistency, generate this log after the hard-fork
+	// a separate patch file will be created later to provide missing logs before the hard-fork
+	// TODO: remove this gating once the hard-fork has passed
+	if stateDB.suicideTxLogMismatchPanic {
+		// before calling Suicide, EVM will transfer the contract's balance to beneficiary
+		// need to create a transaction log on successful suicide
+		if stateDB.lastAddBalanceAmount.Cmp(actBalance) == 0 {
+			if stateDB.lastAddBalanceAmount.Cmp(big.NewInt(0)) > 0 {
+				from, _ := address.FromBytes(evmAddr[:])
+				stateDB.addTransactionLogs(&action.TransactionLog{
+					Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
+					Sender:    from.String(),
+					Recipient: stateDB.lastAddBalanceAddr,
+					Amount:    stateDB.lastAddBalanceAmount,
+				})
+			}
+		} else {
+			log.L().Panic("suicide contract's balance does not match",
+				zap.String("suicide", actBalance.String()),
+				zap.String("beneficiary", stateDB.lastAddBalanceAmount.String()))
+		}
 	}
 	// To ensure data consistency, generate this log after the hard-fork
 	// a separate patch file will be created later to provide missing logs before the hard-fork
@@ -469,11 +492,10 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 	}
 	// mark it as deleted
 	stateDB.suicided[addrHash] = struct{}{}
-	return true
 }
 
-// HasSuicided returns whether the contract has been killed
-func (stateDB *StateDBAdapter) HasSuicided(evmAddr common.Address) bool {
+// HasSelfDestructed returns whether the contract has been killed
+func (stateDB *StateDBAdapter) HasSelfDestructed(evmAddr common.Address) bool {
 	addrHash := hash.BytesToHash160(evmAddr.Bytes())
 	_, ok := stateDB.suicided[addrHash]
 	return ok
@@ -488,6 +510,11 @@ func (stateDB *StateDBAdapter) SetTransientState(addr common.Address, key, value
 
 	stateDB.setTransientState(addr, key, value)
 
+}
+
+// Selfdestruct6780 implements EIP-6780
+func (stateDB *StateDBAdapter) Selfdestruct6780(evmAddr common.Address) {
+	//Todo: implement EIP-6780
 }
 
 // setTransientState is a lower level setter for transient storage. It
