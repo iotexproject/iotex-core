@@ -53,8 +53,10 @@ type (
 		candVoteStr            string
 	}
 	expectBucket struct {
-		id        uint64
-		candidate address.Address
+		id                      uint64
+		candidate               address.Address
+		hasEndorsement          bool
+		endorsementExpireHeight uint64
 	}
 )
 
@@ -172,6 +174,7 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 91, true, false, nil, 1},
 		{identityset.Address(2), identityset.Address(2), "1200000000000000000000000", 91, true, false, nil, 0},
 		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, 0},
+		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, endorsementNotExpireHeight},
 	}
 	initCandidateCfgs := []*candidateConfig{
 		{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
@@ -331,7 +334,7 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 				{identityset.Address(1), 1, "1200000000000000000000000", "1635067133824581908640995"},
 			},
 			[]expectBucket{
-				{1, identityset.Address(1)},
+				{1, identityset.Address(1), false, 0},
 			},
 		},
 		{
@@ -369,8 +372,42 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 				{identityset.Address(2), 1, "1200000000000000000000000", "3104547800897814724407908"},
 			},
 			[]expectBucket{
-				{1, identityset.Address(2)},
+				{1, identityset.Address(2), false, 0},
 			},
+		},
+		{
+			"bucket is already selfstaked by endorsement",
+			[]uint64{0, 11},
+			[]uint64{0, 1},
+			1300000,
+			identityset.Address(2),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			1,
+			true,
+			nil,
+			iotextypes.ReceiptStatus_ErrInvalidBucketType,
+			nil,
+			nil,
+		},
+		{
+			"bucket has no endorsement",
+			[]uint64{0, 5},
+			[]uint64{0, 1},
+			1300000,
+			identityset.Address(2),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			1,
+			true,
+			nil,
+			iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+			nil,
+			nil,
 		},
 	}
 

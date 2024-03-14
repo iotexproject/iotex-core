@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 func validateBucketOwner(bucket *VoteBucket, owner address.Address) ReceiptError {
@@ -76,34 +75,52 @@ func validateBucketSelfStake(featureCtx protocol.FeatureCtx, csm CandidateStateM
 	return nil
 }
 
-func validateBucketEndorsement(esm *EndorsementStateManager, bucket *VoteBucket, isEndorsed bool, height uint64) ReceiptError {
-	endorse, err := esm.Get(bucket.Index)
-	switch {
-	case err == nil:
-		status := endorse.Status(height)
-		if isEndorsed && status == EndorseExpired {
-			return &handleError{
-				err:           errors.New("endorse bucket is expired"),
-				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
-			}
-		}
-		if !isEndorsed && status != EndorseExpired {
-			return &handleError{
-				err:           errors.New("bucket is already endorsed"),
-				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
-			}
-		}
-	case errors.Is(err, state.ErrStateNotExist):
-		if isEndorsed {
-			return &handleError{
-				err:           errors.New("bucket is not an endorse bucket"),
-				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
-			}
-		}
-	default:
+func validateBucketWithEndorsement(esm *EndorsementStateManager, bucket *VoteBucket, height uint64) ReceiptError {
+	status, err := esm.Status(bucket.Index, height)
+	if err != nil {
 		return &handleError{
 			err:           err,
 			failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
+		}
+	}
+	if status != Endorsed && status != UnEndorsing {
+		return &handleError{
+			err:           errors.Errorf("bucket is not an endorse bucket"),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+		}
+	}
+	return nil
+}
+
+func validateBucketWithoutEndorsement(esm *EndorsementStateManager, bucket *VoteBucket, height uint64) ReceiptError {
+	status, err := esm.Status(bucket.Index, height)
+	if err != nil {
+		return &handleError{
+			err:           err,
+			failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
+		}
+	}
+	if status != EndorseExpired {
+		return &handleError{
+			err:           errors.Errorf("bucket is still endorsed"),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+		}
+	}
+	return nil
+}
+
+func validateBucketEndorsementWithdrawal(esm *EndorsementStateManager, bucket *VoteBucket, height uint64) ReceiptError {
+	status, err := esm.Status(bucket.Index, height)
+	if err != nil {
+		return &handleError{
+			err:           err,
+			failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
+		}
+	}
+	if status != Endorsed {
+		return &handleError{
+			err:           errors.Errorf("bucket is not endorsed"),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
 	}
 	return nil
