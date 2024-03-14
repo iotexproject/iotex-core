@@ -965,17 +965,14 @@ func TestStateDBTransientStorage(t *testing.T) {
 
 	// revert the transient state being set and then check that the
 	// value is now the empty hash
-	// state.journal.revert(state, 0)
 	state.RevertToSnapshot(sn)
 	if got, exp := state.GetTransientState(addr, key), (common.Hash{}); exp != got {
 		t.Fatalf("transient storage mismatch: have %x, want %x", got, exp)
 	}
 
-	// set transient state and then copy the statedb and ensure that
-	// the transient state is copied
+	// reset transient state
 	state.SetTransientState(addr, key, value)
-	// cpy := state.Copy()
-	// if got := cpy.GetTransientState(addr, key); got != value {
-	// 	t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
-	// }
+	if got := state.GetTransientState(addr, key); got != value {
+		t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
+	}
 }
