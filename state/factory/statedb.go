@@ -142,7 +142,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 				BlockHeight:    0,
 				BlockTimeStamp: time.Unix(sdb.cfg.Genesis.Timestamp, 0),
 				Producer:       sdb.cfg.Chain.ProducerAddress(),
-				GasLimit:       sdb.cfg.Genesis.BlockGasLimit,
+				GasLimit:       sdb.cfg.Genesis.BlockGasLimitByHeight(0),
 			})
 		ctx = protocol.WithFeatureCtx(ctx)
 		// init the state factory
@@ -310,7 +310,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		protocol.BlockCtx{
 			BlockHeight:    blk.Height(),
 			BlockTimeStamp: blk.Timestamp(),
-			GasLimit:       g.BlockGasLimit,
+			GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
 			Producer:       producer,
 		},
 	)

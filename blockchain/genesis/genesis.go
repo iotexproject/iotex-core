@@ -1,4 +1,4 @@
-// Copyright (c) 2023 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -28,10 +28,10 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
-// Default contains the default genesis config
-var Default = defaultConfig()
-
 var (
+	// Default contains the default genesis config
+	Default = defaultConfig()
+
 	_genesisTs     int64
 	_loadGenesisTs sync.Once
 )
@@ -45,6 +45,7 @@ func defaultConfig() Genesis {
 		Blockchain: Blockchain{
 			Timestamp:               1546329600,
 			BlockGasLimit:           20000000,
+			TsunamiBlockGasLimit:    50000000,
 			ActionGasLimit:          5000000,
 			BlockInterval:           10 * time.Second,
 			NumSubEpochs:            2,
@@ -74,6 +75,7 @@ func defaultConfig() Genesis {
 			QuebecBlockHeight:       24838201,
 			RedseaBlockHeight:       26704441,
 			SumatraBlockHeight:      28516681,
+			TsunamiBlockHeight:      38516681,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
@@ -161,6 +163,8 @@ type (
 		Timestamp int64
 		// BlockGasLimit is the total gas limit could be consumed in a block
 		BlockGasLimit uint64 `yaml:"blockGasLimit"`
+		// TsunamiBlockGasLimit is the block gas limit starting Tsunami height (raised to 50M by default)
+		TsunamiBlockGasLimit uint64 `yaml:"tsunamiBlockGasLimit"`
 		// ActionGasLimit is the per action gas limit cap
 		ActionGasLimit uint64 `yaml:"actionGasLimit"`
 		// BlockInterval is the interval between two blocks
@@ -249,6 +253,11 @@ type (
 		RedseaBlockHeight uint64 `yaml:"redseaHeight"`
 		// SumatraBlockHeight is the start height to enable Shanghai EVM
 		SumatraBlockHeight uint64 `yaml:"sumatraHeight"`
+		// TsunamiBlockHeight is the start height to
+		// 1. enable delegate endorsement
+		// 2. generate transaction log for Suicide() call in EVM
+		// 3. raise block gas limit to 50M
+		TsunamiBlockHeight uint64 `yaml:"tsunamiHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -595,9 +604,22 @@ func (g *Blockchain) IsSumatra(height uint64) bool {
 	return g.isPost(g.SumatraBlockHeight, height)
 }
 
+// IsTsunami checks whether height is equal to or larger than tsunami height
+func (g *Blockchain) IsTsunami(height uint64) bool {
+	return g.isPost(g.TsunamiBlockHeight, height)
+}
+
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
 func (g *Blockchain) IsToBeEnabled(height uint64) bool {
 	return g.isPost(g.ToBeEnabledBlockHeight, height)
+}
+
+func (g *Blockchain) BlockGasLimitByHeight(height uint64) uint64 {
+	if g.isPost(g.TsunamiBlockHeight, height) {
+		// block gas limit raised to 50M after Tsunami block height
+		return g.TsunamiBlockGasLimit
+	}
+	return g.BlockGasLimit
 }
 
 // IsDeployerWhitelisted returns if the replay deployer is whitelisted

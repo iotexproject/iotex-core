@@ -119,6 +119,7 @@ type (
 		CandidateRegisterMustWithStake          bool
 		DisableDelegateEndorsement              bool
 		SuicideTxLogMismatchPanic               bool
+		RefactorFreshAccountConversion          bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -263,6 +264,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CandidateRegisterMustWithStake:          !g.IsToBeEnabled(height),
 			DisableDelegateEndorsement:              !g.IsToBeEnabled(height),
 			SuicideTxLogMismatchPanic:               g.IsToBeEnabled(height),
+			RefactorFreshAccountConversion:          g.IsToBeEnabled(height),
 		},
 	)
 }

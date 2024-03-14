@@ -49,6 +49,22 @@ func TestAccount_InitBalances(t *testing.T) {
 	require.Equal(InitBalanceMap["io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms"], balances[1].Text(10))
 }
 
+func TestTsunamiBlockGasLimit(t *testing.T) {
+	r := require.New(t)
+
+	cfg := Default
+	for _, v := range []struct {
+		height, gasLimit uint64
+	}{
+		{1, 20000000},
+		{cfg.TsunamiBlockHeight - 1, 20000000},
+		{cfg.TsunamiBlockHeight, 50000000},
+		{cfg.ToBeEnabledBlockHeight, 50000000},
+	} {
+		r.Equal(v.gasLimit, cfg.BlockGasLimitByHeight(v.height))
+	}
+}
+
 func TestDeployerWhitelist(t *testing.T) {
 	r := require.New(t)
 

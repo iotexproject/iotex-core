@@ -387,6 +387,11 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if !featureCtx.FixSortCacheContractsAndUsePendingNonce {
 		opts = append(opts, DisableSortCachedContractsOption(), UseConfirmedNonceOption())
 	}
+	// Before featureCtx.RefactorFreshAccountConversion is activated,
+	// the type of a legacy fresh account is always 1
+	if featureCtx.RefactorFreshAccountConversion {
+		opts = append(opts, ZeroNonceForFreshAccountOption())
+	}
 	if featureCtx.NotFixTopicCopyBug {
 		opts = append(opts, NotFixTopicCopyBugOption())
 	}
@@ -655,7 +660,7 @@ func SimulateExecution(
 		protocol.BlockCtx{
 			BlockHeight:    bcCtx.Tip.Height + 1,
 			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(g.BlockInterval),
-			GasLimit:       g.BlockGasLimit,
+			GasLimit:       g.BlockGasLimitByHeight(bcCtx.Tip.Height + 1),
 			Producer:       zeroAddr,
 		},
 	)

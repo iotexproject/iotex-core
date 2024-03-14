@@ -543,8 +543,20 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	if ctx, err = core.bc.Context(ctx); err != nil {
 		return "", nil, err
 	}
-	sc.SetNonce(state.PendingNonce())
-	blockGasLimit := core.bc.Genesis().BlockGasLimit
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: core.bc.TipHeight(),
+	}))
+	var pendingNonce uint64
+	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+		pendingNonce = state.PendingNonceConsideringFreshAccount()
+	} else {
+		pendingNonce = state.PendingNonce()
+	}
+	sc.SetNonce(pendingNonce)
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+	)
 	if sc.GasLimit() == 0 || blockGasLimit < sc.GasLimit() {
 		sc.SetGasLimit(blockGasLimit)
 	}
@@ -1486,10 +1498,22 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 	if err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
-	sc.SetNonce(state.PendingNonce())
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: core.bc.TipHeight(),
+	}))
+	var pendingNonce uint64
+	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+		pendingNonce = state.PendingNonceConsideringFreshAccount()
+	} else {
+		pendingNonce = state.PendingNonce()
+	}
+	sc.SetNonce(pendingNonce)
 	//gasprice should be 0, otherwise it may cause the API to return an error, such as insufficient balance.
 	sc.SetGasPrice(big.NewInt(0))
-	blockGasLimit := core.bc.Genesis().BlockGasLimit
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+	)
 	sc.SetGasLimit(blockGasLimit)
 	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc)
 	if err != nil {
@@ -1690,11 +1714,21 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 		return nil, nil, err
 	}
 	// TODO (liuhaai): Use original nonce and gas limit properly
-	exec.SetNonce(state.PendingNonce())
-	if err != nil {
-		return nil, nil, err
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: core.bc.TipHeight(),
+	}))
+	var pendingNonce uint64
+	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+		pendingNonce = state.PendingNonceConsideringFreshAccount()
+	} else {
+		pendingNonce = state.PendingNonce()
 	}
-	exec.SetGasLimit(core.bc.Genesis().BlockGasLimit)
+	exec.SetNonce(pendingNonce)
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+	)
+	exec.SetGasLimit(blockGasLimit)
 	return core.simulateExecution(ctx, addr, exec, core.dao.GetBlockHash, core.getBlockTime)
 }
 
@@ -1736,8 +1770,12 @@ func (core *coreService) TraceCall(ctx context.Context,
 	gasLimit uint64,
 	data []byte,
 	config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+	)
 	if gasLimit == 0 {
-		gasLimit = core.bc.Genesis().BlockGasLimit
+		gasLimit = blockGasLimit
 	}
 	ctx, err := core.bc.Context(ctx)
 	if err != nil {
@@ -1748,7 +1786,16 @@ func (core *coreService) TraceCall(ctx context.Context,
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		nonce = state.PendingNonce()
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight: core.bc.TipHeight(),
+		}))
+		var pendingNonce uint64
+		if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+			pendingNonce = state.PendingNonceConsideringFreshAccount()
+		} else {
+			pendingNonce = state.PendingNonce()
+		}
+		nonce = pendingNonce
 	}
 	exec, err := action.NewExecution(
 		contractAddress,

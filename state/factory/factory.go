@@ -220,7 +220,7 @@ func (sf *factory) Start(ctx context.Context) error {
 				BlockHeight:    0,
 				BlockTimeStamp: time.Unix(sf.cfg.Genesis.Timestamp, 0),
 				Producer:       sf.cfg.Chain.ProducerAddress(),
-				GasLimit:       sf.cfg.Genesis.BlockGasLimit,
+				GasLimit:       sf.cfg.Genesis.BlockGasLimitByHeight(0),
 			})
 		ctx = protocol.WithFeatureCtx(ctx)
 		// init the state factory
@@ -428,7 +428,7 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 		protocol.BlockCtx{
 			BlockHeight:    blk.Height(),
 			BlockTimeStamp: blk.Timestamp(),
-			GasLimit:       g.BlockGasLimit,
+			GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
 			Producer:       producer,
 		},
 	)
