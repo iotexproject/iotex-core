@@ -145,7 +145,7 @@ func initTestStateWithHeight(t *testing.T, ctrl *gomock.Controller, bucketCfgs [
 		candidates = append(candidates, cand)
 	}
 	cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
-	cfg.ToBeEnabledBlockHeight = 1
+	cfg.TsunamiBlockHeight = 1
 	ctx := genesis.WithGenesisContext(context.Background(), cfg)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := p.Start(ctx, sm)
@@ -432,7 +432,7 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 				GasLimit:       test.blkGasLimit,
 			})
 			cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
-			cfg.ToBeEnabledBlockHeight = 1
+			cfg.TsunamiBlockHeight = 1
 			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 			require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
