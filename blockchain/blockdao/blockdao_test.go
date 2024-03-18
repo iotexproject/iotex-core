@@ -111,7 +111,7 @@ func Test_blockDAO_Start(t *testing.T) {
 		p.ApplyPrivateMethod(&blockDAO{}, "checkIndexers", func(*blockDAO, context.Context) error { return nil })
 
 		err := blockdao.Start(context.Background())
-		r.Nil(err)
+		r.NoError(err)
 		r.Equal(blockdao.tipHeight, expectedHeight)
 	})
 }
@@ -142,11 +142,6 @@ func Test_blockDAO_checkIndexers(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		// p := gomonkey.NewPatches()
-		// defer p.Reset()
-
-		// p.ApplyMethodReturn(&BlockIndexerChecker{}, "CheckIndexer", nil)
-
 		var (
 			tipHeight = uint64(0)
 			daoTip    = uint64(0)
@@ -164,7 +159,7 @@ func Test_blockDAO_checkIndexers(t *testing.T) {
 		mockblockdao.EXPECT().GetBlockByHeight(gomock.Any()).Return(&block.Block{}, nil).Times(1)
 
 		err := blockdao.checkIndexers(ctx)
-		r.Nil(err)
+		r.NoError(err)
 	})
 }
 
