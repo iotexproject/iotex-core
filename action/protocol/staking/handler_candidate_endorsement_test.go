@@ -18,6 +18,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -34,7 +35,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 		{identityset.Address(1), identityset.Address(1), "1", 1, true, false, nil, 0},
 		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, true, false, nil, 0},
 		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, true, false, &timeBeforeBlockII, 0},
-		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, 0},
+		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, endorsementNotExpireHeight},
 		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 30, true, false, nil, 0},
 		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, false, nil, 0},
 		{identityset.Address(2), identityset.Address(2), "1200000000000000000000000", 30, true, true, nil, 0},
@@ -42,6 +43,9 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 91, true, false, nil, 1},
 		{identityset.Address(2), identityset.Address(2), "1200000000000000000000000", 91, true, false, nil, 0},
 		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, false, false, nil, 0},
+		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, endorsementNotExpireHeight},
+		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, 10},
+		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, 1},
 	}
 	initCandidateCfgs := []*candidateConfig{
 		{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
@@ -235,8 +239,8 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				{identityset.Address(1), candidateNoSelfStakeBucketIndex, "0", "1542516163985454635820817"},
 			},
 			[]expectBucket{
-				{0, identityset.Address(1)},
-				{1, identityset.Address(1)},
+				{0, identityset.Address(1), false, 0},
+				{1, identityset.Address(1), true, endorsementNotExpireHeight},
 			},
 		},
 		{
@@ -384,6 +388,105 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 			[]expectCandidate{},
 			nil,
 		},
+		{
+			"endorsement withdraw if bucket is self-staked but without endorsement",
+			[]uint64{6},
+			[]uint64{1},
+			1300000,
+			identityset.Address(2),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			0,
+			false,
+			true,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_ErrInvalidBucketType,
+			[]expectCandidate{},
+			nil,
+		},
+		{
+			"endorsement withdraw if bucket is self-staked by endorsement",
+			[]uint64{11},
+			[]uint64{0, 1},
+			1300000,
+			identityset.Address(1),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			0,
+			false,
+			true,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_Success,
+			[]expectCandidate{
+				{identityset.Address(2), 0, "1200000000000000000000000", "1469480667073232815766914"},
+			},
+			[]expectBucket{
+				{0, identityset.Address(2), true, 17281},
+			},
+		},
+		{
+			"endorsement withdraw if bucket is endorsement withdrawing",
+			[]uint64{12},
+			[]uint64{0, 1},
+			1300000,
+			identityset.Address(1),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			0,
+			false,
+			true,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_ErrInvalidBucketType,
+			nil,
+			nil,
+		},
+		{
+			"endorsement withdraw if bucket is endorsement expired",
+			[]uint64{13},
+			[]uint64{0, 1},
+			1300000,
+			identityset.Address(1),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			0,
+			false,
+			true,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_ErrInvalidBucketType,
+			nil,
+			nil,
+		},
+		{
+			"endorsement withdraw if bucket without endorsement",
+			[]uint64{0},
+			[]uint64{0, 1},
+			1300000,
+			identityset.Address(1),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			0,
+			false,
+			true,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_ErrInvalidBucketType,
+			nil,
+			nil,
+		},
 	}
 
 	for _, test := range tests {
@@ -407,8 +510,8 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				GasLimit:       test.blkGasLimit,
 			})
 			cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
-			cfg.ToBeEnabledBlockHeight = 1
-			ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+			cfg.TsunamiBlockHeight = 1
+			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 			require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
 			if test.err != nil {
@@ -462,10 +565,18 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 					require.Equal(expectCand.candVoteStr, candidate.Votes.String())
 				}
 				// check buckets
+				esm := NewEndorsementStateManager(csm.SM())
 				for _, expectBkt := range test.expectBuckets {
 					bkt, err := csm.getBucket(expectBkt.id)
 					require.NoError(err)
 					require.Equal(expectBkt.candidate, bkt.Candidate)
+					endorse, err := esm.Get(expectBkt.id)
+					if expectBkt.hasEndorsement {
+						require.NoError(err)
+						require.EqualValues(expectBkt.endorsementExpireHeight, endorse.ExpireHeight)
+					} else {
+						require.ErrorIs(err, state.ErrStateNotExist)
+					}
 				}
 
 				// test staker's account
