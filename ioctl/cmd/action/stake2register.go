@@ -109,16 +109,11 @@ func register(args []string) error {
 		return output.NewError(output.InstantiationError, "failed to make a candidateRegister instance", err)
 	}
 
-	resp, err := SendActionAndResponse(
+	return SendAction(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).
 			SetGasPrice(gasPriceRau).
 			SetGasLimit(gasLimit).
 			SetAction(cr).Build(),
 		sender)
-	if err != nil {
-		return err
-	}
-	output.PrintResult(resp.GetActionHash())
-	return nil
 }
