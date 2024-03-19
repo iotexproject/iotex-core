@@ -8,27 +8,35 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/test/mock/mock_envelope"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"math/big"
 	"strconv"
 	"testing"
 	"time"
 
+	. "github.com/agiledragon/gomonkey/v2"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockindex"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 func TestLogsInRange(t *testing.T) {
@@ -386,4 +394,89 @@ func TestProofAndCompareReverseActions(t *testing.T) {
 			r.Equal(c.expect, prevExpect)
 		})
 	}
+}
+
+func TestReverseActionsInBlock(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	var (
+		blkDAO   = mock_blockdao.NewMockBlockDAO(ctrl)
+		envelope = mock_envelope.NewMockEnvelope(ctrl)
+		core     = &coreService{dao: blkDAO}
+		blk      = &block.Block{
+			Header: block.Header{},
+			Body: block.Body{
+				Actions: []*action.SealedEnvelope{&action.SealedEnvelope{Envelope: envelope}},
+			},
+			Footer:   block.Footer{},
+			Receipts: nil,
+		}
+		receiptes = []*action.Receipt{
+			&action.Receipt{
+				ActionHash: hash.ZeroHash256,
+			},
+		}
+	)
+
+	t.Run("CheckParams", func(t *testing.T) {
+		t.Run("ReverseStartGreaterThanSize", func(t *testing.T) {
+			actions := core.reverseActionsInBlock(blk, 2, 1)
+			require.Empty(actions)
+		})
+
+		t.Run("CountIsZero", func(t *testing.T) {
+			actions := core.reverseActionsInBlock(blk, 1, 0)
+			require.Empty(actions)
+		})
+	})
+
+	t.Run("FailedToGetReceiptFromDAO", func(t *testing.T) {
+		blkDAO.EXPECT().GetReceipts(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+		actions := core.reverseActionsInBlock(blk, 0, 1)
+		require.Empty(actions)
+	})
+
+	t.Run("ForeachActions", func(t *testing.T) {
+		t.Run("FailedToHash", func(t *testing.T) {
+			p := NewPatches()
+			defer p.Reset()
+
+			p = p.ApplyMethodReturn(&action.SealedEnvelope{}, "Hash", nil, errors.New(t.Name()))
+
+			blkDAO.EXPECT().GetReceipts(gomock.Any()).Return(receiptes, nil).Times(1)
+
+			actions := core.reverseActionsInBlock(blk, 0, 1)
+			require.Empty(actions)
+		})
+
+		t.Run("FailedToGetReceiptFromMap", func(t *testing.T) {
+			p := NewPatches()
+			defer p.Reset()
+
+			p = p.ApplyMethodReturn(&action.SealedEnvelope{}, "Hash", hash.BytesToHash256([]byte("test")), nil)
+
+			blkDAO.EXPECT().GetReceipts(gomock.Any()).Return(receiptes, nil).Times(1)
+
+			actions := core.reverseActionsInBlock(blk, 0, 1)
+			require.Empty(actions)
+		})
+
+		t.Run("ReverseActionsInBlockSuccess", func(t *testing.T) {
+			p := NewPatches()
+			defer p.Reset()
+
+			p = p.ApplyMethodReturn(&action.SealedEnvelope{}, "Hash", hash.ZeroHash256, nil)
+			p = p.ApplyMethodReturn(&action.SealedEnvelope{}, "SenderAddress", address.AddrV1{})
+			p = p.ApplyMethodReturn(&action.SealedEnvelope{}, "Proto", &iotextypes.Action{})
+			p = p.ApplyMethodReturn(&block.Header{}, "BlockHeaderCoreProto", &iotextypes.BlockHeaderCore{Timestamp: timestamppb.Now()})
+
+			blkDAO.EXPECT().GetReceipts(gomock.Any()).Return(receiptes, nil).Times(1)
+			envelope.EXPECT().GasPrice().Return(big.NewInt(1)).Times(1)
+			actions := core.reverseActionsInBlock(blk, 0, 1)
+			require.Equal(1, len(actions))
+		})
+	})
+
 }
