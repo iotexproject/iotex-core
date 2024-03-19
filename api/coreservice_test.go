@@ -8,10 +8,6 @@ package api
 import (
 	"context"
 	"encoding/hex"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/test/mock/mock_envelope"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"math/big"
 	"strconv"
 	"testing"
@@ -24,8 +20,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/api/logfilter"
@@ -35,8 +33,10 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockindex"
+	"github.com/iotexproject/iotex-core/test/mock/mock_envelope"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func TestLogsInRange(t *testing.T) {
