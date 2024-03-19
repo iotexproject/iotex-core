@@ -65,7 +65,15 @@ const (
 	createWsProjectFuncName    = "createProject"
 	updateWsProjectFuncName    = "updateProject"
 	queryWsProjectFuncName     = "projects"
+	addProjectOperatorFuncName = "addOperator"
+	delProjectOperatorFuncName = "removeOperator"
+	startWsProjectFuncName     = "unpauseProject"
+	stopWsProjectFuncName      = "pauseProject"
 	wsProjectUpsertedEventName = "ProjectUpserted"
+	wsProjectPausedEventName   = "ProjectPaused"
+	wsProjectUnpausedEventName = "ProjectUnpaused"
+	wsOperatorRemovedEventName = "OperatorRemoved"
+	wsOperatorAddedEventName   = "OperatorAdded"
 )
 
 type projectMeta struct {
@@ -84,6 +92,10 @@ func init() {
 	wsProject.AddCommand(wsProjectCreate)
 	wsProject.AddCommand(wsProjectUpdate)
 	wsProject.AddCommand(wsProjectQuery)
+	wsProject.AddCommand(wsProjectStart)
+	wsProject.AddCommand(wsProjectStop)
+	wsProject.AddCommand(wsProjectAddOperator)
+	wsProject.AddCommand(wsProjectDelOperator)
 
 	wsProjectRegisterContractAddress = config.ReadConfig.WsRegisterContract
 	wsProjectIPFSEndpoint = config.ReadConfig.IPFSEndpoint

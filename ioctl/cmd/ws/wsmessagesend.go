@@ -50,19 +50,6 @@ var (
 		config.English: "send message to w3bstream for zk proofing",
 		config.Chinese: "向w3bstream发送消息请求zk证明",
 	}
-
-	_flagProjectIDUsages = map[config.Language]string{
-		config.English: "project id",
-		config.Chinese: "项目ID",
-	}
-	_flagProjectVersionUsages = map[config.Language]string{
-		config.English: "project version",
-		config.Chinese: "项目版本",
-	}
-	_flagSendDataUsages = map[config.Language]string{
-		config.English: "send data",
-		config.Chinese: "要发送的数据",
-	}
 )
 
 func init() {

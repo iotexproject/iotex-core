@@ -1,5 +1,5 @@
 coverage:
-  range: 50...90
+  range: 50...100
   status:
     project:
       default:
@@ -9,6 +9,7 @@ coverage:
       default:
         enabled: yes
         target: auto
+        #threshold: 0%
 ignore:
   - "action/protocol/rewarding/rewardingpb"
   - "action/protocol/account/accountpb"

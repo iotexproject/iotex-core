@@ -57,27 +57,6 @@ var (
 		config.English: "convert zkp code to hex string compressed with zlib",
 		config.Chinese: "将zkp代码通过zlib进行压缩之后转成hex字符串",
 	}
-
-	_flagVersionUsages = map[config.Language]string{
-		config.English: "version for the project config",
-		config.Chinese: "该project config的版本号",
-	}
-	_flagVMTypeUsages = map[config.Language]string{
-		config.English: "vm type, support risc0, halo2",
-		config.Chinese: "虚拟机类型，目前支持risc0和halo2",
-	}
-	_flagCodeFileUsages = map[config.Language]string{
-		config.English: "code file",
-		config.Chinese: "代码文件",
-	}
-	_flagConfFileUsages = map[config.Language]string{
-		config.English: "conf file",
-		config.Chinese: "配置文件",
-	}
-	_flagExpandParamUsages = map[config.Language]string{
-		config.English: "expand param, if you use risc0 vm, need it.",
-		config.Chinese: "扩展参数，risc0虚拟机需要此参数",
-	}
 )
 
 func init() {
