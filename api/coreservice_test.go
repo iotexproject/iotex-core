@@ -23,7 +23,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/api/logfilter"
@@ -468,7 +467,7 @@ func TestReverseActionsInBlock(t *testing.T) {
 			defer p.Reset()
 
 			p = p.ApplyMethodReturn(&action.SealedEnvelope{}, "Hash", hash.ZeroHash256, nil)
-			p = p.ApplyMethodReturn(&action.SealedEnvelope{}, "SenderAddress", address.AddrV1{})
+			p = p.ApplyMethodReturn(&action.SealedEnvelope{}, "SenderAddress", identityset.Address(1))
 			p = p.ApplyMethodReturn(&action.SealedEnvelope{}, "Proto", &iotextypes.Action{})
 			p = p.ApplyMethodReturn(&block.Header{}, "BlockHeaderCoreProto", &iotextypes.BlockHeaderCore{Timestamp: timestamppb.Now()})
 
