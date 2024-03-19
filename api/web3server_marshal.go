@@ -24,7 +24,7 @@ const (
 
 type (
 	web3Response struct {
-		id     int
+		id     any
 		result interface{}
 		err    error
 	}
@@ -95,7 +95,7 @@ func (obj *web3Response) MarshalJSON() ([]byte, error) {
 	if obj.err == nil {
 		return json.Marshal(&struct {
 			Jsonrpc string      `json:"jsonrpc"`
-			ID      int         `json:"id"`
+			ID      any         `json:"id"`
 			Result  interface{} `json:"result"`
 		}{
 			Jsonrpc: "2.0",
@@ -117,7 +117,7 @@ func (obj *web3Response) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(&struct {
 		Jsonrpc string     `json:"jsonrpc"`
-		ID      int        `json:"id"`
+		ID      any        `json:"id"`
 		Error   errMessage `json:"error"`
 	}{
 		Jsonrpc: "2.0",
