@@ -123,7 +123,7 @@ lint-rich:
 
 .PHONY: test
 test: fmt
-	$(GOTEST) -short -race ./...
+	$(GOTEST) -gcflags="all=-N -l" -short -race ./...
 
 .PHONY: test-rich
 test-rich:
