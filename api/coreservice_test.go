@@ -478,4 +478,10 @@ func TestReverseActionsInBlock(t *testing.T) {
 		})
 	})
 
+	t.Run("StartIsNotZero", func(t *testing.T) {
+		blkDAO.EXPECT().GetReceipts(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+		blk.Actions = append(blk.Actions, &action.SealedEnvelope{})
+		actions := core.reverseActionsInBlock(blk, 0, 1)
+		require.Empty(actions)
+	})
 }
