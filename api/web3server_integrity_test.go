@@ -214,7 +214,7 @@ func getBlockByNumber(t *testing.T, handler *hTTPHandler) {
 		params   string
 		expected int
 	}{
-		{`["1", true]`, 1},
+		{`["1", true]`, 2},
 		{`["1", false]`, 2},
 		{`["10", false]`, 0},
 	} {
