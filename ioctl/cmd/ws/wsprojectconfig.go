@@ -19,7 +19,7 @@ import (
 var (
 	// wsProjectConfig represents the generate w3bstream project configuration command
 	wsProjectConfig = &cobra.Command{
-		Use:   "configuration",
+		Use:   "config",
 		Short: config.TranslateInLang(wsProjectConfigShorts, config.UILanguage),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			version, err := cmd.Flags().GetString("version")
@@ -184,6 +184,7 @@ const (
 	wasm   vmType = "wasm"   // wasm vm
 )
 
+// TODO move this to sprout
 func stringToVMType(vmType string) (vmType, error) {
 	switch vmType {
 	case string(risc0):
