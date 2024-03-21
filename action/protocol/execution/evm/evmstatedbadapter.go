@@ -440,23 +440,28 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 		stateDB.logError(err)
 		return false
 	}
-	// before calling Suicide, EVM will transfer the contract's balance to beneficiary
-	// need to create a transaction log on successful suicide
-	if stateDB.lastAddBalanceAmount.Cmp(actBalance) == 0 {
-		if stateDB.lastAddBalanceAmount.Cmp(big.NewInt(0)) > 0 {
-			from, _ := address.FromBytes(evmAddr[:])
-			stateDB.addTransactionLogs(&action.TransactionLog{
-				Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
-				Sender:    from.String(),
-				Recipient: stateDB.lastAddBalanceAddr,
-				Amount:    stateDB.lastAddBalanceAmount,
-			})
-		}
-	} else {
-		if stateDB.suicideTxLogMismatchPanic {
-			log.L().Panic("suicide contract's balance does not match",
-				zap.String("suicide", actBalance.String()),
-				zap.String("beneficiary", stateDB.lastAddBalanceAmount.String()))
+	// To ensure data consistency, generate this log after the hard-fork
+	// a separate patch file will be created later to provide missing logs before the hard-fork
+	// TODO: remove this gating once the hard-fork has passed
+	if stateDB.suicideTxLogMismatchPanic {
+		// before calling Suicide, EVM will transfer the contract's balance to beneficiary
+		// need to create a transaction log on successful suicide
+		if stateDB.lastAddBalanceAmount.Cmp(actBalance) == 0 {
+			if stateDB.lastAddBalanceAmount.Cmp(big.NewInt(0)) > 0 {
+				from, _ := address.FromBytes(evmAddr[:])
+				stateDB.addTransactionLogs(&action.TransactionLog{
+					Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
+					Sender:    from.String(),
+					Recipient: stateDB.lastAddBalanceAddr,
+					Amount:    stateDB.lastAddBalanceAmount,
+				})
+			}
+		} else {
+			if stateDB.suicideTxLogMismatchPanic {
+				log.L().Panic("suicide contract's balance does not match",
+					zap.String("suicide", actBalance.String()),
+					zap.String("beneficiary", stateDB.lastAddBalanceAmount.String()))
+			}
 		}
 	}
 	// mark it as deleted
