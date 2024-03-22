@@ -3096,7 +3096,7 @@ func TestUnstake(t *testing.T) {
 	})
 	t.Run("Endorsement is withdrawing", func(t *testing.T) {
 		bucketCfgs := []*bucketConfig{
-			{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 100, true, false, nil, 0},
+			{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 100, false, false, nil, 0},
 		}
 		candCfgs := []*candidateConfig{
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "test1"},
