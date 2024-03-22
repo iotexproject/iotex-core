@@ -145,7 +145,6 @@ func initTestStateWithHeight(t *testing.T, ctrl *gomock.Controller, bucketCfgs [
 		candidates = append(candidates, cand)
 	}
 	cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
-	cfg.TsunamiBlockHeight = 1
 	ctx := genesis.WithGenesisContext(context.Background(), cfg)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := p.Start(ctx, sm)
