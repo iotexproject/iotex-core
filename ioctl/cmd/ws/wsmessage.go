@@ -46,6 +46,7 @@ type stateLog struct {
 	State   string    `json:"state"`
 	Time    time.Time `json:"time"`
 	Comment string    `json:"comment"`
+	Result  string    `json:"result"`
 }
 
 type queryMessageRsp struct {
