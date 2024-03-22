@@ -161,6 +161,10 @@ func ClockOption(clk clock.Clock) Option {
 
 // NewBlockchain creates a new blockchain and DB instance
 func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf BlockBuilderFactory, opts ...Option) Blockchain {
+	if dao == nil {
+		log.L().Panic("blockdao is nil")
+	}
+
 	// create the Blockchain
 	chain := &blockchain{
 		config:        cfg,
@@ -185,9 +189,6 @@ func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf Blo
 		log.L().Panic("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	chain.timerFactory = timerFactory
-	if chain.dao == nil {
-		log.L().Panic("blockdao is nil")
-	}
 	chain.lifecycle.Add(chain.dao)
 	chain.lifecycle.Add(chain.pubSubManager)
 
