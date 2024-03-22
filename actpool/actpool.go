@@ -436,7 +436,7 @@ func (ap *actPool) context(ctx context.Context) context.Context {
 }
 
 func (ap *actPool) enqueue(ctx context.Context, act *action.SealedEnvelope, replace bool) error {
-	var errChan = make(chan error) // unused errChan will be garbage-collected
+	var errChan = make(chan error, 1) // unused errChan will be garbage-collected
 	ap.jobQueue[ap.allocatedWorker(act.SenderAddress())] <- workerJob{
 		ctx,
 		act,
