@@ -71,6 +71,7 @@ type (
 		IsIceland  bool `json:"isIceland"`
 		IsLondon   bool `json:"isLondon"`
 		IsShanghai bool `json:"isShanghai"`
+		IsCancun   bool `json:"isCancun"`
 	}
 
 	Log struct {
@@ -1318,6 +1319,12 @@ func TestShanghaiEVM(t *testing.T) {
 	})
 	t.Run("push0-valid", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-shanghai/push0.json")
+	})
+}
+
+func TestCancunEVM(t *testing.T) {
+	t.Run("eip1153-transientstorage", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-cancun/transientstorage.json")
 	})
 }
 

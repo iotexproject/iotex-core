@@ -640,6 +640,8 @@ github.com/influxdata/influxdb-client-go/v2 v2.4.0/go.mod h1:vLNHdxTJkIf2mSLvGrp
 github.com/influxdata/influxdb1-client v0.0.0-20191209144304-8bf82d3c094d/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
 github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
 github.com/influxdata/line-protocol v0.0.0-20200327222509-2487e7298839/go.mod h1:xaLFMmpvUxqXtVkUJfg9QmT88cDaCJ3ZKgdZ78oO8Qo=
+github.com/iotexproject/go-ethereum v1.7.4-0.20240321181400-fc0405c7567c h1:Nh/pGB9W/8AuqKQZCtHYQSHJVxuq01oPbhdBu9nA1Mo=
+github.com/iotexproject/go-ethereum v1.7.4-0.20240321181400-fc0405c7567c/go.mod h1:hKL2Qcj1OvStXNSEDbucexqnEt1Wh4Cz329XsjAalZY=
 github.com/iotexproject/go-fsm v1.0.0 h1:Zrg9JnNDUZg4Anpj6oa0Tk4+sXbHTpJzI0v5/Cj5N6A=
 github.com/iotexproject/go-fsm v1.0.0/go.mod h1:t3aYXtCCcQxyS7oduQZyuUpPnVI4ddFTwbAagHN7fT0=
 github.com/iotexproject/go-p2p v0.3.6 h1:AhCq0d6ytoNlcT+tOcqZV0W0Slolsf1FoMbyxxgsAhM=
