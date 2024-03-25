@@ -1739,7 +1739,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			verifyTxLogIndex(require, dao, blk, 10, 2)
 
 			// verify genesis block index
-			bi, err := indexer.GetBlockIndex(0)
+			bi, err := indexer.(*blockindexe).GetBlockIndex(0)
 			require.NoError(err)
 			require.Equal(cfg.Genesis.Hash(), hash.BytesToHash256(bi.Hash()))
 			require.EqualValues(0, bi.NumAction())

@@ -193,7 +193,7 @@ func TestIndexer(t *testing.T) {
 			height, err := indexer.GetBlockHeight(h)
 			require.NoError(err)
 			require.Equal(blks[i].Height(), height)
-			bd, err := indexer.(*blockIndexer).GetBlockIndex(blks[i].Height())
+			bd, err := indexer.GetBlockIndex(blks[i].Height())
 			require.NoError(err)
 			require.Equal(h[:], bd.Hash())
 			require.EqualValues(len(blks[i].Actions), bd.NumAction())

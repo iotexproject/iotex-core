@@ -28,7 +28,7 @@ func TestBlockIndex(t *testing.T) {
 	require := require.New(t)
 
 	h, _ := hex.DecodeString("d1ff0e7fe2a54600a171d3bcc9e222c656d584b3a0e7b33373e634de3f8cd010")
-	bd := []*blockIndex{
+	bd := []*BlockIndex{
 		{
 			h, 1048000, big.NewInt(1048000),
 		},
@@ -42,7 +42,7 @@ func TestBlockIndex(t *testing.T) {
 
 	for i := range bd {
 		s := bd[i].Serialize()
-		bd2 := &blockIndex{}
+		bd2 := &BlockIndex{}
 		require.NoError(bd2.Deserialize(s))
 		require.Equal(bd[i], bd2)
 	}

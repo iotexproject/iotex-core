@@ -53,7 +53,7 @@ type (
 		Height() (uint64, error)
 		GetBlockHash(height uint64) (hash.Hash256, error)
 		GetBlockHeight(hash hash.Hash256) (uint64, error)
-		//GetBlockIndex(uint64) (*blockIndex, error)
+		GetBlockIndex(uint64) (*BlockIndex, error)
 		GetActionIndex([]byte) (*ActionIndex, error)
 		GetTotalActions() (uint64, error)
 		GetActionHashFromIndex(uint64, uint64) ([][]byte, error)
@@ -103,7 +103,7 @@ func (x *blockIndexer) Start(ctx context.Context) error {
 	}
 	if x.tbk.Size() == 0 {
 		// insert genesis block
-		if err = x.tbk.Add((&blockIndex{
+		if err = x.tbk.Add((&BlockIndex{
 			x.genesisHash[:],
 			0,
 			big.NewInt(0)}).Serialize(), false); err != nil {
@@ -218,7 +218,7 @@ func (x *blockIndexer) GetBlockHeight(hash hash.Hash256) (uint64, error) {
 }
 
 // GetBlockIndex return the index of block
-func (x *blockIndexer) GetBlockIndex(height uint64) (*blockIndex, error) {
+func (x *blockIndexer) GetBlockIndex(height uint64) (*BlockIndex, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
@@ -226,7 +226,7 @@ func (x *blockIndexer) GetBlockIndex(height uint64) (*blockIndex, error) {
 	if err != nil {
 		return nil, err
 	}
-	b := &blockIndex{}
+	b := &BlockIndex{}
 	if err := b.Deserialize(v); err != nil {
 		return nil, err
 	}
@@ -310,7 +310,7 @@ func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 	x.batch.Put(_blockHashToHeightNS, hash[_hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
 
 	// index height --> block hash, number of actions, and total transfer amount
-	bd := &blockIndex{
+	bd := &BlockIndex{
 		hash:      hash[:],
 		numAction: uint32(len(blk.Actions)),
 		tsfAmount: blk.CalculateTransferAmount()}

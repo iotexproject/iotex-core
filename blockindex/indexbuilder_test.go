@@ -143,7 +143,7 @@ func TestIndexBuilder(t *testing.T) {
 			}
 
 			// test getNumActions/getTranferAmount
-			index, err := indexer.(*blockIndexer).GetBlockIndex(blks[i].Height())
+			index, err := indexer.GetBlockIndex(blks[i].Height())
 			require.NoError(err)
 			require.Equal(blks[i].HashBlock(), hash.BytesToHash256(index.Hash()))
 			require.EqualValues(len(blks[i].Actions), index.NumAction())
