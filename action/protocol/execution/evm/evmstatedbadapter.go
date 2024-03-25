@@ -457,11 +457,9 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 				})
 			}
 		} else {
-			if stateDB.suicideTxLogMismatchPanic {
-				log.L().Panic("suicide contract's balance does not match",
-					zap.String("suicide", actBalance.String()),
-					zap.String("beneficiary", stateDB.lastAddBalanceAmount.String()))
-			}
+			log.L().Panic("suicide contract's balance does not match",
+				zap.String("suicide", actBalance.String()),
+				zap.String("beneficiary", stateDB.lastAddBalanceAmount.String()))
 		}
 	}
 	// mark it as deleted
