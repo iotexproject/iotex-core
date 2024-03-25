@@ -250,12 +250,12 @@ func TestConstantinople(t *testing.T) {
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			29378520,
+			29275560,
 		},
 		// after Tsunami
 		{
 			action.EmptyAddress,
-			29378521,
+			29275561,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
