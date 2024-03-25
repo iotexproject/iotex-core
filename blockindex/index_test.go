@@ -11,14 +11,14 @@ import (
 func TestActionIndex(t *testing.T) {
 	require := require.New(t)
 
-	ad := []*actionIndex{
+	ad := []*ActionIndex{
 		{1048000},
 		{1048001},
 	}
 
 	for i := range ad {
 		s := ad[i].Serialize()
-		bd2 := &actionIndex{}
+		bd2 := &ActionIndex{}
 		require.NoError(bd2.Deserialize(s))
 		require.Equal(ad[i], bd2)
 	}

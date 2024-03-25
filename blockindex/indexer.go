@@ -53,8 +53,8 @@ type (
 		Height() (uint64, error)
 		GetBlockHash(height uint64) (hash.Hash256, error)
 		GetBlockHeight(hash hash.Hash256) (uint64, error)
-		GetBlockIndex(uint64) (*blockIndex, error)
-		GetActionIndex([]byte) (*actionIndex, error)
+		//GetBlockIndex(uint64) (*blockIndex, error)
+		GetActionIndex([]byte) (*ActionIndex, error)
 		GetTotalActions() (uint64, error)
 		GetActionHashFromIndex(uint64, uint64) ([][]byte, error)
 		GetActionCountByAddress(hash.Hash160) (uint64, error)
@@ -234,7 +234,7 @@ func (x *blockIndexer) GetBlockIndex(height uint64) (*blockIndex, error) {
 }
 
 // GetActionIndex return the index of action
-func (x *blockIndexer) GetActionIndex(h []byte) (*actionIndex, error) {
+func (x *blockIndexer) GetActionIndex(h []byte) (*ActionIndex, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
@@ -242,7 +242,7 @@ func (x *blockIndexer) GetActionIndex(h []byte) (*actionIndex, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := &actionIndex{}
+	a := &ActionIndex{}
 	if err := a.Deserialize(v); err != nil {
 		return nil, err
 	}
@@ -322,7 +322,7 @@ func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 	}
 
 	// store height of the block, so getReceiptByActionHash() can use height to directly pull receipts
-	ad := (&actionIndex{
+	ad := (&ActionIndex{
 		blkHeight: blk.Height()}).Serialize()
 	if err := x.tac.UseBatch(x.batch); err != nil {
 		return err

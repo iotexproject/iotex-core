@@ -13,22 +13,22 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-type actionIndex struct {
+type ActionIndex struct {
 	blkHeight uint64
 }
 
 // Height returns the block height of action
-func (a *actionIndex) BlockHeight() uint64 {
+func (a *ActionIndex) BlockHeight() uint64 {
 	return a.blkHeight
 }
 
 // Serialize into byte stream
-func (a *actionIndex) Serialize() []byte {
+func (a *ActionIndex) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(a.toProto()))
 }
 
 // Desrialize from byte stream
-func (a *actionIndex) Deserialize(buf []byte) error {
+func (a *ActionIndex) Deserialize(buf []byte) error {
 	pb := &indexpb.ActionIndex{}
 	if err := proto.Unmarshal(buf, pb); err != nil {
 		return err
@@ -37,14 +37,14 @@ func (a *actionIndex) Deserialize(buf []byte) error {
 }
 
 // toProto converts to protobuf
-func (a *actionIndex) toProto() *indexpb.ActionIndex {
+func (a *ActionIndex) toProto() *indexpb.ActionIndex {
 	return &indexpb.ActionIndex{
 		BlkHeight: a.blkHeight,
 	}
 }
 
 // fromProto converts from protobuf
-func (a *actionIndex) fromProto(pbIndex *indexpb.ActionIndex) error {
+func (a *ActionIndex) fromProto(pbIndex *indexpb.ActionIndex) error {
 	if pbIndex == nil {
 		return errors.New("empty protobuf")
 	}
