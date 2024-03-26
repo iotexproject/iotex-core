@@ -76,6 +76,7 @@ func defaultConfig() Genesis {
 			RedseaBlockHeight:       26704441,
 			SumatraBlockHeight:      28516681,
 			TsunamiBlockHeight:      29275561,
+			UpernavikBlockHeight:    39275561,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
@@ -258,6 +259,9 @@ type (
 		// 2. generate transaction log for Suicide() call in EVM
 		// 3. raise block gas limit to 50M
 		TsunamiBlockHeight uint64 `yaml:"tsunamiHeight"`
+		// UpernavikBlockHeight is the start height to
+		// 1. enable Cancun EVM
+		UpernavikBlockHeight uint64 `yaml:"upernavikHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -607,6 +611,11 @@ func (g *Blockchain) IsSumatra(height uint64) bool {
 // IsTsunami checks whether height is equal to or larger than tsunami height
 func (g *Blockchain) IsTsunami(height uint64) bool {
 	return g.isPost(g.TsunamiBlockHeight, height)
+}
+
+// IsUpernavik checks whether height is equal to or larger than upernavik height
+func (g *Blockchain) IsUpernavik(height uint64) bool {
+	return g.isPost(g.UpernavikBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
