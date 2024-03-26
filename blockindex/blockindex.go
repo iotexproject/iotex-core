@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
+// BlockIndex change private to public for mock Indexer
 type BlockIndex struct {
 	hash      []byte
 	numAction uint32

@@ -13,6 +13,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
+// ActionIndex change private to public for mock Indexer
 type ActionIndex struct {
 	blkHeight uint64
 }
