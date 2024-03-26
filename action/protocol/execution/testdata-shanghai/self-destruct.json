@@ -61,10 +61,10 @@
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
         "rawAccessList": [],
-        "rawExpectedGasConsumed": 10400,
+        "rawExpectedGasConsumed": 12646,
         "expectedStatus": 1,
         "hasReturnValue": true,
-        "rawReturnValue": "",
+        "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000014",
         "comment": "return nil because contract is destoried"
     }]
 }

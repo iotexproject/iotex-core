@@ -1,8 +1,6 @@
 package evm
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
@@ -36,7 +34,7 @@ type (
 		v    common.Hash
 	}
 	sui struct {
-		amount      *big.Int
+		amount      *uint256.Int
 		beneficiary common.Address
 		addr        common.Address
 		suicide     bool

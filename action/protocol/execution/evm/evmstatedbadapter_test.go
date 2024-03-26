@@ -8,7 +8,6 @@ package evm
 import (
 	"bytes"
 	"context"
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -108,7 +107,7 @@ func TestAddBalance(t *testing.T) {
 	stateDB.AddBalance(addr, addAmount)
 	amount = stateDB.GetBalance(addr)
 	require.Equal(amount, uint256.NewInt(80000))
-	stateDB.AddBalance(addr, new(big.Int))
+	stateDB.AddBalance(addr, new(uint256.Int))
 	require.Zero(len(stateDB.lastAddBalanceAmount.Bytes()))
 }
 
@@ -364,7 +363,7 @@ var tests = []stateDBTest{
 		2000,
 		[]sui{
 			{nil, _c4, _c1, true, true},
-			{big.NewInt(1000), _c2, _c3, true, true},
+			{uint256.NewInt(1000), _c2, _c3, true, true},
 		},
 		[]image{
 			{common.BytesToHash(_v3[:]), []byte("hen")},
@@ -390,7 +389,7 @@ var tests = []stateDBTest{
 		},
 		15000,
 		[]sui{
-			{big.NewInt(0), _c1, _addr1, true, true},
+			{uint256.NewInt(0), _c1, _addr1, true, true},
 		},
 		[]image{
 			{common.BytesToHash(_v4[:]), []byte("fox")},
@@ -456,7 +455,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				stateDB.AddBalance(e.beneficiary, stateDB.GetBalance(e.addr)) // simulate transfer to beneficiary inside Suicide()
 				stateDB.SelfDestruct(e.addr)
 				require.Equal(e.exist, stateDB.Exist(e.addr))
-				require.Zero(new(big.Int).Cmp(stateDB.GetBalance(e.addr)))
+				require.Zero(new(uint256.Int).Cmp(stateDB.GetBalance(e.addr)))
 			}
 			// set preimage
 			for _, e := range test.preimage {

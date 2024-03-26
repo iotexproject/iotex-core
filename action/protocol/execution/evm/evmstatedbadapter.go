@@ -50,7 +50,7 @@ type (
 		blockHeight          uint64
 		executionHash        hash.Hash256
 		lastAddBalanceAddr   string
-		lastAddBalanceAmount *big.Int
+		lastAddBalanceAmount *uint256.Int
 		refund               uint64
 		refundSnapshot       map[int]uint64
 		cachedContract       contractMap
@@ -178,7 +178,7 @@ func NewStateDBAdapter(
 		err:                      nil,
 		blockHeight:              blockHeight,
 		executionHash:            executionHash,
-		lastAddBalanceAmount:     new(big.Int),
+		lastAddBalanceAmount:     new(uint256.Int),
 		refundSnapshot:           make(map[int]uint64),
 		cachedContract:           make(contractMap),
 		contractSnapshot:         make(map[int]contractMap),
@@ -435,7 +435,7 @@ func (stateDB *StateDBAdapter) SelfDestruct(evmAddr common.Address) {
 		return
 	}
 	// clears the account balance
-	actBalance := new(big.Int).Set(s.Balance)
+	actBalance := new(uint256.Int).SetBytes(s.Balance.Bytes())
 	if err := s.SubBalance(s.Balance); err != nil {
 		log.L().Debug("failed to clear balance", zap.Error(err), zap.String("address", evmAddr.Hex()))
 		return
@@ -453,35 +453,13 @@ func (stateDB *StateDBAdapter) SelfDestruct(evmAddr common.Address) {
 		// before calling Suicide, EVM will transfer the contract's balance to beneficiary
 		// need to create a transaction log on successful suicide
 		if stateDB.lastAddBalanceAmount.Cmp(actBalance) == 0 {
-			if stateDB.lastAddBalanceAmount.Cmp(big.NewInt(0)) > 0 {
+			if stateDB.lastAddBalanceAmount.Cmp(common.U2560) > 0 {
 				from, _ := address.FromBytes(evmAddr[:])
 				stateDB.addTransactionLogs(&action.TransactionLog{
 					Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
 					Sender:    from.String(),
 					Recipient: stateDB.lastAddBalanceAddr,
-					Amount:    stateDB.lastAddBalanceAmount,
-				})
-			}
-		} else {
-			log.L().Panic("suicide contract's balance does not match",
-				zap.String("suicide", actBalance.String()),
-				zap.String("beneficiary", stateDB.lastAddBalanceAmount.String()))
-		}
-	}
-	// To ensure data consistency, generate this log after the hard-fork
-	// a separate patch file will be created later to provide missing logs before the hard-fork
-	// TODO: remove this gating once the hard-fork has passed
-	if stateDB.suicideTxLogMismatchPanic {
-		// before calling Suicide, EVM will transfer the contract's balance to beneficiary
-		// need to create a transaction log on successful suicide
-		if stateDB.lastAddBalanceAmount.Cmp(actBalance) == 0 {
-			if stateDB.lastAddBalanceAmount.Cmp(big.NewInt(0)) > 0 {
-				from, _ := address.FromBytes(evmAddr[:])
-				stateDB.addTransactionLogs(&action.TransactionLog{
-					Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
-					Sender:    from.String(),
-					Recipient: stateDB.lastAddBalanceAddr,
-					Amount:    stateDB.lastAddBalanceAmount,
+					Amount:    stateDB.lastAddBalanceAmount.ToBig(),
 				})
 			}
 		} else {
