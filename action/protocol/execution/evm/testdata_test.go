@@ -35,11 +35,11 @@ type (
 		v    common.Hash
 	}
 	sui struct {
-		amount      *big.Int
-		beneficiary common.Address
-		addr        common.Address
-		suicide     bool
-		exist       bool
+		amount       *big.Int
+		beneficiary  common.Address
+		addr         common.Address
+		selfDestruct bool
+		exist        bool
 	}
 	image struct {
 		hash common.Hash
@@ -56,7 +56,7 @@ type (
 		codes                         []code
 		states                        []evmSet
 		refund                        uint64
-		suicide                       []sui
+		selfDestruct                  []sui
 		preimage                      []image
 		accessList                    []access
 		logs                          []*types.Log

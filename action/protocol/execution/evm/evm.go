@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -64,12 +65,12 @@ type (
 )
 
 // CanTransfer checks whether the from account has enough balance
-func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool {
+func CanTransfer(db vm.StateDB, fromHash common.Address, balance *uint256.Int) bool {
 	return db.GetBalance(fromHash).Cmp(balance) >= 0
 }
 
 // MakeTransfer transfers account
-func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.Int) {
+func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *uint256.Int) {
 	db.SubBalance(fromHash, amount)
 	db.AddBalance(toHash, amount)
 
@@ -224,11 +225,14 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
 	if gasLimit < ps.gas {
 		return action.ErrGasLimit
 	}
-	gasConsumed := new(big.Int).Mul(new(big.Int).SetUint64(ps.gas), ps.txCtx.GasPrice)
-	if stateDB.GetBalance(ps.txCtx.Origin).Cmp(gasConsumed) < 0 {
+	var (
+		gasConsumed        = new(big.Int).Mul(new(big.Int).SetUint64(ps.gas), ps.txCtx.GasPrice)
+		gasConsumedUint256 = toUint256(gasConsumed)
+	)
+	if stateDB.GetBalance(ps.txCtx.Origin).Cmp(gasConsumedUint256) < 0 {
 		return action.ErrInsufficientFunds
 	}
-	stateDB.SubBalance(ps.txCtx.Origin, gasConsumed)
+	stateDB.SubBalance(ps.txCtx.Origin, gasConsumedUint256)
 	return nil
 }
 
@@ -268,11 +272,11 @@ func ExecuteContract(
 	)
 	if ps.featureCtx.FixDoubleChargeGas {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
-		stateDB.AddBalance(ps.txCtx.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.txCtx.GasPrice))
+		stateDB.AddBalance(ps.txCtx.Origin, toUint256(big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.txCtx.GasPrice)))
 	} else {
 		if remainingGas > 0 {
 			remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.txCtx.GasPrice)
-			stateDB.AddBalance(ps.txCtx.Origin, remainingValue)
+			stateDB.AddBalance(ps.txCtx.Origin, toUint256(remainingValue))
 		}
 		if consumedGas > 0 {
 			burnLog = &action.TransactionLog{
@@ -493,7 +497,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address
-		_, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
+		_, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, remainingGas, toUint256(evmParams.amount))
 		log.L().Debug("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
 		if evmErr == nil {
 			if contractAddress, err := address.FromBytes(evmContractAddress.Bytes()); err == nil {
@@ -503,7 +507,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 	} else {
 		stateDB.SetNonce(evmParams.txCtx.Origin, stateDB.GetNonce(evmParams.txCtx.Origin)+1)
 		// process contract
-		ret, remainingGas, evmErr = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, evmParams.amount)
+		ret, remainingGas, evmErr = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, toUint256(evmParams.amount))
 	}
 	if evmErr != nil {
 		log.L().Debug("evm error", zap.Error(evmErr))
