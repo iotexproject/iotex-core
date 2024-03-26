@@ -243,10 +243,19 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			28516680,
 		},
-		// after Sumatra
+		// after Sumatra - Tsunami
 		{
 			action.EmptyAddress,
 			28516681,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			29275560,
+		},
+		// after Tsunami
+		{
+			action.EmptyAddress,
+			29275561,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
