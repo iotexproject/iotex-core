@@ -20,11 +20,13 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockcreationsubscriber"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockvalidator"
 	"github.com/iotexproject/iotex-core/test/mock/mock_crypto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_facebookgo_clock"
 	"github.com/iotexproject/iotex-core/test/mock/mock_iotex_address"
+	"github.com/iotexproject/iotex-core/test/mock/mock_pubsubmanager"
 )
 
 func TestNewBlockchain(t *testing.T) {
@@ -540,29 +542,34 @@ func Test_blockchain_CommitBlock(t *testing.T) {
 	r.NoError(bc.CommitBlock(&block.Block{}))
 }
 
-type mockPubSubManager struct{ PubSubManager }
-
-func (*mockPubSubManager) SendBlockToSubscribers(*block.Block)                 {}
-func (*mockPubSubManager) AddBlockListener(_ BlockCreationSubscriber) error    { return nil }
-func (*mockPubSubManager) RemoveBlockListener(_ BlockCreationSubscriber) error { return nil }
-
-type mockBlockCreationSubscriber struct{}
-
-func (*mockBlockCreationSubscriber) ReceiveBlock(*block.Block) error { return nil }
-
 func Test_blockchain_AddBlockListener(t *testing.T) {
 	r := require.New(t)
+	c := gomock.NewController(t)
+	defer c.Finish()
 
-	bc := &blockchain{pubSubManager: &mockPubSubManager{}}
+	ps := mock_pubsubmanager.NewMockPubSubManager(c)
+	ps.EXPECT().AddBlockListener(gomock.Any()).Return(nil).Times(1)
+
+	sub := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(c)
+
+	bc := &blockchain{pubSubManager: ps}
 
 	r.ErrorContains(bc.AddSubscriber(nil), "subscriber could not be nil")
-	r.NoError(bc.AddSubscriber(&mockBlockCreationSubscriber{}))
+	r.NoError(bc.AddSubscriber(sub))
 }
 
 func Test_blockchain_RemoveBlockListener(t *testing.T) {
 	r := require.New(t)
-	bc := &blockchain{pubSubManager: &mockPubSubManager{}}
-	r.NoError(bc.RemoveSubscriber(&mockBlockCreationSubscriber{}))
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	ps := mock_pubsubmanager.NewMockPubSubManager(c)
+	ps.EXPECT().RemoveBlockListener(gomock.Any()).Return(nil).Times(1)
+
+	sub := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(c)
+
+	bc := &blockchain{pubSubManager: ps}
+	r.NoError(bc.RemoveSubscriber(sub))
 }
 
 func Test_blockchain_Genesis(t *testing.T) {
@@ -673,11 +680,12 @@ func Test_blockchain_emitToSubscribers(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 
-	pubsub := &mockPubSubManager{}
 	bc := &blockchain{}
 	bc.emitToSubscribers(&block.Block{})
 
-	bc.pubSubManager = pubsub
+	ps := mock_pubsubmanager.NewMockPubSubManager(c)
+	ps.EXPECT().SendBlockToSubscribers(gomock.Any()).Return().Times(1)
+	bc.pubSubManager = ps
 	bc.emitToSubscribers(&block.Block{})
 }
 

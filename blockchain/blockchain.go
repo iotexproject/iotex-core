@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/blockchain/pubsub"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -96,10 +97,10 @@ type (
 		ValidateBlock(blk *block.Block) error
 
 		// AddSubscriber make you listen to every single produced block
-		AddSubscriber(BlockCreationSubscriber) error
+		AddSubscriber(pubsub.BlockCreationSubscriber) error
 
 		// RemoveSubscriber make you listen to every single produced block
-		RemoveSubscriber(BlockCreationSubscriber) error
+		RemoveSubscriber(pubsub.BlockCreationSubscriber) error
 	}
 
 	// BlockBuilderFactory is the factory interface of block builder
@@ -117,7 +118,7 @@ type (
 		blockValidator block.Validator
 		lifecycle      lifecycle.Lifecycle
 		clk            clock.Clock
-		pubSubManager  PubSubManager
+		pubSubManager  pubsub.PubSubManager
 		timerFactory   *prometheustimer.TimerFactory
 
 		// used by account-based model
@@ -172,7 +173,7 @@ func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf Blo
 		dao:           dao,
 		bbf:           bbf,
 		clk:           clock.New(),
-		pubSubManager: NewPubSub(cfg.StreamingBlockBufferSize),
+		pubSubManager: pubsub.NewPubSub(cfg.StreamingBlockBufferSize),
 	}
 	for _, opt := range opts {
 		if err := opt(chain); err != nil {
@@ -408,7 +409,7 @@ func (bc *blockchain) CommitBlock(blk *block.Block) error {
 	return bc.commitBlock(blk)
 }
 
-func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
+func (bc *blockchain) AddSubscriber(s pubsub.BlockCreationSubscriber) error {
 	log.L().Info("Add a subscriber.")
 	if s == nil {
 		return errors.New("subscriber could not be nil")
@@ -417,7 +418,7 @@ func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 	return bc.pubSubManager.AddBlockListener(s)
 }
 
-func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
+func (bc *blockchain) RemoveSubscriber(s pubsub.BlockCreationSubscriber) error {
 	return bc.pubSubManager.RemoveBlockListener(s)
 }
 
