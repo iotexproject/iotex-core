@@ -1,3 +1,8 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package evm
 
 import (
@@ -35,11 +40,11 @@ type (
 		v    common.Hash
 	}
 	sui struct {
-		amount      *big.Int
-		beneficiary common.Address
-		addr        common.Address
-		suicide     bool
-		exist       bool
+		amount       *big.Int
+		beneficiary  common.Address
+		addr         common.Address
+		selfDestruct bool
+		exist        bool
 	}
 	image struct {
 		hash common.Hash
@@ -56,7 +61,7 @@ type (
 		codes                         []code
 		states                        []evmSet
 		refund                        uint64
-		suicide                       []sui
+		selfDestruct                  []sui
 		preimage                      []image
 		accessList                    []access
 		logs                          []*types.Log

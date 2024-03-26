@@ -255,7 +255,7 @@ type (
 		SumatraBlockHeight uint64 `yaml:"sumatraHeight"`
 		// TsunamiBlockHeight is the start height to
 		// 1. enable delegate endorsement
-		// 2. generate transaction log for Suicide() call in EVM
+		// 2. generate transaction log for SelfDestruct() call in EVM
 		// 3. raise block gas limit to 50M
 		TsunamiBlockHeight uint64 `yaml:"tsunamiHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
