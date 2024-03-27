@@ -1151,13 +1151,8 @@ github.com/iotexproject/go-ethereum v1.7.4-0.20230806203205-6819e8158a5f h1:9+i3
 github.com/iotexproject/go-ethereum v1.7.4-0.20230806203205-6819e8158a5f/go.mod h1:it7x0DWnTDMfVFdXcU6Ti4KEFQynLHVRarcSlPr0HBo=
 github.com/iotexproject/go-fsm v1.0.0 h1:Zrg9JnNDUZg4Anpj6oa0Tk4+sXbHTpJzI0v5/Cj5N6A=
 github.com/iotexproject/go-fsm v1.0.0/go.mod h1:t3aYXtCCcQxyS7oduQZyuUpPnVI4ddFTwbAagHN7fT0=
-<<<<<<< HEAD
-github.com/iotexproject/go-p2p v0.3.6 h1:AhCq0d6ytoNlcT+tOcqZV0W0Slolsf1FoMbyxxgsAhM=
-github.com/iotexproject/go-p2p v0.3.6/go.mod h1:P32N/mwLUWMQ/okMcNLlfBO7iD5ITyBOvN41roKdPdg=
-=======
-github.com/iotexproject/go-p2p v0.3.6-0.20240111104121-d1cabbdbc381 h1:L3Fqr2MghremwwNcmIx6YEN9R5xHQYa1rDkBuzfsl58=
-github.com/iotexproject/go-p2p v0.3.6-0.20240111104121-d1cabbdbc381/go.mod h1:UN76xdrgwV7DbJOpB5R89ICUd0CuwgdzMrxt4ZMyfp0=
->>>>>>> 63932ec3a (upgrade p2p)
+github.com/iotexproject/go-p2p v0.3.7-0.20240327085559-423bb9cc8f5f h1:Kf3PMDMmTWAXPoymCPqrN4FaBzdGRLp92GJEYvA/Qb4=
+github.com/iotexproject/go-p2p v0.3.7-0.20240327085559-423bb9cc8f5f/go.mod h1:UN76xdrgwV7DbJOpB5R89ICUd0CuwgdzMrxt4ZMyfp0=
 github.com/iotexproject/go-pkgs v0.1.5-0.20210604060651-be5ee19f2575/go.mod h1:ttXhcwrtODyh7JozpJlCml09CjP0pcKqTe2B0MbTGc8=
 github.com/iotexproject/go-pkgs v0.1.12/go.mod h1:t5X9kQ1VL5H+L+DC5GmohXnFKlcxaTcRnIBBuydcsTQ=
 github.com/iotexproject/go-pkgs v0.1.13 h1:bK48DVenkfYkC4TRoqL77RLFRBE1MUfscCW495kzcC8=
@@ -1172,12 +1167,8 @@ github.com/iotexproject/iotex-antenna-go/v2 v2.5.1/go.mod h1:8pDZcM45M0gY6jm3PoM
 github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d h1:/j1xCAC9YiG/8UKqYvycS/v3ddVsb1G7AMyLXOjeYI0=
 github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d/go.mod h1:GRWevxtqQ4gPMrd7Qxhr29/7aTgvjiTp+rFI9KMMZEo=
 github.com/iotexproject/iotex-proto v0.5.0/go.mod h1:Xg6REkv+nTZN+OC22xXIQuqKdTWWHwOAJEXCoMpDwtI=
-<<<<<<< HEAD
 github.com/iotexproject/iotex-proto v0.5.15-0.20240105060115-b12b162afdde h1:rs5eACTonHCALTwT9rhqMUEVYMQgbnNYMZQ85jJUlBY=
 github.com/iotexproject/iotex-proto v0.5.15-0.20240105060115-b12b162afdde/go.mod h1:wQpCk3Df0fPID+K8ohiICGj+cWRmcQ3wanT+aSrnIPo=
-=======
-github.com/iotexproject/iotex-proto v0.5.15-0.20231122045957-12615a5b58b2 h1:1XnGeZyXtaFXPravh8vvdWcWdUH7WhzFYPoongTfSdU=
-github.com/iotexproject/iotex-proto v0.5.15-0.20231122045957-12615a5b58b2/go.mod h1:wQpCk3Df0fPID+K8ohiICGj+cWRmcQ3wanT+aSrnIPo=
 github.com/ipfs/bbloom v0.0.1/go.mod h1:oqo8CVWsJFMOZqTglBG4wydCE4IQA/G2/SEofB0rjUI=
 github.com/ipfs/bbloom v0.0.4/go.mod h1:cS9YprKXpoZ9lT0n/Mw/a6/aFV6DTjTLYHeA+gyqMG0=
 github.com/ipfs/boxo v0.8.1/go.mod h1:xJ2hVb4La5WyD7GvKYE0lq2g1rmQZoCD2K4WNrV6aZI=
@@ -1203,7 +1194,6 @@ github.com/ipfs/go-blockservice v0.1.4/go.mod h1:OTZhFpkgY48kNzbgyvcexW9cHrpjBYI
 github.com/ipfs/go-blockservice v0.2.1/go.mod h1:k6SiwmgyYgs4M/qt+ww6amPeUH9EISLRBnvUurKJhi8=
 github.com/ipfs/go-blockservice v0.3.0/go.mod h1:P5ppi8IHDC7O+pA0AlGTF09jruB2h+oP3wVVaZl8sfk=
 github.com/ipfs/go-blockservice v0.5.0/go.mod h1:W6brZ5k20AehbmERplmERn8o2Ni3ZZubvAxaIUeaT6w=
->>>>>>> 63932ec3a (upgrade p2p)
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.2/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.3/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
