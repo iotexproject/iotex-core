@@ -1,10 +1,9 @@
 package evm
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/hash"
 )
 
@@ -23,7 +22,7 @@ type (
 	// test vector for StateDBAdapter
 	bal struct {
 		addr common.Address
-		v    *big.Int
+		v    *uint256.Int
 	}
 	code struct {
 		addr common.Address
@@ -35,7 +34,7 @@ type (
 		v    common.Hash
 	}
 	sui struct {
-		amount      *big.Int
+		amount      *uint256.Int
 		beneficiary common.Address
 		addr        common.Address
 		suicide     bool
