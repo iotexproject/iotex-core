@@ -266,7 +266,7 @@ func TestGetBalance(t *testing.T) {
 	balance := "111111111111111111"
 	core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{Balance: balance}, nil, nil)
 
-	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]}`)
+	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "latest"]}`)
 	ret, err := web3svr.getBalance(&in)
 	require.NoError(err)
 	ans, ok := new(big.Int).SetString(balance, 10)
@@ -280,6 +280,7 @@ func TestGetTransactionCount(t *testing.T) {
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+	core.EXPECT().TipHeight().Return(uint64(1))
 	core.EXPECT().PendingNonce(gomock.Any()).Return(uint64(2), nil)
 
 	inNil := gjson.Parse(`{"params":[]}`)
@@ -305,6 +306,7 @@ func TestCall(t *testing.T) {
 			Balance: "100000000000000000000",
 		}
 		metaBytes, _ := proto.Marshal(meta)
+		core.EXPECT().TipHeight().Return(uint64(1))
 		core.EXPECT().ReadState(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&iotexapi.ReadStateResponse{
 			Data: metaBytes,
 		}, nil)
@@ -324,6 +326,7 @@ func TestCall(t *testing.T) {
 
 	t.Run("to is RewardingProtocol addr", func(t *testing.T) {
 		amount := big.NewInt(10000)
+		core.EXPECT().TipHeight().Return(uint64(1))
 		core.EXPECT().ReadState(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&iotexapi.ReadStateResponse{
 			Data: []byte(amount.String()),
 		}, nil)
@@ -342,6 +345,7 @@ func TestCall(t *testing.T) {
 	})
 
 	t.Run("to is contract addr", func(t *testing.T) {
+		core.EXPECT().TipHeight().Return(uint64(1))
 		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("111111", nil, nil)
 		in := gjson.Parse(`{"params":[{
 			"from":     "",
@@ -368,6 +372,7 @@ func TestCall(t *testing.T) {
 			ExecutionRevertMsg: "revert call",
 			TxIndex:            0,
 		}
+		core.EXPECT().TipHeight().Return(uint64(1))
 		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", receipt, nil)
 		in := gjson.Parse(`{"params":[{
 			"from":     "",
