@@ -10,11 +10,14 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/state"
 )
 
-func toIoTeXTypesVoteBucketList(buckets []*VoteBucket) (*iotextypes.VoteBucketList, error) {
+func toIoTeXTypesVoteBucketList(sr protocol.StateReader, buckets []*VoteBucket) (*iotextypes.VoteBucketList, error) {
+	esr := NewEndorsementStateReader(sr)
 	res := iotextypes.VoteBucketList{
 		Buckets: make([]*iotextypes.VoteBucket, 0, len(buckets)),
 	}
@@ -22,6 +25,17 @@ func toIoTeXTypesVoteBucketList(buckets []*VoteBucket) (*iotextypes.VoteBucketLi
 		typBucket, err := b.toIoTeXTypes()
 		if err != nil {
 			return nil, err
+		}
+		// fill in the endorsement
+		if b.isNative() {
+			endorsement, err := esr.Get(b.Index)
+			switch errors.Cause(err) {
+			case nil:
+				typBucket.EndorsementExpireBlockHeight = endorsement.ExpireHeight
+			case state.ErrStateNotExist:
+			default:
+				return nil, err
+			}
 		}
 		res.Buckets = append(res.Buckets, typBucket)
 	}
