@@ -8,6 +8,7 @@ package evm
 import (
 	"bytes"
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -97,14 +98,14 @@ func TestAddBalance(t *testing.T) {
 		FixSnapshotOrderOption(),
 	)
 	require.NoError(err)
-	addAmount := uint256.NewInt(40000)
-	stateDB.AddBalance(addr, addAmount)
+	addAmount := big.NewInt(40000)
+	stateDB.AddBalance(addr, uint256.MustFromBig(addAmount))
 	require.Equal(addAmount, stateDB.lastAddBalanceAmount)
 	beneficiary, _ := address.FromBytes(addr[:])
 	require.Equal(beneficiary.String(), stateDB.lastAddBalanceAddr)
 	amount := stateDB.GetBalance(addr)
-	require.Equal(amount, addAmount)
-	stateDB.AddBalance(addr, addAmount)
+	require.Equal(amount.ToBig(), addAmount)
+	stateDB.AddBalance(addr, uint256.MustFromBig(addAmount))
 	amount = stateDB.GetBalance(addr)
 	require.Equal(amount, uint256.NewInt(80000))
 	stateDB.AddBalance(addr, common.U2560)
@@ -319,7 +320,7 @@ func TestNonce(t *testing.T) {
 var tests = []stateDBTest{
 	{
 		[]bal{
-			{_addr1, uint256.NewInt(40000)},
+			{_addr1, big.NewInt(40000)},
 		},
 		[]code{
 			{_c1, _bytecode},
@@ -349,7 +350,7 @@ var tests = []stateDBTest{
 	},
 	{
 		[]bal{
-			{_addr1, uint256.NewInt(40000)},
+			{_addr1, big.NewInt(40000)},
 		},
 		[]code{
 			{_c2, _bytecode},
@@ -363,7 +364,7 @@ var tests = []stateDBTest{
 		2000,
 		[]sui{
 			{nil, _c4, _c1, true, true},
-			{uint256.NewInt(1000), _c2, _c3, true, true},
+			{big.NewInt(1000), _c2, _c3, true, true},
 		},
 		[]image{
 			{common.BytesToHash(_v3[:]), []byte("hen")},
@@ -389,7 +390,7 @@ var tests = []stateDBTest{
 		},
 		15000,
 		[]sui{
-			{uint256.NewInt(0), _c1, _addr1, true, true},
+			{big.NewInt(0), _c1, _addr1, true, true},
 		},
 		[]image{
 			{common.BytesToHash(_v4[:]), []byte("fox")},
@@ -433,7 +434,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		for i, test := range tests {
 			// add balance
 			for _, e := range test.balance {
-				stateDB.AddBalance(e.addr, e.v)
+				stateDB.AddBalance(e.addr, uint256.MustFromBig(e.v))
 			}
 			// set code
 			for _, e := range test.codes {
@@ -450,7 +451,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			// set suicide
 			for _, e := range test.suicide {
 				if e.amount != nil {
-					stateDB.AddBalance(e.addr, e.amount)
+					stateDB.AddBalance(e.addr, uint256.MustFromBig(e.amount))
 				}
 				stateDB.AddBalance(e.beneficiary, stateDB.GetBalance(e.addr)) // simulate transfer to beneficiary inside Suicide()
 				stateDB.SelfDestruct(e.addr)
@@ -498,7 +499,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		reverts := []stateDBTest{
 			{
 				[]bal{
-					{_addr1, uint256.NewInt(0)},
+					{_addr1, big.NewInt(0)},
 				},
 				[]code{},
 				[]evmSet{
@@ -533,7 +534,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			},
 			{
 				[]bal{
-					{_addr1, uint256.NewInt(80000)},
+					{_addr1, big.NewInt(80000)},
 				},
 				[]code{},
 				tests[1].states,
@@ -563,7 +564,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			},
 			{
 				[]bal{
-					{_addr1, uint256.NewInt(40000)},
+					{_addr1, big.NewInt(40000)},
 				},
 				[]code{},
 				[]evmSet{
@@ -603,7 +604,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			// test balance
 			for _, e := range test.balance {
 				amount := stateDB.GetBalance(e.addr)
-				require.Equal(e.v, amount)
+				require.Equal(uint256.MustFromBig(e.v), amount)
 			}
 			if async && !fixSnapshot {
 				// test preimage
@@ -721,7 +722,7 @@ func TestClearSnapshots(t *testing.T) {
 		for i, test := range tests {
 			// add balance
 			for _, e := range test.balance {
-				stateDB.AddBalance(e.addr, e.v)
+				stateDB.AddBalance(e.addr, uint256.MustFromBig(e.v))
 			}
 			// set code
 			for _, e := range test.codes {

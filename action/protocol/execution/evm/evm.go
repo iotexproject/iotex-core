@@ -90,7 +90,7 @@ type (
 		context     vm.BlockContext
 		txCtx       vm.TxContext
 		nonce       uint64
-		amount      *uint256.Int
+		amount      *big.Int
 		contract    *common.Address
 		gas         uint64
 		data        []byte
@@ -200,7 +200,7 @@ func newParams(
 			GasPrice: execution.GasPrice(),
 		},
 		execution.Nonce(),
-		uint256.MustFromBig(execution.Amount()),
+		execution.Amount(),
 		contractAddrPointer,
 		gasLimit,
 		execution.Data(),
@@ -494,7 +494,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address
-		_, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
+		_, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, remainingGas, uint256.MustFromBig(evmParams.amount))
 		log.L().Debug("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
 		if evmErr == nil {
 			if contractAddress, err := address.FromBytes(evmContractAddress.Bytes()); err == nil {
@@ -504,7 +504,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 	} else {
 		stateDB.SetNonce(evmParams.txCtx.Origin, stateDB.GetNonce(evmParams.txCtx.Origin)+1)
 		// process contract
-		ret, remainingGas, evmErr = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, evmParams.amount)
+		ret, remainingGas, evmErr = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, uint256.MustFromBig(evmParams.amount))
 	}
 	if evmErr != nil {
 		log.L().Debug("evm error", zap.Error(evmErr))
