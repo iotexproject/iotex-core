@@ -15,34 +15,35 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-type blockIndex struct {
+// BlockIndex change private to public for mock Indexer
+type BlockIndex struct {
 	hash      []byte
 	numAction uint32
 	tsfAmount *big.Int
 }
 
 // Hash returns the hash
-func (b *blockIndex) Hash() []byte {
+func (b *BlockIndex) Hash() []byte {
 	return b.hash
 }
 
 // NumAction returns number of actions
-func (b *blockIndex) NumAction() uint32 {
+func (b *BlockIndex) NumAction() uint32 {
 	return b.numAction
 }
 
 // TsfAmount returns transfer amount
-func (b *blockIndex) TsfAmount() *big.Int {
+func (b *BlockIndex) TsfAmount() *big.Int {
 	return b.tsfAmount
 }
 
 // Serialize into byte stream
-func (b *blockIndex) Serialize() []byte {
+func (b *BlockIndex) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(b.toProto()))
 }
 
 // Desrialize from byte stream
-func (b *blockIndex) Deserialize(buf []byte) error {
+func (b *BlockIndex) Deserialize(buf []byte) error {
 	pb := &indexpb.BlockIndex{}
 	if err := proto.Unmarshal(buf, pb); err != nil {
 		return err
@@ -51,7 +52,7 @@ func (b *blockIndex) Deserialize(buf []byte) error {
 }
 
 // toProto converts to protobuf
-func (b *blockIndex) toProto() *indexpb.BlockIndex {
+func (b *BlockIndex) toProto() *indexpb.BlockIndex {
 	index := &indexpb.BlockIndex{
 		NumAction: b.numAction,
 		Hash:      b.hash,
@@ -63,7 +64,7 @@ func (b *blockIndex) toProto() *indexpb.BlockIndex {
 }
 
 // fromProto converts from protobuf
-func (b *blockIndex) fromProto(pbIndex *indexpb.BlockIndex) error {
+func (b *BlockIndex) fromProto(pbIndex *indexpb.BlockIndex) error {
 	if pbIndex == nil {
 		return errors.New("empty protobuf")
 	}
