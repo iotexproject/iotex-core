@@ -130,8 +130,6 @@ func (worker *queueWorker) Handle(job workerJob) error {
 		}
 	}
 
-	worker.removeEmptyAccounts()
-
 	return err
 }
 
@@ -253,6 +251,7 @@ func (worker *queueWorker) Reset(ctx context.Context) {
 			worker.emptyAccounts.Set(from, struct{}{})
 		}
 	})
+	worker.removeEmptyAccounts()
 }
 
 // PendingActions returns all accepted actions
