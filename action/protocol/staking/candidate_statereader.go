@@ -371,7 +371,7 @@ func (c *candSR) readStateBuckets(ctx context.Context, req *iotexapi.ReadStaking
 	offset := int(req.GetPagination().GetOffset())
 	limit := int(req.GetPagination().GetLimit())
 	buckets := getPageOfBuckets(all, offset, limit)
-	pbBuckets, err := toIoTeXTypesVoteBucketList(buckets)
+	pbBuckets, err := toIoTeXTypesVoteBucketList(c.SR(), buckets)
 	return pbBuckets, height, err
 }
 
@@ -396,7 +396,7 @@ func (c *candSR) readStateBucketsByVoter(ctx context.Context, req *iotexapi.Read
 	offset := int(req.GetPagination().GetOffset())
 	limit := int(req.GetPagination().GetLimit())
 	buckets = getPageOfBuckets(buckets, offset, limit)
-	pbBuckets, err := toIoTeXTypesVoteBucketList(buckets)
+	pbBuckets, err := toIoTeXTypesVoteBucketList(c.SR(), buckets)
 	return pbBuckets, height, err
 }
 
@@ -421,7 +421,7 @@ func (c *candSR) readStateBucketsByCandidate(ctx context.Context, req *iotexapi.
 	offset := int(req.GetPagination().GetOffset())
 	limit := int(req.GetPagination().GetLimit())
 	buckets = getPageOfBuckets(buckets, offset, limit)
-	pbBuckets, err := toIoTeXTypesVoteBucketList(buckets)
+	pbBuckets, err := toIoTeXTypesVoteBucketList(c.SR(), buckets)
 	return pbBuckets, height, err
 }
 
@@ -434,7 +434,7 @@ func (c *candSR) readStateBucketByIndices(ctx context.Context, req *iotexapi.Rea
 	if err != nil {
 		return nil, height, err
 	}
-	pbBuckets, err := toIoTeXTypesVoteBucketList(buckets)
+	pbBuckets, err := toIoTeXTypesVoteBucketList(c.SR(), buckets)
 	return pbBuckets, height, err
 }
 
