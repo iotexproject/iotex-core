@@ -141,7 +141,11 @@ mockgen -destination=./test/mock/mock_blockindex/mock_blockindex.go  \
         -source=./blockindex/bloomfilterindexer.go \
         -package=mock_blockindex \
         BlockIndex
-        
+mockgen -destination=./test/mock/mock_blockindex/mock_indexer.go \
+        -source=blockindex/indexer.go \
+        -package mock_blockindex \
+        Indexer
+
 mkdir -p ./test/mock/mock_web3server
 mockgen -destination=./test/mock/mock_web3server/mock_web3server.go  \
         -source=./api/web3server.go \
@@ -169,3 +173,9 @@ mockgen -destination=./test/mock/mock_blockdao/mock_blockindexer_withstart.go  \
         -package=mock_blockdao \
         github.com/iotexproject/iotex-core/blockchain/blockdao \
         BlockIndexerWithStart
+
+mkdir -p ./test/mock/mock_envelope
+mockgen -destination=./test/mock/mock_envelope/mock_envelope.go \
+        -source=./action/envelope.go \
+        -package=mock_envelope \
+        Envelope
