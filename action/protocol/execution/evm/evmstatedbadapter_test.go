@@ -934,3 +934,45 @@ func TestSortMap(t *testing.T) {
 		require.True(testFunc(t, sm))
 	})
 }
+
+func TestStateDBTransientStorage(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
+	var opts []StateDBAdapterOption
+	opts = append(opts,
+		NotFixTopicCopyBugOption(),
+		FixSnapshotOrderOption(),
+	)
+	state, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := common.Hash{0x01}
+	value := common.Hash{0x02}
+	addr := common.Address{}
+
+	sn := state.Snapshot()
+	state.SetTransientState(addr, key, value)
+	if exp, got := 0, sn; exp != got {
+		t.Fatalf("journal length mismatch: have %d, want %d", got, exp)
+	}
+	// the retrieved value should equal what was set
+	if got := state.GetTransientState(addr, key); got != value {
+		t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
+	}
+
+	// revert the transient state being set and then check that the
+	// value is now the empty hash
+	state.RevertToSnapshot(sn)
+	if got, exp := state.GetTransientState(addr, key), (common.Hash{}); exp != got {
+		t.Fatalf("transient storage mismatch: have %x, want %x", got, exp)
+	}
+
+	// reset transient state
+	state.SetTransientState(addr, key, value)
+	if got := state.GetTransientState(addr, key); got != value {
+		t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
+	}
+}

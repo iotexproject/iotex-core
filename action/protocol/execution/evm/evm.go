@@ -447,6 +447,13 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 	}
 	sumatraTimestamp := (uint64)(sumatraTime.Unix())
 	chainConfig.ShanghaiTime = &sumatraTimestamp
+	//TODO: enable Cancun at TBA
+	tobeEnableTime, err := getBlockTime(g.ToBeEnabledBlockHeight)
+	if err != nil {
+		return nil, err
+	}
+	tobeEnableTimestamp := (uint64)(tobeEnableTime.Unix())
+	chainConfig.CancunTime = &tobeEnableTimestamp
 	return &chainConfig, nil
 }
 
