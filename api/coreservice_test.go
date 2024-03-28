@@ -919,7 +919,6 @@ func TestActions(t *testing.T) {
 			},
 		)
 
-		//p = p.ApplyMethodReturn(, "GetTotalActions")
 		_, err := cs.Actions(0, 1001)
 		require.ErrorContains(err, "range exceeds the limit")
 	})
@@ -958,11 +957,10 @@ func TestActions(t *testing.T) {
 		_, err := cs.Actions(1, 1)
 		require.ErrorContains(err, "start exceeds the total actions in the block")
 
-		// TODO del
 		// equal totalActions
-		//indexer.EXPECT().GetTotalActions().Return(uint64(2), nil).Times(1)
-		//_, err = cs.Actions(2, 1)
-		//require.ErrorContains(err, "start exceeds the total actions in the block")
+		indexer.EXPECT().GetTotalActions().Return(uint64(2), nil).Times(1)
+		_, err = cs.Actions(2, 1)
+		require.ErrorContains(err, "start exceeds the total actions in the block")
 	})
 
 	t.Run("TotalActionsIsZero", func(t *testing.T) {
@@ -981,8 +979,6 @@ func TestActions(t *testing.T) {
 		infos, err := cs.Actions(0, 1)
 		require.NoError(err)
 		require.Empty(infos)
-
-		// TODO count == 0
 	})
 
 	t.Run("GetActionsFromIndexer", func(t *testing.T) {
