@@ -490,6 +490,7 @@ func (stateDB *StateDBAdapter) GetTransientState(addr common.Address, key common
 // Selfdestruct6780 implements EIP-6780
 func (stateDB *StateDBAdapter) Selfdestruct6780(evmAddr common.Address) {
 	//Todo: implement EIP-6780
+	log.S().Panic("Selfdestruct6780 not implemented")
 }
 
 // Exist checks the existence of an address
