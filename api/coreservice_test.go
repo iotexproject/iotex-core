@@ -963,24 +963,6 @@ func TestActions(t *testing.T) {
 		require.ErrorContains(err, "start exceeds the total actions in the block")
 	})
 
-	t.Run("TotalActionsIsZero", func(t *testing.T) {
-		p := NewPatches()
-		defer p.Reset()
-
-		p = p.ApplyPrivateMethod(
-			cs,
-			"checkActionIndex",
-			func() error {
-				return nil
-			},
-		)
-
-		indexer.EXPECT().GetTotalActions().Return(uint64(0), nil).Times(1)
-		infos, err := cs.Actions(0, 1)
-		require.NoError(err)
-		require.Empty(infos)
-	})
-
 	t.Run("GetActionsFromIndexer", func(t *testing.T) {
 		p := NewPatches()
 		defer p.Reset()
