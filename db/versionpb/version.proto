@@ -1,0 +1,23 @@
+// Copyright (c) 2023 IoTeX
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
+// To compile the proto, run:
+//      protoc --go_out=. *.proto
+// option go_package = "../indexpb"; is to specify the package name in the generated go file
+syntax = "proto3";
+package versionpb;
+option go_package = "github.com/iotexproject/iotex-core/db/versionpb";
+
+message VersionedNamespace {
+    string name = 1;
+    uint32 keyLen = 2;
+}
+
+message KeyMeta {
+    bytes lastWriteHash = 1; // hash of value that was last written
+    uint64 firstVersion = 2;
+    uint64 lastVersion = 3;
+    uint64 deleteVersion = 4;
+}
