@@ -259,7 +259,7 @@ func TestConstantinople(t *testing.T) {
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			1261440000, // = 200*365*24*3600/5, around 200 years later
+			39275560,
 		},
 	}
 	now := time.Now()
