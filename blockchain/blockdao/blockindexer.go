@@ -82,6 +82,12 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 		}
 	}
 	for i := startHeight; i <= targetHeight; i++ {
+		// ternimate if context is done
+		select {
+		case <-ctx.Done():
+			return errors.Wrap(ctx.Err(), "terminate the indexer checking")
+		default:
+		}
 		blk, err := bic.dao.GetBlockByHeight(i)
 		if err != nil {
 			return err
