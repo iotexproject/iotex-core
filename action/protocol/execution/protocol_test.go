@@ -439,7 +439,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.ActionGasLimit = 10000000
 	}
 	if sct.InitGenesis.IsCancun {
-		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 0
+		cfg.Genesis.Blockchain.UpernavikBlockHeight = 0
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
