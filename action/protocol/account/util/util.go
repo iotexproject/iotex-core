@@ -18,7 +18,7 @@ import (
 )
 
 // LoadOrCreateAccount either loads an account state or creates an account state
-func LoadOrCreateAccount(sm protocol.StateManager, addr address.Address, opts ...state.AccountCreationOption) (*state.Account, error) {
+func LoadOrCreateAccount(sm protocol.StateManager, addr address.Address, opts ...state.AccountCreationOption) (*state.Account, bool, error) {
 	var (
 		account  = &state.Account{}
 		addrHash = hash.BytesToHash160(addr.Bytes())
@@ -26,18 +26,18 @@ func LoadOrCreateAccount(sm protocol.StateManager, addr address.Address, opts ..
 	_, err := sm.State(account, protocol.LegacyKeyOption(addrHash))
 	switch errors.Cause(err) {
 	case nil:
-		return account, nil
+		return account, false, nil
 	case state.ErrStateNotExist:
 		account, err := state.NewAccount(opts...)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create state account for %x", addrHash)
+			return nil, false, errors.Wrapf(err, "failed to create state account for %x", addrHash)
 		}
 		if _, err := sm.PutState(account, protocol.LegacyKeyOption(addrHash)); err != nil {
-			return nil, errors.Wrapf(err, "failed to put state for account %x", addrHash)
+			return nil, false, errors.Wrapf(err, "failed to put state for account %x", addrHash)
 		}
-		return account, nil
+		return account, true, nil
 	default:
-		return nil, err
+		return nil, false, err
 	}
 }
 
