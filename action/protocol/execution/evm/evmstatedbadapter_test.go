@@ -427,6 +427,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		opt := []StateDBAdapterOption{
 			NotFixTopicCopyBugOption(),
 			SuicideTxLogMismatchPanicOption(),
+			EnableCancunEVMOption(),
 		}
 		if async {
 			opt = append(opt, AsyncContractTrieOption())
@@ -982,6 +983,7 @@ func TestStateDBTransientStorage(t *testing.T) {
 	opts = append(opts,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
+		EnableCancunEVMOption(),
 	)
 	state, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
 	if err != nil {
