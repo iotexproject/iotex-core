@@ -444,7 +444,7 @@ func (p *Protocol) increaseNonce(ctx context.Context, sm protocol.StateManager, 
 	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
 		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
-	acc, err := accountutil.LoadOrCreateAccount(sm, addr, accountCreationOpts...)
+	acc, _, err := accountutil.LoadOrCreateAccount(sm, addr, accountCreationOpts...)
 	if err != nil {
 		return err
 	}

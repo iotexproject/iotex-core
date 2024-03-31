@@ -250,7 +250,7 @@ func (stateDB *StateDBAdapter) CreateAccount(evmAddr common.Address) {
 	if stateDB.assertError(err, "Failed to convert evm address.", zap.Error(err)) {
 		return
 	}
-	_, err = accountutil.LoadOrCreateAccount(stateDB.sm, addr, stateDB.accountCreationOpts()...)
+	_, _, err = accountutil.LoadOrCreateAccount(stateDB.sm, addr, stateDB.accountCreationOpts()...)
 	if stateDB.assertError(err, "Failed to create account.", zap.Error(err), zap.String("address", evmAddr.Hex())) {
 		return
 	}
@@ -303,7 +303,7 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, a256 *uint256.
 	if contract, ok := stateDB.cachedContract[evmAddr]; ok {
 		state = contract.SelfState()
 	} else {
-		state, err = accountutil.LoadOrCreateAccount(stateDB.sm, addr, stateDB.accountCreationOpts()...)
+		state, _, err = accountutil.LoadOrCreateAccount(stateDB.sm, addr, stateDB.accountCreationOpts()...)
 		if stateDB.assertError(err, "Failed to get account.", zap.Error(err), zap.String("address", evmAddr.Hex())) {
 			return
 		}

@@ -34,7 +34,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
 	// check sender
-	sender, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller, accountCreationOpts...)
+	sender, _, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller, accountCreationOpts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of sender %s", actionCtx.Caller.String())
 	}
@@ -119,7 +119,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 	}
 
 	// check recipient
-	recipient, err := accountutil.LoadOrCreateAccount(sm, recipientAddr, accountCreationOpts...)
+	recipient, _, err := accountutil.LoadOrCreateAccount(sm, recipientAddr, accountCreationOpts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
 	}
