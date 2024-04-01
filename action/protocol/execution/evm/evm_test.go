@@ -259,7 +259,7 @@ func TestConstantinople(t *testing.T) {
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			39275560,
+			1261440000, // = 200*365*24*3600/5, around 200 years later
 		},
 	}
 	now := time.Now()
@@ -356,7 +356,8 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isSumatra, chainRules.IsShanghai)
 
 		// Cancun, Prague not yet enabled
-		require.False(evmChainConfig.IsCancun(big.NewInt(int64(e.height)), evm.Context.Time))
+		isUpernavik := g.IsUpernavik(e.height)
+		require.Equal(isUpernavik, chainRules.IsCancun)
 		require.False(evmChainConfig.IsPrague(big.NewInt(int64(e.height)), evm.Context.Time))
 
 		// test basefee
