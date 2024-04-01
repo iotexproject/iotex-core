@@ -1860,7 +1860,6 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 		tracer = logger.NewStructLogger(config.Config)
 	}
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
-		Debug:     true,
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
