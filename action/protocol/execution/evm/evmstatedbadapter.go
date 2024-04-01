@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -43,25 +43,25 @@ type (
 
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
-		sm                   protocol.StateManager
-		logs                 []*action.Log
-		transactionLogs      []*action.TransactionLog
-		err                  error
-		blockHeight          uint64
-		executionHash        hash.Hash256
-		lastAddBalanceAddr   string
-		lastAddBalanceAmount *big.Int
-		refund               uint64
-		refundSnapshot       map[int]uint64
-		cachedContract       contractMap
-		contractSnapshot     map[int]contractMap   // snapshots of contracts
-		suicided             deleteAccount         // account/contract calling Suicide
-		suicideSnapshot      map[int]deleteAccount // snapshots of suicide accounts
-		preimages            preimageMap
-		preimageSnapshot     map[int]preimageMap
-		accessList           *accessList // per-transaction access list
-		accessListSnapshot   map[int]*accessList
-		// Transient storage
+		sm                         protocol.StateManager
+		logs                       []*action.Log
+		transactionLogs            []*action.TransactionLog
+		err                        error
+		blockHeight                uint64
+		executionHash              hash.Hash256
+		lastAddBalanceAddr         string
+		lastAddBalanceAmount       *big.Int
+		refund                     uint64
+		refundSnapshot             map[int]uint64
+		cachedContract             contractMap
+		contractSnapshot           map[int]contractMap   // snapshots of contracts
+		selfDestructed             deleteAccount         // account/contract calling SelfDestruct
+		selfDestructedSnapshot     map[int]deleteAccount // snapshots of SelfDestruct accounts
+		preimages                  preimageMap
+		preimageSnapshot           map[int]preimageMap
+		accessList                 *accessList // per-transaction access list
+		accessListSnapshot         map[int]*accessList
+    // Transient storage
 		transientStorage           transientStorage
 		transientStorageSnapshot   map[int]transientStorage
 		logsSnapshot               map[int]int // logs is an array, save len(logs) at time of snapshot suffices
@@ -173,25 +173,25 @@ func NewStateDBAdapter(
 	opts ...StateDBAdapterOption,
 ) (*StateDBAdapter, error) {
 	s := &StateDBAdapter{
-		sm:                       sm,
-		logs:                     []*action.Log{},
-		err:                      nil,
-		blockHeight:              blockHeight,
-		executionHash:            executionHash,
-		lastAddBalanceAmount:     new(big.Int),
-		refundSnapshot:           make(map[int]uint64),
-		cachedContract:           make(contractMap),
-		contractSnapshot:         make(map[int]contractMap),
-		suicided:                 make(deleteAccount),
-		suicideSnapshot:          make(map[int]deleteAccount),
-		preimages:                make(preimageMap),
-		preimageSnapshot:         make(map[int]preimageMap),
-		accessList:               newAccessList(),
-		accessListSnapshot:       make(map[int]*accessList),
-		transientStorage:         newTransientStorage(),
+		sm:                     sm,
+		logs:                   []*action.Log{},
+		err:                    nil,
+		blockHeight:            blockHeight,
+		executionHash:          executionHash,
+		lastAddBalanceAmount:   new(big.Int),
+		refundSnapshot:         make(map[int]uint64),
+		cachedContract:         make(contractMap),
+		contractSnapshot:       make(map[int]contractMap),
+		selfDestructed:         make(deleteAccount),
+		selfDestructedSnapshot: make(map[int]deleteAccount),
+		preimages:              make(preimageMap),
+		preimageSnapshot:       make(map[int]preimageMap),
+		accessList:             newAccessList(),
+		accessListSnapshot:     make(map[int]*accessList),
+    transientStorage:       newTransientStorage(),
 		transientStorageSnapshot: make(map[int]transientStorage),
-		logsSnapshot:             make(map[int]int),
-		txLogsSnapshot:           make(map[int]int),
+		logsSnapshot:           make(map[int]int),
+		txLogsSnapshot:         make(map[int]int),
 	}
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
@@ -452,8 +452,8 @@ func (stateDB *StateDBAdapter) SelfDestruct(evmAddr common.Address) {
 	// a separate patch file will be created later to provide missing logs before the hard-fork
 	// TODO: remove this gating once the hard-fork has passed
 	if stateDB.suicideTxLogMismatchPanic {
-		// before calling Suicide, EVM will transfer the contract's balance to beneficiary
-		// need to create a transaction log on successful suicide
+		// before calling SelfDestruct, EVM will transfer the contract's balance to beneficiary
+		// need to create a transaction log on successful SelfDestruct
 		if stateDB.lastAddBalanceAmount.Cmp(actBalance) == 0 {
 			if stateDB.lastAddBalanceAmount.Cmp(big.NewInt(0)) > 0 {
 				from, _ := address.FromBytes(evmAddr[:])
@@ -465,19 +465,19 @@ func (stateDB *StateDBAdapter) SelfDestruct(evmAddr common.Address) {
 				})
 			}
 		} else {
-			log.L().Panic("suicide contract's balance does not match",
-				zap.String("suicide", actBalance.String()),
+			log.L().Panic("SelfDestruct contract's balance does not match",
+				zap.String("SelfDestruct", actBalance.String()),
 				zap.String("beneficiary", stateDB.lastAddBalanceAmount.String()))
 		}
 	}
 	// mark it as deleted
-	stateDB.suicided[addrHash] = struct{}{}
+	stateDB.selfDestructed[addrHash] = struct{}{}
 }
 
 // HasSelfDestructed returns whether the contract has been killed
 func (stateDB *StateDBAdapter) HasSelfDestructed(evmAddr common.Address) bool {
 	addrHash := hash.BytesToHash160(evmAddr.Bytes())
-	_, ok := stateDB.suicided[addrHash]
+	_, ok := stateDB.selfDestructed[addrHash]
 	return ok
 }
 
@@ -627,9 +627,9 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 			}
 		}
 	}
-	ds, ok := stateDB.suicideSnapshot[snapshot]
+	ds, ok := stateDB.selfDestructedSnapshot[snapshot]
 	if !ok {
-		// this should not happen, b/c we save the suicide accounts on a successful return of Snapshot(), but check anyway
+		// this should not happen, b/c we save the SelfDestruct accounts on a successful return of Snapshot(), but check anyway
 		log.L().Error("Failed to get snapshot.", zap.Int("snapshot", snapshot))
 		return
 	}
@@ -679,14 +679,14 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 			}
 		}
 	}
-	// restore the suicide accounts
-	stateDB.suicided = nil
-	stateDB.suicided = ds
+	// restore the SelfDestruct accounts
+	stateDB.selfDestructed = nil
+	stateDB.selfDestructed = ds
 	if stateDB.fixSnapshotOrder {
-		delete(stateDB.suicideSnapshot, snapshot)
+		delete(stateDB.selfDestructedSnapshot, snapshot)
 		for i := snapshot + 1; ; i++ {
-			if _, ok := stateDB.suicideSnapshot[i]; ok {
-				delete(stateDB.suicideSnapshot, i)
+			if _, ok := stateDB.selfDestructedSnapshot[i]; ok {
+				delete(stateDB.selfDestructedSnapshot, i)
 			} else {
 				break
 			}
@@ -748,7 +748,7 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		}
 	}
 	sn := stateDB.sm.Snapshot()
-	if _, ok := stateDB.suicideSnapshot[sn]; ok {
+	if _, ok := stateDB.selfDestructedSnapshot[sn]; ok {
 		err := errors.New("unexpected error: duplicate snapshot version")
 		if stateDB.fixSnapshotOrder {
 			log.L().Panic("Failed to snapshot.", zap.Error(err))
@@ -765,12 +765,12 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		stateDB.logsSnapshot[sn] = len(stateDB.logs)
 		stateDB.txLogsSnapshot[sn] = len(stateDB.transactionLogs)
 	}
-	// save a copy of current suicide accounts
+	// save a copy of current SelfDestruct accounts
 	sa := make(deleteAccount)
-	for k, v := range stateDB.suicided {
+	for k, v := range stateDB.selfDestructed {
 		sa[k] = v
 	}
-	stateDB.suicideSnapshot[sn] = sa
+	stateDB.selfDestructedSnapshot[sn] = sa
 	if !stateDB.fixSnapshotOrder {
 		for _, addr := range stateDB.cachedContractAddrs() {
 			c[addr] = stateDB.cachedContract[addr].Snapshot()
@@ -1032,8 +1032,8 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 			return errors.Wrap(err, "failed to decode address hash")
 		}
 		copy(addr[:], addrBytes)
-		if _, ok := stateDB.suicided[addr]; ok {
-			// no need to update a suicide account/contract
+		if _, ok := stateDB.selfDestructed[addr]; ok {
+			// no need to update a SelfDestruct account/contract
 			continue
 		}
 		contract := stateDB.cachedContract[addr]
@@ -1050,7 +1050,7 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 	}
 	// delete suicided accounts/contract
 	addrStrs = make([]string, 0)
-	for addr := range stateDB.suicided {
+	for addr := range stateDB.selfDestructed {
 		addrStrs = append(addrStrs, hex.EncodeToString(addr[:]))
 	}
 	sort.Strings(addrStrs)
@@ -1064,7 +1064,7 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 		copy(addr[:], addrBytes)
 		if _, err := stateDB.sm.DelState(protocol.LegacyKeyOption(addr)); err != nil {
 			stateDB.logError(err)
-			return errors.Wrapf(err, "failed to delete suicide account/contract %x", addr[:])
+			return errors.Wrapf(err, "failed to delete SelfDestruct account/contract %x", addr[:])
 		}
 	}
 	// write preimages to DB
@@ -1119,8 +1119,8 @@ func (stateDB *StateDBAdapter) clear() {
 	stateDB.refundSnapshot = make(map[int]uint64)
 	stateDB.cachedContract = make(contractMap)
 	stateDB.contractSnapshot = make(map[int]contractMap)
-	stateDB.suicided = make(deleteAccount)
-	stateDB.suicideSnapshot = make(map[int]deleteAccount)
+	stateDB.selfDestructed = make(deleteAccount)
+	stateDB.selfDestructedSnapshot = make(map[int]deleteAccount)
 	stateDB.preimages = make(preimageMap)
 	stateDB.preimageSnapshot = make(map[int]preimageMap)
 	stateDB.accessList = newAccessList()
