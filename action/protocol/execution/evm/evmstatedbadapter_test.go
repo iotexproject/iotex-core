@@ -342,10 +342,13 @@ var tests = []stateDBTest{
 		[]access{
 			{_c1, []common.Hash{_k1, _k2}, []common.Hash{_k3, _k4}, false},
 		},
+		[]transient{
+			{_c1, _k1, _v1},
+		},
 		[]*types.Log{
 			newTestLog(_c3), newTestLog(_c2), newTestLog(_c1),
 		},
-		3, 0,
+		3, 0, 1,
 		"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "",
 	},
 	{
@@ -373,10 +376,13 @@ var tests = []stateDBTest{
 			{_c1, []common.Hash{_k3, _k4}, nil, true},
 			{_c2, []common.Hash{_k1, _k3}, []common.Hash{_k2, _k4}, false},
 		},
+		[]transient{
+			{_c2, _k2, _v2},
+		},
 		[]*types.Log{
 			newTestLog(_c4),
 		},
-		4, 1,
+		4, 1, 2,
 		"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
 		"io1j4kjr6x5s8p6dyqlcfrxxdrsea32u2hpvpl5us",
 		"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
@@ -398,10 +404,13 @@ var tests = []stateDBTest{
 		[]access{
 			{_c2, []common.Hash{_k2, _k4}, nil, true},
 		},
+		[]transient{
+			{_c3, _k3, _v3},
+		},
 		[]*types.Log{
 			newTestLog(_c1), newTestLog(_c2),
 		},
-		6, 2,
+		6, 2, 3,
 		"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
 		"io1q2hz49tdy85dfqwr560pge3ngux0vf0vmhanad",
 		"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
@@ -481,13 +490,17 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					require.False(sOk)
 				}
 			}
+			//set transient storage
+			for _, e := range test.transient {
+				stateDB.SetTransientState(e.addr, e.k, e.v)
+			}
 			// set logs and txLogs
 			for _, l := range test.logs {
 				stateDB.AddLog(l)
 			}
-
 			require.Equal(test.logSize, len(stateDB.logs))
 			require.Equal(test.txLogSize, len(stateDB.transactionLogs))
+			require.Equal(test.transientSize, len(stateDB.transientStorage))
 			require.Equal(test.logAddr, stateDB.logs[test.logSize-1].Address)
 			if test.txLogSize > 0 {
 				require.Equal(test.txSender, stateDB.transactionLogs[test.txLogSize-1].Sender)
@@ -526,8 +539,11 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{_c1, []common.Hash{_k1, _k2, _k3, _k4}, nil, true},
 					{_c2, []common.Hash{_k1, _k2, _k3, _k4}, nil, true},
 				},
+				[]transient{
+					{_c3, _k3, _v3},
+				},
 				nil,
-				6, 2,
+				6, 2, 3,
 				"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
 				"io1q2hz49tdy85dfqwr560pge3ngux0vf0vmhanad",
 				"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
@@ -556,8 +572,11 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{_c1, []common.Hash{_k1, _k2, _k3, _k4}, nil, true},
 					{_c2, []common.Hash{_k1, _k3}, []common.Hash{_k2, _k4}, true},
 				},
+				[]transient{
+					{_c2, _k2, _v2},
+				},
 				nil,
-				4, 1,
+				4, 1, 2,
 				"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
 				"io1j4kjr6x5s8p6dyqlcfrxxdrsea32u2hpvpl5us",
 				"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
@@ -590,8 +609,11 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{_c1, []common.Hash{_k1, _k2}, []common.Hash{_k3, _k4}, true},
 					{_c2, nil, []common.Hash{_k1, _k2, _k3, _k4}, false},
 				},
+				[]transient{
+					{_c1, _k1, _v1},
+				},
 				nil,
-				3, 0,
+				3, 0, 1,
 				"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
 				"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
 				"",
@@ -638,6 +660,10 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 						require.False(sOk)
 					}
 				}
+				//test transient storage
+				for _, e := range test.transient {
+					require.Equal(e.v, stateDB.GetTransientState(e.addr, e.k))
+				}
 			}
 			// test SelfDestruct/exist
 			for _, e := range test.selfDestruct {
@@ -669,6 +695,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			require.Equal(1, len(stateDB.selfDestructedSnapshot))
 			require.Equal(1, len(stateDB.preimageSnapshot))
 			require.Equal(1, len(stateDB.accessListSnapshot))
+			require.Equal(1, len(stateDB.transientStorageSnapshot))
 			require.Equal(1, len(stateDB.refundSnapshot))
 		} else {
 			require.Equal(3, len(stateDB.contractSnapshot))
@@ -677,6 +704,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			// refund fix and accessList are introduced after fixSnapshot
 			// so their snapshot are always properly cleared
 			require.Zero(len(stateDB.accessListSnapshot))
+			require.Zero(len(stateDB.transientStorageSnapshot))
 			require.Zero(len(stateDB.refundSnapshot))
 		}
 		// commit snapshot 0's state
@@ -949,30 +977,46 @@ func TestStateDBTransientStorage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key := common.Hash{0x01}
-	value := common.Hash{0x02}
-	addr := common.Address{}
+	var (
+		addr0 = common.Address{}
+		addr1 = common.HexToAddress("1234567890")
+		k1    = common.Hash{}
+		k2    = common.HexToHash("34567890ab")
+		v1    = common.HexToHash("567890abcd")
+		v2    = common.HexToHash("7890abcdef")
+	)
+	tests := []struct {
+		addr     common.Address
+		key, val common.Hash
+	}{
+		{addr0, k1, v1},
+		{addr0, k2, v2},
+		{addr1, k1, v2},
+		{addr1, k2, v1},
+	}
+	for _, test := range tests {
+		addr := test.addr
+		key := test.key
+		value := test.val
+		sn := state.Snapshot()
+		state.SetTransientState(addr, key, value)
+		// the retrieved value should equal what was set
+		if got := state.GetTransientState(addr, key); got != value {
+			t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
+		}
 
-	sn := state.Snapshot()
-	state.SetTransientState(addr, key, value)
-	if exp, got := 0, sn; exp != got {
-		t.Fatalf("journal length mismatch: have %d, want %d", got, exp)
-	}
-	// the retrieved value should equal what was set
-	if got := state.GetTransientState(addr, key); got != value {
-		t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
+		// revert the transient state being set and then check that the
+		// value is now the empty hash
+		state.RevertToSnapshot(sn)
+		if got, exp := state.GetTransientState(addr, key), (common.Hash{}); exp != got {
+			t.Fatalf("transient storage mismatch: have %x, want %x", got, exp)
+		}
+
+		// reset transient state
+		state.SetTransientState(addr, key, value)
+		if got := state.GetTransientState(addr, key); got != value {
+			t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
+		}
 	}
 
-	// revert the transient state being set and then check that the
-	// value is now the empty hash
-	state.RevertToSnapshot(sn)
-	if got, exp := state.GetTransientState(addr, key), (common.Hash{}); exp != got {
-		t.Fatalf("transient storage mismatch: have %x, want %x", got, exp)
-	}
-
-	// reset transient state
-	state.SetTransientState(addr, key, value)
-	if got := state.GetTransientState(addr, key); got != value {
-		t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
-	}
 }
