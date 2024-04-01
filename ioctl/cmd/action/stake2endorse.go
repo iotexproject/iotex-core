@@ -27,11 +27,11 @@ var (
 
 	_stake2EndorseCmdShorts = map[config.Language]string{
 		config.English: "Endorse bucket's candidate on IoTeX blockchain",
-		config.Chinese: "在 IoTeX 区块链上给质押票的候选人背书",
+		config.Chinese: "在 IoTeX 区块链上背书候选人",
 	}
 	_stake2UnEndorseCmdShorts = map[config.Language]string{
 		config.English: "UnEndorse bucket's candidate on IoTeX blockchain",
-		config.Chinese: "在 IoTeX 区块链上给质押票的背书进行撤销",
+		config.Chinese: "在 IoTeX 区块链上撤销背书",
 	}
 )
 
