@@ -873,7 +873,8 @@ func createChain(cfg config.Config, inMem bool) (blockchain.Blockchain, factory.
 	if inMem {
 		sf, err = factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	} else {
-		db2, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
+		var db2 db.KVStore
+		db2, err = db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
@@ -987,6 +988,8 @@ func TestConvertCleanAddress(t *testing.T) {
 	cfg.Genesis.QuebecBlockHeight = 2
 	cfg.Genesis.RedseaBlockHeight = 2
 	cfg.Genesis.SumatraBlockHeight = 2
+	cfg.Genesis.TsunamiBlockHeight = 3
+	cfg.Genesis.ToBeEnabledBlockHeight = 3
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 
 	ctx := context.Background()
@@ -1015,16 +1018,19 @@ func TestConvertCleanAddress(t *testing.T) {
 	tsf2, err := action.SignedTransfer(identityset.Address(24).String(), priKey0, 3, big.NewInt(10000), nil, 500000, minGas)
 	require.NoError(err)
 	require.NoError(ap.Add(ctx, tsf2))
-	deterministic, err := address.FromHex("3fab184622dc19b6109349b94811493bf2a45362")
-	require.NoError(err)
-	tsf3, err := action.SignedTransfer(deterministic.String(), priKey0, 4, big.NewInt(10000000000000000), nil, 500000, minGas)
+	tsf3, err := action.SignedTransfer(identityset.Address(23).String(), priKey0, 4, big.NewInt(30000), nil, 500000, minGas)
 	require.NoError(err)
 	require.NoError(ap.Add(ctx, tsf3))
+	deterministic, err := address.FromHex("3fab184622dc19b6109349b94811493bf2a45362")
+	require.NoError(err)
+	tsf4, err := action.SignedTransfer(deterministic.String(), priKey0, 5, big.NewInt(10000000000000000), nil, 500000, minGas)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tsf4))
 	blockTime := time.Unix(1546329600, 0)
 	blk, err := bc.MintNewBlock(blockTime)
 	require.NoError(err)
 	require.EqualValues(1, blk.Height())
-	require.Equal(5, len(blk.Body.Actions))
+	require.Equal(6, len(blk.Body.Actions))
 	require.NoError(bc.CommitBlock(blk))
 
 	// get deployed contract address
@@ -1034,11 +1040,12 @@ func TestConvertCleanAddress(t *testing.T) {
 		require.NoError(err)
 	}
 
-	// verify 3 recipients remain legacy fresh accounts
+	// verify 4 recipients remain legacy fresh accounts
 	for _, v := range []struct {
 		a address.Address
 		b string
 	}{
+		{identityset.Address(23), "100000000000000000000030000"},
 		{identityset.Address(24), "100000000000000000000010000"},
 		{identityset.Address(25), "100000000000000000000010000"},
 		{deterministic, "10000000000000000"},
@@ -1158,7 +1165,69 @@ func TestConvertCleanAddress(t *testing.T) {
 	require.NoError(err)
 	require.Equal(4, len(tl.Logs))
 
-	// commit 2 blocks to a new chain
+	// Add block 3
+	t1, _ = action.NewTransfer(0, big.NewInt(100), identityset.Address(27).String(), nil, 500000, minGas)
+	elp = (&action.EnvelopeBuilder{}).SetNonce(t1.Nonce()).
+		SetChainID(cfg.Chain.ID).
+		SetGasPrice(t1.GasPrice()).
+		SetGasLimit(t1.GasLimit()).
+		SetAction(t1).Build()
+	tsf1, err = action.Sign(elp, identityset.PrivateKey(23))
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tsf1))
+	t2, _ = action.NewTransfer(1, big.NewInt(200), identityset.Address(27).String(), nil, 500000, minGas)
+	elp = (&action.EnvelopeBuilder{}).SetNonce(t2.Nonce()).
+		SetChainID(cfg.Chain.ID).
+		SetGasPrice(t2.GasPrice()).
+		SetGasLimit(t2.GasLimit()).
+		SetAction(t2).Build()
+	tsf2, err = action.Sign(elp, identityset.PrivateKey(23))
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tsf2))
+	t3, _ := action.NewTransfer(1, big.NewInt(100), identityset.Address(27).String(), nil, 500000, minGas)
+	elp = (&action.EnvelopeBuilder{}).SetNonce(t3.Nonce()).
+		SetChainID(cfg.Chain.ID).
+		SetGasPrice(t1.GasPrice()).
+		SetGasLimit(t1.GasLimit()).
+		SetAction(t3).Build()
+	tsf3, err = action.Sign(elp, identityset.PrivateKey(24))
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tsf3))
+	t4, _ := action.NewTransfer(2, big.NewInt(200), identityset.Address(27).String(), nil, 500000, minGas)
+	elp = (&action.EnvelopeBuilder{}).SetNonce(t4.Nonce()).
+		SetChainID(cfg.Chain.ID).
+		SetGasPrice(t2.GasPrice()).
+		SetGasLimit(t2.GasLimit()).
+		SetAction(t4).Build()
+	tsf4, err = action.Sign(elp, identityset.PrivateKey(25))
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tsf4))
+	blockTime = blockTime.Add(time.Second)
+	blk2, err := bc.MintNewBlock(blockTime)
+	require.NoError(err)
+	require.EqualValues(3, blk2.Height())
+	require.Equal(5, len(blk2.Body.Actions))
+	require.NoError(bc.CommitBlock(blk2))
+
+	// 4 legacy fresh accounts are converted to zero-nonce account
+	for _, v := range []struct {
+		a     address.Address
+		nonce uint64
+		b     string
+	}{
+		{identityset.Address(23), 2, "99999999980000000000029700"},
+		{identityset.Address(24), 2, "99999999952880000000009900"},
+		{identityset.Address(25), 3, "99999999970000000000009500"},
+		{deterministic, 1, "6786100000000000"},
+	} {
+		a, err := accountutil.AccountState(ctx, sf, v.a)
+		require.NoError(err)
+		require.EqualValues(1, a.AccountType())
+		require.Equal(v.nonce, a.PendingNonce())
+		require.Equal(v.b, a.Balance.String())
+	}
+
+	// commit 3 blocks to a new chain
 	testTriePath2, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
 	testDBPath2, err := testutil.PathOfTempFile("db")
@@ -1183,17 +1252,22 @@ func TestConvertCleanAddress(t *testing.T) {
 	defer func() {
 		require.NoError(bc2.Stop(ctx))
 	}()
+	require.NoError(bc2.ValidateBlock(blk))
 	require.NoError(bc2.CommitBlock(blk))
+	require.NoError(bc2.ValidateBlock(blk1))
 	require.NoError(bc2.CommitBlock(blk1))
+	require.NoError(bc2.ValidateBlock(blk2))
+	require.NoError(bc2.CommitBlock(blk2))
 
-	// 3 legacy fresh accounts are converted to zero-nonce account
+	// 4 legacy fresh accounts are converted to zero-nonce account
 	for _, v := range []struct {
 		a     address.Address
 		nonce uint64
 		b     string
 	}{
-		{identityset.Address(24), 1, "99999999962880000000010000"},
-		{identityset.Address(25), 2, "99999999980000000000009700"},
+		{identityset.Address(23), 2, "99999999980000000000029700"},
+		{identityset.Address(24), 2, "99999999952880000000009900"},
+		{identityset.Address(25), 3, "99999999970000000000009500"},
 		{deterministic, 1, "6786100000000000"},
 	} {
 		a, err := accountutil.AccountState(ctx, sf2, v.a)

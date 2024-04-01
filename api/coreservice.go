@@ -1318,10 +1318,9 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	if reverseStart > size || count == 0 {
 		return nil
 	}
-	// TODO (saito): fix overflow
-	start := size - (reverseStart + count)
-	if start < 0 {
-		start = 0
+	start := uint64(0)
+	if size > reverseStart+count {
+		start = size - (reverseStart + count)
 	}
 	end := size - 1 - reverseStart
 	res := make([]*iotexapi.ActionInfo, 0, start-end+1)
@@ -1861,7 +1860,6 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 		tracer = logger.NewStructLogger(config.Config)
 	}
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
-		Debug:     true,
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})

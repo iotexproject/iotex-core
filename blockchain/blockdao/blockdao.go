@@ -9,13 +9,12 @@ import (
 	"context"
 	"sync/atomic"
 
-	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"go.uber.org/zap"
-
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -137,7 +136,9 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 	return nil
 }
 
-func (dao *blockDAO) Stop(ctx context.Context) error { return dao.lifecycle.OnStop(ctx) }
+func (dao *blockDAO) Stop(ctx context.Context) error {
+	return dao.lifecycle.OnStop(ctx)
+}
 
 func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
 	timer := dao.timerFactory.NewTimer("get_block_hash")
