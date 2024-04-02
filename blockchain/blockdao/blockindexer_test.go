@@ -11,11 +11,12 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"github.com/xhd2015/xgo/runtime/mock"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -254,11 +255,12 @@ func TestBlockIndexerChecker_CheckIndexer(t *testing.T) {
 			store.EXPECT().GetBlockByHeight(gomock.Any()).Return(&block.Block{}, nil).Times(2)
 			store.EXPECT().GetReceipts(gomock.Any()).Return([]*action.Receipt{}, nil).Times(1)
 
-			p := gomonkey.NewPatches()
-			defer p.Reset()
-
-			p.ApplyMethodReturn(&block.Header{}, "PublicKey", pubkey)
-			p.ApplyMethodReturn(pubkey, "Address", nil)
+			mock.Patch((*block.Header).PublicKey, func(h *block.Header) crypto.PublicKey {
+				return pubkey
+			})
+			mock.Patch(pubkey.Address, func() address.Address {
+				return nil
+			})
 
 			err := bic.CheckIndexer(ctx, indexer, 0, nil)
 			r.ErrorContains(err, "failed to get producer address")

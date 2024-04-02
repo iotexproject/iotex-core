@@ -7,13 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"github.com/xhd2015/xgo/runtime/core"
+	"github.com/xhd2015/xgo/runtime/mock"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -47,21 +48,15 @@ func TestNewBlockDAOWithIndexersAndCache(t *testing.T) {
 	})
 	t.Run("NeedNewCache", func(t *testing.T) {
 		t.Run("FailedToNewPrometheusTimer", func(t *testing.T) {
-			p := gomonkey.NewPatches()
-			defer p.Reset()
-
-			p = p.ApplyFuncReturn(prometheustimer.New, nil, errors.New(t.Name()))
+			mock.Mock(prometheustimer.New, func(ctx context.Context, fn *core.FuncInfo, args, results core.Object) error {
+				return errors.New(t.Name())
+			})
 
 			dao := NewBlockDAOWithIndexersAndCache(blockdao, indexers, 1)
 			r.Nil(dao)
 		})
 	})
 	t.Run("Success", func(t *testing.T) {
-		p := gomonkey.NewPatches()
-		defer p.Reset()
-
-		p = p.ApplyFuncReturn(prometheustimer.New, nil, nil)
-
 		dao := NewBlockDAOWithIndexersAndCache(blockdao, indexers, 1)
 		r.NotNil(dao)
 	})
@@ -80,20 +75,19 @@ func Test_blockDAO_Start(t *testing.T) {
 	}
 
 	t.Run("FailedToStartLifeCycle", func(t *testing.T) {
-		p := gomonkey.NewPatches()
-		defer p.Reset()
-
-		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStart", errors.New(t.Name()))
+		mock.Patch((*lifecycle.Lifecycle).OnStart, func(_ *lifecycle.Lifecycle, ctx context.Context) error {
+			return errors.New(t.Name())
+		})
 
 		err := blockdao.Start(context.Background())
 		r.ErrorContains(err, t.Name())
 	})
 
 	t.Run("FailedToGetBlockStoreHeight", func(t *testing.T) {
-		p := gomonkey.NewPatches()
-		defer p.Reset()
+		mock.Patch((*lifecycle.Lifecycle).OnStart, func(_ *lifecycle.Lifecycle, ctx context.Context) error {
+			return nil
+		})
 
-		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStart", nil)
 		mockblockdao.EXPECT().Height().Return(uint64(0), errors.New(t.Name())).Times(1)
 
 		err := blockdao.Start(context.Background())
@@ -101,15 +95,17 @@ func Test_blockDAO_Start(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		p := gomonkey.NewPatches()
-		defer p.Reset()
-
 		expectedHeight := uint64(1)
 
-		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStart", nil)
-		mockblockdao.EXPECT().Height().Return(expectedHeight, nil).Times(1)
-		p.ApplyPrivateMethod(&blockDAO{}, "checkIndexers", func(*blockDAO, context.Context) error { return nil })
+		mock.Patch((*lifecycle.Lifecycle).OnStart, func(_ *lifecycle.Lifecycle, ctx context.Context) error {
+			return nil
+		})
 
+		mockblockdao.EXPECT().Height().Return(expectedHeight, nil).Times(1)
+
+		mock.PatchMethodByName(blockdao, "checkIndexers", func(context.Context) error {
+			return nil
+		})
 		err := blockdao.Start(context.Background())
 		r.NoError(err)
 		r.Equal(blockdao.tipHeight, expectedHeight)
@@ -132,11 +128,9 @@ func Test_blockDAO_checkIndexers(t *testing.T) {
 	}
 
 	t.Run("FailedToCheckIndexer", func(t *testing.T) {
-		p := gomonkey.NewPatches()
-		defer p.Reset()
-
-		p.ApplyMethodReturn(&BlockIndexerChecker{}, "CheckIndexer", errors.New(t.Name()))
-
+		mock.Patch((*BlockIndexerChecker).CheckIndexer, func(bic *BlockIndexerChecker, ctx context.Context, indexer BlockIndexer, targetHeight uint64, progressReporter func(uint64)) error {
+			return errors.New(t.Name())
+		})
 		err := blockdao.checkIndexers(context.Background())
 		r.ErrorContains(err, t.Name())
 	})
@@ -169,21 +163,18 @@ func Test_blockDAO_Stop(t *testing.T) {
 	dao := &blockDAO{lifecycle: lifecycle.Lifecycle{}}
 
 	t.Run("FailedToStopLifecycle", func(t *testing.T) {
-		p := gomonkey.NewPatches()
-		defer p.Reset()
-
-		p = p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStop", errors.New(t.Name()))
-
+		mock.Patch((*lifecycle.Lifecycle).OnStop, func(_ *lifecycle.Lifecycle, ctx context.Context) error {
+			return errors.New(t.Name())
+		})
 		err := dao.Stop(context.Background())
 
 		r.ErrorContains(err, t.Name())
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		p := gomonkey.NewPatches()
-		defer p.Reset()
-
-		p = p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStop", nil)
+		mock.Patch((*lifecycle.Lifecycle).OnStop, func(_ *lifecycle.Lifecycle, ctx context.Context) error {
+			return nil
+		})
 
 		err := dao.Stop(context.Background())
 

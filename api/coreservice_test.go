@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/agiledragon/gomonkey/v2"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/golang/mock/gomock"

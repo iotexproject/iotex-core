@@ -3,7 +3,6 @@ module github.com/iotexproject/iotex-core
 go 1.21
 
 require (
-	github.com/agiledragon/gomonkey/v2 v2.11.0
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cespare/xxhash/v2 v2.2.0
@@ -95,6 +94,7 @@ require (
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/supranational/blst v0.3.11 // indirect
 	github.com/whyrusleeping/tar-utils v0.0.0-20180509141711-8c6c8ba81d5c // indirect
+	github.com/xhd2015/xgo/runtime v1.0.15
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/tools v0.15.0 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
