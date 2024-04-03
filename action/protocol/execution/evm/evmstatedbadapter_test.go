@@ -701,7 +701,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			require.Equal(3, len(stateDB.contractSnapshot))
 			require.Equal(3, len(stateDB.selfDestructedSnapshot))
 			require.Equal(3, len(stateDB.preimageSnapshot))
-			// refund fix and accessList are introduced after fixSnapshot
+			// refund fix and accessList、transient storage are introduced after fixSnapshot
 			// so their snapshot are always properly cleared
 			require.Zero(len(stateDB.accessListSnapshot))
 			require.Zero(len(stateDB.transientStorageSnapshot))
@@ -1000,23 +1000,15 @@ func TestStateDBTransientStorage(t *testing.T) {
 		value := test.val
 		sn := state.Snapshot()
 		state.SetTransientState(addr, key, value)
-		// the retrieved value should equal what was set
-		if got := state.GetTransientState(addr, key); got != value {
-			t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
-		}
+		require.Equal(value, state.GetTransientState(addr, key))
 
 		// revert the transient state being set and then check that the
 		// value is now the empty hash
 		state.RevertToSnapshot(sn)
-		if got, exp := state.GetTransientState(addr, key), (common.Hash{}); exp != got {
-			t.Fatalf("transient storage mismatch: have %x, want %x", got, exp)
-		}
+		require.Equal(common.Hash{}, state.GetTransientState(addr, key))
 
-		// reset transient state
 		state.SetTransientState(addr, key, value)
-		if got := state.GetTransientState(addr, key); got != value {
-			t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
-		}
+		require.Equal(value, state.GetTransientState(addr, key))
 	}
 
 }
