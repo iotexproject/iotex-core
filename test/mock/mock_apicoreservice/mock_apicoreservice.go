@@ -78,15 +78,14 @@ func (mr *MockCoreServiceMockRecorder) Action(actionHash, checkPending interface
 }
 
 // ActionByActionHash mocks base method.
-func (m *MockCoreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
+func (m *MockCoreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, *block.Block, uint32, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ActionByActionHash", h)
 	ret0, _ := ret[0].(*action.SealedEnvelope)
-	ret1, _ := ret[1].(hash.Hash256)
-	ret2, _ := ret[2].(uint64)
-	ret3, _ := ret[3].(uint32)
-	ret4, _ := ret[4].(error)
-	return ret0, ret1, ret2, ret3, ret4
+	ret1, _ := ret[1].(*block.Block)
+	ret2, _ := ret[2].(uint32)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // ActionByActionHash indicates an expected call of ActionByActionHash.

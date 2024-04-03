@@ -119,7 +119,7 @@ type (
 		// ActionsByAddress returns all actions associated with an address
 		ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// ActionByActionHash returns action by action hash
-		ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
+		ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, *block.Block, uint32, error)
 		// PendingActionByActionHash returns action by action hash
 		PendingActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, error)
 		// ActPoolActions returns the all Transaction Identifiers in the actpool
@@ -1089,24 +1089,24 @@ func (core *coreService) BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256,
 }
 
 // ActionByActionHash returns action by action hash
-func (core *coreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
+func (core *coreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, *block.Block, uint32, error) {
 	if err := core.checkActionIndex(); err != nil {
-		return nil, hash.ZeroHash256, 0, 0, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+		return nil, nil, 0, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 
 	actIndex, err := core.indexer.GetActionIndex(h[:])
 	if err != nil {
-		return nil, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
+		return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
 	blk, err := core.dao.GetBlockByHeight(actIndex.BlockHeight())
 	if err != nil {
-		return nil, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
+		return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
 	selp, index, err := blk.ActionByHash(h)
 	if err != nil {
-		return nil, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
+		return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
-	return selp, blk.HashBlock(), actIndex.BlockHeight(), index, nil
+	return selp, blk, index, nil
 }
 
 // ActionByActionHash returns action by action hash
@@ -1290,9 +1290,9 @@ func (core *coreService) pendingAction(selp *action.SealedEnvelope) (*iotexapi.A
 }
 
 func (core *coreService) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi.ActionInfo, error) {
-	selp, blkHash, blkHeight, actIndex, err := core.ActionByActionHash(actHash)
+	selp, blk, actIndex, err := core.ActionByActionHash(actHash)
 	if err == nil {
-		act, err := core.committedAction(selp, blkHash, blkHeight)
+		act, err := core.committedAction(selp, blk.HashBlock(), blk.Height())
 		if err != nil {
 			return nil, err
 		}
