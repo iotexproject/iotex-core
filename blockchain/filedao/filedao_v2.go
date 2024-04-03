@@ -37,17 +37,18 @@ var (
 type (
 	// fileDAOv2 handles chain db file after file split activation at v1.1.2
 	fileDAOv2 struct {
-		filename  string
-		header    *FileHeader
-		tip       *FileTip
-		blkBuffer *stagingBuffer
-		blkCache  cache.LRUCache
-		kvStore   db.KVStore
-		batch     batch.KVStoreBatch
-		hashStore db.CountingIndex // store block hash
-		blkStore  db.CountingIndex // store raw blocks
-		sysStore  db.CountingIndex // store transaction log
-		deser     *block.Deserializer
+		filename     string
+		header       *FileHeader
+		tip          *FileTip
+		blkBuffer    *stagingBuffer
+		blkCache     cache.LRUCache
+		receiptCache cache.LRUCache
+		kvStore      db.KVStore
+		batch        batch.KVStoreBatch
+		hashStore    db.CountingIndex // store block hash
+		blkStore     db.CountingIndex // store raw blocks
+		sysStore     db.CountingIndex // store transaction log
+		deser        *block.Deserializer
 	}
 )
 
@@ -68,10 +69,11 @@ func newFileDAOv2(bottom uint64, cfg db.Config, deser *block.Deserializer) (*fil
 		tip: &FileTip{
 			Height: bottom - 1,
 		},
-		blkCache: cache.NewThreadSafeLruCache(16),
-		kvStore:  db.NewBoltDB(cfg),
-		batch:    batch.NewBatch(),
-		deser:    deser,
+		blkCache:     cache.NewThreadSafeLruCache(64),
+		receiptCache: cache.NewThreadSafeLruCache(64),
+		kvStore:      db.NewBoltDB(cfg),
+		batch:        batch.NewBatch(),
+		deser:        deser,
 	}
 	return &fd, nil
 }
@@ -79,11 +81,12 @@ func newFileDAOv2(bottom uint64, cfg db.Config, deser *block.Deserializer) (*fil
 // openFileDAOv2 opens an existing v2 file
 func openFileDAOv2(cfg db.Config, deser *block.Deserializer) *fileDAOv2 {
 	return &fileDAOv2{
-		filename: cfg.DbPath,
-		blkCache: cache.NewThreadSafeLruCache(16),
-		kvStore:  db.NewBoltDB(cfg),
-		batch:    batch.NewBatch(),
-		deser:    deser,
+		filename:     cfg.DbPath,
+		blkCache:     cache.NewThreadSafeLruCache(64),
+		receiptCache: cache.NewThreadSafeLruCache(64),
+		kvStore:      db.NewBoltDB(cfg),
+		batch:        batch.NewBatch(),
+		deser:        deser,
 	}
 }
 
@@ -185,19 +188,19 @@ func (fd *fileDAOv2) GetBlockByHeight(height uint64) (*block.Block, error) {
 	if height == 0 {
 		return block.GenesisBlock(), nil
 	}
-	blkInfo, err := fd.getBlockStore(height)
+	blk, err := fd.getBlock(height)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block at height %d", height)
 	}
-	return blkInfo.Block, nil
+	return blk, nil
 }
 
 func (fd *fileDAOv2) GetReceipts(height uint64) ([]*action.Receipt, error) {
-	blkInfo, err := fd.getBlockStore(height)
+	receipts, err := fd.getReceipt(height)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get receipts at height %d", height)
 	}
-	return blkInfo.Receipts, nil
+	return receipts, nil
 }
 
 func (fd *fileDAOv2) ContainsTransactionLog() bool {
