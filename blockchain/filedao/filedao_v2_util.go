@@ -171,7 +171,6 @@ func (fd *fileDAOv2) highestBlockOfStoreTip() uint64 {
 	return fd.header.Start + fd.blkStore.Size()*fd.header.BlockStoreSize - 1
 }
 
-// TODO: refactor getBlock with getReceipt
 func (fd *fileDAOv2) getBlock(height uint64) (*block.Block, error) {
 	if !fd.ContainsHeight(height) {
 		return nil, db.ErrNotExist
