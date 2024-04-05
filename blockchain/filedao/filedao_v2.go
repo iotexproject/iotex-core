@@ -37,18 +37,19 @@ var (
 type (
 	// fileDAOv2 handles chain db file after file split activation at v1.1.2
 	fileDAOv2 struct {
-		filename     string
-		header       *FileHeader
-		tip          *FileTip
-		blkBuffer    *stagingBuffer
-		blkCache     cache.LRUCache
-		receiptCache cache.LRUCache
-		kvStore      db.KVStore
-		batch        batch.KVStoreBatch
-		hashStore    db.CountingIndex // store block hash
-		blkStore     db.CountingIndex // store raw blocks
-		sysStore     db.CountingIndex // store transaction log
-		deser        *block.Deserializer
+		filename        string
+		header          *FileHeader
+		tip             *FileTip
+		blkBuffer       *stagingBuffer
+		blkStorePbCache cache.LRUCache
+		blkCache        cache.LRUCache
+		receiptCache    cache.LRUCache
+		kvStore         db.KVStore
+		batch           batch.KVStoreBatch
+		hashStore       db.CountingIndex // store block hash
+		blkStore        db.CountingIndex // store raw blocks
+		sysStore        db.CountingIndex // store transaction log
+		deser           *block.Deserializer
 	}
 )
 
@@ -69,11 +70,12 @@ func newFileDAOv2(bottom uint64, cfg db.Config, deser *block.Deserializer) (*fil
 		tip: &FileTip{
 			Height: bottom - 1,
 		},
-		blkCache:     cache.NewThreadSafeLruCache(64),
-		receiptCache: cache.NewThreadSafeLruCache(64),
-		kvStore:      db.NewBoltDB(cfg),
-		batch:        batch.NewBatch(),
-		deser:        deser,
+		blkStorePbCache: cache.NewThreadSafeLruCache(16),
+		blkCache:        cache.NewThreadSafeLruCache(256),
+		receiptCache:    cache.NewThreadSafeLruCache(256),
+		kvStore:         db.NewBoltDB(cfg),
+		batch:           batch.NewBatch(),
+		deser:           deser,
 	}
 	return &fd, nil
 }
@@ -81,12 +83,13 @@ func newFileDAOv2(bottom uint64, cfg db.Config, deser *block.Deserializer) (*fil
 // openFileDAOv2 opens an existing v2 file
 func openFileDAOv2(cfg db.Config, deser *block.Deserializer) *fileDAOv2 {
 	return &fileDAOv2{
-		filename:     cfg.DbPath,
-		blkCache:     cache.NewThreadSafeLruCache(64),
-		receiptCache: cache.NewThreadSafeLruCache(64),
-		kvStore:      db.NewBoltDB(cfg),
-		batch:        batch.NewBatch(),
-		deser:        deser,
+		filename:        cfg.DbPath,
+		blkStorePbCache: cache.NewThreadSafeLruCache(16),
+		blkCache:        cache.NewThreadSafeLruCache(256),
+		receiptCache:    cache.NewThreadSafeLruCache(256),
+		kvStore:         db.NewBoltDB(cfg),
+		batch:           batch.NewBatch(),
+		deser:           deser,
 	}
 }
 
