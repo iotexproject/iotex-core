@@ -8,6 +8,8 @@ package filedao
 import (
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
@@ -175,7 +177,6 @@ func (fd *fileDAOv2) getBlock(height uint64) (*block.Block, error) {
 	if !fd.ContainsHeight(height) {
 		return nil, db.ErrNotExist
 	}
-
 	// check whether block in staging buffer or not
 	storeKey := blockStoreKey(height, fd.header)
 	if storeKey >= fd.blkStore.Size() {
@@ -185,30 +186,16 @@ func (fd *fileDAOv2) getBlock(height uint64) (*block.Block, error) {
 		}
 		return blkStore.Block, nil
 	}
-
 	// check whether block in read cache or not
 	if value, ok := fd.blkCache.Get(height); ok {
-		blk := value.(*block.Block)
-		return blk, nil
+		return value.(*block.Block), nil
 	}
-
-	value, err := fd.blkStore.Get(storeKey)
+	// read from storage DB
+	blockStore, err := fd.getBlockStore(height)
 	if err != nil {
 		return nil, err
 	}
-	value, err = decompBytes(value, fd.header.Compressor)
-	if err != nil {
-		return nil, err
-	}
-	pbStores, err := block.DeserializeBlockStoresPb(value)
-	if err != nil {
-		return nil, err
-	}
-	if len(pbStores.BlockStores) != int(fd.header.BlockStoreSize) {
-		return nil, ErrDataCorruption
-	}
-
-	blk, err := fd.deser.BlockFromBlockStoreProto(pbStores.BlockStores[stagingKey(height, fd.header)])
+	blk, err := fd.deser.BlockFromBlockStoreProto(blockStore)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +208,6 @@ func (fd *fileDAOv2) getReceipt(height uint64) ([]*action.Receipt, error) {
 	if !fd.ContainsHeight(height) {
 		return nil, db.ErrNotExist
 	}
-
 	// check whether block in staging buffer or not
 	storeKey := blockStoreKey(height, fd.header)
 	if storeKey >= fd.blkStore.Size() {
@@ -231,13 +217,32 @@ func (fd *fileDAOv2) getReceipt(height uint64) ([]*action.Receipt, error) {
 		}
 		return blkStore.Receipts, nil
 	}
-
-	// check whether block in read cache or not
+	// check whether receipts in read cache or not
 	if value, ok := fd.receiptCache.Get(height); ok {
-		receipts := value.([]*action.Receipt)
-		return receipts, nil
+		return value.([]*action.Receipt), nil
 	}
+	// read from storage DB
+	blockStore, err := fd.getBlockStore(height)
+	if err != nil {
+		return nil, err
+	}
+	receipts, err := fd.deser.ReceiptsFromBlockStoreProto(blockStore)
+	if err != nil {
+		return nil, err
+	}
+	// add to read cache
+	fd.receiptCache.Add(height, receipts)
+	return receipts, nil
+}
 
+func (fd *fileDAOv2) getBlockStore(height uint64) (*iotextypes.BlockStore, error) {
+	// check whether blockStore in read cache or not
+	storeKey := blockStoreKey(height, fd.header)
+	if value, ok := fd.blkStorePbCache.Get(storeKey); ok {
+		pbInfos := value.(*iotextypes.BlockStores)
+		return pbInfos.BlockStores[stagingKey(height, fd.header)], nil
+	}
+	// read from storage DB
 	value, err := fd.blkStore.Get(storeKey)
 	if err != nil {
 		return nil, err
@@ -253,12 +258,7 @@ func (fd *fileDAOv2) getReceipt(height uint64) ([]*action.Receipt, error) {
 	if len(pbStores.BlockStores) != int(fd.header.BlockStoreSize) {
 		return nil, ErrDataCorruption
 	}
-
-	receipts, err := fd.deser.ReceiptsFromBlockStoreProto(pbStores.BlockStores[stagingKey(height, fd.header)])
-	if err != nil {
-		return nil, err
-	}
 	// add to read cache
-	fd.receiptCache.Add(height, receipts)
-	return receipts, nil
+	fd.blkStorePbCache.Add(storeKey, pbStores)
+	return pbStores.BlockStores[stagingKey(height, fd.header)], nil
 }
