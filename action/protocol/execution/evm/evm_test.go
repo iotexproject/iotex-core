@@ -356,8 +356,8 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isSumatra, chainRules.IsShanghai)
 
 		// Cancun, Prague not yet enabled
-		require.False(evmChainConfig.IsCancun(evm.Context.Time))
-		require.False(evmChainConfig.IsPrague(evm.Context.Time))
+		require.False(evmChainConfig.IsCancun(big.NewInt(int64(e.height)), evm.Context.Time))
+		require.False(evmChainConfig.IsPrague(big.NewInt(int64(e.height)), evm.Context.Time))
 
 		// test basefee
 		require.Equal(new(big.Int), evm.Context.BaseFee)
