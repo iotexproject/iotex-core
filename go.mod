@@ -24,7 +24,7 @@ require (
 	github.com/iotexproject/iotex-address v0.2.8
 	github.com/iotexproject/iotex-antenna-go/v2 v2.5.1
 	github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d
-	github.com/iotexproject/iotex-proto v0.5.15-0.20240327004259-da069334c7da
+	github.com/iotexproject/iotex-proto v0.6.0
 	github.com/ipfs/go-ipfs-api v0.2.0
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/mackerelio/go-osstat v0.2.4
@@ -237,3 +237,5 @@ require (
 replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v1.7.4-0.20230806203205-6819e8158a5f
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
+
+// replace github.com/iotexproject/iotex-proto => /Users/chenchen/dev/iotex-proto
