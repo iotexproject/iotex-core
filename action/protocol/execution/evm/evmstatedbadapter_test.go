@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/mock/gomock"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -98,16 +99,16 @@ func TestAddBalance(t *testing.T) {
 	)
 	require.NoError(err)
 	addAmount := big.NewInt(40000)
-	stateDB.AddBalance(addr, addAmount)
+	stateDB.AddBalance(addr, uint256.MustFromBig(addAmount))
 	require.Equal(addAmount, stateDB.lastAddBalanceAmount)
 	beneficiary, _ := address.FromBytes(addr[:])
 	require.Equal(beneficiary.String(), stateDB.lastAddBalanceAddr)
 	amount := stateDB.GetBalance(addr)
-	require.Equal(amount, addAmount)
-	stateDB.AddBalance(addr, addAmount)
+	require.Equal(amount.ToBig(), addAmount)
+	stateDB.AddBalance(addr, uint256.MustFromBig(addAmount))
 	amount = stateDB.GetBalance(addr)
-	require.Equal(amount, big.NewInt(80000))
-	stateDB.AddBalance(addr, new(big.Int))
+	require.Equal(amount, uint256.NewInt(80000))
+	stateDB.AddBalance(addr, common.U2560)
 	require.Zero(len(stateDB.lastAddBalanceAmount.Bytes()))
 }
 
@@ -433,7 +434,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		for i, test := range tests {
 			// add balance
 			for _, e := range test.balance {
-				stateDB.AddBalance(e.addr, e.v)
+				stateDB.AddBalance(e.addr, uint256.MustFromBig(e.v))
 			}
 			// set code
 			for _, e := range test.codes {
@@ -447,15 +448,15 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			}
 			// set refund
 			stateDB.refund = test.refund
-			// set suicide
-			for _, e := range test.suicide {
+			// set SelfDestruct
+			for _, e := range test.selfDestruct {
 				if e.amount != nil {
-					stateDB.AddBalance(e.addr, e.amount)
+					stateDB.AddBalance(e.addr, uint256.MustFromBig(e.amount))
 				}
 				stateDB.AddBalance(e.beneficiary, stateDB.GetBalance(e.addr)) // simulate transfer to beneficiary inside Suicide()
-				require.Equal(e.suicide, stateDB.Suicide(e.addr))
+				stateDB.SelfDestruct(e.addr)
 				require.Equal(e.exist, stateDB.Exist(e.addr))
-				require.Zero(new(big.Int).Cmp(stateDB.GetBalance(e.addr)))
+				require.Zero(new(uint256.Int).Cmp(stateDB.GetBalance(e.addr)))
 			}
 			// set preimage
 			for _, e := range test.preimage {
@@ -603,7 +604,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			// test balance
 			for _, e := range test.balance {
 				amount := stateDB.GetBalance(e.addr)
-				require.Equal(e.v, amount)
+				require.Equal(uint256.MustFromBig(e.v), amount)
 			}
 			if async && !fixSnapshot {
 				// test preimage
@@ -638,9 +639,9 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					}
 				}
 			}
-			// test suicide/exist
-			for _, e := range test.suicide {
-				require.Equal(e.suicide, stateDB.HasSuicided(e.addr))
+			// test SelfDestruct/exist
+			for _, e := range test.selfDestruct {
+				require.Equal(e.selfDestruct, stateDB.HasSelfDestructed(e.addr))
 				require.Equal(e.exist, stateDB.Exist(e.addr))
 			}
 			// test logs
@@ -665,13 +666,13 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		require.Equal(1, stateDB.Snapshot())
 		if fixSnapshot {
 			require.Equal(1, len(stateDB.contractSnapshot))
-			require.Equal(1, len(stateDB.suicideSnapshot))
+			require.Equal(1, len(stateDB.selfDestructedSnapshot))
 			require.Equal(1, len(stateDB.preimageSnapshot))
 			require.Equal(1, len(stateDB.accessListSnapshot))
 			require.Equal(1, len(stateDB.refundSnapshot))
 		} else {
 			require.Equal(3, len(stateDB.contractSnapshot))
-			require.Equal(3, len(stateDB.suicideSnapshot))
+			require.Equal(3, len(stateDB.selfDestructedSnapshot))
 			require.Equal(3, len(stateDB.preimageSnapshot))
 			// refund fix and accessList are introduced after fixSnapshot
 			// so their snapshot are always properly cleared
@@ -681,7 +682,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		// commit snapshot 0's state
 		require.NoError(stateDB.CommitContracts())
 		stateDB.clear()
-		//[TODO] need e2etest to verify state factory commit/re-open (whether result from state/balance/suicide/exist is same)
+		//[TODO] need e2etest to verify state factory commit/re-open (whether result from state/balance/SelfDestruct/exist is same)
 	}
 
 	t.Run("contract snapshot/revert/commit", func(t *testing.T) {
@@ -721,7 +722,7 @@ func TestClearSnapshots(t *testing.T) {
 		for i, test := range tests {
 			// add balance
 			for _, e := range test.balance {
-				stateDB.AddBalance(e.addr, e.v)
+				stateDB.AddBalance(e.addr, uint256.MustFromBig(e.v))
 			}
 			// set code
 			for _, e := range test.codes {
@@ -733,9 +734,9 @@ func TestClearSnapshots(t *testing.T) {
 			for _, e := range test.states {
 				stateDB.SetState(e.addr, e.k, e.v)
 			}
-			// set suicide
-			for _, e := range test.suicide {
-				require.Equal(e.suicide, stateDB.Suicide(e.addr))
+			// set SelfDestruct
+			for _, e := range test.selfDestruct {
+				stateDB.SelfDestruct(e.addr)
 				require.Equal(e.exist, stateDB.Exist(e.addr))
 			}
 			// set preimage
@@ -751,23 +752,23 @@ func TestClearSnapshots(t *testing.T) {
 
 		if stateDB.fixSnapshotOrder {
 			// snapshot 1, 2 cleared, only 0 left in map
-			require.Equal(1, len(stateDB.suicideSnapshot))
+			require.Equal(1, len(stateDB.selfDestructedSnapshot))
 			require.Equal(1, len(stateDB.contractSnapshot))
 			require.Equal(1, len(stateDB.preimageSnapshot))
 			require.Equal(2, stateDB.Snapshot())
 			// now there are 2 snapshots: 0 and the newly added one
-			require.Equal(2, len(stateDB.suicideSnapshot))
+			require.Equal(2, len(stateDB.selfDestructedSnapshot))
 			require.Equal(2, len(stateDB.contractSnapshot))
 			require.Equal(2, len(stateDB.preimageSnapshot))
 			require.Equal(2, len(stateDB.logsSnapshot))
 		} else {
 			// snapshot not cleared
-			require.Equal(3, len(stateDB.suicideSnapshot))
+			require.Equal(3, len(stateDB.selfDestructedSnapshot))
 			require.Equal(3, len(stateDB.contractSnapshot))
 			require.Equal(3, len(stateDB.preimageSnapshot))
 			require.Equal(2, stateDB.Snapshot())
 			// still 3 old snapshots
-			require.Equal(3, len(stateDB.suicideSnapshot))
+			require.Equal(3, len(stateDB.selfDestructedSnapshot))
 			require.Equal(3, len(stateDB.contractSnapshot))
 			require.Equal(3, len(stateDB.preimageSnapshot))
 			// log snapshot added after fixSnapshotOrder, so it is cleared and 1 remains
@@ -838,7 +839,7 @@ func TestGetBalanceOnError(t *testing.T) {
 		)
 		assert.NoError(t, err)
 		amount := stateDB.GetBalance(addr)
-		assert.Equal(t, big.NewInt(0), amount)
+		assert.Equal(t, common.U2560, amount)
 	}
 }
 

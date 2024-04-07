@@ -145,7 +145,7 @@ func (ns *NativeStaking) readBuckets(ctx context.Context, prevIndx, limit *big.I
 	// decode the contract read result
 	res, err := ns.abi.Unpack("getActivePyggs", data)
 	if err != nil {
-		if err.Error() == "abi: attempting to unmarshall an empty string while arguments are expected" {
+		if err.Error() == "abi: attempting to unmarshal an empty string while arguments are expected" {
 			// no data in contract (one possible reason is that contract does not exist yet)
 			return nil, nil, ErrNoData
 		}
