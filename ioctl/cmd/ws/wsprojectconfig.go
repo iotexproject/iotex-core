@@ -17,10 +17,10 @@ import (
 )
 
 var (
-	// wsCodeConvert represents the w3bstream code convert command
-	wsCodeConvert = &cobra.Command{
-		Use:   "convert",
-		Short: config.TranslateInLang(wsCodeConvertShorts, config.UILanguage),
+	// wsProjectConfig represents the generate w3bstream project configuration command
+	wsProjectConfig = &cobra.Command{
+		Use:   "config",
+		Short: config.TranslateInLang(wsProjectConfigShorts, config.UILanguage),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			version, err := cmd.Flags().GetString("version")
 			if err != nil {
@@ -42,8 +42,12 @@ var (
 			if err != nil {
 				return errors.Wrap(err, "failed to get flag expand-param")
 			}
+			outputFile, err := cmd.Flags().GetString("output-file")
+			if err != nil {
+				return errors.Wrap(err, "failed to get flag output-file")
+			}
 
-			out, err := generateProjectFile(version, vmType, codeFile, confFile, expParam)
+			out, err := generateProjectFile(version, vmType, codeFile, confFile, expParam, outputFile)
 			if err != nil {
 				return output.PrintError(err)
 			}
@@ -52,10 +56,10 @@ var (
 		},
 	}
 
-	// wsCodeConvertShorts w3bstream code convert shorts multi-lang support
-	wsCodeConvertShorts = map[config.Language]string{
-		config.English: "convert zkp code to hex string compressed with zlib",
-		config.Chinese: "将zkp代码通过zlib进行压缩之后转成hex字符串",
+	// wsProjectConfigShorts w3bstream project configuration shorts multi-lang support
+	wsProjectConfigShorts = map[config.Language]string{
+		config.English: "generate w3bstream project configuration file",
+		config.Chinese: "生成项目的配置文件",
 	}
 
 	_flagVersionUsages = map[config.Language]string{
@@ -78,21 +82,26 @@ var (
 		config.English: "expand param, if you use risc0 vm, need it.",
 		config.Chinese: "扩展参数，risc0虚拟机需要此参数",
 	}
+	_flagOutputFileUsages = map[config.Language]string{
+		config.English: "output file, default is stdout.",
+		config.Chinese: "output的值所在文件，指定proof的输出",
+	}
 )
 
 func init() {
-	wsCodeConvert.Flags().StringP("version", "v", "", config.TranslateInLang(_flagVersionUsages, config.UILanguage))
-	wsCodeConvert.Flags().StringP("vm-type", "t", "", config.TranslateInLang(_flagVMTypeUsages, config.UILanguage))
-	wsCodeConvert.Flags().StringP("code-file", "i", "", config.TranslateInLang(_flagCodeFileUsages, config.UILanguage))
-	wsCodeConvert.Flags().StringP("conf-file", "c", "", config.TranslateInLang(_flagConfFileUsages, config.UILanguage))
-	wsCodeConvert.Flags().StringP("expand-param", "e", "", config.TranslateInLang(_flagExpandParamUsages, config.UILanguage))
+	wsProjectConfig.Flags().StringP("version", "v", "", config.TranslateInLang(_flagVersionUsages, config.UILanguage))
+	wsProjectConfig.Flags().StringP("vm-type", "t", "", config.TranslateInLang(_flagVMTypeUsages, config.UILanguage))
+	wsProjectConfig.Flags().StringP("code-file", "i", "", config.TranslateInLang(_flagCodeFileUsages, config.UILanguage))
+	wsProjectConfig.Flags().StringP("conf-file", "c", "", config.TranslateInLang(_flagConfFileUsages, config.UILanguage))
+	wsProjectConfig.Flags().StringP("expand-param", "e", "", config.TranslateInLang(_flagExpandParamUsages, config.UILanguage))
+	wsProjectConfig.Flags().StringP("output-file", "u", "", config.TranslateInLang(_flagOutputFileUsages, config.UILanguage))
 
-	_ = wsCodeConvert.MarkFlagRequired("version")
-	_ = wsCodeConvert.MarkFlagRequired("vm-type")
-	_ = wsCodeConvert.MarkFlagRequired("code-file")
+	_ = wsProjectConfig.MarkFlagRequired("version")
+	_ = wsProjectConfig.MarkFlagRequired("vm-type")
+	_ = wsProjectConfig.MarkFlagRequired("code-file")
 }
 
-func generateProjectFile(version, vmType, codeFile, confFile, expParam string) (string, error) {
+func generateProjectFile(version, vmType, codeFile, confFile, expParam, outputFile string) (string, error) {
 	tye, err := stringToVMType(vmType)
 	if err != nil {
 		return "", err
@@ -103,15 +112,32 @@ func generateProjectFile(version, vmType, codeFile, confFile, expParam string) (
 		return "", err
 	}
 
-	confMaps := make([]map[string]interface{}, 0)
+	var (
+		confMaps  = make([]map[string]interface{}, 0)
+		confMap   = make(map[string]interface{})
+		outputMap = make(map[string]interface{})
+	)
 
-	confMap := make(map[string]interface{})
 	if expParam != "" {
 		confMap["codeExpParam"] = expParam
 	}
 	confMap["vmType"] = string(tye)
 	confMap["code"] = hexString
 	confMap["version"] = version
+
+	output := []byte(`{
+  "type": "stdout"
+}`)
+	if outputFile != "" {
+		output, err = os.ReadFile(outputFile)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to read output file")
+		}
+	}
+	if err := json.Unmarshal(output, &outputMap); err != nil {
+		return "", errors.Wrap(err, "failed to unmarshal output file")
+	}
+	confMap["output"] = outputMap
 
 	confMaps = append(confMaps, confMap)
 	jsonConf, err := json.MarshalIndent(confMaps, "", "  ")
@@ -146,4 +172,30 @@ func convertCodeToZlibHex(codeFile string) (string, error) {
 	hexString := hex.EncodeToString(b.Bytes())
 
 	return hexString, err
+}
+
+// zkp vm type
+type vmType string
+
+const (
+	risc0  vmType = "risc0"  // risc0 vm
+	halo2  vmType = "halo2"  // halo2 vm
+	zkWasm vmType = "zkwasm" // zkwasm vm
+	wasm   vmType = "wasm"   // wasm vm
+)
+
+// TODO move this to sprout
+func stringToVMType(vmType string) (vmType, error) {
+	switch vmType {
+	case string(risc0):
+		return risc0, nil
+	case string(halo2):
+		return halo2, nil
+	case string(zkWasm):
+		return zkWasm, nil
+	case string(wasm):
+		return wasm, nil
+	default:
+		return "", errors.New(fmt.Sprintf("not support %s type, just support %s, %s, %s, and %s", vmType, risc0, halo2, zkWasm, wasm))
+	}
 }

@@ -959,7 +959,7 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 	return d, h, err
 }
 
-func (core *coreService) getActionsFromIndex(totalActions, start, count uint64) ([]*iotexapi.ActionInfo, error) {
+func (core *coreService) getActionsFromIndex(start, count uint64) ([]*iotexapi.ActionInfo, error) {
 	hashes, err := core.indexer.GetActionHashFromIndex(start, count)
 	if err != nil {
 		return nil, status.Error(codes.Unavailable, err.Error())
@@ -994,14 +994,14 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 	if start >= totalActions {
 		return nil, status.Error(codes.InvalidArgument, "start exceeds the total actions in the block")
 	}
-	if totalActions == uint64(0) || count == 0 {
+	if totalActions == uint64(0) {
 		return []*iotexapi.ActionInfo{}, nil
 	}
 	if start+count > totalActions {
 		count = totalActions - start
 	}
 	if core.indexer != nil {
-		return core.getActionsFromIndex(totalActions, start, count)
+		return core.getActionsFromIndex(start, count)
 	}
 	// Finding actions in reverse order saves time for querying most recent actions
 	reverseStart := totalActions - (start + count)
@@ -1318,10 +1318,9 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	if reverseStart > size || count == 0 {
 		return nil
 	}
-	// TODO (saito): fix overflow
-	start := size - (reverseStart + count)
-	if start < 0 {
-		start = 0
+	start := uint64(0)
+	if size > reverseStart+count {
+		start = size - (reverseStart + count)
 	}
 	end := size - 1 - reverseStart
 	res := make([]*iotexapi.ActionInfo, 0, start-end+1)
@@ -1861,7 +1860,6 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 		tracer = logger.NewStructLogger(config.Config)
 	}
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
-		Debug:     true,
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
