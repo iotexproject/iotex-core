@@ -22,6 +22,14 @@ var (
 		Use:   "config",
 		Short: config.TranslateInLang(wsProjectConfigShorts, config.UILanguage),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			dataSource, err := cmd.Flags().GetString("data-source")
+			if err != nil {
+				return errors.Wrap(err, "failed to get flag data-source")
+			}
+			defaultVersion, err := cmd.Flags().GetString("default-version")
+			if err != nil {
+				return errors.Wrap(err, "failed to get flag default-version")
+			}
 			version, err := cmd.Flags().GetString("version")
 			if err != nil {
 				return errors.Wrap(err, "failed to get flag version")
@@ -47,7 +55,7 @@ var (
 				return errors.Wrap(err, "failed to get flag output-file")
 			}
 
-			out, err := generateProjectFile(version, vmType, codeFile, confFile, expParam, outputFile)
+			out, err := generateProjectFile(dataSource, defaultVersion, version, vmType, codeFile, confFile, expParam, outputFile)
 			if err != nil {
 				return output.PrintError(err)
 			}
@@ -62,6 +70,14 @@ var (
 		config.Chinese: "生成项目的配置文件",
 	}
 
+	_flagDataSourceUsages = map[config.Language]string{
+		config.English: "data source of the project",
+		config.Chinese: "该project的数据源",
+	}
+	_flagDefaultVersionUsages = map[config.Language]string{
+		config.English: "default version for the project config",
+		config.Chinese: "该project config的默认版本号",
+	}
 	_flagVersionUsages = map[config.Language]string{
 		config.English: "version for the project config",
 		config.Chinese: "该project config的版本号",
@@ -89,6 +105,8 @@ var (
 )
 
 func init() {
+	wsProjectConfig.Flags().StringP("data-source", "s", "", config.TranslateInLang(_flagDataSourceUsages, config.UILanguage))
+	wsProjectConfig.Flags().StringP("default-version", "d", "0.1", config.TranslateInLang(_flagDefaultVersionUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("version", "v", "", config.TranslateInLang(_flagVersionUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("vm-type", "t", "", config.TranslateInLang(_flagVMTypeUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("code-file", "i", "", config.TranslateInLang(_flagCodeFileUsages, config.UILanguage))
@@ -96,12 +114,12 @@ func init() {
 	wsProjectConfig.Flags().StringP("expand-param", "e", "", config.TranslateInLang(_flagExpandParamUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("output-file", "u", "", config.TranslateInLang(_flagOutputFileUsages, config.UILanguage))
 
-	_ = wsProjectConfig.MarkFlagRequired("version")
+	_ = wsProjectConfig.MarkFlagRequired("data-source")
 	_ = wsProjectConfig.MarkFlagRequired("vm-type")
 	_ = wsProjectConfig.MarkFlagRequired("code-file")
 }
 
-func generateProjectFile(version, vmType, codeFile, confFile, expParam, outputFile string) (string, error) {
+func generateProjectFile(dataSource, defaultVersion, version, vmType, codeFile, confFile, expParam, outputFile string) (string, error) {
 	tye, err := stringToVMType(vmType)
 	if err != nil {
 		return "", err
@@ -113,17 +131,21 @@ func generateProjectFile(version, vmType, codeFile, confFile, expParam, outputFi
 	}
 
 	var (
-		confMaps  = make([]map[string]interface{}, 0)
 		confMap   = make(map[string]interface{})
+		verMap    = make(map[string]interface{})
+		verMaps   = make([]map[string]interface{}, 0)
 		outputMap = make(map[string]interface{})
 	)
 
 	if expParam != "" {
-		confMap["codeExpParam"] = expParam
+		verMap["codeExpParam"] = expParam
 	}
-	confMap["vmType"] = string(tye)
-	confMap["code"] = hexString
-	confMap["version"] = version
+	verMap["vmType"] = string(tye)
+	verMap["code"] = hexString
+	if version == "" {
+		version = "0.1"
+	}
+	verMap["version"] = version
 
 	output := []byte(`{
   "type": "stdout"
@@ -137,10 +159,13 @@ func generateProjectFile(version, vmType, codeFile, confFile, expParam, outputFi
 	if err := json.Unmarshal(output, &outputMap); err != nil {
 		return "", errors.Wrap(err, "failed to unmarshal output file")
 	}
-	confMap["output"] = outputMap
+	verMap["output"] = outputMap
+	verMaps = append(verMaps, verMap)
 
-	confMaps = append(confMaps, confMap)
-	jsonConf, err := json.MarshalIndent(confMaps, "", "  ")
+	confMap["datasourceURI"] = dataSource
+	confMap["defaultVersion"] = defaultVersion
+	confMap["versions"] = verMaps
+	jsonConf, err := json.MarshalIndent(confMap, "", "  ")
 	if err != nil {
 		return "", errors.Wrap(err, "failed to marshal config maps")
 	}
