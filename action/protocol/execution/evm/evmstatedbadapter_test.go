@@ -701,7 +701,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			require.Equal(3, len(stateDB.contractSnapshot))
 			require.Equal(3, len(stateDB.selfDestructedSnapshot))
 			require.Equal(3, len(stateDB.preimageSnapshot))
-			// refund fix and accessList,transient storage are introduced after fixSnapshot
+			// refund fix accessList and transient storage are introduced after fixSnapshot
 			// so their snapshot are always properly cleared
 			require.Zero(len(stateDB.accessListSnapshot))
 			require.Zero(len(stateDB.transientStorageSnapshot))

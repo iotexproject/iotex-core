@@ -538,8 +538,6 @@ func (stateDB *StateDBAdapter) Prepare(rules params.Rules, sender, coinbase comm
 	if !rules.IsBerlin {
 		return
 	}
-	// Clear out any leftover from previous executions
-	stateDB.accessList = newAccessList()
 	stateDB.AddAddressToAccessList(sender)
 	if dst != nil {
 		stateDB.AddAddressToAccessList(*dst)

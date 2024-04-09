@@ -257,6 +257,16 @@ func TestConstantinople(t *testing.T) {
 			action.EmptyAddress,
 			29275561,
 		},
+		// after Tsunami - Upernavik
+		{
+			action.EmptyAddress,
+			39275360,
+		},
+		// after Upernavik
+		{
+			action.EmptyAddress,
+			39275562,
+		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			1261440000, // = 200*365*24*3600/5, around 200 years later
