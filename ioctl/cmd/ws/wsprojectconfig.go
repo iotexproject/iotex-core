@@ -119,6 +119,14 @@ func init() {
 	_ = wsProjectConfig.MarkFlagRequired("code-file")
 }
 
+type projectConfig struct {
+	Version      string      `json:"version"`
+	VMType       string      `json:"vmType"`
+	Output       interface{} `json:"output"`
+	CodeExpParam string      `json:"codeExpParam,omitempty"`
+	Code         string      `json:"code"`
+}
+
 func generateProjectFile(dataSource, defaultVersion, version, vmType, codeFile, confFile, expParam, outputFile string) (string, error) {
 	tye, err := stringToVMType(vmType)
 	if err != nil {
@@ -132,20 +140,20 @@ func generateProjectFile(dataSource, defaultVersion, version, vmType, codeFile, 
 
 	var (
 		confMap   = make(map[string]interface{})
-		verMap    = make(map[string]interface{})
-		verMaps   = make([]map[string]interface{}, 0)
+		verMap    projectConfig
+		verMaps   = make([]projectConfig, 0)
 		outputMap = make(map[string]interface{})
 	)
 
 	if expParam != "" {
-		verMap["codeExpParam"] = expParam
+		verMap.CodeExpParam = expParam
 	}
-	verMap["vmType"] = string(tye)
-	verMap["code"] = hexString
+	verMap.VMType = string(tye)
+	verMap.Code = hexString
 	if version == "" {
 		version = "0.1"
 	}
-	verMap["version"] = version
+	verMap.Version = version
 
 	output := []byte(`{
   "type": "stdout"
@@ -159,7 +167,7 @@ func generateProjectFile(dataSource, defaultVersion, version, vmType, codeFile, 
 	if err := json.Unmarshal(output, &outputMap); err != nil {
 		return "", errors.Wrap(err, "failed to unmarshal output file")
 	}
-	verMap["output"] = outputMap
+	verMap.Output = outputMap
 	verMaps = append(verMaps, verMap)
 
 	confMap["datasourceURI"] = dataSource
