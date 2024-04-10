@@ -555,8 +555,6 @@ func (stateDB *StateDBAdapter) Prepare(rules params.Rules, sender, coinbase comm
 	if rules.IsShanghai { // EIP-3651: warm coinbase
 		stateDB.AddAddressToAccessList(coinbase)
 	}
-	// Reset transient storage at the beginning of transaction execution
-	stateDB.transientStorage = newTransientStorage()
 }
 
 // AddressInAccessList returns true if the given address is in the access list
