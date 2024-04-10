@@ -186,22 +186,12 @@ func (fd *fileDAOv2) getBlock(height uint64) (*block.Block, error) {
 		}
 		return blkStore.Block, nil
 	}
-	// check whether block in read cache or not
-	if value, ok := fd.blkCache.Get(height); ok {
-		return value.(*block.Block), nil
-	}
 	// read from storage DB
 	blockStore, err := fd.getBlockStore(height)
 	if err != nil {
 		return nil, err
 	}
-	blk, err := fd.deser.BlockFromBlockStoreProto(blockStore)
-	if err != nil {
-		return nil, err
-	}
-	// add to read cache
-	fd.blkCache.Add(height, blk)
-	return blk, nil
+	return fd.deser.BlockFromBlockStoreProto(blockStore)
 }
 
 func (fd *fileDAOv2) getReceipt(height uint64) ([]*action.Receipt, error) {
@@ -217,22 +207,12 @@ func (fd *fileDAOv2) getReceipt(height uint64) ([]*action.Receipt, error) {
 		}
 		return blkStore.Receipts, nil
 	}
-	// check whether receipts in read cache or not
-	if value, ok := fd.receiptCache.Get(height); ok {
-		return value.([]*action.Receipt), nil
-	}
 	// read from storage DB
 	blockStore, err := fd.getBlockStore(height)
 	if err != nil {
 		return nil, err
 	}
-	receipts, err := fd.deser.ReceiptsFromBlockStoreProto(blockStore)
-	if err != nil {
-		return nil, err
-	}
-	// add to read cache
-	fd.receiptCache.Add(height, receipts)
-	return receipts, nil
+	return fd.deser.ReceiptsFromBlockStoreProto(blockStore)
 }
 
 func (fd *fileDAOv2) getBlockStore(height uint64) (*iotextypes.BlockStore, error) {
