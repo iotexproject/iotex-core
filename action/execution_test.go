@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -73,6 +74,22 @@ func TestExecutionSanityCheck(t *testing.T) {
 		)
 		require.NoError(err)
 		require.Contains(ex.SanityCheck().Error(), "error when validating contract's address")
+	})
+
+	t.Run("Empty contract address", func(t *testing.T) {
+		ex, err := NewExecution(
+			EmptyAddress,
+			uint64(1),
+			big.NewInt(0),
+			uint64(0),
+			big.NewInt(0),
+			[]byte{},
+		)
+		require.NoError(err)
+		require.Nil(ex.To())
+		addr, _ := address.FromBytes(_c1.Bytes())
+		ex.contract = addr.String()
+		require.Equal(_c1, *ex.To())
 	})
 
 	t.Run("Negative gas price", func(t *testing.T) {
