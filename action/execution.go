@@ -91,6 +91,20 @@ func NewExecutionWithAccessList(
 	}, nil
 }
 
+// To returns the contract address pointer
+// nil indicates a contract-creation transaction
+func (ex *Execution) To() *common.Address {
+	if ex.contract == EmptyAddress {
+		return nil
+	}
+	addr, err := address.FromString(ex.contract)
+	if err != nil {
+		panic(err)
+	}
+	evmAddr := common.BytesToAddress(addr.Bytes())
+	return &evmAddr
+}
+
 // Contract returns a contract address
 func (ex *Execution) Contract() string { return ex.contract }
 
