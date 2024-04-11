@@ -145,7 +145,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	_, receipt, err := evm.ExecuteContract(
 		ctx,
 		sm,
-		execution,
+		action.NewEvmTx(execution),
 	)
 	if err != nil {
 		return err
