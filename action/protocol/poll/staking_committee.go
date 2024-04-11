@@ -152,7 +152,7 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	_, receipt, err := evm.ExecuteContract(
 		ctx,
 		sm,
-		execution,
+		action.NewEvmTx(execution),
 	)
 	if err != nil {
 		return err

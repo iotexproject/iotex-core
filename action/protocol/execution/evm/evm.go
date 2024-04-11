@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -108,7 +108,7 @@ type (
 // newParams creates a new context for use in the EVM.
 func newParams(
 	ctx context.Context,
-	execution *action.Execution,
+	execution *action.EvmTransaction,
 	stateDB *StateDBAdapter,
 ) (*Params, error) {
 	var (
@@ -121,21 +121,11 @@ func newParams(
 		executorAddr = common.BytesToAddress(actionCtx.Caller.Bytes())
 		getBlockHash = helperCtx.GetBlockHash
 
-		vmConfig            vm.Config
-		contractAddrPointer *common.Address
-		getHashFn           vm.GetHashFunc
+		vmConfig  vm.Config
+		getHashFn vm.GetHashFunc
 	)
 
-	if dest := execution.Contract(); dest != action.EmptyAddress {
-		contract, err := address.FromString(execution.Contract())
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to decode contract address %s", dest)
-		}
-		contractAddr := common.BytesToAddress(contract.Bytes())
-		contractAddrPointer = &contractAddr
-	}
-
-	gasLimit := execution.GasLimit()
+	gasLimit := execution.Gas()
 	// Reset gas limit to the system wide action gas limit cap if it's greater than it
 	if blkCtx.BlockHeight > 0 && featureCtx.SystemWideActionGasLimit && gasLimit > _preAleutianActionGasLimit {
 		gasLimit = _preAleutianActionGasLimit
@@ -200,8 +190,8 @@ func newParams(
 			GasPrice: execution.GasPrice(),
 		},
 		execution.Nonce(),
-		execution.Amount(),
-		contractAddrPointer,
+		execution.Value(),
+		execution.To(),
 		gasLimit,
 		execution.Data(),
 		execution.AccessList(),
@@ -237,7 +227,7 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
 func ExecuteContract(
 	ctx context.Context,
 	sm protocol.StateManager,
-	execution *action.Execution,
+	execution *action.EvmTransaction,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
@@ -332,16 +322,17 @@ func ExecuteContract(
 	return retval, receipt, nil
 }
 
-func processSGD(ctx context.Context, sm protocol.StateManager, execution *action.Execution, consumedGas uint64, sgd SGDRegistry,
+func processSGD(ctx context.Context, sm protocol.StateManager, execution *action.EvmTransaction, consumedGas uint64, sgd SGDRegistry,
 ) (address.Address, uint64, error) {
-	if execution.Contract() == action.EmptyAddress {
+	if execution.To() == nil {
 		return nil, 0, nil
 	}
 	height, err := sm.Height()
 	if err != nil {
 		return nil, 0, err
 	}
-	receiver, percentage, ok, err := sgd.CheckContract(ctx, execution.Contract(), height-1)
+	contract, _ := address.FromBytes((*execution.To())[:])
+	receiver, percentage, ok, err := sgd.CheckContract(ctx, contract.String(), height-1)
 	if err != nil || !ok {
 		return nil, 0, err
 	}
@@ -680,6 +671,6 @@ func SimulateExecution(
 	return ExecuteContract(
 		ctx,
 		sm,
-		ex,
+		action.NewEvmTx(ex),
 	)
 }
