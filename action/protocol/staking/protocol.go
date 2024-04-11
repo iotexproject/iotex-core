@@ -314,7 +314,7 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
-	buckets, err := toIoTeXTypesVoteBucketList(allBuckets)
+	buckets, err := toIoTeXTypesVoteBucketList(sm, allBuckets)
 	if err != nil {
 		return err
 	}
