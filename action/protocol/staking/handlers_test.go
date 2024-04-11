@@ -3239,7 +3239,7 @@ func setupAccount(sm protocol.StateManager, addr address.Address, balance int64)
 	if balance < 0 {
 		return errors.New("balance cannot be negative")
 	}
-	account, err := accountutil.LoadOrCreateAccount(sm, addr, state.LegacyNonceAccountTypeOption())
+	account, _, err := accountutil.LoadOrCreateAccount(sm, addr, state.LegacyNonceAccountTypeOption())
 	if err != nil {
 		return err
 	}
