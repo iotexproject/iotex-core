@@ -155,6 +155,7 @@ func TestStakingStateReader(t *testing.T) {
 			iter := state.NewIterator(states)
 			return uint64(1), iter, nil
 		}).Times(1)
+		sf.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).Times(1)
 
 		req := &iotexapi.ReadStakingDataRequest_VoteBuckets{
 			Pagination: &iotexapi.PaginationParam{
@@ -175,6 +176,39 @@ func TestStakingStateReader(t *testing.T) {
 			iotexBucket, err := testContractBuckets[i].toIoTeXTypes()
 			r.NoError(err)
 			r.Equal(iotexBucket, buckets.Buckets[i+len(testNativeBuckets)])
+		}
+	})
+	t.Run("readStateBucketsWithEndorsement", func(t *testing.T) {
+		sf, _, stakeSR, ctx, r := prepare(t)
+		sf.EXPECT().States(gomock.Any(), gomock.Any()).DoAndReturn(func(arg0 ...protocol.StateOption) (uint64, state.Iterator, error) {
+			iter := state.NewIterator(states)
+			return uint64(1), iter, nil
+		}).Times(1)
+		sf.EXPECT().State(gomock.AssignableToTypeOf(&Endorsement{}), gomock.Any()).DoAndReturn(func(arg0 any, arg1 ...protocol.StateOption) (uint64, error) {
+			arg0R := arg0.(*Endorsement)
+			*arg0R = Endorsement{ExpireHeight: 100}
+			return uint64(1), nil
+		}).AnyTimes()
+
+		req := &iotexapi.ReadStakingDataRequest_VoteBuckets{
+			Pagination: &iotexapi.PaginationParam{
+				Offset: 0,
+				Limit:  100,
+			},
+		}
+		buckets, height, err := stakeSR.readStateBuckets(ctx, req)
+		r.NoError(err)
+		r.EqualValues(1, height)
+		r.Len(buckets.Buckets, len(testNativeBuckets)+len(testContractBuckets))
+		iotexBuckets, err := toIoTeXTypesVoteBucketList(sf, testNativeBuckets)
+		r.NoError(err)
+		for i := range testNativeBuckets {
+			r.Equal(iotexBuckets.Buckets[i], buckets.Buckets[i])
+		}
+		iotexBuckets, err = toIoTeXTypesVoteBucketList(sf, testContractBuckets)
+		r.NoError(err)
+		for i := range testContractBuckets {
+			r.Equal(iotexBuckets.Buckets[i], buckets.Buckets[i+len(testNativeBuckets)])
 		}
 	})
 
@@ -199,6 +233,9 @@ func TestStakingStateReader(t *testing.T) {
 			arg0R := arg0.(*totalBucketCount)
 			*arg0R = totalBucketCount{count: 1}
 			return uint64(1), nil
+		}).Times(1)
+		sf.EXPECT().State(gomock.AssignableToTypeOf(&Endorsement{}), gomock.Any()).DoAndReturn(func(arg0 any, arg1 ...protocol.StateOption) (uint64, error) {
+			return uint64(0), state.ErrStateNotExist
 		}).Times(1)
 
 		req := &iotexapi.ReadStakingDataRequest_VoteBucketsByVoter{
@@ -240,6 +277,9 @@ func TestStakingStateReader(t *testing.T) {
 			arg0R := arg0.(*totalBucketCount)
 			*arg0R = totalBucketCount{count: 1}
 			return uint64(1), nil
+		}).Times(1)
+		sf.EXPECT().State(gomock.AssignableToTypeOf(&Endorsement{}), gomock.Any()).DoAndReturn(func(arg0 any, arg1 ...protocol.StateOption) (uint64, error) {
+			return uint64(0), state.ErrStateNotExist
 		}).Times(1)
 		contractIndexer.EXPECT().BucketsByCandidate(gomock.Any(), gomock.Any()).DoAndReturn(func(arg0 address.Address, arg1 uint64) ([]*VoteBucket, error) {
 			buckets := []*VoteBucket{}
@@ -284,6 +324,9 @@ func TestStakingStateReader(t *testing.T) {
 			arg0R := arg0.(*totalBucketCount)
 			*arg0R = totalBucketCount{count: 1}
 			return uint64(1), nil
+		}).Times(1)
+		sf.EXPECT().State(gomock.AssignableToTypeOf(&Endorsement{}), gomock.Any()).DoAndReturn(func(arg0 any, arg1 ...protocol.StateOption) (uint64, error) {
+			return uint64(0), state.ErrStateNotExist
 		}).Times(1)
 		contractIndexer.EXPECT().BucketsByIndices(gomock.Any(), gomock.Any()).DoAndReturn(func(arg0 []uint64, arg1 uint64) ([]*VoteBucket, error) {
 			buckets := []*VoteBucket{}
