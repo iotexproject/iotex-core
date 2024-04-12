@@ -19,7 +19,7 @@ import (
 var (
 	_stake2CmdShorts = map[config.Language]string{
 		config.English: "Support native staking of IoTeX blockchain",
-		config.Chinese: "支持来自ioctl的本地质押",
+		config.Chinese: "支持来自 ioctl 的本地质押",
 	}
 	_stake2FlagEndpointUsages = map[config.Language]string{
 		config.English: "set endpoint for once",
@@ -27,7 +27,7 @@ var (
 	}
 	_stake2FlagInsecureUsages = map[config.Language]string{
 		config.English: "insecure connection for once (default false)",
-		config.Chinese: "一次不安全的连接（默认为false)",
+		config.Chinese: "一次不安全的连接（默认为 false)",
 	}
 	_stake2FlagAutoStakeUsages = map[config.Language]string{
 		config.English: "auto-stake boost: the voting power will not decrease",
@@ -54,6 +54,9 @@ func init() {
 	Stake2Cmd.AddCommand(_stake2ReleaseCmd)
 	Stake2Cmd.AddCommand(_stake2RegisterCmd)
 	Stake2Cmd.AddCommand(_stake2ChangeCmd)
+	Stake2Cmd.AddCommand(_stake2EndorseCmd)
+	Stake2Cmd.AddCommand(_stake2UnEndorseCmd)
+	Stake2Cmd.AddCommand(_stake2ActivateCmd)
 	Stake2Cmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint", config.ReadConfig.Endpoint, config.TranslateInLang(_stake2FlagEndpointUsages, config.UILanguage))
 	Stake2Cmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(_stake2FlagInsecureUsages, config.UILanguage))
 }
