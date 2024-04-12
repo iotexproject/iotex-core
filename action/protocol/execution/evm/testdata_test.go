@@ -56,17 +56,23 @@ type (
 		nx    []common.Hash
 		exist bool
 	}
+	transient struct {
+		addr common.Address
+		k    common.Hash
+		v    common.Hash
+	}
 	stateDBTest struct {
-		balance                       []bal
-		codes                         []code
-		states                        []evmSet
-		refund                        uint64
-		selfDestruct                  []sui
-		preimage                      []image
-		accessList                    []access
-		logs                          []*types.Log
-		logSize, txLogSize            int
-		logAddr, txSender, txReceiver string
+		balance                           []bal
+		codes                             []code
+		states                            []evmSet
+		refund                            uint64
+		selfDestruct                      []sui
+		preimage                          []image
+		accessList                        []access
+		transient                         []transient
+		logs                              []*types.Log
+		logSize, txLogSize, transientSize int
+		logAddr, txSender, txReceiver     string
 	}
 )
 

@@ -43,24 +43,27 @@ type (
 
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
-		sm                         protocol.StateManager
-		logs                       []*action.Log
-		transactionLogs            []*action.TransactionLog
-		err                        error
-		blockHeight                uint64
-		executionHash              hash.Hash256
-		lastAddBalanceAddr         string
-		lastAddBalanceAmount       *big.Int
-		refund                     uint64
-		refundSnapshot             map[int]uint64
-		cachedContract             contractMap
-		contractSnapshot           map[int]contractMap   // snapshots of contracts
-		selfDestructed             deleteAccount         // account/contract calling SelfDestruct
-		selfDestructedSnapshot     map[int]deleteAccount // snapshots of SelfDestruct accounts
-		preimages                  preimageMap
-		preimageSnapshot           map[int]preimageMap
-		accessList                 *accessList // per-transaction access list
-		accessListSnapshot         map[int]*accessList
+		sm                     protocol.StateManager
+		logs                   []*action.Log
+		transactionLogs        []*action.TransactionLog
+		err                    error
+		blockHeight            uint64
+		executionHash          hash.Hash256
+		lastAddBalanceAddr     string
+		lastAddBalanceAmount   *big.Int
+		refund                 uint64
+		refundSnapshot         map[int]uint64
+		cachedContract         contractMap
+		contractSnapshot       map[int]contractMap   // snapshots of contracts
+		selfDestructed         deleteAccount         // account/contract calling SelfDestruct
+		selfDestructedSnapshot map[int]deleteAccount // snapshots of SelfDestruct accounts
+		preimages              preimageMap
+		preimageSnapshot       map[int]preimageMap
+		accessList             *accessList // per-transaction access list
+		accessListSnapshot     map[int]*accessList
+		// Transient storage
+		transientStorage           transientStorage
+		transientStorageSnapshot   map[int]transientStorage
 		logsSnapshot               map[int]int // logs is an array, save len(logs) at time of snapshot suffices
 		txLogsSnapshot             map[int]int
 		notFixTopicCopyBug         bool
@@ -179,23 +182,25 @@ func NewStateDBAdapter(
 	opts ...StateDBAdapterOption,
 ) (*StateDBAdapter, error) {
 	s := &StateDBAdapter{
-		sm:                     sm,
-		logs:                   []*action.Log{},
-		err:                    nil,
-		blockHeight:            blockHeight,
-		executionHash:          executionHash,
-		lastAddBalanceAmount:   new(big.Int),
-		refundSnapshot:         make(map[int]uint64),
-		cachedContract:         make(contractMap),
-		contractSnapshot:       make(map[int]contractMap),
-		selfDestructed:         make(deleteAccount),
-		selfDestructedSnapshot: make(map[int]deleteAccount),
-		preimages:              make(preimageMap),
-		preimageSnapshot:       make(map[int]preimageMap),
-		accessList:             newAccessList(),
-		accessListSnapshot:     make(map[int]*accessList),
-		logsSnapshot:           make(map[int]int),
-		txLogsSnapshot:         make(map[int]int),
+		sm:                       sm,
+		logs:                     []*action.Log{},
+		err:                      nil,
+		blockHeight:              blockHeight,
+		executionHash:            executionHash,
+		lastAddBalanceAmount:     new(big.Int),
+		refundSnapshot:           make(map[int]uint64),
+		cachedContract:           make(contractMap),
+		contractSnapshot:         make(map[int]contractMap),
+		selfDestructed:           make(deleteAccount),
+		selfDestructedSnapshot:   make(map[int]deleteAccount),
+		preimages:                make(preimageMap),
+		preimageSnapshot:         make(map[int]preimageMap),
+		accessList:               newAccessList(),
+		accessListSnapshot:       make(map[int]*accessList),
+		transientStorage:         newTransientStorage(),
+		transientStorageSnapshot: make(map[int]transientStorage),
+		logsSnapshot:             make(map[int]int),
+		txLogsSnapshot:           make(map[int]int),
 	}
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
@@ -483,13 +488,16 @@ func (stateDB *StateDBAdapter) HasSelfDestructed(evmAddr common.Address) bool {
 
 // SetTransientState sets transient storage for a given account
 func (stateDB *StateDBAdapter) SetTransientState(addr common.Address, key, value common.Hash) {
-	log.S().Panic("SetTransientState not implemented")
+	prev := stateDB.transientStorage.Get(addr, key)
+	if prev == value {
+		return
+	}
+	stateDB.transientStorage.Set(addr, key, value)
 }
 
 // GetTransientState gets transient storage for a given account.
 func (stateDB *StateDBAdapter) GetTransientState(addr common.Address, key common.Hash) common.Hash {
-	log.S().Panic("GetTransientState not implemented")
-	return common.Hash{}
+	return stateDB.transientStorage.Get(addr, key)
 }
 
 // Selfdestruct6780 implements EIP-6780
@@ -631,6 +639,18 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 			}
 		}
 	}
+	//restore transientStorage
+	stateDB.transientStorage = stateDB.transientStorageSnapshot[snapshot]
+	{
+		delete(stateDB.transientStorageSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.transientStorageSnapshot[i]; ok {
+				delete(stateDB.transientStorageSnapshot, i)
+			} else {
+				break
+			}
+		}
+	}
 	// restore logs and txLogs
 	if stateDB.revertLog {
 		stateDB.logs = stateDB.logs[:stateDB.logsSnapshot[snapshot]]
@@ -758,6 +778,8 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 	stateDB.preimageSnapshot[sn] = p
 	// save a copy of access list
 	stateDB.accessListSnapshot[sn] = stateDB.accessList.Copy()
+	// save a copy of transient storage
+	stateDB.transientStorageSnapshot[sn] = stateDB.transientStorage.Copy()
 	return sn
 }
 
@@ -1084,6 +1106,8 @@ func (stateDB *StateDBAdapter) clear() {
 	stateDB.preimageSnapshot = make(map[int]preimageMap)
 	stateDB.accessList = newAccessList()
 	stateDB.accessListSnapshot = make(map[int]*accessList)
+	stateDB.transientStorage = newTransientStorage()
+	stateDB.transientStorageSnapshot = make(map[int]transientStorage)
 	stateDB.logsSnapshot = make(map[int]int)
 	stateDB.txLogsSnapshot = make(map[int]int)
 	stateDB.logs = []*action.Log{}
