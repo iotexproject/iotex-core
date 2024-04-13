@@ -617,8 +617,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	// restore gas refund
 	if !stateDB.manualCorrectGasRefund {
 		stateDB.refund = stateDB.refundSnapshot[snapshot]
-		delete(stateDB.refundSnapshot, snapshot)
-		for i := snapshot + 1; ; i++ {
+		for i := snapshot; ; i++ {
 			if _, ok := stateDB.refundSnapshot[i]; ok {
 				delete(stateDB.refundSnapshot, i)
 			} else {
@@ -627,11 +626,9 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		}
 	}
 	// restore access list
-	stateDB.accessList = nil
 	stateDB.accessList = stateDB.accessListSnapshot[snapshot]
 	{
-		delete(stateDB.accessListSnapshot, snapshot)
-		for i := snapshot + 1; ; i++ {
+		for i := snapshot; ; i++ {
 			if _, ok := stateDB.accessListSnapshot[i]; ok {
 				delete(stateDB.accessListSnapshot, i)
 			} else {
@@ -642,8 +639,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	//restore transientStorage
 	stateDB.transientStorage = stateDB.transientStorageSnapshot[snapshot]
 	{
-		delete(stateDB.transientStorageSnapshot, snapshot)
-		for i := snapshot + 1; ; i++ {
+		for i := snapshot; ; i++ {
 			if _, ok := stateDB.transientStorageSnapshot[i]; ok {
 				delete(stateDB.transientStorageSnapshot, i)
 			} else {
@@ -654,8 +650,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	// restore logs and txLogs
 	if stateDB.revertLog {
 		stateDB.logs = stateDB.logs[:stateDB.logsSnapshot[snapshot]]
-		delete(stateDB.logsSnapshot, snapshot)
-		for i := snapshot + 1; ; i++ {
+		for i := snapshot; ; i++ {
 			if _, ok := stateDB.logsSnapshot[i]; ok {
 				delete(stateDB.logsSnapshot, i)
 			} else {
@@ -663,8 +658,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 			}
 		}
 		stateDB.transactionLogs = stateDB.transactionLogs[:stateDB.txLogsSnapshot[snapshot]]
-		delete(stateDB.txLogsSnapshot, snapshot)
-		for i := snapshot + 1; ; i++ {
+		for i := snapshot; ; i++ {
 			if _, ok := stateDB.txLogsSnapshot[i]; ok {
 				delete(stateDB.txLogsSnapshot, i)
 			} else {
@@ -673,11 +667,9 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		}
 	}
 	// restore the SelfDestruct accounts
-	stateDB.selfDestructed = nil
 	stateDB.selfDestructed = ds
 	if stateDB.fixSnapshotOrder {
-		delete(stateDB.selfDestructedSnapshot, snapshot)
-		for i := snapshot + 1; ; i++ {
+		for i := snapshot; ; i++ {
 			if _, ok := stateDB.selfDestructedSnapshot[i]; ok {
 				delete(stateDB.selfDestructedSnapshot, i)
 			} else {
@@ -686,7 +678,6 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		}
 	}
 	// restore modified contracts
-	stateDB.cachedContract = nil
 	stateDB.cachedContract = stateDB.contractSnapshot[snapshot]
 	for _, addr := range stateDB.cachedContractAddrs() {
 		c := stateDB.cachedContract[addr]
@@ -696,8 +687,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		}
 	}
 	if stateDB.fixSnapshotOrder {
-		delete(stateDB.contractSnapshot, snapshot)
-		for i := snapshot + 1; ; i++ {
+		for i := snapshot; ; i++ {
 			if _, ok := stateDB.contractSnapshot[i]; ok {
 				delete(stateDB.contractSnapshot, i)
 			} else {
@@ -706,11 +696,9 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		}
 	}
 	// restore preimages
-	stateDB.preimages = nil
 	stateDB.preimages = stateDB.preimageSnapshot[snapshot]
 	if stateDB.fixSnapshotOrder {
-		delete(stateDB.preimageSnapshot, snapshot)
-		for i := snapshot + 1; ; i++ {
+		for i := snapshot; ; i++ {
 			if _, ok := stateDB.preimageSnapshot[i]; ok {
 				delete(stateDB.preimageSnapshot, i)
 			} else {
@@ -1030,7 +1018,7 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 		}
 	}
 	// delete suicided accounts/contract
-	addrStrs = make([]string, 0)
+	addrStrs = addrStrs[:0]
 	for addr := range stateDB.selfDestructed {
 		addrStrs = append(addrStrs, hex.EncodeToString(addr[:]))
 	}
@@ -1049,7 +1037,7 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 		}
 	}
 	// write preimages to DB
-	addrStrs = make([]string, 0)
+	addrStrs = addrStrs[:0]
 	for addr := range stateDB.preimages {
 		addrStrs = append(addrStrs, hex.EncodeToString(addr[:]))
 	}
@@ -1063,9 +1051,7 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 		}
 		copy(k[:], addrBytes)
 		v := stateDB.preimages[k]
-		h := make([]byte, len(k))
-		copy(h, k[:])
-		_, err = stateDB.sm.PutState(v, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(h))
+		_, err = stateDB.sm.PutState(v, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(k[:]))
 		if stateDB.assertError(err, "failed to update preimage to db", zap.Error(err), zap.String("address", addrStr)) {
 			return errors.Wrap(err, "failed to update preimage to db")
 		}
