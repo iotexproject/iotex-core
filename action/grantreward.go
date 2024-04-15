@@ -119,6 +119,11 @@ func (*GrantReward) Cost() (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
+// EncodeABIBinary encodes data in abi encoding
+func (g *GrantReward) EncodeABIBinary() ([]byte, error) {
+	return g.encodeABIBinary()
+}
+
 func (g *GrantReward) encodeABIBinary() ([]byte, error) {
 	data, err := _grantRewardMethod.Inputs.Pack(
 		int8(g.rewardType),
