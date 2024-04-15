@@ -323,13 +323,23 @@ func (svr *web3Handler) getBlockByNumber(in *gjson.Result) (interface{}, error) 
 	return svr.getBlockWithTransactions(blk.Block, blk.Receipts, isDetailed.Bool())
 }
 
-func (svr *web3Handler) checkInputBlockNumber(str string) error {
+func (svr *web3Handler) checkInputBlock(str string) error {
 	switch str {
 	case "", _earliestBlockNumber, _pendingBlockNumber:
 		return errInvalidBlockHeight
 	case _latestBlockNumber:
 		return nil
 	default:
+		//check str is block hash string
+		if len(str) == 66 || len(str) == 64 {
+			blk, err := svr.coreService.BlockByHash(str)
+			if err != nil {
+				return err
+			}
+			if blk.Block.Height() != svr.coreService.TipHeight() {
+				return errInvalidBlockHeight
+			}
+		}
 		height, err := hexStringToNumber(str)
 		if err != nil {
 			return err
@@ -348,7 +358,7 @@ func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
 	}
 	height := in.Get("params.1")
 	if height.Exists() {
-		if err := svr.checkInputBlockNumber(height.String()); err != nil {
+		if err := svr.checkInputBlock(height.String()); err != nil {
 			return nil, err
 		}
 	}
@@ -372,7 +382,7 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 	}
 	height := in.Get("params.1")
 	if height.Exists() {
-		if err := svr.checkInputBlockNumber(height.String()); err != nil {
+		if err := svr.checkInputBlock(height.String()); err != nil {
 			return nil, err
 		}
 	}
@@ -396,7 +406,7 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 	}
 	height := in.Get("params.1")
 	if height.Exists() {
-		if err := svr.checkInputBlockNumber(height.String()); err != nil {
+		if err := svr.checkInputBlock(height.String()); err != nil {
 			return nil, err
 		}
 	}
@@ -547,7 +557,7 @@ func (svr *web3Handler) getCode(in *gjson.Result) (interface{}, error) {
 	}
 	height := in.Get("params.1")
 	if height.Exists() {
-		if err := svr.checkInputBlockNumber(height.String()); err != nil {
+		if err := svr.checkInputBlock(height.String()); err != nil {
 			return nil, err
 		}
 	}
@@ -801,7 +811,7 @@ func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
 	}
 	height := in.Get("params.2")
 	if height.Exists() {
-		if err := svr.checkInputBlockNumber(height.String()); err != nil {
+		if err := svr.checkInputBlock(height.String()); err != nil {
 			return nil, err
 		}
 	}
