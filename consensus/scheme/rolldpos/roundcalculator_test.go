@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -185,8 +186,9 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 	require.NoError(err)
 	dbcfg := db.DefaultConfig
 	dbcfg.DbPath = cfg.ChainDBPath
-	deser := block.NewDeserializer(cfg.EVMNetworkID)
-	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg, deser)
+	store, err := filedao.NewFileDAO(dbcfg, block.NewDeserializer(cfg.EVMNetworkID))
+	require.NoError(err)
+	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, dbcfg.MaxCacheSize)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		g,

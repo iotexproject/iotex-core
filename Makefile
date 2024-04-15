@@ -7,11 +7,11 @@
 
 # Go parameters
 GOCMD=go
-GOLINT=golint
+GOVET=$(GOCMD) vet
 GOBUILD=$(GOCMD) build
 GOINSTALL=$(GOCMD) install
 GOCLEAN=$(GOCMD) clean
-GOTEST=$(GOCMD) test
+GOTEST=GOARCH=amd64 CGO_ENABLED=1 $(GOCMD) test
 GOGET=$(GOCMD) get
 GOPATH=$(shell go env GOPATH)
 BUILD_TARGET_SERVER=server
@@ -113,7 +113,7 @@ fmt:
 
 .PHONY: lint
 lint:
-	go list ./... | xargs $(GOLINT)
+	go list ./... | xargs $(GOVET)
 
 .PHONY: lint-rich
 lint-rich:
@@ -123,7 +123,7 @@ lint-rich:
 
 .PHONY: test
 test: fmt
-	$(GOTEST) -short -race ./...
+	$(GOTEST) -gcflags="all=-N -l" -short -race ./...
 
 .PHONY: test-rich
 test-rich:

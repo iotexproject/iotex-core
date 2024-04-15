@@ -558,15 +558,15 @@ func createSignedTransfer(
 	gasLimit uint64,
 	gasPrice *big.Int,
 	payload string,
-) (action.SealedEnvelope, *action.Transfer, error) {
+) (*action.SealedEnvelope, *action.Transfer, error) {
 	transferPayload, err := hex.DecodeString(payload)
 	if err != nil {
-		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to decode payload %s", payload)
+		return nil, nil, errors.Wrapf(err, "failed to decode payload %s", payload)
 	}
 	transfer, err := action.NewTransfer(
 		nonce, amount, recipient.EncodedAddr, transferPayload, gasLimit, gasPrice)
 	if err != nil {
-		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw transfer")
+		return nil, nil, errors.Wrap(err, "failed to create raw transfer")
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
@@ -575,7 +575,7 @@ func createSignedTransfer(
 		SetAction(transfer).Build()
 	selp, err := action.Sign(elp, sender.PriKey)
 	if err != nil {
-		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign transfer %v", elp)
+		return nil, nil, errors.Wrapf(err, "failed to sign transfer %v", elp)
 	}
 	return selp, transfer, nil
 }
@@ -589,14 +589,14 @@ func createSignedExecution(
 	gasLimit uint64,
 	gasPrice *big.Int,
 	data string,
-) (action.SealedEnvelope, *action.Execution, error) {
+) (*action.SealedEnvelope, *action.Execution, error) {
 	executionData, err := hex.DecodeString(data)
 	if err != nil {
-		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to decode data %s", data)
+		return nil, nil, errors.Wrapf(err, "failed to decode data %s", data)
 	}
 	execution, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPrice, executionData)
 	if err != nil {
-		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw execution")
+		return nil, nil, errors.Wrap(err, "failed to create raw execution")
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
@@ -605,7 +605,7 @@ func createSignedExecution(
 		SetAction(execution).Build()
 	selp, err := action.Sign(elp, executor.PriKey)
 	if err != nil {
-		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign execution %v", elp)
+		return nil, nil, errors.Wrapf(err, "failed to sign execution %v", elp)
 	}
 	return selp, execution, nil
 }
@@ -620,10 +620,10 @@ func createSignedStake(
 	payload []byte,
 	gasLimit uint64,
 	gasPrice *big.Int,
-) (action.SealedEnvelope, *action.CreateStake, error) {
+) (*action.SealedEnvelope, *action.CreateStake, error) {
 	createStake, err := action.NewCreateStake(nonce, candidateName, amount, duration, autoStake, payload, gasLimit, gasPrice)
 	if err != nil {
-		return action.SealedEnvelope{}, nil, err
+		return nil, nil, err
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
@@ -633,13 +633,13 @@ func createSignedStake(
 		Build()
 	selp, err := action.Sign(elp, executor.PriKey)
 	if err != nil {
-		return action.SealedEnvelope{}, nil, err
+		return nil, nil, err
 	}
 	return selp, createStake, nil
 }
 
 func injectExecution(
-	selp action.SealedEnvelope,
+	selp *action.SealedEnvelope,
 	_ *action.Execution,
 	c iotexapi.APIServiceClient,
 	retryNum int,

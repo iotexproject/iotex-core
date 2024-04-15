@@ -292,7 +292,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(err)
 		receiptRoot, err := hash.HexStringToHash256("f04673451e31386a8fddfcf7750665bfcf33f239f6c4919430bb11a144e1aa95")
 		require.NoError(err)
-		actions := []action.SealedEnvelope{makeTransferAction(t, 1)}
+		actions := []*action.SealedEnvelope{makeTransferAction(t, 1)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
 			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
@@ -303,7 +303,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(err)
 		receiptRoot, err := hash.HexStringToHash256("f04673451e31386a8fddfcf7750665bfcf33f239f6c4919430bb11a144e1aa95")
 		require.NoError(err)
-		actions := []action.SealedEnvelope{makeRewardAction(t, 28), makeTransferAction(t, 1)}
+		actions := []*action.SealedEnvelope{makeRewardAction(t, 28), makeTransferAction(t, 1)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
 			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
@@ -314,7 +314,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(err)
 		receiptRoot, err := hash.HexStringToHash256("a59bd06fe4d2bb537895f170dec1f9213045cb13480e4941f1abdc8d13b16fae")
 		require.NoError(err)
-		actions := []action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t, 28)}
+		actions := []*action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t, 28)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
 			require.ErrorIs(f.Validate(zctx, block), nil)
@@ -325,7 +325,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(err)
 		receiptRoot, err := hash.HexStringToHash256("a59bd06fe4d2bb537895f170dec1f9213045cb13480e4941f1abdc8d13b16fae")
 		require.NoError(err)
-		actions := []action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t, 27)}
+		actions := []*action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t, 27)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
 			require.ErrorContains(f.Validate(zctx, block), "Only producer could create reward")
@@ -336,7 +336,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(err)
 		receiptRoot, err := hash.HexStringToHash256("a59bd06fe4d2bb537895f170dec1f9213045cb13480e4941f1abdc8d13b16fae")
 		require.NoError(err)
-		actions := []action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t, 28), makeRewardAction(t, 28)}
+		actions := []*action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t, 28), makeRewardAction(t, 28)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
 			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
@@ -349,7 +349,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(err)
 		rewardAct := makeRewardAction(t, 28)
 		rewardAct.SetNonce(2)
-		actions := []action.SealedEnvelope{makeTransferAction(t, 1), rewardAct}
+		actions := []*action.SealedEnvelope{makeTransferAction(t, 1), rewardAct}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
 			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
@@ -357,7 +357,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 	})
 }
 
-func makeTransferAction(t *testing.T, nonce uint64) action.SealedEnvelope {
+func makeTransferAction(t *testing.T, nonce uint64) *action.SealedEnvelope {
 	tsf, err := action.NewTransfer(
 		uint64(nonce),
 		big.NewInt(1),
@@ -381,7 +381,7 @@ func makeTransferAction(t *testing.T, nonce uint64) action.SealedEnvelope {
 	return sevlp
 }
 
-func makeRewardAction(t *testing.T, signer int) action.SealedEnvelope {
+func makeRewardAction(t *testing.T, signer int) *action.SealedEnvelope {
 	gb := action.GrantRewardBuilder{}
 	grant := gb.SetRewardType(action.BlockReward).SetHeight(1).Build()
 	eb2 := action.EnvelopeBuilder{}
@@ -395,7 +395,7 @@ func makeRewardAction(t *testing.T, signer int) action.SealedEnvelope {
 	return sevlp
 }
 
-func makeBlock(t *testing.T, prevHash hash.Hash256, receiptRoot hash.Hash256, digest hash.Hash256, actions ...action.SealedEnvelope) *block.Block {
+func makeBlock(t *testing.T, prevHash hash.Hash256, receiptRoot hash.Hash256, digest hash.Hash256, actions ...*action.SealedEnvelope) *block.Block {
 	rap := block.RunnableActionsBuilder{}
 	ra := rap.AddActions(actions...).Build()
 	blk, err := block.NewBuilder(ra).

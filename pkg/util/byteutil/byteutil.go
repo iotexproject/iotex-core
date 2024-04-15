@@ -59,3 +59,11 @@ func Uint64ToBytesBigEndian(value uint64) []byte {
 func BytesToUint64BigEndian(value []byte) uint64 {
 	return binary.BigEndian.Uint64(value)
 }
+
+// BoolToByte converts bool to byte
+func BoolToByte(value bool) byte {
+	if value {
+		return 1
+	}
+	return 0
+}

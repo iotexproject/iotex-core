@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
 
@@ -25,7 +26,16 @@ const _fileMode = 0600
 var (
 	// ErrDBNotStarted represents the error when a db has not started
 	ErrDBNotStarted = errors.New("db has not started")
+
+	boltdbMtc = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "iotex_boltdb_metrics",
+		Help: "boltdb metrics.",
+	}, []string{"type", "method"})
 )
+
+func init() {
+	prometheus.MustRegister(boltdbMtc)
+}
 
 // BoltDB is KVStore implementation based bolt DB
 type BoltDB struct {
@@ -305,13 +315,35 @@ func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 	kvsb.Lock()
 	defer kvsb.Unlock()
 
+	type doubleKey struct {
+		ns  string
+		key string
+	}
+	// remove duplicate keys, only keep the last write for each key
+	entryKeySet := make(map[doubleKey]struct{})
+	uniqEntries := make([]*batch.WriteInfo, 0)
+	for i := kvsb.Size() - 1; i >= 0; i-- {
+		write, e := kvsb.Entry(i)
+		if e != nil {
+			return e
+		}
+		// only handle Put and Delete
+		if write.WriteType() != batch.Put && write.WriteType() != batch.Delete {
+			continue
+		}
+		k := doubleKey{ns: write.Namespace(), key: string(write.Key())}
+		if _, ok := entryKeySet[k]; !ok {
+			entryKeySet[k] = struct{}{}
+			uniqEntries = append(uniqEntries, write)
+		}
+	}
+	boltdbMtc.WithLabelValues(b.path, "entrySize").Set(float64(kvsb.Size()))
+	boltdbMtc.WithLabelValues(b.path, "uniqueEntrySize").Set(float64(len(entryKeySet)))
 	for c := uint8(0); c < b.config.NumRetries; c++ {
 		if err = b.db.Update(func(tx *bolt.Tx) error {
-			for i := 0; i < kvsb.Size(); i++ {
-				write, e := kvsb.Entry(i)
-				if e != nil {
-					return e
-				}
+			// keep order of the writes same as the original batch
+			for i := len(uniqEntries) - 1; i >= 0; i-- {
+				write := uniqEntries[i]
 				ns := write.Namespace()
 				switch write.WriteType() {
 				case batch.Put:

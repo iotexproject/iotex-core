@@ -48,13 +48,13 @@ func (v *validator) Validate(ctx context.Context, blk *Block) error {
 
 func (v *validator) validateActions(
 	ctx context.Context,
-	actions []action.SealedEnvelope,
+	actions []*action.SealedEnvelope,
 	errChan chan error,
 ) {
 	var wg sync.WaitGroup
 	for _, selp := range actions {
 		wg.Add(1)
-		go func(s action.SealedEnvelope) {
+		go func(s *action.SealedEnvelope) {
 			defer wg.Done()
 			for _, sev := range v.validators {
 				if err := sev.Validate(ctx, s); err != nil {

@@ -96,7 +96,7 @@ func (svr *web3Handler) getBlockWithTransactions(blk *block.Block, receipts []*a
 	}, nil
 }
 
-func (svr *web3Handler) assembleConfirmedTransaction(blkHash hash.Hash256, selp action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
+func (svr *web3Handler) assembleConfirmedTransaction(blkHash hash.Hash256, selp *action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
 	// sanity check
 	if receipt == nil {
 		return nil, errors.New("receipt is empty")
@@ -108,11 +108,11 @@ func (svr *web3Handler) assembleConfirmedTransaction(blkHash hash.Hash256, selp 
 	return newGetTransactionResult(&blkHash, selp, receipt, svr.coreService.EVMNetworkID())
 }
 
-func (svr *web3Handler) assemblePendingTransaction(selp action.SealedEnvelope) (*getTransactionResult, error) {
+func (svr *web3Handler) assemblePendingTransaction(selp *action.SealedEnvelope) (*getTransactionResult, error) {
 	return newGetTransactionResult(nil, selp, nil, svr.coreService.EVMNetworkID())
 }
 
-func getRecipientAndContractAddrFromAction(selp action.SealedEnvelope, receipt *action.Receipt) (*string, *string, error) {
+func getRecipientAndContractAddrFromAction(selp *action.SealedEnvelope, receipt *action.Receipt) (*string, *string, error) {
 	// recipient is empty when contract is created
 	if exec, ok := selp.Action().(*action.Execution); ok && len(exec.Contract()) == 0 {
 		addr, err := ioAddrToEthAddr(receipt.ContractAddress)
@@ -473,7 +473,7 @@ func fromLoggerStructLogs(logs []logger.StructLog) []apitypes.StructLog {
 
 func newGetTransactionResult(
 	blkHash *hash.Hash256,
-	selp action.SealedEnvelope,
+	selp *action.SealedEnvelope,
 	receipt *action.Receipt,
 	evmChainID uint32,
 ) (*getTransactionResult, error) {

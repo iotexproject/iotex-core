@@ -2,12 +2,14 @@ package contractstaking
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
+	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
@@ -110,6 +112,12 @@ func TestContractStakingCache_CandidateVotes(t *testing.T) {
 	checkCacheCandidateVotes(require, cache, 0, identityset.Address(3), 300)
 	checkCacheCandidateVotesAfterRedsea(require, cache, 0, identityset.Address(1), 824)
 	checkCacheCandidateVotesAfterRedsea(require, cache, 0, identityset.Address(3), 310)
+
+	// put bucket info and make it disabled
+	bi := &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(3), Owner: identityset.Address(4)}
+	cache.PutBucketInfo(9, bi)
+	cache.candidateBucketMap[bi.Delegate.String()][9] = false
+	checkCacheCandidateVotes(require, cache, 0, identityset.Address(3), 300)
 }
 
 func TestContractStakingCache_Buckets(t *testing.T) {
@@ -456,6 +464,11 @@ func TestContractStakingCache_Merge(t *testing.T) {
 	votes, err = cache.CandidateVotes(ctx, identityset.Address(3), height)
 	require.NoError(err)
 	require.EqualValues(0, votes.Int64())
+
+	// invalid delta
+	err = cache.Merge(nil, height)
+	require.Error(err)
+	require.Equal(err.Error(), "invalid contract staking delta")
 }
 
 func TestContractStakingCache_MatchBucketType(t *testing.T) {
@@ -520,11 +533,59 @@ func TestContractStakingCache_BucketTypeCount(t *testing.T) {
 	btc, err = cache.BucketTypeCount(height)
 	require.NoError(err)
 	require.EqualValues(2, btc)
+
+	btc, err = cache.BucketTypeCount(1)
+	require.Error(err)
+	require.Contains(err.Error(), "invalid height")
 }
 
 func TestContractStakingCache_LoadFromDB(t *testing.T) {
 	require := require.New(t)
 	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(27).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+
+	// mock kvstore exception
+	ctrl := gomock.NewController(t)
+	mockKvStore := db.NewMockKVStore(ctrl)
+
+	// kvstore exception at load height
+	mockKvStore.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, errors.New("err1")).Times(1)
+	err := cache.LoadFromDB(mockKvStore)
+	require.Error(err)
+	require.Equal(err.Error(), "err1")
+
+	// kvstore exception at load total bucket count
+	mockKvStore.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, db.ErrNotExist).Times(1)
+	mockKvStore.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, errors.New("err2")).Times(1)
+	err = cache.LoadFromDB(mockKvStore)
+	require.Error(err)
+	require.Equal(err.Error(), "err2")
+
+	// kvstore exception at load bucket info
+	mockKvStore.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, db.ErrNotExist).Times(2)
+	mockKvStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, errors.New("err3")).Times(1)
+	err = cache.LoadFromDB(mockKvStore)
+	require.Error(err)
+	require.Equal(err.Error(), "err3")
+
+	// mock bucketInfo Deserialize failed
+	mockKvStore.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, db.ErrNotExist).Times(2)
+	mockKvStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, [][]byte{nil}, nil).Times(1)
+	err = cache.LoadFromDB(mockKvStore)
+	require.Error(err)
+
+	// kvstore exception at load bucket type
+	mockKvStore.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, db.ErrNotExist).Times(2)
+	mockKvStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, db.ErrBucketNotExist).Times(1)
+	mockKvStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, errors.New("err4")).Times(1)
+	err = cache.LoadFromDB(mockKvStore)
+	require.Error(err)
+	require.Equal(err.Error(), "err4")
+
+	mockKvStore.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, db.ErrNotExist).Times(2)
+	mockKvStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, db.ErrBucketNotExist).Times(1)
+	mockKvStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, [][]byte{nil}, nil).Times(1)
+	err = cache.LoadFromDB(mockKvStore)
+	require.Error(err)
 
 	// load from empty db
 	path, err := testutil.PathOfTempFile("staking.db")
@@ -611,4 +672,71 @@ func checkVoteBucket(r *require.Assertions, bucket *staking.VoteBucket, index ui
 	r.EqualValues(unstakeHeight, bucket.UnstakeStartBlockHeight)
 	r.EqualValues(autoStake, bucket.AutoStake)
 	r.EqualValues(contractAddr, bucket.ContractAddress)
+}
+
+func TestContractStakingCache_MustGetBucketInfo(t *testing.T) {
+	// build test condition to add a bucketInfo
+	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(1).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
+
+	tryCatchMustGetBucketInfo := func(i uint64) (v *bucketInfo, err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				err = errors.New(fmt.Sprint(r))
+			}
+		}()
+		v = cache.MustGetBucketInfo(i)
+		return
+	}
+
+	r := require.New(t)
+	v, err := tryCatchMustGetBucketInfo(1)
+	r.NotNil(v)
+	r.NoError(err)
+
+	v, err = tryCatchMustGetBucketInfo(2)
+	r.Nil(v)
+	r.Error(err)
+	r.Equal(err.Error(), "bucket info not found")
+}
+
+func TestContractStakingCache_MustGetBucketType(t *testing.T) {
+	// build test condition to add a bucketType
+	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(1).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
+
+	tryCatchMustGetBucketType := func(i uint64) (v *BucketType, err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				err = errors.New(fmt.Sprint(r))
+			}
+		}()
+		v = cache.MustGetBucketType(i)
+		return
+	}
+
+	r := require.New(t)
+	v, err := tryCatchMustGetBucketType(1)
+	r.NotNil(v)
+	r.NoError(err)
+
+	v, err = tryCatchMustGetBucketType(2)
+	r.Nil(v)
+	r.Error(err)
+	r.Equal(err.Error(), "bucket type not found")
+}
+
+func TestContractStakingCache_DeleteBucketInfo(t *testing.T) {
+	// build test condition to add a bucketInfo
+	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(1).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	bi1 := &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(1)}
+	bi2 := &bucketInfo{TypeIndex: 2, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
+	cache.PutBucketInfo(1, bi1)
+	cache.PutBucketInfo(2, bi2)
+
+	cache.DeleteBucketInfo(1)
+
+	// remove candidate bucket before
+	delete(cache.candidateBucketMap, bi2.Delegate.String())
+	cache.DeleteBucketInfo(2)
 }

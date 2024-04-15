@@ -1,8 +1,11 @@
 package staking
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 type (
@@ -43,6 +46,22 @@ func (esr *EndorsementStateReader) Get(bucketIndex uint64) (*Endorsement, error)
 		return nil, err
 	}
 	return &value, nil
+}
+
+// Status returns the status of the endorsement of a bucket at a certain height
+// If the endorsement does not exist, it returns EndorseExpired
+func (esr *EndorsementStateReader) Status(bucketIndex, height uint64) (EndorsementStatus, error) {
+	var status EndorsementStatus
+	endorse, err := esr.Get(bucketIndex)
+	switch errors.Cause(err) {
+	case nil:
+		status = endorse.Status(height)
+	case state.ErrStateNotExist:
+		status = EndorseExpired
+		err = nil
+	default:
+	}
+	return status, err
 }
 
 func endorsementKey(bucketIndex uint64) []byte {

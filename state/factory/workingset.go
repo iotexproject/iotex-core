@@ -98,7 +98,7 @@ func (ws *workingSet) validate(ctx context.Context) error {
 
 func (ws *workingSet) runActions(
 	ctx context.Context,
-	elps []action.SealedEnvelope,
+	elps []*action.SealedEnvelope,
 ) ([]*action.Receipt, error) {
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
@@ -119,7 +119,7 @@ func (ws *workingSet) runActions(
 	return receipts, nil
 }
 
-func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Context, error) {
+func withActionCtx(ctx context.Context, selp *action.SealedEnvelope) (context.Context, error) {
 	var actionCtx protocol.ActionCtx
 	var err error
 	caller := selp.SenderAddress()
@@ -144,7 +144,7 @@ func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Con
 
 func (ws *workingSet) runAction(
 	ctx context.Context,
-	selp action.SealedEnvelope,
+	selp *action.SealedEnvelope,
 ) (*action.Receipt, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	if protocol.MustGetBlockCtx(ctx).GasLimit < actCtx.IntrinsicGas {
@@ -171,17 +171,8 @@ func (ws *workingSet) runAction(
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
 	defer ws.ResetSnapshots()
-	// check legacy fresh account conversion
-	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
-		sender, err := accountutil.AccountState(ctx, ws, actCtx.Caller)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get the confirmed nonce of sender %s", actCtx.Caller.String())
-		}
-		if sender.ConvertFreshAccountToZeroNonceType(actCtx.Nonce) {
-			if err = accountutil.StoreAccount(ws, actCtx.Caller, sender); err != nil {
-				return nil, errors.Wrapf(err, "failed to store converted sender %s", actCtx.Caller.String())
-			}
-		}
+	if err := ws.freshAccountConversion(ctx, &actCtx); err != nil {
+		return nil, err
 	}
 	for _, actionHandler := range reg.All() {
 		receipt, err := actionHandler.Handle(ctx, selp.Action(), ws)
@@ -233,6 +224,25 @@ func (ws *workingSet) Revert(snapshot int) error {
 
 func (ws *workingSet) ResetSnapshots() {
 	ws.store.ResetSnapshots()
+}
+
+// freshAccountConversion happens between UseZeroNonceForFreshAccount height
+// and RefactorFreshAccountConversion height
+func (ws *workingSet) freshAccountConversion(ctx context.Context, actCtx *protocol.ActionCtx) error {
+	// check legacy fresh account conversion
+	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount &&
+		!protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+		sender, err := accountutil.AccountState(ctx, ws, actCtx.Caller)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get the confirmed nonce of sender %s", actCtx.Caller.String())
+		}
+		if sender.ConvertFreshAccountToZeroNonceType(actCtx.Nonce) {
+			if err = accountutil.StoreAccount(ws, actCtx.Caller, sender); err != nil {
+				return errors.Wrapf(err, "failed to store converted sender %s", actCtx.Caller.String())
+			}
+		}
+	}
+	return nil
 }
 
 // Commit persists all changes in RunActions() into the DB
@@ -411,11 +421,11 @@ func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap 
 	return nil
 }
 
-func (ws *workingSet) Process(ctx context.Context, actions []action.SealedEnvelope) error {
+func (ws *workingSet) Process(ctx context.Context, actions []*action.SealedEnvelope) error {
 	return ws.process(ctx, actions)
 }
 
-func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelope) error {
+func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvelope) error {
 	if err := ws.validate(ctx); err != nil {
 		return err
 	}
@@ -466,7 +476,7 @@ func (ws *workingSet) generateSystemActions(ctx context.Context) ([]action.Envel
 }
 
 // validateSystemActionLayout verify whether the post system actions are appended tail
-func (ws *workingSet) validateSystemActionLayout(ctx context.Context, actions []action.SealedEnvelope) error {
+func (ws *workingSet) validateSystemActionLayout(ctx context.Context, actions []*action.SealedEnvelope) error {
 	postSystemActions, err := ws.generateSystemActions(ctx)
 	if err != nil {
 		return err
@@ -494,15 +504,15 @@ func (ws *workingSet) validateSystemActionLayout(ctx context.Context, actions []
 func (ws *workingSet) pickAndRunActions(
 	ctx context.Context,
 	ap actpool.ActPool,
-	postSystemActions []action.SealedEnvelope,
+	postSystemActions []*action.SealedEnvelope,
 	allowedBlockGasResidue uint64,
-) ([]action.SealedEnvelope, error) {
+) ([]*action.SealedEnvelope, error) {
 	err := ws.validate(ctx)
 	if err != nil {
 		return nil, err
 	}
 	receipts := make([]*action.Receipt, 0)
-	executedActions := make([]action.SealedEnvelope, 0)
+	executedActions := make([]*action.SealedEnvelope, 0)
 	reg := protocol.MustGetRegistry(ctx)
 
 	for _, p := range reg.All() {
@@ -642,7 +652,7 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 func (ws *workingSet) CreateBuilder(
 	ctx context.Context,
 	ap actpool.ActPool,
-	postSystemActions []action.SealedEnvelope,
+	postSystemActions []*action.SealedEnvelope,
 	allowedBlockGasResidue uint64,
 ) (*block.Builder, error) {
 	actions, err := ws.pickAndRunActions(ctx, ap, postSystemActions, allowedBlockGasResidue)

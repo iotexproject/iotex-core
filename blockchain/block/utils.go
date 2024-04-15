@@ -16,7 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-func calculateTxRoot(acts []action.SealedEnvelope) (hash.Hash256, error) {
+func calculateTxRoot(acts []*action.SealedEnvelope) (hash.Hash256, error) {
 	h := make([]hash.Hash256, 0, len(acts))
 	for _, act := range acts {
 		actHash, err := act.Hash()
@@ -33,7 +33,7 @@ func calculateTxRoot(acts []action.SealedEnvelope) (hash.Hash256, error) {
 }
 
 // calculateTransferAmount returns the calculated transfer amount
-func calculateTransferAmount(acts []action.SealedEnvelope) *big.Int {
+func calculateTransferAmount(acts []*action.SealedEnvelope) *big.Int {
 	transferAmount := big.NewInt(0)
 	for _, act := range acts {
 		transfer, ok := act.Action().(*action.Transfer)

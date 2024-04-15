@@ -92,14 +92,14 @@ func TestGenerateRlp(t *testing.T) {
 func TestRlpDecodeVerify(t *testing.T) {
 	require := require.New(t)
 
-	oldTests := rlpTests[:len(rlpTests)-2]
+	oldTests := rlpTests[:len(rlpTests)-1]
 	for _, v := range oldTests {
 		// decode received RLP tx
 		tx, sig, pubkey, err := DecodeRawTx(v.raw, _evmNetworkID)
 		require.NoError(err)
 		require.EqualValues(types.LegacyTxType, tx.Type())
 		require.True(tx.Protected())
-		require.EqualValues(_evmNetworkID, tx.ChainId().Uint64())
+		require.EqualValues(v.chainID, tx.ChainId().Uint64())
 		require.Equal(v.pubkey, pubkey.HexString())
 		require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
 
@@ -117,7 +117,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 
 		// receive from API
 		proto.Unmarshal(bs, pb)
-		selp := SealedEnvelope{}
+		selp := &SealedEnvelope{}
 		require.NoError(selp.loadProto(pb, _evmNetworkID))
 		act, ok := selp.Action().(EthCompatibleAction)
 		require.True(ok)
@@ -155,6 +155,9 @@ var (
 	// deterministic deployment: https://github.com/Arachnid/deterministic-deployment-proxy
 	// see example at https://etherscan.io/tx/0xeddf9e61fb9d8f5111840daef55e5fde0041f5702856532cdbb5a02998033d26
 	deterministicDeploymentTx = "0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222"
+
+	// example access list tx, created with a random chainID value = 0x7a69 = 31337
+	accessListTx = "0x01f8a0827a690184ee6b280082520894a0ee7a142d267c1f36714e4a8f75612f20a797206480f838f794a0ee7a142d267c1f36714e4a8f75612f20a79720e1a0000000000000000000000000000000000000000000000000000000000000000001a0eb211dfd353d76d43ea31a130ff36ac4eb7b379eae4d49fa2376741daf32f9ffa07ab673241d75e103f81ddd4aa34dd6849faf2f0f593eebe61a68fed74490a348"
 
 	rlpTests = []struct {
 		actType  string
@@ -382,6 +385,36 @@ var (
 			"8d38efe45794d7fceea10b2262c23c12245959db",
 		},
 		{
+			"candidateActivate",
+			"f88a7885e8d4a510008252089404c22afae6a03438b8fed74cb1cf441168df3f1280a4ef68b1a400000000000000000000000000000000000000000000000000000000000000018224c6a05d21ebb92203797ce49a95febe4430cfdfd32deb9284c80fee5d600124a77791a05ac4871b1b1200433f197aee068007b52f2b096e27fe473874ceab89661fad2a",
+			120,
+			21000,
+			"1000000000000",
+			"0",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			36,
+			"db61959a804781ea9da78d6d4ce6054e1ea940ae4a2cac3853f5262728a9369e",
+			"049ea260dc05a824a8a7e92d3b87e47ce06384e1eee15d446494a20d299c1bd11900edc2df5697aa00b2256c286193239f83740d079b032b9fbe085b791fa10950",
+			"065e1164818487818e6ba714e8d80b91718ad758",
+		},
+		{
+			"candidateEndorsement",
+			"f8ab7885e8d4a510008252089404c22afae6a03438b8fed74cb1cf441168df3f1280b8448a8a5d51000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000018224c5a0cb0c5d443925b98776645793fe8bfdeb34ca1d364d1c389521f5a4c715a42a91a07c1bb620307a78fb463bb8204a43d4bf32acd6efed0cb6b7c00eb7ae13da1ad6",
+			120,
+			21000,
+			"1000000000000",
+			"0",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			68,
+			"008d08ae3327ae395fdc0b16497e181c4eb6633cf796c174e8819cbb2a29194c",
+			"049ea260dc05a824a8a7e92d3b87e47ce06384e1eee15d446494a20d299c1bd11900edc2df5697aa00b2256c286193239f83740d079b032b9fbe085b791fa10950",
+			"065e1164818487818e6ba714e8d80b91718ad758",
+		},
+		{
 			"unprotected",
 			deterministicDeploymentTx,
 			0,
@@ -396,23 +429,26 @@ var (
 			"040a98b1acb38ed9cd8d0e8f1f03b1588bae140586f8a8049197b65013a3c17690151ae422e3fdfb26be2e6a4465b1f9cf5c26a5635109929a0d0a11734124d50a",
 			"3fab184622dc19b6109349b94811493bf2a45362",
 		},
-		{
-			"accesslist",
-			"0x01f8a0827a690184ee6b280082520894a0ee7a142d267c1f36714e4a8f75612f20a797206480f838f794a0ee7a142d267c1f36714e4a8f75612f20a79720e1a0000000000000000000000000000000000000000000000000000000000000000001a0eb211dfd353d76d43ea31a130ff36ac4eb7b379eae4d49fa2376741daf32f9ffa07ab673241d75e103f81ddd4aa34dd6849faf2f0f593eebe61a68fed74490a348",
-			1,
-			21000,
-			"4000000000",
-			"100",
-			"0xa0Ee7A142d267C1f36714E4a8F75612F20a79720",
-			31337,
-			iotextypes.Encoding_ETHEREUM_ACCESSLIST,
-			0,
-			"a57cf9e47beede973c5725a92176c631e51d96bcec41310c6371a4cc72b0658d",
-			"048318535b54105d4a7aae60c08fc45f9687181b4fdfc625bd1a753fa7397fed753547f11ca8696646f2f3acb08e31016afac23e630c5d11f59f61fef57b0d2aa5",
-			"f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-		},
 	}
 )
+
+func TestNewEthSignerError(t *testing.T) {
+	require := require.New(t)
+	singer, err := NewEthSigner(iotextypes.Encoding_ETHEREUM_ACCESSLIST, 1)
+	require.ErrorIs(err, ErrInvalidAct)
+	require.Nil(singer)
+
+	tx := types.NewTx(&types.DynamicFeeTx{
+		To:        nil,
+		Nonce:     4,
+		Value:     big.NewInt(4),
+		Gas:       4,
+		GasTipCap: big.NewInt(44),
+		GasFeeCap: big.NewInt(1045),
+	})
+	_, _, _, err = ExtractTypeSigPubkey(tx)
+	require.ErrorIs(err, ErrNotSupported)
+}
 
 func TestEthTxDecodeVerify(t *testing.T) {
 	require := require.New(t)
@@ -436,13 +472,6 @@ func TestEthTxDecodeVerify(t *testing.T) {
 			// unprotected tx has V = 27, 28
 			require.True(27 == recID || 28 == recID)
 			require.True(27 == sig[64] || 28 == sig[64])
-		} else if encoding == iotextypes.Encoding_ETHEREUM_ACCESSLIST {
-			require.EqualValues(types.AccessListTxType, tx.Type())
-			require.True(tx.Protected())
-			// // accesslist tx has V = 0, 1
-			require.LessOrEqual(recID, uint64(1))
-			require.True(27 == sig[64] || 28 == sig[64])
-			require.Equal(1, len(tx.AccessList()))
 		}
 		require.EqualValues(v.chainID, tx.ChainId().Uint64())
 		require.Equal(v.pubkey, pubkey.HexString())
@@ -462,8 +491,8 @@ func TestEthTxDecodeVerify(t *testing.T) {
 
 		// receive from API
 		proto.Unmarshal(bs, pb)
-		selp := SealedEnvelope{}
-		require.NoError(selp.loadProto(pb, uint32(tx.ChainId().Uint64())))
+		selp, err := (&Deserializer{}).SetEvmNetworkID(v.chainID).ActionToSealedEnvelope(pb)
+		require.NoError(err)
 		act, ok := selp.Action().(EthCompatibleAction)
 		require.True(ok)
 		rlpTx, err := act.ToEthTx(uint32(tx.ChainId().Uint64()))
@@ -507,7 +536,7 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 		elp, _ := elpBuilder.BuildExecution(tx)
 		return elp.Proto()
 	case "stakeCreate", "stakeAddDeposit", "changeCandidate", "unstake", "withdrawStake", "restake",
-		"transferStake", "candidateRegister", "candidateUpdate":
+		"transferStake", "candidateRegister", "candidateUpdate", "candidateActivate", "candidateEndorsement":
 		elp, _ := elpBuilder.BuildStakingAction(tx)
 		return elp.Proto()
 	case "rewardingClaim", "rewardingDeposit":
@@ -568,10 +597,6 @@ func TestIssue3944(t *testing.T) {
 
 func TestBackwardComp(t *testing.T) {
 	r := require.New(t)
-	var (
-		// example access list tx, created with a random chainID value = 0x7a69 = 31337
-		accessListTx = "0x01f8a0827a690184ee6b280082520894a0ee7a142d267c1f36714e4a8f75612f20a797206480f838f794a0ee7a142d267c1f36714e4a8f75612f20a79720e1a0000000000000000000000000000000000000000000000000000000000000000001a0eb211dfd353d76d43ea31a130ff36ac4eb7b379eae4d49fa2376741daf32f9ffa07ab673241d75e103f81ddd4aa34dd6849faf2f0f593eebe61a68fed74490a348"
-	)
 	for _, chainID := range []uint32{_evmNetworkID, _evmNetworkID + 1, 31337, 0} {
 		_, _, _, err := DecodeRawTx(deterministicDeploymentTx, chainID)
 		r.Equal(crypto.ErrInvalidKey, err)

@@ -157,7 +157,7 @@ func TestActQueuePendingActs(t *testing.T) {
 	require.NoError(q.Put(tsf5))
 	q.pendingNonce = 4
 	actions := q.PendingActs(ctx)
-	require.Equal([]action.SealedEnvelope{tsf1, tsf2}, actions)
+	require.Equal([]*action.SealedEnvelope{tsf1, tsf2}, actions)
 }
 
 func TestActQueueAllActs(t *testing.T) {
@@ -170,7 +170,7 @@ func TestActQueueAllActs(t *testing.T) {
 	require.NoError(q.Put(tsf1))
 	require.NoError(q.Put(tsf3))
 	actions := q.AllActs()
-	require.Equal([]action.SealedEnvelope{tsf1, tsf3}, actions)
+	require.Equal([]*action.SealedEnvelope{tsf1, tsf3}, actions)
 }
 
 func TestActQueueTimeOutAction(t *testing.T) {
