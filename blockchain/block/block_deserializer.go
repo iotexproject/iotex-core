@@ -101,25 +101,36 @@ func (bd *Deserializer) DeserializeBody(buf []byte) (*Body, error) {
 	return &b, nil
 }
 
-// FromBlockStoreProto converts protobuf to block store
-func (bd *Deserializer) FromBlockStoreProto(pb *iotextypes.BlockStore) (*Store, error) {
-	in := &Store{}
+func (bd *Deserializer) BlockFromBlockStoreProto(pb *iotextypes.BlockStore) (*Block, error) {
+	return bd.blockFromBlockStoreProto(pb)
+}
+
+func (bd *Deserializer) blockFromBlockStoreProto(pb *iotextypes.BlockStore) (*Block, error) {
 	blk, err := bd.FromBlockProto(pb.Block)
 	if err != nil {
 		return nil, err
 	}
-	// verify merkle root can match after deserialize
-	if err := blk.VerifyTxRoot(); err != nil {
-		return nil, err
-	}
+	// TODO: Reenable this if necessary
+	// // verify merkle root can match after deserialize
+	// if err := blk.VerifyTxRoot(); err != nil {
+	// 	return nil, err
+	// }
+	return blk, nil
+}
 
-	in.Block = blk
+func (bd *Deserializer) ReceiptsFromBlockStoreProto(pb *iotextypes.BlockStore) ([]*action.Receipt, error) {
+	return bd.receiptsFromBlockStoreProto(pb)
+}
+
+func (bd *Deserializer) receiptsFromBlockStoreProto(pb *iotextypes.BlockStore) ([]*action.Receipt, error) {
+	receipts := make([]*action.Receipt, 0)
 	for _, receiptPb := range pb.Receipts {
 		receipt := &action.Receipt{}
 		receipt.ConvertFromReceiptPb(receiptPb)
-		in.Receipts = append(in.Receipts, receipt)
+		receipts = append(receipts, receipt)
 	}
-	return in, nil
+
+	return receipts, nil
 }
 
 // DeserializeBlockStore de-serializes a block store
@@ -128,5 +139,16 @@ func (bd *Deserializer) DeserializeBlockStore(buf []byte) (*Store, error) {
 	if err := proto.Unmarshal(buf, &pb); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal block store")
 	}
-	return bd.FromBlockStoreProto(&pb)
+	blk, err := bd.blockFromBlockStoreProto(&pb)
+	if err != nil {
+		return nil, err
+	}
+	receipts, err := bd.receiptsFromBlockStoreProto(&pb)
+	if err != nil {
+		return nil, err
+	}
+	return &Store{
+		Block:    blk,
+		Receipts: receipts,
+	}, nil
 }

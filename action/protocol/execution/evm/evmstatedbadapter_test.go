@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -14,12 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/mock/gomock"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -98,12 +99,17 @@ func TestAddBalance(t *testing.T) {
 	)
 	require.NoError(err)
 	addAmount := big.NewInt(40000)
-	stateDB.AddBalance(addr, addAmount)
+	stateDB.AddBalance(addr, uint256.MustFromBig(addAmount))
+	require.Equal(addAmount, stateDB.lastAddBalanceAmount)
+	beneficiary, _ := address.FromBytes(addr[:])
+	require.Equal(beneficiary.String(), stateDB.lastAddBalanceAddr)
 	amount := stateDB.GetBalance(addr)
-	require.Equal(0, amount.Cmp(addAmount))
-	stateDB.AddBalance(addr, addAmount)
+	require.Equal(amount.ToBig(), addAmount)
+	stateDB.AddBalance(addr, uint256.MustFromBig(addAmount))
 	amount = stateDB.GetBalance(addr)
-	require.Equal(0, amount.Cmp(big.NewInt(80000)))
+	require.Equal(amount, uint256.NewInt(80000))
+	stateDB.AddBalance(addr, common.U2560)
+	require.Zero(len(stateDB.lastAddBalanceAmount.Bytes()))
 }
 
 func TestRefundAPIs(t *testing.T) {
@@ -295,6 +301,20 @@ func TestNonce(t *testing.T) {
 		stateDB.SetNonce(addr, 1)
 		require.Equal(uint64(1), stateDB.GetNonce(addr))
 	})
+	t.Run("legacy fresh nonce account with pending nonce", func(t *testing.T) {
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
+		opt := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+			ZeroNonceForFreshAccountOption(),
+		}
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
+		require.NoError(err)
+		require.Equal(uint64(0), stateDB.GetNonce(addr))
+		stateDB.SetNonce(addr, 1)
+		require.Equal(uint64(1), stateDB.GetNonce(addr))
+	})
 }
 
 var tests = []stateDBTest{
@@ -312,8 +332,8 @@ var tests = []stateDBTest{
 		},
 		15000,
 		[]sui{
-			{_c2, false, false},
-			{_c4, false, false},
+			{nil, _c4, _c2, false, false},
+			{nil, _c2, _c4, false, false},
 		},
 		[]image{
 			{common.BytesToHash(_v1[:]), []byte("cat")},
@@ -322,14 +342,14 @@ var tests = []stateDBTest{
 		[]access{
 			{_c1, []common.Hash{_k1, _k2}, []common.Hash{_k3, _k4}, false},
 		},
+		[]transient{
+			{_c1, _k1, _v1},
+		},
 		[]*types.Log{
 			newTestLog(_c3), newTestLog(_c2), newTestLog(_c1),
 		},
-		[]*action.TransactionLog{
-			newTestTxLog(_c3), newTestTxLog(_c1),
-		},
-		3, 2,
-		"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
+		3, 0, 1,
+		"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "",
 	},
 	{
 		[]bal{
@@ -346,8 +366,8 @@ var tests = []stateDBTest{
 		},
 		2000,
 		[]sui{
-			{_c1, true, true},
-			{_c3, true, true},
+			{nil, _c4, _c1, true, true},
+			{big.NewInt(1000), _c2, _c3, true, true},
 		},
 		[]image{
 			{common.BytesToHash(_v3[:]), []byte("hen")},
@@ -356,14 +376,16 @@ var tests = []stateDBTest{
 			{_c1, []common.Hash{_k3, _k4}, nil, true},
 			{_c2, []common.Hash{_k1, _k3}, []common.Hash{_k2, _k4}, false},
 		},
+		[]transient{
+			{_c2, _k2, _v2},
+		},
 		[]*types.Log{
 			newTestLog(_c4),
 		},
-		[]*action.TransactionLog{
-			newTestTxLog(_c2), newTestTxLog(_c1), newTestTxLog(_c4),
-		},
-		4, 5,
-		"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
+		4, 1, 2,
+		"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
+		"io1j4kjr6x5s8p6dyqlcfrxxdrsea32u2hpvpl5us",
+		"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
 	},
 	{
 		nil,
@@ -374,7 +396,7 @@ var tests = []stateDBTest{
 		},
 		15000,
 		[]sui{
-			{_addr1, true, true},
+			{big.NewInt(0), _c1, _addr1, true, true},
 		},
 		[]image{
 			{common.BytesToHash(_v4[:]), []byte("fox")},
@@ -382,12 +404,16 @@ var tests = []stateDBTest{
 		[]access{
 			{_c2, []common.Hash{_k2, _k4}, nil, true},
 		},
+		[]transient{
+			{_c3, _k3, _v3},
+		},
 		[]*types.Log{
 			newTestLog(_c1), newTestLog(_c2),
 		},
-		nil,
-		6, 5,
-		"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
+		6, 2, 3,
+		"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
+		"io1q2hz49tdy85dfqwr560pge3ngux0vf0vmhanad",
+		"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
 	},
 }
 
@@ -400,6 +426,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		require.NoError(err)
 		opt := []StateDBAdapterOption{
 			NotFixTopicCopyBugOption(),
+			SuicideTxLogMismatchPanicOption(),
 		}
 		if async {
 			opt = append(opt, AsyncContractTrieOption())
@@ -416,7 +443,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		for i, test := range tests {
 			// add balance
 			for _, e := range test.balance {
-				stateDB.AddBalance(e.addr, e.v)
+				stateDB.AddBalance(e.addr, uint256.MustFromBig(e.v))
 			}
 			// set code
 			for _, e := range test.codes {
@@ -430,10 +457,15 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			}
 			// set refund
 			stateDB.refund = test.refund
-			// set suicide
-			for _, e := range test.suicide {
-				require.Equal(e.suicide, stateDB.Suicide(e.addr))
+			// set SelfDestruct
+			for _, e := range test.selfDestruct {
+				if e.amount != nil {
+					stateDB.AddBalance(e.addr, uint256.MustFromBig(e.amount))
+				}
+				stateDB.AddBalance(e.beneficiary, stateDB.GetBalance(e.addr)) // simulate transfer to beneficiary inside Suicide()
+				stateDB.SelfDestruct(e.addr)
 				require.Equal(e.exist, stateDB.Exist(e.addr))
+				require.Zero(new(uint256.Int).Cmp(stateDB.GetBalance(e.addr)))
 			}
 			// set preimage
 			for _, e := range test.preimage {
@@ -458,17 +490,22 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					require.False(sOk)
 				}
 			}
+			//set transient storage
+			for _, e := range test.transient {
+				stateDB.SetTransientState(e.addr, e.k, e.v)
+			}
 			// set logs and txLogs
 			for _, l := range test.logs {
 				stateDB.AddLog(l)
 			}
-			for _, l := range test.txLogs {
-				stateDB.transactionLogs = append(stateDB.transactionLogs, l)
-			}
 			require.Equal(test.logSize, len(stateDB.logs))
 			require.Equal(test.txLogSize, len(stateDB.transactionLogs))
+			require.Equal(test.transientSize, len(stateDB.transientStorage))
 			require.Equal(test.logAddr, stateDB.logs[test.logSize-1].Address)
-			require.Equal(test.txLogAddr, stateDB.transactionLogs[test.txLogSize-1].Sender)
+			if test.txLogSize > 0 {
+				require.Equal(test.txSender, stateDB.transactionLogs[test.txLogSize-1].Sender)
+				require.Equal(test.txReceiver, stateDB.transactionLogs[test.txLogSize-1].Recipient)
+			}
 			require.Equal(i, stateDB.Snapshot())
 		}
 
@@ -486,11 +523,11 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				},
 				tests[2].refund,
 				[]sui{
-					{_c1, true, true},
-					{_c3, true, true},
-					{_c2, false, true},
-					{_c4, false, false},
-					{_addr1, true, true},
+					{nil, common.Address{}, _c1, true, true},
+					{nil, common.Address{}, _c3, true, true},
+					{nil, common.Address{}, _c2, false, true},
+					{nil, common.Address{}, _c4, false, false},
+					{nil, common.Address{}, _addr1, true, true},
 				},
 				[]image{
 					{common.BytesToHash(_v1[:]), []byte("cat")},
@@ -502,9 +539,14 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{_c1, []common.Hash{_k1, _k2, _k3, _k4}, nil, true},
 					{_c2, []common.Hash{_k1, _k2, _k3, _k4}, nil, true},
 				},
-				nil, nil,
-				6, 5,
-				"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
+				[]transient{
+					{_c3, _k3, _v3},
+				},
+				nil,
+				6, 2, 3,
+				"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
+				"io1q2hz49tdy85dfqwr560pge3ngux0vf0vmhanad",
+				"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
 			},
 			{
 				[]bal{
@@ -514,11 +556,11 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				tests[1].states,
 				tests[1].refund,
 				[]sui{
-					{_c1, true, true},
-					{_c3, true, true},
-					{_c2, false, true},
-					{_c4, false, false},
-					{_addr1, false, true},
+					{nil, common.Address{}, _c1, true, true},
+					{nil, common.Address{}, _c3, true, true},
+					{nil, common.Address{}, _c2, false, true},
+					{nil, common.Address{}, _c4, false, false},
+					{nil, common.Address{}, _addr1, false, true},
 				},
 				[]image{
 					{common.BytesToHash(_v1[:]), []byte("cat")},
@@ -530,9 +572,14 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{_c1, []common.Hash{_k1, _k2, _k3, _k4}, nil, true},
 					{_c2, []common.Hash{_k1, _k3}, []common.Hash{_k2, _k4}, true},
 				},
-				nil, nil,
-				4, 5,
-				"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
+				[]transient{
+					{_c2, _k2, _v2},
+				},
+				nil,
+				4, 1, 2,
+				"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
+				"io1j4kjr6x5s8p6dyqlcfrxxdrsea32u2hpvpl5us",
+				"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
 			},
 			{
 				[]bal{
@@ -546,11 +593,11 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				},
 				tests[0].refund,
 				[]sui{
-					{_c1, false, true},
-					{_c3, false, true},
-					{_c2, false, false},
-					{_c4, false, false},
-					{_addr1, false, true},
+					{nil, common.Address{}, _c1, false, true},
+					{nil, common.Address{}, _c3, false, true},
+					{nil, common.Address{}, _c2, false, false},
+					{nil, common.Address{}, _c4, false, false},
+					{nil, common.Address{}, _addr1, false, true},
 				},
 				[]image{
 					{common.BytesToHash(_v1[:]), []byte("cat")},
@@ -562,9 +609,14 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{_c1, []common.Hash{_k1, _k2}, []common.Hash{_k3, _k4}, true},
 					{_c2, nil, []common.Hash{_k1, _k2, _k3, _k4}, false},
 				},
-				nil, nil,
-				3, 2,
-				"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
+				[]transient{
+					{_c1, _k1, _v1},
+				},
+				nil,
+				3, 0, 1,
+				"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
+				"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
+				"",
 			},
 		}
 
@@ -574,7 +626,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			// test balance
 			for _, e := range test.balance {
 				amount := stateDB.GetBalance(e.addr)
-				require.Equal(e.v, amount)
+				require.Equal(uint256.MustFromBig(e.v), amount)
 			}
 			if async && !fixSnapshot {
 				// test preimage
@@ -608,10 +660,14 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 						require.False(sOk)
 					}
 				}
+				//test transient storage
+				for _, e := range test.transient {
+					require.Equal(e.v, stateDB.GetTransientState(e.addr, e.k))
+				}
 			}
-			// test suicide/exist
-			for _, e := range test.suicide {
-				require.Equal(e.suicide, stateDB.HasSuicided(e.addr))
+			// test SelfDestruct/exist
+			for _, e := range test.selfDestruct {
+				require.Equal(e.selfDestruct, stateDB.HasSelfDestructed(e.addr))
 				require.Equal(e.exist, stateDB.Exist(e.addr))
 			}
 			// test logs
@@ -619,12 +675,16 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				require.Equal(test.logSize, len(stateDB.logs))
 				require.Equal(test.txLogSize, len(stateDB.transactionLogs))
 				require.Equal(test.logAddr, stateDB.logs[test.logSize-1].Address)
-				require.Equal(test.txLogAddr, stateDB.transactionLogs[test.txLogSize-1].Sender)
+				if test.txLogSize > 0 {
+					require.Equal(test.txSender, stateDB.transactionLogs[test.txLogSize-1].Sender)
+					require.Equal(test.txReceiver, stateDB.transactionLogs[test.txLogSize-1].Recipient)
+				}
 			} else {
 				require.Equal(6, len(stateDB.logs))
-				require.Equal(5, len(stateDB.transactionLogs))
+				require.Equal(2, len(stateDB.transactionLogs))
 				require.Equal("io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe", stateDB.logs[5].Address)
-				require.Equal("io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q", stateDB.transactionLogs[4].Sender)
+				require.Equal("io1q2hz49tdy85dfqwr560pge3ngux0vf0vmhanad", stateDB.transactionLogs[1].Sender)
+				require.Equal("io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", stateDB.transactionLogs[1].Recipient)
 			}
 		}
 
@@ -632,23 +692,25 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		require.Equal(1, stateDB.Snapshot())
 		if fixSnapshot {
 			require.Equal(1, len(stateDB.contractSnapshot))
-			require.Equal(1, len(stateDB.suicideSnapshot))
+			require.Equal(1, len(stateDB.selfDestructedSnapshot))
 			require.Equal(1, len(stateDB.preimageSnapshot))
 			require.Equal(1, len(stateDB.accessListSnapshot))
+			require.Equal(1, len(stateDB.transientStorageSnapshot))
 			require.Equal(1, len(stateDB.refundSnapshot))
 		} else {
 			require.Equal(3, len(stateDB.contractSnapshot))
-			require.Equal(3, len(stateDB.suicideSnapshot))
+			require.Equal(3, len(stateDB.selfDestructedSnapshot))
 			require.Equal(3, len(stateDB.preimageSnapshot))
-			// refund fix and accessList are introduced after fixSnapshot
+			// refund fix, accessList, and transient storage are introduced after fixSnapshot
 			// so their snapshot are always properly cleared
 			require.Zero(len(stateDB.accessListSnapshot))
+			require.Zero(len(stateDB.transientStorageSnapshot))
 			require.Zero(len(stateDB.refundSnapshot))
 		}
 		// commit snapshot 0's state
 		require.NoError(stateDB.CommitContracts())
 		stateDB.clear()
-		//[TODO] need e2etest to verify state factory commit/re-open (whether result from state/balance/suicide/exist is same)
+		//[TODO] need e2etest to verify state factory commit/re-open (whether result from state/balance/SelfDestruct/exist is same)
 	}
 
 	t.Run("contract snapshot/revert/commit", func(t *testing.T) {
@@ -666,7 +728,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 }
 
 func TestClearSnapshots(t *testing.T) {
-	testClearSnapshots := func(t *testing.T, async, fixSnapshotOrder bool) {
+	testClearSnapshots := func(t *testing.T, async, fixSnapshotOrder, panicUnrecoverableError bool) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 
@@ -682,13 +744,16 @@ func TestClearSnapshots(t *testing.T) {
 		if fixSnapshotOrder {
 			opts = append(opts, FixSnapshotOrderOption())
 		}
+		if panicUnrecoverableError {
+			opts = append(opts, PanicUnrecoverableErrorOption())
+		}
 		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
 		require.NoError(err)
 
 		for i, test := range tests {
 			// add balance
 			for _, e := range test.balance {
-				stateDB.AddBalance(e.addr, e.v)
+				stateDB.AddBalance(e.addr, uint256.MustFromBig(e.v))
 			}
 			// set code
 			for _, e := range test.codes {
@@ -700,9 +765,9 @@ func TestClearSnapshots(t *testing.T) {
 			for _, e := range test.states {
 				stateDB.SetState(e.addr, e.k, e.v)
 			}
-			// set suicide
-			for _, e := range test.suicide {
-				require.Equal(e.suicide, stateDB.Suicide(e.addr))
+			// set SelfDestruct
+			for _, e := range test.selfDestruct {
+				stateDB.SelfDestruct(e.addr)
 				require.Equal(e.exist, stateDB.Exist(e.addr))
 			}
 			// set preimage
@@ -718,35 +783,42 @@ func TestClearSnapshots(t *testing.T) {
 
 		if stateDB.fixSnapshotOrder {
 			// snapshot 1, 2 cleared, only 0 left in map
-			require.Equal(1, len(stateDB.suicideSnapshot))
+			require.Equal(1, len(stateDB.selfDestructedSnapshot))
 			require.Equal(1, len(stateDB.contractSnapshot))
 			require.Equal(1, len(stateDB.preimageSnapshot))
 			require.Equal(2, stateDB.Snapshot())
 			// now there are 2 snapshots: 0 and the newly added one
-			require.Equal(2, len(stateDB.suicideSnapshot))
+			require.Equal(2, len(stateDB.selfDestructedSnapshot))
 			require.Equal(2, len(stateDB.contractSnapshot))
 			require.Equal(2, len(stateDB.preimageSnapshot))
 			require.Equal(2, len(stateDB.logsSnapshot))
 		} else {
 			// snapshot not cleared
-			require.Equal(3, len(stateDB.suicideSnapshot))
+			require.Equal(3, len(stateDB.selfDestructedSnapshot))
 			require.Equal(3, len(stateDB.contractSnapshot))
 			require.Equal(3, len(stateDB.preimageSnapshot))
 			require.Equal(2, stateDB.Snapshot())
 			// still 3 old snapshots
-			require.Equal(3, len(stateDB.suicideSnapshot))
+			require.Equal(3, len(stateDB.selfDestructedSnapshot))
 			require.Equal(3, len(stateDB.contractSnapshot))
 			require.Equal(3, len(stateDB.preimageSnapshot))
 			// log snapshot added after fixSnapshotOrder, so it is cleared and 1 remains
 			require.Equal(1, len(stateDB.logsSnapshot))
 		}
-
+		if panicUnrecoverableError {
+			require.Panics(func() { stateDB.RevertToSnapshot(1) })
+		} else {
+			stateDB.RevertToSnapshot(1)
+		}
 	}
 	t.Run("contract w/o clear snapshots", func(t *testing.T) {
-		testClearSnapshots(t, false, false)
+		testClearSnapshots(t, false, false, false)
 	})
 	t.Run("contract with clear snapshots", func(t *testing.T) {
-		testClearSnapshots(t, false, true)
+		testClearSnapshots(t, false, true, false)
+	})
+	t.Run("contract with clear snapshots and panic on duplicate revert", func(t *testing.T) {
+		testClearSnapshots(t, false, true, true)
 	})
 }
 
@@ -805,7 +877,7 @@ func TestGetBalanceOnError(t *testing.T) {
 		)
 		assert.NoError(t, err)
 		amount := stateDB.GetBalance(addr)
-		assert.Equal(t, big.NewInt(0), amount)
+		assert.Equal(t, common.U2560, amount)
 	}
 }
 
@@ -899,4 +971,54 @@ func TestSortMap(t *testing.T) {
 	t.Run("after fix sort map", func(t *testing.T) {
 		require.True(testFunc(t, sm))
 	})
+}
+
+func TestStateDBTransientStorage(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
+	var opts []StateDBAdapterOption
+	opts = append(opts,
+		NotFixTopicCopyBugOption(),
+		FixSnapshotOrderOption(),
+	)
+	state, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var (
+		addr0 = common.Address{}
+		addr1 = common.HexToAddress("1234567890")
+		k1    = common.Hash{}
+		k2    = common.HexToHash("34567890ab")
+		v1    = common.HexToHash("567890abcd")
+		v2    = common.HexToHash("7890abcdef")
+	)
+	tests := []struct {
+		addr     common.Address
+		key, val common.Hash
+	}{
+		{addr0, k1, v1},
+		{addr0, k2, v2},
+		{addr1, k1, v2},
+		{addr1, k2, v1},
+	}
+	for _, test := range tests {
+		addr := test.addr
+		key := test.key
+		value := test.val
+		sn := state.Snapshot()
+		state.SetTransientState(addr, key, value)
+		require.Equal(value, state.GetTransientState(addr, key))
+
+		// revert the transient state being set and then check that the
+		// value is now the empty hash
+		state.RevertToSnapshot(sn)
+		require.Equal(common.Hash{}, state.GetTransientState(addr, key))
+
+		state.SetTransientState(addr, key, value)
+		require.Equal(value, state.GetTransientState(addr, key))
+	}
+
 }

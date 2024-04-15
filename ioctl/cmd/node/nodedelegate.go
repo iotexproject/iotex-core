@@ -365,3 +365,20 @@ func getAllStakingCandidates(chainClient iotexapi.APIServiceClient) (candidateLi
 	}
 	return
 }
+
+func getCandidateRewardAddressByAddressOrName(cli iotexapi.APIServiceClient, name string) (string, error) {
+	address, err1 := util.Address(name)
+	if err1 == nil {
+		return address, nil
+	}
+	cl, err := getAllStakingCandidates(cli)
+	if err != nil {
+		return "", err
+	}
+	for _, candidate := range cl.Candidates {
+		if candidate.Name == name {
+			return candidate.RewardAddress, nil
+		}
+	}
+	return "", err1
+}

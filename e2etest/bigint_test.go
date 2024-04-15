@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -98,7 +99,9 @@ func prepareBlockchain(ctx context.Context, _executor string, r *require.Asserti
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	r.NoError(err)
 	ap.AddActionEnvelopeValidators(genericValidator)
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	store, err := filedao.NewFileDAOInMemForTest()
+	r.NoError(err)
+	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, cfg.DB.MaxCacheSize)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,

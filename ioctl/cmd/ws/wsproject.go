@@ -84,6 +84,7 @@ func init() {
 	wsProject.AddCommand(wsProjectCreate)
 	wsProject.AddCommand(wsProjectUpdate)
 	wsProject.AddCommand(wsProjectQuery)
+	wsProject.AddCommand(wsProjectConfig)
 
 	wsProjectRegisterContractAddress = config.ReadConfig.WsRegisterContract
 	wsProjectIPFSEndpoint = config.ReadConfig.IPFSEndpoint

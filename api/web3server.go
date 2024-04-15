@@ -244,8 +244,19 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	} else {
 		log.Logger("api").Debug("web3Debug", zap.String("response", fmt.Sprintf("%+v", res)))
 	}
+	var id any
+	reqID := web3Req.Get("id")
+	switch reqID.Type {
+	case gjson.String:
+		id = reqID.String()
+	case gjson.Number:
+		id = reqID.Int()
+	default:
+		id = 0
+		res, err = nil, errors.New("invalid id type")
+	}
 	size, err1 = writer.Write(&web3Response{
-		id:     int(web3Req.Get("id").Int()),
+		id:     id,
 		result: res,
 		err:    err,
 	})
@@ -629,11 +640,11 @@ func (svr *web3Handler) getTransactionByHash(in *gjson.Result) (interface{}, err
 		return nil, err
 	}
 
-	selp, blkHash, _, _, err := svr.coreService.ActionByActionHash(actHash)
+	selp, blk, _, err := svr.coreService.ActionByActionHash(actHash)
 	if err == nil {
 		receipt, err := svr.coreService.ReceiptByActionHash(actHash)
 		if err == nil {
-			return svr.assembleConfirmedTransaction(blkHash, selp, receipt)
+			return svr.assembleConfirmedTransaction(blk.HashBlock(), selp, receipt)
 		}
 		if errors.Cause(err) == ErrNotFound {
 			return nil, nil
@@ -673,7 +684,7 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 	}
 
 	// acquire action receipt by action hash
-	selp, blockHash, _, _, err := svr.coreService.ActionByActionHash(actHash)
+	selp, blk, _, err := svr.coreService.ActionByActionHash(actHash)
 	if err != nil {
 		if errors.Cause(err) == ErrNotFound {
 			return nil, nil
@@ -693,19 +704,13 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 	}
 
 	// acquire logsBloom from blockMeta
-	blkHash := hex.EncodeToString(blockHash[:])
-	blk, err := svr.coreService.BlockByHash(blkHash)
-	if err != nil {
-		return nil, err
-	}
-
 	var logsBloomStr string
-	if logsBloom := blk.Block.LogsBloomfilter(); logsBloom != nil {
+	if logsBloom := blk.LogsBloomfilter(); logsBloom != nil {
 		logsBloomStr = hex.EncodeToString(logsBloom.Bytes())
 	}
 
 	return &getReceiptResult{
-		blockHash:       blockHash,
+		blockHash:       blk.HashBlock(),
 		from:            selp.SenderAddress(),
 		to:              to,
 		contractAddress: contractAddr,
@@ -1017,6 +1022,13 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 			DisableStorage:   disableStorage,
 			EnableReturnData: enableReturnData,
 		},
+	}
+	if tracer := options.Get("tracer"); tracer.Exists() {
+		cfg.Tracer = new(string)
+		*cfg.Tracer = tracer.String()
+		if tracerConfig := options.Get("tracerConfig"); tracerConfig.Exists() {
+			cfg.TracerConfig = json.RawMessage(tracerConfig.Raw)
+		}
 	}
 	retval, receipt, tracer, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
 	if err != nil {

@@ -58,6 +58,13 @@ type (
 		DebitBucketPool(*big.Int, bool) error
 		Commit(context.Context) error
 		SM() protocol.StateManager
+		SR() protocol.StateReader
+	}
+
+	// CandidiateStateCommon is the common interface for candidate state manager and reader
+	CandidiateStateCommon interface {
+		ContainsSelfStakingBucket(uint64) bool
+		SR() protocol.StateReader
 	}
 
 	candSM struct {
@@ -103,6 +110,10 @@ func newCandidateStateManager(sm protocol.StateManager) CandidateStateManager {
 }
 
 func (csm *candSM) SM() protocol.StateManager {
+	return csm.StateManager
+}
+
+func (csm *candSM) SR() protocol.StateReader {
 	return csm.StateManager
 }
 

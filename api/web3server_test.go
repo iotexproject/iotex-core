@@ -631,7 +631,15 @@ func TestGetTransactionByHash(t *testing.T) {
 		ContractAddress: "test",
 		TxIndex:         1,
 	}
-	core.EXPECT().ActionByActionHash(gomock.Any()).Return(selp, hash.Hash256b([]byte("test")), uint64(0), uint32(0), nil)
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetVersion(111).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(time.Now()).
+		AddActions(selp).
+		SignAndBuild(identityset.PrivateKey(0))
+	require.NoError(err)
+	core.EXPECT().ActionByActionHash(gomock.Any()).Return(selp, &blk, uint32(0), nil)
 	core.EXPECT().ReceiptByActionHash(gomock.Any()).Return(receipt, nil)
 	core.EXPECT().EVMNetworkID().Return(uint32(0))
 
@@ -647,7 +655,7 @@ func TestGetTransactionByHash(t *testing.T) {
 	require.Equal(receipt, rlt.receipt)
 
 	// get pending transaction
-	core.EXPECT().ActionByActionHash(gomock.Any()).Return(nil, hash.ZeroHash256, uint64(0), uint32(0), ErrNotFound)
+	core.EXPECT().ActionByActionHash(gomock.Any()).Return(nil, nil, uint32(0), ErrNotFound)
 	core.EXPECT().PendingActionByActionHash(gomock.Any()).Return(selp, nil)
 	core.EXPECT().EVMNetworkID().Return(uint32(0))
 	ret, err = web3svr.getTransactionByHash(&in)
@@ -662,7 +670,7 @@ func TestGetTransactionByHash(t *testing.T) {
 	require.NoError(err)
 	txHash, err = selp.Hash()
 	require.NoError(err)
-	core.EXPECT().ActionByActionHash(gomock.Any()).Return(nil, hash.ZeroHash256, uint64(0), uint32(0), ErrNotFound)
+	core.EXPECT().ActionByActionHash(gomock.Any()).Return(nil, nil, uint32(0), ErrNotFound)
 	core.EXPECT().PendingActionByActionHash(gomock.Any()).Return(selp, nil)
 	core.EXPECT().EVMNetworkID().Return(uint32(0))
 	ret, err = web3svr.getTransactionByHash(&in)
@@ -742,8 +750,6 @@ func TestGetTransactionReceipt(t *testing.T) {
 		ContractAddress: "test",
 		TxIndex:         1,
 	}
-	core.EXPECT().ActionByActionHash(gomock.Any()).Return(selp, hash.Hash256b([]byte("test")), uint64(0), uint32(0), nil)
-	core.EXPECT().ReceiptByActionHash(gomock.Any()).Return(receipt, nil)
 	blk, err := block.NewTestingBuilder().
 		SetHeight(1).
 		SetVersion(111).
@@ -752,9 +758,8 @@ func TestGetTransactionReceipt(t *testing.T) {
 		AddActions(selp).
 		SignAndBuild(identityset.PrivateKey(0))
 	require.NoError(err)
-	core.EXPECT().BlockByHash(gomock.Any()).Return(&apitypes.BlockWithReceipts{
-		Block: &blk,
-	}, nil)
+	core.EXPECT().ActionByActionHash(gomock.Any()).Return(selp, &blk, uint32(0), nil)
+	core.EXPECT().ReceiptByActionHash(gomock.Any()).Return(receipt, nil)
 
 	t.Run("nil params", func(t *testing.T) {
 		inNil := gjson.Parse(`{"params":[]}`)
@@ -1265,4 +1270,38 @@ func TestDebugTraceCall(t *testing.T) {
 	require.Equal(uint64(100000), rlt.Gas)
 	require.Empty(rlt.Revert)
 	require.Equal(0, len(rlt.StructLogs))
+}
+
+func TestResponseIDMatchTypeWithRequest(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core.EXPECT().TipHeight().Return(uint64(1)).AnyTimes()
+	core.EXPECT().Track(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
+	svr := newHTTPHandler(NewWeb3Handler(core, "", _defaultBatchRequestLimit))
+	getServerResp := func(svr *hTTPHandler, req *http.Request) *httptest.ResponseRecorder {
+		req.Header.Set("Content-Type", "application/json")
+		resp := httptest.NewRecorder()
+		svr.ServeHTTP(resp, req)
+		return resp
+	}
+	tests := []struct {
+		req string
+		sub string
+	}{
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":1}`, `"id":1`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":"1"}`, `"id":"1"`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":"0x32"}`, `"id":"0x32"`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":[]}`, `error`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":[1]}`, `error`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":0x32}`, `error`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":{1}}`, `error`},
+	}
+	for _, tt := range tests {
+		request, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(tt.req))
+		response := getServerResp(svr, request)
+		bodyBytes, _ := io.ReadAll(response.Body)
+		require.Contains(string(bodyBytes), tt.sub)
+	}
 }

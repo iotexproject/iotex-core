@@ -65,6 +65,7 @@ type (
 		AllCandidates() CandidateList
 		TotalStakedAmount() *big.Int
 		ActiveBucketsCount() uint64
+		ContainsSelfStakingBucket(index uint64) bool
 	}
 
 	candSR struct {
@@ -108,6 +109,10 @@ func (c *candSR) GetCandidateByOwner(owner address.Address) *Candidate {
 
 func (c *candSR) AllCandidates() CandidateList {
 	return c.view.candCenter.All()
+}
+
+func (c *candSR) ContainsSelfStakingBucket(index uint64) bool {
+	return c.view.candCenter.ContainsSelfStakingBucket(index)
 }
 
 func (c *candSR) TotalStakedAmount() *big.Int {
@@ -366,7 +371,7 @@ func (c *candSR) readStateBuckets(ctx context.Context, req *iotexapi.ReadStaking
 	offset := int(req.GetPagination().GetOffset())
 	limit := int(req.GetPagination().GetLimit())
 	buckets := getPageOfBuckets(all, offset, limit)
-	pbBuckets, err := toIoTeXTypesVoteBucketList(buckets)
+	pbBuckets, err := toIoTeXTypesVoteBucketList(c.SR(), buckets)
 	return pbBuckets, height, err
 }
 
@@ -391,7 +396,7 @@ func (c *candSR) readStateBucketsByVoter(ctx context.Context, req *iotexapi.Read
 	offset := int(req.GetPagination().GetOffset())
 	limit := int(req.GetPagination().GetLimit())
 	buckets = getPageOfBuckets(buckets, offset, limit)
-	pbBuckets, err := toIoTeXTypesVoteBucketList(buckets)
+	pbBuckets, err := toIoTeXTypesVoteBucketList(c.SR(), buckets)
 	return pbBuckets, height, err
 }
 
@@ -416,7 +421,7 @@ func (c *candSR) readStateBucketsByCandidate(ctx context.Context, req *iotexapi.
 	offset := int(req.GetPagination().GetOffset())
 	limit := int(req.GetPagination().GetLimit())
 	buckets = getPageOfBuckets(buckets, offset, limit)
-	pbBuckets, err := toIoTeXTypesVoteBucketList(buckets)
+	pbBuckets, err := toIoTeXTypesVoteBucketList(c.SR(), buckets)
 	return pbBuckets, height, err
 }
 
@@ -429,7 +434,7 @@ func (c *candSR) readStateBucketByIndices(ctx context.Context, req *iotexapi.Rea
 	if err != nil {
 		return nil, height, err
 	}
-	pbBuckets, err := toIoTeXTypesVoteBucketList(buckets)
+	pbBuckets, err := toIoTeXTypesVoteBucketList(c.SR(), buckets)
 	return pbBuckets, height, err
 }
 

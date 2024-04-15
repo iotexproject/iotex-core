@@ -45,10 +45,10 @@ func TestBlockStoreDeserializer(t *testing.T) {
 	require.NotNil(storeProto)
 
 	bd := Deserializer{}
-	store1, err := bd.FromBlockStoreProto(storeProto)
+	store1, err := bd.BlockFromBlockStoreProto(storeProto)
 	require.NoError(err)
 
-	require.Equal(store1.Block.height, store.Block.height)
-	require.Equal(store1.Block.Header.prevBlockHash, store.Block.Header.prevBlockHash)
-	require.Equal(store1.Block.Header.blockSig, store.Block.Header.blockSig)
+	require.Equal(store1.height, store.Block.height)
+	require.Equal(store1.Header.prevBlockHash, store.Block.Header.prevBlockHash)
+	require.Equal(store1.Header.blockSig, store.Block.Header.blockSig)
 }

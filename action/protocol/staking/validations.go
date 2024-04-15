@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
 // Errors
@@ -66,6 +67,10 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	}
 
 	if act.Amount().Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
+		if !protocol.MustGetFeatureCtx(ctx).CandidateRegisterMustWithStake &&
+			act.Amount().Sign() == 0 {
+			return nil
+		}
 		return errors.Wrap(action.ErrInvalidAmount, "self staking amount is not valid")
 	}
 	return nil
@@ -76,6 +81,20 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 		if !action.IsValidCandidateName(act.Name()) {
 			return action.ErrInvalidCanName
 		}
+	}
+	return nil
+}
+
+func (p *Protocol) validateCandidateEndorsement(ctx context.Context, act *action.CandidateEndorsement) error {
+	if protocol.MustGetFeatureCtx(ctx).DisableDelegateEndorsement {
+		return errors.Wrap(action.ErrInvalidAct, "candidate endorsement is disabled")
+	}
+	return nil
+}
+
+func (p *Protocol) validateCandidateActivate(ctx context.Context, act *action.CandidateActivate) error {
+	if protocol.MustGetFeatureCtx(ctx).DisableDelegateEndorsement {
+		return errors.Wrap(action.ErrInvalidAct, "candidate activate is disabled")
 	}
 	return nil
 }

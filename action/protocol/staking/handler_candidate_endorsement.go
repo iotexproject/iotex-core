@@ -80,12 +80,12 @@ func (p *Protocol) validateEndorsement(ctx context.Context, csm CandidateStateMa
 	if err := validateBucketSelfStake(featureCtx, csm, bucket, false); err != nil {
 		return err
 	}
-	return validateBucketEndorsement(esm, bucket, false, protocol.MustGetBlockCtx(ctx).BlockHeight)
+	return validateBucketWithoutEndorsement(esm, bucket, protocol.MustGetBlockCtx(ctx).BlockHeight)
 }
 
 func (p *Protocol) validateEndorsementWithdrawal(ctx context.Context, esm *EndorsementStateManager, caller address.Address, bucket *VoteBucket) ReceiptError {
 	if err := validateBucketOwner(bucket, caller); err != nil {
 		return err
 	}
-	return validateBucketEndorsement(esm, bucket, true, protocol.MustGetBlockCtx(ctx).BlockHeight)
+	return validateBucketEndorsementWithdrawal(esm, bucket, protocol.MustGetBlockCtx(ctx).BlockHeight)
 }
