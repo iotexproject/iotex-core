@@ -119,7 +119,7 @@ type (
 		// ActionsByAddress returns all actions associated with an address
 		ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// ActionByActionHash returns action by action hash
-		ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
+		ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, *block.Block, uint32, error)
 		// PendingActionByActionHash returns action by action hash
 		PendingActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, error)
 		// ActPoolActions returns the all Transaction Identifiers in the actpool
@@ -543,8 +543,20 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	if ctx, err = core.bc.Context(ctx); err != nil {
 		return "", nil, err
 	}
-	sc.SetNonce(state.PendingNonce())
-	blockGasLimit := core.bc.Genesis().BlockGasLimit
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: core.bc.TipHeight(),
+	}))
+	var pendingNonce uint64
+	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+		pendingNonce = state.PendingNonceConsideringFreshAccount()
+	} else {
+		pendingNonce = state.PendingNonce()
+	}
+	sc.SetNonce(pendingNonce)
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+	)
 	if sc.GasLimit() == 0 || blockGasLimit < sc.GasLimit() {
 		sc.SetGasLimit(blockGasLimit)
 	}
@@ -947,7 +959,7 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 	return d, h, err
 }
 
-func (core *coreService) getActionsFromIndex(totalActions, start, count uint64) ([]*iotexapi.ActionInfo, error) {
+func (core *coreService) getActionsFromIndex(start, count uint64) ([]*iotexapi.ActionInfo, error) {
 	hashes, err := core.indexer.GetActionHashFromIndex(start, count)
 	if err != nil {
 		return nil, status.Error(codes.Unavailable, err.Error())
@@ -982,14 +994,14 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 	if start >= totalActions {
 		return nil, status.Error(codes.InvalidArgument, "start exceeds the total actions in the block")
 	}
-	if totalActions == uint64(0) || count == 0 {
+	if totalActions == uint64(0) {
 		return []*iotexapi.ActionInfo{}, nil
 	}
 	if start+count > totalActions {
 		count = totalActions - start
 	}
 	if core.indexer != nil {
-		return core.getActionsFromIndex(totalActions, start, count)
+		return core.getActionsFromIndex(start, count)
 	}
 	// Finding actions in reverse order saves time for querying most recent actions
 	reverseStart := totalActions - (start + count)
@@ -1077,24 +1089,24 @@ func (core *coreService) BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256,
 }
 
 // ActionByActionHash returns action by action hash
-func (core *coreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
+func (core *coreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, *block.Block, uint32, error) {
 	if err := core.checkActionIndex(); err != nil {
-		return nil, hash.ZeroHash256, 0, 0, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+		return nil, nil, 0, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 
 	actIndex, err := core.indexer.GetActionIndex(h[:])
 	if err != nil {
-		return nil, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
+		return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
 	blk, err := core.dao.GetBlockByHeight(actIndex.BlockHeight())
 	if err != nil {
-		return nil, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
+		return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
 	selp, index, err := blk.ActionByHash(h)
 	if err != nil {
-		return nil, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
+		return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
-	return selp, blk.HashBlock(), actIndex.BlockHeight(), index, nil
+	return selp, blk, index, nil
 }
 
 // ActionByActionHash returns action by action hash
@@ -1278,9 +1290,9 @@ func (core *coreService) pendingAction(selp *action.SealedEnvelope) (*iotexapi.A
 }
 
 func (core *coreService) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi.ActionInfo, error) {
-	selp, blkHash, blkHeight, actIndex, err := core.ActionByActionHash(actHash)
+	selp, blk, actIndex, err := core.ActionByActionHash(actHash)
 	if err == nil {
-		act, err := core.committedAction(selp, blkHash, blkHeight)
+		act, err := core.committedAction(selp, blk.HashBlock(), blk.Height())
 		if err != nil {
 			return nil, err
 		}
@@ -1306,10 +1318,9 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	if reverseStart > size || count == 0 {
 		return nil
 	}
-	// TODO (saito): fix overflow
-	start := size - (reverseStart + count)
-	if start < 0 {
-		start = 0
+	start := uint64(0)
+	if size > reverseStart+count {
+		start = size - (reverseStart + count)
 	}
 	end := size - 1 - reverseStart
 	res := make([]*iotexapi.ActionInfo, 0, start-end+1)
@@ -1486,10 +1497,22 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 	if err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
-	sc.SetNonce(state.PendingNonce())
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: core.bc.TipHeight(),
+	}))
+	var pendingNonce uint64
+	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+		pendingNonce = state.PendingNonceConsideringFreshAccount()
+	} else {
+		pendingNonce = state.PendingNonce()
+	}
+	sc.SetNonce(pendingNonce)
 	//gasprice should be 0, otherwise it may cause the API to return an error, such as insufficient balance.
 	sc.SetGasPrice(big.NewInt(0))
-	blockGasLimit := core.bc.Genesis().BlockGasLimit
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+	)
 	sc.SetGasLimit(blockGasLimit)
 	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc)
 	if err != nil {
@@ -1690,11 +1713,21 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 		return nil, nil, err
 	}
 	// TODO (liuhaai): Use original nonce and gas limit properly
-	exec.SetNonce(state.PendingNonce())
-	if err != nil {
-		return nil, nil, err
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: core.bc.TipHeight(),
+	}))
+	var pendingNonce uint64
+	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+		pendingNonce = state.PendingNonceConsideringFreshAccount()
+	} else {
+		pendingNonce = state.PendingNonce()
 	}
-	exec.SetGasLimit(core.bc.Genesis().BlockGasLimit)
+	exec.SetNonce(pendingNonce)
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+	)
+	exec.SetGasLimit(blockGasLimit)
 	return core.simulateExecution(ctx, addr, exec, core.dao.GetBlockHash, core.getBlockTime)
 }
 
@@ -1736,8 +1769,12 @@ func (core *coreService) TraceCall(ctx context.Context,
 	gasLimit uint64,
 	data []byte,
 	config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+	)
 	if gasLimit == 0 {
-		gasLimit = core.bc.Genesis().BlockGasLimit
+		gasLimit = blockGasLimit
 	}
 	ctx, err := core.bc.Context(ctx)
 	if err != nil {
@@ -1748,7 +1785,16 @@ func (core *coreService) TraceCall(ctx context.Context,
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		nonce = state.PendingNonce()
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight: core.bc.TipHeight(),
+		}))
+		var pendingNonce uint64
+		if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+			pendingNonce = state.PendingNonceConsideringFreshAccount()
+		} else {
+			pendingNonce = state.PendingNonce()
+		}
+		nonce = pendingNonce
 	}
 	exec, err := action.NewExecution(
 		contractAddress,
@@ -1814,7 +1860,6 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 		tracer = logger.NewStructLogger(config.Config)
 	}
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
-		Debug:     true,
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})

@@ -309,7 +309,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 		protocol.BlockCtx{
 			BlockHeight:    blk.Height(),
 			BlockTimeStamp: blk.Timestamp(),
-			GasLimit:       bc.genesis.BlockGasLimit,
+			GasLimit:       bc.genesis.BlockGasLimitByHeight(blk.Height()),
 			Producer:       producerAddr,
 		},
 	)
@@ -335,7 +335,7 @@ func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Add
 			BlockHeight:    height,
 			BlockTimeStamp: timestamp,
 			Producer:       producer,
-			GasLimit:       bc.genesis.BlockGasLimit,
+			GasLimit:       bc.genesis.BlockGasLimitByHeight(height),
 		})
 }
 

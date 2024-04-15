@@ -18,6 +18,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -34,7 +35,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 		{identityset.Address(1), identityset.Address(1), "1", 1, true, false, nil, 0},
 		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, true, false, nil, 0},
 		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, true, false, &timeBeforeBlockII, 0},
-		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, 0},
+		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, endorsementNotExpireHeight},
 		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 30, true, false, nil, 0},
 		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, false, nil, 0},
 		{identityset.Address(2), identityset.Address(2), "1200000000000000000000000", 30, true, true, nil, 0},
@@ -42,6 +43,9 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 91, true, false, nil, 1},
 		{identityset.Address(2), identityset.Address(2), "1200000000000000000000000", 91, true, false, nil, 0},
 		{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, false, false, nil, 0},
+		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, endorsementNotExpireHeight},
+		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, 10},
+		{identityset.Address(2), identityset.Address(1), "1200000000000000000000000", 30, true, true, nil, 1},
 	}
 	initCandidateCfgs := []*candidateConfig{
 		{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
@@ -235,8 +239,8 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				{identityset.Address(1), candidateNoSelfStakeBucketIndex, "0", "1542516163985454635820817"},
 			},
 			[]expectBucket{
-				{0, identityset.Address(1)},
-				{1, identityset.Address(1)},
+				{0, identityset.Address(1), false, 0},
+				{1, identityset.Address(1), true, endorsementNotExpireHeight},
 			},
 		},
 		{
@@ -384,6 +388,105 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 			[]expectCandidate{},
 			nil,
 		},
+		{
+			"endorsement withdraw if bucket is self-staked but without endorsement",
+			[]uint64{6},
+			[]uint64{1},
+			1300000,
+			identityset.Address(2),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			0,
+			false,
+			true,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_ErrInvalidBucketType,
+			[]expectCandidate{},
+			nil,
+		},
+		{
+			"endorsement withdraw if bucket is self-staked by endorsement",
+			[]uint64{11},
+			[]uint64{0, 1},
+			1300000,
+			identityset.Address(1),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			0,
+			false,
+			true,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_Success,
+			[]expectCandidate{
+				{identityset.Address(2), 0, "1200000000000000000000000", "1469480667073232815766914"},
+			},
+			[]expectBucket{
+				{0, identityset.Address(2), true, 17281},
+			},
+		},
+		{
+			"endorsement withdraw if bucket is endorsement withdrawing",
+			[]uint64{12},
+			[]uint64{0, 1},
+			1300000,
+			identityset.Address(1),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			0,
+			false,
+			true,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_ErrInvalidBucketType,
+			nil,
+			nil,
+		},
+		{
+			"endorsement withdraw if bucket is endorsement expired",
+			[]uint64{13},
+			[]uint64{0, 1},
+			1300000,
+			identityset.Address(1),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			0,
+			false,
+			true,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_ErrInvalidBucketType,
+			nil,
+			nil,
+		},
+		{
+			"endorsement withdraw if bucket without endorsement",
+			[]uint64{0},
+			[]uint64{0, 1},
+			1300000,
+			identityset.Address(1),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			0,
+			false,
+			true,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_ErrInvalidBucketType,
+			nil,
+			nil,
+		},
 	}
 
 	for _, test := range tests {
@@ -407,8 +510,8 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				GasLimit:       test.blkGasLimit,
 			})
 			cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
-			cfg.ToBeEnabledBlockHeight = 1
-			ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+			cfg.TsunamiBlockHeight = 1
+			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 			require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
 			if test.err != nil {
@@ -462,10 +565,18 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 					require.Equal(expectCand.candVoteStr, candidate.Votes.String())
 				}
 				// check buckets
+				esm := NewEndorsementStateManager(csm.SM())
 				for _, expectBkt := range test.expectBuckets {
 					bkt, err := csm.getBucket(expectBkt.id)
 					require.NoError(err)
 					require.Equal(expectBkt.candidate, bkt.Candidate)
+					endorse, err := esm.Get(expectBkt.id)
+					if expectBkt.hasEndorsement {
+						require.NoError(err)
+						require.EqualValues(expectBkt.endorsementExpireHeight, endorse.ExpireHeight)
+					} else {
+						require.ErrorIs(err, state.ErrStateNotExist)
+					}
 				}
 
 				// test staker's account
@@ -479,5 +590,396 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				require.Equal(nonce+1, caller.PendingNonce())
 			}
 		})
+	}
+}
+
+type testExisting struct {
+	name string
+	// params
+	initBalance int64
+	caller      address.Address
+	nonce       uint64
+	gasLimit    uint64
+	blkGasLimit uint64
+	gasPrice    *big.Int
+	bucketID    uint64
+	cand        address.Address
+	// expect
+	err    error
+	status iotextypes.ReceiptStatus
+}
+
+func TestProtocol_HandleTransferEndorsement(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	initBucketCfgs := []*bucketConfig{
+		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 91, false, false, nil, endorsementNotExpireHeight},
+		{identityset.Address(1), identityset.Address(3), "1200000000000000000000000", 91, false, true, nil, endorsementNotExpireHeight},
+	}
+	initCandidateCfgs := []*candidateConfig{
+		{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
+		{identityset.Address(2), identityset.Address(8), identityset.Address(1), "test2"},
+	}
+	sm, p, buckets, cands := initTestState(t, ctrl, initBucketCfgs, initCandidateCfgs)
+
+	for _, test := range []testExisting{
+		{
+			"can transfer endorsed bucket",
+			1300000,
+			identityset.Address(2),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			buckets[0].Index,
+			cands[1].Owner, // bucket0 transfer to cands1
+			nil,
+			iotextypes.ReceiptStatus_Success,
+		},
+		{
+			"cannot transfer self-staked endorsed bucket",
+			1300000,
+			identityset.Address(3),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			buckets[1].Index,
+			cands[1].Owner, // bucket1 cannot transfer to cands1
+			nil,
+			iotextypes.ReceiptStatus_ErrInvalidBucketType,
+		},
+	} {
+		require.NoError(setupAccount(sm, test.caller, test.initBalance))
+		act, _ := action.NewTransferStake(test.nonce, test.cand.String(), test.bucketID, nil, test.gasLimit, test.gasPrice)
+		IntrinsicGas, _ := act.IntrinsicGas()
+		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+			Caller:       test.caller,
+			GasPrice:     test.gasPrice,
+			IntrinsicGas: IntrinsicGas,
+			Nonce:        test.nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    1,
+			BlockTimeStamp: timeBlock,
+			GasLimit:       test.blkGasLimit,
+		})
+		cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		cfg.ToBeEnabledBlockHeight = 1
+		ctx = genesis.WithGenesisContext(ctx, cfg)
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
+		if test.err != nil {
+			return
+		}
+		r, err := p.Handle(ctx, act, sm)
+		require.NoError(err)
+		if r != nil {
+			require.EqualValues(test.status, r.Status)
+		} else {
+			require.Equal(test.status, iotextypes.ReceiptStatus_Failure)
+		}
+	}
+}
+
+func TestProtocol_HandleWithdrawEndorsement(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	initBucketCfgs := []*bucketConfig{
+		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 91, false, false, nil, endorsementNotExpireHeight},
+		{identityset.Address(1), identityset.Address(3), "1200000000000000000000000", 91, false, true, nil, endorsementNotExpireHeight},
+	}
+	initCandidateCfgs := []*candidateConfig{
+		{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
+		{identityset.Address(2), identityset.Address(8), identityset.Address(1), "test2"},
+	}
+	sm, p, buckets, _ := initTestState(t, ctrl, initBucketCfgs, initCandidateCfgs)
+
+	for _, test := range []testExisting{
+		{
+			"cannot withdraw endorsed bucket",
+			1300000,
+			identityset.Address(2),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			buckets[0].Index,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_ErrWithdrawBeforeUnstake,
+		},
+		{
+			"cannot withdraw self-staked endorsed bucket",
+			1300000,
+			identityset.Address(3),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			buckets[1].Index,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_ErrWithdrawBeforeUnstake,
+		},
+	} {
+		require.NoError(setupAccount(sm, test.caller, test.initBalance))
+		act, _ := action.NewWithdrawStake(test.nonce, test.bucketID, nil, test.gasLimit, test.gasPrice)
+		IntrinsicGas, _ := act.IntrinsicGas()
+		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+			Caller:       test.caller,
+			GasPrice:     test.gasPrice,
+			IntrinsicGas: IntrinsicGas,
+			Nonce:        test.nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    1,
+			BlockTimeStamp: timeBlock,
+			GasLimit:       test.blkGasLimit,
+		})
+		cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		cfg.ToBeEnabledBlockHeight = 1
+		ctx = genesis.WithGenesisContext(ctx, cfg)
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
+		if test.err != nil {
+			return
+		}
+		r, err := p.Handle(ctx, act, sm)
+		require.NoError(err)
+		if r != nil {
+			require.EqualValues(test.status, r.Status)
+		} else {
+			require.Equal(test.status, iotextypes.ReceiptStatus_Failure)
+		}
+	}
+}
+
+func TestProtocol_HandleRestakeEndorsement(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	initBucketCfgs := []*bucketConfig{
+		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 91, false, false, nil, endorsementNotExpireHeight},
+		{identityset.Address(1), identityset.Address(3), "1200000000000000000000000", 91, false, true, nil, endorsementNotExpireHeight},
+	}
+	initCandidateCfgs := []*candidateConfig{
+		{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
+		{identityset.Address(2), identityset.Address(8), identityset.Address(1), "test2"},
+	}
+	sm, p, buckets, _ := initTestState(t, ctrl, initBucketCfgs, initCandidateCfgs)
+
+	for _, test := range []testExisting{
+		{
+			"can restake endorsed bucket",
+			1300000,
+			identityset.Address(2),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			buckets[0].Index,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_Success,
+		},
+		{
+			"can restake self-staked endorsed bucket",
+			1300000,
+			identityset.Address(3),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			buckets[1].Index,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_Success,
+		},
+	} {
+		require.NoError(setupAccount(sm, test.caller, test.initBalance))
+		act, _ := action.NewRestake(test.nonce, test.bucketID, 3, false, nil, test.gasLimit, test.gasPrice)
+		IntrinsicGas, _ := act.IntrinsicGas()
+		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+			Caller:       test.caller,
+			GasPrice:     test.gasPrice,
+			IntrinsicGas: IntrinsicGas,
+			Nonce:        test.nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    1,
+			BlockTimeStamp: timeBlock,
+			GasLimit:       test.blkGasLimit,
+		})
+		cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		cfg.ToBeEnabledBlockHeight = 1
+		ctx = genesis.WithGenesisContext(ctx, cfg)
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
+		if test.err != nil {
+			return
+		}
+		r, err := p.Handle(ctx, act, sm)
+		require.NoError(err)
+		if r != nil {
+			require.EqualValues(test.status, r.Status)
+		} else {
+			require.Equal(test.status, iotextypes.ReceiptStatus_Failure)
+		}
+	}
+}
+
+func TestProtocol_HandleDepositEndorsement(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	initBucketCfgs := []*bucketConfig{
+		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 91, true, false, nil, endorsementNotExpireHeight},
+		{identityset.Address(1), identityset.Address(3), "1200000000000000000000000", 91, true, true, nil, endorsementNotExpireHeight},
+	}
+	initCandidateCfgs := []*candidateConfig{
+		{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
+		{identityset.Address(2), identityset.Address(8), identityset.Address(1), "test2"},
+	}
+	sm, p, buckets, _ := initTestState(t, ctrl, initBucketCfgs, initCandidateCfgs)
+
+	for _, test := range []testExisting{
+		{
+			"can deposit to endorsed bucket",
+			1300000,
+			identityset.Address(2),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			buckets[0].Index,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_Success,
+		},
+		{
+			"can deposit to self-staked endorsed bucket",
+			1300000,
+			identityset.Address(3),
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			buckets[1].Index,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_Success,
+		},
+	} {
+		require.NoError(setupAccount(sm, test.caller, test.initBalance))
+		act, _ := action.NewDepositToStake(test.nonce, test.bucketID, "300000", nil, test.gasLimit, test.gasPrice)
+		IntrinsicGas, _ := act.IntrinsicGas()
+		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+			Caller:       test.caller,
+			GasPrice:     test.gasPrice,
+			IntrinsicGas: IntrinsicGas,
+			Nonce:        test.nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    1,
+			BlockTimeStamp: timeBlock,
+			GasLimit:       test.blkGasLimit,
+		})
+		cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		cfg.ToBeEnabledBlockHeight = 1
+		ctx = genesis.WithGenesisContext(ctx, cfg)
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
+		if test.err != nil {
+			return
+		}
+		r, err := p.Handle(ctx, act, sm)
+		require.NoError(err)
+		if r != nil {
+			require.EqualValues(test.status, r.Status)
+		} else {
+			require.Equal(test.status, iotextypes.ReceiptStatus_Failure)
+		}
+	}
+}
+
+func TestProtocol_HandleConsignmentEndorsement(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	initBucketCfgs := []*bucketConfig{
+		{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 91, false, false, nil, endorsementNotExpireHeight},
+		{identityset.Address(1), identityset.Address(3), "1200000000000000000000000", 91, false, true, nil, endorsementNotExpireHeight},
+	}
+	initCandidateCfgs := []*candidateConfig{
+		{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
+		{identityset.Address(2), identityset.Address(8), identityset.Address(1), "test2"},
+	}
+	sm, p, buckets, _ := initTestState(t, ctrl, initBucketCfgs, initCandidateCfgs)
+
+	for _, test := range []testExisting{
+		{
+			"can consign endorsed bucket",
+			1300000,
+			identityset.Address(7), // bucket0 transfer to caller
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			buckets[0].Index,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_Success,
+		},
+		{
+			"cannot consign self-staked endorsed bucket",
+			1300000,
+			identityset.Address(8), // bucket1 cannot transfer to caller
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			buckets[1].Index,
+			nil,
+			nil,
+			iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		},
+	} {
+		require.NoError(setupAccount(sm, test.caller, test.initBalance))
+		var sk string
+		if test.bucketID == buckets[0].Index {
+			// bucket0 owned by privatekey 2
+			sk = identityset.PrivateKey(2).HexString()
+		} else if test.bucketID == buckets[1].Index {
+			// bucket1 owned by privatekey 3
+			sk = identityset.PrivateKey(3).HexString()
+		}
+		consign := newconsignment(require, test.bucketID, test.nonce, sk, test.caller.String(), "Ethereum", _reclaim, false)
+		act, _ := action.NewTransferStake(test.nonce, test.caller.String(), test.bucketID, consign, test.gasLimit, test.gasPrice)
+		IntrinsicGas, _ := act.IntrinsicGas()
+		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+			Caller:       test.caller,
+			GasPrice:     test.gasPrice,
+			IntrinsicGas: IntrinsicGas,
+			Nonce:        test.nonce,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    1,
+			BlockTimeStamp: timeBlock,
+			GasLimit:       test.blkGasLimit,
+		})
+		cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		cfg.GreenlandBlockHeight = 1
+		cfg.ToBeEnabledBlockHeight = 1
+		ctx = genesis.WithGenesisContext(ctx, cfg)
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
+		if test.err != nil {
+			return
+		}
+		r, err := p.Handle(ctx, act, sm)
+		require.NoError(err)
+		if r != nil {
+			require.EqualValues(test.status, r.Status)
+		} else {
+			require.Equal(test.status, iotextypes.ReceiptStatus_Failure)
+		}
 	}
 }

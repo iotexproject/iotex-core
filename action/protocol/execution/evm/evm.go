@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -64,12 +65,12 @@ type (
 )
 
 // CanTransfer checks whether the from account has enough balance
-func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool {
+func CanTransfer(db vm.StateDB, fromHash common.Address, balance *uint256.Int) bool {
 	return db.GetBalance(fromHash).Cmp(balance) >= 0
 }
 
 // MakeTransfer transfers account
-func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.Int) {
+func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *uint256.Int) {
 	db.SubBalance(fromHash, amount)
 	db.AddBalance(toHash, amount)
 
@@ -224,7 +225,7 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
 	if gasLimit < ps.gas {
 		return action.ErrGasLimit
 	}
-	gasConsumed := new(big.Int).Mul(new(big.Int).SetUint64(ps.gas), ps.txCtx.GasPrice)
+	gasConsumed := uint256.MustFromBig(new(big.Int).Mul(new(big.Int).SetUint64(ps.gas), ps.txCtx.GasPrice))
 	if stateDB.GetBalance(ps.txCtx.Origin).Cmp(gasConsumed) < 0 {
 		return action.ErrInsufficientFunds
 	}
@@ -268,11 +269,11 @@ func ExecuteContract(
 	)
 	if ps.featureCtx.FixDoubleChargeGas {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
-		stateDB.AddBalance(ps.txCtx.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.txCtx.GasPrice))
+		stateDB.AddBalance(ps.txCtx.Origin, uint256.MustFromBig(big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.txCtx.GasPrice)))
 	} else {
 		if remainingGas > 0 {
 			remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.txCtx.GasPrice)
-			stateDB.AddBalance(ps.txCtx.Origin, remainingValue)
+			stateDB.AddBalance(ps.txCtx.Origin, uint256.MustFromBig(remainingValue))
 		}
 		if consumedGas > 0 {
 			burnLog = &action.TransactionLog{
@@ -387,6 +388,11 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if !featureCtx.FixSortCacheContractsAndUsePendingNonce {
 		opts = append(opts, DisableSortCachedContractsOption(), UseConfirmedNonceOption())
 	}
+	// Before featureCtx.RefactorFreshAccountConversion is activated,
+	// the type of a legacy fresh account is always 1
+	if featureCtx.RefactorFreshAccountConversion {
+		opts = append(opts, ZeroNonceForFreshAccountOption())
+	}
 	if featureCtx.NotFixTopicCopyBug {
 		opts = append(opts, NotFixTopicCopyBugOption())
 	}
@@ -404,6 +410,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	}
 	if featureCtx.SuicideTxLogMismatchPanic {
 		opts = append(opts, SuicideTxLogMismatchPanicOption())
+	}
+	if featureCtx.PanicUnrecoverableError {
+		opts = append(opts, PanicUnrecoverableErrorOption())
 	}
 
 	return NewStateDBAdapter(
@@ -441,6 +450,12 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 	}
 	sumatraTimestamp := (uint64)(sumatraTime.Unix())
 	chainConfig.ShanghaiTime = &sumatraTimestamp
+	upernavikTime, err := getBlockTime(g.UpernavikBlockHeight)
+	if err != nil {
+		return nil, err
+	}
+	upernavikTimestamp := (uint64)(upernavikTime.Unix())
+	chainConfig.CancunTime = &upernavikTimestamp
 	return &chainConfig, nil
 }
 
@@ -484,11 +499,12 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 		ret                []byte
 		evmErr             error
 		refund             uint64
+		amount             = uint256.MustFromBig(evmParams.amount)
 	)
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address
-		_, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
+		_, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, remainingGas, amount)
 		log.L().Debug("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
 		if evmErr == nil {
 			if contractAddress, err := address.FromBytes(evmContractAddress.Bytes()); err == nil {
@@ -498,7 +514,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 	} else {
 		stateDB.SetNonce(evmParams.txCtx.Origin, stateDB.GetNonce(evmParams.txCtx.Origin)+1)
 		// process contract
-		ret, remainingGas, evmErr = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, evmParams.amount)
+		ret, remainingGas, evmErr = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, amount)
 	}
 	if evmErr != nil {
 		log.L().Debug("evm error", zap.Error(evmErr))
@@ -655,7 +671,7 @@ func SimulateExecution(
 		protocol.BlockCtx{
 			BlockHeight:    bcCtx.Tip.Height + 1,
 			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(g.BlockInterval),
-			GasLimit:       g.BlockGasLimit,
+			GasLimit:       g.BlockGasLimitByHeight(bcCtx.Tip.Height + 1),
 			Producer:       zeroAddr,
 		},
 	)

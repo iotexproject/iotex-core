@@ -77,7 +77,7 @@ func (c *compositeStakingStateReader) readStateBuckets(ctx context.Context, req 
 	if err != nil {
 		return nil, 0, err
 	}
-	lsdIoTeXBuckets, err := toIoTeXTypesVoteBucketList(lsdBuckets)
+	lsdIoTeXBuckets, err := toIoTeXTypesVoteBucketList(c.nativeSR.SR(), lsdBuckets)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -104,7 +104,7 @@ func (c *compositeStakingStateReader) readStateBucketsByVoter(ctx context.Contex
 		return nil, 0, err
 	}
 	lsdBuckets = filterBucketsByVoter(lsdBuckets, req.GetVoterAddress())
-	lsdIoTeXBuckets, err := toIoTeXTypesVoteBucketList(lsdBuckets)
+	lsdIoTeXBuckets, err := toIoTeXTypesVoteBucketList(c.nativeSR.SR(), lsdBuckets)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -135,7 +135,7 @@ func (c *compositeStakingStateReader) readStateBucketsByCandidate(ctx context.Co
 	if err != nil {
 		return nil, 0, err
 	}
-	lsdIoTeXBuckets, err := toIoTeXTypesVoteBucketList(lsdBuckets)
+	lsdIoTeXBuckets, err := toIoTeXTypesVoteBucketList(c.nativeSR.SR(), lsdBuckets)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -160,7 +160,7 @@ func (c *compositeStakingStateReader) readStateBucketByIndices(ctx context.Conte
 	if err != nil {
 		return nil, 0, err
 	}
-	lsbIoTeXBuckets, err := toIoTeXTypesVoteBucketList(lsdBuckets)
+	lsbIoTeXBuckets, err := toIoTeXTypesVoteBucketList(c.nativeSR.SR(), lsdBuckets)
 	if err != nil {
 		return nil, 0, err
 	}

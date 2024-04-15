@@ -33,6 +33,20 @@ type (
 	}
 )
 
+// String returns a human-readable string of the endorsement status
+func (s EndorsementStatus) String() string {
+	switch s {
+	case EndorseExpired:
+		return "Expired"
+	case UnEndorsing:
+		return "UnEndorsing"
+	case Endorsed:
+		return "Endorsed"
+	default:
+		return "Unknown"
+	}
+}
+
 // Status returns the status of the endorsement
 func (e *Endorsement) Status(height uint64) EndorsementStatus {
 	if e.ExpireHeight == endorsementNotExpireHeight {

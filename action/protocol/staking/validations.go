@@ -84,3 +84,17 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 	}
 	return nil
 }
+
+func (p *Protocol) validateCandidateEndorsement(ctx context.Context, act *action.CandidateEndorsement) error {
+	if protocol.MustGetFeatureCtx(ctx).DisableDelegateEndorsement {
+		return errors.Wrap(action.ErrInvalidAct, "candidate endorsement is disabled")
+	}
+	return nil
+}
+
+func (p *Protocol) validateCandidateActivate(ctx context.Context, act *action.CandidateActivate) error {
+	if protocol.MustGetFeatureCtx(ctx).DisableDelegateEndorsement {
+		return errors.Wrap(action.ErrInvalidAct, "candidate activate is disabled")
+	}
+	return nil
+}

@@ -2344,7 +2344,7 @@ func TestGrpcServer_GetActionByActionHashIntegrity(t *testing.T) {
 	}()
 
 	for _, test := range _getActionByActionHashTest {
-		ret, _, _, _, err := svr.core.ActionByActionHash(test.h)
+		ret, _, _, err := svr.core.ActionByActionHash(test.h)
 		require.NoError(err)
 		require.Equal(test.expectedNounce, ret.Envelope.Nonce())
 	}

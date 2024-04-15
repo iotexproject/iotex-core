@@ -118,7 +118,9 @@ type (
 		SharedGasWithDapp                       bool
 		CandidateRegisterMustWithStake          bool
 		DisableDelegateEndorsement              bool
+		RefactorFreshAccountConversion          bool
 		SuicideTxLogMismatchPanic               bool
+		PanicUnrecoverableError                 bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -260,9 +262,11 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			ExecutionSizeLimit32KB:                  !g.IsSumatra(height),
 			UseZeroNonceForFreshAccount:             g.IsSumatra(height),
 			SharedGasWithDapp:                       g.IsToBeEnabled(height),
-			CandidateRegisterMustWithStake:          !g.IsToBeEnabled(height),
-			DisableDelegateEndorsement:              !g.IsToBeEnabled(height),
+			CandidateRegisterMustWithStake:          !g.IsTsunami(height),
+			DisableDelegateEndorsement:              !g.IsTsunami(height),
+			RefactorFreshAccountConversion:          g.IsTsunami(height),
 			SuicideTxLogMismatchPanic:               g.IsToBeEnabled(height),
+			PanicUnrecoverableError:                 g.IsToBeEnabled(height),
 		},
 	)
 }

@@ -314,7 +314,7 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
-	buckets, err := toIoTeXTypesVoteBucketList(allBuckets)
+	buckets, err := toIoTeXTypesVoteBucketList(sm, allBuckets)
 	if err != nil {
 		return err
 	}
@@ -469,6 +469,10 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 		return p.validateCandidateRegister(ctx, act)
 	case *action.CandidateUpdate:
 		return p.validateCandidateUpdate(ctx, act)
+	case *action.CandidateActivate:
+		return p.validateCandidateActivate(ctx, act)
+	case *action.CandidateEndorsement:
+		return p.validateCandidateEndorsement(ctx, act)
 	}
 	return nil
 }
