@@ -473,8 +473,8 @@ func TestHandle(t *testing.T) {
 		var sc3 state.CandidateList
 		_, err = sm3.State(&sc3, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 		require.NoError(err)
-		sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
-		sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
+		sc3 = append(sc3, &state.Candidate{Address: "1", Votes: big.NewInt(10), RewardAddress: "2", CanName: nil})
+		sc3 = append(sc3, &state.Candidate{Address: "1", Votes: big.NewInt(10), RewardAddress: "2", CanName: nil})
 		act3 := action.NewPutPollResult(1, 1, sc3)
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetGasLimit(uint64(100000)).
@@ -508,7 +508,7 @@ func TestHandle(t *testing.T) {
 		var sc4 state.CandidateList
 		_, err = sm4.State(&sc4, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 		require.NoError(err)
-		sc4 = append(sc4, &state.Candidate{"1", big.NewInt(10), "2", nil})
+		sc4 = append(sc4, &state.Candidate{Address: "1", Votes: big.NewInt(10), RewardAddress: "2", CanName: nil})
 		act4 := action.NewPutPollResult(1, 1, sc4)
 		bd4 := &action.EnvelopeBuilder{}
 		elp4 := bd4.SetGasLimit(uint64(100000)).

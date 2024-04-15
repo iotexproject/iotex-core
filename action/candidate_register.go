@@ -13,13 +13,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -290,7 +290,7 @@ func (cr *CandidateRegister) Cost() (*big.Int, error) {
 
 // SanityCheck validates the variables in the action
 func (cr *CandidateRegister) SanityCheck() error {
-	if cr.Amount().Sign() <= 0 {
+	if cr.Amount().Sign() < 0 {
 		return errors.Wrap(ErrInvalidAmount, "negative value")
 	}
 	if !IsValidCandidateName(cr.Name()) {

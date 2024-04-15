@@ -6,6 +6,7 @@
 package actioniterator
 
 import (
+	"bytes"
 	"container/heap"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -14,15 +15,27 @@ import (
 // ActionByPrice implements both the sort and the heap interface, making it useful
 // for all at once sorting as well as individually adding and removing elements.
 // It's essentially a big root heap of actions
-type actionByPrice []action.SealedEnvelope
+type actionByPrice []*action.SealedEnvelope
 
-func (s actionByPrice) Len() int           { return len(s) }
-func (s actionByPrice) Less(i, j int) bool { return s[i].GasPrice().Cmp(s[j].GasPrice()) > 0 }
-func (s actionByPrice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s actionByPrice) Len() int { return len(s) }
+func (s actionByPrice) Less(i, j int) bool {
+	switch s[i].GasPrice().Cmp(s[j].GasPrice()) {
+	case 1:
+		return true
+	case 0:
+		hi, _ := s[i].Hash()
+		hj, _ := s[j].Hash()
+		return bytes.Compare(hi[:], hj[:]) > 0
+	default:
+		return false
+	}
+}
+
+func (s actionByPrice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
 // Push define the push function of heap
 func (s *actionByPrice) Push(x interface{}) {
-	*s = append(*s, x.(action.SealedEnvelope))
+	*s = append(*s, x.(*action.SealedEnvelope))
 }
 
 // Pop define the pop function of heap
@@ -36,17 +49,17 @@ func (s *actionByPrice) Pop() interface{} {
 
 // ActionIterator define the interface of action iterator
 type ActionIterator interface {
-	Next() (action.SealedEnvelope, bool)
+	Next() (*action.SealedEnvelope, bool)
 	PopAccount()
 }
 
 type actionIterator struct {
-	accountActs map[string][]action.SealedEnvelope
+	accountActs map[string][]*action.SealedEnvelope
 	heads       actionByPrice
 }
 
 // NewActionIterator return a new action iterator
-func NewActionIterator(accountActs map[string][]action.SealedEnvelope) ActionIterator {
+func NewActionIterator(accountActs map[string][]*action.SealedEnvelope) ActionIterator {
 	heads := make(actionByPrice, 0, len(accountActs))
 	for sender, accActs := range accountActs {
 		if len(accActs) == 0 {
@@ -57,7 +70,7 @@ func NewActionIterator(accountActs map[string][]action.SealedEnvelope) ActionIte
 		if len(accActs) > 1 {
 			accountActs[sender] = accActs[1:]
 		} else {
-			accountActs[sender] = []action.SealedEnvelope{}
+			accountActs[sender] = []*action.SealedEnvelope{}
 		}
 	}
 	heap.Init(&heads)
@@ -79,9 +92,9 @@ func (ai *actionIterator) loadNextActionForTopAccount() {
 }
 
 // Next load next action of account of top action
-func (ai *actionIterator) Next() (action.SealedEnvelope, bool) {
+func (ai *actionIterator) Next() (*action.SealedEnvelope, bool) {
 	if len(ai.heads) == 0 {
-		return action.SealedEnvelope{}, false
+		return nil, false
 	}
 
 	headAction := ai.heads[0]

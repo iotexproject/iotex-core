@@ -12,5 +12,5 @@ import (
 // SealedEnvelopeValidator is the interface of validating an SealedEnvelope action
 type SealedEnvelopeValidator interface {
 	// Validate returns an error if any validation failed
-	Validate(context.Context, SealedEnvelope) error
+	Validate(context.Context, *SealedEnvelope) error
 }

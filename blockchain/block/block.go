@@ -8,6 +8,7 @@ package block
 import (
 	"time"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -94,4 +95,18 @@ func (b *Block) TransactionLog() *BlkTransactionLog {
 		return nil
 	}
 	return &blkLog
+}
+
+// ActionByHash returns the action of a given hash
+func (b *Block) ActionByHash(h hash.Hash256) (*action.SealedEnvelope, uint32, error) {
+	for i, act := range b.Actions {
+		actHash, err := act.Hash()
+		if err != nil {
+			return nil, 0, errors.Errorf("hash failed for action %d", i)
+		}
+		if actHash == h {
+			return act, uint32(i), nil
+		}
+	}
+	return nil, 0, errors.Errorf("block does not have action %x", h)
 }

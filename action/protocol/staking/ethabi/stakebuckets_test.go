@@ -69,7 +69,7 @@ func TestEncodeVoteBucketListToEth(t *testing.T) {
 		Owner:            "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqxf907nt9",
 	}
 
-	data, err := encodeVoteBucketListToEth(_bucketsMethod.Outputs, iotextypes.VoteBucketList{
+	data, err := encodeVoteBucketListToEth(_bucketsMethod.Outputs, &iotextypes.VoteBucketList{
 		Buckets: buckets,
 	})
 
@@ -82,7 +82,7 @@ func TestEncodeVoteBucketListToEthEmptyBuckets(t *testing.T) {
 
 	buckets := make([]*iotextypes.VoteBucket, 0)
 
-	data, err := encodeVoteBucketListToEth(_bucketsMethod.Outputs, iotextypes.VoteBucketList{
+	data, err := encodeVoteBucketListToEth(_bucketsMethod.Outputs, &iotextypes.VoteBucketList{
 		Buckets: buckets,
 	})
 
@@ -107,7 +107,7 @@ func TestEncodeVoteBucketListToEthErrorCandidateAddress(t *testing.T) {
 		Owner:            "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqxgce2xkh",
 	}
 
-	_, err := encodeVoteBucketListToEth(_bucketsMethod.Outputs, iotextypes.VoteBucketList{
+	_, err := encodeVoteBucketListToEth(_bucketsMethod.Outputs, &iotextypes.VoteBucketList{
 		Buckets: buckets,
 	})
 
@@ -131,7 +131,7 @@ func TestEncodeVoteBucketListToEthErrorStakedAmount(t *testing.T) {
 		Owner:            "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqxgce2xkh",
 	}
 
-	_, err := encodeVoteBucketListToEth(_bucketsMethod.Outputs, iotextypes.VoteBucketList{
+	_, err := encodeVoteBucketListToEth(_bucketsMethod.Outputs, &iotextypes.VoteBucketList{
 		Buckets: buckets,
 	})
 
@@ -155,7 +155,7 @@ func TestEncodeVoteBucketListToEthErrorOwner(t *testing.T) {
 		Owner:            "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqxgce2xk",
 	}
 
-	_, err := encodeVoteBucketListToEth(_bucketsMethod.Outputs, iotextypes.VoteBucketList{
+	_, err := encodeVoteBucketListToEth(_bucketsMethod.Outputs, &iotextypes.VoteBucketList{
 		Buckets: buckets,
 	})
 

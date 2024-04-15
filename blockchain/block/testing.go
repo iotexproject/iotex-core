@@ -57,9 +57,9 @@ func (b *TestingBuilder) SetPrevBlockHash(h hash.Hash256) *TestingBuilder {
 }
 
 // AddActions adds actions for block which is building.
-func (b *TestingBuilder) AddActions(acts ...action.SealedEnvelope) *TestingBuilder {
+func (b *TestingBuilder) AddActions(acts ...*action.SealedEnvelope) *TestingBuilder {
 	if b.blk.Actions == nil {
-		b.blk.Actions = make([]action.SealedEnvelope, 0)
+		b.blk.Actions = make([]*action.SealedEnvelope, 0)
 	}
 	b.blk.Actions = append(b.blk.Actions, acts...)
 	return b
@@ -98,7 +98,7 @@ func NewBlockDeprecated(
 	prevBlockHash hash.Hash256,
 	timestamp time.Time,
 	producer crypto.PublicKey,
-	actions []action.SealedEnvelope,
+	actions []*action.SealedEnvelope,
 ) *Block {
 	block := &Block{
 		Header: Header{

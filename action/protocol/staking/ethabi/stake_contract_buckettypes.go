@@ -108,5 +108,5 @@ func (r *ContractBucketTypesStateContext) EncodeToEth(resp *iotexapi.ReadStateRe
 		return "", err
 	}
 
-	return encodeBucketTypeListToEth(_contractBucketTypesMethod.Outputs, result)
+	return encodeBucketTypeListToEth(_contractBucketTypesMethod.Outputs, &result)
 }

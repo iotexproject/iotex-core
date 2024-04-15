@@ -119,11 +119,11 @@ type (
 		// ActionsByAddress returns all actions associated with an address
 		ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// ActionByActionHash returns action by action hash
-		ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
+		ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, *block.Block, uint32, error)
 		// PendingActionByActionHash returns action by action hash
-		PendingActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error)
+		PendingActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, error)
 		// ActPoolActions returns the all Transaction Identifiers in the actpool
-		ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error)
+		ActionsInActPool(actHashes []string) ([]*action.SealedEnvelope, error)
 		// BlockByHeightRange returns blocks within the height range
 		BlockByHeightRange(uint64, uint64) ([]*apitypes.BlockWithReceipts, error)
 		// BlockByHeight returns the block and its receipt from block height
@@ -462,7 +462,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	// reject action if a replay tx is not whitelisted
 	var (
 		g        = core.Genesis()
-		deployer = selp.SrcPubkey().Address()
+		deployer = selp.SenderAddress()
 	)
 	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && !g.IsDeployerWhitelisted(deployer) {
 		return "", status.Errorf(codes.InvalidArgument, "replay deployer %v not whitelisted", deployer.Hex())
@@ -497,18 +497,15 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		}
 		return "", st.Err()
 	}
-	// If there is no error putting into local actpool,
-	// Broadcast it to the network
-	msg := in
-	if ge := core.bc.Genesis(); ge.IsQuebec(core.bc.TipHeight()) {
+	// If there is no error putting into local actpool, broadcast it to the network
+	if core.messageBatcher != nil {
 		err = core.messageBatcher.Put(&batch.Message{
 			ChainID: core.bc.ChainID(),
 			Target:  nil,
-			Data:    msg,
+			Data:    in,
 		})
 	} else {
-		//TODO: remove height check after activated
-		err = core.broadcastHandler(ctx, core.bc.ChainID(), msg)
+		err = core.broadcastHandler(ctx, core.bc.ChainID(), in)
 	}
 	if err != nil {
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
@@ -550,8 +547,20 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	if ctx, err = core.bc.Context(ctx); err != nil {
 		return "", nil, err
 	}
-	sc.SetNonce(state.PendingNonce())
-	blockGasLimit := core.bc.Genesis().BlockGasLimit
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: core.bc.TipHeight(),
+	}))
+	var pendingNonce uint64
+	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+		pendingNonce = state.PendingNonceConsideringFreshAccount()
+	} else {
+		pendingNonce = state.PendingNonce()
+	}
+	sc.SetNonce(pendingNonce)
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+	)
 	if sc.GasLimit() == 0 || blockGasLimit < sc.GasLimit() {
 		sc.SetGasLimit(blockGasLimit)
 	}
@@ -785,11 +794,15 @@ func (core *coreService) ReceiptByActionHash(h hash.Hash256) (*action.Receipt, e
 	if err != nil {
 		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
-	receipt, err := core.dao.GetReceiptByActionHash(h, actIndex.BlockHeight())
+
+	receipts, err := core.dao.GetReceipts(actIndex.BlockHeight())
 	if err != nil {
-		return nil, errors.Wrap(ErrNotFound, err.Error())
+		return nil, err
 	}
-	return receipt, nil
+	if receipt := filterReceipts(receipts, h); receipt != nil {
+		return receipt, nil
+	}
+	return nil, errors.Wrapf(ErrNotFound, "failed to find receipt for action %x", h)
 }
 
 // TransactionLogByActionHash returns transaction log by action hash
@@ -950,7 +963,7 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 	return d, h, err
 }
 
-func (core *coreService) getActionsFromIndex(totalActions, start, count uint64) ([]*iotexapi.ActionInfo, error) {
+func (core *coreService) getActionsFromIndex(start, count uint64) ([]*iotexapi.ActionInfo, error) {
 	hashes, err := core.indexer.GetActionHashFromIndex(start, count)
 	if err != nil {
 		return nil, status.Error(codes.Unavailable, err.Error())
@@ -985,14 +998,14 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 	if start >= totalActions {
 		return nil, status.Error(codes.InvalidArgument, "start exceeds the total actions in the block")
 	}
-	if totalActions == uint64(0) || count == 0 {
+	if totalActions == uint64(0) {
 		return []*iotexapi.ActionInfo{}, nil
 	}
 	if start+count > totalActions {
 		count = totalActions - start
 	}
 	if core.indexer != nil {
-		return core.getActionsFromIndex(totalActions, start, count)
+		return core.getActionsFromIndex(start, count)
 	}
 	// Finding actions in reverse order saves time for querying most recent actions
 	reverseStart := totalActions - (start + count)
@@ -1080,31 +1093,31 @@ func (core *coreService) BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256,
 }
 
 // ActionByActionHash returns action by action hash
-func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
+func (core *coreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, *block.Block, uint32, error) {
 	if err := core.checkActionIndex(); err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+		return nil, nil, 0, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 
 	actIndex, err := core.indexer.GetActionIndex(h[:])
 	if err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
+		return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
 	blk, err := core.dao.GetBlockByHeight(actIndex.BlockHeight())
 	if err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
+		return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
-	selp, index, err := core.dao.GetActionByActionHash(h, actIndex.BlockHeight())
+	selp, index, err := blk.ActionByHash(h)
 	if err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
+		return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
-	return selp, blk.HashBlock(), actIndex.BlockHeight(), index, nil
+	return selp, blk, index, nil
 }
 
 // ActionByActionHash returns action by action hash
-func (core *coreService) PendingActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
+func (core *coreService) PendingActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, error) {
 	selp, err := core.ap.GetActionByHash(h)
 	if err != nil {
-		return action.SealedEnvelope{}, errors.Wrap(ErrNotFound, err.Error())
+		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
 	return selp, nil
 }
@@ -1231,7 +1244,7 @@ func (core *coreService) getGravityChainStartHeight(epochHeight uint64) (uint64,
 	return gravityChainStartHeight, nil
 }
 
-func (core *coreService) committedAction(selp action.SealedEnvelope, blkHash hash.Hash256, blkHeight uint64) (*iotexapi.ActionInfo, error) {
+func (core *coreService) committedAction(selp *action.SealedEnvelope, blkHash hash.Hash256, blkHeight uint64) (*iotexapi.ActionInfo, error) {
 	actHash, err := selp.Hash()
 	if err != nil {
 		return nil, err
@@ -1241,9 +1254,13 @@ func (core *coreService) committedAction(selp action.SealedEnvelope, blkHash has
 		return nil, err
 	}
 	sender := selp.SenderAddress()
-	receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
+	receipts, err := core.dao.GetReceipts(blkHeight)
 	if err != nil {
 		return nil, err
+	}
+	receipt := filterReceipts(receipts, actHash)
+	if receipt == nil {
+		return nil, errors.Wrapf(ErrNotFound, "failed to find receipt for action %x", actHash)
 	}
 
 	gas := new(big.Int)
@@ -1259,7 +1276,7 @@ func (core *coreService) committedAction(selp action.SealedEnvelope, blkHash has
 	}, nil
 }
 
-func (core *coreService) pendingAction(selp action.SealedEnvelope) (*iotexapi.ActionInfo, error) {
+func (core *coreService) pendingAction(selp *action.SealedEnvelope) (*iotexapi.ActionInfo, error) {
 	actHash, err := selp.Hash()
 	if err != nil {
 		return nil, err
@@ -1277,9 +1294,9 @@ func (core *coreService) pendingAction(selp action.SealedEnvelope) (*iotexapi.Ac
 }
 
 func (core *coreService) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi.ActionInfo, error) {
-	selp, blkHash, blkHeight, actIndex, err := core.ActionByActionHash(actHash)
+	selp, blk, actIndex, err := core.ActionByActionHash(actHash)
 	if err == nil {
-		act, err := core.committedAction(selp, blkHash, blkHeight)
+		act, err := core.committedAction(selp, blk.HashBlock(), blk.Height())
 		if err != nil {
 			return nil, err
 		}
@@ -1305,12 +1322,21 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	if reverseStart > size || count == 0 {
 		return nil
 	}
-	start := size - (reverseStart + count)
-	if start < 0 {
-		start = 0
+	start := uint64(0)
+	if size > reverseStart+count {
+		start = size - (reverseStart + count)
 	}
 	end := size - 1 - reverseStart
 	res := make([]*iotexapi.ActionInfo, 0, start-end+1)
+	receipts, err := core.dao.GetReceipts(blkHeight)
+	if err != nil {
+		log.Logger("api").Debug("Skipping action due to failing to get receipt", zap.Error(err))
+		return nil
+	}
+	receiptMap := make(map[hash.Hash256]*action.Receipt, len(receipts))
+	for _, receipt := range receipts {
+		receiptMap[receipt.ActionHash] = receipt
+	}
 	for idx := start; idx <= end; idx++ {
 		selp := blk.Actions[idx]
 		actHash, err := selp.Hash()
@@ -1318,9 +1344,9 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 			log.Logger("api").Debug("Skipping action due to hash error", zap.Error(err))
 			continue
 		}
-		receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
-		if err != nil {
-			log.Logger("api").Debug("Skipping action due to failing to get receipt", zap.Error(err))
+		receipt, ok := receiptMap[actHash]
+		if !ok {
+			log.Logger("api").With(zap.String("actionHash", hex.EncodeToString(actHash[:]))).Debug("Skipping action due to failing to get receipt")
 			continue
 		}
 		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
@@ -1475,10 +1501,22 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 	if err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
-	sc.SetNonce(state.PendingNonce())
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: core.bc.TipHeight(),
+	}))
+	var pendingNonce uint64
+	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+		pendingNonce = state.PendingNonceConsideringFreshAccount()
+	} else {
+		pendingNonce = state.PendingNonce()
+	}
+	sc.SetNonce(pendingNonce)
 	//gasprice should be 0, otherwise it may cause the API to return an error, such as insufficient balance.
 	sc.SetGasPrice(big.NewInt(0))
-	blockGasLimit := core.bc.Genesis().BlockGasLimit
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+	)
 	sc.SetGasLimit(blockGasLimit)
 	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc)
 	if err != nil {
@@ -1616,8 +1654,8 @@ func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*
 }
 
 // ActionsInActPool returns the all Transaction Identifiers in the actpool
-func (core *coreService) ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error) {
-	var ret []action.SealedEnvelope
+func (core *coreService) ActionsInActPool(actHashes []string) ([]*action.SealedEnvelope, error) {
+	var ret []*action.SealedEnvelope
 	if len(actHashes) == 0 {
 		for _, sealeds := range core.ap.PendingActionMap() {
 			ret = append(ret, sealeds...)
@@ -1679,11 +1717,21 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 		return nil, nil, err
 	}
 	// TODO (liuhaai): Use original nonce and gas limit properly
-	exec.SetNonce(state.PendingNonce())
-	if err != nil {
-		return nil, nil, err
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: core.bc.TipHeight(),
+	}))
+	var pendingNonce uint64
+	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+		pendingNonce = state.PendingNonceConsideringFreshAccount()
+	} else {
+		pendingNonce = state.PendingNonce()
 	}
-	exec.SetGasLimit(core.bc.Genesis().BlockGasLimit)
+	exec.SetNonce(pendingNonce)
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+	)
+	exec.SetGasLimit(blockGasLimit)
 	return core.simulateExecution(ctx, addr, exec, core.dao.GetBlockHash, core.getBlockTime)
 }
 
@@ -1746,8 +1794,12 @@ func (core *coreService) TraceCall(ctx context.Context,
 	gasLimit uint64,
 	data []byte,
 	config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+	)
 	if gasLimit == 0 {
-		gasLimit = core.bc.Genesis().BlockGasLimit
+		gasLimit = blockGasLimit
 	}
 	ctx, err := core.bc.Context(ctx)
 	if err != nil {
@@ -1758,7 +1810,16 @@ func (core *coreService) TraceCall(ctx context.Context,
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		nonce = state.PendingNonce()
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight: core.bc.TipHeight(),
+		}))
+		var pendingNonce uint64
+		if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+			pendingNonce = state.PendingNonceConsideringFreshAccount()
+		} else {
+			pendingNonce = state.PendingNonce()
+		}
+		nonce = pendingNonce
 	}
 	exec, err := action.NewExecution(
 		contractAddress,
@@ -1869,7 +1930,6 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 		tracer = logger.NewStructLogger(config.Config)
 	}
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
-		Debug:     true,
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
@@ -1888,4 +1948,13 @@ func (core *coreService) simulateExecution(ctx context.Context, addr address.Add
 		Sgd:            core.sgdIndexer,
 	})
 	return core.sf.SimulateExecution(ctx, addr, exec)
+}
+
+func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Receipt {
+	for _, r := range receipts {
+		if r.ActionHash == actHash {
+			return r
+		}
+	}
+	return nil
 }

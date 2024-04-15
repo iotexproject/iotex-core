@@ -17,7 +17,7 @@ import (
 
 // Body defines the struct of body
 type Body struct {
-	Actions []action.SealedEnvelope
+	Actions []*action.SealedEnvelope
 }
 
 // Proto converts Body to Protobuf

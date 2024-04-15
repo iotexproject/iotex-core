@@ -193,7 +193,7 @@ func TestDelegateManager_HandleNodeInfoRequest(t *testing.T) {
 		message := &iotextypes.NodeInfo{}
 		hMock.EXPECT().TipHeight().Return(height).Times(1)
 		tMock.EXPECT().UnicastOutbound(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, peerInfo peer.AddrInfo, msg proto.Message) error {
-			*message = *msg.(*iotextypes.NodeInfo)
+			message = msg.(*iotextypes.NodeInfo)
 			hash := hashNodeInfo(message.Info)
 			sig, _ = dm.privKey.Sign(hash[:])
 			return nil
@@ -219,17 +219,18 @@ func TestDelegateManager_RequestSingleNodeInfoAsync(t *testing.T) {
 		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
 		dm := NewInfoManager(&DefaultConfig, tMock, hMock, privKey, getEmptyWhiteList)
 		var paramPeer peer.AddrInfo
-		var paramMsg iotextypes.NodeInfoRequest
+		var paramMsg *iotextypes.NodeInfoRequest
 		peerID, err := peer.IDFromString("12D3KooWF2fns5ZWKbPfx2U1wQDdxoTK2D6HC3ortbSAQYR4BQp4")
 		require.NoError(err)
 		targetPeer := peer.AddrInfo{ID: peerID}
 		tMock.EXPECT().UnicastOutbound(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, p peer.AddrInfo, msg proto.Message) {
 			paramPeer = p
-			paramMsg = *msg.(*iotextypes.NodeInfoRequest)
+			paramMsg = msg.(*iotextypes.NodeInfoRequest)
 		}).Times(1)
 		dm.RequestSingleNodeInfoAsync(context.Background(), targetPeer)
 		require.Equal(targetPeer, paramPeer)
-		require.Equal(iotextypes.NodeInfoRequest{}, paramMsg)
+		request := iotextypes.NodeInfoRequest{}
+		require.Equal(request.String(), paramMsg.String())
 	})
 }
 

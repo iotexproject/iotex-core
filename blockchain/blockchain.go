@@ -105,7 +105,7 @@ type (
 	// BlockBuilderFactory is the factory interface of block builder
 	BlockBuilderFactory interface {
 		// NewBlockBuilder creates block builder
-		NewBlockBuilder(context.Context, func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error)
+		NewBlockBuilder(context.Context, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
 	}
 
 	// blockchain implements the Blockchain interface
@@ -309,7 +309,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 		protocol.BlockCtx{
 			BlockHeight:    blk.Height(),
 			BlockTimeStamp: blk.Timestamp(),
-			GasLimit:       bc.genesis.BlockGasLimit,
+			GasLimit:       bc.genesis.BlockGasLimitByHeight(blk.Height()),
 			Producer:       producerAddr,
 		},
 	)
@@ -335,7 +335,7 @@ func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Add
 			BlockHeight:    height,
 			BlockTimeStamp: timestamp,
 			Producer:       producer,
-			GasLimit:       bc.genesis.BlockGasLimit,
+			GasLimit:       bc.genesis.BlockGasLimitByHeight(height),
 		})
 }
 
@@ -383,7 +383,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	minterPrivateKey := bc.config.ProducerPrivateKey()
 	blockBuilder, err := bc.bbf.NewBlockBuilder(
 		ctx,
-		func(elp action.Envelope) (action.SealedEnvelope, error) {
+		func(elp action.Envelope) (*action.SealedEnvelope, error) {
 			return action.Sign(elp, minterPrivateKey)
 		},
 	)

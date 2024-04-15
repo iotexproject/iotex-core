@@ -97,7 +97,7 @@ func TestBlockObjectMarshal(t *testing.T) {
 		Build()
 	sevlp, err := action.Sign(evlp, identityset.PrivateKey(24))
 	require.NoError(err)
-	ra := (&block.RunnableActionsBuilder{}).AddActions([]action.SealedEnvelope{sevlp}...).Build()
+	ra := (&block.RunnableActionsBuilder{}).AddActions([]*action.SealedEnvelope{sevlp}...).Build()
 	blk, err := block.NewBuilder(ra).
 		SetHeight(uint64(1)).
 		SetTimestamp(time.Date(2011, 1, 26, 0, 0, 0, 0, time.UTC)).

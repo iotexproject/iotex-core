@@ -113,7 +113,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 
 // Start starts the server
 func (s *Server) Start(ctx context.Context) error {
-	cctx, cancel := context.WithCancel(context.Background())
+	cctx, cancel := context.WithCancel(ctx)
 	s.subModuleCancel = cancel
 	for id, cs := range s.chainservices {
 		if err := cs.Start(cctx); err != nil {

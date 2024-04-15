@@ -142,7 +142,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 				BlockHeight:    0,
 				BlockTimeStamp: time.Unix(sdb.cfg.Genesis.Timestamp, 0),
 				Producer:       sdb.cfg.Chain.ProducerAddress(),
-				GasLimit:       sdb.cfg.Genesis.BlockGasLimit,
+				GasLimit:       sdb.cfg.Genesis.BlockGasLimitByHeight(0),
 			})
 		ctx = protocol.WithFeatureCtx(ctx)
 		// init the state factory
@@ -228,7 +228,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 func (sdb *stateDB) NewBlockBuilder(
 	ctx context.Context,
 	ap actpool.ActPool,
-	sign func(action.Envelope) (action.SealedEnvelope, error),
+	sign func(action.Envelope) (*action.SealedEnvelope, error),
 ) (*block.Builder, error) {
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	sdb.mutex.RLock()
@@ -238,7 +238,7 @@ func (sdb *stateDB) NewBlockBuilder(
 	if err != nil {
 		return nil, err
 	}
-	postSystemActions := make([]action.SealedEnvelope, 0)
+	postSystemActions := make([]*action.SealedEnvelope, 0)
 	unsignedSystemActions, err := ws.generateSystemActions(ctx)
 	if err != nil {
 		return nil, err
@@ -310,7 +310,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		protocol.BlockCtx{
 			BlockHeight:    blk.Height(),
 			BlockTimeStamp: blk.Timestamp(),
-			GasLimit:       g.BlockGasLimit,
+			GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
 			Producer:       producer,
 		},
 	)

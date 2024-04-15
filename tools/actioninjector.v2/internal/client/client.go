@@ -42,7 +42,7 @@ func New(serverAddr string, insecure bool) (*Client, error) {
 }
 
 // SendAction sends an action to blockchain.
-func (c *Client) SendAction(ctx context.Context, selp action.SealedEnvelope) error {
+func (c *Client) SendAction(ctx context.Context, selp *action.SealedEnvelope) error {
 	_, err := c.api.SendAction(ctx, &iotexapi.SendActionRequest{Action: selp.Proto()})
 	return err
 }

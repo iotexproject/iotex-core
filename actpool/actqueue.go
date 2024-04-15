@@ -25,16 +25,16 @@ import (
 
 // ActQueue is the interface of actQueue
 type ActQueue interface {
-	Put(action.SealedEnvelope) error
-	UpdateQueue() []action.SealedEnvelope
-	UpdateAccountState(uint64, *big.Int) []action.SealedEnvelope
+	Put(*action.SealedEnvelope) error
+	UpdateQueue() []*action.SealedEnvelope
+	UpdateAccountState(uint64, *big.Int) []*action.SealedEnvelope
 	AccountState() (uint64, *big.Int)
 	PendingNonce() uint64
 	NextAction() (bool, *big.Int)
 	Len() int
 	Empty() bool
-	PendingActs(context.Context) []action.SealedEnvelope
-	AllActs() []action.SealedEnvelope
+	PendingActs(context.Context) []*action.SealedEnvelope
+	AllActs() []*action.SealedEnvelope
 	PopActionWithLargestNonce() *action.SealedEnvelope
 	Reset()
 }
@@ -44,7 +44,7 @@ type actQueue struct {
 	ap      *actPool
 	address string
 	// Map that stores all the actions belonging to an account associated with nonces
-	items map[uint64]action.SealedEnvelope
+	items map[uint64]*action.SealedEnvelope
 	// Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for action map
 	ascQueue  ascNoncePriorityQueue
 	descQueue descNoncePriorityQueue
@@ -66,7 +66,7 @@ func NewActQueue(ap *actPool, address string, pendingNonce uint64, balance *big.
 	aq := &actQueue{
 		ap:             ap,
 		address:        address,
-		items:          make(map[uint64]action.SealedEnvelope),
+		items:          make(map[uint64]*action.SealedEnvelope),
 		ascQueue:       ascNoncePriorityQueue{},
 		descQueue:      descNoncePriorityQueue{},
 		pendingNonce:   pendingNonce,
@@ -92,7 +92,7 @@ func (q *actQueue) NextAction() (bool, *big.Int) {
 }
 
 // Put inserts a new action into the map, also updating the queue's nonce index
-func (q *actQueue) Put(act action.SealedEnvelope) error {
+func (q *actQueue) Put(act *action.SealedEnvelope) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	nonce := act.Nonce()
@@ -161,7 +161,7 @@ func (q *actQueue) updateFromNonce(start uint64) {
 }
 
 // UpdateQueue updates the pending nonce and balance of the queue
-func (q *actQueue) UpdateQueue() []action.SealedEnvelope {
+func (q *actQueue) UpdateQueue() []*action.SealedEnvelope {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	// First remove all timed out actions
@@ -171,12 +171,12 @@ func (q *actQueue) UpdateQueue() []action.SealedEnvelope {
 	return removedFromQueue
 }
 
-func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
+func (q *actQueue) cleanTimeout() []*action.SealedEnvelope {
 	if q.ttl == 0 {
-		return []action.SealedEnvelope{}
+		return []*action.SealedEnvelope{}
 	}
 	var (
-		removedFromQueue = make([]action.SealedEnvelope, 0)
+		removedFromQueue = make([]*action.SealedEnvelope, 0)
 		timeNow          = q.clock.Now()
 		size             = len(q.ascQueue)
 	)
@@ -206,14 +206,14 @@ func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
 }
 
 // UpdateAccountState updates the account's nonce and balance and cleans confirmed actions
-func (q *actQueue) UpdateAccountState(nonce uint64, balance *big.Int) []action.SealedEnvelope {
+func (q *actQueue) UpdateAccountState(nonce uint64, balance *big.Int) []*action.SealedEnvelope {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.pendingNonce = nonce
 	q.pendingBalance = make(map[uint64]*big.Int)
 	q.accountNonce = nonce
 	q.accountBalance.Set(balance)
-	var removed []action.SealedEnvelope
+	var removed []*action.SealedEnvelope
 	// Pop off priority queue and delete corresponding entries from map
 	for q.ascQueue.Len() > 0 && (q.ascQueue)[0].nonce < q.accountNonce {
 		nttl := heap.Pop(&q.ascQueue).(*nonceWithTTL)
@@ -257,7 +257,7 @@ func (q *actQueue) Empty() bool {
 func (q *actQueue) Reset() {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.items = make(map[uint64]action.SealedEnvelope)
+	q.items = make(map[uint64]*action.SealedEnvelope)
 	q.ascQueue = ascNoncePriorityQueue{}
 	q.descQueue = descNoncePriorityQueue{}
 	q.pendingNonce = 0
@@ -267,7 +267,7 @@ func (q *actQueue) Reset() {
 }
 
 // PendingActs creates a consecutive nonce-sorted slice of actions
-func (q *actQueue) PendingActs(ctx context.Context) []action.SealedEnvelope {
+func (q *actQueue) PendingActs(ctx context.Context) []*action.SealedEnvelope {
 	if q.Len() == 0 {
 		return nil
 	}
@@ -286,7 +286,7 @@ func (q *actQueue) PendingActs(ctx context.Context) []action.SealedEnvelope {
 	var (
 		nonce   uint64
 		balance = new(big.Int).Set(confirmedState.Balance)
-		acts    = make([]action.SealedEnvelope, 0, len(q.items))
+		acts    = make([]*action.SealedEnvelope, 0, len(q.items))
 	)
 	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
 		nonce = confirmedState.PendingNonceConsideringFreshAccount()
@@ -313,10 +313,10 @@ func (q *actQueue) PendingActs(ctx context.Context) []action.SealedEnvelope {
 }
 
 // AllActs returns all the actions currently in queue
-func (q *actQueue) AllActs() []action.SealedEnvelope {
+func (q *actQueue) AllActs() []*action.SealedEnvelope {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
-	acts := make([]action.SealedEnvelope, 0, len(q.items))
+	acts := make([]*action.SealedEnvelope, 0, len(q.items))
 	if len(q.items) == 0 {
 		return acts
 	}
@@ -338,5 +338,5 @@ func (q *actQueue) PopActionWithLargestNonce() *action.SealedEnvelope {
 	delete(q.items, itemMeta.nonce)
 	q.updateFromNonce(itemMeta.nonce)
 
-	return &item
+	return item
 }
