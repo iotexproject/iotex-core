@@ -463,3 +463,135 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 		require.EqualValues(100, cands[0].Votes.Sub(cands[0].Votes, originCandVotes).Uint64())
 	})
 }
+
+func TestIsSelfStakeBucket(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	featureCtxPostHF := protocol.FeatureCtx{DisableDelegateEndorsement: false}
+	featureCtxPreHF := protocol.FeatureCtx{DisableDelegateEndorsement: true}
+	t.Run("normal bucket", func(t *testing.T) {
+		bucketCfgs := []*bucketConfig{
+			{identityset.Address(11), identityset.Address(11), "1200000000000000000000000", 100, true, false, nil, 0},
+			{identityset.Address(11), identityset.Address(1), "1200000000000000000000000", 100, true, false, nil, 0},
+		}
+		candCfgs := []*candidateConfig{}
+		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
+		csm, err := NewCandidateStateManager(sm, false)
+		r.NoError(err)
+		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
+		r.NoError(err)
+		r.False(selfStake)
+		selfStake, err = isSelfStakeBucket(featureCtxPostHF, csm, buckets[0])
+		r.NoError(err)
+		r.False(selfStake)
+	})
+	t.Run("self-stake bucket", func(t *testing.T) {
+		bucketCfgs := []*bucketConfig{
+			{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 100, true, true, nil, 0},
+		}
+		candCfgs := []*candidateConfig{
+			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
+		}
+		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
+		csm, err := NewCandidateStateManager(sm, false)
+		r.NoError(err)
+
+		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
+		r.NoError(err)
+		r.True(selfStake)
+		selfStake, err = isSelfStakeBucket(featureCtxPostHF, csm, buckets[0])
+		r.NoError(err)
+		r.True(selfStake)
+	})
+	t.Run("self-stake bucket unstaked", func(t *testing.T) {
+		bucketCfgs := []*bucketConfig{
+			{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 100, true, true, &timeBeforeBlockII, 0},
+		}
+		candCfgs := []*candidateConfig{
+			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
+		}
+		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
+		csm, err := NewCandidateStateManager(sm, false)
+		r.NoError(err)
+
+		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
+		r.NoError(err)
+		r.True(selfStake)
+		selfStake, err = isSelfStakeBucket(featureCtxPostHF, csm, buckets[0])
+		r.NoError(err)
+		r.False(selfStake)
+	})
+	t.Run("endorsed bucket but not self-staked", func(t *testing.T) {
+		bucketCfgs := []*bucketConfig{
+			{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 100, true, true, nil, 0},
+			{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 100, true, false, nil, endorsementNotExpireHeight},
+		}
+		candCfgs := []*candidateConfig{
+			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
+		}
+		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
+		csm, err := NewCandidateStateManager(sm, false)
+		r.NoError(err)
+
+		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[1])
+		r.NoError(err)
+		r.False(selfStake)
+		selfStake, err = isSelfStakeBucket(featureCtxPostHF, csm, buckets[1])
+		r.NoError(err)
+		r.False(selfStake)
+	})
+	t.Run("endorsed and self-staked", func(t *testing.T) {
+		bucketCfgs := []*bucketConfig{
+			{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 100, true, true, nil, endorsementNotExpireHeight},
+		}
+		candCfgs := []*candidateConfig{
+			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
+		}
+		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
+		csm, err := NewCandidateStateManager(sm, false)
+		r.NoError(err)
+
+		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
+		r.NoError(err)
+		r.True(selfStake)
+		selfStake, err = isSelfStakeBucket(featureCtxPostHF, csm, buckets[0])
+		r.NoError(err)
+		r.True(selfStake)
+	})
+	t.Run("endorsement withdrawing", func(t *testing.T) {
+		bucketCfgs := []*bucketConfig{
+			{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 100, true, true, nil, 10},
+		}
+		candCfgs := []*candidateConfig{
+			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
+		}
+		sm, _, buckets, _ := initTestStateWithHeight(t, ctrl, bucketCfgs, candCfgs, 0)
+		csm, err := NewCandidateStateManager(sm, false)
+		r.NoError(err)
+
+		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
+		r.NoError(err)
+		r.True(selfStake)
+		selfStake, err = isSelfStakeBucket(featureCtxPostHF, csm, buckets[0])
+		r.NoError(err)
+		r.True(selfStake)
+	})
+	t.Run("endorsement expired", func(t *testing.T) {
+		bucketCfgs := []*bucketConfig{
+			{identityset.Address(1), identityset.Address(2), "1200000000000000000000000", 100, true, true, nil, 1},
+		}
+		candCfgs := []*candidateConfig{
+			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
+		}
+		sm, _, buckets, _ := initTestStateWithHeight(t, ctrl, bucketCfgs, candCfgs, 2)
+		csm, err := NewCandidateStateManager(sm, false)
+		r.NoError(err)
+		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
+		r.NoError(err)
+		r.True(selfStake)
+		selfStake, err = isSelfStakeBucket(featureCtxPostHF, csm, buckets[0])
+		r.NoError(err)
+		r.False(selfStake)
+	})
+}

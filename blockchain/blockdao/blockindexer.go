@@ -82,6 +82,10 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 		}
 	}
 	for i := startHeight; i <= targetHeight; i++ {
+		// ternimate if context is done
+		if err := ctx.Err(); err != nil {
+			return errors.Wrap(err, "terminate the indexer checking")
+		}
 		blk, err := bic.dao.GetBlockByHeight(i)
 		if err != nil {
 			return err
@@ -92,9 +96,13 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 				return err
 			}
 		}
-		producer := blk.PublicKey().Address()
+		pk := blk.PublicKey()
+		if pk == nil {
+			return errors.New("failed to get pubkey")
+		}
+		producer := pk.Address()
 		if producer == nil {
-			return errors.New("failed to get address")
+			return errors.New("failed to get producer address")
 		}
 		bcCtx.Tip.Height = tipBlk.Height()
 		if bcCtx.Tip.Height > 0 {
@@ -111,7 +119,7 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 					BlockHeight:    i,
 					BlockTimeStamp: blk.Timestamp(),
 					Producer:       producer,
-					GasLimit:       g.BlockGasLimit,
+					GasLimit:       g.BlockGasLimitByHeight(i),
 				},
 			), blk); err == nil {
 				break

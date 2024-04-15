@@ -241,12 +241,30 @@ func TestConstantinople(t *testing.T) {
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			36704440,
+			28516680,
 		},
-		// after Sumatra
+		// after Sumatra - Tsunami
 		{
 			action.EmptyAddress,
-			36704441,
+			28516681,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			29275560,
+		},
+		// after Tsunami - Upernavik
+		{
+			action.EmptyAddress,
+			29275561,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			39275560,
+		},
+		// after Upernavik
+		{
+			action.EmptyAddress,
+			39275561,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
@@ -346,9 +364,11 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isSumatra, chainRules.IsMerge)
 		require.Equal(isSumatra, chainRules.IsShanghai)
 
-		// Cancun, Prague not yet enabled
-		require.False(evmChainConfig.IsCancun(evm.Context.Time))
-		require.False(evmChainConfig.IsPrague(evm.Context.Time))
+		// Upernavik = enable Cancun
+		isUpernavik := g.IsUpernavik(e.height)
+		require.Equal(isUpernavik, chainRules.IsCancun)
+		//Prague not yet enabled
+		require.False(evmChainConfig.IsPrague(big.NewInt(int64(e.height)), evm.Context.Time))
 
 		// test basefee
 		require.Equal(new(big.Int), evm.Context.BaseFee)

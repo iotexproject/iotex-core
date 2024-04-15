@@ -85,7 +85,7 @@ func NewEthSigner(txType iotextypes.Encoding, chainID uint32) (types.Signer, err
 	case iotextypes.Encoding_IOTEX_PROTOBUF, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
 		// native tx use same signature format as that of Homestead (for pre-EIP155 unprotected tx)
 		return types.HomesteadSigner{}, nil
-	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_ACCESSLIST:
+	case iotextypes.Encoding_ETHEREUM_EIP155:
 		return types.NewEIP2930Signer(big.NewInt(int64(chainID))), nil
 	default:
 		return nil, ErrInvalidAct
@@ -131,11 +131,6 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 			encoding = iotextypes.Encoding_ETHEREUM_UNPROTECTED
 			signer = types.HomesteadSigner{}
 		}
-	case types.AccessListTxType:
-		// AL txs are defined to use 0 and 1 as their recovery
-		// id, add 27 to become equivalent to unprotected Homestead signatures.
-		V = new(big.Int).Add(V, big.NewInt(27))
-		encoding = iotextypes.Encoding_ETHEREUM_ACCESSLIST
 	default:
 		return encoding, nil, nil, ErrNotSupported
 	}

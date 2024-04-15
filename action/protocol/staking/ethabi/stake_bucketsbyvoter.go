@@ -163,5 +163,5 @@ func (r *BucketsByVoterStateContext) EncodeToEth(resp *iotexapi.ReadStateRespons
 		return "", err
 	}
 
-	return encodeVoteBucketListToEth(_bucketsByVoterMethod.Outputs, result)
+	return encodeVoteBucketListToEth(_bucketsByVoterMethod.Outputs, &result)
 }

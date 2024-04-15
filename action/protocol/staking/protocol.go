@@ -56,8 +56,9 @@ const (
 
 // Errors
 var (
-	ErrWithdrawnBucket = errors.New("the bucket is already withdrawn")
-	TotalBucketKey     = append([]byte{_const}, []byte("totalBucket")...)
+	ErrWithdrawnBucket     = errors.New("the bucket is already withdrawn")
+	ErrEndorsementNotExist = errors.New("the endorsement does not exist")
+	TotalBucketKey         = append([]byte{_const}, []byte("totalBucket")...)
 )
 
 var (
@@ -86,12 +87,13 @@ type (
 
 	// Configuration is the staking protocol configuration.
 	Configuration struct {
-		VoteWeightCalConsts      genesis.VoteWeightCalConsts
-		RegistrationConsts       RegistrationConsts
-		WithdrawWaitingPeriod    time.Duration
-		MinStakeAmount           *big.Int
-		BootstrapCandidates      []genesis.BootstrapCandidate
-		PersistStakingPatchBlock uint64
+		VoteWeightCalConsts              genesis.VoteWeightCalConsts
+		RegistrationConsts               RegistrationConsts
+		WithdrawWaitingPeriod            time.Duration
+		MinStakeAmount                   *big.Int
+		BootstrapCandidates              []genesis.BootstrapCandidate
+		PersistStakingPatchBlock         uint64
+		EndorsementWithdrawWaitingBlocks uint64
 	}
 
 	// DepositGas deposits gas to some pool
@@ -155,10 +157,11 @@ func NewProtocol(
 				Fee:          regFee,
 				MinSelfStake: minSelfStake,
 			},
-			WithdrawWaitingPeriod:    cfg.Staking.WithdrawWaitingPeriod,
-			MinStakeAmount:           minStakeAmount,
-			BootstrapCandidates:      cfg.Staking.BootstrapCandidates,
-			PersistStakingPatchBlock: cfg.PersistStakingPatchBlock,
+			WithdrawWaitingPeriod:            cfg.Staking.WithdrawWaitingPeriod,
+			MinStakeAmount:                   minStakeAmount,
+			BootstrapCandidates:              cfg.Staking.BootstrapCandidates,
+			PersistStakingPatchBlock:         cfg.PersistStakingPatchBlock,
+			EndorsementWithdrawWaitingBlocks: cfg.Staking.EndorsementWithdrawWaitingBlocks,
 		},
 		depositGas:             depositGas,
 		candBucketsIndexer:     candBucketsIndexer,
@@ -311,7 +314,7 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
-	buckets, err := toIoTeXTypesVoteBucketList(allBuckets)
+	buckets, err := toIoTeXTypesVoteBucketList(sm, allBuckets)
 	if err != nil {
 		return err
 	}
@@ -420,6 +423,8 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
 	case *action.CandidateActivate:
 		rLog, tLogs, err = p.handleCandidateActivate(ctx, act, csm)
+	case *action.CandidateEndorsement:
+		rLog, tLogs, err = p.handleCandidateEndorsement(ctx, act, csm)
 	default:
 		return nil, nil
 	}
@@ -464,8 +469,37 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 		return p.validateCandidateRegister(ctx, act)
 	case *action.CandidateUpdate:
 		return p.validateCandidateUpdate(ctx, act)
+	case *action.CandidateActivate:
+		return p.validateCandidateActivate(ctx, act)
+	case *action.CandidateEndorsement:
+		return p.validateCandidateEndorsement(ctx, act)
 	}
 	return nil
+}
+
+func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidateStateReader, cand *Candidate) (bool, error) {
+	if cand.SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
+		return false, nil
+	}
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.DisableDelegateEndorsement {
+		// before endorsement feature, candidates with enough amount must be active
+		return true, nil
+	}
+	bucket, err := csr.getBucket(cand.SelfStakeBucketIdx)
+	switch {
+	case errors.Cause(err) == state.ErrStateNotExist:
+		// endorse bucket has been withdrawn
+		return false, nil
+	case err != nil:
+		return false, errors.Wrapf(err, "failed to get bucket %d", cand.SelfStakeBucketIdx)
+	default:
+	}
+	selfStake, err := isSelfStakeBucket(featureCtx, csr, bucket)
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to check self-stake bucket %d", cand.SelfStakeBucketIdx)
+	}
+	return selfStake, nil
 }
 
 // ActiveCandidates returns all active candidates in candidate center
@@ -492,7 +526,11 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 			}
 			list[i].Votes.Add(list[i].Votes, contractVotes)
 		}
-		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {
+		active, err := p.isActiveCandidate(ctx, c, list[i])
+		if err != nil {
+			return nil, err
+		}
+		if active {
 			cand = append(cand, list[i])
 		}
 	}
@@ -679,4 +717,29 @@ func writeCandCenterStateToStateDB(sm protocol.StateManager, name, op, owners Ca
 	}
 	_, err := sm.PutState(owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
 	return err
+}
+
+// isSelfStakeBucket returns true if the bucket is self-stake bucket and not expired
+func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csc CandidiateStateCommon, bucket *VoteBucket) (bool, error) {
+	// bucket index should be settled in one of candidates
+	selfStake := csc.ContainsSelfStakingBucket(bucket.Index)
+	if featureCtx.DisableDelegateEndorsement || !selfStake {
+		return selfStake, nil
+	}
+
+	// bucket should not be unstaked if it is self-owned
+	if address.Equal(bucket.Owner, bucket.Candidate) {
+		return !bucket.isUnstaked(), nil
+	}
+	// otherwise bucket should be an endorse bucket which is not expired
+	esm := NewEndorsementStateReader(csc.SR())
+	height, err := esm.Height()
+	if err != nil {
+		return false, err
+	}
+	endorse, err := esm.Get(bucket.Index)
+	if err != nil {
+		return false, err
+	}
+	return endorse.Status(height) != EndorseExpired, nil
 }

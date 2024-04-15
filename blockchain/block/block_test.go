@@ -52,7 +52,7 @@ func TestMerkle(t *testing.T) {
 	require.NoError(err)
 
 	// create block using above 5 tx and verify merkle
-	actions := []action.SealedEnvelope{selp0, selp1, selp2, selp3, selp4}
+	actions := []*action.SealedEnvelope{selp0, selp1, selp2, selp3, selp4}
 	block := NewBlockDeprecated(
 		0,
 		0,
@@ -176,7 +176,7 @@ func BenchmarkBlockDecompression(b *testing.B) {
 
 func makeBlock(tb testing.TB, n int) *Block {
 	rand.Seed(time.Now().Unix())
-	sevlps := make([]action.SealedEnvelope, 0)
+	sevlps := make([]*action.SealedEnvelope, 0)
 	for j := 1; j <= n; j++ {
 		i := rand.Int()
 		tsf, err := action.NewTransfer(

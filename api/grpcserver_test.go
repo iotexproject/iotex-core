@@ -984,7 +984,7 @@ func TestGrpcServer_GetActPoolActions(t *testing.T) {
 	require.NoError(err)
 	tsf2, err := action.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	acts := []action.SealedEnvelope{tsf1, tsf2}
+	acts := []*action.SealedEnvelope{tsf1, tsf2}
 	core.EXPECT().ActionsInActPool(gomock.Any()).Return(acts, nil)
 	resp, err := grpcSvr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{
 		ActionHashes: []string{"_actionHash"},

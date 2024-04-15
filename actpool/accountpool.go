@@ -60,7 +60,7 @@ func (ap *accountPool) PutAction(
 	pendingNonce uint64,
 	confirmedBalance *big.Int,
 	expiry time.Duration,
-	act action.SealedEnvelope,
+	act *action.SealedEnvelope,
 ) error {
 	account, ok := ap.accounts[addr]
 	if !ok {

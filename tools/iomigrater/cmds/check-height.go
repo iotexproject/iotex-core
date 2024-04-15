@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/tools/iomigrater/common"
 )
@@ -54,8 +55,11 @@ func checkDbFileHeight(filePath string) (uint64, error) {
 	}
 
 	cfg.DB.DbPath = filePath
-	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
-	blockDao := blockdao.NewBlockDAO(nil, cfg.DB, deser)
+	store, err := filedao.NewFileDAO(cfg.DB, block.NewDeserializer(cfg.Chain.EVMNetworkID))
+	if err != nil {
+		return uint64(0), err
+	}
+	blockDao := blockdao.NewBlockDAOWithIndexersAndCache(store, nil, cfg.DB.MaxCacheSize)
 
 	// Load height value.
 	ctx := context.Background()

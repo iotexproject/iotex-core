@@ -65,7 +65,8 @@ type injectProcessor struct {
 func newInjectionProcessor() (*injectProcessor, error) {
 	var conn *grpc.ClientConn
 	var err error
-	grpcctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	grpcctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	log.L().Info("Server Addr", zap.String("endpoint", injectCfg.serverAddr))
 	if injectCfg.insecure {
 		log.L().Info("insecure connection")

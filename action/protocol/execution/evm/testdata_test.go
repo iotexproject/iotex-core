@@ -1,3 +1,8 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package evm
 
 import (
@@ -6,9 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
-
-	"github.com/iotexproject/iotex-core/action"
 )
 
 type (
@@ -38,9 +40,11 @@ type (
 		v    common.Hash
 	}
 	sui struct {
-		addr    common.Address
-		suicide bool
-		exist   bool
+		amount       *big.Int
+		beneficiary  common.Address
+		addr         common.Address
+		selfDestruct bool
+		exist        bool
 	}
 	image struct {
 		hash common.Hash
@@ -52,18 +56,23 @@ type (
 		nx    []common.Hash
 		exist bool
 	}
+	transient struct {
+		addr common.Address
+		k    common.Hash
+		v    common.Hash
+	}
 	stateDBTest struct {
-		balance            []bal
-		codes              []code
-		states             []evmSet
-		refund             uint64
-		suicide            []sui
-		preimage           []image
-		accessList         []access
-		logs               []*types.Log
-		txLogs             []*action.TransactionLog
-		logSize, txLogSize int
-		logAddr, txLogAddr string
+		balance                           []bal
+		codes                             []code
+		states                            []evmSet
+		refund                            uint64
+		selfDestruct                      []sui
+		preimage                          []image
+		accessList                        []access
+		transient                         []transient
+		logs                              []*types.Log
+		logSize, txLogSize, transientSize int
+		logAddr, txSender, txReceiver     string
 	}
 )
 
@@ -98,12 +107,5 @@ func newTestLog(addr common.Address) *types.Log {
 	return &types.Log{
 		Address: addr,
 		Topics:  []common.Hash{_k1},
-	}
-}
-
-func newTestTxLog(addr common.Address) *action.TransactionLog {
-	a, _ := address.FromBytes(addr.Bytes())
-	return &action.TransactionLog{
-		Sender: a.String(),
 	}
 }

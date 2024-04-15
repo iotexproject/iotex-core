@@ -15,14 +15,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -109,19 +107,23 @@ func main() {
 
 // recoverChainAndState recovers the chain to target height and refresh state db if necessary
 func recoverChainAndState(dao blockdao.BlockDAO, sf factory.Factory, cfg config.Config, targetHeight uint64) error {
-	// recover the blockchain to target height(blockDAO)
-	if err := dao.DeleteBlockToTarget(targetHeight); err != nil {
-		return errors.Wrapf(err, "failed to recover blockchain to target height %d", targetHeight)
-	}
-	stateHeight, err := sf.Height()
-	if err != nil {
-		return err
-	}
-	if targetHeight < stateHeight {
-		// delete existing state DB (build from scratch)
-		if fileutil.FileExists(cfg.Chain.TrieDBPath) && os.Remove(cfg.Chain.TrieDBPath) != nil {
-			return errors.New("failed to delete existing state DB")
+	// TODO: not all indexers could be reverted, e.g., state factory. Thus, dao.DeleteTipBlockToTarget will always
+	// return error. Therefore, it is not hard to tell that this tool is not working. The right way is to revert indexer
+	// one by one. Before we implement it in that way, comment out the following code.
+	/*
+		if err := dao.DeleteBlockToTarget(targetHeight); err != nil {
+			return errors.Wrapf(err, "failed to recover blockchain to target height %d", targetHeight)
 		}
-	}
-	return nil
+		stateHeight, err := sf.Height()
+		if err != nil {
+			return err
+		}
+		if targetHeight < stateHeight {
+			// delete existing state DB (build from scratch)
+			if fileutil.FileExists(cfg.Chain.TrieDBPath) && os.Remove(cfg.Chain.TrieDBPath) != nil {
+				return errors.New("failed to delete existing state DB")
+			}
+		}
+	*/
+	panic("not implemented")
 }

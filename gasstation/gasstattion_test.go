@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -85,7 +86,9 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
-	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	store, err := filedao.NewFileDAOInMemForTest()
+	require.NoError(t, err)
+	blkMemDao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, 16)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
@@ -165,7 +168,9 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
-	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	store, err := filedao.NewFileDAOInMemForTest()
+	require.NoError(t, err)
+	blkMemDao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, 16)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
@@ -274,7 +279,7 @@ func TestSuggestGasPrice_GasConsumed(t *testing.T) {
 func prepareBlocks(r *require.Assertions, cases []testActionGas) map[uint64]*block.Block {
 	blocks := map[uint64]*block.Block{}
 	for i := range cases {
-		actions := []action.SealedEnvelope{}
+		actions := []*action.SealedEnvelope{}
 		receipts := []*action.Receipt{}
 		for _, gas := range cases[i] {
 			seale, err := action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(1), 1, big.NewInt(0), []byte{}, 1000, big.NewInt(int64(gas.gasPrice)))

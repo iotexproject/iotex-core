@@ -71,20 +71,21 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 
 func (p *Protocol) validateBucketSelfStake(ctx context.Context, csm CandidateStateManager, esm *EndorsementStateManager, bucket *VoteBucket, cand *Candidate) ReceiptError {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	if err := validateBucketMinAmount(bucket, p.config.RegistrationConsts.MinSelfStake); err != nil {
 		return err
 	}
 	if err := validateBucketStake(bucket, true); err != nil {
 		return err
 	}
-	if err := validateBucketSelfStake(csm, bucket, false); err != nil {
+	if err := validateBucketSelfStake(featureCtx, csm, bucket, false); err != nil {
 		return err
 	}
 	if err := validateBucketCandidate(bucket, cand.Owner); err != nil {
 		return err
 	}
 	if validateBucketOwner(bucket, cand.Owner) != nil &&
-		validateBucketEndorsement(esm, bucket, true, blkCtx.BlockHeight) != nil {
+		validateBucketWithEndorsement(esm, bucket, blkCtx.BlockHeight) != nil {
 		return &handleError{
 			err:           errors.New("bucket is not a self-owned or endorsed bucket"),
 			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
