@@ -962,6 +962,13 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 			EnableReturnData: enableReturnData,
 		},
 	}
+	if tracer := options.Get("tracer"); tracer.Exists() {
+		cfg.Tracer = new(string)
+		*cfg.Tracer = tracer.String()
+		if tracerConfig := options.Get("tracerConfig"); tracerConfig.Exists() {
+			cfg.TracerConfig = json.RawMessage(tracerConfig.Raw)
+		}
+	}
 	retval, receipt, tracer, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
 	if err != nil {
 		return nil, err
