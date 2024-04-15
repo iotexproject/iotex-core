@@ -16,11 +16,12 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	goproto "github.com/iotexproject/iotex-proto/golang"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 type (
@@ -29,6 +30,8 @@ type (
 		ActionChanSize             uint          `yaml:"actionChanSize"`
 		BlockChanSize              uint          `yaml:"blockChanSize"`
 		BlockSyncChanSize          uint          `yaml:"blockSyncChanSize"`
+		ConsensusChanSize          uint          `yaml:"consensusChanSize"`
+		MiscChanSize               uint          `yaml:"miscChanSize"`
 		ProcessSyncRequestInterval time.Duration `yaml:"processSyncRequestInterval"`
 		// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	}
@@ -37,9 +40,12 @@ type (
 var (
 	// DefaultConfig is the default config
 	DefaultConfig = Config{
-		ActionChanSize:             5000,
-		BlockChanSize:              1000,
-		BlockSyncChanSize:          400,
+		ActionChanSize:    5000,
+		BlockChanSize:     1000,
+		BlockSyncChanSize: 400,
+		ConsensusChanSize: 1000,
+		MiscChanSize:      1000,
+
 		ProcessSyncRequestInterval: 0 * time.Second,
 	}
 )
