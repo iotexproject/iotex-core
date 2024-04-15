@@ -13,12 +13,14 @@ var (
 		Short: config.TranslateInLang(wsCmdShorts, config.UILanguage),
 	}
 
-	// wsCmdShorts command multi-lang supports
 	wsCmdShorts = map[config.Language]string{
 		config.English: "W3bstream node operations",
 		config.Chinese: "W3bstream节点操作",
 	}
+)
 
+// flags multi-language
+var (
 	_flagChainEndpointUsages = map[config.Language]string{
 		config.English: "set endpoint for once",
 		config.Chinese: "一次设置端点",
@@ -46,9 +48,6 @@ var (
 )
 
 func init() {
-	WsCmd.AddCommand(wsMessage)
-	WsCmd.AddCommand(wsProject)
-
 	WsCmd.PersistentFlags().StringVar(
 		&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagChainEndpointUsages, config.UILanguage),

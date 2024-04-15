@@ -30,10 +30,12 @@ var (
 func init() {
 	wsMessage.AddCommand(wsMessageSend)
 	wsMessage.AddCommand(wsMessageQuery)
+
+	WsCmd.AddCommand(wsMessage)
 }
 
 type sendMessageReq struct {
-	ProjectID      uint64 `json:"projectID"`
+	ProjectID      uint64 `json:"flagProjectID"`
 	ProjectVersion string `json:"projectVersion"`
 	Data           string `json:"data"`
 }
