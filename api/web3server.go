@@ -585,11 +585,11 @@ func (svr *web3Handler) getTransactionByHash(in *gjson.Result) (interface{}, err
 		return nil, err
 	}
 
-	selp, blkHash, _, _, err := svr.coreService.ActionByActionHash(actHash)
+	selp, blk, _, err := svr.coreService.ActionByActionHash(actHash)
 	if err == nil {
 		receipt, err := svr.coreService.ReceiptByActionHash(actHash)
 		if err == nil {
-			return svr.assembleConfirmedTransaction(blkHash, selp, receipt)
+			return svr.assembleConfirmedTransaction(blk.HashBlock(), selp, receipt)
 		}
 		if errors.Cause(err) == ErrNotFound {
 			return nil, nil
@@ -629,7 +629,7 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 	}
 
 	// acquire action receipt by action hash
-	selp, blockHash, _, _, err := svr.coreService.ActionByActionHash(actHash)
+	selp, blk, _, err := svr.coreService.ActionByActionHash(actHash)
 	if err != nil {
 		if errors.Cause(err) == ErrNotFound {
 			return nil, nil
@@ -649,19 +649,13 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 	}
 
 	// acquire logsBloom from blockMeta
-	blkHash := hex.EncodeToString(blockHash[:])
-	blk, err := svr.coreService.BlockByHash(blkHash)
-	if err != nil {
-		return nil, err
-	}
-
 	var logsBloomStr string
-	if logsBloom := blk.Block.LogsBloomfilter(); logsBloom != nil {
+	if logsBloom := blk.LogsBloomfilter(); logsBloom != nil {
 		logsBloomStr = hex.EncodeToString(logsBloom.Bytes())
 	}
 
 	return &getReceiptResult{
-		blockHash:       blockHash,
+		blockHash:       blk.HashBlock(),
 		from:            selp.SenderAddress(),
 		to:              to,
 		contractAddress: contractAddr,
