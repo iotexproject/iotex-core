@@ -7,11 +7,12 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/util"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-election/util"
 )
 
 type nativeStakingV2 struct {
@@ -83,6 +84,7 @@ func (ns *nativeStakingV2) CalculateCandidatesByHeight(ctx context.Context, sr p
 		return cands, err
 	}
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	// TODO: put candidates which will expired during current or next epoch behind the active candidates
 	return ns.filterAndSortCandidatesByVoteScore(cands, bcCtx.Tip.Timestamp), nil
 }
 

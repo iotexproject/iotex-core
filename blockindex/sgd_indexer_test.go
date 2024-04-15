@@ -245,7 +245,7 @@ func TestNewSGDRegistry(t *testing.T) {
 	})
 }
 
-func createTestingBlock(builder *block.TestingBuilder, height uint64, h hash.Hash256, act action.SealedEnvelope, logs *action.Log) *block.Block {
+func createTestingBlock(builder *block.TestingBuilder, height uint64, h hash.Hash256, act *action.SealedEnvelope, logs *action.Log) *block.Block {
 	block.LoadGenesisHash(&genesis.Default)
 	r := &action.Receipt{
 		Status:      1,

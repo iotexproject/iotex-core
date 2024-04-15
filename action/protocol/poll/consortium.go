@@ -96,7 +96,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	blkCtx.Producer, _ = address.FromString(_consortiumCommitteeContractCreator)
-	blkCtx.GasLimit = g.BlockGasLimit
+	blkCtx.GasLimit = g.BlockGasLimitByHeight(0)
 	bytes, err := hexutil.Decode(g.ConsortiumCommitteeContractCode)
 	if err != nil {
 		return err
@@ -105,7 +105,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 		"",
 		_consortiumCommitteeContractNonce,
 		big.NewInt(0),
-		g.BlockGasLimit,
+		g.BlockGasLimitByHeight(0),
 		big.NewInt(0),
 		bytes,
 	)

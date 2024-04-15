@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -172,8 +173,9 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 	dbcfg := cfg.DB
 	dbcfg.DbPath = cfg.Chain.ChainDBPath
-	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
-	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf2}, dbcfg, deser)
+	store, err := filedao.NewFileDAO(dbcfg, block.NewDeserializer(cfg.Chain.EVMNetworkID))
+	require.NoError(err)
+	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf2}, dbcfg.MaxCacheSize)
 	chain := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
@@ -514,13 +516,21 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Recover to height 3 from empty state DB
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
-	dao := blockdao.NewBlockDAO(nil, cfg.DB, deser)
+	dao, err := filedao.NewFileDAO(cfg.DB, deser)
+	require.NoError(err)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(
 		genesis.WithGenesisContext(ctx, cfg.Genesis),
 		protocol.BlockchainCtx{
 			ChainID: cfg.Chain.ID,
 		})))
-	require.NoError(dao.DeleteBlockToTarget(3))
+	for {
+		height, err := dao.Height()
+		require.NoError(err)
+		if height <= 3 {
+			break
+		}
+		require.NoError(dao.DeleteTipBlock())
+	}
 	require.NoError(dao.Stop(ctx))
 
 	// Build states from height 1 to 3
@@ -538,13 +548,21 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Recover to height 2 from an existing state DB with Height 3
 	require.NoError(svr.Stop(ctx))
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	dao = blockdao.NewBlockDAO(nil, cfg.DB, deser)
+	dao, err = filedao.NewFileDAO(cfg.DB, deser)
+	require.NoError(err)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(
 		genesis.WithGenesisContext(ctx, cfg.Genesis),
 		protocol.BlockchainCtx{
 			ChainID: cfg.Chain.ID,
 		})))
-	require.NoError(dao.DeleteBlockToTarget(2))
+	for {
+		height, err := dao.Height()
+		require.NoError(err)
+		if height <= 2 {
+			break
+		}
+		require.NoError(dao.DeleteTipBlock())
+	}
 	require.NoError(dao.Stop(ctx))
 	testutil.CleanupPath(testTriePath)
 	testutil.CleanupPath(testContractStakeIndexPath)

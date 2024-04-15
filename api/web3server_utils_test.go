@@ -4,7 +4,9 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -75,4 +77,66 @@ func TestParseCallObject(t *testing.T) {
 			require.Equal(test.err, err)
 		})
 	}
+
+	t.Run("parse gas price", func(t *testing.T) {
+		input := `{"params":[{
+				"from":     "",
+				"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
+				"gas":      "0x4e20",
+				"gasPrice": "unknown",
+				"value":    "0x1",
+				"input":     "0x6d4ce63c"
+			   },
+			   1]}`
+		in := gjson.Parse(input)
+		_, _, _, _, _, _, err := parseCallObject(&in)
+		require.EqualError(err, "gasPrice: unknown: wrong type of params")
+	})
+
+	t.Run("parse value", func(t *testing.T) {
+		input := `{"params":[{
+				"from":     "",
+				"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
+				"gas":      "0x4e20",
+				"gasPrice": "0xe8d4a51000",
+				"value":    "unknown",
+				"input":     "0x6d4ce63c"
+			   },
+			   1]}`
+		in := gjson.Parse(input)
+		_, _, _, _, _, _, err := parseCallObject(&in)
+		require.EqualError(err, "value: unknown: wrong type of params")
+	})
+
+}
+
+func TestParseBlockNumber(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+
+	t.Run("earliest block number", func(t *testing.T) {
+		num, _ := web3svr.parseBlockNumber("earliest")
+		require.Equal(num, uint64(0x1))
+	})
+
+	t.Run("pending block number", func(t *testing.T) {
+		core.EXPECT().TipHeight().Return(uint64(0x1))
+		num, _ := web3svr.parseBlockNumber("pending")
+		require.Equal(num, uint64(0x1))
+	})
+
+	t.Run("latest block number", func(t *testing.T) {
+		core.EXPECT().TipHeight().Return(uint64(0x1))
+		num, _ := web3svr.parseBlockNumber("latest")
+		require.Equal(num, uint64(0x1))
+	})
+
+	t.Run("nil block number", func(t *testing.T) {
+		core.EXPECT().TipHeight().Return(uint64(0x1))
+		num, _ := web3svr.parseBlockNumber("")
+		require.Equal(num, uint64(0x1))
+	})
 }

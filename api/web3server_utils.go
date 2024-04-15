@@ -73,7 +73,7 @@ func (svr *web3Handler) getBlockWithTransactions(blk *block.Block, receipts []*a
 	transactions := make([]interface{}, 0)
 	for i, selp := range blk.Actions {
 		if isDetailed {
-			tx, err := svr.getTransactionFromActionInfo(blk.HashBlock(), selp, receipts[i])
+			tx, err := svr.assembleConfirmedTransaction(blk.HashBlock(), selp, receipts[i])
 			if err != nil {
 				if errors.Cause(err) != errUnsupportedAction {
 					h, _ := selp.Hash()
@@ -96,7 +96,7 @@ func (svr *web3Handler) getBlockWithTransactions(blk *block.Block, receipts []*a
 	}, nil
 }
 
-func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
+func (svr *web3Handler) assembleConfirmedTransaction(blkHash hash.Hash256, selp *action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
 	// sanity check
 	if receipt == nil {
 		return nil, errors.New("receipt is empty")
@@ -105,37 +105,14 @@ func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp 
 	if err != nil || actHash != receipt.ActionHash {
 		return nil, errors.Errorf("the action %s of receipt doesn't match", hex.EncodeToString(actHash[:]))
 	}
-	act, ok := selp.Action().(action.EthCompatibleAction)
-	if !ok {
-		actHash, _ := selp.Hash()
-		return nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
-	}
-	ethTx, err := act.ToEthTx(0)
-	if err != nil {
-		return nil, err
-	}
-	to, _, err := getRecipientAndContractAddrFromAction(selp, receipt)
-	if err != nil {
-		return nil, err
-	}
-	signer, err := action.NewEthSigner(iotextypes.Encoding(selp.Encoding()), svr.coreService.EVMNetworkID())
-	if err != nil {
-		return nil, err
-	}
-	tx, err := action.RawTxToSignedTx(ethTx, signer, selp.Signature())
-	if err != nil {
-		return nil, err
-	}
-	return &getTransactionResult{
-		blockHash: blkHash,
-		to:        to,
-		ethTx:     tx,
-		receipt:   receipt,
-		pubkey:    selp.SrcPubkey(),
-	}, nil
+	return newGetTransactionResult(&blkHash, selp, receipt, svr.coreService.EVMNetworkID())
 }
 
-func getRecipientAndContractAddrFromAction(selp action.SealedEnvelope, receipt *action.Receipt) (*string, *string, error) {
+func (svr *web3Handler) assemblePendingTransaction(selp *action.SealedEnvelope) (*getTransactionResult, error) {
+	return newGetTransactionResult(nil, selp, nil, svr.coreService.EVMNetworkID())
+}
+
+func getRecipientAndContractAddrFromAction(selp *action.SealedEnvelope, receipt *action.Receipt) (*string, *string, error) {
 	// recipient is empty when contract is created
 	if exec, ok := selp.Action().(*action.Execution); ok && len(exec.Contract()) == 0 {
 		addr, err := ioAddrToEthAddr(receipt.ContractAddress)
@@ -492,4 +469,42 @@ func fromLoggerStructLogs(logs []logger.StructLog) []apitypes.StructLog {
 		}
 	}
 	return ret
+}
+
+func newGetTransactionResult(
+	blkHash *hash.Hash256,
+	selp *action.SealedEnvelope,
+	receipt *action.Receipt,
+	evmChainID uint32,
+) (*getTransactionResult, error) {
+	act, ok := selp.Action().(action.EthCompatibleAction)
+	if !ok {
+		actHash, _ := selp.Hash()
+		return nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
+	}
+	ethTx, err := act.ToEthTx(0)
+	if err != nil {
+		return nil, err
+	}
+	var to *string
+	if ethTx.To() != nil {
+		tmp := ethTx.To().String()
+		to = &tmp
+	}
+
+	signer, err := action.NewEthSigner(iotextypes.Encoding(selp.Encoding()), evmChainID)
+	if err != nil {
+		return nil, err
+	}
+	tx, err := action.RawTxToSignedTx(ethTx, signer, selp.Signature())
+	if err != nil {
+		return nil, err
+	}
+	return &getTransactionResult{
+		blockHash: blkHash,
+		to:        to,
+		ethTx:     tx,
+		receipt:   receipt,
+		pubkey:    selp.SrcPubkey(),
+	}, nil
 }

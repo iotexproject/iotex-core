@@ -94,6 +94,7 @@ type (
 		EnableRateLimit   bool                `yaml:"enableRateLimit"`
 		PrivateNetworkPSK string              `yaml:"privateNetworkPSK"`
 		MaxPeers          int                 `yaml:"maxPeers"`
+		MaxMessageSize    int                 `yaml:"maxMessageSize"`
 	}
 
 	// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
@@ -143,6 +144,7 @@ var DefaultConfig = Config{
 	EnableRateLimit:   true,
 	PrivateNetworkPSK: "",
 	MaxPeers:          30,
+	MaxMessageSize:    p2p.DefaultConfig.MaxMessageSize,
 }
 
 // NewDummyAgent creates a dummy p2p agent
@@ -214,6 +216,7 @@ func (p *agent) Start(ctx context.Context) error {
 		p2p.DHTProtocolID(p.chainID),
 		p2p.DHTGroupID(p.chainID),
 		p2p.WithMaxPeer(uint32(p.cfg.MaxPeers)),
+		p2p.WithMaxMessageSize(p.cfg.MaxMessageSize),
 	}
 	if p.cfg.EnableRateLimit {
 		opts = append(opts, p2p.WithRateLimit(p.cfg.RateLimit))

@@ -84,6 +84,7 @@ func init() {
 	wsProject.AddCommand(wsProjectCreate)
 	wsProject.AddCommand(wsProjectUpdate)
 	wsProject.AddCommand(wsProjectQuery)
+	wsProject.AddCommand(wsProjectConfig)
 
 	wsProjectRegisterContractAddress = config.ReadConfig.WsRegisterContract
 	wsProjectIPFSEndpoint = config.ReadConfig.IPFSEndpoint
@@ -227,6 +228,5 @@ func upload(endpoint string, filename, hashstr string) (string, hash.Hash256, er
 		return "", hash.ZeroHash256, errors.Wrap(err, errUploadProjectConfigFailed.Error())
 	}
 
-	// generate fetch url
-	return fmt.Sprintf("%s/ipfs/%s", wsProjectIPFSGatewayEndpoint, cid), hash256b, nil
+	return fmt.Sprintf("ipfs://%s/%s", wsProjectIPFSEndpoint, cid), hash256b, nil
 }

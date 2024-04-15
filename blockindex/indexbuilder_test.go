@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -161,16 +162,19 @@ func TestIndexBuilder(t *testing.T) {
 	}()
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	deser := block.NewDeserializer(blockchain.DefaultConfig.EVMNetworkID)
+	filestore, err := filedao.NewFileDAO(cfg, block.NewDeserializer(blockchain.DefaultConfig.EVMNetworkID))
+	require.NoError(err)
+	memstore, err := filedao.NewFileDAOInMemForTest()
+	require.NoError(err)
 	for _, v := range []struct {
 		dao   blockdao.BlockDAO
 		inMem bool
 	}{
 		{
-			blockdao.NewBlockDAOInMemForTest(nil), true,
+			memstore, true,
 		},
 		{
-			blockdao.NewBlockDAO(nil, cfg, deser), false,
+			filestore, false,
 		},
 	} {
 		t.Run("test indexbuilder", func(t *testing.T) {
@@ -191,7 +195,7 @@ func TestIndexBuilder(t *testing.T) {
 }
 
 // classifyActions classfies actions
-func classifyActions(actions []action.SealedEnvelope) ([]*action.Transfer, []*action.Execution) {
+func classifyActions(actions []*action.SealedEnvelope) ([]*action.Transfer, []*action.Execution) {
 	tsfs := make([]*action.Transfer, 0)
 	exes := make([]*action.Execution, 0)
 	for _, elp := range actions {

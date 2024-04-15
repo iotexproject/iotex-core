@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -25,20 +26,34 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-type testConfig struct {
-	Genesis    genesis.Genesis
-	Chain      blockchain.Config
-	ActPool    actpool.Config
-	GasStation Config
-}
+type (
+	testConfig struct {
+		Genesis    genesis.Genesis
+		Chain      blockchain.Config
+		ActPool    actpool.Config
+		GasStation Config
+	}
+	testActionGas []struct {
+		gasPrice    uint64
+		gasConsumed uint64
+	}
+	testCase struct {
+		name           string
+		blocks         []testActionGas
+		expectGasPrice uint64
+	}
+)
 
 func TestNewGasStation(t *testing.T) {
 	require := require.New(t)
@@ -71,7 +86,9 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
-	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	store, err := filedao.NewFileDAOInMemForTest()
+	require.NoError(t, err)
+	blkMemDao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, 16)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
@@ -131,7 +148,11 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	gp, err := gs.SuggestGasPrice()
 	require.NoError(t, err)
 	// i from 10 to 29,gasprice for 20 to 39,60%*20+20=31
-	require.Equal(t, big.NewInt(1).Mul(big.NewInt(int64(31)), big.NewInt(unit.Qev)).Uint64(), gp)
+	require.Equal(
+		t,
+		big.NewInt(1).Mul(big.NewInt(int64(31)), big.NewInt(unit.Qev)).Uint64()*9/10,
+		gp,
+	)
 }
 
 func TestSuggestGasPriceForSystemAction(t *testing.T) {
@@ -147,7 +168,9 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
-	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	store, err := filedao.NewFileDAOInMemForTest()
+	require.NoError(t, err)
+	blkMemDao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, 16)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
@@ -190,4 +213,84 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	require.NoError(t, err)
 	// i from 10 to 29,gasprice for 20 to 39,60%*20+20=31
 	require.Equal(t, gs.cfg.DefaultGas, gp)
+}
+
+func TestSuggestGasPrice_GasConsumed(t *testing.T) {
+	cases := []testCase{
+		{
+			name: "gas consumed > maxGas/2",
+			blocks: []testActionGas{
+				{{uint64(unit.Qev) * 2, 100000000}},
+				{{uint64(unit.Qev) * 2, 100000000}},
+				{{uint64(unit.Qev) * 2, 100000000}},
+				{{uint64(unit.Qev) * 2, 100000000}},
+				{{uint64(unit.Qev) * 2, 100000000}},
+				{{uint64(unit.Qev) * 2, 200000000}},
+			},
+			expectGasPrice: 2200000000000,
+		},
+		{
+			name: "gas consumed < maxGas/5",
+			blocks: []testActionGas{
+				{{uint64(unit.Qev) * 2, 1000000}},
+				{{uint64(unit.Qev) * 2, 1000000}},
+				{{uint64(unit.Qev) * 2, 1000000}},
+				{{uint64(unit.Qev) * 2, 1000000}},
+				{{uint64(unit.Qev) * 2, 1000000}},
+				{{uint64(unit.Qev) * 2, 2000000}},
+			},
+			expectGasPrice: 1800000000000,
+		},
+		{
+			name: "gas consumed between maxGas/5 - maxGas/2",
+			blocks: []testActionGas{
+				{{uint64(unit.Qev) * 2, 10000000}},
+				{{uint64(unit.Qev) * 2, 10000000}},
+				{{uint64(unit.Qev) * 2, 10000000}},
+				{{uint64(unit.Qev) * 2, 10000000}},
+				{{uint64(unit.Qev) * 2, 10000000}},
+				{{uint64(unit.Qev) * 2, 5000000}},
+			},
+			expectGasPrice: 2000000000000,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			r := require.New(t)
+			blocks := prepareBlocks(r, c.blocks)
+			ctrl := gomock.NewController(t)
+			bc := mock_blockchain.NewMockBlockchain(ctrl)
+			dao := mock_blockdao.NewMockBlockDAO(ctrl)
+			gs := NewGasStation(bc, dao, DefaultConfig)
+			bc.EXPECT().TipHeight().Return(uint64(len(blocks) - 1)).Times(1)
+			bc.EXPECT().Genesis().Return(genesis.Default).Times(1)
+			dao.EXPECT().GetBlockByHeight(gomock.Any()).DoAndReturn(
+				func(height uint64) (*block.Block, error) {
+					return blocks[height], nil
+				},
+			).AnyTimes()
+			gp, err := gs.SuggestGasPrice()
+			r.NoError(err)
+			r.Equal(c.expectGasPrice, gp)
+		})
+	}
+}
+
+func prepareBlocks(r *require.Assertions, cases []testActionGas) map[uint64]*block.Block {
+	blocks := map[uint64]*block.Block{}
+	for i := range cases {
+		actions := []*action.SealedEnvelope{}
+		receipts := []*action.Receipt{}
+		for _, gas := range cases[i] {
+			seale, err := action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(1), 1, big.NewInt(0), []byte{}, 1000, big.NewInt(int64(gas.gasPrice)))
+			r.NoError(err)
+			actions = append(actions, seale)
+			receipts = append(receipts, &action.Receipt{GasConsumed: gas.gasConsumed})
+		}
+		blocks[uint64(i)] = &block.Block{
+			Body:     block.Body{Actions: actions},
+			Receipts: receipts,
+		}
+	}
+	return blocks
 }

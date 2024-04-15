@@ -10,6 +10,7 @@ import (
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -172,23 +173,76 @@ func (fd *fileDAOv2) highestBlockOfStoreTip() uint64 {
 	return fd.header.Start + fd.blkStore.Size()*fd.header.BlockStoreSize - 1
 }
 
-func (fd *fileDAOv2) getBlockStore(height uint64) (*block.Store, error) {
+func (fd *fileDAOv2) getBlock(height uint64) (*block.Block, error) {
 	if !fd.ContainsHeight(height) {
 		return nil, db.ErrNotExist
 	}
-
 	// check whether block in staging buffer or not
 	storeKey := blockStoreKey(height, fd.header)
 	if storeKey >= fd.blkStore.Size() {
-		return fd.blkBuffer.Get(stagingKey(height, fd.header))
+		blkStore, err := fd.blkBuffer.Get(stagingKey(height, fd.header))
+		if err != nil {
+			return nil, err
+		}
+		return blkStore.Block, nil
 	}
-
 	// check whether block in read cache or not
-	if value, ok := fd.blkCache.Get(storeKey); ok {
-		pbInfos := value.(*iotextypes.BlockStores)
-		return fd.deser.FromBlockStoreProto(pbInfos.BlockStores[stagingKey(height, fd.header)])
+	if value, ok := fd.blkCache.Get(height); ok {
+		return value.(*block.Block), nil
 	}
+	// read from storage DB
+	blockStore, err := fd.getBlockStore(height)
+	if err != nil {
+		return nil, err
+	}
+	blk, err := fd.deser.BlockFromBlockStoreProto(blockStore)
+	if err != nil {
+		return nil, err
+	}
+	// add to read cache
+	fd.blkCache.Add(height, blk)
+	return blk, nil
+}
 
+func (fd *fileDAOv2) getReceipt(height uint64) ([]*action.Receipt, error) {
+	if !fd.ContainsHeight(height) {
+		return nil, db.ErrNotExist
+	}
+	// check whether block in staging buffer or not
+	storeKey := blockStoreKey(height, fd.header)
+	if storeKey >= fd.blkStore.Size() {
+		blkStore, err := fd.blkBuffer.Get(stagingKey(height, fd.header))
+		if err != nil {
+			return nil, err
+		}
+		return blkStore.Receipts, nil
+	}
+	// check whether receipts in read cache or not
+	if value, ok := fd.receiptCache.Get(height); ok {
+		return value.([]*action.Receipt), nil
+	}
+	// read from storage DB
+	blockStore, err := fd.getBlockStore(height)
+	if err != nil {
+		return nil, err
+	}
+	receipts, err := fd.deser.ReceiptsFromBlockStoreProto(blockStore)
+	if err != nil {
+		return nil, err
+	}
+	// add to read cache
+	fd.receiptCache.Add(height, receipts)
+	return receipts, nil
+}
+
+func (fd *fileDAOv2) getBlockStore(height uint64) (*iotextypes.BlockStore, error) {
+	// check whether blockStore in read cache or not
+	storeKey := blockStoreKey(height, fd.header)
+	if value, ok := fd.blkStorePbCache.Get(storeKey); ok {
+		pbInfos := value.(*iotextypes.BlockStores)
+		return pbInfos.BlockStores[stagingKey(height, fd.header)], nil
+	}
+	// read from storage DB
 	value, err := fd.blkStore.Get(storeKey)
 	if err != nil {
 		return nil, err
@@ -204,8 +258,7 @@ func (fd *fileDAOv2) getBlockStore(height uint64) (*block.Store, error) {
 	if len(pbStores.BlockStores) != int(fd.header.BlockStoreSize) {
 		return nil, ErrDataCorruption
 	}
-
 	// add to read cache
-	fd.blkCache.Add(storeKey, pbStores)
-	return fd.deser.FromBlockStoreProto(pbStores.BlockStores[stagingKey(height, fd.header)])
+	fd.blkStorePbCache.Add(storeKey, pbStores)
+	return pbStores.BlockStores[stagingKey(height, fd.header)], nil
 }

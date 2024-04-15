@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/test/mock/mock_sealed_envelope_validator"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
@@ -208,10 +207,12 @@ func TestActPool_AddActs(t *testing.T) {
 		require.NoError(err)
 		ap2.allActions.Set(nTsfHash, nTsf)
 	}
-	err = ap2.Add(ctx, tsf1)
-	require.Equal(action.ErrTxPoolOverflow, errors.Cause(err))
-	err = ap2.Add(ctx, tsf4)
-	require.Equal(action.ErrTxPoolOverflow, errors.Cause(err))
+	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
+	// Tx Pool is full, but replacement happens
+	require.Error(action.ErrTxPoolOverflow, ap2.Add(ctx, tsf1))
+	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
+	require.NoError(ap2.Add(ctx, tsf4))
+	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
 
 	Ap3, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
@@ -229,8 +230,9 @@ func TestActPool_AddActs(t *testing.T) {
 	}
 	tsf10, err := action.SignedTransfer(_addr2, _priKey2, uint64(apConfig.MaxGasLimitPerPool/10000), big.NewInt(50), []byte{1, 2, 3}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	err = ap3.Add(ctx, tsf10)
-	require.Equal(action.ErrGasLimit, errors.Cause(err))
+	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
+	require.Error(action.ErrNonceTooHigh, ap3.Add(ctx, tsf10))
+	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
 
 	// Case IV: Nonce already exists
 	replaceTsf, err := action.SignedTransfer(_addr2, _priKey1, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
@@ -297,7 +299,7 @@ func TestActPool_PickActs(t *testing.T) {
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
-	createActPool := func(cfg Config) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
+	createActPool := func(cfg Config) (*actPool, []*action.SealedEnvelope, []*action.SealedEnvelope, []*action.SealedEnvelope) {
 		// Create actpool
 		Ap, err := NewActPool(genesis.Default, sf, cfg)
 		require.NoError(err)
@@ -315,7 +317,7 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(err)
 		tsf5, err := action.SignedTransfer(_addr1, _priKey1, uint64(5), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf6, err := action.SignedTransfer(_addr1, _priKey1, uint64(6), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
+		tsf6, err := action.SignedTransfer(_addr1, _priKey1, uint64(7), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
 		tsf7, err := action.SignedTransfer(_addr2, _priKey2, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
@@ -353,7 +355,7 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(ap.Add(ctx, tsf9))
 		require.NoError(ap.Add(ctx, tsf10))
 
-		return ap, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}, []action.SealedEnvelope{}, []action.SealedEnvelope{}
+		return ap, []*action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}, []*action.SealedEnvelope{}, []*action.SealedEnvelope{}
 	}
 
 	t.Run("no-expiry", func(t *testing.T) {
@@ -361,15 +363,9 @@ func TestActPool_PickActs(t *testing.T) {
 		ap, transfers, _, executions := createActPool(apConfig)
 		pickedActs := ap.PendingActionMap()
 		require.Equal(len(transfers)+len(executions), lenPendingActionMap(pickedActs))
-	})
-	t.Run("expiry", func(t *testing.T) {
-		apConfig := getActPoolCfg()
-		apConfig.ActionExpiry = time.Second
-		ap, _, _, _ := createActPool(apConfig)
-		require.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
-			pickedActs := ap.PendingActionMap()
-			return lenPendingActionMap(pickedActs) == 0, nil
-		}))
+		time.Sleep(2 * time.Second)
+		pickedActs = ap.PendingActionMap()
+		require.Equal(len(transfers)+len(executions), lenPendingActionMap(pickedActs))
 	})
 }
 
@@ -411,7 +407,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.Equal(4, ap.allActions.Count())
 	addr, err := address.FromString(_addr1)
 	require.NoError(err)
-	require.NotNil(ap.worker[ap.allocatedWorker(addr)].GetQueue(addr))
+	require.NotNil(ap.worker[ap.allocatedWorker(addr)].accountActs.Account(addr.String()))
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
@@ -424,7 +420,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	}).Times(1)
 	ap.Reset()
 	require.Equal(0, ap.allActions.Count())
-	require.True(ap.worker[ap.allocatedWorker(addr)].GetQueue(addr).Empty())
+	require.True(ap.worker[ap.allocatedWorker(addr)].accountActs.Account(addr.String()).Empty())
 }
 
 func TestActPool_Reset(t *testing.T) {
@@ -829,7 +825,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require.NoError(err)
 	hash2, err := tsf4.Hash()
 	require.NoError(err)
-	acts := []action.SealedEnvelope{tsf1, tsf4}
+	acts := []*action.SealedEnvelope{tsf1, tsf4}
 	_, exist1 := ap.allActions.Get(hash1)
 	require.True(exist1)
 	_, exist2 := ap.allActions.Get(hash2)
@@ -925,10 +921,10 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.NoError(ap.Add(ctx, tsf5))
 
 	acts := ap.GetUnconfirmedActs(_addr3)
-	require.Equal([]action.SealedEnvelope(nil), acts)
+	require.Equal([]*action.SealedEnvelope(nil), acts)
 
 	acts = ap.GetUnconfirmedActs(_addr1)
-	validated := []action.SealedEnvelope{tsf1, tsf3, tsf4, tsf5}
+	validated := []*action.SealedEnvelope{tsf1, tsf3, tsf4, tsf5}
 	require.Equal(len(acts), len(validated))
 	for i := 0; i < len(acts); i++ {
 		hashVal1, hashErr1 := validated[i].Hash()
@@ -966,7 +962,7 @@ func TestActPool_GetActionByHash(t *testing.T) {
 	require.Equal(tsf1, act)
 	act, err = ap.GetActionByHash(hash2)
 	require.Equal(action.ErrNotFound, errors.Cause(err))
-	require.Equal(action.SealedEnvelope{}, act)
+	require.Nil(act)
 
 	ap.allActions.Set(hash2, tsf2)
 	act, err = ap.GetActionByHash(hash2)
@@ -1044,6 +1040,7 @@ func TestActPool_GetSize(t *testing.T) {
 func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
+	sf.EXPECT().Height().Return(uint64(0), nil).Times(2)
 
 	apConfig := DefaultConfig
 	ap, err := NewActPool(genesis.Default, sf, apConfig)
@@ -1060,7 +1057,10 @@ func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
-	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(
+		genesis.WithGenesisContext(ctx, genesis.Default), protocol.BlockCtx{
+			BlockHeight: 1,
+		}))
 	require.Error(t, ap.Add(ctx, tsf))
 }
 
@@ -1118,7 +1118,7 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 	require.Equal(uint64(2), pNonce3)
 
 	ai := actioniterator.NewActionIterator(ap.PendingActionMap())
-	appliedActionList := make([]action.SealedEnvelope, 0)
+	appliedActionList := make([]*action.SealedEnvelope, 0)
 	for {
 		bestAction, ok := ai.Next()
 		if !ok {
@@ -1127,7 +1127,7 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 		appliedActionList = append(appliedActionList, bestAction)
 	}
 	// tsf1 is replaced by tsf3 with higher gas price
-	validated := []action.SealedEnvelope{tsf3, tsf2}
+	validated := []*action.SealedEnvelope{tsf3, tsf2}
 	require.Equal(len(appliedActionList), len(validated))
 	for i := 0; i < len(appliedActionList); i++ {
 		hashVal1, hashErr1 := validated[i].Hash()
@@ -1144,7 +1144,7 @@ func getPendingBalance(ap *actPool, addrStr string) (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	if queue := ap.worker[ap.allocatedWorker(addr)].GetQueue(addr); queue != nil {
+	if queue := ap.worker[ap.allocatedWorker(addr)].accountActs.Account(addr.String()); queue != nil {
 		q := queue.(*actQueue)
 		return q.getPendingBalanceAtNonce(q.pendingNonce), nil
 	}
@@ -1165,7 +1165,7 @@ func getActPoolCfg() Config {
 	}
 }
 
-func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
+func lenPendingActionMap(acts map[string][]*action.SealedEnvelope) int {
 	l := 0
 	for _, part := range acts {
 		l += len(part)

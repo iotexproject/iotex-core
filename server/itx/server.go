@@ -113,7 +113,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 
 // Start starts the server
 func (s *Server) Start(ctx context.Context) error {
-	cctx, cancel := context.WithCancel(context.Background())
+	cctx, cancel := context.WithCancel(ctx)
 	s.subModuleCancel = cancel
 	for id, cs := range s.chainservices {
 		if err := cs.Start(cctx); err != nil {
@@ -187,6 +187,13 @@ func (s *Server) StopChainService(ctx context.Context, id uint32) error {
 		return errors.New("Chain ID does not match any existing chains")
 	}
 	return c.Stop(ctx)
+}
+
+// Config returns the server's config
+func (s *Server) Config() config.Config {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.cfg
 }
 
 // P2PAgent returns the P2P agent

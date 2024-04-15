@@ -162,5 +162,5 @@ func (r *CompositeBucketsByIndexesStateContext) EncodeToEth(resp *iotexapi.ReadS
 		return "", err
 	}
 
-	return encodeVoteBucketListToEth(_compositeBucketsByIndexesMethod.Outputs, result)
+	return encodeVoteBucketListToEth(_compositeBucketsByIndexesMethod.Outputs, &result)
 }

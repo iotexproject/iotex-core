@@ -13,21 +13,45 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/agiledragon/gomonkey/v2"
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/blockindex"
+	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/server/itx/nodestats"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	mock_apitypes "github.com/iotexproject/iotex-core/test/mock/mock_apiresponder"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockindex"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
+	"github.com/iotexproject/iotex-core/test/mock/mock_envelope"
+	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
+	"github.com/iotexproject/iotex-election/types"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func TestLogsInRange(t *testing.T) {
@@ -44,7 +68,7 @@ func TestLogsInRange(t *testing.T) {
 		to, err := strconv.ParseUint(testData.ToBlock, 10, 64)
 		require.NoError(err)
 
-		logs, hashes, err := svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
+		logs, hashes, err := svr.LogsInRange(logfilter.NewLogFilter(filter), from, to, uint64(0))
 		require.NoError(err)
 		require.Equal(4, len(logs))
 		require.Equal(4, len(hashes))
@@ -58,7 +82,7 @@ func TestLogsInRange(t *testing.T) {
 		to, err := strconv.ParseUint(testData.ToBlock, 10, 64)
 		require.NoError(err)
 
-		logs, hashes, err := svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
+		logs, hashes, err := svr.LogsInRange(logfilter.NewLogFilter(filter), from, to, uint64(0))
 		require.NoError(err)
 		require.Equal(0, len(logs))
 		require.Equal(0, len(hashes))
@@ -72,7 +96,7 @@ func TestLogsInRange(t *testing.T) {
 		to, err := strconv.ParseUint(testData.ToBlock, 10, 64)
 		require.NoError(err)
 
-		logs, hashes, err := svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(5001))
+		logs, hashes, err := svr.LogsInRange(logfilter.NewLogFilter(filter), from, to, uint64(5001))
 		require.NoError(err)
 		require.Equal(4, len(logs))
 		require.Equal(4, len(hashes))
@@ -86,7 +110,7 @@ func TestLogsInRange(t *testing.T) {
 		to, err := strconv.ParseUint(testData.ToBlock, 10, 64)
 		require.NoError(err)
 
-		_, _, err = svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
+		_, _, err = svr.LogsInRange(logfilter.NewLogFilter(filter), from, to, uint64(0))
 		expectedErr := errors.New("invalid start or end height")
 		require.Error(err)
 		require.Equal(expectedErr.Error(), err.Error())
@@ -100,7 +124,7 @@ func TestLogsInRange(t *testing.T) {
 		to, err := strconv.ParseUint(testData.ToBlock, 10, 64)
 		require.NoError(err)
 
-		_, _, err = svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
+		_, _, err = svr.LogsInRange(logfilter.NewLogFilter(filter), from, to, uint64(0))
 		expectedErr := errors.New("start block > tip height")
 		require.Error(err)
 		require.Equal(expectedErr.Error(), err.Error())
@@ -121,19 +145,19 @@ func BenchmarkLogsInRange(b *testing.B) {
 	to, _ := strconv.ParseInt(testData.ToBlock, 10, 64)
 
 	b.Run("five workers to extract logs", func(b *testing.B) {
-		blk.EXPECT().FilterBlocksInRange(logfilter.NewLogFilter(&filter), uint64(from), uint64(to), 0).Return([]uint64{1, 2, 3, 4}, nil).AnyTimes()
+		blk.EXPECT().FilterBlocksInRange(logfilter.NewLogFilter(filter), uint64(from), uint64(to), 0).Return([]uint64{1, 2, 3, 4}, nil).AnyTimes()
 		for i := 0; i < b.N; i++ {
-			svr.LogsInRange(logfilter.NewLogFilter(&filter), uint64(from), uint64(to), uint64(0))
+			svr.LogsInRange(logfilter.NewLogFilter(filter), uint64(from), uint64(to), uint64(0))
 		}
 	})
 }
 
-func getTopicsAddress(addr []string, topics [][]string) (iotexapi.LogsFilter, error) {
+func getTopicsAddress(addr []string, topics [][]string) (*iotexapi.LogsFilter, error) {
 	var filter iotexapi.LogsFilter
 	for _, ethAddr := range addr {
 		ioAddr, err := ethAddrToIoAddr(ethAddr)
 		if err != nil {
-			return iotexapi.LogsFilter{}, err
+			return nil, err
 		}
 		filter.Address = append(filter.Address, ioAddr.String())
 	}
@@ -142,14 +166,14 @@ func getTopicsAddress(addr []string, topics [][]string) (iotexapi.LogsFilter, er
 		for _, str := range tp {
 			b, err := hexToBytes(str)
 			if err != nil {
-				return iotexapi.LogsFilter{}, err
+				return nil, err
 			}
 			topic = append(topic, b)
 		}
 		filter.Topics = append(filter.Topics, &iotexapi.Topics{Topic: topic})
 	}
 
-	return filter, nil
+	return &filter, nil
 }
 
 func setupTestCoreService() (CoreService, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
@@ -204,29 +228,392 @@ func TestEstimateGasForAction(t *testing.T) {
 	require.Contains(err.Error(), action.ErrNilProto.Error())
 }
 
+func TestElectionBuckets(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("ElectionCommitteeIsNil", func(t *testing.T) {
+		cs := &coreService{}
+		_, err := cs.ElectionBuckets(uint64(0))
+		require.ErrorContains(err, "Native election no supported")
+	})
+
+	var (
+		committee = mock_committee.NewMockCommittee(ctrl)
+		cs        = &coreService{
+			electionCommittee: committee,
+		}
+	)
+
+	t.Run("FailedToNativeBucketsByEpoch", func(t *testing.T) {
+		committee.EXPECT().NativeBucketsByEpoch(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+		_, err := cs.ElectionBuckets(uint64(0))
+		require.ErrorContains(err, t.Name())
+	})
+
+	t.Run("ElectionBucketsSuccess", func(t *testing.T) {
+		vote, err := types.NewBucket(
+			time.Now().Add(-20*time.Hour),
+			time.Hour*3,
+			big.NewInt(9),
+			[]byte("voter"),
+			[]byte("candidate"),
+			false,
+		)
+		require.NoError(err)
+
+		committee.EXPECT().NativeBucketsByEpoch(gomock.Any()).Return([]*types.Bucket{vote}, nil).Times(1)
+		re, err := cs.ElectionBuckets(uint64(0))
+		require.NoError(err)
+		require.Equal(1, len(re))
+		require.Equal(vote.Voter(), re[0].Voter)
+	})
+}
+
+func TestTransactionLogByActionHash(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("IndexerIsNil", func(t *testing.T) {
+		cs := &coreService{}
+		_, err := cs.TransactionLogByActionHash("")
+		require.ErrorContains(err, blockindex.ErrActionIndexNA.Error())
+	})
+
+	var (
+		blkDAO  = mock_blockdao.NewMockBlockDAO(ctrl)
+		indexer = mock_blockindex.NewMockIndexer(ctrl)
+		cs      = &coreService{
+			dao:     blkDAO,
+			indexer: indexer,
+		}
+	)
+
+	t.Run("NotContainsTxLog", func(t *testing.T) {
+		blkDAO.EXPECT().ContainsTransactionLog().Return(false).Times(1)
+		_, err := cs.TransactionLogByActionHash("")
+		require.ErrorContains(err, filedao.ErrNotSupported.Error())
+	})
+
+	t.Run("FailedToDecodeString", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		blkDAO.EXPECT().ContainsTransactionLog().Return(true).Times(1)
+
+		p = p.ApplyFuncReturn(hex.DecodeString, nil, errors.New(t.Name()))
+
+		_, err := cs.TransactionLogByActionHash("")
+		require.ErrorContains(err, t.Name())
+	})
+
+	t.Run("FailedToGetActionIndex", func(t *testing.T) {
+		t.Run("EqualErrNotExist", func(t *testing.T) {
+			p := NewPatches()
+			defer p.Reset()
+
+			blkDAO.EXPECT().ContainsTransactionLog().Return(true).Times(1)
+			indexer.EXPECT().GetActionIndex(gomock.Any()).Return(nil, db.ErrNotExist).Times(1)
+
+			p = p.ApplyFuncReturn(hex.DecodeString, []byte("actHash"), nil)
+
+			_, err := cs.TransactionLogByActionHash("")
+			require.ErrorContains(err, db.ErrNotExist.Error())
+		})
+
+		t.Run("NotEqualErrNotExist", func(t *testing.T) {
+			p := NewPatches()
+			defer p.Reset()
+
+			blkDAO.EXPECT().ContainsTransactionLog().Return(true).Times(1)
+			indexer.EXPECT().GetActionIndex(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+
+			p = p.ApplyFuncReturn(hex.DecodeString, []byte("actHash"), nil)
+
+			_, err := cs.TransactionLogByActionHash("")
+			require.ErrorContains(err, t.Name())
+		})
+	})
+
+	t.Run("FailedToTransactionLogs", func(t *testing.T) {
+		t.Run("EqualErrNotExist", func(t *testing.T) {
+			p := NewPatches()
+			defer p.Reset()
+
+			blkDAO.EXPECT().ContainsTransactionLog().Return(true).Times(1)
+			blkDAO.EXPECT().TransactionLogs(gomock.Any()).Return(nil, db.ErrNotExist).Times(1)
+			indexer.EXPECT().GetActionIndex(gomock.Any()).Return(&blockindex.ActionIndex{}, nil).Times(1)
+
+			p = p.ApplyFuncReturn(hex.DecodeString, []byte("actHash"), nil)
+
+			_, err := cs.TransactionLogByActionHash("")
+			require.ErrorContains(err, db.ErrNotExist.Error())
+		})
+
+		t.Run("NotEqualErrNotExist", func(t *testing.T) {
+			p := NewPatches()
+			defer p.Reset()
+
+			blkDAO.EXPECT().ContainsTransactionLog().Return(true).Times(1)
+			blkDAO.EXPECT().TransactionLogs(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+			indexer.EXPECT().GetActionIndex(gomock.Any()).Return(&blockindex.ActionIndex{}, nil).Times(1)
+
+			p = p.ApplyFuncReturn(hex.DecodeString, []byte("actHash"), nil)
+
+			_, err := cs.TransactionLogByActionHash("")
+			require.ErrorContains(err, t.Name())
+		})
+	})
+
+	t.Run("NotFound", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		blkDAO.EXPECT().ContainsTransactionLog().Return(true).Times(1)
+		blkDAO.EXPECT().TransactionLogs(gomock.Any()).Return(&iotextypes.TransactionLogs{}, nil).Times(1)
+		indexer.EXPECT().GetActionIndex(gomock.Any()).Return(&blockindex.ActionIndex{}, nil).Times(1)
+
+		p = p.ApplyFuncReturn(hex.DecodeString, []byte("actHash"), nil)
+
+		_, err := cs.TransactionLogByActionHash("")
+		require.ErrorContains(err, "transaction log not found for action")
+	})
+}
+
+func TestTransactionLogByBlockHeight(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	var (
+		blkDAO = mock_blockdao.NewMockBlockDAO(ctrl)
+		cs     = &coreService{dao: blkDAO}
+	)
+
+	t.Run("NotContainsTxLog", func(t *testing.T) {
+		blkDAO.EXPECT().ContainsTransactionLog().Return(false).Times(1)
+		_, _, err := cs.TransactionLogByBlockHeight(uint64(0))
+		require.ErrorContains(err, filedao.ErrNotSupported.Error())
+	})
+
+	t.Run("FailedToHeight", func(t *testing.T) {
+		blkDAO.EXPECT().ContainsTransactionLog().Return(true).Times(1)
+		blkDAO.EXPECT().Height().Return(uint64(0), errors.New(t.Name())).Times(1)
+
+		_, _, err := cs.TransactionLogByBlockHeight(uint64(0))
+		require.ErrorContains(err, t.Name())
+	})
+
+	t.Run("CheckBlockHeight", func(t *testing.T) {
+		t.Run("BlockHeightLessThanOne", func(t *testing.T) {
+			blkDAO.EXPECT().ContainsTransactionLog().Return(true).Times(1)
+			blkDAO.EXPECT().Height().Return(uint64(0), nil).Times(1)
+
+			_, _, err := cs.TransactionLogByBlockHeight(uint64(0))
+			require.ErrorContains(err, "invalid block height")
+		})
+
+		t.Run("BlockHeightGreaterThanTip", func(t *testing.T) {
+			blkDAO.EXPECT().ContainsTransactionLog().Return(true).Times(1)
+			blkDAO.EXPECT().Height().Return(uint64(0), nil).Times(1)
+
+			_, _, err := cs.TransactionLogByBlockHeight(uint64(2))
+			require.ErrorContains(err, "invalid block height")
+		})
+	})
+
+	t.Run("FailedToGetBlockHash", func(t *testing.T) {
+		t.Run("EqualErrNotExist", func(t *testing.T) {
+			blkDAO.EXPECT().ContainsTransactionLog().Return(true).Times(1)
+			blkDAO.EXPECT().Height().Return(uint64(2), nil).Times(1)
+			blkDAO.EXPECT().GetBlockHash(gomock.Any()).Return(hash.Hash256{}, db.ErrNotExist).Times(1)
+
+			_, _, err := cs.TransactionLogByBlockHeight(uint64(1))
+			require.ErrorContains(err, db.ErrNotExist.Error())
+		})
+
+		t.Run("NotEqualErrNotExist", func(t *testing.T) {
+			blkDAO.EXPECT().ContainsTransactionLog().Return(true).Times(1)
+			blkDAO.EXPECT().Height().Return(uint64(2), nil).Times(1)
+			blkDAO.EXPECT().GetBlockHash(gomock.Any()).Return(hash.Hash256{}, errors.New(t.Name())).Times(1)
+
+			_, _, err := cs.TransactionLogByBlockHeight(uint64(1))
+			require.ErrorContains(err, t.Name())
+		})
+	})
+
+	t.Run("FailedToTransactionLogs", func(t *testing.T) {
+		t.Run("EqualErrNotExist", func(t *testing.T) {
+			blkDAO.EXPECT().ContainsTransactionLog().Return(true).Times(1)
+			blkDAO.EXPECT().Height().Return(uint64(2), nil).Times(1)
+			blkDAO.EXPECT().GetBlockHash(gomock.Any()).Return(hash.Hash256{}, nil).Times(1)
+			blkDAO.EXPECT().TransactionLogs(gomock.Any()).Return(nil, db.ErrNotExist).Times(1)
+
+			blockIdentifier, _, err := cs.TransactionLogByBlockHeight(uint64(1))
+			require.NoError(err)
+			require.Equal(uint64(1), blockIdentifier.Height)
+		})
+
+		t.Run("NotEqualErrNotExist", func(t *testing.T) {
+			blkDAO.EXPECT().ContainsTransactionLog().Return(true).Times(1)
+			blkDAO.EXPECT().Height().Return(uint64(2), nil).Times(1)
+			blkDAO.EXPECT().GetBlockHash(gomock.Any()).Return(hash.Hash256{}, nil).Times(1)
+			blkDAO.EXPECT().TransactionLogs(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+
+			_, _, err := cs.TransactionLogByBlockHeight(uint64(1))
+			require.ErrorContains(err, t.Name())
+		})
+	})
+}
+
 func TestEstimateExecutionGasConsumption(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	svr, _, _, _, cleanCallback := setupTestCoreService()
-	defer cleanCallback()
 
-	callAddr := identityset.Address(29)
-	sc, err := action.NewExecution("", 0, big.NewInt(0), 0, big.NewInt(0), []byte{})
-	require.NoError(err)
+	var (
+		bc = mock_blockchain.NewMockBlockchain(ctrl)
+		sf = mock_factory.NewMockFactory(ctrl)
+		cs = &coreService{
+			bc: bc,
+			sf: sf,
+		}
+		ctx = context.Background()
+	)
 
-	//gasprice is zero
-	sc.SetGasPrice(big.NewInt(0))
-	estimatedGas, err := svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
-	require.NoError(err)
-	require.Equal(uint64(10000), estimatedGas)
+	t.Run("FailedToAccountState", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
 
-	//gasprice no zero, should return error before fixed
-	sc.SetGasPrice(big.NewInt(100))
-	estimatedGas, err = svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
-	require.NoError(err)
-	require.Equal(uint64(10000), estimatedGas)
+		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
+		p = p.ApplyFuncReturn(accountutil.AccountState, nil, errors.New(t.Name()))
 
+		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
+
+		_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+		require.ErrorContains(err, t.Name())
+	})
+
+	t.Run("FailedToCheckGasLimitEnough", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
+		p = p.ApplyFuncReturn(accountutil.AccountState, &state.Account{}, nil)
+		p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)
+		p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
+		p = p.ApplyFuncReturn(protocol.MustGetFeatureCtx, protocol.FeatureCtx{RefactorFreshAccountConversion: true})
+		p = p.ApplyMethodReturn(&state.Account{}, "PendingNonceConsideringFreshAccount", uint64(0))
+		p = p.ApplyMethodReturn(&genesis.Blockchain{}, "BlockGasLimitByHeight", uint64(0))
+		p = p.ApplyPrivateMethod(
+			cs,
+			"isGasLimitEnough",
+			func(
+				ctx context.Context,
+				caller address.Address,
+				sc *action.Execution,
+			) (bool, *action.Receipt, error) {
+				return false, nil, errors.New(t.Name())
+			},
+		)
+
+		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
+		bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
+
+		_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+		require.ErrorContains(err, t.Name())
+	})
+
+	t.Run("GasLimitNotEnough", func(t *testing.T) {
+		t.Run("ExecutionRevertMsgIsNil", func(t *testing.T) {
+			p := NewPatches()
+			defer p.Reset()
+
+			receipt := &action.Receipt{}
+			p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
+			p = p.ApplyFuncReturn(accountutil.AccountState, &state.Account{}, nil)
+			p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)
+			p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
+			p = p.ApplyFuncReturn(protocol.MustGetFeatureCtx, protocol.FeatureCtx{})
+			// pending nonce from state
+			p = p.ApplyMethodReturn(&state.Account{}, "PendingNonce", uint64(0))
+			p = p.ApplyMethodReturn(&genesis.Blockchain{}, "BlockGasLimitByHeight", uint64(0))
+			p = p.ApplyPrivateMethod(
+				cs,
+				"isGasLimitEnough",
+				func(
+					ctx context.Context,
+					caller address.Address,
+					sc *action.Execution,
+				) (bool, *action.Receipt, error) {
+					return false, receipt, nil
+				},
+			)
+			p = p.ApplyMethodReturn(receipt, "ExecutionRevertMsg", "")
+
+			bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
+			bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
+
+			_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+			require.ErrorContains(err, "execution simulation failed:")
+		})
+
+		t.Run("ExecutionRevertMsgIsNotNil", func(t *testing.T) {
+			p := NewPatches()
+			defer p.Reset()
+
+			receipt := &action.Receipt{}
+			p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
+			p = p.ApplyFuncReturn(accountutil.AccountState, &state.Account{}, nil)
+			p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)
+			p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
+			p = p.ApplyFuncReturn(protocol.MustGetFeatureCtx, protocol.FeatureCtx{RefactorFreshAccountConversion: true})
+			// pending nonce from fresh account
+			p = p.ApplyMethodReturn(&state.Account{}, "PendingNonceConsideringFreshAccount", uint64(0))
+			p = p.ApplyMethodReturn(&genesis.Blockchain{}, "BlockGasLimitByHeight", uint64(0))
+			p = p.ApplyPrivateMethod(
+				cs,
+				"isGasLimitEnough",
+				func(
+					ctx context.Context,
+					caller address.Address,
+					sc *action.Execution,
+				) (bool, *action.Receipt, error) {
+					return false, receipt, nil
+				},
+			)
+			p = p.ApplyMethodReturn(receipt, "ExecutionRevertMsg", "TestRevertMsg")
+
+			bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
+			bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
+
+			_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+			require.ErrorContains(err, "execution simulation is reverted due to the reason:")
+		})
+	})
+
+	t.Run("EstimateExecutionGasConsumptionSuccess", func(t *testing.T) {
+		svr, _, _, _, cleanCallback := setupTestCoreService()
+		defer cleanCallback()
+
+		callAddr := identityset.Address(29)
+		sc, err := action.NewExecution("", 0, big.NewInt(0), 0, big.NewInt(0), []byte{})
+		require.NoError(err)
+
+		//gasprice is zero
+		sc.SetGasPrice(big.NewInt(0))
+		estimatedGas, err := svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
+		require.NoError(err)
+		require.Equal(uint64(10000), estimatedGas)
+
+		//gasprice no zero, should return error before fixed
+		sc.SetGasPrice(big.NewInt(100))
+		estimatedGas, err = svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
+		require.NoError(err)
+		require.Equal(uint64(10000), estimatedGas)
+	})
 }
 
 func TestTraceTransaction(t *testing.T) {
@@ -247,11 +634,13 @@ func TestTraceTransaction(t *testing.T) {
 	blk, err := bc.MintNewBlock(blk1Time)
 	require.NoError(err)
 	require.NoError(bc.CommitBlock(blk))
-	cfg := &logger.Config{
-		EnableMemory:     true,
-		DisableStack:     false,
-		DisableStorage:   false,
-		EnableReturnData: true,
+	cfg := &tracers.TraceConfig{
+		Config: &logger.Config{
+			EnableMemory:     true,
+			DisableStack:     false,
+			DisableStorage:   false,
+			EnableReturnData: true,
+		},
 	}
 	retval, receipt, traces, err := svr.TraceTransaction(ctx, hex.EncodeToString(tsfhash[:]), cfg)
 	require.NoError(err)
@@ -259,7 +648,7 @@ func TestTraceTransaction(t *testing.T) {
 	require.Equal(uint64(1), receipt.Status)
 	require.Equal(uint64(0x2710), receipt.GasConsumed)
 	require.Empty(receipt.ExecutionRevertMsg())
-	require.Equal(0, len(traces.StructLogs()))
+	require.Equal(0, len(traces.(*logger.StructLogger).StructLogs()))
 }
 
 func TestTraceCall(t *testing.T) {
@@ -279,11 +668,13 @@ func TestTraceCall(t *testing.T) {
 	blk, err := bc.MintNewBlock(blk1Time)
 	require.NoError(err)
 	require.NoError(bc.CommitBlock(blk))
-	cfg := &logger.Config{
-		EnableMemory:     true,
-		DisableStack:     false,
-		DisableStorage:   false,
-		EnableReturnData: true,
+	cfg := &tracers.TraceConfig{
+		Config: &logger.Config{
+			EnableMemory:     true,
+			DisableStack:     false,
+			DisableStorage:   false,
+			EnableReturnData: true,
+		},
 	}
 	retval, receipt, traces, err := svr.TraceCall(ctx,
 		identityset.Address(29), blk.Height(),
@@ -295,7 +686,7 @@ func TestTraceCall(t *testing.T) {
 	require.Equal(uint64(1), receipt.Status)
 	require.Equal(uint64(0x2710), receipt.GasConsumed)
 	require.Empty(receipt.ExecutionRevertMsg())
-	require.Equal(0, len(traces.StructLogs()))
+	require.Equal(0, len(traces.(*logger.StructLogger).StructLogs()))
 }
 
 func TestProofAndCompareReverseActions(t *testing.T) {
@@ -381,4 +772,471 @@ func TestProofAndCompareReverseActions(t *testing.T) {
 			r.Equal(c.expect, prevExpect)
 		})
 	}
+}
+
+func TestReverseActionsInBlock(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	var (
+		blkDAO   = mock_blockdao.NewMockBlockDAO(ctrl)
+		envelope = mock_envelope.NewMockEnvelope(ctrl)
+		core     = &coreService{dao: blkDAO}
+		blk      = &block.Block{
+			Header: block.Header{},
+			Body: block.Body{
+				Actions: []*action.SealedEnvelope{&action.SealedEnvelope{Envelope: envelope}},
+			},
+			Footer:   block.Footer{},
+			Receipts: nil,
+		}
+		receiptes = []*action.Receipt{
+			&action.Receipt{
+				ActionHash: hash.ZeroHash256,
+			},
+		}
+	)
+
+	t.Run("CheckParams", func(t *testing.T) {
+		t.Run("ReverseStartGreaterThanSize", func(t *testing.T) {
+			actions := core.reverseActionsInBlock(blk, 2, 1)
+			require.Empty(actions)
+		})
+
+		t.Run("CountIsZero", func(t *testing.T) {
+			actions := core.reverseActionsInBlock(blk, 1, 0)
+			require.Empty(actions)
+		})
+	})
+
+	t.Run("FailedToGetReceiptFromDAO", func(t *testing.T) {
+		blkDAO.EXPECT().GetReceipts(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+		actions := core.reverseActionsInBlock(blk, 0, 1)
+		require.Empty(actions)
+	})
+
+	t.Run("ForeachActions", func(t *testing.T) {
+		t.Run("FailedToHash", func(t *testing.T) {
+			p := NewPatches()
+			defer p.Reset()
+
+			p = p.ApplyMethodReturn(&action.SealedEnvelope{}, "Hash", nil, errors.New(t.Name()))
+
+			blkDAO.EXPECT().GetReceipts(gomock.Any()).Return(receiptes, nil).Times(1)
+
+			actions := core.reverseActionsInBlock(blk, 0, 1)
+			require.Empty(actions)
+		})
+
+		t.Run("FailedToGetReceiptFromMap", func(t *testing.T) {
+			p := NewPatches()
+			defer p.Reset()
+
+			p = p.ApplyMethodReturn(&action.SealedEnvelope{}, "Hash", hash.BytesToHash256([]byte("test")), nil)
+
+			blkDAO.EXPECT().GetReceipts(gomock.Any()).Return(receiptes, nil).Times(1)
+
+			actions := core.reverseActionsInBlock(blk, 0, 1)
+			require.Empty(actions)
+		})
+
+		t.Run("ReverseActionsInBlockSuccess", func(t *testing.T) {
+			p := NewPatches()
+			defer p.Reset()
+
+			p = p.ApplyMethodReturn(&action.SealedEnvelope{}, "Hash", hash.ZeroHash256, nil)
+			p = p.ApplyMethodReturn(&action.SealedEnvelope{}, "SenderAddress", identityset.Address(1))
+			p = p.ApplyMethodReturn(&action.SealedEnvelope{}, "Proto", &iotextypes.Action{})
+			p = p.ApplyMethodReturn(&block.Header{}, "BlockHeaderCoreProto", &iotextypes.BlockHeaderCore{Timestamp: timestamppb.Now()})
+
+			blkDAO.EXPECT().GetReceipts(gomock.Any()).Return(receiptes, nil).Times(1)
+			envelope.EXPECT().GasPrice().Return(big.NewInt(1)).Times(1)
+			actions := core.reverseActionsInBlock(blk, 0, 1)
+			require.Equal(1, len(actions))
+		})
+	})
+
+	t.Run("StartIsNotZero", func(t *testing.T) {
+		blkDAO.EXPECT().GetReceipts(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+		blk.Actions = append(blk.Actions, &action.SealedEnvelope{})
+		actions := core.reverseActionsInBlock(blk, 0, 1)
+		require.Empty(actions)
+	})
+}
+
+func TestActions(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	indexer := mock_blockindex.NewMockIndexer(ctrl)
+	cs := &coreService{
+		cfg:     DefaultConfig,
+		indexer: indexer,
+	}
+
+	t.Run("FailedToCheckActionIndex", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyPrivateMethod(
+			cs,
+			"checkActionIndex",
+			func() error {
+				return errors.New(t.Name())
+			},
+		)
+		_, err := cs.Actions(0, 0)
+		require.EqualError(err, t.Name())
+	})
+
+	t.Run("CountIsZero", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyPrivateMethod(
+			cs,
+			"checkActionIndex",
+			func() error {
+				return nil
+			},
+		)
+
+		_, err := cs.Actions(0, 0)
+		require.ErrorContains(err, "count must be greater than zero")
+	})
+
+	t.Run("CountIsGreaterThanRange", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyPrivateMethod(
+			cs,
+			"checkActionIndex",
+			func() error {
+				return nil
+			},
+		)
+
+		_, err := cs.Actions(0, 1001)
+		require.ErrorContains(err, "range exceeds the limit")
+	})
+
+	t.Run("FailedToGetTotalActions", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyPrivateMethod(
+			cs,
+			"checkActionIndex",
+			func() error {
+				return nil
+			},
+		)
+
+		indexer.EXPECT().GetTotalActions().Return(uint64(0), errors.New(t.Name())).Times(1)
+		_, err := cs.Actions(0, 1)
+		require.ErrorContains(err, t.Name())
+	})
+
+	t.Run("StartGreaterThanTotalActions", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyPrivateMethod(
+			cs,
+			"checkActionIndex",
+			func() error {
+				return nil
+			},
+		)
+
+		// greater than totalActions
+		indexer.EXPECT().GetTotalActions().Return(uint64(0), nil).Times(1)
+		_, err := cs.Actions(1, 1)
+		require.ErrorContains(err, "start exceeds the total actions in the block")
+
+		// equal totalActions
+		indexer.EXPECT().GetTotalActions().Return(uint64(2), nil).Times(1)
+		_, err = cs.Actions(2, 1)
+		require.ErrorContains(err, "start exceeds the total actions in the block")
+	})
+
+	t.Run("GetActionsFromIndexer", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyPrivateMethod(
+			cs,
+			"checkActionIndex",
+			func() error {
+				return nil
+			},
+		)
+
+		indexer.EXPECT().GetTotalActions().Return(uint64(1), nil).Times(1)
+		p = p.ApplyPrivateMethod(
+			cs,
+			"getActionsFromIndex",
+			func(totalActions, start, count uint64) ([]*iotexapi.ActionInfo, error) {
+				return nil, nil
+			},
+		)
+		infos, err := cs.Actions(0, 1)
+		require.NoError(err)
+		require.Empty(infos)
+	})
+}
+
+func TestCheckActionIndex(t *testing.T) {
+	require := require.New(t)
+
+	cs := &coreService{}
+	t.Run("IndexerIsNil", func(t *testing.T) {
+		err := cs.checkActionIndex()
+		require.ErrorContains(err, "no action index")
+	})
+}
+
+func TestReceiveBlock(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	listener := mock_apitypes.NewMockListener(ctrl)
+	cs := &coreService{
+		readCache:     &ReadCache{},
+		chainListener: listener,
+	}
+
+	t.Run("FailedToReceiveBlock", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyMethodReturn(cs.readCache, "Clear")
+		listener.EXPECT().ReceiveBlock(gomock.Any()).Return(errors.New(t.Name())).Times(1)
+		err := cs.ReceiveBlock(&block.Block{})
+		require.ErrorContains(err, t.Name())
+	})
+
+	t.Run("ReceiveBlockSuccess", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyMethodReturn(cs.readCache, "Clear")
+		listener.EXPECT().ReceiveBlock(gomock.Any()).Return(nil).Times(1)
+		err := cs.ReceiveBlock(&block.Block{})
+		require.NoError(err)
+	})
+}
+
+func TestSimulateExecution(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	var (
+		bc  = mock_blockchain.NewMockBlockchain(ctrl)
+		dao = mock_blockdao.NewMockBlockDAO(ctrl)
+		cs  = &coreService{
+			bc:  bc,
+			dao: dao,
+		}
+		ctx = context.Background()
+	)
+
+	t.Run("FailedToAccountState", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
+		p = p.ApplyFuncReturn(accountutil.AccountState, nil, errors.New(t.Name()))
+		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
+
+		_, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, &action.Execution{})
+		require.ErrorContains(err, t.Name())
+	})
+
+	t.Run("FailedToContext", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
+		p = p.ApplyFuncReturn(accountutil.AccountState, &state.Account{}, nil)
+		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
+		bc.EXPECT().Context(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+
+		_, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, &action.Execution{})
+		require.ErrorContains(err, t.Name())
+	})
+
+	t.Run("GetPendingNonceFromFreshAccount", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
+		p = p.ApplyFuncReturn(accountutil.AccountState, &state.Account{}, nil)
+		p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)
+		p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
+		p = p.ApplyFuncReturn(protocol.MustGetFeatureCtx, protocol.FeatureCtx{RefactorFreshAccountConversion: true})
+		p = p.ApplyMethodReturn(&state.Account{}, "PendingNonceConsideringFreshAccount", uint64(0))
+		p = p.ApplyMethodReturn(&genesis.Blockchain{}, "BlockGasLimitByHeight", uint64(0))
+		p = p.ApplyPrivateMethod(
+			cs,
+			"simulateExecution",
+			func(ctx context.Context, addr address.Address, exec *action.Execution, getBlockHash evm.GetBlockHash, getBlockTime evm.GetBlockTime) ([]byte, *action.Receipt, error) {
+				return []byte("success"), nil, nil
+			},
+		)
+
+		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
+		bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).Times(1)
+		bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
+
+		bytes, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, &action.Execution{})
+		require.NoError(err)
+		require.Equal([]byte("success"), bytes)
+	})
+
+	t.Run("GetPendingNonce", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
+		p = p.ApplyFuncReturn(accountutil.AccountState, &state.Account{}, nil)
+		p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)
+		p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
+		p = p.ApplyFuncReturn(protocol.MustGetFeatureCtx, protocol.FeatureCtx{})
+		p = p.ApplyMethodReturn(&state.Account{}, "PendingNonce", uint64(0))
+		p = p.ApplyMethodReturn(&genesis.Blockchain{}, "BlockGasLimitByHeight", uint64(0))
+		p = p.ApplyPrivateMethod(
+			cs,
+			"simulateExecution",
+			func(ctx context.Context, addr address.Address, exec *action.Execution, getBlockHash evm.GetBlockHash, getBlockTime evm.GetBlockTime) ([]byte, *action.Receipt, error) {
+				return []byte("success"), nil, nil
+			},
+		)
+
+		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
+		bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).Times(1)
+		bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
+
+		bytes, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, &action.Execution{})
+		require.NoError(err)
+		require.Equal([]byte("success"), bytes)
+	})
+}
+
+func TestSyncingProgress(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bs := mock_blocksync.NewMockBlockSync(ctrl)
+	cs := &coreService{bs: bs}
+	bs.EXPECT().SyncStatus().Return(uint64(0), uint64(0), uint64(0), "").Times(1)
+	startingHeight, currentHeight, targetHeight := cs.SyncingProgress()
+	require.Equal(uint64(0), startingHeight)
+	require.Equal(uint64(0), currentHeight)
+	require.Equal(uint64(0), targetHeight)
+}
+
+func TestTrack(t *testing.T) {
+	cs := &coreService{}
+	t.Run("ApiStatsIsNil", func(t *testing.T) {
+		cs.Track(nil, time.Now(), "", 0, true)
+	})
+
+	cs.apiStats = &nodestats.APILocalStats{}
+	t.Run("ApiStatsIsNotNil", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyFuncReturn(time.Since, time.Duration(0))
+		p = p.ApplyMethodReturn(cs.apiStats, "ReportCall")
+		cs.Track(nil, time.Now(), "", 0, true)
+	})
+}
+
+func TestTraceTx(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	var (
+		bc = mock_blockchain.NewMockBlockchain(ctrl)
+		cs = &coreService{
+			bc: bc,
+		}
+		ctx = context.Background()
+	)
+
+	t.Run("ConfigIsNil", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyFuncReturn(logger.NewStructLogger, nil)
+		p = p.ApplyFuncReturn(protocol.WithVMConfigCtx, ctx)
+		p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
+		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
+		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
+		p = p.ApplyFuncReturn(protocol.WithBlockchainCtx, ctx)
+		p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)
+		retval, receipt, tracer, err := cs.traceTx(ctx, nil, nil, func(ctx context.Context) ([]byte, *action.Receipt, error) {
+			return nil, nil, nil
+		})
+		require.NoError(err)
+		require.Empty(retval)
+		require.Empty(receipt)
+		require.Empty(tracer)
+	})
+
+	t.Run("TracerIsNotNil", func(t *testing.T) {
+
+		t.Run("FailedToParseDuration", func(t *testing.T) {
+			p := NewPatches()
+			defer p.Reset()
+
+			p = p.ApplyFuncReturn(time.ParseDuration, nil, errors.New(t.Name()))
+
+			testStr := "TestTracer"
+			_, _, _, err := cs.traceTx(ctx, nil, &tracers.TraceConfig{Tracer: &testStr, Timeout: &testStr}, func(ctx context.Context) ([]byte, *action.Receipt, error) {
+				return nil, nil, nil
+			})
+			require.ErrorContains(err, t.Name())
+		})
+
+		t.Run("FailedToNewTracer", func(t *testing.T) {
+			p := NewPatches()
+			defer p.Reset()
+
+			p = p.ApplyMethodReturn(&tracers.DefaultDirectory, "New", nil, errors.New(t.Name()))
+			testStr := "TestTracer"
+			_, _, _, err := cs.traceTx(ctx, nil, &tracers.TraceConfig{Tracer: &testStr}, func(ctx context.Context) ([]byte, *action.Receipt, error) {
+				return nil, nil, nil
+			})
+			require.ErrorContains(err, t.Name())
+		})
+	})
+
+	t.Run("TracerIsNil", func(t *testing.T) {
+		p := NewPatches()
+		defer p.Reset()
+
+		p = p.ApplyFuncReturn(logger.NewStructLogger, nil)
+		p = p.ApplyFuncReturn(protocol.WithVMConfigCtx, ctx)
+		p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
+		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
+		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
+		p = p.ApplyFuncReturn(protocol.WithBlockchainCtx, ctx)
+		p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)
+		retval, receipt, tracer, err := cs.traceTx(ctx, nil, &tracers.TraceConfig{}, func(ctx context.Context) ([]byte, *action.Receipt, error) {
+			return nil, nil, nil
+		})
+		require.NoError(err)
+		require.Empty(retval)
+		require.Empty(receipt)
+		require.Empty(tracer)
+	})
 }

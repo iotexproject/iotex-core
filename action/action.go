@@ -38,8 +38,8 @@ type (
 )
 
 // Sign signs the action using sender's private key
-func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
-	sealed := SealedEnvelope{
+func Sign(act Envelope, sk crypto.PrivateKey) (*SealedEnvelope, error) {
+	sealed := &SealedEnvelope{
 		Envelope:  act,
 		srcPubkey: sk.PublicKey(),
 	}
@@ -58,8 +58,8 @@ func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
 
 // FakeSeal creates a SealedActionEnvelope without signature.
 // This method should be only used in tests.
-func FakeSeal(act Envelope, pubk crypto.PublicKey) SealedEnvelope {
-	sealed := SealedEnvelope{
+func FakeSeal(act Envelope, pubk crypto.PublicKey) *SealedEnvelope {
+	sealed := &SealedEnvelope{
 		Envelope:  act,
 		srcPubkey: pubk,
 	}
@@ -68,8 +68,8 @@ func FakeSeal(act Envelope, pubk crypto.PublicKey) SealedEnvelope {
 
 // AssembleSealedEnvelope assembles a SealedEnvelope use Envelope, Sender Address and Signature.
 // This method should be only used in tests.
-func AssembleSealedEnvelope(act Envelope, pk crypto.PublicKey, sig []byte) SealedEnvelope {
-	sealed := SealedEnvelope{
+func AssembleSealedEnvelope(act Envelope, pk crypto.PublicKey, sig []byte) *SealedEnvelope {
+	sealed := &SealedEnvelope{
 		Envelope:  act,
 		srcPubkey: pk,
 		signature: sig,
@@ -89,7 +89,7 @@ func CalculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSi
 }
 
 // IsSystemAction determine whether input action belongs to system action
-func IsSystemAction(act SealedEnvelope) bool {
+func IsSystemAction(act *SealedEnvelope) bool {
 	switch act.Action().(type) {
 	case *GrantReward, *PutPollResult:
 		return true

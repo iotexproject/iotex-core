@@ -82,6 +82,7 @@ func TestBroadcast(t *testing.T) {
 			Port:              port,
 			BootstrapNodes:    []string{bootnodeAddr[0].String()},
 			ReconnectInterval: 150 * time.Second,
+			MaxMessageSize:    p2p.DefaultConfig.MaxMessageSize,
 		}, 1, hash.ZeroHash256, b, u)
 		agent.Start(ctx)
 		agents = append(agents, agent)

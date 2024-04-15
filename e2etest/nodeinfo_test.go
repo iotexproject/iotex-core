@@ -94,10 +94,11 @@ func TestBroadcastNodeInfo(t *testing.T) {
 
 	// check if there is sender's info in reciever delegatemanager
 	require.NoError(srvSender.ChainService(cfgSender.Chain.ID).NodeInfoManager().BroadcastNodeInfo(context.Background()))
-	time.Sleep(1 * time.Second)
 	addrSender := cfgSender.Chain.ProducerAddress().String()
-	_, ok := srvReciever.ChainService(cfgReciever.Chain.ID).NodeInfoManager().GetNodeInfo(addrSender)
-	require.True(ok)
+	require.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
+		_, ok := srvReciever.ChainService(cfgReciever.Chain.ID).NodeInfoManager().GetNodeInfo(addrSender)
+		return ok, nil
+	}))
 }
 
 func TestUnicastNodeInfo(t *testing.T) {
@@ -138,8 +139,9 @@ func TestUnicastNodeInfo(t *testing.T) {
 	dmSender := srvSender.ChainService(cfgSender.Chain.ID).NodeInfoManager()
 	err = dmSender.RequestSingleNodeInfoAsync(context.Background(), peerReciever)
 	require.NoError(err)
-	time.Sleep(1 * time.Second)
 	addrReciever := cfgReciever.Chain.ProducerAddress().String()
-	_, ok := dmSender.GetNodeInfo(addrReciever)
-	require.True(ok)
+	require.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
+		_, ok := dmSender.GetNodeInfo(addrReciever)
+		return ok, nil
+	}))
 }

@@ -6,9 +6,9 @@
 
 #Specific owners
 /consensus/	    @CoderZhi @dustinxie @Liuhaai @envestcc
-/ioctl/  	    @CoderZhi @dustinxie @Liuhaai
-/api/   		    @CoderZhi @dustinxie @Liuhaai @millken
-/config/	        @CoderZhi @dustinxie @Liuhaai @envestcc
+/ioctl/  	    @CoderZhi @dustinxie @Liuhaai @envestcc @millken
+/api/   		    @CoderZhi @dustinxie @Liuhaai @millken @envestcc
+/config/	        @CoderZhi @dustinxie @Liuhaai @envestcc @millken
 /p2p/		    @CoderZhi @dustinxie @Liuhaai @envestcc
 /action/		    @CoderZhi @dustinxie @Liuhaai @envestcc
 /blockchain/	    @CoderZhi @dustinxie @Liuhaai
@@ -21,4 +21,4 @@
 /state/		    @CoderZhi @dustinxie @Liuhaai
 /actpool/		@CoderZhi @dustinxie @Liuhaai
 /nodeinfo/ 		@CoderZhi @dustinxie @envestcc
-/.github/ 		@CoderZhi @dustinxie @Liuhaai @xianhuawei
+/.github/ 		@CoderZhi @dustinxie @Liuhaai
