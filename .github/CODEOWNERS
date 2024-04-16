@@ -11,10 +11,10 @@
 /config/	        @CoderZhi @dustinxie @Liuhaai @envestcc @millken
 /p2p/		    @CoderZhi @dustinxie @Liuhaai @envestcc
 /action/		    @CoderZhi @dustinxie @Liuhaai @envestcc
-/blockchain/	    @CoderZhi @dustinxie @Liuhaai
-/blockindex/	    @CoderZhi @dustinxie @Liuhaai
-/crypto/		    @CoderZhi @dustinxie @Liuhaai
-/db/		        @CoderZhi @dustinxie @Liuhaai
+/blockchain/	    @CoderZhi @dustinxie @Liuhaai @envestcc
+/blockindex/	    @CoderZhi @dustinxie @Liuhaai @envestcc
+/crypto/		    @CoderZhi @dustinxie @Liuhaai @envestcc
+/db/		        @CoderZhi @dustinxie @Liuhaai @envestcc
 /dispatcher/	    @CoderZhi @dustinxie @Liuhaai @envestcc
 /pkg/		    @CoderZhi @dustinxie @Liuhaai
 /server/		    @CoderZhi @dustinxie @Liuhaai
