@@ -23,16 +23,19 @@ type Config struct {
 	Tracer          tracer.Config     `yaml:"tracer"`
 	// BatchRequestLimit is the maximum number of requests in a batch.
 	BatchRequestLimit int `yaml:"batchRequestLimit"`
+	// WebsocketRateLimit is the maximum number of messages per second per client.
+	WebsocketRateLimit int `yaml:"websocketRateLimit"`
 }
 
 // DefaultConfig is the default config
 var DefaultConfig = Config{
-	UseRDS:            false,
-	GRPCPort:          14014,
-	HTTPPort:          15014,
-	WebSocketPort:     16014,
-	TpsWindow:         10,
-	GasStation:        gasstation.DefaultConfig,
-	RangeQueryLimit:   1000,
-	BatchRequestLimit: _defaultBatchRequestLimit,
+	UseRDS:             false,
+	GRPCPort:           14014,
+	HTTPPort:           15014,
+	WebSocketPort:      16014,
+	TpsWindow:          10,
+	GasStation:         gasstation.DefaultConfig,
+	RangeQueryLimit:    1000,
+	BatchRequestLimit:  _defaultBatchRequestLimit,
+	WebsocketRateLimit: 5,
 }

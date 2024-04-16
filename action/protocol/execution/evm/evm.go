@@ -450,6 +450,12 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 	}
 	sumatraTimestamp := (uint64)(sumatraTime.Unix())
 	chainConfig.ShanghaiTime = &sumatraTimestamp
+	upernavikTime, err := getBlockTime(g.UpernavikBlockHeight)
+	if err != nil {
+		return nil, err
+	}
+	upernavikTimestamp := (uint64)(upernavikTime.Unix())
+	chainConfig.CancunTime = &upernavikTimestamp
 	return &chainConfig, nil
 }
 

@@ -2,13 +2,19 @@ package api
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	. "github.com/agiledragon/gomonkey/v2"
 	"github.com/golang/mock/gomock"
+	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
+	"golang.org/x/time/rate"
 
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
 )
@@ -182,5 +188,53 @@ func TestServerV2(t *testing.T) {
 			err := svr.Stop(ctx)
 			require.ErrorContains(err, t.Name())
 		})
+	})
+
+	t.Run("websocket rate limit", func(t *testing.T) {
+		// set the limiter to 1 request per second
+		limiter := rate.NewLimiter(1, 1)
+		echo := func(w http.ResponseWriter, r *http.Request) {
+			c, err := upgrader.Upgrade(w, r, nil)
+			if err != nil {
+				return
+			}
+			defer c.Close()
+			for {
+				if err := limiter.Wait(ctx); err != nil {
+					return
+				}
+				mt, message, err := c.ReadMessage()
+				if err != nil {
+					break
+				}
+				err = c.WriteMessage(mt, message)
+				if err != nil {
+					break
+				}
+			}
+		}
+		s := httptest.NewServer(http.HandlerFunc(echo))
+		defer s.Close()
+
+		u := "ws" + strings.TrimPrefix(s.URL, "http")
+		c, _, err := websocket.DefaultDialer.Dial(u, nil)
+		require.NoError(err)
+		defer c.Close()
+		i := 0
+		timeout := time.After(3 * time.Second)
+	LOOP:
+		for {
+			select {
+			case <-timeout:
+				break LOOP
+			default:
+				err := c.WriteMessage(websocket.TextMessage, []byte{0})
+				require.NoError(err)
+				_, _, err = c.ReadMessage()
+				require.NoError(err)
+				i++
+			}
+		}
+		require.Equal(4, i)
 	})
 }

@@ -243,8 +243,19 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	} else {
 		log.Logger("api").Debug("web3Debug", zap.String("response", fmt.Sprintf("%+v", res)))
 	}
+	var id any
+	reqID := web3Req.Get("id")
+	switch reqID.Type {
+	case gjson.String:
+		id = reqID.String()
+	case gjson.Number:
+		id = reqID.Int()
+	default:
+		id = 0
+		res, err = nil, errors.New("invalid id type")
+	}
 	size, err1 = writer.Write(&web3Response{
-		id:     int(web3Req.Get("id").Int()),
+		id:     id,
 		result: res,
 		err:    err,
 	})
@@ -961,6 +972,13 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 			DisableStorage:   disableStorage,
 			EnableReturnData: enableReturnData,
 		},
+	}
+	if tracer := options.Get("tracer"); tracer.Exists() {
+		cfg.Tracer = new(string)
+		*cfg.Tracer = tracer.String()
+		if tracerConfig := options.Get("tracerConfig"); tracerConfig.Exists() {
+			cfg.TracerConfig = json.RawMessage(tracerConfig.Raw)
+		}
 	}
 	retval, receipt, tracer, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
 	if err != nil {
