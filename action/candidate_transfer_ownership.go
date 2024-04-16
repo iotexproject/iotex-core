@@ -88,7 +88,6 @@ func NewCandidateTransferOwnership(nonce, gasLimit uint64, gasPrice *big.Int,
 	}, nil
 }
 
-// NewCandidateTransferOwnershipFromAction decode data to CandidateTransferOwnership
 func NewCandidateTransferOwnershipFromABIBinary(data []byte) (*CandidateTransferOwnership, error) {
 	var (
 		paramsMap = map[string]any{}
