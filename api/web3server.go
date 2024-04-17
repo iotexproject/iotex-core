@@ -465,25 +465,16 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 		pubkey   crypto.PublicKey
 		err      error
 	)
-	if g := cs.Genesis(); g.IsSumatra(cs.TipHeight()) {
-		tx, err = action.DecodeEtherTx(dataStr.String())
-		if err != nil {
-			return nil, err
-		}
-		if tx.Protected() && tx.ChainId().Uint64() != uint64(cs.EVMNetworkID()) {
-			return nil, errors.Wrapf(errInvalidEvmChainID, "expect chainID = %d, got %d", cs.EVMNetworkID(), tx.ChainId().Uint64())
-		}
-		encoding, sig, pubkey, err = action.ExtractTypeSigPubkey(tx)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		tx, sig, pubkey, err = action.DecodeRawTx(dataStr.String(), cs.EVMNetworkID())
-		if err != nil {
-			return nil, err
-		}
-		// before Sumatra height, all tx are EIP-155 format
-		encoding = iotextypes.Encoding_ETHEREUM_EIP155
+	tx, err = action.DecodeEtherTx(dataStr.String())
+	if err != nil {
+		return nil, err
+	}
+	if tx.Protected() && tx.ChainId().Uint64() != uint64(cs.EVMNetworkID()) {
+		return nil, errors.Wrapf(errInvalidEvmChainID, "expect chainID = %d, got %d", cs.EVMNetworkID(), tx.ChainId().Uint64())
+	}
+	encoding, sig, pubkey, err = action.ExtractTypeSigPubkey(tx)
+	if err != nil {
+		return nil, err
 	}
 	elp, err := svr.ethTxToEnvelope(tx)
 	if err != nil {
