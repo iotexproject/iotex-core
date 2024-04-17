@@ -35,7 +35,7 @@ func init() {
 }
 
 type sendMessageReq struct {
-	ProjectID      uint64 `json:"flagProjectID"`
+	ProjectID      uint64 `json:"projectID"`
 	ProjectVersion string `json:"projectVersion"`
 	Data           string `json:"data"`
 }
