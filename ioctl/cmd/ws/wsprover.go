@@ -42,14 +42,13 @@ var (
 
 var (
 	//go:embed contracts/abis/W3bstreamProver.json
-	proverStoreJSON []byte
-	// proverStoreAddress = "0x57C1B2b85e28A7EEbced2e4ccc397d093D45E50c"
-	proverStoreAddress = "0xa9bed62ADB1708E0c501664C9CE6A34BC4Fc246b"
+	proverStoreJSON    []byte
+	proverStoreAddress string
 	proverStoreABI     abi.ABI
 
 	//go:embed contracts/abis/FleetManagement.json
 	fleetManagementJSON    []byte
-	fleetManagementAddress = "0x698D8cEfe0c2E603DCA4B7815cb8E67F251eCF37"
+	fleetManagementAddress string
 	fleetManagementABI     abi.ABI
 )
 
@@ -77,10 +76,12 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	proverStoreAddress = config.ReadConfig.WsProverStoreContract
 	fleetManagementABI, err = abi.JSON(bytes.NewReader(fleetManagementJSON))
 	if err != nil {
 		panic(err)
 	}
+	fleetManagementAddress = config.ReadConfig.WsFleetManagementContract
 
 	WsCmd.AddCommand(wsProverCmd)
 }

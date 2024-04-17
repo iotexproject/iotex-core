@@ -41,9 +41,24 @@ var (
 		config.Chinese: "一次设置ipfs网关",
 	}
 
-	_flagContractAddressUsages = map[config.Language]string{
+	_flagProjectRegisterContractAddressUsages = map[config.Language]string{
 		config.English: "set w3bsteram project register contract address for once",
 		config.Chinese: "一次设置w3bstream项目注册合约地址",
+	}
+
+	_flagProjectStoreContractAddressUsages = map[config.Language]string{
+		config.English: "set w3bsteram project store contract address for once",
+		config.Chinese: "一次设置w3bstream项目存储合约地址",
+	}
+
+	_flagFleetManagementContractAddressUsages = map[config.Language]string{
+		config.English: "set w3bsteram fleet management contract address for once",
+		config.Chinese: "一次设置w3bstream项目管理合约地址",
+	}
+
+	_flagProverStoreContractAddressUsages = map[config.Language]string{
+		config.English: "set w3bsteram prover store contract address for once",
+		config.Chinese: "一次设置w3bstream prover存储合约地址",
 	}
 )
 
@@ -65,7 +80,19 @@ func init() {
 		config.ReadConfig.IPFSGateway, config.TranslateInLang(_flagIPFSGatewayUsages, config.UILanguage),
 	)
 	WsCmd.PersistentFlags().StringVar(
-		&config.ReadConfig.WsRegisterContract, "contract-address",
-		config.ReadConfig.WsRegisterContract, config.TranslateInLang(_flagContractAddressUsages, config.UILanguage),
+		&config.ReadConfig.WsProjectRegisterContract, "project-register-contract",
+		config.ReadConfig.WsProjectRegisterContract, config.TranslateInLang(_flagProjectRegisterContractAddressUsages, config.UILanguage),
+	)
+	WsCmd.PersistentFlags().StringVar(
+		&config.ReadConfig.WsProjectStoreContract, "project-store-contract",
+		config.ReadConfig.WsProjectStoreContract, config.TranslateInLang(_flagProjectStoreContractAddressUsages, config.UILanguage),
+	)
+	WsCmd.PersistentFlags().StringVar(
+		&config.ReadConfig.WsFleetManagementContract, "fleet-management-contract",
+		config.ReadConfig.WsFleetManagementContract, config.TranslateInLang(_flagFleetManagementContractAddressUsages, config.UILanguage),
+	)
+	WsCmd.PersistentFlags().StringVar(
+		&config.ReadConfig.WsProverStoreContract, "prover-store-contract",
+		config.ReadConfig.WsProverStoreContract, config.TranslateInLang(_flagProverStoreContractAddressUsages, config.UILanguage),
 	)
 }

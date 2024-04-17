@@ -78,12 +78,12 @@ var (
 	//go:embed contracts/abis/ProjectRegistrar.json
 	projectRegistrarJSON []byte
 	projectRegistrarABI  abi.ABI
-	projectRegistrarAddr = "0x80b49a5788DcE3eAbFcc46780dEA965602f869C9"
+	projectRegistrarAddr string
 
 	//go:embed contracts/abis/W3bstreamProject.json
 	projectStoreJSON    []byte
 	projectStoreABI     abi.ABI
-	projectStoreAddress = "0xf9B976C0127BC38E56fb97B0B1e1408e6F2737CE"
+	projectStoreAddress string
 )
 
 // contract function
@@ -113,10 +113,12 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	projectRegistrarAddr = config.ReadConfig.WsProjectRegisterContract
 	projectStoreABI, err = abi.JSON(bytes.NewReader(projectStoreJSON))
 	if err != nil {
 		panic(err)
 	}
+	projectStoreAddress = config.ReadConfig.WsProjectStoreContract
 
 	WsCmd.AddCommand(wsProject)
 }
