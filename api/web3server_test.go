@@ -1255,7 +1255,7 @@ func TestDebugTraceCall(t *testing.T) {
 	in := gjson.Parse(`{"method":"debug_traceCall","params":[{"from":null,"to":"0x6b175474e89094c44da98b954eedeac495271d0f","data":"0x70a082310000000000000000000000006E0d01A76C3Cf4288372a29124A26D4353EE51BE"}, {"blockNumber":1}],"id":1,"jsonrpc":"2.0"}`)
 	ret, err := web3svr.traceCall(ctx, &in)
 	require.NoError(err)
-	rlt, ok := ret.(*debugTraceTransactionResult)
+	rlt, ok := ret.(*apitypes.DebugTxTraceResult)
 	require.True(ok)
 	require.Equal("0x01", rlt.ReturnValue)
 	require.False(rlt.Failed)
