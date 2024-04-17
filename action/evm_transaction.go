@@ -38,6 +38,8 @@ func NewEvmTx(a Action) *EvmTransaction {
 	switch act := a.(type) {
 	case *Execution:
 		tx.inner = act
+	case *DynamicFeeTx:
+		tx.inner = act
 	default:
 		panic("unsupported action type")
 	}
