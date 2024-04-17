@@ -92,6 +92,7 @@ func NewCandidateTransferOwnership(nonce, gasLimit uint64, gasPrice *big.Int, na
 	}, nil
 }
 
+// NewCandidateTransferOwnershipFromAction decode data to CandidateTransferOwnership
 func NewCandidateTransferOwnershipFromABIBinary(data []byte) (*CandidateTransferOwnership, error) {
 	var (
 		paramsMap = map[string]any{}
@@ -145,7 +146,7 @@ func (act *CandidateTransferOwnership) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(act.Proto()))
 }
 
-// Proto converts to protobuf CandidateRegister Action
+// Proto converts to protobuf CandidateTransferOwnership Action
 func (act *CandidateTransferOwnership) Proto() *iotextypes.CandidateTransferOwnership {
 	ac := iotextypes.CandidateTransferOwnership{
 		CandidateName:   act.Name(),
