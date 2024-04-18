@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
 	mock_apitypes "github.com/iotexproject/iotex-core/test/mock/mock_apiresponder"
@@ -434,8 +433,6 @@ func TestSendRawTransaction(t *testing.T) {
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
-	core.EXPECT().Genesis().Return(genesis.Default)
-	core.EXPECT().TipHeight().Return(uint64(0))
 	core.EXPECT().EVMNetworkID().Return(uint32(1))
 	core.EXPECT().ChainID().Return(uint32(1))
 	core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{IsContract: true}, nil, nil)
@@ -1265,4 +1262,38 @@ func TestDebugTraceCall(t *testing.T) {
 	require.Equal(uint64(100000), rlt.Gas)
 	require.Empty(rlt.Revert)
 	require.Equal(0, len(rlt.StructLogs))
+}
+
+func TestResponseIDMatchTypeWithRequest(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core.EXPECT().TipHeight().Return(uint64(1)).AnyTimes()
+	core.EXPECT().Track(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
+	svr := newHTTPHandler(NewWeb3Handler(core, "", _defaultBatchRequestLimit))
+	getServerResp := func(svr *hTTPHandler, req *http.Request) *httptest.ResponseRecorder {
+		req.Header.Set("Content-Type", "application/json")
+		resp := httptest.NewRecorder()
+		svr.ServeHTTP(resp, req)
+		return resp
+	}
+	tests := []struct {
+		req string
+		sub string
+	}{
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":1}`, `"id":1`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":"1"}`, `"id":"1"`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":"0x32"}`, `"id":"0x32"`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":[]}`, `error`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":[1]}`, `error`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":0x32}`, `error`},
+		{`{"jsonrpc":"2.0","method":"eth_blockNumber","id":{1}}`, `error`},
+	}
+	for _, tt := range tests {
+		request, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(tt.req))
+		response := getServerResp(svr, request)
+		bodyBytes, _ := io.ReadAll(response.Body)
+		require.Contains(string(bodyBytes), tt.sub)
+	}
 }

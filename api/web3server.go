@@ -243,8 +243,19 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	} else {
 		log.Logger("api").Debug("web3Debug", zap.String("response", fmt.Sprintf("%+v", res)))
 	}
+	var id any
+	reqID := web3Req.Get("id")
+	switch reqID.Type {
+	case gjson.String:
+		id = reqID.String()
+	case gjson.Number:
+		id = reqID.Int()
+	default:
+		id = 0
+		res, err = nil, errors.New("invalid id type")
+	}
 	size, err1 = writer.Write(&web3Response{
-		id:     int(web3Req.Get("id").Int()),
+		id:     id,
 		result: res,
 		err:    err,
 	})
@@ -454,25 +465,16 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 		pubkey   crypto.PublicKey
 		err      error
 	)
-	if g := cs.Genesis(); g.IsSumatra(cs.TipHeight()) {
-		tx, err = action.DecodeEtherTx(dataStr.String())
-		if err != nil {
-			return nil, err
-		}
-		if tx.Protected() && tx.ChainId().Uint64() != uint64(cs.EVMNetworkID()) {
-			return nil, errors.Wrapf(errInvalidEvmChainID, "expect chainID = %d, got %d", cs.EVMNetworkID(), tx.ChainId().Uint64())
-		}
-		encoding, sig, pubkey, err = action.ExtractTypeSigPubkey(tx)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		tx, sig, pubkey, err = action.DecodeRawTx(dataStr.String(), cs.EVMNetworkID())
-		if err != nil {
-			return nil, err
-		}
-		// before Sumatra height, all tx are EIP-155 format
-		encoding = iotextypes.Encoding_ETHEREUM_EIP155
+	tx, err = action.DecodeEtherTx(dataStr.String())
+	if err != nil {
+		return nil, err
+	}
+	if tx.Protected() && tx.ChainId().Uint64() != uint64(cs.EVMNetworkID()) {
+		return nil, errors.Wrapf(errInvalidEvmChainID, "expect chainID = %d, got %d", cs.EVMNetworkID(), tx.ChainId().Uint64())
+	}
+	encoding, sig, pubkey, err = action.ExtractTypeSigPubkey(tx)
+	if err != nil {
+		return nil, err
 	}
 	elp, err := svr.ethTxToEnvelope(tx)
 	if err != nil {
@@ -961,6 +963,13 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 			DisableStorage:   disableStorage,
 			EnableReturnData: enableReturnData,
 		},
+	}
+	if tracer := options.Get("tracer"); tracer.Exists() {
+		cfg.Tracer = new(string)
+		*cfg.Tracer = tracer.String()
+		if tracerConfig := options.Get("tracerConfig"); tracerConfig.Exists() {
+			cfg.TracerConfig = json.RawMessage(tracerConfig.Raw)
+		}
 	}
 	retval, receipt, tracer, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
 	if err != nil {
