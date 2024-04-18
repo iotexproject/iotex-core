@@ -28,6 +28,7 @@ type (
 		ownerMap         map[string]*Candidate
 		operatorMap      map[string]*Candidate
 		selfStkBucketMap map[uint64]*Candidate
+		ownerTransfers   map[string] /*name*/ address.Address /*newOwner*/
 		owners           CandidateList
 	}
 
@@ -433,6 +434,7 @@ func newCandBase() *candBase {
 		ownerMap:         make(map[string]*Candidate),
 		operatorMap:      make(map[string]*Candidate),
 		selfStkBucketMap: make(map[uint64]*Candidate),
+		ownerTransfers:   make(map[string]address.Address),
 	}
 }
 
@@ -546,5 +548,13 @@ func (cb *candBase) delete(owner address.Address) {
 		delete(cb.ownerMap, d.Owner.String())
 		delete(cb.operatorMap, d.Operator.String())
 		delete(cb.selfStkBucketMap, d.SelfStakeBucketIdx)
+		delete(cb.ownerTransfers, d.Name)
 	}
+}
+
+func (cb *candBase) getNewOwner(name string) (address.Address, bool) {
+	cb.lock.RLock()
+	defer cb.lock.RUnlock()
+	addr, ok := cb.ownerTransfers[name]
+	return addr, ok
 }
