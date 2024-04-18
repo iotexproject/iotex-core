@@ -9,24 +9,22 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
+	// CandidateTransferOwnershipPayloadGas represents the CandidateTransferOwnership payload gas per uint
+	CandidateTransferOwnershipPayloadGas = uint64(100)
 	// CandidateTransferOwnershipBaseIntrinsicGas represents the base intrinsic gas for CandidateTransferOwnership
 	CandidateTransferOwnershipBaseIntrinsicGas = uint64(10000)
 
 	_candidateTransferOwnershipInterfaceABI = `[
 		{
 			"inputs": [
-				{
-					"internalType": "string",
-					"name": "name",
-					"type": "string"
-				},
 				{
 					"internalType": "address",
 					"name": "newOwner",
@@ -67,13 +65,12 @@ func init() {
 type CandidateTransferOwnership struct {
 	AbstractAction
 
-	name     string
 	newOwner address.Address
 	payload  []byte
 }
 
 // NewCandidateTransferOwnership returns a CandidateTransferOwnership action
-func NewCandidateTransferOwnership(nonce, gasLimit uint64, gasPrice *big.Int, name string,
+func NewCandidateTransferOwnership(nonce, gasLimit uint64, gasPrice *big.Int,
 	newOwnerStr string, payload []byte) (*CandidateTransferOwnership, error) {
 	newOwner, err := address.FromString(newOwnerStr)
 	if err != nil {
@@ -86,7 +83,6 @@ func NewCandidateTransferOwnership(nonce, gasLimit uint64, gasPrice *big.Int, na
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
-		name:     name,
 		newOwner: newOwner,
 		payload:  payload,
 	}, nil
@@ -107,9 +103,6 @@ func NewCandidateTransferOwnershipFromABIBinary(data []byte) (*CandidateTransfer
 	if err = _candidateTransferOwnershipMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
 		return nil, err
 	}
-	if cr.name, ok = paramsMap["name"].(string); !ok {
-		return nil, errDecodeFailure
-	}
 	if cr.newOwner, err = ethAddrToNativeAddr(paramsMap["newOwner"]); err != nil {
 		return nil, err
 	}
@@ -122,15 +115,13 @@ func NewCandidateTransferOwnershipFromABIBinary(data []byte) (*CandidateTransfer
 // Payload returns the payload bytes
 func (act *CandidateTransferOwnership) Payload() []byte { return act.payload }
 
-// Name returns candidate name to transfer ownership
-func (act *CandidateTransferOwnership) Name() string { return act.name }
-
 // NewOwner returns the new owner address
 func (act *CandidateTransferOwnership) NewOwner() address.Address { return act.newOwner }
 
 // IntrinsicGas returns the intrinsic gas of a CandidateTransferOwnership
 func (act *CandidateTransferOwnership) IntrinsicGas() (uint64, error) {
-	return CandidateTransferOwnershipBaseIntrinsicGas, nil
+	payloadSize := uint64(len(act.Payload()))
+	return CalculateIntrinsicGas(CandidateTransferOwnershipBaseIntrinsicGas, CandidateTransferOwnershipPayloadGas, payloadSize)
 }
 
 // Cost returns the total cost of a CandidateTransferOwnership
@@ -149,7 +140,6 @@ func (act *CandidateTransferOwnership) Serialize() []byte {
 // Proto converts to protobuf CandidateTransferOwnership Action
 func (act *CandidateTransferOwnership) Proto() *iotextypes.CandidateTransferOwnership {
 	ac := iotextypes.CandidateTransferOwnership{
-		CandidateName:   act.Name(),
 		NewOwnerAddress: act.newOwner.String(),
 	}
 
@@ -165,7 +155,6 @@ func (act *CandidateTransferOwnership) LoadProto(pbAct *iotextypes.CandidateTran
 	if pbAct == nil {
 		return ErrNilProto
 	}
-	act.name = pbAct.GetCandidateName()
 	newOwner, err := address.FromString(pbAct.GetNewOwnerAddress())
 	if err != nil {
 		return err
@@ -188,7 +177,7 @@ func (act *CandidateTransferOwnership) encodeABIBinary() ([]byte, error) {
 	if act.newOwner == nil {
 		return nil, ErrAddress
 	}
-	data, err := _candidateTransferOwnershipMethod.Inputs.Pack(act.name, common.BytesToAddress(act.newOwner.Bytes()), act.payload)
+	data, err := _candidateTransferOwnershipMethod.Inputs.Pack(common.BytesToAddress(act.newOwner.Bytes()), act.payload)
 	if err != nil {
 		return nil, err
 	}
@@ -197,10 +186,6 @@ func (act *CandidateTransferOwnership) encodeABIBinary() ([]byte, error) {
 
 // SanityCheck validates the variables in the action
 func (act *CandidateTransferOwnership) SanityCheck() error {
-	if !IsValidCandidateName(act.Name()) {
-		return ErrInvalidCanName
-	}
-
 	return act.AbstractAction.SanityCheck()
 }
 
