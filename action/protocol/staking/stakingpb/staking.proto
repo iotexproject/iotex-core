@@ -61,9 +61,3 @@ message BucketType {
 message Endorsement {
     uint64 expireHeight = 1;
 }
-
-message CandidateTransferOwnership {
-    float version = 1;
-    //newOwnerAddress -> oldOwnerAddress
-    map<string, string> nameToOwner = 2;
-}
