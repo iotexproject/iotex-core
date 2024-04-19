@@ -27,12 +27,8 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 	if fetchErr != nil {
 		return log, nil, fetchErr
 	}
-	store := newCandidateTransferOwnership()
-	if err := store.LoadFromStateManager(csm.SM()); err != nil {
-		return log, nil, err
-	}
 
-	if err := p.validateCandidateTransferOwnership(ctx, act, csm, store, actCtx.Caller); err != nil {
+	if err := p.validateCandidateTransferOwnership(ctx, act, csm, actCtx.Caller); err != nil {
 		return log, nil, err
 	}
 	candidate := csm.GetByOwner(actCtx.Caller)
@@ -43,16 +39,12 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 	if err := csm.Upsert(candidate); err != nil {
 		return log, nil, csmErrorToHandleError(candidate.Owner.String(), err)
 	}
-	store.Update(candidate.Voter, act.NewOwner())
-	if err := store.StoreToStateManager(csm.SM()); err != nil {
-		return log, nil, err
-	}
 	log.AddTopics(actCtx.Caller.Bytes(), act.NewOwner().Bytes())
 	return log, nil, nil
 }
 
 func (p *Protocol) validateCandidateTransferOwnership(_ context.Context, act *action.CandidateTransferOwnership,
-	csm CandidateStateManager, cto *CandidateTransferOwnership, caller address.Address) ReceiptError {
+	csm CandidateStateManager, caller address.Address) ReceiptError {
 	//check if the candidate exists
 	candidate := csm.GetByOwner(caller)
 	if candidate == nil {

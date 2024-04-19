@@ -146,7 +146,6 @@ func (csm *candSM) GetByName(name string) *Candidate {
 }
 
 func (csm *candSM) GetByOwner(addr address.Address) *Candidate {
-	//TODO: if addr is old owner from bucket, performance optimization
 	return csm.candCenter.GetByOwner(addr)
 }
 
