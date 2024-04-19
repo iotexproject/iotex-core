@@ -225,10 +225,11 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.subscribe(web3Req, writer)
 	case "eth_unsubscribe":
 		res, err = svr.unsubscribe(web3Req)
-	case "debug_traceTransaction":
-		res, err = svr.traceTransaction(ctx, web3Req)
-	case "debug_traceCall":
-		res, err = svr.traceCall(ctx, web3Req)
+	//TODO: enable debug api after archive mode is supported
+	// case "debug_traceTransaction":
+	// 	res, err = svr.traceTransaction(ctx, web3Req)
+	// case "debug_traceCall":
+	// 	res, err = svr.traceCall(ctx, web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
 		"eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex",
 		"eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
