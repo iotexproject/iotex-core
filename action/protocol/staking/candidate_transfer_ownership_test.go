@@ -4,9 +4,11 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/testutil/testdb"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-address/address"
+
+	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
 func TestCandidateTransferOwnership(t *testing.T) {
@@ -19,26 +21,45 @@ func TestCandidateTransferOwnership(t *testing.T) {
 	addr2, _ := address.FromString("io13sj9mzpewn25ymheukte4v39hvjdtrfp00mlyv")
 	addr3, _ := address.FromString("io19d0p3ah4g8ww9d7kcxfq87yxe7fnr8rpth5shj")
 	tests := []struct {
-		name     string
+		oldOwner address.Address
 		newOwner address.Address
 	}{
-		{"test", addr1},
-		{"test2", addr2},
-		{"test3", addr3},
+		{addr3, addr1},
+		{addr1, addr2},
+		{addr2, addr3},
 	}
 	for _, test := range tests {
-		ct.Update(test.name, test.newOwner)
+		ct.Update(test.oldOwner, test.newOwner)
 	}
 	data, err := ct.Serialize()
 	r.NoError(err)
 	ct2 := newCandidateTransferOwnership()
 	r.NoError(ct2.Deserialize(data))
-	r.Equal(ct.NameToOwner, ct2.NameToOwner)
+	for k, v := range ct2.NameToOwner {
+		found := false
+		for k1, v1 := range ct.NameToOwner {
+			if address.Equal(k, k1) && address.Equal(v, v1) {
+				found = true
+				break
+			}
+		}
+		r.True(found)
+	}
+
 	ct1 := newCandidateTransferOwnership()
 	r.NoError(ct1.LoadFromStateManager(sm))
 	r.Empty(ct1.NameToOwner)
 	r.NoError(ct.StoreToStateManager(sm))
 	r.NoError(ct1.LoadFromStateManager(sm))
 	r.NotEmpty(ct1.NameToOwner)
-	r.Equal(ct.NameToOwner, ct1.NameToOwner)
+	for k, v := range ct1.NameToOwner {
+		found := false
+		for k1, v1 := range ct.NameToOwner {
+			if address.Equal(k, k1) && address.Equal(v, v1) {
+				found = true
+				break
+			}
+		}
+		r.True(found)
+	}
 }

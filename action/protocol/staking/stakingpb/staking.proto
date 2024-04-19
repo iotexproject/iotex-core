@@ -40,6 +40,7 @@ message Candidate {
     string votes = 5;
     uint64 selfStakeBucketIdx = 6;
     string selfStake = 7;
+    string voterAddress = 8; //if the field is empty, set it to the old owner address
 }
 
 message Candidates {
@@ -63,5 +64,6 @@ message Endorsement {
 
 message CandidateTransferOwnership {
     float version = 1;
-    map<string, bytes> nameToOwner = 2;
+    //newOwnerAddress -> oldOwnerAddress
+    map<string, string> nameToOwner = 2;
 }

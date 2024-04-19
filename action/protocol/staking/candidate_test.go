@@ -37,6 +37,7 @@ func TestSer(t *testing.T) {
 			Owner:              identityset.Address(4),
 			Operator:           identityset.Address(5),
 			Reward:             identityset.Address(6),
+			Voter:              identityset.Address(7),
 			Name:               "testname2",
 			Votes:              big.NewInt(20),
 			SelfStakeBucketIdx: 1,
@@ -46,6 +47,7 @@ func TestSer(t *testing.T) {
 			Owner:              identityset.Address(7),
 			Operator:           identityset.Address(8),
 			Reward:             identityset.Address(9),
+			Voter:              identityset.Address(10),
 			Name:               "testname3",
 			Votes:              big.NewInt(3000),
 			SelfStakeBucketIdx: 2,
@@ -82,7 +84,7 @@ func TestClone(t *testing.T) {
 		SelfStake:          big.NewInt(2100000000),
 	}
 	r.NoError(d.Validate())
-
+	r.Equal(d.Owner, d.GetVoter())
 	d2 := d.Clone()
 	r.True(d.Equal(d2))
 	d.AddVote(big.NewInt(100))
@@ -96,6 +98,8 @@ func TestClone(t *testing.T) {
 	r.Equal(ErrInvalidSelfStkIndex, d.Collision(d2))
 	d.SelfStakeBucketIdx++
 	r.NoError(d.Collision(d2))
+	d.Voter = identityset.Address(3)
+	r.Equal(d.Voter, d.GetVoter())
 
 	c := d.toStateCandidate()
 	r.Equal(d.Owner.String(), c.Address)
@@ -114,6 +118,7 @@ var (
 				Owner:              identityset.Address(1),
 				Operator:           identityset.Address(7),
 				Reward:             identityset.Address(1),
+				Voter:              identityset.Address(1),
 				Name:               "test1",
 				Votes:              big.NewInt(2),
 				SelfStakeBucketIdx: 1,
@@ -126,6 +131,7 @@ var (
 				Owner:              identityset.Address(2),
 				Operator:           identityset.Address(8),
 				Reward:             identityset.Address(1),
+				Voter:              identityset.Address(1),
 				Name:               "test2",
 				Votes:              big.NewInt(3),
 				SelfStakeBucketIdx: 2,
@@ -138,6 +144,7 @@ var (
 				Owner:              identityset.Address(3),
 				Operator:           identityset.Address(9),
 				Reward:             identityset.Address(1),
+				Voter:              identityset.Address(1),
 				Name:               "test3",
 				Votes:              big.NewInt(3),
 				SelfStakeBucketIdx: 3,
@@ -150,6 +157,7 @@ var (
 				Owner:              identityset.Address(4),
 				Operator:           identityset.Address(10),
 				Reward:             identityset.Address(1),
+				Voter:              identityset.Address(1),
 				Name:               "test4",
 				Votes:              big.NewInt(1),
 				SelfStakeBucketIdx: 4,
@@ -163,6 +171,7 @@ var (
 				Owner:              identityset.Address(5),
 				Operator:           identityset.Address(11),
 				Reward:             identityset.Address(2),
+				Voter:              identityset.Address(1),
 				Name:               "test5",
 				Votes:              big.NewInt(1),
 				SelfStakeBucketIdx: 5,
@@ -175,6 +184,7 @@ var (
 				Owner:              identityset.Address(6),
 				Operator:           identityset.Address(12),
 				Reward:             identityset.Address(2),
+				Voter:              identityset.Address(1),
 				Name:               "test6",
 				Votes:              big.NewInt(1),
 				SelfStakeBucketIdx: 0,

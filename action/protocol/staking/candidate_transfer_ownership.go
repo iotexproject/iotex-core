@@ -1,12 +1,15 @@
 package staking
 
 import (
+	"sync"
+
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/pkg/errors"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -18,28 +21,34 @@ var (
 )
 
 type CandidateTransferOwnership struct {
-	NameToOwner map[string]address.Address
+	NameToOwner map[address.Address]address.Address //newOwner -> oldOwner
+	mu          sync.RWMutex
 }
 
 func newCandidateTransferOwnership() *CandidateTransferOwnership {
 	return &CandidateTransferOwnership{
-		NameToOwner: make(map[string]address.Address),
+		NameToOwner: make(map[address.Address]address.Address),
+		mu:          sync.RWMutex{},
 	}
 }
 
 // Update updates the candidate transfer ownership
-func (c *CandidateTransferOwnership) Update(name string, newOwner address.Address) {
-	c.NameToOwner[name] = newOwner
+func (c *CandidateTransferOwnership) Update(oldOwner address.Address, newOwner address.Address) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.NameToOwner[newOwner] = oldOwner
 }
 
 // Serialize serializes CandidateTransferOwnership to bytes
 func (c *CandidateTransferOwnership) Serialize() ([]byte, error) {
 	pb := &stakingpb.CandidateTransferOwnership{
 		Version:     _candidateTransferOwnershipProtoVersion,
-		NameToOwner: make(map[string][]byte),
+		NameToOwner: make(map[string]string),
 	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	for k, v := range c.NameToOwner {
-		pb.NameToOwner[k] = v.Bytes()
+		pb.NameToOwner[k.String()] = v.String()
 	}
 	return proto.Marshal(pb)
 }
@@ -50,13 +59,19 @@ func (c *CandidateTransferOwnership) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, pb); err != nil {
 		return err
 	}
-	c.NameToOwner = make(map[string]address.Address, len(pb.NameToOwner))
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.NameToOwner = make(map[address.Address]address.Address, len(pb.NameToOwner))
 	for k, v := range pb.NameToOwner {
-		addr, err := address.FromBytes(v)
+		newAddr, err := address.FromString(k)
 		if err != nil {
 			return err
 		}
-		c.NameToOwner[k] = addr
+		oldAddr, err := address.FromString(v)
+		if err != nil {
+			return err
+		}
+		c.NameToOwner[newAddr] = oldAddr
 	}
 	return nil
 }

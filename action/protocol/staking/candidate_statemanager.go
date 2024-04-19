@@ -53,7 +53,6 @@ type (
 		ContainsSelfStakingBucket(uint64) bool
 		GetByName(string) *Candidate
 		GetByOwner(address.Address) *Candidate
-		GetNewOwner(string) (address.Address, bool)
 		Upsert(*Candidate) error
 		CreditBucketPool(*big.Int) error
 		DebitBucketPool(*big.Int, bool) error
@@ -147,11 +146,8 @@ func (csm *candSM) GetByName(name string) *Candidate {
 }
 
 func (csm *candSM) GetByOwner(addr address.Address) *Candidate {
+	//TODO: if addr is old owner from bucket, performance optimization
 	return csm.candCenter.GetByOwner(addr)
-}
-
-func (csm *candSM) GetNewOwner(name string) (address.Address, bool) {
-	return csm.candCenter.base.getNewOwner(name)
 }
 
 // Upsert writes the candidate into state manager and cand center
