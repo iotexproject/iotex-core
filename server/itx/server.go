@@ -46,15 +46,6 @@ type Server struct {
 // NewServer creates a new server
 // TODO clean up config, make root config contains network, dispatch and chainservice
 func NewServer(cfg config.Config) (*Server, error) {
-	return newServer(cfg, false)
-}
-
-// NewInMemTestServer creates a test server in memory
-func NewInMemTestServer(cfg config.Config) (*Server, error) { // notest
-	return newServer(cfg, true)
-}
-
-func newServer(cfg config.Config, testing bool) (*Server, error) {
 	// create dispatcher instance
 	dispatcher, err := dispatcher.NewDispatcher(cfg.Dispatcher)
 	if err != nil {
@@ -69,16 +60,11 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	}
 	chains := make(map[uint32]*chainservice.ChainService)
 	apiServers := make(map[uint32]*api.ServerV2)
-	var cs *chainservice.ChainService
 	builder := chainservice.NewBuilder(cfg)
 	builder.SetP2PAgent(p2pAgent)
 	rpcStats := nodestats.NewAPILocalStats()
 	builder.SetRPCStats(rpcStats)
-	if testing {
-		cs, err = builder.BuildForTest()
-	} else {
-		cs, err = builder.Build()
-	}
+	cs, err := builder.Build()
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
