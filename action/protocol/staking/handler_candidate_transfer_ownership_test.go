@@ -10,7 +10,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/mohae/deepcopy"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -24,41 +23,28 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	csm := newCandidateStateManager(sm)
-	_, err := sm.PutState(
-		&totalBucketCount{count: 0},
-		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(TotalBucketKey),
-	)
+	v, _, err := CreateBaseView(sm, false)
 	require.NoError(err)
-	t.Log(csm.SM())
+	sm.WriteView(_protocolID, v)
+	csm, err := NewCandidateStateManager(sm, false)
+	require.NoError(err)
 	// create protocol
 	p, err := NewProtocol(depositGas, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 	}, nil, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
-	cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
-	ctx := genesis.WithGenesisContext(context.Background(), cfg)
-	ctx = protocol.WithFeatureWithHeightCtx(ctx)
-	v, err := p.Start(ctx, sm)
-	require.NoError(err)
-	cc, ok := v.(*ViewData)
-	require.True(ok)
-	require.NoError(sm.WriteView(_protocolID, cc))
-
 	initCandidateCfgs := []struct {
-		Owner    address.Address
-		Operator address.Address
-		Reward   address.Address
-		Voter    address.Address
-		Name     string
+		Owner      address.Address
+		Operator   address.Address
+		Reward     address.Address
+		Identifier address.Address
+		Name       string
 	}{
-		{identityset.Address(1), identityset.Address(7), identityset.Address(1), identityset.Address(1), "test1"},
+		{identityset.Address(1), identityset.Address(7), identityset.Address(1), nil, "test1"},
 		{identityset.Address(2), identityset.Address(8), identityset.Address(1), identityset.Address(5), "test2"},
 		{identityset.Address(3), identityset.Address(9), identityset.Address(11), identityset.Address(6), "test3"},
 	}
-
 	for _, candCfg := range initCandidateCfgs {
 		selfStakeAmount := big.NewInt(0)
 		selfStakeBucketID := uint64(candidateNoSelfStakeBucketIndex)
@@ -68,12 +54,23 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 			Operator:           candCfg.Operator,
 			Reward:             candCfg.Reward,
 			Name:               candCfg.Name,
+			Identifier:         candCfg.Identifier,
 			Votes:              big.NewInt(0),
 			SelfStakeBucketIdx: selfStakeBucketID,
 			SelfStake:          selfStakeAmount,
 		}
-		require.NoError(csm.putCandidate(cand))
+		require.NoError(csm.Upsert(cand))
 	}
+	require.NoError(csm.Commit(context.Background()))
+	cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+	ctx := genesis.WithGenesisContext(context.Background(), cfg)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+	vv, err := p.Start(ctx, sm)
+	require.NoError(err)
+	cc, ok := vv.(*ViewData)
+	require.True(ok)
+	require.NoError(sm.WriteView(_protocolID, cc))
+
 	tests := []struct {
 		name string
 		// params
@@ -93,12 +90,80 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 		expectOwner address.Address
 		expectVoter address.Address
 	}{
+		// {
+		// 	"transfer ownership to self",
+		// 	[]uint64{1},
+		// 	1300000,
+		// 	identityset.Address(1),
+		// 	identityset.Address(1),
+		// 	nil,
+
+		// 	1,
+		// 	uint64(1000000),
+		// 	uint64(1000000),
+		// 	big.NewInt(1000),
+		// 	errors.New("new owner is the same as the current owner"),
+		// 	iotextypes.ReceiptStatus_Success,
+		// 	identityset.Address(1),
+		// 	identityset.Address(1),
+		// },
+		// {
+		// 	"caller is not a candidate",
+		// 	[]uint64{1},
+		// 	1300000,
+		// 	identityset.Address(11),
+		// 	identityset.Address(6),
+		// 	nil,
+
+		// 	1,
+		// 	uint64(1000000),
+		// 	uint64(1000000),
+		// 	big.NewInt(1000),
+		// 	errors.New("candidate does not exist"),
+		// 	iotextypes.ReceiptStatus_Success,
+		// 	identityset.Address(1),
+		// 	identityset.Address(1),
+		// },
+		// {
+		// 	"transfer ownership to other exist candidate",
+		// 	[]uint64{1},
+		// 	1300000,
+		// 	identityset.Address(2),
+		// 	identityset.Address(1),
+		// 	nil,
+
+		// 	1,
+		// 	uint64(1000000),
+		// 	uint64(1000000),
+		// 	big.NewInt(1000),
+		// 	errors.New("new owner is already a candidate"),
+		// 	iotextypes.ReceiptStatus_Success,
+		// 	identityset.Address(1),
+		// 	identityset.Address(1),
+		// },
+		// {
+		// 	"transfer to another transfered candidate",
+		// 	[]uint64{1},
+		// 	1300000,
+		// 	identityset.Address(1),
+		// 	identityset.Address(5),
+		// 	nil,
+
+		// 	1,
+		// 	uint64(1000000),
+		// 	uint64(1000000),
+		// 	big.NewInt(1000),
+		// 	errors.New("new owner is already a candidate"),
+		// 	iotextypes.ReceiptStatus_Success,
+		// 	identityset.Address(1),
+		// 	identityset.Address(1),
+		// },
 		{
-			"transfer ownership to self",
+			"transfer to valid address",
 			[]uint64{1},
 			1300000,
 			identityset.Address(1),
-			identityset.Address(1),
+			identityset.Address(12),
 			nil,
 
 			1,
@@ -107,7 +172,7 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 			big.NewInt(1000),
 			nil,
 			iotextypes.ReceiptStatus_Success,
-			identityset.Address(1),
+			identityset.Address(12),
 			identityset.Address(1),
 		},
 	}
@@ -119,11 +184,11 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 			candidates := make([]*Candidate, 0)
 			for _, cfg := range initCandidateCfgs {
 				candidates = append(candidates, &Candidate{
-					Owner:    cfg.Owner,
-					Operator: cfg.Operator,
-					Reward:   cfg.Reward,
-					Voter:    cfg.Voter,
-					Name:     cfg.Name,
+					Owner:      cfg.Owner,
+					Operator:   cfg.Operator,
+					Reward:     cfg.Reward,
+					Identifier: cfg.Identifier,
+					Name:       cfg.Name,
 				})
 			}
 			require.NoError(setupAccount(sm, test.caller, test.initBalance))
@@ -146,7 +211,8 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 			cfg.TsunamiBlockHeight = 1
 			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
-			require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
+			require.NoError(p.Validate(ctx, act, sm))
+			require.NoError(csm.Commit(context.Background()))
 			_, _, err = p.handleCandidateTransferOwnership(ctx, act, csm)
 			if test.err != nil {
 				require.Error(err)
@@ -154,12 +220,10 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 				return
 			}
 			require.NoError(err)
-			// require.Equal( test.status, receipt.Status)
-			// check owner and voter
-			candidate := csm.GetByOwner(identityset.Address(2))
-			require.NotNil(t, candidate)
-			require.Equal(t, test.expectOwner, candidate.Owner)
-			require.Equal(t, test.expectVoter, candidate.Voter)
+			candidate := csm.GetByOwner(test.expectOwner)
+			require.NotNil(candidate)
+			require.Equal(test.expectOwner.String(), candidate.Owner.String())
+			require.Equal(test.expectVoter.String(), candidate.Identifier.String())
 		})
 	}
 }

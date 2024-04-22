@@ -32,8 +32,8 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 		return log, nil, err
 	}
 	candidate := csm.GetByOwner(actCtx.Caller)
-	if candidate.Voter == nil || candidate.Voter.String() == "" {
-		candidate.Voter = candidate.Owner
+	if candidate.Identifier == nil || candidate.Identifier.String() == "" {
+		candidate.Identifier = candidate.Owner
 	}
 	candidate.Owner = act.NewOwner()
 	if err := csm.Upsert(candidate); err != nil {
@@ -54,9 +54,9 @@ func (p *Protocol) validateCandidateTransferOwnership(_ context.Context, act *ac
 		}
 	}
 	//check if the new owner is self
-	if !address.Equal(act.NewOwner(), caller) {
+	if address.Equal(act.NewOwner(), caller) {
 		return &handleError{
-			err:           errors.New("operator is not authorized"),
+			err:           errors.New("new owner is the same as the current owner"),
 			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
 		}
 	}
@@ -70,6 +70,15 @@ func (p *Protocol) validateCandidateTransferOwnership(_ context.Context, act *ac
 
 	//check the new owner is not in the candidate list
 	cand := csm.GetByOwner(act.NewOwner())
+	if cand != nil {
+		return &handleError{
+			err:           errors.New("new owner is already a candidate"),
+			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		}
+	}
+
+	//check the new owner is exist in the identifier list
+	cand = csm.GetByIdentifier(act.NewOwner())
 	if cand != nil {
 		return &handleError{
 			err:           errors.New("new owner is already a candidate"),

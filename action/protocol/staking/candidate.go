@@ -26,7 +26,7 @@ type (
 		Owner              address.Address
 		Operator           address.Address
 		Reward             address.Address
-		Voter              address.Address
+		Identifier         address.Address
 		Name               string
 		Votes              *big.Int
 		SelfStakeBucketIdx uint64
@@ -49,7 +49,7 @@ func (d *Candidate) Clone() *Candidate {
 		Owner:              d.Owner,
 		Operator:           d.Operator,
 		Reward:             d.Reward,
-		Voter:              d.Voter,
+		Identifier:         d.Identifier,
 		Name:               d.Name,
 		Votes:              new(big.Int).Set(d.Votes),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
@@ -64,7 +64,7 @@ func (d *Candidate) Equal(c *Candidate) bool {
 		address.Equal(d.Owner, c.Owner) &&
 		address.Equal(d.Operator, c.Operator) &&
 		address.Equal(d.Reward, c.Reward) &&
-		address.Equal(d.Voter, c.Voter) &&
+		address.Equal(d.Identifier, c.Identifier) &&
 		d.Votes.Cmp(c.Votes) == 0 &&
 		d.SelfStake.Cmp(c.SelfStake) == 0
 }
@@ -181,12 +181,12 @@ func (d *Candidate) Deserialize(buf []byte) error {
 	return d.fromProto(pb)
 }
 
-// GetVoter returns the voter address
-func (d *Candidate) GetVoter() address.Address {
-	if d.Voter == nil {
+// GetIdentifier returns the voter address
+func (d *Candidate) GetIdentifier() address.Address {
+	if d.Identifier == nil {
 		return d.Owner
 	}
-	return d.Voter
+	return d.Identifier
 }
 
 func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
@@ -195,8 +195,8 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 		return nil, ErrMissingField
 	}
 	voter := ""
-	if d.Voter != nil {
-		voter = d.Voter.String()
+	if d.Identifier != nil {
+		voter = d.Identifier.String()
 	}
 
 	return &stakingpb.Candidate{
@@ -229,7 +229,7 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	}
 
 	if len(pb.GetVoterAddress()) > 0 {
-		d.Voter, err = address.FromString(pb.GetVoterAddress())
+		d.Identifier, err = address.FromString(pb.GetVoterAddress())
 		if err != nil {
 			return err
 		}

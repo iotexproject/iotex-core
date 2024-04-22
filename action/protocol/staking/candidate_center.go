@@ -255,6 +255,17 @@ func (m *CandidateCenter) GetByOwner(owner address.Address) *Candidate {
 	return nil
 }
 
+// GetByIdentifier returns the candidate by identifier
+func (m *CandidateCenter) GetByIdentifier(identifier address.Address) *Candidate {
+	if identifier == nil {
+		return nil
+	}
+	if d, hit := m.base.GetByIdentifier(identifier); hit {
+		return d.Clone()
+	}
+	return nil
+}
+
 // GetBySelfStakingIndex returns the candidate by self-staking index
 func (m *CandidateCenter) GetBySelfStakingIndex(index uint64) *Candidate {
 	if d := m.change.getBySelfStakingIndex(index); d != nil {
@@ -497,6 +508,16 @@ func (cb *candBase) getByName(name string) (*Candidate, bool) {
 	defer cb.lock.RUnlock()
 	d, ok := cb.nameMap[name]
 	return d, ok
+}
+
+func (cb *candBase) GetByIdentifier(identifier address.Address) (*Candidate, bool) {
+	candidates := cb.all()
+	for _, c := range candidates {
+		if c.Identifier != nil && address.Equal(c.Identifier, identifier) {
+			return c, true
+		}
+	}
+	return nil, false
 }
 
 func (cb *candBase) getByOwner(name string) (*Candidate, bool) {
