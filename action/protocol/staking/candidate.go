@@ -203,7 +203,7 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 		OwnerAddress:       d.Owner.String(),
 		OperatorAddress:    d.Operator.String(),
 		RewardAddress:      d.Reward.String(),
-		VoterAddress:       voter,
+		IdentifierAddress:  voter,
 		Name:               d.Name,
 		Votes:              d.Votes.String(),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
@@ -228,8 +228,8 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 		return err
 	}
 
-	if len(pb.GetVoterAddress()) > 0 {
-		d.Identifier, err = address.FromString(pb.GetVoterAddress())
+	if len(pb.GetIdentifierAddress()) > 0 {
+		d.Identifier, err = address.FromString(pb.GetIdentifierAddress())
 		if err != nil {
 			return err
 		}
