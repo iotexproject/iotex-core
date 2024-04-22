@@ -42,8 +42,6 @@ type (
 		tip             *FileTip
 		blkBuffer       *stagingBuffer
 		blkStorePbCache cache.LRUCache
-		blkCache        cache.LRUCache
-		receiptCache    cache.LRUCache
 		kvStore         db.KVStore
 		batch           batch.KVStoreBatch
 		hashStore       db.CountingIndex // store block hash
@@ -71,8 +69,6 @@ func newFileDAOv2(bottom uint64, cfg db.Config, deser *block.Deserializer) (*fil
 			Height: bottom - 1,
 		},
 		blkStorePbCache: cache.NewThreadSafeLruCache(16),
-		blkCache:        cache.NewThreadSafeLruCache(256),
-		receiptCache:    cache.NewThreadSafeLruCache(256),
 		kvStore:         db.NewBoltDB(cfg),
 		batch:           batch.NewBatch(),
 		deser:           deser,
@@ -85,8 +81,6 @@ func openFileDAOv2(cfg db.Config, deser *block.Deserializer) *fileDAOv2 {
 	return &fileDAOv2{
 		filename:        cfg.DbPath,
 		blkStorePbCache: cache.NewThreadSafeLruCache(16),
-		blkCache:        cache.NewThreadSafeLruCache(256),
-		receiptCache:    cache.NewThreadSafeLruCache(256),
 		kvStore:         db.NewBoltDB(cfg),
 		batch:           batch.NewBatch(),
 		deser:           deser,
