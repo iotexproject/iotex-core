@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -33,6 +33,7 @@ const (
 var (
 	_ hasDestination      = (*Execution)(nil)
 	_ EthCompatibleAction = (*Execution)(nil)
+	_ TxData              = (*Execution)(nil)
 )
 
 // Execution defines the struct of account-based contract execution
@@ -89,6 +90,20 @@ func NewExecutionWithAccessList(
 		data:       data,
 		accessList: list,
 	}, nil
+}
+
+// To returns the contract address pointer
+// nil indicates a contract-creation transaction
+func (ex *Execution) To() *common.Address {
+	if ex.contract == EmptyAddress {
+		return nil
+	}
+	addr, err := address.FromString(ex.contract)
+	if err != nil {
+		panic(err)
+	}
+	evmAddr := common.BytesToAddress(addr.Bytes())
+	return &evmAddr
 }
 
 // Contract returns a contract address
@@ -216,7 +231,7 @@ func (ex *Execution) IntrinsicGas() (uint64, error) {
 // Cost returns the cost of an execution
 func (ex *Execution) Cost() (*big.Int, error) {
 	maxExecFee := big.NewInt(0).Mul(ex.GasPrice(), big.NewInt(0).SetUint64(ex.GasLimit()))
-	return big.NewInt(0).Add(ex.Amount(), maxExecFee), nil
+	return maxExecFee.Add(ex.Amount(), maxExecFee), nil
 }
 
 // SanityCheck validates the variables in the action
