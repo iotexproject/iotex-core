@@ -120,22 +120,16 @@ func (builder *Builder) SetBlockSync(bs blocksync.BlockSync) *Builder {
 	return builder
 }
 
-// BuildForTest builds a chainservice for test purpose
-func (builder *Builder) BuildForTest() (*ChainService, error) {
-	builder.createInstance()
-	return builder.build(false, true)
-}
-
 // BuildForSubChain builds a chainservice for subchain
 func (builder *Builder) BuildForSubChain() (*ChainService, error) {
 	builder.createInstance()
-	return builder.build(true, false)
+	return builder.build(true)
 }
 
 // Build builds a chainservice
 func (builder *Builder) Build() (*ChainService, error) {
 	builder.createInstance()
-	return builder.build(false, false)
+	return builder.build(false)
 }
 
 func (builder *Builder) createInstance() {
@@ -144,8 +138,8 @@ func (builder *Builder) createInstance() {
 	}
 }
 
-func (builder *Builder) buildFactory(forTest bool) error {
-	factory, err := builder.createFactory(forTest)
+func (builder *Builder) buildFactory() error {
+	factory, err := builder.createFactory()
 	if err != nil {
 		return errors.Wrapf(err, "failed to create state factory")
 	}
@@ -153,7 +147,7 @@ func (builder *Builder) buildFactory(forTest bool) error {
 	return nil
 }
 
-func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
+func (builder *Builder) createFactory() (factory.Factory, error) {
 	var dao db.KVStore
 	var err error
 	if builder.cs.factory != nil {
@@ -161,7 +155,8 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 	}
 	factoryCfg := factory.GenerateConfig(builder.cfg.Chain, builder.cfg.Genesis)
 	if builder.cfg.Chain.EnableTrielessStateDB {
-		if forTest {
+		if builder.cfg.Chain.TrieDBPath == "" {
+			log.L().Warn("Create in memory state db, which will not pesist data on disk")
 			return factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(builder.cs.registry))
 		}
 		opts := []factory.StateDBOption{
@@ -178,7 +173,8 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 		}
 		return factory.NewStateDB(factoryCfg, dao, opts...)
 	}
-	if forTest {
+	if builder.cfg.Chain.TrieDBPath == "" {
+		log.L().Warn("Create in memory factory, which will not pesist data on disk")
 		return factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(builder.cs.registry))
 	}
 	dao, err = db.CreateKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
@@ -256,7 +252,7 @@ func (builder *Builder) buildActionPool() error {
 	return nil
 }
 
-func (builder *Builder) buildBlockDAO(forTest bool) error {
+func (builder *Builder) buildBlockDAO() error {
 	if builder.cs.blockdao != nil {
 		return nil
 	}
@@ -289,7 +285,8 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		err   error
 		store blockdao.BlockDAO
 	)
-	if forTest {
+	if builder.cfg.Chain.ChainDBPath == "" {
+		log.L().Warn("Create in memory block dao, which will not pesist data on disk")
 		store, err = filedao.NewFileDAOInMemForTest()
 	} else {
 		dbConfig := builder.cfg.DB
@@ -304,11 +301,11 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	return nil
 }
 
-func (builder *Builder) buildSGDRegistry(forTest bool) error {
+func (builder *Builder) buildSGDRegistry() error {
 	if builder.cs.sgdIndexer != nil {
 		return nil
 	}
-	if forTest || builder.cfg.Genesis.SystemSGDContractAddress == "" {
+	if builder.cfg.Genesis.SystemSGDContractAddress == "" {
 		builder.cs.sgdIndexer = nil
 		return nil
 	}
@@ -320,13 +317,8 @@ func (builder *Builder) buildSGDRegistry(forTest bool) error {
 	return nil
 }
 
-func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
+func (builder *Builder) buildContractStakingIndexer() error {
 	if !builder.cfg.Chain.EnableStakingProtocol {
-		return nil
-	}
-	if forTest {
-		builder.cs.contractStakingIndexer = nil
-		builder.cs.contractStakingIndexerV2 = nil
 		return nil
 	}
 	dbConfig := builder.cfg.DB
@@ -363,8 +355,8 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 	return nil
 }
 
-func (builder *Builder) buildGatewayComponents(forTest bool) error {
-	indexer, bfIndexer, candidateIndexer, candBucketsIndexer, err := builder.createGateWayComponents(forTest)
+func (builder *Builder) buildGatewayComponents() error {
+	indexer, bfIndexer, candidateIndexer, candBucketsIndexer, err := builder.createGateWayComponents()
 	if err != nil {
 		return errors.Wrapf(err, "failed to create gateway components")
 	}
@@ -382,7 +374,7 @@ func (builder *Builder) buildGatewayComponents(forTest bool) error {
 	return nil
 }
 
-func (builder *Builder) createGateWayComponents(forTest bool) (
+func (builder *Builder) createGateWayComponents() (
 	indexer blockindex.Indexer,
 	bfIndexer blockindex.BloomFilterIndexer,
 	candidateIndexer *poll.CandidateIndexer,
@@ -394,55 +386,56 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 		return
 	}
 
-	if forTest {
-		indexer, err = blockindex.NewIndexer(db.NewMemKVStore(), builder.cfg.Genesis.Hash())
-		if err != nil {
-			return
-		}
-		bfIndexer, err = blockindex.NewBloomfilterIndexer(db.NewMemKVStore(), builder.cfg.Indexer)
-		if err != nil {
-			return
-		}
-		candidateIndexer, err = poll.NewCandidateIndexer(db.NewMemKVStore())
-		if err != nil {
-			return
-		}
-		if builder.cfg.Chain.EnableStakingIndexer {
-			candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewMemKVStore())
-		}
-		return
-	}
 	dbConfig := builder.cfg.DB
-	dbConfig.DbPath = builder.cfg.Chain.IndexDBPath
-	indexer, err = blockindex.NewIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.Hash())
+	if builder.cfg.Chain.IndexDBPath == "" {
+		log.L().Warn("Create in memory action indexer, which will not pesist data on disk")
+		indexer, err = blockindex.NewIndexer(db.NewMemKVStore(), builder.cfg.Genesis.Hash())
+	} else {
+		dbConfig.DbPath = builder.cfg.Chain.IndexDBPath
+		indexer, err = blockindex.NewIndexer(db.NewBoltDB(dbConfig), builder.cfg.Genesis.Hash())
+	}
 	if err != nil {
 		return
 	}
 
 	// create bloomfilter indexer
-	dbConfig.DbPath = builder.cfg.Chain.BloomfilterIndexDBPath
-	bfIndexer, err = blockindex.NewBloomfilterIndexer(db.NewBoltDB(dbConfig), builder.cfg.Indexer)
+	if builder.cfg.Chain.BloomfilterIndexDBPath == "" {
+		log.L().Warn("Create in memory bloom filter indexer, which will not pesist data on disk")
+		bfIndexer, err = blockindex.NewBloomfilterIndexer(db.NewMemKVStore(), builder.cfg.Indexer)
+	} else {
+		dbConfig.DbPath = builder.cfg.Chain.BloomfilterIndexDBPath
+		bfIndexer, err = blockindex.NewBloomfilterIndexer(db.NewBoltDB(dbConfig), builder.cfg.Indexer)
+	}
 	if err != nil {
 		return
 	}
 
 	// create candidate indexer
-	dbConfig.DbPath = builder.cfg.Chain.CandidateIndexDBPath
-	candidateIndexer, err = poll.NewCandidateIndexer(db.NewBoltDB(dbConfig))
+	if builder.cfg.Chain.CandidateIndexDBPath == "" {
+		log.L().Warn("Create in memory candidate indexer, which will not pesist data on disk")
+		candidateIndexer, err = poll.NewCandidateIndexer(db.NewMemKVStore())
+	} else {
+		dbConfig.DbPath = builder.cfg.Chain.CandidateIndexDBPath
+		candidateIndexer, err = poll.NewCandidateIndexer(db.NewBoltDB(dbConfig))
+	}
 	if err != nil {
 		return
 	}
-
 	// create staking indexer
 	if builder.cfg.Chain.EnableStakingIndexer {
-		dbConfig.DbPath = builder.cfg.Chain.StakingIndexDBPath
-		candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewBoltDB(dbConfig))
+		if builder.cfg.Chain.StakingIndexDBPath == "" {
+			log.L().Warn("Create in memory bucket indexer, which will not pesist data on disk")
+			candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewMemKVStore())
+		} else {
+			dbConfig.DbPath = builder.cfg.Chain.StakingIndexDBPath
+			candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewBoltDB(dbConfig))
+		}
 	}
 	return
 }
 
-func (builder *Builder) buildBlockchain(forSubChain, forTest bool) error {
-	builder.cs.chain = builder.createBlockchain(forSubChain, forTest)
+func (builder *Builder) buildBlockchain(forSubChain bool) error {
+	builder.cs.chain = builder.createBlockchain(forSubChain)
 	builder.cs.lifecycle.Add(builder.cs.chain)
 
 	if err := builder.cs.chain.AddSubscriber(builder.cs.actpool); err != nil {
@@ -462,7 +455,7 @@ func (builder *Builder) buildBlockchain(forSubChain, forTest bool) error {
 	return nil
 }
 
-func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.Blockchain {
+func (builder *Builder) createBlockchain(forSubChain bool) blockchain.Blockchain {
 	if builder.cs.chain != nil {
 		return builder.cs.chain
 	}
@@ -735,12 +728,12 @@ func (builder *Builder) buildConsensusComponent() error {
 	return nil
 }
 
-func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) {
+func (builder *Builder) build(forSubChain bool) (*ChainService, error) {
 	builder.cs.registry = protocol.NewRegistry()
 	if builder.cs.p2pAgent == nil {
 		builder.cs.p2pAgent = p2p.NewDummyAgent()
 	}
-	if err := builder.buildFactory(forTest); err != nil {
+	if err := builder.buildFactory(); err != nil {
 		return nil, err
 	}
 	if err := builder.buildElectionCommittee(); err != nil {
@@ -749,19 +742,19 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.buildActionPool(); err != nil {
 		return nil, err
 	}
-	if err := builder.buildGatewayComponents(forTest); err != nil {
+	if err := builder.buildGatewayComponents(); err != nil {
 		return nil, err
 	}
-	if err := builder.buildSGDRegistry(forTest); err != nil {
+	if err := builder.buildSGDRegistry(); err != nil {
 		return nil, err
 	}
-	if err := builder.buildContractStakingIndexer(forTest); err != nil {
+	if err := builder.buildContractStakingIndexer(); err != nil {
 		return nil, err
 	}
-	if err := builder.buildBlockDAO(forTest); err != nil {
+	if err := builder.buildBlockDAO(); err != nil {
 		return nil, err
 	}
-	if err := builder.buildBlockchain(forSubChain, forTest); err != nil {
+	if err := builder.buildBlockchain(forSubChain); err != nil {
 		return nil, err
 	}
 	if err := builder.buildBlockTimeCalculator(); err != nil {
