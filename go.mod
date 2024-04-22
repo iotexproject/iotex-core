@@ -24,7 +24,7 @@ require (
 	github.com/iotexproject/iotex-address v0.2.8
 	github.com/iotexproject/iotex-antenna-go/v2 v2.5.1
 	github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d
-	github.com/iotexproject/iotex-proto v0.5.15-0.20240105060115-b12b162afdde
+	github.com/iotexproject/iotex-proto v0.6.0
 	github.com/ipfs/go-ipfs-api v0.2.0
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/mackerelio/go-osstat v0.2.4
@@ -242,7 +242,7 @@ require (
 	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/term v0.15.0 // indirect
-	golang.org/x/time v0.3.0 // indirect
+	golang.org/x/time v0.3.0
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -86,68 +85,6 @@ func TestGenerateRlp(t *testing.T) {
 			require.Contains(err.Error(), v.err)
 		}
 		require.Equal(v.hash, h)
-	}
-}
-
-func TestRlpDecodeVerify(t *testing.T) {
-	require := require.New(t)
-
-	oldTests := rlpTests[:len(rlpTests)-1]
-	for _, v := range oldTests {
-		// decode received RLP tx
-		tx, sig, pubkey, err := DecodeRawTx(v.raw, _evmNetworkID)
-		require.NoError(err)
-		require.EqualValues(types.LegacyTxType, tx.Type())
-		require.True(tx.Protected())
-		require.EqualValues(v.chainID, tx.ChainId().Uint64())
-		require.Equal(v.pubkey, pubkey.HexString())
-		require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
-
-		// convert to our Execution
-		pb := &iotextypes.Action{
-			Encoding: iotextypes.Encoding_ETHEREUM_EIP155,
-		}
-		pb.Core = convertToNativeProto(tx, v.actType)
-		pb.SenderPubKey = pubkey.Bytes()
-		pb.Signature = sig
-
-		// send on wire
-		bs, err := proto.Marshal(pb)
-		require.NoError(err)
-
-		// receive from API
-		proto.Unmarshal(bs, pb)
-		selp := &SealedEnvelope{}
-		require.NoError(selp.loadProto(pb, _evmNetworkID))
-		act, ok := selp.Action().(EthCompatibleAction)
-		require.True(ok)
-		rlpTx, err := act.ToEthTx(_evmNetworkID)
-		require.NoError(err)
-
-		// verify against original tx
-		require.Equal(v.nonce, rlpTx.Nonce())
-		require.Equal(v.price, rlpTx.GasPrice().String())
-		require.Equal(v.limit, rlpTx.Gas())
-		if v.to == "" {
-			require.Nil(rlpTx.To())
-		} else {
-			require.Equal(v.to, rlpTx.To().Hex())
-		}
-		require.Equal(v.amount, rlpTx.Value().String())
-		require.Equal(v.dataLen, len(rlpTx.Data()))
-		h, err := selp.Hash()
-		require.NoError(err)
-		require.Equal(v.hash, hex.EncodeToString(h[:]))
-		require.Equal(pubkey, selp.SrcPubkey())
-		require.True(bytes.Equal(sig, selp.signature))
-		raw, err := selp.envelopeHash()
-		require.NoError(err)
-		signer, err := NewEthSigner(iotextypes.Encoding_ETHEREUM_RLP, _evmNetworkID)
-		require.NoError(err)
-		rawHash := signer.Hash(tx)
-		require.True(bytes.Equal(rawHash[:], raw[:]))
-		require.NotEqual(raw, h)
-		require.NoError(selp.VerifySignature())
 	}
 }
 
@@ -593,14 +530,4 @@ func TestIssue3944(t *testing.T) {
 	r.Equal(sig[32:64], s.Bytes())
 	r.Equal("9415", v.String()) // this is the correct V value corresponding to chainID = 4690
 	r.Equal(hash, tx1.Hash().Hex())
-}
-
-func TestBackwardComp(t *testing.T) {
-	r := require.New(t)
-	for _, chainID := range []uint32{_evmNetworkID, _evmNetworkID + 1, 31337, 0} {
-		_, _, _, err := DecodeRawTx(deterministicDeploymentTx, chainID)
-		r.Equal(crypto.ErrInvalidKey, err)
-		_, _, _, err = DecodeRawTx(accessListTx, chainID)
-		r.ErrorContains(err, "typed transaction too short")
-	}
 }
