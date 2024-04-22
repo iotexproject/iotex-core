@@ -76,12 +76,12 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 	if candidate == nil {
 		return log, nil, errCandNotExist
 	}
-	bucket := NewVoteBucket(candidate.Owner, actionCtx.Caller, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
+	bucket := NewVoteBucket(candidate.GetIdentifier(), actionCtx.Caller, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
 	bucketIdx, err := csm.putBucketAndIndex(bucket)
 	if err != nil {
 		return log, nil, err
 	}
-	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), candidate.Owner.Bytes())
+	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), candidate.GetIdentifier().Bytes())
 
 	// update candidate
 	weightedVote := p.calculateVoteWeight(bucket, false)
@@ -115,7 +115,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		return log, nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
 
-	log.AddAddress(candidate.Owner)
+	log.AddAddress(candidate.GetIdentifier())
 	log.AddAddress(actionCtx.Caller)
 	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
 
@@ -203,7 +203,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		candidate.SelfStake = big.NewInt(0)
 	}
 	if err := csm.Upsert(candidate); err != nil {
-		return log, csmErrorToHandleError(candidate.Owner.String(), err)
+		return log, csmErrorToHandleError(candidate.GetIdentifier().String(), err)
 	}
 
 	log.AddAddress(actionCtx.Caller)
@@ -314,7 +314,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 			return log, rErr
 		}
 	}
-	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes(), candidate.Owner.Bytes())
+	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes(), candidate.GetIdentifier().Bytes())
 
 	prevCandidate := csm.GetByOwner(bucket.Candidate)
 	if prevCandidate == nil {
@@ -328,7 +328,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 		}
 	}
 
-	if featureCtx.CannotTranferToSelf && address.Equal(prevCandidate.Owner, candidate.Owner) {
+	if featureCtx.CannotTranferToSelf && address.Equal(prevCandidate.GetIdentifier(), candidate.GetIdentifier()) {
 		// change to same candidate, do nothing
 		return log, &handleError{
 			err:           errors.New("change to same candidate"),
@@ -340,11 +340,11 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	if err := csm.delCandBucketIndex(bucket.Candidate, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to delete candidate bucket index for candidate %s", bucket.Candidate.String())
 	}
-	if err := csm.putCandBucketIndex(candidate.Owner, act.BucketIndex()); err != nil {
-		return log, errors.Wrapf(err, "failed to put candidate bucket index for candidate %s", candidate.Owner.String())
+	if err := csm.putCandBucketIndex(candidate.GetIdentifier(), act.BucketIndex()); err != nil {
+		return log, errors.Wrapf(err, "failed to put candidate bucket index for candidate %s", candidate.GetIdentifier().String())
 	}
 	// update bucket
-	bucket.Candidate = candidate.Owner
+	bucket.Candidate = candidate.GetIdentifier()
 	if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
 		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
@@ -353,7 +353,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	weightedVotes := p.calculateVoteWeight(bucket, false)
 	if err := prevCandidate.SubVote(weightedVotes); err != nil {
 		return log, &handleError{
-			err:           errors.Wrapf(err, "failed to subtract vote for previous candidate %s", prevCandidate.Owner.String()),
+			err:           errors.Wrapf(err, "failed to subtract vote for previous candidate %s", prevCandidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
 	}
@@ -364,21 +364,21 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 		prevCandidate.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
 	}
 	if err := csm.Upsert(prevCandidate); err != nil {
-		return log, csmErrorToHandleError(prevCandidate.Owner.String(), err)
+		return log, csmErrorToHandleError(prevCandidate.GetIdentifier().String(), err)
 	}
 
 	// update current candidate
 	if err := candidate.AddVote(weightedVotes); err != nil {
 		return log, &handleError{
-			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String()),
+			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
 		}
 	}
 	if err := csm.Upsert(candidate); err != nil {
-		return log, csmErrorToHandleError(candidate.Owner.String(), err)
+		return log, csmErrorToHandleError(candidate.GetIdentifier().String(), err)
 	}
 
-	log.AddAddress(candidate.Owner)
+	log.AddAddress(candidate.GetIdentifier())
 	log.AddAddress(actionCtx.Caller)
 	return log, nil
 }
@@ -527,20 +527,20 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 	weightedVotes := p.calculateVoteWeight(bucket, selfStake)
 	if err := candidate.AddVote(weightedVotes); err != nil {
 		return log, nil, &handleError{
-			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String()),
+			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
 		}
 	}
 	if selfStake {
 		if err := candidate.AddSelfStake(act.Amount()); err != nil {
 			return log, nil, &handleError{
-				err:           errors.Wrapf(err, "failed to add self stake for candidate %s", candidate.Owner.String()),
+				err:           errors.Wrapf(err, "failed to add self stake for candidate %s", candidate.GetIdentifier().String()),
 				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
 			}
 		}
 	}
 	if err := csm.Upsert(candidate); err != nil {
-		return log, nil, csmErrorToHandleError(candidate.Owner.String(), err)
+		return log, nil, csmErrorToHandleError(candidate.GetIdentifier().String(), err)
 	}
 
 	// update bucket pool
@@ -646,12 +646,12 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	weightedVotes := p.calculateVoteWeight(bucket, selfStake)
 	if err := candidate.AddVote(weightedVotes); err != nil {
 		return log, &handleError{
-			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String()),
+			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
 		}
 	}
 	if err := csm.Upsert(candidate); err != nil {
-		return log, csmErrorToHandleError(candidate.Owner.String(), err)
+		return log, csmErrorToHandleError(candidate.GetIdentifier().String(), err)
 	}
 
 	log.AddAddress(actionCtx.Caller)
@@ -822,10 +822,10 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	if act.RewardAddress() != nil {
 		c.Reward = act.RewardAddress()
 	}
-	log.AddTopics(c.Owner.Bytes())
+	log.AddTopics(c.GetIdentifier().Bytes())
 
 	if err := csm.Upsert(c); err != nil {
-		return log, csmErrorToHandleError(c.Owner.String(), err)
+		return log, csmErrorToHandleError(c.GetIdentifier().String(), err)
 	}
 	height, _ := csm.SM().Height()
 	if p.needToWriteCandsMap(ctx, height) {

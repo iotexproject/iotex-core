@@ -74,7 +74,7 @@ func (p *Protocol) validateEndorsement(ctx context.Context, csm CandidateStateMa
 	if err := validateBucketStake(bucket, true); err != nil {
 		return err
 	}
-	if err := validateBucketCandidate(bucket, cand.Owner); err != nil {
+	if err := validateBucketCandidate(bucket, cand.GetIdentifier()); err != nil {
 		return err
 	}
 	if err := validateBucketSelfStake(featureCtx, csm, bucket, false); err != nil {

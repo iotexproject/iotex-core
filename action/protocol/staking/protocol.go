@@ -520,7 +520,7 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 			// specifying the height param instead of query latest from indexer directly, aims to cause error when indexer falls behind
 			// currently there are two possible sr (i.e. factory or workingSet), it means the height could be chain height or current block height
 			// using height-1 will cover the two scenario while detect whether the indexer is lagging behind
-			contractVotes, err := p.contractStakingIndexer.CandidateVotes(ctx, list[i].Owner, srHeight-1)
+			contractVotes, err := p.contractStakingIndexer.CandidateVotes(ctx, list[i].GetIdentifier(), srHeight-1)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to get CandidateVotes from contractStakingIndexer")
 			}
