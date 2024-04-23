@@ -69,16 +69,6 @@ func (ig *SyncIndexers) PutBlock(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-// DeleteTipBlock deletes the tip block from the indexers in the group
-func (ig *SyncIndexers) DeleteTipBlock(ctx context.Context, blk *block.Block) error {
-	for _, indexer := range ig.indexers {
-		if err := indexer.DeleteTipBlock(ctx, blk); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // StartHeight returns the minimum start height of the indexers in the group
 func (ig *SyncIndexers) StartHeight() uint64 {
 	return ig.minStartHeight

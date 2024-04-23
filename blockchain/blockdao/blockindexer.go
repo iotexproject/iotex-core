@@ -25,7 +25,6 @@ type (
 		Stop(ctx context.Context) error
 		Height() (uint64, error)
 		PutBlock(context.Context, *block.Block) error
-		DeleteTipBlock(context.Context, *block.Block) error
 	}
 
 	// BlockIndexerWithStart defines an interface to accept block to build index from a start height
