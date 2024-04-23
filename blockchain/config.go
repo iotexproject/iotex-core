@@ -47,8 +47,9 @@ type (
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
 		// EnableStateDBCaching enables cachedStateDBOption
 		EnableStateDBCaching bool `yaml:"enableStateDBCaching"`
-		// EnableArchiveMode is only meaningful when EnableTrielessStateDB is false
-		EnableArchiveMode bool `yaml:"enableArchiveMode"`
+		// HistoryWindowSize specifies the window size of archieve mode. History window size 0 means full archive mode,
+		// 1 means normal mode, and others means partial archive mode. It is only meaningful when EnableTrielessStateDB is false
+		HistoryWindowSize uint16 `yaml:"historyWindowSize"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
 		// deprecated
@@ -99,7 +100,7 @@ var (
 		},
 		EnableTrielessStateDB:         true,
 		EnableStateDBCaching:          false,
-		EnableArchiveMode:             false,
+		HistoryWindowSize:             1,
 		EnableAsyncIndexWrite:         true,
 		EnableSystemLogIndexer:        false,
 		EnableStakingProtocol:         true,
