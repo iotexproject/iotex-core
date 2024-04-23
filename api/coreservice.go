@@ -929,26 +929,30 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 	)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 
-	rp := rolldpos.FindProtocol(core.registry)
-	if rp != nil {
-		tipEpochNum := rp.GetEpochNum(tipHeight)
-		if height != "" {
-			inputHeight, err := strconv.ParseUint(height, 0, 64)
-			if err != nil {
-				return nil, uint64(0), err
-			}
-			inputEpochNum := rp.GetEpochNum(inputHeight)
-			if inputEpochNum < tipEpochNum {
-				// old data, wrap to history state reader
-				d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(core.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
-				if err == nil {
-					core.readCache.Put(key.Hash(), d)
+	if height != "" {
+		inputHeight, err := strconv.ParseUint(height, 0, 64)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		rp := rolldpos.FindProtocol(core.registry)
+		if rp != nil {
+			tipEpochNum := rp.GetEpochNum(tipHeight)
+			if height != "" {
+				inputEpochNum := rp.GetEpochNum(inputHeight)
+				if inputEpochNum < tipEpochNum {
+					inputHeight = rp.GetEpochHeight(inputEpochNum)
 				}
-				return d, h, err
 			}
 		}
+		if inputHeight < tipHeight {
+			// old data, wrap to history state reader
+			d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(core.sf, inputHeight), methodName, arguments...)
+			if err == nil {
+				core.readCache.Put(key.Hash(), d)
+			}
+			return d, h, err
+		}
 	}
-
 	// TODO: need to distinguish user error and system error
 	d, h, err := p.ReadState(ctx, core.sf, methodName, arguments...)
 	if err == nil {
