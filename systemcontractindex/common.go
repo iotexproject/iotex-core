@@ -4,6 +4,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -57,21 +58,25 @@ func (s *IndexerCommon) Height() (uint64, error) {
 func (s *IndexerCommon) StartHeight() uint64 { return s.startHeight }
 
 // PutHeight puts the tip block height
-func (s *IndexerCommon) PutHeight(height uint64) error {
-	return s.kvstore.Put(s.ns, s.key, byteutil.Uint64ToBytesBigEndian(height))
+func (s *IndexerCommon) Commit(height uint64, delta batch.KVStoreBatch) error {
+	delta.Put(s.ns, s.key, byteutil.Uint64ToBytesBigEndian(height), "failed to put height")
+	return s.kvstore.WriteBatch(delta)
 }
 
 // BlockContinuity checks the block continuity
 func (s *IndexerCommon) BlockContinuity(height uint64) (existed bool, err error) {
-	expectHeight, err := s.Height()
+	tipHeight, err := s.Height()
 	if err != nil {
 		return false, err
 	}
+	expectHeight := tipHeight + 1
 	if expectHeight < s.startHeight {
 		expectHeight = s.startHeight
 	}
-	if expectHeight >= height {
-		return expectHeight > height, nil
+	if expectHeight == height {
+		return false, nil
+	} else if expectHeight > height {
+		return true, nil
 	}
 	return false, errors.Errorf("invalid block height %d, expect %d", height, expectHeight)
 }

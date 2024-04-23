@@ -178,10 +178,9 @@ func (s *Indexer) commit(handler *eventHandler, height uint64) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	// update db
-	if err := s.common.KVStore().WriteBatch(delta); err != nil {
+	if err := s.common.Commit(height, delta); err != nil {
 		return err
 	}
-	s.common.PutHeight(height)
 	// update cache
 	s.cache = dirty
 	return nil

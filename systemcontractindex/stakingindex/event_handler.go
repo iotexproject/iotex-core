@@ -9,13 +9,16 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/abiutil"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 const (
@@ -31,7 +34,7 @@ type eventHandler struct {
 var (
 	// TODO: fill in the ABI of staking contract
 	//go:embed staking.json
-	stakingContractJSONABI string
+	StakingContractJSONABI string
 	stakingContractABI     abi.ABI
 
 	// ErrBucketNotExist is the error when bucket does not exist
@@ -40,7 +43,7 @@ var (
 
 func init() {
 	var err error
-	stakingContractABI, err = abi.JSON(strings.NewReader(stakingContractJSONABI))
+	stakingContractABI, err = abi.JSON(strings.NewReader(StakingContractJSONABI))
 	if err != nil {
 		panic(err)
 	}
@@ -48,24 +51,25 @@ func init() {
 
 func newEventHandler(dirty *cache) *eventHandler {
 	return &eventHandler{
-		dirty: dirty,
-		delta: batch.NewBatch(),
+		dirty:      dirty,
+		delta:      batch.NewBatch(),
+		tokenOwner: make(map[uint64]address.Address),
 	}
 }
 
-func (eh *eventHandler) HandleEvent(ctx context.Context, blk *block.Block, log *action.Log) error {
+func (eh *eventHandler) HandleEvent(ctx context.Context, blk *block.Block, actLog *action.Log) error {
 	// get event abi
-	abiEvent, err := stakingContractABI.EventByID(common.Hash(log.Topics[0]))
+	abiEvent, err := stakingContractABI.EventByID(common.Hash(actLog.Topics[0]))
 	if err != nil {
-		return errors.Wrapf(err, "get event abi from topic %v failed", log.Topics[0])
+		return errors.Wrapf(err, "get event abi from topic %v failed", actLog.Topics[0])
 	}
 
 	// unpack event data
-	event, err := abiutil.UnpackEventParam(abiEvent, log)
+	event, err := abiutil.UnpackEventParam(abiEvent, actLog)
 	if err != nil {
 		return err
 	}
-
+	log.L().Info("handle staking event", zap.String("event", abiEvent.Name), zap.Any("event", event))
 	// handle different kinds of event
 	switch abiEvent.Name {
 	case "Staked":
@@ -97,7 +101,7 @@ func (eh *eventHandler) HandleEvent(ctx context.Context, blk *block.Block, log *
 }
 
 func (eh *eventHandler) handleStakedEvent(event abiutil.EventParam, height uint64) error {
-	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
+	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
 	if err != nil {
 		return err
 	}
@@ -126,12 +130,12 @@ func (eh *eventHandler) handleStakedEvent(event abiutil.EventParam, height uint6
 		UnlockedAt:                maxBlockNumber,
 		UnstakedAt:                maxBlockNumber,
 	}
-	eh.dirty.PutBucket(tokenIDParam.Uint64(), bucket)
+	eh.putBucket(tokenIDParam.Uint64(), bucket)
 	return nil
 }
 
 func (eh *eventHandler) handleLockedEvent(event abiutil.EventParam) error {
-	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
+	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
 	if err != nil {
 		return err
 	}
@@ -146,12 +150,12 @@ func (eh *eventHandler) handleLockedEvent(event abiutil.EventParam) error {
 	}
 	bkt.StakedDurationBlockNumber = durationParam.Uint64()
 	bkt.UnlockedAt = maxBlockNumber
-	eh.dirty.PutBucket(tokenIDParam.Uint64(), bkt)
+	eh.putBucket(tokenIDParam.Uint64(), bkt)
 	return nil
 }
 
 func (eh *eventHandler) handleUnlockedEvent(event abiutil.EventParam, height uint64) error {
-	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
+	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
 	if err != nil {
 		return err
 	}
@@ -161,12 +165,12 @@ func (eh *eventHandler) handleUnlockedEvent(event abiutil.EventParam, height uin
 		return errors.Errorf("no bucket for token id %d", tokenIDParam.Uint64())
 	}
 	bkt.UnlockedAt = height
-	eh.dirty.PutBucket(tokenIDParam.Uint64(), bkt)
+	eh.putBucket(tokenIDParam.Uint64(), bkt)
 	return nil
 }
 
 func (eh *eventHandler) handleUnstakedEvent(event abiutil.EventParam, height uint64) error {
-	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
+	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
 	if err != nil {
 		return err
 	}
@@ -176,12 +180,12 @@ func (eh *eventHandler) handleUnstakedEvent(event abiutil.EventParam, height uin
 		return errors.Errorf("no bucket for token id %d", tokenIDParam.Uint64())
 	}
 	bkt.UnstakedAt = height
-	eh.dirty.PutBucket(tokenIDParam.Uint64(), bkt)
+	eh.putBucket(tokenIDParam.Uint64(), bkt)
 	return nil
 }
 
 func (eh *eventHandler) handleDelegateChangedEvent(event abiutil.EventParam) error {
-	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
+	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
 	if err != nil {
 		return err
 	}
@@ -195,17 +199,17 @@ func (eh *eventHandler) handleDelegateChangedEvent(event abiutil.EventParam) err
 		return errors.Errorf("no bucket for token id %d", tokenIDParam.Uint64())
 	}
 	bkt.Candidate = delegateParam
-	eh.dirty.PutBucket(tokenIDParam.Uint64(), bkt)
+	eh.putBucket(tokenIDParam.Uint64(), bkt)
 	return nil
 }
 
 func (eh *eventHandler) handleWithdrawalEvent(event abiutil.EventParam) error {
-	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
+	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
 	if err != nil {
 		return err
 	}
 
-	eh.dirty.DeleteBucket(tokenIDParam.Uint64())
+	eh.delBucket(tokenIDParam.Uint64())
 	return nil
 }
 
@@ -226,13 +230,13 @@ func (eh *eventHandler) handleTransferEvent(event abiutil.EventParam) error {
 	bkt := eh.dirty.Bucket(tokenID)
 	if bkt != nil {
 		bkt.Owner = to
-		eh.dirty.PutBucket(tokenID, bkt)
+		eh.putBucket(tokenID, bkt)
 	}
 	return nil
 }
 
 func (eh *eventHandler) handleMergedEvent(event abiutil.EventParam) error {
-	tokenIDsParam, err := event.FieldUint256Slice("tokenIds")
+	tokenIDsParam, err := event.FieldUint256Slice("bucketIds")
 	if err != nil {
 		return err
 	}
@@ -254,14 +258,14 @@ func (eh *eventHandler) handleMergedEvent(event abiutil.EventParam) error {
 	b.StakedDurationBlockNumber = durationParam.Uint64()
 	b.UnlockedAt = maxBlockNumber
 	for i := 1; i < len(tokenIDsParam); i++ {
-		eh.dirty.DeleteBucket(tokenIDsParam[i].Uint64())
+		eh.delBucket(tokenIDsParam[i].Uint64())
 	}
-	eh.dirty.PutBucket(tokenIDsParam[0].Uint64(), b)
+	eh.putBucket(tokenIDsParam[0].Uint64(), b)
 	return nil
 }
 
 func (eh *eventHandler) handleBucketExpandedEvent(event abiutil.EventParam) error {
-	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
+	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
 	if err != nil {
 		return err
 	}
@@ -280,12 +284,12 @@ func (eh *eventHandler) handleBucketExpandedEvent(event abiutil.EventParam) erro
 	}
 	b.StakedAmount = amountParam
 	b.StakedDurationBlockNumber = durationParam.Uint64()
-	eh.dirty.PutBucket(tokenIDParam.Uint64(), b)
+	eh.putBucket(tokenIDParam.Uint64(), b)
 	return nil
 }
 
 func (eh *eventHandler) handleDonatedEvent(event abiutil.EventParam) error {
-	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
+	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
 	if err != nil {
 		return err
 	}
@@ -299,7 +303,7 @@ func (eh *eventHandler) handleDonatedEvent(event abiutil.EventParam) error {
 		return errors.Wrapf(ErrBucketNotExist, "token id %d", tokenIDParam.Uint64())
 	}
 	b.StakedAmount.Sub(b.StakedAmount, amountParam)
-	eh.dirty.PutBucket(tokenIDParam.Uint64(), b)
+	eh.putBucket(tokenIDParam.Uint64(), b)
 	return nil
 }
 
@@ -307,4 +311,14 @@ func (eh *eventHandler) Finalize() (batch.KVStoreBatch, *cache) {
 	delta, dirty := eh.delta, eh.dirty
 	eh.delta, eh.dirty = nil, nil
 	return delta, dirty
+}
+
+func (eh *eventHandler) putBucket(id uint64, bkt *Bucket) {
+	eh.dirty.PutBucket(id, bkt)
+	eh.delta.Put(stakingBucketNS, byteutil.Uint64ToBytesBigEndian(id), bkt.Serialize(), "failed to put bucket")
+}
+
+func (eh *eventHandler) delBucket(id uint64) {
+	eh.dirty.DeleteBucket(id)
+	eh.delta.Delete(stakingBucketNS, byteutil.Uint64ToBytesBigEndian(id), "failed to put bucket")
 }
