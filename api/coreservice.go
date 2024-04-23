@@ -930,24 +930,22 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 
 	rp := rolldpos.FindProtocol(core.registry)
-	if rp == nil {
-		return nil, uint64(0), errors.New("rolldpos is not registered")
-	}
-
-	tipEpochNum := rp.GetEpochNum(tipHeight)
-	if height != "" {
-		inputHeight, err := strconv.ParseUint(height, 0, 64)
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		inputEpochNum := rp.GetEpochNum(inputHeight)
-		if inputEpochNum < tipEpochNum {
-			// old data, wrap to history state reader
-			d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(core.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
-			if err == nil {
-				core.readCache.Put(key.Hash(), d)
+	if rp != nil {
+		tipEpochNum := rp.GetEpochNum(tipHeight)
+		if height != "" {
+			inputHeight, err := strconv.ParseUint(height, 0, 64)
+			if err != nil {
+				return nil, uint64(0), err
 			}
-			return d, h, err
+			inputEpochNum := rp.GetEpochNum(inputHeight)
+			if inputEpochNum < tipEpochNum {
+				// old data, wrap to history state reader
+				d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(core.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
+				if err == nil {
+					core.readCache.Put(key.Hash(), d)
+				}
+				return d, h, err
+			}
 		}
 	}
 
