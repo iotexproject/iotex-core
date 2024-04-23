@@ -7,6 +7,9 @@ package action
 
 import (
 	"math/big"
+
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 )
 
 // AbstractAction is an abstract implementation of Action interface
@@ -82,6 +85,35 @@ func (act *AbstractAction) SanityCheck() error {
 	// Reject execution of negative gas price
 	if act.GasPrice().Sign() < 0 {
 		return ErrNegativeValue
+	}
+	return nil
+}
+
+func (act *AbstractAction) toProto() *iotextypes.ActionCore {
+	actCore := iotextypes.ActionCore{
+		Version:  act.version,
+		Nonce:    act.nonce,
+		GasLimit: act.gasLimit,
+		ChainID:  act.chainID,
+	}
+	if act.gasPrice != nil {
+		actCore.GasPrice = act.gasPrice.String()
+	}
+	return &actCore
+}
+
+func (act *AbstractAction) fromProto(pb *iotextypes.ActionCore) error {
+	act.version = pb.GetVersion()
+	act.nonce = pb.GetNonce()
+	act.gasLimit = pb.GetGasLimit()
+	act.chainID = pb.GetChainID()
+	if price := pb.GetGasPrice(); price == "" {
+		act.gasPrice = &big.Int{}
+	} else {
+		var ok bool
+		if act.gasPrice, ok = new(big.Int).SetString(price, 10); !ok {
+			return errors.Errorf("invalid gas prcie %s", price)
+		}
 	}
 	return nil
 }
