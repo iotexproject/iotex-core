@@ -219,7 +219,7 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	cfg.DB.DbPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.Chain.EnableArchiveMode = true
+	cfg.Chain.HistoryWindowSize = 0
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.BlockGasLimit = genesis.Default.BlockGasLimit * 100
 	cfg.ActPool.MinGasPriceStr = "0"

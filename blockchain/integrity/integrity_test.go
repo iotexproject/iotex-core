@@ -2398,7 +2398,7 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.Chain.EnableArchiveMode = true
+	cfg.Chain.HistoryWindowSize = 0
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.BlockGasLimit = uint64(1000000)
 	cfg.ActPool.MinGasPriceStr = "0"

@@ -195,8 +195,13 @@ func (kvb *kvStoreWithBuffer) MustDelete(ns string, key []byte) {
 }
 
 func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition, minKey, maxKey []byte) ([][]byte, [][]byte, error) {
+	var bucketNotExist bool
 	fk, fv, err := kvb.store.Filter(ns, cond, minKey, maxKey)
-	if err != nil {
+	switch errors.Cause(err) {
+	case ErrBucketNotExist: // fall through
+		bucketNotExist = true
+	case nil:
+	default: // err != nil
 		return fk, fv, err
 	}
 
@@ -211,6 +216,7 @@ func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition, minKey, maxKey [
 		if entry.Namespace() != ns {
 			continue
 		}
+		bucketNotExist = false
 		k, v := entry.Key(), entry.Value()
 
 		if checkMin && bytes.Compare(k, minKey) == -1 {
@@ -243,6 +249,9 @@ func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition, minKey, maxKey [
 				}
 			}
 		}
+	}
+	if bucketNotExist {
+		return nil, nil, ErrBucketNotExist
 	}
 	return fk, fv, nil
 }

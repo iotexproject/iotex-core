@@ -55,17 +55,17 @@ func TestBaseKVStoreBatch(t *testing.T) {
 	require.True(bytes.Equal([]byte{110, 115, 110, 115}, b.SerializeQueue(func(wi *WriteInfo) []byte {
 		return wi.SerializeWithoutWriteType()
 	}, nil)))
-	newb := b.Translate(func(wi *WriteInfo) *WriteInfo {
+	newb := b.Translate(func(wi *WriteInfo) []*WriteInfo {
 		if wi.WriteType() == Delete {
-			return NewWriteInfo(
+			return []*WriteInfo{NewWriteInfo(
 				Put,
 				"to_delete_ns",
 				wi.Key(),
 				wi.Value(),
 				"",
-			)
+			)}
 		}
-		return wi
+		return []*WriteInfo{wi}
 	})
 	newEntry1, err := newb.Entry(1)
 	require.NoError(err)
@@ -130,11 +130,11 @@ func TestCachedBatch(t *testing.T) {
 	require.Error(cb.RevertSnapshot(si + 1))
 	require.NoError(cb.RevertSnapshot(si))
 	require.Equal(1, cb.Size())
-	require.True(bytes.Equal([]byte{}, cb.Translate(func(wi *WriteInfo) *WriteInfo {
+	require.True(bytes.Equal([]byte{}, cb.Translate(func(wi *WriteInfo) []*WriteInfo {
 		if wi.WriteType() != Delete {
 			return nil
 		}
-		return wi
+		return []*WriteInfo{wi}
 	}).SerializeQueue(nil, nil)))
 	cb.Clear()
 	require.Equal(0, cb.Size())
