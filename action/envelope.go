@@ -1,3 +1,8 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package action
 
 import (
@@ -17,6 +22,8 @@ type (
 		ChainID() uint32
 		GasLimit() uint64
 		GasPrice() *big.Int
+		GasTipCap() *big.Int
+		GasFeeCap() *big.Int
 		Destination() (string, bool)
 		Cost() (*big.Int, error)
 		IntrinsicGas() (uint64, error)
@@ -221,7 +228,7 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	default:
 		return errors.Errorf("no applicable action to handle proto type %T", pbAct.Action)
 	}
-	elp.payload.SetEnvelopeContext(elp)
+	elp.payload.SetEnvelopeContext(&elp.AbstractAction)
 	return nil
 }
 
