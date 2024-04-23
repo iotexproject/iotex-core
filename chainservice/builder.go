@@ -582,6 +582,9 @@ func (builder *Builder) registerStakingProtocol() error {
 
 func (builder *Builder) registerRewardingProtocol() error {
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
+	if builder.cfg.Consensus.Scheme != config.RollDPoSScheme {
+		return nil
+	}
 	return rewarding.NewProtocol(builder.cfg.Genesis.Rewarding).Register(builder.cs.registry)
 }
 
