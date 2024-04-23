@@ -7,6 +7,7 @@ package action
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -91,6 +92,7 @@ var (
 	ErrInvalidCanName = errors.New("invalid candidate name")
 
 	_ EthCompatibleAction = (*CandidateRegister)(nil)
+	_ TxDataBasic         = (*CandidateRegister)(nil)
 )
 
 // CandidateRegister is the action to register a candidate
@@ -381,19 +383,20 @@ func ethAddrToNativeAddr(in interface{}) (address.Address, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (cr *CandidateRegister) ToEthTx(_ uint32) (*types.Transaction, error) {
+func (cr *CandidateRegister) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
 	data, err := cr.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    cr.Nonce(),
-		GasPrice: cr.GasPrice(),
-		Gas:      cr.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+	switch encoding {
+	case iotextypes.Encoding_IOTEX_PROTOBUF:
+		// treat native tx as EVM LegacyTx
+		fallthrough
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		return stakingToLegacyTx(cr, data), nil
+	default:
+		panic(fmt.Sprintf("unsupported encoding %d", encoding))
+	}
 }
 
 // IsValidCandidateName check if a candidate name string is valid.

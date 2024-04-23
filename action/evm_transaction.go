@@ -22,10 +22,14 @@ type (
 		inner TxData
 	}
 
-	TxData interface {
+	TxDataBasic interface {
 		Nonce() uint64
 		GasLimit() uint64
 		GasPrice() *big.Int
+	}
+
+	TxData interface {
+		TxDataBasic
 		Amount() *big.Int
 		To() *common.Address
 		Data() []byte
