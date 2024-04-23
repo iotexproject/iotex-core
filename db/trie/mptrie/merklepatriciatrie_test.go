@@ -454,11 +454,11 @@ func TestHistoryTrie(t *testing.T) {
 
 	cfg.DbPath = testPath
 	opts := []db.KVStoreFlusherOption{
-		db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
+		db.FlushTranslateOption(func(wi *batch.WriteInfo) []*batch.WriteInfo {
 			if wi.WriteType() == batch.Delete {
 				return nil
 			}
-			return wi
+			return []*batch.WriteInfo{wi}
 		}),
 	}
 	dao := db.NewBoltDB(cfg)

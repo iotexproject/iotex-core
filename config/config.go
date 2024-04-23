@@ -251,7 +251,7 @@ func ValidateRollDPoS(cfg Config) error {
 
 // ValidateArchiveMode validates the state factory setting
 func ValidateArchiveMode(cfg Config) error {
-	if !cfg.Chain.EnableArchiveMode || !cfg.Chain.EnableTrielessStateDB {
+	if cfg.Chain.HistoryWindowSize == 1 || !cfg.Chain.EnableTrielessStateDB {
 		return nil
 	}
 

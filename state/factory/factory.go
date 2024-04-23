@@ -23,13 +23,11 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -50,6 +48,8 @@ const (
 	ArchiveTrieNamespace = "AccountTrie"
 	// ArchiveTrieRootKey indicates the key of accountTrie root hash in underlying DB
 	ArchiveTrieRootKey = "archiveTrieRoot"
+	// ArchiveDeletedKeys records the keys deleted on a specific height
+	ArchiveDeletedKeys = "archiveDeletedKeys"
 )
 
 var (
@@ -101,7 +101,7 @@ type (
 		cfg                      Config
 		registry                 *protocol.Registry
 		currentChainHeight       uint64
-		saveHistory              bool
+		historyWindowSize        uint16
 		twoLayerTrie             trie.TwoLayerTrie // global state trie, this is a read only trie
 		dao                      db.KVStore        // the underlying DB for account/contract storage
 		timerFactory             *prometheustimer.TimerFactory
@@ -159,7 +159,7 @@ func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
 		cfg:                cfg,
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
-		saveHistory:        cfg.Chain.EnableArchiveMode,
+		historyWindowSize:  cfg.Chain.HistoryWindowSize,
 		protocolView:       protocol.View{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
 		dao:                dao,
@@ -259,16 +259,7 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	span.AddEvent("factory.newWorkingSet")
 	defer span.End()
 
-	g := genesis.MustExtractGenesisContext(ctx)
-	flusher, err := db.NewKVStoreFlusher(
-		sf.dao,
-		batch.NewCachedBatch(),
-		sf.flusherOptions(!g.IsEaster(height))...,
-	)
-	if err != nil {
-		return nil, err
-	}
-	store, err := newFactoryWorkingSetStore(sf.protocolView, flusher)
+	store, err := newFactoryWorkingSetStore(ctx, height, uint64(sf.historyWindowSize), sf.protocolView, sf.dao)
 	if err != nil {
 		return nil, err
 	}
@@ -288,36 +279,6 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	}
 
 	return newWorkingSet(height, store), nil
-}
-
-func (sf *factory) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
-	opts := []db.KVStoreFlusherOption{
-		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
-			if wi.Namespace() == ArchiveTrieNamespace {
-				return true
-			}
-			if wi.Namespace() != evm.CodeKVNameSpace && wi.Namespace() != staking.CandsMapNS {
-				return false
-			}
-			return preEaster
-		}),
-		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
-			if preEaster {
-				return wi.SerializeWithoutWriteType()
-			}
-			return wi.Serialize()
-		}),
-	}
-	if sf.saveHistory {
-		opts = append(opts, db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
-			if wi.WriteType() == batch.Delete && wi.Namespace() == ArchiveTrieNamespace {
-				return nil
-			}
-			return wi
-		}))
-	}
-
-	return opts
 }
 
 func (sf *factory) Register(p protocol.Protocol) error {
@@ -598,7 +559,7 @@ func legacyKeyLen() int {
 }
 
 func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interface{}) error {
-	if !sf.saveHistory {
+	if sf.historyWindowSize == 1 {
 		return ErrNoArchiveData
 	}
 	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), false)

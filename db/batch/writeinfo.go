@@ -32,7 +32,7 @@ type (
 	WriteInfoSerialize func(wi *WriteInfo) []byte
 
 	// WriteInfoTranslate translates a write info
-	WriteInfoTranslate func(wi *WriteInfo) *WriteInfo
+	WriteInfoTranslate func(wi *WriteInfo) []*WriteInfo
 )
 
 // NewWriteInfo creates a new write info
