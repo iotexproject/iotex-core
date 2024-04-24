@@ -190,11 +190,15 @@ func (s *Indexer) checkHeight(height uint64) (unstart bool, err error) {
 	if height < s.common.StartHeight() {
 		return true, nil
 	}
+	// means latest height
+	if height == 0 {
+		return false, nil
+	}
 	tipHeight, err := s.common.Height()
 	if err != nil {
 		return false, err
 	}
-	if height != tipHeight {
+	if height > tipHeight {
 		return false, errors.Errorf("invalid block height %d, expect %d", height, tipHeight)
 	}
 	return false, nil

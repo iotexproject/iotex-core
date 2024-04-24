@@ -110,7 +110,7 @@ func (s *cache) BucketIdxs() []uint64 {
 
 func (s *cache) Bucket(id uint64) *Bucket {
 	if bkt, ok := s.buckets[id]; ok {
-		return bkt
+		return bkt.Clone()
 	}
 	return nil
 }
@@ -119,7 +119,7 @@ func (s *cache) BucketsByIndices(indices []uint64) []*Bucket {
 	buckets := make([]*Bucket, 0, len(indices))
 	for _, idx := range indices {
 		if bkt, ok := s.buckets[idx]; ok {
-			buckets = append(buckets, bkt)
+			buckets = append(buckets, bkt.Clone())
 		}
 	}
 	return buckets
