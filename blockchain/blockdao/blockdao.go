@@ -59,8 +59,9 @@ type (
 		timerFactory *prometheustimer.TimerFactory
 		lifecycle    lifecycle.Lifecycle
 		headerCache  cache.LRUCache
-		bodyCache    cache.LRUCache
 		footerCache  cache.LRUCache
+		receiptCache cache.LRUCache
+		blockCache   cache.LRUCache
 		tipHeight    uint64
 	}
 )
@@ -83,8 +84,9 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockDAO, indexers []BlockIndexer,
 	}
 	if cacheSize > 0 {
 		blockDAO.headerCache = cache.NewThreadSafeLruCache(cacheSize)
-		blockDAO.bodyCache = cache.NewThreadSafeLruCache(cacheSize)
 		blockDAO.footerCache = cache.NewThreadSafeLruCache(cacheSize)
+		blockDAO.receiptCache = cache.NewThreadSafeLruCache(cacheSize)
+		blockDAO.blockCache = cache.NewThreadSafeLruCache(cacheSize)
 	}
 	timerFactory, err := prometheustimer.New(
 		"iotex_block_dao_perf",
@@ -153,9 +155,20 @@ func (dao *blockDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
 }
 
 func (dao *blockDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
+	if blk, ok := lruCacheGet(dao.blockCache, hash); ok {
+		_cacheMtc.WithLabelValues("hit_block").Inc()
+		return blk.(*block.Block), nil
+	}
+	_cacheMtc.WithLabelValues("miss_block").Inc()
+
 	timer := dao.timerFactory.NewTimer("get_block")
 	defer timer.End()
-	return dao.blockStore.GetBlock(hash)
+	blk, err := dao.blockStore.GetBlock(hash)
+	if err != nil {
+		return nil, err
+	}
+	lruCachePut(dao.blockCache, hash, blk)
+	return blk, nil
 }
 
 func (dao *blockDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
@@ -170,7 +183,7 @@ func (dao *blockDAO) HeaderByHeight(height uint64) (*block.Header, error) {
 		return v.(*block.Header), nil
 	}
 	_cacheMtc.WithLabelValues("miss_header").Inc()
-
+	// TODO: fetch from blockCache
 	header, err := dao.blockStore.HeaderByHeight(height)
 	if err != nil {
 		return nil, err
@@ -186,7 +199,7 @@ func (dao *blockDAO) FooterByHeight(height uint64) (*block.Footer, error) {
 		return v.(*block.Footer), nil
 	}
 	_cacheMtc.WithLabelValues("miss_footer").Inc()
-
+	// TODO: fetch from blockCache
 	footer, err := dao.blockStore.FooterByHeight(height)
 	if err != nil {
 		return nil, err
@@ -206,7 +219,7 @@ func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
 		return header.(*block.Header), nil
 	}
 	_cacheMtc.WithLabelValues("miss_header").Inc()
-
+	// TODO: fetch from blockCache
 	header, err := dao.blockStore.Header(h)
 	if err != nil {
 		return nil, err
@@ -217,9 +230,19 @@ func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
 }
 
 func (dao *blockDAO) GetReceipts(height uint64) ([]*action.Receipt, error) {
+	if receipts, ok := lruCacheGet(dao.receiptCache, height); ok {
+		_cacheMtc.WithLabelValues("hit_receipts").Inc()
+		return receipts.([]*action.Receipt), nil
+	}
+	_cacheMtc.WithLabelValues("miss_receipts").Inc()
 	timer := dao.timerFactory.NewTimer("get_receipt")
 	defer timer.End()
-	return dao.blockStore.GetReceipts(height)
+	receipts, err := dao.blockStore.GetReceipts(height)
+	if err != nil {
+		return nil, err
+	}
+	lruCachePut(dao.receiptCache, height, receipts)
+	return receipts, nil
 }
 
 func (dao *blockDAO) ContainsTransactionLog() bool {
