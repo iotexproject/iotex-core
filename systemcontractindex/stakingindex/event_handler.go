@@ -69,7 +69,7 @@ func (eh *eventHandler) HandleEvent(ctx context.Context, blk *block.Block, actLo
 	if err != nil {
 		return err
 	}
-	log.L().Info("handle staking event", zap.String("event", abiEvent.Name), zap.Any("event", event))
+	log.L().Debug("handle staking event", zap.String("event", abiEvent.Name), zap.Any("event", event))
 	// handle different kinds of event
 	switch abiEvent.Name {
 	case "Staked":

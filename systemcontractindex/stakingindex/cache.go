@@ -115,7 +115,7 @@ func (s *cache) Bucket(id uint64) *Bucket {
 	return nil
 }
 
-func (s *cache) BucketsByIndices(indices []uint64) []*Bucket {
+func (s *cache) Buckets(indices []uint64) []*Bucket {
 	buckets := make([]*Bucket, 0, len(indices))
 	for _, idx := range indices {
 		if bkt, ok := s.buckets[idx]; ok {
@@ -125,7 +125,7 @@ func (s *cache) BucketsByIndices(indices []uint64) []*Bucket {
 	return buckets
 }
 
-func (s *cache) BucketIdxsByCandidate(candidate address.Address) []uint64 {
+func (s *cache) BucketIdsByCandidate(candidate address.Address) []uint64 {
 	cand := candidate.String()
 	buckets := make([]uint64, 0, len(s.bucketsByCandidate[cand]))
 	for idx := range s.bucketsByCandidate[cand] {

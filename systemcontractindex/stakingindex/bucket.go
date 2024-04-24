@@ -40,7 +40,7 @@ func (bi *Bucket) Deserialize(b []byte) error {
 
 // clone clones the bucket info
 func (bi *Bucket) toProto() *stakingpb.Bucket {
-	pb := &stakingpb.Bucket{
+	return &stakingpb.Bucket{
 		Candidate:  bi.Candidate.String(),
 		CreatedAt:  bi.CreatedAt,
 		Owner:      bi.Owner.String(),
@@ -49,7 +49,6 @@ func (bi *Bucket) toProto() *stakingpb.Bucket {
 		Amount:     bi.StakedAmount.String(),
 		Duration:   bi.StakedDurationBlockNumber,
 	}
-	return pb
 }
 
 func (bi *Bucket) loadProto(p *stakingpb.Bucket) error {

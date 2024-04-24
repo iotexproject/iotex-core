@@ -8,9 +8,11 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/systemcontractindex"
 )
 
@@ -45,7 +47,9 @@ func NewIndexer(kvstore db.KVStore, contractAddr string, startHeight uint64, blo
 
 // Start starts the indexer
 func (s *Indexer) Start(ctx context.Context) error {
-	if err := s.common.KVStore().Start(ctx); err != nil {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if err := s.common.Start(ctx); err != nil {
 		return err
 	}
 	return s.cache.Load(s.common.KVStore())
@@ -53,23 +57,29 @@ func (s *Indexer) Start(ctx context.Context) error {
 
 // Stop stops the indexer
 func (s *Indexer) Stop(ctx context.Context) error {
-	return s.common.KVStore().Stop(ctx)
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	return s.common.Stop(ctx)
 }
 
 // Height returns the tip block height
 func (s *Indexer) Height() (uint64, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return s.common.Height()
+	return s.common.Height(), nil
 }
 
 // StartHeight returns the start height of the indexer
 func (s *Indexer) StartHeight() uint64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	return s.common.StartHeight()
 }
 
 // ContractAddress returns the contract address
 func (s *Indexer) ContractAddress() string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	return s.common.ContractAddress()
 }
 
@@ -84,7 +94,7 @@ func (s *Indexer) Buckets(height uint64) ([]*VoteBucket, error) {
 		return nil, nil
 	}
 	idxs := s.cache.BucketIdxs()
-	bkts := s.cache.BucketsByIndices(idxs)
+	bkts := s.cache.Buckets(idxs)
 	vbs := batchAssembleVoteBucket(idxs, bkts, s.common.ContractAddress(), s.blockInterval)
 	return vbs, nil
 }
@@ -117,7 +127,7 @@ func (s *Indexer) BucketsByIndices(indices []uint64, height uint64) ([]*VoteBuck
 	} else if unstart {
 		return nil, nil
 	}
-	bkts := s.cache.BucketsByIndices(indices)
+	bkts := s.cache.Buckets(indices)
 	vbs := batchAssembleVoteBucket(indices, bkts, s.common.ContractAddress(), s.blockInterval)
 	return vbs, nil
 }
@@ -132,8 +142,8 @@ func (s *Indexer) BucketsByCandidate(candidate address.Address, height uint64) (
 	} else if unstart {
 		return nil, nil
 	}
-	idxs := s.cache.BucketIdxsByCandidate(candidate)
-	bkts := s.cache.BucketsByIndices(idxs)
+	idxs := s.cache.BucketIdsByCandidate(candidate)
+	bkts := s.cache.Buckets(idxs)
 	vbs := batchAssembleVoteBucket(idxs, bkts, s.common.ContractAddress(), s.blockInterval)
 	return vbs, nil
 }
@@ -153,10 +163,14 @@ func (s *Indexer) TotalBucketCount(height uint64) (uint64, error) {
 
 // PutBlock puts a block into indexer
 func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	// check block continuity
-	if existed, err := s.common.BlockContinuity(blk.Height()); err != nil {
-		return err
-	} else if existed {
+	expect := s.common.ExpectedHeight()
+	if blk.Height() > expect {
+		return errors.Errorf("invalid block height %d, expect %d", blk.Height(), expect)
+	} else if blk.Height() < expect {
+		log.L().Debug("indexer skip block", zap.Uint64("height", blk.Height()), zap.Uint64("expect", expect))
 		return nil
 	}
 	// handle events of block
@@ -180,8 +194,6 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 
 func (s *Indexer) commit(handler *eventHandler, height uint64) error {
 	delta, dirty := handler.Finalize()
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	// update db
 	if err := s.common.Commit(height, delta); err != nil {
 		return err
@@ -199,10 +211,7 @@ func (s *Indexer) checkHeight(height uint64) (unstart bool, err error) {
 	if height == 0 {
 		return false, nil
 	}
-	tipHeight, err := s.common.Height()
-	if err != nil {
-		return false, err
-	}
+	tipHeight := s.common.Height()
 	if height > tipHeight {
 		return false, errors.Errorf("invalid block height %d, expect %d", height, tipHeight)
 	}

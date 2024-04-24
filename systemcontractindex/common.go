@@ -1,6 +1,8 @@
 package systemcontractindex
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/db"
@@ -18,6 +20,7 @@ type IndexerCommon struct {
 	ns              string
 	key             []byte
 	startHeight     uint64
+	height          uint64
 	contractAddress string
 }
 
@@ -32,6 +35,24 @@ func NewIndexerCommon(kvstore db.KVStore, ns string, key []byte, contractAddress
 	}
 }
 
+// Start starts the indexer
+func (s *IndexerCommon) Start(ctx context.Context) error {
+	if err := s.kvstore.Start(ctx); err != nil {
+		return err
+	}
+	h, err := s.loadHeight()
+	if err != nil {
+		return err
+	}
+	s.height = h
+	return nil
+}
+
+// Stop stops the indexer
+func (s *IndexerCommon) Stop(ctx context.Context) error {
+	return s.kvstore.Stop(ctx)
+}
+
 // KVStore returns the kvstore
 func (s *IndexerCommon) KVStore() db.KVStore { return s.kvstore }
 
@@ -39,7 +60,11 @@ func (s *IndexerCommon) KVStore() db.KVStore { return s.kvstore }
 func (s *IndexerCommon) ContractAddress() string { return s.contractAddress }
 
 // Height returns the tip block height
-func (s *IndexerCommon) Height() (uint64, error) {
+func (s *IndexerCommon) Height() uint64 {
+	return s.height
+}
+
+func (s *IndexerCommon) loadHeight() (uint64, error) {
 	// get the tip block height
 	var height uint64
 	h, err := s.kvstore.Get(s.ns, s.key)
@@ -57,26 +82,17 @@ func (s *IndexerCommon) Height() (uint64, error) {
 // StartHeight returns the start height of the indexer
 func (s *IndexerCommon) StartHeight() uint64 { return s.startHeight }
 
-// PutHeight puts the tip block height
+// Commit commits the height to the indexer
 func (s *IndexerCommon) Commit(height uint64, delta batch.KVStoreBatch) error {
+	s.height = height
 	delta.Put(s.ns, s.key, byteutil.Uint64ToBytesBigEndian(height), "failed to put height")
 	return s.kvstore.WriteBatch(delta)
 }
 
-// BlockContinuity checks the block continuity
-func (s *IndexerCommon) BlockContinuity(height uint64) (existed bool, err error) {
-	tipHeight, err := s.Height()
-	if err != nil {
-		return false, err
+// ExpectedHeight returns the expected height
+func (s *IndexerCommon) ExpectedHeight() uint64 {
+	if s.height < s.startHeight {
+		return s.startHeight
 	}
-	expectHeight := tipHeight + 1
-	if expectHeight < s.startHeight {
-		expectHeight = s.startHeight
-	}
-	if expectHeight == height {
-		return false, nil
-	} else if expectHeight > height {
-		return true, nil
-	}
-	return false, errors.Errorf("invalid block height %d, expect %d", height, expectHeight)
+	return s.height + 1
 }
