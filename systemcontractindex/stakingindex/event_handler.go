@@ -100,20 +100,20 @@ func (eh *eventHandler) HandleEvent(ctx context.Context, blk *block.Block, actLo
 	}
 }
 
-func (eh *eventHandler) handleStakedEvent(event abiutil.EventParam, height uint64) error {
-	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
+func (eh *eventHandler) handleStakedEvent(event *abiutil.EventParam, height uint64) error {
+	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
 	}
-	delegateParam, err := event.FieldAddress("delegate")
+	delegateParam, err := event.FieldByIDAddress(1)
 	if err != nil {
 		return err
 	}
-	amountParam, err := event.FieldUint256("amount")
+	amountParam, err := event.FieldByIDUint256(2)
 	if err != nil {
 		return err
 	}
-	durationParam, err := event.FieldUint256("duration")
+	durationParam, err := event.FieldByIDUint256(3)
 	if err != nil {
 		return err
 	}
@@ -134,12 +134,12 @@ func (eh *eventHandler) handleStakedEvent(event abiutil.EventParam, height uint6
 	return nil
 }
 
-func (eh *eventHandler) handleLockedEvent(event abiutil.EventParam) error {
-	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
+func (eh *eventHandler) handleLockedEvent(event *abiutil.EventParam) error {
+	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
 	}
-	durationParam, err := event.FieldUint256("duration")
+	durationParam, err := event.FieldByIDUint256(1)
 	if err != nil {
 		return err
 	}
@@ -154,8 +154,8 @@ func (eh *eventHandler) handleLockedEvent(event abiutil.EventParam) error {
 	return nil
 }
 
-func (eh *eventHandler) handleUnlockedEvent(event abiutil.EventParam, height uint64) error {
-	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
+func (eh *eventHandler) handleUnlockedEvent(event *abiutil.EventParam, height uint64) error {
+	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
 	}
@@ -169,8 +169,8 @@ func (eh *eventHandler) handleUnlockedEvent(event abiutil.EventParam, height uin
 	return nil
 }
 
-func (eh *eventHandler) handleUnstakedEvent(event abiutil.EventParam, height uint64) error {
-	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
+func (eh *eventHandler) handleUnstakedEvent(event *abiutil.EventParam, height uint64) error {
+	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
 	}
@@ -184,12 +184,12 @@ func (eh *eventHandler) handleUnstakedEvent(event abiutil.EventParam, height uin
 	return nil
 }
 
-func (eh *eventHandler) handleDelegateChangedEvent(event abiutil.EventParam) error {
-	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
+func (eh *eventHandler) handleDelegateChangedEvent(event *abiutil.EventParam) error {
+	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
 	}
-	delegateParam, err := event.FieldAddress("newDelegate")
+	delegateParam, err := event.FieldByIDAddress(1)
 	if err != nil {
 		return err
 	}
@@ -203,8 +203,8 @@ func (eh *eventHandler) handleDelegateChangedEvent(event abiutil.EventParam) err
 	return nil
 }
 
-func (eh *eventHandler) handleWithdrawalEvent(event abiutil.EventParam) error {
-	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
+func (eh *eventHandler) handleWithdrawalEvent(event *abiutil.EventParam) error {
+	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
 	}
@@ -213,12 +213,12 @@ func (eh *eventHandler) handleWithdrawalEvent(event abiutil.EventParam) error {
 	return nil
 }
 
-func (eh *eventHandler) handleTransferEvent(event abiutil.EventParam) error {
-	to, err := event.IndexedFieldAddress("to")
+func (eh *eventHandler) handleTransferEvent(event *abiutil.EventParam) error {
+	to, err := event.FieldByIDAddress(1)
 	if err != nil {
 		return err
 	}
-	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
+	tokenIDParam, err := event.FieldByIDUint256(2)
 	if err != nil {
 		return err
 	}
@@ -235,16 +235,16 @@ func (eh *eventHandler) handleTransferEvent(event abiutil.EventParam) error {
 	return nil
 }
 
-func (eh *eventHandler) handleMergedEvent(event abiutil.EventParam) error {
-	tokenIDsParam, err := event.FieldUint256Slice("bucketIds")
+func (eh *eventHandler) handleMergedEvent(event *abiutil.EventParam) error {
+	tokenIDsParam, err := event.FieldByIDUint256Slice(0)
 	if err != nil {
 		return err
 	}
-	amountParam, err := event.FieldUint256("amount")
+	amountParam, err := event.FieldByIDUint256(1)
 	if err != nil {
 		return err
 	}
-	durationParam, err := event.FieldUint256("duration")
+	durationParam, err := event.FieldByIDUint256(2)
 	if err != nil {
 		return err
 	}
@@ -264,16 +264,16 @@ func (eh *eventHandler) handleMergedEvent(event abiutil.EventParam) error {
 	return nil
 }
 
-func (eh *eventHandler) handleBucketExpandedEvent(event abiutil.EventParam) error {
-	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
+func (eh *eventHandler) handleBucketExpandedEvent(event *abiutil.EventParam) error {
+	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
 	}
-	amountParam, err := event.FieldUint256("amount")
+	amountParam, err := event.FieldByIDUint256(1)
 	if err != nil {
 		return err
 	}
-	durationParam, err := event.FieldUint256("duration")
+	durationParam, err := event.FieldByIDUint256(2)
 	if err != nil {
 		return err
 	}
@@ -288,12 +288,12 @@ func (eh *eventHandler) handleBucketExpandedEvent(event abiutil.EventParam) erro
 	return nil
 }
 
-func (eh *eventHandler) handleDonatedEvent(event abiutil.EventParam) error {
-	tokenIDParam, err := event.IndexedFieldUint256("bucketId")
+func (eh *eventHandler) handleDonatedEvent(event *abiutil.EventParam) error {
+	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
 	}
-	amountParam, err := event.FieldUint256("amount")
+	amountParam, err := event.FieldByIDUint256(2)
 	if err != nil {
 		return err
 	}
