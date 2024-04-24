@@ -937,11 +937,9 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 		rp := rolldpos.FindProtocol(core.registry)
 		if rp != nil {
 			tipEpochNum := rp.GetEpochNum(tipHeight)
-			if height != "" {
-				inputEpochNum := rp.GetEpochNum(inputHeight)
-				if inputEpochNum < tipEpochNum {
-					inputHeight = rp.GetEpochHeight(inputEpochNum)
-				}
+			inputEpochNum := rp.GetEpochNum(inputHeight)
+			if inputEpochNum < tipEpochNum {
+				inputHeight = rp.GetEpochHeight(inputEpochNum)
 			}
 		}
 		if inputHeight < tipHeight {
