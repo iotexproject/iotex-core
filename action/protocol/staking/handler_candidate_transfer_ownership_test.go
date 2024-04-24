@@ -10,6 +10,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/mohae/deepcopy"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -90,74 +91,74 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 		expectOwner address.Address
 		expectVoter address.Address
 	}{
-		// {
-		// 	"transfer ownership to self",
-		// 	[]uint64{1},
-		// 	1300000,
-		// 	identityset.Address(1),
-		// 	identityset.Address(1),
-		// 	nil,
+		{
+			"transfer ownership to self",
+			[]uint64{1},
+			1300000,
+			identityset.Address(1),
+			identityset.Address(1),
+			nil,
 
-		// 	1,
-		// 	uint64(1000000),
-		// 	uint64(1000000),
-		// 	big.NewInt(1000),
-		// 	errors.New("new owner is the same as the current owner"),
-		// 	iotextypes.ReceiptStatus_Success,
-		// 	identityset.Address(1),
-		// 	identityset.Address(1),
-		// },
-		// {
-		// 	"caller is not a candidate",
-		// 	[]uint64{1},
-		// 	1300000,
-		// 	identityset.Address(11),
-		// 	identityset.Address(6),
-		// 	nil,
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			errors.New("new owner is the same as the current owner"),
+			iotextypes.ReceiptStatus_Success,
+			identityset.Address(1),
+			identityset.Address(1),
+		},
+		{
+			"caller is not a candidate",
+			[]uint64{1},
+			1300000,
+			identityset.Address(11),
+			identityset.Address(6),
+			nil,
 
-		// 	1,
-		// 	uint64(1000000),
-		// 	uint64(1000000),
-		// 	big.NewInt(1000),
-		// 	errors.New("candidate does not exist"),
-		// 	iotextypes.ReceiptStatus_Success,
-		// 	identityset.Address(1),
-		// 	identityset.Address(1),
-		// },
-		// {
-		// 	"transfer ownership to other exist candidate",
-		// 	[]uint64{1},
-		// 	1300000,
-		// 	identityset.Address(2),
-		// 	identityset.Address(1),
-		// 	nil,
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			errors.New("candidate does not exist"),
+			iotextypes.ReceiptStatus_Success,
+			identityset.Address(1),
+			identityset.Address(1),
+		},
+		{
+			"transfer ownership to other exist candidate",
+			[]uint64{1},
+			1300000,
+			identityset.Address(2),
+			identityset.Address(1),
+			nil,
 
-		// 	1,
-		// 	uint64(1000000),
-		// 	uint64(1000000),
-		// 	big.NewInt(1000),
-		// 	errors.New("new owner is already a candidate"),
-		// 	iotextypes.ReceiptStatus_Success,
-		// 	identityset.Address(1),
-		// 	identityset.Address(1),
-		// },
-		// {
-		// 	"transfer to another transfered candidate",
-		// 	[]uint64{1},
-		// 	1300000,
-		// 	identityset.Address(1),
-		// 	identityset.Address(5),
-		// 	nil,
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			errors.New("new owner is already a candidate"),
+			iotextypes.ReceiptStatus_Success,
+			identityset.Address(1),
+			identityset.Address(1),
+		},
+		{
+			"transfer to another transfered candidate",
+			[]uint64{1},
+			1300000,
+			identityset.Address(1),
+			identityset.Address(5),
+			nil,
 
-		// 	1,
-		// 	uint64(1000000),
-		// 	uint64(1000000),
-		// 	big.NewInt(1000),
-		// 	errors.New("new owner is already a candidate"),
-		// 	iotextypes.ReceiptStatus_Success,
-		// 	identityset.Address(1),
-		// 	identityset.Address(1),
-		// },
+			1,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			errors.New("new owner is already a candidate"),
+			iotextypes.ReceiptStatus_Success,
+			identityset.Address(1),
+			identityset.Address(1),
+		},
 		{
 			"transfer to valid address",
 			[]uint64{1},
@@ -212,7 +213,6 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 			require.NoError(p.Validate(ctx, act, sm))
-			require.NoError(csm.Commit(context.Background()))
 			_, _, err = p.handleCandidateTransferOwnership(ctx, act, csm)
 			if test.err != nil {
 				require.Error(err)

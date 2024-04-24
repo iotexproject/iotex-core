@@ -31,7 +31,7 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 	if err := p.validateCandidateTransferOwnership(ctx, act, csm, actCtx.Caller); err != nil {
 		return log, nil, err
 	}
-	candidate := csm.GetByOwner(actCtx.Caller)
+	candidate := csm.GetByOwner(actCtx.Caller).Clone()
 	if candidate.Identifier == nil || candidate.Identifier.String() == "" {
 		candidate.Identifier = candidate.Owner
 	}

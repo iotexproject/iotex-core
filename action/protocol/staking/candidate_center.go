@@ -260,7 +260,12 @@ func (m *CandidateCenter) GetByIdentifier(identifier address.Address) *Candidate
 	if identifier == nil {
 		return nil
 	}
-	if d, hit := m.base.GetByIdentifier(identifier); hit {
+
+	if d := m.change.getByIdentifier(identifier); d != nil {
+		return d
+	}
+
+	if d, hit := m.base.getByIdentifier(identifier); hit {
 		return d.Clone()
 	}
 	return nil
@@ -407,6 +412,15 @@ func (cc *candChange) getByOwner(owner address.Address) *Candidate {
 	return nil
 }
 
+func (cc *candChange) getByIdentifier(identifier address.Address) *Candidate {
+	for _, c := range cc.dirty {
+		if c.Identifier != nil && address.Equal(c.Identifier, identifier) {
+			return c
+		}
+	}
+	return nil
+}
+
 func (cc *candChange) getBySelfStakingIndex(index uint64) *Candidate {
 	for _, d := range cc.dirty {
 		if d.isSelfStakeBucketSettled() && index == d.SelfStakeBucketIdx {
@@ -510,7 +524,7 @@ func (cb *candBase) getByName(name string) (*Candidate, bool) {
 	return d, ok
 }
 
-func (cb *candBase) GetByIdentifier(identifier address.Address) (*Candidate, bool) {
+func (cb *candBase) getByIdentifier(identifier address.Address) (*Candidate, bool) {
 	candidates := cb.all()
 	for _, c := range candidates {
 		if c.Identifier != nil && address.Equal(c.Identifier, identifier) {
