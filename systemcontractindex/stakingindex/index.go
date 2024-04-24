@@ -68,6 +68,11 @@ func (s *Indexer) StartHeight() uint64 {
 	return s.common.StartHeight()
 }
 
+// ContractAddress returns the contract address
+func (s *Indexer) ContractAddress() string {
+	return s.common.ContractAddress()
+}
+
 // Buckets returns the buckets
 func (s *Indexer) Buckets(height uint64) ([]*VoteBucket, error) {
 	s.mutex.RLock()
