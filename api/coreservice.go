@@ -910,6 +910,9 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 		Method: methodName,
 		Args:   arguments,
 	}
+	if height == "" {
+		key.Height = strconv.FormatUint(core.bc.TipHeight(), 10)
+	}
 	if d, ok := core.readCache.Get(key.Hash()); ok {
 		var h uint64
 		if height != "" {
