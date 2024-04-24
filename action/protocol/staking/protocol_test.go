@@ -399,7 +399,7 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManagerWithoutHeightFunc(ctrl)
-	csIndexer := NewMockContractStakingIndexer(ctrl)
+	csIndexer := NewMockContractStakingIndexerWithBucketType(ctrl)
 
 	selfStake, _ := new(big.Int).SetString("1200000000000000000000000", 10)
 	cfg := genesis.Default.Staking
@@ -436,15 +436,16 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 	require.NoError(err)
 
 	var csIndexerHeight, csVotes uint64
-	csIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ownerAddr address.Address, height uint64) (*big.Int, error) {
+	csIndexer.EXPECT().BucketsByCandidate(gomock.Any(), gomock.Any()).DoAndReturn(func(ownerAddr address.Address, height uint64) ([]*VoteBucket, error) {
 		if height != csIndexerHeight {
 			return nil, errors.Errorf("invalid height")
 		}
-		return big.NewInt(int64(csVotes)), nil
+		return []*VoteBucket{
+			NewVoteBucket(identityset.Address(22), identityset.Address(22), big.NewInt(int64(csVotes)), 1, time.Now(), true),
+		}, nil
 	}).AnyTimes()
 
 	t.Run("contract staking indexer falls behind", func(t *testing.T) {
-		csIndexerHeight = 10
 		_, err := p.ActiveCandidates(ctx, sm, 0)
 		require.ErrorContains(err, "invalid height")
 	})
@@ -460,7 +461,7 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 		cands, err = p.ActiveCandidates(ctx, sm, 0)
 		require.NoError(err)
 		require.Len(cands, 1)
-		require.EqualValues(100, cands[0].Votes.Sub(cands[0].Votes, originCandVotes).Uint64())
+		require.EqualValues(103, cands[0].Votes.Sub(cands[0].Votes, originCandVotes).Uint64())
 	})
 }
 
