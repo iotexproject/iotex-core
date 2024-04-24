@@ -668,6 +668,8 @@ github.com/iotexproject/iotex-proto v0.6.1-0.20240418053305-bd00d352086c h1:WTPq
 github.com/iotexproject/iotex-proto v0.6.1-0.20240418053305-bd00d352086c/go.mod h1:wQpCk3Df0fPID+K8ohiICGj+cWRmcQ3wanT+aSrnIPo=
 github.com/iotexproject/iotex-proto v0.6.1-0.20240422044216-686f18a3e322 h1:Lt1zeJ/cWk/EFvzbp6EAUsGjJ4Zf+3a3o703rU9y0zs=
 github.com/iotexproject/iotex-proto v0.6.1-0.20240422044216-686f18a3e322/go.mod h1:wQpCk3Df0fPID+K8ohiICGj+cWRmcQ3wanT+aSrnIPo=
+github.com/iotexproject/iotex-proto v0.6.1-0.20240423171003-091249266f6a h1:8gK1TO66Wsc/93WNMUyWKGHQB2/1Al5vLFNyfBz2af4=
+github.com/iotexproject/iotex-proto v0.6.1-0.20240423171003-091249266f6a/go.mod h1:wQpCk3Df0fPID+K8ohiICGj+cWRmcQ3wanT+aSrnIPo=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.2/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.3/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=

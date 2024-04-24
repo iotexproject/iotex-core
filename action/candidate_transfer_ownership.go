@@ -161,9 +161,9 @@ func (act *CandidateTransferOwnership) LoadProto(pbAct *iotextypes.CandidateTran
 	}
 	act.newOwner = newOwner
 	act.payload = nil
-	if len(pbAct.GetPayload()) > 0 {
-		act.payload = make([]byte, len(pbAct.GetPayload()))
-		copy(act.payload, pbAct.GetPayload())
+	if payload := pbAct.GetPayload(); len(payload) > 0 {
+		act.payload = make([]byte, len(payload))
+		copy(act.payload, payload)
 	}
 	return nil
 }
