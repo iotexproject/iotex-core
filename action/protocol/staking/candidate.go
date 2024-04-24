@@ -104,7 +104,7 @@ func (d *Candidate) isSelfStakeBucketSettled() bool {
 
 // Collision checks collsion of 2 candidates
 func (d *Candidate) Collision(c *Candidate) error {
-	if address.Equal(d.GetIdentifier(), c.GetIdentifier()) {
+	if address.Equal(d.Owner, c.Owner) || address.Equal(d.GetIdentifier(), c.GetIdentifier()) {
 		return nil
 	}
 	if address.Equal(d.Owner, c.Owner) {
