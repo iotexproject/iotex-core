@@ -8,16 +8,16 @@
 // option go_package = "../indexpb"; is to specify the package name in the generated go file
 syntax = "proto3";
 package versionpb;
-option go_package = "github.com/iotexproject/iotex-core/db/versionpb";
+option go_package = "github.com/iotexproject/iotex-core/v2/db/versionpb";
 
 message VersionedNamespace {
-    string name = 1;
     uint32 keyLen = 2;
 }
 
 message KeyMeta {
-    bytes lastWriteHash = 1; // hash of value that was last written
+    bytes lastWrite = 1; // value that was last written
     uint64 firstVersion = 2;
     uint64 lastVersion = 3;
-    uint64 deleteVersion = 4;
+    repeated uint64 deleteVersion = 4;
+    repeated uint64 dawVersion = 5;
 }
