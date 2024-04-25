@@ -7,6 +7,8 @@
 package db
 
 import (
+	"fmt"
+
 	"github.com/iotexproject/go-pkgs/byteutil"
 	"google.golang.org/protobuf/proto"
 
@@ -15,7 +17,6 @@ import (
 
 // versionedNamespace is the metadata for versioned namespace
 type versionedNamespace struct {
-	name   string
 	keyLen uint32
 }
 
@@ -26,14 +27,12 @@ func (vn *versionedNamespace) serialize() []byte {
 
 func (vn *versionedNamespace) toProto() *versionpb.VersionedNamespace {
 	return &versionpb.VersionedNamespace{
-		Name:   vn.name,
 		KeyLen: vn.keyLen,
 	}
 }
 
 func fromProtoVN(pb *versionpb.VersionedNamespace) *versionedNamespace {
 	return &versionedNamespace{
-		name:   pb.Name,
 		keyLen: pb.KeyLen,
 	}
 }
@@ -45,4 +44,123 @@ func deserializeVersionedNamespace(buf []byte) (*versionedNamespace, error) {
 		return nil, err
 	}
 	return fromProtoVN(&vn), nil
+}
+
+// keyMeta is the metadata for key's index
+type keyMeta struct {
+	lastWrite     []byte
+	firstVersion  uint64
+	lastVersion   uint64
+	deleteVersion []uint64
+}
+
+// serialize to bytes
+func (k *keyMeta) serialize() []byte {
+	return byteutil.Must(proto.Marshal(k.toProto()))
+}
+
+func (k *keyMeta) toProto() *versionpb.KeyMeta {
+	return &versionpb.KeyMeta{
+		LastWrite:     k.lastWrite,
+		FirstVersion:  k.firstVersion,
+		LastVersion:   k.lastVersion,
+		DeleteVersion: k.deleteVersion,
+	}
+}
+
+func fromProtoKM(pb *versionpb.KeyMeta) *keyMeta {
+	return &keyMeta{
+		lastWrite:     pb.LastWrite,
+		firstVersion:  pb.FirstVersion,
+		lastVersion:   pb.LastVersion,
+		deleteVersion: pb.DeleteVersion,
+	}
+}
+
+// deserializeKeyMeta deserializes byte-stream to key meta
+func deserializeKeyMeta(buf []byte) (*keyMeta, error) {
+	var km versionpb.KeyMeta
+	if err := proto.Unmarshal(buf, &km); err != nil {
+		return nil, err
+	}
+	return fromProtoKM(&km), nil
+}
+
+func (km *keyMeta) checkRead(version uint64) (bool, error) {
+	if km == nil || version < km.firstVersion {
+		return false, ErrNotExist
+	}
+	if version < km.lastVersion {
+		return false, nil
+	}
+	return km.hitLastWrite(km.lastVersion, version)
+}
+
+func (km *keyMeta) updateWrite(version uint64, value []byte) (*keyMeta, bool) {
+	if km == nil {
+		// key not yet written
+		return &keyMeta{
+			lastWrite:    value,
+			firstVersion: version,
+			lastVersion:  version,
+		}, false
+	}
+	lastDel := km.lastDelete()
+	if version < km.lastVersion || version < lastDel {
+		// writing to an earlier version complicates things, for now it is not allowed
+		return km, true
+	}
+	if version == lastDel {
+		// clear the last delete
+		km.clearLastDelete()
+	}
+	km.lastWrite = value
+	km.lastVersion = version
+	return km, false
+}
+
+func (km *keyMeta) updateDelete(version uint64) error {
+	lastDel := km.lastDelete()
+	if version < km.lastVersion || version < lastDel {
+		// not allowed to delete an earlier version
+		return ErrInvalid
+	}
+	if version > lastDel {
+		km.deleteVersion = append(km.deleteVersion, version)
+	}
+	return nil
+}
+
+func (km *keyMeta) lastDelete() uint64 {
+	if numDelete := len(km.deleteVersion); numDelete > 0 {
+		return km.deleteVersion[numDelete-1]
+	}
+	return 0
+}
+
+func (km *keyMeta) clearLastDelete() {
+	if size := len(km.deleteVersion); size > 0 {
+		km.deleteVersion = km.deleteVersion[:size-1]
+	}
+}
+
+func (km *keyMeta) hitLastWrite(write, read uint64) (bool, error) {
+	if write > read {
+		panic(fmt.Sprintf("last write %d > attempted read %d", write, read))
+	}
+	var (
+		hasDelete bool
+	)
+	for _, v := range km.deleteVersion {
+		if v >= write {
+			hasDelete = (v <= read)
+			break
+		}
+	}
+	if hasDelete {
+		// there's a delete after last write
+		return false, ErrDeleted
+
+	}
+	return true, nil
 }
