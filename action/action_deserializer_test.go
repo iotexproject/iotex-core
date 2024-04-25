@@ -1,4 +1,4 @@
-// Copyright (c) 2022 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -24,11 +24,11 @@ import (
 func TestActionDeserializer(t *testing.T) {
 	r := require.New(t)
 	for _, v := range []struct {
-		id   uint32
-		hash string
+		id          uint32
+		hash, hash2 string
 	}{
-		{0, "322884fb04663019be6fb461d9453827487eafdd57b4de3bd89a7d77c9bf8395"},
-		{1, "80af7840d73772d3022d8bdc46278fb755352e5e9d5f2a1f12ee7ec4f1ea98e9"},
+		{0, "322884fb04663019be6fb461d9453827487eafdd57b4de3bd89a7d77c9bf8395", "0562e100b057804ee3cb4fa906a897852aa8075013a02ef1e229360f1e5ee339"},
+		{1, "80af7840d73772d3022d8bdc46278fb755352e5e9d5f2a1f12ee7ec4f1ea98e9", "405343d671c395d77835b8857cc25317e3bf02680f8c875a4fe12087b0446184"},
 	} {
 		se, err := createSealedEnvelope(v.id)
 		r.NoError(err)
@@ -43,10 +43,14 @@ func TestActionDeserializer(t *testing.T) {
 		// use valid signature and reset se.Hash
 		se.signature = _validSig
 		se.hash = hash.ZeroHash256
-		se.Hash()
-		se1, err := (&Deserializer{}).ActionToSealedEnvelope(se.Proto())
-		se1.Hash()
+		rHash, err = se.Hash()
 		r.NoError(err)
+		r.Equal(v.hash2, hex.EncodeToString(rHash[:]))
+		se1, err := (&Deserializer{}).ActionToSealedEnvelope(se.Proto())
+		r.NoError(err)
+		rHash, err = se1.Hash()
+		r.NoError(err)
+		r.Equal(v.hash2, hex.EncodeToString(rHash[:]))
 		r.Equal(se, se1)
 	}
 }

@@ -1,3 +1,8 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package action
 
 import (
@@ -17,6 +22,8 @@ type (
 		ChainID() uint32
 		GasLimit() uint64
 		GasPrice() *big.Int
+		GasTipCap() *big.Int
+		GasFeeCap() *big.Int
 		Destination() (string, bool)
 		Cost() (*big.Int, error)
 		IntrinsicGas() (uint64, error)
@@ -28,23 +35,10 @@ type (
 	}
 
 	envelope struct {
-		version  uint32
-		chainID  uint32
-		nonce    uint64
-		gasLimit uint64
-		gasPrice *big.Int
-		payload  actionPayload
+		AbstractAction
+		payload actionPayload
 	}
 )
-
-// Version returns the version
-func (elp *envelope) Version() uint32 { return elp.version }
-
-// ChainID return the chainID value
-func (elp *envelope) ChainID() uint32 { return elp.chainID }
-
-// Nonce returns the nonce
-func (elp *envelope) Nonce() uint64 { return elp.nonce }
 
 // Destination returns the destination address
 func (elp *envelope) Destination() (string, bool) {
@@ -54,18 +48,6 @@ func (elp *envelope) Destination() (string, bool) {
 	}
 
 	return r.Destination(), true
-}
-
-// GasLimit returns the gas limit
-func (elp *envelope) GasLimit() uint64 { return elp.gasLimit }
-
-// GasPrice returns the gas price
-func (elp *envelope) GasPrice() *big.Int {
-	p := &big.Int{}
-	if elp.gasPrice == nil {
-		return p
-	}
-	return p.Set(elp.gasPrice)
 }
 
 // Cost returns cost of actions
@@ -83,15 +65,7 @@ func (elp *envelope) Action() Action { return elp.payload }
 
 // Proto convert Envelope to protobuf format.
 func (elp *envelope) Proto() *iotextypes.ActionCore {
-	actCore := &iotextypes.ActionCore{
-		Version:  elp.version,
-		Nonce:    elp.nonce,
-		GasLimit: elp.gasLimit,
-		ChainID:  elp.chainID,
-	}
-	if elp.gasPrice != nil {
-		actCore.GasPrice = elp.gasPrice.String()
-	}
+	actCore := elp.AbstractAction.toProto()
 
 	// TODO assert each action
 	switch act := elp.Action().(type) {
@@ -143,19 +117,8 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	if elp == nil {
 		return ErrNilAction
 	}
-	*elp = envelope{}
-	elp.version = pbAct.GetVersion()
-	elp.nonce = pbAct.GetNonce()
-	elp.gasLimit = pbAct.GetGasLimit()
-	elp.chainID = pbAct.GetChainID()
-	if pbAct.GetGasPrice() == "" {
-		elp.gasPrice = big.NewInt(0)
-	} else {
-		gp, ok := new(big.Int).SetString(pbAct.GetGasPrice(), 10)
-		if !ok {
-			return errors.Errorf("invalid gas prcie %s", pbAct.GetGasPrice())
-		}
-		elp.gasPrice = gp
+	if err := elp.AbstractAction.fromProto(pbAct); err != nil {
+		return err
 	}
 
 	switch {
@@ -265,12 +228,9 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	default:
 		return errors.Errorf("no applicable action to handle proto type %T", pbAct.Action)
 	}
-	elp.payload.SetEnvelopeContext(elp)
+	elp.payload.SetEnvelopeContext(&elp.AbstractAction)
 	return nil
 }
-
-// SetNonce sets the nonce value
-func (elp *envelope) SetNonce(n uint64) { elp.nonce = n }
 
 // SetChainID sets the chainID value
 func (elp *envelope) SetChainID(chainID uint32) { elp.chainID = chainID }
