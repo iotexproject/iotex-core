@@ -15,7 +15,6 @@ import (
 
 // versionedNamespace is the metadata for versioned namespace
 type versionedNamespace struct {
-	name   string
 	keyLen uint32
 }
 
@@ -26,14 +25,12 @@ func (vn *versionedNamespace) serialize() []byte {
 
 func (vn *versionedNamespace) toProto() *versionpb.VersionedNamespace {
 	return &versionpb.VersionedNamespace{
-		Name:   vn.name,
 		KeyLen: vn.keyLen,
 	}
 }
 
 func fromProtoVN(pb *versionpb.VersionedNamespace) *versionedNamespace {
 	return &versionedNamespace{
-		name:   pb.Name,
 		keyLen: pb.KeyLen,
 	}
 }
@@ -45,4 +42,73 @@ func deserializeVersionedNamespace(buf []byte) (*versionedNamespace, error) {
 		return nil, err
 	}
 	return fromProtoVN(&vn), nil
+}
+
+// keyMeta is the metadata for key's index
+type keyMeta struct {
+	lastWrite     []byte
+	firstVersion  uint64
+	lastVersion   uint64
+	deleteVersion uint64
+}
+
+// serialize to bytes
+func (k *keyMeta) serialize() []byte {
+	return byteutil.Must(proto.Marshal(k.toProto()))
+}
+
+func (k *keyMeta) toProto() *versionpb.KeyMeta {
+	return &versionpb.KeyMeta{
+		LastWrite:     k.lastWrite,
+		FirstVersion:  k.firstVersion,
+		LastVersion:   k.lastVersion,
+		DeleteVersion: k.deleteVersion,
+	}
+}
+
+func fromProtoKM(pb *versionpb.KeyMeta) *keyMeta {
+	return &keyMeta{
+		lastWrite:     pb.LastWrite,
+		firstVersion:  pb.FirstVersion,
+		lastVersion:   pb.LastVersion,
+		deleteVersion: pb.DeleteVersion,
+	}
+}
+
+// deserializeKeyMeta deserializes byte-stream to key meta
+func deserializeKeyMeta(buf []byte) (*keyMeta, error) {
+	var km versionpb.KeyMeta
+	if err := proto.Unmarshal(buf, &km); err != nil {
+		return nil, err
+	}
+	return fromProtoKM(&km), nil
+}
+
+func (km *keyMeta) updateRead(version uint64) (bool, error) {
+	if km == nil || version < km.firstVersion {
+		return false, ErrNotExist
+	}
+	if km.deleteVersion != 0 && version >= km.deleteVersion {
+		return false, ErrDeleted
+	}
+	return (version >= km.lastVersion), nil
+}
+
+func (km *keyMeta) updateWrite(version uint64, value []byte) (*keyMeta, bool) {
+	if km == nil {
+		// key not yet written
+		return &keyMeta{
+			lastWrite:    value,
+			firstVersion: version,
+			lastVersion:  version,
+		}, false
+	}
+	if version < km.lastVersion || version < km.deleteVersion {
+		// writing to an earlier version complicates things, for now it is not allowed
+		return km, true
+	}
+	km.lastWrite = value
+	km.lastVersion = version
+	km.deleteVersion = 0
+	return km, false
 }
