@@ -15,7 +15,6 @@ import (
 
 // versionedNamespace is the metadata for versioned namespace
 type versionedNamespace struct {
-	name   string
 	keyLen uint32
 }
 
@@ -26,14 +25,12 @@ func (vn *versionedNamespace) serialize() []byte {
 
 func (vn *versionedNamespace) toProto() *versionpb.VersionedNamespace {
 	return &versionpb.VersionedNamespace{
-		Name:   vn.name,
 		KeyLen: vn.keyLen,
 	}
 }
 
 func fromProtoVN(pb *versionpb.VersionedNamespace) *versionedNamespace {
 	return &versionedNamespace{
-		name:   pb.Name,
 		keyLen: pb.KeyLen,
 	}
 }
