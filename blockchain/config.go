@@ -48,6 +48,12 @@ type (
 		Committee                  committee.Config `yaml:"committee"`
 
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
+		// EnableVersionedStateDB enables versioned DB to save history
+		EnableVersionedStateDB bool `yaml:"enableVersionedStateDB"`
+		// VersionedNamespaces specifies the versioned namespaces for versioned state DB
+		VersionedNamespaces []string `yaml:"versionedNamespaces"`
+		// VersionedMetadata specifies the metadata namespace for versioned state DB
+		VersionedMetadata string `yaml:"versionedMetadata"`
 		// EnableStateDBCaching enables cachedStateDBOption
 		EnableStateDBCaching bool `yaml:"enableStateDBCaching"`
 		// EnableArchiveMode is only meaningful when EnableTrielessStateDB is false
@@ -105,6 +111,7 @@ var (
 			GravityChainAPIs: []string{},
 		},
 		EnableTrielessStateDB:         true,
+		VersionedNamespaces:           []string{},
 		EnableStateDBCaching:          false,
 		EnableArchiveMode:             false,
 		EnableAsyncIndexWrite:         true,
