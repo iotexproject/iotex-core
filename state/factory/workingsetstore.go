@@ -39,6 +39,7 @@ type (
 		view       protocol.View
 		flusher    db.KVStoreFlusher
 		readBuffer bool
+		metaNS     string // metadata namespace for versioned DB
 	}
 	factoryWorkingSetStore struct {
 		view      protocol.View
@@ -48,11 +49,12 @@ type (
 	}
 )
 
-func newStateDBWorkingSetStore(view protocol.View, flusher db.KVStoreFlusher, readBuffer bool) workingSetStore {
+func newStateDBWorkingSetStore(view protocol.View, flusher db.KVStoreFlusher, readBuffer bool, ns string) workingSetStore {
 	return &stateDBWorkingSetStore{
 		flusher:    flusher,
 		view:       view,
 		readBuffer: readBuffer,
+		metaNS:     ns,
 	}
 }
 
@@ -121,7 +123,7 @@ func (store *stateDBWorkingSetStore) Digest() hash.Hash256 {
 func (store *stateDBWorkingSetStore) Finalize(height uint64) error {
 	// Persist current chain Height
 	store.flusher.KVStoreWithBuffer().MustPut(
-		AccountKVNamespace,
+		store.metaNS,
 		[]byte(CurrentHeightKey),
 		byteutil.Uint64ToBytes(height),
 	)
