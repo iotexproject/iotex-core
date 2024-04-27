@@ -32,3 +32,12 @@ func CreateKVStoreWithCache(cfg Config, dbPath string, cacheSize int) (KVStore, 
 
 	return NewKvStoreWithCache(dao, cacheSize), nil
 }
+
+// CreateKVStoreVersioned creates versioned db from config and db path
+func CreateKVStoreVersioned(cfg Config, dbPath string, vns []string) (KVStore, error) {
+	if len(dbPath) == 0 {
+		return nil, ErrEmptyDBPath
+	}
+	cfg.DbPath = dbPath
+	return NewKVStoreWithVersion(cfg, VersionedNamespaceOption(vns...)), nil
+}

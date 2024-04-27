@@ -173,7 +173,10 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 			factory.RegistryStateDBOption(builder.cs.registry),
 			factory.DefaultPatchOption(),
 		}
-		if builder.cfg.Chain.EnableStateDBCaching {
+		if builder.cfg.Chain.EnableVersionedStateDB {
+			dao, err = db.CreateKVStoreVersioned(factoryDBCfg, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.VersionedNamespaces)
+			opts = append(opts, factory.MetadataNamespaceOption(builder.cfg.Chain.VersionedMetadata))
+		} else if builder.cfg.Chain.EnableStateDBCaching {
 			dao, err = db.CreateKVStoreWithCache(factoryDBCfg, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
 		} else {
 			dao, err = db.CreateKVStore(factoryDBCfg, builder.cfg.Chain.TrieDBPath)
