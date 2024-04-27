@@ -42,10 +42,13 @@ type stateDB struct {
 	cfg                      Config
 	registry                 *protocol.Registry
 	dao                      db.KVStore // the underlying DB for account/contract storage
+	daoVersioned             db.KvVersioned
 	timerFactory             *prometheustimer.TimerFactory
 	workingsets              cache.LRUCache // lru cache for workingsets
 	protocolView             protocol.View
 	skipBlockValidationOnPut bool
+	versioned                bool
+	metaNS                   string // metadata namespace for versioned DB
 	ps                       *patchStore
 }
 
@@ -84,6 +87,14 @@ func DisableWorkingSetCacheOption() StateDBOption {
 	}
 }
 
+// MetadataNamespaceOption specifies the metadat namespace for versioned DB
+func MetadataNamespaceOption(ns string) StateDBOption {
+	return func(sdb *stateDB, cfg *Config) error {
+		sdb.metaNS = ns
+		return nil
+	}
+}
+
 // NewStateDB creates a new state db
 func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, error) {
 	sdb := stateDB{
@@ -92,13 +103,18 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 		registry:           protocol.NewRegistry(),
 		protocolView:       protocol.View{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
-		dao:                dao,
 	}
 	for _, opt := range opts {
 		if err := opt(&sdb, &cfg); err != nil {
 			log.S().Errorf("Failed to execute state factory creation option %p: %v", opt, err)
 			return nil, err
 		}
+	}
+	if daoVersioned, ok := dao.(db.KvVersioned); ok {
+		sdb.versioned = true
+		sdb.daoVersioned = daoVersioned
+	} else {
+		sdb.dao = dao
 	}
 	timerFactory, err := prometheustimer.New(
 		"iotex_statefactory_perf",
@@ -113,23 +129,30 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 	return &sdb, nil
 }
 
+func (sdb *stateDB) DAO(height uint64) db.KVStore {
+	if sdb.versioned {
+		return sdb.daoVersioned.SetVersion(height)
+	}
+	return sdb.dao
+}
+
 func (sdb *stateDB) Start(ctx context.Context) error {
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
-	if err := sdb.dao.Start(ctx); err != nil {
+	if err := sdb.DAO(0).Start(ctx); err != nil {
 		return err
 	}
 	// check factory height
-	h, err := sdb.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
+	h, err := sdb.getHeight()
 	switch errors.Cause(err) {
 	case nil:
-		sdb.currentChainHeight = byteutil.BytesToUint64(h)
+		sdb.currentChainHeight = h
 		// start all protocols
 		if sdb.protocolView, err = sdb.registry.StartAll(ctx, sdb); err != nil {
 			return err
 		}
 	case db.ErrNotExist:
 		sdb.currentChainHeight = 0
-		if err = sdb.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+		if err = sdb.putHeight(0); err != nil {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
 		// start all protocols
@@ -160,24 +183,46 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 	sdb.workingsets.Clear()
-	return sdb.dao.Stop(ctx)
+	return sdb.DAO(0).Stop(ctx)
 }
 
 // Height returns factory's height
 func (sdb *stateDB) Height() (uint64, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	height, err := sdb.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
+	return sdb.getHeight()
+}
+
+func (sdb *stateDB) getHeight() (uint64, error) {
+	height, err := sdb.DAO(0).Get(sdb.metadataNS(), []byte(CurrentHeightKey))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get factory's height from underlying DB")
 	}
 	return byteutil.BytesToUint64(height), nil
 }
 
+func (sdb *stateDB) putHeight(h uint64) error {
+	return sdb.DAO(h).Put(sdb.metadataNS(), []byte(CurrentHeightKey), byteutil.Uint64ToBytes(h))
+}
+
+func (sdb *stateDB) metadataNS() string {
+	if sdb.versioned {
+		return sdb.metaNS
+	}
+	return AccountKVNamespace
+}
+
+func (sdb *stateDB) transCurrentHeight(wi *batch.WriteInfo) *batch.WriteInfo {
+	if wi.Namespace() == sdb.metaNS && string(wi.Key()) == CurrentHeightKey && wi.WriteType() == batch.Put {
+		return batch.NewWriteInfo(wi.WriteType(), AccountKVNamespace, wi.Key(), wi.Value(), wi.Error())
+	}
+	return wi
+}
+
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
 	flusher, err := db.NewKVStoreFlusher(
-		sdb.dao,
+		sdb.DAO(height),
 		batch.NewCachedBatch(),
 		sdb.flusherOptions(!g.IsEaster(height))...,
 	)
@@ -191,7 +236,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
 		}
 	}
-	store := newStateDBWorkingSetStore(sdb.protocolView, flusher, g.IsNewfoundland(height))
+	store := newStateDBWorkingSetStore(sdb.protocolView, flusher, g.IsNewfoundland(height), sdb.metadataNS())
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
@@ -363,12 +408,13 @@ func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, 
 	if err != nil {
 		return 0, err
 	}
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
 	if cfg.Keys != nil {
 		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
-	return sdb.currentChainHeight, sdb.state(cfg.Namespace, cfg.Key, s)
+	sdb.mutex.RLock()
+	height := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	return height, sdb.state(height, cfg.Namespace, cfg.Key, s)
 }
 
 // State returns a set of states in the state factory
@@ -382,7 +428,7 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 	if cfg.Key != nil {
 		return sdb.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	keys, values, err := readStates(sdb.dao, cfg.Namespace, cfg.Keys)
+	keys, values, err := readStates(sdb.DAO(sdb.currentChainHeight), cfg.Namespace, cfg.Keys)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -396,7 +442,17 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 
 // StateAtHeight returns a confirmed state at height -- archive mode
 func (sdb *stateDB) StateAtHeight(height uint64, s interface{}, opts ...protocol.StateOption) error {
-	return ErrNotSupported
+	if !sdb.versioned {
+		return ErrNotSupported
+	}
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return err
+	}
+	if cfg.Keys != nil {
+		return errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
+	}
+	return sdb.state(height, cfg.Namespace, cfg.Key, s)
 }
 
 // StatesAtHeight returns a set states in the state factory at height -- archive mode
@@ -416,6 +472,11 @@ func (sdb *stateDB) ReadView(name string) (interface{}, error) {
 func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
+			if sdb.versioned {
+				// current height is moved to another namespace
+				// transform it back for the purpose of calculating digest
+				wi = sdb.transCurrentHeight(wi)
+			}
 			if preEaster {
 				return wi.SerializeWithoutWriteType()
 			}
@@ -433,8 +494,8 @@ func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 	)
 }
 
-func (sdb *stateDB) state(ns string, addr []byte, s interface{}) error {
-	data, err := sdb.dao.Get(ns, addr)
+func (sdb *stateDB) state(h uint64, ns string, addr []byte, s interface{}) error {
+	data, err := sdb.DAO(h).Get(ns, addr)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return errors.Wrapf(state.ErrStateNotExist, "state of %x doesn't exist", addr)
