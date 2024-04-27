@@ -52,6 +52,10 @@ type (
 		EnableStateDBCaching bool `yaml:"enableStateDBCaching"`
 		// EnableArchiveMode is only meaningful when EnableTrielessStateDB is false
 		EnableArchiveMode bool `yaml:"enableArchiveMode"`
+		// VersionedNamespaces specifies the versioned namespaces for versioned state DB
+		VersionedNamespaces []string `yaml:"versionedNamespaces"`
+		// VersionedMetadata specifies the metadata namespace for versioned state DB
+		VersionedMetadata string `yaml:"versionedMetadata"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
 		// deprecated
@@ -107,6 +111,7 @@ var (
 			GravityChainAPIs: []string{},
 		},
 		EnableTrielessStateDB:         true,
+		VersionedNamespaces:           []string{},
 		EnableStateDBCaching:          false,
 		EnableArchiveMode:             false,
 		EnableAsyncIndexWrite:         true,

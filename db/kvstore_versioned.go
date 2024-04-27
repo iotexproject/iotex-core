@@ -41,10 +41,35 @@ type (
 	KvVersioned interface {
 		lifecycle.StartStopper
 
+		KVStore
+
+		// Base returns the underlying KVStore
+		Base() KVStore
+
 		// Version returns the key's most recent version
 		Version(string, []byte) (uint64, error)
 
 		// SetVersion sets the version, and returns a KVStore to call Put()/Get()
 		SetVersion(uint64) KVStore
 	}
+
+	// KvWithVersion wraps the versioned DB implementation with a certain version
+	KvWithVersion struct {
+		// code in PR4518
+	}
 )
+
+type Option func(*KvWithVersion)
+
+func VersionedNamespaceOption(ns ...string) Option {
+	return func(k *KvWithVersion) {
+		// code in PR4518
+	}
+}
+
+// NewKVStoreWithVersion implements a KVStore that can handle both versioned
+// and non-versioned namespace
+func NewKVStoreWithVersion(cfg Config, opts ...Option) KvVersioned {
+	// code in PR4518
+	return nil
+}

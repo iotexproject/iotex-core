@@ -20,8 +20,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -40,6 +38,8 @@ type (
 		atHeight(uint64) db.KVStore
 		getHeight() (uint64, error)
 		putHeight(uint64) error
+		metadataNS() string
+		flusherOptions(bool) []db.KVStoreFlusherOption
 	}
 	// stateDB implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
 	stateDB struct {
@@ -53,6 +53,7 @@ type (
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
+		metaNS                   string // metadata namespace, only meaningful when archive-mode enabled
 	}
 )
 
@@ -91,6 +92,14 @@ func DisableWorkingSetCacheOption() StateDBOption {
 	}
 }
 
+// MetadataNamespaceOption specifies the metadat namespace for versioned DB
+func MetadataNamespaceOption(ns string) StateDBOption {
+	return func(sdb *stateDB, cfg *Config) error {
+		sdb.metaNS = ns
+		return nil
+	}
+}
+
 // NewStateDB creates a new state db
 func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, error) {
 	sdb := stateDB{
@@ -106,7 +115,15 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 			return nil, err
 		}
 	}
-	sdb.dao = newDaoRetrofitter(dao)
+	if cfg.Chain.EnableArchiveMode {
+		daoVersioned, ok := dao.(db.KvVersioned)
+		if !ok {
+			return nil, errors.Wrap(ErrNotSupported, "cannot enable archive mode StateDB with non-versioned DB")
+		}
+		sdb.dao = newDaoRetrofitterArchive(daoVersioned, sdb.metaNS)
+	} else {
+		sdb.dao = newDaoRetrofitter(dao)
+	}
 	timerFactory, err := prometheustimer.New(
 		"iotex_statefactory_perf",
 		"Performance of state factory module",
@@ -181,7 +198,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	flusher, err := db.NewKVStoreFlusher(
 		sdb.dao.atHeight(height),
 		batch.NewCachedBatch(),
-		sdb.flusherOptions(!g.IsEaster(height))...,
+		sdb.dao.flusherOptions(!g.IsEaster(height))...,
 	)
 	if err != nil {
 		return nil, err
@@ -193,11 +210,10 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
 		}
 	}
-	store := newStateDBWorkingSetStore(sdb.protocolView, flusher, g.IsNewfoundland(height))
+	store := newStateDBWorkingSetStore(sdb.protocolView, flusher, g.IsNewfoundland(height), sdb.dao.metadataNS())
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
-
 	return newWorkingSet(height, store), nil
 }
 
@@ -271,7 +287,6 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, erro
 }
 
 func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManager, error) {
-	// TODO: implement archive mode
 	return sdb.newWorkingSet(ctx, height)
 }
 
@@ -368,28 +383,8 @@ func (sdb *stateDB) ReadView(name string) (interface{}, error) {
 }
 
 //======================================
-// private trie constructor functions
+// private statedb functions
 //======================================
-
-func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
-	opts := []db.KVStoreFlusherOption{
-		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
-			if preEaster {
-				return wi.SerializeWithoutWriteType()
-			}
-			return wi.Serialize()
-		}),
-	}
-	if !preEaster {
-		return opts
-	}
-	return append(
-		opts,
-		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
-			return wi.Namespace() == evm.CodeKVNameSpace || wi.Namespace() == staking.CandsMapNS
-		}),
-	)
-}
 
 func (sdb *stateDB) state(h uint64, ns string, addr []byte, s interface{}) error {
 	data, err := sdb.dao.atHeight(h).Get(ns, addr)
