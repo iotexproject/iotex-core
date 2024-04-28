@@ -582,9 +582,6 @@ func (builder *Builder) registerStakingProtocol() error {
 
 func (builder *Builder) registerRewardingProtocol() error {
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
-	if builder.cfg.Consensus.Scheme != config.RollDPoSScheme {
-		return nil
-	}
 	return rewarding.NewProtocol(builder.cfg.Genesis.Rewarding).Register(builder.cs.registry)
 }
 
@@ -760,9 +757,12 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.registerExecutionProtocol(); err != nil {
 		return nil, errors.Wrap(err, "failed to register execution protocol")
 	}
-	if err := builder.registerRewardingProtocol(); err != nil {
-		return nil, errors.Wrap(err, "failed to register rewarding protocol")
+	if builder.cfg.Consensus.Scheme == config.RollDPoSScheme {
+		if err := builder.registerRewardingProtocol(); err != nil {
+			return nil, errors.Wrap(err, "failed to register rewarding protocol")
+		}
 	}
+
 	if err := builder.buildConsensusComponent(); err != nil {
 		return nil, err
 	}
