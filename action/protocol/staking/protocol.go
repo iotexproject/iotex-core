@@ -705,7 +705,12 @@ func (p *Protocol) contractStakingVotes(ctx context.Context, candidate address.A
 			if b.isUnstaked() {
 				continue
 			}
-			votes.Add(votes, p.calculateVoteWeight(b, false))
+			if featureCtx.FixContractStakingWeightedVotes {
+				votes.Add(votes, p.calculateVoteWeight(b, false))
+			} else {
+				votes.Add(votes, b.StakedAmount)
+			}
+
 		}
 	}
 	return votes, nil
