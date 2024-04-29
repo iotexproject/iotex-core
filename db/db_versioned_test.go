@@ -8,12 +8,21 @@ package db
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/testutil"
+)
+
+var (
+	_ns   = "ns"
+	_k5   = []byte("key_5")
+	_k10  = []byte("key_10")
+	_nerr = errors.New("namespace ns is non-versioned")
 )
 
 type versionTest struct {
@@ -59,10 +68,6 @@ func TestVersionedDB(t *testing.T) {
 	r.Equal(_v2, km.lastWrite)
 	r.NoError(err)
 	// check more Put/Get
-	var (
-		_k5  = []byte("key_5")
-		_k10 = []byte("key_10")
-	)
 	err = db.Put(1, _bucket1, _k10, _v1)
 	r.Equal("invalid key length, expecting 5, got 6: invalid input", err.Error())
 	r.NoError(db.Put(1, _bucket1, _k2, _v1))
@@ -237,5 +242,204 @@ func TestVersionedDB(t *testing.T) {
 		value, err := db.Version(e.ns, e.k)
 		r.Equal(e.err, errors.Cause(err))
 		r.Equal(e.height, value)
+	}
+}
+
+func TestDedup(t *testing.T) {
+	r := require.New(t)
+
+	b := batch.NewBatch()
+	for _, e := range []versionTest{
+		{_bucket2, _v1, _v2, 0, nil},
+		{_bucket2, _v2, _v3, 9, nil},
+		{_bucket2, _v3, _v4, 3, nil},
+		{_bucket2, _v4, _v1, 1, nil},
+		{_bucket1, _k1, _v1, 0, nil},
+		{_bucket1, _k2, _v2, 9, nil},
+		{_bucket1, _k3, _v3, 3, nil},
+		{_bucket1, _k4, _v4, 1, nil},
+	} {
+		b.Put(e.ns, e.k, e.v, "test")
+	}
+	keySize, ve, ce, err := dedup(nil, b)
+	r.NoError(err)
+	r.Equal(2, len(keySize))
+	r.Equal(5, keySize[_bucket1])
+	r.Equal(7, keySize[_bucket2])
+	r.Equal(8, len(ve))
+	r.Zero(len(ce))
+	for i, v := range [][]byte{_k4, _k3, _k2, _k1, _v4, _v3, _v2, _v1} {
+		r.Equal(v, ve[i].Key())
+	}
+	// put a key with diff length into _bucket2
+	b.Put(_bucket2, _k1, _v1, "test")
+	// treat _bucket1 as versioned namespace still OK
+	keySize, ve, ce, err = dedup(map[string]bool{
+		_bucket1: true,
+	}, b)
+	r.NoError(err)
+	r.Equal(1, len(keySize))
+	r.Equal(5, keySize[_bucket1])
+	r.Equal(4, len(ve))
+	r.Equal(5, len(ce))
+	for i, v := range [][]byte{_k4, _k3, _k2, _k1} {
+		r.Equal(v, ve[i].Key())
+	}
+	for i, v := range [][]byte{_k1, _v4, _v3, _v2, _v1} {
+		r.Equal(v, ce[i].Key())
+	}
+	// treat _bucket2 (or both buckets) as versioned namespace hits error due to diff key size
+	for _, v := range []map[string]bool{
+		map[string]bool{_bucket2: true}, nil,
+	} {
+		_, _, _, err = dedup(v, b)
+		r.Equal("invalid key length, expecting 5, got 7: invalid input", err.Error())
+	}
+}
+
+func TestCommitToDB(t *testing.T) {
+	r := require.New(t)
+	testPath, err := testutil.PathOfTempFile("test-version")
+	r.NoError(err)
+	defer func() {
+		testutil.CleanupPath(testPath)
+	}()
+
+	cfg := DefaultConfig
+	cfg.DbPath = testPath
+	db := NewBoltDBVersioned(cfg)
+	ctx := context.Background()
+	r.NoError(db.Start(ctx))
+	defer func() {
+		db.Stop(ctx)
+	}()
+
+	b := batch.NewBatch()
+	for _, e := range []versionTest{
+		{_bucket2, _v1, _k1, 0, nil},
+		{_bucket2, _v2, _k2, 9, nil},
+		{_bucket2, _v3, _k3, 3, nil},
+		{_bucket1, _k1, _v1, 0, nil},
+		{_bucket1, _k2, _v2, 9, nil},
+	} {
+		b.Put(e.ns, e.k, e.v, "test")
+	}
+
+	r.NoError(db.CommitToDB(1, nil, b))
+	b.Clear()
+	for _, e := range []versionTest{
+		{_bucket2, _v1, nil, 0, ErrNotExist},
+		{_bucket2, _v2, nil, 0, ErrNotExist},
+		{_bucket2, _v3, nil, 0, ErrNotExist},
+		{_bucket2, _v4, nil, 0, ErrNotExist},
+		{_bucket2, _v1, _k1, 1, nil},
+		{_bucket2, _v2, _k2, 1, nil},
+		{_bucket2, _v3, _k3, 1, nil},
+		{_bucket2, _v1, _k1, 2, nil},
+		{_bucket2, _v2, _k2, 2, nil},
+		{_bucket2, _v3, _k3, 2, nil},
+		{_bucket1, _k1, nil, 0, ErrNotExist},
+		{_bucket1, _k2, nil, 0, ErrNotExist},
+		{_bucket1, _k3, nil, 0, ErrNotExist},
+		{_bucket1, _k4, nil, 0, ErrNotExist},
+		{_bucket1, _k1, _v1, 1, nil},
+		{_bucket1, _k2, _v2, 1, nil},
+		{_bucket1, _k1, _v1, 3, nil},
+		{_bucket1, _k2, _v2, 3, nil},
+	} {
+		value, err := db.Get(e.height, e.ns, e.k)
+		r.Equal(e.err, errors.Cause(err))
+		r.Equal(e.v, value)
+	}
+
+	// batch with wrong key length would fail
+	b.Put(_bucket1, _v1, _k1, "test")
+	r.Equal(ErrInvalid, errors.Cause(db.CommitToDB(3, nil, b)))
+	b.Clear()
+	for _, e := range []versionTest{
+		{_bucket1, _k1, _v1, 0, nil},
+		{_bucket1, _k2, _v3, 9, nil},
+		{_bucket1, _k3, _v1, 3, nil},
+		{_bucket1, _k4, _v2, 1, nil},
+		{_bucket2, _v1, _k3, 0, nil},
+		{_bucket2, _v2, _k2, 9, nil},
+		{_bucket2, _v3, _k1, 3, nil},
+		{_bucket2, _v4, _k4, 1, nil},
+	} {
+		b.Put(e.ns, e.k, e.v, "test")
+	}
+	b.Delete(_bucket1, _k3, "test")
+	b.Delete(_bucket2, _v3, "test")
+
+	r.NoError(db.CommitToDB(5, nil, b))
+	b.Clear()
+	for _, e := range []versionTest{
+		{_bucket2, _v1, nil, 0, ErrNotExist},
+		{_bucket2, _v2, nil, 0, ErrNotExist},
+		{_bucket2, _v3, nil, 0, ErrNotExist},
+		{_bucket2, _v4, nil, 0, ErrNotExist},
+	} {
+		value, err := db.Get(e.height, e.ns, e.k)
+		r.Equal(e.err, errors.Cause(err))
+		r.Equal(e.v, value)
+	}
+	for _, e := range []versionTest{
+		{_bucket2, _v1, _k1, 1, nil},
+		{_bucket2, _v2, _k2, 1, nil},
+		{_bucket2, _v3, _k3, 1, nil},
+		{_bucket2, _v4, nil, 1, ErrNotExist},
+	} {
+		for _, h := range []uint64{1, 2, 3, 4} {
+			value, err := db.Get(h, e.ns, e.k)
+			r.Equal(e.err, errors.Cause(err))
+			r.Equal(e.v, value)
+		}
+	}
+	for _, e := range []versionTest{
+		{_bucket2, _v1, _k3, 5, nil},
+		{_bucket2, _v2, _k2, 5, nil},
+		{_bucket2, _v3, nil, 5, ErrDeleted},
+		{_bucket2, _v4, _k4, 5, nil},
+	} {
+		for _, h := range []uint64{5, 16, 3000, math.MaxUint64} {
+			value, err := db.Get(h, e.ns, e.k)
+			r.Equal(e.err, errors.Cause(err))
+			r.Equal(e.v, value)
+		}
+	}
+
+	for _, e := range []versionTest{
+		{_bucket1, _k1, nil, 0, ErrNotExist},
+		{_bucket1, _k2, nil, 0, ErrNotExist},
+		{_bucket1, _k3, nil, 0, ErrNotExist},
+		{_bucket1, _k4, nil, 0, ErrNotExist},
+	} {
+		value, err := db.Get(e.height, e.ns, e.k)
+		r.Equal(e.err, errors.Cause(err))
+		r.Equal(e.v, value)
+	}
+	for _, e := range []versionTest{
+		{_bucket1, _k1, _v1, 1, nil},
+		{_bucket1, _k2, _v2, 1, nil},
+		{_bucket1, _k3, nil, 1, ErrNotExist},
+		{_bucket1, _k4, nil, 1, ErrNotExist},
+	} {
+		for _, h := range []uint64{1, 2, 3, 4} {
+			value, err := db.Get(h, e.ns, e.k)
+			r.Equal(e.err, errors.Cause(err))
+			r.Equal(e.v, value)
+		}
+	}
+	for _, e := range []versionTest{
+		{_bucket1, _k1, _v1, 5, nil},
+		{_bucket1, _k2, _v3, 5, nil},
+		{_bucket1, _k3, nil, 5, ErrDeleted},
+		{_bucket1, _k4, _v2, 5, nil},
+	} {
+		for _, h := range []uint64{5, 64, 300, math.MaxUint64} {
+			value, err := db.Get(h, e.ns, e.k)
+			r.Equal(e.err, errors.Cause(err))
+			r.Equal(e.v, value)
+		}
 	}
 }
