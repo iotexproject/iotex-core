@@ -320,5 +320,5 @@ func (eh *eventHandler) putBucket(id uint64, bkt *Bucket) {
 
 func (eh *eventHandler) delBucket(id uint64) {
 	eh.dirty.DeleteBucket(id)
-	eh.delta.Delete(stakingBucketNS, byteutil.Uint64ToBytesBigEndian(id), "failed to put bucket")
+	eh.delta.Delete(stakingBucketNS, byteutil.Uint64ToBytesBigEndian(id), "failed to delete bucket")
 }
