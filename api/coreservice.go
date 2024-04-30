@@ -910,8 +910,12 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 		Method: methodName,
 		Args:   arguments,
 	}
+	tipHeight := core.bc.TipHeight()
+	if height == "" {
+		key.Height = strconv.FormatUint(tipHeight, 10)
+	}
 	if d, ok := core.readCache.Get(key.Hash()); ok {
-		var h uint64
+		h := tipHeight
 		if height != "" {
 			h, _ = strconv.ParseUint(height, 0, 64)
 		}
@@ -919,7 +923,6 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 	}
 
 	// TODO: need to complete the context
-	tipHeight := core.bc.TipHeight()
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: tipHeight,
 	})
@@ -945,6 +948,7 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 			// old data, wrap to history state reader
 			d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(core.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
 			if err == nil {
+				key.Height = strconv.FormatUint(h, 10)
 				core.readCache.Put(key.Hash(), d)
 			}
 			return d, h, err
@@ -954,6 +958,7 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 	// TODO: need to distinguish user error and system error
 	d, h, err := p.ReadState(ctx, core.sf, methodName, arguments...)
 	if err == nil {
+		key.Height = strconv.FormatUint(h, 10)
 		core.readCache.Put(key.Hash(), d)
 	}
 	return d, h, err
