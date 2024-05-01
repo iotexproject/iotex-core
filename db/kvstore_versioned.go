@@ -7,6 +7,9 @@
 package db
 
 import (
+	"context"
+
+	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 )
 
@@ -47,4 +50,75 @@ type (
 		// SetVersion sets the version, and returns a KVStore to call Put()/Get()
 		SetVersion(uint64) KVStore
 	}
+
+	// KvWithVersion wraps the versioned DB implementation with a certain version
+	KvWithVersion struct {
+		db      VersionedDB
+		version uint64 // the current version
+	}
 )
+
+// Option sets an option
+type Option func(*KvWithVersion)
+
+// NewKVStoreWithVersion implements a KVStore that can handle both versioned
+// and non-versioned namespace
+func NewKVStoreWithVersion(cfg Config, opts ...Option) *KvWithVersion {
+	db := NewBoltDBVersioned(cfg)
+	kv := KvWithVersion{
+		db: db,
+	}
+	for _, opt := range opts {
+		opt(&kv)
+	}
+	return &kv
+}
+
+// Start starts the DB
+func (b *KvWithVersion) Start(ctx context.Context) error {
+	return b.db.Start(ctx)
+}
+
+// Stop stops the DB
+func (b *KvWithVersion) Stop(ctx context.Context) error {
+	return b.db.Stop(ctx)
+}
+
+// Put writes a <key, value> record
+func (b *KvWithVersion) Put(ns string, key, value []byte) error {
+	return b.db.Put(b.version, ns, key, value)
+}
+
+// Get retrieves a key's value
+func (b *KvWithVersion) Get(ns string, key []byte) ([]byte, error) {
+	return b.db.Get(b.version, ns, key)
+}
+
+// Delete deletes a key
+func (b *KvWithVersion) Delete(ns string, key []byte) error {
+	return b.db.Delete(b.version, ns, key)
+}
+
+// Filter returns <k, v> pair in a bucket that meet the condition
+func (b *KvWithVersion) Filter(ns string, cond Condition, minKey, maxKey []byte) ([][]byte, [][]byte, error) {
+	return b.db.Filter(b.version, ns, cond, minKey, maxKey)
+}
+
+// WriteBatch commits a batch
+func (b *KvWithVersion) WriteBatch(kvsb batch.KVStoreBatch) error {
+	return b.db.CommitBatch(b.version, kvsb)
+}
+
+// Version returns the key's most recent version
+func (b *KvWithVersion) Version(ns string, key []byte) (uint64, error) {
+	return b.db.Version(ns, key)
+}
+
+// SetVersion sets the version, and returns a KVStore to call Put()/Get()
+func (b *KvWithVersion) SetVersion(v uint64) KVStore {
+	kv := KvWithVersion{
+		db:      b.db,
+		version: v,
+	}
+	return &kv
+}
