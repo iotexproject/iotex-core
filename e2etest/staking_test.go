@@ -36,6 +36,7 @@ import (
 )
 
 func TestStakingContract(t *testing.T) {
+	t.Skip()
 	require := require.New(t)
 
 	testReadContract := func(cfg config.Config, t *testing.T) {

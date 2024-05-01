@@ -113,6 +113,7 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 	if daoVersioned, ok := dao.(db.KvVersioned); ok {
 		sdb.versioned = true
 		sdb.daoVersioned = daoVersioned
+		println("using metaNS =", sdb.metaNS)
 	} else {
 		sdb.dao = dao
 	}
