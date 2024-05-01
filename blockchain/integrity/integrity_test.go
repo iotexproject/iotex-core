@@ -1393,9 +1393,10 @@ func TestConstantinople(t *testing.T) {
 		registry := protocol.NewRegistry()
 		// Create a blockchain from scratch
 		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-		db2, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
+		db2, err := db.CreateKVStoreVersioned(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.VersionedNamespaces)
 		require.NoError(err)
-		sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
+		sf, err := factory.NewStateDB(
+			factoryCfg, db2, factory.RegistryStateDBOption(registry), factory.MetadataNamespaceOption(cfg.Chain.VersionedMetadata))
 		require.NoError(err)
 		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)
