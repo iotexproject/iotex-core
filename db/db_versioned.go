@@ -46,6 +46,9 @@ type (
 
 		// Version returns the key's most recent version
 		Version(string, []byte) (uint64, error)
+
+		// CommitToDB writes a batch to the underlying DB
+		CommitToDB(uint64, map[string]bool, batch.KVStoreBatch) error
 	}
 
 	// BoltDBVersioned is KvVersioned implementation based on bolt DB
