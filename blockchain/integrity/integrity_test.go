@@ -1393,9 +1393,9 @@ func TestConstantinople(t *testing.T) {
 		registry := protocol.NewRegistry()
 		// Create a blockchain from scratch
 		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-		db2, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
+		db2, err := db.CreateKVStoreVersioned(cfg.DB, cfg.Chain.TrieDBPath, factory.VersionedNamespaces)
 		require.NoError(err)
-		sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
+		sf, err := factory.NewStateDB(factoryCfg, db2, factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)
@@ -1622,6 +1622,7 @@ func TestConstantinople(t *testing.T) {
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Chain.EnableArchiveMode = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Genesis.AleutianBlockHeight = 2
 	cfg.Genesis.BeringBlockHeight = 8

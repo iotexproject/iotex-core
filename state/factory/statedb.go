@@ -123,6 +123,7 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 			return nil, errors.Wrap(ErrNotSupported, "cannot enable archive mode StateDB with non-versioned DB")
 		}
 		sdb.dao = newDaoRetrofitterArchive(daoVersioned, VersionedMetadata)
+		println("using metaNS =", VersionedMetadata)
 	} else {
 		sdb.dao = newDaoRetrofitter(dao)
 	}

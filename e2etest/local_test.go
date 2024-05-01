@@ -64,6 +64,7 @@ func TestLocalCommit(t *testing.T) {
 	testTriePath := cfg.Chain.TrieDBPath
 	testDBPath := cfg.Chain.ChainDBPath
 	indexDBPath := cfg.Chain.IndexDBPath
+	cfg.Chain.EnableArchiveMode = true
 
 	// create server
 	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
@@ -147,14 +148,16 @@ func TestLocalCommit(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
+	cfg.Chain.EnableArchiveMode = true
 	require.NoError(copyDB(testTriePath, testTriePath2))
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	require.NoError(copyDB(indexDBPath, indexDBPath2))
 	registry := protocol.NewRegistry()
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	db1, err := db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	db1, err := db.CreateKVStoreVersioned(cfg.DB, cfg.Chain.TrieDBPath, factory.VersionedNamespaces)
 	require.NoError(err)
-	sf2, err := factory.NewStateDB(factoryCfg, db1, factory.RegistryStateDBOption(registry))
+	sf2, err := factory.NewStateDB(
+		factoryCfg, db1, factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(cfg.Genesis, sf2, cfg.ActPool)
 	require.NoError(err)
