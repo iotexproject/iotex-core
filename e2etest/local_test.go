@@ -151,9 +151,10 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(copyDB(indexDBPath, indexDBPath2))
 	registry := protocol.NewRegistry()
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	db1, err := db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	db1, err := db.CreateKVStoreVersioned(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.VersionedNamespaces)
 	require.NoError(err)
-	sf2, err := factory.NewStateDB(factoryCfg, db1, factory.RegistryStateDBOption(registry))
+	sf2, err := factory.NewStateDB(
+		factoryCfg, db1, factory.RegistryStateDBOption(registry), factory.MetadataNamespaceOption(cfg.Chain.VersionedMetadata))
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(cfg.Genesis, sf2, cfg.ActPool)
 	require.NoError(err)

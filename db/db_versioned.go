@@ -519,6 +519,7 @@ func VersionedNamespaceOption(ns ...string) Option {
 		k.versioned = make(map[string]bool)
 		for _, ns := range ns {
 			k.versioned[ns] = true
+			println("add vns =", ns)
 		}
 	}
 }
