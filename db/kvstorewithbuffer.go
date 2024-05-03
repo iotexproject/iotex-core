@@ -46,6 +46,7 @@ type (
 		serializeFilter batch.WriteInfoFilter
 		serialize       batch.WriteInfoSerialize
 		flushTranslate  batch.WriteInfoTranslate
+		simulate        bool
 	}
 
 	// KVStoreFlusherOption sets option for KVStoreFlusher
@@ -88,6 +89,14 @@ func FlushTranslateOption(wit batch.WriteInfoTranslate) KVStoreFlusherOption {
 	}
 }
 
+// SimulateOption disables the flush function
+func SimulateOption() KVStoreFlusherOption {
+	return func(f *flusher) error {
+		f.simulate = true
+		return nil
+	}
+}
+
 // NewKVStoreFlusher returns kv store flusher
 func NewKVStoreFlusher(store KVStore, buffer batch.CachedBatch, opts ...KVStoreFlusherOption) (KVStoreFlusher, error) {
 	if store == nil {
@@ -112,6 +121,9 @@ func NewKVStoreFlusher(store KVStore, buffer batch.CachedBatch, opts ...KVStoreF
 }
 
 func (f *flusher) Flush() error {
+	if f.simulate {
+		return errors.Wrap(ErrNotSupported, "failed to flush buffer")
+	}
 	if err := f.kvb.store.WriteBatch(f.kvb.buffer.Translate(f.flushTranslate)); err != nil {
 		return err
 	}

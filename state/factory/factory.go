@@ -254,12 +254,20 @@ func (sf *factory) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
+func (sf *factory) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
+	return sf.newWorkingSetWithOption(ctx, height, true)
+}
+
 func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
+	return sf.newWorkingSetWithOption(ctx, height, false)
+}
+
+func (sf *factory) newWorkingSetWithOption(ctx context.Context, height uint64, readOnly bool) (*workingSet, error) {
 	span := tracer.SpanFromContext(ctx)
 	span.AddEvent("factory.newWorkingSet")
 	defer span.End()
 
-	store, err := newFactoryWorkingSetStore(ctx, height, uint64(sf.historyWindowSize), sf.protocolView, sf.dao)
+	store, err := newFactoryWorkingSetStore(ctx, height, uint64(sf.historyWindowSize), sf.protocolView, sf.dao, readOnly)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +361,7 @@ func (sf *factory) SimulateExecution(
 	defer span.End()
 
 	sf.mutex.Lock()
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+	ws, err := sf.newReadOnlyWorkingSet(ctx, sf.currentChainHeight+1)
 	sf.mutex.Unlock()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
@@ -365,7 +373,7 @@ func (sf *factory) SimulateExecution(
 // ReadContractStorage reads contract's storage
 func (sf *factory) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
 	sf.mutex.Lock()
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+	ws, err := sf.newReadOnlyWorkingSet(ctx, sf.currentChainHeight+1)
 	sf.mutex.Unlock()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate working set from state factory")

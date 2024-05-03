@@ -52,6 +52,7 @@ func newFactoryWorkingSetStore(
 	historyWindowSize uint64,
 	view protocol.View,
 	kvstore db.KVStore,
+	simulate bool,
 ) (workingSetStore, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
 	preEaster := !g.IsEaster(height)
@@ -125,6 +126,9 @@ func newFactoryWorkingSetStore(
 		if height > historyWindowSize {
 			expire = height - historyWindowSize
 		}
+	}
+	if simulate {
+		opts = append(opts, db.SimulateOption())
 	}
 
 	flusher, err := db.NewKVStoreFlusher(
