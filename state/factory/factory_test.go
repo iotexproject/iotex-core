@@ -1236,6 +1236,19 @@ func testSimulateExecution(ctx context.Context, sf Factory, t *testing.T) {
 	require.NoError(err)
 }
 
+func TestReadOnlyWorkingSet(t *testing.T) {
+	sf, err := NewFactory(DefaultConfig, db.NewMemKVStore())
+	require.NoError(t, err)
+	ctx := genesis.WithGenesisContext(
+		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
+		genesis.Default,
+	)
+	require.NoError(t, sf.Start(ctx))
+	ws, err := sf.(*factory).newReadOnlyWorkingSet(ctx, 1)
+	require.NoError(t, err)
+	require.Error(t, ws.Commit(ctx))
+}
+
 func TestCachedBatch(t *testing.T) {
 	sf, err := NewFactory(DefaultConfig, db.NewMemKVStore())
 	require.NoError(t, err)
