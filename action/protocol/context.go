@@ -122,6 +122,7 @@ type (
 		SuicideTxLogMismatchPanic               bool
 		PanicUnrecoverableError                 bool
 		CandidateIdentifiedByOwner              bool
+		UseTxContainer                          bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -269,6 +270,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			SuicideTxLogMismatchPanic:               g.IsToBeEnabled(height),
 			PanicUnrecoverableError:                 g.IsToBeEnabled(height),
 			CandidateIdentifiedByOwner:              !g.IsToBeEnabled(height),
+			UseTxContainer:                          g.IsToBeEnabled(height),
 		},
 	)
 }

@@ -6,9 +6,11 @@
 package action
 
 import (
+	"context"
 	"math"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
@@ -23,6 +25,10 @@ type (
 	// EthCompatibleAction is the action which is compatible to be converted to eth tx
 	EthCompatibleAction interface {
 		ToEthTx(uint32) (*types.Transaction, error)
+	}
+
+	TxContainer interface {
+		Unfold(*SealedEnvelope, context.Context, func(context.Context, *common.Address) (bool, bool, bool, error)) error // unfold the tx inside the container
 	}
 
 	actionPayload interface {
