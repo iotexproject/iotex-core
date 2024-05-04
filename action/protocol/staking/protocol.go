@@ -642,7 +642,7 @@ func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
 	return CalculateVoteWeight(p.config.VoteWeightCalConsts, v, selfStake)
 }
 
-// settleAccount deposits gas fee and updates caller's nonce
+// settleAction deposits gas fee and updates caller's nonce
 func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,

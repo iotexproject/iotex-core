@@ -48,7 +48,7 @@ type safeWebsocketConn struct {
 	mu sync.Mutex
 }
 
-// WiteJSON writes a JSON message to the connection in a thread-safe way
+// WriteJSON writes a JSON message to the connection in a thread-safe way
 func (c *safeWebsocketConn) WriteJSON(message interface{}) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
