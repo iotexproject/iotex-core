@@ -8,6 +8,8 @@ package db
 
 import (
 	"context"
+	"encoding/hex"
+	"fmt"
 	"math"
 	"testing"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -441,5 +444,90 @@ func TestCommitToDB(t *testing.T) {
 			r.Equal(e.err, errors.Cause(err))
 			r.Equal(e.v, value)
 		}
+	}
+}
+
+func TestArchiveDB(t *testing.T) {
+	r := require.New(t)
+	testPath, err := testutil.PathOfTempFile("test-version")
+	r.NoError(err)
+	defer func() {
+		testutil.CleanupPath(testPath)
+	}()
+
+	cfg := DefaultConfig
+	cfg.DbPath = "../data/archive.db"
+	db := NewKVStoreWithVersion(cfg, VersionedNamespaceOption("Account", "Contract"))
+	ctx := context.Background()
+	r.NoError(db.Start(ctx))
+	defer func() {
+		db.Stop(ctx)
+	}()
+
+	v, err := db.Get("Meta", []byte("currentHeight"))
+	r.NoError(err)
+	println("height =", byteutil.BytesToUint64(v))
+	for _, e := range []struct {
+		ns           string
+		total, count int
+	}{
+		{"Account", 2328607, 439112},
+		{"Contract", 31107, 15553},
+	} {
+		total, count, err := db.db.AllKeys(e.ns)
+		r.NoError(err)
+		r.Equal(e.total, total)
+		r.Equal(e.count, count)
+
+		println("now purge")
+		delMap, err := db.db.Purge(500000, e.ns)
+		r.NoError(err)
+		total = 0
+		for _, n := range delMap {
+			total += n
+		}
+		println("map size =", len(delMap))
+		println("delete entry =", total)
+		println("now check")
+		total, count, err = db.db.AllKeys(e.ns)
+		r.NoError(err)
+		r.LessOrEqual(total, e.total)
+		r.Equal(e.count, count)
+
+		// if i == 0 {
+		// 	println("now write")
+		// 	m, err := db.db.randomWrite(e.ns, count)
+		// 	r.NoError(err)
+		// 	println("write max =", m)
+		// 	println("check again")
+		// 	kms, err = db.db.AllKeys(e.ns)
+		// 	r.NoError(err)
+		// 	r.Equal(e.num, len(kms))
+		// }
+	}
+}
+
+func TestConstantKey(t *testing.T) {
+	r := require.New(t)
+	testPath, err := testutil.PathOfTempFile("test-version")
+	r.NoError(err)
+	defer func() {
+		testutil.CleanupPath(testPath)
+	}()
+
+	cfg := DefaultConfig
+	cfg.DbPath = "../data/archive.db"
+	db := NewKVStoreWithVersion(cfg, VersionedNamespaceOption("Account", "Contract"))
+	ctx := context.Background()
+	r.NoError(db.Start(ctx))
+	defer func() {
+		db.Stop(ctx)
+	}()
+
+	key, _ := hex.DecodeString("72e48afbc999a7f892ebaf3543446469acbcd1a0")
+	for i := 0; i < 20; i++ {
+		v, err := db.db.get(uint64(i), "Account", key)
+		r.NoError(err)
+		fmt.Printf("const key = %x\n", v)
 	}
 }

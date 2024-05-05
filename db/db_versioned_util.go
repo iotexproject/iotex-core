@@ -112,3 +112,16 @@ func (km *keyMeta) updateWrite(version uint64, value []byte) (*keyMeta, bool) {
 	km.deleteVersion = 0
 	return km, false
 }
+
+func (km *keyMeta) updatePurge(version uint64) (uint64, bool) {
+	if km.firstVersion == km.lastVersion || version < km.firstVersion {
+		// key has been written only once (the last version will always be kept)
+		// or version is lower than the version when the key is first written
+		return version, true
+	}
+	if version >= km.lastVersion {
+		// delete all versions except the last version
+		version = km.lastVersion - 1
+	}
+	return version, false
+}
