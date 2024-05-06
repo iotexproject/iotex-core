@@ -11,16 +11,18 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 )
 
 // AllKeys returns all keys in a bucket
-func (b *BoltDBVersioned) AllKeys(ns string) (int, int, error) {
+func (b *BoltDBVersioned) AllKeys(ns string) (int, int, string, error) {
 	var (
 		total    int
 		count    int
 		nonDBErr bool
+		h        = make([]byte, 0, 40000)
 	)
 	err := b.db.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(ns))
@@ -47,6 +49,12 @@ func (b *BoltDBVersioned) AllKeys(ns string) (int, int, error) {
 		keyMetaLen = int(vn.keyLen) + 1
 		for ; k != nil; k, v = c.Next() {
 			total++
+			h = append(h, v...)
+			if total%1000 == 0 {
+				m := hash.Hash160b(h[:])
+				h = h[:len(m)]
+				copy(h, m[:])
+			}
 			if len(k) == keyMetaLen {
 				count++
 				// km, err := deserializeKeyMeta(v)
@@ -61,12 +69,13 @@ func (b *BoltDBVersioned) AllKeys(ns string) (int, int, error) {
 		return nil
 	})
 	if nonDBErr {
-		return 0, 0, err
+		return 0, 0, "", err
 	}
 	if err != nil {
-		return 0, 0, errors.Wrap(ErrIO, err.Error())
+		return 0, 0, "", errors.Wrap(ErrIO, err.Error())
 	}
-	return total, count, nil
+	m := hash.Hash160b(h[:])
+	return total, count, hex.EncodeToString(m[:]), nil
 }
 
 // Purge removes key up to (including) the given version

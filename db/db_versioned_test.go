@@ -449,12 +449,6 @@ func TestCommitToDB(t *testing.T) {
 
 func TestArchiveDB(t *testing.T) {
 	r := require.New(t)
-	testPath, err := testutil.PathOfTempFile("test-version")
-	r.NoError(err)
-	defer func() {
-		testutil.CleanupPath(testPath)
-	}()
-
 	cfg := DefaultConfig
 	cfg.DbPath = "../data/archive.db"
 	db := NewKVStoreWithVersion(cfg, VersionedNamespaceOption("Account", "Contract"))
@@ -468,31 +462,40 @@ func TestArchiveDB(t *testing.T) {
 	r.NoError(err)
 	println("height =", byteutil.BytesToUint64(v))
 	for _, e := range []struct {
-		ns           string
-		total, count int
+		ns                   string
+		total, count, delete int
+		h1, h2               string
 	}{
-		{"Account", 2328607, 439112},
-		{"Contract", 31107, 15553},
+		{"Account", 2328607, 439112, 1450382, "9bf029516fbf3c0a0f27e12053573aa7d67efb49", "5fdf59c05f3522c55425a42c581a8e0606f92665"},
+		{"Contract", 31107, 15553, 0, "a89bfda24bbb8df4063544be78e174858e9920fb", "a89bfda24bbb8df4063544be78e174858e9920fb"},
 	} {
-		total, count, err := db.db.AllKeys(e.ns)
+		total, count, m, err := db.db.AllKeys(e.ns)
 		r.NoError(err)
 		r.Equal(e.total, total)
 		r.Equal(e.count, count)
+		r.Equal(e.h1, m)
 
 		println("now purge")
-		delMap, err := db.db.Purge(500000, e.ns)
-		r.NoError(err)
 		total = 0
+		delMap, err := db.db.Purge(200000, e.ns)
+		r.NoError(err)
+		println("map size =", len(delMap))
 		for _, n := range delMap {
 			total += n
 		}
+		delMap, err = db.db.Purge(500000, e.ns)
+		r.NoError(err)
 		println("map size =", len(delMap))
-		println("delete entry =", total)
-		println("now check")
-		total, count, err = db.db.AllKeys(e.ns)
+		for _, n := range delMap {
+			total += n
+		}
+		r.Equal(e.delete, total)
+		println("now check again")
+		total, count, m, err = db.db.AllKeys(e.ns)
 		r.NoError(err)
 		r.LessOrEqual(total, e.total)
 		r.Equal(e.count, count)
+		r.Equal(e.h2, m)
 
 		// if i == 0 {
 		// 	println("now write")
@@ -509,12 +512,6 @@ func TestArchiveDB(t *testing.T) {
 
 func TestConstantKey(t *testing.T) {
 	r := require.New(t)
-	testPath, err := testutil.PathOfTempFile("test-version")
-	r.NoError(err)
-	defer func() {
-		testutil.CleanupPath(testPath)
-	}()
-
 	cfg := DefaultConfig
 	cfg.DbPath = "../data/archive.db"
 	db := NewKVStoreWithVersion(cfg, VersionedNamespaceOption("Account", "Contract"))
