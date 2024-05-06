@@ -27,6 +27,7 @@ type (
 		nameMap          map[string]*Candidate
 		ownerMap         map[string]*Candidate
 		operatorMap      map[string]*Candidate
+		identifierMap    map[string]*Candidate
 		selfStkBucketMap map[uint64]*Candidate
 		owners           CandidateList
 	}
@@ -48,7 +49,7 @@ func listToCandChange(l CandidateList) (*candChange, error) {
 			return nil, err
 		}
 		cv.candidates = append(cv.candidates, d)
-		cv.dirty[d.Owner.String()] = d
+		cv.dirty[d.GetIdentifier().String()] = d
 	}
 	return cv, nil
 }
@@ -88,7 +89,7 @@ func (m *CandidateCenter) All() CandidateList {
 	}
 
 	for _, d := range m.base.all() {
-		if !m.change.containsOwner(d.Owner) {
+		if !m.change.containsIdentifier(d.GetIdentifier()) {
 			list = append(list, d.Clone())
 		}
 	}
@@ -130,7 +131,7 @@ func (m *CandidateCenter) SetDelta(l CandidateList) error {
 
 	overlap := 0
 	for _, v := range m.base.all() {
-		if m.change.containsOwner(v.Owner) {
+		if m.change.containsIdentifier(v.GetIdentifier()) {
 			overlap++
 		}
 	}
@@ -180,7 +181,7 @@ func (m *CandidateCenter) ContainsName(name string) bool {
 	}
 
 	if d, hit := m.base.getByName(name); hit {
-		return !m.change.containsOwner(d.Owner)
+		return !m.change.containsIdentifier(d.GetIdentifier())
 	}
 	return false
 }
@@ -195,8 +196,10 @@ func (m *CandidateCenter) ContainsOwner(owner address.Address) bool {
 		return true
 	}
 
-	_, hit := m.base.getByOwner(owner.String())
-	return hit
+	if d, hit := m.base.getByOwner(owner.String()); hit {
+		return !m.change.containsIdentifier(d.GetIdentifier())
+	}
+	return false
 }
 
 // ContainsOperator returns true if the map contains the candidate by operator
@@ -210,7 +213,7 @@ func (m *CandidateCenter) ContainsOperator(operator address.Address) bool {
 	}
 
 	if d, hit := m.base.getByOperator(operator.String()); hit {
-		return !m.change.containsOwner(d.Owner)
+		return !m.change.containsIdentifier(d.GetIdentifier())
 	}
 	return false
 }
@@ -222,7 +225,7 @@ func (m *CandidateCenter) ContainsSelfStakingBucket(index uint64) bool {
 	}
 
 	if d, hit := m.base.getBySelfStakingIndex(index); hit {
-		return !m.change.containsOwner(d.Owner)
+		return !m.change.containsIdentifier(d.GetIdentifier())
 	}
 	return false
 }
@@ -233,7 +236,7 @@ func (m *CandidateCenter) GetByName(name string) *Candidate {
 		return d
 	}
 
-	if d, hit := m.base.getByName(name); hit && !m.change.containsOwner(d.Owner) {
+	if d, hit := m.base.getByName(name); hit && !m.change.containsIdentifier(d.GetIdentifier()) {
 		return d.Clone()
 	}
 	return nil
@@ -265,7 +268,7 @@ func (m *CandidateCenter) GetByIdentifier(identifier address.Address) *Candidate
 		return d
 	}
 
-	if d, hit := m.base.getByIdentifier(identifier); hit {
+	if d, hit := m.base.getByIdentifier(identifier.String()); hit {
 		return d.Clone()
 	}
 	return nil
@@ -277,7 +280,7 @@ func (m *CandidateCenter) GetBySelfStakingIndex(index uint64) *Candidate {
 		return d
 	}
 
-	if d, hit := m.base.getBySelfStakingIndex(index); hit && !m.change.containsOwner(d.Owner) {
+	if d, hit := m.base.getBySelfStakingIndex(index); hit && !m.change.containsIdentifier(d.GetIdentifier()) {
 		return d.Clone()
 	}
 	return nil
@@ -297,9 +300,10 @@ func (m *CandidateCenter) Upsert(d *Candidate) error {
 		return err
 	}
 
-	if _, hit := m.base.getByOwner(d.Owner.String()); !hit {
+	if _, hit := m.base.getByIdentifier(d.GetIdentifier().String()); !hit {
 		m.size++
 	}
+	// fmt.Printf("upsert done %+v\n", d)
 	return nil
 }
 
@@ -308,16 +312,20 @@ func (m *CandidateCenter) collision(d *Candidate) error {
 		return err
 	}
 
-	name, oper, self := m.base.collision(d)
-	if name != nil && !m.change.containsOwner(name) {
+	name, owner, oper, self := m.base.collision(d)
+	// fmt.Printf("name=%s owner=%s oper=%s self=%s\n", name, owner, oper, self)
+	if name != nil && !m.change.containsIdentifier(name) {
 		return action.ErrInvalidCanName
 	}
+	if owner != nil && !m.change.containsIdentifier(owner) {
+		return ErrInvalidOwner
+	}
 
-	if oper != nil && !m.change.containsOwner(oper) {
+	if oper != nil && !m.change.containsIdentifier(oper) {
 		return ErrInvalidOperator
 	}
 
-	if self != nil && !m.change.containsOwner(self) {
+	if self != nil && !m.change.containsIdentifier(self) {
 		return ErrInvalidSelfStkIndex
 	}
 	return nil
@@ -366,12 +374,24 @@ func (cc *candChange) containsName(name string) bool {
 	return false
 }
 
+func (cc *candChange) containsIdentifier(identifier address.Address) bool {
+	if identifier == nil {
+		return false
+	}
+	_, ok := cc.dirty[identifier.String()]
+	return ok
+}
+
 func (cc *candChange) containsOwner(owner address.Address) bool {
 	if owner == nil {
 		return false
 	}
-	_, ok := cc.dirty[owner.String()]
-	return ok
+	for _, d := range cc.dirty {
+		if address.Equal(owner, d.Owner) {
+			return true
+		}
+	}
+	return false
 }
 
 func (cc *candChange) containsOperator(operator address.Address) bool {
@@ -406,17 +426,17 @@ func (cc *candChange) getByOwner(owner address.Address) *Candidate {
 		return nil
 	}
 
-	if d, ok := cc.dirty[owner.String()]; ok {
-		return d.Clone()
+	for _, d := range cc.dirty {
+		if address.Equal(owner, d.Owner) {
+			return d.Clone()
+		}
 	}
 	return nil
 }
 
 func (cc *candChange) getByIdentifier(identifier address.Address) *Candidate {
-	for _, c := range cc.dirty {
-		if c.Identifier != nil && address.Equal(c.Identifier, identifier) {
-			return c
-		}
+	if d, ok := cc.dirty[identifier.String()]; ok {
+		return d.Clone()
 	}
 	return nil
 }
@@ -435,7 +455,7 @@ func (cc *candChange) upsert(d *Candidate) error {
 		return err
 	}
 	cc.candidates = append(cc.candidates, d)
-	cc.dirty[d.Owner.String()] = d
+	cc.dirty[d.GetIdentifier().String()] = d
 	return nil
 }
 
@@ -457,6 +477,7 @@ func newCandBase() *candBase {
 		nameMap:          make(map[string]*Candidate),
 		ownerMap:         make(map[string]*Candidate),
 		operatorMap:      make(map[string]*Candidate),
+		identifierMap:    make(map[string]*Candidate),
 		selfStkBucketMap: make(map[uint64]*Candidate),
 	}
 }
@@ -464,18 +485,18 @@ func newCandBase() *candBase {
 func (cb *candBase) size() int {
 	cb.lock.RLock()
 	defer cb.lock.RUnlock()
-	return len(cb.ownerMap)
+	return len(cb.identifierMap)
 }
 
 func (cb *candBase) all() CandidateList {
 	cb.lock.RLock()
 	defer cb.lock.RUnlock()
-	if len(cb.ownerMap) == 0 {
+	if len(cb.identifierMap) == 0 {
 		return nil
 	}
 
-	list := make(CandidateList, 0, len(cb.ownerMap))
-	for _, d := range cb.ownerMap {
+	list := make(CandidateList, 0, len(cb.identifierMap))
+	for _, d := range cb.identifierMap {
 		list = append(list, d.Clone())
 	}
 	return list
@@ -493,6 +514,7 @@ func (cb *candBase) commit(change *candChange, keepAliasBug bool) (int, error) {
 			cb.ownerMap[d.Owner.String()] = d
 			cb.nameMap[d.Name] = d
 			cb.operatorMap[d.Operator.String()] = d
+			cb.identifierMap[d.GetIdentifier().String()] = d
 			cb.selfStkBucketMap[d.SelfStakeBucketIdx] = d
 		}
 	} else {
@@ -501,11 +523,13 @@ func (cb *candBase) commit(change *candChange, keepAliasBug bool) (int, error) {
 				return 0, err
 			}
 			d := v.Clone()
-			if curr, ok := cb.ownerMap[d.Owner.String()]; ok {
+			if curr, ok := cb.identifierMap[d.GetIdentifier().String()]; ok {
 				delete(cb.nameMap, curr.Name)
 				delete(cb.operatorMap, curr.Operator.String())
+				delete(cb.ownerMap, curr.Owner.String())
 				delete(cb.selfStkBucketMap, curr.SelfStakeBucketIdx)
 			}
+			cb.identifierMap[d.GetIdentifier().String()] = d
 			cb.ownerMap[d.Owner.String()] = d
 			cb.nameMap[d.Name] = d
 			cb.operatorMap[d.Operator.String()] = d
@@ -514,7 +538,7 @@ func (cb *candBase) commit(change *candChange, keepAliasBug bool) (int, error) {
 			}
 		}
 	}
-	return len(cb.ownerMap), nil
+	return len(cb.identifierMap), nil
 }
 
 func (cb *candBase) getByName(name string) (*Candidate, bool) {
@@ -524,14 +548,11 @@ func (cb *candBase) getByName(name string) (*Candidate, bool) {
 	return d, ok
 }
 
-func (cb *candBase) getByIdentifier(identifier address.Address) (*Candidate, bool) {
-	candidates := cb.all()
-	for _, c := range candidates {
-		if c.Identifier != nil && address.Equal(c.Identifier, identifier) {
-			return c, true
-		}
-	}
-	return nil, false
+func (cb *candBase) getByIdentifier(identifier string) (*Candidate, bool) {
+	cb.lock.RLock()
+	defer cb.lock.RUnlock()
+	d, ok := cb.identifierMap[identifier]
+	return d, ok
 }
 
 func (cb *candBase) getByOwner(name string) (*Candidate, bool) {
@@ -555,22 +576,25 @@ func (cb *candBase) getBySelfStakingIndex(index uint64) (*Candidate, bool) {
 	return d, ok
 }
 
-func (cb *candBase) collision(d *Candidate) (address.Address, address.Address, address.Address) {
+func (cb *candBase) collision(d *Candidate) (address.Address, address.Address, address.Address, address.Address) {
 	cb.lock.RLock()
 	defer cb.lock.RUnlock()
-	var name, oper, self address.Address
-	if c, hit := cb.nameMap[d.Name]; hit && !address.Equal(c.Owner, d.Owner) {
-		name = c.Owner
+	var name, owner, oper, self address.Address
+	if c, hit := cb.nameMap[d.Name]; hit && !address.Equal(c.GetIdentifier(), d.GetIdentifier()) {
+		name = c.GetIdentifier()
+	}
+	if c, hit := cb.ownerMap[d.Owner.String()]; hit && !address.Equal(c.GetIdentifier(), d.GetIdentifier()) {
+		owner = c.GetIdentifier()
 	}
 
-	if c, hit := cb.operatorMap[d.Operator.String()]; hit && !address.Equal(c.Owner, d.Owner) {
-		oper = c.Owner
+	if c, hit := cb.operatorMap[d.Operator.String()]; hit && !address.Equal(c.GetIdentifier(), d.GetIdentifier()) {
+		oper = c.GetIdentifier()
 	}
 
-	if c, hit := cb.selfStkBucketMap[d.SelfStakeBucketIdx]; hit && !address.Equal(c.Owner, d.Owner) {
-		self = c.Owner
+	if c, hit := cb.selfStkBucketMap[d.SelfStakeBucketIdx]; hit && !address.Equal(c.GetIdentifier(), d.GetIdentifier()) {
+		self = c.GetIdentifier()
 	}
-	return name, oper, self
+	return name, owner, oper, self
 }
 
 func (cb *candBase) delete(owner address.Address) {
