@@ -28,6 +28,10 @@ type Config struct {
 	HistoryStateRetention uint64 `yaml:"historyStateRetention"`
 	// ReadOnly is set db to be opened in read only mode
 	ReadOnly bool `yaml:"readOnly"`
+
+	// DbDSN is analyser plugins db
+	DbDSN   string `yaml:"dbDSN"`
+	DbDebug bool   `yaml:"dbDebug"`
 }
 
 // SplitDBSize returns the configured SplitDBSizeMB

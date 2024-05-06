@@ -35,6 +35,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blockindex/contractstaking"
+	blockanasyler "github.com/iotexproject/iotex-core/blockindex/indexers/block"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
@@ -261,6 +262,8 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 
 	var indexers []blockdao.BlockIndexer
+	// analyser indexers should put into the prepareIndexers
+	var prepareIndexers []blockdao.BlockIndexer
 	// indexers in synchronizedIndexers will need to run PutBlock() one by one
 	// factory is dependent on sgdIndexer and contractStakingIndexer, so it should be put in the first place
 	synchronizedIndexers := []blockdao.BlockIndexer{builder.cs.factory}
@@ -281,6 +284,12 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.bfIndexer != nil {
 		indexers = append(indexers, builder.cs.bfIndexer)
 	}
+
+	// analyser indexers
+	if builder.cs.blockIndexer != nil {
+		prepareIndexers = append(prepareIndexers, builder.cs.blockIndexer)
+	}
+
 	var (
 		err   error
 		store blockdao.BlockDAO
@@ -295,7 +304,7 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if err != nil {
 		return err
 	}
-	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, builder.cfg.DB.MaxCacheSize)
+	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, prepareIndexers, builder.cfg.DB.MaxCacheSize)
 
 	return nil
 }
@@ -348,7 +357,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 }
 
 func (builder *Builder) buildGatewayComponents(forTest bool) error {
-	indexer, bfIndexer, candidateIndexer, candBucketsIndexer, err := builder.createGateWayComponents(forTest)
+	indexer, bfIndexer, candidateIndexer, candBucketsIndexer, blockIndexer, err := builder.createGateWayComponents(forTest)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create gateway components")
 	}
@@ -362,6 +371,7 @@ func (builder *Builder) buildGatewayComponents(forTest bool) error {
 	}
 	builder.cs.bfIndexer = bfIndexer
 	builder.cs.indexer = indexer
+	builder.cs.blockIndexer = blockIndexer
 
 	return nil
 }
@@ -371,6 +381,7 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 	bfIndexer blockindex.BloomFilterIndexer,
 	candidateIndexer *poll.CandidateIndexer,
 	candBucketsIndexer *staking.CandidatesBucketsIndexer,
+	blockIndexer blockdao.BlockIndexer,
 	err error,
 ) {
 	_, gateway := builder.cfg.Plugins[config.GatewayPlugin]
@@ -422,6 +433,13 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 		dbConfig.DbPath = builder.cfg.Chain.StakingIndexDBPath
 		candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewBoltDB(dbConfig))
 	}
+
+	// analyser index
+	blockIndexer, err = blockanasyler.NewBlockIndexer(db.NewPostgresDB(dbConfig), builder.cfg.Genesis.Hash())
+	if err != nil {
+		return
+	}
+
 	return
 }
 

@@ -9,18 +9,18 @@ import (
 	"context"
 	"sync/atomic"
 
-	"github.com/iotexproject/go-pkgs/cache"
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/cache"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // vars
@@ -54,32 +54,38 @@ type (
 	}
 
 	blockDAO struct {
-		blockStore   BlockDAO
-		indexers     []BlockIndexer
-		timerFactory *prometheustimer.TimerFactory
-		lifecycle    lifecycle.Lifecycle
-		headerCache  cache.LRUCache
-		footerCache  cache.LRUCache
-		receiptCache cache.LRUCache
-		blockCache   cache.LRUCache
-		tipHeight    uint64
+		blockStore BlockDAO
+		indexers   []BlockIndexer
+		// add another indexer for analyser
+		prepareIndexers []BlockIndexer
+		timerFactory    *prometheustimer.TimerFactory
+		lifecycle       lifecycle.Lifecycle
+		headerCache     cache.LRUCache
+		footerCache     cache.LRUCache
+		receiptCache    cache.LRUCache
+		blockCache      cache.LRUCache
+		tipHeight       uint64
 	}
 )
 
 // NewBlockDAOWithIndexersAndCache returns a BlockDAO with indexers which will consume blocks appended, and
 // caches which will speed up reading
-func NewBlockDAOWithIndexersAndCache(blkStore BlockDAO, indexers []BlockIndexer, cacheSize int) BlockDAO {
+func NewBlockDAOWithIndexersAndCache(blkStore BlockDAO, indexers, prepareIndexers []BlockIndexer, cacheSize int) BlockDAO {
 	if blkStore == nil {
 		return nil
 	}
 
 	blockDAO := &blockDAO{
-		blockStore: blkStore,
-		indexers:   indexers,
+		blockStore:      blkStore,
+		indexers:        indexers,
+		prepareIndexers: prepareIndexers,
 	}
 
 	blockDAO.lifecycle.Add(blkStore)
 	for _, indexer := range indexers {
+		blockDAO.lifecycle.Add(indexer)
+	}
+	for _, indexer := range prepareIndexers {
 		blockDAO.lifecycle.Add(indexer)
 	}
 	if cacheSize > 0 {
@@ -113,7 +119,12 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, tipHeight)
-	return dao.checkIndexers(ctx)
+	if err = dao.checkIndexers(ctx); err != nil {
+		return err
+	}
+
+	go dao.checkPrepareIndexers(ctx)
+	return nil
 }
 
 func (dao *blockDAO) checkIndexers(ctx context.Context) error {
@@ -134,6 +145,33 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 			"indexer is up to date.",
 			zap.Int("indexer", i),
 		)
+	}
+	return nil
+}
+
+// TODO check analyser indexers to put Indexers
+func (dao *blockDAO) checkPrepareIndexers(ctx context.Context) error {
+	checker := NewBlockIndexerChecker(dao)
+	for i, indexer := range dao.prepareIndexers {
+		go func() {
+			if err := checker.CheckIndexer(ctx, indexer, 0, func(height uint64) {
+				if height%5000 == 0 {
+					log.L().Info(
+						"indexer is catching up.",
+						zap.Int("indexer", i),
+						zap.Uint64("height", height),
+					)
+				}
+			}); err != nil {
+				log.L().Error("indexer failed to catch up.", zap.Int("indexer", i), zap.Error(err))
+				return
+			}
+			log.L().Info(
+				"indexer is up to date.",
+				zap.Int("indexer", i),
+			)
+			dao.indexers = append(dao.indexers, indexer)
+		}()
 	}
 	return nil
 }

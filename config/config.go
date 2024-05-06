@@ -6,6 +6,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -43,6 +44,7 @@ const (
 const (
 	// GatewayPlugin is the plugin of accepting user API requests and serving blockchain data to users
 	GatewayPlugin = iota
+	BlockPlugin
 )
 
 type strs []string
@@ -175,6 +177,9 @@ func New(configPaths []string, _plugins []string, validates ...Validate) (Config
 		switch strings.ToLower(plugin) {
 		case "gateway":
 			cfg.Plugins[GatewayPlugin] = nil
+		case "block":
+			fmt.Println("block plugin set")
+			cfg.Plugins[BlockPlugin] = nil
 		default:
 			return Config{}, errors.Errorf("Plugin %s is not supported", plugin)
 		}
