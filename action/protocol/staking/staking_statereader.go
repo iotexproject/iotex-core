@@ -363,11 +363,11 @@ func (c *compositeStakingStateReader) addContractStakingVotes(ctx context.Contex
 	if err != nil {
 		return err
 	}
-	btks, err := contractStakingSR.BucketsByCandidate(addr, height)
+	bkts, err := contractStakingSR.BucketsByCandidate(addr, height)
 	if err != nil {
 		return errors.Wrap(err, "failed to get BucketsByCandidate from contractStakingIndexerV2")
 	}
-	for _, b := range btks {
+	for _, b := range bkts {
 		if b.isUnstaked() {
 			continue
 		}
