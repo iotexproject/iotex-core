@@ -1,0 +1,86 @@
+// Copyright (c) 2020 IoTeX
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
+// To compile the proto, run:
+//      protoc --go_out=plugins=grpc:. *.proto
+syntax = "proto3";
+package blockdaopb;
+
+import "proto/types/blockchain.proto";
+import "proto/types/transaction_log.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/iotexproject/iotex-core/blockchain/blockdao/blockdaopb";
+
+
+message BlockHeightRequest {
+    uint64 height = 1;
+}
+
+message BlockHeightResponse {
+    uint64 height = 1;
+}
+
+message BlockHashRequest {
+    string hash = 1;
+}
+
+message BlockHashResponse {
+    string hash = 1;
+}
+
+message GetBlockHeightResponse {
+    uint64 height = 1;
+}
+
+message GetBlockRequest {
+    string hash = 1;
+}
+
+message GetBlockResponse {
+    iotextypes.Block block = 1;
+}
+
+message GetBlockByHeightRequest {
+    uint64 height = 1;
+}
+
+message GetBlockByHeightResponse {
+    iotextypes.Block block = 1;
+}
+
+message ContainsTransactionLogResponse {
+    bool yes = 1;
+}
+
+message TransactionLogsResponse {
+    iotextypes.TransactionLogs transactionLogs = 1; 
+}
+
+message PutBlockRequest {
+    iotextypes.Block block = 1;
+}
+
+message HeaderResponse {
+    iotextypes.BlockHeader header = 1;
+}
+
+message FooterResponse {
+    iotextypes.BlockFooter footer = 1;
+}
+
+service BlockDAOService {
+    rpc Height(google.protobuf.Empty) returns (BlockHeightResponse) {}
+    rpc GetBlockHash(BlockHeightRequest) returns (BlockHashResponse) {}
+	rpc GetBlockHeight(BlockHashRequest) returns (BlockHeightResponse) {}
+	rpc GetBlock(BlockHashRequest) returns (GetBlockResponse) {}
+	rpc GetBlockByHeight(BlockHeightRequest) returns (GetBlockResponse) {}
+	rpc GetReceipts(BlockHeightRequest) returns (iotextypes.Receipts) {}
+	rpc ContainsTransactionLog(google.protobuf.Empty) returns (ContainsTransactionLogResponse) {}
+	rpc TransactionLogs(BlockHeightRequest) returns (TransactionLogsResponse) {}
+	rpc Header(BlockHashRequest) returns (HeaderResponse) {}
+	rpc HeaderByHeight(BlockHeightRequest) returns (HeaderResponse) {}
+	rpc FooterByHeight(BlockHeightRequest) returns (FooterResponse) {}
+}
