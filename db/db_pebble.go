@@ -7,13 +7,18 @@ package db
 
 import (
 	"context"
+	"syscall"
 
 	"github.com/cockroachdb/pebble"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
+
+	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 var (
@@ -72,6 +77,9 @@ func (b *PebbleDB) Get(ns string, key []byte) ([]byte, error) {
 	}
 	v, closer, err := b.db.Get(nsKey(ns, key))
 	if err != nil {
+		if errors.Is(err, pebble.ErrNotFound) {
+			return nil, errors.Wrapf(ErrNotExist, "ns %s key = %x doesn't exist, %s", ns, key, err.Error())
+		}
 		return nil, err
 	}
 	val := make([]byte, len(v))
@@ -84,7 +92,14 @@ func (b *PebbleDB) Put(ns string, key, value []byte) (err error) {
 	if !b.IsReady() {
 		return ErrDBNotStarted
 	}
-	return b.db.Set(nsKey(ns, key), value, nil)
+	err = b.db.Set(nsKey(ns, key), value, nil)
+	if err != nil {
+		if errors.Is(err, syscall.ENOSPC) {
+			log.L().Fatal("Failed to put db.", zap.Error(err))
+		}
+		err = errors.Wrap(ErrIO, err.Error())
+	}
+	return
 }
 
 // Delete deletes a record,if key is nil,this will delete the whole bucket
@@ -92,7 +107,17 @@ func (b *PebbleDB) Delete(ns string, key []byte) (err error) {
 	if !b.IsReady() {
 		return ErrDBNotStarted
 	}
-	return b.db.Delete(nsKey(ns, key), nil)
+	if key == nil {
+		panic("delete whole ns not supported by PebbleDB")
+	}
+	err = b.db.Delete(nsKey(ns, key), nil)
+	if err != nil {
+		if errors.Is(err, syscall.ENOSPC) {
+			log.L().Fatal("Failed to delete db.", zap.Error(err))
+		}
+		err = errors.Wrap(ErrIO, err.Error())
+	}
+	return
 }
 
 // WriteBatch commits a batch
@@ -105,7 +130,14 @@ func (b *PebbleDB) WriteBatch(kvsb batch.KVStoreBatch) error {
 	if err != nil {
 		return nil
 	}
-	return batch.Commit(nil)
+	err = batch.Commit(nil)
+	if err != nil {
+		if errors.Is(err, syscall.ENOSPC) {
+			log.L().Fatal("Failed to write batch db.", zap.Error(err))
+		}
+		err = errors.Wrap(ErrIO, err.Error())
+	}
+	return err
 }
 
 func (b *PebbleDB) dedup(kvsb batch.KVStoreBatch) (*pebble.Batch, error) {
@@ -147,10 +179,10 @@ func (b *PebbleDB) dedup(kvsb batch.KVStoreBatch) (*pebble.Batch, error) {
 
 // Filter returns <k, v> pair in a bucket that meet the condition
 func (b *PebbleDB) Filter(string, Condition, []byte, []byte) ([][]byte, [][]byte, error) {
-	panic("not supported by PebbleDB")
+	panic("Filter not supported by PebbleDB")
 }
 
 func nsKey(ns string, key []byte) []byte {
-	nk := []byte(ns)
-	return append(nk, key...)
+	nk := hash.Hash160b([]byte(ns))
+	return append(nk[:8], key...)
 }
