@@ -10,10 +10,13 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
+
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 // AllKeys returns all keys in a bucket
@@ -25,7 +28,17 @@ func (b *BoltDBVersioned) AllKeys(ns string) (int, int, string, error) {
 		h        = make([]byte, 0, 40000)
 	)
 	err := b.db.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(ns))
+		bucket := tx.Bucket([]byte("Meta"))
+		if bucket == nil {
+			nonDBErr = true
+			return errors.Wrap(ErrBucketNotExist, "metadata bucket doesn't exist")
+		}
+		height := bucket.Get([]byte("currentHeight"))
+		if height == nil {
+			return errors.Wrap(ErrNotExist, "height doesn't exist")
+		}
+		println("height =", byteutil.BytesToUint64(height))
+		bucket = tx.Bucket([]byte(ns))
 		if bucket == nil {
 			nonDBErr = true
 			return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", []byte(ns))
@@ -83,59 +96,96 @@ func (b *BoltDBVersioned) Purge(version uint64, ns string) (map[string]int, erro
 	var (
 		err      error
 		nonDBErr bool
+		total    int
+		bailout  int
+		nsb      = []byte(ns)
 		count    = make(map[string]int)
 	)
+	start := time.Now()
 	for c := uint8(0); c < b.db.config.NumRetries; c++ {
+		var (
+			entries         = 0
+			purgeInProgress bool
+		)
 		if err = b.db.db.Update(func(tx *bolt.Tx) error {
-			bucket := tx.Bucket([]byte(ns))
+			bucket := tx.Bucket(nsb)
 			if bucket == nil {
 				nonDBErr = true
-				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", []byte(ns))
+				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", nsb)
 			}
-			// get key length
 			var (
 				c          = bucket.Cursor()
 				k, v       = c.First()
 				vn         *versionedNamespace
+				km         *keyMeta
 				err        error
 				keyMetaLen int
-				total      int
-				bailout    int
 			)
+			// check bucket metadata
 			if v == nil {
 				nonDBErr = true
-				return errors.Wrapf(ErrInvalid, "failed to get metadata for bucket = %x", []byte(ns))
+				return errors.Wrapf(ErrInvalid, "failed to get metadata for bucket = %x", nsb)
 			}
 			if vn, err = deserializeVersionedNamespace(v); err != nil {
 				nonDBErr = true
 				return errors.Wrapf(err, "failed to get metadata of bucket %s", ns)
 			}
 			keyMetaLen = int(vn.keyLen) + 1
+			// check if there's a purge in progress
+			mBucket := tx.Bucket([]byte("Meta"))
+			if mBucket == nil {
+				nonDBErr = true
+				return errors.Wrap(ErrBucketNotExist, "metadata bucket doesn't exist")
+			}
+			if d := mBucket.Get(nsb); d != nil {
+				// d is the key of the last delete
+				fmt.Printf("load key = %x\n", d)
+				k, v = c.Seek(d)
+				purgeInProgress = true
+			}
+			var (
+				dVersion uint64
+				noPurge  bool
+				dKey     []byte
+			)
 			for ; k != nil; k, v = c.Next() {
 				total++
-				if len(k) == keyMetaLen {
-					km, err := deserializeKeyMeta(v)
-					if err != nil {
-						nonDBErr = true
-						return errors.Wrapf(err, "failed to get metadata of key = %x", k[:keyMetaLen-1])
-					}
-					// delete all keys <= version
-					dVersion, exit := km.updatePurge(version)
-					if exit {
-						bailout++
-						c.Next()
-						total++
-						continue
-					}
-					dKey := versionedKey(k[:keyMetaLen-1], dVersion)
-					k, _ = c.Next()
+				if purgeInProgress {
+					purgeInProgress = false
+					goto purge
+				}
+				if len(k) != keyMetaLen {
+					continue
+				}
+				km, err = deserializeKeyMeta(v)
+				if err != nil {
+					nonDBErr = true
+					return errors.Wrapf(err, "failed to get metadata of key = %x", k[:keyMetaLen-1])
+				}
+				// delete all keys <= version
+				dVersion, noPurge = km.updatePurge(version)
+				if noPurge {
+					bailout++
+					c.Next()
 					total++
-					for ; bytes.Compare(k, dKey) <= 0; k, _ = c.Next() {
-						total++
-						count[string(k[:keyMetaLen-1])]++
-						if err = c.Delete(); err != nil {
-							return err
-						}
+					continue
+				}
+				dKey = versionedKey(k[:keyMetaLen-1], dVersion)
+				k, _ = c.Next()
+				total++
+			purge:
+				for ; bytes.Compare(k, dKey) <= 0; k, _ = c.Next() {
+					total++
+					entries++
+					count[string(k[:keyMetaLen-1])]++
+					if err = c.Delete(); err != nil {
+						return err
+					}
+					if entries == 64000 {
+						// purge in batch of 64k entries
+						println("bailout =", bailout)
+						fmt.Printf("last delete key = %x\n", k)
+						return mBucket.Put(nsb, k)
 					}
 				}
 			}
@@ -152,6 +202,7 @@ func (b *BoltDBVersioned) Purge(version uint64, ns string) (map[string]int, erro
 	if err != nil {
 		return nil, errors.Wrap(ErrIO, err.Error())
 	}
+	fmt.Println("Time elapsed:", time.Now().Sub(start))
 	return count, nil
 }
 
