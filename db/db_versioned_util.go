@@ -7,7 +7,12 @@
 package db
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/iotexproject/go-pkgs/byteutil"
+	"github.com/pkg/errors"
+	bolt "go.etcd.io/bbolt"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/db/versionpb"
@@ -42,4 +47,119 @@ func deserializeVersionedNamespace(buf []byte) (*versionedNamespace, error) {
 		return nil, err
 	}
 	return fromProtoVN(&vn), nil
+}
+
+func (b *BoltDBVersioned) TransformToVersioned(version uint64, ns string) error {
+	var (
+		err error
+	)
+	if ns == "Account" {
+		if err = b.db.db.Update(func(tx *bolt.Tx) error {
+			bucket := tx.Bucket([]byte(ns))
+			if bucket == nil {
+				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", []byte(ns))
+			}
+			// move height key to meta namespace
+			hKey := []byte("currentHeight")
+			v := bucket.Get(hKey)
+			if v != nil {
+				mBucket, err := tx.CreateBucketIfNotExists([]byte("Meta"))
+				if err != nil {
+					return err
+				}
+				if err = mBucket.Put(hKey, v); err != nil {
+					return err
+				}
+				if err = bucket.Delete(hKey); err != nil {
+					return err
+				}
+				println("moved height key")
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	var (
+		finished  bool
+		keyLength int
+	)
+	// key length
+	if ns == "Account" {
+		keyLength = 20
+	} else if ns == "Contract" {
+		keyLength = 32
+	} else {
+		return errors.Wrapf(ErrInvalid, "ns = %s is not versioned", ns)
+	}
+	// convert keys to versioned
+	var (
+		total uint64
+		start = time.Now()
+	)
+	for !finished {
+		entries := 0
+		if err = b.db.db.Update(func(tx *bolt.Tx) error {
+			bucket := tx.Bucket([]byte(ns))
+			if bucket == nil {
+				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", []byte(ns))
+			}
+			mBucket := tx.Bucket([]byte("Meta"))
+			if mBucket == nil {
+				return errors.Wrap(ErrBucketNotExist, "metadata bucket doesn't exist")
+			}
+			var (
+				c    = bucket.Cursor()
+				k, v []byte
+			)
+			if kLast := mBucket.Get([]byte(ns)); kLast != nil {
+				// there's a transform in progress
+				k, v = c.Seek(kLast)
+				fmt.Printf("continue from key = %x\n", k)
+			} else {
+				k, v = c.First()
+				fmt.Printf("first key = %x\n", k)
+			}
+			for ; k != nil; k, v = c.Next() {
+				if len(k) != keyLength {
+					fmt.Printf("key = %x, length = %d", k, len(k))
+					return errors.Wrapf(ErrInvalid, "key length = %d, expecting %d", len(k), keyLength)
+				}
+				if err = bucket.Put(keyForWrite(k, version), v); err != nil {
+					return err
+				}
+				if err = bucket.Delete(k); err != nil {
+					return err
+				}
+				total++
+				if total%1000000 == 0 {
+					fmt.Printf("commit %d entries\n", total)
+				}
+				entries++
+				if entries == 256000 {
+					// commit the tx, and write the next key
+					if k, _ = c.Next(); k != nil {
+						fmt.Printf("next key = %x\n", k)
+						return mBucket.Put([]byte(ns), k)
+					} else {
+						// hit the end of the bucket
+						break
+					}
+				}
+			}
+			finished = true
+			if err = mBucket.Delete([]byte(ns)); err != nil {
+				return err
+			}
+			// finally write the namespace metadata
+			vn := versionedNamespace{
+				keyLen: uint32(keyLength),
+			}
+			return bucket.Put(_minKey, vn.serialize())
+		}); err != nil {
+			break
+		}
+	}
+	fmt.Printf("commit %d entries, time = %v\n", total, time.Since(start))
+	return err
 }
