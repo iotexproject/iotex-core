@@ -317,10 +317,13 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
-	span.AddEvent("ap.GetPendingNonce")
-	pendingNonce, err := core.ap.GetPendingNonce(addrStr)
-	if err != nil {
-		return nil, nil, status.Error(codes.Internal, err.Error())
+	var pendingNonce uint64
+	if core.checkActPool() == nil {
+		span.AddEvent("ap.GetPendingNonce")
+		pendingNonce, err = core.ap.GetPendingNonce(addrStr)
+		if err != nil {
+			return nil, nil, status.Error(codes.Internal, err.Error())
+		}
 	}
 	if core.indexer == nil {
 		return nil, nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
@@ -445,6 +448,9 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 
 // SendAction is the API to send an action to blockchain.
 func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
+	if err := core.checkActPool(); err != nil {
+		return "", err
+	}
 	log.Logger("api").Debug("receive send action request")
 	selp, err := (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID()).ActionToSealedEnvelope(in)
 	if err != nil {
@@ -510,6 +516,9 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 }
 
 func (core *coreService) PendingNonce(addr address.Address) (uint64, error) {
+	if err := core.checkActPool(); err != nil {
+		return 0, err
+	}
 	return core.ap.GetPendingNonce(addr.String())
 }
 
@@ -1116,6 +1125,9 @@ func (core *coreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvel
 
 // ActionByActionHash returns action by action hash
 func (core *coreService) PendingActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, error) {
+	if err := core.checkActPool(); err != nil {
+		return nil, err
+	}
 	selp, err := core.ap.GetActionByHash(h)
 	if err != nil {
 		return nil, errors.Wrap(ErrNotFound, err.Error())
@@ -1125,6 +1137,9 @@ func (core *coreService) PendingActionByActionHash(h hash.Hash256) (*action.Seal
 
 // UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 func (core *coreService) UnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+	if err := core.checkActPool(); err != nil {
+		return nil, err
+	}
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -1306,7 +1321,9 @@ func (core *coreService) getAction(actHash hash.Hash256, checkPending bool) (*io
 	}
 	// Try to fetch pending action from actpool
 	if checkPending {
-		selp, err = core.ap.GetActionByHash(actHash)
+		if err = core.checkActPool(); err == nil {
+			selp, err = core.ap.GetActionByHash(actHash)
+		}
 	}
 	if err != nil {
 		return nil, err
@@ -1656,6 +1673,9 @@ func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*
 
 // ActionsInActPool returns the all Transaction Identifiers in the actpool
 func (core *coreService) ActionsInActPool(actHashes []string) ([]*action.SealedEnvelope, error) {
+	if err := core.checkActPool(); err != nil {
+		return nil, err
+	}
 	var ret []*action.SealedEnvelope
 	if len(actHashes) == 0 {
 		for _, sealeds := range core.ap.PendingActionMap() {
@@ -1738,6 +1758,9 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 
 // SyncingProgress returns the syncing status of node
 func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
+	if core.bs == nil {
+		return 0, 0, 0
+	}
 	startingHeight, currentHeight, targetHeight, _ := core.bs.SyncStatus()
 	return startingHeight, currentHeight, targetHeight
 }
@@ -1883,6 +1906,13 @@ func (core *coreService) simulateExecution(ctx context.Context, addr address.Add
 		Sgd:            core.sgdIndexer,
 	})
 	return core.sf.SimulateExecution(ctx, addr, exec)
+}
+
+func (core *coreService) checkActPool() error {
+	if core.ap == nil {
+		return errNotImplemented
+	}
+	return nil
 }
 
 func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Receipt {
