@@ -599,3 +599,7 @@ func (b *KvWithVersion) SetVersion(v uint64) KVStore {
 	}
 	return &kv
 }
+
+func (b *KvWithVersion) TransformToVersioned(version uint64, ns string) error {
+	return b.db.TransformToVersioned(version, ns)
+}
