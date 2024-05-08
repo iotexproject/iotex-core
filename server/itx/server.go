@@ -46,17 +46,22 @@ type Server struct {
 // NewServer creates a new server
 // TODO clean up config, make root config contains network, dispatch and chainservice
 func NewServer(cfg config.Config) (*Server, error) {
+	_, readOnly := cfg.Plugins[config.ReadOnlyGatewayPlugin]
 	// create dispatcher instance
-	dispatcher, err := dispatcher.NewDispatcher(cfg.Dispatcher)
-	if err != nil {
-		return nil, errors.Wrap(err, "fail to create dispatcher")
-	}
+	var disp dispatcher.Dispatcher
 	var p2pAgent p2p.Agent
-	switch cfg.Consensus.Scheme {
-	case config.StandaloneScheme:
-		p2pAgent = p2p.NewDummyAgent()
-	default:
-		p2pAgent = p2p.NewAgent(cfg.Network, cfg.Chain.ID, cfg.Genesis.Hash(), dispatcher.HandleBroadcast, dispatcher.HandleTell)
+	var err error
+	if !readOnly {
+		disp, err = dispatcher.NewDispatcher(cfg.Dispatcher)
+		if err != nil {
+			return nil, errors.Wrap(err, "fail to create dispatcher")
+		}
+		switch cfg.Consensus.Scheme {
+		case config.StandaloneScheme:
+			p2pAgent = p2p.NewDummyAgent()
+		default:
+			p2pAgent = p2p.NewAgent(cfg.Network, cfg.Chain.ID, cfg.Genesis.Hash(), disp.HandleBroadcast, disp.HandleTell)
+		}
 	}
 	chains := make(map[uint32]*chainservice.ChainService)
 	apiServers := make(map[uint32]*api.ServerV2)
@@ -81,11 +86,13 @@ func NewServer(cfg config.Config) (*Server, error) {
 	}
 	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	chains[cs.ChainID()] = cs
-	dispatcher.AddSubscriber(cs.ChainID(), cs)
+	if disp != nil {
+		disp.AddSubscriber(cs.ChainID(), cs)
+	}
 	svr := Server{
 		cfg:                  cfg,
 		p2pAgent:             p2pAgent,
-		dispatcher:           dispatcher,
+		dispatcher:           disp,
 		rootChainService:     cs,
 		chainservices:        chains,
 		apiServers:           apiServers,
@@ -111,11 +118,15 @@ func (s *Server) Start(ctx context.Context) error {
 			}
 		}
 	}
-	if err := s.p2pAgent.Start(cctx); err != nil {
-		return errors.Wrap(err, "error when starting P2P agent")
+	if s.p2pAgent != nil {
+		if err := s.p2pAgent.Start(cctx); err != nil {
+			return errors.Wrap(err, "error when starting P2P agent")
+		}
 	}
-	if err := s.dispatcher.Start(cctx); err != nil {
-		return errors.Wrap(err, "error when starting dispatcher")
+	if s.dispatcher != nil {
+		if err := s.dispatcher.Start(cctx); err != nil {
+			return errors.Wrap(err, "error when starting dispatcher")
+		}
 	}
 	if err := s.nodeStats.Start(cctx); err != nil {
 		return errors.Wrap(err, "error when starting node stats")
@@ -129,13 +140,17 @@ func (s *Server) Stop(ctx context.Context) error {
 	if err := s.nodeStats.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping node stats")
 	}
-	if err := s.p2pAgent.Stop(ctx); err != nil {
-		// notest
-		return errors.Wrap(err, "error when stopping P2P agent")
+	if s.p2pAgent != nil {
+		if err := s.p2pAgent.Stop(ctx); err != nil {
+			// notest
+			return errors.Wrap(err, "error when stopping P2P agent")
+		}
 	}
-	if err := s.dispatcher.Stop(ctx); err != nil {
-		// notest
-		return errors.Wrap(err, "error when stopping dispatcher")
+	if s.dispatcher != nil {
+		if err := s.dispatcher.Stop(ctx); err != nil {
+			// notest
+			return errors.Wrap(err, "error when stopping dispatcher")
+		}
 	}
 	for id, cs := range s.chainservices {
 		if as, ok := s.apiServers[id]; ok {
@@ -237,8 +252,11 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	if cfg.System.HTTPAdminPort > 0 {
 		mux := http.NewServeMux()
 		log.RegisterLevelConfigMux(mux)
-		haCtl := ha.New(svr.rootChainService.Consensus())
-		mux.Handle("/ha", http.HandlerFunc(haCtl.Handle))
+		cons := svr.rootChainService.Consensus()
+		if cons != nil {
+			haCtl := ha.New(cons)
+			mux.Handle("/ha", http.HandlerFunc(haCtl.Handle))
+		}
 		mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
 		mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
 		mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
