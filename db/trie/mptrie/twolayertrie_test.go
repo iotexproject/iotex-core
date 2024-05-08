@@ -11,11 +11,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-core/db/trie"
 )
 
 func TestTwoLayerTrie(t *testing.T) {
-	tlt := NewTwoLayerTrie(trie.NewMemKVStore(), "rootKey")
+	nodeCache := cache.NewThreadSafeLruCache(1000)
+	tlt := NewTwoLayerTrie(trie.NewMemKVStore(), nodeCache, "rootKey")
 	require.NoError(t, tlt.Start(context.Background()))
 	defer require.NoError(t, tlt.Stop(context.Background()))
 	_, err := tlt.Get([]byte("layerOneKey111111111"), []byte("layerTwoKey1"))

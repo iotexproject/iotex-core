@@ -21,7 +21,7 @@ type (
 		hash([]byte) []byte
 		loadNode([]byte) (node, error)
 		deleteNode([]byte) error
-		putNode([]byte, []byte) error
+		putNode([]byte, []byte, interface{}) error
 	}
 
 	node interface {

@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/iotexproject/go-pkgs/bloom"
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
@@ -134,7 +135,7 @@ func readStates(kvStore db.KVStore, namespace string, keys [][]byte) ([][]byte, 
 	return values, nil
 }
 
-func newTwoLayerTrie(ns string, dao db.KVStore, rootKey string, create bool) (trie.TwoLayerTrie, error) {
+func newTwoLayerTrie(ns string, dao db.KVStore, nodeCache cache.LRUCache, rootKey string, create bool) (trie.TwoLayerTrie, error) {
 	dbForTrie, err := trie.NewKVStore(ns, dao)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create db for trie")

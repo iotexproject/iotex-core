@@ -106,6 +106,7 @@ type (
 		dao                      db.KVStore        // the underlying DB for account/contract storage
 		timerFactory             *prometheustimer.TimerFactory
 		workingsets              cache.LRUCache // lru cache for workingsets
+		nodeCache                cache.LRUCache
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
@@ -163,6 +164,7 @@ func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
 		protocolView:       protocol.View{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
 		dao:                dao,
+		nodeCache:          cache.NewThreadSafeLruCache(10000),
 	}
 
 	for _, opt := range opts {
@@ -191,7 +193,7 @@ func (sf *factory) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if sf.twoLayerTrie, err = newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, ArchiveTrieRootKey, true); err != nil {
+	if sf.twoLayerTrie, err = newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, sf.nodeCache, ArchiveTrieRootKey, true); err != nil {
 		return errors.Wrap(err, "failed to generate accountTrie from config")
 	}
 	if err := sf.twoLayerTrie.Start(ctx); err != nil {
@@ -268,7 +270,7 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	if err != nil {
 		return nil, err
 	}
-	store, err := newFactoryWorkingSetStore(sf.protocolView, flusher)
+	store, err := newFactoryWorkingSetStore(sf.protocolView, flusher, sf.nodeCache)
 	if err != nil {
 		return nil, err
 	}
@@ -597,7 +599,7 @@ func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interfa
 	if !sf.saveHistory {
 		return ErrNoArchiveData
 	}
-	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), false)
+	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, sf.nodeCache, fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), false)
 	if err != nil {
 		return errors.Wrapf(err, "failed to generate trie for %d", height)
 	}

@@ -8,8 +8,10 @@ package mptrie
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"sync"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -31,6 +33,7 @@ type (
 		kvStore       trie.KVStore
 		hashFunc      HashFunc
 		async         bool
+		cache         cache.LRUCache
 		emptyRootHash []byte
 	}
 )
@@ -84,6 +87,14 @@ func KVStoreOption(kvStore trie.KVStore) Option {
 func AsyncOption() Option {
 	return func(mpt *merklePatriciaTrie) error {
 		mpt.async = true
+		return nil
+	}
+}
+
+// CacheOption enables async commit
+func CacheOption(c cache.LRUCache) Option {
+	return func(mpt *merklePatriciaTrie) error {
+		mpt.cache = c
 		return nil
 	}
 }
@@ -297,11 +308,23 @@ func (mpt *merklePatriciaTrie) deleteNode(key []byte) error {
 	return mpt.kvStore.Delete(key)
 }
 
-func (mpt *merklePatriciaTrie) putNode(key []byte, value []byte) error {
-	return mpt.kvStore.Put(key, value)
+func (mpt *merklePatriciaTrie) putNode(key []byte, value []byte, node interface{}) error {
+	if err := mpt.kvStore.Put(key, value); err != nil {
+		return err
+	}
+	if mpt.cache != nil {
+		mpt.cache.Add(hex.EncodeToString(key), node)
+	}
+
+	return nil
 }
 
 func (mpt *merklePatriciaTrie) loadNode(key []byte) (node, error) {
+	if mpt.cache != nil {
+		if c, ok := mpt.cache.Get(hex.EncodeToString(key)); ok {
+			return c.(node), nil
+		}
+	}
 	s, err := mpt.kvStore.Get(key)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get key %x", key)

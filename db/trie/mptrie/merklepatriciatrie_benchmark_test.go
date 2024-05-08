@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
@@ -30,7 +31,7 @@ const (
 func benchTrieGet(b *testing.B, async, withDB bool) {
 	var (
 		require = require.New(b)
-		opts    = []Option{KeyLengthOption(_keyLength)}
+		opts    = []Option{KeyLengthOption(_keyLength), CacheOption(cache.NewThreadSafeLruCache(10000))}
 		flush   func() error
 	)
 	if async {
@@ -78,7 +79,7 @@ func benchTrieGet(b *testing.B, async, withDB bool) {
 func benchTrieUpsert(b *testing.B, e binary.ByteOrder) {
 	var (
 		require = require.New(b)
-		opts    = []Option{KeyLengthOption(_keyLength)}
+		opts    = []Option{KeyLengthOption(_keyLength), CacheOption(cache.NewThreadSafeLruCache(10000))}
 	)
 	trie, err := New(opts...)
 	require.NoError(err)
@@ -159,7 +160,7 @@ func initTrie(keyLen int) (trie.Trie, func() error, func()) {
 	if err != nil {
 		panic(err)
 	}
-	opts := []Option{KeyLengthOption(keyLen), AsyncOption(), KVStoreOption(kvStore)}
+	opts := []Option{KeyLengthOption(keyLen), AsyncOption(), CacheOption(cache.NewThreadSafeLruCache(10000)), KVStoreOption(kvStore)}
 	tr, err := New(opts...)
 	if err != nil {
 		panic(err)

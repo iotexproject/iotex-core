@@ -68,7 +68,7 @@ func (cn *cacheNode) store(cli client) error {
 	if err != nil {
 		return err
 	}
-	if err := cli.putNode(h, cn.ser); err != nil {
+	if err := cli.putNode(h, cn.ser, cn); err != nil {
 		return err
 	}
 	cn.dirty = false

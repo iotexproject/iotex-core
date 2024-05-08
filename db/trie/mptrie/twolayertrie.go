@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"sort"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/db/trie"
@@ -26,15 +27,17 @@ type (
 		layerOne    trie.Trie
 		layerTwoMap map[string]*layerTwo
 		kvStore     trie.KVStore
+		nodeCache   cache.LRUCache
 		rootKey     string
 	}
 )
 
 // NewTwoLayerTrie creates a two layer trie
-func NewTwoLayerTrie(dbForTrie trie.KVStore, rootKey string) trie.TwoLayerTrie {
+func NewTwoLayerTrie(dbForTrie trie.KVStore, nodeCache cache.LRUCache, rootKey string) trie.TwoLayerTrie {
 	return &twoLayerTrie{
-		kvStore: dbForTrie,
-		rootKey: rootKey,
+		kvStore:   dbForTrie,
+		nodeCache: nodeCache,
+		rootKey:   rootKey,
 	}
 }
 
@@ -43,7 +46,7 @@ func (tlt *twoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (*laye
 	if lt, ok := tlt.layerTwoMap[hk]; ok {
 		return lt, nil
 	}
-	opts := []Option{KVStoreOption(tlt.kvStore), KeyLengthOption(layerTwoTrieKeyLen), AsyncOption()}
+	opts := []Option{KVStoreOption(tlt.kvStore), KeyLengthOption(layerTwoTrieKeyLen), AsyncOption(), CacheOption(tlt.nodeCache)}
 	value, err := tlt.layerOne.Get(key)
 	switch errors.Cause(err) {
 	case trie.ErrNotExist:
@@ -53,7 +56,6 @@ func (tlt *twoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (*laye
 	default:
 		return nil, err
 	}
-
 	lt, err := New(opts...)
 	if err != nil {
 		return nil, err
@@ -84,6 +86,7 @@ func (tlt *twoLayerTrie) Start(ctx context.Context) error {
 		KVStoreOption(tlt.kvStore),
 		RootHashOption(rootHash),
 		AsyncOption(),
+		CacheOption(tlt.nodeCache),
 	)
 	if err != nil {
 		return errors.Wrapf(err, "failed to generate trie for %s", tlt.rootKey)
