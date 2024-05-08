@@ -17,6 +17,15 @@ func CreateKVStore(cfg Config, dbPath string) (KVStore, error) {
 	return NewBoltDB(cfg), nil
 }
 
+// CreatePebbleKVStore creates pebble db from config and db path
+func CreatePebbleKVStore(cfg Config, dbPath string) (KVStore, error) {
+	if len(dbPath) == 0 {
+		return nil, ErrEmptyDBPath
+	}
+	cfg.DbPath = dbPath
+	return NewPebbleDB(cfg), nil
+}
+
 // CreateKVStoreWithCache creates db with cache from config and db path, cacheSize
 func CreateKVStoreWithCache(cfg Config, dbPath string, cacheSize int) (KVStore, error) {
 	dao, err := CreateKVStore(cfg, dbPath)
