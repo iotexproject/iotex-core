@@ -46,8 +46,10 @@ func (s *NodeStats) Stop(ctx context.Context) error {
 func (s *NodeStats) generateReport() {
 	stringBuilder := strings.Builder{}
 	for _, stat := range s.list {
-		stringBuilder.WriteString(stat.BuildReport())
-		stringBuilder.WriteString("\n")
+		if stat != nil {
+			stringBuilder.WriteString(stat.BuildReport())
+			stringBuilder.WriteString("\n")
+		}
 	}
 	fmt.Println(stringBuilder.String())
 }
