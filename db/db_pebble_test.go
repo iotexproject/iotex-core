@@ -10,7 +10,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cockroachdb/pebble"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -66,10 +65,10 @@ func TestPebbleDB(t *testing.T) {
 
 	// non-existent key
 	v, err = db.Get(_namespace, _k4)
-	r.True(errors.Is(err, pebble.ErrNotFound))
+	r.True(errors.Is(err, ErrNotExist))
 	r.Nil(v)
 	v, err = db.Get(_ns1, _k1)
-	r.True(errors.Is(err, pebble.ErrNotFound))
+	r.True(errors.Is(err, ErrNotExist))
 	r.Nil(v)
 
 	// test delete
@@ -81,7 +80,7 @@ func TestPebbleDB(t *testing.T) {
 	} {
 		r.NoError(db.Delete(e.ns, e.k))
 		v, err = db.Get(e.ns, e.k)
-		r.True(errors.Is(err, pebble.ErrNotFound))
+		r.True(errors.Is(err, ErrNotExist))
 		r.Nil(v)
 	}
 
@@ -126,7 +125,7 @@ func TestPebbleDB(t *testing.T) {
 		r.Equal(e.v, v)
 	}
 	v, err = db.Get(_namespace, _k2)
-	r.True(errors.Is(err, pebble.ErrNotFound))
+	r.True(errors.Is(err, ErrNotExist))
 	r.Nil(v)
 }
 

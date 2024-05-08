@@ -194,7 +194,10 @@ func (b *PebbleDB) Filter(ns string, cond Condition, minKey []byte, maxKey []byt
 		return nil, nil, ErrDBNotStarted
 	}
 
-	iter := b.db.NewIter(&pebble.IterOptions{})
+	iter, err := b.db.NewIter(&pebble.IterOptions{})
+	if err != nil {
+		return nil, nil, err
+	}
 	defer func() {
 		err = iter.Close()
 	}()
