@@ -180,7 +180,13 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 	if forTest {
 		return factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(builder.cs.registry))
 	}
-	dao, err = db.CreateKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
+	if builder.cfg.Chain.EnablePebbleDB {
+		log.L().Info("Using PebbleDB as the trie DB")
+		dao, err = db.CreatePebbleKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
+	} else {
+		log.L().Info("Using BoltDB as the trie DB")
+		dao, err = db.CreateKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
+	}
 	if err != nil {
 		return nil, err
 	}

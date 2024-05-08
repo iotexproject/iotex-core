@@ -57,6 +57,8 @@ type (
 		EnableStakingProtocol bool `yaml:"enableStakingProtocol"`
 		// EnableStakingIndexer enables staking indexer
 		EnableStakingIndexer bool `yaml:"enableStakingIndexer"`
+		// EnablePebbleDB enables pebble db
+		EnablePebbleDB bool `yaml:"enablePebbleDB"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
 		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
 		// MaxCacheSize is the max number of blocks that will be put into an LRU cache. 0 means disabled
