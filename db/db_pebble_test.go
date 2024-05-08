@@ -129,3 +129,61 @@ func TestPebbleDB(t *testing.T) {
 	r.True(errors.Is(err, pebble.ErrNotFound))
 	r.Nil(v)
 }
+
+func TestPebbleDB_Filter(t *testing.T) {
+	r := require.New(t)
+	testPath, err := os.MkdirTemp("", "test-pebble")
+	r.NoError(err)
+	defer func() {
+		testutil.CleanupPath(testPath)
+	}()
+
+	cfg := DefaultConfig
+	cfg.DbPath = testPath
+	db := NewPebbleDB(cfg)
+	ctx := context.Background()
+	r.NoError(db.Start(ctx))
+	defer func() {
+		r.NoError(db.Stop(ctx))
+	}()
+
+	ns0 := "ns0"
+	ns1 := "ns1"
+	ns2 := "ns2"
+	ns3 := "ns3"
+	r.NoError(db.Put(ns1, _k1, _v1))
+	r.NoError(db.Put(ns1, _k2, _v2))
+	r.NoError(db.Put(ns2, _k2, _v2))
+	r.NoError(db.Put(ns2, _k3, _v3))
+	v, err := db.Get(ns1, _k1)
+	r.NoError(err)
+	r.Equal(_v1, v)
+	ks, vs, err := db.Filter(ns1, func(k, v []byte) bool { return true }, nil, nil)
+	r.NoError(err)
+	r.EqualValues([][]byte{_k1, _k2}, ks)
+	r.EqualValues([][]byte{_v1, _v2}, vs)
+	ks, vs, err = db.Filter(ns2, func(k, v []byte) bool { return true }, nil, nil)
+	r.NoError(err)
+	r.EqualValues([][]byte{_k2, _k3}, ks)
+	r.EqualValues([][]byte{_v2, _v3}, vs)
+	ks, vs, err = db.Filter(ns0, func(k, v []byte) bool { return true }, nil, nil)
+	r.NoError(err)
+	r.Len(ks, 0)
+	r.Len(vs, 0)
+	ks, vs, err = db.Filter(ns3, func(k, v []byte) bool { return true }, nil, nil)
+	r.NoError(err)
+	r.Len(ks, 0)
+	r.Len(vs, 0)
+	ks, vs, err = db.Filter(ns1, func(k, v []byte) bool { return true }, _k2, nil)
+	r.NoError(err)
+	r.EqualValues([][]byte{_k2}, ks)
+	r.EqualValues([][]byte{_v2}, vs)
+	ks, vs, err = db.Filter(ns1, func(k, v []byte) bool { return true }, nil, _k1)
+	r.NoError(err)
+	r.EqualValues([][]byte{_k1}, ks)
+	r.EqualValues([][]byte{_v1}, vs)
+	ks, vs, err = db.Filter(ns2, func(k, v []byte) bool { return true }, _k1, _k2)
+	r.NoError(err)
+	r.EqualValues([][]byte{_k2}, ks)
+	r.EqualValues([][]byte{_v2}, vs)
+}

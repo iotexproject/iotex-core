@@ -6,6 +6,7 @@
 package db
 
 import (
+	"bytes"
 	"context"
 	"syscall"
 
@@ -19,6 +20,10 @@ import (
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
+)
+
+const (
+	prefixLength = 8
 )
 
 var (
@@ -51,7 +56,13 @@ func NewPebbleDB(cfg Config) *PebbleDB {
 
 // Start opens the DB (creates new file if not existing yet)
 func (b *PebbleDB) Start(_ context.Context) error {
-	db, err := pebble.Open(b.path, &pebble.Options{})
+	comparer := pebble.DefaultComparer
+	comparer.Split = func(a []byte) int {
+		return prefixLength
+	}
+	db, err := pebble.Open(b.path, &pebble.Options{
+		Comparer: comparer,
+	})
 	if err != nil {
 		return errors.Wrap(ErrIO, err.Error())
 	}
@@ -178,11 +189,50 @@ func (b *PebbleDB) dedup(kvsb batch.KVStoreBatch) (*pebble.Batch, error) {
 }
 
 // Filter returns <k, v> pair in a bucket that meet the condition
-func (b *PebbleDB) Filter(string, Condition, []byte, []byte) ([][]byte, [][]byte, error) {
-	panic("Filter not supported by PebbleDB")
+func (b *PebbleDB) Filter(ns string, cond Condition, minKey []byte, maxKey []byte) (keys [][]byte, vals [][]byte, err error) {
+	if !b.IsReady() {
+		return nil, nil, ErrDBNotStarted
+	}
+
+	iter := b.db.NewIter(&pebble.IterOptions{})
+	defer func() {
+		err = iter.Close()
+	}()
+	for iter.SeekPrefixGE(nsKey(ns, minKey)); iter.Valid(); iter.Next() {
+		ck, v := iter.Key(), iter.Value()
+		k, err := decodeKey(ck)
+		if err != nil {
+			return nil, nil, err
+		}
+		if len(maxKey) > 0 && bytes.Compare(k, maxKey) > 0 {
+			break
+		}
+		if !cond(k, v) {
+			continue
+		}
+		key := make([]byte, len(k))
+		copy(key, k)
+		value := make([]byte, len(v))
+		copy(value, v)
+		keys = append(keys, key)
+		vals = append(vals, value)
+	}
+	return
 }
 
 func nsKey(ns string, key []byte) []byte {
-	nk := hash.Hash160b([]byte(ns))
-	return append(nk[:8], key...)
+	nk := nsToPrefix(ns)
+	return append(nk, key...)
+}
+
+func nsToPrefix(ns string) []byte {
+	h := hash.Hash160b([]byte(ns))
+	return h[:prefixLength]
+}
+
+func decodeKey(k []byte) (key []byte, err error) {
+	if len(k) < prefixLength {
+		return nil, errors.New("key is too short")
+	}
+	return k[prefixLength:], nil
 }
