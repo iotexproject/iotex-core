@@ -373,7 +373,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 			err = ws.Process(ctx, blk.RunnableActions().Actions())
 		}
 		if err != nil {
-			log.L().Error("Failed to update state.", zap.Error(err))
+			log.L().Debug("Failed to update state.", zap.Error(err))
 			return err
 		}
 	}

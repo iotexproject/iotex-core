@@ -678,7 +678,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	for _, addr := range stateDB.cachedContractAddrs() {
 		c := stateDB.cachedContract[addr]
 		if err := c.LoadRoot(); err != nil {
-			log.L().Error("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
+			log.L().Debug("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
 			return
 		}
 	}
@@ -730,7 +730,7 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		if stateDB.fixSnapshotOrder {
 			log.L().Panic("Failed to snapshot.", zap.Error(err))
 		} else {
-			log.L().Error("Failed to snapshot.", zap.Error(err))
+			log.L().Debug("Failed to snapshot.", zap.Error(err))
 		}
 		// stateDB.err = err
 		return sn
@@ -892,7 +892,7 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 	if contract, ok := stateDB.cachedContract[evmAddr]; ok {
 		code, err := contract.GetCode()
 		if err != nil {
-			log.L().Error("Failed to get code hash.", zap.Error(err))
+			log.L().Debug("Failed to get code hash.", zap.Error(err))
 			return nil
 		}
 		return code
@@ -932,7 +932,7 @@ func (stateDB *StateDBAdapter) SetCode(evmAddr common.Address, code []byte) {
 func (stateDB *StateDBAdapter) GetCommittedState(evmAddr common.Address, k common.Hash) common.Hash {
 	contract, err := stateDB.getContract(evmAddr)
 	if err != nil {
-		log.L().Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
+		log.L().Debug("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
 		stateDB.logError(err)
 		return common.Hash{}
 	}
@@ -949,7 +949,7 @@ func (stateDB *StateDBAdapter) GetCommittedState(evmAddr common.Address, k commo
 func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) common.Hash {
 	contract, err := stateDB.getContract(evmAddr)
 	if err != nil {
-		log.L().Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
+		log.L().Debug("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
 		stateDB.logError(err)
 		return common.Hash{}
 	}
@@ -966,7 +966,7 @@ func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) c
 func (stateDB *StateDBAdapter) SetState(evmAddr common.Address, k, v common.Hash) {
 	contract, err := stateDB.getContract(evmAddr)
 	if err != nil {
-		log.L().Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
+		log.L().Debug("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
 		stateDB.logError(err)
 		return
 	}
