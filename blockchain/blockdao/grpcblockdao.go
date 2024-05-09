@@ -14,26 +14,37 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao/blockdaopb"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/pkg/errors"
+	"google.golang.org/grpc"
 )
 
 type GrpcBlockDAO struct {
+	url                    string
+	conn                   *grpc.ClientConn
 	client                 blockdaopb.BlockDAOServiceClient
 	containsTransactionLog bool
 	deserializer           *block.Deserializer
 }
 
 func NewGrpcBlockDAO(
-	client blockdaopb.BlockDAOServiceClient,
+	url string,
 	deserializer *block.Deserializer,
 ) *GrpcBlockDAO {
 	return &GrpcBlockDAO{
-		client:       client,
+		url:          url,
 		deserializer: deserializer,
 	}
 }
 
 func (gbd *GrpcBlockDAO) Start(ctx context.Context) error {
+	var err error
+	gbd.conn, err = grpc.Dial(gbd.url)
+	if err != nil {
+		return err
+	}
+	gbd.client = blockdaopb.NewBlockDAOServiceClient(gbd.conn)
+
 	response, err := gbd.client.ContainsTransactionLog(ctx, nil)
 	if err != nil {
 		return err
@@ -44,7 +55,7 @@ func (gbd *GrpcBlockDAO) Start(ctx context.Context) error {
 }
 
 func (gbd *GrpcBlockDAO) Stop(ctx context.Context) error {
-	return nil
+	return gbd.conn.Close()
 }
 
 func (gbd *GrpcBlockDAO) Height() (uint64, error) {

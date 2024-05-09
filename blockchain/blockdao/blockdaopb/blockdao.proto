@@ -56,7 +56,7 @@ message ContainsTransactionLogResponse {
 }
 
 message TransactionLogsResponse {
-    iotextypes.TransactionLogs transactionLogs = 1; 
+    iotextypes.TransactionLogs transactionLogs = 1;
 }
 
 message PutBlockRequest {
@@ -74,13 +74,13 @@ message FooterResponse {
 service BlockDAOService {
     rpc Height(google.protobuf.Empty) returns (BlockHeightResponse) {}
     rpc GetBlockHash(BlockHeightRequest) returns (BlockHashResponse) {}
-	rpc GetBlockHeight(BlockHashRequest) returns (BlockHeightResponse) {}
-	rpc GetBlock(BlockHashRequest) returns (GetBlockResponse) {}
-	rpc GetBlockByHeight(BlockHeightRequest) returns (GetBlockResponse) {}
-	rpc GetReceipts(BlockHeightRequest) returns (iotextypes.Receipts) {}
-	rpc ContainsTransactionLog(google.protobuf.Empty) returns (ContainsTransactionLogResponse) {}
-	rpc TransactionLogs(BlockHeightRequest) returns (TransactionLogsResponse) {}
-	rpc Header(BlockHashRequest) returns (HeaderResponse) {}
-	rpc HeaderByHeight(BlockHeightRequest) returns (HeaderResponse) {}
-	rpc FooterByHeight(BlockHeightRequest) returns (FooterResponse) {}
+    rpc GetBlockHeight(BlockHashRequest) returns (BlockHeightResponse) {}
+    rpc GetBlock(BlockHashRequest) returns (GetBlockResponse) {}
+    rpc GetBlockByHeight(BlockHeightRequest) returns (GetBlockResponse) {}
+    rpc GetReceipts(BlockHeightRequest) returns (iotextypes.Receipts) {}
+    rpc ContainsTransactionLog(google.protobuf.Empty) returns (ContainsTransactionLogResponse) {}
+    rpc TransactionLogs(BlockHeightRequest) returns (TransactionLogsResponse) {}
+    rpc Header(BlockHashRequest) returns (HeaderResponse) {}
+    rpc HeaderByHeight(BlockHeightRequest) returns (HeaderResponse) {}
+    rpc FooterByHeight(BlockHeightRequest) returns (FooterResponse) {}
 }
