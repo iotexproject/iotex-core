@@ -1,0 +1,117 @@
+account:
+  initBalances:
+    io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he: "100000000000000000000000000000000000"
+    io12znrua6m80dkzgmyjkmnds39s8nwrp2e94qm5y: "100000000000000000000000000000000000"
+    io13sj9mzpewn25ymheukte4v39hvjdtrfp00mlyv: "100000000000000000000000000000000000"
+    io14gnqxf9dpkn05g337rl7eyt2nxasphf5m6n0rd: "100000000000000000000000000000000000"
+    io14zsjlua5kwp9v68ztnss6fgva0mqhqkm7tte5t: "100000000000000000000000000000000000"
+    io15flratm0nhh5xpxz2lznrrpmnwteyd86hxdtj0: "100000000000000000000000000000000000"
+    io16hz43z3ulu246an862aj54yeq688kj62wg9exm: "100000000000000000000000000000000000"
+    io19d0p3ah4g8ww9d7kcxfq87yxe7fnr8rpth5shj: "100000000000000000000000000000000000"
+    io19kshh892255x4h5ularvr3q3al2v8cgl80fqrt: "100000000000000000000000000000000000"
+    io158hyzrmf4a8xll7gfc8xnwlv70jgp44tzy5nvd: "100000000000000000000000000000000000"
+    io1cdqx6p5rquudxuewflfndpcl0l8t5aezen9slr: "100000000000000000000000000000000000"
+    io1cl6rl2ev5dfa988qmgzg2x4hfazmp9vn2g66ng: "100000000000000000000000000000000000"
+    io1ctjkuxy3tpc3886g5thf8fcdz6fzlwvum8ag4e: "100000000000000000000000000000000000"
+    io1d77surrqax7e5jjjm7ndvqqwts3wyk8hezztay: "100000000000000000000000000000000000"
+    io1e0r2hhahng6yq433pshvqxq6cdrlklhehh69lq: "100000000000000000000000000000000000"
+    io1ed2luwadkqgc4uu3elnpqxzzgla2h55nwf9l8l: "100000000000000000000000000000000000"
+    io1ed52svvdun2qv8sf2m0xnynuxfaulv6jlww7ur: "100000000000000000000000000000000000"
+    io1eq4ehs6xx6zj9gcsax7h3qydwlxut9xcfcjras: "100000000000000000000000000000000000"
+    io1fv7385tmg3v9gyvmystn6hyzp5naj6nf78nsz9: "100000000000000000000000000000000000"
+    io1fxzh50pa6qc6x5cprgmgw4qrp5vw97zk5pxt3q: "100000000000000000000000000000000000"
+    io1hh97f273nhxcq8ajzcpujtt7p9pqyndfmavn9r: "100000000000000000000000000000000000"
+    io1jh0ekmccywfkmj7e8qsuzsupnlk3w5337hjjg2: "100000000000000000000000000000000000"
+    io1k9y4a9juk45zaqwvjmhtz6yjc68twqds4qcvzv: "100000000000000000000000000000000000"
+    io1l3wc0smczyay8xq747e2hw63mzg3ctp6uf8wsg: "100000000000000000000000000000000000"
+    io1llupp3n8q5x8usnr5w08j6hc6hn55x64l46rr7: "100000000000000000000000000000000000"
+    io1nrd8sznk5mzlswwwrt8u40hjw25uh3wjrr64rg: "100000000000000000000000000000000000"
+    io1ns7y0pxmklk8ceattty6n7makpw76u770u5avy: "100000000000000000000000000000000000"
+    io1ph0u2psnd7muq5xv9623rmxdsxc4uapxhzpg02: "100000000000000000000000000000000000"
+    io1q4tdrahguffdu4e9j9aj4f38p2nee0r9vlhx7s: "100000000000000000000000000000000000"
+    io1skmqp33qme8knyw0fzgt9takwrc2nvz4sevk5c: "100000000000000000000000000000000000"
+    io1srl944e9unmak7avsfyj9jcu9250srqwu3smqy: "100000000000000000000000000000000000"
+    io1v3gkc49d5vwtdfdka2ekjl3h468egun8e43r7z: "100000000000000000000000000000000000"
+    io1vrl48nsdm8jaujccd9cx4ve23cskr0ys6urx92: "100000000000000000000000000000000000"
+    io1xuavja5dwde8pvy4yms06yyncad4yavghjhwra: "100000000000000000000000000000000000"
+    io1yhvu38epz5vmkjaclp45a7t08r27slmcc0zjzh: "100000000000000000000000000000000000"
+    io1yvfvf4tw7dau0u55zu26vdz3a2h6tvxsdqeagc: "100000000000000000000000000000000000"
+    io1yzxxqppm6ng6d40d292668fepcz9jw94ql4dj4: "100000000000000000000000000000000000"
+    io1znka733xefxjjw2wqddegplwtefun0mfdmz7dw: "100000000000000000000000000000000000"
+blockchain:
+  aleutianHeight: 1
+  beringHeight: 1
+  blockGasLimit: 50000000
+  blockInterval: 10s
+  cookHeight: 1
+  dardanellesHeight: 1
+  dardanellesNumSubEpochs: 30
+  daytonaBlockHeight: 1
+  easterHeight: 1
+  fairbankHeight: 1
+  fbkMigrationHeight: 1
+  greenlandHeight: 1
+  hawaiiHeight: 1
+  icelandHeight: 1
+  jutlandHeight: 1
+  kamchatkaHeight: 1
+  lordHoweHeight: 1
+  midwayHeight: 1
+  newfoundlandHeight: 1
+  okhotskHeight: 1
+  palauHeight: 1
+  quebecHeight: 1
+  redseaHeight: 1
+  sumatraHeight: 1
+  tsunamiHeight: 1
+  upernavikHeight: 1
+  vanuatuHeight: 120
+  actionGasLimit: 5000000
+  numCandidateDelegates: 4
+  numDelegates: 4
+  numSubEpochs: 15
+  pacificHeight: 1
+  timeBasedRotation: true
+  timestamp: 1552460400
+  minBlocksForBlobRetention: 720
+poll:
+  enableGravityChainVoting: true
+  gravityChainHeightInterval: 100
+  pollMode: native
+  scoreThreshold: "2000000000000000000000000"
+  selfStakingThreshold: "1200000000000000000000000"
+  voteThreshold: "100000000000000000000"
+rewarding:
+  blockReward: "16000000000000000000"
+  epochReward: "12500000000000000000000"
+  exemptAddrsFromEpochReward:
+  - io1k9y4a9juk45zaqwvjmhtz6yjc68twqds4qcvzv
+  foundationBonus: "80000000000000000000"
+  foundationBonusLastEpoch: 8760
+  initBalance: "1200000000000000000000000000"
+  numDelegatesForEpochReward: 100
+  numDelegatesForFoundationBonus: 36
+  productivityThreshold: 85
+staking:
+  bootstrapCandidates:
+  - name: bot1
+    operatorAddress: io1ph0u2psnd7muq5xv9623rmxdsxc4uapxhzpg02
+    ownerAddress: io1ph0u2psnd7muq5xv9623rmxdsxc4uapxhzpg02
+    rewardAddress: io1ph0u2psnd7muq5xv9623rmxdsxc4uapxhzpg02
+    selfStakingTokens: "5200000000000000000000000"
+  - name: bot4
+    operatorAddress: io1xuavja5dwde8pvy4yms06yyncad4yavghjhwra
+    ownerAddress: io1xuavja5dwde8pvy4yms06yyncad4yavghjhwra
+    rewardAddress: io1xuavja5dwde8pvy4yms06yyncad4yavghjhwra
+    selfStakingTokens: "5200000000000000000000000"
+  - name: bot18
+    operatorAddress: io1cdqx6p5rquudxuewflfndpcl0l8t5aezen9slr
+    ownerAddress: io1cdqx6p5rquudxuewflfndpcl0l8t5aezen9slr
+    rewardAddress: io1cdqx6p5rquudxuewflfndpcl0l8t5aezen9slr
+    selfStakingTokens: "5200000000000000000000000"
+  - name: bot28
+    operatorAddress: io1srl944e9unmak7avsfyj9jcu9250srqwu3smqy
+    ownerAddress: io1srl944e9unmak7avsfyj9jcu9250srqwu3smqy
+    rewardAddress: io1srl944e9unmak7avsfyj9jcu9250srqwu3smqy
+    selfStakingTokens: "5200000000000000000000000"
+  withdrawWaitingPeriod: 30s
