@@ -151,5 +151,5 @@ func newTwoLayerTrie(ns string, dao db.KVStore, nodeCache cache.LRUCache, rootKe
 	default:
 		return nil, err
 	}
-	return mptrie.NewTwoLayerTrie(dbForTrie, rootKey), nil
+	return mptrie.NewTwoLayerTrie(dbForTrie, nodeCache, rootKey), nil
 }
