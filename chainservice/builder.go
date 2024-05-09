@@ -8,6 +8,7 @@ package chainservice
 import (
 	"context"
 	"math/big"
+	"regexp"
 	"strings"
 	"time"
 
@@ -315,9 +316,18 @@ func (builder *Builder) buildBlockDAO() error {
 		log.L().Warn("Create in memory block dao, which will not pesist data on disk")
 		store, err = filedao.NewFileDAOInMemForTest()
 	} else {
-		dbConfig := builder.cfg.DB
-		dbConfig.DbPath = builder.cfg.Chain.ChainDBPath
-		store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+		path := builder.cfg.Chain.ChainDBPath
+		var match bool
+		if match, err = regexp.Match("^(https|http|grpc)://.*", []byte(strings.ToLower(path))); err != nil {
+			return err
+		}
+		if match {
+			store = blockdao.NewGrpcBlockDAO(path, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+		} else {
+			dbConfig := builder.cfg.DB
+			dbConfig.DbPath = path
+			store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+		}
 	}
 	if err != nil {
 		return err
