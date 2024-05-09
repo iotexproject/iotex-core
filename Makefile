@@ -197,9 +197,31 @@ reboot:
 run:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	 sudo mkdir -p /var/data /var/log
-	 sudo chown ${USER} /var/data /var/log
 	./bin/$(BUILD_TARGET_SERVER) -plugin=gateway -config-path=./config/standalone-config.yaml -genesis-path=./config/standalone-genesis.yaml
+
+.PHONY: mainnet
+mainnet:
+	$(ECHO_V)rm -rf ./e2etest/*chain*.db
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
+	./bin/$(BUILD_TARGET_SERVER) -config-path=./config/config_mainnet.yaml -genesis-path=./config/genesis_mainnet.yaml
+
+.PHONY: testnet
+testnet:
+	$(ECHO_V)rm -rf ./e2etest/*chain*.db
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
+	./bin/$(BUILD_TARGET_SERVER) -config-path=./config/config_testnet.yaml -genesis-path=./config/genesis_testnet.yaml
+
+.PHONY: nightly
+nightly:
+	$(ECHO_V)rm -rf ./e2etest/*chain*.db
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
+	./bin/$(BUILD_TARGET_SERVER) -config-path=./config/config_nightly.yaml -genesis-path=./config/genesis_nightly.yaml
+
+.PHONY: archive
+archive:
+	$(ECHO_V)rm -rf ./e2etest/*chain*.db
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
+	./bin/$(BUILD_TARGET_SERVER) -config-path=./config/config_archive_mainnet.yaml -genesis-path=./config/genesis_mainnet.yaml
 
 .PHONY: docker
 docker:
