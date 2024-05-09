@@ -33,5 +33,6 @@ func CreateKVStoreVersioned(cfg Config, dbPath string, vns []string) (KVStore, e
 		return nil, ErrEmptyDBPath
 	}
 	cfg.DbPath = dbPath
+	println("db =", dbPath)
 	return NewKVStoreWithVersion(cfg, VersionedNamespaceOption(vns...)), nil
 }
