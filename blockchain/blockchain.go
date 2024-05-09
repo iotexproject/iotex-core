@@ -498,6 +498,11 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		return err
 	}
 
+	var stopHeight uint64 = 21000300
+	if blk.Height() > stopHeight {
+		panic(stopHeight)
+	}
+
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")
 	err = bc.dao.PutBlock(ctx, blk)
