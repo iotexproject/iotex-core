@@ -2,13 +2,11 @@ actPool:
   minGasPrice: "0"
   store:
     datadir: ./data/actpool.cache
-    datacap: 104857600
-    readInterval: 10m
 chain:
+  producerPrivKey: 414efa99dfac6f4095d6954713fb0085268d400d6a05a8ae8a69b5b1c10b4bed
   bloomfilterIndexDBPath: ./data/bloomfilter.index.db
   candidateIndexDBPath: ./data/candidate.index.db
   chainDBPath: ./data/chain.db
-  # chainDBPath: grpc://34.146.117.200:15014
   committee:
     cacheSize: 1000
     gravityChainAPIs:
@@ -18,12 +16,11 @@ chain:
   enableStakingIndexer: true
   enableStateDBCaching: true
   enableSystemLog: false
-  # enablePebbleDB: true
   gravityChainDB:
     dbPath: ./data/poll.db
     numRetries: 8
   id: 3
-  evmNetworkID: 4692
+  evmNetworkID: 4691
   indexDBPath: ./data/index.db
   maxCacheSize: 1000
   contractStakingIndexDBPath: ./data/contractstaking.index.db
@@ -31,9 +28,19 @@ chain:
   trieDBPath: ./data/trie.db
   trieDBPatchFile: ""
   blobStoreDBPath: ./data/blobstore.db
-  # blobStoreRetentionDays: 1
+  blobStoreRetentionDays: 1
 consensus:
-  scheme: STANDALONE
+  rollDPoS:
+    consensusDBPath: ./data/consensus.db
+    delay: 30s
+    fsm:
+      acceptBlockTTL: 4s
+      acceptLockEndorsementTTL: 2s
+      acceptProposalEndorsementTTL: 2s
+      eventChanSize: 100000
+      unmatchedEventInterval: 100ms
+      unmatchedEventTTL: 3s
+  scheme: ROLLDPOS
 log:
   ecsIntegration: false
   stdLogRedirect: false
@@ -48,18 +55,8 @@ log:
     - stderr
     - stdout
 network:
-  bootstrapNodes:
-    - /dns4/iotex-bootnode/tcp/4689/p2p/12D3KooWCb1nZdLsR6WBgXqmGnzRvhxASQJaAB3NgwTNk3JE43Wj
+  masterKey: "bootnode"
   enableRateLimit: false
-  externalPort: 4691
 system:
-  httpAdminPort: 8082
-  httpStatsPort: 8080 
+  httpAdminPort: 8082 
   systemLogDBPath: ./data/systemlog.db
-db:
-  readOnly: false
-api:
-  websocketRateLimit: 100
-#   port: 14015
-#   web3port: 15015
-#   webSocketPort: 16015

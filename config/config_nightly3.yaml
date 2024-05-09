@@ -1,0 +1,67 @@
+actPool:
+  minGasPrice: "0"
+  store:
+    datadir: ./data3/actpool.cache
+api:
+  port: 14044
+  web3port: 15044
+  webSocketPort: 16044
+chain:
+  producerPrivKey: a6b15f8f3a7da3b0db011eaea5a43980b5c2d6a9b61fefb70938cc7dd0f61264
+  bloomfilterIndexDBPath: ./data3/bloomfilter.index.db
+  candidateIndexDBPath: ./data3/candidate.index.db
+  chainDBPath: ./data3/chain.db
+  committee:
+    cacheSize: 1000
+    gravityChainAPIs:
+    - https://kovan.infura.io/v3/cdda4721e8c24107bde9d3ecff80a5b7
+    numOfRetries: 20
+    paginationSize: 255
+  enableStakingIndexer: true
+  enableStateDBCaching: true
+  enableSystemLog: false
+  gravityChainDB:
+    dbPath: ./data3/poll.db
+    numRetries: 8
+  id: 3
+  evmNetworkID: 4691
+  indexDBPath: ./data3/index.db
+  maxCacheSize: 1000
+  contractStakingIndexDBPath: ./data3/contractstaking.index.db
+  stakingIndexDBPath: ./data3/staking.index.db
+  trieDBPath: ./data3/trie.db
+  trieDBPatchFile: ""
+  blobStoreDBPath: ./data3/blobstore.db
+  blobStoreRetentionDays: 1
+consensus:
+  rollDPoS:
+    consensusDBPath: ./data3/consensus.db
+    delay: 30s
+    fsm:
+      acceptBlockTTL: 4s
+      acceptLockEndorsementTTL: 2s
+      acceptProposalEndorsementTTL: 2s
+      eventChanSize: 100000
+      unmatchedEventInterval: 100ms
+      unmatchedEventTTL: 3s
+  scheme: ROLLDPOS
+log:
+  ecsIntegration: false
+  stdLogRedirect: false
+  zap:
+    development: true
+    disableStacktrace: false
+    encoding: json
+    errorOutputPaths:
+    - stderr
+    level: info
+    outputPaths:
+    - stderr
+    - stdout
+network:
+  bootstrapNodes:
+  - /ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ
+  enableRateLimit: false
+system:
+  httpAdminPort: 8082 
+  systemLogDBPath: ./data3/systemlog.db
