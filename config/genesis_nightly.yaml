@@ -38,12 +38,10 @@ account:
     io1yvfvf4tw7dau0u55zu26vdz3a2h6tvxsdqeagc: "100000000000000000000000000000000000"
     io1yzxxqppm6ng6d40d292668fepcz9jw94ql4dj4: "100000000000000000000000000000000000"
     io1znka733xefxjjw2wqddegplwtefun0mfdmz7dw: "100000000000000000000000000000000000"
-    io120au9ra0nffdle04jx2g5gccn6gq8qd4fy03l4: "100000000000000000000000000000000000"
 blockchain:
   aleutianHeight: 1
   beringHeight: 1
   blockGasLimit: 50000000
-  tsunamiHeight: 1
   blockInterval: 10s
   cookHeight: 1
   dardanellesHeight: 1
@@ -65,8 +63,9 @@ blockchain:
   quebecHeight: 1
   redseaHeight: 1
   sumatraHeight: 1
+  tsunamiHeight: 1
   upernavikHeight: 1
-  vanuatuHeight: 3
+  vanuatuHeight: 120
   actionGasLimit: 5000000
   numCandidateDelegates: 4
   numDelegates: 4
@@ -74,13 +73,9 @@ blockchain:
   pacificHeight: 1
   timeBasedRotation: true
   timestamp: 1552460400
-  # minBlocksForBlobRetention: 720
+  minBlocksForBlobRetention: 720
 poll:
   enableGravityChainVoting: true
-  # systemSGDContractAddress: io1va03q4lcr608dr3nltwm64sfcz05czjuycsqgn
-  # systemSGDContractHeight: 3820065
-  # systemStakingContractV2Address: io1gpyjgmc48x5kp4ndg0jds6mj4lze8vam0jn3nr
-  # systemStakingContractV2Height: 7120561
   gravityChainHeightInterval: 100
   pollMode: native
   scoreThreshold: "2000000000000000000000000"
