@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/tools/iomigrater/cmds"
+	cmd "github.com/iotexproject/iotex-core/tools/iomigrater/cmds"
 	"github.com/iotexproject/iotex-core/tools/iomigrater/common"
 )
 
@@ -47,6 +47,7 @@ func Execute() {
 func init() {
 	RootCmd.AddCommand(cmd.CheckHeight)
 	RootCmd.AddCommand(cmd.MigrateDb)
+	RootCmd.AddCommand(cmd.StateDB2Factory)
 
 	RootCmd.HelpFunc()
 }
