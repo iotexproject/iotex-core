@@ -729,7 +729,10 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if builder.cs.p2pAgent == nil {
 		builder.cs.p2pAgent = p2p.NewDummyAgent()
 	}
-	_, readonlyMode := builder.cfg.Plugins[config.ReadOnlyGatewayPlugin]
+	_, readOnlyMode := builder.cfg.Plugins[config.ReadOnlyGatewayPlugin]
+	if readOnlyMode {
+		builder.cfg.DB.ReadOnly = true
+	}
 
 	if err := builder.buildFactory(forTest); err != nil {
 		return nil, err
@@ -737,7 +740,7 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.buildElectionCommittee(); err != nil {
 		return nil, err
 	}
-	if !readonlyMode {
+	if !readOnlyMode {
 		if err := builder.buildActionPool(); err != nil {
 			return nil, err
 		}
@@ -776,7 +779,7 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.registerRewardingProtocol(); err != nil {
 		return nil, errors.Wrap(err, "failed to register rewarding protocol")
 	}
-	if !readonlyMode {
+	if !readOnlyMode {
 		if err := builder.buildConsensusComponent(); err != nil {
 			return nil, err
 		}
