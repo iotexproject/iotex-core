@@ -8,11 +8,13 @@ package chainservice
 import (
 	"context"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
+	uconfig "go.uber.org/config"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
@@ -147,7 +149,6 @@ func (builder *Builder) buildFactory() error {
 }
 
 func (builder *Builder) createFactory() (factory.Factory, error) {
-	var dao db.KVStore
 	var err error
 	if builder.cs.factory != nil {
 		return builder.cs.factory, nil
@@ -158,33 +159,60 @@ func (builder *Builder) createFactory() (factory.Factory, error) {
 			log.L().Warn("Create in memory state db, which will not pesist data on disk")
 			return factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(builder.cs.registry))
 		}
+		var kvStore db.KVStore
 		opts := []factory.StateDBOption{
 			factory.RegistryStateDBOption(builder.cs.registry),
 			factory.DefaultPatchOption(),
 		}
 		if builder.cfg.Chain.EnableStateDBCaching {
-			dao, err = db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
+			kvStore, err = db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
 		} else {
-			dao, err = db.CreateKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
+			kvStore, err = db.CreateKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
 		}
 		if err != nil {
 			return nil, err
 		}
-		return factory.NewStateDB(factoryCfg, dao, opts...)
+		return factory.NewStateDB(factoryCfg, kvStore, opts...)
 	}
 	if builder.cfg.Chain.TrieDBPath == "" {
 		log.L().Warn("Create in memory factory, which will not pesist data on disk")
 		return factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(builder.cs.registry))
 	}
-	dao, err = db.CreateKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
+	var shards []factory.Shard
+	triePath := builder.cfg.Chain.TrieDBPath
+	if strings.HasSuffix(triePath, ".conf") {
+		opts := []uconfig.YAMLOption{uconfig.File(triePath)}
+		yaml, err := uconfig.NewYAML(opts...)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to init config")
+		}
+		var cfg factory.FactoryWithShardsConfig
+		if err := yaml.Get(uconfig.Root).Populate(&cfg); err != nil {
+			return nil, errors.Wrap(err, "failed to unmarshal YAML config to struct")
+		}
+		triePath = cfg.HeadPath
+		for _, shard := range cfg.Shards {
+			kvStore, err := db.CreateKVStore(builder.cfg.DB, triePath)
+			if err != nil {
+				return nil, err
+			}
+			shards = append(shards, factory.Shard{
+				Start:   shard.Start,
+				End:     shard.End,
+				KvStore: kvStore,
+			})
+		}
+	}
+	kvStore, err := db.CreateKVStore(builder.cfg.DB, triePath)
 	if err != nil {
 		return nil, err
 	}
 	return factory.NewFactory(
 		factoryCfg,
-		dao,
+		kvStore,
 		factory.RegistryOption(builder.cs.registry),
 		factory.DefaultTriePatchOption(),
+		factory.ShardsOption(shards),
 	)
 }
 

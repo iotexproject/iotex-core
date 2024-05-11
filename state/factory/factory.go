@@ -8,6 +8,7 @@ package factory
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -78,6 +79,12 @@ func init() {
 }
 
 type (
+	Shard struct {
+		Start   uint64
+		End     uint64
+		KvStore db.KVStore
+	}
+
 	// Factory defines an interface for managing states
 	Factory interface {
 		lifecycle.StartStopper
@@ -103,7 +110,8 @@ type (
 		currentChainHeight       uint64
 		historyWindowSize        uint16
 		twoLayerTrie             trie.TwoLayerTrie // global state trie, this is a read only trie
-		dao                      db.KVStore        // the underlying DB for account/contract storage
+		kvStore                  db.KVStore        // the underlying DB for account/contract storage
+		shards                   []Shard
 		timerFactory             *prometheustimer.TimerFactory
 		workingsets              cache.LRUCache // lru cache for workingsets
 		protocolView             protocol.View
@@ -115,6 +123,17 @@ type (
 	Config struct {
 		Chain   blockchain.Config
 		Genesis genesis.Genesis
+	}
+
+	ShardConfig struct {
+		Start uint64 `yaml:"start"`
+		End   uint64 `yaml:"end"`
+		Path  string `yaml:"path"`
+	}
+
+	FactoryWithShardsConfig struct {
+		HeadPath string        `yaml:"headPath"`
+		Shards   []ShardConfig `yaml:"shards"`
 	}
 )
 
@@ -153,8 +172,19 @@ func DefaultTriePatchOption() Option {
 	}
 }
 
+// ShardsOption loads shards and init it
+func ShardsOption(shards []Shard) Option {
+	return func(sf *factory, cfg *Config) (err error) {
+		sort.SliceStable(shards, func(i, j int) bool {
+			return shards[i].Start < shards[j].Start
+		})
+		sf.shards = shards
+		return nil
+	}
+}
+
 // NewFactory creates a new state factory
-func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
+func NewFactory(cfg Config, kvStore db.KVStore, opts ...Option) (Factory, error) {
 	sf := &factory{
 		cfg:                cfg,
 		currentChainHeight: 0,
@@ -162,7 +192,7 @@ func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
 		historyWindowSize:  cfg.Chain.HistoryWindowSize,
 		protocolView:       protocol.View{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
-		dao:                dao,
+		kvStore:            kvStore,
 	}
 
 	for _, opt := range opts {
@@ -187,19 +217,18 @@ func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
 
 func (sf *factory) Start(ctx context.Context) error {
 	ctx = protocol.WithRegistry(ctx, sf.registry)
-	err := sf.dao.Start(ctx)
+	err := sf.kvStore.Start(ctx)
 	if err != nil {
 		return err
 	}
-	if sf.twoLayerTrie, err = newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, ArchiveTrieRootKey, true); err != nil {
+	if sf.twoLayerTrie, err = newTwoLayerTrie(ArchiveTrieNamespace, sf.kvStore, ArchiveTrieRootKey, true); err != nil {
 		return errors.Wrap(err, "failed to generate accountTrie from config")
 	}
 	if err := sf.twoLayerTrie.Start(ctx); err != nil {
 		return err
 	}
 	// check factory height
-	// TODO: move current height from account kv namespace to some other namespace
-	h, err := sf.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
+	h, err := sf.kvStore.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 	switch errors.Cause(err) {
 	case nil:
 		sf.currentChainHeight = byteutil.BytesToUint64(h)
@@ -208,7 +237,7 @@ func (sf *factory) Start(ctx context.Context) error {
 			return err
 		}
 	case db.ErrNotExist:
-		if err = sf.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+		if err = sf.kvStore.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init factory's height")
 		}
 		// start all protocols
@@ -237,7 +266,7 @@ func (sf *factory) Start(ctx context.Context) error {
 func (sf *factory) Stop(ctx context.Context) error {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	if err := sf.dao.Stop(ctx); err != nil {
+	if err := sf.kvStore.Stop(ctx); err != nil {
 		return err
 	}
 	sf.workingsets.Clear()
@@ -248,7 +277,7 @@ func (sf *factory) Stop(ctx context.Context) error {
 func (sf *factory) Height() (uint64, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	height, err := sf.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
+	height, err := sf.kvStore.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get factory's height from underlying DB")
 	}
@@ -431,7 +460,7 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	if err := ws.Commit(ctx); err != nil {
 		return err
 	}
-	rh, err := sf.dao.Get(ArchiveTrieNamespace, []byte(ArchiveTrieRootKey))
+	rh, err := sf.kvStore.Get(ArchiveTrieNamespace, []byte(ArchiveTrieRootKey))
 	if err != nil {
 		return err
 	}
@@ -467,16 +496,21 @@ func (sf *factory) StateAtHeight(height uint64, s interface{}, opts ...protocol.
 // StatesAtHeight returns a set states in the state factory at height -- archive mode
 func (sf *factory) StatesAtHeight(height uint64, opts ...protocol.StateOption) (state.Iterator, error) {
 	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	if height > sf.currentChainHeight {
-		return nil, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
+	currentHeight := sf.currentChainHeight
+	if height > currentHeight {
+		return nil, errors.Errorf("query height %d is higher than tip height %d", height, currentHeight)
 	}
+	sf.mutex.RUnlock()
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return nil, err
 	}
-	if cfg.Keys != nil {
-		return nil, errors.Wrap(ErrNotSupported, "Read states with keys option has not been implemented yet")
+	if cfg.Key != nil {
+		return nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
+	}
+	kvStore := sf.findKVStore(height)
+	if kvStore == nil {
+		return nil, ErrNoArchiveData
 	}
 	values, err := readStatesFromTLT(sf.twoLayerTrie, cfg.Namespace, cfg.Keys)
 	if err != nil {
@@ -497,7 +531,7 @@ func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, e
 	if cfg.Keys != nil {
 		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
-	value, err := sf.dao.Get(cfg.Namespace, cfg.Key)
+	value, err := sf.kvStore.Get(cfg.Namespace, cfg.Key)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return sf.currentChainHeight, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", cfg.Namespace, cfg.Key)
@@ -536,10 +570,6 @@ func (sf *factory) ReadView(name string) (interface{}, error) {
 // private trie constructor functions
 //======================================
 
-func (sf *factory) rootHash() ([]byte, error) {
-	return sf.twoLayerTrie.RootHash()
-}
-
 func namespaceKey(ns string) []byte {
 	h := hash.Hash160b([]byte(ns))
 	return h[:]
@@ -554,11 +584,28 @@ func legacyKeyLen() int {
 	return 20
 }
 
+func (sf *factory) findKVStore(height uint64) db.KVStore {
+	if sf.shards == nil {
+		return sf.kvStore
+	}
+	idx := sort.Search(len(sf.shards), func(i int) bool {
+		return sf.shards[i].Start <= height && sf.shards[i].End > height
+	})
+	if idx == len(sf.shards) {
+		return nil
+	}
+	return sf.shards[idx].KvStore
+}
+
 func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interface{}) error {
 	if sf.historyWindowSize == 1 {
 		return ErrNoArchiveData
 	}
-	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), false)
+	kvStore := sf.findKVStore(height)
+	if kvStore == nil {
+		return ErrNoArchiveData
+	}
+	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, kvStore, fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), false)
 	if err != nil {
 		return errors.Wrapf(err, "failed to generate trie for %d", height)
 	}
