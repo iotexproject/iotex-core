@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -201,7 +202,7 @@ func (sf *factory) Start(ctx context.Context) error {
 	h, err := sf.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 	switch errors.Cause(err) {
 	case nil:
-		sf.currentChainHeight = byteutil.BytesToUint64(h)
+		atomic.StoreUint64(&sf.currentChainHeight, byteutil.BytesToUint64(h))
 		// start all protocols
 		if sf.protocolView, err = sf.registry.StartAll(ctx, sf); err != nil {
 			return err
@@ -321,8 +322,9 @@ func (sf *factory) NewBlockBuilder(
 	sign func(action.Envelope) (*action.SealedEnvelope, error),
 ) (*block.Builder, error) {
 	sf.mutex.Lock()
+	currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
 	ctx = protocol.WithRegistry(ctx, sf.registry)
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+	ws, err := sf.newWorkingSet(ctx, currentChainHeight+1)
 	sf.mutex.Unlock()
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
@@ -361,7 +363,8 @@ func (sf *factory) SimulateExecution(
 	defer span.End()
 
 	sf.mutex.Lock()
-	ws, err := sf.newReadOnlyWorkingSet(ctx, sf.currentChainHeight+1)
+	currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
+	ws, err := sf.newReadOnlyWorkingSet(ctx, currentChainHeight+1)
 	sf.mutex.Unlock()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
@@ -373,7 +376,8 @@ func (sf *factory) SimulateExecution(
 // ReadContractStorage reads contract's storage
 func (sf *factory) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
 	sf.mutex.Lock()
-	ws, err := sf.newReadOnlyWorkingSet(ctx, sf.currentChainHeight+1)
+	currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
+	ws, err := sf.newReadOnlyWorkingSet(ctx, currentChainHeight+1)
 	sf.mutex.Unlock()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate working set from state factory")
@@ -427,11 +431,12 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	blk.Receipts = receipts
 	h, _ := ws.Height()
-	if sf.currentChainHeight+1 != h {
+	currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
+	if currentChainHeight+1 != h {
 		// another working set with correct version already committed, do nothing
 		return fmt.Errorf(
 			"current state height %d + 1 doesn't match working set height %d",
-			sf.currentChainHeight, h,
+			currentChainHeight, h,
 		)
 	}
 
@@ -445,7 +450,7 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	if err := sf.twoLayerTrie.SetRootHash(rh); err != nil {
 		return err
 	}
-	sf.currentChainHeight = h
+	atomic.StoreUint64(&sf.currentChainHeight, h)
 
 	return nil
 }
@@ -456,8 +461,10 @@ func (sf *factory) DeleteTipBlock(_ context.Context, _ *block.Block) error {
 
 // StateAtHeight returns a confirmed state at height -- archive mode
 func (sf *factory) StateAtHeight(height uint64, s interface{}, opts ...protocol.StateOption) error {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
+	currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
+	if height > currentChainHeight {
+		return errors.Errorf("query height %d is higher than tip height %d", height, currentChainHeight)
+	}
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return err
@@ -465,18 +472,14 @@ func (sf *factory) StateAtHeight(height uint64, s interface{}, opts ...protocol.
 	if cfg.Keys != nil {
 		return errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
-	if height > sf.currentChainHeight {
-		return errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
-	}
 	return sf.stateAtHeight(height, cfg.Namespace, cfg.Key, s)
 }
 
 // StatesAtHeight returns a set states in the state factory at height -- archive mode
 func (sf *factory) StatesAtHeight(height uint64, opts ...protocol.StateOption) (state.Iterator, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	if height > sf.currentChainHeight {
-		return nil, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
+	currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
+	if height > currentChainHeight {
+		return nil, errors.Errorf("query height %d is higher than tip height %d", height, currentChainHeight)
 	}
 	return nil, errors.Wrap(ErrNotSupported, "Read historical states has not been implemented yet")
 }
@@ -485,6 +488,7 @@ func (sf *factory) StatesAtHeight(height uint64, opts ...protocol.StateOption) (
 func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
+	currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, err
@@ -495,31 +499,32 @@ func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, e
 	value, err := sf.dao.Get(cfg.Namespace, cfg.Key)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
-			return sf.currentChainHeight, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", cfg.Namespace, cfg.Key)
+			return currentChainHeight, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", cfg.Namespace, cfg.Key)
 		}
-		return sf.currentChainHeight, err
+		return currentChainHeight, err
 	}
 
-	return sf.currentChainHeight, state.Deserialize(s, value)
+	return currentChainHeight, state.Deserialize(s, value)
 }
 
 // State returns a set states in the state factory
 func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
+	currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, nil, err
 	}
 	if cfg.Key != nil {
-		return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
+		return currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
 	values, err := readStates(sf.dao, cfg.Namespace, cfg.Keys)
 	if err != nil {
 		return 0, nil, err
 	}
 
-	return sf.currentChainHeight, state.NewIterator(values), nil
+	return currentChainHeight, state.NewIterator(values), nil
 }
 
 // ReadView reads the view
@@ -606,7 +611,8 @@ func (sf *factory) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*w
 		}
 		return nil, false, errors.New("type assertion failed to be WorkingSet")
 	}
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+	currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
+	ws, err := sf.newWorkingSet(ctx, currentChainHeight+1)
 	if err != nil {
 		return nil, false, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
