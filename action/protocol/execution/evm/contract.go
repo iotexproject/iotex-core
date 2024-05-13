@@ -59,7 +59,7 @@ func (c *contract) Iterator() (trie.Iterator, error) {
 	return mptrie.NewLeafIterator(c.trie)
 }
 
-// GetState get the committed value of a key
+// GetCommittedState get the committed value of a key
 func (c *contract) GetCommittedState(key hash.Hash256) ([]byte, error) {
 	if v, ok := c.committed[key]; ok {
 		return v, nil
