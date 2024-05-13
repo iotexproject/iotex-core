@@ -85,8 +85,8 @@ func migrateTrieFile() (err error) {
 	if err := triedb.View(func(tx *bbolt.Tx) error {
 		if err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
 			fmt.Printf("migrating namespace: %s %d\n", name, b.Stats().KeyN)
-			bar := progressbar.New(b.Stats().KeyN)
-			b.ForEach(func(k, v []byte) error {
+			bar := progressbar.New(b.Stats().KeyN + size)
+			if err := b.ForEach(func(k, v []byte) error {
 				if v == nil {
 					panic("unexpected nested bucket")
 				}
@@ -104,7 +104,9 @@ func migrateTrieFile() (err error) {
 					batch = newdb.NewBatchWithSize(size)
 				}
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
 			if err := bar.Finish(); err != nil {
 				return err
 			}
