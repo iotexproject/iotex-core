@@ -24,7 +24,7 @@ generate_abi:
 	@cd sprout/smartcontracts/contracts && for file in 'FleetManagement' 'ProjectRegistrar' 'W3bstreamProject' 'W3bstreamRouter' 'W3bstreamProver' ; \
 	do \
 		solc --include-path ../node_modules/ --base-path . --optimize --abi --overwrite --pretty-json -o . $$file.sol > /dev/null 2>&1 ; \
-		if [[ -e $$file.abi ]]; then \
+		if [ -e $$file.abi ]; then \
 			mv $$file.abi ../../../abis/$$file.json; \
 		fi \
 	done
