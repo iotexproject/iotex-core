@@ -509,7 +509,19 @@ func (sf *factory) StatesAtHeight(height uint64, opts ...protocol.StateOption) (
 	if height > sf.currentChainHeight {
 		return nil, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
 	}
-	return nil, errors.Wrap(ErrNotSupported, "Read historical states has not been implemented yet")
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Keys != nil {
+		return nil, errors.Wrap(ErrNotSupported, "Read states with keys option has not been implemented yet")
+	}
+	values, err := readStatesFromTLT(sf.twoLayerTrie, cfg.Namespace, cfg.Keys)
+	if err != nil {
+		return nil, err
+	}
+
+	return state.NewIterator(values), nil
 }
 
 // State returns a confirmed state in the state factory
@@ -545,7 +557,7 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 	if cfg.Key != nil {
 		return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	keys, values, err := readStates(sf.dao, cfg.Namespace, cfg.Keys)
+	keys, values, err := readStatesFromTLT(sf.twoLayerTrie, cfg.Namespace, cfg.Keys)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -553,7 +565,6 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 	if err != nil {
 		return 0, nil, err
 	}
-
 	return sf.currentChainHeight, iter, nil
 }
 
@@ -573,19 +584,6 @@ func (sf *factory) rootHash() ([]byte, error) {
 func namespaceKey(ns string) []byte {
 	h := hash.Hash160b([]byte(ns))
 	return h[:]
-}
-
-func readState(tlt trie.TwoLayerTrie, ns string, key []byte) ([]byte, error) {
-	ltKey := toLegacyKey(key)
-	data, err := tlt.Get(namespaceKey(ns), ltKey)
-	if err != nil {
-		if errors.Cause(err) == trie.ErrNotExist {
-			return nil, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
-		}
-		return nil, err
-	}
-
-	return data, nil
 }
 
 func toLegacyKey(input []byte) []byte {
@@ -610,7 +608,7 @@ func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interfa
 	}
 	defer tlt.Stop(context.Background())
 
-	value, err := readState(tlt, ns, key)
+	value, err := readStateFromTLT(tlt, ns, key)
 	if err != nil {
 		return err
 	}

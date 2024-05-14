@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -162,7 +161,7 @@ func (store *factoryWorkingSetStore) WriteView(name string, value interface{}) e
 }
 
 func (store *factoryWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
-	return readState(store.tlt, ns, key)
+	return readStateFromTLT(store.tlt, ns, key)
 }
 
 func (store *factoryWorkingSetStore) Put(ns string, key []byte, value []byte) error {
@@ -184,41 +183,9 @@ func (store *factoryWorkingSetStore) Delete(ns string, key []byte) error {
 }
 
 func (store *factoryWorkingSetStore) States(ns string, keys [][]byte) ([][]byte, [][]byte, error) {
-	ks := [][]byte{}
-	values := [][]byte{}
-	if keys == nil {
-		iter, err := mptrie.NewLayerTwoLeafIterator(store.tlt, namespaceKey(ns), legacyKeyLen())
-		if err != nil {
-			return nil, nil, err
-		}
-		for {
-			key, value, err := iter.Next()
-			if err == trie.ErrEndOfIterator {
-				break
-			}
-			if err != nil {
-				return nil, nil, err
-			}
-			ks = append(ks, key)
-			values = append(values, value)
-		}
-	} else {
-		for _, key := range keys {
-			value, err := readState(store.tlt, ns, key)
-			switch errors.Cause(err) {
-			case state.ErrStateNotExist:
-				values = append(values, nil)
-				ks = append(ks, key)
-			case nil:
-				values = append(values, value)
-				ks = append(ks, key)
-			default:
-				return nil, nil, err
-			}
-		}
-	}
-	return ks, values, nil
+	return readStatesFromTLT(store.tlt, ns, keys)
 }
+
 func (store *factoryWorkingSetStore) Digest() hash.Hash256 {
 	return hash.Hash256b(store.flusher.SerializeQueue())
 }
