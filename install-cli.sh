@@ -28,6 +28,8 @@ BREW_UNSTABLE_INSTALL_CMD="brew install iotexproject/ioctl-unstable/ioctl-unstab
 BREW_UNSTABLE_REINSTALL_CMD="brew reinstall ioctl-unstable"
 BREW_INSTALLED_PATH="/usr/local/bin"
 
+INSTALL_NAME="ioctl"
+
 downloadJSON() {
     url="$2"
 
@@ -156,8 +158,14 @@ if [ -z "$CLI_RELEASE_TAG" ]; then
 fi
 
 if [ "$1" = "unstable" ]; then
-    BINARY_URL="$S3URL/$BINARY"
-
+    git clone https://github.com/iotexproject/iotex-core.git
+    cd iotex-core
+    LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
+    git checkout $LATEST_TAG
+    make $INSTALL_NAME
+    sudo mv bin/$INSTALL_NAME $INSTALL_DIRECTORY/
+    cd .. && rm -rf iotex-core
+    exit 0
 else
     # fetch the real release data to make sure it exists before we attempt a download
     downloadJSON RELEASE_DATA "$RELEASES_URL/tag/$CLI_RELEASE_TAG"
@@ -170,8 +178,6 @@ downloadFile "$BINARY_URL" "$DOWNLOAD_FILE"
 
 echo "Setting executable permissions."
 chmod +x "$DOWNLOAD_FILE"
-
-INSTALL_NAME="ioctl"
 
 if [ "$OS" = "windows" ]; then
     INSTALL_NAME="$INSTALL_NAME.exe"
