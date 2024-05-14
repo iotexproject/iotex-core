@@ -68,20 +68,6 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "msp",
-        "type": "address"
-      }
-    ],
-    "name": "MSPSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs":
-    [
-      {
-        "indexed": true,
-        "internalType": "address",
         "name": "previousOwner",
         "type": "address"
       },
@@ -135,6 +121,20 @@
       }
     ],
     "name": "SlasherSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs":
+    [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "msp",
+        "type": "address"
+      }
+    ],
+    "name": "StakingHubSet",
     "type": "event"
   },
   {
@@ -275,20 +275,6 @@
   },
   {
     "inputs": [],
-    "name": "msp",
-    "outputs":
-    [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
     "name": "owner",
     "outputs":
     [
@@ -404,20 +390,6 @@
     [
       {
         "internalType": "address",
-        "name": "_msp",
-        "type": "address"
-      }
-    ],
-    "name": "setMSP",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs":
-    [
-      {
-        "internalType": "address",
         "name": "_proverStore",
         "type": "address"
       }
@@ -456,8 +428,36 @@
     "type": "function"
   },
   {
+    "inputs":
+    [
+      {
+        "internalType": "address",
+        "name": "_hub",
+        "type": "address"
+      }
+    ],
+    "name": "setStakingHub",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "slasher",
+    "outputs":
+    [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "stakingHub",
     "outputs":
     [
       {

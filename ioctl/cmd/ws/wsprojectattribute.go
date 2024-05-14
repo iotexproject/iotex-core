@@ -68,6 +68,7 @@ func init() {
 	flagProjectAttrKey.RegisterCommand(wsProjectAttributeSetCmd)
 	flagProjectAttrKey.MarkFlagRequired(wsProjectAttributeSetCmd)
 	flagProjectAttrVal.RegisterCommand(wsProjectAttributeSetCmd)
+	flagProjectAttrVal.MarkFlagRequired(wsProjectAttributeSetCmd)
 
 	flagProjectID.RegisterCommand(wsProjectAttributeGetCmd)
 	flagProjectID.MarkFlagRequired(wsProjectAttributeGetCmd)
@@ -117,7 +118,7 @@ func setAttribute(projectID *big.Int, key, val string) (any, error) {
 	result := NewContractResult(&projectStoreABI, eventProjectAttrSet, value)
 	keysig := crypto.Keccak256Hash([]byte(key))
 	if _, err = caller.CallAndRetrieveResult(funcSetProjectAttr, []any{
-		projectID.Uint64(),
+		projectID,
 		[][32]byte{keysig},
 		[][]byte{[]byte(val)},
 	}, result); err != nil {

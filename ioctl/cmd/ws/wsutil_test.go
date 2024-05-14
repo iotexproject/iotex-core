@@ -27,7 +27,8 @@ func TestUpdateProjectConfigAndRetrieveReceipt(t *testing.T) {
 	// tx := "7eb04f3ac9af45b25a98e8364af01eeae0ae2a03fc360fcb24fc8800a8968c19"
 	// tx := "28721f293e841d5994c407ef453750153fa6fa81c687492d31190eb2015fb0fe"
 	// tx := "1055f8f99ea84c4398029316c6037d18435444d65421dd7c4cfda60d7a1a7ce4"
-	tx := "3cfbde68ec4b5c30198153a9b858cfd8461a4d4bf071c55e67d81a143ea7b353" // W3bstreamProver.setMinter
+	// tx := "3cfbde68ec4b5c30198153a9b858cfd8461a4d4bf071c55e67d81a143ea7b353" // W3bstreamProver.setMinter
+	tx := "e07d583d9c725960d09c362f1e3aa7dc3d41d72f9655f7747f20ee35307c44d2"
 	config.ReadConfig.Endpoint = "api.testnet.iotex.one:443"
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {

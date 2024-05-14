@@ -162,6 +162,7 @@ func (c *ContractCaller) envelop(method string, arguments ...any) (action.Envelo
 	gasLimit, err := c.gasLimit(tx.Proto())
 	if err != nil {
 		return nil, err
+		// gasLimit = 20000000
 	}
 	tx.SetGasLimit(gasLimit)
 

@@ -31,7 +31,7 @@ var (
 
 // FleetManagementMetaData contains all meta data concerning the FleetManagement contract.
 var FleetManagementMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"coordinator\",\"type\":\"address\"}],\"name\":\"CoordinatorSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"creditCenter\",\"type\":\"address\"}],\"name\":\"CreditCenterSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"FeeWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"msp\",\"type\":\"address\"}],\"name\":\"MSPSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"prover\",\"type\":\"address\"}],\"name\":\"ProverStoreSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"}],\"name\":\"RegistrationFeeSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"slasher\",\"type\":\"address\"}],\"name\":\"SlasherSet\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"coordinator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"creditCenter\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epoch\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_proverId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"grant\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_minStake\",\"type\":\"uint256\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_coordinator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"}],\"name\":\"isActiveCoordinator\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"isActiveProver\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"msp\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_proverId\",\"type\":\"uint256\"}],\"name\":\"ownerOfProver\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"proverStore\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"register\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"registrationFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_coordinator\",\"type\":\"address\"}],\"name\":\"setCoordinator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_creditCenter\",\"type\":\"address\"}],\"name\":\"setCreditCenter\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_msp\",\"type\":\"address\"}],\"name\":\"setMSP\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_proverStore\",\"type\":\"address\"}],\"name\":\"setProverStore\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_fee\",\"type\":\"uint256\"}],\"name\":\"setRegistrationFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_slasher\",\"type\":\"address\"}],\"name\":\"setSlasher\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"slasher\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"withdrawFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"coordinator\",\"type\":\"address\"}],\"name\":\"CoordinatorSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"creditCenter\",\"type\":\"address\"}],\"name\":\"CreditCenterSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"FeeWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"prover\",\"type\":\"address\"}],\"name\":\"ProverStoreSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"}],\"name\":\"RegistrationFeeSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"slasher\",\"type\":\"address\"}],\"name\":\"SlasherSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"msp\",\"type\":\"address\"}],\"name\":\"StakingHubSet\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"coordinator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"creditCenter\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epoch\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_proverId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"grant\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_minStake\",\"type\":\"uint256\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_coordinator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"}],\"name\":\"isActiveCoordinator\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"isActiveProver\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_proverId\",\"type\":\"uint256\"}],\"name\":\"ownerOfProver\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"proverStore\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"register\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"registrationFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_coordinator\",\"type\":\"address\"}],\"name\":\"setCoordinator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_creditCenter\",\"type\":\"address\"}],\"name\":\"setCreditCenter\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_proverStore\",\"type\":\"address\"}],\"name\":\"setProverStore\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_fee\",\"type\":\"uint256\"}],\"name\":\"setRegistrationFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_slasher\",\"type\":\"address\"}],\"name\":\"setSlasher\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_hub\",\"type\":\"address\"}],\"name\":\"setStakingHub\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"slasher\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"stakingHub\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"withdrawFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 // FleetManagementABI is the input ABI used to generate the binding from.
@@ -366,37 +366,6 @@ func (_FleetManagement *FleetManagementCallerSession) MinStake() (*big.Int, erro
 	return _FleetManagement.Contract.MinStake(&_FleetManagement.CallOpts)
 }
 
-// Msp is a free data retrieval call binding the contract method 0xa8267482.
-//
-// Solidity: function msp() view returns(address)
-func (_FleetManagement *FleetManagementCaller) Msp(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _FleetManagement.contract.Call(opts, &out, "msp")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// Msp is a free data retrieval call binding the contract method 0xa8267482.
-//
-// Solidity: function msp() view returns(address)
-func (_FleetManagement *FleetManagementSession) Msp() (common.Address, error) {
-	return _FleetManagement.Contract.Msp(&_FleetManagement.CallOpts)
-}
-
-// Msp is a free data retrieval call binding the contract method 0xa8267482.
-//
-// Solidity: function msp() view returns(address)
-func (_FleetManagement *FleetManagementCallerSession) Msp() (common.Address, error) {
-	return _FleetManagement.Contract.Msp(&_FleetManagement.CallOpts)
-}
-
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
 // Solidity: function owner() view returns(address)
@@ -552,6 +521,37 @@ func (_FleetManagement *FleetManagementCallerSession) Slasher() (common.Address,
 	return _FleetManagement.Contract.Slasher(&_FleetManagement.CallOpts)
 }
 
+// StakingHub is a free data retrieval call binding the contract method 0x4213ec0f.
+//
+// Solidity: function stakingHub() view returns(address)
+func (_FleetManagement *FleetManagementCaller) StakingHub(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _FleetManagement.contract.Call(opts, &out, "stakingHub")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// StakingHub is a free data retrieval call binding the contract method 0x4213ec0f.
+//
+// Solidity: function stakingHub() view returns(address)
+func (_FleetManagement *FleetManagementSession) StakingHub() (common.Address, error) {
+	return _FleetManagement.Contract.StakingHub(&_FleetManagement.CallOpts)
+}
+
+// StakingHub is a free data retrieval call binding the contract method 0x4213ec0f.
+//
+// Solidity: function stakingHub() view returns(address)
+func (_FleetManagement *FleetManagementCallerSession) StakingHub() (common.Address, error) {
+	return _FleetManagement.Contract.StakingHub(&_FleetManagement.CallOpts)
+}
+
 // Grant is a paid mutator transaction binding the contract method 0x59f1c85e.
 //
 // Solidity: function grant(uint256 _proverId, uint256 _amount) returns()
@@ -678,27 +678,6 @@ func (_FleetManagement *FleetManagementTransactorSession) SetCreditCenter(_credi
 	return _FleetManagement.Contract.SetCreditCenter(&_FleetManagement.TransactOpts, _creditCenter)
 }
 
-// SetMSP is a paid mutator transaction binding the contract method 0x9e38966d.
-//
-// Solidity: function setMSP(address _msp) returns()
-func (_FleetManagement *FleetManagementTransactor) SetMSP(opts *bind.TransactOpts, _msp common.Address) (*types.Transaction, error) {
-	return _FleetManagement.contract.Transact(opts, "setMSP", _msp)
-}
-
-// SetMSP is a paid mutator transaction binding the contract method 0x9e38966d.
-//
-// Solidity: function setMSP(address _msp) returns()
-func (_FleetManagement *FleetManagementSession) SetMSP(_msp common.Address) (*types.Transaction, error) {
-	return _FleetManagement.Contract.SetMSP(&_FleetManagement.TransactOpts, _msp)
-}
-
-// SetMSP is a paid mutator transaction binding the contract method 0x9e38966d.
-//
-// Solidity: function setMSP(address _msp) returns()
-func (_FleetManagement *FleetManagementTransactorSession) SetMSP(_msp common.Address) (*types.Transaction, error) {
-	return _FleetManagement.Contract.SetMSP(&_FleetManagement.TransactOpts, _msp)
-}
-
 // SetProverStore is a paid mutator transaction binding the contract method 0x7037e334.
 //
 // Solidity: function setProverStore(address _proverStore) returns()
@@ -760,6 +739,27 @@ func (_FleetManagement *FleetManagementSession) SetSlasher(_slasher common.Addre
 // Solidity: function setSlasher(address _slasher) returns()
 func (_FleetManagement *FleetManagementTransactorSession) SetSlasher(_slasher common.Address) (*types.Transaction, error) {
 	return _FleetManagement.Contract.SetSlasher(&_FleetManagement.TransactOpts, _slasher)
+}
+
+// SetStakingHub is a paid mutator transaction binding the contract method 0x5bee43c7.
+//
+// Solidity: function setStakingHub(address _hub) returns()
+func (_FleetManagement *FleetManagementTransactor) SetStakingHub(opts *bind.TransactOpts, _hub common.Address) (*types.Transaction, error) {
+	return _FleetManagement.contract.Transact(opts, "setStakingHub", _hub)
+}
+
+// SetStakingHub is a paid mutator transaction binding the contract method 0x5bee43c7.
+//
+// Solidity: function setStakingHub(address _hub) returns()
+func (_FleetManagement *FleetManagementSession) SetStakingHub(_hub common.Address) (*types.Transaction, error) {
+	return _FleetManagement.Contract.SetStakingHub(&_FleetManagement.TransactOpts, _hub)
+}
+
+// SetStakingHub is a paid mutator transaction binding the contract method 0x5bee43c7.
+//
+// Solidity: function setStakingHub(address _hub) returns()
+func (_FleetManagement *FleetManagementTransactorSession) SetStakingHub(_hub common.Address) (*types.Transaction, error) {
+	return _FleetManagement.Contract.SetStakingHub(&_FleetManagement.TransactOpts, _hub)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
@@ -1371,150 +1371,6 @@ func (_FleetManagement *FleetManagementFilterer) ParseInitialized(log types.Log)
 	return event, nil
 }
 
-// FleetManagementMSPSetIterator is returned from FilterMSPSet and is used to iterate over the raw logs and unpacked data for MSPSet events raised by the FleetManagement contract.
-type FleetManagementMSPSetIterator struct {
-	Event *FleetManagementMSPSet // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *FleetManagementMSPSetIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(FleetManagementMSPSet)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(FleetManagementMSPSet)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *FleetManagementMSPSetIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *FleetManagementMSPSetIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// FleetManagementMSPSet represents a MSPSet event raised by the FleetManagement contract.
-type FleetManagementMSPSet struct {
-	Msp common.Address
-	Raw types.Log // Blockchain specific contextual infos
-}
-
-// FilterMSPSet is a free log retrieval operation binding the contract event 0x76065189c51b8b04c9e6742f8b3ae22f9c7279d0c2c3928a30f2cd200b7fbe6b.
-//
-// Solidity: event MSPSet(address indexed msp)
-func (_FleetManagement *FleetManagementFilterer) FilterMSPSet(opts *bind.FilterOpts, msp []common.Address) (*FleetManagementMSPSetIterator, error) {
-
-	var mspRule []interface{}
-	for _, mspItem := range msp {
-		mspRule = append(mspRule, mspItem)
-	}
-
-	logs, sub, err := _FleetManagement.contract.FilterLogs(opts, "MSPSet", mspRule)
-	if err != nil {
-		return nil, err
-	}
-	return &FleetManagementMSPSetIterator{contract: _FleetManagement.contract, event: "MSPSet", logs: logs, sub: sub}, nil
-}
-
-// WatchMSPSet is a free log subscription operation binding the contract event 0x76065189c51b8b04c9e6742f8b3ae22f9c7279d0c2c3928a30f2cd200b7fbe6b.
-//
-// Solidity: event MSPSet(address indexed msp)
-func (_FleetManagement *FleetManagementFilterer) WatchMSPSet(opts *bind.WatchOpts, sink chan<- *FleetManagementMSPSet, msp []common.Address) (event.Subscription, error) {
-
-	var mspRule []interface{}
-	for _, mspItem := range msp {
-		mspRule = append(mspRule, mspItem)
-	}
-
-	logs, sub, err := _FleetManagement.contract.WatchLogs(opts, "MSPSet", mspRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(FleetManagementMSPSet)
-				if err := _FleetManagement.contract.UnpackLog(event, "MSPSet", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseMSPSet is a log parse operation binding the contract event 0x76065189c51b8b04c9e6742f8b3ae22f9c7279d0c2c3928a30f2cd200b7fbe6b.
-//
-// Solidity: event MSPSet(address indexed msp)
-func (_FleetManagement *FleetManagementFilterer) ParseMSPSet(log types.Log) (*FleetManagementMSPSet, error) {
-	event := new(FleetManagementMSPSet)
-	if err := _FleetManagement.contract.UnpackLog(event, "MSPSet", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
 // FleetManagementOwnershipTransferredIterator is returned from FilterOwnershipTransferred and is used to iterate over the raw logs and unpacked data for OwnershipTransferred events raised by the FleetManagement contract.
 type FleetManagementOwnershipTransferredIterator struct {
 	Event *FleetManagementOwnershipTransferred // Event containing the contract specifics and raw log
@@ -2084,6 +1940,150 @@ func (_FleetManagement *FleetManagementFilterer) WatchSlasherSet(opts *bind.Watc
 func (_FleetManagement *FleetManagementFilterer) ParseSlasherSet(log types.Log) (*FleetManagementSlasherSet, error) {
 	event := new(FleetManagementSlasherSet)
 	if err := _FleetManagement.contract.UnpackLog(event, "SlasherSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// FleetManagementStakingHubSetIterator is returned from FilterStakingHubSet and is used to iterate over the raw logs and unpacked data for StakingHubSet events raised by the FleetManagement contract.
+type FleetManagementStakingHubSetIterator struct {
+	Event *FleetManagementStakingHubSet // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *FleetManagementStakingHubSetIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(FleetManagementStakingHubSet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(FleetManagementStakingHubSet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *FleetManagementStakingHubSetIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *FleetManagementStakingHubSetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// FleetManagementStakingHubSet represents a StakingHubSet event raised by the FleetManagement contract.
+type FleetManagementStakingHubSet struct {
+	Msp common.Address
+	Raw types.Log // Blockchain specific contextual infos
+}
+
+// FilterStakingHubSet is a free log retrieval operation binding the contract event 0x4f6353da0125ceacadbf12ecb33e3bfbc7f14b1922bf5783daecf3bc7042bf7e.
+//
+// Solidity: event StakingHubSet(address indexed msp)
+func (_FleetManagement *FleetManagementFilterer) FilterStakingHubSet(opts *bind.FilterOpts, msp []common.Address) (*FleetManagementStakingHubSetIterator, error) {
+
+	var mspRule []interface{}
+	for _, mspItem := range msp {
+		mspRule = append(mspRule, mspItem)
+	}
+
+	logs, sub, err := _FleetManagement.contract.FilterLogs(opts, "StakingHubSet", mspRule)
+	if err != nil {
+		return nil, err
+	}
+	return &FleetManagementStakingHubSetIterator{contract: _FleetManagement.contract, event: "StakingHubSet", logs: logs, sub: sub}, nil
+}
+
+// WatchStakingHubSet is a free log subscription operation binding the contract event 0x4f6353da0125ceacadbf12ecb33e3bfbc7f14b1922bf5783daecf3bc7042bf7e.
+//
+// Solidity: event StakingHubSet(address indexed msp)
+func (_FleetManagement *FleetManagementFilterer) WatchStakingHubSet(opts *bind.WatchOpts, sink chan<- *FleetManagementStakingHubSet, msp []common.Address) (event.Subscription, error) {
+
+	var mspRule []interface{}
+	for _, mspItem := range msp {
+		mspRule = append(mspRule, mspItem)
+	}
+
+	logs, sub, err := _FleetManagement.contract.WatchLogs(opts, "StakingHubSet", mspRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(FleetManagementStakingHubSet)
+				if err := _FleetManagement.contract.UnpackLog(event, "StakingHubSet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseStakingHubSet is a log parse operation binding the contract event 0x4f6353da0125ceacadbf12ecb33e3bfbc7f14b1922bf5783daecf3bc7042bf7e.
+//
+// Solidity: event StakingHubSet(address indexed msp)
+func (_FleetManagement *FleetManagementFilterer) ParseStakingHubSet(log types.Log) (*FleetManagementStakingHubSet, error) {
+	event := new(FleetManagementStakingHubSet)
+	if err := _FleetManagement.contract.UnpackLog(event, "StakingHubSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
