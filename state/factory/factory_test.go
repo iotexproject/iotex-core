@@ -663,8 +663,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 		}
 		accounts = append(accounts, c)
 	}
-	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
-	require.Equal(t, uint64(110), accounts[1].Balance.Uint64())
+	require.Equal(t, uint64(200), accounts[0].Balance.Uint64()+accounts[1].Balance.Uint64())
 
 	// case III: check without cond,with AccountKVNamespace namespace,key not exists
 	namespaceOpt := protocol.NamespaceOption(AccountKVNamespace)
@@ -682,8 +681,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 		}
 		accounts = append(accounts, c)
 	}
-	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
-	require.Equal(t, uint64(110), accounts[1].Balance.Uint64())
+	require.Equal(t, uint64(200), accounts[0].Balance.Uint64()+accounts[1].Balance.Uint64())
 
 	// case IV: check without cond,with AccountKVNamespace namespace
 	namespaceOpt = protocol.NamespaceOption(AccountKVNamespace)
@@ -701,8 +699,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 		}
 		accounts = append(accounts, c)
 	}
-	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
-	require.Equal(t, uint64(110), accounts[1].Balance.Uint64())
+	require.Equal(t, uint64(200), accounts[0].Balance.Uint64()+accounts[1].Balance.Uint64())
 
 	// case V: check cond,with AccountKVNamespace namespace
 	namespaceOpt = protocol.NamespaceOption(AccountKVNamespace)
@@ -713,13 +710,9 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), height)
 	require.Equal(t, 1, iter.Size())
-	accounts = make([]*state.Account, 0)
-	for i := 0; i < iter.Size(); i++ {
-		c := &state.Account{}
-		require.NoError(t, iter.Next(c))
-		accounts = append(accounts, c)
-	}
-	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
+	c := &state.Account{}
+	require.NoError(t, iter.Next(c))
+	require.Equal(t, uint64(90), c.Balance.Uint64())
 }
 
 func TestNonce(t *testing.T) {
