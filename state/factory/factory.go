@@ -198,6 +198,7 @@ func (sf *factory) Start(ctx context.Context) error {
 		return err
 	}
 	// check factory height
+	// TODO: move current height from account kv namespace to some other namespace
 	h, err := sf.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 	switch errors.Cause(err) {
 	case nil:
