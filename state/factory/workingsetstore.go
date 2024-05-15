@@ -191,11 +191,13 @@ func (store *factoryWorkingSetStore) Digest() hash.Hash256 {
 }
 
 func (store *factoryWorkingSetStore) Finalize(h uint64) error {
+	if err := store.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(h)); err != nil {
+		return err
+	}
 	rootHash, err := store.tlt.RootHash()
 	if err != nil {
 		return err
 	}
-	store.flusher.KVStoreWithBuffer().MustPut(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(h))
 	store.flusher.KVStoreWithBuffer().MustPut(ArchiveTrieNamespace, []byte(ArchiveTrieRootKey), rootHash)
 	// Persist the historical accountTrie's root hash
 	store.flusher.KVStoreWithBuffer().MustPut(
