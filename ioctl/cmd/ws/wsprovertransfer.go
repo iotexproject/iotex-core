@@ -1,7 +1,7 @@
 package ws
 
 import (
-	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -29,8 +29,7 @@ var wsProverTransferCmd = &cobra.Command{
 		id := big.NewInt(int64(proverID.Value().(uint64)))
 		newoperator := common.BytesToAddress(addr.Bytes())
 
-		output.PrintResult(hex.EncodeToString(newoperator[:]))
-		output.PrintResult(addr.String())
+		output.PrintResult(fmt.Sprintf("transfer prover %d operator to %s", id.Int64(), operator))
 
 		out, err := transfer(id, newoperator)
 		if err != nil {
@@ -67,18 +66,5 @@ func transfer(proverID *big.Int, operator common.Address) (any, error) {
 		return nil, err
 	}
 
-	newoperator, err := address.FromBytes(value.Operator[:])
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to convert address: %s", hex.EncodeToString(value.Operator[:]))
-	}
-
-	return &struct {
-		ProverID         *big.Int `json:"proverID"`
-		PreviousOperator string   `json:"previousOperator"`
-		NewOperator      string   `json:"newOperator"`
-	}{
-		ProverID:         value.Id,
-		PreviousOperator: caller.Sender().String(),
-		NewOperator:      newoperator.String(),
-	}, nil
+	return queryProver(proverID)
 }

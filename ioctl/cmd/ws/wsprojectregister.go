@@ -18,7 +18,7 @@ var wsProjectRegisterCmd = &cobra.Command{
 		config.Chinese: "创建w3bstream项目",
 	}, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		out, err := registerProject()
+		out, err := registerProject(int64(projectID.Value().(uint64)))
 		if err != nil {
 			return output.PrintError(err)
 		}
@@ -28,18 +28,24 @@ var wsProjectRegisterCmd = &cobra.Command{
 }
 
 func init() {
+	projectID.RegisterCommand(wsProjectRegisterCmd)
+	_ = wsProjectRegisterCmd.MarkFlagRequired(projectID.Label())
+
+	transferAmount.RegisterCommand(wsProjectRegisterCmd)
+
 	wsProject.AddCommand(wsProjectRegisterCmd)
 }
 
-func registerProject() (any, error) {
+func registerProject(projectID int64) (any, error) {
 	caller, err := NewContractCaller(projectRegistrarABI, projectRegistrarAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create contract caller")
 	}
+	caller.SetAmount(big.NewInt(int64(transferAmount.Value().(uint64))))
 
-	result := NewContractResult(&projectStoreABI, eventOnProjectRegistered, new(contracts.W3bstreamProjectTransfer))
+	result := NewContractResult(&projectStoreABI, eventOnProjectRegistered, new(contracts.W3bstreamProjectProjectBinded))
 
-	_, err = caller.CallAndRetrieveResult(funcProjectRegister, nil, result)
+	_, err = caller.CallAndRetrieveResult(funcProjectRegister, []any{big.NewInt(projectID)}, result)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to call contract: %s.%s", projectRegistrarAddr, funcProjectRegister)
 	}
@@ -48,11 +54,6 @@ func registerProject() (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &struct {
-		ProjectId *big.Int `json:"projectId"`
-		Owner     string   `json:"owner"`
-	}{
-		ProjectId: v.(*contracts.W3bstreamProjectTransfer).TokenId,
-		Owner:     caller.Sender().String(),
-	}, nil
+
+	return queryProject(v.(*contracts.W3bstreamProjectProjectBinded).ProjectId)
 }

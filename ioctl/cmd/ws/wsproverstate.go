@@ -19,10 +19,12 @@ var wsProverPauseCmd = &cobra.Command{
 	}, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := big.NewInt(int64(proverID.Value().(uint64)))
-		if err := pauseProver(id); err != nil {
+		out, err := pauseProver(id)
+		if err != nil {
 			return output.PrintError(err)
 		}
 		output.PrintResult(fmt.Sprintf("prover %d paused", id))
+		output.PrintResult(output.JSONString(out))
 		return nil
 	},
 }
@@ -35,10 +37,12 @@ var wsProverResumeCmd = &cobra.Command{
 	}, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := big.NewInt(int64(proverID.Value().(uint64)))
-		if err := resumeProver(id); err != nil {
+		out, err := resumeProver(id)
+		if err != nil {
 			return output.PrintError(err)
 		}
 		output.PrintResult(fmt.Sprintf("prover %d resumed", id))
+		output.PrintResult(output.JSONString(out))
 		return nil
 	},
 }
@@ -54,39 +58,39 @@ func init() {
 	wsProverCmd.AddCommand(wsProverResumeCmd)
 }
 
-func pauseProver(proverID *big.Int) error {
+func pauseProver(proverID *big.Int) (any, error) {
 	caller, err := NewContractCaller(proverStoreABI, proverStoreAddress)
 	if err != nil {
-		return errors.Wrap(err, "failed to new contract caller")
+		return nil, errors.Wrap(err, "failed to new contract caller")
 	}
 
 	result := NewContractResult(&proverStoreABI, eventOnProverPaused, nil)
 	_, err = caller.CallAndRetrieveResult(funcPauseProver, []any{proverID}, result)
 	if err != nil {
-		return errors.Wrap(err, "failed to call contract")
+		return nil, errors.Wrap(err, "failed to call contract")
 	}
 	_, err = result.Result()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
-
+	return queryProver(proverID)
 }
 
-func resumeProver(proverID *big.Int) error {
+func resumeProver(proverID *big.Int) (any, error) {
 	caller, err := NewContractCaller(proverStoreABI, proverStoreAddress)
 	if err != nil {
-		return errors.Wrap(err, "failed to new contract caller")
+		return nil, errors.Wrap(err, "failed to new contract caller")
 	}
 
 	result := NewContractResult(&proverStoreABI, eventOnProverResumed, nil)
 	_, err = caller.CallAndRetrieveResult(funcResumeProver, []any{proverID}, result)
 	if err != nil {
-		return errors.Wrap(err, "failed to call contract")
+		return nil, errors.Wrap(err, "failed to call contract")
 	}
 	_, err = result.Result()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+
+	return queryProver(proverID)
 }

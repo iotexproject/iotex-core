@@ -57,6 +57,8 @@ const (
 	funcUpdateProver        = "updateNodeType"
 	funcQueryProverNodeType = "nodeType"
 	funcQueryProverIsPaused = "isPaused"
+	funcQueryProverOperator = "operator"
+	funcQueryProverOwner    = "prover"
 	funcPauseProver         = "pause"
 	funcResumeProver        = "resume"
 	funcChangeProverOwner   = "changeOperator"

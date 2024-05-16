@@ -124,16 +124,16 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "register",
-    "outputs":
+    "inputs":
     [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "_projectId",
         "type": "uint256"
       }
     ],
+    "name": "register",
+    "outputs": [],
     "stateMutability": "payable",
     "type": "function"
   },

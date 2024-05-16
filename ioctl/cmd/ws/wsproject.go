@@ -23,11 +23,11 @@ type Command struct {
 
 // flags
 var (
-	flagProjectFile    = flag.NewStringVarP("path", "", "", config.TranslateInLang(_flagProjectFileUsage, config.UILanguage))
-	flagProjectHash    = flag.NewStringVarP("hash", "", "", config.TranslateInLang(_flagProjectHashUsage, config.UILanguage))
-	flagProjectID      = flag.NewUint64VarP("id", "", 0, config.TranslateInLang(_flagProjectIDUsage, config.UILanguage))
-	flagProjectAttrKey = flag.NewStringVarP("key", "", "", config.TranslateInLang(_flagProjectAttributeKeyUsage, config.UILanguage))
-	flagProjectAttrVal = flag.NewStringVarP("val", "", "", config.TranslateInLang(_flagProjectAttributeValUsage, config.UILanguage))
+	projectFilePath = flag.NewStringVarP("path", "", "", config.TranslateInLang(_flagProjectFileUsage, config.UILanguage))
+	projectFileHash = flag.NewStringVarP("hash", "", "", config.TranslateInLang(_flagProjectHashUsage, config.UILanguage))
+	projectID       = flag.NewUint64VarP("id", "", 0, config.TranslateInLang(_flagProjectIDUsage, config.UILanguage))
+	projectAttrKey  = flag.NewStringVarP("key", "", "", config.TranslateInLang(_flagProjectAttributeKeyUsage, config.UILanguage))
+	projectAttrVal  = flag.NewStringVarP("val", "", "", config.TranslateInLang(_flagProjectAttributeValUsage, config.UILanguage))
 )
 
 // flag multi-languages
@@ -68,9 +68,7 @@ var wsProject = &cobra.Command{
 
 // ioctl global configuration
 var (
-	chainEndpoint       = "api.testnet.iotex.one:443"
-	chainMonitoEndpoint = "https://babel-api.testnet.iotex.io"
-	ipfsEndpoint        = "ipfs.mainnet.iotex.io"
+	ipfsEndpoint = "ipfs.mainnet.iotex.io"
 )
 
 // contracts and abis
@@ -96,11 +94,12 @@ const (
 	funcIsProjectPaused     = "isPaused"
 	funcGetProjectAttr      = "attribute"
 	funcSetProjectAttr      = "setAttributes"
+	funcQueryProjectOwner   = "ownerOf"
 )
 
 // contract events care about
 const (
-	eventOnProjectRegistered  = "Transfer"
+	eventOnProjectRegistered  = "ProjectBinded"
 	eventProjectConfigUpdated = "ProjectConfigUpdated"
 	eventProjectPaused        = "ProjectPaused"
 	eventProjectResumed       = "ProjectResumed"

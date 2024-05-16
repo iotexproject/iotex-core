@@ -37,7 +37,7 @@ type W3bstreamProjectProjectConfig struct {
 
 // W3bstreamProjectMetaData contains all meta data concerning the W3bstreamProject contract.
 var W3bstreamProjectMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"approved\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"approved\",\"type\":\"bool\"}],\"name\":\"ApprovalForAll\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"projectId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"key\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"value\",\"type\":\"bytes\"}],\"name\":\"AttributeSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"minter\",\"type\":\"address\"}],\"name\":\"MinterSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"projectId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"uri\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"hash\",\"type\":\"bytes32\"}],\"name\":\"ProjectConfigUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"projectId\",\"type\":\"uint256\"}],\"name\":\"ProjectPaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"projectId\",\"type\":\"uint256\"}],\"name\":\"ProjectResumed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"_name\",\"type\":\"bytes32\"}],\"name\":\"attribute\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"attributes\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32[]\",\"name\":\"_keys\",\"type\":\"bytes32[]\"}],\"name\":\"attributesOf\",\"outputs\":[{\"internalType\":\"bytes[]\",\"name\":\"values_\",\"type\":\"bytes[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"}],\"name\":\"config\",\"outputs\":[{\"components\":[{\"internalType\":\"string\",\"name\":\"uri\",\"type\":\"string\"},{\"internalType\":\"bytes32\",\"name\":\"hash\",\"type\":\"bytes32\"}],\"internalType\":\"structW3bstreamProject.ProjectConfig\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"count\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"getApproved\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_name\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"_symbol\",\"type\":\"string\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"isApprovedForAll\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"}],\"name\":\"isPaused\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_owner\",\"type\":\"address\"}],\"name\":\"mint\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"projectId_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minter\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"ownerOf\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"}],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"}],\"name\":\"resume\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"safeTransferFrom\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"safeTransferFrom\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"approved\",\"type\":\"bool\"}],\"name\":\"setApprovalForAll\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32[]\",\"name\":\"_keys\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes[]\",\"name\":\"_values\",\"type\":\"bytes[]\"}],\"name\":\"setAttributes\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_minter\",\"type\":\"address\"}],\"name\":\"setMinter\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"interfaceId\",\"type\":\"bytes4\"}],\"name\":\"supportsInterface\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"tokenURI\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"_uri\",\"type\":\"string\"},{\"internalType\":\"bytes32\",\"name\":\"_hash\",\"type\":\"bytes32\"}],\"name\":\"updateConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"projectId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"key\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"value\",\"type\":\"bytes\"}],\"name\":\"AttributeSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"binder\",\"type\":\"address\"}],\"name\":\"BinderSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"projectId\",\"type\":\"uint256\"}],\"name\":\"ProjectBinded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"projectId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"uri\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"hash\",\"type\":\"bytes32\"}],\"name\":\"ProjectConfigUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"projectId\",\"type\":\"uint256\"}],\"name\":\"ProjectPaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"projectId\",\"type\":\"uint256\"}],\"name\":\"ProjectResumed\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"_name\",\"type\":\"bytes32\"}],\"name\":\"attribute\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"attributes\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32[]\",\"name\":\"_keys\",\"type\":\"bytes32[]\"}],\"name\":\"attributesOf\",\"outputs\":[{\"internalType\":\"bytes[]\",\"name\":\"values_\",\"type\":\"bytes[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"}],\"name\":\"bind\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"binder\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"}],\"name\":\"config\",\"outputs\":[{\"components\":[{\"internalType\":\"string\",\"name\":\"uri\",\"type\":\"string\"},{\"internalType\":\"bytes32\",\"name\":\"hash\",\"type\":\"bytes32\"}],\"internalType\":\"structW3bstreamProject.ProjectConfig\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"count\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_project\",\"type\":\"address\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"}],\"name\":\"isPaused\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"}],\"name\":\"isValidProject\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"}],\"name\":\"ownerOf\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"}],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"project\",\"outputs\":[{\"internalType\":\"contractIERC721\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"}],\"name\":\"resume\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32[]\",\"name\":\"_keys\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes[]\",\"name\":\"_values\",\"type\":\"bytes[]\"}],\"name\":\"setAttributes\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_binder\",\"type\":\"address\"}],\"name\":\"setBinder\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"_uri\",\"type\":\"string\"},{\"internalType\":\"bytes32\",\"name\":\"_hash\",\"type\":\"bytes32\"}],\"name\":\"updateConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 // W3bstreamProjectABI is the input ABI used to generate the binding from.
@@ -279,35 +279,35 @@ func (_W3bstreamProject *W3bstreamProjectCallerSession) AttributesOf(_projectId 
 	return _W3bstreamProject.Contract.AttributesOf(&_W3bstreamProject.CallOpts, _projectId, _keys)
 }
 
-// BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
+// Binder is a free data retrieval call binding the contract method 0xacba7b42.
 //
-// Solidity: function balanceOf(address owner) view returns(uint256)
-func (_W3bstreamProject *W3bstreamProjectCaller) BalanceOf(opts *bind.CallOpts, owner common.Address) (*big.Int, error) {
+// Solidity: function binder() view returns(address)
+func (_W3bstreamProject *W3bstreamProjectCaller) Binder(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _W3bstreamProject.contract.Call(opts, &out, "balanceOf", owner)
+	err := _W3bstreamProject.contract.Call(opts, &out, "binder")
 
 	if err != nil {
-		return *new(*big.Int), err
+		return *new(common.Address), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 
 	return out0, err
 
 }
 
-// BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
+// Binder is a free data retrieval call binding the contract method 0xacba7b42.
 //
-// Solidity: function balanceOf(address owner) view returns(uint256)
-func (_W3bstreamProject *W3bstreamProjectSession) BalanceOf(owner common.Address) (*big.Int, error) {
-	return _W3bstreamProject.Contract.BalanceOf(&_W3bstreamProject.CallOpts, owner)
+// Solidity: function binder() view returns(address)
+func (_W3bstreamProject *W3bstreamProjectSession) Binder() (common.Address, error) {
+	return _W3bstreamProject.Contract.Binder(&_W3bstreamProject.CallOpts)
 }
 
-// BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
+// Binder is a free data retrieval call binding the contract method 0xacba7b42.
 //
-// Solidity: function balanceOf(address owner) view returns(uint256)
-func (_W3bstreamProject *W3bstreamProjectCallerSession) BalanceOf(owner common.Address) (*big.Int, error) {
-	return _W3bstreamProject.Contract.BalanceOf(&_W3bstreamProject.CallOpts, owner)
+// Solidity: function binder() view returns(address)
+func (_W3bstreamProject *W3bstreamProjectCallerSession) Binder() (common.Address, error) {
+	return _W3bstreamProject.Contract.Binder(&_W3bstreamProject.CallOpts)
 }
 
 // Config is a free data retrieval call binding the contract method 0x84691767.
@@ -372,68 +372,6 @@ func (_W3bstreamProject *W3bstreamProjectCallerSession) Count() (*big.Int, error
 	return _W3bstreamProject.Contract.Count(&_W3bstreamProject.CallOpts)
 }
 
-// GetApproved is a free data retrieval call binding the contract method 0x081812fc.
-//
-// Solidity: function getApproved(uint256 tokenId) view returns(address)
-func (_W3bstreamProject *W3bstreamProjectCaller) GetApproved(opts *bind.CallOpts, tokenId *big.Int) (common.Address, error) {
-	var out []interface{}
-	err := _W3bstreamProject.contract.Call(opts, &out, "getApproved", tokenId)
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// GetApproved is a free data retrieval call binding the contract method 0x081812fc.
-//
-// Solidity: function getApproved(uint256 tokenId) view returns(address)
-func (_W3bstreamProject *W3bstreamProjectSession) GetApproved(tokenId *big.Int) (common.Address, error) {
-	return _W3bstreamProject.Contract.GetApproved(&_W3bstreamProject.CallOpts, tokenId)
-}
-
-// GetApproved is a free data retrieval call binding the contract method 0x081812fc.
-//
-// Solidity: function getApproved(uint256 tokenId) view returns(address)
-func (_W3bstreamProject *W3bstreamProjectCallerSession) GetApproved(tokenId *big.Int) (common.Address, error) {
-	return _W3bstreamProject.Contract.GetApproved(&_W3bstreamProject.CallOpts, tokenId)
-}
-
-// IsApprovedForAll is a free data retrieval call binding the contract method 0xe985e9c5.
-//
-// Solidity: function isApprovedForAll(address owner, address operator) view returns(bool)
-func (_W3bstreamProject *W3bstreamProjectCaller) IsApprovedForAll(opts *bind.CallOpts, owner common.Address, operator common.Address) (bool, error) {
-	var out []interface{}
-	err := _W3bstreamProject.contract.Call(opts, &out, "isApprovedForAll", owner, operator)
-
-	if err != nil {
-		return *new(bool), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
-
-	return out0, err
-
-}
-
-// IsApprovedForAll is a free data retrieval call binding the contract method 0xe985e9c5.
-//
-// Solidity: function isApprovedForAll(address owner, address operator) view returns(bool)
-func (_W3bstreamProject *W3bstreamProjectSession) IsApprovedForAll(owner common.Address, operator common.Address) (bool, error) {
-	return _W3bstreamProject.Contract.IsApprovedForAll(&_W3bstreamProject.CallOpts, owner, operator)
-}
-
-// IsApprovedForAll is a free data retrieval call binding the contract method 0xe985e9c5.
-//
-// Solidity: function isApprovedForAll(address owner, address operator) view returns(bool)
-func (_W3bstreamProject *W3bstreamProjectCallerSession) IsApprovedForAll(owner common.Address, operator common.Address) (bool, error) {
-	return _W3bstreamProject.Contract.IsApprovedForAll(&_W3bstreamProject.CallOpts, owner, operator)
-}
-
 // IsPaused is a free data retrieval call binding the contract method 0xbdf2a43c.
 //
 // Solidity: function isPaused(uint256 _projectId) view returns(bool)
@@ -465,66 +403,35 @@ func (_W3bstreamProject *W3bstreamProjectCallerSession) IsPaused(_projectId *big
 	return _W3bstreamProject.Contract.IsPaused(&_W3bstreamProject.CallOpts, _projectId)
 }
 
-// Minter is a free data retrieval call binding the contract method 0x07546172.
+// IsValidProject is a free data retrieval call binding the contract method 0x2c7caaf1.
 //
-// Solidity: function minter() view returns(address)
-func (_W3bstreamProject *W3bstreamProjectCaller) Minter(opts *bind.CallOpts) (common.Address, error) {
+// Solidity: function isValidProject(uint256 _projectId) view returns(bool)
+func (_W3bstreamProject *W3bstreamProjectCaller) IsValidProject(opts *bind.CallOpts, _projectId *big.Int) (bool, error) {
 	var out []interface{}
-	err := _W3bstreamProject.contract.Call(opts, &out, "minter")
+	err := _W3bstreamProject.contract.Call(opts, &out, "isValidProject", _projectId)
 
 	if err != nil {
-		return *new(common.Address), err
+		return *new(bool), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
 
 	return out0, err
 
 }
 
-// Minter is a free data retrieval call binding the contract method 0x07546172.
+// IsValidProject is a free data retrieval call binding the contract method 0x2c7caaf1.
 //
-// Solidity: function minter() view returns(address)
-func (_W3bstreamProject *W3bstreamProjectSession) Minter() (common.Address, error) {
-	return _W3bstreamProject.Contract.Minter(&_W3bstreamProject.CallOpts)
+// Solidity: function isValidProject(uint256 _projectId) view returns(bool)
+func (_W3bstreamProject *W3bstreamProjectSession) IsValidProject(_projectId *big.Int) (bool, error) {
+	return _W3bstreamProject.Contract.IsValidProject(&_W3bstreamProject.CallOpts, _projectId)
 }
 
-// Minter is a free data retrieval call binding the contract method 0x07546172.
+// IsValidProject is a free data retrieval call binding the contract method 0x2c7caaf1.
 //
-// Solidity: function minter() view returns(address)
-func (_W3bstreamProject *W3bstreamProjectCallerSession) Minter() (common.Address, error) {
-	return _W3bstreamProject.Contract.Minter(&_W3bstreamProject.CallOpts)
-}
-
-// Name is a free data retrieval call binding the contract method 0x06fdde03.
-//
-// Solidity: function name() view returns(string)
-func (_W3bstreamProject *W3bstreamProjectCaller) Name(opts *bind.CallOpts) (string, error) {
-	var out []interface{}
-	err := _W3bstreamProject.contract.Call(opts, &out, "name")
-
-	if err != nil {
-		return *new(string), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(string)).(*string)
-
-	return out0, err
-
-}
-
-// Name is a free data retrieval call binding the contract method 0x06fdde03.
-//
-// Solidity: function name() view returns(string)
-func (_W3bstreamProject *W3bstreamProjectSession) Name() (string, error) {
-	return _W3bstreamProject.Contract.Name(&_W3bstreamProject.CallOpts)
-}
-
-// Name is a free data retrieval call binding the contract method 0x06fdde03.
-//
-// Solidity: function name() view returns(string)
-func (_W3bstreamProject *W3bstreamProjectCallerSession) Name() (string, error) {
-	return _W3bstreamProject.Contract.Name(&_W3bstreamProject.CallOpts)
+// Solidity: function isValidProject(uint256 _projectId) view returns(bool)
+func (_W3bstreamProject *W3bstreamProjectCallerSession) IsValidProject(_projectId *big.Int) (bool, error) {
+	return _W3bstreamProject.Contract.IsValidProject(&_W3bstreamProject.CallOpts, _projectId)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
@@ -560,10 +467,10 @@ func (_W3bstreamProject *W3bstreamProjectCallerSession) Owner() (common.Address,
 
 // OwnerOf is a free data retrieval call binding the contract method 0x6352211e.
 //
-// Solidity: function ownerOf(uint256 tokenId) view returns(address)
-func (_W3bstreamProject *W3bstreamProjectCaller) OwnerOf(opts *bind.CallOpts, tokenId *big.Int) (common.Address, error) {
+// Solidity: function ownerOf(uint256 _projectId) view returns(address)
+func (_W3bstreamProject *W3bstreamProjectCaller) OwnerOf(opts *bind.CallOpts, _projectId *big.Int) (common.Address, error) {
 	var out []interface{}
-	err := _W3bstreamProject.contract.Call(opts, &out, "ownerOf", tokenId)
+	err := _W3bstreamProject.contract.Call(opts, &out, "ownerOf", _projectId)
 
 	if err != nil {
 		return *new(common.Address), err
@@ -577,172 +484,89 @@ func (_W3bstreamProject *W3bstreamProjectCaller) OwnerOf(opts *bind.CallOpts, to
 
 // OwnerOf is a free data retrieval call binding the contract method 0x6352211e.
 //
-// Solidity: function ownerOf(uint256 tokenId) view returns(address)
-func (_W3bstreamProject *W3bstreamProjectSession) OwnerOf(tokenId *big.Int) (common.Address, error) {
-	return _W3bstreamProject.Contract.OwnerOf(&_W3bstreamProject.CallOpts, tokenId)
+// Solidity: function ownerOf(uint256 _projectId) view returns(address)
+func (_W3bstreamProject *W3bstreamProjectSession) OwnerOf(_projectId *big.Int) (common.Address, error) {
+	return _W3bstreamProject.Contract.OwnerOf(&_W3bstreamProject.CallOpts, _projectId)
 }
 
 // OwnerOf is a free data retrieval call binding the contract method 0x6352211e.
 //
-// Solidity: function ownerOf(uint256 tokenId) view returns(address)
-func (_W3bstreamProject *W3bstreamProjectCallerSession) OwnerOf(tokenId *big.Int) (common.Address, error) {
-	return _W3bstreamProject.Contract.OwnerOf(&_W3bstreamProject.CallOpts, tokenId)
+// Solidity: function ownerOf(uint256 _projectId) view returns(address)
+func (_W3bstreamProject *W3bstreamProjectCallerSession) OwnerOf(_projectId *big.Int) (common.Address, error) {
+	return _W3bstreamProject.Contract.OwnerOf(&_W3bstreamProject.CallOpts, _projectId)
 }
 
-// SupportsInterface is a free data retrieval call binding the contract method 0x01ffc9a7.
+// Project is a free data retrieval call binding the contract method 0xf60ca60d.
 //
-// Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
-func (_W3bstreamProject *W3bstreamProjectCaller) SupportsInterface(opts *bind.CallOpts, interfaceId [4]byte) (bool, error) {
+// Solidity: function project() view returns(address)
+func (_W3bstreamProject *W3bstreamProjectCaller) Project(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _W3bstreamProject.contract.Call(opts, &out, "supportsInterface", interfaceId)
+	err := _W3bstreamProject.contract.Call(opts, &out, "project")
 
 	if err != nil {
-		return *new(bool), err
+		return *new(common.Address), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 
 	return out0, err
 
 }
 
-// SupportsInterface is a free data retrieval call binding the contract method 0x01ffc9a7.
+// Project is a free data retrieval call binding the contract method 0xf60ca60d.
 //
-// Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
-func (_W3bstreamProject *W3bstreamProjectSession) SupportsInterface(interfaceId [4]byte) (bool, error) {
-	return _W3bstreamProject.Contract.SupportsInterface(&_W3bstreamProject.CallOpts, interfaceId)
+// Solidity: function project() view returns(address)
+func (_W3bstreamProject *W3bstreamProjectSession) Project() (common.Address, error) {
+	return _W3bstreamProject.Contract.Project(&_W3bstreamProject.CallOpts)
 }
 
-// SupportsInterface is a free data retrieval call binding the contract method 0x01ffc9a7.
+// Project is a free data retrieval call binding the contract method 0xf60ca60d.
 //
-// Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
-func (_W3bstreamProject *W3bstreamProjectCallerSession) SupportsInterface(interfaceId [4]byte) (bool, error) {
-	return _W3bstreamProject.Contract.SupportsInterface(&_W3bstreamProject.CallOpts, interfaceId)
+// Solidity: function project() view returns(address)
+func (_W3bstreamProject *W3bstreamProjectCallerSession) Project() (common.Address, error) {
+	return _W3bstreamProject.Contract.Project(&_W3bstreamProject.CallOpts)
 }
 
-// Symbol is a free data retrieval call binding the contract method 0x95d89b41.
+// Bind is a paid mutator transaction binding the contract method 0x1fb8b00e.
 //
-// Solidity: function symbol() view returns(string)
-func (_W3bstreamProject *W3bstreamProjectCaller) Symbol(opts *bind.CallOpts) (string, error) {
-	var out []interface{}
-	err := _W3bstreamProject.contract.Call(opts, &out, "symbol")
-
-	if err != nil {
-		return *new(string), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(string)).(*string)
-
-	return out0, err
-
+// Solidity: function bind(uint256 _projectId) returns()
+func (_W3bstreamProject *W3bstreamProjectTransactor) Bind(opts *bind.TransactOpts, _projectId *big.Int) (*types.Transaction, error) {
+	return _W3bstreamProject.contract.Transact(opts, "bind", _projectId)
 }
 
-// Symbol is a free data retrieval call binding the contract method 0x95d89b41.
+// Bind is a paid mutator transaction binding the contract method 0x1fb8b00e.
 //
-// Solidity: function symbol() view returns(string)
-func (_W3bstreamProject *W3bstreamProjectSession) Symbol() (string, error) {
-	return _W3bstreamProject.Contract.Symbol(&_W3bstreamProject.CallOpts)
+// Solidity: function bind(uint256 _projectId) returns()
+func (_W3bstreamProject *W3bstreamProjectSession) Bind(_projectId *big.Int) (*types.Transaction, error) {
+	return _W3bstreamProject.Contract.Bind(&_W3bstreamProject.TransactOpts, _projectId)
 }
 
-// Symbol is a free data retrieval call binding the contract method 0x95d89b41.
+// Bind is a paid mutator transaction binding the contract method 0x1fb8b00e.
 //
-// Solidity: function symbol() view returns(string)
-func (_W3bstreamProject *W3bstreamProjectCallerSession) Symbol() (string, error) {
-	return _W3bstreamProject.Contract.Symbol(&_W3bstreamProject.CallOpts)
+// Solidity: function bind(uint256 _projectId) returns()
+func (_W3bstreamProject *W3bstreamProjectTransactorSession) Bind(_projectId *big.Int) (*types.Transaction, error) {
+	return _W3bstreamProject.Contract.Bind(&_W3bstreamProject.TransactOpts, _projectId)
 }
 
-// TokenURI is a free data retrieval call binding the contract method 0xc87b56dd.
+// Initialize is a paid mutator transaction binding the contract method 0xc4d66de8.
 //
-// Solidity: function tokenURI(uint256 tokenId) view returns(string)
-func (_W3bstreamProject *W3bstreamProjectCaller) TokenURI(opts *bind.CallOpts, tokenId *big.Int) (string, error) {
-	var out []interface{}
-	err := _W3bstreamProject.contract.Call(opts, &out, "tokenURI", tokenId)
-
-	if err != nil {
-		return *new(string), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(string)).(*string)
-
-	return out0, err
-
+// Solidity: function initialize(address _project) returns()
+func (_W3bstreamProject *W3bstreamProjectTransactor) Initialize(opts *bind.TransactOpts, _project common.Address) (*types.Transaction, error) {
+	return _W3bstreamProject.contract.Transact(opts, "initialize", _project)
 }
 
-// TokenURI is a free data retrieval call binding the contract method 0xc87b56dd.
+// Initialize is a paid mutator transaction binding the contract method 0xc4d66de8.
 //
-// Solidity: function tokenURI(uint256 tokenId) view returns(string)
-func (_W3bstreamProject *W3bstreamProjectSession) TokenURI(tokenId *big.Int) (string, error) {
-	return _W3bstreamProject.Contract.TokenURI(&_W3bstreamProject.CallOpts, tokenId)
+// Solidity: function initialize(address _project) returns()
+func (_W3bstreamProject *W3bstreamProjectSession) Initialize(_project common.Address) (*types.Transaction, error) {
+	return _W3bstreamProject.Contract.Initialize(&_W3bstreamProject.TransactOpts, _project)
 }
 
-// TokenURI is a free data retrieval call binding the contract method 0xc87b56dd.
+// Initialize is a paid mutator transaction binding the contract method 0xc4d66de8.
 //
-// Solidity: function tokenURI(uint256 tokenId) view returns(string)
-func (_W3bstreamProject *W3bstreamProjectCallerSession) TokenURI(tokenId *big.Int) (string, error) {
-	return _W3bstreamProject.Contract.TokenURI(&_W3bstreamProject.CallOpts, tokenId)
-}
-
-// Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
-//
-// Solidity: function approve(address to, uint256 tokenId) returns()
-func (_W3bstreamProject *W3bstreamProjectTransactor) Approve(opts *bind.TransactOpts, to common.Address, tokenId *big.Int) (*types.Transaction, error) {
-	return _W3bstreamProject.contract.Transact(opts, "approve", to, tokenId)
-}
-
-// Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
-//
-// Solidity: function approve(address to, uint256 tokenId) returns()
-func (_W3bstreamProject *W3bstreamProjectSession) Approve(to common.Address, tokenId *big.Int) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.Approve(&_W3bstreamProject.TransactOpts, to, tokenId)
-}
-
-// Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
-//
-// Solidity: function approve(address to, uint256 tokenId) returns()
-func (_W3bstreamProject *W3bstreamProjectTransactorSession) Approve(to common.Address, tokenId *big.Int) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.Approve(&_W3bstreamProject.TransactOpts, to, tokenId)
-}
-
-// Initialize is a paid mutator transaction binding the contract method 0x4cd88b76.
-//
-// Solidity: function initialize(string _name, string _symbol) returns()
-func (_W3bstreamProject *W3bstreamProjectTransactor) Initialize(opts *bind.TransactOpts, _name string, _symbol string) (*types.Transaction, error) {
-	return _W3bstreamProject.contract.Transact(opts, "initialize", _name, _symbol)
-}
-
-// Initialize is a paid mutator transaction binding the contract method 0x4cd88b76.
-//
-// Solidity: function initialize(string _name, string _symbol) returns()
-func (_W3bstreamProject *W3bstreamProjectSession) Initialize(_name string, _symbol string) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.Initialize(&_W3bstreamProject.TransactOpts, _name, _symbol)
-}
-
-// Initialize is a paid mutator transaction binding the contract method 0x4cd88b76.
-//
-// Solidity: function initialize(string _name, string _symbol) returns()
-func (_W3bstreamProject *W3bstreamProjectTransactorSession) Initialize(_name string, _symbol string) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.Initialize(&_W3bstreamProject.TransactOpts, _name, _symbol)
-}
-
-// Mint is a paid mutator transaction binding the contract method 0x6a627842.
-//
-// Solidity: function mint(address _owner) returns(uint256 projectId_)
-func (_W3bstreamProject *W3bstreamProjectTransactor) Mint(opts *bind.TransactOpts, _owner common.Address) (*types.Transaction, error) {
-	return _W3bstreamProject.contract.Transact(opts, "mint", _owner)
-}
-
-// Mint is a paid mutator transaction binding the contract method 0x6a627842.
-//
-// Solidity: function mint(address _owner) returns(uint256 projectId_)
-func (_W3bstreamProject *W3bstreamProjectSession) Mint(_owner common.Address) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.Mint(&_W3bstreamProject.TransactOpts, _owner)
-}
-
-// Mint is a paid mutator transaction binding the contract method 0x6a627842.
-//
-// Solidity: function mint(address _owner) returns(uint256 projectId_)
-func (_W3bstreamProject *W3bstreamProjectTransactorSession) Mint(_owner common.Address) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.Mint(&_W3bstreamProject.TransactOpts, _owner)
+// Solidity: function initialize(address _project) returns()
+func (_W3bstreamProject *W3bstreamProjectTransactorSession) Initialize(_project common.Address) (*types.Transaction, error) {
+	return _W3bstreamProject.Contract.Initialize(&_W3bstreamProject.TransactOpts, _project)
 }
 
 // Pause is a paid mutator transaction binding the contract method 0x136439dd.
@@ -808,69 +632,6 @@ func (_W3bstreamProject *W3bstreamProjectTransactorSession) Resume(_projectId *b
 	return _W3bstreamProject.Contract.Resume(&_W3bstreamProject.TransactOpts, _projectId)
 }
 
-// SafeTransferFrom is a paid mutator transaction binding the contract method 0x42842e0e.
-//
-// Solidity: function safeTransferFrom(address from, address to, uint256 tokenId) returns()
-func (_W3bstreamProject *W3bstreamProjectTransactor) SafeTransferFrom(opts *bind.TransactOpts, from common.Address, to common.Address, tokenId *big.Int) (*types.Transaction, error) {
-	return _W3bstreamProject.contract.Transact(opts, "safeTransferFrom", from, to, tokenId)
-}
-
-// SafeTransferFrom is a paid mutator transaction binding the contract method 0x42842e0e.
-//
-// Solidity: function safeTransferFrom(address from, address to, uint256 tokenId) returns()
-func (_W3bstreamProject *W3bstreamProjectSession) SafeTransferFrom(from common.Address, to common.Address, tokenId *big.Int) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.SafeTransferFrom(&_W3bstreamProject.TransactOpts, from, to, tokenId)
-}
-
-// SafeTransferFrom is a paid mutator transaction binding the contract method 0x42842e0e.
-//
-// Solidity: function safeTransferFrom(address from, address to, uint256 tokenId) returns()
-func (_W3bstreamProject *W3bstreamProjectTransactorSession) SafeTransferFrom(from common.Address, to common.Address, tokenId *big.Int) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.SafeTransferFrom(&_W3bstreamProject.TransactOpts, from, to, tokenId)
-}
-
-// SafeTransferFrom0 is a paid mutator transaction binding the contract method 0xb88d4fde.
-//
-// Solidity: function safeTransferFrom(address from, address to, uint256 tokenId, bytes data) returns()
-func (_W3bstreamProject *W3bstreamProjectTransactor) SafeTransferFrom0(opts *bind.TransactOpts, from common.Address, to common.Address, tokenId *big.Int, data []byte) (*types.Transaction, error) {
-	return _W3bstreamProject.contract.Transact(opts, "safeTransferFrom0", from, to, tokenId, data)
-}
-
-// SafeTransferFrom0 is a paid mutator transaction binding the contract method 0xb88d4fde.
-//
-// Solidity: function safeTransferFrom(address from, address to, uint256 tokenId, bytes data) returns()
-func (_W3bstreamProject *W3bstreamProjectSession) SafeTransferFrom0(from common.Address, to common.Address, tokenId *big.Int, data []byte) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.SafeTransferFrom0(&_W3bstreamProject.TransactOpts, from, to, tokenId, data)
-}
-
-// SafeTransferFrom0 is a paid mutator transaction binding the contract method 0xb88d4fde.
-//
-// Solidity: function safeTransferFrom(address from, address to, uint256 tokenId, bytes data) returns()
-func (_W3bstreamProject *W3bstreamProjectTransactorSession) SafeTransferFrom0(from common.Address, to common.Address, tokenId *big.Int, data []byte) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.SafeTransferFrom0(&_W3bstreamProject.TransactOpts, from, to, tokenId, data)
-}
-
-// SetApprovalForAll is a paid mutator transaction binding the contract method 0xa22cb465.
-//
-// Solidity: function setApprovalForAll(address operator, bool approved) returns()
-func (_W3bstreamProject *W3bstreamProjectTransactor) SetApprovalForAll(opts *bind.TransactOpts, operator common.Address, approved bool) (*types.Transaction, error) {
-	return _W3bstreamProject.contract.Transact(opts, "setApprovalForAll", operator, approved)
-}
-
-// SetApprovalForAll is a paid mutator transaction binding the contract method 0xa22cb465.
-//
-// Solidity: function setApprovalForAll(address operator, bool approved) returns()
-func (_W3bstreamProject *W3bstreamProjectSession) SetApprovalForAll(operator common.Address, approved bool) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.SetApprovalForAll(&_W3bstreamProject.TransactOpts, operator, approved)
-}
-
-// SetApprovalForAll is a paid mutator transaction binding the contract method 0xa22cb465.
-//
-// Solidity: function setApprovalForAll(address operator, bool approved) returns()
-func (_W3bstreamProject *W3bstreamProjectTransactorSession) SetApprovalForAll(operator common.Address, approved bool) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.SetApprovalForAll(&_W3bstreamProject.TransactOpts, operator, approved)
-}
-
 // SetAttributes is a paid mutator transaction binding the contract method 0xa122effb.
 //
 // Solidity: function setAttributes(uint256 _projectId, bytes32[] _keys, bytes[] _values) returns()
@@ -892,46 +653,25 @@ func (_W3bstreamProject *W3bstreamProjectTransactorSession) SetAttributes(_proje
 	return _W3bstreamProject.Contract.SetAttributes(&_W3bstreamProject.TransactOpts, _projectId, _keys, _values)
 }
 
-// SetMinter is a paid mutator transaction binding the contract method 0xfca3b5aa.
+// SetBinder is a paid mutator transaction binding the contract method 0x536c54fa.
 //
-// Solidity: function setMinter(address _minter) returns()
-func (_W3bstreamProject *W3bstreamProjectTransactor) SetMinter(opts *bind.TransactOpts, _minter common.Address) (*types.Transaction, error) {
-	return _W3bstreamProject.contract.Transact(opts, "setMinter", _minter)
+// Solidity: function setBinder(address _binder) returns()
+func (_W3bstreamProject *W3bstreamProjectTransactor) SetBinder(opts *bind.TransactOpts, _binder common.Address) (*types.Transaction, error) {
+	return _W3bstreamProject.contract.Transact(opts, "setBinder", _binder)
 }
 
-// SetMinter is a paid mutator transaction binding the contract method 0xfca3b5aa.
+// SetBinder is a paid mutator transaction binding the contract method 0x536c54fa.
 //
-// Solidity: function setMinter(address _minter) returns()
-func (_W3bstreamProject *W3bstreamProjectSession) SetMinter(_minter common.Address) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.SetMinter(&_W3bstreamProject.TransactOpts, _minter)
+// Solidity: function setBinder(address _binder) returns()
+func (_W3bstreamProject *W3bstreamProjectSession) SetBinder(_binder common.Address) (*types.Transaction, error) {
+	return _W3bstreamProject.Contract.SetBinder(&_W3bstreamProject.TransactOpts, _binder)
 }
 
-// SetMinter is a paid mutator transaction binding the contract method 0xfca3b5aa.
+// SetBinder is a paid mutator transaction binding the contract method 0x536c54fa.
 //
-// Solidity: function setMinter(address _minter) returns()
-func (_W3bstreamProject *W3bstreamProjectTransactorSession) SetMinter(_minter common.Address) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.SetMinter(&_W3bstreamProject.TransactOpts, _minter)
-}
-
-// TransferFrom is a paid mutator transaction binding the contract method 0x23b872dd.
-//
-// Solidity: function transferFrom(address from, address to, uint256 tokenId) returns()
-func (_W3bstreamProject *W3bstreamProjectTransactor) TransferFrom(opts *bind.TransactOpts, from common.Address, to common.Address, tokenId *big.Int) (*types.Transaction, error) {
-	return _W3bstreamProject.contract.Transact(opts, "transferFrom", from, to, tokenId)
-}
-
-// TransferFrom is a paid mutator transaction binding the contract method 0x23b872dd.
-//
-// Solidity: function transferFrom(address from, address to, uint256 tokenId) returns()
-func (_W3bstreamProject *W3bstreamProjectSession) TransferFrom(from common.Address, to common.Address, tokenId *big.Int) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.TransferFrom(&_W3bstreamProject.TransactOpts, from, to, tokenId)
-}
-
-// TransferFrom is a paid mutator transaction binding the contract method 0x23b872dd.
-//
-// Solidity: function transferFrom(address from, address to, uint256 tokenId) returns()
-func (_W3bstreamProject *W3bstreamProjectTransactorSession) TransferFrom(from common.Address, to common.Address, tokenId *big.Int) (*types.Transaction, error) {
-	return _W3bstreamProject.Contract.TransferFrom(&_W3bstreamProject.TransactOpts, from, to, tokenId)
+// Solidity: function setBinder(address _binder) returns()
+func (_W3bstreamProject *W3bstreamProjectTransactorSession) SetBinder(_binder common.Address) (*types.Transaction, error) {
+	return _W3bstreamProject.Contract.SetBinder(&_W3bstreamProject.TransactOpts, _binder)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
@@ -974,322 +714,6 @@ func (_W3bstreamProject *W3bstreamProjectSession) UpdateConfig(_projectId *big.I
 // Solidity: function updateConfig(uint256 _projectId, string _uri, bytes32 _hash) returns()
 func (_W3bstreamProject *W3bstreamProjectTransactorSession) UpdateConfig(_projectId *big.Int, _uri string, _hash [32]byte) (*types.Transaction, error) {
 	return _W3bstreamProject.Contract.UpdateConfig(&_W3bstreamProject.TransactOpts, _projectId, _uri, _hash)
-}
-
-// W3bstreamProjectApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the W3bstreamProject contract.
-type W3bstreamProjectApprovalIterator struct {
-	Event *W3bstreamProjectApproval // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *W3bstreamProjectApprovalIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(W3bstreamProjectApproval)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(W3bstreamProjectApproval)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *W3bstreamProjectApprovalIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *W3bstreamProjectApprovalIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// W3bstreamProjectApproval represents a Approval event raised by the W3bstreamProject contract.
-type W3bstreamProjectApproval struct {
-	Owner    common.Address
-	Approved common.Address
-	TokenId  *big.Int
-	Raw      types.Log // Blockchain specific contextual infos
-}
-
-// FilterApproval is a free log retrieval operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
-//
-// Solidity: event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId)
-func (_W3bstreamProject *W3bstreamProjectFilterer) FilterApproval(opts *bind.FilterOpts, owner []common.Address, approved []common.Address, tokenId []*big.Int) (*W3bstreamProjectApprovalIterator, error) {
-
-	var ownerRule []interface{}
-	for _, ownerItem := range owner {
-		ownerRule = append(ownerRule, ownerItem)
-	}
-	var approvedRule []interface{}
-	for _, approvedItem := range approved {
-		approvedRule = append(approvedRule, approvedItem)
-	}
-	var tokenIdRule []interface{}
-	for _, tokenIdItem := range tokenId {
-		tokenIdRule = append(tokenIdRule, tokenIdItem)
-	}
-
-	logs, sub, err := _W3bstreamProject.contract.FilterLogs(opts, "Approval", ownerRule, approvedRule, tokenIdRule)
-	if err != nil {
-		return nil, err
-	}
-	return &W3bstreamProjectApprovalIterator{contract: _W3bstreamProject.contract, event: "Approval", logs: logs, sub: sub}, nil
-}
-
-// WatchApproval is a free log subscription operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
-//
-// Solidity: event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId)
-func (_W3bstreamProject *W3bstreamProjectFilterer) WatchApproval(opts *bind.WatchOpts, sink chan<- *W3bstreamProjectApproval, owner []common.Address, approved []common.Address, tokenId []*big.Int) (event.Subscription, error) {
-
-	var ownerRule []interface{}
-	for _, ownerItem := range owner {
-		ownerRule = append(ownerRule, ownerItem)
-	}
-	var approvedRule []interface{}
-	for _, approvedItem := range approved {
-		approvedRule = append(approvedRule, approvedItem)
-	}
-	var tokenIdRule []interface{}
-	for _, tokenIdItem := range tokenId {
-		tokenIdRule = append(tokenIdRule, tokenIdItem)
-	}
-
-	logs, sub, err := _W3bstreamProject.contract.WatchLogs(opts, "Approval", ownerRule, approvedRule, tokenIdRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(W3bstreamProjectApproval)
-				if err := _W3bstreamProject.contract.UnpackLog(event, "Approval", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseApproval is a log parse operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
-//
-// Solidity: event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId)
-func (_W3bstreamProject *W3bstreamProjectFilterer) ParseApproval(log types.Log) (*W3bstreamProjectApproval, error) {
-	event := new(W3bstreamProjectApproval)
-	if err := _W3bstreamProject.contract.UnpackLog(event, "Approval", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// W3bstreamProjectApprovalForAllIterator is returned from FilterApprovalForAll and is used to iterate over the raw logs and unpacked data for ApprovalForAll events raised by the W3bstreamProject contract.
-type W3bstreamProjectApprovalForAllIterator struct {
-	Event *W3bstreamProjectApprovalForAll // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *W3bstreamProjectApprovalForAllIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(W3bstreamProjectApprovalForAll)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(W3bstreamProjectApprovalForAll)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *W3bstreamProjectApprovalForAllIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *W3bstreamProjectApprovalForAllIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// W3bstreamProjectApprovalForAll represents a ApprovalForAll event raised by the W3bstreamProject contract.
-type W3bstreamProjectApprovalForAll struct {
-	Owner    common.Address
-	Operator common.Address
-	Approved bool
-	Raw      types.Log // Blockchain specific contextual infos
-}
-
-// FilterApprovalForAll is a free log retrieval operation binding the contract event 0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31.
-//
-// Solidity: event ApprovalForAll(address indexed owner, address indexed operator, bool approved)
-func (_W3bstreamProject *W3bstreamProjectFilterer) FilterApprovalForAll(opts *bind.FilterOpts, owner []common.Address, operator []common.Address) (*W3bstreamProjectApprovalForAllIterator, error) {
-
-	var ownerRule []interface{}
-	for _, ownerItem := range owner {
-		ownerRule = append(ownerRule, ownerItem)
-	}
-	var operatorRule []interface{}
-	for _, operatorItem := range operator {
-		operatorRule = append(operatorRule, operatorItem)
-	}
-
-	logs, sub, err := _W3bstreamProject.contract.FilterLogs(opts, "ApprovalForAll", ownerRule, operatorRule)
-	if err != nil {
-		return nil, err
-	}
-	return &W3bstreamProjectApprovalForAllIterator{contract: _W3bstreamProject.contract, event: "ApprovalForAll", logs: logs, sub: sub}, nil
-}
-
-// WatchApprovalForAll is a free log subscription operation binding the contract event 0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31.
-//
-// Solidity: event ApprovalForAll(address indexed owner, address indexed operator, bool approved)
-func (_W3bstreamProject *W3bstreamProjectFilterer) WatchApprovalForAll(opts *bind.WatchOpts, sink chan<- *W3bstreamProjectApprovalForAll, owner []common.Address, operator []common.Address) (event.Subscription, error) {
-
-	var ownerRule []interface{}
-	for _, ownerItem := range owner {
-		ownerRule = append(ownerRule, ownerItem)
-	}
-	var operatorRule []interface{}
-	for _, operatorItem := range operator {
-		operatorRule = append(operatorRule, operatorItem)
-	}
-
-	logs, sub, err := _W3bstreamProject.contract.WatchLogs(opts, "ApprovalForAll", ownerRule, operatorRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(W3bstreamProjectApprovalForAll)
-				if err := _W3bstreamProject.contract.UnpackLog(event, "ApprovalForAll", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseApprovalForAll is a log parse operation binding the contract event 0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31.
-//
-// Solidity: event ApprovalForAll(address indexed owner, address indexed operator, bool approved)
-func (_W3bstreamProject *W3bstreamProjectFilterer) ParseApprovalForAll(log types.Log) (*W3bstreamProjectApprovalForAll, error) {
-	event := new(W3bstreamProjectApprovalForAll)
-	if err := _W3bstreamProject.contract.UnpackLog(event, "ApprovalForAll", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
 }
 
 // W3bstreamProjectAttributeSetIterator is returned from FilterAttributeSet and is used to iterate over the raw logs and unpacked data for AttributeSet events raised by the W3bstreamProject contract.
@@ -1446,6 +870,150 @@ func (_W3bstreamProject *W3bstreamProjectFilterer) ParseAttributeSet(log types.L
 	return event, nil
 }
 
+// W3bstreamProjectBinderSetIterator is returned from FilterBinderSet and is used to iterate over the raw logs and unpacked data for BinderSet events raised by the W3bstreamProject contract.
+type W3bstreamProjectBinderSetIterator struct {
+	Event *W3bstreamProjectBinderSet // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *W3bstreamProjectBinderSetIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(W3bstreamProjectBinderSet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(W3bstreamProjectBinderSet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *W3bstreamProjectBinderSetIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *W3bstreamProjectBinderSetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// W3bstreamProjectBinderSet represents a BinderSet event raised by the W3bstreamProject contract.
+type W3bstreamProjectBinderSet struct {
+	Binder common.Address
+	Raw    types.Log // Blockchain specific contextual infos
+}
+
+// FilterBinderSet is a free log retrieval operation binding the contract event 0xb19637e660a60813c298ad7ddbf824f445fc38044f48e8ad24dc0ac64646f29b.
+//
+// Solidity: event BinderSet(address indexed binder)
+func (_W3bstreamProject *W3bstreamProjectFilterer) FilterBinderSet(opts *bind.FilterOpts, binder []common.Address) (*W3bstreamProjectBinderSetIterator, error) {
+
+	var binderRule []interface{}
+	for _, binderItem := range binder {
+		binderRule = append(binderRule, binderItem)
+	}
+
+	logs, sub, err := _W3bstreamProject.contract.FilterLogs(opts, "BinderSet", binderRule)
+	if err != nil {
+		return nil, err
+	}
+	return &W3bstreamProjectBinderSetIterator{contract: _W3bstreamProject.contract, event: "BinderSet", logs: logs, sub: sub}, nil
+}
+
+// WatchBinderSet is a free log subscription operation binding the contract event 0xb19637e660a60813c298ad7ddbf824f445fc38044f48e8ad24dc0ac64646f29b.
+//
+// Solidity: event BinderSet(address indexed binder)
+func (_W3bstreamProject *W3bstreamProjectFilterer) WatchBinderSet(opts *bind.WatchOpts, sink chan<- *W3bstreamProjectBinderSet, binder []common.Address) (event.Subscription, error) {
+
+	var binderRule []interface{}
+	for _, binderItem := range binder {
+		binderRule = append(binderRule, binderItem)
+	}
+
+	logs, sub, err := _W3bstreamProject.contract.WatchLogs(opts, "BinderSet", binderRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(W3bstreamProjectBinderSet)
+				if err := _W3bstreamProject.contract.UnpackLog(event, "BinderSet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseBinderSet is a log parse operation binding the contract event 0xb19637e660a60813c298ad7ddbf824f445fc38044f48e8ad24dc0ac64646f29b.
+//
+// Solidity: event BinderSet(address indexed binder)
+func (_W3bstreamProject *W3bstreamProjectFilterer) ParseBinderSet(log types.Log) (*W3bstreamProjectBinderSet, error) {
+	event := new(W3bstreamProjectBinderSet)
+	if err := _W3bstreamProject.contract.UnpackLog(event, "BinderSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // W3bstreamProjectInitializedIterator is returned from FilterInitialized and is used to iterate over the raw logs and unpacked data for Initialized events raised by the W3bstreamProject contract.
 type W3bstreamProjectInitializedIterator struct {
 	Event *W3bstreamProjectInitialized // Event containing the contract specifics and raw log
@@ -1574,150 +1142,6 @@ func (_W3bstreamProject *W3bstreamProjectFilterer) WatchInitialized(opts *bind.W
 func (_W3bstreamProject *W3bstreamProjectFilterer) ParseInitialized(log types.Log) (*W3bstreamProjectInitialized, error) {
 	event := new(W3bstreamProjectInitialized)
 	if err := _W3bstreamProject.contract.UnpackLog(event, "Initialized", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// W3bstreamProjectMinterSetIterator is returned from FilterMinterSet and is used to iterate over the raw logs and unpacked data for MinterSet events raised by the W3bstreamProject contract.
-type W3bstreamProjectMinterSetIterator struct {
-	Event *W3bstreamProjectMinterSet // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *W3bstreamProjectMinterSetIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(W3bstreamProjectMinterSet)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(W3bstreamProjectMinterSet)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *W3bstreamProjectMinterSetIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *W3bstreamProjectMinterSetIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// W3bstreamProjectMinterSet represents a MinterSet event raised by the W3bstreamProject contract.
-type W3bstreamProjectMinterSet struct {
-	Minter common.Address
-	Raw    types.Log // Blockchain specific contextual infos
-}
-
-// FilterMinterSet is a free log retrieval operation binding the contract event 0x726b590ef91a8c76ad05bbe91a57ef84605276528f49cd47d787f558a4e755b6.
-//
-// Solidity: event MinterSet(address indexed minter)
-func (_W3bstreamProject *W3bstreamProjectFilterer) FilterMinterSet(opts *bind.FilterOpts, minter []common.Address) (*W3bstreamProjectMinterSetIterator, error) {
-
-	var minterRule []interface{}
-	for _, minterItem := range minter {
-		minterRule = append(minterRule, minterItem)
-	}
-
-	logs, sub, err := _W3bstreamProject.contract.FilterLogs(opts, "MinterSet", minterRule)
-	if err != nil {
-		return nil, err
-	}
-	return &W3bstreamProjectMinterSetIterator{contract: _W3bstreamProject.contract, event: "MinterSet", logs: logs, sub: sub}, nil
-}
-
-// WatchMinterSet is a free log subscription operation binding the contract event 0x726b590ef91a8c76ad05bbe91a57ef84605276528f49cd47d787f558a4e755b6.
-//
-// Solidity: event MinterSet(address indexed minter)
-func (_W3bstreamProject *W3bstreamProjectFilterer) WatchMinterSet(opts *bind.WatchOpts, sink chan<- *W3bstreamProjectMinterSet, minter []common.Address) (event.Subscription, error) {
-
-	var minterRule []interface{}
-	for _, minterItem := range minter {
-		minterRule = append(minterRule, minterItem)
-	}
-
-	logs, sub, err := _W3bstreamProject.contract.WatchLogs(opts, "MinterSet", minterRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(W3bstreamProjectMinterSet)
-				if err := _W3bstreamProject.contract.UnpackLog(event, "MinterSet", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseMinterSet is a log parse operation binding the contract event 0x726b590ef91a8c76ad05bbe91a57ef84605276528f49cd47d787f558a4e755b6.
-//
-// Solidity: event MinterSet(address indexed minter)
-func (_W3bstreamProject *W3bstreamProjectFilterer) ParseMinterSet(log types.Log) (*W3bstreamProjectMinterSet, error) {
-	event := new(W3bstreamProjectMinterSet)
-	if err := _W3bstreamProject.contract.UnpackLog(event, "MinterSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -1871,6 +1295,150 @@ func (_W3bstreamProject *W3bstreamProjectFilterer) WatchOwnershipTransferred(opt
 func (_W3bstreamProject *W3bstreamProjectFilterer) ParseOwnershipTransferred(log types.Log) (*W3bstreamProjectOwnershipTransferred, error) {
 	event := new(W3bstreamProjectOwnershipTransferred)
 	if err := _W3bstreamProject.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// W3bstreamProjectProjectBindedIterator is returned from FilterProjectBinded and is used to iterate over the raw logs and unpacked data for ProjectBinded events raised by the W3bstreamProject contract.
+type W3bstreamProjectProjectBindedIterator struct {
+	Event *W3bstreamProjectProjectBinded // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *W3bstreamProjectProjectBindedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(W3bstreamProjectProjectBinded)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(W3bstreamProjectProjectBinded)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *W3bstreamProjectProjectBindedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *W3bstreamProjectProjectBindedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// W3bstreamProjectProjectBinded represents a ProjectBinded event raised by the W3bstreamProject contract.
+type W3bstreamProjectProjectBinded struct {
+	ProjectId *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
+
+// FilterProjectBinded is a free log retrieval operation binding the contract event 0x333b64ed2eccc26c75dc26694a75281557fd03abd4b4f13cc7399ab89ad0761a.
+//
+// Solidity: event ProjectBinded(uint256 indexed projectId)
+func (_W3bstreamProject *W3bstreamProjectFilterer) FilterProjectBinded(opts *bind.FilterOpts, projectId []*big.Int) (*W3bstreamProjectProjectBindedIterator, error) {
+
+	var projectIdRule []interface{}
+	for _, projectIdItem := range projectId {
+		projectIdRule = append(projectIdRule, projectIdItem)
+	}
+
+	logs, sub, err := _W3bstreamProject.contract.FilterLogs(opts, "ProjectBinded", projectIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &W3bstreamProjectProjectBindedIterator{contract: _W3bstreamProject.contract, event: "ProjectBinded", logs: logs, sub: sub}, nil
+}
+
+// WatchProjectBinded is a free log subscription operation binding the contract event 0x333b64ed2eccc26c75dc26694a75281557fd03abd4b4f13cc7399ab89ad0761a.
+//
+// Solidity: event ProjectBinded(uint256 indexed projectId)
+func (_W3bstreamProject *W3bstreamProjectFilterer) WatchProjectBinded(opts *bind.WatchOpts, sink chan<- *W3bstreamProjectProjectBinded, projectId []*big.Int) (event.Subscription, error) {
+
+	var projectIdRule []interface{}
+	for _, projectIdItem := range projectId {
+		projectIdRule = append(projectIdRule, projectIdItem)
+	}
+
+	logs, sub, err := _W3bstreamProject.contract.WatchLogs(opts, "ProjectBinded", projectIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(W3bstreamProjectProjectBinded)
+				if err := _W3bstreamProject.contract.UnpackLog(event, "ProjectBinded", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseProjectBinded is a log parse operation binding the contract event 0x333b64ed2eccc26c75dc26694a75281557fd03abd4b4f13cc7399ab89ad0761a.
+//
+// Solidity: event ProjectBinded(uint256 indexed projectId)
+func (_W3bstreamProject *W3bstreamProjectFilterer) ParseProjectBinded(log types.Log) (*W3bstreamProjectProjectBinded, error) {
+	event := new(W3bstreamProjectProjectBinded)
+	if err := _W3bstreamProject.contract.UnpackLog(event, "ProjectBinded", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -2305,168 +1873,6 @@ func (_W3bstreamProject *W3bstreamProjectFilterer) WatchProjectResumed(opts *bin
 func (_W3bstreamProject *W3bstreamProjectFilterer) ParseProjectResumed(log types.Log) (*W3bstreamProjectProjectResumed, error) {
 	event := new(W3bstreamProjectProjectResumed)
 	if err := _W3bstreamProject.contract.UnpackLog(event, "ProjectResumed", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// W3bstreamProjectTransferIterator is returned from FilterTransfer and is used to iterate over the raw logs and unpacked data for Transfer events raised by the W3bstreamProject contract.
-type W3bstreamProjectTransferIterator struct {
-	Event *W3bstreamProjectTransfer // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *W3bstreamProjectTransferIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(W3bstreamProjectTransfer)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(W3bstreamProjectTransfer)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *W3bstreamProjectTransferIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *W3bstreamProjectTransferIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// W3bstreamProjectTransfer represents a Transfer event raised by the W3bstreamProject contract.
-type W3bstreamProjectTransfer struct {
-	From    common.Address
-	To      common.Address
-	TokenId *big.Int
-	Raw     types.Log // Blockchain specific contextual infos
-}
-
-// FilterTransfer is a free log retrieval operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
-//
-// Solidity: event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)
-func (_W3bstreamProject *W3bstreamProjectFilterer) FilterTransfer(opts *bind.FilterOpts, from []common.Address, to []common.Address, tokenId []*big.Int) (*W3bstreamProjectTransferIterator, error) {
-
-	var fromRule []interface{}
-	for _, fromItem := range from {
-		fromRule = append(fromRule, fromItem)
-	}
-	var toRule []interface{}
-	for _, toItem := range to {
-		toRule = append(toRule, toItem)
-	}
-	var tokenIdRule []interface{}
-	for _, tokenIdItem := range tokenId {
-		tokenIdRule = append(tokenIdRule, tokenIdItem)
-	}
-
-	logs, sub, err := _W3bstreamProject.contract.FilterLogs(opts, "Transfer", fromRule, toRule, tokenIdRule)
-	if err != nil {
-		return nil, err
-	}
-	return &W3bstreamProjectTransferIterator{contract: _W3bstreamProject.contract, event: "Transfer", logs: logs, sub: sub}, nil
-}
-
-// WatchTransfer is a free log subscription operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
-//
-// Solidity: event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)
-func (_W3bstreamProject *W3bstreamProjectFilterer) WatchTransfer(opts *bind.WatchOpts, sink chan<- *W3bstreamProjectTransfer, from []common.Address, to []common.Address, tokenId []*big.Int) (event.Subscription, error) {
-
-	var fromRule []interface{}
-	for _, fromItem := range from {
-		fromRule = append(fromRule, fromItem)
-	}
-	var toRule []interface{}
-	for _, toItem := range to {
-		toRule = append(toRule, toItem)
-	}
-	var tokenIdRule []interface{}
-	for _, tokenIdItem := range tokenId {
-		tokenIdRule = append(tokenIdRule, tokenIdItem)
-	}
-
-	logs, sub, err := _W3bstreamProject.contract.WatchLogs(opts, "Transfer", fromRule, toRule, tokenIdRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(W3bstreamProjectTransfer)
-				if err := _W3bstreamProject.contract.UnpackLog(event, "Transfer", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseTransfer is a log parse operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
-//
-// Solidity: event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)
-func (_W3bstreamProject *W3bstreamProjectFilterer) ParseTransfer(log types.Log) (*W3bstreamProjectTransfer, error) {
-	event := new(W3bstreamProjectTransfer)
-	if err := _W3bstreamProject.contract.UnpackLog(event, "Transfer", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

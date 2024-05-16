@@ -30,9 +30,9 @@ var (
 		}, config.UILanguage),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out, err := setAttribute(
-				big.NewInt(int64(flagProjectID.Value().(uint64))),
-				flagProjectAttrKey.Value().(string),
-				flagProjectAttrVal.Value().(string),
+				big.NewInt(int64(projectID.Value().(uint64))),
+				projectAttrKey.Value().(string),
+				projectAttrVal.Value().(string),
 			)
 			if err != nil {
 				return output.PrintError(err)
@@ -50,8 +50,8 @@ var (
 		}, config.UILanguage),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out, err := getAttribute(
-				big.NewInt(int64(flagProjectID.Value().(uint64))),
-				flagProjectAttrKey.Value().(string),
+				big.NewInt(int64(projectID.Value().(uint64))),
+				projectAttrKey.Value().(string),
 			)
 			if err != nil {
 				return output.PrintError(err)
@@ -63,17 +63,17 @@ var (
 )
 
 func init() {
-	flagProjectID.RegisterCommand(wsProjectAttributeSetCmd)
-	flagProjectID.MarkFlagRequired(wsProjectAttributeSetCmd)
-	flagProjectAttrKey.RegisterCommand(wsProjectAttributeSetCmd)
-	flagProjectAttrKey.MarkFlagRequired(wsProjectAttributeSetCmd)
-	flagProjectAttrVal.RegisterCommand(wsProjectAttributeSetCmd)
-	flagProjectAttrVal.MarkFlagRequired(wsProjectAttributeSetCmd)
+	projectID.RegisterCommand(wsProjectAttributeSetCmd)
+	projectID.MarkFlagRequired(wsProjectAttributeSetCmd)
+	projectAttrKey.RegisterCommand(wsProjectAttributeSetCmd)
+	projectAttrKey.MarkFlagRequired(wsProjectAttributeSetCmd)
+	projectAttrVal.RegisterCommand(wsProjectAttributeSetCmd)
+	projectAttrVal.MarkFlagRequired(wsProjectAttributeSetCmd)
 
-	flagProjectID.RegisterCommand(wsProjectAttributeGetCmd)
-	flagProjectID.MarkFlagRequired(wsProjectAttributeGetCmd)
-	flagProjectAttrKey.RegisterCommand(wsProjectAttributeGetCmd)
-	flagProjectAttrKey.MarkFlagRequired(wsProjectAttributeGetCmd)
+	projectID.RegisterCommand(wsProjectAttributeGetCmd)
+	projectID.MarkFlagRequired(wsProjectAttributeGetCmd)
+	projectAttrKey.RegisterCommand(wsProjectAttributeGetCmd)
+	projectAttrKey.MarkFlagRequired(wsProjectAttributeGetCmd)
 
 	wsProjectAttributeCmd.AddCommand(wsProjectAttributeSetCmd)
 	wsProjectAttributeCmd.AddCommand(wsProjectAttributeGetCmd)

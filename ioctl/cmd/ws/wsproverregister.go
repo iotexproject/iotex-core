@@ -28,6 +28,8 @@ var wsProverRegisterCmd = &cobra.Command{
 }
 
 func init() {
+	transferAmount.RegisterCommand(wsProverRegisterCmd)
+
 	wsProverCmd.AddCommand(wsProverRegisterCmd)
 }
 
@@ -36,6 +38,7 @@ func registerProver() (any, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create contract caller")
 	}
+	caller.SetAmount(big.NewInt(int64(transferAmount.Value().(uint64))))
 
 	value := new(contracts.W3bstreamProverTransfer)
 	result := NewContractResult(&proverStoreABI, eventOnProverRegistered, value)
@@ -47,11 +50,5 @@ func registerProver() (any, error) {
 		return nil, err
 	}
 
-	return &struct {
-		ProverID *big.Int `json:"proverID"`
-		Owner    string
-	}{
-		ProverID: value.TokenId,
-		Owner:    caller.Sender().String(),
-	}, nil
+	return queryProver(value.TokenId)
 }

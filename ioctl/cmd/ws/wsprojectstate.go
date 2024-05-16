@@ -18,11 +18,13 @@ var wsProjectPauseCmd = &cobra.Command{
 		config.Chinese: "停止项目",
 	}, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		projectID := flagProjectID.Value().(uint64)
-		if err := pauseProject(projectID); err != nil {
+		projectID := big.NewInt(int64(projectID.Value().(uint64)))
+		out, err := pauseProject(projectID)
+		if err != nil {
 			return output.PrintError(err)
 		}
 		output.PrintResult(fmt.Sprintf("project %d paused", projectID))
+		output.PrintResult(output.JSONString(out))
 		return nil
 	},
 }
@@ -34,58 +36,60 @@ var wsProjectResumeCmd = &cobra.Command{
 		config.Chinese: "开启项目",
 	}, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		projectID := flagProjectID.Value().(uint64)
-		if err := resumeProject(projectID); err != nil {
+		projectID := big.NewInt(int64(projectID.Value().(uint64)))
+		out, err := resumeProject(projectID)
+		if err != nil {
 			return output.PrintError(err)
 		}
 		output.PrintResult(fmt.Sprintf("project %d resumed", projectID))
+		output.PrintResult(output.JSONString(out))
 		return nil
 	},
 }
 
 func init() {
-	flagProjectID.RegisterCommand(wsProjectPauseCmd)
-	flagProjectID.MarkFlagRequired(wsProjectPauseCmd)
+	projectID.RegisterCommand(wsProjectPauseCmd)
+	projectID.MarkFlagRequired(wsProjectPauseCmd)
 
-	flagProjectID.RegisterCommand(wsProjectResumeCmd)
-	flagProjectID.MarkFlagRequired(wsProjectResumeCmd)
+	projectID.RegisterCommand(wsProjectResumeCmd)
+	projectID.MarkFlagRequired(wsProjectResumeCmd)
 
 	wsProject.AddCommand(wsProjectPauseCmd)
 	wsProject.AddCommand(wsProjectResumeCmd)
 }
 
-func pauseProject(projectID uint64) error {
+func pauseProject(projectID *big.Int) (any, error) {
 	caller, err := NewContractCaller(projectStoreABI, projectStoreAddress)
 	if err != nil {
-		return errors.Wrap(err, "failed to new contract caller")
+		return nil, errors.Wrap(err, "failed to new contract caller")
 	}
 
 	result := NewContractResult(&projectStoreABI, eventProjectPaused, nil)
-	_, err = caller.CallAndRetrieveResult(funcPauseProject, []any{big.NewInt(int64(projectID))}, result)
+	_, err = caller.CallAndRetrieveResult(funcPauseProject, []any{projectID}, result)
 	if err != nil {
-		return errors.Wrap(err, "failed to call contract")
+		return nil, errors.Wrap(err, "failed to call contract")
 	}
 	_, err = result.Result()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return queryProject(projectID)
 }
 
-func resumeProject(projectID uint64) error {
+func resumeProject(projectID *big.Int) (any, error) {
 	caller, err := NewContractCaller(projectStoreABI, projectStoreAddress)
 	if err != nil {
-		return errors.Wrap(err, "failed to new contract caller")
+		return nil, errors.Wrap(err, "failed to new contract caller")
 	}
 
 	result := NewContractResult(&projectStoreABI, eventProjectResumed, nil)
-	_, err = caller.CallAndRetrieveResult(funcResumeProject, []any{big.NewInt(int64(projectID))}, result)
+	_, err = caller.CallAndRetrieveResult(funcResumeProject, []any{projectID}, result)
 	if err != nil {
-		return errors.Wrap(err, "failed to call contract")
+		return nil, errors.Wrap(err, "failed to call contract")
 	}
 	_, err = result.Result()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return queryProject(projectID)
 }

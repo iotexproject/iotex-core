@@ -3,11 +3,14 @@ package ws
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 var wsProverQueryCmd = &cobra.Command{
@@ -38,32 +41,65 @@ func queryProver(proverID *big.Int) (any, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to new contract caller")
 	}
-	nodeType := new(big.Int)
-	result := NewContractResult(&proverStoreABI, funcQueryProverNodeType, nodeType)
+	result := NewContractResult(&proverStoreABI, funcQueryProverNodeType, new(big.Int))
 	if err = caller.Read(funcQueryProverNodeType, []any{proverID}, result); err != nil {
 		return nil, errors.Wrapf(err, "failed to read contract: %s", funcQueryProverNodeType)
 	}
-	if _, err = result.Result(); err != nil {
+
+	nodeType, err := result.Result()
+	if err != nil {
 		return nil, err
 	}
 
-	isPaused := new(bool)
-	result2 := NewContractResult(&proverStoreABI, funcQueryProverIsPaused, isPaused)
-	if err = caller.Read(funcQueryProverIsPaused, []any{proverID}, result2); err != nil {
+	result = NewContractResult(&proverStoreABI, funcQueryProverIsPaused, new(bool))
+	if err = caller.Read(funcQueryProverIsPaused, []any{proverID}, result); err != nil {
 		return nil, errors.Wrapf(err, "failed to read contract: %s", funcQueryProverIsPaused)
 	}
-	if _, err = result2.Result(); err != nil {
+	isPaused, err := result.Result()
+	if err != nil {
 		return nil, err
+	}
+
+	result = NewContractResult(&proverStoreABI, funcQueryProverOperator, &common.Address{})
+	if err = caller.Read(funcQueryProverOperator, []any{proverID}, result); err != nil {
+		return nil, errors.Wrapf(err, "failed to read contract: %s", funcQueryProverOperator)
+	}
+	operator, err := result.Result()
+	if err != nil {
+		return nil, err
+	}
+
+	result = NewContractResult(&proverStoreABI, funcQueryProverOwner, &common.Address{})
+	if err = caller.Read(funcQueryProverOwner, []any{proverID}, result); err != nil {
+		return nil, errors.Wrapf(err, "failed to read contract: %s", funcQueryProverOwner)
+	}
+	owner, err := result.Result()
+	if err != nil {
+		return nil, err
+	}
+
+	operatorAddr, err := util.Address((*operator.(*common.Address)).String())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to convert operator address")
+	}
+
+	ownerAddr, err := util.Address((*owner.(*common.Address)).String())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to convert prover address")
 	}
 
 	return &struct {
 		ProverID uint64 `json:"proverID"`
+		Prover   string `json:"owner"`
 		NodeType uint64 `json:"nodeType"`
 		IsPaused bool   `json:"isPaused"`
+		Operator string `json:"operator"`
 	}{
 		ProverID: proverID.Uint64(),
-		NodeType: nodeType.Uint64(),
-		IsPaused: *isPaused,
+		Prover:   ownerAddr,
+		NodeType: nodeType.(*big.Int).Uint64(),
+		IsPaused: *isPaused.(*bool),
+		Operator: operatorAddr,
 	}, nil
 
 }

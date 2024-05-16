@@ -30,6 +30,7 @@ func NewContractCaller(contractabi abi.ABI, contractaddress string) (*ContractCa
 		wait:    time.Second * 10,
 		backoff: 3,
 		ctx:     context.Background(),
+		amount:  big.NewInt(0),
 	}
 
 	// read current account from global config
@@ -95,6 +96,11 @@ type ContractCaller struct {
 	contract address.Address           // contract address
 	wait     time.Duration             // wait wait duration
 	backoff  uint64                    // backoff times
+	amount   *big.Int                  // amount for tx amount
+}
+
+func (c *ContractCaller) SetAmount(amount *big.Int) {
+	c.amount = amount
 }
 
 func (c *ContractCaller) Sender() address.Address {
@@ -142,7 +148,7 @@ func (c *ContractCaller) envelop(method string, arguments ...any) (action.Envelo
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to pack method: %s", method)
 	}
-	tx, err := action.NewExecution(c.contract.String(), 0, big.NewInt(0), 0, big.NewInt(0), bytecode)
+	tx, err := action.NewExecution(c.contract.String(), 0, c.amount, 0, big.NewInt(0), bytecode)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to new execution")
 	}
@@ -331,7 +337,7 @@ func (r *ContractResult) parseOutput(data string) {
 		}
 	}()
 
-	_ = abi.ConvertType(res[0], r.value)
+	r.value = abi.ConvertType(res[0], r.value)
 }
 
 func (r *ContractResult) parseEvent(logs []*iotextypes.Log) {

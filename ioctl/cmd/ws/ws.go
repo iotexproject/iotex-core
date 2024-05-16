@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/flag"
 )
 
 var (
@@ -60,6 +61,15 @@ var (
 		config.English: "set w3bsteram prover store contract address for once",
 		config.Chinese: "一次设置w3bstream prover存储合约地址",
 	}
+	_flagTransferAmountUsages = map[config.Language]string{
+		config.English: "amount(rau) need to pay, default 0",
+		config.Chinese: "需要支付的token数量(单位rau), 默认0",
+	}
+)
+
+var (
+	// transferAmount
+	transferAmount = flag.NewUint64VarP("amount", "", 0, config.TranslateInLang(_flagTransferAmountUsages, config.UILanguage))
 )
 
 func init() {

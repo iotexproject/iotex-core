@@ -1,7 +1,6 @@
 package ws
 
 import (
-	"encoding/hex"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -20,9 +19,9 @@ var wsProjectUpdateCmd = &cobra.Command{
 	}, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		out, err := updateProject(
-			big.NewInt(int64(flagProjectID.Value().(uint64))),
-			flagProjectFile.Value().(string),
-			flagProjectHash.Value().(string),
+			big.NewInt(int64(projectID.Value().(uint64))),
+			projectFilePath.Value().(string),
+			projectFileHash.Value().(string),
 		)
 		if err != nil {
 			return output.PrintError(err)
@@ -34,11 +33,11 @@ var wsProjectUpdateCmd = &cobra.Command{
 }
 
 func init() {
-	flagProjectID.RegisterCommand(wsProjectUpdateCmd)
-	flagProjectID.MarkFlagRequired(wsProjectUpdateCmd)
-	flagProjectFile.RegisterCommand(wsProjectUpdateCmd)
-	flagProjectFile.MarkFlagRequired(wsProjectUpdateCmd)
-	flagProjectHash.RegisterCommand(wsProjectUpdateCmd)
+	projectID.RegisterCommand(wsProjectUpdateCmd)
+	projectID.MarkFlagRequired(wsProjectUpdateCmd)
+	projectFilePath.RegisterCommand(wsProjectUpdateCmd)
+	projectFilePath.MarkFlagRequired(wsProjectUpdateCmd)
+	projectFileHash.RegisterCommand(wsProjectUpdateCmd)
 
 	wsProject.AddCommand(wsProjectUpdateCmd)
 }
@@ -65,13 +64,5 @@ func updateProject(projectID *big.Int, filename, hashstr string) (any, error) {
 		return nil, err
 	}
 	v := _v.(*contracts.W3bstreamProjectProjectConfigUpdated)
-	return &struct {
-		ProjectID uint64 `json:"projectID"`
-		URI       string `json:"uri"`
-		Hash      string `json:"hash"`
-	}{
-		ProjectID: v.ProjectId.Uint64(),
-		URI:       v.Uri,
-		Hash:      hex.EncodeToString(v.Hash[:]),
-	}, nil
+	return queryProject(v.ProjectId)
 }
