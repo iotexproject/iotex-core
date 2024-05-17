@@ -153,6 +153,8 @@ func (builder *Builder) createFactory() (factory.Factory, error) {
 		return builder.cs.factory, nil
 	}
 	factoryCfg := factory.GenerateConfig(builder.cfg.Chain, builder.cfg.Genesis)
+	factoryDBCfg := builder.cfg.DB
+	factoryDBCfg.EnablePebbleDB = builder.cfg.Chain.EnableFactoryPebbleDB
 	if builder.cfg.Chain.EnableTrielessStateDB {
 		if builder.cfg.Chain.TrieDBPath == "" {
 			log.L().Warn("Create in memory state db, which will not pesist data on disk")
@@ -163,9 +165,9 @@ func (builder *Builder) createFactory() (factory.Factory, error) {
 			factory.DefaultPatchOption(),
 		}
 		if builder.cfg.Chain.EnableStateDBCaching {
-			dao, err = db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
+			dao, err = db.CreateKVStoreWithCache(factoryDBCfg, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
 		} else {
-			dao, err = db.CreateKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
+			dao, err = db.CreateKVStore(factoryDBCfg, builder.cfg.Chain.TrieDBPath)
 		}
 		if err != nil {
 			return nil, err
@@ -176,7 +178,7 @@ func (builder *Builder) createFactory() (factory.Factory, error) {
 		log.L().Warn("Create in memory factory, which will not pesist data on disk")
 		return factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(builder.cs.registry))
 	}
-	dao, err = db.CreateKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
+	dao, err = db.CreateKVStore(factoryDBCfg, builder.cfg.Chain.TrieDBPath)
 	if err != nil {
 		return nil, err
 	}
