@@ -1,6 +1,6 @@
 # iotex-core 
 
-Official Golang implementation of the IoTeX protocol.
+Official Golang implementation of the IoTeX protocol, the modular DePIN Layer-1 network.
 
 [![Join the forum](https://img.shields.io/badge/Discuss-IoTeX%20Community-blue)](https://community.iotex.io/c/research-development/protocol)
 [![Go version](https://img.shields.io/badge/go-1.18.5-blue.svg)](https://github.com/moovweb/gvm)
@@ -12,18 +12,23 @@ Official Golang implementation of the IoTeX protocol.
 
 <a href="https://iotex.io/"><img src="logo/IoTeX.png" height="200px"/></a>
 
-
-Welcome to the official Go implementation of IoTeX protocol! IoTeX is building the next generation of the decentralized blockchain protocol for powering real-world information marketplace in a decentralized-yet-scalable way. Refer to IoTeX [whitepaper](https://iotex.io/research/) for details.
-
 <a href="https://iotex.io/devdiscord" target="_blank">
   <img src="https://github.com/iotexproject/halogrants/blob/880eea4af074b082a75608c7376bd7a8eaa1ac21/img/btn-discord.svg" height="36px">
 </a>
 
-#### New to IoTeX?
+## What is IoTeX?
 
-Please visit https://iotex.io official website or [IoTeX onboard pack](https://onboard.iotex.io/) to learn more about IoTeX network.
+IoTeX is the modular infrastructure for DePIN projects to deploy in full or integrate modules into existing frameworks. Please visit [IoTeX hompage](https://iotex.io) official website to learn more about IoTeX network.
 
-#### Run a delegate?
+## What is DePIN?
+
+DePIN stands for Decentralized Physical Infrastructure Networks, a new approach to building and maintaining physical world infrastructure. This infrastructure can range from WiFi hotspots in wireless networks to solar-powered home batteries in energy networks. DePINs are developed in a decentralized manner by individuals and companies globally, making them accessible to everyone. In return, contributors receive financial compensation and an ownership stake in the network they’re building and the services they provide through token incentives. DePINs are enabled by widespread internet connectivity and advancements in blockchain infrastructure and cryptography. To learn more about DePIN, please visit [What is DePIN?](https://iotex.io/blog/what-are-decentralized-physical-infrastructure-networks-depin/).
+
+## Explore DePIN Projects?
+
+[DePIN Scan](https://depinscan.io/)  is the go-to explorer for DePIN projects. DePIN Scan tracks crypto token prices, real-time device data, and offers a variety of views for DePIN projects.
+
+## Run a delegate?
 
 Please visit [IoTeX Delegate Manual](https://github.com/iotexproject/iotex-bootstrap) for detailed setup process.
 
