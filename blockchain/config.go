@@ -71,6 +71,8 @@ type (
 		StreamingBlockBufferSize uint64 `yaml:"streamingBlockBufferSize"`
 		// PersistStakingPatchBlock is the block to persist staking patch
 		PersistStakingPatchBlock uint64 `yaml:"persistStakingPatchBlock"`
+		// EnableFactoryPebbleDB is set to use pebble db for state factory
+		EnableFactoryPebbleDB bool `yaml:"enableFactoryPebbleDB"`
 	}
 )
 
