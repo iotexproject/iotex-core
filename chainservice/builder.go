@@ -155,6 +155,8 @@ func (builder *Builder) createFactory() (factory.Factory, error) {
 		return builder.cs.factory, nil
 	}
 	factoryCfg := factory.GenerateConfig(builder.cfg.Chain, builder.cfg.Genesis)
+	factoryDBCfg := builder.cfg.DB
+	factoryDBCfg.EnablePebbleDB = builder.cfg.Chain.EnableFactoryPebbleDB
 	if builder.cfg.Chain.EnableTrielessStateDB {
 		if builder.cfg.Chain.TrieDBPath == "" {
 			log.L().Warn("Create in memory state db, which will not pesist data on disk")
@@ -166,9 +168,9 @@ func (builder *Builder) createFactory() (factory.Factory, error) {
 			factory.DefaultPatchOption(),
 		}
 		if builder.cfg.Chain.EnableStateDBCaching {
-			kvStore, err = db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
+			kvStore, err = db.CreateKVStoreWithCache(factoryDBCfg, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
 		} else {
-			kvStore, err = db.CreateKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
+			kvStore, err = db.CreateKVStore(factoryDBCfg, builder.cfg.Chain.TrieDBPath)
 		}
 		if err != nil {
 			return nil, err
@@ -193,7 +195,7 @@ func (builder *Builder) createFactory() (factory.Factory, error) {
 		}
 		triePath = cfg.HeadPath
 		for _, shard := range cfg.Shards {
-			kvStore, err := db.CreateKVStore(builder.cfg.DB, triePath)
+			kvStore, err := db.CreateKVStore(factoryDBCfg, triePath)
 			if err != nil {
 				return nil, err
 			}
@@ -204,7 +206,7 @@ func (builder *Builder) createFactory() (factory.Factory, error) {
 			})
 		}
 	}
-	kvStore, err := db.CreateKVStore(builder.cfg.DB, triePath)
+	kvStore, err := db.CreateKVStore(factoryDBCfg, triePath)
 	if err != nil {
 		return nil, err
 	}

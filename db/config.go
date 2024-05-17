@@ -28,6 +28,8 @@ type Config struct {
 	HistoryStateRetention uint64 `yaml:"historyStateRetention"`
 	// ReadOnly is set db to be opened in read only mode
 	ReadOnly bool `yaml:"readOnly"`
+	// EnablePebbleDB is set to use pebble db
+	EnablePebbleDB bool `yaml:"enablePebbleDB"`
 }
 
 // SplitDBSize returns the configured SplitDBSizeMB
