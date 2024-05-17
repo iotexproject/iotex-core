@@ -13,7 +13,9 @@ func CreateKVStore(cfg Config, dbPath string) (KVStore, error) {
 		return nil, ErrEmptyDBPath
 	}
 	cfg.DbPath = dbPath
-
+	if cfg.EnablePebbleDB {
+		return NewPebbleDB(cfg), nil
+	}
 	return NewBoltDB(cfg), nil
 }
 
