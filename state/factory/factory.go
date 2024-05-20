@@ -87,9 +87,13 @@ type (
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
 		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
+		SimulateExecutionAtHeight(context.Context, uint64, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
 		ReadContractStorage(context.Context, address.Address, []byte) ([]byte, error)
+		ReadContractStorageAtHeight(context.Context, uint64, address.Address, []byte) ([]byte, error)
 		PutBlock(context.Context, *block.Block) error
 		DeleteTipBlock(context.Context, *block.Block) error
+		State(interface{}, ...protocol.StateOption) (uint64, error)
+		States(...protocol.StateOption) (uint64, state.Iterator, error)
 		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
 		StatesAtHeight(uint64, ...protocol.StateOption) (state.Iterator, error)
 	}
@@ -401,6 +405,11 @@ func (sf *factory) SimulateExecution(
 	return evm.SimulateExecution(ctx, ws, caller, ex)
 }
 
+// SimulateExecutionAtHeight simulates a running of smart contract operation at a specific height
+func (sf *factory) SimulateExecutionAtHeight(context.Context, uint64, address.Address, *action.Execution) ([]byte, *action.Receipt, error) {
+	panic("unimplemented")
+}
+
 // ReadContractStorage reads contract's storage
 func (sf *factory) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
 	sf.mutex.Lock()
@@ -410,6 +419,11 @@ func (sf *factory) ReadContractStorage(ctx context.Context, contract address.Add
 		return nil, errors.Wrap(err, "failed to generate working set from state factory")
 	}
 	return evm.ReadContractStorage(ctx, ws, contract, key)
+}
+
+// ReadContractStorageAtHeight reads contract's storage at a specific height
+func (sf *factory) ReadContractStorageAtHeight(context.Context, uint64, address.Address, []byte) ([]byte, error) {
+	panic("unimplemented")
 }
 
 // PutBlock persists all changes in RunActions() into the DB

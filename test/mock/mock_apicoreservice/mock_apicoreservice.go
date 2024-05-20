@@ -11,6 +11,7 @@ import (
 	time "time"
 
 	tracers "github.com/ethereum/go-ethereum/eth/tracers"
+	rpc "github.com/ethereum/go-ethereum/rpc"
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	address "github.com/iotexproject/iotex-address/address"
@@ -425,9 +426,9 @@ func (mr *MockCoreServiceMockRecorder) RawBlocks(startHeight, count, withReceipt
 }
 
 // ReadContract mocks base method.
-func (m *MockCoreService) ReadContract(ctx context.Context, callerAddr address.Address, sc *action.Execution) (string, *iotextypes.Receipt, error) {
+func (m *MockCoreService) ReadContract(ctx context.Context, height rpc.BlockNumber, callerAddr address.Address, sc *action.Execution) (string, *iotextypes.Receipt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadContract", ctx, callerAddr, sc)
+	ret := m.ctrl.Call(m, "ReadContract", ctx, height, callerAddr, sc)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(*iotextypes.Receipt)
 	ret2, _ := ret[2].(error)
@@ -435,9 +436,9 @@ func (m *MockCoreService) ReadContract(ctx context.Context, callerAddr address.A
 }
 
 // ReadContract indicates an expected call of ReadContract.
-func (mr *MockCoreServiceMockRecorder) ReadContract(ctx, callerAddr, sc interface{}) *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) ReadContract(ctx, height, callerAddr, sc interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadContract", reflect.TypeOf((*MockCoreService)(nil).ReadContract), ctx, callerAddr, sc)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadContract", reflect.TypeOf((*MockCoreService)(nil).ReadContract), ctx, height, callerAddr, sc)
 }
 
 // ReadContractStorage mocks base method.

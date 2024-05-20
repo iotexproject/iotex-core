@@ -318,8 +318,8 @@ func (sdb *stateDB) SimulateExecution(
 	defer span.End()
 
 	sdb.mutex.RLock()
+	defer sdb.mutex.RUnlock()
 	currHeight := sdb.currentChainHeight
-	sdb.mutex.RUnlock()
 	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
 	if err != nil {
 		return nil, nil, err
@@ -328,14 +328,54 @@ func (sdb *stateDB) SimulateExecution(
 	return evm.SimulateExecution(ctx, ws, caller, ex)
 }
 
+// SimulateExecutionAtHeight simulates a running of smart contract operation at a specific height
+func (sdb *stateDB) SimulateExecutionAtHeight(ctx context.Context, height uint64,
+	caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
+	if !sdb.versioned {
+		return nil, nil, ErrNotSupported
+	}
+	sdb.mutex.RLock()
+	currheight := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	if height > currheight {
+		return nil, nil, errors.Errorf("cannot read state at height %d, current height is %d", height, currheight)
+	}
+
+	ws, err := sdb.newWorkingSet(ctx, height)
+	if err != nil {
+		return nil, nil, err
+	}
+	return evm.SimulateExecution(ctx, ws, caller, ex)
+}
+
 // ReadContractStorage reads contract's storage
 func (sdb *stateDB) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
 	sdb.mutex.RLock()
+	defer sdb.mutex.RUnlock()
 	currHeight := sdb.currentChainHeight
-	sdb.mutex.RUnlock()
 	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate working set from state db")
+	}
+	return evm.ReadContractStorage(ctx, ws, contract, key)
+}
+
+// ReadContractStorageAtHeight reads contract's storage at a specific height
+func (sdb *stateDB) ReadContractStorageAtHeight(ctx context.Context, height uint64,
+	contract address.Address, key []byte) ([]byte, error) {
+	if !sdb.versioned {
+		return nil, ErrNotSupported
+	}
+	sdb.mutex.RLock()
+	currheight := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	if height > currheight {
+		return nil, errors.Errorf("cannot read state at height %d, current height is %d", height, currheight)
+	}
+
+	ws, err := sdb.newWorkingSet(ctx, height)
+	if err != nil {
+		return nil, err
 	}
 	return evm.ReadContractStorage(ctx, ws, contract, key)
 }
@@ -413,10 +453,17 @@ func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, 
 	if cfg.Keys != nil {
 		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
-	sdb.mutex.RLock()
-	height := sdb.currentChainHeight
-	sdb.mutex.RUnlock()
-	return height, sdb.state(height, cfg.Namespace, cfg.Key, s)
+	if sdb.versioned {
+		sdb.mutex.RLock()
+		height := sdb.currentChainHeight
+		sdb.mutex.RUnlock()
+		return height, sdb.state(sdb.DAO(height), cfg.Namespace, cfg.Key, s)
+	} else {
+		sdb.mutex.RLock()
+		defer sdb.mutex.RUnlock()
+		height := sdb.currentChainHeight
+		return height, sdb.state(sdb.dao, cfg.Namespace, cfg.Key, s)
+	}
 }
 
 // State returns a set of states in the state factory
@@ -425,23 +472,40 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 	if err != nil {
 		return 0, nil, err
 	}
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
 	if cfg.Key != nil {
 		return sdb.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	values, err := readStates(sdb.DAO(sdb.currentChainHeight), cfg.Namespace, cfg.Keys)
-	if err != nil {
-		return 0, nil, err
-	}
 
-	return sdb.currentChainHeight, state.NewIterator(values), nil
+	if sdb.versioned {
+		sdb.mutex.RLock()
+		height := sdb.currentChainHeight
+		sdb.mutex.RUnlock()
+		values, err := readStates(sdb.DAO(height), cfg.Namespace, cfg.Keys)
+		if err != nil {
+			return 0, nil, err
+		}
+		return height, state.NewIterator(values), nil
+	} else {
+		sdb.mutex.RLock()
+		defer sdb.mutex.RUnlock()
+		values, err := readStates(sdb.dao, cfg.Namespace, cfg.Keys)
+		if err != nil {
+			return 0, nil, err
+		}
+		return sdb.currentChainHeight, state.NewIterator(values), nil
+	}
 }
 
 // StateAtHeight returns a confirmed state at height -- archive mode
 func (sdb *stateDB) StateAtHeight(height uint64, s interface{}, opts ...protocol.StateOption) error {
 	if !sdb.versioned {
 		return ErrNotSupported
+	}
+	sdb.mutex.RLock()
+	currheight := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	if height > currheight {
+		return errors.Errorf("cannot read state at height %d, current height is %d", height, currheight)
 	}
 	cfg, err := processOptions(opts...)
 	if err != nil {
@@ -450,12 +514,32 @@ func (sdb *stateDB) StateAtHeight(height uint64, s interface{}, opts ...protocol
 	if cfg.Keys != nil {
 		return errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
-	return sdb.state(height, cfg.Namespace, cfg.Key, s)
+	return sdb.state(sdb.DAO(height), cfg.Namespace, cfg.Key, s)
 }
 
 // StatesAtHeight returns a set states in the state factory at height -- archive mode
 func (sdb *stateDB) StatesAtHeight(height uint64, opts ...protocol.StateOption) (state.Iterator, error) {
-	return nil, errors.Wrap(ErrNotSupported, "state db does not support archive mode")
+	if !sdb.versioned {
+		return nil, ErrNotSupported
+	}
+	sdb.mutex.RLock()
+	currheight := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	if height > currheight {
+		return nil, errors.Errorf("cannot read state at height %d, current height is %d", height, currheight)
+	}
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Key != nil {
+		return nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
+	}
+	values, err := readStates(sdb.DAO(height), cfg.Namespace, cfg.Keys)
+	if err != nil {
+		return nil, err
+	}
+	return state.NewIterator(values), nil
 }
 
 // ReadView reads the view
@@ -492,8 +576,8 @@ func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 	)
 }
 
-func (sdb *stateDB) state(h uint64, ns string, addr []byte, s interface{}) error {
-	data, err := sdb.DAO(h).Get(ns, addr)
+func (sdb *stateDB) state(kvStore db.KVStore, ns string, addr []byte, s interface{}) error {
+	data, err := kvStore.Get(ns, addr)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return errors.Wrapf(state.ErrStateNotExist, "state of %x doesn't exist", addr)

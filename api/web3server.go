@@ -359,7 +359,7 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 }
 
 func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
-	callerAddr, to, gasLimit, gasPrice, value, data, err := parseCallObject(in)
+	callerAddr, to, gasLimit, gasPrice, value, data, height, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
@@ -397,7 +397,8 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 		return "0x" + ret, nil
 	}
 	exec, _ := action.NewExecution(to, 0, value, gasLimit, gasPrice, data)
-	ret, receipt, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
+	exec.SetGasPrice(big.NewInt(0)) // ReadContract() is read-only, use 0 to prevent insufficient gas
+	ret, receipt, err := svr.coreService.ReadContract(context.Background(), height, callerAddr, exec)
 	if err != nil {
 		return nil, err
 	}
@@ -408,7 +409,7 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 }
 
 func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
-	from, to, gasLimit, gasPrice, value, data, err := parseCallObject(in)
+	from, to, gasLimit, gasPrice, value, data, _, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
@@ -1002,7 +1003,7 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		callerAddr   address.Address
 	)
 	blkNumOrHashObj, options := in.Get("params.1"), in.Get("params.2")
-	callerAddr, contractAddr, gasLimit, _, value, callData, err = parseCallObject(in)
+	callerAddr, contractAddr, gasLimit, _, value, callData, _, err = parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}

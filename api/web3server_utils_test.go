@@ -35,8 +35,7 @@ func TestParseCallObject(t *testing.T) {
 				"gasPrice": "0xe8d4a51000",
 				"value":    "0x1",
 				"data":     "0x6d4ce63c"
-			   },
-			   1]}`,
+			   }]}`,
 			from:     address.ZeroAddress,
 			to:       "io10sfcvmuj2000083qqd8d6qg7r457vll9gly090",
 			gasLimit: 20000,
@@ -53,8 +52,7 @@ func TestParseCallObject(t *testing.T) {
 				"gasPrice": "0xe8d4a51000",
 				"value":    "0x1",
 				"input":     "0x6d4ce63c"
-			   },
-			   1]}`,
+			   }]}`,
 			from:     address.ZeroAddress,
 			to:       "io10sfcvmuj2000083qqd8d6qg7r457vll9gly090",
 			gasLimit: 20000,
@@ -67,7 +65,7 @@ func TestParseCallObject(t *testing.T) {
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
 			in := gjson.Parse(test.input)
-			from, to, gasLimit, gasPrice, value, data, err := parseCallObject(&in)
+			from, to, gasLimit, gasPrice, value, data, _, err := parseCallObject(&in)
 			require.Equal(test.from, from.String())
 			require.Equal(test.to, to)
 			require.Equal(test.gasLimit, gasLimit)
@@ -86,10 +84,9 @@ func TestParseCallObject(t *testing.T) {
 				"gasPrice": "unknown",
 				"value":    "0x1",
 				"input":     "0x6d4ce63c"
-			   },
-			   1]}`
+			   }]}`
 		in := gjson.Parse(input)
-		_, _, _, _, _, _, err := parseCallObject(&in)
+		_, _, _, _, _, _, _, err := parseCallObject(&in)
 		require.EqualError(err, "gasPrice: unknown: wrong type of params")
 	})
 
@@ -104,7 +101,7 @@ func TestParseCallObject(t *testing.T) {
 			   },
 			   1]}`
 		in := gjson.Parse(input)
-		_, _, _, _, _, _, err := parseCallObject(&in)
+		_, _, _, _, _, _, _, err := parseCallObject(&in)
 		require.EqualError(err, "value: unknown: wrong type of params")
 	})
 

@@ -569,6 +569,7 @@ func (b *KvWithVersion) Delete(ns string, key []byte) error {
 // Filter returns <k, v> pair in a bucket that meet the condition
 func (b *KvWithVersion) Filter(ns string, cond Condition, minKey, maxKey []byte) ([][]byte, [][]byte, error) {
 	if b.versioned[ns] {
+		// TODO: support filter for versioned DB
 		panic("Filter not supported for versioned DB")
 	}
 	return b.kvBase.Filter(ns, cond, minKey, maxKey)
