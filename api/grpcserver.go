@@ -17,6 +17,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/ethereum/go-ethereum/rpc"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -372,7 +373,7 @@ func (svr *gRPCHandler) ReadContract(ctx context.Context, in *iotexapi.ReadContr
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	elp := (&action.EnvelopeBuilder{}).SetAction(sc).SetGasLimit(in.GetGasLimit()).Build()
-	data, receipt, err := svr.coreService.ReadContract(ctx, callerAddr, elp)
+	data, receipt, err := svr.coreService.ReadContract(ctx, rpc.LatestBlockNumber, callerAddr, elp)
 	if err != nil {
 		return nil, err
 	}
