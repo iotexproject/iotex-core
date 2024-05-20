@@ -113,6 +113,21 @@ func (mr *MockFactoryMockRecorder) ReadContractStorage(arg0, arg1, arg2 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadContractStorage", reflect.TypeOf((*MockFactory)(nil).ReadContractStorage), arg0, arg1, arg2)
 }
 
+// ReadContractStorageAtHeight mocks base method.
+func (m *MockFactory) ReadContractStorageAtHeight(arg0 context.Context, arg1 uint64, arg2 address.Address, arg3 []byte) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadContractStorageAtHeight", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadContractStorageAtHeight indicates an expected call of ReadContractStorageAtHeight.
+func (mr *MockFactoryMockRecorder) ReadContractStorageAtHeight(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadContractStorageAtHeight", reflect.TypeOf((*MockFactory)(nil).ReadContractStorageAtHeight), arg0, arg1, arg2, arg3)
+}
+
 // ReadView mocks base method.
 func (m *MockFactory) ReadView(arg0 string) (interface{}, error) {
 	m.ctrl.T.Helper()
@@ -161,6 +176,27 @@ func (mr *MockFactoryMockRecorder) SimulateExecution(arg0, arg1, arg2 interface{
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockFactory)(nil).SimulateExecution), varargs...)
+}
+
+// SimulateExecutionAtHeight mocks base method.
+func (m *MockFactory) SimulateExecutionAtHeight(arg0 context.Context, arg1 uint64, arg2 address.Address, arg3 action.Envelope, arg4 ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2, arg3}
+	for _, a := range arg4 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SimulateExecutionAtHeight", varargs...)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(*action.Receipt)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// SimulateExecutionAtHeight indicates an expected call of SimulateExecutionAtHeight.
+func (mr *MockFactoryMockRecorder) SimulateExecutionAtHeight(arg0, arg1, arg2, arg3 interface{}, arg4 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2, arg3}, arg4...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecutionAtHeight", reflect.TypeOf((*MockFactory)(nil).SimulateExecutionAtHeight), varargs...)
 }
 
 // Start mocks base method.
