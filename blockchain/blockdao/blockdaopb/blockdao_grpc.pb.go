@@ -145,7 +145,7 @@ func (c *blockDAOServiceClient) FooterByHeight(ctx context.Context, in *BlockHei
 }
 
 // BlockDAOServiceServer is the server API for BlockDAOService service.
-// All implementations must embed UnimplementedBlockDAOServiceServer
+// All implementations should embed UnimplementedBlockDAOServiceServer
 // for forward compatibility
 type BlockDAOServiceServer interface {
 	Height(context.Context, *emptypb.Empty) (*BlockHeightResponse, error)
@@ -159,10 +159,9 @@ type BlockDAOServiceServer interface {
 	Header(context.Context, *BlockHashRequest) (*HeaderResponse, error)
 	HeaderByHeight(context.Context, *BlockHeightRequest) (*HeaderResponse, error)
 	FooterByHeight(context.Context, *BlockHeightRequest) (*FooterResponse, error)
-	mustEmbedUnimplementedBlockDAOServiceServer()
 }
 
-// UnimplementedBlockDAOServiceServer must be embedded to have forward compatible implementations.
+// UnimplementedBlockDAOServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedBlockDAOServiceServer struct {
 }
 
@@ -199,7 +198,6 @@ func (UnimplementedBlockDAOServiceServer) HeaderByHeight(context.Context, *Block
 func (UnimplementedBlockDAOServiceServer) FooterByHeight(context.Context, *BlockHeightRequest) (*FooterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FooterByHeight not implemented")
 }
-func (UnimplementedBlockDAOServiceServer) mustEmbedUnimplementedBlockDAOServiceServer() {}
 
 // UnsafeBlockDAOServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to BlockDAOServiceServer will
