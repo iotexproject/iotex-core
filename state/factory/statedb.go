@@ -337,12 +337,48 @@ func (sdb *stateDB) SimulateExecution(
 	return evm.SimulateExecution(ctx, ws, caller, elp)
 }
 
+func (sdb *stateDB) SimulateExecutionAtHeight(
+	ctx context.Context,
+	height uint64,
+	caller address.Address,
+	elp action.Envelope,
+	opts ...protocol.SimulateOption,
+) ([]byte, *action.Receipt, error) {
+	ctx, span := tracer.NewSpan(ctx, "stateDB.SimulateExecutionAtHeight")
+	defer span.End()
+
+	ws, err := sdb.newWorkingSet(ctx, height)
+	if err != nil {
+		return nil, nil, err
+	}
+	cfg := &protocol.SimulateOptionConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	if cfg.PreOpt != nil {
+		if err := cfg.PreOpt(ws); err != nil {
+			return nil, nil, err
+		}
+	}
+	return evm.SimulateExecution(ctx, ws, caller, elp)
+}
+
 // ReadContractStorage reads contract's storage
 func (sdb *stateDB) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
 	sdb.mutex.RLock()
 	currHeight := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
 	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate working set from state db")
+	}
+	return evm.ReadContractStorage(ctx, ws, contract, key)
+}
+
+// ReadContractStorageAtHeight reads contract's storage at a specific height
+func (sdb *stateDB) ReadContractStorageAtHeight(ctx context.Context, height uint64,
+	contract address.Address, key []byte) ([]byte, error) {
+	ws, err := sdb.newWorkingSet(ctx, height)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate working set from state db")
 	}

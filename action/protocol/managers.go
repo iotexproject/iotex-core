@@ -73,6 +73,13 @@ type (
 		ReadView(string) (interface{}, error)
 	}
 
+	// HistroicalStateReader defines an interface to read stateDB with historical state
+	HistroicalStateReader interface {
+		StateAtHeight(uint64, interface{}, ...StateOption) error
+		StatesAtHeight(uint64, ...StateOption) (state.Iterator, error)
+		ReadView(string) (interface{}, error)
+	}
+
 	// StateManager defines the stateDB interface atop IoTeX blockchain
 	StateManager interface {
 		StateReader
