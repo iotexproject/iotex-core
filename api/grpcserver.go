@@ -17,6 +17,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/ethereum/go-ethereum/rpc"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -371,8 +372,8 @@ func (svr *gRPCHandler) ReadContract(ctx context.Context, in *iotexapi.ReadContr
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	sc.SetGasLimit(in.GetGasLimit())
-
-	data, receipt, err := svr.coreService.ReadContract(ctx, callerAddr, sc)
+	sc.SetGasPrice(big.NewInt(0)) // ReadContract() is read-only, use 0 to prevent insufficient gas
+	data, receipt, err := svr.coreService.ReadContract(ctx, rpc.LatestBlockNumber, callerAddr, sc)
 	if err != nil {
 		return nil, err
 	}

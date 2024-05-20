@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
 	mock_apitypes "github.com/iotexproject/iotex-core/test/mock/mock_apiresponder"
 )
 
@@ -32,7 +31,7 @@ func TestGrpcServer_GetAccount(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	t.Run("get acccount", func(t *testing.T) {
@@ -80,7 +79,7 @@ func TestGrpcServer_GetActions(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	t.Run("get actions by address tests", func(t *testing.T) {
@@ -248,7 +247,7 @@ func TestGrpcServer_GetBlockMetas(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	errStr := "get block metas mock test error"
@@ -302,7 +301,7 @@ func TestGrpcServer_GetChainMeta(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 	chainMeta := &iotextypes.ChainMeta{
 		Height:   1000,
@@ -323,7 +322,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	for _, test := range _sendActionTests {
@@ -339,7 +338,7 @@ func TestGrpcServer_StreamBlocks(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	t.Run("addResponder failed", func(t *testing.T) {
@@ -368,7 +367,7 @@ func TestGrpcServer_StreamLogs(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	t.Run("StreamLogsEmptyFilter", func(t *testing.T) {
@@ -400,7 +399,7 @@ func TestGrpcServer_GetReceiptByAction(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 	receipt := &action.Receipt{
 		Status:          1,
@@ -448,7 +447,7 @@ func TestGrpcServer_GetServerMeta(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	core.EXPECT().ServerMeta().Return("packageVersion", "packageCommitID", "gitStatus", "goVersion", "buildTime")
@@ -465,7 +464,7 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 	response := &iotextypes.Receipt{
 		ActHash:     []byte("08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4"),
@@ -480,7 +479,7 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 			CallerAddress: identityset.Address(0).String(),
 			GasLimit:      10100,
 		}
-		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", response, nil)
+		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("", response, nil)
 
 		res, err := grpcSvr.ReadContract(context.Background(), request)
 		require.NoError(err)
@@ -496,7 +495,7 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 			CallerAddress: "",
 			GasLimit:      10100,
 		}
-		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", response, nil)
+		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("", response, nil)
 
 		res, err := grpcSvr.ReadContract(context.Background(), request)
 		require.NoError(err)
@@ -513,7 +512,7 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 			CallerAddress: "",
 			GasLimit:      10100,
 		}
-		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil, expectedErr)
+		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil, expectedErr)
 
 		_, err := grpcSvr.ReadContract(context.Background(), request)
 		require.Contains(err.Error(), expectedErr.Error())
@@ -549,7 +548,7 @@ func TestGrpcServer_SuggestGasPrice(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	core.EXPECT().SuggestGasPrice().Return(uint64(1), nil)
@@ -566,7 +565,7 @@ func TestGrpcServer_EstimateGasForAction(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	core.EXPECT().EstimateGasForAction(gomock.Any(), gomock.Any()).Return(uint64(10000), nil)
@@ -583,7 +582,7 @@ func TestGrpcServer_EstimateActionGasConsumption(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 	request := &iotexapi.EstimateActionGasConsumptionRequest{
 		CallerAddress: identityset.Address(0).String(),
@@ -743,7 +742,7 @@ func TestGrpcServer_ReadState(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 	core.EXPECT().ReadState(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&iotexapi.ReadStateResponse{
 		Data: []byte("10100"),
@@ -760,7 +759,7 @@ func TestGrpcServer_GetEpochMeta(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 	epochData := &iotextypes.EpochData{Num: 7000}
 	blockProducersInfo := []*iotexapi.BlockProducerInfo{{Production: 8000}}
@@ -778,7 +777,7 @@ func TestGrpcServer_GetRawBlocks(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	blocks := []*iotexapi.BlockInfo{
@@ -822,7 +821,7 @@ func TestGrpcServer_GetLogs(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 	request := &iotexapi.GetLogsRequest{
 		Filter: &iotexapi.LogsFilter{
@@ -908,7 +907,7 @@ func TestGrpcServer_GetElectionBuckets(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	buckets := []*iotextypes.ElectionBucket{
@@ -929,7 +928,7 @@ func TestGrpcServer_GetTransactionLogByActionHash(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	txLog := &iotextypes.TransactionLog{
@@ -948,7 +947,7 @@ func TestGrpcServer_GetTransactionLogByBlockHeight(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	blockIdentifier := &iotextypes.BlockIdentifier{
@@ -975,7 +974,7 @@ func TestGrpcServer_GetActPoolActions(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	addr1 := identityset.Address(28).String()
@@ -1001,7 +1000,7 @@ func TestGrpcServer_ReadContractStorage(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	core.EXPECT().ReadContractStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return([]byte("_data"), nil)
@@ -1017,7 +1016,7 @@ func TestGrpcServer_TraceTransactionStructLogs(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
 	core.EXPECT().TraceTransaction(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, logger.NewStructLogger(nil), nil)
