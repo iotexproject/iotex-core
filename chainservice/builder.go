@@ -299,6 +299,13 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if err != nil {
 		return err
 	}
+	readOnly := builder.readOnly()
+	if readOnly {
+		for _, indexer := range indexers {
+			builder.cs.lifecycle.Add(indexer)
+		}
+		indexers = nil
+	}
 	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, builder.cfg.DB.MaxCacheSize)
 
 	return nil
@@ -380,6 +387,12 @@ func (builder *Builder) buildGatewayComponents(forTest bool) error {
 	builder.cs.indexer = indexer
 
 	return nil
+}
+
+func (builder *Builder) readOnly() bool {
+	_, yes := builder.cfg.Plugins[config.ReadOnlyGatewayPlugin]
+
+	return yes
 }
 
 func (builder *Builder) createGateWayComponents(forTest bool) (
@@ -749,11 +762,7 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if builder.cs.p2pAgent == nil {
 		builder.cs.p2pAgent = p2p.NewDummyAgent()
 	}
-	_, readOnlyMode := builder.cfg.Plugins[config.ReadOnlyGatewayPlugin]
-	if readOnlyMode {
-		builder.cfg.DB.ReadOnly = true
-	}
-
+	readOnlyMode := builder.readOnly()
 	if err := builder.buildFactory(forTest); err != nil {
 		return nil, err
 	}
