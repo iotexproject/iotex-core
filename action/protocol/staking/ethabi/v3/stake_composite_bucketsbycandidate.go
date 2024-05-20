@@ -2,16 +2,21 @@ package v3
 
 import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/abiutil"
 	stakingComm "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi/common"
 )
 
-const _compositeBucketsInterfaceABI = `[
+const _compositeBucketsByCandidateInterfaceABI = `[
 	{
 		"inputs": [
+			{
+				"internalType": "string",
+				"name": "candName",
+				"type": "string"
+			},
 			{
 				"internalType": "uint32",
 				"name": "offset",
@@ -23,7 +28,7 @@ const _compositeBucketsInterfaceABI = `[
 				"type": "uint32"
 			}
 		],
-		"name": "compositeBucketsV3",
+		"name": "compositeBucketsByCandidateV3",
 		"outputs": [
 			{
 				"components": [
@@ -113,17 +118,12 @@ const _compositeBucketsInterfaceABI = `[
 	}
 ]`
 
-var _compositeBucketsMethod abi.Method
+var _compositeBucketsByCandidateMethod abi.Method
 
 func init() {
-	_compositeBucketsMethod = abiutil.MustLoadMethod(_compositeBucketsInterfaceABI, "compositeBucketsV3")
+	_compositeBucketsByCandidateMethod = abiutil.MustLoadMethod(_compositeBucketsByCandidateInterfaceABI, "compositeBucketsByCandidateV3")
 }
 
-// CompositeBucketsStateContext context for Composite Buckets
-type CompositeBucketsStateContext struct {
-	*protocol.BaseStateContext
-}
-
-func newCompositeBucketsStateContext(data []byte) (*stakingComm.BucketsStateContext, error) {
-	return stakingComm.NewBucketsStateContext(data, &_compositeBucketsMethod, iotexapi.ReadStakingDataMethod_COMPOSITE_BUCKETS)
+func newCompositeBucketsByCandidateStateContext(data []byte) (*stakingComm.BucketsByCandidateStateContext, error) {
+	return stakingComm.NewBucketsByCandidateStateContext(data, &_compositeBucketsByCandidateMethod, iotexapi.ReadStakingDataMethod_COMPOSITE_BUCKETS_BY_CANDIDATE)
 }
