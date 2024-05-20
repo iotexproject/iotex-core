@@ -271,8 +271,7 @@ func ethCall(t *testing.T, handler *hTTPHandler) {
 				"gasPrice": "0xe8d4a51000",
 				"value":    "0x1",
 				"data":     "0x1"
-			  },
-			1]`,
+			  }]`,
 			1,
 		},
 		{
@@ -283,8 +282,7 @@ func ethCall(t *testing.T, handler *hTTPHandler) {
 				"gasPrice": "0xe8d4a51000",
 				"value":    "0x1",
 				"data":     "0x1"
-			   },
-			1]`,
+			   }]`,
 			0,
 		},
 	} {
@@ -678,8 +676,7 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 				"gas":      "0x0",
 				"gasPrice": "0x0",
 				"value":    "0x0",
-				"data":     "%s"},
-			    1]`, identityset.Address(28).Hex(), toAddr, hex.EncodeToString(test.data)))
+				"data":     "%s"}]`, identityset.Address(28).Hex(), toAddr, hex.EncodeToString(test.data)))
 		actual, ok := result.(string)
 		require.True(ok)
 		gasLimit, err := hexStringToNumber(actual)
@@ -743,8 +740,7 @@ func estimateGas(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, d
 				"gas":      "0x0",
 				"gasPrice": "0x0",
 				"value":    "0x0",
-				"data":     "0x1123123c"},
-			    1]`, fromAddr, toAddr),
+				"data":     "0x1123123c"}]`, fromAddr, toAddr),
 			21000,
 		},
 		{
@@ -754,8 +750,7 @@ func estimateGas(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, d
 			    "gas":      "0x0",
 				"gasPrice": "0x0",
 				"value":    "0x0",
-				"data":      "344933be000000000000000000000000000000000000000000000000000be497a92e9f3300000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000f8be4046fd89199906ca348bcd3822c4b250e246000000000000000000000000000000000000000000000000000000006173a15400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000a00744882684c3e4747faefd68d283ea44099d030000000000000000000000000258866edaf84d6081df17660357ab20a07d0c80"},
-				1]`, fromAddr, toAddr),
+				"data":      "344933be000000000000000000000000000000000000000000000000000be497a92e9f3300000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000f8be4046fd89199906ca348bcd3822c4b250e246000000000000000000000000000000000000000000000000000000006173a15400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000a00744882684c3e4747faefd68d283ea44099d030000000000000000000000000258866edaf84d6081df17660357ab20a07d0c80"}]`, fromAddr, toAddr),
 			36000,
 		},
 		{
@@ -765,8 +760,7 @@ func estimateGas(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, d
 				"gas":      "0x0",
 				"gasPrice": "0x0",
 				"value":    "0x0",
-				"data":     "0x6d4ce63c"},
-				1]`, fromAddr, contractAddr),
+				"data":     "0x6d4ce63c"}]`, fromAddr, contractAddr),
 			21000,
 		},
 	} {
