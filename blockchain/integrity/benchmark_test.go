@@ -265,9 +265,9 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, cfg.DB.MaxCacheSize)
-	if dao == nil {
-		return nil, nil, errors.New("pointer is nil")
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, blockdao.CacheSizeOption(cfg.DB.MaxCacheSize))
+	if err != nil {
+		return nil, nil, err
 	}
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
