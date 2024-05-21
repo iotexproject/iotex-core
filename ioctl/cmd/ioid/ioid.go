@@ -39,6 +39,7 @@ var IoIDCmd = &cobra.Command{
 
 func init() {
 	IoIDCmd.AddCommand(_projectRegisterCmd)
+	IoIDCmd.AddCommand(_applyCmd)
 	IoIDCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagInsEndPointUsages,
 			config.UILanguage))

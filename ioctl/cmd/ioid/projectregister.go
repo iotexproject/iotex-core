@@ -30,7 +30,7 @@ var (
 	}
 )
 
-// _projectRegisterCmd represents the action hash command
+// _projectRegisterCmd represents the project register command
 var _projectRegisterCmd = &cobra.Command{
 	Use:   config.TranslateInLang(_registerUsages, config.UILanguage),
 	Short: config.TranslateInLang(_registerShorts, config.UILanguage),
