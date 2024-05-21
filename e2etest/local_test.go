@@ -175,7 +175,8 @@ func TestLocalCommit(t *testing.T) {
 	dbcfg.DbPath = cfg.Chain.ChainDBPath
 	store, err := filedao.NewFileDAO(dbcfg, block.NewDeserializer(cfg.Chain.EVMNetworkID))
 	require.NoError(err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf2}, dbcfg.MaxCacheSize)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf2})
+	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,

@@ -88,7 +88,8 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	require.NoError(t, err)
 	store, err := filedao.NewFileDAOInMemForTest()
 	require.NoError(t, err)
-	blkMemDao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, 16)
+	blkMemDao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	require.NoError(t, err)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
@@ -170,7 +171,8 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	require.NoError(t, err)
 	store, err := filedao.NewFileDAOInMemForTest()
 	require.NoError(t, err)
-	blkMemDao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, 16)
+	blkMemDao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	require.NoError(t, err)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,

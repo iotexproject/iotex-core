@@ -490,7 +490,8 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NoError(err)
 	store, err := filedao.NewFileDAOInMemForTest()
 	require.NoError(err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, cfg.DB.MaxCacheSize)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	require.NoError(err)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
@@ -545,7 +546,8 @@ func TestGetBlockHash(t *testing.T) {
 	require.NoError(err)
 	store, err := filedao.NewFileDAOInMemForTest()
 	require.NoError(err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, cfg.DB.MaxCacheSize)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	require.NoError(err)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
@@ -710,7 +712,8 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	require.NoError(t, err)
 	store, err := filedao.NewFileDAOInMemForTest()
 	require.NoError(t, err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, cfg.DB.MaxCacheSize)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	require.NoError(t, err)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
@@ -786,7 +789,8 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	require.NoError(t, err)
 	store, err := filedao.NewFileDAOInMemForTest()
 	require.NoError(t, err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, cfg.DB.MaxCacheSize)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	require.NoError(t, err)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
@@ -918,12 +922,11 @@ func createChain(cfg config.Config, inMem bool) (blockchain.Blockchain, factory.
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	dao = blockdao.NewBlockDAOWithIndexersAndCache(
+	dao, err = blockdao.NewBlockDAOWithIndexersAndCache(
 		store,
 		[]blockdao.BlockIndexer{sf, indexer},
-		cfg.DB.MaxCacheSize,
 	)
-	if dao == nil {
+	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, fakeGetBlockTime)
@@ -1316,7 +1319,8 @@ func TestConstantinople(t *testing.T) {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
 		store, err := filedao.NewFileDAO(cfg.DB, block.NewDeserializer(cfg.Chain.EVMNetworkID))
 		require.NoError(err)
-		dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf, indexer}, cfg.DB.MaxCacheSize)
+		dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf, indexer})
+		require.NoError(err)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
 			cfg.Chain,
@@ -1569,7 +1573,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
 		store, err := filedao.NewFileDAO(cfg.DB, block.NewDeserializer(cfg.Chain.EVMNetworkID))
 		require.NoError(err)
-		dao := blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, cfg.DB.MaxCacheSize)
+		dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, indexers)
+		require.NoError(err)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
 			cfg.Chain,
@@ -1878,7 +1883,8 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	dbcfg.DbPath = cfg.Chain.ChainDBPath
 	store, err := filedao.NewFileDAO(dbcfg, block.NewDeserializer(cfg.Chain.EVMNetworkID))
 	require.NoError(err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, dbcfg.MaxCacheSize)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	require.NoError(err)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
@@ -1924,7 +1930,8 @@ func TestBlockchain_AccountState(t *testing.T) {
 	require.NoError(err)
 	store, err := filedao.NewFileDAOInMemForTest()
 	require.NoError(err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, cfg.DB.MaxCacheSize)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	require.NoError(err)
 	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
@@ -1955,7 +1962,8 @@ func TestNewAccountAction(t *testing.T) {
 	require.NoError(err)
 	store, err := filedao.NewFileDAOInMemForTest()
 	require.NoError(err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, cfg.DB.MaxCacheSize)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	require.NoError(err)
 	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
@@ -2000,7 +2008,8 @@ func TestNewAccountAction(t *testing.T) {
 		require.NoError(err)
 		store, err := filedao.NewFileDAOInMemForTest()
 		require.NoError(err)
-		dao1 := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf1}, cfg.DB.MaxCacheSize)
+		dao1, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf1})
+		require.NoError(err)
 		bc1 := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao1, factory.NewMinter(sf1, ap))
 		require.NoError(bc1.Start(ctx))
 		require.NotNil(bc1)
@@ -2066,7 +2075,8 @@ func TestBlocks(t *testing.T) {
 	dbcfg.DbPath = cfg.Chain.ChainDBPath
 	store, err := filedao.NewFileDAO(dbcfg, block.NewDeserializer(cfg.Chain.EVMNetworkID))
 	require.NoError(err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, dbcfg.MaxCacheSize)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	require.NoError(err)
 
 	// Create a blockchain from scratch
 	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
@@ -2140,7 +2150,8 @@ func TestActions(t *testing.T) {
 	dbcfg.DbPath = cfg.Chain.ChainDBPath
 	store, err := filedao.NewFileDAO(dbcfg, block.NewDeserializer(cfg.Chain.EVMNetworkID))
 	require.NoError(err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, dbcfg.MaxCacheSize)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	require.NoError(err)
 	// Create a blockchain from scratch
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
@@ -2204,7 +2215,8 @@ func TestBlockchain_AddRemoveSubscriber(t *testing.T) {
 	req.NoError(err)
 	store, err := filedao.NewFileDAOInMemForTest()
 	req.NoError(err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, cfg.DB.MaxCacheSize)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	req.NoError(err)
 	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
 	// mock
 	ctrl := gomock.NewController(t)
@@ -2434,7 +2446,8 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	store, err := filedao.NewFileDAO(cfg.DB, block.NewDeserializer(cfg.Chain.EVMNetworkID))
 	require.NoError(err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, cfg.DB.MaxCacheSize)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, indexers)
+	require.NoError(err)
 	require.NotNil(dao)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,

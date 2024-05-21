@@ -474,7 +474,8 @@ func (sct *SmartContractTest) prepareBlockchain(
 	// create BlockDAO
 	store, err := filedao.NewFileDAOInMemForTest()
 	r.NoError(err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf, indexer}, cfg.DB.MaxCacheSize)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf, indexer})
+	r.NoError(err)
 	r.NotNil(dao)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
@@ -721,7 +722,8 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
 		store, err := filedao.NewFileDAOInMemForTest()
 		require.NoError(err)
-		dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf, indexer}, cfg.DB.MaxCacheSize)
+		dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf, indexer})
+		require.NoError(err)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
 			cfg.Chain,

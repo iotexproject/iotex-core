@@ -188,7 +188,8 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 	dbcfg.DbPath = cfg.ChainDBPath
 	store, err := filedao.NewFileDAO(dbcfg, block.NewDeserializer(cfg.EVMNetworkID))
 	require.NoError(err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, dbcfg.MaxCacheSize)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		g,
