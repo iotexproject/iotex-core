@@ -50,7 +50,8 @@ func TestBlockBufferFlush(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	store, err := filedao.NewFileDAOInMemForTest()
 	require.NoError(err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, 16)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
@@ -144,7 +145,8 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	require.NoError(err)
 	store, err := filedao.NewFileDAOInMemForTest()
 	require.NoError(err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, 16)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,

@@ -299,16 +299,13 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if err != nil {
 		return err
 	}
-	readOnly := builder.readOnly()
-	if readOnly {
-		for _, indexer := range indexers {
-			builder.cs.lifecycle.Add(indexer)
-		}
-		indexers = nil
+	opts := []blockdao.Option{blockdao.CacheSizeOption(builder.cfg.DB.MaxCacheSize)}
+	if builder.readOnly() {
+		opts = append(opts, blockdao.DisableCheckIndexerOption())
 	}
-	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, builder.cfg.DB.MaxCacheSize)
+	builder.cs.blockdao, err = blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, opts...)
 
-	return nil
+	return err
 }
 
 func (builder *Builder) buildSGDRegistry(forTest bool) error {
