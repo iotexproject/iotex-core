@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/ethabi/common"
 )
 
@@ -20,7 +21,7 @@ func TestBuildReadStateRequestCompositeTotalStakingAmount(t *testing.T) {
 	req, err := BuildReadStateRequest(data)
 
 	r.Nil(err)
-	r.EqualValues("*common.CompositeTotalStakingAmountStateContext", reflect.TypeOf(req).String())
+	r.EqualValues("*common.TotalStakingAmountStateContext", reflect.TypeOf(req).String())
 
 	method := &iotexapi.ReadStakingDataMethod{
 		Method: iotexapi.ReadStakingDataMethod_COMPOSITE_TOTAL_STAKING_AMOUNT,
@@ -49,7 +50,11 @@ func TestEncodeCompositeTotalStakingAmountToEth(t *testing.T) {
 		Data: metaBytes,
 	}
 
-	ctx := &common.TotalStakingAmountStateContext{}
+	ctx := &common.TotalStakingAmountStateContext{
+		BaseStateContext: &protocol.BaseStateContext{
+			Method: &_compositeTotalStakingAmountMethod,
+		},
+	}
 	data, err := ctx.EncodeToEth(resp)
 	r.Nil(err)
 	r.EqualValues("0000000000000000000000000000000000000000000000056bc75e2d63100000", data)

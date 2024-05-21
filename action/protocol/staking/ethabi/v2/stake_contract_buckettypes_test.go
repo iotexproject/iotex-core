@@ -29,7 +29,7 @@ func TestBuildReadStateRequestContractBucketTypes(t *testing.T) {
 	r.NoError(err)
 	req, err := BuildReadStateRequest(data)
 	r.NoError(err)
-	r.EqualValues("*common.ContractBucketTypesStateContext", reflect.TypeOf(req).String())
+	r.EqualValues("*v2.ContractBucketTypesStateContext", reflect.TypeOf(req).String())
 
 	method := &iotexapi.ReadStakingDataMethod{
 		Method: iotexapi.ReadStakingDataMethod_CONTRACT_STAKING_BUCKET_TYPES,
