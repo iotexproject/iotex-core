@@ -254,6 +254,9 @@ func newStakingActionFromABIBinary(data []byte) (actionPayload, error) {
 	if act, err := NewCandidateEndorsementFromABIBinary(data); err == nil {
 		return act, nil
 	}
+	if act, err := NewCandidateTransferOwnershipFromABIBinary(data); err == nil {
+		return act, nil
+	}
 	return nil, ErrInvalidABI
 }
 
