@@ -932,21 +932,22 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 	)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 
-	rp := rolldpos.FindProtocol(core.registry)
-	if rp == nil {
-		return nil, uint64(0), errors.New("rolldpos is not registered")
-	}
-
-	tipEpochNum := rp.GetEpochNum(tipHeight)
 	if height != "" {
 		inputHeight, err := strconv.ParseUint(height, 0, 64)
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		inputEpochNum := rp.GetEpochNum(inputHeight)
-		if inputEpochNum < tipEpochNum {
+		rp := rolldpos.FindProtocol(core.registry)
+		if rp != nil {
+			tipEpochNum := rp.GetEpochNum(tipHeight)
+			inputEpochNum := rp.GetEpochNum(inputHeight)
+			if inputEpochNum < tipEpochNum {
+				inputHeight = rp.GetEpochHeight(inputEpochNum)
+			}
+		}
+		if inputHeight < tipHeight {
 			// old data, wrap to history state reader
-			d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(core.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
+			d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(core.sf, inputHeight), methodName, arguments...)
 			if err == nil {
 				key.Height = strconv.FormatUint(h, 10)
 				core.readCache.Put(key.Hash(), d)
@@ -954,7 +955,6 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 			return d, h, err
 		}
 	}
-
 	// TODO: need to distinguish user error and system error
 	d, h, err := p.ReadState(ctx, core.sf, methodName, arguments...)
 	if err == nil {
