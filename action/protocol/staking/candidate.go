@@ -107,6 +107,9 @@ func (d *Candidate) Collision(c *Candidate) error {
 	if address.Equal(d.GetIdentifier(), c.GetIdentifier()) {
 		return nil
 	}
+	if address.Equal(d.Owner, c.Owner) {
+		return action.ErrInvalidOwner
+	}
 	if c.Name == d.Name {
 		return action.ErrInvalidCanName
 	}
@@ -181,7 +184,7 @@ func (d *Candidate) Deserialize(buf []byte) error {
 	return d.fromProto(pb)
 }
 
-// GetIdentifier returns the voter address
+// GetIdentifier returns the identifier
 func (d *Candidate) GetIdentifier() address.Address {
 	if d.Identifier == nil {
 		return d.Owner
