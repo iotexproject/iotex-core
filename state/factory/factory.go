@@ -406,8 +406,18 @@ func (sf *factory) SimulateExecution(
 }
 
 // SimulateExecutionAtHeight simulates a running of smart contract operation at a specific height
-func (sf *factory) SimulateExecutionAtHeight(context.Context, uint64, address.Address, *action.Execution) ([]byte, *action.Receipt, error) {
-	panic("unimplemented")
+func (sf *factory) SimulateExecutionAtHeight(ctx context.Context, height uint64, caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
+	ctx, span := tracer.NewSpan(ctx, "factory.SimulateExecution")
+	defer span.End()
+
+	sf.mutex.Lock()
+	ws, err := sf.newWorkingSet(ctx, height)
+	sf.mutex.Unlock()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+
+	return evm.SimulateExecution(ctx, ws, caller, ex)
 }
 
 // ReadContractStorage reads contract's storage
@@ -422,8 +432,14 @@ func (sf *factory) ReadContractStorage(ctx context.Context, contract address.Add
 }
 
 // ReadContractStorageAtHeight reads contract's storage at a specific height
-func (sf *factory) ReadContractStorageAtHeight(context.Context, uint64, address.Address, []byte) ([]byte, error) {
-	panic("unimplemented")
+func (sf *factory) ReadContractStorageAtHeight(ctx context.Context, height uint64, contract address.Address, key []byte) ([]byte, error) {
+	sf.mutex.Lock()
+	ws, err := sf.newWorkingSet(ctx, height)
+	sf.mutex.Unlock()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate working set from state factory")
+	}
+	return evm.ReadContractStorage(ctx, ws, contract, key)
 }
 
 // PutBlock persists all changes in RunActions() into the DB
