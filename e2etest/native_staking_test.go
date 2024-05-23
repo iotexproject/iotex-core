@@ -454,6 +454,12 @@ func TestNativeStaking(t *testing.T) {
 			require.NoError(err)
 			require.Equal(4, len(cands))
 		})
+		// candidate transfer ownership
+		_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(5, identityset.Address(33).String(), nil, gasLimit, gasPrice, cand1PriKey))
+		require.NoError(err)
+		require.EqualValues(iotextypes.ReceiptStatus_Success, ccto.Status)
+		// check candidate state
+		require.NoError(checkCandidateState(sf, candidate1Name, identityset.Address(33).String(), selfStake, cand1Votes, identityset.Address(33)))
 	}
 
 	cfg := config.Default
