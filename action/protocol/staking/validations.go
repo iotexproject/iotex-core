@@ -98,3 +98,10 @@ func (p *Protocol) validateCandidateActivate(ctx context.Context, act *action.Ca
 	}
 	return nil
 }
+
+func (p *Protocol) validateCandidateTransferOwnershipAction(ctx context.Context, act *action.CandidateTransferOwnership) error {
+	if protocol.MustGetFeatureCtx(ctx).CandidateIdentifiedByOwner {
+		return errors.Wrap(action.ErrInvalidAct, "candidate transfer ownership is disabled")
+	}
+	return nil
+}

@@ -425,6 +425,8 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		rLog, tLogs, err = p.handleCandidateActivate(ctx, act, csm)
 	case *action.CandidateEndorsement:
 		rLog, tLogs, err = p.handleCandidateEndorsement(ctx, act, csm)
+	case *action.CandidateTransferOwnership:
+		rLog, tLogs, err = p.handleCandidateTransferOwnership(ctx, act, csm)
 	default:
 		return nil, nil
 	}
@@ -473,6 +475,8 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 		return p.validateCandidateActivate(ctx, act)
 	case *action.CandidateEndorsement:
 		return p.validateCandidateEndorsement(ctx, act)
+	case *action.CandidateTransferOwnership:
+		return p.validateCandidateTransferOwnershipAction(ctx, act)
 	}
 	return nil
 }
