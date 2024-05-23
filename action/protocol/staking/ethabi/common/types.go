@@ -39,6 +39,7 @@ type (
 
 	// CandidateEth struct for eth
 	CandidateEth struct {
+		Id                 common.Address
 		OwnerAddress       common.Address
 		OperatorAddress    common.Address
 		RewardAddress      common.Address
@@ -129,6 +130,11 @@ func EncodeCandidateToEth(candidate *iotextypes.CandidateV2) (*CandidateEth, err
 	} else {
 		return nil, ErrConvertBigNumber
 	}
+	addr, err = addrutil.IoAddrToEvmAddr(candidate.Id)
+	if err != nil {
+		return nil, err
+	}
+	result.Id = addr
 	return result, nil
 }
 

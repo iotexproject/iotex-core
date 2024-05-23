@@ -76,7 +76,7 @@ func (r *CandidateByAddressStateContext) EncodeToEth(resp *iotexapi.ReadStateRes
 
 	data, err := r.Method.Outputs.Pack(cand)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return hex.EncodeToString(data), nil
 }
