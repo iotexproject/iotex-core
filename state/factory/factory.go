@@ -269,7 +269,7 @@ func (sf *factory) newWorkingSetWithOption(ctx context.Context, height uint64, r
 	span.AddEvent("factory.newWorkingSet")
 	defer span.End()
 
-	store, err := newFactoryWorkingSetStore(ctx, height, uint64(sf.historyWindowSize), sf.protocolView, sf.dao, readOnly)
+	store, err := newFactoryWorkingSetStore(ctx, height, uint64(sf.historyWindowSize), sf.currentChainHeight, sf.protocolView, sf.kvStore)
 	if err != nil {
 		return nil, err
 	}

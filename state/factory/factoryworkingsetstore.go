@@ -49,6 +49,7 @@ func newFactoryWorkingSetStore(
 	ctx context.Context,
 	height uint64,
 	historyWindowSize uint64,
+	tipHeight uint64,
 	view protocol.View,
 	kvstore db.KVStore,
 	simulate bool,
@@ -74,9 +75,13 @@ func newFactoryWorkingSetStore(
 	}
 	var expire uint64
 	var bf bloom.BloomFilter
+	var rootKey string
 	switch historyWindowSize {
 	case 1:
-		// do nothing
+		if height < tipHeight {
+			return nil, errors.Errorf("height %d state does not exist", height)
+		}
+		rootKey = ArchiveTrieRootKey
 	case 0:
 		opts = append(opts, db.FlushTranslateOption(func(wi *batch.WriteInfo) []*batch.WriteInfo {
 			if wi.WriteType() == batch.Delete && wi.Namespace() == ArchiveTrieNamespace {
@@ -84,7 +89,19 @@ func newFactoryWorkingSetStore(
 			}
 			return []*batch.WriteInfo{wi}
 		}))
+		if height >= tipHeight {
+			rootKey = ArchiveTrieRootKey
+		} else {
+			rootKey = fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height)
+		}
 	default:
+		if height <= tipHeight-historyWindowSize {
+			return nil, errors.Errorf("height %d state does not exist", height)
+		} else if height < tipHeight {
+			rootKey = fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height)
+		} else {
+			rootKey = ArchiveTrieRootKey
+		}
 		var err error
 		bf, err = bloom.NewBloomFilter(2048, 4)
 		if err != nil {
@@ -138,8 +155,7 @@ func newFactoryWorkingSetStore(
 	if err != nil {
 		return nil, err
 	}
-
-	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, flusher.KVStoreWithBuffer(), ArchiveTrieRootKey, true)
+	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, flusher.KVStoreWithBuffer(), rootKey, true)
 	if err != nil {
 		return nil, err
 	}
