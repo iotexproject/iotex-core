@@ -184,6 +184,7 @@ func (d *Candidate) Deserialize(buf []byte) error {
 	return d.fromProto(pb)
 }
 
+// TODO: rename to ID
 // GetIdentifier returns the identifier
 func (d *Candidate) GetIdentifier() address.Address {
 	if d.Identifier == nil {
