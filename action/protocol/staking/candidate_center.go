@@ -597,7 +597,7 @@ func (cb *candBase) collision(d *Candidate) (address.Address, address.Address, a
 	return name, owner, oper, self
 }
 
-func (cb *candBase) delete(owner address.Address) {
+func (cb *candBase) deleteByOwner(owner address.Address) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	if d, hit := cb.ownerMap[owner.String()]; hit {
@@ -605,5 +605,6 @@ func (cb *candBase) delete(owner address.Address) {
 		delete(cb.ownerMap, d.Owner.String())
 		delete(cb.operatorMap, d.Operator.String())
 		delete(cb.selfStkBucketMap, d.SelfStakeBucketIdx)
+		delete(cb.identifierMap, d.GetIdentifier().String())
 	}
 }

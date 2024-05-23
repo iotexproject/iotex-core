@@ -61,6 +61,7 @@ func (p *Protocol) validateCandidateTransferOwnership(_ context.Context, act *ac
 		}
 	}
 	//check the new owner is exist or is contract address
+	// TODO: only accept an existed EOA as new owner
 	if acc, err := accountutil.LoadOrCreateAccount(csm.SM(), act.NewOwner()); err != nil || acc.IsContract() {
 		return &handleError{
 			err:           errors.New("new owner is not a valid address"),
