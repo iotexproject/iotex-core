@@ -31,13 +31,13 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 	if err := p.validateCandidateTransferOwnership(ctx, act, csm, actCtx.Caller); err != nil {
 		return log, nil, err
 	}
-	candidate := csm.GetByOwner(actCtx.Caller).Clone()
+	candidate := csm.GetByOwner(actCtx.Caller)
 	if candidate.Identifier == nil || candidate.Identifier.String() == "" {
 		candidate.Identifier = candidate.Owner
 	}
 	candidate.Owner = act.NewOwner()
 	if err := csm.Upsert(candidate); err != nil {
-		return log, nil, csmErrorToHandleError(candidate.Owner.String(), err)
+		return log, nil, csmErrorToHandleError(candidate.GetIdentifier().String(), err)
 	}
 	log.AddTopics(actCtx.Caller.Bytes(), act.NewOwner().Bytes())
 	return log, nil, nil

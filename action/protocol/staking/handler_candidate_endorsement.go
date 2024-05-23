@@ -24,7 +24,7 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 	if rErr != nil {
 		return log, nil, rErr
 	}
-	cand := csm.GetByOwner(bucket.Candidate)
+	cand := csm.GetByIdentifier(bucket.Candidate)
 	if cand == nil {
 		return log, nil, errCandNotExist
 	}

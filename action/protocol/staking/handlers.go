@@ -87,12 +87,12 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 	weightedVote := p.calculateVoteWeight(bucket, false)
 	if err := candidate.AddVote(weightedVote); err != nil {
 		return log, nil, &handleError{
-			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String()),
+			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
 		}
 	}
 	if err := csm.Upsert(candidate); err != nil {
-		return log, nil, csmErrorToHandleError(candidate.Owner.String(), err)
+		return log, nil, csmErrorToHandleError(candidate.GetIdentifier().String(), err)
 	}
 
 	// update bucket pool
@@ -147,7 +147,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
 
-	candidate := csm.GetByOwner(bucket.Candidate)
+	candidate := csm.GetByIdentifier(bucket.Candidate)
 	if candidate == nil {
 		return log, errCandNotExist
 	}
@@ -316,7 +316,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes(), candidate.GetIdentifier().Bytes())
 
-	prevCandidate := csm.GetByOwner(bucket.Candidate)
+	prevCandidate := csm.GetByIdentifier(bucket.Candidate)
 	if prevCandidate == nil {
 		return log, errCandNotExist
 	}
@@ -492,7 +492,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
 	}
-	candidate := csm.GetByOwner(bucket.Candidate)
+	candidate := csm.GetByIdentifier(bucket.Candidate)
 	if candidate == nil {
 		return log, nil, errCandNotExist
 	}
@@ -592,7 +592,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
 
-	candidate := csm.GetByOwner(bucket.Candidate)
+	candidate := csm.GetByIdentifier(bucket.Candidate)
 	if candidate == nil {
 		return log, errCandNotExist
 	}
@@ -686,6 +686,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
 		}
 	}
+	// TODO: should be hard-fork
 	c = csm.GetByIdentifier(owner)
 	if c != nil {
 		return log, nil, &handleError{

@@ -228,7 +228,7 @@ func TestGetPutCandidate(t *testing.T) {
 
 	// delete buckets and get
 	for _, e := range testCandidates {
-		require.NoError(csm.delCandidate(e.d.Owner))
+		require.NoError(csm.delCandidate(e.d.GetIdentifier()))
 		_, _, err := csr.getCandidate(e.d.Owner)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 	}

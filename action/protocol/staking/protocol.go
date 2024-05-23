@@ -728,7 +728,7 @@ func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csc CandidiateStateCommon
 	}
 
 	// bucket should not be unstaked if it is self-owned
-	if address.Equal(bucket.Owner, bucket.Candidate) {
+	if isSelfOwnedBucket(csc, bucket) {
 		return !bucket.isUnstaked(), nil
 	}
 	// otherwise bucket should be an endorse bucket which is not expired
@@ -742,4 +742,12 @@ func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csc CandidiateStateCommon
 		return false, err
 	}
 	return endorse.Status(height) != EndorseExpired, nil
+}
+
+func isSelfOwnedBucket(csc CandidiateStateCommon, bucket *VoteBucket) bool {
+	cand := csc.GetByIdentifier(bucket.Candidate)
+	if cand == nil {
+		return false
+	}
+	return address.Equal(bucket.Owner, cand.Owner)
 }
