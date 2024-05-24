@@ -2,6 +2,7 @@ package action
 
 import (
 	"encoding/hex"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"math/big"
 	"testing"
 
@@ -127,14 +128,77 @@ func TestClaimRewardToEthTx(t *testing.T) {
 	r.EqualValues("0", tx.Value().String())
 }
 
+func MustNoErrorV[V any](v V, err error) V {
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func TestNewRewardingClaimFromABIBinary(t *testing.T) {
 	r := require.New(t)
 
-	data, _ := hex.DecodeString("2df163ef000000000000000000000000000000000000000000000000000000000000006500000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003")
+	var (
+		method  abi.Method               // abi method
+		amount  = big.NewInt(100)        // input amount
+		data    = []uint8{'a', 'b', 'c'} // input data
+		address = "0x1231231232113"      // input address
+		inputs  = abi.Arguments{
+			abi.Argument{
+				Name:    "amount",
+				Type:    MustNoErrorV(abi.NewType("uint256", "uint256", nil)),
+				Indexed: false,
+			},
+			abi.Argument{
+				Name:    "data",
+				Type:    MustNoErrorV(abi.NewType("uint8[]", "uint8[]", nil)),
+				Indexed: false,
+			},
+			abi.Argument{
+				Name:    "address",
+				Type:    MustNoErrorV(abi.NewType("string", "string", nil)),
+				Indexed: false,
+			},
+		}
+		outputs = abi.Arguments{}
+	)
 
-	rc, err := NewClaimFromRewardingFundFromABIBinary(data)
-	r.Nil(err)
-	r.IsType(&ClaimFromRewardingFund{}, rc)
-	r.EqualValues("101", rc.Amount().String())
-	r.EqualValues([]byte{1, 2, 3}, rc.Data())
+	t.Run("CheckMethodDefine", func(t *testing.T) {
+		method = abi.NewMethod("claim", "claim", abi.Function, "nonpayable", false, false, inputs, outputs)
+		r.Equal(method, _claimRewardingMethod)
+	})
+
+	t.Run("InvalidMethodSignature", func(t *testing.T) {
+		input := MustNoErrorV(method.Inputs.Pack(amount, data, address))
+		sig := []byte{'1', '2', '3', 4} // invalid
+		calldata := append(sig, input...)
+
+		_, err := NewClaimFromRewardingFundFromABIBinary(calldata)
+		r.ErrorContains(err, "failed to decode")
+	})
+
+	t.Run("MissingSomeArgument", func(t *testing.T) {
+		_inputs := _claimRewardingMethod.Inputs
+		calldata := append(
+			method.ID,
+			MustNoErrorV(inputs.Pack(amount, data, address))...,
+		)
+
+		for i := 0; i < len(_inputs); i++ {
+			old := inputs[i].Name
+			_inputs[i].Name = "any"
+			_, err := NewClaimFromRewardingFundFromABIBinary(calldata)
+			r.ErrorContains(err, "failed to decode")
+			_inputs[i].Name = old
+		}
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		calldata := append(method.ID[:], MustNoErrorV(_claimRewardingMethod.Inputs.Pack(amount, data, address))...)
+		ret, err := NewClaimFromRewardingFundFromABIBinary(calldata)
+		r.NoError(err)
+		r.Equal(ret.Address(), address)
+		r.Equal(ret.Amount(), amount)
+		r.Equal(ret.Data(), data)
+	})
 }

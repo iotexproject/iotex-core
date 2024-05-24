@@ -250,4 +250,6 @@ require (
 //TODO: add tag for go-ethereum
 replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v1.7.4-0.20240321181400-fc0405c7567c
 
+replace github.com/iotexproject/iotex-proto => github.com/saitofun/iotex-proto v0.6.1
+
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
