@@ -352,6 +352,21 @@ var (
 			"065e1164818487818e6ba714e8d80b91718ad758",
 		},
 		{
+			"candidateTransferOwnership",
+			"f8c9018203e8830f42409404c22afae6a03438b8fed74cb1cf441168df3f1280b8643bf030350000000000000000000000007f54538b6260d754701e2f4a9a9bc0cb654293d9000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000008224c6a04ed770debd083f4a6e897fc262a179a17af2db7fb0524124f02da0f4469cd40ea02ef832202857f657b417e2c7aa2d8fb12093849ac4e2b7f130e4c6fec6b1b199",
+			1,
+			1000000,
+			"1000",
+			"0",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			100,
+			"a8eec664ab3df5dd23980c83c6e6c2dd2fe32c02383de89174bf2b7740d22e39",
+			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
+			"1e14d5373e1af9cc77f0032ad2cd0fba8be5ea2e",
+		},
+		{
 			"unprotected",
 			deterministicDeploymentTx,
 			0,
@@ -473,7 +488,7 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 		elp, _ := elpBuilder.BuildExecution(tx)
 		return elp.Proto()
 	case "stakeCreate", "stakeAddDeposit", "changeCandidate", "unstake", "withdrawStake", "restake",
-		"transferStake", "candidateRegister", "candidateUpdate", "candidateActivate", "candidateEndorsement":
+		"transferStake", "candidateRegister", "candidateUpdate", "candidateActivate", "candidateEndorsement", "candidateTransferOwnership":
 		elp, _ := elpBuilder.BuildStakingAction(tx)
 		return elp.Proto()
 	case "rewardingClaim", "rewardingDeposit":

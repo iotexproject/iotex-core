@@ -74,7 +74,7 @@ func (worker *queueWorker) Stop() error {
 	return nil
 }
 
-// Hanlde is called sequentially by worker
+// Handle is called sequentially by worker
 func (worker *queueWorker) Handle(job workerJob) error {
 	ctx := job.ctx
 	// ctx is canceled or timeout
