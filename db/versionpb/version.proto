@@ -18,5 +18,5 @@ message KeyMeta {
     bytes lastWrite = 1; // value that was last written
     uint64 firstVersion = 2;
     uint64 lastVersion = 3;
-    uint64 deleteVersion = 4;
+    repeated uint64 deleteVersion = 4;
 }

@@ -7,6 +7,8 @@
 package db
 
 import (
+	"fmt"
+
 	"github.com/iotexproject/go-pkgs/byteutil"
 	"google.golang.org/protobuf/proto"
 
@@ -49,7 +51,7 @@ type keyMeta struct {
 	lastWrite     []byte
 	firstVersion  uint64
 	lastVersion   uint64
-	deleteVersion uint64
+	deleteVersion []uint64
 }
 
 // serialize to bytes
@@ -84,14 +86,14 @@ func deserializeKeyMeta(buf []byte) (*keyMeta, error) {
 	return fromProtoKM(&km), nil
 }
 
-func (km *keyMeta) updateRead(version uint64) (bool, error) {
+func (km *keyMeta) checkRead(version uint64) (bool, error) {
 	if km == nil || version < km.firstVersion {
 		return false, ErrNotExist
 	}
-	if km.deleteVersion != 0 && version >= km.deleteVersion {
-		return false, ErrDeleted
+	if version < km.lastVersion {
+		return false, nil
 	}
-	return (version >= km.lastVersion), nil
+	return km.hitLastWrite(km.lastVersion, version)
 }
 
 func (km *keyMeta) updateWrite(version uint64, value []byte) (*keyMeta, bool) {
@@ -103,12 +105,54 @@ func (km *keyMeta) updateWrite(version uint64, value []byte) (*keyMeta, bool) {
 			lastVersion:  version,
 		}, false
 	}
-	if version < km.lastVersion || version < km.deleteVersion {
+	if version < km.lastVersion || version < km.lastDelete() {
 		// writing to an earlier version complicates things, for now it is not allowed
 		return km, true
 	}
 	km.lastWrite = value
 	km.lastVersion = version
-	km.deleteVersion = 0
 	return km, false
+}
+
+func (km *keyMeta) updateDelete(version uint64) error {
+	if version < km.lastVersion || version <= km.lastDelete() {
+		// not allowed to delete an earlier version
+		return ErrInvalid
+	}
+	km.deleteVersion = append(km.deleteVersion, version)
+	return nil
+}
+
+func (km *keyMeta) lastDelete() uint64 {
+	if numDelete := len(km.deleteVersion); numDelete > 0 {
+		return km.deleteVersion[numDelete-1]
+	}
+	return 0
+}
+
+func (km *keyMeta) hitLastWrite(write, read uint64) (bool, error) {
+	if write > read {
+		panic(fmt.Sprintf("last write %d > attempted read %d", write, read))
+	}
+	var (
+		nextDelete uint64
+		hasDelete  bool
+	)
+	for _, v := range km.deleteVersion {
+		if v >= write {
+			nextDelete = v
+			hasDelete = (write <= nextDelete && nextDelete <= read)
+			break
+		}
+	}
+	if !hasDelete {
+		return true, nil
+	}
+	if write < nextDelete {
+		// there's a delete after last write
+		return false, ErrDeleted
+	}
+	// delete and write fall on the same version, need to check further
+	// if it's write-after-delete or delete-after-write
+	return false, nil
 }
