@@ -104,9 +104,9 @@ func TestVersionedDB(t *testing.T) {
 	// overwrite the same height again
 	r.NoError(db.Put(6, _bucket1, _k2, _v4))
 	r.NoError(db.Put(7, _bucket1, _k4, _v4))
-	// write to earlier version again does nothing
-	r.NoError(db.Put(3, _bucket1, _k2, _v4))
-	r.NoError(db.Put(4, _bucket1, _k4, _v4))
+	// write to earlier version again is invalid
+	r.Equal(ErrInvalid, db.Put(3, _bucket1, _k2, _v4))
+	r.Equal(ErrInvalid, db.Put(4, _bucket1, _k4, _v4))
 	// write with same value
 	r.NoError(db.Put(9, _bucket1, _k2, _v4))
 	r.NoError(db.Put(10, _bucket1, _k4, _v4))
@@ -153,10 +153,14 @@ func TestVersionedDB(t *testing.T) {
 		r.Equal(e.height, value)
 	}
 	// test delete
-	r.NoError(db.Delete(10, _bucket2, _k1))
-	for _, k := range [][]byte{_k1, _k2, _k3, _k4, _k5, _k10} {
+	r.Equal(ErrNotExist, errors.Cause(db.Delete(10, _bucket2, _k1)))
+	for _, k := range [][]byte{_k2, _k4} {
 		r.NoError(db.Delete(10, _bucket1, k))
 	}
+	for _, k := range [][]byte{_k1, _k3, _k5} {
+		r.Equal(ErrNotExist, errors.Cause(db.Delete(10, _bucket1, k)))
+	}
+	r.Equal(ErrInvalid, errors.Cause(db.Delete(10, _bucket1, _k10)))
 	// key still can be read before delete version
 	for _, e := range []versionTest{
 		{_bucket2, _k1, nil, 0, ErrNotExist}, // bucket not exist
@@ -186,9 +190,9 @@ func TestVersionedDB(t *testing.T) {
 		r.Equal(e.err, errors.Cause(err))
 		r.Equal(e.v, value)
 	}
-	// write before delete version does nothing
-	r.NoError(db.Put(9, _bucket1, _k2, _k2))
-	r.NoError(db.Put(9, _bucket1, _k4, _k4))
+	// write before delete version is invalid
+	r.Equal(ErrInvalid, db.Put(9, _bucket1, _k2, _k2))
+	r.Equal(ErrInvalid, db.Put(9, _bucket1, _k4, _k4))
 	for _, e := range []versionTest{
 		{_bucket1, _k2, _v4, 9, nil},         // before delete version
 		{_bucket1, _k2, nil, 10, ErrDeleted}, // after delete version
@@ -200,8 +204,8 @@ func TestVersionedDB(t *testing.T) {
 		r.Equal(e.v, value)
 	}
 	// write after delete version
-	r.NoError(db.Put(10, _bucket1, _k2, _k2))
-	r.NoError(db.Put(10, _bucket1, _k4, _k4))
+	r.NoError(db.Put(12, _bucket1, _k2, _k2))
+	r.NoError(db.Put(12, _bucket1, _k4, _k4))
 	for _, e := range []versionTest{
 		{_bucket2, _k1, nil, 0, ErrNotExist}, // bucket not exist
 		{_bucket1, _k1, nil, 0, ErrNotExist},
@@ -212,8 +216,10 @@ func TestVersionedDB(t *testing.T) {
 		{_bucket1, _k2, _v3, 5, nil},
 		{_bucket1, _k2, _v4, 6, nil},
 		{_bucket1, _k2, _v4, 8, nil},
-		{_bucket1, _k2, _v4, 9, nil},  // before delete version
-		{_bucket1, _k2, _k2, 10, nil}, // after delete version
+		{_bucket1, _k2, _v4, 9, nil},         // before delete version
+		{_bucket1, _k2, nil, 10, ErrDeleted}, // after delete version
+		{_bucket1, _k2, nil, 11, ErrDeleted}, // after delete version
+		{_bucket1, _k2, _k2, 12, nil},        // after next write version
 		{_bucket1, _k3, nil, 0, ErrNotExist},
 		{_bucket1, _k4, nil, 1, ErrNotExist}, // before first write version
 		{_bucket1, _k4, _v2, 2, nil},
@@ -221,8 +227,10 @@ func TestVersionedDB(t *testing.T) {
 		{_bucket1, _k4, _v1, 4, nil},
 		{_bucket1, _k4, _v1, 6, nil},
 		{_bucket1, _k4, _v4, 7, nil},
-		{_bucket1, _k4, _v4, 9, nil},  // before delete version
-		{_bucket1, _k4, _k4, 10, nil}, // after delete version
+		{_bucket1, _k4, _v4, 9, nil},         // before delete version
+		{_bucket1, _k4, nil, 10, ErrDeleted}, // after delete version
+		{_bucket1, _k4, nil, 11, ErrDeleted}, // after delete version
+		{_bucket1, _k4, _k4, 12, nil},        // after next write version
 		{_bucket1, _k5, nil, 0, ErrNotExist},
 		{_bucket1, _k10, nil, 0, ErrInvalid},
 	} {
@@ -233,9 +241,9 @@ func TestVersionedDB(t *testing.T) {
 	// check version after delete
 	for _, e := range []versionTest{
 		{_bucket1, _k1, nil, 0, ErrNotExist},
-		{_bucket1, _k2, nil, 10, nil},
+		{_bucket1, _k2, nil, 12, nil},
 		{_bucket1, _k3, nil, 0, ErrNotExist},
-		{_bucket1, _k4, nil, 10, nil},
+		{_bucket1, _k4, nil, 12, nil},
 		{_bucket1, _k5, nil, 0, ErrNotExist},
 		{_bucket1, _k10, nil, 0, ErrInvalid},
 	} {

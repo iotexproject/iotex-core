@@ -87,7 +87,7 @@ func TestKmUpdate(t *testing.T) {
 			km.firstVersion = e.first
 			km.lastVersion = e.last
 			km.deleteVersion = e.delete
-			hitLast, err := km.updateRead(e.version)
+			hitLast, err := km.checkRead(e.version)
 			r.Equal(e.hitOrExit, hitLast)
 			r.Equal(e.err, errors.Cause(err))
 		}

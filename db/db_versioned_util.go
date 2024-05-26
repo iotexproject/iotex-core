@@ -84,7 +84,7 @@ func deserializeKeyMeta(buf []byte) (*keyMeta, error) {
 	return fromProtoKM(&km), nil
 }
 
-func (km *keyMeta) updateRead(version uint64) (bool, error) {
+func (km *keyMeta) checkRead(version uint64) (bool, error) {
 	if km == nil || version < km.firstVersion {
 		return false, ErrNotExist
 	}

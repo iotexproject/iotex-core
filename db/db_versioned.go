@@ -125,7 +125,8 @@ func (b *BoltDBVersioned) Put(version uint64, ns string, key, value []byte) erro
 	}
 	km, exit := km.updateWrite(version, value)
 	if exit {
-		return nil
+		// not a valid write request
+		return ErrInvalid
 	}
 	buf.Put(ns, append(key, 0), km.serialize(), fmt.Sprintf("failed to put key %x's metadata", key))
 	buf.Put(ns, versionedKey(key, version), value, fmt.Sprintf("failed to put key %x", key))
@@ -142,21 +143,29 @@ func (b *BoltDBVersioned) Get(version uint64, ns string, key []byte) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
-	hitLast, err := km.updateRead(version)
+	hitLast, err := km.checkRead(version)
 	if err != nil {
 		return nil, errors.Wrapf(err, "key = %x", key)
 	}
 	if hitLast {
 		return km.lastWrite, nil
 	}
-	return b.get(version, ns, key)
+	v, err := b.get(version, ns, key)
+	if len(v) == 0 {
+		// the key is deleted on this version
+		return nil, ErrDeleted
+	}
+	return v, err
 }
 
 func (b *BoltDBVersioned) get(version uint64, ns string, key []byte) ([]byte, error) {
 	// construct the actual key = key + version (represented in 8-bytes)
 	// and read from DB
+	var (
+		meta  = append(key, 0)
+		value []byte
+	)
 	key = versionedKey(key, version)
-	var value []byte
 	err := b.db.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(ns))
 		if bucket == nil {
@@ -166,8 +175,8 @@ func (b *BoltDBVersioned) get(version uint64, ns string, key []byte) ([]byte, er
 		k, v := c.Seek(key)
 		if k == nil || bytes.Compare(k, key) == 1 {
 			k, v = c.Prev()
-			if k == nil || bytes.Compare(k, append(key[:len(key)-8], 0)) <= 0 {
-				// cursor is at the beginning/end of the bucket or smaller than minimum key
+			if k == nil || bytes.Compare(k, meta) <= 0 {
+				// cursor is at the beginning/end of the bucket or smaller than key's meta
 				panic(fmt.Sprintf("BoltDBVersioned.get(), invalid key = %x", key))
 			}
 		}
@@ -192,15 +201,20 @@ func (b *BoltDBVersioned) Delete(version uint64, ns string, key []byte) error {
 	// check key's metadata
 	km, err := b.checkNamespaceAndKey(ns, key)
 	if err != nil {
-		if cause := errors.Cause(err); cause != ErrNotExist && cause != ErrInvalid {
-			return err
-		}
+		return err
 	}
-	if km == nil || version < km.lastVersion || version <= km.deleteVersion {
-		return nil
+	if km == nil {
+		return errors.Wrapf(ErrNotExist, "key = %x doesn't exist", key)
+	}
+	if version < km.lastVersion || version <= km.deleteVersion {
+		// not allowed to delete an earlier version
+		return ErrInvalid
 	}
 	km.deleteVersion = version
-	return b.db.Put(ns, append(key, 0), km.serialize())
+	buf := batch.NewBatch()
+	buf.Put(ns, append(key, 0), km.serialize(), fmt.Sprintf("failed to put key %x's metadata", key))
+	buf.Put(ns, versionedKey(key, version), nil, fmt.Sprintf("failed to mark delete version %d", version))
+	return b.db.WriteBatch(buf)
 }
 
 // Version returns the key's most recent version
@@ -333,6 +347,9 @@ func (b *BoltDBVersioned) commitToDB(version uint64, vnsize map[string]int, ve, 
 					if err = bucket.Put(append(key, 0), km.serialize()); err != nil {
 						return errors.Wrap(err, write.Error())
 					}
+					if err = bucket.Put(versionedKey(key, version), nil); err != nil {
+						return errors.Wrap(err, write.Error())
+					}
 				}
 			}
 			// write non-versioned keys
@@ -443,7 +460,9 @@ func dedup(vns map[string]bool, kvsb batch.KVStoreBatch) (map[string]int, []*bat
 }
 
 func versionedKey(key []byte, v uint64) []byte {
-	return append(key, byteutil.Uint64ToBytesBigEndian(v)...)
+	k := make([]byte, len(key), len(key)+8)
+	copy(k, key)
+	return append(k, byteutil.Uint64ToBytesBigEndian(v)...)
 }
 
 func (b *BoltDBVersioned) checkNamespace(ns string) (*versionedNamespace, error) {
@@ -484,7 +503,7 @@ func (b *BoltDBVersioned) checkNamespaceAndKey(ns string, key []byte) (*keyMeta,
 		return nil, err
 	}
 	if vn == nil {
-		return nil, errors.Wrapf(ErrNotExist, "key = %x doesn't exist", key)
+		return nil, errors.Wrapf(ErrNotExist, "namespace = %x doesn't exist", ns)
 	}
 	if len(key) != int(vn.keyLen) {
 		return nil, errors.Wrapf(ErrInvalid, "invalid key length, expecting %d, got %d", vn.keyLen, len(key))
