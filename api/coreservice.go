@@ -174,17 +174,10 @@ type (
 		// BlockHashByBlockHeight returns block hash by block height
 		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
 		// TraceTransaction returns the trace result of a transaction
-		TraceTransaction(ctx context.Context, actHash string, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error)
+		TraceTransaction(context.Context, string, *tracers.TraceConfig) ([]byte, *action.Receipt, any, error)
 		// TraceCall returns the trace result of a call
-		TraceCall(ctx context.Context,
-			callerAddr address.Address,
-			blkNumOrHash any,
-			contractAddress string,
-			nonce uint64,
-			amount *big.Int,
-			gasLimit uint64,
-			data []byte,
-			config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error)
+		TraceCall(context.Context, address.Address, string, uint64, *big.Int, uint64, []byte,
+			*tracers.TraceConfig) ([]byte, *action.Receipt, any, error)
 
 		// Track tracks the api call
 		Track(ctx context.Context, start time.Time, method string, size int64, success bool)
@@ -1873,6 +1866,9 @@ func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
 
 // TraceTransaction returns the trace result of transaction
 func (core *coreService) TraceTransaction(ctx context.Context, actHash string, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
+	if !core.archiveSupported {
+		return nil, nil, nil, ErrArchiveNotSupported
+	}
 	actInfo, err := core.Action(util.Remove0xPrefix(actHash), false)
 	if err != nil {
 		return nil, nil, nil, err
@@ -1884,16 +1880,73 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	if _, ok := act.Action().(*action.Execution); !ok {
 		return nil, nil, nil, errors.New("the type of action is not supported")
 	}
-	addr, _ := address.FromString(address.ZeroAddress)
+	blk, err := core.dao.GetBlockByHeight(actInfo.BlkHeight)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	var (
+		preActs  = make([]*action.SealedEnvelope, 0)
+		actExist bool
+	)
+	hash, err := act.Hash()
+	if err != nil {
+		return nil, nil, nil, status.Error(codes.Internal, err.Error())
+	}
+	for i := range blk.Actions {
+		shash, err := blk.Actions[i].Hash()
+		if err != nil {
+			return nil, nil, nil, status.Error(codes.Internal, err.Error())
+		}
+		if bytes.Equal(shash[:], hash[:]) {
+			actExist = true
+			break
+		}
+		preActs = append(preActs, blk.Actions[i])
+	}
+	if !actExist {
+		return nil, nil, nil, status.Errorf(codes.InvalidArgument, "action %s does not exist in block %d", actHash, actInfo.BlkHeight)
+	}
+	// generate the working set just before the target action
+	ctx, err = core.bc.ContextAtHeight(ctx, actInfo.BlkHeight-1)
+	if err != nil {
+		return nil, nil, nil, status.Error(codes.Internal, err.Error())
+	}
+	ws, err := core.sf.WorkingSetAtHeight(ctx, actInfo.BlkHeight, preActs...)
+	if err != nil {
+		return nil, nil, nil, status.Error(codes.Internal, err.Error())
+	}
+	g := core.bc.Genesis()
+	ctx = protocol.WithBlockCtx(protocol.WithRegistry(ctx, core.registry), protocol.BlockCtx{
+		BlockHeight:    blk.Height(),
+		BlockTimeStamp: blk.Timestamp(),
+		GasLimit:       g.BlockGasLimitByHeight(actInfo.BlkHeight),
+		Producer:       blk.PublicKey().Address(),
+	})
+	intrinsicGas, err := act.IntrinsicGas()
+	if err != nil {
+		return nil, nil, nil, status.Error(codes.Internal, err.Error())
+	}
+	ctx = protocol.WithFeatureCtx(protocol.WithActionCtx(ctx,
+		protocol.ActionCtx{
+			Caller:       act.SenderAddress(),
+			ActionHash:   hash,
+			GasPrice:     act.GasPrice(),
+			IntrinsicGas: intrinsicGas,
+			Nonce:        act.Nonce(),
+		}))
 	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-		return core.simulateExecution(ctx, core.bc.TipHeight(), false, addr, act.Envelope)
+		ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+			GetBlockHash:   core.dao.GetBlockHash,
+			GetBlockTime:   core.getBlockTime,
+			DepositGasFunc: rewarding.DepositGas,
+		})
+		return evm.ExecuteContract(ctx, ws, act.Envelope)
 	})
 }
 
 // TraceCall returns the trace result of call
 func (core *coreService) TraceCall(ctx context.Context,
 	callerAddr address.Address,
-	blkNumOrHash any,
 	contractAddress string,
 	nonce uint64,
 	amount *big.Int,
