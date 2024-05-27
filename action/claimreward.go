@@ -160,6 +160,12 @@ func (b *ClaimFromRewardingFundBuilder) SetData(data []byte) *ClaimFromRewarding
 	return b
 }
 
+// Reset set all field to defaults
+func (b *ClaimFromRewardingFundBuilder) Reset() {
+	b.Builder = Builder{}
+	b.claim = ClaimFromRewardingFund{}
+}
+
 // Build builds a new claim from rewarding fund action
 func (b *ClaimFromRewardingFundBuilder) Build() ClaimFromRewardingFund {
 	b.claim.AbstractAction = b.Builder.Build()
