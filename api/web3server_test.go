@@ -1253,7 +1253,7 @@ func TestDebugTraceCall(t *testing.T) {
 	receipt := &action.Receipt{Status: 1, BlockHeight: 1, ActionHash: tsfhash, GasConsumed: 100000}
 	structLogger := &logger.StructLogger{}
 
-	core.EXPECT().TraceCall(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return([]byte{0x01}, receipt, structLogger, nil)
+	core.EXPECT().TraceCall(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return([]byte{0x01}, receipt, structLogger, nil)
 
 	in := gjson.Parse(`{"method":"debug_traceCall","params":[{"from":null,"to":"0x6b175474e89094c44da98b954eedeac495271d0f","data":"0x70a082310000000000000000000000006E0d01A76C3Cf4288372a29124A26D4353EE51BE"}],"id":1,"jsonrpc":"2.0"}`)
 	ret, err := web3svr.traceCall(ctx, &in)
