@@ -289,7 +289,11 @@ func (store *factoryWorkingSetStore) trimExpiredStates() error {
 	// TODO: preload bloomfilters in factory, and update the bloomfilters in memory on commit
 	for i := store.expire + 1; i <= store.tip; i++ {
 		v, err := store.flusher.KVStoreWithBuffer().Get(bloomfilterNamespace, new(big.Int).SetUint64(i).Bytes())
-		if err != nil {
+		switch errors.Cause(err) {
+		case nil: // do nothing
+		case db.ErrNotExist, db.ErrBucketNotExist:
+			continue
+		default:
 			return err
 		}
 		filter, err := bloom.NewBloomFilter(2048, 4)
