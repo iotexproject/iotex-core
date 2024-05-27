@@ -241,11 +241,10 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.unsubscribe(web3Req)
 	case "eth_getBlobSidecars":
 		res, err = svr.getBlobSidecars(web3Req)
-	//TODO: enable debug api after archive mode is supported
-	// case "debug_traceTransaction":
-	// 	res, err = svr.traceTransaction(ctx, web3Req)
-	// case "debug_traceCall":
-	// 	res, err = svr.traceCall(ctx, web3Req)
+	case "debug_traceTransaction":
+		res, err = svr.traceTransaction(ctx, web3Req)
+	case "debug_traceCall":
+		res, err = svr.traceCall(ctx, web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
 		"eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex",
 		"eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
@@ -1100,18 +1099,12 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		gasLimit     uint64
 		value        *big.Int
 		callerAddr   address.Address
+		blockNum     rpc.BlockNumber
 	)
-	blkNumOrHashObj, options := in.Get("params.1"), in.Get("params.2")
-	callerAddr, contractAddr, gasLimit, _, value, callData, _, err = parseCallObject(in)
+	options := in.Get("params.2")
+	callerAddr, contractAddr, gasLimit, _, value, callData, blockNum, err = parseCallObject(in)
 	if err != nil {
 		return nil, err
-	}
-	var blkNumOrHash any
-	if blkNumOrHashObj.Exists() {
-		blkNumOrHash = blkNumOrHashObj.Get("blockHash").String()
-		if blkNumOrHash == "" {
-			blkNumOrHash = blkNumOrHashObj.Get("blockNumber").Uint()
-		}
 	}
 
 	var (
@@ -1145,7 +1138,7 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		},
 	}
 
-	retval, receipt, tracer, err := svr.coreService.TraceCall(ctx, callerAddr, blkNumOrHash, contractAddr, 0, value, gasLimit, callData, cfg)
+	retval, receipt, tracer, err := svr.coreService.TraceCall(ctx, callerAddr, blockNum, contractAddr, 0, value, gasLimit, callData, cfg)
 	if err != nil {
 		return nil, err
 	}
