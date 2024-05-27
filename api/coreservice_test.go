@@ -16,6 +16,7 @@ import (
 	. "github.com/agiledragon/gomonkey/v2"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -24,6 +25,11 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
+	"github.com/iotexproject/iotex-election/types"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -48,10 +54,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_envelope"
 	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
-	"github.com/iotexproject/iotex-election/types"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func TestLogsInRange(t *testing.T) {
@@ -178,7 +180,10 @@ func getTopicsAddress(addr []string, topics [][]string) (*iotexapi.LogsFilter, e
 
 func setupTestCoreService() (CoreService, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
 	cfg := newConfig()
+	return setupTestCoreServiceWithConfig(cfg)
+}
 
+func setupTestCoreServiceWithConfig(cfg testConfig) (CoreService, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
 	// TODO (zhi): revise
 	bc, dao, indexer, bfIndexer, sf, ap, registry, bfIndexFile, err := setupChain(cfg)
 	if err != nil {
@@ -620,7 +625,9 @@ func TestTraceTransaction(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	svr, bc, _, ap, cleanCallback := setupTestCoreService()
+	scfg := newConfig()
+	scfg.chain.HistoryWindowSize = 0
+	svr, bc, _, ap, cleanCallback := setupTestCoreServiceWithConfig(scfg)
 	defer cleanCallback()
 	ctx := context.Background()
 	tsf, err := action.SignedExecution(identityset.Address(29).String(),
@@ -655,7 +662,9 @@ func TestTraceCall(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	svr, bc, _, ap, cleanCallback := setupTestCoreService()
+	scfg := newConfig()
+	scfg.chain.HistoryWindowSize = 0
+	svr, bc, _, ap, cleanCallback := setupTestCoreServiceWithConfig(scfg)
 	defer cleanCallback()
 	ctx := context.Background()
 	tsf, err := action.SignedExecution(identityset.Address(29).String(),
@@ -677,7 +686,7 @@ func TestTraceCall(t *testing.T) {
 		},
 	}
 	retval, receipt, traces, err := svr.TraceCall(ctx,
-		identityset.Address(29), blk.Height(),
+		identityset.Address(29), rpc.BlockNumber(blk.Height()),
 		identityset.Address(29).String(),
 		0, big.NewInt(0), testutil.TestGasLimit,
 		[]byte{}, cfg)
