@@ -124,7 +124,7 @@ lint-rich:
 
 .PHONY: test
 test: fmt
-	$(GOTEST) -gcflags="all=-N -l" -short -race ${TEST_PKGS}
+	@$(GOTEST) -gcflags="all=-N -l" -short -race ${TEST_PKGS}
 
 .PHONY: test-rich
 test-rich:

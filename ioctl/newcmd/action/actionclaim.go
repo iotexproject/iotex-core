@@ -22,8 +22,8 @@ var (
 		config.Chinese: "从奖励基金中获取奖励",
 	}
 	_claimCmdUses = map[config.Language]string{
-		config.English: "claim AMOUNT_IOTX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "claim IOTX数量 [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+		config.English: "claim AMOUNT_IOTX [ACCOUNT_REWARD_TO] [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "claim IOTX数量 [获取奖励的账户地址] [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 )
 
@@ -35,16 +35,12 @@ func NewActionClaimCmd(client ioctl.Client) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   use,
 		Short: short,
-		Args:  cobra.RangeArgs(1, 2),
+		Args:  cobra.RangeArgs(1, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			amount, err := util.StringToRau(args[0], util.IotxDecimalNum)
 			if err != nil {
 				return errors.Wrap(err, "invalid amount")
-			}
-			payload := make([]byte, 0)
-			if len(args) == 2 {
-				payload = []byte(args[1])
 			}
 			gasPrice, signer, password, nonce, gasLimit, assumeYes, err := GetWriteCommandFlag(cmd)
 			if err != nil {
@@ -54,6 +50,15 @@ func NewActionClaimCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get signer address")
 			}
+			address := sender
+			if len(args) >= 2 {
+				address = args[1]
+			}
+			payload := make([]byte, 0)
+			if len(args) == 3 {
+				payload = []byte(args[2])
+			}
+
 			if gasLimit == 0 {
 				gasLimit = action.ClaimFromRewardingFundBaseGas +
 					action.ClaimFromRewardingFundGasPerByte*uint64(len(payload))
@@ -66,7 +71,11 @@ func NewActionClaimCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get nonce")
 			}
-			act := (&action.ClaimFromRewardingFundBuilder{}).SetAmount(amount).SetData(payload).Build()
+			act := (&action.ClaimFromRewardingFundBuilder{}).
+				SetAmount(amount).
+				SetData(payload).
+				SetAddress(address).
+				Build()
 			return SendAction(
 				client,
 				cmd,

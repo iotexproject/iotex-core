@@ -21,8 +21,8 @@ var (
 		config.Chinese: "从奖励基金中获取奖励",
 	}
 	_claimCmdUses = map[config.Language]string{
-		config.English: "claim AMOUNT_IOTX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "claim IOTX数量 [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+		config.English: "claim AMOUNT_IOTX [ACCOUNT_REWARD_TO] [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "claim IOTX数量 [获取奖励的账户地址] [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 )
 
@@ -30,7 +30,7 @@ var (
 var _actionClaimCmd = &cobra.Command{
 	Use:   config.TranslateInLang(_claimCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(_claimCmdShorts, config.UILanguage),
-	Args:  cobra.RangeArgs(1, 2),
+	Args:  cobra.RangeArgs(1, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := claim(args)
@@ -47,14 +47,19 @@ func claim(args []string) error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid amount", err)
 	}
-	payload := make([]byte, 0)
-	if len(args) == 2 {
-		payload = []byte(args[1])
-	}
 	sender, err := Signer()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signer address", err)
 	}
+	address := sender
+	if len(args) >= 2 {
+		address = args[1]
+	}
+	payload := make([]byte, 0)
+	if len(args) == 3 {
+		payload = []byte(args[2])
+	}
+
 	gasLimit := _gasLimitFlag.Value().(uint64)
 	if gasLimit == 0 {
 		gasLimit = action.ClaimFromRewardingFundBaseGas +
@@ -68,7 +73,11 @@ func claim(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce", err)
 	}
-	act := (&action.ClaimFromRewardingFundBuilder{}).SetAmount(amount).SetData(payload).Build()
+	act := (&action.ClaimFromRewardingFundBuilder{}).
+		SetAmount(amount).
+		SetData(payload).
+		SetAddress(address).
+		Build()
 
 	return SendAction((&action.EnvelopeBuilder{}).SetNonce(nonce).
 		SetGasPrice(gasPriceRau).
