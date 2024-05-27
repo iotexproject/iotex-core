@@ -96,6 +96,7 @@ type (
 		States(...protocol.StateOption) (uint64, state.Iterator, error)
 		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
 		StatesAtHeight(uint64, ...protocol.StateOption) (state.Iterator, error)
+		CleanWorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManager, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -622,6 +623,20 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 // ReadView reads the view
 func (sf *factory) ReadView(name string) (interface{}, error) {
 	return sf.protocolView.Read(name)
+}
+
+func (sf *factory) CleanWorkingSetAtHeight(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (protocol.StateManager, error) {
+	sf.mutex.Lock()
+	ws, err := sf.newWorkingSet(ctx, height-1)
+	sf.mutex.Unlock()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+	ws.height++
+	if err := ws.Process(ctx, acts); err != nil {
+		return nil, err
+	}
+	return ws, nil
 }
 
 //======================================

@@ -502,6 +502,18 @@ func (sdb *stateDB) ReadView(name string) (interface{}, error) {
 	return sdb.protocolView.Read(name)
 }
 
+func (sdb *stateDB) CleanWorkingSetAtHeight(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (protocol.StateManager, error) {
+	ws, err := sdb.newWorkingSet(ctx, height-1)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+	ws.height++
+	if err := ws.Process(ctx, acts); err != nil {
+		return nil, err
+	}
+	return ws, nil
+}
+
 //======================================
 // private trie constructor functions
 //======================================
