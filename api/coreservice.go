@@ -169,7 +169,7 @@ type (
 		// TraceCall returns the trace result of a call
 		TraceCall(ctx context.Context,
 			callerAddr address.Address,
-			blkNumOrHash any,
+			height rpc.BlockNumber,
 			contractAddress string,
 			nonce uint64,
 			amount *big.Int,
@@ -1844,7 +1844,6 @@ func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
 	return startingHeight, currentHeight, targetHeight
 }
 
-// TODO: support this by height
 // TraceTransaction returns the trace result of transaction
 func (core *coreService) TraceTransaction(ctx context.Context, actHash string, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
 	actInfo, err := core.Action(util.Remove0xPrefix(actHash), false)
@@ -1859,10 +1858,65 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	if !ok {
 		return nil, nil, nil, errors.New("the type of action is not supported")
 	}
-	addr, _ := address.FromString(address.ZeroAddress)
+	blk, err := core.dao.GetBlockByHeight(actInfo.BlkHeight)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	preActs := make([]*action.SealedEnvelope, 0)
+	hash, err := act.Hash()
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "failed to hash action")
+	}
+	for i := range blk.Actions {
+		shash, err := blk.Actions[i].Hash()
+		if err != nil {
+			return nil, nil, nil, errors.Wrap(err, "failed to hash action")
+		}
+		if bytes.Equal(shash[:], hash[:]) {
+			break
+		}
+		preActs = append(preActs, blk.Actions[i])
+	}
+	// generate the working set just before the target action
+	ctx, err = core.bc.ContextAtHeight(ctx, actInfo.BlkHeight-1)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	g := core.bc.Genesis()
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    blk.Height(),
+		BlockTimeStamp: blk.Timestamp(),
+		GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
+		Producer:       blk.PublicKey().Address(),
+	})
+	ctx = protocol.WithRegistry(ctx, core.registry)
+	ctx = protocol.WithFeatureCtx(ctx)
+	ws, err := core.sf.CleanWorkingSetAtHeight(ctx, actInfo.BlkHeight, preActs...)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	intrinsicGas, err := act.IntrinsicGas()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:       act.SenderAddress(),
+			ActionHash:   hash,
+			GasPrice:     act.GasPrice(),
+			IntrinsicGas: intrinsicGas,
+			Nonce:        act.Nonce(),
+		},
+	)
 	retval, receipt, tracer, err := core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-
-		return core.simulateExecution(ctx, addr, sc, core.dao.GetBlockHash, core.getBlockTime)
+		ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+			GetBlockHash:   core.dao.GetBlockHash,
+			GetBlockTime:   core.getBlockTime,
+			DepositGasFunc: rewarding.DepositGasWithSGD,
+			Sgd:            core.sgdIndexer,
+		})
+		return evm.ExecuteContract(ctx, ws, action.NewEvmTx(sc))
 	})
 	return retval, receipt, tracer, err
 }
@@ -1871,7 +1925,7 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 // TraceCall returns the trace result of call
 func (core *coreService) TraceCall(ctx context.Context,
 	callerAddr address.Address,
-	blkNumOrHash any,
+	blockNum rpc.BlockNumber,
 	contractAddress string,
 	nonce uint64,
 	amount *big.Int,
@@ -1885,17 +1939,22 @@ func (core *coreService) TraceCall(ctx context.Context,
 	if gasLimit == 0 {
 		gasLimit = blockGasLimit
 	}
-	ctx, err := core.bc.Context(ctx)
+	height, err := core.blockNumToHeight(blockNum)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	ctx, err = core.bc.ContextAtHeight(ctx, height)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	if nonce == 0 {
-		state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
+		stateReader := newStateReaderWithHeight(core.sf, height-1)
+		state, err := accountutil.AccountState(ctx, stateReader, callerAddr)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-			BlockHeight: core.bc.TipHeight(),
+			BlockHeight: height,
 		}))
 		var pendingNonce uint64
 		if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
@@ -1917,7 +1976,13 @@ func (core *coreService) TraceCall(ctx context.Context,
 		return nil, nil, nil, err
 	}
 	retval, receipt, tracer, err := core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-		return core.simulateExecution(ctx, callerAddr, exec, core.dao.GetBlockHash, core.getBlockTime)
+		ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+			GetBlockHash:   core.dao.GetBlockHash,
+			GetBlockTime:   core.getBlockTime,
+			DepositGasFunc: rewarding.DepositGasWithSGD,
+			Sgd:            core.sgdIndexer,
+		})
+		return core.sf.SimulateExecutionAtHeight(ctx, height, callerAddr, exec)
 	})
 	return retval, receipt, tracer, err
 }
@@ -1976,9 +2041,6 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
-	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{})
-	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	ctx = protocol.WithBlockchainCtx(protocol.WithFeatureCtx(ctx), protocol.BlockchainCtx{})
 	retval, receipt, err := simulateFn(ctx)
 	return retval, receipt, tracer, err
 }
@@ -1998,6 +2060,21 @@ func (core *coreService) checkActPool() error {
 		return errNotImplemented
 	}
 	return nil
+}
+
+func (core *coreService) blockNumToHeight(blockNum rpc.BlockNumber) (uint64, error) {
+	var height uint64
+	switch blockNum {
+	case rpc.SafeBlockNumber, rpc.FinalizedBlockNumber, rpc.LatestBlockNumber:
+		height = core.bc.TipHeight()
+	case rpc.EarliestBlockNumber:
+		height = core.bc.Genesis().EasterBlockHeight
+	case rpc.PendingBlockNumber:
+		return 0, status.Error(codes.InvalidArgument, "pending block number is not supported")
+	default:
+		height = uint64(blockNum.Int64())
+	}
+	return height, nil
 }
 
 func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Receipt {
