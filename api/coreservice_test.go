@@ -618,6 +618,7 @@ func TestTraceTransaction(t *testing.T) {
 		big.NewInt(testutil.TestGasPriceInt64), []byte{})
 	require.NoError(err)
 	tsfhash, err := tsf.Hash()
+	require.NoError(err)
 
 	blk1Time := testutil.TimestampNow()
 	require.NoError(ap.Add(ctx, tsf))
@@ -667,8 +668,7 @@ func TestTraceCall(t *testing.T) {
 		},
 	}
 	retval, receipt, traces, err := svr.TraceCall(ctx,
-		identityset.Address(29), blk.Height(),
-		identityset.Address(29).String(),
+		identityset.Address(29), identityset.Address(29).String(),
 		0, big.NewInt(0), testutil.TestGasLimit,
 		[]byte{}, cfg)
 	require.NoError(err)

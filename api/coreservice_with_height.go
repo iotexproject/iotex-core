@@ -2,7 +2,9 @@ package api
 
 import (
 	"context"
+	"math/big"
 
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -23,6 +25,8 @@ type (
 	CoreServiceReaderWithHeight interface {
 		Account(address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error)
 		ReadContract(context.Context, address.Address, action.Envelope) (string, *iotextypes.Receipt, error)
+		TraceCall(context.Context, address.Address, string, uint64, *big.Int, uint64, []byte,
+			*tracers.TraceConfig) ([]byte, *action.Receipt, any, error)
 	}
 
 	coreServiceReaderWithHeight struct {
@@ -91,4 +95,27 @@ func (core *coreServiceReaderWithHeight) ReadContract(ctx context.Context, calle
 		key     = hash.Hash160b(append(hdBytes, exec.Data()...))
 	)
 	return core.cs.readContract(ctx, key, core.height, true, callerAddr, elp)
+}
+
+// TraceCall returns the trace result of call
+func (core *coreServiceReaderWithHeight) TraceCall(ctx context.Context,
+	callerAddr address.Address,
+	contractAddress string,
+	nonce uint64,
+	amount *big.Int,
+	gasLimit uint64,
+	data []byte,
+	config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
+	var (
+		g             = core.cs.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(core.height)
+	)
+	if gasLimit == 0 {
+		gasLimit = blockGasLimit
+	}
+	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(contractAddress, amount, data)).
+		SetGasLimit(gasLimit).Build()
+	return core.cs.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
+		return core.cs.simulateExecution(ctx, core.height, true, callerAddr, elp)
+	})
 }
