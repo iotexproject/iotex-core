@@ -1,9 +1,12 @@
 package protocol
 
 import (
+	"context"
+
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -98,5 +101,10 @@ type (
 		Load(string, string, interface{}) error
 		Unload(string, string, interface{}) error
 		Reset()
+	}
+	// WorkingSetSimulator defines the working set simulator interface
+	WorkingSetSimulator interface {
+		StateManager
+		RunAction(ctx context.Context, selp *action.SealedEnvelope) (*action.Receipt, error)
 	}
 )
