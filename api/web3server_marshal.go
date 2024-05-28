@@ -85,6 +85,11 @@ type (
 		Gas         uint64               `json:"gas"`
 		StructLogs  []apitypes.StructLog `json:"structLogs"`
 	}
+
+	blockTraceResult struct {
+		TxHash hash.Hash256 `json:"txHash"`
+		Result any          `json:"result"`
+	}
 )
 
 var (
@@ -368,5 +373,15 @@ func (obj *streamResponse) MarshalJSON() ([]byte, error) {
 			Subscription: obj.id,
 			Result:       obj.result,
 		},
+	})
+}
+
+func (obj *blockTraceResult) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		TxHash string `json:"txHash"`
+		Result any    `json:"result"`
+	}{
+		TxHash: "0x" + hex.EncodeToString(obj.TxHash[:]),
+		Result: obj.Result,
 	})
 }
