@@ -41,7 +41,7 @@ var (
 
 	wsProjectDeviceApproveShorts = map[config.Language]string{
 		config.English: "approve devices for w3bstream project",
-		config.Chinese: "允许w3bstream项目的设备",
+		config.Chinese: "授权w3bstream项目的设备",
 	}
 )
 
