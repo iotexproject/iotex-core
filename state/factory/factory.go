@@ -199,6 +199,7 @@ func (sf *factory) Start(ctx context.Context) error {
 		return err
 	}
 	// check factory height
+	// TODO: move current height from account kv namespace to some other namespace
 	h, err := sf.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 	switch errors.Cause(err) {
 	case nil:
@@ -321,9 +322,9 @@ func (sf *factory) NewBlockBuilder(
 	ap actpool.ActPool,
 	sign func(action.Envelope) (*action.SealedEnvelope, error),
 ) (*block.Builder, error) {
+	ctx = protocol.WithRegistry(ctx, sf.registry)
 	sf.mutex.Lock()
 	currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
-	ctx = protocol.WithRegistry(ctx, sf.registry)
 	ws, err := sf.newWorkingSet(ctx, currentChainHeight+1)
 	sf.mutex.Unlock()
 	if err != nil {
@@ -481,14 +482,23 @@ func (sf *factory) StatesAtHeight(height uint64, opts ...protocol.StateOption) (
 	if height > currentChainHeight {
 		return nil, errors.Errorf("query height %d is higher than tip height %d", height, currentChainHeight)
 	}
-	return nil, errors.Wrap(ErrNotSupported, "Read historical states has not been implemented yet")
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Keys != nil {
+		return nil, errors.Wrap(ErrNotSupported, "Read states with keys option has not been implemented yet")
+	}
+	values, err := readStatesFromTLT(sf.twoLayerTrie, cfg.Namespace, cfg.Keys)
+	if err != nil {
+		return nil, err
+	}
+
+	return state.NewIterator(values), nil
 }
 
 // State returns a confirmed state in the state factory
 func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, err
@@ -496,7 +506,14 @@ func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, e
 	if cfg.Keys != nil {
 		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
-	value, err := sf.dao.Get(cfg.Namespace, cfg.Key)
+	if sf.historyWindowSize != 1 {
+		currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
+		return currentChainHeight, sf.stateAtHeight(currentChainHeight, cfg.Namespace, cfg.Key, s)
+	}
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
+	currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
+	value, err := readStateFromTLT(sf.twoLayerTrie, cfg.Namespace, cfg.Key)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return currentChainHeight, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", cfg.Namespace, cfg.Key)
@@ -509,17 +526,25 @@ func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, e
 
 // State returns a set states in the state factory
 func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, nil, err
 	}
 	if cfg.Key != nil {
-		return currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
+		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	values, err := readStates(sf.dao, cfg.Namespace, cfg.Keys)
+	if sf.historyWindowSize != 1 {
+		currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
+		values, err := sf.statesAtHeight(currentChainHeight, cfg.Namespace, cfg.Keys)
+		if err != nil {
+			return 0, nil, err
+		}
+		return currentChainHeight, state.NewIterator(values), nil
+	}
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
+	currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
+	values, err := readStatesFromTLT(sf.twoLayerTrie, cfg.Namespace, cfg.Keys)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -545,19 +570,6 @@ func namespaceKey(ns string) []byte {
 	return h[:]
 }
 
-func readState(tlt trie.TwoLayerTrie, ns string, key []byte) ([]byte, error) {
-	ltKey := toLegacyKey(key)
-	data, err := tlt.Get(namespaceKey(ns), ltKey)
-	if err != nil {
-		if errors.Cause(err) == trie.ErrNotExist {
-			return nil, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
-		}
-		return nil, err
-	}
-
-	return data, nil
-}
-
 func toLegacyKey(input []byte) []byte {
 	key := hash.Hash160b(input)
 	return key[:]
@@ -580,11 +592,27 @@ func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interfa
 	}
 	defer tlt.Stop(context.Background())
 
-	value, err := readState(tlt, ns, key)
+	value, err := readStateFromTLT(tlt, ns, key)
 	if err != nil {
 		return err
 	}
 	return state.Deserialize(s, value)
+}
+
+func (sf *factory) statesAtHeight(height uint64, ns string, keys [][]byte) ([][]byte, error) {
+	if sf.historyWindowSize == 1 {
+		return nil, ErrNoArchiveData
+	}
+	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), false)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to generate trie for %d", height)
+	}
+	if err := tlt.Start(context.Background()); err != nil {
+		return nil, err
+	}
+	defer tlt.Stop(context.Background())
+
+	return readStatesFromTLT(tlt, ns, keys)
 }
 
 func (sf *factory) createGenesisStates(ctx context.Context) error {

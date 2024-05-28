@@ -108,6 +108,52 @@ func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
 	return nil
 }
 
+func readStateFromTLT(tlt trie.TwoLayerTrie, ns string, key []byte) ([]byte, error) {
+	ltKey := toLegacyKey(key)
+	data, err := tlt.Get(namespaceKey(ns), ltKey)
+	if err != nil {
+		if errors.Cause(err) == trie.ErrNotExist {
+			return nil, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
+		}
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func readStatesFromTLT(tlt trie.TwoLayerTrie, ns string, keys [][]byte) ([][]byte, error) {
+	values := [][]byte{}
+	if keys == nil {
+		iter, err := mptrie.NewLayerTwoLeafIterator(tlt, namespaceKey(ns), legacyKeyLen())
+		if err != nil {
+			return nil, err
+		}
+		for {
+			_, value, err := iter.Next()
+			if err == trie.ErrEndOfIterator {
+				break
+			}
+			if err != nil {
+				return nil, err
+			}
+			values = append(values, value)
+		}
+	} else {
+		for _, key := range keys {
+			value, err := readStateFromTLT(tlt, ns, key)
+			switch errors.Cause(err) {
+			case state.ErrStateNotExist:
+				values = append(values, nil)
+			case nil:
+				values = append(values, value)
+			default:
+				return nil, err
+			}
+		}
+	}
+	return values, nil
+}
+
 func readStates(kvStore db.KVStore, namespace string, keys [][]byte) ([][]byte, error) {
 	if keys == nil {
 		_, values, err := kvStore.Filter(namespace, func(k, v []byte) bool { return true }, nil, nil)
