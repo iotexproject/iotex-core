@@ -34,14 +34,22 @@ const (
 	_defaultIPFSEndpoint = "ipfs.mainnet.iotex.io"
 	// _defaultIPFSGateway default IPFS gateway for resource fetching
 	_defaultIPFSGateway = "https://ipfs.io"
-	// _defaultWsRegisterContract  default project register contract address
-	_defaultWsRegisterContract = "0x184C72E39a642058CCBc369485c7fd614B40a03d"
+	// _defaultWsProjectRegisterContract  default project register contract address
+	_defaultWsProjectRegisterContract = "0x80b49a5788DcE3eAbFcc46780dEA965602f869C9"
+	// _defaultWsProjectStoreContract  default project store contract address
+	_defaultWsProjectStoreContract = "0xf9B976C0127BC38E56fb97B0B1e1408e6F2737CE"
+	// _defaultWsFleetManagementContract  default fleet management contract address
+	_defaultWsFleetManagementContract = "0x698D8cEfe0c2E603DCA4B7815cb8E67F251eCF37"
+	// _defaultWsProverStoreContract  default prover store contract address
+	_defaultWsProverStoreContract = "0xa9bed62ADB1708E0c501664C9CE6A34BC4Fc246b"
+	// _defaultWsProjectDevicesContract  default project devices contract address
+	_defaultWsProjectDevicesContract = "0x3d6b6c7bDB72e8BF73780f433342759d8b329Ca5"
 )
 
 var (
 	_supportedLanguage = []string{"English", "中文"}
-	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "wsRegisterContract"}
-	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "analyserEndpoint", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "wsRegisterContract", "all"}
+	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "wsProjectRegisterContract", "wsProjectStoreContract", "wsFleetManagementContract", "wsProverStoreContract", "wsProjectDevicesContract"}
+	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "analyserEndpoint", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "wsProjectRegisterContract", "wsProjectStoreContract", "wsFleetManagementContract", "wsProverStoreContract", "wsProjectDevicesContract", "all"}
 	_validExpl         = []string{"iotexscan", "iotxplorer"}
 	_endpointCompile   = regexp.MustCompile("^" + _endpointPattern + "$")
 )
@@ -163,8 +171,16 @@ func Get(arg string) error {
 		fmt.Println(ReadConfig.IPFSEndpoint)
 	case "ipfsGateway":
 		fmt.Println(ReadConfig.IPFSGateway)
-	case "wsRegisterContract":
-		fmt.Println(ReadConfig.WsRegisterContract)
+	case "wsProjectRegisterContract":
+		fmt.Println(ReadConfig.WsProjectRegisterContract)
+	case "wsProjectStoreContract":
+		fmt.Println(ReadConfig.WsProjectStoreContract)
+	case "wsFleetManagementContract":
+		fmt.Println(ReadConfig.WsFleetManagementContract)
+	case "wsProverStoreContract":
+		fmt.Println(ReadConfig.WsProverStoreContract)
+	case "wsProjectDevicesContract":
+		fmt.Println(ReadConfig.WsProjectDevicesContract)
 	case "all":
 		fmt.Println(ReadConfig.String())
 	}
@@ -299,8 +315,16 @@ func set(args []string) error {
 		ReadConfig.IPFSEndpoint = args[1]
 	case "ipfsGateway":
 		ReadConfig.IPFSGateway = args[1]
-	case "wsRegisterContract":
-		ReadConfig.WsRegisterContract = args[1]
+	case "wsProjectRegisterContract":
+		ReadConfig.WsProjectRegisterContract = args[1]
+	case "wsProjectStoreContract":
+		ReadConfig.WsProjectStoreContract = args[1]
+	case "wsFleetManagementContract":
+		ReadConfig.WsFleetManagementContract = args[1]
+	case "wsProverStoreContract":
+		ReadConfig.WsProverStoreContract = args[1]
+	case "wsProjectDevicesContract":
+		ReadConfig.WsProjectDevicesContract = args[1]
 	}
 	err := writeConfig()
 	if err != nil {
@@ -322,7 +346,11 @@ func reset() error {
 	ReadConfig.WsEndpoint = _defaultWsEndpoint
 	ReadConfig.IPFSEndpoint = _defaultIPFSEndpoint
 	ReadConfig.IPFSGateway = _defaultIPFSGateway
-	ReadConfig.WsRegisterContract = _defaultWsRegisterContract
+	ReadConfig.WsProjectRegisterContract = _defaultWsProjectRegisterContract
+	ReadConfig.WsProjectStoreContract = _defaultWsProjectStoreContract
+	ReadConfig.WsFleetManagementContract = _defaultWsFleetManagementContract
+	ReadConfig.WsProverStoreContract = _defaultWsProverStoreContract
+	ReadConfig.WsProjectDevicesContract = _defaultWsProjectDevicesContract
 
 	err := writeConfig()
 	if err != nil {
