@@ -1,12 +1,13 @@
 package ws
 
 import (
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )

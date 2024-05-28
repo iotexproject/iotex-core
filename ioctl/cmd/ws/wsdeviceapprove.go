@@ -2,15 +2,15 @@ package ws
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/ws/contracts"
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/ws/contracts"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
