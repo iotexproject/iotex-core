@@ -65,6 +65,11 @@ var (
 		config.English: "amount(rau) need to pay, default 0",
 		config.Chinese: "需要支付的token数量(单位rau), 默认0",
 	}
+
+	_flagProjectDevicesContractAddressUsages = map[config.Language]string{
+		config.English: "set w3bsteram project devices contract address for once",
+		config.Chinese: "一次设置w3bstream project设备合约地址",
+	}
 )
 
 var (
@@ -104,5 +109,9 @@ func init() {
 	WsCmd.PersistentFlags().StringVar(
 		&config.ReadConfig.WsProverStoreContract, "prover-store-contract",
 		config.ReadConfig.WsProverStoreContract, config.TranslateInLang(_flagProverStoreContractAddressUsages, config.UILanguage),
+	)
+	WsCmd.PersistentFlags().StringVar(
+		&config.ReadConfig.WsProjectDevicesContract, "project-devices-contract",
+		config.ReadConfig.WsProjectDevicesContract, config.TranslateInLang(_flagProjectDevicesContractAddressUsages, config.UILanguage),
 	)
 }
