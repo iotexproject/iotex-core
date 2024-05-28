@@ -417,7 +417,7 @@ func (sdb *stateDB) ReadView(name string) (interface{}, error) {
 	return sdb.protocolView.Read(name)
 }
 
-func (sdb *stateDB) CleanWorkingSetAtHeight(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (protocol.StateManager, error) {
+func (sdb *stateDB) CleanWorkingSetAtHeight(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (protocol.WorkingSetSimulator, error) {
 	sdb.mutex.Lock()
 	ws, err := sdb.newWorkingSet(ctx, height-1)
 	sdb.mutex.Unlock()
@@ -428,7 +428,7 @@ func (sdb *stateDB) CleanWorkingSetAtHeight(ctx context.Context, height uint64, 
 	if err := ws.Process(ctx, acts); err != nil {
 		return nil, err
 	}
-	return ws, nil
+	return newWorkingSetSimulator(ws), nil
 }
 
 //======================================
