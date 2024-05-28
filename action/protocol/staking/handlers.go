@@ -687,8 +687,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		}
 	}
 	c = csm.GetByIdentifier(owner)
-	identifierExist := c != nil
-	if identifierExist {
+	if c != nil {
 		return log, nil, &handleError{
 			err:           ErrInvalidOwner,
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,

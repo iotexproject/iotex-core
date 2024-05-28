@@ -232,8 +232,8 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 		return err
 	}
 
-	if len(pb.GetIdentifierAddress()) > 0 {
-		d.Identifier, err = address.FromString(pb.GetIdentifierAddress())
+	if id := pb.GetIdentifierAddress(); len(id) > 0 {
+		d.Identifier, err = address.FromString(id)
 		if err != nil {
 			return err
 		}

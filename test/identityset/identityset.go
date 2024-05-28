@@ -81,7 +81,7 @@ func Address(i int) address.Address {
 	return addr
 }
 
-// Private2 returns the i-th identity's private key
+// PrivateKey2 returns the private key generated from the hash of i
 func PrivateKey2(i int) crypto.PrivateKey {
 	s := hash.Hash256b([]byte{byte(i)})
 	sk, err := crypto.BytesToPrivateKey(s[:])
@@ -91,7 +91,7 @@ func PrivateKey2(i int) crypto.PrivateKey {
 	return sk
 }
 
-// Address2 returns the i-th identity's address
+// Address2 returns the address generated from the hash of i
 func Address2(i int) address.Address {
 	sk := PrivateKey2(i)
 	return sk.PublicKey().Address()

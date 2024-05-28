@@ -313,7 +313,6 @@ func (m *CandidateCenter) collision(d *Candidate) error {
 	}
 
 	name, owner, oper, self := m.base.collision(d)
-	// fmt.Printf("name=%s owner=%s oper=%s self=%s\n", name, owner, oper, self)
 	if name != nil && !m.change.containsIdentifier(name) {
 		return action.ErrInvalidCanName
 	}
@@ -435,6 +434,9 @@ func (cc *candChange) getByOwner(owner address.Address) *Candidate {
 }
 
 func (cc *candChange) getByIdentifier(identifier address.Address) *Candidate {
+	if identifier == nil {
+		return nil
+	}
 	if d, ok := cc.dirty[identifier.String()]; ok {
 		return d.Clone()
 	}
