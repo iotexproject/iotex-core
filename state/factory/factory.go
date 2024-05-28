@@ -103,7 +103,7 @@ type (
 		States(...protocol.StateOption) (uint64, state.Iterator, error)
 		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
 		StatesAtHeight(uint64, ...protocol.StateOption) (state.Iterator, error)
-		CleanWorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManager, error)
+		CleanWorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.WorkingSetSimulator, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -601,7 +601,7 @@ func (sf *factory) ReadView(name string) (interface{}, error) {
 	return sf.protocolView.Read(name)
 }
 
-func (sf *factory) CleanWorkingSetAtHeight(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (protocol.StateManager, error) {
+func (sf *factory) CleanWorkingSetAtHeight(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (protocol.WorkingSetSimulator, error) {
 	sf.mutex.Lock()
 	ws, err := sf.newWorkingSet(ctx, height-1)
 	sf.mutex.Unlock()
@@ -612,7 +612,7 @@ func (sf *factory) CleanWorkingSetAtHeight(ctx context.Context, height uint64, a
 	if err := ws.Process(ctx, acts); err != nil {
 		return nil, err
 	}
-	return ws, nil
+	return newWorkingSetSimulator(ws), nil
 }
 
 //======================================
