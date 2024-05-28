@@ -37,6 +37,7 @@ func TestSer(t *testing.T) {
 			Owner:              identityset.Address(4),
 			Operator:           identityset.Address(5),
 			Reward:             identityset.Address(6),
+			Identifier:         identityset.Address(7),
 			Name:               "testname2",
 			Votes:              big.NewInt(20),
 			SelfStakeBucketIdx: 1,
@@ -46,6 +47,7 @@ func TestSer(t *testing.T) {
 			Owner:              identityset.Address(7),
 			Operator:           identityset.Address(8),
 			Reward:             identityset.Address(9),
+			Identifier:         identityset.Address(10),
 			Name:               "testname3",
 			Votes:              big.NewInt(3000),
 			SelfStakeBucketIdx: 2,
@@ -82,7 +84,7 @@ func TestClone(t *testing.T) {
 		SelfStake:          big.NewInt(2100000000),
 	}
 	r.NoError(d.Validate())
-
+	r.Equal(d.Owner, d.GetIdentifier())
 	d2 := d.Clone()
 	r.True(d.Equal(d2))
 	d.AddVote(big.NewInt(100))
@@ -96,6 +98,8 @@ func TestClone(t *testing.T) {
 	r.Equal(ErrInvalidSelfStkIndex, d.Collision(d2))
 	d.SelfStakeBucketIdx++
 	r.NoError(d.Collision(d2))
+	d.Identifier = identityset.Address(3)
+	r.Equal(d.Identifier, d.GetIdentifier())
 
 	c := d.toStateCandidate()
 	r.Equal(d.Owner.String(), c.Address)
@@ -150,6 +154,7 @@ var (
 				Owner:              identityset.Address(4),
 				Operator:           identityset.Address(10),
 				Reward:             identityset.Address(1),
+				Identifier:         nil,
 				Name:               "test4",
 				Votes:              big.NewInt(1),
 				SelfStakeBucketIdx: 4,
@@ -163,6 +168,7 @@ var (
 				Owner:              identityset.Address(5),
 				Operator:           identityset.Address(11),
 				Reward:             identityset.Address(2),
+				Identifier:         nil,
 				Name:               "test5",
 				Votes:              big.NewInt(1),
 				SelfStakeBucketIdx: 5,
@@ -175,6 +181,7 @@ var (
 				Owner:              identityset.Address(6),
 				Operator:           identityset.Address(12),
 				Reward:             identityset.Address(2),
+				Identifier:         nil,
 				Name:               "test6",
 				Votes:              big.NewInt(1),
 				SelfStakeBucketIdx: 0,
