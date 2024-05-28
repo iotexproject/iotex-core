@@ -41,14 +41,14 @@ func (m *MockFactory) EXPECT() *MockFactoryMockRecorder {
 }
 
 // CleanWorkingSetAtHeight mocks base method.
-func (m *MockFactory) CleanWorkingSetAtHeight(arg0 context.Context, arg1 uint64, arg2 ...*action.SealedEnvelope) (protocol.StateManager, error) {
+func (m *MockFactory) CleanWorkingSetAtHeight(arg0 context.Context, arg1 uint64, arg2 ...*action.SealedEnvelope) (protocol.WorkingSetSimulator, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CleanWorkingSetAtHeight", varargs...)
-	ret0, _ := ret[0].(protocol.StateManager)
+	ret0, _ := ret[0].(protocol.WorkingSetSimulator)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

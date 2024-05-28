@@ -5,9 +5,11 @@
 package mock_chainmanager
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	action "github.com/iotexproject/iotex-core/v2/action"
 	protocol "github.com/iotexproject/iotex-core/v2/action/protocol"
 	state "github.com/iotexproject/iotex-core/v2/state"
 )
@@ -485,4 +487,247 @@ func (m *MockDock) Unload(arg0, arg1 string, arg2 interface{}) error {
 func (mr *MockDockMockRecorder) Unload(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unload", reflect.TypeOf((*MockDock)(nil).Unload), arg0, arg1, arg2)
+}
+
+// MockWorkingSetSimulator is a mock of WorkingSetSimulator interface.
+type MockWorkingSetSimulator struct {
+	ctrl     *gomock.Controller
+	recorder *MockWorkingSetSimulatorMockRecorder
+}
+
+// MockWorkingSetSimulatorMockRecorder is the mock recorder for MockWorkingSetSimulator.
+type MockWorkingSetSimulatorMockRecorder struct {
+	mock *MockWorkingSetSimulator
+}
+
+// NewMockWorkingSetSimulator creates a new mock instance.
+func NewMockWorkingSetSimulator(ctrl *gomock.Controller) *MockWorkingSetSimulator {
+	mock := &MockWorkingSetSimulator{ctrl: ctrl}
+	mock.recorder = &MockWorkingSetSimulatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockWorkingSetSimulator) EXPECT() *MockWorkingSetSimulatorMockRecorder {
+	return m.recorder
+}
+
+// DelState mocks base method.
+func (m *MockWorkingSetSimulator) DelState(arg0 ...protocol.StateOption) (uint64, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DelState", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DelState indicates an expected call of DelState.
+func (mr *MockWorkingSetSimulatorMockRecorder) DelState(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelState", reflect.TypeOf((*MockWorkingSetSimulator)(nil).DelState), arg0...)
+}
+
+// Height mocks base method.
+func (m *MockWorkingSetSimulator) Height() (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Height indicates an expected call of Height.
+func (mr *MockWorkingSetSimulatorMockRecorder) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockWorkingSetSimulator)(nil).Height))
+}
+
+// Load mocks base method.
+func (m *MockWorkingSetSimulator) Load(arg0, arg1 string, arg2 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Load", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Load indicates an expected call of Load.
+func (mr *MockWorkingSetSimulatorMockRecorder) Load(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockWorkingSetSimulator)(nil).Load), arg0, arg1, arg2)
+}
+
+// ProtocolDirty mocks base method.
+func (m *MockWorkingSetSimulator) ProtocolDirty(arg0 string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProtocolDirty", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ProtocolDirty indicates an expected call of ProtocolDirty.
+func (mr *MockWorkingSetSimulatorMockRecorder) ProtocolDirty(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProtocolDirty", reflect.TypeOf((*MockWorkingSetSimulator)(nil).ProtocolDirty), arg0)
+}
+
+// PutState mocks base method.
+func (m *MockWorkingSetSimulator) PutState(arg0 interface{}, arg1 ...protocol.StateOption) (uint64, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "PutState", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PutState indicates an expected call of PutState.
+func (mr *MockWorkingSetSimulatorMockRecorder) PutState(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutState", reflect.TypeOf((*MockWorkingSetSimulator)(nil).PutState), varargs...)
+}
+
+// ReadView mocks base method.
+func (m *MockWorkingSetSimulator) ReadView(arg0 string) (interface{}, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadView", arg0)
+	ret0, _ := ret[0].(interface{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadView indicates an expected call of ReadView.
+func (mr *MockWorkingSetSimulatorMockRecorder) ReadView(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadView", reflect.TypeOf((*MockWorkingSetSimulator)(nil).ReadView), arg0)
+}
+
+// Reset mocks base method.
+func (m *MockWorkingSetSimulator) Reset() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Reset")
+}
+
+// Reset indicates an expected call of Reset.
+func (mr *MockWorkingSetSimulatorMockRecorder) Reset() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reset", reflect.TypeOf((*MockWorkingSetSimulator)(nil).Reset))
+}
+
+// Revert mocks base method.
+func (m *MockWorkingSetSimulator) Revert(arg0 int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Revert", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Revert indicates an expected call of Revert.
+func (mr *MockWorkingSetSimulatorMockRecorder) Revert(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revert", reflect.TypeOf((*MockWorkingSetSimulator)(nil).Revert), arg0)
+}
+
+// RunAction mocks base method.
+func (m *MockWorkingSetSimulator) RunAction(ctx context.Context, selp *action.SealedEnvelope) (*action.Receipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunAction", ctx, selp)
+	ret0, _ := ret[0].(*action.Receipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RunAction indicates an expected call of RunAction.
+func (mr *MockWorkingSetSimulatorMockRecorder) RunAction(ctx, selp interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunAction", reflect.TypeOf((*MockWorkingSetSimulator)(nil).RunAction), ctx, selp)
+}
+
+// Snapshot mocks base method.
+func (m *MockWorkingSetSimulator) Snapshot() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Snapshot")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// Snapshot indicates an expected call of Snapshot.
+func (mr *MockWorkingSetSimulatorMockRecorder) Snapshot() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Snapshot", reflect.TypeOf((*MockWorkingSetSimulator)(nil).Snapshot))
+}
+
+// State mocks base method.
+func (m *MockWorkingSetSimulator) State(arg0 interface{}, arg1 ...protocol.StateOption) (uint64, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "State", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// State indicates an expected call of State.
+func (mr *MockWorkingSetSimulatorMockRecorder) State(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockWorkingSetSimulator)(nil).State), varargs...)
+}
+
+// States mocks base method.
+func (m *MockWorkingSetSimulator) States(arg0 ...protocol.StateOption) (uint64, state.Iterator, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "States", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(state.Iterator)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// States indicates an expected call of States.
+func (mr *MockWorkingSetSimulatorMockRecorder) States(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "States", reflect.TypeOf((*MockWorkingSetSimulator)(nil).States), arg0...)
+}
+
+// Unload mocks base method.
+func (m *MockWorkingSetSimulator) Unload(arg0, arg1 string, arg2 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Unload", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Unload indicates an expected call of Unload.
+func (mr *MockWorkingSetSimulatorMockRecorder) Unload(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unload", reflect.TypeOf((*MockWorkingSetSimulator)(nil).Unload), arg0, arg1, arg2)
+}
+
+// WriteView mocks base method.
+func (m *MockWorkingSetSimulator) WriteView(arg0 string, arg1 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteView", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteView indicates an expected call of WriteView.
+func (mr *MockWorkingSetSimulatorMockRecorder) WriteView(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteView", reflect.TypeOf((*MockWorkingSetSimulator)(nil).WriteView), arg0, arg1)
 }

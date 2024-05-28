@@ -184,6 +184,8 @@ type (
 			gasLimit uint64,
 			data []byte,
 			config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error)
+		TraceBlockByNumber(ctx context.Context, height rpc.BlockNumber, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error)
+		TraceBlockByHash(ctx context.Context, blkHash string, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error)
 
 		// Track tracks the api call
 		Track(ctx context.Context, start time.Time, method string, size int64, success bool)
@@ -1915,7 +1917,7 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 		preActs = append(preActs, blk.Actions[i])
 	}
 	// generate the working set just before the target action
-	ctx, err = core.bc.ContextAtHeight(ctx, actInfo.BlkHeight-1)
+	ctx, err = core.bc.ContextAtHeight(ctx, actInfo.BlkHeight)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -2006,6 +2008,123 @@ func (core *coreService) TraceCall(ctx context.Context,
 		})
 		return core.sf.SimulateExecutionAtHeight(ctx, height, callerAddr, elp)
 	})
+}
+
+func (core *coreService) TraceBlockByNumber(ctx context.Context, blkNum rpc.BlockNumber, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
+	height, err := core.blockNumToHeight(blkNum)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	blk, err := core.dao.GetBlockByHeight(height)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return core.traceBlock(ctx, blk, config)
+}
+
+func (core *coreService) TraceBlockByHash(ctx context.Context, blkHash string, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
+	h, err := hash.HexStringToHash256(util.Remove0xPrefix(blkHash))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	blk, err := core.dao.GetBlock(h)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return core.traceBlock(ctx, blk, config)
+}
+
+func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
+	ctx, err := core.bc.ContextAtHeight(ctx, blk.Height())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	g := core.bc.Genesis()
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    blk.Height(),
+		BlockTimeStamp: blk.Timestamp(),
+		GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
+		Producer:       blk.PublicKey().Address(),
+	})
+	ctx = protocol.WithRegistry(ctx, core.registry)
+	ctx = protocol.WithFeatureCtx(ctx)
+	ws, err := core.sf.CleanWorkingSetAtHeight(ctx, blk.Height())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	retvals := make([][]byte, 0)
+	receipts := make([]*action.Receipt, 0)
+	results := make([]*blockTraceResult, 0)
+	for _, p := range core.registry.All() {
+		if pp, ok := p.(protocol.PreStatesCreator); ok {
+			if err := pp.CreatePreStates(ctx, ws); err != nil {
+				return nil, nil, nil, err
+			}
+		}
+	}
+	for i := range blk.Actions {
+		act := blk.Actions[i]
+		actHash, err := act.Hash()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		intrinsicGas, err := act.IntrinsicGas()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		ctx = protocol.WithActionCtx(
+			ctx,
+			protocol.ActionCtx{
+				Caller:       act.SenderAddress(),
+				ActionHash:   actHash,
+				GasPrice:     act.GasPrice(),
+				IntrinsicGas: intrinsicGas,
+				Nonce:        act.Nonce(),
+			},
+		)
+		if _, ok := act.Action().(*action.Execution); !ok {
+			if _, err = ws.RunAction(ctx, act); err != nil {
+				return nil, nil, nil, err
+			}
+			continue
+		}
+		retval, receipt, tracer, err := core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
+			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+				GetBlockHash:   core.dao.GetBlockHash,
+				GetBlockTime:   core.getBlockTime,
+				DepositGasFunc: rewarding.DepositGas,
+			})
+			return evm.ExecuteContract(ctx, ws, act.Envelope)
+		})
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		var res any
+		switch tracer := tracer.(type) {
+		case *logger.StructLogger:
+			res = &debugTraceTransactionResult{
+				Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+				Revert:      receipt.ExecutionRevertMsg(),
+				ReturnValue: byteToHex(retval),
+				StructLogs:  fromLoggerStructLogs(tracer.StructLogs()),
+				Gas:         receipt.GasConsumed,
+			}
+		case tracers.Tracer:
+			res, err = tracer.GetResult()
+			if err != nil {
+				return nil, nil, nil, err
+			}
+		default:
+			return nil, nil, nil, fmt.Errorf("unknown tracer type: %T", tracer)
+		}
+		results = append(results, &blockTraceResult{
+			TxHash: actHash,
+			Result: res,
+		})
+		retvals = append(retvals, retval)
+		receipts = append(receipts, receipt)
+	}
+	return retvals, receipts, results, nil
 }
 
 // Track tracks the api call
