@@ -64,6 +64,7 @@ func TestConfigGet(t *testing.T) {
 		WsProjectStoreContract:    "testWsProjectStoreContract",
 		WsFleetManagementContract: "testWsFleetManagementContract",
 		WsProverStoreContract:     "testWsProverStoreContract",
+		WsProjectDevicesContract:  "testWsProjectDevicesContract",
 	}, testPath)
 
 	tcs := []struct {
@@ -162,6 +163,7 @@ func TestConfigReset(t *testing.T) {
 		WsProjectStoreContract:    "testWsProjectStoreContract",
 		WsFleetManagementContract: "testWsFleetManagementContract",
 		WsProverStoreContract:     "testWsProverStoreContract",
+		WsProjectDevicesContract:  "testWsProjectDevicesContract",
 	}, cfgFile)
 
 	// write the config to the temp dir and then reset
@@ -183,6 +185,7 @@ func TestConfigReset(t *testing.T) {
 	require.Equal("testWsProjectStoreContract", cfg.WsProjectStoreContract)
 	require.Equal("testWsFleetManagementContract", cfg.WsFleetManagementContract)
 	require.Equal("testWsProverStoreContract", cfg.WsProverStoreContract)
+	require.Equal("testWsProjectDevicesContract", cfg.WsProjectDevicesContract)
 
 	require.NoError(info.reset())
 	require.NoError(info.loadConfig())
@@ -201,6 +204,7 @@ func TestConfigReset(t *testing.T) {
 	require.Equal(_defaultWsProjectStoreContract, resetCfg.WsProjectStoreContract)
 	require.Equal(_defaultWsFleetManagementContract, resetCfg.WsFleetManagementContract)
 	require.Equal(_defaultWsProverStoreContract, resetCfg.WsProverStoreContract)
+	require.Equal(_defaultWsProjectDevicesContract, resetCfg.WsProjectDevicesContract)
 	require.Equal("iotexscan", resetCfg.Explorer)
 	require.Equal(*new(config.Context), resetCfg.DefaultAccount)
 }

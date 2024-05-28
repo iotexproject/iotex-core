@@ -70,6 +70,10 @@ var (
 		config.English: "set w3bsteram project devices contract address for once",
 		config.Chinese: "一次设置w3bstream project设备合约地址",
 	}
+	_flagProjectIDUsages = map[config.Language]string{
+		config.English: "project id",
+		config.Chinese: "项目ID",
+	}
 )
 
 var (

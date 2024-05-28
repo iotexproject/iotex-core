@@ -48,12 +48,14 @@ const (
 	_defaultWsFleetManagementContract = "0x698D8cEfe0c2E603DCA4B7815cb8E67F251eCF37"
 	// _defaultWsProverStoreContract  default prover store contract address
 	_defaultWsProverStoreContract = "0xa9bed62ADB1708E0c501664C9CE6A34BC4Fc246b"
+	// _defaultWsProjectDevicesContract  default project device contract address
+	_defaultWsProjectDevicesContract = "0x3d6b6c7bDB72e8BF73780f433342759d8b329Ca5"
 )
 
 var (
 	_supportedLanguage = []string{"English", "中文"}
-	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "wsProjectRegisterContract", "wsProjectStoreContract", "wsFleetManagementContract", "wsProverStoreContract"}
-	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "analyserEndpoint", "wsProjectRegisterContract", "wsProjectStoreContract", "wsFleetManagementContract", "wsProverStoreContract", "all"}
+	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "wsProjectRegisterContract", "wsProjectStoreContract", "wsFleetManagementContract", "wsProverStoreContract", "wsProjectDevicesContract"}
+	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "analyserEndpoint", "wsProjectRegisterContract", "wsProjectStoreContract", "wsFleetManagementContract", "wsProverStoreContract", "wsProjectDevicesContract", "all"}
 	_validExpl         = []string{"iotexscan", "iotxplorer"}
 	_endpointCompile   = regexp.MustCompile("^" + _endpointPattern + "$")
 	_configDir         = os.Getenv("HOME") + "/.config/ioctl/default"
@@ -151,6 +153,9 @@ func InitConfig() (config.Config, string, error) {
 	if info.readConfig.WsProverStoreContract == "" {
 		info.readConfig.WsProverStoreContract = _defaultWsProverStoreContract
 	}
+	if info.readConfig.WsProjectDevicesContract == "" {
+		info.readConfig.WsProjectDevicesContract = _defaultWsProjectDevicesContract
+	}
 	if !completeness {
 		if err = info.writeConfig(); err != nil {
 			return info.readConfig, info.defaultConfigFile, err
@@ -187,6 +192,7 @@ func (c *info) reset() error {
 	c.readConfig.WsProjectStoreContract = _defaultWsProjectStoreContract
 	c.readConfig.WsFleetManagementContract = _defaultWsFleetManagementContract
 	c.readConfig.WsProverStoreContract = _defaultWsProverStoreContract
+	c.readConfig.WsProjectDevicesContract = _defaultWsProjectDevicesContract
 
 	err := c.writeConfig()
 	if err != nil {
@@ -259,6 +265,8 @@ func (c *info) set(args []string, insecure bool, client ioctl.Client) (string, e
 		c.readConfig.WsFleetManagementContract = args[1]
 	case "wsProverStoreContract":
 		c.readConfig.WsProverStoreContract = args[1]
+	case "wsProjectDevicesContract":
+		c.readConfig.WsProjectDevicesContract = args[1]
 	default:
 		return "", config.ErrConfigNotMatch
 	}
@@ -308,6 +316,8 @@ func (c *info) get(arg string) (string, error) {
 		return c.readConfig.WsFleetManagementContract, nil
 	case "wsProverStoreContract":
 		return c.readConfig.WsProverStoreContract, nil
+	case "wsProjectDevicesContract":
+		return c.readConfig.WsProjectDevicesContract, nil
 	case "all":
 		return jsonString(c.readConfig)
 	default:
