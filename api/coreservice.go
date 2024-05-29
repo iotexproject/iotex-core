@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	reflect "reflect"
 	"strconv"
 	"time"
 
@@ -277,7 +278,7 @@ func newCoreService(
 	getBlockTime evm.GetBlockTime,
 	opts ...Option,
 ) (CoreService, error) {
-	if cfg == (Config{}) {
+	if reflect.DeepEqual(cfg, Config{}) {
 		log.L().Warn("API server is not configured.")
 		cfg = DefaultConfig
 	}

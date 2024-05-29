@@ -31,6 +31,7 @@ type ServerV2 struct {
 	grpcServer   *GRPCServer
 	httpSvr      *HTTPServer
 	websocketSvr *HTTPServer
+	proxyServer  *HTTPServer
 	tracer       *tracesdk.TracerProvider
 }
 
@@ -68,12 +69,18 @@ func NewServerV2(
 
 	limiter := rate.NewLimiter(rate.Limit(cfg.WebsocketRateLimit), 1)
 	wrappedWebsocketHandler := otelhttp.NewHandler(NewWebsocketHandler(web3Handler, limiter), "web3.websocket")
+	proxyHandler, err := newProxyHandler(cfg.ProxyShards, coreAPI, cfg.UnifyProxyEndpoint)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create proxy handler")
+	}
+	wrappedProxyHandler := otelhttp.NewHandler(proxyHandler, "web3.proxy")
 
 	return &ServerV2{
 		core:         coreAPI,
 		grpcServer:   NewGRPCServer(coreAPI, newBlockDAOService(dao), cfg.GRPCPort),
 		httpSvr:      NewHTTPServer("", cfg.HTTPPort, wrappedWeb3Handler),
 		websocketSvr: NewHTTPServer("", cfg.WebSocketPort, wrappedWebsocketHandler),
+		proxyServer:  NewHTTPServer("", cfg.ProxyPort, wrappedProxyHandler),
 		tracer:       tp,
 	}, nil
 }
@@ -98,6 +105,11 @@ func (svr *ServerV2) Start(ctx context.Context) error {
 			return err
 		}
 	}
+	if svr.proxyServer != nil {
+		if err := svr.proxyServer.Start(ctx); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -106,6 +118,11 @@ func (svr *ServerV2) Stop(ctx context.Context) error {
 	if svr.tracer != nil {
 		if err := svr.tracer.Shutdown(ctx); err != nil {
 			return errors.Wrap(err, "failed to shutdown api tracer")
+		}
+	}
+	if svr.proxyServer != nil {
+		if err := svr.proxyServer.Stop(ctx); err != nil {
+			return err
 		}
 	}
 	if svr.websocketSvr != nil {
