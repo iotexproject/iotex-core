@@ -1,6 +1,6 @@
 module github.com/iotexproject/iotex-core
 
-go 1.19
+go 1.21
 
 require (
 	github.com/agiledragon/gomonkey/v2 v2.11.0
