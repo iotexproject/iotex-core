@@ -66,7 +66,7 @@ func init() {
 		config.ReadConfig.IPFSGateway, config.TranslateInLang(_flagIPFSGatewayUsages, config.UILanguage),
 	)
 	WsCmd.PersistentFlags().StringVar(
-		&config.ReadConfig.WsRegisterContract, "contract-address",
-		config.ReadConfig.WsRegisterContract, config.TranslateInLang(_flagContractAddressUsages, config.UILanguage),
+		&config.ReadConfig.WsProjectRegisterContract, "contract-address",
+		config.ReadConfig.WsProjectDevicesContract, config.TranslateInLang(_flagContractAddressUsages, config.UILanguage),
 	)
 }

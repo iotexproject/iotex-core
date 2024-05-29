@@ -73,8 +73,16 @@ type Config struct {
 	IPFSEndpoint string `json:"ipfsEndpoint" yaml:"ipfsEndpoint"`
 	// IPFSGateway ipfs gateway for resource fetching (with scheme)
 	IPFSGateway string `json:"ipfsGateway" yaml:"ipfsGateway"`
-	// WsRegisterContract w3bstream project register contract address
-	WsRegisterContract string `json:"wsRegisterContract" yaml:"wsRegisterContract"`
+	// WsProjectRegisterContract w3bstream project register contract address
+	WsProjectRegisterContract string `json:"wsProjectRegisterContract" yaml:"wsProjectRegisterContract"`
+	// WsProjectStoreContract w3bstream project store contract address
+	WsProjectStoreContract string `json:"wsProjectStoreContract" yaml:"wsProjectStoreContract"`
+	// WsFleetManagementContract w3bstream fleet management contract address
+	WsFleetManagementContract string `json:"wsFleetManagementContract" yaml:"wsFleetManagementContract"`
+	// WsProverStoreContract w3bstream Prover store contract address
+	WsProverStoreContract string `json:"wsProverStoreContract" yaml:"wsProverStoreContract"`
+	// WsProjectDevicesContract w3bstream Project devices contract address
+	WsProjectDevicesContract string `json:"wsProjectDevicesContract" yaml:"wsProjectDevicesContract"`
 }
 
 var (
@@ -140,8 +148,24 @@ func init() {
 		ReadConfig.IPFSGateway = _defaultIPFSGateway
 		completeness = false
 	}
-	if ReadConfig.WsRegisterContract == "" {
-		ReadConfig.WsRegisterContract = _defaultWsRegisterContract
+	if ReadConfig.WsProjectRegisterContract == "" {
+		ReadConfig.WsProjectRegisterContract = _defaultWsProjectRegisterContract
+		completeness = false
+	}
+	if ReadConfig.WsProjectStoreContract == "" {
+		ReadConfig.WsProjectStoreContract = _defaultWsProjectStoreContract
+		completeness = false
+	}
+	if ReadConfig.WsFleetManagementContract == "" {
+		ReadConfig.WsFleetManagementContract = _defaultWsFleetManagementContract
+		completeness = false
+	}
+	if ReadConfig.WsProverStoreContract == "" {
+		ReadConfig.WsProverStoreContract = _defaultWsProverStoreContract
+		completeness = false
+	}
+	if ReadConfig.WsProjectDevicesContract == "" {
+		ReadConfig.WsProjectDevicesContract = _defaultWsProjectDevicesContract
 		completeness = false
 	}
 	if !completeness {
