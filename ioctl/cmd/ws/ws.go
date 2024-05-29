@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/flag"
 )
 
 var (
@@ -13,12 +14,14 @@ var (
 		Short: config.TranslateInLang(wsCmdShorts, config.UILanguage),
 	}
 
-	// wsCmdShorts command multi-lang supports
 	wsCmdShorts = map[config.Language]string{
 		config.English: "W3bstream node operations",
 		config.Chinese: "W3bstream节点操作",
 	}
+)
 
+// flags multi-language
+var (
 	_flagChainEndpointUsages = map[config.Language]string{
 		config.English: "set endpoint for once",
 		config.Chinese: "一次设置端点",
@@ -39,16 +42,46 @@ var (
 		config.Chinese: "一次设置ipfs网关",
 	}
 
-	_flagContractAddressUsages = map[config.Language]string{
+	_flagProjectRegisterContractAddressUsages = map[config.Language]string{
 		config.English: "set w3bsteram project register contract address for once",
 		config.Chinese: "一次设置w3bstream项目注册合约地址",
 	}
+
+	_flagProjectStoreContractAddressUsages = map[config.Language]string{
+		config.English: "set w3bsteram project store contract address for once",
+		config.Chinese: "一次设置w3bstream项目存储合约地址",
+	}
+
+	_flagFleetManagementContractAddressUsages = map[config.Language]string{
+		config.English: "set w3bsteram fleet management contract address for once",
+		config.Chinese: "一次设置w3bstream项目管理合约地址",
+	}
+
+	_flagProverStoreContractAddressUsages = map[config.Language]string{
+		config.English: "set w3bsteram prover store contract address for once",
+		config.Chinese: "一次设置w3bstream prover存储合约地址",
+	}
+	_flagTransferAmountUsages = map[config.Language]string{
+		config.English: "amount(rau) need to pay, default 0",
+		config.Chinese: "需要支付的token数量(单位rau), 默认0",
+	}
+
+	_flagProjectDevicesContractAddressUsages = map[config.Language]string{
+		config.English: "set w3bsteram project devices contract address for once",
+		config.Chinese: "一次设置w3bstream project设备合约地址",
+	}
+	_flagProjectIDUsages = map[config.Language]string{
+		config.English: "project id",
+		config.Chinese: "项目ID",
+	}
+)
+
+var (
+	// transferAmount
+	transferAmount = flag.NewUint64VarP("amount", "", 0, config.TranslateInLang(_flagTransferAmountUsages, config.UILanguage))
 )
 
 func init() {
-	WsCmd.AddCommand(wsMessage)
-	WsCmd.AddCommand(wsProject)
-
 	WsCmd.PersistentFlags().StringVar(
 		&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagChainEndpointUsages, config.UILanguage),
@@ -66,7 +99,23 @@ func init() {
 		config.ReadConfig.IPFSGateway, config.TranslateInLang(_flagIPFSGatewayUsages, config.UILanguage),
 	)
 	WsCmd.PersistentFlags().StringVar(
-		&config.ReadConfig.WsProjectRegisterContract, "contract-address",
-		config.ReadConfig.WsProjectDevicesContract, config.TranslateInLang(_flagContractAddressUsages, config.UILanguage),
+		&config.ReadConfig.WsProjectRegisterContract, "project-register-contract",
+		config.ReadConfig.WsProjectRegisterContract, config.TranslateInLang(_flagProjectRegisterContractAddressUsages, config.UILanguage),
+	)
+	WsCmd.PersistentFlags().StringVar(
+		&config.ReadConfig.WsProjectStoreContract, "project-store-contract",
+		config.ReadConfig.WsProjectStoreContract, config.TranslateInLang(_flagProjectStoreContractAddressUsages, config.UILanguage),
+	)
+	WsCmd.PersistentFlags().StringVar(
+		&config.ReadConfig.WsFleetManagementContract, "fleet-management-contract",
+		config.ReadConfig.WsFleetManagementContract, config.TranslateInLang(_flagFleetManagementContractAddressUsages, config.UILanguage),
+	)
+	WsCmd.PersistentFlags().StringVar(
+		&config.ReadConfig.WsProverStoreContract, "prover-store-contract",
+		config.ReadConfig.WsProverStoreContract, config.TranslateInLang(_flagProverStoreContractAddressUsages, config.UILanguage),
+	)
+	WsCmd.PersistentFlags().StringVar(
+		&config.ReadConfig.WsProjectDevicesContract, "project-devices-contract",
+		config.ReadConfig.WsProjectDevicesContract, config.TranslateInLang(_flagProjectDevicesContractAddressUsages, config.UILanguage),
 	)
 }
