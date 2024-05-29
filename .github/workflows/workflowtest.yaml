@@ -1,0 +1,42 @@
+name: WorkflowTest
+
+on:
+  push:
+    branches:
+      - workflowtest
+
+jobs:
+  build:
+    name: Release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: ioctl-linux-amd64
+            server_artifact_name: iotex-core-linux-amd64
+          - os: windows-latest
+            artifact_name: ioctl-windows-amd64.exe
+            server_artifact_name: iotex-core-windows-amd64.exe
+          - os: macos-latest
+            artifact_name: ioctl-darwin-amd64
+            server_artifact_name: iotex-core-darwin-amd64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.21.4
+
+      - name: make iotex-server/ioctl
+        if: startsWith(matrix.os, 'windows-latest') != true
+        run: |
+          make build
+
+      - name: make iotex-server/ioctl windows
+        if: startsWith(matrix.os, 'windows-latest')
+        run: |
+          make build
+
