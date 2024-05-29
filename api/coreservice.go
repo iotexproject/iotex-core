@@ -325,9 +325,15 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
 		return core.getProtocolAccount(ctx, addrStr)
 	}
-	span.AddEvent("accountutil.AccountState")
+	return core.account(ctx, core.sf, addr)
+}
+
+func (core *coreService) account(ctx context.Context, sr protocol.StateReader, addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+	span := tracer.SpanFromContext(ctx)
+	span.AddEvent("accountutil.AccountStateWithHeight")
+	addrStr := addr.String()
 	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	state, err := accountutil.AccountState(ctx, core.sf, addr)
+	state, err := accountutil.AccountState(ctx, sr, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
