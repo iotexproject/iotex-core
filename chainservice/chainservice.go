@@ -185,7 +185,7 @@ func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
 
 // NewAPIServer creates a new api server
 func (cs *ChainService) NewAPIServer(cfg api.Config, isHistorical bool) (*api.ServerV2, error) {
-	if cfg.GRPCPort == 0 && cfg.HTTPPort == 0 {
+	if cfg.GRPCPort == 0 && cfg.HTTPPort == 0 && cfg.ProxyPort == 0 {
 		return nil, nil
 	}
 	p2pAgent := cs.p2pAgent
