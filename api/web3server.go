@@ -350,7 +350,7 @@ func (svr *web3Handler) getBlockByNumber(in *gjson.Result) (interface{}, error) 
 	return svr.getBlockWithTransactions(blk.Block, blk.Receipts, isDetailed.Bool())
 }
 
-func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
+func (svr *web3Handler) getAccount(in *gjson.Result) (*iotextypes.AccountMeta, error) {
 	addr := in.Get("params.0")
 	if !addr.Exists() {
 		return nil, errInvalidFormat
@@ -370,7 +370,11 @@ func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
 	} else {
 		accountMeta, _, err = svr.coreService.WithHeight(uint64(height.Int64())).Account(ioAddr)
 	}
+	return accountMeta, err
+}
 
+func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
+	accountMeta, err := svr.getAccount(in)
 	if err != nil {
 		return nil, err
 	}
@@ -387,9 +391,17 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 	if err != nil {
 		return nil, err
 	}
-	// TODO (liuhaai): returns the nonce in given block height after archive mode is supported
-	// blkNum, err := getStringFromArray(in, 1)
-	pendingNonce, err := svr.coreService.PendingNonce(ioAddr)
+	heightParam := in.Get("params.1")
+	height, err := parseBlockNumber(&heightParam)
+	if err != nil {
+		return nil, err
+	}
+	var pendingNonce uint64
+	if height == rpc.LatestBlockNumber {
+		pendingNonce, err = svr.coreService.PendingNonce(ioAddr)
+	} else {
+		pendingNonce, err = svr.coreService.WithHeight(uint64(height.Int64())).PendingNonce(ioAddr)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -572,15 +584,7 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 }
 
 func (svr *web3Handler) getCode(in *gjson.Result) (interface{}, error) {
-	addr := in.Get("params.0")
-	if !addr.Exists() {
-		return nil, errInvalidFormat
-	}
-	ioAddr, err := ethAddrToIoAddr(addr.String())
-	if err != nil {
-		return nil, err
-	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	accountMeta, err := svr.getAccount(in)
 	if err != nil {
 		return nil, err
 	}
