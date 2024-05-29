@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/hex"
 	"sort"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -23,6 +24,7 @@ type (
 		originHash []byte
 	}
 	twoLayerTrie struct {
+		mutex       sync.Mutex
 		layerOne    trie.Trie
 		layerTwoMap map[string]*layerTwo
 		kvStore     trie.KVStore
@@ -76,6 +78,8 @@ func (tlt *twoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (*laye
 }
 
 func (tlt *twoLayerTrie) Start(ctx context.Context) error {
+	tlt.mutex.Lock()
+	defer tlt.mutex.Unlock()
 	rootHash, err := tlt.kvStore.Get([]byte(tlt.rootKey))
 	if errors.Cause(err) == trie.ErrNotExist {
 		rootHash = nil
@@ -95,6 +99,8 @@ func (tlt *twoLayerTrie) Start(ctx context.Context) error {
 }
 
 func (tlt *twoLayerTrie) Stop(ctx context.Context) error {
+	tlt.mutex.Lock()
+	defer tlt.mutex.Unlock()
 	if err := tlt.flush(ctx); err != nil {
 		return err
 	}
@@ -147,6 +153,8 @@ func (tlt *twoLayerTrie) flush(ctx context.Context) error {
 }
 
 func (tlt *twoLayerTrie) RootHash() ([]byte, error) {
+	tlt.mutex.Lock()
+	defer tlt.mutex.Unlock()
 	if err := tlt.flush(context.Background()); err != nil {
 		return nil, err
 	}
@@ -154,6 +162,8 @@ func (tlt *twoLayerTrie) RootHash() ([]byte, error) {
 }
 
 func (tlt *twoLayerTrie) SetRootHash(rh []byte) error {
+	tlt.mutex.Lock()
+	defer tlt.mutex.Unlock()
 	if err := tlt.layerOne.SetRootHash(rh); err != nil {
 		return err
 	}
@@ -168,6 +178,8 @@ func (tlt *twoLayerTrie) SetRootHash(rh []byte) error {
 }
 
 func (tlt *twoLayerTrie) Get(layerOneKey []byte, layerTwoKey []byte) ([]byte, error) {
+	tlt.mutex.Lock()
+	defer tlt.mutex.Unlock()
 	lt, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
 	if err != nil {
 		return nil, err
@@ -177,6 +189,8 @@ func (tlt *twoLayerTrie) Get(layerOneKey []byte, layerTwoKey []byte) ([]byte, er
 }
 
 func (tlt *twoLayerTrie) Upsert(layerOneKey []byte, layerTwoKey []byte, value []byte) error {
+	tlt.mutex.Lock()
+	defer tlt.mutex.Unlock()
 	lt, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
 	if err != nil {
 		return err
@@ -190,6 +204,8 @@ func (tlt *twoLayerTrie) Upsert(layerOneKey []byte, layerTwoKey []byte, value []
 }
 
 func (tlt *twoLayerTrie) Delete(layerOneKey []byte, layerTwoKey []byte) error {
+	tlt.mutex.Lock()
+	defer tlt.mutex.Unlock()
 	lt, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
 	if err != nil {
 		return err
