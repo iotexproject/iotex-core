@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
@@ -22,6 +23,7 @@ type (
 	// CoreServiceReaderWithHeight is an interface for state reader at certain height
 	CoreServiceReaderWithHeight interface {
 		Account(address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error)
+		PendingNonce(addr address.Address) (uint64, error)
 		ReadContract(context.Context, address.Address, action.Envelope) (string, *iotextypes.Receipt, error)
 		TraceCall(context.Context, address.Address, string, uint64, *big.Int, uint64, []byte,
 			*tracers.TraceConfig) ([]byte, *action.Receipt, any, error)
@@ -95,4 +97,23 @@ func (core *coreServiceReaderWithHeight) TraceCall(ctx context.Context,
 	return core.cs.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
 		return core.cs.simulateExecution(ctx, core.height, true, callerAddr, elp)
 	})
+}
+
+func (core *coreServiceReaderWithHeight) PendingNonce(addr address.Address) (uint64, error) {
+	var (
+		g   = core.cs.bc.Genesis()
+		ctx = genesis.WithGenesisContext(context.Background(), g)
+	)
+	ws, err := core.cs.sf.WorkingSetAtHeight(ctx, core.height)
+	if err != nil {
+		return 0, status.Error(codes.Internal, err.Error())
+	}
+	state, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return 0, status.Error(codes.NotFound, err.Error())
+	}
+	if g.IsSumatra(core.height) {
+		return state.PendingNonceConsideringFreshAccount(), nil
+	}
+	return state.PendingNonce(), nil
 }

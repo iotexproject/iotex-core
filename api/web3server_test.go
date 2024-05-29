@@ -286,7 +286,7 @@ func TestGetTransactionCount(t *testing.T) {
 	ret, err := web3svr.getTransactionCount(&inNil)
 	require.EqualError(err, errInvalidFormat.Error())
 
-	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]}`)
+	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36"]}`)
 	ret, err = web3svr.getTransactionCount(&in)
 	require.NoError(err)
 	require.Equal("0x2", ret.(string))

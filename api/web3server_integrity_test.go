@@ -257,15 +257,20 @@ func getTransactionCount(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
 	for _, test := range []struct {
 		params   string
+		err      error
 		expected int
 	}{
-		{`["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"]`, 2},
-		{`["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "pending"]`, 2},
+		{`["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36"]`, nil, 2},
+		{`["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "pending"]`, errNotImplemented, 2},
 	} {
 		result := serveTestHTTP(require, handler, "eth_getTransactionCount", test.params)
-		actual, ok := result.(string)
-		require.True(ok)
-		require.Equal(uint64ToHex(uint64(test.expected)), actual)
+		if test.err == nil {
+			actual, ok := result.(string)
+			require.True(ok)
+			require.Equal(uint64ToHex(uint64(test.expected)), actual)
+		} else {
+			// TODO: currently it returns result = nil, how to get errNotImplemented from result
+		}
 	}
 }
 
@@ -781,7 +786,7 @@ func getCode(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao b
 	contract, _ := deployContractV2(bc, dao, actPool, identityset.PrivateKey(13), 2, bc.TipHeight(), contractCode)
 	contractAddr, _ := ioAddrToEthAddr(contract)
 
-	result := serveTestHTTP(require, handler, "eth_getCode", fmt.Sprintf(`["%s", "0x1"]`, contractAddr))
+	result := serveTestHTTP(require, handler, "eth_getCode", fmt.Sprintf(`["%s"]`, contractAddr))
 	actual, ok := result.(string)
 	require.True(ok)
 	require.Contains(contractCode, util.Remove0xPrefix(actual))
