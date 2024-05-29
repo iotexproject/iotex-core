@@ -1,0 +1,505 @@
+[
+  {
+    "anonymous": false,
+    "inputs":
+    [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "coordinator",
+        "type": "address"
+      }
+    ],
+    "name": "CoordinatorSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs":
+    [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "creditCenter",
+        "type": "address"
+      }
+    ],
+    "name": "CreditCenterSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs":
+    [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "FeeWithdrawn",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs":
+    [
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "version",
+        "type": "uint8"
+      }
+    ],
+    "name": "Initialized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs":
+    [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs":
+    [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "prover",
+        "type": "address"
+      }
+    ],
+    "name": "ProverStoreSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs":
+    [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "fee",
+        "type": "uint256"
+      }
+    ],
+    "name": "RegistrationFeeSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs":
+    [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "slasher",
+        "type": "address"
+      }
+    ],
+    "name": "SlasherSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs":
+    [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "msp",
+        "type": "address"
+      }
+    ],
+    "name": "StakingHubSet",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "coordinator",
+    "outputs":
+    [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "creditCenter",
+    "outputs":
+    [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "epoch",
+    "outputs":
+    [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs":
+    [
+      {
+        "internalType": "uint256",
+        "name": "_proverId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "grant",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs":
+    [
+      {
+        "internalType": "uint256",
+        "name": "_minStake",
+        "type": "uint256"
+      }
+    ],
+    "name": "initialize",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs":
+    [
+      {
+        "internalType": "address",
+        "name": "_coordinator",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_projectId",
+        "type": "uint256"
+      }
+    ],
+    "name": "isActiveCoordinator",
+    "outputs":
+    [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs":
+    [
+      {
+        "internalType": "uint256",
+        "name": "_id",
+        "type": "uint256"
+      }
+    ],
+    "name": "isActiveProver",
+    "outputs":
+    [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "minStake",
+    "outputs":
+    [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs":
+    [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs":
+    [
+      {
+        "internalType": "uint256",
+        "name": "_proverId",
+        "type": "uint256"
+      }
+    ],
+    "name": "ownerOfProver",
+    "outputs":
+    [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "proverStore",
+    "outputs":
+    [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "register",
+    "outputs":
+    [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "registrationFee",
+    "outputs":
+    [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "renounceOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs":
+    [
+      {
+        "internalType": "address",
+        "name": "_coordinator",
+        "type": "address"
+      }
+    ],
+    "name": "setCoordinator",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs":
+    [
+      {
+        "internalType": "address",
+        "name": "_creditCenter",
+        "type": "address"
+      }
+    ],
+    "name": "setCreditCenter",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs":
+    [
+      {
+        "internalType": "address",
+        "name": "_proverStore",
+        "type": "address"
+      }
+    ],
+    "name": "setProverStore",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs":
+    [
+      {
+        "internalType": "uint256",
+        "name": "_fee",
+        "type": "uint256"
+      }
+    ],
+    "name": "setRegistrationFee",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs":
+    [
+      {
+        "internalType": "address",
+        "name": "_slasher",
+        "type": "address"
+      }
+    ],
+    "name": "setSlasher",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs":
+    [
+      {
+        "internalType": "address",
+        "name": "_hub",
+        "type": "address"
+      }
+    ],
+    "name": "setStakingHub",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "slasher",
+    "outputs":
+    [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "stakingHub",
+    "outputs":
+    [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs":
+    [
+      {
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs":
+    [
+      {
+        "internalType": "address payable",
+        "name": "_account",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdrawFee",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]
