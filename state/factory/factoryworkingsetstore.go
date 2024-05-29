@@ -95,7 +95,7 @@ func newFactoryWorkingSetStore(
 			rootKey = fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height)
 		}
 	default:
-		if height <= tipHeight-historyWindowSize {
+		if height+historyWindowSize <= tipHeight {
 			return nil, errors.Errorf("height %d state does not exist", height)
 		} else if height < tipHeight {
 			rootKey = fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height)
