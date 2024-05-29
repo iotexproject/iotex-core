@@ -486,14 +486,13 @@ func (sf *factory) StatesAtHeight(height uint64, opts ...protocol.StateOption) (
 	if err != nil {
 		return nil, err
 	}
-	if cfg.Keys != nil {
-		return nil, errors.Wrap(ErrNotSupported, "Read states with keys option has not been implemented yet")
+	if cfg.Key != nil {
+		return nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	values, err := readStatesFromTLT(sf.twoLayerTrie, cfg.Namespace, cfg.Keys)
+	values, err := sf.statesAtHeight(height, cfg.Namespace, cfg.Keys)
 	if err != nil {
 		return nil, err
 	}
-
 	return state.NewIterator(values), nil
 }
 
@@ -515,7 +514,7 @@ func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, e
 	currentChainHeight := atomic.LoadUint64(&sf.currentChainHeight)
 	value, err := readStateFromTLT(sf.twoLayerTrie, cfg.Namespace, cfg.Key)
 	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist {
+		if errors.Cause(err) == trie.ErrNotExist {
 			return currentChainHeight, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", cfg.Namespace, cfg.Key)
 		}
 		return currentChainHeight, err
@@ -625,7 +624,14 @@ func (sf *factory) createGenesisStates(ctx context.Context) error {
 		return err
 	}
 
-	return ws.Commit(ctx)
+	if err := ws.Commit(ctx); err != nil {
+		return err
+	}
+	rh, err := sf.dao.Get(ArchiveTrieNamespace, []byte(ArchiveTrieRootKey))
+	if err != nil {
+		return err
+	}
+	return sf.twoLayerTrie.SetRootHash(rh)
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
