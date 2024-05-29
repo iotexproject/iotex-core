@@ -1,7 +1,8 @@
 [
   {
     "anonymous": false,
-    "inputs": [
+    "inputs":
+    [
       {
         "indexed": false,
         "internalType": "uint256",
@@ -20,7 +21,8 @@
   },
   {
     "anonymous": false,
-    "inputs": [
+    "inputs":
+    [
       {
         "indexed": false,
         "internalType": "uint8",
@@ -33,7 +35,8 @@
   },
   {
     "anonymous": false,
-    "inputs": [
+    "inputs":
+    [
       {
         "indexed": false,
         "internalType": "uint256",
@@ -51,7 +54,8 @@
     "type": "event"
   },
   {
-    "inputs": [
+    "inputs":
+    [
       {
         "internalType": "uint256",
         "name": "_projectId",
@@ -69,7 +73,8 @@
     "type": "function"
   },
   {
-    "inputs": [
+    "inputs":
+    [
       {
         "internalType": "uint256",
         "name": "_projectId",
@@ -82,7 +87,8 @@
       }
     ],
     "name": "approved",
-    "outputs": [
+    "outputs":
+    [
       {
         "internalType": "bool",
         "name": "",
@@ -93,7 +99,8 @@
     "type": "function"
   },
   {
-    "inputs": [
+    "inputs":
+    [
       {
         "internalType": "address",
         "name": "_ioIDRegistry",
@@ -113,7 +120,8 @@
   {
     "inputs": [],
     "name": "ioIDRegistry",
-    "outputs": [
+    "outputs":
+    [
       {
         "internalType": "contract IioIDRegistry",
         "name": "",
@@ -124,7 +132,8 @@
     "type": "function"
   },
   {
-    "inputs": [
+    "inputs":
+    [
       {
         "internalType": "uint256",
         "name": "_projectId",
@@ -144,7 +153,8 @@
   {
     "inputs": [],
     "name": "w3bstreamProject",
-    "outputs": [
+    "outputs":
+    [
       {
         "internalType": "contract IW3bstreamProject",
         "name": "",
