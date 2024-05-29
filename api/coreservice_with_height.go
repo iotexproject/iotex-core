@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -14,9 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
@@ -24,6 +21,7 @@ import (
 type (
 	CoreServiceReaderWithHeight interface {
 		Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error)
+		PendingNonce(addr address.Address) (uint64, error)
 	}
 
 	coreServiceReaderWithHeight struct {
@@ -44,58 +42,9 @@ func (core *coreServiceReaderWithHeight) Account(addr address.Address) (*iotexty
 	defer span.End()
 	addrStr := addr.String()
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
-		return core.cs.getProtocolAccount(ctx, addrStr)
+		return core.getProtocolAccount(ctx, addrStr)
 	}
-	span.AddEvent("accountutil.AccountStateWithHeight")
-	ctx = genesis.WithGenesisContext(ctx, core.cs.bc.Genesis())
-	stateReader := newStateReaderWithHeight(core.cs.sf, core.height)
-	state, err := accountutil.AccountState(ctx, stateReader, addr)
-	if err != nil {
-		return nil, nil, status.Error(codes.NotFound, err.Error())
-	}
-	var pendingNonce uint64
-	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: core.height,
-	}))
-	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
-		pendingNonce = state.PendingNonceConsideringFreshAccount()
-	} else {
-		pendingNonce = state.PendingNonce()
-	}
-	span.AddEvent("indexer.GetActionCount")
-	// TODO: get action count from indexer
-	numActions := uint64(0)
-	// numActions, err := core.cs.indexer.GetActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
-	// if err != nil {
-	// 	return nil, nil, status.Error(codes.NotFound, err.Error())
-	// }
-	// TODO: deprecate nonce field in account meta
-	accountMeta := &iotextypes.AccountMeta{
-		Address:    addrStr,
-		Balance:    state.Balance.String(),
-		Nonce:      pendingNonce,
-		NumActions: numActions,
-		IsContract: state.IsContract(),
-	}
-	if state.IsContract() {
-		var code protocol.SerializableBytes
-		_, err = stateReader.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(state.CodeHash))
-		if err != nil {
-			return nil, nil, status.Error(codes.NotFound, err.Error())
-		}
-		accountMeta.ContractByteCode = code
-	}
-	span.AddEvent("bc.BlockHeaderByHeight")
-	header, err := core.cs.bc.BlockHeaderByHeight(core.height)
-	if err != nil {
-		return nil, nil, status.Error(codes.NotFound, err.Error())
-	}
-	hash := header.HashBlock()
-	span.AddEvent("coreService.Account.End")
-	return accountMeta, &iotextypes.BlockIdentifier{
-		Hash:   hex.EncodeToString(hash[:]),
-		Height: core.height,
-	}, nil
+	return core.cs.account(ctx, newStateReaderWithHeight(core.cs.sf, core.height), addr)
 }
 
 func (core *coreServiceReaderWithHeight) getProtocolAccount(ctx context.Context, addr string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
@@ -147,4 +96,13 @@ func (core *coreServiceReaderWithHeight) getProtocolAccount(ctx context.Context,
 		Address: addr,
 		Balance: balance,
 	}, out.GetBlockIdentifier(), nil
+}
+
+func (core *coreServiceReaderWithHeight) PendingNonce(addr address.Address) (uint64, error) {
+	ctx := genesis.WithGenesisContext(context.Background(), core.cs.bc.Genesis())
+	state, err := accountutil.AccountState(ctx, newStateReaderWithHeight(core.cs.sf, core.height), addr)
+	if err != nil {
+		return 0, status.Error(codes.NotFound, err.Error())
+	}
+	return state.PendingNonce(), nil
 }
