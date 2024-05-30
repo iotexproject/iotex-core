@@ -1681,12 +1681,22 @@ func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context,
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
 func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, elp action.Envelope, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, []byte, error) {
+	return core.estimateExecutionGasConsumption(ctx, core.bc.TipHeight(), false, elp, callerAddr, opts...)
+}
+
+func (core *coreService) estimateExecutionGasConsumption(
+	ctx context.Context,
+	height uint64,
+	archive bool,
+	elp action.Envelope,
+	callerAddr address.Address,
+	opts ...protocol.SimulateOption) (uint64, []byte, error) {
 	var (
 		g             = core.bc.Genesis()
-		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+		blockGasLimit = g.BlockGasLimitByHeight(height)
 	)
 	elp.SetGas(blockGasLimit)
-	enough, receipt, retval, err := core.isGasLimitEnough(ctx, callerAddr, elp, opts...)
+	enough, receipt, retval, err := core.isGasLimitEnough(ctx, height, archive, callerAddr, elp, opts...)
 	if err != nil {
 		return 0, nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1701,7 +1711,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, el
 	}
 	estimatedGas := receipt.GasConsumed
 	elp.SetGas(estimatedGas)
-	enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, opts...)
+	enough, _, _, err = core.isGasLimitEnough(ctx, height, archive, callerAddr, elp, opts...)
 	if err != nil && err != action.ErrInsufficientFunds {
 		return 0, nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1711,7 +1721,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, el
 		for low <= high {
 			mid := (low + high) / 2
 			elp.SetGas(mid)
-			enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, opts...)
+			enough, _, _, err = core.isGasLimitEnough(ctx, height, archive, callerAddr, elp, opts...)
 			if err != nil && err != action.ErrInsufficientFunds {
 				return 0, nil, status.Error(codes.Internal, err.Error())
 			}
@@ -1723,19 +1733,20 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, el
 			}
 		}
 	}
-
 	return estimatedGas, nil, nil
 }
 
 func (core *coreService) isGasLimitEnough(
 	ctx context.Context,
+	height uint64,
+	archive bool,
 	caller address.Address,
 	elp action.Envelope,
 	opts ...protocol.SimulateOption,
 ) (bool, *action.Receipt, []byte, error) {
 	ctx, span := tracer.NewSpan(ctx, "Server.isGasLimitEnough")
 	defer span.End()
-	ret, receipt, err := core.simulateExecution(ctx, core.TipHeight(), false, caller, elp, opts...)
+	ret, receipt, err := core.simulateExecution(ctx, height, archive, caller, elp, opts...)
 	if err != nil {
 		return false, nil, nil, err
 	}
