@@ -6,12 +6,14 @@
 package action
 
 import (
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"math/big"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 // Multi-language support
@@ -26,38 +28,58 @@ var (
 	}
 )
 
+// flags
+var (
+	claimAmount  = flag.NewStringVarP("amount", "", "0", config.TranslateInLang(_flagClaimAmount, config.UILanguage))
+	claimPayload = flag.NewStringVarP("payload", "", "", config.TranslateInLang(_flagClaimPayload, config.UILanguage))
+	claimAddress = flag.NewStringVarP("address", "", "", config.TranslateInLang(_flagClaimAddress, config.UILanguage))
+)
+
+// flag multi-language
+var (
+	_flagClaimAmount = map[config.Language]string{
+		config.English: "amount of IOTX, default 0, unit RAU",
+		config.Chinese: "IOTX数量",
+	}
+	_flagClaimPayload = map[config.Language]string{
+		config.English: "claim reward action payload data",
+		config.Chinese: "action数据",
+	}
+	_flagClaimAddress = map[config.Language]string{
+		config.English: "address of claim reward to, default is the action sender address",
+		config.Chinese: "获取奖励的账户地址, 默认使用action发送者地址",
+	}
+)
+
 // _actionClaimCmd represents the action claim command
 var _actionClaimCmd = &cobra.Command{
 	Use:   config.TranslateInLang(_claimCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(_claimCmdShorts, config.UILanguage),
-	Args:  cobra.RangeArgs(1, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := claim(args)
+		amount, ok := new(big.Int).SetString(claimAmount.Value().(string), 10)
+		if !ok {
+			return output.PrintError(errors.Errorf("invalid amount: %s", claimAmount))
+		}
+		err := claim(amount, claimPayload.Value().(string), claimAddress.Value().(string))
 		return output.PrintError(err)
 	},
 }
 
 func init() {
+	claimAmount.RegisterCommand(_actionClaimCmd)
+	claimPayload.RegisterCommand(_actionClaimCmd)
+	claimAddress.RegisterCommand(_actionClaimCmd)
 	RegisterWriteCommand(_actionClaimCmd)
 }
 
-func claim(args []string) error {
-	amount, err := util.StringToRau(args[0], util.IotxDecimalNum)
-	if err != nil {
-		return output.NewError(output.ConvertError, "invalid amount", err)
-	}
+func claim(amount *big.Int, payload, address string) error {
 	sender, err := Signer()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signer address", err)
 	}
-	address := sender
-	if len(args) >= 2 {
-		address = args[1]
-	}
-	payload := make([]byte, 0)
-	if len(args) == 3 {
-		payload = []byte(args[2])
+	if address == "" {
+		address = sender
 	}
 
 	gasLimit := _gasLimitFlag.Value().(uint64)
@@ -75,7 +97,7 @@ func claim(args []string) error {
 	}
 	act := (&action.ClaimFromRewardingFundBuilder{}).
 		SetAmount(amount).
-		SetData(payload).
+		SetData([]byte(payload)).
 		SetAddress(address).
 		Build()
 

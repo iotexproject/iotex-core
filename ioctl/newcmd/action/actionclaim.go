@@ -8,11 +8,13 @@ package action
 import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"math/big"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/ioctl/flag"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -27,6 +29,29 @@ var (
 	}
 )
 
+// flags
+var (
+	claimAmount  = flag.NewStringVarP("amount", "", "0", config.TranslateInLang(_flagClaimAmount, config.UILanguage))
+	claimPayload = flag.NewStringVarP("payload", "", "", config.TranslateInLang(_flagClaimPayload, config.UILanguage))
+	claimAddress = flag.NewStringVarP("address", "", "", config.TranslateInLang(_flagClaimAddress, config.UILanguage))
+)
+
+// flag multi-language
+var (
+	_flagClaimAmount = map[config.Language]string{
+		config.English: "amount of IOTX, default 0, unit RAU",
+		config.Chinese: "IOTX数量",
+	}
+	_flagClaimPayload = map[config.Language]string{
+		config.English: "claim reward action payload data",
+		config.Chinese: "action数据",
+	}
+	_flagClaimAddress = map[config.Language]string{
+		config.English: "address of claim reward to, default is the action sender address",
+		config.Chinese: "获取奖励的账户地址, 默认使用action发送者地址",
+	}
+)
+
 // NewActionClaimCmd represents the action claim command
 func NewActionClaimCmd(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(_claimCmdUses)
@@ -38,25 +63,24 @@ func NewActionClaimCmd(client ioctl.Client) *cobra.Command {
 		Args:  cobra.RangeArgs(1, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			amount, err := util.StringToRau(args[0], util.IotxDecimalNum)
-			if err != nil {
-				return errors.Wrap(err, "invalid amount")
+			amount, ok := new(big.Int).SetString(claimAmount.Value().(string), 10)
+			if !ok {
+				return output.PrintError(errors.Errorf("invalid amount: %s", claimAmount))
 			}
+
 			gasPrice, signer, password, nonce, gasLimit, assumeYes, err := GetWriteCommandFlag(cmd)
 			if err != nil {
 				return err
 			}
+
 			sender, err := Signer(client, signer)
 			if err != nil {
 				return errors.Wrap(err, "failed to get signer address")
 			}
-			address := sender
-			if len(args) >= 2 {
-				address = args[1]
-			}
-			payload := make([]byte, 0)
-			if len(args) == 3 {
-				payload = []byte(args[2])
+			payload := []byte(claimPayload.Value().(string))
+			address := claimAddress.Value().(string)
+			if address == "" {
+				address = sender
 			}
 
 			if gasLimit == 0 {
@@ -90,6 +114,11 @@ func NewActionClaimCmd(client ioctl.Client) *cobra.Command {
 			)
 		},
 	}
+
+	claimAmount.RegisterCommand(cmd)
+	claimAddress.RegisterCommand(cmd)
+	claimPayload.RegisterCommand(cmd)
 	RegisterWriteCommand(client, cmd)
+
 	return cmd
 }

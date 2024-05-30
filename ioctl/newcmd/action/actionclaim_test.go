@@ -6,6 +6,7 @@
 package action
 
 import (
+	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -106,6 +107,7 @@ func TestNewActionClaimCmd(t *testing.T) {
 
 	t.Run("invalid amount", func(t *testing.T) {
 		expectedErr := errors.New("invalid amount")
+		claimAmount = flag.NewStringVarP("amount", "", "invalid", "")
 		cmd := NewActionClaimCmd(client)
 		_, err := util.ExecuteCmd(cmd, "")
 		require.Contains(err.Error(), expectedErr.Error())
