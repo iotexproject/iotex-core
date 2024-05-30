@@ -376,8 +376,11 @@ func (sdb *stateDB) ReadContractStorage(ctx context.Context, contract address.Ad
 }
 
 // ReadContractStorageAtHeight reads contract's storage at a specific height
-func (sdb *stateDB) ReadContractStorageAtHeight(ctx context.Context, height uint64,
-	contract address.Address, key []byte) ([]byte, error) {
+func (sdb *stateDB) ReadContractStorageAtHeight(
+	ctx context.Context,
+	height uint64,
+	contract address.Address,
+	key []byte) ([]byte, error) {
 	ws, err := sdb.newWorkingSet(ctx, height)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate working set from state db")

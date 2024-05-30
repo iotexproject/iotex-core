@@ -462,7 +462,7 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 }
 
 func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
-	from, to, gasLimit, gasPrice, value, data, _, err := parseCallObject(in)
+	from, to, gasLimit, gasPrice, value, data, height, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
@@ -497,7 +497,11 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 	)
 	switch act := elp.Action().(type) {
 	case *action.Execution:
-		estimatedGas, retval, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), elp, from)
+		if height == rpc.LatestBlockNumber {
+			estimatedGas, retval, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), elp, from)
+		} else {
+			estimatedGas, retval, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), elp, from)
+		}
 	case *action.MigrateStake:
 		estimatedGas, retval, err = svr.coreService.EstimateMigrateStakeGasConsumption(context.Background(), act, from)
 	default:
@@ -824,6 +828,11 @@ func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
 	if !ethAddr.Exists() || !storagePos.Exists() {
 		return nil, errInvalidFormat
 	}
+	heightParam := in.Get("params.2")
+	height, err := parseBlockNumber(&heightParam)
+	if err != nil {
+		return nil, err
+	}
 	contractAddr, err := address.FromHex(ethAddr.String())
 	if err != nil {
 		return nil, err
@@ -832,7 +841,12 @@ func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	val, err := svr.coreService.ReadContractStorage(context.Background(), contractAddr, pos)
+	var val []byte
+	if height == rpc.LatestBlockNumber {
+		val, err = svr.coreService.ReadContractStorage(context.Background(), contractAddr, pos)
+	} else {
+		val, err = svr.coreService.WithHeight(uint64(height.Int64())).ReadContractStorage(context.Background(), contractAddr, pos)
+	}
 	if err != nil {
 		return nil, err
 	}
