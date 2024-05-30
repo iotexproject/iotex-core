@@ -272,3 +272,7 @@ newxctl:
 .PHONY: iomigrater
 iomigrater:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOMIGRATER) -v ./tools/iomigrater
+
+.PHONY: archivevalidator
+archivevalidator:
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(archivevalidator) -v ./tools/archivevalidator
