@@ -35,19 +35,19 @@ const (
 	_defaultAnalyserEndpoint = "https://iotex-analyser-api-mainnet.chainanalytics.org"
 	_defaultConfigFileName   = "config.default"
 	// _defaultWsEndpoint default w3bstream endpoint
-	_defaultWsEndpoint = "sprout-staging.w3bstream.com:9000"
+	_defaultWsEndpoint = "https://sprout-testnet.w3bstream.com"
 	// _defaultIPFSEndpoint default IPFS endpoint for uploading
 	_defaultIPFSEndpoint = "ipfs.mainnet.iotex.io"
 	// _defaultIPFSGateway default IPFS gateway for resource fetching
 	_defaultIPFSGateway = "https://ipfs.io"
 	// _defaultWsProjectRegisterContract  default project register contract address
-	_defaultWsProjectRegisterContract = "0x80b49a5788DcE3eAbFcc46780dEA965602f869C9"
+	_defaultWsProjectRegisterContract = "0x4888bfbf39Dc83C19cbBcb307ccE8F7F93b72E38"
 	// _defaultWsProjectStoreContract  default project store contract address
-	_defaultWsProjectStoreContract = "0xf9B976C0127BC38E56fb97B0B1e1408e6F2737CE"
+	_defaultWsProjectStoreContract = "0x6AfCB0EB71B7246A68Bb9c0bFbe5cD7c11c4839f"
 	// _defaultWsFleetManagementContract  default fleet management contract address
-	_defaultWsFleetManagementContract = "0x698D8cEfe0c2E603DCA4B7815cb8E67F251eCF37"
+	_defaultWsFleetManagementContract = "0xDBA78C8eCaeE2DB9DDE0c4168f7E8626d4Ff0010"
 	// _defaultWsProverStoreContract  default prover store contract address
-	_defaultWsProverStoreContract = "0xa9bed62ADB1708E0c501664C9CE6A34BC4Fc246b"
+	_defaultWsProverStoreContract = "0xAD480a9c1B9fA8dD118c26Ac26880727160D0448"
 	// _defaultWsProjectDevicesContract  default project device contract address
 	_defaultWsProjectDevicesContract = "0x3d6b6c7bDB72e8BF73780f433342759d8b329Ca5"
 )
