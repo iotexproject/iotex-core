@@ -31,7 +31,7 @@ var (
 
 // flags
 var (
-	claimAmount  = flag.NewStringVarP("amount", "", "0", config.TranslateInLang(_flagClaimAmount, config.UILanguage))
+	claimAmount  = flag.NewStringVarP("amount", "", "", config.TranslateInLang(_flagClaimAmount, config.UILanguage))
 	claimPayload = flag.NewStringVarP("payload", "", "", config.TranslateInLang(_flagClaimPayload, config.UILanguage))
 	claimAddress = flag.NewStringVarP("address", "", "", config.TranslateInLang(_flagClaimAddress, config.UILanguage))
 )
@@ -66,6 +66,9 @@ func NewActionClaimCmd(client ioctl.Client) *cobra.Command {
 			amount, ok := new(big.Int).SetString(claimAmount.Value().(string), 10)
 			if !ok {
 				return output.PrintError(errors.Errorf("invalid amount: %s", claimAmount))
+			}
+			if amount.Cmp(new(big.Int).SetInt64(0)) < 1 {
+				return output.PrintError(errors.Errorf("expect amount greater than 0, but got: %v", amount.Int64()))
 			}
 
 			gasPrice, signer, password, nonce, gasLimit, assumeYes, err := GetWriteCommandFlag(cmd)
@@ -118,6 +121,9 @@ func NewActionClaimCmd(client ioctl.Client) *cobra.Command {
 	claimAmount.RegisterCommand(cmd)
 	claimAddress.RegisterCommand(cmd)
 	claimPayload.RegisterCommand(cmd)
+
+	_ = cmd.MarkFlagRequired("amount")
+
 	RegisterWriteCommand(client, cmd)
 
 	return cmd

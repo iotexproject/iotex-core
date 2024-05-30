@@ -30,7 +30,7 @@ var (
 
 // flags
 var (
-	claimAmount  = flag.NewStringVarP("amount", "", "0", config.TranslateInLang(_flagClaimAmount, config.UILanguage))
+	claimAmount  = flag.NewStringVarP("amount", "", "", config.TranslateInLang(_flagClaimAmount, config.UILanguage))
 	claimPayload = flag.NewStringVarP("payload", "", "", config.TranslateInLang(_flagClaimPayload, config.UILanguage))
 	claimAddress = flag.NewStringVarP("address", "", "", config.TranslateInLang(_flagClaimAddress, config.UILanguage))
 )
@@ -38,7 +38,7 @@ var (
 // flag multi-language
 var (
 	_flagClaimAmount = map[config.Language]string{
-		config.English: "amount of IOTX, default 0, unit RAU",
+		config.English: "amount of IOTX, unit RAU",
 		config.Chinese: "IOTX数量",
 	}
 	_flagClaimPayload = map[config.Language]string{
@@ -70,10 +70,16 @@ func init() {
 	claimAmount.RegisterCommand(_actionClaimCmd)
 	claimPayload.RegisterCommand(_actionClaimCmd)
 	claimAddress.RegisterCommand(_actionClaimCmd)
+
+	_ = _actionClaimCmd.MarkFlagRequired("amount")
+
 	RegisterWriteCommand(_actionClaimCmd)
 }
 
 func claim(amount *big.Int, payload, address string) error {
+	if amount.Cmp(new(big.Int).SetInt64(0)) < 1 {
+		return output.PrintError(errors.Errorf("expect amount greater than 0, but got: %v", amount.Int64()))
+	}
 	sender, err := Signer()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signer address", err)
