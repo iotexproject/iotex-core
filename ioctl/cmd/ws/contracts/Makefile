@@ -15,13 +15,11 @@ fetch:
 	@echo DONE
 
 
-CONTRACTS=('FleetManagement' 'ProjectRegistrar' 'W3bstreamProject' 'W3bstreamRouter' 'W3bstreamProver')
-
 .PHONY: generate_abi
 generate_abi:
 	@echo "#### generate abis from latest contracts..."
 	@cd sprout/smartcontracts && yarn install > /dev/null 2>&1
-	@cd sprout/smartcontracts/contracts && for file in 'FleetManagement' 'ProjectRegistrar' 'W3bstreamProject' 'W3bstreamRouter' 'W3bstreamProver' ; \
+	@mkdir -p abis && cd sprout/smartcontracts/contracts && for file in 'FleetManagement' 'ProjectRegistrar' 'W3bstreamProject' 'W3bstreamProver' 'ProjectDevice'; \
 	do \
 		solc --include-path ../node_modules/ --base-path . --optimize --abi --overwrite --pretty-json -o . $$file.sol > /dev/null 2>&1 ; \
 		if [ -e $$file.abi ]; then \

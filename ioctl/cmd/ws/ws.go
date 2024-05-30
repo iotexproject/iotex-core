@@ -78,7 +78,7 @@ var (
 
 var (
 	// transferAmount
-	transferAmount = flag.NewUint64VarP("amount", "", 0, config.TranslateInLang(_flagTransferAmountUsages, config.UILanguage))
+	transferAmount = flag.NewStringVarP("amount", "", "0", config.TranslateInLang(_flagTransferAmountUsages, config.UILanguage))
 )
 
 func init() {

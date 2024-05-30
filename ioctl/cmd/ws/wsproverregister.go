@@ -38,7 +38,11 @@ func registerProver() (any, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create contract caller")
 	}
-	caller.SetAmount(big.NewInt(int64(transferAmount.Value().(uint64))))
+	amount, ok := new(big.Int).SetString(transferAmount.Value().(string), 10)
+	if !ok {
+		return nil, errors.Errorf("invalid transfer amount flag: %v", transferAmount.Value())
+	}
+	caller.SetAmount(amount)
 
 	value := new(contracts.W3bstreamProverTransfer)
 	result := NewContractResult(&proverStoreABI, eventOnProverRegistered, value)
