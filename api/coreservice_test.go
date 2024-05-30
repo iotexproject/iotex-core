@@ -491,7 +491,7 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 		p = p.ApplyFuncReturn(accountutil.AccountStateWithHeight, nil, uint64(0), errors.New(t.Name()))
 
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
-		bc.EXPECT().TipHeight().Return(uint64(1)).Times(2)
+		bc.EXPECT().TipHeight().Return(uint64(1)).Times(1)
 		bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).Times(1)
 		sf.EXPECT().WorkingSet(gomock.Any()).Return(nil, nil).Times(1)
 		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
@@ -510,6 +510,7 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 			"isGasLimitEnough",
 			func(
 				context.Context,
+				uint64, bool,
 				address.Address,
 				*action.Envelope,
 				...protocol.SimulateOption,
@@ -538,6 +539,7 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 				"isGasLimitEnough",
 				func(
 					context.Context,
+					uint64, bool,
 					address.Address,
 					*action.Envelope,
 					...protocol.SimulateOption,
@@ -568,6 +570,7 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 				"isGasLimitEnough",
 				func(
 					context.Context,
+					uint64, bool,
 					address.Address,
 					*action.Envelope,
 					...protocol.SimulateOption,

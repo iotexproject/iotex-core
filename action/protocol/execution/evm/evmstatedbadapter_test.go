@@ -82,6 +82,7 @@ func initMockStateManager(ctrl *gomock.Controller) (*mock_chainmanager.MockState
 		}).AnyTimes()
 	sm.EXPECT().Snapshot().DoAndReturn(cb.Snapshot).AnyTimes()
 	sm.EXPECT().Revert(gomock.Any()).DoAndReturn(cb.RevertSnapshot).AnyTimes()
+	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	return sm, nil
 }
 

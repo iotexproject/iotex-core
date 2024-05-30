@@ -12,7 +12,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
@@ -27,6 +29,8 @@ type (
 		ReadContract(context.Context, address.Address, action.Envelope) (string, *iotextypes.Receipt, error)
 		TraceCall(context.Context, address.Address, string, uint64, *big.Int, uint64, []byte,
 			*tracers.TraceConfig) ([]byte, *action.Receipt, any, error)
+		ReadContractStorage(context.Context, address.Address, []byte) ([]byte, error)
+		EstimateExecutionGasConsumption(context.Context, action.Envelope, address.Address, ...protocol.SimulateOption) (uint64, []byte, error)
 	}
 
 	coreServiceReaderWithHeight struct {
@@ -116,4 +120,22 @@ func (core *coreServiceReaderWithHeight) PendingNonce(addr address.Address) (uin
 		return state.PendingNonceConsideringFreshAccount(), nil
 	}
 	return state.PendingNonce(), nil
+}
+
+// ReadContractStorage reads contract's storage
+func (core *coreServiceReaderWithHeight) ReadContractStorage(ctx context.Context, addr address.Address, key []byte) ([]byte, error) {
+	ctx, err := core.cs.bc.ContextAtHeight(ctx, core.height)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	ws, err := core.cs.sf.WorkingSetAtHeight(ctx, core.height)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return evm.ReadContractStorage(ctx, ws, addr, key)
+}
+
+func (core *coreServiceReaderWithHeight) EstimateExecutionGasConsumption(ctx context.Context,
+	elp action.Envelope, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, []byte, error) {
+	return core.cs.estimateExecutionGasConsumption(ctx, core.height, true, elp, callerAddr, opts...)
 }
