@@ -6,6 +6,7 @@
 package action
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -29,6 +30,7 @@ const (
 var (
 	_ hasDestination      = (*Transfer)(nil)
 	_ EthCompatibleAction = (*Transfer)(nil)
+	_ TxDataBasic         = (*Transfer)(nil)
 )
 
 // Transfer defines the struct of account-based transfer
@@ -155,18 +157,19 @@ func (tsf *Transfer) SanityCheck() error {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (tsf *Transfer) ToEthTx(_ uint32) (*types.Transaction, error) {
+func (tsf *Transfer) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
 	addr, err := address.FromString(tsf.recipient)
 	if err != nil {
 		return nil, err
 	}
-	ethAddr := common.BytesToAddress(addr.Bytes())
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    tsf.Nonce(),
-		GasPrice: tsf.GasPrice(),
-		Gas:      tsf.GasLimit(),
-		To:       &ethAddr,
-		Value:    tsf.amount,
-		Data:     tsf.payload,
-	}), nil
+	switch encoding {
+	case iotextypes.Encoding_IOTEX_PROTOBUF:
+		// treat native tx as EVM LegacyTx
+		fallthrough
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		to := common.BytesToAddress(addr.Bytes())
+		return basicToLegacyTx(tsf, &to, tsf.amount, tsf.payload), nil
+	default:
+		panic(fmt.Sprintf("unsupported encoding %d", encoding))
+	}
 }

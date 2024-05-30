@@ -73,7 +73,7 @@ func TestGenerateRlp(t *testing.T) {
 			require.Contains(v.err, ErrNilAction.Error())
 			continue
 		}
-		tx, err := act.ToEthTx(0)
+		tx, err := act.ToEthTx(0, 0)
 		if err != nil {
 			require.Contains(err.Error(), v.err)
 			continue
@@ -447,20 +447,21 @@ func TestEthTxDecodeVerify(t *testing.T) {
 		require.NoError(err)
 		act, ok := selp.Action().(EthCompatibleAction)
 		require.True(ok)
-		rlpTx, err := act.ToEthTx(uint32(tx.ChainId().Uint64()))
+		evmTx, err := act.ToEthTx(uint32(tx.ChainId().Uint64()), selp.encoding)
 		require.NoError(err)
 
+		println("test =", v.actType)
 		// verify against original tx
-		require.Equal(v.nonce, rlpTx.Nonce())
-		require.Equal(v.price, rlpTx.GasPrice().String())
-		require.Equal(v.limit, rlpTx.Gas())
+		require.Equal(v.nonce, evmTx.Nonce())
+		require.Equal(v.price, evmTx.GasPrice().String())
+		require.Equal(v.limit, evmTx.Gas())
 		if v.to == "" {
-			require.Nil(rlpTx.To())
+			require.Nil(evmTx.To())
 		} else {
-			require.Equal(v.to, rlpTx.To().Hex())
+			require.Equal(v.to, evmTx.To().Hex())
 		}
-		require.Equal(v.amount, rlpTx.Value().String())
-		require.Equal(v.dataLen, len(rlpTx.Data()))
+		require.Equal(v.amount, evmTx.Value().String())
+		require.Equal(v.dataLen, len(evmTx.Data()))
 		h, err := selp.Hash()
 		require.NoError(err)
 		require.Equal(v.hash, hex.EncodeToString(h[:]))

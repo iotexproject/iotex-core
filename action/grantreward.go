@@ -6,6 +6,7 @@
 package action
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -20,6 +21,7 @@ import (
 var (
 	_grantRewardMethod abi.Method
 	_                  EthCompatibleAction = (*GrantReward)(nil)
+	_                  TxDataBasic         = (*GrantReward)(nil)
 )
 
 const (
@@ -136,19 +138,20 @@ func (g *GrantReward) encodeABIBinary() ([]byte, error) {
 }
 
 // ToEthTx converts a grant reward action to an ethereum transaction
-func (g *GrantReward) ToEthTx(_ uint32) (*types.Transaction, error) {
+func (g *GrantReward) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
 	data, err := g.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    g.Nonce(),
-		GasPrice: g.GasPrice(),
-		Gas:      g.GasLimit(),
-		To:       &_rewardingProtocolEthAddr,
-		Data:     data,
-		Value:    big.NewInt(0),
-	}), nil
+	switch encoding {
+	case iotextypes.Encoding_IOTEX_PROTOBUF:
+		// treat native tx as EVM LegacyTx
+		fallthrough
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		return rewardingToLegacyTx(g, data), nil
+	default:
+		panic(fmt.Sprintf("unsupported encoding %d", encoding))
+	}
 }
 
 // GrantRewardBuilder is the struct to build GrantReward

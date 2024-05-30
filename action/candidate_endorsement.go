@@ -2,6 +2,7 @@ package action
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -41,6 +42,8 @@ const (
 
 var (
 	candidateEndorsementMethod abi.Method
+	_                          EthCompatibleAction = (*CandidateEndorsement)(nil)
+	_                          TxDataBasic         = (*CandidateActivate)(nil)
 )
 
 // CandidateEndorsement is the action to endorse or unendorse a candidate
@@ -117,19 +120,20 @@ func (act *CandidateEndorsement) encodeABIBinary() ([]byte, error) {
 }
 
 // ToEthTx returns an Ethereum transaction which corresponds to this action
-func (act *CandidateEndorsement) ToEthTx(_ uint32) (*types.Transaction, error) {
+func (act *CandidateEndorsement) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
 	data, err := act.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    act.Nonce(),
-		GasPrice: act.GasPrice(),
-		Gas:      act.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+	switch encoding {
+	case iotextypes.Encoding_IOTEX_PROTOBUF:
+		// treat native tx as EVM LegacyTx
+		fallthrough
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		return stakingToLegacyTx(act, data), nil
+	default:
+		panic(fmt.Sprintf("unsupported encoding %d", encoding))
+	}
 }
 
 // NewCandidateEndorsement returns a CandidateEndorsement action

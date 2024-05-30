@@ -7,6 +7,7 @@ package action
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -73,7 +74,9 @@ var (
 	// _withdrawStakeMethod is the interface of the abi encoding of withdrawStake action
 	_withdrawStakeMethod abi.Method
 	_                    EthCompatibleAction = (*Unstake)(nil)
+	_                    TxDataBasic         = (*Unstake)(nil)
 	_                    EthCompatibleAction = (*WithdrawStake)(nil)
+	_                    TxDataBasic         = (*WithdrawStake)(nil)
 )
 
 func init() {
@@ -212,19 +215,20 @@ func NewUnstakeFromABIBinary(data []byte) (*Unstake, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (su *Unstake) ToEthTx(_ uint32) (*types.Transaction, error) {
+func (su *Unstake) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
 	data, err := su.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    su.Nonce(),
-		GasPrice: su.GasPrice(),
-		Gas:      su.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+	switch encoding {
+	case iotextypes.Encoding_IOTEX_PROTOBUF:
+		// treat native tx as EVM LegacyTx
+		fallthrough
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		return stakingToLegacyTx(su, data), nil
+	default:
+		panic(fmt.Sprintf("unsupported encoding %d", encoding))
+	}
 }
 
 // WithdrawStake defines the action of stake withdraw
@@ -307,17 +311,18 @@ func NewWithdrawStakeFromABIBinary(data []byte) (*WithdrawStake, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (sw *WithdrawStake) ToEthTx(_ uint32) (*types.Transaction, error) {
+func (sw *WithdrawStake) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
 	data, err := sw.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    sw.Nonce(),
-		GasPrice: sw.GasPrice(),
-		Gas:      sw.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+	switch encoding {
+	case iotextypes.Encoding_IOTEX_PROTOBUF:
+		// treat native tx as EVM LegacyTx
+		fallthrough
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		return stakingToLegacyTx(sw, data), nil
+	default:
+		panic(fmt.Sprintf("unsupported encoding %d", encoding))
+	}
 }

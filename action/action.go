@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
 
@@ -22,7 +23,7 @@ type (
 
 	// EthCompatibleAction is the action which is compatible to be converted to eth tx
 	EthCompatibleAction interface {
-		ToEthTx(uint32) (*types.Transaction, error)
+		ToEthTx(uint32, iotextypes.Encoding) (*types.Transaction, error)
 	}
 
 	actionPayload interface {

@@ -7,6 +7,7 @@ package action
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -48,6 +49,7 @@ var (
 
 	_claimRewardingMethod abi.Method
 	_                     EthCompatibleAction = (*ClaimFromRewardingFund)(nil)
+	_                     TxDataBasic         = (*ClaimFromRewardingFund)(nil)
 )
 
 func init() {
@@ -159,19 +161,20 @@ func (c *ClaimFromRewardingFund) encodeABIBinary() ([]byte, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (c *ClaimFromRewardingFund) ToEthTx(_ uint32) (*types.Transaction, error) {
+func (c *ClaimFromRewardingFund) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
 	data, err := c.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    c.Nonce(),
-		GasPrice: c.GasPrice(),
-		Gas:      c.GasLimit(),
-		To:       &_rewardingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+	switch encoding {
+	case iotextypes.Encoding_IOTEX_PROTOBUF:
+		// treat native tx as EVM LegacyTx
+		fallthrough
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		return rewardingToLegacyTx(c, data), nil
+	default:
+		panic(fmt.Sprintf("unsupported encoding %d", encoding))
+	}
 }
 
 // NewClaimFromRewardingFundFromABIBinary decodes data into action

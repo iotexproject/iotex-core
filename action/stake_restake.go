@@ -7,6 +7,7 @@ package action
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -63,6 +64,7 @@ var (
 	// _restakeMethod is the interface of the abi encoding of stake action
 	_restakeMethod abi.Method
 	_              EthCompatibleAction = (*Restake)(nil)
+	_              TxDataBasic         = (*Restake)(nil)
 )
 
 // Restake defines the action of stake again
@@ -212,17 +214,18 @@ func NewRestakeFromABIBinary(data []byte) (*Restake, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (rs *Restake) ToEthTx(_ uint32) (*types.Transaction, error) {
+func (rs *Restake) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
 	data, err := rs.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    rs.Nonce(),
-		GasPrice: rs.GasPrice(),
-		Gas:      rs.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+	switch encoding {
+	case iotextypes.Encoding_IOTEX_PROTOBUF:
+		// treat native tx as EVM LegacyTx
+		fallthrough
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		return stakingToLegacyTx(rs, data), nil
+	default:
+		panic(fmt.Sprintf("unsupported encoding %d", encoding))
+	}
 }

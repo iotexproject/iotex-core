@@ -32,7 +32,7 @@ func TestGrandReward(t *testing.T) {
 		cost, err := g.Cost()
 		require.NoError(err)
 		require.Equal(big.NewInt(0), cost)
-		ethTx, err := g.ToEthTx(0)
+		ethTx, err := g.ToEthTx(0, 0)
 		require.NoError(err)
 		require.NotNil(ethTx)
 		require.Equal(byteutil.Must(g.EncodeABIBinary()), ethTx.Data())

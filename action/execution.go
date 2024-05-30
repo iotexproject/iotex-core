@@ -7,6 +7,7 @@ package action
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -16,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
@@ -250,33 +250,20 @@ func (ex *Execution) SanityCheck() error {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (ex *Execution) ToEthTx(evmNetworkID uint32) (*types.Transaction, error) {
-	var ethAddr *common.Address
-	if ex.contract != EmptyAddress {
-		addr, err := addrutil.IoAddrToEvmAddr(ex.contract)
-		if err != nil {
-			return nil, err
+func (ex *Execution) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
+	if encoding == iotextypes.Encoding_IOTEX_PROTOBUF {
+		if len(ex.accessList) > 0 {
+			encoding = iotextypes.Encoding_ETHEREUM_ACCESSLIST
+		} else {
+			encoding = iotextypes.Encoding_ETHEREUM_EIP155
 		}
-		ethAddr = &addr
 	}
-	if len(ex.accessList) > 0 {
-		return types.NewTx(&types.AccessListTx{
-			ChainID:    big.NewInt(int64(evmNetworkID)),
-			Nonce:      ex.Nonce(),
-			GasPrice:   ex.GasPrice(),
-			Gas:        ex.GasLimit(),
-			To:         ethAddr,
-			Value:      ex.amount,
-			Data:       ex.data,
-			AccessList: ex.accessList,
-		}), nil
+	switch encoding {
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		return toLegacyTx(ex), nil
+	case iotextypes.Encoding_ETHEREUM_ACCESSLIST:
+		return toAccessListTx(big.NewInt(int64(evmNetworkID)), ex), nil
+	default:
+		panic(fmt.Sprintf("unsupported encoding %d", encoding))
 	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    ex.Nonce(),
-		GasPrice: ex.GasPrice(),
-		Gas:      ex.GasLimit(),
-		To:       ethAddr,
-		Value:    ex.amount,
-		Data:     ex.data,
-	}), nil
 }

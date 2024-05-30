@@ -2,6 +2,7 @@ package action
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -37,6 +38,8 @@ const (
 
 var (
 	candidateActivateMethod abi.Method
+	_                       EthCompatibleAction = (*CandidateActivate)(nil)
+	_                       TxDataBasic         = (*CandidateActivate)(nil)
 )
 
 // CandidateActivate is the action to update a candidate's bucket
@@ -102,19 +105,20 @@ func (cr *CandidateActivate) encodeABIBinary() ([]byte, error) {
 }
 
 // ToEthTx returns an Ethereum transaction which corresponds to this action
-func (cr *CandidateActivate) ToEthTx(_ uint32) (*types.Transaction, error) {
+func (cr *CandidateActivate) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
 	data, err := cr.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    cr.Nonce(),
-		GasPrice: cr.GasPrice(),
-		Gas:      cr.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+	switch encoding {
+	case iotextypes.Encoding_IOTEX_PROTOBUF:
+		// treat native tx as EVM LegacyTx
+		fallthrough
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		return stakingToLegacyTx(cr, data), nil
+	default:
+		panic(fmt.Sprintf("unsupported encoding %d", encoding))
+	}
 }
 
 // NewCandidateActivate returns a CandidateActivate action

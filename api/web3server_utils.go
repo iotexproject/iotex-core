@@ -126,7 +126,7 @@ func getRecipientAndContractAddrFromAction(selp *action.SealedEnvelope, receipt 
 		actHash, _ := selp.Hash()
 		return nil, nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
 	}
-	ethTx, err := act.ToEthTx(0)
+	ethTx, err := act.ToEthTx(0, iotextypes.Encoding(selp.Encoding()))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -482,7 +482,7 @@ func newGetTransactionResult(
 		actHash, _ := selp.Hash()
 		return nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
 	}
-	ethTx, err := act.ToEthTx(0)
+	ethTx, err := act.ToEthTx(evmChainID, iotextypes.Encoding(selp.Encoding()))
 	if err != nil {
 		return nil, err
 	}

@@ -7,6 +7,7 @@ package action
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -58,6 +59,7 @@ var (
 	// _depositToStakeMethod is the interface of the abi encoding of stake action
 	_depositToStakeMethod abi.Method
 	_                     EthCompatibleAction = (*DepositToStake)(nil)
+	_                     TxDataBasic         = (*DepositToStake)(nil)
 )
 
 // DepositToStake defines the action of stake add deposit
@@ -220,17 +222,18 @@ func NewDepositToStakeFromABIBinary(data []byte) (*DepositToStake, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (ds *DepositToStake) ToEthTx(_ uint32) (*types.Transaction, error) {
+func (ds *DepositToStake) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
 	data, err := ds.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    ds.Nonce(),
-		GasPrice: ds.GasPrice(),
-		Gas:      ds.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+	switch encoding {
+	case iotextypes.Encoding_IOTEX_PROTOBUF:
+		// treat native tx as EVM LegacyTx
+		fallthrough
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		return stakingToLegacyTx(ds, data), nil
+	default:
+		panic(fmt.Sprintf("unsupported encoding %d", encoding))
+	}
 }

@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -119,4 +120,50 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 	rawHash := signer.Hash(tx)
 	pubkey, err = crypto.RecoverPubkey(rawHash[:], sig)
 	return encoding, sig, pubkey, err
+}
+
+// ======================================
+// utility funcs to convert native action to eth tx
+// ======================================
+func stakingToLegacyTx(basic TxDataBasic, data []byte) *types.Transaction {
+	return basicToLegacyTx(basic, &_stakingProtocolEthAddr, &big.Int{}, data)
+}
+
+func rewardingToLegacyTx(basic TxDataBasic, data []byte) *types.Transaction {
+	return basicToLegacyTx(basic, &_rewardingProtocolEthAddr, &big.Int{}, data)
+}
+
+func basicToLegacyTx(basic TxDataBasic, to *common.Address, value *big.Int, data []byte) *types.Transaction {
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    basic.Nonce(),
+		GasPrice: basic.GasPrice(),
+		Gas:      basic.GasLimit(),
+		To:       to,
+		Value:    value,
+		Data:     data,
+	})
+}
+
+func toLegacyTx(tx TxData) *types.Transaction {
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    tx.Nonce(),
+		GasPrice: tx.GasPrice(),
+		Gas:      tx.GasLimit(),
+		To:       tx.To(),
+		Value:    tx.Amount(),
+		Data:     tx.Data(),
+	})
+}
+
+func toAccessListTx(chainID *big.Int, tx TxData) *types.Transaction {
+	return types.NewTx(&types.AccessListTx{
+		ChainID:    chainID,
+		Nonce:      tx.Nonce(),
+		GasPrice:   tx.GasPrice(),
+		Gas:        tx.GasLimit(),
+		To:         tx.To(),
+		Value:      tx.Amount(),
+		Data:       tx.Data(),
+		AccessList: tx.AccessList(),
+	})
 }

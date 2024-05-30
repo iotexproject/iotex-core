@@ -35,7 +35,7 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 		if !ok {
 			return hash.ZeroHash256, ErrInvalidAct
 		}
-		tx, err := act.ToEthTx(sealed.evmNetworkID)
+		tx, err := act.ToEthTx(sealed.evmNetworkID, sealed.encoding)
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
@@ -71,7 +71,7 @@ func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
 		if !ok {
 			return hash.ZeroHash256, ErrInvalidAct
 		}
-		tx, err := act.ToEthTx(sealed.evmNetworkID)
+		tx, err := act.ToEthTx(sealed.evmNetworkID, sealed.encoding)
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
@@ -150,7 +150,7 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 		if !ok {
 			return ErrInvalidAct
 		}
-		tx, err := act.ToEthTx(evmID)
+		tx, err := act.ToEthTx(evmID, encoding)
 		if err != nil {
 			return err
 		}
