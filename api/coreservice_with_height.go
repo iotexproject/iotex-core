@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/action"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -22,6 +23,8 @@ type (
 	CoreServiceReaderWithHeight interface {
 		Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error)
 		PendingNonce(addr address.Address) (uint64, error)
+		ReadContractStorage(context.Context, address.Address, []byte) ([]byte, error)
+		EstimateExecutionGasConsumption(context.Context, *action.Execution, address.Address) (uint64, error)
 	}
 
 	coreServiceReaderWithHeight struct {
@@ -105,4 +108,17 @@ func (core *coreServiceReaderWithHeight) PendingNonce(addr address.Address) (uin
 		return 0, status.Error(codes.NotFound, err.Error())
 	}
 	return state.PendingNonce(), nil
+}
+
+// ReadContractStorage reads contract's storage
+func (core *coreServiceReaderWithHeight) ReadContractStorage(ctx context.Context, addr address.Address, key []byte) ([]byte, error) {
+	ctx, err := core.cs.bc.Context(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return core.cs.sf.ReadContractStorageAtHeight(ctx, core.height, addr, key)
+}
+
+func (core *coreServiceReaderWithHeight) EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error) {
+	return core.cs.estimateExecutionGasConsumption(ctx, core.height, newStateReaderWithHeight(core.cs.sf, core.height), sc, callerAddr)
 }

@@ -1636,8 +1636,12 @@ func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context,
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
 func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error) {
+	return core.estimateExecutionGasConsumption(ctx, core.bc.TipHeight(), core.sf, sc, callerAddr)
+}
+
+func (core *coreService) estimateExecutionGasConsumption(ctx context.Context, height uint64, sr protocol.StateReader, sc *action.Execution, callerAddr address.Address) (uint64, error) {
 	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
+	state, err := accountutil.AccountState(ctx, sr, callerAddr)
 	if err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -1658,7 +1662,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
 	)
 	sc.SetGasLimit(blockGasLimit)
-	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc)
+	enough, receipt, err := core.isGasLimitEnough(ctx, height, callerAddr, sc)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -1670,7 +1674,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 	}
 	estimatedGas := receipt.GasConsumed
 	sc.SetGasLimit(estimatedGas)
-	enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc)
+	enough, _, err = core.isGasLimitEnough(ctx, height, callerAddr, sc)
 	if err != nil && err != action.ErrInsufficientFunds {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -1680,7 +1684,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 		for low <= high {
 			mid := (low + high) / 2
 			sc.SetGasLimit(mid)
-			enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc)
+			enough, _, err = core.isGasLimitEnough(ctx, height, callerAddr, sc)
 			if err != nil && err != action.ErrInsufficientFunds {
 				return 0, status.Error(codes.Internal, err.Error())
 			}
@@ -1698,6 +1702,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 
 func (core *coreService) isGasLimitEnough(
 	ctx context.Context,
+	height uint64,
 	caller address.Address,
 	sc *action.Execution,
 ) (bool, *action.Receipt, error) {
@@ -1707,8 +1712,13 @@ func (core *coreService) isGasLimitEnough(
 	if err != nil {
 		return false, nil, err
 	}
-
-	_, receipt, err := core.simulateExecution(ctx, caller, sc, core.dao.GetBlockHash, core.getBlockTime)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash:   core.dao.GetBlockHash,
+		GetBlockTime:   core.getBlockTime,
+		DepositGasFunc: rewarding.DepositGasWithSGD,
+		Sgd:            core.sgdIndexer,
+	})
+	_, receipt, err := core.sf.SimulateExecutionAtHeight(ctx, height, caller, sc)
 	if err != nil {
 		return false, nil, err
 	}

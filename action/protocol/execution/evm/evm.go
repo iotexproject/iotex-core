@@ -351,13 +351,16 @@ func ReadContractStorage(
 	contract address.Address,
 	key []byte,
 ) ([]byte, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	height, err := sm.Height()
+	if err != nil {
+		return nil, err
+	}
 	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(protocol.WithActionCtx(ctx,
 		protocol.ActionCtx{
 			ActionHash: hash.ZeroHash256,
 		}),
 		protocol.BlockCtx{
-			BlockHeight: bcCtx.Tip.Height + 1,
+			BlockHeight: height,
 		},
 	))
 	stateDB, err := prepareStateDB(ctx, sm)
