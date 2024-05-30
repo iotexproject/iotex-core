@@ -1,111 +1,68 @@
 package ws
 
 import (
-	"encoding/hex"
-	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/ws/contracts"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
-var (
-	// wsProjectUpdate represents the update w3bstream project command
-	wsProjectUpdate = &cobra.Command{
-		Use:   "update",
-		Short: config.TranslateInLang(wsProjectUpdateShorts, config.UILanguage),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := cmd.Flags().GetUint64("project-id")
-			if err != nil {
-				return output.PrintError(err)
-			}
-			filename, err := cmd.Flags().GetString("project-config-file")
-			if err != nil {
-				return output.PrintError(err)
-			}
-			hash, err := cmd.Flags().GetString("project-config-hash")
-			if err != nil {
-				return output.PrintError(err)
-			}
-			out, err := updateProject(id, filename, hash)
-			if err != nil {
-				return output.PrintError(err)
-			}
-			output.PrintResult(out)
-			return nil
-		},
-	}
-
-	// wsProjectUpdateShorts update w3bstream project shorts multi-lang support
-	wsProjectUpdateShorts = map[config.Language]string{
+var wsProjectUpdateCmd = &cobra.Command{
+	Use: "update",
+	Short: config.TranslateInLang(map[config.Language]string{
 		config.English: "update w3bstream project",
 		config.Chinese: "更新项目",
-	}
-)
-
-func init() {
-	wsProjectUpdate.Flags().Uint64P("project-id", "i", 0, config.TranslateInLang(_flagProjectIDUsages, config.UILanguage))
-	wsProjectUpdate.Flags().StringP("project-config-file", "u", "", config.TranslateInLang(_flagProjectConfigFileUsages, config.UILanguage))
-	wsProjectUpdate.Flags().StringP("project-config-hash", "v", "", config.TranslateInLang(_flagProjectConfigHashUsages, config.UILanguage))
-
-	_ = wsProjectCreate.MarkFlagRequired("project-id")
-	_ = wsProjectCreate.MarkFlagRequired("project-config-file")
+	}, config.UILanguage),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		out, err := updateProject(
+			big.NewInt(int64(projectID.Value().(uint64))),
+			projectFilePath.Value().(string),
+			projectFileHash.Value().(string),
+		)
+		if err != nil {
+			return output.PrintError(err)
+		}
+		output.PrintResult("project updated")
+		output.PrintResult(output.JSONString(out))
+		return nil
+	},
 }
 
-func updateProject(projectID uint64, filename, hashstr string) (string, error) {
-	uri, hashv, err := upload(wsProjectIPFSEndpoint, filename, hashstr)
-	if err != nil {
-		return "", err
-	}
-	fmt.Printf("project config file validated and uploaded:\n"+
-		"\tipfs uri: %s\n"+
-		"\thash256:  %s\n\n\n", uri, hex.EncodeToString(hashv[:]))
+func init() {
+	projectID.RegisterCommand(wsProjectUpdateCmd)
+	projectID.MarkFlagRequired(wsProjectUpdateCmd)
+	projectFilePath.RegisterCommand(wsProjectUpdateCmd)
+	projectFilePath.MarkFlagRequired(wsProjectUpdateCmd)
+	projectFileHash.RegisterCommand(wsProjectUpdateCmd)
 
-	contract, err := util.Address(wsProjectRegisterContractAddress)
-	if err != nil {
-		return "", output.NewError(output.AddressError, "failed to get project register contract address", err)
-	}
+	wsProject.AddCommand(wsProjectUpdateCmd)
+}
 
-	bytecode, err := wsProjectRegisterContractABI.Pack(updateWsProjectFuncName, projectID, uri, hashv)
+func updateProject(projectID *big.Int, filename, hashstr string) (any, error) {
+	uri, hashval, err := uploadToIPFS(ipfsEndpoint, filename, hashstr)
 	if err != nil {
-		return "", output.NewError(output.ConvertError, fmt.Sprintf("failed to pack abi"), err)
+		return nil, errors.Wrap(err, "failed to upload project file to ipfs")
 	}
 
-	res, err := action.ExecuteAndResponse(contract, big.NewInt(0), bytecode)
+	caller, err := NewContractCaller(projectStoreABI, projectStoreAddress)
 	if err != nil {
-		return "", errors.Wrap(err, "execute contract failed")
+		return nil, errors.Wrap(err, "failed to create contract caller")
 	}
 
-	r, err := waitReceiptByActionHash(res.ActionHash)
+	result := NewContractResult(&projectStoreABI, eventProjectConfigUpdated, new(contracts.W3bstreamProjectProjectConfigUpdated))
+	_, err = caller.CallAndRetrieveResult(funcUpdateProjectConfig, []any{projectID, uri, hashval}, result)
 	if err != nil {
-		return "", errors.Wrap(err, "wait contract execution receipt failed")
+		return nil, errors.Wrap(err, "failed to update project config")
 	}
 
-	inputs, err := getEventInputsByName(r.ReceiptInfo.Receipt.Logs, wsProjectUpsertedEventName)
+	_v, err := result.Result()
 	if err != nil {
-		return "", errors.Wrap(err, "get receipt event failed")
+		return nil, err
 	}
-	_projectid, ok := inputs["projectId"]
-	if !ok {
-		return "", errors.New("result `projectId` not found in event inputs")
-	}
-	_uri, ok := inputs["uri"]
-	if !ok {
-		return "", errors.New("result `uri` not found in event inputs")
-	}
-	_hash, ok := inputs["hash"].([32]byte)
-	if !ok {
-		return "", errors.New("result `hash` not found in event inputs")
-	}
-	hashstr = hex.EncodeToString(_hash[:])
-	return fmt.Sprintf("Your project is successfully updated:\n%s", output.JSONString(projectMeta{
-		ProjectID:  _projectid.(uint64),
-		URI:        _uri.(string),
-		HashSha256: hashstr,
-	})), nil
+	v := _v.(*contracts.W3bstreamProjectProjectConfigUpdated)
+	return queryProject(v.ProjectId)
 }

@@ -1,66 +1,93 @@
 package ws
 
 import (
-	"fmt"
+	"encoding/hex"
+	"math/big"
 
-	"github.com/iotexproject/iotex-address/address"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/contract"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/ws/contracts"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
-var (
-	// wsProjectQuery represents the query w3bstream project command
-	wsProjectQuery = &cobra.Command{
-		Use:   "query",
-		Short: config.TranslateInLang(wsProjectQueryShorts, config.UILanguage),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := cmd.Flags().GetUint64("project-id")
-			if err != nil {
-				return output.PrintError(err)
-			}
-			out, err := queryProject(id)
-			if err != nil {
-				return output.PrintError(err)
-			}
-			output.PrintResult(out)
-			return nil
-		},
-	}
-
-	// wsProjectQueryShorts query w3bstream project shorts multi-lang support
-	wsProjectQueryShorts = map[config.Language]string{
+var wsProjectQueryCmd = &cobra.Command{
+	Use: "query",
+	Short: config.TranslateInLang(map[config.Language]string{
 		config.English: "query w3bstream project",
 		config.Chinese: "查询项目",
-	}
-)
-
-func init() {
-	wsProjectQuery.Flags().Uint64P("project-id", "i", 0, config.TranslateInLang(_flagProjectIDUsages, config.UILanguage))
-
-	_ = wsProjectQuery.MarkFlagRequired("project-id")
+	}, config.UILanguage),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		out, err := queryProject(big.NewInt(int64(projectID.Value().(uint64))))
+		if err != nil {
+			return output.PrintError(err)
+		}
+		output.PrintResult(output.JSONString(out))
+		return nil
+	},
 }
 
-func queryProject(id uint64) (string, error) {
-	contractAddr, err := util.Address(wsProjectRegisterContractAddress)
+func init() {
+	projectID.RegisterCommand(wsProjectQueryCmd)
+	projectID.MarkFlagRequired(wsProjectQueryCmd)
+
+	wsProject.AddCommand(wsProjectQueryCmd)
+}
+
+func queryProject(projectID *big.Int) (any, error) {
+	caller, err := NewContractCaller(projectStoreABI, projectStoreAddress)
 	if err != nil {
-		return "", output.NewError(output.AddressError, "failed to get project register contract address", err)
+		return nil, errors.Wrap(err, "failed to new contract caller")
 	}
 
-	bytecode, err := wsProjectRegisterContractABI.Pack(queryWsProjectFuncName, id)
+	result := NewContractResult(&projectStoreABI, funcQueryProject, new(contracts.W3bstreamProjectProjectConfig))
+	if err = caller.Read(funcQueryProject, []any{projectID}, result); err != nil {
+		return nil, errors.Wrapf(err, "failed to read contract: %s", funcQueryProject)
+	}
+	value, err := result.Result()
 	if err != nil {
-		return "", output.NewError(output.ConvertError, fmt.Sprintf("failed to pack abi"), err)
+		return nil, err
 	}
 
-	addr, _ := address.FromString(contractAddr)
-	data, err := action.Read(addr, "0", bytecode)
-	if err != nil {
-		return "", errors.Wrap(err, "read contract failed")
+	result = NewContractResult(&projectStoreABI, funcIsProjectPaused, new(bool))
+	if err = caller.Read(funcIsProjectPaused, []any{projectID}, result); err != nil {
+		return nil, errors.Wrapf(err, "failed to read contract: %s", funcQueryProject)
 	}
-	return contract.ParseOutput(&wsProjectRegisterContractABI, queryWsProjectFuncName, data)
+	isPaused, err := result.Result()
+	if err != nil {
+		return nil, err
+	}
+
+	result = NewContractResult(&projectStoreABI, funcQueryProjectOwner, new(common.Address))
+	if err = caller.Read(funcQueryProjectOwner, []any{projectID}, result); err != nil {
+		return nil, errors.Wrapf(err, "failed to read contract: %s", funcQueryProject)
+	}
+	owner, err := result.Result()
+	if err != nil {
+		return nil, err
+	}
+
+	ownerAddr, err := util.Address((*(owner.(*common.Address))).String())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert owner address")
+	}
+
+	_projectConfig := value.(*contracts.W3bstreamProjectProjectConfig)
+
+	return &struct {
+		ProjectID uint64 `json:"projectID"`
+		Owner     string `json:"owner"`
+		URI       string `json:"uri"`
+		Hash      string `json:"hash"`
+		IsPaused  bool   `json:"isPaused"`
+	}{
+		ProjectID: projectID.Uint64(),
+		Owner:     ownerAddr,
+		URI:       _projectConfig.Uri,
+		Hash:      hex.EncodeToString(_projectConfig.Hash[:]),
+		IsPaused:  *(isPaused.(*bool)),
+	}, nil
 }
