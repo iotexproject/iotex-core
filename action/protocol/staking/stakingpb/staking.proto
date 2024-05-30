@@ -40,6 +40,7 @@ message Candidate {
     string votes = 5;
     uint64 selfStakeBucketIdx = 6;
     string selfStake = 7;
+    string identifierAddress = 8; //if the field is empty, set it to the old owner address
 }
 
 message Candidates {

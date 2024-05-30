@@ -686,6 +686,13 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
 		}
 	}
+	c = csm.GetByIdentifier(owner)
+	if c != nil {
+		return log, nil, &handleError{
+			err:           ErrInvalidOwner,
+			failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
+		}
+	}
 	// cannot collide with existing name
 	if csm.ContainsName(act.Name()) && (!ownerExist || act.Name() != c.Name) {
 		return log, nil, &handleError{
