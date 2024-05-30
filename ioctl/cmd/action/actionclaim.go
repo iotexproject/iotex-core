@@ -23,8 +23,8 @@ var (
 		config.Chinese: "从奖励基金中获取奖励",
 	}
 	_claimCmdUses = map[config.Language]string{
-		config.English: "claim AMOUNT_IOTX [ACCOUNT_REWARD_TO] [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "claim IOTX数量 [获取奖励的账户地址] [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+		config.English: "claim --amount AMOUNT_IOTX [-address ACCOUNT_REWARD_TO] [--payload DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "claim --amount IOTX数量 [--address 获取奖励的账户地址] [--payload 数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 )
 
