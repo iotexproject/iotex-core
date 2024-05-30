@@ -324,13 +324,19 @@ func (sdb *stateDB) SimulateExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return evm.SimulateExecution(ctx, ws, caller, ex)
 }
 
-func (sdb *stateDB) SimulateExecutionAtHeight(ctx context.Context, height uint64,
-	caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
-	return nil, nil, errors.Wrap(ErrNotSupported, "state db does not support archive mode")
+func (sdb *stateDB) SimulateExecutionAtHeight(
+	ctx context.Context,
+	height uint64,
+	caller address.Address,
+	ex *action.Execution) ([]byte, *action.Receipt, error) {
+	ws, err := sdb.newWorkingSet(ctx, height)
+	if err != nil {
+		return nil, nil, err
+	}
+	return evm.SimulateExecution(ctx, ws, caller, ex)
 }
 
 // ReadContractStorage reads contract's storage
@@ -346,9 +352,16 @@ func (sdb *stateDB) ReadContractStorage(ctx context.Context, contract address.Ad
 }
 
 // ReadContractStorageAtHeight reads contract's storage at a specific height
-func (sdb *stateDB) ReadContractStorageAtHeight(ctx context.Context, height uint64,
-	contract address.Address, key []byte) ([]byte, error) {
-	return nil, errors.Wrap(ErrNotSupported, "state db does not support archive mode")
+func (sdb *stateDB) ReadContractStorageAtHeight(
+	ctx context.Context,
+	height uint64,
+	contract address.Address,
+	key []byte) ([]byte, error) {
+	ws, err := sdb.newWorkingSet(ctx, height)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate working set from state db")
+	}
+	return evm.ReadContractStorage(ctx, ws, contract, key)
 }
 
 // PutBlock persists all changes in RunActions() into the DB
