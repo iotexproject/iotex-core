@@ -19,7 +19,7 @@ func testEqual(m *CandidateCenter, l CandidateList) bool {
 		return false
 	}
 	for _, v := range l {
-		d := m.GetByOwner(v.Owner)
+		d := m.GetByIdentifier(v.GetIdentifier())
 		if d == nil {
 			return false
 		}
@@ -575,4 +575,116 @@ func candCenterFromNewCandidateStateManager(r *require.Assertions, view protocol
 	r.True(err == nil || err == protocol.ErrNoName)
 	r.NoError(center.SetDelta(delta))
 	return center
+}
+
+func TestCandidateUpsert(t *testing.T) {
+	// t.Skip()
+	r := require.New(t)
+
+	m, err := NewCandidateCenter(nil)
+	r.NoError(err)
+	tests := []*Candidate{}
+	for _, v := range testCandidates {
+		tests = append(tests, v.d.Clone())
+	}
+	tests[0].Identifier = identityset.Address(10)
+	tests[1].Identifier = identityset.Address(11)
+	tests[2].Identifier = identityset.Address(12)
+	for _, v := range tests {
+		r.NoError(m.Upsert(v))
+		r.True(m.ContainsName(v.Name))
+		r.Equal(v, m.GetByName(v.Name))
+	}
+	r.Equal(len(tests), m.Size())
+
+	// test export changes and commit
+	list := m.Delta()
+	r.NotNil(list)
+	r.Equal(len(list), m.Size())
+	r.True(testEqual(m, list))
+	r.NoError(m.SetDelta(list))
+	r.NoError(m.LegacyCommit())
+	r.Equal(len(tests), m.Size())
+	r.True(testEqual(m, list))
+	old := m.All()
+	r.True(testEqual(m, old))
+
+	// test existence
+	for _, v := range tests {
+		r.True(m.ContainsName(v.Name))
+		r.True(m.ContainsOwner(v.Owner))
+		r.True(m.ContainsOperator(v.Operator))
+		r.True(m.ContainsSelfStakingBucket(v.SelfStakeBucketIdx))
+		r.Equal(v, m.GetByName(v.Name))
+		r.Equal(v, m.GetByOwner(v.Owner))
+		r.Equal(v, m.GetBySelfStakingIndex(v.SelfStakeBucketIdx))
+	}
+	t.Run("name change to another candidate", func(t *testing.T) {
+		nameChange := tests[0].Clone()
+		nameChange.Name = tests[1].Name
+		r.Equal(action.ErrInvalidCanName, m.Upsert(nameChange))
+	})
+
+	t.Run("owner change to another candidate", func(t *testing.T) {
+		ownerChange := tests[0].Clone()
+		ownerChange.Owner = tests[1].Owner
+		r.Equal(ErrInvalidOwner, m.Upsert(ownerChange))
+	})
+	t.Run("operator change to another candidate", func(t *testing.T) {
+		operatorChange := tests[0].Clone()
+		operatorChange.Operator = tests[1].Operator
+		r.Equal(ErrInvalidOperator, m.Upsert(operatorChange))
+	})
+	t.Run("upsert the same candidate", func(t *testing.T) {
+		r.NoError(m.Upsert(tests[0]))
+		r.NoError(m.Commit())
+		r.Equal(len(tests), m.Size())
+		testEqual(m, old)
+	})
+
+	t.Run("self staking bucket index change to another candidate", func(t *testing.T) {
+		selfStakingBucketChange := tests[0].Clone()
+		selfStakingBucketChange.SelfStakeBucketIdx = tests[1].SelfStakeBucketIdx
+		r.Equal(ErrInvalidSelfStkIndex, m.Upsert(selfStakingBucketChange))
+	})
+	t.Run("owner change to non-exist candidate", func(t *testing.T) {
+		ownerChange := tests[0].Clone()
+		ownerChange.Owner = identityset.Address(28)
+		r.NoError(m.Upsert(ownerChange))
+		r.NoError(m.Commit())
+		r.Equal(ownerChange, m.GetByName(ownerChange.Name))
+		r.Equal(ownerChange, m.GetByOwner(ownerChange.Owner))
+		r.Equal(ownerChange, m.GetBySelfStakingIndex(ownerChange.SelfStakeBucketIdx))
+		r.Equal(ownerChange, m.GetByIdentifier(ownerChange.Identifier))
+		r.Equal(len(testCandidates), m.Size())
+	})
+	t.Run("owner change to another candidate identifier", func(t *testing.T) {
+		ownerChange := tests[3].Clone()
+		ownerChange.Owner = tests[2].Identifier
+		r.Equal(action.ErrInvalidCanName, m.Upsert(ownerChange))
+	})
+	t.Run("insert new candidate and then change owner", func(t *testing.T) {
+		m, err := NewCandidateCenter(nil)
+		r.NoError(err)
+		for _, v := range tests {
+			r.NoError(m.Upsert(v))
+		}
+		newCandidate := &Candidate{
+			Name:               "newCandidate1",
+			Owner:              identityset.Address2(100),
+			Operator:           identityset.Address2(101),
+			Reward:             identityset.Address2(102),
+			SelfStake:          big.NewInt(0),
+			SelfStakeBucketIdx: 103,
+			Votes:              big.NewInt(0),
+		}
+		r.NoError(m.Upsert(newCandidate))
+		cand := newCandidate.Clone()
+		cand.Identifier = identityset.Address2(100)
+		cand.Owner = identityset.Address2(104)
+		r.NoError(m.Upsert(cand))
+		r.NoError(m.Commit())
+		r.Equal(len(tests)+1, m.Size())
+		r.Equal(cand, m.GetByIdentifier(cand.GetIdentifier()))
+	})
 }

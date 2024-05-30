@@ -26,6 +26,7 @@ type (
 		Owner              address.Address
 		Operator           address.Address
 		Reward             address.Address
+		Identifier         address.Address
 		Name               string
 		Votes              *big.Int
 		SelfStakeBucketIdx uint64
@@ -48,6 +49,7 @@ func (d *Candidate) Clone() *Candidate {
 		Owner:              d.Owner,
 		Operator:           d.Operator,
 		Reward:             d.Reward,
+		Identifier:         d.Identifier,
 		Name:               d.Name,
 		Votes:              new(big.Int).Set(d.Votes),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
@@ -62,6 +64,7 @@ func (d *Candidate) Equal(c *Candidate) bool {
 		address.Equal(d.Owner, c.Owner) &&
 		address.Equal(d.Operator, c.Operator) &&
 		address.Equal(d.Reward, c.Reward) &&
+		address.Equal(d.Identifier, c.Identifier) &&
 		d.Votes.Cmp(c.Votes) == 0 &&
 		d.SelfStake.Cmp(c.SelfStake) == 0
 }
@@ -101,8 +104,11 @@ func (d *Candidate) isSelfStakeBucketSettled() bool {
 
 // Collision checks collsion of 2 candidates
 func (d *Candidate) Collision(c *Candidate) error {
-	if address.Equal(d.Owner, c.Owner) {
+	if address.Equal(d.GetIdentifier(), c.GetIdentifier()) {
 		return nil
+	}
+	if address.Equal(d.Owner, c.Owner) {
+		return action.ErrInvalidOwner
 	}
 	if c.Name == d.Name {
 		return action.ErrInvalidCanName
@@ -178,16 +184,30 @@ func (d *Candidate) Deserialize(buf []byte) error {
 	return d.fromProto(pb)
 }
 
+// TODO: rename to ID
+// GetIdentifier returns the identifier
+func (d *Candidate) GetIdentifier() address.Address {
+	if d.Identifier == nil {
+		return d.Owner
+	}
+	return d.Identifier
+}
+
 func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 	if d.Owner == nil || d.Operator == nil || d.Reward == nil ||
 		len(d.Name) == 0 || d.Votes == nil || d.SelfStake == nil {
 		return nil, ErrMissingField
+	}
+	voter := ""
+	if d.Identifier != nil {
+		voter = d.Identifier.String()
 	}
 
 	return &stakingpb.Candidate{
 		OwnerAddress:       d.Owner.String(),
 		OperatorAddress:    d.Operator.String(),
 		RewardAddress:      d.Reward.String(),
+		IdentifierAddress:  voter,
 		Name:               d.Name,
 		Votes:              d.Votes.String(),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
@@ -210,6 +230,13 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	d.Reward, err = address.FromString(pb.GetRewardAddress())
 	if err != nil {
 		return err
+	}
+
+	if id := pb.GetIdentifierAddress(); len(id) > 0 {
+		d.Identifier, err = address.FromString(id)
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(pb.GetName()) == 0 {
