@@ -627,7 +627,6 @@ func TestTraceTransaction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	scfg := newConfig()
-	scfg.chain.HistoryWindowSize = 0
 	svr, bc, _, ap, cleanCallback := setupTestCoreServiceWithConfig(scfg)
 	defer cleanCallback()
 	ctx := context.Background()
@@ -664,7 +663,6 @@ func TestTraceCall(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	scfg := newConfig()
-	scfg.chain.HistoryWindowSize = 0
 	svr, bc, _, ap, cleanCallback := setupTestCoreServiceWithConfig(scfg)
 	defer cleanCallback()
 	ctx := context.Background()
@@ -704,7 +702,6 @@ func TestTraceBlock(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	scfg := newConfig()
-	scfg.chain.HistoryWindowSize = 0
 	svr, bc, _, ap, cleanCallback := setupTestCoreServiceWithConfig(scfg)
 	defer cleanCallback()
 	ctx := context.Background()
