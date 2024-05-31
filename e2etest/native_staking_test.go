@@ -2,6 +2,7 @@ package e2etest
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 	"testing"
 	"time"
@@ -454,12 +455,59 @@ func TestNativeStaking(t *testing.T) {
 			require.NoError(err)
 			require.Equal(4, len(cands))
 		})
-		// candidate transfer ownership
-		_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(5, identityset.Address(33).String(), nil, gasLimit, gasPrice, cand1PriKey))
-		require.NoError(err)
-		require.EqualValues(iotextypes.ReceiptStatus_Success, ccto.Status)
-		// check candidate state
-		require.NoError(checkCandidateState(sf, candidate1Name, identityset.Address(33).String(), selfStake, cand1Votes, cand1PriKey.PublicKey().Address()))
+		t.Run("candidate transfer ownership to self", func(t *testing.T) {
+			_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(5, cand1Addr.String(), nil, gasLimit, gasPrice, cand1PriKey))
+			require.NoError(err)
+			require.EqualValues(iotextypes.ReceiptStatus_ErrUnauthorizedOperator, ccto.Status)
+			require.NoError(checkCandidateState(sf, candidate1Name, cand1Addr.String(), selfStake, cand1Votes, cand1Addr))
+		})
+
+		t.Run("candidate transfer ownership to a normal new address", func(t *testing.T) {
+			newOwner1 := identityset.Address(33)
+			_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(6, newOwner1.String(), nil, gasLimit, gasPrice, cand1PriKey))
+			require.NoError(err)
+			require.EqualValues(iotextypes.ReceiptStatus_Success, ccto.Status)
+			require.NoError(checkCandidateState(sf, candidate1Name, newOwner1.String(), selfStake, cand1Votes, cand1Addr))
+		})
+		t.Run("candidate transfer ownership to a exist candidate", func(t *testing.T) {
+			_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(7, cand2Addr.String(), nil, gasLimit, gasPrice, cand1PriKey))
+			require.NoError(err)
+			require.EqualValues(iotextypes.ReceiptStatus_ErrUnauthorizedOperator, ccto.Status)
+			require.NoError(checkCandidateState(sf, candidate1Name, identityset.Address(33).String(), selfStake, cand1Votes, cand1Addr))
+		})
+		t.Run("candidate transfer ownership to a normal new address again", func(t *testing.T) {
+			newOwner2 := identityset.Address(34)
+			_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(8, newOwner2.String(), nil, gasLimit, gasPrice, cand1PriKey))
+			require.NoError(err)
+			require.EqualValues(iotextypes.ReceiptStatus_Success, ccto.Status)
+			require.NoError(checkCandidateState(sf, candidate1Name, newOwner2.String(), selfStake, cand1Votes, cand1Addr))
+		})
+		t.Run("candidate transfer ownership to a transfered candidate", func(t *testing.T) {
+			newOwner2 := identityset.Address(34)
+			_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(9, newOwner2.String(), nil, gasLimit, gasPrice, cand1PriKey))
+			require.NoError(err)
+			require.EqualValues(iotextypes.ReceiptStatus_ErrUnauthorizedOperator, ccto.Status)
+			require.NoError(checkCandidateState(sf, candidate1Name, newOwner2.String(), selfStake, cand1Votes, cand1Addr))
+		})
+		t.Run("candidate transfer ownership to a contract address", func(t *testing.T) {
+			data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
+			_, se, err := addOneTx(action.SignedExecution(action.EmptyAddress, cand1PriKey, 10, big.NewInt(0), uint64(100000), big.NewInt(0), data))
+			require.NoError(err)
+			require.EqualValues(iotextypes.ReceiptStatus_Success, se.Status)
+			_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(11, se.ContractAddress, nil, gasLimit, gasPrice, cand1PriKey))
+			require.NoError(err)
+			require.EqualValues(iotextypes.ReceiptStatus_ErrUnauthorizedOperator, ccto.Status)
+			require.NoError(checkCandidateState(sf, candidate1Name, identityset.Address(34).String(), selfStake, cand1Votes, cand1Addr))
+		})
+		t.Run("candidate transfer ownership to a invalid address", func(t *testing.T) {
+			_, _, err := addOneTx(action.SignedCandidateTransferOwnership(12, "123", nil, gasLimit, gasPrice, cand1PriKey))
+			require.ErrorContains(err, action.ErrAddress.Error())
+		})
+		t.Run("candidate transfer ownership with none candidate", func(t *testing.T) {
+			newOwner := identityset.Address(34)
+			_, _, err := addOneTx(action.SignedCandidateTransferOwnership(12, newOwner.String(), nil, gasLimit, gasPrice, identityset.PrivateKey(12)))
+			require.ErrorContains(err, "failed to find receipt")
+		})
 	}
 
 	cfg := config.Default
