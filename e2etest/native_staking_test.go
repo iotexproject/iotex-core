@@ -459,7 +459,7 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, ccto.Status)
 		// check candidate state
-		require.NoError(checkCandidateState(sf, candidate1Name, identityset.Address(33).String(), selfStake, cand1Votes, identityset.Address(33)))
+		require.NoError(checkCandidateState(sf, candidate1Name, identityset.Address(33).String(), selfStake, cand1Votes, cand1PriKey.PublicKey().Address()))
 	}
 
 	cfg := config.Default
@@ -497,6 +497,7 @@ func TestNativeStaking(t *testing.T) {
 	cfg.Genesis.FbkMigrationBlockHeight = 1
 	cfg.Genesis.TsunamiBlockHeight = 0
 	cfg.Genesis.EndorsementWithdrawWaitingBlocks = 10
+	cfg.Genesis.ToBeEnabledBlockHeight = 0
 
 	t.Run("test native staking", func(t *testing.T) {
 		testNativeStaking(cfg, t)
