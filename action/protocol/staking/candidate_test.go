@@ -118,6 +118,7 @@ var (
 				Owner:              identityset.Address(1),
 				Operator:           identityset.Address(7),
 				Reward:             identityset.Address(1),
+				Identifier:         nil,
 				Name:               "test1",
 				Votes:              big.NewInt(2),
 				SelfStakeBucketIdx: 1,
@@ -130,6 +131,7 @@ var (
 				Owner:              identityset.Address(2),
 				Operator:           identityset.Address(8),
 				Reward:             identityset.Address(1),
+				Identifier:         nil,
 				Name:               "test2",
 				Votes:              big.NewInt(3),
 				SelfStakeBucketIdx: 2,
@@ -142,6 +144,7 @@ var (
 				Owner:              identityset.Address(3),
 				Operator:           identityset.Address(9),
 				Reward:             identityset.Address(1),
+				Identifier:         nil,
 				Name:               "test3",
 				Votes:              big.NewInt(3),
 				SelfStakeBucketIdx: 3,
@@ -225,7 +228,7 @@ func TestGetPutCandidate(t *testing.T) {
 
 	// delete buckets and get
 	for _, e := range testCandidates {
-		require.NoError(csm.delCandidate(e.d.Owner))
+		require.NoError(csm.delCandidate(e.d.GetIdentifier()))
 		_, _, err := csr.getCandidate(e.d.Owner)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 	}

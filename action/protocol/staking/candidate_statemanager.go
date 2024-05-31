@@ -65,6 +65,7 @@ type (
 	// CandidiateStateCommon is the common interface for candidate state manager and reader
 	CandidiateStateCommon interface {
 		ContainsSelfStakingBucket(uint64) bool
+		GetByIdentifier(address.Address) *Candidate
 		SR() protocol.StateReader
 	}
 
@@ -339,7 +340,7 @@ func (csm *candSM) delVoterBucketIndex(addr address.Address, index uint64) error
 }
 
 func (csm *candSM) putCandidate(d *Candidate) error {
-	_, err := csm.PutState(d, protocol.NamespaceOption(_candidateNameSpace), protocol.KeyOption(d.Owner.Bytes()))
+	_, err := csm.PutState(d, protocol.NamespaceOption(_candidateNameSpace), protocol.KeyOption(d.GetIdentifier().Bytes()))
 	return err
 }
 
