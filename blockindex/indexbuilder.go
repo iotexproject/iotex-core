@@ -131,7 +131,8 @@ func (ib *IndexBuilder) init(ctx context.Context) error {
 		// in this case we revert the extra block index, but nothing we can do to revert action index
 		err := errors.Errorf("Inconsistent DB: indexer height %d > blockDAO height %d", startHeight, tipHeight)
 		zap.L().Error(err.Error())
-		return err
+		// ignore the error for archive mode POC, it used newer index files
+		// return err
 	}
 	// update index to latest block
 	var (

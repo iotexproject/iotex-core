@@ -113,7 +113,8 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, tipHeight)
-	return dao.checkIndexers(ctx)
+	// remove the check for archive mode POC, it used newer index files
+	return nil
 }
 
 func (dao *blockDAO) checkIndexers(ctx context.Context) error {
