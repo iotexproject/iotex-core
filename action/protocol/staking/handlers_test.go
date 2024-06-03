@@ -45,14 +45,14 @@ func (m *CandidateCenter) deleteForTestOnly(owner address.Address) {
 	}
 
 	if _, hit := m.base.getByOwner(owner.String()); hit {
-		m.base.delete(owner)
+		m.base.deleteByOwner(owner)
 		if !m.change.containsOwner(owner) {
 			m.size--
 			return
 		}
 	}
 
-	if m.change.containsOwner(owner) {
+	if cand := m.change.getByOwner(owner); cand != nil {
 		if owner != nil {
 			candidates := []*Candidate{}
 			for _, c := range m.change.candidates {
@@ -61,7 +61,7 @@ func (m *CandidateCenter) deleteForTestOnly(owner address.Address) {
 				}
 			}
 			m.change.candidates = candidates
-			delete(m.change.dirty, owner.String())
+			delete(m.change.dirty, cand.GetIdentifier().String())
 			return
 		}
 		m.size--
@@ -2034,7 +2034,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, _, err := csr.candBucketIndices(candidate2.Owner)
+			bucketIndices, _, err := csr.candBucketIndices(candidate2.GetIdentifier())
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			bucketIndices, _, err = csr.voterBucketIndices(test.to)
@@ -2043,7 +2043,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			indices := *bucketIndices
 			bucket, err := csr.getBucket(indices[0])
 			require.NoError(err)
-			require.Equal(candidate2.Owner, bucket.Candidate)
+			require.Equal(candidate2.GetIdentifier(), bucket.Candidate)
 			require.Equal(test.to.String(), bucket.Owner.String())
 			require.Equal(test.amount, bucket.StakedAmount.String())
 
@@ -2267,7 +2267,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 
 		if test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, _, err := csr.candBucketIndices(cand2.Owner)
+			bucketIndices, _, err := csr.candBucketIndices(cand2.GetIdentifier())
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			bucketIndices, _, err = csr.voterBucketIndices(test.to)
@@ -2276,23 +2276,23 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 			indices := *bucketIndices
 			bucket, err := csr.getBucket(indices[0])
 			require.NoError(err)
-			require.Equal(cand2.Owner, bucket.Candidate)
+			require.Equal(cand2.GetIdentifier(), bucket.Candidate)
 			require.Equal(test.to.String(), bucket.Owner.String())
 			require.Equal(stakeAmount, bucket.StakedAmount.String())
 
 			// test candidate
-			candidate, _, err := csr.getCandidate(cand1.Owner)
+			candidate, _, err := csr.getCandidate(cand1.GetIdentifier())
 			require.NoError(err)
 			require.LessOrEqual(uint64(0), candidate.Votes.Uint64())
 			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
-			candidate = csm.GetByOwner(cand1.Owner)
+			candidate = csm.GetByOwner(cand1.GetIdentifier())
 			require.NotNil(candidate)
 			require.LessOrEqual(uint64(0), candidate.Votes.Uint64())
 			require.Equal(cand1.Name, candidate.Name)
 			require.Equal(cand1.Operator, candidate.Operator)
 			require.Equal(cand1.Reward, candidate.Reward)
-			require.Equal(cand1.Owner, candidate.Owner)
+			require.Equal(cand1.GetIdentifier(), candidate.GetIdentifier())
 			require.LessOrEqual(uint64(0), candidate.Votes.Uint64())
 			require.LessOrEqual(uint64(0), candidate.SelfStake.Uint64())
 

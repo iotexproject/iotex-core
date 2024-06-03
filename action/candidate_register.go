@@ -90,6 +90,9 @@ var (
 	//ErrInvalidCanName represents that candidate name is invalid
 	ErrInvalidCanName = errors.New("invalid candidate name")
 
+	// ErrInvalidOwner represents that owner address is invalid
+	ErrInvalidOwner = errors.New("invalid owner address")
+
 	_ EthCompatibleAction = (*CandidateRegister)(nil)
 )
 

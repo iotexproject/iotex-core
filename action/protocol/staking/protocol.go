@@ -520,7 +520,7 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 			// specifying the height param instead of query latest from indexer directly, aims to cause error when indexer falls behind
 			// currently there are two possible sr (i.e. factory or workingSet), it means the height could be chain height or current block height
 			// using height-1 will cover the two scenario while detect whether the indexer is lagging behind
-			contractVotes, err := p.contractStakingIndexer.CandidateVotes(ctx, list[i].Owner, srHeight-1)
+			contractVotes, err := p.contractStakingIndexer.CandidateVotes(ctx, list[i].GetIdentifier(), srHeight-1)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to get CandidateVotes from contractStakingIndexer")
 			}
@@ -728,7 +728,7 @@ func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csc CandidiateStateCommon
 	}
 
 	// bucket should not be unstaked if it is self-owned
-	if address.Equal(bucket.Owner, bucket.Candidate) {
+	if isSelfOwnedBucket(csc, bucket) {
 		return !bucket.isUnstaked(), nil
 	}
 	// otherwise bucket should be an endorse bucket which is not expired
@@ -742,4 +742,12 @@ func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csc CandidiateStateCommon
 		return false, err
 	}
 	return endorse.Status(height) != EndorseExpired, nil
+}
+
+func isSelfOwnedBucket(csc CandidiateStateCommon, bucket *VoteBucket) bool {
+	cand := csc.GetByIdentifier(bucket.Candidate)
+	if cand == nil {
+		return false
+	}
+	return address.Equal(bucket.Owner, cand.Owner)
 }
