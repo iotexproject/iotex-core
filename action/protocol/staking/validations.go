@@ -100,6 +100,7 @@ func (p *Protocol) validateCandidateActivate(ctx context.Context, act *action.Ca
 }
 
 func (p *Protocol) validateCandidateTransferOwnershipAction(ctx context.Context, act *action.CandidateTransferOwnership) error {
+	// TODO: remove this check after candidate transfer ownership is enabled
 	if protocol.MustGetFeatureCtx(ctx).CandidateIdentifiedByOwner {
 		return errors.Wrap(action.ErrInvalidAct, "candidate transfer ownership is disabled")
 	}

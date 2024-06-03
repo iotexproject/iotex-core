@@ -545,7 +545,7 @@ func TestNativeStaking(t *testing.T) {
 	cfg.Genesis.FbkMigrationBlockHeight = 1
 	cfg.Genesis.TsunamiBlockHeight = 0
 	cfg.Genesis.EndorsementWithdrawWaitingBlocks = 10
-	cfg.Genesis.ToBeEnabledBlockHeight = 0
+	cfg.Genesis.ToBeEnabledBlockHeight = 2 // enable CandidateIdentifiedByOwner feature
 
 	t.Run("test native staking", func(t *testing.T) {
 		testNativeStaking(cfg, t)
