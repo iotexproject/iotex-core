@@ -32,6 +32,7 @@ BUILD_TARGET_ARCH=$(shell go env GOARCH)
 ALL_PKGS := $(shell go list ./... )
 PKGS := $(shell go list ./... | grep -v /test/ )
 ROOT_PKG := "github.com/iotexproject/iotex-core"
+TEST_PKGS := $(shell go list ./... | grep -E -v 'pb$|testdata|mock')
 
 # Docker parameters
 DOCKERCMD=docker
@@ -123,7 +124,7 @@ lint-rich:
 
 .PHONY: test
 test: fmt
-	$(GOTEST) -gcflags="all=-N -l" -short -race ./...
+	@$(GOTEST) -gcflags="all=-N -l" -short -race ${TEST_PKGS}
 
 .PHONY: test-rich
 test-rich:

@@ -64,7 +64,7 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 	}
 
 	if err := csm.Upsert(cand); err != nil {
-		return log, nil, csmErrorToHandleError(cand.Owner.String(), err)
+		return log, nil, csmErrorToHandleError(cand.GetIdentifier().String(), err)
 	}
 	return log, nil, nil
 }
@@ -81,7 +81,7 @@ func (p *Protocol) validateBucketSelfStake(ctx context.Context, csm CandidateSta
 	if err := validateBucketSelfStake(featureCtx, csm, bucket, false); err != nil {
 		return err
 	}
-	if err := validateBucketCandidate(bucket, cand.Owner); err != nil {
+	if err := validateBucketCandidate(bucket, cand.GetIdentifier()); err != nil {
 		return err
 	}
 	if validateBucketOwner(bucket, cand.Owner) != nil &&

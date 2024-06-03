@@ -131,7 +131,7 @@ func (c *compositeStakingStateReader) readStateBucketsByCandidate(ctx context.Co
 	if candidate == nil {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
-	lsdBuckets, err := c.contractIndexer.BucketsByCandidate(candidate.Owner, height)
+	lsdBuckets, err := c.contractIndexer.BucketsByCandidate(candidate.GetIdentifier(), height)
 	if err != nil {
 		return nil, 0, err
 	}
