@@ -1,10 +1,13 @@
 package ioid
 
 import (
+	"bytes"
+	_ "embed" // used to embed contract abi
 	"encoding/hex"
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
 
@@ -23,6 +26,10 @@ var (
 		config.English: "Project detail",
 		config.Chinese: "项目详情",
 	}
+
+	//go:embed contracts/abis/Project.json
+	projectJSON []byte
+	projectABI  abi.ABI
 )
 
 // _projectCmd represents the ioID apply command
@@ -37,6 +44,12 @@ var _projectCmd = &cobra.Command{
 }
 
 func init() {
+	var err error
+	projectABI, err = abi.JSON(bytes.NewReader(projectJSON))
+	if err != nil {
+		panic(err)
+	}
+
 	_projectCmd.Flags().StringVarP(
 		&ioIDStore, "ioIDStore", "i",
 		"0xA0C9f9A884cdAE649a42F16b057735Bc4fE786CD",
@@ -66,6 +79,21 @@ func project() error {
 	projectAddr, err := ioIDStoreABI.Unpack("project", data)
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to unpack project response", err)
+	}
+
+	ioProjectAddr, _ := address.FromHex(projectAddr[0].(address.Address).String())
+	data, err = projectABI.Pack("name", new(big.Int).SetUint64(projectId))
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to pack project name arguments", err)
+	}
+	res, err = action.Read(ioProjectAddr, "0", data)
+	if err != nil {
+		return output.NewError(output.APIError, "failed to read contract", err)
+	}
+	data, _ = hex.DecodeString(res)
+	name, err := projectABI.Unpack("name", data)
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to unpack project name response", err)
 	}
 
 	data, err = ioIDStoreABI.Pack("projectDeviceContract", new(big.Int).SetUint64(projectId))
@@ -113,6 +141,7 @@ func project() error {
 	fmt.Printf(`Project #%d detail:
 {
 	"projectContractAddress": "%s",
+	"name": "%s",
 	"deviceNFT": "%s",
 	"appliedIoIDs": "%s",
 	"activedIoIDs": "%s",
@@ -120,6 +149,7 @@ func project() error {
 `,
 		projectId,
 		projectAddr[0].(address.Address).String(),
+		name[0].(string),
 		deviceContractAddr[0].(address.Address).String(),
 		projectAppliedAmount[0].(*big.Int).String(),
 		projectActivedAmount[0].(*big.Int).String(),
