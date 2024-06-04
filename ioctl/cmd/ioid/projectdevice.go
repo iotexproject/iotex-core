@@ -56,7 +56,7 @@ func device(args []string) error {
 		return output.NewError(output.AddressError, "failed to convert ioIDStore address", err)
 	}
 
-	ioIDStoreAbi, err := abi.JSON(strings.NewReader(ioIDStoreABI))
+	ioIDStoreAbi, err := abi.JSON(strings.NewReader("ioIDStoreABI"))
 	if err != nil {
 		return output.NewError(output.SerializationError, "failed to unmarshal abi", err)
 	}

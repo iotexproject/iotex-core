@@ -4,14 +4,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/spf13/cobra"
+
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/spf13/cobra"
 )
 
 // Multi-language support
@@ -55,12 +54,7 @@ func project() error {
 		return output.NewError(output.AddressError, "failed to convert ioIDStore address", err)
 	}
 
-	ioIDStoreAbi, err := abi.JSON(strings.NewReader(ioIDStoreABI))
-	if err != nil {
-		return output.NewError(output.SerializationError, "failed to unmarshal abi", err)
-	}
-
-	data, err := ioIDStoreAbi.Pack("project")
+	data, err := ioIDStoreABI.Pack("project")
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to pack project arguments", err)
 	}
@@ -69,12 +63,12 @@ func project() error {
 		return output.NewError(output.APIError, "failed to read contract", err)
 	}
 	data, _ = hex.DecodeString(res)
-	projectAddr, err := ioIDStoreAbi.Unpack("project", data)
+	projectAddr, err := ioIDStoreABI.Unpack("project", data)
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to unpack project response", err)
 	}
 
-	data, err = ioIDStoreAbi.Pack("projectDeviceContract", new(big.Int).SetUint64(projectId))
+	data, err = ioIDStoreABI.Pack("projectDeviceContract", new(big.Int).SetUint64(projectId))
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to pack project device contract arguments", err)
 	}
@@ -83,12 +77,12 @@ func project() error {
 		return output.NewError(output.APIError, "failed to read contract", err)
 	}
 	data, _ = hex.DecodeString(res)
-	deviceContractAddr, err := ioIDStoreAbi.Unpack("projectDeviceContract", data)
+	deviceContractAddr, err := ioIDStoreABI.Unpack("projectDeviceContract", data)
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to unpack project device contract response", err)
 	}
 
-	data, err = ioIDStoreAbi.Pack("projectAppliedAmount", new(big.Int).SetUint64(projectId))
+	data, err = ioIDStoreABI.Pack("projectAppliedAmount", new(big.Int).SetUint64(projectId))
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to pack project applied amount arguments", err)
 	}
@@ -97,12 +91,12 @@ func project() error {
 		return output.NewError(output.APIError, "failed to read contract", err)
 	}
 	data, _ = hex.DecodeString(res)
-	projectAppliedAmount, err := ioIDStoreAbi.Unpack("projectAppliedAmount", data)
+	projectAppliedAmount, err := ioIDStoreABI.Unpack("projectAppliedAmount", data)
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to unpack project applied amount response", err)
 	}
 
-	data, err = ioIDStoreAbi.Pack("projectActivedAmount", new(big.Int).SetUint64(projectId))
+	data, err = ioIDStoreABI.Pack("projectActivedAmount", new(big.Int).SetUint64(projectId))
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to pack project actived amount arguments", err)
 	}
@@ -111,7 +105,7 @@ func project() error {
 		return output.NewError(output.APIError, "failed to read contract", err)
 	}
 	data, _ = hex.DecodeString(res)
-	projectActivedAmount, err := ioIDStoreAbi.Unpack("projectActivedAmount", data)
+	projectActivedAmount, err := ioIDStoreABI.Unpack("projectActivedAmount", data)
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to unpack project actived amount response", err)
 	}
