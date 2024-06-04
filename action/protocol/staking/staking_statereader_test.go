@@ -37,7 +37,7 @@ func TestStakingStateReader(t *testing.T) {
 			Reward:             identityset.Address(1),
 			Name:               "cand1",
 			Votes:              big.NewInt(10),
-			SelfStakeBucketIdx: 0,
+			SelfStakeBucketIdx: candidateNoSelfStakeBucketIndex,
 			SelfStake:          big.NewInt(10),
 		},
 		{
@@ -46,7 +46,7 @@ func TestStakingStateReader(t *testing.T) {
 			Reward:             identityset.Address(2),
 			Name:               "cand2",
 			Votes:              big.NewInt(0),
-			SelfStakeBucketIdx: 0,
+			SelfStakeBucketIdx: candidateNoSelfStakeBucketIndex,
 			SelfStake:          big.NewInt(0),
 		},
 	}
