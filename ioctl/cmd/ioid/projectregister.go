@@ -18,7 +18,7 @@ import (
 var (
 	_registerUsages = map[config.Language]string{
 		config.English: "register [PROJECT_NAME]",
-		config.Chinese: "register [PROJECT_NAME]",
+		config.Chinese: "register [项目名称]",
 	}
 	_registerShorts = map[config.Language]string{
 		config.English: "Register project",
