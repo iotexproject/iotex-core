@@ -1,15 +1,15 @@
 package ioid
 
 import (
+	"bytes"
+	_ "embed" // used to embed contract abi
 	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/ws"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
@@ -17,8 +17,8 @@ import (
 // Multi-language support
 var (
 	_registerUsages = map[config.Language]string{
-		config.English: "register",
-		config.Chinese: "register",
+		config.English: "register [PROJECT_NAME]",
+		config.Chinese: "register [PROJECT_NAME]",
 	}
 	_registerShorts = map[config.Language]string{
 		config.English: "Register project",
@@ -34,33 +34,27 @@ var (
 var _projectRegisterCmd = &cobra.Command{
 	Use:   config.TranslateInLang(_registerUsages, config.UILanguage),
 	Short: config.TranslateInLang(_registerShorts, config.UILanguage),
-	Args:  cobra.MinimumNArgs(0),
+	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		err := register()
+		err := register(args)
 		return output.PrintError(err)
 	},
 }
 
 var (
-	projectRegistry    string
-	projectRegistryABI = `[
-		{
-			"inputs": [],
-			"name": "register",
-			"outputs": [
-				{
-					"internalType": "uint256",
-					"name": "",
-					"type": "uint256"
-				}
-			],
-			"stateMutability": "payable",
-			"type": "function"
-		}
-	]`
+	projectRegistry string
+	//go:embed contracts/abis/ProjectRegistry.json
+	projectRegistryJSON []byte
+	projectRegistryABI  abi.ABI
 )
 
 func init() {
+	var err error
+	projectRegistryABI, err = abi.JSON(bytes.NewReader(projectRegistryJSON))
+	if err != nil {
+		panic(err)
+	}
+
 	_projectRegisterCmd.Flags().StringVarP(
 		&projectRegistry, "projectRegistry", "p",
 		"0xB7E1419d62ef429EE3130aF822e43DaBDDdB4aCE",
@@ -68,26 +62,22 @@ func init() {
 	)
 }
 
-func register() error {
-	ioProjectRegistry, err := address.FromHex(projectRegistry)
+func register(args []string) error {
+	name := args[0]
+
+	caller, err := ws.NewContractCaller(projectRegistryABI, projectRegistry)
 	if err != nil {
-		return output.NewError(output.AddressError, "failed to convert project register address", err)
+		return output.NewError(output.SerializationError, "failed to create contract caller", err)
 	}
 
-	projectRegistryAbi, err := abi.JSON(strings.NewReader(projectRegistryABI))
+	tx, err := caller.CallAndRetrieveResult("register0", []any{
+		name,
+	})
 	if err != nil {
-		return output.NewError(output.SerializationError, "failed to unmarshal abi", err)
+		return output.NewError(output.SerializationError, "failed to call contract", err)
 	}
 
-	data, err := projectRegistryAbi.Pack("register")
-	if err != nil {
-		return output.NewError(output.ConvertError, "failed to pack registry arguments", err)
-	}
-	res, err := action.ExecuteAndResponse(ioProjectRegistry.String(), big.NewInt(0), data)
-	if err != nil {
-		return output.NewError(output.UpdateError, "failed to register project", err)
-	}
-	receipt, err := waitReceiptByActionHash(res.ActionHash)
+	receipt, err := waitReceiptByActionHash(tx)
 	if err != nil {
 		return output.NewError(output.UpdateError, "failed to register project", err)
 	}
