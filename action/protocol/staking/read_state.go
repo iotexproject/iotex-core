@@ -62,12 +62,41 @@ func getPageOfBuckets(buckets []*VoteBucket, offset, limit int) []*VoteBucket {
 	return getPageOfArray(buckets, offset, limit)
 }
 
-func toIoTeXTypesCandidateListV2(candidates CandidateList) *iotextypes.CandidateListV2 {
+func toIoTeXTypesCandidateListV2(sr protocol.StateReader, candidates CandidateList) *iotextypes.CandidateListV2 {
 	res := iotextypes.CandidateListV2{
 		Candidates: make([]*iotextypes.CandidateV2, 0, len(candidates)),
 	}
+	csr := newCandidateStateReader(sr)
+	esr := NewEndorsementStateReader(sr)
+	height, _ := sr.Height()
+	needClear := func(c *Candidate) bool {
+		if !c.isSelfStakeBucketSettled() {
+			return false
+		}
+		vb, err := csr.getBucket(c.SelfStakeBucketIdx)
+		if err != nil {
+			return true
+		}
+		if isSelfOwnedBucket(csr, vb) {
+			return false
+		}
+		endorse, err := esr.Get(c.SelfStakeBucketIdx)
+		if err != nil {
+			return true
+		}
+		if endorse.Status(height) == EndorseExpired {
+			return true
+		}
+		return false
+	}
 	for _, c := range candidates {
-		res.Candidates = append(res.Candidates, c.toIoTeXTypes())
+		cand := c.toIoTeXTypes()
+		res.Candidates = append(res.Candidates, cand)
+		// clear self-stake bucket if endorsement is expired but not updated yet
+		if needClear(c) {
+			cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
+			cand.SelfStakingTokens = "0"
+		}
 	}
 	return &res
 }
