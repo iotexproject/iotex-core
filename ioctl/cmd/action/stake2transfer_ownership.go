@@ -25,8 +25,8 @@ var (
 			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 	_stake2TransferOwnershipCmdShorts = map[config.Language]string{
-		config.English: "Transfer Ownership on IoTeX blockchain",
-		config.Chinese: "在IoTeX区块链上转移候选人",
+		config.English: "Transfer Candidate Ownership on IoTeX blockchain",
+		config.Chinese: "在IoTeX区块链上转让节点所有权",
 	}
 )
 
