@@ -201,3 +201,17 @@ func TestSignedRestake(t *testing.T) {
 	require.Equal([]byte{}, exec.payload)
 	require.NotNil(selp.Signature())
 }
+
+func TestSignedCandidateTransferOwnership(t *testing.T) {
+	require := require.New(t)
+	selp, err := SignedCandidateTransferOwnership(1, _cand1Addr, []byte{}, _gasLimit, _gasPrice, _cand1PriKey)
+	require.NoError(err)
+
+	exec := selp.Action().(*CandidateTransferOwnership)
+	require.Equal(uint64(1), exec.Nonce())
+	require.Equal(_cand1Addr, exec.newOwner.String())
+	require.Equal(_gasLimit, exec.GasLimit())
+	require.Equal(_gasPrice, exec.GasPrice())
+	require.Equal([]byte{}, exec.payload)
+	require.NotNil(selp.Signature())
+}
