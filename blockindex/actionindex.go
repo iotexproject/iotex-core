@@ -28,7 +28,7 @@ func (a *ActionIndex) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(a.toProto()))
 }
 
-// Desrialize from byte stream
+// Deserialize from byte stream
 func (a *ActionIndex) Deserialize(buf []byte) error {
 	pb := &indexpb.ActionIndex{}
 	if err := proto.Unmarshal(buf, pb); err != nil {
