@@ -289,7 +289,7 @@ func (sh *Slasher) GetBlockProducers(ctx context.Context, sr protocol.StateReade
 	if err != nil {
 		return nil, uint64(0), err
 	}
-	bp, err := sh.calculateBlockProducer(candidates)
+	bp, err := sh.calculateBlockProducer(ctx, candidates)
 	if err != nil {
 		return nil, uint64(0), err
 	}
@@ -345,7 +345,7 @@ func (sh *Slasher) GetBPFromIndexer(ctx context.Context, epochStartHeight uint64
 	if err != nil {
 		return nil, err
 	}
-	return sh.calculateBlockProducer(candidates)
+	return sh.calculateBlockProducer(ctx, candidates)
 }
 
 // GetABPFromIndexer returns active BP list from indexer
@@ -544,11 +544,21 @@ func (sh *Slasher) updateCurrentBlockMeta(ctx context.Context, sm protocol.State
 }
 
 // calculateBlockProducer calculates block producer by given candidate list
-func (sh *Slasher) calculateBlockProducer(candidates state.CandidateList) (state.CandidateList, error) {
-	var blockProducers state.CandidateList
+func (sh *Slasher) calculateBlockProducer(ctx context.Context, candidates state.CandidateList) (state.CandidateList, error) {
+	var (
+		blockProducers   state.CandidateList
+		bCtx             = protocol.MustGetBlockCtx(ctx)
+		numCandDelegates = protocol.MustGetFeatureWithHeightCtx(ctx).CandDelegateSize(bCtx.BlockHeight)
+	)
 	for i, candidate := range candidates {
-		if uint64(i) >= sh.numCandidateDelegates {
-			break
+		if protocol.MustGetFeatureCtx(ctx).ExtendCandidateDelegatesTo48 {
+			if len(blockProducers) >= int(numCandDelegates) {
+				break
+			}
+		} else {
+			if uint64(i) >= sh.numCandidateDelegates {
+				break
+			}
 		}
 		if candidate.Votes.Cmp(big.NewInt(0)) == 0 {
 			// if the voting power is 0, exclude from being a block producer(hard probation)

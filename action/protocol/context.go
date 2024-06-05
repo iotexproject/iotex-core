@@ -79,6 +79,9 @@ type (
 	// CheckFunc is function type to check by height.
 	CheckFunc func(height uint64) bool
 
+	// CheckFunc is function type to return a uint64 value by height.
+	Uint64Func func(uint64) uint64
+
 	// FeatureCtx provides features information.
 	FeatureCtx struct {
 		FixDoubleChargeGas                      bool
@@ -122,6 +125,7 @@ type (
 		SuicideTxLogMismatchPanic               bool
 		PanicUnrecoverableError                 bool
 		CandidateIdentifiedByOwner              bool
+		ExtendCandidateDelegatesTo48            bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -134,6 +138,7 @@ type (
 		CalculateProbationList   CheckFunc
 		LoadCandidatesLegacy     CheckFunc
 		CandCenterHasAlias       CheckFunc
+		CandDelegateSize         Uint64Func
 	}
 )
 
@@ -269,6 +274,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			SuicideTxLogMismatchPanic:               g.IsToBeEnabled(height),
 			PanicUnrecoverableError:                 g.IsToBeEnabled(height),
 			CandidateIdentifiedByOwner:              !g.IsToBeEnabled(height),
+			ExtendCandidateDelegatesTo48:            g.IsToBeEnabled(height),
 		},
 	)
 }
@@ -319,6 +325,12 @@ func WithFeatureWithHeightCtx(ctx context.Context) context.Context {
 			},
 			CandCenterHasAlias: func(height uint64) bool {
 				return !g.IsOkhotsk(height)
+			},
+			CandDelegateSize: func(height uint64) uint64 {
+				if g.IsToBeEnabled(height) {
+					return g.Blockchain.NumCandidateDelegatesV2
+				}
+				return g.Blockchain.NumCandidateDelegates
 			},
 		},
 	)
