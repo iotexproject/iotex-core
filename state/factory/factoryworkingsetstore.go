@@ -58,7 +58,7 @@ func newFactoryWorkingSetStore(
 	preEaster := !g.IsEaster(height)
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
-			if wi.Namespace() == ArchiveTrieNamespace {
+			if wi.Namespace() == ArchiveTrieNamespace || wi.Namespace() == bloomfilterNamespace {
 				return true
 			}
 			if wi.Namespace() != evm.CodeKVNameSpace && wi.Namespace() != staking.CandsMapNS {
@@ -97,7 +97,8 @@ func newFactoryWorkingSetStore(
 	default:
 		if height+historyWindowSize <= tipHeight {
 			return nil, errors.Errorf("height %d state does not exist", height)
-		} else if height < tipHeight {
+		}
+		if height < tipHeight {
 			rootKey = fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height)
 		} else {
 			rootKey = ArchiveTrieRootKey
@@ -230,6 +231,7 @@ func (store *factoryWorkingSetStore) Finalize(h uint64) error {
 		[]byte(fmt.Sprintf("%s-%d", ArchiveTrieRootKey, h)),
 		rootHash,
 	)
+	store.flusher.KVStoreWithBuffer().MustPut(bloomfilterNamespace, new(big.Int).SetUint64(h).Bytes(), store.bf.Bytes())
 	return nil
 }
 
@@ -309,9 +311,9 @@ func (store *factoryWorkingSetStore) trimExpiredStates() error {
 		nil,
 		nil,
 	)
-	b := batch.NewBatch()
 	switch errors.Cause(err) {
-	case db.ErrNotExist, db.ErrBucketNotExist: // do nothing
+	case db.ErrNotExist, db.ErrBucketNotExist:
+		fallthrough
 	case nil:
 		for key := range keys {
 			bk, err := hex.DecodeString(key)
@@ -325,14 +327,17 @@ func (store *factoryWorkingSetStore) trimExpiredStates() error {
 				}
 			}
 			if !exists {
-				b.Delete(ArchiveTrieNamespace, bk, "failed to delete key")
+				if err := store.flusher.KVStoreWithBuffer().Delete(ArchiveTrieNamespace, bk); err != nil {
+					return err
+				}
 			}
 		}
-		b.Delete(expiredNamespace, nil, "failed to delete archive")
+		if err := store.flusher.KVStoreWithBuffer().Delete(expiredNamespace, nil); err != nil {
+			return err
+		}
 	default:
 		return err
 	}
-	b.Delete(bloomfilterNamespace, new(big.Int).SetUint64(store.expire).Bytes(), "failed to delete bloom filter")
 
-	return store.flusher.KVStoreWithBuffer().WriteBatch(b)
+	return store.flusher.KVStoreWithBuffer().Delete(bloomfilterNamespace, new(big.Int).SetUint64(store.expire).Bytes())
 }
