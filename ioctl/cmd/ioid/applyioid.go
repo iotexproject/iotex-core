@@ -1,16 +1,17 @@
 package ioid
 
 import (
-	"encoding/hex"
+	"bytes"
+	_ "embed" // used to embed contract abi
+	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
+	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/ioctl/cmd/ws"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/spf13/cobra"
 )
 
 // Multi-language support
@@ -49,133 +50,21 @@ var _applyCmd = &cobra.Command{
 }
 
 var (
-	ioIDStore    string
-	projectId    uint64
-	amount       uint64
-	ioIDStoreABI = `[
-		{
-			"inputs": [],
-			"name": "price",
-			"outputs": [
-				{
-					"internalType": "uint256",
-					"name": "",
-					"type": "uint256"
-				}
-			],
-			"stateMutability": "view",
-			"type": "function"
-		},
-		{
-			"inputs": [],
-			"name": "project",
-			"outputs": [
-				{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-				}
-			],
-			"stateMutability": "view",
-			"type": "function"
-		},
-		{
-			"inputs": [
-				{
-					"internalType": "uint256",
-					"name": "",
-					"type": "uint256"
-				}
-			],
-			"name": "projectAppliedAmount",
-			"outputs": [
-				{
-					"internalType": "uint256",
-					"name": "",
-					"type": "uint256"
-				}
-			],
-			"stateMutability": "view",
-			"type": "function"
-		},
-		{
-			"inputs": [
-				{
-					"internalType": "uint256",
-					"name": "",
-					"type": "uint256"
-				}
-			],
-			"name": "projectActivedAmount",
-			"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-			],
-			"stateMutability": "view",
-			"type": "function"
-		},
-		{
-			"inputs": [
-				{
-					"internalType": "uint256",
-					"name": "",
-					"type": "uint256"
-				}
-			],
-			"name": "projectDeviceContract",
-			"outputs": [
-				{
-					"internalType": "address",
-					"name": "",
-					"type": "address"
-				}
-			],
-			"stateMutability": "view",
-			"type": "function"
-		},
-		{
-			"inputs": [
-				{
-					"internalType": "uint256",
-					"name": "_projectId",
-					"type": "uint256"
-				},
-				{
-					"internalType": "address",
-					"name": "_contract",
-					"type": "address"
-				}
-			],
-			"name": "setDeviceContract",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		},
-		{
-			"inputs": [
-				{
-					"internalType": "uint256",
-					"name": "_projectId",
-					"type": "uint256"
-				},
-				{
-					"internalType": "uint256",
-					"name": "_amount",
-					"type": "uint256"
-				}
-			],
-			"name": "applyIoIDs",
-			"outputs": [],
-			"stateMutability": "payable",
-			"type": "function"
-		}
-	]`
+	ioIDStore string
+	projectId uint64
+	amount    uint64
+	//go:embed contracts/abis/ioIDStore.json
+	ioIDStoreJSON []byte
+	ioIDStoreABI  abi.ABI
 )
 
 func init() {
+	var err error
+	ioIDStoreABI, err = abi.JSON(bytes.NewReader(ioIDStoreJSON))
+	if err != nil {
+		panic(err)
+	}
+
 	_applyCmd.Flags().StringVarP(
 		&ioIDStore, "ioIDStore", "i",
 		"0xA0C9f9A884cdAE649a42F16b057735Bc4fE786CD",
@@ -192,31 +81,37 @@ func init() {
 }
 
 func apply() error {
-	ioioIDStore, err := address.FromHex(ioIDStore)
+	caller, err := ws.NewContractCaller(ioIDStoreABI, ioIDStore)
 	if err != nil {
-		return output.NewError(output.AddressError, "failed to convert ioIDStore address", err)
+		return output.NewError(output.SerializationError, "failed to create contract caller", err)
 	}
 
-	ioIDStoreAbi, err := abi.JSON(strings.NewReader(ioIDStoreABI))
+	result := ws.NewContractResult(&ioIDStoreABI, "price", new(big.Int))
+	if err = caller.Read("price", nil, result); err != nil {
+		return output.NewError(output.SerializationError, "failed to read contract", err)
+	}
+	price, err := result.Result()
 	if err != nil {
-		return output.NewError(output.SerializationError, "failed to unmarshal abi", err)
+		return output.NewError(output.SerializationError, "failed parse price", err)
+	}
+	total := new(big.Int).Mul(price.(*big.Int), new(big.Int).SetUint64(amount))
+	fmt.Printf(
+		"Apply %d ioIDs need %s IOTX\n", amount,
+		new(big.Float).Quo(
+			new(big.Float).SetInt(total),
+			new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))).String(),
+	)
+
+	caller.SetAmount(total)
+	tx, err := caller.CallAndRetrieveResult("applyIoIDs", []any{
+		new(big.Int).SetUint64(projectId),
+		new(big.Int).SetUint64(amount)},
+	)
+	if err != nil {
+		return output.NewError(output.SerializationError, "failed to call contract", err)
 	}
 
-	data, err := ioIDStoreAbi.Pack("price")
-	if err != nil {
-		return output.NewError(output.ConvertError, "failed to pack price arguments", err)
-	}
-	priceHex, err := action.Read(ioioIDStore, "0", data)
-	if err != nil {
-		return output.NewError(output.APIError, "failed to read contract", err)
-	}
-	price, _ := hex.DecodeString(priceHex)
-	total := new(big.Int).Mul(new(big.Int).SetBytes(price), new(big.Int).SetUint64(amount))
+	fmt.Printf("Apply ioID txHash: %s\n", tx)
 
-	data, err = ioIDStoreAbi.Pack("applyIoIDs", new(big.Int).SetUint64(projectId), new(big.Int).SetUint64(amount))
-	if err != nil {
-		return output.NewError(output.ConvertError, "failed to pack apply arguments", err)
-	}
-
-	return action.Execute(ioioIDStore.String(), total, data)
+	return nil
 }

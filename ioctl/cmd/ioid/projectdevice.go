@@ -1,16 +1,15 @@
 package ioid
 
 import (
+	"fmt"
 	"math/big"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
+	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/ioctl/cmd/ws"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/spf13/cobra"
 )
 
 // Multi-language support
@@ -49,22 +48,22 @@ func init() {
 }
 
 func device(args []string) error {
-	nft := common.HexToAddress(args[0])
+	contract := common.HexToAddress(args[0])
 
-	ioioIDStore, err := address.FromHex(ioIDStore)
+	caller, err := ws.NewContractCaller(ioIDStoreABI, ioIDStore)
 	if err != nil {
-		return output.NewError(output.AddressError, "failed to convert ioIDStore address", err)
+		return output.NewError(output.SerializationError, "failed to create contract caller", err)
 	}
 
-	ioIDStoreAbi, err := abi.JSON(strings.NewReader(ioIDStoreABI))
+	tx, err := caller.CallAndRetrieveResult("setDeviceContract", []any{
+		new(big.Int).SetUint64(projectId),
+		contract},
+	)
 	if err != nil {
-		return output.NewError(output.SerializationError, "failed to unmarshal abi", err)
+		return output.NewError(output.SerializationError, "failed to call contract", err)
 	}
 
-	data, err := ioIDStoreAbi.Pack("setDeviceContract", new(big.Int).SetUint64(projectId), nft)
-	if err != nil {
-		return output.NewError(output.ConvertError, "failed to pack arguments", err)
-	}
+	fmt.Printf("Set device NFT contract address txHash: %s\n", tx)
 
-	return action.Execute(ioioIDStore.String(), big.NewInt(0), data)
+	return nil
 }
