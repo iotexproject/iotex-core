@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	iocache "github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -30,9 +31,10 @@ type (
 	// Indexer is the staking indexer
 	Indexer struct {
 		common        *systemcontractindex.IndexerCommon
-		cache         *cache // in-memory cache, used to query index data
 		mutex         sync.RWMutex
 		blockInterval time.Duration
+
+		caches iocache.LRUCache
 	}
 )
 
@@ -40,8 +42,8 @@ type (
 func NewIndexer(kvstore db.KVStore, contractAddr string, startHeight uint64, blockInterval time.Duration) *Indexer {
 	return &Indexer{
 		common:        systemcontractindex.NewIndexerCommon(kvstore, stakingNS, stakingHeightKey, contractAddr, startHeight),
-		cache:         newCache(),
 		blockInterval: blockInterval,
+		caches:        iocache.NewThreadSafeLruCache(8),
 	}
 }
 
@@ -52,7 +54,7 @@ func (s *Indexer) Start(ctx context.Context) error {
 	if err := s.common.Start(ctx); err != nil {
 		return err
 	}
-	return s.cache.Load(s.common.KVStore())
+	return nil
 }
 
 // Stop stops the indexer
@@ -93,8 +95,12 @@ func (s *Indexer) Buckets(height uint64) ([]*VoteBucket, error) {
 	} else if unstart {
 		return nil, nil
 	}
-	idxs := s.cache.BucketIdxs()
-	bkts := s.cache.Buckets(idxs)
+	cache, err := s.cacheAt(height)
+	if err != nil {
+		return nil, err
+	}
+	idxs := cache.BucketIdxs()
+	bkts := cache.Buckets(idxs)
 	vbs := batchAssembleVoteBucket(idxs, bkts, s.common.ContractAddress(), s.blockInterval)
 	return vbs, nil
 }
@@ -109,7 +115,11 @@ func (s *Indexer) Bucket(id uint64, height uint64) (*VoteBucket, bool, error) {
 	} else if unstart {
 		return nil, false, nil
 	}
-	bkt := s.cache.Bucket(id)
+	cache, err := s.cacheAt(height)
+	if err != nil {
+		return nil, false, err
+	}
+	bkt := cache.Bucket(id)
 	if bkt == nil {
 		return nil, false, nil
 	}
@@ -127,7 +137,11 @@ func (s *Indexer) BucketsByIndices(indices []uint64, height uint64) ([]*VoteBuck
 	} else if unstart {
 		return nil, nil
 	}
-	bkts := s.cache.Buckets(indices)
+	cache, err := s.cacheAt(height)
+	if err != nil {
+		return nil, err
+	}
+	bkts := cache.Buckets(indices)
 	vbs := batchAssembleVoteBucket(indices, bkts, s.common.ContractAddress(), s.blockInterval)
 	return vbs, nil
 }
@@ -142,8 +156,12 @@ func (s *Indexer) BucketsByCandidate(candidate address.Address, height uint64) (
 	} else if unstart {
 		return nil, nil
 	}
-	idxs := s.cache.BucketIdsByCandidate(candidate)
-	bkts := s.cache.Buckets(idxs)
+	cache, err := s.cacheAt(height)
+	if err != nil {
+		return nil, err
+	}
+	idxs := cache.BucketIdsByCandidate(candidate)
+	bkts := cache.Buckets(idxs)
 	vbs := batchAssembleVoteBucket(idxs, bkts, s.common.ContractAddress(), s.blockInterval)
 	return vbs, nil
 }
@@ -158,7 +176,11 @@ func (s *Indexer) TotalBucketCount(height uint64) (uint64, error) {
 	} else if unstart {
 		return 0, nil
 	}
-	return s.cache.TotalBucketCount(), nil
+	cache, err := s.cacheAt(height)
+	if err != nil {
+		return 0, err
+	}
+	return cache.TotalBucketCount(), nil
 }
 
 // PutBlock puts a block into indexer
@@ -174,7 +196,11 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 		return nil
 	}
 	// handle events of block
-	handler := newEventHandler(s.cache.Copy())
+	cache, err := s.cacheAt(blk.Height())
+	if err != nil {
+		return err
+	}
+	handler := newEventHandler(cache.Copy())
 	for _, receipt := range blk.Receipts {
 		if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 			continue
@@ -199,7 +225,7 @@ func (s *Indexer) commit(handler *eventHandler, height uint64) error {
 		return err
 	}
 	// update cache
-	s.cache = dirty
+	s.caches.Add(height, dirty)
 	return nil
 }
 
@@ -216,4 +242,17 @@ func (s *Indexer) checkHeight(height uint64) (unstart bool, err error) {
 		return false, errors.Errorf("invalid block height %d, expect %d", height, tipHeight)
 	}
 	return false, nil
+}
+
+func (s *Indexer) cacheAt(height uint64) (*cache, error) {
+	c, ok := s.caches.Get(height)
+	if ok {
+		return c.(*cache), nil
+	}
+	nc := newCache()
+	if err := s.common.StateAt(nc, height); err != nil {
+		return nil, err
+	}
+	s.caches.Add(height, nc)
+	return nc, nil
 }

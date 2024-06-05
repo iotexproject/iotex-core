@@ -10,19 +10,29 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-// IndexerCommon is the common struct for all contract indexers
-// It provides the basic functions, including
-//  1. kvstore
-//  2. put/get index height
-//  3. contract address
-type IndexerCommon struct {
-	kvstore         db.KVStore
-	ns              string
-	key             []byte
-	startHeight     uint64
-	height          uint64
-	contractAddress string
-}
+type (
+	// IndexerCommon is the common struct for all contract indexers
+	// It provides the basic functions, including
+	//  1. kvstore
+	//  2. put/get index height
+	//  3. contract address
+	IndexerCommon struct {
+		kvstore         db.KVStore
+		ns              string
+		key             []byte
+		startHeight     uint64
+		height          uint64
+		contractAddress string
+	}
+
+	stateType interface {
+		Load(kvstore db.KVStore) error
+	}
+	kvStoreWithVersion interface {
+		db.KVStore
+		WithVersion(version uint64) db.KVStore
+	}
+)
 
 // NewIndexerCommon creates a new IndexerCommon
 func NewIndexerCommon(kvstore db.KVStore, ns string, key []byte, contractAddress string, startHeight uint64) *IndexerCommon {
@@ -53,8 +63,13 @@ func (s *IndexerCommon) Stop(ctx context.Context) error {
 	return s.kvstore.Stop(ctx)
 }
 
-// KVStore returns the kvstore
-func (s *IndexerCommon) KVStore() db.KVStore { return s.kvstore }
+// StateAt loads the state at the given height
+func (s *IndexerCommon) StateAt(state stateType, height uint64) error {
+	if kvstore, ok := s.kvstore.(kvStoreWithVersion); ok {
+		return state.Load(kvstore.WithVersion(height))
+	}
+	return errors.New("kvstore does not support versioning")
+}
 
 // ContractAddress returns the contract address
 func (s *IndexerCommon) ContractAddress() string { return s.contractAddress }
