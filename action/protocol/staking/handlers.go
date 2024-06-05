@@ -686,7 +686,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
 		}
 	}
-	// TODO: should be hard-fork
+	// cannot collide with existing identifier
 	c = csm.GetByIdentifier(owner)
 	if c != nil {
 		return log, nil, &handleError{

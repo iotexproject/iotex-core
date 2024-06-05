@@ -317,3 +317,28 @@ func SignedRestake(
 	}
 	return selp, nil
 }
+
+// SignedCandidateTransferOwnership returns a signed candidate transfer ownership
+func SignedCandidateTransferOwnership(
+	nonce uint64,
+	ownerAddrStr string,
+	payload []byte,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	senderPriKey crypto.PrivateKey,
+) (*SealedEnvelope, error) {
+	cto, err := NewCandidateTransferOwnership(nonce, gasLimit, gasPrice, ownerAddrStr, payload)
+	if err != nil {
+		return nil, err
+	}
+	bd := &EnvelopeBuilder{}
+	elp := bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).
+		SetAction(cto).Build()
+	selp, err := Sign(elp, senderPriKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to sign candidate transfer ownership %v", elp)
+	}
+	return selp, nil
+}
