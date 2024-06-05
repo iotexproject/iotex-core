@@ -474,7 +474,7 @@ func (c *candSR) readStateCandidateByName(ctx context.Context, req *iotexapi.Rea
 	if cand == nil {
 		return &iotextypes.CandidateV2{}, c.Height(), nil
 	}
-	return cand.toIoTeXTypes(), c.Height(), nil
+	return toIoTeXTypesCandidateV2(c.SR(), cand), c.Height(), nil
 }
 
 func (c *candSR) readStateCandidateByAddress(ctx context.Context, req *iotexapi.ReadStakingDataRequest_CandidateByAddress) (*iotextypes.CandidateV2, uint64, error) {
@@ -503,7 +503,7 @@ func (c *candSR) readStateCandidateByAddress(ctx context.Context, req *iotexapi.
 	if cand == nil {
 		return &iotextypes.CandidateV2{}, c.Height(), nil
 	}
-	return cand.toIoTeXTypes(), c.Height(), nil
+	return toIoTeXTypesCandidateV2(c.SR(), cand), c.Height(), nil
 }
 
 func (c *candSR) readStateTotalStakingAmount(ctx context.Context, _ *iotexapi.ReadStakingDataRequest_TotalStakingAmount) (*iotextypes.AccountMeta, uint64, error) {
