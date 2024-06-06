@@ -231,7 +231,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		require.NoError(t, err)
 		initBalance := primAcc.Balance
 
-		_, err = p.Claim(claimCtx, sm, big.NewInt(5))
+		_, err = p.Claim(claimCtx, sm, big.NewInt(5), claimActionCtx.Caller)
 		require.NoError(t, err)
 
 		totalBalance, _, err := p.TotalBalance(ctx, sm)
@@ -246,11 +246,11 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, initBalance, primAcc.Balance)
 
 		// Claim negative amount of token will fail
-		_, err = p.Claim(claimCtx, sm, big.NewInt(-5))
+		_, err = p.Claim(claimCtx, sm, big.NewInt(-5), claimActionCtx.Caller)
 		require.Error(t, err)
 
 		// Claim 0 amount won't fail, but also will not get the token
-		_, err = p.Claim(claimCtx, sm, big.NewInt(0))
+		_, err = p.Claim(claimCtx, sm, big.NewInt(0), claimActionCtx.Caller)
 		require.NoError(t, err)
 
 		totalBalance, _, err = p.TotalBalance(ctx, sm)
@@ -264,7 +264,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, initBalance, primAcc.Balance)
 
 		// Claim another 5 token
-		rlog, err := p.Claim(claimCtx, sm, big.NewInt(5))
+		rlog, err := p.Claim(claimCtx, sm, big.NewInt(5), claimActionCtx.Caller)
 		require.NoError(t, err)
 		require.NoError(t, err)
 		require.NotNil(t, rlog)
@@ -284,7 +284,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, initBalance, primAcc.Balance)
 
 		// Claim the 3-rd 5 token will fail be cause no balance for the address
-		_, err = p.Claim(claimCtx, sm, big.NewInt(5))
+		_, err = p.Claim(claimCtx, sm, big.NewInt(5), claimActionCtx.Caller)
 		require.Error(t, err)
 
 		// Operator should have nothing to claim
@@ -292,7 +292,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		require.True(t, ok)
 		claimActionCtx.Caller = blkCtx.Producer
 		claimCtx = protocol.WithActionCtx(ctx, claimActionCtx)
-		_, err = p.Claim(claimCtx, sm, big.NewInt(1))
+		_, err = p.Claim(claimCtx, sm, big.NewInt(1), claimActionCtx.Caller)
 		require.Error(t, err)
 	}, false)
 }

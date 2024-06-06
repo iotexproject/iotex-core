@@ -42,7 +42,7 @@ func (b *BlockIndex) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(b.toProto()))
 }
 
-// Desrialize from byte stream
+// Deserialize from byte stream
 func (b *BlockIndex) Deserialize(buf []byte) error {
 	pb := &indexpb.BlockIndex{}
 	if err := proto.Unmarshal(buf, pb); err != nil {

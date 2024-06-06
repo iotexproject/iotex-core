@@ -117,6 +117,8 @@ func init() {
 	_ = wsProjectConfig.MarkFlagRequired("data-source")
 	_ = wsProjectConfig.MarkFlagRequired("vm-type")
 	_ = wsProjectConfig.MarkFlagRequired("code-file")
+
+	wsProject.AddCommand(wsProjectConfig)
 }
 
 type projectConfig struct {

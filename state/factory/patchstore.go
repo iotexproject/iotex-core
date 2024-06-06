@@ -54,6 +54,7 @@ func newPatchStore(fpath string) (*patchStore, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open kvstore patch, %s", fpath)
 	}
+	defer file.Close()
 	reader := csv.NewReader(file)
 	reader.FieldsPerRecord = -1
 	for {

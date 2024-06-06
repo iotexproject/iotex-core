@@ -60,6 +60,7 @@ func (store *PatchStore) Read(height uint64) (CandidateList, CandidateList, Cand
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	defer file.Close()
 	reader := csv.NewReader(file)
 	reader.FieldsPerRecord = -1
 	listByName, err := store.read(reader)

@@ -53,6 +53,7 @@ type (
 		ContainsSelfStakingBucket(uint64) bool
 		GetByName(string) *Candidate
 		GetByOwner(address.Address) *Candidate
+		GetByIdentifier(address.Address) *Candidate
 		Upsert(*Candidate) error
 		CreditBucketPool(*big.Int) error
 		DebitBucketPool(*big.Int, bool) error
@@ -64,6 +65,7 @@ type (
 	// CandidiateStateCommon is the common interface for candidate state manager and reader
 	CandidiateStateCommon interface {
 		ContainsSelfStakingBucket(uint64) bool
+		GetByIdentifier(address.Address) *Candidate
 		SR() protocol.StateReader
 	}
 
@@ -147,6 +149,10 @@ func (csm *candSM) GetByName(name string) *Candidate {
 
 func (csm *candSM) GetByOwner(addr address.Address) *Candidate {
 	return csm.candCenter.GetByOwner(addr)
+}
+
+func (csm *candSM) GetByIdentifier(addr address.Address) *Candidate {
+	return csm.candCenter.GetByIdentifier(addr)
 }
 
 // Upsert writes the candidate into state manager and cand center
@@ -334,7 +340,7 @@ func (csm *candSM) delVoterBucketIndex(addr address.Address, index uint64) error
 }
 
 func (csm *candSM) putCandidate(d *Candidate) error {
-	_, err := csm.PutState(d, protocol.NamespaceOption(_candidateNameSpace), protocol.KeyOption(d.Owner.Bytes()))
+	_, err := csm.PutState(d, protocol.NamespaceOption(_candidateNameSpace), protocol.KeyOption(d.GetIdentifier().Bytes()))
 	return err
 }
 

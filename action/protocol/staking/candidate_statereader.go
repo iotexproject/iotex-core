@@ -66,6 +66,7 @@ type (
 		TotalStakedAmount() *big.Int
 		ActiveBucketsCount() uint64
 		ContainsSelfStakingBucket(index uint64) bool
+		GetByIdentifier(address.Address) *Candidate
 	}
 
 	candSR struct {
@@ -105,6 +106,10 @@ func (c *candSR) GetCandidateByName(name string) *Candidate {
 
 func (c *candSR) GetCandidateByOwner(owner address.Address) *Candidate {
 	return c.view.candCenter.GetByOwner(owner)
+}
+
+func (c *candSR) GetByIdentifier(id address.Address) *Candidate {
+	return c.view.candCenter.GetByIdentifier(id)
 }
 
 func (c *candSR) AllCandidates() CandidateList {
@@ -406,7 +411,7 @@ func (c *candSR) readStateBucketsByCandidate(ctx context.Context, req *iotexapi.
 		return &iotextypes.VoteBucketList{}, 0, nil
 	}
 
-	indices, height, err := c.candBucketIndices(cand.Owner)
+	indices, height, err := c.candBucketIndices(cand.GetIdentifier())
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
