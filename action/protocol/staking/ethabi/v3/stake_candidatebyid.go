@@ -120,7 +120,7 @@ func NewCandidateByIDStateContext(data []byte, methodABI *abi.Method, apiMethod 
 		return nil, err
 	}
 	return &stakingComm.CandidateByAddressStateContext{
-		&protocol.BaseStateContext{
+		BaseStateContext: &protocol.BaseStateContext{
 			Parameter: &protocol.Parameters{
 				MethodName: methodBytes,
 				Arguments:  [][]byte{argumentsBytes},
