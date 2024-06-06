@@ -5,8 +5,6 @@
 package staking
 
 import (
-	context "context"
-	big "math/big"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -34,21 +32,6 @@ func NewMockContractStakingIndexer(ctrl *gomock.Controller) *MockContractStaking
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockContractStakingIndexer) EXPECT() *MockContractStakingIndexerMockRecorder {
 	return m.recorder
-}
-
-// BucketTypes mocks base method.
-func (m *MockContractStakingIndexer) BucketTypes(height uint64) ([]*ContractStakingBucketType, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BucketTypes", height)
-	ret0, _ := ret[0].([]*ContractStakingBucketType)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// BucketTypes indicates an expected call of BucketTypes.
-func (mr *MockContractStakingIndexerMockRecorder) BucketTypes(height interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BucketTypes", reflect.TypeOf((*MockContractStakingIndexer)(nil).BucketTypes), height)
 }
 
 // Buckets mocks base method.
@@ -96,19 +79,18 @@ func (mr *MockContractStakingIndexerMockRecorder) BucketsByIndices(arg0, arg1 in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BucketsByIndices", reflect.TypeOf((*MockContractStakingIndexer)(nil).BucketsByIndices), arg0, arg1)
 }
 
-// CandidateVotes mocks base method.
-func (m *MockContractStakingIndexer) CandidateVotes(ctx context.Context, ownerAddr address.Address, height uint64) (*big.Int, error) {
+// ContractAddress mocks base method.
+func (m *MockContractStakingIndexer) ContractAddress() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CandidateVotes", ctx, ownerAddr, height)
-	ret0, _ := ret[0].(*big.Int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "ContractAddress")
+	ret0, _ := ret[0].(string)
+	return ret0
 }
 
-// CandidateVotes indicates an expected call of CandidateVotes.
-func (mr *MockContractStakingIndexerMockRecorder) CandidateVotes(ctx, ownerAddr, height interface{}) *gomock.Call {
+// ContractAddress indicates an expected call of ContractAddress.
+func (mr *MockContractStakingIndexerMockRecorder) ContractAddress() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidateVotes", reflect.TypeOf((*MockContractStakingIndexer)(nil).CandidateVotes), ctx, ownerAddr, height)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractAddress", reflect.TypeOf((*MockContractStakingIndexer)(nil).ContractAddress))
 }
 
 // TotalBucketCount mocks base method.
@@ -124,4 +106,116 @@ func (m *MockContractStakingIndexer) TotalBucketCount(height uint64) (uint64, er
 func (mr *MockContractStakingIndexerMockRecorder) TotalBucketCount(height interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TotalBucketCount", reflect.TypeOf((*MockContractStakingIndexer)(nil).TotalBucketCount), height)
+}
+
+// MockContractStakingIndexerWithBucketType is a mock of ContractStakingIndexerWithBucketType interface.
+type MockContractStakingIndexerWithBucketType struct {
+	ctrl     *gomock.Controller
+	recorder *MockContractStakingIndexerWithBucketTypeMockRecorder
+}
+
+// MockContractStakingIndexerWithBucketTypeMockRecorder is the mock recorder for MockContractStakingIndexerWithBucketType.
+type MockContractStakingIndexerWithBucketTypeMockRecorder struct {
+	mock *MockContractStakingIndexerWithBucketType
+}
+
+// NewMockContractStakingIndexerWithBucketType creates a new mock instance.
+func NewMockContractStakingIndexerWithBucketType(ctrl *gomock.Controller) *MockContractStakingIndexerWithBucketType {
+	mock := &MockContractStakingIndexerWithBucketType{ctrl: ctrl}
+	mock.recorder = &MockContractStakingIndexerWithBucketTypeMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockContractStakingIndexerWithBucketType) EXPECT() *MockContractStakingIndexerWithBucketTypeMockRecorder {
+	return m.recorder
+}
+
+// BucketTypes mocks base method.
+func (m *MockContractStakingIndexerWithBucketType) BucketTypes(height uint64) ([]*ContractStakingBucketType, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BucketTypes", height)
+	ret0, _ := ret[0].([]*ContractStakingBucketType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BucketTypes indicates an expected call of BucketTypes.
+func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) BucketTypes(height interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BucketTypes", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).BucketTypes), height)
+}
+
+// Buckets mocks base method.
+func (m *MockContractStakingIndexerWithBucketType) Buckets(height uint64) ([]*VoteBucket, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Buckets", height)
+	ret0, _ := ret[0].([]*VoteBucket)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Buckets indicates an expected call of Buckets.
+func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) Buckets(height interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Buckets", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).Buckets), height)
+}
+
+// BucketsByCandidate mocks base method.
+func (m *MockContractStakingIndexerWithBucketType) BucketsByCandidate(ownerAddr address.Address, height uint64) ([]*VoteBucket, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BucketsByCandidate", ownerAddr, height)
+	ret0, _ := ret[0].([]*VoteBucket)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BucketsByCandidate indicates an expected call of BucketsByCandidate.
+func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) BucketsByCandidate(ownerAddr, height interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BucketsByCandidate", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).BucketsByCandidate), ownerAddr, height)
+}
+
+// BucketsByIndices mocks base method.
+func (m *MockContractStakingIndexerWithBucketType) BucketsByIndices(arg0 []uint64, arg1 uint64) ([]*VoteBucket, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BucketsByIndices", arg0, arg1)
+	ret0, _ := ret[0].([]*VoteBucket)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BucketsByIndices indicates an expected call of BucketsByIndices.
+func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) BucketsByIndices(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BucketsByIndices", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).BucketsByIndices), arg0, arg1)
+}
+
+// ContractAddress mocks base method.
+func (m *MockContractStakingIndexerWithBucketType) ContractAddress() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContractAddress")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ContractAddress indicates an expected call of ContractAddress.
+func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) ContractAddress() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractAddress", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).ContractAddress))
+}
+
+// TotalBucketCount mocks base method.
+func (m *MockContractStakingIndexerWithBucketType) TotalBucketCount(height uint64) (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TotalBucketCount", height)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TotalBucketCount indicates an expected call of TotalBucketCount.
+func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) TotalBucketCount(height interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TotalBucketCount", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).TotalBucketCount), height)
 }
