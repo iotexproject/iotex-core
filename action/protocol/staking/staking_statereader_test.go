@@ -52,26 +52,28 @@ func TestStakingStateReader(t *testing.T) {
 	}
 	testContractBuckets := []*VoteBucket{
 		{
-			Index:           1,
-			Candidate:       identityset.Address(1),
-			Owner:           identityset.Address(1),
-			StakedAmount:    big.NewInt(100),
-			StakedDuration:  time.Hour * 24,
-			CreateTime:      time.Now(),
-			StakeStartTime:  time.Now(),
-			AutoStake:       true,
-			ContractAddress: contractAddress,
+			Index:                   1,
+			Candidate:               identityset.Address(1),
+			Owner:                   identityset.Address(1),
+			StakedAmount:            big.NewInt(100),
+			StakedDuration:          time.Hour * 24,
+			CreateTime:              time.Now(),
+			StakeStartTime:          time.Now(),
+			AutoStake:               true,
+			ContractAddress:         contractAddress,
+			UnstakeStartBlockHeight: maxBlockNumber,
 		},
 		{
-			Index:           2,
-			Candidate:       identityset.Address(2),
-			Owner:           identityset.Address(2),
-			StakedAmount:    big.NewInt(100),
-			StakedDuration:  time.Hour * 24,
-			CreateTime:      time.Now(),
-			StakeStartTime:  time.Now(),
-			AutoStake:       true,
-			ContractAddress: contractAddress,
+			Index:                   2,
+			Candidate:               identityset.Address(2),
+			Owner:                   identityset.Address(2),
+			StakedAmount:            big.NewInt(100),
+			StakedDuration:          time.Hour * 24,
+			CreateTime:              time.Now(),
+			StakeStartTime:          time.Now(),
+			AutoStake:               true,
+			ContractAddress:         contractAddress,
+			UnstakeStartBlockHeight: maxBlockNumber,
 		},
 	}
 	testNativeBuckets := []*VoteBucket{
@@ -99,7 +101,7 @@ func TestStakingStateReader(t *testing.T) {
 		states[i], err = state.Serialize(testNativeBuckets[i])
 		r.NoError(err)
 	}
-	prepare := func(t *testing.T) (*mock_factory.MockFactory, *MockContractStakingIndexer, ReadState, context.Context, *require.Assertions) {
+	prepare := func(t *testing.T) (*mock_factory.MockFactory, *MockContractStakingIndexerWithBucketType, ReadState, context.Context, *require.Assertions) {
 		r := require.New(t)
 		ctrl := gomock.NewController(t)
 		sf := mock_factory.NewMockFactory(ctrl)
@@ -122,10 +124,20 @@ func TestStakingStateReader(t *testing.T) {
 		}
 		sf.EXPECT().ReadView(gomock.Any()).Return(testNativeData, nil).Times(1)
 
-		contractIndexer := NewMockContractStakingIndexer(ctrl)
+		contractIndexer := NewMockContractStakingIndexerWithBucketType(ctrl)
 		contractIndexer.EXPECT().Buckets(gomock.Any()).Return(testContractBuckets, nil).AnyTimes()
-
-		stakeSR, err := newCompositeStakingStateReader(contractIndexer, nil, sf)
+		contractIndexer.EXPECT().BucketsByCandidate(gomock.Any(), gomock.Any()).DoAndReturn(func(ownerAddr address.Address, height uint64) ([]*VoteBucket, error) {
+			buckets := []*VoteBucket{}
+			for i := range testContractBuckets {
+				if testContractBuckets[i].Owner.String() == ownerAddr.String() {
+					buckets = append(buckets, testContractBuckets[i])
+				}
+			}
+			return buckets, nil
+		}).AnyTimes()
+		stakeSR, err := newCompositeStakingStateReader(nil, sf, func(v *VoteBucket, selfStake bool) *big.Int {
+			return v.StakedAmount
+		}, contractIndexer)
 		r.NoError(err)
 		r.NotNil(stakeSR)
 
@@ -289,7 +301,7 @@ func TestStakingStateReader(t *testing.T) {
 				}
 			}
 			return buckets, nil
-		}).Times(1)
+		}).MaxTimes(2)
 		req := &iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate{
 			Pagination: &iotexapi.PaginationParam{
 				Offset: 0,
@@ -374,15 +386,7 @@ func TestStakingStateReader(t *testing.T) {
 		r.EqualValues(3, bucketCount.Active)
 	})
 	t.Run("readStateCandidates", func(t *testing.T) {
-		_, contractIndexer, stakeSR, ctx, r := prepare(t)
-		contractIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ownerAddr address.Address, height uint64) (*big.Int, error) {
-			for _, b := range testContractBuckets {
-				if b.Owner.String() == ownerAddr.String() {
-					return b.StakedAmount, nil
-				}
-			}
-			return big.NewInt(0), nil
-		}).MinTimes(1)
+		_, _, stakeSR, ctx, r := prepare(t)
 		req := &iotexapi.ReadStakingDataRequest_Candidates{
 			Pagination: &iotexapi.PaginationParam{
 				Offset: 0,
@@ -404,15 +408,7 @@ func TestStakingStateReader(t *testing.T) {
 		}
 	})
 	t.Run("readStateCandidateByName", func(t *testing.T) {
-		_, contractIndexer, stakeSR, ctx, r := prepare(t)
-		contractIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ownerAddr address.Address, height uint64) (*big.Int, error) {
-			for _, b := range testContractBuckets {
-				if b.Owner.String() == ownerAddr.String() {
-					return b.StakedAmount, nil
-				}
-			}
-			return big.NewInt(0), nil
-		}).MinTimes(1)
+		_, _, stakeSR, ctx, r := prepare(t)
 		req := &iotexapi.ReadStakingDataRequest_CandidateByName{
 			CandName: "cand1",
 		}
@@ -427,15 +423,7 @@ func TestStakingStateReader(t *testing.T) {
 		r.EqualValues(expectCand.toIoTeXTypes(), candidate)
 	})
 	t.Run("readStateCandidateByAddress", func(t *testing.T) {
-		_, contractIndexer, stakeSR, ctx, r := prepare(t)
-		contractIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ownerAddr address.Address, height uint64) (*big.Int, error) {
-			for _, b := range testContractBuckets {
-				if b.Owner.String() == ownerAddr.String() {
-					return b.StakedAmount, nil
-				}
-			}
-			return big.NewInt(0), nil
-		}).MinTimes(1)
+		_, _, stakeSR, ctx, r := prepare(t)
 		req := &iotexapi.ReadStakingDataRequest_CandidateByAddress{
 			OwnerAddr: identityset.Address(1).String(),
 		}
