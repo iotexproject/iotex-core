@@ -95,6 +95,19 @@ func project() error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to unpack project name response", err)
 	}
+	data, err = projectABI.Pack("ownerOf", new(big.Int).SetUint64(projectId))
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to pack project ownerOf arguments", err)
+	}
+	res, err = action.Read(ioProjectAddr, "0", data)
+	if err != nil {
+		return output.NewError(output.APIError, "failed to read contract", err)
+	}
+	data, _ = hex.DecodeString(res)
+	owner, err := projectABI.Unpack("ownerOf", data)
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to unpack project ownerOf response", err)
+	}
 
 	data, err = ioIDStoreABI.Pack("projectDeviceContract", new(big.Int).SetUint64(projectId))
 	if err != nil {
@@ -140,8 +153,9 @@ func project() error {
 
 	fmt.Printf(`Project #%d detail:
 {
-	"projectContractAddress": "%s",
+	"projectContract": "%s",
 	"name": "%s",
+	"owner": "%s",
 	"deviceNFT": "%s",
 	"appliedIoIDs": "%s",
 	"activedIoIDs": "%s",
@@ -150,6 +164,7 @@ func project() error {
 		projectId,
 		projectAddr[0].(address.Address).String(),
 		name[0].(string),
+		owner[0].(address.Address).String(),
 		deviceContractAddr[0].(address.Address).String(),
 		projectAppliedAmount[0].(*big.Int).String(),
 		projectActivedAmount[0].(*big.Int).String(),
