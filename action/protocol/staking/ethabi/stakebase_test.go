@@ -6,6 +6,8 @@ import (
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+
+	stakingComm "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi/common"
 )
 
 var errInvalidMsg = "address length = 40, expecting 41: invalid address"
@@ -43,7 +45,7 @@ func TestEncodeCandidateToEth(t *testing.T) {
 		SelfStakingTokens:  "5000000000000000000",
 	}
 
-	cand, err := encodeCandidateToEth(candidate)
+	cand, err := stakingComm.EncodeCandidateToEth(candidate)
 
 	r.Nil(err)
 	r.EqualValues("0x0000000000000000000000000000000000000001", cand.OwnerAddress.Hex())
@@ -68,7 +70,7 @@ func TestEncodeCandidateToEthErrorOwnerAddress(t *testing.T) {
 		SelfStakingTokens:  "5000000000000000000",
 	}
 
-	cand, err := encodeCandidateToEth(candidate)
+	cand, err := stakingComm.EncodeCandidateToEth(candidate)
 
 	r.Nil(cand)
 	r.EqualError(err, errInvalidMsg)
@@ -87,7 +89,7 @@ func TestEncodeCandidateToEthErrorOperatorAddress(t *testing.T) {
 		SelfStakingTokens:  "5000000000000000000",
 	}
 
-	cand, err := encodeCandidateToEth(candidate)
+	cand, err := stakingComm.EncodeCandidateToEth(candidate)
 
 	r.Nil(cand)
 	r.EqualError(err, errInvalidMsg)
@@ -106,7 +108,7 @@ func TestEncodeCandidateToEthErrorRewardAddress(t *testing.T) {
 		SelfStakingTokens:  "5000000000000000000",
 	}
 
-	cand, err := encodeCandidateToEth(candidate)
+	cand, err := stakingComm.EncodeCandidateToEth(candidate)
 
 	r.Nil(cand)
 	r.EqualError(err, errInvalidMsg)
@@ -125,7 +127,7 @@ func TestEncodeCandidateToEthErrorTotalWeightedVotes(t *testing.T) {
 		SelfStakingTokens:  "5000000000000000000",
 	}
 
-	cand, err := encodeCandidateToEth(candidate)
+	cand, err := stakingComm.EncodeCandidateToEth(candidate)
 
 	r.Nil(cand)
 	r.EqualValues("convert big number error", err.Error())
@@ -144,7 +146,7 @@ func TestEncodeCandidateToEthErrorSelfStakingTokens(t *testing.T) {
 		SelfStakingTokens:  "XXXX",
 	}
 
-	cand, err := encodeCandidateToEth(candidate)
+	cand, err := stakingComm.EncodeCandidateToEth(candidate)
 
 	r.Nil(cand)
 	r.EqualValues("convert big number error", err.Error())
