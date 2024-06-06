@@ -43,6 +43,7 @@ func init() {
 	IoIDCmd.AddCommand(_applyCmd)
 	IoIDCmd.AddCommand(_projectCmd)
 	IoIDCmd.AddCommand(_deviceCmd)
+	IoIDCmd.AddCommand(_nameCmd)
 	IoIDCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagInsEndPointUsages,
 			config.UILanguage))
