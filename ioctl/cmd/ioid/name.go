@@ -1,14 +1,12 @@
 package ioid
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/ws"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -57,18 +55,9 @@ func setName(args []string) error {
 		return output.NewError(output.AddressError, "failed to convert ioIDStore address", err)
 	}
 
-	data, err := ioIDStoreABI.Pack("project")
+	projectAddr, err := readContract(ioioIDStore, ioIDStoreABI, "project", "0")
 	if err != nil {
-		return output.NewError(output.ConvertError, "failed to pack project arguments", err)
-	}
-	res, err := action.Read(ioioIDStore, "0", data)
-	if err != nil {
-		return output.NewError(output.APIError, "failed to read contract", err)
-	}
-	data, _ = hex.DecodeString(res)
-	projectAddr, err := ioIDStoreABI.Unpack("project", data)
-	if err != nil {
-		return output.NewError(output.ConvertError, "failed to unpack project response", err)
+		return output.NewError(output.ConvertError, "failed to read project", err)
 	}
 
 	caller, err := ws.NewContractCaller(projectABI, projectAddr[0].(address.Address).String())
