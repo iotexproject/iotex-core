@@ -84,9 +84,12 @@ func (s *IndexerCommon) StartHeight() uint64 { return s.startHeight }
 
 // Commit commits the height to the indexer
 func (s *IndexerCommon) Commit(height uint64, delta batch.KVStoreBatch) error {
-	s.height = height
 	delta.Put(s.ns, s.key, byteutil.Uint64ToBytesBigEndian(height), "failed to put height")
-	return s.kvstore.WriteBatch(delta)
+	if err := s.kvstore.WriteBatch(delta); err != nil {
+		return err
+	}
+	s.height = height
+	return nil
 }
 
 // ExpectedHeight returns the expected height

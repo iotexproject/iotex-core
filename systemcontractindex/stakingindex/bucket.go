@@ -76,7 +76,6 @@ func (bi *Bucket) loadProto(p *stakingpb.Bucket) error {
 
 func (b *Bucket) Clone() *Bucket {
 	clone := &Bucket{
-		StakedAmount:              b.StakedAmount,
 		StakedDurationBlockNumber: b.StakedDurationBlockNumber,
 		CreatedAt:                 b.CreatedAt,
 		UnlockedAt:                b.UnlockedAt,
@@ -86,8 +85,7 @@ func (b *Bucket) Clone() *Bucket {
 	clone.Candidate = candidate
 	owner, _ := address.FromBytes(b.Owner.Bytes())
 	clone.Owner = owner
-	stakingAmount := new(big.Int).Set(b.StakedAmount)
-	clone.StakedAmount = stakingAmount
+	clone.StakedAmount = new(big.Int).Set(b.StakedAmount)
 	return clone
 }
 
