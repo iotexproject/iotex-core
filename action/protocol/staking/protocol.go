@@ -562,8 +562,10 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if err != nil {
 		return nil, 0, err
 	}
-	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
+	epochStartHeight := inputHeight
+	if rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx)); rp != nil {
+		epochStartHeight = rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
+	}
 	nativeSR, err := ConstructBaseView(sr)
 	if err != nil {
 		return nil, 0, err
