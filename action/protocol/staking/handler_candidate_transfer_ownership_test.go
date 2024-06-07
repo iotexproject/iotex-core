@@ -21,8 +21,6 @@ import (
 )
 
 func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
-	//TODO: fix this test
-	t.Skip()
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -212,6 +210,7 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 			})
 			cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
 			cfg.TsunamiBlockHeight = 1
+			cfg.ToBeEnabledBlockHeight = 1 // enable candidate owner transfer feature
 			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 			require.NoError(p.Validate(ctx, act, sm))
