@@ -7,6 +7,7 @@ package identityset
 
 import (
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -78,4 +79,20 @@ func Address(i int) address.Address {
 		log.L().Panic("Error when constructing the address", zap.Error(errors.New("failed to get address")))
 	}
 	return addr
+}
+
+// PrivateKey2 returns the private key generated from the hash of i
+func PrivateKey2(i int) crypto.PrivateKey {
+	s := hash.Hash256b([]byte{byte(i)})
+	sk, err := crypto.BytesToPrivateKey(s[:])
+	if err != nil {
+		log.L().Panic("Error when decoding private key string")
+	}
+	return sk
+}
+
+// Address2 returns the address generated from the hash of i
+func Address2(i int) address.Address {
+	sk := PrivateKey2(i)
+	return sk.PublicKey().Address()
 }

@@ -92,6 +92,11 @@ func (s *Indexer) StartHeight() uint64 {
 	return s.config.ContractDeployHeight
 }
 
+// ContractAddress returns the contract address
+func (s *Indexer) ContractAddress() string {
+	return s.config.ContractAddress
+}
+
 // CandidateVotes returns the candidate votes
 func (s *Indexer) CandidateVotes(ctx context.Context, candidate address.Address, height uint64) (*big.Int, error) {
 	if s.isIgnored(height) {

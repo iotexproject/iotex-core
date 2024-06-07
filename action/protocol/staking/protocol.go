@@ -80,7 +80,7 @@ type (
 		depositGas             DepositGas
 		config                 Configuration
 		candBucketsIndexer     *CandidatesBucketsIndexer
-		contractStakingIndexer ContractStakingIndexer
+		contractStakingIndexer ContractStakingIndexerWithBucketType
 		voteReviser            *VoteReviser
 		patch                  *PatchStore
 	}
@@ -121,7 +121,7 @@ func NewProtocol(
 	depositGas DepositGas,
 	cfg *BuilderConfig,
 	candBucketsIndexer *CandidatesBucketsIndexer,
-	contractStakingIndexer ContractStakingIndexer,
+	contractStakingIndexer ContractStakingIndexerWithBucketType,
 	correctCandsHeight uint64,
 	reviseHeights ...uint64,
 ) (*Protocol, error) {
@@ -425,6 +425,8 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		rLog, tLogs, err = p.handleCandidateActivate(ctx, act, csm)
 	case *action.CandidateEndorsement:
 		rLog, tLogs, err = p.handleCandidateEndorsement(ctx, act, csm)
+	case *action.CandidateTransferOwnership:
+		rLog, tLogs, err = p.handleCandidateTransferOwnership(ctx, act, csm)
 	default:
 		return nil, nil
 	}
@@ -473,6 +475,8 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 		return p.validateCandidateActivate(ctx, act)
 	case *action.CandidateEndorsement:
 		return p.validateCandidateEndorsement(ctx, act)
+	case *action.CandidateTransferOwnership:
+		return p.validateCandidateTransferOwnershipAction(ctx, act)
 	}
 	return nil
 }
@@ -514,18 +518,14 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 	}
 	list := c.AllCandidates()
 	cand := make(CandidateList, 0, len(list))
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	for i := range list {
-		if p.contractStakingIndexer != nil && featureCtx.AddContractStakingVotes {
-			// specifying the height param instead of query latest from indexer directly, aims to cause error when indexer falls behind
-			// currently there are two possible sr (i.e. factory or workingSet), it means the height could be chain height or current block height
-			// using height-1 will cover the two scenario while detect whether the indexer is lagging behind
-			contractVotes, err := p.contractStakingIndexer.CandidateVotes(ctx, list[i].Owner, srHeight-1)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to get CandidateVotes from contractStakingIndexer")
-			}
-			list[i].Votes.Add(list[i].Votes, contractVotes)
+		// specifying the height param instead of query latest from indexer directly, aims to cause error when indexer falls behind.
+		// the reason of using srHeight-1 is contract indexer is not updated before the block is committed.
+		csVotes, err := p.contractStakingVotes(ctx, list[i].GetIdentifier(), srHeight-1)
+		if err != nil {
+			return nil, err
 		}
+		list[i].Votes.Add(list[i].Votes, csVotes)
 		active, err := p.isActiveCandidate(ctx, c, list[i])
 		if err != nil {
 			return nil, err
@@ -552,7 +552,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	}
 
 	// stakeSR is the stake state reader including native and contract staking
-	stakeSR, err := newCompositeStakingStateReader(p.contractStakingIndexer, p.candBucketsIndexer, sr)
+	stakeSR, err := newCompositeStakingStateReader(p.candBucketsIndexer, sr, p.calculateVoteWeight, p.contractStakingIndexer)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -692,6 +692,28 @@ func (p *Protocol) needToWriteCandsMap(ctx context.Context, height uint64) bool 
 	return height >= p.config.PersistStakingPatchBlock && fCtx.CandCenterHasAlias(height)
 }
 
+func (p *Protocol) contractStakingVotes(ctx context.Context, candidate address.Address, height uint64) (*big.Int, error) {
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	votes := big.NewInt(0)
+	if p.contractStakingIndexer != nil && featureCtx.AddContractStakingVotes {
+		btks, err := p.contractStakingIndexer.BucketsByCandidate(candidate, height)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get BucketsByCandidate from contractStakingIndexer")
+		}
+		for _, b := range btks {
+			if b.isUnstaked() {
+				continue
+			}
+			if featureCtx.FixContractStakingWeightedVotes {
+				votes.Add(votes, p.calculateVoteWeight(b, false))
+			} else {
+				votes.Add(votes, b.StakedAmount)
+			}
+		}
+	}
+	return votes, nil
+}
+
 func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, CandidateList, CandidateList, error) {
 	var (
 		name, operator, owner CandidateList
@@ -728,7 +750,7 @@ func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csc CandidiateStateCommon
 	}
 
 	// bucket should not be unstaked if it is self-owned
-	if address.Equal(bucket.Owner, bucket.Candidate) {
+	if isSelfOwnedBucket(csc, bucket) {
 		return !bucket.isUnstaked(), nil
 	}
 	// otherwise bucket should be an endorse bucket which is not expired
@@ -742,4 +764,12 @@ func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csc CandidiateStateCommon
 		return false, err
 	}
 	return endorse.Status(height) != EndorseExpired, nil
+}
+
+func isSelfOwnedBucket(csc CandidiateStateCommon, bucket *VoteBucket) bool {
+	cand := csc.GetByIdentifier(bucket.Candidate)
+	if cand == nil {
+		return false
+	}
+	return address.Equal(bucket.Owner, cand.Owner)
 }

@@ -8,6 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	_defaultGasPrice      = big.NewInt(1000000000000)
+	_errNegativeNumberMsg = "negative value"
+)
+
 func TestDepositRewardSerialize(t *testing.T) {
 	r := require.New(t)
 

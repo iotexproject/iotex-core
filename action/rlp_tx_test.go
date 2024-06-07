@@ -4,15 +4,20 @@ import (
 	"bytes"
 	"encoding/hex"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	iotexcrypto "github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+
+	. "github.com/iotexproject/iotex-core/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 func TestGenerateRlp(t *testing.T) {
@@ -291,21 +296,21 @@ var (
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
 			"1e14d5373e1af9cc77f0032ad2cd0fba8be5ea2e",
 		},
-		{
-			"rewardingClaim",
-			"f8c6806482520894a576c141e5659137ddda4223d209d4744b2106be80b8642df163ef0000000000000000000000000000000000000000000000000000000000000065000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000008224c6a03d62943431b8ca0e8ea0a9c79dc8f64df14c965ca5486da124804013778ed566a065956b185116b65cec0ec9bcf9539e924784a4b448190b0aa9d017f1719be921",
-			0,
-			21000,
-			"100",
-			"0",
-			"0xA576C141e5659137ddDa4223d209d4744b2106BE",
-			_evmNetworkID,
-			iotextypes.Encoding_ETHEREUM_EIP155,
-			100,
-			"4d26d0736ebd9e69bd5994f3730b05a2d48c810b3bb54818be65d02004cf4ff4",
-			"04830579b50e01602c2015c24e72fbc48bca1cca1e601b119ca73abe2e0b5bd61fcb7874567e091030d6b644f927445d80e00b3f9ca0c566c21c30615e94c343da",
-			"8d38efe45794d7fceea10b2262c23c12245959db",
-		},
+		//{
+		//	"rewardingClaim",
+		//	"f8c6806482520894a576c141e5659137ddda4223d209d4744b2106be80b8642df163ef0000000000000000000000000000000000000000000000000000000000000065000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000008224c6a03d62943431b8ca0e8ea0a9c79dc8f64df14c965ca5486da124804013778ed566a065956b185116b65cec0ec9bcf9539e924784a4b448190b0aa9d017f1719be921",
+		//	0,
+		//	21000,
+		//	"100",
+		//	"0",
+		//	"0xA576C141e5659137ddDa4223d209d4744b2106BE",
+		//	_evmNetworkID,
+		//	iotextypes.Encoding_ETHEREUM_EIP155,
+		//	100,
+		//	"4d26d0736ebd9e69bd5994f3730b05a2d48c810b3bb54818be65d02004cf4ff4",
+		//	"04830579b50e01602c2015c24e72fbc48bca1cca1e601b119ca73abe2e0b5bd61fcb7874567e091030d6b644f927445d80e00b3f9ca0c566c21c30615e94c343da",
+		//	"8d38efe45794d7fceea10b2262c23c12245959db",
+		//},
 		{
 			"rewardingDeposit",
 			"f8c6016482520894a576c141e5659137ddda4223d209d4744b2106be80b86427852a6b0000000000000000000000000000000000000000000000000000000000000065000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000008224c6a013b7679dbabcb0f97b93942436f5072cca3c7fe43451a8fedcdf3c84c1344e1da02af4cc67594c0200b59f4e30ba149af15e546acbfc69fa31f14e8788ab063d85",
@@ -474,6 +479,366 @@ func TestEthTxDecodeVerify(t *testing.T) {
 		require.True(bytes.Equal(rawHash[:], raw[:]))
 		require.NotEqual(raw, h)
 		require.NoError(selp.VerifySignature())
+	}
+}
+
+func TestEthTxDecodeVerifyV2(t *testing.T) {
+	var (
+		r        = require.New(t)
+		sk, _    = iotexcrypto.HexStringToPrivateKey("708361c6460c93f027df0823eb440f3270ee2937944f2de933456a3900d6dd1a")
+		nonce    = uint64(100)
+		amount   = big.NewInt(1)
+		to       = "io1c04r4jc8q6u57phxpla639u5h5v2t3s062hyxa"
+		addrto   = common.BytesToAddress(MustNoErrorV(address.FromString(to)).Bytes())
+		data     = []byte("any")
+		gasLimit = uint64(21000)
+		gasPrice = big.NewInt(101)
+		chainID  = uint32(4689)
+	)
+	r.NotNil(sk)
+
+	elpbuilder := (&EnvelopeBuilder{}).
+		SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).
+		SetChainID(chainID)
+
+	tests := []struct {
+		name     string                                     // case name
+		encoding iotextypes.Encoding                        // assign and check signer's type
+		txto     string                                     // assertion of tx.To()
+		txamount *big.Int                                   // assertion of tx.Value()
+		txdata   []byte                                     // assertion of tx.Data()
+		action   EthCompatibleAction                        // eth compatible action
+		builder  func(*types.Transaction) (Envelope, error) // envelope builder
+	}{
+		{
+			name:     "Transfer",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     to,
+			txamount: amount,
+			txdata:   data,
+			action:   MustNoErrorV(NewTransfer(nonce, amount, to, data, gasLimit, gasPrice)),
+			builder:  elpbuilder.BuildTransfer,
+		},
+		{
+			name:     "Execution",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     to,
+			txamount: amount,
+			txdata:   data,
+			action:   MustNoErrorV(NewExecution(to, nonce, amount, gasLimit, gasPrice, data)),
+			builder:  elpbuilder.BuildExecution,
+		},
+		{
+			name:     "ExecutionEmptyTo",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     "",
+			txamount: amount,
+			txdata:   data,
+			action:   MustNoErrorV(NewExecution("", nonce, amount, gasLimit, gasPrice, data)),
+			builder:  elpbuilder.BuildExecution,
+		},
+		{
+			name:     "CreateStake",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				_createStakeMethod.ID,
+				MustNoErrorV(_createStakeMethod.Inputs.Pack("name", amount, uint32(86400), true, data))...,
+			),
+			action:  MustNoErrorV(NewCreateStake(nonce, "name", amount.String(), 86400, true, data, gasLimit, gasPrice)),
+			builder: elpbuilder.BuildStakingAction,
+		},
+		{
+			name:     "DepositToStake",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				_depositToStakeMethod.ID,
+				MustNoErrorV(_depositToStakeMethod.Inputs.Pack(uint64(10), amount, data))...,
+			),
+			action:  MustNoErrorV(NewDepositToStake(nonce, 10, amount.String(), data, gasLimit, gasPrice)),
+			builder: elpbuilder.BuildStakingAction,
+		},
+		{
+			name:     "ChangeStakeCandidate",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				_changeCandidateMethod.ID,
+				MustNoErrorV(_changeCandidateMethod.Inputs.Pack("name", uint64(11), data))...,
+			),
+			action:  MustNoErrorV(NewChangeCandidate(nonce, "name", 11, data, gasLimit, gasPrice)),
+			builder: elpbuilder.BuildStakingAction,
+		},
+		{
+			name:     "UnStake",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				_unstakeMethod.ID,
+				MustNoErrorV(_unstakeMethod.Inputs.Pack(uint64(12), data))...,
+			),
+			action:  MustNoErrorV(NewUnstake(nonce, 12, data, gasLimit, gasPrice)),
+			builder: elpbuilder.BuildStakingAction,
+		},
+		{
+			name:     "StakeWithdraw",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				_withdrawStakeMethod.ID,
+				MustNoErrorV(_withdrawStakeMethod.Inputs.Pack(uint64(13), data))...,
+			),
+			action:  MustNoErrorV(NewWithdrawStake(nonce, 13, data, gasLimit, gasPrice)),
+			builder: elpbuilder.BuildStakingAction,
+		},
+		{
+			name:     "ReStake",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				_restakeMethod.ID,
+				MustNoErrorV(_restakeMethod.Inputs.Pack(uint64(14), uint32(7200), false, data))...,
+			),
+			action:  MustNoErrorV(NewRestake(nonce, 14, 7200, false, data, gasLimit, gasPrice)),
+			builder: elpbuilder.BuildStakingAction,
+		},
+		{
+			name:     "TransferStakeOwnership",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				_transferStakeMethod.ID,
+				MustNoErrorV(_transferStakeMethod.Inputs.Pack(
+					common.BytesToAddress(MustNoErrorV(address.FromString(to)).Bytes()),
+					uint64(15), data),
+				)...,
+			),
+			action:  MustNoErrorV(NewTransferStake(nonce, to, 15, data, gasLimit, gasPrice)),
+			builder: elpbuilder.BuildStakingAction,
+		},
+		{
+			name:     "RegisterStakeCandidate",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				_candidateRegisterMethod.ID,
+				MustNoErrorV(_candidateRegisterMethod.Inputs.Pack(
+					"name", addrto, addrto, addrto, amount, uint32(6400), false, data,
+				))...,
+			),
+			action: MustNoErrorV(NewCandidateRegister(
+				nonce, "name", to, to, to, amount.String(),
+				6400, false, data, gasLimit, gasPrice,
+			)),
+			builder: elpbuilder.BuildStakingAction,
+		},
+		{
+			name:     "UpdateStakeCandidate",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				_candidateUpdateMethod.ID,
+				MustNoErrorV(_candidateUpdateMethod.Inputs.Pack("name", addrto, addrto))...,
+			),
+			action:  MustNoErrorV(NewCandidateUpdate(nonce, "name", to, to, gasLimit, gasPrice)),
+			builder: elpbuilder.BuildStakingAction,
+		},
+		{
+			name:     "StakeCandidateActivate",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				candidateActivateMethod.ID,
+				MustNoErrorV(candidateActivateMethod.Inputs.Pack(uint64(16)))...,
+			),
+			action: &CandidateActivate{
+				AbstractAction: AbstractAction{
+					version:  version.ProtocolVersion,
+					chainID:  chainID,
+					nonce:    nonce,
+					gasLimit: gasLimit,
+					gasPrice: gasPrice,
+				},
+				bucketID: 16,
+			},
+			builder: elpbuilder.BuildStakingAction,
+		},
+		{
+			name:     "StakeCandidateEndorsement",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				candidateEndorsementMethod.ID,
+				MustNoErrorV(candidateEndorsementMethod.Inputs.Pack(uint64(17), false))...,
+			),
+			action: &CandidateEndorsement{
+				AbstractAction: AbstractAction{
+					version:  version.ProtocolVersion,
+					chainID:  chainID,
+					nonce:    nonce,
+					gasLimit: gasLimit,
+					gasPrice: gasPrice,
+				},
+				bucketIndex: 17,
+			},
+			builder: elpbuilder.BuildStakingAction,
+		},
+		{
+			name:     "StakeCandidateTransferOwnership",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				_candidateTransferOwnershipMethod.ID,
+				MustNoErrorV(_candidateTransferOwnershipMethod.Inputs.Pack(addrto, data))...,
+			),
+			action:  MustNoErrorV(NewCandidateTransferOwnership(nonce, gasLimit, gasPrice, to, data)),
+			builder: elpbuilder.BuildStakingAction,
+		},
+		{
+			name:     "ClaimFromRewardingFund",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.RewardingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				_claimRewardingMethod.ID,
+				MustNoErrorV(_claimRewardingMethod.Inputs.Pack(amount, data, to))...,
+			),
+			action: &ClaimFromRewardingFund{
+				AbstractAction: AbstractAction{
+					version:  version.ProtocolVersion,
+					chainID:  chainID,
+					nonce:    nonce,
+					gasLimit: gasLimit,
+					gasPrice: gasPrice,
+				},
+				amount:  amount,
+				address: to,
+				data:    data,
+			},
+			builder: elpbuilder.BuildRewardingAction,
+		},
+		{
+			name:     "DepositToRewardingFund",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.RewardingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				_depositRewardMethod.ID,
+				MustNoErrorV(_depositRewardMethod.Inputs.Pack(amount, data))...,
+			),
+			action: &DepositToRewardingFund{
+				AbstractAction: AbstractAction{
+					version:  version.ProtocolVersion,
+					chainID:  chainID,
+					nonce:    nonce,
+					gasLimit: gasLimit,
+					gasPrice: gasPrice,
+				},
+				amount: amount,
+				data:   data,
+			},
+			builder: elpbuilder.BuildRewardingAction,
+		},
+		{
+			name:     "UnprotectedExecution",
+			encoding: iotextypes.Encoding_ETHEREUM_UNPROTECTED,
+			txto:     to,
+			txamount: amount,
+			txdata:   data,
+			action:   MustNoErrorV(NewExecution(to, nonce, amount, gasLimit, gasPrice, data)),
+			builder:  elpbuilder.BuildExecution,
+		},
+	}
+
+	verifytx := func(tx *types.Transaction, enc iotextypes.Encoding, amount *big.Int, data []byte, to string, sigv *big.Int) {
+		r.Equal(tx.Nonce(), nonce)
+		r.Equal(tx.Gas(), gasLimit)
+		r.Equal(tx.GasPrice(), gasPrice)
+		r.Equal(tx.Type(), uint8(types.LegacyTxType))
+		r.Equal(tx.Value(), amount)
+		r.Equal(tx.Data(), data)
+		if to == "" {
+			r.Nil(tx.To())
+		} else {
+			r.Equal(to, strings.ToLower(tx.To().String()))
+		}
+		if enc == iotextypes.Encoding_ETHEREUM_UNPROTECTED {
+			r.False(tx.Protected())
+			r.Zero(tx.ChainId().Uint64())
+			r.True(sigv.Uint64() == 27 || sigv.Uint64() == 28)
+		} else if enc == iotextypes.Encoding_ETHEREUM_EIP155 {
+			r.True(tx.Protected())
+			r.Equal(tx.ChainId().Uint64(), uint64(chainID))
+			r.True(sigv.Uint64() > 28)
+		}
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			toaddr := ""
+			if tt.txto != "" {
+				toaddr = "0x" + hex.EncodeToString(MustNoErrorV(address.FromString(tt.txto)).Bytes())
+			}
+			// build eth tx from test case
+			var (
+				tx        = MustNoErrorV(tt.action.ToEthTx(chainID))
+				signer    = MustNoErrorV(NewEthSigner(tt.encoding, chainID))
+				signature = MustNoErrorV(sk.Sign(tx.Hash().Bytes()))
+				builttx   = MustNoErrorV(RawTxToSignedTx(tx, signer, signature))
+				raw       = MustNoErrorV(builttx.MarshalBinary())
+			)
+
+			sv, _, _ := builttx.RawSignatureValues()
+			verifytx(builttx, tt.encoding, tt.txamount, tt.txdata, toaddr, sv)
+
+			// decode eth tx from builttx hex raw
+			decodedtx, err := DecodeEtherTx(hex.EncodeToString(raw))
+			r.NoError(err)
+			enc, sig, pk, err := ExtractTypeSigPubkey(decodedtx)
+			r.NoError(err)
+			r.Equal(enc, tt.encoding)
+			r.Equal(sig[:64], signature[:64])
+			sv, _, _ = decodedtx.RawSignatureValues()
+			verifytx(decodedtx, tt.encoding, tt.txamount, tt.txdata, toaddr, sv)
+
+			// build elp from eth tx by native converter
+			elp, err := tt.builder(decodedtx)
+			r.NoError(err)
+			sealed, err := (&Deserializer{}).
+				SetEvmNetworkID(chainID).
+				ActionToSealedEnvelope(&iotextypes.Action{
+					Core:         elp.Proto(),
+					SenderPubKey: pk.Bytes(),
+					Signature:    sig,
+					Encoding:     tt.encoding,
+				})
+			r.NoError(err)
+			action, ok := sealed.Action().(EthCompatibleAction)
+			r.True(ok)
+			convertedrawtx, err := action.ToEthTx(chainID)
+			r.NoError(err)
+			r.NoError(sealed.VerifySignature())
+			convertedsignedtx, err := RawTxToSignedTx(convertedrawtx, signer, signature)
+			r.NoError(err)
+			r.Equal(convertedsignedtx.Hash(), decodedtx.Hash())
+			sv, _, _ = convertedsignedtx.RawSignatureValues()
+			verifytx(convertedsignedtx, tt.encoding, tt.txamount, tt.txdata, toaddr, sv)
+		})
 	}
 }
 

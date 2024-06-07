@@ -30,6 +30,8 @@ var (
 func init() {
 	wsMessage.AddCommand(wsMessageSend)
 	wsMessage.AddCommand(wsMessageQuery)
+
+	WsCmd.AddCommand(wsMessage)
 }
 
 type sendMessageReq struct {
