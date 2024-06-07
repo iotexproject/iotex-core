@@ -399,7 +399,7 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManagerWithoutHeightFunc(ctrl)
-	csIndexer := NewMockContractStakingIndexer(ctrl)
+	csIndexer := NewMockContractStakingIndexerWithBucketType(ctrl)
 
 	selfStake, _ := new(big.Int).SetString("1200000000000000000000000", 10)
 	cfg := genesis.Default.Staking
@@ -426,7 +426,9 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 		},
 	)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
-	sm.EXPECT().Height().Return(blkHeight, nil).AnyTimes()
+	sm.EXPECT().Height().DoAndReturn(func() (uint64, error) {
+		return blkHeight, nil
+	}).AnyTimes()
 
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
@@ -436,20 +438,21 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 	require.NoError(err)
 
 	var csIndexerHeight, csVotes uint64
-	csIndexer.EXPECT().CandidateVotes(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ownerAddr address.Address, height uint64) (*big.Int, error) {
+	csIndexer.EXPECT().BucketsByCandidate(gomock.Any(), gomock.Any()).DoAndReturn(func(ownerAddr address.Address, height uint64) ([]*VoteBucket, error) {
 		if height != csIndexerHeight {
-			return nil, errors.Errorf("invalid height")
+			return nil, errors.Errorf("invalid height %d", height)
 		}
-		return big.NewInt(int64(csVotes)), nil
+		return []*VoteBucket{
+			NewVoteBucket(identityset.Address(22), identityset.Address(22), big.NewInt(int64(csVotes)), 1, time.Now(), true),
+		}, nil
 	}).AnyTimes()
 
 	t.Run("contract staking indexer falls behind", func(t *testing.T) {
-		csIndexerHeight = 10
 		_, err := p.ActiveCandidates(ctx, sm, 0)
 		require.ErrorContains(err, "invalid height")
 	})
 
-	t.Run("contract staking indexer up to date", func(t *testing.T) {
+	t.Run("contract staking votes before Redsea", func(t *testing.T) {
 		csIndexerHeight = blkHeight - 1
 		csVotes = 0
 		cands, err := p.ActiveCandidates(ctx, sm, 0)
@@ -461,6 +464,27 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 		require.NoError(err)
 		require.Len(cands, 1)
 		require.EqualValues(100, cands[0].Votes.Sub(cands[0].Votes, originCandVotes).Uint64())
+	})
+	t.Run("contract staking votes after Redsea", func(t *testing.T) {
+		blkHeight = genesis.Default.RedseaBlockHeight
+		ctx := protocol.WithBlockCtx(
+			genesis.WithGenesisContext(context.Background(), genesis.Default),
+			protocol.BlockCtx{
+				BlockHeight: blkHeight,
+			},
+		)
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		csIndexerHeight = blkHeight - 1
+		csVotes = 0
+		cands, err := p.ActiveCandidates(ctx, sm, 0)
+		require.NoError(err)
+		require.Len(cands, 1)
+		originCandVotes := cands[0].Votes
+		csVotes = 100
+		cands, err = p.ActiveCandidates(ctx, sm, 0)
+		require.NoError(err)
+		require.Len(cands, 1)
+		require.EqualValues(103, cands[0].Votes.Sub(cands[0].Votes, originCandVotes).Uint64())
 	})
 }
 

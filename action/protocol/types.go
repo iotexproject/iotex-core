@@ -1,6 +1,9 @@
 package protocol
 
-import "github.com/iotexproject/iotex-proto/golang/iotexapi"
+import (
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+)
 
 type (
 	// Parameters state request parameters
@@ -18,6 +21,7 @@ type (
 	// BaseStateContext base state context
 	BaseStateContext struct {
 		Parameter *Parameters
+		Method    *abi.Method
 	}
 )
 
