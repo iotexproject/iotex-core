@@ -158,11 +158,9 @@ func TestEthTxUtils(t *testing.T) {
 
 	pk1 := sk1.PublicKey()
 	iotexhexaddr := hex.EncodeToString(pk1.Bytes())
-	t.Log("iotex address:", pk1.Address().String())
 
 	pk2 := sk2.Public().(*ecdsa.PublicKey)
 	etherhexaddr := hex.EncodeToString(ethercrypto.FromECDSAPub(pk2))
-	t.Log("ether address:", ethercrypto.PubkeyToAddress(*pk2).String())
 
 	r.Equal(iotexhexaddr, etherhexaddr)
 
@@ -188,17 +186,10 @@ func TestEthTxUtils(t *testing.T) {
 	sender2, _ := signer2.Sender(tx2)
 	r.Equal(sender1, sender2)
 
-	// r.Equal(sender1.Bytes(), pk1.Address().Bytes())
-	// r.Equal(sender2.Bytes(), ethercrypto.PubkeyToAddress(*pk2).Bytes())
-
 	pk1recover, _ := iotexcrypto.RecoverPubkey(signer1.Hash(tx).Bytes(), sig1)
-	t.Log(hex.EncodeToString(pk1recover.Bytes()))
 	pk2recoverbytes, _ := ethercrypto.Ecrecover(signer2.Hash(tx).Bytes(), sig2)
-	t.Log(hex.EncodeToString(pk2recoverbytes))
 	r.Equal(pk1recover.Bytes(), pk2recoverbytes)
 	pk2recover, _ := ethercrypto.SigToPub(signer2.Hash(tx).Bytes(), sig2)
 
-	// r.Equal(pk1.Bytes(), pk1recover.Bytes())
-	// r.True(pk2.Equal(pk2recover))
 	r.Equal(ethercrypto.FromECDSAPub(pk2recover), pk2recoverbytes)
 }
