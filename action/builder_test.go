@@ -6,16 +6,20 @@
 package action
 
 import (
+	"crypto/ecdsa"
 	"encoding/hex"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	ethercrypto "github.com/ethereum/go-ethereum/crypto"
+	iotexcrypto "github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/pkg/util/assertions"
+	. "github.com/iotexproject/iotex-core/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
@@ -82,7 +86,7 @@ func TestBuildRewardingAction(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		method := _claimRewardingMethod
 		t.Run("ClaimRewarding", func(t *testing.T) {
-			inputs := assertions.MustNoErrorV(method.Inputs.Pack(big.NewInt(101), []byte("any"), ""))
+			inputs := MustNoErrorV(method.Inputs.Pack(big.NewInt(101), []byte("any"), ""))
 			elp, err := eb.BuildRewardingAction(types.NewTx(&types.LegacyTx{
 				Nonce:    1,
 				GasPrice: big.NewInt(10004),
@@ -102,7 +106,7 @@ func TestBuildRewardingAction(t *testing.T) {
 			eb := &EnvelopeBuilder{}
 			eb.SetChainID(4689)
 
-			inputs := assertions.MustNoErrorV(method.Inputs.Pack(big.NewInt(100), []byte("any"), ""))
+			inputs := MustNoErrorV(method.Inputs.Pack(big.NewInt(100), []byte("any"), ""))
 			to := common.HexToAddress("0xA576C141e5659137ddDa4223d209d4744b2106BE")
 			tx := types.NewTx(&types.LegacyTx{
 				Nonce:    0,
@@ -119,7 +123,7 @@ func TestBuildRewardingAction(t *testing.T) {
 		})
 		method = _depositRewardMethod
 		t.Run("DepositRewarding", func(t *testing.T) {
-			inputs := assertions.MustNoErrorV(method.Inputs.Pack(big.NewInt(102), []byte("any")))
+			inputs := MustNoErrorV(method.Inputs.Pack(big.NewInt(102), []byte("any")))
 			elp, err := eb.BuildRewardingAction(types.NewTx(&types.LegacyTx{
 				Nonce:    1,
 				GasPrice: big.NewInt(10004),
@@ -135,4 +139,57 @@ func TestBuildRewardingAction(t *testing.T) {
 			r.EqualValues(big.NewInt(102), elp.Action().(*DepositToRewardingFund).Amount())
 		})
 	})
+}
+
+func ptr[V any](v V) *V { return &v }
+
+func TestEthTxUtils(t *testing.T) {
+	r := require.New(t)
+	var (
+		skhex   = "708361c6460c93f027df0823eb440f3270ee2937944f2de933456a3900d6dd1a"
+		sk1, _  = iotexcrypto.HexStringToPrivateKey(skhex)
+		sk2, _  = ethercrypto.HexToECDSA(skhex)
+		chainID = uint32(4689)
+		builder = (&Builder{}).
+			SetNonce(100).
+			SetGasLimit(21000).
+			SetGasPrice(big.NewInt(101))
+	)
+
+	pk1 := sk1.PublicKey()
+	iotexhexaddr := hex.EncodeToString(pk1.Bytes())
+
+	pk2 := sk2.Public().(*ecdsa.PublicKey)
+	etherhexaddr := hex.EncodeToString(ethercrypto.FromECDSAPub(pk2))
+
+	r.Equal(iotexhexaddr, etherhexaddr)
+
+	tx, _ := ptr((&ClaimFromRewardingFundBuilder{Builder: *builder}).
+		SetAddress("0xA576C141e5659137ddDa4223d209d4744b2106BE").
+		SetData([]byte("any")).
+		SetAmount(big.NewInt(1)).Build()).ToEthTx(chainID)
+
+	var (
+		signer1, _ = NewEthSigner(iotextypes.Encoding_ETHEREUM_EIP155, chainID)
+		sig1, _    = sk1.Sign(tx.Hash().Bytes())
+		signer2    = types.NewEIP2930Signer(big.NewInt(int64(chainID)))
+		sig2, _    = ethercrypto.Sign(tx.Hash().Bytes(), sk2)
+	)
+	r.Equal(signer1, signer2)
+	r.Equal(sig1, sig2)
+
+	tx1, _ := RawTxToSignedTx(tx, signer1, sig1)
+	tx2, _ := tx.WithSignature(signer2, sig2)
+	r.Equal(tx1.Hash(), tx2.Hash())
+
+	sender1, _ := signer1.Sender(tx1)
+	sender2, _ := signer2.Sender(tx2)
+	r.Equal(sender1, sender2)
+
+	pk1recover, _ := iotexcrypto.RecoverPubkey(signer1.Hash(tx).Bytes(), sig1)
+	pk2recoverbytes, _ := ethercrypto.Ecrecover(signer2.Hash(tx).Bytes(), sig2)
+	r.Equal(pk1recover.Bytes(), pk2recoverbytes)
+	pk2recover, _ := ethercrypto.SigToPub(signer2.Hash(tx).Bytes(), sig2)
+
+	r.Equal(ethercrypto.FromECDSAPub(pk2recover), pk2recoverbytes)
 }
