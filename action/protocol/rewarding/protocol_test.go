@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -190,29 +189,29 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	)
 	blockReward, err := p.BlockReward(ctx, sm)
 	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(10), blockReward)
+	require.Equal(t, big.NewInt(10), blockReward)
 	epochReward, err := p.EpochReward(ctx, sm)
 	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(100), epochReward)
+	require.Equal(t, big.NewInt(100), epochReward)
 	fb, err := p.FoundationBonus(ctx, sm)
 	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(5), fb)
+	require.Equal(t, big.NewInt(5), fb)
 	ndffb, err := p.NumDelegatesForFoundationBonus(ctx, sm)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(5), ndffb)
+	require.Equal(t, uint64(5), ndffb)
 	fble, err := p.FoundationBonusLastEpoch(ctx, sm)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(365), fble)
+	require.Equal(t, uint64(365), fble)
 	pt, err := p.ProductivityThreshold(ctx, sm)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(50), pt)
+	require.Equal(t, uint64(50), pt)
 
 	totalBalance, _, err := p.TotalBalance(ctx, sm)
 	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(0), totalBalance)
+	require.Equal(t, big.NewInt(0), totalBalance)
 	availableBalance, _, err := p.AvailableBalance(ctx, sm)
 	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(0), availableBalance)
+	require.Equal(t, big.NewInt(0), availableBalance)
 
 	test(t, ctx, sm, p)
 }
@@ -385,7 +384,7 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(t, err)
 	balance, _, err := p.TotalBalance(ctx, sm)
 	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(2000000), balance)
+	require.Equal(t, big.NewInt(2000000), balance)
 
 	// Grant
 	// Test for createGrantRewardAction
@@ -402,8 +401,8 @@ func TestProtocol_Handle(t *testing.T) {
 	)
 	receipt, err := p.Handle(ctx, se2.Action(), sm)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
-	assert.Equal(t, 1, len(receipt.Logs()))
+	require.Equal(t, uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
+	require.Equal(t, 1, len(receipt.Logs()))
 	ctx = protocol.WithActionCtx(
 		ctx,
 		protocol.ActionCtx{
@@ -415,7 +414,7 @@ func TestProtocol_Handle(t *testing.T) {
 	// Grant the block reward again should fail
 	receipt, err = p.Handle(ctx, se2.Action(), sm)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
+	require.Equal(t, uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
 
 	// Claim
 	claimBuilder := action.ClaimFromRewardingFundBuilder{}
@@ -440,30 +439,32 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(t, err)
 	balance, _, err = p.TotalBalance(ctx, sm)
 	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(1000000), balance)
+	require.Equal(t, big.NewInt(1000000), balance)
 
 	// Test CreatePreStates
-	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
-			BlockHeight: 1816201,
-		},
-	)
-	require.NoError(t, p.CreatePreStates(ctx, sm))
-	blockReward, err := p.BlockReward(ctx, sm)
-	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(8000000000000000000), blockReward)
-
-	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
-			BlockHeight: 864001,
-		},
-	)
-	require.NoError(t, p.CreatePreStates(ctx, sm))
-	BlockReward, err := p.BlockReward(ctx, sm)
-	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(8000000000000000000), BlockReward)
+	for i, h := range []uint64{
+		g.DardanellesBlockHeight,
+		g.AleutianBlockHeight,
+		g.ToBeEnabledBlockHeight, // test delegate extension
+	} {
+		ctx = protocol.WithFeatureWithHeightCtx(protocol.WithBlockCtx(
+			ctx,
+			protocol.BlockCtx{
+				BlockHeight: h,
+			},
+		))
+		require.NoError(t, p.CreatePreStates(ctx, sm))
+		blockReward, err := p.BlockReward(ctx, sm)
+		require.NoError(t, err)
+		require.Equal(t, big.NewInt(8000000000000000000), blockReward)
+		num, err := p.NumDelegatesForFoundationBonus(ctx, sm)
+		require.NoError(t, err)
+		if i <= 1 {
+			require.EqualValues(t, 5, num)
+		} else {
+			require.Equal(t, g.NumCandidateDelegatesV2, num)
+		}
+	}
 
 	// Test for CreatePostSystemActions
 	grants, err := p.CreatePostSystemActions(ctx, sm)
