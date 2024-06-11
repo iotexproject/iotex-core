@@ -4,9 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"math"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -14,6 +12,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -32,22 +31,11 @@ type eventHandler struct {
 }
 
 var (
-	// TODO: fill in the ABI of staking contract
-	//go:embed staking.json
-	StakingContractJSONABI string
-	stakingContractABI     abi.ABI
+	stakingContractABI = staking.StakingContractABI
 
 	// ErrBucketNotExist is the error when bucket does not exist
 	ErrBucketNotExist = errors.New("bucket does not exist")
 )
-
-func init() {
-	var err error
-	stakingContractABI, err = abi.JSON(strings.NewReader(StakingContractJSONABI))
-	if err != nil {
-		panic(err)
-	}
-}
 
 func newEventHandler(dirty *cache) *eventHandler {
 	return &eventHandler{

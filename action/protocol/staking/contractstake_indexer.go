@@ -6,7 +6,19 @@
 package staking
 
 import (
+	_ "embed"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-address/address"
+)
+
+var (
+	// StakingContractJSONABI is the abi json of staking contract
+	//go:embed contract_staking_abi.json
+	StakingContractJSONABI string
+	// StakingContractABI is the abi of staking contract
+	StakingContractABI abi.ABI
 )
 
 type (
@@ -31,3 +43,11 @@ type (
 		BucketTypes(height uint64) ([]*ContractStakingBucketType, error)
 	}
 )
+
+func init() {
+	var err error
+	StakingContractABI, err = abi.JSON(strings.NewReader(StakingContractJSONABI))
+	if err != nil {
+		panic(err)
+	}
+}

@@ -124,6 +124,7 @@ type (
 		CandidateIdentifiedByOwner              bool
 		UseTxContainer                          bool
 		LimitedStakingContract                  bool
+		MigrateNativeStake                      bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -273,6 +274,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CandidateIdentifiedByOwner:              !g.IsToBeEnabled(height),
 			UseTxContainer:                          g.IsToBeEnabled(height),
 			LimitedStakingContract:                  !g.IsToBeEnabled(height),
+			MigrateNativeStake:                      g.IsToBeEnabled(height),
 		},
 	)
 }

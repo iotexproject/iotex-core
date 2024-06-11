@@ -95,6 +95,7 @@ type (
 		BootstrapCandidates              []genesis.BootstrapCandidate
 		PersistStakingPatchBlock         uint64
 		EndorsementWithdrawWaitingBlocks uint64
+		MigrateContractAddress           string
 	}
 	// HelperCtx is the helper context for staking protocol
 	HelperCtx struct {
@@ -410,10 +411,12 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
 	var (
-		rLog  *receiptLog
-		tLogs []*action.TransactionLog
-		err   error
-		logs  []*action.Log
+		rLog        *receiptLog
+		tLogs       []*action.TransactionLog
+		err         error
+		logs        []*action.Log
+		actionCtx   = protocol.MustGetActionCtx(ctx)
+		gasConsumed = actionCtx.IntrinsicGas
 	)
 
 	switch act := act.(type) {
@@ -441,22 +444,25 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		rLog, tLogs, err = p.handleCandidateEndorsement(ctx, act, csm)
 	case *action.CandidateTransferOwnership:
 		rLog, tLogs, err = p.handleCandidateTransferOwnership(ctx, act, csm)
+	case *action.MigrateStake:
+		logs, tLogs, gasConsumed, err = p.handleStakeMigrate(ctx, act, csm)
 	default:
 		return nil, nil
 	}
-
-	if l := rLog.Build(ctx, err); l != nil {
-		logs = append(logs, l)
+	if rLog != nil {
+		if l := rLog.Build(ctx, err); l != nil {
+			logs = append(logs, l)
+		}
 	}
 	if err == nil {
-		return p.settleAction(ctx, csm.SM(), uint64(iotextypes.ReceiptStatus_Success), logs, tLogs)
+		return p.settleAction(ctx, csm.SM(), uint64(iotextypes.ReceiptStatus_Success), logs, tLogs, gasConsumed)
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		log.L().With(
 			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Debug("Failed to commit staking action", zap.Error(err))
-		return p.settleAction(ctx, csm.SM(), receiptErr.ReceiptStatus(), logs, tLogs)
+		return p.settleAction(ctx, csm.SM(), receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed)
 	}
 	return nil, err
 }
@@ -491,6 +497,8 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 		return p.validateCandidateEndorsement(ctx, act)
 	case *action.CandidateTransferOwnership:
 		return p.validateCandidateTransferOwnershipAction(ctx, act)
+	case *action.MigrateStake:
+		return p.validateMigrateStake(ctx, act)
 	}
 	return nil
 }
@@ -672,6 +680,7 @@ func (p *Protocol) settleAction(
 	status uint64,
 	logs []*action.Log,
 	tLogs []*action.TransactionLog,
+	gasConsumed uint64,
 ) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -698,7 +707,7 @@ func (p *Protocol) settleAction(
 		Status:          status,
 		BlockHeight:     blkCtx.BlockHeight,
 		ActionHash:      actionCtx.ActionHash,
-		GasConsumed:     actionCtx.IntrinsicGas,
+		GasConsumed:     gasConsumed,
 		ContractAddress: p.addr.String(),
 	}
 	r.AddLogs(logs...).AddTransactionLogs(depositLog).AddTransactionLogs(tLogs...)
