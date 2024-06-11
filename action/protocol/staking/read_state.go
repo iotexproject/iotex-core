@@ -62,48 +62,58 @@ func getPageOfBuckets(buckets []*VoteBucket, offset, limit int) []*VoteBucket {
 	return getPageOfArray(buckets, offset, limit)
 }
 
-func toIoTeXTypesCandidateV2(sr protocol.StateReader, cand *Candidate) *iotextypes.CandidateV2 {
+func toIoTeXTypesCandidateV2(sr protocol.StateReader, cand *Candidate) (*iotextypes.CandidateV2, error) {
 	csr := newCandidateStateReader(sr)
 	esr := NewEndorsementStateReader(sr)
 	height, _ := sr.Height()
-	needClear := func(c *Candidate) bool {
+	needClear := func(c *Candidate) (bool, error) {
 		if !c.isSelfStakeBucketSettled() {
-			return false
+			return false, nil
 		}
 		vb, err := csr.getBucket(c.SelfStakeBucketIdx)
 		if err != nil {
-			return true
+			if errors.Is(err, state.ErrStateNotExist) {
+				return true, nil
+			}
+			return false, err
 		}
 		if isSelfOwnedBucket(csr, vb) {
-			return false
+			return false, nil
 		}
 		endorse, err := esr.Get(c.SelfStakeBucketIdx)
 		if err != nil {
-			return true
+			if errors.Is(err, state.ErrStateNotExist) {
+				return true, nil
+			}
+			return false, err
 		}
-		if endorse.Status(height) == EndorseExpired {
-			return true
-		}
-		return false
+		return endorse.Status(height) == EndorseExpired, nil
 	}
 	c := cand.toIoTeXTypes()
 	// clear self-stake bucket if endorsement is expired but not updated yet
-	if needClear(cand) {
+	clear, err := needClear(cand)
+	if err != nil {
+		return nil, err
+	}
+	if clear {
 		c.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
 		c.SelfStakingTokens = "0"
 	}
-	return c
+	return c, nil
 }
 
-func toIoTeXTypesCandidateListV2(sr protocol.StateReader, candidates CandidateList) *iotextypes.CandidateListV2 {
+func toIoTeXTypesCandidateListV2(sr protocol.StateReader, candidates CandidateList) (*iotextypes.CandidateListV2, error) {
 	res := iotextypes.CandidateListV2{
 		Candidates: make([]*iotextypes.CandidateV2, 0, len(candidates)),
 	}
 	for _, c := range candidates {
-		cand := toIoTeXTypesCandidateV2(sr, c)
+		cand, err := toIoTeXTypesCandidateV2(sr, c)
+		if err != nil {
+			return nil, err
+		}
 		res.Candidates = append(res.Candidates, cand)
 	}
-	return &res
+	return &res, nil
 }
 
 func getPageOfCandidates(candidates CandidateList, offset, limit int) CandidateList {

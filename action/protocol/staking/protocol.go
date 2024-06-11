@@ -326,7 +326,10 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
-	candidateList := toIoTeXTypesCandidateListV2(sm, all)
+	candidateList, err := toIoTeXTypesCandidateListV2(sm, all)
+	if err != nil {
+		return err
+	}
 	return p.candBucketsIndexer.PutCandidates(epochStartHeight, candidateList)
 }
 

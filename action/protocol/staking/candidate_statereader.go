@@ -466,7 +466,8 @@ func (c *candSR) readStateCandidates(ctx context.Context, req *iotexapi.ReadStak
 	limit := int(req.GetPagination().GetLimit())
 	candidates := getPageOfCandidates(c.AllCandidates(), offset, limit)
 
-	return toIoTeXTypesCandidateListV2(c.SR(), candidates), c.Height(), nil
+	list, err := toIoTeXTypesCandidateListV2(c.SR(), candidates)
+	return list, c.Height(), err
 }
 
 func (c *candSR) readStateCandidateByName(ctx context.Context, req *iotexapi.ReadStakingDataRequest_CandidateByName) (*iotextypes.CandidateV2, uint64, error) {
@@ -474,7 +475,8 @@ func (c *candSR) readStateCandidateByName(ctx context.Context, req *iotexapi.Rea
 	if cand == nil {
 		return &iotextypes.CandidateV2{}, c.Height(), nil
 	}
-	return toIoTeXTypesCandidateV2(c.SR(), cand), c.Height(), nil
+	list, err := toIoTeXTypesCandidateV2(c.SR(), cand)
+	return list, c.Height(), err
 }
 
 func (c *candSR) readStateCandidateByAddress(ctx context.Context, req *iotexapi.ReadStakingDataRequest_CandidateByAddress) (*iotextypes.CandidateV2, uint64, error) {
@@ -503,7 +505,8 @@ func (c *candSR) readStateCandidateByAddress(ctx context.Context, req *iotexapi.
 	if cand == nil {
 		return &iotextypes.CandidateV2{}, c.Height(), nil
 	}
-	return toIoTeXTypesCandidateV2(c.SR(), cand), c.Height(), nil
+	candV2, err := toIoTeXTypesCandidateV2(c.SR(), cand)
+	return candV2, c.Height(), err
 }
 
 func (c *candSR) readStateTotalStakingAmount(ctx context.Context, _ *iotexapi.ReadStakingDataRequest_TotalStakingAmount) (*iotextypes.AccountMeta, uint64, error) {
