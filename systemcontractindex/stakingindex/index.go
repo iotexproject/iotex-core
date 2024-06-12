@@ -192,6 +192,11 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	return s.commit(handler, blk.Height())
 }
 
+// DeleteTipBlock deletes the tip block from indexer
+func (s *Indexer) DeleteTipBlock(context.Context, *block.Block) error {
+	return errors.New("not implemented")
+}
+
 func (s *Indexer) commit(handler *eventHandler, height uint64) error {
 	delta, dirty := handler.Finalize()
 	// update db

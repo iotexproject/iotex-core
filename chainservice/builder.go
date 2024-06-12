@@ -47,6 +47,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/blockutil"
 	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/systemcontractindex/stakingindex"
 )
 
 // Builder is a builder to build chainservice
@@ -267,6 +268,9 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.contractStakingIndexer != nil {
 		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexer)
 	}
+	if builder.cs.contractStakingIndexerV2 != nil {
+		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexerV2)
+	}
 	if builder.cs.sgdIndexer != nil {
 		synchronizedIndexers = append(synchronizedIndexers, builder.cs.sgdIndexer)
 	}
@@ -344,6 +348,15 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		return err
 	}
 	builder.cs.contractStakingIndexer = indexer
+	// indexer v2
+	dbConfig = builder.cfg.DB
+	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPathV2
+	indexerV2 := stakingindex.NewIndexer(
+		db.NewBoltDB(dbConfig),
+		builder.cfg.Genesis.SystemStakingContractAddressV2,
+		builder.cfg.Genesis.SystemStakingContractHeightV2, builder.cfg.DardanellesUpgrade.BlockInterval,
+	)
+	builder.cs.contractStakingIndexerV2 = indexerV2
 	return nil
 }
 
@@ -559,16 +572,21 @@ func (builder *Builder) registerStakingProtocol() error {
 	if !builder.cfg.Chain.EnableStakingProtocol {
 		return nil
 	}
-
+	consensusCfg := consensusfsm.NewConsensusConfig(builder.cfg.Consensus.RollDPoS.FSM, builder.cfg.DardanellesUpgrade, builder.cfg.Genesis, builder.cfg.Consensus.RollDPoS.Delay)
 	stakingProtocol, err := staking.NewProtocol(
-		rewarding.DepositGas,
+		staking.HelperCtx{
+			DepositGas:       rewarding.DepositGas,
+			GetBlockInterval: consensusCfg.BlockInterval,
+		},
 		&staking.BuilderConfig{
 			Staking:                  builder.cfg.Genesis.Staking,
 			PersistStakingPatchBlock: builder.cfg.Chain.PersistStakingPatchBlock,
 			StakingPatchDir:          builder.cfg.Chain.StakingPatchDir,
+			Poll:                     builder.cfg.Genesis.Poll,
 		},
 		builder.cs.candBucketsIndexer,
 		builder.cs.contractStakingIndexer,
+		builder.cs.contractStakingIndexerV2,
 		builder.cfg.Genesis.OkhotskBlockHeight,
 		builder.cfg.Genesis.GreenlandBlockHeight,
 		builder.cfg.Genesis.HawaiiBlockHeight,
