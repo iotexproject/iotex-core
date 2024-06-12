@@ -56,6 +56,7 @@ func TestCandidatesToEth(t *testing.T) {
 				TotalWeightedVotes: "10000000000000000000",
 				SelfStakeBucketIdx: 100,
 				SelfStakingTokens:  "5000000000000000000",
+				Id:                 "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv",
 			}, {
 				OwnerAddress:       "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqyzm8z5y",
 				OperatorAddress:    "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9ldnhfk",
@@ -64,6 +65,7 @@ func TestCandidatesToEth(t *testing.T) {
 				TotalWeightedVotes: "11000000000000000000",
 				SelfStakeBucketIdx: 101,
 				SelfStakingTokens:  "6000000000000000000",
+				Id:                 "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqyzm8z5y",
 			},
 		},
 	}

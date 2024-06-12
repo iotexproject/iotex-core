@@ -51,6 +51,7 @@ func TestCandidateByAddressToEth(t *testing.T) {
 		TotalWeightedVotes: "10000000000000000000",
 		SelfStakeBucketIdx: 100,
 		SelfStakingTokens:  "5000000000000000000",
+		Id:                 "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv",
 	}
 
 	candidateBytes, _ := proto.Marshal(candidate)

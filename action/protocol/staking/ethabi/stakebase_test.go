@@ -43,6 +43,7 @@ func TestEncodeCandidateToEth(t *testing.T) {
 		TotalWeightedVotes: "10000000000000000000",
 		SelfStakeBucketIdx: 100,
 		SelfStakingTokens:  "5000000000000000000",
+		Id:                 "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv",
 	}
 
 	cand, err := stakingComm.EncodeCandidateToEth(candidate)
@@ -55,6 +56,7 @@ func TestEncodeCandidateToEth(t *testing.T) {
 	r.EqualValues("10000000000000000000", cand.TotalWeightedVotes.String())
 	r.EqualValues(100, cand.SelfStakeBucketIdx)
 	r.EqualValues("5000000000000000000", cand.SelfStakingTokens.String())
+	r.EqualValues("0x0000000000000000000000000000000000000001", cand.Id.Hex())
 }
 
 func TestEncodeCandidateToEthErrorOwnerAddress(t *testing.T) {
