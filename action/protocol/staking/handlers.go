@@ -687,7 +687,18 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		}
 	}
 	// cannot collide with existing identifier
-	c = csm.GetByIdentifier(owner)
+	candID := owner
+	if !featureCtx.CandidateIdentifiedByOwner {
+		id, err := p.generateCandidateID(owner, blkCtx.BlockHeight, csm)
+		if err != nil {
+			return log, nil, &handleError{
+				err:           errors.Wrap(err, "failed to generate candidate ID"),
+				failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
+			}
+		}
+		candID = id
+	}
+	c = csm.GetByIdentifier(candID)
 	if c != nil {
 		return log, nil, &handleError{
 			err:           ErrInvalidOwner,
@@ -719,7 +730,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	)
 	if withSelfStake {
 		// register with self-stake
-		bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
+		bucket := NewVoteBucket(candID, owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
 		bucketIdx, err = csm.putBucketAndIndex(bucket)
 		if err != nil {
 			return log, nil, err
@@ -736,7 +747,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		bucketIdx = uint64(candidateNoSelfStakeBucketIndex)
 		votes = big.NewInt(0)
 	}
-	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), owner.Bytes())
+	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), candID.Bytes())
 
 	c = &Candidate{
 		Owner:              owner,
@@ -746,6 +757,9 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		Votes:              votes,
 		SelfStakeBucketIdx: bucketIdx,
 		SelfStake:          act.Amount(),
+	}
+	if !featureCtx.CandidateIdentifiedByOwner {
+		c.Identifier = candID
 	}
 
 	if err := csm.Upsert(c); err != nil {
@@ -782,7 +796,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		return log, nil, errors.Wrap(err, "failed to deposit gas")
 	}
 
-	log.AddAddress(owner)
+	log.AddAddress(candID)
 	log.AddAddress(actCtx.Caller)
 	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
 
@@ -890,6 +904,26 @@ func (p *Protocol) fetchBucketAndValidate(
 		}
 	}
 	return bucket, nil
+}
+
+func (p *Protocol) generateCandidateID(owner address.Address, height uint64, csm CandidateStateManager) (address.Address, error) {
+	isValidID := func(id address.Address) bool {
+		return csm.GetByIdentifier(id) == nil && csm.GetByOwner(id) == nil
+	}
+	if isValidID(owner) {
+		return owner, nil
+	}
+	for i := range make([]struct{}, 1000) {
+		b := hash.Hash160b(append(owner.Bytes(), append(byteutil.Uint64ToBytesBigEndian(height), byteutil.Uint64ToBytesBigEndian(uint64(i))...)...))
+		addr, err := address.FromBytes(b[:])
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to generate candidate ID")
+		}
+		if isValidID(addr) {
+			return addr, nil
+		}
+	}
+	return nil, errors.New("failed to generate candidate ID after max attempts")
 }
 
 func fetchCaller(ctx context.Context, csm CandidateStateManager, amount *big.Int) (*state.Account, ReceiptError) {
