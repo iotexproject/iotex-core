@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"strconv"
 
+	"github.com/iotexproject/go-pkgs/byteutil"
 	"github.com/iotexproject/iotex-election/util"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -575,27 +576,48 @@ func (sh *Slasher) calculateActiveBlockProducer(
 	blockProducers state.CandidateList,
 	epochStartHeight uint64,
 ) (state.CandidateList, error) {
-	var blockProducerList []string
-	blockProducerMap := make(map[string]*state.Candidate)
+	var (
+		blockProducerList []string
+		blockProducerMap  = make(map[string]*state.Candidate)
+		numActiveBP       = int(sh.numDelegates)
+		totalVotes        = new(big.Int)
+	)
 	for _, bp := range blockProducers {
 		blockProducerList = append(blockProducerList, bp.Address)
 		blockProducerMap[bp.Address] = bp
+		totalVotes.Add(totalVotes, bp.Votes)
 	}
-	crypto.SortCandidates(blockProducerList, epochStartHeight, crypto.CryptoSeed)
 
-	length := int(sh.numDelegates)
-	if len(blockProducerList) < length {
+	if len(blockProducerList) < numActiveBP {
 		// TODO: if the number of delegates is smaller than expected, should it return error or not?
-		length = len(blockProducerList)
+		numActiveBP = len(blockProducerList)
 		log.L().Warn(
 			"the number of block producer is less than expected",
 			zap.Int("actual block producer", len(blockProducerList)),
 			zap.Uint64("expected", sh.numDelegates),
 		)
 	}
-	var activeBlockProducers state.CandidateList
-	for i := 0; i < length; i++ {
-		activeBlockProducers = append(activeBlockProducers, blockProducerMap[blockProducerList[i]])
+	if protocol.MustGetFeatureCtx(ctx).ExtendCandidateDelegatesTo48 {
+		// keep generating until votes of the chosen set exceeds 1/2 of total votes
+		for i := 0; i < 128; i++ {
+			votes := new(big.Int)
+			seed := append(crypto.CryptoSeed, byteutil.Uint64ToBytesBigEndian(uint64(i))...)
+			crypto.SortCandidates(blockProducerList, epochStartHeight, seed)
+			for j := 0; j < numActiveBP; j++ {
+				votes.Add(votes, blockProducerMap[blockProducerList[j]].Votes)
+			}
+			votes.Lsh(votes, 1)
+			if votes.Cmp(totalVotes) >= 0 {
+				// exceed 1/2 of total votes
+				break
+			}
+		}
+	} else {
+		crypto.SortCandidates(blockProducerList, epochStartHeight, crypto.CryptoSeed)
+	}
+	activeBlockProducers := make(state.CandidateList, numActiveBP)
+	for i := 0; i < numActiveBP; i++ {
+		activeBlockProducers[i] = blockProducerMap[blockProducerList[i]]
 	}
 	return activeBlockProducers, nil
 }
