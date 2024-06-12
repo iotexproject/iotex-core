@@ -31,6 +31,9 @@ type (
 	bucketExpect struct {
 		bucket *iotextypes.VoteBucket
 	}
+	executionExpect struct {
+		contractAddress string
+	}
 )
 
 func (be *basicActionExpect) expect(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
@@ -78,7 +81,7 @@ func (ce *candidateExpect) expect(test *e2etest, act *action.SealedEnvelope, rec
 func (be *bucketExpect) expect(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
 	require := require.New(test.t)
 	method := &iotexapi.ReadStakingDataMethod{
-		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES,
+		Method: iotexapi.ReadStakingDataMethod_COMPOSITE_BUCKETS_BY_INDEXES,
 	}
 	methodBytes, err := proto.Marshal(method)
 	require.NoError(err)
@@ -110,6 +113,12 @@ func (be *bucketExpect) expect(test *e2etest, act *action.SealedEnvelope, receip
 	idx := slices.IndexFunc(vbs.Buckets, func(vb *iotextypes.VoteBucket) bool {
 		return vb.ContractAddress == be.bucket.ContractAddress
 	})
-	require.True(idx != -1)
+	require.Greater(idx, -1)
 	require.EqualValues(be.bucket.String(), vbs.Buckets[idx].String())
+}
+
+func (ee *executionExpect) expect(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+	require := require.New(test.t)
+	require.NoError(err)
+	require.Equal(ee.contractAddress, receipt.ContractAddress)
 }
