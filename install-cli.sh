@@ -28,8 +28,6 @@ BREW_UNSTABLE_INSTALL_CMD="brew install iotexproject/ioctl-unstable/ioctl-unstab
 BREW_UNSTABLE_REINSTALL_CMD="brew reinstall ioctl-unstable"
 BREW_INSTALLED_PATH="/usr/local/bin"
 
-INSTALL_NAME="ioctl"
-
 downloadJSON() {
     url="$2"
 
@@ -185,6 +183,8 @@ downloadFile "$BINARY_URL" "$DOWNLOAD_FILE"
 
 echo "Setting executable permissions."
 chmod +x "$DOWNLOAD_FILE"
+
+INSTALL_NAME="ioctl"
 
 if [ "$OS" = "windows" ]; then
     INSTALL_NAME="$INSTALL_NAME.exe"
