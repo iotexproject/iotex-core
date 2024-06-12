@@ -304,6 +304,8 @@ func TestLocalTransfer(t *testing.T) {
 	require.NoError(err)
 	testContractStakeIndexPath, err := testutil.PathOfTempFile("contractStakeIndex")
 	require.NoError(err)
+	testContractStakeIndexPathV2, err := testutil.PathOfTempFile("contractStakeIndex.v2")
+	require.NoError(err)
 	sgdIndexDBPath, err := testutil.PathOfTempFile("sgdIndex")
 	require.NoError(err)
 
@@ -315,12 +317,13 @@ func TestLocalTransfer(t *testing.T) {
 		testutil.CleanupPath(testBloomfilterIndexPath)
 		testutil.CleanupPath(testCandidateIndexPath)
 		testutil.CleanupPath(testContractStakeIndexPath)
+		testutil.CleanupPath(testContractStakeIndexPathV2)
 		testutil.CleanupPath(sgdIndexDBPath)
 	}()
 
 	networkPort := 4689
 	apiPort := testutil.RandomPort()
-	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, sgdIndexDBPath, testBloomfilterIndexPath, testSystemLogPath, testCandidateIndexPath, testContractStakeIndexPath, networkPort, apiPort)
+	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, sgdIndexDBPath, testBloomfilterIndexPath, testSystemLogPath, testCandidateIndexPath, testContractStakeIndexPath, testContractStakeIndexPathV2, networkPort, apiPort)
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -593,6 +596,7 @@ func newTransferConfig(
 	systemLogDBPath string,
 	candidateIndexDBPath string,
 	contractstakeIndexDBPath string,
+	contractstakeIndexDBPathV2 string,
 	networkPort,
 	apiPort int,
 ) (config.Config, error) {
@@ -610,6 +614,7 @@ func newTransferConfig(
 	cfg.System.SystemLogDBPath = systemLogDBPath
 	cfg.Chain.CandidateIndexDBPath = candidateIndexDBPath
 	cfg.Chain.ContractStakingIndexDBPath = contractstakeIndexDBPath
+	cfg.Chain.ContractStakingIndexDBPathV2 = contractstakeIndexDBPathV2
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme

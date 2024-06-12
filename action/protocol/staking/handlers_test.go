@@ -83,10 +83,13 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require.NoError(err)
 
 	// create protocol
-	p, err := NewProtocol(depositGas, &BuilderConfig{
+	p, err := NewProtocol(HelperCtx{
+		DepositGas:       depositGas,
+		GetBlockInterval: getBlockInterval,
+	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, nil, nil, genesis.Default.GreenlandBlockHeight)
+	}, nil, nil, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	// set up candidate
@@ -3212,10 +3215,13 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	require.NoError(err)
 
 	// create protocol
-	p, err := NewProtocol(depositGas, &BuilderConfig{
+	p, err := NewProtocol(HelperCtx{
+		DepositGas:       depositGas,
+		GetBlockInterval: getBlockInterval,
+	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, nil, nil, genesis.Default.GreenlandBlockHeight)
+	}, nil, nil, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	// set up candidate
@@ -3262,6 +3268,10 @@ func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) 
 	// TODO: replace with SubBalance, and then change `Balance` to a function
 	acc.Balance = big.NewInt(0).Sub(acc.Balance, gasFee)
 	return nil, accountutil.StoreAccount(sm, actionCtx.Caller, acc)
+}
+
+func getBlockInterval(height uint64) time.Duration {
+	return 5 * time.Second
 }
 
 func newconsignment(r *require.Assertions, bucketIdx, nonce uint64, senderPrivate, recipient, consignTpye, reclaim string, wrongSig bool) []byte {

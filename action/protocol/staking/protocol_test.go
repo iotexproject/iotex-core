@@ -86,10 +86,13 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// test loading with no candidate in stateDB
-	stk, err := NewProtocol(nil, &BuilderConfig{
+	stk, err := NewProtocol(HelperCtx{
+		DepositGas:       nil,
+		GetBlockInterval: getBlockInterval,
+	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, nil, nil, genesis.Default.GreenlandBlockHeight)
+	}, nil, nil, nil, genesis.Default.GreenlandBlockHeight)
 	r.NotNil(stk)
 	r.NoError(err)
 	buckets, _, err := csr.getAllBuckets()
@@ -199,10 +202,13 @@ func TestCreatePreStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	p, err := NewProtocol(nil, &BuilderConfig{
+	p, err := NewProtocol(HelperCtx{
+		DepositGas:       nil,
+		GetBlockInterval: getBlockInterval,
+	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, nil, nil, genesis.Default.GreenlandBlockHeight, genesis.Default.GreenlandBlockHeight)
+	}, nil, nil, nil, genesis.Default.GreenlandBlockHeight, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 	ctx := protocol.WithBlockCtx(
 		genesis.WithGenesisContext(context.Background(), genesis.Default),
@@ -262,10 +268,13 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 
 	ctx := context.Background()
 	require.NoError(cbi.Start(ctx))
-	p, err := NewProtocol(nil, &BuilderConfig{
+	p, err := NewProtocol(HelperCtx{
+		DepositGas:       nil,
+		GetBlockInterval: getBlockInterval,
+	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, cbi, nil, genesis.Default.GreenlandBlockHeight, genesis.Default.GreenlandBlockHeight)
+	}, cbi, nil, nil, genesis.Default.GreenlandBlockHeight, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	rol := rolldpos.NewProtocol(23, 4, 3)
@@ -378,10 +387,13 @@ func Test_CreateGenesisStates(t *testing.T) {
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	for _, test := range testBootstrapCandidates {
 		cfg.BootstrapCandidates = test.BootstrapCandidate
-		p, err := NewProtocol(nil, &BuilderConfig{
+		p, err := NewProtocol(HelperCtx{
+			DepositGas:       nil,
+			GetBlockInterval: getBlockInterval,
+		}, &BuilderConfig{
 			Staking:                  cfg,
 			PersistStakingPatchBlock: math.MaxUint64,
-		}, nil, nil, genesis.Default.GreenlandBlockHeight)
+		}, nil, nil, nil, genesis.Default.GreenlandBlockHeight)
 		require.NoError(err)
 
 		v, err := p.Start(ctx, sm)
@@ -412,10 +424,13 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 			SelfStakingTokens: selfStake.String(),
 		},
 	}
-	p, err := NewProtocol(nil, &BuilderConfig{
+	p, err := NewProtocol(HelperCtx{
+		DepositGas:       nil,
+		GetBlockInterval: getBlockInterval,
+	}, &BuilderConfig{
 		Staking:                  cfg,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, nil, csIndexer, genesis.Default.GreenlandBlockHeight)
+	}, nil, csIndexer, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	blkHeight := genesis.Default.QuebecBlockHeight + 1
