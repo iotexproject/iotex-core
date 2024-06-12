@@ -188,6 +188,19 @@ func (st *Account) ConvertFreshAccountToZeroNonceType(nonce uint64) bool {
 	return false
 }
 
+// DecreaseNonce decrements the nonce of the account
+func (st *Account) DecreaseNonce() {
+	switch st.accountType {
+	case 0, 1:
+		if st.nonce == 0 {
+			panic("nonce underflow")
+		}
+		st.nonce--
+	default:
+		panic(errors.Wrapf(ErrUnknownAccountType, "account type %d", st.accountType))
+	}
+}
+
 // PendingNonce returns the pending nonce of the account
 func (st *Account) PendingNonce() uint64 {
 	switch st.accountType {

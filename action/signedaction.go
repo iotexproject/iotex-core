@@ -412,3 +412,31 @@ func SignedCandidateTransferOwnership(
 	}
 	return selp, nil
 }
+
+func SignedMigrateStake(
+	nonce uint64,
+	bucketIndex uint64,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	senderPriKey crypto.PrivateKey,
+	options ...SignedActionOption,
+) (*SealedEnvelope, error) {
+	cto, err := NewMigrateStake(nonce, bucketIndex, gasLimit, gasPrice)
+	if err != nil {
+		return nil, err
+	}
+	bd := &EnvelopeBuilder{}
+	bd = bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).
+		SetAction(cto)
+	for _, opt := range options {
+		opt(bd)
+	}
+	elp := bd.Build()
+	selp, err := Sign(elp, senderPriKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to sign candidate transfer ownership %v", elp)
+	}
+	return selp, nil
+}

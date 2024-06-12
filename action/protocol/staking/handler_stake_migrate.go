@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -24,7 +25,7 @@ const (
 
 type (
 	executionProtocol interface {
-		Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error)
+		HandleCrossProtocol(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error)
 	}
 )
 
@@ -36,6 +37,10 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateSt
 		if revertErr := csm.SM().Revert(si); revertErr != nil {
 			log.L().Panic("failed to revert state", zap.Error(revertErr))
 		}
+	}
+	insGas, err := act.IntrinsicGas()
+	if err != nil {
+		return nil, nil, 0, err
 	}
 
 	// validate bucket index
@@ -64,21 +69,20 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateSt
 	transferLogs = append(transferLogs, tLog)
 
 	// call staking contract to stake
-	duration := int64(bucket.StakedDuration / p.getBlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
+	duration := int64(bucket.StakedDuration / p.helperCtx.GetBlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
 	excReceipt, err := p.createNFTBucket(ctx, act, bucket.StakedAmount, big.NewInt(duration), candidate, csm.SM())
 	if err != nil {
 		revertSM()
 		return nil, nil, 0, errors.Wrap(err, "failed to handle execution action")
 	}
 	if excReceipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
-		// TODO: return err or handle error?
 		revertSM()
 		return nil, nil, 0, errors.Errorf("execution failed with status %d", excReceipt.Status)
 	}
 	// add sub-receipts logs
 	actLogs = append(actLogs, excReceipt.Logs()...)
 	transferLogs = append(transferLogs, excReceipt.TransactionLogs()...)
-	return actLogs, transferLogs, excReceipt.GasConsumed, nil
+	return actLogs, transferLogs, excReceipt.GasConsumed + insGas, nil
 }
 
 func (p *Protocol) validateStakeMigrate(ctx context.Context, bucket *VoteBucket, csm CandidateStateManager) error {
@@ -158,7 +162,7 @@ func (p *Protocol) createNFTBucket(ctx context.Context, act *action.MigrateStake
 	}
 	exctPtl, ok := ptl.(executionProtocol)
 	contractAddress := p.config.MigrateContractAddress
-	data, err := StakingContractABI.Pack("stake0", duration, cand.GetIdentifier())
+	data, err := StakingContractABI.Pack("stake0", duration, common.BytesToAddress(cand.GetIdentifier().Bytes()))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to pack data for contract call")
 	}
@@ -173,7 +177,7 @@ func (p *Protocol) createNFTBucket(ctx context.Context, act *action.MigrateStake
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create execution action")
 	}
-	excReceipt, err := exctPtl.Handle(ctx, exeAct, sm)
+	excReceipt, err := exctPtl.HandleCrossProtocol(ctx, exeAct, sm)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to handle execution action")
 	}
