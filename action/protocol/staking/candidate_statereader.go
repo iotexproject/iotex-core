@@ -478,19 +478,27 @@ func (c *candSR) readStateCandidateByName(ctx context.Context, req *iotexapi.Rea
 }
 
 func (c *candSR) readStateCandidateByAddress(ctx context.Context, req *iotexapi.ReadStakingDataRequest_CandidateByAddress) (*iotextypes.CandidateV2, uint64, error) {
-	var cand *Candidate
+	var cand, candByOwner, candByID *Candidate
 	if len(req.GetOwnerAddr()) > 0 {
 		owner, err := address.FromString(req.GetOwnerAddr())
 		if err != nil {
 			return nil, 0, err
 		}
-		cand = c.GetCandidateByOwner(owner)
-	} else {
+		candByOwner = c.GetCandidateByOwner(owner)
+	}
+	if len(req.GetId()) > 0 {
 		id, err := address.FromString(req.GetId())
 		if err != nil {
 			return nil, 0, err
 		}
-		cand = c.GetByIdentifier(id)
+		candByID = c.GetByIdentifier(id)
+	}
+	if candByOwner != nil && candByID != nil && address.Equal(candByID.GetIdentifier(), candByOwner.GetIdentifier()) {
+		cand = candByID
+	} else if candByID != nil {
+		cand = candByID
+	} else if candByOwner != nil {
+		cand = candByOwner
 	}
 	if cand == nil {
 		return &iotextypes.CandidateV2{}, c.Height(), nil
