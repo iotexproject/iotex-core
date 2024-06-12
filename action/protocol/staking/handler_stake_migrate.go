@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -69,8 +69,13 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateSt
 	transferLogs = append(transferLogs, tLog)
 
 	// call staking contract to stake
-	duration := int64(bucket.StakedDuration / p.helperCtx.GetBlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
-	excReceipt, err := p.createNFTBucket(ctx, act, bucket.StakedAmount, big.NewInt(duration), candidate, csm.SM())
+	duration := uint64(bucket.StakedDuration / p.helperCtx.GetBlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
+	exec, err := p.constructExecution(candidate.Identifier, bucket.StakedAmount, duration, act.Nonce(), act.GasLimit(), act.GasPrice())
+	if err != nil {
+		revertSM()
+		return nil, nil, 0, errors.Wrap(err, "failed to construct execution")
+	}
+	excReceipt, err := p.createNFTBucket(ctx, exec, csm.SM())
 	if err != nil {
 		revertSM()
 		return nil, nil, 0, errors.Wrap(err, "failed to handle execution action")
@@ -155,27 +160,49 @@ func (p *Protocol) withdrawBucket(ctx context.Context, withdrawer *state.Account
 	}, nil
 }
 
-func (p *Protocol) createNFTBucket(ctx context.Context, act *action.MigrateStake, amount, duration *big.Int, cand *Candidate, sm protocol.StateManager) (*action.Receipt, error) {
-	ptl, ok := protocol.MustGetRegistry(ctx).Find(executionProtocolID)
-	if !ok {
-		return nil, errors.New("execution protocol is not registered")
+func (p *Protocol) ConstructExecution(ctx context.Context, act *action.MigrateStake, sr protocol.StateReader) (*action.Execution, error) {
+	sm := protocol.NewStateManagerWrapper(sr)
+	csm, err := p.constructCandidateStateManager(ctx, sm)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to construct state managers")
 	}
-	exctPtl, ok := ptl.(executionProtocol)
+	bucket, err := p.fetchBucket(csm, act.BucketIndex())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch bucket")
+	}
+	candidate := csm.GetByIdentifier(bucket.Candidate)
+	if candidate == nil {
+		return nil, errCandNotExist
+	}
+	duration := uint64(bucket.StakedDuration / p.helperCtx.GetBlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
+
+	return p.constructExecution(candidate.Identifier, bucket.StakedAmount, duration, act.Nonce(), act.GasLimit(), act.GasPrice())
+}
+
+func (p *Protocol) constructExecution(candidate address.Address, amount *big.Int, duration uint64, nonce uint64, gasLimit uint64, gasPrice *big.Int) (*action.Execution, error) {
 	contractAddress := p.config.MigrateContractAddress
-	data, err := StakingContractABI.Pack("stake0", duration, common.BytesToAddress(cand.GetIdentifier().Bytes()))
+	data, err := StakingContractABI.Pack(
+		"stake0",
+		duration,
+		candidate.Bytes(),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to pack data for contract call")
 	}
-	exeAct, err := action.NewExecution(
+	return action.NewExecution(
 		contractAddress,
-		act.Nonce(),
+		nonce,
 		amount,
-		act.GasLimit(),
-		act.GasPrice(),
+		gasLimit,
+		gasPrice,
 		data,
 	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create execution action")
+}
+
+func (p *Protocol) createNFTBucket(ctx context.Context, exeAct *action.Execution, sm protocol.StateManager) (*action.Receipt, error) {
+	exctPtl := execution.FindProtocol(protocol.MustGetRegistry(ctx))
+	if exctPtl == nil {
+		return nil, errors.New("execution protocol is not registered")
 	}
 	excReceipt, err := exctPtl.HandleCrossProtocol(ctx, exeAct, sm)
 	if err != nil {

@@ -420,6 +420,21 @@ func (svr *gRPCHandler) EstimateActionGasConsumption(ctx context.Context, in *io
 		}
 		return &iotexapi.EstimateActionGasConsumptionResponse{Gas: ret}, nil
 	}
+	if in.GetStakeMigrate() != nil {
+		callerAddr, err := address.FromString(in.GetCallerAddress())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		ms := &action.MigrateStake{}
+		if err := ms.LoadProto(in.GetStakeMigrate()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		ret, err := svr.coreService.EstimateMigrateStakeGasConsumption(ctx, ms, callerAddr)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		return &iotexapi.EstimateActionGasConsumptionResponse{Gas: ret}, nil
+	}
 	var act action.Action
 	switch {
 	case in.GetTransfer() != nil:

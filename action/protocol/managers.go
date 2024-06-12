@@ -92,4 +92,51 @@ type (
 		Unload(string, string, interface{}) error
 		Reset()
 	}
+
+	// StateManagerWrapper wraps a StateReader to implement StateManager, this is a temporary solution
+	// until the candidate state manager and candidate state reader are refactored
+	StateManagerWrapper struct {
+		StateReader
+	}
 )
+
+// NewStateManagerWrapper creates a new StateManagerWrapper
+func NewStateManagerWrapper(sr StateReader) *StateManagerWrapper {
+	return &StateManagerWrapper{StateReader: sr}
+}
+
+func (wrapper *StateManagerWrapper) Snapshot() int {
+	panic("unimplemented")
+}
+
+func (wrapper *StateManagerWrapper) Revert(int) error {
+	panic("unimplemented")
+}
+
+func (wrapper *StateManagerWrapper) PutState(interface{}, ...StateOption) (uint64, error) {
+	panic("unimplemented")
+}
+
+func (wrapper *StateManagerWrapper) DelState(...StateOption) (uint64, error) {
+	panic("unimplemented")
+}
+
+func (wrapper *StateManagerWrapper) WriteView(string, interface{}) error {
+	panic("unimplemented")
+}
+
+func (wrapper *StateManagerWrapper) ProtocolDirty(string) bool {
+	panic("unimplemented")
+}
+
+func (wrapper *StateManagerWrapper) Load(string, string, interface{}) error {
+	panic("unimplemented")
+}
+
+func (wrapper *StateManagerWrapper) Unload(string, string, interface{}) error {
+	panic("unimplemented")
+}
+
+func (wrapper *StateManagerWrapper) Reset() {
+	panic("unimplemented")
+}

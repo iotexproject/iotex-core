@@ -47,6 +47,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/actpool"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	apitypes "github.com/iotexproject/iotex-core/api/types"
@@ -132,6 +133,8 @@ type (
 		BlockByHash(string) (*apitypes.BlockWithReceipts, error)
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 		UnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
+		// EstimateMigrateStakeGasConsumption estimates gas for migrate stake
+		EstimateMigrateStakeGasConsumption(context.Context, *action.MigrateStake, address.Address) (uint64, error)
 		// EstimateGasForNonExecution  estimates action gas except execution
 		EstimateGasForNonExecution(action.Action) (uint64, error)
 		// EstimateExecutionGasConsumption estimate gas consumption for execution action
@@ -1493,6 +1496,23 @@ func (core *coreService) EstimateGasForNonExecution(actType action.Action) (uint
 		return 0, errors.Errorf("invalid action type not supported")
 	}
 	return act.IntrinsicGas()
+}
+
+// EstimateMigrateStakeGasConsumption estimates gas consumption for migrate stake action
+func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context, ms *action.MigrateStake, caller address.Address) (uint64, error) {
+	exec, err := staking.FindProtocol(core.registry).ConstructExecution(ctx, ms, core.sf)
+	if err != nil {
+		return 0, err
+	}
+	gas, err := core.EstimateExecutionGasConsumption(ctx, exec, caller)
+	if err != nil {
+		return 0, err
+	}
+	intrinsicGas, err := ms.IntrinsicGas()
+	if err != nil {
+		return 0, err
+	}
+	return gas + intrinsicGas, nil
 }
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action

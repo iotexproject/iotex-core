@@ -440,10 +440,13 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 	}
 
 	var estimatedGas uint64
-	if exec, ok := elp.Action().(*action.Execution); ok {
-		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), exec, from)
-	} else {
-		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(elp.Action())
+	switch act := elp.Action().(type) {
+	case *action.Execution:
+		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), act, from)
+	case *action.MigrateStake:
+		estimatedGas, err = svr.coreService.EstimateMigrateStakeGasConsumption(context.Background(), act, from)
+	default:
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act)
 	}
 	if err != nil {
 		return nil, err
