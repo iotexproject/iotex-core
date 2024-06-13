@@ -752,13 +752,13 @@ func TestCandidateTransferOwnership(t *testing.T) {
 
 		test.run([]*testcase{
 			{
-				name: "old owner cannot register again",
+				name: "old owner can register again after ownership transfer",
 				preActs: []*actionWithTime{
 					{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), "cand1", identityset.Address(1).String(), identityset.Address(1).String(), identityset.Address(oldOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
 					{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), identityset.Address(newOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
 				},
 				act:    &actionWithTime{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), "cand2", identityset.Address(2).String(), identityset.Address(1).String(), identityset.Address(oldOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrCandidateAlreadyExist), ""}},
+				expect: []actionExpect{successExpect, &candidateExpect{"cand2", &iotextypes.CandidateV2{Id: "", Name: "cand2", OperatorAddress: identityset.Address(2).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(oldOwnerID).String(), SelfStakeBucketIdx: 1}}},
 			},
 			{
 				name:   "new owner cannot register again",
@@ -772,8 +772,8 @@ func TestCandidateTransferOwnership(t *testing.T) {
 			},
 			{
 				name:   "new owner can register again",
-				act:    &actionWithTime{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(newOwnerID).String()), "cand2", identityset.Address(2).String(), identityset.Address(1).String(), identityset.Address(newOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(newOwnerID), action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{successExpect, &candidateExpect{"cand2", &iotextypes.CandidateV2{Name: "cand2", OperatorAddress: identityset.Address(2).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(newOwnerID).String(), SelfStakeBucketIdx: 1}}},
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(newOwnerID).String()), "cand3", identityset.Address(3).String(), identityset.Address(1).String(), identityset.Address(newOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(newOwnerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{successExpect, &candidateExpect{"cand3", &iotextypes.CandidateV2{Name: "cand3", OperatorAddress: identityset.Address(3).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(newOwnerID).String(), SelfStakeBucketIdx: 2}}},
 			},
 		})
 	})
