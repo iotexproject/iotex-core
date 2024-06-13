@@ -9,9 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -876,51 +873,4 @@ func TestCandidateTransferOwnership(t *testing.T) {
 			},
 		})
 	})
-}
-
-func TestContractABI(t *testing.T) {
-	r := require.New(t)
-	cli, err := ethclient.DialContext(context.Background(), "https://babel-api.testnet.iotex.io")
-	r.NoError(err)
-
-	privateKey := `8e381f36fda646e255762857b8bbc37a9dc718f33f4233ebe846a07df4541c11`
-	pk, err := crypto.ToECDSA(common.FromHex(privateKey))
-	r.NoError(err)
-	sender := crypto.PubkeyToAddress(pk.PublicKey)
-	nonce, err := cli.PendingNonceAt(context.Background(), sender)
-	r.NoError(err)
-	price, err := cli.SuggestGasPrice(context.Background())
-	r.NoError(err)
-	gas := uint64(210000)
-	to := common.HexToAddress(`0xF2a3B1e06794895A283A556Fd33DEd3a38b5E7C7`)
-	data, err := staking.StakingContractABI.Pack("stake0", big.NewInt(100), common.BytesToAddress(identityset.Address(1).Bytes()))
-	stakeAmount, _ := big.NewInt(0).SetString("100000000000000000000", 10)
-	acl := &types.LegacyTx{
-		Nonce:    nonce,
-		GasPrice: price,
-		Gas:      gas,
-		To:       &to,
-		Data:     data,
-		Value:    stakeAmount,
-	}
-	tx := types.NewTx(acl)
-	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(4690)), pk)
-	r.NoError(err)
-	t.Logf("signedTx: %+v", signedTx.Hash().String())
-	err = cli.SendTransaction(context.Background(), signedTx)
-	r.NoError(err)
-	receipt, err := cli.TransactionReceipt(context.Background(), signedTx.Hash())
-	r.NoError(err)
-	t.Logf("receipt: %+v", receipt)
-}
-
-func TestQueryTx(t *testing.T) {
-	r := require.New(t)
-	cli, err := ethclient.DialContext(context.Background(), "https://babel-api.testnet.iotex.io")
-	r.NoError(err)
-
-	hash := common.FromHex("0xde08fea2122e6383ff24ef31ecac04336dadc8b001a9a8f90b064f402d817c94")
-	receipt, err := cli.TransactionReceipt(context.Background(), common.BytesToHash(hash))
-	r.NoError(err)
-	t.Logf("receipt: %+v", receipt)
 }
