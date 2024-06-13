@@ -913,8 +913,9 @@ func (p *Protocol) generateCandidateID(owner address.Address, height uint64, csm
 	if isValidID(owner) {
 		return owner, nil
 	}
-	for i := range make([]struct{}, 1000) {
-		b := hash.Hash160b(append(owner.Bytes(), append(byteutil.Uint64ToBytesBigEndian(height), byteutil.Uint64ToBytesBigEndian(uint64(i))...)...))
+	h := append(owner.Bytes(), byteutil.Uint64ToBytesBigEndian(height)...)
+	for i := 0; i < 1000; i++ {
+		b := hash.Hash160b(append(h, byteutil.Uint64ToBytesBigEndian(uint64(i))...))
 		addr, err := address.FromBytes(b[:])
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate candidate ID")
