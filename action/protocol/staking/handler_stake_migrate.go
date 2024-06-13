@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -13,13 +14,13 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 const (
+	// TODO: use execution pkg, but import cycle issue should be resolved first
 	executionProtocolID = "smart_contract"
 )
 
@@ -70,7 +71,7 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateSt
 
 	// call staking contract to stake
 	duration := uint64(bucket.StakedDuration / p.helperCtx.GetBlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
-	exec, err := p.constructExecution(candidate.Identifier, bucket.StakedAmount, duration, act.Nonce(), act.GasLimit(), act.GasPrice())
+	exec, err := p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, act.Nonce(), act.GasLimit(), act.GasPrice())
 	if err != nil {
 		revertSM()
 		return nil, nil, 0, errors.Wrap(err, "failed to construct execution")
@@ -176,15 +177,15 @@ func (p *Protocol) ConstructExecution(ctx context.Context, act *action.MigrateSt
 	}
 	duration := uint64(bucket.StakedDuration / p.helperCtx.GetBlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
 
-	return p.constructExecution(candidate.Identifier, bucket.StakedAmount, duration, act.Nonce(), act.GasLimit(), act.GasPrice())
+	return p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, act.Nonce(), act.GasLimit(), act.GasPrice())
 }
 
 func (p *Protocol) constructExecution(candidate address.Address, amount *big.Int, duration uint64, nonce uint64, gasLimit uint64, gasPrice *big.Int) (*action.Execution, error) {
 	contractAddress := p.config.MigrateContractAddress
 	data, err := StakingContractABI.Pack(
 		"stake0",
-		duration,
-		candidate.Bytes(),
+		big.NewInt(int64(duration)),
+		common.BytesToAddress(candidate.Bytes()),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to pack data for contract call")
@@ -200,11 +201,11 @@ func (p *Protocol) constructExecution(candidate address.Address, amount *big.Int
 }
 
 func (p *Protocol) createNFTBucket(ctx context.Context, exeAct *action.Execution, sm protocol.StateManager) (*action.Receipt, error) {
-	exctPtl := execution.FindProtocol(protocol.MustGetRegistry(ctx))
-	if exctPtl == nil {
+	exctPtl, ok := protocol.MustGetRegistry(ctx).Find(executionProtocolID)
+	if !ok {
 		return nil, errors.New("execution protocol is not registered")
 	}
-	excReceipt, err := exctPtl.HandleCrossProtocol(ctx, exeAct, sm)
+	excReceipt, err := exctPtl.(executionProtocol).HandleCrossProtocol(ctx, exeAct, sm)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to handle execution action")
 	}
