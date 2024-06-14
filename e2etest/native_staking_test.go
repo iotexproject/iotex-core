@@ -46,6 +46,7 @@ const (
 var (
 	selfStake, _     = new(big.Int).SetString("1200000000000000000000000", 10)
 	cand1Votes, _    = new(big.Int).SetString("1635067133824581908640994", 10)
+	cand1NewVotes, _ = big.NewInt(0).SetString("1542516163985454635820816", 10)
 	vote, _          = new(big.Int).SetString("100000000000000000000", 10)
 	autoStakeVote, _ = new(big.Int).SetString("103801784016923925869", 10)
 	initBalance, _   = new(big.Int).SetString("100000000000000000000000000", 10)
@@ -466,27 +467,27 @@ func TestNativeStaking(t *testing.T) {
 			_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(6, newOwner1.String(), nil, gasLimit, gasPrice, cand1PriKey, action.WithChainID(chainID)))
 			require.NoError(err)
 			require.EqualValues(iotextypes.ReceiptStatus_Success, ccto.Status)
-			require.NoError(checkCandidateState(sf, candidate1Name, newOwner1.String(), selfStake, cand1Votes, cand1Addr))
+			require.NoError(checkCandidateState(sf, candidate1Name, newOwner1.String(), big.NewInt(0), cand1NewVotes, cand1Addr))
 		})
 		t.Run("candidate transfer ownership to a exist candidate", func(t *testing.T) {
 			_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(7, cand2Addr.String(), nil, gasLimit, gasPrice, cand1PriKey, action.WithChainID(chainID)))
 			require.NoError(err)
 			require.EqualValues(iotextypes.ReceiptStatus_ErrUnauthorizedOperator, ccto.Status)
-			require.NoError(checkCandidateState(sf, candidate1Name, identityset.Address(33).String(), selfStake, cand1Votes, cand1Addr))
+			require.NoError(checkCandidateState(sf, candidate1Name, identityset.Address(33).String(), big.NewInt(0), cand1NewVotes, cand1Addr))
 		})
 		t.Run("candidate transfer ownership to a normal new address again", func(t *testing.T) {
 			newOwner2 := identityset.Address(34)
 			_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(8, newOwner2.String(), nil, gasLimit, gasPrice, cand1PriKey, action.WithChainID(chainID)))
 			require.NoError(err)
 			require.EqualValues(iotextypes.ReceiptStatus_Success, ccto.Status)
-			require.NoError(checkCandidateState(sf, candidate1Name, newOwner2.String(), selfStake, cand1Votes, cand1Addr))
+			require.NoError(checkCandidateState(sf, candidate1Name, newOwner2.String(), big.NewInt(0), cand1NewVotes, cand1Addr))
 		})
 		t.Run("candidate transfer ownership to a transfered candidate", func(t *testing.T) {
 			newOwner2 := identityset.Address(34)
 			_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(9, newOwner2.String(), nil, gasLimit, gasPrice, cand1PriKey, action.WithChainID(chainID)))
 			require.NoError(err)
 			require.EqualValues(iotextypes.ReceiptStatus_ErrUnauthorizedOperator, ccto.Status)
-			require.NoError(checkCandidateState(sf, candidate1Name, newOwner2.String(), selfStake, cand1Votes, cand1Addr))
+			require.NoError(checkCandidateState(sf, candidate1Name, newOwner2.String(), big.NewInt(0), cand1NewVotes, cand1Addr))
 		})
 		t.Run("candidate transfer ownership to a contract address", func(t *testing.T) {
 			data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
@@ -496,7 +497,7 @@ func TestNativeStaking(t *testing.T) {
 			_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(11, se.ContractAddress, nil, gasLimit, gasPrice, cand1PriKey, action.WithChainID(chainID)))
 			require.NoError(err)
 			require.EqualValues(iotextypes.ReceiptStatus_ErrUnauthorizedOperator, ccto.Status)
-			require.NoError(checkCandidateState(sf, candidate1Name, identityset.Address(34).String(), selfStake, cand1Votes, cand1Addr))
+			require.NoError(checkCandidateState(sf, candidate1Name, identityset.Address(34).String(), big.NewInt(0), cand1NewVotes, cand1Addr))
 		})
 		t.Run("candidate transfer ownership to a invalid address", func(t *testing.T) {
 			_, _, err := addOneTx(action.SignedCandidateTransferOwnership(12, "123", nil, gasLimit, gasPrice, cand1PriKey, action.WithChainID(chainID)))
@@ -573,7 +574,7 @@ func checkCandidateState(
 		return errors.New("self stake does not match")
 	}
 	if expectedVotes.Cmp(cand.Votes) != 0 {
-		return errors.New("votes does not match")
+		return errors.Errorf("votes does not match, expected: %s, actual: %s", expectedVotes.String(), cand.Votes.String())
 	}
 	return nil
 }
@@ -680,7 +681,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 					{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), "cand1", identityset.Address(1).String(), identityset.Address(1).String(), identityset.Address(oldOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
 				},
 				act:    &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), identityset.Address(newOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{successExpect, &candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(newOwnerID).String(), SelfStakeBucketIdx: 0}}},
+				expect: []actionExpect{successExpect, &candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: "0", OwnerAddress: identityset.Address(newOwnerID).String(), SelfStakeBucketIdx: math.MaxUint64}}},
 			},
 			{
 				name:   "cannot transfer to old owner",
@@ -768,7 +769,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 			{
 				name:   "transfer ownership to another new owner",
 				act:    &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(newOwnerID).String()), identityset.Address(newOwnerID2).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(newOwnerID), action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{successExpect, &candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(newOwnerID2).String(), SelfStakeBucketIdx: 0}}},
+				expect: []actionExpect{successExpect, &candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: "0", OwnerAddress: identityset.Address(newOwnerID2).String(), SelfStakeBucketIdx: math.MaxUint64}}},
 			},
 			{
 				name:   "new owner can register again",
@@ -798,7 +799,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 			{
 				name:   "new owner can update",
 				act:    &actionWithTime{mustNoErr(action.SignedCandidateUpdate(test.nonceMgr.pop(identityset.Address(newOwnerID).String()), "cand2", identityset.Address(2).String(), identityset.Address(1).String(), gasLimit, gasPrice, identityset.PrivateKey(newOwnerID), action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{successExpect, &candidateExpect{"cand2", &iotextypes.CandidateV2{Name: "cand2", OperatorAddress: identityset.Address(2).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(newOwnerID).String(), SelfStakeBucketIdx: 0}}},
+				expect: []actionExpect{successExpect, &candidateExpect{"cand2", &iotextypes.CandidateV2{Name: "cand2", OperatorAddress: identityset.Address(2).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: "0", OwnerAddress: identityset.Address(newOwnerID).String(), SelfStakeBucketIdx: math.MaxUint64}}},
 			},
 		})
 	})
@@ -825,7 +826,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				expect: []actionExpect{
 					successExpect,
 					&bucketExpect{&iotextypes.VoteBucket{Index: 2, CandidateAddress: identityset.Address(oldOwnerID).String(), StakedAmount: registerAmount.String(), AutoStake: true, StakedDuration: 1, CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}, Owner: identityset.Address(stakerID).String(), ContractAddress: "", EndorsementExpireBlockHeight: 0}},
-					&candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "2491242816406174220844604", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(newOwnerID).String(), SelfStakeBucketIdx: 0}},
+					&candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "2491242816406174220844604", SelfStakingTokens: "0", OwnerAddress: identityset.Address(newOwnerID).String(), SelfStakeBucketIdx: math.MaxUint64}},
 					&candidateExpect{"cand2", &iotextypes.CandidateV2{Name: "cand2", OperatorAddress: identityset.Address(2).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(stakerID).String(), SelfStakeBucketIdx: 1}},
 				},
 			},
