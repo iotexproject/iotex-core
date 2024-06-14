@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -139,9 +140,16 @@ func TestHandleStakeMigrate(t *testing.T) {
 	r.Len(receipts, 2)
 	r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipts[0].Status)
 	r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipts[1].Status)
-	excPrtl := &mockExecutionProtocol{}
+	excPrtl := execution.NewProtocol(
+		func(u uint64) (hash.Hash256, error) { return hash.ZeroHash256, nil },
+		func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
+			return nil, nil
+		},
+		nil,
+		func(uint64) (time.Time, error) { return time.Now(), nil },
+	)
 	reg := protocol.NewRegistry()
-	r.NoError(reg.Register(executionProtocolID, excPrtl))
+	r.NoError(excPrtl.Register(reg))
 	ctx = protocol.WithRegistry(ctx, reg)
 
 	t.Run("non-owner is not permitted", func(t *testing.T) {
@@ -301,12 +309,4 @@ func initAccountBalance(sm protocol.StateManager, addr address.Address, initBala
 	}
 	acc.Balance = initBalance
 	return accountutil.StoreAccount(sm, addr, acc)
-}
-
-type mockExecutionProtocol struct {
-	protocol.Protocol
-}
-
-func (m *mockExecutionProtocol) HandleCrossProtocol(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	return nil, nil
 }

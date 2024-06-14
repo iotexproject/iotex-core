@@ -3,7 +3,7 @@
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
-package execution
+package execution_test
 
 import (
 	"bytes"
@@ -33,6 +33,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -490,7 +491,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	execution := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, getBlockTimeForTest)
+	execution := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, getBlockTimeForTest)
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
 
@@ -638,7 +639,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 
 func TestProtocol_Validate(t *testing.T) {
 	require := require.New(t)
-	p := NewProtocol(func(uint64) (hash.Hash256, error) {
+	p := execution.NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
 	}, rewarding.DepositGasWithSGD, nil, getBlockTimeForTest)
 
@@ -650,8 +651,8 @@ func TestProtocol_Validate(t *testing.T) {
 	}{
 		{"limit 32KB", 0, 32683, nil},
 		{"exceed 32KB", 0, 32684, action.ErrOversizedData},
-		{"limit 48KB", genesis.Default.SumatraBlockHeight, uint64(_executionSizeLimit48KB), nil},
-		{"exceed 48KB", genesis.Default.SumatraBlockHeight, uint64(_executionSizeLimit48KB) + 1, action.ErrOversizedData},
+		{"limit 48KB", genesis.Default.SumatraBlockHeight, uint64(48 * 1024), nil},
+		{"exceed 48KB", genesis.Default.SumatraBlockHeight, uint64(48*1024) + 1, action.ErrOversizedData},
 	}
 
 	for i := range cases {
@@ -733,7 +734,7 @@ func TestProtocol_Handle(t *testing.T) {
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
 		)
-		exeProtocol := NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, getBlockTimeForTest)
+		exeProtocol := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, getBlockTimeForTest)
 		require.NoError(exeProtocol.Register(registry))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)

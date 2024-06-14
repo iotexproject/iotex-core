@@ -14,20 +14,10 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
-)
-
-const (
-	// TODO: use execution pkg, but import cycle issue should be resolved first
-	executionProtocolID = "smart_contract"
-)
-
-type (
-	executionProtocol interface {
-		HandleCrossProtocol(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error)
-	}
 )
 
 func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateStake, csm CandidateStateManager) ([]*action.Log, []*action.TransactionLog, uint64, error) {
@@ -201,11 +191,11 @@ func (p *Protocol) constructExecution(candidate address.Address, amount *big.Int
 }
 
 func (p *Protocol) createNFTBucket(ctx context.Context, exeAct *action.Execution, sm protocol.StateManager) (*action.Receipt, error) {
-	exctPtl, ok := protocol.MustGetRegistry(ctx).Find(executionProtocolID)
-	if !ok {
+	exctPtl := execution.FindProtocol(protocol.MustGetRegistry(ctx))
+	if exctPtl == nil {
 		return nil, errors.New("execution protocol is not registered")
 	}
-	excReceipt, err := exctPtl.(executionProtocol).HandleCrossProtocol(ctx, exeAct, sm)
+	excReceipt, err := exctPtl.HandleCrossProtocol(ctx, exeAct, sm)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to handle execution action")
 	}
