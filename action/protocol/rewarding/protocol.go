@@ -111,6 +111,8 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		return p.migrateValueGreenland(ctx, sm)
 	case g.KamchatkaBlockHeight:
 		return p.setFoundationBonusExtension(ctx, sm)
+	case g.ToBeEnabledBlockHeight:
+		return p.setCandidateDelegatesExtension(ctx, sm)
 	}
 	return nil
 }
@@ -155,6 +157,20 @@ func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.
 	if a.foundationBonusLastEpoch < newLastEpoch {
 		a.foundationBonusLastEpoch = newLastEpoch
 	}
+	return p.putState(ctx, sm, _adminKey, &a)
+}
+
+func (p *Protocol) setCandidateDelegatesExtension(ctx context.Context, sm protocol.StateManager) error {
+	a := admin{}
+	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
+		return err
+	}
+	var (
+		bCtx = protocol.MustGetBlockCtx(ctx)
+		hCtx = protocol.MustGetFeatureWithHeightCtx(ctx)
+	)
+	// number of candidate delegates increased to 48
+	a.numDelegatesForFoundationBonus = hCtx.CandDelegateSize(bCtx.BlockHeight)
 	return p.putState(ctx, sm, _adminKey, &a)
 }
 

@@ -52,6 +52,7 @@ func defaultConfig() Genesis {
 			DardanellesNumSubEpochs: 30,
 			NumDelegates:            24,
 			NumCandidateDelegates:   36,
+			NumCandidateDelegatesV2: 48,
 			TimeBasedRotation:       false,
 			PacificBlockHeight:      432001,
 			AleutianBlockHeight:     864001,
@@ -178,6 +179,8 @@ type (
 		NumDelegates uint64 `yaml:"numDelegates"`
 		// NumCandidateDelegates is the number of candidate delegates, who may be selected as a delegate via roll dpos
 		NumCandidateDelegates uint64 `yaml:"numCandidateDelegates"`
+		// NumCandidateDelegatesV2 is the number of candidate delegates after extension
+		NumCandidateDelegatesV2 uint64 `yaml:"numCandidateDelegatesV2"`
 		// TimeBasedRotation is the flag to enable rotating delegates' time slots on a block height
 		TimeBasedRotation bool `yaml:"timeBasedRotation"`
 		// PacificBlockHeight is the start height of using the logic of Pacific version
