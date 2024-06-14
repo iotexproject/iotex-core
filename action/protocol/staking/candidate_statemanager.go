@@ -67,6 +67,7 @@ type (
 		ContainsSelfStakingBucket(uint64) bool
 		GetByIdentifier(address.Address) *Candidate
 		SR() protocol.StateReader
+		BucketGetByIndex
 	}
 
 	candSM struct {

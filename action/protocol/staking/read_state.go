@@ -62,10 +62,9 @@ func getPageOfBuckets(buckets []*VoteBucket, offset, limit int) []*VoteBucket {
 	return getPageOfArray(buckets, offset, limit)
 }
 
-func toIoTeXTypesCandidateV2(sr protocol.StateReader, cand *Candidate) (*iotextypes.CandidateV2, error) {
-	csr := newCandidateStateReader(sr)
-	esr := NewEndorsementStateReader(sr)
-	height, _ := sr.Height()
+func toIoTeXTypesCandidateV2(csr CandidateStateReader, cand *Candidate) (*iotextypes.CandidateV2, error) {
+	esr := NewEndorsementStateReader(csr.SR())
+	height, _ := csr.SR().Height()
 	needClear := func(c *Candidate) (bool, error) {
 		if !c.isSelfStakeBucketSettled() {
 			return false, nil
@@ -102,12 +101,12 @@ func toIoTeXTypesCandidateV2(sr protocol.StateReader, cand *Candidate) (*iotexty
 	return c, nil
 }
 
-func toIoTeXTypesCandidateListV2(sr protocol.StateReader, candidates CandidateList) (*iotextypes.CandidateListV2, error) {
+func toIoTeXTypesCandidateListV2(csr CandidateStateReader, candidates CandidateList) (*iotextypes.CandidateListV2, error) {
 	res := iotextypes.CandidateListV2{
 		Candidates: make([]*iotextypes.CandidateV2, 0, len(candidates)),
 	}
 	for _, c := range candidates {
-		cand, err := toIoTeXTypesCandidateV2(sr, c)
+		cand, err := toIoTeXTypesCandidateV2(csr, c)
 		if err != nil {
 			return nil, err
 		}
