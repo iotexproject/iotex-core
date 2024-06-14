@@ -593,7 +593,7 @@ func (cb *candBase) collision(d *Candidate) (address.Address, address.Address, a
 		oper = c.GetIdentifier()
 	}
 
-	if c, hit := cb.selfStkBucketMap[d.SelfStakeBucketIdx]; hit && !address.Equal(c.GetIdentifier(), d.GetIdentifier()) {
+	if c, hit := cb.selfStkBucketMap[d.SelfStakeBucketIdx]; d.isSelfStakeBucketSettled() && hit && !address.Equal(c.GetIdentifier(), d.GetIdentifier()) {
 		self = c.GetIdentifier()
 	}
 	return name, owner, oper, self

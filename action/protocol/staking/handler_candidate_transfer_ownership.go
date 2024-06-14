@@ -11,6 +11,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 const (
@@ -36,6 +37,47 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 		candidate.Identifier = candidate.Owner
 	}
 	candidate.Owner = act.NewOwner()
+	// clear selfstake
+	needClear := func() (bool, *big.Int, error) {
+		bucket, err := csm.getBucket(candidate.SelfStakeBucketIdx)
+		if err == nil {
+			// keep the self-stake bucket if it's endorse bucket
+			esm := NewEndorsementStateReader(csm.SR())
+			height, serr := esm.Height()
+			if serr != nil {
+				return false, nil, errors.Wrap(serr, "failed to get height")
+			}
+			endorse, serr := esm.Status(bucket.Index, height)
+			if serr != nil {
+				return false, nil, errors.Wrap(serr, "failed to get endorsement status")
+			}
+			if endorse != EndorseExpired {
+				return false, big.NewInt(0), nil
+			}
+			// change the self-stake bucket to vote bucket
+			subVotes := big.NewInt(0)
+			if !bucket.isUnstaked() {
+				selfStakeVotes := p.calculateVoteWeight(bucket, true)
+				votes := p.calculateVoteWeight(bucket, false)
+				subVotes.Sub(selfStakeVotes, votes)
+			}
+			return true, subVotes, nil
+		} else if errors.Is(err, state.ErrStateNotExist) {
+			return true, big.NewInt(0), nil
+		}
+		return false, nil, errors.Wrap(err, "failed to get self-stake bucket")
+	}
+	if candidate.isSelfStakeBucketSettled() {
+		clear, subVotes, err := needClear()
+		if err != nil {
+			return log, nil, err
+		}
+		if clear {
+			candidate.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
+			candidate.SelfStake = big.NewInt(0)
+			candidate.Votes.Sub(candidate.Votes, subVotes)
+		}
+	}
 	if err := csm.Upsert(candidate); err != nil {
 		return log, nil, csmErrorToHandleError(candidate.GetIdentifier().String(), err)
 	}

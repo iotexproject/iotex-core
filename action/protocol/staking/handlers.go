@@ -680,10 +680,12 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	c := csm.GetByOwner(owner)
 	ownerExist := c != nil
 	// cannot collide with existing owner (with selfstake != 0)
-	if ownerExist && c.SelfStake.Cmp(big.NewInt(0)) != 0 {
-		return log, nil, &handleError{
-			err:           ErrInvalidOwner,
-			failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
+	if ownerExist {
+		if !featureCtx.CandidateIdentifiedByOwner || (featureCtx.CandidateIdentifiedByOwner && c.SelfStake.Cmp(big.NewInt(0)) != 0) {
+			return log, nil, &handleError{
+				err:           ErrInvalidOwner,
+				failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
+			}
 		}
 	}
 	// cannot collide with existing identifier
