@@ -78,11 +78,11 @@ func query() error {
 	g := errgroup.Group{}
 	conMethod := concurrency / len(methods)
 	rpcMethod := rps / len(methods)
-	for i, method := range methods {
+	for i := range methods {
 		id := i
 		g.Go(func() error {
 			report, err := runner.Run(
-				method,
+				methods[id],
 				endpoint,
 				runner.WithProtosetBinary(protosetBinary),
 				runner.WithConcurrency(uint(conMethod)),
@@ -111,98 +111,6 @@ func query() error {
 		printer.Out.Write([]byte(fmt.Sprintf("RPC Method: %s\n", methods[i])))
 		printer.Print("summary")
 	}
-	return nil
-}
-
-func runAccount() error {
-	report, err := runner.Run(
-		"iotexapi.APIService.GetAccount",
-		endpoint,
-		runner.WithProtoFile("proto/api/api.proto", []string{"/Users/chenchen/dev/iotex-proto"}),
-		runner.WithConcurrency(uint(concurrency)),
-		runner.WithTotalRequests(uint(total)),
-		runner.WithDataProvider(func(*runner.CallData) ([]*dynamic.Message, error) {
-			protoMsg := &iotexapi.GetAccountRequest{
-				Address: identityset.Address(rand.Intn(30)).String(),
-			}
-			dynamicMsg, err := dynamic.AsDynamicMessage(protoMsg)
-			if err != nil {
-				return nil, err
-			}
-			return []*dynamic.Message{dynamicMsg}, nil
-		}),
-	)
-	if err != nil {
-		return err
-	}
-	printer := printer.ReportPrinter{
-		Out:    os.Stdout,
-		Report: report,
-	}
-	printer.Print("pretty")
-
-	return nil
-}
-
-func runEstimateGas() error {
-	report, err := runner.Run(
-		"iotexapi.APIService.EstimateActionGasConsumption",
-		endpoint,
-		runner.WithProtoFile("proto/api/api.proto", []string{"/Users/chenchen/dev/iotex-proto"}),
-		runner.WithConcurrency(uint(concurrency)),
-		runner.WithTotalRequests(uint(total)),
-		runner.WithDataProvider(func(*runner.CallData) ([]*dynamic.Message, error) {
-			data, err := erc20ABI.Pack("balanceOf", common.BytesToAddress(identityset.Address(rand.Intn(30)).Bytes()))
-			if err != nil {
-				return nil, err
-			}
-			execution, err := action.NewExecution("io1qfvgvmk6lpxkpqwlzanqx4atyzs86ryqjnfuad", 0, big.NewInt(0), 0, big.NewInt(0), data)
-			if err != nil {
-				return nil, err
-			}
-			protoMsg := &iotexapi.EstimateActionGasConsumptionRequest{
-				Action: &iotexapi.EstimateActionGasConsumptionRequest_Execution{
-					Execution: execution.Proto(),
-				},
-				CallerAddress: identityset.Address(rand.Intn(30)).String(),
-			}
-			dynamicMsg, err := dynamic.AsDynamicMessage(protoMsg)
-			if err != nil {
-				return nil, err
-			}
-			return []*dynamic.Message{dynamicMsg}, nil
-		}),
-	)
-	if err != nil {
-		return err
-	}
-	printer := printer.ReportPrinter{
-		Out:    os.Stdout,
-		Report: report,
-	}
-	printer.Print("pretty")
-	return nil
-}
-
-func runGRPCMethod(method string, concurrency uint, rps uint) error {
-	report, err := runner.Run(
-		method,
-		endpoint,
-		runner.WithProtosetBinary(protosetBinary),
-		runner.WithConcurrency(concurrency),
-		runner.WithAsync(async),
-		runner.WithRPS(rps),
-		runner.WithRunDuration(duration),
-		runner.WithDataProvider(provider),
-	)
-	if err != nil {
-		return err
-	}
-	printer := printer.ReportPrinter{
-		Out:    os.Stdout,
-		Report: report,
-	}
-	printer.Print("summary")
 	return nil
 }
 
