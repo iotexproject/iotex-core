@@ -39,6 +39,7 @@ var (
 	)
 
 	errInvalidSystemActionLayout = errors.New("system action layout is invalid")
+	errUnfoldTxContainer         = errors.New("failed to unfold tx container")
 )
 
 func init() {
@@ -161,7 +162,7 @@ func (ws *workingSet) runAction(
 	if protocol.MustGetFeatureCtx(ctx).UseTxContainer {
 		if container, ok := selp.Action().(action.TxContainer); ok {
 			if err := container.Unfold(selp, ctx, ws.checkContract); err != nil {
-				return nil, errors.Wrapf(err, "Failed to unfold EVM tx inside the container")
+				return nil, errors.Wrap(errUnfoldTxContainer, err.Error())
 			}
 		}
 	}
@@ -593,7 +594,7 @@ func (ws *workingSet) pickAndRunActions(
 				// do nothing
 			case action.ErrChainID:
 				continue
-			case action.ErrGasLimit:
+			case action.ErrGasLimit, errUnfoldTxContainer:
 				actionIterator.PopAccount()
 				continue
 			default:
