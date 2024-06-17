@@ -87,8 +87,8 @@ func TestProtocol(t *testing.T) {
 
 	// test loading with no candidate in stateDB
 	stk, err := NewProtocol(HelperCtx{
-		DepositGas:       nil,
-		GetBlockInterval: getBlockInterval,
+		DepositGas:    nil,
+		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
@@ -203,8 +203,8 @@ func TestCreatePreStates(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 	p, err := NewProtocol(HelperCtx{
-		DepositGas:       nil,
-		GetBlockInterval: getBlockInterval,
+		DepositGas:    nil,
+		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
@@ -269,8 +269,8 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(cbi.Start(ctx))
 	p, err := NewProtocol(HelperCtx{
-		DepositGas:       nil,
-		GetBlockInterval: getBlockInterval,
+		DepositGas:    nil,
+		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
@@ -388,8 +388,8 @@ func Test_CreateGenesisStates(t *testing.T) {
 	for _, test := range testBootstrapCandidates {
 		cfg.BootstrapCandidates = test.BootstrapCandidate
 		p, err := NewProtocol(HelperCtx{
-			DepositGas:       nil,
-			GetBlockInterval: getBlockInterval,
+			DepositGas:    nil,
+			BlockInterval: getBlockInterval,
 		}, &BuilderConfig{
 			Staking:                  cfg,
 			PersistStakingPatchBlock: math.MaxUint64,
@@ -425,8 +425,8 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 		},
 	}
 	p, err := NewProtocol(HelperCtx{
-		DepositGas:       nil,
-		GetBlockInterval: getBlockInterval,
+		DepositGas:    nil,
+		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
 		Staking:                  cfg,
 		PersistStakingPatchBlock: math.MaxUint64,

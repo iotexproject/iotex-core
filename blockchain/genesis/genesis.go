@@ -317,10 +317,10 @@ type (
 		SystemSGDContractAddress string `yaml:"systemSGDContractAddress"`
 		// SystemSGDContractHeight is the height of system sgd contract
 		SystemSGDContractHeight uint64 `yaml:"systemSGDContractHeight"`
-		// SystemStakingContractAddressV2 is the address of system staking contract
-		SystemStakingContractAddressV2 string `yaml:"systemStakingContractAddressV2"`
-		// SystemStakingContractHeightV2 is the height of system staking contract
-		SystemStakingContractHeightV2 uint64 `yaml:"systemStakingContractHeightV2"`
+		// SystemStakingContractV2Address is the address of system staking contract
+		SystemStakingContractV2Address string `yaml:"systemStakingContractV2Address"`
+		// SystemStakingContractV2Height is the height of system staking contract
+		SystemStakingContractV2Height uint64 `yaml:"systemStakingContractV2Height"`
 	}
 	// Delegate defines a delegate with address and votes
 	Delegate struct {

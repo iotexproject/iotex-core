@@ -111,6 +111,7 @@ func TestLocalCommit(t *testing.T) {
 	// create client
 	cfg, err = newTestConfig()
 	require.NoError(err)
+	initDBPaths(require, &cfg)
 	addrs, err := svr.P2PAgent().Self()
 	require.NoError(err)
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
@@ -370,12 +371,13 @@ func TestLocalSync(t *testing.T) {
 	require.NoError(err)
 	cfg, err = newTestConfig()
 	require.NoError(err)
+	initDBPaths(require, &cfg)
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
 	cfg.Chain.ContractStakingIndexDBPath = contractIndexDBPath2
-	cfg.Chain.ContractStakingIndexDBPathV2 = contractIndexDBV2Path2
+	cfg.Chain.ContractStakingIndexV2DBPath = contractIndexDBV2Path2
 	cfg.Chain.SGDIndexDBPath = indexSGDDBPath2
 	defer func() {
 		testutil.CleanupPath(testTriePath2)
@@ -444,7 +446,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.ContractStakingIndexDBPath = testContractStakeIndexPath
-	cfg.Chain.ContractStakingIndexDBPathV2 = testContractStakeIndexPathV2
+	cfg.Chain.ContractStakingIndexV2DBPath = testContractStakeIndexPathV2
 	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.ActPool.MinGasPriceStr = "0"

@@ -84,8 +84,8 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 
 	// create protocol
 	p, err := NewProtocol(HelperCtx{
-		DepositGas:       depositGas,
-		GetBlockInterval: getBlockInterval,
+		DepositGas:    depositGas,
+		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
@@ -3216,8 +3216,8 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 
 	// create protocol
 	p, err := NewProtocol(HelperCtx{
-		DepositGas:       depositGas,
-		GetBlockInterval: getBlockInterval,
+		DepositGas:    depositGas,
+		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,

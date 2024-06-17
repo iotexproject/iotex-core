@@ -34,7 +34,7 @@ type (
 		StakingIndexDBPath           string           `yaml:"stakingIndexDBPath"`
 		SGDIndexDBPath               string           `yaml:"sgdIndexDBPath"`
 		ContractStakingIndexDBPath   string           `yaml:"contractStakingIndexDBPath"`
-		ContractStakingIndexDBPathV2 string           `yaml:"contractStakingIndexDBPathV2"`
+		ContractStakingIndexV2DBPath string           `yaml:"contractStakingIndexV2DBPath"`
 		ID                           uint32           `yaml:"id"`
 		EVMNetworkID                 uint32           `yaml:"evmNetworkID"`
 		Address                      string           `yaml:"address"`
@@ -88,7 +88,7 @@ var (
 		StakingIndexDBPath:           "/var/data/staking.index.db",
 		SGDIndexDBPath:               "/var/data/sgd.index.db",
 		ContractStakingIndexDBPath:   "/var/data/contractstaking.index.db",
-		ContractStakingIndexDBPathV2: "/var/data/contractstaking.index.v2.db",
+		ContractStakingIndexV2DBPath: "/var/data/contractstaking.index.v2.db",
 		ID:                           1,
 		EVMNetworkID:                 4689,
 		Address:                      "",

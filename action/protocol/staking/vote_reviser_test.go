@@ -116,8 +116,8 @@ func TestVoteReviser(t *testing.T) {
 	// test loading with no candidate in stateDB
 	stk, err := NewProtocol(
 		HelperCtx{
-			DepositGas:       nil,
-			GetBlockInterval: getBlockInterval,
+			DepositGas:    nil,
+			BlockInterval: getBlockInterval,
 		},
 		&BuilderConfig{
 			Staking:                  genesis.Default.Staking,

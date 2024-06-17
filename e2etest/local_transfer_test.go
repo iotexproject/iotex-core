@@ -614,7 +614,7 @@ func newTransferConfig(
 	cfg.System.SystemLogDBPath = systemLogDBPath
 	cfg.Chain.CandidateIndexDBPath = candidateIndexDBPath
 	cfg.Chain.ContractStakingIndexDBPath = contractstakeIndexDBPath
-	cfg.Chain.ContractStakingIndexDBPathV2 = contractstakeIndexDBPathV2
+	cfg.Chain.ContractStakingIndexV2DBPath = contractstakeIndexDBPathV2
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme

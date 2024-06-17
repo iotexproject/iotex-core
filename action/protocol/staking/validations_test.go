@@ -19,8 +19,8 @@ import (
 func initTestProtocol(t *testing.T) (*Protocol, []*Candidate) {
 	require := require.New(t)
 	p, err := NewProtocol(HelperCtx{
-		DepositGas:       nil,
-		GetBlockInterval: getBlockInterval,
+		DepositGas:    nil,
+		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,

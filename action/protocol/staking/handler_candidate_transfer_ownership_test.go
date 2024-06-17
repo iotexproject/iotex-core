@@ -31,8 +31,8 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 	require.NoError(err)
 	// create protocol
 	p, err := NewProtocol(HelperCtx{
-		DepositGas:       depositGas,
-		GetBlockInterval: getBlockInterval,
+		DepositGas:    depositGas,
+		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,

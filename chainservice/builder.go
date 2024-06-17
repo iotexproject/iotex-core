@@ -350,11 +350,34 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 	builder.cs.contractStakingIndexer = indexer
 	// indexer v2
 	dbConfig = builder.cfg.DB
-	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPathV2
+	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexV2DBPath
 	indexerV2 := stakingindex.NewIndexer(
 		db.NewBoltDB(dbConfig),
-		builder.cfg.Genesis.SystemStakingContractAddressV2,
-		builder.cfg.Genesis.SystemStakingContractHeightV2, builder.cfg.DardanellesUpgrade.BlockInterval,
+		builder.cfg.Genesis.SystemStakingContractV2Address,
+		builder.cfg.Genesis.SystemStakingContractV2Height, builder.cfg.DardanellesUpgrade.BlockInterval,
+	)
+	builder.cs.contractStakingIndexerV2 = indexerV2
+	return nil
+}
+
+func (builder *Builder) buildContractStakingIndexerV2(forTest bool) error {
+	if !builder.cfg.Chain.EnableStakingProtocol {
+		return nil
+	}
+	if builder.cs.contractStakingIndexerV2 != nil {
+		return nil
+	}
+	if forTest || builder.cfg.Genesis.SystemStakingContractV2Address == "" {
+		builder.cs.contractStakingIndexerV2 = nil
+		return nil
+	}
+	// indexer v2
+	dbConfig := builder.cfg.DB
+	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexV2DBPath
+	indexerV2 := stakingindex.NewIndexer(
+		db.NewBoltDB(dbConfig),
+		builder.cfg.Genesis.SystemStakingContractV2Address,
+		builder.cfg.Genesis.SystemStakingContractV2Height, builder.cfg.DardanellesUpgrade.BlockInterval,
 	)
 	builder.cs.contractStakingIndexerV2 = indexerV2
 	return nil
@@ -575,8 +598,8 @@ func (builder *Builder) registerStakingProtocol() error {
 	consensusCfg := consensusfsm.NewConsensusConfig(builder.cfg.Consensus.RollDPoS.FSM, builder.cfg.DardanellesUpgrade, builder.cfg.Genesis, builder.cfg.Consensus.RollDPoS.Delay)
 	stakingProtocol, err := staking.NewProtocol(
 		staking.HelperCtx{
-			DepositGas:       rewarding.DepositGas,
-			GetBlockInterval: consensusCfg.BlockInterval,
+			DepositGas:    rewarding.DepositGas,
+			BlockInterval: consensusCfg.BlockInterval,
 		},
 		&staking.BuilderConfig{
 			Staking:                  builder.cfg.Genesis.Staking,

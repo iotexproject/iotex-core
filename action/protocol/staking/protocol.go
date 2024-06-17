@@ -98,8 +98,8 @@ type (
 	}
 	// HelperCtx is the helper context for staking protocol
 	HelperCtx struct {
-		GetBlockInterval func(uint64) time.Duration
-		DepositGas       DepositGas
+		BlockInterval func(uint64) time.Duration
+		DepositGas    DepositGas
 	}
 
 	// DepositGas deposits gas to some pool

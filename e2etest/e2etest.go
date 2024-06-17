@@ -169,7 +169,7 @@ func initDBPaths(r *require.Assertions, cfg *config.Config) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.ContractStakingIndexDBPath = testContractIndexPath
-	cfg.Chain.ContractStakingIndexDBPathV2 = testContractIndexPathV2
+	cfg.Chain.ContractStakingIndexV2DBPath = testContractIndexPathV2
 	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
 	cfg.Chain.BloomfilterIndexDBPath = testBloomfilterIndexPath
 	cfg.Chain.CandidateIndexDBPath = testCandidateIndexPath
@@ -184,7 +184,7 @@ func clearDBPaths(cfg *config.Config) {
 	testutil.CleanupPath(cfg.Chain.CandidateIndexDBPath)
 	testutil.CleanupPath(cfg.Chain.StakingIndexDBPath)
 	testutil.CleanupPath(cfg.Chain.ContractStakingIndexDBPath)
-	testutil.CleanupPath(cfg.Chain.ContractStakingIndexDBPathV2)
+	testutil.CleanupPath(cfg.Chain.ContractStakingIndexV2DBPath)
 	testutil.CleanupPath(cfg.DB.DbPath)
 	testutil.CleanupPath(cfg.Chain.IndexDBPath)
 	testutil.CleanupPath(cfg.Chain.SGDIndexDBPath)

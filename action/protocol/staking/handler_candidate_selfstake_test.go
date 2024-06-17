@@ -79,8 +79,8 @@ func initTestStateWithHeight(t *testing.T, ctrl *gomock.Controller, bucketCfgs [
 
 	// create protocol
 	p, err := NewProtocol(HelperCtx{
-		DepositGas:       depositGas,
-		GetBlockInterval: getBlockInterval,
+		DepositGas:    depositGas,
+		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
