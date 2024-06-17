@@ -688,7 +688,7 @@ func (p *Protocol) settleAction(
 ) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
+	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(gasConsumed))
 	depositLog, err := p.helperCtx.DepositGas(ctx, sm, gasFee)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deposit gas")
