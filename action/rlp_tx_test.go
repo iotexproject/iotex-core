@@ -2,6 +2,7 @@ package action
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"math/big"
 	"strings"
@@ -93,29 +94,31 @@ func TestGenerateRlp(t *testing.T) {
 	}
 }
 
+type rlpTest struct {
+	actType  string
+	raw      string
+	nonce    uint64
+	limit    uint64
+	price    string
+	amount   string
+	to       string
+	chainID  uint32
+	encoding iotextypes.Encoding
+	dataLen  int
+	hash     string
+	pubkey   string
+	pkhash   string
+}
+
 var (
 	// deterministic deployment: https://github.com/Arachnid/deterministic-deployment-proxy
 	// see example at https://etherscan.io/tx/0xeddf9e61fb9d8f5111840daef55e5fde0041f5702856532cdbb5a02998033d26
-	deterministicDeploymentTx = "0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222"
+	deterministicDeploymentTx = "f8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222"
 
 	// example access list tx, created with a random chainID value = 0x7a69 = 31337
-	accessListTx = "0x01f8a0827a690184ee6b280082520894a0ee7a142d267c1f36714e4a8f75612f20a797206480f838f794a0ee7a142d267c1f36714e4a8f75612f20a79720e1a0000000000000000000000000000000000000000000000000000000000000000001a0eb211dfd353d76d43ea31a130ff36ac4eb7b379eae4d49fa2376741daf32f9ffa07ab673241d75e103f81ddd4aa34dd6849faf2f0f593eebe61a68fed74490a348"
+	accessListTx = "01f8a0827a690184ee6b280082520894a0ee7a142d267c1f36714e4a8f75612f20a797206480f838f794a0ee7a142d267c1f36714e4a8f75612f20a79720e1a0000000000000000000000000000000000000000000000000000000000000000001a0eb211dfd353d76d43ea31a130ff36ac4eb7b379eae4d49fa2376741daf32f9ffa07ab673241d75e103f81ddd4aa34dd6849faf2f0f593eebe61a68fed74490a348"
 
-	rlpTests = []struct {
-		actType  string
-		raw      string
-		nonce    uint64
-		limit    uint64
-		price    string
-		amount   string
-		to       string
-		chainID  uint32
-		encoding iotextypes.Encoding
-		dataLen  int
-		hash     string
-		pubkey   string
-		pkhash   string
-	}{
+	rlpTests = []rlpTest{
 		{
 			"transfer",
 			"f86e8085e8d4a51000825208943141df3f2e4415533bb6d6be2a351b2db9ee84ef88016345785d8a0000808224c6a0204d25fc0d7d8b3fdf162c6ee820f888f5533b1c382d79d5cbc8ec1d9091a9a8a016f1a58d7e0d0fd24be800f64a2d6433c5fcb31e3fc7562b7fbe62bc382a95bb",
@@ -410,6 +413,23 @@ func TestNewEthSignerError(t *testing.T) {
 func TestEthTxDecodeVerify(t *testing.T) {
 	require := require.New(t)
 
+	checkSelp := func(selp *SealedEnvelope, tx *types.Transaction, e rlpTest) {
+		h, err := selp.Hash()
+		require.NoError(err)
+		require.Equal(e.hash, hex.EncodeToString(h[:]))
+		require.Equal(e.pubkey, selp.srcPubkey.HexString())
+		require.Equal(e.chainID, selp.evmNetworkID)
+		require.EqualValues(1, selp.ChainID())
+		raw, err := selp.envelopeHash()
+		require.NoError(err)
+		signer, err := NewEthSigner(e.encoding, uint32(e.chainID))
+		require.NoError(err)
+		rawHash := signer.Hash(tx)
+		require.True(bytes.Equal(rawHash[:], raw[:]))
+		require.NotEqual(raw, h)
+		require.NoError(selp.VerifySignature())
+	}
+
 	for _, v := range rlpTests {
 		// decode received RLP tx
 		tx, err := DecodeEtherTx(v.raw)
@@ -434,51 +454,92 @@ func TestEthTxDecodeVerify(t *testing.T) {
 		require.Equal(v.pubkey, pubkey.HexString())
 		require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
 
+		var pb [2]*iotextypes.Action
 		// convert to our Execution
-		pb := &iotextypes.Action{
+		pb[0] = &iotextypes.Action{
 			Encoding: encoding,
 		}
-		pb.Core = convertToNativeProto(tx, v.actType)
-		pb.SenderPubKey = pubkey.Bytes()
-		pb.Signature = sig
+		pb[0].Core = convertToNativeProto(tx, v.actType)
+		pb[0].SenderPubKey = pubkey.Bytes()
+		pb[0].Signature = sig
 
-		// send on wire
-		bs, err := proto.Marshal(pb)
-		require.NoError(err)
-
-		// receive from API
-		proto.Unmarshal(bs, pb)
-		selp, err := (&Deserializer{}).SetEvmNetworkID(v.chainID).ActionToSealedEnvelope(pb)
-		require.NoError(err)
-		act, ok := selp.Action().(EthCompatibleAction)
-		require.True(ok)
-		rlpTx, err := act.ToEthTx(uint32(tx.ChainId().Uint64()))
-		require.NoError(err)
-
-		// verify against original tx
-		require.Equal(v.nonce, rlpTx.Nonce())
-		require.Equal(v.price, rlpTx.GasPrice().String())
-		require.Equal(v.limit, rlpTx.Gas())
-		if v.to == "" {
-			require.Nil(rlpTx.To())
-		} else {
-			require.Equal(v.to, rlpTx.To().Hex())
+		// test tx container
+		rawBytes, _ := hex.DecodeString(v.raw)
+		pb[1] = &iotextypes.Action{
+			Core: &iotextypes.ActionCore{
+				Version:  1,
+				Nonce:    tx.Nonce(),
+				GasLimit: tx.Gas(),
+				GasPrice: tx.GasPrice().String(),
+				ChainID:  1,
+				Action: &iotextypes.ActionCore_TxContainer{
+					TxContainer: &iotextypes.TxContainer{
+						Raw: rawBytes,
+					},
+				},
+			},
+			SenderPubKey: pubkey.Bytes(),
+			Signature:    sig,
+			Encoding:     iotextypes.Encoding_TX_CONTAINER,
 		}
-		require.Equal(v.amount, rlpTx.Value().String())
-		require.Equal(v.dataLen, len(rlpTx.Data()))
-		h, err := selp.Hash()
-		require.NoError(err)
-		require.Equal(v.hash, hex.EncodeToString(h[:]))
-		require.Equal(pubkey, selp.SrcPubkey())
-		require.True(bytes.Equal(sig, selp.signature))
-		raw, err := selp.envelopeHash()
-		require.NoError(err)
-		signer, err := NewEthSigner(encoding, uint32(tx.ChainId().Uint64()))
-		require.NoError(err)
-		rawHash := signer.Hash(tx)
-		require.True(bytes.Equal(rawHash[:], raw[:]))
-		require.NotEqual(raw, h)
-		require.NoError(selp.VerifySignature())
+
+		for i := 0; i < 2; i++ {
+			// send on wire
+			bs, err := proto.Marshal(pb[i])
+			require.NoError(err)
+
+			// receive from API
+			e := &iotextypes.Action{}
+			proto.Unmarshal(bs, e)
+
+			selp, err := (&Deserializer{}).SetEvmNetworkID(v.chainID).ActionToSealedEnvelope(e)
+			require.NoError(err)
+			require.True(bytes.Equal(sig, selp.signature))
+			checkSelp(selp, tx, v)
+			if i == 0 {
+				require.Equal(v.encoding, selp.encoding)
+			} else {
+				// tx container
+				require.EqualValues(iotextypes.Encoding_TX_CONTAINER, selp.encoding)
+			}
+
+			// evm tx conversion
+			var rlpTx *types.Transaction
+			if i == 0 {
+				act, ok := selp.Action().(EthCompatibleAction)
+				require.True(ok)
+				rlpTx, err = act.ToEthTx(uint32(tx.ChainId().Uint64()))
+				require.NoError(err)
+			} else {
+				// tx unfolding
+				_, ok := selp.Action().(*txContainer)
+				require.True(ok)
+				container, ok := selp.Action().(TxContainer)
+				require.True(ok)
+				require.NoError(container.Unfold(selp, context.Background(), checkContract(v.to, v.actType)))
+				require.True(bytes.Equal(sig, selp.signature))
+				checkSelp(selp, tx, v)
+				require.Equal(v.encoding, selp.encoding)
+				// selp converted to actual tx
+				_, ok = selp.Action().(TxContainer)
+				require.False(ok)
+				act, ok := selp.Action().(EthCompatibleAction)
+				require.True(ok)
+				rlpTx, err = act.ToEthTx(uint32(tx.ChainId().Uint64()))
+				require.NoError(err)
+			}
+			// verify against original tx
+			require.Equal(v.nonce, rlpTx.Nonce())
+			require.Equal(v.price, rlpTx.GasPrice().String())
+			require.Equal(v.limit, rlpTx.Gas())
+			if v.to == "" {
+				require.Nil(rlpTx.To())
+			} else {
+				require.Equal(v.to, rlpTx.To().Hex())
+			}
+			require.Equal(v.amount, rlpTx.Value().String())
+			require.Equal(v.dataLen, len(rlpTx.Data()))
+		}
 	}
 }
 
@@ -843,7 +904,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 }
 
 func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.ActionCore {
-	elpBuilder := &EnvelopeBuilder{}
+	elpBuilder := (&EnvelopeBuilder{}).SetChainID(1)
 	elpBuilder.SetGasLimit(tx.Gas()).SetGasPrice(tx.GasPrice()).SetNonce(tx.Nonce())
 	switch actType {
 	case "transfer":
@@ -859,6 +920,40 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 	case "rewardingClaim", "rewardingDeposit":
 		elp, _ := elpBuilder.BuildRewardingAction(tx)
 		return elp.Proto()
+	default:
+		panic("unsupported")
+	}
+}
+
+func checkContract(to string, actType string) func(context.Context, *common.Address) (bool, bool, bool, error) {
+	if to == "" {
+		return func(context.Context, *common.Address) (bool, bool, bool, error) {
+			return true, false, false, nil
+		}
+	}
+	var (
+		addr, _ = address.FromHex(to)
+		ioAddr  = addr.String()
+	)
+	if ioAddr == address.StakingProtocolAddr {
+		return func(context.Context, *common.Address) (bool, bool, bool, error) {
+			return false, true, false, nil
+		}
+	}
+	if ioAddr == address.RewardingProtocol {
+		return func(context.Context, *common.Address) (bool, bool, bool, error) {
+			return false, false, true, nil
+		}
+	}
+	switch actType {
+	case "transfer":
+		return func(context.Context, *common.Address) (bool, bool, bool, error) {
+			return false, false, false, nil
+		}
+	case "execution", "unprotected", "accesslist":
+		return func(context.Context, *common.Address) (bool, bool, bool, error) {
+			return true, false, false, nil
+		}
 	default:
 		panic("unsupported")
 	}
