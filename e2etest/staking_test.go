@@ -183,52 +183,16 @@ func TestStakingContract(t *testing.T) {
 	}
 
 	cfg := config.Default
-	testTriePath, err := testutil.PathOfTempFile("trie")
-	require.NoError(err)
-	testDBPath, err := testutil.PathOfTempFile("db")
-	require.NoError(err)
-	testIndexPath, err := testutil.PathOfTempFile("index")
-	require.NoError(err)
-	testBloomfilterIndexPath, err := testutil.PathOfTempFile("bloomfilterindex")
-	require.NoError(err)
-	testCandidateIndexPath, err := testutil.PathOfTempFile("candidateindex")
-	require.NoError(err)
-	testContractStakeIndexPath, err := testutil.PathOfTempFile("contractindex")
-	require.NoError(err)
-	testContractStakeIndexPathV2, err := testutil.PathOfTempFile("contractindexv2")
-	require.NoError(err)
-	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
-	require.NoError(err)
-	testConsensusPath, err := testutil.PathOfTempFile("consensus")
-	require.NoError(err)
-	testSGDIndexPath, err := testutil.PathOfTempFile("sgdIndex")
-	require.NoError(err)
+	initDBPaths(require, &cfg)
+
 	defer func() {
-		testutil.CleanupPath(testTriePath)
-		testutil.CleanupPath(testDBPath)
-		testutil.CleanupPath(testIndexPath)
-		testutil.CleanupPath(testBloomfilterIndexPath)
-		testutil.CleanupPath(testCandidateIndexPath)
-		testutil.CleanupPath(testSystemLogPath)
-		testutil.CleanupPath(testConsensusPath)
-		testutil.CleanupPath(testContractStakeIndexPath)
-		testutil.CleanupPath(testContractStakeIndexPathV2)
-		testutil.CleanupPath(testSGDIndexPath)
+		clearDBPaths(&cfg)
 		// clear the gateway
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Chain.TrieDBPatchFile = ""
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
-	cfg.Chain.BloomfilterIndexDBPath = testBloomfilterIndexPath
-	cfg.Chain.CandidateIndexDBPath = testCandidateIndexPath
-	cfg.Chain.ContractStakingIndexDBPath = testContractStakeIndexPath
-	cfg.System.SystemLogDBPath = testSystemLogPath
-	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.NumDelegates = 1
