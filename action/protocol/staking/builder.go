@@ -9,6 +9,5 @@ type (
 		Staking                  genesis.Staking
 		PersistStakingPatchBlock uint64
 		StakingPatchDir          string
-		Poll                     genesis.Poll
 	}
 )
