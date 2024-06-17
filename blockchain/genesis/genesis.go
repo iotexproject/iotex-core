@@ -92,6 +92,8 @@ func defaultConfig() Genesis {
 			UnproductiveDelegateMaxCacheSize: 20,
 			SystemStakingContractAddress:     "io1drde9f483guaetl3w3w6n6y7yv80f8fael7qme", // https://iotexscout.io/tx/8b899515d180d631abe8596b091380b0f42117122415393fa459c74c2bc5b6af
 			SystemStakingContractHeight:      24486464,
+			SystemStakingContractV2Address:   "io000000000000000000000000000000000000000", // to be updated after deployment
+			SystemStakingContractV2Height:    44486464,
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),

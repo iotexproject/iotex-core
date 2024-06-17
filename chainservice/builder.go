@@ -348,15 +348,6 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		return err
 	}
 	builder.cs.contractStakingIndexer = indexer
-	// indexer v2
-	dbConfig = builder.cfg.DB
-	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexV2DBPath
-	indexerV2 := stakingindex.NewIndexer(
-		db.NewBoltDB(dbConfig),
-		builder.cfg.Genesis.SystemStakingContractV2Address,
-		builder.cfg.Genesis.SystemStakingContractV2Height, builder.cfg.DardanellesUpgrade.BlockInterval,
-	)
-	builder.cs.contractStakingIndexerV2 = indexerV2
 	return nil
 }
 
@@ -371,7 +362,6 @@ func (builder *Builder) buildContractStakingIndexerV2(forTest bool) error {
 		builder.cs.contractStakingIndexerV2 = nil
 		return nil
 	}
-	// indexer v2
 	dbConfig := builder.cfg.DB
 	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexV2DBPath
 	indexerV2 := stakingindex.NewIndexer(
@@ -773,6 +763,9 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildContractStakingIndexer(forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildContractStakingIndexerV2(forTest); err != nil {
 		return nil, err
 	}
 	if err := builder.buildBlockDAO(forTest); err != nil {
