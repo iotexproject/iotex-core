@@ -59,6 +59,9 @@ func TestLocalCommit(t *testing.T) {
 	defer func() {
 		clearDBPaths(&cfg)
 	}()
+	testTriePath := cfg.Chain.TrieDBPath
+	testDBPath := cfg.Chain.ChainDBPath
+	indexDBPath := cfg.Chain.IndexDBPath
 
 	// create server
 	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
@@ -138,9 +141,6 @@ func TestLocalCommit(t *testing.T) {
 		testutil.CleanupPath(testDBPath2)
 		testutil.CleanupPath(indexDBPath2)
 	}()
-	testTriePath := cfg.Chain.TrieDBPath
-	testDBPath := cfg.Chain.ChainDBPath
-	indexDBPath := cfg.Chain.IndexDBPath
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2

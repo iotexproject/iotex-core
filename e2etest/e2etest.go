@@ -175,6 +175,5 @@ func clearDBPaths(cfg *config.Config) {
 	testutil.CleanupPath(cfg.Chain.ContractStakingIndexDBPathV2)
 	testutil.CleanupPath(cfg.DB.DbPath)
 	testutil.CleanupPath(cfg.Chain.IndexDBPath)
-	testutil.CleanupPath(cfg.System.SystemLogDBPath)
 	testutil.CleanupPath(cfg.Chain.SGDIndexDBPath)
 }
