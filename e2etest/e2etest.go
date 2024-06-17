@@ -155,6 +155,14 @@ func initDBPaths(r *require.Assertions, cfg *config.Config) {
 	r.NoError(err)
 	testSGDIndexPath, err := testutil.PathOfTempFile("sgdindex")
 	r.NoError(err)
+	testBloomfilterIndexPath, err := testutil.PathOfTempFile("bloomfilterindex")
+	r.NoError(err)
+	testCandidateIndexPath, err := testutil.PathOfTempFile("candidateindex")
+	r.NoError(err)
+	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
+	r.NoError(err)
+	testConsensusPath, err := testutil.PathOfTempFile("consensus")
+	r.NoError(err)
 
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
@@ -163,6 +171,10 @@ func initDBPaths(r *require.Assertions, cfg *config.Config) {
 	cfg.Chain.ContractStakingIndexDBPath = testContractIndexPath
 	cfg.Chain.ContractStakingIndexDBPathV2 = testContractIndexPathV2
 	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
+	cfg.Chain.BloomfilterIndexDBPath = testBloomfilterIndexPath
+	cfg.Chain.CandidateIndexDBPath = testCandidateIndexPath
+	cfg.System.SystemLogDBPath = testSystemLogPath
+	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
 }
 
 func clearDBPaths(cfg *config.Config) {
@@ -176,4 +188,5 @@ func clearDBPaths(cfg *config.Config) {
 	testutil.CleanupPath(cfg.DB.DbPath)
 	testutil.CleanupPath(cfg.Chain.IndexDBPath)
 	testutil.CleanupPath(cfg.Chain.SGDIndexDBPath)
+	testutil.CleanupPath(cfg.System.SystemLogDBPath)
 }

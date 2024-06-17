@@ -195,6 +195,8 @@ func TestStakingContract(t *testing.T) {
 	require.NoError(err)
 	testContractStakeIndexPath, err := testutil.PathOfTempFile("contractindex")
 	require.NoError(err)
+	testContractStakeIndexPathV2, err := testutil.PathOfTempFile("contractindexv2")
+	require.NoError(err)
 	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
 	require.NoError(err)
 	testConsensusPath, err := testutil.PathOfTempFile("consensus")
@@ -210,6 +212,7 @@ func TestStakingContract(t *testing.T) {
 		testutil.CleanupPath(testSystemLogPath)
 		testutil.CleanupPath(testConsensusPath)
 		testutil.CleanupPath(testContractStakeIndexPath)
+		testutil.CleanupPath(testContractStakeIndexPathV2)
 		testutil.CleanupPath(testSGDIndexPath)
 		// clear the gateway
 		delete(cfg.Plugins, config.GatewayPlugin)
