@@ -828,8 +828,8 @@ func TestCandidateTransferOwnership(t *testing.T) {
 	t.Run("migrate stake", func(t *testing.T) {
 		contractAddress := "io1dkqh5mu9djfas3xyrmzdv9frsmmytel4mp7a64"
 		cfg := initCfg()
-		cfg.Genesis.SystemStakingContractAddressV2 = contractAddress
-		cfg.Genesis.SystemStakingContractHeightV2 = 1
+		cfg.Genesis.SystemStakingContractV2Address = contractAddress
+		cfg.Genesis.SystemStakingContractV2Height = 1
 		cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
 		test := newE2ETest(t, cfg)
 		defer test.teardown()

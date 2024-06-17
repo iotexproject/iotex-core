@@ -61,7 +61,7 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateSt
 	transferLogs = append(transferLogs, tLog)
 
 	// call staking contract to stake
-	duration := uint64(bucket.StakedDuration / p.helperCtx.GetBlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
+	duration := uint64(bucket.StakedDuration / p.helperCtx.BlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
 	exec, err := p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, act.Nonce(), act.GasLimit(), act.GasPrice())
 	if err != nil {
 		revertSM()
@@ -167,7 +167,7 @@ func (p *Protocol) ConstructExecution(ctx context.Context, act *action.MigrateSt
 	if candidate == nil {
 		return nil, errCandNotExist
 	}
-	duration := uint64(bucket.StakedDuration / p.helperCtx.GetBlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
+	duration := uint64(bucket.StakedDuration / p.helperCtx.BlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
 
 	return p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, act.Nonce(), act.GasLimit(), act.GasPrice())
 }
