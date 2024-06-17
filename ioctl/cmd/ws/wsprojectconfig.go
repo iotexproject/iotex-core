@@ -114,7 +114,6 @@ func init() {
 	wsProjectConfig.Flags().StringP("expand-param", "e", "", config.TranslateInLang(_flagExpandParamUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("output-file", "u", "", config.TranslateInLang(_flagOutputFileUsages, config.UILanguage))
 
-	_ = wsProjectConfig.MarkFlagRequired("data-source")
 	_ = wsProjectConfig.MarkFlagRequired("vm-type")
 	_ = wsProjectConfig.MarkFlagRequired("code-file")
 
@@ -172,7 +171,9 @@ func generateProjectFile(dataSource, defaultVersion, version, vmType, codeFile, 
 	verMap.Output = outputMap
 	verMaps = append(verMaps, verMap)
 
-	confMap["datasourceURI"] = dataSource
+	if dataSource != "" {
+		confMap["datasourceURI"] = dataSource
+	}
 	confMap["defaultVersion"] = defaultVersion
 	confMap["versions"] = verMaps
 	jsonConf, err := json.MarshalIndent(confMap, "", "  ")
