@@ -38,7 +38,6 @@ func TestHandleStakeMigrate(t *testing.T) {
 		&BuilderConfig{
 			Staking:                  genesis.Default.Staking,
 			PersistStakingPatchBlock: math.MaxUint64,
-			Poll:                     genesis.Default.Poll,
 		},
 		nil, nil, nil, 0)
 	r.NoError(err)
