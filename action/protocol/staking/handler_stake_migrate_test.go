@@ -100,6 +100,11 @@ func TestHandleStakeMigrate(t *testing.T) {
 		return p.Handle(ctx, act.Action(), sm)
 	}
 	runBlock := func(ctx context.Context, p *Protocol, sm protocol.StateManager, height uint64, t time.Time, acts ...*action.SealedEnvelope) ([]*action.Receipt, []error) {
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+			Tip: protocol.TipInfo{
+				Height: height,
+			},
+		})
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			BlockHeight:    height,
 			BlockTimeStamp: t,
@@ -110,7 +115,11 @@ func TestHandleStakeMigrate(t *testing.T) {
 		receipts := make([]*action.Receipt, 0)
 		errs := make([]error, 0)
 		for _, act := range acts {
+			// si := sm.Snapshot()
 			receipt, err := runAction(ctx, p, act, sm)
+			// if err != nil {
+			// 	r.NoError(sm.Revert(si))
+			// }
 			receipts = append(receipts, receipt)
 			errs = append(errs, err)
 		}
@@ -207,17 +216,6 @@ func TestHandleStakeMigrate(t *testing.T) {
 		r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipts[0].Status)
 		r.Equal(uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), receipts[1].Status)
 	})
-	t.Run("error from contract call", func(t *testing.T) {
-		pa := NewPatches()
-		defer pa.Reset()
-		sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
-		pa.ApplyMethodReturn(excPrtl, "HandleCrossProtocol", nil, errors.New("execution failed error"))
-		receipts, errs := runBlock(ctx, p, sm, 8, timeBlock,
-			assertions.MustNoErrorV(action.SignedMigrateStake(stakerNonce, 1, gasLimit, gasPrice, identityset.PrivateKey(stakerID))),
-		)
-		r.Len(receipts, 1)
-		r.ErrorContains(errs[0], "execution failed error")
-	})
 	t.Run("failure from contract call", func(t *testing.T) {
 		pa := NewPatches()
 		defer pa.Reset()
@@ -225,18 +223,39 @@ func TestHandleStakeMigrate(t *testing.T) {
 		pa.ApplyMethodReturn(excPrtl, "HandleCrossProtocol", &action.Receipt{
 			Status: uint64(iotextypes.ReceiptStatus_Failure),
 		}, nil)
-		receipts, errs := runBlock(ctx, p, sm, 9, timeBlock,
-			assertions.MustNoErrorV(action.SignedMigrateStake(popNonce(&stakerNonce), 1, gasLimit, gasPrice, identityset.PrivateKey(stakerID))),
+		receipts, errs := runBlock(ctx, p, sm, 8, timeBlock,
+			assertions.MustNoErrorV(action.SignedMigrateStake(stakerNonce, 1, gasLimit, gasPrice, identityset.PrivateKey(stakerID))),
 		)
 		r.Len(receipts, 1)
 		r.ErrorContains(errs[0], "execution failed with status")
+	})
+	t.Run("error from contract call", func(t *testing.T) {
+		pa := NewPatches()
+		defer pa.Reset()
+		pa.ApplyMethodFunc(excPrtl, "HandleCrossProtocol", func(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+			return nil, errors.New("execution failed error")
+		})
+		sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
+		receipts, errs := runBlock(ctx, p, sm, 9, timeBlock,
+			assertions.MustNoErrorV(action.SignedCreateStake(popNonce(&stakerNonce), "cand1", stakeAmount.String(), stakeDurationDays, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID))),
+			assertions.MustNoErrorV(action.SignedMigrateStake(stakerNonce, 5, gasLimit, gasPrice, identityset.PrivateKey(stakerID))),
+		)
+		r.Len(receipts, 2)
+		r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipts[0].Status)
+		r.ErrorContains(errs[1], "execution failed error")
 	})
 	t.Run("success", func(t *testing.T) {
 		pa := NewPatches()
 		defer pa.Reset()
 		sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
-		bktIdx := uint64(1)
-		csm, err := NewCandidateStateManager(sm, false)
+		bktIdx := uint64(6)
+		receipts, errs := runBlock(ctx, p, sm, 10, timeBlock,
+			assertions.MustNoErrorV(action.SignedCreateStake(popNonce(&stakerNonce), "cand1", stakeAmount.String(), stakeDurationDays, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID))),
+		)
+		r.Len(receipts, 1)
+		r.NoError(errs[0])
+		r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipts[0].Status)
+		csm, err := NewCandidateStateManager(sm, true)
 		r.NoError(err)
 		preVotes := csm.GetByOwner(identityset.Address(candOwnerID)).Votes
 		bkt, err := csm.getBucket(bktIdx)
@@ -259,7 +278,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		})
 		pa.ApplyMethodReturn(excPrtl, "HandleCrossProtocol", receipt, nil)
 		act := assertions.MustNoErrorV(action.SignedMigrateStake(popNonce(&stakerNonce), bktIdx, gasLimit, gasPrice, identityset.PrivateKey(stakerID)))
-		receipts, _ := runBlock(ctx, p, sm, 10, timeBlock,
+		receipts, _ = runBlock(ctx, p, sm, 11, timeBlock,
 			act,
 		)
 		r.Len(receipts, 1)
@@ -277,7 +296,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 				hash.BytesToHash256(identityset.Address(candOwnerID).Bytes()),
 			},
 			Data:        nil,
-			BlockHeight: 10,
+			BlockHeight: 11,
 			ActionHash:  assertions.MustNoErrorV(act.Hash()),
 		}, receipts[0].Logs()[0])
 		r.Equal(receipt.Logs()[0], receipts[0].Logs()[1])
