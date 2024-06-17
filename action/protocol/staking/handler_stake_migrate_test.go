@@ -219,7 +219,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		pa := NewPatches()
 		defer pa.Reset()
 		sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
-		pa.ApplyMethodReturn(excPrtl, "HandleCrossProtocol", &action.Receipt{
+		pa.ApplyMethodReturn(excPrtl, "Handle", &action.Receipt{
 			Status: uint64(iotextypes.ReceiptStatus_Failure),
 		}, nil)
 		receipts, errs := runBlock(ctx, p, sm, 8, timeBlock,
@@ -231,7 +231,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 	t.Run("error from contract call", func(t *testing.T) {
 		pa := NewPatches()
 		defer pa.Reset()
-		pa.ApplyMethodFunc(excPrtl, "HandleCrossProtocol", func(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+		pa.ApplyMethodFunc(excPrtl, "Handle", func(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 			return nil, errors.New("execution failed error")
 		})
 		sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
@@ -275,7 +275,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 			Type:   iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
 			Amount: big.NewInt(100),
 		})
-		pa.ApplyMethodReturn(excPrtl, "HandleCrossProtocol", receipt, nil)
+		pa.ApplyMethodReturn(excPrtl, "Handle", receipt, nil)
 		act := assertions.MustNoErrorV(action.SignedMigrateStake(popNonce(&stakerNonce), bktIdx, gasLimit, gasPrice, identityset.PrivateKey(stakerID)))
 		receipts, _ = runBlock(ctx, p, sm, 11, timeBlock,
 			act,

@@ -20,9 +20,10 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateStake, csm CandidateStateManager) ([]*action.Log, []*action.TransactionLog, uint64, error) {
+func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateStake, csm CandidateStateManager) ([]*action.Log, []*action.TransactionLog, uint64, bool, error) {
 	actLogs := make([]*action.Log, 0)
 	transferLogs := make([]*action.TransactionLog, 0)
+	nonceUpdated := false
 	si := csm.SM().Snapshot()
 	revertSM := func() {
 		if revertErr := csm.SM().Revert(si); revertErr != nil {
@@ -31,30 +32,30 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateSt
 	}
 	insGas, err := act.IntrinsicGas()
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, 0, nonceUpdated, err
 	}
 
 	// validate bucket index
 	bucket, rErr := p.fetchBucket(csm, act.BucketIndex())
 	if rErr != nil {
-		return nil, nil, 0, rErr
+		return nil, nil, 0, nonceUpdated, rErr
 	}
 	if err := p.validateStakeMigrate(ctx, bucket, csm); err != nil {
-		return nil, nil, 0, err
+		return nil, nil, 0, nonceUpdated, err
 	}
 
 	// force-withdraw native bucket
 	staker, rerr := fetchCaller(ctx, csm, big.NewInt(0))
 	if rerr != nil {
-		return nil, nil, 0, errors.Wrap(rerr, "failed to fetch caller")
+		return nil, nil, 0, nonceUpdated, errors.Wrap(rerr, "failed to fetch caller")
 	}
 	candidate := csm.GetByIdentifier(bucket.Candidate)
 	if candidate == nil {
-		return nil, nil, 0, errCandNotExist
+		return nil, nil, 0, nonceUpdated, errCandNotExist
 	}
 	actLog, tLog, err := p.withdrawBucket(ctx, staker, bucket, candidate, csm)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, 0, nonceUpdated, err
 	}
 	actLogs = append(actLogs, actLog.Build(ctx, nil))
 	transferLogs = append(transferLogs, tLog)
@@ -64,21 +65,22 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateSt
 	exec, err := p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, act.Nonce(), act.GasLimit(), act.GasPrice())
 	if err != nil {
 		revertSM()
-		return nil, nil, 0, errors.Wrap(err, "failed to construct execution")
+		return nil, nil, 0, nonceUpdated, errors.Wrap(err, "failed to construct execution")
 	}
 	excReceipt, err := p.createNFTBucket(ctx, exec, csm.SM())
 	if err != nil {
 		revertSM()
-		return nil, nil, 0, errors.Wrap(err, "failed to handle execution action")
+		return nil, nil, 0, nonceUpdated, errors.Wrap(err, "failed to handle execution action")
 	}
+	nonceUpdated = true
 	if excReceipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 		revertSM()
-		return nil, nil, 0, errors.Errorf("execution failed with status %d", excReceipt.Status)
+		return nil, nil, 0, nonceUpdated, errors.Errorf("execution failed with status %d", excReceipt.Status)
 	}
 	// add sub-receipts logs
 	actLogs = append(actLogs, excReceipt.Logs()...)
 	transferLogs = append(transferLogs, excReceipt.TransactionLogs()...)
-	return actLogs, transferLogs, excReceipt.GasConsumed + insGas, nil
+	return actLogs, transferLogs, excReceipt.GasConsumed + insGas, nonceUpdated, nil
 }
 
 func (p *Protocol) validateStakeMigrate(ctx context.Context, bucket *VoteBucket, csm CandidateStateManager) error {
@@ -195,7 +197,7 @@ func (p *Protocol) createNFTBucket(ctx context.Context, exeAct *action.Execution
 	if exctPtl == nil {
 		return nil, errors.New("execution protocol is not registered")
 	}
-	excReceipt, err := exctPtl.HandleCrossProtocol(ctx, exeAct, sm)
+	excReceipt, err := exctPtl.Handle(ctx, exeAct, sm)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to handle execution action")
 	}

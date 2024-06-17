@@ -156,7 +156,10 @@ func NewProtocol(
 
 	// new vote reviser, revise ate greenland
 	voteReviser := NewVoteReviser(cfg.Staking.VoteWeightCalConsts, correctCandsHeight, reviseHeights...)
-
+	migrateContractAddress := ""
+	if contractStakingIndexerV2 != nil {
+		migrateContractAddress = contractStakingIndexerV2.ContractAddress()
+	}
 	return &Protocol{
 		addr: addr,
 		config: Configuration{
@@ -170,6 +173,7 @@ func NewProtocol(
 			BootstrapCandidates:              cfg.Staking.BootstrapCandidates,
 			PersistStakingPatchBlock:         cfg.PersistStakingPatchBlock,
 			EndorsementWithdrawWaitingBlocks: cfg.Staking.EndorsementWithdrawWaitingBlocks,
+			MigrateContractAddress:           migrateContractAddress,
 		},
 		candBucketsIndexer:       candBucketsIndexer,
 		voteReviser:              voteReviser,
@@ -415,12 +419,13 @@ func (p *Protocol) constructCandidateStateManager(ctx context.Context, sm protoc
 
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
 	var (
-		rLog        *receiptLog
-		tLogs       []*action.TransactionLog
-		err         error
-		logs        []*action.Log
-		actionCtx   = protocol.MustGetActionCtx(ctx)
-		gasConsumed = actionCtx.IntrinsicGas
+		rLog              *receiptLog
+		tLogs             []*action.TransactionLog
+		err               error
+		logs              []*action.Log
+		nonceUpdateOption = updateNonce
+		actionCtx         = protocol.MustGetActionCtx(ctx)
+		gasConsumed       = actionCtx.IntrinsicGas
 	)
 
 	switch act := act.(type) {
@@ -449,7 +454,11 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 	case *action.CandidateTransferOwnership:
 		rLog, tLogs, err = p.handleCandidateTransferOwnership(ctx, act, csm)
 	case *action.MigrateStake:
-		logs, tLogs, gasConsumed, err = p.handleStakeMigrate(ctx, act, csm)
+		var nonceUpdated bool
+		logs, tLogs, gasConsumed, nonceUpdated, err = p.handleStakeMigrate(ctx, act, csm)
+		if nonceUpdated {
+			nonceUpdateOption = noUpdateNonce
+		}
 	default:
 		return nil, nil
 	}
@@ -459,14 +468,14 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		}
 	}
 	if err == nil {
-		return p.settleAction(ctx, csm.SM(), uint64(iotextypes.ReceiptStatus_Success), logs, tLogs, gasConsumed)
+		return p.settleAction(ctx, csm.SM(), uint64(iotextypes.ReceiptStatus_Success), logs, tLogs, gasConsumed, nonceUpdateOption)
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		log.L().With(
 			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Debug("Failed to commit staking action", zap.Error(err))
-		return p.settleAction(ctx, csm.SM(), receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed)
+		return p.settleAction(ctx, csm.SM(), receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed, nonceUpdateOption)
 	}
 	return nil, err
 }
@@ -677,6 +686,13 @@ func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
 	return CalculateVoteWeight(p.config.VoteWeightCalConsts, v, selfStake)
 }
 
+type nonceUpdateType bool
+
+const (
+	updateNonce   nonceUpdateType = true
+	noUpdateNonce nonceUpdateType = false
+)
+
 // settleAction deposits gas fee and updates caller's nonce
 func (p *Protocol) settleAction(
 	ctx context.Context,
@@ -685,6 +701,7 @@ func (p *Protocol) settleAction(
 	logs []*action.Log,
 	tLogs []*action.TransactionLog,
 	gasConsumed uint64,
+	updateNonce nonceUpdateType,
 ) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -693,19 +710,21 @@ func (p *Protocol) settleAction(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deposit gas")
 	}
-	accountCreationOpts := []state.AccountCreationOption{}
-	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
-		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
-	}
-	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)
-	if err != nil {
-		return nil, err
-	}
-	if err := acc.SetPendingNonce(actionCtx.Nonce + 1); err != nil {
-		return nil, errors.Wrap(err, "failed to set nonce")
-	}
-	if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
-		return nil, errors.Wrap(err, "failed to update nonce")
+	if updateNonce {
+		accountCreationOpts := []state.AccountCreationOption{}
+		if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+			accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
+		}
+		acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)
+		if err != nil {
+			return nil, err
+		}
+		if err := acc.SetPendingNonce(actionCtx.Nonce + 1); err != nil {
+			return nil, errors.Wrap(err, "failed to set nonce")
+		}
+		if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
+			return nil, errors.Wrap(err, "failed to update nonce")
+		}
 	}
 	r := action.Receipt{
 		Status:          status,

@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -81,25 +80,6 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		return nil, errors.Wrap(err, "failed to execute contract")
 	}
 
-	return receipt, nil
-}
-
-// HandleCrossProtocol handles an execution from another protocol
-func (p *Protocol) HandleCrossProtocol(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	receipt, err := p.Handle(ctx, act, sm)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to execute contract")
-	}
-
-	// reset caller nonce
-	acc, err := accountutil.AccountState(ctx, sm, protocol.MustGetActionCtx(ctx).Caller)
-	if err != nil {
-		log.L().Panic("failed to get account state", zap.Error(err))
-	}
-	acc.DecreaseNonce()
-	if err := accountutil.StoreAccount(sm, protocol.MustGetActionCtx(ctx).Caller, acc); err != nil {
-		log.L().Panic("failed to store account", zap.Error(err))
-	}
 	return receipt, nil
 }
 
