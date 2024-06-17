@@ -7,6 +7,7 @@ package integrity
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -14,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/mock/gomock"
 	iotexcrypto "github.com/iotexproject/go-pkgs/crypto"
@@ -45,6 +48,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -946,7 +950,7 @@ func createChain(cfg config.Config, inMem bool) (blockchain.Blockchain, factory.
 	), sf, dao, ap, nil
 }
 
-func TestConvertCleanAddress(t *testing.T) {
+func TestBlockchainHardForkFeatures(t *testing.T) {
 	require := require.New(t)
 
 	cfg := config.Default
@@ -1010,7 +1014,6 @@ func TestConvertCleanAddress(t *testing.T) {
 	priKey0 := identityset.PrivateKey(27)
 	ex1, err := action.SignedExecution(action.EmptyAddress, priKey0, 1, new(big.Int), 500000, minGas, _constantinopleOpCodeContract)
 	require.NoError(err)
-	h, _ := ex1.Hash()
 	require.NoError(ap.Add(ctx, ex1))
 	tsf1, err := action.SignedTransfer(identityset.Address(25).String(), priKey0, 2, big.NewInt(10000), nil, 500000, minGas)
 	require.NoError(err)
@@ -1034,11 +1037,11 @@ func TestConvertCleanAddress(t *testing.T) {
 	require.NoError(bc.CommitBlock(blk))
 
 	// get deployed contract address
-	var r *action.Receipt
-	if dao != nil {
-		r, err = receiptByActionHash(dao, 1, h)
-		require.NoError(err)
-	}
+	h, err := ex1.Hash()
+	require.NoError(err)
+	r, err := receiptByActionHash(dao, 1, h)
+	require.NoError(err)
+	testContract := r.ContractAddress
 
 	// verify 4 recipients remain legacy fresh accounts
 	for _, v := range []struct {
@@ -1061,7 +1064,7 @@ func TestConvertCleanAddress(t *testing.T) {
 		require.Zero(nonce)
 	}
 
-	// Add block 2
+	// Add block 2 -- test the UseZeroNonceForFreshAccount flag
 	t1, _ := action.NewTransfer(0, big.NewInt(100), identityset.Address(27).String(), nil, 500000, minGas)
 	elp := (&action.EnvelopeBuilder{}).SetNonce(t1.Nonce()).
 		SetChainID(cfg.Chain.ID).
@@ -1082,8 +1085,7 @@ func TestConvertCleanAddress(t *testing.T) {
 	require.NoError(ap.Add(ctx, tsf2))
 	// call set() to set storedData = 0xfe...1f40
 	funcSig := hash.Hash256b([]byte("set(uint256)"))
-	data := append(funcSig[:4], _setTopic...)
-	e1, _ := action.NewExecution(r.ContractAddress, 0, new(big.Int), 500000, minGas, data)
+	e1, _ := action.NewExecution(testContract, 0, new(big.Int), 500000, minGas, append(funcSig[:4], _setTopic...))
 	elp = (&action.EnvelopeBuilder{}).SetNonce(e1.Nonce()).
 		SetChainID(cfg.Chain.ID).
 		SetGasPrice(e1.GasPrice()).
@@ -1149,24 +1151,28 @@ func TestConvertCleanAddress(t *testing.T) {
 	require.Equal(h, r.ActionHash)
 	require.EqualValues(37120, r.GasConsumed)
 	require.Empty(r.ContractAddress)
+	logs := r.Logs()
+	require.Equal(1, len(logs))
+	require.Equal(_setTopic, logs[0].Topics[1][:])
+	require.True(blk1.Header.LogsBloomfilter().Exist(_setTopic))
 
 	// verify deterministic deployment transaction
-	h, err = ex2.Hash()
+	deterministicTxHash, err := ex2.Hash()
 	require.NoError(err)
-	require.Equal("eddf9e61fb9d8f5111840daef55e5fde0041f5702856532cdbb5a02998033d26", hex.EncodeToString(h[:]))
-	r, err = receiptByActionHash(dao, 2, h)
+	require.Equal("eddf9e61fb9d8f5111840daef55e5fde0041f5702856532cdbb5a02998033d26", hex.EncodeToString(deterministicTxHash[:]))
+	r, err = receiptByActionHash(dao, 2, deterministicTxHash)
 	require.NoError(err)
 	require.EqualValues(iotextypes.ReceiptStatus_Success, r.Status)
 	require.EqualValues(2, r.BlockHeight)
-	require.Equal(h, r.ActionHash)
+	require.Equal(deterministicTxHash, r.ActionHash)
 	require.EqualValues(32139, r.GasConsumed)
 	require.Equal("io1fevmgjz8kdu40pvgjgx20ralymqtf9tv3mdu7f", r.ContractAddress)
 	tl, err := dao.TransactionLogs(2)
 	require.NoError(err)
 	require.Equal(4, len(tl.Logs))
 
-	// Add block 3
-	t1, _ = action.NewTransfer(0, big.NewInt(100), identityset.Address(27).String(), nil, 500000, minGas)
+	// Add block 3 -- test the RefactorFreshAccountConversion flag
+	t1, _ = action.NewTransfer(0, big.NewInt(100), identityset.Address(25).String(), nil, 500000, minGas)
 	elp = (&action.EnvelopeBuilder{}).SetNonce(t1.Nonce()).
 		SetChainID(cfg.Chain.ID).
 		SetGasPrice(t1.GasPrice()).
@@ -1175,7 +1181,7 @@ func TestConvertCleanAddress(t *testing.T) {
 	tsf1, err = action.Sign(elp, identityset.PrivateKey(23))
 	require.NoError(err)
 	require.NoError(ap.Add(ctx, tsf1))
-	t2, _ = action.NewTransfer(1, big.NewInt(200), identityset.Address(27).String(), nil, 500000, minGas)
+	t2, _ = action.NewTransfer(1, big.NewInt(200), identityset.Address(24).String(), nil, 500000, minGas)
 	elp = (&action.EnvelopeBuilder{}).SetNonce(t2.Nonce()).
 		SetChainID(cfg.Chain.ID).
 		SetGasPrice(t2.GasPrice()).
@@ -1184,29 +1190,11 @@ func TestConvertCleanAddress(t *testing.T) {
 	tsf2, err = action.Sign(elp, identityset.PrivateKey(23))
 	require.NoError(err)
 	require.NoError(ap.Add(ctx, tsf2))
-	t3, _ := action.NewTransfer(1, big.NewInt(100), identityset.Address(27).String(), nil, 500000, minGas)
-	elp = (&action.EnvelopeBuilder{}).SetNonce(t3.Nonce()).
-		SetChainID(cfg.Chain.ID).
-		SetGasPrice(t1.GasPrice()).
-		SetGasLimit(t1.GasLimit()).
-		SetAction(t3).Build()
-	tsf3, err = action.Sign(elp, identityset.PrivateKey(24))
-	require.NoError(err)
-	require.NoError(ap.Add(ctx, tsf3))
-	t4, _ := action.NewTransfer(2, big.NewInt(200), identityset.Address(27).String(), nil, 500000, minGas)
-	elp = (&action.EnvelopeBuilder{}).SetNonce(t4.Nonce()).
-		SetChainID(cfg.Chain.ID).
-		SetGasPrice(t2.GasPrice()).
-		SetGasLimit(t2.GasLimit()).
-		SetAction(t4).Build()
-	tsf4, err = action.Sign(elp, identityset.PrivateKey(25))
-	require.NoError(err)
-	require.NoError(ap.Add(ctx, tsf4))
 	blockTime = blockTime.Add(time.Second)
 	blk2, err := bc.MintNewBlock(blockTime)
 	require.NoError(err)
 	require.EqualValues(3, blk2.Height())
-	require.Equal(5, len(blk2.Body.Actions))
+	require.Equal(3, len(blk2.Body.Actions))
 	require.NoError(bc.CommitBlock(blk2))
 
 	// 4 legacy fresh accounts are converted to zero-nonce account
@@ -1216,8 +1204,8 @@ func TestConvertCleanAddress(t *testing.T) {
 		b     string
 	}{
 		{identityset.Address(23), 2, "99999999980000000000029700"},
-		{identityset.Address(24), 2, "99999999952880000000009900"},
-		{identityset.Address(25), 3, "99999999970000000000009500"},
+		{identityset.Address(24), 1, "99999999962880000000010200"},
+		{identityset.Address(25), 2, "99999999980000000000009800"},
 		{deterministic, 1, "6786100000000000"},
 	} {
 		a, err := accountutil.AccountState(ctx, sf, v.a)
@@ -1227,7 +1215,78 @@ func TestConvertCleanAddress(t *testing.T) {
 		require.Equal(v.b, a.Balance.String())
 	}
 
-	// commit 3 blocks to a new chain
+	// Add block 4 -- test the UseTxContainer flag
+	var (
+		txs          [2]*types.Transaction
+		contractHash hash.Hash256
+	)
+	txs[0] = types.NewTransaction(1, common.BytesToAddress(identityset.Address(23).Bytes()),
+		big.NewInt(100), 500000, minGas, nil)
+	testAddr, _ := address.FromString(testContract)
+	txs[1] = types.NewTransaction(2, common.BytesToAddress(testAddr.Bytes()),
+		new(big.Int), 500000, minGas, append(funcSig[:4], _sarTopic...))
+	signer := types.NewEIP155Signer(big.NewInt(int64(cfg.Chain.EVMNetworkID)))
+	for i := 0; i < 2; i++ {
+		signedTx, err := types.SignTx(txs[i], signer, identityset.PrivateKey(24).EcdsaPrivateKey().(*ecdsa.PrivateKey))
+		require.NoError(err)
+		raw, err := signedTx.MarshalBinary()
+		require.NoError(err)
+		// API receive/decode the tx
+		tx, err := action.DecodeEtherTx(hex.EncodeToString(raw))
+		require.NoError(err)
+		require.True(tx.Protected())
+		require.EqualValues(cfg.Chain.EVMNetworkID, tx.ChainId().Uint64())
+		encoding, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
+		require.Equal(iotextypes.Encoding_ETHEREUM_EIP155, encoding)
+		// use container to send tx
+		req := iotextypes.Action{
+			Core: &iotextypes.ActionCore{
+				Version:  version.ProtocolVersion,
+				Nonce:    tx.Nonce(),
+				GasLimit: tx.Gas(),
+				GasPrice: tx.GasPrice().String(),
+				ChainID:  cfg.Chain.ID,
+				Action: &iotextypes.ActionCore_TxContainer{
+					TxContainer: &iotextypes.TxContainer{
+						Raw: raw,
+					},
+				},
+			},
+			SenderPubKey: pubkey.Bytes(),
+			Signature:    sig,
+			Encoding:     iotextypes.Encoding_TX_CONTAINER,
+		}
+		// decode the tx
+		selp, err := (&action.Deserializer{}).SetEvmNetworkID(cfg.Chain.EVMNetworkID).ActionToSealedEnvelope(&req)
+		require.NoError(err)
+		if i == 1 {
+			contractHash, err = selp.Hash()
+			require.NoError(err)
+		}
+		require.EqualValues(iotextypes.Encoding_TX_CONTAINER, selp.Encoding())
+		require.NoError(ap.Add(ctx, selp))
+	}
+	blockTime = blockTime.Add(time.Second)
+	blk3, err := bc.MintNewBlock(blockTime)
+	require.NoError(err)
+	require.EqualValues(4, blk3.Height())
+	require.Equal(3, len(blk3.Body.Actions))
+	require.NoError(bc.CommitBlock(blk3))
+
+	// verify contract execution
+	r, err = receiptByActionHash(dao, 4, contractHash)
+	require.NoError(err)
+	require.EqualValues(iotextypes.ReceiptStatus_Success, r.Status)
+	require.EqualValues(4, r.BlockHeight)
+	require.Equal(contractHash, r.ActionHash)
+	require.EqualValues(20020, r.GasConsumed)
+	require.Empty(r.ContractAddress)
+	logs = r.Logs()
+	require.Equal(1, len(logs))
+	require.Equal(_sarTopic, logs[0].Topics[1][:])
+	require.True(blk3.Header.LogsBloomfilter().Exist(_sarTopic))
+
+	// commit 4 blocks to a new chain
 	testTriePath2, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
 	testDBPath2, err := testutil.PathOfTempFile("db")
@@ -1258,6 +1317,9 @@ func TestConvertCleanAddress(t *testing.T) {
 	require.NoError(bc2.CommitBlock(blk1))
 	require.NoError(bc2.ValidateBlock(blk2))
 	require.NoError(bc2.CommitBlock(blk2))
+	require.NoError(bc2.ValidateBlock(blk3))
+	require.NoError(bc2.CommitBlock(blk3))
+	require.EqualValues(4, bc2.TipHeight())
 
 	// 4 legacy fresh accounts are converted to zero-nonce account
 	for _, v := range []struct {
@@ -1265,9 +1327,9 @@ func TestConvertCleanAddress(t *testing.T) {
 		nonce uint64
 		b     string
 	}{
-		{identityset.Address(23), 2, "99999999980000000000029700"},
-		{identityset.Address(24), 2, "99999999952880000000009900"},
-		{identityset.Address(25), 3, "99999999970000000000009500"},
+		{identityset.Address(23), 2, "99999999980000000000029800"},
+		{identityset.Address(24), 3, "99999999932860000000010100"},
+		{identityset.Address(25), 2, "99999999980000000000009800"},
 		{deterministic, 1, "6786100000000000"},
 	} {
 		a, err := accountutil.AccountState(ctx, sf2, v.a)
@@ -1278,11 +1340,11 @@ func TestConvertCleanAddress(t *testing.T) {
 	}
 
 	// verify deterministic deployment transaction
-	r, err = receiptByActionHash(dao2, 2, h)
+	r, err = receiptByActionHash(dao2, 2, deterministicTxHash)
 	require.NoError(err)
 	require.EqualValues(iotextypes.ReceiptStatus_Success, r.Status)
 	require.EqualValues(2, r.BlockHeight)
-	require.Equal(h, r.ActionHash)
+	require.Equal(deterministicTxHash, r.ActionHash)
 	require.EqualValues(32139, r.GasConsumed)
 	require.Equal("io1fevmgjz8kdu40pvgjgx20ralymqtf9tv3mdu7f", r.ContractAddress)
 	tl, err = dao2.TransactionLogs(2)

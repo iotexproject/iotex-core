@@ -8,6 +8,7 @@ import (
 	"io"
 	"math/big"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -33,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
+	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -459,14 +461,16 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 	}
 	// parse raw data string from json request
 	var (
-		cs       = svr.coreService
-		tx       *types.Transaction
-		encoding iotextypes.Encoding
-		sig      []byte
-		pubkey   crypto.PublicKey
-		err      error
+		cs        = svr.coreService
+		rawString = dataStr.String()
+		tx        *types.Transaction
+		encoding  iotextypes.Encoding
+		sig       []byte
+		pubkey    crypto.PublicKey
+		err       error
+		req       *iotextypes.Action
 	)
-	tx, err = action.DecodeEtherTx(dataStr.String())
+	tx, err = action.DecodeEtherTx(rawString)
 	if err != nil {
 		return nil, err
 	}
@@ -477,15 +481,39 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 	if err != nil {
 		return nil, err
 	}
-	elp, err := svr.ethTxToEnvelope(tx)
-	if err != nil {
-		return nil, err
-	}
-	req := &iotextypes.Action{
-		Core:         elp.Proto(),
-		SenderPubKey: pubkey.Bytes(),
-		Signature:    sig,
-		Encoding:     encoding,
+	if g := cs.Genesis(); g.IsToBeEnabled(cs.TipHeight()) {
+		if strings.HasPrefix(rawString, "0x") || strings.HasPrefix(rawString, "0X") {
+			rawString = rawString[2:]
+		}
+		rawBytes, _ := hex.DecodeString(rawString)
+		req = &iotextypes.Action{
+			Core: &iotextypes.ActionCore{
+				Version:  version.ProtocolVersion,
+				Nonce:    tx.Nonce(),
+				GasLimit: tx.Gas(),
+				GasPrice: tx.GasPrice().String(),
+				ChainID:  cs.ChainID(),
+				Action: &iotextypes.ActionCore_TxContainer{
+					TxContainer: &iotextypes.TxContainer{
+						Raw: rawBytes,
+					},
+				},
+			},
+			SenderPubKey: pubkey.Bytes(),
+			Signature:    sig,
+			Encoding:     iotextypes.Encoding_TX_CONTAINER,
+		}
+	} else {
+		elp, err := svr.ethTxToEnvelope(tx)
+		if err != nil {
+			return nil, err
+		}
+		req = &iotextypes.Action{
+			Core:         elp.Proto(),
+			SenderPubKey: pubkey.Bytes(),
+			Signature:    sig,
+			Encoding:     encoding,
+		}
 	}
 	actionHash, err := cs.SendAction(context.Background(), req)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"context"
 	"sort"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -38,6 +39,7 @@ var (
 	)
 
 	errInvalidSystemActionLayout = errors.New("system action layout is invalid")
+	errUnfoldTxContainer         = errors.New("failed to unfold tx container")
 )
 
 func init() {
@@ -156,6 +158,14 @@ func (ws *workingSet) runAction(
 			return nil, err
 		}
 	}
+	// if it's a tx container, unfold the tx inside
+	if protocol.MustGetFeatureCtx(ctx).UseTxContainer {
+		if container, ok := selp.Action().(action.TxContainer); ok {
+			if err := container.Unfold(selp, ctx, ws.checkContract); err != nil {
+				return nil, errors.Wrap(errUnfoldTxContainer, err.Error())
+			}
+		}
+	}
 	// for replay tx, check against deployer whitelist
 	g := genesis.MustExtractGenesisContext(ctx)
 	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && !g.IsDeployerWhitelisted(selp.SenderAddress()) {
@@ -200,6 +210,27 @@ func validateChainID(ctx context.Context, chainID uint32) error {
 		return errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, chainID)
 	}
 	return nil
+}
+
+func (ws *workingSet) checkContract(ctx context.Context, to *common.Address) (bool, bool, bool, error) {
+	if to == nil {
+		return true, false, false, nil
+	}
+	var (
+		addr, _ = address.FromBytes(to.Bytes())
+		ioAddr  = addr.String()
+	)
+	if ioAddr == address.StakingProtocolAddr {
+		return false, true, false, nil
+	}
+	if ioAddr == address.RewardingProtocol {
+		return false, false, true, nil
+	}
+	sender, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return false, false, false, errors.Wrapf(err, "failed to get account of %s", to.Hex())
+	}
+	return sender.IsContract(), false, false, nil
 }
 
 func (ws *workingSet) finalize() error {
@@ -556,13 +587,14 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			}
+			// TODO: error may cause the tx to be stuck in the action pool until expired
 			receipt, err := ws.runAction(actionCtx, nextAction)
 			switch errors.Cause(err) {
 			case nil:
 				// do nothing
 			case action.ErrChainID:
 				continue
-			case action.ErrGasLimit:
+			case action.ErrGasLimit, errUnfoldTxContainer:
 				actionIterator.PopAccount()
 				continue
 			default:
