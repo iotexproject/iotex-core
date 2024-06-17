@@ -1,4 +1,4 @@
-package v1
+package v3
 
 import (
 	"encoding/hex"
@@ -11,13 +11,20 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/staking/ethabi/common"
+	stakingComm "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi/common"
 )
 
-func TestBuildReadStateRequestCandidateByAddress(t *testing.T) {
+func TestBuildReadStateRequestCandidateByID(t *testing.T) {
 	r := require.New(t)
 
-	data, _ := hex.DecodeString("43f75ae40000000000000000000000000000000000000000000000000000000000000001")
+	// addr, err := address.FromString("io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv")
+	// r.NoError(err)
+	// data, err := _candidateByIDMethod.Inputs.Pack(common.BytesToAddress(addr.Bytes()))
+	// r.NoError(err)
+	// data = append(_candidateByIDMethod.ID, data...)
+	// t.Logf("data: %s", hex.EncodeToString(data))
+
+	data, _ := hex.DecodeString("794368820000000000000000000000000000000000000000000000000000000000000001")
 	req, err := BuildReadStateRequest(data)
 
 	r.Nil(err)
@@ -32,7 +39,7 @@ func TestBuildReadStateRequestCandidateByAddress(t *testing.T) {
 	arguments := &iotexapi.ReadStakingDataRequest{
 		Request: &iotexapi.ReadStakingDataRequest_CandidateByAddress_{
 			CandidateByAddress: &iotexapi.ReadStakingDataRequest_CandidateByAddress{
-				OwnerAddr: "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv",
+				Id: "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv",
 			},
 		},
 	}
@@ -40,10 +47,11 @@ func TestBuildReadStateRequestCandidateByAddress(t *testing.T) {
 	r.EqualValues([][]byte{argumentsBytes}, req.Parameters().Arguments)
 }
 
-func TestCandidateByAddressToEth(t *testing.T) {
+func TestCandidateByIDToEth(t *testing.T) {
 	r := require.New(t)
 
 	candidate := &iotextypes.CandidateV2{
+		Id:                 "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv",
 		OwnerAddress:       "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv",
 		OperatorAddress:    "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz75y8gn",
 		RewardAddress:      "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqrrzsj4p",
@@ -51,7 +59,6 @@ func TestCandidateByAddressToEth(t *testing.T) {
 		TotalWeightedVotes: "10000000000000000000",
 		SelfStakeBucketIdx: 100,
 		SelfStakingTokens:  "5000000000000000000",
-		Id:                 "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv",
 	}
 
 	candidateBytes, _ := proto.Marshal(candidate)
@@ -59,12 +66,12 @@ func TestCandidateByAddressToEth(t *testing.T) {
 		Data: candidateBytes,
 	}
 
-	ctx := &common.CandidateByAddressStateContext{
+	ctx := &stakingComm.CandidateByAddressStateContext{
 		BaseStateContext: &protocol.BaseStateContext{
-			Method: &_candidateByAddressMethod,
+			Method: &_candidateByIDMethod,
 		},
 	}
 	data, err := ctx.EncodeToEth(resp)
 	r.Nil(err)
-	r.EqualValues("000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000008ac7230489e8000000000000000000000000000000000000000000000000000000000000000000640000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000000000000568656c6c6f000000000000000000000000000000000000000000000000000000", data)
+	r.EqualValues("000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000008ac7230489e8000000000000000000000000000000000000000000000000000000000000000000640000000000000000000000000000000000000000000000004563918244f400000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000568656c6c6f000000000000000000000000000000000000000000000000000000", data)
 }

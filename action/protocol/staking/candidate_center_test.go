@@ -578,7 +578,6 @@ func candCenterFromNewCandidateStateManager(r *require.Assertions, view protocol
 }
 
 func TestCandidateUpsert(t *testing.T) {
-	// t.Skip()
 	r := require.New(t)
 
 	m, err := NewCandidateCenter(nil)

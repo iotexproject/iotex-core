@@ -17,6 +17,14 @@ func BuildReadStateRequest(data []byte) (protocol.StateContext, error) {
 		return newCompositeBucketsByIndexesStateContext(data[4:])
 	case hex.EncodeToString(_compositeBucketsByVoterMethod.ID):
 		return newCompositeBucketsByVoterStateContext(data[4:])
+	case hex.EncodeToString(_candidatesMethod.ID):
+		return newCandidatesStateContext(data[4:])
+	case hex.EncodeToString(_candidateByNameMethod.ID):
+		return newCandidateByNameStateContext(data[4:])
+	case hex.EncodeToString(_candidateByAddressMethod.ID):
+		return newCandidateByAddressStateContext(data[4:])
+	case hex.EncodeToString(_candidateByIDMethod.ID):
+		return newCandidateByIDStateContext(data[4:])
 	default:
 		return nil, stakingComm.ErrInvalidCallSig
 	}

@@ -309,7 +309,10 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 }
 
 func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.StateManager) error {
-	csr := newCandidateStateReader(sm)
+	csr, err := ConstructBaseView(sm)
+	if err != nil {
+		return err
+	}
 	allBuckets, _, err := csr.getAllBuckets()
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
@@ -326,7 +329,10 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
-	candidateList := toIoTeXTypesCandidateListV2(all)
+	candidateList, err := toIoTeXTypesCandidateListV2(csr, all)
+	if err != nil {
+		return err
+	}
 	return p.candBucketsIndexer.PutCandidates(epochStartHeight, candidateList)
 }
 
@@ -481,7 +487,7 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 	return nil
 }
 
-func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidateStateReader, cand *Candidate) (bool, error) {
+func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidiateStateCommon, cand *Candidate) (bool, error) {
 	if cand.SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
 		return false, nil
 	}
@@ -562,8 +568,10 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if err != nil {
 		return nil, 0, err
 	}
-	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
+	epochStartHeight := inputHeight
+	if rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx)); rp != nil {
+		epochStartHeight = rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
+	}
 	nativeSR, err := ConstructBaseView(sr)
 	if err != nil {
 		return nil, 0, err
