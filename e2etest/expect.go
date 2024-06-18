@@ -192,7 +192,8 @@ func (ee *executionExpect) expect(test *e2etest, act *action.SealedEnvelope, rec
 
 func (ce *accountExpect) expect(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
 	require := require.New(test.t)
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	cli, err := ethclient.DialContext(ctx, fmt.Sprintf("http://localhost:%d", test.cfg.API.HTTPPort))
 	addr := common.BytesToAddress(ce.addr.Bytes())
 	balance, err := cli.BalanceAt(context.Background(), addr, nil)
