@@ -242,6 +242,7 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 		if err := act.loadProto(pbAct.GetTxContainer()); err != nil {
 			return err
 		}
+		elp.payload = act
 	case pbAct.GetStakeMigrate() != nil:
 		act := &MigrateStake{}
 		if err := act.LoadProto(pbAct.GetStakeMigrate()); err != nil {
