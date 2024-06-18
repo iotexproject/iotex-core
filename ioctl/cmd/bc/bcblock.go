@@ -188,7 +188,7 @@ func getBlock(args []string) error {
 	return nil
 }
 
-// getActionInfoByBlock gets action info by block hash with start index and action count
+// getActionInfoWithinBlock gets action info by block hash with start index and action count
 func getActionInfoWithinBlock(height uint64) ([]blocksInfo, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
