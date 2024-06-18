@@ -824,6 +824,18 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			action:   MustNoErrorV(NewExecution(to, nonce, amount, gasLimit, gasPrice, data)),
 			builder:  elpbuilder.BuildExecution,
 		},
+		{
+			name:     "StakeMigrate",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				migrateStakeMethod.ID,
+				MustNoErrorV(migrateStakeMethod.Inputs.Pack(uint64(1)))...,
+			),
+			action:  MustNoErrorV(NewMigrateStake(nonce, 1, gasLimit, gasPrice)),
+			builder: elpbuilder.BuildStakingAction,
+		},
 	}
 
 	verifytx := func(tx *types.Transaction, enc iotextypes.Encoding, amount *big.Int, data []byte, to string, sigv *big.Int) {
