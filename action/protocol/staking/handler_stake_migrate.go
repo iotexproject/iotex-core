@@ -24,27 +24,14 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateSt
 	actLogs := make([]*action.Log, 0)
 	transferLogs := make([]*action.TransactionLog, 0)
 	nonceUpdated := false
-	si := csm.SM().Snapshot()
-	revertSM := func() {
-		if revertErr := csm.SM().Revert(si); revertErr != nil {
-			log.L().Panic("failed to revert state", zap.Error(revertErr))
-		}
-	}
 	insGas, err := act.IntrinsicGas()
 	if err != nil {
 		return nil, nil, 0, nonceUpdated, err
 	}
-
-	// validate bucket index
 	bucket, rErr := p.fetchBucket(csm, act.BucketIndex())
 	if rErr != nil {
 		return nil, nil, 0, nonceUpdated, rErr
 	}
-	if err := p.validateStakeMigrate(ctx, bucket, csm); err != nil {
-		return nil, nil, 0, nonceUpdated, err
-	}
-
-	// force-withdraw native bucket
 	staker, rerr := fetchCaller(ctx, csm, big.NewInt(0))
 	if rerr != nil {
 		return nil, nil, 0, nonceUpdated, errors.Wrap(rerr, "failed to fetch caller")
@@ -53,20 +40,31 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateSt
 	if candidate == nil {
 		return nil, nil, 0, nonceUpdated, errCandNotExist
 	}
+	duration := uint64(bucket.StakedDuration / p.helperCtx.BlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
+	exec, err := p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, act.Nonce(), act.GasLimit(), act.GasPrice())
+	if err != nil {
+		return nil, nil, 0, nonceUpdated, errors.Wrap(err, "failed to construct execution")
+	}
+	// validate bucket index
+	if err := p.validateStakeMigrate(ctx, bucket, csm); err != nil {
+		return nil, nil, 0, nonceUpdated, err
+	}
+
+	// snapshot for sm in case of failure of hybrid protocol handling
+	si := csm.SM().Snapshot()
+	revertSM := func() {
+		if revertErr := csm.SM().Revert(si); revertErr != nil {
+			log.L().Panic("failed to revert state", zap.Error(revertErr))
+		}
+	}
+	// force-withdraw native bucket
 	actLog, tLog, err := p.withdrawBucket(ctx, staker, bucket, candidate, csm)
 	if err != nil {
 		return nil, nil, 0, nonceUpdated, err
 	}
 	actLogs = append(actLogs, actLog.Build(ctx, nil))
 	transferLogs = append(transferLogs, tLog)
-
 	// call staking contract to stake
-	duration := uint64(bucket.StakedDuration / p.helperCtx.BlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
-	exec, err := p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, act.Nonce(), act.GasLimit(), act.GasPrice())
-	if err != nil {
-		revertSM()
-		return nil, nil, 0, nonceUpdated, errors.Wrap(err, "failed to construct execution")
-	}
 	excReceipt, err := p.createNFTBucket(ctx, exec, csm.SM())
 	if err != nil {
 		revertSM()
@@ -75,12 +73,16 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateSt
 	nonceUpdated = true
 	if excReceipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 		revertSM()
-		return nil, nil, 0, nonceUpdated, errors.Errorf("execution failed with status %d", excReceipt.Status)
+		nonceUpdated = false
+		return excReceipt.Logs(), excReceipt.TransactionLogs(), excReceipt.GasConsumed + insGas, nonceUpdated, &handleError{
+			err:           errors.Errorf("staking contract failure: %s", excReceipt.ExecutionRevertMsg()),
+			failureStatus: iotextypes.ReceiptStatus(excReceipt.Status),
+		}
 	}
 	// add sub-receipts logs
 	actLogs = append(actLogs, excReceipt.Logs()...)
 	transferLogs = append(transferLogs, excReceipt.TransactionLogs()...)
-	return actLogs, transferLogs, excReceipt.GasConsumed + insGas, nonceUpdated, nil
+	return actLogs, transferLogs, insGas, nonceUpdated, nil
 }
 
 func (p *Protocol) validateStakeMigrate(ctx context.Context, bucket *VoteBucket, csm CandidateStateManager) error {

@@ -114,11 +114,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		receipts := make([]*action.Receipt, 0)
 		errs := make([]error, 0)
 		for _, act := range acts {
-			// si := sm.Snapshot()
 			receipt, err := runAction(ctx, p, act, sm)
-			// if err != nil {
-			// 	r.NoError(sm.Revert(si))
-			// }
 			receipts = append(receipts, receipt)
 			errs = append(errs, err)
 		}
@@ -218,15 +214,45 @@ func TestHandleStakeMigrate(t *testing.T) {
 	t.Run("failure from contract call", func(t *testing.T) {
 		pa := NewPatches()
 		defer pa.Reset()
-		sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
-		pa.ApplyMethodReturn(excPrtl, "Handle", &action.Receipt{
-			Status: uint64(iotextypes.ReceiptStatus_Failure),
-		}, nil)
+		sm.EXPECT().Revert(gomock.Any()).Return(nil).Times(1)
+		receipt := &action.Receipt{
+			Status:      uint64(iotextypes.ReceiptStatus_Failure),
+			GasConsumed: 1000000,
+		}
+		actLog := &action.Log{
+			Address: address.ZeroAddress,
+			Topics: action.Topics{
+				hash.BytesToHash256([]byte("withdraw")),
+			},
+		}
+		txLog := &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_GAS_FEE,
+			Sender:    "",
+			Recipient: "",
+			Amount:    new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasConsumed), gasPrice),
+		}
+		receipt.AddLogs(actLog)
+		receipt.AddTransactionLogs(txLog)
+		pa.ApplyMethodReturn(excPrtl, "Handle", receipt, nil)
+		act := assertions.MustNoErrorV(action.SignedMigrateStake(popNonce(&stakerNonce), 1, gasLimit, gasPrice, identityset.PrivateKey(stakerID)))
 		receipts, errs := runBlock(ctx, p, sm, 8, timeBlock,
-			assertions.MustNoErrorV(action.SignedMigrateStake(stakerNonce, 1, gasLimit, gasPrice, identityset.PrivateKey(stakerID))),
+			act,
 		)
 		r.Len(receipts, 1)
-		r.ErrorContains(errs[0], "execution failed with status")
+		r.NoError(errs[0])
+		h, err := act.Hash()
+		r.NoError(err)
+		expectReceipt := &action.Receipt{
+			Status:          receipt.Status,
+			ActionHash:      h,
+			BlockHeight:     8,
+			GasConsumed:     receipt.GasConsumed + action.MigrateStakeBaseIntrinsicGas,
+			ContractAddress: address.StakingProtocolAddr,
+			TxIndex:         uint32(0),
+		}
+		expectReceipt.AddLogs(actLog)
+		expectReceipt.AddTransactionLogs(txLog)
+		r.Equal(expectReceipt, receipts[0])
 	})
 	t.Run("error from contract call", func(t *testing.T) {
 		pa := NewPatches()
@@ -234,7 +260,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		pa.ApplyMethodFunc(excPrtl, "Handle", func(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 			return nil, errors.New("execution failed error")
 		})
-		sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
+		sm.EXPECT().Revert(gomock.Any()).Return(nil).Times(1)
 		receipts, errs := runBlock(ctx, p, sm, 9, timeBlock,
 			assertions.MustNoErrorV(action.SignedCreateStake(popNonce(&stakerNonce), "cand1", stakeAmount.String(), stakeDurationDays, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID))),
 			assertions.MustNoErrorV(action.SignedMigrateStake(stakerNonce, 5, gasLimit, gasPrice, identityset.PrivateKey(stakerID))),
@@ -284,7 +310,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipts[0].Status)
 		// gas = instrinsic  + contract call
 		instriGas, _ := act.IntrinsicGas()
-		r.Equal(receipt.GasConsumed+instriGas, receipts[0].GasConsumed)
+		r.Equal(instriGas, receipts[0].GasConsumed)
 		// withdraw log + stake log
 		r.Len(receipts[0].Logs(), 2)
 		r.Equal(&action.Log{
