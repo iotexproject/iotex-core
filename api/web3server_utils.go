@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-redis/redis/v8"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -325,6 +326,17 @@ func parseCallObject(in *gjson.Result) (address.Address, string, uint64, *big.In
 		data = common.FromHex(in.Get("params.0.data").String())
 	}
 	return from, to, gasLimit, gasPrice, value, data, nil
+}
+
+func parseBlockNumber(in *gjson.Result) (rpc.BlockNumber, error) {
+	if !in.Exists() {
+		return rpc.LatestBlockNumber, nil
+	}
+	var height rpc.BlockNumber
+	if err := height.UnmarshalJSON([]byte(in.String())); err != nil {
+		return 0, err
+	}
+	return height, nil
 }
 
 func (svr *web3Handler) getLogQueryRange(fromStr, toStr string, logHeight uint64) (from uint64, to uint64, hasNewLogs bool, err error) {
