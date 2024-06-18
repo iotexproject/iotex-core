@@ -366,12 +366,12 @@ func TestHistoryState(t *testing.T) {
 	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
-	cfg.Chain.EnableArchiveMode = true
+	cfg.Chain.HistoryWindowSize = 2
 	db1, err := db.CreateKVStore(db.DefaultConfig, cfg.Chain.TrieDBPath)
 	r.NoError(err)
 	sf, err := NewFactory(cfg, db1, SkipBlockValidationOption())
 	r.NoError(err)
-	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
+	testHistoryState(sf, t, false, cfg.Chain.HistoryWindowSize != 1)
 
 	// using stateDB and enable history
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
@@ -380,17 +380,17 @@ func TestHistoryState(t *testing.T) {
 	r.NoError(err)
 	sf, err = NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	r.NoError(err)
-	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
+	testHistoryState(sf, t, true, cfg.Chain.HistoryWindowSize != 1)
 
 	// using factory and disable history
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
-	cfg.Chain.EnableArchiveMode = false
+	cfg.Chain.HistoryWindowSize = 1
 	db1, err = db.CreateKVStore(db.DefaultConfig, cfg.Chain.TrieDBPath)
 	r.NoError(err)
 	sf, err = NewFactory(cfg, db1, SkipBlockValidationOption())
 	r.NoError(err)
-	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
+	testHistoryState(sf, t, false, cfg.Chain.HistoryWindowSize != 1)
 
 	// using stateDB and disable history
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
@@ -399,7 +399,7 @@ func TestHistoryState(t *testing.T) {
 	r.NoError(err)
 	sf, err = NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	r.NoError(err)
-	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
+	testHistoryState(sf, t, true, cfg.Chain.HistoryWindowSize != 1)
 	defer func() {
 		testutil.CleanupPath(cfg.Chain.TrieDBPath)
 	}()

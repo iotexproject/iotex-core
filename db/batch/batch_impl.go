@@ -166,7 +166,7 @@ func (b *baseKVStoreBatch) Translate(wit WriteInfoTranslate) KVStoreBatch {
 	for _, wi := range b.writeQueue {
 		newWi := wit(wi)
 		if newWi != nil {
-			c.writeQueue = append(c.writeQueue, newWi)
+			c.writeQueue = append(c.writeQueue, newWi...)
 		}
 	}
 
