@@ -53,6 +53,9 @@ type (
 		balance string
 		nonce   uint64
 	}
+	functionExpect struct {
+		fn func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error)
+	}
 )
 
 func (be *basicActionExpect) expect(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
@@ -198,4 +201,8 @@ func (ce *accountExpect) expect(test *e2etest, act *action.SealedEnvelope, recei
 	nonce, err := cli.NonceAt(context.Background(), addr, nil)
 	require.NoError(err)
 	require.Equal(ce.nonce, nonce)
+}
+
+func (fe *functionExpect) expect(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+	fe.fn(test, act, receipt, err)
 }

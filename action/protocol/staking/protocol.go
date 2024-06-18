@@ -455,9 +455,8 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 	case *action.CandidateTransferOwnership:
 		rLog, tLogs, err = p.handleCandidateTransferOwnership(ctx, act, csm)
 	case *action.MigrateStake:
-		var nonceUpdated bool
-		logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdated, err = p.handleStakeMigrate(ctx, act, csm)
-		if nonceUpdated {
+		logs, tLogs, gasConsumed, gasToBeDeducted, err = p.handleStakeMigrate(ctx, act, csm)
+		if err == nil {
 			nonceUpdateOption = noUpdateNonce
 		}
 	default:

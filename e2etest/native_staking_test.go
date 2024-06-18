@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/mohae/deepcopy"
 	"github.com/pkg/errors"
@@ -843,11 +844,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 		stakeTime := time.Now()
 		candOwnerID := 2
 		blocksPerDay := 24 * time.Hour / cfg.DardanellesUpgrade.BlockInterval
-		// getBlockTime := func(height uint64) *timestamppb.Timestamp {
-		// 	t, err := test.cs.BlockTimeCalculator().CalculateBlockTime(height)
-		// 	require.NoError(err)
-		// 	return timestamppb.New(t)
-		// }
+		balance := big.NewInt(0)
 		h := identityset.Address(1).String()
 		t.Logf("address 1: %v\n", h)
 		minAmount, _ := big.NewInt(0).SetString("1000000000000000000000", 10) // 1000 IOTX
@@ -879,7 +876,17 @@ func TestCandidateTransferOwnership(t *testing.T) {
 			},
 			{
 				name: "success to migrate stake",
-				act:  &actionWithTime{mustNoErr(action.SignedMigrateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				preFunc: func(e *e2etest) {
+					// get balance before migration
+					resp, err := e.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{
+						Address: identityset.Address(stakerID).String(),
+					})
+					require.NoError(err)
+					b, ok := big.NewInt(0).SetString(resp.GetAccountMeta().GetBalance(), 10)
+					require.True(ok)
+					balance = b
+				},
+				act: &actionWithTime{mustNoErr(action.SignedMigrateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
 				expect: []actionExpect{
 					successExpect,
 					&fullActionExpect{
@@ -915,6 +922,25 @@ func TestCandidateTransferOwnership(t *testing.T) {
 					&noBucketExpect{1, ""},
 					&accountExpect{identityset.Address(stakerID), "99989999999999999996165380", test.nonceMgr[identityset.Address(stakerID).String()]},
 					&candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1256001586604779503009155", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(candOwnerID).String(), SelfStakeBucketIdx: 0}},
+					&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+						resp, err := test.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{
+							Address: identityset.Address(stakerID).String(),
+						})
+						require.NoError(err)
+						postBalance, ok := big.NewInt(0).SetString(resp.GetAccountMeta().GetBalance(), 10)
+						require.True(ok)
+						gasInLog := big.NewInt(0)
+						for _, l := range receipt.TransactionLogs() {
+							if l.Type == iotextypes.TransactionLogType_GAS_FEE {
+								gasInLog.Add(gasInLog, l.Amount)
+							}
+						}
+						gasFee := big.NewInt(0).Mul(big.NewInt(int64(receipt.GasConsumed)), gasPrice)
+						// sum of gas in logs = gas consumed of receipt
+						require.Equal(gasInLog, gasFee)
+						// balance = preBalance - gasFee
+						require.Equal(balance.Sub(balance, gasFee).String(), postBalance.String())
+					}},
 				},
 			},
 			{

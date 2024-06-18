@@ -2,11 +2,16 @@ package e2etest
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -25,6 +30,7 @@ type (
 	}
 	testcase struct {
 		name    string
+		preFunc func(*e2etest)
 		preActs []*actionWithTime
 		act     *actionWithTime
 		expect  []actionExpect
@@ -36,6 +42,7 @@ type (
 		cs       *chainservice.ChainService
 		t        *testing.T
 		nonceMgr accountNonceManager
+		api      iotexapi.APIServiceClient
 	}
 )
 
@@ -52,12 +59,16 @@ func newE2ETest(t *testing.T, cfg config.Config) *e2etest {
 	require.NoError(err)
 	ctx := context.Background()
 	require.NoError(svr.Start(ctx))
+	// Create a new API service client
+	conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", cfg.API.GRPCPort), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(err)
 	return &e2etest{
 		cfg:      cfg,
 		svr:      svr,
 		cs:       svr.ChainService(cfg.Chain.ID),
 		t:        t,
 		nonceMgr: make(accountNonceManager),
+		api:      iotexapi.NewAPIServiceClient(conn),
 	}
 }
 
@@ -75,6 +86,10 @@ func (e *e2etest) runCase(ctx context.Context, c *testcase) {
 	require := require.New(e.t)
 	bc := e.cs.Blockchain()
 	ap := e.cs.ActionPool()
+	// run pre-function
+	if c.preFunc != nil {
+		c.preFunc(e)
+	}
 	// run pre-actions
 	for _, act := range c.preActs {
 		_, _, err := addOneTx(ctx, ap, bc, act)
@@ -100,6 +115,7 @@ func (e *e2etest) withTest(t *testing.T) *e2etest {
 		svr: e.svr,
 		cs:  e.cs,
 		t:   t,
+		api: e.api,
 	}
 }
 
