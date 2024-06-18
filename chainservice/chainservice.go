@@ -75,6 +75,9 @@ type ChainService struct {
 	nodeInfoManager        *nodeinfo.InfoManager
 	apiStats               *nodestats.APILocalStats
 	blockTimeCalculator    *blockutil.BlockTimeCalculator
+
+	// analyser indexes plugins
+	blockIndexer blockdao.BlockIndexer
 }
 
 // Start starts the server
