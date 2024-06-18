@@ -215,16 +215,11 @@ func (p *Protocol) Handle(
 		return p.settleUserAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog)
 	case *action.ClaimFromRewardingFund:
 		si := sm.Snapshot()
-		claimTo := act.Address()
-		if claimTo == "" {
-			claimTo = protocol.MustGetActionCtx(ctx).Caller.String()
+		addr := protocol.MustGetActionCtx(ctx).Caller
+		if protocol.MustGetFeatureCtx(ctx).AddClaimRewardAddress && act.Address() != nil {
+			addr = act.Address()
 		}
-		claimToAddr, err := address.FromString(claimTo)
-		if err != nil {
-			log.L().Debug("Invalid claim to address", zap.Error(err))
-			return p.settleUserAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
-		}
-		rlog, err := p.Claim(ctx, sm, act.Amount(), claimToAddr)
+		rlog, err := p.Claim(ctx, sm, act.Amount(), addr)
 		if err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
 			return p.settleUserAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)

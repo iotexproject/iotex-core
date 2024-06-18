@@ -277,7 +277,7 @@ func (p *Protocol) Claim(
 	ctx context.Context,
 	sm protocol.StateManager,
 	amount *big.Int,
-	claimTo address.Address,
+	claimFrom address.Address,
 ) (*action.TransactionLog, error) {
 	if err := p.assertAmount(amount); err != nil {
 		return nil, err
@@ -285,14 +285,14 @@ func (p *Protocol) Claim(
 	if err := p.updateTotalBalance(ctx, sm, amount); err != nil {
 		return nil, err
 	}
-	if err := p.claimFromAccount(ctx, sm, claimTo, amount); err != nil {
+	if err := p.claimFromAccount(ctx, sm, claimFrom, amount); err != nil {
 		return nil, err
 	}
 
 	return &action.TransactionLog{
 		Type:      iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND,
 		Sender:    address.RewardingPoolAddr,
-		Recipient: claimTo.String(),
+		Recipient: claimFrom.String(),
 		Amount:    amount,
 	}, nil
 }

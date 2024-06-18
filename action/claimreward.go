@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -72,15 +73,16 @@ type ClaimFromRewardingFund struct {
 	AbstractAction
 
 	amount  *big.Int
-	address string
+	address address.Address
 	data    []byte
 }
 
 // Amount returns the amount to claim
 func (c *ClaimFromRewardingFund) Amount() *big.Int { return c.amount }
 
-// Address returns the account to claim, default is the sender address
-func (c *ClaimFromRewardingFund) Address() string { return c.address }
+// Address returns the the account to claim
+// if it's nil, the default is the action sender
+func (c *ClaimFromRewardingFund) Address() address.Address { return c.address }
 
 // Data returns the additional data
 func (c *ClaimFromRewardingFund) Data() []byte { return c.data }
@@ -92,9 +94,13 @@ func (c *ClaimFromRewardingFund) Serialize() []byte {
 
 // Proto converts a claim action struct to a claim action protobuf
 func (c *ClaimFromRewardingFund) Proto() *iotextypes.ClaimFromRewardingFund {
+	var addr string
+	if c.address != nil {
+		addr = c.address.String()
+	}
 	return &iotextypes.ClaimFromRewardingFund{
 		Amount:  c.amount.String(),
-		Address: c.address,
+		Address: addr,
 		Data:    c.data,
 	}
 }
@@ -107,8 +113,14 @@ func (c *ClaimFromRewardingFund) LoadProto(claim *iotextypes.ClaimFromRewardingF
 		return errors.New("failed to set claim amount")
 	}
 	c.amount = amount
-	c.address = claim.Address
 	c.data = claim.Data
+	if len(claim.Address) > 0 {
+		addr, err := address.FromString(claim.Address)
+		if err != nil {
+			return err
+		}
+		c.address = addr
+	}
 	return nil
 }
 
@@ -132,7 +144,6 @@ func (c *ClaimFromRewardingFund) SanityCheck() error {
 	if c.Amount().Sign() < 0 {
 		return ErrNegativeValue
 	}
-
 	return c.AbstractAction.SanityCheck()
 }
 
@@ -149,8 +160,8 @@ func (b *ClaimFromRewardingFundBuilder) SetAmount(amount *big.Int) *ClaimFromRew
 }
 
 // SetAddress set the address to claim
-func (b *ClaimFromRewardingFundBuilder) SetAddress(address string) *ClaimFromRewardingFundBuilder {
-	b.claim.address = address
+func (b *ClaimFromRewardingFundBuilder) SetAddress(addr address.Address) *ClaimFromRewardingFundBuilder {
+	b.claim.address = addr
 	return b
 }
 
@@ -174,7 +185,11 @@ func (b *ClaimFromRewardingFundBuilder) Build() ClaimFromRewardingFund {
 
 // encodeABIBinary encodes data in abi encoding
 func (c *ClaimFromRewardingFund) encodeABIBinary() ([]byte, error) {
-	data, err := _claimRewardingMethod.Inputs.Pack(c.Amount(), c.Data(), c.Address())
+	var addr string
+	if c.address != nil {
+		addr = c.address.String()
+	}
+	data, err := _claimRewardingMethod.Inputs.Pack(c.Amount(), c.Data(), addr)
 	if err != nil {
 		return nil, err
 	}
@@ -217,8 +232,16 @@ func NewClaimFromRewardingFundFromABIBinary(data []byte) (*ClaimFromRewardingFun
 	if ac.data, ok = paramsMap["data"].([]byte); !ok {
 		return nil, errDecodeFailure
 	}
-	if ac.address, ok = paramsMap["address"].(string); !ok {
+	var s string
+	if s, ok = paramsMap["address"].(string); !ok {
 		return nil, errDecodeFailure
+	}
+	if len(s) > 0 {
+		addr, err := address.FromString(s)
+		if err != nil {
+			return nil, err
+		}
+		ac.address = addr
 	}
 	return &ac, nil
 }

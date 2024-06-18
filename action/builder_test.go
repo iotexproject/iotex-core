@@ -164,8 +164,10 @@ func TestEthTxUtils(t *testing.T) {
 
 	r.Equal(iotexhexaddr, etherhexaddr)
 
+	addr, err := address.FromHex("0xA576C141e5659137ddDa4223d209d4744b2106BE")
+	r.NoError(err)
 	tx, _ := ptr((&ClaimFromRewardingFundBuilder{Builder: *builder}).
-		SetAddress("0xA576C141e5659137ddDa4223d209d4744b2106BE").
+		SetAddress(addr).
 		SetData([]byte("any")).
 		SetAmount(big.NewInt(1)).Build()).ToEthTx(chainID)
 

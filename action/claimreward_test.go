@@ -1,16 +1,16 @@
 package action_test
 
 import (
-	"math"
 	"math/big"
 	"testing"
 	_ "unsafe"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/util/assertions"
@@ -106,10 +106,12 @@ func TestClaimRewardToEthTx(t *testing.T) {
 	r.Equal(tx.Data()[:4], _claimRewardingMethod.ID)
 	r.Equal(tx.Value().String(), "0")
 
+	addr, err := address.FromHex("0xA576C141e5659137ddDa4223d209d4744b2106BE")
+	r.NoError(err)
 	builder.Reset()
 	builder.SetAmount(big.NewInt(101))
 	builder.SetData([]byte{1, 2, 3})
-	builder.SetAddress("0x1")
+	builder.SetAddress(addr)
 	rc = builder.Build()
 	tx, err = rc.ToEthTx(0)
 	r.NoError(err)
@@ -121,11 +123,11 @@ func TestNewRewardingClaimFromABIBinary(t *testing.T) {
 	r := require.New(t)
 
 	var (
-		method  abi.Method               // abi method
-		amount  = big.NewInt(100)        // input amount
-		data    = []uint8{'a', 'b', 'c'} // input data
-		address = "0x1231231232113"      // input address
-		inputs  = abi.Arguments{
+		method abi.Method                                    // abi method
+		amount = big.NewInt(100)                             // input amount
+		data   = []uint8{'a', 'b', 'c'}                      // input data
+		addr   = "io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he" // input address
+		inputs = abi.Arguments{
 			abi.Argument{
 				Name:    "amount",
 				Type:    assertions.MustNoErrorV(abi.NewType("uint256", "uint256", nil)),
@@ -151,7 +153,7 @@ func TestNewRewardingClaimFromABIBinary(t *testing.T) {
 	})
 
 	t.Run("InvalidMethodSignature", func(t *testing.T) {
-		input := assertions.MustNoErrorV(method.Inputs.Pack(amount, data, address))
+		input := assertions.MustNoErrorV(method.Inputs.Pack(amount, data, addr))
 		methodsig := []byte{'1', '2', '3', 4} // invalid
 		calldata := append(methodsig, input...)
 
@@ -163,7 +165,7 @@ func TestNewRewardingClaimFromABIBinary(t *testing.T) {
 		_inputs := _claimRewardingMethod.Inputs
 		calldata := append(
 			method.ID,
-			assertions.MustNoErrorV(inputs.Pack(amount, data, address))...,
+			assertions.MustNoErrorV(inputs.Pack(amount, data, addr))...,
 		)
 
 		for i := 0; i < len(_inputs); i++ {
@@ -175,13 +177,21 @@ func TestNewRewardingClaimFromABIBinary(t *testing.T) {
 		}
 	})
 
+	t.Run("InvalidAddress", func(t *testing.T) {
+		calldata := append(
+			method.ID[:],
+			assertions.MustNoErrorV(method.Inputs.Pack(amount, data, "0x1231231232113"))...)
+		_, err := action.NewClaimFromRewardingFundFromABIBinary(calldata)
+		r.Equal(address.ErrInvalidAddr, errors.Cause(err))
+	})
+
 	t.Run("Success", func(t *testing.T) {
 		calldata := append(
 			method.ID[:],
-			assertions.MustNoErrorV(method.Inputs.Pack(amount, data, address))...)
+			assertions.MustNoErrorV(method.Inputs.Pack(amount, data, addr))...)
 		ret, err := action.NewClaimFromRewardingFundFromABIBinary(calldata)
 		r.NoError(err)
-		r.Equal(ret.Address(), address)
+		r.Equal(ret.Address().String(), addr)
 		r.Equal(ret.Amount(), amount)
 		r.Equal(ret.Data(), data)
 	})
@@ -212,20 +222,36 @@ func TestClaimFromRewardingFund(t *testing.T) {
 		r.ErrorContains(err, "failed to set claim amount")
 	})
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("InvalidAddressProtoValue", func(t *testing.T) {
+		p := &iotextypes.ClaimFromRewardingFund{
+			Amount:  "100", // invalid amount proto value
+			Address: "0x123",
+		}
+		err := c.LoadProto(p)
+		r.Equal(errors.Cause(err), address.ErrInvalidAddr)
+	})
+
+	t.Run("FromProto", func(t *testing.T) {
 		p := &iotextypes.ClaimFromRewardingFund{
 			Amount:  "100",
 			Data:    []byte("abc"),
-			Address: "0x123",
+			Address: "io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he",
 		}
-		t.Run("FromProto", func(t *testing.T) {
+		for i := 0; i < 2; i++ {
+			if i == 1 {
+				// test empty address
+				p.Address = ""
+			}
 			err := c.LoadProto(p)
 			r.NoError(err)
 			r.Equal(c.Amount(), assertions.MustBeTrueV(new(big.Int).SetString(p.Amount, 10)))
 			r.Equal(c.Data(), p.Data)
-			r.Equal(c.Address(), p.Address)
+			if i == 0 {
+				r.Equal(c.Address().String(), p.Address)
+			} else {
+				r.Nil(c.Address())
+			}
 			r.Equal(c.Proto(), p)
-			r.Equal(c.Serialize(), assertions.MustNoErrorV(proto.Marshal(p)))
 			r.NoError(c.SanityCheck())
 
 			intrinsicGas, err := c.IntrinsicGas()
@@ -233,30 +259,28 @@ func TestClaimFromRewardingFund(t *testing.T) {
 
 			cost, err := c.Cost()
 			r.Equal(cost, new(big.Int).Mul(c.GasPrice(), new(big.Int).SetUint64(intrinsicGas)))
-		})
+		}
+	})
 
-		t.Run("FromBuilder", func(t *testing.T) {
+	t.Run("FromBuilder", func(t *testing.T) {
+		var addr address.Address
+		for i := 0; i < 2; i++ {
+			if i == 1 {
+				addr, _ = address.FromString("io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he")
+			}
 			builder := &action.ClaimFromRewardingFundBuilder{}
-			builder.SetAmount(assertions.MustBeTrueV(new(big.Int).SetString(p.Amount, 10)))
-			builder.SetData(p.Data)
-			builder.SetAddress(p.Address)
+			builder.SetAmount(big.NewInt(205))
+			builder.SetData([]byte("abc"))
+			builder.SetAddress(addr)
 			builder.SetVersion(0)
 			c2 := builder.Build()
-			r.Equal(c2.Address(), c.Address())
-			r.Equal(c2.Data(), c.Data())
-			r.Equal(c2.Amount(), c.Amount())
-		})
-
-		t.Run("FailedToCalIntrinsicGas", func(t *testing.T) {
-			t.Skip("required data size over max length can make")
-			size := (math.MaxUint64 - action.ClaimFromRewardingFundBaseGas) / action.ClaimFromRewardingFundGasPerByte
-			p := &iotextypes.ClaimFromRewardingFund{
-				Data: make([]byte, size+1),
+			if i == 0 {
+				r.Nil(c2.Address())
+			} else {
+				r.Equal(c2.Address().String(), "io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he")
 			}
-			err := c.LoadProto(p)
-			r.NoError(err)
-			_, err = c.IntrinsicGas()
-			r.ErrorIs(err, action.ErrInsufficientFunds)
-		})
+			r.Equal(c2.Data(), []byte("abc"))
+			r.Equal(c2.Amount().String(), "205")
+		}
 	})
 }

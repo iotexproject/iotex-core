@@ -125,6 +125,7 @@ type (
 		UseTxContainer                          bool
 		LimitedStakingContract                  bool
 		MigrateNativeStake                      bool
+		AddClaimRewardAddress                   bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -275,6 +276,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			UseTxContainer:                          g.IsToBeEnabled(height),
 			LimitedStakingContract:                  !g.IsToBeEnabled(height),
 			MigrateNativeStake:                      g.IsToBeEnabled(height),
+			AddClaimRewardAddress:                   g.IsToBeEnabled(height),
 		},
 	)
 }

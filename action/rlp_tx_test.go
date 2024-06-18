@@ -790,7 +790,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 					gasPrice: gasPrice,
 				},
 				amount:  amount,
-				address: to,
+				address: MustNoErrorV(address.FromString(to)),
 				data:    data,
 			},
 			builder: elpbuilder.BuildRewardingAction,
