@@ -18,10 +18,13 @@ import (
 
 func initTestProtocol(t *testing.T) (*Protocol, []*Candidate) {
 	require := require.New(t)
-	p, err := NewProtocol(nil, &BuilderConfig{
+	p, err := NewProtocol(HelperCtx{
+		DepositGas:    nil,
+		BlockInterval: getBlockInterval,
+	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, nil, nil, genesis.Default.GreenlandBlockHeight)
+	}, nil, nil, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	var cans []*Candidate

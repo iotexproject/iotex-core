@@ -76,13 +76,14 @@ type (
 
 	// Protocol defines the protocol of handling staking
 	Protocol struct {
-		addr                   address.Address
-		depositGas             DepositGas
-		config                 Configuration
-		candBucketsIndexer     *CandidatesBucketsIndexer
-		contractStakingIndexer ContractStakingIndexerWithBucketType
-		voteReviser            *VoteReviser
-		patch                  *PatchStore
+		addr                     address.Address
+		config                   Configuration
+		candBucketsIndexer       *CandidatesBucketsIndexer
+		contractStakingIndexer   ContractStakingIndexerWithBucketType
+		contractStakingIndexerV2 ContractStakingIndexer
+		voteReviser              *VoteReviser
+		patch                    *PatchStore
+		helperCtx                HelperCtx
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -94,6 +95,11 @@ type (
 		BootstrapCandidates              []genesis.BootstrapCandidate
 		PersistStakingPatchBlock         uint64
 		EndorsementWithdrawWaitingBlocks uint64
+	}
+	// HelperCtx is the helper context for staking protocol
+	HelperCtx struct {
+		BlockInterval func(uint64) time.Duration
+		DepositGas    DepositGas
 	}
 
 	// DepositGas deposits gas to some pool
@@ -118,10 +124,11 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 
 // NewProtocol instantiates the protocol of staking
 func NewProtocol(
-	depositGas DepositGas,
+	helperCtx HelperCtx,
 	cfg *BuilderConfig,
 	candBucketsIndexer *CandidatesBucketsIndexer,
 	contractStakingIndexer ContractStakingIndexerWithBucketType,
+	contractStakingIndexerV2 ContractStakingIndexer,
 	correctCandsHeight uint64,
 	reviseHeights ...uint64,
 ) (*Protocol, error) {
@@ -163,11 +170,12 @@ func NewProtocol(
 			PersistStakingPatchBlock:         cfg.PersistStakingPatchBlock,
 			EndorsementWithdrawWaitingBlocks: cfg.Staking.EndorsementWithdrawWaitingBlocks,
 		},
-		depositGas:             depositGas,
-		candBucketsIndexer:     candBucketsIndexer,
-		voteReviser:            voteReviser,
-		patch:                  NewPatchStore(cfg.StakingPatchDir),
-		contractStakingIndexer: contractStakingIndexer,
+		candBucketsIndexer:       candBucketsIndexer,
+		voteReviser:              voteReviser,
+		patch:                    NewPatchStore(cfg.StakingPatchDir),
+		contractStakingIndexer:   contractStakingIndexer,
+		helperCtx:                helperCtx,
+		contractStakingIndexerV2: contractStakingIndexerV2,
 	}, nil
 }
 
@@ -558,7 +566,14 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	}
 
 	// stakeSR is the stake state reader including native and contract staking
-	stakeSR, err := newCompositeStakingStateReader(p.candBucketsIndexer, sr, p.calculateVoteWeight, p.contractStakingIndexer)
+	indexers := []ContractStakingIndexer{}
+	if p.contractStakingIndexer != nil {
+		indexers = append(indexers, p.contractStakingIndexer)
+	}
+	if p.contractStakingIndexerV2 != nil {
+		indexers = append(indexers, p.contractStakingIndexerV2)
+	}
+	stakeSR, err := newCompositeStakingStateReader(p.candBucketsIndexer, sr, p.calculateVoteWeight, indexers...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -661,7 +676,7 @@ func (p *Protocol) settleAction(
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
-	depositLog, err := p.depositGas(ctx, sm, gasFee)
+	depositLog, err := p.helperCtx.DepositGas(ctx, sm, gasFee)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deposit gas")
 	}
@@ -703,8 +718,15 @@ func (p *Protocol) needToWriteCandsMap(ctx context.Context, height uint64) bool 
 func (p *Protocol) contractStakingVotes(ctx context.Context, candidate address.Address, height uint64) (*big.Int, error) {
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	votes := big.NewInt(0)
+	indexers := []ContractStakingIndexer{}
 	if p.contractStakingIndexer != nil && featureCtx.AddContractStakingVotes {
-		btks, err := p.contractStakingIndexer.BucketsByCandidate(candidate, height)
+		indexers = append(indexers, p.contractStakingIndexer)
+	}
+	if p.contractStakingIndexerV2 != nil && !featureCtx.LimitedStakingContract {
+		indexers = append(indexers, p.contractStakingIndexerV2)
+	}
+	for _, indexer := range indexers {
+		btks, err := indexer.BucketsByCandidate(candidate, height)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get BucketsByCandidate from contractStakingIndexer")
 		}

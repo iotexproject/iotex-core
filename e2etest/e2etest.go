@@ -89,18 +89,9 @@ func (e *e2etest) runCase(ctx context.Context, c *testcase) {
 
 func (e *e2etest) teardown() {
 	require := require.New(e.t)
-	// clean up
-	testutil.CleanupPath(e.cfg.Chain.ChainDBPath)
-	testutil.CleanupPath(e.cfg.Chain.TrieDBPath)
-	testutil.CleanupPath(e.cfg.Chain.BloomfilterIndexDBPath)
-	testutil.CleanupPath(e.cfg.Chain.CandidateIndexDBPath)
-	testutil.CleanupPath(e.cfg.Chain.StakingIndexDBPath)
-	testutil.CleanupPath(e.cfg.Chain.ContractStakingIndexDBPath)
-	testutil.CleanupPath(e.cfg.DB.DbPath)
-	testutil.CleanupPath(e.cfg.Chain.IndexDBPath)
-	testutil.CleanupPath(e.cfg.System.SystemLogDBPath)
-	testutil.CleanupPath(e.cfg.Chain.SGDIndexDBPath)
 	require.NoError(e.svr.Stop(context.Background()))
+	// clean up
+	clearDBPaths(&e.cfg)
 }
 
 func (e *e2etest) withTest(t *testing.T) *e2etest {
@@ -149,4 +140,53 @@ func mustNoErr[T any](t T, err error) T {
 		panic(err)
 	}
 	return t
+}
+
+func initDBPaths(r *require.Assertions, cfg *config.Config) {
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	r.NoError(err)
+	testDBPath, err := testutil.PathOfTempFile("db")
+	r.NoError(err)
+	testIndexPath, err := testutil.PathOfTempFile("index")
+	r.NoError(err)
+	testContractIndexPath, err := testutil.PathOfTempFile("contractindex")
+	r.NoError(err)
+	testContractIndexPathV2, err := testutil.PathOfTempFile("contractindexv2")
+	r.NoError(err)
+	testSGDIndexPath, err := testutil.PathOfTempFile("sgdindex")
+	r.NoError(err)
+	testBloomfilterIndexPath, err := testutil.PathOfTempFile("bloomfilterindex")
+	r.NoError(err)
+	testCandidateIndexPath, err := testutil.PathOfTempFile("candidateindex")
+	r.NoError(err)
+	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
+	r.NoError(err)
+	testConsensusPath, err := testutil.PathOfTempFile("consensus")
+	r.NoError(err)
+
+	cfg.Chain.TrieDBPatchFile = ""
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Chain.ContractStakingIndexDBPath = testContractIndexPath
+	cfg.Chain.ContractStakingIndexV2DBPath = testContractIndexPathV2
+	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
+	cfg.Chain.BloomfilterIndexDBPath = testBloomfilterIndexPath
+	cfg.Chain.CandidateIndexDBPath = testCandidateIndexPath
+	cfg.System.SystemLogDBPath = testSystemLogPath
+	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
+}
+
+func clearDBPaths(cfg *config.Config) {
+	testutil.CleanupPath(cfg.Chain.ChainDBPath)
+	testutil.CleanupPath(cfg.Chain.TrieDBPath)
+	testutil.CleanupPath(cfg.Chain.BloomfilterIndexDBPath)
+	testutil.CleanupPath(cfg.Chain.CandidateIndexDBPath)
+	testutil.CleanupPath(cfg.Chain.StakingIndexDBPath)
+	testutil.CleanupPath(cfg.Chain.ContractStakingIndexDBPath)
+	testutil.CleanupPath(cfg.Chain.ContractStakingIndexV2DBPath)
+	testutil.CleanupPath(cfg.DB.DbPath)
+	testutil.CleanupPath(cfg.Chain.IndexDBPath)
+	testutil.CleanupPath(cfg.Chain.SGDIndexDBPath)
+	testutil.CleanupPath(cfg.System.SystemLogDBPath)
 }

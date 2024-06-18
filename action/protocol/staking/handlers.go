@@ -794,7 +794,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	}
 
 	// put registrationFee to reward pool
-	if _, err := p.depositGas(ctx, csm.SM(), registrationFee); err != nil {
+	if _, err := p.helperCtx.DepositGas(ctx, csm.SM(), registrationFee); err != nil {
 		return log, nil, errors.Wrap(err, "failed to deposit gas")
 	}
 

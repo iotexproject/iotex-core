@@ -123,6 +123,7 @@ type (
 		PanicUnrecoverableError                 bool
 		CandidateIdentifiedByOwner              bool
 		UseTxContainer                          bool
+		LimitedStakingContract                  bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -271,6 +272,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			PanicUnrecoverableError:                 g.IsToBeEnabled(height),
 			CandidateIdentifiedByOwner:              !g.IsToBeEnabled(height),
 			UseTxContainer:                          g.IsToBeEnabled(height),
+			LimitedStakingContract:                  !g.IsToBeEnabled(height),
 		},
 	)
 }

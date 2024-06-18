@@ -26,7 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
@@ -511,34 +510,15 @@ func TestNativeStaking(t *testing.T) {
 	}
 
 	cfg := config.Default
-	testTriePath, err := testutil.PathOfTempFile("trie")
-	require.NoError(err)
-	testDBPath, err := testutil.PathOfTempFile("db")
-	require.NoError(err)
-	testIndexPath, err := testutil.PathOfTempFile("index")
-	require.NoError(err)
-	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
-	require.NoError(err)
-	testSGDIndexPath, err := testutil.PathOfTempFile("sgdindex")
-	require.NoError(err)
+	initDBPaths(require, &cfg)
 	defer func() {
-		testutil.CleanupPath(testTriePath)
-		testutil.CleanupPath(testDBPath)
-		testutil.CleanupPath(testIndexPath)
-		testutil.CleanupPath(testSystemLogPath)
-		testutil.CleanupPath(testSGDIndexPath)
+		clearDBPaths(&cfg)
 		// clear the gateway
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Chain.TrieDBPatchFile = ""
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.Chain.ContractStakingIndexDBPath = testIndexPath
-	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
-	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.BootstrapCandidates = testInitCands
@@ -612,25 +592,10 @@ func TestCandidateTransferOwnership(t *testing.T) {
 	require := require.New(t)
 	initCfg := func() config.Config {
 		cfg := deepcopy.Copy(config.Default).(config.Config)
-		testTriePath, err := testutil.PathOfTempFile("trie")
-		require.NoError(err)
-		testDBPath, err := testutil.PathOfTempFile("db")
-		require.NoError(err)
-		testIndexPath, err := testutil.PathOfTempFile("index")
-		require.NoError(err)
-		testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
-		require.NoError(err)
-		testSGDIndexPath, err := testutil.PathOfTempFile("sgdindex")
-		require.NoError(err)
+		initDBPaths(require, &cfg)
 
 		cfg.ActPool.MinGasPriceStr = "0"
 		cfg.Chain.TrieDBPatchFile = ""
-		cfg.Chain.TrieDBPath = testTriePath
-		cfg.Chain.ChainDBPath = testDBPath
-		cfg.Chain.IndexDBPath = testIndexPath
-		cfg.Chain.ContractStakingIndexDBPath = testIndexPath
-		cfg.Chain.SGDIndexDBPath = testSGDIndexPath
-		cfg.System.SystemLogDBPath = testSystemLogPath
 		cfg.Consensus.Scheme = config.NOOPScheme
 		cfg.Chain.EnableAsyncIndexWrite = false
 		cfg.Genesis.InitBalanceMap[identityset.Address(1).String()] = "100000000000000000000000000"

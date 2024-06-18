@@ -92,6 +92,9 @@ func defaultConfig() Genesis {
 			UnproductiveDelegateMaxCacheSize: 20,
 			SystemStakingContractAddress:     "io1drde9f483guaetl3w3w6n6y7yv80f8fael7qme", // https://iotexscout.io/tx/8b899515d180d631abe8596b091380b0f42117122415393fa459c74c2bc5b6af
 			SystemStakingContractHeight:      24486464,
+			// TODO: update after v2 staking contract deployment
+			SystemStakingContractV2Address: "",
+			SystemStakingContractV2Height:  44486464,
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),
@@ -317,6 +320,10 @@ type (
 		SystemSGDContractAddress string `yaml:"systemSGDContractAddress"`
 		// SystemSGDContractHeight is the height of system sgd contract
 		SystemSGDContractHeight uint64 `yaml:"systemSGDContractHeight"`
+		// SystemStakingContractV2Address is the address of system staking contract
+		SystemStakingContractV2Address string `yaml:"systemStakingContractV2Address"`
+		// SystemStakingContractV2Height is the height of system staking contract
+		SystemStakingContractV2Height uint64 `yaml:"systemStakingContractV2Height"`
 	}
 	// Delegate defines a delegate with address and votes
 	Delegate struct {

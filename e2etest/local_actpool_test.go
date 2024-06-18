@@ -175,30 +175,11 @@ func newActPoolConfig(t *testing.T) (config.Config, error) {
 
 	cfg := config.Default
 
-	testTriePath, err := testutil.PathOfTempFile("trie")
-	r.NoError(err)
-	testDBPath, err := testutil.PathOfTempFile("db")
-	r.NoError(err)
-	testIndexPath, err := testutil.PathOfTempFile("index")
-	r.NoError(err)
-	testContractIndexPath, err := testutil.PathOfTempFile("contractindex")
-	r.NoError(err)
-	testSGDIndexPath, err := testutil.PathOfTempFile("sgdindex")
-	r.NoError(err)
+	initDBPaths(r, &cfg)
 	defer func() {
-		testutil.CleanupPath(testTriePath)
-		testutil.CleanupPath(testDBPath)
-		testutil.CleanupPath(testIndexPath)
-		testutil.CleanupPath(testContractIndexPath)
-		testutil.CleanupPath(testSGDIndexPath)
+		clearDBPaths(&cfg)
 	}()
 
-	cfg.Chain.TrieDBPatchFile = ""
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.Chain.ContractStakingIndexDBPath = testContractIndexPath
-	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()

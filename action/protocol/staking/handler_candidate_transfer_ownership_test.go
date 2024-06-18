@@ -30,10 +30,13 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 	csm, err := NewCandidateStateManager(sm, false)
 	require.NoError(err)
 	// create protocol
-	p, err := NewProtocol(depositGas, &BuilderConfig{
+	p, err := NewProtocol(HelperCtx{
+		DepositGas:    depositGas,
+		BlockInterval: getBlockInterval,
+	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, nil, nil, genesis.Default.GreenlandBlockHeight)
+	}, nil, nil, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 	initCandidateCfgs := []struct {
 		Owner      address.Address

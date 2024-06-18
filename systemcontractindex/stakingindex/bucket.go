@@ -110,8 +110,8 @@ func assembleVoteBucket(token uint64, bkt *Bucket, contractAddr string, blockInt
 }
 
 func batchAssembleVoteBucket(idxs []uint64, bkts []*Bucket, contractAddr string, blockInterval time.Duration) []*VoteBucket {
-	vbs := make([]*VoteBucket, 0, len(idxs))
-	for i := range idxs {
+	vbs := make([]*VoteBucket, 0, len(bkts))
+	for i := range bkts {
 		if bkts[i] == nil {
 			vbs = append(vbs, nil)
 			continue

@@ -61,19 +61,9 @@ const (
 
 func TestBlockReward(t *testing.T) {
 	r := require.New(t)
-	testTriePath, err := testutil.PathOfTempFile("trie")
-	r.NoError(err)
-	testDBPath, err := testutil.PathOfTempFile("db")
-	r.NoError(err)
-	testIndexPath, err := testutil.PathOfTempFile("index")
-	r.NoError(err)
-	testConsensusPath, err := testutil.PathOfTempFile("cons")
-	r.NoError(err)
-	testContractIndexPath, err := testutil.PathOfTempFile("contractindex")
-	r.NoError(err)
-	testSGDIndexPath, err := testutil.PathOfTempFile("sgdindex")
-	r.NoError(err)
 	cfg := config.Default
+	initDBPaths(r, &cfg)
+	defer func() { clearDBPaths(&cfg) }()
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.NumDelegates = 1
 	cfg.Genesis.NumSubEpochs = 10
@@ -89,15 +79,8 @@ func TestBlockReward(t *testing.T) {
 	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 300 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 300 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.CommitTTL = 100 * time.Millisecond
-	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(0).HexString()
-	cfg.Chain.TrieDBPatchFile = ""
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.Chain.ContractStakingIndexDBPath = testContractIndexPath
-	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.Genesis.PollMode = "lifeLong"
 

@@ -37,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/blockutil"
 	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/systemcontractindex/stakingindex"
 )
 
 var (
@@ -65,16 +66,17 @@ type ChainService struct {
 	p2pAgent          p2p.Agent
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
-	indexer                blockindex.Indexer
-	bfIndexer              blockindex.BloomFilterIndexer
-	candidateIndexer       *poll.CandidateIndexer
-	candBucketsIndexer     *staking.CandidatesBucketsIndexer
-	sgdIndexer             blockindex.SGDRegistry
-	contractStakingIndexer *contractstaking.Indexer
-	registry               *protocol.Registry
-	nodeInfoManager        *nodeinfo.InfoManager
-	apiStats               *nodestats.APILocalStats
-	blockTimeCalculator    *blockutil.BlockTimeCalculator
+	indexer                  blockindex.Indexer
+	bfIndexer                blockindex.BloomFilterIndexer
+	candidateIndexer         *poll.CandidateIndexer
+	candBucketsIndexer       *staking.CandidatesBucketsIndexer
+	sgdIndexer               blockindex.SGDRegistry
+	contractStakingIndexer   *contractstaking.Indexer
+	contractStakingIndexerV2 stakingindex.StakingIndexer
+	registry                 *protocol.Registry
+	nodeInfoManager          *nodeinfo.InfoManager
+	apiStats                 *nodestats.APILocalStats
+	blockTimeCalculator      *blockutil.BlockTimeCalculator
 }
 
 // Start starts the server

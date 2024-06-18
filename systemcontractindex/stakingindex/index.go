@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/systemcontractindex"
 )
@@ -27,6 +28,20 @@ var (
 )
 
 type (
+	// StakingIndexer defines the interface of staking indexer
+	StakingIndexer interface {
+		lifecycle.StartStopper
+		Height() (uint64, error)
+		StartHeight() uint64
+		ContractAddress() string
+		Buckets(height uint64) ([]*VoteBucket, error)
+		Bucket(id uint64, height uint64) (*VoteBucket, bool, error)
+		BucketsByIndices(indices []uint64, height uint64) ([]*VoteBucket, error)
+		BucketsByCandidate(candidate address.Address, height uint64) ([]*VoteBucket, error)
+		TotalBucketCount(height uint64) (uint64, error)
+		PutBlock(ctx context.Context, blk *block.Block) error
+		DeleteTipBlock(ctx context.Context, blk *block.Block) error
+	}
 	// Indexer is the staking indexer
 	Indexer struct {
 		common        *systemcontractindex.IndexerCommon
@@ -190,6 +205,11 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	// commit
 	return s.commit(handler, blk.Height())
+}
+
+// DeleteTipBlock deletes the tip block from indexer
+func (s *Indexer) DeleteTipBlock(context.Context, *block.Block) error {
+	return errors.New("not implemented")
 }
 
 func (s *Indexer) commit(handler *eventHandler, height uint64) error {

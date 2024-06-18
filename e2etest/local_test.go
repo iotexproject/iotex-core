@@ -55,29 +55,13 @@ func TestLocalCommit(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.NoError(err)
-	testTriePath, err := testutil.PathOfTempFile(_triePath)
-	require.NoError(err)
-	testDBPath, err := testutil.PathOfTempFile(_dBPath)
-	require.NoError(err)
-	indexDBPath, err := testutil.PathOfTempFile(_dBPath)
-	require.NoError(err)
-	contractIndexDBPath, err := testutil.PathOfTempFile(_dBPath)
-	require.NoError(err)
-	indexSGDDBPath, err := testutil.PathOfTempFile(_dBPath + "_sgd")
-	require.NoError(err)
-	cfg.Chain.TrieDBPatchFile = ""
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.IndexDBPath = indexDBPath
-	cfg.Chain.ContractStakingIndexDBPath = contractIndexDBPath
-	cfg.Chain.SGDIndexDBPath = indexSGDDBPath
+	initDBPaths(require, &cfg)
 	defer func() {
-		testutil.CleanupPath(testTriePath)
-		testutil.CleanupPath(testDBPath)
-		testutil.CleanupPath(indexDBPath)
-		testutil.CleanupPath(contractIndexDBPath)
-		testutil.CleanupPath(indexSGDDBPath)
+		clearDBPaths(&cfg)
 	}()
+	testTriePath := cfg.Chain.TrieDBPath
+	testDBPath := cfg.Chain.ChainDBPath
+	indexDBPath := cfg.Chain.IndexDBPath
 
 	// create server
 	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
@@ -127,6 +111,7 @@ func TestLocalCommit(t *testing.T) {
 	// create client
 	cfg, err = newTestConfig()
 	require.NoError(err)
+	initDBPaths(require, &cfg)
 	addrs, err := svr.P2PAgent().Self()
 	require.NoError(err)
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
@@ -327,28 +312,9 @@ func TestLocalSync(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.NoError(err)
-	testTriePath, err := testutil.PathOfTempFile(_triePath)
-	require.NoError(err)
-	testDBPath, err := testutil.PathOfTempFile(_dBPath)
-	require.NoError(err)
-	indexDBPath, err := testutil.PathOfTempFile(_dBPath)
-	require.NoError(err)
-	contractIndexDBPath, err := testutil.PathOfTempFile(_dBPath)
-	require.NoError(err)
-	indexSGDDBPath, err := testutil.PathOfTempFile(_dBPath + "_sgd")
-	require.NoError(err)
-	cfg.Chain.TrieDBPatchFile = ""
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.IndexDBPath = indexDBPath
-	cfg.Chain.ContractStakingIndexDBPath = contractIndexDBPath
-	cfg.Chain.SGDIndexDBPath = indexSGDDBPath
+	initDBPaths(require, &cfg)
 	defer func() {
-		testutil.CleanupPath(testTriePath)
-		testutil.CleanupPath(testDBPath)
-		testutil.CleanupPath(indexDBPath)
-		testutil.CleanupPath(contractIndexDBPath)
-		testutil.CleanupPath(indexSGDDBPath)
+		clearDBPaths(&cfg)
 	}()
 
 	// bootnode
@@ -399,15 +365,19 @@ func TestLocalSync(t *testing.T) {
 	require.NoError(err)
 	contractIndexDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
+	contractIndexDBV2Path2, err := testutil.PathOfTempFile(_dBPath2 + "v2")
+	require.NoError(err)
 	indexSGDDBPath2, err := testutil.PathOfTempFile(_dBPath2 + "_sgd")
 	require.NoError(err)
 	cfg, err = newTestConfig()
 	require.NoError(err)
+	initDBPaths(require, &cfg)
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
 	cfg.Chain.ContractStakingIndexDBPath = contractIndexDBPath2
+	cfg.Chain.ContractStakingIndexV2DBPath = contractIndexDBV2Path2
 	cfg.Chain.SGDIndexDBPath = indexSGDDBPath2
 	defer func() {
 		testutil.CleanupPath(testTriePath2)
@@ -465,6 +435,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(err)
 	testContractStakeIndexPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
+	testContractStakeIndexPathV2, err := testutil.PathOfTempFile(_dBPath + "v2")
+	require.NoError(err)
 	testSGDIndexPath, err := testutil.PathOfTempFile(_dBPath + "_sgd")
 	require.NoError(err)
 	// Disable block reward to make bookkeeping easier
@@ -474,6 +446,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.ContractStakingIndexDBPath = testContractStakeIndexPath
+	cfg.Chain.ContractStakingIndexV2DBPath = testContractStakeIndexPathV2
 	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.ActPool.MinGasPriceStr = "0"
