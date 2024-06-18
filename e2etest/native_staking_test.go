@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/state"
@@ -633,7 +634,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 	}
 	registerAmount, _ := big.NewInt(0).SetString("1200000000000000000000000", 10)
 	gasLimit = uint64(10000000)
-	gasPrice = big.NewInt(10)
+	gasPrice = big.NewInt(1)
 	successExpect := &basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_Success), ""}
 
 	t.Run("transfer candidate ownership", func(t *testing.T) {
@@ -831,6 +832,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 		cfg.Genesis.SystemStakingContractV2Address = contractAddress
 		cfg.Genesis.SystemStakingContractV2Height = 1
 		cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
+		cfg.Plugins[config.GatewayPlugin] = nil
 		test := newE2ETest(t, cfg)
 		defer test.teardown()
 
@@ -838,6 +840,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 		stakerID := 1
 		stakeAmount, _ := big.NewInt(0).SetString("10000000000000000000000", 10)
 		stakeDurationDays := uint32(1) // 1day
+		stakeTime := time.Now()
 		candOwnerID := 2
 		blocksPerDay := 24 * time.Hour / cfg.DardanellesUpgrade.BlockInterval
 		// getBlockTime := func(height uint64) *timestamppb.Timestamp {
@@ -847,29 +850,101 @@ func TestCandidateTransferOwnership(t *testing.T) {
 		// }
 		h := identityset.Address(1).String()
 		t.Logf("address 1: %v\n", h)
-		minAmount, _ := big.NewInt(0).SetString("100000000000000000000", 10) // 100 IOTX
+		minAmount, _ := big.NewInt(0).SetString("1000000000000000000000", 10) // 1000 IOTX
 		deployCode, err := staking.StakingContractABI.Constructor.Inputs.Pack(minAmount, common.BytesToAddress(identityset.Address(stakerID).Bytes()))
 		deployCode = append(stakingContractBytecode, deployCode...)
 		require.NoError(err)
 		test.run([]*testcase{
 			{
-				name:   "deploy staking contract",
-				act:    &actionWithTime{mustNoErr(action.SignedExecution("", identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice, deployCode, action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{successExpect, &executionExpect{contractAddress}},
+				name: "deploy staking contract",
+				act:  &actionWithTime{mustNoErr(action.SignedExecution("", identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice, deployCode, action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					successExpect, &executionExpect{contractAddress},
+					&accountExpect{identityset.Address(stakerID), "99999999999999999996387414", test.nonceMgr[identityset.Address(stakerID).String()]},
+				},
 			},
 			{
 				name: "non-owner cannot migrate stake",
 				preActs: []*actionWithTime{
 					{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(candOwnerID).String()), "cand1", identityset.Address(1).String(), identityset.Address(1).String(), identityset.Address(candOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID), action.WithChainID(chainID))), time.Now()},
-					{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", stakeAmount.String(), stakeDurationDays, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", stakeAmount.String(), stakeDurationDays, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), stakeTime},
 				},
-				act:    &actionWithTime{mustNoErr(action.SignedMigrateStake(test.nonceMgr.pop(identityset.Address(2).String()), 1, gasLimit, gasPrice, identityset.PrivateKey(2), action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrUnauthorizedOperator), ""}},
+				act: &actionWithTime{mustNoErr(action.SignedMigrateStake(test.nonceMgr.pop(identityset.Address(2).String()), 1, gasLimit, gasPrice, identityset.PrivateKey(2), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrUnauthorizedOperator), ""},
+					&bucketExpect{&iotextypes.VoteBucket{Index: 1, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: stakeAmount.String(), AutoStake: true, StakedDuration: stakeDurationDays, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
+					&accountExpect{identityset.Address(stakerID), "99989999999999999996377414", test.nonceMgr[identityset.Address(stakerID).String()]},
+					&candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1256001586604779503009155", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(candOwnerID).String(), SelfStakeBucketIdx: 0}},
+				},
 			},
 			{
-				name:   "success to migrate stake",
-				act:    &actionWithTime{mustNoErr(action.SignedMigrateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{successExpect, &bucketExpect{&iotextypes.VoteBucket{Index: 1, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: stakeAmount.String(), AutoStake: true, StakedDuration: stakeDurationDays, StakedDurationBlockNumber: uint64(stakeDurationDays) * uint64(blocksPerDay), CreateBlockHeight: 5, StakeStartBlockHeight: 5, UnstakeStartBlockHeight: math.MaxUint64, Owner: identityset.Address(stakerID).String(), ContractAddress: contractAddress, CreateTime: timestamppb.New(time.Time{}), StakeStartTime: timestamppb.New(time.Time{}), UnstakeStartTime: timestamppb.New(time.Time{})}}},
+				name: "success to migrate stake",
+				act:  &actionWithTime{mustNoErr(action.SignedMigrateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					successExpect,
+					&fullActionExpect{
+						address.StakingProtocolAddr, 212034,
+						[]*action.TransactionLog{
+							{
+								Type:      iotextypes.TransactionLogType_GAS_FEE,
+								Amount:    big.NewInt(int64(action.MigrateStakeBaseIntrinsicGas)),
+								Sender:    identityset.Address(stakerID).String(),
+								Recipient: address.RewardingPoolAddr,
+							},
+							{
+								Type:      iotextypes.TransactionLogType_WITHDRAW_BUCKET,
+								Amount:    stakeAmount,
+								Sender:    address.StakingBucketPoolAddr,
+								Recipient: identityset.Address(stakerID).String(),
+							},
+							{
+								Type:      iotextypes.TransactionLogType_GAS_FEE,
+								Amount:    big.NewInt(202034),
+								Sender:    identityset.Address(stakerID).String(),
+								Recipient: address.RewardingPoolAddr,
+							},
+							{
+								Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
+								Amount:    stakeAmount,
+								Sender:    identityset.Address(stakerID).String(),
+								Recipient: contractAddress,
+							},
+						},
+					},
+					&bucketExpect{&iotextypes.VoteBucket{Index: 1, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: stakeAmount.String(), AutoStake: true, StakedDuration: stakeDurationDays, StakedDurationBlockNumber: uint64(stakeDurationDays) * uint64(blocksPerDay), CreateBlockHeight: 5, StakeStartBlockHeight: 5, UnstakeStartBlockHeight: math.MaxUint64, Owner: identityset.Address(stakerID).String(), ContractAddress: contractAddress, CreateTime: timestamppb.New(time.Time{}), StakeStartTime: timestamppb.New(time.Time{}), UnstakeStartTime: timestamppb.New(time.Time{})}},
+					&noBucketExpect{1, ""},
+					&accountExpect{identityset.Address(stakerID), "99989999999999999996165380", test.nonceMgr[identityset.Address(stakerID).String()]},
+					&candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1256001586604779503009155", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(candOwnerID).String(), SelfStakeBucketIdx: 0}},
+				},
+			},
+			{
+				name: "stake",
+				act:  &actionWithTime{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", unit.ConvertIotxToRau(100).String(), stakeDurationDays, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), stakeTime},
+				expect: []actionExpect{
+					successExpect,
+					&bucketExpect{&iotextypes.VoteBucket{Index: 2, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: unit.ConvertIotxToRau(100).String(), AutoStake: true, StakedDuration: stakeDurationDays, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
+					&accountExpect{identityset.Address(stakerID), "99989899999999999996155380", test.nonceMgr[identityset.Address(stakerID).String()]},
+				},
+			},
+			{
+				name:    "contract call failure",
+				preActs: []*actionWithTime{},
+				act:     &actionWithTime{mustNoErr(action.SignedMigrateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), 2, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrExecutionReverted), ""},
+					&fullActionExpect{
+						address.StakingProtocolAddr, 29425, []*action.TransactionLog{
+							{
+								Type:      iotextypes.TransactionLogType_GAS_FEE,
+								Amount:    big.NewInt(29425),
+								Sender:    identityset.Address(stakerID).String(),
+								Recipient: address.RewardingPoolAddr,
+							},
+						},
+					},
+					&bucketExpect{&iotextypes.VoteBucket{Index: 2, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: unit.ConvertIotxToRau(100).String(), AutoStake: true, StakedDuration: stakeDurationDays, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
+					&accountExpect{identityset.Address(stakerID), "99989899999999999996125955", test.nonceMgr[identityset.Address(stakerID).String()]},
+				},
 			},
 		})
 	})

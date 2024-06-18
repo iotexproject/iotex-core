@@ -235,9 +235,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		receipt.AddTransactionLogs(txLog)
 		pa.ApplyMethodReturn(excPrtl, "Handle", receipt, nil)
 		act := assertions.MustNoErrorV(action.SignedMigrateStake(popNonce(&stakerNonce), 1, gasLimit, gasPrice, identityset.PrivateKey(stakerID)))
-		receipts, errs := runBlock(ctx, p, sm, 8, timeBlock,
-			act,
-		)
+		receipts, errs := runBlock(ctx, p, sm, 8, timeBlock, act)
 		r.Len(receipts, 1)
 		r.NoError(errs[0])
 		h, err := act.Hash()
@@ -250,8 +248,6 @@ func TestHandleStakeMigrate(t *testing.T) {
 			ContractAddress: address.StakingProtocolAddr,
 			TxIndex:         uint32(0),
 		}
-		expectReceipt.AddLogs(actLog)
-		expectReceipt.AddTransactionLogs(txLog)
 		r.Equal(expectReceipt, receipts[0])
 	})
 	t.Run("error from contract call", func(t *testing.T) {
@@ -310,7 +306,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipts[0].Status)
 		// gas = instrinsic  + contract call
 		instriGas, _ := act.IntrinsicGas()
-		r.Equal(instriGas, receipts[0].GasConsumed)
+		r.Equal(instriGas+receipt.GasConsumed, receipts[0].GasConsumed)
 		// withdraw log + stake log
 		r.Len(receipts[0].Logs(), 2)
 		r.Equal(&action.Log{

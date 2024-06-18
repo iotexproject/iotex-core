@@ -20,34 +20,36 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateStake, csm CandidateStateManager) ([]*action.Log, []*action.TransactionLog, uint64, bool, error) {
+func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateStake, csm CandidateStateManager) ([]*action.Log, []*action.TransactionLog, uint64, uint64, bool, error) {
 	actLogs := make([]*action.Log, 0)
 	transferLogs := make([]*action.TransactionLog, 0)
 	nonceUpdated := false
 	insGas, err := act.IntrinsicGas()
 	if err != nil {
-		return nil, nil, 0, nonceUpdated, err
+		return nil, nil, 0, 0, nonceUpdated, err
 	}
+	gasConsumed := insGas
+	gasToBeDeducted := insGas
 	bucket, rErr := p.fetchBucket(csm, act.BucketIndex())
 	if rErr != nil {
-		return nil, nil, 0, nonceUpdated, rErr
+		return nil, nil, gasConsumed, gasToBeDeducted, nonceUpdated, rErr
 	}
 	staker, rerr := fetchCaller(ctx, csm, big.NewInt(0))
 	if rerr != nil {
-		return nil, nil, 0, nonceUpdated, errors.Wrap(rerr, "failed to fetch caller")
+		return nil, nil, gasConsumed, gasToBeDeducted, nonceUpdated, errors.Wrap(rerr, "failed to fetch caller")
 	}
 	candidate := csm.GetByIdentifier(bucket.Candidate)
 	if candidate == nil {
-		return nil, nil, 0, nonceUpdated, errCandNotExist
+		return nil, nil, gasConsumed, gasToBeDeducted, nonceUpdated, errCandNotExist
 	}
 	duration := uint64(bucket.StakedDuration / p.helperCtx.BlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
 	exec, err := p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, act.Nonce(), act.GasLimit(), act.GasPrice())
 	if err != nil {
-		return nil, nil, 0, nonceUpdated, errors.Wrap(err, "failed to construct execution")
+		return nil, nil, gasConsumed, gasToBeDeducted, nonceUpdated, errors.Wrap(err, "failed to construct execution")
 	}
 	// validate bucket index
 	if err := p.validateStakeMigrate(ctx, bucket, csm); err != nil {
-		return nil, nil, 0, nonceUpdated, err
+		return nil, nil, gasConsumed, gasToBeDeducted, nonceUpdated, err
 	}
 
 	// snapshot for sm in case of failure of hybrid protocol handling
@@ -60,7 +62,7 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateSt
 	// force-withdraw native bucket
 	actLog, tLog, err := p.withdrawBucket(ctx, staker, bucket, candidate, csm)
 	if err != nil {
-		return nil, nil, 0, nonceUpdated, err
+		return nil, nil, gasConsumed, gasToBeDeducted, nonceUpdated, err
 	}
 	actLogs = append(actLogs, actLog.Build(ctx, nil))
 	transferLogs = append(transferLogs, tLog)
@@ -68,13 +70,15 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateSt
 	excReceipt, err := p.createNFTBucket(ctx, exec, csm.SM())
 	if err != nil {
 		revertSM()
-		return nil, nil, 0, nonceUpdated, errors.Wrap(err, "failed to handle execution action")
+		return nil, nil, gasConsumed, gasToBeDeducted, nonceUpdated, errors.Wrap(err, "failed to handle execution action")
 	}
 	nonceUpdated = true
+	gasConsumed += excReceipt.GasConsumed
 	if excReceipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 		revertSM()
 		nonceUpdated = false
-		return excReceipt.Logs(), excReceipt.TransactionLogs(), excReceipt.GasConsumed + insGas, nonceUpdated, &handleError{
+		gasToBeDeducted = gasConsumed
+		return nil, nil, gasConsumed, gasToBeDeducted, nonceUpdated, &handleError{
 			err:           errors.Errorf("staking contract failure: %s", excReceipt.ExecutionRevertMsg()),
 			failureStatus: iotextypes.ReceiptStatus(excReceipt.Status),
 		}
@@ -82,7 +86,7 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateSt
 	// add sub-receipts logs
 	actLogs = append(actLogs, excReceipt.Logs()...)
 	transferLogs = append(transferLogs, excReceipt.TransactionLogs()...)
-	return actLogs, transferLogs, insGas, nonceUpdated, nil
+	return actLogs, transferLogs, gasConsumed, gasToBeDeducted, nonceUpdated, nil
 }
 
 func (p *Protocol) validateStakeMigrate(ctx context.Context, bucket *VoteBucket, csm CandidateStateManager) error {
