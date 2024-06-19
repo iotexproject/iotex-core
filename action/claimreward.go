@@ -32,14 +32,32 @@ const _claimRewardingInterfaceABI = `[
 				"internalType": "uint8[]",
 				"name": "data",
 				"type": "uint8[]"
+			}
+		],
+		"name": "claim",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
 			},
 			{
 				"internalType": "string",
 				"name": "address",
 				"type": "string"
+			},
+			{
+				"internalType": "uint8[]",
+				"name": "data",
+				"type": "uint8[]"
 			}
 		],
-		"name": "claim",
+		"name": "claimFor",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -52,8 +70,10 @@ var (
 	// ClaimFromRewardingFundGasPerByte represents the claimFromRewardingFund payload gas per uint
 	ClaimFromRewardingFundGasPerByte = uint64(100)
 
-	_claimRewardingMethod abi.Method
-	_                     EthCompatibleAction = (*ClaimFromRewardingFund)(nil)
+	_claimRewardingMethodV1 abi.Method
+	_claimRewardingMethodV2 abi.Method
+	_                       EthCompatibleAction = (*ClaimFromRewardingFund)(nil)
+	errWrongMethodSig                           = errors.New("wrong method signature")
 )
 
 func init() {
@@ -62,9 +82,13 @@ func init() {
 		panic(err)
 	}
 	var ok bool
-	_claimRewardingMethod, ok = claimRewardInterface.Methods["claim"]
+	_claimRewardingMethodV1, ok = claimRewardInterface.Methods["claim"]
 	if !ok {
 		panic("fail to load the claim method")
+	}
+	_claimRewardingMethodV2, ok = claimRewardInterface.Methods["claimFor"]
+	if !ok {
+		panic("fail to load the claimTo method")
 	}
 }
 
@@ -185,15 +209,19 @@ func (b *ClaimFromRewardingFundBuilder) Build() ClaimFromRewardingFund {
 
 // encodeABIBinary encodes data in abi encoding
 func (c *ClaimFromRewardingFund) encodeABIBinary() ([]byte, error) {
-	var addr string
-	if c.address != nil {
-		addr = c.address.String()
+	if c.address == nil {
+		// this is v1 ABI before adding address field
+		data, err := _claimRewardingMethodV1.Inputs.Pack(c.Amount(), c.Data())
+		if err != nil {
+			return nil, err
+		}
+		return append(_claimRewardingMethodV1.ID, data...), nil
 	}
-	data, err := _claimRewardingMethod.Inputs.Pack(c.Amount(), c.Data(), addr)
+	data, err := _claimRewardingMethodV2.Inputs.Pack(c.Amount(), c.address.String(), c.Data())
 	if err != nil {
 		return nil, err
 	}
-	return append(_claimRewardingMethod.ID, data...), nil
+	return append(_claimRewardingMethodV2.ID, data...), nil
 }
 
 // ToEthTx converts action to eth-compatible tx
@@ -214,29 +242,43 @@ func (c *ClaimFromRewardingFund) ToEthTx(_ uint32) (*types.Transaction, error) {
 
 // NewClaimFromRewardingFundFromABIBinary decodes data into action
 func NewClaimFromRewardingFundFromABIBinary(data []byte) (*ClaimFromRewardingFund, error) {
-	var (
-		paramsMap = map[string]interface{}{}
-		ok        bool
-		ac        ClaimFromRewardingFund
-	)
-	// sanity check
-	if len(data) <= 4 || !bytes.Equal(_claimRewardingMethod.ID[:], data[:4]) {
+	if len(data) <= 4 {
 		return nil, errDecodeFailure
 	}
-	if err := _claimRewardingMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
-		return nil, err
+
+	var (
+		paramsMap = map[string]interface{}{}
+		ok, isV2  bool
+		ac        ClaimFromRewardingFund
+	)
+	switch {
+	case bytes.Equal(_claimRewardingMethodV2.ID[:], data[:4]):
+		if err := _claimRewardingMethodV2.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+			return nil, err
+		}
+		isV2 = true
+	case bytes.Equal(_claimRewardingMethodV1.ID[:], data[:4]):
+		if err := _claimRewardingMethodV1.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, errWrongMethodSig
 	}
+
 	if ac.amount, ok = paramsMap["amount"].(*big.Int); !ok {
 		return nil, errDecodeFailure
 	}
 	if ac.data, ok = paramsMap["data"].([]byte); !ok {
 		return nil, errDecodeFailure
 	}
-	var s string
-	if s, ok = paramsMap["address"].(string); !ok {
-		return nil, errDecodeFailure
-	}
-	if len(s) > 0 {
+	if isV2 {
+		var s string
+		if s, ok = paramsMap["address"].(string); !ok {
+			return nil, errDecodeFailure
+		}
+		if len(s) == 0 {
+			return nil, errors.Wrap(errDecodeFailure, "address is empty")
+		}
 		addr, err := address.FromString(s)
 		if err != nil {
 			return nil, err

@@ -1,4 +1,4 @@
-package action_test
+package action
 
 import (
 	"math/big"
@@ -6,26 +6,18 @@ import (
 	_ "unsafe"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/util/assertions"
 )
-
-//go:linkname _claimRewardingMethod github.com/iotexproject/iotex-core/action._claimRewardingMethod
-var _claimRewardingMethod abi.Method
-
-//go:linkname _rewardingProtocolEthAddr github.com/iotexproject/iotex-core/action._rewardingProtocolEthAddr
-var _rewardingProtocolEthAddr common.Address
 
 func TestClaimRewardIntrinsicGas(t *testing.T) {
 	r := require.New(t)
 
-	builder := &action.ClaimFromRewardingFundBuilder{}
+	builder := &ClaimFromRewardingFundBuilder{}
 
 	rc := builder.Build()
 	gas, err := rc.IntrinsicGas()
@@ -51,7 +43,7 @@ func TestClaimRewardIntrinsicGas(t *testing.T) {
 func TestClaimRewardSanityCheck(t *testing.T) {
 	r := require.New(t)
 
-	builder := &action.ClaimFromRewardingFundBuilder{}
+	builder := &ClaimFromRewardingFundBuilder{}
 
 	builder.SetAmount(big.NewInt(1))
 	rc := builder.Build()
@@ -61,13 +53,13 @@ func TestClaimRewardSanityCheck(t *testing.T) {
 	builder.SetAmount(big.NewInt(-1))
 	rc = builder.Build()
 	err := rc.SanityCheck()
-	r.ErrorIs(err, action.ErrNegativeValue)
+	r.ErrorIs(err, ErrNegativeValue)
 }
 
 func TestClaimRewardCost(t *testing.T) {
 	r := require.New(t)
 
-	builder := &action.ClaimFromRewardingFundBuilder{}
+	builder := &ClaimFromRewardingFundBuilder{}
 
 	builder.SetGasPrice(big.NewInt(1000000000000))
 	rc := builder.Build()
@@ -96,14 +88,14 @@ func TestClaimRewardCost(t *testing.T) {
 func TestClaimRewardToEthTx(t *testing.T) {
 	r := require.New(t)
 
-	builder := &action.ClaimFromRewardingFundBuilder{}
+	builder := &ClaimFromRewardingFundBuilder{}
 
 	builder.SetAmount(big.NewInt(101))
 	rc := builder.Build()
 	tx, err := rc.ToEthTx(0)
 	r.NoError(err)
 	r.Equal(tx.To().String(), _rewardingProtocolEthAddr.String())
-	r.Equal(tx.Data()[:4], _claimRewardingMethod.ID)
+	r.Equal(tx.Data()[:4], _claimRewardingMethodV1.ID)
 	r.Equal(tx.Value().String(), "0")
 
 	addr, err := address.FromHex("0xA576C141e5659137ddDa4223d209d4744b2106BE")
@@ -115,7 +107,7 @@ func TestClaimRewardToEthTx(t *testing.T) {
 	rc = builder.Build()
 	tx, err = rc.ToEthTx(0)
 	r.NoError(err)
-	r.Equal(tx.Data()[:4], _claimRewardingMethod.ID)
+	r.Equal(tx.Data()[:4], _claimRewardingMethodV2.ID)
 	r.Equal(tx.Value().String(), "0")
 }
 
@@ -134,13 +126,13 @@ func TestNewRewardingClaimFromABIBinary(t *testing.T) {
 				Indexed: false,
 			},
 			abi.Argument{
-				Name:    "data",
-				Type:    assertions.MustNoErrorV(abi.NewType("uint8[]", "uint8[]", nil)),
+				Name:    "address",
+				Type:    assertions.MustNoErrorV(abi.NewType("string", "string", nil)),
 				Indexed: false,
 			},
 			abi.Argument{
-				Name:    "address",
-				Type:    assertions.MustNoErrorV(abi.NewType("string", "string", nil)),
+				Name:    "data",
+				Type:    assertions.MustNoErrorV(abi.NewType("uint8[]", "uint8[]", nil)),
 				Indexed: false,
 			},
 		}
@@ -148,48 +140,56 @@ func TestNewRewardingClaimFromABIBinary(t *testing.T) {
 	)
 
 	t.Run("CheckMethodDefine", func(t *testing.T) {
-		method = abi.NewMethod("claim", "claim", abi.Function, "nonpayable", false, false, inputs, outputs)
-		r.Equal(method, _claimRewardingMethod)
+		method = abi.NewMethod("claimFor", "claimFor", abi.Function, "nonpayable", false, false, inputs, outputs)
+		r.Equal(method, _claimRewardingMethodV2)
 	})
 
 	t.Run("InvalidMethodSignature", func(t *testing.T) {
-		input := assertions.MustNoErrorV(method.Inputs.Pack(amount, data, addr))
+		input := assertions.MustNoErrorV(method.Inputs.Pack(amount, addr, data))
 		methodsig := []byte{'1', '2', '3', 4} // invalid
 		calldata := append(methodsig, input...)
 
-		_, err := action.NewClaimFromRewardingFundFromABIBinary(calldata)
-		r.ErrorContains(err, "failed to decode")
+		_, err := NewClaimFromRewardingFundFromABIBinary(calldata)
+		r.Equal(errWrongMethodSig, err)
 	})
 
 	t.Run("MissingSomeArgument", func(t *testing.T) {
-		_inputs := _claimRewardingMethod.Inputs
+		_inputs := _claimRewardingMethodV2.Inputs
 		calldata := append(
 			method.ID,
-			assertions.MustNoErrorV(inputs.Pack(amount, data, addr))...,
+			assertions.MustNoErrorV(inputs.Pack(amount, addr, data))...,
 		)
 
 		for i := 0; i < len(_inputs); i++ {
 			old := inputs[i].Name
 			_inputs[i].Name = "any"
-			_, err := action.NewClaimFromRewardingFundFromABIBinary(calldata)
-			r.ErrorContains(err, "failed to decode")
+			_, err := NewClaimFromRewardingFundFromABIBinary(calldata)
+			r.Equal(errDecodeFailure, err)
 			_inputs[i].Name = old
 		}
+	})
+
+	t.Run("EmptyAddress", func(t *testing.T) {
+		calldata := append(
+			method.ID[:],
+			assertions.MustNoErrorV(method.Inputs.Pack(amount, "", data))...)
+		_, err := NewClaimFromRewardingFundFromABIBinary(calldata)
+		r.ErrorContains(err, "address is empty")
 	})
 
 	t.Run("InvalidAddress", func(t *testing.T) {
 		calldata := append(
 			method.ID[:],
-			assertions.MustNoErrorV(method.Inputs.Pack(amount, data, "0x1231231232113"))...)
-		_, err := action.NewClaimFromRewardingFundFromABIBinary(calldata)
+			assertions.MustNoErrorV(method.Inputs.Pack(amount, "0x1231231232113", data))...)
+		_, err := NewClaimFromRewardingFundFromABIBinary(calldata)
 		r.Equal(address.ErrInvalidAddr, errors.Cause(err))
 	})
 
 	t.Run("Success", func(t *testing.T) {
 		calldata := append(
 			method.ID[:],
-			assertions.MustNoErrorV(method.Inputs.Pack(amount, data, addr))...)
-		ret, err := action.NewClaimFromRewardingFundFromABIBinary(calldata)
+			assertions.MustNoErrorV(method.Inputs.Pack(amount, addr, data))...)
+		ret, err := NewClaimFromRewardingFundFromABIBinary(calldata)
 		r.NoError(err)
 		r.Equal(ret.Address().String(), addr)
 		r.Equal(ret.Amount(), amount)
@@ -197,22 +197,9 @@ func TestNewRewardingClaimFromABIBinary(t *testing.T) {
 	})
 }
 
-/*
-	func TestClaimFromRewardingFund(t *testing.T) {
-		b := ClaimFromRewardingFundBuilder{}
-		s1 := b.SetAmount(big.NewInt(1)).
-			SetData([]byte{2}).
-			Build()
-		proto := s1.Proto()
-		s2 := ClaimFromRewardingFund{}
-		require.NoError(t, s2.LoadProto(proto))
-		assert.Equal(t, s1.Amount(), s2.Amount())
-		assert.Equal(t, s2.Data(), s2.Data())
-	}
-*/
 func TestClaimFromRewardingFund(t *testing.T) {
 	r := require.New(t)
-	c := &action.ClaimFromRewardingFund{}
+	c := &ClaimFromRewardingFund{}
 
 	t.Run("InvalidAmountProtoValue", func(t *testing.T) {
 		p := &iotextypes.ClaimFromRewardingFund{
@@ -268,7 +255,7 @@ func TestClaimFromRewardingFund(t *testing.T) {
 			if i == 1 {
 				addr, _ = address.FromString("io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he")
 			}
-			builder := &action.ClaimFromRewardingFundBuilder{}
+			builder := &ClaimFromRewardingFundBuilder{}
 			builder.SetAmount(big.NewInt(205))
 			builder.SetData([]byte("abc"))
 			builder.SetAddress(addr)

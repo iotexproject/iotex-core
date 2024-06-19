@@ -84,9 +84,9 @@ func TestBuildRewardingAction(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		method := _claimRewardingMethod
+		method := _claimRewardingMethodV1
 		t.Run("ClaimRewarding", func(t *testing.T) {
-			inputs := MustNoErrorV(method.Inputs.Pack(big.NewInt(101), []byte("any"), ""))
+			inputs := MustNoErrorV(method.Inputs.Pack(big.NewInt(101), []byte("any")))
 			elp, err := eb.BuildRewardingAction(types.NewTx(&types.LegacyTx{
 				Nonce:    1,
 				GasPrice: big.NewInt(10004),
@@ -100,13 +100,12 @@ func TestBuildRewardingAction(t *testing.T) {
 			r.Equal(big.NewInt(10004), elp.GasPrice())
 			r.Equal(uint64(10000), elp.GasLimit())
 			r.Equal(big.NewInt(101), elp.Action().(*ClaimFromRewardingFund).Amount())
-
 		})
 		t.Run("Debug", func(t *testing.T) {
 			eb := &EnvelopeBuilder{}
 			eb.SetChainID(4689)
 
-			inputs := MustNoErrorV(method.Inputs.Pack(big.NewInt(100), []byte("any"), ""))
+			inputs := MustNoErrorV(method.Inputs.Pack(big.NewInt(100), []byte("any")))
 			to := common.HexToAddress("0xA576C141e5659137ddDa4223d209d4744b2106BE")
 			tx := types.NewTx(&types.LegacyTx{
 				Nonce:    0,
@@ -141,8 +140,6 @@ func TestBuildRewardingAction(t *testing.T) {
 	})
 }
 
-func ptr[V any](v V) *V { return &v }
-
 func TestEthTxUtils(t *testing.T) {
 	r := require.New(t)
 	var (
@@ -166,10 +163,11 @@ func TestEthTxUtils(t *testing.T) {
 
 	addr, err := address.FromHex("0xA576C141e5659137ddDa4223d209d4744b2106BE")
 	r.NoError(err)
-	tx, _ := ptr((&ClaimFromRewardingFundBuilder{Builder: *builder}).
+	act := (&ClaimFromRewardingFundBuilder{Builder: *builder}).
 		SetAddress(addr).
 		SetData([]byte("any")).
-		SetAmount(big.NewInt(1)).Build()).ToEthTx(chainID)
+		SetAmount(big.NewInt(1)).Build()
+	tx, _ := act.ToEthTx(chainID)
 
 	var (
 		signer1, _ = NewEthSigner(iotextypes.Encoding_ETHEREUM_EIP155, chainID)

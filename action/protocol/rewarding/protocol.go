@@ -184,7 +184,7 @@ func createGrantRewardAction(rewardType int, height uint64) action.Envelope {
 
 // Validate validates a reward action
 func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
-	switch act.(type) {
+	switch act := act.(type) {
 	case *action.GrantReward:
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		if !address.Equal(protocol.MustGetBlockCtx(ctx).Producer, actionCtx.Caller) {
@@ -192,6 +192,10 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 		}
 		if actionCtx.GasPrice != nil && actionCtx.GasPrice.Cmp(big.NewInt(0)) != 0 || actionCtx.IntrinsicGas != 0 {
 			return errors.New("invalid gas price or intrinsic gas for reward action")
+		}
+	case *action.ClaimFromRewardingFund:
+		if !protocol.MustGetFeatureCtx(ctx).AddClaimRewardAddress && act.Address() != nil {
+			return errors.New("claim reward address not enabled yet")
 		}
 	}
 	return nil
@@ -216,7 +220,7 @@ func (p *Protocol) Handle(
 	case *action.ClaimFromRewardingFund:
 		si := sm.Snapshot()
 		addr := protocol.MustGetActionCtx(ctx).Caller
-		if protocol.MustGetFeatureCtx(ctx).AddClaimRewardAddress && act.Address() != nil {
+		if act.Address() != nil {
 			addr = act.Address()
 		}
 		rlog, err := p.Claim(ctx, sm, act.Amount(), addr)
