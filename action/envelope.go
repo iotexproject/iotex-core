@@ -107,6 +107,8 @@ func (elp *envelope) Proto() *iotextypes.ActionCore {
 		actCore.Action = &iotextypes.ActionCore_CandidateTransferOwnership{CandidateTransferOwnership: act.Proto()}
 	case *txContainer:
 		actCore.Action = &iotextypes.ActionCore_TxContainer{TxContainer: act.proto()}
+	case *MigrateStake:
+		actCore.Action = &iotextypes.ActionCore_StakeMigrate{StakeMigrate: act.Proto()}
 	default:
 		log.S().Panicf("Cannot convert type of action %T.\r\n", act)
 	}
@@ -238,6 +240,12 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	case pbAct.GetTxContainer() != nil:
 		act := &txContainer{}
 		if err := act.loadProto(pbAct.GetTxContainer()); err != nil {
+			return err
+		}
+		elp.payload = act
+	case pbAct.GetStakeMigrate() != nil:
+		act := &MigrateStake{}
+		if err := act.LoadProto(pbAct.GetStakeMigrate()); err != nil {
 			return err
 		}
 		elp.payload = act

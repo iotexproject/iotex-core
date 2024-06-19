@@ -106,3 +106,10 @@ func (p *Protocol) validateCandidateTransferOwnershipAction(ctx context.Context,
 	}
 	return nil
 }
+
+func (p *Protocol) validateMigrateStake(ctx context.Context, act *action.MigrateStake) error {
+	if !protocol.MustGetFeatureCtx(ctx).MigrateNativeStake {
+		return errors.Wrap(action.ErrInvalidAct, "migrate stake is disabled")
+	}
+	return nil
+}

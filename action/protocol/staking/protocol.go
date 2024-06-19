@@ -95,6 +95,7 @@ type (
 		BootstrapCandidates              []genesis.BootstrapCandidate
 		PersistStakingPatchBlock         uint64
 		EndorsementWithdrawWaitingBlocks uint64
+		MigrateContractAddress           string
 	}
 	// HelperCtx is the helper context for staking protocol
 	HelperCtx struct {
@@ -155,7 +156,10 @@ func NewProtocol(
 
 	// new vote reviser, revise ate greenland
 	voteReviser := NewVoteReviser(cfg.Staking.VoteWeightCalConsts, correctCandsHeight, reviseHeights...)
-
+	migrateContractAddress := ""
+	if contractStakingIndexerV2 != nil {
+		migrateContractAddress = contractStakingIndexerV2.ContractAddress()
+	}
 	return &Protocol{
 		addr: addr,
 		config: Configuration{
@@ -169,6 +173,7 @@ func NewProtocol(
 			BootstrapCandidates:              cfg.Staking.BootstrapCandidates,
 			PersistStakingPatchBlock:         cfg.PersistStakingPatchBlock,
 			EndorsementWithdrawWaitingBlocks: cfg.Staking.EndorsementWithdrawWaitingBlocks,
+			MigrateContractAddress:           migrateContractAddress,
 		},
 		candBucketsIndexer:       candBucketsIndexer,
 		voteReviser:              voteReviser,
@@ -404,16 +409,19 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, err
 	}
-
 	return p.handle(ctx, act, csm)
 }
 
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
 	var (
-		rLog  *receiptLog
-		tLogs []*action.TransactionLog
-		err   error
-		logs  []*action.Log
+		rLog              *receiptLog
+		tLogs             []*action.TransactionLog
+		err               error
+		logs              []*action.Log
+		nonceUpdateOption = updateNonce
+		actionCtx         = protocol.MustGetActionCtx(ctx)
+		gasConsumed       = actionCtx.IntrinsicGas
+		gasToBeDeducted   = gasConsumed
 	)
 
 	switch act := act.(type) {
@@ -441,22 +449,28 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		rLog, tLogs, err = p.handleCandidateEndorsement(ctx, act, csm)
 	case *action.CandidateTransferOwnership:
 		rLog, tLogs, err = p.handleCandidateTransferOwnership(ctx, act, csm)
+	case *action.MigrateStake:
+		logs, tLogs, gasConsumed, gasToBeDeducted, err = p.handleStakeMigrate(ctx, act, csm)
+		if err == nil {
+			nonceUpdateOption = noUpdateNonce
+		}
 	default:
 		return nil, nil
 	}
-
-	if l := rLog.Build(ctx, err); l != nil {
-		logs = append(logs, l)
+	if rLog != nil {
+		if l := rLog.Build(ctx, err); l != nil {
+			logs = append(logs, l)
+		}
 	}
 	if err == nil {
-		return p.settleAction(ctx, csm.SM(), uint64(iotextypes.ReceiptStatus_Success), logs, tLogs)
+		return p.settleAction(ctx, csm.SM(), uint64(iotextypes.ReceiptStatus_Success), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption)
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		log.L().With(
 			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Debug("Failed to commit staking action", zap.Error(err))
-		return p.settleAction(ctx, csm.SM(), receiptErr.ReceiptStatus(), logs, tLogs)
+		return p.settleAction(ctx, csm.SM(), receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption)
 	}
 	return nil, err
 }
@@ -491,6 +505,8 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 		return p.validateCandidateEndorsement(ctx, act)
 	case *action.CandidateTransferOwnership:
 		return p.validateCandidateTransferOwnershipAction(ctx, act)
+	case *action.MigrateStake:
+		return p.validateMigrateStake(ctx, act)
 	}
 	return nil
 }
@@ -665,6 +681,13 @@ func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
 	return CalculateVoteWeight(p.config.VoteWeightCalConsts, v, selfStake)
 }
 
+type nonceUpdateType bool
+
+const (
+	updateNonce   nonceUpdateType = true
+	noUpdateNonce nonceUpdateType = false
+)
+
 // settleAction deposits gas fee and updates caller's nonce
 func (p *Protocol) settleAction(
 	ctx context.Context,
@@ -672,33 +695,38 @@ func (p *Protocol) settleAction(
 	status uint64,
 	logs []*action.Log,
 	tLogs []*action.TransactionLog,
+	gasConsumed uint64,
+	gasToBeDeducted uint64,
+	updateNonce nonceUpdateType,
 ) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
+	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(gasToBeDeducted))
 	depositLog, err := p.helperCtx.DepositGas(ctx, sm, gasFee)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deposit gas")
 	}
-	accountCreationOpts := []state.AccountCreationOption{}
-	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
-		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
-	}
-	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)
-	if err != nil {
-		return nil, err
-	}
-	if err := acc.SetPendingNonce(actionCtx.Nonce + 1); err != nil {
-		return nil, errors.Wrap(err, "failed to set nonce")
-	}
-	if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
-		return nil, errors.Wrap(err, "failed to update nonce")
+	if updateNonce {
+		accountCreationOpts := []state.AccountCreationOption{}
+		if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+			accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
+		}
+		acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)
+		if err != nil {
+			return nil, err
+		}
+		if err := acc.SetPendingNonce(actionCtx.Nonce + 1); err != nil {
+			return nil, errors.Wrap(err, "failed to set nonce")
+		}
+		if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
+			return nil, errors.Wrap(err, "failed to update nonce")
+		}
 	}
 	r := action.Receipt{
 		Status:          status,
 		BlockHeight:     blkCtx.BlockHeight,
 		ActionHash:      actionCtx.ActionHash,
-		GasConsumed:     actionCtx.IntrinsicGas,
+		GasConsumed:     gasConsumed,
 		ContractAddress: p.addr.String(),
 	}
 	r.AddLogs(logs...).AddTransactionLogs(depositLog).AddTransactionLogs(tLogs...)

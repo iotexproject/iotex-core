@@ -334,6 +334,21 @@ func (mr *MockCoreServiceMockRecorder) EstimateGasForNonExecution(arg0 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForNonExecution", reflect.TypeOf((*MockCoreService)(nil).EstimateGasForNonExecution), arg0)
 }
 
+// EstimateMigrateStakeGasConsumption mocks base method.
+func (m *MockCoreService) EstimateMigrateStakeGasConsumption(arg0 context.Context, arg1 *action.MigrateStake, arg2 address.Address) (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EstimateMigrateStakeGasConsumption", arg0, arg1, arg2)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EstimateMigrateStakeGasConsumption indicates an expected call of EstimateMigrateStakeGasConsumption.
+func (mr *MockCoreServiceMockRecorder) EstimateMigrateStakeGasConsumption(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateMigrateStakeGasConsumption", reflect.TypeOf((*MockCoreService)(nil).EstimateMigrateStakeGasConsumption), arg0, arg1, arg2)
+}
+
 // Genesis mocks base method.
 func (m *MockCoreService) Genesis() genesis.Genesis {
 	m.ctrl.T.Helper()
