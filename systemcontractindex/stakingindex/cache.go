@@ -24,10 +24,10 @@ func newCache() *cache {
 	}
 }
 
-func (s *cache) Load(kvstore db.KVStore) error {
+func (s *cache) Load(kvstore db.KVStore, ns, bucketNS string) error {
 	// load total bucket count
 	var totalBucketCount uint64
-	tbc, err := kvstore.Get(stakingNS, stakingTotalBucketCountKey)
+	tbc, err := kvstore.Get(ns, stakingTotalBucketCountKey)
 	if err != nil {
 		if !errors.Is(err, db.ErrNotExist) {
 			return err
@@ -39,7 +39,7 @@ func (s *cache) Load(kvstore db.KVStore) error {
 	s.totalBucketCount = totalBucketCount
 
 	// load buckets
-	ks, vs, err := kvstore.Filter(stakingBucketNS, func(k, v []byte) bool { return true }, nil, nil)
+	ks, vs, err := kvstore.Filter(bucketNS, func(k, v []byte) bool { return true }, nil, nil)
 	if err != nil && !errors.Is(err, db.ErrBucketNotExist) {
 		return err
 	}

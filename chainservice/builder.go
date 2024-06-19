@@ -331,7 +331,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 	}
 	dbConfig := builder.cfg.DB
 	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
-	kvss := db.NewKVStoreShards(db.NewBoltDB(dbConfig))
+	kvstore := db.NewBoltDB(dbConfig)
 	// build contract staking indexer
 	if builder.cs.contractStakingIndexer == nil {
 		if builder.cfg.Genesis.SystemStakingContractAddress == "" {
@@ -339,7 +339,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		} else {
 			voteCalcConsts := builder.cfg.Genesis.VoteWeightCalConsts
 			indexer, err := contractstaking.NewContractStakingIndexer(
-				kvss,
+				kvstore,
 				contractstaking.Config{
 					ContractAddress:      builder.cfg.Genesis.SystemStakingContractAddress,
 					ContractDeployHeight: builder.cfg.Genesis.SystemStakingContractHeight,
@@ -360,7 +360,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 			builder.cs.contractStakingIndexerV2 = nil
 		} else {
 			indexer := stakingindex.NewIndexer(
-				kvss.Shard(builder.cfg.Genesis.SystemStakingContractV2Address),
+				kvstore,
 				builder.cfg.Genesis.SystemStakingContractV2Address,
 				builder.cfg.Genesis.SystemStakingContractV2Height, builder.cfg.DardanellesUpgrade.BlockInterval,
 			)
