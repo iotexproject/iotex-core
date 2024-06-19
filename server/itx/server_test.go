@@ -93,7 +93,6 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	cfg.Chain.SGDIndexDBPath = sgdPath
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.ContractStakingIndexDBPath = contractIndexPath
-	cfg.Chain.ContractStakingIndexV2DBPath = contractIndexPathV2
 	return cfg, func() {
 		testutil.CleanupPath(dbPath)
 		testutil.CleanupPath(triePath)

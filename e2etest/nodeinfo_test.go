@@ -53,7 +53,6 @@ func newConfigForNodeInfoTest(triePath, dBPath, idxDBPath, contractIdxDBPath str
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
 	cfg.Chain.ContractStakingIndexDBPath = contractIndexDBPath
-	cfg.Chain.ContractStakingIndexV2DBPath = contractIndexV2DBPath
 	cfg.Chain.SGDIndexDBPath = sgdIndexDBPath
 	return cfg, func() {
 		testutil.CleanupPath(testTriePath)
