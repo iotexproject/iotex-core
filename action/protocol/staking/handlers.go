@@ -853,7 +853,7 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	return log, nil
 }
 
-func (p *Protocol) fetchBucket(csm CandidateStateManager, index uint64) (*VoteBucket, ReceiptError) {
+func (p *Protocol) fetchBucket(csm BucketGetByIndex, index uint64) (*VoteBucket, ReceiptError) {
 	bucket, err := csm.getBucket(index)
 	if err != nil {
 		fetchErr := &handleError{

@@ -400,21 +400,16 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	csm, err := p.constructCandidateStateManager(ctx, sm)
-	if err != nil {
-		return nil, err
-	}
-
-	return p.handle(ctx, act, csm)
-}
-
-func (p *Protocol) constructCandidateStateManager(ctx context.Context, sm protocol.StateManager) (CandidateStateManager, error) {
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sm.Height()
 	if err != nil {
 		return nil, err
 	}
-	return NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	if err != nil {
+		return nil, err
+	}
+	return p.handle(ctx, act, csm)
 }
 
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {

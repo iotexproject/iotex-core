@@ -61,6 +61,7 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateSt
 	// force-withdraw native bucket
 	actLog, tLog, err := p.withdrawBucket(ctx, staker, bucket, candidate, csm)
 	if err != nil {
+		revertSM()
 		return nil, nil, gasConsumed, gasToBeDeducted, err
 	}
 	actLogs = append(actLogs, actLog.Build(ctx, nil))
@@ -157,16 +158,12 @@ func (p *Protocol) withdrawBucket(ctx context.Context, withdrawer *state.Account
 }
 
 func (p *Protocol) ConstructExecution(ctx context.Context, act *action.MigrateStake, sr protocol.StateReader) (*action.Execution, error) {
-	sm := protocol.NewStateManagerWrapper(sr)
-	csm, err := p.constructCandidateStateManager(ctx, sm)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to construct state managers")
-	}
-	bucket, err := p.fetchBucket(csm, act.BucketIndex())
+	csr, err := ConstructBaseView(sr)
+	bucket, err := p.fetchBucket(csr, act.BucketIndex())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch bucket")
 	}
-	candidate := csm.GetByIdentifier(bucket.Candidate)
+	candidate := csr.GetByIdentifier(bucket.Candidate)
 	if candidate == nil {
 		return nil, errCandNotExist
 	}

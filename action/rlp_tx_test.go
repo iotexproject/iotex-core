@@ -374,6 +374,7 @@ var (
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
 			"1e14d5373e1af9cc77f0032ad2cd0fba8be5ea2e",
 		},
+		// TODO: add StakeMigrate test
 		{
 			"unprotected",
 			deterministicDeploymentTx,
@@ -543,6 +544,7 @@ func TestEthTxDecodeVerify(t *testing.T) {
 	}
 }
 
+// TODO: test tx container
 func TestEthTxDecodeVerifyV2(t *testing.T) {
 	var (
 		r        = require.New(t)
