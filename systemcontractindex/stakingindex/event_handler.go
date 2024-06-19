@@ -24,12 +24,6 @@ const (
 	maxBlockNumber uint64 = math.MaxUint64
 )
 
-type eventHandler struct {
-	dirty      *cache             // dirty cache, a view for current block
-	delta      batch.KVStoreBatch // delta for db to store buckets of current block
-	tokenOwner map[uint64]address.Address
-}
-
 var (
 	stakingContractABI = staking.StakingContractABI
 
@@ -37,11 +31,21 @@ var (
 	ErrBucketNotExist = errors.New("bucket does not exist")
 )
 
-func newEventHandler(dirty *cache) *eventHandler {
+type eventHandler struct {
+	stakingBucketNS string
+	stakingNS       string
+	dirty           *cache             // dirty cache, a view for current block
+	delta           batch.KVStoreBatch // delta for db to store buckets of current block
+	tokenOwner      map[uint64]address.Address
+}
+
+func newEventHandler(ns, bucketNS string, dirty *cache) *eventHandler {
 	return &eventHandler{
-		dirty:      dirty,
-		delta:      batch.NewBatch(),
-		tokenOwner: make(map[uint64]address.Address),
+		stakingBucketNS: bucketNS,
+		stakingNS:       ns,
+		dirty:           dirty,
+		delta:           batch.NewBatch(),
+		tokenOwner:      make(map[uint64]address.Address),
 	}
 }
 
@@ -303,10 +307,10 @@ func (eh *eventHandler) Finalize() (batch.KVStoreBatch, *cache) {
 
 func (eh *eventHandler) putBucket(id uint64, bkt *Bucket) {
 	eh.dirty.PutBucket(id, bkt)
-	eh.delta.Put(stakingBucketNS, byteutil.Uint64ToBytesBigEndian(id), bkt.Serialize(), "failed to put bucket")
+	eh.delta.Put(eh.stakingBucketNS, byteutil.Uint64ToBytesBigEndian(id), bkt.Serialize(), "failed to put bucket")
 }
 
 func (eh *eventHandler) delBucket(id uint64) {
 	eh.dirty.DeleteBucket(id)
-	eh.delta.Delete(stakingBucketNS, byteutil.Uint64ToBytesBigEndian(id), "failed to delete bucket")
+	eh.delta.Delete(eh.stakingBucketNS, byteutil.Uint64ToBytesBigEndian(id), "failed to delete bucket")
 }
