@@ -1328,6 +1328,8 @@ func TestShanghaiEVM(t *testing.T) {
 
 func TestCancunEVM(t *testing.T) {
 	t.Run("eip1153-transientstorage", func(t *testing.T) {
+		// TODO: re-enable this test when enable Cancun
+		t.Skip()
 		NewSmartContractTest(t, "testdata-cancun/transientstorage.json")
 	})
 }
