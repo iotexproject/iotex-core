@@ -69,8 +69,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		cfg.RedseaBlockHeight = 1
 		cfg.SumatraBlockHeight = 1
 		cfg.TsunamiBlockHeight = 1
-		cfg.UpernavikBlockHeight = 1000000 // not enabled
-		cfg.ToBeEnabledBlockHeight = 1     // enable CandidateIdentifiedByOwner feature
+		cfg.UpernavikBlockHeight = 2 // enable CandidateIdentifiedByOwner feature
 	}
 	initCfg(&cfg)
 
