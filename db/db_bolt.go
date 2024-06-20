@@ -44,7 +44,7 @@ type BoltDB struct {
 	db     *bolt.DB
 	path   string
 	config Config
-	once   sync.Once
+	mutex  sync.Mutex
 }
 
 // NewBoltDB instantiates an BoltDB with implements KVStore
@@ -58,41 +58,39 @@ func NewBoltDB(cfg Config) *BoltDB {
 
 // Start opens the BoltDB (creates new file if not existing yet)
 func (b *BoltDB) Start(_ context.Context) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
 	if b.IsReady() {
 		return nil
 	}
-	var err error
-	b.once.Do(func() {
-		opts := *bolt.DefaultOptions
-		if b.config.ReadOnly {
-			opts.ReadOnly = true
-		}
-		var db *bolt.DB
-		db, err = bolt.Open(b.path, _fileMode, &opts)
-		if err != nil {
-			err = errors.Wrap(ErrIO, err.Error())
-			return
-		}
-		b.db = db
-		err = b.TurnOn()
-	})
-	return err
+	opts := *bolt.DefaultOptions
+	if b.config.ReadOnly {
+		opts.ReadOnly = true
+	}
+	var db *bolt.DB
+	db, err := bolt.Open(b.path, _fileMode, &opts)
+	if err != nil {
+		return errors.Wrap(ErrIO, err.Error())
+	}
+	b.db = db
+	return b.TurnOn()
 }
 
 // Stop closes the BoltDB
 func (b *BoltDB) Stop(_ context.Context) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
 	if !b.IsReady() {
 		return nil
 	}
-	var err error
-	b.once.Do(func() {
-		if err = b.TurnOff(); err != nil {
-			return
-		}
-		if err = b.db.Close(); err != nil {
-			err = errors.Wrap(ErrIO, err.Error())
-		}
-	})
+	if err := b.TurnOff(); err != nil {
+		return err
+	}
+	if err := b.db.Close(); err != nil {
+		return errors.Wrap(ErrIO, err.Error())
+	}
 	return nil
 }
 
