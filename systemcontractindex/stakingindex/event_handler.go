@@ -33,16 +33,14 @@ var (
 
 type eventHandler struct {
 	stakingBucketNS string
-	stakingNS       string
 	dirty           *cache             // dirty cache, a view for current block
 	delta           batch.KVStoreBatch // delta for db to store buckets of current block
 	tokenOwner      map[uint64]address.Address
 }
 
-func newEventHandler(ns, bucketNS string, dirty *cache) *eventHandler {
+func newEventHandler(bucketNS string, dirty *cache) *eventHandler {
 	return &eventHandler{
 		stakingBucketNS: bucketNS,
-		stakingNS:       ns,
 		dirty:           dirty,
 		delta:           batch.NewBatch(),
 		tokenOwner:      make(map[uint64]address.Address),

@@ -195,7 +195,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 		return nil
 	}
 	// handle events of block
-	handler := newEventHandler(s.ns, s.bucketNS, s.cache.Copy())
+	handler := newEventHandler(s.bucketNS, s.cache.Copy())
 	for _, receipt := range blk.Receipts {
 		if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 			continue
