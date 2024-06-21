@@ -55,11 +55,11 @@ type (
 
 // NewIndexer creates a new staking indexer
 func NewIndexer(kvstore db.KVStore, contractAddr string, startHeight uint64, blockInterval time.Duration) *Indexer {
-	bucketNS := stakingBucketNS + "#" + contractAddr
-	ns := stakingNS + "#" + contractAddr
+	bucketNS := contractAddr + "#" + stakingBucketNS
+	ns := contractAddr + "#" + stakingNS
 	return &Indexer{
 		common:        systemcontractindex.NewIndexerCommon(kvstore, ns, stakingHeightKey, contractAddr, startHeight),
-		cache:         newCache(),
+		cache:         newCache(ns, bucketNS),
 		blockInterval: blockInterval,
 		bucketNS:      bucketNS,
 		ns:            ns,
@@ -73,7 +73,7 @@ func (s *Indexer) Start(ctx context.Context) error {
 	if err := s.common.Start(ctx); err != nil {
 		return err
 	}
-	return s.cache.Load(s.common.KVStore(), s.ns, s.bucketNS)
+	return s.cache.Load(s.common.KVStore())
 }
 
 // Stop stops the indexer

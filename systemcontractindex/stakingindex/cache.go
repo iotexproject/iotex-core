@@ -15,19 +15,22 @@ type cache struct {
 	buckets            map[uint64]*Bucket
 	bucketsByCandidate map[string]map[uint64]struct{}
 	totalBucketCount   uint64
+	ns, bucketNS       string
 }
 
-func newCache() *cache {
+func newCache(ns, bucketNS string) *cache {
 	return &cache{
 		buckets:            make(map[uint64]*Bucket),
 		bucketsByCandidate: make(map[string]map[uint64]struct{}),
+		ns:                 ns,
+		bucketNS:           bucketNS,
 	}
 }
 
-func (s *cache) Load(kvstore db.KVStore, ns, bucketNS string) error {
+func (s *cache) Load(kvstore db.KVStore) error {
 	// load total bucket count
 	var totalBucketCount uint64
-	tbc, err := kvstore.Get(ns, stakingTotalBucketCountKey)
+	tbc, err := kvstore.Get(s.ns, stakingTotalBucketCountKey)
 	if err != nil {
 		if !errors.Is(err, db.ErrNotExist) {
 			return err
@@ -39,7 +42,7 @@ func (s *cache) Load(kvstore db.KVStore, ns, bucketNS string) error {
 	s.totalBucketCount = totalBucketCount
 
 	// load buckets
-	ks, vs, err := kvstore.Filter(bucketNS, func(k, v []byte) bool { return true }, nil, nil)
+	ks, vs, err := kvstore.Filter(s.bucketNS, func(k, v []byte) bool { return true }, nil, nil)
 	if err != nil && !errors.Is(err, db.ErrBucketNotExist) {
 		return err
 	}
@@ -54,7 +57,7 @@ func (s *cache) Load(kvstore db.KVStore, ns, bucketNS string) error {
 }
 
 func (s *cache) Copy() *cache {
-	c := newCache()
+	c := newCache(s.ns, s.bucketNS)
 	for k, v := range s.buckets {
 		c.buckets[k] = v.Clone()
 	}
