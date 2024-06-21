@@ -8,7 +8,9 @@ package db
 import (
 	"bytes"
 	"context"
+	"os"
 	"syscall"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -18,10 +20,14 @@ import (
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-const _fileMode = 0600
+const (
+	_fileMode                = 0600
+	_fileSizeCollectInterval = 5 * time.Minute
+)
 
 var (
 	// ErrDBNotStarted represents the error when a db has not started
@@ -40,9 +46,10 @@ func init() {
 // BoltDB is KVStore implementation based bolt DB
 type BoltDB struct {
 	lifecycle.Readiness
-	db     *bolt.DB
-	path   string
-	config Config
+	db          *bolt.DB
+	path        string
+	config      Config
+	collectTask *routine.RecurringTask
 }
 
 // NewBoltDB instantiates an BoltDB with implements KVStore
@@ -55,7 +62,7 @@ func NewBoltDB(cfg Config) *BoltDB {
 }
 
 // Start opens the BoltDB (creates new file if not existing yet)
-func (b *BoltDB) Start(_ context.Context) error {
+func (b *BoltDB) Start(ctx context.Context) error {
 	opts := *bolt.DefaultOptions
 	if b.config.ReadOnly {
 		opts.ReadOnly = true
@@ -65,12 +72,27 @@ func (b *BoltDB) Start(_ context.Context) error {
 		return errors.Wrap(ErrIO, err.Error())
 	}
 	b.db = db
+	// start a recurring task to collect db filesize metrics
+	b.collectTask = routine.NewRecurringTask(func() {
+		info, err := os.Stat(b.path)
+		if err != nil {
+			log.L().Warn("Failed to get file size.", zap.Error(err))
+			return
+		}
+		boltdbMtc.WithLabelValues(b.path, "fileSize").Set(float64(info.Size()))
+	}, _fileSizeCollectInterval)
+	if err = b.collectTask.Start(ctx); err != nil {
+		return err
+	}
 	return b.TurnOn()
 }
 
 // Stop closes the BoltDB
-func (b *BoltDB) Stop(_ context.Context) error {
+func (b *BoltDB) Stop(ctx context.Context) error {
 	if err := b.TurnOff(); err != nil {
+		return err
+	}
+	if err := b.collectTask.Stop(ctx); err != nil {
 		return err
 	}
 	if err := b.db.Close(); err != nil {

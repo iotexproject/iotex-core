@@ -45,6 +45,7 @@ var (
 		},
 		[]string{"type"},
 	)
+
 	// ErrInvalidTipHeight is the error returned when the block height is not valid
 	ErrInvalidTipHeight = errors.New("invalid tip height")
 	// ErrInvalidBlock is the error returned when the block is not valid
@@ -190,7 +191,6 @@ func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf Blo
 	}
 	chain.lifecycle.Add(chain.dao)
 	chain.lifecycle.Add(chain.pubSubManager)
-
 	return chain
 }
 
