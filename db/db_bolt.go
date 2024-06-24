@@ -8,6 +8,7 @@ package db
 import (
 	"bytes"
 	"context"
+	"sync"
 	"syscall"
 
 	"github.com/pkg/errors"
@@ -43,6 +44,7 @@ type BoltDB struct {
 	db     *bolt.DB
 	path   string
 	config Config
+	mutex  sync.Mutex
 }
 
 // NewBoltDB instantiates an BoltDB with implements KVStore
@@ -56,6 +58,12 @@ func NewBoltDB(cfg Config) *BoltDB {
 
 // Start opens the BoltDB (creates new file if not existing yet)
 func (b *BoltDB) Start(_ context.Context) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	if b.IsReady() {
+		return nil
+	}
 	opts := *bolt.DefaultOptions
 	if b.config.ReadOnly {
 		opts.ReadOnly = true
@@ -70,6 +78,12 @@ func (b *BoltDB) Start(_ context.Context) error {
 
 // Stop closes the BoltDB
 func (b *BoltDB) Stop(_ context.Context) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	if !b.IsReady() {
+		return nil
+	}
 	if err := b.TurnOff(); err != nil {
 		return err
 	}

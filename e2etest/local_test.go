@@ -365,8 +365,6 @@ func TestLocalSync(t *testing.T) {
 	require.NoError(err)
 	contractIndexDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
-	contractIndexDBV2Path2, err := testutil.PathOfTempFile(_dBPath2 + "v2")
-	require.NoError(err)
 	indexSGDDBPath2, err := testutil.PathOfTempFile(_dBPath2 + "_sgd")
 	require.NoError(err)
 	cfg, err = newTestConfig()
@@ -377,7 +375,6 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
 	cfg.Chain.ContractStakingIndexDBPath = contractIndexDBPath2
-	cfg.Chain.ContractStakingIndexV2DBPath = contractIndexDBV2Path2
 	cfg.Chain.SGDIndexDBPath = indexSGDDBPath2
 	defer func() {
 		testutil.CleanupPath(testTriePath2)
@@ -435,8 +432,6 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(err)
 	testContractStakeIndexPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
-	testContractStakeIndexPathV2, err := testutil.PathOfTempFile(_dBPath + "v2")
-	require.NoError(err)
 	testSGDIndexPath, err := testutil.PathOfTempFile(_dBPath + "_sgd")
 	require.NoError(err)
 	// Disable block reward to make bookkeeping easier
@@ -446,7 +441,6 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.ContractStakingIndexDBPath = testContractStakeIndexPath
-	cfg.Chain.ContractStakingIndexV2DBPath = testContractStakeIndexPathV2
 	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.ActPool.MinGasPriceStr = "0"
