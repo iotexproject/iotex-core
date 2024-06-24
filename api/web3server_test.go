@@ -315,8 +315,7 @@ func TestCall(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "d201114a"
-		   },
-		   1]}`)
+		   }]}`)
 		ret, err := web3svr.call(&in)
 		require.NoError(err)
 		require.Equal("0x0000000000000000000000000000000000000000000000056bc75e2d63100000", ret.(string))
@@ -334,15 +333,14 @@ func TestCall(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "ad7a672f"
-		   },
-		   1]}`)
+		   }]}`)
 		ret, err := web3svr.call(&in)
 		require.NoError(err)
 		require.Equal("0x0000000000000000000000000000000000000000000000000000000000002710", ret.(string))
 	})
 
 	t.Run("to is contract addr", func(t *testing.T) {
-		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("111111", nil, nil)
+		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("111111", nil, nil)
 		in := gjson.Parse(`{"params":[{
 			"from":     "",
 			"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
@@ -350,8 +348,7 @@ func TestCall(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "0x1"
-		   },
-		   1]}`)
+		   }]}`)
 		ret, err := web3svr.call(&in)
 		require.NoError(err)
 		require.Equal("0x111111", ret.(string))
@@ -368,7 +365,7 @@ func TestCall(t *testing.T) {
 			ExecutionRevertMsg: "revert call",
 			TxIndex:            0,
 		}
-		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", receipt, nil)
+		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("", receipt, nil)
 		in := gjson.Parse(`{"params":[{
 			"from":     "",
 			"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
@@ -376,8 +373,7 @@ func TestCall(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "0x1"
-		   },
-		   1]}`)
+		   }]}`)
 		_, err := web3svr.call(&in)
 		require.EqualError(err, "rpc error: code = InvalidArgument desc = execution reverted: "+receipt.GetExecutionRevertMsg())
 	})
@@ -402,8 +398,7 @@ func TestEstimateGas(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "0x6d4ce63c"
-		   },
-		   1]}`)
+		   }]}`)
 		ret, err := web3svr.estimateGas(&in)
 		require.NoError(err)
 		require.Equal(uint64ToHex(uint64(21000)), ret.(string))
@@ -420,8 +415,7 @@ func TestEstimateGas(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "0x1123123c"
-		   },
-		   1]}`)
+		   }]}`)
 		ret, err := web3svr.estimateGas(&in)
 		require.NoError(err)
 		require.Equal(uint64ToHex(uint64(36000)), ret.(string))
@@ -1255,7 +1249,7 @@ func TestDebugTraceCall(t *testing.T) {
 
 	core.EXPECT().TraceCall(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return([]byte{0x01}, receipt, structLogger, nil)
 
-	in := gjson.Parse(`{"method":"debug_traceCall","params":[{"from":null,"to":"0x6b175474e89094c44da98b954eedeac495271d0f","data":"0x70a082310000000000000000000000006E0d01A76C3Cf4288372a29124A26D4353EE51BE"}, {"blockNumber":1}],"id":1,"jsonrpc":"2.0"}`)
+	in := gjson.Parse(`{"method":"debug_traceCall","params":[{"from":null,"to":"0x6b175474e89094c44da98b954eedeac495271d0f","data":"0x70a082310000000000000000000000006E0d01A76C3Cf4288372a29124A26D4353EE51BE"}],"id":1,"jsonrpc":"2.0"}`)
 	ret, err := web3svr.traceCall(ctx, &in)
 	require.NoError(err)
 	rlt, ok := ret.(*debugTraceTransactionResult)

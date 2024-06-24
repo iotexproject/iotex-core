@@ -11,12 +11,11 @@ package versionpb;
 option go_package = "github.com/iotexproject/iotex-core/db/versionpb";
 
 message VersionedNamespace {
-    string name = 1;
     uint32 keyLen = 2;
 }
 
 message KeyMeta {
-    bytes lastWriteHash = 1; // hash of value that was last written
+    bytes lastWrite = 1; // value that was last written
     uint64 firstVersion = 2;
     uint64 lastVersion = 3;
     uint64 deleteVersion = 4;
