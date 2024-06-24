@@ -333,39 +333,31 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
 	kvstore := db.NewBoltDB(dbConfig)
 	// build contract staking indexer
-	if builder.cs.contractStakingIndexer == nil {
-		if builder.cfg.Genesis.SystemStakingContractAddress == "" {
-			builder.cs.contractStakingIndexer = nil
-		} else {
-			voteCalcConsts := builder.cfg.Genesis.VoteWeightCalConsts
-			indexer, err := contractstaking.NewContractStakingIndexer(
-				kvstore,
-				contractstaking.Config{
-					ContractAddress:      builder.cfg.Genesis.SystemStakingContractAddress,
-					ContractDeployHeight: builder.cfg.Genesis.SystemStakingContractHeight,
-					CalculateVoteWeight: func(v *staking.VoteBucket) *big.Int {
-						return staking.CalculateVoteWeight(voteCalcConsts, v, false)
-					},
-					BlockInterval: builder.cfg.DardanellesUpgrade.BlockInterval,
-				})
-			if err != nil {
-				return err
-			}
-			builder.cs.contractStakingIndexer = indexer
+	if builder.cs.contractStakingIndexer == nil && len(builder.cfg.Genesis.SystemStakingContractAddress) > 0 {
+		voteCalcConsts := builder.cfg.Genesis.VoteWeightCalConsts
+		indexer, err := contractstaking.NewContractStakingIndexer(
+			kvstore,
+			contractstaking.Config{
+				ContractAddress:      builder.cfg.Genesis.SystemStakingContractAddress,
+				ContractDeployHeight: builder.cfg.Genesis.SystemStakingContractHeight,
+				CalculateVoteWeight: func(v *staking.VoteBucket) *big.Int {
+					return staking.CalculateVoteWeight(voteCalcConsts, v, false)
+				},
+				BlockInterval: builder.cfg.DardanellesUpgrade.BlockInterval,
+			})
+		if err != nil {
+			return err
 		}
+		builder.cs.contractStakingIndexer = indexer
 	}
 	// build contract staking indexer v2
-	if builder.cs.contractStakingIndexerV2 == nil {
-		if builder.cfg.Genesis.SystemStakingContractV2Address == "" {
-			builder.cs.contractStakingIndexerV2 = nil
-		} else {
-			indexer := stakingindex.NewIndexer(
-				kvstore,
-				builder.cfg.Genesis.SystemStakingContractV2Address,
-				builder.cfg.Genesis.SystemStakingContractV2Height, builder.cfg.DardanellesUpgrade.BlockInterval,
-			)
-			builder.cs.contractStakingIndexerV2 = indexer
-		}
+	if builder.cs.contractStakingIndexerV2 == nil && len(builder.cfg.Genesis.SystemStakingContractV2Address) > 0 {
+		indexer := stakingindex.NewIndexer(
+			kvstore,
+			builder.cfg.Genesis.SystemStakingContractV2Address,
+			builder.cfg.Genesis.SystemStakingContractV2Height, builder.cfg.DardanellesUpgrade.BlockInterval,
+		)
+		builder.cs.contractStakingIndexerV2 = indexer
 	}
 
 	return nil
