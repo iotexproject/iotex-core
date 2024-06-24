@@ -19,4 +19,5 @@ message KeyMeta {
     uint64 firstVersion = 2;
     uint64 lastVersion = 3;
     repeated uint64 deleteVersion = 4;
+    repeated uint64 dawVersion = 5;
 }

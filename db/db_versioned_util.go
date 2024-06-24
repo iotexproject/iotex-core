@@ -52,6 +52,7 @@ type keyMeta struct {
 	firstVersion  uint64
 	lastVersion   uint64
 	deleteVersion []uint64
+	dawVersion    []uint64 // delete-after-write version
 }
 
 // serialize to bytes
@@ -65,6 +66,7 @@ func (k *keyMeta) toProto() *versionpb.KeyMeta {
 		FirstVersion:  k.firstVersion,
 		LastVersion:   k.lastVersion,
 		DeleteVersion: k.deleteVersion,
+		DawVersion:    k.dawVersion,
 	}
 }
 
@@ -74,6 +76,7 @@ func fromProtoKM(pb *versionpb.KeyMeta) *keyMeta {
 		firstVersion:  pb.FirstVersion,
 		lastVersion:   pb.LastVersion,
 		deleteVersion: pb.DeleteVersion,
+		dawVersion:    pb.DawVersion,
 	}
 }
 
@@ -105,9 +108,14 @@ func (km *keyMeta) updateWrite(version uint64, value []byte) (*keyMeta, bool) {
 			lastVersion:  version,
 		}, false
 	}
-	if version < km.lastVersion || version < km.lastDelete() {
+	lastDelete := km.lastDelete()
+	if version < km.lastVersion || version < lastDelete {
 		// writing to an earlier version complicates things, for now it is not allowed
 		return km, true
+	}
+	if version == lastDelete {
+		// if the last delete is a delete-after-write, clear it
+		km.clearLastDAW(version)
 	}
 	km.lastWrite = value
 	km.lastVersion = version
@@ -115,11 +123,15 @@ func (km *keyMeta) updateWrite(version uint64, value []byte) (*keyMeta, bool) {
 }
 
 func (km *keyMeta) updateDelete(version uint64) error {
-	if version < km.lastVersion || version <= km.lastDelete() {
+	if version < km.lastVersion || version < km.lastDelete() {
 		// not allowed to delete an earlier version
 		return ErrInvalid
 	}
 	km.deleteVersion = append(km.deleteVersion, version)
+	if version == km.lastVersion {
+		// mark it as delete-after-write
+		km.dawVersion = append(km.dawVersion, version)
+	}
 	return nil
 }
 
@@ -128,6 +140,22 @@ func (km *keyMeta) lastDelete() uint64 {
 		return km.deleteVersion[numDelete-1]
 	}
 	return 0
+}
+
+func (km *keyMeta) isDeleteAfterWrite(v uint64) bool {
+	for _, version := range km.dawVersion {
+		if v == version {
+			return true
+		}
+	}
+	return false
+}
+
+func (km *keyMeta) clearLastDAW(v uint64) {
+	size := len(km.dawVersion)
+	if size > 0 && km.dawVersion[size-1] == v {
+		km.dawVersion = km.dawVersion[:size-1]
+	}
 }
 
 func (km *keyMeta) hitLastWrite(write, read uint64) (bool, error) {
@@ -152,7 +180,9 @@ func (km *keyMeta) hitLastWrite(write, read uint64) (bool, error) {
 		// there's a delete after last write
 		return false, ErrDeleted
 	}
-	// delete and write fall on the same version, need to check further
-	// if it's write-after-delete or delete-after-write
-	return false, nil
+	if km.isDeleteAfterWrite(write) {
+		// this is a delete-after-write on the same version
+		return false, ErrDeleted
+	}
+	return true, nil
 }

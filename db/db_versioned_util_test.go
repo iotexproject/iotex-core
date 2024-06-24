@@ -30,9 +30,10 @@ func TestPb(t *testing.T) {
 		firstVersion:  3,
 		lastVersion:   20,
 		deleteVersion: []uint64{2, 13, 201},
+		dawVersion:    []uint64{13},
 	}
 	data = km.serialize()
-	r.Equal("0a0a0103050709020406080a100318142204020dc901", hex.EncodeToString(data))
+	r.Equal("0a0a0103050709020406080a100318142204020dc9012a010d", hex.EncodeToString(data))
 	km1, err := deserializeKeyMeta(data)
 	r.NoError(err)
 	r.Equal(km, km1)
@@ -55,8 +56,8 @@ func TestKmUpdate(t *testing.T) {
 			{1, 1, 0, 2, true, nil},
 			// write at version 1, delete at version 1
 			{1, 1, 1, 0, false, ErrNotExist},
-			{1, 1, 1, 1, false, nil},
-			{1, 1, 1, 2, false, nil},
+			{1, 1, 1, 1, false, ErrDeleted},
+			{1, 1, 1, 2, false, ErrDeleted},
 			// write at version 1, delete at version 3
 			{1, 1, 3, 0, false, ErrNotExist},
 			{1, 1, 3, 1, true, nil},
@@ -73,8 +74,8 @@ func TestKmUpdate(t *testing.T) {
 			{1, 3, 3, 0, false, ErrNotExist},
 			{1, 3, 3, 1, false, nil},
 			{1, 3, 3, 2, false, nil},
-			{1, 3, 3, 3, false, nil},
-			{1, 3, 3, 4, false, nil},
+			{1, 3, 3, 3, false, ErrDeleted},
+			{1, 3, 3, 4, false, ErrDeleted},
 			// write at version 3, delete at version 5
 			{1, 3, 5, 0, false, ErrNotExist},
 			{1, 3, 5, 1, false, nil},
@@ -89,6 +90,9 @@ func TestKmUpdate(t *testing.T) {
 			km.deleteVersion = km.deleteVersion[:0]
 			if e.delete != 0 {
 				km.deleteVersion = append(km.deleteVersion, e.delete)
+			}
+			if e.delete == e.last {
+				km.dawVersion = append(km.dawVersion, e.delete)
 			}
 			r.Equal(e.delete, km.lastDelete())
 			hitLast, err := km.checkRead(e.version)
@@ -138,14 +142,25 @@ func TestKmUpdate(t *testing.T) {
 			km.firstVersion = e.first
 			km.lastVersion = e.last
 			km.deleteVersion = km.deleteVersion[:0]
+			km.dawVersion = km.dawVersion[:0]
 			if e.delete != 0 {
 				km.deleteVersion = append(km.deleteVersion, e.delete)
 			}
+			if e.delete == e.last {
+				km.dawVersion = append(km.dawVersion, e.delete)
+			}
 			km0, exit := km.updateWrite(e.version, _v1)
 			r.Equal(e.hitOrExit, exit)
-			if !exit {
+			if exit {
+				r.Nil(km0.lastWrite)
+				r.Equal(e.last, km0.lastVersion)
+			} else {
 				r.Equal(_v1, km0.lastWrite)
 				r.Equal(e.version, km0.lastVersion)
+				if e.version == e.last {
+					// delete-after-write is cleared
+					r.Zero(len(km0.dawVersion))
+				}
 			}
 		}
 	})

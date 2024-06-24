@@ -161,10 +161,6 @@ func (b *BoltDBVersioned) Get(version uint64, ns string, key []byte) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
-	if !hitLast && len(v) == 0 {
-		// this is a delete-after-write
-		return nil, ErrDeleted
-	}
 	return v, nil
 }
 
@@ -221,13 +217,6 @@ func (b *BoltDBVersioned) Delete(version uint64, ns string, key []byte) error {
 	if err = km.updateDelete(version); err != nil {
 		return err
 	}
-	if version == km.lastVersion {
-		// write <key, nil> to indicate this is a delete-after-write
-		buf := batch.NewBatch()
-		buf.Put(ns, append(key, 0), km.serialize(), fmt.Sprintf("failed to put key %x's metadata", key))
-		buf.Put(ns, versionedKey(key, version), nil, fmt.Sprintf("failed to put key %x", key))
-		return b.db.WriteBatch(buf)
-	}
 	return b.db.Put(ns, append(key, 0), km.serialize())
 }
 
@@ -248,9 +237,7 @@ func (b *BoltDBVersioned) Version(ns string, key []byte) (uint64, error) {
 	if lastDelete := km.lastDelete(); lastDelete > km.lastVersion {
 		err = errors.Wrapf(ErrDeleted, "key = %x already deleted", key)
 	} else if lastDelete == km.lastVersion {
-		var v []byte
-		_, v, err = b.get(km.lastVersion, ns, key)
-		if err == nil && len(v) == 0 {
+		if km.isDeleteAfterWrite(lastDelete) {
 			// this is a delete-after-write
 			err = errors.Wrapf(ErrDeleted, "key = %x already deleted", key)
 		}

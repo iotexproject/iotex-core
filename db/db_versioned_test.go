@@ -284,6 +284,16 @@ func TestMultipleWriteDelete(t *testing.T) {
 	r.NoError(db.Delete(18, _bucket1, _k2)) // delete-after-write
 	_, err = db.Version(_bucket1, _k2)
 	r.Equal(ErrDeleted, errors.Cause(err))
+	r.NoError(db.Put(18, _bucket1, _k2, _v3)) // write again
+	value, err := db.Get(18, _bucket1, _k2)
+	r.NoError(err)
+	r.Equal(_v3, value)
+	v, err = db.Version(_bucket1, _k2)
+	r.NoError(err)
+	r.EqualValues(18, v)
+	r.NoError(db.Delete(18, _bucket1, _k2)) // delete-after-write
+	_, err = db.Version(_bucket1, _k2)
+	r.Equal(ErrDeleted, errors.Cause(err))
 	r.NoError(db.Put(21, _bucket1, _k2, _v4))
 	v, err = db.Version(_bucket1, _k2)
 	r.NoError(err)
