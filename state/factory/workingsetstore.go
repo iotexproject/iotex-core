@@ -27,7 +27,7 @@ type (
 	workingSetStore interface {
 		db.KVStoreBasic
 		Commit() error
-		States(string, [][]byte) ([][]byte, error)
+		States(string, [][]byte) ([][]byte, [][]byte, error)
 		Digest() hash.Hash256
 		Finalize(uint64) error
 		Snapshot() int
@@ -108,7 +108,7 @@ func (store *stateDBWorkingSetStore) Delete(ns string, key []byte) error {
 	return nil
 }
 
-func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte) ([][]byte, error) {
+func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte) ([][]byte, [][]byte, error) {
 	if store.readBuffer {
 		return readStates(store.flusher.KVStoreWithBuffer(), ns, keys)
 	}
@@ -183,37 +183,42 @@ func (store *factoryWorkingSetStore) Delete(ns string, key []byte) error {
 	return err
 }
 
-func (store *factoryWorkingSetStore) States(ns string, keys [][]byte) ([][]byte, error) {
+func (store *factoryWorkingSetStore) States(ns string, keys [][]byte) ([][]byte, [][]byte, error) {
+	ks := [][]byte{}
 	values := [][]byte{}
 	if keys == nil {
 		iter, err := mptrie.NewLayerTwoLeafIterator(store.tlt, namespaceKey(ns), legacyKeyLen())
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for {
-			_, value, err := iter.Next()
+			key, value, err := iter.Next()
 			if err == trie.ErrEndOfIterator {
 				break
 			}
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
+			ks = append(ks, key)
 			values = append(values, value)
 		}
 	} else {
+		ks = make([][]byte, 0, len(keys))
 		for _, key := range keys {
 			value, err := readState(store.tlt, ns, key)
 			switch errors.Cause(err) {
 			case state.ErrStateNotExist:
 				values = append(values, nil)
+				ks = append(ks, key)
 			case nil:
 				values = append(values, value)
+				ks = append(ks, key)
 			default:
-				return nil, err
+				return nil, nil, err
 			}
 		}
 	}
-	return values, nil
+	return ks, values, nil
 }
 func (store *factoryWorkingSetStore) Digest() hash.Hash256 {
 	return hash.Hash256b(store.flusher.SerializeQueue())

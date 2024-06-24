@@ -657,7 +657,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	accounts := make([]*state.Account, 0)
 	for i := 0; i < iter.Size(); i++ {
 		c := &state.Account{}
-		err = iter.Next(c)
+		_, err = iter.Next(c)
 		if err != nil {
 			continue
 		}
@@ -676,7 +676,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	accounts = make([]*state.Account, 0)
 	for i := 0; i < iter.Size(); i++ {
 		c := &state.Account{}
-		err = iter.Next(c)
+		_, err = iter.Next(c)
 		if err != nil {
 			continue
 		}
@@ -695,7 +695,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	accounts = make([]*state.Account, 0)
 	for i := 0; i < iter.Size(); i++ {
 		c := &state.Account{}
-		err = iter.Next(c)
+		_, err = iter.Next(c)
 		if err != nil {
 			continue
 		}
@@ -716,7 +716,8 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	accounts = make([]*state.Account, 0)
 	for i := 0; i < iter.Size(); i++ {
 		c := &state.Account{}
-		require.NoError(t, iter.Next(c))
+		_, err = iter.Next(c)
+		require.NoError(t, err)
 		accounts = append(accounts, c)
 	}
 	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())

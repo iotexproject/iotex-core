@@ -314,11 +314,15 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 	if cfg.Key != nil {
 		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	values, err := ws.store.States(cfg.Namespace, cfg.Keys)
+	keys, values, err := ws.store.States(cfg.Namespace, cfg.Keys)
 	if err != nil {
 		return 0, nil, err
 	}
-	return ws.height, state.NewIterator(values), nil
+	iter, err := state.NewIterator(keys, values)
+	if err != nil {
+		return 0, nil, err
+	}
+	return ws.height, iter, nil
 }
 
 // PutState puts a state into DB

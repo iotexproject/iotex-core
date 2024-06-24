@@ -6,6 +6,9 @@
 package state
 
 import (
+	"fmt"
+	"runtime/debug"
+
 	"github.com/pkg/errors"
 )
 
@@ -15,36 +18,44 @@ var ErrOutOfBoundary = errors.New("index is out of boundary")
 // ErrNilValue is an error when value is nil
 var ErrNilValue = errors.New("value is nil")
 
+// ErrInConsistentLength is an error when keys and states have inconsistent length
+var ErrInConsistentLength = errors.New("keys and states have inconsistent length")
+
 // Iterator defines an interator to read a set of states
 type Iterator interface {
 	// Size returns the size of the iterator
 	Size() int
 	// Next deserializes the next state in the iterator
-	Next(interface{}) error
+	Next(interface{}) ([]byte, error)
 }
 
 type iterator struct {
+	keys   [][]byte
 	states [][]byte
 	index  int
 }
 
 // NewIterator returns an interator given a list of serialized states
-func NewIterator(states [][]byte) Iterator {
-	return &iterator{index: 0, states: states}
+func NewIterator(keys [][]byte, states [][]byte) (Iterator, error) {
+	if len(keys) != len(states) {
+		fmt.Println(string(debug.Stack()))
+		return nil, ErrInConsistentLength
+	}
+	return &iterator{index: 0, keys: keys, states: states}, nil
 }
 
 func (it *iterator) Size() int {
 	return len(it.states)
 }
 
-func (it *iterator) Next(s interface{}) error {
+func (it *iterator) Next(s interface{}) ([]byte, error) {
 	i := it.index
 	if i >= len(it.states) {
-		return ErrOutOfBoundary
+		return nil, ErrOutOfBoundary
 	}
 	it.index = i + 1
 	if it.states[i] == nil {
-		return ErrNilValue
+		return nil, ErrNilValue
 	}
-	return Deserialize(s, it.states[i])
+	return it.keys[i], Deserialize(s, it.states[i])
 }

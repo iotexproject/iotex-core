@@ -176,9 +176,10 @@ func NewMockStateManagerWithoutHeightFunc(ctrl *gomock.Controller) *mock_chainma
 			if err != nil {
 				return 0, nil, err
 			}
+			var fk [][]byte
 			var fv [][]byte
 			if cfg.Keys == nil {
-				_, fv, err = kv.Filter(cfg.Namespace, func(k, v []byte) bool {
+				fk, fv, err = kv.Filter(cfg.Namespace, func(k, v []byte) bool {
 					return true
 				}, nil, nil)
 				if err != nil {
@@ -190,14 +191,20 @@ func NewMockStateManagerWithoutHeightFunc(ctrl *gomock.Controller) *mock_chainma
 					switch errors.Cause(err) {
 					case db.ErrNotExist, db.ErrBucketNotExist:
 						fv = append(fv, nil)
+						fk = append(fk, key)
 					case nil:
 						fv = append(fv, value)
+						fk = append(fk, key)
 					default:
 						return 0, nil, err
 					}
 				}
 			}
-			return 0, state.NewIterator(fv), nil
+			iter, err := state.NewIterator(fk, fv)
+			if err != nil {
+				return 0, nil, err
+			}
+			return 0, iter, nil
 		},
 	).AnyTimes()
 	// sm.EXPECT().Height().Return(uint64(0), nil).AnyTimes()

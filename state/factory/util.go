@@ -108,30 +108,35 @@ func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
 	return nil
 }
 
-func readStates(kvStore db.KVStore, namespace string, keys [][]byte) ([][]byte, error) {
+func readStates(kvStore db.KVStore, namespace string, keys [][]byte) ([][]byte, [][]byte, error) {
+	var (
+		ks, values [][]byte
+		err        error
+	)
 	if keys == nil {
-		_, values, err := kvStore.Filter(namespace, func(k, v []byte) bool { return true }, nil, nil)
+		ks, values, err = kvStore.Filter(namespace, func(k, v []byte) bool { return true }, nil, nil)
 		if err != nil {
 			if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
-				return nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", namespace)
+				return nil, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", namespace)
 			}
-			return nil, err
+			return nil, nil, err
 		}
-		return values, nil
+		return ks, values, nil
 	}
-	var values [][]byte
 	for _, key := range keys {
 		value, err := kvStore.Get(namespace, key)
 		switch errors.Cause(err) {
 		case db.ErrNotExist, db.ErrBucketNotExist:
 			values = append(values, nil)
+			ks = append(ks, key)
 		case nil:
 			values = append(values, value)
+			ks = append(ks, key)
 		default:
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	return values, nil
+	return ks, values, nil
 }
 
 func newTwoLayerTrie(ns string, dao db.KVStore, rootKey string, create bool) (trie.TwoLayerTrie, error) {

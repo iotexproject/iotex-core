@@ -96,8 +96,10 @@ func TestStakingStateReader(t *testing.T) {
 		testNativeTotalAmount.count++
 	}
 	var err error
+	keys := make([][]byte, len(testNativeBuckets))
 	states := make([][]byte, len(testNativeBuckets))
 	for i := range states {
+		keys[i] = byteutil.Uint64ToBytesBigEndian(uint64(i))
 		states[i], err = state.Serialize(testNativeBuckets[i])
 		r.NoError(err)
 	}
@@ -164,7 +166,8 @@ func TestStakingStateReader(t *testing.T) {
 	t.Run("readStateBuckets", func(t *testing.T) {
 		sf, _, stakeSR, ctx, r := prepare(t)
 		sf.EXPECT().States(gomock.Any(), gomock.Any()).DoAndReturn(func(arg0 ...protocol.StateOption) (uint64, state.Iterator, error) {
-			iter := state.NewIterator(states)
+			iter, err := state.NewIterator(keys, states)
+			r.NoError(err)
 			return uint64(1), iter, nil
 		}).Times(1)
 		sf.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).Times(1)
@@ -193,7 +196,8 @@ func TestStakingStateReader(t *testing.T) {
 	t.Run("readStateBucketsWithEndorsement", func(t *testing.T) {
 		sf, _, stakeSR, ctx, r := prepare(t)
 		sf.EXPECT().States(gomock.Any(), gomock.Any()).DoAndReturn(func(arg0 ...protocol.StateOption) (uint64, state.Iterator, error) {
-			iter := state.NewIterator(states)
+			iter, err := state.NewIterator(keys, states)
+			r.NoError(err)
 			return uint64(1), iter, nil
 		}).Times(1)
 		sf.EXPECT().State(gomock.AssignableToTypeOf(&Endorsement{}), gomock.Any()).DoAndReturn(func(arg0 any, arg1 ...protocol.StateOption) (uint64, error) {
