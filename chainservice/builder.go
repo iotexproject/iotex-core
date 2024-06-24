@@ -324,52 +324,42 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 	if !builder.cfg.Chain.EnableStakingProtocol {
 		return nil
 	}
-	if builder.cs.contractStakingIndexer != nil {
-		return nil
-	}
-	if forTest || builder.cfg.Genesis.SystemStakingContractAddress == "" {
+	if forTest {
 		builder.cs.contractStakingIndexer = nil
-		return nil
-	}
-	dbConfig := builder.cfg.DB
-	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
-	voteCalcConsts := builder.cfg.Genesis.VoteWeightCalConsts
-	indexer, err := contractstaking.NewContractStakingIndexer(
-		db.NewBoltDB(dbConfig),
-		contractstaking.Config{
-			ContractAddress:      builder.cfg.Genesis.SystemStakingContractAddress,
-			ContractDeployHeight: builder.cfg.Genesis.SystemStakingContractHeight,
-			CalculateVoteWeight: func(v *staking.VoteBucket) *big.Int {
-				return staking.CalculateVoteWeight(voteCalcConsts, v, false)
-			},
-			BlockInterval: builder.cfg.DardanellesUpgrade.BlockInterval,
-		})
-	if err != nil {
-		return err
-	}
-	builder.cs.contractStakingIndexer = indexer
-	return nil
-}
-
-func (builder *Builder) buildContractStakingIndexerV2(forTest bool) error {
-	if !builder.cfg.Chain.EnableStakingProtocol {
-		return nil
-	}
-	if builder.cs.contractStakingIndexerV2 != nil {
-		return nil
-	}
-	if forTest || builder.cfg.Genesis.SystemStakingContractV2Address == "" {
 		builder.cs.contractStakingIndexerV2 = nil
 		return nil
 	}
 	dbConfig := builder.cfg.DB
-	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexV2DBPath
-	indexerV2 := stakingindex.NewIndexer(
-		db.NewBoltDB(dbConfig),
-		builder.cfg.Genesis.SystemStakingContractV2Address,
-		builder.cfg.Genesis.SystemStakingContractV2Height, builder.cfg.DardanellesUpgrade.BlockInterval,
-	)
-	builder.cs.contractStakingIndexerV2 = indexerV2
+	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
+	kvstore := db.NewBoltDB(dbConfig)
+	// build contract staking indexer
+	if builder.cs.contractStakingIndexer == nil && len(builder.cfg.Genesis.SystemStakingContractAddress) > 0 {
+		voteCalcConsts := builder.cfg.Genesis.VoteWeightCalConsts
+		indexer, err := contractstaking.NewContractStakingIndexer(
+			kvstore,
+			contractstaking.Config{
+				ContractAddress:      builder.cfg.Genesis.SystemStakingContractAddress,
+				ContractDeployHeight: builder.cfg.Genesis.SystemStakingContractHeight,
+				CalculateVoteWeight: func(v *staking.VoteBucket) *big.Int {
+					return staking.CalculateVoteWeight(voteCalcConsts, v, false)
+				},
+				BlockInterval: builder.cfg.DardanellesUpgrade.BlockInterval,
+			})
+		if err != nil {
+			return err
+		}
+		builder.cs.contractStakingIndexer = indexer
+	}
+	// build contract staking indexer v2
+	if builder.cs.contractStakingIndexerV2 == nil && len(builder.cfg.Genesis.SystemStakingContractV2Address) > 0 {
+		indexer := stakingindex.NewIndexer(
+			kvstore,
+			builder.cfg.Genesis.SystemStakingContractV2Address,
+			builder.cfg.Genesis.SystemStakingContractV2Height, builder.cfg.DardanellesUpgrade.BlockInterval,
+		)
+		builder.cs.contractStakingIndexerV2 = indexer
+	}
+
 	return nil
 }
 
@@ -763,9 +753,6 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildContractStakingIndexer(forTest); err != nil {
-		return nil, err
-	}
-	if err := builder.buildContractStakingIndexerV2(forTest); err != nil {
 		return nil, err
 	}
 	if err := builder.buildBlockDAO(forTest); err != nil {

@@ -48,15 +48,21 @@ type (
 		cache         *cache // in-memory cache, used to query index data
 		mutex         sync.RWMutex
 		blockInterval time.Duration
+		bucketNS      string
+		ns            string
 	}
 )
 
 // NewIndexer creates a new staking indexer
 func NewIndexer(kvstore db.KVStore, contractAddr string, startHeight uint64, blockInterval time.Duration) *Indexer {
+	bucketNS := contractAddr + "#" + stakingBucketNS
+	ns := contractAddr + "#" + stakingNS
 	return &Indexer{
-		common:        systemcontractindex.NewIndexerCommon(kvstore, stakingNS, stakingHeightKey, contractAddr, startHeight),
-		cache:         newCache(),
+		common:        systemcontractindex.NewIndexerCommon(kvstore, ns, stakingHeightKey, contractAddr, startHeight),
+		cache:         newCache(ns, bucketNS),
 		blockInterval: blockInterval,
+		bucketNS:      bucketNS,
+		ns:            ns,
 	}
 }
 
@@ -189,7 +195,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 		return nil
 	}
 	// handle events of block
-	handler := newEventHandler(s.cache.Copy())
+	handler := newEventHandler(s.bucketNS, s.cache.Copy())
 	for _, receipt := range blk.Receipts {
 		if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 			continue

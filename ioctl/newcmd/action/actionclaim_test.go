@@ -6,9 +6,10 @@
 package action
 
 import (
+	"testing"
+
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
-	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/golang/mock/gomock"
@@ -41,7 +42,7 @@ func TestNewActionClaimCmd(t *testing.T) {
 	client.EXPECT().IsCryptoSm2().Return(false).Times(9)
 	client.EXPECT().ReadSecret().Return("", nil).Times(3)
 	client.EXPECT().Address(gomock.Any()).Return(accAddr.String(), nil).Times(3)
-	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(3)
+	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(4)
 	client.EXPECT().NewKeyStore().Return(ks).Times(6)
 	client.EXPECT().AskToConfirm(gomock.Any()).Return(true, nil).Times(2)
 	client.EXPECT().Config().Return(config.Config{
@@ -74,11 +75,18 @@ func TestNewActionClaimCmd(t *testing.T) {
 	})
 
 	t.Run("action claim with address", func(t *testing.T) {
-		address := "0x123"
+		address := "io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he"
 		cmd := NewActionClaimCmd(client)
 		result, err := util.ExecuteCmd(cmd, "--amount", "1", "--address", address, "--gas-limit", "0")
 		require.NoError(err)
 		require.Contains(result, "Action has been sent to blockchain")
+	})
+
+	t.Run("action claim with invalid address", func(t *testing.T) {
+		addr := "0x123"
+		cmd := NewActionClaimCmd(client)
+		_, err := util.ExecuteCmd(cmd, "--amount", "1", "--address", addr, "--gas-limit", "0")
+		require.Equal(address.ErrInvalidAddr, errors.Cause(err))
 	})
 
 	t.Run("action claim with payload", func(t *testing.T) {
@@ -86,7 +94,7 @@ func TestNewActionClaimCmd(t *testing.T) {
 		cmd := NewActionClaimCmd(client)
 		result, err := util.ExecuteCmd(cmd,
 			"--amount", "1",
-			"--address", "0x123",
+			"--address", "",
 			"--payload", payload,
 			"--gas-limit", "0",
 		)

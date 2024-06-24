@@ -6,10 +6,12 @@
 package action
 
 import (
-	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
 	"math/big"
 
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -79,12 +81,14 @@ func NewActionClaimCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get signer address")
 			}
-			payload := []byte(claimPayload.Value().(string))
-			address := claimAddress.Value().(string)
-			if address == "" {
-				address = sender
+			var addr address.Address
+			if s := claimAddress.Value().(string); len(s) > 0 {
+				addr, err = address.FromString(s)
+				if err != nil {
+					return errors.Wrap(err, "failed to decode claim address")
+				}
 			}
-
+			payload := []byte(claimPayload.Value().(string))
 			if gasLimit == 0 {
 				gasLimit = action.ClaimFromRewardingFundBaseGas +
 					action.ClaimFromRewardingFundGasPerByte*uint64(len(payload))
@@ -100,7 +104,7 @@ func NewActionClaimCmd(client ioctl.Client) *cobra.Command {
 			act := (&action.ClaimFromRewardingFundBuilder{}).
 				SetAmount(amount).
 				SetData(payload).
-				SetAddress(address).
+				SetAddress(addr).
 				Build()
 			return SendAction(
 				client,

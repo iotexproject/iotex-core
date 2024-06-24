@@ -6,10 +6,12 @@
 package action
 
 import (
-	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
 	"math/big"
 
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
@@ -61,7 +63,17 @@ var _actionClaimCmd = &cobra.Command{
 		if !ok {
 			return output.PrintError(errors.Errorf("invalid amount: %s", claimAmount))
 		}
-		err := claim(amount, claimPayload.Value().(string), claimAddress.Value().(string))
+		var (
+			addr address.Address
+			err  error
+		)
+		if s := claimAddress.Value().(string); len(s) > 0 {
+			addr, err = address.FromString(s)
+			if err != nil {
+				return output.PrintError(errors.Errorf("invalid claim address: %s", err.Error()))
+			}
+		}
+		err = claim(amount, claimPayload.Value().(string), addr)
 		return output.PrintError(err)
 	},
 }
@@ -76,7 +88,7 @@ func init() {
 	RegisterWriteCommand(_actionClaimCmd)
 }
 
-func claim(amount *big.Int, payload, address string) error {
+func claim(amount *big.Int, payload string, address address.Address) error {
 	if amount.Cmp(new(big.Int).SetInt64(0)) < 1 {
 		return output.PrintError(errors.Errorf("expect amount greater than 0, but got: %v", amount.Int64()))
 	}
@@ -84,10 +96,6 @@ func claim(amount *big.Int, payload, address string) error {
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signer address", err)
 	}
-	if address == "" {
-		address = sender
-	}
-
 	gasLimit := _gasLimitFlag.Value().(uint64)
 	if gasLimit == 0 {
 		gasLimit = action.ClaimFromRewardingFundBaseGas +
