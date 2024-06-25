@@ -545,12 +545,16 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 	if cfg.Key != nil {
 		return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	values, err := readStates(sf.dao, cfg.Namespace, cfg.Keys)
+	keys, values, err := readStates(sf.dao, cfg.Namespace, cfg.Keys)
+	if err != nil {
+		return 0, nil, err
+	}
+	iter, err := state.NewIterator(keys, values)
 	if err != nil {
 		return 0, nil, err
 	}
 
-	return sf.currentChainHeight, state.NewIterator(values), nil
+	return sf.currentChainHeight, iter, nil
 }
 
 // ReadView reads the view

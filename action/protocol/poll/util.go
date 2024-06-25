@@ -350,7 +350,7 @@ func allBlockMetasFromDB(sr protocol.StateReader, blocksInEpoch uint64) ([]*Bloc
 	blockmetas := make([]*BlockMeta, 0, iter.Size())
 	for i := 0; i < iter.Size(); i++ {
 		bm := &BlockMeta{}
-		switch err := iter.Next(bm); errors.Cause(err) {
+		switch _, err := iter.Next(bm); errors.Cause(err) {
 		case nil:
 			blockmetas = append(blockmetas, bm)
 		case state.ErrNilValue:

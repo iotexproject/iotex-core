@@ -243,7 +243,7 @@ func (c *candSR) getAllBuckets() ([]*VoteBucket, uint64, error) {
 	buckets := make([]*VoteBucket, 0, iter.Size())
 	for i := 0; i < iter.Size(); i++ {
 		vb := &VoteBucket{}
-		switch err := iter.Next(vb); errors.Cause(err) {
+		switch _, err := iter.Next(vb); errors.Cause(err) {
 		case nil:
 			buckets = append(buckets, vb)
 		case state.ErrNilValue:
@@ -324,7 +324,7 @@ func (c *candSR) getAllCandidates() (CandidateList, uint64, error) {
 	cands := make(CandidateList, 0, iter.Size())
 	for i := 0; i < iter.Size(); i++ {
 		c := &Candidate{}
-		if err := iter.Next(c); err != nil {
+		if _, err := iter.Next(c); err != nil {
 			return nil, height, errors.Wrapf(err, "failed to deserialize candidate")
 		}
 		cands = append(cands, c)

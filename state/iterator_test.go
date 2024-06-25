@@ -36,24 +36,33 @@ func TestIterator(t *testing.T) {
 		},
 	}
 
+	keys := make([][]byte, len(cands))
 	states := make([][]byte, len(cands))
 	for i, cand := range cands {
+		keys[i] = []byte(cand.Address)
 		bytes, err := cand.Serialize()
 		r.NoError(err)
 		states[i] = bytes
 	}
 
-	iter := NewIterator(states)
+	_, err := NewIterator(nil, states)
+	r.Equal(err, ErrInConsistentLength)
+	_, err = NewIterator(keys, nil)
+	r.Equal(err, ErrInConsistentLength)
+
+	iter, err := NewIterator(keys, states)
+	r.NoError(err)
 	r.Equal(iter.Size(), len(states))
 
 	for _, cand := range cands {
 		c := &Candidate{}
-		err := iter.Next(c)
+		_, err := iter.Next(c)
 		r.NoError(err)
 
 		r.True(c.Equal(cand))
 	}
 
 	var noneExistCand Candidate
-	r.Equal(iter.Next(&noneExistCand), ErrOutOfBoundary)
+	_, err = iter.Next(&noneExistCand)
+	r.Equal(err, ErrOutOfBoundary)
 }
