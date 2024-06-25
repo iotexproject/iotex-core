@@ -440,7 +440,7 @@ func TestNativeStaking(t *testing.T) {
 			ctx, err = bc.Context(ctx)
 			require.NoError(err)
 			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-				BlockHeight: bc.TipHeight(),
+				BlockHeight: 2,
 			})
 			ctx = protocol.WithFeatureCtx(ctx)
 			cands, err = stkPrtcl.ActiveCandidates(ctx, sf, 0)
@@ -452,7 +452,7 @@ func TestNativeStaking(t *testing.T) {
 			require.NoError(err)
 			jumpBlocks(bc, int(cfg.Genesis.EndorsementWithdrawWaitingBlocks), require)
 			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-				BlockHeight: bc.TipHeight(),
+				BlockHeight: 2,
 			})
 			ctx = protocol.WithFeatureCtx(ctx)
 			cands, err = stkPrtcl.ActiveCandidates(ctx, sf, 0)

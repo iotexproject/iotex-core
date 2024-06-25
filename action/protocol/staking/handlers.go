@@ -173,7 +173,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		}
 	}
 	if !featureCtx.DisableDelegateEndorsement {
-		if rErr := validateBucketWithoutEndorsement(NewEndorsementStateManager(csm.SM()), bucket, blkCtx.BlockHeight); rErr != nil {
+		if rErr := validateBucketWithoutEndorsement(ctx, NewEndorsementStateManager(csm.SM()), bucket, blkCtx.BlockHeight); rErr != nil {
 			return log, rErr
 		}
 	}
@@ -310,7 +310,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 		return log, fetchErr
 	}
 	if !featureCtx.DisableDelegateEndorsement {
-		if rErr := validateBucketWithoutEndorsement(NewEndorsementStateManager(csm.SM()), bucket, blkCtx.BlockHeight); rErr != nil {
+		if rErr := validateBucketWithoutEndorsement(ctx, NewEndorsementStateManager(csm.SM()), bucket, blkCtx.BlockHeight); rErr != nil {
 			return log, rErr
 		}
 	}

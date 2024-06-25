@@ -342,7 +342,7 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
-	candidateList, err := toIoTeXTypesCandidateListV2(csr, all)
+	candidateList, err := toIoTeXTypesCandidateListV2(csr, all, true)
 	if err != nil {
 		return err
 	}
@@ -817,11 +817,11 @@ func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csc CandidiateStateCommon
 	if err != nil {
 		return false, err
 	}
-	endorse, err := esm.Get(bucket.Index)
+	endorse, err := esm.Status(featureCtx, bucket.Index, height)
 	if err != nil {
 		return false, err
 	}
-	return endorse.Status(height) != EndorseExpired, nil
+	return endorse != EndorseExpired, nil
 }
 
 func isSelfOwnedBucket(csc CandidiateStateCommon, bucket *VoteBucket) bool {

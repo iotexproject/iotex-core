@@ -101,7 +101,7 @@ func doEndorsement(bucketIndex uint64, isEndorse bool) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	s2t := action.NewCandidateEndorsement(nonce, gasLimit, gasPriceRau, bucketIndex, isEndorse)
+	s2t := action.NewCandidateEndorsementLegacy(nonce, gasLimit, gasPriceRau, bucketIndex, isEndorse)
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).

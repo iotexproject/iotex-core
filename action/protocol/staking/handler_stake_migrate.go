@@ -103,7 +103,7 @@ func (p *Protocol) validateStakeMigrate(ctx context.Context, bucket *VoteBucket,
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
 	}
-	if err := validateBucketWithoutEndorsement(NewEndorsementStateManager(csm.SM()), bucket, protocol.MustGetBlockCtx(ctx).BlockHeight); err != nil {
+	if err := validateBucketWithoutEndorsement(ctx, NewEndorsementStateManager(csm.SM()), bucket, protocol.MustGetBlockCtx(ctx).BlockHeight); err != nil {
 		return err
 	}
 	return validateBucketSelfStake(protocol.MustGetFeatureCtx(ctx), csm, bucket, false)

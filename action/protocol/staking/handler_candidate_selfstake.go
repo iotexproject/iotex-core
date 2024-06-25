@@ -33,8 +33,8 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 	if cand == nil {
 		return log, nil, errCandNotExist
 	}
-
-	if err := p.validateBucketSelfStake(ctx, csm, NewEndorsementStateManager(csm.SM()), bucket, cand); err != nil {
+	esm := NewEndorsementStateManager(csm.SM())
+	if err := p.validateBucketSelfStake(ctx, csm, esm, bucket, cand); err != nil {
 		return log, nil, err
 	}
 
@@ -85,7 +85,7 @@ func (p *Protocol) validateBucketSelfStake(ctx context.Context, csm CandidateSta
 		return err
 	}
 	if validateBucketOwner(bucket, cand.Owner) != nil &&
-		validateBucketWithEndorsement(esm, bucket, blkCtx.BlockHeight) != nil {
+		validateBucketWithEndorsement(ctx, esm, bucket, blkCtx.BlockHeight) != nil {
 		return &handleError{
 			err:           errors.New("bucket is not a self-owned or endorsed bucket"),
 			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,

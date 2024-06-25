@@ -1,6 +1,7 @@
 package staking
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -75,15 +76,17 @@ func validateBucketSelfStake(featureCtx protocol.FeatureCtx, csm CandidateStateM
 	return nil
 }
 
-func validateBucketWithEndorsement(esm *EndorsementStateManager, bucket *VoteBucket, height uint64) ReceiptError {
-	status, err := esm.Status(bucket.Index, height)
+func validateBucketWithEndorsement(ctx context.Context, esm *EndorsementStateManager, bucket *VoteBucket, height uint64) ReceiptError {
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	status, err := esm.Status(featureCtx, bucket.Index, height)
 	if err != nil {
 		return &handleError{
 			err:           err,
 			failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
 		}
 	}
-	if status != Endorsed && status != UnEndorsing {
+	if (featureCtx.LockEndorsement && status != Endorsed) ||
+		(!featureCtx.LockEndorsement && status != Endorsed && status != UnEndorsing) {
 		return &handleError{
 			err:           errors.Errorf("bucket is not an endorse bucket"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
@@ -92,8 +95,8 @@ func validateBucketWithEndorsement(esm *EndorsementStateManager, bucket *VoteBuc
 	return nil
 }
 
-func validateBucketWithoutEndorsement(esm *EndorsementStateManager, bucket *VoteBucket, height uint64) ReceiptError {
-	status, err := esm.Status(bucket.Index, height)
+func validateBucketWithoutEndorsement(ctx context.Context, esm *EndorsementStateManager, bucket *VoteBucket, height uint64) ReceiptError {
+	status, err := esm.Status(protocol.MustGetFeatureCtx(ctx), bucket.Index, height)
 	if err != nil {
 		return &handleError{
 			err:           err,
@@ -109,8 +112,8 @@ func validateBucketWithoutEndorsement(esm *EndorsementStateManager, bucket *Vote
 	return nil
 }
 
-func validateBucketEndorsementWithdrawal(esm *EndorsementStateManager, bucket *VoteBucket, height uint64) ReceiptError {
-	status, err := esm.Status(bucket.Index, height)
+func validateBucketEndorsementWithdrawal(ctx context.Context, esm *EndorsementStateManager, bucket *VoteBucket, height uint64) ReceiptError {
+	status, err := esm.Status(protocol.MustGetFeatureCtx(ctx), bucket.Index, height)
 	if err != nil {
 		return &handleError{
 			err:           err,
