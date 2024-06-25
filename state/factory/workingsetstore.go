@@ -203,7 +203,6 @@ func (store *factoryWorkingSetStore) States(ns string, keys [][]byte) ([][]byte,
 			values = append(values, value)
 		}
 	} else {
-		ks = make([][]byte, 0, len(keys))
 		for _, key := range keys {
 			value, err := readState(store.tlt, ns, key)
 			switch errors.Cause(err) {
