@@ -2,43 +2,61 @@ package staking
 
 import (
 	"math/big"
+	"slices"
 	"sort"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 // VoteReviser is used to recalculate candidate votes.
-type VoteReviser struct {
-	reviseHeights      []uint64
-	cache              map[uint64]CandidateList
-	c                  genesis.VoteWeightCalConsts
-	correctCandsHeight uint64
-}
+type (
+	VoteReviser struct {
+		cache map[uint64]CandidateList
+		cfg   ReviseConfig
+	}
+
+	ReviseConfig struct {
+		VoteWeight                  genesis.VoteWeightCalConsts
+		ReviseHeights               []uint64
+		CorrectCandsHeight          uint64
+		SelfStakeBucketReviseHeight uint64
+	}
+)
 
 // NewVoteReviser creates a VoteReviser.
-func NewVoteReviser(c genesis.VoteWeightCalConsts, correctCandsHeight uint64, reviseHeights ...uint64) *VoteReviser {
+func NewVoteReviser(cfg ReviseConfig) *VoteReviser {
+	// TODO: return error if cfg.CorrectSelfStakeBucketHeights is before hardfork height
 	return &VoteReviser{
-		reviseHeights:      reviseHeights,
-		cache:              make(map[uint64]CandidateList),
-		c:                  c,
-		correctCandsHeight: correctCandsHeight,
+		cfg:   cfg,
+		cache: make(map[uint64]CandidateList),
 	}
 }
 
 // Revise recalculate candidate votes on preset revising height.
-func (vr *VoteReviser) Revise(csm CandidateStateManager, height uint64) error {
+func (vr *VoteReviser) Revise(ctx protocol.FeatureCtx, csm CandidateStateManager, height uint64) error {
 	if !vr.isCacheExist(height) {
-		cands, err := vr.calculateVoteWeight(csm)
+		cands, _, err := newCandidateStateReader(csm.SM()).getAllCandidates()
+		switch {
+		case errors.Cause(err) == state.ErrStateNotExist:
+		case err != nil:
+			return err
+		}
+		cands, err = vr.reviseSelfStakeBuckets(ctx, csm, height, cands)
+		if err != nil {
+			return err
+		}
+		cands, err = vr.calculateVoteWeight(csm, height, cands)
 		if err != nil {
 			return err
 		}
 		sort.Sort(cands)
-		if vr.needCorrectCands(height) {
+		if vr.shouldReviseAlias(height) {
 			cands, err = vr.correctAliasCands(csm, cands)
 			if err != nil {
 				return err
@@ -73,6 +91,31 @@ func (vr *VoteReviser) correctAliasCands(csm CandidateStateManager, cands Candid
 	return retval, nil
 }
 
+func (vr *VoteReviser) reviseSelfStakeBuckets(ctx protocol.FeatureCtx, csm CandidateStateManager, height uint64, cands CandidateList) (CandidateList, error) {
+	if !vr.shouldReviseSelfStakeBuckets(height) {
+		return cands, nil
+	}
+	// revise endorsements
+	esm := NewEndorsementStateManager(csm.SM())
+	for _, cand := range cands {
+		endorsement, err := esm.Get(cand.SelfStakeBucketIdx)
+		switch errors.Cause(err) {
+		case state.ErrStateNotExist:
+			continue
+		case nil:
+			if endorsement.LegacyStatus(height) == EndorseExpired {
+				if err := esm.Delete(cand.SelfStakeBucketIdx); err != nil {
+					return nil, errors.Wrapf(err, "failed to delete endorsement with bucket index %d", cand.SelfStakeBucketIdx)
+				}
+				cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
+			}
+		default:
+			return nil, errors.Wrapf(err, "failed to get endorsement with bucket index %d", cand.SelfStakeBucketIdx)
+		}
+	}
+	return cands, nil
+}
+
 func (vr *VoteReviser) result(height uint64) (CandidateList, bool) {
 	cands, ok := vr.cache[height]
 	if !ok {
@@ -92,27 +135,22 @@ func (vr *VoteReviser) isCacheExist(height uint64) bool {
 
 // NeedRevise returns true if height needs revise
 func (vr *VoteReviser) NeedRevise(height uint64) bool {
-	for _, h := range vr.reviseHeights {
-		if height == h {
-			return true
-		}
-	}
-	return vr.needCorrectCands(height)
+	return slices.Contains(vr.cfg.ReviseHeights, height) ||
+		vr.shouldReviseSelfStakeBuckets(height) ||
+		vr.shouldReviseAlias(height)
 }
 
 // NeedCorrectCands returns true if height needs to correct candidates
-func (vr *VoteReviser) needCorrectCands(height uint64) bool {
-	return height == vr.correctCandsHeight
+func (vr *VoteReviser) shouldReviseAlias(height uint64) bool {
+	return height == vr.cfg.CorrectCandsHeight
 }
 
-func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager) (CandidateList, error) {
+func (vr *VoteReviser) shouldReviseSelfStakeBuckets(height uint64) bool {
+	return vr.cfg.SelfStakeBucketReviseHeight == height
+}
+
+func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager, height uint64, cands CandidateList) (CandidateList, error) {
 	csr := newCandidateStateReader(csm.SM())
-	cands, _, err := csr.getAllCandidates()
-	switch {
-	case errors.Cause(err) == state.ErrStateNotExist:
-	case err != nil:
-		return nil, err
-	}
 	candm := make(map[string]*Candidate)
 	for _, cand := range cands {
 		candm[cand.GetIdentifier().String()] = cand.Clone()
@@ -135,9 +173,8 @@ func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager) (Candidate
 			log.L().Error("invalid bucket candidate", zap.Uint64("bucket index", bucket.Index), zap.String("candidate", bucket.Candidate.String()))
 			continue
 		}
-
 		if cand.SelfStakeBucketIdx == bucket.Index {
-			if err = cand.AddVote(CalculateVoteWeight(vr.c, bucket, true)); err != nil {
+			if err = cand.AddVote(CalculateVoteWeight(vr.cfg.VoteWeight, bucket, true)); err != nil {
 				log.L().Error("failed to add vote for candidate",
 					zap.Uint64("bucket index", bucket.Index),
 					zap.String("candidate", bucket.Candidate.String()),
@@ -146,7 +183,7 @@ func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager) (Candidate
 			}
 			cand.SelfStake = bucket.StakedAmount
 		} else {
-			_ = cand.AddVote(CalculateVoteWeight(vr.c, bucket, false))
+			_ = cand.AddVote(CalculateVoteWeight(vr.cfg.VoteWeight, bucket, false))
 		}
 	}
 

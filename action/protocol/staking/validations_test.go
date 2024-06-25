@@ -24,7 +24,11 @@ func initTestProtocol(t *testing.T) (*Protocol, []*Candidate) {
 	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, nil, nil, nil, genesis.Default.GreenlandBlockHeight)
+		Revise: ReviseConfig{
+			VoteWeight:         genesis.Default.Staking.VoteWeightCalConsts,
+			CorrectCandsHeight: genesis.Default.GreenlandBlockHeight,
+		},
+	}, nil, nil, nil)
 	require.NoError(err)
 
 	var cans []*Candidate
