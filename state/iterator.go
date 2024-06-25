@@ -38,7 +38,6 @@ type iterator struct {
 // NewIterator returns an interator given a list of serialized states
 func NewIterator(keys [][]byte, states [][]byte) (Iterator, error) {
 	if len(keys) != len(states) {
-		fmt.Println(string(debug.Stack()))
 		return nil, ErrInConsistentLength
 	}
 	return &iterator{index: 0, keys: keys, states: states}, nil
