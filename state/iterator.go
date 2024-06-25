@@ -6,9 +6,6 @@
 package state
 
 import (
-	"fmt"
-	"runtime/debug"
-
 	"github.com/pkg/errors"
 )
 
