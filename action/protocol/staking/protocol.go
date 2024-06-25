@@ -821,7 +821,7 @@ func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csc CandidiateStateCommon
 	if err != nil {
 		return false, err
 	}
-	return endorse.Status(height) != EndorseExpired, nil
+	return endorse.LegacyStatus(height) != EndorseExpired, nil
 }
 
 func isSelfOwnedBucket(csc CandidiateStateCommon, bucket *VoteBucket) bool {

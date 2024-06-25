@@ -55,7 +55,7 @@ func (esr *EndorsementStateReader) Status(bucketIndex, height uint64) (Endorseme
 	endorse, err := esr.Get(bucketIndex)
 	switch errors.Cause(err) {
 	case nil:
-		status = endorse.Status(height)
+		status = endorse.LegacyStatus(height)
 	case state.ErrStateNotExist:
 		status = EndorseExpired
 		err = nil

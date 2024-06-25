@@ -89,6 +89,10 @@ func (p *Protocol) validateCandidateEndorsement(ctx context.Context, act *action
 	if protocol.MustGetFeatureCtx(ctx).DisableDelegateEndorsement {
 		return errors.Wrap(action.ErrInvalidAct, "candidate endorsement is disabled")
 	}
+	if !act.IsLegacy() {
+		return errors.Wrap(action.ErrInvalidAct, "only legacy endorsement is supported")
+
+	}
 	return nil
 }
 

@@ -29,6 +29,7 @@ type (
 
 	// Endorsement is a struct that contains the expire height of the Endorsement
 	Endorsement struct {
+		// ExpireHeight is the height an endorsement is expired in legacy mode and it is the earliest height that can revoke the endorsement in new mode
 		ExpireHeight uint64
 	}
 )
@@ -47,13 +48,20 @@ func (s EndorsementStatus) String() string {
 	}
 }
 
-// Status returns the status of the endorsement
-func (e *Endorsement) Status(height uint64) EndorsementStatus {
+func (e *Endorsement) LegacyStatus(height uint64) EndorsementStatus {
 	if e.ExpireHeight == endorsementNotExpireHeight {
 		return Endorsed
 	}
 	if height >= e.ExpireHeight {
 		return EndorseExpired
+	}
+	return UnEndorsing
+}
+
+// Status returns the status of the endorsement
+func (e *Endorsement) Status(height uint64) EndorsementStatus {
+	if height < e.ExpireHeight {
+		return Endorsed
 	}
 	return UnEndorsing
 }
