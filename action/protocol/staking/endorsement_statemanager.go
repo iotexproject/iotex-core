@@ -34,6 +34,12 @@ func (esm *EndorsementStateManager) Put(bucketIndex uint64, endorse *Endorsement
 	return err
 }
 
+// Delete deletes the endorsement of a bucket
+func (esm *EndorsementStateManager) Delete(bucketIndex uint64) error {
+	_, err := esm.DelState(protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(endorsementKey(bucketIndex)))
+	return err
+}
+
 // NewEndorsementStateReader creates a new endorsement state reader
 func NewEndorsementStateReader(sr protocol.StateReader) *EndorsementStateReader {
 	return &EndorsementStateReader{StateReader: sr}
@@ -50,12 +56,16 @@ func (esr *EndorsementStateReader) Get(bucketIndex uint64) (*Endorsement, error)
 
 // Status returns the status of the endorsement of a bucket at a certain height
 // If the endorsement does not exist, it returns EndorseExpired
-func (esr *EndorsementStateReader) Status(bucketIndex, height uint64) (EndorsementStatus, error) {
+func (esr *EndorsementStateReader) Status(ctx protocol.FeatureCtx, bucketIndex, height uint64) (EndorsementStatus, error) {
 	var status EndorsementStatus
 	endorse, err := esr.Get(bucketIndex)
 	switch errors.Cause(err) {
 	case nil:
-		status = endorse.LegacyStatus(height)
+		if ctx.EnforceLegacyEndorsement {
+			status = endorse.LegacyStatus(height)
+		} else {
+			status = endorse.Status(height)
+		}
 	case state.ErrStateNotExist:
 		status = EndorseExpired
 		err = nil

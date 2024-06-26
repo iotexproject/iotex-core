@@ -507,8 +507,14 @@ func TestIsSelfStakeBucket(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 
-	featureCtxPostHF := protocol.FeatureCtx{DisableDelegateEndorsement: false}
-	featureCtxPreHF := protocol.FeatureCtx{DisableDelegateEndorsement: true}
+	featureCtxPostHF := protocol.FeatureCtx{
+		DisableDelegateEndorsement: false,
+		EnforceLegacyEndorsement:   true,
+	}
+	featureCtxPreHF := protocol.FeatureCtx{
+		DisableDelegateEndorsement: true,
+		EnforceLegacyEndorsement:   true,
+	}
 	t.Run("normal bucket", func(t *testing.T) {
 		bucketCfgs := []*bucketConfig{
 			{identityset.Address(11), identityset.Address(11), "1200000000000000000000000", 100, true, false, nil, 0},

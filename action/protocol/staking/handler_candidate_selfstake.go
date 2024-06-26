@@ -85,7 +85,7 @@ func (p *Protocol) validateBucketSelfStake(ctx context.Context, csm CandidateSta
 		return err
 	}
 	if validateBucketOwner(bucket, cand.Owner) != nil &&
-		validateBucketWithEndorsement(esm, bucket, blkCtx.BlockHeight) != nil {
+		validateBucketWithEndorsement(ctx, esm, bucket, blkCtx.BlockHeight) != nil {
 		return &handleError{
 			err:           errors.New("bucket is not a self-owned or endorsed bucket"),
 			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
