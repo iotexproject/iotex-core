@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"sort"
 	"time"
 
 	"github.com/pkg/errors"
@@ -294,6 +295,43 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		if _, err = sm.PutState(csr.BaseView().bucketPool.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); err != nil {
 			return err
 		}
+	}
+	if blkCtx.BlockHeight == g.ToBeEnabledBlockHeight {
+		csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(blkCtx.BlockHeight))
+		cands, _, err := newCandidateStateReader(csm.SM()).getAllCandidates()
+		switch {
+		case errors.Cause(err) == state.ErrStateNotExist:
+		case err != nil:
+			return err
+		}
+		esm := NewEndorsementStateManager(csm.SM())
+		for _, cand := range cands {
+			endorsement, err := esm.Get(cand.SelfStakeBucketIdx)
+			switch errors.Cause(err) {
+			case state.ErrStateNotExist:
+				continue
+			case nil:
+				if endorsement.LegacyStatus(blkCtx.BlockHeight) == EndorseExpired {
+					if err := cand.SubVote(cand.SelfStake); err != nil {
+						return err
+					}
+					if err := esm.Delete(cand.SelfStakeBucketIdx); err != nil {
+						return errors.Wrapf(err, "failed to delete endorsement with bucket index %d", cand.SelfStakeBucketIdx)
+					}
+					cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
+					cand.SelfStake.SetInt64(0)
+				}
+			default:
+				return err
+			}
+		}
+		sort.Sort(cands)
+		for _, cand := range cands {
+			if err := csm.Upsert(cand); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
