@@ -115,9 +115,9 @@ func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager) (Candidate
 	}
 	candm := make(map[string]*Candidate)
 	for _, cand := range cands {
-		candm[cand.Owner.String()] = cand.Clone()
-		candm[cand.Owner.String()].Votes = new(big.Int)
-		candm[cand.Owner.String()].SelfStake = new(big.Int)
+		candm[cand.GetIdentifier().String()] = cand.Clone()
+		candm[cand.GetIdentifier().String()].Votes = new(big.Int)
+		candm[cand.GetIdentifier().String()].SelfStake = new(big.Int)
 	}
 	buckets, _, err := csr.getAllBuckets()
 	switch {
