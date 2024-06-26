@@ -19,6 +19,7 @@ import (
 
 	. "github.com/iotexproject/iotex-core/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestGenerateRlp(t *testing.T) {
@@ -390,8 +391,56 @@ var (
 			"040a98b1acb38ed9cd8d0e8f1f03b1588bae140586f8a8049197b65013a3c17690151ae422e3fdfb26be2e6a4465b1f9cf5c26a5635109929a0d0a11734124d50a",
 			"3fab184622dc19b6109349b94811493bf2a45362",
 		},
+		// TODO: endorseCandidate, intentToRevokeEndorsement, revokeEndorsement
+		// {
+		// 	"endorseCandidate",
+		// 	"f8487885e8d4a510008252089404c22afae6a03438b8fed74cb1cf441168df3f1280a4284ab8110000000000000000000000000000000000000000000000000000000000000011808080",
+		// 	120,
+		// 	21000,
+		// 	"1000000000000",
+		// 	"0",
+		// 	"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
+		// 	_evmNetworkID,
+		// 	iotextypes.Encoding_ETHEREUM_UNPROTECTED,
+		// 	36,
+		// 	"d190061a42223c40e755eef500c9c8bbec071556368032777c18d8f023b0f2e3",
+		// 	"04bc3a3123a0d72e1e622ec1a51087ef3b15a9d6db0f924c0fd8b4958653ff7608194321d1fd90c0c949b05b6b911d8d7e9aaadbe497e696367c19780a016ce440",
+		// 	"fff810c667050c7e4263a39e796af8d5e74a1b55",
+		// },
 	}
 )
+
+// TestGenerateRLP is used to generate RLP data for testing
+func TestGenerateRLP(t *testing.T) {
+	t.Skip("skip TestGenerateRLP")
+	require := require.New(t)
+	price, _ := big.NewInt(0).SetString("1000000000000", 10)
+	gasLimit := uint64(21000)
+	nonce := uint64(120)
+	cu, err := NewCandidateEndorsement(nonce, gasLimit, price, 17, CandidateEndorsementOpEndorse)
+	require.NoError(err)
+	bd := &EnvelopeBuilder{}
+	bd = bd.SetNonce(nonce).
+		SetGasPrice(price).
+		SetGasLimit(gasLimit).
+		SetAction(cu).SetChainID(_evmNetworkID).SetVersion(1)
+	elp := bd.Build()
+	selp, err := Sign(elp, identityset.PrivateKey(1))
+	require.NoError(err)
+	selp.encoding = iotextypes.Encoding_ETHEREUM_EIP155
+	h, err := selp.Hash()
+	require.NoError(err)
+	t.Logf("hash=%x\n", h)
+	t.Logf("pubkey=%s\n", selp.SrcPubkey().HexString())
+	t.Logf("pkhash=%x\n", selp.SrcPubkey().Hash())
+	act := selp.Action().(*CandidateEndorsement)
+	tx, err := act.ToEthTx(_evmNetworkID)
+	require.NoError(err)
+	rlp, err := tx.MarshalBinary()
+	require.NoError(err)
+	t.Logf("raw:%s\n", hex.EncodeToString(rlp))
+	t.Logf("dataLen=%d\n", len(tx.Data()))
+}
 
 func TestNewEthSignerError(t *testing.T) {
 	require := require.New(t)
@@ -432,115 +481,117 @@ func TestEthTxDecodeVerify(t *testing.T) {
 	}
 
 	for _, v := range rlpTests {
-		// decode received RLP tx
-		tx, err := DecodeEtherTx(v.raw)
-		require.NoError(err)
-		encoding, sig, pubkey, err := ExtractTypeSigPubkey(tx)
-		require.Equal(v.encoding, encoding)
-		V, _, _ := tx.RawSignatureValues()
-		recID := V.Uint64()
-		if encoding == iotextypes.Encoding_ETHEREUM_EIP155 {
-			require.EqualValues(types.LegacyTxType, tx.Type())
-			require.True(tx.Protected())
-			require.Less(uint64(28), recID)
-		} else if encoding == iotextypes.Encoding_ETHEREUM_UNPROTECTED {
-			require.EqualValues(types.LegacyTxType, tx.Type())
-			require.False(tx.Protected())
-			require.Zero(tx.ChainId().Uint64())
-			// unprotected tx has V = 27, 28
-			require.True(27 == recID || 28 == recID)
-			require.True(27 == sig[64] || 28 == sig[64])
-		}
-		require.EqualValues(v.chainID, tx.ChainId().Uint64())
-		require.Equal(v.pubkey, pubkey.HexString())
-		require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
+		t.Run(v.actType, func(t *testing.T) {
+			// decode received RLP tx
+			tx, err := DecodeEtherTx(v.raw)
+			require.NoError(err)
+			encoding, sig, pubkey, err := ExtractTypeSigPubkey(tx)
+			require.Equal(v.encoding, encoding)
+			V, _, _ := tx.RawSignatureValues()
+			recID := V.Uint64()
+			if encoding == iotextypes.Encoding_ETHEREUM_EIP155 {
+				require.EqualValues(types.LegacyTxType, tx.Type())
+				require.True(tx.Protected())
+				require.Less(uint64(28), recID)
+			} else if encoding == iotextypes.Encoding_ETHEREUM_UNPROTECTED {
+				require.EqualValues(types.LegacyTxType, tx.Type())
+				require.False(tx.Protected())
+				require.Zero(tx.ChainId().Uint64())
+				// unprotected tx has V = 27, 28
+				require.True(27 == recID || 28 == recID)
+				require.True(27 == sig[64] || 28 == sig[64])
+			}
+			require.EqualValues(v.chainID, tx.ChainId().Uint64())
+			require.Equal(v.pubkey, pubkey.HexString())
+			require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
 
-		var pb [2]*iotextypes.Action
-		// convert to our Execution
-		pb[0] = &iotextypes.Action{
-			Encoding: encoding,
-		}
-		pb[0].Core = convertToNativeProto(tx, v.actType)
-		pb[0].SenderPubKey = pubkey.Bytes()
-		pb[0].Signature = sig
+			var pb [2]*iotextypes.Action
+			// convert to our Execution
+			pb[0] = &iotextypes.Action{
+				Encoding: encoding,
+			}
+			pb[0].Core = convertToNativeProto(tx, v.actType)
+			pb[0].SenderPubKey = pubkey.Bytes()
+			pb[0].Signature = sig
 
-		// test tx container
-		rawBytes, _ := hex.DecodeString(v.raw)
-		pb[1] = &iotextypes.Action{
-			Core: &iotextypes.ActionCore{
-				Version:  1,
-				Nonce:    tx.Nonce(),
-				GasLimit: tx.Gas(),
-				GasPrice: tx.GasPrice().String(),
-				ChainID:  1,
-				Action: &iotextypes.ActionCore_TxContainer{
-					TxContainer: &iotextypes.TxContainer{
-						Raw: rawBytes,
+			// test tx container
+			rawBytes, _ := hex.DecodeString(v.raw)
+			pb[1] = &iotextypes.Action{
+				Core: &iotextypes.ActionCore{
+					Version:  1,
+					Nonce:    tx.Nonce(),
+					GasLimit: tx.Gas(),
+					GasPrice: tx.GasPrice().String(),
+					ChainID:  1,
+					Action: &iotextypes.ActionCore_TxContainer{
+						TxContainer: &iotextypes.TxContainer{
+							Raw: rawBytes,
+						},
 					},
 				},
-			},
-			SenderPubKey: pubkey.Bytes(),
-			Signature:    sig,
-			Encoding:     iotextypes.Encoding_TX_CONTAINER,
-		}
-
-		for i := 0; i < 2; i++ {
-			// send on wire
-			bs, err := proto.Marshal(pb[i])
-			require.NoError(err)
-
-			// receive from API
-			e := &iotextypes.Action{}
-			proto.Unmarshal(bs, e)
-
-			selp, err := (&Deserializer{}).SetEvmNetworkID(v.chainID).ActionToSealedEnvelope(e)
-			require.NoError(err)
-			require.True(bytes.Equal(sig, selp.signature))
-			checkSelp(selp, tx, v)
-			if i == 0 {
-				require.Equal(v.encoding, selp.encoding)
-			} else {
-				// tx container
-				require.EqualValues(iotextypes.Encoding_TX_CONTAINER, selp.encoding)
+				SenderPubKey: pubkey.Bytes(),
+				Signature:    sig,
+				Encoding:     iotextypes.Encoding_TX_CONTAINER,
 			}
 
-			// evm tx conversion
-			var rlpTx *types.Transaction
-			if i == 0 {
-				act, ok := selp.Action().(EthCompatibleAction)
-				require.True(ok)
-				rlpTx, err = act.ToEthTx(uint32(tx.ChainId().Uint64()))
+			for i := 0; i < 2; i++ {
+				// send on wire
+				bs, err := proto.Marshal(pb[i])
 				require.NoError(err)
-			} else {
-				// tx unfolding
-				_, ok := selp.Action().(*txContainer)
-				require.True(ok)
-				container, ok := selp.Action().(TxContainer)
-				require.True(ok)
-				require.NoError(container.Unfold(selp, context.Background(), checkContract(v.to, v.actType)))
+
+				// receive from API
+				e := &iotextypes.Action{}
+				proto.Unmarshal(bs, e)
+
+				selp, err := (&Deserializer{}).SetEvmNetworkID(v.chainID).ActionToSealedEnvelope(e)
+				require.NoError(err)
 				require.True(bytes.Equal(sig, selp.signature))
 				checkSelp(selp, tx, v)
-				require.Equal(v.encoding, selp.encoding)
-				// selp converted to actual tx
-				_, ok = selp.Action().(TxContainer)
-				require.False(ok)
-				act, ok := selp.Action().(EthCompatibleAction)
-				require.True(ok)
-				rlpTx, err = act.ToEthTx(uint32(tx.ChainId().Uint64()))
-				require.NoError(err)
+				if i == 0 {
+					require.Equal(v.encoding, selp.encoding)
+				} else {
+					// tx container
+					require.EqualValues(iotextypes.Encoding_TX_CONTAINER, selp.encoding)
+				}
+
+				// evm tx conversion
+				var rlpTx *types.Transaction
+				if i == 0 {
+					act, ok := selp.Action().(EthCompatibleAction)
+					require.True(ok)
+					rlpTx, err = act.ToEthTx(uint32(tx.ChainId().Uint64()))
+					require.NoError(err)
+				} else {
+					// tx unfolding
+					_, ok := selp.Action().(*txContainer)
+					require.True(ok)
+					container, ok := selp.Action().(TxContainer)
+					require.True(ok)
+					require.NoError(container.Unfold(selp, context.Background(), checkContract(v.to, v.actType)))
+					require.True(bytes.Equal(sig, selp.signature))
+					checkSelp(selp, tx, v)
+					require.Equal(v.encoding, selp.encoding)
+					// selp converted to actual tx
+					_, ok = selp.Action().(TxContainer)
+					require.False(ok)
+					act, ok := selp.Action().(EthCompatibleAction)
+					require.True(ok)
+					rlpTx, err = act.ToEthTx(uint32(tx.ChainId().Uint64()))
+					require.NoError(err)
+				}
+				// verify against original tx
+				require.Equal(v.nonce, rlpTx.Nonce())
+				require.Equal(v.price, rlpTx.GasPrice().String())
+				require.Equal(v.limit, rlpTx.Gas())
+				if v.to == "" {
+					require.Nil(rlpTx.To())
+				} else {
+					require.Equal(v.to, rlpTx.To().Hex())
+				}
+				require.Equal(v.amount, rlpTx.Value().String())
+				require.Equal(v.dataLen, len(rlpTx.Data()))
 			}
-			// verify against original tx
-			require.Equal(v.nonce, rlpTx.Nonce())
-			require.Equal(v.price, rlpTx.GasPrice().String())
-			require.Equal(v.limit, rlpTx.Gas())
-			if v.to == "" {
-				require.Nil(rlpTx.To())
-			} else {
-				require.Equal(v.to, rlpTx.To().Hex())
-			}
-			require.Equal(v.amount, rlpTx.Value().String())
-			require.Equal(v.dataLen, len(rlpTx.Data()))
-		}
+		})
 	}
 }
 
@@ -838,6 +889,72 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			action:  MustNoErrorV(NewMigrateStake(nonce, 1, gasLimit, gasPrice)),
 			builder: elpbuilder.BuildStakingAction,
 		},
+		{
+			name:     "CandidateEndorsementEndorse",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				candidateEndorsementEndorseMethod.ID,
+				MustNoErrorV(candidateEndorsementEndorseMethod.Inputs.Pack(uint64(17)))...,
+			),
+			action: &CandidateEndorsement{
+				AbstractAction: AbstractAction{
+					version:  version.ProtocolVersion,
+					chainID:  chainID,
+					nonce:    nonce,
+					gasLimit: gasLimit,
+					gasPrice: gasPrice,
+				},
+				bucketIndex: 17,
+				op:          CandidateEndorsementOpEndorse,
+			},
+			builder: elpbuilder.BuildStakingAction,
+		},
+		{
+			name:     "CandidateEndorsementIntentToRevoke",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				caniddateEndorsementIntentToRevokeMethod.ID,
+				MustNoErrorV(caniddateEndorsementIntentToRevokeMethod.Inputs.Pack(uint64(17)))...,
+			),
+			action: &CandidateEndorsement{
+				AbstractAction: AbstractAction{
+					version:  version.ProtocolVersion,
+					chainID:  chainID,
+					nonce:    nonce,
+					gasLimit: gasLimit,
+					gasPrice: gasPrice,
+				},
+				bucketIndex: 17,
+				op:          CandidateEndorsementOpIntentToRevoke,
+			},
+			builder: elpbuilder.BuildStakingAction,
+		},
+		{
+			name:     "CandidateEndorsementRevoke",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata: append(
+				candidateEndorsementRevokeMethod.ID,
+				MustNoErrorV(candidateEndorsementRevokeMethod.Inputs.Pack(uint64(17)))...,
+			),
+			action: &CandidateEndorsement{
+				AbstractAction: AbstractAction{
+					version:  version.ProtocolVersion,
+					chainID:  chainID,
+					nonce:    nonce,
+					gasLimit: gasLimit,
+					gasPrice: gasPrice,
+				},
+				bucketIndex: 17,
+				op:          CandidateEndorsementOpRevoke,
+			},
+			builder: elpbuilder.BuildStakingAction,
+		},
 	}
 
 	verifytx := func(tx *types.Transaction, enc iotextypes.Encoding, amount *big.Int, data []byte, to string, sigv *big.Int) {
@@ -928,7 +1045,8 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 		elp, _ := elpBuilder.BuildExecution(tx)
 		return elp.Proto()
 	case "stakeCreate", "stakeAddDeposit", "changeCandidate", "unstake", "withdrawStake", "restake",
-		"transferStake", "candidateRegister", "candidateUpdate", "candidateActivate", "candidateEndorsement", "candidateTransferOwnership":
+		"transferStake", "candidateRegister", "candidateUpdate", "candidateActivate", "candidateEndorsement", "candidateTransferOwnership",
+		"endorseCandidate", "intentToRevokeEndorsement", "revokeEndorsement":
 		elp, _ := elpBuilder.BuildStakingAction(tx)
 		return elp.Proto()
 	case "rewardingClaim", "rewardingDeposit":
