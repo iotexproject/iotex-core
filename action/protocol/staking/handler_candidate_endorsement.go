@@ -74,6 +74,9 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 			if err := p.clearCandidateSelfStake(bucket, cand); err != nil {
 				return log, nil, errors.Wrap(err, "failed to clear candidate self-stake")
 			}
+			if err := csm.Upsert(cand); err != nil {
+				return log, nil, csmErrorToHandleError(actCtx.Caller.String(), err)
+			}
 		}
 		if err := esm.Delete(bucket.Index); err != nil {
 			return log, nil, errors.Wrapf(err, "failed to delete endorsement with bucket index %d", bucket.Index)
