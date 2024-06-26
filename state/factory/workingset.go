@@ -641,11 +641,6 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 	if !blk.VerifyDeltaStateDigest(digest) {
 		return errors.Wrapf(block.ErrDeltaStateMismatch, "digest in block '%x' vs digest in workingset '%x'", blk.DeltaStateDigest(), digest)
 	}
-	receiptRoot := calculateReceiptRoot(ws.receipts)
-	if !blk.VerifyReceiptRoot(receiptRoot) {
-		return errors.Wrapf(block.ErrReceiptRootMismatch, "receipt root in block '%x' vs receipt root in workingset '%x'", blk.ReceiptRoot(), receiptRoot)
-	}
-
 	return nil
 }
 

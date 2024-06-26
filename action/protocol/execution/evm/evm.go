@@ -392,9 +392,6 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if featureCtx.RefactorFreshAccountConversion {
 		opts = append(opts, ZeroNonceForFreshAccountOption())
 	}
-	if featureCtx.NotFixTopicCopyBug {
-		opts = append(opts, NotFixTopicCopyBugOption())
-	}
 	if featureCtx.AsyncContractTrie {
 		opts = append(opts, AsyncContractTrieOption())
 	}
