@@ -159,8 +159,8 @@ func SignedCandidateActivate(
 	return selp, nil
 }
 
-// SignedCandidateEndorsement returns a signed candidate endorsement
-func SignedCandidateEndorsement(
+// SignedCandidateEndorsementLegacy returns a signed candidate endorsement
+func SignedCandidateEndorsementLegacy(
 	nonce uint64,
 	bucketIndex uint64,
 	endorse bool,
@@ -170,6 +170,36 @@ func SignedCandidateEndorsement(
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
 	cu := NewCandidateEndorsementLegacy(nonce, gasLimit, gasPrice, bucketIndex, endorse)
+	bd := &EnvelopeBuilder{}
+	bd = bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).
+		SetAction(cu)
+	for _, opt := range options {
+		opt(bd)
+	}
+	elp := bd.Build()
+	selp, err := Sign(elp, registererPriKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to sign candidate endorsement %v", elp)
+	}
+	return selp, nil
+}
+
+// SignedCandidateEndorsement returns a signed candidate endorsement
+func SignedCandidateEndorsement(
+	nonce uint64,
+	bucketIndex uint64,
+	op CandidateEndorsementOp,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	registererPriKey crypto.PrivateKey,
+	options ...SignedActionOption,
+) (*SealedEnvelope, error) {
+	cu, err := NewCandidateEndorsement(nonce, gasLimit, gasPrice, bucketIndex, op)
+	if err != nil {
+		return nil, err
+	}
 	bd := &EnvelopeBuilder{}
 	bd = bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).

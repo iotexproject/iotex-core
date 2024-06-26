@@ -408,7 +408,7 @@ func TestNativeStaking(t *testing.T) {
 		endorseBucketIndex := byteutil.BytesToUint64BigEndian(logs[0].Topics[1][24:])
 		t.Logf("endorseBucketIndex=%+v", endorseBucketIndex)
 		// endorse bucket
-		_, esr, err := addOneTx(action.SignedCandidateEndorsement(4, endorseBucketIndex, true, gasLimit, gasPrice, voter1PriKey, action.WithChainID(chainID)))
+		_, esr, err := addOneTx(action.SignedCandidateEndorsementLegacy(4, endorseBucketIndex, true, gasLimit, gasPrice, voter1PriKey, action.WithChainID(chainID)))
 		require.NoError(err)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, esr.Status)
@@ -427,7 +427,7 @@ func TestNativeStaking(t *testing.T) {
 			t.Logf("\ncandidate=%+v, %+v\n", string(cand.CanName), cand.Votes.String())
 		}
 		// unendorse bucket
-		_, esr, err = addOneTx(action.SignedCandidateEndorsement(5, endorseBucketIndex, false, gasLimit, gasPrice, voter1PriKey, action.WithChainID(chainID)))
+		_, esr, err = addOneTx(action.SignedCandidateEndorsementLegacy(5, endorseBucketIndex, false, gasLimit, gasPrice, voter1PriKey, action.WithChainID(chainID)))
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, esr.Status)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
@@ -707,7 +707,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 					{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), stakeTime},
 					{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), identityset.Address(newOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
 				},
-				act:    &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, true, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateEndorsementLegacy(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, true, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
 				expect: []actionExpect{successExpect, &bucketExpect{&iotextypes.VoteBucket{Index: 1, CandidateAddress: identityset.Address(oldOwnerID).String(), StakedAmount: registerAmount.String(), AutoStake: true, StakedDuration: 1, CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}, Owner: identityset.Address(stakerID).String(), ContractAddress: "", EndorsementExpireBlockHeight: math.MaxUint64}}},
 			},
 		})
@@ -970,6 +970,144 @@ func TestCandidateTransferOwnership(t *testing.T) {
 					},
 					&bucketExpect{&iotextypes.VoteBucket{Index: 2, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: unit.ConvertIotxToRau(100).String(), AutoStake: true, StakedDuration: stakeDurationDays, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
 					&accountExpect{identityset.Address(stakerID), "99989899999999999996125955", test.nonceMgr[identityset.Address(stakerID).String()]},
+				},
+			},
+		})
+	})
+	t.Run("new endorsement", func(t *testing.T) {
+		cfg := initCfg()
+		cfg.Genesis.ToBeEnabledBlockHeight = 6
+		cfg.Genesis.EndorsementWithdrawWaitingBlocks = 5
+		test := newE2ETest(t, cfg)
+		defer test.teardown()
+
+		var (
+			candOwnerID  = 1
+			stakerID     = 2
+			candOwnerID2 = 3
+			chainID      = test.cfg.Chain.ID
+			stakeTime    = time.Now()
+		)
+		test.run([]*testcase{
+			{
+				name: "endorse action disabled before UpernavikBlockHeight",
+				preActs: []*actionWithTime{
+					{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(candOwnerID).String()), "cand1", identityset.Address(1).String(), identityset.Address(1).String(), identityset.Address(candOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID), action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", registerAmount.String(), 91, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), stakeTime},
+				},
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr[(identityset.Address(stakerID).String())], 1, action.CandidateEndorsementOpEndorse, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{&basicActionExpect{errReceiptNotFound, 0, ""}},
+			},
+			{
+				name:   "intentToRevokeEndorsement action disabled before UpernavikBlockHeight",
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr[(identityset.Address(stakerID).String())], 1, action.CandidateEndorsementOpIntentToRevoke, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{&basicActionExpect{errReceiptNotFound, 0, ""}},
+			},
+			{
+				name:   "revokeEndorsement action disabled before UpernavikBlockHeight",
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr[(identityset.Address(stakerID).String())], 1, action.CandidateEndorsementOpRevoke, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{&basicActionExpect{errReceiptNotFound, 0, ""}},
+			},
+			{
+				name:   "endorse action disabled after UpernavikBlockHeight",
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, action.CandidateEndorsementOpEndorse, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{successExpect},
+			},
+			{
+				name: "cannot change candidate after bucket is endorsed",
+				preActs: []*actionWithTime{
+					{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(candOwnerID2).String()), "cand2", identityset.Address(3).String(), identityset.Address(3).String(), identityset.Address(candOwnerID2).String(), "0", 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID2), action.WithChainID(chainID))), time.Now()},
+				},
+				act:    &actionWithTime{mustNoErr(action.SignedChangeCandidate(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand2", 1, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), ""}},
+			},
+			{
+				name:   "cannot migrate after bucket is endorsed",
+				act:    &actionWithTime{mustNoErr(action.SignedMigrateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), ""}},
+			},
+			{
+				name:   "cannot unstake after bucket is endorsed",
+				act:    &actionWithTime{mustNoErr(action.SignedReclaimStake(false, test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), ""}},
+			},
+			{
+				name:   "cannot revoke before endorsement expire",
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, action.CandidateEndorsementOpRevoke, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), ""}},
+			},
+			{
+				name: "intentToRevoke now if endorsement is not used",
+				act:  &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, action.CandidateEndorsementOpIntentToRevoke, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					successExpect,
+					&bucketExpect{&iotextypes.VoteBucket{Index: 1, EndorsementExpireBlockHeight: 12, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: registerAmount.String(), AutoStake: true, StakedDuration: 91, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
+				},
+			},
+			{
+				name: "revoke success",
+				act:  &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, action.CandidateEndorsementOpRevoke, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					successExpect,
+					&bucketExpect{&iotextypes.VoteBucket{Index: 1, EndorsementExpireBlockHeight: 0, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: registerAmount.String(), AutoStake: true, StakedDuration: 91, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
+				},
+			},
+			{
+				name: "intentToRevoke if endorsement is used",
+				preActs: []*actionWithTime{
+					{mustNoErr(action.SignedChangeCandidate(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand2", 1, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, action.CandidateEndorsementOpEndorse, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedCandidateActivate(test.nonceMgr.pop(identityset.Address(candOwnerID2).String()), 1, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID2), action.WithChainID(chainID))), time.Now()},
+				},
+				act: &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, action.CandidateEndorsementOpIntentToRevoke, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					successExpect,
+					&bucketExpect{&iotextypes.VoteBucket{Index: 1, EndorsementExpireBlockHeight: 22, CandidateAddress: identityset.Address(candOwnerID2).String(), StakedAmount: registerAmount.String(), AutoStake: true, StakedDuration: 91, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
+					&candidateExpect{"cand2", &iotextypes.CandidateV2{Name: "cand2", OperatorAddress: identityset.Address(3).String(), RewardAddress: identityset.Address(3).String(), TotalWeightedVotes: "1635067133824581908640994", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(candOwnerID2).String(), SelfStakeBucketIdx: 1}},
+				},
+			},
+			{
+				name:   "cannot revoke before expired",
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, action.CandidateEndorsementOpRevoke, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), ""}},
+			},
+			{
+				name: "eligible as proposer after expired",
+				preActs: []*actionWithTime{
+					{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()},
+				},
+				act: &actionWithTime{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{successExpect,
+					&candidateExpect{"cand2", &iotextypes.CandidateV2{Name: "cand2", OperatorAddress: identityset.Address(3).String(), RewardAddress: identityset.Address(3).String(), TotalWeightedVotes: "1635067133824581908640994", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(candOwnerID2).String(), SelfStakeBucketIdx: 1}},
+				},
+			},
+			{
+				name: "revoke success after expired",
+				act:  &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, action.CandidateEndorsementOpRevoke, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					successExpect,
+					&bucketExpect{&iotextypes.VoteBucket{Index: 1, EndorsementExpireBlockHeight: 0, CandidateAddress: identityset.Address(candOwnerID2).String(), StakedAmount: registerAmount.String(), AutoStake: true, StakedDuration: 91, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
+					&candidateExpect{"cand2", &iotextypes.CandidateV2{Name: "cand2", OperatorAddress: identityset.Address(3).String(), RewardAddress: identityset.Address(3).String(), TotalWeightedVotes: "1542516163985454635820816", SelfStakingTokens: "0", OwnerAddress: identityset.Address(candOwnerID2).String(), SelfStakeBucketIdx: math.MaxUint64}},
+				},
+			},
+			{
+				name: "revoke if endorse bucket is self-owned",
+				preActs: []*actionWithTime{
+					{mustNoErr(action.SignedTransferStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), identityset.Address(candOwnerID2).String(), 1, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(candOwnerID2).String()), 1, action.CandidateEndorsementOpEndorse, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID2), action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedCandidateActivate(test.nonceMgr.pop(identityset.Address(candOwnerID2).String()), 1, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID2), action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(candOwnerID2).String()), 1, action.CandidateEndorsementOpIntentToRevoke, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID2), action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()},
+				},
+				act: &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(candOwnerID2).String()), 1, action.CandidateEndorsementOpRevoke, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID2), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{successExpect,
+					&candidateExpect{"cand2", &iotextypes.CandidateV2{Name: "cand2", OperatorAddress: identityset.Address(3).String(), RewardAddress: identityset.Address(3).String(), TotalWeightedVotes: "1542516163985454635820816", SelfStakingTokens: "0", OwnerAddress: identityset.Address(candOwnerID2).String(), SelfStakeBucketIdx: math.MaxUint64}},
 				},
 			},
 		})
