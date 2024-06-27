@@ -170,11 +170,7 @@ func (ws *workingSet) runAction(
 	// for replay tx, check against deployer whitelist
 	g := genesis.MustExtractGenesisContext(ctx)
 	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && !g.IsDeployerWhitelisted(selp.SenderAddress()) {
-		if protocol.MustGetFeatureCtx(ctx).PurgeActpoolOnRunActionError {
-			return nil, errors.Wrap(errDeployerNotWhitelisted, selp.SenderAddress().String())
-		} else {
-			return nil, errors.Errorf("replay deployer %v not whitelisted", selp.SenderAddress().String())
-		}
+		return nil, errors.Wrap(errDeployerNotWhitelisted, selp.SenderAddress().String())
 	}
 	// Handle action
 	reg, ok := protocol.GetRegistry(ctx)
