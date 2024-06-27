@@ -134,7 +134,7 @@ func (p *Protocol) validateRevokeEndorsement(ctx context.Context, esm *Endorseme
 	}
 	if status != UnEndorsing {
 		return &handleError{
-			err:           errors.Errorf("bucket is not ready to unendorse settle"),
+			err:           errors.Errorf("bucket is not ready to revoke endorsement"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
 	}

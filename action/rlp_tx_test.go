@@ -19,7 +19,6 @@ import (
 
 	. "github.com/iotexproject/iotex-core/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestGenerateRlp(t *testing.T) {
@@ -392,6 +391,7 @@ var (
 			"3fab184622dc19b6109349b94811493bf2a45362",
 		},
 		// TODO: endorseCandidate, intentToRevokeEndorsement, revokeEndorsement
+		// also add util functions to generate the test data
 		// {
 		// 	"endorseCandidate",
 		// 	"f8487885e8d4a510008252089404c22afae6a03438b8fed74cb1cf441168df3f1280a4284ab8110000000000000000000000000000000000000000000000000000000000000011808080",
@@ -409,38 +409,6 @@ var (
 		// },
 	}
 )
-
-// TestGenerateRLP is used to generate RLP data for testing
-func TestGenerateRLP(t *testing.T) {
-	t.Skip("skip TestGenerateRLP")
-	require := require.New(t)
-	price, _ := big.NewInt(0).SetString("1000000000000", 10)
-	gasLimit := uint64(21000)
-	nonce := uint64(120)
-	cu, err := NewCandidateEndorsement(nonce, gasLimit, price, 17, CandidateEndorsementOpEndorse)
-	require.NoError(err)
-	bd := &EnvelopeBuilder{}
-	bd = bd.SetNonce(nonce).
-		SetGasPrice(price).
-		SetGasLimit(gasLimit).
-		SetAction(cu).SetChainID(_evmNetworkID).SetVersion(1)
-	elp := bd.Build()
-	selp, err := Sign(elp, identityset.PrivateKey(1))
-	require.NoError(err)
-	selp.encoding = iotextypes.Encoding_ETHEREUM_EIP155
-	h, err := selp.Hash()
-	require.NoError(err)
-	t.Logf("hash=%x\n", h)
-	t.Logf("pubkey=%s\n", selp.SrcPubkey().HexString())
-	t.Logf("pkhash=%x\n", selp.SrcPubkey().Hash())
-	act := selp.Action().(*CandidateEndorsement)
-	tx, err := act.ToEthTx(_evmNetworkID)
-	require.NoError(err)
-	rlp, err := tx.MarshalBinary()
-	require.NoError(err)
-	t.Logf("raw:%s\n", hex.EncodeToString(rlp))
-	t.Logf("dataLen=%d\n", len(tx.Data()))
-}
 
 func TestNewEthSignerError(t *testing.T) {
 	require := require.New(t)

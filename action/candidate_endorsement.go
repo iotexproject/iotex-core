@@ -278,21 +278,8 @@ func NewCandidateEndorsementFromABIBinary(data []byte) (*CandidateEndorsement, e
 	)
 	switch {
 	case bytes.Equal(candidateEndorsementLegacyMethod.ID, data[:4]):
-		if err := candidateEndorsementLegacyMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
-			return nil, err
-		}
-		bucketID, ok := paramsMap["bucketIndex"].(uint64)
-		if !ok {
-			return nil, errDecodeFailure
-		}
-		endorse, ok := paramsMap["endorse"].(bool)
-		if !ok {
-			return nil, errDecodeFailure
-		}
-		cr.bucketIndex = bucketID
-		cr.endorse = endorse
+		method = candidateEndorsementLegacyMethod
 		cr.op = CandidateEndorsementOpLegacy
-		return &cr, nil
 	case bytes.Equal(candidateEndorsementEndorseMethod.ID, data[:4]):
 		method = candidateEndorsementEndorseMethod
 		cr.op = CandidateEndorsementOpEndorse
@@ -313,5 +300,12 @@ func NewCandidateEndorsementFromABIBinary(data []byte) (*CandidateEndorsement, e
 		return nil, errDecodeFailure
 	}
 	cr.bucketIndex = bucketID
+	if cr.op == CandidateEndorsementOpLegacy {
+		endorse, ok := paramsMap["endorse"].(bool)
+		if !ok {
+			return nil, errDecodeFailure
+		}
+		cr.endorse = endorse
+	}
 	return &cr, nil
 }

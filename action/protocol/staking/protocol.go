@@ -318,10 +318,10 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		return nil
 	}
 
-	return p.handleStakingIndexer(rp.GetEpochHeight(currentEpochNum-1), sm)
+	return p.handleStakingIndexer(ctx, rp.GetEpochHeight(currentEpochNum-1), sm)
 }
 
-func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.StateManager) error {
+func (p *Protocol) handleStakingIndexer(ctx context.Context, epochStartHeight uint64, sm protocol.StateManager) error {
 	csr, err := ConstructBaseView(sm)
 	if err != nil {
 		return err
@@ -342,7 +342,7 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
-	candidateList, err := toIoTeXTypesCandidateListV2(csr, all, true)
+	candidateList, err := toIoTeXTypesCandidateListV2(csr, all, !protocol.MustGetFeatureCtx(ctx).EnforceLegacyEndorsement)
 	if err != nil {
 		return err
 	}
