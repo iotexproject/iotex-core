@@ -169,7 +169,7 @@ func SignedCandidateEndorsement(
 	registererPriKey crypto.PrivateKey,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	cu := NewCandidateEndorsement(nonce, gasLimit, gasPrice, bucketIndex, endorse)
+	cu := NewCandidateEndorsementLegacy(nonce, gasLimit, gasPrice, bucketIndex, endorse)
 	bd := &EnvelopeBuilder{}
 	bd = bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).

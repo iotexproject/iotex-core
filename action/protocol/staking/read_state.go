@@ -86,7 +86,7 @@ func toIoTeXTypesCandidateV2(csr CandidateStateReader, cand *Candidate) (*iotext
 			}
 			return false, err
 		}
-		return endorse.Status(height) == EndorseExpired, nil
+		return endorse.LegacyStatus(height) == EndorseExpired, nil
 	}
 	c := cand.toIoTeXTypes()
 	// clear self-stake bucket if endorsement is expired but not updated yet

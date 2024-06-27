@@ -745,8 +745,8 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
 			txamount: big.NewInt(0),
 			txdata: append(
-				candidateEndorsementMethod.ID,
-				MustNoErrorV(candidateEndorsementMethod.Inputs.Pack(uint64(17), false))...,
+				candidateEndorsementLegacyMethod.ID,
+				MustNoErrorV(candidateEndorsementLegacyMethod.Inputs.Pack(uint64(17), false))...,
 			),
 			action: &CandidateEndorsement{
 				AbstractAction: AbstractAction{

@@ -331,7 +331,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 			true,
 			&appendAction{
 				func() action.Action {
-					act := action.NewCandidateEndorsement(0, uint64(1000000), big.NewInt(1000), 1, false)
+					act := action.NewCandidateEndorsementLegacy(0, uint64(1000000), big.NewInt(1000), 1, false)
 					return act
 				},
 				iotextypes.ReceiptStatus_Success,
@@ -367,7 +367,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 			true,
 			&appendAction{
 				func() action.Action {
-					act := action.NewCandidateEndorsement(0, uint64(1000000), big.NewInt(1000), 1, false)
+					act := action.NewCandidateEndorsementLegacy(0, uint64(1000000), big.NewInt(1000), 1, false)
 					return act
 				},
 				iotextypes.ReceiptStatus_Success,
@@ -496,7 +496,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				sm, p, _, _ = initTestStateFromIds(test.initBucketCfgIds, test.initCandidateCfgIds)
 			}
 			require.NoError(setupAccount(sm, test.caller, test.initBalance))
-			act := action.NewCandidateEndorsement(nonce, test.gasLimit, test.gasPrice, test.bucketID, test.endorse)
+			act := action.NewCandidateEndorsementLegacy(nonce, test.gasLimit, test.gasPrice, test.bucketID, test.endorse)
 			IntrinsicGas, _ := act.IntrinsicGas()
 			ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 				Caller:       test.caller,
