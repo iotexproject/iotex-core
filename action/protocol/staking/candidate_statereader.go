@@ -466,7 +466,7 @@ func (c *candSR) readStateCandidates(ctx context.Context, req *iotexapi.ReadStak
 	limit := int(req.GetPagination().GetLimit())
 	candidates := getPageOfCandidates(c.AllCandidates(), offset, limit)
 
-	list, err := toIoTeXTypesCandidateListV2(c, candidates)
+	list, err := toIoTeXTypesCandidateListV2(c, candidates, !protocol.MustGetFeatureCtx(ctx).EnforceLegacyEndorsement)
 	return list, c.Height(), err
 }
 
@@ -475,7 +475,7 @@ func (c *candSR) readStateCandidateByName(ctx context.Context, req *iotexapi.Rea
 	if cand == nil {
 		return &iotextypes.CandidateV2{}, c.Height(), nil
 	}
-	list, err := toIoTeXTypesCandidateV2(c, cand)
+	list, err := toIoTeXTypesCandidateV2(c, cand, !protocol.MustGetFeatureCtx(ctx).EnforceLegacyEndorsement)
 	return list, c.Height(), err
 }
 
@@ -505,7 +505,7 @@ func (c *candSR) readStateCandidateByAddress(ctx context.Context, req *iotexapi.
 	if cand == nil {
 		return &iotextypes.CandidateV2{}, c.Height(), nil
 	}
-	candV2, err := toIoTeXTypesCandidateV2(c, cand)
+	candV2, err := toIoTeXTypesCandidateV2(c, cand, !protocol.MustGetFeatureCtx(ctx).EnforceLegacyEndorsement)
 	return candV2, c.Height(), err
 }
 

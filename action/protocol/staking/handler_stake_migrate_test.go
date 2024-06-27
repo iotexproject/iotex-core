@@ -173,7 +173,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 	t.Run("endorse bucket is not permitted", func(t *testing.T) {
 		receipts, _ := runBlock(ctx, p, sm, 3, timeBlock,
 			assertions.MustNoErrorV(action.SignedCreateStake(popNonce(&stakerNonce), "cand1", registerAmount.String(), stakeDurationDays, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID))),
-			assertions.MustNoErrorV(action.SignedCandidateEndorsement(popNonce(&stakerNonce), 2, true, gasLimit, gasPrice, identityset.PrivateKey(stakerID))),
+			assertions.MustNoErrorV(action.SignedCandidateEndorsementLegacy(popNonce(&stakerNonce), 2, true, gasLimit, gasPrice, identityset.PrivateKey(stakerID))),
 			assertions.MustNoErrorV(action.SignedMigrateStake(popNonce(&stakerNonce), 2, gasLimit, gasPrice, identityset.PrivateKey(stakerID))),
 		)
 		r.Len(receipts, 3)

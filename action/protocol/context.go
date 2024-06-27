@@ -126,6 +126,7 @@ type (
 		LimitedStakingContract                  bool
 		MigrateNativeStake                      bool
 		AddClaimRewardAddress                   bool
+		EnforceLegacyEndorsement                bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -277,6 +278,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			LimitedStakingContract:                  !g.IsToBeEnabled(height),
 			MigrateNativeStake:                      g.IsToBeEnabled(height),
 			AddClaimRewardAddress:                   g.IsToBeEnabled(height),
+			EnforceLegacyEndorsement:                !g.IsToBeEnabled(height),
 		},
 	)
 }

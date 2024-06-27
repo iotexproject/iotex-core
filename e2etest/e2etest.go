@@ -23,6 +23,10 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
+var (
+	errReceiptNotFound = fmt.Errorf("receipt not found")
+)
+
 type (
 	actionWithTime struct {
 		act *action.SealedEnvelope
@@ -136,7 +140,8 @@ func addOneTx(ctx context.Context, ap actpool.ActPool, bc blockchain.Blockchain,
 			return tx.act, r, nil
 		}
 	}
-	return tx.act, nil, errors.Errorf("failed to find receipt for %x", h)
+
+	return tx.act, nil, errors.Wrapf(errReceiptNotFound, "for action %x, %T, %+v", h, tx.act.Envelope.Action(), tx.act.Envelope.Action())
 }
 
 func createAndCommitBlock(bc blockchain.Blockchain, ap actpool.ActPool, blkTime time.Time) (*block.Block, error) {

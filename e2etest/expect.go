@@ -61,6 +61,10 @@ type (
 func (be *basicActionExpect) expect(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
 	require := require.New(test.t)
 	require.ErrorIs(err, be.err)
+	if receipt == nil {
+		require.Nil(receipt)
+		return
+	}
 	require.Equal(be.status, receipt.Status)
 	require.Equal(be.executionRevertMsg, receipt.ExecutionRevertMsg())
 }

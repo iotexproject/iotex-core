@@ -86,12 +86,12 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 }
 
 func (p *Protocol) validateCandidateEndorsement(ctx context.Context, act *action.CandidateEndorsement) error {
-	if protocol.MustGetFeatureCtx(ctx).DisableDelegateEndorsement {
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.DisableDelegateEndorsement {
 		return errors.Wrap(action.ErrInvalidAct, "candidate endorsement is disabled")
 	}
-	if !act.IsLegacy() {
-		return errors.Wrap(action.ErrInvalidAct, "only legacy endorsement is supported")
-
+	if featureCtx.EnforceLegacyEndorsement && !act.IsLegacy() {
+		return errors.Wrap(action.ErrInvalidAct, "new candidate endorsement is disabled")
 	}
 	return nil
 }

@@ -47,7 +47,7 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 			if serr != nil {
 				return false, nil, errors.Wrap(serr, "failed to get height")
 			}
-			endorse, serr := esm.Status(bucket.Index, height)
+			endorse, serr := esm.Status(featureCtx, bucket.Index, height)
 			if serr != nil {
 				return false, nil, errors.Wrap(serr, "failed to get endorsement status")
 			}

@@ -112,20 +112,22 @@ func TestValidateBucket(t *testing.T) {
 		bktIdx, err := csm.putBucketAndIndex(bkt)
 		r.NoError(err)
 		blkHeight := uint64(10)
+		ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{BlockHeight: blkHeight})
+		ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(ctx, genesis.Default))
 		// not endorsed bucket
-		r.Nil(validateBucketWithoutEndorsement(esm, bkt, blkHeight))
-		r.ErrorContains(validateBucketWithEndorsement(esm, bkt, blkHeight), "bucket is not an endorse bucket")
+		r.Nil(validateBucketWithoutEndorsement(ctx, esm, bkt, blkHeight))
+		r.ErrorContains(validateBucketWithEndorsement(ctx, esm, bkt, blkHeight), "bucket is not an endorse bucket")
 		// endorsed bucket
 		r.NoError(esm.Put(bktIdx, &Endorsement{ExpireHeight: endorsementNotExpireHeight}))
-		r.Nil(validateBucketWithEndorsement(esm, bkt, blkHeight))
-		r.ErrorContains(validateBucketWithoutEndorsement(esm, bkt, blkHeight), "bucket is still endorsed")
+		r.Nil(validateBucketWithEndorsement(ctx, esm, bkt, blkHeight))
+		r.ErrorContains(validateBucketWithoutEndorsement(ctx, esm, bkt, blkHeight), "bucket is still endorsed")
 		// unendorsing bucket
 		r.NoError(esm.Put(bktIdx, &Endorsement{ExpireHeight: blkHeight + 1}))
-		r.Nil(validateBucketWithEndorsement(esm, bkt, blkHeight))
-		r.ErrorContains(validateBucketWithoutEndorsement(esm, bkt, blkHeight), "bucket is still endorsed")
+		r.Nil(validateBucketWithEndorsement(ctx, esm, bkt, blkHeight))
+		r.ErrorContains(validateBucketWithoutEndorsement(ctx, esm, bkt, blkHeight), "bucket is still endorsed")
 		// endorse expired bucket
 		r.NoError(esm.Put(bktIdx, &Endorsement{ExpireHeight: blkHeight}))
-		r.Nil(validateBucketWithoutEndorsement(esm, bkt, blkHeight))
-		r.ErrorContains(validateBucketWithEndorsement(esm, bkt, blkHeight), "bucket is not an endorse bucket")
+		r.Nil(validateBucketWithoutEndorsement(ctx, esm, bkt, blkHeight))
+		r.ErrorContains(validateBucketWithEndorsement(ctx, esm, bkt, blkHeight), "bucket is not an endorse bucket")
 	})
 }
