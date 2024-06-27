@@ -134,8 +134,8 @@ func TestEndorsementStateReader_Status(t *testing.T) {
 	})
 	t.Run("status after Upernavik", func(t *testing.T) {
 		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
-		g.TsunamiBlockHeight = 1     // enable endorsement protocol at block 1
-		g.ToBeEnabledBlockHeight = 2 // enable endorsement protocol improvement at block 2
+		g.TsunamiBlockHeight = 1   // enable endorsement protocol at block 1
+		g.UpernavikBlockHeight = 2 // enable endorsement protocol improvement at block 2
 		ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{BlockHeight: 2})
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithFeatureCtx(ctx)

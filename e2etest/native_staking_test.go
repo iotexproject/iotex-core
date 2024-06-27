@@ -530,7 +530,7 @@ func TestNativeStaking(t *testing.T) {
 	cfg.Genesis.FbkMigrationBlockHeight = 1
 	cfg.Genesis.TsunamiBlockHeight = 2
 	cfg.Genesis.EndorsementWithdrawWaitingBlocks = 10
-	cfg.Genesis.ToBeEnabledBlockHeight = 3 // enable CandidateIdentifiedByOwner feature
+	cfg.Genesis.UpernavikBlockHeight = 3 // enable CandidateIdentifiedByOwner feature
 
 	t.Run("test native staking", func(t *testing.T) {
 		testNativeStaking(cfg, t)
@@ -629,8 +629,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 		cfg.Genesis.RedseaBlockHeight = 1
 		cfg.Genesis.SumatraBlockHeight = 1
 		cfg.Genesis.TsunamiBlockHeight = 1
-		cfg.Genesis.UpernavikBlockHeight = 1000000 // not enabled
-		cfg.Genesis.ToBeEnabledBlockHeight = 1     // enable CandidateIdentifiedByOwner feature
+		cfg.Genesis.UpernavikBlockHeight = 2 // enable CandidateIdentifiedByOwner feature
 		return cfg
 	}
 	registerAmount, _ := big.NewInt(0).SetString("1200000000000000000000000", 10)
@@ -976,7 +975,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 	})
 	t.Run("new endorsement", func(t *testing.T) {
 		cfg := initCfg()
-		cfg.Genesis.ToBeEnabledBlockHeight = 6
+		cfg.Genesis.UpernavikBlockHeight = 6
 		cfg.Genesis.EndorsementWithdrawWaitingBlocks = 5
 		test := newE2ETest(t, cfg)
 		defer test.teardown()

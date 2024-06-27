@@ -216,7 +216,7 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 			})
 			cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
 			cfg.TsunamiBlockHeight = 1
-			cfg.ToBeEnabledBlockHeight = 1 // enable candidate owner transfer feature
+			cfg.UpernavikBlockHeight = 1 // enable candidate owner transfer feature
 			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 			require.NoError(p.Validate(ctx, act, sm))
