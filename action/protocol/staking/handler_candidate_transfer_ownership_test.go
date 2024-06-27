@@ -36,7 +36,10 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, nil, nil, nil, genesis.Default.GreenlandBlockHeight)
+		Revise: ReviseConfig{
+			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
+		},
+	}, nil, nil, nil)
 	require.NoError(err)
 	initCandidateCfgs := []struct {
 		Owner      address.Address

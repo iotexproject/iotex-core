@@ -84,7 +84,10 @@ func initTestStateWithHeight(t *testing.T, ctrl *gomock.Controller, bucketCfgs [
 	}, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, nil, nil, nil, genesis.Default.GreenlandBlockHeight)
+		Revise: ReviseConfig{
+			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
+		},
+	}, nil, nil, nil)
 	require.NoError(err)
 
 	// set up bucket

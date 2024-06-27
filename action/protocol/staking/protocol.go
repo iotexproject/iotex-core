@@ -130,8 +130,6 @@ func NewProtocol(
 	candBucketsIndexer *CandidatesBucketsIndexer,
 	contractStakingIndexer ContractStakingIndexerWithBucketType,
 	contractStakingIndexerV2 ContractStakingIndexer,
-	correctCandsHeight uint64,
-	reviseHeights ...uint64,
 ) (*Protocol, error) {
 	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
@@ -154,8 +152,8 @@ func NewProtocol(
 		return nil, action.ErrInvalidAmount
 	}
 
-	// new vote reviser, revise ate greenland
-	voteReviser := NewVoteReviser(cfg.Staking.VoteWeightCalConsts, correctCandsHeight, reviseHeights...)
+	// new vote reviser, revise at greenland
+	voteReviser := NewVoteReviser(cfg.Revise)
 	migrateContractAddress := ""
 	if contractStakingIndexerV2 != nil {
 		migrateContractAddress = contractStakingIndexerV2.ContractAddress()
@@ -301,7 +299,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		if err != nil {
 			return err
 		}
-		if err := p.voteReviser.Revise(csm, blkCtx.BlockHeight); err != nil {
+		if err := p.voteReviser.Revise(featureCtx, csm, blkCtx.BlockHeight); err != nil {
 			return err
 		}
 	}

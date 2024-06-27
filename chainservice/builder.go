@@ -585,13 +585,16 @@ func (builder *Builder) registerStakingProtocol() error {
 			Staking:                  builder.cfg.Genesis.Staking,
 			PersistStakingPatchBlock: builder.cfg.Chain.PersistStakingPatchBlock,
 			StakingPatchDir:          builder.cfg.Chain.StakingPatchDir,
+			Revise: staking.ReviseConfig{
+				VoteWeight:                  builder.cfg.Genesis.VoteWeightCalConsts,
+				ReviseHeights:               []uint64{builder.cfg.Genesis.GreenlandBlockHeight, builder.cfg.Genesis.HawaiiBlockHeight},
+				CorrectCandsHeight:          builder.cfg.Genesis.OkhotskBlockHeight,
+				SelfStakeBucketReviseHeight: builder.cfg.Genesis.UpernavikBlockHeight,
+			},
 		},
 		builder.cs.candBucketsIndexer,
 		builder.cs.contractStakingIndexer,
 		builder.cs.contractStakingIndexerV2,
-		builder.cfg.Genesis.OkhotskBlockHeight,
-		builder.cfg.Genesis.GreenlandBlockHeight,
-		builder.cfg.Genesis.HawaiiBlockHeight,
 	)
 	if err != nil {
 		return err

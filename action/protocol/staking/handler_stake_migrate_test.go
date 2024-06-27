@@ -38,8 +38,11 @@ func TestHandleStakeMigrate(t *testing.T) {
 		&BuilderConfig{
 			Staking:                  genesis.Default.Staking,
 			PersistStakingPatchBlock: math.MaxUint64,
+			Revise: ReviseConfig{
+				VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
+			},
 		},
-		nil, nil, nil, 0)
+		nil, nil, nil)
 	r.NoError(err)
 	cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
 	initCfg := func(cfg *genesis.Genesis) {
