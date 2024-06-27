@@ -40,6 +40,7 @@ var (
 
 	errInvalidSystemActionLayout = errors.New("system action layout is invalid")
 	errUnfoldTxContainer         = errors.New("failed to unfold tx container")
+	errDeployerNotWhitelisted    = errors.New("deployer not whitelisted")
 )
 
 func init() {
@@ -169,7 +170,11 @@ func (ws *workingSet) runAction(
 	// for replay tx, check against deployer whitelist
 	g := genesis.MustExtractGenesisContext(ctx)
 	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && !g.IsDeployerWhitelisted(selp.SenderAddress()) {
-		return nil, errors.Errorf("replay deployer %v not whitelisted", selp.SenderAddress().String())
+		if protocol.MustGetFeatureCtx(ctx).PurgeActpoolOnRunActionError {
+			return nil, errors.Wrap(errDeployerNotWhitelisted, selp.SenderAddress().String())
+		} else {
+			return nil, errors.Errorf("replay deployer %v not whitelisted", selp.SenderAddress().String())
+		}
 	}
 	// Handle action
 	reg, ok := protocol.GetRegistry(ctx)
@@ -261,8 +266,8 @@ func (ws *workingSet) ResetSnapshots() {
 // and RefactorFreshAccountConversion height
 func (ws *workingSet) freshAccountConversion(ctx context.Context, actCtx *protocol.ActionCtx) error {
 	// check legacy fresh account conversion
-	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount &&
-		!protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	if fCtx.UseZeroNonceForFreshAccount && !fCtx.RefactorFreshAccountConversion {
 		sender, err := accountutil.AccountState(ctx, ws, actCtx.Caller)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get the confirmed nonce of sender %s", actCtx.Caller.String())
@@ -559,8 +564,11 @@ func (ws *workingSet) pickAndRunActions(
 	}
 
 	// initial action iterator
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	ctxWithBlockContext := ctx
+	var (
+		ctxWithBlockContext = ctx
+		blkCtx              = protocol.MustGetBlockCtx(ctx)
+		fCtx                = protocol.MustGetFeatureCtx(ctx)
+	)
 	if ap != nil {
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
 		for {
@@ -591,17 +599,24 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			}
-			// TODO: error may cause the tx to be stuck in the action pool until expired
 			receipt, err := ws.runAction(actionCtx, nextAction)
 			switch errors.Cause(err) {
 			case nil:
 				// do nothing
-			case action.ErrChainID:
+			case action.ErrGasLimit:
+				actionIterator.PopAccount()
 				continue
-			case action.ErrGasLimit, errUnfoldTxContainer:
+			case action.ErrChainID, errUnfoldTxContainer, errDeployerNotWhitelisted:
+				if caller := nextAction.SenderAddress(); caller != nil {
+					ap.DeleteAction(caller)
+				}
 				actionIterator.PopAccount()
 				continue
 			default:
+				if caller := nextAction.SenderAddress(); caller != nil {
+					ap.DeleteAction(caller)
+				}
+				actionIterator.PopAccount()
 				nextActionHash, hashErr := nextAction.Hash()
 				if hashErr != nil {
 					return nil, errors.Wrapf(hashErr, "Failed to get hash for %x", nextActionHash)
@@ -633,7 +648,7 @@ func (ws *workingSet) pickAndRunActions(
 		receipts = append(receipts, receipt)
 		executedActions = append(executedActions, selp)
 	}
-	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
+	if fCtx.CorrectTxLogIndex {
 		updateReceiptIndex(receipts)
 	}
 	ws.receipts = receipts
@@ -650,7 +665,8 @@ func updateReceiptIndex(receipts []*action.Receipt) {
 }
 
 func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {
-	if protocol.MustGetFeatureCtx(ctx).SkipSystemActionNonce {
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	if fCtx.SkipSystemActionNonce {
 		if err := ws.validateNonceSkipSystemAction(ctx, blk); err != nil {
 			return errors.Wrap(err, "failed to validate nonce")
 		}
@@ -659,7 +675,7 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 			return errors.Wrap(err, "failed to validate nonce")
 		}
 	}
-	if protocol.MustGetFeatureCtx(ctx).ValidateSystemAction {
+	if fCtx.ValidateSystemAction {
 		if err := ws.validateSystemActionLayout(ctx, blk.RunnableActions().Actions()); err != nil {
 			return err
 		}

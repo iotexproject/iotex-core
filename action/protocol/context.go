@@ -127,6 +127,7 @@ type (
 		MigrateNativeStake                      bool
 		AddClaimRewardAddress                   bool
 		EnforceLegacyEndorsement                bool
+		PurgeActpoolOnRunActionError            bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -279,6 +280,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			MigrateNativeStake:                      g.IsToBeEnabled(height),
 			AddClaimRewardAddress:                   g.IsToBeEnabled(height),
 			EnforceLegacyEndorsement:                !g.IsToBeEnabled(height),
+			PurgeActpoolOnRunActionError:            g.IsToBeEnabled(height),
 		},
 	)
 }
