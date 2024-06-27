@@ -597,6 +597,12 @@ func (ws *workingSet) pickAndRunActions(
 			case nil:
 				// do nothing
 			case action.ErrChainID:
+				caller := nextAction.SenderAddress()
+				if caller == nil {
+					return nil, errors.New("failed to get address")
+				}
+				ap.DeleteAction(caller)
+				actionIterator.PopAccount()
 				continue
 			case action.ErrGasLimit, errUnfoldTxContainer:
 				actionIterator.PopAccount()

@@ -149,10 +149,6 @@ func (q *actQueue) updateFromNonce(start uint64) {
 		}
 
 		cost, _ := act.Cost()
-		if balance.Cmp(cost) < 0 {
-			break
-		}
-
 		balance = new(big.Int).Sub(balance, cost)
 		q.pendingBalance[start+1] = new(big.Int).Set(balance)
 	}
@@ -182,7 +178,7 @@ func (q *actQueue) cleanTimeout() []*action.SealedEnvelope {
 	)
 	for i := 0; i < size; {
 		nonce := q.ascQueue[i].nonce
-		if timeNow.After(q.ascQueue[i].deadline) && nonce > q.pendingNonce {
+		if timeNow.After(q.ascQueue[i].deadline) {
 			removedFromQueue = append(removedFromQueue, q.items[nonce])
 			delete(q.items, nonce)
 			delete(q.pendingBalance, nonce)
