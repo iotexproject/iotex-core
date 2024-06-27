@@ -153,7 +153,6 @@ func NewProtocol(
 	}
 
 	// new vote reviser, revise at greenland
-	// TODO: pass ctx to voteReviser
 	voteReviser := NewVoteReviser(cfg.Revise)
 	migrateContractAddress := ""
 	if contractStakingIndexerV2 != nil {

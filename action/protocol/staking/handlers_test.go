@@ -90,8 +90,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight:         genesis.Default.Staking.VoteWeightCalConsts,
-			CorrectCandsHeight: genesis.Default.GreenlandBlockHeight,
+			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
 		},
 	}, nil, nil, nil)
 	require.NoError(err)
@@ -3226,8 +3225,7 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight:         genesis.Default.Staking.VoteWeightCalConsts,
-			CorrectCandsHeight: genesis.Default.GreenlandBlockHeight,
+			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
 		},
 	}, nil, nil, nil)
 	require.NoError(err)

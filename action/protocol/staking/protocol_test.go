@@ -93,8 +93,7 @@ func TestProtocol(t *testing.T) {
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight:         genesis.Default.Staking.VoteWeightCalConsts,
-			CorrectCandsHeight: genesis.Default.GreenlandBlockHeight,
+			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
 		},
 	}, nil, nil, nil)
 	r.NotNil(stk)
@@ -213,9 +212,8 @@ func TestCreatePreStates(t *testing.T) {
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight:         genesis.Default.Staking.VoteWeightCalConsts,
-			CorrectCandsHeight: genesis.Default.GreenlandBlockHeight,
-			ReviseHeights:      []uint64{genesis.Default.GreenlandBlockHeight}},
+			VoteWeight:    genesis.Default.Staking.VoteWeightCalConsts,
+			ReviseHeights: []uint64{genesis.Default.GreenlandBlockHeight}},
 	}, nil, nil, nil)
 	require.NoError(err)
 	ctx := protocol.WithBlockCtx(
@@ -283,9 +281,8 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight:         genesis.Default.Staking.VoteWeightCalConsts,
-			CorrectCandsHeight: genesis.Default.GreenlandBlockHeight,
-			ReviseHeights:      []uint64{genesis.Default.GreenlandBlockHeight},
+			VoteWeight:    genesis.Default.Staking.VoteWeightCalConsts,
+			ReviseHeights: []uint64{genesis.Default.GreenlandBlockHeight},
 		},
 	}, cbi, nil, nil)
 	require.NoError(err)
@@ -407,8 +404,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 			Staking:                  cfg,
 			PersistStakingPatchBlock: math.MaxUint64,
 			Revise: ReviseConfig{
-				VoteWeight:         genesis.Default.Staking.VoteWeightCalConsts,
-				CorrectCandsHeight: genesis.Default.GreenlandBlockHeight,
+				VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
 			},
 		}, nil, nil, nil)
 		require.NoError(err)
@@ -448,8 +444,7 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 		Staking:                  cfg,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight:         genesis.Default.Staking.VoteWeightCalConsts,
-			CorrectCandsHeight: genesis.Default.GreenlandBlockHeight,
+			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
 		},
 	}, nil, csIndexer, nil)
 	require.NoError(err)

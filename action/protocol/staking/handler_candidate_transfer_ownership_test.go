@@ -37,8 +37,7 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight:         genesis.Default.Staking.VoteWeightCalConsts,
-			CorrectCandsHeight: genesis.Default.GreenlandBlockHeight,
+			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
 		},
 	}, nil, nil, nil)
 	require.NoError(err)

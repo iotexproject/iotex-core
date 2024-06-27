@@ -47,9 +47,11 @@ func (vr *VoteReviser) Revise(ctx protocol.FeatureCtx, csm CandidateStateManager
 		case err != nil:
 			return err
 		}
-		cands, err = vr.reviseSelfStakeBuckets(ctx, csm, height, cands)
-		if err != nil {
-			return err
+		if vr.shouldReviseSelfStakeBuckets(height) {
+			cands, err = vr.reviseSelfStakeBuckets(ctx, csm, height, cands)
+			if err != nil {
+				return err
+			}
 		}
 		cands, err = vr.calculateVoteWeight(csm, height, cands)
 		if err != nil {
@@ -92,9 +94,6 @@ func (vr *VoteReviser) correctAliasCands(csm CandidateStateManager, cands Candid
 }
 
 func (vr *VoteReviser) reviseSelfStakeBuckets(ctx protocol.FeatureCtx, csm CandidateStateManager, height uint64, cands CandidateList) (CandidateList, error) {
-	if !vr.shouldReviseSelfStakeBuckets(height) {
-		return cands, nil
-	}
 	// revise endorsements
 	esm := NewEndorsementStateManager(csm.SM())
 	for _, cand := range cands {
