@@ -107,7 +107,7 @@ func (p *Protocol) validateCandidateTransferOwnership(_ context.Context, act *ac
 	if acc, err := accountutil.LoadOrCreateAccount(csm.SM(), act.NewOwner()); err != nil || acc.IsContract() {
 		return &handleError{
 			err:           errors.New("new owner is not a valid address"),
-			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+			failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
 		}
 	}
 
@@ -116,16 +116,17 @@ func (p *Protocol) validateCandidateTransferOwnership(_ context.Context, act *ac
 	if cand != nil {
 		return &handleError{
 			err:           errors.New("new owner is already a candidate"),
-			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+			failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
 		}
 	}
 
-	//check the new owner is exist in the identifier list
+	// check the new owner is exist in the identifier list
+	// except the candidate itself
 	cand = csm.GetByIdentifier(act.NewOwner())
-	if cand != nil {
+	if cand != nil && !cand.Equal(candidate) {
 		return &handleError{
 			err:           errors.New("new owner is already a candidate"),
-			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+			failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
 		}
 	}
 	return nil

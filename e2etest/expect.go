@@ -20,6 +20,10 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
+var (
+	successExpect = &basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_Success), ""}
+)
+
 type (
 	actionExpect interface {
 		expect(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error)
