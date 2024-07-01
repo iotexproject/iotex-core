@@ -234,7 +234,9 @@ func (worker *queueWorker) Reset(ctx context.Context) {
 		confirmedState, err := accountutil.AccountState(ctx, worker.ap.sf, addr)
 		if err != nil {
 			log.L().Error("Error when removing confirmed actions", zap.Error(err))
+			pendingActs := queue.AllActs()
 			queue.Reset()
+			worker.ap.removeInvalidActs(pendingActs)
 			worker.emptyAccounts.Set(from, struct{}{})
 			return
 		}
