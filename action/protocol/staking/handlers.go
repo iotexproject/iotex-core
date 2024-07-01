@@ -699,12 +699,12 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 			}
 		}
 		candID = id
-	}
-	c = csm.GetByIdentifier(candID)
-	if c != nil {
-		return log, nil, &handleError{
-			err:           ErrInvalidOwner,
-			failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
+		c = csm.GetByIdentifier(candID)
+		if c != nil {
+			return log, nil, &handleError{
+				err:           ErrInvalidOwner,
+				failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
+			}
 		}
 	}
 	// cannot collide with existing name
