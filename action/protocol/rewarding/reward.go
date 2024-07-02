@@ -90,6 +90,8 @@ func (p *Protocol) GrantBlockReward(
 				break
 			}
 		}
+	} else {
+		rewardAddrStr = producerAddrStr
 	}
 	// If reward address doesn't exist, do nothing
 	if rewardAddrStr == "" {
