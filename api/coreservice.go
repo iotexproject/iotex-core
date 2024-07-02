@@ -1500,6 +1500,21 @@ func (core *coreService) EstimateGasForNonExecution(actType action.Action) (uint
 
 // EstimateMigrateStakeGasConsumption estimates gas consumption for migrate stake action
 func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context, ms *action.MigrateStake, caller address.Address) (uint64, error) {
+	g := core.bc.Genesis()
+	header, err := core.bc.BlockHeaderByHeight(core.bc.TipHeight())
+	if err != nil {
+		return 0, err
+	}
+	zeroAddr, err := address.FromString(address.ZeroAddress)
+	if err != nil {
+		return 0, err
+	}
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    header.Height() + 1,
+		BlockTimeStamp: header.Timestamp().Add(g.BlockInterval),
+		GasLimit:       g.BlockGasLimitByHeight(header.Height() + 1),
+		Producer:       zeroAddr,
+	})
 	exec, err := staking.FindProtocol(core.registry).ConstructExecution(ctx, ms, core.sf)
 	if err != nil {
 		return 0, err

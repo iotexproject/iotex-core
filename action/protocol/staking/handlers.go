@@ -691,6 +691,13 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	// cannot collide with existing identifier
 	candID := owner
 	if !featureCtx.CandidateIdentifiedByOwner {
+		// cannot collide with existing identifier
+		if csm.GetByIdentifier(owner) != nil {
+			return log, nil, &handleError{
+				err:           ErrInvalidOwner,
+				failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
+			}
+		}
 		id, err := p.generateCandidateID(owner, blkCtx.BlockHeight, csm)
 		if err != nil {
 			return log, nil, &handleError{
@@ -699,12 +706,6 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 			}
 		}
 		candID = id
-		if csm.GetByIdentifier(candID) != nil {
-			return log, nil, &handleError{
-				err:           ErrInvalidOwner,
-				failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
-			}
-		}
 	}
 	// cannot collide with existing name
 	if csm.ContainsName(act.Name()) && (!ownerExist || act.Name() != c.Name) {
