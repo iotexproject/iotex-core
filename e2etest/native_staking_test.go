@@ -614,23 +614,23 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				expect: []actionExpect{successExpect, &candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: "0", OwnerAddress: identityset.Address(newOwnerID).String(), SelfStakeBucketIdx: math.MaxUint64}}},
 			},
 			{
-				name:   "transfer back to old owner",
-				act:    &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(newOwnerID).String()), identityset.Address(oldOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(newOwnerID), action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{successExpect, &candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: "0", OwnerAddress: identityset.Address(oldOwnerID).String(), SelfStakeBucketIdx: math.MaxUint64}}},
-			},
-			{
-				name:   "cannot transfer from non-owner",
-				act:    &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(4).String()), identityset.Address(oldOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(4), action.WithChainID(chainID))),
-					 time.Now(),
+				name: "cannot transfer from non-owner",
+				act: &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(4).String()), identityset.Address(oldOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(4), action.WithChainID(chainID))),
+					time.Now(),
 				},
 				expect: []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), ""}},
 			},
 			{
-				name:   "cannot transfer to self",
-				act:    &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(newOwnerID).String()), identityset.Address(newOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(newOwnerID), action.WithChainID(chainID))),
-					 time.Now(),
+				name: "cannot transfer to self",
+				act: &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(newOwnerID).String()), identityset.Address(newOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(newOwnerID), action.WithChainID(chainID))),
+					time.Now(),
 				},
 				expect: []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrUnauthorizedOperator), ""}},
+			},
+			{
+				name:   "transfer back to old owner",
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(newOwnerID).String()), identityset.Address(oldOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(newOwnerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{successExpect, &candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: "0", OwnerAddress: identityset.Address(oldOwnerID).String(), SelfStakeBucketIdx: math.MaxUint64}}},
 			},
 		})
 	})
