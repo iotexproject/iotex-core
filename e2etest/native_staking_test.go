@@ -657,6 +657,20 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				act:    &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(newOwnerID).String()), identityset.Address(oldOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(newOwnerID), action.WithChainID(chainID))), time.Now()},
 				expect: []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrUnauthorizedOperator), ""}},
 			},
+			{
+				name:   "cannot transfer from non-owner",
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(4).String()), identityset.Address(oldOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(4), action.WithChainID(chainID))),
+					 time.Now(),
+				},
+				expect: []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), ""}},
+			},
+			{
+				name:   "cannot transfer to self",
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(newOwnerID).String()), identityset.Address(newOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(newOwnerID), action.WithChainID(chainID))),
+					 time.Now(),
+				},
+				expect: []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrUnauthorizedOperator), ""}},
+			},
 		})
 	})
 	t.Run("candidate activate after transfer candidate ownership", func(t *testing.T) {
