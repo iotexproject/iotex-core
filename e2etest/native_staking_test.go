@@ -634,6 +634,27 @@ func TestCandidateTransferOwnership(t *testing.T) {
 			},
 		})
 	})
+	t.Run("transfer endorsed candidate", func(t *testing.T) {
+		test := newE2ETest(t, initCfg(require))
+		defer test.teardown()
+		oldOwnerID := 1
+		newOwnerID := 2
+		stakerID := 3
+		chainID := test.cfg.Chain.ID
+		test.run([]*testcase{
+			{
+				name: "success to transfer candidate ownership",
+				preActs: []*actionWithTime{
+					{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), "cand1", identityset.Address(1).String(), identityset.Address(1).String(), identityset.Address(oldOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, action.CandidateEndorsementOpEndorse, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedCandidateActivate(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), 1, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
+				},
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), identityset.Address(newOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{successExpect, &candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "2491242816406174220844604", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(newOwnerID).String(), SelfStakeBucketIdx: 1}}},
+			},
+		})
+	})
 	t.Run("candidate activate after transfer candidate ownership", func(t *testing.T) {
 		test := newE2ETest(t, initCfg(require))
 		defer test.teardown()
