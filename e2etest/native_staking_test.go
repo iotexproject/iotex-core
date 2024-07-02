@@ -971,6 +971,21 @@ func TestCandidateTransferOwnership(t *testing.T) {
 					&accountExpect{identityset.Address(stakerID), "99989899999999999996125955", test.nonceMgr[identityset.Address(stakerID).String()]},
 				},
 			},
+			{
+				name: "estimateGas",
+				act:  &actionWithTime{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", stakeAmount.String(), stakeDurationDays, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), stakeTime},
+				expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+					ms, err := action.NewMigrateStake(0, 3, gasLimit, gasPrice)
+					require.NoError(err)
+					resp, err := test.api.EstimateActionGasConsumption(context.Background(), &iotexapi.EstimateActionGasConsumptionRequest{
+						Action:        &iotexapi.EstimateActionGasConsumptionRequest_StakeMigrate{StakeMigrate: ms.Proto()},
+						CallerAddress: identityset.Address(3).String(),
+						GasPrice:      gasPrice.String(),
+					})
+					require.NoError(err)
+					require.Equal(uint64(194934), resp.Gas)
+				}}},
+			},
 		})
 	})
 	t.Run("new endorsement", func(t *testing.T) {
