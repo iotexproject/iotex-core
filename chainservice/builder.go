@@ -299,6 +299,13 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if err != nil {
 		return err
 	}
+	readOnly := builder.readOnly()
+	if readOnly {
+		for _, indexer := range indexers {
+			builder.cs.lifecycle.Add(indexer)
+		}
+		indexers = nil
+	}
 	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, builder.cfg.DB.MaxCacheSize)
 
 	return nil
@@ -382,6 +389,12 @@ func (builder *Builder) buildGatewayComponents(forTest bool) error {
 	return nil
 }
 
+func (builder *Builder) readOnly() bool {
+	_, yes := builder.cfg.Plugins[config.ReadOnlyGatewayPlugin]
+
+	return yes
+}
+
 func (builder *Builder) createGateWayComponents(forTest bool) (
 	indexer blockindex.Indexer,
 	bfIndexer blockindex.BloomFilterIndexer,
@@ -391,7 +404,10 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 ) {
 	_, gateway := builder.cfg.Plugins[config.GatewayPlugin]
 	if !gateway {
-		return
+		_, gateway = builder.cfg.Plugins[config.ReadOnlyGatewayPlugin]
+		if !gateway {
+			return
+		}
 	}
 
 	if forTest {
@@ -445,8 +461,10 @@ func (builder *Builder) buildBlockchain(forSubChain, forTest bool) error {
 	builder.cs.chain = builder.createBlockchain(forSubChain, forTest)
 	builder.cs.lifecycle.Add(builder.cs.chain)
 
-	if err := builder.cs.chain.AddSubscriber(builder.cs.actpool); err != nil {
-		return errors.Wrap(err, "failed to add actpool as subscriber")
+	if builder.cs.actpool != nil {
+		if err := builder.cs.chain.AddSubscriber(builder.cs.actpool); err != nil {
+			return errors.Wrap(err, "failed to add actpool as subscriber")
+		}
 	}
 	if builder.cs.indexer != nil && builder.cfg.Chain.EnableAsyncIndexWrite {
 		// config asks for a standalone indexer
@@ -467,13 +485,17 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 		return builder.cs.chain
 	}
 	var chainOpts []blockchain.Option
+	var blockBuilderFactory blockchain.BlockBuilderFactory
 	if !forSubChain {
-		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(block.NewValidator(builder.cs.factory, builder.cs.actpool)))
+		if builder.cs.actpool != nil {
+			chainOpts = append(chainOpts, blockchain.BlockValidatorOption(block.NewValidator(builder.cs.factory, builder.cs.actpool)))
+			blockBuilderFactory = factory.NewMinter(builder.cs.factory, builder.cs.actpool)
+		}
 	} else {
 		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(builder.cs.factory))
 	}
 
-	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, factory.NewMinter(builder.cs.factory, builder.cs.actpool), chainOpts...)
+	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, blockBuilderFactory, chainOpts...)
 }
 
 func (builder *Builder) buildNodeInfoManager() error {
@@ -740,14 +762,17 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if builder.cs.p2pAgent == nil {
 		builder.cs.p2pAgent = p2p.NewDummyAgent()
 	}
+	readOnlyMode := builder.readOnly()
 	if err := builder.buildFactory(forTest); err != nil {
 		return nil, err
 	}
 	if err := builder.buildElectionCommittee(); err != nil {
 		return nil, err
 	}
-	if err := builder.buildActionPool(); err != nil {
-		return nil, err
+	if !readOnlyMode {
+		if err := builder.buildActionPool(); err != nil {
+			return nil, err
+		}
 	}
 	if err := builder.buildGatewayComponents(forTest); err != nil {
 		return nil, err
@@ -783,14 +808,16 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.registerRewardingProtocol(); err != nil {
 		return nil, errors.Wrap(err, "failed to register rewarding protocol")
 	}
-	if err := builder.buildConsensusComponent(); err != nil {
-		return nil, err
-	}
-	if err := builder.buildBlockSyncer(); err != nil {
-		return nil, err
-	}
-	if err := builder.buildNodeInfoManager(); err != nil {
-		return nil, err
+	if !readOnlyMode {
+		if err := builder.buildConsensusComponent(); err != nil {
+			return nil, err
+		}
+		if err := builder.buildBlockSyncer(); err != nil {
+			return nil, err
+		}
+		if err := builder.buildNodeInfoManager(); err != nil {
+			return nil, err
+		}
 	}
 	cs := builder.cs
 	builder.cs = nil
