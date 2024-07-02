@@ -53,6 +53,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockcreationsubscriber"
+	"github.com/iotexproject/iotex-core/test/mock/mock_poll"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -999,6 +1000,23 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 	ctx := context.Background()
 	bc, sf, dao, ap, err := createChain(cfg, true)
 	require.NoError(err)
+	sk, err := iotexcrypto.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
+	require.NoError(err)
+	producer := sk.PublicKey().Address()
+	ctrl := gomock.NewController(t)
+	pp := mock_poll.NewMockProtocol(ctrl)
+	pp.EXPECT().CreateGenesisStates(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	pp.EXPECT().Candidates(gomock.Any(), gomock.Any()).Return([]*state.Candidate{
+		&state.Candidate{
+			Address:       producer.String(),
+			RewardAddress: producer.String(),
+		},
+	}, nil).AnyTimes()
+	pp.EXPECT().Register(gomock.Any()).DoAndReturn(func(reg *protocol.Registry) error {
+		return reg.Register("poll", pp)
+	}).AnyTimes()
+	pp.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	require.NoError(sf.Register(pp))
 	require.NoError(bc.Start(ctx))
 	defer func() {
 		require.NoError(bc.Stop(ctx))
@@ -1215,7 +1233,7 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 		require.Equal(v.b, a.Balance.String())
 	}
 
-	// Add block 4 -- test the UseTxContainer flag
+	// Add block 4 -- test the UseTxContainer and AddClaimRewardAddress flag
 	var (
 		txs          [2]*types.Transaction
 		contractHash hash.Hash256
@@ -1266,11 +1284,23 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 		require.EqualValues(iotextypes.Encoding_TX_CONTAINER, selp.Encoding())
 		require.NoError(ap.Add(ctx, selp))
 	}
+	claim := (&action.ClaimFromRewardingFundBuilder{}).
+		SetAmount(big.NewInt(200000000000)).
+		SetAddress(producer).Build()
+	elp = (&action.EnvelopeBuilder{}).SetNonce(6).
+		SetChainID(cfg.Chain.ID).
+		SetGasPrice(minGas).
+		SetGasLimit(100000).
+		SetAction(&claim).Build()
+	tsf2, err = action.Sign(elp, priKey0)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tsf2))
+
 	blockTime = blockTime.Add(time.Second)
 	blk3, err := bc.MintNewBlock(blockTime)
 	require.NoError(err)
 	require.EqualValues(4, blk3.Height())
-	require.Equal(3, len(blk3.Body.Actions))
+	require.Equal(4, len(blk3.Body.Actions))
 	require.NoError(bc.CommitBlock(blk3))
 
 	// verify contract execution
@@ -1285,6 +1315,12 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 	require.Equal(1, len(logs))
 	require.Equal(_sarTopic, logs[0].Topics[1][:])
 	require.True(blk3.Header.LogsBloomfilter().Exist(_sarTopic))
+
+	// verify claim reward
+	a, err := accountutil.AccountState(ctx, sf, producer)
+	require.NoError(err)
+	require.EqualValues(1, a.AccountType())
+	require.Equal("200000000000", a.Balance.String())
 
 	// commit 4 blocks to a new chain
 	testTriePath2, err := testutil.PathOfTempFile("trie")
@@ -1307,6 +1343,7 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 	cfg.Chain.IndexDBPath = testIndexPath2
 	bc2, sf2, dao2, _, err := createChain(cfg, false)
 	require.NoError(err)
+	require.NoError(sf2.Register(pp))
 	require.NoError(bc2.Start(ctx))
 	defer func() {
 		require.NoError(bc2.Stop(ctx))
@@ -1350,6 +1387,12 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 	tl, err = dao2.TransactionLogs(2)
 	require.NoError(err)
 	require.Equal(4, len(tl.Logs))
+
+	// verify claim reward
+	a, err = accountutil.AccountState(ctx, sf2, producer)
+	require.NoError(err)
+	require.EqualValues(1, a.AccountType())
+	require.Equal("200000000000", a.Balance.String())
 }
 
 func TestConstantinople(t *testing.T) {

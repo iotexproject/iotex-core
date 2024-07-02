@@ -32,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -469,6 +470,78 @@ func TestBlockEpochReward(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, initBalances[operatorAddrStr], operatorState.Balance)
 	}
+}
+
+func TestClaimReward(t *testing.T) {
+	t.Skip("")
+	require := require.New(t)
+	// set config
+	cfg := initCfg(require)
+	producerSK, err := crypto.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
+	cfg.Genesis.TsunamiBlockHeight = 1
+	cfg.Genesis.UpernavikBlockHeight = 10
+	cfg.Genesis.InitBalanceMap[producerSK.PublicKey().Address().String()] = "100000000000000000000000000"
+	cfg.Plugins[config.GatewayPlugin] = struct{}{}
+	normalizeGenesisHeights(&cfg)
+	// new e2e test
+	test := newE2ETest(t, cfg)
+	defer test.teardown()
+	chainID := cfg.Chain.ID
+	gasPrice := big.NewInt(1)
+	require.NoError(err)
+	genTransferActions := func(n int) []*actionWithTime {
+		acts := make([]*actionWithTime, n)
+		for i := 0; i < n; i++ {
+			acts[i] = &actionWithTime{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()}
+		}
+		return acts
+	}
+	callerBalance := big.NewInt(0)
+	producerBalance := big.NewInt(0)
+	// run test
+	test.run([]*testcase{
+		{
+			name:    "v1 claimreward before UpernavikBlockHeight",
+			preActs: genTransferActions(5),
+			act:     &actionWithTime{mustNoErr(action.SignedClaimRewardLegacy(test.nonceMgr.pop(producerSK.PublicKey().Address().String()), gasLimit, gasPrice, producerSK, unit.ConvertIotxToRau(1), nil, action.WithChainID(chainID))), time.Now()},
+			expect:  []actionExpect{successExpect},
+		},
+		{
+			name:   "v2 claimreward before UpernavikBlockHeight",
+			act:    &actionWithTime{mustNoErr(action.SignedClaimReward(test.nonceMgr[(identityset.Address(1).String())], gasLimit, gasPrice, identityset.PrivateKey(1), unit.ConvertIotxToRau(1), nil, producerSK.PublicKey().Address(), action.WithChainID(chainID))), time.Now()},
+			expect: []actionExpect{&basicActionExpect{err: errReceiptNotFound}},
+		},
+		{
+			name:    "v1 claimreward after UpernavikBlockHeight",
+			preActs: genTransferActions(5),
+			act:     &actionWithTime{mustNoErr(action.SignedClaimRewardLegacy(test.nonceMgr.pop(producerSK.PublicKey().Address().String()), gasLimit, gasPrice, producerSK, unit.ConvertIotxToRau(1), nil, action.WithChainID(chainID))), time.Now()},
+			expect:  []actionExpect{successExpect},
+		},
+		{
+			name: "v2 claimreward after UpernavikBlockHeight",
+			preFunc: func(e *e2etest) {
+				resp, err := e.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: identityset.Address(1).String()})
+				require.NoError(err)
+				callerBalance, _ = big.NewInt(0).SetString(resp.GetAccountMeta().Balance, 10)
+				resp, err = e.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: producerSK.PublicKey().Address().String()})
+				require.NoError(err)
+				producerBalance, _ = big.NewInt(0).SetString(resp.GetAccountMeta().Balance, 10)
+			},
+			act: &actionWithTime{mustNoErr(action.SignedClaimReward(test.nonceMgr.pop(identityset.Address(1).String()), gasLimit, gasPrice, identityset.PrivateKey(1), unit.ConvertIotxToRau(1), nil, producerSK.PublicKey().Address(), action.WithChainID(chainID))), time.Now()},
+			expect: []actionExpect{successExpect, &functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+				// caller balance sub action gas fee
+				resp, err := test.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: identityset.Address(1).String()})
+				require.NoError(err)
+				callerBalance.Sub(callerBalance, big.NewInt(0).Mul(big.NewInt(int64(receipt.GasConsumed)), gasPrice))
+				require.Equal(callerBalance.String(), resp.GetAccountMeta().Balance)
+				// producer balance received 1 IOTX
+				resp, err = test.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: producerSK.PublicKey().Address().String()})
+				require.NoError(err)
+				producerBalance.Add(producerBalance, unit.ConvertIotxToRau(1))
+				require.Equal(producerBalance.String(), resp.GetAccountMeta().Balance)
+			}}},
+		},
+	})
 }
 
 func injectClaim(

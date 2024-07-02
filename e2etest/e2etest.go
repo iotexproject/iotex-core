@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -123,6 +124,38 @@ func (e *e2etest) withTest(t *testing.T) *e2etest {
 		t:   t,
 		api: e.api,
 	}
+}
+
+func (e *e2etest) getCandidateByName(name string) (*iotextypes.CandidateV2, error) {
+	methodName, err := proto.Marshal(&iotexapi.ReadStakingDataMethod{
+		Method: iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME,
+	})
+	if err != nil {
+		return nil, err
+	}
+	arg, err := proto.Marshal(&iotexapi.ReadStakingDataRequest{
+		Request: &iotexapi.ReadStakingDataRequest_CandidateByName_{
+			CandidateByName: &iotexapi.ReadStakingDataRequest_CandidateByName{
+				CandName: name,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	resp, err := e.api.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		ProtocolID: []byte("staking"),
+		MethodName: methodName,
+		Arguments:  [][]byte{arg},
+	})
+	if err != nil {
+		return nil, err
+	}
+	candidate := &iotextypes.CandidateV2{}
+	if err = proto.Unmarshal(resp.GetData(), candidate); err != nil {
+		return nil, err
+	}
+	return candidate, nil
 }
 
 func addOneTx(ctx context.Context, ap actpool.ActPool, bc blockchain.Blockchain, tx *actionWithTime) (*action.SealedEnvelope, *action.Receipt, error) {
