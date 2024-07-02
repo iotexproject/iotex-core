@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -95,9 +96,10 @@ func (e *e2etest) runCase(ctx context.Context, c *testcase) {
 		c.preFunc(e)
 	}
 	// run pre-actions
-	for _, act := range c.preActs {
-		_, _, err := addOneTx(ctx, ap, bc, act)
-		require.NoError(err)
+	for i, act := range c.preActs {
+		_, receipt, err := addOneTx(ctx, ap, bc, act)
+		require.NoErrorf(err, "failed to add pre-action %d", i)
+		require.EqualValuesf(iotextypes.ReceiptStatus_Success, receipt.Status, "pre-action %d failed", i)
 	}
 	// run action
 	act, receipt, err := addOneTx(ctx, ap, bc, c.act)

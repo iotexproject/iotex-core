@@ -476,7 +476,7 @@ func TestNativeStaking(t *testing.T) {
 		t.Run("candidate transfer ownership to a exist candidate", func(t *testing.T) {
 			_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(7, cand2Addr.String(), nil, gasLimit, gasPrice, cand1PriKey, action.WithChainID(chainID)))
 			require.NoError(err)
-			require.EqualValues(iotextypes.ReceiptStatus_ErrUnauthorizedOperator, ccto.Status)
+			require.EqualValues(iotextypes.ReceiptStatus_ErrCandidateAlreadyExist, ccto.Status)
 			require.NoError(checkCandidateState(sf, candidate1Name, identityset.Address(33).String(), big.NewInt(0), cand1NewVotes, cand1Addr))
 		})
 		t.Run("candidate transfer ownership to a normal new address again", func(t *testing.T) {
@@ -490,7 +490,7 @@ func TestNativeStaking(t *testing.T) {
 			newOwner2 := identityset.Address(34)
 			_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(9, newOwner2.String(), nil, gasLimit, gasPrice, cand1PriKey, action.WithChainID(chainID)))
 			require.NoError(err)
-			require.EqualValues(iotextypes.ReceiptStatus_ErrUnauthorizedOperator, ccto.Status)
+			require.EqualValues(iotextypes.ReceiptStatus_ErrCandidateAlreadyExist, ccto.Status)
 			require.NoError(checkCandidateState(sf, candidate1Name, newOwner2.String(), big.NewInt(0), cand1NewVotes, cand1Addr))
 		})
 		t.Run("candidate transfer ownership to a contract address", func(t *testing.T) {
@@ -500,7 +500,7 @@ func TestNativeStaking(t *testing.T) {
 			require.EqualValues(iotextypes.ReceiptStatus_Success, se.Status)
 			_, ccto, err := addOneTx(action.SignedCandidateTransferOwnership(11, se.ContractAddress, nil, gasLimit, gasPrice, cand1PriKey, action.WithChainID(chainID)))
 			require.NoError(err)
-			require.EqualValues(iotextypes.ReceiptStatus_ErrUnauthorizedOperator, ccto.Status)
+			require.EqualValues(iotextypes.ReceiptStatus_ErrUnknown, ccto.Status)
 			require.NoError(checkCandidateState(sf, candidate1Name, identityset.Address(34).String(), big.NewInt(0), cand1NewVotes, cand1Addr))
 		})
 		t.Run("candidate transfer ownership to a invalid address", func(t *testing.T) {
@@ -606,36 +606,14 @@ func TestCandidateTransferOwnership(t *testing.T) {
 		cfg.Genesis.InitBalanceMap[identityset.Address(1).String()] = "100000000000000000000000000"
 		cfg.Genesis.InitBalanceMap[identityset.Address(2).String()] = "100000000000000000000000000"
 		cfg.Genesis.EndorsementWithdrawWaitingBlocks = 10
-		cfg.Genesis.PacificBlockHeight = 1
-		cfg.Genesis.AleutianBlockHeight = 1
-		cfg.Genesis.BeringBlockHeight = 1
-		cfg.Genesis.CookBlockHeight = 1
-		cfg.Genesis.DardanellesBlockHeight = 1
-		cfg.Genesis.DaytonaBlockHeight = 1
-		cfg.Genesis.EasterBlockHeight = 1
-		cfg.Genesis.FbkMigrationBlockHeight = 1
-		cfg.Genesis.FairbankBlockHeight = 1
-		cfg.Genesis.GreenlandBlockHeight = 1
-		cfg.Genesis.HawaiiBlockHeight = 1
-		cfg.Genesis.IcelandBlockHeight = 1
-		cfg.Genesis.JutlandBlockHeight = 1
-		cfg.Genesis.KamchatkaBlockHeight = 1
-		cfg.Genesis.LordHoweBlockHeight = 1
-		cfg.Genesis.MidwayBlockHeight = 1
-		cfg.Genesis.NewfoundlandBlockHeight = 1
-		cfg.Genesis.OkhotskBlockHeight = 1
-		cfg.Genesis.PalauBlockHeight = 1
-		cfg.Genesis.QuebecBlockHeight = 1
-		cfg.Genesis.RedseaBlockHeight = 1
-		cfg.Genesis.SumatraBlockHeight = 1
 		cfg.Genesis.TsunamiBlockHeight = 1
 		cfg.Genesis.UpernavikBlockHeight = 2 // enable CandidateIdentifiedByOwner feature
+		normalizeGenesisHeights(&cfg)
 		return cfg
 	}
 	registerAmount, _ := big.NewInt(0).SetString("1200000000000000000000000", 10)
 	gasLimit = uint64(10000000)
 	gasPrice = big.NewInt(1)
-	successExpect := &basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_Success), ""}
 
 	t.Run("transfer candidate ownership", func(t *testing.T) {
 		test := newE2ETest(t, initCfg())
@@ -653,9 +631,9 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				expect: []actionExpect{successExpect, &candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: "0", OwnerAddress: identityset.Address(newOwnerID).String(), SelfStakeBucketIdx: math.MaxUint64}}},
 			},
 			{
-				name:   "cannot transfer to old owner",
+				name:   "transfer back to old owner",
 				act:    &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(newOwnerID).String()), identityset.Address(oldOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(newOwnerID), action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrUnauthorizedOperator), ""}},
+				expect: []actionExpect{successExpect, &candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: "0", OwnerAddress: identityset.Address(oldOwnerID).String(), SelfStakeBucketIdx: math.MaxUint64}}},
 			},
 		})
 	})
@@ -728,7 +706,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 					{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), identityset.Address(newOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
 				},
 				act:    &actionWithTime{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), "cand2", identityset.Address(2).String(), identityset.Address(1).String(), identityset.Address(oldOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{successExpect, &candidateExpect{"cand2", &iotextypes.CandidateV2{Id: "", Name: "cand2", OperatorAddress: identityset.Address(2).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(oldOwnerID).String(), SelfStakeBucketIdx: 1}}},
+				expect: []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrCandidateAlreadyExist), ""}},
 			},
 			{
 				name:   "new owner cannot register again",
@@ -743,7 +721,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 			{
 				name:   "new owner can register again",
 				act:    &actionWithTime{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(newOwnerID).String()), "cand3", identityset.Address(3).String(), identityset.Address(1).String(), identityset.Address(newOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(newOwnerID), action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{successExpect, &candidateExpect{"cand3", &iotextypes.CandidateV2{Name: "cand3", OperatorAddress: identityset.Address(3).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(newOwnerID).String(), SelfStakeBucketIdx: 2}}},
+				expect: []actionExpect{successExpect, &candidateExpect{"cand3", &iotextypes.CandidateV2{Name: "cand3", OperatorAddress: identityset.Address(3).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1245621408203087110422302", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(newOwnerID).String(), SelfStakeBucketIdx: 1}}},
 			},
 		})
 	})
@@ -1126,4 +1104,90 @@ func TestCandidateTransferOwnership(t *testing.T) {
 			},
 		})
 	})
+}
+
+func TestCandidateOwnerCollision(t *testing.T) {
+	require := require.New(t)
+	initCfg := func() config.Config {
+		cfg := deepcopy.Copy(config.Default).(config.Config)
+		initDBPaths(require, &cfg)
+
+		cfg.ActPool.MinGasPriceStr = "0"
+		cfg.Chain.TrieDBPatchFile = ""
+		cfg.Consensus.Scheme = config.NOOPScheme
+		cfg.Chain.EnableAsyncIndexWrite = false
+		cfg.Genesis.InitBalanceMap[identityset.Address(1).String()] = "100000000000000000000000000"
+		cfg.Genesis.InitBalanceMap[identityset.Address(2).String()] = "100000000000000000000000000"
+		cfg.Genesis.EndorsementWithdrawWaitingBlocks = 10
+		cfg.Genesis.TsunamiBlockHeight = 1
+		cfg.Genesis.UpernavikBlockHeight = 2 // enable CandidateIdentifiedByOwner feature
+		normalizeGenesisHeights(&cfg)
+		return cfg
+	}
+	registerAmount, _ := big.NewInt(0).SetString("1200000000000000000000000", 10)
+	gasLimit = uint64(10000000)
+	gasPrice = big.NewInt(1)
+	oldOwnerID := 1
+	newOwnerID := 2
+	newOwnerID2 := 3
+	test := newE2ETest(t, initCfg())
+	defer test.teardown()
+	chainID := test.cfg.Chain.ID
+	test.run([]*testcase{
+		{
+			name: "owner cannot register again",
+			preActs: []*actionWithTime{
+				{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), "cand1", identityset.Address(1).String(), identityset.Address(1).String(), identityset.Address(oldOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
+			},
+			act:    &actionWithTime{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), "cand2", identityset.Address(2).String(), identityset.Address(2).String(), identityset.Address(oldOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
+			expect: []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrCandidateAlreadyExist), ""}},
+		},
+		{
+			name:    "original owner cannot register again",
+			preActs: []*actionWithTime{{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), identityset.Address(newOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()}},
+			act:     &actionWithTime{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), "cand2", identityset.Address(2).String(), identityset.Address(2).String(), identityset.Address(oldOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
+			expect:  []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrCandidateAlreadyExist), ""}},
+		},
+		{
+			name:    "cannot transfer to a new owner that same as an existed candidate identifier",
+			preActs: []*actionWithTime{{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(newOwnerID2).String()), "cand2", identityset.Address(3).String(), identityset.Address(3).String(), identityset.Address(newOwnerID2).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(newOwnerID2), action.WithChainID(chainID))), time.Now()}},
+			act:     &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(newOwnerID2).String()), identityset.Address(oldOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(newOwnerID2), action.WithChainID(chainID))), time.Now()},
+			expect:  []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrCandidateAlreadyExist), ""}},
+		},
+	})
+}
+
+func normalizeGenesisHeights(cfg *config.Config) {
+	heights := []*uint64{
+		&cfg.Genesis.PacificBlockHeight,
+		&cfg.Genesis.AleutianBlockHeight,
+		&cfg.Genesis.BeringBlockHeight,
+		&cfg.Genesis.CookBlockHeight,
+		&cfg.Genesis.DardanellesBlockHeight,
+		&cfg.Genesis.DaytonaBlockHeight,
+		&cfg.Genesis.EasterBlockHeight,
+		&cfg.Genesis.FbkMigrationBlockHeight,
+		&cfg.Genesis.FairbankBlockHeight,
+		&cfg.Genesis.GreenlandBlockHeight,
+		&cfg.Genesis.HawaiiBlockHeight,
+		&cfg.Genesis.IcelandBlockHeight,
+		&cfg.Genesis.JutlandBlockHeight,
+		&cfg.Genesis.KamchatkaBlockHeight,
+		&cfg.Genesis.LordHoweBlockHeight,
+		&cfg.Genesis.MidwayBlockHeight,
+		&cfg.Genesis.NewfoundlandBlockHeight,
+		&cfg.Genesis.OkhotskBlockHeight,
+		&cfg.Genesis.PalauBlockHeight,
+		&cfg.Genesis.QuebecBlockHeight,
+		&cfg.Genesis.RedseaBlockHeight,
+		&cfg.Genesis.SumatraBlockHeight,
+		&cfg.Genesis.TsunamiBlockHeight,
+		&cfg.Genesis.UpernavikBlockHeight,
+		&cfg.Genesis.ToBeEnabledBlockHeight,
+	}
+	for i := len(heights) - 2; i >= 0; i-- {
+		if *(heights[i]) > *(heights[i+1]) {
+			*(heights[i]) = *(heights[i+1])
+		}
+	}
 }
