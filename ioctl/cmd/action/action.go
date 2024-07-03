@@ -218,19 +218,7 @@ func SendRaw(selp *iotextypes.Action) error {
 
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
 	txhash := hex.EncodeToString(shash[:])
-	message := sendMessage{Info: "Action has been sent to blockchain.", TxHash: txhash, URL: "https://"}
-	switch config.ReadConfig.Explorer {
-	case "iotexscan":
-		if strings.Contains(config.ReadConfig.Endpoint, "testnet") {
-			message.URL += "testnet."
-		}
-		message.URL += "iotexscan.io/action/" + txhash
-	case "iotxplorer":
-		message.URL = "iotxplorer.io/actions/" + txhash
-	default:
-		message.URL = config.ReadConfig.Explorer + txhash
-	}
-	fmt.Println(message.String())
+	outputActionInfo(txhash)
 	return nil
 }
 
@@ -262,8 +250,12 @@ func SendRawAndRespond(selp *iotextypes.Action) (*iotexapi.SendActionResponse, e
 
 // SendAction sends signed action to blockchain
 func SendAction(elp action.Envelope, signer string) error {
-	_, err := SendActionAndResponse(elp, signer)
-	return err
+	resp, err := SendActionAndResponse(elp, signer)
+	if err != nil {
+		return err
+	}
+	outputActionInfo(resp.ActionHash)
+	return nil
 }
 
 // SendActionAndResponse sends signed action to blockchain with response and error return
@@ -423,4 +415,20 @@ func isBalanceEnough(address string, act *action.SealedEnvelope) error {
 		return output.NewError(output.ValidationError, "balance is not enough", nil)
 	}
 	return nil
+}
+
+func outputActionInfo(txhash string) {
+	message := sendMessage{Info: "Action has been sent to blockchain.", TxHash: txhash, URL: "https://"}
+	switch config.ReadConfig.Explorer {
+	case "iotexscan":
+		if strings.Contains(config.ReadConfig.Endpoint, "testnet") {
+			message.URL += "testnet."
+		}
+		message.URL += "iotexscan.io/action/" + txhash
+	case "iotxplorer":
+		message.URL = "iotxplorer.io/actions/" + txhash
+	default:
+		message.URL = config.ReadConfig.Explorer + txhash
+	}
+	fmt.Println(message.String())
 }
