@@ -790,7 +790,7 @@ func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
 	if !ethAddr.Exists() || !storagePos.Exists() {
 		return nil, errInvalidFormat
 	}
-	heightParam := in.Get("params.1")
+	heightParam := in.Get("params.2")
 	height, err := parseBlockNumber(&heightParam)
 	if err != nil {
 		return nil, err
