@@ -146,6 +146,12 @@ func (cbi *CandidatesBucketsIndexer) GetCandidates(height uint64, offset, limit 
 		end = uint32(len(candidateList.Candidates))
 	}
 	candidateList.Candidates = candidateList.Candidates[offset:end]
+	// fill id if it's empty for backward compatibility
+	for i := range candidateList.Candidates {
+		if candidateList.Candidates[i].Id == "" {
+			candidateList.Candidates[i].Id = candidateList.Candidates[i].OwnerAddress
+		}
+	}
 	return candidateList, height, nil
 }
 
