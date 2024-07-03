@@ -20,7 +20,6 @@ import (
 
 	. "github.com/iotexproject/iotex-core/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestGenerateRlp(t *testing.T) {
@@ -317,6 +316,21 @@ var (
 			"8d38efe45794d7fceea10b2262c23c12245959db",
 		},
 		{
+			"rewardingClaimWithAddress",
+			"f9014905830186a082520894a576c141e5659137ddda4223d209d4744b2106be80b8e4d804b87c0000000000000000000000000000000000000000000000000000002e90edd000000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000029696f313433617638383078307863653474737939737877723861766870687135736768756d37376374000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008224c6a01490de878ee13ee6976064082f75bbbfd7da0294a151b966d5ddf45dac6838e2a0104fdcc42607f54a8d1a5ad7f2e7fbbd3f8e7f56efb58ebff638ac8485509332",
+			5,
+			21000,
+			"100000",
+			"0",
+			"0xA576C141e5659137ddDa4223d209d4744b2106BE",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			228,
+			"2b34c548e0b8d027124ead244331c65a92fd7716ce4dac42c7bb5b342d21e240",
+			"04bc3a3123a0d72e1e622ec1a51087ef3b15a9d6db0f924c0fd8b4958653ff7608194321d1fd90c0c949b05b6b911d8d7e9aaadbe497e696367c19780a016ce440",
+			"fff810c667050c7e4263a39e796af8d5e74a1b55",
+		},
+		{
 			"rewardingDeposit",
 			"f8c6016482520894a576c141e5659137ddda4223d209d4744b2106be80b86427852a6b0000000000000000000000000000000000000000000000000000000000000065000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000008224c6a013b7679dbabcb0f97b93942436f5072cca3c7fe43451a8fedcdf3c84c1344e1da02af4cc67594c0200b59f4e30ba149af15e546acbfc69fa31f14e8788ab063d85",
 			1,
@@ -453,15 +467,6 @@ var (
 		},
 	}
 )
-
-func TestGenerateRLP(t *testing.T) {
-	r := require.New(t)
-	act, err := NewMigrateStake(120, 10, 21000, big.NewInt(10000))
-	r.NoError(err)
-	test, err := generateRLPTestData("migrateStake", _evmNetworkID, iotextypes.Encoding_ETHEREUM_EIP155, identityset.PrivateKey(1), act)
-	r.NoError(err)
-	t.Logf("test=%+v", test)
-}
 
 func TestNewEthSignerError(t *testing.T) {
 	require := require.New(t)
@@ -1070,7 +1075,7 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 		"endorseCandidate", "intentToRevokeEndorsement", "revokeEndorsement", "migrateStake":
 		elp, _ := elpBuilder.BuildStakingAction(tx)
 		return elp.Proto()
-	case "rewardingClaim", "rewardingDeposit":
+	case "rewardingClaim", "rewardingClaimWithAddress", "rewardingDeposit":
 		elp, _ := elpBuilder.BuildRewardingAction(tx)
 		return elp.Proto()
 	default:
