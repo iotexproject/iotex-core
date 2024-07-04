@@ -651,7 +651,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 					{mustNoErr(action.SignedCandidateActivate(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), 1, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
 				},
 				act:    &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), identityset.Address(newOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{successExpect, &candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "2491242816406174220844604", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(newOwnerID).String(), SelfStakeBucketIdx: 1}}},
+				expect: []actionExpect{successExpect, &candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", Id: identityset.Address(oldOwnerID).String(), OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "2491242816406174220844604", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(newOwnerID).String(), SelfStakeBucketIdx: 1}}},
 			},
 		})
 	})
@@ -1195,7 +1195,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				},
 				act: &actionWithTime{mustNoErr(action.SignedDepositToStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, unit.ConvertIotxToRau(10000000).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
 				expect: []actionExpect{successExpect,
-					&candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "15734989908573124317570090", SelfStakingTokens: "0", OwnerAddress: identityset.Address(candOwnerID).String(), SelfStakeBucketIdx: math.MaxUint64}},
+					&candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", Id: identityset.Address(candOwnerID).String(), OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "15734989908573124317570090", SelfStakingTokens: "0", OwnerAddress: identityset.Address(candOwnerID).String(), SelfStakeBucketIdx: math.MaxUint64}},
 					&bucketExpect{&iotextypes.VoteBucket{Index: 1, EndorsementExpireBlockHeight: 10, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: "11200000000000000000000000", AutoStake: true, StakedDuration: 91, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
 				},
 			},
@@ -1207,7 +1207,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				},
 				act: &actionWithTime{mustNoErr(action.SignedChangeCandidate(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand2", 1, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
 				expect: []actionExpect{successExpect,
-					&candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "92550969839127272820178", SelfStakingTokens: "0", OwnerAddress: identityset.Address(candOwnerID).String(), SelfStakeBucketIdx: math.MaxUint64}},
+					&candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", Id: identityset.Address(candOwnerID).String(), OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "92550969839127272820178", SelfStakingTokens: "0", OwnerAddress: identityset.Address(candOwnerID).String(), SelfStakeBucketIdx: math.MaxUint64}},
 				},
 			},
 			{
@@ -1225,7 +1225,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				},
 				act: &actionWithTime{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()},
 				expect: []actionExpect{successExpect,
-					&candidateExpect{"cand3", &iotextypes.CandidateV2{Name: "cand3", OperatorAddress: identityset.Address(4).String(), RewardAddress: identityset.Address(4).String(), TotalWeightedVotes: "2880688542027669019063296", SelfStakingTokens: "0", OwnerAddress: identityset.Address(candOwnerID3).String(), SelfStakeBucketIdx: math.MaxUint64}},
+					&candidateExpect{"cand3", &iotextypes.CandidateV2{Name: "cand3", Id: identityset.Address(candOwnerID3).String(), OperatorAddress: identityset.Address(4).String(), RewardAddress: identityset.Address(4).String(), TotalWeightedVotes: "2880688542027669019063296", SelfStakingTokens: "0", OwnerAddress: identityset.Address(candOwnerID3).String(), SelfStakeBucketIdx: math.MaxUint64}},
 					&bucketExpect{&iotextypes.VoteBucket{Index: 4, EndorsementExpireBlockHeight: 24, CandidateAddress: identityset.Address(candOwnerID3).String(), StakedAmount: "1200000000000000000000000", AutoStake: true, StakedDuration: 91, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
 				},
 			},
@@ -1235,7 +1235,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				expect: []actionExpect{successExpect,
 					&bucketExpect{&iotextypes.VoteBucket{Index: 1, EndorsementExpireBlockHeight: 10, CandidateAddress: identityset.Address(candOwnerID2).String(), StakedAmount: "11200000000000000000000000", AutoStake: true, StakedDuration: 91, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
 					&bucketExpect{&iotextypes.VoteBucket{Index: 4, EndorsementExpireBlockHeight: 0, CandidateAddress: identityset.Address(candOwnerID3).String(), StakedAmount: "1200000000000000000000000", AutoStake: true, StakedDuration: 91, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
-					&candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "0", SelfStakingTokens: "0", OwnerAddress: identityset.Address(candOwnerID).String(), SelfStakeBucketIdx: math.MaxUint64}},
+					&candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", Id: identityset.Address(candOwnerID).String(), OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "0", SelfStakingTokens: "0", OwnerAddress: identityset.Address(candOwnerID).String(), SelfStakeBucketIdx: math.MaxUint64}},
 				},
 			},
 		})
