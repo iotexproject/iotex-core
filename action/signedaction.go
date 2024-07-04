@@ -10,6 +10,7 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/pkg/errors"
 )
@@ -460,6 +461,46 @@ func SignedMigrateStake(
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(cto)
+	for _, opt := range options {
+		opt(bd)
+	}
+	elp := bd.Build()
+	selp, err := Sign(elp, senderPriKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to sign candidate transfer ownership %v", elp)
+	}
+	return selp, nil
+}
+
+func SignedClaimRewardLegacy(
+	nonce uint64,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	senderPriKey crypto.PrivateKey,
+	amount *big.Int,
+	payload []byte,
+	options ...SignedActionOption,
+) (*SealedEnvelope, error) {
+	return SignedClaimReward(nonce, gasLimit, gasPrice, senderPriKey, amount, payload, nil, options...)
+}
+
+func SignedClaimReward(
+	nonce uint64,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	senderPriKey crypto.PrivateKey,
+	amount *big.Int,
+	payload []byte,
+	address address.Address,
+	options ...SignedActionOption,
+) (*SealedEnvelope, error) {
+	b := &ClaimFromRewardingFundBuilder{}
+	act := b.SetAmount(amount).SetData(payload).SetAddress(address).Build()
+	bd := &EnvelopeBuilder{}
+	bd = bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).
+		SetAction(&act)
 	for _, opt := range options {
 		opt(bd)
 	}
