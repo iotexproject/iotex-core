@@ -503,7 +503,7 @@ func TestNativeStaking(t *testing.T) {
 			require.EqualValues(iotextypes.ReceiptStatus_ErrUnknown, ccto.Status)
 			require.NoError(checkCandidateState(sf, candidate1Name, identityset.Address(34).String(), big.NewInt(0), cand1NewVotes, cand1Addr))
 		})
-		t.Run("candidate transfer ownership to a invalid address", func(t *testing.T) {
+		t.Run("candidate transfer ownership to an invalid address", func(t *testing.T) {
 			_, _, err := addOneTx(action.SignedCandidateTransferOwnership(12, "123", nil, gasLimit, gasPrice, cand1PriKey, action.WithChainID(chainID)))
 			require.ErrorContains(err, action.ErrAddress.Error())
 		})
@@ -950,10 +950,49 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				},
 			},
 			{
+				name: "self-stake bucket cannot be migrated",
+				act:  &actionWithTime{mustNoErr(action.SignedMigrateStake(test.nonceMgr.pop(identityset.Address(candOwnerID).String()), 0, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), ""},
+				},
+			},
+			{
+				name: "unstaked bucket cannot be migrated",
+				preActs: []*actionWithTime{
+					{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", unit.ConvertIotxToRau(100).String(), 0, false, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), stakeTime},
+					{mustNoErr(action.SignedReclaimStake(false, test.nonceMgr.pop(identityset.Address(stakerID).String()), 3, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				},
+				act: &actionWithTime{mustNoErr(action.SignedMigrateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), 3, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), ""},
+				},
+			},
+			{
+				name: "non auto-stake bucket cannot be migrated",
+				preActs: []*actionWithTime{
+					{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", unit.ConvertIotxToRau(100).String(), stakeDurationDays, false, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), stakeTime},
+				},
+				act: &actionWithTime{mustNoErr(action.SignedMigrateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), 4, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), ""},
+				},
+			},
+			{
+				name: "endorsement bucket cannot be migrated",
+				preActs: []*actionWithTime{
+					{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", registerAmount.String(), 91, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), stakeTime},
+					{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 5, action.CandidateEndorsementOpEndorse, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				},
+				act: &actionWithTime{mustNoErr(action.SignedMigrateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), 5, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), ""},
+				},
+			},
+			{
 				name: "estimateGas",
 				act:  &actionWithTime{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", stakeAmount.String(), stakeDurationDays, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), stakeTime},
 				expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
-					ms, err := action.NewMigrateStake(0, 3, gasLimit, gasPrice)
+					ms, err := action.NewMigrateStake(0, 6, gasLimit, gasPrice)
 					require.NoError(err)
 					resp, err := test.api.EstimateActionGasConsumption(context.Background(), &iotexapi.EstimateActionGasConsumptionRequest{
 						Action:        &iotexapi.EstimateActionGasConsumptionRequest_StakeMigrate{StakeMigrate: ms.Proto()},
