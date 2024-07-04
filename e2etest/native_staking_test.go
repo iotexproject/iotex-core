@@ -845,21 +845,24 @@ func TestCandidateTransferOwnership(t *testing.T) {
 		minAmount, _ := big.NewInt(0).SetString("1000000000000000000000", 10) // 1000 IOTX
 		bytecode, err := hex.DecodeString(stakingContractV2Bytecode)
 		require.NoError(err)
-		deployCode, err := staking.StakingContractABI.Constructor.Inputs.Pack(minAmount, common.BytesToAddress(identityset.Address(stakerID).Bytes()))
-		deployCode = append(bytecode, deployCode...)
-		require.NoError(err)
+		mustCallData := func(m string, args ...any) []byte {
+			data, err := abiCall(staking.StakingContractABI, m, args...)
+			require.NoError(err)
+			return data
+		}
+		deployCode := append(bytecode, mustCallData("", minAmount)...)
 		test.run([]*testcase{
 			{
 				name: "deploy staking contract",
 				act:  &actionWithTime{mustNoErr(action.SignedExecution("", identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice, deployCode, action.WithChainID(chainID))), time.Now()},
 				expect: []actionExpect{
 					successExpect, &executionExpect{contractAddress},
-					&accountExpect{identityset.Address(stakerID), "99999999999999999996387414", test.nonceMgr[identityset.Address(stakerID).String()]},
 				},
 			},
 			{
 				name: "non-owner cannot migrate stake",
 				preActs: []*actionWithTime{
+					{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice, mustCallData("setBeneficiary(address)", common.BytesToAddress(identityset.Address(stakerID).Bytes())), action.WithChainID(chainID))), stakeTime},
 					{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(candOwnerID).String()), "cand1", identityset.Address(1).String(), identityset.Address(1).String(), identityset.Address(candOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID), action.WithChainID(chainID))), time.Now()},
 					{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", stakeAmount.String(), stakeDurationDays, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), stakeTime},
 				},
@@ -867,7 +870,6 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				expect: []actionExpect{
 					&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrUnauthorizedOperator), ""},
 					&bucketExpect{&iotextypes.VoteBucket{Index: 1, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: stakeAmount.String(), AutoStake: true, StakedDuration: stakeDurationDays, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
-					&accountExpect{identityset.Address(stakerID), "99989999999999999996377414", test.nonceMgr[identityset.Address(stakerID).String()]},
 					&candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", Id: identityset.Address(candOwnerID).String(), OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1256001586604779503009155", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(candOwnerID).String(), SelfStakeBucketIdx: 0}},
 				},
 			},
@@ -887,7 +889,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				expect: []actionExpect{
 					successExpect,
 					&fullActionExpect{
-						address.StakingProtocolAddr, 212034,
+						address.StakingProtocolAddr, 212012,
 						[]*action.TransactionLog{
 							{
 								Type:      iotextypes.TransactionLogType_GAS_FEE,
@@ -903,7 +905,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 							},
 							{
 								Type:      iotextypes.TransactionLogType_GAS_FEE,
-								Amount:    big.NewInt(202034),
+								Amount:    big.NewInt(202012),
 								Sender:    identityset.Address(stakerID).String(),
 								Recipient: address.RewardingPoolAddr,
 							},
@@ -915,9 +917,8 @@ func TestCandidateTransferOwnership(t *testing.T) {
 							},
 						},
 					},
-					&bucketExpect{&iotextypes.VoteBucket{Index: 1, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: stakeAmount.String(), AutoStake: true, StakedDuration: stakeDurationDays, StakedDurationBlockNumber: uint64(stakeDurationDays) * uint64(blocksPerDay), CreateBlockHeight: 5, StakeStartBlockHeight: 5, UnstakeStartBlockHeight: math.MaxUint64, Owner: identityset.Address(stakerID).String(), ContractAddress: contractAddress, CreateTime: timestamppb.New(time.Time{}), StakeStartTime: timestamppb.New(time.Time{}), UnstakeStartTime: timestamppb.New(time.Time{})}},
+					&bucketExpect{&iotextypes.VoteBucket{Index: 1, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: stakeAmount.String(), AutoStake: true, StakedDuration: stakeDurationDays, StakedDurationBlockNumber: uint64(stakeDurationDays) * uint64(blocksPerDay), CreateBlockHeight: 6, StakeStartBlockHeight: 6, UnstakeStartBlockHeight: math.MaxUint64, Owner: identityset.Address(stakerID).String(), ContractAddress: contractAddress, CreateTime: timestamppb.New(time.Time{}), StakeStartTime: timestamppb.New(time.Time{}), UnstakeStartTime: timestamppb.New(time.Time{})}},
 					&noBucketExpect{1, ""},
-					&accountExpect{identityset.Address(stakerID), "99989999999999999996165380", test.nonceMgr[identityset.Address(stakerID).String()]},
 					&candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", Id: identityset.Address(candOwnerID).String(), OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1256001586604779503009155", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(candOwnerID).String(), SelfStakeBucketIdx: 0}},
 					&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
 						resp, err := test.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{
@@ -946,7 +947,6 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				expect: []actionExpect{
 					successExpect,
 					&bucketExpect{&iotextypes.VoteBucket{Index: 2, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: unit.ConvertIotxToRau(100).String(), AutoStake: true, StakedDuration: stakeDurationDays, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
-					&accountExpect{identityset.Address(stakerID), "99989899999999999996155380", test.nonceMgr[identityset.Address(stakerID).String()]},
 				},
 			},
 			{
@@ -956,17 +956,16 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				expect: []actionExpect{
 					&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrExecutionReverted), ""},
 					&fullActionExpect{
-						address.StakingProtocolAddr, 29425, []*action.TransactionLog{
+						address.StakingProtocolAddr, 29447, []*action.TransactionLog{
 							{
 								Type:      iotextypes.TransactionLogType_GAS_FEE,
-								Amount:    big.NewInt(29425),
+								Amount:    big.NewInt(29447),
 								Sender:    identityset.Address(stakerID).String(),
 								Recipient: address.RewardingPoolAddr,
 							},
 						},
 					},
 					&bucketExpect{&iotextypes.VoteBucket{Index: 2, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: unit.ConvertIotxToRau(100).String(), AutoStake: true, StakedDuration: stakeDurationDays, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
-					&accountExpect{identityset.Address(stakerID), "99989899999999999996125955", test.nonceMgr[identityset.Address(stakerID).String()]},
 				},
 			},
 			{
@@ -1020,7 +1019,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 						GasPrice:      gasPrice.String(),
 					})
 					require.NoError(err)
-					require.Equal(uint64(194934), resp.Gas)
+					require.Equal(uint64(194912), resp.Gas)
 				}}},
 			},
 		})
