@@ -65,6 +65,7 @@ func TestConfigGet(t *testing.T) {
 		WsFleetManagementContract: "testWsFleetManagementContract",
 		WsProverStoreContract:     "testWsProverStoreContract",
 		WsProjectDevicesContract:  "testWsProjectDevicesContract",
+		WsRouterContract:          "testWsRouterContract",
 	}, testPath)
 
 	tcs := []struct {
@@ -128,9 +129,13 @@ func TestConfigGet(t *testing.T) {
 			"testWsProverStoreContract",
 		},
 		{
+			"wsRouterContract",
+			"testWsRouterContract",
+		},
+		{
 			"all",
 			// " \"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\",\n  \"wsEndpoint\": \"testWsEndpoint\",\n  \"ipfsEndpoint\": \"testIPFSEndpoint\",\n  \"ipfsGateway\": \"testIPFSGateway\",\n  \"wsProjectRegisterContract\": \"testWsProjectRegisterContract\",\n  \"wsProjectStoreContract\": \"testWsProjectStoreContract\",\n  \"wsFleetManagementContract\": \"testWsFleetManagementContract\",\n  \"wsProverStoreContract\": \"testWsProverStoreContract\"\n}",
-			"  \"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\",\n  \"wsEndpoint\": \"testWsEndpoint\",\n  \"ipfsEndpoint\": \"testIPFSEndpoint\",\n  \"ipfsGateway\": \"testIPFSGateway\",\n  \"wsProjectRegisterContract\": \"testWsProjectRegisterContract\",\n  \"wsProjectStoreContract\": \"testWsProjectStoreContract\",\n  \"wsFleetManagementContract\": \"testWsFleetManagementContract\",\n  \"wsProverStoreContract\": \"testWsProverStoreContract\",\n  \"wsProjectDevicesContract\": \"testWsProjectDevicesContract\"\n}",
+			"  \"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\",\n  \"wsEndpoint\": \"testWsEndpoint\",\n  \"ipfsEndpoint\": \"testIPFSEndpoint\",\n  \"ipfsGateway\": \"testIPFSGateway\",\n  \"wsProjectRegisterContract\": \"testWsProjectRegisterContract\",\n  \"wsProjectStoreContract\": \"testWsProjectStoreContract\",\n  \"wsFleetManagementContract\": \"testWsFleetManagementContract\",\n  \"wsProverStoreContract\": \"testWsProverStoreContract\",\n  \"wsProjectDevicesContract\": \"testWsProjectDevicesContract\",\n  \"wsRouterContract\": \"testWsRouterContract\"\n}",
 		},
 	}
 
@@ -165,6 +170,7 @@ func TestConfigReset(t *testing.T) {
 		WsFleetManagementContract: "testWsFleetManagementContract",
 		WsProverStoreContract:     "testWsProverStoreContract",
 		WsProjectDevicesContract:  "testWsProjectDevicesContract",
+		WsRouterContract:          "testWsRouterContract",
 	}, cfgFile)
 
 	// write the config to the temp dir and then reset
@@ -187,6 +193,7 @@ func TestConfigReset(t *testing.T) {
 	require.Equal("testWsFleetManagementContract", cfg.WsFleetManagementContract)
 	require.Equal("testWsProverStoreContract", cfg.WsProverStoreContract)
 	require.Equal("testWsProjectDevicesContract", cfg.WsProjectDevicesContract)
+	require.Equal("testWsRouterContract", cfg.WsRouterContract)
 
 	require.NoError(info.reset())
 	require.NoError(info.loadConfig())
@@ -206,6 +213,7 @@ func TestConfigReset(t *testing.T) {
 	require.Equal(_defaultWsFleetManagementContract, resetCfg.WsFleetManagementContract)
 	require.Equal(_defaultWsProverStoreContract, resetCfg.WsProverStoreContract)
 	require.Equal(_defaultWsProjectDevicesContract, resetCfg.WsProjectDevicesContract)
+	require.Equal(_defaultWsRouterContract, resetCfg.WsRouterContract)
 	require.Equal("iotexscan", resetCfg.Explorer)
 	require.Equal(*new(config.Context), resetCfg.DefaultAccount)
 }
@@ -303,6 +311,10 @@ func TestConfigSet(t *testing.T) {
 		{
 			[]string{"wsProverStoreContract", "testWsProverStoreContract"},
 			"testWsProverStoreContract",
+		},
+		{
+			[]string{"wsRouterContract", "testWsRouterContract"},
+			"testWsRouterContract",
 		},
 	}
 

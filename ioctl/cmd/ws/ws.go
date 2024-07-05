@@ -74,6 +74,11 @@ var (
 		config.English: "project id",
 		config.Chinese: "项目ID",
 	}
+
+	_flagRouterContractAddressUsages = map[config.Language]string{
+		config.English: "set w3bsteram router contract address for once",
+		config.Chinese: "一次设置w3bstream router合约地址",
+	}
 )
 
 var (
@@ -117,5 +122,9 @@ func init() {
 	WsCmd.PersistentFlags().StringVar(
 		&config.ReadConfig.WsProjectDevicesContract, "project-devices-contract",
 		config.ReadConfig.WsProjectDevicesContract, config.TranslateInLang(_flagProjectDevicesContractAddressUsages, config.UILanguage),
+	)
+	WsCmd.PersistentFlags().StringVar(
+		&config.ReadConfig.WsRouterContract, "router-contract",
+		config.ReadConfig.WsRouterContract, config.TranslateInLang(_flagRouterContractAddressUsages, config.UILanguage),
 	)
 }

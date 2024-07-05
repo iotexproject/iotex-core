@@ -83,6 +83,8 @@ type Config struct {
 	WsProverStoreContract string `json:"wsProverStoreContract" yaml:"wsProverStoreContract"`
 	// WsProjectDevicesContract w3bstream Project devices contract address
 	WsProjectDevicesContract string `json:"wsProjectDevicesContract" yaml:"wsProjectDevicesContract"`
+	// WsRouterContract w3bstream Router contract address
+	WsRouterContract string `json:"wsRouterContract" yaml:"wsRouterContract"`
 }
 
 var (
@@ -166,6 +168,10 @@ func init() {
 	}
 	if ReadConfig.WsProjectDevicesContract == "" {
 		ReadConfig.WsProjectDevicesContract = _defaultWsProjectDevicesContract
+		completeness = false
+	}
+	if ReadConfig.WsRouterContract == "" {
+		ReadConfig.WsRouterContract = _defaultWsRouterContract
 		completeness = false
 	}
 	if !completeness {
