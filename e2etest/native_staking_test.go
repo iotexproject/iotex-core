@@ -870,6 +870,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				expect: []actionExpect{
 					&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrUnauthorizedOperator), ""},
 					&bucketExpect{&iotextypes.VoteBucket{Index: 1, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: stakeAmount.String(), AutoStake: true, StakedDuration: stakeDurationDays, Owner: identityset.Address(stakerID).String(), CreateTime: timestamppb.New(stakeTime), StakeStartTime: timestamppb.New(stakeTime), UnstakeStartTime: &timestamppb.Timestamp{}}},
+					&accountExpect{identityset.Address(stakerID), "99989999999999999996377414", test.nonceMgr[identityset.Address(stakerID).String()]},
 					&candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", Id: identityset.Address(candOwnerID).String(), OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1256001586604779503009155", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(candOwnerID).String(), SelfStakeBucketIdx: 0}},
 				},
 			},
@@ -919,6 +920,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 					},
 					&bucketExpect{&iotextypes.VoteBucket{Index: 1, CandidateAddress: identityset.Address(candOwnerID).String(), StakedAmount: stakeAmount.String(), AutoStake: true, StakedDuration: stakeDurationDays, StakedDurationBlockNumber: uint64(stakeDurationDays) * uint64(blocksPerDay), CreateBlockHeight: 6, StakeStartBlockHeight: 6, UnstakeStartBlockHeight: math.MaxUint64, Owner: identityset.Address(stakerID).String(), ContractAddress: contractAddress, CreateTime: timestamppb.New(time.Time{}), StakeStartTime: timestamppb.New(time.Time{}), UnstakeStartTime: timestamppb.New(time.Time{})}},
 					&noBucketExpect{1, ""},
+					&accountExpect{identityset.Address(stakerID), "99989999999999999996165380", test.nonceMgr[identityset.Address(stakerID).String()]},
 					&candidateExpect{"cand1", &iotextypes.CandidateV2{Name: "cand1", Id: identityset.Address(candOwnerID).String(), OperatorAddress: identityset.Address(1).String(), RewardAddress: identityset.Address(1).String(), TotalWeightedVotes: "1256001586604779503009155", SelfStakingTokens: registerAmount.String(), OwnerAddress: identityset.Address(candOwnerID).String(), SelfStakeBucketIdx: 0}},
 					&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
 						resp, err := test.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{
