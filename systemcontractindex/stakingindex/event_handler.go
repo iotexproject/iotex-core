@@ -82,7 +82,7 @@ func (eh *eventHandler) HandleEvent(ctx context.Context, blk *block.Block, actLo
 		return eh.handleDonatedEvent(event)
 	case "Transfer":
 		return eh.handleTransferEvent(event)
-	case "Approval", "ApprovalForAll", "OwnershipTransferred", "Paused", "Unpaused":
+	case "Approval", "ApprovalForAll", "OwnershipTransferred", "Paused", "Unpaused", "BeneficiaryChanged":
 		// not require handling events
 		return nil
 	default:

@@ -15,7 +15,7 @@ import (
 
 var (
 	// StakingContractJSONABI is the abi json of staking contract
-	//go:embed contract_staking_abi.json
+	//go:embed contract_staking_abi_v2.json
 	StakingContractJSONABI string
 	// StakingContractABI is the abi of staking contract
 	StakingContractABI abi.ABI
