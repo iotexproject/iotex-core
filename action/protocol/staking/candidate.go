@@ -267,6 +267,7 @@ func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
 		TotalWeightedVotes: d.Votes.String(),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStakingTokens:  d.SelfStake.String(),
+		Id:                 d.GetIdentifier().String(),
 	}
 }
 
