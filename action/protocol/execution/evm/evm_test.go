@@ -259,12 +259,12 @@ func TestConstantinople(t *testing.T) {
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			39275560,
+			31174200,
 		},
 		// after Upernavik
 		{
 			action.EmptyAddress,
-			39275561,
+			31174201,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
