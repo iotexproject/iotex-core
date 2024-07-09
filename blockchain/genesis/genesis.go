@@ -76,7 +76,7 @@ func defaultConfig() Genesis {
 			RedseaBlockHeight:       26704441,
 			SumatraBlockHeight:      28516681,
 			TsunamiBlockHeight:      29275561,
-			UpernavikBlockHeight:    39275561,
+			UpernavikBlockHeight:    31174201,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
@@ -92,9 +92,8 @@ func defaultConfig() Genesis {
 			UnproductiveDelegateMaxCacheSize: 20,
 			SystemStakingContractAddress:     "io1drde9f483guaetl3w3w6n6y7yv80f8fael7qme", // https://iotexscout.io/tx/8b899515d180d631abe8596b091380b0f42117122415393fa459c74c2bc5b6af
 			SystemStakingContractHeight:      24486464,
-			// TODO: update after v2 staking contract deployment
-			SystemStakingContractV2Address: "",
-			SystemStakingContractV2Height:  44486464,
+			SystemStakingContractV2Address:   "io13mjjr5shj4mte39axwsqjp8fdggk0qzjhatprp", // https://iotexscan.io/tx/b838b7a7c95e511fd8b256c5cbafde0547a72215d682eb60668d1b475a1beb70
+			SystemStakingContractV2Height:    30934838,
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),

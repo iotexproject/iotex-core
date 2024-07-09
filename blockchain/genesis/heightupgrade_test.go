@@ -63,8 +63,8 @@ func TestNewHeightChange(t *testing.T) {
 	require.True(cfg.IsSumatra(uint64(28516681)))
 	require.False(cfg.IsTsunami(uint64(29275560)))
 	require.True(cfg.IsTsunami(uint64(29275561)))
-	require.False(cfg.IsUpernavik(uint64(39275560)))
-	require.True(cfg.IsUpernavik(uint64(39275561)))
+	require.False(cfg.IsUpernavik(uint64(31174200)))
+	require.True(cfg.IsUpernavik(uint64(31174201)))
 
 	require.Equal(cfg.PacificBlockHeight, uint64(432001))
 	require.Equal(cfg.AleutianBlockHeight, uint64(864001))
@@ -89,5 +89,5 @@ func TestNewHeightChange(t *testing.T) {
 	require.Equal(cfg.RedseaBlockHeight, uint64(26704441))
 	require.Equal(cfg.SumatraBlockHeight, uint64(28516681))
 	require.Equal(cfg.TsunamiBlockHeight, uint64(29275561))
-	require.Equal(cfg.UpernavikBlockHeight, uint64(39275561))
+	require.Equal(cfg.UpernavikBlockHeight, uint64(31174201))
 }
