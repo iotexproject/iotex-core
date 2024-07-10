@@ -54,7 +54,13 @@ do
    # ssh chenchen@archive-factory-${i}m 'pkill -x server'
 
    # run gateway server
-   ssh chenchen@archive-factory-${i}m 'nohup /data/workspace/iotex-core/bin/server -config-path=/data/workspace/iotex-core/config-archive.yaml -genesis-path=/data/workspace/iotex-core/genesis.yaml -plugin=readonly_gateway &>> /data/workspace/iotex-core/log.shard.'${i}' & exit'
+   # ssh chenchen@archive-factory-${i}m 'nohup /data/workspace/iotex-core/bin/server -config-path=/data/workspace/iotex-core/config-archive.yaml -genesis-path=/data/workspace/iotex-core/genesis.yaml -plugin=readonly_gateway &>> /data/workspace/iotex-core/log.shard.'${i}' & exit'
+
+   # kill server in systemctl
+   # ssh chenchen@archive-factory-${i}m 'sudo systemctl stop archive & exit'
+
+   # run gateway server in systemctl
+   ssh chenchen@archive-factory-${i}m 'sudo systemctl start archive & exit'
 
    # check server log
    # ssh chenchen@archive-factory-${i}m 'tail -n3 /data/workspace/iotex-core/log.server.'${i}''
