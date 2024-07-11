@@ -18,10 +18,16 @@ var (
 		config.Chinese: "endorse 票索引" +
 			" [-s 签署人] [-n NONCE] [-l GAS 限制] [-p GAS 价格] [-P 密码] [-y]",
 	}
-	_stake2UnEndorseCmdUses = map[config.Language]string{
-		config.English: "unendorse BUCKET_INDEX" +
+	_stake2IntentToRevokeCmdUses = map[config.Language]string{
+		config.English: "intentToRevokeEndorsement BUCKET_INDEX" +
 			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "unendorse 票索引" +
+		config.Chinese: "intentToRevokeEndorsement 票索引" +
+			" [-s 签署人] [-n NONCE] [-l GAS 限制] [-p GAS 价格] [-P 密码] [-y]",
+	}
+	_stake2RevokeCmdUses = map[config.Language]string{
+		config.English: "revokeEndorsement BUCKET_INDEX" +
+			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "revokeEndorsement 票索引" +
 			" [-s 签署人] [-n NONCE] [-l GAS 限制] [-p GAS 价格] [-P 密码] [-y]",
 	}
 
@@ -29,8 +35,12 @@ var (
 		config.English: "Endorse bucket's candidate on IoTeX blockchain",
 		config.Chinese: "在 IoTeX 区块链上背书候选人",
 	}
-	_stake2UnEndorseCmdShorts = map[config.Language]string{
-		config.English: "UnEndorse bucket's candidate on IoTeX blockchain",
+	_stake2IntentToRevokeCmdShorts = map[config.Language]string{
+		config.English: "IntentToRevoke Endorsement on IoTeX blockchain",
+		config.Chinese: "在 IoTeX 区块链上提交撤销背书意向",
+	}
+	_stake2RevokeCmdShorts = map[config.Language]string{
+		config.English: "Revoke Endorsement on IoTeX blockchain",
 		config.Chinese: "在 IoTeX 区块链上撤销背书",
 	}
 )
@@ -47,13 +57,23 @@ var (
 			return output.PrintError(err)
 		},
 	}
-	_stake2UnEndorseCmd = &cobra.Command{
-		Use:   config.TranslateInLang(_stake2UnEndorseCmdUses, config.UILanguage),
-		Short: config.TranslateInLang(_stake2UnEndorseCmdShorts, config.UILanguage),
+	_stake2IntentToRevokeCmd = &cobra.Command{
+		Use:   config.TranslateInLang(_stake2IntentToRevokeCmdUses, config.UILanguage),
+		Short: config.TranslateInLang(_stake2IntentToRevokeCmdShorts, config.UILanguage),
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			err := stake2UnEndorse(args)
+			err := stake2IntentToRevoke(args)
+			return output.PrintError(err)
+		},
+	}
+	_stake2RevokeCmd = &cobra.Command{
+		Use:   config.TranslateInLang(_stake2RevokeCmdUses, config.UILanguage),
+		Short: config.TranslateInLang(_stake2RevokeCmdShorts, config.UILanguage),
+		Args:  cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
+			err := stake2Revoke(args)
 			return output.PrintError(err)
 		},
 	}
@@ -61,16 +81,26 @@ var (
 
 func init() {
 	RegisterWriteCommand(_stake2EndorseCmd)
-	RegisterWriteCommand(_stake2UnEndorseCmd)
+	RegisterWriteCommand(_stake2IntentToRevokeCmd)
+	RegisterWriteCommand(_stake2RevokeCmd)
 }
 
-func stake2UnEndorse(args []string) error {
+func stake2Revoke(args []string) error {
 	bucketIndex, err := strconv.ParseUint(args[0], 10, 64)
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert bucket index", nil)
 	}
 
-	return doEndorsement(bucketIndex, false)
+	return doEndorsement(bucketIndex, action.CandidateEndorsementOpRevoke)
+}
+
+func stake2IntentToRevoke(args []string) error {
+	bucketIndex, err := strconv.ParseUint(args[0], 10, 64)
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to convert bucket index", nil)
+	}
+
+	return doEndorsement(bucketIndex, action.CandidateEndorsementOpIntentToRevoke)
 }
 
 func stake2Endorse(args []string) error {
@@ -79,10 +109,10 @@ func stake2Endorse(args []string) error {
 		return output.NewError(output.ConvertError, "failed to convert bucket index", nil)
 	}
 
-	return doEndorsement(bucketIndex, true)
+	return doEndorsement(bucketIndex, action.CandidateEndorsementOpEndorse)
 }
 
-func doEndorsement(bucketIndex uint64, isEndorse bool) error {
+func doEndorsement(bucketIndex uint64, op action.CandidateEndorsementOp) error {
 	sender, err := Signer()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signed address", err)
@@ -101,7 +131,10 @@ func doEndorsement(bucketIndex uint64, isEndorse bool) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	s2t := action.NewCandidateEndorsementLegacy(nonce, gasLimit, gasPriceRau, bucketIndex, isEndorse)
+	s2t, err := action.NewCandidateEndorsement(nonce, gasLimit, gasPriceRau, bucketIndex, op)
+	if err != nil {
+		return output.NewError(output.InstantiationError, "failed to make a candidate endorsement", err)
+	}
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).
