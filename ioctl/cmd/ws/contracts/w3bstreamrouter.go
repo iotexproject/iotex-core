@@ -31,7 +31,7 @@ var (
 
 // W3bstreamRouterMetaData contains all meta data concerning the W3bstreamRouter contract.
 var W3bstreamRouterMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"projectId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"dapp\",\"type\":\"address\"}],\"name\":\"DappBound\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"projectId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"DappUnbound\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"projectId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"router\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"revertReason\",\"type\":\"string\"}],\"name\":\"DataProcessed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_dapp\",\"type\":\"address\"}],\"name\":\"bindDapp\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"dapp\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"fleetManagement\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_fleetManagement\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_projectStore\",\"type\":\"address\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"projectStore\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_proverId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"route\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"}],\"name\":\"unbindDapp\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"projectId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"dapp\",\"type\":\"address\"}],\"name\":\"DappBound\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"projectId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"DappUnbound\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"projectId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"router\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"revertReason\",\"type\":\"string\"}],\"name\":\"DataProcessed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_dapp\",\"type\":\"address\"}],\"name\":\"bindDapp\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"dapp\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"fleetManagement\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_fleetManagement\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_projectStore\",\"type\":\"address\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"projectStore\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_proverId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_taskId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"route\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_projectId\",\"type\":\"uint256\"}],\"name\":\"unbindDapp\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 // W3bstreamRouterABI is the input ABI used to generate the binding from.
@@ -315,25 +315,25 @@ func (_W3bstreamRouter *W3bstreamRouterTransactorSession) Initialize(_fleetManag
 	return _W3bstreamRouter.Contract.Initialize(&_W3bstreamRouter.TransactOpts, _fleetManagement, _projectStore)
 }
 
-// Route is a paid mutator transaction binding the contract method 0x388ac07e.
+// Route is a paid mutator transaction binding the contract method 0x0f9e7c53.
 //
-// Solidity: function route(uint256 _projectId, uint256 _proverId, bytes _data) returns()
-func (_W3bstreamRouter *W3bstreamRouterTransactor) Route(opts *bind.TransactOpts, _projectId *big.Int, _proverId *big.Int, _data []byte) (*types.Transaction, error) {
-	return _W3bstreamRouter.contract.Transact(opts, "route", _projectId, _proverId, _data)
+// Solidity: function route(uint256 _projectId, uint256 _proverId, uint256 _taskId, bytes _data) returns()
+func (_W3bstreamRouter *W3bstreamRouterTransactor) Route(opts *bind.TransactOpts, _projectId *big.Int, _proverId *big.Int, _taskId *big.Int, _data []byte) (*types.Transaction, error) {
+	return _W3bstreamRouter.contract.Transact(opts, "route", _projectId, _proverId, _taskId, _data)
 }
 
-// Route is a paid mutator transaction binding the contract method 0x388ac07e.
+// Route is a paid mutator transaction binding the contract method 0x0f9e7c53.
 //
-// Solidity: function route(uint256 _projectId, uint256 _proverId, bytes _data) returns()
-func (_W3bstreamRouter *W3bstreamRouterSession) Route(_projectId *big.Int, _proverId *big.Int, _data []byte) (*types.Transaction, error) {
-	return _W3bstreamRouter.Contract.Route(&_W3bstreamRouter.TransactOpts, _projectId, _proverId, _data)
+// Solidity: function route(uint256 _projectId, uint256 _proverId, uint256 _taskId, bytes _data) returns()
+func (_W3bstreamRouter *W3bstreamRouterSession) Route(_projectId *big.Int, _proverId *big.Int, _taskId *big.Int, _data []byte) (*types.Transaction, error) {
+	return _W3bstreamRouter.Contract.Route(&_W3bstreamRouter.TransactOpts, _projectId, _proverId, _taskId, _data)
 }
 
-// Route is a paid mutator transaction binding the contract method 0x388ac07e.
+// Route is a paid mutator transaction binding the contract method 0x0f9e7c53.
 //
-// Solidity: function route(uint256 _projectId, uint256 _proverId, bytes _data) returns()
-func (_W3bstreamRouter *W3bstreamRouterTransactorSession) Route(_projectId *big.Int, _proverId *big.Int, _data []byte) (*types.Transaction, error) {
-	return _W3bstreamRouter.Contract.Route(&_W3bstreamRouter.TransactOpts, _projectId, _proverId, _data)
+// Solidity: function route(uint256 _projectId, uint256 _proverId, uint256 _taskId, bytes _data) returns()
+func (_W3bstreamRouter *W3bstreamRouterTransactorSession) Route(_projectId *big.Int, _proverId *big.Int, _taskId *big.Int, _data []byte) (*types.Transaction, error) {
+	return _W3bstreamRouter.Contract.Route(&_W3bstreamRouter.TransactOpts, _projectId, _proverId, _taskId, _data)
 }
 
 // UnbindDapp is a paid mutator transaction binding the contract method 0xd869758c.
