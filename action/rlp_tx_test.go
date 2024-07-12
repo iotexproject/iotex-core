@@ -3,6 +3,7 @@ package action
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"math/big"
 	"strings"
@@ -315,6 +316,21 @@ var (
 			"8d38efe45794d7fceea10b2262c23c12245959db",
 		},
 		{
+			"rewardingClaimWithAddress",
+			"f9014905830186a082520894a576c141e5659137ddda4223d209d4744b2106be80b8e4d804b87c0000000000000000000000000000000000000000000000000000002e90edd000000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000029696f313433617638383078307863653474737939737877723861766870687135736768756d37376374000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008224c6a01490de878ee13ee6976064082f75bbbfd7da0294a151b966d5ddf45dac6838e2a0104fdcc42607f54a8d1a5ad7f2e7fbbd3f8e7f56efb58ebff638ac8485509332",
+			5,
+			21000,
+			"100000",
+			"0",
+			"0xA576C141e5659137ddDa4223d209d4744b2106BE",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			228,
+			"2b34c548e0b8d027124ead244331c65a92fd7716ce4dac42c7bb5b342d21e240",
+			"04bc3a3123a0d72e1e622ec1a51087ef3b15a9d6db0f924c0fd8b4958653ff7608194321d1fd90c0c949b05b6b911d8d7e9aaadbe497e696367c19780a016ce440",
+			"fff810c667050c7e4263a39e796af8d5e74a1b55",
+		},
+		{
 			"rewardingDeposit",
 			"f8c6016482520894a576c141e5659137ddda4223d209d4744b2106be80b86427852a6b0000000000000000000000000000000000000000000000000000000000000065000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000008224c6a013b7679dbabcb0f97b93942436f5072cca3c7fe43451a8fedcdf3c84c1344e1da02af4cc67594c0200b59f4e30ba149af15e546acbfc69fa31f14e8788ab063d85",
 			1,
@@ -374,7 +390,6 @@ var (
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
 			"1e14d5373e1af9cc77f0032ad2cd0fba8be5ea2e",
 		},
-		// TODO: add StakeMigrate test
 		{
 			"unprotected",
 			deterministicDeploymentTx,
@@ -390,23 +405,66 @@ var (
 			"040a98b1acb38ed9cd8d0e8f1f03b1588bae140586f8a8049197b65013a3c17690151ae422e3fdfb26be2e6a4465b1f9cf5c26a5635109929a0d0a11734124d50a",
 			"3fab184622dc19b6109349b94811493bf2a45362",
 		},
-		// TODO: endorseCandidate, intentToRevokeEndorsement, revokeEndorsement
-		// also add util functions to generate the test data
-		// {
-		// 	"endorseCandidate",
-		// 	"f8487885e8d4a510008252089404c22afae6a03438b8fed74cb1cf441168df3f1280a4284ab8110000000000000000000000000000000000000000000000000000000000000011808080",
-		// 	120,
-		// 	21000,
-		// 	"1000000000000",
-		// 	"0",
-		// 	"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
-		// 	_evmNetworkID,
-		// 	iotextypes.Encoding_ETHEREUM_UNPROTECTED,
-		// 	36,
-		// 	"d190061a42223c40e755eef500c9c8bbec071556368032777c18d8f023b0f2e3",
-		// 	"04bc3a3123a0d72e1e622ec1a51087ef3b15a9d6db0f924c0fd8b4958653ff7608194321d1fd90c0c949b05b6b911d8d7e9aaadbe497e696367c19780a016ce440",
-		// 	"fff810c667050c7e4263a39e796af8d5e74a1b55",
-		// },
+		{
+			"migrateStake",
+			"f887788227108252089404c22afae6a03438b8fed74cb1cf441168df3f1280a4c53b10a4000000000000000000000000000000000000000000000000000000000000000a8224c5a046500c934b4295c246d395a18ab78c4755033a5b85f0743938956ff0b98f8f16a05b758049c1e8ccb3154c53e2ec22a4bad65465aed0be6e352aaa53cfec6f6906",
+			120,
+			21000,
+			"10000",
+			"0",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			36,
+			"2cb96b971adc556d5deb3f1fbad0b480983545c154a5b9401670ff33dd1f68ce",
+			"04bc3a3123a0d72e1e622ec1a51087ef3b15a9d6db0f924c0fd8b4958653ff7608194321d1fd90c0c949b05b6b911d8d7e9aaadbe497e696367c19780a016ce440",
+			"fff810c667050c7e4263a39e796af8d5e74a1b55",
+		},
+		{
+			"endorseCandidate",
+			"f887788227108252089404c22afae6a03438b8fed74cb1cf441168df3f1280a4284ab81100000000000000000000000000000000000000000000000000000000000000028224c5a01d0c6982474992866529fb72032c629e697ab612d75cba4b07c0137f24081e92a007c4d43d162aa7297cb9f89cf6f1cadfc5fd57703b25f2a67c152b1c32cb09c0",
+			120,
+			21000,
+			"10000",
+			"0",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			36,
+			"15cd6fec8876ca308d85cce80b26ea9b28c93f57d6823674c4d37efc34248d22",
+			"04bc3a3123a0d72e1e622ec1a51087ef3b15a9d6db0f924c0fd8b4958653ff7608194321d1fd90c0c949b05b6b911d8d7e9aaadbe497e696367c19780a016ce440",
+			"fff810c667050c7e4263a39e796af8d5e74a1b55",
+		},
+		{
+			"intentToRevokeEndorsement",
+			"f887788227108252089404c22afae6a03438b8fed74cb1cf441168df3f1280a485edc03c00000000000000000000000000000000000000000000000000000000000000028224c6a0d07751b74f3a2359a4f12f164ae24146e19aa3db2bda6a9e9eee5ecd67234384a053ea6a1c98fe89b0f065b0173cbeddf1a03b121a6e3c5d3b35dd91641f08baae",
+			120,
+			21000,
+			"10000",
+			"0",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			36,
+			"c30f7fdacfaba5d7c78963824579793409c3fed1bc5ab67735d128ef2c91eb59",
+			"04bc3a3123a0d72e1e622ec1a51087ef3b15a9d6db0f924c0fd8b4958653ff7608194321d1fd90c0c949b05b6b911d8d7e9aaadbe497e696367c19780a016ce440",
+			"fff810c667050c7e4263a39e796af8d5e74a1b55",
+		},
+		{
+			"revokeEndorsement",
+			"f887788227108252089404c22afae6a03438b8fed74cb1cf441168df3f1280a4120f99ad00000000000000000000000000000000000000000000000000000000000000028224c6a0cbb3cb584e956ada942864d242a15409409bfeb9a428f247a50f5c185cae3c8aa0469d24184060efa8585afe2122a3082d3b61a78e2b1263a750bacf465040d4e1",
+			120,
+			21000,
+			"10000",
+			"0",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			36,
+			"0a3270daa16fc706fc11dd64ca6e15ed67ccdc40dd1747d1d1001edb18ceaef4",
+			"04bc3a3123a0d72e1e622ec1a51087ef3b15a9d6db0f924c0fd8b4958653ff7608194321d1fd90c0c949b05b6b911d8d7e9aaadbe497e696367c19780a016ce440",
+			"fff810c667050c7e4263a39e796af8d5e74a1b55",
+		},
 	}
 )
 
@@ -1014,10 +1072,10 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 		return elp.Proto()
 	case "stakeCreate", "stakeAddDeposit", "changeCandidate", "unstake", "withdrawStake", "restake",
 		"transferStake", "candidateRegister", "candidateUpdate", "candidateActivate", "candidateEndorsement", "candidateTransferOwnership",
-		"endorseCandidate", "intentToRevokeEndorsement", "revokeEndorsement":
+		"endorseCandidate", "intentToRevokeEndorsement", "revokeEndorsement", "migrateStake":
 		elp, _ := elpBuilder.BuildStakingAction(tx)
 		return elp.Proto()
-	case "rewardingClaim", "rewardingDeposit":
+	case "rewardingClaim", "rewardingClaimWithAddress", "rewardingDeposit":
 		elp, _ := elpBuilder.BuildRewardingAction(tx)
 		return elp.Proto()
 	default:
@@ -1105,4 +1163,38 @@ func TestIssue3944(t *testing.T) {
 	r.Equal(sig[32:64], s.Bytes())
 	r.Equal("9415", v.String()) // this is the correct V value corresponding to chainID = 4690
 	r.Equal(hash, tx1.Hash().Hex())
+}
+
+// generateRLPTestData generates RLP test data for testing
+// for example to generate for migrate stake action, use the following code snippet:
+//
+//	act, err := NewMigrateStake(120, 10, 21000, big.NewInt(10000))
+//	test, err := generateRLPTestData("migrateStake", _evmNetworkID, iotextypes.Encoding_ETHEREUM_EIP155, identityset.PrivateKey(1), act)
+//	fmt.Sprintf("test=%+v", test)
+func generateRLPTestData(actType string, chainID uint32, encoding iotextypes.Encoding, sk iotexcrypto.PrivateKey, act EthCompatibleAction) (*rlpTest, error) {
+	tx, err := act.ToEthTx(chainID)
+	if err != nil {
+		return nil, err
+	}
+	signer := types.NewEIP2930Signer(big.NewInt(int64(chainID)))
+	signedTx, err := types.SignTx(tx, signer, sk.EcdsaPrivateKey().(*ecdsa.PrivateKey))
+	raw, err := signedTx.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	return &rlpTest{
+		actType:  actType,
+		raw:      hex.EncodeToString(raw),
+		nonce:    tx.Nonce(),
+		limit:    tx.Gas(),
+		price:    tx.GasPrice().String(),
+		amount:   tx.Value().String(),
+		to:       tx.To().Hex(),
+		chainID:  uint32(tx.ChainId().Int64()),
+		encoding: encoding,
+		dataLen:  len(signedTx.Data()),
+		hash:     signedTx.Hash().Hex(),
+		pubkey:   hex.EncodeToString(sk.PublicKey().Bytes()),
+		pkhash:   hex.EncodeToString(sk.PublicKey().Hash()),
+	}, nil
 }

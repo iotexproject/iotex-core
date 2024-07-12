@@ -55,9 +55,11 @@ func init() {
 	Stake2Cmd.AddCommand(_stake2RegisterCmd)
 	Stake2Cmd.AddCommand(_stake2ChangeCmd)
 	Stake2Cmd.AddCommand(_stake2EndorseCmd)
-	Stake2Cmd.AddCommand(_stake2UnEndorseCmd)
+	Stake2Cmd.AddCommand(_stake2IntentToRevokeCmd)
+	Stake2Cmd.AddCommand(_stake2RevokeCmd)
 	Stake2Cmd.AddCommand(_stake2ActivateCmd)
 	Stake2Cmd.AddCommand(_stake2TransferOwnershipCmd)
+	Stake2Cmd.AddCommand(_stake2MigrateCmd)
 	Stake2Cmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint", config.ReadConfig.Endpoint, config.TranslateInLang(_stake2FlagEndpointUsages, config.UILanguage))
 	Stake2Cmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(_stake2FlagInsecureUsages, config.UILanguage))
 }

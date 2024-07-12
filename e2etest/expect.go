@@ -69,7 +69,7 @@ func (be *basicActionExpect) expect(test *e2etest, act *action.SealedEnvelope, r
 		require.Nil(receipt)
 		return
 	}
-	require.Equal(be.status, receipt.Status)
+	require.Equalf(be.status, receipt.Status, "revert msg: %s", receipt.ExecutionRevertMsg())
 	require.Equal(be.executionRevertMsg, receipt.ExecutionRevertMsg())
 }
 
@@ -150,7 +150,7 @@ func (be *bucketExpect) expect(test *e2etest, act *action.SealedEnvelope, receip
 	idx := slices.IndexFunc(vbs.Buckets, func(vb *iotextypes.VoteBucket) bool {
 		return vb.ContractAddress == be.bucket.ContractAddress
 	})
-	require.Greater(idx, -1)
+	require.Greaterf(idx, -1, "bucket not found, index: %d, contract: %s", be.bucket.Index, be.bucket.ContractAddress)
 	require.EqualValues(be.bucket.String(), vbs.Buckets[idx].String())
 }
 
