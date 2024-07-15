@@ -5,7 +5,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/action/protocol/abiutil"
-	stakingComm "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi/common"
 )
 
 const _candidatesInterfaceABI = `[
@@ -78,6 +77,6 @@ func init() {
 	_candidatesMethod = abiutil.MustLoadMethod(_candidatesInterfaceABI, "candidates")
 }
 
-func newCandidatesStateContext(data []byte) (*stakingComm.CandidatesStateContext, error) {
-	return stakingComm.NewCandidatesStateContext(data, &_candidatesMethod, iotexapi.ReadStakingDataMethod_CANDIDATES)
+func newCandidatesStateContext(data []byte) (*CandidatesStateContext, error) {
+	return NewCandidatesStateContext(data, &_candidatesMethod, iotexapi.ReadStakingDataMethod_CANDIDATES)
 }
