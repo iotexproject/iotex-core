@@ -79,5 +79,5 @@ func init() {
 }
 
 func newCandidatesStateContext(data []byte) (*stakingComm.CandidatesStateContext, error) {
-	return stakingComm.NewCandidatesStateContext(data, &_candidatesMethod, iotexapi.ReadStakingDataMethod_CANDIDATES)
+	return stakingComm.NewCandidatesStateContext(data, &_candidatesMethod, iotexapi.ReadStakingDataMethod_CANDIDATES, stakingComm.WithNoSelfStakeBucketIndexAsMaxUint32())
 }

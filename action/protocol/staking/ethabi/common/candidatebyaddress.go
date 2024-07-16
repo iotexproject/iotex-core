@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/hex"
+	"math"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -16,9 +17,10 @@ import (
 // CandidateByAddressStateContext context for candidateByAddress
 type CandidateByAddressStateContext struct {
 	*protocol.BaseStateContext
+	cfg candidateConfig
 }
 
-func NewCandidateByAddressStateContext(data []byte, methodABI *abi.Method, apiMethod iotexapi.ReadStakingDataMethod_Name) (*CandidateByAddressStateContext, error) {
+func NewCandidateByAddressStateContext(data []byte, methodABI *abi.Method, apiMethod iotexapi.ReadStakingDataMethod_Name, opts ...OptionCandidate) (*CandidateByAddressStateContext, error) {
 	paramsMap := map[string]interface{}{}
 	ok := false
 	if err := methodABI.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
@@ -51,6 +53,10 @@ func NewCandidateByAddressStateContext(data []byte, methodABI *abi.Method, apiMe
 	if err != nil {
 		return nil, err
 	}
+	cfg := &candidateConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
 	return &CandidateByAddressStateContext{
 		&protocol.BaseStateContext{
 			Parameter: &protocol.Parameters{
@@ -59,6 +65,7 @@ func NewCandidateByAddressStateContext(data []byte, methodABI *abi.Method, apiMe
 			},
 			Method: methodABI,
 		},
+		*cfg,
 	}, nil
 }
 
@@ -68,7 +75,9 @@ func (r *CandidateByAddressStateContext) EncodeToEth(resp *iotexapi.ReadStateRes
 	if err := proto.Unmarshal(resp.Data, &result); err != nil {
 		return "", err
 	}
-
+	if r.cfg.noSelfStakeBucketIndexAsMaxUint32 && result.SelfStakeBucketIdx == math.MaxUint64 {
+		result.SelfStakeBucketIdx = math.MaxUint32
+	}
 	cand, err := EncodeCandidateToEth(&result)
 	if err != nil {
 		return "", err
