@@ -517,11 +517,18 @@ func (sf *factory) StatesAtHeight(height uint64, opts ...protocol.StateOption) (
 	if cfg.Keys != nil {
 		return nil, errors.Wrap(ErrNotSupported, "Read states with keys option has not been implemented yet")
 	}
-	keys, values, err := readStatesFromTLT(sf.twoLayerTrie, cfg.Namespace, cfg.Keys)
+	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), false)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to generate trie for %d", height)
+	}
+	if err := tlt.Start(context.Background()); err != nil {
+		return nil, err
+	}
+	defer tlt.Stop(context.Background())
+	keys, values, err := readStatesFromTLT(tlt, cfg.Namespace, cfg.Keys)
 	if err != nil {
 		return nil, err
 	}
-
 	return state.NewIterator(keys, values)
 }
 
