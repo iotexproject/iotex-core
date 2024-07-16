@@ -718,10 +718,6 @@ func testFactoryStates(sf Factory, t *testing.T) {
 		accounts = append(accounts, c)
 	}
 	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
-	c := &state.Account{}
-	_, err = iter.Next(c)
-	require.NoError(t, err)
-	require.Equal(t, uint64(90), c.Balance.Uint64())
 }
 
 func TestNonce(t *testing.T) {

@@ -517,12 +517,12 @@ func (sf *factory) StatesAtHeight(height uint64, opts ...protocol.StateOption) (
 	if cfg.Keys != nil {
 		return nil, errors.Wrap(ErrNotSupported, "Read states with keys option has not been implemented yet")
 	}
-	values, err := readStatesFromTLT(sf.twoLayerTrie, cfg.Namespace, cfg.Keys)
+	keys, values, err := readStatesFromTLT(sf.twoLayerTrie, cfg.Namespace, cfg.Keys)
 	if err != nil {
 		return nil, err
 	}
 
-	return state.NewIterator(values), nil
+	return state.NewIterator(keys, values)
 }
 
 // State returns a confirmed state in the state factory
