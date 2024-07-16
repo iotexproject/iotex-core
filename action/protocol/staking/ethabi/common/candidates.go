@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/hex"
+	"math"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -11,12 +12,28 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
-// CandidatesStateContext context for Candidates
-type CandidatesStateContext struct {
-	*protocol.BaseStateContext
+type (
+	// CandidatesStateContext context for Candidates
+	CandidatesStateContext struct {
+		*protocol.BaseStateContext
+		cfg candidateConfig
+	}
+	// OptionCandidate option for candidate
+	OptionCandidate func(*candidateConfig)
+
+	candidateConfig struct {
+		noSelfStakeBucketIndexAsMaxUint32 bool
+	}
+)
+
+// WithNoSelfStakeBucketIndexAsMaxUint32 set noSelfStakeBucketIndex as MaxUint32
+func WithNoSelfStakeBucketIndexAsMaxUint32() OptionCandidate {
+	return func(c *candidateConfig) {
+		c.noSelfStakeBucketIndexAsMaxUint32 = true
+	}
 }
 
-func NewCandidatesStateContext(data []byte, methodABI *abi.Method, apiMethod iotexapi.ReadStakingDataMethod_Name) (*CandidatesStateContext, error) {
+func NewCandidatesStateContext(data []byte, methodABI *abi.Method, apiMethod iotexapi.ReadStakingDataMethod_Name, opts ...OptionCandidate) (*CandidatesStateContext, error) {
 	paramsMap := map[string]interface{}{}
 	ok := false
 	if err := methodABI.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
@@ -51,6 +68,10 @@ func NewCandidatesStateContext(data []byte, methodABI *abi.Method, apiMethod iot
 	if err != nil {
 		return nil, err
 	}
+	cfg := &candidateConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
 	return &CandidatesStateContext{
 		&protocol.BaseStateContext{
 			Parameter: &protocol.Parameters{
@@ -59,6 +80,7 @@ func NewCandidatesStateContext(data []byte, methodABI *abi.Method, apiMethod iot
 			},
 			Method: methodABI,
 		},
+		*cfg,
 	}, nil
 }
 
@@ -71,6 +93,9 @@ func (r *CandidatesStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (
 
 	args := make([]CandidateEth, len(result.Candidates))
 	for i, candidate := range result.Candidates {
+		if r.cfg.noSelfStakeBucketIndexAsMaxUint32 && candidate.SelfStakeBucketIdx == math.MaxUint64 {
+			candidate.SelfStakeBucketIdx = math.MaxUint32
+		}
 		cand, err := EncodeCandidateToEth(candidate)
 		if err != nil {
 			return "", err
