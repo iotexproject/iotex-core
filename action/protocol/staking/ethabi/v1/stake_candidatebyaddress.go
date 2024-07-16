@@ -74,6 +74,6 @@ func init() {
 }
 
 func newCandidateByAddressStateContext(data []byte) (*stakingComm.CandidateByAddressStateContext, error) {
-	return stakingComm.NewCandidateByAddressStateContext(data, &_candidateByAddressMethod, iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS)
+	return stakingComm.NewCandidateByAddressStateContext(data, &_candidateByAddressMethod, iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS, stakingComm.WithNoSelfStakeBucketIndexAsMaxUint32())
 
 }
