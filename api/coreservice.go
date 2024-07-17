@@ -1471,20 +1471,24 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 }
 
 func (core *coreService) correctQueryRange(start, end uint64) (uint64, uint64, error) {
+	bfTipHeight, err := core.bfIndexer.Height()
+	if err != nil {
+		return 0, 0, err
+	}
 	if start == 0 {
-		start = core.bc.TipHeight()
+		start = bfTipHeight
 	}
 	if end == 0 {
-		end = core.bc.TipHeight()
+		end = bfTipHeight
 	}
 	if start > end {
 		return 0, 0, errors.New("invalid start or end height")
 	}
-	if start > core.bc.TipHeight() {
+	if start > bfTipHeight {
 		return 0, 0, errors.New("start block > tip height")
 	}
-	if end > core.bc.TipHeight() {
-		end = core.bc.TipHeight()
+	if end > bfTipHeight {
+		end = bfTipHeight
 	}
 	return start, end, nil
 }
