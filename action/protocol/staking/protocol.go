@@ -340,7 +340,7 @@ func (p *Protocol) handleStakingIndexer(ctx context.Context, epochStartHeight ui
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
-	candidateList, err := toIoTeXTypesCandidateListV2(csr, all, !protocol.MustGetFeatureCtx(ctx).EnforceLegacyEndorsement)
+	candidateList, err := toIoTeXTypesCandidateListV2(csr, all, protocol.MustGetFeatureCtx(ctx))
 	if err != nil {
 		return err
 	}
