@@ -1455,7 +1455,7 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 		for j := range logsInBlk[i] {
 			logs = append(logs, logsInBlk[i][j])
 			hashes = append(hashes, HashInBlk[i])
-			if len(logs) >= int(paginationSize) {
+			if paginationSize > 0 && len(logs) >= int(paginationSize) {
 				return logs, hashes, nil
 			}
 		}
