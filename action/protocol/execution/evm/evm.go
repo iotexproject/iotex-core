@@ -638,6 +638,9 @@ func SimulateExecution(
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.SimulateExecution")
 	defer span.End()
+	if err := ex.SanityCheck(); err != nil {
+		return nil, nil, err
+	}
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	g := genesis.MustExtractGenesisContext(ctx)
 	ctx = protocol.WithActionCtx(
