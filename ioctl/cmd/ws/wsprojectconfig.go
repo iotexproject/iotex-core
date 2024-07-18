@@ -26,6 +26,10 @@ var (
 			if err != nil {
 				return errors.Wrap(err, "failed to get flag data-source")
 			}
+			dataSourcePubKey, err := cmd.Flags().GetString("data-source-pubKey")
+			if err != nil {
+				return errors.Wrap(err, "failed to get flag data-source-pubKey")
+			}
 			defaultVersion, err := cmd.Flags().GetString("default-version")
 			if err != nil {
 				return errors.Wrap(err, "failed to get flag default-version")
@@ -55,7 +59,7 @@ var (
 				return errors.Wrap(err, "failed to get flag output-file")
 			}
 
-			out, err := generateProjectFile(dataSource, defaultVersion, version, vmType, codeFile, confFile, expParam, outputFile)
+			out, err := generateProjectFile(dataSource, dataSourcePubKey, defaultVersion, version, vmType, codeFile, confFile, expParam, outputFile)
 			if err != nil {
 				return output.PrintError(err)
 			}
@@ -70,6 +74,10 @@ var (
 		config.Chinese: "生成项目的配置文件",
 	}
 
+	_flagDataSourcePublicKeyUsages = map[config.Language]string{
+		config.English: "data source public key of the project",
+		config.Chinese: "该project的数据源的公钥",
+	}
 	_flagDataSourceUsages = map[config.Language]string{
 		config.English: "data source of the project",
 		config.Chinese: "该project的数据源",
@@ -106,6 +114,7 @@ var (
 
 func init() {
 	wsProjectConfig.Flags().StringP("data-source", "s", "", config.TranslateInLang(_flagDataSourceUsages, config.UILanguage))
+	wsProjectConfig.Flags().StringP("data-source-pubKey", "k", "", config.TranslateInLang(_flagDataSourcePublicKeyUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("default-version", "d", "0.1", config.TranslateInLang(_flagDefaultVersionUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("version", "v", "", config.TranslateInLang(_flagVersionUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("vm-type", "t", "", config.TranslateInLang(_flagVMTypeUsages, config.UILanguage))
@@ -128,7 +137,7 @@ type projectConfig struct {
 	Code         string      `json:"code"`
 }
 
-func generateProjectFile(dataSource, defaultVersion, version, vmType, codeFile, confFile, expParam, outputFile string) (string, error) {
+func generateProjectFile(dataSource, dataSourcePubKey, defaultVersion, version, vmType, codeFile, confFile, expParam, outputFile string) (string, error) {
 	tye, err := stringToVMType(vmType)
 	if err != nil {
 		return "", err
@@ -173,6 +182,9 @@ func generateProjectFile(dataSource, defaultVersion, version, vmType, codeFile, 
 
 	if dataSource != "" {
 		confMap["datasourceURI"] = dataSource
+	}
+	if dataSourcePubKey != "" {
+		confMap["datasourcePublicKey"] = dataSourcePubKey
 	}
 	confMap["defaultVersion"] = defaultVersion
 	confMap["versions"] = verMaps
