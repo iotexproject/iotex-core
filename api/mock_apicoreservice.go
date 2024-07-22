@@ -17,7 +17,7 @@ import (
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
-	types "github.com/iotexproject/iotex-core/api/types"
+	apitypes "github.com/iotexproject/iotex-core/api/types"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	genesis "github.com/iotexproject/iotex-core/blockchain/genesis"
 	iotexapi "github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -140,11 +140,26 @@ func (mr *MockCoreServiceMockRecorder) ActionsInActPool(actHashes interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionsInActPool", reflect.TypeOf((*MockCoreService)(nil).ActionsInActPool), actHashes)
 }
 
+// BalanceOf mocks base method.
+func (m *MockCoreService) BalanceOf(addr address.Address, height rpc.BlockNumber) (*big.Int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BalanceOf", addr, height)
+	ret0, _ := ret[0].(*big.Int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BalanceOf indicates an expected call of BalanceOf.
+func (mr *MockCoreServiceMockRecorder) BalanceOf(addr, height interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BalanceOf", reflect.TypeOf((*MockCoreService)(nil).BalanceOf), addr, height)
+}
+
 // BlockByHash mocks base method.
-func (m *MockCoreService) BlockByHash(arg0 string) (*types.BlockWithReceipts, error) {
+func (m *MockCoreService) BlockByHash(arg0 string) (*apitypes.BlockWithReceipts, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockByHash", arg0)
-	ret0, _ := ret[0].(*types.BlockWithReceipts)
+	ret0, _ := ret[0].(*apitypes.BlockWithReceipts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -156,10 +171,10 @@ func (mr *MockCoreServiceMockRecorder) BlockByHash(arg0 interface{}) *gomock.Cal
 }
 
 // BlockByHeight mocks base method.
-func (m *MockCoreService) BlockByHeight(arg0 uint64) (*types.BlockWithReceipts, error) {
+func (m *MockCoreService) BlockByHeight(arg0 uint64) (*apitypes.BlockWithReceipts, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockByHeight", arg0)
-	ret0, _ := ret[0].(*types.BlockWithReceipts)
+	ret0, _ := ret[0].(*apitypes.BlockWithReceipts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -171,10 +186,10 @@ func (mr *MockCoreServiceMockRecorder) BlockByHeight(arg0 interface{}) *gomock.C
 }
 
 // BlockByHeightRange mocks base method.
-func (m *MockCoreService) BlockByHeightRange(arg0, arg1 uint64) ([]*types.BlockWithReceipts, error) {
+func (m *MockCoreService) BlockByHeightRange(arg0, arg1 uint64) ([]*apitypes.BlockWithReceipts, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockByHeightRange", arg0, arg1)
-	ret0, _ := ret[0].([]*types.BlockWithReceipts)
+	ret0, _ := ret[0].([]*apitypes.BlockWithReceipts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -215,10 +230,10 @@ func (mr *MockCoreServiceMockRecorder) ChainID() *gomock.Call {
 }
 
 // ChainListener mocks base method.
-func (m *MockCoreService) ChainListener() types.Listener {
+func (m *MockCoreService) ChainListener() apitypes.Listener {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ChainListener")
-	ret0, _ := ret[0].(types.Listener)
+	ret0, _ := ret[0].(apitypes.Listener)
 	return ret0
 }
 
@@ -727,20 +742,6 @@ func (m *MockCoreService) UnconfirmedActionsByAddress(address string, start, cou
 func (mr *MockCoreServiceMockRecorder) UnconfirmedActionsByAddress(address, start, count interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnconfirmedActionsByAddress", reflect.TypeOf((*MockCoreService)(nil).UnconfirmedActionsByAddress), address, start, count)
-}
-
-// WithHeight mocks base method.
-func (m *MockCoreService) WithHeight(arg0 uint64) CoreServiceReaderWithHeight {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WithHeight", arg0)
-	ret0, _ := ret[0].(CoreServiceReaderWithHeight)
-	return ret0
-}
-
-// WithHeight indicates an expected call of WithHeight.
-func (mr *MockCoreServiceMockRecorder) WithHeight(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithHeight", reflect.TypeOf((*MockCoreService)(nil).WithHeight), arg0)
 }
 
 // MockintrinsicGasCalculator is a mock of intrinsicGasCalculator interface.

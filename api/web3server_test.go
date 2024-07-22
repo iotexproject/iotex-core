@@ -263,9 +263,10 @@ func TestGetBalance(t *testing.T) {
 	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	balance := "111111111111111111"
-	core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{Balance: balance}, nil, nil)
+	balanceInt, _ := new(big.Int).SetString(balance, 10)
+	core.EXPECT().BalanceOf(gomock.Any(), gomock.Any()).Return(balanceInt, nil)
 
-	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]}`)
+	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "latest"]}`)
 	ret, err := web3svr.getBalance(&in)
 	require.NoError(err)
 	ans, ok := new(big.Int).SetString(balance, 10)

@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
@@ -340,17 +339,11 @@ func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	var accountMeta *iotextypes.AccountMeta
-	if height == rpc.LatestBlockNumber {
-		accountMeta, _, err = svr.coreService.Account(ioAddr)
-	} else {
-		accountMeta, _, err = svr.coreService.WithHeight(uint64(height.Int64())).Account(ioAddr)
-	}
-
+	balance, err := svr.coreService.BalanceOf(ioAddr, height)
 	if err != nil {
 		return nil, err
 	}
-	return intStrToHex(accountMeta.Balance)
+	return intStrToHex(balance.String())
 }
 
 // getTransactionCount returns the nonce for the given address

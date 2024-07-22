@@ -77,10 +77,15 @@ const (
 	defaultTraceTimeout = 5 * time.Second
 )
 
+var (
+	errHistoricalNotSupported = errors.New("historical data is not supported")
+)
+
 type (
 	// CoreService provides api interface for user to interact with blockchain data
 	CoreService interface {
-		WithHeight(uint64) CoreServiceReaderWithHeight
+		// BalanceOf returns the balance of an address
+		BalanceOf(addr address.Address, height rpc.BlockNumber) (*big.Int, error)
 		// Account returns the metadata of an account
 		Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error)
 		// ChainMeta returns blockchain metadata
@@ -314,6 +319,45 @@ func newCoreService(
 	}
 
 	return &core, nil
+}
+
+func (core *coreService) BalanceOf(addr address.Address, height rpc.BlockNumber) (*big.Int, error) {
+	ctx, span := tracer.NewSpan(context.Background(), "coreService.BalanceOf")
+	defer span.End()
+	addrStr := addr.String()
+	stateHeight, err := core.blocknumToStateHeight(height)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if !core.isArchiveSupport && stateHeight != core.TipHeight() {
+		return nil, status.Error(codes.NotFound, errHistoricalNotSupported.Error())
+	}
+	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
+		// TODO: get protocol account at height
+		if height != rpc.BlockNumber(core.TipHeight()) {
+			return nil, status.Error(codes.NotFound, "system account state at height is not supported")
+		}
+		acc, _, err := core.getProtocolAccount(ctx, addrStr)
+		if err != nil {
+			return nil, err
+		}
+		balance, ok := new(big.Int).SetString(acc.Balance, 10)
+		if !ok {
+			return nil, status.Errorf(codes.Internal, "failed to parse balance %s", acc.Balance)
+		}
+		return balance, nil
+	}
+	span.AddEvent("accountutil.AccountState")
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	stateReader := protocol.StateReader(core.sf)
+	if core.isArchiveSupport {
+		stateReader = newStateReaderWithHeight(core.sf, stateHeight)
+	}
+	state, err := accountutil.AccountState(ctx, stateReader, addr)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	return state.Balance, nil
 }
 
 // Account returns the metadata of an account
@@ -588,19 +632,10 @@ func (core *coreService) ReadContract(ctx context.Context, height rpc.BlockNumbe
 			return "", nil, status.Error(codes.Internal, err.Error())
 		}
 	} else {
-		var stateHeight uint64
-		// TODO: refactor this part if code is reused
-		switch height {
-		case rpc.SafeBlockNumber, rpc.FinalizedBlockNumber, rpc.LatestBlockNumber:
-			stateHeight = core.bc.TipHeight()
-		case rpc.EarliestBlockNumber:
-			stateHeight = core.bc.Genesis().EasterBlockHeight
-		case rpc.PendingBlockNumber:
-			return "", nil, status.Error(codes.InvalidArgument, "pending block number is not supported")
-		default:
-			stateHeight = uint64(height)
+		stateHeight, err := core.blocknumToStateHeight(height)
+		if err != nil {
+			return "", nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-
 		ctx, err := core.bc.ContextAtHeight(ctx, stateHeight)
 		if err != nil {
 			return "", nil, err
@@ -1945,10 +1980,6 @@ func (core *coreService) Track(ctx context.Context, start time.Time, method stri
 	}, size)
 }
 
-func (core *coreService) WithHeight(height uint64) CoreServiceReaderWithHeight {
-	return newCoreServiceWithHeight(core, height)
-}
-
 func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig, simulateFn func(ctx context.Context) ([]byte, *action.Receipt, error)) ([]byte, *action.Receipt, any, error) {
 	var (
 		tracer vm.EVMLogger
@@ -2010,4 +2041,19 @@ func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Re
 		}
 	}
 	return nil
+}
+
+func (core *coreService) blocknumToStateHeight(blockNum rpc.BlockNumber) (uint64, error) {
+	var stateHeight uint64
+	switch blockNum {
+	case rpc.SafeBlockNumber, rpc.FinalizedBlockNumber, rpc.LatestBlockNumber:
+		stateHeight = core.bc.TipHeight()
+	case rpc.EarliestBlockNumber:
+		stateHeight = core.bc.Genesis().EasterBlockHeight
+	case rpc.PendingBlockNumber:
+		return 0, errors.New("pending block number is not supported")
+	default:
+		stateHeight = uint64(blockNum.Int64())
+	}
+	return stateHeight, nil
 }
