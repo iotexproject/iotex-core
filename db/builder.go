@@ -13,10 +13,14 @@ func CreateKVStore(cfg Config, dbPath string) (KVStore, error) {
 		return nil, ErrEmptyDBPath
 	}
 	cfg.DbPath = dbPath
-	if cfg.EnablePebbleDB {
+	switch cfg.DBType {
+	case DBPebble:
 		return NewPebbleDB(cfg), nil
+	case DBBolt:
+		return NewBoltDB(cfg), nil
+	default:
+		return nil, errors.Errorf("unsupported db type %s", cfg.DBType)
 	}
-	return NewBoltDB(cfg), nil
 }
 
 // CreateKVStoreWithCache creates db with cache from config and db path, cacheSize

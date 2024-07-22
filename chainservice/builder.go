@@ -161,7 +161,7 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 	}
 	factoryCfg := factory.GenerateConfig(builder.cfg.Chain, builder.cfg.Genesis)
 	factoryDBCfg := builder.cfg.DB
-	factoryDBCfg.EnablePebbleDB = builder.cfg.Chain.EnableFactoryPebbleDB
+	factoryDBCfg.DBType = builder.cfg.Chain.FactoryDBType
 	if builder.cfg.Chain.EnableTrielessStateDB {
 		if forTest {
 			return factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(builder.cs.registry))

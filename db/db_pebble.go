@@ -11,11 +11,10 @@ import (
 	"syscall"
 
 	"github.com/cockroachdb/pebble"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
-
-	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
@@ -224,38 +223,10 @@ func (b *PebbleDB) Filter(ns string, cond Condition, minKey []byte, maxKey []byt
 		keys = append(keys, key)
 		vals = append(vals, value)
 	}
-	// log.L().Info("PebbleDB.Filter", zap.String("ns", ns), zap.Int("num", len(keys)))
 	if len(keys) == 0 {
 		return nil, nil, errors.Wrap(ErrNotExist, "filter returns no match")
 	}
 	return
-}
-
-// ForEach iterates over all <k, v> pairs in a bucket
-func (b *PebbleDB) ForEach(fn func(ns string, k, v []byte) error) error {
-	if !b.IsReady() {
-		return ErrDBNotStarted
-	}
-	iter, err := b.db.NewIter(&pebble.IterOptions{})
-	if err != nil {
-		return errors.Wrap(err, "failed to create iterator")
-	}
-	defer func() {
-		if e := iter.Close(); e != nil {
-			log.L().Error("Failed to close iterator", zap.Error(e))
-		}
-	}()
-	for iter.First(); iter.Valid(); iter.Next() {
-		ck, v := iter.Key(), iter.Value()
-		k, err := decodeKey(ck)
-		if err != nil {
-			return err
-		}
-		if err := fn(string(ck[:prefixLength]), k, v); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func nsKey(ns string, key []byte) []byte {
