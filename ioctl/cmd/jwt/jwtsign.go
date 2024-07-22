@@ -70,7 +70,7 @@ func jwtSign() error {
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signer address", err)
 	}
-	prvKey, err := account.PrivateKeyFromSigner(signer, "")
+	prvKey, err := account.PrivateKeyFromSigner(signer, action.PasswordByFlag())
 	if err != nil {
 		return err
 	}

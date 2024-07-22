@@ -209,6 +209,10 @@ func fixGasLimit(caller string, execution *action.Execution) (*action.Execution,
 	return action.NewExecution(execution.Contract(), execution.Nonce(), execution.Amount(), res.Gas, execution.GasPrice(), execution.Data())
 }
 
+func PasswordByFlag() string {
+	return _passwordFlag.Value().(string)
+}
+
 // SendRaw sends raw action to blockchain
 func SendRaw(selp *iotextypes.Action) error {
 	_, err := SendRawAndRespond(selp)
@@ -260,7 +264,7 @@ func SendAction(elp action.Envelope, signer string) error {
 
 // SendActionAndResponse sends signed action to blockchain with response and error return
 func SendActionAndResponse(elp action.Envelope, signer string) (*iotexapi.SendActionResponse, error) {
-	prvKey, err := account.PrivateKeyFromSigner(signer, _passwordFlag.Value().(string))
+	prvKey, err := account.PrivateKeyFromSigner(signer, PasswordByFlag())
 	if err != nil {
 		return nil, err
 	}
