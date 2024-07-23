@@ -229,6 +229,37 @@ func (b *PebbleDB) Filter(ns string, cond Condition, minKey []byte, maxKey []byt
 	return
 }
 
+// ForEach iterates over all <k, v> pairs in a bucket
+func (b *PebbleDB) ForEach(ns string, fn func(k, v []byte) error) error {
+	if !b.IsReady() {
+		return ErrDBNotStarted
+	}
+	iter, err := b.db.NewIter(&pebble.IterOptions{})
+	if err != nil {
+		return errors.Wrap(err, "failed to create iterator")
+	}
+	defer func() {
+		if e := iter.Close(); e != nil {
+			log.L().Error("Failed to close iterator", zap.Error(e))
+		}
+	}()
+	for iter.SeekPrefixGE(nsKey(ns, nil)); iter.Valid(); iter.Next() {
+		ck, v := iter.Key(), iter.Value()
+		k, err := decodeKey(ck)
+		if err != nil {
+			return err
+		}
+		key := make([]byte, len(k))
+		copy(key, k)
+		value := make([]byte, len(v))
+		copy(value, v)
+		if err := fn(key, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func nsKey(ns string, key []byte) []byte {
 	nk := nsToPrefix(ns)
 	return append(nk, key...)

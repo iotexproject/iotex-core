@@ -186,3 +186,59 @@ func TestPebbleDB_Filter(t *testing.T) {
 	r.EqualValues([][]byte{_k2}, ks)
 	r.EqualValues([][]byte{_v2}, vs)
 }
+
+func TestPebbleDB_Foreach(t *testing.T) {
+	r := require.New(t)
+	testPath, err := os.MkdirTemp("", "test-pebble")
+	r.NoError(err)
+	defer func() {
+		testutil.CleanupPath(testPath)
+	}()
+
+	cfg := DefaultConfig
+	cfg.DbPath = testPath
+	db := NewPebbleDB(cfg)
+	ctx := context.Background()
+	r.NoError(db.Start(ctx))
+	defer func() {
+		r.NoError(db.Stop(ctx))
+	}()
+
+	ns0 := "ns0"
+	ns1 := "ns1"
+	ns2 := "ns2"
+	ns3 := "ns3"
+	r.NoError(db.Put(ns1, _k1, _v1))
+	r.NoError(db.Put(ns1, _k2, _v2))
+	r.NoError(db.Put(ns2, _k2, _v2))
+	r.NoError(db.Put(ns2, _k3, _v3))
+	v, err := db.Get(ns1, _k1)
+	r.NoError(err)
+	r.Equal(_v1, v)
+	eachRes := make([][][]byte, 0)
+	err = db.ForEach(ns1, func(k, v []byte) error {
+		eachRes = append(eachRes, [][]byte{k, v})
+		return nil
+	})
+	r.NoError(err)
+	r.ElementsMatch([][][]byte{{_k1, _v1}, {_k2, _v2}}, eachRes)
+	eachRes = make([][][]byte, 0)
+	err = db.ForEach(ns2, func(k, v []byte) error {
+		eachRes = append(eachRes, [][]byte{k, v})
+		return nil
+	})
+	r.NoError(err)
+	r.ElementsMatch([][][]byte{{_k2, _v2}, {_k3, _v3}}, eachRes)
+	eachRes = make([][][]byte, 0)
+	err = db.ForEach(ns0, func(k, v []byte) error {
+		eachRes = append(eachRes, [][]byte{k, v})
+		return nil
+	})
+	r.NoError(err)
+	r.Len(eachRes, 0)
+	err = db.ForEach(ns3, func(k, v []byte) error {
+		eachRes = append(eachRes, [][]byte{k, v})
+		return nil
+	})
+	r.NoError(err)
+}
