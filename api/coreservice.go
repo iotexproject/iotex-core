@@ -2049,7 +2049,7 @@ func (core *coreService) blocknumToStateHeight(blockNum rpc.BlockNumber) (uint64
 	case rpc.SafeBlockNumber, rpc.FinalizedBlockNumber, rpc.LatestBlockNumber:
 		stateHeight = core.bc.TipHeight()
 	case rpc.EarliestBlockNumber:
-		stateHeight = core.bc.Genesis().EasterBlockHeight
+		stateHeight = 1
 	case rpc.PendingBlockNumber:
 		return 0, errors.New("pending block number is not supported")
 	default:
