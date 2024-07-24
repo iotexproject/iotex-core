@@ -122,7 +122,7 @@
         "type": "uint256"
       }
     ],
-    "name": "TypePaused",
+    "name": "VMTypePaused",
     "type": "event"
   },
   {
@@ -136,7 +136,7 @@
         "type": "uint256"
       }
     ],
-    "name": "TypeResumed",
+    "name": "VMTypeResumed",
     "type": "event"
   },
   {
@@ -150,7 +150,7 @@
         "type": "uint256"
       }
     ],
-    "name": "TypeSet",
+    "name": "VMTypeSet",
     "type": "event"
   },
   {
@@ -574,7 +574,7 @@
         "type": "uint256"
       }
     ],
-    "name": "vmType",
+    "name": "vmTypeName",
     "outputs":
     [
       {

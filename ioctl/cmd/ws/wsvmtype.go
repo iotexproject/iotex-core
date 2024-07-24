@@ -44,16 +44,16 @@ var (
 
 const (
 	funcVmTypeMint          = "mint"
-	funcQueryVmType         = "vmType"
+	funcQueryVmType         = "vmTypeName"
 	funcQueryVmTypeIsPaused = "isPaused"
 	funcVmTypePause         = "pause"
 	funcVmTypeResume        = "resume"
 )
 
 const (
-	eventOnVmTypePaused  = "TypePaused"
-	eventOnVmTypeResumed = "TypeResumed"
-	eventOnVmTypeSet     = "TypeSet"
+	eventOnVmTypePaused  = "VMTypePaused"
+	eventOnVmTypeResumed = "VMTypeResumed"
+	eventOnVmTypeSet     = "VMTypeSet"
 )
 
 func init() {

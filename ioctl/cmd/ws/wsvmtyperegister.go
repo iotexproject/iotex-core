@@ -38,7 +38,7 @@ func registerVmType(name string) (any, error) {
 		return nil, errors.Wrap(err, "failed to create contract caller")
 	}
 
-	value := new(contracts.W3bstreamVMTypeTypeSet)
+	value := new(contracts.W3bstreamVMTypeVMTypeSet)
 	result := NewContractResult(&vmTypeABI, eventOnVmTypeSet, value)
 	if _, err = caller.CallAndRetrieveResult(funcVmTypeMint, []any{name}, result); err != nil {
 		return nil, errors.Wrap(err, "failed to call contract")
