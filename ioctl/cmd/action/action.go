@@ -316,8 +316,12 @@ func SendActionAndResponse(elp action.Envelope, signer string) (*iotexapi.SendAc
 
 // Execute sends signed execution transaction to blockchain
 func Execute(contract string, amount *big.Int, bytecode []byte) error {
-	_, err := ExecuteAndResponse(contract, amount, bytecode)
-	return err
+	resp, err := ExecuteAndResponse(contract, amount, bytecode)
+	if err != nil {
+		return err
+	}
+	outputActionInfo(resp.ActionHash)
+	return nil
 }
 
 // ExecuteAndResponse sends signed execution transaction to blockchain and with response and error return
