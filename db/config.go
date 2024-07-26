@@ -29,16 +29,13 @@ type Config struct {
 	// ReadOnly is set db to be opened in read only mode
 	ReadOnly bool `yaml:"readOnly"`
 	// DBType is the type of database
-	DBType Type `yaml:"dbType"`
+	DBType string `yaml:"dbType"`
 }
-
-// Type is the type of database
-type Type string
 
 // Database types
 const (
-	DBBolt   Type = "bolt"
-	DBPebble      = "pebble"
+	DBBolt   string = "boltdb"
+	DBPebble        = "pebbledb"
 )
 
 // SplitDBSize returns the configured SplitDBSizeMB

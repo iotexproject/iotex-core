@@ -72,7 +72,7 @@ type (
 		// PersistStakingPatchBlock is the block to persist staking patch
 		PersistStakingPatchBlock uint64 `yaml:"persistStakingPatchBlock"`
 		// FactoryDBType is the type of factory db
-		FactoryDBType db.Type `yaml:"factoryDBType"`
+		FactoryDBType string `yaml:"factoryDBType"`
 	}
 )
 
