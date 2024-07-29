@@ -54,8 +54,9 @@ var (
 
 const (
 	funcProverRegister      = "register"
-	funcUpdateProver        = "updateNodeType"
-	funcQueryProverNodeType = "nodeType"
+	funcAddProverType       = "addNodeType"
+	funcDelProverType       = "delNodeType"
+	funcQueryProverNodeType = "hasNodeType"
 	funcQueryProverIsPaused = "isPaused"
 	funcQueryProverOperator = "operator"
 	funcQueryProverOwner    = "prover"
@@ -66,7 +67,8 @@ const (
 
 const (
 	eventOnProverRegistered   = "Transfer"
-	eventOnProverUpdated      = "NodeTypeUpdated"
+	eventOnProverTypeAdded    = "NodeTypeAdded"
+	eventOnProverTypeDeleted  = "NodeTypeDeleted"
 	eventOnProverPaused       = "ProverPaused"
 	eventOnProverResumed      = "ProverResumed"
 	eventOnProverOwnerChanged = "OperatorSet"

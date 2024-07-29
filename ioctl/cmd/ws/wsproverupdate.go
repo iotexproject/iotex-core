@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -11,14 +12,33 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
-var wsProverUpdateCmd = &cobra.Command{
-	Use: "update",
+var wsProverAddNodeTypeCmd = &cobra.Command{
+	Use: "addtype",
 	Short: config.TranslateInLang(map[config.Language]string{
-		config.English: "update prover",
-		config.Chinese: "更新prover节点类型",
+		config.English: "add prover node type",
+		config.Chinese: "添加prover节点类型",
 	}, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		out, err := updateProver(
+		out, err := addProverType(
+			big.NewInt(int64(proverID.Value().(uint64))),
+			big.NewInt(int64(proverNodeType.Value().(uint64))),
+		)
+		if err != nil {
+			return output.PrintError(err)
+		}
+		output.PrintResult(output.JSONString(out))
+		return nil
+	},
+}
+
+var wsProverDelNodeTypeCmd = &cobra.Command{
+	Use: "deltype",
+	Short: config.TranslateInLang(map[config.Language]string{
+		config.English: "delete prover node type",
+		config.Chinese: "删除prover节点类型",
+	}, config.UILanguage),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		out, err := delProverType(
 			big.NewInt(int64(proverID.Value().(uint64))),
 			big.NewInt(int64(proverNodeType.Value().(uint64))),
 		)
@@ -31,36 +51,56 @@ var wsProverUpdateCmd = &cobra.Command{
 }
 
 func init() {
-	proverID.RegisterCommand(wsProverUpdateCmd)
-	proverID.MarkFlagRequired(wsProverUpdateCmd)
+	proverID.RegisterCommand(wsProverAddNodeTypeCmd)
+	proverID.MarkFlagRequired(wsProverAddNodeTypeCmd)
 
-	proverNodeType.RegisterCommand(wsProverUpdateCmd)
-	proverNodeType.MarkFlagRequired(wsProverUpdateCmd)
+	proverNodeType.RegisterCommand(wsProverAddNodeTypeCmd)
+	proverNodeType.MarkFlagRequired(wsProverAddNodeTypeCmd)
 
-	wsProverCmd.AddCommand(wsProverUpdateCmd)
+	proverID.RegisterCommand(wsProverDelNodeTypeCmd)
+	proverID.MarkFlagRequired(wsProverDelNodeTypeCmd)
+
+	proverNodeType.RegisterCommand(wsProverDelNodeTypeCmd)
+	proverNodeType.MarkFlagRequired(wsProverDelNodeTypeCmd)
+
+	wsProverCmd.AddCommand(wsProverAddNodeTypeCmd)
+	wsProverCmd.AddCommand(wsProverDelNodeTypeCmd)
 }
 
-func updateProver(proverID, nodeType *big.Int) (any, error) {
+func addProverType(proverID, nodeType *big.Int) (string, error) {
 	caller, err := NewContractCaller(proverStoreABI, proverStoreAddress)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create contract caller")
+		return "", errors.Wrap(err, "failed to create contract caller")
 	}
 
-	value := new(contracts.W3bstreamProverNodeTypeUpdated)
-	result := NewContractResult(&proverStoreABI, eventOnProverUpdated, value)
-	if _, err = caller.CallAndRetrieveResult(funcUpdateProver, []any{proverID, nodeType}, result); err != nil {
-		return nil, errors.Wrap(err, "failed to call contract")
+	value := new(contracts.W3bstreamProverNodeTypeAdded)
+	result := NewContractResult(&proverStoreABI, eventOnProverTypeAdded, value)
+	if _, err = caller.CallAndRetrieveResult(funcAddProverType, []any{proverID, nodeType}, result); err != nil {
+		return "", errors.Wrap(err, "failed to call contract")
 	}
 
 	if _, err = result.Result(); err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return &struct {
-		ProverID *big.Int `json:"proverID"`
-		NodeType *big.Int `json:"nodeType"`
-	}{
-		ProverID: value.Id,
-		NodeType: value.Typ,
-	}, nil
+	return fmt.Sprintf("the type of proverID %s and nodeType %s has added successfully.", value.Id.String(), value.Typ.String()), nil
+}
+
+func delProverType(proverID, nodeType *big.Int) (string, error) {
+	caller, err := NewContractCaller(proverStoreABI, proverStoreAddress)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to create contract caller")
+	}
+
+	value := new(contracts.W3bstreamProverNodeTypeDeleted)
+	result := NewContractResult(&proverStoreABI, eventOnProverTypeDeleted, value)
+	if _, err = caller.CallAndRetrieveResult(funcDelProverType, []any{proverID, nodeType}, result); err != nil {
+		return "", errors.Wrap(err, "failed to call contract")
+	}
+
+	if _, err = result.Result(); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("the type of proverID %s and nodeType %s has deleted successfully.", value.Id.String(), value.Typ.String()), nil
 }
