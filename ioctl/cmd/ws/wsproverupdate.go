@@ -12,16 +12,16 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
-var wsProverAddNodeTypeCmd = &cobra.Command{
-	Use: "addtype",
+var wsProverAddVmTypeCmd = &cobra.Command{
+	Use: "addvmtype",
 	Short: config.TranslateInLang(map[config.Language]string{
-		config.English: "add prover node type",
-		config.Chinese: "添加prover节点类型",
+		config.English: "add prover vm type",
+		config.Chinese: "添加prover节点虚拟机类型",
 	}, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		out, err := addProverType(
+		out, err := addProverVmType(
 			big.NewInt(int64(proverID.Value().(uint64))),
-			big.NewInt(int64(proverNodeType.Value().(uint64))),
+			big.NewInt(int64(proverVmType.Value().(uint64))),
 		)
 		if err != nil {
 			return output.PrintError(err)
@@ -31,16 +31,16 @@ var wsProverAddNodeTypeCmd = &cobra.Command{
 	},
 }
 
-var wsProverDelNodeTypeCmd = &cobra.Command{
-	Use: "deltype",
+var wsProverDelVmTypeCmd = &cobra.Command{
+	Use: "delvmtype",
 	Short: config.TranslateInLang(map[config.Language]string{
-		config.English: "delete prover node type",
-		config.Chinese: "删除prover节点类型",
+		config.English: "delete prover vm type",
+		config.Chinese: "删除prover节点虚拟机类型",
 	}, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		out, err := delProverType(
+		out, err := delProverVmType(
 			big.NewInt(int64(proverID.Value().(uint64))),
-			big.NewInt(int64(proverNodeType.Value().(uint64))),
+			big.NewInt(int64(proverVmType.Value().(uint64))),
 		)
 		if err != nil {
 			return output.PrintError(err)
@@ -51,31 +51,31 @@ var wsProverDelNodeTypeCmd = &cobra.Command{
 }
 
 func init() {
-	proverID.RegisterCommand(wsProverAddNodeTypeCmd)
-	proverID.MarkFlagRequired(wsProverAddNodeTypeCmd)
+	proverID.RegisterCommand(wsProverAddVmTypeCmd)
+	proverID.MarkFlagRequired(wsProverAddVmTypeCmd)
 
-	proverNodeType.RegisterCommand(wsProverAddNodeTypeCmd)
-	proverNodeType.MarkFlagRequired(wsProverAddNodeTypeCmd)
+	proverVmType.RegisterCommand(wsProverAddVmTypeCmd)
+	proverVmType.MarkFlagRequired(wsProverAddVmTypeCmd)
 
-	proverID.RegisterCommand(wsProverDelNodeTypeCmd)
-	proverID.MarkFlagRequired(wsProverDelNodeTypeCmd)
+	proverID.RegisterCommand(wsProverDelVmTypeCmd)
+	proverID.MarkFlagRequired(wsProverDelVmTypeCmd)
 
-	proverNodeType.RegisterCommand(wsProverDelNodeTypeCmd)
-	proverNodeType.MarkFlagRequired(wsProverDelNodeTypeCmd)
+	proverVmType.RegisterCommand(wsProverDelVmTypeCmd)
+	proverVmType.MarkFlagRequired(wsProverDelVmTypeCmd)
 
-	wsProverCmd.AddCommand(wsProverAddNodeTypeCmd)
-	wsProverCmd.AddCommand(wsProverDelNodeTypeCmd)
+	wsProverCmd.AddCommand(wsProverAddVmTypeCmd)
+	wsProverCmd.AddCommand(wsProverDelVmTypeCmd)
 }
 
-func addProverType(proverID, nodeType *big.Int) (string, error) {
+func addProverVmType(proverID, vmType *big.Int) (string, error) {
 	caller, err := NewContractCaller(proverStoreABI, proverStoreAddress)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to create contract caller")
 	}
 
-	value := new(contracts.W3bstreamProverNodeTypeAdded)
-	result := NewContractResult(&proverStoreABI, eventOnProverTypeAdded, value)
-	if _, err = caller.CallAndRetrieveResult(funcAddProverType, []any{proverID, nodeType}, result); err != nil {
+	value := new(contracts.W3bstreamProverVMTypeAdded)
+	result := NewContractResult(&proverStoreABI, eventOnProverVmTypeAdded, value)
+	if _, err = caller.CallAndRetrieveResult(funcAddProverVmType, []any{proverID, vmType}, result); err != nil {
 		return "", errors.Wrap(err, "failed to call contract")
 	}
 
@@ -83,18 +83,18 @@ func addProverType(proverID, nodeType *big.Int) (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("the type of proverID %s and nodeType %s has added successfully.", value.Id.String(), value.Typ.String()), nil
+	return fmt.Sprintf("the type of proverID %s and vmType %s has added successfully.", value.Id.String(), value.Typ.String()), nil
 }
 
-func delProverType(proverID, nodeType *big.Int) (string, error) {
+func delProverVmType(proverID, vmType *big.Int) (string, error) {
 	caller, err := NewContractCaller(proverStoreABI, proverStoreAddress)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to create contract caller")
 	}
 
-	value := new(contracts.W3bstreamProverNodeTypeDeleted)
-	result := NewContractResult(&proverStoreABI, eventOnProverTypeDeleted, value)
-	if _, err = caller.CallAndRetrieveResult(funcDelProverType, []any{proverID, nodeType}, result); err != nil {
+	value := new(contracts.W3bstreamProverVMTypeDeleted)
+	result := NewContractResult(&proverStoreABI, eventOnProverVmTypeDeleted, value)
+	if _, err = caller.CallAndRetrieveResult(funcDelProverVmType, []any{proverID, vmType}, result); err != nil {
 		return "", errors.Wrap(err, "failed to call contract")
 	}
 
@@ -102,5 +102,5 @@ func delProverType(proverID, nodeType *big.Int) (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("the type of proverID %s and nodeType %s has deleted successfully.", value.Id.String(), value.Typ.String()), nil
+	return fmt.Sprintf("the type of proverID %s and vmType %s has deleted successfully.", value.Id.String(), value.Typ.String()), nil
 }

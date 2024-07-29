@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
@@ -30,14 +29,14 @@ var wsProverQueryCmd = &cobra.Command{
 	},
 }
 
-var wsProverQueryTypeCmd = &cobra.Command{
-	Use: "querytype",
+var wsProverQueryVmTypeCmd = &cobra.Command{
+	Use: "queryvmtype",
 	Short: config.TranslateInLang(map[config.Language]string{
-		config.English: "query prover node type",
-		config.Chinese: "查询prover节点类型信息",
+		config.English: "query prover vm type",
+		config.Chinese: "查询prover节点虚拟机类型信息",
 	}, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		out, err := queryProverType(big.NewInt(int64(proverID.Value().(uint64))), big.NewInt(int64(proverNodeType.Value().(uint64))))
+		out, err := queryProverVmType(big.NewInt(int64(proverID.Value().(uint64))), big.NewInt(int64(proverVmType.Value().(uint64))))
 		if err != nil {
 			return output.PrintError(err)
 		}
@@ -50,13 +49,13 @@ func init() {
 	proverID.RegisterCommand(wsProverQueryCmd)
 	proverID.MarkFlagRequired(wsProverQueryCmd)
 
-	proverID.RegisterCommand(wsProverQueryTypeCmd)
-	proverID.MarkFlagRequired(wsProverQueryTypeCmd)
-	proverNodeType.RegisterCommand(wsProverQueryTypeCmd)
-	proverNodeType.MarkFlagRequired(wsProverQueryTypeCmd)
+	proverID.RegisterCommand(wsProverQueryVmTypeCmd)
+	proverID.MarkFlagRequired(wsProverQueryVmTypeCmd)
+	proverVmType.RegisterCommand(wsProverQueryVmTypeCmd)
+	proverVmType.MarkFlagRequired(wsProverQueryVmTypeCmd)
 
 	wsProverCmd.AddCommand(wsProverQueryCmd)
-	wsProverCmd.AddCommand(wsProverQueryTypeCmd)
+	wsProverCmd.AddCommand(wsProverQueryVmTypeCmd)
 }
 
 func queryProver(proverID *big.Int) (any, error) {
@@ -116,20 +115,21 @@ func queryProver(proverID *big.Int) (any, error) {
 
 }
 
-func queryProverType(proverID, nodeType *big.Int) (string, error) {
+
+func queryProverVmType(proverID, vmType *big.Int) (string, error) {
 	caller, err := NewContractCaller(proverStoreABI, proverStoreAddress)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to new contract caller")
 	}
-	result := NewContractResult(&proverStoreABI, funcQueryProverNodeType, new(bool))
-	if err = caller.Read(funcQueryProverNodeType, []any{proverID, nodeType}, result); err != nil {
-		return "", errors.Wrapf(err, "failed to read contract: %s", funcQueryProverNodeType)
+	result := NewContractResult(&proverStoreABI, funcQueryProverVmType, new(bool))
+	if err = caller.Read(funcQueryProverVmType, []any{proverID, vmType}, result); err != nil {
+		return "", errors.Wrapf(err, "failed to read contract: %s", funcQueryProverVmType)
 	}
 
-	hasNodeType, err := result.Result()
+	hasVmType, err := result.Result()
 	if err != nil {
 		return "", err
 	}
 
-	return fmt.Sprintf("the state of proverID and nodeType is %t", *hasNodeType.(*bool)), nil
+	return fmt.Sprintf("the state of proverID and vmType is %t", *hasVmType.(*bool)), nil
 }

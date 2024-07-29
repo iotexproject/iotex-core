@@ -21,7 +21,7 @@ var wsProverCmd = &cobra.Command{
 
 var (
 	proverID       = flag.NewUint64VarP("id", "", 0, config.TranslateInLang(_flagProverIDUsages, config.UILanguage))
-	proverNodeType = flag.NewUint64VarP("node-type", "", 0, config.TranslateInLang(_flagProverNodeTypeUsages, config.UILanguage))
+	proverVmType   = flag.NewUint64VarP("vm-type", "", 0, config.TranslateInLang(_flagProverVmTypeUsages, config.UILanguage))
 	proverOperator = flag.NewStringVarP("operator", "", "", config.TranslateInLang(_flagProverOperatorUsages, config.UILanguage))
 )
 
@@ -30,9 +30,9 @@ var (
 		config.English: "prover id",
 		config.Chinese: "prover(计算节点) ID",
 	}
-	_flagProverNodeTypeUsages = map[config.Language]string{
-		config.English: "prover node type",
-		config.Chinese: "prover(计算节点) 节点类型",
+	_flagProverVmTypeUsages = map[config.Language]string{
+		config.English: "prover vm type",
+		config.Chinese: "prover(计算节点) 节点虚拟机类型",
 	}
 	_flagProverOperatorUsages = map[config.Language]string{
 		config.English: "prover node operator",
@@ -54,9 +54,9 @@ var (
 
 const (
 	funcProverRegister      = "register"
-	funcAddProverType       = "addNodeType"
-	funcDelProverType       = "delNodeType"
-	funcQueryProverNodeType = "hasNodeType"
+	funcAddProverVmType     = "addVMType"
+	funcDelProverVmType     = "delVMType"
+	funcQueryProverVmType   = "isVMTypeSupported"
 	funcQueryProverIsPaused = "isPaused"
 	funcQueryProverOperator = "operator"
 	funcQueryProverOwner    = "prover"
@@ -66,12 +66,12 @@ const (
 )
 
 const (
-	eventOnProverRegistered   = "Transfer"
-	eventOnProverTypeAdded    = "NodeTypeAdded"
-	eventOnProverTypeDeleted  = "NodeTypeDeleted"
-	eventOnProverPaused       = "ProverPaused"
-	eventOnProverResumed      = "ProverResumed"
-	eventOnProverOwnerChanged = "OperatorSet"
+	eventOnProverRegistered    = "Transfer"
+	eventOnProverVmTypeAdded   = "VMTypeAdded"
+	eventOnProverVmTypeDeleted = "VMTypeDeleted"
+	eventOnProverPaused        = "ProverPaused"
+	eventOnProverResumed       = "ProverResumed"
+	eventOnProverOwnerChanged  = "OperatorSet"
 )
 
 func init() {
