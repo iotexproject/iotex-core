@@ -359,7 +359,7 @@ func (c *compositeStakingStateReader) addContractStakingVotes(ctx context.Contex
 	if !ok {
 		return errors.Errorf("invalid total weighted votes %s", candidate.TotalWeightedVotes)
 	}
-	addr, err := address.FromString(candidate.OwnerAddress)
+	addr, err := address.FromString(candidate.GetId())
 	if err != nil {
 		return err
 	}
