@@ -36,7 +36,7 @@ var wsProverQueryVmTypeCmd = &cobra.Command{
 		config.Chinese: "查询prover节点虚拟机类型信息",
 	}, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		out, err := queryProverType(big.NewInt(int64(proverID.Value().(uint64))), big.NewInt(int64(proverVmType.Value().(uint64))))
+		out, err := queryProverVmType(big.NewInt(int64(proverID.Value().(uint64))), big.NewInt(int64(proverVmType.Value().(uint64))))
 		if err != nil {
 			return output.PrintError(err)
 		}
@@ -115,7 +115,8 @@ func queryProver(proverID *big.Int) (any, error) {
 
 }
 
-func queryProverType(proverID, vmType *big.Int) (string, error) {
+
+func queryProverVmType(proverID, vmType *big.Int) (string, error) {
 	caller, err := NewContractCaller(proverStoreABI, proverStoreAddress)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to new contract caller")
