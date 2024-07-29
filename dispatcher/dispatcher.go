@@ -50,17 +50,6 @@ var (
 	}
 )
 
-// Subscriber is the dispatcher subscriber interface
-type Subscriber interface {
-	ReportFullness(context.Context, iotexrpc.MessageType, float32)
-	HandleAction(context.Context, *iotextypes.Action) error
-	HandleBlock(context.Context, string, *iotextypes.Block) error
-	HandleSyncRequest(context.Context, peer.AddrInfo, *iotexrpc.BlockSync) error
-	HandleConsensusMsg(*iotextypes.ConsensusMessage) error
-	HandleNodeInfoRequest(context.Context, peer.AddrInfo, *iotextypes.NodeInfoRequest) error
-	HandleNodeInfo(context.Context, string, *iotextypes.NodeInfo) error
-}
-
 // Dispatcher is used by peers, handles incoming block and header notifications and relays announcements of new blocks.
 type Dispatcher interface {
 	lifecycle.StartStopper

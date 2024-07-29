@@ -48,6 +48,11 @@ func stopDispatcher(ctx context.Context, d Dispatcher, t *testing.T) {
 func setTestCase() []proto.Message {
 	return []proto.Message{
 		&iotextypes.Action{},
+		&iotextypes.Actions{
+			Actions: []*iotextypes.Action{
+				&iotextypes.Action{},
+			},
+		},
 		&iotextypes.ConsensusMessage{},
 		&iotextypes.Block{},
 		&iotexrpc.BlockSync{},

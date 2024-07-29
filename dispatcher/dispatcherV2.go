@@ -17,7 +17,6 @@ import (
 )
 
 type (
-	// dispatcherV2 is the dispatcher for handling messages
 	dispatcherV2 struct {
 		lifecycle.Readiness
 		lifecycle.Lifecycle
@@ -45,7 +44,11 @@ type (
 
 // NewDispatcherV2 creates a new dispatcherV2
 func NewDispatcherV2(cfg Config) Dispatcher {
-	d := &dispatcherV2{}
+	d := &dispatcherV2{
+		subscribers:  make(map[uint32]Subscriber),
+		peerLastSync: make(map[string]time.Time),
+		syncInterval: cfg.ProcessSyncRequestInterval,
+	}
 	queueMgr := newMsgQueueMgr(msgQueueConfig{
 		actionChanSize: cfg.ActionChanSize,
 		blockChanSize:  cfg.BlockChanSize,
@@ -176,18 +179,18 @@ func (d *dispatcherV2) dispatchBroadcastMsg(message *message) {
 	switch msg := message.msg.(type) {
 	case *iotextypes.ConsensusMessage:
 		if err := subscriber.HandleConsensusMsg(msg); err != nil {
-			log.L().Debug("Failed to handle consensus message.", zap.Error(err))
+			log.L().Warn("Failed to handle consensus message.", zap.Error(err))
 		}
 	case *iotextypes.Action:
 		if err := subscriber.HandleAction(message.ctx, msg); err != nil {
 			requestMtc.WithLabelValues("AddAction", "false").Inc()
-			log.L().Debug("Handle action request error.", zap.Error(err))
+			log.L().Warn("Handle action request error.", zap.Error(err))
 		}
 	case *iotextypes.Actions:
 		for i := range msg.Actions {
 			if err := subscriber.HandleAction(message.ctx, msg.Actions[i]); err != nil {
 				requestMtc.WithLabelValues("AddAction", "false").Inc()
-				log.L().Debug("Handle action request error.", zap.Error(err))
+				log.L().Warn("Handle action request error.", zap.Error(err))
 			}
 		}
 	case *iotextypes.Block:
