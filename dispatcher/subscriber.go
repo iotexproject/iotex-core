@@ -3,6 +3,7 @@ package dispatcher
 import (
 	"context"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -17,4 +18,6 @@ type Subscriber interface {
 	HandleConsensusMsg(*iotextypes.ConsensusMessage) error
 	HandleNodeInfoRequest(context.Context, peer.AddrInfo, *iotextypes.NodeInfoRequest) error
 	HandleNodeInfo(context.Context, string, *iotextypes.NodeInfo) error
+	HandleActionRequest(ctx context.Context, peer peer.AddrInfo, actHash hash.Hash256) error
+	HandleActionHash(ctx context.Context, actHash hash.Hash256, from string) error
 }

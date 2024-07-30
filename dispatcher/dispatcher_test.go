@@ -17,6 +17,7 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/iotexproject/iotex-proto/golang/testingpb"
@@ -199,6 +200,14 @@ func (ds *dummySubscriber) HandleNodeInfo(context.Context, string, *iotextypes.N
 	return nil
 }
 
+func (ds *dummySubscriber) HandleActionRequest(context.Context, peer.AddrInfo, hash.Hash256) error {
+	return nil
+}
+
+func (ds *dummySubscriber) HandleActionHash(context.Context, hash.Hash256, string) error {
+	return nil
+}
+
 type counterSubscriber struct {
 	block       atomic.Int32
 	blockSync   atomic.Int32
@@ -206,6 +215,8 @@ type counterSubscriber struct {
 	consensus   atomic.Int32
 	nodeInfo    atomic.Int32
 	nodeInfoReq atomic.Int32
+	actionReq   atomic.Int32
+	actionHash  atomic.Int32
 }
 
 func (cs *counterSubscriber) ReportFullness(context.Context, iotexrpc.MessageType, float32) {}
@@ -237,5 +248,15 @@ func (cs *counterSubscriber) HandleNodeInfoRequest(context.Context, peer.AddrInf
 
 func (cs *counterSubscriber) HandleNodeInfo(context.Context, string, *iotextypes.NodeInfo) error {
 	cs.nodeInfo.Inc()
+	return nil
+}
+
+func (cs *counterSubscriber) HandleActionRequest(context.Context, peer.AddrInfo, hash.Hash256) error {
+	cs.actionReq.Inc()
+	return nil
+}
+
+func (cs *counterSubscriber) HandleActionHash(context.Context, hash.Hash256, string) error {
+	cs.actionHash.Inc()
 	return nil
 }
