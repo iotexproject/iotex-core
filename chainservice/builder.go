@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/actsync"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -569,6 +570,20 @@ func (builder *Builder) buildBlockSyncer() error {
 	return nil
 }
 
+func (builder *Builder) buildActionSyncer() error {
+	if builder.cs.actionsync != nil {
+		return nil
+	}
+	p2pAgent := builder.cs.p2pAgent
+	actionsync := actsync.NewActionSync(builder.cfg.ActionSync, &actsync.Helper{
+		P2PNeighbor:     p2pAgent.ConnectedPeers,
+		UnicastOutbound: p2pAgent.UnicastOutbound,
+	})
+	builder.cs.actionsync = actionsync
+	builder.cs.lifecycle.Add(actionsync)
+	return nil
+}
+
 func (builder *Builder) registerStakingProtocol() error {
 	if !builder.cfg.Chain.EnableStakingProtocol {
 		return nil
@@ -784,6 +799,9 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildBlockSyncer(); err != nil {
+		return nil, err
+	}
+	if err := builder.buildActionSyncer(); err != nil {
 		return nil, err
 	}
 	if err := builder.buildNodeInfoManager(); err != nil {

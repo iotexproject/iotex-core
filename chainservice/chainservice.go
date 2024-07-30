@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -22,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/actsync"
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -77,6 +79,7 @@ type ChainService struct {
 	nodeInfoManager          *nodeinfo.InfoManager
 	apiStats                 *nodestats.APILocalStats
 	blockTimeCalculator      *blockutil.BlockTimeCalculator
+	actionsync               *actsync.ActionSync
 }
 
 // Start starts the server
@@ -105,7 +108,35 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 	if err != nil {
 		log.L().Debug(err.Error())
 	}
+	hash, err := act.Hash()
+	if err != nil {
+		return err
+	}
+	cs.actionsync.ReceiveAction(ctx, hash)
 	return err
+}
+
+// HandleActionHash handles incoming action hash request.
+func (cs *ChainService) HandleActionHash(ctx context.Context, actHash hash.Hash256, from string) error {
+	_, err := cs.actpool.GetActionByHash(actHash)
+	if err == nil { // action already in pool
+		return nil
+	}
+	if !errors.Is(err, action.ErrNotFound) {
+		return err
+	}
+	return cs.actionsync.RequestAction(ctx, actHash)
+}
+
+func (cs *ChainService) HandleActionRequest(ctx context.Context, peer peer.AddrInfo, actHash hash.Hash256) error {
+	act, err := cs.actpool.GetActionByHash(actHash)
+	if err != nil {
+		if errors.Is(err, action.ErrNotFound) {
+			return nil
+		}
+		return err
+	}
+	return cs.p2pAgent.UnicastOutbound(ctx, peer, act.Proto())
 }
 
 // HandleBlock handles incoming block request.

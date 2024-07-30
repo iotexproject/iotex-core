@@ -14,6 +14,7 @@ import (
 	uconfig "go.uber.org/config"
 
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/actsync"
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -78,10 +79,11 @@ var (
 			StartSubChainInterval: 10 * time.Second,
 			SystemLogDBPath:       "/var/log",
 		},
-		DB:       db.DefaultConfig,
-		Indexer:  blockindex.DefaultConfig,
-		Genesis:  genesis.Default,
-		NodeInfo: nodeinfo.DefaultConfig,
+		DB:         db.DefaultConfig,
+		Indexer:    blockindex.DefaultConfig,
+		Genesis:    genesis.Default,
+		NodeInfo:   nodeinfo.DefaultConfig,
+		ActionSync: actsync.DefaultConfig,
 	}
 
 	// ErrInvalidCfg indicates the invalid config value
@@ -133,6 +135,7 @@ type (
 		SubLogs            map[string]log.GlobalConfig     `yaml:"subLogs"`
 		Genesis            genesis.Genesis                 `yaml:"genesis"`
 		NodeInfo           nodeinfo.Config                 `yaml:"nodeinfo"`
+		ActionSync         actsync.Config                  `yaml:"actionSync"`
 	}
 
 	// Validate is the interface of validating the config
