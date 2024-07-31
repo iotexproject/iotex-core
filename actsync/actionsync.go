@@ -12,13 +12,14 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/fastrand"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 const (
 	unicaseTimeout = time.Second
+	batchPeerSize  = 2
 )
 
 type (
@@ -38,7 +39,6 @@ type (
 	}
 
 	actionMsg struct {
-		response *action.SealedEnvelope
 		lastTime time.Time
 	}
 )
@@ -75,6 +75,9 @@ func (as *ActionSync) Stop(ctx context.Context) error {
 
 // RequestAction requests an action by hash
 func (as *ActionSync) RequestAction(ctx context.Context, hash hash.Hash256) error {
+	if !as.IsReady() {
+		return nil
+	}
 	// check if the action is already requested
 	_, ok := as.actions.LoadOrStore(hash, &actionMsg{})
 	if ok {
@@ -87,6 +90,9 @@ func (as *ActionSync) RequestAction(ctx context.Context, hash hash.Hash256) erro
 
 // ReceiveAction receives an action
 func (as *ActionSync) ReceiveAction(ctx context.Context, hash hash.Hash256) {
+	if !as.IsReady() {
+		return
+	}
 	as.actions.Delete(hash)
 }
 
@@ -98,7 +104,7 @@ func (as *ActionSync) sync() {
 		defer cancel()
 		msg, ok := as.actions.Load(hash)
 		if !ok {
-			log.L().Warn("action not requested or already received", log.Hex("hash", hash[:]))
+			log.L().Debug("action not requested or already received", log.Hex("hash", hash[:]))
 			continue
 		}
 		if time.Since(msg.(*actionMsg).lastTime) < as.cfg.Interval {
@@ -143,10 +149,19 @@ func (as *ActionSync) selectPeers() ([]peer.AddrInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(neighbors) == 0 {
-		return nil, errors.New("no neighbors")
+	repeat := batchPeerSize
+	if repeat > len(neighbors) {
+		repeat = len(neighbors)
 	}
-	return neighbors, nil
+	peers := make([]peer.AddrInfo, repeat)
+	for i := 0; i < repeat; i++ {
+		peer := neighbors[fastrand.Uint32n(uint32(len(neighbors)))]
+		peers[i] = peer
+	}
+	if len(peers) == 0 {
+		return nil, errors.New("no peers")
+	}
+	return peers, nil
 }
 
 func (as *ActionSync) requestFromNeighbors(ctx context.Context, hash hash.Hash256) error {
