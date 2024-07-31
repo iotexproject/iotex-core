@@ -3,6 +3,7 @@ package actsync
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -40,7 +41,7 @@ func TestActionSync(t *testing.T) {
 		{ID: peer.ID("peer2")},
 		{ID: peer.ID("peer3")},
 	}
-	count := 0
+	count := atomic.Int32{}
 	as := NewActionSync(Config{
 		Size:     1000,
 		Interval: 10 * time.Millisecond,
@@ -49,7 +50,7 @@ func TestActionSync(t *testing.T) {
 			return neighbors, nil
 		},
 		UnicastOutbound: func(_ context.Context, p peer.AddrInfo, msg proto.Message) error {
-			count++
+			count.Add(1)
 			return nil
 		},
 	})
@@ -63,7 +64,7 @@ func TestActionSync(t *testing.T) {
 		r.NoError(as.RequestAction(context.Background(), actHash))
 		// keep requesting actions until received the action
 		testutil.WaitUntil(100*time.Millisecond, time.Second, func() (bool, error) {
-			return count > 1000, nil
+			return count.Load() > 1000, nil
 		})
 		as.ReceiveAction(context.Background(), actHash)
 		_, ok := as.actions.Load(actHash)
