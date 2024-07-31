@@ -96,13 +96,12 @@ type IotxDispatcher struct {
 }
 
 type message struct {
-	ctx         context.Context
-	chainID     uint32
-	msg         proto.Message
-	msgType     iotexrpc.MessageType
-	isBroadcast bool
-	peerInfo    *peer.AddrInfo // peerInfo is only used for unicast message
-	peer        string
+	ctx      context.Context
+	chainID  uint32
+	msg      proto.Message
+	msgType  iotexrpc.MessageType
+	peerInfo *peer.AddrInfo // peerInfo is only used for unicast message
+	peer     string
 }
 
 // NewDispatcher creates a new Dispatcher
@@ -192,18 +191,20 @@ func (d *IotxDispatcher) subscriber(chainID uint32) Subscriber {
 
 // HandleBroadcast handles incoming broadcast message
 func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, peer string, msgProto proto.Message) {
+	if !d.IsReady() {
+		return
+	}
 	msgType, err := goproto.GetTypeFromRPCMsg(msgProto)
 	if err != nil {
 		log.L().Warn("Unexpected msgType handled by HandleBroadcast.", zap.Any("msgType", msgType))
 		return
 	}
 	msg := &message{
-		ctx:         ctx,
-		chainID:     chainID,
-		msg:         msgProto,
-		peer:        peer,
-		msgType:     msgType,
-		isBroadcast: true,
+		ctx:     ctx,
+		chainID: chainID,
+		msg:     msgProto,
+		peer:    peer,
+		msgType: msgType,
 	}
 	queue := d.queueForMsg(msg)
 	select {
@@ -217,6 +218,9 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, pe
 
 // HandleTell handles incoming unicast message
 func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer peer.AddrInfo, msgProto proto.Message) {
+	if !d.IsReady() {
+		return
+	}
 	msgType, err := goproto.GetTypeFromRPCMsg(msgProto)
 	if err != nil {
 		log.L().Warn("Unexpected message handled by HandleTell.", zap.Error(err))
@@ -276,9 +280,6 @@ func (d *IotxDispatcher) filter(msg *message) bool {
 }
 
 func (d *IotxDispatcher) dispatchMsg(message *message) {
-	if !d.IsReady() {
-		return
-	}
 	subscriber := d.subscriber(message.chainID)
 	if subscriber == nil {
 		log.L().Warn("chainID has not been registered in dispatcher.", zap.Uint32("chainID", message.chainID))
