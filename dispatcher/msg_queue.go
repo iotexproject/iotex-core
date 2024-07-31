@@ -51,20 +51,20 @@ func newMsgQueueMgr(cfg msgQueueConfig, handler func(msg *message)) *msgQueueMgr
 func (m *msgQueueMgr) Start(ctx context.Context) error {
 	for i := 0; i <= 4; i++ {
 		m.wg.Add(1)
-		go m.comsume(actionQ)
+		go m.consume(actionQ)
 	}
 
 	m.wg.Add(1)
-	go m.comsume(blockQ)
+	go m.consume(blockQ)
 
 	m.wg.Add(1)
-	go m.comsume(blockSyncQ)
+	go m.consume(blockSyncQ)
 
 	m.wg.Add(1)
-	go m.comsume(consensusQ)
+	go m.consume(consensusQ)
 
 	m.wg.Add(1)
-	go m.comsume(miscQ)
+	go m.consume(miscQ)
 	return nil
 }
 
@@ -74,7 +74,7 @@ func (m *msgQueueMgr) Stop() error {
 	return nil
 }
 
-func (m *msgQueueMgr) comsume(q string) {
+func (m *msgQueueMgr) consume(q string) {
 	defer m.wg.Done()
 	for {
 		select {
