@@ -8,11 +8,6 @@ mockgen -destination=./test/mock/mock_dispatcher/mock_dispatcher.go  \
         -package=mock_dispatcher \
         Dispatcher
 
-mockgen -destination=./dispatcher/mock_subscriber.go  \
-        -source=./dispatcher/subscriber.go \
-        -package=dispatcher \
-        Subscriber
-
 mkdir -p ./test/mock/mock_blockchain
 mockgen -destination=./test/mock/mock_blockchain/mock_blockchain.go  \
         -source=./blockchain/blockchain.go \
