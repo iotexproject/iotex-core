@@ -138,6 +138,11 @@ func (builder *Builder) Build() (*ChainService, error) {
 	return builder.build(false, false)
 }
 
+func (builder *Builder) BuildWithAnalyserIndexers(analyserIndexers []blockdao.BlockIndexer) (*ChainService, error) {
+	builder.createInstance()
+	return builder.buildWithAnalyserIndexers(false, false, analyserIndexers)
+}
+
 func (builder *Builder) createInstance() {
 	if builder.cs == nil {
 		builder.cs = &ChainService{}
@@ -300,6 +305,55 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		return err
 	}
 	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, builder.cfg.DB.MaxCacheSize)
+
+	return nil
+}
+
+func (builder *Builder) buildBlockDAOWithAnalyserIndexers(forTest bool, analyserIndexers []blockdao.BlockIndexer) error {
+	if builder.cs.blockdao != nil {
+		return nil
+	}
+
+	var indexers []blockdao.BlockIndexer
+	// indexers in synchronizedIndexers will need to run PutBlock() one by one
+	// factory is dependent on sgdIndexer and contractStakingIndexer, so it should be put in the first place
+	synchronizedIndexers := []blockdao.BlockIndexer{builder.cs.factory}
+	if builder.cs.contractStakingIndexer != nil {
+		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexer)
+	}
+	if builder.cs.contractStakingIndexerV2 != nil {
+		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexerV2)
+	}
+	if builder.cs.sgdIndexer != nil {
+		synchronizedIndexers = append(synchronizedIndexers, builder.cs.sgdIndexer)
+	}
+	if len(synchronizedIndexers) > 1 {
+		indexers = append(indexers, blockindex.NewSyncIndexers(synchronizedIndexers...))
+	} else {
+		indexers = append(indexers, builder.cs.factory)
+	}
+	if !builder.cfg.Chain.EnableAsyncIndexWrite && builder.cs.indexer != nil {
+		indexers = append(indexers, builder.cs.indexer)
+	}
+	if builder.cs.bfIndexer != nil {
+		indexers = append(indexers, builder.cs.bfIndexer)
+	}
+
+	var (
+		err   error
+		store blockdao.BlockDAO
+	)
+	if forTest {
+		store, err = filedao.NewFileDAOInMemForTest()
+	} else {
+		dbConfig := builder.cfg.DB
+		dbConfig.DbPath = builder.cfg.Chain.ChainDBPath
+		store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+	}
+	if err != nil {
+		return err
+	}
+	builder.cs.blockdao = blockdao.NewBlockDAOWithAnalyserIndexersAndCache(store, indexers, analyserIndexers, builder.cfg.DB.MaxCacheSize)
 
 	return nil
 }
@@ -759,6 +813,69 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildBlockDAO(forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildBlockchain(forSubChain, forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildBlockTimeCalculator(); err != nil {
+		return nil, err
+	}
+	// staking protocol need to be put in registry before poll protocol when enabling
+	if err := builder.registerStakingProtocol(); err != nil {
+		return nil, errors.Wrap(err, "failed to register staking protocol")
+	}
+	if err := builder.registerAccountProtocol(); err != nil {
+		return nil, errors.Wrap(err, "failed to register rewarding protocol")
+	}
+	if err := builder.registerRollDPoSProtocol(); err != nil {
+		return nil, errors.Wrap(err, "failed to register roll dpos related protocols")
+	}
+	if err := builder.registerExecutionProtocol(); err != nil {
+		return nil, errors.Wrap(err, "failed to register execution protocol")
+	}
+	if err := builder.registerRewardingProtocol(); err != nil {
+		return nil, errors.Wrap(err, "failed to register rewarding protocol")
+	}
+	if err := builder.buildConsensusComponent(); err != nil {
+		return nil, err
+	}
+	if err := builder.buildBlockSyncer(); err != nil {
+		return nil, err
+	}
+	if err := builder.buildNodeInfoManager(); err != nil {
+		return nil, err
+	}
+	cs := builder.cs
+	builder.cs = nil
+
+	return cs, nil
+}
+
+func (builder *Builder) buildWithAnalyserIndexers(forSubChain, forTest bool, analyserIndexers []blockdao.BlockIndexer) (*ChainService, error) {
+	builder.cs.registry = protocol.NewRegistry()
+	if builder.cs.p2pAgent == nil {
+		builder.cs.p2pAgent = p2p.NewDummyAgent()
+	}
+	if err := builder.buildFactory(forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildElectionCommittee(); err != nil {
+		return nil, err
+	}
+	if err := builder.buildActionPool(); err != nil {
+		return nil, err
+	}
+	if err := builder.buildGatewayComponents(forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildSGDRegistry(forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildContractStakingIndexer(forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildBlockDAOWithAnalyserIndexers(forTest, analyserIndexers); err != nil {
 		return nil, err
 	}
 	if err := builder.buildBlockchain(forSubChain, forTest); err != nil {

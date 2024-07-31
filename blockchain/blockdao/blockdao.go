@@ -7,6 +7,7 @@ package blockdao
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 
 	"github.com/iotexproject/go-pkgs/cache"
@@ -56,6 +57,8 @@ type (
 	blockDAO struct {
 		blockStore   BlockDAO
 		indexers     []BlockIndexer
+		// add analyser indexer
+		analyserIndexers []BlockIndexer
 		timerFactory *prometheustimer.TimerFactory
 		lifecycle    lifecycle.Lifecycle
 		headerCache  cache.LRUCache
@@ -80,6 +83,43 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockDAO, indexers []BlockIndexer,
 
 	blockDAO.lifecycle.Add(blkStore)
 	for _, indexer := range indexers {
+		blockDAO.lifecycle.Add(indexer)
+	}
+	if cacheSize > 0 {
+		blockDAO.headerCache = cache.NewThreadSafeLruCache(cacheSize)
+		blockDAO.footerCache = cache.NewThreadSafeLruCache(cacheSize)
+		blockDAO.receiptCache = cache.NewThreadSafeLruCache(cacheSize)
+		blockDAO.blockCache = cache.NewThreadSafeLruCache(cacheSize)
+	}
+	timerFactory, err := prometheustimer.New(
+		"iotex_block_dao_perf",
+		"Performance of block DAO",
+		[]string{"type"},
+		[]string{"default"},
+	)
+	if err != nil {
+		return nil
+	}
+	blockDAO.timerFactory = timerFactory
+	return blockDAO
+}
+
+func NewBlockDAOWithAnalyserIndexersAndCache(blkStore BlockDAO, indexers, analyserIndexers []BlockIndexer, cacheSize int) BlockDAO {
+	if blkStore == nil {
+		return nil
+	}
+
+	blockDAO := &blockDAO{
+		blockStore: blkStore,
+		indexers:   indexers,
+		analyserIndexers: analyserIndexers,
+	}
+
+	blockDAO.lifecycle.Add(blkStore)
+	for _, indexer := range indexers {
+		blockDAO.lifecycle.Add(indexer)
+	}
+	for _, indexer := range analyserIndexers {
 		blockDAO.lifecycle.Add(indexer)
 	}
 	if cacheSize > 0 {
@@ -134,6 +174,40 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 			"indexer is up to date.",
 			zap.Int("indexer", i),
 		)
+	}
+	dao.checkAnalyserIndexers(ctx)
+	return nil
+}
+
+func (dao *blockDAO) checkAnalyserIndexers(ctx context.Context) error {
+	checker := NewBlockIndexerChecker(dao)
+	var mu sync.Mutex
+
+	for i, indexer := range dao.analyserIndexers {
+		i := i     
+        indexer := indexer 
+		go func() {
+			if err := checker.CheckIndexer(ctx, indexer, 0, func(height uint64) {
+				if height%5000 == 0 {
+					log.L().Info(
+						"indexer is catching up.",
+						zap.Int("indexer", i),
+						zap.Uint64("height", height),
+					)
+				}
+			}); err != nil {
+				log.L().Error("indexer failed to catch up.", zap.Int("indexer", i), zap.Error(err))
+				return
+			}
+			log.L().Info(
+				"indexer is up to date.",
+				zap.Int("indexer", i),
+			)
+
+			mu.Lock()
+			dao.analyserIndexers = append(dao.analyserIndexers, indexer)
+			mu.Unlock()
+		}()
 	}
 	return nil
 }
@@ -271,6 +345,12 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	timer = dao.timerFactory.NewTimer("index_block")
 	defer timer.End()
 	for _, indexer := range dao.indexers {
+		if err := indexer.PutBlock(ctx, blk); err != nil {
+			return err
+		}
+	}
+	// for analyser indexers
+	for _, indexer := range dao.analyserIndexers {
 		if err := indexer.PutBlock(ctx, blk); err != nil {
 			return err
 		}
