@@ -1239,6 +1239,100 @@ func TestCandidateTransferOwnership(t *testing.T) {
 			},
 		})
 	})
+	t.Run("votesCounting", func(t *testing.T) {
+		contractAddr := "io16gnlvx6zk3tev9g6vaupngkpcrwe8hdsknxerw"
+		cfg := initCfg(require)
+		cfg.Genesis.UpernavikBlockHeight = 1
+		cfg.Genesis.EndorsementWithdrawWaitingBlocks = 5
+		cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
+		cfg.Genesis.SystemStakingContractV2Address = contractAddr
+		cfg.Genesis.SystemStakingContractV2Height = 0
+		test := newE2ETest(t, cfg)
+		defer test.teardown()
+
+		var (
+			oldOwnerID          = 1
+			stakerID            = 2
+			contractCreator     = 3
+			newOwnerID          = 4
+			beneficiaryID       = 5
+			chainID             = test.cfg.Chain.ID
+			stakeTime           = time.Now()
+			minAmount           = unit.ConvertIotxToRau(1000)
+			stakeAmount         = unit.ConvertIotxToRau(10000)
+			blocksPerDay        = 24 * time.Hour / cfg.DardanellesUpgrade.BlockInterval
+			stakeDurationBlocks = big.NewInt(int64(blocksPerDay))
+			candidate           *iotextypes.CandidateV2
+		)
+		bytecode, err := hex.DecodeString(stakingContractV2Bytecode)
+		require.NoError(err)
+		mustCallData := func(m string, args ...any) []byte {
+			data, err := abiCall(staking.StakingContractABI, m, args...)
+			require.NoError(err)
+			return data
+		}
+		test.run([]*testcase{
+			{
+				name: "prepare",
+				preActs: []*actionWithTime{
+					{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), "cand1", identityset.Address(1).String(), identityset.Address(1).String(), identityset.Address(oldOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
+				},
+				act:    &actionWithTime{mustNoErr(action.SignedExecution("", identityset.PrivateKey(contractCreator), test.nonceMgr.pop(identityset.Address(contractCreator).String()), big.NewInt(0), gasLimit, gasPrice, append(bytecode, mustCallData("", minAmount)...), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{successExpect, &executionExpect{contractAddr}},
+			},
+			{
+				name: "stakeBuckets",
+				preActs: []*actionWithTime{
+					{mustNoErr(action.SignedExecution(contractAddr, identityset.PrivateKey(contractCreator), test.nonceMgr.pop(identityset.Address(contractCreator).String()), big.NewInt(0), gasLimit, gasPrice, mustCallData("setBeneficiary(address)", common.BytesToAddress(identityset.Address(beneficiaryID).Bytes())), action.WithChainID(chainID))), stakeTime},
+					{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", stakeAmount.String(), 91, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(test.cfg.Chain.ID))), stakeTime},
+				},
+				act: &actionWithTime{mustNoErr(action.SignedExecution(contractAddr, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice, mustCallData("stake(uint256,address)", stakeDurationBlocks, common.BytesToAddress(identityset.Address(oldOwnerID).Bytes())), action.WithChainID(chainID))), stakeTime},
+				expect: []actionExpect{successExpect, &functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+					cand, err := test.getCandidateByName("cand1")
+					require.NoError(err)
+					candidate = cand
+					selfStake, err := test.getBucket(cand.SelfStakeBucketIdx, "")
+					require.NoError(err)
+					require.NotNil(selfStake)
+					nb, err := test.getBucket(1, "")
+					require.NoError(err)
+					require.NotNil(nb)
+					nft, err := test.getBucket(1, contractAddr)
+					require.NoError(err)
+					require.NotNil(nft)
+					amtSS, ok := big.NewInt(0).SetString(selfStake.StakedAmount, 10)
+					require.True(ok)
+					amtNB, ok := big.NewInt(0).SetString(nb.StakedAmount, 10)
+					require.True(ok)
+					amtNFT, ok := big.NewInt(0).SetString(nft.StakedAmount, 10)
+					require.True(ok)
+					voteSS := staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{StakedAmount: amtSS, StakedDuration: time.Duration(selfStake.StakedDuration*24) * time.Hour, AutoStake: selfStake.AutoStake}, true)
+					voteNB := staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{StakedAmount: amtNB, StakedDuration: time.Duration(nb.StakedDuration*24) * time.Hour, AutoStake: nb.AutoStake}, false)
+					voteNFT := staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{StakedAmount: amtNFT, StakedDuration: time.Duration(nft.StakedDuration*24) * time.Hour, AutoStake: nft.AutoStake}, false)
+					require.Equal(voteSS.Add(voteSS, voteNB.Add(voteNB, voteNFT)).String(), cand.TotalWeightedVotes)
+				}}},
+			},
+			{
+				name: "transferOwnership",
+				act:  &actionWithTime{mustNoErr(action.SignedCandidateTransferOwnership(test.nonceMgr.pop(identityset.Address(oldOwnerID).String()), identityset.Address(newOwnerID).String(), nil, gasLimit, gasPrice, identityset.PrivateKey(oldOwnerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{successExpect, &functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+					cand, err := test.getCandidateByName(candidate.Name)
+					require.NoError(err)
+					selfStakeBucket, err := test.getBucket(candidate.SelfStakeBucketIdx, "")
+					require.NoError(err)
+					require.NotNil(selfStakeBucket)
+					amtSS, ok := big.NewInt(0).SetString(selfStakeBucket.StakedAmount, 10)
+					require.True(ok)
+					selfStakeVotes := staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{StakedAmount: amtSS, StakedDuration: time.Duration(selfStakeBucket.StakedDuration*24) * time.Hour, AutoStake: selfStakeBucket.AutoStake}, true)
+					nonSelfStakeVotes := staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{StakedAmount: amtSS, StakedDuration: time.Duration(selfStakeBucket.StakedDuration*24) * time.Hour, AutoStake: selfStakeBucket.AutoStake}, false)
+					deltaVotes := big.NewInt(0).Sub(selfStakeVotes, nonSelfStakeVotes)
+					votes, ok := big.NewInt(0).SetString(cand.TotalWeightedVotes, 10)
+					require.True(ok)
+					require.Equal(votes.Sub(votes, deltaVotes).String(), candidate.TotalWeightedVotes)
+				}}},
+			},
+		})
+	})
 }
 
 func initCfg(r *require.Assertions) config.Config {

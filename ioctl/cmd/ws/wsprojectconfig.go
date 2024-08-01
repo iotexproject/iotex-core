@@ -38,7 +38,7 @@ var (
 			if err != nil {
 				return errors.Wrap(err, "failed to get flag version")
 			}
-			vmType, err := cmd.Flags().GetString("vm-type")
+			vmType, err := cmd.Flags().GetUint64("vm-type")
 			if err != nil {
 				return errors.Wrap(err, "failed to get flag vm-type")
 			}
@@ -59,7 +59,7 @@ var (
 				return errors.Wrap(err, "failed to get flag output-file")
 			}
 
-			out, err := generateProjectFile(dataSource, dataSourcePubKey, defaultVersion, version, vmType, codeFile, confFile, expParam, outputFile)
+			out, err := generateProjectFile(vmType, dataSource, dataSourcePubKey, defaultVersion, version, codeFile, confFile, expParam, outputFile)
 			if err != nil {
 				return output.PrintError(err)
 			}
@@ -117,7 +117,7 @@ func init() {
 	wsProjectConfig.Flags().StringP("data-source-pubKey", "k", "", config.TranslateInLang(_flagDataSourcePublicKeyUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("default-version", "d", "0.1", config.TranslateInLang(_flagDefaultVersionUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("version", "v", "", config.TranslateInLang(_flagVersionUsages, config.UILanguage))
-	wsProjectConfig.Flags().StringP("vm-type", "t", "", config.TranslateInLang(_flagVMTypeUsages, config.UILanguage))
+	wsProjectConfig.Flags().Uint64P("vm-type", "t", 0, config.TranslateInLang(_flagVMTypeUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("code-file", "i", "", config.TranslateInLang(_flagCodeFileUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("conf-file", "c", "", config.TranslateInLang(_flagConfFileUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("expand-param", "e", "", config.TranslateInLang(_flagExpandParamUsages, config.UILanguage))
@@ -131,18 +131,13 @@ func init() {
 
 type projectConfig struct {
 	Version      string      `json:"version"`
-	VMType       string      `json:"vmType"`
+	VMType       uint64      `json:"vmType"`
 	Output       interface{} `json:"output"`
 	CodeExpParam string      `json:"codeExpParam,omitempty"`
 	Code         string      `json:"code"`
 }
 
-func generateProjectFile(dataSource, dataSourcePubKey, defaultVersion, version, vmType, codeFile, confFile, expParam, outputFile string) (string, error) {
-	tye, err := stringToVMType(vmType)
-	if err != nil {
-		return "", err
-	}
-
+func generateProjectFile(vmType uint64, dataSource, dataSourcePubKey, defaultVersion, version, codeFile, confFile, expParam, outputFile string) (string, error) {
 	hexString, err := convertCodeToZlibHex(codeFile)
 	if err != nil {
 		return "", err
@@ -158,7 +153,7 @@ func generateProjectFile(dataSource, dataSourcePubKey, defaultVersion, version, 
 	if expParam != "" {
 		verMap.CodeExpParam = expParam
 	}
-	verMap.VMType = string(tye)
+	verMap.VMType = vmType
 	verMap.Code = hexString
 	if version == "" {
 		version = "0.1"
@@ -194,7 +189,7 @@ func generateProjectFile(dataSource, dataSourcePubKey, defaultVersion, version, 
 	}
 
 	if confFile == "" {
-		confFile = fmt.Sprintf("./%s-config.json", vmType)
+		confFile = fmt.Sprintf("./%d-config.json", vmType)
 	}
 	err = os.WriteFile(confFile, jsonConf, fs.FileMode(0666))
 	if err != nil {
@@ -220,30 +215,4 @@ func convertCodeToZlibHex(codeFile string) (string, error) {
 	hexString := hex.EncodeToString(b.Bytes())
 
 	return hexString, err
-}
-
-// zkp vm type
-type vmType string
-
-const (
-	risc0  vmType = "risc0"  // risc0 vm
-	halo2  vmType = "halo2"  // halo2 vm
-	zkWasm vmType = "zkwasm" // zkwasm vm
-	wasm   vmType = "wasm"   // wasm vm
-)
-
-// TODO move this to sprout
-func stringToVMType(vmType string) (vmType, error) {
-	switch vmType {
-	case string(risc0):
-		return risc0, nil
-	case string(halo2):
-		return halo2, nil
-	case string(zkWasm):
-		return zkWasm, nil
-	case string(wasm):
-		return wasm, nil
-	default:
-		return "", errors.New(fmt.Sprintf("not support %s type, just support %s, %s, %s, and %s", vmType, risc0, halo2, zkWasm, wasm))
-	}
 }

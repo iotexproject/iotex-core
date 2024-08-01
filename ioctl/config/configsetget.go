@@ -46,12 +46,14 @@ const (
 	_defaultWsProjectDevicesContract = "0x3d6b6c7bDB72e8BF73780f433342759d8b329Ca5"
 	// _defaultWsRouterContract default router contract address
 	_defaultWsRouterContract = "0x90A27ab74E790Cef6e258aabee1B361a9c993e8b"
+	// _defaultWsVmTypeContract default vmType contract address
+	_defaultWsVmTypeContract = "0x90A27ab74E790Cef6e258aabee1B361a9c993e8b"
 )
 
 var (
 	_supportedLanguage = []string{"English", "中文"}
-	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "wsProjectRegisterContract", "wsProjectStoreContract", "wsFleetManagementContract", "wsProverStoreContract", "wsProjectDevicesContract", "wsRouterContract"}
-	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "analyserEndpoint", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "wsProjectRegisterContract", "wsProjectStoreContract", "wsFleetManagementContract", "wsProverStoreContract", "wsProjectDevicesContract", "wsRouterContract", "all"}
+	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "wsProjectRegisterContract", "wsProjectStoreContract", "wsFleetManagementContract", "wsProverStoreContract", "wsProjectDevicesContract", "wsRouterContract", "wsVmTypeContract"}
+	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "analyserEndpoint", "wsEndpoint", "ipfsEndpoint", "ipfsGateway", "wsProjectRegisterContract", "wsProjectStoreContract", "wsFleetManagementContract", "wsProverStoreContract", "wsProjectDevicesContract", "wsRouterContract", "wsVmTypeContract", "all"}
 	_validExpl         = []string{"iotexscan", "iotxplorer"}
 	_endpointCompile   = regexp.MustCompile("^" + _endpointPattern + "$")
 )
@@ -185,6 +187,8 @@ func Get(arg string) error {
 		fmt.Println(ReadConfig.WsProjectDevicesContract)
 	case "wsRouterContract":
 		fmt.Println(ReadConfig.WsRouterContract)
+	case "wsVmTypeContract":
+		fmt.Println(ReadConfig.WsVmTypeContract)
 	case "all":
 		fmt.Println(ReadConfig.String())
 	}
@@ -331,6 +335,8 @@ func set(args []string) error {
 		ReadConfig.WsProjectDevicesContract = args[1]
 	case "wsRouterContract":
 		ReadConfig.WsRouterContract = args[1]
+	case "wsVmTypeContract":
+		ReadConfig.WsVmTypeContract = args[1]
 	}
 	err := writeConfig()
 	if err != nil {
@@ -358,6 +364,7 @@ func reset() error {
 	ReadConfig.WsProverStoreContract = _defaultWsProverStoreContract
 	ReadConfig.WsProjectDevicesContract = _defaultWsProjectDevicesContract
 	ReadConfig.WsRouterContract = _defaultWsRouterContract
+	ReadConfig.WsVmTypeContract = _defaultWsVmTypeContract
 
 	err := writeConfig()
 	if err != nil {

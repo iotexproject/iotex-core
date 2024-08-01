@@ -19,7 +19,7 @@ fetch:
 generate_abi:
 	@echo "#### generate abis from latest contracts..."
 	@cd sprout/smartcontracts && yarn install > /dev/null 2>&1
-	@mkdir -p abis && cd sprout/smartcontracts/contracts && for file in 'FleetManagement' 'ProjectRegistrar' 'W3bstreamProject' 'W3bstreamProver' 'ProjectDevice' 'W3bstreamRouter'; \
+	@mkdir -p abis && cd sprout/smartcontracts/contracts && for file in 'FleetManagement' 'ProjectRegistrar' 'W3bstreamProject' 'W3bstreamProver' 'ProjectDevice' 'W3bstreamRouter' 'W3bstreamVMType'; \
 	do \
 		solc --include-path ../node_modules/ --base-path . --optimize --abi --overwrite --pretty-json -o . $$file.sol > /dev/null 2>&1 ; \
 		if [ -e $$file.abi ]; then \

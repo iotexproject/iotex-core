@@ -3,6 +3,7 @@ package e2etest
 import (
 	"context"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -156,6 +157,45 @@ func (e *e2etest) getCandidateByName(name string) (*iotextypes.CandidateV2, erro
 		return nil, err
 	}
 	return candidate, nil
+}
+
+func (e *e2etest) getBucket(index uint64, contractAddr string) (*iotextypes.VoteBucket, error) {
+	methodName, err := proto.Marshal(&iotexapi.ReadStakingDataMethod{
+		Method: iotexapi.ReadStakingDataMethod_COMPOSITE_BUCKETS_BY_INDEXES,
+	})
+	if err != nil {
+		return nil, err
+	}
+	arg, err := proto.Marshal(&iotexapi.ReadStakingDataRequest{
+		Request: &iotexapi.ReadStakingDataRequest_BucketsByIndexes{
+			BucketsByIndexes: &iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes{
+				Index: []uint64{index},
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	resp, err := e.api.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		ProtocolID: []byte("staking"),
+		MethodName: methodName,
+		Arguments:  [][]byte{arg},
+	})
+	if err != nil {
+		return nil, err
+	}
+	bucketList := &iotextypes.VoteBucketList{}
+	if err = proto.Unmarshal(resp.GetData(), bucketList); err != nil {
+		return nil, err
+	}
+	idx := slices.IndexFunc(bucketList.Buckets, func(e *iotextypes.VoteBucket) bool {
+		return e.Index == index && e.ContractAddress == contractAddr
+	})
+	if idx < 0 {
+		return nil, nil
+	}
+	return bucketList.Buckets[idx], nil
+
 }
 
 func addOneTx(ctx context.Context, ap actpool.ActPool, bc blockchain.Blockchain, tx *actionWithTime) (*action.SealedEnvelope, *action.Receipt, error) {

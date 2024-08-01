@@ -62,6 +62,7 @@ func (m *delegateMessage) delegateString() string {
 		lines    []string
 	)
 	lines = append(lines, "{")
+	lines = append(lines, fmt.Sprintf("	id: %s", d.Id))
 	lines = append(lines, fmt.Sprintf("	name: %s", d.Name))
 	lines = append(lines, fmt.Sprintf("	ownerAddress: %s", d.OwnerAddress))
 	lines = append(lines, fmt.Sprintf("	operatorAddress: %s", d.OperatorAddress))
