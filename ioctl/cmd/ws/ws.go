@@ -79,6 +79,11 @@ var (
 		config.English: "set w3bstream router contract address for once",
 		config.Chinese: "一次设置w3bstream router合约地址",
 	}
+
+	_flagVmTypeContractAddressUsages = map[config.Language]string{
+		config.English: "set w3bstream vmType contract address for once",
+		config.Chinese: "一次设置w3bstream vmType合约地址",
+	}
 )
 
 var (
@@ -126,5 +131,9 @@ func init() {
 	WsCmd.PersistentFlags().StringVar(
 		&config.ReadConfig.WsRouterContract, "router-contract",
 		config.ReadConfig.WsRouterContract, config.TranslateInLang(_flagRouterContractAddressUsages, config.UILanguage),
+	)
+	WsCmd.PersistentFlags().StringVar(
+		&config.ReadConfig.WsVmTypeContract, "vmType-contract",
+		config.ReadConfig.WsVmTypeContract, config.TranslateInLang(_flagVmTypeContractAddressUsages, config.UILanguage),
 	)
 }
