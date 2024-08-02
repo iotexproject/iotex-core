@@ -140,7 +140,7 @@ func init() {
 
 type projectConfig struct {
 	Version       string      `json:"version"`
-	VMType        uint64      `json:"vmType"`
+	VMType        uint64      `json:"vmTypeID"`
 	Output        interface{} `json:"output"`
 	CodeExpParams []string    `json:"codeExpParams,omitempty"`
 	Code          string      `json:"code"`
