@@ -148,7 +148,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 	r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipts[1].Status)
 	excPrtl := execution.NewProtocol(
 		func(u uint64) (hash.Hash256, error) { return hash.ZeroHash256, nil },
-		func(context.Context, protocol.StateManager, *big.Int) (*action.TransactionLog, error) {
+		func(context.Context, protocol.StateManager, *big.Int, ...protocol.Option) ([]*action.TransactionLog, error) {
 			return nil, nil
 		},
 		func(uint64) (time.Time, error) { return time.Now(), nil },

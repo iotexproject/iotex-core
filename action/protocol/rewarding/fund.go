@@ -63,9 +63,17 @@ func (p *Protocol) Deposit(
 	sm protocol.StateManager,
 	amount *big.Int,
 	transactionLogType iotextypes.TransactionLogType,
-) (*action.TransactionLog, error) {
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	accountCreationOpts := []state.AccountCreationOption{}
+	opts ...protocol.Option,
+) ([]*action.TransactionLog, error) {
+	var (
+		actionCtx           = protocol.MustGetActionCtx(ctx)
+		accountCreationOpts = []state.AccountCreationOption{}
+		options             = protocol.Options{}
+	)
+	// apply protocol options
+	for _, o := range opts {
+		o(&options)
+	}
 	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
 		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
@@ -77,25 +85,56 @@ func (p *Protocol) Deposit(
 	if err := acc.SubBalance(amount); err != nil {
 		return nil, err
 	}
+	burnAmount := options.ValueBigInt
+	if !isZero(burnAmount) {
+		if err := acc.SubBalance(burnAmount); err != nil {
+			return nil, err
+		}
+	}
 	if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
 		return nil, err
 	}
 	// Add balance to fund
-	f := fund{}
+	var (
+		f           = fund{}
+		burnAddr, _ = address.FromString(address.ZeroAddress)
+		tLog        = []*action.TransactionLog{
+			{
+				Type:      transactionLogType,
+				Sender:    actionCtx.Caller.String(),
+				Recipient: address.RewardingPoolAddr,
+				Amount:    amount,
+			},
+		}
+	)
 	if _, err := p.state(ctx, sm, _fundKey, &f); err != nil {
 		return nil, err
 	}
 	f.totalBalance = big.NewInt(0).Add(f.totalBalance, amount)
 	f.unclaimedBalance = big.NewInt(0).Add(f.unclaimedBalance, amount)
+	if !isZero(burnAmount) {
+		// add burnAmount to burnAddr
+		burn, err := accountutil.LoadAccount(sm, burnAddr, accountCreationOpts...)
+		if err != nil {
+			return nil, err
+		}
+		if err := burn.AddBalance(burnAmount); err != nil {
+			return nil, err
+		}
+		if err := accountutil.StoreAccount(sm, burnAddr, burn); err != nil {
+			return nil, err
+		}
+		tLog = append(tLog, &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,
+			Sender:    actionCtx.Caller.String(),
+			Recipient: burnAddr.String(),
+			Amount:    burnAmount,
+		})
+	}
 	if err := p.putState(ctx, sm, _fundKey, &f); err != nil {
 		return nil, err
 	}
-	return &action.TransactionLog{
-		Type:      transactionLogType,
-		Sender:    actionCtx.Caller.String(),
-		Recipient: address.RewardingPoolAddr,
-		Amount:    amount,
-	}, nil
+	return tLog, nil
 }
 
 // TotalBalance returns the total balance of the rewarding fund
@@ -125,7 +164,7 @@ func (p *Protocol) AvailableBalance(
 }
 
 // DepositGas deposits gas into the rewarding fund
-func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.TransactionLog, error) {
+func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int, opts ...protocol.Option) ([]*action.TransactionLog, error) {
 	// If the gas fee is 0, return immediately
 	if amount.Cmp(big.NewInt(0)) == 0 {
 		return nil, nil
@@ -144,5 +183,9 @@ func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int) 
 	if rp == nil {
 		return nil, nil
 	}
-	return rp.Deposit(ctx, sm, amount, iotextypes.TransactionLogType_GAS_FEE)
+	return rp.Deposit(ctx, sm, amount, iotextypes.TransactionLogType_GAS_FEE, opts...)
+}
+
+func isZero(a *big.Int) bool {
+	return a == nil || len(a.Bytes()) == 0
 }

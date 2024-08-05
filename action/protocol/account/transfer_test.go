@@ -126,6 +126,9 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+			Tip: protocol.TipInfo{},
+		})
 
 		sender, err := accountutil.AccountState(ctx, sm, v.caller)
 		require.NoError(err)
