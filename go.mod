@@ -6,13 +6,13 @@ require (
 	github.com/agiledragon/gomonkey/v2 v2.11.0
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/cespare/xxhash/v2 v2.2.0
+	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cockroachdb/pebble v0.0.0-20230928194634-aa077af62593
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang/mock v1.6.0
-	github.com/golang/protobuf v1.5.3
+	github.com/golang/protobuf v1.5.4
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb
 	github.com/gorilla/websocket v1.5.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
@@ -25,7 +25,7 @@ require (
 	github.com/iotexproject/iotex-address v0.2.8
 	github.com/iotexproject/iotex-antenna-go/v2 v2.5.1
 	github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d
-	github.com/iotexproject/iotex-proto v0.6.3-0.20240621080045-f49a68db3adf
+	github.com/iotexproject/iotex-proto v0.6.3
 	github.com/ipfs/go-ipfs-api v0.2.0
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/mackerelio/go-osstat v0.2.4
@@ -54,18 +54,19 @@ require (
 	go.uber.org/automaxprocs v1.5.2
 	go.uber.org/config v1.3.1
 	go.uber.org/zap v1.24.0
-	golang.org/x/crypto v0.17.0
+	golang.org/x/crypto v0.23.0
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa
-	golang.org/x/net v0.18.0
-	golang.org/x/sync v0.5.0
-	golang.org/x/text v0.14.0
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230530153820-e85fd2cbaebc
-	google.golang.org/grpc v1.56.1
-	google.golang.org/protobuf v1.30.0
+	golang.org/x/net v0.25.0
+	golang.org/x/sync v0.7.0
+	golang.org/x/text v0.15.0
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157
+	google.golang.org/grpc v1.65.0
+	google.golang.org/protobuf v1.34.2
 	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/bits-and-blooms/bitset v1.10.0 // indirect
@@ -101,7 +102,6 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute v1.23.0 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.1 // indirect
 	github.com/benbjohnson/clock v1.1.0 // indirect
@@ -125,7 +125,7 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/gopacket v1.1.19 // indirect
-	github.com/google/uuid v1.3.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.0 // indirect
@@ -239,9 +239,8 @@ require (
 	go.opentelemetry.io/otel/metric v1.16.0 // indirect
 	go.uber.org/atomic v1.11.0
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/oauth2 v0.8.0 // indirect
-	golang.org/x/sys v0.16.0 // indirect
-	golang.org/x/term v0.15.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
+	golang.org/x/term v0.20.0 // indirect
 	golang.org/x/time v0.3.0
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
