@@ -451,8 +451,10 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 
 	return &protocol.TipInfo{
 		Height:    tipHeight,
+		GasUsed:   header.GasUsed(),
 		Hash:      header.HashBlock(),
 		Timestamp: header.Timestamp(),
+		BaseFee:   header.BaseFee(),
 	}, nil
 }
 
