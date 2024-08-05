@@ -28,7 +28,15 @@ type Config struct {
 	HistoryStateRetention uint64 `yaml:"historyStateRetention"`
 	// ReadOnly is set db to be opened in read only mode
 	ReadOnly bool `yaml:"readOnly"`
+	// DBType is the type of database
+	DBType string `yaml:"dbType"`
 }
+
+// Database types
+const (
+	DBBolt   string = "boltdb"
+	DBPebble        = "pebbledb"
+)
 
 // SplitDBSize returns the configured SplitDBSizeMB
 func (cfg Config) SplitDBSize() uint64 {
@@ -46,4 +54,5 @@ var DefaultConfig = Config{
 	SplitDBSizeMB:         0,
 	SplitDBHeight:         900000,
 	HistoryStateRetention: 2000,
+	DBType:                DBBolt,
 }

@@ -71,6 +71,8 @@ type (
 		StreamingBlockBufferSize uint64 `yaml:"streamingBlockBufferSize"`
 		// PersistStakingPatchBlock is the block to persist staking patch
 		PersistStakingPatchBlock uint64 `yaml:"persistStakingPatchBlock"`
+		// FactoryDBType is the type of factory db
+		FactoryDBType string `yaml:"factoryDBType"`
 	}
 )
 
@@ -111,6 +113,7 @@ var (
 		WorkingSetCacheSize:           20,
 		StreamingBlockBufferSize:      200,
 		PersistStakingPatchBlock:      19778037,
+		FactoryDBType:                 db.DBBolt,
 	}
 
 	// ErrConfig config error
