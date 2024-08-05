@@ -995,6 +995,7 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 	cfg.Genesis.SumatraBlockHeight = 2
 	cfg.Genesis.TsunamiBlockHeight = 3
 	cfg.Genesis.UpernavikBlockHeight = 4
+	cfg.Genesis.VanuatuBlockHeight = 4
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 
 	ctx := context.Background()

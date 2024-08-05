@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -72,6 +72,14 @@ func calculateLogsBloom(ctx context.Context, receipts []*action.Receipt) bloom.B
 		}
 	}
 	return bloom
+}
+
+func calculateGasUsed(receipts []*action.Receipt) uint64 {
+	var gas uint64
+	for _, receipt := range receipts {
+		gas += receipt.GasConsumed
+	}
+	return gas
 }
 
 // generateWorkingSetCacheKey generates hash key for workingset cache by hashing blockheader core and producer pubkey
