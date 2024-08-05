@@ -995,6 +995,7 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 	cfg.Genesis.SumatraBlockHeight = 2
 	cfg.Genesis.TsunamiBlockHeight = 3
 	cfg.Genesis.UpernavikBlockHeight = 4
+	cfg.Genesis.VanuatuBlockHeight = 4
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 
 	ctx := context.Background()
@@ -1007,7 +1008,7 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 	pp := mock_poll.NewMockProtocol(ctrl)
 	pp.EXPECT().CreateGenesisStates(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	pp.EXPECT().Candidates(gomock.Any(), gomock.Any()).Return([]*state.Candidate{
-		&state.Candidate{
+		{
 			Address:       producer.String(),
 			RewardAddress: producer.String(),
 		},
@@ -1213,6 +1214,8 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 	require.NoError(err)
 	require.EqualValues(3, blk2.Height())
 	require.Equal(3, len(blk2.Body.Actions))
+	require.Zero(blk2.Header.GasUsed())
+	require.Nil(blk2.Header.BaseFee())
 	require.NoError(bc.CommitBlock(blk2))
 
 	// 4 legacy fresh accounts are converted to zero-nonce account
@@ -1255,6 +1258,7 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 		require.True(tx.Protected())
 		require.EqualValues(cfg.Chain.EVMNetworkID, tx.ChainId().Uint64())
 		encoding, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
+		require.NoError(err)
 		require.Equal(iotextypes.Encoding_ETHEREUM_EIP155, encoding)
 		// use container to send tx
 		req := iotextypes.Action{
@@ -1300,6 +1304,8 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 	blk3, err := bc.MintNewBlock(blockTime)
 	require.NoError(err)
 	require.EqualValues(4, blk3.Height())
+	require.EqualValues(40020, blk3.Header.GasUsed())
+	require.EqualValues(action.InitialBaseFee, blk3.Header.BaseFee().Uint64())
 	require.Equal(4, len(blk3.Body.Actions))
 	require.NoError(bc.CommitBlock(blk3))
 
@@ -1396,8 +1402,8 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 }
 
 func TestConstantinople(t *testing.T) {
-	require := require.New(t)
 	testValidateBlockchain := func(cfg config.Config, t *testing.T) {
+		require := require.New(t)
 		ctx := context.Background()
 
 		registry := protocol.NewRegistry()
@@ -1608,6 +1614,7 @@ func TestConstantinople(t *testing.T) {
 		}
 	}
 
+	require := require.New(t)
 	cfg := config.Default
 	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
@@ -1643,8 +1650,8 @@ func TestConstantinople(t *testing.T) {
 }
 
 func TestLoadBlockchainfromDB(t *testing.T) {
-	require := require.New(t)
 	testValidateBlockchain := func(cfg config.Config, t *testing.T) {
+		require := require.New(t)
 		ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 
 		registry := protocol.NewRegistry()
@@ -1699,7 +1706,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.NoError(addTestingTsfBlocks(cfg, bc, dao, ap))
 		//make sure pubsub is completed
 		err = testutil.WaitUntil(200*time.Millisecond, 3*time.Second, func() (bool, error) {
-			return 24 == ms.Counter(), nil
+			return ms.Counter() == 24, nil
 		})
 		require.NoError(err)
 		require.NoError(bc.Stop(ctx))
@@ -1869,6 +1876,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		}
 	}
 
+	require := require.New(t)
 	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
 	testDBPath, err := testutil.PathOfTempFile("db")

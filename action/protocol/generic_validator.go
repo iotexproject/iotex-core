@@ -7,6 +7,7 @@ package protocol
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/pkg/errors"
 
@@ -74,6 +75,13 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 			}
 			if nonce > selp.Nonce() {
 				return action.ErrNonceTooLow
+			}
+		}
+		if ok && featureCtx.EnableDynamicFeeTx {
+			// check transaction's max fee can cover base fee
+			if selp.Envelope.GasFeeCap().Cmp(new(big.Int).SetUint64(action.InitialBaseFee)) < 0 {
+				return errors.Errorf("transaction cannot cover base fee, max fee = %s, base fee = %d",
+					selp.Envelope.GasFeeCap().String(), action.InitialBaseFee)
 			}
 		}
 	}

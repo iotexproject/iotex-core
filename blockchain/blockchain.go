@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -289,7 +289,12 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 			tip.Hash,
 		)
 	}
-
+	// verify EIP1559 header (baseFee adjustment)
+	if blk.Header.BaseFee() != nil {
+		if err = block.VerifyEIP1559Header(bc.genesis.Blockchain, tip, &blk.Header); err != nil {
+			return errors.Wrap(err, "failed to verify EIP1559 header (baseFee adjustment)")
+		}
+	}
 	if !blk.Header.VerifySignature() {
 		return errors.Errorf("failed to verify block's signature with public key: %x", blk.PublicKey())
 	}
