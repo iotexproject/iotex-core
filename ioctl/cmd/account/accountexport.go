@@ -8,7 +8,6 @@ package account
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -51,7 +50,7 @@ func accountExport(arg string) error {
 			return output.NewError(output.AddressError, "failed to get address", err)
 		}
 	}
-	prvKey, err := PrivateKeyFromSigner(addr, action.PasswordByFlag())
+	prvKey, err := PrivateKeyFromSigner(addr, PasswordByFlag())
 	if err != nil {
 		return output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
 	}
