@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/api"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
@@ -52,6 +53,61 @@ func NewServer(cfg config.Config) (*Server, error) {
 // NewInMemTestServer creates a test server in memory
 func NewInMemTestServer(cfg config.Config) (*Server, error) { // notest
 	return newServer(cfg, true)
+}
+
+func NewServerWithAnalyserIndexers(cfg config.Config, analyserIndexers []blockdao.BlockIndexer) (*Server, error) {
+	// create dispatcher instance
+	dispatcher, err := dispatcher.NewDispatcher(cfg.Dispatcher)
+	if err != nil {
+		return nil, errors.Wrap(err, "fail to create dispatcher")
+	}
+	var p2pAgent p2p.Agent
+	switch cfg.Consensus.Scheme {
+	case config.StandaloneScheme:
+		p2pAgent = p2p.NewDummyAgent()
+	default:
+		p2pAgent = p2p.NewAgent(cfg.Network, cfg.Chain.ID, cfg.Genesis.Hash(), dispatcher.HandleBroadcast, dispatcher.HandleTell)
+	}
+	chains := make(map[uint32]*chainservice.ChainService)
+	apiServers := make(map[uint32]*api.ServerV2)
+	var cs *chainservice.ChainService
+	builder := chainservice.NewBuilder(cfg)
+	builder.SetP2PAgent(p2pAgent)
+	rpcStats := nodestats.NewAPILocalStats()
+	builder.SetRPCStats(rpcStats)
+
+	cs, err = builder.BuildWithAnalyserIndexers(analyserIndexers)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "fail to create chain service")
+	}
+	nodeStats := nodestats.NewNodeStats(rpcStats, cs.BlockSync(), p2pAgent)
+	apiServer, err := cs.NewAPIServer(cfg.API, cfg.Plugins)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create api server")
+	}
+	if apiServer != nil {
+		apiServers[cs.ChainID()] = apiServer
+		if err := cs.Blockchain().AddSubscriber(apiServer); err != nil {
+			return nil, errors.Wrap(err, "failed to add api server as subscriber")
+		}
+	}
+	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
+	chains[cs.ChainID()] = cs
+	dispatcher.AddSubscriber(cs.ChainID(), cs)
+	svr := Server{
+		cfg:                  cfg,
+		p2pAgent:             p2pAgent,
+		dispatcher:           dispatcher,
+		rootChainService:     cs,
+		chainservices:        chains,
+		apiServers:           apiServers,
+		nodeStats:            nodeStats,
+		initializedSubChains: map[uint32]bool{},
+	}
+	// Setup sub-chain starter
+	// TODO: sub-chain infra should use main-chain API instead of protocol directly
+	return &svr, nil
 }
 
 func newServer(cfg config.Config, testing bool) (*Server, error) {
