@@ -55,6 +55,8 @@ var (
 	ErrInsufficientGas = errors.New("insufficient intrinsic gas value")
 	// ErrBalance indicates the error of balance
 	ErrBalance = errors.New("invalid balance")
+	// ErrNotSupported is the error returns when a functionality is not supported
+	ErrNotSupported = errors.New("not supported")
 )
 
 func init() {
@@ -366,6 +368,9 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
+	if bc.bbf == nil {
+		return nil, errors.Wrap(ErrNotSupported, "failed to mint block")
+	}
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
 	defer mintNewBlockTimer.End()
 	tipHeight, err := bc.dao.Height()

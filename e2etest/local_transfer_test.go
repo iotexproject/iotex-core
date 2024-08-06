@@ -677,7 +677,8 @@ func TestEnforceChainID(t *testing.T) {
 	require.NoError(err)
 	store, err := filedao.NewFileDAOInMemForTest()
 	require.NoError(err)
-	blkMemDao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, cfg.DB.MaxCacheSize)
+	blkMemDao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	require.NoError(err)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,

@@ -42,8 +42,8 @@ func TestNewBlockDAOWithIndexersAndCache(t *testing.T) {
 	)
 
 	t.Run("BlockStoreIsNil", func(t *testing.T) {
-		dao := NewBlockDAOWithIndexersAndCache(nil, []BlockIndexer{}, 100)
-		r.Nil(dao)
+		_, err := NewBlockDAOWithIndexersAndCache(nil, []BlockIndexer{})
+		r.Error(err)
 	})
 	t.Run("NeedNewCache", func(t *testing.T) {
 		t.Run("FailedToNewPrometheusTimer", func(t *testing.T) {
@@ -52,8 +52,8 @@ func TestNewBlockDAOWithIndexersAndCache(t *testing.T) {
 
 			p = p.ApplyFuncReturn(prometheustimer.New, nil, errors.New(t.Name()))
 
-			dao := NewBlockDAOWithIndexersAndCache(blockdao, indexers, 1)
-			r.Nil(dao)
+			_, err := NewBlockDAOWithIndexersAndCache(blockdao, indexers)
+			r.Error(err)
 		})
 	})
 	t.Run("Success", func(t *testing.T) {
@@ -62,7 +62,8 @@ func TestNewBlockDAOWithIndexersAndCache(t *testing.T) {
 
 		p = p.ApplyFuncReturn(prometheustimer.New, nil, nil)
 
-		dao := NewBlockDAOWithIndexersAndCache(blockdao, indexers, 1)
+		dao, err := NewBlockDAOWithIndexersAndCache(blockdao, indexers)
+		r.NoError(err)
 		r.NotNil(dao)
 	})
 }
@@ -1061,7 +1062,8 @@ func BenchmarkBlockCache(b *testing.B) {
 		deser := block.NewDeserializer(4689)
 		fileDAO, err := filedao.NewFileDAO(cfg, deser)
 		require.NoError(b, err)
-		blkDao := NewBlockDAOWithIndexersAndCache(fileDAO, []BlockIndexer{}, cfg.MaxCacheSize)
+		blkDao, err := NewBlockDAOWithIndexersAndCache(fileDAO, []BlockIndexer{}, CacheSizeOption(cfg.MaxCacheSize))
+		require.NoError(b, err)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {
 			require.NoError(b, blkDao.Stop(context.Background()))

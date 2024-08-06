@@ -315,9 +315,9 @@ func setupChain(cfg testConfig) (blockchain.Blockchain, blockdao.BlockDAO, block
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", errors.Wrap(err, "failed to create dao in memory")
 	}
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf, indexer, bfIndexer}, 16)
-	if dao == nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockdao")
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf, indexer, bfIndexer})
+	if err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, "", errors.Wrap(err, "failed to create blockdao")
 	}
 	// create chain
 	bc := blockchain.NewBlockchain(

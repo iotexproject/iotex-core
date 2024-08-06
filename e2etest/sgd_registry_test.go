@@ -66,7 +66,8 @@ func TestSGDRegistry(t *testing.T) {
 	ap.AddActionEnvelopeValidators(genericValidator)
 	store, err := filedao.NewFileDAOInMemForTest()
 	r.NoError(err)
-	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, cfg.DB.MaxCacheSize)
+	dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+	r.NoError(err)
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,

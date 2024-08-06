@@ -59,7 +59,10 @@ func checkDbFileHeight(filePath string) (uint64, error) {
 	if err != nil {
 		return uint64(0), err
 	}
-	blockDao := blockdao.NewBlockDAOWithIndexersAndCache(store, nil, cfg.DB.MaxCacheSize)
+	blockDao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, nil)
+	if err != nil {
+		return uint64(0), err
+	}
 
 	// Load height value.
 	ctx := context.Background()

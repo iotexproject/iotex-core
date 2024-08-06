@@ -67,37 +67,46 @@ func NewHeartbeatHandler(s *Server, cfg p2p.Config) *HeartbeatHandler {
 
 // Log executes the logging logic
 func (h *HeartbeatHandler) Log() {
+	var err error
 	// operator address
 	cfg := h.s.Config().Chain
 	_heartbeatMtc.WithLabelValues("operatorAddress", cfg.ProducerAddress().String()).Set(1)
 
 	// Dispatcher metrics
-	dp, ok := h.s.Dispatcher().(*dispatcher.IotxDispatcher)
-	if !ok {
-		h.l.Error("dispatcher is not the instance of IotxDispatcher")
-		return
-	}
-	numDPEvts := dp.EventQueueSize()
 	totalDPEventNumber := 0
+	var dpEvtsAudit []byte
 	events := []string{}
-	for event, num := range numDPEvts {
-		totalDPEventNumber += num
-		events = append(events, event+":"+strconv.Itoa(num))
-	}
-	dpEvtsAudit, err := json.Marshal(dp.EventAudit())
-	if err != nil {
-		h.l.Error("error when serializing the dispatcher event audit map.", zap.Error(err))
-		return
+	dspr := h.s.Dispatcher()
+	if dspr != nil {
+		dp, ok := dspr.(*dispatcher.IotxDispatcher)
+		if !ok {
+			h.l.Error("dispatcher is not the instance of IotxDispatcher")
+			return
+		}
+		numDPEvts := dp.EventQueueSize()
+		for event, num := range numDPEvts {
+			totalDPEventNumber += num
+			events = append(events, event+":"+strconv.Itoa(num))
+		}
+		dpEvtsAudit, err = json.Marshal(dp.EventAudit())
+		if err != nil {
+			h.l.Error("error when serializing the dispatcher event audit map.", zap.Error(err))
+			return
+		}
 	}
 
 	// Network metrics
-	peers, err := h.s.P2PAgent().ConnectedPeers()
-	if err != nil {
-		h.l.Debug("error when get connectedPeers.", zap.Error(err))
-		peers = nil
+	var numPeers int
+	agent := h.s.P2PAgent()
+	if agent != nil {
+		peers, err := agent.ConnectedPeers()
+		if err != nil {
+			h.l.Debug("error when get connectedPeers.", zap.Error(err))
+			peers = nil
+		}
+		numPeers = len(peers)
 	}
 
-	numPeers := len(peers)
 	h.l.Debug("Node status.",
 		zap.Int("numConnectedPeers", numPeers),
 		zap.String("pendingDispatcherEvents", "{"+strings.Join(events, ", ")+"}"),
@@ -108,7 +117,11 @@ func (h *HeartbeatHandler) Log() {
 	// chain service
 	for _, c := range h.s.chainservices {
 		// Consensus metrics
-		cs, ok := c.Consensus().(*consensus.IotxConsensus)
+		cons := c.Consensus()
+		if cons == nil {
+			continue
+		}
+		cs, ok := cons.(*consensus.IotxConsensus)
 		if !ok {
 			h.l.Info("consensus is not the instance of IotxConsensus.")
 			return
@@ -142,7 +155,11 @@ func (h *HeartbeatHandler) Log() {
 		// Block metrics
 		actPoolSize := c.ActionPool().GetSize()
 		actPoolCapacity := c.ActionPool().GetCapacity()
-		targetHeight := c.BlockSync().TargetHeight()
+		blocksync := c.BlockSync()
+		var targetHeight uint64
+		if blocksync != nil {
+			targetHeight = c.BlockSync().TargetHeight()
+		}
 
 		h.l.Debug("chain service status",
 			zap.Int("rolldposEvents", numPendingEvts),
