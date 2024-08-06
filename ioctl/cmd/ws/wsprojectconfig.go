@@ -50,16 +50,20 @@ var (
 			if err != nil {
 				return errors.Wrap(err, "failed to get flag conf-file")
 			}
-			expParam, err := cmd.Flags().GetString("expand-param")
+			expParams, err := cmd.Flags().GetStringSlice("expand-params")
 			if err != nil {
 				return errors.Wrap(err, "failed to get flag expand-param")
+			}
+			expParamsFiles, err := cmd.Flags().GetStringSlice("expand-params-files")
+			if err != nil {
+				return errors.Wrap(err, "failed to get flag expand-param-files")
 			}
 			outputFile, err := cmd.Flags().GetString("output-file")
 			if err != nil {
 				return errors.Wrap(err, "failed to get flag output-file")
 			}
 
-			out, err := generateProjectFile(vmType, dataSource, dataSourcePubKey, defaultVersion, version, codeFile, confFile, expParam, outputFile)
+			out, err := generateProjectFile(vmType, dataSource, dataSourcePubKey, defaultVersion, version, codeFile, confFile, expParams, expParamsFiles, outputFile)
 			if err != nil {
 				return output.PrintError(err)
 			}
@@ -102,9 +106,13 @@ var (
 		config.English: "conf file",
 		config.Chinese: "配置文件",
 	}
-	_flagExpandParamUsages = map[config.Language]string{
-		config.English: "expand param, if you use risc0 vm, need it.",
-		config.Chinese: "扩展参数，risc0虚拟机需要此参数",
+	_flagExpandParamsUsages = map[config.Language]string{
+		config.English: "expand params, required for risc0 and zokrates",
+		config.Chinese: "risc0 虚拟机和 zokrates 所需的扩展参数",
+	}
+	_flagExpandParamsFilesUsages = map[config.Language]string{
+		config.English: "expand params files, reads files and appends them to exp-params",
+		config.Chinese: "扩展参数文件，读取文件并将其附加到扩展参数中",
 	}
 	_flagOutputFileUsages = map[config.Language]string{
 		config.English: "output file, default is stdout.",
@@ -120,7 +128,8 @@ func init() {
 	wsProjectConfig.Flags().Uint64P("vm-type", "t", 0, config.TranslateInLang(_flagVMTypeUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("code-file", "i", "", config.TranslateInLang(_flagCodeFileUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("conf-file", "c", "", config.TranslateInLang(_flagConfFileUsages, config.UILanguage))
-	wsProjectConfig.Flags().StringP("expand-param", "e", "", config.TranslateInLang(_flagExpandParamUsages, config.UILanguage))
+	wsProjectConfig.Flags().StringSliceP("expand-params", "e", []string{}, config.TranslateInLang(_flagExpandParamsUsages, config.UILanguage))
+	wsProjectConfig.Flags().StringSliceP("expand-params-files", "f", []string{}, config.TranslateInLang(_flagExpandParamsFilesUsages, config.UILanguage))
 	wsProjectConfig.Flags().StringP("output-file", "u", "", config.TranslateInLang(_flagOutputFileUsages, config.UILanguage))
 
 	_ = wsProjectConfig.MarkFlagRequired("vm-type")
@@ -130,14 +139,14 @@ func init() {
 }
 
 type projectConfig struct {
-	Version      string      `json:"version"`
-	VMType       uint64      `json:"vmType"`
-	Output       interface{} `json:"output"`
-	CodeExpParam string      `json:"codeExpParam,omitempty"`
-	Code         string      `json:"code"`
+	Version       string      `json:"version"`
+	VMType        uint64      `json:"vmTypeID"`
+	Output        interface{} `json:"output"`
+	CodeExpParams []string    `json:"codeExpParams,omitempty"`
+	Code          string      `json:"code"`
 }
 
-func generateProjectFile(vmType uint64, dataSource, dataSourcePubKey, defaultVersion, version, codeFile, confFile, expParam, outputFile string) (string, error) {
+func generateProjectFile(vmType uint64, dataSource, dataSourcePubKey, defaultVersion, version, codeFile, confFile string, expParams, expParamsFiles []string, outputFile string) (string, error) {
 	hexString, err := convertCodeToZlibHex(codeFile)
 	if err != nil {
 		return "", err
@@ -150,8 +159,17 @@ func generateProjectFile(vmType uint64, dataSource, dataSourcePubKey, defaultVer
 		outputMap = make(map[string]interface{})
 	)
 
-	if expParam != "" {
-		verMap.CodeExpParam = expParam
+	if len(expParams) != 0 {
+		verMap.CodeExpParams = expParams
+	}
+	if len(expParamsFiles) != 0 {
+		for _, param := range expParamsFiles {
+			hex, err := convertCodeToZlibHex(param)
+			if err != nil {
+				return "", err
+			}
+			verMap.CodeExpParams = append(verMap.CodeExpParams, hex)
+		}
 	}
 	verMap.VMType = vmType
 	verMap.Code = hexString
