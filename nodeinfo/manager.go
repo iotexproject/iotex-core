@@ -65,16 +65,26 @@ type (
 	getBroadcastListFunc func() []string
 )
 
-var _nodeInfoHeightGauge = prometheus.NewGaugeVec(
-	prometheus.GaugeOpts{
-		Name: "iotex_node_info_height_gauge",
-		Help: "height info of node",
-	},
-	[]string{"address", "version"},
+var (
+	_nodeInfoHeightGauge = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_node_info_height_gauge",
+			Help: "height info of node",
+		},
+		[]string{"address", "version"},
+	)
+	_nodeInfoAddressHeightGauge = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_node_info_address_height_gauge",
+			Help: "address and height info of node",
+		},
+		[]string{"address", "p2pID", "version"},
+	)
 )
 
 func init() {
 	prometheus.MustRegister(_nodeInfoHeightGauge)
+	prometheus.MustRegister(_nodeInfoAddressHeightGauge)
 }
 
 // NewInfoManager new info manager
@@ -150,6 +160,7 @@ func (dm *InfoManager) updateNode(node *Info) {
 	dm.nodeMap.Add(addr, *node)
 	// update metric
 	_nodeInfoHeightGauge.WithLabelValues(addr, node.Version).Set(float64(node.Height))
+	_nodeInfoAddressHeightGauge.WithLabelValues(addr, node.PeerID, node.Version).Set(float64(node.Height))
 }
 
 // GetNodeInfo get node info by address
