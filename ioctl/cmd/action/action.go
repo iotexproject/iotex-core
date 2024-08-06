@@ -49,8 +49,6 @@ var (
 
 const _defaultGasLimit = uint64(20000000)
 
-// var defaultGasPrice = big.NewInt(unit.Qev)
-
 // Flags
 var (
 	_gasLimitFlag = flag.NewUint64VarP("gas-limit", "l", _defaultGasLimit, "set gas limit")
@@ -59,7 +57,6 @@ var (
 	_signerFlag   = flag.NewStringVarP("signer", "s", "", "choose a signing account")
 	_bytecodeFlag = flag.NewStringVarP("bytecode", "b", "", "set the byte code")
 	_yesFlag      = flag.BoolVarP("assume-yes", "y", false, "answer yes for all confirmations")
-	_passwordFlag = flag.NewStringVarP("password", "P", "", "input password for account")
 )
 
 // ActionCmd represents the action command
@@ -140,7 +137,7 @@ func RegisterWriteCommand(cmd *cobra.Command) {
 	_signerFlag.RegisterCommand(cmd)
 	_nonceFlag.RegisterCommand(cmd)
 	_yesFlag.RegisterCommand(cmd)
-	_passwordFlag.RegisterCommand(cmd)
+	account.RegisterPasswordFlag(cmd)
 }
 
 // gasPriceInRau returns the suggest gas price
@@ -260,7 +257,7 @@ func SendAction(elp action.Envelope, signer string) error {
 
 // SendActionAndResponse sends signed action to blockchain with response and error return
 func SendActionAndResponse(elp action.Envelope, signer string) (*iotexapi.SendActionResponse, error) {
-	prvKey, err := account.PrivateKeyFromSigner(signer, _passwordFlag.Value().(string))
+	prvKey, err := account.PrivateKeyFromSigner(signer, account.PasswordByFlag())
 	if err != nil {
 		return nil, err
 	}
