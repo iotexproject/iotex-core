@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
