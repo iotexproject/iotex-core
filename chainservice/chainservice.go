@@ -40,6 +40,12 @@ import (
 	"github.com/iotexproject/iotex-core/systemcontractindex/stakingindex"
 )
 
+// Message networks definition
+const (
+	// CompatiableNetwork is the network for connecting to the nodes without message network feature
+	CompatibleNetwork = ""
+)
+
 var (
 	_blockchainFullnessMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -188,7 +194,7 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 	if cfg.GRPCPort == 0 && cfg.HTTPPort == 0 {
 		return nil, nil
 	}
-	p2pAgent := cs.p2pAgent
+	p2pAgent := cs.p2pAgent.Subnet(CompatibleNetwork)
 	apiServerOptions := []api.Option{
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 			return p2pAgent.BroadcastOutbound(ctx, msg)
