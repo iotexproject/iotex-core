@@ -73,15 +73,16 @@ var (
 		Help: "web3 api metrics.",
 	}, []string{"method"})
 
-	errUnkownType        = errors.New("wrong type of params")
-	errNullPointer       = errors.New("null pointer")
-	errInvalidFormat     = errors.New("invalid format of request")
-	errNotImplemented    = errors.New("method not implemented")
-	errInvalidFilterID   = errors.New("filter not found")
-	errInvalidEvmChainID = errors.New("invalid EVM chain ID")
-	errInvalidBlock      = errors.New("invalid block")
-	errUnsupportedAction = errors.New("the type of action is not supported")
-	errMsgBatchTooLarge  = errors.New("batch too large")
+	errUnkownType         = errors.New("wrong type of params")
+	errNullPointer        = errors.New("null pointer")
+	errInvalidFormat      = errors.New("invalid format of request")
+	errNotImplemented     = errors.New("method not implemented")
+	errInvalidFilterID    = errors.New("filter not found")
+	errInvalidEvmChainID  = errors.New("invalid EVM chain ID")
+	errInvalidBlock       = errors.New("invalid block")
+	errUnsupportedAction  = errors.New("the type of action is not supported")
+	errMsgBatchTooLarge   = errors.New("batch too large")
+	errInvalidBlockHeight = errors.New("invalid block height")
 
 	_pendingBlockNumber  = "pending"
 	_latestBlockNumber   = "latest"
@@ -325,11 +326,46 @@ func (svr *web3Handler) getBlockByNumber(in *gjson.Result) (interface{}, error) 
 	return svr.getBlockWithTransactions(blk.Block, blk.Receipts, isDetailed.Bool())
 }
 
+func (svr *web3Handler) checkInputBlock(str string) error {
+	switch str {
+	case "", _earliestBlockNumber, _pendingBlockNumber:
+		return errInvalidBlockHeight
+	case _latestBlockNumber:
+		return nil
+	default:
+		//check str is block hash string
+		if len(str) == 66 || len(str) == 64 {
+			blk, err := svr.coreService.BlockByHash(str)
+			if err != nil {
+				return err
+			}
+			if blk.Block.Height() != svr.coreService.TipHeight() {
+				return errInvalidBlockHeight
+			}
+		}
+		height, err := hexStringToNumber(str)
+		if err != nil {
+			return err
+		}
+		if height != svr.coreService.TipHeight() {
+			return errInvalidBlockHeight
+		}
+	}
+	return nil
+}
+
 func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
 	addr := in.Get("params.0")
 	if !addr.Exists() {
 		return nil, errInvalidFormat
 	}
+	height := in.Get("params.1")
+	if height.Exists() {
+		if err := svr.checkInputBlock(height.String()); err != nil {
+			return nil, err
+		}
+	}
+
 	ioAddr, err := ethAddrToIoAddr(addr.String())
 	if err != nil {
 		return nil, err
@@ -346,6 +382,12 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 	addr := in.Get("params.0")
 	if !addr.Exists() {
 		return nil, errInvalidFormat
+	}
+	height := in.Get("params.1")
+	if height.Exists() {
+		if err := svr.checkInputBlock(height.String()); err != nil {
+			return nil, err
+		}
 	}
 	ioAddr, err := ethAddrToIoAddr(addr.String())
 	if err != nil {
@@ -364,6 +406,12 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 	callerAddr, to, gasLimit, gasPrice, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
+	}
+	height := in.Get("params.1")
+	if height.Exists() {
+		if err := svr.checkInputBlock(height.String()); err != nil {
+			return nil, err
+		}
 	}
 	if to == _metamaskBalanceContractAddr {
 		return nil, nil
@@ -529,6 +577,12 @@ func (svr *web3Handler) getCode(in *gjson.Result) (interface{}, error) {
 	addr := in.Get("params.0")
 	if !addr.Exists() {
 		return nil, errInvalidFormat
+	}
+	height := in.Get("params.1")
+	if height.Exists() {
+		if err := svr.checkInputBlock(height.String()); err != nil {
+			return nil, err
+		}
 	}
 	ioAddr, err := ethAddrToIoAddr(addr.String())
 	if err != nil {
@@ -777,6 +831,12 @@ func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
 	pos, err := hexToBytes(storagePos.String())
 	if err != nil {
 		return nil, err
+	}
+	height := in.Get("params.2")
+	if height.Exists() {
+		if err := svr.checkInputBlock(height.String()); err != nil {
+			return nil, err
+		}
 	}
 	val, err := svr.coreService.ReadContractStorage(context.Background(), contractAddr, pos)
 	if err != nil {

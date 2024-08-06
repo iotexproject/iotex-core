@@ -183,6 +183,27 @@ func serveTestHTTP(require *require.Assertions, handler *hTTPHandler, method str
 	return vals[0].Result
 }
 
+func serveTestHTTPError(require *require.Assertions, handler *hTTPHandler, method string, param string) string {
+	req, _ := http.NewRequest(http.MethodPost, "http://url.com",
+		strings.NewReader(fmt.Sprintf(`[{"jsonrpc":"2.0","method":"%s","params":%s,"id":1}]`, method, param)))
+	resp := httptest.NewRecorder()
+
+	handler.ServeHTTP(resp, req)
+
+	var vals []struct {
+		Jsonrpc string `json:"jsonrpc"`
+		ID      int    `json:"id"`
+		Error   struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	err := json.NewDecoder(resp.Body).Decode(&vals)
+	require.NoError(err)
+	require.NotEmpty(vals)
+	return vals[0].Error.Message
+}
+
 func gasPrice(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
 	result := serveTestHTTP(require, handler, "eth_gasPrice", "[]")
@@ -231,72 +252,120 @@ func getBlockByNumber(t *testing.T, handler *hTTPHandler) {
 
 func getBalance(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
-	result := serveTestHTTP(require, handler, "eth_getBalance", `["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]`)
-	ans, ok := new(big.Int).SetString("9999999999999999999999999991", 10)
-	require.True(ok)
-	actual, ok := result.(string)
-	require.True(ok)
-	ans, ok = new(big.Int).SetString("9999999999999999999999999991", 10)
-	require.True(ok)
-	require.Equal("0x"+fmt.Sprintf("%x", ans), actual)
+	t.Run("use latest", func(t *testing.T) {
+		result := serveTestHTTP(require, handler, "eth_getBalance", `["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "latest"]`)
+		ans, ok := new(big.Int).SetString("9999999999999999999999999991", 10)
+		require.True(ok)
+		actual, ok := result.(string)
+		require.True(ok)
+		ans, ok = new(big.Int).SetString("9999999999999999999999999991", 10)
+		require.True(ok)
+		require.Equal("0x"+fmt.Sprintf("%x", ans), actual)
+	})
+	t.Run("unsupport block height", func(t *testing.T) {
+		tests := []string{"earliest", "pending", "0x1"}
+		for _, test := range tests {
+			result := serveTestHTTPError(require, handler, "eth_getBalance", fmt.Sprintf(`["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "%s"]`, test))
+			require.Equal(errInvalidBlockHeight.Error(), result)
+		}
+	})
+	t.Run("invalid hex number", func(t *testing.T) {
+		tests := []string{"12345x", "-1", "+1", "1__2345"}
+		for _, test := range tests {
+			result := serveTestHTTPError(require, handler, "eth_getBalance", fmt.Sprintf(`["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "%s"]`, test))
+			require.Contains(result, "invalid syntax")
+		}
+	})
 }
 
 func getTransactionCount(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
-	for _, test := range []struct {
-		params   string
-		expected int
-	}{
-		{`["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"]`, 2},
-		{`["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "pending"]`, 2},
-	} {
-		result := serveTestHTTP(require, handler, "eth_getTransactionCount", test.params)
+	t.Run("use latest", func(t *testing.T) {
+		result := serveTestHTTP(require, handler, "eth_getTransactionCount", `["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "latest"]`)
 		actual, ok := result.(string)
 		require.True(ok)
-		require.Equal(uint64ToHex(uint64(test.expected)), actual)
-	}
+		require.Equal(uint64ToHex(2), actual)
+	})
+	t.Run("unsupport block height", func(t *testing.T) {
+		tests := []string{"earliest", "pending", "0x1"}
+		for _, test := range tests {
+			result := serveTestHTTPError(require, handler, "eth_getTransactionCount", fmt.Sprintf(`["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "%s"]`, test))
+			require.Equal(errInvalidBlockHeight.Error(), result)
+		}
+	})
+	t.Run("invalid hex number", func(t *testing.T) {
+		tests := []string{"12345x", "-1", "+1", "1__2345"}
+		for _, test := range tests {
+			result := serveTestHTTPError(require, handler, "eth_getTransactionCount", fmt.Sprintf(`["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "%s"]`, test))
+			require.Contains(result, "invalid syntax")
+		}
+	})
 }
 
 func ethCall(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
-	for _, test := range []struct {
-		params   string
-		expected int
-	}{
-		{
-			`[{
-				"from":     "",
-				"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
-				"gas":      "0x4e20",
-				"gasPrice": "0xe8d4a51000",
-				"value":    "0x1",
-				"data":     "0x1"
-			  },
-			1]`,
-			1,
-		},
-		{
-			`[{
-				"from":     "",
-				"to":       "0xb1f8e55c7f64d203c1400b9d8555d050f94adf39",
-				"gas":      "0x4e20",
-				"gasPrice": "0xe8d4a51000",
-				"value":    "0x1",
-				"data":     "0x1"
-			   },
-			1]`,
-			0,
-		},
-	} {
-		result := serveTestHTTP(require, handler, "eth_call", test.params)
-		if test.expected == 0 {
-			require.Nil(result)
-			continue
+	t.Run("use latest", func(t *testing.T) {
+		for _, test := range []struct {
+			params   string
+			expected int
+		}{
+			{
+				`[{
+					"from":     "",
+					"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
+					"gas":      "0x4e20",
+					"gasPrice": "0xe8d4a51000",
+					"value":    "0x1",
+					"data":     "0x1"
+				  }]`,
+				1,
+			},
+			{
+				`[{
+					"from":     "",
+					"to":       "0xb1f8e55c7f64d203c1400b9d8555d050f94adf39",
+					"gas":      "0x4e20",
+					"gasPrice": "0xe8d4a51000",
+					"value":    "0x1",
+					"data":     "0x1"
+				   },
+				"latest"]`,
+				0,
+			},
+		} {
+			result := serveTestHTTP(require, handler, "eth_call", test.params)
+			if test.expected == 0 {
+				require.Nil(result)
+				continue
+			}
+			actual, ok := result.(string)
+			require.True(ok)
+			require.Equal("0x", actual)
 		}
-		actual, ok := result.(string)
-		require.True(ok)
-		require.Equal("0x", actual)
-	}
+	})
+	var callData = `[{
+		"from":     "",
+		"to":       "0xb1f8e55c7f64d203c1400b9d8555d050f94adf39",
+		"gas":      "0x4e20",
+		"gasPrice": "0xe8d4a51000",
+		"value":    "0x1",
+		"data":     "0x1"
+	   },
+	"%s"]`
+	t.Run("unsupport block height", func(t *testing.T) {
+		tests := []string{"earliest", "pending", "0x1"}
+		for _, test := range tests {
+			result := serveTestHTTPError(require, handler, "eth_call", fmt.Sprintf(callData, test))
+			require.Equal(errInvalidBlockHeight.Error(), result)
+		}
+	})
+	t.Run("invalid hex number", func(t *testing.T) {
+		tests := []string{"12345x", "-1", "+1", "1__2345"}
+		for _, test := range tests {
+			result := serveTestHTTPError(require, handler, "eth_call", fmt.Sprintf(callData, test))
+			require.Contains(result, "invalid syntax")
+		}
+	})
 }
 
 func getNodeInfo(t *testing.T, handler *hTTPHandler) {
@@ -783,11 +852,27 @@ func getCode(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao b
 	contractCode := "608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806360fe47b11461003b5780636d4ce63c14610057575b600080fd5b6100556004803603810190610050919061009d565b610075565b005b61005f61007f565b60405161006c91906100d9565b60405180910390f35b8060008190555050565b60008054905090565b60008135905061009781610103565b92915050565b6000602082840312156100b3576100b26100fe565b5b60006100c184828501610088565b91505092915050565b6100d3816100f4565b82525050565b60006020820190506100ee60008301846100ca565b92915050565b6000819050919050565b600080fd5b61010c816100f4565b811461011757600080fd5b5056fea2646970667358221220c86a8c4dd175f55f5732b75b721d714ceb38a835b87c6cf37cf28c790813e19064736f6c63430008070033"
 	contract, _ := deployContractV2(bc, dao, actPool, identityset.PrivateKey(13), 2, bc.TipHeight(), contractCode)
 	contractAddr, _ := ioAddrToEthAddr(contract)
+	t.Run("normal", func(t *testing.T) {
+		result := serveTestHTTP(require, handler, "eth_getCode", fmt.Sprintf(`["%s", "latest"]`, contractAddr))
+		actual, ok := result.(string)
+		require.True(ok)
+		require.Contains(contractCode, util.Remove0xPrefix(actual))
+	})
 
-	result := serveTestHTTP(require, handler, "eth_getCode", fmt.Sprintf(`["%s", "0x1"]`, contractAddr))
-	actual, ok := result.(string)
-	require.True(ok)
-	require.Contains(contractCode, util.Remove0xPrefix(actual))
+	t.Run("unsupport block height", func(t *testing.T) {
+		tests := []string{"earliest", "pending", "0x1"}
+		for _, test := range tests {
+			result := serveTestHTTPError(require, handler, "eth_getCode", fmt.Sprintf(`["%s", "%s"]`, contractAddr, test))
+			require.Equal(errInvalidBlockHeight.Error(), result)
+		}
+	})
+	t.Run("invalid hex number", func(t *testing.T) {
+		tests := []string{"12345x", "-1", "+1", "1__2345"}
+		for _, test := range tests {
+			result := serveTestHTTPError(require, handler, "eth_getCode", fmt.Sprintf(`["%s", "%s"]`, contractAddr, test))
+			require.Contains(result, "invalid syntax")
+		}
+	})
 }
 
 func getStorageAt(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool actpool.ActPool) {
@@ -796,23 +881,39 @@ func getStorageAt(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, 
 	contractCode := "608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806360fe47b11461003b5780636d4ce63c14610057575b600080fd5b6100556004803603810190610050919061009d565b610075565b005b61005f61007f565b60405161006c91906100d9565b60405180910390f35b8060008190555050565b60008054905090565b60008135905061009781610103565b92915050565b6000602082840312156100b3576100b26100fe565b5b60006100c184828501610088565b91505092915050565b6100d3816100f4565b82525050565b60006020820190506100ee60008301846100ca565b92915050565b6000819050919050565b600080fd5b61010c816100f4565b811461011757600080fd5b5056fea2646970667358221220c86a8c4dd175f55f5732b75b721d714ceb38a835b87c6cf37cf28c790813e19064736f6c63430008070033"
 	contract, _ := deployContractV2(bc, dao, actPool, identityset.PrivateKey(13), 3, bc.TipHeight(), contractCode)
 	contractAddr, _ := ioAddrToEthAddr(contract)
-
-	for _, test := range []struct {
-		params   string
-		expected int
-	}{
-		{fmt.Sprintf(`["%s", "0x0"]`, contractAddr), 1},
-		{`[1]`, 0},
-		{`["TEST", "TEST"]`, 0},
-	} {
-		result := serveTestHTTP(require, handler, "eth_getStorageAt", test.params)
-		if test.expected == 0 {
-			require.Nil(result)
-			continue
+	t.Run("normal use latest height", func(t *testing.T) {
+		for _, test := range []struct {
+			params   string
+			expected int
+		}{
+			{fmt.Sprintf(`["%s", "0x0"]`, contractAddr), 1},
+			{`[1]`, 0},
+			{`["TEST", "TEST"]`, 0},
+			{fmt.Sprintf(`["%s", "0x0", "latest"]`, contractAddr), 1},
+		} {
+			result := serveTestHTTP(require, handler, "eth_getStorageAt", test.params)
+			if test.expected == 0 {
+				require.Nil(result)
+				continue
+			}
+			actual, ok := result.(string)
+			require.True(ok)
+			// the value of any contract at pos0 is be "0x0000000000000000000000000000000000000000000000000000000000000000"
+			require.Equal("0x0000000000000000000000000000000000000000000000000000000000000000", actual)
 		}
-		actual, ok := result.(string)
-		require.True(ok)
-		// the value of any contract at pos0 is be "0x0000000000000000000000000000000000000000000000000000000000000000"
-		require.Equal("0x0000000000000000000000000000000000000000000000000000000000000000", actual)
-	}
+	})
+	t.Run("unsupport block height", func(t *testing.T) {
+		tests := []string{"earliest", "pending", "0x1"}
+		for _, test := range tests {
+			result := serveTestHTTPError(require, handler, "eth_getStorageAt", fmt.Sprintf(`["%s", "0x0", "%s"]`, contractAddr, test))
+			require.Equal(errInvalidBlockHeight.Error(), result)
+		}
+	})
+	t.Run("invalid hex number", func(t *testing.T) {
+		tests := []string{"12345x", "-1", "+1", "1__2345"}
+		for _, test := range tests {
+			result := serveTestHTTPError(require, handler, "eth_getStorageAt", fmt.Sprintf(`["%s", "0x0", "%s"]`, contractAddr, test))
+			require.Contains(result, "invalid syntax")
+		}
+	})
 }
