@@ -87,9 +87,13 @@ type (
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
 		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
+		SimulateExecutionAtHeight(context.Context, uint64, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
 		ReadContractStorage(context.Context, address.Address, []byte) ([]byte, error)
+		ReadContractStorageAtHeight(context.Context, uint64, address.Address, []byte) ([]byte, error)
 		PutBlock(context.Context, *block.Block) error
 		DeleteTipBlock(context.Context, *block.Block) error
+		State(interface{}, ...protocol.StateOption) (uint64, error)
+		States(...protocol.StateOption) (uint64, state.Iterator, error)
 		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
 		StatesAtHeight(uint64, ...protocol.StateOption) (state.Iterator, error)
 	}
@@ -402,10 +406,36 @@ func (sf *factory) SimulateExecution(
 	return evm.SimulateExecution(ctx, ws, caller, ex)
 }
 
+// SimulateExecutionAtHeight simulates a running of smart contract operation at a specific height
+func (sf *factory) SimulateExecutionAtHeight(ctx context.Context, height uint64, caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
+	ctx, span := tracer.NewSpan(ctx, "factory.SimulateExecution")
+	defer span.End()
+
+	sf.mutex.Lock()
+	ws, err := sf.newWorkingSet(ctx, height)
+	sf.mutex.Unlock()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+
+	return evm.SimulateExecution(ctx, ws, caller, ex)
+}
+
 // ReadContractStorage reads contract's storage
 func (sf *factory) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
 	sf.mutex.Lock()
 	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+	sf.mutex.Unlock()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate working set from state factory")
+	}
+	return evm.ReadContractStorage(ctx, ws, contract, key)
+}
+
+// ReadContractStorageAtHeight reads contract's storage at a specific height
+func (sf *factory) ReadContractStorageAtHeight(ctx context.Context, height uint64, contract address.Address, key []byte) ([]byte, error) {
+	sf.mutex.Lock()
+	ws, err := sf.newWorkingSet(ctx, height)
 	sf.mutex.Unlock()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate working set from state factory")

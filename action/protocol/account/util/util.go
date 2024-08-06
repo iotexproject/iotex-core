@@ -81,22 +81,16 @@ func Recorded(sr protocol.StateReader, addr address.Address) (bool, error) {
 
 // AccountState returns the confirmed account state on the chain
 func AccountState(ctx context.Context, sr protocol.StateReader, addr address.Address) (*state.Account, error) {
-	a, _, err := AccountStateWithHeight(ctx, sr, addr)
-	return a, err
-}
-
-// AccountStateWithHeight returns the confirmed account state on the chain with what height the state is read from.
-func AccountStateWithHeight(ctx context.Context, sr protocol.StateReader, addr address.Address) (*state.Account, uint64, error) {
 	pkHash := hash.BytesToHash160(addr.Bytes())
 	account := &state.Account{}
-	h, err := sr.State(account, protocol.LegacyKeyOption(pkHash))
+	_, err := sr.State(account, protocol.LegacyKeyOption(pkHash))
 	switch errors.Cause(err) {
 	case nil:
-		return account, h, nil
+		return account, nil
 	case state.ErrStateNotExist:
 		tip, err := sr.Height()
 		if err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			BlockHeight: tip + 1,
@@ -107,8 +101,30 @@ func AccountStateWithHeight(ctx context.Context, sr protocol.StateReader, addr a
 			opts = append(opts, state.LegacyNonceAccountTypeOption())
 		}
 		account, err = state.NewAccount(opts...)
-		return account, h, err
+		return account, err
 	default:
-		return nil, h, errors.Wrapf(err, "error when loading state of %x", pkHash)
+		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
+	}
+}
+
+// AccountStateAtHeight returns the confirmed account state on the chain at a specific height
+func AccountStateAtHeight(ctx context.Context, height uint64, sr protocol.HistroicalStateReader,
+	addr address.Address) (*state.Account, error) {
+	pkHash := hash.BytesToHash160(addr.Bytes())
+	account := &state.Account{}
+	err := sr.StateAtHeight(height, account, protocol.LegacyKeyOption(pkHash))
+
+	switch errors.Cause(err) {
+	case nil:
+		return account, nil
+	case state.ErrStateNotExist:
+		var opts []state.AccountCreationOption
+		if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+			opts = append(opts, state.LegacyNonceAccountTypeOption())
+		}
+		account, err = state.NewAccount(opts...)
+		return account, err
+	default:
+		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
 	}
 }

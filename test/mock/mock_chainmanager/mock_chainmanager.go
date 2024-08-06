@@ -105,6 +105,83 @@ func (mr *MockStateReaderMockRecorder) States(arg0 ...interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "States", reflect.TypeOf((*MockStateReader)(nil).States), arg0...)
 }
 
+// MockHistroicalStateReader is a mock of HistroicalStateReader interface.
+type MockHistroicalStateReader struct {
+	ctrl     *gomock.Controller
+	recorder *MockHistroicalStateReaderMockRecorder
+}
+
+// MockHistroicalStateReaderMockRecorder is the mock recorder for MockHistroicalStateReader.
+type MockHistroicalStateReaderMockRecorder struct {
+	mock *MockHistroicalStateReader
+}
+
+// NewMockHistroicalStateReader creates a new mock instance.
+func NewMockHistroicalStateReader(ctrl *gomock.Controller) *MockHistroicalStateReader {
+	mock := &MockHistroicalStateReader{ctrl: ctrl}
+	mock.recorder = &MockHistroicalStateReaderMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockHistroicalStateReader) EXPECT() *MockHistroicalStateReaderMockRecorder {
+	return m.recorder
+}
+
+// ReadView mocks base method.
+func (m *MockHistroicalStateReader) ReadView(arg0 string) (interface{}, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadView", arg0)
+	ret0, _ := ret[0].(interface{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadView indicates an expected call of ReadView.
+func (mr *MockHistroicalStateReaderMockRecorder) ReadView(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadView", reflect.TypeOf((*MockHistroicalStateReader)(nil).ReadView), arg0)
+}
+
+// StateAtHeight mocks base method.
+func (m *MockHistroicalStateReader) StateAtHeight(arg0 uint64, arg1 interface{}, arg2 ...protocol.StateOption) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "StateAtHeight", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StateAtHeight indicates an expected call of StateAtHeight.
+func (mr *MockHistroicalStateReaderMockRecorder) StateAtHeight(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtHeight", reflect.TypeOf((*MockHistroicalStateReader)(nil).StateAtHeight), varargs...)
+}
+
+// StatesAtHeight mocks base method.
+func (m *MockHistroicalStateReader) StatesAtHeight(arg0 uint64, arg1 ...protocol.StateOption) (state.Iterator, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "StatesAtHeight", varargs...)
+	ret0, _ := ret[0].(state.Iterator)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StatesAtHeight indicates an expected call of StatesAtHeight.
+func (mr *MockHistroicalStateReaderMockRecorder) StatesAtHeight(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatesAtHeight", reflect.TypeOf((*MockHistroicalStateReader)(nil).StatesAtHeight), varargs...)
+}
+
 // MockStateManager is a mock of StateManager interface.
 type MockStateManager struct {
 	ctrl     *gomock.Controller
