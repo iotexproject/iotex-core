@@ -3,6 +3,7 @@ package blobpool
 import (
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -12,6 +13,7 @@ import (
 type chainAdapter struct {
 	g   *genesis.Genesis
 	dao blockdao.BlockDAO
+	bc  blockchain.Blockchain
 }
 
 func NewChainAdapter(g *genesis.Genesis, dao blockdao.BlockDAO) BlockChain {
@@ -36,10 +38,6 @@ func (c *chainAdapter) CurrentBlock() *block.Header {
 	return blk
 }
 
-func (c *chainAdapter) CurrentFinalBlock() *block.Header {
-	return c.CurrentBlock()
-}
-
 func (c *chainAdapter) GetBlock(number uint64) *block.Block {
 	blk, err := c.dao.GetBlockByHeight(number)
 	if err != nil {
@@ -47,4 +45,8 @@ func (c *chainAdapter) GetBlock(number uint64) *block.Block {
 		return nil
 	}
 	return blk
+}
+
+func (c *chainAdapter) EvmNetworkID() uint32 {
+	return c.bc.EvmNetworkID()
 }

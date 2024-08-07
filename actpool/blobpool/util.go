@@ -28,11 +28,6 @@ func TxDifference(a, b []*action.SealedEnvelope) []*action.SealedEnvelope {
 	return keep
 }
 
-func DecodeAction(blob []byte, act *action.SealedEnvelope) error {
-	// TODO: implement DecodeAction
-	panic("not implemented")
-}
-
 func eip1559CalcBaseFee() *big.Int {
 	// TODO: implement EIP-1559 base fee calculation
 	return big.NewInt(0)

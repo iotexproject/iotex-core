@@ -19,6 +19,7 @@ package blobpool
 
 import (
 	"container/heap"
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -37,9 +38,13 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/golang/protobuf/proto"
 	"github.com/holiman/billy"
 	"github.com/holiman/uint256"
+
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -439,7 +444,7 @@ func (p *BlobPool) Close() error {
 // each transaction on disk to create the in-memory metadata index.
 func (p *BlobPool) parseTransaction(id uint64, size uint32, blob []byte) error {
 	tx := new(action.SealedEnvelope)
-	if err := DecodeAction(blob, tx); err != nil {
+	if err := p.decodeAction(blob, &tx); err != nil {
 		// This path is impossible unless the disk data representation changes
 		// across restarts. For that ever improbable case, recover gracefully
 		// by ignoring this data entry.
@@ -717,7 +722,7 @@ func (p *BlobPool) recheck(addr common.Address, inclusions map[common.Hash]uint6
 
 // Reset implements txpool.SubPool, allowing the blob pool's internal state to be
 // kept in sync with the main transaction pool's internal state.
-func (p *BlobPool) Reset(oldHead, newHead *block.Header) {
+func (p *BlobPool) Reset() {
 	waitStart := time.Now()
 	p.lock.Lock()
 	resetwaitHist.Update(time.Since(waitStart).Nanoseconds())
@@ -727,15 +732,15 @@ func (p *BlobPool) Reset(oldHead, newHead *block.Header) {
 		resettimeHist.Update(time.Since(start).Nanoseconds())
 	}(time.Now())
 
-	p.head = newHead
+	p.head = p.chain.CurrentBlock()
 
 	// Reset the price heap for the new set of basefee/blobfee pairs
 	var (
 		basefee = uint256.MustFromBig(eip1559CalcBaseFee())
 		blobfee = uint256.MustFromBig(big.NewInt(params.BlobTxMinBlobGasprice))
 	)
-	if ExcessBlobGas(newHead) != nil {
-		blobfee = uint256.MustFromBig(eip4844.CalcBlobFee(*ExcessBlobGas(newHead)))
+	if ExcessBlobGas(p.head) != nil {
+		blobfee = uint256.MustFromBig(eip4844.CalcBlobFee(*ExcessBlobGas(p.head)))
 	}
 	p.evict.reinit(basefee, blobfee, false)
 
@@ -809,6 +814,10 @@ func (p *BlobPool) SetGasTip(tip *big.Int) {
 	p.updateStorageMetrics()
 }
 
+func (p *BlobPool) Validate(ctx context.Context, tx *action.SealedEnvelope) error {
+	return p.validateTx(tx)
+}
+
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
 func (p *BlobPool) validateTx(tx *action.SealedEnvelope) error {
@@ -862,6 +871,53 @@ func (p *BlobPool) Has(hash common.Hash) bool {
 	return ok
 }
 
+func (p *BlobPool) GetUnconfirmedActs(addr string) []*action.SealedEnvelope {
+	// Track the amount of time waiting to retrieve a fully resolved blob tx from
+	// the pool and the amount of time actually spent on pulling the data from disk.
+	getStart := time.Now()
+	p.lock.RLock()
+	getwaitHist.Update(time.Since(getStart).Nanoseconds())
+	defer p.lock.RUnlock()
+
+	defer func(start time.Time) {
+		gettimeHist.Update(time.Since(start).Nanoseconds())
+	}(time.Now())
+
+	sender := common.HexToAddress(addr)
+	txs, ok := p.index[sender]
+	if !ok {
+		return nil
+	}
+	acts := make([]*action.SealedEnvelope, len(txs))
+	for _, tx := range txs {
+		id, ok := p.lookup[tx.hash]
+		if !ok {
+			log.Error("Tracked blob transaction missing from lookup", "hash", tx.hash, "id", id)
+			continue
+		}
+		data, err := p.store.Get(id)
+		if err != nil {
+			log.Error("Tracked blob transaction missing from store", "hash", tx.hash, "id", id, "err", err)
+			continue
+		}
+		item := new(action.SealedEnvelope)
+		if err = p.decodeAction(data, &item); err != nil {
+			log.Error("Blobs corrupted for traced transaction", "hash", tx.hash, "id", id, "err", err)
+			continue
+		}
+		acts = append(acts, item)
+	}
+	return acts
+}
+
+func (p *BlobPool) GetActionByHash(hash hash.Hash256) (*action.SealedEnvelope, error) {
+	act := p.Get(common.BytesToHash(hash[:]))
+	if act == nil {
+		return nil, action.ErrNotFound
+	}
+	return act, nil
+}
+
 // Get returns a transaction if it is contained in the pool, or nil otherwise.
 func (p *BlobPool) Get(hash common.Hash) *action.SealedEnvelope {
 	// Track the amount of time waiting to retrieve a fully resolved blob tx from
@@ -886,27 +942,22 @@ func (p *BlobPool) Get(hash common.Hash) *action.SealedEnvelope {
 		return nil
 	}
 	item := new(action.SealedEnvelope)
-	if err = DecodeAction(data, item); err != nil {
+	if err = p.decodeAction(data, &item); err != nil {
 		log.Error("Blobs corrupted for traced transaction", "hash", hash, "id", id, "err", err)
 		return nil
 	}
 	return item
 }
 
+func (p *BlobPool) ReceiveBlock(blk *block.Block) error {
+	// TODO: Implement block processing
+	return nil
+}
+
 // Add inserts a set of blob transactions into the pool if they pass validation (both
 // consensus validity and pool restrictions).
-func (p *BlobPool) Add(txs []*action.SealedEnvelope, local bool, sync bool) []error {
-	var (
-		adds = make([]*action.SealedEnvelope, 0, len(txs))
-		errs = make([]error, len(txs))
-	)
-	for i, tx := range txs {
-		errs[i] = p.add(tx)
-		if errs[i] == nil {
-			adds = append(adds, WithoutBlobTxSidecar(tx))
-		}
-	}
-	return errs
+func (p *BlobPool) Add(ctx context.Context, act *action.SealedEnvelope) error {
+	return p.add(act)
 }
 
 // Add inserts a new blob transaction into the pool if it passes validation (both
@@ -968,7 +1019,7 @@ func (p *BlobPool) add(tx *action.SealedEnvelope) (err error) {
 	}
 	// Transaction permitted into the pool from a nonce and cost perspective,
 	// insert it into the database and update the indices
-	blob, err := rlp.EncodeToBytes(tx)
+	blob, err := p.encodeAction(tx)
 	if err != nil {
 		h, _ := tx.Hash()
 		log.Error("Failed to encode transaction for storage", "hash", common.BytesToHash(h[:]), "err", err)
@@ -1076,6 +1127,33 @@ func (p *BlobPool) add(tx *action.SealedEnvelope) (err error) {
 	return nil
 }
 
+func (p *BlobPool) DeleteAction(addr address.Address) {
+	from := common.BytesToAddress(addr.Bytes())
+	drops := p.index[from]
+	// Remove the transaction from the pool's index
+	delete(p.index, from)
+	delete(p.spent, from)
+	p.reserve(from, false)
+	for _, drop := range drops {
+		p.stored -= uint64(drop.size)
+		delete(p.lookup, drop.hash)
+	}
+	// Remove the transaction from the pool's eviction heap
+	heap.Remove(p.evict, p.evict.index[from])
+	// Remove the transaction from the data store
+	dropOverflownMeter.Mark(int64(len(drops)))
+	for _, drop := range drops {
+		log.Debug("Evicting overflown blob transaction", "from", from, "evicted", drop.nonce, "id", drop.id)
+		if err := p.store.Delete(drop.id); err != nil {
+			log.Error("Failed to drop evicted transaction", "id", drop.id, "err", err)
+		}
+	}
+}
+
+func (p *BlobPool) ReceiveBlock(blk *block.Block) error {
+	return nil
+}
+
 // drop removes the worst transaction from the pool. It is primarily used when a
 // freshly added transaction overflows the pool and needs to evict something. The
 // method is also called on startup if the user resizes their storage, might be an
@@ -1132,7 +1210,7 @@ func (p *BlobPool) drop() {
 
 // Pending retrieves all currently processable transactions, grouped by origin
 // account and sorted by nonce.
-func (p *BlobPool) Pending(enforceTips bool) map[common.Address][]*actpool.LazyTransaction {
+func (p *BlobPool) PendingActionMap() map[common.Address][]*actpool.LazyTransaction {
 	// Track the amount of time waiting to retrieve the list of pending blob txs
 	// from the pool and the amount of time actually spent on assembling the data.
 	// The latter will be pretty much moot, but we've kept it to have symmetric
@@ -1214,14 +1292,15 @@ func (p *BlobPool) updateStorageMetrics() {
 
 // Nonce returns the next nonce of an account, with all transactions executable
 // by the pool already applied on top.
-func (p *BlobPool) Nonce(addr common.Address) uint64 {
+func (p *BlobPool) GetPendingNonce(addr string) (uint64, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	if txs, ok := p.index[addr]; ok {
-		return txs[len(txs)-1].nonce + 1
+	caddr := common.HexToAddress(addr)
+	if txs, ok := p.index[caddr]; ok {
+		return txs[len(txs)-1].nonce + 1, nil
 	}
-	return p.state.GetNonce(addr)
+	return p.state.GetNonce(caddr), nil
 }
 
 // Stats retrieves the current pool stats, namely the number of pending and the
@@ -1235,4 +1314,24 @@ func (p *BlobPool) Stats() (int, int) {
 		pending += len(txs)
 	}
 	return pending, 0 // No non-executable txs in the blob pool
+}
+
+func (p *BlobPool) decodeAction(blob []byte, act **action.SealedEnvelope) error {
+	d := &action.Deserializer{}
+	d.SetEvmNetworkID(p.chain.EvmNetworkID())
+
+	a := &iotextypes.Action{}
+	if err := proto.Unmarshal(blob, a); err != nil {
+		return err
+	}
+	se, err := d.ActionToSealedEnvelope(a)
+	if err != nil {
+		return err
+	}
+	*act = se
+	return nil
+}
+
+func (p *BlobPool) encodeAction(act *action.SealedEnvelope) ([]byte, error) {
+	return proto.Marshal(act.Proto())
 }

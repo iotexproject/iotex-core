@@ -30,10 +30,8 @@ type BlockChain interface {
 	// CurrentBlock returns the current head of the chain.
 	CurrentBlock() *block.Header
 
-	// CurrentFinalBlock returns the current block below which blobs should not
-	// be maintained anymore for reorg purposes.
-	CurrentFinalBlock() *block.Header
-
 	// GetBlock retrieves a specific block, used during pool resets.
 	GetBlock(number uint64) *block.Block
+
+	EvmNetworkID() uint32
 }
