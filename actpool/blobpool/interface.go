@@ -17,28 +17,23 @@
 package blobpool
 
 import (
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
 // BlockChain defines the minimal set of methods needed to back a blob pool with
 // a chain. Exists to allow mocking the live chain out of tests.
 type BlockChain interface {
 	// Config retrieves the chain's fork configuration.
-	Config() *params.ChainConfig
+	Config() *genesis.Genesis
 
 	// CurrentBlock returns the current head of the chain.
-	CurrentBlock() *types.Header
+	CurrentBlock() *block.Header
 
 	// CurrentFinalBlock returns the current block below which blobs should not
 	// be maintained anymore for reorg purposes.
-	CurrentFinalBlock() *types.Header
+	CurrentFinalBlock() *block.Header
 
 	// GetBlock retrieves a specific block, used during pool resets.
-	GetBlock(hash common.Hash, number uint64) *types.Block
-
-	// StateAt returns a state database for a given root hash (generally the head).
-	StateAt(root common.Hash) (*state.StateDB, error)
+	GetBlock(number uint64) *block.Block
 }
