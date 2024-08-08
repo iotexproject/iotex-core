@@ -10,8 +10,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -30,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/stretchr/testify/require"
 )
 
 type checkContractExpectation struct {
@@ -113,7 +112,7 @@ func TestSGDRegistry(t *testing.T) {
 	r.NoError(err)
 	kvstore, err := db.CreateKVStore(db.DefaultConfig, indexSGDDBPath)
 	r.NoError(err)
-	sgdRegistry := blockindex.NewSGDRegistry(contractAddress, 2, kvstore)
+	sgdRegistry := blockindex.NewSGDRegistry(contractAddress, 0, kvstore)
 	r.NoError(sgdRegistry.Start(ctx))
 	defer func() {
 		r.NoError(sgdRegistry.Stop(ctx))
@@ -260,7 +259,7 @@ func TestSGDRegistry(t *testing.T) {
 				)
 				r.NoError(sgdRegistry.PutBlock(ctx, blk))
 			}
-			receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, tt.checkContractExpect.contractAddress, height)
+			receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, tt.checkContractExpect.contractAddress)
 			if tt.checkContractExpect.errorContains != "" {
 				r.ErrorContains(err, tt.checkContractExpect.errorContains)
 			} else {
