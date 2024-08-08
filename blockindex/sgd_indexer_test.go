@@ -148,7 +148,7 @@ func TestNewSGDRegistry(t *testing.T) {
 			blk := createTestingBlock(builder, 4, h, exec, logs)
 			r.NoError(sgdRegistry.PutBlock(ctx, blk))
 			receiver, percentage, isApproved, err := sgdRegistry.CheckContract(ctx, registerAddress.String(), 4)
-			r.NoError(err)
+			r.ErrorContains(err, "not exist in DB")
 			r.Nil(receiver)
 			r.False(isApproved)
 			hh, err := sgdRegistry.Height()
