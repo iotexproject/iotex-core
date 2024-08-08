@@ -247,8 +247,6 @@ func initDBPaths(r *require.Assertions, cfg *config.Config) {
 	r.NoError(err)
 	testContractIndexPath, err := testutil.PathOfTempFile("contractindex")
 	r.NoError(err)
-	testSGDIndexPath, err := testutil.PathOfTempFile("sgdindex")
-	r.NoError(err)
 	testBloomfilterIndexPath, err := testutil.PathOfTempFile("bloomfilterindex")
 	r.NoError(err)
 	testCandidateIndexPath, err := testutil.PathOfTempFile("candidateindex")
@@ -263,7 +261,6 @@ func initDBPaths(r *require.Assertions, cfg *config.Config) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.ContractStakingIndexDBPath = testContractIndexPath
-	cfg.Chain.SGDIndexDBPath = testSGDIndexPath
 	cfg.Chain.BloomfilterIndexDBPath = testBloomfilterIndexPath
 	cfg.Chain.CandidateIndexDBPath = testCandidateIndexPath
 	cfg.System.SystemLogDBPath = testSystemLogPath
@@ -279,6 +276,5 @@ func clearDBPaths(cfg *config.Config) {
 	testutil.CleanupPath(cfg.Chain.ContractStakingIndexDBPath)
 	testutil.CleanupPath(cfg.DB.DbPath)
 	testutil.CleanupPath(cfg.Chain.IndexDBPath)
-	testutil.CleanupPath(cfg.Chain.SGDIndexDBPath)
 	testutil.CleanupPath(cfg.System.SystemLogDBPath)
 }

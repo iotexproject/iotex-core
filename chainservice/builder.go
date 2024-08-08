@@ -310,15 +310,11 @@ func (builder *Builder) buildSGDRegistry(forTest bool) error {
 	if builder.cs.sgdIndexer != nil {
 		return nil
 	}
-	if forTest || builder.cfg.Genesis.SystemSGDContractAddress == "" {
+	if forTest {
 		builder.cs.sgdIndexer = nil
-		return nil
+	} else {
+		builder.cs.sgdIndexer = blockindex.NewSGDRegistry()
 	}
-	kvStore, err := db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.SGDIndexDBPath, 1000)
-	if err != nil {
-		return err
-	}
-	builder.cs.sgdIndexer = blockindex.NewSGDRegistry(builder.cfg.Genesis.SystemSGDContractAddress, builder.cfg.Genesis.SystemSGDContractHeight, kvStore)
 	return nil
 }
 
