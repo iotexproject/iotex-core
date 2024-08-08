@@ -324,10 +324,6 @@ type (
 		SystemStakingContractAddress string `yaml:"systemStakingContractAddress"`
 		// SystemStakingContractHeight is the height of system staking contract
 		SystemStakingContractHeight uint64 `yaml:"systemStakingContractHeight"`
-		// SystemSGDContractAddress is the address of system sgd contract
-		SystemSGDContractAddress string `yaml:"systemSGDContractAddress"`
-		// SystemSGDContractHeight is the height of system sgd contract
-		SystemSGDContractHeight uint64 `yaml:"systemSGDContractHeight"`
 		// SystemStakingContractV2Address is the address of system staking contract
 		SystemStakingContractV2Address string `yaml:"systemStakingContractV2Address"`
 		// SystemStakingContractV2Height is the height of system staking contract
