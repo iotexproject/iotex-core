@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -291,10 +292,19 @@ func (sgd *sgdRegistry) PutBlock(ctx context.Context, blk *block.Block) error {
 		return errors.Errorf("invalid block height %d, expect %d", blk.Height(), expectHeight)
 	}
 
-	var b = batch.NewBatch()
-
-	for _, r := range blk.Receipts {
-		if r.Status != uint64(iotextypes.ReceiptStatus_Success) {
+	var (
+		r  *action.Receipt
+		ok bool
+		b  = batch.NewBatch()
+	)
+	receipts := getReceiptsFromBlock(blk)
+	for _, selp := range blk.Actions {
+		actHash, err := selp.Hash()
+		if err != nil {
+			continue
+		}
+		r, ok = receipts[actHash]
+		if !ok || r.Status != uint64(iotextypes.ReceiptStatus_Success) {
 			continue
 		}
 		for _, log := range r.Logs() {
@@ -522,4 +532,12 @@ func (sgd *sgdRegistry) height() (uint64, error) {
 		return 0, err
 	}
 	return byteutil.BytesToUint64BigEndian(h), nil
+}
+
+func getReceiptsFromBlock(blk *block.Block) map[hash.Hash256]*action.Receipt {
+	receipts := make(map[hash.Hash256]*action.Receipt, len(blk.Receipts))
+	for _, receipt := range blk.Receipts {
+		receipts[receipt.ActionHash] = receipt
+	}
+	return receipts
 }
