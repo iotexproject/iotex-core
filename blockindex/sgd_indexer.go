@@ -444,10 +444,6 @@ func (sgd *sgdRegistry) CheckContract(ctx context.Context, contract string, heig
 	}
 	sgdIndex, err := sgd.getSGDIndex(addr.Bytes())
 	if err != nil {
-		// if the contract is not registered, return nil to prevent the evm from throwing error
-		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
-			return nil, 0, false, nil
-		}
 		return nil, 0, false, err
 	}
 
