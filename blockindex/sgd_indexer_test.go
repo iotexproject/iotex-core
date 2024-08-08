@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
-	"strconv"
 	"sync/atomic"
 	"testing"
 
@@ -16,8 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -112,6 +109,31 @@ func TestNewSGDRegistry(t *testing.T) {
 			r.Equal(receiverAddress, receiver)
 			r.True(isApproved)
 			r.Equal(_sgdPercentage, percentage)
+
+			t.Run("heightRestriction", func(t *testing.T) {
+				cases := []struct {
+					height uint64
+					isErr  bool
+				}{
+					{0, false},
+					{1, true},
+					{2, false},
+					{3, true},
+				}
+				for i := range cases {
+					if cases[i].isErr {
+						_, err = sgdRegistry.FetchContracts(ctx, cases[i].height)
+						r.ErrorContains(err, "invalid height")
+						_, _, _, err = sgdRegistry.CheckContract(ctx, registerAddress.String(), cases[i].height)
+						r.ErrorContains(err, "invalid height")
+					} else {
+						_, err = sgdRegistry.FetchContracts(ctx, cases[i].height)
+						r.Nil(err)
+						_, _, _, err = sgdRegistry.CheckContract(ctx, registerAddress.String(), cases[i].height)
+						r.Nil(err)
+					}
+				}
+			})
 		})
 		t.Run("disapproveContract", func(t *testing.T) {
 			builder := block.NewTestingBuilder()
@@ -159,89 +181,6 @@ func TestNewSGDRegistry(t *testing.T) {
 			_, err = sgdRegistry.FetchContracts(ctx, blk.Height())
 			r.ErrorIs(err, state.ErrStateNotExist)
 		})
-	})
-	t.Run("heightRestriction", func(t *testing.T) {
-		cases := []struct {
-			startHeight uint64
-			height      uint64
-			readHeight  uint64
-			valid       bool
-		}{
-			{0, 0, 0, true},
-			{0, 0, 1, false},
-			{0, 2, 0, true},
-			{0, 2, 1, false},
-			{0, 2, 2, true},
-			{0, 2, 3, false},
-			{10, 0, 0, true},
-			{10, 0, 1, true},
-			{10, 0, 9, true},
-			{10, 0, 10, false},
-			{10, 0, 11, false},
-			{10, 10, 0, true},
-			{10, 10, 1, true},
-			{10, 10, 9, true},
-			{10, 10, 10, true},
-			{10, 10, 11, false},
-		}
-		for i := range cases {
-			name := strconv.FormatInt(int64(i), 10)
-			t.Run(name, func(t *testing.T) {
-				testDBPath, err := testutil.PathOfTempFile("sgd")
-				r.NoError(err)
-				ctx := context.Background()
-				cfg := db.DefaultConfig
-				cfg.DbPath = testDBPath
-				kvStore := db.NewBoltDB(cfg)
-				sgdRegistry := &sgdRegistry{
-					contract:    _testSGDContractAddress,
-					startHeight: cases[i].startHeight,
-					kvStore:     kvStore,
-				}
-				r.NoError(sgdRegistry.Start(ctx))
-				defer func() {
-					r.NoError(sgdRegistry.Stop(ctx))
-					testutil.CleanupPath(testDBPath)
-				}()
-				// register
-				nonce := uint64(0)
-				registerAddress, err := address.FromHex("5b38da6a701c568545dcfcb03fcb875f56beddc4")
-				r.NoError(err)
-				builder := block.NewTestingBuilder()
-				event := _sgdABI.Events["ContractRegistered"]
-				data, _ := hex.DecodeString("0000000000000000000000005b38da6a701c568545dcfcb03fcb875f56beddc400000000000000000000000078731d3ca6b7e34ac0f824c42a7cc18a495cabab")
-				exec, err := action.SignedExecution(_testSGDContractAddress, identityset.PrivateKey(27), atomic.AddUint64(&nonce, 1), big.NewInt(0), 10000000, big.NewInt(9000000000000), data)
-				r.NoError(err)
-				h, _ := exec.Hash()
-				logs := &action.Log{
-					Address: _testSGDContractAddress,
-					Topics:  []hash.Hash256{hash.Hash256(event.ID)},
-					Data:    data,
-				}
-				expectHeight, err := sgdRegistry.expectHeight()
-				r.NoError(err)
-				blk := createTestingBlock(builder, expectHeight, h, exec, logs)
-				r.NoError(sgdRegistry.PutBlock(ctx, blk))
-				_, _, _, err = sgdRegistry.CheckContract(ctx, registerAddress.String(), 1)
-				r.NoError(err)
-				// update height
-				b := batch.NewBatch()
-				b.Put(_sgdToHeightNS, _sgdCurrentHeight, byteutil.Uint64ToBytesBigEndian(cases[i].height), "failed to put current height")
-				sgdRegistry.kvStore.WriteBatch(b)
-				// check
-				if !cases[i].valid {
-					_, err = sgdRegistry.FetchContracts(ctx, cases[i].readHeight)
-					r.ErrorContains(err, "invalid height")
-					_, _, _, err = sgdRegistry.CheckContract(ctx, registerAddress.String(), cases[i].readHeight)
-					r.ErrorContains(err, "invalid height")
-				} else {
-					_, err = sgdRegistry.FetchContracts(ctx, cases[i].readHeight)
-					r.Nil(err)
-					_, _, _, err = sgdRegistry.CheckContract(ctx, registerAddress.String(), cases[i].readHeight)
-					r.Nil(err)
-				}
-			})
-		}
 	})
 }
 

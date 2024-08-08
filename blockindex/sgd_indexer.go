@@ -496,10 +496,6 @@ func (sgd *sgdRegistry) validateQueryHeight(height uint64) error {
 	if height == 0 {
 		return nil
 	}
-	// Compatible with blocks between feature hard-fork and contract deployed
-	if height < sgd.startHeight {
-		return nil
-	}
 	tipHeight, err := sgd.height()
 	if err != nil {
 		return err
