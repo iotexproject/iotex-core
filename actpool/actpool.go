@@ -283,12 +283,12 @@ func (ap *actPool) checkSelpWithoutState(ctx context.Context, selp *action.Seale
 	}
 
 	// Reject action if the gas price is lower than the threshold
-	if selp.Encoding() != uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && selp.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
+	if selp.Encoding() != uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && selp.GasFeeCap().Cmp(ap.cfg.MinGasPrice()) < 0 {
 		_actpoolMtc.WithLabelValues("gasPriceLower").Inc()
 		actHash, _ := selp.Hash()
 		log.L().Debug("action rejected due to low gas price",
 			zap.String("actionHash", hex.EncodeToString(actHash[:])),
-			zap.String("gasPrice", selp.GasPrice().String()))
+			zap.String("GasFeeCap", selp.GasFeeCap().String()))
 		return action.ErrUnderpriced
 	}
 

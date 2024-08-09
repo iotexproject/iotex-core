@@ -88,7 +88,7 @@ func (q *actQueue) NextAction() (bool, *big.Int) {
 	if len(q.ascQueue) == 0 {
 		return false, nil
 	}
-	return q.pendingNonce > q.accountNonce, q.items[q.ascQueue[0].nonce].GasPrice()
+	return q.pendingNonce > q.accountNonce, q.items[q.ascQueue[0].nonce].GasFeeCap()
 }
 
 // Put inserts a new action into the map, also updating the queue's nonce index
@@ -103,7 +103,7 @@ func (q *actQueue) Put(act *action.SealedEnvelope) error {
 
 	if actInPool, exist := q.items[nonce]; exist {
 		// act of higher gas price can cut in line
-		if nonce < q.pendingNonce && act.GasPrice().Cmp(actInPool.GasPrice()) != 1 {
+		if nonce < q.pendingNonce && act.GasFeeCap().Cmp(actInPool.GasFeeCap()) != 1 {
 			return action.ErrReplaceUnderpriced
 		}
 		// update action in q.items and q.index

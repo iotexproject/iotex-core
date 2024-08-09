@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -6,6 +6,7 @@
 package block
 
 import (
+	"math/big"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/bloom"
@@ -80,6 +81,18 @@ func (b *Builder) SetReceiptRoot(h hash.Hash256) *Builder {
 // SetLogsBloom sets the logs bloom filter value after running actions included in this building block.
 func (b *Builder) SetLogsBloom(f bloom.BloomFilter) *Builder {
 	b.blk.Header.logsBloom = f
+	return b
+}
+
+// SetGasUsed sets the used gas
+func (b *Builder) SetGasUsed(g uint64) *Builder {
+	b.blk.Header.gasUsed = g
+	return b
+}
+
+// SetBaseFee sets the base fee
+func (b *Builder) SetBaseFee(fee *big.Int) *Builder {
+	b.blk.Header.baseFee = new(big.Int).Set(fee)
 	return b
 }
 
