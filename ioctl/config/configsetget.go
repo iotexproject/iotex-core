@@ -35,19 +35,19 @@ const (
 	// _defaultIPFSGateway default IPFS gateway for resource fetching
 	_defaultIPFSGateway = "https://ipfs.io"
 	// _defaultWsProjectRegisterContract  default project register contract address
-	_defaultWsProjectRegisterContract = "0x4888bfbf39Dc83C19cbBcb307ccE8F7F93b72E38"
+	_defaultWsProjectRegisterContract = "0x6325D51b6F8bC78b00c55e6233e8824231C31DE2"
 	// _defaultWsProjectStoreContract  default project store contract address
-	_defaultWsProjectStoreContract = "0x6AfCB0EB71B7246A68Bb9c0bFbe5cD7c11c4839f"
+	_defaultWsProjectStoreContract = "0x3522bBB40D94D5027aB585e1796a68BE003bF36b"
 	// _defaultWsFleetManagementContract  default fleet management contract address
-	_defaultWsFleetManagementContract = "0xDBA78C8eCaeE2DB9DDE0c4168f7E8626d4Ff0010"
+	_defaultWsFleetManagementContract = "0x7f23447c0bC51b0532EB0D2C7f2D123304666524"
 	// _defaultWsProverStoreContract  default prover store contract address
-	_defaultWsProverStoreContract = "0xAD480a9c1B9fA8dD118c26Ac26880727160D0448"
+	_defaultWsProverStoreContract = "0x1BCe261009e73A2300A6144d5900062De7fd8365"
 	// _defaultWsProjectDevicesContract  default project devices contract address
-	_defaultWsProjectDevicesContract = "0x3d6b6c7bDB72e8BF73780f433342759d8b329Ca5"
+	_defaultWsProjectDevicesContract = "0xEA0B75d277AE1D13BBeAAe4537291319E2d3d1C2"
 	// _defaultWsRouterContract default router contract address
-	_defaultWsRouterContract = "0x90A27ab74E790Cef6e258aabee1B361a9c993e8b"
+	_defaultWsRouterContract = "0x749C1856D7fdF7b4a2BEBDa6c16E335CE6b33bAe"
 	// _defaultWsVmTypeContract default vmType contract address
-	_defaultWsVmTypeContract = "0x90A27ab74E790Cef6e258aabee1B361a9c993e8b"
+	_defaultWsVmTypeContract = "0x3C296D654d33901F8c2D08386Bf438458c89dFaB"
 )
 
 var (

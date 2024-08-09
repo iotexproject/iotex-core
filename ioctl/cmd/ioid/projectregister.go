@@ -28,6 +28,10 @@ var (
 		config.English: "project registry contract address",
 		config.Chinese: "项目注册合约地址",
 	}
+	_projectTypeUsages = map[config.Language]string{
+		config.English: "project type, 0 represents hardware, and 1 represents virtual.",
+		config.Chinese: "项目类型，0代表硬件，1代表虚拟",
+	}
 )
 
 // _projectRegisterCmd represents the project register command
@@ -43,6 +47,7 @@ var _projectRegisterCmd = &cobra.Command{
 
 var (
 	projectRegistry string
+	projectType uint8
 	//go:embed contracts/abis/ProjectRegistry.json
 	projectRegistryJSON []byte
 	projectRegistryABI  abi.ABI
@@ -57,8 +62,13 @@ func init() {
 
 	_projectRegisterCmd.Flags().StringVarP(
 		&projectRegistry, "projectRegistry", "p",
-		"0xB7E1419d62ef429EE3130aF822e43DaBDDdB4aCE",
+		"0x060581AA1A4e0cC92FBd74d251913238De2F13cd",
 		config.TranslateInLang(_projectRegisterUsages, config.UILanguage),
+	)
+	_projectRegisterCmd.Flags().Uint8VarP(
+		&projectType, "projectType", "t",
+		0,
+		config.TranslateInLang(_projectTypeUsages, config.UILanguage),
 	)
 }
 
@@ -72,6 +82,7 @@ func register(args []string) error {
 
 	tx, err := caller.CallAndRetrieveResult("register0", []any{
 		name,
+		projectType,
 	})
 	if err != nil {
 		return output.NewError(output.SerializationError, "failed to call contract", err)
