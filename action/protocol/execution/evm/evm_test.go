@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -67,10 +66,9 @@ func TestExecuteContractFailure(t *testing.T) {
 		GetBlockTime: func(uint64) (time.Time, error) {
 			return time.Time{}, nil
 		},
-		DepositGasFunc: func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error) {
+		DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int) (*action.TransactionLog, error) {
 			return nil, nil
 		},
-		Sgd: nil,
 	})
 	retval, receipt, err := ExecuteContract(ctx, sm, action.NewEvmTx(e))
 	require.Nil(t, retval)

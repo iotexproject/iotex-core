@@ -338,7 +338,7 @@ func setupChain(cfg testConfig) (blockchain.Blockchain, blockdao.BlockDAO, block
 	}()
 
 	acc := account.NewProtocol(rewarding.DepositGas)
-	evm := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, func(u uint64) (time.Time, error) { return time.Time{}, nil })
+	evm := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, func(u uint64) (time.Time, error) { return time.Time{}, nil })
 	p := poll.NewLifeLongDelegatesProtocol(cfg.genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,

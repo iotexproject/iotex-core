@@ -115,7 +115,6 @@ type (
 		FixContractStakingWeightedVotes         bool
 		ExecutionSizeLimit32KB                  bool
 		UseZeroNonceForFreshAccount             bool
-		SharedGasWithDapp                       bool
 		CandidateRegisterMustWithStake          bool
 		DisableDelegateEndorsement              bool
 		RefactorFreshAccountConversion          bool
@@ -267,7 +266,6 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixContractStakingWeightedVotes:         g.IsRedsea(height),
 			ExecutionSizeLimit32KB:                  !g.IsSumatra(height),
 			UseZeroNonceForFreshAccount:             g.IsSumatra(height),
-			SharedGasWithDapp:                       g.IsToBeEnabled(height),
 			CandidateRegisterMustWithStake:          !g.IsTsunami(height),
 			DisableDelegateEndorsement:              !g.IsTsunami(height),
 			RefactorFreshAccountConversion:          g.IsTsunami(height),
