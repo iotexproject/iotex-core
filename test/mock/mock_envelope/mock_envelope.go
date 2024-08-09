@@ -51,6 +51,20 @@ func (mr *MockEnvelopeMockRecorder) Action() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Action", reflect.TypeOf((*MockEnvelope)(nil).Action))
 }
 
+// BlobTxData mocks base method.
+func (m *MockEnvelope) BlobTxData() *action.BlobTxData {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobTxData")
+	ret0, _ := ret[0].(*action.BlobTxData)
+	return ret0
+}
+
+// BlobTxData indicates an expected call of BlobTxData.
+func (mr *MockEnvelopeMockRecorder) BlobTxData() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobTxData", reflect.TypeOf((*MockEnvelope)(nil).BlobTxData))
+}
+
 // ChainID mocks base method.
 func (m *MockEnvelope) ChainID() uint32 {
 	m.ctrl.T.Helper()
@@ -164,6 +178,20 @@ func (m *MockEnvelope) IntrinsicGas() (uint64, error) {
 func (mr *MockEnvelopeMockRecorder) IntrinsicGas() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IntrinsicGas", reflect.TypeOf((*MockEnvelope)(nil).IntrinsicGas))
+}
+
+// IsBlobTx mocks base method.
+func (m *MockEnvelope) IsBlobTx() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsBlobTx")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsBlobTx indicates an expected call of IsBlobTx.
+func (mr *MockEnvelopeMockRecorder) IsBlobTx() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsBlobTx", reflect.TypeOf((*MockEnvelope)(nil).IsBlobTx))
 }
 
 // LoadProto mocks base method.

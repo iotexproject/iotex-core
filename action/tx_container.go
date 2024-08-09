@@ -39,8 +39,25 @@ func (etx *txContainer) typeToEncoding() (iotextypes.Encoding, error) {
 			// tx has pre-EIP155 signature
 			return iotextypes.Encoding_ETHEREUM_UNPROTECTED, nil
 		}
+	case types.BlobTxType:
+		return iotextypes.Encoding_ETHEREUM_BLOB, nil
 	default:
 		return 0, ErrNotSupported
+	}
+}
+
+func (etx *txContainer) isBlobTx() bool {
+	return etx.tx.Type() == types.BlobTxType
+}
+
+func (etx *txContainer) blobTxData() *BlobTxData {
+	if etx.tx.Type() != types.BlobTxType {
+		return nil
+	}
+	return &BlobTxData{
+		blobFeeCap: etx.tx.BlobGasFeeCap(),
+		blobHashes: etx.tx.BlobHashes(),
+		sidecar:    etx.tx.BlobTxSidecar(),
 	}
 }
 
@@ -141,6 +158,15 @@ func (etx *txContainer) SanityCheck() error {
 	}
 	if feeCap := etx.tx.GasFeeCap(); feeCap != nil && feeCap.Sign() < 0 {
 		return errors.Wrap(ErrNegativeValue, "negative gas fee cap")
+	}
+	// validation for blob tx
+	if etx.tx.Type() == types.BlobTxType {
+		blobTx := BlobTxData{
+			blobFeeCap: etx.tx.BlobGasFeeCap(),
+			blobHashes: etx.tx.BlobHashes(),
+			sidecar:    etx.tx.BlobTxSidecar(),
+		}
+		return blobTx.SanityCheck()
 	}
 	return nil
 }

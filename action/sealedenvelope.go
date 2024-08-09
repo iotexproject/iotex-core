@@ -45,7 +45,8 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 			return hash.ZeroHash256, err
 		}
 		return rlpRawHash(act.tx, signer)
-	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED,
+		iotextypes.Encoding_ETHEREUM_BLOB:
 		tx, err := sealed.ToEthTx()
 		if err != nil {
 			return hash.ZeroHash256, err
@@ -83,7 +84,8 @@ func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
 			return hash.ZeroHash256, ErrInvalidAct
 		}
 		return act.hash(), nil
-	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED,
+		iotextypes.Encoding_ETHEREUM_BLOB:
 		tx, err := sealed.ToEthTx()
 		if err != nil {
 			return hash.ZeroHash256, err
@@ -168,7 +170,8 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 			return ErrInvalidAct
 		}
 		sealed.evmNetworkID = evmID
-	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED,
+		iotextypes.Encoding_ETHEREUM_BLOB:
 		// verify action type can support RLP-encoding
 		tx, err := elp.ToEthTx(evmID, encoding)
 		if err != nil {

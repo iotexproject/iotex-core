@@ -166,8 +166,20 @@ func (b *EnvelopeBuilder) BuildTransfer(tx *types.Transaction) (Envelope, error)
 
 func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) {
 	b.elp.nonce = tx.Nonce()
-	b.elp.gasPrice = new(big.Int).Set(tx.GasPrice())
+	b.elp.gasPrice = tx.GasPrice()
 	b.elp.gasLimit = tx.Gas()
+	b.elp.gasTipCap = tx.GasTipCap()
+	b.elp.gasFeeCap = tx.GasFeeCap()
+	// create blob tx data for EIP-4844 BlobTx
+	if bh := tx.BlobHashes(); bh != nil {
+		b.elp.blobTxData = &BlobTxData{
+			blobFeeCap: tx.BlobGasFeeCap(),
+			blobHashes: bh,
+		}
+		if sidecar := tx.BlobTxSidecar(); sidecar != nil {
+			b.elp.blobTxData.sidecar = sidecar
+		}
+	}
 }
 
 func getRecipientAddr(addr *common.Address) string {

@@ -14,13 +14,14 @@ import (
 
 // AbstractAction is an abstract implementation of Action interface
 type AbstractAction struct {
-	version   uint32
-	chainID   uint32
-	nonce     uint64
-	gasLimit  uint64
-	gasPrice  *big.Int
-	gasTipCap *big.Int
-	gasFeeCap *big.Int
+	version    uint32
+	chainID    uint32
+	nonce      uint64
+	gasLimit   uint64
+	gasPrice   *big.Int
+	gasTipCap  *big.Int
+	gasFeeCap  *big.Int
+	blobTxData *BlobTxData
 }
 
 // Version returns the version
@@ -103,6 +104,11 @@ func (act *AbstractAction) SetEnvelopeContext(in *AbstractAction) {
 	}
 }
 
+// IsBlobTx returns true if the transaction contains blob tx
+func (act *AbstractAction) IsBlobTx() bool {
+	return act.blobTxData != nil
+}
+
 // SanityCheck validates the variables in the action
 func (act *AbstractAction) SanityCheck() error {
 	// Reject execution of negative gas price
@@ -114,6 +120,9 @@ func (act *AbstractAction) SanityCheck() error {
 	}
 	if act.gasFeeCap != nil && act.gasFeeCap.Sign() < 0 {
 		return ErrNegativeValue
+	}
+	if act.blobTxData != nil {
+		return act.blobTxData.SanityCheck()
 	}
 	return nil
 }
@@ -133,6 +142,9 @@ func (act *AbstractAction) toProto() *iotextypes.ActionCore {
 	}
 	if act.gasFeeCap != nil {
 		actCore.GasFeeCap = act.gasFeeCap.String()
+	}
+	if act.blobTxData != nil {
+		actCore.BlobTxData = act.blobTxData.toProto()
 	}
 	return &actCore
 }
@@ -164,6 +176,13 @@ func (act *AbstractAction) fromProto(pb *iotextypes.ActionCore) error {
 		if act.gasFeeCap, ok = new(big.Int).SetString(gasFee, 10); !ok {
 			return errors.Errorf("invalid gasFeeCap %s", gasFee)
 		}
+	}
+	if blobPb := pb.GetBlobTxData(); blobPb != nil {
+		blob, err := fromProtoBlobTxData(blobPb)
+		if err != nil {
+			return err
+		}
+		act.blobTxData = blob
 	}
 	return nil
 }

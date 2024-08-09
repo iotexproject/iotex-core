@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -57,6 +58,8 @@ func NewEthSigner(txType iotextypes.Encoding, chainID uint32) (types.Signer, err
 		return types.HomesteadSigner{}, nil
 	case iotextypes.Encoding_ETHEREUM_EIP155:
 		return types.NewEIP2930Signer(big.NewInt(int64(chainID))), nil
+	case iotextypes.Encoding_ETHEREUM_BLOB:
+		return types.NewCancunSigner(big.NewInt(int64(chainID))), nil
 	default:
 		return nil, ErrInvalidAct
 	}
@@ -85,7 +88,7 @@ func DecodeEtherTx(rawData string) (*types.Transaction, error) {
 func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, crypto.PublicKey, error) {
 	var (
 		encoding iotextypes.Encoding
-		signer   = types.NewEIP2930Signer(tx.ChainId()) // by default assume latest signer
+		signer   = types.NewCancunSigner(tx.ChainId()) // by default assume latest signer
 		V, R, S  = tx.RawSignatureValues()
 	)
 	// extract correct V value
@@ -96,11 +99,14 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 			V = new(big.Int).Sub(V, new(big.Int).Lsh(chainIDMul, 1))
 			V.Sub(V, big.NewInt(8))
 			encoding = iotextypes.Encoding_ETHEREUM_EIP155
+			signer = types.NewEIP2930Signer(tx.ChainId())
 		} else {
 			// tx has pre-EIP155 signature
 			encoding = iotextypes.Encoding_ETHEREUM_UNPROTECTED
 			signer = types.HomesteadSigner{}
 		}
+	case types.BlobTxType:
+		encoding = iotextypes.Encoding_ETHEREUM_BLOB
 	default:
 		return encoding, nil, nil, ErrNotSupported
 	}
@@ -150,5 +156,37 @@ func toLegacyTx(ab *AbstractAction, act Action) (*types.Transaction, error) {
 		To:       to,
 		Value:    tx.Value(),
 		Data:     data,
+	}), nil
+}
+
+func toBlobTx(evmNetworkID uint32, ab *AbstractAction, act Action) (*types.Transaction, error) {
+	if !ab.IsBlobTx() {
+		return nil, ErrInvalidAct
+	}
+	tx, ok := act.(EthCompatibleAction)
+	if !ok {
+		// action type not supported
+		return nil, ErrInvalidAct
+	}
+	to, err := tx.EthTo()
+	if err != nil {
+		return nil, err
+	}
+	data, err := tx.EthData()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTx(&types.BlobTx{
+		ChainID:    uint256.NewInt(uint64(evmNetworkID)),
+		Nonce:      ab.Nonce(),
+		GasTipCap:  uint256.MustFromBig(ab.gasTipCap),
+		GasFeeCap:  uint256.MustFromBig(ab.gasFeeCap),
+		Gas:        ab.GasLimit(),
+		To:         *to,
+		Value:      uint256.MustFromBig(tx.Value()),
+		Data:       data,
+		BlobFeeCap: uint256.MustFromBig(ab.blobTxData.blobFeeCap),
+		BlobHashes: ab.blobTxData.blobHashes,
+		Sidecar:    ab.blobTxData.sidecar,
 	}), nil
 }

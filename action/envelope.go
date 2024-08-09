@@ -34,6 +34,8 @@ type (
 		LoadProto(pbAct *iotextypes.ActionCore) error
 		SetNonce(n uint64)
 		SetChainID(chainID uint32)
+		IsBlobTx() bool
+		BlobTxData() *BlobTxData
 	}
 
 	envelope struct {
@@ -74,6 +76,8 @@ func (elp *envelope) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) 
 		fallthrough
 	case encoding == iotextypes.Encoding_ETHEREUM_EIP155 || encoding == iotextypes.Encoding_ETHEREUM_UNPROTECTED:
 		return toLegacyTx(&elp.AbstractAction, elp.Action())
+	case encoding == iotextypes.Encoding_ETHEREUM_BLOB:
+		return toBlobTx(evmNetworkID, &elp.AbstractAction, elp.Action())
 	default:
 		return nil, errors.Wrapf(ErrInvalidAct, "unsupported encoding type %v", encoding)
 	}
@@ -274,3 +278,19 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 
 // SetChainID sets the chainID value
 func (elp *envelope) SetChainID(chainID uint32) { elp.chainID = chainID }
+
+// IsBlobTx return true for blob tx
+func (elp *envelope) IsBlobTx() bool {
+	if container, ok := elp.payload.(*txContainer); ok {
+		return container.isBlobTx()
+	}
+	return elp.AbstractAction.IsBlobTx()
+}
+
+// BlobTxData returns blob tx data
+func (elp *envelope) BlobTxData() *BlobTxData {
+	if container, ok := elp.payload.(*txContainer); ok {
+		return container.blobTxData()
+	}
+	return elp.AbstractAction.blobTxData
+}
