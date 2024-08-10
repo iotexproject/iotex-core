@@ -654,13 +654,12 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 				return nil, err
 			}
 
-			// TODO: add depositGas
 			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-				GetBlockHash: dao.GetBlockHash,
-				GetBlockTime: getBlockTime,
+				GetBlockHash:   dao.GetBlockHash,
+				GetBlockTime:   getBlockTime,
+				DepositGasFunc: rewarding.DepositGasWithSGD,
 			})
 			data, _, err := factory.SimulateExecution(ctx, addr, ex)
-
 			return data, err
 		},
 		candidatesutil.CandidatesFromDB,

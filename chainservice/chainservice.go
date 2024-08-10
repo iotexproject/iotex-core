@@ -195,7 +195,6 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 		}),
 		api.WithNativeElection(cs.electionCommittee),
 		api.WithAPIStats(cs.apiStats),
-		api.WithSGDIndexer(cs.sgdIndexer),
 	}
 
 	svr, err := api.NewServerV2(

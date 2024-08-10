@@ -292,13 +292,10 @@ func ExecuteContract(
 			sharedGasFee.Mul(sharedGasFee, ps.txCtx.GasPrice)
 		}
 		totalGasFee = new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), ps.txCtx.GasPrice)
-		if ps.helperCtx.DepositGasFunc != nil {
-			depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
-			if err != nil {
-				return nil, nil, err
-			}
+		depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
+		if err != nil {
+			return nil, nil, err
 		}
-
 	}
 
 	if err := stateDB.CommitContracts(); err != nil {

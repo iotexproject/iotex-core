@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -123,8 +124,9 @@ func TestStakingContract(t *testing.T) {
 			}
 
 			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-				GetBlockHash: dao.GetBlockHash,
-				GetBlockTime: fakeGetBlockTime,
+				GetBlockHash:   dao.GetBlockHash,
+				GetBlockTime:   fakeGetBlockTime,
+				DepositGasFunc: rewarding.DepositGasWithSGD,
 			})
 			data, _, err := sf.SimulateExecution(ctx, addr, ex)
 

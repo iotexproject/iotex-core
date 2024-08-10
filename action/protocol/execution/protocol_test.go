@@ -294,8 +294,9 @@ func readExecution(
 		return nil, nil, err
 	}
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-		GetBlockHash: dao.GetBlockHash,
-		GetBlockTime: getBlockTimeForTest,
+		GetBlockHash:   dao.GetBlockHash,
+		GetBlockTime:   getBlockTimeForTest,
+		DepositGasFunc: rewarding.DepositGasWithSGD,
 	})
 	return sf.SimulateExecution(ctx, addr, exec)
 }
