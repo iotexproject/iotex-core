@@ -54,23 +54,45 @@ type (
 	}
 
 	blockDAO struct {
-		blockStore   BlockDAO
-		indexers     []BlockIndexer
-		timerFactory *prometheustimer.TimerFactory
-		lifecycle    lifecycle.Lifecycle
-		headerCache  cache.LRUCache
-		footerCache  cache.LRUCache
-		receiptCache cache.LRUCache
-		blockCache   cache.LRUCache
-		tipHeight    uint64
+		blockStore          BlockDAO
+		indexers            []BlockIndexer
+		timerFactory        *prometheustimer.TimerFactory
+		lifecycle           lifecycle.Lifecycle
+		headerCache         cache.LRUCache
+		footerCache         cache.LRUCache
+		receiptCache        cache.LRUCache
+		blockCache          cache.LRUCache
+		tipHeight           uint64
+		disableIndexerCheck bool
 	}
+
+	Option func(*blockDAO) error
 )
+
+func DisableCheckIndexerOption() Option {
+	return func(dao *blockDAO) error {
+		dao.disableIndexerCheck = true
+		return nil
+	}
+}
+
+func CacheSizeOption(cacheSize int) Option {
+	return func(deo *blockDAO) error {
+		if cacheSize > 0 {
+			deo.headerCache = cache.NewThreadSafeLruCache(cacheSize)
+			deo.footerCache = cache.NewThreadSafeLruCache(cacheSize)
+			deo.receiptCache = cache.NewThreadSafeLruCache(cacheSize)
+			deo.blockCache = cache.NewThreadSafeLruCache(cacheSize)
+		}
+		return nil
+	}
+}
 
 // NewBlockDAOWithIndexersAndCache returns a BlockDAO with indexers which will consume blocks appended, and
 // caches which will speed up reading
-func NewBlockDAOWithIndexersAndCache(blkStore BlockDAO, indexers []BlockIndexer, cacheSize int) BlockDAO {
+func NewBlockDAOWithIndexersAndCache(blkStore BlockDAO, indexers []BlockIndexer, options ...Option) (BlockDAO, error) {
 	if blkStore == nil {
-		return nil
+		return nil, errors.New("block store is nil")
 	}
 
 	blockDAO := &blockDAO{
@@ -82,11 +104,10 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockDAO, indexers []BlockIndexer,
 	for _, indexer := range indexers {
 		blockDAO.lifecycle.Add(indexer)
 	}
-	if cacheSize > 0 {
-		blockDAO.headerCache = cache.NewThreadSafeLruCache(cacheSize)
-		blockDAO.footerCache = cache.NewThreadSafeLruCache(cacheSize)
-		blockDAO.receiptCache = cache.NewThreadSafeLruCache(cacheSize)
-		blockDAO.blockCache = cache.NewThreadSafeLruCache(cacheSize)
+	for _, opt := range options {
+		if err := opt(blockDAO); err != nil {
+			return nil, errors.Wrap(err, "failed to apply option")
+		}
 	}
 	timerFactory, err := prometheustimer.New(
 		"iotex_block_dao_perf",
@@ -95,10 +116,10 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockDAO, indexers []BlockIndexer,
 		[]string{"default"},
 	)
 	if err != nil {
-		return nil
+		return nil, errors.Wrap(err, "failed to create prometheus timer factory")
 	}
 	blockDAO.timerFactory = timerFactory
-	return blockDAO
+	return blockDAO, nil
 }
 
 // Start starts block DAO and initiates the top height if it doesn't exist
@@ -113,6 +134,9 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, tipHeight)
+	if dao.disableIndexerCheck {
+		return nil
+	}
 	return dao.checkIndexers(ctx)
 }
 

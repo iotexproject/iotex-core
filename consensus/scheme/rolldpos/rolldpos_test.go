@@ -464,7 +464,8 @@ func TestRollDPoSConsensus(t *testing.T) {
 			require.NoError(t, rp.Register(registry))
 			store, err := filedao.NewFileDAOInMemForTest()
 			require.NoError(t, err)
-			dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, db.DefaultConfig.MaxCacheSize)
+			dao, err := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf})
+			require.NoError(t, err)
 			chain := blockchain.NewBlockchain(
 				bc,
 				g,

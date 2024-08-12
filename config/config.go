@@ -43,6 +43,8 @@ const (
 const (
 	// GatewayPlugin is the plugin of accepting user API requests and serving blockchain data to users
 	GatewayPlugin = iota
+	// ReadOnlyGatewayPlugin is the plugin extending GatewayPlugin but not accepting new blocks (consequently, actpool will be disabled as well)
+	ReadOnlyGatewayPlugin
 )
 
 type strs []string
@@ -175,6 +177,8 @@ func New(configPaths []string, _plugins []string, validates ...Validate) (Config
 		switch strings.ToLower(plugin) {
 		case "gateway":
 			cfg.Plugins[GatewayPlugin] = nil
+		case "readonly_gateway":
+			cfg.Plugins[ReadOnlyGatewayPlugin] = nil
 		default:
 			return Config{}, errors.Errorf("Plugin %s is not supported", plugin)
 		}
