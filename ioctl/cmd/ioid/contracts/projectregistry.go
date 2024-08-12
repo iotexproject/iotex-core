@@ -31,7 +31,7 @@ var (
 
 // ProjectRegistryMetaData contains all meta data concerning the ProjectRegistry contract.
 var ProjectRegistryMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_project\",\"type\":\"address\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"project\",\"outputs\":[{\"internalType\":\"contractIProject\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"register\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_name\",\"type\":\"string\"}],\"name\":\"register\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"}]",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_project\",\"type\":\"address\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"project\",\"outputs\":[{\"internalType\":\"contractIProject\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"register\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_name\",\"type\":\"string\"},{\"internalType\":\"uint8\",\"name\":\"_type\",\"type\":\"uint8\"}],\"name\":\"register\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_name\",\"type\":\"string\"}],\"name\":\"register\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"}]",
 }
 
 // ProjectRegistryABI is the input ABI used to generate the binding from.
@@ -253,25 +253,46 @@ func (_ProjectRegistry *ProjectRegistryTransactorSession) Register() (*types.Tra
 	return _ProjectRegistry.Contract.Register(&_ProjectRegistry.TransactOpts)
 }
 
-// Register0 is a paid mutator transaction binding the contract method 0xf2c298be.
+// Register0 is a paid mutator transaction binding the contract method 0x767b79ed.
 //
-// Solidity: function register(string _name) payable returns(uint256)
-func (_ProjectRegistry *ProjectRegistryTransactor) Register0(opts *bind.TransactOpts, _name string) (*types.Transaction, error) {
-	return _ProjectRegistry.contract.Transact(opts, "register0", _name)
+// Solidity: function register(string _name, uint8 _type) payable returns(uint256)
+func (_ProjectRegistry *ProjectRegistryTransactor) Register0(opts *bind.TransactOpts, _name string, _type uint8) (*types.Transaction, error) {
+	return _ProjectRegistry.contract.Transact(opts, "register0", _name, _type)
 }
 
-// Register0 is a paid mutator transaction binding the contract method 0xf2c298be.
+// Register0 is a paid mutator transaction binding the contract method 0x767b79ed.
 //
-// Solidity: function register(string _name) payable returns(uint256)
-func (_ProjectRegistry *ProjectRegistrySession) Register0(_name string) (*types.Transaction, error) {
-	return _ProjectRegistry.Contract.Register0(&_ProjectRegistry.TransactOpts, _name)
+// Solidity: function register(string _name, uint8 _type) payable returns(uint256)
+func (_ProjectRegistry *ProjectRegistrySession) Register0(_name string, _type uint8) (*types.Transaction, error) {
+	return _ProjectRegistry.Contract.Register0(&_ProjectRegistry.TransactOpts, _name, _type)
 }
 
-// Register0 is a paid mutator transaction binding the contract method 0xf2c298be.
+// Register0 is a paid mutator transaction binding the contract method 0x767b79ed.
+//
+// Solidity: function register(string _name, uint8 _type) payable returns(uint256)
+func (_ProjectRegistry *ProjectRegistryTransactorSession) Register0(_name string, _type uint8) (*types.Transaction, error) {
+	return _ProjectRegistry.Contract.Register0(&_ProjectRegistry.TransactOpts, _name, _type)
+}
+
+// Register1 is a paid mutator transaction binding the contract method 0xf2c298be.
 //
 // Solidity: function register(string _name) payable returns(uint256)
-func (_ProjectRegistry *ProjectRegistryTransactorSession) Register0(_name string) (*types.Transaction, error) {
-	return _ProjectRegistry.Contract.Register0(&_ProjectRegistry.TransactOpts, _name)
+func (_ProjectRegistry *ProjectRegistryTransactor) Register1(opts *bind.TransactOpts, _name string) (*types.Transaction, error) {
+	return _ProjectRegistry.contract.Transact(opts, "register1", _name)
+}
+
+// Register1 is a paid mutator transaction binding the contract method 0xf2c298be.
+//
+// Solidity: function register(string _name) payable returns(uint256)
+func (_ProjectRegistry *ProjectRegistrySession) Register1(_name string) (*types.Transaction, error) {
+	return _ProjectRegistry.Contract.Register1(&_ProjectRegistry.TransactOpts, _name)
+}
+
+// Register1 is a paid mutator transaction binding the contract method 0xf2c298be.
+//
+// Solidity: function register(string _name) payable returns(uint256)
+func (_ProjectRegistry *ProjectRegistryTransactorSession) Register1(_name string) (*types.Transaction, error) {
+	return _ProjectRegistry.Contract.Register1(&_ProjectRegistry.TransactOpts, _name)
 }
 
 // ProjectRegistryInitializedIterator is returned from FilterInitialized and is used to iterate over the raw logs and unpacked data for Initialized events raised by the ProjectRegistry contract.
