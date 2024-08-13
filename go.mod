@@ -251,3 +251,5 @@ require (
 replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v1.7.4-0.20240321181400-fc0405c7567c
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
+
+replace github.com/iotexproject/go-p2p => github.com/envestcc/go-p2p v0.0.0-20240802031816-06161be30f97
