@@ -61,7 +61,7 @@ func TestActionSync(t *testing.T) {
 
 	t.Run("requestingAction", func(t *testing.T) {
 		actHash := hash.BytesToHash256([]byte("test"))
-		r.NoError(as.RequestAction(context.Background(), actHash))
+		as.RequestAction(context.Background(), actHash)
 		// keep requesting actions until received the action
 		testutil.WaitUntil(100*time.Millisecond, time.Second, func() (bool, error) {
 			return count.Load() > 1000, nil
@@ -70,9 +70,9 @@ func TestActionSync(t *testing.T) {
 		_, ok := as.actions.Load(actHash)
 		r.False(ok, "action should be removed after received")
 		// request same action again
-		r.NoError(as.RequestAction(context.Background(), actHash))
-		r.NoError(as.RequestAction(context.Background(), actHash))
-		r.NoError(as.RequestAction(context.Background(), actHash))
+		as.RequestAction(context.Background(), actHash)
+		as.RequestAction(context.Background(), actHash)
+		as.RequestAction(context.Background(), actHash)
 		// receive same action again
 		as.ReceiveAction(context.Background(), actHash)
 		as.ReceiveAction(context.Background(), actHash)
@@ -94,7 +94,7 @@ func TestActionSync(t *testing.T) {
 					if idx >= len(acts) {
 						break
 					}
-					r.NoError(as.RequestAction(context.Background(), acts[idx]))
+					as.RequestAction(context.Background(), acts[idx])
 				}
 			}(i)
 		}

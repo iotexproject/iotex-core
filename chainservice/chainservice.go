@@ -108,12 +108,13 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 	if err != nil {
 		log.L().Debug(err.Error())
 	}
+	// TODO: only update action sync for blob action
 	hash, err := act.Hash()
 	if err != nil {
 		return err
 	}
 	cs.actionsync.ReceiveAction(ctx, hash)
-	return err
+	return nil
 }
 
 // HandleActionHash handles incoming action hash request.
@@ -125,7 +126,8 @@ func (cs *ChainService) HandleActionHash(ctx context.Context, actHash hash.Hash2
 	if !errors.Is(err, action.ErrNotFound) {
 		return err
 	}
-	return cs.actionsync.RequestAction(ctx, actHash)
+	cs.actionsync.RequestAction(ctx, actHash)
+	return nil
 }
 
 func (cs *ChainService) HandleActionRequest(ctx context.Context, peer peer.AddrInfo, actHash hash.Hash256) error {

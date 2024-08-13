@@ -36,6 +36,7 @@ type (
 		wg       sync.WaitGroup
 		helper   *Helper
 		cfg      Config
+		quit     chan struct{}
 	}
 
 	actionMsg struct {
@@ -49,11 +50,13 @@ func NewActionSync(cfg Config, helper *Helper) *ActionSync {
 		syncChan: make(chan hash.Hash256, cfg.Size),
 		helper:   helper,
 		cfg:      cfg,
+		quit:     make(chan struct{}),
 	}
 }
 
 // Start starts the action syncer
 func (as *ActionSync) Start(ctx context.Context) error {
+	log.L().Info("starting action sync")
 	as.wg.Add(1)
 	go as.sync()
 
@@ -65,34 +68,38 @@ func (as *ActionSync) Start(ctx context.Context) error {
 
 // Stop stops the action syncer
 func (as *ActionSync) Stop(ctx context.Context) error {
+	log.L().Info("stopping action sync")
 	if err := as.TurnOff(); err != nil {
 		return err
 	}
+	close(as.quit)
 	close(as.syncChan)
 	as.wg.Wait()
 	return nil
 }
 
 // RequestAction requests an action by hash
-func (as *ActionSync) RequestAction(ctx context.Context, hash hash.Hash256) error {
+func (as *ActionSync) RequestAction(_ context.Context, hash hash.Hash256) {
 	if !as.IsReady() {
-		return nil
+		return
 	}
 	// check if the action is already requested
 	_, ok := as.actions.LoadOrStore(hash, &actionMsg{})
 	if ok {
 		log.L().Debug("Action already requested", log.Hex("hash", hash[:]))
-		return nil
+		return
 	}
+	log.L().Debug("Requesting action", log.Hex("hash", hash[:]))
 	as.trigger(hash)
-	return nil
+	return
 }
 
 // ReceiveAction receives an action
-func (as *ActionSync) ReceiveAction(ctx context.Context, hash hash.Hash256) {
+func (as *ActionSync) ReceiveAction(_ context.Context, hash hash.Hash256) {
 	if !as.IsReady() {
 		return
 	}
+	log.L().Debug("received action", log.Hex("hash", hash[:]))
 	as.actions.Delete(hash)
 }
 
@@ -116,6 +123,7 @@ func (as *ActionSync) sync() {
 			log.L().Warn("Failed to request action from neighbors", zap.Error(err))
 		}
 	}
+	log.L().Info("quitting action sync")
 }
 
 func (as *ActionSync) triggerSync() {
@@ -123,20 +131,24 @@ func (as *ActionSync) triggerSync() {
 	ticker := time.NewTicker(as.cfg.Interval)
 	defer ticker.Stop()
 	for {
-		if !as.IsReady() {
-			return
-		}
 		select {
 		case <-ticker.C:
 			as.actions.Range(func(key, value interface{}) bool {
 				as.trigger(key.(hash.Hash256))
 				return true
 			})
+		case <-as.quit:
+			log.L().Info("quitting action trigger sync")
+			return
 		}
 	}
 }
 
 func (as *ActionSync) trigger(hash hash.Hash256) {
+	if !as.IsReady() {
+		return
+	}
+
 	select {
 	case as.syncChan <- hash:
 	default:
@@ -153,13 +165,13 @@ func (as *ActionSync) selectPeers() ([]peer.AddrInfo, error) {
 	if repeat > len(neighbors) {
 		repeat = len(neighbors)
 	}
+	if repeat == 0 {
+		return nil, errors.New("no peers")
+	}
 	peers := make([]peer.AddrInfo, repeat)
 	for i := 0; i < repeat; i++ {
 		peer := neighbors[fastrand.Uint32n(uint32(len(neighbors)))]
 		peers[i] = peer
-	}
-	if len(peers) == 0 {
-		return nil, errors.New("no peers")
 	}
 	return peers, nil
 }
