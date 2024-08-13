@@ -90,26 +90,6 @@
         "type": "uint256"
       },
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "typ",
-        "type": "uint256"
-      }
-    ],
-    "name": "NodeTypeUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs":
-    [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "id",
-        "type": "uint256"
-      },
-      {
         "indexed": true,
         "internalType": "address",
         "name": "operator",
@@ -194,6 +174,65 @@
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs":
+    [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "typ",
+        "type": "uint256"
+      }
+    ],
+    "name": "VMTypeAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs":
+    [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "typ",
+        "type": "uint256"
+      }
+    ],
+    "name": "VMTypeDeleted",
+    "type": "event"
+  },
+  {
+    "inputs":
+    [
+      {
+        "internalType": "uint256",
+        "name": "_id",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_type",
+        "type": "uint256"
+      }
+    ],
+    "name": "addVMType",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs":
     [
       {
@@ -264,6 +303,25 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs":
+    [
+      {
+        "internalType": "uint256",
+        "name": "_id",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_type",
+        "type": "uint256"
+      }
+    ],
+    "name": "delVMType",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -357,6 +415,32 @@
     "inputs":
     [
       {
+        "internalType": "uint256",
+        "name": "_id",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_type",
+        "type": "uint256"
+      }
+    ],
+    "name": "isVMTypeSupported",
+    "outputs":
+    [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs":
+    [
+      {
         "internalType": "address",
         "name": "_account",
         "type": "address"
@@ -397,27 +481,6 @@
         "internalType": "string",
         "name": "",
         "type": "string"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs":
-    [
-      {
-        "internalType": "uint256",
-        "name": "_id",
-        "type": "uint256"
-      }
-    ],
-    "name": "nodeType",
-    "outputs":
-    [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -737,25 +800,6 @@
       }
     ],
     "name": "transferOwnership",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs":
-    [
-      {
-        "internalType": "uint256",
-        "name": "_id",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_type",
-        "type": "uint256"
-      }
-    ],
-    "name": "updateNodeType",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

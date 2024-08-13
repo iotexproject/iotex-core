@@ -160,6 +160,8 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 		return builder.cs.factory, nil
 	}
 	factoryCfg := factory.GenerateConfig(builder.cfg.Chain, builder.cfg.Genesis)
+	factoryDBCfg := builder.cfg.DB
+	factoryDBCfg.DBType = builder.cfg.Chain.FactoryDBType
 	if builder.cfg.Chain.EnableTrielessStateDB {
 		if forTest {
 			return factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(builder.cs.registry))
@@ -169,9 +171,9 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 			factory.DefaultPatchOption(),
 		}
 		if builder.cfg.Chain.EnableStateDBCaching {
-			dao, err = db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
+			dao, err = db.CreateKVStoreWithCache(factoryDBCfg, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
 		} else {
-			dao, err = db.CreateKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
+			dao, err = db.CreateKVStore(factoryDBCfg, builder.cfg.Chain.TrieDBPath)
 		}
 		if err != nil {
 			return nil, err
@@ -181,7 +183,7 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 	if forTest {
 		return factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(builder.cs.registry))
 	}
-	dao, err = db.CreateKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
+	dao, err = db.CreateKVStore(factoryDBCfg, builder.cfg.Chain.TrieDBPath)
 	if err != nil {
 		return nil, err
 	}
@@ -308,15 +310,11 @@ func (builder *Builder) buildSGDRegistry(forTest bool) error {
 	if builder.cs.sgdIndexer != nil {
 		return nil
 	}
-	if forTest || builder.cfg.Genesis.SystemSGDContractAddress == "" {
+	if forTest {
 		builder.cs.sgdIndexer = nil
-		return nil
+	} else {
+		builder.cs.sgdIndexer = blockindex.NewSGDRegistry()
 	}
-	kvStore, err := db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.SGDIndexDBPath, 1000)
-	if err != nil {
-		return err
-	}
-	builder.cs.sgdIndexer = blockindex.NewSGDRegistry(builder.cfg.Genesis.SystemSGDContractAddress, builder.cfg.Genesis.SystemSGDContractHeight, kvStore)
 	return nil
 }
 
@@ -652,13 +650,12 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 				return nil, err
 			}
 
-			// TODO: add depositGas
 			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-				GetBlockHash: dao.GetBlockHash,
-				GetBlockTime: getBlockTime,
+				GetBlockHash:   dao.GetBlockHash,
+				GetBlockTime:   getBlockTime,
+				DepositGasFunc: rewarding.DepositGasWithSGD,
 			})
 			data, _, err := factory.SimulateExecution(ctx, addr, ex)
-
 			return data, err
 		},
 		candidatesutil.CandidatesFromDB,

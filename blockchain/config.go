@@ -32,7 +32,6 @@ type (
 		BloomfilterIndexDBPath     string           `yaml:"bloomfilterIndexDBPath"`
 		CandidateIndexDBPath       string           `yaml:"candidateIndexDBPath"`
 		StakingIndexDBPath         string           `yaml:"stakingIndexDBPath"`
-		SGDIndexDBPath             string           `yaml:"sgdIndexDBPath"`
 		ContractStakingIndexDBPath string           `yaml:"contractStakingIndexDBPath"`
 		ID                         uint32           `yaml:"id"`
 		EVMNetworkID               uint32           `yaml:"evmNetworkID"`
@@ -71,6 +70,8 @@ type (
 		StreamingBlockBufferSize uint64 `yaml:"streamingBlockBufferSize"`
 		// PersistStakingPatchBlock is the block to persist staking patch
 		PersistStakingPatchBlock uint64 `yaml:"persistStakingPatchBlock"`
+		// FactoryDBType is the type of factory db
+		FactoryDBType string `yaml:"factoryDBType"`
 	}
 )
 
@@ -85,7 +86,6 @@ var (
 		BloomfilterIndexDBPath:     "/var/data/bloomfilter.index.db",
 		CandidateIndexDBPath:       "/var/data/candidate.index.db",
 		StakingIndexDBPath:         "/var/data/staking.index.db",
-		SGDIndexDBPath:             "/var/data/sgd.index.db",
 		ContractStakingIndexDBPath: "/var/data/contractstaking.index.db",
 		ID:                         1,
 		EVMNetworkID:               4689,
@@ -111,6 +111,7 @@ var (
 		WorkingSetCacheSize:           20,
 		StreamingBlockBufferSize:      200,
 		PersistStakingPatchBlock:      19778037,
+		FactoryDBType:                 db.DBBolt,
 	}
 
 	// ErrConfig config error

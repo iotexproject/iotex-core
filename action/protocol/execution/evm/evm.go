@@ -60,7 +60,7 @@ type (
 
 	// SGDRegistry is the interface for handling Sharing of Gas-fee with DApps
 	SGDRegistry interface {
-		CheckContract(context.Context, string, uint64) (address.Address, uint64, bool, error)
+		CheckContract(context.Context, string) (address.Address, uint64, bool, error)
 	}
 )
 
@@ -292,13 +292,10 @@ func ExecuteContract(
 			sharedGasFee.Mul(sharedGasFee, ps.txCtx.GasPrice)
 		}
 		totalGasFee = new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), ps.txCtx.GasPrice)
-		if ps.helperCtx.DepositGasFunc != nil {
-			depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
-			if err != nil {
-				return nil, nil, err
-			}
+		depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
+		if err != nil {
+			return nil, nil, err
 		}
-
 	}
 
 	if err := stateDB.CommitContracts(); err != nil {
@@ -327,12 +324,9 @@ func processSGD(ctx context.Context, sm protocol.StateManager, execution *action
 	if execution.To() == nil {
 		return nil, 0, nil
 	}
-	height, err := sm.Height()
-	if err != nil {
-		return nil, 0, err
-	}
+
 	contract, _ := address.FromBytes((*execution.To())[:])
-	receiver, percentage, ok, err := sgd.CheckContract(ctx, contract.String(), height-1)
+	receiver, percentage, ok, err := sgd.CheckContract(ctx, contract.String())
 	if err != nil || !ok {
 		return nil, 0, err
 	}

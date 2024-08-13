@@ -77,6 +77,7 @@ func defaultConfig() Genesis {
 			SumatraBlockHeight:      28516681,
 			TsunamiBlockHeight:      29275561,
 			UpernavikBlockHeight:    31174201,
+			VanuatuBlockHeight:      41174201,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
@@ -258,12 +259,20 @@ type (
 		SumatraBlockHeight uint64 `yaml:"sumatraHeight"`
 		// TsunamiBlockHeight is the start height to
 		// 1. enable delegate endorsement
-		// 2. generate transaction log for SelfDestruct() call in EVM
-		// 3. raise block gas limit to 50M
+		// 2. raise block gas limit to 50M
 		TsunamiBlockHeight uint64 `yaml:"tsunamiHeight"`
 		// UpernavikBlockHeight is the start height to
-		// 1. enable Cancun EVM
+		// 1. enable new NFT staking contract
+		// 2. migrate native staking bucket to NFT staking
+		// 3. delegate ownership transfer
+		// 4. send EVM transaction in general container format
+		// 5. generate transaction log for SelfDestruct() call in EVM
+		// 6. add address in claim reward action
 		UpernavikBlockHeight uint64 `yaml:"upernavikHeight"`
+		// VanuatuBlockHeight is the start height to
+		// 1. enable Cancun EVM
+		// 2. enable dynamic fee tx
+		VanuatuBlockHeight uint64 `yaml:"vanuatuHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -315,10 +324,6 @@ type (
 		SystemStakingContractAddress string `yaml:"systemStakingContractAddress"`
 		// SystemStakingContractHeight is the height of system staking contract
 		SystemStakingContractHeight uint64 `yaml:"systemStakingContractHeight"`
-		// SystemSGDContractAddress is the address of system sgd contract
-		SystemSGDContractAddress string `yaml:"systemSGDContractAddress"`
-		// SystemSGDContractHeight is the height of system sgd contract
-		SystemSGDContractHeight uint64 `yaml:"systemSGDContractHeight"`
 		// SystemStakingContractV2Address is the address of system staking contract
 		SystemStakingContractV2Address string `yaml:"systemStakingContractV2Address"`
 		// SystemStakingContractV2Height is the height of system staking contract
@@ -622,6 +627,11 @@ func (g *Blockchain) IsTsunami(height uint64) bool {
 // IsUpernavik checks whether height is equal to or larger than upernavik height
 func (g *Blockchain) IsUpernavik(height uint64) bool {
 	return g.isPost(g.UpernavikBlockHeight, height)
+}
+
+// IsVanuatu checks whether height is equal to or larger than vanuatu height
+func (g *Blockchain) IsVanuatu(height uint64) bool {
+	return g.isPost(g.VanuatuBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height

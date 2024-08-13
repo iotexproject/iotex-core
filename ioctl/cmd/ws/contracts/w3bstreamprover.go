@@ -31,7 +31,7 @@ var (
 
 // W3bstreamProverMetaData contains all meta data concerning the W3bstreamProver contract.
 var W3bstreamProverMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"approved\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"approved\",\"type\":\"bool\"}],\"name\":\"ApprovalForAll\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"minter\",\"type\":\"address\"}],\"name\":\"MinterSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"typ\",\"type\":\"uint256\"}],\"name\":\"NodeTypeUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"OperatorSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"ProverPaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"ProverResumed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_operator\",\"type\":\"address\"}],\"name\":\"changeOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"count\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"getApproved\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_name\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"_symbol\",\"type\":\"string\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"isApprovedForAll\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"isPaused\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"mint\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"id_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minter\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"nodeType\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"operator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"ownerOf\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_operator\",\"type\":\"address\"}],\"name\":\"ownerOfOperator\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"prover\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"resume\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"safeTransferFrom\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"safeTransferFrom\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"approved\",\"type\":\"bool\"}],\"name\":\"setApprovalForAll\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_minter\",\"type\":\"address\"}],\"name\":\"setMinter\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"interfaceId\",\"type\":\"bytes4\"}],\"name\":\"supportsInterface\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"tokenURI\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_type\",\"type\":\"uint256\"}],\"name\":\"updateNodeType\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"approved\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"approved\",\"type\":\"bool\"}],\"name\":\"ApprovalForAll\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"minter\",\"type\":\"address\"}],\"name\":\"MinterSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"OperatorSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"ProverPaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"ProverResumed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"typ\",\"type\":\"uint256\"}],\"name\":\"VMTypeAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"typ\",\"type\":\"uint256\"}],\"name\":\"VMTypeDeleted\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_type\",\"type\":\"uint256\"}],\"name\":\"addVMType\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_operator\",\"type\":\"address\"}],\"name\":\"changeOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"count\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_type\",\"type\":\"uint256\"}],\"name\":\"delVMType\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"getApproved\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_name\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"_symbol\",\"type\":\"string\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"isApprovedForAll\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"isPaused\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_type\",\"type\":\"uint256\"}],\"name\":\"isVMTypeSupported\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"mint\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"id_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minter\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"operator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"ownerOf\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_operator\",\"type\":\"address\"}],\"name\":\"ownerOfOperator\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"prover\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"resume\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"safeTransferFrom\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"safeTransferFrom\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"approved\",\"type\":\"bool\"}],\"name\":\"setApprovalForAll\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_minter\",\"type\":\"address\"}],\"name\":\"setMinter\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"interfaceId\",\"type\":\"bytes4\"}],\"name\":\"supportsInterface\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"tokenURI\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 // W3bstreamProverABI is the input ABI used to generate the binding from.
@@ -335,6 +335,37 @@ func (_W3bstreamProver *W3bstreamProverCallerSession) IsPaused(_id *big.Int) (bo
 	return _W3bstreamProver.Contract.IsPaused(&_W3bstreamProver.CallOpts, _id)
 }
 
+// IsVMTypeSupported is a free data retrieval call binding the contract method 0x6d968739.
+//
+// Solidity: function isVMTypeSupported(uint256 _id, uint256 _type) view returns(bool)
+func (_W3bstreamProver *W3bstreamProverCaller) IsVMTypeSupported(opts *bind.CallOpts, _id *big.Int, _type *big.Int) (bool, error) {
+	var out []interface{}
+	err := _W3bstreamProver.contract.Call(opts, &out, "isVMTypeSupported", _id, _type)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// IsVMTypeSupported is a free data retrieval call binding the contract method 0x6d968739.
+//
+// Solidity: function isVMTypeSupported(uint256 _id, uint256 _type) view returns(bool)
+func (_W3bstreamProver *W3bstreamProverSession) IsVMTypeSupported(_id *big.Int, _type *big.Int) (bool, error) {
+	return _W3bstreamProver.Contract.IsVMTypeSupported(&_W3bstreamProver.CallOpts, _id, _type)
+}
+
+// IsVMTypeSupported is a free data retrieval call binding the contract method 0x6d968739.
+//
+// Solidity: function isVMTypeSupported(uint256 _id, uint256 _type) view returns(bool)
+func (_W3bstreamProver *W3bstreamProverCallerSession) IsVMTypeSupported(_id *big.Int, _type *big.Int) (bool, error) {
+	return _W3bstreamProver.Contract.IsVMTypeSupported(&_W3bstreamProver.CallOpts, _id, _type)
+}
+
 // Minter is a free data retrieval call binding the contract method 0x07546172.
 //
 // Solidity: function minter() view returns(address)
@@ -395,37 +426,6 @@ func (_W3bstreamProver *W3bstreamProverSession) Name() (string, error) {
 // Solidity: function name() view returns(string)
 func (_W3bstreamProver *W3bstreamProverCallerSession) Name() (string, error) {
 	return _W3bstreamProver.Contract.Name(&_W3bstreamProver.CallOpts)
-}
-
-// NodeType is a free data retrieval call binding the contract method 0x1c794b84.
-//
-// Solidity: function nodeType(uint256 _id) view returns(uint256)
-func (_W3bstreamProver *W3bstreamProverCaller) NodeType(opts *bind.CallOpts, _id *big.Int) (*big.Int, error) {
-	var out []interface{}
-	err := _W3bstreamProver.contract.Call(opts, &out, "nodeType", _id)
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// NodeType is a free data retrieval call binding the contract method 0x1c794b84.
-//
-// Solidity: function nodeType(uint256 _id) view returns(uint256)
-func (_W3bstreamProver *W3bstreamProverSession) NodeType(_id *big.Int) (*big.Int, error) {
-	return _W3bstreamProver.Contract.NodeType(&_W3bstreamProver.CallOpts, _id)
-}
-
-// NodeType is a free data retrieval call binding the contract method 0x1c794b84.
-//
-// Solidity: function nodeType(uint256 _id) view returns(uint256)
-func (_W3bstreamProver *W3bstreamProverCallerSession) NodeType(_id *big.Int) (*big.Int, error) {
-	return _W3bstreamProver.Contract.NodeType(&_W3bstreamProver.CallOpts, _id)
 }
 
 // Operator is a free data retrieval call binding the contract method 0xab3d047f.
@@ -677,6 +677,27 @@ func (_W3bstreamProver *W3bstreamProverCallerSession) TokenURI(tokenId *big.Int)
 	return _W3bstreamProver.Contract.TokenURI(&_W3bstreamProver.CallOpts, tokenId)
 }
 
+// AddVMType is a paid mutator transaction binding the contract method 0x5ba87ef4.
+//
+// Solidity: function addVMType(uint256 _id, uint256 _type) returns()
+func (_W3bstreamProver *W3bstreamProverTransactor) AddVMType(opts *bind.TransactOpts, _id *big.Int, _type *big.Int) (*types.Transaction, error) {
+	return _W3bstreamProver.contract.Transact(opts, "addVMType", _id, _type)
+}
+
+// AddVMType is a paid mutator transaction binding the contract method 0x5ba87ef4.
+//
+// Solidity: function addVMType(uint256 _id, uint256 _type) returns()
+func (_W3bstreamProver *W3bstreamProverSession) AddVMType(_id *big.Int, _type *big.Int) (*types.Transaction, error) {
+	return _W3bstreamProver.Contract.AddVMType(&_W3bstreamProver.TransactOpts, _id, _type)
+}
+
+// AddVMType is a paid mutator transaction binding the contract method 0x5ba87ef4.
+//
+// Solidity: function addVMType(uint256 _id, uint256 _type) returns()
+func (_W3bstreamProver *W3bstreamProverTransactorSession) AddVMType(_id *big.Int, _type *big.Int) (*types.Transaction, error) {
+	return _W3bstreamProver.Contract.AddVMType(&_W3bstreamProver.TransactOpts, _id, _type)
+}
+
 // Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
 //
 // Solidity: function approve(address to, uint256 tokenId) returns()
@@ -717,6 +738,27 @@ func (_W3bstreamProver *W3bstreamProverSession) ChangeOperator(_id *big.Int, _op
 // Solidity: function changeOperator(uint256 _id, address _operator) returns()
 func (_W3bstreamProver *W3bstreamProverTransactorSession) ChangeOperator(_id *big.Int, _operator common.Address) (*types.Transaction, error) {
 	return _W3bstreamProver.Contract.ChangeOperator(&_W3bstreamProver.TransactOpts, _id, _operator)
+}
+
+// DelVMType is a paid mutator transaction binding the contract method 0x572529b7.
+//
+// Solidity: function delVMType(uint256 _id, uint256 _type) returns()
+func (_W3bstreamProver *W3bstreamProverTransactor) DelVMType(opts *bind.TransactOpts, _id *big.Int, _type *big.Int) (*types.Transaction, error) {
+	return _W3bstreamProver.contract.Transact(opts, "delVMType", _id, _type)
+}
+
+// DelVMType is a paid mutator transaction binding the contract method 0x572529b7.
+//
+// Solidity: function delVMType(uint256 _id, uint256 _type) returns()
+func (_W3bstreamProver *W3bstreamProverSession) DelVMType(_id *big.Int, _type *big.Int) (*types.Transaction, error) {
+	return _W3bstreamProver.Contract.DelVMType(&_W3bstreamProver.TransactOpts, _id, _type)
+}
+
+// DelVMType is a paid mutator transaction binding the contract method 0x572529b7.
+//
+// Solidity: function delVMType(uint256 _id, uint256 _type) returns()
+func (_W3bstreamProver *W3bstreamProverTransactorSession) DelVMType(_id *big.Int, _type *big.Int) (*types.Transaction, error) {
+	return _W3bstreamProver.Contract.DelVMType(&_W3bstreamProver.TransactOpts, _id, _type)
 }
 
 // Initialize is a paid mutator transaction binding the contract method 0x4cd88b76.
@@ -948,27 +990,6 @@ func (_W3bstreamProver *W3bstreamProverSession) TransferOwnership(newOwner commo
 // Solidity: function transferOwnership(address newOwner) returns()
 func (_W3bstreamProver *W3bstreamProverTransactorSession) TransferOwnership(newOwner common.Address) (*types.Transaction, error) {
 	return _W3bstreamProver.Contract.TransferOwnership(&_W3bstreamProver.TransactOpts, newOwner)
-}
-
-// UpdateNodeType is a paid mutator transaction binding the contract method 0x6a07973f.
-//
-// Solidity: function updateNodeType(uint256 _id, uint256 _type) returns()
-func (_W3bstreamProver *W3bstreamProverTransactor) UpdateNodeType(opts *bind.TransactOpts, _id *big.Int, _type *big.Int) (*types.Transaction, error) {
-	return _W3bstreamProver.contract.Transact(opts, "updateNodeType", _id, _type)
-}
-
-// UpdateNodeType is a paid mutator transaction binding the contract method 0x6a07973f.
-//
-// Solidity: function updateNodeType(uint256 _id, uint256 _type) returns()
-func (_W3bstreamProver *W3bstreamProverSession) UpdateNodeType(_id *big.Int, _type *big.Int) (*types.Transaction, error) {
-	return _W3bstreamProver.Contract.UpdateNodeType(&_W3bstreamProver.TransactOpts, _id, _type)
-}
-
-// UpdateNodeType is a paid mutator transaction binding the contract method 0x6a07973f.
-//
-// Solidity: function updateNodeType(uint256 _id, uint256 _type) returns()
-func (_W3bstreamProver *W3bstreamProverTransactorSession) UpdateNodeType(_id *big.Int, _type *big.Int) (*types.Transaction, error) {
-	return _W3bstreamProver.Contract.UpdateNodeType(&_W3bstreamProver.TransactOpts, _id, _type)
 }
 
 // W3bstreamProverApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the W3bstreamProver contract.
@@ -1549,151 +1570,6 @@ func (_W3bstreamProver *W3bstreamProverFilterer) WatchMinterSet(opts *bind.Watch
 func (_W3bstreamProver *W3bstreamProverFilterer) ParseMinterSet(log types.Log) (*W3bstreamProverMinterSet, error) {
 	event := new(W3bstreamProverMinterSet)
 	if err := _W3bstreamProver.contract.UnpackLog(event, "MinterSet", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// W3bstreamProverNodeTypeUpdatedIterator is returned from FilterNodeTypeUpdated and is used to iterate over the raw logs and unpacked data for NodeTypeUpdated events raised by the W3bstreamProver contract.
-type W3bstreamProverNodeTypeUpdatedIterator struct {
-	Event *W3bstreamProverNodeTypeUpdated // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *W3bstreamProverNodeTypeUpdatedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(W3bstreamProverNodeTypeUpdated)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(W3bstreamProverNodeTypeUpdated)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *W3bstreamProverNodeTypeUpdatedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *W3bstreamProverNodeTypeUpdatedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// W3bstreamProverNodeTypeUpdated represents a NodeTypeUpdated event raised by the W3bstreamProver contract.
-type W3bstreamProverNodeTypeUpdated struct {
-	Id  *big.Int
-	Typ *big.Int
-	Raw types.Log // Blockchain specific contextual infos
-}
-
-// FilterNodeTypeUpdated is a free log retrieval operation binding the contract event 0x09e65b7abf1ac020ee57d85addfaffc3466fbaa144c58cf8d736f09de55820ab.
-//
-// Solidity: event NodeTypeUpdated(uint256 indexed id, uint256 typ)
-func (_W3bstreamProver *W3bstreamProverFilterer) FilterNodeTypeUpdated(opts *bind.FilterOpts, id []*big.Int) (*W3bstreamProverNodeTypeUpdatedIterator, error) {
-
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
-	}
-
-	logs, sub, err := _W3bstreamProver.contract.FilterLogs(opts, "NodeTypeUpdated", idRule)
-	if err != nil {
-		return nil, err
-	}
-	return &W3bstreamProverNodeTypeUpdatedIterator{contract: _W3bstreamProver.contract, event: "NodeTypeUpdated", logs: logs, sub: sub}, nil
-}
-
-// WatchNodeTypeUpdated is a free log subscription operation binding the contract event 0x09e65b7abf1ac020ee57d85addfaffc3466fbaa144c58cf8d736f09de55820ab.
-//
-// Solidity: event NodeTypeUpdated(uint256 indexed id, uint256 typ)
-func (_W3bstreamProver *W3bstreamProverFilterer) WatchNodeTypeUpdated(opts *bind.WatchOpts, sink chan<- *W3bstreamProverNodeTypeUpdated, id []*big.Int) (event.Subscription, error) {
-
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
-	}
-
-	logs, sub, err := _W3bstreamProver.contract.WatchLogs(opts, "NodeTypeUpdated", idRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(W3bstreamProverNodeTypeUpdated)
-				if err := _W3bstreamProver.contract.UnpackLog(event, "NodeTypeUpdated", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseNodeTypeUpdated is a log parse operation binding the contract event 0x09e65b7abf1ac020ee57d85addfaffc3466fbaa144c58cf8d736f09de55820ab.
-//
-// Solidity: event NodeTypeUpdated(uint256 indexed id, uint256 typ)
-func (_W3bstreamProver *W3bstreamProverFilterer) ParseNodeTypeUpdated(log types.Log) (*W3bstreamProverNodeTypeUpdated, error) {
-	event := new(W3bstreamProverNodeTypeUpdated)
-	if err := _W3bstreamProver.contract.UnpackLog(event, "NodeTypeUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -2450,6 +2326,296 @@ func (_W3bstreamProver *W3bstreamProverFilterer) WatchTransfer(opts *bind.WatchO
 func (_W3bstreamProver *W3bstreamProverFilterer) ParseTransfer(log types.Log) (*W3bstreamProverTransfer, error) {
 	event := new(W3bstreamProverTransfer)
 	if err := _W3bstreamProver.contract.UnpackLog(event, "Transfer", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// W3bstreamProverVMTypeAddedIterator is returned from FilterVMTypeAdded and is used to iterate over the raw logs and unpacked data for VMTypeAdded events raised by the W3bstreamProver contract.
+type W3bstreamProverVMTypeAddedIterator struct {
+	Event *W3bstreamProverVMTypeAdded // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *W3bstreamProverVMTypeAddedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(W3bstreamProverVMTypeAdded)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(W3bstreamProverVMTypeAdded)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *W3bstreamProverVMTypeAddedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *W3bstreamProverVMTypeAddedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// W3bstreamProverVMTypeAdded represents a VMTypeAdded event raised by the W3bstreamProver contract.
+type W3bstreamProverVMTypeAdded struct {
+	Id  *big.Int
+	Typ *big.Int
+	Raw types.Log // Blockchain specific contextual infos
+}
+
+// FilterVMTypeAdded is a free log retrieval operation binding the contract event 0x31d3cf7e64f8a54ff46174ebf94989d43bf8db12f6b2668940bc5653fea13ab4.
+//
+// Solidity: event VMTypeAdded(uint256 indexed id, uint256 typ)
+func (_W3bstreamProver *W3bstreamProverFilterer) FilterVMTypeAdded(opts *bind.FilterOpts, id []*big.Int) (*W3bstreamProverVMTypeAddedIterator, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _W3bstreamProver.contract.FilterLogs(opts, "VMTypeAdded", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return &W3bstreamProverVMTypeAddedIterator{contract: _W3bstreamProver.contract, event: "VMTypeAdded", logs: logs, sub: sub}, nil
+}
+
+// WatchVMTypeAdded is a free log subscription operation binding the contract event 0x31d3cf7e64f8a54ff46174ebf94989d43bf8db12f6b2668940bc5653fea13ab4.
+//
+// Solidity: event VMTypeAdded(uint256 indexed id, uint256 typ)
+func (_W3bstreamProver *W3bstreamProverFilterer) WatchVMTypeAdded(opts *bind.WatchOpts, sink chan<- *W3bstreamProverVMTypeAdded, id []*big.Int) (event.Subscription, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _W3bstreamProver.contract.WatchLogs(opts, "VMTypeAdded", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(W3bstreamProverVMTypeAdded)
+				if err := _W3bstreamProver.contract.UnpackLog(event, "VMTypeAdded", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseVMTypeAdded is a log parse operation binding the contract event 0x31d3cf7e64f8a54ff46174ebf94989d43bf8db12f6b2668940bc5653fea13ab4.
+//
+// Solidity: event VMTypeAdded(uint256 indexed id, uint256 typ)
+func (_W3bstreamProver *W3bstreamProverFilterer) ParseVMTypeAdded(log types.Log) (*W3bstreamProverVMTypeAdded, error) {
+	event := new(W3bstreamProverVMTypeAdded)
+	if err := _W3bstreamProver.contract.UnpackLog(event, "VMTypeAdded", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// W3bstreamProverVMTypeDeletedIterator is returned from FilterVMTypeDeleted and is used to iterate over the raw logs and unpacked data for VMTypeDeleted events raised by the W3bstreamProver contract.
+type W3bstreamProverVMTypeDeletedIterator struct {
+	Event *W3bstreamProverVMTypeDeleted // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *W3bstreamProverVMTypeDeletedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(W3bstreamProverVMTypeDeleted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(W3bstreamProverVMTypeDeleted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *W3bstreamProverVMTypeDeletedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *W3bstreamProverVMTypeDeletedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// W3bstreamProverVMTypeDeleted represents a VMTypeDeleted event raised by the W3bstreamProver contract.
+type W3bstreamProverVMTypeDeleted struct {
+	Id  *big.Int
+	Typ *big.Int
+	Raw types.Log // Blockchain specific contextual infos
+}
+
+// FilterVMTypeDeleted is a free log retrieval operation binding the contract event 0xa52940e84e8bab7c0aef4e1446a2893c726b08d30eba0a03d1ba969f0852cf46.
+//
+// Solidity: event VMTypeDeleted(uint256 indexed id, uint256 typ)
+func (_W3bstreamProver *W3bstreamProverFilterer) FilterVMTypeDeleted(opts *bind.FilterOpts, id []*big.Int) (*W3bstreamProverVMTypeDeletedIterator, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _W3bstreamProver.contract.FilterLogs(opts, "VMTypeDeleted", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return &W3bstreamProverVMTypeDeletedIterator{contract: _W3bstreamProver.contract, event: "VMTypeDeleted", logs: logs, sub: sub}, nil
+}
+
+// WatchVMTypeDeleted is a free log subscription operation binding the contract event 0xa52940e84e8bab7c0aef4e1446a2893c726b08d30eba0a03d1ba969f0852cf46.
+//
+// Solidity: event VMTypeDeleted(uint256 indexed id, uint256 typ)
+func (_W3bstreamProver *W3bstreamProverFilterer) WatchVMTypeDeleted(opts *bind.WatchOpts, sink chan<- *W3bstreamProverVMTypeDeleted, id []*big.Int) (event.Subscription, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _W3bstreamProver.contract.WatchLogs(opts, "VMTypeDeleted", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(W3bstreamProverVMTypeDeleted)
+				if err := _W3bstreamProver.contract.UnpackLog(event, "VMTypeDeleted", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseVMTypeDeleted is a log parse operation binding the contract event 0xa52940e84e8bab7c0aef4e1446a2893c726b08d30eba0a03d1ba969f0852cf46.
+//
+// Solidity: event VMTypeDeleted(uint256 indexed id, uint256 typ)
+func (_W3bstreamProver *W3bstreamProverFilterer) ParseVMTypeDeleted(log types.Log) (*W3bstreamProverVMTypeDeleted, error) {
+	event := new(W3bstreamProverVMTypeDeleted)
+	if err := _W3bstreamProver.contract.UnpackLog(event, "VMTypeDeleted", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

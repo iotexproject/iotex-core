@@ -143,7 +143,7 @@ func (x *blockIndexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	return x.commit()
 }
 
-// DeleteBlock deletes a block's index
+// DeleteTipBlock deletes a block's index
 func (x *blockIndexer) DeleteTipBlock(ctx context.Context, blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
