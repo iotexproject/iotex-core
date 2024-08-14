@@ -47,7 +47,7 @@ var _projectRegisterCmd = &cobra.Command{
 
 var (
 	projectRegistry string
-	projectType uint8
+	projectType     uint8
 	//go:embed contracts/abis/ProjectRegistry.json
 	projectRegistryJSON []byte
 	projectRegistryABI  abi.ABI
