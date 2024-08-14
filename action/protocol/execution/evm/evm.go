@@ -55,13 +55,8 @@ type (
 	// GetBlockTime gets block time by height
 	GetBlockTime func(uint64) (time.Time, error)
 
-	// DepositGasWithSGD deposits gas with Sharing of Gas-fee with DApps
-	DepositGasWithSGD func(context.Context, protocol.StateManager, address.Address, *big.Int, *big.Int) (*action.TransactionLog, error)
-
-	// SGDRegistry is the interface for handling Sharing of Gas-fee with DApps
-	SGDRegistry interface {
-		CheckContract(context.Context, string) (address.Address, uint64, bool, error)
-	}
+	// DepositGas deposits gas
+	DepositGas func(context.Context, protocol.StateManager, *big.Int) (*action.TransactionLog, error)
 )
 
 // CanTransfer checks whether the from account has enough balance
@@ -240,7 +235,6 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	sgd := ps.helperCtx.Sgd
 	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB)
 	if err != nil {
 		return nil, nil, err
@@ -275,24 +269,8 @@ func ExecuteContract(
 		}
 	}
 	if consumedGas > 0 {
-		var (
-			receiver                  address.Address
-			sharedGas                 uint64
-			sharedGasFee, totalGasFee *big.Int
-		)
-		if ps.featureCtx.SharedGasWithDapp && sgd != nil {
-			// TODO: sgd is whether nil should be checked in processSGD
-			receiver, sharedGas, err = processSGD(ctx, sm, execution, consumedGas, sgd)
-			if err != nil {
-				return nil, nil, errors.Wrap(err, "failed to process Sharing of Gas-fee with DApps")
-			}
-		}
-		if sharedGas > 0 {
-			sharedGasFee = big.NewInt(int64(sharedGas))
-			sharedGasFee.Mul(sharedGasFee, ps.txCtx.GasPrice)
-		}
-		totalGasFee = new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), ps.txCtx.GasPrice)
-		depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, receiver, totalGasFee, sharedGasFee)
+		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), ps.txCtx.GasPrice)
+		depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, gasValue)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -317,25 +295,6 @@ func ExecuteContract(
 	}
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil
-}
-
-func processSGD(ctx context.Context, sm protocol.StateManager, execution *action.EvmTransaction, consumedGas uint64, sgd SGDRegistry,
-) (address.Address, uint64, error) {
-	if execution.To() == nil {
-		return nil, 0, nil
-	}
-
-	contract, _ := address.FromBytes((*execution.To())[:])
-	receiver, percentage, ok, err := sgd.CheckContract(ctx, contract.String())
-	if err != nil || !ok {
-		return nil, 0, err
-	}
-
-	sharedGas := consumedGas * percentage / 100
-	if sharedGas > consumedGas {
-		sharedGas = consumedGas
-	}
-	return receiver, sharedGas, nil
 }
 
 // ReadContractStorage reads contract's storage

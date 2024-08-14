@@ -274,9 +274,6 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.contractStakingIndexerV2 != nil {
 		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexerV2)
 	}
-	if builder.cs.sgdIndexer != nil {
-		synchronizedIndexers = append(synchronizedIndexers, builder.cs.sgdIndexer)
-	}
 	if len(synchronizedIndexers) > 1 {
 		indexers = append(indexers, blockindex.NewSyncIndexers(synchronizedIndexers...))
 	} else {
@@ -304,18 +301,6 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, builder.cfg.DB.MaxCacheSize)
 
-	return nil
-}
-
-func (builder *Builder) buildSGDRegistry(forTest bool) error {
-	if builder.cs.sgdIndexer != nil {
-		return nil
-	}
-	if forTest {
-		builder.cs.sgdIndexer = nil
-	} else {
-		builder.cs.sgdIndexer = blockindex.NewSGDRegistry()
-	}
 	return nil
 }
 
@@ -626,7 +611,7 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGasWithSGD, builder.cs.sgdIndexer, builder.cs.blockTimeCalculator.CalculateBlockTime).Register(builder.cs.registry)
+	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGas, builder.cs.blockTimeCalculator.CalculateBlockTime).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
@@ -668,7 +653,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 				GetBlockHash:   dao.GetBlockHash,
 				GetBlockTime:   getBlockTime,
-				DepositGasFunc: rewarding.DepositGasWithSGD,
+				DepositGasFunc: rewarding.DepositGas,
 			})
 			data, _, err := factory.SimulateExecution(ctx, addr, ex)
 			return data, err
@@ -762,9 +747,6 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildGatewayComponents(forTest); err != nil {
-		return nil, err
-	}
-	if err := builder.buildSGDRegistry(forTest); err != nil {
 		return nil, err
 	}
 	if err := builder.buildContractStakingIndexer(forTest); err != nil {

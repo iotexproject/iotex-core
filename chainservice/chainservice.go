@@ -72,7 +72,6 @@ type ChainService struct {
 	bfIndexer                blockindex.BloomFilterIndexer
 	candidateIndexer         *poll.CandidateIndexer
 	candBucketsIndexer       *staking.CandidatesBucketsIndexer
-	sgdIndexer               blockindex.SGDRegistry
 	contractStakingIndexer   *contractstaking.Indexer
 	contractStakingIndexerV2 stakingindex.StakingIndexer
 	registry                 *protocol.Registry

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -36,8 +36,10 @@ type (
 	// TipInfo contains the tip block information
 	TipInfo struct {
 		Height    uint64
+		GasUsed   uint64
 		Hash      hash.Hash256
 		Timestamp time.Time
+		BaseFee   *big.Int
 	}
 
 	// BlockchainCtx provides blockchain auxiliary information.
@@ -115,7 +117,6 @@ type (
 		FixContractStakingWeightedVotes         bool
 		ExecutionSizeLimit32KB                  bool
 		UseZeroNonceForFreshAccount             bool
-		SharedGasWithDapp                       bool
 		CandidateRegisterMustWithStake          bool
 		DisableDelegateEndorsement              bool
 		RefactorFreshAccountConversion          bool
@@ -127,6 +128,7 @@ type (
 		MigrateNativeStake                      bool
 		AddClaimRewardAddress                   bool
 		EnforceLegacyEndorsement                bool
+		EnableDynamicFeeTx                      bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -267,7 +269,6 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixContractStakingWeightedVotes:         g.IsRedsea(height),
 			ExecutionSizeLimit32KB:                  !g.IsSumatra(height),
 			UseZeroNonceForFreshAccount:             g.IsSumatra(height),
-			SharedGasWithDapp:                       g.IsToBeEnabled(height),
 			CandidateRegisterMustWithStake:          !g.IsTsunami(height),
 			DisableDelegateEndorsement:              !g.IsTsunami(height),
 			RefactorFreshAccountConversion:          g.IsTsunami(height),
@@ -279,6 +280,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			MigrateNativeStake:                      g.IsUpernavik(height),
 			AddClaimRewardAddress:                   g.IsUpernavik(height),
 			EnforceLegacyEndorsement:                !g.IsUpernavik(height),
+			EnableDynamicFeeTx:                      g.IsVanuatu(height),
 		},
 	)
 }

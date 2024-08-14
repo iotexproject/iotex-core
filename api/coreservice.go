@@ -1913,7 +1913,7 @@ func (core *coreService) simulateExecution(ctx context.Context, addr address.Add
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash:   getBlockHash,
 		GetBlockTime:   getBlockTime,
-		DepositGasFunc: rewarding.DepositGasWithSGD,
+		DepositGasFunc: rewarding.DepositGas,
 	})
 	return core.sf.SimulateExecution(ctx, addr, exec)
 }

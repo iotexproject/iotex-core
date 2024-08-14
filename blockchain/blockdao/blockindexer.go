@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -106,8 +106,10 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 		}
 		bcCtx.Tip.Height = tipBlk.Height()
 		if bcCtx.Tip.Height > 0 {
+			bcCtx.Tip.GasUsed = tipBlk.GasUsed()
 			bcCtx.Tip.Hash = tipBlk.HashHeader()
 			bcCtx.Tip.Timestamp = tipBlk.Timestamp()
+			bcCtx.Tip.BaseFee = tipBlk.BaseFee()
 		} else {
 			bcCtx.Tip.Hash = g.Hash()
 			bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)

@@ -296,7 +296,7 @@ func readExecution(
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash:   dao.GetBlockHash,
 		GetBlockTime:   getBlockTimeForTest,
-		DepositGasFunc: rewarding.DepositGasWithSGD,
+		DepositGasFunc: rewarding.DepositGas,
 	})
 	return sf.SimulateExecution(ctx, addr, exec)
 }
@@ -492,7 +492,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	execution := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, getBlockTimeForTest)
+	execution := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, getBlockTimeForTest)
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
 
@@ -642,7 +642,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require := require.New(t)
 	p := execution.NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, rewarding.DepositGasWithSGD, nil, getBlockTimeForTest)
+	}, rewarding.DepositGas, getBlockTimeForTest)
 
 	cases := []struct {
 		name      string
@@ -735,7 +735,7 @@ func TestProtocol_Handle(t *testing.T) {
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
 		)
-		exeProtocol := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGasWithSGD, nil, getBlockTimeForTest)
+		exeProtocol := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, getBlockTimeForTest)
 		require.NoError(exeProtocol.Register(registry))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
@@ -1144,9 +1144,6 @@ func TestIstanbulEVM(t *testing.T) {
 	t.Run("err-write-protection-staticcall-staticcall-revrt-1", func(t *testing.T) {
 		// staticcall -> staticcall -> revrt twice
 		NewSmartContractTest(t, "testdata-istanbul/write-protection-010.json")
-	})
-	t.Run("iip15-manager test", func(t *testing.T) {
-		NewSmartContractTest(t, "testdata-istanbul/iip15-manager.json")
 	})
 }
 
