@@ -200,7 +200,6 @@ type (
 		readCache         *ReadCache
 		messageBatcher    *batch.Manager
 		apiStats          *nodestats.APILocalStats
-		sgdIndexer        blockindex.SGDRegistry
 		getBlockTime      evm.GetBlockTime
 	}
 
@@ -235,13 +234,6 @@ func WithNativeElection(committee committee.Committee) Option {
 func WithAPIStats(stats *nodestats.APILocalStats) Option {
 	return func(svr *coreService) {
 		svr.apiStats = stats
-	}
-}
-
-// WithSGDIndexer is the option to return SGD Indexer through API.
-func WithSGDIndexer(sgdIndexer blockindex.SGDRegistry) Option {
-	return func(svr *coreService) {
-		svr.sgdIndexer = sgdIndexer
 	}
 }
 
@@ -1912,8 +1904,7 @@ func (core *coreService) simulateExecution(ctx context.Context, addr address.Add
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash:   getBlockHash,
 		GetBlockTime:   getBlockTime,
-		DepositGasFunc: rewarding.DepositGasWithSGD,
-		Sgd:            core.sgdIndexer,
+		DepositGasFunc: rewarding.DepositGas,
 	})
 	return core.sf.SimulateExecution(ctx, addr, exec)
 }

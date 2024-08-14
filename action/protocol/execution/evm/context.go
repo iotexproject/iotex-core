@@ -13,9 +13,7 @@ type (
 	HelperContext struct {
 		GetBlockHash   GetBlockHash
 		GetBlockTime   GetBlockTime
-		DepositGasFunc DepositGasWithSGD
-		// TODO: sgd should be moved into depositGasFunc
-		Sgd SGDRegistry
+		DepositGasFunc DepositGas
 	}
 )
 

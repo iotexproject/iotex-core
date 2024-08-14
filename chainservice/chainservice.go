@@ -70,7 +70,6 @@ type ChainService struct {
 	bfIndexer                blockindex.BloomFilterIndexer
 	candidateIndexer         *poll.CandidateIndexer
 	candBucketsIndexer       *staking.CandidatesBucketsIndexer
-	sgdIndexer               blockindex.SGDRegistry
 	contractStakingIndexer   *contractstaking.Indexer
 	contractStakingIndexerV2 stakingindex.StakingIndexer
 	registry                 *protocol.Registry
@@ -195,7 +194,6 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 		}),
 		api.WithNativeElection(cs.electionCommittee),
 		api.WithAPIStats(cs.apiStats),
-		api.WithSGDIndexer(cs.sgdIndexer),
 	}
 
 	svr, err := api.NewServerV2(
