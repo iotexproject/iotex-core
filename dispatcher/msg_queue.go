@@ -89,7 +89,7 @@ func (m *msgQueueMgr) consume(q string) {
 
 func (m *msgQueueMgr) Queue(msg *message) msgQueue {
 	switch msg.msgType {
-	case iotexrpc.MessageType_ACTION, iotexrpc.MessageType_ACTIONS:
+	case iotexrpc.MessageType_ACTION, iotexrpc.MessageType_ACTIONS, iotexrpc.MessageType_ACTION_HASH, iotexrpc.MessageType_ACTION_REQUEST:
 		return m.queues[actionQ]
 	case iotexrpc.MessageType_BLOCK:
 		return m.queues[blockQ]
