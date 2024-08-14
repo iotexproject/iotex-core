@@ -119,6 +119,7 @@ func (as *ActionSync) sync() {
 			continue
 		}
 		msg.(*actionMsg).lastTime = time.Now()
+		// TODO: enhancement, request multiple actions in one message
 		if err := as.requestFromNeighbors(ctx, hash); err != nil {
 			log.L().Warn("Failed to request action from neighbors", zap.Error(err))
 		}
