@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
@@ -37,6 +36,7 @@ const (
 
 var (
 	candidateActivateMethod abi.Method
+	_                       hasStakingData = (*CandidateActivate)(nil)
 )
 
 // CandidateActivate is the action to update a candidate's bucket
@@ -101,20 +101,9 @@ func (cr *CandidateActivate) encodeABIBinary() ([]byte, error) {
 	return append(candidateActivateMethod.ID, data...), nil
 }
 
-// ToEthTx returns an Ethereum transaction which corresponds to this action
-func (cr *CandidateActivate) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := cr.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    cr.Nonce(),
-		GasPrice: cr.GasPrice(),
-		Gas:      cr.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+// StakingData returns the ABI-encoded data
+func (cr *CandidateActivate) StakingData() ([]byte, error) {
+	return cr.encodeABIBinary()
 }
 
 // NewCandidateActivate returns a CandidateActivate action

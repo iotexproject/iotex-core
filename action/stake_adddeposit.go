@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -57,7 +56,7 @@ const (
 var (
 	// _depositToStakeMethod is the interface of the abi encoding of stake action
 	_depositToStakeMethod abi.Method
-	_                     EthCompatibleAction = (*DepositToStake)(nil)
+	_                     hasStakingData = (*DepositToStake)(nil)
 )
 
 // DepositToStake defines the action of stake add deposit
@@ -219,18 +218,7 @@ func NewDepositToStakeFromABIBinary(data []byte) (*DepositToStake, error) {
 	return &ds, nil
 }
 
-// ToEthTx converts action to eth-compatible tx
-func (ds *DepositToStake) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := ds.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    ds.Nonce(),
-		GasPrice: ds.GasPrice(),
-		Gas:      ds.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+// StakingData returns the ABI-encoded data
+func (ds *DepositToStake) StakingData() ([]byte, error) {
+	return ds.encodeABIBinary()
 }

@@ -1,3 +1,8 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package action
 
 import (
@@ -5,6 +10,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -119,4 +125,41 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 	rawHash := signer.Hash(tx)
 	pubkey, err = crypto.RecoverPubkey(rawHash[:], sig)
 	return encoding, sig, pubkey, err
+}
+
+// ======================================
+// utility funcs to convert native action to eth tx
+// ======================================
+func toLegacyTx(ab *AbstractAction, act Action) (*types.Transaction, error) {
+	var (
+		to    *common.Address
+		value *big.Int
+		data  []byte
+		err   error
+	)
+	if tx, ok := act.(hasToValueData); ok {
+		to, value, data, err = tx.ToValueData()
+	} else if staking, ok := act.(hasStakingData); ok {
+		to = &_stakingProtocolEthAddr
+		value = &big.Int{}
+		data, err = staking.StakingData()
+	} else if rewarding, ok := act.(hasRewardingData); ok {
+		to = &_rewardingProtocolEthAddr
+		value = &big.Int{}
+		data, err = rewarding.RewardingData()
+	} else {
+		// action type not supported
+		return nil, ErrInvalidAct
+	}
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    ab.Nonce(),
+		GasPrice: ab.GasPrice(),
+		Gas:      ab.GasLimit(),
+		To:       to,
+		Value:    value,
+		Data:     data,
+	}), nil
 }

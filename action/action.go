@@ -11,7 +11,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 )
@@ -20,11 +19,6 @@ type (
 	// Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
 	Action interface {
 		SanityCheck() error
-	}
-
-	// EthCompatibleAction is the action which is compatible to be converted to eth tx
-	EthCompatibleAction interface {
-		ToEthTx(uint32) (*types.Transaction, error)
 	}
 
 	TxContainer interface {
@@ -40,6 +34,18 @@ type (
 
 	hasDestination interface {
 		Destination() string
+	}
+
+	hasStakingData interface {
+		StakingData() ([]byte, error)
+	}
+
+	hasRewardingData interface {
+		RewardingData() ([]byte, error)
+	}
+
+	hasToValueData interface {
+		ToValueData() (*common.Address, *big.Int, []byte, error)
 	}
 )
 

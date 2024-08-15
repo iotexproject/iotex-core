@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -62,7 +61,7 @@ const (
 var (
 	// _restakeMethod is the interface of the abi encoding of stake action
 	_restakeMethod abi.Method
-	_              EthCompatibleAction = (*Restake)(nil)
+	_              hasStakingData = (*Restake)(nil)
 )
 
 // Restake defines the action of stake again
@@ -211,18 +210,7 @@ func NewRestakeFromABIBinary(data []byte) (*Restake, error) {
 	return &rs, nil
 }
 
-// ToEthTx converts action to eth-compatible tx
-func (rs *Restake) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := rs.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    rs.Nonce(),
-		GasPrice: rs.GasPrice(),
-		Gas:      rs.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+// StakingData returns the ABI-encoded data
+func (rs *Restake) StakingData() ([]byte, error) {
+	return rs.encodeABIBinary()
 }

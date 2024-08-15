@@ -167,7 +167,11 @@ func TestEthTxUtils(t *testing.T) {
 		SetAddress(addr).
 		SetData([]byte("any")).
 		SetAmount(big.NewInt(1)).Build()
-	tx, _ := act.ToEthTx(chainID)
+	elp := (&EnvelopeBuilder{}).SetNonce(act.Nonce()).
+		SetGasLimit(act.GasLimit()).SetGasPrice(act.GasPrice()).
+		SetAction(&act).Build()
+	tx, err := elp.ToEthTx(chainID, iotextypes.Encoding_ETHEREUM_EIP155)
+	r.NoError(err)
 
 	var (
 		signer1, _ = NewEthSigner(iotextypes.Encoding_ETHEREUM_EIP155, chainID)

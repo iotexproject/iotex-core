@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -72,8 +71,8 @@ var (
 	_unstakeMethod abi.Method
 	// _withdrawStakeMethod is the interface of the abi encoding of withdrawStake action
 	_withdrawStakeMethod abi.Method
-	_                    EthCompatibleAction = (*Unstake)(nil)
-	_                    EthCompatibleAction = (*WithdrawStake)(nil)
+	_                    hasStakingData = (*Unstake)(nil)
+	_                    hasStakingData = (*WithdrawStake)(nil)
 )
 
 func init() {
@@ -211,20 +210,9 @@ func NewUnstakeFromABIBinary(data []byte) (*Unstake, error) {
 	return &su, nil
 }
 
-// ToEthTx converts action to eth-compatible tx
-func (su *Unstake) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := su.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    su.Nonce(),
-		GasPrice: su.GasPrice(),
-		Gas:      su.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+// StakingData returns the ABI-encoded data
+func (su *Unstake) StakingData() ([]byte, error) {
+	return su.encodeABIBinary()
 }
 
 // WithdrawStake defines the action of stake withdraw
@@ -306,18 +294,7 @@ func NewWithdrawStakeFromABIBinary(data []byte) (*WithdrawStake, error) {
 	return &sw, nil
 }
 
-// ToEthTx converts action to eth-compatible tx
-func (sw *WithdrawStake) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := sw.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    sw.Nonce(),
-		GasPrice: sw.GasPrice(),
-		Gas:      sw.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+// StakingData returns the ABI-encoded data
+func (sw *WithdrawStake) StakingData() ([]byte, error) {
+	return sw.encodeABIBinary()
 }

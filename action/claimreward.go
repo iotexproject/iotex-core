@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -72,8 +71,8 @@ var (
 
 	_claimRewardingMethodV1 abi.Method
 	_claimRewardingMethodV2 abi.Method
-	_                       EthCompatibleAction = (*ClaimFromRewardingFund)(nil)
-	errWrongMethodSig                           = errors.New("wrong method signature")
+	_                       hasRewardingData = (*ClaimFromRewardingFund)(nil)
+	errWrongMethodSig                        = errors.New("wrong method signature")
 )
 
 func init() {
@@ -224,20 +223,9 @@ func (c *ClaimFromRewardingFund) encodeABIBinary() ([]byte, error) {
 	return append(_claimRewardingMethodV2.ID, data...), nil
 }
 
-// ToEthTx converts action to eth-compatible tx
-func (c *ClaimFromRewardingFund) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := c.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    c.Nonce(),
-		GasPrice: c.GasPrice(),
-		Gas:      c.GasLimit(),
-		To:       &_rewardingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+// RewardingData returns the ABI-encoded data
+func (c *ClaimFromRewardingFund) RewardingData() ([]byte, error) {
+	return c.encodeABIBinary()
 }
 
 // NewClaimFromRewardingFundFromABIBinary decodes data into action

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
@@ -95,6 +94,7 @@ var (
 	candidateEndorsementEndorseMethod        abi.Method
 	caniddateEndorsementIntentToRevokeMethod abi.Method
 	candidateEndorsementRevokeMethod         abi.Method
+	_                                        hasStakingData = (*CandidateEndorsement)(nil)
 )
 
 type (
@@ -219,20 +219,9 @@ func (act *CandidateEndorsement) encodeABIBinary() ([]byte, error) {
 	return append(method.ID, data...), nil
 }
 
-// ToEthTx returns an Ethereum transaction which corresponds to this action
-func (act *CandidateEndorsement) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := act.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    act.Nonce(),
-		GasPrice: act.GasPrice(),
-		Gas:      act.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+// StakingData returns the ABI-encoded data
+func (act *CandidateEndorsement) StakingData() ([]byte, error) {
+	return act.encodeABIBinary()
 }
 
 // NewCandidateEndorsementLegacy returns a CandidateEndorsement action

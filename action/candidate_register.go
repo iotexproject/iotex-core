@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -93,7 +92,7 @@ var (
 	// ErrInvalidOwner represents that owner address is invalid
 	ErrInvalidOwner = errors.New("invalid owner address")
 
-	_ EthCompatibleAction = (*CandidateRegister)(nil)
+	_ hasStakingData = (*CandidateRegister)(nil)
 )
 
 // CandidateRegister is the action to register a candidate
@@ -383,20 +382,9 @@ func ethAddrToNativeAddr(in interface{}) (address.Address, error) {
 	return address.FromBytes(ethAddr.Bytes())
 }
 
-// ToEthTx converts action to eth-compatible tx
-func (cr *CandidateRegister) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := cr.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    cr.Nonce(),
-		GasPrice: cr.GasPrice(),
-		Gas:      cr.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+// StakingData returns the ABI-encoded data
+func (cr *CandidateRegister) StakingData() ([]byte, error) {
+	return cr.encodeABIBinary()
 }
 
 // IsValidCandidateName check if a candidate name string is valid.

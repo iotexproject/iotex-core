@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -54,7 +53,7 @@ const (
 var (
 	// _transferStakeMethod is the interface of the abi encoding of stake action
 	_transferStakeMethod abi.Method
-	_                    EthCompatibleAction = (*TransferStake)(nil)
+	_                    hasStakingData = (*TransferStake)(nil)
 )
 
 // TransferStake defines the action of transfering stake ownership ts the other
@@ -201,18 +200,7 @@ func NewTransferStakeFromABIBinary(data []byte) (*TransferStake, error) {
 	return &ts, nil
 }
 
-// ToEthTx converts action to eth-compatible tx
-func (ts *TransferStake) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := ts.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    ts.Nonce(),
-		GasPrice: ts.GasPrice(),
-		Gas:      ts.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+// StakingData returns the ABI-encoded data
+func (ts *TransferStake) StakingData() ([]byte, error) {
+	return ts.encodeABIBinary()
 }

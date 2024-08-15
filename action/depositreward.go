@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -47,7 +46,7 @@ var (
 	DepositToRewardingFundGasPerByte = uint64(100)
 
 	_depositRewardMethod abi.Method
-	_                    EthCompatibleAction = (*DepositToRewardingFund)(nil)
+	_                    hasRewardingData = (*DepositToRewardingFund)(nil)
 )
 
 func init() {
@@ -158,20 +157,9 @@ func (d *DepositToRewardingFund) encodeABIBinary() ([]byte, error) {
 	return append(_depositRewardMethod.ID, data...), nil
 }
 
-// ToEthTx converts action to eth-compatible tx
-func (d *DepositToRewardingFund) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := d.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    d.Nonce(),
-		GasPrice: d.GasPrice(),
-		Gas:      d.GasLimit(),
-		To:       &_rewardingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+// RewardingData returns the ABI-encoded data
+func (d *DepositToRewardingFund) RewardingData() ([]byte, error) {
+	return d.encodeABIBinary()
 }
 
 // NewDepositToRewardingFundFromABIBinary decodes data into action

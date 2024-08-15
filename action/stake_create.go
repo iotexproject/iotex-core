@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -66,7 +65,7 @@ const (
 var (
 	// _createStakeMethod is the interface of the abi encoding of stake action
 	_createStakeMethod abi.Method
-	_                  EthCompatibleAction = (*CreateStake)(nil)
+	_                  hasStakingData = (*CreateStake)(nil)
 
 	errDecodeFailure = errors.New("failed to decode the data")
 )
@@ -260,18 +259,7 @@ func NewCreateStakeFromABIBinary(data []byte) (*CreateStake, error) {
 	return &cs, nil
 }
 
-// ToEthTx converts action to eth-compatible tx
-func (cs *CreateStake) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := cs.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    cs.Nonce(),
-		GasPrice: cs.GasPrice(),
-		Gas:      cs.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+// StakingData returns the ABI-encoded data
+func (cs *CreateStake) StakingData() ([]byte, error) {
+	return cs.encodeABIBinary()
 }

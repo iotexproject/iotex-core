@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -56,7 +55,7 @@ const (
 var (
 	// _candidateUpdateMethod is the interface of the abi encoding of stake action
 	_candidateUpdateMethod abi.Method
-	_                      EthCompatibleAction = (*CandidateUpdate)(nil)
+	_                      hasStakingData = (*CandidateUpdate)(nil)
 )
 
 // CandidateUpdate is the action to update a candidate
@@ -243,18 +242,7 @@ func NewCandidateUpdateFromABIBinary(data []byte) (*CandidateUpdate, error) {
 	return &cu, nil
 }
 
-// ToEthTx converts action to eth-compatible tx
-func (cu *CandidateUpdate) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := cu.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    cu.Nonce(),
-		GasPrice: cu.GasPrice(),
-		Gas:      cu.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
+// StakingData returns the ABI-encoded data
+func (cu *CandidateUpdate) StakingData() ([]byte, error) {
+	return cu.encodeABIBinary()
 }

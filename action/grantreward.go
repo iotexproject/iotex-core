@@ -12,14 +12,13 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 var (
 	_grantRewardMethod abi.Method
-	_                  EthCompatibleAction = (*GrantReward)(nil)
+	_                  hasRewardingData = (*GrantReward)(nil)
 )
 
 const (
@@ -135,20 +134,9 @@ func (g *GrantReward) encodeABIBinary() ([]byte, error) {
 	return append(_grantRewardMethod.ID, data...), nil
 }
 
-// ToEthTx converts a grant reward action to an ethereum transaction
-func (g *GrantReward) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := g.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    g.Nonce(),
-		GasPrice: g.GasPrice(),
-		Gas:      g.GasLimit(),
-		To:       &_rewardingProtocolEthAddr,
-		Data:     data,
-		Value:    big.NewInt(0),
-	}), nil
+// RewardingData returns the ABI-encoded data
+func (g *GrantReward) RewardingData() ([]byte, error) {
+	return g.encodeABIBinary()
 }
 
 // GrantRewardBuilder is the struct to build GrantReward
