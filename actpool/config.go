@@ -18,6 +18,7 @@ var (
 		ActionExpiry:       10 * time.Minute,
 		MinGasPriceStr:     big.NewInt(unit.Qev).String(),
 		BlackList:          []string{},
+		MaxNumBlobsPerAcct: 16,
 	}
 )
 
@@ -39,6 +40,8 @@ type Config struct {
 	BlackList []string `yaml:"blackList"`
 	// Store defines the config for persistent cache
 	Store *StoreConfig `yaml:"store"`
+	// MaxNumBlobsPerAcct defines the maximum number of blob txs an account can have
+	MaxNumBlobsPerAcct uint64 `yaml:"maxNumBlobsPerAcct"`
 }
 
 // MinGasPrice returns the minimal gas price threshold

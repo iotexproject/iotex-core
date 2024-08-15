@@ -162,11 +162,25 @@ func (ap *actPool) Start(ctx context.Context) error {
 	if ap.store == nil {
 		return nil
 	}
+	// open action store and load all actions
+	blobs := make(SortedActions, 0)
 	err := ap.store.Open(func(selp *action.SealedEnvelope) error {
+		isBlobTx := false
+		if isBlobTx {
+			blobs = append(blobs, selp)
+			return nil
+		}
 		return ap.add(ctx, selp)
 	})
 	if err != nil {
 		return err
+	}
+	// add blob txs to actpool in nonce order
+	sort.Sort(blobs)
+	for _, selp := range blobs {
+		if err := ap.add(ctx, selp); err != nil {
+			return err
+		}
 	}
 	return ap.storeSync.Start(ctx)
 }

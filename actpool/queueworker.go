@@ -180,6 +180,19 @@ func (worker *queueWorker) checkSelpWithState(act *action.SealedEnvelope, pendin
 		return action.ErrNonceTooHigh
 	}
 
+	// TODO: Nonce must be continuous for blob tx
+	isBlobTx := false
+	if isBlobTx {
+		pendingNonceInPool, ok := worker.PendingNonce(act.SenderAddress())
+		if !ok {
+			pendingNonceInPool = pendingNonce
+		}
+		if act.Nonce() > pendingNonceInPool {
+			_actpoolMtc.WithLabelValues("nonceTooLarge").Inc()
+			return action.ErrNonceTooHigh
+		}
+	}
+
 	if cost, _ := act.Cost(); balance.Cmp(cost) < 0 {
 		_actpoolMtc.WithLabelValues("insufficientBalance").Inc()
 		sender := act.SenderAddress().String()

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -59,6 +60,8 @@ type actQueue struct {
 	clock          clock.Clock
 	ttl            time.Duration
 	mu             sync.RWMutex
+	// count of blob txs in the queue
+	blobCount int
 }
 
 // NewActQueue create a new action queue
@@ -106,6 +109,31 @@ func (q *actQueue) Put(act *action.SealedEnvelope) error {
 		if nonce < q.pendingNonce && act.GasFeeCap().Cmp(actInPool.GasFeeCap()) != 1 {
 			return action.ErrReplaceUnderpriced
 		}
+		// TODO: 2x bumps in gas price are allowed for blob tx
+		isPrevBlobTx, isBlobTx := false, false
+		if isPrevBlobTx {
+			if !isBlobTx {
+				return errors.Wrap(action.ErrReplaceUnderpriced, "blob tx can only replace blob tx")
+			}
+			var (
+				// TODO: set the real value
+				prevBlobGasFeeCap = big.NewInt(0)
+				blobGasFeeCap     = big.NewInt(0)
+
+				priceBump        = big.NewInt(2)
+				minGasFeeCap     = new(big.Int).Mul(actInPool.GasFeeCap(), priceBump)
+				minGasTipCap     = new(big.Int).Mul(actInPool.GasTipCap(), priceBump)
+				minBlobGasFeeCap = new(big.Int).Mul(prevBlobGasFeeCap, priceBump)
+			)
+			switch {
+			case act.GasFeeCap().Cmp(minGasFeeCap) < 0:
+				return errors.Wrapf(action.ErrReplaceUnderpriced, "gas fee cap %s < %s", act.GasFeeCap(), minGasFeeCap)
+			case act.GasTipCap().Cmp(minGasTipCap) < 0:
+				return errors.Wrapf(action.ErrReplaceUnderpriced, "gas tip cap %s < %s", act.GasTipCap(), minGasTipCap)
+			case blobGasFeeCap.Cmp(minBlobGasFeeCap) < 0:
+				return errors.Wrapf(action.ErrReplaceUnderpriced, "blob gas fee cap %s < %s", blobGasFeeCap, minBlobGasFeeCap)
+			}
+		}
 		// update action in q.items and q.index
 		q.items[nonce] = act
 		for i := range q.ascQueue {
@@ -117,12 +145,20 @@ func (q *actQueue) Put(act *action.SealedEnvelope) error {
 		q.updateFromNonce(nonce)
 		return nil
 	}
+	// check max number of blob txs per account
+	isBlobTx := false
+	if isBlobTx && q.blobCount >= int(q.ap.cfg.MaxNumBlobsPerAcct) {
+		return errors.Wrap(action.ErrNonceTooHigh, "too many blob txs in the queue")
+	}
 	nttl := &nonceWithTTL{nonce: nonce, deadline: q.clock.Now().Add(q.ttl)}
 	heap.Push(&q.ascQueue, nttl)
 	heap.Push(&q.descQueue, nttl)
 	q.items[nonce] = act
 	if nonce == q.pendingNonce {
 		q.updateFromNonce(q.pendingNonce)
+	}
+	if isBlobTx {
+		q.blobCount++
 	}
 	return nil
 }
@@ -188,6 +224,10 @@ func (q *actQueue) cleanTimeout() []*action.SealedEnvelope {
 			delete(q.pendingBalance, nonce)
 			q.ascQueue[i] = q.ascQueue[size-1]
 			size--
+			isBlobTx := false
+			if isBlobTx {
+				q.blobCount--
+			}
 			continue
 		}
 		i++
@@ -221,6 +261,10 @@ func (q *actQueue) UpdateAccountState(nonce uint64, balance *big.Int) []*action.
 		nonce := nttl.nonce
 		removed = append(removed, q.items[nonce])
 		delete(q.items, nonce)
+		isBlobTx := false
+		if isBlobTx {
+			q.blobCount--
+		}
 	}
 	return removed
 }
@@ -264,6 +308,7 @@ func (q *actQueue) Reset() {
 	q.pendingBalance = make(map[uint64]*big.Int)
 	q.accountNonce = 0
 	q.accountBalance = big.NewInt(0)
+	q.blobCount = 0
 }
 
 // PendingActs creates a consecutive nonce-sorted slice of actions
@@ -337,6 +382,9 @@ func (q *actQueue) PopActionWithLargestNonce() *action.SealedEnvelope {
 	item := q.items[itemMeta.nonce]
 	delete(q.items, itemMeta.nonce)
 	q.updateFromNonce(itemMeta.nonce)
-
+	isBlobTx := false
+	if isBlobTx {
+		q.blobCount--
+	}
 	return item
 }
