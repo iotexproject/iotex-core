@@ -40,7 +40,7 @@ const (
 
 type (
 	blobStore struct {
-		config StoreConfig // Configuration for the blob store
+		config blobStoreConfig // Configuration for the blob store
 
 		store  billy.Database // Persistent data store for the tx
 		stored uint64         // Useful data size of all transactions on disk
@@ -51,8 +51,7 @@ type (
 		encode encodeAction // Encoder for the tx
 		decode decodeAction // Decoder for the tx
 	}
-	// StoreConfig is the configuration for the blob store
-	StoreConfig struct {
+	blobStoreConfig struct {
 		Datadir string `yaml:"datadir"` // Data directory containing the currently executable blobs
 		Datacap uint64 `yaml:"datacap"` // Soft-cap of database storage (hard cap is larger due to overhead)
 	}
@@ -62,16 +61,16 @@ type (
 	decodeAction func([]byte) (*action.SealedEnvelope, error)
 )
 
-var defaultStoreConfig = StoreConfig{
+var (
+	errBlobNotFound = fmt.Errorf("blob not found")
+)
+
+var defaultBlobStoreConfig = blobStoreConfig{
 	Datadir: "blobpool",
 	Datacap: 10 * 1024 * 1024 * 1024,
 }
 
-var (
-	ErrBlobNotFound = fmt.Errorf("blob not found")
-)
-
-func newBlobStore(cfg StoreConfig, encode encodeAction, decode decodeAction) (*blobStore, error) {
+func newBlobStore(cfg blobStoreConfig, encode encodeAction, decode decodeAction) (*blobStore, error) {
 	if len(cfg.Datadir) == 0 {
 		return nil, errors.New("datadir is empty")
 	}
@@ -135,7 +134,7 @@ func (s *blobStore) Get(hash hash.Hash256) (*action.SealedEnvelope, error) {
 
 	id, ok := s.lookup[hash]
 	if !ok {
-		return nil, errors.Wrap(ErrBlobNotFound, "")
+		return nil, errors.Wrap(errBlobNotFound, "")
 	}
 	blob, err := s.store.Get(id)
 	if err != nil {
@@ -183,6 +182,18 @@ func (s *blobStore) Delete(hash hash.Hash256) error {
 	}
 	delete(s.lookup, hash)
 	return nil
+}
+
+// Range iterates over all stored with hashes
+func (s *blobStore) Range(fn func(hash.Hash256) bool) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	for h := range s.lookup {
+		if !fn(h) {
+			return
+		}
+	}
 }
 
 func (s *blobStore) drop() {

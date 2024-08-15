@@ -21,7 +21,7 @@ import (
 
 func TestBlobStore(t *testing.T) {
 	r := require.New(t)
-	cfg := StoreConfig{
+	cfg := blobStoreConfig{
 		Datadir: t.TempDir(),
 		Datacap: 10 * 1024 * 1024,
 	}
@@ -83,7 +83,7 @@ func BenchmarkDatabase(b *testing.B) {
 	}
 
 	b.Run("billy-put", func(b *testing.B) {
-		cfg := StoreConfig{
+		cfg := blobStoreConfig{
 			Datadir: b.TempDir(),
 			Datacap: 1024,
 		}
