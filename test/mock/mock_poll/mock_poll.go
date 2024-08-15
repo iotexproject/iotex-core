@@ -126,7 +126,7 @@ func (mr *MockProtocolMockRecorder) ForceRegister(arg0 interface{}) *gomock.Call
 }
 
 // Handle mocks base method.
-func (m *MockProtocol) Handle(arg0 context.Context, arg1 action.Action, arg2 protocol.StateManager) (*action.Receipt, error) {
+func (m *MockProtocol) Handle(arg0 context.Context, arg1 action.Envelope, arg2 protocol.StateManager) (*action.Receipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Handle", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*action.Receipt)
@@ -220,7 +220,7 @@ func (mr *MockProtocolMockRecorder) Register(arg0 interface{}) *gomock.Call {
 }
 
 // Validate mocks base method.
-func (m *MockProtocol) Validate(arg0 context.Context, arg1 action.Action, arg2 protocol.StateReader) error {
+func (m *MockProtocol) Validate(arg0 context.Context, arg1 action.Envelope, arg2 protocol.StateReader) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Validate", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

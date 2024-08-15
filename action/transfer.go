@@ -75,11 +75,6 @@ func (tsf *Transfer) Recipient() string { return tsf.recipient }
 // Destination returns the recipient address as destination.
 func (tsf *Transfer) Destination() string { return tsf.recipient }
 
-// TotalSize returns the total size of this Transfer
-func (tsf *Transfer) TotalSize() uint32 {
-	return tsf.BasicActionSize() + tsf.Size()
-}
-
 // Size returns the total size of this Transfer
 func (tsf *Transfer) Size() uint32 {
 	var size uint32

@@ -162,11 +162,6 @@ func fromAccessListProto(list []*iotextypes.AccessTuple) types.AccessList {
 	return accessList
 }
 
-// TotalSize returns the total size of this Execution
-func (ex *Execution) TotalSize() uint32 {
-	return ex.BasicActionSize() + ex.Size()
-}
-
 // Size returns the size of this Execution
 func (ex *Execution) Size() uint32 {
 	var size uint32

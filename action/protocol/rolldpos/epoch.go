@@ -98,7 +98,7 @@ func ProtocolAddr() address.Address {
 }
 
 // Handle handles a modification
-func (p *Protocol) Handle(context.Context, action.Action, protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) Handle(context.Context, action.Envelope, protocol.StateManager) (*action.Receipt, error) {
 	return nil, nil
 }
 

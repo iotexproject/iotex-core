@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -12,6 +12,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -92,7 +93,8 @@ func TestProtocol_Handle_WithLifeLong(t *testing.T) {
 	require.NoError(err)
 
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
-	receipt, error := p.Handle(ctx, nil, sm)
+	elp := (&action.EnvelopeBuilder{}).SetAction(&action.GrantReward{}).Build()
+	receipt, error := p.Handle(ctx, elp, sm)
 	require.Nil(receipt)
 	require.NoError(error)
 }

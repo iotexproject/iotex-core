@@ -656,16 +656,21 @@ func TestProtocol_Validate(t *testing.T) {
 		{"exceed 48KB", genesis.Default.SumatraBlockHeight, uint64(48*1024) + 1, action.ErrOversizedData},
 	}
 
+	builder := action.EnvelopeBuilder{}
 	for i := range cases {
 		t.Run(cases[i].name, func(t *testing.T) {
 			ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), make([]byte, cases[i].size))
 			require.NoError(err)
+			elp := builder.SetNonce(ex.Nonce()).
+				SetGasLimit(ex.GasLimit()).
+				SetGasPrice(ex.GasPrice()).
+				SetAction(ex).Build()
 			ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
 			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 				BlockHeight: cases[i].height,
 			})
 			ctx = protocol.WithFeatureCtx(ctx)
-			require.Equal(cases[i].expectErr, errors.Cause(p.Validate(ctx, ex, nil)))
+			require.Equal(cases[i].expectErr, errors.Cause(p.Validate(ctx, elp, nil)))
 		})
 	}
 }
