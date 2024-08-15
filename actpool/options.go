@@ -6,9 +6,12 @@
 package actpool
 
 import (
+	"errors"
 	"time"
 
 	"github.com/facebookgo/clock"
+
+	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
 // ActQueueOption is the option for actQueue.
@@ -33,3 +36,21 @@ func WithTimeOut(ttl time.Duration) interface{ ActQueueOption } {
 }
 
 func (o *ttlOption) SetActQueueOption(aq *actQueue) { aq.ttl = o.ttl }
+
+// WithStore is the option to set store encode and decode functions.
+func WithStore(cfg StoreConfig, encode encodeAction, decode decodeAction) func(*actPool) error {
+	return func(a *actPool) error {
+		if encode == nil || decode == nil {
+			return errors.New("encode and decode functions must be provided")
+		}
+		store, err := newBlobStore(cfg.Store, encode, decode)
+		if err != nil {
+			return err
+		}
+		a.store = store
+		a.storeSync = routine.NewRecurringTask(func() {
+			a.syncFromStore()
+		}, cfg.ReadInterval)
+		return nil
+	}
+}

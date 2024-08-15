@@ -105,6 +105,11 @@ func (worker *queueWorker) Handle(job workerJob) error {
 	}
 
 	worker.ap.allActions.Set(actHash, act)
+	if worker.ap.store != nil {
+		if err := worker.ap.store.Put(act); err != nil {
+			log.L().Warn("failed to store action", zap.Error(err), log.Hex("hash", actHash[:]))
+		}
+	}
 
 	if desAddress, ok := act.Destination(); ok && !strings.EqualFold(sender, desAddress) {
 		if err := worker.ap.accountDesActs.addAction(act); err != nil {
@@ -123,7 +128,7 @@ func (worker *queueWorker) Handle(job workerJob) error {
 			log.L().Warn("UNEXPECTED ERROR: action pool is full, but no action to drop")
 			return nil
 		}
-		worker.ap.removeInvalidActs([]*action.SealedEnvelope{actToReplace})
+		worker.ap.removeReplacedActs([]*action.SealedEnvelope{actToReplace})
 		if actToReplace.SenderAddress().String() == sender && actToReplace.Nonce() == nonce {
 			err = action.ErrTxPoolOverflow
 			_actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()

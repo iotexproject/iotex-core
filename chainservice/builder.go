@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -245,7 +246,29 @@ func (builder *Builder) createElectionCommittee() (committee.Committee, error) {
 
 func (builder *Builder) buildActionPool() error {
 	if builder.cs.actpool == nil {
-		ac, err := actpool.NewActPool(builder.cfg.Genesis, builder.cs.factory, builder.cfg.ActPool)
+		options := []actpool.Option{}
+		if builder.cfg.ActPool.Store != nil {
+			evmID := builder.cfg.Chain.EVMNetworkID
+			options = append(options, actpool.WithStore(
+				*builder.cfg.ActPool.Store,
+				func(selp *action.SealedEnvelope) ([]byte, error) {
+					return proto.Marshal(selp.Proto())
+				},
+				func(blob []byte) (*action.SealedEnvelope, error) {
+					d := &action.Deserializer{}
+					d.SetEvmNetworkID(evmID)
+					a := &iotextypes.Action{}
+					if err := proto.Unmarshal(blob, a); err != nil {
+						return nil, err
+					}
+					se, err := d.ActionToSealedEnvelope(a)
+					if err != nil {
+						return nil, err
+					}
+					return se, nil
+				}))
+		}
+		ac, err := actpool.NewActPool(builder.cfg.Genesis, builder.cs.factory, builder.cfg.ActPool, options...)
 		if err != nil {
 			return errors.Wrap(err, "failed to create actpool")
 		}
@@ -428,7 +451,7 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 func (builder *Builder) buildBlockchain(forSubChain, forTest bool) error {
 	builder.cs.chain = builder.createBlockchain(forSubChain, forTest)
 	builder.cs.lifecycle.Add(builder.cs.chain)
-
+	builder.cs.lifecycle.Add(builder.cs.actpool)
 	if err := builder.cs.chain.AddSubscriber(builder.cs.actpool); err != nil {
 		return errors.Wrap(err, "failed to add actpool as subscriber")
 	}

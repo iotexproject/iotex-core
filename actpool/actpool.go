@@ -11,6 +11,7 @@ import (
 	"sort"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -28,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
 
@@ -103,6 +105,9 @@ type actPool struct {
 	senderBlackList          map[string]bool
 	jobQueue                 []chan workerJob
 	worker                   []*queueWorker
+
+	store     *blobStore             // store is the persistent cache for actpool
+	storeSync *routine.RecurringTask // storeSync is the recurring task to sync actions from store to memory
 }
 
 // NewActPool constructs a new actpool
@@ -142,7 +147,7 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 		return nil, err
 	}
 	ap.timerFactory = timerFactory
-
+	// TODO: move to Start
 	for i := 0; i < _numWorker; i++ {
 		ap.jobQueue[i] = make(chan workerJob, ap.cfg.WorkerBufferSize)
 		ap.worker[i] = newQueueWorker(ap, ap.jobQueue[i])
@@ -151,6 +156,33 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 		}
 	}
 	return ap, nil
+}
+
+func (ap *actPool) Start(ctx context.Context) error {
+	// open action store and load all actions
+	if ap.store != nil {
+		err := ap.store.Open(func(selp *action.SealedEnvelope) error {
+			return ap.add(ctx, selp)
+		})
+		if err != nil {
+			return err
+		}
+		return ap.storeSync.Start(ctx)
+	}
+	return nil
+}
+
+func (ap *actPool) Stop(ctx context.Context) error {
+	for i := 0; i < _numWorker; i++ {
+		if err := ap.worker[i].Stop(); err != nil {
+			return err
+		}
+	}
+	if ap.store != nil {
+		ap.storeSync.Stop(ctx)
+		return ap.store.Close()
+	}
+	return nil
 }
 
 func (ap *actPool) AddActionEnvelopeValidators(fs ...action.SealedEnvelopeValidator) {
@@ -217,6 +249,10 @@ func (ap *actPool) PendingActionMap() map[string][]*action.SealedEnvelope {
 }
 
 func (ap *actPool) Add(ctx context.Context, act *action.SealedEnvelope) error {
+	return ap.add(ctx, act)
+}
+
+func (ap *actPool) add(ctx context.Context, act *action.SealedEnvelope) error {
 	ctx, span := tracer.NewSpan(ap.context(ctx), "actPool.Add")
 	defer span.End()
 	ctx = ap.context(ctx)
@@ -345,6 +381,16 @@ func (ap *actPool) GetUnconfirmedActs(addrStr string) []*action.SealedEnvelope {
 func (ap *actPool) GetActionByHash(hash hash.Hash256) (*action.SealedEnvelope, error) {
 	act, ok := ap.allActions.Get(hash)
 	if !ok {
+		if ap.store != nil {
+			act, err := ap.store.Get(hash)
+			switch errors.Cause(err) {
+			case nil:
+				return act, nil
+			case errBlobNotFound:
+			default:
+				return nil, err
+			}
+		}
 		return nil, errors.Wrapf(action.ErrNotFound, "action hash %x does not exist in pool", hash)
 	}
 	return act.(*action.SealedEnvelope), nil
@@ -412,6 +458,21 @@ func (ap *actPool) validate(ctx context.Context, selp *action.SealedEnvelope) er
 	return nil
 }
 
+func (ap *actPool) removeReplacedActs(acts []*action.SealedEnvelope) {
+	for _, act := range acts {
+		hash, err := act.Hash()
+		if err != nil {
+			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+			continue
+		}
+		log.L().Debug("Removed replaced action.", log.Hex("hash", hash[:]))
+		ap.allActions.Delete(hash)
+		intrinsicGas, _ := act.IntrinsicGas()
+		atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))
+		ap.accountDesActs.delete(act)
+	}
+}
+
 func (ap *actPool) removeInvalidActs(acts []*action.SealedEnvelope) {
 	for _, act := range acts {
 		hash, err := act.Hash()
@@ -424,6 +485,11 @@ func (ap *actPool) removeInvalidActs(acts []*action.SealedEnvelope) {
 		intrinsicGas, _ := act.IntrinsicGas()
 		atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))
 		ap.accountDesActs.delete(act)
+		if ap.store != nil {
+			if err = ap.store.Delete(hash); err != nil {
+				log.L().Warn("Failed to delete action from store", zap.Error(err), log.Hex("hash", hash[:]))
+			}
+		}
 	}
 }
 
@@ -459,6 +525,28 @@ func (ap *actPool) allocatedWorker(senderAddr address.Address) int {
 	senderBytes := senderAddr.Bytes()
 	var lastByte uint8 = senderBytes[len(senderBytes)-1]
 	return int(lastByte) % _numWorker
+}
+
+func (ap *actPool) syncFromStore() {
+	if ap.store == nil {
+		return
+	}
+	ap.store.Range(func(h hash.Hash256) bool {
+		if _, exist := ap.allActions.Get(h); !exist {
+			act, err := ap.store.Get(h)
+			if err != nil {
+				log.L().Warn("Failed to get action from store", zap.Error(err))
+				return true
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := ap.add(ctx, act); err != nil {
+				log.L().Warn("Failed to add action to pool", zap.Error(err))
+				return true
+			}
+		}
+		return true
+	})
 }
 
 type destinationMap struct {
