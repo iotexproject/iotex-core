@@ -29,7 +29,6 @@ func TestExecutionSignVerify(t *testing.T) {
 	require.NoError(err)
 	require.EqualValues(21, ex.BasicActionSize())
 	require.EqualValues(66, ex.Size())
-	require.EqualValues(87, ex.TotalSize())
 
 	bd := &EnvelopeBuilder{}
 	eb := bd.SetNonce(ex.nonce).
@@ -38,6 +37,7 @@ func TestExecutionSignVerify(t *testing.T) {
 		SetAction(ex).Build()
 	elp, ok := eb.(*envelope)
 	require.True(ok)
+	require.EqualValues(87, eb.Size())
 
 	w := AssembleSealedEnvelope(elp, executorKey.PublicKey(), []byte("lol"))
 	require.Error(w.VerifySignature())
@@ -49,10 +49,6 @@ func TestExecutionSignVerify(t *testing.T) {
 	selp, err := Sign(elp, executorKey)
 	require.NoError(err)
 	require.NotNil(selp)
-	require.EqualValues(21, ex.BasicActionSize())
-	require.EqualValues(66, ex.Size())
-	require.EqualValues(87, ex.TotalSize())
-
 	// verify signature
 	require.NoError(selp.VerifySignature())
 }

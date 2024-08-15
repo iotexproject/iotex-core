@@ -27,6 +27,7 @@ const (
 
 var (
 	_ hasDestination      = (*Transfer)(nil)
+	_ hasSize             = (*Transfer)(nil)
 	_ EthCompatibleAction = (*Transfer)(nil)
 )
 

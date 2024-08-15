@@ -31,6 +31,7 @@ const (
 
 var (
 	_ hasDestination      = (*Execution)(nil)
+	_ hasSize             = (*Execution)(nil)
 	_ EthCompatibleAction = (*Execution)(nil)
 	_ TxData              = (*Execution)(nil)
 )
