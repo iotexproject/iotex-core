@@ -21,11 +21,10 @@ import (
 
 func TestBlobStore(t *testing.T) {
 	r := require.New(t)
-	cfg := blobStoreConfig{
+	cfg := StoreConfig{
 		Datadir: t.TempDir(),
 		Datacap: 10 * 1024 * 1024,
 	}
-	t.Log(cfg)
 	encode := func(selp *action.SealedEnvelope) ([]byte, error) {
 		return proto.Marshal(selp.Proto())
 	}
@@ -45,8 +44,9 @@ func TestBlobStore(t *testing.T) {
 	}
 	store, err := newBlobStore(cfg, encode, decode)
 	r.NoError(err)
-	r.NoError(store.Open(func(selp *action.SealedEnvelope) {
+	r.NoError(store.Open(func(selp *action.SealedEnvelope) error {
 		r.FailNow("should not be called")
+		return nil
 	}))
 	act, err := action.SignedExecution("", identityset.PrivateKey(1), 1, big.NewInt(1), 100, big.NewInt(100), nil)
 	r.NoError(err)
@@ -56,8 +56,9 @@ func TestBlobStore(t *testing.T) {
 	store, err = newBlobStore(cfg, encode, decode)
 	r.NoError(err)
 	acts := []*action.SealedEnvelope{}
-	r.NoError(store.Open(func(selp *action.SealedEnvelope) {
+	r.NoError(store.Open(func(selp *action.SealedEnvelope) error {
 		acts = append(acts, selp)
+		return nil
 	}))
 	acts[0].Hash()
 	r.Len(acts, 1)
@@ -82,14 +83,15 @@ func BenchmarkDatabase(b *testing.B) {
 	}
 
 	b.Run("billy-put", func(b *testing.B) {
-		cfg := blobStoreConfig{
+		cfg := StoreConfig{
 			Datadir: b.TempDir(),
-			Datacap: 10 * 1024 * 1024,
+			Datacap: 1024,
 		}
 		store, err := newBlobStore(cfg, nil, nil)
 		r.NoError(err)
-		r.NoError(store.Open(func(selp *action.SealedEnvelope) {
+		r.NoError(store.Open(func(selp *action.SealedEnvelope) error {
 			r.FailNow("should not be called")
+			return nil
 		}))
 
 		b.StartTimer()

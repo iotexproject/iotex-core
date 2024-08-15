@@ -1,6 +1,7 @@
 package actpool
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"sync"
@@ -39,29 +40,29 @@ const (
 
 type (
 	blobStore struct {
-		config blobStoreConfig // Configuration for the blob store
+		config StoreConfig // Configuration for the blob store
 
-		store  billy.Database // Persistent data store for the tx metadata and blobs
+		store  billy.Database // Persistent data store for the tx
 		stored uint64         // Useful data size of all transactions on disk
 
 		lookup map[hash.Hash256]uint64 // Lookup table mapping hashes to tx billy entries
 		lock   sync.RWMutex            // Mutex protecting the store
 
-		encode encodeAction // Encoder for the tx metadata and blobs
-		decode decodeAction // Decoder for the tx metadata and blobs
+		encode encodeAction // Encoder for the tx
+		decode decodeAction // Decoder for the tx
+	}
+	// StoreConfig is the configuration for the blob store
+	StoreConfig struct {
+		Datadir string `yaml:"datadir"` // Data directory containing the currently executable blobs
+		Datacap uint64 `yaml:"datacap"` // Soft-cap of database storage (hard cap is larger due to overhead)
 	}
 
-	blobStoreConfig struct {
-		Datadir string // Data directory containing the currently executable blobs
-		Datacap uint64 // Soft-cap of database storage (hard cap is larger due to overhead)
-	}
-
-	onAction     func(selp *action.SealedEnvelope)
+	onAction     func(selp *action.SealedEnvelope) error
 	encodeAction func(selp *action.SealedEnvelope) ([]byte, error)
 	decodeAction func([]byte) (*action.SealedEnvelope, error)
 )
 
-var defaultBlobStoreConfig = blobStoreConfig{
+var defaultStoreConfig = StoreConfig{
 	Datadir: "blobpool",
 	Datacap: 10 * 1024 * 1024 * 1024,
 }
@@ -70,7 +71,7 @@ var (
 	ErrBlobNotFound = fmt.Errorf("blob not found")
 )
 
-func newBlobStore(cfg blobStoreConfig, encode encodeAction, decode decodeAction) (*blobStore, error) {
+func newBlobStore(cfg StoreConfig, encode encodeAction, decode decodeAction) (*blobStore, error) {
 	if len(cfg.Datadir) == 0 {
 		return nil, errors.New("datadir is empty")
 	}
@@ -96,11 +97,14 @@ func (s *blobStore) Open(onData onAction) error {
 			log.L().Warn("Failed to decode action", zap.Error(err))
 			return
 		}
+		if err = onData(act); err != nil {
+			fails = append(fails, id)
+			log.L().Warn("Failed to process action", zap.Error(err))
+			return
+		}
 		s.stored += uint64(size)
 		h, _ := act.Hash()
 		s.lookup[h] = id
-
-		onData(act)
 	}
 	store, err := billy.Open(billy.Options{Path: dir}, newSlotter(), index)
 	if err != nil {
@@ -161,7 +165,7 @@ func (s *blobStore) Put(act *action.SealedEnvelope) error {
 	s.lookup[h] = id
 	// if the datacap is exceeded, remove old data
 	if s.stored > s.config.Datacap {
-		// TODO: remove old data
+		s.drop()
 	}
 	return nil
 }
@@ -179,6 +183,33 @@ func (s *blobStore) Delete(hash hash.Hash256) error {
 	}
 	delete(s.lookup, hash)
 	return nil
+}
+
+func (s *blobStore) drop() {
+	for {
+		h, ok := s.evict()
+		if !ok {
+			log.L().Error("no worst action found")
+			return
+		}
+		id, ok := s.lookup[h]
+		if !ok {
+			log.L().Error("worst action not found in lookup", zap.String("hash", hex.EncodeToString(h[:])))
+			continue
+		}
+		if err := s.store.Delete(id); err != nil {
+			log.L().Error("failed to delete worst action", zap.Error(err))
+		}
+		return
+	}
+}
+
+// TODO: implement a proper eviction policy
+func (s *blobStore) evict() (hash.Hash256, bool) {
+	for h := range s.lookup {
+		return h, true
+	}
+	return hash.ZeroHash256, false
 }
 
 // newSlotter creates a helper method for the Billy datastore that returns the
