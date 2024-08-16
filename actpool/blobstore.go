@@ -211,6 +211,7 @@ func (s *blobStore) drop() {
 		if err := s.store.Delete(id); err != nil {
 			log.L().Error("failed to delete worst action", zap.Error(err))
 		}
+		delete(s.lookup, h)
 		return
 	}
 }
