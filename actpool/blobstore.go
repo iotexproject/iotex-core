@@ -63,6 +63,7 @@ type (
 
 var (
 	errBlobNotFound = fmt.Errorf("blob not found")
+	errStoreNotOpen = fmt.Errorf("blob store is not open")
 )
 
 var defaultBlobStoreConfig = blobStoreConfig{
@@ -83,6 +84,8 @@ func newBlobStore(cfg blobStoreConfig, encode encodeAction, decode decodeAction)
 }
 
 func (s *blobStore) Open(onData onAction) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	dir := s.config.Datadir
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return errors.Wrap(err, "failed to create blob store directory")
@@ -125,12 +128,17 @@ func (s *blobStore) Open(onData onAction) error {
 }
 
 func (s *blobStore) Close() error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	return s.store.Close()
 }
 
 func (s *blobStore) Get(hash hash.Hash256) (*action.SealedEnvelope, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
+	if s.store == nil {
+		return nil, errors.Wrap(errStoreNotOpen, "")
+	}
 
 	id, ok := s.lookup[hash]
 	if !ok {
@@ -146,6 +154,9 @@ func (s *blobStore) Get(hash hash.Hash256) (*action.SealedEnvelope, error) {
 func (s *blobStore) Put(act *action.SealedEnvelope) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
+	if s.store == nil {
+		return errors.Wrap(errStoreNotOpen, "")
+	}
 	h, _ := act.Hash()
 	// if action is already stored, nothing to do
 	if _, ok := s.lookup[h]; ok {
@@ -172,6 +183,9 @@ func (s *blobStore) Put(act *action.SealedEnvelope) error {
 func (s *blobStore) Delete(hash hash.Hash256) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
+	if s.store == nil {
+		return errors.Wrap(errStoreNotOpen, "")
+	}
 
 	id, ok := s.lookup[hash]
 	if !ok {
