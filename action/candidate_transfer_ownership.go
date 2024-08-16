@@ -46,7 +46,7 @@ const (
 var (
 	// _candidateTransferOwnershipMethod is the interface of the abi encoding of candidate transfer ownership action
 	_candidateTransferOwnershipMethod abi.Method
-	_                                 hasStakingData = (*CandidateTransferOwnership)(nil)
+	_                                 EthCompatibleAction = (*CandidateTransferOwnership)(nil)
 )
 
 func init() {
@@ -64,7 +64,7 @@ func init() {
 // CandidateTransferOwnership is the action to transfer ownership of a candidate
 type CandidateTransferOwnership struct {
 	AbstractAction
-
+	stake_common
 	newOwner address.Address
 	payload  []byte
 }
@@ -168,12 +168,8 @@ func (act *CandidateTransferOwnership) LoadProto(pbAct *iotextypes.CandidateTran
 	return nil
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (act *CandidateTransferOwnership) EncodeABIBinary() ([]byte, error) {
-	return act.encodeABIBinary()
-}
-
-func (act *CandidateTransferOwnership) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (act *CandidateTransferOwnership) EthData() ([]byte, error) {
 	if act.newOwner == nil {
 		return nil, ErrAddress
 	}
@@ -187,9 +183,4 @@ func (act *CandidateTransferOwnership) encodeABIBinary() ([]byte, error) {
 // SanityCheck validates the variables in the action
 func (act *CandidateTransferOwnership) SanityCheck() error {
 	return act.AbstractAction.SanityCheck()
-}
-
-// StakingData returns the ABI-encoded data
-func (act *CandidateTransferOwnership) StakingData() ([]byte, error) {
-	return act.encodeABIBinary()
 }

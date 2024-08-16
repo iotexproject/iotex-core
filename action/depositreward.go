@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -46,7 +46,7 @@ var (
 	DepositToRewardingFundGasPerByte = uint64(100)
 
 	_depositRewardMethod abi.Method
-	_                    hasRewardingData = (*DepositToRewardingFund)(nil)
+	_                    EthCompatibleAction = (*DepositToRewardingFund)(nil)
 )
 
 func init() {
@@ -64,7 +64,7 @@ func init() {
 // DepositToRewardingFund is the action to deposit to the rewarding fund
 type DepositToRewardingFund struct {
 	AbstractAction
-
+	reward_common
 	amount *big.Int
 	data   []byte
 }
@@ -148,18 +148,13 @@ func (b *DepositToRewardingFundBuilder) Build() DepositToRewardingFund {
 	return b.deposit
 }
 
-// encodeABIBinary encodes data in abi encoding
-func (d *DepositToRewardingFund) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (d *DepositToRewardingFund) EthData() ([]byte, error) {
 	data, err := _depositRewardMethod.Inputs.Pack(d.Amount(), d.Data())
 	if err != nil {
 		return nil, err
 	}
 	return append(_depositRewardMethod.ID, data...), nil
-}
-
-// RewardingData returns the ABI-encoded data
-func (d *DepositToRewardingFund) RewardingData() ([]byte, error) {
-	return d.encodeABIBinary()
 }
 
 // NewDepositToRewardingFundFromABIBinary decodes data into action

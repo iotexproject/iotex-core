@@ -36,13 +36,13 @@ const (
 
 var (
 	candidateActivateMethod abi.Method
-	_                       hasStakingData = (*CandidateActivate)(nil)
+	_                       EthCompatibleAction = (*CandidateActivate)(nil)
 )
 
 // CandidateActivate is the action to update a candidate's bucket
 type CandidateActivate struct {
 	AbstractAction
-
+	stake_common
 	// bucketID is the bucket index want to be changed to
 	bucketID uint64
 }
@@ -93,17 +93,13 @@ func (cr *CandidateActivate) LoadProto(pbAct *iotextypes.CandidateActivate) erro
 	return nil
 }
 
-func (cr *CandidateActivate) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (cr *CandidateActivate) EthData() ([]byte, error) {
 	data, err := candidateActivateMethod.Inputs.Pack(cr.bucketID)
 	if err != nil {
 		return nil, err
 	}
 	return append(candidateActivateMethod.ID, data...), nil
-}
-
-// StakingData returns the ABI-encoded data
-func (cr *CandidateActivate) StakingData() ([]byte, error) {
-	return cr.encodeABIBinary()
 }
 
 // NewCandidateActivate returns a CandidateActivate action

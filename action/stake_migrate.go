@@ -40,12 +40,12 @@ const (
 var (
 	// migrateStakeMethod is the interface of the abi encoding of migrate stake action
 	migrateStakeMethod abi.Method
-	_                  hasStakingData = (*MigrateStake)(nil)
+	_                  EthCompatibleAction = (*MigrateStake)(nil)
 )
 
 type MigrateStake struct {
 	AbstractAction
-
+	stake_common
 	bucketIndex uint64
 }
 
@@ -115,7 +115,8 @@ func (ms *MigrateStake) LoadProto(pbAct *iotextypes.StakeMigrate) error {
 	return nil
 }
 
-func (ms *MigrateStake) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (ms *MigrateStake) EthData() ([]byte, error) {
 	data, err := migrateStakeMethod.Inputs.Pack(ms.bucketIndex)
 	if err != nil {
 		return nil, err
@@ -141,9 +142,4 @@ func NewMigrateStakeFromABIBinary(data []byte) (*MigrateStake, error) {
 		return nil, errDecodeFailure
 	}
 	return &rs, nil
-}
-
-// StakingData returns the ABI-encoded data
-func (ms *MigrateStake) StakingData() ([]byte, error) {
-	return ms.encodeABIBinary()
 }

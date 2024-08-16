@@ -56,13 +56,13 @@ const (
 var (
 	// _changeCandidateMethod is the interface of the abi encoding of stake action
 	_changeCandidateMethod abi.Method
-	_                      hasStakingData = (*ChangeCandidate)(nil)
+	_                      EthCompatibleAction = (*ChangeCandidate)(nil)
 )
 
 // ChangeCandidate defines the action of changing stake candidate ts the other
 type ChangeCandidate struct {
 	AbstractAction
-
+	stake_common
 	candidateName string
 	bucketIndex   uint64
 	payload       []byte
@@ -164,12 +164,8 @@ func (cc *ChangeCandidate) SanityCheck() error {
 	return cc.AbstractAction.SanityCheck()
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (cc *ChangeCandidate) EncodeABIBinary() ([]byte, error) {
-	return cc.encodeABIBinary()
-}
-
-func (cc *ChangeCandidate) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (cc *ChangeCandidate) EthData() ([]byte, error) {
 	data, err := _changeCandidateMethod.Inputs.Pack(cc.candidateName, cc.bucketIndex, cc.payload)
 	if err != nil {
 		return nil, err
@@ -201,9 +197,4 @@ func NewChangeCandidateFromABIBinary(data []byte) (*ChangeCandidate, error) {
 		return nil, errDecodeFailure
 	}
 	return &cc, nil
-}
-
-// StakingData returns the ABI-encoded data
-func (cc *ChangeCandidate) StakingData() ([]byte, error) {
-	return cc.encodeABIBinary()
 }

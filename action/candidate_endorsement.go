@@ -94,14 +94,14 @@ var (
 	candidateEndorsementEndorseMethod        abi.Method
 	caniddateEndorsementIntentToRevokeMethod abi.Method
 	candidateEndorsementRevokeMethod         abi.Method
-	_                                        hasStakingData = (*CandidateEndorsement)(nil)
+	_                                        EthCompatibleAction = (*CandidateEndorsement)(nil)
 )
 
 type (
 	// CandidateEndorsement is the action to endorse or unendorse a candidate
 	CandidateEndorsement struct {
 		AbstractAction
-
+		stake_common
 		// bucketIndex is the bucket index want to be endorsed or unendorsed
 		bucketIndex uint64
 		// endorse is true if the action is to endorse a candidate, false if unendorse
@@ -194,7 +194,8 @@ func (act *CandidateEndorsement) LoadProto(pbAct *iotextypes.CandidateEndorsemen
 	return nil
 }
 
-func (act *CandidateEndorsement) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (act *CandidateEndorsement) EthData() ([]byte, error) {
 	var method abi.Method
 	switch act.op {
 	case CandidateEndorsementOpLegacy:
@@ -217,11 +218,6 @@ func (act *CandidateEndorsement) encodeABIBinary() ([]byte, error) {
 		return nil, err
 	}
 	return append(method.ID, data...), nil
-}
-
-// StakingData returns the ABI-encoded data
-func (act *CandidateEndorsement) StakingData() ([]byte, error) {
-	return act.encodeABIBinary()
 }
 
 // NewCandidateEndorsementLegacy returns a CandidateEndorsement action

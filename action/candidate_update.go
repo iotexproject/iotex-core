@@ -55,13 +55,13 @@ const (
 var (
 	// _candidateUpdateMethod is the interface of the abi encoding of stake action
 	_candidateUpdateMethod abi.Method
-	_                      hasStakingData = (*CandidateUpdate)(nil)
+	_                      EthCompatibleAction = (*CandidateUpdate)(nil)
 )
 
 // CandidateUpdate is the action to update a candidate
 type CandidateUpdate struct {
 	AbstractAction
-
+	stake_common
 	name            string
 	operatorAddress address.Address
 	rewardAddress   address.Address
@@ -194,12 +194,8 @@ func (cu *CandidateUpdate) SanityCheck() error {
 	return cu.AbstractAction.SanityCheck()
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (cu *CandidateUpdate) EncodeABIBinary() ([]byte, error) {
-	return cu.encodeABIBinary()
-}
-
-func (cu *CandidateUpdate) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (cu *CandidateUpdate) EthData() ([]byte, error) {
 	if cu.operatorAddress == nil {
 		return nil, ErrAddress
 	}
@@ -240,9 +236,4 @@ func NewCandidateUpdateFromABIBinary(data []byte) (*CandidateUpdate, error) {
 		return nil, err
 	}
 	return &cu, nil
-}
-
-// StakingData returns the ABI-encoded data
-func (cu *CandidateUpdate) StakingData() ([]byte, error) {
-	return cu.encodeABIBinary()
 }

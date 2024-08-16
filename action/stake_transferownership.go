@@ -53,13 +53,13 @@ const (
 var (
 	// _transferStakeMethod is the interface of the abi encoding of stake action
 	_transferStakeMethod abi.Method
-	_                    hasStakingData = (*TransferStake)(nil)
+	_                    EthCompatibleAction = (*TransferStake)(nil)
 )
 
 // TransferStake defines the action of transfering stake ownership ts the other
 type TransferStake struct {
 	AbstractAction
-
+	stake_common
 	voterAddress address.Address
 	bucketIndex  uint64
 	payload      []byte
@@ -159,12 +159,8 @@ func (ts *TransferStake) Cost() (*big.Int, error) {
 	return transferStakeFee, nil
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (ts *TransferStake) EncodeABIBinary() ([]byte, error) {
-	return ts.encodeABIBinary()
-}
-
-func (ts *TransferStake) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (ts *TransferStake) EthData() ([]byte, error) {
 	voterEthAddr := common.BytesToAddress(ts.voterAddress.Bytes())
 	data, err := _transferStakeMethod.Inputs.Pack(voterEthAddr, ts.bucketIndex, ts.payload)
 	if err != nil {
@@ -198,9 +194,4 @@ func NewTransferStakeFromABIBinary(data []byte) (*TransferStake, error) {
 		return nil, errDecodeFailure
 	}
 	return &ts, nil
-}
-
-// StakingData returns the ABI-encoded data
-func (ts *TransferStake) StakingData() ([]byte, error) {
-	return ts.encodeABIBinary()
 }

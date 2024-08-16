@@ -21,6 +21,13 @@ type (
 		SanityCheck() error
 	}
 
+	// EthCompatibleAction is the action which is compatible to be converted to eth tx
+	EthCompatibleAction interface {
+		EthTo() (*common.Address, error)
+		Value() *big.Int
+		EthData() ([]byte, error)
+	}
+
 	TxContainer interface {
 		Unfold(*SealedEnvelope, context.Context, func(context.Context, *common.Address) (bool, bool, bool, error)) error // unfold the tx inside the container
 	}
@@ -34,18 +41,6 @@ type (
 
 	hasDestination interface {
 		Destination() string
-	}
-
-	hasStakingData interface {
-		StakingData() ([]byte, error)
-	}
-
-	hasRewardingData interface {
-		RewardingData() ([]byte, error)
-	}
-
-	hasToValueData interface {
-		ToValueData() (*common.Address, *big.Int, []byte, error)
 	}
 )
 

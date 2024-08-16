@@ -107,7 +107,7 @@ func TestCandidateTransferOwnershipABIEncodeAndDecode(t *testing.T) {
 	require := require.New(t)
 	cr, err := NewCandidateTransferOwnership(1, 1000000, big.NewInt(1000), "io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he", []byte("payload"))
 	require.NoError(err)
-	enc, err := cr.EncodeABIBinary()
+	enc, err := cr.EthData()
 	require.NoError(err)
 
 	cr2, err := NewCandidateTransferOwnershipFromABIBinary(enc)
@@ -116,7 +116,7 @@ func TestCandidateTransferOwnershipABIEncodeAndDecode(t *testing.T) {
 	require.Equal(cr.Payload(), cr2.Payload())
 
 	cr2.newOwner = nil
-	enc, err = cr2.EncodeABIBinary()
+	enc, err = cr2.EthData()
 	require.Equal(ErrAddress, errors.Cause(err))
 	require.Nil(enc)
 

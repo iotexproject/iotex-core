@@ -61,13 +61,13 @@ const (
 var (
 	// _restakeMethod is the interface of the abi encoding of stake action
 	_restakeMethod abi.Method
-	_              hasStakingData = (*Restake)(nil)
+	_              EthCompatibleAction = (*Restake)(nil)
 )
 
 // Restake defines the action of stake again
 type Restake struct {
 	AbstractAction
-
+	stake_common
 	bucketIndex uint64
 	duration    uint32
 	autoStake   bool
@@ -168,12 +168,8 @@ func (rs *Restake) Cost() (*big.Int, error) {
 	return restakeFee, nil
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (rs *Restake) EncodeABIBinary() ([]byte, error) {
-	return rs.encodeABIBinary()
-}
-
-func (rs *Restake) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (rs *Restake) EthData() ([]byte, error) {
 	data, err := _restakeMethod.Inputs.Pack(rs.bucketIndex, rs.duration, rs.autoStake, rs.payload)
 	if err != nil {
 		return nil, err
@@ -208,9 +204,4 @@ func NewRestakeFromABIBinary(data []byte) (*Restake, error) {
 		return nil, errDecodeFailure
 	}
 	return &rs, nil
-}
-
-// StakingData returns the ABI-encoded data
-func (rs *Restake) StakingData() ([]byte, error) {
-	return rs.encodeABIBinary()
 }

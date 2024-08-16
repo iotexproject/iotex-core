@@ -71,8 +71,8 @@ var (
 
 	_claimRewardingMethodV1 abi.Method
 	_claimRewardingMethodV2 abi.Method
-	_                       hasRewardingData = (*ClaimFromRewardingFund)(nil)
-	errWrongMethodSig                        = errors.New("wrong method signature")
+	_                       EthCompatibleAction = (*ClaimFromRewardingFund)(nil)
+	errWrongMethodSig                           = errors.New("wrong method signature")
 )
 
 func init() {
@@ -94,7 +94,7 @@ func init() {
 // ClaimFromRewardingFund is the action to claim reward from the rewarding fund
 type ClaimFromRewardingFund struct {
 	AbstractAction
-
+	reward_common
 	amount  *big.Int
 	address address.Address
 	data    []byte
@@ -206,8 +206,8 @@ func (b *ClaimFromRewardingFundBuilder) Build() ClaimFromRewardingFund {
 	return b.claim
 }
 
-// encodeABIBinary encodes data in abi encoding
-func (c *ClaimFromRewardingFund) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (c *ClaimFromRewardingFund) EthData() ([]byte, error) {
 	if c.address == nil {
 		// this is v1 ABI before adding address field
 		data, err := _claimRewardingMethodV1.Inputs.Pack(c.Amount(), c.Data())
@@ -221,11 +221,6 @@ func (c *ClaimFromRewardingFund) encodeABIBinary() ([]byte, error) {
 		return nil, err
 	}
 	return append(_claimRewardingMethodV2.ID, data...), nil
-}
-
-// RewardingData returns the ABI-encoded data
-func (c *ClaimFromRewardingFund) RewardingData() ([]byte, error) {
-	return c.encodeABIBinary()
 }
 
 // NewClaimFromRewardingFundFromABIBinary decodes data into action

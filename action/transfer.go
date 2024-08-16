@@ -26,8 +26,8 @@ const (
 )
 
 var (
-	_ hasDestination = (*Transfer)(nil)
-	_ hasToValueData = (*Transfer)(nil)
+	_ hasDestination      = (*Transfer)(nil)
+	_ EthCompatibleAction = (*Transfer)(nil)
 )
 
 // Transfer defines the struct of account-based transfer
@@ -153,12 +153,22 @@ func (tsf *Transfer) SanityCheck() error {
 	return tsf.AbstractAction.SanityCheck()
 }
 
-// ToValueData returns the to, value, and data fields
-func (tsf *Transfer) ToValueData() (*common.Address, *big.Int, []byte, error) {
+// EthTo returns the address for converting to eth tx
+func (tsf *Transfer) EthTo() (*common.Address, error) {
 	addr, err := address.FromString(tsf.recipient)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	ethAddr := common.BytesToAddress(addr.Bytes())
-	return &ethAddr, tsf.Amount(), tsf.Payload(), nil
+	return &ethAddr, nil
+}
+
+// Value returns the value for converting to eth tx
+func (tsf *Transfer) Value() *big.Int {
+	return tsf.amount
+}
+
+// EthData returns the data for converting to eth tx
+func (tsf *Transfer) EthData() ([]byte, error) {
+	return tsf.payload, nil
 }

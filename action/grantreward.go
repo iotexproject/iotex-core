@@ -18,7 +18,7 @@ import (
 
 var (
 	_grantRewardMethod abi.Method
-	_                  hasRewardingData = (*GrantReward)(nil)
+	_                  EthCompatibleAction = (*GrantReward)(nil)
 )
 
 const (
@@ -64,7 +64,7 @@ func init() {
 // GrantReward is the action to grant either block or epoch reward
 type GrantReward struct {
 	AbstractAction
-
+	reward_common
 	rewardType int
 	height     uint64
 }
@@ -118,12 +118,8 @@ func (*GrantReward) Cost() (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (g *GrantReward) EncodeABIBinary() ([]byte, error) {
-	return g.encodeABIBinary()
-}
-
-func (g *GrantReward) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (g *GrantReward) EthData() ([]byte, error) {
 	data, err := _grantRewardMethod.Inputs.Pack(
 		int8(g.rewardType),
 		g.height,
@@ -132,11 +128,6 @@ func (g *GrantReward) encodeABIBinary() ([]byte, error) {
 		return nil, err
 	}
 	return append(_grantRewardMethod.ID, data...), nil
-}
-
-// RewardingData returns the ABI-encoded data
-func (g *GrantReward) RewardingData() ([]byte, error) {
-	return g.encodeABIBinary()
 }
 
 // GrantRewardBuilder is the struct to build GrantReward

@@ -92,13 +92,13 @@ var (
 	// ErrInvalidOwner represents that owner address is invalid
 	ErrInvalidOwner = errors.New("invalid owner address")
 
-	_ hasStakingData = (*CandidateRegister)(nil)
+	_ EthCompatibleAction = (*CandidateRegister)(nil)
 )
 
 // CandidateRegister is the action to register a candidate
 type CandidateRegister struct {
 	AbstractAction
-
+	stake_common
 	name            string
 	operatorAddress address.Address
 	rewardAddress   address.Address
@@ -302,12 +302,8 @@ func (cr *CandidateRegister) SanityCheck() error {
 	return cr.AbstractAction.SanityCheck()
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (cr *CandidateRegister) EncodeABIBinary() ([]byte, error) {
-	return cr.encodeABIBinary()
-}
-
-func (cr *CandidateRegister) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (cr *CandidateRegister) EthData() ([]byte, error) {
 	if cr.operatorAddress == nil {
 		return nil, ErrAddress
 	}
@@ -380,11 +376,6 @@ func ethAddrToNativeAddr(in interface{}) (address.Address, error) {
 		return nil, errDecodeFailure
 	}
 	return address.FromBytes(ethAddr.Bytes())
-}
-
-// StakingData returns the ABI-encoded data
-func (cr *CandidateRegister) StakingData() ([]byte, error) {
-	return cr.encodeABIBinary()
 }
 
 // IsValidCandidateName check if a candidate name string is valid.

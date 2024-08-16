@@ -56,13 +56,13 @@ const (
 var (
 	// _depositToStakeMethod is the interface of the abi encoding of stake action
 	_depositToStakeMethod abi.Method
-	_                     hasStakingData = (*DepositToStake)(nil)
+	_                     EthCompatibleAction = (*DepositToStake)(nil)
 )
 
 // DepositToStake defines the action of stake add deposit
 type DepositToStake struct {
 	AbstractAction
-
+	stake_common
 	bucketIndex uint64
 	amount      *big.Int
 	payload     []byte
@@ -179,12 +179,8 @@ func (ds *DepositToStake) SanityCheck() error {
 	return ds.AbstractAction.SanityCheck()
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (ds *DepositToStake) EncodeABIBinary() ([]byte, error) {
-	return ds.encodeABIBinary()
-}
-
-func (ds *DepositToStake) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (ds *DepositToStake) EthData() ([]byte, error) {
 	data, err := _depositToStakeMethod.Inputs.Pack(ds.bucketIndex, ds.amount, ds.payload)
 	if err != nil {
 		return nil, err
@@ -216,9 +212,4 @@ func NewDepositToStakeFromABIBinary(data []byte) (*DepositToStake, error) {
 		return nil, errDecodeFailure
 	}
 	return &ds, nil
-}
-
-// StakingData returns the ABI-encoded data
-func (ds *DepositToStake) StakingData() ([]byte, error) {
-	return ds.encodeABIBinary()
 }

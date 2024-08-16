@@ -71,8 +71,8 @@ var (
 	_unstakeMethod abi.Method
 	// _withdrawStakeMethod is the interface of the abi encoding of withdrawStake action
 	_withdrawStakeMethod abi.Method
-	_                    hasStakingData = (*Unstake)(nil)
-	_                    hasStakingData = (*WithdrawStake)(nil)
+	_                    EthCompatibleAction = (*Unstake)(nil)
+	_                    EthCompatibleAction = (*WithdrawStake)(nil)
 )
 
 func init() {
@@ -94,7 +94,7 @@ func init() {
 // reclaimStake defines the action of stake restake/withdraw
 type reclaimStake struct {
 	AbstractAction
-
+	stake_common
 	bucketIndex uint64
 	payload     []byte
 }
@@ -174,12 +174,8 @@ func (su *Unstake) Cost() (*big.Int, error) {
 	return unstakeFee, nil
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (su *Unstake) EncodeABIBinary() ([]byte, error) {
-	return su.encodeABIBinary()
-}
-
-func (su *Unstake) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (su *Unstake) EthData() ([]byte, error) {
 	data, err := _unstakeMethod.Inputs.Pack(su.bucketIndex, su.payload)
 	if err != nil {
 		return nil, err
@@ -208,11 +204,6 @@ func NewUnstakeFromABIBinary(data []byte) (*Unstake, error) {
 		return nil, errDecodeFailure
 	}
 	return &su, nil
-}
-
-// StakingData returns the ABI-encoded data
-func (su *Unstake) StakingData() ([]byte, error) {
-	return su.encodeABIBinary()
 }
 
 // WithdrawStake defines the action of stake withdraw
@@ -258,12 +249,8 @@ func (sw *WithdrawStake) Cost() (*big.Int, error) {
 	return withdrawFee, nil
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (sw *WithdrawStake) EncodeABIBinary() ([]byte, error) {
-	return sw.encodeABIBinary()
-}
-
-func (sw *WithdrawStake) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (sw *WithdrawStake) EthData() ([]byte, error) {
 	data, err := _withdrawStakeMethod.Inputs.Pack(sw.bucketIndex, sw.payload)
 	if err != nil {
 		return nil, err
@@ -292,9 +279,4 @@ func NewWithdrawStakeFromABIBinary(data []byte) (*WithdrawStake, error) {
 		return nil, errDecodeFailure
 	}
 	return &sw, nil
-}
-
-// StakingData returns the ABI-encoded data
-func (sw *WithdrawStake) StakingData() ([]byte, error) {
-	return sw.encodeABIBinary()
 }

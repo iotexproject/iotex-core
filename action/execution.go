@@ -30,9 +30,9 @@ const (
 )
 
 var (
-	_ hasDestination = (*Execution)(nil)
-	_ hasToValueData = (*Execution)(nil)
-	_ TxData         = (*Execution)(nil)
+	_ hasDestination      = (*Execution)(nil)
+	_ EthCompatibleAction = (*Execution)(nil)
+	_ TxData              = (*Execution)(nil)
 )
 
 // Execution defines the struct of account-based contract execution
@@ -248,7 +248,25 @@ func (ex *Execution) SanityCheck() error {
 	return ex.AbstractAction.SanityCheck()
 }
 
-// ToValueData returns the to, value, and data fields
-func (ex *Execution) ToValueData() (*common.Address, *big.Int, []byte, error) {
-	return ex.To(), ex.Amount(), ex.Data(), nil
+// EthTo returns the address for converting to eth tx
+func (ex *Execution) EthTo() (*common.Address, error) {
+	if ex.contract == EmptyAddress {
+		return nil, nil
+	}
+	addr, err := address.FromString(ex.contract)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	return &ethAddr, nil
+}
+
+// Value returns the value for converting to eth tx
+func (ex *Execution) Value() *big.Int {
+	return ex.amount
+}
+
+// EthData returns the data for converting to eth tx
+func (ex *Execution) EthData() ([]byte, error) {
+	return ex.data, nil
 }

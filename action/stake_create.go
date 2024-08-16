@@ -65,7 +65,7 @@ const (
 var (
 	// _createStakeMethod is the interface of the abi encoding of stake action
 	_createStakeMethod abi.Method
-	_                  hasStakingData = (*CreateStake)(nil)
+	_                  EthCompatibleAction = (*CreateStake)(nil)
 
 	errDecodeFailure = errors.New("failed to decode the data")
 )
@@ -73,7 +73,7 @@ var (
 // CreateStake defines the action of CreateStake creation
 type CreateStake struct {
 	AbstractAction
-
+	stake_common
 	candName  string
 	amount    *big.Int
 	duration  uint32
@@ -214,12 +214,8 @@ func (cs *CreateStake) SanityCheck() error {
 	return cs.AbstractAction.SanityCheck()
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (cs *CreateStake) EncodeABIBinary() ([]byte, error) {
-	return cs.encodeABIBinary()
-}
-
-func (cs *CreateStake) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (cs *CreateStake) EthData() ([]byte, error) {
 	data, err := _createStakeMethod.Inputs.Pack(cs.candName, cs.amount, cs.duration, cs.autoStake, cs.payload)
 	if err != nil {
 		return nil, err
@@ -257,9 +253,4 @@ func NewCreateStakeFromABIBinary(data []byte) (*CreateStake, error) {
 		return nil, errDecodeFailure
 	}
 	return &cs, nil
-}
-
-// StakingData returns the ABI-encoded data
-func (cs *CreateStake) StakingData() ([]byte, error) {
-	return cs.encodeABIBinary()
 }
