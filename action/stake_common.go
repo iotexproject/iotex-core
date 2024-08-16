@@ -11,12 +11,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+// this struct is meant to return constant value for all staking actions, so we
+// can use value receiver below
 type stake_common struct{}
 
-func (*stake_common) EthTo() (*common.Address, error) {
+func (stake_common) EthTo() (*common.Address, error) {
 	return &_stakingProtocolEthAddr, nil
 }
 
-func (*stake_common) Value() *big.Int {
-	return &big.Int{}
-}
+func (stake_common) Value() *big.Int { return nil }

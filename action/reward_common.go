@@ -11,12 +11,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+// this struct is meant to return constant value for all rewarding actions, so we
+// can use value receiver below
 type reward_common struct{}
 
-func (*reward_common) EthTo() (*common.Address, error) {
+func (reward_common) EthTo() (*common.Address, error) {
 	return &_rewardingProtocolEthAddr, nil
 }
 
-func (*reward_common) Value() *big.Int {
-	return &big.Int{}
-}
+func (reward_common) Value() *big.Int { return nil }
