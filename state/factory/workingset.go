@@ -10,6 +10,7 @@ import (
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -195,6 +196,14 @@ func (ws *workingSet) runAction(
 			)
 		}
 		if receipt != nil {
+			// TODO: handle blob transaction
+			isBlobTx := false
+			if protocol.MustGetFeatureCtx(ctx).DisableBlobTransaction || !isBlobTx {
+				return receipt, nil
+			}
+			blobNum := 0
+			receipt.BlobGasUsed = uint64(blobNum) * params.BlobTxBlobGasPerBlob
+			receipt.BlobGasPrice = block.CalcBlobFee(protocol.MustGetBlockchainCtx(ctx).Tip.ExcessBlobGas)
 			return receipt, nil
 		}
 	}
@@ -740,6 +749,10 @@ func (ws *workingSet) CreateBuilder(
 	if fCtx.EnableDynamicFeeTx {
 		blkBuilder.SetGasUsed(calculateGasUsed(ws.receipts))
 		blkBuilder.SetBaseFee(block.CalcBaseFee(g.Blockchain, &bcCtx.Tip))
+	}
+	if fCtx.DisableBlobTransaction {
+		blkBuilder.SetBlobGasUsed(calculateBlobGasUsed(ws.receipts))
+		blkBuilder.SetExcessBlobGas(block.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed))
 	}
 	return blkBuilder, nil
 }

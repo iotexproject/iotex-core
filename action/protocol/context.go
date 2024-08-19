@@ -35,11 +35,13 @@ type (
 
 	// TipInfo contains the tip block information
 	TipInfo struct {
-		Height    uint64
-		GasUsed   uint64
-		Hash      hash.Hash256
-		Timestamp time.Time
-		BaseFee   *big.Int
+		Height        uint64
+		GasUsed       uint64
+		Hash          hash.Hash256
+		Timestamp     time.Time
+		BaseFee       *big.Int
+		BlobGasUsed   uint64
+		ExcessBlobGas uint64
 	}
 
 	// BlockchainCtx provides blockchain auxiliary information.
@@ -129,6 +131,7 @@ type (
 		AddClaimRewardAddress                   bool
 		EnforceLegacyEndorsement                bool
 		EnableDynamicFeeTx                      bool
+		DisableBlobTransaction                  bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -281,6 +284,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			AddClaimRewardAddress:                   g.IsUpernavik(height),
 			EnforceLegacyEndorsement:                !g.IsUpernavik(height),
 			EnableDynamicFeeTx:                      g.IsVanuatu(height),
+			DisableBlobTransaction:                  !g.IsVanuatu(height),
 		},
 	)
 }

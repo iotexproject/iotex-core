@@ -26,6 +26,8 @@ type (
 		BlockHeight        uint64
 		ActionHash         hash.Hash256
 		GasConsumed        uint64
+		BlobGasUsed        uint64
+		BlobGasPrice       *big.Int
 		ContractAddress    string
 		TxIndex            uint32
 		logs               []*Log
