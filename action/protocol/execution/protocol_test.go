@@ -429,7 +429,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.ActionGasLimit = 10000000
 	}
 	if sct.InitGenesis.IsCancun {
-		cfg.Genesis.Blockchain.UpernavikBlockHeight = 0
+		cfg.Genesis.Blockchain.VanuatuBlockHeight = 0
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
@@ -1305,9 +1305,10 @@ func TestShanghaiEVM(t *testing.T) {
 
 func TestCancunEVM(t *testing.T) {
 	t.Run("eip1153-transientstorage", func(t *testing.T) {
-		// TODO: re-enable this test when enable Cancun
-		t.Skip()
 		NewSmartContractTest(t, "testdata-cancun/transientstorage.json")
+	})
+	t.Run("eip5656-mcopy", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-cancun/mcopy.json")
 	})
 }
 
