@@ -82,6 +82,14 @@ func calculateGasUsed(receipts []*action.Receipt) uint64 {
 	return gas
 }
 
+func calculateBlobGasUsed(receipts []*action.Receipt) uint64 {
+	var blobGas uint64
+	for _, receipt := range receipts {
+		blobGas += receipt.BlobGasUsed
+	}
+	return blobGas
+}
+
 // generateWorkingSetCacheKey generates hash key for workingset cache by hashing blockheader core and producer pubkey
 func generateWorkingSetCacheKey(blkHeader block.Header, producerAddr string) hash.Hash256 {
 	sum := append(blkHeader.SerializeCore(), []byte(producerAddr)...)

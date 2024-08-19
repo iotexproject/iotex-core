@@ -96,6 +96,18 @@ func (b *Builder) SetBaseFee(fee *big.Int) *Builder {
 	return b
 }
 
+// SetBlobGasUsed sets the blob gas used
+func (b *Builder) SetBlobGasUsed(g uint64) *Builder {
+	b.blk.Header.blobGasUsed = g
+	return b
+}
+
+// SetExcessBlobGas sets the excess blob gas
+func (b *Builder) SetExcessBlobGas(g uint64) *Builder {
+	b.blk.Header.excessBlobGas = g
+	return b
+}
+
 // SignAndBuild signs and then builds a block.
 func (b *Builder) SignAndBuild(signerPrvKey crypto.PrivateKey) (Block, error) {
 	b.blk.Header.pubkey = signerPrvKey.PublicKey()
