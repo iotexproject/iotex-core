@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -40,6 +41,7 @@ const (
 
 type (
 	blobStore struct {
+		lifecycle.Readiness
 		config blobStoreConfig // Configuration for the blob store
 
 		store  billy.Database // Persistent data store for the tx
@@ -86,6 +88,7 @@ func newBlobStore(cfg blobStoreConfig, encode encodeAction, decode decodeAction)
 func (s *blobStore) Open(onData onAction) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
+
 	dir := s.config.Datadir
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return errors.Wrap(err, "failed to create blob store directory")
@@ -124,21 +127,26 @@ func (s *blobStore) Open(onData onAction) error {
 			}
 		}
 	}
-	return nil
+
+	return s.TurnOn()
 }
 
 func (s *blobStore) Close() error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
+
+	if err := s.TurnOff(); err != nil {
+		return err
+	}
 	return s.store.Close()
 }
 
 func (s *blobStore) Get(hash hash.Hash256) (*action.SealedEnvelope, error) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-	if s.store == nil {
+	if !s.IsReady() {
 		return nil, errors.Wrap(errStoreNotOpen, "")
 	}
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 
 	id, ok := s.lookup[hash]
 	if !ok {
@@ -152,11 +160,12 @@ func (s *blobStore) Get(hash hash.Hash256) (*action.SealedEnvelope, error) {
 }
 
 func (s *blobStore) Put(act *action.SealedEnvelope) error {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	if s.store == nil {
+	if !s.IsReady() {
 		return errors.Wrap(errStoreNotOpen, "")
 	}
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	h, _ := act.Hash()
 	// if action is already stored, nothing to do
 	if _, ok := s.lookup[h]; ok {
@@ -181,11 +190,11 @@ func (s *blobStore) Put(act *action.SealedEnvelope) error {
 }
 
 func (s *blobStore) Delete(hash hash.Hash256) error {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	if s.store == nil {
+	if !s.IsReady() {
 		return errors.Wrap(errStoreNotOpen, "")
 	}
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
 	id, ok := s.lookup[hash]
 	if !ok {
@@ -200,6 +209,9 @@ func (s *blobStore) Delete(hash hash.Hash256) error {
 
 // Range iterates over all stored with hashes
 func (s *blobStore) Range(fn func(hash.Hash256) bool) {
+	if !s.IsReady() {
+		return
+	}
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
@@ -211,23 +223,21 @@ func (s *blobStore) Range(fn func(hash.Hash256) bool) {
 }
 
 func (s *blobStore) drop() {
-	for {
-		h, ok := s.evict()
-		if !ok {
-			log.L().Error("no worst action found")
-			return
-		}
-		id, ok := s.lookup[h]
-		if !ok {
-			log.L().Error("worst action not found in lookup", zap.String("hash", hex.EncodeToString(h[:])))
-			continue
-		}
-		if err := s.store.Delete(id); err != nil {
-			log.L().Error("failed to delete worst action", zap.Error(err))
-		}
-		delete(s.lookup, h)
+	h, ok := s.evict()
+	if !ok {
+		log.L().Debug("no worst action found")
 		return
 	}
+	id, ok := s.lookup[h]
+	if !ok {
+		log.L().Warn("worst action not found in lookup", zap.String("hash", hex.EncodeToString(h[:])))
+		return
+	}
+	if err := s.store.Delete(id); err != nil {
+		log.L().Error("failed to delete worst action", zap.Error(err))
+	}
+	delete(s.lookup, h)
+	return
 }
 
 // TODO: implement a proper eviction policy
