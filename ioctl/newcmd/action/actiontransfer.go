@@ -21,7 +21,7 @@ import (
 // Multi-language support
 var (
 	_actionTransferCmdShorts = map[config.Language]string{
-		config.English: "Transfer tokens on IoTeX blokchain",
+		config.English: "Transfer tokens on IoTeX blockchain",
 		config.Chinese: "在IoTeX区块链上转移令牌",
 	}
 	_actionTransferCmdUses = map[config.Language]string{

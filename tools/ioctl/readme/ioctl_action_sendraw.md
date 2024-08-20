@@ -1,10 +1,10 @@
 ## ioctl action sendraw
 
-Send raw action on IoTeX blokchain
+Send raw action on IoTeX blockchain
 
 ### Synopsis
 
-Send raw action on IoTeX blokchain
+Send raw action on IoTeX blockchain
 
 ```
 ioctl action sendraw DATA [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y] [flags]
