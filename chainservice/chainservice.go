@@ -8,11 +8,12 @@ package chainservice
 import (
 	"context"
 
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -22,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/actsync"
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -70,13 +72,13 @@ type ChainService struct {
 	bfIndexer                blockindex.BloomFilterIndexer
 	candidateIndexer         *poll.CandidateIndexer
 	candBucketsIndexer       *staking.CandidatesBucketsIndexer
-	sgdIndexer               blockindex.SGDRegistry
 	contractStakingIndexer   *contractstaking.Indexer
 	contractStakingIndexerV2 stakingindex.StakingIndexer
 	registry                 *protocol.Registry
 	nodeInfoManager          *nodeinfo.InfoManager
 	apiStats                 *nodestats.APILocalStats
 	blockTimeCalculator      *blockutil.BlockTimeCalculator
+	actionsync               *actsync.ActionSync
 }
 
 // Start starts the server
@@ -105,7 +107,37 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 	if err != nil {
 		log.L().Debug(err.Error())
 	}
-	return err
+	// TODO: only update action sync for blob action
+	hash, err := act.Hash()
+	if err != nil {
+		return err
+	}
+	cs.actionsync.ReceiveAction(ctx, hash)
+	return nil
+}
+
+// HandleActionHash handles incoming action hash request.
+func (cs *ChainService) HandleActionHash(ctx context.Context, actHash hash.Hash256, from string) error {
+	_, err := cs.actpool.GetActionByHash(actHash)
+	if err == nil { // action already in pool
+		return nil
+	}
+	if !errors.Is(err, action.ErrNotFound) {
+		return err
+	}
+	cs.actionsync.RequestAction(ctx, actHash)
+	return nil
+}
+
+func (cs *ChainService) HandleActionRequest(ctx context.Context, peer peer.AddrInfo, actHash hash.Hash256) error {
+	act, err := cs.actpool.GetActionByHash(actHash)
+	if err != nil {
+		if errors.Is(err, action.ErrNotFound) {
+			return nil
+		}
+		return err
+	}
+	return cs.p2pAgent.UnicastOutbound(ctx, peer, act.Proto())
 }
 
 // HandleBlock handles incoming block request.
@@ -195,7 +227,6 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 		}),
 		api.WithNativeElection(cs.electionCommittee),
 		api.WithAPIStats(cs.apiStats),
-		api.WithSGDIndexer(cs.sgdIndexer),
 	}
 
 	svr, err := api.NewServerV2(

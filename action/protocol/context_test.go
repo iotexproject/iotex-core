@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -7,6 +7,7 @@ package protocol
 
 import (
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
@@ -41,7 +42,10 @@ func TestGetBlockchainCtx(t *testing.T) {
 	bcCtx := BlockchainCtx{
 		Tip: TipInfo{
 			Height:    1024,
+			GasUsed:   21000,
+			Hash:      hash.BytesToHash256([]byte{1, 2, 4}),
 			Timestamp: time.Now(),
+			BaseFee:   big.NewInt(100),
 		},
 		ChainID:      1,
 		EvmNetworkID: 100,

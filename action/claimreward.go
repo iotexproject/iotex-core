@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -95,7 +94,7 @@ func init() {
 // ClaimFromRewardingFund is the action to claim reward from the rewarding fund
 type ClaimFromRewardingFund struct {
 	AbstractAction
-
+	reward_common
 	amount  *big.Int
 	address address.Address
 	data    []byte
@@ -207,8 +206,8 @@ func (b *ClaimFromRewardingFundBuilder) Build() ClaimFromRewardingFund {
 	return b.claim
 }
 
-// encodeABIBinary encodes data in abi encoding
-func (c *ClaimFromRewardingFund) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (c *ClaimFromRewardingFund) EthData() ([]byte, error) {
 	if c.address == nil {
 		// this is v1 ABI before adding address field
 		data, err := _claimRewardingMethodV1.Inputs.Pack(c.Amount(), c.Data())
@@ -222,22 +221,6 @@ func (c *ClaimFromRewardingFund) encodeABIBinary() ([]byte, error) {
 		return nil, err
 	}
 	return append(_claimRewardingMethodV2.ID, data...), nil
-}
-
-// ToEthTx converts action to eth-compatible tx
-func (c *ClaimFromRewardingFund) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := c.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    c.Nonce(),
-		GasPrice: c.GasPrice(),
-		Gas:      c.GasLimit(),
-		To:       &_rewardingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
 }
 
 // NewClaimFromRewardingFundFromABIBinary decodes data into action

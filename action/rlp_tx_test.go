@@ -1,3 +1,8 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package action
 
 import (
@@ -11,7 +16,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	iotexcrypto "github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -31,56 +36,45 @@ func TestGenerateRlp(t *testing.T) {
 		gasLimit: 1000,
 		gasPrice: new(big.Int),
 	}
-	rlpTsf := &Transfer{
-		AbstractAction: ab,
-		recipient:      "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3071",
-	}
-	rlpTsf1 := &Transfer{
-		AbstractAction: ab,
-		amount:         big.NewInt(100),
-		recipient:      "",
-	}
-	hT1, _ := hex.DecodeString("87e39e819193ae46472eb1320739b34c4c3b38ea321c7cc503432bdcfd0cbf15")
-	rlpTsf2 := &Transfer{
-		AbstractAction: ab,
-		recipient:      "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
-	}
-	hT2, _ := hex.DecodeString("eaaf38a552809a9bdb1509c8093bd2c74eb07baff862dae692c1d2b865478b14")
-	rlpExec := &Execution{
-		AbstractAction: ab,
-		amount:         big.NewInt(100),
-		data:           _signByte,
-	}
-	hE1, _ := hex.DecodeString("fcdd0c3d07f438d6e67ea852b40e5dc256d75f5e1fa9ac3ca96030efeb634150")
-	rlpExec1 := &Execution{
-		AbstractAction: ab,
-		contract:       "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
-		amount:         big.NewInt(100),
-		data:           _signByte,
-	}
-	hE2, _ := hex.DecodeString("fee3db88ee7d7defa9eded672d08fc8641f760f3a11d404a53276ad6f412b8a5")
-	rlpTests := []struct {
-		act  Action
+	builder := (&EnvelopeBuilder{}).SetNonce(ab.Nonce()).SetGasLimit(ab.GasLimit()).SetGasPrice(ab.GasPrice())
+	for _, v := range []struct {
+		act  actionPayload
 		sig  []byte
 		err  string
 		hash hash.Hash256
 	}{
-		{nil, _validSig, ErrNilAction.Error(), hash.ZeroHash256},
-		{rlpTsf, _validSig, address.ErrInvalidAddr.Error(), hash.ZeroHash256},
-		{rlpTsf1, _signByte, "address length = 0, expecting 41", hash.ZeroHash256},
-		{rlpTsf1, _validSig, "", hash.BytesToHash256(hT1)},
-		{rlpTsf2, _validSig, "", hash.BytesToHash256(hT2)},
-		{rlpExec, _validSig, "", hash.BytesToHash256(hE1)},
-		{rlpExec1, _validSig, "", hash.BytesToHash256(hE2)},
-	}
-
-	for _, v := range rlpTests {
-		act, ok := v.act.(EthCompatibleAction)
-		if !ok {
-			require.Contains(v.err, ErrNilAction.Error())
-			continue
-		}
-		tx, err := act.ToEthTx(0)
+		{&Transfer{
+			AbstractAction: ab,
+			recipient:      "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3071",
+		}, _validSig, address.ErrInvalidAddr.Error(), hash.ZeroHash256},
+		{&Transfer{
+			AbstractAction: ab,
+			amount:         big.NewInt(100),
+			recipient:      "",
+		}, _signByte, "address length = 0, expecting 41", hash.ZeroHash256},
+		{&Transfer{
+			AbstractAction: ab,
+			amount:         big.NewInt(100),
+			recipient:      "",
+		}, _validSig, "", hash.BytesToHash256(MustNoErrorV(hex.DecodeString("87e39e819193ae46472eb1320739b34c4c3b38ea321c7cc503432bdcfd0cbf15")))},
+		{&Transfer{
+			AbstractAction: ab,
+			recipient:      "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
+		}, _validSig, "", hash.BytesToHash256(MustNoErrorV(hex.DecodeString("eaaf38a552809a9bdb1509c8093bd2c74eb07baff862dae692c1d2b865478b14")))},
+		{&Execution{
+			AbstractAction: ab,
+			amount:         big.NewInt(100),
+			data:           _signByte,
+		}, _validSig, "", hash.BytesToHash256(MustNoErrorV(hex.DecodeString("fcdd0c3d07f438d6e67ea852b40e5dc256d75f5e1fa9ac3ca96030efeb634150")))},
+		{&Execution{
+			AbstractAction: ab,
+			contract:       "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
+			amount:         big.NewInt(100),
+			data:           _signByte,
+		}, _validSig, "", hash.BytesToHash256(MustNoErrorV(hex.DecodeString("fee3db88ee7d7defa9eded672d08fc8641f760f3a11d404a53276ad6f412b8a5")))},
+	} {
+		elp := builder.SetAction(v.act).Build()
+		tx, err := elp.ToEthTx(0, iotextypes.Encoding_ETHEREUM_EIP155)
 		if err != nil {
 			require.Contains(err.Error(), v.err)
 			continue
@@ -105,7 +99,7 @@ type rlpTest struct {
 	to       string
 	chainID  uint32
 	encoding iotextypes.Encoding
-	dataLen  int
+	data     []byte
 	hash     string
 	pubkey   string
 	pkhash   string
@@ -122,7 +116,7 @@ var (
 	rlpTests = []rlpTest{
 		{
 			"transfer",
-			"f86e8085e8d4a51000825208943141df3f2e4415533bb6d6be2a351b2db9ee84ef88016345785d8a0000808224c6a0204d25fc0d7d8b3fdf162c6ee820f888f5533b1c382d79d5cbc8ec1d9091a9a8a016f1a58d7e0d0fd24be800f64a2d6433c5fcb31e3fc7562b7fbe62bc382a95bb",
+			"",
 			0,
 			21000,
 			"1000000000000",
@@ -130,10 +124,10 @@ var (
 			"0x3141df3f2e4415533bb6d6be2A351B2db9ee84EF",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			0,
-			"eead45fe6b510db9ed6dce9187280791c04bbaadd90c54a7f4b1f75ced382ff1",
-			"041ba784140be115e8fa8698933e9318558a895c75c7943100f0677e4d84ff2763ff68720a0d22c12d093a2d692d1e8292c3b7672fccf3b3db46a6e0bdad93be17",
-			"87eea07540789af85b64947aea21a3f00400b597",
+			nil,
+			"13d18bcf4ba5bfad081943dce8f971df64bf7abe64cf194d2d29f57d317647af",
+			"04b2113bcb7b4aefed1ee215aa8ae6818127ed7091c8d59c2dff9f053d097ec94b93be9e7399e8ee73105a0b53454cb4eb0943220b2357d0fdbd5fbffc687831ad",
+			"053b09e98ede40997546e8bb812cd838f18bb146",
 		},
 		{
 			"execution",
@@ -145,7 +139,7 @@ var (
 			"0xAC7AC39De679b19AaE042c0cE19fAcB86e0A4117",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			68,
+			MustNoErrorV(hex.DecodeString("a9059cbb0000000000000000000000003141df3f2e4415533bb6d6be2a351b2db9ee84ef000000000000000000000000000000000000000000000000000000003b9aca00")),
 			"7467dd6ccd4f3d7b6dc0002b26a45ad0b75a1793da4e3557cf6ff2582cbe25c9",
 			"041ba784140be115e8fa8698933e9318558a895c75c7943100f0677e4d84ff2763ff68720a0d22c12d093a2d692d1e8292c3b7672fccf3b3db46a6e0bdad93be17",
 			"87eea07540789af85b64947aea21a3f00400b597",
@@ -160,7 +154,7 @@ var (
 			EmptyAddress,
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			508,
+			MustNoErrorV(hex.DecodeString("608060405234801561001057600080fd5b50336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555061019c806100606000396000f3fe608060405234801561001057600080fd5b50600436106100415760003560e01c8063445df0ac146100465780638da5cb5b14610064578063fdacd576146100ae575b600080fd5b61004e6100dc565b6040518082815260200191505060405180910390f35b61006c6100e2565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b6100da600480360360208110156100c457600080fd5b8101908080359060200190929190505050610107565b005b60015481565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16141561016457806001819055505b5056fea265627a7a72315820e54fe55a78b9d8bec22b4d3e6b94b7e59799daee3940423eb1aa30fe643eeb9a64736f6c63430005100032")),
 			"b676128dae841742e3ab6e518acb30badc6b26230fe870821d1de08c85823067",
 			"049c6567f527f8fc98c0875d3d80097fcb4d5b7bfe037fc9dd5dbeaf563d58d7ff17a4f2b85df9734ecdb276622738e28f0b7cf224909ab7b128c5ca748729b0d2",
 			"1904bfcb93edc9bf961eead2e5c0de81dcc1d37d",
@@ -175,7 +169,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			260,
+			MustNoErrorV(hex.DecodeString("a3d374c400000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000640000000000000000000000000000000000000000000000000000000000000007000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000474657374000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")),
 			"f59e5f9ba10ec50fdd1ebb41c75c6d54cfc634428620930b6ba6300847127241",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
 			"1e14d5373e1af9cc77f0032ad2cd0fba8be5ea2e",
@@ -190,7 +184,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			132,
+			MustNoErrorV(hex.DecodeString("34e8e1450000000000000000000000000000000000000000000000000000000000000007000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000")),
 			"8823b599b46cd907c4691aa71b5668b835be76a8358fa9beb866610e27598592",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
 			"1e14d5373e1af9cc77f0032ad2cd0fba8be5ea2e",
@@ -205,7 +199,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			196,
+			MustNoErrorV(hex.DecodeString("fb3d51380000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000700000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000474657374000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")),
 			"23f29aebf4b193b02dd78866d56ea7a7b1cdbf27604d34868bb82993c216b4ec",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
 			"1e14d5373e1af9cc77f0032ad2cd0fba8be5ea2e",
@@ -220,7 +214,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			100,
+			MustNoErrorV(hex.DecodeString("2bde151d000000000000000000000000000000000000000000000000000000000000000700000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000")),
 			"0c8560b135d325573e6aad484d71e2887835acce7fd4a78eddcb24efe6071516",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
 			"1e14d5373e1af9cc77f0032ad2cd0fba8be5ea2e",
@@ -235,7 +229,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			100,
+			MustNoErrorV(hex.DecodeString("d179ffb5000000000000000000000000000000000000000000000000000000000000000700000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000")),
 			"49cc2e14f3d1c03d7e36686d962995ea0f30f65f948d5a59181a5504bc58c102",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
 			"1e14d5373e1af9cc77f0032ad2cd0fba8be5ea2e",
@@ -250,7 +244,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			164,
+			MustNoErrorV(hex.DecodeString("4c4fee4b00000000000000000000000000000000000000000000000000000000000000070000000000000000000000000000000000000000000000000000000000000007000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000")),
 			"c3d30b0fccf9d59ece79419d329e50082a8b6d86dee1b9f424f8852e154713d1",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
 			"1e14d5373e1af9cc77f0032ad2cd0fba8be5ea2e",
@@ -265,7 +259,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			132,
+			MustNoErrorV(hex.DecodeString("9cb560bb0000000000000000000000003041a575c7a70021e3082929798c8c3fdaa9d824000000000000000000000000000000000000000000000000000000000000000700000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000")),
 			"a60b2546839e889a0ef89be4f224fb70dab3e4ddb6f65391ff708b01116593c1",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
 			"1e14d5373e1af9cc77f0032ad2cd0fba8be5ea2e",
@@ -280,7 +274,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			356,
+			MustNoErrorV(hex.DecodeString("bee5f7b700000000000000000000000000000000000000000000000000000000000001000000000000000000000000003041a575c7a70021e3082929798c8c3fdaa9d8240000000000000000000000003041a575c7a70021e3082929798c8c3fdaa9d8240000000000000000000000003041a575c7a70021e3082929798c8c3fdaa9d8240000000000000000000000000000000000000000000000000000000000000064000000000000000000000000000000000000000000000000000000000000000700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000000474657374000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")),
 			"9aa470cbdc3b3fd8f51aae4770d6a58cf4016be18201f0efbae6d83d0b2aa096",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
 			"1e14d5373e1af9cc77f0032ad2cd0fba8be5ea2e",
@@ -295,7 +289,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			164,
+			MustNoErrorV(hex.DecodeString("435f9f2200000000000000000000000000000000000000000000000000000000000000600000000000000000000000003041a575c7a70021e3082929798c8c3fdaa9d8240000000000000000000000003041a575c7a70021e3082929798c8c3fdaa9d82400000000000000000000000000000000000000000000000000000000000000047465737400000000000000000000000000000000000000000000000000000000")),
 			"7a8d96d35c939bf1634d587b1f471c0f3f96ba750d64d43289c9eef267718ef0",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
 			"1e14d5373e1af9cc77f0032ad2cd0fba8be5ea2e",
@@ -310,7 +304,7 @@ var (
 			"0xA576C141e5659137ddDa4223d209d4744b2106BE",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			100,
+			MustNoErrorV(hex.DecodeString("2df163ef000000000000000000000000000000000000000000000000000000000000006500000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000")),
 			"4d26d0736ebd9e69bd5994f3730b05a2d48c810b3bb54818be65d02004cf4ff4",
 			"04830579b50e01602c2015c24e72fbc48bca1cca1e601b119ca73abe2e0b5bd61fcb7874567e091030d6b644f927445d80e00b3f9ca0c566c21c30615e94c343da",
 			"8d38efe45794d7fceea10b2262c23c12245959db",
@@ -325,7 +319,7 @@ var (
 			"0xA576C141e5659137ddDa4223d209d4744b2106BE",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			228,
+			MustNoErrorV(hex.DecodeString("d804b87c0000000000000000000000000000000000000000000000000000002e90edd000000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000029696f313433617638383078307863653474737939737877723861766870687135736768756d3737637400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")),
 			"2b34c548e0b8d027124ead244331c65a92fd7716ce4dac42c7bb5b342d21e240",
 			"04bc3a3123a0d72e1e622ec1a51087ef3b15a9d6db0f924c0fd8b4958653ff7608194321d1fd90c0c949b05b6b911d8d7e9aaadbe497e696367c19780a016ce440",
 			"fff810c667050c7e4263a39e796af8d5e74a1b55",
@@ -340,7 +334,7 @@ var (
 			"0xA576C141e5659137ddDa4223d209d4744b2106BE",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			100,
+			MustNoErrorV(hex.DecodeString("27852a6b000000000000000000000000000000000000000000000000000000000000006500000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000")),
 			"842fea9a292c0bc7a1e05a14a8255ed8dc945fdae7c01a6b70f5213ebe35583b",
 			"04830579b50e01602c2015c24e72fbc48bca1cca1e601b119ca73abe2e0b5bd61fcb7874567e091030d6b644f927445d80e00b3f9ca0c566c21c30615e94c343da",
 			"8d38efe45794d7fceea10b2262c23c12245959db",
@@ -355,7 +349,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			36,
+			MustNoErrorV(hex.DecodeString("ef68b1a40000000000000000000000000000000000000000000000000000000000000001")),
 			"db61959a804781ea9da78d6d4ce6054e1ea940ae4a2cac3853f5262728a9369e",
 			"049ea260dc05a824a8a7e92d3b87e47ce06384e1eee15d446494a20d299c1bd11900edc2df5697aa00b2256c286193239f83740d079b032b9fbe085b791fa10950",
 			"065e1164818487818e6ba714e8d80b91718ad758",
@@ -370,7 +364,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			68,
+			MustNoErrorV(hex.DecodeString("8a8a5d5100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001")),
 			"008d08ae3327ae395fdc0b16497e181c4eb6633cf796c174e8819cbb2a29194c",
 			"049ea260dc05a824a8a7e92d3b87e47ce06384e1eee15d446494a20d299c1bd11900edc2df5697aa00b2256c286193239f83740d079b032b9fbe085b791fa10950",
 			"065e1164818487818e6ba714e8d80b91718ad758",
@@ -385,7 +379,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			100,
+			MustNoErrorV(hex.DecodeString("3bf030350000000000000000000000007f54538b6260d754701e2f4a9a9bc0cb654293d900000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000")),
 			"a8eec664ab3df5dd23980c83c6e6c2dd2fe32c02383de89174bf2b7740d22e39",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
 			"1e14d5373e1af9cc77f0032ad2cd0fba8be5ea2e",
@@ -400,7 +394,7 @@ var (
 			EmptyAddress,
 			0,
 			iotextypes.Encoding_ETHEREUM_UNPROTECTED,
-			83,
+			MustNoErrorV(hex.DecodeString("604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3")),
 			"eddf9e61fb9d8f5111840daef55e5fde0041f5702856532cdbb5a02998033d26",
 			"040a98b1acb38ed9cd8d0e8f1f03b1588bae140586f8a8049197b65013a3c17690151ae422e3fdfb26be2e6a4465b1f9cf5c26a5635109929a0d0a11734124d50a",
 			"3fab184622dc19b6109349b94811493bf2a45362",
@@ -415,7 +409,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			36,
+			MustNoErrorV(hex.DecodeString("c53b10a4000000000000000000000000000000000000000000000000000000000000000a")),
 			"2cb96b971adc556d5deb3f1fbad0b480983545c154a5b9401670ff33dd1f68ce",
 			"04bc3a3123a0d72e1e622ec1a51087ef3b15a9d6db0f924c0fd8b4958653ff7608194321d1fd90c0c949b05b6b911d8d7e9aaadbe497e696367c19780a016ce440",
 			"fff810c667050c7e4263a39e796af8d5e74a1b55",
@@ -430,7 +424,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			36,
+			MustNoErrorV(hex.DecodeString("284ab8110000000000000000000000000000000000000000000000000000000000000002")),
 			"15cd6fec8876ca308d85cce80b26ea9b28c93f57d6823674c4d37efc34248d22",
 			"04bc3a3123a0d72e1e622ec1a51087ef3b15a9d6db0f924c0fd8b4958653ff7608194321d1fd90c0c949b05b6b911d8d7e9aaadbe497e696367c19780a016ce440",
 			"fff810c667050c7e4263a39e796af8d5e74a1b55",
@@ -445,7 +439,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			36,
+			MustNoErrorV(hex.DecodeString("85edc03c0000000000000000000000000000000000000000000000000000000000000002")),
 			"c30f7fdacfaba5d7c78963824579793409c3fed1bc5ab67735d128ef2c91eb59",
 			"04bc3a3123a0d72e1e622ec1a51087ef3b15a9d6db0f924c0fd8b4958653ff7608194321d1fd90c0c949b05b6b911d8d7e9aaadbe497e696367c19780a016ce440",
 			"fff810c667050c7e4263a39e796af8d5e74a1b55",
@@ -460,7 +454,7 @@ var (
 			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			_evmNetworkID,
 			iotextypes.Encoding_ETHEREUM_EIP155,
-			36,
+			MustNoErrorV(hex.DecodeString("120f99ad0000000000000000000000000000000000000000000000000000000000000002")),
 			"0a3270daa16fc706fc11dd64ca6e15ed67ccdc40dd1747d1d1001edb18ceaef4",
 			"04bc3a3123a0d72e1e622ec1a51087ef3b15a9d6db0f924c0fd8b4958653ff7608194321d1fd90c0c949b05b6b911d8d7e9aaadbe497e696367c19780a016ce440",
 			"fff810c667050c7e4263a39e796af8d5e74a1b55",
@@ -488,6 +482,7 @@ func TestNewEthSignerError(t *testing.T) {
 
 func TestEthTxDecodeVerify(t *testing.T) {
 	require := require.New(t)
+	sk := MustNoErrorV(crypto.HexStringToPrivateKey("a000000000000000000000000000000000000000000000000000000000000000")).EcdsaPrivateKey().(*ecdsa.PrivateKey)
 
 	checkSelp := func(selp *SealedEnvelope, tx *types.Transaction, e rlpTest) {
 		h, err := selp.Hash()
@@ -508,10 +503,14 @@ func TestEthTxDecodeVerify(t *testing.T) {
 
 	for _, v := range rlpTests {
 		t.Run(v.actType, func(t *testing.T) {
+			if len(v.raw) == 0 {
+				v.raw = generateRLPTestRaw(sk, &v)
+			}
 			// decode received RLP tx
 			tx, err := DecodeEtherTx(v.raw)
 			require.NoError(err)
 			encoding, sig, pubkey, err := ExtractTypeSigPubkey(tx)
+			require.NoError(err)
 			require.Equal(v.encoding, encoding)
 			V, _, _ := tx.RawSignatureValues()
 			recID := V.Uint64()
@@ -581,13 +580,7 @@ func TestEthTxDecodeVerify(t *testing.T) {
 				}
 
 				// evm tx conversion
-				var rlpTx *types.Transaction
-				if i == 0 {
-					act, ok := selp.Action().(EthCompatibleAction)
-					require.True(ok)
-					rlpTx, err = act.ToEthTx(uint32(tx.ChainId().Uint64()))
-					require.NoError(err)
-				} else {
+				if i == 1 {
 					// tx unfolding
 					_, ok := selp.Action().(*txContainer)
 					require.True(ok)
@@ -600,22 +593,25 @@ func TestEthTxDecodeVerify(t *testing.T) {
 					// selp converted to actual tx
 					_, ok = selp.Action().(TxContainer)
 					require.False(ok)
-					act, ok := selp.Action().(EthCompatibleAction)
-					require.True(ok)
-					rlpTx, err = act.ToEthTx(uint32(tx.ChainId().Uint64()))
-					require.NoError(err)
+
 				}
+				evmTx, err := selp.ToEthTx()
+				require.NoError(err)
 				// verify against original tx
-				require.Equal(v.nonce, rlpTx.Nonce())
-				require.Equal(v.price, rlpTx.GasPrice().String())
-				require.Equal(v.limit, rlpTx.Gas())
+				require.Equal(v.nonce, evmTx.Nonce())
+				require.Equal(v.price, evmTx.GasPrice().String())
+				require.Equal(v.limit, evmTx.Gas())
 				if v.to == "" {
-					require.Nil(rlpTx.To())
+					require.Nil(evmTx.To())
 				} else {
-					require.Equal(v.to, rlpTx.To().Hex())
+					require.Equal(v.to, evmTx.To().Hex())
 				}
-				require.Equal(v.amount, rlpTx.Value().String())
-				require.Equal(v.dataLen, len(rlpTx.Data()))
+				require.Equal(v.amount, evmTx.Value().String())
+				if v.data != nil {
+					require.Equal(v.data, evmTx.Data())
+				} else {
+					require.Zero(len(evmTx.Data()))
+				}
 			}
 		})
 	}
@@ -625,7 +621,7 @@ func TestEthTxDecodeVerify(t *testing.T) {
 func TestEthTxDecodeVerifyV2(t *testing.T) {
 	var (
 		r        = require.New(t)
-		sk, _    = iotexcrypto.HexStringToPrivateKey("708361c6460c93f027df0823eb440f3270ee2937944f2de933456a3900d6dd1a")
+		sk, _    = crypto.HexStringToPrivateKey("708361c6460c93f027df0823eb440f3270ee2937944f2de933456a3900d6dd1a")
 		nonce    = uint64(100)
 		amount   = big.NewInt(1)
 		to       = "io1c04r4jc8q6u57phxpla639u5h5v2t3s062hyxa"
@@ -649,7 +645,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 		txto     string                                     // assertion of tx.To()
 		txamount *big.Int                                   // assertion of tx.Value()
 		txdata   []byte                                     // assertion of tx.Data()
-		action   EthCompatibleAction                        // eth compatible action
+		action   actionPayload                              // eth compatible action
 		builder  func(*types.Transaction) (Envelope, error) // envelope builder
 	}{
 		{
@@ -1014,7 +1010,8 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			}
 			// build eth tx from test case
 			var (
-				tx        = MustNoErrorV(tt.action.ToEthTx(chainID))
+				elp       = elpbuilder.SetAction(tt.action).Build()
+				tx        = MustNoErrorV(elp.ToEthTx(chainID, tt.encoding))
 				signer    = MustNoErrorV(NewEthSigner(tt.encoding, chainID))
 				signature = MustNoErrorV(sk.Sign(tx.Hash().Bytes()))
 				builttx   = MustNoErrorV(RawTxToSignedTx(tx, signer, signature))
@@ -1035,7 +1032,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			verifytx(decodedtx, tt.encoding, tt.txamount, tt.txdata, toaddr, sv)
 
 			// build elp from eth tx by native converter
-			elp, err := tt.builder(decodedtx)
+			elp, err = tt.builder(decodedtx)
 			r.NoError(err)
 			sealed, err := (&Deserializer{}).
 				SetEvmNetworkID(chainID).
@@ -1046,9 +1043,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 					Encoding:     tt.encoding,
 				})
 			r.NoError(err)
-			action, ok := sealed.Action().(EthCompatibleAction)
-			r.True(ok)
-			convertedrawtx, err := action.ToEthTx(chainID)
+			convertedrawtx, err := sealed.ToEthTx()
 			r.NoError(err)
 			r.NoError(sealed.VerifySignature())
 			convertedsignedtx, err := RawTxToSignedTx(convertedrawtx, signer, signature)
@@ -1165,36 +1160,26 @@ func TestIssue3944(t *testing.T) {
 	r.Equal(hash, tx1.Hash().Hex())
 }
 
-// generateRLPTestData generates RLP test data for testing
-// for example to generate for migrate stake action, use the following code snippet:
-//
-//	act, err := NewMigrateStake(120, 10, 21000, big.NewInt(10000))
-//	test, err := generateRLPTestData("migrateStake", _evmNetworkID, iotextypes.Encoding_ETHEREUM_EIP155, identityset.PrivateKey(1), act)
-//	fmt.Sprintf("test=%+v", test)
-func generateRLPTestData(actType string, chainID uint32, encoding iotextypes.Encoding, sk iotexcrypto.PrivateKey, act EthCompatibleAction) (*rlpTest, error) {
-	tx, err := act.ToEthTx(chainID)
-	if err != nil {
-		return nil, err
+// generateRLPTestRaw generates RLP tx raw data for testing
+func generateRLPTestRaw(sk *ecdsa.PrivateKey, test *rlpTest) string {
+	var (
+		tx types.TxData
+	)
+	switch test.actType {
+	case "transfer":
+		addr := common.HexToAddress(test.to)
+		tx = &types.LegacyTx{
+			Nonce:    test.nonce,
+			GasPrice: MustBeTrueV(new(big.Int).SetString(test.price, 10)),
+			Gas:      test.limit,
+			To:       &addr,
+			Value:    MustBeTrueV(new(big.Int).SetString(test.amount, 10)),
+			Data:     test.data,
+		}
+	default:
+		panic("not supported")
 	}
-	signer := types.NewEIP2930Signer(big.NewInt(int64(chainID)))
-	signedTx, err := types.SignTx(tx, signer, sk.EcdsaPrivateKey().(*ecdsa.PrivateKey))
-	raw, err := signedTx.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	return &rlpTest{
-		actType:  actType,
-		raw:      hex.EncodeToString(raw),
-		nonce:    tx.Nonce(),
-		limit:    tx.Gas(),
-		price:    tx.GasPrice().String(),
-		amount:   tx.Value().String(),
-		to:       tx.To().Hex(),
-		chainID:  uint32(tx.ChainId().Int64()),
-		encoding: encoding,
-		dataLen:  len(signedTx.Data()),
-		hash:     signedTx.Hash().Hex(),
-		pubkey:   hex.EncodeToString(sk.PublicKey().Bytes()),
-		pkhash:   hex.EncodeToString(sk.PublicKey().Hash()),
-	}, nil
+	signer := types.NewCancunSigner(big.NewInt(int64(test.chainID)))
+	signedtx := types.MustSignNewTx(sk, signer, tx)
+	return hex.EncodeToString(MustNoErrorV(signedtx.MarshalBinary()))
 }

@@ -31,19 +31,18 @@ const (
 type Protocol struct {
 	getBlockHash evm.GetBlockHash
 	getBlockTime evm.GetBlockTime
-	depositGas   evm.DepositGasWithSGD
+	depositGas   protocol.DepositGas
 	addr         address.Address
-	sgdRegistry  evm.SGDRegistry
 }
 
 // NewProtocol instantiates the protocol of exeuction
-func NewProtocol(getBlockHash evm.GetBlockHash, depositGasWithSGD evm.DepositGasWithSGD, sgd evm.SGDRegistry, getBlockTime evm.GetBlockTime) *Protocol {
+func NewProtocol(getBlockHash evm.GetBlockHash, depositGas protocol.DepositGas, getBlockTime evm.GetBlockTime) *Protocol {
 	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of vote protocol", zap.Error(err))
 	}
-	return &Protocol{getBlockHash: getBlockHash, depositGas: depositGasWithSGD, addr: addr, sgdRegistry: sgd, getBlockTime: getBlockTime}
+	return &Protocol{getBlockHash: getBlockHash, depositGas: depositGas, addr: addr, getBlockTime: getBlockTime}
 }
 
 // FindProtocol finds the registered protocol from registry
@@ -72,7 +71,6 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		GetBlockHash:   p.getBlockHash,
 		GetBlockTime:   p.getBlockTime,
 		DepositGasFunc: p.depositGas,
-		Sgd:            p.sgdRegistry,
 	})
 	_, receipt, err := evm.ExecuteContract(ctx, sm, action.NewEvmTx(exec))
 

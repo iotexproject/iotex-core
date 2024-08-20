@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -68,7 +67,7 @@ var (
 // Restake defines the action of stake again
 type Restake struct {
 	AbstractAction
-
+	stake_common
 	bucketIndex uint64
 	duration    uint32
 	autoStake   bool
@@ -169,12 +168,8 @@ func (rs *Restake) Cost() (*big.Int, error) {
 	return restakeFee, nil
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (rs *Restake) EncodeABIBinary() ([]byte, error) {
-	return rs.encodeABIBinary()
-}
-
-func (rs *Restake) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (rs *Restake) EthData() ([]byte, error) {
 	data, err := _restakeMethod.Inputs.Pack(rs.bucketIndex, rs.duration, rs.autoStake, rs.payload)
 	if err != nil {
 		return nil, err
@@ -209,20 +204,4 @@ func NewRestakeFromABIBinary(data []byte) (*Restake, error) {
 		return nil, errDecodeFailure
 	}
 	return &rs, nil
-}
-
-// ToEthTx converts action to eth-compatible tx
-func (rs *Restake) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := rs.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    rs.Nonce(),
-		GasPrice: rs.GasPrice(),
-		Gas:      rs.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
 }

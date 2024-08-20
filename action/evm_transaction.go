@@ -29,7 +29,13 @@ type (
 		Amount() *big.Int
 		To() *common.Address
 		Data() []byte
+		TxDynamicGas
 		AccessList() types.AccessList
+	}
+
+	TxDynamicGas interface {
+		GasTipCap() *big.Int
+		GasFeeCap() *big.Int
 	}
 )
 
@@ -56,6 +62,14 @@ func (tx *EvmTransaction) GasPrice() *big.Int {
 	return tx.inner.GasPrice()
 }
 
+func (tx *EvmTransaction) GasTipCap() *big.Int {
+	return tx.inner.GasTipCap()
+}
+
+func (tx *EvmTransaction) GasFeeCap() *big.Int {
+	return tx.inner.GasFeeCap()
+}
+
 func (tx *EvmTransaction) Value() *big.Int {
 	return tx.inner.Amount()
 }
@@ -70,4 +84,22 @@ func (tx *EvmTransaction) Data() []byte {
 
 func (tx *EvmTransaction) AccessList() types.AccessList {
 	return tx.inner.AccessList()
+}
+
+// EffectiveGas returns the effective gas
+func EffectiveGasTip(tx TxDynamicGas, baseFee *big.Int) (*big.Int, error) {
+	tip := tx.GasTipCap()
+	if baseFee == nil {
+		return tip, nil
+	}
+	effectiveGas := tx.GasFeeCap()
+	effectiveGas.Sub(effectiveGas, baseFee)
+	if effectiveGas.Sign() < 0 {
+		return effectiveGas, ErrGasFeeCapTooLow
+	}
+	// effective gas = min(tip, feeCap - baseFee)
+	if effectiveGas.Cmp(tip) <= 0 {
+		return effectiveGas, nil
+	}
+	return tip, nil
 }

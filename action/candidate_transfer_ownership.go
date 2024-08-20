@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/protobuf/proto"
@@ -47,6 +46,7 @@ const (
 var (
 	// _candidateTransferOwnershipMethod is the interface of the abi encoding of candidate transfer ownership action
 	_candidateTransferOwnershipMethod abi.Method
+	_                                 EthCompatibleAction = (*CandidateTransferOwnership)(nil)
 )
 
 func init() {
@@ -64,7 +64,7 @@ func init() {
 // CandidateTransferOwnership is the action to transfer ownership of a candidate
 type CandidateTransferOwnership struct {
 	AbstractAction
-
+	stake_common
 	newOwner address.Address
 	payload  []byte
 }
@@ -168,12 +168,8 @@ func (act *CandidateTransferOwnership) LoadProto(pbAct *iotextypes.CandidateTran
 	return nil
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (act *CandidateTransferOwnership) EncodeABIBinary() ([]byte, error) {
-	return act.encodeABIBinary()
-}
-
-func (act *CandidateTransferOwnership) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (act *CandidateTransferOwnership) EthData() ([]byte, error) {
 	if act.newOwner == nil {
 		return nil, ErrAddress
 	}
@@ -187,20 +183,4 @@ func (act *CandidateTransferOwnership) encodeABIBinary() ([]byte, error) {
 // SanityCheck validates the variables in the action
 func (act *CandidateTransferOwnership) SanityCheck() error {
 	return act.AbstractAction.SanityCheck()
-}
-
-// ToEthTx returns an Ethereum transaction which corresponds to this action
-func (act *CandidateTransferOwnership) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := act.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    act.Nonce(),
-		GasPrice: act.GasPrice(),
-		Gas:      act.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
 }

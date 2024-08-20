@@ -202,6 +202,9 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			BlockTimeStamp: test.blkTimestamp,
 			GasLimit:       test.blkGasLimit,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+			Height: test.blkHeight - 1,
+		}})
 		act, err := action.NewCreateStake(test.nonce, test.candName, test.amount, test.duration, test.autoStake,
 			nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
@@ -582,6 +585,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
 		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
@@ -895,6 +899,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
 		ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		_, err = p.Handle(ctx, act, sm)
@@ -914,6 +919,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
 		require.Equal(test.err, errors.Cause(p.Validate(ctx, cu, sm)))
 		if test.err != nil {
 			continue
@@ -1247,14 +1253,11 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		actCtx := protocol.MustGetActionCtx(ctx)
 		actCtx.Nonce = nonce + 2 + uint64(i)
 		ctx = protocol.WithActionCtx(ctx, actCtx)
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+			Height: greenland.GreenlandBlockHeight - 1,
+		}})
 		ctx = genesis.WithGenesisContext(ctx, greenland)
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
-		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
-		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
-			Caller:   callerAddr,
-			GasPrice: gasPrice,
-			Nonce:    nonce + 2 + uint64(i),
-		})
 		_, err = p.Start(ctx, sm)
 		require.NoError(err)
 		r, err := p.Handle(ctx, v.act, sm)
@@ -1669,6 +1672,9 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+			Height: test.blkHeight - 1,
+		}})
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		var r *action.Receipt
 		if test.clear {
@@ -1771,6 +1777,9 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+			Height: 1,
+		}})
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		recipt, err := p.Handle(ctx, act, sm)
 		r.NoError(err)
@@ -1815,6 +1824,9 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+			Height: 1,
+		}})
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		recipt, err := p.Handle(ctx, act, sm)
 		r.NoError(err)
@@ -1859,6 +1871,9 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+			Height: 1,
+		}})
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		recipt, err := p.Handle(ctx, act, sm)
 		r.NoError(err)
@@ -2911,6 +2926,9 @@ func TestChangeCandidate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+			Height: 1,
+		}})
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		recipt, err := p.Handle(ctx, act, sm)
 		r.NoError(err)
@@ -2948,6 +2966,9 @@ func TestChangeCandidate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+			Height: 1,
+		}})
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		recipt, err := p.Handle(ctx, act, sm)
 		r.NoError(err)
@@ -2985,6 +3006,9 @@ func TestChangeCandidate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+			Height: 1,
+		}})
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		recipt, err := p.Handle(ctx, act, sm)
 		r.NoError(err)
@@ -3019,6 +3043,9 @@ func TestChangeCandidate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+			Height: 1,
+		}})
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		recipt, err := p.Handle(ctx, act, sm)
 		r.NoError(err)
@@ -3058,6 +3085,9 @@ func TestUnstake(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+			Height: 1,
+		}})
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		recipt, err := p.Handle(ctx, act, sm)
 		r.NoError(err)
@@ -3095,6 +3125,9 @@ func TestUnstake(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+			Height: 1,
+		}})
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		recipt, err := p.Handle(ctx, act, sm)
 		r.NoError(err)
@@ -3132,6 +3165,9 @@ func TestUnstake(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+			Height: 1,
+		}})
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		recipt, err := p.Handle(ctx, act, sm)
 		r.NoError(err)
@@ -3166,6 +3202,9 @@ func TestUnstake(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+			Height: 1,
+		}})
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		recipt, err := p.Handle(ctx, act, sm)
 		r.NoError(err)
@@ -3192,6 +3231,9 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 		BlockTimeStamp: blkTimestamp,
 		GasLimit:       blkGasLimit,
 	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+		Height: blkHeight - 1,
+	}})
 	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	v, err := p.Start(ctx, sm)
@@ -3264,7 +3306,7 @@ func setupAccount(sm protocol.StateManager, addr address.Address, balance int64)
 	return accountutil.StoreAccount(sm, addr, account)
 }
 
-func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) (*action.TransactionLog, error) {
+func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int, opts ...protocol.Option) ([]*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	// Subtract balance from caller
 	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller)
@@ -3272,7 +3314,7 @@ func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) 
 		return nil, err
 	}
 	// TODO: replace with SubBalance, and then change `Balance` to a function
-	acc.Balance = big.NewInt(0).Sub(acc.Balance, gasFee)
+	acc.Balance.Sub(acc.Balance, gasFee)
 	return nil, accountutil.StoreAccount(sm, actionCtx.Caller, acc)
 }
 

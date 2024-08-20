@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -74,7 +73,7 @@ var (
 // CreateStake defines the action of CreateStake creation
 type CreateStake struct {
 	AbstractAction
-
+	stake_common
 	candName  string
 	amount    *big.Int
 	duration  uint32
@@ -215,12 +214,8 @@ func (cs *CreateStake) SanityCheck() error {
 	return cs.AbstractAction.SanityCheck()
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (cs *CreateStake) EncodeABIBinary() ([]byte, error) {
-	return cs.encodeABIBinary()
-}
-
-func (cs *CreateStake) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (cs *CreateStake) EthData() ([]byte, error) {
 	data, err := _createStakeMethod.Inputs.Pack(cs.candName, cs.amount, cs.duration, cs.autoStake, cs.payload)
 	if err != nil {
 		return nil, err
@@ -258,20 +253,4 @@ func NewCreateStakeFromABIBinary(data []byte) (*CreateStake, error) {
 		return nil, errDecodeFailure
 	}
 	return &cs, nil
-}
-
-// ToEthTx converts action to eth-compatible tx
-func (cs *CreateStake) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := cs.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    cs.Nonce(),
-		GasPrice: cs.GasPrice(),
-		Gas:      cs.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
 }

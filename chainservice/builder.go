@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/actsync"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -273,9 +274,6 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.contractStakingIndexerV2 != nil {
 		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexerV2)
 	}
-	if builder.cs.sgdIndexer != nil {
-		synchronizedIndexers = append(synchronizedIndexers, builder.cs.sgdIndexer)
-	}
 	if len(synchronizedIndexers) > 1 {
 		indexers = append(indexers, blockindex.NewSyncIndexers(synchronizedIndexers...))
 	} else {
@@ -303,22 +301,6 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, builder.cfg.DB.MaxCacheSize)
 
-	return nil
-}
-
-func (builder *Builder) buildSGDRegistry(forTest bool) error {
-	if builder.cs.sgdIndexer != nil {
-		return nil
-	}
-	if forTest || builder.cfg.Genesis.SystemSGDContractAddress == "" {
-		builder.cs.sgdIndexer = nil
-		return nil
-	}
-	kvStore, err := db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.SGDIndexDBPath, 1000)
-	if err != nil {
-		return err
-	}
-	builder.cs.sgdIndexer = blockindex.NewSGDRegistry(builder.cfg.Genesis.SystemSGDContractAddress, builder.cfg.Genesis.SystemSGDContractHeight, kvStore)
 	return nil
 }
 
@@ -573,6 +555,20 @@ func (builder *Builder) buildBlockSyncer() error {
 	return nil
 }
 
+func (builder *Builder) buildActionSyncer() error {
+	if builder.cs.actionsync != nil {
+		return nil
+	}
+	p2pAgent := builder.cs.p2pAgent
+	actionsync := actsync.NewActionSync(builder.cfg.ActionSync, &actsync.Helper{
+		P2PNeighbor:     p2pAgent.ConnectedPeers,
+		UnicastOutbound: p2pAgent.UnicastOutbound,
+	})
+	builder.cs.actionsync = actionsync
+	builder.cs.lifecycle.Add(actionsync)
+	return nil
+}
+
 func (builder *Builder) registerStakingProtocol() error {
 	if !builder.cfg.Chain.EnableStakingProtocol {
 		return nil
@@ -615,7 +611,7 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGasWithSGD, builder.cs.sgdIndexer, builder.cs.blockTimeCalculator.CalculateBlockTime).Register(builder.cs.registry)
+	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGas, builder.cs.blockTimeCalculator.CalculateBlockTime).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
@@ -654,13 +650,12 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 				return nil, err
 			}
 
-			// TODO: add depositGas
 			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-				GetBlockHash: dao.GetBlockHash,
-				GetBlockTime: getBlockTime,
+				GetBlockHash:   dao.GetBlockHash,
+				GetBlockTime:   getBlockTime,
+				DepositGasFunc: rewarding.DepositGas,
 			})
 			data, _, err := factory.SimulateExecution(ctx, addr, ex)
-
 			return data, err
 		},
 		candidatesutil.CandidatesFromDB,
@@ -754,9 +749,6 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.buildGatewayComponents(forTest); err != nil {
 		return nil, err
 	}
-	if err := builder.buildSGDRegistry(forTest); err != nil {
-		return nil, err
-	}
 	if err := builder.buildContractStakingIndexer(forTest); err != nil {
 		return nil, err
 	}
@@ -789,6 +781,9 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildBlockSyncer(); err != nil {
+		return nil, err
+	}
+	if err := builder.buildActionSyncer(); err != nil {
 		return nil, err
 	}
 	if err := builder.buildNodeInfoManager(); err != nil {

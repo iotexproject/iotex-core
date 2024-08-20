@@ -8,6 +8,7 @@ package action
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
@@ -28,6 +29,7 @@ type (
 		Cost() (*big.Int, error)
 		IntrinsicGas() (uint64, error)
 		Action() Action
+		ToEthTx(uint32, iotextypes.Encoding) (*types.Transaction, error)
 		Proto() *iotextypes.ActionCore
 		LoadProto(pbAct *iotextypes.ActionCore) error
 		SetNonce(n uint64)
@@ -62,6 +64,20 @@ func (elp *envelope) IntrinsicGas() (uint64, error) {
 
 // Action returns the action payload.
 func (elp *envelope) Action() Action { return elp.payload }
+
+// ToEthTx converts to Ethereum tx
+func (elp *envelope) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
+	switch {
+	// TODO: handle dynamic fee tx and blob tx
+	case encoding == iotextypes.Encoding_IOTEX_PROTOBUF:
+		// treat native tx as EVM LegacyTx
+		fallthrough
+	case encoding == iotextypes.Encoding_ETHEREUM_EIP155 || encoding == iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		return toLegacyTx(&elp.AbstractAction, elp.Action())
+	default:
+		return nil, errors.Wrapf(ErrInvalidAct, "unsupported encoding type %v", encoding)
+	}
+}
 
 // Proto convert Envelope to protobuf format.
 func (elp *envelope) Proto() *iotextypes.ActionCore {

@@ -115,7 +115,6 @@ func queryProver(proverID *big.Int) (any, error) {
 
 }
 
-
 func queryProverVmType(proverID, vmType *big.Int) (string, error) {
 	caller, err := NewContractCaller(proverStoreABI, proverStoreAddress)
 	if err != nil {

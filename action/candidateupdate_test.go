@@ -83,7 +83,7 @@ func TestCandidateUpdateABIEncodeAndDecode(t *testing.T) {
 	stake, err := NewCandidateUpdate(_cuNonce, _cuName, _cuOperatorAddrStr, _cuRewardAddrStr, _cuGasLimit, _cuGasPrice)
 	require.NoError(err)
 
-	data, err := stake.EncodeABIBinary()
+	data, err := stake.EthData()
 	require.NoError(err)
 	stake, err = NewCandidateUpdateFromABIBinary(data)
 	require.NoError(err)
@@ -92,9 +92,9 @@ func TestCandidateUpdateABIEncodeAndDecode(t *testing.T) {
 	require.Equal(_cuRewardAddrStr, stake.RewardAddress().String())
 
 	stake.rewardAddress = nil
-	_, err = stake.EncodeABIBinary()
+	_, err = stake.EthData()
 	require.Equal(ErrAddress, err)
 	stake.operatorAddress = nil
-	_, err = stake.EncodeABIBinary()
+	_, err = stake.EthData()
 	require.Equal(ErrAddress, err)
 }

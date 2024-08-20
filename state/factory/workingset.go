@@ -1,4 +1,4 @@
-// Copyright (c) 2022 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -677,6 +677,13 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 		}
 	}
 
+	if fCtx.EnableDynamicFeeTx {
+		bcCtx := protocol.MustGetBlockchainCtx(ctx)
+		if err := block.VerifyEIP1559Header(
+			genesis.MustExtractGenesisContext(ctx).Blockchain, &bcCtx.Tip, &blk.Header); err != nil {
+			return err
+		}
+	}
 	if err := ws.process(ctx, blk.RunnableActions().Actions()); err != nil {
 		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
 		return err
@@ -708,25 +715,31 @@ func (ws *workingSet) CreateBuilder(
 		return nil, err
 	}
 
-	ra := block.NewRunnableActionsBuilder().
-		AddActions(actions...).
-		Build()
-
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	prevBlkHash := bcCtx.Tip.Hash
+	var (
+		blkCtx = protocol.MustGetBlockCtx(ctx)
+		bcCtx  = protocol.MustGetBlockchainCtx(ctx)
+		fCtx   = protocol.MustGetFeatureCtx(ctx)
+		g      = genesis.MustExtractGenesisContext(ctx)
+	)
 	digest, err := ws.digest()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get digest")
 	}
 
+	ra := block.NewRunnableActionsBuilder().
+		AddActions(actions...).
+		Build()
 	blkBuilder := block.NewBuilder(ra).
 		SetHeight(blkCtx.BlockHeight).
 		SetTimestamp(blkCtx.BlockTimeStamp).
-		SetPrevBlockHash(prevBlkHash).
+		SetPrevBlockHash(bcCtx.Tip.Hash).
 		SetDeltaStateDigest(digest).
 		SetReceipts(ws.receipts).
 		SetReceiptRoot(calculateReceiptRoot(ws.receipts)).
 		SetLogsBloom(calculateLogsBloom(ctx, ws.receipts))
+	if fCtx.EnableDynamicFeeTx {
+		blkBuilder.SetGasUsed(calculateGasUsed(ws.receipts))
+		blkBuilder.SetBaseFee(block.CalcBaseFee(g.Blockchain, &bcCtx.Tip))
+	}
 	return blkBuilder, nil
 }

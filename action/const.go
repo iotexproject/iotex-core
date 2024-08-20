@@ -7,6 +7,13 @@ package action
 
 import "github.com/pkg/errors"
 
+// constants for EIP-1559 dynamic fee
+const (
+	DefaultBaseFeeChangeDenominator = 8             // Bounds the amount the base fee can change between blocks.
+	DefaultElasticityMultiplier     = 2             // Bounds the maximum gas limit an EIP-1559 block may have.
+	InitialBaseFee                  = 1000000000000 // Initial base fee for EIP-1559 blocks.
+)
+
 // vars
 var (
 	ErrAddress            = errors.New("invalid address")
@@ -19,6 +26,7 @@ var (
 	ErrNonceTooLow        = errors.New("nonce too low")
 	ErrUnderpriced        = errors.New("transaction underpriced")
 	ErrNegativeValue      = errors.New("negative value")
+	ErrGasFeeCapTooLow    = errors.New("fee cap less than base fee")
 	ErrIntrinsicGas       = errors.New("intrinsic gas too low")
 	ErrInsufficientFunds  = errors.New("insufficient funds for gas * price + value")
 	ErrNonceTooHigh       = errors.New("nonce too high")

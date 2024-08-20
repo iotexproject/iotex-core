@@ -50,7 +50,7 @@ func exportPublic(arg string) error {
 			return output.NewError(output.AddressError, "failed to get address", err)
 		}
 	}
-	prvKey, err := PrivateKeyFromSigner(addr, "")
+	prvKey, err := PrivateKeyFromSigner(addr, PasswordByFlag())
 	if err != nil {
 		return output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
 	}

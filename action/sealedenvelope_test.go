@@ -116,9 +116,7 @@ func TestSealedEnvelope_Actions(t *testing.T) {
 			SetAction(test).
 			SetGasLimit(100000).Build()
 		selp := FakeSeal(elp, identityset.PrivateKey(27).PublicKey())
-		act, ok := selp.Action().(EthCompatibleAction)
-		require.True(ok)
-		rlp, err := act.ToEthTx(0)
+		rlp, err := selp.ToEthTx()
 		require.NoError(err)
 
 		require.Equal(elp.Nonce(), rlp.Nonce())

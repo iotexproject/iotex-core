@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -63,7 +62,7 @@ var (
 // DepositToStake defines the action of stake add deposit
 type DepositToStake struct {
 	AbstractAction
-
+	stake_common
 	bucketIndex uint64
 	amount      *big.Int
 	payload     []byte
@@ -180,12 +179,8 @@ func (ds *DepositToStake) SanityCheck() error {
 	return ds.AbstractAction.SanityCheck()
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (ds *DepositToStake) EncodeABIBinary() ([]byte, error) {
-	return ds.encodeABIBinary()
-}
-
-func (ds *DepositToStake) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (ds *DepositToStake) EthData() ([]byte, error) {
 	data, err := _depositToStakeMethod.Inputs.Pack(ds.bucketIndex, ds.amount, ds.payload)
 	if err != nil {
 		return nil, err
@@ -217,20 +212,4 @@ func NewDepositToStakeFromABIBinary(data []byte) (*DepositToStake, error) {
 		return nil, errDecodeFailure
 	}
 	return &ds, nil
-}
-
-// ToEthTx converts action to eth-compatible tx
-func (ds *DepositToStake) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := ds.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    ds.Nonce(),
-		GasPrice: ds.GasPrice(),
-		Gas:      ds.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
 }
