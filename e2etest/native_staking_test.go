@@ -827,6 +827,8 @@ func TestCandidateTransferOwnership(t *testing.T) {
 		cfg := initCfg(require)
 		cfg.Genesis.SystemStakingContractV2Address = contractAddress
 		cfg.Genesis.SystemStakingContractV2Height = 1
+		cfg.Genesis.VanuatuBlockHeight = 100
+		normalizeGenesisHeights(&cfg)
 		cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
 		cfg.Plugins[config.GatewayPlugin] = nil
 		test := newE2ETest(t, cfg)
@@ -1264,6 +1266,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 		contractAddr := "io16gnlvx6zk3tev9g6vaupngkpcrwe8hdsknxerw"
 		cfg := initCfg(require)
 		cfg.Genesis.UpernavikBlockHeight = 1
+		cfg.Genesis.VanuatuBlockHeight = 100
 		cfg.Genesis.EndorsementWithdrawWaitingBlocks = 5
 		cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
 		cfg.Genesis.SystemStakingContractV2Address = contractAddr
@@ -1367,30 +1370,9 @@ func initCfg(r *require.Assertions) config.Config {
 	cfg.Genesis.InitBalanceMap[identityset.Address(1).String()] = "100000000000000000000000000"
 	cfg.Genesis.InitBalanceMap[identityset.Address(2).String()] = "100000000000000000000000000"
 	cfg.Genesis.EndorsementWithdrawWaitingBlocks = 10
-	cfg.Genesis.PacificBlockHeight = 1
-	cfg.Genesis.AleutianBlockHeight = 1
-	cfg.Genesis.BeringBlockHeight = 1
-	cfg.Genesis.CookBlockHeight = 1
-	cfg.Genesis.DardanellesBlockHeight = 1
-	cfg.Genesis.DaytonaBlockHeight = 1
-	cfg.Genesis.EasterBlockHeight = 1
-	cfg.Genesis.FbkMigrationBlockHeight = 1
-	cfg.Genesis.FairbankBlockHeight = 1
-	cfg.Genesis.GreenlandBlockHeight = 1
-	cfg.Genesis.HawaiiBlockHeight = 1
-	cfg.Genesis.IcelandBlockHeight = 1
-	cfg.Genesis.JutlandBlockHeight = 1
-	cfg.Genesis.KamchatkaBlockHeight = 1
-	cfg.Genesis.LordHoweBlockHeight = 1
-	cfg.Genesis.MidwayBlockHeight = 1
-	cfg.Genesis.NewfoundlandBlockHeight = 1
-	cfg.Genesis.OkhotskBlockHeight = 1
-	cfg.Genesis.PalauBlockHeight = 1
-	cfg.Genesis.QuebecBlockHeight = 1
-	cfg.Genesis.RedseaBlockHeight = 1
-	cfg.Genesis.SumatraBlockHeight = 1
 	cfg.Genesis.TsunamiBlockHeight = 1
 	cfg.Genesis.UpernavikBlockHeight = 2 // enable CandidateIdentifiedByOwner feature
+	normalizeGenesisHeights(&cfg)
 	return cfg
 }
 
@@ -1471,6 +1453,7 @@ func normalizeGenesisHeights(cfg *config.Config) {
 		&cfg.Genesis.SumatraBlockHeight,
 		&cfg.Genesis.TsunamiBlockHeight,
 		&cfg.Genesis.UpernavikBlockHeight,
+		&cfg.Genesis.VanuatuBlockHeight,
 		&cfg.Genesis.ToBeEnabledBlockHeight,
 	}
 	for i := len(heights) - 2; i >= 0; i-- {

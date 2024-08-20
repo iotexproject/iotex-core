@@ -350,9 +350,11 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isSumatra, chainRules.IsMerge)
 		require.Equal(isSumatra, chainRules.IsShanghai)
 
+		// Vanuatu = enable Cancun
+		isVanuatu := g.IsVanuatu(e.height)
+		require.Equal(isVanuatu, chainRules.IsCancun)
+
 		// Cancun and Prague not yet enabled
-		require.False(chainRules.IsCancun)
-		require.False(evmChainConfig.IsCancun(big.NewInt(int64(e.height)), evm.Context.Time))
 		require.False(chainRules.IsPrague)
 		require.False(evmChainConfig.IsPrague(big.NewInt(int64(e.height)), evm.Context.Time))
 

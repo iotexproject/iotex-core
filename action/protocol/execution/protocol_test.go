@@ -346,7 +346,11 @@ func (sct *SmartContractTest) runExecutions(
 		}
 		hashes = append(hashes, selpHash)
 	}
-	blk, err := bc.MintNewBlock(fixedTime)
+	t, err := getBlockTimeForTest(bc.TipHeight() + 1)
+	if err != nil {
+		return nil, nil, err
+	}
+	blk, err := bc.MintNewBlock(t)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -429,7 +433,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.ActionGasLimit = 10000000
 	}
 	if sct.InitGenesis.IsCancun {
-		cfg.Genesis.Blockchain.VanuatuBlockHeight = 0
+		cfg.Genesis.Blockchain.VanuatuBlockHeight = 1
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
