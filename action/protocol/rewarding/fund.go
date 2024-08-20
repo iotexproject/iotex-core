@@ -75,6 +75,9 @@ func (p *Protocol) Deposit(
 	for _, o := range opts {
 		o(&options)
 	}
+	if isZero(amount) && isZero(options.BurnAmount) {
+		return nil, nil
+	}
 	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
 		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
@@ -83,10 +86,12 @@ func (p *Protocol) Deposit(
 	if err != nil {
 		return nil, err
 	}
-	if err := acc.SubBalance(amount); err != nil {
-		return nil, err
+	if !isZero(amount) {
+		if err := acc.SubBalance(amount); err != nil {
+			return nil, err
+		}
 	}
-	burnAmount := options.ValueBigInt
+	burnAmount := options.BurnAmount
 	if !isZero(burnAmount) {
 		if err := acc.SubBalance(burnAmount); err != nil {
 			return nil, err
@@ -99,15 +104,16 @@ func (p *Protocol) Deposit(
 	var (
 		f           = fund{}
 		burnAddr, _ = address.FromString(address.ZeroAddress)
-		tLog        = []*action.TransactionLog{
-			{
-				Type:      transactionLogType,
-				Sender:    actionCtx.Caller.String(),
-				Recipient: address.RewardingPoolAddr,
-				Amount:    amount,
-			},
-		}
+		tLog        = []*action.TransactionLog{}
 	)
+	if !isZero(amount) {
+		tLog = append(tLog, &action.TransactionLog{
+			Type:      transactionLogType,
+			Sender:    actionCtx.Caller.String(),
+			Recipient: address.RewardingPoolAddr,
+			Amount:    amount,
+		})
+	}
 	if _, err := p.state(ctx, sm, _fundKey, &f); err != nil {
 		return nil, err
 	}
@@ -126,7 +132,7 @@ func (p *Protocol) Deposit(
 			return nil, err
 		}
 		tLog = append(tLog, &action.TransactionLog{
-			Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,
+			Type:      options.BurnLogType,
 			Sender:    actionCtx.Caller.String(),
 			Recipient: burnAddr.String(),
 			Amount:    burnAmount,
@@ -166,10 +172,6 @@ func (p *Protocol) AvailableBalance(
 
 // DepositGas deposits gas into the rewarding fund
 func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int, opts ...protocol.Option) ([]*action.TransactionLog, error) {
-	// If the gas fee is 0, return immediately
-	if amount.Cmp(big.NewInt(0)) == 0 {
-		return nil, nil
-	}
 	// TODO: we bypass the gas deposit for the actions in genesis block. Later we should remove this after we remove
 	// genesis actions
 	blkCtx := protocol.MustGetBlockCtx(ctx)

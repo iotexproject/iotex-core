@@ -5,6 +5,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/params"
+
+	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
 var (
@@ -15,7 +17,7 @@ var (
 // VerifyEIP4844Header verifies the presence of the excessBlobGas field and that
 // if the current block contains no transactions, the excessBlobGas is updated
 // accordingly.
-func VerifyEIP4844Header(parent, header *Header) error {
+func VerifyEIP4844Header(parent *protocol.TipInfo, header *Header) error {
 	// Verify that the blob gas used remains within reasonable limits.
 	if header.BlobGasUsed() > params.MaxBlobGasPerBlock {
 		return fmt.Errorf("blob gas used %d exceeds maximum allowance %d", header.BlobGasUsed(), params.MaxBlobGasPerBlock)
@@ -25,8 +27,8 @@ func VerifyEIP4844Header(parent, header *Header) error {
 	}
 	// Verify the excessBlobGas is correct based on the parent header
 	var (
-		parentExcessBlobGas = parent.ExcessBlobGas()
-		parentBlobGasUsed   = parent.BlobGasUsed()
+		parentExcessBlobGas = parent.ExcessBlobGas
+		parentBlobGasUsed   = parent.BlobGasUsed
 	)
 	expectedExcessBlobGas := CalcExcessBlobGas(parentExcessBlobGas, parentBlobGasUsed)
 	if header.ExcessBlobGas() != expectedExcessBlobGas {

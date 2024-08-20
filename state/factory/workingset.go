@@ -7,6 +7,7 @@ package factory
 
 import (
 	"context"
+	"math/big"
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -160,8 +162,9 @@ func (ws *workingSet) runAction(
 			return nil, err
 		}
 	}
+	fCtx := protocol.MustGetFeatureCtx(ctx)
 	// if it's a tx container, unfold the tx inside
-	if protocol.MustGetFeatureCtx(ctx).UseTxContainer {
+	if fCtx.UseTxContainer {
 		if container, ok := selp.Action().(action.TxContainer); ok {
 			if err := container.Unfold(selp, ctx, ws.checkContract); err != nil {
 				return nil, errors.Wrap(errUnfoldTxContainer, err.Error())
@@ -186,6 +189,7 @@ func (ws *workingSet) runAction(
 	if err := ws.freshAccountConversion(ctx, &actCtx); err != nil {
 		return nil, err
 	}
+	si := ws.Snapshot()
 	for _, actionHandler := range reg.All() {
 		receipt, err := actionHandler.Handle(ctx, selp.Envelope, ws)
 		if err != nil {
@@ -196,18 +200,34 @@ func (ws *workingSet) runAction(
 			)
 		}
 		if receipt != nil {
-			// TODO: handle blob transaction
-			isBlobTx := false
+			isBlobTx := false // TODO: get blob type from action
 			if protocol.MustGetFeatureCtx(ctx).DisableBlobTransaction || !isBlobTx {
 				return receipt, nil
 			}
-			blobNum := 0
-			receipt.BlobGasUsed = uint64(blobNum) * params.BlobTxBlobGasPerBlob
-			receipt.BlobGasPrice = block.CalcBlobFee(protocol.MustGetBlockchainCtx(ctx).Tip.ExcessBlobGas)
+			if err = ws.handleBlob(ctx, selp, receipt); err != nil {
+				if e := ws.Revert(si); err != nil {
+					log.L().Panic("failed to revert snapshot", zap.Error(e))
+				}
+				return nil, err
+			}
 			return receipt, nil
 		}
 	}
 	return nil, errors.New("receipt is empty")
+}
+
+func (ws *workingSet) handleBlob(ctx context.Context, act *action.SealedEnvelope, receipt *action.Receipt) error {
+	// Deposit blob fee
+	blobNum := 0 // TODO: get blob number from action
+	receipt.BlobGasUsed = uint64(blobNum) * params.BlobTxBlobGasPerBlob
+	receipt.BlobGasPrice = block.CalcBlobFee(protocol.MustGetBlockchainCtx(ctx).Tip.ExcessBlobGas)
+	blobFee := new(big.Int).Mul(receipt.BlobGasPrice, new(big.Int).SetUint64(receipt.BlobGasUsed))
+	logs, err := rewarding.DepositGas(ctx, ws, big.NewInt(0), protocol.BurnGasOption(blobFee, iotextypes.TransactionLogType_BLOB_FEE))
+	if err != nil {
+		return err
+	}
+	receipt.AddTransactionLogs(logs...)
+	return nil
 }
 
 func validateChainID(ctx context.Context, chainID uint32) error {
@@ -693,6 +713,12 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 			return err
 		}
 	}
+	if !fCtx.DisableBlobTransaction {
+		bcCtx := protocol.MustGetBlockchainCtx(ctx)
+		if err := block.VerifyEIP4844Header(&bcCtx.Tip, &blk.Header); err != nil {
+			return err
+		}
+	}
 	if err := ws.process(ctx, blk.RunnableActions().Actions()); err != nil {
 		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
 		return err
@@ -751,8 +777,9 @@ func (ws *workingSet) CreateBuilder(
 		blkBuilder.SetBaseFee(block.CalcBaseFee(g.Blockchain, &bcCtx.Tip))
 	}
 	if fCtx.DisableBlobTransaction {
-		blkBuilder.SetBlobGasUsed(calculateBlobGasUsed(ws.receipts))
-		blkBuilder.SetExcessBlobGas(block.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed))
+		return blkBuilder, nil
 	}
+	blkBuilder.SetBlobGasUsed(calculateBlobGasUsed(ws.receipts))
+	blkBuilder.SetExcessBlobGas(block.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed))
 	return blkBuilder, nil
 }
