@@ -31,12 +31,12 @@ const (
 type Protocol struct {
 	getBlockHash evm.GetBlockHash
 	getBlockTime evm.GetBlockTime
-	depositGas   evm.DepositGas
+	depositGas   protocol.DepositGas
 	addr         address.Address
 }
 
 // NewProtocol instantiates the protocol of exeuction
-func NewProtocol(getBlockHash evm.GetBlockHash, depositGas evm.DepositGas, getBlockTime evm.GetBlockTime) *Protocol {
+func NewProtocol(getBlockHash evm.GetBlockHash, depositGas protocol.DepositGas, getBlockTime evm.GetBlockTime) *Protocol {
 	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {

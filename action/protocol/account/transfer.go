@@ -39,18 +39,25 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 		return nil, errors.Wrapf(err, "failed to load or create the account of sender %s", actionCtx.Caller.String())
 	}
 
-	gasFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
-	if !sender.HasSufficientBalance(big.NewInt(0).Add(tsf.Amount(), gasFee)) {
+	gasFee, baseFee, err := protocol.SplitGas(ctx, &tsf.AbstractAction, actionCtx.IntrinsicGas)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to split gas")
+	}
+	total := big.NewInt(0).Add(tsf.Amount(), gasFee)
+	if baseFee != nil {
+		total.Add(total, baseFee)
+	}
+	if !sender.HasSufficientBalance(total) {
 		return nil, errors.Wrapf(
 			state.ErrNotEnoughBalance,
 			"sender %s balance %s, required amount %s",
 			actionCtx.Caller.String(),
 			sender.Balance,
-			big.NewInt(0).Add(tsf.Amount(), gasFee),
+			total,
 		)
 	}
 
-	var depositLog *action.TransactionLog
+	var depositLog []*action.TransactionLog
 	if !fCtx.FixDoubleChargeGas {
 		// charge sender gas
 		if err := sender.SubBalance(gasFee); err != nil {
@@ -91,7 +98,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 		}
 		if fCtx.FixDoubleChargeGas {
 			if p.depositGas != nil {
-				depositLog, err = p.depositGas(ctx, sm, gasFee)
+				depositLog, err = p.depositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee))
 				if err != nil {
 					return nil, err
 				}
@@ -104,7 +111,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 			GasConsumed:     actionCtx.IntrinsicGas,
 			ContractAddress: p.addr.String(),
 		}
-		receipt.AddTransactionLogs(depositLog)
+		receipt.AddTransactionLogs(depositLog...)
 		return receipt, nil
 	}
 
@@ -133,7 +140,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 
 	if fCtx.FixDoubleChargeGas {
 		if p.depositGas != nil {
-			depositLog, err = p.depositGas(ctx, sm, gasFee)
+			depositLog, err = p.depositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee))
 			if err != nil {
 				return nil, err
 			}
@@ -152,7 +159,8 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 		Sender:    actionCtx.Caller.String(),
 		Recipient: tsf.Recipient(),
 		Amount:    tsf.Amount(),
-	}, depositLog)
+	})
+	receipt.AddTransactionLogs(depositLog...)
 
 	return receipt, nil
 }

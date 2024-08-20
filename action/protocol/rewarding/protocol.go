@@ -208,17 +208,22 @@ func (p *Protocol) Handle(
 	sm protocol.StateManager,
 ) (*action.Receipt, error) {
 	// TODO: simplify the boilerplate
+	var (
+		si                = sm.Snapshot()
+		dynamicGasAct, ok = act.(action.TxDynamicGas)
+	)
+	if !ok {
+		panic("unsupported type of action")
+	}
 	switch act := act.(type) {
 	case *action.DepositToRewardingFund:
-		si := sm.Snapshot()
 		rlog, err := p.Deposit(ctx, sm, act.Amount(), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		if err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
-			return p.settleUserAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+			return p.settleUserAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 		}
-		return p.settleUserAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog)
+		return p.settleUserAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog...)
 	case *action.ClaimFromRewardingFund:
-		si := sm.Snapshot()
 		addr := protocol.MustGetActionCtx(ctx).Caller
 		if act.Address() != nil {
 			addr = act.Address()
@@ -226,30 +231,28 @@ func (p *Protocol) Handle(
 		rlog, err := p.Claim(ctx, sm, act.Amount(), addr)
 		if err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
-			return p.settleUserAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+			return p.settleUserAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 		}
-		return p.settleUserAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog)
+		return p.settleUserAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog)
 	case *action.GrantReward:
 		switch act.RewardType() {
 		case action.BlockReward:
-			si := sm.Snapshot()
 			rewardLog, err := p.GrantBlockReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
-				return p.settleSystemAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+				return p.settleSystemAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
 			if rewardLog == nil {
-				return p.settleSystemAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, nil)
+				return p.settleSystemAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Success), si, nil)
 			}
-			return p.settleSystemAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{rewardLog})
+			return p.settleSystemAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{rewardLog})
 		case action.EpochReward:
-			si := sm.Snapshot()
 			rewardLogs, err := p.GrantEpochReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
-				return p.settleSystemAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+				return p.settleSystemAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
-			return p.settleSystemAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs)
+			return p.settleSystemAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs)
 		}
 	}
 	return nil, nil
@@ -388,28 +391,31 @@ func (p *Protocol) deleteStateV2(sm protocol.StateManager, key []byte) error {
 func (p *Protocol) settleSystemAction(
 	ctx context.Context,
 	sm protocol.StateManager,
+	act action.TxDynamicGas,
 	status uint64,
 	si int,
 	logs []*action.Log,
 	tLogs ...*action.TransactionLog,
 ) (*action.Receipt, error) {
-	return p.settleAction(ctx, sm, status, si, true, logs, tLogs...)
+	return p.settleAction(ctx, sm, act, status, si, true, logs, tLogs...)
 }
 
 func (p *Protocol) settleUserAction(
 	ctx context.Context,
 	sm protocol.StateManager,
+	act action.TxDynamicGas,
 	status uint64,
 	si int,
 	logs []*action.Log,
 	tLogs ...*action.TransactionLog,
 ) (*action.Receipt, error) {
-	return p.settleAction(ctx, sm, status, si, false, logs, tLogs...)
+	return p.settleAction(ctx, sm, act, status, si, false, logs, tLogs...)
 }
 
 func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
+	act action.TxDynamicGas,
 	status uint64,
 	si int,
 	isSystemAction bool,
@@ -425,13 +431,16 @@ func (p *Protocol) settleAction(
 	}
 	skipUpdateForSystemAction := protocol.MustGetFeatureCtx(ctx).FixGasAndNonceUpdate
 	if !isSystemAction || !skipUpdateForSystemAction {
-		gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
-		depositLog, err := DepositGas(ctx, sm, gasFee)
+		gasFee, baseFee, err := protocol.SplitGas(ctx, act, actionCtx.IntrinsicGas)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to split gas")
+		}
+		depositLog, err := DepositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee))
 		if err != nil {
 			return nil, err
 		}
 		if depositLog != nil {
-			tLogs = append(tLogs, depositLog)
+			tLogs = append(tLogs, depositLog...)
 		}
 		if err := p.increaseNonce(
 			ctx,

@@ -345,7 +345,7 @@ func TestProtocol_Handle(t *testing.T) {
 			BlockHeight: 0,
 		},
 	)
-
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
 	ctx = genesis.WithGenesisContext(protocol.WithRegistry(ctx, registry), g)
 	ctx = protocol.WithFeatureCtx(ctx)
 	ap := account.NewProtocol(DepositGas)

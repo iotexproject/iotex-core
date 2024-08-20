@@ -28,14 +28,11 @@ const protocolID = "account"
 // Protocol defines the protocol of handling account
 type Protocol struct {
 	addr       address.Address
-	depositGas DepositGas
+	depositGas protocol.DepositGas
 }
 
-// DepositGas deposits gas to some pool
-type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.TransactionLog, error)
-
 // NewProtocol instantiates the protocol of account
-func NewProtocol(depositGas DepositGas) *Protocol {
+func NewProtocol(depositGas protocol.DepositGas) *Protocol {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
