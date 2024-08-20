@@ -248,15 +248,14 @@ func (builder *Builder) buildActionPool() error {
 	if builder.cs.actpool == nil {
 		options := []actpool.Option{}
 		if builder.cfg.ActPool.Store != nil {
-			evmID := builder.cfg.Chain.EVMNetworkID
+			d := &action.Deserializer{}
+			d.SetEvmNetworkID(builder.cfg.Chain.EVMNetworkID)
 			options = append(options, actpool.WithStore(
 				*builder.cfg.ActPool.Store,
 				func(selp *action.SealedEnvelope) ([]byte, error) {
 					return proto.Marshal(selp.Proto())
 				},
 				func(blob []byte) (*action.SealedEnvelope, error) {
-					d := &action.Deserializer{}
-					d.SetEvmNetworkID(evmID)
 					a := &iotextypes.Action{}
 					if err := proto.Unmarshal(blob, a); err != nil {
 						return nil, err
