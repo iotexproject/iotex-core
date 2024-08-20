@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -99,7 +98,7 @@ var (
 // CandidateRegister is the action to register a candidate
 type CandidateRegister struct {
 	AbstractAction
-
+	stake_common
 	name            string
 	operatorAddress address.Address
 	rewardAddress   address.Address
@@ -303,12 +302,8 @@ func (cr *CandidateRegister) SanityCheck() error {
 	return cr.AbstractAction.SanityCheck()
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (cr *CandidateRegister) EncodeABIBinary() ([]byte, error) {
-	return cr.encodeABIBinary()
-}
-
-func (cr *CandidateRegister) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (cr *CandidateRegister) EthData() ([]byte, error) {
 	if cr.operatorAddress == nil {
 		return nil, ErrAddress
 	}
@@ -381,22 +376,6 @@ func ethAddrToNativeAddr(in interface{}) (address.Address, error) {
 		return nil, errDecodeFailure
 	}
 	return address.FromBytes(ethAddr.Bytes())
-}
-
-// ToEthTx converts action to eth-compatible tx
-func (cr *CandidateRegister) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := cr.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    cr.Nonce(),
-		GasPrice: cr.GasPrice(),
-		Gas:      cr.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
 }
 
 // IsValidCandidateName check if a candidate name string is valid.

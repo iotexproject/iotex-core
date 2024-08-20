@@ -85,32 +85,6 @@ func TestClaimRewardCost(t *testing.T) {
 	r.Equal("10100000000000000", cost.String())
 }
 
-func TestClaimRewardToEthTx(t *testing.T) {
-	r := require.New(t)
-
-	builder := &ClaimFromRewardingFundBuilder{}
-
-	builder.SetAmount(big.NewInt(101))
-	rc := builder.Build()
-	tx, err := rc.ToEthTx(0)
-	r.NoError(err)
-	r.Equal(tx.To().String(), _rewardingProtocolEthAddr.String())
-	r.Equal(tx.Data()[:4], _claimRewardingMethodV1.ID)
-	r.Equal(tx.Value().String(), "0")
-
-	addr, err := address.FromHex("0xA576C141e5659137ddDa4223d209d4744b2106BE")
-	r.NoError(err)
-	builder.Reset()
-	builder.SetAmount(big.NewInt(101))
-	builder.SetData([]byte{1, 2, 3})
-	builder.SetAddress(addr)
-	rc = builder.Build()
-	tx, err = rc.ToEthTx(0)
-	r.NoError(err)
-	r.Equal(tx.Data()[:4], _claimRewardingMethodV2.ID)
-	r.Equal(tx.Value().String(), "0")
-}
-
 func TestNewRewardingClaimFromABIBinary(t *testing.T) {
 	r := require.New(t)
 

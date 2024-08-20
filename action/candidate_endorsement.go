@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
@@ -95,13 +94,14 @@ var (
 	candidateEndorsementEndorseMethod        abi.Method
 	caniddateEndorsementIntentToRevokeMethod abi.Method
 	candidateEndorsementRevokeMethod         abi.Method
+	_                                        EthCompatibleAction = (*CandidateEndorsement)(nil)
 )
 
 type (
 	// CandidateEndorsement is the action to endorse or unendorse a candidate
 	CandidateEndorsement struct {
 		AbstractAction
-
+		stake_common
 		// bucketIndex is the bucket index want to be endorsed or unendorsed
 		bucketIndex uint64
 		// endorse is true if the action is to endorse a candidate, false if unendorse
@@ -194,7 +194,8 @@ func (act *CandidateEndorsement) LoadProto(pbAct *iotextypes.CandidateEndorsemen
 	return nil
 }
 
-func (act *CandidateEndorsement) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (act *CandidateEndorsement) EthData() ([]byte, error) {
 	var method abi.Method
 	switch act.op {
 	case CandidateEndorsementOpLegacy:
@@ -217,22 +218,6 @@ func (act *CandidateEndorsement) encodeABIBinary() ([]byte, error) {
 		return nil, err
 	}
 	return append(method.ID, data...), nil
-}
-
-// ToEthTx returns an Ethereum transaction which corresponds to this action
-func (act *CandidateEndorsement) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := act.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    act.Nonce(),
-		GasPrice: act.GasPrice(),
-		Gas:      act.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
 }
 
 // NewCandidateEndorsementLegacy returns a CandidateEndorsement action

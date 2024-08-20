@@ -9,7 +9,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -154,19 +153,22 @@ func (tsf *Transfer) SanityCheck() error {
 	return tsf.AbstractAction.SanityCheck()
 }
 
-// ToEthTx converts action to eth-compatible tx
-func (tsf *Transfer) ToEthTx(_ uint32) (*types.Transaction, error) {
+// EthTo returns the address for converting to eth tx
+func (tsf *Transfer) EthTo() (*common.Address, error) {
 	addr, err := address.FromString(tsf.recipient)
 	if err != nil {
 		return nil, err
 	}
 	ethAddr := common.BytesToAddress(addr.Bytes())
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    tsf.Nonce(),
-		GasPrice: tsf.GasPrice(),
-		Gas:      tsf.GasLimit(),
-		To:       &ethAddr,
-		Value:    tsf.amount,
-		Data:     tsf.payload,
-	}), nil
+	return &ethAddr, nil
+}
+
+// Value returns the value for converting to eth tx
+func (tsf *Transfer) Value() *big.Int {
+	return tsf.amount
+}
+
+// EthData returns the data for converting to eth tx
+func (tsf *Transfer) EthData() ([]byte, error) {
+	return tsf.payload, nil
 }

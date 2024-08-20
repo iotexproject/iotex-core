@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -46,7 +45,7 @@ var (
 
 type MigrateStake struct {
 	AbstractAction
-
+	stake_common
 	bucketIndex uint64
 }
 
@@ -116,7 +115,8 @@ func (ms *MigrateStake) LoadProto(pbAct *iotextypes.StakeMigrate) error {
 	return nil
 }
 
-func (ms *MigrateStake) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (ms *MigrateStake) EthData() ([]byte, error) {
 	data, err := migrateStakeMethod.Inputs.Pack(ms.bucketIndex)
 	if err != nil {
 		return nil, err
@@ -142,20 +142,4 @@ func NewMigrateStakeFromABIBinary(data []byte) (*MigrateStake, error) {
 		return nil, errDecodeFailure
 	}
 	return &rs, nil
-}
-
-// ToEthTx converts action to eth-compatible tx
-func (ms *MigrateStake) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := ms.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    ms.Nonce(),
-		GasPrice: ms.GasPrice(),
-		Gas:      ms.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
 }

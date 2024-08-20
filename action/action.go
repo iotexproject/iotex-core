@@ -11,7 +11,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 )
@@ -24,7 +23,9 @@ type (
 
 	// EthCompatibleAction is the action which is compatible to be converted to eth tx
 	EthCompatibleAction interface {
-		ToEthTx(uint32) (*types.Transaction, error)
+		EthTo() (*common.Address, error)
+		Value() *big.Int
+		EthData() ([]byte, error)
 	}
 
 	TxContainer interface {

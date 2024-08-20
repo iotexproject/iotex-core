@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -60,7 +59,7 @@ var (
 // TransferStake defines the action of transfering stake ownership ts the other
 type TransferStake struct {
 	AbstractAction
-
+	stake_common
 	voterAddress address.Address
 	bucketIndex  uint64
 	payload      []byte
@@ -160,12 +159,8 @@ func (ts *TransferStake) Cost() (*big.Int, error) {
 	return transferStakeFee, nil
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (ts *TransferStake) EncodeABIBinary() ([]byte, error) {
-	return ts.encodeABIBinary()
-}
-
-func (ts *TransferStake) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (ts *TransferStake) EthData() ([]byte, error) {
 	voterEthAddr := common.BytesToAddress(ts.voterAddress.Bytes())
 	data, err := _transferStakeMethod.Inputs.Pack(voterEthAddr, ts.bucketIndex, ts.payload)
 	if err != nil {
@@ -199,20 +194,4 @@ func NewTransferStakeFromABIBinary(data []byte) (*TransferStake, error) {
 		return nil, errDecodeFailure
 	}
 	return &ts, nil
-}
-
-// ToEthTx converts action to eth-compatible tx
-func (ts *TransferStake) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := ts.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    ts.Nonce(),
-		GasPrice: ts.GasPrice(),
-		Gas:      ts.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
 }
