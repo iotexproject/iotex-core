@@ -12,11 +12,12 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // TransferSizeLimit is the maximum size of transfer allowed
@@ -98,7 +99,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 		}
 		if fCtx.FixDoubleChargeGas {
 			if p.depositGas != nil {
-				depositLog, err = p.depositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee))
+				depositLog, err = p.depositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee, iotextypes.TransactionLogType_NATIVE_TRANSFER))
 				if err != nil {
 					return nil, err
 				}
@@ -140,7 +141,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 
 	if fCtx.FixDoubleChargeGas {
 		if p.depositGas != nil {
-			depositLog, err = p.depositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee))
+			depositLog, err = p.depositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee, iotextypes.TransactionLogType_NATIVE_TRANSFER))
 			if err != nil {
 				return nil, err
 			}

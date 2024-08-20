@@ -271,7 +271,7 @@ func ExecuteContract(
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to split gas")
 		}
-		depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, gasFee, protocol.BurnGasOption(baseFee))
+		depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, gasFee, protocol.BurnGasOption(baseFee, iotextypes.TransactionLogType_NATIVE_TRANSFER))
 		if err != nil {
 			return nil, nil, err
 		}
