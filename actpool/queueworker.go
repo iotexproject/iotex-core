@@ -105,7 +105,8 @@ func (worker *queueWorker) Handle(job workerJob) error {
 	}
 
 	worker.ap.allActions.Set(actHash, act)
-	if worker.ap.store != nil {
+	isBlobTx := false // TODO: only store blob tx
+	if worker.ap.store != nil && isBlobTx {
 		if err := worker.ap.store.Put(act); err != nil {
 			log.L().Warn("failed to store action", zap.Error(err), log.Hex("hash", actHash[:]))
 		}

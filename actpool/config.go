@@ -52,11 +52,11 @@ func (ap Config) MinGasPrice() *big.Int {
 
 // StoreConfig is the configuration for the blob store
 type StoreConfig struct {
-	Store        blobStoreConfig `yaml:"store"`
-	ReadInterval time.Duration   `yaml:"readInterval"` // Interval to read from store to actpool memory
+	Store        actionStoreConfig `yaml:"store"`
+	ReadInterval time.Duration     `yaml:"readInterval"` // Interval to read from store to actpool memory
 }
 
 var defaultStoreConfig = StoreConfig{
-	Store:        defaultBlobStoreConfig,
+	Store:        defaultActionStoreConfig,
 	ReadInterval: 10 * time.Minute,
 }

@@ -106,7 +106,7 @@ type actPool struct {
 	jobQueue                 []chan workerJob
 	worker                   []*queueWorker
 
-	store     *blobStore             // store is the persistent cache for actpool
+	store     *actionStore           // store is the persistent cache for actpool
 	storeSync *routine.RecurringTask // storeSync is the recurring task to sync actions from store to memory
 }
 
