@@ -14,7 +14,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	. "github.com/iotexproject/iotex-core/pkg/util/assertions"
 )
@@ -54,11 +56,66 @@ func TestBlobTxHashing(t *testing.T) {
 	r.Equal(h, withBlobStripped.Hash())
 }
 
-func TestBlobTxSanity(t *testing.T) {
+func TestBlobTx(t *testing.T) {
 	r := require.New(t)
-
 	blobData := createTestBlobTxData()
-	r.NoError(blobData.SanityCheck())
+
+	t.Run("Proto", func(t *testing.T) {
+		h := blobData.blobHashes
+		b := blobData.sidecar.Blobs
+		blobData.blobHashes = blobData.blobHashes[:0]
+		r.Nil(blobData.blobHashesProto())
+		blobData.sidecar.Blobs = blobData.sidecar.Blobs[:0]
+		r.Nil(ToProtoSideCar(blobData.sidecar))
+		blobData.blobHashes = h
+		blobData.sidecar.Blobs = b
+		pb := blobData.toProto()
+		raw := MustNoErrorV(proto.Marshal(pb))
+		r.Equal(131218, len(raw))
+		recv := iotextypes.BlobTxData{}
+		r.NoError(proto.Unmarshal(raw, &recv))
+		decodeBlob := MustNoErrorV(fromProtoBlobTxData(&recv))
+		r.Equal(blobData, decodeBlob)
+	})
+	t.Run("Sanity", func(t *testing.T) {
+		r.NoError(blobData.SanityCheck())
+		// check blob hashes size
+		h := blobData.blobHashes
+		blobData.blobHashes = blobData.blobHashes[:0]
+		r.ErrorContains(blobData.SanityCheck(), "blobless blob transaction")
+		blobData.blobHashes = h
+		// check Blobs, Commitments, Proofs size
+		sidecar := blobData.sidecar
+		sidecar.Blobs = append(sidecar.Blobs, kzg4844.Blob{})
+		r.ErrorContains(blobData.SanityCheck(), "number of blobs and hashes mismatch")
+		sidecar.Blobs = sidecar.Blobs[:1]
+		sidecar.Commitments = append(sidecar.Commitments, kzg4844.Commitment{})
+		r.ErrorContains(blobData.SanityCheck(), "number of blobs and commitments mismatch")
+		sidecar.Commitments = sidecar.Commitments[:1]
+		sidecar.Proofs = append(sidecar.Proofs, kzg4844.Proof{})
+		r.ErrorContains(blobData.SanityCheck(), "number of blobs and proofs mismatch")
+		sidecar.Proofs = sidecar.Proofs[:1]
+		r.NoError(blobData.SanityCheck())
+		// verify commitments hash
+		b := sidecar.Commitments[0][3]
+		sidecar.Commitments[0][3] = b + 1
+		r.ErrorContains(blobData.SanityCheck(), "blob 0: computed hash 01fca1582898b9c172b690c0ea344713bb28199208d3553b5ed56f33e0f34034 mismatches transaction one")
+		sidecar.Commitments[0][3] = b
+		// verify blobs via KZG
+		b = sidecar.Blobs[0][31]
+		sidecar.Blobs[0][31] = b + 1
+		r.ErrorContains(blobData.SanityCheck(), "invalid blob 0: can't verify opening proof")
+		sidecar.Blobs[0][31] = b
+		b = sidecar.Proofs[0][42]
+		sidecar.Proofs[0][42] = b + 1
+		r.ErrorContains(blobData.SanityCheck(), "invalid blob 0: invalid compressed coordinate: square root doesn't exist")
+		sidecar.Proofs[0][42] = b
+		b = sidecar.Proofs[0][47]
+		sidecar.Proofs[0][47] = b + 1
+		r.ErrorContains(blobData.SanityCheck(), "invalid blob 0: invalid point: subgroup check failed")
+		sidecar.Proofs[0][47] = b
+		r.NoError(blobData.SanityCheck())
+	})
 }
 
 var (
