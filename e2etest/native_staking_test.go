@@ -1267,6 +1267,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 		cfg := initCfg(require)
 		cfg.Genesis.UpernavikBlockHeight = 1
 		cfg.Genesis.VanuatuBlockHeight = 100
+		normalizeGenesisHeights(&cfg)
 		cfg.Genesis.EndorsementWithdrawWaitingBlocks = 5
 		cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
 		cfg.Genesis.SystemStakingContractV2Address = contractAddr

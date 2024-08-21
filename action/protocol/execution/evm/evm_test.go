@@ -253,10 +253,19 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			31174200,
 		},
-		// after Upernavik
+		// after Upernavik - Vanuatu
 		{
 			action.EmptyAddress,
 			31174201,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			41174200,
+		},
+		// after Vanuatu
+		{
+			action.EmptyAddress,
+			41174201,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
@@ -353,10 +362,13 @@ func TestConstantinople(t *testing.T) {
 		// Vanuatu = enable Cancun
 		isVanuatu := g.IsVanuatu(e.height)
 		require.Equal(isVanuatu, chainRules.IsCancun)
+		require.Equal(isVanuatu, evmChainConfig.IsCancun(big.NewInt(int64(e.height)), evm.Context.Time))
 
-		// Cancun and Prague not yet enabled
+		// Prague and Verkle not yet enabled
 		require.False(chainRules.IsPrague)
 		require.False(evmChainConfig.IsPrague(big.NewInt(int64(e.height)), evm.Context.Time))
+		require.False(chainRules.IsVerkle)
+		require.False(evmChainConfig.IsVerkle(big.NewInt(int64(e.height)), evm.Context.Time))
 
 		// test basefee
 		require.Equal(new(big.Int), evm.Context.BaseFee)
