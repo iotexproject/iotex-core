@@ -57,7 +57,6 @@ func (f *fund) Deserialize(data []byte) error {
 	return nil
 }
 
-// TODO: deposit blobfee
 // Deposit deposits token into the rewarding fund
 func (p *Protocol) Deposit(
 	ctx context.Context,

@@ -6,9 +6,11 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCalcExcessBlobGas(t *testing.T) {
+	require := require.New(t)
 	var tests = []struct {
 		excess uint64
 		blobs  uint64
@@ -35,13 +37,12 @@ func TestCalcExcessBlobGas(t *testing.T) {
 	}
 	for i, tt := range tests {
 		result := CalcExcessBlobGas(tt.excess, tt.blobs*params.BlobTxBlobGasPerBlob)
-		if result != tt.want {
-			t.Errorf("test %d: excess blob gas mismatch: have %v, want %v", i, result, tt.want)
-		}
+		require.Equal(tt.want, result, "test %d: excess blob gas mismatch", i)
 	}
 }
 
 func TestCalcBlobFee(t *testing.T) {
+	require := require.New(t)
 	tests := []struct {
 		excessBlobGas uint64
 		blobfee       int64
@@ -53,13 +54,12 @@ func TestCalcBlobFee(t *testing.T) {
 	}
 	for i, tt := range tests {
 		have := CalcBlobFee(tt.excessBlobGas)
-		if have.Int64() != tt.blobfee {
-			t.Errorf("test %d: blobfee mismatch: have %v want %v", i, have, tt.blobfee)
-		}
+		require.Equal(tt.blobfee, have.Int64(), "test %d: blobfee mismatch", i)
 	}
 }
 
 func TestFakeExponential(t *testing.T) {
+	require := require.New(t)
 	tests := []struct {
 		factor      int64
 		numerator   int64
@@ -87,12 +87,8 @@ func TestFakeExponential(t *testing.T) {
 		f, n, d := big.NewInt(tt.factor), big.NewInt(tt.numerator), big.NewInt(tt.denominator)
 		original := fmt.Sprintf("%d %d %d", f, n, d)
 		have := fakeExponential(f, n, d)
-		if have.Int64() != tt.want {
-			t.Errorf("test %d: fake exponential mismatch: have %v want %v", i, have, tt.want)
-		}
+		require.Equal(tt.want, have.Int64(), "test %d: fake exponential mismatch", i)
 		later := fmt.Sprintf("%d %d %d", f, n, d)
-		if original != later {
-			t.Errorf("test %d: fake exponential modified arguments: have\n%v\nwant\n%v", i, later, original)
-		}
+		require.Equal(original, later, "test %d: fake exponential modified arguments", i)
 	}
 }

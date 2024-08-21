@@ -189,7 +189,6 @@ func (ws *workingSet) runAction(
 	if err := ws.freshAccountConversion(ctx, &actCtx); err != nil {
 		return nil, err
 	}
-	si := ws.Snapshot()
 	for _, actionHandler := range reg.All() {
 		receipt, err := actionHandler.Handle(ctx, selp.Action(), ws)
 		if err != nil {
@@ -201,13 +200,10 @@ func (ws *workingSet) runAction(
 		}
 		if receipt != nil {
 			isBlobTx := false // TODO: get blob type from action
-			if protocol.MustGetFeatureCtx(ctx).DisableBlobTransaction || !isBlobTx {
+			if !protocol.MustGetFeatureCtx(ctx).EnableBlobTransaction || !isBlobTx {
 				return receipt, nil
 			}
 			if err = ws.handleBlob(ctx, selp, receipt); err != nil {
-				if e := ws.Revert(si); err != nil {
-					log.L().Panic("failed to revert snapshot", zap.Error(e))
-				}
 				return nil, err
 			}
 			return receipt, nil
@@ -222,7 +218,7 @@ func (ws *workingSet) handleBlob(ctx context.Context, act *action.SealedEnvelope
 	receipt.BlobGasUsed = uint64(blobNum) * params.BlobTxBlobGasPerBlob
 	receipt.BlobGasPrice = block.CalcBlobFee(protocol.MustGetBlockchainCtx(ctx).Tip.ExcessBlobGas)
 	blobFee := new(big.Int).Mul(receipt.BlobGasPrice, new(big.Int).SetUint64(receipt.BlobGasUsed))
-	logs, err := rewarding.DepositGas(ctx, ws, big.NewInt(0), protocol.BurnGasOption(blobFee, iotextypes.TransactionLogType_BLOB_FEE))
+	logs, err := rewarding.DepositGas(ctx, ws, nil, protocol.BurnGasOption(blobFee, iotextypes.TransactionLogType_BLOB_FEE))
 	if err != nil {
 		return err
 	}
@@ -713,7 +709,7 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 			return err
 		}
 	}
-	if !fCtx.DisableBlobTransaction {
+	if fCtx.EnableBlobTransaction {
 		bcCtx := protocol.MustGetBlockchainCtx(ctx)
 		if err := block.VerifyEIP4844Header(&bcCtx.Tip, &blk.Header); err != nil {
 			return err
@@ -776,7 +772,7 @@ func (ws *workingSet) CreateBuilder(
 		blkBuilder.SetGasUsed(calculateGasUsed(ws.receipts))
 		blkBuilder.SetBaseFee(block.CalcBaseFee(g.Blockchain, &bcCtx.Tip))
 	}
-	if fCtx.DisableBlobTransaction {
+	if !fCtx.EnableBlobTransaction {
 		return blkBuilder, nil
 	}
 	blkBuilder.SetBlobGasUsed(calculateBlobGasUsed(ws.receipts))
