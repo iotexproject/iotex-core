@@ -32,8 +32,9 @@ func (in *Store) ToProto() *iotextypes.BlockStore {
 	for _, r := range in.Receipts {
 		receipts = append(receipts, r.ConvertToReceiptPb())
 	}
+	// blob sidecar data are stored separately
 	return &iotextypes.BlockStore{
-		Block:    in.Block.ConvertToBlockPb(),
+		Block:    in.Block.ProtoWithoutSidecar(),
 		Receipts: receipts,
 	}
 }

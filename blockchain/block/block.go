@@ -42,6 +42,18 @@ func (b *Block) ConvertToBlockPb() *iotextypes.Block {
 	}
 }
 
+// ProtoWithoutSidecar returns the protobuf without sidecar
+func (b *Block) ProtoWithoutSidecar() *iotextypes.Block {
+	pb := b.ConvertToBlockPb()
+	for _, v := range pb.GetBody().GetActions() {
+		blobdata := v.GetCore().GetBlobTxData()
+		if blobdata != nil {
+			blobdata.BlobTxSidecar = nil
+		}
+	}
+	return pb
+}
+
 // Serialize returns the serialized byte stream of the block
 func (b *Block) Serialize() ([]byte, error) {
 	return proto.Marshal(b.ConvertToBlockPb())

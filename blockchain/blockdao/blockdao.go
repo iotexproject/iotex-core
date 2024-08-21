@@ -19,6 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -308,14 +309,18 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 
 func (dao *blockDAO) GetBlob(h hash.Hash256) (*types.BlobTxSidecar, string, error) {
 	if dao.blobStore == nil {
-		return nil, "", errors.New("blob store is not available")
+		return nil, "", errors.Wrap(db.ErrNotExist, "blob store is not available")
 	}
 	return dao.blobStore.GetBlob(h)
 }
 
 func (dao *blockDAO) GetBlobsByHeight(height uint64) ([]*types.BlobTxSidecar, []string, error) {
 	if dao.blobStore == nil {
-		return nil, nil, errors.New("blob store is not available")
+		return nil, nil, errors.Wrap(db.ErrNotExist, "blob store is not available")
+	}
+	tip := atomic.LoadUint64(&dao.tipHeight)
+	if height > tip {
+		return nil, nil, errors.Wrapf(db.ErrNotExist, "requested height %d higher than current tip %d", height, tip)
 	}
 	return dao.blobStore.GetBlobsByHeight(height)
 }
