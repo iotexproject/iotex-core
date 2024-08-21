@@ -108,7 +108,7 @@ func (worker *queueWorker) Handle(job workerJob) error {
 
 	if desAddress, ok := act.Destination(); ok && !strings.EqualFold(sender, desAddress) {
 		if err := worker.ap.accountDesActs.addAction(act); err != nil {
-			log.L().Debug("fail to add destionation map", zap.Error(err))
+			log.L().Debug("fail to add destination map", zap.Error(err))
 		}
 	}
 
