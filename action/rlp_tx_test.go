@@ -456,7 +456,8 @@ func TestEthTxDecodeVerify(t *testing.T) {
 				require.Equal(price, evmTx.GasFeeCap())
 				if v.encoding == iotextypes.Encoding_ETHEREUM_BLOB {
 					require.Equal(price.Rsh(price, 1), evmTx.GasTipCap())
-					require.NotNil(evmTx.BlobTxSidecar())
+					blobData := createTestBlobTxData()
+					require.Equal(blobData.sidecar, evmTx.BlobTxSidecar())
 				} else {
 					require.Equal(price, evmTx.GasFeeCap())
 				}

@@ -8,6 +8,7 @@ package action
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
@@ -87,6 +88,14 @@ func (act *AbstractAction) BasicActionSize() uint32 {
 	return uint32(size)
 }
 
+// BlobTxSidecar returns blob tx sidecar if any
+func (act *AbstractAction) BlobTxSidecar() *types.BlobTxSidecar {
+	if act.blobTxData != nil {
+		return act.blobTxData.sidecar
+	}
+	return nil
+}
+
 // SetEnvelopeContext sets the struct according to input
 func (act *AbstractAction) SetEnvelopeContext(in *AbstractAction) {
 	if act == nil {
@@ -102,11 +111,6 @@ func (act *AbstractAction) SetEnvelopeContext(in *AbstractAction) {
 	if in.gasFeeCap != nil {
 		act.gasFeeCap = new(big.Int).Set(in.gasFeeCap)
 	}
-}
-
-// IsBlobTx returns true if the transaction contains blob tx
-func (act *AbstractAction) IsBlobTx() bool {
-	return act.blobTxData != nil
 }
 
 // SanityCheck validates the variables in the action

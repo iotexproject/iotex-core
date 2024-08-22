@@ -160,9 +160,6 @@ func toLegacyTx(ab *AbstractAction, act Action) (*types.Transaction, error) {
 }
 
 func toBlobTx(evmNetworkID uint32, ab *AbstractAction, act Action) (*types.Transaction, error) {
-	if !ab.IsBlobTx() {
-		return nil, ErrInvalidAct
-	}
 	tx, ok := act.(EthCompatibleAction)
 	if !ok {
 		// action type not supported

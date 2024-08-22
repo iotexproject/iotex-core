@@ -34,8 +34,7 @@ type (
 		LoadProto(pbAct *iotextypes.ActionCore) error
 		SetNonce(n uint64)
 		SetChainID(chainID uint32)
-		IsBlobTx() bool
-		BlobTxData() *BlobTxData
+		BlobTxSidecar() *types.BlobTxSidecar
 	}
 
 	envelope struct {
@@ -279,18 +278,10 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 // SetChainID sets the chainID value
 func (elp *envelope) SetChainID(chainID uint32) { elp.chainID = chainID }
 
-// IsBlobTx return true for blob tx
-func (elp *envelope) IsBlobTx() bool {
+// BlobTxSidecar returns blob tx sidecar data
+func (elp *envelope) BlobTxSidecar() *types.BlobTxSidecar {
 	if container, ok := elp.payload.(*txContainer); ok {
-		return container.isBlobTx()
+		return container.blobTxSidecar()
 	}
-	return elp.AbstractAction.IsBlobTx()
-}
-
-// BlobTxData returns blob tx data
-func (elp *envelope) BlobTxData() *BlobTxData {
-	if container, ok := elp.payload.(*txContainer); ok {
-		return container.blobTxData()
-	}
-	return elp.AbstractAction.blobTxData
+	return elp.AbstractAction.BlobTxSidecar()
 }

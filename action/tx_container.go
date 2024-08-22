@@ -46,19 +46,11 @@ func (etx *txContainer) typeToEncoding() (iotextypes.Encoding, error) {
 	}
 }
 
-func (etx *txContainer) isBlobTx() bool {
-	return etx.tx.Type() == types.BlobTxType
-}
-
-func (etx *txContainer) blobTxData() *BlobTxData {
+func (etx *txContainer) blobTxSidecar() *types.BlobTxSidecar {
 	if etx.tx.Type() != types.BlobTxType {
 		return nil
 	}
-	return &BlobTxData{
-		blobFeeCap: etx.tx.BlobGasFeeCap(),
-		blobHashes: etx.tx.BlobHashes(),
-		sidecar:    etx.tx.BlobTxSidecar(),
-	}
+	return etx.tx.BlobTxSidecar()
 }
 
 func (etx *txContainer) proto() *iotextypes.TxContainer {
