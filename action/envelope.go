@@ -183,6 +183,7 @@ func (elp *envelope) Cost() (*big.Int, error) {
 			cost.Add(cost, amount)
 		}
 	}
+	// TODO: account for blob fee, requiring `blobFeeCap * blobGas * len(blobs)` at least
 	return cost, nil
 }
 
