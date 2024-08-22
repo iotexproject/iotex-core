@@ -132,6 +132,7 @@ type (
 		EnforceLegacyEndorsement                bool
 		EnableDynamicFeeTx                      bool
 		EnableBlobTransaction                   bool
+		SufficentBalanceGuarantee               bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -285,6 +286,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			EnforceLegacyEndorsement:                !g.IsUpernavik(height),
 			EnableDynamicFeeTx:                      g.IsVanuatu(height),
 			EnableBlobTransaction:                   g.IsVanuatu(height),
+			SufficentBalanceGuarantee:               g.IsVanuatu(height),
 		},
 	)
 }

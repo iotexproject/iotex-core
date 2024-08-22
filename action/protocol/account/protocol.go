@@ -14,8 +14,10 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -78,6 +80,24 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 	case *action.Transfer:
 		if err := p.validateTransfer(ctx, act); err != nil {
 			return errors.Wrap(err, "error when validating transfer action")
+		}
+	}
+	// check balance of sender
+	if !protocol.MustGetFeatureCtx(ctx).SufficentBalanceGuarantee {
+		return nil
+	}
+	actCtx := protocol.MustGetActionCtx(ctx)
+	acc, err := accountutil.LoadAccount(sr, actCtx.Caller)
+	if err != nil {
+		return errors.Wrap(err, "failed to load sender account")
+	}
+	if coster, ok := act.(interface{ Cost() (*big.Int, error) }); ok {
+		cost, err := coster.Cost()
+		if err != nil {
+			return errors.Wrap(err, "failed to get cost of action")
+		}
+		if acc.Balance.Cmp(cost) < 0 {
+			return errors.Wrapf(state.ErrNotEnoughBalance, "sender %s balance %s, cost %s", actCtx.Caller.String(), acc.Balance, cost)
 		}
 	}
 	return nil

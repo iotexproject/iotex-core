@@ -54,6 +54,7 @@ func (elp *envelope) Destination() (string, bool) {
 
 // Cost returns cost of actions
 func (elp *envelope) Cost() (*big.Int, error) {
+	// TODO: account for blob fee, requiring `blobFeeCap * blobGas * len(blobs)` at least
 	return elp.payload.Cost()
 }
 
