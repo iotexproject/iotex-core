@@ -232,6 +232,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.subscribe(sc, web3Req, writer)
 	case "eth_unsubscribe":
 		res, err = svr.unsubscribe(web3Req)
+	case "eth_getBlobSidecars":
+		res, err = svr.getBlobSidecars(web3Req)
 	//TODO: enable debug api after archive mode is supported
 	// case "debug_traceTransaction":
 	// 	res, err = svr.traceTransaction(ctx, web3Req)
@@ -980,6 +982,18 @@ func (svr *web3Handler) unsubscribe(in *gjson.Result) (interface{}, error) {
 	}
 	chainListener := svr.coreService.ChainListener()
 	return chainListener.RemoveResponder(id.String())
+}
+
+func (svr *web3Handler) getBlobSidecars(in *gjson.Result) (interface{}, error) {
+	blkNum := in.Get("params.0")
+	if !blkNum.Exists() {
+		return nil, errInvalidFormat
+	}
+	num, err := svr.parseBlockNumber(blkNum.String())
+	if err != nil {
+		return nil, err
+	}
+	return svr.coreService.BlobSidecarsByHeight(num)
 }
 
 func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) (interface{}, error) {

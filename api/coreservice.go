@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 
@@ -180,6 +181,8 @@ type (
 
 		// Track tracks the api call
 		Track(ctx context.Context, start time.Time, method string, size int64, success bool)
+		// BlobSidecarsByHeight returns blob sidecars by height
+		BlobSidecarsByHeight(height uint64) ([]*apitypes.BlobSidecarResult, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -1211,6 +1214,31 @@ func (core *coreService) getBlockByHeight(height uint64) (*apitypes.BlockWithRec
 		Block:    blk,
 		Receipts: receipts,
 	}, nil
+}
+
+func (core *coreService) BlobSidecarsByHeight(height uint64) ([]*apitypes.BlobSidecarResult, error) {
+	header, err := core.bc.BlockHeaderByHeight(height)
+	if err != nil {
+		return nil, err
+	}
+	res := make([]*apitypes.BlobSidecarResult, 0)
+	blobs, txIndexes, txHashes := core.getBlobSidecars(height)
+	blkHash := header.HashBlock()
+	for i, blob := range blobs {
+		res = append(res, &apitypes.BlobSidecarResult{
+			BlobSidecar: blob,
+			BlockNumber: height,
+			BlockHash:   common.BytesToHash(blkHash[:]),
+			TxIndex:     txIndexes[i],
+			TxHash:      common.BytesToHash(txHashes[i][:]),
+		})
+	}
+	return res, nil
+}
+
+func (core *coreService) getBlobSidecars(height uint64) (blobs []any, txIndexes []uint64, txHashes []hash.Hash256) {
+	// TODO: implement this function
+	return nil, nil, nil
 }
 
 func (core *coreService) getGravityChainStartHeight(epochHeight uint64) (uint64, error) {

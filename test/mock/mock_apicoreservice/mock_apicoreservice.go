@@ -140,6 +140,21 @@ func (mr *MockCoreServiceMockRecorder) ActionsInActPool(actHashes interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionsInActPool", reflect.TypeOf((*MockCoreService)(nil).ActionsInActPool), actHashes)
 }
 
+// BlobSidecarsByHeight mocks base method.
+func (m *MockCoreService) BlobSidecarsByHeight(height uint64) ([]*apitypes.BlobSidecarResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobSidecarsByHeight", height)
+	ret0, _ := ret[0].([]*apitypes.BlobSidecarResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlobSidecarsByHeight indicates an expected call of BlobSidecarsByHeight.
+func (mr *MockCoreServiceMockRecorder) BlobSidecarsByHeight(height interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobSidecarsByHeight", reflect.TypeOf((*MockCoreService)(nil).BlobSidecarsByHeight), height)
+}
+
 // BlockByHash mocks base method.
 func (m *MockCoreService) BlockByHash(arg0 string) (*apitypes.BlockWithReceipts, error) {
 	m.ctrl.T.Helper()
