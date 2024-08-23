@@ -1164,8 +1164,8 @@ github.com/influxdata/influxdb-client-go/v2 v2.4.0/go.mod h1:vLNHdxTJkIf2mSLvGrp
 github.com/influxdata/influxdb1-client v0.0.0-20191209144304-8bf82d3c094d/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
 github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
 github.com/influxdata/line-protocol v0.0.0-20200327222509-2487e7298839/go.mod h1:xaLFMmpvUxqXtVkUJfg9QmT88cDaCJ3ZKgdZ78oO8Qo=
-github.com/iotexproject/go-ethereum v1.7.4-0.20240321181400-fc0405c7567c h1:Nh/pGB9W/8AuqKQZCtHYQSHJVxuq01oPbhdBu9nA1Mo=
-github.com/iotexproject/go-ethereum v1.7.4-0.20240321181400-fc0405c7567c/go.mod h1:hKL2Qcj1OvStXNSEDbucexqnEt1Wh4Cz329XsjAalZY=
+github.com/iotexproject/go-ethereum v1.7.4-0.20240403001906-306a7b0ae158 h1:EbO60NBvtheRXk/e2DkL4n2jkB3Eh6hEx3D8kWNnNjM=
+github.com/iotexproject/go-ethereum v1.7.4-0.20240403001906-306a7b0ae158/go.mod h1:hKL2Qcj1OvStXNSEDbucexqnEt1Wh4Cz329XsjAalZY=
 github.com/iotexproject/go-fsm v1.0.0 h1:Zrg9JnNDUZg4Anpj6oa0Tk4+sXbHTpJzI0v5/Cj5N6A=
 github.com/iotexproject/go-fsm v1.0.0/go.mod h1:t3aYXtCCcQxyS7oduQZyuUpPnVI4ddFTwbAagHN7fT0=
 github.com/iotexproject/go-p2p v0.3.7-0.20240327085559-423bb9cc8f5f h1:Kf3PMDMmTWAXPoymCPqrN4FaBzdGRLp92GJEYvA/Qb4=
@@ -1184,8 +1184,8 @@ github.com/iotexproject/iotex-antenna-go/v2 v2.5.1/go.mod h1:8pDZcM45M0gY6jm3PoM
 github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d h1:/j1xCAC9YiG/8UKqYvycS/v3ddVsb1G7AMyLXOjeYI0=
 github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d/go.mod h1:GRWevxtqQ4gPMrd7Qxhr29/7aTgvjiTp+rFI9KMMZEo=
 github.com/iotexproject/iotex-proto v0.5.0/go.mod h1:Xg6REkv+nTZN+OC22xXIQuqKdTWWHwOAJEXCoMpDwtI=
-github.com/iotexproject/iotex-proto v0.6.3 h1:wVBnI+oaT+rcw8AbD7xRZ+mNaqsWPQn6SlRbShRiUQ8=
-github.com/iotexproject/iotex-proto v0.6.3/go.mod h1:Hxct427jhlu08PHQ44Jwh//hZVhXKq+XO/Mdqwc6dNc=
+github.com/iotexproject/iotex-proto v0.6.4-0.20240823154750-f601cf41d158 h1:vFheBwab0wUjthGqH4/xRdww6bKM87joV2gGS+OIpIY=
+github.com/iotexproject/iotex-proto v0.6.4-0.20240823154750-f601cf41d158/go.mod h1:Hxct427jhlu08PHQ44Jwh//hZVhXKq+XO/Mdqwc6dNc=
 github.com/ipfs/bbloom v0.0.1/go.mod h1:oqo8CVWsJFMOZqTglBG4wydCE4IQA/G2/SEofB0rjUI=
 github.com/ipfs/bbloom v0.0.4/go.mod h1:cS9YprKXpoZ9lT0n/Mw/a6/aFV6DTjTLYHeA+gyqMG0=
 github.com/ipfs/boxo v0.8.1/go.mod h1:xJ2hVb4La5WyD7GvKYE0lq2g1rmQZoCD2K4WNrV6aZI=

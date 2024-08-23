@@ -23,6 +23,7 @@ type AbstractAction struct {
 	gasTipCap  *big.Int
 	gasFeeCap  *big.Int
 	blobTxData *BlobTxData
+	accessList types.AccessList
 }
 
 // Version returns the version
@@ -150,6 +151,9 @@ func (act *AbstractAction) toProto() *iotextypes.ActionCore {
 	if act.blobTxData != nil {
 		actCore.BlobTxData = act.blobTxData.toProto()
 	}
+	if act.accessList != nil {
+		actCore.AccessList = toAccessListProto(act.accessList)
+	}
 	return &actCore
 }
 
@@ -187,6 +191,9 @@ func (act *AbstractAction) fromProto(pb *iotextypes.ActionCore) error {
 			return err
 		}
 		act.blobTxData = blob
+	}
+	if acl := pb.GetAccessList(); acl != nil {
+		act.accessList = fromAccessListProto(acl)
 	}
 	return nil
 }

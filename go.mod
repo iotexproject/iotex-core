@@ -26,7 +26,7 @@ require (
 	github.com/iotexproject/iotex-address v0.2.8
 	github.com/iotexproject/iotex-antenna-go/v2 v2.5.1
 	github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d
-	github.com/iotexproject/iotex-proto v0.6.3
+	github.com/iotexproject/iotex-proto v0.6.4-0.20240823154750-f601cf41d158
 	github.com/ipfs/go-ipfs-api v0.7.0
 	github.com/libp2p/go-libp2p v0.32.2
 	github.com/mackerelio/go-osstat v0.2.4
@@ -241,6 +241,6 @@ require (
 )
 
 //TODO: add tag for go-ethereum
-replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v1.7.4-0.20240321181400-fc0405c7567c
+replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v1.7.4-0.20240403001906-306a7b0ae158
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
