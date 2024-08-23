@@ -39,10 +39,9 @@ var (
 type Execution struct {
 	AbstractAction
 
-	contract   string
-	amount     *big.Int
-	data       []byte
-	accessList types.AccessList
+	contract string
+	amount   *big.Int
+	data     []byte
 }
 
 // NewExecution returns an Execution instance (w/o access list)
@@ -79,15 +78,15 @@ func NewExecutionWithAccessList(
 ) (*Execution, error) {
 	return &Execution{
 		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
+			version:    version.ProtocolVersion,
+			nonce:      nonce,
+			gasLimit:   gasLimit,
+			gasPrice:   gasPrice,
+			accessList: list,
 		},
-		contract:   contractAddress,
-		amount:     amount,
-		data:       data,
-		accessList: list,
+		contract: contractAddress,
+		amount:   amount,
+		data:     data,
 	}, nil
 }
 
@@ -124,7 +123,7 @@ func (ex *Execution) Data() []byte { return ex.data }
 func (ex *Execution) Payload() []byte { return ex.data }
 
 // AccessList returns the access list
-func (ex *Execution) AccessList() types.AccessList { return ex.accessList }
+func (ex *Execution) AccessList() types.AccessList { return ex.AbstractAction.accessList }
 
 func toAccessListProto(list types.AccessList) []*iotextypes.AccessTuple {
 	if len(list) == 0 {
@@ -185,7 +184,6 @@ func (ex *Execution) Proto() *iotextypes.Execution {
 	if ex.amount != nil && len(ex.amount.String()) > 0 {
 		act.Amount = ex.amount.String()
 	}
-	act.AccessList = toAccessListProto(ex.accessList)
 	return act
 }
 
@@ -210,7 +208,6 @@ func (ex *Execution) LoadProto(pbAct *iotextypes.Execution) error {
 		ex.amount = amount
 	}
 	ex.data = pbAct.GetData()
-	ex.accessList = fromAccessListProto(pbAct.AccessList)
 	return nil
 }
 
