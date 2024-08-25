@@ -256,7 +256,11 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 				}
 				logReq.Topics = append(logReq.Topics, topicArr)
 			} else {
-				logReq.Topics = append(logReq.Topics, []string{util.Remove0xPrefix(topics.String())})
+				if topics.String() == "" {
+					logReq.Topics = append(logReq.Topics, []string{})
+				} else {
+					logReq.Topics = append(logReq.Topics, []string{util.Remove0xPrefix(topics.String())})
+				}
 			}
 		}
 	}
