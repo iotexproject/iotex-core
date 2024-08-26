@@ -64,7 +64,7 @@ func (act *AbstractAction) SetGasPrice(val *big.Int) {
 
 // GasTipCap returns the gas tip cap
 func (act *AbstractAction) GasTipCap() *big.Int {
-	if act.gasTipCap == nil {
+	if act.version == 1 {
 		return act.GasPrice()
 	}
 	return new(big.Int).Set(act.gasTipCap)
@@ -72,7 +72,7 @@ func (act *AbstractAction) GasTipCap() *big.Int {
 
 // GasFeeCap returns the gas fee cap
 func (act *AbstractAction) GasFeeCap() *big.Int {
-	if act.gasFeeCap == nil {
+	if act.version == 1 {
 		return act.GasPrice()
 	}
 	return new(big.Int).Set(act.gasFeeCap)
@@ -91,7 +91,7 @@ func (act *AbstractAction) BasicActionSize() uint32 {
 
 // BlobTxSidecar returns blob tx sidecar if any
 func (act *AbstractAction) BlobTxSidecar() *types.BlobTxSidecar {
-	if act.blobTxData != nil {
+	if act.version == 4 {
 		return act.blobTxData.sidecar
 	}
 	return nil
@@ -126,7 +126,7 @@ func (act *AbstractAction) SanityCheck() error {
 	if act.gasFeeCap != nil && act.gasFeeCap.Sign() < 0 {
 		return ErrNegativeValue
 	}
-	if act.blobTxData != nil {
+	if act.version == 4 {
 		return act.blobTxData.SanityCheck()
 	}
 	return nil
@@ -142,16 +142,16 @@ func (act *AbstractAction) toProto() *iotextypes.ActionCore {
 	if act.gasPrice != nil {
 		actCore.GasPrice = act.gasPrice.String()
 	}
-	if act.gasTipCap != nil {
+	if act.version == 3 || act.version == 4 {
 		actCore.GasTipCap = act.gasTipCap.String()
 	}
-	if act.gasFeeCap != nil {
+	if act.version == 3 || act.version == 4 {
 		actCore.GasFeeCap = act.gasFeeCap.String()
 	}
-	if act.blobTxData != nil {
+	if act.version == 4 {
 		actCore.BlobTxData = act.blobTxData.toProto()
 	}
-	if act.accessList != nil {
+	if act.version == 2 {
 		actCore.AccessList = toAccessListProto(act.accessList)
 	}
 	return &actCore
@@ -185,15 +185,15 @@ func (act *AbstractAction) fromProto(pb *iotextypes.ActionCore) error {
 			return errors.Errorf("invalid gasFeeCap %s", gasFee)
 		}
 	}
-	if blobPb := pb.GetBlobTxData(); blobPb != nil {
-		blob, err := fromProtoBlobTxData(blobPb)
+	if act.version == 4 {
+		blob, err := fromProtoBlobTxData(pb.GetBlobTxData())
 		if err != nil {
 			return err
 		}
 		act.blobTxData = blob
 	}
-	if acl := pb.GetAccessList(); acl != nil {
-		act.accessList = fromAccessListProto(acl)
+	if act.version == 2 {
+		act.accessList = fromAccessListProto(pb.AccessList)
 	}
 	return nil
 }

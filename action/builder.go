@@ -173,19 +173,23 @@ func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) {
 	b.elp.nonce = tx.Nonce()
 	b.elp.gasPrice = tx.GasPrice()
 	b.elp.gasLimit = tx.Gas()
-	b.elp.gasTipCap = tx.GasTipCap()
-	b.elp.gasFeeCap = tx.GasFeeCap()
+	if tx.Type() == types.DynamicFeeTxType || tx.Type() == types.BlobTxType {
+		b.elp.gasTipCap = tx.GasTipCap()
+		b.elp.gasFeeCap = tx.GasFeeCap()
+	}
 	// create blob tx data for EIP-4844 BlobTx
-	if bh := tx.BlobHashes(); bh != nil {
+	if tx.Type() == types.BlobTxType {
 		b.elp.blobTxData = &BlobTxData{
 			blobFeeCap: tx.BlobGasFeeCap(),
-			blobHashes: bh,
+			blobHashes: tx.BlobHashes(),
 		}
 		if sidecar := tx.BlobTxSidecar(); sidecar != nil {
 			b.elp.blobTxData.sidecar = sidecar
 		}
 	}
-	b.elp.accessList = tx.AccessList()
+	if tx.Type() == types.AccessListTxType {
+		b.elp.accessList = tx.AccessList()
+	}
 }
 
 func getRecipientAddr(addr *common.Address) string {
