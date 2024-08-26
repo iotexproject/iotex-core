@@ -15,6 +15,7 @@ import (
 	hash "github.com/iotexproject/go-pkgs/hash"
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
+	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
@@ -290,18 +291,23 @@ func (mr *MockCoreServiceMockRecorder) EpochMeta(epochNum interface{}) *gomock.C
 }
 
 // EstimateExecutionGasConsumption mocks base method.
-func (m *MockCoreService) EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error) {
+func (m *MockCoreService) EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EstimateExecutionGasConsumption", ctx, sc, callerAddr)
+	varargs := []interface{}{ctx, sc, callerAddr}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "EstimateExecutionGasConsumption", varargs...)
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EstimateExecutionGasConsumption indicates an expected call of EstimateExecutionGasConsumption.
-func (mr *MockCoreServiceMockRecorder) EstimateExecutionGasConsumption(ctx, sc, callerAddr interface{}) *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) EstimateExecutionGasConsumption(ctx, sc, callerAddr interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateExecutionGasConsumption", reflect.TypeOf((*MockCoreService)(nil).EstimateExecutionGasConsumption), ctx, sc, callerAddr)
+	varargs := append([]interface{}{ctx, sc, callerAddr}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateExecutionGasConsumption", reflect.TypeOf((*MockCoreService)(nil).EstimateExecutionGasConsumption), varargs...)
 }
 
 // EstimateGasForAction mocks base method.

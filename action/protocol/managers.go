@@ -93,3 +93,16 @@ type (
 		Reset()
 	}
 )
+
+type (
+	SimulateOption       func(*SimulateOptionConfig)
+	SimulateOptionConfig struct {
+		PreOpt func(StateManager) error
+	}
+)
+
+func WithSimulatePreOpt(fn func(StateManager) error) SimulateOption {
+	return func(so *SimulateOptionConfig) {
+		so.PreOpt = fn
+	}
+}
