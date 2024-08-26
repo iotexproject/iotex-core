@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
@@ -106,4 +109,9 @@ func TestServerV2(t *testing.T) {
 		}
 		require.Greater(10, i)
 	})
+
+	cli, _ := ethclient.Dial("http://localhost:8545")
+	ch := make(chan types.Log)
+	sub, _ := cli.SubscribeFilterLogs(context.Background(), ethereum.FilterQuery{}, ch)
+	sub.Unsubscribe()
 }

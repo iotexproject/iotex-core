@@ -31,8 +31,9 @@ const (
 
 // WebsocketHandler handles requests from websocket protocol
 type WebsocketHandler struct {
-	msgHandler Web3Handler
-	limiter    *rate.Limiter
+	coreService CoreService
+	msgHandler  Web3Handler
+	limiter     *rate.Limiter
 }
 
 var upgrader = websocket.Upgrader{
@@ -75,14 +76,15 @@ func (c *safeWebsocketConn) SetWriteDeadline(t time.Time) error {
 }
 
 // NewWebsocketHandler creates a new websocket handler
-func NewWebsocketHandler(web3Handler Web3Handler, limiter *rate.Limiter) *WebsocketHandler {
+func NewWebsocketHandler(coreService CoreService, web3Handler Web3Handler, limiter *rate.Limiter) *WebsocketHandler {
 	if limiter == nil {
 		// set the limiter to the maximum possible rate
 		limiter = rate.NewLimiter(rate.Limit(math.MaxFloat64), 1)
 	}
 	return &WebsocketHandler{
-		msgHandler: web3Handler,
-		limiter:    limiter,
+		msgHandler:  web3Handler,
+		limiter:     limiter,
+		coreService: coreService,
 	}
 }
 
@@ -112,10 +114,18 @@ func (wsSvr *WebsocketHandler) handleConnection(ctx context.Context, ws *websock
 		return nil
 	})
 
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, ctxCancel := context.WithCancel(WithStreamContext(ctx))
 	safeWs := &safeWebsocketConn{ws: ws}
-	go ping(ctx, safeWs, cancel)
+	go ping(ctx, safeWs, ctxCancel)
 
+	cancel := func() {
+		ctxCancel()
+		// clean up the stream context
+		sc, _ := StreamFromContext(ctx)
+		for _, id := range sc.ListenerIDs() {
+			wsSvr.coreService.ChainListener().RemoveResponder(id)
+		}
+	}
 	for {
 		select {
 		case <-ctx.Done():
