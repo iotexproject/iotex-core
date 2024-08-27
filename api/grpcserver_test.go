@@ -358,6 +358,9 @@ func TestGrpcServer_StreamBlocks(t *testing.T) {
 			}()
 			return "", nil
 		})
+		listener.EXPECT().RemoveResponder(gomock.Any()).DoAndReturn(func(string) (bool, error) {
+			return true, nil
+		})
 		core.EXPECT().ChainListener().Return(listener)
 		err := grpcSvr.StreamBlocks(&iotexapi.StreamBlocksRequest{}, nil)
 		require.NoError(err)
@@ -389,6 +392,9 @@ func TestGrpcServer_StreamLogs(t *testing.T) {
 				g.errChan <- nil
 			}()
 			return "", nil
+		})
+		listener.EXPECT().RemoveResponder(gomock.Any()).DoAndReturn(func(string) (bool, error) {
+			return true, nil
 		})
 		core.EXPECT().ChainListener().Return(listener)
 		err := grpcSvr.StreamLogs(&iotexapi.StreamLogsRequest{Filter: &iotexapi.LogsFilter{}}, nil)

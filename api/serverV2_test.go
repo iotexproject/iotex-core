@@ -8,9 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
@@ -31,7 +28,7 @@ func TestServerV2(t *testing.T) {
 		core:         core,
 		grpcServer:   NewGRPCServer(core, testutil.RandomPort()),
 		httpSvr:      NewHTTPServer("", testutil.RandomPort(), newHTTPHandler(web3Handler)),
-		websocketSvr: NewHTTPServer("", testutil.RandomPort(), NewWebsocketHandler(web3Handler, nil)),
+		websocketSvr: NewHTTPServer("", testutil.RandomPort(), NewWebsocketHandler(core, web3Handler, nil)),
 	}
 	ctx := context.Background()
 
@@ -109,9 +106,4 @@ func TestServerV2(t *testing.T) {
 		}
 		require.Greater(10, i)
 	})
-
-	cli, _ := ethclient.Dial("http://localhost:8545")
-	ch := make(chan types.Log)
-	sub, _ := cli.SubscribeFilterLogs(context.Background(), ethereum.FilterQuery{}, ch)
-	sub.Unsubscribe()
 }

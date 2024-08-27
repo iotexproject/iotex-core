@@ -67,7 +67,7 @@ func NewServerV2(
 	wrappedWeb3Handler := otelhttp.NewHandler(newHTTPHandler(web3Handler), "web3.jsonrpc")
 
 	limiter := rate.NewLimiter(rate.Limit(cfg.WebsocketRateLimit), 1)
-	wrappedWebsocketHandler := otelhttp.NewHandler(NewWebsocketHandler(web3Handler, limiter), "web3.websocket")
+	wrappedWebsocketHandler := otelhttp.NewHandler(NewWebsocketHandler(coreAPI, web3Handler, limiter), "web3.websocket")
 
 	return &ServerV2{
 		core:         coreAPI,
