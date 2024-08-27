@@ -72,7 +72,7 @@ var (
 
 // CreateStake defines the action of CreateStake creation
 type CreateStake struct {
-	AbstractAction
+	AbstractAction // change to interface
 	stake_common
 	candName  string
 	amount    *big.Int

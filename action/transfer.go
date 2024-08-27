@@ -32,7 +32,7 @@ var (
 
 // Transfer defines the struct of account-based transfer
 type Transfer struct {
-	AbstractAction
+	AbstractAction // change to interface
 
 	amount    *big.Int
 	recipient string

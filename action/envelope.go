@@ -38,8 +38,8 @@ type (
 	}
 
 	envelope struct {
-		AbstractAction
-		payload actionPayload
+		AbstractAction // change to interface
+		payload        actionPayload
 	}
 )
 

@@ -93,7 +93,7 @@ func init() {
 
 // reclaimStake defines the action of stake restake/withdraw
 type reclaimStake struct {
-	AbstractAction
+	AbstractAction // change to interface
 	stake_common
 	bucketIndex uint64
 	payload     []byte
