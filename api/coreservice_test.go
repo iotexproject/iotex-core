@@ -491,8 +491,8 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 		p = p.ApplyFuncReturn(accountutil.AccountState, nil, errors.New(t.Name()))
 
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
-
-		_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
+		_, err := cs.EstimateExecutionGasConsumption(ctx, elp, &address.AddrV1{})
 		require.ErrorContains(err, t.Name())
 	})
 
@@ -521,8 +521,8 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
 		bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
-
-		_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
+		_, err := cs.EstimateExecutionGasConsumption(ctx, elp, &address.AddrV1{})
 		require.ErrorContains(err, t.Name())
 	})
 
@@ -555,8 +555,8 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 
 			bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
 			bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
-
-			_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+			elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
+			_, err := cs.EstimateExecutionGasConsumption(ctx, elp, &address.AddrV1{})
 			require.ErrorContains(err, "execution simulation failed:")
 		})
 
@@ -588,8 +588,8 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 
 			bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
 			bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
-
-			_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+			elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
+			_, err := cs.EstimateExecutionGasConsumption(ctx, elp, &address.AddrV1{})
 			require.ErrorContains(err, "execution simulation is reverted due to the reason:")
 		})
 	})
@@ -599,18 +599,17 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 		defer cleanCallback()
 
 		callAddr := identityset.Address(29)
-		sc, err := action.NewExecution("", 0, big.NewInt(0), 0, big.NewInt(0), []byte{})
-		require.NoError(err)
+		sc := action.NewExecution("", big.NewInt(0), []byte{})
 
 		//gasprice is zero
-		sc.SetGasPrice(big.NewInt(0))
-		estimatedGas, err := svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
+		elp := (&action.EnvelopeBuilder{}).SetAction(sc).Build()
+		estimatedGas, err := svr.EstimateExecutionGasConsumption(context.Background(), elp, callAddr)
 		require.NoError(err)
 		require.Equal(uint64(10000), estimatedGas)
 
 		//gasprice no zero, should return error before fixed
-		sc.SetGasPrice(big.NewInt(100))
-		estimatedGas, err = svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
+		elp = (&action.EnvelopeBuilder{}).SetGasPrice(big.NewInt(100)).SetAction(sc).Build()
+		estimatedGas, err = svr.EstimateExecutionGasConsumption(context.Background(), elp, callAddr)
 		require.NoError(err)
 		require.Equal(uint64(10000), estimatedGas)
 	})
@@ -786,16 +785,12 @@ func TestReverseActionsInBlock(t *testing.T) {
 		blk      = &block.Block{
 			Header: block.Header{},
 			Body: block.Body{
-				Actions: []*action.SealedEnvelope{&action.SealedEnvelope{Envelope: envelope}},
+				Actions: []*action.SealedEnvelope{{Envelope: envelope}},
 			},
 			Footer:   block.Footer{},
 			Receipts: nil,
 		}
-		receiptes = []*action.Receipt{
-			&action.Receipt{
-				ActionHash: hash.ZeroHash256,
-			},
-		}
+		receiptes = []*action.Receipt{{ActionHash: hash.ZeroHash256}}
 	)
 
 	t.Run("CheckParams", func(t *testing.T) {
@@ -1053,8 +1048,8 @@ func TestSimulateExecution(t *testing.T) {
 		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
 		p = p.ApplyFuncReturn(accountutil.AccountState, nil, errors.New(t.Name()))
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
-
-		_, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, &action.Execution{})
+		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
+		_, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, elp)
 		require.ErrorContains(err, t.Name())
 	})
 
@@ -1066,8 +1061,8 @@ func TestSimulateExecution(t *testing.T) {
 		p = p.ApplyFuncReturn(accountutil.AccountState, &state.Account{}, nil)
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
 		bc.EXPECT().Context(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
-
-		_, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, &action.Execution{})
+		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
+		_, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, elp)
 		require.ErrorContains(err, t.Name())
 	})
 
@@ -1093,8 +1088,8 @@ func TestSimulateExecution(t *testing.T) {
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
 		bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).Times(1)
 		bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
-
-		bytes, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, &action.Execution{})
+		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
+		bytes, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, elp)
 		require.NoError(err)
 		require.Equal([]byte("success"), bytes)
 	})
@@ -1121,8 +1116,8 @@ func TestSimulateExecution(t *testing.T) {
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
 		bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).Times(1)
 		bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
-
-		bytes, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, &action.Execution{})
+		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
+		bytes, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, elp)
 		require.NoError(err)
 		require.Equal([]byte("success"), bytes)
 	})

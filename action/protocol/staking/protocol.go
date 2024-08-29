@@ -404,10 +404,10 @@ func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.
 	if err != nil {
 		return nil, err
 	}
-	return p.handle(ctx, elp.Action(), csm)
+	return p.handle(ctx, elp, csm)
 }
 
-func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
+func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm CandidateStateManager) (*action.Receipt, error) {
 	var (
 		rLog              *receiptLog
 		tLogs             []*action.TransactionLog
@@ -417,12 +417,8 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		actionCtx         = protocol.MustGetActionCtx(ctx)
 		gasConsumed       = actionCtx.IntrinsicGas
 		gasToBeDeducted   = gasConsumed
-		dynamicGasAct, ok = act.(action.TxDynamicGas)
 	)
-	if !ok {
-		panic("unsupported type of action")
-	}
-	switch act := act.(type) {
+	switch act := elp.Action().(type) {
 	case *action.CreateStake:
 		rLog, tLogs, err = p.handleCreateStake(ctx, act, csm)
 	case *action.Unstake:
@@ -448,7 +444,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 	case *action.CandidateTransferOwnership:
 		rLog, tLogs, err = p.handleCandidateTransferOwnership(ctx, act, csm)
 	case *action.MigrateStake:
-		logs, tLogs, gasConsumed, gasToBeDeducted, err = p.handleStakeMigrate(ctx, act, csm)
+		logs, tLogs, gasConsumed, gasToBeDeducted, err = p.handleStakeMigrate(ctx, elp, csm)
 		if err == nil {
 			nonceUpdateOption = noUpdateNonce
 		}
@@ -461,14 +457,14 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		}
 	}
 	if err == nil {
-		return p.settleAction(ctx, csm.SM(), dynamicGasAct, uint64(iotextypes.ReceiptStatus_Success), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption)
+		return p.settleAction(ctx, csm.SM(), elp, uint64(iotextypes.ReceiptStatus_Success), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption)
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		log.L().With(
 			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Debug("Failed to commit staking action", zap.Error(err))
-		return p.settleAction(ctx, csm.SM(), dynamicGasAct, receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption)
+		return p.settleAction(ctx, csm.SM(), elp, receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption)
 	}
 	return nil, err
 }

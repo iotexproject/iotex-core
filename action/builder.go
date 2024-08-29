@@ -151,7 +151,6 @@ func (b *EnvelopeBuilder) build() Envelope {
 	if b.elp.payload == nil {
 		panic("cannot build Envelope w/o a valid payload")
 	}
-	b.elp.payload.SetEnvelopeContext(&b.elp.AbstractAction)
 	return &b.elp
 }
 
@@ -161,11 +160,7 @@ func (b *EnvelopeBuilder) BuildTransfer(tx *types.Transaction) (Envelope, error)
 		return nil, ErrInvalidAct
 	}
 	b.setEnvelopeCommonFields(tx)
-	tsf, err := NewTransfer(tx.Nonce(), tx.Value(), getRecipientAddr(tx.To()), tx.Data(), tx.Gas(), tx.GasPrice())
-	if err != nil {
-		return nil, err
-	}
-	b.elp.payload = tsf
+	b.elp.payload = NewTransfer(tx.Value(), getRecipientAddr(tx.To()), tx.Data())
 	return b.build(), nil
 }
 
@@ -187,10 +182,7 @@ func getRecipientAddr(addr *common.Address) string {
 // BuildExecution loads executino action into envelope
 func (b *EnvelopeBuilder) BuildExecution(tx *types.Transaction) (Envelope, error) {
 	b.setEnvelopeCommonFields(tx)
-	exec, err := NewExecution(getRecipientAddr(tx.To()), tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
-	if err != nil {
-		return nil, err
-	}
+	exec := NewExecution(getRecipientAddr(tx.To()), tx.Value(), tx.Data())
 	b.elp.payload = exec
 	return b.build(), nil
 }

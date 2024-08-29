@@ -8,6 +8,7 @@ package action
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -18,13 +19,10 @@ import (
 type (
 	// Envelope defines an envelope wrapped on action with some envelope metadata.
 	Envelope interface {
+		TxData
 		Version() uint32
-		Nonce() uint64
 		ChainID() uint32
 		GasLimit() uint64
-		GasPrice() *big.Int
-		GasTipCap() *big.Int
-		GasFeeCap() *big.Int
 		Destination() (string, bool)
 		Cost() (*big.Int, error)
 		IntrinsicGas() (uint64, error)
@@ -32,9 +30,33 @@ type (
 		Action() Action
 		ToEthTx(uint32, iotextypes.Encoding) (*types.Transaction, error)
 		Proto() *iotextypes.ActionCore
-		LoadProto(pbAct *iotextypes.ActionCore) error
-		SetNonce(n uint64)
-		SetChainID(chainID uint32)
+		LoadProto(*iotextypes.ActionCore) error
+		SetNonce(uint64)
+		SetGas(uint64)
+		SetChainID(uint32)
+		SanityCheck() error
+	}
+
+	// TxData is the interface required to execute a transaction by EVM
+	// It follows the same-name interface in go-ethereum
+	TxData interface {
+		TxCommon
+		Value() *big.Int
+		To() *common.Address
+		Data() []byte
+	}
+
+	TxCommon interface {
+		Nonce() uint64
+		Gas() uint64
+		GasPrice() *big.Int
+		TxDynamicGas
+		AccessList() types.AccessList
+	}
+
+	TxDynamicGas interface {
+		GasTipCap() *big.Int
+		GasFeeCap() *big.Int
 	}
 
 	envelope struct {
@@ -42,6 +64,35 @@ type (
 		payload actionPayload
 	}
 )
+
+func (elp *envelope) Gas() uint64 {
+	return elp.gasLimit
+}
+
+func (elp *envelope) AccessList() types.AccessList {
+	return elp.accessList
+}
+
+func (elp *envelope) Value() *big.Int {
+	if exec, ok := elp.Action().(*Execution); ok {
+		return exec.Value()
+	}
+	return nil
+}
+
+func (elp *envelope) To() *common.Address {
+	if exec, ok := elp.Action().(*Execution); ok {
+		return exec.To()
+	}
+	return nil
+}
+
+func (elp *envelope) Data() []byte {
+	if exec, ok := elp.Action().(*Execution); ok {
+		return exec.data
+	}
+	return nil
+}
 
 // Destination returns the destination address
 func (elp *envelope) Destination() (string, bool) {
@@ -53,14 +104,49 @@ func (elp *envelope) Destination() (string, bool) {
 	return r.Destination(), true
 }
 
-// Cost returns cost of actions
+// Cost returns cost of the action
 func (elp *envelope) Cost() (*big.Int, error) {
-	return elp.payload.Cost()
+	gas, err := elp.payload.IntrinsicGas()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get payload's intrinsic gas")
+	}
+	var (
+		cost        = new(big.Int).SetUint64(gas)
+		extraAmount *big.Int
+	)
+	switch act := elp.payload.(type) {
+	case *MigrateStake:
+		cost.SetUint64(elp.GasLimit())
+	case *Execution:
+		cost.SetUint64(elp.GasLimit())
+		extraAmount = act.Amount()
+	case *Transfer:
+		extraAmount = act.Amount()
+	case *CreateStake:
+		extraAmount = act.Amount()
+	case *DepositToStake:
+		extraAmount = act.Amount()
+	case *CandidateRegister:
+		extraAmount = act.Amount()
+	}
+	cost.Mul(cost, elp.GasPrice())
+	if extraAmount != nil {
+		cost.Add(cost, extraAmount)
+	}
+	return cost, nil
 }
 
 // IntrinsicGas returns intrinsic gas of action.
 func (elp *envelope) IntrinsicGas() (uint64, error) {
-	return elp.payload.IntrinsicGas()
+	gas, err := elp.payload.IntrinsicGas()
+	if err != nil {
+		return 0, err
+	}
+	if acl := elp.AccessList(); len(acl) > 0 {
+		gas += uint64(len(acl)) * TxAccessListAddressGas
+		gas += uint64(acl.StorageKeys()) * TxAccessListStorageKeyGas
+	}
+	return gas, nil
 }
 
 // Size returns the size of envelope
@@ -278,9 +364,20 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	default:
 		return errors.Errorf("no applicable action to handle proto type %T", pbAct.Action)
 	}
-	elp.payload.SetEnvelopeContext(&elp.AbstractAction)
 	return nil
+}
+
+func (elp *envelope) SetGas(gas uint64) {
+	elp.SetGasLimit(gas)
 }
 
 // SetChainID sets the chainID value
 func (elp *envelope) SetChainID(chainID uint32) { elp.chainID = chainID }
+
+// SanityCheck does the sanity check
+func (elp *envelope) SanityCheck() error {
+	if err := elp.payload.SanityCheck(); err != nil {
+		return err
+	}
+	return elp.AbstractAction.SanityCheck()
+}

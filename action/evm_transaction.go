@@ -15,26 +15,11 @@ import (
 )
 
 type (
-	// TxData is the interface required to execute a transaction by EVM
-	// It follows the same-name interface in go-ethereum
-	TxData interface {
-		TxCommon
-		Value() *big.Int
-		To() *common.Address
-		Data() []byte
-	}
-
-	TxCommon interface {
-		Nonce() uint64
-		Gas() uint64
-		GasPrice() *big.Int
-		TxDynamicGas
-		AccessList() types.AccessList
-	}
-
-	TxDynamicGas interface {
-		GasTipCap() *big.Int
-		GasFeeCap() *big.Int
+	// TxDataForSimulation is the interface to run a simulation
+	TxDataForSimulation interface {
+		TxData
+		SanityCheck() error
+		Proto() *iotextypes.ActionCore
 	}
 )
 

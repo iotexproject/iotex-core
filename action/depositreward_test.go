@@ -1,3 +1,8 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package action
 
 import (
@@ -15,66 +20,55 @@ var (
 
 func TestDepositRewardSerialize(t *testing.T) {
 	r := require.New(t)
+	t.Run("proto", func(t *testing.T) {
+		rp := NewDepositToRewardingFund(big.NewInt(100), []byte{1})
+		data := rp.Serialize()
+		r.EqualValues("0a03313030120101", hex.EncodeToString(data))
 
-	rp := &DepositToRewardingFund{}
-	data := rp.Serialize()
-	r.NotNil(data)
+		rp2 := DepositToRewardingFund{}
+		r.NoError(rp2.LoadProto(rp.Proto()))
+		r.Equal(rp.Amount(), rp2.Amount())
+		r.Equal(rp.Data(), rp2.Data())
+	})
+	t.Run("intrinsic gas", func(t *testing.T) {
+		rp := &DepositToRewardingFund{}
+		gas, err := rp.IntrinsicGas()
+		r.NoError(err)
+		r.EqualValues(10000, gas)
 
-	rp.amount = big.NewInt(100)
-	rp.data = []byte{1}
-	data = rp.Serialize()
-	r.NotNil(data)
-	r.EqualValues("0a03313030120101", hex.EncodeToString(data))
-}
+		rp.amount = big.NewInt(100000000)
+		gas, err = rp.IntrinsicGas()
+		r.NoError(err)
+		r.EqualValues(10000, gas)
 
-func TestDepositRewardIntrinsicGas(t *testing.T) {
-	r := require.New(t)
+		rp.data = []byte{1}
+		gas, err = rp.IntrinsicGas()
+		r.NoError(err)
+		r.EqualValues(10100, gas)
+	})
+	t.Run("sanity check", func(t *testing.T) {
+		rp := &DepositToRewardingFund{amount: big.NewInt(1)}
+		err := rp.SanityCheck()
+		r.NoError(err)
 
-	rp := &DepositToRewardingFund{}
-	gas, err := rp.IntrinsicGas()
-	r.NoError(err)
-	r.EqualValues(10000, gas)
+		rp.amount = big.NewInt(-1)
+		err = rp.SanityCheck()
+		r.NotNil(err)
+		r.EqualValues(_errNegativeNumberMsg, err.Error())
+	})
+	t.Run("cost", func(t *testing.T) {
+		rp := &DepositToRewardingFund{amount: big.NewInt(100)}
+		elp := (&EnvelopeBuilder{}).SetGasPrice(_defaultGasPrice).
+			SetAction(rp).Build()
+		cost, err := elp.Cost()
+		r.NoError(err)
+		r.EqualValues("10000000000000000", cost.String())
 
-	rp.amount = big.NewInt(100000000)
-	gas, err = rp.IntrinsicGas()
-	r.NoError(err)
-	r.EqualValues(10000, gas)
-
-	rp.data = []byte{1}
-	gas, err = rp.IntrinsicGas()
-	r.NoError(err)
-	r.EqualValues(10100, gas)
-}
-
-func TestDepositRewardSanityCheck(t *testing.T) {
-	r := require.New(t)
-
-	rp := &DepositToRewardingFund{}
-
-	rp.amount = big.NewInt(1)
-	err := rp.SanityCheck()
-	r.NoError(err)
-
-	rp.amount = big.NewInt(-1)
-	err = rp.SanityCheck()
-	r.NotNil(err)
-	r.EqualValues(_errNegativeNumberMsg, err.Error())
-}
-
-func TestDepositRewardCost(t *testing.T) {
-	r := require.New(t)
-
-	rp := &DepositToRewardingFund{}
-	rp.gasPrice = _defaultGasPrice
-	rp.amount = big.NewInt(100)
-	cost, err := rp.Cost()
-	r.NoError(err)
-	r.EqualValues("10000000000000000", cost.String())
-
-	rp.data = []byte{1}
-	cost, err = rp.Cost()
-	r.NoError(err)
-	r.EqualValues("10100000000000000", cost.String())
+		rp.data = []byte{1}
+		cost, err = elp.Cost()
+		r.NoError(err)
+		r.EqualValues("10100000000000000", cost.String())
+	})
 }
 
 func TestDepositRewardEncodeABIBinary(t *testing.T) {

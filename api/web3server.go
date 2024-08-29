@@ -366,7 +366,7 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 }
 
 func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
-	callerAddr, to, gasLimit, gasPrice, value, data, err := parseCallObject(in)
+	callerAddr, to, gasLimit, _, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
@@ -403,8 +403,9 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 		}
 		return "0x" + ret, nil
 	}
-	exec, _ := action.NewExecution(to, 0, value, gasLimit, gasPrice, data)
-	ret, receipt, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
+	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(to, value, data)).
+		SetGasLimit(gasLimit).Build()
+	ret, receipt, err := svr.coreService.ReadContract(context.Background(), callerAddr, elp)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +448,7 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 	var estimatedGas uint64
 	switch act := elp.Action().(type) {
 	case *action.Execution:
-		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), act, from)
+		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), elp, from)
 	case *action.MigrateStake:
 		estimatedGas, err = svr.coreService.EstimateMigrateStakeGasConsumption(context.Background(), act, from)
 	default:

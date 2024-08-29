@@ -143,7 +143,7 @@ func (mr *MockFactoryMockRecorder) Register(arg0 interface{}) *gomock.Call {
 }
 
 // SimulateExecution mocks base method.
-func (m *MockFactory) SimulateExecution(arg0 context.Context, arg1 address.Address, arg2 *action.Execution, arg3 ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
+func (m *MockFactory) SimulateExecution(arg0 context.Context, arg1 address.Address, arg2 action.Envelope, arg3 ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2}
 	for _, a := range arg3 {

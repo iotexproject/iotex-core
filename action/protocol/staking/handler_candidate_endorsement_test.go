@@ -282,11 +282,9 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 			true,
 			&appendAction{
 				func() action.Envelope {
-					act, err := action.NewUnstake(0, 1, []byte{}, uint64(1000000), big.NewInt(1000))
-					require.NoError(err)
-					return (&action.EnvelopeBuilder{}).SetNonce(act.Nonce()).
-						SetGasLimit(act.GasLimit()).SetGasPrice(act.GasPrice()).
-						SetAction(act).Build()
+					act := action.NewUnstake(1, []byte{})
+					return (&action.EnvelopeBuilder{}).SetNonce(0).SetGasLimit(1000000).
+						SetGasPrice(big.NewInt(1000)).SetAction(act).Build()
 				},
 				iotextypes.ReceiptStatus_ErrInvalidBucketType,
 				nil,
@@ -311,10 +309,9 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 			true,
 			&appendAction{
 				func() action.Envelope {
-					act, err := action.NewChangeCandidate(0, "test3", 1, []byte{}, uint64(1000000), big.NewInt(1000))
-					require.NoError(err)
-					return (&action.EnvelopeBuilder{}).SetNonce(act.Nonce()).
-						SetGasLimit(act.GasLimit()).SetGasPrice(act.GasPrice()).
+					act := action.NewChangeCandidate("test3", 1, []byte{})
+					return (&action.EnvelopeBuilder{}).SetNonce(0).
+						SetGasLimit(1000000).SetGasPrice(big.NewInt(1000)).
 						SetAction(act).Build()
 				},
 				iotextypes.ReceiptStatus_ErrInvalidBucketType, //todo fix
@@ -340,9 +337,9 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 			true,
 			&appendAction{
 				func() action.Envelope {
-					act := action.NewCandidateEndorsementLegacy(0, uint64(1000000), big.NewInt(1000), 1, false)
-					return (&action.EnvelopeBuilder{}).SetNonce(act.Nonce()).
-						SetGasLimit(act.GasLimit()).SetGasPrice(act.GasPrice()).
+					act := action.NewCandidateEndorsementLegacy(1, false)
+					return (&action.EnvelopeBuilder{}).SetNonce(0).
+						SetGasLimit(1000000).SetGasPrice(big.NewInt(1000)).
 						SetAction(act).Build()
 				},
 				iotextypes.ReceiptStatus_Success,
@@ -378,9 +375,9 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 			true,
 			&appendAction{
 				func() action.Envelope {
-					act := action.NewCandidateEndorsementLegacy(0, uint64(1000000), big.NewInt(1000), 1, false)
-					return (&action.EnvelopeBuilder{}).SetNonce(act.Nonce()).
-						SetGasLimit(act.GasLimit()).SetGasPrice(act.GasPrice()).
+					act := action.NewCandidateEndorsementLegacy(1, false)
+					return (&action.EnvelopeBuilder{}).SetNonce(0).
+						SetGasLimit(1000000).SetGasPrice(big.NewInt(1000)).
 						SetAction(act).Build()
 				},
 				iotextypes.ReceiptStatus_Success,
@@ -509,10 +506,10 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				sm, p, _, _ = initTestStateFromIds(test.initBucketCfgIds, test.initCandidateCfgIds)
 			}
 			require.NoError(setupAccount(sm, test.caller, test.initBalance))
-			act := action.NewCandidateEndorsementLegacy(nonce, test.gasLimit, test.gasPrice, test.bucketID, test.endorse)
+			act := action.NewCandidateEndorsementLegacy(test.bucketID, test.endorse)
 			IntrinsicGas, _ := act.IntrinsicGas()
-			elp := builder.SetNonce(act.Nonce()).SetGasLimit(act.GasLimit()).
-				SetGasPrice(act.GasPrice()).SetAction(act).Build()
+			elp := builder.SetNonce(nonce).SetGasLimit(test.gasLimit).
+				SetGasPrice(test.gasPrice).SetAction(act).Build()
 			ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 				Caller:       test.caller,
 				GasPrice:     test.gasPrice,
@@ -591,7 +588,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				// test staker's account
 				caller, err := accountutil.LoadAccount(sm, test.caller)
 				require.NoError(err)
-				actCost, err := act.Cost()
+				actCost, err := elp.Cost()
 				actCost.Add(actCost, big.NewInt(0).Mul(test.gasPrice, big.NewInt(0).SetUint64(appendIntrinsicGas)))
 				require.NoError(err)
 				total := big.NewInt(0)
@@ -660,10 +657,10 @@ func TestProtocol_HandleTransferEndorsement(t *testing.T) {
 		},
 	} {
 		require.NoError(setupAccount(sm, test.caller, test.initBalance))
-		act, _ := action.NewTransferStake(test.nonce, test.cand.String(), test.bucketID, nil, test.gasLimit, test.gasPrice)
+		act, _ := action.NewTransferStake(test.cand.String(), test.bucketID, nil)
 		IntrinsicGas, _ := act.IntrinsicGas()
-		elp := builder.SetNonce(act.Nonce()).SetGasLimit(act.GasLimit()).
-			SetGasPrice(act.GasPrice()).SetAction(act).Build()
+		elp := builder.SetNonce(test.nonce).SetGasLimit(test.gasLimit).
+			SetGasPrice(test.gasPrice).SetAction(act).Build()
 		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
@@ -736,10 +733,10 @@ func TestProtocol_HandleWithdrawEndorsement(t *testing.T) {
 		},
 	} {
 		require.NoError(setupAccount(sm, test.caller, test.initBalance))
-		act, _ := action.NewWithdrawStake(test.nonce, test.bucketID, nil, test.gasLimit, test.gasPrice)
+		act := action.NewWithdrawStake(test.bucketID, nil)
 		IntrinsicGas, _ := act.IntrinsicGas()
-		elp := builder.SetNonce(act.Nonce()).SetGasLimit(act.GasLimit()).
-			SetGasPrice(act.GasPrice()).SetAction(act).Build()
+		elp := builder.SetNonce(test.nonce).SetGasLimit(test.gasLimit).
+			SetGasPrice(test.gasPrice).SetAction(act).Build()
 		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
@@ -812,10 +809,10 @@ func TestProtocol_HandleRestakeEndorsement(t *testing.T) {
 		},
 	} {
 		require.NoError(setupAccount(sm, test.caller, test.initBalance))
-		act, _ := action.NewRestake(test.nonce, test.bucketID, 3, false, nil, test.gasLimit, test.gasPrice)
+		act := action.NewRestake(test.bucketID, 3, false, nil)
 		IntrinsicGas, _ := act.IntrinsicGas()
-		elp := builder.SetNonce(act.Nonce()).SetGasLimit(act.GasLimit()).
-			SetGasPrice(act.GasPrice()).SetAction(act).Build()
+		elp := builder.SetNonce(test.nonce).SetGasLimit(test.gasLimit).
+			SetGasPrice(test.gasPrice).SetAction(act).Build()
 		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
@@ -888,10 +885,10 @@ func TestProtocol_HandleDepositEndorsement(t *testing.T) {
 		},
 	} {
 		require.NoError(setupAccount(sm, test.caller, test.initBalance))
-		act, _ := action.NewDepositToStake(test.nonce, test.bucketID, "300000", nil, test.gasLimit, test.gasPrice)
+		act, _ := action.NewDepositToStake(test.bucketID, "300000", nil)
 		IntrinsicGas, _ := act.IntrinsicGas()
-		elp := builder.SetNonce(act.Nonce()).SetGasLimit(act.GasLimit()).
-			SetGasPrice(act.GasPrice()).SetAction(act).Build()
+		elp := builder.SetNonce(test.nonce).SetGasLimit(test.gasLimit).
+			SetGasPrice(test.gasPrice).SetAction(act).Build()
 		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
@@ -973,10 +970,10 @@ func TestProtocol_HandleConsignmentEndorsement(t *testing.T) {
 			sk = identityset.PrivateKey(3).HexString()
 		}
 		consign := newconsignment(require, test.bucketID, test.nonce, sk, test.caller.String(), "Ethereum", _reclaim, false)
-		act, _ := action.NewTransferStake(test.nonce, test.caller.String(), test.bucketID, consign, test.gasLimit, test.gasPrice)
+		act, _ := action.NewTransferStake(test.caller.String(), test.bucketID, consign)
 		IntrinsicGas, _ := act.IntrinsicGas()
-		elp := builder.SetNonce(act.Nonce()).SetGasLimit(act.GasLimit()).
-			SetGasPrice(act.GasPrice()).SetAction(act).Build()
+		elp := builder.SetNonce(test.nonce).SetGasLimit(test.gasLimit).
+			SetGasPrice(test.gasPrice).SetAction(act).Build()
 		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,

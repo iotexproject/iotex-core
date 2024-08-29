@@ -33,10 +33,8 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 	require := require.New(t)
 	p := NewProtocol(rewarding.DepositGas)
 	t.Run("invalid transfer", func(t *testing.T) {
-		tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", make([]byte, 32683), uint64(0), big.NewInt(0))
-		require.NoError(err)
-		tsf1, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", nil, uint64(0), big.NewInt(0))
-		require.NoError(err)
+		tsf := action.NewTransfer(big.NewInt(1), "2", make([]byte, 32683))
+		tsf1 := action.NewTransfer(big.NewInt(1), "2", nil)
 		g := genesis.Default
 		ctx := protocol.WithFeatureCtx(genesis.WithGenesisContext(protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
 			BlockHeight: g.NewfoundlandBlockHeight,
@@ -49,10 +47,7 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 			{tsf, action.ErrOversizedData},
 			{tsf1, address.ErrInvalidAddr},
 		} {
-			elp := builder.SetNonce(v.tsf.Nonce()).
-				SetGasLimit(v.tsf.GasLimit()).
-				SetGasPrice(v.tsf.GasPrice()).
-				SetAction(v.tsf).Build()
+			elp := builder.SetNonce(1).SetAction(v.tsf).Build()
 			require.Equal(v.err, errors.Cause(p.Validate(ctx, elp, nil)))
 		}
 	})
@@ -117,13 +112,12 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 	builder := action.EnvelopeBuilder{}
 	for _, v := range tests {
-		tsf, err := action.NewTransfer(v.nonce, v.amount, v.recipient, []byte{}, v.gasLimit, v.gasPrice)
-		require.NoError(err)
+		tsf := action.NewTransfer(v.amount, v.recipient, []byte{})
 		gas, err := tsf.IntrinsicGas()
 		require.NoError(err)
-		elp := builder.SetNonce(tsf.Nonce()).
-			SetGasLimit(tsf.GasLimit()).
-			SetGasPrice(tsf.GasPrice()).
+		elp := builder.SetNonce(v.nonce).
+			SetGasLimit(v.gasLimit).
+			SetGasPrice(v.gasPrice).
 			SetAction(tsf).Build()
 
 		ctx := protocol.WithActionCtx(chainCtx, protocol.ActionCtx{

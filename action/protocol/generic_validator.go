@@ -85,6 +85,5 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 			}
 		}
 	}
-
-	return selp.Action().SanityCheck()
+	return selp.Envelope.SanityCheck()
 }

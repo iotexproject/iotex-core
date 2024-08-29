@@ -291,7 +291,7 @@ func (mr *MockCoreServiceMockRecorder) EpochMeta(epochNum interface{}) *gomock.C
 }
 
 // EstimateExecutionGasConsumption mocks base method.
-func (m *MockCoreService) EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, error) {
+func (m *MockCoreService) EstimateExecutionGasConsumption(ctx context.Context, sc action.Envelope, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, sc, callerAddr}
 	for _, a := range opts {
@@ -446,7 +446,7 @@ func (mr *MockCoreServiceMockRecorder) RawBlocks(startHeight, count, withReceipt
 }
 
 // ReadContract mocks base method.
-func (m *MockCoreService) ReadContract(ctx context.Context, callerAddr address.Address, sc *action.Execution) (string, *iotextypes.Receipt, error) {
+func (m *MockCoreService) ReadContract(ctx context.Context, callerAddr address.Address, sc action.Envelope) (string, *iotextypes.Receipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadContract", ctx, callerAddr, sc)
 	ret0, _ := ret[0].(string)
@@ -554,7 +554,7 @@ func (mr *MockCoreServiceMockRecorder) ServerMeta() *gomock.Call {
 }
 
 // SimulateExecution mocks base method.
-func (m *MockCoreService) SimulateExecution(arg0 context.Context, arg1 address.Address, arg2 *action.Execution) ([]byte, *action.Receipt, error) {
+func (m *MockCoreService) SimulateExecution(arg0 context.Context, arg1 address.Address, arg2 action.Envelope) ([]byte, *action.Receipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SimulateExecution", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]byte)

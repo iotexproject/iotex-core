@@ -147,10 +147,6 @@ func TestEthTxUtils(t *testing.T) {
 		sk1, _  = iotexcrypto.HexStringToPrivateKey(skhex)
 		sk2, _  = ethercrypto.HexToECDSA(skhex)
 		chainID = uint32(4689)
-		builder = (&Builder{}).
-			SetNonce(100).
-			SetGasLimit(21000).
-			SetGasPrice(big.NewInt(101))
 	)
 
 	pk1 := sk1.PublicKey()
@@ -163,13 +159,9 @@ func TestEthTxUtils(t *testing.T) {
 
 	addr, err := address.FromHex("0xA576C141e5659137ddDa4223d209d4744b2106BE")
 	r.NoError(err)
-	act := (&ClaimFromRewardingFundBuilder{Builder: *builder}).
-		SetAddress(addr).
-		SetData([]byte("any")).
-		SetAmount(big.NewInt(1)).Build()
-	elp := (&EnvelopeBuilder{}).SetNonce(act.Nonce()).
-		SetGasLimit(act.GasLimit()).SetGasPrice(act.GasPrice()).
-		SetAction(&act).Build()
+	act := NewClaimFromRewardingFund(big.NewInt(1), addr, []byte("any"))
+	elp := (&EnvelopeBuilder{}).SetNonce(100).SetGasLimit(21000).
+		SetGasPrice(big.NewInt(101)).SetAction(act).Build()
 	tx, err := elp.ToEthTx(chainID, iotextypes.Encoding_ETHEREUM_EIP155)
 	r.NoError(err)
 

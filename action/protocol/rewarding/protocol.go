@@ -172,14 +172,10 @@ func (p *Protocol) CreatePostSystemActions(ctx context.Context, _ protocol.State
 
 func createGrantRewardAction(rewardType int, height uint64) action.Envelope {
 	builder := action.EnvelopeBuilder{}
-	gb := action.GrantRewardBuilder{}
-	grant := gb.SetRewardType(rewardType).SetHeight(height).Build()
+	grant := action.NewGrantReward(rewardType, height)
 
-	return builder.SetNonce(0).
-		SetGasPrice(big.NewInt(0)).
-		SetGasLimit(grant.GasLimit()).
-		SetAction(&grant).
-		Build()
+	return builder.SetNonce(0).SetGasPrice(big.NewInt(0)).
+		SetAction(grant).Build()
 }
 
 // Validate validates a reward action
@@ -209,21 +205,17 @@ func (p *Protocol) Handle(
 ) (*action.Receipt, error) {
 	// TODO: simplify the boilerplate
 	var (
-		si                = sm.Snapshot()
-		act               = elp.Action()
-		dynamicGasAct, ok = act.(action.TxDynamicGas)
+		si  = sm.Snapshot()
+		act = elp.Action()
 	)
-	if !ok {
-		panic("unsupported type of action")
-	}
 	switch act := act.(type) {
 	case *action.DepositToRewardingFund:
 		rlog, err := p.Deposit(ctx, sm, act.Amount(), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		if err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
-			return p.settleUserAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+			return p.settleUserAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 		}
-		return p.settleUserAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog...)
+		return p.settleUserAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog...)
 	case *action.ClaimFromRewardingFund:
 		addr := protocol.MustGetActionCtx(ctx).Caller
 		if act.Address() != nil {
@@ -232,28 +224,28 @@ func (p *Protocol) Handle(
 		rlog, err := p.Claim(ctx, sm, act.Amount(), addr)
 		if err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
-			return p.settleUserAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+			return p.settleUserAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 		}
-		return p.settleUserAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog)
+		return p.settleUserAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog)
 	case *action.GrantReward:
 		switch act.RewardType() {
 		case action.BlockReward:
 			rewardLog, err := p.GrantBlockReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
-				return p.settleSystemAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
 			if rewardLog == nil {
-				return p.settleSystemAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Success), si, nil)
+				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, nil)
 			}
-			return p.settleSystemAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{rewardLog})
+			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{rewardLog})
 		case action.EpochReward:
 			rewardLogs, err := p.GrantEpochReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
-				return p.settleSystemAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
-			return p.settleSystemAction(ctx, sm, dynamicGasAct, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs)
+			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs)
 		}
 	}
 	return nil, nil

@@ -266,7 +266,7 @@ func (sdb *stateDB) NewBlockBuilder(
 func (sdb *stateDB) SimulateExecution(
 	ctx context.Context,
 	caller address.Address,
-	ex *action.Execution,
+	elp action.Envelope,
 	opts ...protocol.SimulateOption,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "stateDB.SimulateExecution")
@@ -288,7 +288,7 @@ func (sdb *stateDB) SimulateExecution(
 			return nil, nil, err
 		}
 	}
-	return evm.SimulateExecution(ctx, ws, caller, ex)
+	return evm.SimulateExecution(ctx, ws, caller, elp)
 }
 
 // ReadContractStorage reads contract's storage

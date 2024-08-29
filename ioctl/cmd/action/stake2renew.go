@@ -87,10 +87,7 @@ func stake2Renew(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	s2r, err := action.NewRestake(nonce, bucketIndex, duration, _stake2AutoStake, payload, gasLimit, gasPriceRau)
-	if err != nil {
-		return output.NewError(output.InstantiationError, "failed to make a restake instance", err)
-	}
+	s2r := action.NewRestake(bucketIndex, duration, _stake2AutoStake, payload)
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).

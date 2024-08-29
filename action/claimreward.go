@@ -93,11 +93,20 @@ func init() {
 
 // ClaimFromRewardingFund is the action to claim reward from the rewarding fund
 type ClaimFromRewardingFund struct {
-	AbstractAction
 	reward_common
 	amount  *big.Int
 	address address.Address
 	data    []byte
+}
+
+func NewClaimFromRewardingFund(amount *big.Int,
+	address address.Address,
+	data []byte) *ClaimFromRewardingFund {
+	return &ClaimFromRewardingFund{
+		amount:  amount,
+		address: address,
+		data:    data,
+	}
 }
 
 // Amount returns the amount to claim
@@ -153,57 +162,12 @@ func (c *ClaimFromRewardingFund) IntrinsicGas() (uint64, error) {
 	return CalculateIntrinsicGas(ClaimFromRewardingFundBaseGas, ClaimFromRewardingFundGasPerByte, dataLen)
 }
 
-// Cost returns the total cost of a claim action
-func (c *ClaimFromRewardingFund) Cost() (*big.Int, error) {
-	intrinsicGas, err := c.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "error when getting intrinsic gas for the claim action")
-	}
-	return big.NewInt(0).Mul(c.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas)), nil
-}
-
 // SanityCheck validates the variables in the action
 func (c *ClaimFromRewardingFund) SanityCheck() error {
 	if c.Amount().Sign() < 0 {
 		return ErrNegativeValue
 	}
-	return c.AbstractAction.SanityCheck()
-}
-
-// ClaimFromRewardingFundBuilder is the struct to build ClaimFromRewardingFund
-type ClaimFromRewardingFundBuilder struct {
-	Builder
-	claim ClaimFromRewardingFund
-}
-
-// SetAmount sets the amount to claim
-func (b *ClaimFromRewardingFundBuilder) SetAmount(amount *big.Int) *ClaimFromRewardingFundBuilder {
-	b.claim.amount = amount
-	return b
-}
-
-// SetAddress set the address to claim
-func (b *ClaimFromRewardingFundBuilder) SetAddress(addr address.Address) *ClaimFromRewardingFundBuilder {
-	b.claim.address = addr
-	return b
-}
-
-// SetData sets the additional data
-func (b *ClaimFromRewardingFundBuilder) SetData(data []byte) *ClaimFromRewardingFundBuilder {
-	b.claim.data = data
-	return b
-}
-
-// Reset set all field to defaults
-func (b *ClaimFromRewardingFundBuilder) Reset() {
-	b.Builder = Builder{}
-	b.claim = ClaimFromRewardingFund{}
-}
-
-// Build builds a new claim from rewarding fund action
-func (b *ClaimFromRewardingFundBuilder) Build() ClaimFromRewardingFund {
-	b.claim.AbstractAction = b.Builder.Build()
-	return b.claim
+	return nil
 }
 
 // EthData returns the ABI-encoded data for converting to eth tx

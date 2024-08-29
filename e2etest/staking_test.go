@@ -113,10 +113,7 @@ func TestStakingContract(t *testing.T) {
 			if correctGas {
 				gasLimit *= 10
 			}
-			ex, err := action.NewExecution(contract, 1, big.NewInt(0), gasLimit, big.NewInt(0), params)
-			if err != nil {
-				return nil, err
-			}
+			ex := action.NewExecution(contract, big.NewInt(0), params)
 
 			addr, err := address.FromString(address.ZeroAddress)
 			if err != nil {
