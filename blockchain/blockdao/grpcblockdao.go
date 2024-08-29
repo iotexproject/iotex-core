@@ -57,7 +57,7 @@ func (gbd *GrpcBlockDAO) Start(ctx context.Context) error {
 	}
 	gbd.containsTransactionLog = response.Yes
 	// init local height with remote height
-	height, err := gbd.Height()
+	height, err := gbd.rpcHeight()
 	if err != nil {
 		return err
 	}
