@@ -114,18 +114,18 @@ func (wsSvr *WebsocketHandler) handleConnection(ctx context.Context, ws *websock
 		return nil
 	})
 
-	ctx, ctxCancel := context.WithCancel(WithStreamContext(ctx))
+	ctx, cancel := context.WithCancel(WithStreamContext(ctx))
 	safeWs := &safeWebsocketConn{ws: ws}
-	go ping(ctx, safeWs, ctxCancel)
+	go ping(ctx, safeWs, cancel)
 
-	cancel := func() {
-		ctxCancel()
+	defer func() {
 		// clean up the stream context
 		sc, _ := StreamFromContext(ctx)
 		for _, id := range sc.ListenerIDs() {
 			wsSvr.coreService.ChainListener().RemoveResponder(id)
 		}
-	}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
