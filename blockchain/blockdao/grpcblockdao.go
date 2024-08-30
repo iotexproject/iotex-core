@@ -22,6 +22,8 @@ import (
 
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type GrpcBlockDAO struct {
@@ -45,13 +47,13 @@ func NewGrpcBlockDAO(
 
 func (gbd *GrpcBlockDAO) Start(ctx context.Context) error {
 	var err error
-	gbd.conn, err = grpc.Dial(gbd.url)
+	gbd.conn, err = grpc.Dial(gbd.url, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}
 	gbd.client = blockdaopb.NewBlockDAOServiceClient(gbd.conn)
 
-	response, err := gbd.client.ContainsTransactionLog(ctx, nil)
+	response, err := gbd.client.ContainsTransactionLog(ctx, &emptypb.Empty{})
 	if err != nil {
 		return err
 	}
@@ -74,7 +76,7 @@ func (gbd *GrpcBlockDAO) Height() (uint64, error) {
 }
 
 func (gbd *GrpcBlockDAO) rpcHeight() (uint64, error) {
-	response, err := gbd.client.Height(context.Background(), nil)
+	response, err := gbd.client.Height(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		return 0, err
 	}

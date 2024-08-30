@@ -295,12 +295,10 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		store, err = filedao.NewFileDAOInMemForTest()
 	} else {
 		path := builder.cfg.Chain.ChainDBPath
-		var match bool
-		if match, err = regexp.Match("^(https|http|grpc)://.*", []byte(strings.ToLower(path))); err != nil {
-			return err
-		}
-		if match {
-			store = blockdao.NewGrpcBlockDAO(path, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+		re := regexp.MustCompile(`^(https|http|grpc)://(.*)`)
+		match := re.FindStringSubmatch(strings.ToLower(path))
+		if len(match) > 2 {
+			store = blockdao.NewGrpcBlockDAO(match[2], block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
 		} else {
 			dbConfig := builder.cfg.DB
 			dbConfig.DbPath = path
