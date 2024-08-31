@@ -2017,7 +2017,7 @@ func deployContracts(
 	amount := param.amount
 	gasLimit := param.gasLimit
 	gasPrice := param.gasPrice
-	exec, err := action.NewExecutionWithAccessList(action.EmptyAddress, nonce, amount, gasLimit, gasPrice, bytecode, nil)
+	exec, err := action.NewExecution(action.EmptyAddress, nonce, amount, gasLimit, gasPrice, bytecode)
 	r.NoError(err)
 	builder := &action.EnvelopeBuilder{}
 	elp := builder.SetAction(exec).
@@ -2082,7 +2082,7 @@ func writeContract(bc blockchain.Blockchain,
 		gasPrice := param.gasPrice
 		bytecode, err := hex.DecodeString(param.bytecode)
 		r.NoError(err)
-		exec, err := action.NewExecutionWithAccessList(param.contractAddr, nonce, amount, gasLimit, gasPrice, bytecode, nil)
+		exec, err := action.NewExecution(param.contractAddr, nonce, amount, gasLimit, gasPrice, bytecode)
 		r.NoError(err)
 		builder := &action.EnvelopeBuilder{}
 		elp := builder.SetAction(exec).

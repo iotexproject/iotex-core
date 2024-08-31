@@ -324,14 +324,13 @@ func (sct *SmartContractTest) runExecutions(
 			nonce = state.PendingNonce()
 		}
 		nonces[executor.String()] = nonce
-		exec, err := action.NewExecutionWithAccessList(
+		exec, err := action.NewExecution(
 			contractAddrs[i],
 			nonce,
 			ecfg.Amount(),
 			ecfg.GasLimit(),
 			ecfg.GasPrice(),
 			ecfg.ByteCode(),
-			ecfg.AccessList(),
 		)
 		if err != nil {
 			return nil, nil, err
@@ -340,7 +339,8 @@ func (sct *SmartContractTest) runExecutions(
 		builder.SetAction(exec).
 			SetNonce(exec.Nonce()).
 			SetGasLimit(ecfg.GasLimit()).
-			SetGasPrice(ecfg.GasPrice())
+			SetGasPrice(ecfg.GasPrice()).
+			SetAccessList(ecfg.AccessList())
 		if sct.InitGenesis.IsShanghai {
 			builder.SetChainID(bc.ChainID())
 		}
