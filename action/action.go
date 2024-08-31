@@ -42,6 +42,10 @@ type (
 	hasDestination interface {
 		Destination() string
 	}
+
+	hasSize interface {
+		Size() uint32
+	}
 )
 
 // Sign signs the action using sender's private key

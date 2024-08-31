@@ -31,6 +31,7 @@ const (
 
 var (
 	_ hasDestination      = (*Execution)(nil)
+	_ hasSize             = (*Execution)(nil)
 	_ EthCompatibleAction = (*Execution)(nil)
 	_ TxData              = (*Execution)(nil)
 )
@@ -160,9 +161,9 @@ func fromAccessListProto(list []*iotextypes.AccessTuple) types.AccessList {
 	return accessList
 }
 
-// TotalSize returns the total size of this Execution
-func (ex *Execution) TotalSize() uint32 {
-	size := ex.BasicActionSize()
+// Size returns the size of this Execution
+func (ex *Execution) Size() uint32 {
+	var size uint32
 	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
 		size += uint32(len(ex.amount.Bytes()))
 	}

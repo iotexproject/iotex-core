@@ -62,8 +62,8 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 }
 
 // Handle handles an execution
-func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	exec, ok := act.(*action.Execution)
+func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
+	exec, ok := elp.Action().(*action.Execution)
 	if !ok {
 		return nil, nil
 	}
@@ -82,8 +82,8 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 }
 
 // Validate validates an execution
-func (p *Protocol) Validate(ctx context.Context, act action.Action, _ protocol.StateReader) error {
-	exec, ok := act.(*action.Execution)
+func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, _ protocol.StateReader) error {
+	exec, ok := elp.Action().(*action.Execution)
 	if !ok {
 		return nil
 	}
@@ -94,7 +94,7 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, _ protocol.S
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	if fCtx.ExecutionSizeLimit32KB {
 		sizeLimit = _executionSizeLimit32KB
-		dataSize = exec.TotalSize()
+		dataSize = elp.Size()
 	}
 
 	// Reject oversize execution
