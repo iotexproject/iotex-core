@@ -84,16 +84,16 @@ func (sc *stakingCommand) CreatePostSystemActions(ctx context.Context, sr protoc
 	return createPostSystemActions(ctx, sr, sc)
 }
 
-func (sc *stakingCommand) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (sc *stakingCommand) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
 	if sc.useV2(ctx, sm) {
-		return sc.stakingV2.Handle(ctx, act, sm)
+		return sc.stakingV2.Handle(ctx, elp, sm)
 	}
-	return sc.stakingV1.Handle(ctx, act, sm)
+	return sc.stakingV1.Handle(ctx, elp, sm)
 }
 
-func (sc *stakingCommand) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
+func (sc *stakingCommand) Validate(ctx context.Context, elp action.Envelope, sr protocol.StateReader) error {
 	// no height here,  v1 v2 has the same validate method, so directly use common one
-	return validate(ctx, sr, sc, act)
+	return validate(ctx, sr, sc, elp.Action())
 }
 
 func (sc *stakingCommand) CalculateCandidatesByHeight(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {

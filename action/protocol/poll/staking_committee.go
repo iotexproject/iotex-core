@@ -190,16 +190,16 @@ func (sc *stakingCommittee) CreatePostSystemActions(ctx context.Context, sr prot
 	return createPostSystemActions(ctx, sr, sc)
 }
 
-func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	receipt, err := sc.governanceStaking.Handle(ctx, act, sm)
+func (sc *stakingCommittee) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
+	receipt, err := sc.governanceStaking.Handle(ctx, elp, sm)
 	if err := sc.persistNativeBuckets(ctx, receipt, err); err != nil {
 		return nil, err
 	}
 	return receipt, err
 }
 
-func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
-	return validate(ctx, sr, sc, act)
+func (sc *stakingCommittee) Validate(ctx context.Context, elp action.Envelope, sr protocol.StateReader) error {
+	return validate(ctx, sr, sc, elp.Action())
 }
 
 func (sc *stakingCommittee) Name() string {

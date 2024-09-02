@@ -249,15 +249,15 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 			logReq.Address = append(logReq.Address, addr.String())
 		}
 		for _, topics := range req.Get("topics").Array() {
+			var topicArr []string
 			if topics.IsArray() {
-				var topicArr []string
 				for _, topic := range topics.Array() {
 					topicArr = append(topicArr, util.Remove0xPrefix(topic.String()))
 				}
-				logReq.Topics = append(logReq.Topics, topicArr)
-			} else {
-				logReq.Topics = append(logReq.Topics, []string{util.Remove0xPrefix(topics.String())})
+			} else if str := topics.String(); str != "" {
+				topicArr = append(topicArr, util.Remove0xPrefix(str))
 			}
+			logReq.Topics = append(logReq.Topics, topicArr)
 		}
 	}
 	return &logReq, nil

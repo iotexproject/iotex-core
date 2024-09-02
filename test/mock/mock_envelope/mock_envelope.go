@@ -232,6 +232,20 @@ func (mr *MockEnvelopeMockRecorder) SetNonce(n interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetNonce", reflect.TypeOf((*MockEnvelope)(nil).SetNonce), n)
 }
 
+// Size mocks base method.
+func (m *MockEnvelope) Size() uint32 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Size")
+	ret0, _ := ret[0].(uint32)
+	return ret0
+}
+
+// Size indicates an expected call of Size.
+func (mr *MockEnvelopeMockRecorder) Size() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Size", reflect.TypeOf((*MockEnvelope)(nil).Size))
+}
+
 // ToEthTx mocks base method.
 func (m *MockEnvelope) ToEthTx(arg0 uint32, arg1 iotextypes.Encoding) (*types.Transaction, error) {
 	m.ctrl.T.Helper()

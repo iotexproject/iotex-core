@@ -131,6 +131,11 @@ func (b *EnvelopeBuilder) SetChainID(chainID uint32) *EnvelopeBuilder {
 	return b
 }
 
+func (b *EnvelopeBuilder) SetAccessList(acl types.AccessList) *EnvelopeBuilder {
+	b.elp.accessList = acl
+	return b
+}
+
 // Build builds a new action.
 func (b *EnvelopeBuilder) Build() Envelope {
 	return b.build()
@@ -168,6 +173,7 @@ func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) {
 	b.elp.nonce = tx.Nonce()
 	b.elp.gasPrice = new(big.Int).Set(tx.GasPrice())
 	b.elp.gasLimit = tx.Gas()
+	b.elp.accessList = tx.AccessList()
 }
 
 func getRecipientAddr(addr *common.Address) string {
@@ -181,7 +187,7 @@ func getRecipientAddr(addr *common.Address) string {
 // BuildExecution loads executino action into envelope
 func (b *EnvelopeBuilder) BuildExecution(tx *types.Transaction) (Envelope, error) {
 	b.setEnvelopeCommonFields(tx)
-	exec, err := NewExecutionWithAccessList(getRecipientAddr(tx.To()), tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data(), tx.AccessList())
+	exec, err := NewExecution(getRecipientAddr(tx.To()), tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
 	if err != nil {
 		return nil, err
 	}

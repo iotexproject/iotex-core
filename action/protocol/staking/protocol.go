@@ -394,7 +394,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 }
 
 // Handle handles a staking message
-func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sm.Height()
 	if err != nil {
@@ -404,7 +404,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, err
 	}
-	return p.handle(ctx, act, csm)
+	return p.handle(ctx, elp.Action(), csm)
 }
 
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
@@ -474,11 +474,11 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 }
 
 // Validate validates a staking message
-func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
-	if act == nil {
+func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protocol.StateReader) error {
+	if elp == nil || elp.Action() == nil {
 		return action.ErrNilAction
 	}
-	switch act := act.(type) {
+	switch act := elp.Action().(type) {
 	case *action.CreateStake:
 		return p.validateCreateStake(ctx, act)
 	case *action.Unstake:
