@@ -31,6 +31,7 @@ const (
 
 var (
 	_ hasDestination      = (*Execution)(nil)
+	_ hasSize             = (*Execution)(nil)
 	_ EthCompatibleAction = (*Execution)(nil)
 	_ TxData              = (*Execution)(nil)
 )
@@ -39,10 +40,9 @@ var (
 type Execution struct {
 	AbstractAction
 
-	contract   string
-	amount     *big.Int
-	data       []byte
-	accessList types.AccessList
+	contract string
+	amount   *big.Int
+	data     []byte
 }
 
 // NewExecution returns an Execution instance (w/o access list)
@@ -79,15 +79,15 @@ func NewExecutionWithAccessList(
 ) (*Execution, error) {
 	return &Execution{
 		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
+			version:    version.ProtocolVersion,
+			nonce:      nonce,
+			gasLimit:   gasLimit,
+			gasPrice:   gasPrice,
+			accessList: list,
 		},
-		contract:   contractAddress,
-		amount:     amount,
-		data:       data,
-		accessList: list,
+		contract: contractAddress,
+		amount:   amount,
+		data:     data,
 	}, nil
 }
 
@@ -124,7 +124,7 @@ func (ex *Execution) Data() []byte { return ex.data }
 func (ex *Execution) Payload() []byte { return ex.data }
 
 // AccessList returns the access list
-func (ex *Execution) AccessList() types.AccessList { return ex.accessList }
+func (ex *Execution) AccessList() types.AccessList { return ex.AbstractAction.accessList }
 
 func toAccessListProto(list types.AccessList) []*iotextypes.AccessTuple {
 	if len(list) == 0 {
@@ -161,9 +161,9 @@ func fromAccessListProto(list []*iotextypes.AccessTuple) types.AccessList {
 	return accessList
 }
 
-// TotalSize returns the total size of this Execution
-func (ex *Execution) TotalSize() uint32 {
-	size := ex.BasicActionSize()
+// Size returns the size of this Execution
+func (ex *Execution) Size() uint32 {
+	var size uint32
 	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
 		size += uint32(len(ex.amount.Bytes()))
 	}
@@ -185,7 +185,6 @@ func (ex *Execution) Proto() *iotextypes.Execution {
 	if ex.amount != nil && len(ex.amount.String()) > 0 {
 		act.Amount = ex.amount.String()
 	}
-	act.AccessList = toAccessListProto(ex.accessList)
 	return act
 }
 
@@ -210,7 +209,6 @@ func (ex *Execution) LoadProto(pbAct *iotextypes.Execution) error {
 		ex.amount = amount
 	}
 	ex.data = pbAct.GetData()
-	ex.accessList = fromAccessListProto(pbAct.AccessList)
 	return nil
 }
 

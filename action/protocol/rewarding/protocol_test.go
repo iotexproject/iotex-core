@@ -221,7 +221,7 @@ func TestProtocol_Validate(t *testing.T) {
 	g := genesis.Default
 	g.NewfoundlandBlockHeight = 0
 	p := NewProtocol(g.Rewarding)
-	act := createGrantRewardAction(0, uint64(0)).Action()
+	act := createGrantRewardAction(0, uint64(0))
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
 		protocol.BlockCtx{
@@ -378,10 +378,7 @@ func TestProtocol_Handle(t *testing.T) {
 		SetGasLimit(deposit.GasLimit()).
 		SetAction(&deposit).
 		Build()
-	se1, err := action.Sign(e1, identityset.PrivateKey(0))
-	require.NoError(t, err)
-
-	_, err = p.Handle(ctx, se1.Action(), sm)
+	_, err = p.Handle(ctx, e1, sm)
 	require.NoError(t, err)
 	balance, _, err := p.TotalBalance(ctx, sm)
 	require.NoError(t, err)
@@ -390,8 +387,6 @@ func TestProtocol_Handle(t *testing.T) {
 	// Grant
 	// Test for createGrantRewardAction
 	e2 := createGrantRewardAction(0, uint64(0))
-	se2, err := action.Sign(e2, identityset.PrivateKey(0))
-	require.NoError(t, err)
 	ctx = protocol.WithActionCtx(
 		ctx,
 		protocol.ActionCtx{
@@ -400,7 +395,7 @@ func TestProtocol_Handle(t *testing.T) {
 			Nonce:    0,
 		},
 	)
-	receipt, err := p.Handle(ctx, se2.Action(), sm)
+	receipt, err := p.Handle(ctx, e2, sm)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
 	assert.Equal(t, 1, len(receipt.Logs()))
@@ -413,7 +408,7 @@ func TestProtocol_Handle(t *testing.T) {
 		},
 	)
 	// Grant the block reward again should fail
-	receipt, err = p.Handle(ctx, se2.Action(), sm)
+	receipt, err = p.Handle(ctx, e2, sm)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
 
@@ -426,8 +421,6 @@ func TestProtocol_Handle(t *testing.T) {
 		SetGasLimit(claim.GasLimit()).
 		SetAction(&claim).
 		Build()
-	se3, err := action.Sign(e3, identityset.PrivateKey(0))
-	require.NoError(t, err)
 	ctx = protocol.WithActionCtx(
 		ctx,
 		protocol.ActionCtx{
@@ -436,7 +429,7 @@ func TestProtocol_Handle(t *testing.T) {
 			Nonce:    2,
 		},
 	)
-	_, err = p.Handle(ctx, se3.Action(), sm)
+	_, err = p.Handle(ctx, e3, sm)
 	require.NoError(t, err)
 	balance, _, err = p.TotalBalance(ctx, sm)
 	require.NoError(t, err)

@@ -1,3 +1,8 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package staking
 
 import (
@@ -425,6 +430,8 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 			require.NoError(setupAccount(sm, test.caller, test.initBalance))
 			act := action.NewCandidateActivate(nonce, test.gasLimit, test.gasPrice, test.bucketID)
 			IntrinsicGas, _ := act.IntrinsicGas()
+			elp := builder.SetNonce(act.Nonce()).SetGasLimit(act.GasLimit()).
+				SetGasPrice(act.GasPrice()).SetAction(act).Build()
 			ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 				Caller:       test.caller,
 				GasPrice:     test.gasPrice,
@@ -441,11 +448,11 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 			cfg.TsunamiBlockHeight = 1
 			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
-			require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
+			require.Equal(test.err, errors.Cause(p.Validate(ctx, elp, sm)))
 			if test.err != nil {
 				return
 			}
-			r, err := p.Handle(ctx, act, sm)
+			r, err := p.Handle(ctx, elp, sm)
 			require.NoError(err)
 			if r != nil {
 				require.Equal(uint64(test.status), r.Status)

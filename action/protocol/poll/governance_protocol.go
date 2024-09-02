@@ -106,12 +106,12 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 	return p.sh.CreatePreStates(ctx, sm, p.indexer)
 }
 
-func (p *governanceChainCommitteeProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	return handle(ctx, act, sm, p.indexer, p.addr.String())
+func (p *governanceChainCommitteeProtocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
+	return handle(ctx, elp.Action(), sm, p.indexer, p.addr.String())
 }
 
-func (p *governanceChainCommitteeProtocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
-	return validate(ctx, sr, p, act)
+func (p *governanceChainCommitteeProtocol) Validate(ctx context.Context, elp action.Envelope, sr protocol.StateReader) error {
+	return validate(ctx, sr, p, elp.Action())
 }
 
 func (p *governanceChainCommitteeProtocol) candidatesByGravityChainHeight(height uint64) (state.CandidateList, error) {

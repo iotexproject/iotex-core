@@ -1,3 +1,8 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package staking
 
 import (
@@ -97,8 +102,8 @@ func TestHandleStakeMigrate(t *testing.T) {
 			IntrinsicGas: instriGas,
 			Nonce:        act.Nonce(),
 		})
-		r.NoError(p.Validate(ctx, act.Action(), sm))
-		return p.Handle(ctx, act.Action(), sm)
+		r.NoError(p.Validate(ctx, act.Envelope, sm))
+		return p.Handle(ctx, act.Envelope, sm)
 	}
 	runBlock := func(ctx context.Context, p *Protocol, sm protocol.StateManager, height uint64, t time.Time, acts ...*action.SealedEnvelope) ([]*action.Receipt, []error) {
 		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
@@ -254,7 +259,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 	t.Run("error from contract call", func(t *testing.T) {
 		pa := NewPatches()
 		defer pa.Reset()
-		pa.ApplyMethodFunc(excPrtl, "Handle", func(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+		pa.ApplyMethodFunc(excPrtl, "Handle", func(ctx context.Context, act action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
 			return nil, errors.New("execution failed error")
 		})
 		sm.EXPECT().Revert(gomock.Any()).Return(nil).Times(1)

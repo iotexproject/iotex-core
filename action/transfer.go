@@ -27,6 +27,7 @@ const (
 
 var (
 	_ hasDestination      = (*Transfer)(nil)
+	_ hasSize             = (*Transfer)(nil)
 	_ EthCompatibleAction = (*Transfer)(nil)
 )
 
@@ -74,9 +75,9 @@ func (tsf *Transfer) Recipient() string { return tsf.recipient }
 // Destination returns the recipient address as destination.
 func (tsf *Transfer) Destination() string { return tsf.recipient }
 
-// TotalSize returns the total size of this Transfer
-func (tsf *Transfer) TotalSize() uint32 {
-	size := tsf.BasicActionSize()
+// Size returns the total size of this Transfer
+func (tsf *Transfer) Size() uint32 {
+	var size uint32
 	if tsf.amount != nil && len(tsf.amount.Bytes()) > 0 {
 		size += uint32(len(tsf.amount.Bytes()))
 	}

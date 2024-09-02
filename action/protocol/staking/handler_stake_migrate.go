@@ -1,3 +1,8 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package staking
 
 import (
@@ -197,7 +202,11 @@ func (p *Protocol) createNFTBucket(ctx context.Context, exeAct *action.Execution
 	if exctPtl == nil {
 		return nil, errors.New("execution protocol is not registered")
 	}
-	excReceipt, err := exctPtl.Handle(ctx, exeAct, sm)
+	elp := (&action.EnvelopeBuilder{}).SetNonce(exeAct.Nonce()).
+		SetGasLimit(exeAct.GasLimit()).
+		SetGasPrice(exeAct.GasPrice()).
+		SetAction(exeAct).Build()
+	excReceipt, err := exctPtl.Handle(ctx, elp, sm)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to handle execution action")
 	}
