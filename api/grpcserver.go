@@ -573,15 +573,17 @@ func (svr *gRPCHandler) StreamBlocks(_ *iotexapi.StreamBlocksRequest, stream iot
 	errChan := make(chan error)
 	defer close(errChan)
 	chainListener := svr.coreService.ChainListener()
-	if _, err := chainListener.AddResponder(NewGRPCBlockListener(
+	id, err := chainListener.AddResponder(NewGRPCBlockListener(
 		func(resp interface{}) (int, error) {
 			return 0, stream.Send(resp.(*iotexapi.StreamBlocksResponse))
 		},
 		errChan,
-	)); err != nil {
+	))
+	if err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
-	err := <-errChan
+	err = <-errChan
+	chainListener.RemoveResponder(id)
 	if err != nil {
 		return status.Error(codes.Aborted, err.Error())
 	}
@@ -596,16 +598,18 @@ func (svr *gRPCHandler) StreamLogs(in *iotexapi.StreamLogsRequest, stream iotexa
 	errChan := make(chan error)
 	defer close(errChan)
 	chainListener := svr.coreService.ChainListener()
-	if _, err := chainListener.AddResponder(NewGRPCLogListener(
+	id, err := chainListener.AddResponder(NewGRPCLogListener(
 		logfilter.NewLogFilter(in.GetFilter()),
 		func(in interface{}) (int, error) {
 			return 0, stream.Send(in.(*iotexapi.StreamLogsResponse))
 		},
 		errChan,
-	)); err != nil {
+	))
+	if err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
-	err := <-errChan
+	err = <-errChan
+	chainListener.RemoveResponder(id)
 	if err != nil {
 		return status.Error(codes.Aborted, err.Error())
 	}
