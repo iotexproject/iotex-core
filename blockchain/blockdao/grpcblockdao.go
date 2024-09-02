@@ -9,16 +9,13 @@ import (
 	"context"
 	"encoding/hex"
 	"sync/atomic"
-	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao/blockdaopb"
-	"github.com/iotexproject/iotex-core/pkg/log"
 
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -28,6 +25,7 @@ import (
 
 type GrpcBlockDAO struct {
 	url                    string
+	insecure               bool
 	conn                   *grpc.ClientConn
 	client                 blockdaopb.BlockDAOServiceClient
 	containsTransactionLog bool
@@ -37,17 +35,23 @@ type GrpcBlockDAO struct {
 
 func NewGrpcBlockDAO(
 	url string,
+	insecure bool,
 	deserializer *block.Deserializer,
 ) *GrpcBlockDAO {
 	return &GrpcBlockDAO{
 		url:          url,
+		insecure:     insecure,
 		deserializer: deserializer,
 	}
 }
 
 func (gbd *GrpcBlockDAO) Start(ctx context.Context) error {
 	var err error
-	gbd.conn, err = grpc.Dial(gbd.url, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	opts := []grpc.DialOption{}
+	if gbd.insecure {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+	gbd.conn, err = grpc.Dial(gbd.url, opts...)
 	if err != nil {
 		return err
 	}
@@ -181,38 +185,7 @@ func (gbd *GrpcBlockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 		// remote block is already exist
 		return nil
 	}
-	// wait for remote block to be synced
-	select {
-	case <-gbd.subscribeBlock(ctx, blk.Height()):
-		gbd.localHeight.Store(blk.Height())
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-func (gbd *GrpcBlockDAO) subscribeBlock(ctx context.Context, height uint64) chan struct{} {
-	ch := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-time.After(5 * time.Second):
-			case <-ctx.Done():
-				return
-			}
-
-			remoteHeight, err := gbd.rpcHeight()
-			if err != nil {
-				log.L().Error("failed to get remote height", zap.Error(err))
-				continue
-			}
-			if remoteHeight >= height {
-				close(ch)
-				return
-			}
-		}
-	}()
-	return ch
+	return errors.Errorf("block height %d is larger than remote height %d", blk.Height(), remoteHeight)
 }
 
 func (gbd *GrpcBlockDAO) Header(h hash.Hash256) (*block.Header, error) {

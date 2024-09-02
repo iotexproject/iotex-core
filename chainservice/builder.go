@@ -8,8 +8,7 @@ package chainservice
 import (
 	"context"
 	"math/big"
-	"regexp"
-	"strings"
+	"net/url"
 	"time"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -295,14 +294,19 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		store, err = filedao.NewFileDAOInMemForTest()
 	} else {
 		path := builder.cfg.Chain.ChainDBPath
-		re := regexp.MustCompile(`^(https|http|grpc)://(.*)`)
-		match := re.FindStringSubmatch(strings.ToLower(path))
-		if len(match) > 2 {
-			store = blockdao.NewGrpcBlockDAO(match[2], block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
-		} else {
+		uri, err := url.Parse(path)
+		if err != nil {
+			return errors.Wrapf(err, "failed to parse chain db path %s", path)
+		}
+		switch uri.Scheme {
+		case "grpc":
+			store = blockdao.NewGrpcBlockDAO(uri.Host, uri.Query().Get("insecure") == "true", block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+		case "file", "":
 			dbConfig := builder.cfg.DB
-			dbConfig.DbPath = path
+			dbConfig.DbPath = uri.Path
 			store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+		default:
+			return errors.Errorf("unsupported blockdao scheme %s", uri.Scheme)
 		}
 	}
 	if err != nil {
