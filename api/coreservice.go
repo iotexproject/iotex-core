@@ -287,7 +287,7 @@ func newCoreService(
 		ap:            actPool,
 		cfg:           cfg,
 		registry:      registry,
-		chainListener: NewChainListener(500),
+		chainListener: NewChainListener(cfg.ListenerLimit),
 		gs:            gasstation.NewGasStation(chain, dao, cfg.GasStation),
 		readCache:     NewReadCache(),
 		getBlockTime:  getBlockTime,
