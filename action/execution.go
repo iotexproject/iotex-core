@@ -6,7 +6,6 @@
 package action
 
 import (
-	"encoding/hex"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -105,6 +104,10 @@ func (ex *Execution) To() *common.Address {
 	return &evmAddr
 }
 
+func (ex *Execution) Gas() uint64 {
+	return ex.gasLimit
+}
+
 // Contract returns a contract address
 func (ex *Execution) Contract() string { return ex.contract }
 
@@ -125,41 +128,6 @@ func (ex *Execution) Payload() []byte { return ex.data }
 
 // AccessList returns the access list
 func (ex *Execution) AccessList() types.AccessList { return ex.AbstractAction.accessList }
-
-func toAccessListProto(list types.AccessList) []*iotextypes.AccessTuple {
-	if len(list) == 0 {
-		return nil
-	}
-	proto := make([]*iotextypes.AccessTuple, len(list))
-	for i, v := range list {
-		proto[i] = &iotextypes.AccessTuple{}
-		proto[i].Address = hex.EncodeToString(v.Address.Bytes())
-		if numKey := len(v.StorageKeys); numKey > 0 {
-			proto[i].StorageKeys = make([]string, numKey)
-			for j, key := range v.StorageKeys {
-				proto[i].StorageKeys[j] = hex.EncodeToString(key.Bytes())
-			}
-		}
-	}
-	return proto
-}
-
-func fromAccessListProto(list []*iotextypes.AccessTuple) types.AccessList {
-	if len(list) == 0 {
-		return nil
-	}
-	accessList := make(types.AccessList, len(list))
-	for i, v := range list {
-		accessList[i].Address = common.HexToAddress(v.Address)
-		if numKey := len(v.StorageKeys); numKey > 0 {
-			accessList[i].StorageKeys = make([]common.Hash, numKey)
-			for j, key := range v.StorageKeys {
-				accessList[i].StorageKeys[j] = common.HexToHash(key)
-			}
-		}
-	}
-	return accessList
-}
 
 // Size returns the size of this Execution
 func (ex *Execution) Size() uint32 {

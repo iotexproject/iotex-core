@@ -6,10 +6,12 @@
 package action
 
 import (
+	"encoding/hex"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type (
@@ -22,13 +24,19 @@ type (
 		inner TxData
 	}
 
+	// TxData is the interface required to execute a transaction by EVM
+	// It follows the same-name interface in go-ethereum
 	TxData interface {
-		Nonce() uint64
-		GasLimit() uint64
-		GasPrice() *big.Int
-		Amount() *big.Int
+		TxCommon
+		Value() *big.Int
 		To() *common.Address
 		Data() []byte
+	}
+
+	TxCommon interface {
+		Nonce() uint64
+		Gas() uint64
+		GasPrice() *big.Int
 		TxDynamicGas
 		AccessList() types.AccessList
 	}
@@ -55,7 +63,7 @@ func (tx *EvmTransaction) Nonce() uint64 {
 }
 
 func (tx *EvmTransaction) Gas() uint64 {
-	return tx.inner.GasLimit()
+	return tx.inner.Gas()
 }
 
 func (tx *EvmTransaction) GasPrice() *big.Int {
@@ -71,7 +79,7 @@ func (tx *EvmTransaction) GasFeeCap() *big.Int {
 }
 
 func (tx *EvmTransaction) Value() *big.Int {
-	return tx.inner.Amount()
+	return tx.inner.Value()
 }
 
 func (tx *EvmTransaction) To() *common.Address {
@@ -84,6 +92,41 @@ func (tx *EvmTransaction) Data() []byte {
 
 func (tx *EvmTransaction) AccessList() types.AccessList {
 	return tx.inner.AccessList()
+}
+
+func toAccessListProto(list types.AccessList) []*iotextypes.AccessTuple {
+	if len(list) == 0 {
+		return nil
+	}
+	proto := make([]*iotextypes.AccessTuple, len(list))
+	for i, v := range list {
+		proto[i] = &iotextypes.AccessTuple{}
+		proto[i].Address = hex.EncodeToString(v.Address.Bytes())
+		if numKey := len(v.StorageKeys); numKey > 0 {
+			proto[i].StorageKeys = make([]string, numKey)
+			for j, key := range v.StorageKeys {
+				proto[i].StorageKeys[j] = hex.EncodeToString(key.Bytes())
+			}
+		}
+	}
+	return proto
+}
+
+func fromAccessListProto(list []*iotextypes.AccessTuple) types.AccessList {
+	if len(list) == 0 {
+		return nil
+	}
+	accessList := make(types.AccessList, len(list))
+	for i, v := range list {
+		accessList[i].Address = common.HexToAddress(v.Address)
+		if numKey := len(v.StorageKeys); numKey > 0 {
+			accessList[i].StorageKeys = make([]common.Hash, numKey)
+			for j, key := range v.StorageKeys {
+				accessList[i].StorageKeys[j] = common.HexToHash(key)
+			}
+		}
+	}
+	return accessList
 }
 
 // EffectiveGas returns the effective gas
