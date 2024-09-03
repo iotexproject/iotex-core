@@ -86,7 +86,7 @@ type (
 		Validate(context.Context, *block.Block) error
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
-		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
+		SimulateExecution(context.Context, address.Address, *action.Execution, ...protocol.SimulateOption) ([]byte, *action.Receipt, error)
 		ReadContractStorage(context.Context, address.Address, []byte) ([]byte, error)
 		PutBlock(context.Context, *block.Block) error
 		DeleteTipBlock(context.Context, *block.Block) error
@@ -387,6 +387,7 @@ func (sf *factory) SimulateExecution(
 	ctx context.Context,
 	caller address.Address,
 	ex *action.Execution,
+	opts ...protocol.SimulateOption,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "factory.SimulateExecution")
 	defer span.End()
@@ -397,7 +398,15 @@ func (sf *factory) SimulateExecution(
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-
+	cfg := &protocol.SimulateOptionConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	if cfg.PreOpt != nil {
+		if err := cfg.PreOpt(ws); err != nil {
+			return nil, nil, err
+		}
+	}
 	return evm.SimulateExecution(ctx, ws, caller, ex)
 }
 
