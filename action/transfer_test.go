@@ -28,7 +28,6 @@ func TestTransferSignVerify(t *testing.T) {
 		SetAction(tsf).Build()
 	elp, ok := eb.(*envelope)
 	require.True(ok)
-	require.EqualValues(21, elp.BasicActionSize())
 	require.EqualValues(87, eb.Size())
 
 	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))

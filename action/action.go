@@ -15,6 +15,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	LegacyTxType     = 1
+	AccessListTxType = 2
+	DynamicFeeTxType = 3
+	BlobTxType       = 4
+)
+
 type (
 	// Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
 	Action interface {

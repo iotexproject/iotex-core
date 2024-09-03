@@ -6,6 +6,7 @@
 package action
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -54,6 +55,17 @@ type (
 		TxBlob
 	}
 
+	TxCommonWithProto interface {
+		TxCommon
+		Version() uint32
+		ChainID() uint32
+		SanityCheck() error
+		toProto() *iotextypes.ActionCore
+		setNonce(uint64)
+		setGas(uint64)
+		setChainID(uint32)
+	}
+
 	TxDynamicGas interface {
 		GasTipCap() *big.Int
 		GasFeeCap() *big.Int
@@ -67,37 +79,57 @@ type (
 	}
 
 	envelope struct {
-		AbstractAction
+		common  TxCommonWithProto
 		payload actionPayload
 	}
 )
 
+func (elp *envelope) Version() uint32 {
+	return elp.common.Version()
+}
+
+func (elp *envelope) ChainID() uint32 {
+	return elp.common.ChainID()
+}
+
+func (elp *envelope) Nonce() uint64 {
+	return elp.common.Nonce()
+}
+
 func (elp *envelope) Gas() uint64 {
-	return elp.gasLimit
+	return elp.common.Gas()
+}
+
+func (elp *envelope) GasPrice() *big.Int {
+	return elp.common.GasPrice()
 }
 
 func (elp *envelope) AccessList() types.AccessList {
-	return elp.accessList
+	return elp.common.AccessList()
+}
+
+func (elp *envelope) GasTipCap() *big.Int {
+	return elp.common.GasTipCap()
+}
+
+func (elp *envelope) GasFeeCap() *big.Int {
+	return elp.common.GasFeeCap()
 }
 
 func (elp *envelope) BlobGas() uint64 {
-	// TODO
-	return 0
+	return elp.common.BlobGas()
 }
 
 func (elp *envelope) BlobGasFeeCap() *big.Int {
-	// TODO
-	return nil
+	return elp.common.BlobGasFeeCap()
 }
 
 func (elp *envelope) BlobHashes() []common.Hash {
-	// TODO
-	return nil
+	return elp.common.BlobHashes()
 }
 
 func (elp *envelope) BlobTxSidecar() *types.BlobTxSidecar {
-	// TODO
-	return nil
+	return elp.common.BlobTxSidecar()
 }
 
 func (elp *envelope) Value() *big.Int {
@@ -138,7 +170,7 @@ func (elp *envelope) Cost() (*big.Int, error) {
 		return nil, errors.Wrap(err, "failed to get payload's intrinsic gas")
 	}
 	if _, ok := elp.payload.(gasLimitForCost); ok {
-		gas = elp.Gas()
+		gas = elp.common.Gas()
 	}
 	if acl := elp.AccessList(); len(acl) > 0 {
 		gas += uint64(len(acl)) * TxAccessListAddressGas
@@ -169,7 +201,11 @@ func (elp *envelope) IntrinsicGas() (uint64, error) {
 
 // Size returns the size of envelope
 func (elp *envelope) Size() uint32 {
-	size := elp.BasicActionSize()
+	// VersionSizeInBytes + NonceSizeInBytes + GasSizeInBytes
+	var size uint32 = 4 + 8 + 8
+	if gasPrice := elp.common.GasPrice(); gasPrice != nil {
+		size += uint32(len(gasPrice.Bytes()))
+	}
 	if s, ok := elp.payload.(hasSize); ok {
 		size += s.Size()
 	}
@@ -187,7 +223,7 @@ func (elp *envelope) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) 
 		// treat native tx as EVM LegacyTx
 		fallthrough
 	case encoding == iotextypes.Encoding_ETHEREUM_EIP155 || encoding == iotextypes.Encoding_ETHEREUM_UNPROTECTED:
-		return toLegacyTx(&elp.AbstractAction, elp.Action())
+		return toLegacyEthTx(elp.common, elp.Action())
 	default:
 		return nil, errors.Wrapf(ErrInvalidAct, "unsupported encoding type %v", encoding)
 	}
@@ -195,7 +231,7 @@ func (elp *envelope) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) 
 
 // Proto convert Envelope to protobuf format.
 func (elp *envelope) Proto() *iotextypes.ActionCore {
-	actCore := elp.AbstractAction.toProto()
+	actCore := elp.common.toProto()
 
 	// TODO assert each action
 	switch act := elp.Action().(type) {
@@ -253,10 +289,24 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	if elp == nil {
 		return ErrNilAction
 	}
-	if err := elp.AbstractAction.fromProto(pbAct); err != nil {
+	if err := elp.loadProtoTxCommon(pbAct); err != nil {
 		return err
 	}
+	return elp.loadProtoActionPayload(pbAct)
+}
 
+func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
+	var err error
+	switch pbAct.Version {
+	case LegacyTxType:
+		elp.common, err = fromProtoLegacyTx(pbAct)
+	default:
+		panic(fmt.Sprintf("unsupported action version = %d", pbAct.Version))
+	}
+	return err
+}
+
+func (elp *envelope) loadProtoActionPayload(pbAct *iotextypes.ActionCore) error {
 	switch {
 	case pbAct.GetTransfer() != nil:
 		act := &Transfer{}
@@ -385,17 +435,23 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	return nil
 }
 
+func (elp *envelope) SetNonce(n uint64) {
+	elp.common.setNonce(n)
+}
+
 func (elp *envelope) SetGas(gas uint64) {
-	elp.SetGasLimit(gas)
+	elp.common.setGas(gas)
 }
 
 // SetChainID sets the chainID value
-func (elp *envelope) SetChainID(chainID uint32) { elp.chainID = chainID }
+func (elp *envelope) SetChainID(chainID uint32) {
+	elp.common.setChainID(chainID)
+}
 
 // SanityCheck does the sanity check
 func (elp *envelope) SanityCheck() error {
 	if err := elp.payload.SanityCheck(); err != nil {
 		return err
 	}
-	return elp.AbstractAction.SanityCheck()
+	return elp.common.SanityCheck()
 }
