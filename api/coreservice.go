@@ -65,6 +65,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	batch "github.com/iotexproject/iotex-core/pkg/messagebatcher"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/state"
@@ -618,7 +619,7 @@ func (core *coreService) SuggestTipCap() (*big.Int, error) {
 		return price, nil
 	}
 	fee := big.NewInt(0).Sub(price, header.BaseFee())
-	minFee := big.NewInt(1) // TODO: use a better value
+	minFee := big.NewInt(unit.Qev) // TODO: use a better value
 	if fee.Cmp(minFee) < 0 {
 		fee = minFee
 	}
