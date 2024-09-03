@@ -33,7 +33,6 @@ func TestExecutionSignVerify(t *testing.T) {
 		SetAction(ex).Build()
 	elp, ok := eb.(*envelope)
 	require.True(ok)
-	require.EqualValues(21, elp.BasicActionSize())
 	require.EqualValues(87, eb.Size())
 
 	w := AssembleSealedEnvelope(elp, executorKey.PublicKey(), []byte("lol"))

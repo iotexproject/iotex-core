@@ -129,7 +129,7 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 // ======================================
 // utility funcs to convert native action to eth tx
 // ======================================
-func toLegacyTx(ab *AbstractAction, act Action) (*types.Transaction, error) {
+func toLegacyEthTx(ab TxCommon, act Action) (*types.Transaction, error) {
 	tx, ok := act.(EthCompatibleAction)
 	if !ok {
 		// action type not supported
