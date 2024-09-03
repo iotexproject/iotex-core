@@ -50,6 +50,10 @@ func TestWeb3ServerIntegrity(t *testing.T) {
 		gasPrice(t, handler)
 	})
 
+	t.Run("eth_maxPriorityFeePerGas", func(t *testing.T) {
+		maxPriorityFee(t, handler)
+	})
+
 	t.Run("eth_chainId", func(t *testing.T) {
 		chainID(t, handler)
 	})
@@ -186,6 +190,14 @@ func serveTestHTTP(require *require.Assertions, handler *hTTPHandler, method str
 func gasPrice(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
 	result := serveTestHTTP(require, handler, "eth_gasPrice", "[]")
+	actual, ok := result.(string)
+	require.True(ok)
+	require.Equal(uint64ToHex(1000000000000), actual)
+}
+
+func maxPriorityFee(t *testing.T, handler *hTTPHandler) {
+	require := require.New(t)
+	result := serveTestHTTP(require, handler, "eth_maxPriorityFee", "[]")
 	actual, ok := result.(string)
 	require.True(ok)
 	require.Equal(uint64ToHex(1000000000000), actual)

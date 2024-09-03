@@ -154,6 +154,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.ethAccounts()
 	case "eth_gasPrice":
 		res, err = svr.gasPrice()
+	case "eth_maxPriorityFee":
+		res, err = svr.maxPriorityFee()
 	case "eth_getBlockByHash":
 		res, err = svr.getBlockByHash(web3Req)
 	case "eth_chainId":
@@ -302,6 +304,14 @@ func (svr *web3Handler) gasPrice() (interface{}, error) {
 		return nil, err
 	}
 	return uint64ToHex(ret), nil
+}
+
+func (svr *web3Handler) maxPriorityFee() (interface{}, error) {
+	ret, err := svr.coreService.SuggestTipCap()
+	if err != nil {
+		return nil, err
+	}
+	return uint64ToHex(ret.Uint64()), nil
 }
 
 func (svr *web3Handler) getChainID() (interface{}, error) {

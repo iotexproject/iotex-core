@@ -627,6 +627,21 @@ func (mr *MockCoreServiceMockRecorder) SuggestGasPrice() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuggestGasPrice", reflect.TypeOf((*MockCoreService)(nil).SuggestGasPrice))
 }
 
+// SuggestTipCap mocks base method.
+func (m *MockCoreService) SuggestTipCap() (*big.Int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SuggestTipCap")
+	ret0, _ := ret[0].(*big.Int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SuggestTipCap indicates an expected call of SuggestTipCap.
+func (mr *MockCoreServiceMockRecorder) SuggestTipCap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuggestTipCap", reflect.TypeOf((*MockCoreService)(nil).SuggestTipCap))
+}
+
 // SyncingProgress mocks base method.
 func (m *MockCoreService) SyncingProgress() (uint64, uint64, uint64) {
 	m.ctrl.T.Helper()
