@@ -105,6 +105,10 @@ func (ex *Execution) To() *common.Address {
 	return &evmAddr
 }
 
+func (ex *Execution) Gas() uint64 {
+	return ex.gasLimit
+}
+
 // Contract returns a contract address
 func (ex *Execution) Contract() string { return ex.contract }
 

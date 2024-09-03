@@ -22,11 +22,13 @@ type (
 		inner TxData
 	}
 
+	// TxData is the interface required to execute a transaction by EVM
+	// It follows the same-name interface in go-ethereum
 	TxData interface {
 		Nonce() uint64
-		GasLimit() uint64
+		Gas() uint64
 		GasPrice() *big.Int
-		Amount() *big.Int
+		Value() *big.Int
 		To() *common.Address
 		Data() []byte
 		TxDynamicGas
@@ -55,7 +57,7 @@ func (tx *EvmTransaction) Nonce() uint64 {
 }
 
 func (tx *EvmTransaction) Gas() uint64 {
-	return tx.inner.GasLimit()
+	return tx.inner.Gas()
 }
 
 func (tx *EvmTransaction) GasPrice() *big.Int {
@@ -71,7 +73,7 @@ func (tx *EvmTransaction) GasFeeCap() *big.Int {
 }
 
 func (tx *EvmTransaction) Value() *big.Int {
-	return tx.inner.Amount()
+	return tx.inner.Value()
 }
 
 func (tx *EvmTransaction) To() *common.Address {
