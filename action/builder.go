@@ -79,23 +79,24 @@ func (b *Builder) Build() AbstractAction {
 // TODO: change envelope to *envelope
 type EnvelopeBuilder struct {
 	elp envelope
+	ab  AbstractAction
 }
 
 // SetVersion sets action's version.
 func (b *EnvelopeBuilder) SetVersion(v uint32) *EnvelopeBuilder {
-	b.elp.version = v
+	b.ab.version = v
 	return b
 }
 
 // SetNonce sets action's nonce.
 func (b *EnvelopeBuilder) SetNonce(n uint64) *EnvelopeBuilder {
-	b.elp.nonce = n
+	b.ab.nonce = n
 	return b
 }
 
 // SetGasLimit sets action's gas limit.
 func (b *EnvelopeBuilder) SetGasLimit(l uint64) *EnvelopeBuilder {
-	b.elp.gasLimit = l
+	b.ab.gasLimit = l
 	return b
 }
 
@@ -104,8 +105,8 @@ func (b *EnvelopeBuilder) SetGasPrice(p *big.Int) *EnvelopeBuilder {
 	if p == nil {
 		return b
 	}
-	b.elp.gasPrice = &big.Int{}
-	b.elp.gasPrice.Set(p)
+	b.ab.gasPrice = &big.Int{}
+	b.ab.gasPrice.Set(p)
 	return b
 }
 
@@ -114,8 +115,8 @@ func (b *EnvelopeBuilder) SetGasPriceByBytes(buf []byte) *EnvelopeBuilder {
 	if len(buf) == 0 {
 		return b
 	}
-	b.elp.gasPrice = &big.Int{}
-	b.elp.gasPrice.SetBytes(buf)
+	b.ab.gasPrice = &big.Int{}
+	b.ab.gasPrice.SetBytes(buf)
 	return b
 }
 
@@ -125,14 +126,20 @@ func (b *EnvelopeBuilder) SetAction(action actionPayload) *EnvelopeBuilder {
 	return b
 }
 
+// SetTx sets the transaction data part
+func (b *EnvelopeBuilder) SetTx(tx TxCommonWithProto) *EnvelopeBuilder {
+	b.elp.common = tx
+	return b
+}
+
 // SetChainID sets action's chainID.
 func (b *EnvelopeBuilder) SetChainID(chainID uint32) *EnvelopeBuilder {
-	b.elp.chainID = chainID
+	b.ab.chainID = chainID
 	return b
 }
 
 func (b *EnvelopeBuilder) SetAccessList(acl types.AccessList) *EnvelopeBuilder {
-	b.elp.accessList = acl
+	b.ab.accessList = acl
 	return b
 }
 
@@ -142,16 +149,17 @@ func (b *EnvelopeBuilder) Build() Envelope {
 }
 
 func (b *EnvelopeBuilder) build() Envelope {
-	if b.elp.gasPrice == nil {
-		b.elp.gasPrice = big.NewInt(0)
+	if b.ab.gasPrice == nil {
+		b.ab.gasPrice = big.NewInt(0)
 	}
-	if b.elp.version == 0 {
-		b.elp.version = version.ProtocolVersion
+	if b.ab.version == 0 {
+		// default to version = 1 (legacy tx)
+		b.ab.version = version.ProtocolVersion
 	}
 	if b.elp.payload == nil {
 		panic("cannot build Envelope w/o a valid payload")
 	}
-	b.elp.payload.SetEnvelopeContext(&b.elp.AbstractAction)
+	b.elp.common = b.ab.toConcreteTx()
 	return &b.elp
 }
 
@@ -170,10 +178,10 @@ func (b *EnvelopeBuilder) BuildTransfer(tx *types.Transaction) (Envelope, error)
 }
 
 func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) {
-	b.elp.nonce = tx.Nonce()
-	b.elp.gasPrice = new(big.Int).Set(tx.GasPrice())
-	b.elp.gasLimit = tx.Gas()
-	b.elp.accessList = tx.AccessList()
+	b.ab.nonce = tx.Nonce()
+	b.ab.gasPrice = new(big.Int).Set(tx.GasPrice())
+	b.ab.gasLimit = tx.Gas()
+	b.ab.accessList = tx.AccessList()
 }
 
 func getRecipientAddr(addr *common.Address) string {

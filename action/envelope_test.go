@@ -17,7 +17,7 @@ func TestEnvelope_Basic(t *testing.T) {
 	evlp, tsf := createEnvelope()
 	req.Equal(uint32(1), evlp.Version())
 	req.Equal(uint64(10), evlp.Nonce())
-	req.Equal(uint64(20010), evlp.GasLimit())
+	req.Equal(uint64(20010), evlp.Gas())
 	req.Equal("11000000000000000000", evlp.GasPrice().String())
 	c, err := evlp.Cost()
 	req.NoError(err)
@@ -46,27 +46,21 @@ func TestEnvelope_Proto(t *testing.T) {
 
 	proto := evlp.Proto()
 	actCore := &iotextypes.ActionCore{
-		Version:  evlp.version,
-		Nonce:    evlp.nonce,
-		GasLimit: evlp.gasLimit,
-		ChainID:  evlp.chainID,
+		Version:  evlp.Version(),
+		Nonce:    evlp.Nonce(),
+		GasLimit: evlp.Gas(),
+		ChainID:  evlp.ChainID(),
 	}
-	actCore.GasPrice = evlp.gasPrice.String()
+	actCore.GasPrice = evlp.GasPrice().String()
 	actCore.Action = &iotextypes.ActionCore_Transfer{Transfer: tsf.Proto()}
 	req.Equal(actCore, proto)
 
 	evlp2 := &envelope{}
 	req.NoError(evlp2.LoadProto(proto))
-	req.Equal(evlp.version, evlp2.version)
-	req.Equal(evlp.chainID, evlp2.chainID)
-	req.Equal(evlp.nonce, evlp2.nonce)
-	req.Equal(evlp.gasLimit, evlp2.gasLimit)
-	req.Equal(evlp.gasPrice, evlp2.gasPrice)
+	req.Equal(evlp, evlp2)
 	tsf2, ok := evlp2.Action().(*Transfer)
 	req.True(ok)
-	req.Equal(tsf.amount, tsf2.amount)
-	req.Equal(tsf.recipient, tsf2.recipient)
-	req.Equal(tsf.payload, tsf2.payload)
+	req.Equal(tsf, tsf2)
 }
 
 func TestEnvelope_Actions(t *testing.T) {
@@ -139,7 +133,7 @@ func TestEnvelope_Actions(t *testing.T) {
 		require.Equal(elp.Nonce(), evlp.Nonce())
 		require.Equal(elp.ChainID(), evlp.ChainID())
 		require.Equal(elp.GasPrice(), evlp.GasPrice())
-		require.Equal(elp.GasLimit(), evlp.GasLimit())
+		require.Equal(elp.Gas(), evlp.Gas())
 	}
 }
 

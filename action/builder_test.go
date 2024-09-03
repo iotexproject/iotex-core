@@ -98,7 +98,7 @@ func TestBuildRewardingAction(t *testing.T) {
 			r.NoError(err)
 			r.IsType(&ClaimFromRewardingFund{}, elp.Action())
 			r.Equal(big.NewInt(10004), elp.GasPrice())
-			r.Equal(uint64(10000), elp.GasLimit())
+			r.Equal(uint64(10000), elp.Gas())
 			r.Equal(big.NewInt(101), elp.Action().(*ClaimFromRewardingFund).Amount())
 		})
 		t.Run("Debug", func(t *testing.T) {
@@ -134,7 +134,7 @@ func TestBuildRewardingAction(t *testing.T) {
 			r.NoError(err)
 			r.IsType(&DepositToRewardingFund{}, elp.Action())
 			r.EqualValues(big.NewInt(10004), elp.GasPrice())
-			r.EqualValues(10000, elp.GasLimit())
+			r.EqualValues(10000, elp.Gas())
 			r.EqualValues(big.NewInt(102), elp.Action().(*DepositToRewardingFund).Amount())
 		})
 	})

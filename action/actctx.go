@@ -6,6 +6,7 @@
 package action
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -118,6 +119,24 @@ func (act *AbstractAction) SanityCheck() error {
 		return ErrNegativeValue
 	}
 	return nil
+}
+
+func (act *AbstractAction) toConcreteTx() TxCommonWithProto {
+	switch act.version {
+	case 1:
+		tx := LegacyTx{
+			chainID:  act.chainID,
+			nonce:    act.nonce,
+			gasLimit: act.gasLimit,
+			gasPrice: &big.Int{},
+		}
+		if act.gasPrice != nil {
+			tx.gasPrice.Set(act.gasPrice)
+		}
+		return &tx
+	default:
+		panic(fmt.Sprintf("unsupported action version = %d", act.version))
+	}
 }
 
 func (act *AbstractAction) toProto() *iotextypes.ActionCore {

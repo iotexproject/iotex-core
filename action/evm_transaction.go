@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type (
@@ -25,14 +26,27 @@ type (
 	// TxData is the interface required to execute a transaction by EVM
 	// It follows the same-name interface in go-ethereum
 	TxData interface {
-		Nonce() uint64
-		Gas() uint64
-		GasPrice() *big.Int
+		TxCommon
 		Value() *big.Int
 		To() *common.Address
 		Data() []byte
+	}
+
+	TxCommon interface {
+		Nonce() uint64
+		Gas() uint64
+		GasPrice() *big.Int
 		TxDynamicGas
 		AccessList() types.AccessList
+	}
+
+	TxCommonWithProto interface {
+		TxCommon
+		Version() uint32
+		ChainID() uint32
+		toProto() *iotextypes.ActionCore
+		setNonce(uint64)
+		setChainID(uint32)
 	}
 
 	TxDynamicGas interface {

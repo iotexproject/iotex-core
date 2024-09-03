@@ -6,6 +6,7 @@
 package action
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -18,13 +19,9 @@ import (
 type (
 	// Envelope defines an envelope wrapped on action with some envelope metadata.
 	Envelope interface {
+		TxCommon
 		Version() uint32
-		Nonce() uint64
 		ChainID() uint32
-		GasLimit() uint64
-		GasPrice() *big.Int
-		GasTipCap() *big.Int
-		GasFeeCap() *big.Int
 		Destination() (string, bool)
 		Cost() (*big.Int, error)
 		IntrinsicGas() (uint64, error)
@@ -32,16 +29,48 @@ type (
 		Action() Action
 		ToEthTx(uint32, iotextypes.Encoding) (*types.Transaction, error)
 		Proto() *iotextypes.ActionCore
-		LoadProto(pbAct *iotextypes.ActionCore) error
-		SetNonce(n uint64)
-		SetChainID(chainID uint32)
+		LoadProto(*iotextypes.ActionCore) error
+		SetNonce(uint64)
+		SetChainID(uint32)
 	}
 
 	envelope struct {
-		AbstractAction
+		common  TxCommonWithProto
 		payload actionPayload
 	}
 )
+
+func (elp *envelope) Version() uint32 {
+	return elp.common.Version()
+}
+
+func (elp *envelope) ChainID() uint32 {
+	return elp.common.ChainID()
+}
+
+func (elp *envelope) Nonce() uint64 {
+	return elp.common.Nonce()
+}
+
+func (elp *envelope) Gas() uint64 {
+	return elp.common.Gas()
+}
+
+func (elp *envelope) GasPrice() *big.Int {
+	return elp.common.GasPrice()
+}
+
+func (elp *envelope) AccessList() types.AccessList {
+	return elp.common.AccessList()
+}
+
+func (elp *envelope) GasTipCap() *big.Int {
+	return elp.common.GasTipCap()
+}
+
+func (elp *envelope) GasFeeCap() *big.Int {
+	return elp.common.GasFeeCap()
+}
 
 // Destination returns the destination address
 func (elp *envelope) Destination() (string, bool) {
@@ -65,7 +94,11 @@ func (elp *envelope) IntrinsicGas() (uint64, error) {
 
 // Size returns the size of envelope
 func (elp *envelope) Size() uint32 {
-	size := elp.BasicActionSize()
+	// VersionSizeInBytes + NonceSizeInBytes + GasSizeInBytes
+	var size uint32 = 4 + 8 + 8
+	if gasPrice := elp.common.GasPrice(); gasPrice != nil {
+		size += uint32(len(gasPrice.Bytes()))
+	}
 	if s, ok := elp.payload.(hasSize); ok {
 		size += s.Size()
 	}
@@ -83,7 +116,7 @@ func (elp *envelope) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) 
 		// treat native tx as EVM LegacyTx
 		fallthrough
 	case encoding == iotextypes.Encoding_ETHEREUM_EIP155 || encoding == iotextypes.Encoding_ETHEREUM_UNPROTECTED:
-		return toLegacyTx(&elp.AbstractAction, elp.Action())
+		return toLegacyTx(elp.common, elp.Action())
 	default:
 		return nil, errors.Wrapf(ErrInvalidAct, "unsupported encoding type %v", encoding)
 	}
@@ -91,7 +124,7 @@ func (elp *envelope) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) 
 
 // Proto convert Envelope to protobuf format.
 func (elp *envelope) Proto() *iotextypes.ActionCore {
-	actCore := elp.AbstractAction.toProto()
+	actCore := elp.common.toProto()
 
 	// TODO assert each action
 	switch act := elp.Action().(type) {
@@ -149,10 +182,24 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	if elp == nil {
 		return ErrNilAction
 	}
-	if err := elp.AbstractAction.fromProto(pbAct); err != nil {
+	if err := elp.loadProtoTxCommon(pbAct); err != nil {
 		return err
 	}
+	return elp.loadProtoActionPayload(pbAct)
+}
 
+func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
+	var err error
+	switch pbAct.Version {
+	case 1:
+		elp.common, err = txLegacyFromProto(pbAct)
+	default:
+		panic(fmt.Sprintf("unsupported action version = %d", pbAct.Version))
+	}
+	return err
+}
+
+func (elp *envelope) loadProtoActionPayload(pbAct *iotextypes.ActionCore) error {
 	switch {
 	case pbAct.GetTransfer() != nil:
 		act := &Transfer{}
@@ -278,9 +325,14 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	default:
 		return errors.Errorf("no applicable action to handle proto type %T", pbAct.Action)
 	}
-	elp.payload.SetEnvelopeContext(&elp.AbstractAction)
 	return nil
 }
 
+func (elp *envelope) SetNonce(n uint64) {
+	elp.common.setNonce(n)
+}
+
 // SetChainID sets the chainID value
-func (elp *envelope) SetChainID(chainID uint32) { elp.chainID = chainID }
+func (elp *envelope) SetChainID(chainID uint32) {
+	elp.common.setChainID(chainID)
+}
