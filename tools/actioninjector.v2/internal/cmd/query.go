@@ -53,6 +53,8 @@ var (
 		"iotexapi.APIService.GetAccount",
 		"iotexapi.APIService.EstimateActionGasConsumption",
 		"iotexapi.APIService.ReadContract",
+		"iotexapi.APIService.GetRawBlocks",
+		"iotexapi.APIService.GetBlockMetas",
 	}
 )
 
@@ -148,6 +150,22 @@ func provider(call *runner.CallData) ([]*dynamic.Message, error) {
 	case "GetAccount":
 		protoMsg = &iotexapi.GetAccountRequest{
 			Address: identityset.Address(rand.Intn(30)).String(),
+		}
+	case "GetRawBlocks":
+		protoMsg = &iotexapi.GetRawBlocksRequest{
+			StartHeight:         uint64(rand.Intn(27928108)),
+			Count:               3,
+			WithReceipts:        true,
+			WithTransactionLogs: true,
+		}
+	case "GetBlockMetas":
+		protoMsg = &iotexapi.GetBlockMetasRequest{
+			Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
+				ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
+					Start: uint64(rand.Intn(27928108)),
+					Count: 10,
+				},
+			},
 		}
 	default:
 		return nil, errors.Errorf("not supported method %s", call.MethodName)
