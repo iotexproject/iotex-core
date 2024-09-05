@@ -15,12 +15,10 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 type (
-	blockstore []byte
-	sizedDao   struct {
+	sizedDao struct {
 		size    uint64
 		dataDir string
 
@@ -49,6 +47,8 @@ func NewSizedFileDao(size uint64, dataDir string, deser *block.Deserializer) (Fi
 }
 
 func (sd *sizedDao) Start(ctx context.Context) error {
+	sd.lock.Lock()
+	defer sd.lock.Unlock()
 	dir := sd.dataDir
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return errors.Wrap(err, "failed to create blob store directory")
@@ -56,7 +56,14 @@ func (sd *sizedDao) Start(ctx context.Context) error {
 
 	var fails []uint64
 	index := func(id uint64, size uint32, blob []byte) {
-		blk, err := blockstore(blob).Block(sd.deser)
+		bs := new(blockstore)
+		err := bs.Deserialize(blob)
+		if err != nil {
+			fails = append(fails, id)
+			log.L().Warn("Failed to decode block store", zap.Error(err))
+			return
+		}
+		blk, err := bs.Block(sd.deser)
 		if err != nil {
 			fails = append(fails, id)
 			log.L().Warn("Failed to decode block", zap.Error(err))
@@ -87,6 +94,8 @@ func (sd *sizedDao) Start(ctx context.Context) error {
 }
 
 func (sd *sizedDao) Stop(ctx context.Context) error {
+	sd.lock.Lock()
+	defer sd.lock.Unlock()
 	return sd.store.Close()
 }
 
@@ -94,7 +103,7 @@ func (sd *sizedDao) PutBlock(ctx context.Context, blk *block.Block) error {
 	if blk.Height() != sd.tip+1 {
 		return ErrInvalidTipHeight
 	}
-	data, err := serializeBlock(blk)
+	bs, err := convertToBlockStore(blk)
 	if err != nil {
 		return err
 	}
@@ -104,7 +113,7 @@ func (sd *sizedDao) PutBlock(ctx context.Context, blk *block.Block) error {
 	if blk.Height() != sd.tip+1 {
 		return ErrInvalidTipHeight
 	}
-	id, err := sd.store.Put(data)
+	id, err := sd.store.Put(bs.Serialize())
 	if err != nil {
 		return err
 	}
@@ -187,7 +196,12 @@ func (sd *sizedDao) TransactionLogs(height uint64) (*iotextypes.TransactionLogs,
 	if err != nil {
 		return nil, err
 	}
-	return blockstore(data).TransactionLogs()
+	bs := new(blockstore)
+	err = bs.Deserialize(data)
+	if err != nil {
+		return nil, err
+	}
+	return bs.TransactionLogs()
 }
 
 func (sd *sizedDao) DeleteTipBlock() error {
@@ -237,7 +251,12 @@ func (sd *sizedDao) getBlock(height uint64) (*block.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	return blockstore(data).Block(sd.deser)
+	bs := new(blockstore)
+	err = bs.Deserialize(data)
+	if err != nil {
+		return nil, err
+	}
+	return bs.Block(sd.deser)
 }
 
 func (sd *sizedDao) drop() {
@@ -253,72 +272,27 @@ func (sd *sizedDao) drop() {
 	sd.base++
 }
 
-func serializeBlock(blk *block.Block) (blockstore, error) {
-	data := make(blockstore, 0)
-	s := &block.Store{
-		Block:    blk,
-		Receipts: blk.Receipts,
-	}
-	tmp, err := s.Serialize()
-	if err != nil {
-		return nil, err
-	}
-	data = append(data, byteutil.Uint64ToBytesBigEndian(uint64(len(tmp)))...)
-	data = append(data, tmp...)
-	txLog := blk.TransactionLog()
-	if txLog != nil {
-		tmp = txLog.Serialize()
-		data = append(data, tmp...)
-	}
-	return data, nil
-}
-
-func (s blockstore) Block(deser *block.Deserializer) (*block.Block, error) {
-	size, err := s.blockSize()
-	if err != nil {
-		return nil, err
-	}
-	if uint64(len(s)) < size+8 {
-		return nil, errors.New("blockstore is too short")
-	}
-	bs, err := deser.DeserializeBlockStore(s[8 : size+8])
-	if err != nil {
-		return nil, err
-	}
-	bs.Block.Receipts = bs.Receipts
-	return bs.Block, nil
-}
-
-func (s blockstore) TransactionLogs() (*iotextypes.TransactionLogs, error) {
-	size, err := s.blockSize()
-	if err != nil {
-		return nil, err
-	}
-	if uint64(len(s)) < size+8 {
-		return nil, errors.New("blockstore is too short")
-	} else if uint64(len(s)) == size+8 {
-		return nil, nil
-	}
-
-	return block.DeserializeSystemLogPb(s[size+8:])
-}
-
-func (s blockstore) blockSize() (uint64, error) {
-	if len(s) < 8 {
-		return 0, errors.New("blockstore is too short")
-	}
-	return byteutil.BytesToUint64BigEndian(s[:8]), nil
-}
-
 func newSlotter() func() (uint32, bool) {
-	// TODO: set emptySize and delta according to the actual block size
-	emptySize := uint32(1024)
-	delta := uint32(2048)
-	slotsize := uint32(emptySize) // empty block
-	slotsize -= uint32(delta)     // underflows, it's ok, will overflow back in the first return
-
+	sizeList := []uint32{
+		1024 * 4, // empty block
+		1024 * 8, // 2 execution
+		1024 * 16,
+		1024 * 128, // 250 transfer
+		1024 * 512,
+		1024 * 1024,
+		1024 * 1024 * 4, // 5000 transfer
+		1024 * 1024 * 8,
+		1024 * 1024 * 16,
+		1024 * 1024 * 128,
+		1024 * 1024 * 512,
+		1024 * 1024 * 1024, // max block size
+	}
+	i := -1
 	return func() (size uint32, done bool) {
-		slotsize += delta
-		return slotsize, false
+		i++
+		if i >= len(sizeList)-1 {
+			return sizeList[i], true
+		}
+		return sizeList[i], true
 	}
 }
