@@ -620,5 +620,5 @@ func SimulateExecution(
 	)
 
 	ctx = protocol.WithFeatureCtx(ctx)
-	return ExecuteContract(ctx, sm, action.NewEvmTx(ex))
+	return ExecuteContract(ctx, sm, ex)
 }

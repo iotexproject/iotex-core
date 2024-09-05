@@ -15,15 +15,6 @@ import (
 )
 
 type (
-	// EvmTransaction represents an action to be executed by EVM protocol
-	// as of now 3 types of transactions are supported:
-	// 1. Legacy transaction
-	// 2. EIP-2930 access list transaction
-	// 3. EIP-4844 shard blob transaction
-	EvmTransaction struct {
-		inner TxData
-	}
-
 	// TxData is the interface required to execute a transaction by EVM
 	// It follows the same-name interface in go-ethereum
 	TxData interface {
@@ -46,53 +37,6 @@ type (
 		GasFeeCap() *big.Int
 	}
 )
-
-func NewEvmTx(a Action) *EvmTransaction {
-	tx := new(EvmTransaction)
-	switch act := a.(type) {
-	case *Execution:
-		tx.inner = act
-	default:
-		panic("unsupported action type")
-	}
-	return tx
-}
-
-func (tx *EvmTransaction) Nonce() uint64 {
-	return tx.inner.Nonce()
-}
-
-func (tx *EvmTransaction) Gas() uint64 {
-	return tx.inner.Gas()
-}
-
-func (tx *EvmTransaction) GasPrice() *big.Int {
-	return tx.inner.GasPrice()
-}
-
-func (tx *EvmTransaction) GasTipCap() *big.Int {
-	return tx.inner.GasTipCap()
-}
-
-func (tx *EvmTransaction) GasFeeCap() *big.Int {
-	return tx.inner.GasFeeCap()
-}
-
-func (tx *EvmTransaction) Value() *big.Int {
-	return tx.inner.Value()
-}
-
-func (tx *EvmTransaction) To() *common.Address {
-	return tx.inner.To()
-}
-
-func (tx *EvmTransaction) Data() []byte {
-	return tx.inner.Data()
-}
-
-func (tx *EvmTransaction) AccessList() types.AccessList {
-	return tx.inner.AccessList()
-}
 
 func toAccessListProto(list types.AccessList) []*iotextypes.AccessTuple {
 	if len(list) == 0 {

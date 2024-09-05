@@ -70,7 +70,7 @@ func TestExecuteContractFailure(t *testing.T) {
 			return nil, nil
 		},
 	})
-	retval, receipt, err := ExecuteContract(ctx, sm, action.NewEvmTx(e))
+	retval, receipt, err := ExecuteContract(ctx, sm, e)
 	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)
@@ -300,7 +300,7 @@ func TestConstantinople(t *testing.T) {
 		})
 		stateDB, err := prepareStateDB(fCtx, sm)
 		require.NoError(err)
-		ps, err := newParams(fCtx, action.NewEvmTx(ex), stateDB)
+		ps, err := newParams(fCtx, ex, stateDB)
 		require.NoError(err)
 
 		evm := vm.NewEVM(ps.context, ps.txCtx, stateDB, ps.chainConfig, ps.evmConfig)
