@@ -148,11 +148,7 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		},
 	})
 	// deploy native staking contract
-	_, receipt, err := evm.ExecuteContract(
-		ctx,
-		sm,
-		action.NewEvmTx(execution),
-	)
+	_, receipt, err := evm.ExecuteContract(ctx, sm, execution)
 	if err != nil {
 		return err
 	}

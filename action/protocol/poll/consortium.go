@@ -141,11 +141,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	})
 
 	// deploy consortiumCommittee contract
-	_, receipt, err := evm.ExecuteContract(
-		ctx,
-		sm,
-		action.NewEvmTx(execution),
-	)
+	_, receipt, err := evm.ExecuteContract(ctx, sm, execution)
 	if err != nil {
 		return err
 	}
