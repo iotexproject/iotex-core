@@ -29,21 +29,25 @@ type (
 		heightToHash map[uint64]hash.Hash256
 		hashToHeight map[hash.Hash256]uint64
 		heightToID   map[uint64]uint64
+		dropCh       chan uint64
 		lock         sync.RWMutex
+		wg           sync.WaitGroup
 
 		deser *block.Deserializer
 	}
 )
 
 func NewSizedFileDao(size uint64, dataDir string, deser *block.Deserializer) (FileDAO, error) {
-	return &sizedDao{
+	sd := &sizedDao{
 		size:         size,
 		dataDir:      dataDir,
 		heightToHash: make(map[uint64]hash.Hash256),
 		hashToHeight: make(map[hash.Hash256]uint64),
 		heightToID:   make(map[uint64]uint64),
 		deser:        deser,
-	}, nil
+		dropCh:       make(chan uint64, size),
+	}
+	return sd, nil
 }
 
 func (sd *sizedDao) Start(ctx context.Context) error {
@@ -54,7 +58,9 @@ func (sd *sizedDao) Start(ctx context.Context) error {
 		return errors.Wrap(err, "failed to create blob store directory")
 	}
 
-	var fails []uint64
+	var (
+		fails []uint64
+	)
 	index := func(id uint64, size uint32, blob []byte) {
 		bs := new(blockstore)
 		err := bs.Deserialize(blob)
@@ -90,13 +96,45 @@ func (sd *sizedDao) Start(ctx context.Context) error {
 	if len(fails) > 0 {
 		return errors.Errorf("failed to decode blocks %v", fails)
 	}
+	// block continous check
+	for i := sd.base; i <= sd.tip; i++ {
+		if i == 0 {
+			continue
+		}
+		if _, ok := sd.heightToID[i]; !ok {
+			return errors.Errorf("missing block %d", i)
+		}
+	}
+	// start drop routine
+	go func() {
+		sd.wg.Add(1)
+		defer sd.wg.Done()
+		for id := range sd.dropCh {
+			if err := sd.store.Delete(id); err != nil {
+				log.L().Error("Failed to delete block", zap.Error(err))
+			}
+		}
+	}()
 	return nil
 }
 
 func (sd *sizedDao) Stop(ctx context.Context) error {
 	sd.lock.Lock()
 	defer sd.lock.Unlock()
+	close(sd.dropCh)
+	sd.wg.Wait()
 	return sd.store.Close()
+}
+
+func (sd *sizedDao) SetStart(height uint64) error {
+	sd.lock.Lock()
+	defer sd.lock.Unlock()
+	if len(sd.hashToHeight) > 0 || len(sd.heightToHash) > 0 || len(sd.heightToID) > 0 {
+		return errors.New("cannot set start height after start")
+	}
+	sd.base = height - 1
+	sd.tip = height - 1
+	return nil
 }
 
 func (sd *sizedDao) PutBlock(ctx context.Context, blk *block.Block) error {
@@ -123,7 +161,7 @@ func (sd *sizedDao) PutBlock(ctx context.Context, blk *block.Block) error {
 	sd.hashToHeight[hash] = sd.tip
 	sd.heightToID[sd.tip] = id
 
-	if sd.tip-sd.base > sd.size {
+	if sd.tip-sd.base >= sd.size {
 		sd.drop()
 	}
 	return nil
@@ -261,10 +299,7 @@ func (sd *sizedDao) getBlock(height uint64) (*block.Block, error) {
 
 func (sd *sizedDao) drop() {
 	id := sd.heightToID[sd.base]
-	if err := sd.store.Delete(id); err != nil {
-		log.L().Error("Failed to delete block", zap.Error(err))
-		return
-	}
+	sd.dropCh <- id
 	hash := sd.heightToHash[sd.base]
 	delete(sd.heightToHash, sd.base)
 	delete(sd.heightToID, sd.base)

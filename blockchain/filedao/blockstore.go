@@ -36,7 +36,6 @@ func convertToBlockStore(blk *block.Block) (blockstore, error) {
 	if err != nil {
 		return nil, err
 	}
-	data = append(data, blockstoreDefaultVersion)
 	data = append(data, byteutil.Uint64ToBytesBigEndian(uint64(len(tmp)))...)
 	data = append(data, tmp...)
 	txLog := blk.TransactionLog()
