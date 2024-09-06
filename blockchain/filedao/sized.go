@@ -1,8 +1,11 @@
 package filedao
 
 import (
+	"bytes"
 	"context"
+	"math/big"
 	"os"
+	"slices"
 	"sync"
 
 	"github.com/holiman/billy"
@@ -330,4 +333,38 @@ func newSlotter() func() (uint32, bool) {
 		}
 		return sizeList[i], true
 	}
+}
+
+func fillTransactionLog(receipts []*action.Receipt, txLogs []*iotextypes.TransactionLog) error {
+	for _, l := range txLogs {
+		idx := slices.IndexFunc(receipts, func(r *action.Receipt) bool {
+			return bytes.Equal(r.ActionHash[:], l.ActionHash)
+		})
+		if idx < 0 {
+			return errors.Errorf("missing receipt for log %x", l.ActionHash)
+		}
+		txLogs := make([]*action.TransactionLog, len(l.GetTransactions()))
+		for j, tx := range l.GetTransactions() {
+			txlog, err := convertToTxLog(tx)
+			if err != nil {
+				return err
+			}
+			txLogs[j] = txlog
+		}
+		receipts[idx].AddTransactionLogs(txLogs...)
+	}
+	return nil
+}
+
+func convertToTxLog(tx *iotextypes.TransactionLog_Transaction) (*action.TransactionLog, error) {
+	amount, ok := big.NewInt(0).SetString(tx.Amount, 10)
+	if !ok {
+		return nil, errors.Errorf("failed to parse amount %s", tx.Amount)
+	}
+	return &action.TransactionLog{
+		Type:      tx.Type,
+		Amount:    amount,
+		Sender:    tx.Sender,
+		Recipient: tx.Recipient,
+	}, nil
 }
