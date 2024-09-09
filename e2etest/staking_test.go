@@ -113,8 +113,8 @@ func TestStakingContract(t *testing.T) {
 			if correctGas {
 				gasLimit *= 10
 			}
-			ex := action.NewExecution(contract, big.NewInt(0), params)
-
+			elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(contract, big.NewInt(0), params)).
+				SetGasLimit(gasLimit).Build()
 			addr, err := address.FromString(address.ZeroAddress)
 			if err != nil {
 				return nil, err
@@ -125,7 +125,7 @@ func TestStakingContract(t *testing.T) {
 				GetBlockTime:   fakeGetBlockTime,
 				DepositGasFunc: rewarding.DepositGas,
 			})
-			data, _, err := sf.SimulateExecution(ctx, addr, ex)
+			data, _, err := sf.SimulateExecution(ctx, addr, elp)
 
 			return data, err
 		})

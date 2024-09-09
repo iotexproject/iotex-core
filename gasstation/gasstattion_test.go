@@ -109,19 +109,8 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	}()
 
 	for i := 0; i < 30; i++ {
-		tsf, err := action.NewTransfer(
-			uint64(i)+1,
-			big.NewInt(100),
-			identityset.Address(27).String(),
-			[]byte{}, uint64(100000),
-			big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev)),
-		)
-		require.NoError(t, err)
-
-		bd := &action.EnvelopeBuilder{}
-		elp1 := bd.SetAction(tsf).
-			SetNonce(uint64(i) + 1).
-			SetGasLimit(100000).
+		tsf := action.NewTransfer(big.NewInt(100), identityset.Address(27).String(), []byte{})
+		elp1 := (&action.EnvelopeBuilder{}).SetAction(tsf).SetNonce(uint64(i) + 1).SetGasLimit(100000).
 			SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).Build()
 		selp1, err := action.Sign(elp1, identityset.PrivateKey(0))
 		require.NoError(t, err)

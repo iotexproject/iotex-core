@@ -1087,7 +1087,7 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 	tsf1, err = action.Sign(elp, identityset.PrivateKey(25))
 	require.NoError(err)
 	require.NoError(ap.Add(ctx, tsf1))
-	t2 := action.NewTransfer(big.NewInt(200), identityset.Address(27).String())
+	t2 := action.NewTransfer(big.NewInt(200), identityset.Address(27).String(), nil)
 	elp = (&action.EnvelopeBuilder{}).SetNonce(1).
 		SetChainID(cfg.Chain.ID).
 		SetGasPrice(minGas).
@@ -1282,14 +1282,12 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 		require.EqualValues(iotextypes.Encoding_TX_CONTAINER, selp.Encoding())
 		require.NoError(ap.Add(ctx, selp))
 	}
-	claim := (&action.ClaimFromRewardingFundBuilder{}).
-		SetAmount(big.NewInt(200000000000)).
-		SetAddress(producer).Build()
+	claim := action.NewClaimFromRewardingFund(big.NewInt(200000000000), producer, nil)
 	elp = (&action.EnvelopeBuilder{}).SetNonce(6).
 		SetChainID(cfg.Chain.ID).
 		SetGasPrice(minGas).
 		SetGasLimit(100000).
-		SetAction(&claim).Build()
+		SetAction(claim).Build()
 	tsf2, err = action.Sign(elp, priKey0)
 	require.NoError(err)
 	require.NoError(ap.Add(ctx, tsf2))

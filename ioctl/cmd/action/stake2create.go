@@ -94,7 +94,7 @@ func stake2Create(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2c, err := action.NewCreateStake(nonce, candidateName, amountStringInRau, duration, _stake2AutoStake, data, gasLimit, gasPriceRau)
+	s2c, err := action.NewCreateStake(candidateName, amountStringInRau, duration, _stake2AutoStake, data)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a createStake instance", err)
 	}

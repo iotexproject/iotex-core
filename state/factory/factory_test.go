@@ -1207,6 +1207,7 @@ func testSimulateExecution(ctx context.Context, sf Factory, t *testing.T) {
 
 	data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
 	ex := action.NewExecution(action.EmptyAddress, big.NewInt(0), data)
+	elp := (&action.EnvelopeBuilder{}).SetGasLimit(100000).SetAction(ex).Build()
 	addr, err := address.FromString(address.ZeroAddress)
 	require.NoError(err)
 
@@ -1219,7 +1220,7 @@ func testSimulateExecution(ctx context.Context, sf Factory, t *testing.T) {
 		},
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	_, _, err = sf.SimulateExecution(ctx, addr, ex)
+	_, _, err = sf.SimulateExecution(ctx, addr, elp)
 	require.NoError(err)
 }
 

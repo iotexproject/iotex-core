@@ -563,16 +563,9 @@ func createSignedTransfer(
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to decode payload %s", payload)
 	}
-	transfer, err := action.NewTransfer(
-		nonce, amount, recipient.EncodedAddr, transferPayload, gasLimit, gasPrice)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to create raw transfer")
-	}
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
-		SetGasPrice(gasPrice).
-		SetGasLimit(gasLimit).
-		SetAction(transfer).Build()
+	transfer := action.NewTransfer(amount, recipient.EncodedAddr, transferPayload)
+	elp := (&action.EnvelopeBuilder{}).SetNonce(nonce).SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).SetAction(transfer).Build()
 	selp, err := action.Sign(elp, sender.PriKey)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to sign transfer %v", elp)
@@ -594,15 +587,9 @@ func createSignedExecution(
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to decode data %s", data)
 	}
-	execution, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPrice, executionData)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to create raw execution")
-	}
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
-		SetGasPrice(gasPrice).
-		SetGasLimit(gasLimit).
-		SetAction(execution).Build()
+	execution := action.NewExecution(contract, amount, executionData)
+	elp := (&action.EnvelopeBuilder{}).SetNonce(nonce).SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).SetAction(execution).Build()
 	selp, err := action.Sign(elp, executor.PriKey)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to sign execution %v", elp)
@@ -621,16 +608,12 @@ func createSignedStake(
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) (*action.SealedEnvelope, *action.CreateStake, error) {
-	createStake, err := action.NewCreateStake(nonce, candidateName, amount, duration, autoStake, payload, gasLimit, gasPrice)
+	createStake, err := action.NewCreateStake(candidateName, amount, duration, autoStake, payload)
 	if err != nil {
 		return nil, nil, err
 	}
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
-		SetGasPrice(gasPrice).
-		SetGasLimit(gasLimit).
-		SetAction(createStake).
-		Build()
+	elp := (&action.EnvelopeBuilder{}).SetNonce(nonce).SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).SetAction(createStake).Build()
 	selp, err := action.Sign(elp, executor.PriKey)
 	if err != nil {
 		return nil, nil, err
@@ -739,7 +722,9 @@ func CheckPendingActionList(
 						retErr = err
 						return nil
 					}
-					cost, err := act.Cost()
+					elp := (&action.EnvelopeBuilder{}).SetNonce(pbAct.GetNonce()).SetGasLimit(gasLimit).
+						SetGasPrice(gasPrice).SetAction(act).Build()
+					cost, err := elp.Cost()
 					if err != nil {
 						retErr = err
 						return nil

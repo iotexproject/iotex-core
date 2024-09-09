@@ -543,14 +543,6 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 			return res.Data, res.Receipt, nil
 		}
 	}
-	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	ctx, err := core.bc.Context(ctx)
-	if err != nil {
-		return "", nil, err
-	}
-	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: core.bc.TipHeight(),
-	}))
 	var (
 		g             = core.bc.Genesis()
 		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
@@ -558,8 +550,7 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	if elp.GasLimit() == 0 || blockGasLimit < elp.GasLimit() {
 		elp.SetGas(blockGasLimit)
 	}
-
-	retval, receipt, err := core.simulateExecution(ctx, callerAddr, elp, core.dao.GetBlockHash, core.getBlockTime)
+	retval, receipt, err := core.simulateExecution(ctx, callerAddr, elp)
 	if err != nil {
 		return "", nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1533,14 +1524,6 @@ func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context,
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
 func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, elp action.Envelope, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, error) {
-	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: core.bc.TipHeight(),
-	}))
-	ctx, err := core.bc.Context(ctx)
-	if err != nil {
-		return 0, status.Error(codes.Internal, err.Error())
-	}
 	var (
 		g             = core.bc.Genesis()
 		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
@@ -1592,11 +1575,7 @@ func (core *coreService) isGasLimitEnough(
 ) (bool, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "Server.isGasLimitEnough")
 	defer span.End()
-	ctx, err := core.bc.Context(ctx)
-	if err != nil {
-		return false, nil, err
-	}
-	_, receipt, err := core.simulateExecution(ctx, caller, elp, core.dao.GetBlockHash, core.getBlockTime, opts...)
+	_, receipt, err := core.simulateExecution(ctx, caller, elp, opts...)
 	if err != nil {
 		return false, nil, err
 	}
@@ -1735,21 +1714,12 @@ func (core *coreService) ReceiveBlock(blk *block.Block) error {
 }
 
 func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, elp action.Envelope) ([]byte, *action.Receipt, error) {
-	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	ctx, err := core.bc.Context(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	// TODO (liuhaai): Use original nonce and gas limit properly
-	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: core.bc.TipHeight(),
-	}))
 	var (
 		g             = core.bc.Genesis()
 		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
 	)
 	elp.SetGas(blockGasLimit)
-	return core.simulateExecution(ctx, addr, elp, core.dao.GetBlockHash, core.getBlockTime)
+	return core.simulateExecution(ctx, addr, elp)
 }
 
 // SyncingProgress returns the syncing status of node
@@ -1773,7 +1743,7 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	}
 	addr, _ := address.FromString(address.ZeroAddress)
 	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-		return core.simulateExecution(ctx, addr, act.Envelope, core.dao.GetBlockHash, core.getBlockTime)
+		return core.simulateExecution(ctx, addr, act.Envelope)
 	})
 }
 
@@ -1801,7 +1771,7 @@ func (core *coreService) TraceCall(ctx context.Context,
 	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(contractAddress, amount, data)).
 		SetGasLimit(gasLimit).Build()
 	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-		return core.simulateExecution(ctx, callerAddr, elp, core.dao.GetBlockHash, core.getBlockTime)
+		return core.simulateExecution(ctx, callerAddr, elp)
 	})
 }
 
@@ -1855,19 +1825,23 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
-	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{})
-	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	ctx = protocol.WithBlockchainCtx(protocol.WithFeatureCtx(ctx), protocol.BlockchainCtx{})
 	retval, receipt, err := simulateFn(ctx)
 	return retval, receipt, tracer, err
 }
 
-func (core *coreService) simulateExecution(ctx context.Context, addr address.Address, elp action.Envelope, getBlockHash evm.GetBlockHash, getBlockTime evm.GetBlockTime, opts ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
+func (core *coreService) simulateExecution(ctx context.Context, addr address.Address, elp action.Envelope, opts ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
+	ctx, err := core.bc.Context(ctx)
+	if err != nil {
+		return nil, nil, status.Error(codes.Internal, err.Error())
+	}
 	state, err := accountutil.AccountState(ctx, core.sf, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	var pendingNonce uint64
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: core.bc.TipHeight(),
+	}))
 	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
 		pendingNonce = state.PendingNonceConsideringFreshAccount()
 	} else {
@@ -1875,8 +1849,8 @@ func (core *coreService) simulateExecution(ctx context.Context, addr address.Add
 	}
 	elp.SetNonce(pendingNonce)
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-		GetBlockHash:   getBlockHash,
-		GetBlockTime:   getBlockTime,
+		GetBlockHash:   core.dao.GetBlockHash,
+		GetBlockTime:   core.getBlockTime,
 		DepositGasFunc: rewarding.DepositGas,
 	})
 	return core.sf.SimulateExecution(ctx, addr, elp, opts...)
