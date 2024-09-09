@@ -544,6 +544,7 @@ func (builder *Builder) buildBlockSyncer() error {
 						retries = 4
 					}
 					log.L().Debug("Remote height too low.", zap.Uint64("height", blk.Height()))
+					time.Sleep(100 * time.Millisecond)
 				default:
 					log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 					return err
