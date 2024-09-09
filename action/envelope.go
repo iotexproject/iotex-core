@@ -110,28 +110,17 @@ func (elp *envelope) Cost() (*big.Int, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get payload's intrinsic gas")
 	}
-	var (
-		cost        = new(big.Int).SetUint64(gas)
-		extraAmount *big.Int
-	)
-	switch act := elp.payload.(type) {
-	case *MigrateStake:
-		cost.SetUint64(elp.GasLimit())
-	case *Execution:
-		cost.SetUint64(elp.GasLimit())
-		extraAmount = act.Amount()
-	case *Transfer:
-		extraAmount = act.Amount()
-	case *CreateStake:
-		extraAmount = act.Amount()
-	case *DepositToStake:
-		extraAmount = act.Amount()
-	case *CandidateRegister:
-		extraAmount = act.Amount()
+	if _, ok := elp.payload.(gasLimitForCost); ok {
+		gas = elp.GasLimit()
 	}
+	if acl := elp.AccessList(); len(acl) > 0 {
+		gas += uint64(len(acl)) * TxAccessListAddressGas
+		gas += uint64(acl.StorageKeys()) * TxAccessListStorageKeyGas
+	}
+	cost := new(big.Int).SetUint64(gas)
 	cost.Mul(cost, elp.GasPrice())
-	if extraAmount != nil {
-		cost.Add(cost, extraAmount)
+	if extraAmount, ok := elp.payload.(amountForCost); ok {
+		cost.Add(cost, extraAmount.AmountForCost())
 	}
 	return cost, nil
 }

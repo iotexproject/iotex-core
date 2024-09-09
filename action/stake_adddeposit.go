@@ -56,6 +56,7 @@ var (
 	// _depositToStakeMethod is the interface of the abi encoding of stake action
 	_depositToStakeMethod abi.Method
 	_                     EthCompatibleAction = (*DepositToStake)(nil)
+	_                     amountForCost       = (*DepositToStake)(nil)
 )
 
 // DepositToStake defines the action of stake add deposit
@@ -97,6 +98,11 @@ func NewDepositToStake(
 
 // Amount returns the amount
 func (ds *DepositToStake) Amount() *big.Int { return ds.amount }
+
+// AmountForCost indicates that amount should be added to action's cost
+func (ds *DepositToStake) AmountForCost() *big.Int {
+	return ds.amount
+}
 
 // Payload returns the payload bytes
 func (ds *DepositToStake) Payload() []byte { return ds.payload }

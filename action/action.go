@@ -37,13 +37,13 @@ type (
 		SanityCheck() error
 	}
 
-	hasDestination interface {
-		Destination() string
-	}
+	hasDestination interface{ Destination() string }
 
-	hasSize interface {
-		Size() uint32
-	}
+	hasSize interface{ Size() uint32 }
+
+	amountForCost interface{ AmountForCost() *big.Int }
+
+	gasLimitForCost interface{ GasLimitForCost() }
 )
 
 // Sign signs the action using sender's private key

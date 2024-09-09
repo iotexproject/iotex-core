@@ -101,24 +101,25 @@ func TestExecutionAccessList(t *testing.T) {
 	for _, v := range []struct {
 		list types.AccessList
 		gas  uint64
+		cost string
 	}{
-		{nil, 10400},
+		{nil, 10400, "100000020"},
 		{
 			types.AccessList{
 				{Address: common.Address{}, StorageKeys: nil},
-			}, 12800,
+			}, 12800, "2500000020",
 		},
 		{
 			types.AccessList{
 				{Address: _c2, StorageKeys: []common.Hash{{}, _k1}},
-			}, 16600,
+			}, 16600, "6300000020",
 		},
 		{
 			types.AccessList{
 				{Address: common.Address{}, StorageKeys: nil},
 				{Address: _c1, StorageKeys: []common.Hash{_k1, {}, _k3}},
 				{Address: _c2, StorageKeys: []common.Hash{_k2, _k3, _k4, _k1}},
-			}, 30900,
+			}, 30900, "20600000020",
 		},
 	} {
 		ex := NewExecution(
@@ -132,5 +133,8 @@ func TestExecutionAccessList(t *testing.T) {
 		gas, err := elp.IntrinsicGas()
 		require.NoError(err)
 		require.Equal(v.gas, gas)
+		cost, err := elp.Cost()
+		require.NoError(err)
+		require.Equal(v.cost, cost.String())
 	}
 }

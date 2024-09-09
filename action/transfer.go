@@ -28,6 +28,7 @@ var (
 	_ hasDestination      = (*Transfer)(nil)
 	_ hasSize             = (*Transfer)(nil)
 	_ EthCompatibleAction = (*Transfer)(nil)
+	_ amountForCost       = (*Transfer)(nil)
 )
 
 // Transfer defines the struct of account-based transfer
@@ -52,6 +53,9 @@ func NewTransfer(
 
 // Amount returns the amount
 func (tsf *Transfer) Amount() *big.Int { return tsf.amount }
+
+// AmountForCost indicates that amount should be added to action's cost
+func (tsf *Transfer) AmountForCost() *big.Int { return tsf.amount }
 
 // Payload returns the payload bytes
 func (tsf *Transfer) Payload() []byte { return tsf.payload }

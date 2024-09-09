@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
+// TODO: pass in common and act *MigratStake, instead of elp
 func (p *Protocol) handleStakeMigrate(ctx context.Context, elp action.Envelope, csm CandidateStateManager) ([]*action.Log, []*action.TransactionLog, uint64, uint64, error) {
 	var (
 		actLogs      = make([]*action.Log, 0)

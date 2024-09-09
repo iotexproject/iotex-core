@@ -30,6 +30,8 @@ var (
 	_ hasDestination      = (*Execution)(nil)
 	_ hasSize             = (*Execution)(nil)
 	_ EthCompatibleAction = (*Execution)(nil)
+	_ amountForCost       = (*Execution)(nil)
+	_ gasLimitForCost     = (*Execution)(nil)
 )
 
 // Execution defines the struct of account-based contract execution
@@ -73,6 +75,9 @@ func (ex *Execution) Recipient() string { return ex.contract }
 
 // Amount returns the amount
 func (ex *Execution) Amount() *big.Int { return ex.amount }
+
+// AmountForCost indicates that amount should be added to action's cost
+func (ex *Execution) AmountForCost() *big.Int { return ex.amount }
 
 // Data returns the data bytes
 func (ex *Execution) Data() []byte { return ex.data }
@@ -137,12 +142,12 @@ func (ex *Execution) IntrinsicGas() (uint64, error) {
 	if err != nil {
 		return gas, err
 	}
-	// if len(ex.accessList) > 0 {
-	// 	gas += uint64(len(ex.accessList)) * TxAccessListAddressGas
-	// 	gas += uint64(ex.accessList.StorageKeys()) * TxAccessListStorageKeyGas
-	// }
 	return gas, nil
 }
+
+// GasLimitForCost is an empty func to indicate that gas limit should be used
+// to calculate action's cost
+func (ex *Execution) GasLimitForCost() {}
 
 // SanityCheck validates the variables in the action
 func (ex *Execution) SanityCheck() error {

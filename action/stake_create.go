@@ -65,6 +65,7 @@ var (
 	// _createStakeMethod is the interface of the abi encoding of stake action
 	_createStakeMethod abi.Method
 	_                  EthCompatibleAction = (*CreateStake)(nil)
+	_                  amountForCost       = (*CreateStake)(nil)
 
 	errDecodeFailure = errors.New("failed to decode the data")
 )
@@ -113,6 +114,11 @@ func NewCreateStake(
 
 // Amount returns the amount
 func (cs *CreateStake) Amount() *big.Int { return cs.amount }
+
+// AmountForCost indicates that amount should be added to action's cost
+func (cs *CreateStake) AmountForCost() *big.Int {
+	return cs.amount
+}
 
 // Payload returns the payload bytes
 func (cs *CreateStake) Payload() []byte { return cs.payload }

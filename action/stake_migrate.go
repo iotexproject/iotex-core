@@ -39,6 +39,7 @@ var (
 	// migrateStakeMethod is the interface of the abi encoding of migrate stake action
 	migrateStakeMethod abi.Method
 	_                  EthCompatibleAction = (*MigrateStake)(nil)
+	_                  gasLimitForCost     = (*MigrateStake)(nil)
 )
 
 type MigrateStake struct {
@@ -72,6 +73,10 @@ func (ms *MigrateStake) BucketIndex() uint64 { return ms.bucketIndex }
 func (ms *MigrateStake) IntrinsicGas() (uint64, error) {
 	return CalculateIntrinsicGas(MigrateStakeBaseIntrinsicGas, MigrateStakePayloadGas, 0)
 }
+
+// GasLimitForCost is an empty func to indicate that gas limit should be used
+// to calculate action's cost
+func (ms *MigrateStake) GasLimitForCost() {}
 
 // Serialize returns a raw byte stream of the Stake again struct
 func (ms *MigrateStake) Serialize() []byte {
