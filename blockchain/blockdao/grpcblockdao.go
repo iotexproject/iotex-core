@@ -8,19 +8,19 @@ package blockdao
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"sync/atomic"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao/blockdaopb"
-
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao/blockdaopb"
 )
 
 type GrpcBlockDAO struct {
@@ -32,6 +32,11 @@ type GrpcBlockDAO struct {
 	deserializer           *block.Deserializer
 	localHeight            atomic.Uint64
 }
+
+var (
+	// ErrRemoteHeightTooLow is the error that remote height is too low
+	ErrRemoteHeightTooLow = fmt.Errorf("remote height is too low")
+)
 
 func NewGrpcBlockDAO(
 	url string,
@@ -185,7 +190,7 @@ func (gbd *GrpcBlockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 		// remote block is already exist
 		return nil
 	}
-	return errors.Errorf("block height %d is larger than remote height %d", blk.Height(), remoteHeight)
+	return errors.Wrapf(ErrRemoteHeightTooLow, "block height %d, remote height %d", blk.Height(), remoteHeight)
 }
 
 func (gbd *GrpcBlockDAO) Header(h hash.Hash256) (*block.Header, error) {

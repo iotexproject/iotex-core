@@ -526,9 +526,6 @@ func (builder *Builder) buildBlockSyncer() error {
 				return err
 			}
 			retries := 1
-			if !builder.cfg.Genesis.IsHawaii(blk.Height()) {
-				retries = 4
-			}
 			var err error
 			for i := 0; i < retries; i++ {
 				if err = chain.ValidateBlock(blk); err == nil {
@@ -542,6 +539,11 @@ func (builder *Builder) buildBlockSyncer() error {
 					return nil
 				case block.ErrDeltaStateMismatch:
 					log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
+				case blockdao.ErrRemoteHeightTooLow:
+					if retries == 1 {
+						retries = 4
+					}
+					log.L().Debug("Remote height too low.", zap.Uint64("height", blk.Height()))
 				default:
 					log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 					return err
