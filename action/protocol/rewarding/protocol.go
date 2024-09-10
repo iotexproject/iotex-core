@@ -221,7 +221,7 @@ func (p *Protocol) Handle(
 		if act.Address() != nil {
 			addr = act.Address()
 		}
-		rlog, err := p.Claim(ctx, sm, act.Amount(), addr)
+		rlog, err := p.Claim(ctx, sm, act.ClaimAmount(), addr)
 		if err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
 			return p.settleUserAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)

@@ -165,11 +165,6 @@ func NewCandidateRegister(
 // Amount returns the amount
 func (cr *CandidateRegister) Amount() *big.Int { return cr.amount }
 
-// AmountForCost indicates that amount should be added to action's cost
-func (cr *CandidateRegister) AmountForCost() *big.Int {
-	return cr.amount
-}
-
 // Payload returns the payload bytes
 func (cr *CandidateRegister) Payload() []byte { return cr.payload }
 

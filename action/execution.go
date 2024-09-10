@@ -76,9 +76,6 @@ func (ex *Execution) Recipient() string { return ex.contract }
 // Amount returns the amount
 func (ex *Execution) Amount() *big.Int { return ex.amount }
 
-// AmountForCost indicates that amount should be added to action's cost
-func (ex *Execution) AmountForCost() *big.Int { return ex.amount }
-
 // Data returns the data bytes
 func (ex *Execution) Data() []byte { return ex.data }
 

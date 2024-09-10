@@ -182,8 +182,7 @@ func getRecipientAddr(addr *common.Address) string {
 // BuildExecution loads executino action into envelope
 func (b *EnvelopeBuilder) BuildExecution(tx *types.Transaction) (Envelope, error) {
 	b.setEnvelopeCommonFields(tx)
-	exec := NewExecution(getRecipientAddr(tx.To()), tx.Value(), tx.Data())
-	b.elp.payload = exec
+	b.elp.payload = NewExecution(getRecipientAddr(tx.To()), tx.Value(), tx.Data())
 	return b.build(), nil
 }
 

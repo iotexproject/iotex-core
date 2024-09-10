@@ -109,8 +109,9 @@ func NewClaimFromRewardingFund(amount *big.Int,
 	}
 }
 
-// Amount returns the amount to claim
-func (c *ClaimFromRewardingFund) Amount() *big.Int { return c.amount }
+// ClaimAmount returns the amount to claim
+// note that this amount won't be charged/deducted from sender
+func (c *ClaimFromRewardingFund) ClaimAmount() *big.Int { return c.amount }
 
 // Address returns the the account to claim
 // if it's nil, the default is the action sender
@@ -164,7 +165,7 @@ func (c *ClaimFromRewardingFund) IntrinsicGas() (uint64, error) {
 
 // SanityCheck validates the variables in the action
 func (c *ClaimFromRewardingFund) SanityCheck() error {
-	if c.Amount().Sign() < 0 {
+	if c.ClaimAmount().Sign() < 0 {
 		return ErrNegativeValue
 	}
 	return nil
@@ -174,13 +175,13 @@ func (c *ClaimFromRewardingFund) SanityCheck() error {
 func (c *ClaimFromRewardingFund) EthData() ([]byte, error) {
 	if c.address == nil {
 		// this is v1 ABI before adding address field
-		data, err := _claimRewardingMethodV1.Inputs.Pack(c.Amount(), c.Data())
+		data, err := _claimRewardingMethodV1.Inputs.Pack(c.ClaimAmount(), c.Data())
 		if err != nil {
 			return nil, err
 		}
 		return append(_claimRewardingMethodV1.ID, data...), nil
 	}
-	data, err := _claimRewardingMethodV2.Inputs.Pack(c.Amount(), c.address.String(), c.Data())
+	data, err := _claimRewardingMethodV2.Inputs.Pack(c.ClaimAmount(), c.address.String(), c.Data())
 	if err != nil {
 		return nil, err
 	}

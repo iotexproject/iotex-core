@@ -62,12 +62,12 @@ func TestDepositRewardSerialize(t *testing.T) {
 			SetAction(rp).Build()
 		cost, err := elp.Cost()
 		r.NoError(err)
-		r.EqualValues("10000000000000000", cost.String())
+		r.EqualValues("10000000000000100", cost.String())
 
 		rp.data = []byte{1}
 		cost, err = elp.Cost()
 		r.NoError(err)
-		r.EqualValues("10100000000000000", cost.String())
+		r.EqualValues("10100000000000100", cost.String())
 	})
 }
 

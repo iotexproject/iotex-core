@@ -99,7 +99,7 @@ func TestBuildRewardingAction(t *testing.T) {
 			r.IsType(&ClaimFromRewardingFund{}, elp.Action())
 			r.Equal(big.NewInt(10004), elp.GasPrice())
 			r.Equal(uint64(10000), elp.GasLimit())
-			r.Equal(big.NewInt(101), elp.Action().(*ClaimFromRewardingFund).Amount())
+			r.Equal(big.NewInt(101), elp.Action().(*ClaimFromRewardingFund).ClaimAmount())
 		})
 		t.Run("Debug", func(t *testing.T) {
 			eb := &EnvelopeBuilder{}

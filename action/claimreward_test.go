@@ -143,7 +143,7 @@ func TestNewRewardingClaimFromABIBinary(t *testing.T) {
 		ret, err := NewClaimFromRewardingFundFromABIBinary(calldata)
 		r.NoError(err)
 		r.Equal(ret.Address().String(), addr)
-		r.Equal(ret.Amount(), amount)
+		r.Equal(ret.ClaimAmount(), amount)
 		r.Equal(ret.Data(), data)
 	})
 }
@@ -182,7 +182,7 @@ func TestClaimFromRewardingFund(t *testing.T) {
 			}
 			err := c.LoadProto(p)
 			r.NoError(err)
-			r.Equal(c.Amount(), assertions.MustBeTrueV(new(big.Int).SetString(p.Amount, 10)))
+			r.Equal(c.ClaimAmount(), assertions.MustBeTrueV(new(big.Int).SetString(p.Amount, 10)))
 			r.Equal(c.Data(), p.Data)
 			if i == 0 {
 				r.Equal(c.Address().String(), p.Address)

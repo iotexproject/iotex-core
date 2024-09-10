@@ -119,8 +119,10 @@ func (elp *envelope) Cost() (*big.Int, error) {
 	}
 	cost := new(big.Int).SetUint64(gas)
 	cost.Mul(cost, elp.GasPrice())
-	if extraAmount, ok := elp.payload.(amountForCost); ok {
-		cost.Add(cost, extraAmount.AmountForCost())
+	if afc, ok := elp.payload.(amountForCost); ok {
+		if amount := afc.Amount(); amount != nil {
+			cost.Add(cost, amount)
+		}
 	}
 	return cost, nil
 }

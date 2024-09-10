@@ -617,7 +617,7 @@ func updateExpectationWithPendingClaimList(
 			act := &action.ClaimFromRewardingFund{}
 			err = act.LoadProto(actInfo.GetAction().Core.GetClaimFromRewardingFund())
 			require.NoError(t, err)
-			amount := act.Amount()
+			amount := act.ClaimAmount()
 
 			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
 				newExpectUnclaimed := big.NewInt(0).Sub(exptUnclaimed[addr], amount)

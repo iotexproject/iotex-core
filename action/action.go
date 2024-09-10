@@ -41,7 +41,7 @@ type (
 
 	hasSize interface{ Size() uint32 }
 
-	amountForCost interface{ AmountForCost() *big.Int }
+	amountForCost interface{ Amount() *big.Int }
 
 	gasLimitForCost interface{ GasLimitForCost() }
 )

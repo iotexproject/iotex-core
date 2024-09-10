@@ -115,11 +115,6 @@ func NewCreateStake(
 // Amount returns the amount
 func (cs *CreateStake) Amount() *big.Int { return cs.amount }
 
-// AmountForCost indicates that amount should be added to action's cost
-func (cs *CreateStake) AmountForCost() *big.Int {
-	return cs.amount
-}
-
 // Payload returns the payload bytes
 func (cs *CreateStake) Payload() []byte { return cs.payload }
 

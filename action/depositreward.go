@@ -47,6 +47,7 @@ var (
 
 	_depositRewardMethod abi.Method
 	_                    EthCompatibleAction = (*DepositToRewardingFund)(nil)
+	_                    amountForCost       = (*DepositToRewardingFund)(nil)
 )
 
 func init() {
