@@ -86,7 +86,7 @@ type (
 		Validate(context.Context, *block.Block) error
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
-		SimulateExecution(context.Context, address.Address, *action.Execution, ...protocol.SimulateOption) ([]byte, *action.Receipt, error)
+		SimulateExecution(context.Context, address.Address, action.Envelope, ...protocol.SimulateOption) ([]byte, *action.Receipt, error)
 		ReadContractStorage(context.Context, address.Address, []byte) ([]byte, error)
 		PutBlock(context.Context, *block.Block) error
 		DeleteTipBlock(context.Context, *block.Block) error
@@ -387,7 +387,7 @@ func (sf *factory) NewBlockBuilder(
 func (sf *factory) SimulateExecution(
 	ctx context.Context,
 	caller address.Address,
-	ex *action.Execution,
+	elp action.Envelope,
 	opts ...protocol.SimulateOption,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "factory.SimulateExecution")
@@ -408,7 +408,7 @@ func (sf *factory) SimulateExecution(
 			return nil, nil, err
 		}
 	}
-	return evm.SimulateExecution(ctx, ws, caller, ex)
+	return evm.SimulateExecution(ctx, ws, caller, elp)
 }
 
 // ReadContractStorage reads contract's storage

@@ -1,6 +1,8 @@
 package protocol
 
 import (
+	"math/big"
+
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
@@ -97,7 +99,9 @@ type (
 type (
 	SimulateOption       func(*SimulateOptionConfig)
 	SimulateOptionConfig struct {
-		PreOpt func(StateManager) error
+		PreOpt     func(StateManager) error
+		Nonce, Gas uint64
+		GasPrice   *big.Int
 	}
 )
 

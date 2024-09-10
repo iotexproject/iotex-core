@@ -1012,8 +1012,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				name: "estimateGas",
 				act:  &actionWithTime{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", stakeAmount.String(), stakeDurationDays, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), stakeTime},
 				expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
-					ms, err := action.NewMigrateStake(0, 6, gasLimit, gasPrice)
-					require.NoError(err)
+					ms := action.NewMigrateStake(6)
 					resp, err := test.api.EstimateActionGasConsumption(context.Background(), &iotexapi.EstimateActionGasConsumptionRequest{
 						Action:        &iotexapi.EstimateActionGasConsumptionRequest_StakeMigrate{StakeMigrate: ms.Proto()},
 						CallerAddress: identityset.Address(3).String(),
@@ -1034,8 +1033,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 					resp1, err := test.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: identityset.Address(poorID).String()})
 					require.NoError(err)
 					require.Equal("0", resp1.GetAccountMeta().Balance)
-					ms, err := action.NewMigrateStake(0, 6, gasLimit, gasPrice)
-					require.NoError(err)
+					ms := action.NewMigrateStake(6)
 					resp, err := test.api.EstimateActionGasConsumption(context.Background(), &iotexapi.EstimateActionGasConsumptionRequest{
 						Action:        &iotexapi.EstimateActionGasConsumptionRequest_StakeMigrate{StakeMigrate: ms.Proto()},
 						CallerAddress: identityset.Address(poorID).String(),

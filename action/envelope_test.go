@@ -31,11 +31,6 @@ func TestEnvelope_Basic(t *testing.T) {
 	tsf2, ok := evlp.Action().(*Transfer)
 	req.True(ok)
 	req.Equal(tsf, tsf2)
-
-	evlp.SetNonce(_nonce)
-	req.Equal(_nonce, evlp.Nonce())
-	evlp.SetChainID(tsf.chainID)
-	req.Equal(tsf.chainID, evlp.ChainID())
 }
 
 func TestEnvelope_Proto(t *testing.T) {
@@ -72,43 +67,33 @@ func TestEnvelope_Proto(t *testing.T) {
 func TestEnvelope_Actions(t *testing.T) {
 	require := require.New(t)
 	candidates := state.CandidateList{}
-	putPollResult := NewPutPollResult(1, 10001, candidates)
+	putPollResult := NewPutPollResult(10001, candidates)
 
-	createStake, err := NewCreateStake(uint64(10), _addr2, "100", uint32(10000), true, _payload, _gasLimit, _gasPrice)
+	createStake, err := NewCreateStake(_addr2, "100", uint32(10000), true, _payload)
 	require.NoError(err)
 
-	depositToStake, err := NewDepositToStake(1, 2, big.NewInt(10).String(), _payload, _gasLimit, _gasPrice)
+	depositToStake, err := NewDepositToStake(2, big.NewInt(10).String(), _payload)
 	require.NoError(err)
 
-	changeCandidate, err := NewChangeCandidate(1, _candidate1Name, 2, _payload, _gasLimit, _gasPrice)
+	changeCandidate := NewChangeCandidate(_candidate1Name, 2, _payload)
+	unstake := NewUnstake(2, _payload)
+	withdrawStake := NewWithdrawStake(2, _payload)
+
+	restake := NewRestake(_index, _duration, _autoStake, _payload)
 	require.NoError(err)
 
-	unstake, err := NewUnstake(_nonce, 2, _payload, _gasLimit, _gasPrice)
+	transferStake, err := NewTransferStake(_cand1Addr, 2, _payload)
 	require.NoError(err)
 
-	withdrawStake, err := NewWithdrawStake(_nonce, 2, _payload, _gasLimit, _gasPrice)
+	candidateRegister, err := NewCandidateRegister(_candidate1Name, _cand1Addr, _cand1Addr, _cand1Addr, big.NewInt(10).String(), 91, true, _payload)
 	require.NoError(err)
 
-	restake, err := NewRestake(_nonce, _index, _duration, _autoStake, _payload, _gasLimit, _gasPrice)
+	candidateUpdate, err := NewCandidateUpdate(_candidate1Name, _cand1Addr, _cand1Addr)
 	require.NoError(err)
 
-	transferStake, err := NewTransferStake(_nonce, _cand1Addr, 2, _payload, _gasLimit, _gasPrice)
-	require.NoError(err)
-
-	candidateRegister, err := NewCandidateRegister(_nonce, _candidate1Name, _cand1Addr, _cand1Addr, _cand1Addr, big.NewInt(10).String(), 91, true, _payload, _gasLimit, _gasPrice)
-	require.NoError(err)
-
-	candidateUpdate, err := NewCandidateUpdate(_nonce, _candidate1Name, _cand1Addr, _cand1Addr, _gasLimit, _gasPrice)
-	require.NoError(err)
-
-	gb := GrantRewardBuilder{}
-	grantReward := gb.Build()
-
-	cb := ClaimFromRewardingFundBuilder{}
-	claimFromRewardingFund := cb.SetAmount(big.NewInt(1)).Build()
-
-	cf := DepositToRewardingFundBuilder{}
-	depositToRewardingFund := cf.SetAmount(big.NewInt(1)).Build()
+	grantReward := NewGrantReward(BlockReward, 2)
+	claimFromRewardingFund := NewClaimFromRewardingFund(big.NewInt(1), nil, nil)
+	depositToRewardingFund := NewDepositToRewardingFund(big.NewInt(1), nil)
 
 	tests := []actionPayload{
 		putPollResult,
@@ -121,17 +106,15 @@ func TestEnvelope_Actions(t *testing.T) {
 		transferStake,
 		candidateRegister,
 		candidateUpdate,
-		&grantReward,
-		&claimFromRewardingFund,
-		&depositToRewardingFund,
+		grantReward,
+		claimFromRewardingFund,
+		depositToRewardingFund,
 	}
 
 	for _, test := range tests {
 		bd := &EnvelopeBuilder{}
-		elp := bd.SetNonce(1).
-			SetAction(test).
-			SetGasLimit(100000).
-			SetChainID(1).Build()
+		elp := bd.SetNonce(1).SetGasLimit(_gasLimit).SetGasPrice(_gasPrice).
+			SetAction(test).SetChainID(1).Build()
 		evlp, ok := elp.(*envelope)
 		require.True(ok)
 		require.NoError(evlp.LoadProto(evlp.Proto()))
@@ -144,22 +127,11 @@ func TestEnvelope_Actions(t *testing.T) {
 }
 
 func createEnvelope() (Envelope, *Transfer) {
-	tsf, _ := NewTransfer(
-		uint64(10),
-		unit.ConvertIotxToRau(1000+int64(10)),
+	tsf := NewTransfer(unit.ConvertIotxToRau(1000+int64(10)),
 		identityset.Address(10%identityset.Size()).String(),
-		nil,
-		20000+uint64(10),
-		unit.ConvertIotxToRau(1+int64(10)),
-	)
-	eb := EnvelopeBuilder{}
-	evlp := eb.
-		SetAction(tsf).
-		SetGasLimit(tsf.GasLimit()).
-		SetGasPrice(tsf.GasPrice()).
-		SetNonce(tsf.Nonce()).
-		SetVersion(1).
-		SetChainID(1).
-		Build()
+		nil)
+	evlp := (&EnvelopeBuilder{}).SetAction(tsf).SetGasLimit(20010).
+		SetGasPrice(unit.ConvertIotxToRau(11)).
+		SetNonce(10).SetVersion(1).SetChainID(1).Build()
 	return evlp, tsf
 }

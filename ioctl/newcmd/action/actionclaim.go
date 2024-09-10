@@ -101,18 +101,14 @@ func NewActionClaimCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get nonce")
 			}
-			act := (&action.ClaimFromRewardingFundBuilder{}).
-				SetAmount(amount).
-				SetData(payload).
-				SetAddress(addr).
-				Build()
+			act := action.NewClaimFromRewardingFund(amount, addr, payload)
 			return SendAction(
 				client,
 				cmd,
 				(&action.EnvelopeBuilder{}).SetNonce(nonce).
 					SetGasPrice(gasPriceRau).
 					SetGasLimit(gasLimit).
-					SetAction(&act).Build(),
+					SetAction(act).Build(),
 				sender,
 				password,
 				nonce,

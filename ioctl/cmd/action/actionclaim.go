@@ -109,16 +109,11 @@ func claim(amount *big.Int, payload string, address address.Address) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce", err)
 	}
-	act := (&action.ClaimFromRewardingFundBuilder{}).
-		SetAmount(amount).
-		SetData([]byte(payload)).
-		SetAddress(address).
-		Build()
-
+	act := action.NewClaimFromRewardingFund(amount, address, []byte(payload))
 	return SendAction((&action.EnvelopeBuilder{}).SetNonce(nonce).
 		SetGasPrice(gasPriceRau).
 		SetGasLimit(gasLimit).
-		SetAction(&act).Build(),
+		SetAction(act).Build(),
 		sender,
 	)
 }

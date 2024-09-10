@@ -126,8 +126,6 @@ func (etx *txContainer) IntrinsicGas() (uint64, error) {
 	return gas, nil
 }
 
-func (etx *txContainer) SetEnvelopeContext(*AbstractAction) {}
-
 func (etx *txContainer) SanityCheck() error {
 	// Reject execution of negative amount
 	if etx.tx.Value().Sign() < 0 {

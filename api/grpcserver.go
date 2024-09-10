@@ -366,9 +366,8 @@ func (svr *gRPCHandler) ReadContract(ctx context.Context, in *iotexapi.ReadContr
 	if err := sc.LoadProto(in.GetExecution()); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	sc.SetGasLimit(in.GetGasLimit())
-
-	data, receipt, err := svr.coreService.ReadContract(ctx, callerAddr, sc)
+	elp := (&action.EnvelopeBuilder{}).SetAction(sc).SetGasLimit(in.GetGasLimit()).Build()
+	data, receipt, err := svr.coreService.ReadContract(ctx, callerAddr, elp)
 	if err != nil {
 		return nil, err
 	}
@@ -403,18 +402,8 @@ func (svr *gRPCHandler) EstimateActionGasConsumption(ctx context.Context, in *io
 		if err := sc.LoadProto(in.GetExecution()); err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		var (
-			gasPrice *big.Int = big.NewInt(0)
-			ok       bool
-		)
-		if in.GetGasPrice() != "" {
-			gasPrice, ok = big.NewInt(0).SetString(in.GetGasPrice(), 10)
-			if !ok {
-				return nil, status.Error(codes.InvalidArgument, "invalid gas price")
-			}
-		}
-		sc.SetGasPrice(gasPrice)
-		ret, err := svr.coreService.EstimateExecutionGasConsumption(ctx, sc, callerAddr)
+		elp := (&action.EnvelopeBuilder{}).SetAction(sc).Build()
+		ret, err := svr.coreService.EstimateExecutionGasConsumption(ctx, elp, callerAddr)
 		if err != nil {
 			return nil, err
 		}

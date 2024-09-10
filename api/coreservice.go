@@ -88,7 +88,7 @@ type (
 		// SendAction is the API to send an action to blockchain.
 		SendAction(ctx context.Context, in *iotextypes.Action) (string, error)
 		// ReadContract reads the state in a contract address specified by the slot
-		ReadContract(ctx context.Context, callerAddr address.Address, sc *action.Execution) (string, *iotextypes.Receipt, error)
+		ReadContract(ctx context.Context, callerAddr address.Address, sc action.Envelope) (string, *iotextypes.Receipt, error)
 		// ReadState reads state on blockchain
 		ReadState(protocolID string, height string, methodName []byte, arguments [][]byte) (*iotexapi.ReadStateResponse, error)
 		// SuggestGasPrice suggests gas price
@@ -138,7 +138,7 @@ type (
 		// EstimateGasForNonExecution  estimates action gas except execution
 		EstimateGasForNonExecution(action.Action) (uint64, error)
 		// EstimateExecutionGasConsumption estimate gas consumption for execution action
-		EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, error)
+		EstimateExecutionGasConsumption(ctx context.Context, sc action.Envelope, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, error)
 		// LogsInBlockByHash filter logs in the block by hash
 		LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*action.Log, error)
 		// LogsInRange filter logs among [start, end] blocks
@@ -154,7 +154,7 @@ type (
 		// ChainListener returns the instance of Listener
 		ChainListener() apitypes.Listener
 		// SimulateExecution simulates execution
-		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
+		SimulateExecution(context.Context, address.Address, action.Envelope) ([]byte, *action.Receipt, error)
 		// SyncingProgress returns the syncing status of node
 		SyncingProgress() (uint64, uint64, uint64)
 		// TipHeight returns the tip of the chain
@@ -529,9 +529,13 @@ func (core *coreService) validateChainID(chainID uint32) error {
 }
 
 // ReadContract reads the state in a contract address specified by the slot
-func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Address, sc *action.Execution) (string, *iotextypes.Receipt, error) {
+func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Address, elp action.Envelope) (string, *iotextypes.Receipt, error) {
 	log.Logger("api").Debug("receive read smart contract request")
-	key := hash.Hash160b(append([]byte(sc.Contract()), sc.Data()...))
+	exec, ok := elp.Action().(*action.Execution)
+	if !ok {
+		return "", nil, status.Error(codes.InvalidArgument, "expecting action.Execution")
+	}
+	key := hash.Hash160b(append([]byte(exec.Contract()), exec.Data()...))
 	// TODO: either moving readcache into the upper layer or change the storage format
 	if d, ok := core.readCache.Get(key); ok {
 		res := iotexapi.ReadContractResponse{}
@@ -539,34 +543,14 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 			return res.Data, res.Receipt, nil
 		}
 	}
-	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
-	if err != nil {
-		return "", nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	if ctx, err = core.bc.Context(ctx); err != nil {
-		return "", nil, err
-	}
-	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: core.bc.TipHeight(),
-	}))
-	var pendingNonce uint64
-	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
-		pendingNonce = state.PendingNonceConsideringFreshAccount()
-	} else {
-		pendingNonce = state.PendingNonce()
-	}
-	sc.SetNonce(pendingNonce)
 	var (
 		g             = core.bc.Genesis()
 		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
 	)
-	if sc.GasLimit() == 0 || blockGasLimit < sc.GasLimit() {
-		sc.SetGasLimit(blockGasLimit)
+	if elp.GasLimit() == 0 || blockGasLimit < elp.GasLimit() {
+		elp.SetGas(blockGasLimit)
 	}
-	sc.SetGasPrice(big.NewInt(0)) // ReadContract() is read-only, use 0 to prevent insufficient gas
-
-	retval, receipt, err := core.simulateExecution(ctx, callerAddr, sc, core.dao.GetBlockHash, core.getBlockTime)
+	retval, receipt, err := core.simulateExecution(ctx, callerAddr, elp)
 	if err != nil {
 		return "", nil, status.Error(codes.Internal, err.Error())
 	}
@@ -619,8 +603,7 @@ func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextype
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
-	sc, ok := selp.Action().(*action.Execution)
-	if !ok {
+	if _, ok := selp.Action().(*action.Execution); !ok {
 		gas, err := selp.IntrinsicGas()
 		if err != nil {
 			return 0, status.Error(codes.Internal, err.Error())
@@ -631,7 +614,7 @@ func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextype
 	if callerAddr == nil {
 		return 0, status.Error(codes.Internal, "failed to get address")
 	}
-	_, receipt, err := core.SimulateExecution(ctx, callerAddr, sc)
+	_, receipt, err := core.SimulateExecution(ctx, callerAddr, selp.Envelope)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -1514,8 +1497,7 @@ func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context,
 		GasLimit:       g.BlockGasLimitByHeight(header.Height() + 1),
 		Producer:       zeroAddr,
 	})
-
-	exec, err := staking.FindProtocol(core.registry).ConstructExecution(ctx, ms, core.sf)
+	exec, err := staking.FindProtocol(core.registry).ConstructExecution(ctx, ms, 0, 0, new(big.Int), core.sf)
 	if err != nil {
 		return 0, err
 	}
@@ -1525,7 +1507,7 @@ func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context,
 		if err != nil {
 			return err
 		}
-		if err = sender.AddBalance(exec.Amount()); err != nil {
+		if err = sender.AddBalance(exec.Value()); err != nil {
 			return err
 		}
 		return accountutil.StoreAccount(sm, caller, sender)
@@ -1541,30 +1523,13 @@ func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context,
 }
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
-func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, error) {
-	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
-	if err != nil {
-		return 0, status.Error(codes.InvalidArgument, err.Error())
-	}
-	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: core.bc.TipHeight(),
-	}))
-	var pendingNonce uint64
-	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
-		pendingNonce = state.PendingNonceConsideringFreshAccount()
-	} else {
-		pendingNonce = state.PendingNonce()
-	}
-	sc.SetNonce(pendingNonce)
-	//gasprice should be 0, otherwise it may cause the API to return an error, such as insufficient balance.
-	sc.SetGasPrice(big.NewInt(0))
+func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, elp action.Envelope, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, error) {
 	var (
 		g             = core.bc.Genesis()
 		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
 	)
-	sc.SetGasLimit(blockGasLimit)
-	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc, opts...)
+	elp.SetGas(blockGasLimit)
+	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, elp, opts...)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -1575,8 +1540,8 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 		return 0, status.Error(codes.Internal, fmt.Sprintf("execution simulation failed: status = %d", receipt.Status))
 	}
 	estimatedGas := receipt.GasConsumed
-	sc.SetGasLimit(estimatedGas)
-	enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc, opts...)
+	elp.SetGas(estimatedGas)
+	enough, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, opts...)
 	if err != nil && err != action.ErrInsufficientFunds {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -1585,8 +1550,8 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 		estimatedGas = high
 		for low <= high {
 			mid := (low + high) / 2
-			sc.SetGasLimit(mid)
-			enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc, opts...)
+			elp.SetGas(mid)
+			enough, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, opts...)
 			if err != nil && err != action.ErrInsufficientFunds {
 				return 0, status.Error(codes.Internal, err.Error())
 			}
@@ -1605,17 +1570,12 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 func (core *coreService) isGasLimitEnough(
 	ctx context.Context,
 	caller address.Address,
-	sc *action.Execution,
+	elp action.Envelope,
 	opts ...protocol.SimulateOption,
 ) (bool, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "Server.isGasLimitEnough")
 	defer span.End()
-	ctx, err := core.bc.Context(ctx)
-	if err != nil {
-		return false, nil, err
-	}
-
-	_, receipt, err := core.simulateExecution(ctx, caller, sc, core.dao.GetBlockHash, core.getBlockTime, opts...)
+	_, receipt, err := core.simulateExecution(ctx, caller, elp, opts...)
 	if err != nil {
 		return false, nil, err
 	}
@@ -1753,33 +1713,13 @@ func (core *coreService) ReceiveBlock(blk *block.Block) error {
 	return core.chainListener.ReceiveBlock(blk)
 }
 
-func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, exec *action.Execution) ([]byte, *action.Receipt, error) {
-	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	state, err := accountutil.AccountState(ctx, core.sf, addr)
-	if err != nil {
-		return nil, nil, err
-	}
-	ctx, err = core.bc.Context(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	// TODO (liuhaai): Use original nonce and gas limit properly
-	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: core.bc.TipHeight(),
-	}))
-	var pendingNonce uint64
-	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
-		pendingNonce = state.PendingNonceConsideringFreshAccount()
-	} else {
-		pendingNonce = state.PendingNonce()
-	}
-	exec.SetNonce(pendingNonce)
+func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, elp action.Envelope) ([]byte, *action.Receipt, error) {
 	var (
 		g             = core.bc.Genesis()
 		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
 	)
-	exec.SetGasLimit(blockGasLimit)
-	return core.simulateExecution(ctx, addr, exec, core.dao.GetBlockHash, core.getBlockTime)
+	elp.SetGas(blockGasLimit)
+	return core.simulateExecution(ctx, addr, elp)
 }
 
 // SyncingProgress returns the syncing status of node
@@ -1798,16 +1738,13 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	sc, ok := act.Action().(*action.Execution)
-	if !ok {
+	if _, ok := act.Action().(*action.Execution); !ok {
 		return nil, nil, nil, errors.New("the type of action is not supported")
 	}
 	addr, _ := address.FromString(address.ZeroAddress)
-	retval, receipt, tracer, err := core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-
-		return core.simulateExecution(ctx, addr, sc, core.dao.GetBlockHash, core.getBlockTime)
+	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
+		return core.simulateExecution(ctx, addr, act.Envelope)
 	})
-	return retval, receipt, tracer, err
 }
 
 // TraceCall returns the trace result of call
@@ -1831,37 +1768,11 @@ func (core *coreService) TraceCall(ctx context.Context,
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if nonce == 0 {
-		state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-			BlockHeight: core.bc.TipHeight(),
-		}))
-		var pendingNonce uint64
-		if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
-			pendingNonce = state.PendingNonceConsideringFreshAccount()
-		} else {
-			pendingNonce = state.PendingNonce()
-		}
-		nonce = pendingNonce
-	}
-	exec, err := action.NewExecution(
-		contractAddress,
-		nonce,
-		amount,
-		gasLimit,
-		big.NewInt(0),
-		data,
-	)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	retval, receipt, tracer, err := core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-		return core.simulateExecution(ctx, callerAddr, exec, core.dao.GetBlockHash, core.getBlockTime)
+	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(contractAddress, amount, data)).
+		SetGasLimit(gasLimit).Build()
+	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
+		return core.simulateExecution(ctx, callerAddr, elp)
 	})
-	return retval, receipt, tracer, err
 }
 
 // Track tracks the api call
@@ -1914,20 +1825,35 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
-	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{})
-	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	ctx = protocol.WithBlockchainCtx(protocol.WithFeatureCtx(ctx), protocol.BlockchainCtx{})
 	retval, receipt, err := simulateFn(ctx)
 	return retval, receipt, tracer, err
 }
 
-func (core *coreService) simulateExecution(ctx context.Context, addr address.Address, exec *action.Execution, getBlockHash evm.GetBlockHash, getBlockTime evm.GetBlockTime, opts ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
+func (core *coreService) simulateExecution(ctx context.Context, addr address.Address, elp action.Envelope, opts ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
+	ctx, err := core.bc.Context(ctx)
+	if err != nil {
+		return nil, nil, status.Error(codes.Internal, err.Error())
+	}
+	state, err := accountutil.AccountState(ctx, core.sf, addr)
+	if err != nil {
+		return nil, nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	var pendingNonce uint64
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: core.bc.TipHeight(),
+	}))
+	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+		pendingNonce = state.PendingNonceConsideringFreshAccount()
+	} else {
+		pendingNonce = state.PendingNonce()
+	}
+	elp.SetNonce(pendingNonce)
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-		GetBlockHash:   getBlockHash,
-		GetBlockTime:   getBlockTime,
+		GetBlockHash:   core.dao.GetBlockHash,
+		GetBlockTime:   core.getBlockTime,
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	return core.sf.SimulateExecution(ctx, addr, exec, opts...)
+	return core.sf.SimulateExecution(ctx, addr, elp, opts...)
 }
 
 func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Receipt {

@@ -2,7 +2,6 @@ package action
 
 import (
 	"bytes"
-	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -11,7 +10,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -41,10 +39,10 @@ var (
 	// migrateStakeMethod is the interface of the abi encoding of migrate stake action
 	migrateStakeMethod abi.Method
 	_                  EthCompatibleAction = (*MigrateStake)(nil)
+	_                  gasLimitForCost     = (*MigrateStake)(nil)
 )
 
 type MigrateStake struct {
-	AbstractAction
 	stake_common
 	bucketIndex uint64
 }
@@ -62,21 +60,10 @@ func init() {
 }
 
 // NewMigrateStake returns a MigrateStake instance
-func NewMigrateStake(
-	nonce uint64,
-	index uint64,
-	gasLimit uint64,
-	gasPrice *big.Int,
-) (*MigrateStake, error) {
+func NewMigrateStake(index uint64) *MigrateStake {
 	return &MigrateStake{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
 		bucketIndex: index,
-	}, nil
+	}
 }
 
 // BucketIndex returns bucket index
@@ -87,11 +74,9 @@ func (ms *MigrateStake) IntrinsicGas() (uint64, error) {
 	return CalculateIntrinsicGas(MigrateStakeBaseIntrinsicGas, MigrateStakePayloadGas, 0)
 }
 
-// Cost returns the total cost of a MigrateStake
-func (ms *MigrateStake) Cost() (*big.Int, error) {
-	maxExecFee := big.NewInt(0).Mul(ms.GasPrice(), big.NewInt(0).SetUint64(ms.GasLimit()))
-	return maxExecFee, nil
-}
+// GasLimitForCost is an empty func to indicate that gas limit should be used
+// to calculate action's cost
+func (ms *MigrateStake) GasLimitForCost() {}
 
 // Serialize returns a raw byte stream of the Stake again struct
 func (ms *MigrateStake) Serialize() []byte {
@@ -114,6 +99,8 @@ func (ms *MigrateStake) LoadProto(pbAct *iotextypes.StakeMigrate) error {
 	ms.bucketIndex = pbAct.GetBucketIndex()
 	return nil
 }
+
+func (*MigrateStake) SanityCheck() error { return nil }
 
 // EthData returns the ABI-encoded data for converting to eth tx
 func (ms *MigrateStake) EthData() ([]byte, error) {

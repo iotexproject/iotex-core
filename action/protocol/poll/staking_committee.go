@@ -110,17 +110,9 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	if err != nil {
 		return err
 	}
-	execution, err := action.NewExecution(
-		"",
-		_nativeStakingContractNonce,
-		big.NewInt(0),
-		g.BlockGasLimitByHeight(0),
-		big.NewInt(0),
-		bytes,
-	)
-	if err != nil {
-		return err
-	}
+	execution := action.NewExecution("", big.NewInt(0), bytes)
+	elp := (&action.EnvelopeBuilder{}).SetGasLimit(g.BlockGasLimitByHeight(0)).
+		SetNonce(_nativeStakingContractNonce).SetAction(execution).Build()
 	actionCtx := protocol.ActionCtx{}
 	actionCtx.Caller, err = address.FromString(_nativeStakingContractCreator)
 	if err != nil {
@@ -128,8 +120,8 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	}
 	actionCtx.Nonce = _nativeStakingContractNonce
 	actionCtx.ActionHash = _nativeStakingContractHash
-	actionCtx.GasPrice = execution.GasPrice()
-	actionCtx.IntrinsicGas, err = execution.IntrinsicGas()
+	actionCtx.GasPrice = elp.GasPrice()
+	actionCtx.IntrinsicGas, err = elp.IntrinsicGas()
 	if err != nil {
 		return err
 	}
@@ -148,7 +140,7 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		},
 	})
 	// deploy native staking contract
-	_, receipt, err := evm.ExecuteContract(ctx, sm, execution)
+	_, receipt, err := evm.ExecuteContract(ctx, sm, elp)
 	if err != nil {
 		return err
 	}

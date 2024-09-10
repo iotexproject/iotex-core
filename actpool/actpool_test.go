@@ -239,13 +239,8 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 	err = ap.Add(ctx, replaceTsf)
 	require.Equal(action.ErrReplaceUnderpriced, errors.Cause(err))
-	replaceTransfer, err := action.NewTransfer(uint64(4), big.NewInt(1), _addr2, []byte{}, uint64(100000), big.NewInt(0))
-	require.NoError(err)
-
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(4).
-		SetAction(replaceTransfer).
-		SetGasLimit(100000).Build()
+	replaceTransfer := action.NewTransfer(big.NewInt(1), _addr2, []byte{})
+	elp := (&action.EnvelopeBuilder{}).SetNonce(4).SetAction(replaceTransfer).SetGasLimit(100000).Build()
 	selp, err := action.Sign(elp, _priKey1)
 
 	require.NoError(err)
@@ -264,20 +259,9 @@ func TestActPool_AddActs(t *testing.T) {
 	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	// Case VII: insufficient gas
 	tmpData := [1234]byte{}
-	creationExecution, err := action.NewExecution(
-		action.EmptyAddress,
-		uint64(5),
-		big.NewInt(int64(0)),
-		10,
-		big.NewInt(10),
-		tmpData[:],
-	)
-	require.NoError(err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(5).
-		SetGasPrice(big.NewInt(10)).
-		SetGasLimit(10).
+	creationExecution := action.NewExecution(action.EmptyAddress, big.NewInt(int64(0)), tmpData[:])
+	bd := &action.EnvelopeBuilder{}
+	elp = bd.SetNonce(5).SetGasPrice(big.NewInt(10)).SetGasLimit(10).
 		SetAction(creationExecution).Build()
 	selp, err = action.Sign(elp, _priKey1)
 	require.NoError(err)
@@ -724,13 +708,8 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	tsf22, err := action.SignedTransfer(_addr5, _priKey4, uint64(2), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf23, err := action.NewTransfer(uint64(3), big.NewInt(1), "", []byte{}, uint64(100000), big.NewInt(0))
-	require.NoError(err)
-
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(3).
-		SetGasLimit(20000).
-		SetAction(tsf23).Build()
+	tsf23 := action.NewTransfer(big.NewInt(1), "", []byte{})
+	elp := (&action.EnvelopeBuilder{}).SetNonce(3).SetGasLimit(20000).SetAction(tsf23).Build()
 	selp23, err := action.Sign(elp, _priKey4)
 	require.NoError(err)
 
@@ -738,13 +717,8 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	tsf25, err := action.SignedTransfer(_addr4, _priKey5, uint64(2), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf26, err := action.NewTransfer(uint64(3), big.NewInt(1), _addr4, []byte{}, uint64(20000), big.NewInt(0))
-	require.NoError(err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(3).
-		SetGasLimit(20000).
-		SetAction(tsf26).Build()
+	tsf26 := action.NewTransfer(big.NewInt(1), _addr4, []byte{})
+	elp = (&action.EnvelopeBuilder{}).SetNonce(3).SetGasLimit(20000).SetAction(tsf26).Build()
 	selp26, err := action.Sign(elp, _priKey5)
 	require.NoError(err)
 

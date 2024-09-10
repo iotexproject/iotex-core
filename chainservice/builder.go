@@ -640,10 +640,8 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 			if correctGas {
 				gasLimit *= 10
 			}
-			ex, err := action.NewExecution(contract, 1, big.NewInt(0), gasLimit, big.NewInt(0), params)
-			if err != nil {
-				return nil, err
-			}
+			elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(gasLimit).
+				SetAction(action.NewExecution(contract, big.NewInt(0), params)).Build()
 
 			addr, err := address.FromString(address.ZeroAddress)
 			if err != nil {
@@ -655,7 +653,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 				GetBlockTime:   getBlockTime,
 				DepositGasFunc: rewarding.DepositGas,
 			})
-			data, _, err := factory.SimulateExecution(ctx, addr, ex)
+			data, _, err := factory.SimulateExecution(ctx, addr, elp)
 			return data, err
 		},
 		candidatesutil.CandidatesFromDB,

@@ -358,20 +358,10 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 }
 
 func makeTransferAction(t *testing.T, nonce uint64) *action.SealedEnvelope {
-	tsf, err := action.NewTransfer(
-		uint64(nonce),
-		big.NewInt(1),
-		identityset.Address(29).String(),
-		nil,
-		testutil.TestGasLimit,
-		big.NewInt(0),
-	)
-	require.NoError(t, err)
-	eb := action.EnvelopeBuilder{}
-	evlp := eb.
+	tsf := action.NewTransfer(big.NewInt(1), identityset.Address(29).String(), nil)
+	evlp := (&action.EnvelopeBuilder{}).
 		SetAction(tsf).
-		SetGasLimit(tsf.GasLimit()).
-		SetGasPrice(tsf.GasPrice()).
+		SetGasLimit(testutil.TestGasLimit).
 		SetNonce(nonce).
 		SetChainID(1).
 		SetVersion(1).
@@ -382,14 +372,10 @@ func makeTransferAction(t *testing.T, nonce uint64) *action.SealedEnvelope {
 }
 
 func makeRewardAction(t *testing.T, signer int) *action.SealedEnvelope {
-	gb := action.GrantRewardBuilder{}
-	grant := gb.SetRewardType(action.BlockReward).SetHeight(1).Build()
+	grant := action.NewGrantReward(action.BlockReward, 1)
 	eb2 := action.EnvelopeBuilder{}
-	evlp := eb2.SetNonce(0).
-		SetGasPrice(big.NewInt(0)).
-		SetGasLimit(grant.GasLimit()).
-		SetAction(&grant).
-		Build()
+	evlp := eb2.SetNonce(0).SetGasPrice(big.NewInt(0)).
+		SetAction(grant).Build()
 	sevlp, err := action.Sign(evlp, identityset.PrivateKey(signer))
 	require.NoError(t, err)
 	return sevlp

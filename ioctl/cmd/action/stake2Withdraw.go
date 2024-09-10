@@ -79,10 +79,7 @@ func stake2Withdraw(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2w, err := action.NewWithdrawStake(nonce, bucketIndex, data, gasLimit, gasPriceRau)
-	if err != nil {
-		return output.NewError(output.InstantiationError, "failed to make a changeCandidate instance", err)
-	}
+	s2w := action.NewWithdrawStake(bucketIndex, data)
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).

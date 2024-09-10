@@ -9,14 +9,12 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 // const
@@ -32,62 +30,24 @@ var (
 	_ hasDestination      = (*Execution)(nil)
 	_ hasSize             = (*Execution)(nil)
 	_ EthCompatibleAction = (*Execution)(nil)
-	_ TxData              = (*Execution)(nil)
+	_ amountForCost       = (*Execution)(nil)
+	_ gasLimitForCost     = (*Execution)(nil)
 )
 
 // Execution defines the struct of account-based contract execution
 type Execution struct {
-	AbstractAction
-
 	contract string
 	amount   *big.Int
 	data     []byte
 }
 
 // NewExecution returns an Execution instance (w/o access list)
-func NewExecution(
-	contractAddress string,
-	nonce uint64,
-	amount *big.Int,
-	gasLimit uint64,
-	gasPrice *big.Int,
-	data []byte,
-) (*Execution, error) {
+func NewExecution(contract string, amount *big.Int, data []byte) *Execution {
 	return &Execution{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
-		contract: contractAddress,
+		contract: contract,
 		amount:   amount,
 		data:     data,
-	}, nil
-}
-
-// NewExecutionWithAccessList returns an Execution instance with access list
-func NewExecutionWithAccessList(
-	contractAddress string,
-	nonce uint64,
-	amount *big.Int,
-	gasLimit uint64,
-	gasPrice *big.Int,
-	data []byte,
-	list types.AccessList,
-) (*Execution, error) {
-	return &Execution{
-		AbstractAction: AbstractAction{
-			version:    version.ProtocolVersion,
-			nonce:      nonce,
-			gasLimit:   gasLimit,
-			gasPrice:   gasPrice,
-			accessList: list,
-		},
-		contract: contractAddress,
-		amount:   amount,
-		data:     data,
-	}, nil
+	}
 }
 
 // To returns the contract address pointer
@@ -102,10 +62,6 @@ func (ex *Execution) To() *common.Address {
 	}
 	evmAddr := common.BytesToAddress(addr.Bytes())
 	return &evmAddr
-}
-
-func (ex *Execution) Gas() uint64 {
-	return ex.gasLimit
 }
 
 // Contract returns a contract address
@@ -125,9 +81,6 @@ func (ex *Execution) Data() []byte { return ex.data }
 
 // Payload is same as Data()
 func (ex *Execution) Payload() []byte { return ex.data }
-
-// AccessList returns the access list
-func (ex *Execution) AccessList() types.AccessList { return ex.AbstractAction.accessList }
 
 // Size returns the size of this Execution
 func (ex *Execution) Size() uint32 {
@@ -186,18 +139,12 @@ func (ex *Execution) IntrinsicGas() (uint64, error) {
 	if err != nil {
 		return gas, err
 	}
-	if len(ex.accessList) > 0 {
-		gas += uint64(len(ex.accessList)) * TxAccessListAddressGas
-		gas += uint64(ex.accessList.StorageKeys()) * TxAccessListStorageKeyGas
-	}
 	return gas, nil
 }
 
-// Cost returns the cost of an execution
-func (ex *Execution) Cost() (*big.Int, error) {
-	maxExecFee := big.NewInt(0).Mul(ex.GasPrice(), big.NewInt(0).SetUint64(ex.GasLimit()))
-	return big.NewInt(0).Add(ex.Amount(), maxExecFee), nil
-}
+// GasLimitForCost is an empty func to indicate that gas limit should be used
+// to calculate action's cost
+func (ex *Execution) GasLimitForCost() {}
 
 // SanityCheck validates the variables in the action
 func (ex *Execution) SanityCheck() error {
@@ -211,7 +158,7 @@ func (ex *Execution) SanityCheck() error {
 			return errors.Wrapf(err, "error when validating contract's address %s", ex.Contract())
 		}
 	}
-	return ex.AbstractAction.SanityCheck()
+	return nil
 }
 
 // EthTo returns the address for converting to eth tx

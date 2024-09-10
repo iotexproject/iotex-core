@@ -685,21 +685,9 @@ func TestEnforceChainID(t *testing.T) {
 		require.NoError(bc.Stop(ctx))
 	}()
 	for i, c := range testCase {
-		tsf, err := action.NewTransfer(
-			uint64(i)+1,
-			big.NewInt(100),
-			identityset.Address(27).String(),
-			[]byte{}, uint64(100000),
-			big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev)),
-		)
-		require.NoError(err)
-
-		bd := &action.EnvelopeBuilder{}
-		elp1 := bd.SetAction(tsf).
-			SetChainID(c.chainID).
-			SetNonce(c.nonce).
-			SetGasLimit(100000).
-			SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).Build()
+		tsf := action.NewTransfer(big.NewInt(100), identityset.Address(27).String(), []byte{})
+		elp1 := (&action.EnvelopeBuilder{}).SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).
+			SetChainID(c.chainID).SetNonce(c.nonce).SetGasLimit(100000).SetAction(tsf).Build()
 		selp, err := action.Sign(elp1, identityset.PrivateKey(0))
 		require.NoError(err)
 
@@ -718,10 +706,9 @@ func TestEnforceChainID(t *testing.T) {
 		// verify action has valid chainID
 		if c.success {
 			act := blk.Actions[0]
-			tsf, ok := act.Action().(*action.Transfer)
+			_, ok := act.Action().(*action.Transfer)
 			require.True(ok)
 			require.Equal(c.chainID, act.ChainID())
-			require.Equal(c.chainID, tsf.ChainID())
 		}
 	}
 }

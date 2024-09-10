@@ -75,11 +75,7 @@ func stake2Release(args []string) error {
 	if gasLimit == 0 {
 		gasLimit = action.ReclaimStakeBaseIntrinsicGas + action.ReclaimStakePayloadGas*uint64(len(data))
 	}
-	s2r, err := action.NewUnstake(nonce, bucketIndex, data, gasLimit, gasPriceRau)
-	if err != nil {
-		return output.NewError(output.InstantiationError, "failed to make a Unstake  instance", err)
-	}
-
+	s2r := action.NewUnstake(bucketIndex, data)
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).

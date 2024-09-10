@@ -155,20 +155,13 @@ func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
 		err = errors.New("amount convert error")
 		return
 	}
-	tx, err := action.NewExecution(s.cfg.Execution.Contract, nonce, amount,
-		s.cfg.GasLimit, gasprice, dataBytes)
+	tx := action.NewExecution(s.cfg.Execution.Contract, amount, dataBytes)
+	gas, err := grpcutil.FixGasLimit(s.cfg.API.URL, addr.String(), tx)
 	if err != nil {
 		return
 	}
-	tx, err = grpcutil.FixGasLimit(s.cfg.API.URL, addr.String(), tx)
-	if err != nil {
-		return
-	}
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
-		SetGasLimit(tx.GasLimit()).
-		SetGasPrice(gasprice).
-		SetAction(tx).Build()
+	elp := (&action.EnvelopeBuilder{}).SetNonce(nonce).SetGasLimit(gas).
+		SetGasPrice(gasprice).SetAction(tx).Build()
 	selp, err := action.Sign(elp, pri)
 	if err != nil {
 		return

@@ -589,7 +589,7 @@ func SimulateExecution(
 	ctx context.Context,
 	sm protocol.StateManager,
 	caller address.Address,
-	ex *action.Execution,
+	ex action.TxDataForSimulation,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.SimulateExecution")
 	defer span.End()

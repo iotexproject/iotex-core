@@ -88,23 +88,6 @@ func (act *AbstractAction) BasicActionSize() uint32 {
 	return uint32(size)
 }
 
-// SetEnvelopeContext sets the struct according to input
-func (act *AbstractAction) SetEnvelopeContext(in *AbstractAction) {
-	if act == nil {
-		return
-	}
-	*act = *in
-	if in.gasPrice != nil {
-		act.gasPrice = new(big.Int).Set(in.gasPrice)
-	}
-	if in.gasTipCap != nil {
-		act.gasTipCap = new(big.Int).Set(in.gasTipCap)
-	}
-	if in.gasFeeCap != nil {
-		act.gasFeeCap = new(big.Int).Set(in.gasFeeCap)
-	}
-}
-
 // SanityCheck validates the variables in the action
 func (act *AbstractAction) SanityCheck() error {
 	// Reject execution of negative gas price

@@ -66,15 +66,14 @@ func NewActionDepositCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get nonce")
 			}
-			act := (&action.DepositToRewardingFundBuilder{}).SetAmount(amount).SetData(payload).Build()
-
+			act := action.NewDepositToRewardingFund(amount, payload)
 			return SendAction(
 				client,
 				cmd,
 				(&action.EnvelopeBuilder{}).SetNonce(nonce).
 					SetGasPrice(gasPriceRau).
 					SetGasLimit(gasLimit).
-					SetAction(&act).Build(),
+					SetAction(act).Build(),
 				sender,
 				password,
 				nonce,

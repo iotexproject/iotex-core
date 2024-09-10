@@ -68,10 +68,7 @@ func stake2Migrate(args []string) error {
 	}
 	gasLimit := _gasLimitFlag.Value().(uint64)
 	if gasLimit == 0 {
-		s2t, err := action.NewMigrateStake(nonce, bucketIndex, gasLimit, gasPriceRau)
-		if err != nil {
-			return output.NewError(output.InstantiationError, "failed to make a transferStake instance", err)
-		}
+		s2t := action.NewMigrateStake(bucketIndex)
 		gas, err := migrateGasLimit(sender, s2t)
 		if err != nil {
 			return output.NewError(0, "failed to estimate gas limit", err)
@@ -79,10 +76,7 @@ func stake2Migrate(args []string) error {
 		gasLimit = gas
 	}
 
-	s2t, err := action.NewMigrateStake(nonce, bucketIndex, gasLimit, gasPriceRau)
-	if err != nil {
-		return output.NewError(output.InstantiationError, "failed to make a transferStake instance", err)
-	}
+	s2t := action.NewMigrateStake(bucketIndex)
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).
