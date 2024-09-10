@@ -61,20 +61,15 @@ func (sd *sizedDao) Start(ctx context.Context) error {
 		return errors.Wrap(err, "failed to create blob store directory")
 	}
 
-	var (
-		fails []uint64
-	)
 	index := func(id uint64, size uint32, blob []byte) {
 		bs := new(blockstore)
 		err := bs.Deserialize(blob)
 		if err != nil {
-			fails = append(fails, id)
 			log.L().Warn("Failed to decode block store", zap.Error(err))
 			return
 		}
 		blk, err := bs.Block(sd.deser)
 		if err != nil {
-			fails = append(fails, id)
 			log.L().Warn("Failed to decode block", zap.Error(err))
 			return
 		}
@@ -90,22 +85,27 @@ func (sd *sizedDao) Start(ctx context.Context) error {
 			sd.base = height
 		}
 	}
-
+	sd.base = 1
 	store, err := billy.Open(billy.Options{Path: dir}, newSlotter(), index)
 	if err != nil {
 		return errors.Wrap(err, "failed to open blob store")
 	}
 	sd.store = store
-	if len(fails) > 0 {
-		return errors.Errorf("failed to decode blocks %v", fails)
-	}
 	// block continous check
-	for i := sd.base; i <= sd.tip; i++ {
-		if i == 0 {
-			continue
-		}
+	for i := sd.tip; i >= sd.base; i-- {
 		if _, ok := sd.heightToID[i]; !ok {
-			return errors.Errorf("missing block %d", i)
+			// remove non-continous blocks[base to i]
+			for j := sd.base; j < i; j++ {
+				if id, ok := sd.heightToID[j]; ok {
+					sd.dropCh <- id
+					h := sd.heightToHash[j]
+					delete(sd.heightToHash, j)
+					delete(sd.hashToHeight, h)
+					delete(sd.heightToID, j)
+				}
+			}
+			sd.base = i + 1
+			break
 		}
 	}
 	// start drop routine
@@ -301,12 +301,14 @@ func (sd *sizedDao) getBlock(height uint64) (*block.Block, error) {
 }
 
 func (sd *sizedDao) drop() {
-	id := sd.heightToID[sd.base]
-	sd.dropCh <- id
-	hash := sd.heightToHash[sd.base]
-	delete(sd.heightToHash, sd.base)
-	delete(sd.heightToID, sd.base)
-	delete(sd.hashToHeight, hash)
+	id, ok := sd.heightToID[sd.base]
+	if ok {
+		sd.dropCh <- id
+		hash := sd.heightToHash[sd.base]
+		delete(sd.heightToHash, sd.base)
+		delete(sd.heightToID, sd.base)
+		delete(sd.hashToHeight, hash)
+	}
 	sd.base++
 }
 
@@ -331,7 +333,7 @@ func newSlotter() func() (uint32, bool) {
 		if i >= len(sizeList)-1 {
 			return sizeList[i], true
 		}
-		return sizeList[i], true
+		return sizeList[i], false
 	}
 }
 
