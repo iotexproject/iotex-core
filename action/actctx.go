@@ -8,19 +8,21 @@ package action
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
 
 // AbstractAction is an abstract implementation of Action interface
 type AbstractAction struct {
-	version   uint32
-	chainID   uint32
-	nonce     uint64
-	gasLimit  uint64
-	gasPrice  *big.Int
-	gasTipCap *big.Int
-	gasFeeCap *big.Int
+	version    uint32
+	chainID    uint32
+	nonce      uint64
+	gasLimit   uint64
+	gasPrice   *big.Int
+	gasTipCap  *big.Int
+	gasFeeCap  *big.Int
+	accessList types.AccessList
 }
 
 // Version returns the version
@@ -134,6 +136,9 @@ func (act *AbstractAction) toProto() *iotextypes.ActionCore {
 	if act.gasFeeCap != nil {
 		actCore.GasFeeCap = act.gasFeeCap.String()
 	}
+	if act.accessList != nil {
+		actCore.AccessList = toAccessListProto(act.accessList)
+	}
 	return &actCore
 }
 
@@ -164,6 +169,9 @@ func (act *AbstractAction) fromProto(pb *iotextypes.ActionCore) error {
 		if act.gasFeeCap, ok = new(big.Int).SetString(gasFee, 10); !ok {
 			return errors.Errorf("invalid gasFeeCap %s", gasFee)
 		}
+	}
+	if acl := pb.GetAccessList(); acl != nil {
+		act.accessList = fromAccessListProto(acl)
 	}
 	return nil
 }

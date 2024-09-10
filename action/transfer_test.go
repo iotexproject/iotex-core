@@ -23,7 +23,7 @@ func TestTransferSignVerify(t *testing.T) {
 	tsf, err := NewTransfer(1, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.EqualValues(21, tsf.BasicActionSize())
-	require.EqualValues(87, tsf.TotalSize())
+	require.EqualValues(66, tsf.Size())
 
 	bd := &EnvelopeBuilder{}
 	eb := bd.SetNonce(tsf.nonce).
@@ -32,6 +32,7 @@ func TestTransferSignVerify(t *testing.T) {
 		SetAction(tsf).Build()
 	elp, ok := eb.(*envelope)
 	require.True(ok)
+	require.EqualValues(87, eb.Size())
 
 	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))
 	require.Error(w.VerifySignature())
@@ -43,9 +44,6 @@ func TestTransferSignVerify(t *testing.T) {
 	selp, err := Sign(elp, senderKey)
 	require.NoError(err)
 	require.NotNil(selp)
-	require.EqualValues(21, tsf.BasicActionSize())
-	require.EqualValues(87, tsf.TotalSize())
-
 	// verify signature
 	require.NoError(selp.VerifySignature())
 }
@@ -66,6 +64,7 @@ func TestTransfer(t *testing.T) {
 		SetAction(tsf).Build()
 	elp, ok := eb.(*envelope)
 	require.True(ok)
+	require.EqualValues(87, eb.Size())
 
 	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))
 	require.Error(w.VerifySignature())
@@ -79,7 +78,7 @@ func TestTransfer(t *testing.T) {
 	require.Equal(senderKey.PublicKey().HexString(), w.SrcPubkey().HexString())
 	require.Equal(recipientAddr.String(), tsf.Recipient())
 	require.Equal(recipientAddr.String(), tsf.Destination())
-	require.Equal(uint32(87), tsf.TotalSize())
+	require.EqualValues(66, tsf.Size())
 
 	gas, err := tsf.IntrinsicGas()
 	require.NoError(err)

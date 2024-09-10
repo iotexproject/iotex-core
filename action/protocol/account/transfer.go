@@ -167,11 +167,13 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 }
 
 // validateTransfer validates a transfer
-func (p *Protocol) validateTransfer(ctx context.Context, tsf *action.Transfer) error {
+func (p *Protocol) validateTransfer(ctx context.Context, elp action.Envelope) error {
 	// Reject oversized transfer
-	if tsf.TotalSize() > TransferSizeLimit {
+	if elp.Size() > TransferSizeLimit {
 		return action.ErrOversizedData
 	}
+	// already asserted the payload is action.Transfer on the call stack
+	tsf := elp.Action().(*action.Transfer)
 	var (
 		fCtx = protocol.MustGetFeatureCtx(ctx)
 		err  error

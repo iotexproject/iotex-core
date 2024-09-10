@@ -183,8 +183,8 @@ func createGrantRewardAction(rewardType int, height uint64) action.Envelope {
 }
 
 // Validate validates a reward action
-func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
-	switch act := act.(type) {
+func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protocol.StateReader) error {
+	switch act := elp.Action().(type) {
 	case *action.GrantReward:
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		if !address.Equal(protocol.MustGetBlockCtx(ctx).Producer, actionCtx.Caller) {
@@ -204,12 +204,13 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 // Handle handles the actions on the rewarding protocol
 func (p *Protocol) Handle(
 	ctx context.Context,
-	act action.Action,
+	elp action.Envelope,
 	sm protocol.StateManager,
 ) (*action.Receipt, error) {
 	// TODO: simplify the boilerplate
 	var (
 		si                = sm.Snapshot()
+		act               = elp.Action()
 		dynamicGasAct, ok = act.(action.TxDynamicGas)
 	)
 	if !ok {

@@ -851,6 +851,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 			return data
 		}
 		deployCode := append(bytecode, mustCallData("", minAmount)...)
+		poorID := 30
 		test.run([]*testcase{
 			{
 				name: "deploy staking contract",
@@ -1016,6 +1017,28 @@ func TestCandidateTransferOwnership(t *testing.T) {
 					resp, err := test.api.EstimateActionGasConsumption(context.Background(), &iotexapi.EstimateActionGasConsumptionRequest{
 						Action:        &iotexapi.EstimateActionGasConsumptionRequest_StakeMigrate{StakeMigrate: ms.Proto()},
 						CallerAddress: identityset.Address(3).String(),
+						GasPrice:      gasPrice.String(),
+					})
+					require.NoError(err)
+					require.Equal(uint64(194912), resp.Gas)
+					require.Len(receipt.Logs(), 1)
+					topic := receipt.Logs()[0].Topics[1][:]
+					bktIdx := byteutil.BytesToUint64BigEndian(topic[len(topic)-8:])
+					require.Equal(uint64(6), bktIdx)
+				}}},
+			},
+			{
+				name: "estimateGasPoorAcc",
+				act:  &actionWithTime{mustNoErr(action.SignedTransferStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), identityset.Address(poorID).String(), 6, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+					resp1, err := test.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: identityset.Address(poorID).String()})
+					require.NoError(err)
+					require.Equal("0", resp1.GetAccountMeta().Balance)
+					ms, err := action.NewMigrateStake(0, 6, gasLimit, gasPrice)
+					require.NoError(err)
+					resp, err := test.api.EstimateActionGasConsumption(context.Background(), &iotexapi.EstimateActionGasConsumptionRequest{
+						Action:        &iotexapi.EstimateActionGasConsumptionRequest_StakeMigrate{StakeMigrate: ms.Proto()},
+						CallerAddress: identityset.Address(poorID).String(),
 						GasPrice:      gasPrice.String(),
 					})
 					require.NoError(err)

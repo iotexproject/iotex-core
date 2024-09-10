@@ -141,11 +141,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	})
 
 	// deploy consortiumCommittee contract
-	_, receipt, err := evm.ExecuteContract(
-		ctx,
-		sm,
-		action.NewEvmTx(execution),
-	)
+	_, receipt, err := evm.ExecuteContract(ctx, sm, execution)
 	if err != nil {
 		return err
 	}
@@ -175,12 +171,12 @@ func (cc *consortiumCommittee) CreatePostSystemActions(ctx context.Context, sr p
 	return createPostSystemActions(ctx, sr, cc)
 }
 
-func (cc *consortiumCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	return handle(ctx, act, sm, cc.indexer, cc.addr.String())
+func (cc *consortiumCommittee) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
+	return handle(ctx, elp.Action(), sm, cc.indexer, cc.addr.String())
 }
 
-func (cc *consortiumCommittee) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
-	return validate(ctx, sr, cc, act)
+func (cc *consortiumCommittee) Validate(ctx context.Context, elp action.Envelope, sr protocol.StateReader) error {
+	return validate(ctx, sr, cc, elp.Action())
 }
 
 func (cc *consortiumCommittee) ReadState(

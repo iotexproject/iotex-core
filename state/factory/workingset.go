@@ -190,7 +190,7 @@ func (ws *workingSet) runAction(
 		return nil, err
 	}
 	for _, actionHandler := range reg.All() {
-		receipt, err := actionHandler.Handle(ctx, selp.Action(), ws)
+		receipt, err := actionHandler.Handle(ctx, selp.Envelope, ws)
 		if err != nil {
 			return nil, errors.Wrapf(
 				err,
@@ -499,7 +499,7 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 		}
 		for _, p := range reg.All() {
 			if validator, ok := p.(protocol.ActionValidator); ok {
-				if err := validator.Validate(ctxWithActionContext, act.Action(), ws); err != nil {
+				if err := validator.Validate(ctxWithActionContext, act.Envelope, ws); err != nil {
 					return err
 				}
 			}
@@ -605,7 +605,7 @@ func (ws *workingSet) pickAndRunActions(
 			if err == nil {
 				for _, p := range reg.All() {
 					if validator, ok := p.(protocol.ActionValidator); ok {
-						if err = validator.Validate(actionCtx, nextAction.Action(), ws); err != nil {
+						if err = validator.Validate(actionCtx, nextAction.Envelope, ws); err != nil {
 							break
 						}
 					}

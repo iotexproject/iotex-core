@@ -267,6 +267,7 @@ func (sdb *stateDB) SimulateExecution(
 	ctx context.Context,
 	caller address.Address,
 	ex *action.Execution,
+	opts ...protocol.SimulateOption,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "stateDB.SimulateExecution")
 	defer span.End()
@@ -278,7 +279,15 @@ func (sdb *stateDB) SimulateExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-
+	cfg := &protocol.SimulateOptionConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	if cfg.PreOpt != nil {
+		if err := cfg.PreOpt(ws); err != nil {
+			return nil, nil, err
+		}
+	}
 	return evm.SimulateExecution(ctx, ws, caller, ex)
 }
 

@@ -138,7 +138,7 @@ type (
 		// EstimateGasForNonExecution  estimates action gas except execution
 		EstimateGasForNonExecution(action.Action) (uint64, error)
 		// EstimateExecutionGasConsumption estimate gas consumption for execution action
-		EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error)
+		EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, error)
 		// LogsInBlockByHash filter logs in the block by hash
 		LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*action.Log, error)
 		// LogsInRange filter logs among [start, end] blocks
@@ -279,7 +279,7 @@ func newCoreService(
 		ap:            actPool,
 		cfg:           cfg,
 		registry:      registry,
-		chainListener: NewChainListener(500),
+		chainListener: NewChainListener(cfg.ListenerLimit),
 		gs:            gasstation.NewGasStation(chain, dao, cfg.GasStation),
 		readCache:     NewReadCache(),
 		getBlockTime:  getBlockTime,
@@ -1514,11 +1514,22 @@ func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context,
 		GasLimit:       g.BlockGasLimitByHeight(header.Height() + 1),
 		Producer:       zeroAddr,
 	})
+
 	exec, err := staking.FindProtocol(core.registry).ConstructExecution(ctx, ms, core.sf)
 	if err != nil {
 		return 0, err
 	}
-	gas, err := core.EstimateExecutionGasConsumption(ctx, exec, caller)
+	gas, err := core.EstimateExecutionGasConsumption(ctx, exec, caller, protocol.WithSimulatePreOpt(func(sm protocol.StateManager) error {
+		// add amount to the sender account
+		sender, err := accountutil.LoadAccount(sm, caller)
+		if err != nil {
+			return err
+		}
+		if err = sender.AddBalance(exec.Amount()); err != nil {
+			return err
+		}
+		return accountutil.StoreAccount(sm, caller, sender)
+	}))
 	if err != nil {
 		return 0, err
 	}
@@ -1530,7 +1541,7 @@ func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context,
 }
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
-func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error) {
+func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, error) {
 	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
 	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
 	if err != nil {
@@ -1553,7 +1564,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
 	)
 	sc.SetGasLimit(blockGasLimit)
-	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc)
+	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc, opts...)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -1565,7 +1576,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 	}
 	estimatedGas := receipt.GasConsumed
 	sc.SetGasLimit(estimatedGas)
-	enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc)
+	enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc, opts...)
 	if err != nil && err != action.ErrInsufficientFunds {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -1575,7 +1586,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc
 		for low <= high {
 			mid := (low + high) / 2
 			sc.SetGasLimit(mid)
-			enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc)
+			enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc, opts...)
 			if err != nil && err != action.ErrInsufficientFunds {
 				return 0, status.Error(codes.Internal, err.Error())
 			}
@@ -1595,6 +1606,7 @@ func (core *coreService) isGasLimitEnough(
 	ctx context.Context,
 	caller address.Address,
 	sc *action.Execution,
+	opts ...protocol.SimulateOption,
 ) (bool, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "Server.isGasLimitEnough")
 	defer span.End()
@@ -1603,7 +1615,7 @@ func (core *coreService) isGasLimitEnough(
 		return false, nil, err
 	}
 
-	_, receipt, err := core.simulateExecution(ctx, caller, sc, core.dao.GetBlockHash, core.getBlockTime)
+	_, receipt, err := core.simulateExecution(ctx, caller, sc, core.dao.GetBlockHash, core.getBlockTime, opts...)
 	if err != nil {
 		return false, nil, err
 	}
@@ -1909,13 +1921,13 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 	return retval, receipt, tracer, err
 }
 
-func (core *coreService) simulateExecution(ctx context.Context, addr address.Address, exec *action.Execution, getBlockHash evm.GetBlockHash, getBlockTime evm.GetBlockTime) ([]byte, *action.Receipt, error) {
+func (core *coreService) simulateExecution(ctx context.Context, addr address.Address, exec *action.Execution, getBlockHash evm.GetBlockHash, getBlockTime evm.GetBlockTime, opts ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash:   getBlockHash,
 		GetBlockTime:   getBlockTime,
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	return core.sf.SimulateExecution(ctx, addr, exec)
+	return core.sf.SimulateExecution(ctx, addr, exec, opts...)
 }
 
 func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Receipt {

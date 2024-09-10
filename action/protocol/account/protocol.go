@@ -65,8 +65,8 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 }
 
 // Handle handles an account
-func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	switch act := act.(type) {
+func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
+	switch act := elp.Action().(type) {
 	case *action.Transfer:
 		return p.handleTransfer(ctx, act, sm)
 	}
@@ -74,10 +74,9 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 }
 
 // Validate validates an account action
-func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
-	switch act := act.(type) {
-	case *action.Transfer:
-		if err := p.validateTransfer(ctx, act); err != nil {
+func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protocol.StateReader) error {
+	if _, ok := elp.Action().(*action.Transfer); ok {
+		if err := p.validateTransfer(ctx, elp); err != nil {
 			return errors.Wrap(err, "error when validating transfer action")
 		}
 	}

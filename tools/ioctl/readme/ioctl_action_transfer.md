@@ -1,10 +1,10 @@
 ## ioctl action transfer
 
-Transfer tokens on IoTeX blokchain
+Transfer tokens on IoTeX blockchain
 
 ### Synopsis
 
-Transfer tokens on IoTeX blokchain
+Transfer tokens on IoTeX blockchain
 
 ```
 ioctl action transfer (ALIAS|RECIPIENT_ADDRESS) AMOUNT_IOTX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y] [flags]

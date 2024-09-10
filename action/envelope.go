@@ -28,6 +28,7 @@ type (
 		Destination() (string, bool)
 		Cost() (*big.Int, error)
 		IntrinsicGas() (uint64, error)
+		Size() uint32
 		Action() Action
 		ToEthTx(uint32, iotextypes.Encoding) (*types.Transaction, error)
 		Proto() *iotextypes.ActionCore
@@ -61,6 +62,15 @@ func (elp *envelope) Cost() (*big.Int, error) {
 // IntrinsicGas returns intrinsic gas of action.
 func (elp *envelope) IntrinsicGas() (uint64, error) {
 	return elp.payload.IntrinsicGas()
+}
+
+// Size returns the size of envelope
+func (elp *envelope) Size() uint32 {
+	size := elp.BasicActionSize()
+	if s, ok := elp.payload.(hasSize); ok {
+		size += s.Size()
+	}
+	return size
 }
 
 // Action returns the action payload.
