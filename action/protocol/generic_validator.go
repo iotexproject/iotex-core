@@ -84,6 +84,19 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 					selp.Envelope.GasFeeCap().String(), action.InitialBaseFee)
 			}
 		}
+		if ok && featureCtx.SufficentBalanceGuarantee {
+			acc, err := v.accountState(ctx, v.sr, caller)
+			if err != nil {
+				return errors.Wrapf(err, "invalid state of account %s", caller.String())
+			}
+			cost, err := selp.Cost()
+			if err != nil {
+				return errors.Wrap(err, "failed to get cost of action")
+			}
+			if acc.Balance.Cmp(cost) < 0 {
+				return errors.Wrapf(state.ErrNotEnoughBalance, "sender %s balance %s, cost %s", caller.String(), acc.Balance, cost)
+			}
+		}
 	}
 
 	return selp.Action().SanityCheck()
