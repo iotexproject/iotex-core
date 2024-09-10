@@ -17,7 +17,7 @@ import (
 )
 
 func TestBlockSize(t *testing.T) {
-	// t.Skip("used for estimating block size")
+	t.Skip("used for estimating block size")
 	r := require.New(t)
 	conn, err := grpc.NewClient("api.mainnet.iotex.one:443", grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
 	r.NoError(err)
