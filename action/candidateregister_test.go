@@ -86,7 +86,7 @@ func TestCandidateRegister(t *testing.T) {
 		}
 
 		require.Equal(test.Serialize, hex.EncodeToString(cr.Serialize()))
-		require.Equal(test.GasLimit, elp.GasLimit())
+		require.Equal(test.GasLimit, elp.Gas())
 		require.Equal(test.GasPrice, elp.GasPrice())
 		require.Equal(test.Nonce, elp.Nonce())
 

@@ -75,7 +75,7 @@ func TestDeposit(t *testing.T) {
 		require.Equal(test.Serialize, hex.EncodeToString(ser))
 
 		require.NoError(err)
-		require.Equal(test.GasLimit, elp.GasLimit())
+		require.Equal(test.GasLimit, elp.Gas())
 		require.Equal(test.GasPrice, elp.GasPrice())
 		require.Equal(test.Nonce, elp.Nonce())
 

@@ -32,7 +32,7 @@ func TestCandidateUpdate(t *testing.T) {
 	t.Run("proto", func(t *testing.T) {
 		ser := cu.Serialize()
 		require.Equal("0a04746573741229696f31636c36726c32657635646661393838716d677a673278346866617a6d7039766e326736366e671a29696f316a757678356730363365753474733833326e756b7034766763776b32676e6335637539617964", hex.EncodeToString(ser))
-		require.Equal(_cuGasLimit, elp.GasLimit())
+		require.Equal(_cuGasLimit, elp.Gas())
 		require.Equal(_cuGasPrice, elp.GasPrice())
 		require.Equal(_cuNonce, elp.Nonce())
 		require.Equal(_cuName, cu.Name())

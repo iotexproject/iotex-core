@@ -165,7 +165,7 @@ func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 	for _, tx := range obj.blk.Actions {
-		gasLimit += tx.GasLimit()
+		gasLimit += tx.Gas()
 	}
 	for _, r := range obj.blk.Receipts {
 		gasUsed += r.GasConsumed

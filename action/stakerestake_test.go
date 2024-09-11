@@ -26,7 +26,7 @@ func TestRestake(t *testing.T) {
 	t.Run("proto", func(t *testing.T) {
 		ser := stake.Serialize()
 		require.Equal("080a10e807180122077061796c6f6164", hex.EncodeToString(ser))
-		require.Equal(_gaslimit, elp.GasLimit())
+		require.Equal(_gaslimit, elp.Gas())
 		require.Equal(_gasprice, elp.GasPrice())
 		require.Equal(_nonce, elp.Nonce())
 

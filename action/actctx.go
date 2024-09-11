@@ -39,8 +39,8 @@ func (act *AbstractAction) SetNonce(val uint64) {
 	act.nonce = val
 }
 
-// GasLimit returns the gas limit
-func (act *AbstractAction) GasLimit() uint64 { return act.gasLimit }
+// Gas returns the gas limit
+func (act *AbstractAction) Gas() uint64 { return act.gasLimit }
 
 // SetGasLimit sets gaslimit
 func (act *AbstractAction) SetGasLimit(val uint64) {
