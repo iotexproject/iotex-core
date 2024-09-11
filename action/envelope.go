@@ -52,11 +52,19 @@ type (
 		GasPrice() *big.Int
 		TxDynamicGas
 		AccessList() types.AccessList
+		TxBlob
 	}
 
 	TxDynamicGas interface {
 		GasTipCap() *big.Int
 		GasFeeCap() *big.Int
+	}
+
+	TxBlob interface {
+		BlobGas() uint64
+		BlobGasFeeCap() *big.Int
+		BlobHashes() []common.Hash
+		BlobTxSidecar() *types.BlobTxSidecar
 	}
 
 	envelope struct {
@@ -71,6 +79,26 @@ func (elp *envelope) Gas() uint64 {
 
 func (elp *envelope) AccessList() types.AccessList {
 	return elp.accessList
+}
+
+func (elp *envelope) BlobGas() uint64 {
+	// TODO
+	return 0
+}
+
+func (elp *envelope) BlobGasFeeCap() *big.Int {
+	// TODO
+	return nil
+}
+
+func (elp *envelope) BlobHashes() []common.Hash {
+	// TODO
+	return nil
+}
+
+func (elp *envelope) BlobTxSidecar() *types.BlobTxSidecar {
+	// TODO
+	return nil
 }
 
 func (elp *envelope) Value() *big.Int {

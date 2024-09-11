@@ -66,6 +66,62 @@ func (mr *MockEnvelopeMockRecorder) Action() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Action", reflect.TypeOf((*MockEnvelope)(nil).Action))
 }
 
+// BlobGas mocks base method.
+func (m *MockEnvelope) BlobGas() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGas")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// BlobGas indicates an expected call of BlobGas.
+func (mr *MockEnvelopeMockRecorder) BlobGas() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGas", reflect.TypeOf((*MockEnvelope)(nil).BlobGas))
+}
+
+// BlobGasFeeCap mocks base method.
+func (m *MockEnvelope) BlobGasFeeCap() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGasFeeCap")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// BlobGasFeeCap indicates an expected call of BlobGasFeeCap.
+func (mr *MockEnvelopeMockRecorder) BlobGasFeeCap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGasFeeCap", reflect.TypeOf((*MockEnvelope)(nil).BlobGasFeeCap))
+}
+
+// BlobHashes mocks base method.
+func (m *MockEnvelope) BlobHashes() []common.Hash {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobHashes")
+	ret0, _ := ret[0].([]common.Hash)
+	return ret0
+}
+
+// BlobHashes indicates an expected call of BlobHashes.
+func (mr *MockEnvelopeMockRecorder) BlobHashes() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobHashes", reflect.TypeOf((*MockEnvelope)(nil).BlobHashes))
+}
+
+// BlobTxSidecar mocks base method.
+func (m *MockEnvelope) BlobTxSidecar() *types.BlobTxSidecar {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobTxSidecar")
+	ret0, _ := ret[0].(*types.BlobTxSidecar)
+	return ret0
+}
+
+// BlobTxSidecar indicates an expected call of BlobTxSidecar.
+func (mr *MockEnvelopeMockRecorder) BlobTxSidecar() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobTxSidecar", reflect.TypeOf((*MockEnvelope)(nil).BlobTxSidecar))
+}
+
 // ChainID mocks base method.
 func (m *MockEnvelope) ChainID() uint32 {
 	m.ctrl.T.Helper()
@@ -409,6 +465,62 @@ func (mr *MockTxDataMockRecorder) AccessList() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccessList", reflect.TypeOf((*MockTxData)(nil).AccessList))
 }
 
+// BlobGas mocks base method.
+func (m *MockTxData) BlobGas() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGas")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// BlobGas indicates an expected call of BlobGas.
+func (mr *MockTxDataMockRecorder) BlobGas() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGas", reflect.TypeOf((*MockTxData)(nil).BlobGas))
+}
+
+// BlobGasFeeCap mocks base method.
+func (m *MockTxData) BlobGasFeeCap() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGasFeeCap")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// BlobGasFeeCap indicates an expected call of BlobGasFeeCap.
+func (mr *MockTxDataMockRecorder) BlobGasFeeCap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGasFeeCap", reflect.TypeOf((*MockTxData)(nil).BlobGasFeeCap))
+}
+
+// BlobHashes mocks base method.
+func (m *MockTxData) BlobHashes() []common.Hash {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobHashes")
+	ret0, _ := ret[0].([]common.Hash)
+	return ret0
+}
+
+// BlobHashes indicates an expected call of BlobHashes.
+func (mr *MockTxDataMockRecorder) BlobHashes() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobHashes", reflect.TypeOf((*MockTxData)(nil).BlobHashes))
+}
+
+// BlobTxSidecar mocks base method.
+func (m *MockTxData) BlobTxSidecar() *types.BlobTxSidecar {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobTxSidecar")
+	ret0, _ := ret[0].(*types.BlobTxSidecar)
+	return ret0
+}
+
+// BlobTxSidecar indicates an expected call of BlobTxSidecar.
+func (mr *MockTxDataMockRecorder) BlobTxSidecar() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobTxSidecar", reflect.TypeOf((*MockTxData)(nil).BlobTxSidecar))
+}
+
 // Data mocks base method.
 func (m *MockTxData) Data() []byte {
 	m.ctrl.T.Helper()
@@ -558,6 +670,62 @@ func (mr *MockTxCommonMockRecorder) AccessList() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccessList", reflect.TypeOf((*MockTxCommon)(nil).AccessList))
 }
 
+// BlobGas mocks base method.
+func (m *MockTxCommon) BlobGas() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGas")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// BlobGas indicates an expected call of BlobGas.
+func (mr *MockTxCommonMockRecorder) BlobGas() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGas", reflect.TypeOf((*MockTxCommon)(nil).BlobGas))
+}
+
+// BlobGasFeeCap mocks base method.
+func (m *MockTxCommon) BlobGasFeeCap() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGasFeeCap")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// BlobGasFeeCap indicates an expected call of BlobGasFeeCap.
+func (mr *MockTxCommonMockRecorder) BlobGasFeeCap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGasFeeCap", reflect.TypeOf((*MockTxCommon)(nil).BlobGasFeeCap))
+}
+
+// BlobHashes mocks base method.
+func (m *MockTxCommon) BlobHashes() []common.Hash {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobHashes")
+	ret0, _ := ret[0].([]common.Hash)
+	return ret0
+}
+
+// BlobHashes indicates an expected call of BlobHashes.
+func (mr *MockTxCommonMockRecorder) BlobHashes() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobHashes", reflect.TypeOf((*MockTxCommon)(nil).BlobHashes))
+}
+
+// BlobTxSidecar mocks base method.
+func (m *MockTxCommon) BlobTxSidecar() *types.BlobTxSidecar {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobTxSidecar")
+	ret0, _ := ret[0].(*types.BlobTxSidecar)
+	return ret0
+}
+
+// BlobTxSidecar indicates an expected call of BlobTxSidecar.
+func (mr *MockTxCommonMockRecorder) BlobTxSidecar() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobTxSidecar", reflect.TypeOf((*MockTxCommon)(nil).BlobTxSidecar))
+}
+
 // Gas mocks base method.
 func (m *MockTxCommon) Gas() uint64 {
 	m.ctrl.T.Helper()
@@ -677,4 +845,83 @@ func (m *MockTxDynamicGas) GasTipCap() *big.Int {
 func (mr *MockTxDynamicGasMockRecorder) GasTipCap() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasTipCap", reflect.TypeOf((*MockTxDynamicGas)(nil).GasTipCap))
+}
+
+// MockTxBlob is a mock of TxBlob interface.
+type MockTxBlob struct {
+	ctrl     *gomock.Controller
+	recorder *MockTxBlobMockRecorder
+}
+
+// MockTxBlobMockRecorder is the mock recorder for MockTxBlob.
+type MockTxBlobMockRecorder struct {
+	mock *MockTxBlob
+}
+
+// NewMockTxBlob creates a new mock instance.
+func NewMockTxBlob(ctrl *gomock.Controller) *MockTxBlob {
+	mock := &MockTxBlob{ctrl: ctrl}
+	mock.recorder = &MockTxBlobMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockTxBlob) EXPECT() *MockTxBlobMockRecorder {
+	return m.recorder
+}
+
+// BlobGas mocks base method.
+func (m *MockTxBlob) BlobGas() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGas")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// BlobGas indicates an expected call of BlobGas.
+func (mr *MockTxBlobMockRecorder) BlobGas() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGas", reflect.TypeOf((*MockTxBlob)(nil).BlobGas))
+}
+
+// BlobGasFeeCap mocks base method.
+func (m *MockTxBlob) BlobGasFeeCap() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGasFeeCap")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// BlobGasFeeCap indicates an expected call of BlobGasFeeCap.
+func (mr *MockTxBlobMockRecorder) BlobGasFeeCap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGasFeeCap", reflect.TypeOf((*MockTxBlob)(nil).BlobGasFeeCap))
+}
+
+// BlobHashes mocks base method.
+func (m *MockTxBlob) BlobHashes() []common.Hash {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobHashes")
+	ret0, _ := ret[0].([]common.Hash)
+	return ret0
+}
+
+// BlobHashes indicates an expected call of BlobHashes.
+func (mr *MockTxBlobMockRecorder) BlobHashes() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobHashes", reflect.TypeOf((*MockTxBlob)(nil).BlobHashes))
+}
+
+// BlobTxSidecar mocks base method.
+func (m *MockTxBlob) BlobTxSidecar() *types.BlobTxSidecar {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobTxSidecar")
+	ret0, _ := ret[0].(*types.BlobTxSidecar)
+	return ret0
+}
+
+// BlobTxSidecar indicates an expected call of BlobTxSidecar.
+func (mr *MockTxBlobMockRecorder) BlobTxSidecar() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobTxSidecar", reflect.TypeOf((*MockTxBlob)(nil).BlobTxSidecar))
 }
