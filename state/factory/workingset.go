@@ -200,11 +200,10 @@ func (ws *workingSet) runAction(
 		}
 		if receipt != nil {
 			isBlobTx := false // TODO: get blob type from action
-			if !protocol.MustGetFeatureCtx(ctx).EnableBlobTransaction || !isBlobTx {
-				return receipt, nil
-			}
-			if err = ws.handleBlob(ctx, selp, receipt); err != nil {
-				return nil, err
+			if protocol.MustGetFeatureCtx(ctx).EnableBlobTransaction && isBlobTx {
+				if err = ws.handleBlob(ctx, selp, receipt); err != nil {
+					return nil, err
+				}
 			}
 			return receipt, nil
 		}
@@ -772,10 +771,9 @@ func (ws *workingSet) CreateBuilder(
 		blkBuilder.SetGasUsed(calculateGasUsed(ws.receipts))
 		blkBuilder.SetBaseFee(block.CalcBaseFee(g.Blockchain, &bcCtx.Tip))
 	}
-	if !fCtx.EnableBlobTransaction {
-		return blkBuilder, nil
+	if fCtx.EnableBlobTransaction {
+		blkBuilder.SetBlobGasUsed(calculateBlobGasUsed(ws.receipts))
+		blkBuilder.SetExcessBlobGas(block.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed))
 	}
-	blkBuilder.SetBlobGasUsed(calculateBlobGasUsed(ws.receipts))
-	blkBuilder.SetExcessBlobGas(block.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed))
 	return blkBuilder, nil
 }

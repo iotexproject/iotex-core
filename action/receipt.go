@@ -71,6 +71,10 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	if receipt.executionRevertMsg != "" {
 		r.ExecutionRevertMsg = receipt.executionRevertMsg
 	}
+	r.BlobGasUsed = receipt.BlobGasUsed
+	if receipt.BlobGasPrice != nil {
+		r.BlobGasPrice = receipt.BlobGasPrice.String()
+	}
 	return r
 }
 
@@ -89,6 +93,11 @@ func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iotextypes.Receipt) {
 		receipt.logs[i].ConvertFromLogPb(log)
 	}
 	receipt.executionRevertMsg = pbReceipt.GetExecutionRevertMsg()
+	receipt.BlobGasUsed = pbReceipt.GetBlobGasUsed()
+	if pbReceipt.GetBlobGasPrice() != "" {
+		receipt.BlobGasPrice = new(big.Int)
+		receipt.BlobGasPrice.SetString(pbReceipt.GetBlobGasPrice(), 10)
+	}
 }
 
 // Serialize returns a serialized byte stream for the Receipt
