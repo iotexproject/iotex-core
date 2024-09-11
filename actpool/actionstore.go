@@ -70,10 +70,10 @@ var (
 
 var defaultActionStoreConfig = actionStoreConfig{
 	Datadir: "actionstore",
-	Datacap: 10 * 1024 * 1024 * 1024,
+	Datacap: 1024 * 1024 * 1024,
 }
 
-func newBlobStore(cfg actionStoreConfig, encode encodeAction, decode decodeAction) (*actionStore, error) {
+func newActionStore(cfg actionStoreConfig, encode encodeAction, decode decodeAction) (*actionStore, error) {
 	if len(cfg.Datadir) == 0 {
 		return nil, errors.New("datadir is empty")
 	}

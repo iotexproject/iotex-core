@@ -42,7 +42,7 @@ func TestBlobStore(t *testing.T) {
 		}
 		return se, nil
 	}
-	store, err := newBlobStore(cfg, encode, decode)
+	store, err := newActionStore(cfg, encode, decode)
 	r.NoError(err)
 	r.NoError(store.Open(func(selp *action.SealedEnvelope) error {
 		r.FailNow("should not be called")
@@ -53,7 +53,7 @@ func TestBlobStore(t *testing.T) {
 	r.NoError(store.Put(act))
 	r.NoError(store.Close())
 
-	store, err = newBlobStore(cfg, encode, decode)
+	store, err = newActionStore(cfg, encode, decode)
 	r.NoError(err)
 	acts := []*action.SealedEnvelope{}
 	r.NoError(store.Open(func(selp *action.SealedEnvelope) error {
@@ -87,7 +87,7 @@ func BenchmarkDatabase(b *testing.B) {
 			Datadir: b.TempDir(),
 			Datacap: 1024,
 		}
-		store, err := newBlobStore(cfg, nil, nil)
+		store, err := newActionStore(cfg, nil, nil)
 		r.NoError(err)
 		r.NoError(store.Open(func(selp *action.SealedEnvelope) error {
 			r.FailNow("should not be called")

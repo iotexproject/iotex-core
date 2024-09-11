@@ -129,7 +129,7 @@ func (worker *queueWorker) Handle(job workerJob) error {
 			log.L().Warn("UNEXPECTED ERROR: action pool is full, but no action to drop")
 			return nil
 		}
-		worker.ap.removeReplacedActs([]*action.SealedEnvelope{actToReplace})
+		worker.ap.removeInvalidActs([]*action.SealedEnvelope{actToReplace})
 		if actToReplace.SenderAddress().String() == sender && actToReplace.Nonce() == nonce {
 			err = action.ErrTxPoolOverflow
 			_actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()

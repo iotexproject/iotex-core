@@ -380,20 +380,20 @@ func (ap *actPool) GetUnconfirmedActs(addrStr string) []*action.SealedEnvelope {
 // GetActionByHash returns the pending action in pool given action's hash
 func (ap *actPool) GetActionByHash(hash hash.Hash256) (*action.SealedEnvelope, error) {
 	act, ok := ap.allActions.Get(hash)
-	if !ok {
-		if ap.store != nil {
-			act, err := ap.store.Get(hash)
-			switch errors.Cause(err) {
-			case nil:
-				return act, nil
-			case errBlobNotFound:
-			default:
-				return nil, err
-			}
-		}
-		return nil, errors.Wrapf(action.ErrNotFound, "action hash %x does not exist in pool", hash)
+	if ok {
+		return act.(*action.SealedEnvelope), nil
 	}
-	return act.(*action.SealedEnvelope), nil
+	if ap.store != nil {
+		act, err := ap.store.Get(hash)
+		switch errors.Cause(err) {
+		case nil:
+			return act, nil
+		case errBlobNotFound:
+		default:
+			return nil, err
+		}
+	}
+	return nil, errors.Wrapf(action.ErrNotFound, "action hash %x does not exist in pool", hash)
 }
 
 // GetSize returns the act pool size
@@ -456,21 +456,6 @@ func (ap *actPool) validate(ctx context.Context, selp *action.SealedEnvelope) er
 	}
 
 	return nil
-}
-
-func (ap *actPool) removeReplacedActs(acts []*action.SealedEnvelope) {
-	for _, act := range acts {
-		hash, err := act.Hash()
-		if err != nil {
-			log.L().Debug("Skipping action due to hash error", zap.Error(err))
-			continue
-		}
-		log.L().Debug("Removed replaced action.", log.Hex("hash", hash[:]))
-		ap.allActions.Delete(hash)
-		intrinsicGas, _ := act.IntrinsicGas()
-		atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))
-		ap.accountDesActs.delete(act)
-	}
 }
 
 func (ap *actPool) removeInvalidActs(acts []*action.SealedEnvelope) {
