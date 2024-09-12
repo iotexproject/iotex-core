@@ -572,7 +572,7 @@ func (ws *workingSet) pickAndRunActions(
 			if !ok {
 				break
 			}
-			if nextAction.GasLimit() > blkCtx.GasLimit {
+			if nextAction.Gas() > blkCtx.GasLimit {
 				actionIterator.PopAccount()
 				continue
 			}

@@ -36,7 +36,7 @@ func TestGenerateRlp(t *testing.T) {
 		gasPrice: new(big.Int),
 	}
 	builder := (&EnvelopeBuilder{}).SetNonce(ab.Nonce()).
-		SetGasLimit(ab.GasLimit()).SetGasPrice(ab.GasPrice())
+		SetGasLimit(ab.Gas()).SetGasPrice(ab.GasPrice())
 	for _, v := range []struct {
 		act  actionPayload
 		sig  []byte

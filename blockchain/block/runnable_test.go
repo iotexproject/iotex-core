@@ -29,5 +29,5 @@ func TestRunnableActionsBuilder(t *testing.T) {
 	require.Equal(1, len(racs.Actions()))
 	act := racs.Actions()[0]
 	require.Equal(big.NewInt(10), act.GasPrice())
-	require.Equal(uint64(100000), act.GasLimit())
+	require.Equal(uint64(100000), act.Gas())
 }

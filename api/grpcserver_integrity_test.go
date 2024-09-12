@@ -1477,7 +1477,7 @@ func TestGrpcServer_ReadContractIntegrity(t *testing.T) {
 		request := &iotexapi.ReadContractRequest{
 			Execution:     exec.Proto().GetCore().GetExecution(),
 			CallerAddress: test.callerAddr,
-			GasLimit:      exec.GasLimit(),
+			GasLimit:      exec.Gas(),
 			GasPrice:      big.NewInt(unit.Qev).String(),
 		}
 

@@ -80,7 +80,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 		}
 
 		require.Equal(test.serialize, hex.EncodeToString(cr.Serialize()))
-		require.Equal(test.gasLimit, elp.GasLimit())
+		require.Equal(test.gasLimit, elp.Gas())
 		require.Equal(test.gasPrice, elp.GasPrice())
 		require.Equal(test.nonce, elp.Nonce())
 		require.Equal(test.newOwner, cr.NewOwner().String())

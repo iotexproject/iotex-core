@@ -112,7 +112,7 @@ func TestSealedEnvelope_Actions(t *testing.T) {
 
 		require.Equal(elp.Nonce(), rlp.Nonce())
 		require.Equal(elp.GasPrice(), rlp.GasPrice())
-		require.Equal(elp.GasLimit(), rlp.Gas())
+		require.Equal(elp.Gas(), rlp.Gas())
 	}
 }
 

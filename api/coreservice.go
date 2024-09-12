@@ -547,7 +547,7 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 		g             = core.bc.Genesis()
 		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
 	)
-	if elp.GasLimit() == 0 || blockGasLimit < elp.GasLimit() {
+	if elp.Gas() == 0 || blockGasLimit < elp.Gas() {
 		elp.SetGas(blockGasLimit)
 	}
 	retval, receipt, err := core.simulateExecution(ctx, callerAddr, elp)

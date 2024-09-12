@@ -62,7 +62,7 @@ func TestTransfer(t *testing.T) {
 	require.Error(w.VerifySignature())
 	require.Equal("10", tsf.Amount().Text(10))
 	require.Equal([]byte{}, tsf.Payload())
-	require.Equal(uint64(100000), elp.GasLimit())
+	require.Equal(uint64(100000), elp.Gas())
 	require.Equal("10", elp.GasPrice().Text(10))
 	require.Zero(elp.Nonce())
 	require.Equal(senderKey.PublicKey().HexString(), w.SrcPubkey().HexString())

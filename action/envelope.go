@@ -22,7 +22,6 @@ type (
 		TxData
 		Version() uint32
 		ChainID() uint32
-		GasLimit() uint64
 		Destination() (string, bool)
 		Cost() (*big.Int, error)
 		IntrinsicGas() (uint64, error)
@@ -139,7 +138,7 @@ func (elp *envelope) Cost() (*big.Int, error) {
 		return nil, errors.Wrap(err, "failed to get payload's intrinsic gas")
 	}
 	if _, ok := elp.payload.(gasLimitForCost); ok {
-		gas = elp.GasLimit()
+		gas = elp.Gas()
 	}
 	if acl := elp.AccessList(); len(acl) > 0 {
 		gas += uint64(len(acl)) * TxAccessListAddressGas

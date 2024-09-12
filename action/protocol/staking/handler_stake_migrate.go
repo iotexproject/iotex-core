@@ -51,7 +51,7 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, elp action.Envelope, 
 		return nil, nil, gasConsumed, gasToBeDeducted, errCandNotExist
 	}
 	duration := uint64(bucket.StakedDuration / p.helperCtx.BlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
-	exec, err := p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, elp.Nonce(), elp.GasLimit(), elp.GasPrice())
+	exec, err := p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, elp.Nonce(), elp.Gas(), elp.GasPrice())
 	if err != nil {
 		return nil, nil, gasConsumed, gasToBeDeducted, errors.Wrap(err, "failed to construct execution")
 	}

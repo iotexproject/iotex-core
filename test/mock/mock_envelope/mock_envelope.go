@@ -208,20 +208,6 @@ func (mr *MockEnvelopeMockRecorder) GasFeeCap() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasFeeCap", reflect.TypeOf((*MockEnvelope)(nil).GasFeeCap))
 }
 
-// GasLimit mocks base method.
-func (m *MockEnvelope) GasLimit() uint64 {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GasLimit")
-	ret0, _ := ret[0].(uint64)
-	return ret0
-}
-
-// GasLimit indicates an expected call of GasLimit.
-func (mr *MockEnvelopeMockRecorder) GasLimit() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasLimit", reflect.TypeOf((*MockEnvelope)(nil).GasLimit))
-}
-
 // GasPrice mocks base method.
 func (m *MockEnvelope) GasPrice() *big.Int {
 	m.ctrl.T.Helper()

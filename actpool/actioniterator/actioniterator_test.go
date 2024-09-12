@@ -123,7 +123,7 @@ func BenchmarkLooping(b *testing.B) {
 		if !ok {
 			break
 		}
-		if act.GasLimit() < 30 {
+		if act.Gas() < 30 {
 			ai.PopAccount()
 		}
 	}

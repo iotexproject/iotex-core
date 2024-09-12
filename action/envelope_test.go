@@ -17,7 +17,7 @@ func TestEnvelope_Basic(t *testing.T) {
 	evlp, tsf := createEnvelope()
 	req.Equal(uint32(1), evlp.Version())
 	req.Equal(uint64(10), evlp.Nonce())
-	req.Equal(uint64(20010), evlp.GasLimit())
+	req.Equal(uint64(20010), evlp.Gas())
 	req.Equal("11000000000000000000", evlp.GasPrice().String())
 	c, err := evlp.Cost()
 	req.NoError(err)
@@ -122,7 +122,7 @@ func TestEnvelope_Actions(t *testing.T) {
 		require.Equal(elp.Nonce(), evlp.Nonce())
 		require.Equal(elp.ChainID(), evlp.ChainID())
 		require.Equal(elp.GasPrice(), evlp.GasPrice())
-		require.Equal(elp.GasLimit(), evlp.GasLimit())
+		require.Equal(elp.Gas(), evlp.Gas())
 	}
 }
 
