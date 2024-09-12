@@ -173,6 +173,18 @@ func (act *AbstractAction) convertToTx() TxCommonWithProto {
 			tx.gasPrice.Set(act.gasPrice)
 		}
 		return &tx
+	case AccessListTxType:
+		tx := AccessListTx{
+			chainID:    act.chainID,
+			nonce:      act.nonce,
+			gasLimit:   act.gasLimit,
+			gasPrice:   &big.Int{},
+			accessList: act.accessList,
+		}
+		if act.gasPrice != nil {
+			tx.gasPrice.Set(act.gasPrice)
+		}
+		return &tx
 	default:
 		panic(fmt.Sprintf("unsupported action version = %d", act.version))
 	}

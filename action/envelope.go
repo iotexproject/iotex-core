@@ -300,6 +300,8 @@ func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
 	switch pbAct.Version {
 	case LegacyTxType:
 		elp.common, err = fromProtoLegacyTx(pbAct)
+	case AccessListTxType:
+		elp.common, err = fromProtoAccessListTx(pbAct)
 	default:
 		panic(fmt.Sprintf("unsupported action version = %d", pbAct.Version))
 	}
