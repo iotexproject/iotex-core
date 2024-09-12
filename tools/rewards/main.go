@@ -60,6 +60,9 @@ func main() {
 			panic(err)
 		}
 		for _, blk := range resp.Blocks {
+			if blk.Block.Header.Core.Height > uint64(blockEnd) {
+				break
+			}
 			for i, act := range blk.Block.Body.Actions {
 				if act.Core.GetGrantReward() != nil {
 					gr := act.Core.GetGrantReward()
@@ -77,23 +80,24 @@ func main() {
 						if err != nil {
 							panic(err)
 						}
-						rewardAddr, err := address.FromString(cand.RewardAddress)
+						optAddr, err := address.FromString(cand.Address)
 						if err != nil {
 							panic(err)
 						}
-						rewardAddrIO := cand.RewardAddress
-						if _, ok := blockRewards[rewardAddrIO]; !ok {
-							blockRewards[rewardAddrIO] = new(big.Int)
+						optAddrIO := optAddr.String()
+						if _, ok := blockRewards[optAddrIO]; !ok {
+							blockRewards[optAddrIO] = new(big.Int)
 						}
-						blockRewards[rewardAddrIO].Add(blockRewards[rewardAddrIO], blockRewardAmount)
-						if _, ok := totalRewards[rewardAddrIO]; !ok {
-							totalRewards[rewardAddrIO] = new(big.Int)
+						blockRewards[optAddrIO].Add(blockRewards[optAddrIO], blockRewardAmount)
+						if _, ok := totalRewards[optAddrIO]; !ok {
+							totalRewards[optAddrIO] = new(big.Int)
 						}
-						totalRewards[rewardAddrIO].Add(totalRewards[rewardAddrIO], blockRewardAmount)
-						fmt.Printf("%12s, %10d, %42s, %43s, %42s, %43s\n", "blockReward", blk.Block.Header.Core.Height, addr.String(), addr.Hex(), rewardAddrIO, rewardAddr.Hex())
+						totalRewards[optAddrIO].Add(totalRewards[optAddrIO], blockRewardAmount)
+						fmt.Printf("%12s, %10d, %42s, %43s, %42s, %43s\n", "blockReward", blk.Block.Header.Core.Height, addr.String(), addr.Hex(), optAddrIO, optAddr.Hex())
 					case iotextypes.RewardType_EpochReward:
-						fmt.Printf("%12s, %10d\n", "epochReward", blk.Block.Header.Core.Height)
-						cands, err := activeProducersByEpoch(api, epochNum(blk.Block.Header.Core.Height))
+						epoch := epochNum(blk.Block.Header.Core.Height)
+						fmt.Printf("%12s, %10d, %10d\n", "epochReward", blk.Block.Header.Core.Height, epoch)
+						cands, err := activeProducersByEpoch(api, epoch)
 						if err != nil {
 							panic(err)
 						}
@@ -104,14 +108,14 @@ func main() {
 						for _, c := range cands {
 							reward := new(big.Int).Mul(epochRewardAmount, c.Votes)
 							reward.Div(reward, total)
-							if _, ok := epochRewards[c.RewardAddress]; !ok {
-								epochRewards[c.RewardAddress] = new(big.Int)
+							if _, ok := epochRewards[c.Address]; !ok {
+								epochRewards[c.Address] = new(big.Int)
 							}
-							epochRewards[c.RewardAddress].Add(epochRewards[c.RewardAddress], reward)
-							if _, ok := totalRewards[c.RewardAddress]; !ok {
-								totalRewards[c.RewardAddress] = new(big.Int)
+							epochRewards[c.Address].Add(epochRewards[c.Address], reward)
+							if _, ok := totalRewards[c.Address]; !ok {
+								totalRewards[c.Address] = new(big.Int)
 							}
-							totalRewards[c.RewardAddress].Add(totalRewards[c.RewardAddress], reward)
+							totalRewards[c.Address].Add(totalRewards[c.Address], reward)
 						}
 					default:
 						panic("invalid reward type")
