@@ -6,11 +6,8 @@
 package action
 
 import (
-	"encoding/hex"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -22,41 +19,6 @@ type (
 		Proto() *iotextypes.ActionCore
 	}
 )
-
-func toAccessListProto(list types.AccessList) []*iotextypes.AccessTuple {
-	if len(list) == 0 {
-		return nil
-	}
-	proto := make([]*iotextypes.AccessTuple, len(list))
-	for i, v := range list {
-		proto[i] = &iotextypes.AccessTuple{}
-		proto[i].Address = hex.EncodeToString(v.Address.Bytes())
-		if numKey := len(v.StorageKeys); numKey > 0 {
-			proto[i].StorageKeys = make([]string, numKey)
-			for j, key := range v.StorageKeys {
-				proto[i].StorageKeys[j] = hex.EncodeToString(key.Bytes())
-			}
-		}
-	}
-	return proto
-}
-
-func fromAccessListProto(list []*iotextypes.AccessTuple) types.AccessList {
-	if len(list) == 0 {
-		return nil
-	}
-	accessList := make(types.AccessList, len(list))
-	for i, v := range list {
-		accessList[i].Address = common.HexToAddress(v.Address)
-		if numKey := len(v.StorageKeys); numKey > 0 {
-			accessList[i].StorageKeys = make([]common.Hash, numKey)
-			for j, key := range v.StorageKeys {
-				accessList[i].StorageKeys[j] = common.HexToHash(key)
-			}
-		}
-	}
-	return accessList
-}
 
 // EffectiveGas returns the effective gas
 func EffectiveGasTip(tx TxDynamicGas, baseFee *big.Int) (*big.Int, error) {

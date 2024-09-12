@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// LegacyTx is the legacy transaction
 type LegacyTx struct {
 	chainID  uint32
 	nonce    uint64
@@ -79,7 +80,7 @@ func (tx *LegacyTx) SanityCheck() error {
 
 func (tx *LegacyTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
-		Version:  1,
+		Version:  LegacyTxType,
 		Nonce:    tx.nonce,
 		GasLimit: tx.gasLimit,
 		ChainID:  tx.chainID,

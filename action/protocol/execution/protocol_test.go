@@ -274,8 +274,13 @@ func readExecution(
 		return nil, nil, err
 	}
 	exec := action.NewExecution(contractAddr, ecfg.Amount(), ecfg.ByteCode())
-	elp := (&action.EnvelopeBuilder{}).SetNonce(state.PendingNonce()).SetGasPrice(ecfg.GasPrice()).
-		SetGasLimit(ecfg.GasLimit()).SetAccessList(ecfg.AccessList()).SetAction(exec).Build()
+	builder := (&action.EnvelopeBuilder{}).SetGasPrice(ecfg.GasPrice()).SetGasLimit(ecfg.GasLimit()).
+		SetNonce(state.PendingNonce()).SetAction(exec)
+	if len(ecfg.AccessList()) > 0 {
+		println("read acl")
+		builder.SetVersion(action.AccessListTxType).SetAccessList(ecfg.AccessList())
+	}
+	elp := builder.Build()
 	addr := ecfg.PrivateKey().PublicKey().Address()
 	if addr == nil {
 		return nil, nil, errors.New("failed to get address")
@@ -320,14 +325,14 @@ func (sct *SmartContractTest) runExecutions(
 			ecfg.Amount(),
 			ecfg.ByteCode(),
 		)
-		builder := &action.EnvelopeBuilder{}
-		builder.SetAction(exec).
-			SetNonce(nonce).
-			SetGasLimit(ecfg.GasLimit()).
-			SetGasPrice(ecfg.GasPrice()).
-			SetAccessList(ecfg.AccessList())
+		builder := (&action.EnvelopeBuilder{}).SetGasLimit(ecfg.GasLimit()).SetGasPrice(ecfg.GasPrice()).
+			SetNonce(nonce).SetAction(exec)
 		if sct.InitGenesis.IsShanghai {
 			builder.SetChainID(bc.ChainID())
+		}
+		if len(ecfg.AccessList()) > 0 {
+			println("write acl")
+			builder.SetVersion(action.AccessListTxType).SetAccessList(ecfg.AccessList())
 		}
 		elp := builder.Build()
 		selp, err := action.Sign(elp, ecfg.PrivateKey())
@@ -1196,6 +1201,9 @@ func TestLondonEVM(t *testing.T) {
 	t.Run("datacopy", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/datacopy.json")
 	})
+	t.Run("datacopy-with-accesslist", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/datacopy-accesslist.json")
+	})
 	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/CVE-2021-39137-attack-replay.json")
 	})
@@ -1228,6 +1236,9 @@ func TestShanghaiEVM(t *testing.T) {
 	})
 	t.Run("datacopy", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-shanghai/datacopy.json")
+	})
+	t.Run("datacopy-with-accesslist", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/datacopy-accesslist.json")
 	})
 	t.Run("f.value", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-shanghai/f.value.json")
