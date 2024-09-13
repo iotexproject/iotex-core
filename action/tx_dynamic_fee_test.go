@@ -45,7 +45,7 @@ func TestDynamicFeeTx(t *testing.T) {
 	tx.gasTipCap = big.NewInt(-1)
 	r.ErrorIs(ErrNegativeValue, tx.SanityCheck())
 	tx.gasTipCap = big.NewInt(10)
-	r.ErrorIs(tx.SanityCheck(), ErrGasFeeCapLessThanTipCap)
+	r.ErrorIs(tx.SanityCheck(), ErrGasTipOverFeeCap)
 	// case: setters
 	tx.setChainID(2)
 	r.Equal(uint32(2), tx.ChainID())

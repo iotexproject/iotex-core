@@ -27,6 +27,11 @@ type (
 	}
 )
 
+var (
+	// MinTipCap is the minimum tip cap
+	MinTipCap = big.NewInt(1)
+)
+
 // NewGenericValidator constructs a new genericValidator
 func NewGenericValidator(sr StateReader, accountState AccountState) *GenericValidator {
 	return &GenericValidator{
@@ -52,6 +57,9 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 	caller := selp.SenderAddress()
 	if caller == nil {
 		return errors.New("failed to get address")
+	}
+	if err = selp.Envelope.SanityCheck(); err != nil {
+		return err
 	}
 	// Reject action if nonce is too low
 	if action.IsSystemAction(selp) {
@@ -83,7 +91,16 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 				return errors.Errorf("transaction cannot cover base fee, max fee = %s, base fee = %d",
 					selp.Envelope.GasFeeCap().String(), action.InitialBaseFee)
 			}
+			if selp.Envelope.GasFeeCap().BitLen() > 256 {
+				return errors.Wrap(action.ErrValueVeryHigh, "fee cap is too high")
+			}
+			if selp.Envelope.GasTipCap().BitLen() > 256 {
+				return errors.Wrap(action.ErrValueVeryHigh, "tip cap is too high")
+			}
+			if selp.Envelope.GasTipCap().Cmp(MinTipCap) < 0 {
+				return errors.Wrapf(action.ErrUnderpriced, "tip cap is too low: %s, min tip cap: %s", selp.Envelope.GasTipCap().String(), MinTipCap.String())
+			}
 		}
 	}
-	return selp.Envelope.SanityCheck()
+	return nil
 }

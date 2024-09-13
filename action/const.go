@@ -6,8 +6,6 @@
 package action
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
 )
 
@@ -42,8 +40,10 @@ var (
 	ErrNilAction          = errors.New("nil action to load proto")
 	ErrInvalidAct         = errors.New("invalid action type")
 	ErrInvalidABI         = errors.New("invalid abi binary data")
-	// ErrGasFeeCapLessThanTipCap is returned when fee cap is less than tip cap
-	ErrGasFeeCapLessThanTipCap = fmt.Errorf("fee cap less than tip cap")
+	// ErrGasTipOverFeeCap is the error when tip cap is greater than fee cap
+	ErrGasTipOverFeeCap  = errors.New("tip cap is greater than fee cap")
+	ErrMissRequiredField = errors.New("missing required field")
+	ErrValueVeryHigh     = errors.New("value is very high")
 )
 
 // LoadErrorDescription loads corresponding description related to the error

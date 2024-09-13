@@ -62,14 +62,17 @@ func (tx *DynamicFeeTx) BlobHashes() []common.Hash { return nil }
 func (tx *DynamicFeeTx) BlobTxSidecar() *types.BlobTxSidecar { return nil }
 
 func (tx *DynamicFeeTx) SanityCheck() error {
-	if tx.gasTipCap != nil && tx.gasTipCap.Sign() < 0 {
+	if tx.gasTipCap == nil || tx.gasFeeCap == nil {
+		return ErrMissRequiredField
+	}
+	if tx.gasTipCap.Sign() < 0 {
 		return ErrNegativeValue
 	}
-	if tx.gasFeeCap != nil && tx.gasFeeCap.Sign() < 0 {
+	if tx.gasFeeCap.Sign() < 0 {
 		return ErrNegativeValue
 	}
-	if tx.gasFeeCap != nil && tx.gasTipCap != nil && tx.gasFeeCap.Cmp(tx.gasTipCap) < 0 {
-		return ErrGasFeeCapLessThanTipCap
+	if tx.gasFeeCap.Cmp(tx.gasTipCap) < 0 {
+		return ErrGasTipOverFeeCap
 	}
 	return nil
 }
