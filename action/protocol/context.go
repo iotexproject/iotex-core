@@ -133,6 +133,7 @@ type (
 		EnableDynamicFeeTx                      bool
 		EnableBlobTransaction                   bool
 		SufficentBalanceGuarantee               bool
+		DisallowSpecialAddressInTx              bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -287,6 +288,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			EnableDynamicFeeTx:                      g.IsVanuatu(height),
 			EnableBlobTransaction:                   g.IsVanuatu(height),
 			SufficentBalanceGuarantee:               g.IsVanuatu(height),
+			DisallowSpecialAddressInTx:              g.IsToBeEnabled(height),
 		},
 	)
 }

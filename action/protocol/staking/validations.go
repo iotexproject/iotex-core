@@ -65,7 +65,9 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	if !action.IsValidCandidateName(act.Name()) {
 		return action.ErrInvalidCanName
 	}
-
+	if protocol.MustGetFeatureCtx(ctx).DisallowSpecialAddressInTx && action.CheckSpecialAddress(act) {
+		return action.ErrSpecialAddress
+	}
 	if act.Amount().Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
 		if !protocol.MustGetFeatureCtx(ctx).CandidateRegisterMustWithStake &&
 			act.Amount().Sign() == 0 {

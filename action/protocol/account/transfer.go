@@ -179,6 +179,9 @@ func (p *Protocol) validateTransfer(ctx context.Context, elp action.Envelope) er
 		fCtx = protocol.MustGetFeatureCtx(ctx)
 		err  error
 	)
+	if fCtx.DisallowSpecialAddressInTx && action.CheckSpecialAddress(tsf) {
+		return action.ErrSpecialAddress
+	}
 	if fCtx.TolerateLegacyAddress {
 		_, err = address.FromStringLegacy(tsf.Recipient())
 	} else {

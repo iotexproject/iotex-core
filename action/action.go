@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 )
 
@@ -109,6 +110,31 @@ func IsSystemAction(act *SealedEnvelope) bool {
 	switch act.Action().(type) {
 	case *GrantReward, *PutPollResult:
 		return true
+	default:
+		return false
+	}
+}
+
+func CheckSpecialAddress(act Action) bool {
+	// TODO: check other actions
+	switch act := act.(type) {
+	case *Transfer:
+		return address.IsAddrV1Special(act.recipient)
+	case *Execution:
+		return address.IsAddrV1Special(act.contract)
+	case *CandidateRegister:
+		return address.IsAddrV1Special(act.rewardAddress.String()) ||
+			address.IsAddrV1Special(act.operatorAddress.String()) ||
+			address.IsAddrV1Special(act.rewardAddress.String())
+	case *CandidateUpdate:
+		return address.IsAddrV1Special(act.rewardAddress.String()) ||
+			address.IsAddrV1Special(act.operatorAddress.String())
+	case *CandidateTransferOwnership:
+		return address.IsAddrV1Special(act.newOwner.String())
+	case *TransferStake:
+		return address.IsAddrV1Special(act.voterAddress.String())
+	case *ClaimFromRewardingFund:
+		return address.IsAddrV1Special(act.address.String())
 	default:
 		return false
 	}

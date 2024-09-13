@@ -94,10 +94,12 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, _ protocol
 		sizeLimit = _executionSizeLimit32KB
 		dataSize = elp.Size()
 	}
-
 	// Reject oversize execution
 	if dataSize > sizeLimit {
 		return action.ErrOversizedData
+	}
+	if fCtx.DisallowSpecialAddressInTx && action.CheckSpecialAddress(exec) {
+		return action.ErrSpecialAddress
 	}
 	return nil
 }
