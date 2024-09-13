@@ -217,7 +217,7 @@ func (ws *workingSet) handleBlob(ctx context.Context, act *action.SealedEnvelope
 	receipt.BlobGasUsed = uint64(blobNum) * params.BlobTxBlobGasPerBlob
 	receipt.BlobGasPrice = block.CalcBlobFee(protocol.MustGetBlockchainCtx(ctx).Tip.ExcessBlobGas)
 	blobFee := new(big.Int).Mul(receipt.BlobGasPrice, new(big.Int).SetUint64(receipt.BlobGasUsed))
-	logs, err := rewarding.DepositGas(ctx, ws, nil, protocol.BurnGasOption(blobFee, iotextypes.TransactionLogType_BLOB_FEE))
+	logs, err := rewarding.DepositGas(ctx, ws, blobFee, protocol.GasTypeOption(iotextypes.TransactionLogType_BLOB_FEE))
 	if err != nil {
 		return err
 	}

@@ -84,6 +84,7 @@ type (
 	Options struct {
 		BurnAmount  *big.Int
 		BurnLogType iotextypes.TransactionLogType
+		GasLogType  *iotextypes.TransactionLogType
 	}
 
 	Option func(*Options)
@@ -93,6 +94,12 @@ func BurnGasOption(amount *big.Int, logType iotextypes.TransactionLogType) Optio
 	return func(opts *Options) {
 		opts.BurnAmount = amount
 		opts.BurnLogType = logType
+	}
+}
+
+func GasTypeOption(logType iotextypes.TransactionLogType) Option {
+	return func(opts *Options) {
+		opts.GasLogType = &logType
 	}
 }
 

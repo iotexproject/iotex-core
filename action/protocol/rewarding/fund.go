@@ -185,7 +185,15 @@ func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int, 
 	if rp == nil {
 		return nil, nil
 	}
-	return rp.Deposit(ctx, sm, amount, iotextypes.TransactionLogType_GAS_FEE, opts...)
+	opt := &protocol.Options{}
+	for _, o := range opts {
+		o(opt)
+	}
+	logType := iotextypes.TransactionLogType_GAS_FEE
+	if opt.GasLogType != nil {
+		logType = *opt.GasLogType
+	}
+	return rp.Deposit(ctx, sm, amount, logType, opts...)
 }
 
 func isZero(a *big.Int) bool {
