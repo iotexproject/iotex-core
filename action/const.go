@@ -30,6 +30,7 @@ var (
 	ErrNilAction          = errors.New("nil action to load proto")
 	ErrInvalidAct         = errors.New("invalid action type")
 	ErrInvalidABI         = errors.New("invalid abi binary data")
+	ErrSpecialAddress     = errors.New("special address not allowed")
 )
 
 // LoadErrorDescription loads corresponding description related to the error

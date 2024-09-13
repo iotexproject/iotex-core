@@ -466,6 +466,10 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && !g.IsDeployerWhitelisted(deployer) {
 		return "", status.Errorf(codes.InvalidArgument, "replay deployer %v not whitelisted", deployer.Hex())
 	}
+	// reject action if it contains special address
+	if action.CheckSpecialAddress(selp.Action()) {
+		return "", status.Error(codes.InvalidArgument, action.ErrSpecialAddress.Error())
+	}
 
 	// Add to local actpool
 	ctx = protocol.WithRegistry(ctx, core.registry)
