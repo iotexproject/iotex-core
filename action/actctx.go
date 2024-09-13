@@ -24,6 +24,7 @@ type AbstractAction struct {
 	gasTipCap  *big.Int
 	gasFeeCap  *big.Int
 	accessList types.AccessList
+	blobData   *BlobTxData
 }
 
 // Version returns the version
@@ -193,6 +194,16 @@ func (act *AbstractAction) convertToTx() TxCommonWithProto {
 			gasTipCap:  act.gasTipCap,
 			gasFeeCap:  act.gasFeeCap,
 			accessList: act.accessList,
+		}
+	case BlobTxType:
+		return &BlobTx{
+			chainID:    act.chainID,
+			nonce:      act.nonce,
+			gasLimit:   act.gasLimit,
+			gasTipCap:  act.gasTipCap,
+			gasFeeCap:  act.gasFeeCap,
+			accessList: act.accessList,
+			blob:       act.blobData,
 		}
 	default:
 		panic(fmt.Sprintf("unsupported action version = %d", act.version))
