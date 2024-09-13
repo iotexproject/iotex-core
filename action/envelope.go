@@ -302,6 +302,11 @@ func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
 		elp.common, err = fromProtoLegacyTx(pbAct)
 	case AccessListTxType:
 		elp.common, err = fromProtoAccessListTx(pbAct)
+	case DynamicFeeTxType:
+		tx := &DynamicFeeTx{}
+		if err = tx.fromProto(pbAct); err == nil {
+			elp.common = tx
+		}
 	default:
 		panic(fmt.Sprintf("unsupported action version = %d", pbAct.Version))
 	}

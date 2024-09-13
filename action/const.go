@@ -5,7 +5,11 @@
 
 package action
 
-import "github.com/pkg/errors"
+import (
+	"fmt"
+
+	"github.com/pkg/errors"
+)
 
 // constants for EIP-1559 dynamic fee
 const (
@@ -38,6 +42,8 @@ var (
 	ErrNilAction          = errors.New("nil action to load proto")
 	ErrInvalidAct         = errors.New("invalid action type")
 	ErrInvalidABI         = errors.New("invalid abi binary data")
+	// ErrGasFeeCapLessThanTipCap is returned when fee cap is less than tip cap
+	ErrGasFeeCapLessThanTipCap = fmt.Errorf("fee cap less than tip cap")
 )
 
 // LoadErrorDescription loads corresponding description related to the error
