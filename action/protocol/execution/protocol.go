@@ -63,8 +63,7 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 
 // Handle handles an execution
 func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
-	exec, ok := elp.Action().(*action.Execution)
-	if !ok {
+	if _, ok := elp.Action().(*action.Execution); !ok {
 		return nil, nil
 	}
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
@@ -72,12 +71,11 @@ func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.
 		GetBlockTime:   p.getBlockTime,
 		DepositGasFunc: p.depositGas,
 	})
-	_, receipt, err := evm.ExecuteContract(ctx, sm, action.NewEvmTx(exec))
+	_, receipt, err := evm.ExecuteContract(ctx, sm, elp)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute contract")
 	}
-
 	return receipt, nil
 }
 

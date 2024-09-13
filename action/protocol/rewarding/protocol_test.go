@@ -370,14 +370,8 @@ func TestProtocol_Handle(t *testing.T) {
 	)
 
 	// Deposit
-	db := action.DepositToRewardingFundBuilder{}
-	deposit := db.SetAmount(big.NewInt(1000000)).Build()
-	eb1 := action.EnvelopeBuilder{}
-	e1 := eb1.SetNonce(1).
-		SetGasPrice(big.NewInt(0)).
-		SetGasLimit(deposit.GasLimit()).
-		SetAction(&deposit).
-		Build()
+	deposit := action.NewDepositToRewardingFund(big.NewInt(1000000), nil)
+	e1 := (&action.EnvelopeBuilder{}).SetNonce(1).SetAction(deposit).Build()
 	_, err = p.Handle(ctx, e1, sm)
 	require.NoError(t, err)
 	balance, _, err := p.TotalBalance(ctx, sm)
@@ -413,14 +407,8 @@ func TestProtocol_Handle(t *testing.T) {
 	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
 
 	// Claim
-	claimBuilder := action.ClaimFromRewardingFundBuilder{}
-	claim := claimBuilder.SetAmount(big.NewInt(1000000)).Build()
-	eb3 := action.EnvelopeBuilder{}
-	e3 := eb3.SetNonce(4).
-		SetGasPrice(big.NewInt(0)).
-		SetGasLimit(claim.GasLimit()).
-		SetAction(&claim).
-		Build()
+	claim := action.NewClaimFromRewardingFund(big.NewInt(1000000), nil, nil)
+	e3 := (&action.EnvelopeBuilder{}).SetNonce(4).SetAction(claim).Build()
 	ctx = protocol.WithActionCtx(
 		ctx,
 		protocol.ActionCtx{

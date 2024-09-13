@@ -39,8 +39,8 @@ func (act *AbstractAction) SetNonce(val uint64) {
 	act.nonce = val
 }
 
-// GasLimit returns the gas limit
-func (act *AbstractAction) GasLimit() uint64 { return act.gasLimit }
+// Gas returns the gas limit
+func (act *AbstractAction) Gas() uint64 { return act.gasLimit }
 
 // SetGasLimit sets gaslimit
 func (act *AbstractAction) SetGasLimit(val uint64) {
@@ -86,23 +86,6 @@ func (act *AbstractAction) BasicActionSize() uint32 {
 	}
 
 	return uint32(size)
-}
-
-// SetEnvelopeContext sets the struct according to input
-func (act *AbstractAction) SetEnvelopeContext(in *AbstractAction) {
-	if act == nil {
-		return
-	}
-	*act = *in
-	if in.gasPrice != nil {
-		act.gasPrice = new(big.Int).Set(in.gasPrice)
-	}
-	if in.gasTipCap != nil {
-		act.gasTipCap = new(big.Int).Set(in.gasTipCap)
-	}
-	if in.gasFeeCap != nil {
-		act.gasFeeCap = new(big.Int).Set(in.gasFeeCap)
-	}
 }
 
 // SanityCheck validates the variables in the action

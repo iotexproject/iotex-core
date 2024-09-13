@@ -146,7 +146,7 @@ func toLegacyTx(ab *AbstractAction, act Action) (*types.Transaction, error) {
 	return types.NewTx(&types.LegacyTx{
 		Nonce:    ab.Nonce(),
 		GasPrice: ab.GasPrice(),
-		Gas:      ab.GasLimit(),
+		Gas:      ab.Gas(),
 		To:       to,
 		Value:    tx.Value(),
 		Data:     data,

@@ -23,11 +23,12 @@ import (
 const TransferSizeLimit = 32 * 1024
 
 // handleTransfer handles a transfer
-func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) handleTransfer(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
 	var (
 		fCtx      = protocol.MustGetFeatureCtx(ctx)
 		actionCtx = protocol.MustGetActionCtx(ctx)
 		blkCtx    = protocol.MustGetBlockCtx(ctx)
+		tsf       = elp.Action().(*action.Transfer)
 	)
 	accountCreationOpts := []state.AccountCreationOption{}
 	if fCtx.CreateLegacyNonceAccount {
@@ -39,7 +40,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 		return nil, errors.Wrapf(err, "failed to load or create the account of sender %s", actionCtx.Caller.String())
 	}
 
-	gasFee, baseFee, err := protocol.SplitGas(ctx, &tsf.AbstractAction, actionCtx.IntrinsicGas)
+	gasFee, baseFee, err := protocol.SplitGas(ctx, elp, actionCtx.IntrinsicGas)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to split gas")
 	}
@@ -71,9 +72,9 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 		}
 	}
 
-	if fCtx.FixGasAndNonceUpdate || tsf.Nonce() != 0 {
+	if fCtx.FixGasAndNonceUpdate || elp.Nonce() != 0 {
 		// update sender Nonce
-		if err := sender.SetPendingNonce(tsf.Nonce() + 1); err != nil {
+		if err := sender.SetPendingNonce(elp.Nonce() + 1); err != nil {
 			return nil, errors.Wrapf(err, "failed to update pending nonce of sender %s", actionCtx.Caller.String())
 		}
 	}

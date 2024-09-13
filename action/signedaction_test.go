@@ -43,11 +43,11 @@ func TestSignedTransfer(t *testing.T) {
 
 	tsf := selp.Action().(*Transfer)
 	require.Equal(_addr2, tsf.Recipient())
-	require.Equal(uint64(1), tsf.Nonce())
+	require.EqualValues(1, selp.Nonce())
 	require.Equal(big.NewInt(2), tsf.Amount())
 	require.Equal([]byte{}, tsf.Payload())
-	require.Equal(uint64(100000), tsf.GasLimit())
-	require.Equal(big.NewInt(10), tsf.GasPrice())
+	require.EqualValues(100000, selp.Gas())
+	require.Equal(big.NewInt(10), selp.GasPrice())
 	require.NotNil(selp.Signature())
 }
 
@@ -58,10 +58,10 @@ func TestSignedExecution(t *testing.T) {
 
 	exec := selp.Action().(*Execution)
 	require.Equal(EmptyAddress, exec.Contract())
-	require.Equal(uint64(1), exec.Nonce())
+	require.Equal(uint64(1), selp.Nonce())
 	require.Equal(big.NewInt(0), exec.Amount())
-	require.Equal(uint64(100000), exec.GasLimit())
-	require.Equal(big.NewInt(10), exec.GasPrice())
+	require.Equal(uint64(100000), selp.Gas())
+	require.Equal(big.NewInt(10), selp.GasPrice())
 	require.Equal([]byte{}, exec.Data())
 	require.NotNil(selp.Signature())
 }
@@ -72,9 +72,9 @@ func TestSignedCandidateRegister(t *testing.T) {
 	require.NoError(err)
 
 	cand := selp.Action().(*CandidateRegister)
-	require.Equal(uint64(1), cand.Nonce())
-	require.Equal(_gasLimit, cand.GasLimit())
-	require.Equal(_gasPrice, cand.GasPrice())
+	require.Equal(uint64(1), selp.Nonce())
+	require.Equal(_gasLimit, selp.Gas())
+	require.Equal(_gasPrice, selp.GasPrice())
 	require.Equal(_candidate1Name, cand.name)
 	require.Equal(identityset.Address(12), cand.operatorAddress)
 	require.Equal(identityset.Address(12), cand.rewardAddress)
@@ -91,9 +91,10 @@ func TestSignedCandidateUpdate(t *testing.T) {
 	require.NoError(err)
 
 	canu := selp.Action().(*CandidateUpdate)
-	require.Equal(uint64(1), canu.Nonce())
-	require.Equal(_gasLimit, canu.GasLimit())
-	require.Equal(_gasPrice, canu.GasPrice())
+	require.Equal(uint64(1), selp.Nonce())
+	require.Equal(_gasLimit, selp.Gas())
+	require.Equal(_gasPrice, selp.GasPrice())
+	require.Equal(_candidate1Name, canu.name)
 	require.NotNil(selp.Signature())
 }
 
@@ -104,10 +105,10 @@ func TestSignedCreateStake(t *testing.T) {
 
 	exec := selp.Action().(*CreateStake)
 	require.Equal(_candidate1Name, exec.candName)
-	require.Equal(uint64(1), exec.Nonce())
+	require.Equal(uint64(1), selp.Nonce())
 	require.Equal(big.NewInt(10), exec.Amount())
-	require.Equal(_gasLimit, exec.GasLimit())
-	require.Equal(_gasPrice, exec.GasPrice())
+	require.Equal(_gasLimit, selp.Gas())
+	require.Equal(_gasPrice, selp.GasPrice())
 	require.Equal([]byte{}, exec.payload)
 	require.Equal(true, exec.autoStake)
 	require.NotNil(selp.Signature())
@@ -119,10 +120,10 @@ func TestNewUnstakeSignedReclaimStake(t *testing.T) {
 	require.NoError(err)
 
 	exec := selp.Action().(*Unstake)
-	require.Equal(uint64(1), exec.Nonce())
+	require.Equal(uint64(1), selp.Nonce())
 	require.Equal(uint64(2), exec.bucketIndex)
-	require.Equal(_gasLimit, exec.GasLimit())
-	require.Equal(_gasPrice, exec.GasPrice())
+	require.Equal(_gasLimit, selp.Gas())
+	require.Equal(_gasPrice, selp.GasPrice())
 	require.Equal([]byte{}, exec.payload)
 	require.NotNil(selp.Signature())
 }
@@ -133,10 +134,10 @@ func TestNewWithdrawStakeSignedReclaimStake(t *testing.T) {
 	require.NoError(err)
 
 	exec := selp.Action().(*WithdrawStake)
-	require.Equal(uint64(1), exec.Nonce())
+	require.Equal(uint64(1), selp.Nonce())
 	require.Equal(uint64(2), exec.bucketIndex)
-	require.Equal(_gasLimit, exec.GasLimit())
-	require.Equal(_gasPrice, exec.GasPrice())
+	require.Equal(_gasLimit, selp.Gas())
+	require.Equal(_gasPrice, selp.GasPrice())
 	require.Equal([]byte{}, exec.payload)
 	require.NotNil(selp.Signature())
 }
@@ -148,10 +149,10 @@ func TestSignedChangeCandidate(t *testing.T) {
 
 	exec := selp.Action().(*ChangeCandidate)
 	require.Equal(_candidate1Name, exec.candidateName)
-	require.Equal(uint64(1), exec.Nonce())
+	require.Equal(uint64(1), selp.Nonce())
 	require.Equal(uint64(2), exec.bucketIndex)
-	require.Equal(_gasLimit, exec.GasLimit())
-	require.Equal(_gasPrice, exec.GasPrice())
+	require.Equal(_gasLimit, selp.Gas())
+	require.Equal(_gasPrice, selp.GasPrice())
 	require.Equal([]byte{}, exec.payload)
 	require.NotNil(selp.Signature())
 }
@@ -163,10 +164,10 @@ func TestSignedTransferStake(t *testing.T) {
 
 	exec := selp.Action().(*TransferStake)
 	require.Equal(identityset.Address(12), exec.voterAddress)
-	require.Equal(uint64(1), exec.Nonce())
+	require.Equal(uint64(1), selp.Nonce())
 	require.Equal(uint64(2), exec.bucketIndex)
-	require.Equal(_gasLimit, exec.GasLimit())
-	require.Equal(_gasPrice, exec.GasPrice())
+	require.Equal(_gasLimit, selp.Gas())
+	require.Equal(_gasPrice, selp.GasPrice())
 	require.Equal([]byte{}, exec.payload)
 	require.NotNil(selp.Signature())
 }
@@ -178,10 +179,10 @@ func TestSignedDepositToStake(t *testing.T) {
 
 	exec := selp.Action().(*DepositToStake)
 	require.Equal(uint64(2), exec.bucketIndex)
-	require.Equal(uint64(1), exec.Nonce())
+	require.Equal(uint64(1), selp.Nonce())
 	require.Equal(big.NewInt(10), exec.Amount())
-	require.Equal(_gasLimit, exec.GasLimit())
-	require.Equal(_gasPrice, exec.GasPrice())
+	require.Equal(_gasLimit, selp.Gas())
+	require.Equal(_gasPrice, selp.GasPrice())
 	require.Equal([]byte{}, exec.payload)
 	require.NotNil(selp.Signature())
 }
@@ -192,12 +193,12 @@ func TestSignedRestake(t *testing.T) {
 	require.NoError(err)
 
 	exec := selp.Action().(*Restake)
-	require.Equal(uint64(1), exec.Nonce())
+	require.Equal(uint64(1), selp.Nonce())
 	require.Equal(uint32(91), exec.duration)
 	require.Equal(true, exec.autoStake)
 	require.Equal(uint64(2), exec.bucketIndex)
-	require.Equal(_gasLimit, exec.GasLimit())
-	require.Equal(_gasPrice, exec.GasPrice())
+	require.Equal(_gasLimit, selp.Gas())
+	require.Equal(_gasPrice, selp.GasPrice())
 	require.Equal([]byte{}, exec.payload)
 	require.NotNil(selp.Signature())
 }
@@ -208,10 +209,23 @@ func TestSignedCandidateTransferOwnership(t *testing.T) {
 	require.NoError(err)
 
 	exec := selp.Action().(*CandidateTransferOwnership)
-	require.Equal(uint64(1), exec.Nonce())
+	require.Equal(uint64(1), selp.Nonce())
 	require.Equal(_cand1Addr, exec.newOwner.String())
-	require.Equal(_gasLimit, exec.GasLimit())
-	require.Equal(_gasPrice, exec.GasPrice())
+	require.Equal(_gasLimit, selp.Gas())
+	require.Equal(_gasPrice, selp.GasPrice())
 	require.Equal([]byte{}, exec.payload)
+	require.NotNil(selp.Signature())
+}
+
+func TestSignedMigrateStake(t *testing.T) {
+	require := require.New(t)
+	selp, err := SignedMigrateStake(1, 9, _gasLimit, _gasPrice, _priKey1)
+	require.NoError(err)
+
+	exec := selp.Action().(*MigrateStake)
+	require.EqualValues(1, selp.Nonce())
+	require.EqualValues(9, exec.bucketIndex)
+	require.Equal(_gasLimit, selp.Gas())
+	require.Equal(_gasPrice, selp.GasPrice())
 	require.NotNil(selp.Signature())
 }

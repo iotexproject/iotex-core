@@ -101,17 +101,9 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	if err != nil {
 		return err
 	}
-	execution, err := action.NewExecution(
-		"",
-		_consortiumCommitteeContractNonce,
-		big.NewInt(0),
-		g.BlockGasLimitByHeight(0),
-		big.NewInt(0),
-		bytes,
-	)
-	if err != nil {
-		return err
-	}
+	execution := action.NewExecution("", big.NewInt(0), bytes)
+	elp := (&action.EnvelopeBuilder{}).SetGasLimit(g.BlockGasLimitByHeight(0)).
+		SetNonce(_consortiumCommitteeContractNonce).SetAction(execution).Build()
 	actionCtx := protocol.ActionCtx{}
 	actionCtx.Caller, err = address.FromString(_consortiumCommitteeContractCreator)
 	if err != nil {
@@ -119,8 +111,8 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	}
 	actionCtx.Nonce = _consortiumCommitteeContractNonce
 	actionCtx.ActionHash = _consortiumCommitteeContractHash
-	actionCtx.GasPrice = execution.GasPrice()
-	actionCtx.IntrinsicGas, err = execution.IntrinsicGas()
+	actionCtx.GasPrice = elp.GasPrice()
+	actionCtx.IntrinsicGas, err = elp.IntrinsicGas()
 	if err != nil {
 		return err
 	}
@@ -141,11 +133,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	})
 
 	// deploy consortiumCommittee contract
-	_, receipt, err := evm.ExecuteContract(
-		ctx,
-		sm,
-		action.NewEvmTx(execution),
-	)
+	_, receipt, err := evm.ExecuteContract(ctx, sm, elp)
 	if err != nil {
 		return err
 	}
@@ -293,18 +281,16 @@ func genContractReaderFromReadContract(r ReadContract, setting bool) contractRea
 func getContractReaderForGenesisStates(ctx context.Context, sm protocol.StateManager) contractReaderFunc {
 	return func(ctx context.Context, contract string, data []byte) ([]byte, error) {
 		gasLimit := uint64(10000000)
-		ex, err := action.NewExecution(contract, 1, big.NewInt(0), gasLimit, big.NewInt(0), data)
-		if err != nil {
-			return nil, err
-		}
+		ex := action.NewExecution(contract, big.NewInt(0), data)
 
 		addr, err := address.FromString(address.ZeroAddress)
 		if err != nil {
 			return nil, err
 		}
 
-		res, _, err := evm.SimulateExecution(ctx, sm, addr, ex)
-
+		elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(gasLimit).
+			SetAction(ex).Build()
+		res, _, err := evm.SimulateExecution(ctx, sm, addr, elp)
 		return res, err
 	}
 }

@@ -85,10 +85,7 @@ func NewActionTransferCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get nonce")
 			}
-			tx, err := action.NewTransfer(nonce, amount, recipient, payload, gasLimit, gasPriceRau)
-			if err != nil {
-				return errors.Wrap(err, "failed to make a Transfer instance")
-			}
+			tx := action.NewTransfer(amount, recipient, payload)
 			return SendAction(
 				client,
 				cmd,

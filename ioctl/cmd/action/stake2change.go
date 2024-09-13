@@ -84,10 +84,7 @@ func stake2Change(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2c, err := action.NewChangeCandidate(nonce, candidateName, bucketIndex, data, gasLimit, gasPriceRau)
-	if err != nil {
-		return output.NewError(output.InstantiationError, "failed to make a changeCandidate instance", err)
-	}
+	s2c := action.NewChangeCandidate(candidateName, bucketIndex, data)
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).

@@ -1,3 +1,8 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package action
 
 import (
@@ -14,75 +19,47 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/assertions"
 )
 
-func TestClaimRewardIntrinsicGas(t *testing.T) {
+func TestClaimReward(t *testing.T) {
 	r := require.New(t)
+	t.Run("intrinsic gas", func(t *testing.T) {
+		rc := &ClaimFromRewardingFund{}
+		gas, err := rc.IntrinsicGas()
+		r.NoError(err)
+		r.EqualValues(10000, gas)
 
-	builder := &ClaimFromRewardingFundBuilder{}
+		rc.amount = big.NewInt(100000000)
+		gas, err = rc.IntrinsicGas()
+		r.NoError(err)
+		r.EqualValues(10000, gas)
 
-	rc := builder.Build()
-	gas, err := rc.IntrinsicGas()
-	r.NoError(err)
-	r.Equal(uint64(10000), gas)
-
-	builder.Reset()
-	builder.SetAmount(big.NewInt(100000000))
-	rc = builder.Build()
-	gas, err = rc.IntrinsicGas()
-	r.NoError(err)
-	r.Equal(uint64(10000), gas)
-
-	builder.Reset()
-	builder.SetAmount(big.NewInt(100000000))
-	builder.SetData([]byte{1})
-	rc = builder.Build()
-	gas, err = rc.IntrinsicGas()
-	r.NoError(err)
-	r.Equal(uint64(10100), gas)
-}
-
-func TestClaimRewardSanityCheck(t *testing.T) {
-	r := require.New(t)
-
-	builder := &ClaimFromRewardingFundBuilder{}
-
-	builder.SetAmount(big.NewInt(1))
-	rc := builder.Build()
-	r.NoError(rc.SanityCheck())
-
-	builder.Reset()
-	builder.SetAmount(big.NewInt(-1))
-	rc = builder.Build()
-	err := rc.SanityCheck()
-	r.ErrorIs(err, ErrNegativeValue)
-}
-
-func TestClaimRewardCost(t *testing.T) {
-	r := require.New(t)
-
-	builder := &ClaimFromRewardingFundBuilder{}
-
-	builder.SetGasPrice(big.NewInt(1000000000000))
-	rc := builder.Build()
-	cost, err := rc.Cost()
-	r.NoError(err)
-	r.Equal("10000000000000000", cost.String())
-
-	builder.Reset()
-	builder.SetGasPrice(big.NewInt(1000000000000))
-	builder.SetAmount(big.NewInt(100))
-	rc = builder.Build()
-	cost, err = rc.Cost()
-	r.NoError(err)
-	r.Equal("10000000000000000", cost.String())
-
-	builder.Reset()
-	builder.SetGasPrice(big.NewInt(1000000000000))
-	builder.SetAmount(big.NewInt(100))
-	builder.SetData([]byte{1})
-	rc = builder.Build()
-	cost, err = rc.Cost()
-	r.NoError(err)
-	r.Equal("10100000000000000", cost.String())
+		rc.amount = big.NewInt(100000000)
+		rc.data = []byte{1}
+		gas, err = rc.IntrinsicGas()
+		r.NoError(err)
+		r.Equal(uint64(10100), gas)
+	})
+	t.Run("sanity check", func(t *testing.T) {
+		rc := &ClaimFromRewardingFund{amount: big.NewInt(1)}
+		r.NoError(rc.SanityCheck())
+		rc.amount = big.NewInt(-1)
+		r.ErrorIs(rc.SanityCheck(), ErrNegativeValue)
+	})
+	t.Run("cost", func(t *testing.T) {
+		rc := &ClaimFromRewardingFund{}
+		builder := (&EnvelopeBuilder{}).SetGasPrice(big.NewInt(1000000000000))
+		elp := builder.SetAction(rc).Build()
+		cost, err := elp.Cost()
+		r.NoError(err)
+		r.Equal("10000000000000000", cost.String())
+		rc.amount = big.NewInt(100)
+		cost, err = elp.Cost()
+		r.NoError(err)
+		r.Equal("10000000000000000", cost.String())
+		rc.data = []byte{1}
+		cost, err = elp.Cost()
+		r.NoError(err)
+		r.Equal("10100000000000000", cost.String())
+	})
 }
 
 func TestNewRewardingClaimFromABIBinary(t *testing.T) {
@@ -166,7 +143,7 @@ func TestNewRewardingClaimFromABIBinary(t *testing.T) {
 		ret, err := NewClaimFromRewardingFundFromABIBinary(calldata)
 		r.NoError(err)
 		r.Equal(ret.Address().String(), addr)
-		r.Equal(ret.Amount(), amount)
+		r.Equal(ret.ClaimAmount(), amount)
 		r.Equal(ret.Data(), data)
 	})
 }
@@ -205,7 +182,7 @@ func TestClaimFromRewardingFund(t *testing.T) {
 			}
 			err := c.LoadProto(p)
 			r.NoError(err)
-			r.Equal(c.Amount(), assertions.MustBeTrueV(new(big.Int).SetString(p.Amount, 10)))
+			r.Equal(c.ClaimAmount(), assertions.MustBeTrueV(new(big.Int).SetString(p.Amount, 10)))
 			r.Equal(c.Data(), p.Data)
 			if i == 0 {
 				r.Equal(c.Address().String(), p.Address)
@@ -214,34 +191,14 @@ func TestClaimFromRewardingFund(t *testing.T) {
 			}
 			r.Equal(c.Proto(), p)
 			r.NoError(c.SanityCheck())
-
 			intrinsicGas, err := c.IntrinsicGas()
 			r.NoError(err)
-
-			cost, err := c.Cost()
-			r.Equal(cost, new(big.Int).Mul(c.GasPrice(), new(big.Int).SetUint64(intrinsicGas)))
-		}
-	})
-
-	t.Run("FromBuilder", func(t *testing.T) {
-		var addr address.Address
-		for i := 0; i < 2; i++ {
-			if i == 1 {
-				addr, _ = address.FromString("io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he")
-			}
-			builder := &ClaimFromRewardingFundBuilder{}
-			builder.SetAmount(big.NewInt(205))
-			builder.SetData([]byte("abc"))
-			builder.SetAddress(addr)
-			builder.SetVersion(0)
-			c2 := builder.Build()
-			if i == 0 {
-				r.Nil(c2.Address())
-			} else {
-				r.Equal(c2.Address().String(), "io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he")
-			}
-			r.Equal(c2.Data(), []byte("abc"))
-			r.Equal(c2.Amount().String(), "205")
+			elp := (&EnvelopeBuilder{}).SetGasPrice(big.NewInt(10)).
+				SetAction(c).Build()
+			cost, err := elp.Cost()
+			r.NoError(err)
+			gas := new(big.Int).SetUint64(intrinsicGas)
+			r.Equal(cost, gas.Mul(elp.GasPrice(), gas))
 		}
 	})
 }

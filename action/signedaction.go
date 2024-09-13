@@ -30,15 +30,11 @@ func WithChainID(chainID uint32) SignedActionOption {
 
 // SignedTransfer return a signed transfer
 func SignedTransfer(recipientAddr string, senderPriKey crypto.PrivateKey, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int, options ...SignedActionOption) (*SealedEnvelope, error) {
-	transfer, err := NewTransfer(nonce, amount, recipientAddr, payload, gasLimit, gasPrice)
-	if err != nil {
-		return nil, err
-	}
 	bd := &EnvelopeBuilder{}
 	bd = bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
-		SetAction(transfer)
+		SetAction(NewTransfer(amount, recipientAddr, payload))
 	for _, opt := range options {
 		opt(bd)
 	}
@@ -52,10 +48,7 @@ func SignedTransfer(recipientAddr string, senderPriKey crypto.PrivateKey, nonce 
 
 // SignedExecution return a signed execution
 func SignedExecution(contractAddr string, executorPriKey crypto.PrivateKey, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, options ...SignedActionOption) (*SealedEnvelope, error) {
-	execution, err := NewExecution(contractAddr, nonce, amount, gasLimit, gasPrice, data)
-	if err != nil {
-		return nil, err
-	}
+	execution := NewExecution(contractAddr, amount, data)
 	bd := &EnvelopeBuilder{}
 	bd = bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
@@ -84,8 +77,8 @@ func SignedCandidateRegister(
 	registererPriKey crypto.PrivateKey,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	cr, err := NewCandidateRegister(nonce, name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr,
-		duration, autoStake, payload, gasLimit, gasPrice)
+	cr, err := NewCandidateRegister(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr,
+		duration, autoStake, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +107,7 @@ func SignedCandidateUpdate(
 	registererPriKey crypto.PrivateKey,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	cu, err := NewCandidateUpdate(nonce, name, operatorAddrStr, rewardAddrStr, gasLimit, gasPrice)
+	cu, err := NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +136,7 @@ func SignedCandidateActivate(
 	registererPriKey crypto.PrivateKey,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	cu := NewCandidateActivate(nonce, gasLimit, gasPrice, bucketIndex)
+	cu := NewCandidateActivate(bucketIndex)
 	bd := &EnvelopeBuilder{}
 	bd = bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
@@ -170,7 +163,7 @@ func SignedCandidateEndorsementLegacy(
 	registererPriKey crypto.PrivateKey,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	cu := NewCandidateEndorsementLegacy(nonce, gasLimit, gasPrice, bucketIndex, endorse)
+	cu := NewCandidateEndorsementLegacy(bucketIndex, endorse)
 	bd := &EnvelopeBuilder{}
 	bd = bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
@@ -197,7 +190,7 @@ func SignedCandidateEndorsement(
 	registererPriKey crypto.PrivateKey,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	cu, err := NewCandidateEndorsement(nonce, gasLimit, gasPrice, bucketIndex, op)
+	cu, err := NewCandidateEndorsement(bucketIndex, op)
 	if err != nil {
 		return nil, err
 	}
@@ -228,8 +221,7 @@ func SignedCreateStake(nonce uint64,
 	stakerPriKey crypto.PrivateKey,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	cs, err := NewCreateStake(nonce, candidateName, amount, duration, autoStake,
-		payload, gasLimit, gasPrice)
+	cs, err := NewCreateStake(candidateName, amount, duration, autoStake, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -270,16 +262,10 @@ func SignedReclaimStake(
 	var elp Envelope
 	// unstake
 	if !withdraw {
-		us, err := NewUnstake(nonce, bucketIndex, payload, gasLimit, gasPrice)
-		if err != nil {
-			return nil, err
-		}
+		us := NewUnstake(bucketIndex, payload)
 		elp = bd.SetAction(us).Build()
 	} else {
-		w, err := NewWithdrawStake(nonce, bucketIndex, payload, gasLimit, gasPrice)
-		if err != nil {
-			return nil, err
-		}
+		w := NewWithdrawStake(bucketIndex, payload)
 		elp = bd.SetAction(w).Build()
 	}
 	selp, err := Sign(elp, reclaimerPriKey)
@@ -300,10 +286,7 @@ func SignedChangeCandidate(
 	stakerPriKey crypto.PrivateKey,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	cc, err := NewChangeCandidate(nonce, candName, bucketIndex, payload, gasLimit, gasPrice)
-	if err != nil {
-		return nil, err
-	}
+	cc := NewChangeCandidate(candName, bucketIndex, payload)
 	bd := &EnvelopeBuilder{}
 	bd = bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
@@ -331,7 +314,7 @@ func SignedTransferStake(
 	stakerPriKey crypto.PrivateKey,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	ts, err := NewTransferStake(nonce, voterAddress, bucketIndex, payload, gasLimit, gasPrice)
+	ts, err := NewTransferStake(voterAddress, bucketIndex, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +345,7 @@ func SignedDepositToStake(
 	depositorPriKey crypto.PrivateKey,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	ds, err := NewDepositToStake(nonce, index, amount, payload, gasLimit, gasPrice)
+	ds, err := NewDepositToStake(index, amount, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -394,10 +377,7 @@ func SignedRestake(
 	restakerPriKey crypto.PrivateKey,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	rs, err := NewRestake(nonce, index, duration, autoStake, payload, gasLimit, gasPrice)
-	if err != nil {
-		return nil, err
-	}
+	rs := NewRestake(index, duration, autoStake, payload)
 	bd := &EnvelopeBuilder{}
 	bd = bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
@@ -424,7 +404,7 @@ func SignedCandidateTransferOwnership(
 	senderPriKey crypto.PrivateKey,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	cto, err := NewCandidateTransferOwnership(nonce, gasLimit, gasPrice, ownerAddrStr, payload)
+	cto, err := NewCandidateTransferOwnership(ownerAddrStr, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -452,10 +432,7 @@ func SignedMigrateStake(
 	senderPriKey crypto.PrivateKey,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	cto, err := NewMigrateStake(nonce, bucketIndex, gasLimit, gasPrice)
-	if err != nil {
-		return nil, err
-	}
+	cto := NewMigrateStake(bucketIndex)
 	bd := &EnvelopeBuilder{}
 	bd = bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
@@ -494,13 +471,12 @@ func SignedClaimReward(
 	address address.Address,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	b := &ClaimFromRewardingFundBuilder{}
-	act := b.SetAmount(amount).SetData(payload).SetAddress(address).Build()
+	act := NewClaimFromRewardingFund(amount, address, payload)
 	bd := &EnvelopeBuilder{}
 	bd = bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
-		SetAction(&act)
+		SetAction(act)
 	for _, opt := range options {
 		opt(bd)
 	}

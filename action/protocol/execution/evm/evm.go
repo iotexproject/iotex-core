@@ -100,7 +100,7 @@ type (
 // newParams creates a new context for use in the EVM.
 func newParams(
 	ctx context.Context,
-	execution *action.EvmTransaction,
+	execution action.TxData,
 	stateDB *StateDBAdapter,
 ) (*Params, error) {
 	var (
@@ -219,7 +219,7 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
 func ExecuteContract(
 	ctx context.Context,
 	sm protocol.StateManager,
-	execution *action.EvmTransaction,
+	execution action.TxData,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
@@ -589,7 +589,7 @@ func SimulateExecution(
 	ctx context.Context,
 	sm protocol.StateManager,
 	caller address.Address,
-	ex *action.Execution,
+	ex action.TxDataForSimulation,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.SimulateExecution")
 	defer span.End()
@@ -620,9 +620,5 @@ func SimulateExecution(
 	)
 
 	ctx = protocol.WithFeatureCtx(ctx)
-	return ExecuteContract(
-		ctx,
-		sm,
-		action.NewEvmTx(ex),
-	)
+	return ExecuteContract(ctx, sm, ex)
 }

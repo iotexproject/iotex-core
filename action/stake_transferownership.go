@@ -7,7 +7,6 @@ package action
 
 import (
 	"bytes"
-	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -18,8 +17,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
-	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -58,7 +55,6 @@ var (
 
 // TransferStake defines the action of transfering stake ownership ts the other
 type TransferStake struct {
-	AbstractAction
 	stake_common
 	voterAddress address.Address
 	bucketIndex  uint64
@@ -79,24 +75,15 @@ func init() {
 
 // NewTransferStake returns a TransferStake instance
 func NewTransferStake(
-	nonce uint64,
 	voterAddress string,
 	bucketIndex uint64,
 	payload []byte,
-	gasLimit uint64,
-	gasPrice *big.Int,
 ) (*TransferStake, error) {
 	voterAddr, err := address.FromString(voterAddress)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load address from string")
 	}
 	return &TransferStake{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
 		voterAddress: voterAddr,
 		bucketIndex:  bucketIndex,
 		payload:      payload,
@@ -149,14 +136,8 @@ func (ts *TransferStake) IntrinsicGas() (uint64, error) {
 	return CalculateIntrinsicGas(MoveStakeBaseIntrinsicGas, MoveStakePayloadGas, payloadSize)
 }
 
-// Cost returns the tstal cost of a TransferStake
-func (ts *TransferStake) Cost() (*big.Int, error) {
-	intrinsicGas, err := ts.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed ts get intrinsic gas for the TransferStake")
-	}
-	transferStakeFee := big.NewInt(0).Mul(ts.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return transferStakeFee, nil
+func (ts *TransferStake) SanityCheck() error {
+	return nil
 }
 
 // EthData returns the ABI-encoded data for converting to eth tx

@@ -1125,34 +1125,39 @@ func TestSubscribe(t *testing.T) {
 
 	t.Run("newHeads subscription", func(t *testing.T) {
 		in := gjson.Parse(`{"params":["newHeads"]}`)
-		ret, err := web3svr.subscribe(&in, writer)
+		sc, _ := StreamFromContext(WithStreamContext(context.Background()))
+		ret, err := web3svr.subscribe(sc, &in, writer)
 		require.NoError(err)
 		require.Equal("streamid_1", ret.(string))
 	})
 
 	t.Run("logs subscription", func(t *testing.T) {
 		in := gjson.Parse(`{"params":["logs",{"fromBlock":"1","fromBlock":"2","address":["0x0000000000000000000000000000000000000001"],"topics":[["0x5f746f70696331"]]}]}`)
-		ret, err := web3svr.subscribe(&in, writer)
+		sc, _ := StreamFromContext(WithStreamContext(context.Background()))
+		ret, err := web3svr.subscribe(sc, &in, writer)
 		require.NoError(err)
 		require.Equal("streamid_1", ret.(string))
 	})
 
 	t.Run("logs topic not array", func(t *testing.T) {
 		in := gjson.Parse(`{"params":["logs",{"fromBlock":"1","fromBlock":"2","address":["0x0000000000000000000000000000000000000001"],"topics":["0x5f746f70696331"]}]}`)
-		ret, err := web3svr.subscribe(&in, writer)
+		sc, _ := StreamFromContext(WithStreamContext(context.Background()))
+		ret, err := web3svr.subscribe(sc, &in, writer)
 		require.NoError(err)
 		require.Equal("streamid_1", ret.(string))
 	})
 
 	t.Run("nil params", func(t *testing.T) {
 		inNil := gjson.Parse(`{"params":[]}`)
-		_, err := web3svr.subscribe(&inNil, writer)
+		sc, _ := StreamFromContext(WithStreamContext(context.Background()))
+		_, err := web3svr.subscribe(sc, &inNil, writer)
 		require.EqualError(err, errInvalidFormat.Error())
 	})
 
 	t.Run("nil logs", func(t *testing.T) {
 		inNil := gjson.Parse(`{"params":["logs"]}`)
-		_, err := web3svr.subscribe(&inNil, writer)
+		sc, _ := StreamFromContext(WithStreamContext(context.Background()))
+		_, err := web3svr.subscribe(sc, &inNil, writer)
 		require.EqualError(err, errInvalidFormat.Error())
 	})
 }

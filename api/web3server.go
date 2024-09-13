@@ -82,6 +82,7 @@ var (
 	errInvalidBlock      = errors.New("invalid block")
 	errUnsupportedAction = errors.New("the type of action is not supported")
 	errMsgBatchTooLarge  = errors.New("batch too large")
+	errHTTPNotSupported  = errors.New("http not supported")
 
 	_pendingBlockNumber  = "pending"
 	_latestBlockNumber   = "latest"
@@ -224,7 +225,11 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	case "eth_newBlockFilter":
 		res, err = svr.newBlockFilter()
 	case "eth_subscribe":
-		res, err = svr.subscribe(web3Req, writer)
+		sc, ok := StreamFromContext(ctx)
+		if !ok {
+			return errHTTPNotSupported
+		}
+		res, err = svr.subscribe(sc, web3Req, writer)
 	case "eth_unsubscribe":
 		res, err = svr.unsubscribe(web3Req)
 	//TODO: enable debug api after archive mode is supported
@@ -361,7 +366,7 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 }
 
 func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
-	callerAddr, to, gasLimit, gasPrice, value, data, err := parseCallObject(in)
+	callerAddr, to, gasLimit, _, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
@@ -398,8 +403,9 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 		}
 		return "0x" + ret, nil
 	}
-	exec, _ := action.NewExecution(to, 0, value, gasLimit, gasPrice, data)
-	ret, receipt, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
+	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(to, value, data)).
+		SetGasLimit(gasLimit).Build()
+	ret, receipt, err := svr.coreService.ReadContract(context.Background(), callerAddr, elp)
 	if err != nil {
 		return nil, err
 	}
@@ -442,7 +448,7 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 	var estimatedGas uint64
 	switch act := elp.Action().(type) {
 	case *action.Execution:
-		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), act, from)
+		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), elp, from)
 	case *action.MigrateStake:
 		estimatedGas, err = svr.coreService.EstimateMigrateStakeGasConsumption(context.Background(), act, from)
 	default:
@@ -924,35 +930,36 @@ func (svr *web3Handler) getFilterLogs(in *gjson.Result) (interface{}, error) {
 	return svr.getLogsWithFilter(from, to, filterObj.Address, filterObj.Topics)
 }
 
-func (svr *web3Handler) subscribe(in *gjson.Result, writer apitypes.Web3ResponseWriter) (interface{}, error) {
+func (svr *web3Handler) subscribe(ctx *StreamContext, in *gjson.Result, writer apitypes.Web3ResponseWriter) (interface{}, error) {
 	subscription := in.Get("params.0")
 	if !subscription.Exists() {
 		return nil, errInvalidFormat
 	}
 	switch subscription.String() {
 	case "newHeads":
-		return svr.streamBlocks(writer)
+		return svr.streamBlocks(ctx, writer)
 	case "logs":
 		filter, err := parseLogRequest(in.Get("params.1"))
 		if err != nil {
 			return nil, err
 		}
-		return svr.streamLogs(filter, writer)
+		return svr.streamLogs(ctx, filter, writer)
 	default:
 		return nil, errInvalidFormat
 	}
 }
 
-func (svr *web3Handler) streamBlocks(writer apitypes.Web3ResponseWriter) (interface{}, error) {
+func (svr *web3Handler) streamBlocks(ctx *StreamContext, writer apitypes.Web3ResponseWriter) (interface{}, error) {
 	chainListener := svr.coreService.ChainListener()
 	streamID, err := chainListener.AddResponder(NewWeb3BlockListener(writer.Write))
 	if err != nil {
 		return nil, err
 	}
+	ctx.AddListener(streamID)
 	return streamID, nil
 }
 
-func (svr *web3Handler) streamLogs(filterObj *filterObject, writer apitypes.Web3ResponseWriter) (interface{}, error) {
+func (svr *web3Handler) streamLogs(ctx *StreamContext, filterObj *filterObject, writer apitypes.Web3ResponseWriter) (interface{}, error) {
 	filter, err := newLogFilterFrom(filterObj.Address, filterObj.Topics)
 	if err != nil {
 		return nil, err
@@ -962,6 +969,7 @@ func (svr *web3Handler) streamLogs(filterObj *filterObject, writer apitypes.Web3
 	if err != nil {
 		return nil, err
 	}
+	ctx.AddListener(streamID)
 	return streamID, nil
 }
 

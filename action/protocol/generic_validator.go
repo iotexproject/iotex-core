@@ -41,7 +41,7 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 	if err != nil {
 		return err
 	}
-	if intrinsicGas > selp.GasLimit() {
+	if intrinsicGas > selp.Gas() {
 		return action.ErrIntrinsicGas
 	}
 
@@ -85,6 +85,5 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 			}
 		}
 	}
-
-	return selp.Action().SanityCheck()
+	return selp.Envelope.SanityCheck()
 }

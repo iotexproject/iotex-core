@@ -24,7 +24,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	. "github.com/iotexproject/iotex-core/pkg/util/assertions"
-	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 func TestGenerateRlp(t *testing.T) {
@@ -36,7 +35,8 @@ func TestGenerateRlp(t *testing.T) {
 		gasLimit: 1000,
 		gasPrice: new(big.Int),
 	}
-	builder := (&EnvelopeBuilder{}).SetNonce(ab.Nonce()).SetGasLimit(ab.GasLimit()).SetGasPrice(ab.GasPrice())
+	builder := (&EnvelopeBuilder{}).SetNonce(ab.Nonce()).
+		SetGasLimit(ab.Gas()).SetGasPrice(ab.GasPrice())
 	for _, v := range []struct {
 		act  actionPayload
 		sig  []byte
@@ -44,33 +44,27 @@ func TestGenerateRlp(t *testing.T) {
 		hash hash.Hash256
 	}{
 		{&Transfer{
-			AbstractAction: ab,
-			recipient:      "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3071",
+			recipient: "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3071",
 		}, _validSig, address.ErrInvalidAddr.Error(), hash.ZeroHash256},
 		{&Transfer{
-			AbstractAction: ab,
-			amount:         big.NewInt(100),
-			recipient:      "",
+			amount:    big.NewInt(100),
+			recipient: "",
 		}, _signByte, "address length = 0, expecting 41", hash.ZeroHash256},
 		{&Transfer{
-			AbstractAction: ab,
-			amount:         big.NewInt(100),
-			recipient:      "",
+			amount:    big.NewInt(100),
+			recipient: "",
 		}, _validSig, "", hash.BytesToHash256(MustNoErrorV(hex.DecodeString("87e39e819193ae46472eb1320739b34c4c3b38ea321c7cc503432bdcfd0cbf15")))},
 		{&Transfer{
-			AbstractAction: ab,
-			recipient:      "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
+			recipient: "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
 		}, _validSig, "", hash.BytesToHash256(MustNoErrorV(hex.DecodeString("eaaf38a552809a9bdb1509c8093bd2c74eb07baff862dae692c1d2b865478b14")))},
 		{&Execution{
-			AbstractAction: ab,
-			amount:         big.NewInt(100),
-			data:           _signByte,
+			amount: big.NewInt(100),
+			data:   _signByte,
 		}, _validSig, "", hash.BytesToHash256(MustNoErrorV(hex.DecodeString("fcdd0c3d07f438d6e67ea852b40e5dc256d75f5e1fa9ac3ca96030efeb634150")))},
 		{&Execution{
-			AbstractAction: ab,
-			contract:       "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
-			amount:         big.NewInt(100),
-			data:           _signByte,
+			contract: "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
+			amount:   big.NewInt(100),
+			data:     _signByte,
 		}, _validSig, "", hash.BytesToHash256(MustNoErrorV(hex.DecodeString("fee3db88ee7d7defa9eded672d08fc8641f760f3a11d404a53276ad6f412b8a5")))},
 	} {
 		elp := builder.SetAction(v.act).Build()
@@ -498,7 +492,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			txto:     to,
 			txamount: amount,
 			txdata:   data,
-			action:   MustNoErrorV(NewTransfer(nonce, amount, to, data, gasLimit, gasPrice)),
+			action:   NewTransfer(amount, to, data),
 			builder:  elpbuilder.BuildTransfer,
 		},
 		{
@@ -507,7 +501,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			txto:     to,
 			txamount: amount,
 			txdata:   data,
-			action:   MustNoErrorV(NewExecution(to, nonce, amount, gasLimit, gasPrice, data)),
+			action:   NewExecution(to, amount, data),
 			builder:  elpbuilder.BuildExecution,
 		},
 		{
@@ -516,7 +510,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			txto:     "",
 			txamount: amount,
 			txdata:   data,
-			action:   MustNoErrorV(NewExecution("", nonce, amount, gasLimit, gasPrice, data)),
+			action:   NewExecution("", amount, data),
 			builder:  elpbuilder.BuildExecution,
 		},
 		{
@@ -528,7 +522,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_createStakeMethod.ID,
 				MustNoErrorV(_createStakeMethod.Inputs.Pack("name", amount, uint32(86400), true, data))...,
 			),
-			action:  MustNoErrorV(NewCreateStake(nonce, "name", amount.String(), 86400, true, data, gasLimit, gasPrice)),
+			action:  MustNoErrorV(NewCreateStake("name", amount.String(), 86400, true, data)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -540,7 +534,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_depositToStakeMethod.ID,
 				MustNoErrorV(_depositToStakeMethod.Inputs.Pack(uint64(10), amount, data))...,
 			),
-			action:  MustNoErrorV(NewDepositToStake(nonce, 10, amount.String(), data, gasLimit, gasPrice)),
+			action:  MustNoErrorV(NewDepositToStake(10, amount.String(), data)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -552,7 +546,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_changeCandidateMethod.ID,
 				MustNoErrorV(_changeCandidateMethod.Inputs.Pack("name", uint64(11), data))...,
 			),
-			action:  MustNoErrorV(NewChangeCandidate(nonce, "name", 11, data, gasLimit, gasPrice)),
+			action:  NewChangeCandidate("name", 11, data),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -564,7 +558,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_unstakeMethod.ID,
 				MustNoErrorV(_unstakeMethod.Inputs.Pack(uint64(12), data))...,
 			),
-			action:  MustNoErrorV(NewUnstake(nonce, 12, data, gasLimit, gasPrice)),
+			action:  NewUnstake(12, data),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -576,7 +570,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_withdrawStakeMethod.ID,
 				MustNoErrorV(_withdrawStakeMethod.Inputs.Pack(uint64(13), data))...,
 			),
-			action:  MustNoErrorV(NewWithdrawStake(nonce, 13, data, gasLimit, gasPrice)),
+			action:  NewWithdrawStake(13, data),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -588,7 +582,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_restakeMethod.ID,
 				MustNoErrorV(_restakeMethod.Inputs.Pack(uint64(14), uint32(7200), false, data))...,
 			),
-			action:  MustNoErrorV(NewRestake(nonce, 14, 7200, false, data, gasLimit, gasPrice)),
+			action:  NewRestake(14, 7200, false, data),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -603,7 +597,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 					uint64(15), data),
 				)...,
 			),
-			action:  MustNoErrorV(NewTransferStake(nonce, to, 15, data, gasLimit, gasPrice)),
+			action:  MustNoErrorV(NewTransferStake(to, 15, data)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -617,10 +611,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 					"name", addrto, addrto, addrto, amount, uint32(6400), false, data,
 				))...,
 			),
-			action: MustNoErrorV(NewCandidateRegister(
-				nonce, "name", to, to, to, amount.String(),
-				6400, false, data, gasLimit, gasPrice,
-			)),
+			action:  MustNoErrorV(NewCandidateRegister("name", to, to, to, amount.String(), 6400, false, data)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -632,7 +623,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_candidateUpdateMethod.ID,
 				MustNoErrorV(_candidateUpdateMethod.Inputs.Pack("name", addrto, addrto))...,
 			),
-			action:  MustNoErrorV(NewCandidateUpdate(nonce, "name", to, to, gasLimit, gasPrice)),
+			action:  MustNoErrorV(NewCandidateUpdate("name", to, to)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -644,16 +635,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				candidateActivateMethod.ID,
 				MustNoErrorV(candidateActivateMethod.Inputs.Pack(uint64(16)))...,
 			),
-			action: &CandidateActivate{
-				AbstractAction: AbstractAction{
-					version:  version.ProtocolVersion,
-					chainID:  chainID,
-					nonce:    nonce,
-					gasLimit: gasLimit,
-					gasPrice: gasPrice,
-				},
-				bucketID: 16,
-			},
+			action:  NewCandidateActivate(16),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -665,16 +647,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				candidateEndorsementLegacyMethod.ID,
 				MustNoErrorV(candidateEndorsementLegacyMethod.Inputs.Pack(uint64(17), false))...,
 			),
-			action: &CandidateEndorsement{
-				AbstractAction: AbstractAction{
-					version:  version.ProtocolVersion,
-					chainID:  chainID,
-					nonce:    nonce,
-					gasLimit: gasLimit,
-					gasPrice: gasPrice,
-				},
-				bucketIndex: 17,
-			},
+			action:  NewCandidateEndorsementLegacy(17, false),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -686,7 +659,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_candidateTransferOwnershipMethod.ID,
 				MustNoErrorV(_candidateTransferOwnershipMethod.Inputs.Pack(addrto, data))...,
 			),
-			action:  MustNoErrorV(NewCandidateTransferOwnership(nonce, gasLimit, gasPrice, to, data)),
+			action:  MustNoErrorV(NewCandidateTransferOwnership(to, data)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -699,13 +672,6 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				MustNoErrorV(_claimRewardingMethodV2.Inputs.Pack(amount, to, data))...,
 			),
 			action: &ClaimFromRewardingFund{
-				AbstractAction: AbstractAction{
-					version:  version.ProtocolVersion,
-					chainID:  chainID,
-					nonce:    nonce,
-					gasLimit: gasLimit,
-					gasPrice: gasPrice,
-				},
 				amount:  amount,
 				address: MustNoErrorV(address.FromString(to)),
 				data:    data,
@@ -722,13 +688,6 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				MustNoErrorV(_depositRewardMethod.Inputs.Pack(amount, data))...,
 			),
 			action: &DepositToRewardingFund{
-				AbstractAction: AbstractAction{
-					version:  version.ProtocolVersion,
-					chainID:  chainID,
-					nonce:    nonce,
-					gasLimit: gasLimit,
-					gasPrice: gasPrice,
-				},
 				amount: amount,
 				data:   data,
 			},
@@ -740,7 +699,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			txto:     to,
 			txamount: amount,
 			txdata:   data,
-			action:   MustNoErrorV(NewExecution(to, nonce, amount, gasLimit, gasPrice, data)),
+			action:   NewExecution(to, amount, data),
 			builder:  elpbuilder.BuildExecution,
 		},
 		{
@@ -752,7 +711,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				migrateStakeMethod.ID,
 				MustNoErrorV(migrateStakeMethod.Inputs.Pack(uint64(1)))...,
 			),
-			action:  MustNoErrorV(NewMigrateStake(nonce, 1, gasLimit, gasPrice)),
+			action:  NewMigrateStake(1),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -764,17 +723,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				candidateEndorsementEndorseMethod.ID,
 				MustNoErrorV(candidateEndorsementEndorseMethod.Inputs.Pack(uint64(17)))...,
 			),
-			action: &CandidateEndorsement{
-				AbstractAction: AbstractAction{
-					version:  version.ProtocolVersion,
-					chainID:  chainID,
-					nonce:    nonce,
-					gasLimit: gasLimit,
-					gasPrice: gasPrice,
-				},
-				bucketIndex: 17,
-				op:          CandidateEndorsementOpEndorse,
-			},
+			action:  MustNoErrorV(NewCandidateEndorsement(17, CandidateEndorsementOpEndorse)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -786,17 +735,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				caniddateEndorsementIntentToRevokeMethod.ID,
 				MustNoErrorV(caniddateEndorsementIntentToRevokeMethod.Inputs.Pack(uint64(17)))...,
 			),
-			action: &CandidateEndorsement{
-				AbstractAction: AbstractAction{
-					version:  version.ProtocolVersion,
-					chainID:  chainID,
-					nonce:    nonce,
-					gasLimit: gasLimit,
-					gasPrice: gasPrice,
-				},
-				bucketIndex: 17,
-				op:          CandidateEndorsementOpIntentToRevoke,
-			},
+			action:  MustNoErrorV(NewCandidateEndorsement(17, CandidateEndorsementOpIntentToRevoke)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -808,17 +747,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				candidateEndorsementRevokeMethod.ID,
 				MustNoErrorV(candidateEndorsementRevokeMethod.Inputs.Pack(uint64(17)))...,
 			),
-			action: &CandidateEndorsement{
-				AbstractAction: AbstractAction{
-					version:  version.ProtocolVersion,
-					chainID:  chainID,
-					nonce:    nonce,
-					gasLimit: gasLimit,
-					gasPrice: gasPrice,
-				},
-				bucketIndex: 17,
-				op:          CandidateEndorsementOpRevoke,
-			},
+			action:  MustNoErrorV(NewCandidateEndorsement(17, CandidateEndorsementOpRevoke)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 	}

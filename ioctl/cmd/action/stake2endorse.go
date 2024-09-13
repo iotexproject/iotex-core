@@ -131,7 +131,7 @@ func doEndorsement(bucketIndex uint64, op action.CandidateEndorsementOp) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	s2t, err := action.NewCandidateEndorsement(nonce, gasLimit, gasPriceRau, bucketIndex, op)
+	s2t, err := action.NewCandidateEndorsement(bucketIndex, op)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidate endorsement", err)
 	}

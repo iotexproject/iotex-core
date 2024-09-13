@@ -87,7 +87,7 @@ func stake2Add(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2a, err := action.NewDepositToStake(nonce, bucketIndex, amountInRau.String(), data, gasLimit, gasPriceRau)
+	s2a, err := action.NewDepositToStake(bucketIndex, amountInRau.String(), data)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a depositToStake instance", err)
 	}

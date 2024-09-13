@@ -78,7 +78,7 @@ func stake2TransferOwnership(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	cto, err := action.NewCandidateTransferOwnership(nonce, gasLimit, gasPriceRau, ownerAddrStr, payload)
+	cto, err := action.NewCandidateTransferOwnership(ownerAddrStr, payload)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidateTransferOwnership instance", err)
 	}

@@ -2,7 +2,6 @@ package action
 
 import (
 	"bytes"
-	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -12,7 +11,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -63,26 +61,18 @@ func init() {
 
 // CandidateTransferOwnership is the action to transfer ownership of a candidate
 type CandidateTransferOwnership struct {
-	AbstractAction
 	stake_common
 	newOwner address.Address
 	payload  []byte
 }
 
 // NewCandidateTransferOwnership returns a CandidateTransferOwnership action
-func NewCandidateTransferOwnership(nonce, gasLimit uint64, gasPrice *big.Int,
-	newOwnerStr string, payload []byte) (*CandidateTransferOwnership, error) {
+func NewCandidateTransferOwnership(newOwnerStr string, payload []byte) (*CandidateTransferOwnership, error) {
 	newOwner, err := address.FromString(newOwnerStr)
 	if err != nil {
 		return nil, err
 	}
 	return &CandidateTransferOwnership{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
 		newOwner: newOwner,
 		payload:  payload,
 	}, nil
@@ -122,14 +112,6 @@ func (act *CandidateTransferOwnership) NewOwner() address.Address { return act.n
 func (act *CandidateTransferOwnership) IntrinsicGas() (uint64, error) {
 	payloadSize := uint64(len(act.Payload()))
 	return CalculateIntrinsicGas(CandidateTransferOwnershipBaseIntrinsicGas, CandidateTransferOwnershipPayloadGas, payloadSize)
-}
-
-// Cost returns the total cost of a CandidateTransferOwnership
-func (act *CandidateTransferOwnership) Cost() (*big.Int, error) {
-	intrinsicGas, _ := act.IntrinsicGas()
-
-	fee := big.NewInt(0).Mul(act.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return fee, nil
 }
 
 // Serialize returns a raw byte stream of the CandidateTransferOwnership struct
@@ -182,5 +164,5 @@ func (act *CandidateTransferOwnership) EthData() ([]byte, error) {
 
 // SanityCheck validates the variables in the action
 func (act *CandidateTransferOwnership) SanityCheck() error {
-	return act.AbstractAction.SanityCheck()
+	return nil
 }

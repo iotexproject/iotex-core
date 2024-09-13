@@ -97,7 +97,7 @@ func stake2Reclaim(args []string) error {
 		return output.NewError(0, "failed to get gas price", err)
 	}
 
-	s2t, err := action.NewTransferStake(nonce, sender, bucketIndex, payload, gasLimit, gasPriceRau)
+	s2t, err := action.NewTransferStake(sender, bucketIndex, payload)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a transferStake instance", err)
 	}

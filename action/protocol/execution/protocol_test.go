@@ -273,18 +273,9 @@ func readExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-	exec, err := action.NewExecutionWithAccessList(
-		contractAddr,
-		state.PendingNonce(),
-		ecfg.Amount(),
-		ecfg.GasLimit(),
-		ecfg.GasPrice(),
-		ecfg.ByteCode(),
-		ecfg.AccessList(),
-	)
-	if err != nil {
-		return nil, nil, err
-	}
+	exec := action.NewExecution(contractAddr, ecfg.Amount(), ecfg.ByteCode())
+	elp := (&action.EnvelopeBuilder{}).SetNonce(state.PendingNonce()).SetGasPrice(ecfg.GasPrice()).
+		SetGasLimit(ecfg.GasLimit()).SetAccessList(ecfg.AccessList()).SetAction(exec).Build()
 	addr := ecfg.PrivateKey().PublicKey().Address()
 	if addr == nil {
 		return nil, nil, errors.New("failed to get address")
@@ -298,7 +289,7 @@ func readExecution(
 		GetBlockTime:   getBlockTimeForTest,
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	return sf.SimulateExecution(ctx, addr, exec)
+	return sf.SimulateExecution(ctx, addr, elp)
 }
 
 func (sct *SmartContractTest) runExecutions(
@@ -324,20 +315,14 @@ func (sct *SmartContractTest) runExecutions(
 			nonce = state.PendingNonce()
 		}
 		nonces[executor.String()] = nonce
-		exec, err := action.NewExecution(
+		exec := action.NewExecution(
 			contractAddrs[i],
-			nonce,
 			ecfg.Amount(),
-			ecfg.GasLimit(),
-			ecfg.GasPrice(),
 			ecfg.ByteCode(),
 		)
-		if err != nil {
-			return nil, nil, err
-		}
 		builder := &action.EnvelopeBuilder{}
 		builder.SetAction(exec).
-			SetNonce(exec.Nonce()).
+			SetNonce(nonce).
 			SetGasLimit(ecfg.GasLimit()).
 			SetGasPrice(ecfg.GasPrice()).
 			SetAccessList(ecfg.AccessList())
@@ -659,12 +644,8 @@ func TestProtocol_Validate(t *testing.T) {
 	builder := action.EnvelopeBuilder{}
 	for i := range cases {
 		t.Run(cases[i].name, func(t *testing.T) {
-			ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), make([]byte, cases[i].size))
-			require.NoError(err)
-			elp := builder.SetNonce(ex.Nonce()).
-				SetGasLimit(ex.GasLimit()).
-				SetGasPrice(ex.GasPrice()).
-				SetAction(ex).Build()
+			ex := action.NewExecution("2", big.NewInt(0), make([]byte, cases[i].size))
+			elp := builder.SetNonce(1).SetAction(ex).Build()
 			ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
 			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 				BlockHeight: cases[i].height,
@@ -749,12 +730,8 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 
 		data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
-		execution, err := action.NewExecution(action.EmptyAddress, 1, big.NewInt(0), uint64(100000), big.NewInt(0), data)
-		require.NoError(err)
-
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetAction(execution).
-			SetNonce(1).
+		execution := action.NewExecution(action.EmptyAddress, big.NewInt(0), data)
+		elp := (&action.EnvelopeBuilder{}).SetAction(execution).SetNonce(1).
 			SetGasLimit(100000).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
@@ -803,12 +780,8 @@ func TestProtocol_Handle(t *testing.T) {
 
 		// store to key 0
 		data, _ = hex.DecodeString("60fe47b1000000000000000000000000000000000000000000000000000000000000000f")
-		execution, err = action.NewExecution(r.ContractAddress, 2, big.NewInt(0), uint64(120000), big.NewInt(0), data)
-		require.NoError(err)
-
-		bd = &action.EnvelopeBuilder{}
-		elp = bd.SetAction(execution).
-			SetNonce(2).
+		execution = action.NewExecution(r.ContractAddress, big.NewInt(0), data)
+		elp = (&action.EnvelopeBuilder{}).SetAction(execution).SetNonce(2).
 			SetGasLimit(120000).Build()
 		selp, err = action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
@@ -837,12 +810,8 @@ func TestProtocol_Handle(t *testing.T) {
 		// read from key 0
 		data, err = hex.DecodeString("6d4ce63c")
 		require.NoError(err)
-		execution, err = action.NewExecution(r.ContractAddress, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
-		require.NoError(err)
-
-		bd = &action.EnvelopeBuilder{}
-		elp = bd.SetAction(execution).
-			SetNonce(3).
+		execution = action.NewExecution(r.ContractAddress, big.NewInt(0), data)
+		elp = (&action.EnvelopeBuilder{}).SetAction(execution).SetNonce(3).
 			SetGasLimit(120000).Build()
 		selp, err = action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
@@ -859,12 +828,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(eHash, blk.Receipts[0].ActionHash)
 
 		data, _ = hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
-		execution1, err := action.NewExecution(action.EmptyAddress, 4, big.NewInt(0), uint64(100000), big.NewInt(10), data)
-		require.NoError(err)
-		bd = &action.EnvelopeBuilder{}
-
-		elp = bd.SetAction(execution1).
-			SetNonce(4).
+		execution1 := action.NewExecution(action.EmptyAddress, big.NewInt(0), data)
+		elp = (&action.EnvelopeBuilder{}).SetAction(execution1).SetNonce(4).
 			SetGasLimit(100000).SetGasPrice(big.NewInt(10)).Build()
 		selp, err = action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)

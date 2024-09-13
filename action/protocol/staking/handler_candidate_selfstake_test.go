@@ -428,10 +428,10 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 				sm, p, _, _ = initTestStateFromIds(test.initBucketCfgIds, test.initCandidateCfgIds)
 			}
 			require.NoError(setupAccount(sm, test.caller, test.initBalance))
-			act := action.NewCandidateActivate(nonce, test.gasLimit, test.gasPrice, test.bucketID)
+			act := action.NewCandidateActivate(test.bucketID)
 			IntrinsicGas, _ := act.IntrinsicGas()
-			elp := builder.SetNonce(act.Nonce()).SetGasLimit(act.GasLimit()).
-				SetGasPrice(act.GasPrice()).SetAction(act).Build()
+			elp := builder.SetNonce(nonce).SetGasLimit(test.gasLimit).
+				SetGasPrice(test.gasPrice).SetAction(act).Build()
 			ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 				Caller:       test.caller,
 				GasPrice:     test.gasPrice,
@@ -481,7 +481,7 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 				// test staker's account
 				caller, err := accountutil.LoadAccount(sm, test.caller)
 				require.NoError(err)
-				actCost, err := act.Cost()
+				actCost, err := elp.Cost()
 				require.NoError(err)
 				total := big.NewInt(0)
 				require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost))

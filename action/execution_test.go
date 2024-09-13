@@ -25,18 +25,15 @@ func TestExecutionSignVerify(t *testing.T) {
 	executorKey := identityset.PrivateKey(27)
 	data, err := hex.DecodeString("")
 	require.NoError(err)
-	ex, err := NewExecution(contractAddr.String(), 2, big.NewInt(10), uint64(100000), big.NewInt(10), data)
-	require.NoError(err)
-	require.EqualValues(21, ex.BasicActionSize())
+	ex := NewExecution(contractAddr.String(), big.NewInt(10), data)
 	require.EqualValues(66, ex.Size())
 
 	bd := &EnvelopeBuilder{}
-	eb := bd.SetNonce(ex.nonce).
-		SetGasLimit(ex.gasLimit).
-		SetGasPrice(ex.gasPrice).
+	eb := bd.SetNonce(2).SetGasLimit(100000).SetGasPrice(big.NewInt(10)).
 		SetAction(ex).Build()
 	elp, ok := eb.(*envelope)
 	require.True(ok)
+	require.EqualValues(21, elp.BasicActionSize())
 	require.EqualValues(87, eb.Size())
 
 	w := AssembleSealedEnvelope(elp, executorKey.PublicKey(), []byte("lol"))
@@ -56,34 +53,25 @@ func TestExecutionSignVerify(t *testing.T) {
 func TestExecutionSanityCheck(t *testing.T) {
 	require := require.New(t)
 	t.Run("Negative amount", func(t *testing.T) {
-		ex, err := NewExecution("2", uint64(1), big.NewInt(-100), uint64(0), big.NewInt(0), []byte{})
-		require.NoError(err)
+		ex := NewExecution("2", big.NewInt(-100), []byte{})
 		require.Equal(ErrInvalidAmount, errors.Cause(ex.SanityCheck()))
 	})
 
 	t.Run("Invalid contract address", func(t *testing.T) {
-		ex, err := NewExecution(
+		ex := NewExecution(
 			identityset.Address(29).String()+"bbb",
-			uint64(1),
-			big.NewInt(0),
-			uint64(0),
 			big.NewInt(0),
 			[]byte{},
 		)
-		require.NoError(err)
 		require.Contains(ex.SanityCheck().Error(), "error when validating contract's address")
 	})
 
 	t.Run("Empty contract address", func(t *testing.T) {
-		ex, err := NewExecution(
+		ex := NewExecution(
 			EmptyAddress,
-			uint64(1),
-			big.NewInt(0),
-			uint64(0),
 			big.NewInt(0),
 			[]byte{},
 		)
-		require.NoError(err)
 		require.Nil(ex.To())
 		addr, _ := address.FromBytes(_c1.Bytes())
 		ex.contract = addr.String()
@@ -91,9 +79,9 @@ func TestExecutionSanityCheck(t *testing.T) {
 	})
 
 	t.Run("Negative gas price", func(t *testing.T) {
-		ex, err := NewExecution(identityset.Address(29).String(), uint64(1), big.NewInt(100), uint64(0), big.NewInt(-1), []byte{})
-		require.NoError(err)
-		require.Equal(ErrNegativeValue, errors.Cause(ex.SanityCheck()))
+		ex := NewExecution(identityset.Address(29).String(), big.NewInt(100), []byte{})
+		elp := (&EnvelopeBuilder{}).SetGasPrice(big.NewInt(-1)).SetAction(ex).Build()
+		require.Equal(ErrNegativeValue, errors.Cause(elp.SanityCheck()))
 	})
 }
 
@@ -113,41 +101,40 @@ func TestExecutionAccessList(t *testing.T) {
 	for _, v := range []struct {
 		list types.AccessList
 		gas  uint64
+		cost string
 	}{
-		{nil, 10400},
+		{nil, 10400, "100000020"},
 		{
 			types.AccessList{
 				{Address: common.Address{}, StorageKeys: nil},
-			}, 12800,
+			}, 12800, "2500000020",
 		},
 		{
 			types.AccessList{
 				{Address: _c2, StorageKeys: []common.Hash{{}, _k1}},
-			}, 16600,
+			}, 16600, "6300000020",
 		},
 		{
 			types.AccessList{
 				{Address: common.Address{}, StorageKeys: nil},
 				{Address: _c1, StorageKeys: []common.Hash{_k1, {}, _k3}},
 				{Address: _c2, StorageKeys: []common.Hash{_k2, _k3, _k4, _k1}},
-			}, 30900,
+			}, 30900, "20600000020",
 		},
 	} {
-		ex, err := NewExecutionWithAccessList(
+		ex := NewExecution(
 			identityset.Address(29).String(),
-			1,
 			big.NewInt(20),
-			uint64(100),
-			big.NewInt(1000000),
-			[]byte("test"),
-			v.list,
-		)
-		require.NoError(err)
+			[]byte("test"))
+		elp := (&EnvelopeBuilder{}).SetNonce(1).SetGasPrice(big.NewInt(1000000)).
+			SetAccessList(v.list).SetGasLimit(100).SetAction(ex).Build()
 		require.NoError(ex1.LoadProto(ex.Proto()))
-		ex1.AbstractAction = ex.AbstractAction
 		require.Equal(ex, ex1)
-		gas, err := ex.IntrinsicGas()
+		gas, err := elp.IntrinsicGas()
 		require.NoError(err)
 		require.Equal(v.gas, gas)
+		cost, err := elp.Cost()
+		require.NoError(err)
+		require.Equal(v.cost, cost.String())
 	}
 }

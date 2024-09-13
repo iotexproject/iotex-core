@@ -487,12 +487,13 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 		p := NewPatches()
 		defer p.Reset()
 
-		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
 		p = p.ApplyFuncReturn(accountutil.AccountState, nil, errors.New(t.Name()))
 
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
-
-		_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+		bc.EXPECT().TipHeight().Return(uint64(1)).Times(1)
+		bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).Times(1)
+		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
+		_, err := cs.EstimateExecutionGasConsumption(ctx, elp, &address.AddrV1{})
 		require.ErrorContains(err, t.Name())
 	})
 
@@ -500,12 +501,7 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 		p := NewPatches()
 		defer p.Reset()
 
-		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
 		p = p.ApplyFuncReturn(accountutil.AccountState, &state.Account{}, nil)
-		p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)
-		p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
-		p = p.ApplyFuncReturn(protocol.MustGetFeatureCtx, protocol.FeatureCtx{RefactorFreshAccountConversion: true})
-		p = p.ApplyMethodReturn(&state.Account{}, "PendingNonceConsideringFreshAccount", uint64(0))
 		p = p.ApplyMethodReturn(&genesis.Blockchain{}, "BlockGasLimitByHeight", uint64(0))
 		p = p.ApplyPrivateMethod(
 			cs,
@@ -519,10 +515,10 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 			},
 		)
 
-		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
-		bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
-
-		_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
+		bc.EXPECT().TipHeight().Return(uint64(0)).Times(1)
+		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
+		_, err := cs.EstimateExecutionGasConsumption(ctx, elp, &address.AddrV1{})
 		require.ErrorContains(err, t.Name())
 	})
 
@@ -532,13 +528,7 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 			defer p.Reset()
 
 			receipt := &action.Receipt{}
-			p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
 			p = p.ApplyFuncReturn(accountutil.AccountState, &state.Account{}, nil)
-			p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)
-			p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
-			p = p.ApplyFuncReturn(protocol.MustGetFeatureCtx, protocol.FeatureCtx{})
-			// pending nonce from state
-			p = p.ApplyMethodReturn(&state.Account{}, "PendingNonce", uint64(0))
 			p = p.ApplyMethodReturn(&genesis.Blockchain{}, "BlockGasLimitByHeight", uint64(0))
 			p = p.ApplyPrivateMethod(
 				cs,
@@ -553,10 +543,10 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 			)
 			p = p.ApplyMethodReturn(receipt, "ExecutionRevertMsg", "")
 
-			bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
-			bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
-
-			_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+			bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
+			bc.EXPECT().TipHeight().Return(uint64(0)).Times(1)
+			elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
+			_, err := cs.EstimateExecutionGasConsumption(ctx, elp, &address.AddrV1{})
 			require.ErrorContains(err, "execution simulation failed:")
 		})
 
@@ -565,13 +555,7 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 			defer p.Reset()
 
 			receipt := &action.Receipt{}
-			p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
 			p = p.ApplyFuncReturn(accountutil.AccountState, &state.Account{}, nil)
-			p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)
-			p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
-			p = p.ApplyFuncReturn(protocol.MustGetFeatureCtx, protocol.FeatureCtx{RefactorFreshAccountConversion: true})
-			// pending nonce from fresh account
-			p = p.ApplyMethodReturn(&state.Account{}, "PendingNonceConsideringFreshAccount", uint64(0))
 			p = p.ApplyMethodReturn(&genesis.Blockchain{}, "BlockGasLimitByHeight", uint64(0))
 			p = p.ApplyPrivateMethod(
 				cs,
@@ -586,10 +570,10 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 			)
 			p = p.ApplyMethodReturn(receipt, "ExecutionRevertMsg", "TestRevertMsg")
 
-			bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
-			bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
-
-			_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+			bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
+			bc.EXPECT().TipHeight().Return(uint64(0)).Times(1)
+			elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
+			_, err := cs.EstimateExecutionGasConsumption(ctx, elp, &address.AddrV1{})
 			require.ErrorContains(err, "execution simulation is reverted due to the reason:")
 		})
 	})
@@ -599,20 +583,19 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 		defer cleanCallback()
 
 		callAddr := identityset.Address(29)
-		sc, err := action.NewExecution("", 0, big.NewInt(0), 0, big.NewInt(0), []byte{})
-		require.NoError(err)
+		sc := action.NewExecution("", big.NewInt(0), []byte{})
 
 		//gasprice is zero
-		sc.SetGasPrice(big.NewInt(0))
-		estimatedGas, err := svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
+		elp := (&action.EnvelopeBuilder{}).SetAction(sc).Build()
+		estimatedGas, err := svr.EstimateExecutionGasConsumption(context.Background(), elp, callAddr)
 		require.NoError(err)
 		require.Equal(uint64(10000), estimatedGas)
 
-		//gasprice no zero, should return error before fixed
-		sc.SetGasPrice(big.NewInt(100))
-		estimatedGas, err = svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
-		require.NoError(err)
-		require.Equal(uint64(10000), estimatedGas)
+		//gasprice no zero, should return error
+		elp = (&action.EnvelopeBuilder{}).SetGasPrice(big.NewInt(100)).SetAction(sc).Build()
+		estimatedGas, err = svr.EstimateExecutionGasConsumption(context.Background(), elp, callAddr)
+		require.ErrorContains(err, "rpc error: code = Internal desc = insufficient funds for gas * price + value")
+		require.Zero(estimatedGas)
 	})
 }
 
@@ -786,16 +769,12 @@ func TestReverseActionsInBlock(t *testing.T) {
 		blk      = &block.Block{
 			Header: block.Header{},
 			Body: block.Body{
-				Actions: []*action.SealedEnvelope{&action.SealedEnvelope{Envelope: envelope}},
+				Actions: []*action.SealedEnvelope{{Envelope: envelope}},
 			},
 			Footer:   block.Footer{},
 			Receipts: nil,
 		}
-		receiptes = []*action.Receipt{
-			&action.Receipt{
-				ActionHash: hash.ZeroHash256,
-			},
-		}
+		receiptes = []*action.Receipt{{ActionHash: hash.ZeroHash256}}
 	)
 
 	t.Run("CheckParams", func(t *testing.T) {
@@ -1050,11 +1029,12 @@ func TestSimulateExecution(t *testing.T) {
 		p := NewPatches()
 		defer p.Reset()
 
-		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
 		p = p.ApplyFuncReturn(accountutil.AccountState, nil, errors.New(t.Name()))
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
-
-		_, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, &action.Execution{})
+		bc.EXPECT().TipHeight().Return(uint64(1)).Times(1)
+		bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).Times(1)
+		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
+		_, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, elp)
 		require.ErrorContains(err, t.Name())
 	})
 
@@ -1062,25 +1042,20 @@ func TestSimulateExecution(t *testing.T) {
 		p := NewPatches()
 		defer p.Reset()
 
-		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
 		p = p.ApplyFuncReturn(accountutil.AccountState, &state.Account{}, nil)
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
+		bc.EXPECT().TipHeight().Return(uint64(1)).Times(1)
 		bc.EXPECT().Context(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
-
-		_, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, &action.Execution{})
+		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
+		_, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, elp)
 		require.ErrorContains(err, t.Name())
 	})
 
-	t.Run("GetPendingNonceFromFreshAccount", func(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
 		p := NewPatches()
 		defer p.Reset()
 
-		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
 		p = p.ApplyFuncReturn(accountutil.AccountState, &state.Account{}, nil)
-		p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)
-		p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
-		p = p.ApplyFuncReturn(protocol.MustGetFeatureCtx, protocol.FeatureCtx{RefactorFreshAccountConversion: true})
-		p = p.ApplyMethodReturn(&state.Account{}, "PendingNonceConsideringFreshAccount", uint64(0))
 		p = p.ApplyMethodReturn(&genesis.Blockchain{}, "BlockGasLimitByHeight", uint64(0))
 		p = p.ApplyPrivateMethod(
 			cs,
@@ -1090,39 +1065,10 @@ func TestSimulateExecution(t *testing.T) {
 			},
 		)
 
-		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
-		bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).Times(1)
-		bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
-
-		bytes, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, &action.Execution{})
-		require.NoError(err)
-		require.Equal([]byte("success"), bytes)
-	})
-
-	t.Run("GetPendingNonce", func(t *testing.T) {
-		p := NewPatches()
-		defer p.Reset()
-
-		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
-		p = p.ApplyFuncReturn(accountutil.AccountState, &state.Account{}, nil)
-		p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)
-		p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
-		p = p.ApplyFuncReturn(protocol.MustGetFeatureCtx, protocol.FeatureCtx{})
-		p = p.ApplyMethodReturn(&state.Account{}, "PendingNonce", uint64(0))
-		p = p.ApplyMethodReturn(&genesis.Blockchain{}, "BlockGasLimitByHeight", uint64(0))
-		p = p.ApplyPrivateMethod(
-			cs,
-			"simulateExecution",
-			func(ctx context.Context, addr address.Address, exec *action.Execution, getBlockHash evm.GetBlockHash, getBlockTime evm.GetBlockTime) ([]byte, *action.Receipt, error) {
-				return []byte("success"), nil, nil
-			},
-		)
-
-		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
-		bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).Times(1)
-		bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
-
-		bytes, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, &action.Execution{})
+		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
+		bc.EXPECT().TipHeight().Return(uint64(0)).Times(1)
+		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
+		bytes, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, elp)
 		require.NoError(err)
 		require.Equal([]byte("success"), bytes)
 	})
@@ -1179,7 +1125,6 @@ func TestTraceTx(t *testing.T) {
 		p = p.ApplyFuncReturn(logger.NewStructLogger, nil)
 		p = p.ApplyFuncReturn(protocol.WithVMConfigCtx, ctx)
 		p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
-		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
 		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
 		p = p.ApplyFuncReturn(protocol.WithBlockchainCtx, ctx)
 		p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)
@@ -1227,7 +1172,6 @@ func TestTraceTx(t *testing.T) {
 		p = p.ApplyFuncReturn(logger.NewStructLogger, nil)
 		p = p.ApplyFuncReturn(protocol.WithVMConfigCtx, ctx)
 		p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
-		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
 		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
 		p = p.ApplyFuncReturn(protocol.WithBlockchainCtx, ctx)
 		p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)

@@ -17,22 +17,13 @@ func TestBody_CalculateTxRoot(t *testing.T) {
 	var sevlps []*action.SealedEnvelope
 
 	for i := 1; i <= 10; i++ {
-		tsf, _ := action.NewTransfer(
-			uint64(i),
+		tsf := action.NewTransfer(
 			unit.ConvertIotxToRau(1000+int64(i)),
 			identityset.Address(i%identityset.Size()).String(),
-			nil,
-			20000+uint64(i),
-			unit.ConvertIotxToRau(1+int64(i)),
-		)
+			nil)
 		eb := action.EnvelopeBuilder{}
-		evlp := eb.
-			SetAction(tsf).
-			SetGasLimit(tsf.GasLimit()).
-			SetGasPrice(tsf.GasPrice()).
-			SetNonce(tsf.Nonce()).
-			SetVersion(1).
-			Build()
+		evlp := eb.SetNonce(uint64(i)).SetGasPrice(unit.ConvertIotxToRau(1 + int64(i))).
+			SetGasLimit(20000 + uint64(i)).SetAction(tsf).Build()
 		sevlp, err := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()))
 		requireT.NoError(err)
 		sevlps = append(sevlps, sevlp)
@@ -53,22 +44,13 @@ func TestBody_CalculateTransferAmount(t *testing.T) {
 	transferAmount := big.NewInt(0)
 
 	for i := 1; i <= 10; i++ {
-		tsf, _ := action.NewTransfer(
-			uint64(i),
+		tsf := action.NewTransfer(
 			unit.ConvertIotxToRau(1000+int64(i)),
 			identityset.Address(i%identityset.Size()).String(),
-			nil,
-			20000+uint64(i),
-			unit.ConvertIotxToRau(1+int64(i)),
-		)
+			nil)
 		eb := action.EnvelopeBuilder{}
-		evlp := eb.
-			SetAction(tsf).
-			SetGasLimit(tsf.GasLimit()).
-			SetGasPrice(tsf.GasPrice()).
-			SetNonce(tsf.Nonce()).
-			SetVersion(1).
-			Build()
+		evlp := eb.SetNonce(uint64(i)).SetGasPrice(unit.ConvertIotxToRau(1 + int64(i))).
+			SetGasLimit(20000 + uint64(i)).SetAction(tsf).Build()
 		sevlp, err := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()))
 		requireT.NoError(err)
 		transferAmount.Add(transferAmount, tsf.Amount())
