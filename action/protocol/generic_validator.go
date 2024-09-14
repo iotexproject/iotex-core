@@ -91,12 +91,6 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 				return errors.Errorf("transaction cannot cover base fee, max fee = %s, base fee = %d",
 					selp.Envelope.GasFeeCap().String(), action.InitialBaseFee)
 			}
-			if selp.Envelope.GasFeeCap().BitLen() > 256 {
-				return errors.Wrap(action.ErrValueVeryHigh, "fee cap is too high")
-			}
-			if selp.Envelope.GasTipCap().BitLen() > 256 {
-				return errors.Wrap(action.ErrValueVeryHigh, "tip cap is too high")
-			}
 			if selp.Envelope.GasTipCap().Cmp(MinTipCap) < 0 {
 				return errors.Wrapf(action.ErrUnderpriced, "tip cap is too low: %s, min tip cap: %s", selp.Envelope.GasTipCap().String(), MinTipCap.String())
 			}

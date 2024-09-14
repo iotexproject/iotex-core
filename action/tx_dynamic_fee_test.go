@@ -1,15 +1,20 @@
 package action
 
 import (
+	"encoding/hex"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
-func TestDynamicFeeTx(t *testing.T) {
+func TestDynamicFeeTxSelf(t *testing.T) {
 	r := require.New(t)
 	acl := types.AccessList{
 		{Address: common.HexToAddress("0x1"), StorageKeys: []common.Hash{common.HexToHash("0x2")}},
@@ -35,8 +40,12 @@ func TestDynamicFeeTx(t *testing.T) {
 	r.Nil(tx.BlobGasFeeCap())
 	r.Len(tx.BlobHashes(), 0)
 	r.Nil(tx.BlobTxSidecar())
-	// case: toProto and fromProto
-	core := tx.toProto()
+	// case: serialization
+	b, err := proto.Marshal(tx.toProto())
+	r.NoError(err)
+	r.Equal("08031002180328013201343a01354a6c0a2830303030303030303030303030303030303030303030303030303030303030303030303030303031124030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303032", hex.EncodeToString(b))
+	core := &iotextypes.ActionCore{}
+	r.NoError(proto.Unmarshal(b, core))
 	tx2 := &DynamicFeeTx{}
 	r.NoError(tx2.fromProto(core))
 	r.Equal(tx, tx2)
@@ -53,4 +62,32 @@ func TestDynamicFeeTx(t *testing.T) {
 	r.Equal(uint64(3), tx.Nonce())
 	tx.setGas(4)
 	r.Equal(uint64(4), tx.Gas())
+}
+
+func TestDynamicFeeTxConvertion(t *testing.T) {
+	r := require.New(t)
+	acl := types.AccessList{
+		{Address: common.HexToAddress("0x1"), StorageKeys: []common.Hash{common.HexToHash("0x2")}},
+	}
+	builder := &EnvelopeBuilder{}
+	builder.SetChainID(1)
+	to := common.BytesToAddress(identityset.Address(1).Bytes())
+	tx, err := builder.BuildTransfer(types.NewTx(&types.DynamicFeeTx{
+		Nonce:      2,
+		Gas:        3,
+		GasTipCap:  big.NewInt(4),
+		GasFeeCap:  big.NewInt(5),
+		AccessList: acl,
+		Value:      big.NewInt(1),
+		To:         &to,
+	}))
+	r.NoError(err)
+	r.Equal(&DynamicFeeTx{
+		chainID:    1,
+		nonce:      2,
+		gasLimit:   3,
+		gasTipCap:  big.NewInt(4),
+		gasFeeCap:  big.NewInt(5),
+		accessList: acl,
+	}, tx.(*envelope).common)
 }

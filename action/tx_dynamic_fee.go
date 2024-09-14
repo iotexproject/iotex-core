@@ -38,11 +38,19 @@ func (tx *DynamicFeeTx) Gas() uint64 {
 }
 
 func (tx *DynamicFeeTx) GasTipCap() *big.Int {
-	return tx.gasTipCap
+	v := big.NewInt(0)
+	if tx.gasTipCap != nil {
+		v.Set(tx.gasTipCap)
+	}
+	return v
 }
 
 func (tx *DynamicFeeTx) GasFeeCap() *big.Int {
-	return tx.gasFeeCap
+	v := big.NewInt(0)
+	if tx.gasFeeCap != nil {
+		v.Set(tx.gasFeeCap)
+	}
+	return v
 }
 
 func (tx *DynamicFeeTx) AccessList() types.AccessList {
@@ -50,7 +58,7 @@ func (tx *DynamicFeeTx) AccessList() types.AccessList {
 }
 
 func (tx *DynamicFeeTx) GasPrice() *big.Int {
-	return tx.gasFeeCap
+	return tx.GasFeeCap()
 }
 
 func (tx *DynamicFeeTx) BlobGas() uint64 { return 0 }
@@ -73,6 +81,12 @@ func (tx *DynamicFeeTx) SanityCheck() error {
 	}
 	if tx.gasFeeCap.Cmp(tx.gasTipCap) < 0 {
 		return ErrGasTipOverFeeCap
+	}
+	if tx.gasFeeCap.BitLen() > 256 {
+		return errors.Wrap(ErrValueVeryHigh, "fee cap is too high")
+	}
+	if tx.gasTipCap.BitLen() > 256 {
+		return errors.Wrap(ErrValueVeryHigh, "tip cap is too high")
 	}
 	return nil
 }

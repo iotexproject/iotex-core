@@ -40,10 +40,9 @@ var (
 	ErrNilAction          = errors.New("nil action to load proto")
 	ErrInvalidAct         = errors.New("invalid action type")
 	ErrInvalidABI         = errors.New("invalid abi binary data")
-	// ErrGasTipOverFeeCap is the error when tip cap is greater than fee cap
-	ErrGasTipOverFeeCap  = errors.New("tip cap is greater than fee cap")
-	ErrMissRequiredField = errors.New("missing required field")
-	ErrValueVeryHigh     = errors.New("value is very high")
+	ErrGasTipOverFeeCap   = errors.New("tip cap is greater than fee cap")
+	ErrMissRequiredField  = errors.New("missing required field")
+	ErrValueVeryHigh      = errors.New("value is very high")
 )
 
 // LoadErrorDescription loads corresponding description related to the error

@@ -185,6 +185,15 @@ func (act *AbstractAction) convertToTx() TxCommonWithProto {
 			tx.gasPrice.Set(act.gasPrice)
 		}
 		return &tx
+	case DynamicFeeTxType:
+		return &DynamicFeeTx{
+			chainID:    act.chainID,
+			nonce:      act.nonce,
+			gasLimit:   act.gasLimit,
+			gasTipCap:  act.gasTipCap,
+			gasFeeCap:  act.gasFeeCap,
+			accessList: act.accessList,
+		}
 	default:
 		panic(fmt.Sprintf("unsupported action version = %d", act.version))
 	}
