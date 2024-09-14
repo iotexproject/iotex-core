@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
@@ -137,6 +138,12 @@ func (b *EnvelopeBuilder) SetAccessList(acl types.AccessList) *EnvelopeBuilder {
 	return b
 }
 
+func (b *EnvelopeBuilder) SetDynamicGas(feeCap, tipCap *big.Int) *EnvelopeBuilder {
+	b.ab.gasFeeCap = feeCap
+	b.ab.gasTipCap = tipCap
+	return b
+}
+
 // Build builds a new action.
 func (b *EnvelopeBuilder) Build() Envelope {
 	return b.build()
@@ -162,16 +169,39 @@ func (b *EnvelopeBuilder) BuildTransfer(tx *types.Transaction) (Envelope, error)
 	if tx.To() == nil {
 		return nil, ErrInvalidAct
 	}
-	b.setEnvelopeCommonFields(tx)
+	if err := b.setEnvelopeCommonFields(tx); err != nil {
+		return nil, err
+	}
 	b.elp.payload = NewTransfer(tx.Value(), getRecipientAddr(tx.To()), tx.Data())
 	return b.build(), nil
 }
 
-func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) {
+func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) error {
+	v, err := convertEthTxType(tx.Type())
+	if err != nil {
+		return err
+	}
+	b.ab.version = uint32(v)
 	b.ab.nonce = tx.Nonce()
 	b.ab.gasPrice = tx.GasPrice()
 	b.ab.gasLimit = tx.Gas()
 	b.ab.accessList = tx.AccessList()
+	b.ab.gasFeeCap = tx.GasFeeCap()
+	b.ab.gasTipCap = tx.GasTipCap()
+	return nil
+}
+
+func convertEthTxType(typ uint8) (int, error) {
+	switch typ {
+	case types.LegacyTxType:
+		return LegacyTxType, nil
+	case types.AccessListTxType:
+		return AccessListTxType, nil
+	case types.DynamicFeeTxType:
+		return DynamicFeeTxType, nil
+	default:
+		return 0, errors.Wrapf(ErrInvalidAct, "unsupported eth tx type %d", typ)
+	}
 }
 
 func getRecipientAddr(addr *common.Address) string {
@@ -184,7 +214,9 @@ func getRecipientAddr(addr *common.Address) string {
 
 // BuildExecution loads executino action into envelope
 func (b *EnvelopeBuilder) BuildExecution(tx *types.Transaction) (Envelope, error) {
-	b.setEnvelopeCommonFields(tx)
+	if err := b.setEnvelopeCommonFields(tx); err != nil {
+		return nil, err
+	}
 	b.elp.payload = NewExecution(getRecipientAddr(tx.To()), tx.Value(), tx.Data())
 	return b.build(), nil
 }
@@ -194,7 +226,9 @@ func (b *EnvelopeBuilder) BuildStakingAction(tx *types.Transaction) (Envelope, e
 	if !bytes.Equal(tx.To().Bytes(), _stakingProtocolEthAddr.Bytes()) {
 		return nil, ErrInvalidAct
 	}
-	b.setEnvelopeCommonFields(tx)
+	if err := b.setEnvelopeCommonFields(tx); err != nil {
+		return nil, err
+	}
 	act, err := newStakingActionFromABIBinary(tx.Data())
 	if err != nil {
 		return nil, err
@@ -208,7 +242,9 @@ func (b *EnvelopeBuilder) BuildRewardingAction(tx *types.Transaction) (Envelope,
 	if !bytes.Equal(tx.To().Bytes(), _rewardingProtocolEthAddr.Bytes()) {
 		return nil, ErrInvalidAct
 	}
-	b.setEnvelopeCommonFields(tx)
+	if err := b.setEnvelopeCommonFields(tx); err != nil {
+		return nil, err
+	}
 	act, err := newRewardingActionFromABIBinary(tx.Data())
 	if err != nil {
 		return nil, err
