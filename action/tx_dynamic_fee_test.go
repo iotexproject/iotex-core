@@ -64,7 +64,7 @@ func TestDynamicFeeTxSelf(t *testing.T) {
 	r.Equal(uint64(4), tx.Gas())
 }
 
-func TestDynamicFeeTxConvertion(t *testing.T) {
+func TestDynamicFeeTxFromEth(t *testing.T) {
 	r := require.New(t)
 	acl := types.AccessList{
 		{Address: common.HexToAddress("0x1"), StorageKeys: []common.Hash{common.HexToHash("0x2")}},
@@ -90,4 +90,8 @@ func TestDynamicFeeTxConvertion(t *testing.T) {
 		gasFeeCap:  big.NewInt(5),
 		accessList: acl,
 	}, tx.(*envelope).common)
+	tx.Proto()
+	tx2 := &envelope{}
+	r.NoError(tx2.LoadProto(tx.Proto()))
+	r.Equal(tx, tx2)
 }
