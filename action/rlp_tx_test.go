@@ -288,6 +288,14 @@ var (
 			MustNoErrorV(hex.DecodeString("120f99ad0000000000000000000000000000000000000000000000000000000000000002")),
 			"0ae11105b673835c4b612f98ab748d5b4e9aa1e779f404866658476fd230c33f",
 		},
+		{
+			"accesslist", 120, 21000, "1000000000", "0",
+			"0x3141df3f2e4415533bb6d6be2A351B2db9ee84EF",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			nil,
+			"b30463d727248560e17d82764604fa64b2161f3bdb53434a6afd15fc64a42918",
+		},
 	}
 )
 
@@ -330,17 +338,25 @@ func TestEthTxDecodeVerify(t *testing.T) {
 			require.Equal(v.encoding, encoding)
 			V, _, _ := tx.RawSignatureValues()
 			recID := V.Uint64()
-			if encoding == iotextypes.Encoding_ETHEREUM_EIP155 {
-				require.EqualValues(types.LegacyTxType, tx.Type())
-				require.True(tx.Protected())
-				require.Less(uint64(28), recID)
-			} else if encoding == iotextypes.Encoding_ETHEREUM_UNPROTECTED {
+			if encoding == iotextypes.Encoding_ETHEREUM_UNPROTECTED {
 				require.EqualValues(types.LegacyTxType, tx.Type())
 				require.False(tx.Protected())
 				require.Zero(tx.ChainId().Uint64())
 				// unprotected tx has V = 27, 28
 				require.True(27 == recID || 28 == recID)
 				require.True(27 == sig[64] || 28 == sig[64])
+			} else {
+				require.Equal(iotextypes.Encoding_ETHEREUM_EIP155, encoding)
+				switch tx.Type() {
+				case types.LegacyTxType:
+					require.True(tx.Protected())
+					require.Less(uint64(28), recID)
+				case types.AccessListTxType:
+					require.True(tx.Protected())
+					// // accesslist tx has V = 0, 1
+					require.LessOrEqual(recID, uint64(1))
+					require.True(27 == sig[64] || 28 == sig[64])
+				}
 			}
 			require.EqualValues(v.chainID, tx.ChainId().Uint64())
 			if v.actType == "unprotected" {
@@ -431,6 +447,12 @@ func TestEthTxDecodeVerify(t *testing.T) {
 					require.Equal(v.data, evmTx.Data())
 				} else {
 					require.Zero(len(evmTx.Data()))
+				}
+				switch tx.Type() {
+				case types.LegacyTxType:
+					require.Nil(tx.AccessList())
+				case types.AccessListTxType:
+					require.Equal(3, len(tx.AccessList()))
 				}
 			}
 		})
@@ -931,23 +953,39 @@ func generateRLPTestRaw(sk *ecdsa.PrivateKey, test *rlpTest) string {
 	}
 	switch test.actType {
 	case "transfer", "execution":
+		fallthrough
 	case "stakeCreate", "stakeAddDeposit", "unstake", "withdrawStake", "restake",
 		"transferStake", "changeCandidate", "candidateRegister", "candidateUpdate",
 		"candidateActivate", "candidateTransferOwnership", "migrateStake", "endorseCandidate",
 		"candidateEndorsement", "intentToRevokeEndorsement", "revokeEndorsement":
+		fallthrough
 	case "rewardingClaim", "rewardingClaimWithAddress", "rewardingDeposit":
+		tx = &types.LegacyTx{
+			Nonce:    test.nonce,
+			GasPrice: MustBeTrueV(new(big.Int).SetString(test.price, 10)),
+			Gas:      test.limit,
+			To:       to,
+			Value:    MustBeTrueV(new(big.Int).SetString(test.amount, 10)),
+			Data:     test.data,
+		}
 	case "unprotected":
 		return deterministicDeploymentTx
+	case "accesslist":
+		tx = &types.AccessListTx{
+			Nonce:    test.nonce,
+			GasPrice: MustBeTrueV(new(big.Int).SetString(test.price, 10)),
+			Gas:      test.limit,
+			To:       to,
+			Value:    MustBeTrueV(new(big.Int).SetString(test.amount, 10)),
+			Data:     test.data,
+			AccessList: types.AccessList{
+				{Address: common.Address{}, StorageKeys: nil},
+				{Address: _c1, StorageKeys: []common.Hash{_k1, {}, _k3}},
+				{Address: _c2, StorageKeys: []common.Hash{_k2, _k3, _k4, _k1}},
+			},
+		}
 	default:
 		panic("not supported")
-	}
-	tx = &types.LegacyTx{
-		Nonce:    test.nonce,
-		GasPrice: MustBeTrueV(new(big.Int).SetString(test.price, 10)),
-		Gas:      test.limit,
-		To:       to,
-		Value:    MustBeTrueV(new(big.Int).SetString(test.amount, 10)),
-		Data:     test.data,
 	}
 	signer := types.NewCancunSigner(big.NewInt(int64(test.chainID)))
 	signedtx := types.MustSignNewTx(sk, signer, tx)

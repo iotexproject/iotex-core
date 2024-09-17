@@ -39,6 +39,8 @@ func (etx *txContainer) typeToEncoding() (iotextypes.Encoding, error) {
 			// tx has pre-EIP155 signature
 			return iotextypes.Encoding_ETHEREUM_UNPROTECTED, nil
 		}
+	case types.AccessListTxType:
+		return iotextypes.Encoding_ETHEREUM_EIP155, nil
 	default:
 		return 0, ErrNotSupported
 	}

@@ -221,16 +221,47 @@ func (elp *envelope) Action() Action { return elp.payload }
 
 // ToEthTx converts to Ethereum tx
 func (elp *envelope) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
-	switch {
-	// TODO: handle dynamic fee tx and blob tx
-	case encoding == iotextypes.Encoding_IOTEX_PROTOBUF:
-		// treat native tx as EVM LegacyTx
-		fallthrough
-	case encoding == iotextypes.Encoding_ETHEREUM_EIP155 || encoding == iotextypes.Encoding_ETHEREUM_UNPROTECTED:
-		return toLegacyEthTx(elp.common, elp.Action())
-	default:
-		return nil, errors.Wrapf(ErrInvalidAct, "unsupported encoding type %v", encoding)
+	tx, ok := elp.Action().(EthCompatibleAction)
+	if !ok {
+		// action type not supported
+		return nil, ErrInvalidAct
 	}
+	to, err := tx.EthTo()
+	if err != nil {
+		return nil, err
+	}
+	data, err := tx.EthData()
+	if err != nil {
+		return nil, err
+	}
+	var (
+		common = elp.common
+		txdata types.TxData
+	)
+	switch common.Version() {
+	case LegacyTxType:
+		txdata = &types.LegacyTx{
+			Nonce:    common.Nonce(),
+			GasPrice: common.GasPrice(),
+			Gas:      common.Gas(),
+			To:       to,
+			Value:    tx.Value(),
+			Data:     data,
+		}
+	case AccessListTxType:
+		txdata = &types.AccessListTx{
+			Nonce:      common.Nonce(),
+			GasPrice:   common.GasPrice(),
+			Gas:        common.Gas(),
+			To:         to,
+			Value:      tx.Value(),
+			Data:       data,
+			AccessList: common.AccessList(),
+		}
+	default:
+		return nil, errors.Wrapf(ErrInvalidAct, "unsupported type = %v", common.Version())
+	}
+	return types.NewTx(txdata), nil
 }
 
 // Proto convert Envelope to protobuf format.

@@ -277,7 +277,6 @@ func readExecution(
 	builder := (&action.EnvelopeBuilder{}).SetGasPrice(ecfg.GasPrice()).SetGasLimit(ecfg.GasLimit()).
 		SetNonce(state.PendingNonce()).SetAction(exec)
 	if len(ecfg.AccessList()) > 0 {
-		println("read acl")
 		builder.SetVersion(action.AccessListTxType).SetAccessList(ecfg.AccessList())
 	}
 	elp := builder.Build()
@@ -331,7 +330,6 @@ func (sct *SmartContractTest) runExecutions(
 			builder.SetChainID(bc.ChainID())
 		}
 		if len(ecfg.AccessList()) > 0 {
-			println("write acl")
 			builder.SetVersion(action.AccessListTxType).SetAccessList(ecfg.AccessList())
 		}
 		elp := builder.Build()
