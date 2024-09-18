@@ -76,6 +76,9 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	if receipt.BlobGasPrice != nil {
 		r.BlobGasPrice = receipt.BlobGasPrice.String()
 	}
+	if receipt.EffectiveGasPrice != nil {
+		r.EffectiveGasPrice = receipt.EffectiveGasPrice.String()
+	}
 	return r
 }
 
@@ -98,6 +101,10 @@ func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iotextypes.Receipt) {
 	if pbReceipt.GetBlobGasPrice() != "" {
 		receipt.BlobGasPrice = new(big.Int)
 		receipt.BlobGasPrice.SetString(pbReceipt.GetBlobGasPrice(), 10)
+	}
+	if pbReceipt.GetEffectiveGasPrice() != "" {
+		receipt.EffectiveGasPrice = new(big.Int)
+		receipt.EffectiveGasPrice.SetString(pbReceipt.GetEffectiveGasPrice(), 10)
 	}
 }
 

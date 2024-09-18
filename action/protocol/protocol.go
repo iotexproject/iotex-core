@@ -147,3 +147,10 @@ func SplitGas(ctx context.Context, tx action.TxDynamicGas, usedGas uint64) (*big
 	base := new(big.Int).Set(baseFee)
 	return priority.Mul(priority, gas), base.Mul(base, gas), nil
 }
+
+func EffectiveGasPrice(ctx context.Context, tx action.TxCommon) *big.Int {
+	if !MustGetFeatureCtx(ctx).EnableDynamicFeeTx {
+		return nil
+	}
+	return tx.EffectiveGasPrice(MustGetBlockCtx(ctx).PrevBaseFee)
+}

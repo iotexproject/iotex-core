@@ -244,6 +244,7 @@ func ExecuteContract(
 	}
 
 	receipt.Status = uint64(statusCode)
+	receipt.EffectiveGasPrice = protocol.EffectiveGasPrice(ctx, execution)
 	var (
 		depositLog  []*action.TransactionLog
 		burnLog     *action.TransactionLog
