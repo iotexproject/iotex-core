@@ -55,7 +55,7 @@ type (
 		TxBlob
 	}
 
-	TxCommonWithProto interface {
+	TxCommonInternal interface {
 		TxCommon
 		Version() uint32
 		ChainID() uint32
@@ -64,6 +64,7 @@ type (
 		setNonce(uint64)
 		setGas(uint64)
 		setChainID(uint32)
+		toEthTx(*common.Address, *big.Int, []byte) *types.Transaction
 	}
 
 	TxDynamicGas interface {
@@ -79,7 +80,7 @@ type (
 	}
 
 	envelope struct {
-		common  TxCommonWithProto
+		common  TxCommonInternal
 		payload actionPayload
 	}
 )
@@ -234,34 +235,7 @@ func (elp *envelope) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) 
 	if err != nil {
 		return nil, err
 	}
-	var (
-		common = elp.common
-		txdata types.TxData
-	)
-	switch common.Version() {
-	case LegacyTxType:
-		txdata = &types.LegacyTx{
-			Nonce:    common.Nonce(),
-			GasPrice: common.GasPrice(),
-			Gas:      common.Gas(),
-			To:       to,
-			Value:    tx.Value(),
-			Data:     data,
-		}
-	case AccessListTxType:
-		txdata = &types.AccessListTx{
-			Nonce:      common.Nonce(),
-			GasPrice:   common.GasPrice(),
-			Gas:        common.Gas(),
-			To:         to,
-			Value:      tx.Value(),
-			Data:       data,
-			AccessList: common.AccessList(),
-		}
-	default:
-		return nil, errors.Wrapf(ErrInvalidAct, "unsupported type = %v", common.Version())
-	}
-	return types.NewTx(txdata), nil
+	return elp.common.toEthTx(to, tx.Value(), data), nil
 }
 
 // Proto convert Envelope to protobuf format.

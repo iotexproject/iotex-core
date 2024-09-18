@@ -15,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+var _ TxCommonInternal = (*AccessListTx)(nil)
+
 // AccessListTx represents EIP-2930 access list transaction
 type AccessListTx struct {
 	chainID    uint32
@@ -160,4 +162,16 @@ func (tx *AccessListTx) setGas(gas uint64) {
 
 func (tx *AccessListTx) setChainID(n uint32) {
 	tx.chainID = n
+}
+
+func (tx *AccessListTx) toEthTx(to *common.Address, value *big.Int, data []byte) *types.Transaction {
+	return types.NewTx(&types.AccessListTx{
+		Nonce:      tx.nonce,
+		GasPrice:   tx.price(),
+		Gas:        tx.gasLimit,
+		To:         to,
+		Value:      value,
+		Data:       data,
+		AccessList: tx.accessList,
+	})
 }

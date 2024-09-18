@@ -56,7 +56,7 @@ func NewEthSigner(txType iotextypes.Encoding, chainID uint32) (types.Signer, err
 		// native tx use same signature format as that of Homestead (for pre-EIP155 unprotected tx)
 		return types.HomesteadSigner{}, nil
 	case iotextypes.Encoding_ETHEREUM_EIP155:
-		return types.NewEIP2930Signer(big.NewInt(int64(chainID))), nil
+		return types.NewCancunSigner(big.NewInt(int64(chainID))), nil
 	default:
 		return nil, ErrInvalidAct
 	}
@@ -85,7 +85,7 @@ func DecodeEtherTx(rawData string) (*types.Transaction, error) {
 func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, crypto.PublicKey, error) {
 	var (
 		encoding = iotextypes.Encoding_ETHEREUM_EIP155
-		signer   = types.NewEIP2930Signer(tx.ChainId()) // by default assume latest signer
+		signer   = types.NewCancunSigner(tx.ChainId()) // by default assume latest signer
 		V, R, S  = tx.RawSignatureValues()
 	)
 	// extract correct V value
@@ -100,9 +100,10 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 			encoding = iotextypes.Encoding_ETHEREUM_UNPROTECTED
 			signer = types.HomesteadSigner{}
 		}
-	case types.AccessListTxType:
-		// AL txs are defined to use 0 and 1 as their recovery
-		// id, add 27 to become equivalent to unprotected Homestead signatures.
+	case types.AccessListTxType, types.DynamicFeeTxType:
+		// AL txs are defined to use 0 and 1 as their recovery id,
+		// DynamicFee txs are defined to use 0 and 1 as their recovery id,
+		// add 27 to become equivalent to unprotected Homestead signatures.
 		V = new(big.Int).Add(V, big.NewInt(27))
 	default:
 		return encoding, nil, nil, ErrNotSupported

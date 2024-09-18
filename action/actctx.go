@@ -161,7 +161,7 @@ func (act *AbstractAction) fromProto(pb *iotextypes.ActionCore) error {
 	return nil
 }
 
-func (act *AbstractAction) convertToTx() TxCommonWithProto {
+func (act *AbstractAction) convertToTx() TxCommonInternal {
 	switch act.version {
 	case LegacyTxType:
 		tx := LegacyTx{

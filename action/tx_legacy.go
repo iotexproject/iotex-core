@@ -14,6 +14,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+var _ TxCommonInternal = (*LegacyTx)(nil)
+
 // LegacyTx is the legacy transaction
 type LegacyTx struct {
 	chainID  uint32
@@ -116,4 +118,15 @@ func (tx *LegacyTx) setGas(gas uint64) {
 
 func (tx *LegacyTx) setChainID(n uint32) {
 	tx.chainID = n
+}
+
+func (tx *LegacyTx) toEthTx(to *common.Address, value *big.Int, data []byte) *types.Transaction {
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    tx.nonce,
+		GasPrice: tx.price(),
+		Gas:      tx.gasLimit,
+		To:       to,
+		Value:    value,
+		Data:     data,
+	})
 }

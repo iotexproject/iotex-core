@@ -168,7 +168,7 @@ func TestEthTxUtils(t *testing.T) {
 	var (
 		signer1, _ = NewEthSigner(iotextypes.Encoding_ETHEREUM_EIP155, chainID)
 		sig1, _    = sk1.Sign(tx.Hash().Bytes())
-		signer2    = types.NewEIP2930Signer(big.NewInt(int64(chainID)))
+		signer2    = types.NewCancunSigner(big.NewInt(int64(chainID)))
 		sig2, _    = ethercrypto.Sign(tx.Hash().Bytes(), sk2)
 	)
 	r.Equal(signer1, signer2)

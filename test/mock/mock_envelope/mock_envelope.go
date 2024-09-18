@@ -782,31 +782,31 @@ func (mr *MockTxCommonMockRecorder) Nonce() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockTxCommon)(nil).Nonce))
 }
 
-// MockTxCommonWithProto is a mock of TxCommonWithProto interface.
-type MockTxCommonWithProto struct {
+// MockTxCommonInternal is a mock of TxCommonInternal interface.
+type MockTxCommonInternal struct {
 	ctrl     *gomock.Controller
-	recorder *MockTxCommonWithProtoMockRecorder
+	recorder *MockTxCommonInternalMockRecorder
 }
 
-// MockTxCommonWithProtoMockRecorder is the mock recorder for MockTxCommonWithProto.
-type MockTxCommonWithProtoMockRecorder struct {
-	mock *MockTxCommonWithProto
+// MockTxCommonInternalMockRecorder is the mock recorder for MockTxCommonInternal.
+type MockTxCommonInternalMockRecorder struct {
+	mock *MockTxCommonInternal
 }
 
-// NewMockTxCommonWithProto creates a new mock instance.
-func NewMockTxCommonWithProto(ctrl *gomock.Controller) *MockTxCommonWithProto {
-	mock := &MockTxCommonWithProto{ctrl: ctrl}
-	mock.recorder = &MockTxCommonWithProtoMockRecorder{mock}
+// NewMockTxCommonInternal creates a new mock instance.
+func NewMockTxCommonInternal(ctrl *gomock.Controller) *MockTxCommonInternal {
+	mock := &MockTxCommonInternal{ctrl: ctrl}
+	mock.recorder = &MockTxCommonInternalMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockTxCommonWithProto) EXPECT() *MockTxCommonWithProtoMockRecorder {
+func (m *MockTxCommonInternal) EXPECT() *MockTxCommonInternalMockRecorder {
 	return m.recorder
 }
 
 // AccessList mocks base method.
-func (m *MockTxCommonWithProto) AccessList() types.AccessList {
+func (m *MockTxCommonInternal) AccessList() types.AccessList {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AccessList")
 	ret0, _ := ret[0].(types.AccessList)
@@ -814,13 +814,13 @@ func (m *MockTxCommonWithProto) AccessList() types.AccessList {
 }
 
 // AccessList indicates an expected call of AccessList.
-func (mr *MockTxCommonWithProtoMockRecorder) AccessList() *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) AccessList() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccessList", reflect.TypeOf((*MockTxCommonWithProto)(nil).AccessList))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccessList", reflect.TypeOf((*MockTxCommonInternal)(nil).AccessList))
 }
 
 // BlobGas mocks base method.
-func (m *MockTxCommonWithProto) BlobGas() uint64 {
+func (m *MockTxCommonInternal) BlobGas() uint64 {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlobGas")
 	ret0, _ := ret[0].(uint64)
@@ -828,13 +828,13 @@ func (m *MockTxCommonWithProto) BlobGas() uint64 {
 }
 
 // BlobGas indicates an expected call of BlobGas.
-func (mr *MockTxCommonWithProtoMockRecorder) BlobGas() *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) BlobGas() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGas", reflect.TypeOf((*MockTxCommonWithProto)(nil).BlobGas))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGas", reflect.TypeOf((*MockTxCommonInternal)(nil).BlobGas))
 }
 
 // BlobGasFeeCap mocks base method.
-func (m *MockTxCommonWithProto) BlobGasFeeCap() *big.Int {
+func (m *MockTxCommonInternal) BlobGasFeeCap() *big.Int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlobGasFeeCap")
 	ret0, _ := ret[0].(*big.Int)
@@ -842,13 +842,13 @@ func (m *MockTxCommonWithProto) BlobGasFeeCap() *big.Int {
 }
 
 // BlobGasFeeCap indicates an expected call of BlobGasFeeCap.
-func (mr *MockTxCommonWithProtoMockRecorder) BlobGasFeeCap() *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) BlobGasFeeCap() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGasFeeCap", reflect.TypeOf((*MockTxCommonWithProto)(nil).BlobGasFeeCap))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGasFeeCap", reflect.TypeOf((*MockTxCommonInternal)(nil).BlobGasFeeCap))
 }
 
 // BlobHashes mocks base method.
-func (m *MockTxCommonWithProto) BlobHashes() []common.Hash {
+func (m *MockTxCommonInternal) BlobHashes() []common.Hash {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlobHashes")
 	ret0, _ := ret[0].([]common.Hash)
@@ -856,13 +856,13 @@ func (m *MockTxCommonWithProto) BlobHashes() []common.Hash {
 }
 
 // BlobHashes indicates an expected call of BlobHashes.
-func (mr *MockTxCommonWithProtoMockRecorder) BlobHashes() *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) BlobHashes() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobHashes", reflect.TypeOf((*MockTxCommonWithProto)(nil).BlobHashes))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobHashes", reflect.TypeOf((*MockTxCommonInternal)(nil).BlobHashes))
 }
 
 // BlobTxSidecar mocks base method.
-func (m *MockTxCommonWithProto) BlobTxSidecar() *types.BlobTxSidecar {
+func (m *MockTxCommonInternal) BlobTxSidecar() *types.BlobTxSidecar {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlobTxSidecar")
 	ret0, _ := ret[0].(*types.BlobTxSidecar)
@@ -870,13 +870,13 @@ func (m *MockTxCommonWithProto) BlobTxSidecar() *types.BlobTxSidecar {
 }
 
 // BlobTxSidecar indicates an expected call of BlobTxSidecar.
-func (mr *MockTxCommonWithProtoMockRecorder) BlobTxSidecar() *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) BlobTxSidecar() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobTxSidecar", reflect.TypeOf((*MockTxCommonWithProto)(nil).BlobTxSidecar))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobTxSidecar", reflect.TypeOf((*MockTxCommonInternal)(nil).BlobTxSidecar))
 }
 
 // ChainID mocks base method.
-func (m *MockTxCommonWithProto) ChainID() uint32 {
+func (m *MockTxCommonInternal) ChainID() uint32 {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ChainID")
 	ret0, _ := ret[0].(uint32)
@@ -884,13 +884,13 @@ func (m *MockTxCommonWithProto) ChainID() uint32 {
 }
 
 // ChainID indicates an expected call of ChainID.
-func (mr *MockTxCommonWithProtoMockRecorder) ChainID() *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) ChainID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockTxCommonWithProto)(nil).ChainID))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockTxCommonInternal)(nil).ChainID))
 }
 
 // Gas mocks base method.
-func (m *MockTxCommonWithProto) Gas() uint64 {
+func (m *MockTxCommonInternal) Gas() uint64 {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Gas")
 	ret0, _ := ret[0].(uint64)
@@ -898,13 +898,13 @@ func (m *MockTxCommonWithProto) Gas() uint64 {
 }
 
 // Gas indicates an expected call of Gas.
-func (mr *MockTxCommonWithProtoMockRecorder) Gas() *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) Gas() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gas", reflect.TypeOf((*MockTxCommonWithProto)(nil).Gas))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gas", reflect.TypeOf((*MockTxCommonInternal)(nil).Gas))
 }
 
 // GasFeeCap mocks base method.
-func (m *MockTxCommonWithProto) GasFeeCap() *big.Int {
+func (m *MockTxCommonInternal) GasFeeCap() *big.Int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GasFeeCap")
 	ret0, _ := ret[0].(*big.Int)
@@ -912,13 +912,13 @@ func (m *MockTxCommonWithProto) GasFeeCap() *big.Int {
 }
 
 // GasFeeCap indicates an expected call of GasFeeCap.
-func (mr *MockTxCommonWithProtoMockRecorder) GasFeeCap() *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) GasFeeCap() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasFeeCap", reflect.TypeOf((*MockTxCommonWithProto)(nil).GasFeeCap))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasFeeCap", reflect.TypeOf((*MockTxCommonInternal)(nil).GasFeeCap))
 }
 
 // GasPrice mocks base method.
-func (m *MockTxCommonWithProto) GasPrice() *big.Int {
+func (m *MockTxCommonInternal) GasPrice() *big.Int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GasPrice")
 	ret0, _ := ret[0].(*big.Int)
@@ -926,13 +926,13 @@ func (m *MockTxCommonWithProto) GasPrice() *big.Int {
 }
 
 // GasPrice indicates an expected call of GasPrice.
-func (mr *MockTxCommonWithProtoMockRecorder) GasPrice() *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) GasPrice() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasPrice", reflect.TypeOf((*MockTxCommonWithProto)(nil).GasPrice))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasPrice", reflect.TypeOf((*MockTxCommonInternal)(nil).GasPrice))
 }
 
 // GasTipCap mocks base method.
-func (m *MockTxCommonWithProto) GasTipCap() *big.Int {
+func (m *MockTxCommonInternal) GasTipCap() *big.Int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GasTipCap")
 	ret0, _ := ret[0].(*big.Int)
@@ -940,13 +940,13 @@ func (m *MockTxCommonWithProto) GasTipCap() *big.Int {
 }
 
 // GasTipCap indicates an expected call of GasTipCap.
-func (mr *MockTxCommonWithProtoMockRecorder) GasTipCap() *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) GasTipCap() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasTipCap", reflect.TypeOf((*MockTxCommonWithProto)(nil).GasTipCap))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasTipCap", reflect.TypeOf((*MockTxCommonInternal)(nil).GasTipCap))
 }
 
 // Nonce mocks base method.
-func (m *MockTxCommonWithProto) Nonce() uint64 {
+func (m *MockTxCommonInternal) Nonce() uint64 {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Nonce")
 	ret0, _ := ret[0].(uint64)
@@ -954,13 +954,13 @@ func (m *MockTxCommonWithProto) Nonce() uint64 {
 }
 
 // Nonce indicates an expected call of Nonce.
-func (mr *MockTxCommonWithProtoMockRecorder) Nonce() *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) Nonce() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockTxCommonWithProto)(nil).Nonce))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockTxCommonInternal)(nil).Nonce))
 }
 
 // SanityCheck mocks base method.
-func (m *MockTxCommonWithProto) SanityCheck() error {
+func (m *MockTxCommonInternal) SanityCheck() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SanityCheck")
 	ret0, _ := ret[0].(error)
@@ -968,13 +968,13 @@ func (m *MockTxCommonWithProto) SanityCheck() error {
 }
 
 // SanityCheck indicates an expected call of SanityCheck.
-func (mr *MockTxCommonWithProtoMockRecorder) SanityCheck() *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) SanityCheck() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SanityCheck", reflect.TypeOf((*MockTxCommonWithProto)(nil).SanityCheck))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SanityCheck", reflect.TypeOf((*MockTxCommonInternal)(nil).SanityCheck))
 }
 
 // Version mocks base method.
-func (m *MockTxCommonWithProto) Version() uint32 {
+func (m *MockTxCommonInternal) Version() uint32 {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Version")
 	ret0, _ := ret[0].(uint32)
@@ -982,49 +982,63 @@ func (m *MockTxCommonWithProto) Version() uint32 {
 }
 
 // Version indicates an expected call of Version.
-func (mr *MockTxCommonWithProtoMockRecorder) Version() *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) Version() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockTxCommonWithProto)(nil).Version))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockTxCommonInternal)(nil).Version))
 }
 
 // setChainID mocks base method.
-func (m *MockTxCommonWithProto) setChainID(arg0 uint32) {
+func (m *MockTxCommonInternal) setChainID(arg0 uint32) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "setChainID", arg0)
 }
 
 // setChainID indicates an expected call of setChainID.
-func (mr *MockTxCommonWithProtoMockRecorder) setChainID(arg0 interface{}) *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) setChainID(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "setChainID", reflect.TypeOf((*MockTxCommonWithProto)(nil).setChainID), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "setChainID", reflect.TypeOf((*MockTxCommonInternal)(nil).setChainID), arg0)
 }
 
 // setGas mocks base method.
-func (m *MockTxCommonWithProto) setGas(arg0 uint64) {
+func (m *MockTxCommonInternal) setGas(arg0 uint64) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "setGas", arg0)
 }
 
 // setGas indicates an expected call of setGas.
-func (mr *MockTxCommonWithProtoMockRecorder) setGas(arg0 interface{}) *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) setGas(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "setGas", reflect.TypeOf((*MockTxCommonWithProto)(nil).setGas), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "setGas", reflect.TypeOf((*MockTxCommonInternal)(nil).setGas), arg0)
 }
 
 // setNonce mocks base method.
-func (m *MockTxCommonWithProto) setNonce(arg0 uint64) {
+func (m *MockTxCommonInternal) setNonce(arg0 uint64) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "setNonce", arg0)
 }
 
 // setNonce indicates an expected call of setNonce.
-func (mr *MockTxCommonWithProtoMockRecorder) setNonce(arg0 interface{}) *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) setNonce(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "setNonce", reflect.TypeOf((*MockTxCommonWithProto)(nil).setNonce), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "setNonce", reflect.TypeOf((*MockTxCommonInternal)(nil).setNonce), arg0)
+}
+
+// toEthTx mocks base method.
+func (m *MockTxCommonInternal) toEthTx(arg0 *common.Address, arg1 *big.Int, arg2 []byte) *types.Transaction {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "toEthTx", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*types.Transaction)
+	return ret0
+}
+
+// toEthTx indicates an expected call of toEthTx.
+func (mr *MockTxCommonInternalMockRecorder) toEthTx(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "toEthTx", reflect.TypeOf((*MockTxCommonInternal)(nil).toEthTx), arg0, arg1, arg2)
 }
 
 // toProto mocks base method.
-func (m *MockTxCommonWithProto) toProto() *iotextypes.ActionCore {
+func (m *MockTxCommonInternal) toProto() *iotextypes.ActionCore {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "toProto")
 	ret0, _ := ret[0].(*iotextypes.ActionCore)
@@ -1032,9 +1046,9 @@ func (m *MockTxCommonWithProto) toProto() *iotextypes.ActionCore {
 }
 
 // toProto indicates an expected call of toProto.
-func (mr *MockTxCommonWithProtoMockRecorder) toProto() *gomock.Call {
+func (mr *MockTxCommonInternalMockRecorder) toProto() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "toProto", reflect.TypeOf((*MockTxCommonWithProto)(nil).toProto))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "toProto", reflect.TypeOf((*MockTxCommonInternal)(nil).toProto))
 }
 
 // MockTxDynamicGas is a mock of TxDynamicGas interface.

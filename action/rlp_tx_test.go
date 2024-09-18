@@ -296,6 +296,14 @@ var (
 			nil,
 			"b30463d727248560e17d82764604fa64b2161f3bdb53434a6afd15fc64a42918",
 		},
+		{
+			"dynamicfee", 120, 21000, "1000000000", "0",
+			"0x3141df3f2e4415533bb6d6be2A351B2db9ee84EF",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			nil,
+			"46e367af6c609032b85e7d3f40f0af3fcb59779b55d92eefea2ee1dbdaca41fa",
+		},
 	}
 )
 
@@ -435,7 +443,6 @@ func TestEthTxDecodeVerify(t *testing.T) {
 				require.NoError(err)
 				// verify against original tx
 				require.Equal(v.nonce, evmTx.Nonce())
-				require.Equal(v.price, evmTx.GasPrice().String())
 				require.Equal(v.limit, evmTx.Gas())
 				if v.to == "" {
 					require.Nil(evmTx.To())
@@ -450,7 +457,14 @@ func TestEthTxDecodeVerify(t *testing.T) {
 				}
 				switch tx.Type() {
 				case types.LegacyTxType:
+					require.Equal(v.price, evmTx.GasPrice().String())
 					require.Nil(tx.AccessList())
+				case types.DynamicFeeTxType:
+					require.Equal(v.price, evmTx.GasTipCap().String())
+					tip := MustBeTrueV(new(big.Int).SetString(v.price, 10))
+					require.Equal(tip.Lsh(tip, 1), tx.GasFeeCap())
+					require.Equal(tx.GasPrice(), tx.GasFeeCap())
+					fallthrough
 				case types.AccessListTxType:
 					require.Equal(3, len(tx.AccessList()))
 				}
@@ -842,7 +856,7 @@ func convertToNativeProto(tx *types.Transaction, actType string) (*iotextypes.Ac
 	switch actType {
 	case "transfer":
 		elp, err = elpBuilder.BuildTransfer(tx)
-	case "execution", "unprotected", "accesslist":
+	case "execution", "unprotected", "accesslist", "dynamicfee":
 		elp, err = elpBuilder.BuildExecution(tx)
 	case "stakeCreate", "stakeAddDeposit", "changeCandidate", "unstake", "withdrawStake", "restake",
 		"transferStake", "candidateRegister", "candidateUpdate", "candidateActivate", "candidateEndorsement", "candidateTransferOwnership",
@@ -884,7 +898,7 @@ func checkContract(to string, actType string) func(context.Context, *common.Addr
 		return func(context.Context, *common.Address) (bool, bool, bool, error) {
 			return false, false, false, nil
 		}
-	case "execution", "unprotected", "accesslist":
+	case "execution", "unprotected", "accesslist", "dynamicfee":
 		return func(context.Context, *common.Address) (bool, bool, bool, error) {
 			return true, false, false, nil
 		}
@@ -978,6 +992,22 @@ func generateRLPTestRaw(sk *ecdsa.PrivateKey, test *rlpTest) string {
 			To:       to,
 			Value:    MustBeTrueV(new(big.Int).SetString(test.amount, 10)),
 			Data:     test.data,
+			AccessList: types.AccessList{
+				{Address: common.Address{}, StorageKeys: nil},
+				{Address: _c1, StorageKeys: []common.Hash{_k1, {}, _k3}},
+				{Address: _c2, StorageKeys: []common.Hash{_k2, _k3, _k4, _k1}},
+			},
+		}
+	case "dynamicfee":
+		tip := MustBeTrueV(new(big.Int).SetString(test.price, 10))
+		tx = &types.DynamicFeeTx{
+			Nonce:     test.nonce,
+			GasTipCap: tip,
+			GasFeeCap: new(big.Int).Lsh(tip, 1),
+			Gas:       test.limit,
+			To:        to,
+			Value:     MustBeTrueV(new(big.Int).SetString(test.amount, 10)),
+			Data:      test.data,
 			AccessList: types.AccessList{
 				{Address: common.Address{}, StorageKeys: nil},
 				{Address: _c1, StorageKeys: []common.Hash{_k1, {}, _k3}},

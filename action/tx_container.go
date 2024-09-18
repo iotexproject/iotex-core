@@ -33,17 +33,15 @@ func (etx *txContainer) hash() hash.Hash256 {
 func (etx *txContainer) typeToEncoding() (iotextypes.Encoding, error) {
 	switch etx.tx.Type() {
 	case types.LegacyTxType:
-		if etx.tx.Protected() {
-			return iotextypes.Encoding_ETHEREUM_EIP155, nil
-		} else {
+		if !etx.tx.Protected() {
 			// tx has pre-EIP155 signature
 			return iotextypes.Encoding_ETHEREUM_UNPROTECTED, nil
 		}
-	case types.AccessListTxType:
-		return iotextypes.Encoding_ETHEREUM_EIP155, nil
+	case types.AccessListTxType, types.DynamicFeeTxType:
 	default:
 		return 0, ErrNotSupported
 	}
+	return iotextypes.Encoding_ETHEREUM_EIP155, nil
 }
 
 func (etx *txContainer) proto() *iotextypes.TxContainer {

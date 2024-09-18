@@ -9,6 +9,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+var _ TxCommonInternal = (*DynamicFeeTx)(nil)
+
 // DynamicFeeTx is a transaction type with dynamic fee cap and tip cap
 type DynamicFeeTx struct {
 	chainID    uint32
@@ -18,8 +20,6 @@ type DynamicFeeTx struct {
 	gasFeeCap  *big.Int
 	accessList types.AccessList
 }
-
-var _ TxCommonWithProto = (*DynamicFeeTx)(nil)
 
 func (tx *DynamicFeeTx) Version() uint32 {
 	return DynamicFeeTxType
@@ -152,4 +152,17 @@ func (tx *DynamicFeeTx) setGas(gas uint64) {
 
 func (tx *DynamicFeeTx) setChainID(n uint32) {
 	tx.chainID = n
+}
+
+func (tx *DynamicFeeTx) toEthTx(to *common.Address, value *big.Int, data []byte) *types.Transaction {
+	return types.NewTx(&types.DynamicFeeTx{
+		Nonce:      tx.nonce,
+		GasTipCap:  tx.GasTipCap(),
+		GasFeeCap:  tx.GasFeeCap(),
+		Gas:        tx.gasLimit,
+		To:         to,
+		Value:      value,
+		Data:       data,
+		AccessList: tx.accessList,
+	})
 }

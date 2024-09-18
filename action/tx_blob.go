@@ -170,3 +170,8 @@ func (tx *BlobTx) setGas(gas uint64) {
 func (tx *BlobTx) setChainID(n uint32) {
 	tx.chainID = n
 }
+
+func (tx *BlobTx) toEthTx(to *common.Address, value *big.Int, data []byte) *types.Transaction {
+	// TODO: enable blob tx
+	return nil
+}
