@@ -105,7 +105,7 @@ func (worker *queueWorker) Handle(job workerJob) error {
 	}
 
 	worker.ap.allActions.Set(actHash, act)
-	isBlobTx := false // TODO: only store blob tx
+	isBlobTx := len(act.BlobHashes()) > 0
 	if worker.ap.store != nil && isBlobTx {
 		if err := worker.ap.store.Put(act); err != nil {
 			log.L().Warn("failed to store action", zap.Error(err), log.Hex("hash", actHash[:]))
@@ -180,8 +180,8 @@ func (worker *queueWorker) checkSelpWithState(act *action.SealedEnvelope, pendin
 		return action.ErrNonceTooHigh
 	}
 
-	// TODO: Nonce must be continuous for blob tx
-	isBlobTx := false
+	// Nonce must be continuous for blob tx
+	isBlobTx := len(act.BlobHashes()) > 0
 	if isBlobTx {
 		pendingNonceInPool, ok := worker.PendingNonce(act.SenderAddress())
 		if !ok {

@@ -109,16 +109,15 @@ func (q *actQueue) Put(act *action.SealedEnvelope) error {
 		if nonce < q.pendingNonce && act.GasFeeCap().Cmp(actInPool.GasFeeCap()) != 1 {
 			return action.ErrReplaceUnderpriced
 		}
-		// TODO: 2x bumps in gas price are allowed for blob tx
-		isPrevBlobTx, isBlobTx := false, false
+		// 2x bumps in gas price are allowed for blob tx
+		isPrevBlobTx, isBlobTx := len(actInPool.BlobHashes()) > 0, len(act.BlobHashes()) > 0
 		if isPrevBlobTx {
 			if !isBlobTx {
 				return errors.Wrap(action.ErrReplaceUnderpriced, "blob tx can only replace blob tx")
 			}
 			var (
-				// TODO: set the real value
-				prevBlobGasFeeCap = big.NewInt(0)
-				blobGasFeeCap     = big.NewInt(0)
+				prevBlobGasFeeCap = actInPool.BlobGasFeeCap()
+				blobGasFeeCap     = act.BlobGasFeeCap()
 
 				priceBump        = big.NewInt(2)
 				minGasFeeCap     = new(big.Int).Mul(actInPool.GasFeeCap(), priceBump)
@@ -146,7 +145,7 @@ func (q *actQueue) Put(act *action.SealedEnvelope) error {
 		return nil
 	}
 	// check max number of blob txs per account
-	isBlobTx := false
+	isBlobTx := len(act.BlobHashes()) > 0
 	if isBlobTx && q.blobCount >= int(q.ap.cfg.MaxNumBlobsPerAcct) {
 		return errors.Wrap(action.ErrNonceTooHigh, "too many blob txs in the queue")
 	}
@@ -220,11 +219,11 @@ func (q *actQueue) cleanTimeout() []*action.SealedEnvelope {
 		nonce := q.ascQueue[i].nonce
 		if timeNow.After(q.ascQueue[i].deadline) && nonce > q.pendingNonce {
 			removedFromQueue = append(removedFromQueue, q.items[nonce])
+			isBlobTx := len(q.items[nonce].BlobHashes()) > 0
 			delete(q.items, nonce)
 			delete(q.pendingBalance, nonce)
 			q.ascQueue[i] = q.ascQueue[size-1]
 			size--
-			isBlobTx := false
 			if isBlobTx {
 				q.blobCount--
 			}
@@ -260,8 +259,8 @@ func (q *actQueue) UpdateAccountState(nonce uint64, balance *big.Int) []*action.
 		heap.Remove(&q.descQueue, nttl.descIdx)
 		nonce := nttl.nonce
 		removed = append(removed, q.items[nonce])
+		isBlobTx := len(q.items[nonce].BlobHashes()) > 0
 		delete(q.items, nonce)
-		isBlobTx := false
 		if isBlobTx {
 			q.blobCount--
 		}
@@ -382,7 +381,7 @@ func (q *actQueue) PopActionWithLargestNonce() *action.SealedEnvelope {
 	item := q.items[itemMeta.nonce]
 	delete(q.items, itemMeta.nonce)
 	q.updateFromNonce(itemMeta.nonce)
-	isBlobTx := false
+	isBlobTx := len(item.BlobHashes()) > 0
 	if isBlobTx {
 		q.blobCount--
 	}

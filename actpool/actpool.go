@@ -165,7 +165,7 @@ func (ap *actPool) Start(ctx context.Context) error {
 	// open action store and load all actions
 	blobs := make(SortedActions, 0)
 	err := ap.store.Open(func(selp *action.SealedEnvelope) error {
-		isBlobTx := false
+		isBlobTx := len(selp.BlobHashes()) > 0
 		if isBlobTx {
 			blobs = append(blobs, selp)
 			return nil
