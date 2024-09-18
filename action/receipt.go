@@ -30,6 +30,7 @@ type (
 		BlobGasPrice       *big.Int
 		ContractAddress    string
 		TxIndex            uint32
+		EffectiveGasPrice  *big.Int
 		logs               []*Log
 		transactionLogs    []*TransactionLog
 		executionRevertMsg string

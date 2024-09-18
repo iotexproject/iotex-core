@@ -116,6 +116,10 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 			bcCtx.Tip.Hash = g.Hash()
 			bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)
 		}
+		prevHeader, err := bic.dao.HeaderByHeight(i - 1)
+		if err != nil {
+			return err
+		}
 		for {
 			if err = indexer.PutBlock(protocol.WithBlockCtx(
 				protocol.WithBlockchainCtx(ctx, bcCtx),
@@ -124,6 +128,7 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 					BlockTimeStamp: blk.Timestamp(),
 					Producer:       producer,
 					GasLimit:       g.BlockGasLimitByHeight(i),
+					PrevBaseFee:    prevHeader.BaseFee(),
 				},
 			), blk); err == nil {
 				break

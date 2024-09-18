@@ -72,6 +72,7 @@ func (p *Protocol) GrantBlockReward(
 ) (*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	if err := p.assertNoRewardYet(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
 	}
@@ -102,13 +103,17 @@ func (p *Protocol) GrantBlockReward(
 	}
 
 	a := admin{}
+	totalReward := big.NewInt(0).Set(a.blockReward)
+	if featureCtx.EnableDynamicFeeTx {
+		totalReward.Add(totalReward, &blkCtx.AccumulatedTips)
+	}
 	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
 		return nil, err
 	}
-	if err := p.updateAvailableBalance(ctx, sm, a.blockReward); err != nil {
+	if err := p.updateAvailableBalance(ctx, sm, totalReward); err != nil {
 		return nil, err
 	}
-	if err := p.grantToAccount(ctx, sm, rewardAddr, a.blockReward); err != nil {
+	if err := p.grantToAccount(ctx, sm, rewardAddr, totalReward); err != nil {
 		return nil, err
 	}
 	if err := p.updateRewardHistory(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
@@ -117,7 +122,7 @@ func (p *Protocol) GrantBlockReward(
 	rewardLog := rewardingpb.RewardLog{
 		Type:   rewardingpb.RewardLog_BLOCK_REWARD,
 		Addr:   rewardAddrStr,
-		Amount: a.blockReward.String(),
+		Amount: totalReward.String(),
 	}
 	data, err := proto.Marshal(&rewardLog)
 	if err != nil {

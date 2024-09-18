@@ -310,12 +310,17 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
+	prevHeader, err := bc.dao.Header(blk.PrevHash())
+	if err != nil {
+		return err
+	}
 	ctx = protocol.WithBlockCtx(ctx,
 		protocol.BlockCtx{
 			BlockHeight:    blk.Height(),
 			BlockTimeStamp: blk.Timestamp(),
 			GasLimit:       bc.genesis.BlockGasLimitByHeight(blk.Height()),
 			Producer:       producerAddr,
+			PrevBaseFee:    prevHeader.BaseFee(),
 		},
 	)
 	ctx = protocol.WithFeatureCtx(ctx)

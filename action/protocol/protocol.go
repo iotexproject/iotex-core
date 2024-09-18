@@ -130,7 +130,7 @@ func HashStringToAddress(str string) address.Address {
 
 func SplitGas(ctx context.Context, tx action.TxDynamicGas, usedGas uint64) (*big.Int, *big.Int, error) {
 	var (
-		baseFee = MustGetBlockchainCtx(ctx).Tip.BaseFee
+		baseFee = MustGetBlockCtx(ctx).PrevBaseFee
 		gas     = new(big.Int).SetUint64(usedGas)
 	)
 	if baseFee == nil {

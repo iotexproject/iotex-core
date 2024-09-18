@@ -107,6 +107,8 @@ func (ws *workingSet) runActions(
 ) ([]*action.Receipt, error) {
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	fCtx := protocol.MustGetFeatureCtx(ctx)
 	for _, elp := range elps {
 		ctxWithActionContext, err := withActionCtx(ctx, elp)
 		if err != nil {
@@ -117,6 +119,9 @@ func (ws *workingSet) runActions(
 			return nil, errors.Wrap(err, "error when run action")
 		}
 		receipts = append(receipts, receipt)
+		if fCtx.EnableDynamicFeeTx && blkCtx.PrevBaseFee != nil {
+			(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, new(big.Int).Sub(receipt.EffectiveGasPrice, blkCtx.PrevBaseFee))
+		}
 	}
 	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
 		updateReceiptIndex(receipts)
@@ -642,6 +647,9 @@ func (ws *workingSet) pickAndRunActions(
 				return nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
 			}
 			blkCtx.GasLimit -= receipt.GasConsumed
+			if fCtx.EnableDynamicFeeTx && blkCtx.PrevBaseFee != nil {
+				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, new(big.Int).Sub(receipt.EffectiveGasPrice, blkCtx.PrevBaseFee))
+			}
 			ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 			receipts = append(receipts, receipt)
 			executedActions = append(executedActions, nextAction)

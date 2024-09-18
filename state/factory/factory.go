@@ -432,16 +432,7 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	if producer == nil {
 		return errors.New("failed to get address")
 	}
-	g := genesis.MustExtractGenesisContext(ctx)
-	ctx = protocol.WithBlockCtx(
-		protocol.WithRegistry(ctx, sf.registry),
-		protocol.BlockCtx{
-			BlockHeight:    blk.Height(),
-			BlockTimeStamp: blk.Timestamp(),
-			GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
-			Producer:       producer,
-		},
-	)
+	ctx = protocol.WithRegistry(ctx, sf.registry)
 	ctx = protocol.WithFeatureCtx(ctx)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
