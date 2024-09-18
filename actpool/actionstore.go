@@ -40,9 +40,9 @@ const (
 )
 
 type (
-	blobStore struct {
+	actionStore struct {
 		lifecycle.Readiness
-		config blobStoreConfig // Configuration for the blob store
+		config actionStoreConfig // Configuration for the blob store
 
 		store  billy.Database // Persistent data store for the tx
 		stored uint64         // Useful data size of all transactions on disk
@@ -53,7 +53,7 @@ type (
 		encode encodeAction // Encoder for the tx
 		decode decodeAction // Decoder for the tx
 	}
-	blobStoreConfig struct {
+	actionStoreConfig struct {
 		Datadir string `yaml:"datadir"` // Data directory containing the currently executable blobs
 		Datacap uint64 `yaml:"datacap"` // Soft-cap of database storage (hard cap is larger due to overhead)
 	}
@@ -68,16 +68,16 @@ var (
 	errStoreNotOpen = fmt.Errorf("blob store is not open")
 )
 
-var defaultBlobStoreConfig = blobStoreConfig{
-	Datadir: "blobpool",
-	Datacap: 10 * 1024 * 1024 * 1024,
+var defaultActionStoreConfig = actionStoreConfig{
+	Datadir: "actionstore",
+	Datacap: 1024 * 1024 * 1024,
 }
 
-func newBlobStore(cfg blobStoreConfig, encode encodeAction, decode decodeAction) (*blobStore, error) {
+func newActionStore(cfg actionStoreConfig, encode encodeAction, decode decodeAction) (*actionStore, error) {
 	if len(cfg.Datadir) == 0 {
 		return nil, errors.New("datadir is empty")
 	}
-	return &blobStore{
+	return &actionStore{
 		config: cfg,
 		lookup: make(map[hash.Hash256]uint64),
 		encode: encode,
@@ -85,7 +85,7 @@ func newBlobStore(cfg blobStoreConfig, encode encodeAction, decode decodeAction)
 	}, nil
 }
 
-func (s *blobStore) Open(onData onAction) error {
+func (s *actionStore) Open(onData onAction) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -131,7 +131,7 @@ func (s *blobStore) Open(onData onAction) error {
 	return s.TurnOn()
 }
 
-func (s *blobStore) Close() error {
+func (s *actionStore) Close() error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -141,7 +141,7 @@ func (s *blobStore) Close() error {
 	return s.store.Close()
 }
 
-func (s *blobStore) Get(hash hash.Hash256) (*action.SealedEnvelope, error) {
+func (s *actionStore) Get(hash hash.Hash256) (*action.SealedEnvelope, error) {
 	if !s.IsReady() {
 		return nil, errors.Wrap(errStoreNotOpen, "")
 	}
@@ -159,7 +159,7 @@ func (s *blobStore) Get(hash hash.Hash256) (*action.SealedEnvelope, error) {
 	return s.decode(blob)
 }
 
-func (s *blobStore) Put(act *action.SealedEnvelope) error {
+func (s *actionStore) Put(act *action.SealedEnvelope) error {
 	if !s.IsReady() {
 		return errors.Wrap(errStoreNotOpen, "")
 	}
@@ -189,7 +189,7 @@ func (s *blobStore) Put(act *action.SealedEnvelope) error {
 	return nil
 }
 
-func (s *blobStore) Delete(hash hash.Hash256) error {
+func (s *actionStore) Delete(hash hash.Hash256) error {
 	if !s.IsReady() {
 		return errors.Wrap(errStoreNotOpen, "")
 	}
@@ -208,7 +208,7 @@ func (s *blobStore) Delete(hash hash.Hash256) error {
 }
 
 // Range iterates over all stored with hashes
-func (s *blobStore) Range(fn func(hash.Hash256) bool) {
+func (s *actionStore) Range(fn func(hash.Hash256) bool) {
 	if !s.IsReady() {
 		return
 	}
@@ -222,7 +222,7 @@ func (s *blobStore) Range(fn func(hash.Hash256) bool) {
 	}
 }
 
-func (s *blobStore) drop() {
+func (s *actionStore) drop() {
 	h, ok := s.evict()
 	if !ok {
 		log.L().Debug("no worst action found")
@@ -241,7 +241,7 @@ func (s *blobStore) drop() {
 }
 
 // TODO: implement a proper eviction policy
-func (s *blobStore) evict() (hash.Hash256, bool) {
+func (s *actionStore) evict() (hash.Hash256, bool) {
 	for h := range s.lookup {
 		return h, true
 	}

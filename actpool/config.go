@@ -37,6 +37,8 @@ type Config struct {
 	MinGasPriceStr string `yaml:"minGasPrice"`
 	// BlackList lists the account address that are banned from initiating actions
 	BlackList []string `yaml:"blackList"`
+	// Store defines the config for persistent cache
+	Store *StoreConfig `yaml:"store"`
 }
 
 // MinGasPrice returns the minimal gas price threshold
@@ -46,4 +48,15 @@ func (ap Config) MinGasPrice() *big.Int {
 		log.S().Panicf("Error when parsing minimal gas price string: %s", ap.MinGasPriceStr)
 	}
 	return mgp
+}
+
+// StoreConfig is the configuration for the blob store
+type StoreConfig struct {
+	Store        actionStoreConfig `yaml:"store"`
+	ReadInterval time.Duration     `yaml:"readInterval"` // Interval to read from store to actpool memory
+}
+
+var defaultStoreConfig = StoreConfig{
+	Store:        defaultActionStoreConfig,
+	ReadInterval: 10 * time.Minute,
 }
