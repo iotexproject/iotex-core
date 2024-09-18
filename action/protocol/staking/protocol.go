@@ -702,7 +702,7 @@ func (p *Protocol) settleAction(
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to split gas")
 	}
-	depositLog, err := p.helperCtx.DepositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee, iotextypes.TransactionLogType_NATIVE_TRANSFER))
+	depositLog, err := p.helperCtx.DepositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(gasFee))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deposit gas")
 	}

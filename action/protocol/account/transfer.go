@@ -100,7 +100,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, elp action.Envelope, sm p
 		}
 		if fCtx.FixDoubleChargeGas {
 			if p.depositGas != nil {
-				depositLog, err = p.depositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee, iotextypes.TransactionLogType_NATIVE_TRANSFER))
+				depositLog, err = p.depositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(gasFee))
 				if err != nil {
 					return nil, err
 				}
@@ -142,7 +142,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, elp action.Envelope, sm p
 
 	if fCtx.FixDoubleChargeGas {
 		if p.depositGas != nil {
-			depositLog, err = p.depositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee, iotextypes.TransactionLogType_NATIVE_TRANSFER))
+			depositLog, err = p.depositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(gasFee))
 			if err != nil {
 				return nil, err
 			}

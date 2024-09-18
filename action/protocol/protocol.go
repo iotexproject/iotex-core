@@ -11,7 +11,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -81,23 +80,21 @@ type ActionHandler interface {
 }
 
 type (
-	Options struct {
-		BurnAmount  *big.Int
-		BurnLogType iotextypes.TransactionLogType
+	DepositOptionCfg struct {
+		PriorityFee *big.Int
 	}
 
-	Option func(*Options)
+	DepositOption func(*DepositOptionCfg)
 )
 
-func BurnGasOption(amount *big.Int, logType iotextypes.TransactionLogType) Option {
-	return func(opts *Options) {
-		opts.BurnAmount = amount
-		opts.BurnLogType = logType
+func PriorityFeeOption(priorityFee *big.Int) DepositOption {
+	return func(opts *DepositOptionCfg) {
+		opts.PriorityFee = priorityFee
 	}
 }
 
 // DepositGas deposits gas to rewarding pool and burns baseFee
-type DepositGas func(context.Context, StateManager, *big.Int, ...Option) ([]*action.TransactionLog, error)
+type DepositGas func(context.Context, StateManager, *big.Int, ...DepositOption) ([]*action.TransactionLog, error)
 
 // View stores the view for all protocols
 type View map[string]interface{}

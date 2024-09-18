@@ -3307,7 +3307,7 @@ func setupAccount(sm protocol.StateManager, addr address.Address, balance int64)
 	return accountutil.StoreAccount(sm, addr, account)
 }
 
-func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int, opts ...protocol.Option) ([]*action.TransactionLog, error) {
+func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int, opts ...protocol.DepositOption) ([]*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	// Subtract balance from caller
 	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller)
