@@ -159,17 +159,16 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 }
 
 func (ap *actPool) Start(ctx context.Context) error {
-	// open action store and load all actions
-	if ap.store != nil {
-		err := ap.store.Open(func(selp *action.SealedEnvelope) error {
-			return ap.add(ctx, selp)
-		})
-		if err != nil {
-			return err
-		}
-		return ap.storeSync.Start(ctx)
+	if ap.store == nil {
+		return nil
 	}
-	return nil
+	err := ap.store.Open(func(selp *action.SealedEnvelope) error {
+		return ap.add(ctx, selp)
+	})
+	if err != nil {
+		return err
+	}
+	return ap.storeSync.Start(ctx)
 }
 
 func (ap *actPool) Stop(ctx context.Context) error {
