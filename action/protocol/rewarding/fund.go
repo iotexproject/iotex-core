@@ -143,10 +143,6 @@ func (p *Protocol) AvailableBalance(
 
 // DepositGas deposits gas into the rewarding fund
 func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int, opts ...protocol.DepositOption) ([]*action.TransactionLog, error) {
-	// If the gas fee is 0, return immediately
-	if amount.Cmp(big.NewInt(0)) == 0 {
-		return nil, nil
-	}
 	// TODO: we bypass the gas deposit for the actions in genesis block. Later we should remove this after we remove
 	// genesis actions
 	blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -161,15 +157,21 @@ func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int, 
 	if rp == nil {
 		return nil, nil
 	}
+	var (
+		logs []*action.TransactionLog
+		err  error
+	)
+	if !isZero(amount) {
+		logs, err = rp.Deposit(ctx, sm, amount, iotextypes.TransactionLogType_GAS_FEE)
+		if err != nil {
+			return nil, err
+		}
+	}
 	cfg := protocol.DepositOptionCfg{}
 	for _, opt := range opts {
 		opt(&cfg)
 	}
-	logs, err := rp.Deposit(ctx, sm, amount, iotextypes.TransactionLogType_GAS_FEE)
-	if err != nil {
-		return nil, err
-	}
-	if cfg.PriorityFee != nil {
+	if !isZero(cfg.PriorityFee) {
 		slogs, err := rp.Deposit(ctx, sm, cfg.PriorityFee, iotextypes.TransactionLogType_PRIORITY_FEE)
 		if err != nil {
 			return nil, err
