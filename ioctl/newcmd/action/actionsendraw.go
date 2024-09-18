@@ -20,7 +20,7 @@ import (
 // Multi-language support
 var (
 	_sendRawCmdShorts = map[config.Language]string{
-		config.English: "Send raw action on IoTeX blokchain",
+		config.English: "Send raw action on IoTeX blockchain",
 		config.Chinese: "在IoTeX区块链上发送原始行为",
 	}
 	_sendRawCmdUses = map[config.Language]string{

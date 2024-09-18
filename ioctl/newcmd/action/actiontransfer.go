@@ -21,7 +21,7 @@ import (
 // Multi-language support
 var (
 	_actionTransferCmdShorts = map[config.Language]string{
-		config.English: "Transfer tokens on IoTeX blokchain",
+		config.English: "Transfer tokens on IoTeX blockchain",
 		config.Chinese: "在IoTeX区块链上转移令牌",
 	}
 	_actionTransferCmdUses = map[config.Language]string{
@@ -85,10 +85,7 @@ func NewActionTransferCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get nonce")
 			}
-			tx, err := action.NewTransfer(nonce, amount, recipient, payload, gasLimit, gasPriceRau)
-			if err != nil {
-				return errors.Wrap(err, "failed to make a Transfer instance")
-			}
+			tx := action.NewTransfer(amount, recipient, payload)
 			return SendAction(
 				client,
 				cmd,

@@ -20,7 +20,7 @@ import (
 // Multi-language support
 var (
 	_actionTransferCmdShorts = map[config.Language]string{
-		config.English: "Transfer tokens on IoTeX blokchain",
+		config.English: "Transfer tokens on IoTeX blockchain",
 		config.Chinese: "在IoTeX区块链上转移令牌",
 	}
 	_actionTransferCmdUses = map[config.Language]string{
@@ -88,11 +88,7 @@ func transfer(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	tx, err := action.NewTransfer(nonce, amount,
-		recipient, payload, gasLimit, gasPriceRau)
-	if err != nil {
-		return output.NewError(output.InstantiationError, "failed to make a Transfer instance", err)
-	}
+	tx := action.NewTransfer(amount, recipient, payload)
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).
@@ -101,5 +97,4 @@ func transfer(args []string) error {
 			SetAction(tx).Build(),
 		sender,
 	)
-
 }

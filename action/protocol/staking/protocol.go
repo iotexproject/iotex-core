@@ -100,11 +100,8 @@ type (
 	// HelperCtx is the helper context for staking protocol
 	HelperCtx struct {
 		BlockInterval func(uint64) time.Duration
-		DepositGas    DepositGas
+		DepositGas    protocol.DepositGas
 	}
-
-	// DepositGas deposits gas to some pool
-	DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.TransactionLog, error)
 )
 
 // FindProtocol return a registered protocol from registry
@@ -397,7 +394,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 }
 
 // Handle handles a staking message
-func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sm.Height()
 	if err != nil {
@@ -407,10 +404,10 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, err
 	}
-	return p.handle(ctx, act, csm)
+	return p.handle(ctx, elp, csm)
 }
 
-func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
+func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm CandidateStateManager) (*action.Receipt, error) {
 	var (
 		rLog              *receiptLog
 		tLogs             []*action.TransactionLog
@@ -421,8 +418,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		gasConsumed       = actionCtx.IntrinsicGas
 		gasToBeDeducted   = gasConsumed
 	)
-
-	switch act := act.(type) {
+	switch act := elp.Action().(type) {
 	case *action.CreateStake:
 		rLog, tLogs, err = p.handleCreateStake(ctx, act, csm)
 	case *action.Unstake:
@@ -448,7 +444,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 	case *action.CandidateTransferOwnership:
 		rLog, tLogs, err = p.handleCandidateTransferOwnership(ctx, act, csm)
 	case *action.MigrateStake:
-		logs, tLogs, gasConsumed, gasToBeDeducted, err = p.handleStakeMigrate(ctx, act, csm)
+		logs, tLogs, gasConsumed, gasToBeDeducted, err = p.handleStakeMigrate(ctx, elp, csm)
 		if err == nil {
 			nonceUpdateOption = noUpdateNonce
 		}
@@ -461,24 +457,24 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		}
 	}
 	if err == nil {
-		return p.settleAction(ctx, csm.SM(), uint64(iotextypes.ReceiptStatus_Success), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption)
+		return p.settleAction(ctx, csm.SM(), elp, uint64(iotextypes.ReceiptStatus_Success), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption)
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		log.L().With(
 			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Debug("Failed to commit staking action", zap.Error(err))
-		return p.settleAction(ctx, csm.SM(), receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption)
+		return p.settleAction(ctx, csm.SM(), elp, receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption)
 	}
 	return nil, err
 }
 
 // Validate validates a staking message
-func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
-	if act == nil {
+func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protocol.StateReader) error {
+	if elp == nil || elp.Action() == nil {
 		return action.ErrNilAction
 	}
-	switch act := act.(type) {
+	switch act := elp.Action().(type) {
 	case *action.CreateStake:
 		return p.validateCreateStake(ctx, act)
 	case *action.Unstake:
@@ -690,6 +686,7 @@ const (
 func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
+	act action.TxDynamicGas,
 	status uint64,
 	logs []*action.Log,
 	tLogs []*action.TransactionLog,
@@ -697,10 +694,15 @@ func (p *Protocol) settleAction(
 	gasToBeDeducted uint64,
 	updateNonce nonceUpdateType,
 ) (*action.Receipt, error) {
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(gasToBeDeducted))
-	depositLog, err := p.helperCtx.DepositGas(ctx, sm, gasFee)
+	var (
+		actionCtx = protocol.MustGetActionCtx(ctx)
+		blkCtx    = protocol.MustGetBlockCtx(ctx)
+	)
+	gasFee, baseFee, err := protocol.SplitGas(ctx, act, gasToBeDeducted)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to split gas")
+	}
+	depositLog, err := p.helperCtx.DepositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deposit gas")
 	}
@@ -727,7 +729,7 @@ func (p *Protocol) settleAction(
 		GasConsumed:     gasConsumed,
 		ContractAddress: p.addr.String(),
 	}
-	r.AddLogs(logs...).AddTransactionLogs(depositLog).AddTransactionLogs(tLogs...)
+	r.AddLogs(logs...).AddTransactionLogs(depositLog...).AddTransactionLogs(tLogs...)
 	return &r, nil
 }
 

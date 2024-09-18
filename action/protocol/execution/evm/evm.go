@@ -54,9 +54,6 @@ type (
 
 	// GetBlockTime gets block time by height
 	GetBlockTime func(uint64) (time.Time, error)
-
-	// DepositGas deposits gas
-	DepositGas func(context.Context, protocol.StateManager, *big.Int) (*action.TransactionLog, error)
 )
 
 // CanTransfer checks whether the from account has enough balance
@@ -103,7 +100,7 @@ type (
 // newParams creates a new context for use in the EVM.
 func newParams(
 	ctx context.Context,
-	execution *action.EvmTransaction,
+	execution action.TxData,
 	stateDB *StateDBAdapter,
 ) (*Params, error) {
 	var (
@@ -222,7 +219,7 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
 func ExecuteContract(
 	ctx context.Context,
 	sm protocol.StateManager,
-	execution *action.EvmTransaction,
+	execution action.TxData,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
@@ -248,8 +245,9 @@ func ExecuteContract(
 
 	receipt.Status = uint64(statusCode)
 	var (
-		depositLog, burnLog *action.TransactionLog
-		consumedGas         = depositGas - remainingGas
+		depositLog  []*action.TransactionLog
+		burnLog     *action.TransactionLog
+		consumedGas = depositGas - remainingGas
 	)
 	if ps.featureCtx.FixDoubleChargeGas {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
@@ -269,8 +267,11 @@ func ExecuteContract(
 		}
 	}
 	if consumedGas > 0 {
-		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(consumedGas), ps.txCtx.GasPrice)
-		depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, gasValue)
+		gasFee, baseFee, err := protocol.SplitGas(ctx, execution, consumedGas)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to split gas")
+		}
+		depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, gasFee, protocol.BurnGasOption(baseFee))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -279,7 +280,8 @@ func ExecuteContract(
 	if err := stateDB.CommitContracts(); err != nil {
 		return nil, nil, errors.Wrap(err, "failed to commit contracts to underlying db")
 	}
-	receipt.AddLogs(stateDB.Logs()...).AddTransactionLogs(depositLog, burnLog)
+	receipt.AddLogs(stateDB.Logs()...).AddTransactionLogs(depositLog...)
+	receipt.AddTransactionLogs(burnLog)
 	if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) ||
 		ps.featureCtx.AddOutOfGasToTransactionLog && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
 		receipt.AddTransactionLogs(stateDB.TransactionLogs()...)
@@ -587,7 +589,7 @@ func SimulateExecution(
 	ctx context.Context,
 	sm protocol.StateManager,
 	caller address.Address,
-	ex *action.Execution,
+	ex action.TxDataForSimulation,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.SimulateExecution")
 	defer span.End()
@@ -618,9 +620,5 @@ func SimulateExecution(
 	)
 
 	ctx = protocol.WithFeatureCtx(ctx)
-	return ExecuteContract(
-		ctx,
-		sm,
-		action.NewEvmTx(ex),
-	)
+	return ExecuteContract(ctx, sm, ex)
 }

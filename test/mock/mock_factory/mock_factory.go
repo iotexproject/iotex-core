@@ -143,9 +143,13 @@ func (mr *MockFactoryMockRecorder) Register(arg0 interface{}) *gomock.Call {
 }
 
 // SimulateExecution mocks base method.
-func (m *MockFactory) SimulateExecution(arg0 context.Context, arg1 address.Address, arg2 *action.Execution) ([]byte, *action.Receipt, error) {
+func (m *MockFactory) SimulateExecution(arg0 context.Context, arg1 address.Address, arg2 action.Envelope, arg3 ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SimulateExecution", arg0, arg1, arg2)
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SimulateExecution", varargs...)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(*action.Receipt)
 	ret2, _ := ret[2].(error)
@@ -153,9 +157,10 @@ func (m *MockFactory) SimulateExecution(arg0 context.Context, arg1 address.Addre
 }
 
 // SimulateExecution indicates an expected call of SimulateExecution.
-func (mr *MockFactoryMockRecorder) SimulateExecution(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockFactoryMockRecorder) SimulateExecution(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockFactory)(nil).SimulateExecution), arg0, arg1, arg2)
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockFactory)(nil).SimulateExecution), varargs...)
 }
 
 // Start mocks base method.

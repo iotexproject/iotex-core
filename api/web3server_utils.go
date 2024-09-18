@@ -121,12 +121,7 @@ func getRecipientAndContractAddrFromAction(selp *action.SealedEnvelope, receipt 
 		}
 		return nil, &addr, nil
 	}
-	act, ok := selp.Action().(action.EthCompatibleAction)
-	if !ok {
-		actHash, _ := selp.Hash()
-		return nil, nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
-	}
-	ethTx, err := act.ToEthTx(0)
+	ethTx, err := selp.ToEthTx()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -254,15 +249,15 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 			logReq.Address = append(logReq.Address, addr.String())
 		}
 		for _, topics := range req.Get("topics").Array() {
+			var topicArr []string
 			if topics.IsArray() {
-				var topicArr []string
 				for _, topic := range topics.Array() {
 					topicArr = append(topicArr, util.Remove0xPrefix(topic.String()))
 				}
-				logReq.Topics = append(logReq.Topics, topicArr)
-			} else {
-				logReq.Topics = append(logReq.Topics, []string{util.Remove0xPrefix(topics.String())})
+			} else if str := topics.String(); str != "" {
+				topicArr = append(topicArr, util.Remove0xPrefix(str))
 			}
+			logReq.Topics = append(logReq.Topics, topicArr)
 		}
 	}
 	return &logReq, nil
@@ -477,12 +472,7 @@ func newGetTransactionResult(
 	receipt *action.Receipt,
 	evmChainID uint32,
 ) (*getTransactionResult, error) {
-	act, ok := selp.Action().(action.EthCompatibleAction)
-	if !ok {
-		actHash, _ := selp.Hash()
-		return nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
-	}
-	ethTx, err := act.ToEthTx(0)
+	ethTx, err := selp.ToEthTx()
 	if err != nil {
 		return nil, err
 	}

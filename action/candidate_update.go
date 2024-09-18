@@ -7,18 +7,14 @@ package action
 
 import (
 	"bytes"
-	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -61,8 +57,7 @@ var (
 
 // CandidateUpdate is the action to update a candidate
 type CandidateUpdate struct {
-	AbstractAction
-
+	stake_common
 	name            string
 	operatorAddress address.Address
 	rewardAddress   address.Address
@@ -81,19 +76,8 @@ func init() {
 }
 
 // NewCandidateUpdate creates a CandidateUpdate instance
-func NewCandidateUpdate(
-	nonce uint64,
-	name, operatorAddrStr, rewardAddrStr string,
-	gasLimit uint64,
-	gasPrice *big.Int,
-) (*CandidateUpdate, error) {
+func NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr string) (*CandidateUpdate, error) {
 	cu := &CandidateUpdate{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
 		name: name,
 	}
 
@@ -176,31 +160,16 @@ func (cu *CandidateUpdate) IntrinsicGas() (uint64, error) {
 	return CandidateUpdateBaseIntrinsicGas, nil
 }
 
-// Cost returns the total cost of a CandidateUpdate
-func (cu *CandidateUpdate) Cost() (*big.Int, error) {
-	intrinsicGas, err := cu.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed ts get intrinsic gas for the CandidateUpdate")
-	}
-	fee := big.NewInt(0).Mul(cu.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return fee, nil
-}
-
 // SanityCheck validates the variables in the action
 func (cu *CandidateUpdate) SanityCheck() error {
 	if !IsValidCandidateName(cu.Name()) {
 		return ErrInvalidCanName
 	}
-
-	return cu.AbstractAction.SanityCheck()
+	return nil
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (cu *CandidateUpdate) EncodeABIBinary() ([]byte, error) {
-	return cu.encodeABIBinary()
-}
-
-func (cu *CandidateUpdate) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (cu *CandidateUpdate) EthData() ([]byte, error) {
 	if cu.operatorAddress == nil {
 		return nil, ErrAddress
 	}
@@ -241,20 +210,4 @@ func NewCandidateUpdateFromABIBinary(data []byte) (*CandidateUpdate, error) {
 		return nil, err
 	}
 	return &cu, nil
-}
-
-// ToEthTx converts action to eth-compatible tx
-func (cu *CandidateUpdate) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := cu.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    cu.Nonce(),
-		GasPrice: cu.GasPrice(),
-		Gas:      cu.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
 }

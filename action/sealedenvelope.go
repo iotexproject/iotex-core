@@ -3,6 +3,7 @@ package action
 import (
 	"encoding/hex"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -45,11 +46,7 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 		}
 		return rlpRawHash(act.tx, signer)
 	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
-		act, ok := sealed.Action().(EthCompatibleAction)
-		if !ok {
-			return hash.ZeroHash256, ErrInvalidAct
-		}
-		tx, err := act.ToEthTx(sealed.evmNetworkID)
+		tx, err := sealed.ToEthTx()
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
@@ -87,11 +84,7 @@ func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
 		}
 		return act.hash(), nil
 	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
-		act, ok := sealed.Action().(EthCompatibleAction)
-		if !ok {
-			return hash.ZeroHash256, ErrInvalidAct
-		}
-		tx, err := act.ToEthTx(sealed.evmNetworkID)
+		tx, err := sealed.ToEthTx()
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
@@ -128,6 +121,11 @@ func (sealed *SealedEnvelope) Signature() []byte {
 // Encoding returns the encoding
 func (sealed *SealedEnvelope) Encoding() uint32 {
 	return uint32(sealed.encoding)
+}
+
+// ToEthTx converts to Ethereum tx
+func (sealed *SealedEnvelope) ToEthTx() (*types.Transaction, error) {
+	return sealed.Envelope.ToEthTx(sealed.evmNetworkID, sealed.encoding)
 }
 
 // Proto converts it to it's proto scheme.
@@ -172,11 +170,7 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 		sealed.evmNetworkID = evmID
 	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
 		// verify action type can support RLP-encoding
-		act, ok := elp.Action().(EthCompatibleAction)
-		if !ok {
-			return ErrInvalidAct
-		}
-		tx, err := act.ToEthTx(evmID)
+		tx, err := elp.ToEthTx(evmID, encoding)
 		if err != nil {
 			return err
 		}

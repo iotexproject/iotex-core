@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
@@ -79,23 +80,24 @@ func (b *Builder) Build() AbstractAction {
 // TODO: change envelope to *envelope
 type EnvelopeBuilder struct {
 	elp envelope
+	ab  AbstractAction
 }
 
 // SetVersion sets action's version.
 func (b *EnvelopeBuilder) SetVersion(v uint32) *EnvelopeBuilder {
-	b.elp.version = v
+	b.ab.version = v
 	return b
 }
 
 // SetNonce sets action's nonce.
 func (b *EnvelopeBuilder) SetNonce(n uint64) *EnvelopeBuilder {
-	b.elp.nonce = n
+	b.ab.nonce = n
 	return b
 }
 
 // SetGasLimit sets action's gas limit.
 func (b *EnvelopeBuilder) SetGasLimit(l uint64) *EnvelopeBuilder {
-	b.elp.gasLimit = l
+	b.ab.gasLimit = l
 	return b
 }
 
@@ -104,8 +106,8 @@ func (b *EnvelopeBuilder) SetGasPrice(p *big.Int) *EnvelopeBuilder {
 	if p == nil {
 		return b
 	}
-	b.elp.gasPrice = &big.Int{}
-	b.elp.gasPrice.Set(p)
+	b.ab.gasPrice = &big.Int{}
+	b.ab.gasPrice.Set(p)
 	return b
 }
 
@@ -114,8 +116,8 @@ func (b *EnvelopeBuilder) SetGasPriceByBytes(buf []byte) *EnvelopeBuilder {
 	if len(buf) == 0 {
 		return b
 	}
-	b.elp.gasPrice = &big.Int{}
-	b.elp.gasPrice.SetBytes(buf)
+	b.ab.gasPrice = &big.Int{}
+	b.ab.gasPrice.SetBytes(buf)
 	return b
 }
 
@@ -127,7 +129,18 @@ func (b *EnvelopeBuilder) SetAction(action actionPayload) *EnvelopeBuilder {
 
 // SetChainID sets action's chainID.
 func (b *EnvelopeBuilder) SetChainID(chainID uint32) *EnvelopeBuilder {
-	b.elp.chainID = chainID
+	b.ab.chainID = chainID
+	return b
+}
+
+func (b *EnvelopeBuilder) SetAccessList(acl types.AccessList) *EnvelopeBuilder {
+	b.ab.accessList = acl
+	return b
+}
+
+func (b *EnvelopeBuilder) SetDynamicGas(feeCap, tipCap *big.Int) *EnvelopeBuilder {
+	b.ab.gasFeeCap = feeCap
+	b.ab.gasTipCap = tipCap
 	return b
 }
 
@@ -137,16 +150,17 @@ func (b *EnvelopeBuilder) Build() Envelope {
 }
 
 func (b *EnvelopeBuilder) build() Envelope {
-	if b.elp.gasPrice == nil {
-		b.elp.gasPrice = big.NewInt(0)
+	if b.ab.gasPrice == nil {
+		b.ab.gasPrice = big.NewInt(0)
 	}
-	if b.elp.version == 0 {
-		b.elp.version = version.ProtocolVersion
+	if b.ab.version == 0 {
+		// default to version = 1 (legacy tx)
+		b.ab.version = LegacyTxType
 	}
 	if b.elp.payload == nil {
 		panic("cannot build Envelope w/o a valid payload")
 	}
-	b.elp.payload.SetEnvelopeContext(&b.elp.AbstractAction)
+	b.elp.common = b.ab.convertToTx()
 	return &b.elp
 }
 
@@ -155,19 +169,39 @@ func (b *EnvelopeBuilder) BuildTransfer(tx *types.Transaction) (Envelope, error)
 	if tx.To() == nil {
 		return nil, ErrInvalidAct
 	}
-	b.setEnvelopeCommonFields(tx)
-	tsf, err := NewTransfer(tx.Nonce(), tx.Value(), getRecipientAddr(tx.To()), tx.Data(), tx.Gas(), tx.GasPrice())
-	if err != nil {
+	if err := b.setEnvelopeCommonFields(tx); err != nil {
 		return nil, err
 	}
-	b.elp.payload = tsf
+	b.elp.payload = NewTransfer(tx.Value(), getRecipientAddr(tx.To()), tx.Data())
 	return b.build(), nil
 }
 
-func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) {
-	b.elp.nonce = tx.Nonce()
-	b.elp.gasPrice = new(big.Int).Set(tx.GasPrice())
-	b.elp.gasLimit = tx.Gas()
+func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) error {
+	v, err := convertEthTxType(tx.Type())
+	if err != nil {
+		return err
+	}
+	b.ab.version = uint32(v)
+	b.ab.nonce = tx.Nonce()
+	b.ab.gasPrice = tx.GasPrice()
+	b.ab.gasLimit = tx.Gas()
+	b.ab.accessList = tx.AccessList()
+	b.ab.gasFeeCap = tx.GasFeeCap()
+	b.ab.gasTipCap = tx.GasTipCap()
+	return nil
+}
+
+func convertEthTxType(typ uint8) (int, error) {
+	switch typ {
+	case types.LegacyTxType:
+		return LegacyTxType, nil
+	case types.AccessListTxType:
+		return AccessListTxType, nil
+	case types.DynamicFeeTxType:
+		return DynamicFeeTxType, nil
+	default:
+		return 0, errors.Wrapf(ErrInvalidAct, "unsupported eth tx type %d", typ)
+	}
 }
 
 func getRecipientAddr(addr *common.Address) string {
@@ -180,12 +214,10 @@ func getRecipientAddr(addr *common.Address) string {
 
 // BuildExecution loads executino action into envelope
 func (b *EnvelopeBuilder) BuildExecution(tx *types.Transaction) (Envelope, error) {
-	b.setEnvelopeCommonFields(tx)
-	exec, err := NewExecutionWithAccessList(getRecipientAddr(tx.To()), tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data(), tx.AccessList())
-	if err != nil {
+	if err := b.setEnvelopeCommonFields(tx); err != nil {
 		return nil, err
 	}
-	b.elp.payload = exec
+	b.elp.payload = NewExecution(getRecipientAddr(tx.To()), tx.Value(), tx.Data())
 	return b.build(), nil
 }
 
@@ -194,7 +226,9 @@ func (b *EnvelopeBuilder) BuildStakingAction(tx *types.Transaction) (Envelope, e
 	if !bytes.Equal(tx.To().Bytes(), _stakingProtocolEthAddr.Bytes()) {
 		return nil, ErrInvalidAct
 	}
-	b.setEnvelopeCommonFields(tx)
+	if err := b.setEnvelopeCommonFields(tx); err != nil {
+		return nil, err
+	}
 	act, err := newStakingActionFromABIBinary(tx.Data())
 	if err != nil {
 		return nil, err
@@ -208,7 +242,9 @@ func (b *EnvelopeBuilder) BuildRewardingAction(tx *types.Transaction) (Envelope,
 	if !bytes.Equal(tx.To().Bytes(), _rewardingProtocolEthAddr.Bytes()) {
 		return nil, ErrInvalidAct
 	}
-	b.setEnvelopeCommonFields(tx)
+	if err := b.setEnvelopeCommonFields(tx); err != nil {
+		return nil, err
+	}
 	act, err := newRewardingActionFromABIBinary(tx.Data())
 	if err != nil {
 		return nil, err

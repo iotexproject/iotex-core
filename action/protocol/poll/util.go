@@ -146,7 +146,7 @@ func createPostSystemActions(ctx context.Context, sr protocol.StateReader, p Pro
 	}
 
 	nonce := uint64(0)
-	pollAction := action.NewPutPollResult(nonce, nextEpochHeight, l)
+	pollAction := action.NewPutPollResult(nextEpochHeight, l)
 	builder := action.EnvelopeBuilder{}
 
 	return []action.Envelope{builder.SetNonce(nonce).SetAction(pollAction).Build()}, nil

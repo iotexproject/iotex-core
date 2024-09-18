@@ -5,7 +5,9 @@
 
 package action
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+)
 
 // constants for EIP-1559 dynamic fee
 const (
@@ -26,6 +28,7 @@ var (
 	ErrNonceTooLow        = errors.New("nonce too low")
 	ErrUnderpriced        = errors.New("transaction underpriced")
 	ErrNegativeValue      = errors.New("negative value")
+	ErrGasFeeCapTooLow    = errors.New("fee cap less than base fee")
 	ErrIntrinsicGas       = errors.New("intrinsic gas too low")
 	ErrInsufficientFunds  = errors.New("insufficient funds for gas * price + value")
 	ErrNonceTooHigh       = errors.New("nonce too high")
@@ -37,6 +40,9 @@ var (
 	ErrNilAction          = errors.New("nil action to load proto")
 	ErrInvalidAct         = errors.New("invalid action type")
 	ErrInvalidABI         = errors.New("invalid abi binary data")
+	ErrGasTipOverFeeCap   = errors.New("tip cap is greater than fee cap")
+	ErrMissRequiredField  = errors.New("missing required field")
+	ErrValueVeryHigh      = errors.New("value is very high")
 )
 
 // LoadErrorDescription loads corresponding description related to the error

@@ -7,18 +7,14 @@ package action
 
 import (
 	"bytes"
-	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -62,8 +58,7 @@ var (
 
 // ChangeCandidate defines the action of changing stake candidate ts the other
 type ChangeCandidate struct {
-	AbstractAction
-
+	stake_common
 	candidateName string
 	bucketIndex   uint64
 	payload       []byte
@@ -84,24 +79,15 @@ func init() {
 
 // NewChangeCandidate returns a ChangeCandidate instance
 func NewChangeCandidate(
-	nonce uint64,
 	candName string,
 	bucketIndex uint64,
 	payload []byte,
-	gasLimit uint64,
-	gasPrice *big.Int,
-) (*ChangeCandidate, error) {
+) *ChangeCandidate {
 	return &ChangeCandidate{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
 		candidateName: candName,
 		bucketIndex:   bucketIndex,
 		payload:       payload,
-	}, nil
+	}
 }
 
 // Candidate returns the address of recipient
@@ -147,30 +133,16 @@ func (cc *ChangeCandidate) IntrinsicGas() (uint64, error) {
 	return CalculateIntrinsicGas(MoveStakeBaseIntrinsicGas, MoveStakePayloadGas, payloadSize)
 }
 
-// Cost returns the tstal cost of a ChangeCandidate
-func (cc *ChangeCandidate) Cost() (*big.Int, error) {
-	intrinsicGas, err := cc.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed ts get intrinsic gas for the ChangeCandidate")
-	}
-	changeCandidateFee := big.NewInt(0).Mul(cc.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return changeCandidateFee, nil
-}
-
 // SanityCheck validates the variables in the action
 func (cc *ChangeCandidate) SanityCheck() error {
 	if !IsValidCandidateName(cc.candidateName) {
 		return ErrInvalidCanName
 	}
-	return cc.AbstractAction.SanityCheck()
+	return nil
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (cc *ChangeCandidate) EncodeABIBinary() ([]byte, error) {
-	return cc.encodeABIBinary()
-}
-
-func (cc *ChangeCandidate) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (cc *ChangeCandidate) EthData() ([]byte, error) {
 	data, err := _changeCandidateMethod.Inputs.Pack(cc.candidateName, cc.bucketIndex, cc.payload)
 	if err != nil {
 		return nil, err
@@ -202,20 +174,4 @@ func NewChangeCandidateFromABIBinary(data []byte) (*ChangeCandidate, error) {
 		return nil, errDecodeFailure
 	}
 	return &cc, nil
-}
-
-// ToEthTx converts action to eth-compatible tx
-func (cc *ChangeCandidate) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := cc.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    cc.Nonce(),
-		GasPrice: cc.GasPrice(),
-		Gas:      cc.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
 }

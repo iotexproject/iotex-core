@@ -1,3 +1,8 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package staking
 
 import (
@@ -199,10 +204,11 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 				})
 			}
 			require.NoError(setupAccount(sm, test.caller, test.initBalance))
-			act, err := action.NewCandidateTransferOwnership(test.nonce, test.gasLimit, test.gasPrice, test.owner.String(), test.payload)
+			act, err := action.NewCandidateTransferOwnership(test.owner.String(), test.payload)
 			require.NoError(err)
-
 			IntrinsicGas, _ := act.IntrinsicGas()
+			elp := builder.SetNonce(test.nonce).SetGasLimit(test.gasLimit).
+				SetGasPrice(test.gasPrice).SetAction(act).Build()
 			ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 				Caller:       test.caller,
 				GasPrice:     test.gasPrice,
@@ -219,7 +225,7 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 			cfg.UpernavikBlockHeight = 1 // enable candidate owner transfer feature
 			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
-			require.NoError(p.Validate(ctx, act, sm))
+			require.NoError(p.Validate(ctx, elp, sm))
 			_, _, err = p.handleCandidateTransferOwnership(ctx, act, csm)
 			if test.err != nil {
 				require.Error(err)

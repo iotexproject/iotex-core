@@ -36,15 +36,9 @@ func TestExecuteContractFailure(t *testing.T) {
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 
-	e, err := action.NewExecution(
-		"",
-		1,
-		big.NewInt(0),
-		testutil.TestGasLimit,
-		big.NewInt(10),
-		nil,
-	)
-	require.NoError(t, err)
+	e := action.NewExecution("", big.NewInt(0), nil)
+	elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasPrice(big.NewInt(10)).
+		SetGasLimit(testutil.TestGasLimit).SetAction(e).Build()
 
 	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 		Caller: identityset.Address(27),
@@ -66,11 +60,11 @@ func TestExecuteContractFailure(t *testing.T) {
 		GetBlockTime: func(uint64) (time.Time, error) {
 			return time.Time{}, nil
 		},
-		DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int) (*action.TransactionLog, error) {
+		DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int, ...protocol.Option) ([]*action.TransactionLog, error) {
 			return nil, nil
 		},
 	})
-	retval, receipt, err := ExecuteContract(ctx, sm, action.NewEvmTx(e))
+	retval, receipt, err := ExecuteContract(ctx, sm, elp)
 	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)
@@ -274,15 +268,9 @@ func TestConstantinople(t *testing.T) {
 		return now.Add(time.Duration(height) * time.Second * 5), nil
 	}
 	for _, e := range execHeights {
-		ex, err := action.NewExecution(
-			e.contract,
-			1,
-			big.NewInt(0),
-			testutil.TestGasLimit,
-			big.NewInt(10),
-			nil,
-		)
-		require.NoError(err)
+		ex := action.NewExecution(e.contract, big.NewInt(0), nil)
+		elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasPrice(big.NewInt(10)).
+			SetGasLimit(testutil.TestGasLimit).SetAction(ex).Build()
 
 		timestamp, err := getBlockTime(e.height)
 		require.NoError(err)
@@ -300,7 +288,7 @@ func TestConstantinople(t *testing.T) {
 		})
 		stateDB, err := prepareStateDB(fCtx, sm)
 		require.NoError(err)
-		ps, err := newParams(fCtx, action.NewEvmTx(ex), stateDB)
+		ps, err := newParams(fCtx, elp, stateDB)
 		require.NoError(err)
 
 		evm := vm.NewEVM(ps.context, ps.txCtx, stateDB, ps.chainConfig, ps.evmConfig)

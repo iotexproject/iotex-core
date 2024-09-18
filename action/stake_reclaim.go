@@ -7,18 +7,14 @@ package action
 
 import (
 	"bytes"
-	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -94,8 +90,7 @@ func init() {
 
 // reclaimStake defines the action of stake restake/withdraw
 type reclaimStake struct {
-	AbstractAction
-
+	stake_common
 	bucketIndex uint64
 	payload     []byte
 }
@@ -132,31 +127,23 @@ func (sr *reclaimStake) LoadProto(pbAct *iotextypes.StakeReclaim) error {
 	return nil
 }
 
+func (sr *reclaimStake) SanityCheck() error {
+	return nil
+}
+
 // Unstake defines the action of unstake
 type Unstake struct {
 	reclaimStake
 }
 
 // NewUnstake returns a Unstake instance
-func NewUnstake(
-	nonce uint64,
-	bucketIndex uint64,
-	payload []byte,
-	gasLimit uint64,
-	gasPrice *big.Int,
-) (*Unstake, error) {
+func NewUnstake(bucketIndex uint64, payload []byte) *Unstake {
 	return &Unstake{
 		reclaimStake{
-			AbstractAction: AbstractAction{
-				version:  version.ProtocolVersion,
-				nonce:    nonce,
-				gasLimit: gasLimit,
-				gasPrice: gasPrice,
-			},
 			bucketIndex: bucketIndex,
 			payload:     payload,
 		},
-	}, nil
+	}
 }
 
 // IntrinsicGas returns the intrinsic gas of a Unstake
@@ -165,22 +152,8 @@ func (su *Unstake) IntrinsicGas() (uint64, error) {
 	return CalculateIntrinsicGas(ReclaimStakeBaseIntrinsicGas, ReclaimStakePayloadGas, payloadSize)
 }
 
-// Cost returns the total cost of a Unstake
-func (su *Unstake) Cost() (*big.Int, error) {
-	intrinsicGas, err := su.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the unstake")
-	}
-	unstakeFee := big.NewInt(0).Mul(su.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return unstakeFee, nil
-}
-
-// EncodeABIBinary encodes data in abi encoding
-func (su *Unstake) EncodeABIBinary() ([]byte, error) {
-	return su.encodeABIBinary()
-}
-
-func (su *Unstake) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (su *Unstake) EthData() ([]byte, error) {
 	data, err := _unstakeMethod.Inputs.Pack(su.bucketIndex, su.payload)
 	if err != nil {
 		return nil, err
@@ -211,47 +184,19 @@ func NewUnstakeFromABIBinary(data []byte) (*Unstake, error) {
 	return &su, nil
 }
 
-// ToEthTx converts action to eth-compatible tx
-func (su *Unstake) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := su.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    su.Nonce(),
-		GasPrice: su.GasPrice(),
-		Gas:      su.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
-}
-
 // WithdrawStake defines the action of stake withdraw
 type WithdrawStake struct {
 	reclaimStake
 }
 
 // NewWithdrawStake returns a WithdrawStake instance
-func NewWithdrawStake(
-	nonce uint64,
-	bucketIndex uint64,
-	payload []byte,
-	gasLimit uint64,
-	gasPrice *big.Int,
-) (*WithdrawStake, error) {
+func NewWithdrawStake(bucketIndex uint64, payload []byte) *WithdrawStake {
 	return &WithdrawStake{
 		reclaimStake{
-			AbstractAction: AbstractAction{
-				version:  version.ProtocolVersion,
-				nonce:    nonce,
-				gasLimit: gasLimit,
-				gasPrice: gasPrice,
-			},
 			bucketIndex: bucketIndex,
 			payload:     payload,
 		},
-	}, nil
+	}
 }
 
 // IntrinsicGas returns the intrinsic gas of a WithdrawStake
@@ -260,22 +205,8 @@ func (sw *WithdrawStake) IntrinsicGas() (uint64, error) {
 	return CalculateIntrinsicGas(ReclaimStakeBaseIntrinsicGas, ReclaimStakePayloadGas, payloadSize)
 }
 
-// Cost returns the total cost of a WithdrawStake
-func (sw *WithdrawStake) Cost() (*big.Int, error) {
-	intrinsicGas, err := sw.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the WithdrawStake")
-	}
-	withdrawFee := big.NewInt(0).Mul(sw.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return withdrawFee, nil
-}
-
-// EncodeABIBinary encodes data in abi encoding
-func (sw *WithdrawStake) EncodeABIBinary() ([]byte, error) {
-	return sw.encodeABIBinary()
-}
-
-func (sw *WithdrawStake) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (sw *WithdrawStake) EthData() ([]byte, error) {
 	data, err := _withdrawStakeMethod.Inputs.Pack(sw.bucketIndex, sw.payload)
 	if err != nil {
 		return nil, err
@@ -304,20 +235,4 @@ func NewWithdrawStakeFromABIBinary(data []byte) (*WithdrawStake, error) {
 		return nil, errDecodeFailure
 	}
 	return &sw, nil
-}
-
-// ToEthTx converts action to eth-compatible tx
-func (sw *WithdrawStake) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := sw.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    sw.Nonce(),
-		GasPrice: sw.GasPrice(),
-		Gas:      sw.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
 }

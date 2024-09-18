@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-address/address"
-
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 func TestCandidateTransferOwnership(t *testing.T) {
@@ -68,32 +66,30 @@ func TestCandidateTransferOwnership(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		cr, err := NewCandidateTransferOwnership(test.nonce, test.gasLimit, test.gasPrice, test.newOwner, test.payload)
+		cr, err := NewCandidateTransferOwnership(test.newOwner, test.payload)
 		require.Equal(test.expected, errors.Cause(err))
 		if err != nil {
 			continue
 		}
-		err = cr.SanityCheck()
+		elp := (&EnvelopeBuilder{}).SetNonce(test.nonce).SetGasLimit(test.gasLimit).
+			SetGasPrice(test.gasPrice).SetAction(cr).Build()
+		err = elp.SanityCheck()
 		require.Equal(test.sanityCheck, errors.Cause(err))
 		if err != nil {
 			continue
 		}
 
 		require.Equal(test.serialize, hex.EncodeToString(cr.Serialize()))
-
-		require.NoError(err)
-		require.Equal(test.gasLimit, cr.GasLimit())
-		require.Equal(test.gasPrice, cr.GasPrice())
-		require.Equal(test.nonce, cr.Nonce())
-
+		require.Equal(test.gasLimit, elp.Gas())
+		require.Equal(test.gasPrice, elp.GasPrice())
+		require.Equal(test.nonce, elp.Nonce())
 		require.Equal(test.newOwner, cr.NewOwner().String())
-
 		require.Equal(test.payload, cr.Payload())
 
 		gas, err := cr.IntrinsicGas()
 		require.NoError(err)
 		require.Equal(test.intrinsicGas, gas)
-		cost, err := cr.Cost()
+		cost, err := elp.Cost()
 		require.NoError(err)
 		require.Equal(test.cost, cost.Text(10))
 
@@ -107,9 +103,9 @@ func TestCandidateTransferOwnership(t *testing.T) {
 
 func TestCandidateTransferOwnershipABIEncodeAndDecode(t *testing.T) {
 	require := require.New(t)
-	cr, err := NewCandidateTransferOwnership(1, 1000000, big.NewInt(1000), "io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he", []byte("payload"))
+	cr, err := NewCandidateTransferOwnership("io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he", []byte("payload"))
 	require.NoError(err)
-	enc, err := cr.EncodeABIBinary()
+	enc, err := cr.EthData()
 	require.NoError(err)
 
 	cr2, err := NewCandidateTransferOwnershipFromABIBinary(enc)
@@ -118,7 +114,7 @@ func TestCandidateTransferOwnershipABIEncodeAndDecode(t *testing.T) {
 	require.Equal(cr.Payload(), cr2.Payload())
 
 	cr2.newOwner = nil
-	enc, err = cr2.EncodeABIBinary()
+	enc, err = cr2.EthData()
 	require.Equal(ErrAddress, errors.Cause(err))
 	require.Nil(enc)
 
@@ -127,19 +123,4 @@ func TestCandidateTransferOwnershipABIEncodeAndDecode(t *testing.T) {
 	cr2, err = NewCandidateTransferOwnershipFromABIBinary(data)
 	require.Equal(errDecodeFailure, err)
 	require.Nil(cr2)
-}
-
-func TestCandidateTransferOwnershipToEthTx(t *testing.T) {
-	require := require.New(t)
-	cr, err := NewCandidateTransferOwnership(1, 1000000, big.NewInt(1000), "io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he", []byte("payload"))
-	require.NoError(err)
-	ethTx, err := cr.ToEthTx(0)
-	require.NoError(err)
-	require.NotNil(ethTx)
-	require.Equal(byteutil.Must(cr.EncodeABIBinary()), ethTx.Data())
-	require.Equal(cr.GasPrice(), ethTx.GasPrice())
-	require.Equal(cr.GasLimit(), ethTx.Gas())
-	require.Equal(big.NewInt(0), ethTx.Value())
-	require.Equal(_stakingProtocolEthAddr.Hex(), ethTx.To().Hex())
-
 }

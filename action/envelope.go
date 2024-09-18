@@ -6,8 +6,11 @@
 package action
 
 import (
+	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
@@ -17,28 +20,138 @@ import (
 type (
 	// Envelope defines an envelope wrapped on action with some envelope metadata.
 	Envelope interface {
+		TxData
 		Version() uint32
-		Nonce() uint64
 		ChainID() uint32
-		GasLimit() uint64
-		GasPrice() *big.Int
-		GasTipCap() *big.Int
-		GasFeeCap() *big.Int
 		Destination() (string, bool)
 		Cost() (*big.Int, error)
 		IntrinsicGas() (uint64, error)
+		Size() uint32
 		Action() Action
+		ToEthTx(uint32, iotextypes.Encoding) (*types.Transaction, error)
 		Proto() *iotextypes.ActionCore
-		LoadProto(pbAct *iotextypes.ActionCore) error
-		SetNonce(n uint64)
-		SetChainID(chainID uint32)
+		LoadProto(*iotextypes.ActionCore) error
+		SetNonce(uint64)
+		SetGas(uint64)
+		SetChainID(uint32)
+		SanityCheck() error
+	}
+
+	// TxData is the interface required to execute a transaction by EVM
+	// It follows the same-name interface in go-ethereum
+	TxData interface {
+		TxCommon
+		Value() *big.Int
+		To() *common.Address
+		Data() []byte
+	}
+
+	TxCommon interface {
+		Nonce() uint64
+		Gas() uint64
+		GasPrice() *big.Int
+		TxDynamicGas
+		AccessList() types.AccessList
+		TxBlob
+	}
+
+	TxCommonWithProto interface {
+		TxCommon
+		Version() uint32
+		ChainID() uint32
+		SanityCheck() error
+		toProto() *iotextypes.ActionCore
+		setNonce(uint64)
+		setGas(uint64)
+		setChainID(uint32)
+	}
+
+	TxDynamicGas interface {
+		GasTipCap() *big.Int
+		GasFeeCap() *big.Int
+	}
+
+	TxBlob interface {
+		BlobGas() uint64
+		BlobGasFeeCap() *big.Int
+		BlobHashes() []common.Hash
+		BlobTxSidecar() *types.BlobTxSidecar
 	}
 
 	envelope struct {
-		AbstractAction
+		common  TxCommonWithProto
 		payload actionPayload
 	}
 )
+
+func (elp *envelope) Version() uint32 {
+	return elp.common.Version()
+}
+
+func (elp *envelope) ChainID() uint32 {
+	return elp.common.ChainID()
+}
+
+func (elp *envelope) Nonce() uint64 {
+	return elp.common.Nonce()
+}
+
+func (elp *envelope) Gas() uint64 {
+	return elp.common.Gas()
+}
+
+func (elp *envelope) GasPrice() *big.Int {
+	return elp.common.GasPrice()
+}
+
+func (elp *envelope) AccessList() types.AccessList {
+	return elp.common.AccessList()
+}
+
+func (elp *envelope) GasTipCap() *big.Int {
+	return elp.common.GasTipCap()
+}
+
+func (elp *envelope) GasFeeCap() *big.Int {
+	return elp.common.GasFeeCap()
+}
+
+func (elp *envelope) BlobGas() uint64 {
+	return elp.common.BlobGas()
+}
+
+func (elp *envelope) BlobGasFeeCap() *big.Int {
+	return elp.common.BlobGasFeeCap()
+}
+
+func (elp *envelope) BlobHashes() []common.Hash {
+	return elp.common.BlobHashes()
+}
+
+func (elp *envelope) BlobTxSidecar() *types.BlobTxSidecar {
+	return elp.common.BlobTxSidecar()
+}
+
+func (elp *envelope) Value() *big.Int {
+	if exec, ok := elp.Action().(*Execution); ok {
+		return exec.Value()
+	}
+	return nil
+}
+
+func (elp *envelope) To() *common.Address {
+	if exec, ok := elp.Action().(*Execution); ok {
+		return exec.To()
+	}
+	return nil
+}
+
+func (elp *envelope) Data() []byte {
+	if exec, ok := elp.Action().(*Execution); ok {
+		return exec.data
+	}
+	return nil
+}
 
 // Destination returns the destination address
 func (elp *envelope) Destination() (string, bool) {
@@ -50,22 +163,75 @@ func (elp *envelope) Destination() (string, bool) {
 	return r.Destination(), true
 }
 
-// Cost returns cost of actions
+// Cost returns cost of the action
 func (elp *envelope) Cost() (*big.Int, error) {
-	return elp.payload.Cost()
+	gas, err := elp.payload.IntrinsicGas()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get payload's intrinsic gas")
+	}
+	if _, ok := elp.payload.(gasLimitForCost); ok {
+		gas = elp.common.Gas()
+	}
+	if acl := elp.AccessList(); len(acl) > 0 {
+		gas += uint64(len(acl)) * TxAccessListAddressGas
+		gas += uint64(acl.StorageKeys()) * TxAccessListStorageKeyGas
+	}
+	cost := new(big.Int).SetUint64(gas)
+	cost.Mul(cost, elp.GasPrice())
+	if afc, ok := elp.payload.(amountForCost); ok {
+		if amount := afc.Amount(); amount != nil {
+			cost.Add(cost, amount)
+		}
+	}
+	return cost, nil
 }
 
 // IntrinsicGas returns intrinsic gas of action.
 func (elp *envelope) IntrinsicGas() (uint64, error) {
-	return elp.payload.IntrinsicGas()
+	gas, err := elp.payload.IntrinsicGas()
+	if err != nil {
+		return 0, err
+	}
+	if acl := elp.AccessList(); len(acl) > 0 {
+		gas += uint64(len(acl)) * TxAccessListAddressGas
+		gas += uint64(acl.StorageKeys()) * TxAccessListStorageKeyGas
+	}
+	return gas, nil
+}
+
+// Size returns the size of envelope
+func (elp *envelope) Size() uint32 {
+	// VersionSizeInBytes + NonceSizeInBytes + GasSizeInBytes
+	var size uint32 = 4 + 8 + 8
+	if gasPrice := elp.common.GasPrice(); gasPrice != nil {
+		size += uint32(len(gasPrice.Bytes()))
+	}
+	if s, ok := elp.payload.(hasSize); ok {
+		size += s.Size()
+	}
+	return size
 }
 
 // Action returns the action payload.
 func (elp *envelope) Action() Action { return elp.payload }
 
+// ToEthTx converts to Ethereum tx
+func (elp *envelope) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
+	switch {
+	// TODO: handle dynamic fee tx and blob tx
+	case encoding == iotextypes.Encoding_IOTEX_PROTOBUF:
+		// treat native tx as EVM LegacyTx
+		fallthrough
+	case encoding == iotextypes.Encoding_ETHEREUM_EIP155 || encoding == iotextypes.Encoding_ETHEREUM_UNPROTECTED:
+		return toLegacyEthTx(elp.common, elp.Action())
+	default:
+		return nil, errors.Wrapf(ErrInvalidAct, "unsupported encoding type %v", encoding)
+	}
+}
+
 // Proto convert Envelope to protobuf format.
 func (elp *envelope) Proto() *iotextypes.ActionCore {
-	actCore := elp.AbstractAction.toProto()
+	actCore := elp.common.toProto()
 
 	// TODO assert each action
 	switch act := elp.Action().(type) {
@@ -123,10 +289,31 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	if elp == nil {
 		return ErrNilAction
 	}
-	if err := elp.AbstractAction.fromProto(pbAct); err != nil {
+	if err := elp.loadProtoTxCommon(pbAct); err != nil {
 		return err
 	}
+	return elp.loadProtoActionPayload(pbAct)
+}
 
+func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
+	var err error
+	switch pbAct.Version {
+	case LegacyTxType:
+		elp.common, err = fromProtoLegacyTx(pbAct)
+	case AccessListTxType:
+		elp.common, err = fromProtoAccessListTx(pbAct)
+	case DynamicFeeTxType:
+		tx := &DynamicFeeTx{}
+		if err = tx.fromProto(pbAct); err == nil {
+			elp.common = tx
+		}
+	default:
+		panic(fmt.Sprintf("unsupported action version = %d", pbAct.Version))
+	}
+	return err
+}
+
+func (elp *envelope) loadProtoActionPayload(pbAct *iotextypes.ActionCore) error {
 	switch {
 	case pbAct.GetTransfer() != nil:
 		act := &Transfer{}
@@ -252,9 +439,26 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	default:
 		return errors.Errorf("no applicable action to handle proto type %T", pbAct.Action)
 	}
-	elp.payload.SetEnvelopeContext(&elp.AbstractAction)
 	return nil
 }
 
+func (elp *envelope) SetNonce(n uint64) {
+	elp.common.setNonce(n)
+}
+
+func (elp *envelope) SetGas(gas uint64) {
+	elp.common.setGas(gas)
+}
+
 // SetChainID sets the chainID value
-func (elp *envelope) SetChainID(chainID uint32) { elp.chainID = chainID }
+func (elp *envelope) SetChainID(chainID uint32) {
+	elp.common.setChainID(chainID)
+}
+
+// SanityCheck does the sanity check
+func (elp *envelope) SanityCheck() error {
+	if err := elp.payload.SanityCheck(); err != nil {
+		return err
+	}
+	return elp.common.SanityCheck()
+}

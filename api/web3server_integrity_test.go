@@ -598,50 +598,46 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 	var testDatas []stakeData
 
 	// encode stake data
-	act1, err := action.NewCreateStake(1, "test", "100", 7, false, []byte{}, 1000000, big.NewInt(0))
+	act1, err := action.NewCreateStake("test", "100", 7, false, []byte{})
 	require.NoError(err)
-	data, err := act1.EncodeABIBinary()
+	data, err := act1.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"createStake", data})
 
-	act2, err := action.NewDepositToStake(2, 7, "100", []byte{}, 1000000, big.NewInt(0))
+	act2, err := action.NewDepositToStake(7, "100", []byte{})
 	require.NoError(err)
-	data2, err := act2.EncodeABIBinary()
+	data2, err := act2.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"depositToStake", data2})
 
-	act3, err := action.NewChangeCandidate(3, "test", 7, []byte{}, 1000000, big.NewInt(0))
+	act3 := action.NewChangeCandidate("test", 7, []byte{})
 	require.NoError(err)
-	data3, err := act3.EncodeABIBinary()
+	data3, err := act3.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"changeCandidate", data3})
 
-	act4, err := action.NewUnstake(4, 7, []byte{}, 1000000, big.NewInt(0))
-	require.NoError(err)
-	data4, err := act4.EncodeABIBinary()
+	act4 := action.NewUnstake(7, []byte{})
+	data4, err := act4.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"unstake", data4})
 
-	act5, err := action.NewWithdrawStake(5, 7, []byte{}, 1000000, big.NewInt(0))
-	require.NoError(err)
-	data5, err := act5.EncodeABIBinary()
+	act5 := action.NewWithdrawStake(7, []byte{})
+	data5, err := act5.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"withdrawStake", data5})
 
-	act6, err := action.NewRestake(6, 7, 7, false, []byte{}, 1000000, big.NewInt(0))
-	require.NoError(err)
-	data6, err := act6.EncodeABIBinary()
+	act6 := action.NewRestake(7, 7, false, []byte{})
+	data6, err := act6.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"restake", data6})
 
-	act7, err := action.NewTransferStake(7, "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza", 7, []byte{}, 1000000, big.NewInt(0))
+	act7, err := action.NewTransferStake("io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza", 7, []byte{})
 	require.NoError(err)
-	data7, err := act7.EncodeABIBinary()
+	data7, err := act7.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"transferStake", data7})
 
 	act8, err := action.NewCandidateRegister(
-		8,
 		"test",
 		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
 		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
@@ -649,23 +645,18 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 		"100",
 		7,
 		false,
-		[]byte{},
-		1000000,
-		big.NewInt(0))
+		[]byte{})
 	require.NoError(err)
-	data8, err := act8.EncodeABIBinary()
+	data8, err := act8.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"candidateRegister", data8})
 
 	act9, err := action.NewCandidateUpdate(
-		9,
 		"test",
 		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
-		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
-		1000000,
-		big.NewInt(0))
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza")
 	require.NoError(err)
-	data9, err := act9.EncodeABIBinary()
+	data9, err := act9.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"candidateUpdate", data9})
 

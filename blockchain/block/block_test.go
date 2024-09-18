@@ -179,23 +179,12 @@ func makeBlock(tb testing.TB, n int) *Block {
 	sevlps := make([]*action.SealedEnvelope, 0)
 	for j := 1; j <= n; j++ {
 		i := rand.Int()
-		tsf, err := action.NewTransfer(
-			uint64(i),
+		tsf := action.NewTransfer(
 			unit.ConvertIotxToRau(1000+int64(i)),
 			identityset.Address(i%identityset.Size()).String(),
-			nil,
-			20000+uint64(i),
-			unit.ConvertIotxToRau(1+int64(i)),
-		)
-		require.NoError(tb, err)
-		eb := action.EnvelopeBuilder{}
-		evlp := eb.
-			SetAction(tsf).
-			SetGasLimit(tsf.GasLimit()).
-			SetGasPrice(tsf.GasPrice()).
-			SetNonce(tsf.Nonce()).
-			SetVersion(1).
-			Build()
+			nil)
+		evlp := (&action.EnvelopeBuilder{}).SetNonce(uint64(i)).SetGasPrice(unit.ConvertIotxToRau(1 + int64(i))).
+			SetGasLimit(20000 + uint64(i)).SetAction(tsf).Build()
 		sevlp, err := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()))
 		require.NoError(tb, err)
 		sevlps = append(sevlps, sevlp)

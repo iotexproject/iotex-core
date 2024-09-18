@@ -221,7 +221,7 @@ func TestProtocol_Validate(t *testing.T) {
 	g := genesis.Default
 	g.NewfoundlandBlockHeight = 0
 	p := NewProtocol(g.Rewarding)
-	act := createGrantRewardAction(0, uint64(0)).Action()
+	act := createGrantRewardAction(0, uint64(0))
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
 		protocol.BlockCtx{
@@ -345,7 +345,7 @@ func TestProtocol_Handle(t *testing.T) {
 			BlockHeight: 0,
 		},
 	)
-
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
 	ctx = genesis.WithGenesisContext(protocol.WithRegistry(ctx, registry), g)
 	ctx = protocol.WithFeatureCtx(ctx)
 	ap := account.NewProtocol(DepositGas)
@@ -370,18 +370,9 @@ func TestProtocol_Handle(t *testing.T) {
 	)
 
 	// Deposit
-	db := action.DepositToRewardingFundBuilder{}
-	deposit := db.SetAmount(big.NewInt(1000000)).Build()
-	eb1 := action.EnvelopeBuilder{}
-	e1 := eb1.SetNonce(1).
-		SetGasPrice(big.NewInt(0)).
-		SetGasLimit(deposit.GasLimit()).
-		SetAction(&deposit).
-		Build()
-	se1, err := action.Sign(e1, identityset.PrivateKey(0))
-	require.NoError(t, err)
-
-	_, err = p.Handle(ctx, se1.Action(), sm)
+	deposit := action.NewDepositToRewardingFund(big.NewInt(1000000), nil)
+	e1 := (&action.EnvelopeBuilder{}).SetNonce(1).SetAction(deposit).Build()
+	_, err = p.Handle(ctx, e1, sm)
 	require.NoError(t, err)
 	balance, _, err := p.TotalBalance(ctx, sm)
 	require.NoError(t, err)
@@ -390,8 +381,6 @@ func TestProtocol_Handle(t *testing.T) {
 	// Grant
 	// Test for createGrantRewardAction
 	e2 := createGrantRewardAction(0, uint64(0))
-	se2, err := action.Sign(e2, identityset.PrivateKey(0))
-	require.NoError(t, err)
 	ctx = protocol.WithActionCtx(
 		ctx,
 		protocol.ActionCtx{
@@ -400,7 +389,7 @@ func TestProtocol_Handle(t *testing.T) {
 			Nonce:    0,
 		},
 	)
-	receipt, err := p.Handle(ctx, se2.Action(), sm)
+	receipt, err := p.Handle(ctx, e2, sm)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
 	assert.Equal(t, 1, len(receipt.Logs()))
@@ -413,21 +402,13 @@ func TestProtocol_Handle(t *testing.T) {
 		},
 	)
 	// Grant the block reward again should fail
-	receipt, err = p.Handle(ctx, se2.Action(), sm)
+	receipt, err = p.Handle(ctx, e2, sm)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
 
 	// Claim
-	claimBuilder := action.ClaimFromRewardingFundBuilder{}
-	claim := claimBuilder.SetAmount(big.NewInt(1000000)).Build()
-	eb3 := action.EnvelopeBuilder{}
-	e3 := eb3.SetNonce(4).
-		SetGasPrice(big.NewInt(0)).
-		SetGasLimit(claim.GasLimit()).
-		SetAction(&claim).
-		Build()
-	se3, err := action.Sign(e3, identityset.PrivateKey(0))
-	require.NoError(t, err)
+	claim := action.NewClaimFromRewardingFund(big.NewInt(1000000), nil, nil)
+	e3 := (&action.EnvelopeBuilder{}).SetNonce(4).SetAction(claim).Build()
 	ctx = protocol.WithActionCtx(
 		ctx,
 		protocol.ActionCtx{
@@ -436,7 +417,7 @@ func TestProtocol_Handle(t *testing.T) {
 			Nonce:    2,
 		},
 	)
-	_, err = p.Handle(ctx, se3.Action(), sm)
+	_, err = p.Handle(ctx, e3, sm)
 	require.NoError(t, err)
 	balance, _, err = p.TotalBalance(ctx, sm)
 	require.NoError(t, err)

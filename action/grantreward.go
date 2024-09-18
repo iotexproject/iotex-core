@@ -6,13 +6,11 @@
 package action
 
 import (
-	"math/big"
 	"strings"
 
 	"google.golang.org/protobuf/proto"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -64,10 +62,16 @@ func init() {
 
 // GrantReward is the action to grant either block or epoch reward
 type GrantReward struct {
-	AbstractAction
-
+	reward_common
 	rewardType int
 	height     uint64
+}
+
+func NewGrantReward(rewardType int, height uint64) *GrantReward {
+	return &GrantReward{
+		rewardType: rewardType,
+		height:     height,
+	}
 }
 
 // RewardType returns the grant reward type
@@ -114,17 +118,10 @@ func (*GrantReward) IntrinsicGas() (uint64, error) {
 	return 0, nil
 }
 
-// Cost returns the total cost of a grant reward action
-func (*GrantReward) Cost() (*big.Int, error) {
-	return big.NewInt(0), nil
-}
+func (*GrantReward) SanityCheck() error { return nil }
 
-// EncodeABIBinary encodes data in abi encoding
-func (g *GrantReward) EncodeABIBinary() ([]byte, error) {
-	return g.encodeABIBinary()
-}
-
-func (g *GrantReward) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (g *GrantReward) EthData() ([]byte, error) {
 	data, err := _grantRewardMethod.Inputs.Pack(
 		int8(g.rewardType),
 		g.height,
@@ -133,44 +130,4 @@ func (g *GrantReward) encodeABIBinary() ([]byte, error) {
 		return nil, err
 	}
 	return append(_grantRewardMethod.ID, data...), nil
-}
-
-// ToEthTx converts a grant reward action to an ethereum transaction
-func (g *GrantReward) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := g.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    g.Nonce(),
-		GasPrice: g.GasPrice(),
-		Gas:      g.GasLimit(),
-		To:       &_rewardingProtocolEthAddr,
-		Data:     data,
-		Value:    big.NewInt(0),
-	}), nil
-}
-
-// GrantRewardBuilder is the struct to build GrantReward
-type GrantRewardBuilder struct {
-	Builder
-	grantReward GrantReward
-}
-
-// SetRewardType sets the grant reward type
-func (b *GrantRewardBuilder) SetRewardType(t int) *GrantRewardBuilder {
-	b.grantReward.rewardType = t
-	return b
-}
-
-// SetHeight sets the grant reward block height
-func (b *GrantRewardBuilder) SetHeight(height uint64) *GrantRewardBuilder {
-	b.grantReward.height = height
-	return b
-}
-
-// Build builds a new grant reward action
-func (b *GrantRewardBuilder) Build() GrantReward {
-	b.grantReward.AbstractAction = b.Builder.Build()
-	return b.grantReward
 }

@@ -10,70 +10,54 @@ import (
 
 func TestStakingTransfer(t *testing.T) {
 	require := require.New(t)
-	stake, err := NewTransferStake(_nonce, _canAddress, _index, _payload, _gaslimit, _gasprice)
+	stake, err := NewTransferStake(_canAddress, _index, _payload)
 	require.NoError(err)
+	elp := (&EnvelopeBuilder{}).SetNonce(_nonce).SetGasLimit(_gasLimit).
+		SetGasPrice(_gasPrice).SetAction(stake).Build()
+	t.Run("proto", func(t *testing.T) {
+		ser := stake.Serialize()
+		require.Equal("080a1229696f3178707136326177383575717a72636367397935686e727976386c64326e6b7079636333677a611a077061796c6f6164", hex.EncodeToString(ser))
+		require.Equal(_gaslimit, elp.Gas())
+		require.Equal(_gasprice, elp.GasPrice())
+		require.Equal(_nonce, elp.Nonce())
 
-	ser := stake.Serialize()
-	require.Equal("080a1229696f3178707136326177383575717a72636367397935686e727976386c64326e6b7079636333677a611a077061796c6f6164", hex.EncodeToString(ser))
+		require.Equal(_payload, stake.Payload())
+		require.Equal(_canAddress, stake.VoterAddress().String())
+		require.Equal(_index, stake.BucketIndex())
 
-	require.NoError(err)
-	require.Equal(_gaslimit, stake.GasLimit())
-	require.Equal(_gasprice, stake.GasPrice())
-	require.Equal(_nonce, stake.Nonce())
+		gas, err := stake.IntrinsicGas()
+		require.NoError(err)
+		require.Equal(uint64(10700), gas)
+		cost, err := elp.Cost()
+		require.NoError(err)
+		require.Equal("107000", cost.Text(10))
 
-	require.Equal(_payload, stake.Payload())
-	require.Equal(_canAddress, stake.VoterAddress().String())
-	require.Equal(_index, stake.BucketIndex())
-
-	gas, err := stake.IntrinsicGas()
-	require.NoError(err)
-	require.Equal(uint64(10700), gas)
-	cost, err := stake.Cost()
-	require.NoError(err)
-	require.Equal("107000", cost.Text(10))
-
-	proto := stake.Proto()
-	stake2 := &TransferStake{}
-	require.NoError(stake2.LoadProto(proto))
-	require.Equal(_payload, stake2.Payload())
-	require.Equal(_canAddress, stake2.VoterAddress().String())
-	require.Equal(_index, stake2.BucketIndex())
-}
-
-func TestStakingTransferSignVerify(t *testing.T) {
-	require := require.New(t)
-	require.Equal("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", _senderKey.HexString())
-	stake, err := NewTransferStake(_nonce, _canAddress, _index, _payload, _gaslimit, _gasprice)
-	require.NoError(err)
-
-	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasLimit(_gaslimit).
-		SetGasPrice(_gasprice).
-		SetAction(stake).Build()
-	// sign
-	selp, err := Sign(elp, _senderKey)
-	require.NoError(err)
-	require.NotNil(selp)
-	ser, err := proto.Marshal(selp.Proto())
-	require.NoError(err)
-	require.Equal("0a43080118c0843d22023130f20236080a1229696f3178707136326177383575717a72636367397935686e727976386c64326e6b7079636333677a611a077061796c6f6164124104755ce6d8903f6b3793bddb4ea5d3589d637de2d209ae0ea930815c82db564ee8cc448886f639e8a0c7e94e99a5c1335b583c0bc76ef30dd6a1038ed9da8daf331a41fa26db427ab87a56a129196c1604f2e22c4dd2a1f99b2217bc916260757d00093d9e6dccdf53e3b0b64e41a69d71c238fbf9281625164694a74dfbeba075d0ce01", hex.EncodeToString(ser))
-	hash, err := selp.Hash()
-	require.NoError(err)
-	require.Equal("74b2e1d6a09ba5d1298fa422d5850991ae516865077282196295a38f93c78b85", hex.EncodeToString(hash[:]))
-	// verify signature
-	require.NoError(selp.VerifySignature())
-}
-
-func TestStakingTransferABIEncodeAndDecode(t *testing.T) {
-	require := require.New(t)
-	stake, err := NewTransferStake(_nonce, _canAddress, _index, _payload, _gaslimit, _gasprice)
-	require.NoError(err)
-
-	data, err := stake.EncodeABIBinary()
-	require.NoError(err)
-	stake, err = NewTransferStakeFromABIBinary(data)
-	require.NoError(err)
-	require.Equal(_canAddress, stake.voterAddress.String())
-	require.Equal(_index, stake.bucketIndex)
-	require.Equal(_payload, stake.payload)
+		proto := stake.Proto()
+		stake2 := &TransferStake{}
+		require.NoError(stake2.LoadProto(proto))
+		require.Equal(_payload, stake2.Payload())
+		require.Equal(_canAddress, stake2.VoterAddress().String())
+		require.Equal(_index, stake2.BucketIndex())
+	})
+	t.Run("sign and verify", func(t *testing.T) {
+		selp, err := Sign(elp, _senderKey)
+		require.NoError(err)
+		ser, err := proto.Marshal(selp.Proto())
+		require.NoError(err)
+		require.Equal("0a450801100118c0843d22023130f20236080a1229696f3178707136326177383575717a72636367397935686e727976386c64326e6b7079636333677a611a077061796c6f6164124104755ce6d8903f6b3793bddb4ea5d3589d637de2d209ae0ea930815c82db564ee8cc448886f639e8a0c7e94e99a5c1335b583c0bc76ef30dd6a1038ed9da8daf331a4131d3a608c86b134db575c5bf11d3c565c8ae91ef7c19b09d106e9bc9d346fbc4731092e8413394fd0eb8617e117ecae833d3366dd1e7b2adf6f0166aae8e5b6800", hex.EncodeToString(ser))
+		hash, err := selp.Hash()
+		require.NoError(err)
+		require.Equal("4588cb05b9230e26f44fefd8b1d1e7e11c2aa09fa3bb1c45f3acbe012dda8dbe", hex.EncodeToString(hash[:]))
+		// verify signature
+		require.NoError(selp.VerifySignature())
+	})
+	t.Run("proto", func(t *testing.T) {
+		data, err := stake.EthData()
+		require.NoError(err)
+		stake, err = NewTransferStakeFromABIBinary(data)
+		require.NoError(err)
+		require.Equal(_canAddress, stake.voterAddress.String())
+		require.Equal(_index, stake.bucketIndex)
+		require.Equal(_payload, stake.payload)
+	})
 }

@@ -6,37 +6,25 @@
 package action
 
 import (
-	"math/big"
-
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 // PutPollResult represents put the poll result from gravity chain.
 type PutPollResult struct {
-	AbstractAction
-
 	height     uint64
 	candidates state.CandidateList
 }
 
 // NewPutPollResult instantiates a putting poll result action struct.
 func NewPutPollResult(
-	nonce uint64,
 	height uint64,
 	candidates state.CandidateList,
 ) *PutPollResult {
 	return &PutPollResult{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: 0,
-			gasPrice: big.NewInt(0),
-		},
 		height:     height,
 		candidates: candidates,
 	}
@@ -81,7 +69,4 @@ func (r *PutPollResult) IntrinsicGas() (uint64, error) {
 	return 0, nil
 }
 
-// Cost returns the total cost of a put poll result action
-func (r *PutPollResult) Cost() (*big.Int, error) {
-	return big.NewInt(0), nil
-}
+func (r *PutPollResult) SanityCheck() error { return nil }

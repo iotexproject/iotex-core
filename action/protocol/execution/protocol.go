@@ -31,12 +31,12 @@ const (
 type Protocol struct {
 	getBlockHash evm.GetBlockHash
 	getBlockTime evm.GetBlockTime
-	depositGas   evm.DepositGas
+	depositGas   protocol.DepositGas
 	addr         address.Address
 }
 
 // NewProtocol instantiates the protocol of exeuction
-func NewProtocol(getBlockHash evm.GetBlockHash, depositGas evm.DepositGas, getBlockTime evm.GetBlockTime) *Protocol {
+func NewProtocol(getBlockHash evm.GetBlockHash, depositGas protocol.DepositGas, getBlockTime evm.GetBlockTime) *Protocol {
 	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -62,9 +62,8 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 }
 
 // Handle handles an execution
-func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	exec, ok := act.(*action.Execution)
-	if !ok {
+func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
+	if _, ok := elp.Action().(*action.Execution); !ok {
 		return nil, nil
 	}
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
@@ -72,18 +71,17 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		GetBlockTime:   p.getBlockTime,
 		DepositGasFunc: p.depositGas,
 	})
-	_, receipt, err := evm.ExecuteContract(ctx, sm, action.NewEvmTx(exec))
+	_, receipt, err := evm.ExecuteContract(ctx, sm, elp)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute contract")
 	}
-
 	return receipt, nil
 }
 
 // Validate validates an execution
-func (p *Protocol) Validate(ctx context.Context, act action.Action, _ protocol.StateReader) error {
-	exec, ok := act.(*action.Execution)
+func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, _ protocol.StateReader) error {
+	exec, ok := elp.Action().(*action.Execution)
 	if !ok {
 		return nil
 	}
@@ -94,7 +92,7 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, _ protocol.S
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	if fCtx.ExecutionSizeLimit32KB {
 		sizeLimit = _executionSizeLimit32KB
-		dataSize = exec.TotalSize()
+		dataSize = elp.Size()
 	}
 
 	// Reject oversize execution

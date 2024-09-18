@@ -8,6 +8,8 @@ import (
 	big "math/big"
 	reflect "reflect"
 
+	common "github.com/ethereum/go-ethereum/common"
+	types "github.com/ethereum/go-ethereum/core/types"
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -36,6 +38,20 @@ func (m *MockEnvelope) EXPECT() *MockEnvelopeMockRecorder {
 	return m.recorder
 }
 
+// AccessList mocks base method.
+func (m *MockEnvelope) AccessList() types.AccessList {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AccessList")
+	ret0, _ := ret[0].(types.AccessList)
+	return ret0
+}
+
+// AccessList indicates an expected call of AccessList.
+func (mr *MockEnvelopeMockRecorder) AccessList() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccessList", reflect.TypeOf((*MockEnvelope)(nil).AccessList))
+}
+
 // Action mocks base method.
 func (m *MockEnvelope) Action() action.Action {
 	m.ctrl.T.Helper()
@@ -48,6 +64,62 @@ func (m *MockEnvelope) Action() action.Action {
 func (mr *MockEnvelopeMockRecorder) Action() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Action", reflect.TypeOf((*MockEnvelope)(nil).Action))
+}
+
+// BlobGas mocks base method.
+func (m *MockEnvelope) BlobGas() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGas")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// BlobGas indicates an expected call of BlobGas.
+func (mr *MockEnvelopeMockRecorder) BlobGas() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGas", reflect.TypeOf((*MockEnvelope)(nil).BlobGas))
+}
+
+// BlobGasFeeCap mocks base method.
+func (m *MockEnvelope) BlobGasFeeCap() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGasFeeCap")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// BlobGasFeeCap indicates an expected call of BlobGasFeeCap.
+func (mr *MockEnvelopeMockRecorder) BlobGasFeeCap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGasFeeCap", reflect.TypeOf((*MockEnvelope)(nil).BlobGasFeeCap))
+}
+
+// BlobHashes mocks base method.
+func (m *MockEnvelope) BlobHashes() []common.Hash {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobHashes")
+	ret0, _ := ret[0].([]common.Hash)
+	return ret0
+}
+
+// BlobHashes indicates an expected call of BlobHashes.
+func (mr *MockEnvelopeMockRecorder) BlobHashes() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobHashes", reflect.TypeOf((*MockEnvelope)(nil).BlobHashes))
+}
+
+// BlobTxSidecar mocks base method.
+func (m *MockEnvelope) BlobTxSidecar() *types.BlobTxSidecar {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobTxSidecar")
+	ret0, _ := ret[0].(*types.BlobTxSidecar)
+	return ret0
+}
+
+// BlobTxSidecar indicates an expected call of BlobTxSidecar.
+func (mr *MockEnvelopeMockRecorder) BlobTxSidecar() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobTxSidecar", reflect.TypeOf((*MockEnvelope)(nil).BlobTxSidecar))
 }
 
 // ChainID mocks base method.
@@ -79,6 +151,20 @@ func (mr *MockEnvelopeMockRecorder) Cost() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cost", reflect.TypeOf((*MockEnvelope)(nil).Cost))
 }
 
+// Data mocks base method.
+func (m *MockEnvelope) Data() []byte {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Data")
+	ret0, _ := ret[0].([]byte)
+	return ret0
+}
+
+// Data indicates an expected call of Data.
+func (mr *MockEnvelopeMockRecorder) Data() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Data", reflect.TypeOf((*MockEnvelope)(nil).Data))
+}
+
 // Destination mocks base method.
 func (m *MockEnvelope) Destination() (string, bool) {
 	m.ctrl.T.Helper()
@@ -94,6 +180,20 @@ func (mr *MockEnvelopeMockRecorder) Destination() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destination", reflect.TypeOf((*MockEnvelope)(nil).Destination))
 }
 
+// Gas mocks base method.
+func (m *MockEnvelope) Gas() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Gas")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// Gas indicates an expected call of Gas.
+func (mr *MockEnvelopeMockRecorder) Gas() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gas", reflect.TypeOf((*MockEnvelope)(nil).Gas))
+}
+
 // GasFeeCap mocks base method.
 func (m *MockEnvelope) GasFeeCap() *big.Int {
 	m.ctrl.T.Helper()
@@ -106,20 +206,6 @@ func (m *MockEnvelope) GasFeeCap() *big.Int {
 func (mr *MockEnvelopeMockRecorder) GasFeeCap() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasFeeCap", reflect.TypeOf((*MockEnvelope)(nil).GasFeeCap))
-}
-
-// GasLimit mocks base method.
-func (m *MockEnvelope) GasLimit() uint64 {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GasLimit")
-	ret0, _ := ret[0].(uint64)
-	return ret0
-}
-
-// GasLimit indicates an expected call of GasLimit.
-func (mr *MockEnvelopeMockRecorder) GasLimit() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasLimit", reflect.TypeOf((*MockEnvelope)(nil).GasLimit))
 }
 
 // GasPrice mocks base method.
@@ -166,17 +252,17 @@ func (mr *MockEnvelopeMockRecorder) IntrinsicGas() *gomock.Call {
 }
 
 // LoadProto mocks base method.
-func (m *MockEnvelope) LoadProto(pbAct *iotextypes.ActionCore) error {
+func (m *MockEnvelope) LoadProto(arg0 *iotextypes.ActionCore) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LoadProto", pbAct)
+	ret := m.ctrl.Call(m, "LoadProto", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // LoadProto indicates an expected call of LoadProto.
-func (mr *MockEnvelopeMockRecorder) LoadProto(pbAct interface{}) *gomock.Call {
+func (mr *MockEnvelopeMockRecorder) LoadProto(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadProto", reflect.TypeOf((*MockEnvelope)(nil).LoadProto), pbAct)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadProto", reflect.TypeOf((*MockEnvelope)(nil).LoadProto), arg0)
 }
 
 // Nonce mocks base method.
@@ -207,28 +293,111 @@ func (mr *MockEnvelopeMockRecorder) Proto() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Proto", reflect.TypeOf((*MockEnvelope)(nil).Proto))
 }
 
-// SetChainID mocks base method.
-func (m *MockEnvelope) SetChainID(chainID uint32) {
+// SanityCheck mocks base method.
+func (m *MockEnvelope) SanityCheck() error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetChainID", chainID)
+	ret := m.ctrl.Call(m, "SanityCheck")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SanityCheck indicates an expected call of SanityCheck.
+func (mr *MockEnvelopeMockRecorder) SanityCheck() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SanityCheck", reflect.TypeOf((*MockEnvelope)(nil).SanityCheck))
+}
+
+// SetChainID mocks base method.
+func (m *MockEnvelope) SetChainID(arg0 uint32) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetChainID", arg0)
 }
 
 // SetChainID indicates an expected call of SetChainID.
-func (mr *MockEnvelopeMockRecorder) SetChainID(chainID interface{}) *gomock.Call {
+func (mr *MockEnvelopeMockRecorder) SetChainID(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetChainID", reflect.TypeOf((*MockEnvelope)(nil).SetChainID), chainID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetChainID", reflect.TypeOf((*MockEnvelope)(nil).SetChainID), arg0)
+}
+
+// SetGas mocks base method.
+func (m *MockEnvelope) SetGas(arg0 uint64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetGas", arg0)
+}
+
+// SetGas indicates an expected call of SetGas.
+func (mr *MockEnvelopeMockRecorder) SetGas(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetGas", reflect.TypeOf((*MockEnvelope)(nil).SetGas), arg0)
 }
 
 // SetNonce mocks base method.
-func (m *MockEnvelope) SetNonce(n uint64) {
+func (m *MockEnvelope) SetNonce(arg0 uint64) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetNonce", n)
+	m.ctrl.Call(m, "SetNonce", arg0)
 }
 
 // SetNonce indicates an expected call of SetNonce.
-func (mr *MockEnvelopeMockRecorder) SetNonce(n interface{}) *gomock.Call {
+func (mr *MockEnvelopeMockRecorder) SetNonce(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetNonce", reflect.TypeOf((*MockEnvelope)(nil).SetNonce), n)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetNonce", reflect.TypeOf((*MockEnvelope)(nil).SetNonce), arg0)
+}
+
+// Size mocks base method.
+func (m *MockEnvelope) Size() uint32 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Size")
+	ret0, _ := ret[0].(uint32)
+	return ret0
+}
+
+// Size indicates an expected call of Size.
+func (mr *MockEnvelopeMockRecorder) Size() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Size", reflect.TypeOf((*MockEnvelope)(nil).Size))
+}
+
+// To mocks base method.
+func (m *MockEnvelope) To() *common.Address {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "To")
+	ret0, _ := ret[0].(*common.Address)
+	return ret0
+}
+
+// To indicates an expected call of To.
+func (mr *MockEnvelopeMockRecorder) To() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "To", reflect.TypeOf((*MockEnvelope)(nil).To))
+}
+
+// ToEthTx mocks base method.
+func (m *MockEnvelope) ToEthTx(arg0 uint32, arg1 iotextypes.Encoding) (*types.Transaction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ToEthTx", arg0, arg1)
+	ret0, _ := ret[0].(*types.Transaction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ToEthTx indicates an expected call of ToEthTx.
+func (mr *MockEnvelopeMockRecorder) ToEthTx(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToEthTx", reflect.TypeOf((*MockEnvelope)(nil).ToEthTx), arg0, arg1)
+}
+
+// Value mocks base method.
+func (m *MockEnvelope) Value() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Value")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// Value indicates an expected call of Value.
+func (mr *MockEnvelopeMockRecorder) Value() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Value", reflect.TypeOf((*MockEnvelope)(nil).Value))
 }
 
 // Version mocks base method.
@@ -243,4 +412,502 @@ func (m *MockEnvelope) Version() uint32 {
 func (mr *MockEnvelopeMockRecorder) Version() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockEnvelope)(nil).Version))
+}
+
+// MockTxData is a mock of TxData interface.
+type MockTxData struct {
+	ctrl     *gomock.Controller
+	recorder *MockTxDataMockRecorder
+}
+
+// MockTxDataMockRecorder is the mock recorder for MockTxData.
+type MockTxDataMockRecorder struct {
+	mock *MockTxData
+}
+
+// NewMockTxData creates a new mock instance.
+func NewMockTxData(ctrl *gomock.Controller) *MockTxData {
+	mock := &MockTxData{ctrl: ctrl}
+	mock.recorder = &MockTxDataMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockTxData) EXPECT() *MockTxDataMockRecorder {
+	return m.recorder
+}
+
+// AccessList mocks base method.
+func (m *MockTxData) AccessList() types.AccessList {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AccessList")
+	ret0, _ := ret[0].(types.AccessList)
+	return ret0
+}
+
+// AccessList indicates an expected call of AccessList.
+func (mr *MockTxDataMockRecorder) AccessList() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccessList", reflect.TypeOf((*MockTxData)(nil).AccessList))
+}
+
+// BlobGas mocks base method.
+func (m *MockTxData) BlobGas() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGas")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// BlobGas indicates an expected call of BlobGas.
+func (mr *MockTxDataMockRecorder) BlobGas() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGas", reflect.TypeOf((*MockTxData)(nil).BlobGas))
+}
+
+// BlobGasFeeCap mocks base method.
+func (m *MockTxData) BlobGasFeeCap() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGasFeeCap")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// BlobGasFeeCap indicates an expected call of BlobGasFeeCap.
+func (mr *MockTxDataMockRecorder) BlobGasFeeCap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGasFeeCap", reflect.TypeOf((*MockTxData)(nil).BlobGasFeeCap))
+}
+
+// BlobHashes mocks base method.
+func (m *MockTxData) BlobHashes() []common.Hash {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobHashes")
+	ret0, _ := ret[0].([]common.Hash)
+	return ret0
+}
+
+// BlobHashes indicates an expected call of BlobHashes.
+func (mr *MockTxDataMockRecorder) BlobHashes() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobHashes", reflect.TypeOf((*MockTxData)(nil).BlobHashes))
+}
+
+// BlobTxSidecar mocks base method.
+func (m *MockTxData) BlobTxSidecar() *types.BlobTxSidecar {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobTxSidecar")
+	ret0, _ := ret[0].(*types.BlobTxSidecar)
+	return ret0
+}
+
+// BlobTxSidecar indicates an expected call of BlobTxSidecar.
+func (mr *MockTxDataMockRecorder) BlobTxSidecar() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobTxSidecar", reflect.TypeOf((*MockTxData)(nil).BlobTxSidecar))
+}
+
+// Data mocks base method.
+func (m *MockTxData) Data() []byte {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Data")
+	ret0, _ := ret[0].([]byte)
+	return ret0
+}
+
+// Data indicates an expected call of Data.
+func (mr *MockTxDataMockRecorder) Data() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Data", reflect.TypeOf((*MockTxData)(nil).Data))
+}
+
+// Gas mocks base method.
+func (m *MockTxData) Gas() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Gas")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// Gas indicates an expected call of Gas.
+func (mr *MockTxDataMockRecorder) Gas() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gas", reflect.TypeOf((*MockTxData)(nil).Gas))
+}
+
+// GasFeeCap mocks base method.
+func (m *MockTxData) GasFeeCap() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GasFeeCap")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GasFeeCap indicates an expected call of GasFeeCap.
+func (mr *MockTxDataMockRecorder) GasFeeCap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasFeeCap", reflect.TypeOf((*MockTxData)(nil).GasFeeCap))
+}
+
+// GasPrice mocks base method.
+func (m *MockTxData) GasPrice() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GasPrice")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GasPrice indicates an expected call of GasPrice.
+func (mr *MockTxDataMockRecorder) GasPrice() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasPrice", reflect.TypeOf((*MockTxData)(nil).GasPrice))
+}
+
+// GasTipCap mocks base method.
+func (m *MockTxData) GasTipCap() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GasTipCap")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GasTipCap indicates an expected call of GasTipCap.
+func (mr *MockTxDataMockRecorder) GasTipCap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasTipCap", reflect.TypeOf((*MockTxData)(nil).GasTipCap))
+}
+
+// Nonce mocks base method.
+func (m *MockTxData) Nonce() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Nonce")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// Nonce indicates an expected call of Nonce.
+func (mr *MockTxDataMockRecorder) Nonce() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockTxData)(nil).Nonce))
+}
+
+// To mocks base method.
+func (m *MockTxData) To() *common.Address {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "To")
+	ret0, _ := ret[0].(*common.Address)
+	return ret0
+}
+
+// To indicates an expected call of To.
+func (mr *MockTxDataMockRecorder) To() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "To", reflect.TypeOf((*MockTxData)(nil).To))
+}
+
+// Value mocks base method.
+func (m *MockTxData) Value() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Value")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// Value indicates an expected call of Value.
+func (mr *MockTxDataMockRecorder) Value() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Value", reflect.TypeOf((*MockTxData)(nil).Value))
+}
+
+// MockTxCommon is a mock of TxCommon interface.
+type MockTxCommon struct {
+	ctrl     *gomock.Controller
+	recorder *MockTxCommonMockRecorder
+}
+
+// MockTxCommonMockRecorder is the mock recorder for MockTxCommon.
+type MockTxCommonMockRecorder struct {
+	mock *MockTxCommon
+}
+
+// NewMockTxCommon creates a new mock instance.
+func NewMockTxCommon(ctrl *gomock.Controller) *MockTxCommon {
+	mock := &MockTxCommon{ctrl: ctrl}
+	mock.recorder = &MockTxCommonMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockTxCommon) EXPECT() *MockTxCommonMockRecorder {
+	return m.recorder
+}
+
+// AccessList mocks base method.
+func (m *MockTxCommon) AccessList() types.AccessList {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AccessList")
+	ret0, _ := ret[0].(types.AccessList)
+	return ret0
+}
+
+// AccessList indicates an expected call of AccessList.
+func (mr *MockTxCommonMockRecorder) AccessList() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccessList", reflect.TypeOf((*MockTxCommon)(nil).AccessList))
+}
+
+// BlobGas mocks base method.
+func (m *MockTxCommon) BlobGas() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGas")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// BlobGas indicates an expected call of BlobGas.
+func (mr *MockTxCommonMockRecorder) BlobGas() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGas", reflect.TypeOf((*MockTxCommon)(nil).BlobGas))
+}
+
+// BlobGasFeeCap mocks base method.
+func (m *MockTxCommon) BlobGasFeeCap() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGasFeeCap")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// BlobGasFeeCap indicates an expected call of BlobGasFeeCap.
+func (mr *MockTxCommonMockRecorder) BlobGasFeeCap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGasFeeCap", reflect.TypeOf((*MockTxCommon)(nil).BlobGasFeeCap))
+}
+
+// BlobHashes mocks base method.
+func (m *MockTxCommon) BlobHashes() []common.Hash {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobHashes")
+	ret0, _ := ret[0].([]common.Hash)
+	return ret0
+}
+
+// BlobHashes indicates an expected call of BlobHashes.
+func (mr *MockTxCommonMockRecorder) BlobHashes() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobHashes", reflect.TypeOf((*MockTxCommon)(nil).BlobHashes))
+}
+
+// BlobTxSidecar mocks base method.
+func (m *MockTxCommon) BlobTxSidecar() *types.BlobTxSidecar {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobTxSidecar")
+	ret0, _ := ret[0].(*types.BlobTxSidecar)
+	return ret0
+}
+
+// BlobTxSidecar indicates an expected call of BlobTxSidecar.
+func (mr *MockTxCommonMockRecorder) BlobTxSidecar() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobTxSidecar", reflect.TypeOf((*MockTxCommon)(nil).BlobTxSidecar))
+}
+
+// Gas mocks base method.
+func (m *MockTxCommon) Gas() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Gas")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// Gas indicates an expected call of Gas.
+func (mr *MockTxCommonMockRecorder) Gas() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gas", reflect.TypeOf((*MockTxCommon)(nil).Gas))
+}
+
+// GasFeeCap mocks base method.
+func (m *MockTxCommon) GasFeeCap() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GasFeeCap")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GasFeeCap indicates an expected call of GasFeeCap.
+func (mr *MockTxCommonMockRecorder) GasFeeCap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasFeeCap", reflect.TypeOf((*MockTxCommon)(nil).GasFeeCap))
+}
+
+// GasPrice mocks base method.
+func (m *MockTxCommon) GasPrice() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GasPrice")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GasPrice indicates an expected call of GasPrice.
+func (mr *MockTxCommonMockRecorder) GasPrice() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasPrice", reflect.TypeOf((*MockTxCommon)(nil).GasPrice))
+}
+
+// GasTipCap mocks base method.
+func (m *MockTxCommon) GasTipCap() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GasTipCap")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GasTipCap indicates an expected call of GasTipCap.
+func (mr *MockTxCommonMockRecorder) GasTipCap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasTipCap", reflect.TypeOf((*MockTxCommon)(nil).GasTipCap))
+}
+
+// Nonce mocks base method.
+func (m *MockTxCommon) Nonce() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Nonce")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// Nonce indicates an expected call of Nonce.
+func (mr *MockTxCommonMockRecorder) Nonce() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockTxCommon)(nil).Nonce))
+}
+
+// MockTxDynamicGas is a mock of TxDynamicGas interface.
+type MockTxDynamicGas struct {
+	ctrl     *gomock.Controller
+	recorder *MockTxDynamicGasMockRecorder
+}
+
+// MockTxDynamicGasMockRecorder is the mock recorder for MockTxDynamicGas.
+type MockTxDynamicGasMockRecorder struct {
+	mock *MockTxDynamicGas
+}
+
+// NewMockTxDynamicGas creates a new mock instance.
+func NewMockTxDynamicGas(ctrl *gomock.Controller) *MockTxDynamicGas {
+	mock := &MockTxDynamicGas{ctrl: ctrl}
+	mock.recorder = &MockTxDynamicGasMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockTxDynamicGas) EXPECT() *MockTxDynamicGasMockRecorder {
+	return m.recorder
+}
+
+// GasFeeCap mocks base method.
+func (m *MockTxDynamicGas) GasFeeCap() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GasFeeCap")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GasFeeCap indicates an expected call of GasFeeCap.
+func (mr *MockTxDynamicGasMockRecorder) GasFeeCap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasFeeCap", reflect.TypeOf((*MockTxDynamicGas)(nil).GasFeeCap))
+}
+
+// GasTipCap mocks base method.
+func (m *MockTxDynamicGas) GasTipCap() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GasTipCap")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GasTipCap indicates an expected call of GasTipCap.
+func (mr *MockTxDynamicGasMockRecorder) GasTipCap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GasTipCap", reflect.TypeOf((*MockTxDynamicGas)(nil).GasTipCap))
+}
+
+// MockTxBlob is a mock of TxBlob interface.
+type MockTxBlob struct {
+	ctrl     *gomock.Controller
+	recorder *MockTxBlobMockRecorder
+}
+
+// MockTxBlobMockRecorder is the mock recorder for MockTxBlob.
+type MockTxBlobMockRecorder struct {
+	mock *MockTxBlob
+}
+
+// NewMockTxBlob creates a new mock instance.
+func NewMockTxBlob(ctrl *gomock.Controller) *MockTxBlob {
+	mock := &MockTxBlob{ctrl: ctrl}
+	mock.recorder = &MockTxBlobMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockTxBlob) EXPECT() *MockTxBlobMockRecorder {
+	return m.recorder
+}
+
+// BlobGas mocks base method.
+func (m *MockTxBlob) BlobGas() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGas")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// BlobGas indicates an expected call of BlobGas.
+func (mr *MockTxBlobMockRecorder) BlobGas() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGas", reflect.TypeOf((*MockTxBlob)(nil).BlobGas))
+}
+
+// BlobGasFeeCap mocks base method.
+func (m *MockTxBlob) BlobGasFeeCap() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobGasFeeCap")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// BlobGasFeeCap indicates an expected call of BlobGasFeeCap.
+func (mr *MockTxBlobMockRecorder) BlobGasFeeCap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobGasFeeCap", reflect.TypeOf((*MockTxBlob)(nil).BlobGasFeeCap))
+}
+
+// BlobHashes mocks base method.
+func (m *MockTxBlob) BlobHashes() []common.Hash {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobHashes")
+	ret0, _ := ret[0].([]common.Hash)
+	return ret0
+}
+
+// BlobHashes indicates an expected call of BlobHashes.
+func (mr *MockTxBlobMockRecorder) BlobHashes() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobHashes", reflect.TypeOf((*MockTxBlob)(nil).BlobHashes))
+}
+
+// BlobTxSidecar mocks base method.
+func (m *MockTxBlob) BlobTxSidecar() *types.BlobTxSidecar {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlobTxSidecar")
+	ret0, _ := ret[0].(*types.BlobTxSidecar)
+	return ret0
+}
+
+// BlobTxSidecar indicates an expected call of BlobTxSidecar.
+func (mr *MockTxBlobMockRecorder) BlobTxSidecar() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobTxSidecar", reflect.TypeOf((*MockTxBlob)(nil).BlobTxSidecar))
 }

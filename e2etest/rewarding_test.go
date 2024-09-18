@@ -567,13 +567,12 @@ func injectClaim(
 	require.NoError(t, err)
 	nonce := response.AccountMeta.PendingNonce
 
-	b := &action.ClaimFromRewardingFundBuilder{}
-	act := b.SetAmount(amount).SetData(payload).Build()
+	act := action.NewClaimFromRewardingFund(amount, nil, payload)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(big.NewInt(0)).
 		SetGasLimit(100000).
-		SetAction(&act).Build()
+		SetAction(act).Build()
 
 	selp, err := action.Sign(elp, beneficiaryPri)
 	require.NoError(t, err)
@@ -618,7 +617,7 @@ func updateExpectationWithPendingClaimList(
 			act := &action.ClaimFromRewardingFund{}
 			err = act.LoadProto(actInfo.GetAction().Core.GetClaimFromRewardingFund())
 			require.NoError(t, err)
-			amount := act.Amount()
+			amount := act.ClaimAmount()
 
 			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
 				newExpectUnclaimed := big.NewInt(0).Sub(exptUnclaimed[addr], amount)

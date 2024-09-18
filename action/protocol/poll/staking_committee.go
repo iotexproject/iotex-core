@@ -110,17 +110,9 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	if err != nil {
 		return err
 	}
-	execution, err := action.NewExecution(
-		"",
-		_nativeStakingContractNonce,
-		big.NewInt(0),
-		g.BlockGasLimitByHeight(0),
-		big.NewInt(0),
-		bytes,
-	)
-	if err != nil {
-		return err
-	}
+	execution := action.NewExecution("", big.NewInt(0), bytes)
+	elp := (&action.EnvelopeBuilder{}).SetGasLimit(g.BlockGasLimitByHeight(0)).
+		SetNonce(_nativeStakingContractNonce).SetAction(execution).Build()
 	actionCtx := protocol.ActionCtx{}
 	actionCtx.Caller, err = address.FromString(_nativeStakingContractCreator)
 	if err != nil {
@@ -128,8 +120,8 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	}
 	actionCtx.Nonce = _nativeStakingContractNonce
 	actionCtx.ActionHash = _nativeStakingContractHash
-	actionCtx.GasPrice = execution.GasPrice()
-	actionCtx.IntrinsicGas, err = execution.IntrinsicGas()
+	actionCtx.GasPrice = elp.GasPrice()
+	actionCtx.IntrinsicGas, err = elp.IntrinsicGas()
 	if err != nil {
 		return err
 	}
@@ -143,16 +135,12 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 			// make sure the returned timestamp is after the current block time so that evm upgrades based on timestamp (Shanghai and onwards) are disabled
 			return blkCtx.BlockTimeStamp.Add(5 * time.Second), nil
 		},
-		DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int) (*action.TransactionLog, error) {
+		DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int, ...protocol.Option) ([]*action.TransactionLog, error) {
 			return nil, nil
 		},
 	})
 	// deploy native staking contract
-	_, receipt, err := evm.ExecuteContract(
-		ctx,
-		sm,
-		action.NewEvmTx(execution),
-	)
+	_, receipt, err := evm.ExecuteContract(ctx, sm, elp)
 	if err != nil {
 		return err
 	}
@@ -190,16 +178,16 @@ func (sc *stakingCommittee) CreatePostSystemActions(ctx context.Context, sr prot
 	return createPostSystemActions(ctx, sr, sc)
 }
 
-func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	receipt, err := sc.governanceStaking.Handle(ctx, act, sm)
+func (sc *stakingCommittee) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
+	receipt, err := sc.governanceStaking.Handle(ctx, elp, sm)
 	if err := sc.persistNativeBuckets(ctx, receipt, err); err != nil {
 		return nil, err
 	}
 	return receipt, err
 }
 
-func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
-	return validate(ctx, sr, sc, act)
+func (sc *stakingCommittee) Validate(ctx context.Context, elp action.Envelope, sr protocol.StateReader) error {
+	return validate(ctx, sr, sc, elp.Action())
 }
 
 func (sc *stakingCommittee) Name() string {

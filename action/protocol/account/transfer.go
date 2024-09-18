@@ -23,11 +23,12 @@ import (
 const TransferSizeLimit = 32 * 1024
 
 // handleTransfer handles a transfer
-func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) handleTransfer(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
 	var (
 		fCtx      = protocol.MustGetFeatureCtx(ctx)
 		actionCtx = protocol.MustGetActionCtx(ctx)
 		blkCtx    = protocol.MustGetBlockCtx(ctx)
+		tsf       = elp.Action().(*action.Transfer)
 	)
 	accountCreationOpts := []state.AccountCreationOption{}
 	if fCtx.CreateLegacyNonceAccount {
@@ -39,18 +40,25 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 		return nil, errors.Wrapf(err, "failed to load or create the account of sender %s", actionCtx.Caller.String())
 	}
 
-	gasFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
-	if !sender.HasSufficientBalance(big.NewInt(0).Add(tsf.Amount(), gasFee)) {
+	gasFee, baseFee, err := protocol.SplitGas(ctx, elp, actionCtx.IntrinsicGas)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to split gas")
+	}
+	total := big.NewInt(0).Add(tsf.Amount(), gasFee)
+	if baseFee != nil {
+		total.Add(total, baseFee)
+	}
+	if !sender.HasSufficientBalance(total) {
 		return nil, errors.Wrapf(
 			state.ErrNotEnoughBalance,
 			"sender %s balance %s, required amount %s",
 			actionCtx.Caller.String(),
 			sender.Balance,
-			big.NewInt(0).Add(tsf.Amount(), gasFee),
+			total,
 		)
 	}
 
-	var depositLog *action.TransactionLog
+	var depositLog []*action.TransactionLog
 	if !fCtx.FixDoubleChargeGas {
 		// charge sender gas
 		if err := sender.SubBalance(gasFee); err != nil {
@@ -64,9 +72,9 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 		}
 	}
 
-	if fCtx.FixGasAndNonceUpdate || tsf.Nonce() != 0 {
+	if fCtx.FixGasAndNonceUpdate || elp.Nonce() != 0 {
 		// update sender Nonce
-		if err := sender.SetPendingNonce(tsf.Nonce() + 1); err != nil {
+		if err := sender.SetPendingNonce(elp.Nonce() + 1); err != nil {
 			return nil, errors.Wrapf(err, "failed to update pending nonce of sender %s", actionCtx.Caller.String())
 		}
 	}
@@ -91,7 +99,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 		}
 		if fCtx.FixDoubleChargeGas {
 			if p.depositGas != nil {
-				depositLog, err = p.depositGas(ctx, sm, gasFee)
+				depositLog, err = p.depositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee))
 				if err != nil {
 					return nil, err
 				}
@@ -104,7 +112,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 			GasConsumed:     actionCtx.IntrinsicGas,
 			ContractAddress: p.addr.String(),
 		}
-		receipt.AddTransactionLogs(depositLog)
+		receipt.AddTransactionLogs(depositLog...)
 		return receipt, nil
 	}
 
@@ -133,7 +141,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 
 	if fCtx.FixDoubleChargeGas {
 		if p.depositGas != nil {
-			depositLog, err = p.depositGas(ctx, sm, gasFee)
+			depositLog, err = p.depositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee))
 			if err != nil {
 				return nil, err
 			}
@@ -152,17 +160,20 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 		Sender:    actionCtx.Caller.String(),
 		Recipient: tsf.Recipient(),
 		Amount:    tsf.Amount(),
-	}, depositLog)
+	})
+	receipt.AddTransactionLogs(depositLog...)
 
 	return receipt, nil
 }
 
 // validateTransfer validates a transfer
-func (p *Protocol) validateTransfer(ctx context.Context, tsf *action.Transfer) error {
+func (p *Protocol) validateTransfer(ctx context.Context, elp action.Envelope) error {
 	// Reject oversized transfer
-	if tsf.TotalSize() > TransferSizeLimit {
+	if elp.Size() > TransferSizeLimit {
 		return action.ErrOversizedData
 	}
+	// already asserted the payload is action.Transfer on the call stack
+	tsf := elp.Action().(*action.Transfer)
 	var (
 		fCtx = protocol.MustGetFeatureCtx(ctx)
 		err  error

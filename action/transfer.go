@@ -9,14 +9,12 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -28,13 +26,13 @@ const (
 
 var (
 	_ hasDestination      = (*Transfer)(nil)
+	_ hasSize             = (*Transfer)(nil)
 	_ EthCompatibleAction = (*Transfer)(nil)
+	_ amountForCost       = (*Transfer)(nil)
 )
 
 // Transfer defines the struct of account-based transfer
 type Transfer struct {
-	AbstractAction
-
 	amount    *big.Int
 	recipient string
 	payload   []byte
@@ -42,25 +40,15 @@ type Transfer struct {
 
 // NewTransfer returns a Transfer instance
 func NewTransfer(
-	nonce uint64,
 	amount *big.Int,
 	recipient string,
 	payload []byte,
-	gasLimit uint64,
-	gasPrice *big.Int,
-) (*Transfer, error) {
+) *Transfer {
 	return &Transfer{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
 		recipient: recipient,
 		amount:    amount,
 		payload:   payload,
-		// SenderPublicKey and Signature will be populated in Sign()
-	}, nil
+	}
 }
 
 // Amount returns the amount
@@ -75,9 +63,9 @@ func (tsf *Transfer) Recipient() string { return tsf.recipient }
 // Destination returns the recipient address as destination.
 func (tsf *Transfer) Destination() string { return tsf.recipient }
 
-// TotalSize returns the total size of this Transfer
-func (tsf *Transfer) TotalSize() uint32 {
-	size := tsf.BasicActionSize()
+// Size returns the total size of this Transfer
+func (tsf *Transfer) Size() uint32 {
+	var size uint32
 	if tsf.amount != nil && len(tsf.amount.Bytes()) > 0 {
 		size += uint32(len(tsf.amount.Bytes()))
 	}
@@ -135,38 +123,31 @@ func (tsf *Transfer) IntrinsicGas() (uint64, error) {
 	return CalculateIntrinsicGas(TransferBaseIntrinsicGas, TransferPayloadGas, payloadSize)
 }
 
-// Cost returns the total cost of a transfer
-func (tsf *Transfer) Cost() (*big.Int, error) {
-	intrinsicGas, err := tsf.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the transfer")
-	}
-	transferFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return big.NewInt(0).Add(tsf.Amount(), transferFee), nil
-}
-
 // SanityCheck validates the variables in the action
 func (tsf *Transfer) SanityCheck() error {
 	// Reject transfer of negative amount
 	if tsf.Amount().Sign() < 0 {
 		return ErrNegativeValue
 	}
-	return tsf.AbstractAction.SanityCheck()
+	return nil
 }
 
-// ToEthTx converts action to eth-compatible tx
-func (tsf *Transfer) ToEthTx(_ uint32) (*types.Transaction, error) {
+// EthTo returns the address for converting to eth tx
+func (tsf *Transfer) EthTo() (*common.Address, error) {
 	addr, err := address.FromString(tsf.recipient)
 	if err != nil {
 		return nil, err
 	}
 	ethAddr := common.BytesToAddress(addr.Bytes())
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    tsf.Nonce(),
-		GasPrice: tsf.GasPrice(),
-		Gas:      tsf.GasLimit(),
-		To:       &ethAddr,
-		Value:    tsf.amount,
-		Data:     tsf.payload,
-	}), nil
+	return &ethAddr, nil
+}
+
+// Value returns the value for converting to eth tx
+func (tsf *Transfer) Value() *big.Int {
+	return tsf.amount
+}
+
+// EthData returns the data for converting to eth tx
+func (tsf *Transfer) EthData() ([]byte, error) {
+	return tsf.payload, nil
 }

@@ -1,3 +1,8 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package action
 
 import (
@@ -119,4 +124,31 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 	rawHash := signer.Hash(tx)
 	pubkey, err = crypto.RecoverPubkey(rawHash[:], sig)
 	return encoding, sig, pubkey, err
+}
+
+// ======================================
+// utility funcs to convert native action to eth tx
+// ======================================
+func toLegacyEthTx(ab TxCommon, act Action) (*types.Transaction, error) {
+	tx, ok := act.(EthCompatibleAction)
+	if !ok {
+		// action type not supported
+		return nil, ErrInvalidAct
+	}
+	to, err := tx.EthTo()
+	if err != nil {
+		return nil, err
+	}
+	data, err := tx.EthData()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTx(&types.LegacyTx{
+		Nonce:    ab.Nonce(),
+		GasPrice: ab.GasPrice(),
+		Gas:      ab.Gas(),
+		To:       to,
+		Value:    tx.Value(),
+		Data:     data,
+	}), nil
 }

@@ -28,14 +28,11 @@ const protocolID = "account"
 // Protocol defines the protocol of handling account
 type Protocol struct {
 	addr       address.Address
-	depositGas DepositGas
+	depositGas protocol.DepositGas
 }
 
-// DepositGas deposits gas to some pool
-type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.TransactionLog, error)
-
 // NewProtocol instantiates the protocol of account
-func NewProtocol(depositGas DepositGas) *Protocol {
+func NewProtocol(depositGas protocol.DepositGas) *Protocol {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -67,19 +64,17 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 }
 
 // Handle handles an account
-func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	switch act := act.(type) {
-	case *action.Transfer:
-		return p.handleTransfer(ctx, act, sm)
+func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
+	if _, ok := elp.Action().(*action.Transfer); ok {
+		return p.handleTransfer(ctx, elp, sm)
 	}
 	return nil, nil
 }
 
 // Validate validates an account action
-func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
-	switch act := act.(type) {
-	case *action.Transfer:
-		if err := p.validateTransfer(ctx, act); err != nil {
+func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protocol.StateReader) error {
+	if _, ok := elp.Action().(*action.Transfer); ok {
+		if err := p.validateTransfer(ctx, elp); err != nil {
 			return errors.Wrap(err, "error when validating transfer action")
 		}
 	}

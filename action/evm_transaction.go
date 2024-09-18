@@ -8,66 +8,32 @@ package action
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type (
-	// EvmTransaction represents an action to be executed by EVM protocol
-	// as of now 3 types of transactions are supported:
-	// 1. Legacy transaction
-	// 2. EIP-2930 access list transaction
-	// 3. EIP-4844 shard blob transaction
-	EvmTransaction struct {
-		inner TxData
-	}
-
-	TxData interface {
-		Nonce() uint64
-		GasLimit() uint64
-		GasPrice() *big.Int
-		Amount() *big.Int
-		To() *common.Address
-		Data() []byte
-		AccessList() types.AccessList
+	// TxDataForSimulation is the interface to run a simulation
+	TxDataForSimulation interface {
+		TxData
+		SanityCheck() error
+		Proto() *iotextypes.ActionCore
 	}
 )
 
-func NewEvmTx(a Action) *EvmTransaction {
-	tx := new(EvmTransaction)
-	switch act := a.(type) {
-	case *Execution:
-		tx.inner = act
-	default:
-		panic("unsupported action type")
+// EffectiveGas returns the effective gas
+func EffectiveGasTip(tx TxDynamicGas, baseFee *big.Int) (*big.Int, error) {
+	tip := tx.GasTipCap()
+	if baseFee == nil {
+		return tip, nil
 	}
-	return tx
-}
-
-func (tx *EvmTransaction) Nonce() uint64 {
-	return tx.inner.Nonce()
-}
-
-func (tx *EvmTransaction) Gas() uint64 {
-	return tx.inner.GasLimit()
-}
-
-func (tx *EvmTransaction) GasPrice() *big.Int {
-	return tx.inner.GasPrice()
-}
-
-func (tx *EvmTransaction) Value() *big.Int {
-	return tx.inner.Amount()
-}
-
-func (tx *EvmTransaction) To() *common.Address {
-	return tx.inner.To()
-}
-
-func (tx *EvmTransaction) Data() []byte {
-	return tx.inner.Data()
-}
-
-func (tx *EvmTransaction) AccessList() types.AccessList {
-	return tx.inner.AccessList()
+	effectiveGas := tx.GasFeeCap()
+	effectiveGas.Sub(effectiveGas, baseFee)
+	if effectiveGas.Sign() < 0 {
+		return effectiveGas, ErrGasFeeCapTooLow
+	}
+	// effective gas = min(tip, feeCap - baseFee)
+	if effectiveGas.Cmp(tip) <= 0 {
+		return effectiveGas, nil
+	}
+	return tip, nil
 }

@@ -171,7 +171,7 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 				}
 				cmd.Println(message.String(epochNum))
 			} else {
-				// specfic epoch-num
+				// specific epoch-num
 				if epochNum == 0 {
 					currEpochNum, err := currEpochNum(client)
 					if err != nil {

@@ -1,3 +1,8 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package staking
 
 import (
@@ -20,10 +25,14 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateStake, csm CandidateStateManager) ([]*action.Log, []*action.TransactionLog, uint64, uint64, error) {
-	actLogs := make([]*action.Log, 0)
-	transferLogs := make([]*action.TransactionLog, 0)
-	insGas, err := act.IntrinsicGas()
+// TODO: pass in common and act *MigratStake, instead of elp
+func (p *Protocol) handleStakeMigrate(ctx context.Context, elp action.Envelope, csm CandidateStateManager) ([]*action.Log, []*action.TransactionLog, uint64, uint64, error) {
+	var (
+		actLogs      = make([]*action.Log, 0)
+		transferLogs = make([]*action.TransactionLog, 0)
+		act          = elp.Action().(*action.MigrateStake)
+		insGas, err  = act.IntrinsicGas()
+	)
 	if err != nil {
 		return nil, nil, 0, 0, err
 	}
@@ -42,7 +51,7 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, act *action.MigrateSt
 		return nil, nil, gasConsumed, gasToBeDeducted, errCandNotExist
 	}
 	duration := uint64(bucket.StakedDuration / p.helperCtx.BlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
-	exec, err := p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, act.Nonce(), act.GasLimit(), act.GasPrice())
+	exec, err := p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, elp.Nonce(), elp.Gas(), elp.GasPrice())
 	if err != nil {
 		return nil, nil, gasConsumed, gasToBeDeducted, errors.Wrap(err, "failed to construct execution")
 	}
@@ -157,8 +166,11 @@ func (p *Protocol) withdrawBucket(ctx context.Context, withdrawer *state.Account
 	}, nil
 }
 
-func (p *Protocol) ConstructExecution(ctx context.Context, act *action.MigrateStake, sr protocol.StateReader) (*action.Execution, error) {
+func (p *Protocol) ConstructExecution(ctx context.Context, act *action.MigrateStake, nonce, gas uint64, gasPrice *big.Int, sr protocol.StateReader) (action.Envelope, error) {
 	csr, err := ConstructBaseView(sr)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create baseview")
+	}
 	bucket, err := p.fetchBucket(csr, act.BucketIndex())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch bucket")
@@ -169,10 +181,10 @@ func (p *Protocol) ConstructExecution(ctx context.Context, act *action.MigrateSt
 	}
 	duration := uint64(bucket.StakedDuration / p.helperCtx.BlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
 
-	return p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, act.Nonce(), act.GasLimit(), act.GasPrice())
+	return p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, nonce, gas, gasPrice)
 }
 
-func (p *Protocol) constructExecution(candidate address.Address, amount *big.Int, duration uint64, nonce uint64, gasLimit uint64, gasPrice *big.Int) (*action.Execution, error) {
+func (p *Protocol) constructExecution(candidate address.Address, amount *big.Int, duration uint64, nonce uint64, gasLimit uint64, gasPrice *big.Int) (action.Envelope, error) {
 	contractAddress := p.config.MigrateContractAddress
 	data, err := StakingContractABI.Pack(
 		"stake0",
@@ -182,22 +194,16 @@ func (p *Protocol) constructExecution(candidate address.Address, amount *big.Int
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to pack data for contract call")
 	}
-	return action.NewExecution(
-		contractAddress,
-		nonce,
-		amount,
-		gasLimit,
-		gasPrice,
-		data,
-	)
+	return (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(contractAddress, amount, data)).
+		SetNonce(nonce).SetGasLimit(gasLimit).SetGasPrice(gasPrice).Build(), nil
 }
 
-func (p *Protocol) createNFTBucket(ctx context.Context, exeAct *action.Execution, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) createNFTBucket(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
 	exctPtl := execution.FindProtocol(protocol.MustGetRegistry(ctx))
 	if exctPtl == nil {
 		return nil, errors.New("execution protocol is not registered")
 	}
-	excReceipt, err := exctPtl.Handle(ctx, exeAct, sm)
+	excReceipt, err := exctPtl.Handle(ctx, elp, sm)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to handle execution action")
 	}

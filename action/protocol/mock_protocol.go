@@ -50,7 +50,7 @@ func (mr *MockProtocolMockRecorder) ForceRegister(arg0 interface{}) *gomock.Call
 }
 
 // Handle mocks base method.
-func (m *MockProtocol) Handle(arg0 context.Context, arg1 action.Action, arg2 StateManager) (*action.Receipt, error) {
+func (m *MockProtocol) Handle(arg0 context.Context, arg1 action.Envelope, arg2 StateManager) (*action.Receipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Handle", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*action.Receipt)
@@ -361,7 +361,7 @@ func (m *MockActionValidator) EXPECT() *MockActionValidatorMockRecorder {
 }
 
 // Validate mocks base method.
-func (m *MockActionValidator) Validate(arg0 context.Context, arg1 action.Action, arg2 StateReader) error {
+func (m *MockActionValidator) Validate(arg0 context.Context, arg1 action.Envelope, arg2 StateReader) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Validate", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -398,7 +398,7 @@ func (m *MockActionHandler) EXPECT() *MockActionHandlerMockRecorder {
 }
 
 // Handle mocks base method.
-func (m *MockActionHandler) Handle(arg0 context.Context, arg1 action.Action, arg2 StateManager) (*action.Receipt, error) {
+func (m *MockActionHandler) Handle(arg0 context.Context, arg1 action.Envelope, arg2 StateManager) (*action.Receipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Handle", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*action.Receipt)

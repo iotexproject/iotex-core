@@ -1,3 +1,8 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package staking
 
 import (
@@ -423,8 +428,10 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 				sm, p, _, _ = initTestStateFromIds(test.initBucketCfgIds, test.initCandidateCfgIds)
 			}
 			require.NoError(setupAccount(sm, test.caller, test.initBalance))
-			act := action.NewCandidateActivate(nonce, test.gasLimit, test.gasPrice, test.bucketID)
+			act := action.NewCandidateActivate(test.bucketID)
 			IntrinsicGas, _ := act.IntrinsicGas()
+			elp := builder.SetNonce(nonce).SetGasLimit(test.gasLimit).
+				SetGasPrice(test.gasPrice).SetAction(act).Build()
 			ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 				Caller:       test.caller,
 				GasPrice:     test.gasPrice,
@@ -436,15 +443,16 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 				BlockTimeStamp: timeBlock,
 				GasLimit:       test.blkGasLimit,
 			})
+			ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
 			cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
 			cfg.TsunamiBlockHeight = 1
 			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
-			require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
+			require.Equal(test.err, errors.Cause(p.Validate(ctx, elp, sm)))
 			if test.err != nil {
 				return
 			}
-			r, err := p.Handle(ctx, act, sm)
+			r, err := p.Handle(ctx, elp, sm)
 			require.NoError(err)
 			if r != nil {
 				require.Equal(uint64(test.status), r.Status)
@@ -473,7 +481,7 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 				// test staker's account
 				caller, err := accountutil.LoadAccount(sm, test.caller)
 				require.NoError(err)
-				actCost, err := act.Cost()
+				actCost, err := elp.Cost()
 				require.NoError(err)
 				total := big.NewInt(0)
 				require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost))

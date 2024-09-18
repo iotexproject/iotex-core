@@ -80,21 +80,11 @@ func TestBlockObjectMarshal(t *testing.T) {
 		deltaStateDigest, _  = hex.DecodeString("900d80ab3bb6d12a98ae177268610b28a14c9ef84fb891a9c809d6d863d79cd3")
 		previousBlockHash, _ = hex.DecodeString("1f20ad92a25748c2459aa6820a4fe5a25a1c57702045f4ab910dc88df5a04fce")
 	)
-	tsf, err := action.NewExecution(action.EmptyAddress,
-		uint64(2),
+	tsf := action.NewExecution(action.EmptyAddress,
 		unit.ConvertIotxToRau(1000),
-		21000,
-		unit.ConvertIotxToRau(1),
-		[]byte{},
-	)
-	require.NoError(err)
-	evlp := (&action.EnvelopeBuilder{}).
-		SetAction(tsf).
-		SetGasLimit(tsf.GasLimit()).
-		SetGasPrice(tsf.GasPrice()).
-		SetNonce(2).
-		SetVersion(1).
-		Build()
+		[]byte{})
+	evlp := (&action.EnvelopeBuilder{}).SetNonce(2).SetGasPrice(unit.ConvertIotxToRau(1)).
+		SetGasLimit(21000).SetAction(tsf).Build()
 	sevlp, err := action.Sign(evlp, identityset.PrivateKey(24))
 	require.NoError(err)
 	ra := (&block.RunnableActionsBuilder{}).AddActions([]*action.SealedEnvelope{sevlp}...).Build()

@@ -6,19 +6,15 @@
 package action
 
 import (
-	"encoding/hex"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 // const
@@ -32,64 +28,26 @@ const (
 
 var (
 	_ hasDestination      = (*Execution)(nil)
+	_ hasSize             = (*Execution)(nil)
 	_ EthCompatibleAction = (*Execution)(nil)
-	_ TxData              = (*Execution)(nil)
+	_ amountForCost       = (*Execution)(nil)
+	_ gasLimitForCost     = (*Execution)(nil)
 )
 
 // Execution defines the struct of account-based contract execution
 type Execution struct {
-	AbstractAction
-
-	contract   string
-	amount     *big.Int
-	data       []byte
-	accessList types.AccessList
+	contract string
+	amount   *big.Int
+	data     []byte
 }
 
 // NewExecution returns an Execution instance (w/o access list)
-func NewExecution(
-	contractAddress string,
-	nonce uint64,
-	amount *big.Int,
-	gasLimit uint64,
-	gasPrice *big.Int,
-	data []byte,
-) (*Execution, error) {
+func NewExecution(contract string, amount *big.Int, data []byte) *Execution {
 	return &Execution{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
-		contract: contractAddress,
+		contract: contract,
 		amount:   amount,
 		data:     data,
-	}, nil
-}
-
-// NewExecutionWithAccessList returns an Execution instance with access list
-func NewExecutionWithAccessList(
-	contractAddress string,
-	nonce uint64,
-	amount *big.Int,
-	gasLimit uint64,
-	gasPrice *big.Int,
-	data []byte,
-	list types.AccessList,
-) (*Execution, error) {
-	return &Execution{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
-		contract:   contractAddress,
-		amount:     amount,
-		data:       data,
-		accessList: list,
-	}, nil
+	}
 }
 
 // To returns the contract address pointer
@@ -124,47 +82,9 @@ func (ex *Execution) Data() []byte { return ex.data }
 // Payload is same as Data()
 func (ex *Execution) Payload() []byte { return ex.data }
 
-// AccessList returns the access list
-func (ex *Execution) AccessList() types.AccessList { return ex.accessList }
-
-func toAccessListProto(list types.AccessList) []*iotextypes.AccessTuple {
-	if len(list) == 0 {
-		return nil
-	}
-	proto := make([]*iotextypes.AccessTuple, len(list))
-	for i, v := range list {
-		proto[i] = &iotextypes.AccessTuple{}
-		proto[i].Address = hex.EncodeToString(v.Address.Bytes())
-		if numKey := len(v.StorageKeys); numKey > 0 {
-			proto[i].StorageKeys = make([]string, numKey)
-			for j, key := range v.StorageKeys {
-				proto[i].StorageKeys[j] = hex.EncodeToString(key.Bytes())
-			}
-		}
-	}
-	return proto
-}
-
-func fromAccessListProto(list []*iotextypes.AccessTuple) types.AccessList {
-	if len(list) == 0 {
-		return nil
-	}
-	accessList := make(types.AccessList, len(list))
-	for i, v := range list {
-		accessList[i].Address = common.HexToAddress(v.Address)
-		if numKey := len(v.StorageKeys); numKey > 0 {
-			accessList[i].StorageKeys = make([]common.Hash, numKey)
-			for j, key := range v.StorageKeys {
-				accessList[i].StorageKeys[j] = common.HexToHash(key)
-			}
-		}
-	}
-	return accessList
-}
-
-// TotalSize returns the total size of this Execution
-func (ex *Execution) TotalSize() uint32 {
-	size := ex.BasicActionSize()
+// Size returns the size of this Execution
+func (ex *Execution) Size() uint32 {
+	var size uint32
 	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
 		size += uint32(len(ex.amount.Bytes()))
 	}
@@ -186,7 +106,6 @@ func (ex *Execution) Proto() *iotextypes.Execution {
 	if ex.amount != nil && len(ex.amount.String()) > 0 {
 		act.Amount = ex.amount.String()
 	}
-	act.AccessList = toAccessListProto(ex.accessList)
 	return act
 }
 
@@ -211,7 +130,6 @@ func (ex *Execution) LoadProto(pbAct *iotextypes.Execution) error {
 		ex.amount = amount
 	}
 	ex.data = pbAct.GetData()
-	ex.accessList = fromAccessListProto(pbAct.AccessList)
 	return nil
 }
 
@@ -221,18 +139,12 @@ func (ex *Execution) IntrinsicGas() (uint64, error) {
 	if err != nil {
 		return gas, err
 	}
-	if len(ex.accessList) > 0 {
-		gas += uint64(len(ex.accessList)) * TxAccessListAddressGas
-		gas += uint64(ex.accessList.StorageKeys()) * TxAccessListStorageKeyGas
-	}
 	return gas, nil
 }
 
-// Cost returns the cost of an execution
-func (ex *Execution) Cost() (*big.Int, error) {
-	maxExecFee := big.NewInt(0).Mul(ex.GasPrice(), big.NewInt(0).SetUint64(ex.GasLimit()))
-	return big.NewInt(0).Add(ex.Amount(), maxExecFee), nil
-}
+// GasLimitForCost is an empty func to indicate that gas limit should be used
+// to calculate action's cost
+func (ex *Execution) GasLimitForCost() {}
 
 // SanityCheck validates the variables in the action
 func (ex *Execution) SanityCheck() error {
@@ -246,37 +158,28 @@ func (ex *Execution) SanityCheck() error {
 			return errors.Wrapf(err, "error when validating contract's address %s", ex.Contract())
 		}
 	}
-	return ex.AbstractAction.SanityCheck()
+	return nil
 }
 
-// ToEthTx converts action to eth-compatible tx
-func (ex *Execution) ToEthTx(evmNetworkID uint32) (*types.Transaction, error) {
-	var ethAddr *common.Address
-	if ex.contract != EmptyAddress {
-		addr, err := addrutil.IoAddrToEvmAddr(ex.contract)
-		if err != nil {
-			return nil, err
-		}
-		ethAddr = &addr
+// EthTo returns the address for converting to eth tx
+func (ex *Execution) EthTo() (*common.Address, error) {
+	if ex.contract == EmptyAddress {
+		return nil, nil
 	}
-	if len(ex.accessList) > 0 {
-		return types.NewTx(&types.AccessListTx{
-			ChainID:    big.NewInt(int64(evmNetworkID)),
-			Nonce:      ex.Nonce(),
-			GasPrice:   ex.GasPrice(),
-			Gas:        ex.GasLimit(),
-			To:         ethAddr,
-			Value:      ex.amount,
-			Data:       ex.data,
-			AccessList: ex.accessList,
-		}), nil
+	addr, err := address.FromString(ex.contract)
+	if err != nil {
+		return nil, err
 	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    ex.Nonce(),
-		GasPrice: ex.GasPrice(),
-		Gas:      ex.GasLimit(),
-		To:       ethAddr,
-		Value:    ex.amount,
-		Data:     ex.data,
-	}), nil
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	return &ethAddr, nil
+}
+
+// Value returns the value for converting to eth tx
+func (ex *Execution) Value() *big.Int {
+	return ex.amount
+}
+
+// EthData returns the data for converting to eth tx
+func (ex *Execution) EthData() ([]byte, error) {
+	return ex.data, nil
 }

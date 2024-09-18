@@ -6,21 +6,24 @@
 package action
 
 import (
+	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
 
 // AbstractAction is an abstract implementation of Action interface
 type AbstractAction struct {
-	version   uint32
-	chainID   uint32
-	nonce     uint64
-	gasLimit  uint64
-	gasPrice  *big.Int
-	gasTipCap *big.Int
-	gasFeeCap *big.Int
+	version    uint32
+	chainID    uint32
+	nonce      uint64
+	gasLimit   uint64
+	gasPrice   *big.Int
+	gasTipCap  *big.Int
+	gasFeeCap  *big.Int
+	accessList types.AccessList
 }
 
 // Version returns the version
@@ -37,8 +40,8 @@ func (act *AbstractAction) SetNonce(val uint64) {
 	act.nonce = val
 }
 
-// GasLimit returns the gas limit
-func (act *AbstractAction) GasLimit() uint64 { return act.gasLimit }
+// Gas returns the gas limit
+func (act *AbstractAction) Gas() uint64 { return act.gasLimit }
 
 // SetGasLimit sets gaslimit
 func (act *AbstractAction) SetGasLimit(val uint64) {
@@ -86,23 +89,6 @@ func (act *AbstractAction) BasicActionSize() uint32 {
 	return uint32(size)
 }
 
-// SetEnvelopeContext sets the struct according to input
-func (act *AbstractAction) SetEnvelopeContext(in *AbstractAction) {
-	if act == nil {
-		return
-	}
-	*act = *in
-	if in.gasPrice != nil {
-		act.gasPrice = new(big.Int).Set(in.gasPrice)
-	}
-	if in.gasTipCap != nil {
-		act.gasTipCap = new(big.Int).Set(in.gasTipCap)
-	}
-	if in.gasFeeCap != nil {
-		act.gasFeeCap = new(big.Int).Set(in.gasFeeCap)
-	}
-}
-
 // SanityCheck validates the variables in the action
 func (act *AbstractAction) SanityCheck() error {
 	// Reject execution of negative gas price
@@ -133,6 +119,9 @@ func (act *AbstractAction) toProto() *iotextypes.ActionCore {
 	}
 	if act.gasFeeCap != nil {
 		actCore.GasFeeCap = act.gasFeeCap.String()
+	}
+	if act.accessList != nil {
+		actCore.AccessList = toAccessListProto(act.accessList)
 	}
 	return &actCore
 }
@@ -165,5 +154,47 @@ func (act *AbstractAction) fromProto(pb *iotextypes.ActionCore) error {
 			return errors.Errorf("invalid gasFeeCap %s", gasFee)
 		}
 	}
+	if acl := pb.GetAccessList(); acl != nil {
+		act.accessList = fromAccessListProto(acl)
+	}
 	return nil
+}
+
+func (act *AbstractAction) convertToTx() TxCommonWithProto {
+	switch act.version {
+	case LegacyTxType:
+		tx := LegacyTx{
+			chainID:  act.chainID,
+			nonce:    act.nonce,
+			gasLimit: act.gasLimit,
+			gasPrice: &big.Int{},
+		}
+		if act.gasPrice != nil {
+			tx.gasPrice.Set(act.gasPrice)
+		}
+		return &tx
+	case AccessListTxType:
+		tx := AccessListTx{
+			chainID:    act.chainID,
+			nonce:      act.nonce,
+			gasLimit:   act.gasLimit,
+			gasPrice:   &big.Int{},
+			accessList: act.accessList,
+		}
+		if act.gasPrice != nil {
+			tx.gasPrice.Set(act.gasPrice)
+		}
+		return &tx
+	case DynamicFeeTxType:
+		return &DynamicFeeTx{
+			chainID:    act.chainID,
+			nonce:      act.nonce,
+			gasLimit:   act.gasLimit,
+			gasTipCap:  act.gasTipCap,
+			gasFeeCap:  act.gasFeeCap,
+			accessList: act.accessList,
+		}
+	default:
+		panic(fmt.Sprintf("unsupported action version = %d", act.version))
+	}
 }

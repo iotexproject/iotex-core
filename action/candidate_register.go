@@ -12,14 +12,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -94,12 +92,12 @@ var (
 	ErrInvalidOwner = errors.New("invalid owner address")
 
 	_ EthCompatibleAction = (*CandidateRegister)(nil)
+	_ amountForCost       = (*CandidateRegister)(nil)
 )
 
 // CandidateRegister is the action to register a candidate
 type CandidateRegister struct {
-	AbstractAction
-
+	stake_common
 	name            string
 	operatorAddress address.Address
 	rewardAddress   address.Address
@@ -124,13 +122,10 @@ func init() {
 
 // NewCandidateRegister creates a CandidateRegister instance
 func NewCandidateRegister(
-	nonce uint64,
 	name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr string,
 	duration uint32,
 	autoStake bool,
 	payload []byte,
-	gasLimit uint64,
-	gasPrice *big.Int,
 ) (*CandidateRegister, error) {
 	operatorAddr, err := address.FromString(operatorAddrStr)
 	if err != nil {
@@ -148,12 +143,6 @@ func NewCandidateRegister(
 	}
 
 	cr := &CandidateRegister{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
 		name:            name,
 		operatorAddress: operatorAddr,
 		rewardAddress:   rewardAddress,
@@ -281,16 +270,6 @@ func (cr *CandidateRegister) IntrinsicGas() (uint64, error) {
 	return CalculateIntrinsicGas(CandidateRegisterBaseIntrinsicGas, CandidateRegisterPayloadGas, payloadSize)
 }
 
-// Cost returns the total cost of a CandidateRegister
-func (cr *CandidateRegister) Cost() (*big.Int, error) {
-	intrinsicGas, err := cr.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the CandidateRegister creates")
-	}
-	fee := big.NewInt(0).Mul(cr.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return big.NewInt(0).Add(cr.Amount(), fee), nil
-}
-
 // SanityCheck validates the variables in the action
 func (cr *CandidateRegister) SanityCheck() error {
 	if cr.Amount().Sign() < 0 {
@@ -299,16 +278,11 @@ func (cr *CandidateRegister) SanityCheck() error {
 	if !IsValidCandidateName(cr.Name()) {
 		return ErrInvalidCanName
 	}
-
-	return cr.AbstractAction.SanityCheck()
+	return nil
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (cr *CandidateRegister) EncodeABIBinary() ([]byte, error) {
-	return cr.encodeABIBinary()
-}
-
-func (cr *CandidateRegister) encodeABIBinary() ([]byte, error) {
+// EthData returns the ABI-encoded data for converting to eth tx
+func (cr *CandidateRegister) EthData() ([]byte, error) {
 	if cr.operatorAddress == nil {
 		return nil, ErrAddress
 	}
@@ -381,22 +355,6 @@ func ethAddrToNativeAddr(in interface{}) (address.Address, error) {
 		return nil, errDecodeFailure
 	}
 	return address.FromBytes(ethAddr.Bytes())
-}
-
-// ToEthTx converts action to eth-compatible tx
-func (cr *CandidateRegister) ToEthTx(_ uint32) (*types.Transaction, error) {
-	data, err := cr.encodeABIBinary()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    cr.Nonce(),
-		GasPrice: cr.GasPrice(),
-		Gas:      cr.GasLimit(),
-		To:       &_stakingProtocolEthAddr,
-		Value:    big.NewInt(0),
-		Data:     data,
-	}), nil
 }
 
 // IsValidCandidateName check if a candidate name string is valid.

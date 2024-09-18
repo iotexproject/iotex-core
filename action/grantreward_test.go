@@ -1,10 +1,14 @@
+// Copyright (c) 2024 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
 package action
 
 import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,20 +29,17 @@ func TestGrandReward(t *testing.T) {
 		require.Equal(test.rewardType, g.RewardType())
 		require.Equal(test.height, g.Height())
 		require.NoError(g.SanityCheck())
-		require.NoError(g.LoadProto(g.Proto()))
 		intrinsicGas, err := g.IntrinsicGas()
 		require.NoError(err)
-		require.Equal(uint64(0), intrinsicGas)
-		cost, err := g.Cost()
+		require.Zero(intrinsicGas)
+		elp := (&EnvelopeBuilder{}).SetGasPrice(_defaultGasPrice).
+			SetAction(g).Build()
+		cost, err := elp.Cost()
 		require.NoError(err)
 		require.Equal(big.NewInt(0), cost)
-		ethTx, err := g.ToEthTx(0)
-		require.NoError(err)
-		require.NotNil(ethTx)
-		require.Equal(byteutil.Must(g.EncodeABIBinary()), ethTx.Data())
-		require.Equal(big.NewInt(0), ethTx.GasPrice())
-		require.Equal(uint64(0), ethTx.Gas())
-		require.Equal(big.NewInt(0), ethTx.Value())
-		require.Equal(_rewardingProtocolEthAddr.Hex(), ethTx.To().Hex())
+
+		g2 := &GrantReward{}
+		require.NoError(g2.LoadProto(g.Proto()))
+		require.Equal(g, g2)
 	}
 }

@@ -2017,14 +2017,9 @@ func deployContracts(
 	amount := param.amount
 	gasLimit := param.gasLimit
 	gasPrice := param.gasPrice
-	exec, err := action.NewExecutionWithAccessList(action.EmptyAddress, nonce, amount, gasLimit, gasPrice, bytecode, nil)
-	r.NoError(err)
-	builder := &action.EnvelopeBuilder{}
-	elp := builder.SetAction(exec).
-		SetNonce(exec.Nonce()).
-		SetGasLimit(gasLimit).
-		SetGasPrice(gasPrice).
-		Build()
+	exec := action.NewExecution(action.EmptyAddress, amount, bytecode)
+	elp := (&action.EnvelopeBuilder{}).SetAction(exec).SetNonce(nonce).
+		SetGasLimit(gasLimit).SetGasPrice(gasPrice).Build()
 	selp, err := action.Sign(elp, sk)
 	r.NoError(err)
 	err = ap.Add(context.Background(), selp)
@@ -2082,14 +2077,9 @@ func writeContract(bc blockchain.Blockchain,
 		gasPrice := param.gasPrice
 		bytecode, err := hex.DecodeString(param.bytecode)
 		r.NoError(err)
-		exec, err := action.NewExecutionWithAccessList(param.contractAddr, nonce, amount, gasLimit, gasPrice, bytecode, nil)
-		r.NoError(err)
-		builder := &action.EnvelopeBuilder{}
-		elp := builder.SetAction(exec).
-			SetNonce(exec.Nonce()).
-			SetGasLimit(gasLimit).
-			SetGasPrice(gasPrice).
-			Build()
+		exec := action.NewExecution(param.contractAddr, amount, bytecode)
+		elp := (&action.EnvelopeBuilder{}).SetAction(exec).SetNonce(nonce).
+			SetGasLimit(gasLimit).SetGasPrice(gasPrice).Build()
 		selp, err := action.Sign(elp, sk)
 		r.NoError(err)
 		err = ap.Add(context.Background(), selp)

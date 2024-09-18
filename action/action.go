@@ -11,9 +11,15 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
+)
+
+const (
+	LegacyTxType     = 1
+	AccessListTxType = 2
+	DynamicFeeTxType = 3
+	BlobTxType       = 4
 )
 
 type (
@@ -24,7 +30,9 @@ type (
 
 	// EthCompatibleAction is the action which is compatible to be converted to eth tx
 	EthCompatibleAction interface {
-		ToEthTx(uint32) (*types.Transaction, error)
+		EthTo() (*common.Address, error)
+		Value() *big.Int
+		EthData() ([]byte, error)
 	}
 
 	TxContainer interface {
@@ -32,15 +40,17 @@ type (
 	}
 
 	actionPayload interface {
-		Cost() (*big.Int, error)
 		IntrinsicGas() (uint64, error)
-		SetEnvelopeContext(*AbstractAction)
 		SanityCheck() error
 	}
 
-	hasDestination interface {
-		Destination() string
-	}
+	hasDestination interface{ Destination() string }
+
+	hasSize interface{ Size() uint32 }
+
+	amountForCost interface{ Amount() *big.Int }
+
+	gasLimitForCost interface{ GasLimitForCost() }
 )
 
 // Sign signs the action using sender's private key

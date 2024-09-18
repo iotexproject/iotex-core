@@ -67,7 +67,7 @@ func stake2Activate(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	s2t := action.NewCandidateActivate(nonce, gasLimit, gasPriceRau, bucketIndex)
+	s2t := action.NewCandidateActivate(bucketIndex)
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).
