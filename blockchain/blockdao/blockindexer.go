@@ -110,6 +110,8 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 			bcCtx.Tip.Hash = tipBlk.HashHeader()
 			bcCtx.Tip.Timestamp = tipBlk.Timestamp()
 			bcCtx.Tip.BaseFee = tipBlk.BaseFee()
+			bcCtx.Tip.BlobGasUsed = tipBlk.BlobGasUsed()
+			bcCtx.Tip.ExcessBlobGas = tipBlk.ExcessBlobGas()
 		} else {
 			bcCtx.Tip.Hash = g.Hash()
 			bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)

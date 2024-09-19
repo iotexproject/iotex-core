@@ -183,6 +183,10 @@ func (elp *envelope) Cost() (*big.Int, error) {
 			cost.Add(cost, amount)
 		}
 	}
+	// account for blob fee
+	if len(elp.BlobHashes()) > 0 {
+		cost.Add(cost, new(big.Int).Mul(elp.BlobGasFeeCap(), new(big.Int).SetUint64(elp.BlobGas())))
+	}
 	return cost, nil
 }
 

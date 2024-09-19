@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -81,15 +82,17 @@ type ActionHandler interface {
 
 type (
 	Options struct {
-		ValueBigInt *big.Int
+		BurnAmount  *big.Int
+		BurnLogType iotextypes.TransactionLogType
 	}
 
 	Option func(*Options)
 )
 
-func BurnGasOption(burnAmount *big.Int) Option {
+func BurnGasOption(amount *big.Int, logType iotextypes.TransactionLogType) Option {
 	return func(opts *Options) {
-		opts.ValueBigInt = burnAmount
+		opts.BurnAmount = amount
+		opts.BurnLogType = logType
 	}
 }
 
