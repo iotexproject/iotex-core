@@ -64,6 +64,9 @@ func (p *Protocol) Deposit(
 	amount *big.Int,
 	transactionLogType iotextypes.TransactionLogType,
 ) ([]*action.TransactionLog, error) {
+	if isZero(amount) {
+		return nil, nil
+	}
 	var (
 		actionCtx           = protocol.MustGetActionCtx(ctx)
 		accountCreationOpts = []state.AccountCreationOption{}
@@ -76,10 +79,8 @@ func (p *Protocol) Deposit(
 	if err != nil {
 		return nil, err
 	}
-	if !isZero(amount) {
-		if err := acc.SubBalance(amount); err != nil {
-			return nil, err
-		}
+	if err := acc.SubBalance(amount); err != nil {
+		return nil, err
 	}
 	if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
 		return nil, err
@@ -89,14 +90,12 @@ func (p *Protocol) Deposit(
 		f    = fund{}
 		tLog = []*action.TransactionLog{}
 	)
-	if !isZero(amount) {
-		tLog = append(tLog, &action.TransactionLog{
-			Type:      transactionLogType,
-			Sender:    actionCtx.Caller.String(),
-			Recipient: address.RewardingPoolAddr,
-			Amount:    amount,
-		})
-	}
+	tLog = append(tLog, &action.TransactionLog{
+		Type:      transactionLogType,
+		Sender:    actionCtx.Caller.String(),
+		Recipient: address.RewardingPoolAddr,
+		Amount:    amount,
+	})
 	if _, err := p.state(ctx, sm, _fundKey, &f); err != nil {
 		return nil, err
 	}
