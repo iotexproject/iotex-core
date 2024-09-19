@@ -3,7 +3,6 @@ package actpool
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"math/big"
 	"sort"
 	"strings"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -105,7 +105,7 @@ func (worker *queueWorker) Handle(job workerJob) error {
 	}
 
 	worker.ap.allActions.Set(actHash, act)
-	isBlobTx := false // TODO: only store blob tx
+	isBlobTx := len(act.BlobHashes()) > 0
 	if worker.ap.store != nil && isBlobTx {
 		if err := worker.ap.store.Put(act); err != nil {
 			log.L().Warn("failed to store action", zap.Error(err), log.Hex("hash", actHash[:]))
@@ -178,6 +178,18 @@ func (worker *queueWorker) checkSelpWithState(act *action.SealedEnvelope, pendin
 			zap.Uint64("actNonce", act.Nonce()))
 		_actpoolMtc.WithLabelValues("nonceTooLarge").Inc()
 		return action.ErrNonceTooHigh
+	}
+
+	// Nonce must be continuous for blob tx
+	if len(act.BlobHashes()) > 0 {
+		pendingNonceInPool, ok := worker.PendingNonce(act.SenderAddress())
+		if !ok {
+			pendingNonceInPool = pendingNonce
+		}
+		if act.Nonce() > pendingNonceInPool {
+			_actpoolMtc.WithLabelValues("nonceTooLarge").Inc()
+			return errors.Wrapf(action.ErrNonceTooHigh, "nonce %d is larger than pending nonce %d", act.Nonce(), pendingNonceInPool)
+		}
 	}
 
 	if cost, _ := act.Cost(); balance.Cmp(cost) < 0 {

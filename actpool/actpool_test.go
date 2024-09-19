@@ -8,11 +8,16 @@ package actpool
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/golang/mock/gomock"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -25,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
@@ -32,9 +38,10 @@ import (
 )
 
 const (
-	_maxNumActsPerPool  = 8192
-	_maxGasLimitPerPool = 81920000
-	_maxNumActsPerAcct  = 256
+	_maxNumActsPerPool   = 8192
+	_maxGasLimitPerPool  = 81920000
+	_maxNumActsPerAcct   = 256
+	_maxNumBlobTxPerAcct = 3
 )
 
 var (
@@ -128,6 +135,8 @@ func TestActPool_AddActs(t *testing.T) {
 		}
 		if bytes.Equal(cfg.Key, identityset.Address(28).Bytes()) {
 			require.NoError(acct.AddBalance(big.NewInt(100)))
+		} else if bytes.Equal(cfg.Key, identityset.Address(1).Bytes()) {
+			require.NoError(acct.AddBalance(unit.ConvertIotxToRau(100)))
 		} else {
 			require.NoError(acct.AddBalance(big.NewInt(10)))
 		}
@@ -276,6 +285,100 @@ func TestActPool_AddActs(t *testing.T) {
 	elp = bd.SetAction(&action.PutPollResult{}).Build()
 	err = ap.Add(ctx, action.FakeSeal(elp, _priKey1.PublicKey()))
 	require.Equal(action.ErrInvalidAct, errors.Cause(err))
+
+	t.Run("blobTx", func(t *testing.T) {
+		blob := kzg4844.Blob{}
+		commitment, err := kzg4844.BlobToCommitment(blob)
+		require.NoError(err)
+		proof, err := kzg4844.ComputeBlobProof(blob, commitment)
+		require.NoError(err)
+		blobHash := kzg4844.CalcBlobHashV1(sha256.New(), &commitment)
+		builder := &action.EnvelopeBuilder{}
+		tx, err := builder.BuildTransfer(types.NewTx(&types.BlobTx{
+			Nonce:      2,
+			GasTipCap:  uint256.MustFromBig(big.NewInt(10)),
+			GasFeeCap:  uint256.MustFromBig(big.NewInt(20)),
+			Gas:        100000,
+			To:         common.BytesToAddress(identityset.Address(1).Bytes()),
+			Value:      uint256.MustFromBig(big.NewInt(1)),
+			BlobFeeCap: uint256.MustFromBig(big.NewInt(10)),
+			BlobHashes: []common.Hash{blobHash},
+			Sidecar: &types.BlobTxSidecar{
+				Blobs:       []kzg4844.Blob{blob},
+				Commitments: []kzg4844.Commitment{commitment},
+				Proofs:      []kzg4844.Proof{proof},
+			},
+		}))
+		require.NoError(err)
+		builder = &action.EnvelopeBuilder{}
+		tx2, err := builder.BuildTransfer(types.NewTx(&types.BlobTx{
+			Nonce:      1,
+			GasTipCap:  uint256.MustFromBig(big.NewInt(10)),
+			GasFeeCap:  uint256.MustFromBig(big.NewInt(20)),
+			Gas:        100000,
+			To:         common.BytesToAddress(identityset.Address(1).Bytes()),
+			Value:      uint256.MustFromBig(big.NewInt(2)),
+			BlobFeeCap: uint256.MustFromBig(big.NewInt(10)),
+			BlobHashes: []common.Hash{blobHash},
+			Sidecar: &types.BlobTxSidecar{
+				Blobs:       []kzg4844.Blob{blob},
+				Commitments: []kzg4844.Commitment{commitment},
+				Proofs:      []kzg4844.Proof{proof},
+			},
+		}))
+		require.NoError(err)
+		builder = &action.EnvelopeBuilder{}
+		tx3, err := builder.BuildTransfer(types.NewTx(&types.BlobTx{
+			Nonce:      1,
+			GasTipCap:  uint256.MustFromBig(big.NewInt(20)),
+			GasFeeCap:  uint256.MustFromBig(big.NewInt(40)),
+			Gas:        100000,
+			To:         common.BytesToAddress(identityset.Address(1).Bytes()),
+			Value:      uint256.MustFromBig(big.NewInt(2)),
+			BlobFeeCap: uint256.MustFromBig(big.NewInt(20)),
+			BlobHashes: []common.Hash{blobHash},
+			Sidecar: &types.BlobTxSidecar{
+				Blobs:       []kzg4844.Blob{blob},
+				Commitments: []kzg4844.Commitment{commitment},
+				Proofs:      []kzg4844.Proof{proof},
+			},
+		}))
+		require.NoError(err)
+		// reject non-continuous nonce
+		ap, err := NewActPool(genesis.Default, sf, apConfig)
+		require.NoError(err)
+		require.NoError(ap.Start(ctx))
+		defer ap.Stop(ctx)
+		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+		signedTx, err := action.Sign(tx, identityset.PrivateKey(1))
+		require.NoError(err)
+		require.ErrorIs(ap.Add(ctx, signedTx), action.ErrNonceTooHigh)
+		// accept continuous nonce
+		tx.SetNonce(1)
+		signedTx, err = action.Sign(tx, identityset.PrivateKey(1))
+		require.NoError(err)
+		require.NoError(ap.Add(ctx, signedTx))
+		// 2x price bump to replace
+		signedTx, err = action.Sign(tx2, identityset.PrivateKey(1))
+		require.NoError(err)
+		require.ErrorIs(ap.Add(ctx, signedTx), action.ErrReplaceUnderpriced)
+		signedTx, err = action.Sign(tx3, identityset.PrivateKey(1))
+		require.NoError(err)
+		require.NoError(ap.Add(ctx, signedTx))
+		// max blob tx per account
+		tx.SetNonce(2)
+		signedTx, err = action.Sign(tx, identityset.PrivateKey(1))
+		require.NoError(err)
+		require.NoError(ap.Add(ctx, signedTx))
+		tx.SetNonce(3)
+		signedTx, err = action.Sign(tx, identityset.PrivateKey(1))
+		require.NoError(err)
+		require.NoError(ap.Add(ctx, signedTx))
+		tx.SetNonce(4)
+		signedTx, err = action.Sign(tx, identityset.PrivateKey(1))
+		require.NoError(err)
+		require.ErrorIs(ap.Add(ctx, signedTx), action.ErrNonceTooHigh)
+	})
 }
 
 func TestActPool_PickActs(t *testing.T) {
@@ -1136,6 +1239,7 @@ func getActPoolCfg() Config {
 		MaxNumActsPerAcct:  _maxNumActsPerAcct,
 		MinGasPriceStr:     "0",
 		BlackList:          []string{_addr6},
+		MaxNumBlobsPerAcct: _maxNumBlobTxPerAcct,
 	}
 }
 

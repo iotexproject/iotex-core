@@ -27,6 +27,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/routine"
@@ -54,6 +55,7 @@ func init() {
 // ActPool is the interface of actpool
 type ActPool interface {
 	action.SealedEnvelopeValidator
+	lifecycle.StartStopper
 	// Reset resets actpool state
 	Reset()
 	// PendingActionMap returns an action map with all accepted actions
@@ -162,11 +164,24 @@ func (ap *actPool) Start(ctx context.Context) error {
 	if ap.store == nil {
 		return nil
 	}
+	// open action store and load all actions
+	blobs := make(SortedActions, 0)
 	err := ap.store.Open(func(selp *action.SealedEnvelope) error {
+		if len(selp.BlobHashes()) > 0 {
+			blobs = append(blobs, selp)
+			return nil
+		}
 		return ap.add(ctx, selp)
 	})
 	if err != nil {
 		return err
+	}
+	// add blob txs to actpool in nonce order
+	sort.Sort(blobs)
+	for _, selp := range blobs {
+		if err := ap.add(ctx, selp); err != nil {
+			return err
+		}
 	}
 	return ap.storeSync.Start(ctx)
 }
