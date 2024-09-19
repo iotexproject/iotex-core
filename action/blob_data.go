@@ -7,19 +7,19 @@ package action
 
 import (
 	"crypto/sha256"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
 
 // BlobTxData represents an EIP-4844 transaction
 type BlobTxData struct {
-	blobFeeCap *big.Int // a.k.a. maxFeePerBlobGas
+	blobFeeCap *uint256.Int // a.k.a. maxFeePerBlobGas
 	blobHashes []common.Hash
 
 	// A blob transaction can optionally contain blobs. This field must be set when BlobTx
@@ -27,19 +27,19 @@ type BlobTxData struct {
 	sidecar *types.BlobTxSidecar
 }
 
-func (tx *BlobTxData) BlobGasFeeCap() *big.Int {
-	p := &big.Int{}
-	if tx.blobFeeCap == nil {
-		return p
+func (tx *BlobTxData) gasFeeCap() *uint256.Int {
+	p := uint256.Int{}
+	if tx.blobFeeCap != nil {
+		p.Set(tx.blobFeeCap)
 	}
-	return p.Set(tx.blobFeeCap)
+	return &p
 }
 
-func (tx *BlobTxData) BlobHashes() []common.Hash {
+func (tx *BlobTxData) hashes() []common.Hash {
 	return tx.blobHashes
 }
 
-func (tx *BlobTxData) blobGas() uint64 {
+func (tx *BlobTxData) gas() uint64 {
 	return params.BlobTxBlobGasPerBlob * uint64(len(tx.blobHashes))
 }
 
@@ -96,15 +96,13 @@ func fromProtoBlobTxData(pb *iotextypes.BlobTxData) (*BlobTxData, error) {
 	if pb == nil {
 		return nil, ErrNilProto
 	}
-	blob := BlobTxData{}
+	blob := BlobTxData{
+		blobFeeCap: &uint256.Int{},
+	}
 	if fee := pb.GetBlobFeeCap(); len(fee) > 0 {
-		amount, ok := new(big.Int).SetString(fee, 10)
-		if !ok {
-			return nil, errors.Errorf("invalid blob fee %s", fee)
+		if err := blob.blobFeeCap.SetFromDecimal(fee); err != nil {
+			return nil, errors.Wrap(err, "invalid blob fee")
 		}
-		blob.blobFeeCap = amount
-	} else {
-		blob.blobFeeCap = &big.Int{}
 	}
 	if bh := pb.GetBlobHashes(); bh != nil {
 		blob.blobHashes = make([]common.Hash, len(bh))

@@ -7,7 +7,6 @@ package action
 
 import (
 	"crypto/ecdsa"
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -38,7 +37,7 @@ func TestBlobTxHashing(t *testing.T) {
 		// AccessList AccessList
 		BlobFeeCap: uint256.NewInt(1000000000),
 	}
-	withBlob.BlobFeeCap = uint256.MustFromBig(blobData.blobFeeCap)
+	withBlob.BlobFeeCap = blobData.blobFeeCap
 	withBlob.BlobHashes = blobData.blobHashes
 	withBlob.Sidecar = blobData.sidecar
 	r.NotNil(withBlob.Sidecar)
@@ -131,7 +130,7 @@ func createTestBlobTxData() *BlobTxData {
 		Proofs:      []kzg4844.Proof{testBlobProof},
 	}
 	blobData := &BlobTxData{
-		blobFeeCap: big.NewInt(15),
+		blobFeeCap: uint256.NewInt(15),
 		blobHashes: sidecar.BlobHashes(),
 		sidecar:    sidecar,
 	}

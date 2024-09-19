@@ -34,8 +34,8 @@ func TestBlobTx(t *testing.T) {
 		chainID:    3,
 		nonce:      8,
 		gasLimit:   1001,
-		gasTipCap:  big.NewInt(13),
-		gasFeeCap:  big.NewInt(27),
+		gasTipCap:  uint256.NewInt(13),
+		gasFeeCap:  uint256.NewInt(27),
 		accessList: testACL,
 		blob:       testBlob,
 	}
@@ -49,7 +49,7 @@ func TestBlobTx(t *testing.T) {
 		r.Equal(testACL, expect.AccessList())
 		r.EqualValues(131072, expect.BlobGas())
 		r.Equal(big.NewInt(15), expect.BlobGasFeeCap())
-		r.Equal(testBlob.BlobHashes(), expect.BlobHashes())
+		r.Equal(testBlob.hashes(), expect.BlobHashes())
 		r.Equal(testBlob.sidecar, expect.BlobTxSidecar())
 		b := MustNoErrorV(proto.Marshal(expect.toProto()))
 		h := hash.Hash256b(b[:])
@@ -65,25 +65,21 @@ func TestBlobTx(t *testing.T) {
 		a := expect.gasTipCap
 		expect.gasTipCap = nil
 		r.ErrorIs(expect.SanityCheck(), ErrMissRequiredField)
-		expect.gasTipCap = big.NewInt(-1)
+		expect.gasTipCap = uint256.NewInt(1)
+		expect.gasTipCap.Lsh(expect.gasTipCap, 255)
 		r.ErrorIs(expect.SanityCheck(), ErrNegativeValue)
-		expect.gasTipCap = big.NewInt(28)
+		expect.gasTipCap = uint256.NewInt(28)
 		r.ErrorIs(expect.SanityCheck(), ErrGasTipOverFeeCap)
 		expect.gasTipCap = a
 		r.NoError(expect.SanityCheck())
 		b := expect.gasFeeCap
 		expect.gasFeeCap = nil
 		r.ErrorIs(expect.SanityCheck(), ErrMissRequiredField)
-		expect.gasFeeCap = big.NewInt(-1)
+		expect.gasFeeCap = uint256.NewInt(1)
+		expect.gasFeeCap.Lsh(expect.gasFeeCap, 255)
 		r.ErrorIs(expect.SanityCheck(), ErrNegativeValue)
-		expect.gasFeeCap = big.NewInt(12)
+		expect.gasFeeCap = uint256.NewInt(12)
 		r.ErrorIs(expect.SanityCheck(), ErrGasTipOverFeeCap)
-		expect.gasFeeCap = big.NewInt(1)
-		expect.gasFeeCap.Lsh(expect.gasFeeCap, 256)
-		r.ErrorContains(expect.SanityCheck(), "fee cap is too high: value is very high")
-		expect.gasTipCap = big.NewInt(1)
-		expect.gasTipCap.Lsh(expect.gasTipCap, 256)
-		r.ErrorContains(expect.SanityCheck(), "tip cap is too high: value is very high")
 		expect.gasTipCap = a
 		expect.gasFeeCap = b
 	})
@@ -112,8 +108,8 @@ func TestBlobTx(t *testing.T) {
 			GasTipCap:  uint256.MustFromBig(expect.GasTipCap()),
 			GasFeeCap:  uint256.MustFromBig(expect.GasFeeCap()),
 			AccessList: expect.AccessList(),
-			BlobFeeCap: uint256.MustFromBig(testBlob.BlobGasFeeCap()),
-			BlobHashes: testBlob.BlobHashes(),
+			BlobFeeCap: testBlob.gasFeeCap(),
+			BlobHashes: testBlob.hashes(),
 			Sidecar:    testBlob.sidecar,
 			Value:      uint256.NewInt(13),
 			To:         common.BytesToAddress([]byte{}),

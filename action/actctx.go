@@ -10,6 +10,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
@@ -200,8 +201,8 @@ func (act *AbstractAction) convertToTx() TxCommonInternal {
 			chainID:    act.chainID,
 			nonce:      act.nonce,
 			gasLimit:   act.gasLimit,
-			gasTipCap:  act.gasTipCap,
-			gasFeeCap:  act.gasFeeCap,
+			gasTipCap:  uint256.MustFromBig(act.gasTipCap),
+			gasFeeCap:  uint256.MustFromBig(act.gasFeeCap),
 			accessList: act.accessList,
 			blob:       act.blobData,
 		}

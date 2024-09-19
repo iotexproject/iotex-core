@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
@@ -145,7 +146,7 @@ func (b *EnvelopeBuilder) SetDynamicGas(feeCap, tipCap *big.Int) *EnvelopeBuilde
 }
 
 func (b *EnvelopeBuilder) SetBlobTxData(
-	feeCap *big.Int, hashes []common.Hash, sc *types.BlobTxSidecar) *EnvelopeBuilder {
+	feeCap *uint256.Int, hashes []common.Hash, sc *types.BlobTxSidecar) *EnvelopeBuilder {
 	b.ab.blobData = &BlobTxData{
 		blobFeeCap: feeCap,
 		blobHashes: hashes,
@@ -199,7 +200,7 @@ func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) error {
 	b.ab.gasFeeCap = tx.GasFeeCap()
 	b.ab.gasTipCap = tx.GasTipCap()
 	b.ab.blobData = &BlobTxData{
-		blobFeeCap: tx.BlobGasFeeCap(),
+		blobFeeCap: uint256.MustFromBig(tx.BlobGasFeeCap()),
 		blobHashes: tx.BlobHashes(),
 		sidecar:    tx.BlobTxSidecar(),
 	}
