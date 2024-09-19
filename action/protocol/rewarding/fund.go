@@ -87,14 +87,7 @@ func (p *Protocol) Deposit(
 	// Add balance to fund
 	var (
 		f    = fund{}
-		tLog = []*action.TransactionLog{
-			{
-				Type:      transactionLogType,
-				Sender:    actionCtx.Caller.String(),
-				Recipient: address.RewardingPoolAddr,
-				Amount:    amount,
-			},
-		}
+		tLog = []*action.TransactionLog{}
 	)
 	if !isZero(amount) {
 		tLog = append(tLog, &action.TransactionLog{
