@@ -181,8 +181,7 @@ func (worker *queueWorker) checkSelpWithState(act *action.SealedEnvelope, pendin
 	}
 
 	// Nonce must be continuous for blob tx
-	isBlobTx := len(act.BlobHashes()) > 0
-	if isBlobTx {
+	if len(act.BlobHashes()) > 0 {
 		pendingNonceInPool, ok := worker.PendingNonce(act.SenderAddress())
 		if !ok {
 			pendingNonceInPool = pendingNonce

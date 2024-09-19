@@ -116,21 +116,18 @@ func (q *actQueue) Put(act *action.SealedEnvelope) error {
 				return errors.Wrap(action.ErrReplaceUnderpriced, "blob tx can only replace blob tx")
 			}
 			var (
-				prevBlobGasFeeCap = actInPool.BlobGasFeeCap()
-				blobGasFeeCap     = act.BlobGasFeeCap()
-
 				priceBump        = big.NewInt(2)
 				minGasFeeCap     = new(big.Int).Mul(actInPool.GasFeeCap(), priceBump)
 				minGasTipCap     = new(big.Int).Mul(actInPool.GasTipCap(), priceBump)
-				minBlobGasFeeCap = new(big.Int).Mul(prevBlobGasFeeCap, priceBump)
+				minBlobGasFeeCap = new(big.Int).Mul(actInPool.BlobGasFeeCap(), priceBump)
 			)
 			switch {
 			case act.GasFeeCap().Cmp(minGasFeeCap) < 0:
 				return errors.Wrapf(action.ErrReplaceUnderpriced, "gas fee cap %s < %s", act.GasFeeCap(), minGasFeeCap)
 			case act.GasTipCap().Cmp(minGasTipCap) < 0:
 				return errors.Wrapf(action.ErrReplaceUnderpriced, "gas tip cap %s < %s", act.GasTipCap(), minGasTipCap)
-			case blobGasFeeCap.Cmp(minBlobGasFeeCap) < 0:
-				return errors.Wrapf(action.ErrReplaceUnderpriced, "blob gas fee cap %s < %s", blobGasFeeCap, minBlobGasFeeCap)
+			case act.BlobGasFeeCap().Cmp(minBlobGasFeeCap) < 0:
+				return errors.Wrapf(action.ErrReplaceUnderpriced, "blob gas fee cap %s < %s", act.BlobGasFeeCap(), minBlobGasFeeCap)
 			}
 		}
 		// update action in q.items and q.index
@@ -219,14 +216,13 @@ func (q *actQueue) cleanTimeout() []*action.SealedEnvelope {
 		nonce := q.ascQueue[i].nonce
 		if timeNow.After(q.ascQueue[i].deadline) && nonce > q.pendingNonce {
 			removedFromQueue = append(removedFromQueue, q.items[nonce])
-			isBlobTx := len(q.items[nonce].BlobHashes()) > 0
+			if len(q.items[nonce].BlobHashes()) > 0 {
+				q.blobCount--
+			}
 			delete(q.items, nonce)
 			delete(q.pendingBalance, nonce)
 			q.ascQueue[i] = q.ascQueue[size-1]
 			size--
-			if isBlobTx {
-				q.blobCount--
-			}
 			continue
 		}
 		i++
@@ -259,11 +255,11 @@ func (q *actQueue) UpdateAccountState(nonce uint64, balance *big.Int) []*action.
 		heap.Remove(&q.descQueue, nttl.descIdx)
 		nonce := nttl.nonce
 		removed = append(removed, q.items[nonce])
-		isBlobTx := len(q.items[nonce].BlobHashes()) > 0
-		delete(q.items, nonce)
-		if isBlobTx {
+		if len(q.items[nonce].BlobHashes()) > 0 {
 			q.blobCount--
 		}
+		delete(q.items, nonce)
+
 	}
 	return removed
 }
@@ -381,8 +377,7 @@ func (q *actQueue) PopActionWithLargestNonce() *action.SealedEnvelope {
 	item := q.items[itemMeta.nonce]
 	delete(q.items, itemMeta.nonce)
 	q.updateFromNonce(itemMeta.nonce)
-	isBlobTx := len(item.BlobHashes()) > 0
-	if isBlobTx {
+	if len(item.BlobHashes()) > 0 {
 		q.blobCount--
 	}
 	return item
