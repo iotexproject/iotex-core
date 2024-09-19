@@ -103,12 +103,12 @@ func (p *Protocol) GrantBlockReward(
 	}
 
 	a := admin{}
+	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
+		return nil, err
+	}
 	totalReward := big.NewInt(0).Set(a.blockReward)
 	if featureCtx.EnableDynamicFeeTx {
 		totalReward.Add(totalReward, &blkCtx.AccumulatedTips)
-	}
-	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
-		return nil, err
 	}
 	if err := p.updateAvailableBalance(ctx, sm, totalReward); err != nil {
 		return nil, err

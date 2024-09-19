@@ -310,7 +310,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	prevHeader, err := bc.dao.Header(blk.PrevHash())
+	prevHeader, err := bc.dao.HeaderByHeight(blk.Height() - 1)
 	if err != nil {
 		return err
 	}

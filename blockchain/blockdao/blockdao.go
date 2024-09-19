@@ -301,7 +301,7 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	timer = dao.timerFactory.NewTimer("index_block")
 	defer timer.End()
 	g := genesis.MustExtractGenesisContext(ctx)
-	prevHeader, err := dao.Header(blk.PrevHash())
+	prevHeader, err := dao.HeaderByHeight(blk.Height() - 1)
 	if err != nil {
 		return err
 	}
