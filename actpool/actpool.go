@@ -27,6 +27,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/routine"
@@ -54,6 +55,7 @@ func init() {
 // ActPool is the interface of actpool
 type ActPool interface {
 	action.SealedEnvelopeValidator
+	lifecycle.StartStopper
 	// Reset resets actpool state
 	Reset()
 	// PendingActionMap returns an action map with all accepted actions

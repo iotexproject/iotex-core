@@ -3,7 +3,6 @@ package actpool
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"math/big"
 	"sort"
 	"strings"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -188,7 +188,7 @@ func (worker *queueWorker) checkSelpWithState(act *action.SealedEnvelope, pendin
 		}
 		if act.Nonce() > pendingNonceInPool {
 			_actpoolMtc.WithLabelValues("nonceTooLarge").Inc()
-			return action.ErrNonceTooHigh
+			return errors.Wrapf(action.ErrNonceTooHigh, "nonce %d is larger than pending nonce %d", act.Nonce(), pendingNonceInPool)
 		}
 	}
 
@@ -202,7 +202,7 @@ func (worker *queueWorker) checkSelpWithState(act *action.SealedEnvelope, pendin
 			zap.String("balance", balance.String()),
 			zap.String("sender", sender),
 		)
-		return action.ErrInsufficientFunds
+		return errors.Wrapf(action.ErrInsufficientFunds, "cost %s is larger than balance %s", cost.String(), balance.String())
 	}
 	return nil
 }

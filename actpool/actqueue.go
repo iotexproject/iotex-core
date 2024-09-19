@@ -107,7 +107,7 @@ func (q *actQueue) Put(act *action.SealedEnvelope) error {
 	if actInPool, exist := q.items[nonce]; exist {
 		// act of higher gas price can cut in line
 		if nonce < q.pendingNonce && act.GasFeeCap().Cmp(actInPool.GasFeeCap()) != 1 {
-			return action.ErrReplaceUnderpriced
+			return errors.Wrapf(action.ErrReplaceUnderpriced, "gas fee cap %s < %s", act.GasFeeCap(), actInPool.GasFeeCap())
 		}
 		// 2x bumps in gas price are allowed for blob tx
 		isPrevBlobTx, isBlobTx := len(actInPool.BlobHashes()) > 0, len(act.BlobHashes()) > 0
