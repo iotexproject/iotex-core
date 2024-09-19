@@ -82,6 +82,7 @@ type ActionHandler interface {
 type (
 	DepositOptionCfg struct {
 		PriorityFee *big.Int
+		BlobGasFee  *big.Int
 	}
 
 	DepositOption func(*DepositOptionCfg)
@@ -90,6 +91,12 @@ type (
 func PriorityFeeOption(priorityFee *big.Int) DepositOption {
 	return func(opts *DepositOptionCfg) {
 		opts.PriorityFee = priorityFee
+	}
+}
+
+func BlobGasFeeOption(blobGasFee *big.Int) DepositOption {
+	return func(opts *DepositOptionCfg) {
+		opts.BlobGasFee = blobGasFee
 	}
 }
 

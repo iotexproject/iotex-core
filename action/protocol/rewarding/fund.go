@@ -178,6 +178,13 @@ func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int, 
 		}
 		logs = append(logs, slogs...)
 	}
+	if !isZero(cfg.BlobGasFee) {
+		slogs, err := rp.Deposit(ctx, sm, cfg.BlobGasFee, iotextypes.TransactionLogType_BLOB_FEE)
+		if err != nil {
+			return nil, err
+		}
+		logs = append(logs, slogs...)
+	}
 	return logs, nil
 }
 
