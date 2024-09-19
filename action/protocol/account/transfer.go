@@ -41,14 +41,12 @@ func (p *Protocol) handleTransfer(ctx context.Context, elp action.Envelope, sm p
 		return nil, errors.Wrapf(err, "failed to load or create the account of sender %s", actionCtx.Caller.String())
 	}
 
-	gasFee, baseFee, err := protocol.SplitGas(ctx, elp, actionCtx.IntrinsicGas)
+	priorityFee, baseFee, err := protocol.SplitGas(ctx, elp, actionCtx.IntrinsicGas)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to split gas")
 	}
-	total := big.NewInt(0).Add(tsf.Amount(), gasFee)
-	if baseFee != nil {
-		total.Add(total, baseFee)
-	}
+	total := big.NewInt(0).Add(tsf.Amount(), priorityFee)
+	total.Add(total, baseFee)
 	if !sender.HasSufficientBalance(total) {
 		return nil, errors.Wrapf(
 			state.ErrNotEnoughBalance,
@@ -62,11 +60,11 @@ func (p *Protocol) handleTransfer(ctx context.Context, elp action.Envelope, sm p
 	var depositLog []*action.TransactionLog
 	if !fCtx.FixDoubleChargeGas {
 		// charge sender gas
-		if err := sender.SubBalance(gasFee); err != nil {
+		if err := sender.SubBalance(baseFee); err != nil {
 			return nil, errors.Wrapf(err, "failed to charge the gas for sender %s", actionCtx.Caller.String())
 		}
 		if p.depositGas != nil {
-			depositLog, err = p.depositGas(ctx, sm, gasFee)
+			depositLog, err = p.depositGas(ctx, sm, baseFee)
 			if err != nil {
 				return nil, err
 			}
@@ -100,7 +98,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, elp action.Envelope, sm p
 		}
 		if fCtx.FixDoubleChargeGas {
 			if p.depositGas != nil {
-				depositLog, err = p.depositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(gasFee))
+				depositLog, err = p.depositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(priorityFee))
 				if err != nil {
 					return nil, err
 				}
@@ -142,7 +140,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, elp action.Envelope, sm p
 
 	if fCtx.FixDoubleChargeGas {
 		if p.depositGas != nil {
-			depositLog, err = p.depositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(gasFee))
+			depositLog, err = p.depositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(priorityFee))
 			if err != nil {
 				return nil, err
 			}

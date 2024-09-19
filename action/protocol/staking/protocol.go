@@ -698,11 +698,11 @@ func (p *Protocol) settleAction(
 		actionCtx = protocol.MustGetActionCtx(ctx)
 		blkCtx    = protocol.MustGetBlockCtx(ctx)
 	)
-	gasFee, baseFee, err := protocol.SplitGas(ctx, act, gasToBeDeducted)
+	priorityFee, baseFee, err := protocol.SplitGas(ctx, act, gasToBeDeducted)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to split gas")
 	}
-	depositLog, err := p.helperCtx.DepositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(gasFee))
+	depositLog, err := p.helperCtx.DepositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(priorityFee))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deposit gas")
 	}

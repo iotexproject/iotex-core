@@ -126,12 +126,13 @@ func SplitGas(ctx context.Context, tx action.TxDynamicGas, usedGas uint64) (*big
 		baseFee = MustGetBlockchainCtx(ctx).Tip.BaseFee
 		gas     = new(big.Int).SetUint64(usedGas)
 	)
+	if baseFee == nil {
+		// treat as basefee if before enabling EIP-1559
+		return new(big.Int), new(big.Int).Mul(tx.GasFeeCap(), gas), nil
+	}
 	priority, err := action.EffectiveGasTip(tx, baseFee)
 	if err != nil {
 		return nil, nil, err
-	}
-	if baseFee == nil {
-		return priority.Mul(priority, gas), nil, nil
 	}
 	// after enabling EIP-1559, fee is split into 2 parts
 	// priority fee goes to the rewarding pool (or block producer) as before
