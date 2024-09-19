@@ -167,6 +167,16 @@ func (tx *BlobTx) setChainID(n uint32) {
 }
 
 func (tx *BlobTx) toEthTx(to *common.Address, value *big.Int, data []byte) *types.Transaction {
-	// TODO: enable blob tx
-	return nil
+	return types.NewTx(&types.BlobTx{
+		Nonce:      tx.nonce,
+		GasTipCap:  tx.tipCap(),
+		GasFeeCap:  tx.feeCap(),
+		Gas:        tx.gasLimit,
+		To:         *to,
+		Value:      uint256.MustFromBig(value),
+		Data:       data,
+		AccessList: tx.accessList,
+		BlobFeeCap: uint256.MustFromBig(tx.BlobGasFeeCap()),
+		BlobHashes: tx.BlobHashes(),
+	})
 }

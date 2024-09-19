@@ -16,6 +16,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -304,14 +305,23 @@ var (
 			nil,
 			"46e367af6c609032b85e7d3f40f0af3fcb59779b55d92eefea2ee1dbdaca41fa",
 		},
+		{
+			"blobtx", 120, 21000, "1000000000", "0",
+			"0x3141df3f2e4415533bb6d6be2A351B2db9ee84EF",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			[]byte{1, 2, 3},
+			"526b46d97b334cc5edb6095448406c9df74c8d6310d22044cb9a3a2a305bc398",
+		},
 	}
 )
 
 func TestEthTxDecodeVerify(t *testing.T) {
 	require := require.New(t)
 	var (
-		sk     = MustNoErrorV(crypto.HexStringToPrivateKey("a000000000000000000000000000000000000000000000000000000000000000"))
-		pkhash = sk.PublicKey().Address().Hex()
+		sk       = MustNoErrorV(crypto.HexStringToPrivateKey("a000000000000000000000000000000000000000000000000000000000000000"))
+		pkhash   = sk.PublicKey().Address().Hex()
+		testBlob = createTestBlobTxData()
 	)
 
 	checkSelp := func(selp *SealedEnvelope, tx *types.Transaction, e rlpTest) {
@@ -459,11 +469,22 @@ func TestEthTxDecodeVerify(t *testing.T) {
 				case types.LegacyTxType:
 					require.Equal(v.price, evmTx.GasPrice().String())
 					require.Nil(tx.AccessList())
+				case types.BlobTxType:
+					require.Equal(testBlob.blobFeeCap.ToBig(), tx.BlobGasFeeCap())
+					require.Equal(testBlob.hashes(), tx.BlobHashes())
+					require.Equal(testBlob.sidecar, tx.BlobTxSidecar())
+					require.Equal(selp.BlobGasFeeCap(), tx.BlobGasFeeCap())
+					require.Equal(selp.BlobHashes(), tx.BlobHashes())
+					require.Equal(selp.BlobTxSidecar(), tx.BlobTxSidecar())
+					fallthrough
 				case types.DynamicFeeTxType:
 					require.Equal(v.price, evmTx.GasTipCap().String())
 					tip := MustBeTrueV(new(big.Int).SetString(v.price, 10))
 					require.Equal(tip.Lsh(tip, 1), tx.GasFeeCap())
 					require.Equal(tx.GasPrice(), tx.GasFeeCap())
+					require.Equal(selp.GasTipCap(), evmTx.GasTipCap())
+					require.Equal(selp.GasFeeCap(), evmTx.GasFeeCap())
+					require.Equal(selp.GasPrice(), evmTx.GasPrice())
 					fallthrough
 				case types.AccessListTxType:
 					require.Equal(3, len(tx.AccessList()))
@@ -854,7 +875,7 @@ func convertToNativeProto(tx *types.Transaction, actType string) (*iotextypes.Ac
 		err error
 	)
 	switch actType {
-	case "transfer":
+	case "transfer", "blobtx":
 		elp, err = elpBuilder.BuildTransfer(tx)
 	case "execution", "unprotected", "accesslist", "dynamicfee":
 		elp, err = elpBuilder.BuildExecution(tx)
@@ -894,7 +915,7 @@ func checkContract(to string, actType string) func(context.Context, *common.Addr
 		}
 	}
 	switch actType {
-	case "transfer":
+	case "transfer", "blobtx":
 		return func(context.Context, *common.Address) (bool, bool, bool, error) {
 			return false, false, false, nil
 		}
@@ -1013,6 +1034,33 @@ func generateRLPTestRaw(sk *ecdsa.PrivateKey, test *rlpTest) string {
 				{Address: _c1, StorageKeys: []common.Hash{_k1, {}, _k3}},
 				{Address: _c2, StorageKeys: []common.Hash{_k2, _k3, _k4, _k1}},
 			},
+		}
+	case "blobtx":
+		price := new(uint256.Int)
+		if err := price.SetFromDecimal(test.price); err != nil {
+			panic(err.Error())
+		}
+		value := new(uint256.Int)
+		if err := value.SetFromDecimal(test.amount); err != nil {
+			panic(err.Error())
+		}
+		blob := createTestBlobTxData()
+		tx = &types.BlobTx{
+			Nonce:     test.nonce,
+			GasTipCap: price,
+			GasFeeCap: new(uint256.Int).Lsh(price, 1),
+			Gas:       test.limit,
+			To:        *to,
+			Value:     value,
+			Data:      test.data,
+			AccessList: types.AccessList{
+				{Address: common.Address{}, StorageKeys: nil},
+				{Address: _c1, StorageKeys: []common.Hash{_k1, {}, _k3}},
+				{Address: _c2, StorageKeys: []common.Hash{_k2, _k3, _k4, _k1}},
+			},
+			BlobFeeCap: blob.gasFeeCap(),
+			BlobHashes: blob.hashes(),
+			Sidecar:    blob.sidecar,
 		}
 	default:
 		panic("not supported")
