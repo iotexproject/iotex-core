@@ -27,8 +27,20 @@ type BlobTxData struct {
 	sidecar *types.BlobTxSidecar
 }
 
+func (tx *BlobTxData) BlobGasFeeCap() *big.Int {
+	p := &big.Int{}
+	if tx.blobFeeCap == nil {
+		return p
+	}
+	return p.Set(tx.blobFeeCap)
+}
+
 func (tx *BlobTxData) BlobHashes() []common.Hash {
 	return tx.blobHashes
+}
+
+func (tx *BlobTxData) blobGas() uint64 {
+	return params.BlobTxBlobGasPerBlob * uint64(len(tx.blobHashes))
 }
 
 func (tx *BlobTxData) blobHashesProto() [][]byte {

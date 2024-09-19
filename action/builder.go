@@ -144,6 +144,16 @@ func (b *EnvelopeBuilder) SetDynamicGas(feeCap, tipCap *big.Int) *EnvelopeBuilde
 	return b
 }
 
+func (b *EnvelopeBuilder) SetBlobTxData(
+	feeCap *big.Int, hashes []common.Hash, sc *types.BlobTxSidecar) *EnvelopeBuilder {
+	b.ab.blobData = &BlobTxData{
+		blobFeeCap: feeCap,
+		blobHashes: hashes,
+		sidecar:    sc,
+	}
+	return b
+}
+
 // Build builds a new action.
 func (b *EnvelopeBuilder) Build() Envelope {
 	return b.build()
@@ -188,6 +198,11 @@ func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) error {
 	b.ab.accessList = tx.AccessList()
 	b.ab.gasFeeCap = tx.GasFeeCap()
 	b.ab.gasTipCap = tx.GasTipCap()
+	b.ab.blobData = &BlobTxData{
+		blobFeeCap: tx.BlobGasFeeCap(),
+		blobHashes: tx.BlobHashes(),
+		sidecar:    tx.BlobTxSidecar(),
+	}
 	return nil
 }
 
@@ -199,6 +214,8 @@ func convertEthTxType(typ uint8) (int, error) {
 		return AccessListTxType, nil
 	case types.DynamicFeeTxType:
 		return DynamicFeeTxType, nil
+	case types.BlobTxType:
+		return BlobTxType, nil
 	default:
 		return 0, errors.Wrapf(ErrInvalidAct, "unsupported eth tx type %d", typ)
 	}

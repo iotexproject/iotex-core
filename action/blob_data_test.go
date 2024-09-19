@@ -56,7 +56,7 @@ func TestBlobTxHashing(t *testing.T) {
 	r.Equal(h, withBlobStripped.Hash())
 }
 
-func TestBlobTx(t *testing.T) {
+func TestBlobTxData(t *testing.T) {
 	r := require.New(t)
 	blobData := createTestBlobTxData()
 
