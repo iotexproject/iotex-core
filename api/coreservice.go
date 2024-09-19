@@ -489,8 +489,8 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		return "", st.Err()
 	}
 	// If there is no error putting into local actpool, broadcast it to the network
-	// TODO: broadcast action hash if it's blobTx
-	isBlobTx := false
+	// broadcast action hash if it's blobTx
+	isBlobTx := in.Core.BlobTxData != nil
 	out := proto.Message(in)
 	if isBlobTx {
 		out = &iotextypes.ActionHash{

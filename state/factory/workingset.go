@@ -11,7 +11,6 @@ import (
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -199,7 +198,7 @@ func (ws *workingSet) runAction(
 			)
 		}
 		if receipt != nil {
-			isBlobTx := false // TODO: get blob type from action
+			isBlobTx := len(selp.BlobHashes()) > 0
 			if protocol.MustGetFeatureCtx(ctx).EnableBlobTransaction && isBlobTx {
 				if err = ws.handleBlob(ctx, selp, receipt); err != nil {
 					return nil, err
@@ -213,8 +212,7 @@ func (ws *workingSet) runAction(
 
 func (ws *workingSet) handleBlob(ctx context.Context, act *action.SealedEnvelope, receipt *action.Receipt) error {
 	// Deposit blob fee
-	blobNum := 0 // TODO: get blob number from action
-	receipt.BlobGasUsed = uint64(blobNum) * params.BlobTxBlobGasPerBlob
+	receipt.BlobGasUsed = act.BlobGas()
 	receipt.BlobGasPrice = block.CalcBlobFee(protocol.MustGetBlockchainCtx(ctx).Tip.ExcessBlobGas)
 	blobFee := new(big.Int).Mul(receipt.BlobGasPrice, new(big.Int).SetUint64(receipt.BlobGasUsed))
 	logs, err := rewarding.DepositGas(ctx, ws, blobFee, protocol.GasTypeOption(iotextypes.TransactionLogType_BLOB_FEE))

@@ -108,6 +108,9 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 				return errors.Wrapf(state.ErrNotEnoughBalance, "sender %s balance %s, cost %s", caller.String(), acc.Balance, cost)
 			}
 		}
+		if ok && featureCtx.EnableBlobTransaction && len(selp.BlobHashes()) > 0 {
+			// TODO: blobFeeCap must be not less than the blob price
+		}
 	}
 	return nil
 }
