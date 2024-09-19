@@ -202,7 +202,7 @@ func (worker *queueWorker) checkSelpWithState(act *action.SealedEnvelope, pendin
 			zap.String("balance", balance.String()),
 			zap.String("sender", sender),
 		)
-		return errors.Wrapf(action.ErrInsufficientFunds, "cost %s is larger than balance %s", cost.String(), balance.String())
+		return action.ErrInsufficientFunds
 	}
 	return nil
 }
