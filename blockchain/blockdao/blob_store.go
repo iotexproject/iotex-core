@@ -19,9 +19,9 @@ type (
 		Start(context.Context) error
 		Stop(context.Context) error
 		BlobExpired(uint64, uint64) bool
-		GetBlob(hash.Hash256) (*types.BlobTxSidecar, error)
-		GetBlobsByHeight(uint64) ([]*types.BlobTxSidecar, error)
-		PutBlob(*block.Block) error
+		GetBlob(hash.Hash256) (*types.BlobTxSidecar, string, error)
+		GetBlobsByHeight(uint64) ([]*types.BlobTxSidecar, []string, error)
+		PutBlock(*block.Block) error
 	}
 
 	// storage for past N-day's blobs, structured as blow:

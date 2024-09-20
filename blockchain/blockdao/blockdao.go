@@ -39,8 +39,8 @@ type (
 	// BlockDAO represents the block data access object
 	BlockDAO interface {
 		BlockStore
-		GetBlob(hash.Hash256) (*types.BlobTxSidecar, error)
-		GetBlobsByHeight(uint64) ([]*types.BlobTxSidecar, error)
+		GetBlob(hash.Hash256) (*types.BlobTxSidecar, string, error)
+		GetBlobsByHeight(uint64) ([]*types.BlobTxSidecar, []string, error)
 	}
 
 	BlockStore interface {
@@ -284,7 +284,7 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 		return err
 	}
 	if dao.blobStore != nil && blk.HasBlob() {
-		if err := dao.blobStore.PutBlob(blk); err != nil {
+		if err := dao.blobStore.PutBlock(blk); err != nil {
 			timer.End()
 			return err
 		}
@@ -306,16 +306,16 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-func (dao *blockDAO) GetBlob(h hash.Hash256) (*types.BlobTxSidecar, error) {
+func (dao *blockDAO) GetBlob(h hash.Hash256) (*types.BlobTxSidecar, string, error) {
 	if dao.blobStore == nil {
-		return nil, errors.New("blob store is not available")
+		return nil, "", errors.New("blob store is not available")
 	}
 	return dao.blobStore.GetBlob(h)
 }
 
-func (dao *blockDAO) GetBlobsByHeight(height uint64) ([]*types.BlobTxSidecar, error) {
+func (dao *blockDAO) GetBlobsByHeight(height uint64) ([]*types.BlobTxSidecar, []string, error) {
 	if dao.blobStore == nil {
-		return nil, errors.New("blob store is not available")
+		return nil, nil, errors.New("blob store is not available")
 	}
 	return dao.blobStore.GetBlobsByHeight(height)
 }

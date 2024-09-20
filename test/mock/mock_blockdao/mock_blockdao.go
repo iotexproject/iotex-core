@@ -69,12 +69,13 @@ func (mr *MockBlockDAOMockRecorder) FooterByHeight(arg0 interface{}) *gomock.Cal
 }
 
 // GetBlob mocks base method.
-func (m *MockBlockDAO) GetBlob(arg0 hash.Hash256) (*types.BlobTxSidecar, error) {
+func (m *MockBlockDAO) GetBlob(arg0 hash.Hash256) (*types.BlobTxSidecar, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBlob", arg0)
 	ret0, _ := ret[0].(*types.BlobTxSidecar)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetBlob indicates an expected call of GetBlob.
@@ -84,12 +85,13 @@ func (mr *MockBlockDAOMockRecorder) GetBlob(arg0 interface{}) *gomock.Call {
 }
 
 // GetBlobsByHeight mocks base method.
-func (m *MockBlockDAO) GetBlobsByHeight(arg0 uint64) ([]*types.BlobTxSidecar, error) {
+func (m *MockBlockDAO) GetBlobsByHeight(arg0 uint64) ([]*types.BlobTxSidecar, []string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBlobsByHeight", arg0)
 	ret0, _ := ret[0].([]*types.BlobTxSidecar)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].([]string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetBlobsByHeight indicates an expected call of GetBlobsByHeight.
