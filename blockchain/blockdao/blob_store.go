@@ -18,7 +18,6 @@ type (
 	BlobStore interface {
 		Start(context.Context) error
 		Stop(context.Context) error
-		BlobExpired(uint64, uint64) bool
 		GetBlob(hash.Hash256) (*types.BlobTxSidecar, string, error)
 		GetBlobsByHeight(uint64) ([]*types.BlobTxSidecar, []string, error)
 		PutBlock(*block.Block) error
