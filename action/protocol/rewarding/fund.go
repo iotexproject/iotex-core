@@ -63,20 +63,14 @@ func (p *Protocol) Deposit(
 	sm protocol.StateManager,
 	amount *big.Int,
 	transactionLogType iotextypes.TransactionLogType,
-	opts ...protocol.Option,
 ) ([]*action.TransactionLog, error) {
+	if isZero(amount) {
+		return nil, nil
+	}
 	var (
 		actionCtx           = protocol.MustGetActionCtx(ctx)
 		accountCreationOpts = []state.AccountCreationOption{}
-		options             = protocol.Options{}
 	)
-	// apply protocol options
-	for _, o := range opts {
-		o(&options)
-	}
-	if isZero(amount) && isZero(options.BurnAmount) {
-		return nil, nil
-	}
 	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
 		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
@@ -85,58 +79,28 @@ func (p *Protocol) Deposit(
 	if err != nil {
 		return nil, err
 	}
-	if !isZero(amount) {
-		if err := acc.SubBalance(amount); err != nil {
-			return nil, err
-		}
-	}
-	burnAmount := options.BurnAmount
-	if !isZero(burnAmount) {
-		if err := acc.SubBalance(burnAmount); err != nil {
-			return nil, err
-		}
+	if err := acc.SubBalance(amount); err != nil {
+		return nil, err
 	}
 	if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
 		return nil, err
 	}
 	// Add balance to fund
 	var (
-		f           = fund{}
-		burnAddr, _ = address.FromString(address.ZeroAddress)
-		tLog        = []*action.TransactionLog{}
+		f    = fund{}
+		tLog = []*action.TransactionLog{}
 	)
-	if !isZero(amount) {
-		tLog = append(tLog, &action.TransactionLog{
-			Type:      transactionLogType,
-			Sender:    actionCtx.Caller.String(),
-			Recipient: address.RewardingPoolAddr,
-			Amount:    amount,
-		})
-	}
+	tLog = append(tLog, &action.TransactionLog{
+		Type:      transactionLogType,
+		Sender:    actionCtx.Caller.String(),
+		Recipient: address.RewardingPoolAddr,
+		Amount:    amount,
+	})
 	if _, err := p.state(ctx, sm, _fundKey, &f); err != nil {
 		return nil, err
 	}
 	f.totalBalance = big.NewInt(0).Add(f.totalBalance, amount)
 	f.unclaimedBalance = big.NewInt(0).Add(f.unclaimedBalance, amount)
-	if !isZero(burnAmount) {
-		// add burnAmount to burnAddr
-		burn, err := accountutil.LoadAccount(sm, burnAddr, accountCreationOpts...)
-		if err != nil {
-			return nil, err
-		}
-		if err := burn.AddBalance(burnAmount); err != nil {
-			return nil, err
-		}
-		if err := accountutil.StoreAccount(sm, burnAddr, burn); err != nil {
-			return nil, err
-		}
-		tLog = append(tLog, &action.TransactionLog{
-			Type:      options.BurnLogType,
-			Sender:    actionCtx.Caller.String(),
-			Recipient: burnAddr.String(),
-			Amount:    burnAmount,
-		})
-	}
 	if err := p.putState(ctx, sm, _fundKey, &f); err != nil {
 		return nil, err
 	}
@@ -170,7 +134,7 @@ func (p *Protocol) AvailableBalance(
 }
 
 // DepositGas deposits gas into the rewarding fund
-func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int, opts ...protocol.Option) ([]*action.TransactionLog, error) {
+func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int, opts ...protocol.DepositOption) ([]*action.TransactionLog, error) {
 	// TODO: we bypass the gas deposit for the actions in genesis block. Later we should remove this after we remove
 	// genesis actions
 	blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -185,7 +149,35 @@ func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int, 
 	if rp == nil {
 		return nil, nil
 	}
-	return rp.Deposit(ctx, sm, amount, iotextypes.TransactionLogType_GAS_FEE, opts...)
+	var (
+		logs []*action.TransactionLog
+		err  error
+	)
+	if !isZero(amount) {
+		logs, err = rp.Deposit(ctx, sm, amount, iotextypes.TransactionLogType_GAS_FEE)
+		if err != nil {
+			return nil, err
+		}
+	}
+	cfg := protocol.DepositOptionCfg{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	if !isZero(cfg.PriorityFee) {
+		slogs, err := rp.Deposit(ctx, sm, cfg.PriorityFee, iotextypes.TransactionLogType_PRIORITY_FEE)
+		if err != nil {
+			return nil, err
+		}
+		logs = append(logs, slogs...)
+	}
+	if !isZero(cfg.BlobGasFee) {
+		slogs, err := rp.Deposit(ctx, sm, cfg.BlobGasFee, iotextypes.TransactionLogType_BLOB_FEE)
+		if err != nil {
+			return nil, err
+		}
+		logs = append(logs, slogs...)
+	}
+	return logs, nil
 }
 
 func isZero(a *big.Int) bool {

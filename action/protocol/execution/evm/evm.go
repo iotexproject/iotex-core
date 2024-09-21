@@ -267,11 +267,11 @@ func ExecuteContract(
 		}
 	}
 	if consumedGas > 0 {
-		gasFee, baseFee, err := protocol.SplitGas(ctx, execution, consumedGas)
+		priorityFee, baseFee, err := protocol.SplitGas(ctx, execution, consumedGas)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to split gas")
 		}
-		depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, gasFee, protocol.BurnGasOption(baseFee, iotextypes.TransactionLogType_NATIVE_TRANSFER))
+		depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, baseFee, protocol.PriorityFeeOption(priorityFee))
 		if err != nil {
 			return nil, nil, err
 		}

@@ -60,7 +60,7 @@ func TestExecuteContractFailure(t *testing.T) {
 		GetBlockTime: func(uint64) (time.Time, error) {
 			return time.Time{}, nil
 		},
-		DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int, ...protocol.Option) ([]*action.TransactionLog, error) {
+		DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int, ...protocol.DepositOption) ([]*action.TransactionLog, error) {
 			return nil, nil
 		},
 	})

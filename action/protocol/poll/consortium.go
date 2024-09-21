@@ -127,7 +127,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 			return hash.ZeroHash256, nil
 		},
 		GetBlockTime: getBlockTime,
-		DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int, ...protocol.Option) ([]*action.TransactionLog, error) {
+		DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int, ...protocol.DepositOption) ([]*action.TransactionLog, error) {
 			return nil, nil
 		},
 	})

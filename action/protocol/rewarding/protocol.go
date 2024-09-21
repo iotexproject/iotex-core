@@ -424,11 +424,11 @@ func (p *Protocol) settleAction(
 	}
 	skipUpdateForSystemAction := protocol.MustGetFeatureCtx(ctx).FixGasAndNonceUpdate
 	if !isSystemAction || !skipUpdateForSystemAction {
-		gasFee, baseFee, err := protocol.SplitGas(ctx, act, actionCtx.IntrinsicGas)
+		priorityFee, baseFee, err := protocol.SplitGas(ctx, act, actionCtx.IntrinsicGas)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to split gas")
 		}
-		depositLog, err := DepositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee, iotextypes.TransactionLogType_NATIVE_TRANSFER))
+		depositLog, err := DepositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(priorityFee))
 		if err != nil {
 			return nil, err
 		}
