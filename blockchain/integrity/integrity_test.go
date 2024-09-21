@@ -903,7 +903,7 @@ func createChain(cfg config.Config, inMem bool) (blockchain.Blockchain, factory.
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	var store blockdao.BlockDAO
+	var store blockdao.BlockStore
 	// create BlockDAO
 	if inMem {
 		store, err = filedao.NewFileDAOInMemForTest()

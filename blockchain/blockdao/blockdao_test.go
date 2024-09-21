@@ -758,7 +758,7 @@ func TestBlockDAO(t *testing.T) {
 		},
 	}
 
-	testBlockDao := func(dao BlockDAO, t *testing.T) {
+	testBlockDao := func(dao BlockStore, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
 			genesis.WithGenesisContext(context.Background(), genesis.Default),
 			protocol.BlockchainCtx{

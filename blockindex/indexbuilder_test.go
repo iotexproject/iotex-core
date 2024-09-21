@@ -61,7 +61,7 @@ func TestIndexBuilder(t *testing.T) {
 		},
 	}
 
-	testIndexer := func(dao blockdao.BlockDAO, indexer Indexer, t *testing.T) {
+	testIndexer := func(dao blockdao.BlockStore, indexer Indexer, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
 			genesis.WithGenesisContext(context.Background(), genesis.Default),
 			protocol.BlockchainCtx{
@@ -167,7 +167,7 @@ func TestIndexBuilder(t *testing.T) {
 	memstore, err := filedao.NewFileDAOInMemForTest()
 	require.NoError(err)
 	for _, v := range []struct {
-		dao   blockdao.BlockDAO
+		dao   blockdao.BlockStore
 		inMem bool
 	}{
 		{
