@@ -308,20 +308,31 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		indexers = append(indexers, builder.cs.bfIndexer)
 	}
 	var (
-		err   error
-		store blockdao.BlockStore
+		cfg       = builder.cfg
+		err       error
+		store     blockdao.BlockStore
+		blobStore blockdao.BlobStore
+		opts      []blockdao.Option
 	)
 	if forTest {
 		store, err = filedao.NewFileDAOInMemForTest()
 	} else {
-		dbConfig := builder.cfg.DB
-		dbConfig.DbPath = builder.cfg.Chain.ChainDBPath
-		store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+		dbConfig := cfg.DB
+		if bsPath := cfg.Chain.BlobStoreDBPath; len(bsPath) > 0 {
+			blocksPerEpoch := cfg.Genesis.DardanellesNumSubEpochs * cfg.Genesis.NumDelegates
+			dbConfig.DbPath = bsPath
+			blobStore = blockdao.NewBlobStore(db.NewBoltDB(dbConfig),
+				cfg.Chain.BlobStoreRetentionDays*24, uint32(blocksPerEpoch))
+			opts = append(opts, blockdao.WithBlobStore(blobStore))
+		}
+		dbConfig.DbPath = cfg.Chain.ChainDBPath
+		store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(cfg.Chain.EVMNetworkID))
 	}
 	if err != nil {
 		return err
 	}
-	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, builder.cfg.DB.MaxCacheSize)
+	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(
+		store, indexers, cfg.DB.MaxCacheSize, opts...)
 
 	return nil
 }

@@ -33,6 +33,8 @@ type (
 		CandidateIndexDBPath       string           `yaml:"candidateIndexDBPath"`
 		StakingIndexDBPath         string           `yaml:"stakingIndexDBPath"`
 		ContractStakingIndexDBPath string           `yaml:"contractStakingIndexDBPath"`
+		BlobStoreDBPath            string           `yaml:"blobStoreDBPath"`
+		BlobStoreRetentionDays     uint32           `yaml:"blobStoreRetentionDays"`
 		ID                         uint32           `yaml:"id"`
 		EVMNetworkID               uint32           `yaml:"evmNetworkID"`
 		Address                    string           `yaml:"address"`
