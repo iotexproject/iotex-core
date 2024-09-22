@@ -28,6 +28,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -166,6 +167,9 @@ func newParams(
 		// Random opcode (EIP-4399) is not supported
 		context.Random = &common.Hash{}
 	}
+	if g.IsVanuatu(blkCtx.BlockHeight) {
+		context.BlobBaseFee = new(big.Int).Set(&blkCtx.BlobBaseFee)
+	}
 
 	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
 		vmConfig = vmCfg
@@ -174,13 +178,17 @@ func newParams(
 	if err != nil {
 		return nil, err
 	}
-
+	vmTxCtx := vm.TxContext{
+		Origin:   executorAddr,
+		GasPrice: execution.GasPrice(),
+	}
+	if g.IsVanuatu(blkCtx.BlockHeight) {
+		vmTxCtx.BlobHashes = execution.BlobHashes()
+		vmTxCtx.BlobFeeCap = execution.BlobGasFeeCap()
+	}
 	return &Params{
 		context,
-		vm.TxContext{
-			Origin:   executorAddr,
-			GasPrice: execution.GasPrice(),
-		},
+		vmTxCtx,
 		execution.Nonce(),
 		execution.Value(),
 		execution.To(),
@@ -623,6 +631,7 @@ func SimulateExecution(
 			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(g.BlockInterval),
 			GasLimit:       g.BlockGasLimitByHeight(bcCtx.Tip.Height + 1),
 			Producer:       zeroAddr,
+			BlobBaseFee:    *block.CalcBlobFee(bcCtx.Tip.ExcessBlobGas),
 		},
 	)
 
