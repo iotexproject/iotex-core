@@ -318,6 +318,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 			GasLimit:       bc.genesis.BlockGasLimitByHeight(blk.Height()),
 			Producer:       producerAddr,
 			BaseFee:        blk.BaseFee(),
+			BlobBaseFee:    *block.CalcBlobFee(blk.ExcessBlobGas()),
 		},
 	)
 	ctx = protocol.WithFeatureCtx(ctx)
@@ -344,6 +345,7 @@ func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Add
 			Producer:       producer,
 			GasLimit:       bc.genesis.BlockGasLimitByHeight(height),
 			BaseFee:        baseFee,
+			BlobBaseFee:    *block.CalcBlobFee(block.CalcExcessBlobGas(prevHeader.ExcessBlobGas(), prevHeader.BlobGasUsed())),
 		})
 }
 

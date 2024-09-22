@@ -68,6 +68,8 @@ type (
 		AccumulatedTips big.Int
 		// BaseFee is the base fee of the block
 		BaseFee *big.Int
+		// BlobBaseFee is the base fee of the block
+		BlobBaseFee big.Int
 	}
 
 	// ActionCtx provides action auxiliary information.

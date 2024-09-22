@@ -1573,6 +1573,7 @@ func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context,
 		BlockTimeStamp: header.Timestamp().Add(g.BlockInterval),
 		GasLimit:       g.BlockGasLimitByHeight(header.Height() + 1),
 		Producer:       zeroAddr,
+		BlobBaseFee:    *block.CalcBlobFee(header.ExcessBlobGas()),
 	})
 	exec, err := staking.FindProtocol(core.registry).ConstructExecution(ctx, ms, 0, 0, new(big.Int), core.sf)
 	if err != nil {

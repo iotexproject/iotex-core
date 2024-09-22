@@ -13,9 +13,9 @@ import (
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -328,9 +328,7 @@ func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 		return err
 	}
 	// index actions in the block
-	fCtx := protocol.MustGetFeatureCtx(protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: blk.Height(),
-	})))
+	fCtx := protocol.MustGetFeatureCtx(protocol.WithFeatureCtx(ctx))
 	for _, selp := range blk.Actions {
 		actHash, err := selp.Hash()
 		if err != nil {
