@@ -1228,6 +1228,7 @@ func (core *coreService) BlobSidecarsByHeight(height uint64) ([]*apitypes.BlobSi
 		return nil, err
 	}
 	blkHash := header.HashBlock()
+	blokHashComm := common.BytesToHash(blkHash[:])
 	for i, blob := range blobs {
 		_, _, index, err := core.ActionByActionHash(txHashes[i])
 		if err != nil {
@@ -1236,7 +1237,7 @@ func (core *coreService) BlobSidecarsByHeight(height uint64) ([]*apitypes.BlobSi
 		res = append(res, &apitypes.BlobSidecarResult{
 			BlobSidecar: blob,
 			BlockNumber: height,
-			BlockHash:   common.BytesToHash(blkHash[:]),
+			BlockHash:   blokHashComm,
 			TxIndex:     uint64(index),
 			TxHash:      common.BytesToHash(txHashes[i][:]),
 		})
