@@ -7,7 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -15,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -541,4 +544,44 @@ func TestStreamResponseMarshal(t *testing.T) {
 		}
 	 }
 	`, string(res))
+}
+
+func TestBlobSiderCar(t *testing.T) {
+	require := require.New(t)
+
+	t.Run("Marshal", func(t *testing.T) {
+		res, err := json.Marshal(&apitypes.BlobSidecarResult{
+			BlobSidecar: &types.BlobTxSidecar{
+				Blobs: []kzg4844.Blob{},
+				Commitments: []kzg4844.Commitment{
+					kzg4844.Commitment{},
+				},
+				Proofs: []kzg4844.Proof{
+					kzg4844.Proof{},
+				},
+			},
+			BlockNumber: 1,
+			BlockHash:   common.BigToHash(big.NewInt(2)),
+			TxIndex:     2,
+			TxHash:      common.BigToHash(big.NewInt(3)),
+		})
+		require.NoError(err)
+		require.JSONEq(`
+		{
+			"blobSidecar":{
+				"Blobs":[],
+				"Commitments":[
+					"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+				],
+				"Proofs":[
+					"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+				]
+			},
+			"blockHeight":1,
+			"blockHash":"0x0000000000000000000000000000000000000000000000000000000000000002",
+			"txIndex":2,
+			"txHash":"0x0000000000000000000000000000000000000000000000000000000000000003"
+		}
+		`, string(res))
+	})
 }
