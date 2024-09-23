@@ -993,7 +993,15 @@ func (svr *web3Handler) getBlobSidecars(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return svr.coreService.BlobSidecarsByHeight(num)
+	res, err := svr.coreService.BlobSidecarsByHeight(num)
+	switch errors.Cause(err) {
+	case nil:
+		return res, nil
+	case ErrNotFound:
+		return nil, nil
+	default:
+		return nil, err
+	}
 }
 
 func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) (interface{}, error) {

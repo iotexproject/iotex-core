@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -41,11 +42,11 @@ type (
 	}
 	// BlobSidecarResult is the result of get blob sidecar
 	BlobSidecarResult struct {
-		BlobSidecar any         `json:"blobSidecar"`
-		BlockNumber uint64      `json:"blockHeight"`
-		BlockHash   common.Hash `json:"blockHash"`
-		TxIndex     uint64      `json:"txIndex"`
-		TxHash      common.Hash `json:"txHash"`
+		BlobSidecar *types.BlobTxSidecar `json:"blobSidecar"`
+		BlockNumber uint64               `json:"blockHeight"`
+		BlockHash   common.Hash          `json:"blockHash"`
+		TxIndex     uint64               `json:"txIndex"`
+		TxHash      common.Hash          `json:"txHash"`
 	}
 )
 
