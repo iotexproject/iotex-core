@@ -1218,30 +1218,26 @@ func (core *coreService) getBlockByHeight(height uint64) (*apitypes.BlockWithRec
 }
 
 func (core *coreService) BlobSidecarsByHeight(height uint64) ([]*apitypes.BlobSidecarResult, error) {
-	header, err := core.bc.BlockHeaderByHeight(height)
-	if err != nil {
-		return nil, err
-	}
 	res := make([]*apitypes.BlobSidecarResult, 0)
 	blobs, txHashes, err := core.getBlobSidecars(height)
 	if err != nil {
 		return nil, err
 	}
-	txIndices := make([]uint64, 0)
-	for _, txHash := range txHashes {
-		_, _, index, err := core.ActionByActionHash(txHash)
-		if err != nil {
-			return nil, err
-		}
-		txIndices = append(txIndices, uint64(index))
+	header, err := core.bc.BlockHeaderByHeight(height)
+	if err != nil {
+		return nil, err
 	}
 	blkHash := header.HashBlock()
 	for i, blob := range blobs {
+		_, _, index, err := core.ActionByActionHash(txHashes[i])
+		if err != nil {
+			return nil, err
+		}
 		res = append(res, &apitypes.BlobSidecarResult{
 			BlobSidecar: blob,
 			BlockNumber: height,
 			BlockHash:   common.BytesToHash(blkHash[:]),
-			TxIndex:     txIndices[i],
+			TxIndex:     uint64(index),
 			TxHash:      common.BytesToHash(txHashes[i][:]),
 		})
 	}
@@ -1258,7 +1254,6 @@ func (core *coreService) getBlobSidecars(height uint64) ([]*types.BlobTxSidecar,
 		return nil, nil, err
 	}
 	txHashes := make([]hash.Hash256, 0)
-	txIndexes := make([]uint64, 0)
 	for _, hashStr := range txHashStr {
 		txHash, err := hash.HexStringToHash256(hashStr)
 		if err != nil {
