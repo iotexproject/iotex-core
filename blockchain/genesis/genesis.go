@@ -53,6 +53,7 @@ func defaultConfig() Genesis {
 			NumDelegates:            24,
 			NumCandidateDelegates:   36,
 			TimeBasedRotation:       false,
+			BlobActionLimitPerBlock: 2,
 			PacificBlockHeight:      432001,
 			AleutianBlockHeight:     864001,
 			BeringBlockHeight:       1512001,
@@ -183,6 +184,8 @@ type (
 		NumCandidateDelegates uint64 `yaml:"numCandidateDelegates"`
 		// TimeBasedRotation is the flag to enable rotating delegates' time slots on a block height
 		TimeBasedRotation bool `yaml:"timeBasedRotation"`
+		// BlobActionLimitPerBlock is the limit of blob actions per block
+		BlobActionLimitPerBlock uint64 `yaml:"blobActionLimitPerBlock"`
 		// PacificBlockHeight is the start height of using the logic of Pacific version
 		// TODO: PacificBlockHeight is not added into protobuf definition for backward compatibility
 		PacificBlockHeight uint64 `yaml:"pacificHeight"`
