@@ -45,3 +45,13 @@ func (b *Body) CalculateTxRoot() (hash.Hash256, error) {
 func (b *Body) CalculateTransferAmount() *big.Int {
 	return calculateTransferAmount(b.Actions)
 }
+
+func (b *Body) WithoutSidecar() Body {
+	actions := make([]*action.SealedEnvelope, len(b.Actions))
+	for i, act := range b.Actions {
+		actions[i] = act.WithoutSidecar()
+	}
+	return Body{
+		Actions: actions,
+	}
+}

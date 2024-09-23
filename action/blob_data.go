@@ -55,6 +55,13 @@ func (tx *BlobTxData) blobHashesProto() [][]byte {
 	return hashes
 }
 
+func (tx *BlobTxData) withoutSidecar() *BlobTxData {
+	return &BlobTxData{
+		blobFeeCap: new(big.Int).Set(tx.blobFeeCap),
+		blobHashes: tx.blobHashes,
+	}
+}
+
 func ToProtoSideCar(sidecar *types.BlobTxSidecar) *iotextypes.BlobTxSidecar {
 	if sidecar == nil || len(sidecar.Blobs) == 0 {
 		return nil

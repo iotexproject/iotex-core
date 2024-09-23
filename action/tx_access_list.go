@@ -80,6 +80,10 @@ func (tx *AccessListTx) SanityCheck() error {
 	return nil
 }
 
+func (tx *AccessListTx) withoutSidecar() TxCommonWithProto {
+	return tx
+}
+
 func (tx *AccessListTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
 		Version:  AccessListTxType,

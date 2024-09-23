@@ -414,6 +414,20 @@ func (mr *MockEnvelopeMockRecorder) Version() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockEnvelope)(nil).Version))
 }
 
+// WithoutSidecar mocks base method.
+func (m *MockEnvelope) WithoutSidecar() action.Envelope {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithoutSidecar")
+	ret0, _ := ret[0].(action.Envelope)
+	return ret0
+}
+
+// WithoutSidecar indicates an expected call of WithoutSidecar.
+func (mr *MockEnvelopeMockRecorder) WithoutSidecar() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithoutSidecar", reflect.TypeOf((*MockEnvelope)(nil).WithoutSidecar))
+}
+
 // MockTxData is a mock of TxData interface.
 type MockTxData struct {
 	ctrl     *gomock.Controller
@@ -1035,6 +1049,20 @@ func (m *MockTxCommonWithProto) toProto() *iotextypes.ActionCore {
 func (mr *MockTxCommonWithProtoMockRecorder) toProto() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "toProto", reflect.TypeOf((*MockTxCommonWithProto)(nil).toProto))
+}
+
+// withoutSidecar mocks base method.
+func (m *MockTxCommonWithProto) withoutSidecar() action.TxCommonWithProto {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "withoutSidecar")
+	ret0, _ := ret[0].(action.TxCommonWithProto)
+	return ret0
+}
+
+// withoutSidecar indicates an expected call of withoutSidecar.
+func (mr *MockTxCommonWithProtoMockRecorder) withoutSidecar() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "withoutSidecar", reflect.TypeOf((*MockTxCommonWithProto)(nil).withoutSidecar))
 }
 
 // MockTxDynamicGas is a mock of TxDynamicGas interface.

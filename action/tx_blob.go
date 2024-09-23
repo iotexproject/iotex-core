@@ -99,6 +99,18 @@ func (tx *BlobTx) SanityCheck() error {
 	return tx.blob.SanityCheck()
 }
 
+func (tx *BlobTx) withoutSidecar() TxCommonWithProto {
+	return &BlobTx{
+		chainID:    tx.chainID,
+		nonce:      tx.nonce,
+		gasLimit:   tx.gasLimit,
+		gasTipCap:  new(big.Int).Set(tx.gasTipCap),
+		gasFeeCap:  new(big.Int).Set(tx.gasFeeCap),
+		accessList: tx.accessList,
+		blob:       tx.blob.withoutSidecar(),
+	}
+}
+
 func (tx *BlobTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
 		Version:  BlobTxType,

@@ -91,6 +91,10 @@ func (tx *DynamicFeeTx) SanityCheck() error {
 	return nil
 }
 
+func (tx *DynamicFeeTx) withoutSidecar() TxCommonWithProto {
+	return tx
+}
+
 func (tx *DynamicFeeTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
 		Version:  uint32(DynamicFeeTxType),

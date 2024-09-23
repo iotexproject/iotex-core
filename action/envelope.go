@@ -29,6 +29,7 @@ type (
 		Size() uint32
 		Action() Action
 		ToEthTx(uint32, iotextypes.Encoding) (*types.Transaction, error)
+		WithoutSidecar() Envelope
 		Proto() *iotextypes.ActionCore
 		LoadProto(*iotextypes.ActionCore) error
 		SetNonce(uint64)
@@ -61,6 +62,7 @@ type (
 		ChainID() uint32
 		SanityCheck() error
 		toProto() *iotextypes.ActionCore
+		withoutSidecar() TxCommonWithProto
 		setNonce(uint64)
 		setGas(uint64)
 		setChainID(uint32)
@@ -230,6 +232,13 @@ func (elp *envelope) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) 
 		return toLegacyEthTx(elp.common, elp.Action())
 	default:
 		return nil, errors.Wrapf(ErrInvalidAct, "unsupported encoding type %v", encoding)
+	}
+}
+
+func (elp *envelope) WithoutSidecar() Envelope {
+	return &envelope{
+		common:  elp.common.withoutSidecar(),
+		payload: elp.payload,
 	}
 }
 

@@ -216,3 +216,13 @@ func (sealed *SealedEnvelope) VerifySignature() error {
 	}
 	return nil
 }
+
+func (sealed *SealedEnvelope) WithoutSidecar() *SealedEnvelope {
+	return &SealedEnvelope{
+		Envelope:     sealed.Envelope.WithoutSidecar(),
+		encoding:     sealed.encoding,
+		evmNetworkID: sealed.evmNetworkID,
+		srcPubkey:    sealed.srcPubkey,
+		signature:    sealed.signature,
+	}
+}

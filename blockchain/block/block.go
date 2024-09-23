@@ -120,3 +120,12 @@ func (b *Block) HasBlob() bool {
 	}
 	return false
 }
+
+func (b *Block) WithoutSidecar() *Block {
+	return &Block{
+		Header:   b.Header,
+		Body:     b.Body.WithoutSidecar(),
+		Footer:   b.Footer,
+		Receipts: b.Receipts,
+	}
+}

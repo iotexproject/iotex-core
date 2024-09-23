@@ -78,6 +78,10 @@ func (tx *LegacyTx) SanityCheck() error {
 	return nil
 }
 
+func (tx *LegacyTx) withoutSidecar() TxCommonWithProto {
+	return tx
+}
+
 func (tx *LegacyTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
 		Version:  LegacyTxType,
