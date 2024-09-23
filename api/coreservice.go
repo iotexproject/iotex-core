@@ -1223,9 +1223,17 @@ func (core *coreService) BlobSidecarsByHeight(height uint64) ([]*apitypes.BlobSi
 		return nil, err
 	}
 	res := make([]*apitypes.BlobSidecarResult, 0)
-	blobs, txIndexes, txHashes, err := core.getBlobSidecars(height)
+	blobs, txHashes, err := core.getBlobSidecars(height)
 	if err != nil {
 		return nil, err
+	}
+	txIndices := make([]uint64, 0)
+	for _, txHash := range txHashes {
+		_, _, index, err := core.ActionByActionHash(txHash)
+		if err != nil {
+			return nil, err
+		}
+		txIndices = append(txIndices, uint64(index))
 	}
 	blkHash := header.HashBlock()
 	for i, blob := range blobs {
@@ -1233,37 +1241,32 @@ func (core *coreService) BlobSidecarsByHeight(height uint64) ([]*apitypes.BlobSi
 			BlobSidecar: blob,
 			BlockNumber: height,
 			BlockHash:   common.BytesToHash(blkHash[:]),
-			TxIndex:     txIndexes[i],
+			TxIndex:     txIndices[i],
 			TxHash:      common.BytesToHash(txHashes[i][:]),
 		})
 	}
 	return res, nil
 }
 
-func (core *coreService) getBlobSidecars(height uint64) ([]*types.BlobTxSidecar, []uint64, []hash.Hash256, error) {
+func (core *coreService) getBlobSidecars(height uint64) ([]*types.BlobTxSidecar, []hash.Hash256, error) {
 	blobs, txHashStr, err := core.dao.GetBlobsByHeight(height)
 	switch errors.Cause(err) {
 	case nil:
 	case db.ErrNotExist:
-		return nil, nil, nil, errors.Wrapf(ErrNotFound, "failed to find blobs by height %d", height)
+		return nil, nil, errors.Wrapf(ErrNotFound, "failed to find blobs by height %d", height)
 	default:
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	txHashes := make([]hash.Hash256, 0)
 	txIndexes := make([]uint64, 0)
 	for _, hashStr := range txHashStr {
 		txHash, err := hash.HexStringToHash256(hashStr)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
-		_, _, index, err := core.ActionByActionHash(txHash)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		txIndexes = append(txIndexes, uint64(index))
 		txHashes = append(txHashes, txHash)
 	}
-	return blobs, txIndexes, txHashes, nil
+	return blobs, txHashes, nil
 }
 
 func (core *coreService) getGravityChainStartHeight(epochHeight uint64) (uint64, error) {
