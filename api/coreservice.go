@@ -65,6 +65,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	batch "github.com/iotexproject/iotex-core/pkg/messagebatcher"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/state"
@@ -95,6 +96,8 @@ type (
 		ReadState(protocolID string, height string, methodName []byte, arguments [][]byte) (*iotexapi.ReadStateResponse, error)
 		// SuggestGasPrice suggests gas price
 		SuggestGasPrice() (uint64, error)
+		// SuggestGasTipCap suggests gas tip cap
+		SuggestGasTipCap() (*big.Int, error)
 		// EstimateGasForAction estimates gas for action
 		EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error)
 		// EpochMeta gets epoch metadata
@@ -599,6 +602,28 @@ func (core *coreService) ReadState(protocolID string, height string, methodName 
 // SuggestGasPrice suggests gas price
 func (core *coreService) SuggestGasPrice() (uint64, error) {
 	return core.gs.SuggestGasPrice()
+}
+
+func (core *coreService) SuggestGasTipCap() (*big.Int, error) {
+	sp, err := core.SuggestGasPrice()
+	if err != nil {
+		return nil, err
+	}
+	price := big.NewInt(0).SetUint64(sp)
+	header, err := core.bc.BlockHeaderByHeight(core.bc.TipHeight())
+	if err != nil {
+		return nil, err
+	}
+	if header.BaseFee() == nil {
+		// eip-1559 is not enabled yet
+		return price, nil
+	}
+	fee := big.NewInt(0).Sub(price, header.BaseFee())
+	minFee := big.NewInt(unit.Qev) // TODO: use a better value
+	if fee.Cmp(minFee) < 0 {
+		fee = minFee
+	}
+	return fee, nil
 }
 
 // EstimateGasForAction estimates gas for action
