@@ -96,8 +96,8 @@ type (
 		ReadState(protocolID string, height string, methodName []byte, arguments [][]byte) (*iotexapi.ReadStateResponse, error)
 		// SuggestGasPrice suggests gas price
 		SuggestGasPrice() (uint64, error)
-		// SuggestTipCap suggests tip cap
-		SuggestTipCap() (*big.Int, error)
+		// SuggestGasTipCap suggests gas tip cap
+		SuggestGasTipCap() (*big.Int, error)
 		// EstimateGasForAction estimates gas for action
 		EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error)
 		// EpochMeta gets epoch metadata
@@ -604,7 +604,7 @@ func (core *coreService) SuggestGasPrice() (uint64, error) {
 	return core.gs.SuggestGasPrice()
 }
 
-func (core *coreService) SuggestTipCap() (*big.Int, error) {
+func (core *coreService) SuggestGasTipCap() (*big.Int, error) {
 	sp, err := core.SuggestGasPrice()
 	if err != nil {
 		return nil, err

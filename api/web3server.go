@@ -307,7 +307,7 @@ func (svr *web3Handler) gasPrice() (interface{}, error) {
 }
 
 func (svr *web3Handler) maxPriorityFee() (interface{}, error) {
-	ret, err := svr.coreService.SuggestTipCap()
+	ret, err := svr.coreService.SuggestGasTipCap()
 	if err != nil {
 		return nil, err
 	}
