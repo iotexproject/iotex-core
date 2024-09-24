@@ -117,7 +117,7 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 			bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)
 		}
 		for {
-			if err = indexer.PutBlock(protocol.WithBlockCtx(
+			if err = indexer.PutBlock(protocol.WithFeatureCtx(protocol.WithBlockCtx(
 				protocol.WithBlockchainCtx(ctx, bcCtx),
 				protocol.BlockCtx{
 					BlockHeight:    i,
@@ -126,7 +126,7 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 					GasLimit:       g.BlockGasLimitByHeight(i),
 					BaseFee:        blk.BaseFee(),
 				},
-			), blk); err == nil {
+			)), blk); err == nil {
 				break
 			}
 			if i < g.HawaiiBlockHeight && errors.Cause(err) == block.ErrDeltaStateMismatch {
