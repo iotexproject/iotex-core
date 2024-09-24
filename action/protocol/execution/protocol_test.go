@@ -1323,6 +1323,12 @@ func TestCancunEVM(t *testing.T) {
 	t.Run("eip7516-blobbasefee", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-cancun/blobbasefee.json")
 	})
+	t.Run("eip1559-basefee", func(t *testing.T) {
+		t.Skip("TODO: test it ")
+	})
+	t.Run("eip6780-selfdestruct", func(t *testing.T) {
+		t.Skip("TODO: test it ")
+	})
 }
 
 func benchmarkHotContractWithFactory(b *testing.B, async bool) {
