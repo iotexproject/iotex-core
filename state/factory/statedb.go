@@ -314,7 +314,6 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		return errors.New("failed to get address")
 	}
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
-	ctx = protocol.WithFeatureCtx(ctx)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
 	if err != nil {

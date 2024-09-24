@@ -433,7 +433,6 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 		return errors.New("failed to get address")
 	}
 	ctx = protocol.WithRegistry(ctx, sf.registry)
-	ctx = protocol.WithFeatureCtx(ctx)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
 	if err != nil {

@@ -66,8 +66,8 @@ type (
 		Producer address.Address
 		// AccumTips is the accumulated tips of the block
 		AccumulatedTips big.Int
-		// PrevBaseFee is the base fee of the previous block
-		PrevBaseFee *big.Int
+		// BaseFee is the base fee of the block
+		BaseFee *big.Int
 	}
 
 	// ActionCtx provides action auxiliary information.

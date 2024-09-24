@@ -119,8 +119,8 @@ func (ws *workingSet) runActions(
 			return nil, errors.Wrap(err, "error when run action")
 		}
 		receipts = append(receipts, receipt)
-		if fCtx.EnableDynamicFeeTx && blkCtx.PrevBaseFee != nil {
-			(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, new(big.Int).Sub(receipt.EffectiveGasPrice, blkCtx.PrevBaseFee))
+		if fCtx.EnableDynamicFeeTx && blkCtx.BaseFee != nil {
+			(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, new(big.Int).Sub(receipt.EffectiveGasPrice, blkCtx.BaseFee))
 		}
 	}
 	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
@@ -647,8 +647,8 @@ func (ws *workingSet) pickAndRunActions(
 				return nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
 			}
 			blkCtx.GasLimit -= receipt.GasConsumed
-			if fCtx.EnableDynamicFeeTx && blkCtx.PrevBaseFee != nil {
-				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, new(big.Int).Sub(receipt.EffectiveGasPrice, blkCtx.PrevBaseFee))
+			if fCtx.EnableDynamicFeeTx && blkCtx.BaseFee != nil {
+				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, new(big.Int).Sub(receipt.EffectiveGasPrice, blkCtx.BaseFee))
 			}
 			ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 			receipts = append(receipts, receipt)
@@ -755,7 +755,6 @@ func (ws *workingSet) CreateBuilder(
 		blkCtx = protocol.MustGetBlockCtx(ctx)
 		bcCtx  = protocol.MustGetBlockchainCtx(ctx)
 		fCtx   = protocol.MustGetFeatureCtx(ctx)
-		g      = genesis.MustExtractGenesisContext(ctx)
 	)
 	digest, err := ws.digest()
 	if err != nil {
@@ -775,7 +774,7 @@ func (ws *workingSet) CreateBuilder(
 		SetLogsBloom(calculateLogsBloom(ctx, ws.receipts))
 	if fCtx.EnableDynamicFeeTx {
 		blkBuilder.SetGasUsed(calculateGasUsed(ws.receipts))
-		blkBuilder.SetBaseFee(block.CalcBaseFee(g.Blockchain, &bcCtx.Tip))
+		blkBuilder.SetBaseFee(blkCtx.BaseFee)
 	}
 	if fCtx.EnableBlobTransaction {
 		blkBuilder.SetBlobGasUsed(calculateBlobGasUsed(ws.receipts))

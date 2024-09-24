@@ -32,8 +32,11 @@ func VerifyEIP1559Header(g genesis.Blockchain, parent *protocol.TipInfo, header 
 
 // CalcBaseFee calculates the basefee of the header.
 func CalcBaseFee(g genesis.Blockchain, parent *protocol.TipInfo) *big.Int {
-	// If the current block is the first EIP-1559 block, return the InitialBaseFee.
-	if parent.Height < g.VanuatuBlockHeight {
+	if parent.Height < g.VanuatuBlockHeight-1 {
+		// return nil for no base fee block
+		return nil
+	} else if parent.Height < g.VanuatuBlockHeight {
+		// If the current block is the first EIP-1559 block, return the InitialBaseFee.
 		return new(big.Int).SetUint64(action.InitialBaseFee)
 	}
 

@@ -18,9 +18,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -300,21 +298,6 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	// index the block if there's indexer
 	timer = dao.timerFactory.NewTimer("index_block")
 	defer timer.End()
-	g := genesis.MustExtractGenesisContext(ctx)
-	prevHeader, err := dao.HeaderByHeight(blk.Height() - 1)
-	if err != nil {
-		return err
-	}
-	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
-			BlockHeight:    blk.Height(),
-			BlockTimeStamp: blk.Timestamp(),
-			Producer:       blk.PublicKey().Address(),
-			GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
-			PrevBaseFee:    prevHeader.BaseFee(),
-		},
-	)
 	for _, indexer := range dao.indexers {
 		if err := indexer.PutBlock(ctx, blk); err != nil {
 			return err

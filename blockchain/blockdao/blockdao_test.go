@@ -559,7 +559,6 @@ func Test_blockDAO_PutBlock(t *testing.T) {
 
 	t.Run("FailedToPutBlockToIndexer", func(t *testing.T) {
 		store.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(nil).Times(1)
-		store.EXPECT().HeaderByHeight(gomock.Any()).Return(&blk.Header, nil).Times(1)
 		indexer.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(errors.New(t.Name())).Times(1)
 		err = dao.PutBlock(ctx, &blk)
 
@@ -569,7 +568,6 @@ func Test_blockDAO_PutBlock(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		store.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 		indexer.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(nil).Times(1)
-		store.EXPECT().HeaderByHeight(gomock.Any()).Return(&blk.Header, nil).Times(1)
 
 		err := dao.PutBlock(ctx, &blk)
 

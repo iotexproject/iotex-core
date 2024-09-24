@@ -130,7 +130,7 @@ func HashStringToAddress(str string) address.Address {
 
 func SplitGas(ctx context.Context, tx action.TxDynamicGas, usedGas uint64) (*big.Int, *big.Int, error) {
 	var (
-		baseFee = MustGetBlockCtx(ctx).PrevBaseFee
+		baseFee = MustGetBlockCtx(ctx).BaseFee
 		gas     = new(big.Int).SetUint64(usedGas)
 	)
 	if baseFee == nil {
@@ -152,5 +152,5 @@ func EffectiveGasPrice(ctx context.Context, tx action.TxCommon) *big.Int {
 	if !MustGetFeatureCtx(ctx).EnableDynamicFeeTx {
 		return nil
 	}
-	return tx.EffectiveGasPrice(MustGetBlockCtx(ctx).PrevBaseFee)
+	return tx.EffectiveGasPrice(MustGetBlockCtx(ctx).BaseFee)
 }
