@@ -1324,7 +1324,8 @@ func TestCancunEVM(t *testing.T) {
 		NewSmartContractTest(t, "testdata-cancun/blobbasefee.json")
 	})
 	t.Run("eip1559-basefee", func(t *testing.T) {
-		t.Skip("TODO: test it ")
+		t.Skip("TODO: fix it ")
+		NewSmartContractTest(t, "testdata-cancun/basefee.json")
 	})
 	t.Run("eip6780-selfdestruct", func(t *testing.T) {
 		t.Skip("TODO: test it ")

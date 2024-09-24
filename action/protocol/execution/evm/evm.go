@@ -170,6 +170,7 @@ func newParams(
 	if g.IsVanuatu(blkCtx.BlockHeight) {
 		// enable BLOBBASEFEE opcode
 		context.BlobBaseFee = block.CalcBlobFee(blkCtx.ExcessBlobGas)
+		// TODO: enable BASEFEE opcode
 	}
 
 	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
