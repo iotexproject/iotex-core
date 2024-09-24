@@ -169,7 +169,7 @@ func newParams(
 	}
 	if g.IsVanuatu(blkCtx.BlockHeight) {
 		// enable BLOBBASEFEE opcode
-		context.BlobBaseFee = new(big.Int).Set(&blkCtx.BlobBaseFee)
+		context.BlobBaseFee = block.CalcBlobFee(blkCtx.ExcessBlobGas)
 	}
 
 	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
@@ -633,7 +633,7 @@ func SimulateExecution(
 			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(g.BlockInterval),
 			GasLimit:       g.BlockGasLimitByHeight(bcCtx.Tip.Height + 1),
 			Producer:       zeroAddr,
-			BlobBaseFee:    *block.CalcBlobFee(bcCtx.Tip.ExcessBlobGas),
+			ExcessBlobGas:  block.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed),
 		},
 	)
 

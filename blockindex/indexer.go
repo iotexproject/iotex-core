@@ -328,7 +328,9 @@ func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 		return err
 	}
 	// index actions in the block
-	fCtx := protocol.MustGetFeatureCtx(protocol.WithFeatureCtx(ctx))
+	fCtx := protocol.MustGetFeatureCtx(protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: blk.Height(),
+	})))
 	for _, selp := range blk.Actions {
 		actHash, err := selp.Hash()
 		if err != nil {

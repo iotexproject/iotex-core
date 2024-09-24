@@ -125,7 +125,7 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 					Producer:       producer,
 					GasLimit:       g.BlockGasLimitByHeight(i),
 					BaseFee:        blk.BaseFee(),
-					BlobBaseFee:    *block.CalcBlobFee(blk.ExcessBlobGas()),
+					ExcessBlobGas:  blk.ExcessBlobGas(),
 				},
 			)), blk); err == nil {
 				break

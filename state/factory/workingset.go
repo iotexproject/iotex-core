@@ -778,7 +778,7 @@ func (ws *workingSet) CreateBuilder(
 	}
 	if fCtx.EnableBlobTransaction {
 		blkBuilder.SetBlobGasUsed(calculateBlobGasUsed(ws.receipts))
-		blkBuilder.SetExcessBlobGas(block.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed))
+		blkBuilder.SetExcessBlobGas(blkCtx.ExcessBlobGas)
 	}
 	return blkBuilder, nil
 }
