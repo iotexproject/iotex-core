@@ -168,6 +168,7 @@ func newParams(
 		context.Random = &common.Hash{}
 	}
 	if g.IsVanuatu(blkCtx.BlockHeight) {
+		// enable BLOBBASEFEE opcode
 		context.BlobBaseFee = new(big.Int).Set(&blkCtx.BlobBaseFee)
 	}
 
@@ -183,6 +184,7 @@ func newParams(
 		GasPrice: execution.GasPrice(),
 	}
 	if g.IsVanuatu(blkCtx.BlockHeight) {
+		// enable BLOBHASH opcode
 		vmTxCtx.BlobHashes = execution.BlobHashes()
 		vmTxCtx.BlobFeeCap = execution.BlobGasFeeCap()
 	}

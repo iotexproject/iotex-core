@@ -1315,7 +1315,6 @@ func TestCancunEVM(t *testing.T) {
 		NewSmartContractTest(t, "testdata-cancun/mcopy.json")
 	})
 	t.Run("eip4844-point_evaluation_precompile", func(t *testing.T) {
-		t.Skip("TODO: fix the test")
 		NewSmartContractTest(t, "testdata-cancun/point_evaluation.json")
 	})
 	t.Run("eip4844-blobhash", func(t *testing.T) {
