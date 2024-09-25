@@ -170,7 +170,9 @@ func newParams(
 		// enable BLOBBASEFEE opcode
 		context.BlobBaseFee = protocol.CalcBlobFee(blkCtx.ExcessBlobGas)
 		// enable BASEFEE opcode
-		context.BaseFee = new(big.Int).Set(blkCtx.BaseFee)
+		if blkCtx.BaseFee != nil {
+			context.BaseFee = new(big.Int).Set(blkCtx.BaseFee)
+		}
 	}
 
 	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
