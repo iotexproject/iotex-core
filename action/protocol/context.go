@@ -136,6 +136,7 @@ type (
 		MigrateNativeStake                      bool
 		AddClaimRewardAddress                   bool
 		EnforceLegacyEndorsement                bool
+		EnableAccessListTx                      bool
 		EnableDynamicFeeTx                      bool
 		EnableBlobTransaction                   bool
 		SufficentBalanceGuarantee               bool
@@ -290,6 +291,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			MigrateNativeStake:                      g.IsUpernavik(height),
 			AddClaimRewardAddress:                   g.IsUpernavik(height),
 			EnforceLegacyEndorsement:                !g.IsUpernavik(height),
+			EnableAccessListTx:                      g.IsVanuatu(height),
 			EnableDynamicFeeTx:                      g.IsVanuatu(height),
 			EnableBlobTransaction:                   g.IsVanuatu(height),
 			SufficentBalanceGuarantee:               g.IsVanuatu(height),
