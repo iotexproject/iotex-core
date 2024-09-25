@@ -119,12 +119,27 @@ func (p *Protocol) GrantBlockReward(
 	if err := p.updateRewardHistory(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
 	}
-	rewardLog := rewardingpb.RewardLog{
-		Type:   rewardingpb.RewardLog_BLOCK_REWARD,
-		Addr:   rewardAddrStr,
-		Amount: totalReward.String(),
+	var (
+		rewardLogs = []*rewardingpb.RewardLog{
+			{
+				Type:   rewardingpb.RewardLog_BLOCK_REWARD,
+				Addr:   rewardAddrStr,
+				Amount: totalReward.String(),
+			},
+		}
+		msg proto.Message = rewardLogs[0]
+	)
+	if featureCtx.EnableDynamicFeeTx {
+		if blkCtx.AccumulatedTips.Sign() > 0 {
+			rewardLogs = append(rewardLogs, &rewardingpb.RewardLog{
+				Type:   rewardingpb.RewardLog_PRIORITY_BONUS,
+				Addr:   rewardAddrStr,
+				Amount: blkCtx.AccumulatedTips.String(),
+			})
+		}
+		msg = &rewardingpb.RewardLogs{Logs: rewardLogs}
 	}
-	data, err := proto.Marshal(&rewardLog)
+	data, err := proto.Marshal(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -491,4 +506,24 @@ func (p *Protocol) assertLastBlockInEpoch(blkHeight uint64, epochNum uint64, rp 
 		return errors.Errorf("current block %d is not the last block of epoch %d", blkHeight, epochNum)
 	}
 	return nil
+}
+
+// UnmarshalRewardLog unmarshals reward log from byte slice
+// it keep the compatibility with old reward log
+func UnmarshalRewardLog(data []byte) (*rewardingpb.RewardLogs, error) {
+	logs := rewardingpb.RewardLogs{}
+	if err := proto.Unmarshal(data, &logs); err != nil {
+		return nil, err
+	}
+	if len(logs.Logs) == 0 {
+		// compatibility with old reward log
+		log := rewardingpb.RewardLog{}
+		if err := proto.Unmarshal(data, &log); err != nil {
+			return nil, err
+		}
+		logs = rewardingpb.RewardLogs{
+			Logs: []*rewardingpb.RewardLog{&log},
+		}
+	}
+	return &logs, nil
 }

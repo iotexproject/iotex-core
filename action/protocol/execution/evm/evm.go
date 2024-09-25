@@ -237,14 +237,13 @@ func ExecuteContract(
 		return nil, nil, err
 	}
 	receipt := &action.Receipt{
-		GasConsumed:     ps.gas - remainingGas,
-		BlockHeight:     ps.blkCtx.BlockHeight,
-		ActionHash:      ps.actionCtx.ActionHash,
-		ContractAddress: contractAddress,
+		GasConsumed:       ps.gas - remainingGas,
+		BlockHeight:       ps.blkCtx.BlockHeight,
+		ActionHash:        ps.actionCtx.ActionHash,
+		ContractAddress:   contractAddress,
+		Status:            uint64(statusCode),
+		EffectiveGasPrice: protocol.EffectiveGasPrice(ctx, execution),
 	}
-
-	receipt.Status = uint64(statusCode)
-	receipt.EffectiveGasPrice = protocol.EffectiveGasPrice(ctx, execution)
 	var (
 		depositLog  []*action.TransactionLog
 		burnLog     *action.TransactionLog

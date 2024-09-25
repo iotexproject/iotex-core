@@ -7,6 +7,7 @@ package action
 
 import (
 	"math/big"
+	"slices"
 
 	"google.golang.org/protobuf/proto"
 
@@ -173,6 +174,14 @@ func (receipt *Receipt) SetExecutionRevertMsg(revertReason string) *Receipt {
 		receipt.executionRevertMsg = revertReason
 	}
 	return receipt
+}
+
+func (receipt *Receipt) PriorityFee() *big.Int {
+	txLogs := receipt.TransactionLogs()
+	if id := slices.IndexFunc(txLogs, func(t *TransactionLog) bool { return t.Type == iotextypes.TransactionLogType_PRIORITY_FEE }); id != -1 {
+		return txLogs[id].Amount
+	}
+	return nil
 }
 
 // UpdateIndex updates the index of receipt and logs, and returns the next log index

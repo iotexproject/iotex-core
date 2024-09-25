@@ -119,8 +119,8 @@ func (ws *workingSet) runActions(
 			return nil, errors.Wrap(err, "error when run action")
 		}
 		receipts = append(receipts, receipt)
-		if fCtx.EnableDynamicFeeTx && blkCtx.BaseFee != nil {
-			(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, new(big.Int).Sub(receipt.EffectiveGasPrice, blkCtx.BaseFee))
+		if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
+			(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
 		}
 	}
 	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
@@ -647,8 +647,8 @@ func (ws *workingSet) pickAndRunActions(
 				return nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
 			}
 			blkCtx.GasLimit -= receipt.GasConsumed
-			if fCtx.EnableDynamicFeeTx && blkCtx.BaseFee != nil {
-				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, new(big.Int).Sub(receipt.EffectiveGasPrice, blkCtx.BaseFee))
+			if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
+				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
 			}
 			ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 			receipts = append(receipts, receipt)

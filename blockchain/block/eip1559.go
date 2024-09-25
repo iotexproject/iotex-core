@@ -35,7 +35,8 @@ func CalcBaseFee(g genesis.Blockchain, parent *protocol.TipInfo) *big.Int {
 	if parent.Height < g.VanuatuBlockHeight-1 {
 		// return nil for no base fee block
 		return nil
-	} else if parent.Height < g.VanuatuBlockHeight {
+	}
+	if parent.Height < g.VanuatuBlockHeight {
 		// If the current block is the first EIP-1559 block, return the InitialBaseFee.
 		return new(big.Int).SetUint64(action.InitialBaseFee)
 	}
