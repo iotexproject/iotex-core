@@ -73,17 +73,6 @@ func (tx *DynamicFeeTx) GasPrice() *big.Int {
 	return tx.GasFeeCap()
 }
 
-func (tx *DynamicFeeTx) EffectiveGasPrice(baseFee *big.Int) *big.Int {
-	if baseFee == nil {
-		return new(big.Int).Set(tx.gasFeeCap)
-	}
-	tip := new(big.Int).Sub(tx.gasFeeCap, baseFee)
-	if tip.Cmp(tx.gasTipCap) > 0 {
-		tip.Set(tx.gasTipCap)
-	}
-	return tip.Add(tip, baseFee)
-}
-
 func (tx *DynamicFeeTx) BlobGas() uint64 { return 0 }
 
 func (tx *DynamicFeeTx) BlobGasFeeCap() *big.Int { return nil }

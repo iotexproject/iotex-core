@@ -46,17 +46,6 @@ func (tx *BlobTx) GasPrice() *big.Int {
 	return tx.feeCap().ToBig()
 }
 
-func (tx *BlobTx) EffectiveGasPrice(baseFee *big.Int) *big.Int {
-	if baseFee == nil {
-		return new(big.Int).Set(tx.gasFeeCap.ToBig())
-	}
-	tip := new(big.Int).Sub(tx.gasFeeCap.ToBig(), baseFee)
-	if tip.Cmp(tx.gasTipCap.ToBig()) > 0 {
-		tip.Set(tx.gasTipCap.ToBig())
-	}
-	return tip.Add(tip, baseFee)
-}
-
 func (tx *BlobTx) GasTipCap() *big.Int {
 	return tx.tipCap().ToBig()
 }
