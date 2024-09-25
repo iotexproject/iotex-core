@@ -70,6 +70,18 @@ func (tx *BlobTx) feeCap() *uint256.Int {
 	return &p
 }
 
+func (tx *BlobTx) EffectiveGasPrice(baseFee *big.Int) *big.Int {
+	tip := tx.GasFeeCap()
+	if baseFee == nil {
+		return tip
+	}
+	tip.Sub(tip, baseFee)
+	if tipCap := tx.GasTipCap(); tip.Cmp(tipCap) > 0 {
+		tip.Set(tipCap)
+	}
+	return tip.Add(tip, baseFee)
+}
+
 func (tx *BlobTx) AccessList() types.AccessList {
 	return tx.accessList
 }

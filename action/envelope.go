@@ -50,6 +50,7 @@ type (
 		Nonce() uint64
 		Gas() uint64
 		GasPrice() *big.Int
+		EffectiveGasPrice(*big.Int) *big.Int
 		TxDynamicGas
 		AccessList() types.AccessList
 		TxBlob
@@ -103,6 +104,10 @@ func (elp *envelope) Gas() uint64 {
 
 func (elp *envelope) GasPrice() *big.Int {
 	return elp.common.GasPrice()
+}
+
+func (elp *envelope) EffectiveGasPrice(baseFee *big.Int) *big.Int {
+	return elp.common.EffectiveGasPrice(baseFee)
 }
 
 func (elp *envelope) AccessList() types.AccessList {

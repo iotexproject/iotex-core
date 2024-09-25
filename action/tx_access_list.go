@@ -46,6 +46,10 @@ func (tx *AccessListTx) GasPrice() *big.Int {
 	return tx.price()
 }
 
+func (tx *AccessListTx) EffectiveGasPrice(*big.Int) *big.Int {
+	return tx.price()
+}
+
 func (tx *AccessListTx) price() *big.Int {
 	p := &big.Int{}
 	if tx.gasPrice == nil {
