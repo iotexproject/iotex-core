@@ -218,7 +218,7 @@ func (ws *workingSet) runAction(
 func (ws *workingSet) handleBlob(ctx context.Context, act *action.SealedEnvelope, receipt *action.Receipt) error {
 	// Deposit blob fee
 	receipt.BlobGasUsed = act.BlobGas()
-	receipt.BlobGasPrice = block.CalcBlobFee(protocol.MustGetBlockchainCtx(ctx).Tip.ExcessBlobGas)
+	receipt.BlobGasPrice = protocol.CalcBlobFee(protocol.MustGetBlockchainCtx(ctx).Tip.ExcessBlobGas)
 	blobFee := new(big.Int).Mul(receipt.BlobGasPrice, new(big.Int).SetUint64(receipt.BlobGasUsed))
 	logs, err := rewarding.DepositGas(ctx, ws, new(big.Int), protocol.BlobGasFeeOption(blobFee))
 	if err != nil {
@@ -709,14 +709,14 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 
 	if fCtx.EnableDynamicFeeTx {
 		bcCtx := protocol.MustGetBlockchainCtx(ctx)
-		if err := block.VerifyEIP1559Header(
+		if err := protocol.VerifyEIP1559Header(
 			genesis.MustExtractGenesisContext(ctx).Blockchain, &bcCtx.Tip, &blk.Header); err != nil {
 			return err
 		}
 	}
 	if fCtx.EnableBlobTransaction {
 		bcCtx := protocol.MustGetBlockchainCtx(ctx)
-		if err := block.VerifyEIP4844Header(&bcCtx.Tip, &blk.Header); err != nil {
+		if err := protocol.VerifyEIP4844Header(&bcCtx.Tip, &blk.Header); err != nil {
 			return err
 		}
 	}

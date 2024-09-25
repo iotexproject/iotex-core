@@ -292,7 +292,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	}
 	// verify EIP1559 header (baseFee adjustment)
 	if blk.Header.BaseFee() != nil {
-		if err = block.VerifyEIP1559Header(bc.genesis.Blockchain, tip, &blk.Header); err != nil {
+		if err = protocol.VerifyEIP1559Header(bc.genesis.Blockchain, tip, &blk.Header); err != nil {
 			return errors.Wrap(err, "failed to verify EIP1559 header (baseFee adjustment)")
 		}
 	}
@@ -388,7 +388,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 		return nil, err
 	}
 	tip := protocol.MustGetBlockchainCtx(ctx).Tip
-	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp, block.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), block.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
+	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
 	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
 	minterPrivateKey := bc.config.ProducerPrivateKey()

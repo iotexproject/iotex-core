@@ -28,7 +28,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -169,7 +168,7 @@ func newParams(
 	}
 	if g.IsVanuatu(blkCtx.BlockHeight) {
 		// enable BLOBBASEFEE opcode
-		context.BlobBaseFee = block.CalcBlobFee(blkCtx.ExcessBlobGas)
+		context.BlobBaseFee = protocol.CalcBlobFee(blkCtx.ExcessBlobGas)
 		// enable BASEFEE opcode
 		context.BaseFee = new(big.Int).Set(blkCtx.BaseFee)
 	}
@@ -635,7 +634,8 @@ func SimulateExecution(
 			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(g.BlockInterval),
 			GasLimit:       g.BlockGasLimitByHeight(bcCtx.Tip.Height + 1),
 			Producer:       zeroAddr,
-			ExcessBlobGas:  block.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed),
+			BaseFee:        protocol.CalcBaseFee(g.Blockchain, &bcCtx.Tip),
+			ExcessBlobGas:  protocol.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed),
 		},
 	)
 

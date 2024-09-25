@@ -31,7 +31,7 @@
         "rawExpectedGasConsumed": 10722,
         "expectedStatus": 1,
         "readOnly": true,
-        "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000000",
+        "rawReturnValue": "000000000000000000000000000000000000000000000000000000e8d4a51000",
         "comment": "call getBaseFee"
     }]
 }

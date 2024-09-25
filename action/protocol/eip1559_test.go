@@ -3,16 +3,16 @@
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
-package block
+package protocol
 
 import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
 func TestCalcBaseFee(t *testing.T) {
@@ -29,7 +29,7 @@ func TestCalcBaseFee(t *testing.T) {
 	}
 	g := genesis.Default.Blockchain
 	for _, test := range tests {
-		parent := &protocol.TipInfo{
+		parent := &TipInfo{
 			Height:  g.VanuatuBlockHeight,
 			GasUsed: test.parentGasUsed,
 			BaseFee: big.NewInt(test.parentBaseFee),

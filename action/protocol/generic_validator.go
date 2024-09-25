@@ -109,7 +109,11 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 			}
 		}
 		if ok && featureCtx.EnableBlobTransaction && len(selp.BlobHashes()) > 0 {
-			// TODO: blobFeeCap must be not less than the blob price
+			// blobFeeCap must be not less than the blob price
+			basefee := CalcBlobFee(MustGetBlockCtx(ctx).ExcessBlobGas)
+			if selp.BlobGasFeeCap().Cmp(basefee) < 0 {
+				return errors.Wrapf(action.ErrUnderpriced, "blob fee cap is too low: %s, base fee: %s", selp.BlobGasFeeCap().String(), basefee.String())
+			}
 		}
 	}
 	return nil
