@@ -535,11 +535,31 @@ func (builder *Builder) buildBlockSyncer() error {
 	p2pAgent := builder.cs.p2pAgent
 	chain := builder.cs.chain
 	consens := builder.cs.consensus
+	blockdao := builder.cs.blockdao
 
 	blocksync, err := blocksync.NewBlockSyncer(
 		builder.cfg.BlockSync,
 		chain.TipHeight,
-		builder.cs.blockdao.GetBlockByHeight,
+		func(height uint64) (*block.Block, error) {
+			blk, err := blockdao.GetBlockByHeight(height)
+			if err != nil {
+				return blk, err
+			}
+			if blk.HasBlob() {
+				// block already has blob sidecar attached
+				return blk, nil
+			}
+			sidecars, hashes, err := blockdao.GetBlobsByHeight(height)
+			if errors.Cause(err) == db.ErrNotExist {
+				// the block does not have blob or blob has expired
+				return blk, nil
+			}
+			if err != nil {
+				return nil, err
+			}
+			deser := (&action.Deserializer{}).SetEvmNetworkID(builder.cfg.Chain.EVMNetworkID)
+			return blk.WithBlobSidecars(sidecars, hashes, deser)
+		},
 		func(blk *block.Block) error {
 			if err := consens.ValidateBlockFooter(blk); err != nil {
 				log.L().Debug("Failed to validate block footer.", zap.Error(err), zap.Uint64("height", blk.Height()))

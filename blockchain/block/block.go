@@ -8,6 +8,7 @@ package block
 import (
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -131,4 +132,34 @@ func (b *Block) HasBlob() bool {
 		}
 	}
 	return false
+}
+
+func (b *Block) WithBlobSidecars(sidecars []*types.BlobTxSidecar, txhash []string, deser *action.Deserializer) (*Block, error) {
+	scMap := make(map[hash.Hash256]*types.BlobTxSidecar)
+	for i := range txhash {
+		h, err := hash.HexStringToHash256(txhash[i])
+		if err != nil {
+			return nil, err
+		}
+		scMap[h] = sidecars[i]
+	}
+	for i, act := range b.Actions {
+		h, _ := act.Hash()
+		if sc, ok := scMap[h]; ok {
+			// add the sidecar to this action
+			pb := act.Proto()
+			blobData := pb.GetCore().GetBlobTxData()
+			if blobData == nil {
+				// this is not a blob tx, something's wrong
+				return nil, errors.Wrap(action.ErrInvalidAct, "tx is not blob type")
+			}
+			blobData.BlobTxSidecar = action.ToProtoSideCar(sc)
+			actWithBlob, err := deser.ActionToSealedEnvelope(pb)
+			if err != nil {
+				return nil, err
+			}
+			b.Actions[i] = actWithBlob
+		}
+	}
+	return b, nil
 }
