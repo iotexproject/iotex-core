@@ -180,6 +180,20 @@ func (mr *MockEnvelopeMockRecorder) Destination() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destination", reflect.TypeOf((*MockEnvelope)(nil).Destination))
 }
 
+// EffectiveGasPrice mocks base method.
+func (m *MockEnvelope) EffectiveGasPrice(arg0 *big.Int) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EffectiveGasPrice", arg0)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// EffectiveGasPrice indicates an expected call of EffectiveGasPrice.
+func (mr *MockEnvelopeMockRecorder) EffectiveGasPrice(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EffectiveGasPrice", reflect.TypeOf((*MockEnvelope)(nil).EffectiveGasPrice), arg0)
+}
+
 // Gas mocks base method.
 func (m *MockEnvelope) Gas() uint64 {
 	m.ctrl.T.Helper()
@@ -521,6 +535,20 @@ func (mr *MockTxDataMockRecorder) Data() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Data", reflect.TypeOf((*MockTxData)(nil).Data))
 }
 
+// EffectiveGasPrice mocks base method.
+func (m *MockTxData) EffectiveGasPrice(arg0 *big.Int) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EffectiveGasPrice", arg0)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// EffectiveGasPrice indicates an expected call of EffectiveGasPrice.
+func (mr *MockTxDataMockRecorder) EffectiveGasPrice(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EffectiveGasPrice", reflect.TypeOf((*MockTxData)(nil).EffectiveGasPrice), arg0)
+}
+
 // Gas mocks base method.
 func (m *MockTxData) Gas() uint64 {
 	m.ctrl.T.Helper()
@@ -712,6 +740,20 @@ func (mr *MockTxCommonMockRecorder) BlobTxSidecar() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlobTxSidecar", reflect.TypeOf((*MockTxCommon)(nil).BlobTxSidecar))
 }
 
+// EffectiveGasPrice mocks base method.
+func (m *MockTxCommon) EffectiveGasPrice(arg0 *big.Int) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EffectiveGasPrice", arg0)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// EffectiveGasPrice indicates an expected call of EffectiveGasPrice.
+func (mr *MockTxCommonMockRecorder) EffectiveGasPrice(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EffectiveGasPrice", reflect.TypeOf((*MockTxCommon)(nil).EffectiveGasPrice), arg0)
+}
+
 // Gas mocks base method.
 func (m *MockTxCommon) Gas() uint64 {
 	m.ctrl.T.Helper()
@@ -887,6 +929,20 @@ func (m *MockTxCommonInternal) ChainID() uint32 {
 func (mr *MockTxCommonInternalMockRecorder) ChainID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockTxCommonInternal)(nil).ChainID))
+}
+
+// EffectiveGasPrice mocks base method.
+func (m *MockTxCommonInternal) EffectiveGasPrice(arg0 *big.Int) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EffectiveGasPrice", arg0)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// EffectiveGasPrice indicates an expected call of EffectiveGasPrice.
+func (mr *MockTxCommonInternalMockRecorder) EffectiveGasPrice(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EffectiveGasPrice", reflect.TypeOf((*MockTxCommonInternal)(nil).EffectiveGasPrice), arg0)
 }
 
 // Gas mocks base method.
