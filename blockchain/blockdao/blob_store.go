@@ -7,6 +7,8 @@ package blockdao
 
 import (
 	"context"
+	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -20,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
 var (
@@ -43,18 +46,17 @@ type (
 	// 1. Block height is used as key to store blobs. When a new blob is stored,
 	//    the expired time (current - 18 days) is updated and all blobs earlier
 	//    than this time will be deleted.
-	// 2. Two mappings are kept in a separate index: (1) key to blob's height
-	//    and tx hashes, and (2) tx hash to the blob's height. Here's an example:
-	//    304 --> { height: 311344
-	//              []hash: eddf9e61fb9d8f5111840daef55e5fde
+	// 2. Two mappings are kept in a separate index: (1) height to tx hashes in,
+	//    the blob, and (2) tx hash to the blob's height. Here's an example:
+	//    304 --> { []hash: eddf9e61fb9d8f5111840daef55e5fde
 	//                      95977fb340867fa13f787df864ed5388 }
 	//    and:
 	//    eddf9e61fb9d8f5111840daef55e5fde --> {height: 311344}
 	//    95977fb340867fa13f787df864ed5388 --> {height: 311344}
 	//    The 2nd mapping is used to support GetBlob(hash) function. It converts
 	//    the requested blob hash to the height, and retrieves the blob.
-	//    When a new blob overwrites an old one, it will check the 1st mapping,
-	//    and delete the hashes of old blob correspondingly.
+	//    When new blobs are added to the storage, the index of expired blobs will
+	//    be deleted correspondingly.
 	// 3. The maximum number of blobs is 6 for each block, so maximum data size
 	//    stored by a key is 131kB x 6 = 786kB. The maximum total size of the
 	//    entire blob storage is 786kB x 311040 = 245GB.
@@ -63,13 +65,16 @@ type (
 		kvStore                         db.KVStore
 		totalBlocks                     uint64
 		currWriteBlock, currExpireBlock uint64
+		purgeTask                       *routine.RecurringTask
+		interval                        time.Duration
 	}
 )
 
-func NewBlobStore(kv db.KVStore, size uint64) *blobStore {
+func NewBlobStore(kv db.KVStore, size uint64, interval time.Duration) *blobStore {
 	return &blobStore{
 		kvStore:     kv,
 		totalBlocks: size,
+		interval:    interval,
 	}
 }
 
@@ -80,10 +85,19 @@ func (bs *blobStore) Start(ctx context.Context) error {
 	if err := bs.checkDB(); err != nil {
 		return err
 	}
+	if bs.interval != 0 {
+		bs.purgeTask = routine.NewRecurringTask(func() {
+			bs.expireBlob(atomic.LoadUint64(&bs.currWriteBlock))
+		}, bs.interval)
+		return bs.purgeTask.Start(ctx)
+	}
 	return nil
 }
 
 func (bs *blobStore) Stop(ctx context.Context) error {
+	if err := bs.purgeTask.Stop(ctx); err != nil {
+		return err
+	}
 	return bs.kvStore.Stop(ctx)
 }
 
@@ -112,7 +126,7 @@ func (bs *blobStore) GetBlob(h hash.Hash256) (*types.BlobTxSidecar, string, erro
 	}
 	target := common.BytesToHash(h[:]).Hex()
 	for i, v := range hashes {
-		if target == v {
+		if v == target {
 			return blobs[i], v, nil
 		}
 	}
@@ -136,7 +150,7 @@ func (bs *blobStore) getBlobs(height uint64) ([]*types.BlobTxSidecar, []string, 
 }
 
 func (bs *blobStore) PutBlock(blk *block.Block) error {
-	if blk.Height() <= bs.currWriteBlock {
+	if blk.Height() <= atomic.LoadUint64(&bs.currWriteBlock) {
 		return errors.Errorf("block height %d is less than current tip height", blk.Height())
 	}
 	pb := iotextypes.BlobTxSidecars{
@@ -161,10 +175,6 @@ func (bs *blobStore) PutBlock(blk *block.Block) error {
 }
 
 func (bs *blobStore) putBlob(blob []byte, height uint64, txHash [][]byte) error {
-	// remove expired blobs
-	if err := bs.expireBlob(height); err != nil {
-		return err
-	}
 	// write blob index
 	var (
 		b     = batch.NewBatch()
@@ -182,7 +192,7 @@ func (bs *blobStore) putBlob(blob []byte, height uint64, txHash [][]byte) error 
 	if err := bs.kvStore.WriteBatch(b); err != nil {
 		return err
 	}
-	bs.currWriteBlock = height
+	atomic.StoreUint64(&bs.currWriteBlock, height)
 	return nil
 }
 

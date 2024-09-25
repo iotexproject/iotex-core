@@ -35,6 +35,7 @@ type (
 		ContractStakingIndexDBPath string           `yaml:"contractStakingIndexDBPath"`
 		BlobStoreDBPath            string           `yaml:"blobStoreDBPath"`
 		BlobStoreRetentionDays     uint32           `yaml:"blobStoreRetentionDays"`
+		BlobPurgeInterval          time.Duration    `yaml:"blobPurgeInterval"`
 		ID                         uint32           `yaml:"id"`
 		EVMNetworkID               uint32           `yaml:"evmNetworkID"`
 		Address                    string           `yaml:"address"`

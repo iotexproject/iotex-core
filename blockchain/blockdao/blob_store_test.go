@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/hex"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
@@ -46,7 +47,7 @@ func TestBlobStore(t *testing.T) {
 		cfg := db.DefaultConfig
 		cfg.DbPath = testPath
 		kvs := db.NewBoltDB(cfg)
-		bs := NewBlobStore(kvs, 24)
+		bs := NewBlobStore(kvs, 24, time.Second)
 		r.NoError(bs.Start(ctx))
 		var (
 			_value [7][]byte = [7][]byte{
@@ -77,6 +78,7 @@ func TestBlobStore(t *testing.T) {
 			r.NoError(err)
 			r.Equal(_value[i%7], v)
 		}
+		time.Sleep(time.Second * 3 / 2)
 		// slot 0 - 13 has expired
 		for i, height := range []uint64{0, 3, 5, 10, 13, 18, 29, 37} {
 			hashes := createTestHash(i, height)
@@ -119,7 +121,7 @@ func TestBlobStore(t *testing.T) {
 		cfg := db.DefaultConfig
 		cfg.DbPath = testPath
 		kvs := db.NewBoltDB(cfg)
-		bs := NewBlobStore(kvs, 24)
+		bs := NewBlobStore(kvs, 24, time.Second)
 		r.NoError(bs.Start(ctx))
 		defer func() {
 			r.NoError(bs.Stop(ctx))
