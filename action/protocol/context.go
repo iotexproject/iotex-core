@@ -64,6 +64,10 @@ type (
 		GasLimit uint64
 		// Producer is the address of whom composes the block containing this action
 		Producer address.Address
+		// AccumTips is the accumulated tips of the block
+		AccumulatedTips big.Int
+		// BaseFee is the base fee of the block
+		BaseFee *big.Int
 	}
 
 	// ActionCtx provides action auxiliary information.

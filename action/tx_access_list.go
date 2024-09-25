@@ -46,7 +46,7 @@ func (tx *AccessListTx) GasPrice() *big.Int {
 	return tx.price()
 }
 
-func (tx *AccessListTx) EffectiveGasPrice(*big.Int) *big.Int {
+func (tx *AccessListTx) EffectiveGasPrice(_ *big.Int) *big.Int {
 	return tx.price()
 }
 

@@ -44,7 +44,7 @@ func (tx *LegacyTx) GasPrice() *big.Int {
 	return tx.price()
 }
 
-func (tx *LegacyTx) EffectiveGasPrice(*big.Int) *big.Int {
+func (tx *LegacyTx) EffectiveGasPrice(_ *big.Int) *big.Int {
 	return tx.price()
 }
 

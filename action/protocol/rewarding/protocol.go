@@ -384,7 +384,7 @@ func (p *Protocol) deleteStateV2(sm protocol.StateManager, key []byte) error {
 func (p *Protocol) settleSystemAction(
 	ctx context.Context,
 	sm protocol.StateManager,
-	act action.TxDynamicGas,
+	act action.TxCommon,
 	status uint64,
 	si int,
 	logs []*action.Log,
@@ -396,7 +396,7 @@ func (p *Protocol) settleSystemAction(
 func (p *Protocol) settleUserAction(
 	ctx context.Context,
 	sm protocol.StateManager,
-	act action.TxDynamicGas,
+	act action.TxCommon,
 	status uint64,
 	si int,
 	logs []*action.Log,
@@ -408,7 +408,7 @@ func (p *Protocol) settleUserAction(
 func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
-	act action.TxDynamicGas,
+	act action.TxCommon,
 	status uint64,
 	si int,
 	isSystemAction bool,
@@ -445,8 +445,7 @@ func (p *Protocol) settleAction(
 			return nil, err
 		}
 	}
-
-	return p.createReceipt(status, blkCtx.BlockHeight, actionCtx.ActionHash, actionCtx.IntrinsicGas, logs, tLogs...), nil
+	return p.createReceipt(status, blkCtx.BlockHeight, actionCtx.ActionHash, actionCtx.IntrinsicGas, protocol.EffectiveGasPrice(ctx, act), logs, tLogs...), nil
 }
 
 func (p *Protocol) increaseNonce(ctx context.Context, sm protocol.StateManager, addr address.Address, nonce uint64, skipSetNonce bool) error {
@@ -471,15 +470,17 @@ func (p *Protocol) createReceipt(
 	blkHeight uint64,
 	actHash hash.Hash256,
 	gasConsumed uint64,
+	price *big.Int,
 	logs []*action.Log,
 	tLogs ...*action.TransactionLog,
 ) *action.Receipt {
 	// TODO: need to review the fields
 	return (&action.Receipt{
-		Status:          status,
-		BlockHeight:     blkHeight,
-		ActionHash:      actHash,
-		GasConsumed:     gasConsumed,
-		ContractAddress: p.addr.String(),
+		Status:            status,
+		BlockHeight:       blkHeight,
+		ActionHash:        actHash,
+		GasConsumed:       gasConsumed,
+		ContractAddress:   p.addr.String(),
+		EffectiveGasPrice: price,
 	}).AddLogs(logs...).AddTransactionLogs(tLogs...)
 }

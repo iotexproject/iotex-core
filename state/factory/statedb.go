@@ -313,17 +313,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	if producer == nil {
 		return errors.New("failed to get address")
 	}
-	g := genesis.MustExtractGenesisContext(ctx)
-	ctx = protocol.WithBlockCtx(
-		protocol.WithRegistry(ctx, sdb.registry),
-		protocol.BlockCtx{
-			BlockHeight:    blk.Height(),
-			BlockTimeStamp: blk.Timestamp(),
-			GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
-			Producer:       producer,
-		},
-	)
-	ctx = protocol.WithFeatureCtx(ctx)
+	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
 	if err != nil {

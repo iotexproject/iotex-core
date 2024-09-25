@@ -480,6 +480,7 @@ func testState(sf Factory, t *testing.T) {
 			GasLimit:    gasLimit,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 	blk, err := block.NewTestingBuilder().
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
@@ -546,6 +547,7 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		ChainID: 1,
 	})
+	ctx = protocol.WithFeatureCtx(ctx)
 	blk, err := block.NewTestingBuilder().
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
@@ -629,6 +631,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		ChainID: 1,
 	})
+	ctx = protocol.WithFeatureCtx(ctx)
 	blk, err := block.NewTestingBuilder().
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
@@ -907,6 +910,7 @@ func testLoadStoreHeight(sf Factory, t *testing.T) {
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
 		})
+		ctx = protocol.WithFeatureCtx(ctx)
 		blk, err := block.NewTestingBuilder().
 			SetHeight(i).
 			SetPrevBlockHash(lastBlockHash).
@@ -1021,7 +1025,7 @@ func testCommit(factory Factory, t *testing.T) {
 			}),
 		genesis.Default,
 	)
-
+	ctx = protocol.WithFeatureCtx(ctx)
 	blk, err := block.NewTestingBuilder().
 		SetHeight(1).
 		SetPrevBlockHash(blkHash).
@@ -1347,6 +1351,7 @@ func TestStateDBPatch(t *testing.T) {
 		}), protocol.BlockchainCtx{
 		ChainID: 1,
 	})
+	ctx = protocol.WithFeatureCtx(ctx)
 	_, err = trieDB.Get(n1, ha1)
 	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
 	_, err = trieDB.Get(n1, ha2)

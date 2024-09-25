@@ -7,6 +7,7 @@ package action
 
 import (
 	"math/big"
+	"slices"
 
 	"google.golang.org/protobuf/proto"
 
@@ -30,6 +31,7 @@ type (
 		BlobGasPrice       *big.Int
 		ContractAddress    string
 		TxIndex            uint32
+		EffectiveGasPrice  *big.Int
 		logs               []*Log
 		transactionLogs    []*TransactionLog
 		executionRevertMsg string
@@ -75,6 +77,9 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	if receipt.BlobGasPrice != nil {
 		r.BlobGasPrice = receipt.BlobGasPrice.String()
 	}
+	if receipt.EffectiveGasPrice != nil {
+		r.EffectiveGasPrice = receipt.EffectiveGasPrice.String()
+	}
 	return r
 }
 
@@ -97,6 +102,10 @@ func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iotextypes.Receipt) {
 	if pbReceipt.GetBlobGasPrice() != "" {
 		receipt.BlobGasPrice = new(big.Int)
 		receipt.BlobGasPrice.SetString(pbReceipt.GetBlobGasPrice(), 10)
+	}
+	if pbReceipt.GetEffectiveGasPrice() != "" {
+		receipt.EffectiveGasPrice = new(big.Int)
+		receipt.EffectiveGasPrice.SetString(pbReceipt.GetEffectiveGasPrice(), 10)
 	}
 }
 
@@ -165,6 +174,14 @@ func (receipt *Receipt) SetExecutionRevertMsg(revertReason string) *Receipt {
 		receipt.executionRevertMsg = revertReason
 	}
 	return receipt
+}
+
+func (receipt *Receipt) PriorityFee() *big.Int {
+	txLogs := receipt.TransactionLogs()
+	if id := slices.IndexFunc(txLogs, func(t *TransactionLog) bool { return t.Type == iotextypes.TransactionLogType_PRIORITY_FEE }); id != -1 {
+		return txLogs[id].Amount
+	}
+	return nil
 }
 
 // UpdateIndex updates the index of receipt and logs, and returns the next log index

@@ -686,7 +686,7 @@ const (
 func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
-	act action.TxDynamicGas,
+	act action.TxCommon,
 	status uint64,
 	logs []*action.Log,
 	tLogs []*action.TransactionLog,
@@ -723,11 +723,12 @@ func (p *Protocol) settleAction(
 		}
 	}
 	r := action.Receipt{
-		Status:          status,
-		BlockHeight:     blkCtx.BlockHeight,
-		ActionHash:      actionCtx.ActionHash,
-		GasConsumed:     gasConsumed,
-		ContractAddress: p.addr.String(),
+		Status:            status,
+		BlockHeight:       blkCtx.BlockHeight,
+		ActionHash:        actionCtx.ActionHash,
+		GasConsumed:       gasConsumed,
+		ContractAddress:   p.addr.String(),
+		EffectiveGasPrice: protocol.EffectiveGasPrice(ctx, act),
 	}
 	r.AddLogs(logs...).AddTransactionLogs(depositLog...).AddTransactionLogs(tLogs...)
 	return &r, nil

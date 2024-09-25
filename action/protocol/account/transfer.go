@@ -91,6 +91,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, elp action.Envelope, sm p
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load address %s", tsf.Recipient())
 	}
+	price := protocol.EffectiveGasPrice(ctx, elp)
 	if recipientAcct.IsContract() {
 		// put updated sender's state to trie
 		if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
@@ -105,11 +106,12 @@ func (p *Protocol) handleTransfer(ctx context.Context, elp action.Envelope, sm p
 			}
 		}
 		receipt := &action.Receipt{
-			Status:          uint64(iotextypes.ReceiptStatus_Failure),
-			BlockHeight:     blkCtx.BlockHeight,
-			ActionHash:      actionCtx.ActionHash,
-			GasConsumed:     actionCtx.IntrinsicGas,
-			ContractAddress: p.addr.String(),
+			Status:            uint64(iotextypes.ReceiptStatus_Failure),
+			BlockHeight:       blkCtx.BlockHeight,
+			ActionHash:        actionCtx.ActionHash,
+			GasConsumed:       actionCtx.IntrinsicGas,
+			ContractAddress:   p.addr.String(),
+			EffectiveGasPrice: price,
 		}
 		receipt.AddTransactionLogs(depositLog...)
 		return receipt, nil
@@ -148,11 +150,12 @@ func (p *Protocol) handleTransfer(ctx context.Context, elp action.Envelope, sm p
 	}
 
 	receipt := &action.Receipt{
-		Status:          uint64(iotextypes.ReceiptStatus_Success),
-		BlockHeight:     blkCtx.BlockHeight,
-		ActionHash:      actionCtx.ActionHash,
-		GasConsumed:     actionCtx.IntrinsicGas,
-		ContractAddress: p.addr.String(),
+		Status:            uint64(iotextypes.ReceiptStatus_Success),
+		BlockHeight:       blkCtx.BlockHeight,
+		ActionHash:        actionCtx.ActionHash,
+		GasConsumed:       actionCtx.IntrinsicGas,
+		ContractAddress:   p.addr.String(),
+		EffectiveGasPrice: price,
 	}
 	receipt.AddTransactionLogs(&action.TransactionLog{
 		Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,

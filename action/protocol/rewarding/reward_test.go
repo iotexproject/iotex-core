@@ -481,3 +481,34 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	assert.Equal(t, identityset.Address(1).String(), rl.Addr)
 	assert.Equal(t, "50", rl.Amount)
 }
+
+func TestRewardLogCompatibility(t *testing.T) {
+	r := require.New(t)
+	rl := &rewardingpb.RewardLog{
+		Type:   rewardingpb.RewardLog_BLOCK_REWARD,
+		Addr:   "io1",
+		Amount: "100",
+	}
+	data, err := proto.Marshal(rl)
+	r.NoError(err)
+	rls := &rewardingpb.RewardLogs{
+		Logs: []*rewardingpb.RewardLog{rl},
+	}
+	datas, err := proto.Marshal(rls)
+	r.NoError(err)
+	t.Logf("rls = %+v", rls)
+
+	rls2, err := UnmarshalRewardLog(data)
+	r.NoError(err)
+	t.Logf("decoded from rl = %+v", rls2)
+	datao, err := proto.Marshal(rls2)
+	r.NoError(err)
+	r.Equal(datas, datao)
+
+	rls2, err = UnmarshalRewardLog(datas)
+	r.NoError(err)
+	t.Logf("decoded from rls = %+v", rls2)
+	datao, err = proto.Marshal(rls2)
+	r.NoError(err)
+	r.Equal(datas, datao)
+}

@@ -546,7 +546,9 @@ func Test_blockDAO_PutBlock(t *testing.T) {
 		indexers:   []BlockIndexer{indexer},
 		blockStore: store,
 	}
-
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	blk, err := block.NewTestingBuilder().SignAndBuild(identityset.PrivateKey(1))
+	r.NoError(err)
 	t.Run("FailedToPutBlockToBlockStore", func(t *testing.T) {
 		store.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(errors.New(t.Name())).Times(1)
 
@@ -558,8 +560,7 @@ func Test_blockDAO_PutBlock(t *testing.T) {
 	t.Run("FailedToPutBlockToIndexer", func(t *testing.T) {
 		store.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 		indexer.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(errors.New(t.Name())).Times(1)
-
-		err := dao.PutBlock(context.Background(), &block.Block{})
+		err = dao.PutBlock(ctx, &blk)
 
 		r.ErrorContains(err, t.Name())
 	})
@@ -568,7 +569,7 @@ func Test_blockDAO_PutBlock(t *testing.T) {
 		store.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 		indexer.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 
-		err := dao.PutBlock(context.Background(), &block.Block{})
+		err := dao.PutBlock(ctx, &blk)
 
 		r.NoError(err)
 	})

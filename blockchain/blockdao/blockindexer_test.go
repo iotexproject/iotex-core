@@ -67,6 +67,18 @@ func TestCheckIndexer(t *testing.T) {
 				return blk, err
 			}).AnyTimes()
 			mockDao.EXPECT().GetReceipts(gomock.Any()).Return(nil, nil).AnyTimes()
+			mockDao.EXPECT().HeaderByHeight(gomock.Any()).DoAndReturn(func(arg0 uint64) (*block.Header, error) {
+				pb := &iotextypes.BlockHeader{
+					Core: &iotextypes.BlockHeaderCore{
+						Height:    arg0,
+						Timestamp: timestamppb.Now(),
+					},
+					ProducerPubkey: identityset.PrivateKey(1).PublicKey().Bytes(),
+				}
+				blk := &block.Block{}
+				err := blk.LoadFromBlockHeaderProto(pb)
+				return &blk.Header, err
+			}).AnyTimes()
 			indexer.EXPECT().Height().Return(c.indexerTipHeight, nil).Times(1)
 			indexer.EXPECT().PutBlock(gomock.Any(), gomock.Any()).DoAndReturn(func(arg0 context.Context, arg1 *block.Block) error {
 				putBlocks = append(putBlocks, arg1)
@@ -125,6 +137,18 @@ func TestCheckIndexerWithStart(t *testing.T) {
 				blk := &block.Block{}
 				err := blk.LoadFromBlockHeaderProto(pb)
 				return blk, err
+			}).AnyTimes()
+			mockDao.EXPECT().HeaderByHeight(gomock.Any()).DoAndReturn(func(arg0 uint64) (*block.Header, error) {
+				pb := &iotextypes.BlockHeader{
+					Core: &iotextypes.BlockHeaderCore{
+						Height:    arg0,
+						Timestamp: timestamppb.Now(),
+					},
+					ProducerPubkey: identityset.PrivateKey(1).PublicKey().Bytes(),
+				}
+				blk := &block.Block{}
+				err := blk.LoadFromBlockHeaderProto(pb)
+				return &blk.Header, err
 			}).AnyTimes()
 			mockDao.EXPECT().GetReceipts(gomock.Any()).Return(nil, nil).AnyTimes()
 			indexer.EXPECT().Height().Return(c.indexerTipHeight, nil).Times(1)
