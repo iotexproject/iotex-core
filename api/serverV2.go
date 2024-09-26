@@ -71,7 +71,7 @@ func NewServerV2(
 
 	return &ServerV2{
 		core:         coreAPI,
-		grpcServer:   NewGRPCServer(coreAPI, cfg.GRPCPort),
+		grpcServer:   NewGRPCServer(coreAPI, newBlockDAOService(dao), cfg.GRPCPort),
 		httpSvr:      NewHTTPServer("", cfg.HTTPPort, wrappedWeb3Handler),
 		websocketSvr: NewHTTPServer("", cfg.WebSocketPort, wrappedWebsocketHandler),
 		tracer:       tp,
