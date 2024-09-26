@@ -605,8 +605,7 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			}
-			if len(nextAction.BlobHashes()) > 0 &&
-				(!fCtx.EnableBlobTransaction || blobTxCnt >= blobTxLimit) {
+			if len(nextAction.BlobHashes()) > 0 && blobTxCnt >= blobTxLimit {
 				actionIterator.PopAccount()
 				continue
 			}
