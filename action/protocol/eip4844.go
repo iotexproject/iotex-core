@@ -1,12 +1,18 @@
-package block
+package protocol
 
 import (
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/params"
+)
 
-	"github.com/iotexproject/iotex-core/action/protocol"
+type (
+	blockHeader interface {
+		BaseFee() *big.Int
+		BlobGasUsed() uint64
+		ExcessBlobGas() uint64
+	}
 )
 
 var (
@@ -17,7 +23,7 @@ var (
 // VerifyEIP4844Header verifies the presence of the excessBlobGas field and that
 // if the current block contains no transactions, the excessBlobGas is updated
 // accordingly.
-func VerifyEIP4844Header(parent *protocol.TipInfo, header *Header) error {
+func VerifyEIP4844Header(parent *TipInfo, header blockHeader) error {
 	// Verify that the blob gas used remains within reasonable limits.
 	if header.BlobGasUsed() > params.MaxBlobGasPerBlock {
 		return fmt.Errorf("blob gas used %d exceeds maximum allowance %d", header.BlobGasUsed(), params.MaxBlobGasPerBlock)

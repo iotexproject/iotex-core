@@ -346,7 +346,11 @@ func (sct *SmartContractTest) runExecutions(
 		}
 		hashes = append(hashes, selpHash)
 	}
-	blk, err := bc.MintNewBlock(fixedTime)
+	t, err := getBlockTimeForTest(bc.TipHeight() + 1)
+	if err != nil {
+		return nil, nil, err
+	}
+	blk, err := bc.MintNewBlock(t)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -429,7 +433,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.ActionGasLimit = 10000000
 	}
 	if sct.InitGenesis.IsCancun {
-		cfg.Genesis.Blockchain.UpernavikBlockHeight = 0
+		cfg.Genesis.Blockchain.VanuatuBlockHeight = 1
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
@@ -582,7 +586,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 
 		if sct.InitGenesis.IsBering {
 			// if it is post bering, it compares the status with expected status
-			r.Equal(exec.ExpectedStatus, receipt.Status)
+			r.Equal(exec.ExpectedStatus, receipt.Status, receipt.ExecutionRevertMsg())
 		} else {
 			if exec.Failed {
 				r.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
@@ -1305,9 +1309,25 @@ func TestShanghaiEVM(t *testing.T) {
 
 func TestCancunEVM(t *testing.T) {
 	t.Run("eip1153-transientstorage", func(t *testing.T) {
-		// TODO: re-enable this test when enable Cancun
-		t.Skip()
 		NewSmartContractTest(t, "testdata-cancun/transientstorage.json")
+	})
+	t.Run("eip5656-mcopy", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-cancun/mcopy.json")
+	})
+	t.Run("eip4844-point_evaluation_precompile", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-cancun/point_evaluation.json")
+	})
+	t.Run("eip4844-blobhash", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-cancun/blobhash.json")
+	})
+	t.Run("eip7516-blobbasefee", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-cancun/blobbasefee.json")
+	})
+	t.Run("eip1559-basefee", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-cancun/basefee.json")
+	})
+	t.Run("eip6780-selfdestruct", func(t *testing.T) {
+		t.Skip("TODO: test it ")
 	})
 }
 

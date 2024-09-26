@@ -1568,11 +1568,18 @@ func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context,
 	if err != nil {
 		return 0, err
 	}
+	ctx, err = core.bc.Context(ctx)
+	if err != nil {
+		return 0, err
+	}
+	tip := protocol.MustGetBlockchainCtx(ctx).Tip
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight:    header.Height() + 1,
 		BlockTimeStamp: header.Timestamp().Add(g.BlockInterval),
 		GasLimit:       g.BlockGasLimitByHeight(header.Height() + 1),
 		Producer:       zeroAddr,
+		BaseFee:        protocol.CalcBaseFee(g.Blockchain, &tip),
+		ExcessBlobGas:  protocol.CalcExcessBlobGas(header.ExcessBlobGas(), header.BlobGasUsed()),
 	})
 	exec, err := staking.FindProtocol(core.registry).ConstructExecution(ctx, ms, 0, 0, new(big.Int), core.sf)
 	if err != nil {

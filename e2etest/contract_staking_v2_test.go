@@ -37,6 +37,7 @@ func TestContractStakingV2(t *testing.T) {
 	contractAddress := stakingContractV2Address
 	cfg := initCfg(require)
 	cfg.Genesis.UpernavikBlockHeight = 1
+	cfg.Genesis.VanuatuBlockHeight = 100
 	cfg.Genesis.SystemStakingContractV2Address = contractAddress
 	cfg.Genesis.SystemStakingContractV2Height = 1
 	cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640

@@ -68,6 +68,8 @@ type (
 		AccumulatedTips big.Int
 		// BaseFee is the base fee of the block
 		BaseFee *big.Int
+		// ExcessBlobGas is the excess blob gas of the block
+		ExcessBlobGas uint64
 	}
 
 	// ActionCtx provides action auxiliary information.

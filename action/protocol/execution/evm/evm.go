@@ -166,6 +166,14 @@ func newParams(
 		// Random opcode (EIP-4399) is not supported
 		context.Random = &common.Hash{}
 	}
+	if g.IsVanuatu(blkCtx.BlockHeight) {
+		// enable BLOBBASEFEE opcode
+		context.BlobBaseFee = protocol.CalcBlobFee(blkCtx.ExcessBlobGas)
+		// enable BASEFEE opcode
+		if blkCtx.BaseFee != nil {
+			context.BaseFee = new(big.Int).Set(blkCtx.BaseFee)
+		}
+	}
 
 	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
 		vmConfig = vmCfg
@@ -174,13 +182,18 @@ func newParams(
 	if err != nil {
 		return nil, err
 	}
-
+	vmTxCtx := vm.TxContext{
+		Origin:   executorAddr,
+		GasPrice: execution.GasPrice(),
+	}
+	if g.IsVanuatu(blkCtx.BlockHeight) {
+		// enable BLOBHASH opcode
+		vmTxCtx.BlobHashes = execution.BlobHashes()
+		vmTxCtx.BlobFeeCap = execution.BlobGasFeeCap()
+	}
 	return &Params{
 		context,
-		vm.TxContext{
-			Origin:   executorAddr,
-			GasPrice: execution.GasPrice(),
-		},
+		vmTxCtx,
 		execution.Nonce(),
 		execution.Value(),
 		execution.To(),
@@ -396,6 +409,13 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 	}
 	sumatraTimestamp := (uint64)(sumatraTime.Unix())
 	chainConfig.ShanghaiTime = &sumatraTimestamp
+	// enable Cancun at Vanuatu
+	cancunTime, err := getBlockTime(g.VanuatuBlockHeight)
+	if err != nil {
+		return nil, err
+	}
+	cancunTimestamp := (uint64)(cancunTime.Unix())
+	chainConfig.CancunTime = &cancunTimestamp
 	return &chainConfig, nil
 }
 
@@ -616,6 +636,8 @@ func SimulateExecution(
 			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(g.BlockInterval),
 			GasLimit:       g.BlockGasLimitByHeight(bcCtx.Tip.Height + 1),
 			Producer:       zeroAddr,
+			BaseFee:        protocol.CalcBaseFee(g.Blockchain, &bcCtx.Tip),
+			ExcessBlobGas:  protocol.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed),
 		},
 	)
 
