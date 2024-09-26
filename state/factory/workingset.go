@@ -591,8 +591,8 @@ func (ws *workingSet) pickAndRunActions(
 		ctxWithBlockContext = ctx
 		blkCtx              = protocol.MustGetBlockCtx(ctx)
 		fCtx                = protocol.MustGetFeatureCtx(ctx)
-		blobTxCnt           = uint64(0)
-		blobTxLimit         = genesis.MustExtractGenesisContext(ctx).BlobActionLimitPerBlock
+		blobCnt             = uint64(0)
+		blobLimit           = genesis.MustExtractGenesisContext(ctx).MaxBlobsPerBlock
 	)
 	if ap != nil {
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
@@ -605,7 +605,7 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			}
-			if len(nextAction.BlobHashes()) > 0 && blobTxCnt >= blobTxLimit {
+			if blobCnt+uint64(len(nextAction.BlobHashes())) > blobLimit {
 				actionIterator.PopAccount()
 				continue
 			}
@@ -659,9 +659,7 @@ func (ws *workingSet) pickAndRunActions(
 			ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 			receipts = append(receipts, receipt)
 			executedActions = append(executedActions, nextAction)
-			if len(nextAction.BlobHashes()) > 0 {
-				blobTxCnt++
-			}
+			blobCnt += uint64(len(nextAction.BlobHashes()))
 
 			// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
 			// than certain threshold
@@ -724,14 +722,12 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 		}
 	}
 	if fCtx.EnableBlobTransaction {
-		blobTxCnt := uint64(0)
-		blobTxLimit := genesis.MustExtractGenesisContext(ctx).BlobActionLimitPerBlock
+		blobCnt := uint64(0)
+		blobLimit := genesis.MustExtractGenesisContext(ctx).MaxBlobsPerBlock
 		for _, selp := range blk.Actions {
-			if len(selp.BlobHashes()) > 0 {
-				blobTxCnt++
-				if blobTxCnt > blobTxLimit {
-					return errors.New("too many blob transactions in a block")
-				}
+			blobCnt += uint64(len(selp.BlobHashes()))
+			if blobCnt > blobLimit {
+				return errors.New("too many blob transactions in a block")
 			}
 		}
 		bcCtx := protocol.MustGetBlockchainCtx(ctx)
