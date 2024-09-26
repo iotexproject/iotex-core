@@ -19,6 +19,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/mohae/deepcopy"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -297,7 +298,7 @@ func TestActPool_AddActs(t *testing.T) {
 		tx, err := builder.BuildTransfer(types.NewTx(&types.BlobTx{
 			Nonce:      2,
 			GasTipCap:  uint256.MustFromBig(big.NewInt(10)),
-			GasFeeCap:  uint256.MustFromBig(big.NewInt(20)),
+			GasFeeCap:  uint256.MustFromBig(big.NewInt(2000000000000)),
 			Gas:        100000,
 			To:         common.BytesToAddress(identityset.Address(1).Bytes()),
 			Value:      uint256.MustFromBig(big.NewInt(1)),
@@ -314,7 +315,7 @@ func TestActPool_AddActs(t *testing.T) {
 		tx2, err := builder.BuildTransfer(types.NewTx(&types.BlobTx{
 			Nonce:      1,
 			GasTipCap:  uint256.MustFromBig(big.NewInt(10)),
-			GasFeeCap:  uint256.MustFromBig(big.NewInt(20)),
+			GasFeeCap:  uint256.MustFromBig(big.NewInt(2000000000000)),
 			Gas:        100000,
 			To:         common.BytesToAddress(identityset.Address(1).Bytes()),
 			Value:      uint256.MustFromBig(big.NewInt(2)),
@@ -331,7 +332,7 @@ func TestActPool_AddActs(t *testing.T) {
 		tx3, err := builder.BuildTransfer(types.NewTx(&types.BlobTx{
 			Nonce:      1,
 			GasTipCap:  uint256.MustFromBig(big.NewInt(20)),
-			GasFeeCap:  uint256.MustFromBig(big.NewInt(40)),
+			GasFeeCap:  uint256.MustFromBig(big.NewInt(4000000000000)),
 			Gas:        100000,
 			To:         common.BytesToAddress(identityset.Address(1).Bytes()),
 			Value:      uint256.MustFromBig(big.NewInt(2)),
@@ -345,7 +346,9 @@ func TestActPool_AddActs(t *testing.T) {
 		}))
 		require.NoError(err)
 		// reject non-continuous nonce
-		ap, err := NewActPool(genesis.Default, sf, apConfig)
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g.VanuatuBlockHeight = 0
+		ap, err := NewActPool(g, sf, apConfig)
 		require.NoError(err)
 		require.NoError(ap.Start(ctx))
 		defer ap.Stop(ctx)
