@@ -591,6 +591,8 @@ func (ws *workingSet) pickAndRunActions(
 		ctxWithBlockContext = ctx
 		blkCtx              = protocol.MustGetBlockCtx(ctx)
 		fCtx                = protocol.MustGetFeatureCtx(ctx)
+		blobCnt             = uint64(0)
+		blobLimit           = genesis.MustExtractGenesisContext(ctx).MaxBlobsPerBlock
 	)
 	if ap != nil {
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
@@ -600,6 +602,10 @@ func (ws *workingSet) pickAndRunActions(
 				break
 			}
 			if nextAction.Gas() > blkCtx.GasLimit {
+				actionIterator.PopAccount()
+				continue
+			}
+			if blobCnt+uint64(len(nextAction.BlobHashes())) > blobLimit {
 				actionIterator.PopAccount()
 				continue
 			}
@@ -653,6 +659,7 @@ func (ws *workingSet) pickAndRunActions(
 			ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 			receipts = append(receipts, receipt)
 			executedActions = append(executedActions, nextAction)
+			blobCnt += uint64(len(nextAction.BlobHashes()))
 
 			// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
 			// than certain threshold
@@ -715,6 +722,14 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 		}
 	}
 	if fCtx.EnableBlobTransaction {
+		blobCnt := uint64(0)
+		blobLimit := genesis.MustExtractGenesisContext(ctx).MaxBlobsPerBlock
+		for _, selp := range blk.Actions {
+			blobCnt += uint64(len(selp.BlobHashes()))
+			if blobCnt > blobLimit {
+				return errors.New("too many blob transactions in a block")
+			}
+		}
 		bcCtx := protocol.MustGetBlockchainCtx(ctx)
 		if err := protocol.VerifyEIP4844Header(&bcCtx.Tip, &blk.Header); err != nil {
 			return err

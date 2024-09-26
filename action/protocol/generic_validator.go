@@ -85,6 +85,15 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 				return action.ErrNonceTooLow
 			}
 		}
+		if ok && !featureCtx.EnableAccessListTx && selp.Version() == action.AccessListTxType {
+			return errors.Wrap(action.ErrInvalidAct, "access list tx is not enabled")
+		}
+		if ok && !featureCtx.EnableDynamicFeeTx && selp.Version() == action.DynamicFeeTxType {
+			return errors.Wrap(action.ErrInvalidAct, "dynamic fee tx is not enabled")
+		}
+		if ok && !featureCtx.EnableBlobTransaction && selp.Version() == action.BlobTxType {
+			return errors.Wrap(action.ErrInvalidAct, "blob tx is not enabled")
+		}
 		if ok && featureCtx.EnableDynamicFeeTx {
 			// check transaction's max fee can cover base fee
 			if selp.Envelope.GasFeeCap().Cmp(new(big.Int).SetUint64(action.InitialBaseFee)) < 0 {
