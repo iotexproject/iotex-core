@@ -84,6 +84,8 @@ func (tx *LegacyTx) SanityCheck() error {
 	return nil
 }
 
+func (tx *LegacyTx) ValidateSidecar() error { return nil }
+
 func (tx *LegacyTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
 		Version:  LegacyTxType,

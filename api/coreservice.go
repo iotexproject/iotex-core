@@ -472,6 +472,10 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	if err != nil {
 		return "", err
 	}
+	ctx = protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, core.Genesis()), protocol.BlockCtx{
+		ValidateSidecar: true,
+	})
+	ctx = protocol.WithFeatureCtx(ctx)
 	l := log.Logger("api").With(zap.String("actionHash", hex.EncodeToString(hash[:])))
 	if err = core.ap.Add(ctx, selp); err != nil {
 		txBytes, serErr := proto.Marshal(in)

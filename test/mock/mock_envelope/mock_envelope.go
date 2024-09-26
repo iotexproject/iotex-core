@@ -400,6 +400,20 @@ func (mr *MockEnvelopeMockRecorder) ToEthTx(arg0, arg1 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToEthTx", reflect.TypeOf((*MockEnvelope)(nil).ToEthTx), arg0, arg1)
 }
 
+// ValidateSidecar mocks base method.
+func (m *MockEnvelope) ValidateSidecar() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateSidecar")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateSidecar indicates an expected call of ValidateSidecar.
+func (mr *MockEnvelopeMockRecorder) ValidateSidecar() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateSidecar", reflect.TypeOf((*MockEnvelope)(nil).ValidateSidecar))
+}
+
 // Value mocks base method.
 func (m *MockEnvelope) Value() *big.Int {
 	m.ctrl.T.Helper()
@@ -1027,6 +1041,20 @@ func (m *MockTxCommonInternal) SanityCheck() error {
 func (mr *MockTxCommonInternalMockRecorder) SanityCheck() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SanityCheck", reflect.TypeOf((*MockTxCommonInternal)(nil).SanityCheck))
+}
+
+// ValidateSidecar mocks base method.
+func (m *MockTxCommonInternal) ValidateSidecar() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateSidecar")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateSidecar indicates an expected call of ValidateSidecar.
+func (mr *MockTxCommonInternalMockRecorder) ValidateSidecar() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateSidecar", reflect.TypeOf((*MockTxCommonInternal)(nil).ValidateSidecar))
 }
 
 // Version mocks base method.

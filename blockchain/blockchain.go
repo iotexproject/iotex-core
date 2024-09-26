@@ -94,7 +94,7 @@ type (
 		// CommitBlock validates and appends a block to the chain
 		CommitBlock(blk *block.Block) error
 		// ValidateBlock validates a new block before adding it to the blockchain
-		ValidateBlock(blk *block.Block) error
+		ValidateBlock(*block.Block, ...BlockValidationOption) error
 
 		// AddSubscriber make you listen to every single produced block
 		AddSubscriber(BlockCreationSubscriber) error
@@ -157,6 +157,20 @@ func ClockOption(clk clock.Clock) Option {
 	return func(bc *blockchain) error {
 		bc.clk = clk
 		return nil
+	}
+}
+
+type (
+	BlockValidationCfg struct {
+		validateSidecar bool
+	}
+
+	BlockValidationOption func(*BlockValidationCfg)
+)
+
+func ValidateSidecarOption() BlockValidationOption {
+	return func(opts *BlockValidationCfg) {
+		opts.validateSidecar = true
 	}
 }
 
@@ -258,7 +272,7 @@ func (bc *blockchain) TipHeight() uint64 {
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
-func (bc *blockchain) ValidateBlock(blk *block.Block) error {
+func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOption) error {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	timer := bc.timerFactory.NewTimer("ValidateBlock")
@@ -311,21 +325,25 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
+	cfg := BlockValidationCfg{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 	ctx = protocol.WithBlockCtx(ctx,
 		protocol.BlockCtx{
-			BlockHeight:    blk.Height(),
-			BlockTimeStamp: blk.Timestamp(),
-			GasLimit:       bc.genesis.BlockGasLimitByHeight(blk.Height()),
-			Producer:       producerAddr,
-			BaseFee:        blk.BaseFee(),
-			ExcessBlobGas:  blk.ExcessBlobGas(),
+			BlockHeight:     blk.Height(),
+			BlockTimeStamp:  blk.Timestamp(),
+			GasLimit:        bc.genesis.BlockGasLimitByHeight(blk.Height()),
+			Producer:        producerAddr,
+			BaseFee:         blk.BaseFee(),
+			ExcessBlobGas:   blk.ExcessBlobGas(),
+			ValidateSidecar: cfg.validateSidecar,
 		},
 	)
 	ctx = protocol.WithFeatureCtx(ctx)
 	if bc.blockValidator == nil {
 		return nil
 	}
-
 	return bc.blockValidator.Validate(ctx, blk)
 }
 

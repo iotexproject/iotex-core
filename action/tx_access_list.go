@@ -86,6 +86,8 @@ func (tx *AccessListTx) SanityCheck() error {
 	return nil
 }
 
+func (tx *AccessListTx) ValidateSidecar() error { return nil }
+
 func (tx *AccessListTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
 		Version:  AccessListTxType,
