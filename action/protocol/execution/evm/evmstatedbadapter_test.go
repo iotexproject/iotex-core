@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
@@ -427,6 +428,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		opt := []StateDBAdapterOption{
 			NotFixTopicCopyBugOption(),
 			SuicideTxLogMismatchPanicOption(),
+			EnableCancunEVMOption(),
 		}
 		if async {
 			opt = append(opt, AsyncContractTrieOption())
@@ -982,11 +984,10 @@ func TestStateDBTransientStorage(t *testing.T) {
 	opts = append(opts,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
+		EnableCancunEVMOption(),
 	)
 	state, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 	var (
 		addr0 = common.Address{}
 		addr1 = common.HexToAddress("1234567890")
@@ -1021,4 +1022,44 @@ func TestStateDBTransientStorage(t *testing.T) {
 		require.Equal(value, state.GetTransientState(addr, key))
 	}
 
+}
+
+func TestSelfdestruct6780(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm, err := initMockStateManager(ctrl)
+	r.NoError(err)
+	var opts []StateDBAdapterOption
+	opts = append(opts,
+		FixSnapshotOrderOption(),
+		EnableCancunEVMOption(),
+	)
+	state, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
+	r.NoError(err)
+	_, created, err := accountutil.LoadOrCreateAccount(state.sm, _c4)
+	r.True(created)
+	addrs := []common.Address{_c1, _c2, _c3, _c4}
+	for _, addr := range addrs {
+		state.CreateAccount(addr)
+		state.Selfdestruct6780(addr)
+		state.Snapshot()
+		r.True(state.Exist(addr))
+	}
+	r.NoError(state.CommitContracts())
+	for _, addr := range addrs[:3] {
+		r.False(state.Exist(addr))
+	}
+	r.True(state.Exist(_c4)) // _c4 is a pre-existing account, won't be deleted by Selfdestruct6780
+	state.RevertToSnapshot(3)
+	r.Equal(createdAccount{
+		_c1: struct{}{}, _c2: struct{}{}, _c3: struct{}{}}, state.createdAccount)
+	state.RevertToSnapshot(2)
+	r.Equal(createdAccount{
+		_c1: struct{}{}, _c2: struct{}{}, _c3: struct{}{}}, state.createdAccount)
+	state.RevertToSnapshot(1)
+	r.Equal(createdAccount{
+		_c1: struct{}{}, _c2: struct{}{}}, state.createdAccount)
+	state.RevertToSnapshot(0)
+	r.Equal(createdAccount{
+		_c1: struct{}{}}, state.createdAccount)
 }
