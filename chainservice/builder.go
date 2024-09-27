@@ -536,6 +536,20 @@ func (builder *Builder) buildBlockSyncer() error {
 	chain := builder.cs.chain
 	consens := builder.cs.consensus
 	blockdao := builder.cs.blockdao
+	cfg := builder.cfg
+	// estimateHeight estimates the height of the block at the given time
+	// it ignores the influence of the block missing in the blockchain
+	// it must >= the real head height of the block
+	estimateHeight := func(blk *block.Block, duration time.Duration) uint64 {
+		if blk.Height() >= cfg.Genesis.DardanellesBlockHeight {
+			return blk.Height() + uint64(duration.Seconds()/float64(cfg.DardanellesUpgrade.BlockInterval))
+		}
+		durationToDardanelles := time.Duration(cfg.Genesis.DardanellesBlockHeight-blk.Height()) * time.Duration(cfg.Genesis.BlockInterval)
+		if duration < durationToDardanelles {
+			return blk.Height() + uint64(duration.Seconds()/float64(cfg.Genesis.BlockInterval))
+		}
+		return cfg.Genesis.DardanellesBlockHeight + uint64((duration-durationToDardanelles).Seconds()/float64(cfg.DardanellesUpgrade.BlockInterval))
+	}
 
 	blocksync, err := blocksync.NewBlockSyncer(
 		builder.cfg.BlockSync,
@@ -570,8 +584,13 @@ func (builder *Builder) buildBlockSyncer() error {
 				retries = 4
 			}
 			var err error
+			opts := []blockchain.BlockValidationOption{}
+			if now := time.Now(); now.Before(blk.Timestamp()) ||
+				blk.Height()+cfg.Genesis.MinBlocksForBlobRequests > estimateHeight(blk, now.Sub(blk.Timestamp())) {
+				opts = append(opts, blockchain.ValidateSidecarOption())
+			}
 			for i := 0; i < retries; i++ {
-				if err = chain.ValidateBlock(blk); err == nil {
+				if err = chain.ValidateBlock(blk, opts...); err == nil {
 					if err = chain.CommitBlock(blk); err == nil {
 						break
 					}
@@ -831,13 +850,13 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.buildConsensusComponent(); err != nil {
 		return nil, err
 	}
+	if err := builder.buildNodeInfoManager(); err != nil {
+		return nil, err
+	}
 	if err := builder.buildBlockSyncer(); err != nil {
 		return nil, err
 	}
 	if err := builder.buildActionSyncer(); err != nil {
-		return nil, err
-	}
-	if err := builder.buildNodeInfoManager(); err != nil {
 		return nil, err
 	}
 	cs := builder.cs
