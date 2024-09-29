@@ -99,6 +99,9 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, _ protocol
 	if dataSize > sizeLimit {
 		return action.ErrOversizedData
 	}
+	if fCtx.EnableBlobTransaction && len(elp.BlobHashes()) > 0 && elp.To() == nil {
+		return errors.New("cannot create contract in blob tx")
+	}
 	return nil
 }
 
