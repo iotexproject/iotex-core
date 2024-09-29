@@ -13,11 +13,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -25,7 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func TestMerkle(t *testing.T) {
@@ -207,21 +207,9 @@ func makeBlock(tb testing.TB, n int) *Block {
 func TestVerifyBlock(t *testing.T) {
 	require := require.New(t)
 
-	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	b, err := CreateTestBlockWithBlob(1, 1)
 	require.NoError(err)
-
-	tsf2, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
-	require.NoError(err)
-
-	blkhash, err := tsf1.Hash()
-	require.NoError(err)
-	blk, err := NewTestingBuilder().
-		SetHeight(1).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf1, tsf2).
-		SignAndBuild(identityset.PrivateKey(27))
-	require.NoError(err)
+	blk := b[0]
 	t.Run("success", func(t *testing.T) {
 		require.True(blk.Header.VerifySignature())
 		require.NoError(blk.VerifyTxRoot())
