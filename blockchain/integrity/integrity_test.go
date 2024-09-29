@@ -532,6 +532,7 @@ func TestGetBlockHash(t *testing.T) {
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
 	cfg.Genesis.EnableGravityChainVoting = false
+	cfg.Genesis.AleutianBlockHeight = 2
 	cfg.Genesis.HawaiiBlockHeight = 4
 	cfg.Genesis.MidwayBlockHeight = 9
 	cfg.ActPool.MinGasPriceStr = "0"
@@ -692,7 +693,7 @@ func addTestingGetBlockHash(t *testing.T, g genesis.Genesis, bc blockchain.Block
 			bcHash, err = dao.GetBlockHash(targetHeight)
 			require.NoError(err)
 		}
-		require.Equal(r.Logs()[0].Topics[0], bcHash)
+		require.Equal(r.Logs()[0].Topics[1], bcHash)
 		nonce++
 	}
 }
