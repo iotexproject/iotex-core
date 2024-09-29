@@ -104,6 +104,10 @@ func (cc *ChangeCandidate) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(cc.Proto()))
 }
 
+func (act *ChangeCandidate) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_StakeChangeCandidate{StakeChangeCandidate: act.Proto()}
+}
+
 // Proto converts change candidate to protobuf
 func (cc *ChangeCandidate) Proto() *iotextypes.StakeChangeCandidate {
 	act := &iotextypes.StakeChangeCandidate{

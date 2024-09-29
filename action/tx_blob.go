@@ -26,6 +26,27 @@ type BlobTx struct {
 	blob       *BlobTxData
 }
 
+// NewBlobTx creates a new blob transaction
+func NewBlobTx(
+	chainID uint32,
+	nonce uint64,
+	gasLimit uint64,
+	gasTipCap *big.Int,
+	gasFeeCap *big.Int,
+	accessList types.AccessList,
+	blobData *BlobTxData,
+) *BlobTx {
+	return &BlobTx{
+		chainID:    chainID,
+		nonce:      nonce,
+		gasLimit:   gasLimit,
+		gasTipCap:  uint256.MustFromBig(gasTipCap),
+		gasFeeCap:  uint256.MustFromBig(gasFeeCap),
+		accessList: accessList,
+		blob:       blobData,
+	}
+}
+
 func (tx *BlobTx) Version() uint32 {
 	return BlobTxType
 }

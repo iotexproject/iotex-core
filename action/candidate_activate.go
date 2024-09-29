@@ -73,6 +73,10 @@ func (cr *CandidateActivate) SanityCheck() error {
 	return nil
 }
 
+func (cr *CandidateActivate) FillAction(act *iotextypes.ActionCore) {
+	act.Action = &iotextypes.ActionCore_CandidateActivate{CandidateActivate: cr.Proto()}
+}
+
 // Proto converts CandidateActivate to protobuf's Action
 func (cr *CandidateActivate) Proto() *iotextypes.CandidateActivate {
 	return &iotextypes.CandidateActivate{

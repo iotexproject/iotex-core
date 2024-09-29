@@ -14,8 +14,9 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 const (
@@ -110,6 +111,10 @@ func (cu *CandidateUpdate) RewardAddress() address.Address { return cu.rewardAdd
 // Serialize returns a raw byte stream of the CandidateUpdate struct
 func (cu *CandidateUpdate) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(cu.Proto()))
+}
+
+func (act *CandidateUpdate) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_CandidateUpdate{CandidateUpdate: act.Proto()}
 }
 
 // Proto converts to protobuf CandidateUpdate Action

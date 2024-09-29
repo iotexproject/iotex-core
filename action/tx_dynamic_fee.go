@@ -21,6 +21,18 @@ type DynamicFeeTx struct {
 	accessList types.AccessList
 }
 
+// NewDynamicFeeTx creates a new dynamic fee transaction
+func NewDynamicFeeTx(chainID uint32, nonce uint64, gasLimit uint64, gasFeeCap, gasTipCap *big.Int, accessList types.AccessList) *DynamicFeeTx {
+	return &DynamicFeeTx{
+		chainID:    chainID,
+		nonce:      nonce,
+		gasLimit:   gasLimit,
+		gasFeeCap:  gasFeeCap,
+		gasTipCap:  gasTipCap,
+		accessList: accessList,
+	}
+}
+
 func (tx *DynamicFeeTx) Version() uint32 {
 	return DynamicFeeTxType
 }

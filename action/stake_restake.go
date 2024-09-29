@@ -114,6 +114,10 @@ func (rs *Restake) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(rs.Proto()))
 }
 
+func (act *Restake) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_StakeRestake{StakeRestake: act.Proto()}
+}
+
 // Proto converts to protobuf Restake Action
 func (rs *Restake) Proto() *iotextypes.StakeRestake {
 	act := &iotextypes.StakeRestake{

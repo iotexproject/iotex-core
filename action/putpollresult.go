@@ -45,6 +45,10 @@ func (r *PutPollResult) LoadProto(putPollResultPb *iotextypes.PutPollResult) err
 	return r.candidates.LoadProto(putPollResultPb.Candidates)
 }
 
+func (act *PutPollResult) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_PutPollResult{PutPollResult: act.Proto()}
+}
+
 // Proto converts put poll result action into a proto message.
 func (r *PutPollResult) Proto() *iotextypes.PutPollResult {
 	return &iotextypes.PutPollResult{

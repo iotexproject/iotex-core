@@ -13,8 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
-
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 type (
@@ -85,6 +83,14 @@ type (
 		payload actionPayload
 	}
 )
+
+// NewEnvelop creates a new envelope
+func NewEnvelop(common TxCommonInternal, payload actionPayload) Envelope {
+	return &envelope{
+		common:  common,
+		payload: payload,
+	}
+}
 
 func (elp *envelope) Version() uint32 {
 	return elp.common.Version()
@@ -246,52 +252,7 @@ func (elp *envelope) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) 
 // Proto convert Envelope to protobuf format.
 func (elp *envelope) Proto() *iotextypes.ActionCore {
 	actCore := elp.common.toProto()
-
-	// TODO assert each action
-	switch act := elp.Action().(type) {
-	case *Transfer:
-		actCore.Action = &iotextypes.ActionCore_Transfer{Transfer: act.Proto()}
-	case *Execution:
-		actCore.Action = &iotextypes.ActionCore_Execution{Execution: act.Proto()}
-	case *GrantReward:
-		actCore.Action = &iotextypes.ActionCore_GrantReward{GrantReward: act.Proto()}
-	case *ClaimFromRewardingFund:
-		actCore.Action = &iotextypes.ActionCore_ClaimFromRewardingFund{ClaimFromRewardingFund: act.Proto()}
-	case *DepositToRewardingFund:
-		actCore.Action = &iotextypes.ActionCore_DepositToRewardingFund{DepositToRewardingFund: act.Proto()}
-	case *PutPollResult:
-		actCore.Action = &iotextypes.ActionCore_PutPollResult{PutPollResult: act.Proto()}
-	case *CreateStake:
-		actCore.Action = &iotextypes.ActionCore_StakeCreate{StakeCreate: act.Proto()}
-	case *Unstake:
-		actCore.Action = &iotextypes.ActionCore_StakeUnstake{StakeUnstake: act.Proto()}
-	case *WithdrawStake:
-		actCore.Action = &iotextypes.ActionCore_StakeWithdraw{StakeWithdraw: act.Proto()}
-	case *DepositToStake:
-		actCore.Action = &iotextypes.ActionCore_StakeAddDeposit{StakeAddDeposit: act.Proto()}
-	case *Restake:
-		actCore.Action = &iotextypes.ActionCore_StakeRestake{StakeRestake: act.Proto()}
-	case *ChangeCandidate:
-		actCore.Action = &iotextypes.ActionCore_StakeChangeCandidate{StakeChangeCandidate: act.Proto()}
-	case *TransferStake:
-		actCore.Action = &iotextypes.ActionCore_StakeTransferOwnership{StakeTransferOwnership: act.Proto()}
-	case *CandidateRegister:
-		actCore.Action = &iotextypes.ActionCore_CandidateRegister{CandidateRegister: act.Proto()}
-	case *CandidateUpdate:
-		actCore.Action = &iotextypes.ActionCore_CandidateUpdate{CandidateUpdate: act.Proto()}
-	case *CandidateActivate:
-		actCore.Action = &iotextypes.ActionCore_CandidateActivate{CandidateActivate: act.Proto()}
-	case *CandidateEndorsement:
-		actCore.Action = &iotextypes.ActionCore_CandidateEndorsement{CandidateEndorsement: act.Proto()}
-	case *CandidateTransferOwnership:
-		actCore.Action = &iotextypes.ActionCore_CandidateTransferOwnership{CandidateTransferOwnership: act.Proto()}
-	case *txContainer:
-		actCore.Action = &iotextypes.ActionCore_TxContainer{TxContainer: act.proto()}
-	case *MigrateStake:
-		actCore.Action = &iotextypes.ActionCore_StakeMigrate{StakeMigrate: act.Proto()}
-	default:
-		log.S().Panicf("Cannot convert type of action %T.\r\n", act)
-	}
+	elp.payload.FillAction(actCore)
 	return actCore
 }
 

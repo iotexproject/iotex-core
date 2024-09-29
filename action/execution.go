@@ -97,6 +97,10 @@ func (ex *Execution) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(ex.Proto()))
 }
 
+func (act *Execution) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_Execution{Execution: act.Proto()}
+}
+
 // Proto converts Execution to protobuf's Execution
 func (ex *Execution) Proto() *iotextypes.Execution {
 	act := &iotextypes.Execution{
