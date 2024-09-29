@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -60,9 +61,24 @@ func TestBlobStore(t *testing.T) {
 		acts = append(acts, selp)
 		return nil
 	}))
-	acts[0].Hash()
 	r.Len(acts, 1)
 	r.Equal(act, acts[0])
+	r.NoError(store.Close())
+	// evict action
+	cfg.Datacap = 1500
+	store, err = newActionStore(cfg, encode, decode)
+	r.NoError(err)
+	r.NoError(store.Open(func(selp *action.SealedEnvelope) error {
+		return nil
+	}))
+	act2, err := action.SignedExecution("", identityset.PrivateKey(1), 2, big.NewInt(1), 100, big.NewInt(100), nil)
+	r.NoError(err)
+	r.NoError(store.Put(act2))
+	_, err = store.Get(assertions.MustNoErrorV(act.Hash()))
+	r.ErrorIs(err, errBlobNotFound)
+	selp, err := store.Get(assertions.MustNoErrorV(act2.Hash()))
+	r.NoError(err)
+	r.Equal(assertions.MustNoErrorV(act2.Hash()), assertions.MustNoErrorV(selp.Hash()))
 }
 
 func BenchmarkDatabase(b *testing.B) {
