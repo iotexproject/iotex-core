@@ -110,9 +110,11 @@ func fromProtoBlobTxData(pb *iotextypes.BlobTxData) (*BlobTxData, error) {
 			blob.blobHashes[i] = common.BytesToHash(bh[i])
 		}
 	}
-	var err error
-	if blob.sidecar, err = FromProtoBlobTxSideCar(pb.GetBlobTxSidecar()); err != nil {
-		return nil, err
+	if sidecar := pb.GetBlobTxSidecar(); sidecar != nil {
+		var err error
+		if blob.sidecar, err = FromProtoBlobTxSideCar(sidecar); err != nil {
+			return nil, err
+		}
 	}
 	return &blob, nil
 }
