@@ -197,7 +197,7 @@ func gasPrice(t *testing.T, handler *hTTPHandler) {
 
 func maxPriorityFee(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
-	result := serveTestHTTP(require, handler, "eth_maxPriorityFee", "[]")
+	result := serveTestHTTP(require, handler, "eth_maxPriorityFeePerGas", "[]")
 	actual, ok := result.(string)
 	require.True(ok)
 	require.Equal(uint64ToHex(1000000000000), actual)

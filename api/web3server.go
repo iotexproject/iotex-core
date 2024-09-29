@@ -154,7 +154,7 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.ethAccounts()
 	case "eth_gasPrice":
 		res, err = svr.gasPrice()
-	case "eth_maxPriorityFee":
+	case "eth_maxPriorityFeePerGas":
 		res, err = svr.maxPriorityFee()
 	case "eth_getBlockByHash":
 		res, err = svr.getBlockByHash(web3Req)
