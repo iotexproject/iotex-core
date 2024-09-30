@@ -535,11 +535,45 @@ func (builder *Builder) buildBlockSyncer() error {
 	p2pAgent := builder.cs.p2pAgent
 	chain := builder.cs.chain
 	consens := builder.cs.consensus
+	blockdao := builder.cs.blockdao
+	cfg := builder.cfg
+	// estimateTipHeight estimates the height of the block at the given time
+	// it ignores the influence of the block missing in the blockchain
+	// it must >= the real head height of the block
+	estimateTipHeight := func(blk *block.Block, duration time.Duration) uint64 {
+		if blk.Height() >= cfg.Genesis.DardanellesBlockHeight {
+			return blk.Height() + uint64(duration.Seconds()/float64(cfg.DardanellesUpgrade.BlockInterval))
+		}
+		durationToDardanelles := time.Duration(cfg.Genesis.DardanellesBlockHeight-blk.Height()) * time.Duration(cfg.Genesis.BlockInterval)
+		if duration < durationToDardanelles {
+			return blk.Height() + uint64(duration.Seconds()/float64(cfg.Genesis.BlockInterval))
+		}
+		return cfg.Genesis.DardanellesBlockHeight + uint64((duration-durationToDardanelles).Seconds()/float64(cfg.DardanellesUpgrade.BlockInterval))
+	}
 
 	blocksync, err := blocksync.NewBlockSyncer(
 		builder.cfg.BlockSync,
 		chain.TipHeight,
-		builder.cs.blockdao.GetBlockByHeight,
+		func(height uint64) (*block.Block, error) {
+			blk, err := blockdao.GetBlockByHeight(height)
+			if err != nil {
+				return blk, err
+			}
+			if blk.HasBlob() {
+				// block already has blob sidecar attached
+				return blk, nil
+			}
+			sidecars, hashes, err := blockdao.GetBlobsByHeight(height)
+			if errors.Cause(err) == db.ErrNotExist {
+				// the block does not have blob or blob has expired
+				return blk, nil
+			}
+			if err != nil {
+				return nil, err
+			}
+			deser := (&action.Deserializer{}).SetEvmNetworkID(builder.cfg.Chain.EVMNetworkID)
+			return blk.WithBlobSidecars(sidecars, hashes, deser)
+		},
 		func(blk *block.Block) error {
 			if err := consens.ValidateBlockFooter(blk); err != nil {
 				log.L().Debug("Failed to validate block footer.", zap.Error(err), zap.Uint64("height", blk.Height()))
@@ -550,8 +584,13 @@ func (builder *Builder) buildBlockSyncer() error {
 				retries = 4
 			}
 			var err error
+			opts := []blockchain.BlockValidationOption{}
+			if now := time.Now(); now.After(blk.Timestamp()) &&
+				blk.Height()+cfg.Genesis.MinBlocksForBlobRetention <= estimateTipHeight(blk, now.Sub(blk.Timestamp())) {
+				opts = append(opts, blockchain.SkipSidecarValidationOption())
+			}
 			for i := 0; i < retries; i++ {
-				if err = chain.ValidateBlock(blk); err == nil {
+				if err = chain.ValidateBlock(blk, opts...); err == nil {
 					if err = chain.CommitBlock(blk); err == nil {
 						break
 					}
@@ -811,13 +850,13 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.buildConsensusComponent(); err != nil {
 		return nil, err
 	}
+	if err := builder.buildNodeInfoManager(); err != nil {
+		return nil, err
+	}
 	if err := builder.buildBlockSyncer(); err != nil {
 		return nil, err
 	}
 	if err := builder.buildActionSyncer(); err != nil {
-		return nil, err
-	}
-	if err := builder.buildNodeInfoManager(); err != nil {
 		return nil, err
 	}
 	cs := builder.cs

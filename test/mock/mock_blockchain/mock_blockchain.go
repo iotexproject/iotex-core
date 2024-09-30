@@ -255,17 +255,22 @@ func (mr *MockBlockchainMockRecorder) TipHeight() *gomock.Call {
 }
 
 // ValidateBlock mocks base method.
-func (m *MockBlockchain) ValidateBlock(blk *block.Block) error {
+func (m *MockBlockchain) ValidateBlock(arg0 *block.Block, arg1 ...blockchain.BlockValidationOption) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateBlock", blk)
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ValidateBlock", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ValidateBlock indicates an expected call of ValidateBlock.
-func (mr *MockBlockchainMockRecorder) ValidateBlock(blk interface{}) *gomock.Call {
+func (mr *MockBlockchainMockRecorder) ValidateBlock(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), blk)
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), varargs...)
 }
 
 // MockBlockBuilderFactory is a mock of BlockBuilderFactory interface.

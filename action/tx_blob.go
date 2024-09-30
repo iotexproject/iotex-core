@@ -15,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+var _ validateSidecar = (*BlobTx)(nil)
+
 // BlobTx represents EIP-4844 blob transaction
 type BlobTx struct {
 	chainID    uint32
@@ -109,6 +111,8 @@ func (tx *BlobTx) SanityCheck() error {
 	}
 	return tx.blob.SanityCheck()
 }
+
+func (tx *BlobTx) ValidateSidecar() error { return tx.blob.ValidateSidecar() }
 
 func (tx *BlobTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{

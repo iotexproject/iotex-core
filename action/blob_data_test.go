@@ -76,44 +76,48 @@ func TestBlobTxData(t *testing.T) {
 		decodeBlob := MustNoErrorV(fromProtoBlobTxData(&recv))
 		r.Equal(blobData, decodeBlob)
 	})
-	t.Run("Sanity", func(t *testing.T) {
+	t.Run("SanityCheck/ValidateSidecar", func(t *testing.T) {
 		r.NoError(blobData.SanityCheck())
+		blobData.blobFeeCap = uint256.NewInt(1)
+		blobData.blobFeeCap.Lsh(blobData.blobFeeCap, 255)
+		r.ErrorIs(blobData.SanityCheck(), ErrNegativeValue)
+		r.NoError(blobData.ValidateSidecar())
 		// check blob hashes size
 		h := blobData.blobHashes
 		blobData.blobHashes = blobData.blobHashes[:0]
-		r.ErrorContains(blobData.SanityCheck(), "blobless blob transaction")
+		r.ErrorContains(blobData.ValidateSidecar(), "blobless blob transaction")
 		blobData.blobHashes = h
 		// check Blobs, Commitments, Proofs size
 		sidecar := blobData.sidecar
 		sidecar.Blobs = append(sidecar.Blobs, kzg4844.Blob{})
-		r.ErrorContains(blobData.SanityCheck(), "number of blobs and hashes mismatch")
+		r.ErrorContains(blobData.ValidateSidecar(), "number of blobs and hashes mismatch")
 		sidecar.Blobs = sidecar.Blobs[:1]
 		sidecar.Commitments = append(sidecar.Commitments, kzg4844.Commitment{})
-		r.ErrorContains(blobData.SanityCheck(), "number of blobs and commitments mismatch")
+		r.ErrorContains(blobData.ValidateSidecar(), "number of blobs and commitments mismatch")
 		sidecar.Commitments = sidecar.Commitments[:1]
 		sidecar.Proofs = append(sidecar.Proofs, kzg4844.Proof{})
-		r.ErrorContains(blobData.SanityCheck(), "number of blobs and proofs mismatch")
+		r.ErrorContains(blobData.ValidateSidecar(), "number of blobs and proofs mismatch")
 		sidecar.Proofs = sidecar.Proofs[:1]
-		r.NoError(blobData.SanityCheck())
+		r.NoError(blobData.ValidateSidecar())
 		// verify commitments hash
 		b := sidecar.Commitments[0][3]
 		sidecar.Commitments[0][3] = b + 1
-		r.ErrorContains(blobData.SanityCheck(), "blob 0: computed hash 01fca1582898b9c172b690c0ea344713bb28199208d3553b5ed56f33e0f34034 mismatches transaction one")
+		r.ErrorContains(blobData.ValidateSidecar(), "blob 0: computed hash 01fca1582898b9c172b690c0ea344713bb28199208d3553b5ed56f33e0f34034 mismatches transaction one")
 		sidecar.Commitments[0][3] = b
 		// verify blobs via KZG
 		b = sidecar.Blobs[0][31]
 		sidecar.Blobs[0][31] = b + 1
-		r.ErrorContains(blobData.SanityCheck(), "invalid blob 0: can't verify opening proof")
+		r.ErrorContains(blobData.ValidateSidecar(), "invalid blob 0: can't verify opening proof")
 		sidecar.Blobs[0][31] = b
 		b = sidecar.Proofs[0][42]
 		sidecar.Proofs[0][42] = b + 1
-		r.ErrorContains(blobData.SanityCheck(), "invalid blob 0: invalid compressed coordinate: square root doesn't exist")
+		r.ErrorContains(blobData.ValidateSidecar(), "invalid blob 0: invalid compressed coordinate: square root doesn't exist")
 		sidecar.Proofs[0][42] = b
 		b = sidecar.Proofs[0][47]
 		sidecar.Proofs[0][47] = b + 1
-		r.ErrorContains(blobData.SanityCheck(), "invalid blob 0: invalid point: subgroup check failed")
+		r.ErrorContains(blobData.ValidateSidecar(), "invalid blob 0: invalid point: subgroup check failed")
 		sidecar.Proofs[0][47] = b
-		r.NoError(blobData.SanityCheck())
+		r.NoError(blobData.ValidateSidecar())
 	})
 }
 

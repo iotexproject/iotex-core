@@ -110,9 +110,11 @@ func fromProtoBlobTxData(pb *iotextypes.BlobTxData) (*BlobTxData, error) {
 			blob.blobHashes[i] = common.BytesToHash(bh[i])
 		}
 	}
-	var err error
-	if blob.sidecar, err = FromProtoBlobTxSideCar(pb.GetBlobTxSidecar()); err != nil {
-		return nil, err
+	if sc := pb.GetBlobTxSidecar(); sc != nil {
+		var err error
+		if blob.sidecar, err = FromProtoBlobTxSideCar(sc); err != nil {
+			return nil, err
+		}
 	}
 	return &blob, nil
 }
@@ -142,6 +144,10 @@ func (tx *BlobTxData) SanityCheck() error {
 	if price := tx.blobFeeCap; price != nil && price.Sign() < 0 {
 		return errors.Wrap(ErrNegativeValue, "negative blob fee cap")
 	}
+	return nil
+}
+
+func (tx *BlobTxData) ValidateSidecar() error {
 	var (
 		size    = len(tx.blobHashes)
 		sidecar = tx.sidecar
