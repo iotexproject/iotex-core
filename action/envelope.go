@@ -62,7 +62,6 @@ type (
 		Version() uint32
 		ChainID() uint32
 		SanityCheck() error
-		ValidateSidecar() error
 		toProto() *iotextypes.ActionCore
 		setNonce(uint64)
 		setGas(uint64)
@@ -485,5 +484,8 @@ func (elp *envelope) SanityCheck() error {
 }
 
 func (elp *envelope) ValidateSidecar() error {
-	return elp.common.ValidateSidecar()
+	if vsc, ok := elp.common.(validateSidecar); ok {
+		return vsc.ValidateSidecar()
+	}
+	return nil
 }

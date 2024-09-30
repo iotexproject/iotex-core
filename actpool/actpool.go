@@ -178,9 +178,6 @@ func (ap *actPool) Start(ctx context.Context) error {
 	}
 	// add blob txs to actpool in nonce order
 	sort.Sort(blobs)
-	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		ValidateSidecar: true,
-	})
 	for _, selp := range blobs {
 		if err := ap.add(ctx, selp); err != nil {
 			return err

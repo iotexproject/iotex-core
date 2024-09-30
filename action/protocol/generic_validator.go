@@ -124,7 +124,7 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 				return errors.Wrapf(action.ErrUnderpriced, "blob fee cap is too low: %s, base fee: %s", selp.BlobGasFeeCap().String(), basefee.String())
 			}
 			// validate sidecar
-			if blkCtx, ok := GetBlockCtx(ctx); ok && blkCtx.ValidateSidecar {
+			if blkCtx, ok := GetBlockCtx(ctx); ok && !blkCtx.SkipSidecarValidation {
 				if err := selp.ValidateSidecar(); err != nil {
 					return errors.Wrap(err, "failed to validate blob sidecar")
 				}

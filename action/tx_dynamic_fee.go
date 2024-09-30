@@ -103,8 +103,6 @@ func (tx *DynamicFeeTx) SanityCheck() error {
 	return nil
 }
 
-func (tx *DynamicFeeTx) ValidateSidecar() error { return nil }
-
 func (tx *DynamicFeeTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
 		Version:  uint32(DynamicFeeTxType),

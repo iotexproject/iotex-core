@@ -537,10 +537,10 @@ func (builder *Builder) buildBlockSyncer() error {
 	consens := builder.cs.consensus
 	blockdao := builder.cs.blockdao
 	cfg := builder.cfg
-	// estimateHeight estimates the height of the block at the given time
+	// estimateTipHeight estimates the height of the block at the given time
 	// it ignores the influence of the block missing in the blockchain
 	// it must >= the real head height of the block
-	estimateHeight := func(blk *block.Block, duration time.Duration) uint64 {
+	estimateTipHeight := func(blk *block.Block, duration time.Duration) uint64 {
 		if blk.Height() >= cfg.Genesis.DardanellesBlockHeight {
 			return blk.Height() + uint64(duration.Seconds()/float64(cfg.DardanellesUpgrade.BlockInterval))
 		}
@@ -585,9 +585,9 @@ func (builder *Builder) buildBlockSyncer() error {
 			}
 			var err error
 			opts := []blockchain.BlockValidationOption{}
-			if now := time.Now(); now.Before(blk.Timestamp()) ||
-				blk.Height()+cfg.Genesis.MinBlocksForBlobRequests > estimateHeight(blk, now.Sub(blk.Timestamp())) {
-				opts = append(opts, blockchain.ValidateSidecarOption())
+			if now := time.Now(); now.After(blk.Timestamp()) &&
+				blk.Height()+cfg.Genesis.MinBlocksForBlobRetention <= estimateTipHeight(blk, now.Sub(blk.Timestamp())) {
+				opts = append(opts, blockchain.SkipSidecarValidationOption())
 			}
 			for i := 0; i < retries; i++ {
 				if err = chain.ValidateBlock(blk, opts...); err == nil {

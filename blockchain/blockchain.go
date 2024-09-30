@@ -162,15 +162,15 @@ func ClockOption(clk clock.Clock) Option {
 
 type (
 	BlockValidationCfg struct {
-		validateSidecar bool
+		skipSidecarValidation bool
 	}
 
 	BlockValidationOption func(*BlockValidationCfg)
 )
 
-func ValidateSidecarOption() BlockValidationOption {
+func SkipSidecarValidationOption() BlockValidationOption {
 	return func(opts *BlockValidationCfg) {
-		opts.validateSidecar = true
+		opts.skipSidecarValidation = true
 	}
 }
 
@@ -331,13 +331,13 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 	}
 	ctx = protocol.WithBlockCtx(ctx,
 		protocol.BlockCtx{
-			BlockHeight:     blk.Height(),
-			BlockTimeStamp:  blk.Timestamp(),
-			GasLimit:        bc.genesis.BlockGasLimitByHeight(blk.Height()),
-			Producer:        producerAddr,
-			BaseFee:         blk.BaseFee(),
-			ExcessBlobGas:   blk.ExcessBlobGas(),
-			ValidateSidecar: cfg.validateSidecar,
+			BlockHeight:           blk.Height(),
+			BlockTimeStamp:        blk.Timestamp(),
+			GasLimit:              bc.genesis.BlockGasLimitByHeight(blk.Height()),
+			Producer:              producerAddr,
+			BaseFee:               blk.BaseFee(),
+			ExcessBlobGas:         blk.ExcessBlobGas(),
+			SkipSidecarValidation: cfg.skipSidecarValidation,
 		},
 	)
 	ctx = protocol.WithFeatureCtx(ctx)

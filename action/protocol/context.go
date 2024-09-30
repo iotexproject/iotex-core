@@ -70,8 +70,8 @@ type (
 		BaseFee *big.Int
 		// ExcessBlobGas is the excess blob gas of the block
 		ExcessBlobGas uint64
-		// ValidateSidecar dictates to validate sidecar (for blob tx) or not
-		ValidateSidecar bool
+		// SkipSidecarValidation dictates to validate sidecar (for blob tx) or not
+		SkipSidecarValidation bool
 	}
 
 	// ActionCtx provides action auxiliary information.

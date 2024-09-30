@@ -15,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+var _ validateSidecar = (*BlobTx)(nil)
+
 // BlobTx represents EIP-4844 blob transaction
 type BlobTx struct {
 	chainID    uint32

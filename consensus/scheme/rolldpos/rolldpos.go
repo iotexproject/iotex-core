@@ -131,7 +131,7 @@ func (cm *chainManager) CommitBlock(blk *block.Block) error {
 
 // ValidateBlock validates a new block before adding it to the blockchain
 func (cm *chainManager) ValidateBlock(blk *block.Block) error {
-	return cm.bc.ValidateBlock(blk, blockchain.ValidateSidecarOption())
+	return cm.bc.ValidateBlock(blk)
 }
 
 // TipHeight returns tip block's height
