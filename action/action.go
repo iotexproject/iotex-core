@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
 
@@ -51,6 +52,8 @@ type (
 	amountForCost interface{ Amount() *big.Int }
 
 	gasLimitForCost interface{ GasLimitForCost() }
+
+	protoForRawHash interface{ ProtoForRawHash() *iotextypes.ActionCore }
 )
 
 // Sign signs the action using sender's private key
