@@ -307,6 +307,20 @@ func (mr *MockEnvelopeMockRecorder) Proto() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Proto", reflect.TypeOf((*MockEnvelope)(nil).Proto))
 }
 
+// ProtoForHash mocks base method.
+func (m *MockEnvelope) ProtoForHash() *iotextypes.ActionCore {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProtoForHash")
+	ret0, _ := ret[0].(*iotextypes.ActionCore)
+	return ret0
+}
+
+// ProtoForHash indicates an expected call of ProtoForHash.
+func (mr *MockEnvelopeMockRecorder) ProtoForHash() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProtoForHash", reflect.TypeOf((*MockEnvelope)(nil).ProtoForHash))
+}
+
 // SanityCheck mocks base method.
 func (m *MockEnvelope) SanityCheck() error {
 	m.ctrl.T.Helper()

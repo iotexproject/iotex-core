@@ -28,6 +28,7 @@ type (
 		Action() Action
 		ToEthTx(uint32, iotextypes.Encoding) (*types.Transaction, error)
 		Proto() *iotextypes.ActionCore
+		ProtoForHash() *iotextypes.ActionCore
 		LoadProto(*iotextypes.ActionCore) error
 		SetNonce(uint64)
 		SetGas(uint64)
@@ -248,6 +249,17 @@ func (elp *envelope) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) 
 		return nil, err
 	}
 	return elp.common.toEthTx(to, tx.Value(), data), nil
+}
+
+func (elp *envelope) ProtoForHash() *iotextypes.ActionCore {
+	var actCore *iotextypes.ActionCore
+	if pfh, ok := elp.common.(protoForRawHash); ok {
+		actCore = pfh.ProtoForRawHash()
+	} else {
+		actCore = elp.common.toProto()
+	}
+	elp.payload.FillAction(actCore)
+	return actCore
 }
 
 // Proto convert Envelope to protobuf format.

@@ -56,7 +56,7 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 		}
 		return rlpRawHash(tx, signer)
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
-		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Envelope.Proto()))), nil
+		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Envelope.ProtoForHash()))), nil
 	default:
 		return hash.ZeroHash256, errors.Errorf("unknown encoding type %v", sealed.encoding)
 	}
@@ -94,7 +94,7 @@ func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
 		}
 		return rlpSignedHash(tx, signer, sealed.Signature())
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
-		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Proto()))), nil
+		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.protoForHash()))), nil
 	default:
 		return hash.ZeroHash256, errors.Errorf("unknown encoding type %v", sealed.encoding)
 	}
@@ -132,6 +132,15 @@ func (sealed *SealedEnvelope) ToEthTx() (*types.Transaction, error) {
 func (sealed *SealedEnvelope) Proto() *iotextypes.Action {
 	return &iotextypes.Action{
 		Core:         sealed.Envelope.Proto(),
+		SenderPubKey: sealed.srcPubkey.Bytes(),
+		Signature:    sealed.signature,
+		Encoding:     sealed.encoding,
+	}
+}
+
+func (sealed *SealedEnvelope) protoForHash() *iotextypes.Action {
+	return &iotextypes.Action{
+		Core:         sealed.Envelope.ProtoForHash(),
 		SenderPubKey: sealed.srcPubkey.Bytes(),
 		Signature:    sealed.signature,
 		Encoding:     sealed.encoding,

@@ -155,6 +155,14 @@ func (tx *BlobTx) toProto() *iotextypes.ActionCore {
 	return &actCore
 }
 
+func (tx *BlobTx) ProtoForRawHash() *iotextypes.ActionCore {
+	actCore := tx.toProto()
+	if actCore.BlobTxData != nil {
+		actCore.BlobTxData.BlobTxSidecar = nil
+	}
+	return actCore
+}
+
 func (tx *BlobTx) fromProto(pb *iotextypes.ActionCore) error {
 	var (
 		feeCap   = new(uint256.Int)
