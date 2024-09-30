@@ -78,6 +78,10 @@ func (tsf *Transfer) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(tsf.Proto()))
 }
 
+func (tsf *Transfer) FillAction(act *iotextypes.ActionCore) {
+	act.Action = &iotextypes.ActionCore_Transfer{Transfer: tsf.Proto()}
+}
+
 // Proto converts Transfer to protobuf's Action
 func (tsf *Transfer) Proto() *iotextypes.Transfer {
 	// used by account-based model

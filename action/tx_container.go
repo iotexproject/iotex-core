@@ -44,6 +44,10 @@ func (etx *txContainer) typeToEncoding() (iotextypes.Encoding, error) {
 	return iotextypes.Encoding_ETHEREUM_EIP155, nil
 }
 
+func (act *txContainer) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_TxContainer{TxContainer: act.proto()}
+}
+
 func (etx *txContainer) proto() *iotextypes.TxContainer {
 	if len(etx.raw) == 0 {
 		var err error

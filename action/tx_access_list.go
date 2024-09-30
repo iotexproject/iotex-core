@@ -26,6 +26,17 @@ type AccessListTx struct {
 	accessList types.AccessList
 }
 
+// NewAccessListTx creates a new access list transaction
+func NewAccessListTx(chainID uint32, nonce uint64, gasLimit uint64, gasPrice *big.Int, accessList types.AccessList) *AccessListTx {
+	return &AccessListTx{
+		chainID:    chainID,
+		nonce:      nonce,
+		gasLimit:   gasLimit,
+		gasPrice:   gasPrice,
+		accessList: accessList,
+	}
+}
+
 func (tx *AccessListTx) Version() uint32 {
 	return AccessListTxType
 }

@@ -191,6 +191,10 @@ func (cr *CandidateRegister) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(cr.Proto()))
 }
 
+func (act *CandidateRegister) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_CandidateRegister{CandidateRegister: act.Proto()}
+}
+
 // Proto converts to protobuf CandidateRegister Action
 func (cr *CandidateRegister) Proto() *iotextypes.CandidateRegister {
 	act := iotextypes.CandidateRegister{

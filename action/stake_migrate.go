@@ -83,6 +83,10 @@ func (ms *MigrateStake) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(ms.Proto()))
 }
 
+func (act *MigrateStake) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_StakeMigrate{StakeMigrate: act.Proto()}
+}
+
 // Proto converts to protobuf Restake Action
 func (ms *MigrateStake) Proto() *iotextypes.StakeMigrate {
 	act := &iotextypes.StakeMigrate{

@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
 
@@ -42,6 +43,7 @@ type (
 	actionPayload interface {
 		IntrinsicGas() (uint64, error)
 		SanityCheck() error
+		FillAction(*iotextypes.ActionCore)
 	}
 
 	hasDestination interface{ Destination() string }

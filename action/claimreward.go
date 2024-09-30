@@ -11,12 +11,12 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const _claimRewardingInterfaceABI = `[
@@ -123,6 +123,10 @@ func (c *ClaimFromRewardingFund) Data() []byte { return c.data }
 // Serialize returns a raw byte stream of a claim action
 func (c *ClaimFromRewardingFund) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(c.Proto()))
+}
+
+func (act *ClaimFromRewardingFund) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_ClaimFromRewardingFund{ClaimFromRewardingFund: act.Proto()}
 }
 
 // Proto converts a claim action struct to a claim action protobuf

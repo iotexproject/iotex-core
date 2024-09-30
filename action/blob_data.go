@@ -27,6 +27,14 @@ type BlobTxData struct {
 	sidecar *types.BlobTxSidecar
 }
 
+func NewBlobTxData(blobFeeCap *uint256.Int, blobHashes []common.Hash, sidecar *types.BlobTxSidecar) *BlobTxData {
+	return &BlobTxData{
+		blobFeeCap: blobFeeCap,
+		blobHashes: blobHashes,
+		sidecar:    sidecar,
+	}
+}
+
 func (tx *BlobTxData) gasFeeCap() *uint256.Int {
 	p := uint256.Int{}
 	if tx.blobFeeCap != nil {

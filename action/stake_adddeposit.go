@@ -110,6 +110,10 @@ func (ds *DepositToStake) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(ds.Proto()))
 }
 
+func (act *DepositToStake) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_StakeAddDeposit{StakeAddDeposit: act.Proto()}
+}
+
 // Proto converts to protobuf DepositToStake Action
 func (ds *DepositToStake) Proto() *iotextypes.StakeAddDeposit {
 	act := &iotextypes.StakeAddDeposit{

@@ -11,12 +11,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -102,6 +102,10 @@ func (ts *TransferStake) Payload() []byte { return ts.payload }
 // Serialize returns a raw byte stream of the transfer stake action struct
 func (ts *TransferStake) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(ts.Proto()))
+}
+
+func (act *TransferStake) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_StakeTransferOwnership{StakeTransferOwnership: act.Proto()}
 }
 
 // Proto converts transfer stake to protobuf

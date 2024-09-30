@@ -8,11 +8,11 @@ package action
 import (
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 var (
@@ -83,6 +83,10 @@ func (g *GrantReward) Height() uint64 { return g.height }
 // Serialize returns a raw byte stream of a grant reward action
 func (g *GrantReward) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(g.Proto()))
+}
+
+func (act *GrantReward) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_GrantReward{GrantReward: act.Proto()}
 }
 
 // Proto converts a grant reward action struct to a grant reward action protobuf

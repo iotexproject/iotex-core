@@ -161,6 +161,10 @@ func (su *Unstake) EthData() ([]byte, error) {
 	return append(_unstakeMethod.ID, data...), nil
 }
 
+func (act *Unstake) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_StakeUnstake{StakeUnstake: act.Proto()}
+}
+
 // NewUnstakeFromABIBinary decodes data into WithdrawStake action
 func NewUnstakeFromABIBinary(data []byte) (*Unstake, error) {
 	var (
@@ -212,6 +216,10 @@ func (sw *WithdrawStake) EthData() ([]byte, error) {
 		return nil, err
 	}
 	return append(_withdrawStakeMethod.ID, data...), nil
+}
+
+func (act *WithdrawStake) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_StakeWithdraw{StakeWithdraw: act.Proto()}
 }
 
 // NewWithdrawStakeFromABIBinary decodes data into WithdrawStake action

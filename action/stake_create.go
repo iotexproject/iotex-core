@@ -132,6 +132,10 @@ func (cs *CreateStake) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(cs.Proto()))
 }
 
+func (act *CreateStake) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_StakeCreate{StakeCreate: act.Proto()}
+}
+
 // Proto converts to protobuf CreateStake Action
 func (cs *CreateStake) Proto() *iotextypes.StakeCreate {
 	act := iotextypes.StakeCreate{

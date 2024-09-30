@@ -119,6 +119,10 @@ func (act *CandidateTransferOwnership) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(act.Proto()))
 }
 
+func (act *CandidateTransferOwnership) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_CandidateTransferOwnership{CandidateTransferOwnership: act.Proto()}
+}
+
 // Proto converts to protobuf CandidateTransferOwnership Action
 func (act *CandidateTransferOwnership) Proto() *iotextypes.CandidateTransferOwnership {
 	ac := iotextypes.CandidateTransferOwnership{

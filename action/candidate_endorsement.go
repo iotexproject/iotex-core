@@ -183,6 +183,10 @@ func (act *CandidateEndorsement) Op() CandidateEndorsementOp {
 	return act.op
 }
 
+func (act *CandidateEndorsement) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_CandidateEndorsement{CandidateEndorsement: act.Proto()}
+}
+
 // Proto converts CandidateEndorsement to protobuf's Action
 func (act *CandidateEndorsement) Proto() *iotextypes.CandidateEndorsement {
 	return &iotextypes.CandidateEndorsement{

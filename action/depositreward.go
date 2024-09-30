@@ -11,11 +11,11 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const _depositRewardInterfaceABI = `[
@@ -85,6 +85,10 @@ func (d *DepositToRewardingFund) Data() []byte { return d.data }
 // Serialize returns a raw byte stream of a deposit action
 func (d *DepositToRewardingFund) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(d.Proto()))
+}
+
+func (act *DepositToRewardingFund) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_DepositToRewardingFund{DepositToRewardingFund: act.Proto()}
 }
 
 // Proto converts a deposit action struct to a deposit action protobuf
