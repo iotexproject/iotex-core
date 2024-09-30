@@ -53,6 +53,8 @@ type (
 	amountForCost interface{ Amount() *big.Int }
 
 	gasLimitForCost interface{ GasLimitForCost() }
+
+	validateSidecar interface{ ValidateSidecar() error }
 )
 
 // Sign signs the action using sender's private key

@@ -152,6 +152,10 @@ func (tx *BlobTxData) SanityCheck() error {
 	if price := tx.blobFeeCap; price != nil && price.Sign() < 0 {
 		return errors.Wrap(ErrNegativeValue, "negative blob fee cap")
 	}
+	return nil
+}
+
+func (tx *BlobTxData) ValidateSidecar() error {
 	var (
 		size    = len(tx.blobHashes)
 		sidecar = tx.sidecar

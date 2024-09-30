@@ -33,6 +33,7 @@ type (
 		SetGas(uint64)
 		SetChainID(uint32)
 		SanityCheck() error
+		ValidateSidecar() error
 	}
 
 	// TxData is the interface required to execute a transaction by EVM
@@ -441,4 +442,11 @@ func (elp *envelope) SanityCheck() error {
 		return err
 	}
 	return elp.common.SanityCheck()
+}
+
+func (elp *envelope) ValidateSidecar() error {
+	if vsc, ok := elp.common.(validateSidecar); ok {
+		return vsc.ValidateSidecar()
+	}
+	return nil
 }
