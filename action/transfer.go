@@ -135,7 +135,7 @@ func (tsf *Transfer) SanityCheck() error {
 	}
 	// check if recipient's address is valid
 	if _, err := address.FromString(tsf.recipient); err != nil {
-		return errors.Wrapf(err, "error when validating contract's address %s", tsf.recipient)
+		return errors.Wrapf(ErrAddress, "error when validating contract's address %s", tsf.recipient)
 	}
 	return nil
 }

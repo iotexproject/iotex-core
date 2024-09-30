@@ -59,7 +59,13 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 		return errors.New("failed to get address")
 	}
 	if err = selp.Envelope.SanityCheck(); err != nil {
-		return err
+		// Skip sanity check for TolerateLegacyAddress feature
+		if errors.Cause(err) != action.ErrAddress {
+			return err
+		}
+		if featureCtx, ok := GetFeatureCtx(ctx); ok && !featureCtx.TolerateLegacyAddress {
+			return err
+		}
 	}
 	// Reject action if nonce is too low
 	if action.IsSystemAction(selp) {
