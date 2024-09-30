@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/compress"
 	. "github.com/iotexproject/iotex-core/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -118,16 +118,74 @@ func TestBlobStore(t *testing.T) {
 		ctx := context.Background()
 		testPath, err := testutil.PathOfTempFile("test-blob-store")
 		r.NoError(err)
+		defer func() {
+			testutil.CleanupPath(testPath)
+		}()
 		cfg := db.DefaultConfig
 		cfg.DbPath = testPath
 		kvs := db.NewBoltDB(cfg)
 		bs := NewBlobStore(kvs, 24, time.Second)
-		r.NoError(bs.Start(ctx))
+		testPath1, err := testutil.PathOfTempFile("test-blob-store")
+		r.NoError(err)
+		cfg.DbPath = testPath1
+		fd, err := createFileDAO(false, false, compress.Snappy, cfg)
+		r.NoError(err)
+		r.NotNil(fd)
+		dao := NewBlockDAOWithIndexersAndCache(fd, nil, 10, WithBlobStore(bs))
+		r.NoError(err)
+		r.NoError(dao.Start(ctx))
 		defer func() {
-			r.NoError(bs.Stop(ctx))
-			testutil.CleanupPath(testPath)
+			r.NoError(dao.Stop(ctx))
+			testutil.CleanupPath(testPath1)
 		}()
+
+		blks, err := block.CreateTestBlockWithBlob(1, cfg.BlockStoreBatchSize+7)
+		r.NoError(err)
+		for _, blk := range blks {
+			r.True(blk.HasBlob())
+			r.NoError(dao.PutBlock(ctx, blk))
+		}
 		// cannot store blocks less than tip height
+		err = bs.PutBlock(blks[len(blks)-1])
+		r.ErrorContains(err, "block height 23 is less than current tip height")
+		for i := 0; i < cfg.BlockStoreBatchSize+7; i++ {
+			blk, err := dao.GetBlockByHeight(1 + uint64(i))
+			r.NoError(err)
+			if i < cfg.BlockStoreBatchSize {
+				// blocks written to disk has sidecar removed
+				r.False(blk.HasBlob())
+				r.Equal(4, len(blk.Actions))
+				// verify sidecar
+				sc, hashes, err := dao.GetBlobsByHeight(1 + uint64(i))
+				r.NoError(err)
+				r.Equal(blks[i].Actions[1].BlobTxSidecar(), sc[0])
+				h := MustNoErrorV(blks[i].Actions[1].Hash())
+				r.Equal(hex.EncodeToString(h[:]), hashes[0][2:])
+				sc1, h1, err := dao.GetBlob(h)
+				r.NoError(err)
+				r.Equal(hashes[0], h1)
+				r.Equal(sc[0], sc1)
+				r.Equal(blks[i].Actions[3].BlobTxSidecar(), sc[1])
+				h = MustNoErrorV(blks[i].Actions[3].Hash())
+				r.Equal(hex.EncodeToString(h[:]), hashes[1][2:])
+				sc3, h3, err := dao.GetBlob(h)
+				r.NoError(err)
+				r.Equal(hashes[1], h3)
+				r.Equal(sc[1], sc3)
+
+			} else {
+				// blocks in the staging buffer still has sidecar attached
+				r.True(blk.HasBlob())
+				r.Equal(blks[i], blk)
+			}
+			h := blk.HashBlock()
+			height, err := dao.GetBlockHeight(h)
+			r.NoError(err)
+			r.Equal(1+uint64(i), height)
+			hash, err := dao.GetBlockHash(height)
+			r.NoError(err)
+			r.Equal(h, hash)
+		}
 	})
 }
 
@@ -135,15 +193,4 @@ func createTestHash(i int, height uint64) [][]byte {
 	h1 := hash.BytesToHash256([]byte{byte(i + 128)})
 	h2 := hash.BytesToHash256([]byte{byte(height)})
 	return [][]byte{h1[:], h2[:]}
-}
-
-func createTestBlobTxData(n uint64) *types.BlobTxSidecar {
-	testBlob := kzg4844.Blob{byte(n)}
-	testBlobCommit := MustNoErrorV(kzg4844.BlobToCommitment(testBlob))
-	testBlobProof := MustNoErrorV(kzg4844.ComputeBlobProof(testBlob, testBlobCommit))
-	return &types.BlobTxSidecar{
-		Blobs:       []kzg4844.Blob{testBlob},
-		Commitments: []kzg4844.Commitment{testBlobCommit},
-		Proofs:      []kzg4844.Proof{testBlobProof},
-	}
 }
