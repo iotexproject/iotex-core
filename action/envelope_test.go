@@ -6,8 +6,10 @@ import (
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -128,4 +130,14 @@ func createEnvelope() (Envelope, *Transfer) {
 		SetGasPrice(unit.ConvertIotxToRau(11)).
 		SetNonce(10).SetVersion(1).SetChainID(1).Build()
 	return evlp, tsf
+}
+
+func TestEnvelope_Hash(t *testing.T) {
+	r := require.New(t)
+	blob := createTestBlobTxData()
+	e := NewEnvelop(NewBlobTx(1, 2, 3, big.NewInt(1), big.NewInt(1), nil, blob), NewTransfer(big.NewInt(10), "io1", []byte("test")))
+	blobWithoutSidecar := createTestBlobTxData()
+	blobWithoutSidecar.sidecar = nil
+	eWithoutSidecar := NewEnvelop(NewBlobTx(1, 2, 3, big.NewInt(1), big.NewInt(1), nil, blobWithoutSidecar), NewTransfer(big.NewInt(10), "io1", []byte("test")))
+	r.Equal(byteutil.Must(proto.Marshal(e.ProtoForHash())), byteutil.Must(proto.Marshal(eWithoutSidecar.ProtoForHash())))
 }

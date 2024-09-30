@@ -55,6 +55,8 @@ type (
 	gasLimitForCost interface{ GasLimitForCost() }
 
 	validateSidecar interface{ ValidateSidecar() error }
+
+	protoForRawHash interface{ ProtoForRawHash() *iotextypes.ActionCore }
 )
 
 // Sign signs the action using sender's private key
