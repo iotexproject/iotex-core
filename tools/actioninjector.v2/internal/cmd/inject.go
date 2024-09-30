@@ -23,6 +23,9 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -297,6 +300,70 @@ func executionPayloadGenerate() []byte {
 	return data
 }
 
+var (
+	myTokenABI  *abi.ABI
+	mintMyToken *abi.Method
+	_abiJson    = `[
+		{
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "amount",
+					"type": "uint256"
+				}
+			],
+			"name": "burn",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "to",
+					"type": "address"
+				},
+				{
+					"internalType": "uint256",
+					"name": "amount",
+					"type": "uint256"
+				}
+			],
+			"name": "mint",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]`
+)
+
+func init() {
+	abi, err := abi.JSON(strings.NewReader(_abiJson))
+	if err != nil {
+		panic(err)
+	}
+	myTokenABI = &abi
+	m, err := myTokenABI.MethodById(methodSignToID("mint(address,uint256)"))
+	if err != nil {
+		panic(err)
+	}
+	mintMyToken = m
+}
+
+func executionPayloadGen2() []byte {
+	data, err := myTokenABI.Pack(mintMyToken.Name, common.BigToAddress(big.NewInt(int64(rnd.Intn(100)))), big.NewInt(int64(rnd.Intn(3))))
+	if err != nil {
+		panic(err)
+	}
+	return data
+}
+
+func methodSignToID(sign string) []byte {
+	hash := ethcrypto.Keccak256Hash([]byte(sign))
+	return hash.Bytes()[:4]
+}
+
 func (p *injectProcessor) txGenerate(
 	ctx context.Context,
 	ch chan WrapSealedEnvelope,
@@ -315,7 +382,7 @@ func (p *injectProcessor) txGenerate(
 			gasPriceX := loadAtomicGasPriceMultiplier()
 			transferGasPriceUpdated := big.NewInt(int64(float64(transferGasPrice.Int64()) * gasPriceX))
 			executionGasPriceUpdated := big.NewInt(int64(float64(executionGasPrice.Int64()) * gasPriceX))
-			tx, err := util.ActionGenerator(actionType, p.accountManager, rawInjectCfg.chainID, transferGasLimit, transferGasPriceUpdated, executionGasLimit, executionGasPriceUpdated, contractAddr, transferPayload, executionPayloadGenerate())
+			tx, err := util.ActionGenerator(actionType, p.accountManager, rawInjectCfg.chainID, transferGasLimit, transferGasPriceUpdated, executionGasLimit, executionGasPriceUpdated, contractAddr, transferPayload, executionPayloadGen2())
 			if err != nil {
 				log.L().Error("no act", zap.Error(err))
 				continue
