@@ -267,9 +267,12 @@ func (stateDB *StateDBAdapter) CreateAccount(evmAddr common.Address) {
 	if stateDB.assertError(err, "Failed to convert evm address.", zap.Error(err)) {
 		return
 	}
-	_, err = accountutil.LoadOrCreateAccount(stateDB.sm, addr, stateDB.accountCreationOpts()...)
-	if stateDB.assertError(err, "Failed to create account.", zap.Error(err), zap.String("address", evmAddr.Hex())) {
-		return
+	// TODO: possibly remove the enableCancun flag after hard-fork
+	if _, ok := stateDB.cachedContract[evmAddr]; !ok || !stateDB.enableCancun {
+		_, err = accountutil.LoadOrCreateAccount(stateDB.sm, addr, stateDB.accountCreationOpts()...)
+		if stateDB.assertError(err, "Failed to create account.", zap.Error(err), zap.String("address", evmAddr.Hex())) {
+			return
+		}
 	}
 	if stateDB.enableCancun {
 		stateDB.createdAccount[evmAddr] = struct{}{}
