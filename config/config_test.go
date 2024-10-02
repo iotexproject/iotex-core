@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
@@ -307,6 +308,14 @@ func TestValidateActPool(t *testing.T) {
 			"maximum number of actions per pool cannot be less than maximum number of actions per account",
 		),
 	)
+}
+
+func TestBlobConfig(t *testing.T) {
+	r := require.New(t)
+	cfg := Default
+	blocks := uint32(time.Hour / cfg.DardanellesUpgrade.BlockInterval)
+	blocks *= (cfg.Chain.BlobStoreRetentionDays - 1) * 24
+	r.EqualValues(cfg.Genesis.MinBlocksForBlobRetention, blocks)
 }
 
 func TestValidateForkHeights(t *testing.T) {

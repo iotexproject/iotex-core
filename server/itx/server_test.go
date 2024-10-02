@@ -80,7 +80,7 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	require.NoError(err)
 	contractIndexPath, err := testutil.PathOfTempFile("contractindxer.db")
 	require.NoError(err)
-	contractIndexPathV2, err := testutil.PathOfTempFile("contractindxer.db.v2")
+	blobPath, err := testutil.PathOfTempFile("blob.db")
 	require.NoError(err)
 	cfg := config.Default
 	cfg.API.GRPCPort = testutil.RandomPort()
@@ -89,12 +89,13 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	cfg.Chain.ChainDBPath = dbPath
 	cfg.Chain.TrieDBPath = triePath
 	cfg.Chain.TrieDBPatchFile = ""
+	cfg.Chain.BlobStoreDBPath = blobPath
 	cfg.Chain.ContractStakingIndexDBPath = contractIndexPath
 	return cfg, func() {
 		testutil.CleanupPath(dbPath)
 		testutil.CleanupPath(triePath)
 		testutil.CleanupPath(indexPath)
 		testutil.CleanupPath(contractIndexPath)
-		testutil.CleanupPath(contractIndexPathV2)
+		testutil.CleanupPath(blobPath)
 	}
 }
