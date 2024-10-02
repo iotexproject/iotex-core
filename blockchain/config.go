@@ -24,14 +24,16 @@ import (
 type (
 	// Config is the config struct for blockchain package
 	Config struct {
-		ChainDBPath                string           `yaml:"chainDBPath"`
-		TrieDBPatchFile            string           `yaml:"trieDBPatchFile"`
-		TrieDBPath                 string           `yaml:"trieDBPath"`
-		StakingPatchDir            string           `yaml:"stakingPatchDir"`
-		IndexDBPath                string           `yaml:"indexDBPath"`
-		BloomfilterIndexDBPath     string           `yaml:"bloomfilterIndexDBPath"`
-		CandidateIndexDBPath       string           `yaml:"candidateIndexDBPath"`
-		StakingIndexDBPath         string           `yaml:"stakingIndexDBPath"`
+		ChainDBPath            string `yaml:"chainDBPath"`
+		TrieDBPatchFile        string `yaml:"trieDBPatchFile"`
+		TrieDBPath             string `yaml:"trieDBPath"`
+		StakingPatchDir        string `yaml:"stakingPatchDir"`
+		IndexDBPath            string `yaml:"indexDBPath"`
+		BloomfilterIndexDBPath string `yaml:"bloomfilterIndexDBPath"`
+		CandidateIndexDBPath   string `yaml:"candidateIndexDBPath"`
+		StakingIndexDBPath     string `yaml:"stakingIndexDBPath"`
+		// deprecated
+		SGDIndexDBPath             string           `yaml:"sgdIndexDBPath"`
 		ContractStakingIndexDBPath string           `yaml:"contractStakingIndexDBPath"`
 		BlobStoreDBPath            string           `yaml:"blobStoreDBPath"`
 		BlobStoreRetentionDays     uint32           `yaml:"blobStoreRetentionDays"`
@@ -89,6 +91,7 @@ var (
 		BloomfilterIndexDBPath:     "/var/data/bloomfilter.index.db",
 		CandidateIndexDBPath:       "/var/data/candidate.index.db",
 		StakingIndexDBPath:         "/var/data/staking.index.db",
+		SGDIndexDBPath:             "/var/data/sgd.index.db",
 		ContractStakingIndexDBPath: "/var/data/contractstaking.index.db",
 		ID:                         1,
 		EVMNetworkID:               4689,
