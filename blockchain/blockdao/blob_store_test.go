@@ -9,11 +9,11 @@ import (
 	"context"
 	"encoding/hex"
 	"testing"
-	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
 
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
@@ -37,7 +37,7 @@ func TestChecksumNamespaceAndKeys(t *testing.T) {
 
 func TestBlobStore(t *testing.T) {
 	r := require.New(t)
-	t.Run("putBlob", func(t *testing.T) {
+	t.Run("putSidecars", func(t *testing.T) {
 		ctx := context.Background()
 		testPath, err := testutil.PathOfTempFile("test-blob-store")
 		r.NoError(err)
@@ -47,7 +47,7 @@ func TestBlobStore(t *testing.T) {
 		cfg := db.DefaultConfig
 		cfg.DbPath = testPath
 		kvs := db.NewBoltDB(cfg)
-		bs := NewBlobStore(kvs, 24, time.Second)
+		bs := NewBlobStore(kvs, 24)
 		r.NoError(bs.Start(ctx))
 		var (
 			_value [7][]byte = [7][]byte{
@@ -60,25 +60,28 @@ func TestBlobStore(t *testing.T) {
 				{6, 1, 2, 3},
 			}
 		)
-		for i, height := range []uint64{0, 3, 5, 10, 13, 18, 29, 37} {
-			hashes := createTestHash(i, height)
-			r.NoError(bs.putBlob(_value[i%7], height, hashes))
-			r.Equal(height, bs.currWriteBlock)
-			raw, err := bs.kvStore.Get(_heightIndexNS, keyForBlock(height))
-			r.NoError(err)
-			index, err := deserializeBlobIndex(raw)
-			r.NoError(err)
-			r.Equal(index.hashes, hashes)
-			for i := range hashes {
-				h, err := bs.getHeightByHash(hashes[i])
+		for height := uint64(0); height <= 37; height++ {
+			i := slices.Index([]uint64{0, 3, 5, 10, 13, 18, 29, 37}, height)
+			if i < 0 {
+				bs.putSidecars(height, nil, nil)
+			} else {
+				hashes := createTestHash(i, height)
+				r.NoError(bs.putSidecars(height, _value[i%7], hashes))
+				raw, err := bs.kvStore.Get(_heightIndexNS, keyForBlock(height))
 				r.NoError(err)
-				r.Equal(height, h)
+				index, err := deserializeBlobIndex(raw)
+				r.NoError(err)
+				r.Equal(index.hashes, hashes)
+				for i := range hashes {
+					h, err := bs.getHeightByHash(hashes[i])
+					r.NoError(err)
+					r.Equal(height, h)
+				}
+				v, err := bs.kvStore.Get(_blobDataNS, keyForBlock(height))
+				r.NoError(err)
+				r.Equal(_value[i%7], v)
 			}
-			v, err := bs.kvStore.Get(_blobDataNS, keyForBlock(height))
-			r.NoError(err)
-			r.Equal(_value[i%7], v)
 		}
-		time.Sleep(time.Second * 3 / 2)
 		// slot 0 - 13 has expired
 		for i, height := range []uint64{0, 3, 5, 10, 13, 18, 29, 37} {
 			hashes := createTestHash(i, height)
@@ -111,7 +114,6 @@ func TestBlobStore(t *testing.T) {
 		r.NoError(bs.Stop(ctx))
 		r.NoError(bs.Start(ctx))
 		r.EqualValues(37, bs.currWriteBlock)
-		r.EqualValues(13, bs.currExpireBlock)
 		r.NoError(bs.Stop(ctx))
 	})
 	t.Run("PutBlock", func(t *testing.T) {
@@ -124,7 +126,7 @@ func TestBlobStore(t *testing.T) {
 		cfg := db.DefaultConfig
 		cfg.DbPath = testPath
 		kvs := db.NewBoltDB(cfg)
-		bs := NewBlobStore(kvs, 24, time.Second)
+		bs := NewBlobStore(kvs, 24)
 		testPath1, err := testutil.PathOfTempFile("test-blob-store")
 		r.NoError(err)
 		cfg.DbPath = testPath1
