@@ -86,8 +86,8 @@ type (
 	}
 )
 
-// NewEnvelop creates a new envelope
-func NewEnvelop(common TxCommonInternal, payload actionPayload) Envelope {
+// NewEnvelope creates a new envelope
+func NewEnvelope(common TxCommonInternal, payload actionPayload) Envelope {
 	return &envelope{
 		common:  common,
 		payload: payload,
@@ -213,6 +213,9 @@ func (elp *envelope) IntrinsicGas() (uint64, error) {
 	if acl := elp.AccessList(); len(acl) > 0 {
 		gas += uint64(len(acl)) * TxAccessListAddressGas
 		gas += uint64(acl.StorageKeys()) * TxAccessListStorageKeyGas
+	}
+	if len(elp.BlobHashes()) > 0 {
+		gas += elp.BlobGas()
 	}
 	return gas, nil
 }

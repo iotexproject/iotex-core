@@ -128,5 +128,7 @@ func TestBlobTx(t *testing.T) {
 		tx2 := &envelope{}
 		r.NoError(tx2.LoadProto(tx.Proto()))
 		r.Equal(tx, tx2)
+		r.EqualValues(161872, MustNoErrorV(tx.IntrinsicGas()))
+		r.EqualValues(big.NewInt(2797693), MustNoErrorV(tx.Cost()))
 	})
 }

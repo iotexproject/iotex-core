@@ -135,9 +135,9 @@ func createEnvelope() (Envelope, *Transfer) {
 func TestEnvelope_Hash(t *testing.T) {
 	r := require.New(t)
 	blob := createTestBlobTxData()
-	e := NewEnvelop(NewBlobTx(1, 2, 3, big.NewInt(1), big.NewInt(1), nil, blob), NewTransfer(big.NewInt(10), "io1", []byte("test")))
+	e := NewEnvelope(NewBlobTx(1, 2, 3, big.NewInt(1), big.NewInt(1), nil, blob), NewTransfer(big.NewInt(10), "io1", []byte("test")))
 	blobWithoutSidecar := createTestBlobTxData()
 	blobWithoutSidecar.sidecar = nil
-	eWithoutSidecar := NewEnvelop(NewBlobTx(1, 2, 3, big.NewInt(1), big.NewInt(1), nil, blobWithoutSidecar), NewTransfer(big.NewInt(10), "io1", []byte("test")))
+	eWithoutSidecar := NewEnvelope(NewBlobTx(1, 2, 3, big.NewInt(1), big.NewInt(1), nil, blobWithoutSidecar), NewTransfer(big.NewInt(10), "io1", []byte("test")))
 	r.Equal(byteutil.Must(proto.Marshal(e.ProtoForHash())), byteutil.Must(proto.Marshal(eWithoutSidecar.ProtoForHash())))
 }
