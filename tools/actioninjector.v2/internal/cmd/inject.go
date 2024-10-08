@@ -644,6 +644,8 @@ var injectCmd = &cobra.Command{
 			}
 			log.L().Info("injected", zap.Int("total", total), zap.Int("success", success))
 		}
+		// output inject summary
+		log.L().Info("inject summary", zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)), zap.Uint64("errActs", atomic.LoadUint64(&_injectedErrActs)))
 	},
 }
 
