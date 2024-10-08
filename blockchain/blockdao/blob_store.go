@@ -34,17 +34,20 @@ var (
 )
 
 type (
+	tipHeight func() (uint64, error)
+
 	BlobStore interface {
 		Start(context.Context) error
 		Stop(context.Context) error
 		GetBlob(hash.Hash256) (*types.BlobTxSidecar, string, error)
 		GetBlobsByHeight(uint64) ([]*types.BlobTxSidecar, []string, error)
 		PutBlock(*block.Block) error
+		SetTipHandler(tip tipHeight)
 	}
 
 	// storage for past N-day's blobs, structured as blow:
 	// 1. Block height is used as key to store blobs. When a new blob is stored,
-	//    the expired time (current - 18 days) is updated and all blobs earlier
+	//    the expired time (current - 20 days) is updated and all blobs earlier
 	//    than this time will be deleted.
 	// 2. Two mappings are kept in a separate index: (1) height to tx hashes in,
 	//    the blob, and (2) tx hash to the blob's height. Here's an example:
@@ -65,8 +68,9 @@ type (
 		kvStore                         db.KVStore
 		totalBlocks                     uint64
 		currWriteBlock, currExpireBlock uint64
-		purgeTask                       *routine.RecurringTask
 		interval                        time.Duration
+		purgeTask                       *routine.RecurringTask
+		tipHeightHandler                tipHeight
 	}
 )
 
@@ -85,13 +89,17 @@ func (bs *blobStore) Start(ctx context.Context) error {
 	if err := bs.checkDB(); err != nil {
 		return err
 	}
-	if bs.interval != 0 {
-		bs.purgeTask = routine.NewRecurringTask(func() {
-			bs.expireBlob(atomic.LoadUint64(&bs.currWriteBlock))
-		}, bs.interval)
-		return bs.purgeTask.Start(ctx)
+	if bs.interval == 0 {
+		// default to 1 hour
+		bs.interval = time.Hour
 	}
-	return nil
+	bs.purgeTask = routine.NewRecurringTask(func() {
+		height, err := bs.tipHeightHandler()
+		if err != nil {
+			bs.expireBlob(height)
+		}
+	}, bs.interval)
+	return bs.purgeTask.Start(ctx)
 }
 
 func (bs *blobStore) Stop(ctx context.Context) error {
@@ -99,6 +107,10 @@ func (bs *blobStore) Stop(ctx context.Context) error {
 		return err
 	}
 	return bs.kvStore.Stop(ctx)
+}
+
+func (bs *blobStore) SetTipHandler(tip tipHeight) {
+	bs.tipHeightHandler = tip
 }
 
 func (bs *blobStore) checkDB() error {
@@ -150,6 +162,9 @@ func (bs *blobStore) getBlobs(height uint64) ([]*types.BlobTxSidecar, []string, 
 }
 
 func (bs *blobStore) PutBlock(blk *block.Block) error {
+	if !blk.HasBlob() {
+		return nil
+	}
 	if blk.Height() <= atomic.LoadUint64(&bs.currWriteBlock) {
 		return errors.Errorf("block height %d is less than current tip height", blk.Height())
 	}
@@ -208,6 +223,10 @@ func (bs *blobStore) expireBlob(height uint64) error {
 		keyForBlock(bs.currExpireBlock), keyForBlock(toExpireHeight))
 	if errors.Cause(err) == db.ErrNotExist {
 		// no blobs are stored up to the new expire height
+		b.Put(_hashHeightNS, _expireHeight, keyForBlock(toExpireHeight), "failed to put expired height")
+		if err := bs.kvStore.WriteBatch(b); err != nil {
+			return err
+		}
 		bs.currExpireBlock = toExpireHeight
 		return nil
 	}
