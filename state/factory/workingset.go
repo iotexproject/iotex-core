@@ -122,6 +122,7 @@ func (ws *workingSet) runActions(
 		receipts = append(receipts, receipt)
 		if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
 			(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
+			ctx = protocol.WithBlockCtx(ctx, blkCtx)
 		}
 	}
 	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
