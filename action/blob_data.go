@@ -155,6 +155,9 @@ func (tx *BlobTxData) SanityCheck() error {
 	if len(tx.blobHashes) == 0 {
 		return errors.New("blobless blob transaction")
 	}
+	if permitted := params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob; len(tx.blobHashes) > permitted {
+		return errors.Errorf("too many blobs in transaction: have %d, permitted %d", len(tx.blobHashes), params.MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob)
+	}
 	return nil
 }
 
@@ -165,9 +168,6 @@ func (tx *BlobTxData) ValidateSidecar() error {
 	)
 	if sidecar == nil {
 		return errors.New("sidecar is missing")
-	}
-	if permitted := params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob; size > permitted {
-		return errors.Errorf("too many blobs in transaction: have %d, permitted %d", size, params.MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob)
 	}
 	// Verify the size of hashes, commitments and proofs
 	if len(sidecar.Blobs) != size {
