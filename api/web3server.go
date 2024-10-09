@@ -501,7 +501,7 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 		return nil, err
 	}
 	if g := cs.Genesis(); g.IsVanuatu(cs.TipHeight()) {
-		elp, err := svr.stakingRewardingTxToEnvelope(tx)
+		elp, err := action.StakingRewardingTxToEnvelope(svr.coreService.ChainID(), tx)
 		if err != nil {
 			return nil, err
 		}

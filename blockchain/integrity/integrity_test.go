@@ -48,7 +48,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/version"
+	. "github.com/iotexproject/iotex-core/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -1243,13 +1243,11 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 		new(big.Int), 500000, minGas, append(funcSig[:4], _sarTopic...))
 	signer := types.NewEIP155Signer(big.NewInt(int64(cfg.Chain.EVMNetworkID)))
 	for i := 0; i < 2; i++ {
-		signedTx, err := types.SignTx(txs[i], signer, identityset.PrivateKey(24).EcdsaPrivateKey().(*ecdsa.PrivateKey))
-		require.NoError(err)
-		raw, err := signedTx.MarshalBinary()
-		require.NoError(err)
+		signedTx := MustNoErrorV(types.SignTx(txs[i], signer, identityset.PrivateKey(24).EcdsaPrivateKey().(*ecdsa.PrivateKey)))
+		raw := MustNoErrorV(signedTx.MarshalBinary())
 		// API receive/decode the tx
-		tx, err := action.DecodeEtherTx(hex.EncodeToString(raw))
-		require.NoError(err)
+		rawString := hex.EncodeToString(raw)
+		tx := MustNoErrorV(action.DecodeEtherTx(rawString))
 		require.True(tx.Protected())
 		require.EqualValues(cfg.Chain.EVMNetworkID, tx.ChainId().Uint64())
 		encoding, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
@@ -1257,28 +1255,17 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 		require.Equal(iotextypes.Encoding_ETHEREUM_EIP155, encoding)
 		// use container to send tx
 		req := iotextypes.Action{
-			Core: &iotextypes.ActionCore{
-				Version:  version.ProtocolVersion,
-				Nonce:    tx.Nonce(),
-				GasLimit: tx.Gas(),
-				GasPrice: tx.GasPrice().String(),
-				ChainID:  cfg.Chain.ID,
-				Action: &iotextypes.ActionCore_TxContainer{
-					TxContainer: &iotextypes.TxContainer{
-						Raw: raw,
-					},
-				},
-			},
+			Core:         MustNoErrorV(action.EthRawToContainer(cfg.Chain.ID, rawString)),
 			SenderPubKey: pubkey.Bytes(),
 			Signature:    sig,
 			Encoding:     iotextypes.Encoding_TX_CONTAINER,
 		}
 		// decode the tx
-		selp, err := (&action.Deserializer{}).SetEvmNetworkID(cfg.Chain.EVMNetworkID).ActionToSealedEnvelope(&req)
-		require.NoError(err)
+		selp := MustNoErrorV((&action.Deserializer{}).SetEvmNetworkID(cfg.Chain.EVMNetworkID).ActionToSealedEnvelope(&req))
+		_, ok := selp.Envelope.(action.TxContainer)
+		require.True(ok)
 		if i == 1 {
-			contractHash, err = selp.Hash()
-			require.NoError(err)
+			contractHash = MustNoErrorV(selp.Hash())
 		}
 		require.EqualValues(iotextypes.Encoding_TX_CONTAINER, selp.Encoding())
 		require.NoError(ap.Add(ctx, selp))
