@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -592,7 +593,7 @@ func (ws *workingSet) pickAndRunActions(
 		blkCtx              = protocol.MustGetBlockCtx(ctx)
 		fCtx                = protocol.MustGetFeatureCtx(ctx)
 		blobCnt             = uint64(0)
-		blobLimit           = genesis.MustExtractGenesisContext(ctx).MaxBlobsPerBlock
+		blobLimit           = params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob
 	)
 	if ap != nil {
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
@@ -605,7 +606,7 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			}
-			if blobCnt+uint64(len(nextAction.BlobHashes())) > blobLimit {
+			if blobCnt+uint64(len(nextAction.BlobHashes())) > uint64(blobLimit) {
 				actionIterator.PopAccount()
 				continue
 			}
@@ -723,7 +724,7 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 	}
 	if fCtx.EnableBlobTransaction {
 		blobCnt := uint64(0)
-		blobLimit := genesis.MustExtractGenesisContext(ctx).MaxBlobsPerBlock
+		blobLimit := uint64(params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob)
 		for _, selp := range blk.Actions {
 			blobCnt += uint64(len(selp.BlobHashes()))
 			if blobCnt > blobLimit {

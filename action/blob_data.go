@@ -152,6 +152,12 @@ func (tx *BlobTxData) SanityCheck() error {
 	if price := tx.blobFeeCap; price != nil && price.Sign() < 0 {
 		return errors.Wrap(ErrNegativeValue, "negative blob fee cap")
 	}
+	if len(tx.blobHashes) == 0 {
+		return errors.New("blobless blob transaction")
+	}
+	if permitted := params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob; len(tx.blobHashes) > permitted {
+		return errors.Errorf("too many blobs in transaction: have %d, permitted %d", len(tx.blobHashes), params.MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob)
+	}
 	return nil
 }
 
@@ -160,11 +166,8 @@ func (tx *BlobTxData) ValidateSidecar() error {
 		size    = len(tx.blobHashes)
 		sidecar = tx.sidecar
 	)
-	if sidecar == nil || size == 0 {
-		return errors.New("blobless blob transaction")
-	}
-	if permitted := params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob; size > permitted {
-		return errors.Errorf("too many blobs in transaction: have %d, permitted %d", size, params.MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob)
+	if sidecar == nil {
+		return errors.New("sidecar is missing")
 	}
 	// Verify the size of hashes, commitments and proofs
 	if len(sidecar.Blobs) != size {
