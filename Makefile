@@ -216,6 +216,10 @@ minicluster:
 	$(ECHO_V)rm -rf *trie*.db
 	$(ECHO_V)rm -rf *index*.db
 	$(ECHO_V)rm -rf *candidate.index*.db
+	$(ECHO_V)rm -rf *blob*.db
+	$(ECHO_V)rm -rf *bloomfilter.index*.db
+	$(ECHO_V)rm -rf *consensus*.db
+	$(ECHO_V)rm -rf *contractstaking.index*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 	./bin/$(BUILD_TARGET_MINICLUSTER)
 
