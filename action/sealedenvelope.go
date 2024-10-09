@@ -32,7 +32,7 @@ type SealedEnvelope struct {
 func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 	switch sealed.encoding {
 	case iotextypes.Encoding_TX_CONTAINER:
-		act, ok := sealed.Action().(*txContainer)
+		act, ok := sealed.Envelope.(*txContainer)
 		if !ok {
 			return hash.ZeroHash256, ErrInvalidAct
 		}
@@ -78,7 +78,7 @@ func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
 func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
 	switch sealed.encoding {
 	case iotextypes.Encoding_TX_CONTAINER:
-		act, ok := sealed.Action().(*txContainer)
+		act, ok := sealed.Envelope.(*txContainer)
 		if !ok {
 			return hash.ZeroHash256, ErrInvalidAct
 		}

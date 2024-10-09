@@ -162,14 +162,10 @@ func (tx *BlobTxData) SanityCheck() error {
 }
 
 func (tx *BlobTxData) ValidateSidecar() error {
-	var (
-		size    = len(tx.blobHashes)
-		sidecar = tx.sidecar
-	)
-	if sidecar == nil {
+	if tx.sidecar == nil {
 		return errors.New("sidecar is missing")
 	}
-	return verifySidecar(sidecar, tx.blobHashes)
+	return verifySidecar(tx.sidecar, tx.blobHashes)
 }
 
 func verifySidecar(sidecar *types.BlobTxSidecar, hashes []common.Hash) error {

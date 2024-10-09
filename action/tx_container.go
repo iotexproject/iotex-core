@@ -69,8 +69,15 @@ func (etx *txContainer) GasPrice() *big.Int {
 }
 
 func (etx *txContainer) EffectiveGasPrice(baseFee *big.Int) *big.Int {
-	// TODO
-	return nil
+	tip := etx.tx.GasFeeCap()
+	if baseFee == nil {
+		return tip
+	}
+	tip.Sub(tip, baseFee)
+	if tipCap := etx.tx.GasTipCap(); tip.Cmp(tipCap) > 0 {
+		tip.Set(tipCap)
+	}
+	return tip.Add(tip, baseFee)
 }
 
 func (etx *txContainer) AccessList() types.AccessList {
@@ -114,13 +121,11 @@ func (etx *txContainer) Data() []byte {
 }
 
 func (etx *txContainer) Destination() (string, bool) {
-	// TODO
-	return "", true
+	return "", false
 }
 
 func (etx *txContainer) Size() uint32 {
-	// TODO
-	return 0
+	return uint32(len(etx.raw))
 }
 
 func (etx *txContainer) Action() Action { return etx }
@@ -130,13 +135,11 @@ func (etx *txContainer) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encodin
 }
 
 func (etx *txContainer) ProtoForHash() *iotextypes.ActionCore {
-	// TODO
-	return nil
+	panic("should not call txContainer's ProtoForHash()")
 }
 
 func (etx *txContainer) Proto() *iotextypes.ActionCore {
-	// TODO
-	return nil
+	panic("should not call txContainer's Proto()")
 }
 
 func (etx *txContainer) LoadProto(pbAct *iotextypes.ActionCore) error {
@@ -232,6 +235,31 @@ func (etx *txContainer) SanityCheck() error {
 	if feeCap := etx.tx.GasFeeCap(); feeCap != nil && feeCap.Sign() < 0 {
 		return errors.Wrap(ErrNegativeValue, "negative gas fee cap")
 	}
+	switch etx.tx.Type() {
+	case types.BlobTxType:
+		size := len(etx.tx.BlobHashes())
+		if size == 0 {
+			return errors.New("blobless blob transaction")
+		}
+		if permitted := params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob; size > permitted {
+			return errors.Errorf("too many blobs in transaction: have %d, permitted %d", size, params.MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob)
+		}
+		fallthrough
+	case types.DynamicFeeTxType:
+		var (
+			feeCap = etx.tx.GasFeeCap()
+			tipCap = etx.tx.GasTipCap()
+		)
+		if feeCap.Cmp(tipCap) < 0 {
+			return ErrGasTipOverFeeCap
+		}
+		if feeCap.BitLen() > 256 {
+			return errors.Wrap(ErrValueVeryHigh, "fee cap is too high")
+		}
+		if tipCap.BitLen() > 256 {
+			return errors.Wrap(ErrValueVeryHigh, "tip cap is too high")
+		}
+	}
 	return nil
 }
 
@@ -239,15 +267,9 @@ func (etx *txContainer) ValidateSidecar() error {
 	if etx.tx.Type() != types.BlobTxType {
 		return nil
 	}
-	var (
-		size    = len(etx.tx.BlobHashes())
-		sidecar = etx.tx.BlobTxSidecar()
-	)
-	if sidecar == nil || size == 0 {
-		return errors.New("blobless blob transaction")
-	}
-	if permitted := params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob; size > permitted {
-		return errors.Errorf("too many blobs in transaction: have %d, permitted %d", size, params.MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob)
+	sidecar := etx.tx.BlobTxSidecar()
+	if sidecar == nil {
+		return errors.New("sidecar is missing")
 	}
 	return verifySidecar(sidecar, etx.tx.BlobHashes())
 }
