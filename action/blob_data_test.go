@@ -85,7 +85,7 @@ func TestBlobTxData(t *testing.T) {
 		// check blob hashes size
 		h := blobData.blobHashes
 		blobData.blobHashes = blobData.blobHashes[:0]
-		r.ErrorContains(blobData.ValidateSidecar(), "blobless blob transaction")
+		r.ErrorContains(blobData.ValidateSidecar(), "number of blobs and hashes mismatch")
 		blobData.blobHashes = h
 		// check Blobs, Commitments, Proofs size
 		sidecar := blobData.sidecar
