@@ -130,3 +130,21 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 	pubkey, err = crypto.RecoverPubkey(rawHash[:], sig)
 	return encoding, sig, pubkey, err
 }
+
+func EthRawToContainer(chainID uint32, rawString string) (*iotextypes.ActionCore, error) {
+	if strings.HasPrefix(rawString, "0x") || strings.HasPrefix(rawString, "0X") {
+		rawString = rawString[2:]
+	}
+	rawBytes, err := hex.DecodeString(rawString)
+	if err != nil {
+		return nil, err
+	}
+	return &iotextypes.ActionCore{
+		ChainID: chainID,
+		Action: &iotextypes.ActionCore_TxContainer{
+			TxContainer: &iotextypes.TxContainer{
+				Raw: rawBytes,
+			},
+		},
+	}, nil
+}

@@ -149,6 +149,22 @@ func (svr *web3Handler) parseBlockRange(fromStr string, toStr string) (from uint
 	return
 }
 
+func (svr *web3Handler) stakingRewardingTxToEnvelope(tx *types.Transaction) (action.Envelope, error) {
+	to := ""
+	if tx.To() != nil {
+		ioAddr, _ := address.FromBytes(tx.To().Bytes())
+		to = ioAddr.String()
+	}
+	elpBuilder := (&action.EnvelopeBuilder{}).SetChainID(svr.coreService.ChainID())
+	if to == address.StakingProtocolAddr {
+		return elpBuilder.BuildStakingAction(tx)
+	}
+	if to == address.RewardingProtocol {
+		return elpBuilder.BuildRewardingAction(tx)
+	}
+	return nil, nil
+}
+
 func (svr *web3Handler) ethTxToEnvelope(tx *types.Transaction) (action.Envelope, error) {
 	to := ""
 	if tx.To() != nil {
