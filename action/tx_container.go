@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -18,11 +19,13 @@ import (
 
 var (
 	_ TxContainer = (*txContainer)(nil)
+	_ Envelope    = (*txContainer)(nil)
 )
 
 type txContainer struct {
-	raw []byte
-	tx  *types.Transaction
+	chainID uint32
+	raw     []byte
+	tx      *types.Transaction
 }
 
 func (etx *txContainer) hash() hash.Hash256 {
@@ -44,37 +47,116 @@ func (etx *txContainer) typeToEncoding() (iotextypes.Encoding, error) {
 	return iotextypes.Encoding_ETHEREUM_EIP155, nil
 }
 
-func (act *txContainer) FillAction(core *iotextypes.ActionCore) {
-	core.Action = &iotextypes.ActionCore_TxContainer{TxContainer: act.proto()}
+func (etx *txContainer) Version() uint32 {
+	txType, _ := convertEthTxType(etx.tx.Type())
+	return uint32(txType)
 }
 
-func (etx *txContainer) proto() *iotextypes.TxContainer {
-	if len(etx.raw) == 0 {
-		var err error
-		etx.raw, err = etx.tx.MarshalBinary()
-		if err != nil {
-			panic(err.Error())
-		}
-	}
-	return &iotextypes.TxContainer{
-		Raw: etx.raw,
-	}
+func (etx *txContainer) ChainID() uint32 {
+	return etx.chainID
 }
 
-func (etx *txContainer) loadProto(pbAct *iotextypes.TxContainer) error {
-	if pbAct == nil {
+func (etx *txContainer) Nonce() uint64 {
+	return etx.tx.Nonce()
+}
+
+func (etx *txContainer) Gas() uint64 {
+	return etx.tx.Gas()
+}
+
+func (etx *txContainer) GasPrice() *big.Int {
+	return etx.tx.GasPrice()
+}
+
+func (etx *txContainer) EffectiveGasPrice(baseFee *big.Int) *big.Int {
+	// TODO
+	return nil
+}
+
+func (etx *txContainer) AccessList() types.AccessList {
+	return etx.tx.AccessList()
+}
+
+func (etx *txContainer) GasTipCap() *big.Int {
+	return etx.tx.GasTipCap()
+}
+
+func (etx *txContainer) GasFeeCap() *big.Int {
+	return etx.tx.GasFeeCap()
+}
+
+func (etx *txContainer) BlobGas() uint64 {
+	return etx.tx.BlobGas()
+}
+
+func (etx *txContainer) BlobGasFeeCap() *big.Int {
+	return etx.tx.BlobGasFeeCap()
+}
+
+func (etx *txContainer) BlobHashes() []common.Hash {
+	return etx.tx.BlobHashes()
+}
+
+func (etx *txContainer) BlobTxSidecar() *types.BlobTxSidecar {
+	return etx.tx.BlobTxSidecar()
+}
+
+func (etx *txContainer) Value() *big.Int {
+	return etx.tx.Value()
+}
+
+func (etx *txContainer) To() *common.Address {
+	return etx.tx.To()
+}
+
+func (etx *txContainer) Data() []byte {
+	return etx.tx.Data()
+}
+
+func (etx *txContainer) Destination() (string, bool) {
+	// TODO
+	return "", true
+}
+
+func (etx *txContainer) Size() uint32 {
+	// TODO
+	return 0
+}
+
+func (etx *txContainer) Action() Action { return etx }
+
+func (etx *txContainer) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
+	return etx.tx, nil
+}
+
+func (etx *txContainer) ProtoForHash() *iotextypes.ActionCore {
+	// TODO
+	return nil
+}
+
+func (etx *txContainer) Proto() *iotextypes.ActionCore {
+	// TODO
+	return nil
+}
+
+func (etx *txContainer) LoadProto(pbAct *iotextypes.ActionCore) error {
+	if pbAct == nil || pbAct.GetTxContainer() == nil {
 		return ErrNilProto
 	}
 	if etx == nil {
 		return ErrNilAction
 	}
 	var (
-		raw = pbAct.GetRaw()
+		raw = pbAct.GetTxContainer().GetRaw()
 		tx  = types.Transaction{}
 	)
+	if len(raw) == 0 {
+		return ErrNilProto
+	}
 	if err := tx.UnmarshalBinary(raw); err != nil {
 		return err
 	}
+	etx.chainID = pbAct.GetChainID()
 	etx.raw = make([]byte, len(raw))
 	copy(etx.raw, raw)
 	etx.tx = &tx
@@ -130,6 +212,12 @@ func (etx *txContainer) IntrinsicGas() (uint64, error) {
 	return gas, nil
 }
 
+func (etx *txContainer) SetNonce(n uint64) {}
+
+func (etx *txContainer) SetGas(gas uint64) {}
+
+func (etx *txContainer) SetChainID(chainID uint32) {}
+
 func (etx *txContainer) SanityCheck() error {
 	// Reject execution of negative amount
 	if etx.tx.Value().Sign() < 0 {
@@ -145,4 +233,21 @@ func (etx *txContainer) SanityCheck() error {
 		return errors.Wrap(ErrNegativeValue, "negative gas fee cap")
 	}
 	return nil
+}
+
+func (etx *txContainer) ValidateSidecar() error {
+	if etx.tx.Type() != types.BlobTxType {
+		return nil
+	}
+	var (
+		size    = len(etx.tx.BlobHashes())
+		sidecar = etx.tx.BlobTxSidecar()
+	)
+	if sidecar == nil || size == 0 {
+		return errors.New("blobless blob transaction")
+	}
+	if permitted := params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob; size > permitted {
+		return errors.Errorf("too many blobs in transaction: have %d, permitted %d", size, params.MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob)
+	}
+	return verifySidecar(sidecar, etx.tx.BlobHashes())
 }
