@@ -115,14 +115,13 @@ func (ws *workingSet) runActions(
 		if err != nil {
 			return nil, err
 		}
-		receipt, err := ws.runAction(ctxWithActionContext, elp)
+		receipt, err := ws.runAction(protocol.WithBlockCtx(ctxWithActionContext, blkCtx), elp)
 		if err != nil {
 			return nil, errors.Wrap(err, "error when run action")
 		}
 		receipts = append(receipts, receipt)
 		if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
 			(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
-			ctx = protocol.WithBlockCtx(ctx, blkCtx)
 		}
 	}
 	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
