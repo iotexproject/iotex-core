@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	AntiqueTxType    = 0 // when we first enable web3 tx format, version = 0 is used, all such tx are legacy tx
 	LegacyTxType     = 1
 	AccessListTxType = 2
 	DynamicFeeTxType = 3

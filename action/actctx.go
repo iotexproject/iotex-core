@@ -164,6 +164,19 @@ func (act *AbstractAction) fromProto(pb *iotextypes.ActionCore) error {
 
 func (act *AbstractAction) convertToTx() TxCommonInternal {
 	switch act.version {
+	case AntiqueTxType:
+		tx := AntiqueTx{
+			LegacyTx{
+				chainID:  act.chainID,
+				nonce:    act.nonce,
+				gasLimit: act.gasLimit,
+				gasPrice: &big.Int{},
+			},
+		}
+		if act.gasPrice != nil {
+			tx.gasPrice.Set(act.gasPrice)
+		}
+		return &tx
 	case LegacyTxType:
 		tx := LegacyTx{
 			chainID:  act.chainID,
