@@ -148,23 +148,19 @@ func fromAccessListProto(list []*iotextypes.AccessTuple) types.AccessList {
 	return accessList
 }
 
-func fromProtoAccessListTx(pb *iotextypes.ActionCore) (*AccessListTx, error) {
-	var tx AccessListTx
-	tx.nonce = pb.GetNonce()
-	tx.gasLimit = pb.GetGasLimit()
-	tx.chainID = pb.GetChainID()
-	tx.gasPrice = &big.Int{}
-
+func (tx *AccessListTx) fromProto(pb *iotextypes.ActionCore) error {
+	var gasPrice big.Int
 	if price := pb.GetGasPrice(); len(price) > 0 {
-		var ok bool
-		if tx.gasPrice, ok = tx.gasPrice.SetString(price, 10); !ok {
-			return nil, errors.Errorf("invalid gasPrice %s", price)
+		if _, ok := gasPrice.SetString(price, 10); !ok {
+			return errors.Errorf("invalid gasPrice %s", price)
 		}
 	}
-	if acl := pb.GetAccessList(); len(acl) > 0 {
-		tx.accessList = fromAccessListProto(acl)
-	}
-	return &tx, nil
+	tx.chainID = pb.GetChainID()
+	tx.nonce = pb.GetNonce()
+	tx.gasLimit = pb.GetGasLimit()
+	tx.gasPrice = &gasPrice
+	tx.accessList = fromAccessListProto(pb.GetAccessList())
+	return nil
 }
 
 func (tx *AccessListTx) setNonce(n uint64) {

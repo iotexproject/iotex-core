@@ -287,9 +287,15 @@ func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
 	var err error
 	switch pbAct.Version {
 	case LegacyTxType:
-		elp.common, err = fromProtoLegacyTx(pbAct)
+		tx := LegacyTx{}
+		if err = tx.fromProto(pbAct); err == nil {
+			elp.common = &tx
+		}
 	case AccessListTxType:
-		elp.common, err = fromProtoAccessListTx(pbAct)
+		tx := AccessListTx{}
+		if err = tx.fromProto(pbAct); err == nil {
+			elp.common = &tx
+		}
 	case DynamicFeeTxType:
 		tx := &DynamicFeeTx{}
 		if err = tx.fromProto(pbAct); err == nil {

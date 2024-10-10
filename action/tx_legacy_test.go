@@ -29,6 +29,7 @@ func TestLegacyTx(t *testing.T) {
 			gasPrice: big.NewInt(13),
 		}
 		r.EqualValues(LegacyTxType, tx.Version())
+		r.EqualValues(3, tx.ChainID())
 		r.EqualValues(8, tx.Nonce())
 		r.EqualValues(1001, tx.Gas())
 		r.Equal(big.NewInt(13), tx.GasPrice())
@@ -43,7 +44,14 @@ func TestLegacyTx(t *testing.T) {
 		r.Equal("0801100818e907220231332803", hex.EncodeToString(b))
 		pb := iotextypes.ActionCore{}
 		r.NoError(proto.Unmarshal(b, &pb))
-		r.Equal(tx, MustNoErrorV(fromProtoLegacyTx(&pb)))
+		tx1 := &LegacyTx{
+			chainID:  88,
+			nonce:    33,
+			gasLimit: 22,
+			gasPrice: big.NewInt(5),
+		}
+		r.NoError(tx1.fromProto(&pb))
+		r.Equal(tx, tx1)
 	})
 	ab := AbstractAction{
 		version:   LegacyTxType,

@@ -167,7 +167,6 @@ func (tx *BlobTx) fromProto(pb *iotextypes.ActionCore) error {
 	var (
 		feeCap   = new(uint256.Int)
 		tipCap   = new(uint256.Int)
-		acl      types.AccessList
 		blobData *BlobTxData
 		err      error
 	)
@@ -181,9 +180,6 @@ func (tx *BlobTx) fromProto(pb *iotextypes.ActionCore) error {
 			return errors.Errorf("invalid tipCap %s", tipCapStr)
 		}
 	}
-	if aclp := pb.GetAccessList(); len(aclp) > 0 {
-		acl = fromAccessListProto(aclp)
-	}
 	if blobPb := pb.GetBlobTxData(); blobPb != nil {
 		if blobData, err = fromProtoBlobTxData(blobPb); err != nil {
 			return err
@@ -194,7 +190,7 @@ func (tx *BlobTx) fromProto(pb *iotextypes.ActionCore) error {
 	tx.chainID = pb.GetChainID()
 	tx.gasFeeCap = feeCap
 	tx.gasTipCap = tipCap
-	tx.accessList = acl
+	tx.accessList = fromAccessListProto(pb.GetAccessList())
 	tx.blob = blobData
 	return nil
 }
