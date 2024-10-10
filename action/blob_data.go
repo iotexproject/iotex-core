@@ -162,13 +162,14 @@ func (tx *BlobTxData) SanityCheck() error {
 }
 
 func (tx *BlobTxData) ValidateSidecar() error {
-	var (
-		size    = len(tx.blobHashes)
-		sidecar = tx.sidecar
-	)
-	if sidecar == nil {
+	if tx.sidecar == nil {
 		return errors.New("sidecar is missing")
 	}
+	return verifySidecar(tx.sidecar, tx.blobHashes)
+}
+
+func verifySidecar(sidecar *types.BlobTxSidecar, hashes []common.Hash) error {
+	size := len(hashes)
 	// Verify the size of hashes, commitments and proofs
 	if len(sidecar.Blobs) != size {
 		return errors.New("number of blobs and hashes mismatch")
@@ -182,7 +183,7 @@ func (tx *BlobTxData) ValidateSidecar() error {
 	// Blob quantities match up, validate that the provers match with the
 	// transaction hash before getting to the cryptography
 	hasher := sha256.New()
-	for i, vhash := range tx.blobHashes {
+	for i, vhash := range hashes {
 		computed := kzg4844.CalcBlobHashV1(hasher, &sidecar.Commitments[i])
 		if vhash != computed {
 			return errors.Errorf("blob %d: computed hash %x mismatches transaction one %x", i, computed, vhash)

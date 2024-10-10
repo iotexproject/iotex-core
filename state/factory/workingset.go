@@ -170,7 +170,7 @@ func (ws *workingSet) runAction(
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	// if it's a tx container, unfold the tx inside
 	if fCtx.UseTxContainer {
-		if container, ok := selp.Action().(action.TxContainer); ok {
+		if container, ok := selp.Envelope.(action.TxContainer); ok {
 			if err := container.Unfold(selp, ctx, ws.checkContract); err != nil {
 				return nil, errors.Wrap(errUnfoldTxContainer, err.Error())
 			}
