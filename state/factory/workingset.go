@@ -115,7 +115,7 @@ func (ws *workingSet) runActions(
 		if err != nil {
 			return nil, err
 		}
-		receipt, err := ws.runAction(ctxWithActionContext, elp)
+		receipt, err := ws.runAction(protocol.WithBlockCtx(ctxWithActionContext, blkCtx), elp)
 		if err != nil {
 			return nil, errors.Wrap(err, "error when run action")
 		}
