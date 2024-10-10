@@ -100,6 +100,7 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockStore, indexers []BlockIndexe
 
 	blockDAO.lifecycle.Add(blkStore)
 	if blockDAO.blobStore != nil {
+		blockDAO.blobStore.SetTipHandler(blockDAO.Height)
 		blockDAO.lifecycle.Add(blockDAO.blobStore)
 	}
 	for _, indexer := range indexers {
@@ -284,7 +285,7 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 		timer.End()
 		return err
 	}
-	if dao.blobStore != nil && blk.HasBlob() {
+	if dao.blobStore != nil {
 		if err := dao.blobStore.PutBlock(blk); err != nil {
 			timer.End()
 			return err
