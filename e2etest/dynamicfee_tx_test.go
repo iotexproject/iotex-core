@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestDynamicFeeTx(t *testing.T) {
@@ -24,6 +25,9 @@ func TestDynamicFeeTx(t *testing.T) {
 	sender := identityset.Address(10).String()
 	senderSK := identityset.PrivateKey(10)
 	cfg := initCfg(r)
+	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.API.HTTPPort = testutil.RandomPort()
+	cfg.API.WebSocketPort = 0
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.VanuatuBlockHeight = 5
