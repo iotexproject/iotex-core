@@ -124,7 +124,7 @@ func (ws *workingSet) runActions(
 			(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
 		}
 	}
-	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
+	if fCtx.CorrectTxLogIndex {
 		updateReceiptIndex(receipts)
 	}
 	return receipts, nil
@@ -169,7 +169,7 @@ func (ws *workingSet) runAction(
 	}
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	// if it's a tx container, unfold the tx inside
-	if fCtx.UseTxContainer {
+	if fCtx.UseTxContainer && !fCtx.UnfoldContainerBeforeValidate {
 		if container, ok := selp.Envelope.(action.TxContainer); ok {
 			if err := container.Unfold(selp, ctx, ws.checkContract); err != nil {
 				return nil, errors.Wrap(errUnfoldTxContainer, err.Error())
@@ -204,8 +204,7 @@ func (ws *workingSet) runAction(
 			)
 		}
 		if receipt != nil {
-			isBlobTx := len(selp.BlobHashes()) > 0
-			if protocol.MustGetFeatureCtx(ctx).EnableBlobTransaction && isBlobTx {
+			if fCtx.EnableBlobTransaction && len(selp.BlobHashes()) > 0 {
 				if err = ws.handleBlob(ctx, selp, receipt); err != nil {
 					return nil, err
 				}
@@ -609,6 +608,17 @@ func (ws *workingSet) pickAndRunActions(
 			if blobCnt+uint64(len(nextAction.BlobHashes())) > uint64(blobLimit) {
 				actionIterator.PopAccount()
 				continue
+			}
+			if fCtx.UnfoldContainerBeforeValidate {
+				if container, ok := nextAction.Envelope.(action.TxContainer); ok {
+					if err := container.Unfold(nextAction, ctx, ws.checkContract); err != nil {
+						if caller := nextAction.SenderAddress(); caller != nil {
+							ap.DeleteAction(caller)
+						}
+						actionIterator.PopAccount()
+						continue
+					}
+				}
 			}
 			actionCtx, err := withActionCtx(ctxWithBlockContext, nextAction)
 			if err == nil {

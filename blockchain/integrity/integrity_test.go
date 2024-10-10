@@ -1212,6 +1212,7 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 	require.Zero(blk2.Header.GasUsed())
 	require.Nil(blk2.Header.BaseFee())
 	require.NoError(bc.CommitBlock(blk2))
+	ap.Reset()
 
 	// 4 legacy fresh accounts are converted to zero-nonce account
 	for _, v := range []struct {
@@ -1242,8 +1243,9 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 	txs[1] = types.NewTransaction(2, common.BytesToAddress(testAddr.Bytes()),
 		new(big.Int), 500000, minGas, append(funcSig[:4], _sarTopic...))
 	signer := types.NewEIP155Signer(big.NewInt(int64(cfg.Chain.EVMNetworkID)))
+	sender := identityset.PrivateKey(24)
 	for i := 0; i < 2; i++ {
-		signedTx := MustNoErrorV(types.SignTx(txs[i], signer, identityset.PrivateKey(24).EcdsaPrivateKey().(*ecdsa.PrivateKey)))
+		signedTx := MustNoErrorV(types.SignTx(txs[i], signer, sender.EcdsaPrivateKey().(*ecdsa.PrivateKey)))
 		raw := MustNoErrorV(signedTx.MarshalBinary())
 		// API receive/decode the tx
 		rawString := hex.EncodeToString(raw)
@@ -1269,6 +1271,8 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 		}
 		require.EqualValues(iotextypes.Encoding_TX_CONTAINER, selp.Encoding())
 		require.NoError(ap.Add(ctx, selp))
+		require.Equal(i+1, len(ap.GetUnconfirmedActs(sender.PublicKey().Address().String())))
+		require.Equal(1, len(ap.GetUnconfirmedActs(MustNoErrorV(address.FromBytes(txs[i].To()[:])).String())))
 	}
 	claim := action.NewClaimFromRewardingFund(big.NewInt(200000000000), producer, nil)
 	elp = (&action.EnvelopeBuilder{}).SetNonce(6).

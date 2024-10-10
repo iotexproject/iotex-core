@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
@@ -121,11 +122,15 @@ func (etx *txContainer) Data() []byte {
 }
 
 func (etx *txContainer) Destination() (string, bool) {
+	if to := etx.tx.To(); to != nil {
+		addr, _ := address.FromBytes(to[:])
+		return addr.String(), true
+	}
 	return "", false
 }
 
 func (etx *txContainer) Size() uint32 {
-	return uint32(len(etx.raw))
+	panic("should not call txContainer's Size()")
 }
 
 func (etx *txContainer) Action() Action { return etx }
@@ -215,11 +220,17 @@ func (etx *txContainer) IntrinsicGas() (uint64, error) {
 	return gas, nil
 }
 
-func (etx *txContainer) SetNonce(n uint64) {}
+func (etx *txContainer) SetNonce(n uint64) {
+	panic("should not call txContainer's SetNonce()")
+}
 
-func (etx *txContainer) SetGas(gas uint64) {}
+func (etx *txContainer) SetGas(gas uint64) {
+	panic("should not call txContainer's SetGas()")
+}
 
-func (etx *txContainer) SetChainID(chainID uint32) {}
+func (etx *txContainer) SetChainID(chainID uint32) {
+	panic("should not call txContainer's SetChainID()")
+}
 
 func (etx *txContainer) SanityCheck() error {
 	// Reject execution of negative amount
