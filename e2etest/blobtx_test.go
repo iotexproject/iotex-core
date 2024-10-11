@@ -243,7 +243,15 @@ func TestBlobTx(t *testing.T) {
 				}
 				r.Equal(expectBlobGas, blk.Header.BlobGasUsed())
 				r.Greater(blk.Header.ExcessBlobGas(), uint64(0))
-				r.Equal(protocol.CalcExcessBlobGas(*prevBlk.ExcessBlobGas(), *prevBlk.BlobGasUsed()), blk.Header.ExcessBlobGas())
+				prevExcessBlobGas := uint64(0)
+				if prevBlk.ExcessBlobGas() != nil {
+					prevExcessBlobGas = *prevBlk.ExcessBlobGas()
+				}
+				prevBlobGasUsed := uint64(0)
+				if prevBlk.BlobGasUsed() != nil {
+					prevBlobGasUsed = *prevBlk.BlobGasUsed()
+				}
+				r.Equal(protocol.CalcExcessBlobGas(prevExcessBlobGas, prevBlobGasUsed), blk.Header.ExcessBlobGas())
 			},
 		},
 	})
