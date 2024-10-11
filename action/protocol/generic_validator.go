@@ -85,6 +85,9 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 				return action.ErrNonceTooLow
 			}
 		}
+		if featureCtx.DisallowSpecialAddressInTx && action.CheckSpecialAddress(selp.Action()) {
+			return action.ErrSpecialAddress
+		}
 		if !featureCtx.EnableAccessListTx && selp.TxType() == action.AccessListTxType {
 			return errors.Wrap(action.ErrInvalidAct, "access list tx is not enabled")
 		}
