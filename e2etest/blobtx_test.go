@@ -198,6 +198,16 @@ func TestBlobTx(t *testing.T) {
 			}}},
 		},
 		{
+			name: "reject special address",
+			act: &actionWithTime{
+				mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr[(sender)], nil, []common.Hash{{}}), action.NewTransfer(big.NewInt(1), address.StakingBucketPoolAddr, nil)), senderSK)),
+				time.Now(),
+			},
+			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+				r.ErrorIs(err, action.ErrSpecialAddress)
+			}}},
+		},
+		{
 			name: "6 blobs per block at most",
 			acts: []*actionWithTime{
 				{mustNoErr(newBlobTxWeb3(test.nonceMgr.pop(sender), sender, big.NewInt(1), blobFeeCap, sidecar, sidecar.BlobHashes())), time.Now()},

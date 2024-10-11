@@ -152,6 +152,7 @@ type (
 		VerifyNotContainerBeforeRun             bool
 		ValidateActionWithState                 bool
 		CheckStakingDurationUpperLimit          bool
+		DisallowSpecialAddressInTx              bool
 		FixRevertSnapshot                       bool
 	}
 
@@ -316,6 +317,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			VerifyNotContainerBeforeRun:             g.IsVanuatu(height),
 			ValidateActionWithState:                 g.IsVanuatu(height),
 			CheckStakingDurationUpperLimit:          g.IsVanuatu(height),
+			DisallowSpecialAddressInTx:              g.IsVanuatu(height),
 			FixRevertSnapshot:                       g.IsVanuatu(height),
 		},
 	)
