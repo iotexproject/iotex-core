@@ -71,6 +71,9 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 			nonce          uint64
 			featureCtx, ok = GetFeatureCtx(ctx)
 		)
+		if ok && featureCtx.DisallowSpecialAddressInTx && action.CheckSpecialAddress(selp.Action()) {
+			return action.ErrSpecialAddress
+		}
 		if ok && featureCtx.FixGasAndNonceUpdate || selp.Nonce() != 0 {
 			confirmedState, err := v.accountState(ctx, v.sr, caller)
 			if err != nil {
