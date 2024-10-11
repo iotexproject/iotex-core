@@ -595,12 +595,15 @@ func TestReceiptObjectMarshal(t *testing.T) {
 	require := require.New(t)
 
 	receipt := &action.Receipt{
-		Status:          1,
-		BlockHeight:     16,
-		ActionHash:      _testTxHash,
-		GasConsumed:     21000,
-		ContractAddress: _testContractIoAddr,
-		TxIndex:         1,
+		Status:            1,
+		BlockHeight:       16,
+		ActionHash:        _testTxHash,
+		GasConsumed:       21000,
+		ContractAddress:   _testContractIoAddr,
+		TxIndex:           1,
+		BlobGasUsed:       2,
+		BlobGasPrice:      big.NewInt(10),
+		EffectiveGasPrice: big.NewInt(25),
 	}
 
 	t.Run("ContractCreation", func(t *testing.T) {
@@ -629,7 +632,11 @@ func TestReceiptObjectMarshal(t *testing.T) {
 			"logs":[
 			   
 			],
-			"status":"0x1"
+			"status":"0x1",
+			"blobGasPrice": "0xa",
+			"blobGasUsed": "0x2",
+			"effectiveGasPrice": "0x19",
+			"type": "0x0"
 		 }
 		`, string(res))
 	})
@@ -684,7 +691,11 @@ func TestReceiptObjectMarshal(t *testing.T) {
 				  ]
 			   }
 			],
-			"status":"0x1"
+			"status":"0x1",
+			"blobGasPrice": "0xa",
+			"blobGasUsed": "0x2",
+			"effectiveGasPrice": "0x19",
+			"type": "0x0"
 		 }
 		`, string(res))
 	})
