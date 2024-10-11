@@ -97,7 +97,6 @@ func TestDynamicFeeTxFromEth(t *testing.T) {
 		gasFeeCap:  big.NewInt(5),
 		accessList: acl,
 	}, tx.(*envelope).common)
-	tx.Proto()
 	tx2 := &envelope{}
 	r.NoError(tx2.LoadProto(tx.Proto()))
 	r.Equal(tx, tx2)
