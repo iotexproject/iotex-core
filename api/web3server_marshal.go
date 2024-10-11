@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -250,22 +251,31 @@ func (obj *getTransactionResult) MarshalJSON() ([]byte, error) {
 		tmp := "0x" + hex.EncodeToString(obj.blockHash[:])
 		blkHash = &tmp
 	}
-	return json.Marshal(&struct {
-		Hash             string  `json:"hash"`
-		Nonce            string  `json:"nonce"`
-		BlockHash        *string `json:"blockHash"`
-		BlockNumber      *string `json:"blockNumber"`
-		TransactionIndex *string `json:"transactionIndex"`
-		From             string  `json:"from"`
-		To               *string `json:"to"`
-		Value            string  `json:"value"`
-		GasPrice         string  `json:"gasPrice"`
-		Gas              string  `json:"gas"`
-		Input            string  `json:"input"`
-		R                string  `json:"r"`
-		S                string  `json:"s"`
-		V                string  `json:"v"`
-	}{
+	type rpcTransaction struct {
+		Hash                string            `json:"hash"`
+		Nonce               string            `json:"nonce"`
+		BlockHash           *string           `json:"blockHash"`
+		BlockNumber         *string           `json:"blockNumber"`
+		TransactionIndex    *string           `json:"transactionIndex"`
+		From                string            `json:"from"`
+		To                  *string           `json:"to"`
+		Value               string            `json:"value"`
+		GasPrice            string            `json:"gasPrice"`
+		Gas                 string            `json:"gas"`
+		Input               string            `json:"input"`
+		R                   string            `json:"r"`
+		S                   string            `json:"s"`
+		V                   string            `json:"v"`
+		Type                hexutil.Uint64    `json:"type"`
+		GasFeeCap           *hexutil.Big      `json:"maxFeePerGas,omitempty"`
+		GasTipCap           *hexutil.Big      `json:"maxPriorityFeePerGas,omitempty"`
+		MaxFeePerBlobGas    *hexutil.Big      `json:"maxFeePerBlobGas,omitempty"`
+		Accesses            *types.AccessList `json:"accessList,omitempty"`
+		ChainID             *hexutil.Big      `json:"chainId,omitempty"`
+		BlobVersionedHashes []common.Hash     `json:"blobVersionedHashes,omitempty"`
+		YParity             *hexutil.Uint64   `json:"yParity,omitempty"`
+	}
+	result := &rpcTransaction{
 		Hash:             "0x" + hex.EncodeToString(txHash),
 		Nonce:            uint64ToHex(obj.ethTx.Nonce()),
 		BlockHash:        blkHash,
@@ -280,7 +290,52 @@ func (obj *getTransactionResult) MarshalJSON() ([]byte, error) {
 		R:                hexutil.EncodeBig(r),
 		S:                hexutil.EncodeBig(s),
 		V:                hexutil.EncodeBig(v),
-	})
+		Type:             hexutil.Uint64(obj.ethTx.Type()),
+	}
+	tx := obj.ethTx
+	switch tx.Type() {
+	case types.LegacyTxType:
+		// if a legacy transaction has an EIP-155 chain id, include it explicitly
+		if id := tx.ChainId(); id.Sign() != 0 {
+			result.ChainID = (*hexutil.Big)(id)
+		}
+
+	case types.AccessListTxType:
+		al := tx.AccessList()
+		yparity := hexutil.Uint64(v.Sign())
+		result.Accesses = &al
+		result.ChainID = (*hexutil.Big)(tx.ChainId())
+		result.YParity = &yparity
+
+	case types.DynamicFeeTxType:
+		al := tx.AccessList()
+		yparity := hexutil.Uint64(v.Sign())
+		result.Accesses = &al
+		result.ChainID = (*hexutil.Big)(tx.ChainId())
+		result.YParity = &yparity
+		result.GasFeeCap = (*hexutil.Big)(tx.GasFeeCap())
+		result.GasTipCap = (*hexutil.Big)(tx.GasTipCap())
+		// if the transaction has been mined, compute the effective gas price
+		if obj.receipt != nil {
+			result.GasPrice = hexutil.EncodeBig(obj.receipt.EffectiveGasPrice)
+		}
+
+	case types.BlobTxType:
+		al := tx.AccessList()
+		yparity := hexutil.Uint64(v.Sign())
+		result.Accesses = &al
+		result.ChainID = (*hexutil.Big)(tx.ChainId())
+		result.YParity = &yparity
+		result.GasFeeCap = (*hexutil.Big)(tx.GasFeeCap())
+		result.GasTipCap = (*hexutil.Big)(tx.GasTipCap())
+		// if the transaction has been mined, compute the effective gas price
+		if obj.receipt != nil {
+			result.GasPrice = hexutil.EncodeBig(obj.receipt.EffectiveGasPrice)
+		}
+		result.MaxFeePerBlobGas = (*hexutil.Big)(tx.BlobGasFeeCap())
+		result.BlobVersionedHashes = tx.BlobHashes()
+	}
+	return json.Marshal(result)
 }
 
 func (obj *getReceiptResult) MarshalJSON() ([]byte, error) {
