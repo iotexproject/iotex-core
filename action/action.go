@@ -7,10 +7,12 @@ package action
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -77,6 +79,34 @@ func Sign(act Envelope, sk crypto.PrivateKey) (*SealedEnvelope, error) {
 	}
 	sealed.signature = sig
 	return sealed, nil
+}
+
+func EthSign(act Envelope, evmID uint32, sk crypto.PrivateKey) (*SealedEnvelope, error) {
+	encoding := iotextypes.Encoding_ETHEREUM_EIP155
+	signer, err := NewEthSigner(encoding, evmID)
+	if err != nil {
+		return nil, err
+	}
+	tx, err := act.ToEthTx(evmID, encoding)
+	if err != nil {
+		return nil, err
+	}
+	tx, err = types.SignTx(tx, signer, sk.EcdsaPrivateKey().(*ecdsa.PrivateKey))
+	if err != nil {
+		return nil, err
+	}
+	encoding, sig, pubkey, err := ExtractTypeSigPubkey(tx)
+	if err != nil {
+		return nil, err
+	}
+	req := &iotextypes.Action{
+		Core:         act.Proto(),
+		SenderPubKey: pubkey.Bytes(),
+		Signature:    sig,
+		Encoding:     encoding,
+	}
+	desr := Deserializer{}
+	return desr.SetEvmNetworkID(evmID).ActionToSealedEnvelope(req)
 }
 
 // FakeSeal creates a SealedActionEnvelope without signature.
