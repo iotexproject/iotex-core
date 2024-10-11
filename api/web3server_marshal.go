@@ -66,6 +66,7 @@ type (
 		contractAddress *string
 		logsBloom       string
 		receipt         *action.Receipt
+		txType          uint
 	}
 
 	getLogsResult struct {
@@ -372,6 +373,10 @@ func (obj *getReceiptResult) MarshalJSON() ([]byte, error) {
 		LogsBloom         string           `json:"logsBloom"`
 		Logs              []*getLogsResult `json:"logs"`
 		Status            string           `json:"status"`
+		Type              hexutil.Uint     `json:"type"`
+		EffectiveGasPrice *hexutil.Big     `json:"effectiveGasPrice"`
+		BlobGasUsed       hexutil.Uint64   `json:"blobGasUsed,omitempty"`
+		BlobGasPrice      *hexutil.Big     `json:"blobGasPrice,omitempty"`
 	}{
 		TransactionIndex:  uint64ToHex(uint64(obj.receipt.TxIndex)),
 		TransactionHash:   "0x" + hex.EncodeToString(obj.receipt.ActionHash[:]),
@@ -385,6 +390,10 @@ func (obj *getReceiptResult) MarshalJSON() ([]byte, error) {
 		LogsBloom:         getLogsBloomHex(obj.logsBloom),
 		Logs:              logs,
 		Status:            uint64ToHex(obj.receipt.Status),
+		Type:              hexutil.Uint(obj.txType),
+		EffectiveGasPrice: (*hexutil.Big)(obj.receipt.EffectiveGasPrice),
+		BlobGasUsed:       hexutil.Uint64(obj.receipt.BlobGasUsed),
+		BlobGasPrice:      (*hexutil.Big)(obj.receipt.BlobGasPrice),
 	})
 }
 
