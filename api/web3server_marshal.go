@@ -148,12 +148,15 @@ func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 		producerAddress   string
 		logsBloomStr      string
 		gasLimit, gasUsed uint64
+		baseFee           *hexutil.Big
 
 		txs              = make([]interface{}, 0)
 		preHash          = obj.blk.Header.PrevHash()
 		txRoot           = obj.blk.Header.TxRoot()
 		deltaStateDigest = obj.blk.Header.DeltaStateDigest()
 		receiptRoot      = obj.blk.Header.ReceiptRoot()
+		blobGasUsed      = hexutil.Uint64(obj.blk.Header.BlobGasUsed())
+		excessBlobGas    = hexutil.Uint64(obj.blk.Header.ExcessBlobGas())
 	)
 	if obj.blk.Height() > 0 {
 		producerAddress = obj.blk.Header.ProducerAddress()
@@ -177,27 +180,33 @@ func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 	if len(obj.transactions) > 0 {
 		txs = obj.transactions
 	}
+	if obj.blk.Header.BaseFee() != nil {
+		baseFee = (*hexutil.Big)(obj.blk.Header.BaseFee())
+	}
 	return json.Marshal(&struct {
-		Author           string        `json:"author"`
-		Number           string        `json:"number"`
-		Hash             string        `json:"hash"`
-		ParentHash       string        `json:"parentHash"`
-		Sha3Uncles       string        `json:"sha3Uncles"`
-		LogsBloom        string        `json:"logsBloom"`
-		TransactionsRoot string        `json:"transactionsRoot"`
-		StateRoot        string        `json:"stateRoot"`
-		ReceiptsRoot     string        `json:"receiptsRoot"`
-		Miner            string        `json:"miner"`
-		Difficulty       string        `json:"difficulty"`
-		TotalDifficulty  string        `json:"totalDifficulty"`
-		ExtraData        string        `json:"extraData"`
-		Size             string        `json:"size"`
-		GasLimit         string        `json:"gasLimit"`
-		GasUsed          string        `json:"gasUsed"`
-		Timestamp        string        `json:"timestamp"`
-		Transactions     []interface{} `json:"transactions"`
-		Step             string        `json:"step"`
-		Uncles           []string      `json:"uncles"`
+		Author           string         `json:"author"`
+		Number           string         `json:"number"`
+		Hash             string         `json:"hash"`
+		ParentHash       string         `json:"parentHash"`
+		Sha3Uncles       string         `json:"sha3Uncles"`
+		LogsBloom        string         `json:"logsBloom"`
+		TransactionsRoot string         `json:"transactionsRoot"`
+		StateRoot        string         `json:"stateRoot"`
+		ReceiptsRoot     string         `json:"receiptsRoot"`
+		Miner            string         `json:"miner"`
+		Difficulty       string         `json:"difficulty"`
+		TotalDifficulty  string         `json:"totalDifficulty"`
+		ExtraData        string         `json:"extraData"`
+		Size             string         `json:"size"`
+		GasLimit         string         `json:"gasLimit"`
+		GasUsed          string         `json:"gasUsed"`
+		Timestamp        string         `json:"timestamp"`
+		Transactions     []interface{}  `json:"transactions"`
+		Step             string         `json:"step"`
+		Uncles           []string       `json:"uncles"`
+		BaseFeePerGas    *hexutil.Big   `json:"baseFeePerGas,omitempty"`
+		BlobGasUsed      hexutil.Uint64 `json:"blobGasUsed,omitempty"`
+		ExcessBlobGas    hexutil.Uint64 `json:"excessBlobGas,omitempty"`
 	}{
 		Author:           producerAddr,
 		Number:           uint64ToHex(obj.blk.Height()),
@@ -219,6 +228,9 @@ func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 		Transactions:     txs,
 		Step:             "373422302",
 		Uncles:           []string{},
+		BaseFeePerGas:    baseFee,
+		BlobGasUsed:      blobGasUsed,
+		ExcessBlobGas:    excessBlobGas,
 	})
 }
 
