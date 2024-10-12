@@ -8,6 +8,7 @@ package util
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -108,9 +109,9 @@ func ActionGenerator(
 	executionGasPrice *big.Int,
 	contractAddr string,
 	transferPayload, executionPayload []byte,
-) (action.SealedEnvelope, error) {
+) (*action.SealedEnvelope, error) {
 	var (
-		selp      action.SealedEnvelope
+		selp      *action.SealedEnvelope
 		err       error
 		delegates = accountManager.AccountList
 		randNum   = rand.Intn(len(delegates))
@@ -120,14 +121,14 @@ func ActionGenerator(
 	)
 	switch actionType {
 	case 1:
-		selp, _, err = createSignedTransfer(sender, recipient, big.NewInt(0), chainID, nonce, transferGasLimit, transferGasPrice, transferPayload)
+		selp, _, err = createSignedTransfer(sender, recipient, big.NewInt(0), chainID, nonce, transferGasLimit, transferGasPrice, hex.EncodeToString(transferPayload))
 	case 2:
-		selp, _, err = createSignedExecution(sender, contractAddr, chainID, nonce, big.NewInt(0), executionGasLimit, executionGasPrice, executionPayload)
+		selp, _, err = createSignedExecution(sender, contractAddr, chainID, nonce, big.NewInt(0), executionGasLimit, executionGasPrice, hex.EncodeToString(executionPayload))
 	case 3:
 		if rand.Intn(2) == 0 {
-			selp, _, err = createSignedTransfer(sender, recipient, big.NewInt(0), chainID, nonce, transferGasLimit, transferGasPrice, transferPayload)
+			selp, _, err = createSignedTransfer(sender, recipient, big.NewInt(0), chainID, nonce, transferGasLimit, transferGasPrice, hex.EncodeToString(transferPayload))
 		} else {
-			selp, _, err = createSignedExecution(sender, contractAddr, chainID, nonce, big.NewInt(0), executionGasLimit, executionGasPrice, executionPayload)
+			selp, _, err = createSignedExecution(sender, contractAddr, chainID, nonce, big.NewInt(0), executionGasLimit, executionGasPrice, hex.EncodeToString(executionPayload))
 		}
 	}
 	return selp, err

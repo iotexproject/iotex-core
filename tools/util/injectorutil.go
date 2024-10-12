@@ -500,7 +500,7 @@ func createSignedTransfer(
 		return nil, nil, errors.Wrapf(err, "failed to decode payload %s", payload)
 	}
 	transfer := action.NewTransfer(amount, recipient.EncodedAddr, transferPayload)
-	elp := (&action.EnvelopeBuilder{}).SetNonce(nonce).SetGasPrice(gasPrice).SetChainID(1).
+	elp := (&action.EnvelopeBuilder{}).SetNonce(nonce).SetGasPrice(gasPrice).SetChainID(chainID).
 		SetGasLimit(gasLimit).SetAction(transfer).Build()
 	selp, err := action.Sign(elp, sender.PriKey)
 	if err != nil {
@@ -525,7 +525,7 @@ func createSignedExecution(
 		return nil, nil, errors.Wrapf(err, "failed to decode data %s", data)
 	}
 	execution := action.NewExecution(contract, amount, executionData)
-	elp := (&action.EnvelopeBuilder{}).SetNonce(nonce).SetGasPrice(gasPrice).SetChainID(1).
+	elp := (&action.EnvelopeBuilder{}).SetNonce(nonce).SetGasPrice(gasPrice).SetChainID(chainID).
 		SetGasLimit(gasLimit).SetAction(execution).Build()
 	selp, err := action.Sign(elp, executor.PriKey)
 	if err != nil {

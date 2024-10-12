@@ -124,28 +124,25 @@ func provider(call *runner.CallData) ([]*dynamic.Message, error) {
 		if err != nil {
 			return nil, err
 		}
-		execution, err := action.NewExecution("io1qfvgvmk6lpxkpqwlzanqx4atyzs86ryqjnfuad", 0, big.NewInt(0), 0, big.NewInt(0), data)
-		if err != nil {
-			return nil, err
-		}
+		execution := action.NewExecution("io1qfvgvmk6lpxkpqwlzanqx4atyzs86ryqjnfuad", big.NewInt(0), data)
 		protoMsg = &iotexapi.ReadContractRequest{
 			Execution:     execution.Proto(),
 			CallerAddress: identityset.Address(rand.Intn(30)).String(),
+			GasLimit:      0,
+			GasPrice:      "0",
 		}
 	case "EstimateActionGasConsumption":
 		data, err := erc20ABI.Pack("balanceOf", common.BytesToAddress(identityset.Address(rand.Intn(30)).Bytes()))
 		if err != nil {
 			return nil, err
 		}
-		execution, err := action.NewExecution("io1qfvgvmk6lpxkpqwlzanqx4atyzs86ryqjnfuad", 0, big.NewInt(0), 0, big.NewInt(0), data)
-		if err != nil {
-			return nil, err
-		}
+		execution := action.NewExecution("io1qfvgvmk6lpxkpqwlzanqx4atyzs86ryqjnfuad", big.NewInt(0), data)
 		protoMsg = &iotexapi.EstimateActionGasConsumptionRequest{
 			Action: &iotexapi.EstimateActionGasConsumptionRequest_Execution{
 				Execution: execution.Proto(),
 			},
 			CallerAddress: identityset.Address(rand.Intn(30)).String(),
+			GasPrice:      "0",
 		}
 	case "GetAccount":
 		protoMsg = &iotexapi.GetAccountRequest{
