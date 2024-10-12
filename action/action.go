@@ -81,6 +81,16 @@ func Sign(act Envelope, sk crypto.PrivateKey) (*SealedEnvelope, error) {
 	return sealed, nil
 }
 
+func Sign155(act Envelope, evmID uint32, sk crypto.PrivateKey) (*SealedEnvelope, error) {
+	sealed, err := Sign(act, sk)
+	if err != nil {
+		return nil, err
+	}
+	sealed.evmNetworkID = evmID
+	sealed.encoding = iotextypes.Encoding_ETHEREUM_EIP155
+	return sealed, nil
+}
+
 func EthSign(act Envelope, evmID uint32, sk crypto.PrivateKey) (*SealedEnvelope, error) {
 	encoding := iotextypes.Encoding_ETHEREUM_EIP155
 	signer, err := NewEthSigner(encoding, evmID)
