@@ -144,7 +144,21 @@ func (etx *txContainer) ProtoForHash() *iotextypes.ActionCore {
 }
 
 func (etx *txContainer) Proto() *iotextypes.ActionCore {
-	panic("should not call txContainer's Proto()")
+	if len(etx.raw) == 0 {
+		var err error
+		etx.raw, err = etx.tx.MarshalBinary()
+		if err != nil {
+			panic(err.Error())
+		}
+	}
+	return &iotextypes.ActionCore{
+		ChainID: etx.chainID,
+		Action: &iotextypes.ActionCore_TxContainer{
+			TxContainer: &iotextypes.TxContainer{
+				Raw: etx.raw,
+			},
+		},
+	}
 }
 
 func (etx *txContainer) LoadProto(pbAct *iotextypes.ActionCore) error {
