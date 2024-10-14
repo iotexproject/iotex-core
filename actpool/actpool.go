@@ -84,6 +84,12 @@ type ActPool interface {
 	AddActionEnvelopeValidators(...action.SealedEnvelopeValidator)
 }
 
+// Subscriber is the interface for actpool subscriber
+type Subscriber interface {
+	OnAdded(*action.SealedEnvelope)
+	OnRemoved(*action.SealedEnvelope)
+}
+
 // SortedActions is a slice of actions that implements sort.Interface to sort by Value.
 type SortedActions []*action.SealedEnvelope
 
@@ -107,6 +113,7 @@ type actPool struct {
 	senderBlackList          map[string]bool
 	jobQueue                 []chan workerJob
 	worker                   []*queueWorker
+	subs                     []Subscriber
 
 	store     *actionStore           // store is the persistent cache for actpool
 	storeSync *routine.RecurringTask // storeSync is the recurring task to sync actions from store to memory
@@ -489,6 +496,7 @@ func (ap *actPool) removeInvalidActs(acts []*action.SealedEnvelope) {
 				log.L().Warn("Failed to delete action from store", zap.Error(err), log.Hex("hash", hash[:]))
 			}
 		}
+		ap.onRemoved(act)
 	}
 }
 
@@ -546,6 +554,22 @@ func (ap *actPool) syncFromStore() {
 		}
 		return true
 	})
+}
+
+func (ap *actPool) AddSubscriber(sub Subscriber) {
+	ap.subs = append(ap.subs, sub)
+}
+
+func (ap *actPool) onAdded(act *action.SealedEnvelope) {
+	for _, sub := range ap.subs {
+		sub.OnAdded(act)
+	}
+}
+
+func (ap *actPool) onRemoved(act *action.SealedEnvelope) {
+	for _, sub := range ap.subs {
+		sub.OnRemoved(act)
+	}
 }
 
 type destinationMap struct {
