@@ -25,6 +25,11 @@ const (
 	BlobTxType       = 4
 )
 
+var (
+	// block height = 18879571, tx d03127451c120caed0c4e2ed91c58872231192e027daad3760c475e5aa2feffd used this value
+	_outOfBandTxType18879571 uint32 = 4689
+)
+
 type (
 	// Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
 	Action interface {

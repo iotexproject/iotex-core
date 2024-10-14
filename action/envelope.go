@@ -286,7 +286,7 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
 	var err error
 	switch pbAct.Version {
-	case AntiqueTxType:
+	case AntiqueTxType, _outOfBandTxType18879571:
 		tx := AntiqueTx{}
 		if err = tx.fromProto(pbAct); err == nil {
 			elp.common = &tx

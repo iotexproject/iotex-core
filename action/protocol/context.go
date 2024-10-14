@@ -145,6 +145,7 @@ type (
 		EnableCancunEVM                         bool
 		UnfoldContainerBeforeValidate           bool
 		DisallowSpecialAddressInTx              bool
+		EnableNewTxTypes                        bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -303,6 +304,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			EnableCancunEVM:                         g.IsVanuatu(height),
 			UnfoldContainerBeforeValidate:           g.IsVanuatu(height),
 			DisallowSpecialAddressInTx:              g.IsVanuatu(height),
+			EnableNewTxTypes:                        g.IsVanuatu(height),
 		},
 	)
 }

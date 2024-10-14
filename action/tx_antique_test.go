@@ -23,12 +23,13 @@ func TestAntiqueTx(t *testing.T) {
 	r := require.New(t)
 	t.Run("proto", func(t *testing.T) {
 		tx := &AntiqueTx{
-			LegacyTx{
+			LegacyTx: LegacyTx{
 				chainID:  8,
 				nonce:    3,
 				gasLimit: 2024,
 				gasPrice: big.NewInt(31),
 			},
+			version: AntiqueTxType,
 		}
 		r.EqualValues(AntiqueTxType, tx.Version())
 		r.EqualValues(8, tx.ChainID())
@@ -47,18 +48,19 @@ func TestAntiqueTx(t *testing.T) {
 		pb := iotextypes.ActionCore{}
 		r.NoError(proto.Unmarshal(b, &pb))
 		tx1 := &AntiqueTx{
-			LegacyTx{
+			LegacyTx: LegacyTx{
 				chainID:  88,
 				nonce:    33,
 				gasLimit: 22,
 				gasPrice: big.NewInt(5),
 			},
+			version: 355,
 		}
 		r.NoError(tx1.fromProto(&pb))
 		r.Equal(tx, tx1)
 	})
 	ab := AbstractAction{
-		version:   AntiqueTxType,
+		version:   _outOfBandTxType18879571,
 		chainID:   8,
 		nonce:     3,
 		gasLimit:  2024,
@@ -71,11 +73,12 @@ func TestAntiqueTx(t *testing.T) {
 		},
 	}
 	expect := &AntiqueTx{
-		LegacyTx{
+		LegacyTx: LegacyTx{
 			chainID:  8,
 			nonce:    3,
 			gasLimit: 2024,
 		},
+		version: _outOfBandTxType18879571,
 	}
 	t.Run("convert", func(t *testing.T) {
 		for _, price := range []*big.Int{
@@ -90,7 +93,7 @@ func TestAntiqueTx(t *testing.T) {
 			} else {
 				expect.gasPrice = new(big.Int).Set(price)
 			}
-			r.EqualValues(AntiqueTxType, antique.Version())
+			r.EqualValues(_outOfBandTxType18879571, antique.Version())
 			r.Equal(expect, antique)
 		}
 	})
@@ -103,7 +106,7 @@ func TestAntiqueTx(t *testing.T) {
 			r.NoError(elp.loadProtoTxCommon(expect.toProto()))
 			antique, ok := elp.common.(*AntiqueTx)
 			r.True(ok)
-			r.EqualValues(AntiqueTxType, antique.Version())
+			r.EqualValues(_outOfBandTxType18879571, antique.Version())
 			if price == nil {
 				expect.gasPrice = new(big.Int)
 			}
