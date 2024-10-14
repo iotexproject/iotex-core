@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/state"
@@ -89,6 +88,11 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 				return action.ErrNonceTooLow
 			}
 		}
+		if ok && featureCtx.EnableNewTxTypes {
+			if err := selp.ValidateVersionEncoding(); err != nil {
+				return err
+			}
+		}
 		if ok && !featureCtx.EnableAccessListTx && selp.Version() == action.AccessListTxType {
 			return errors.Wrap(action.ErrInvalidAct, "access list tx is not enabled")
 		}
@@ -133,9 +137,6 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 					return errors.Wrap(err, "failed to validate blob sidecar")
 				}
 			}
-		}
-		if selp.Encoding() == uint32(iotextypes.Encoding_IOTEX_PROTOBUF) && selp.Version() != action.LegacyTxType {
-			return errors.Wrap(action.ErrInvalidAct, "protobuf encoding only supports legacy tx")
 		}
 	}
 	return nil

@@ -242,3 +242,18 @@ func (sealed *SealedEnvelope) VerifySignature() error {
 	}
 	return nil
 }
+
+func (sealed *SealedEnvelope) ValidateVersionEncoding() error {
+	if version := sealed.Version(); version != LegacyTxType && version != AccessListTxType &&
+		version != DynamicFeeTxType && version != BlobTxType {
+		return errors.Wrapf(ErrInvalidAct, "invalid tx type = %d not supported", version)
+	}
+	if sealed.encoding != iotextypes.Encoding_IOTEX_PROTOBUF && sealed.encoding != iotextypes.Encoding_ETHEREUM_EIP155 &&
+		sealed.encoding != iotextypes.Encoding_ETHEREUM_UNPROTECTED && sealed.encoding != iotextypes.Encoding_TX_CONTAINER {
+		return errors.Wrapf(ErrInvalidAct, "invalid tx encoding = %d not supported", sealed.encoding)
+	}
+	if sealed.encoding == iotextypes.Encoding_IOTEX_PROTOBUF && sealed.Version() != LegacyTxType {
+		return errors.Wrap(ErrInvalidAct, "protobuf encoding only supports legacy tx")
+	}
+	return nil
+}
