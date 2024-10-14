@@ -104,9 +104,10 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 		}
 		if ok && featureCtx.EnableDynamicFeeTx {
 			// check transaction's max fee can cover base fee
-			if selp.Envelope.GasFeeCap().Cmp(new(big.Int).SetUint64(action.InitialBaseFee)) < 0 {
-				return errors.Errorf("transaction cannot cover base fee, max fee = %s, base fee = %d",
-					selp.Envelope.GasFeeCap().String(), action.InitialBaseFee)
+			blkCtx := MustGetBlockCtx(ctx)
+			if baseFee := blkCtx.BaseFee; baseFee != nil && selp.Envelope.GasFeeCap().Cmp(baseFee) < 0 {
+				return errors.Errorf("transaction cannot cover base fee, max fee = %s, base fee = %s",
+					selp.Envelope.GasFeeCap().String(), baseFee.String())
 			}
 			if selp.Envelope.GasTipCap().Cmp(MinTipCap) < 0 {
 				return errors.Wrapf(action.ErrUnderpriced, "tip cap is too low: %s, min tip cap: %s", selp.Envelope.GasTipCap().String(), MinTipCap.String())
