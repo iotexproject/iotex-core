@@ -16,26 +16,36 @@ var _ TxCommonInternal = (*AntiqueTx)(nil)
 // AntiqueTx is same as LegacyTx, with the only difference that version = 0
 type AntiqueTx struct {
 	LegacyTx
+	version uint32
 }
 
 // NewAntiqueTx creates a new antique transaction
-func NewAntiqueTx(chainID uint32, nonce uint64, gasLimit uint64, gasPrice *big.Int) *AntiqueTx {
+func NewAntiqueTx(chainID, version uint32, nonce uint64, gasLimit uint64, gasPrice *big.Int) *AntiqueTx {
 	return &AntiqueTx{
-		LegacyTx{
+		LegacyTx: LegacyTx{
 			chainID:  chainID,
 			nonce:    nonce,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
+		version: version,
 	}
 }
 
 func (tx *AntiqueTx) Version() uint32 {
-	return AntiqueTxType
+	return tx.version
 }
 
 func (tx *AntiqueTx) toProto() *iotextypes.ActionCore {
 	actCore := tx.LegacyTx.toProto()
-	actCore.Version = AntiqueTxType
+	actCore.Version = tx.version
 	return actCore
+}
+
+func (tx *AntiqueTx) fromProto(pb *iotextypes.ActionCore) error {
+	if err := tx.LegacyTx.fromProto(pb); err != nil {
+		return err
+	}
+	tx.version = pb.GetVersion()
+	return nil
 }
