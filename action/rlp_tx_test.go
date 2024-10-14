@@ -394,20 +394,8 @@ func TestEthTxDecodeVerify(t *testing.T) {
 			pb[0].Signature = sig
 
 			// test tx container
-			rawBytes, _ := hex.DecodeString(raw)
 			pb[1] = &iotextypes.Action{
-				Core: &iotextypes.ActionCore{
-					Version:  1,
-					Nonce:    tx.Nonce(),
-					GasLimit: tx.Gas(),
-					GasPrice: tx.GasPrice().String(),
-					ChainID:  1,
-					Action: &iotextypes.ActionCore_TxContainer{
-						TxContainer: &iotextypes.TxContainer{
-							Raw: rawBytes,
-						},
-					},
-				},
+				Core:         MustNoErrorV(EthRawToContainer(1, raw)),
 				SenderPubKey: pubkey.Bytes(),
 				Signature:    sig,
 				Encoding:     iotextypes.Encoding_TX_CONTAINER,
@@ -435,6 +423,7 @@ func TestEthTxDecodeVerify(t *testing.T) {
 
 				// evm tx conversion
 				if i == 1 {
+					require.EqualValues(tx.Type()+1, selp.Version())
 					// tx unfolding
 					_, ok := selp.Action().(*txContainer)
 					require.True(ok)
@@ -444,6 +433,7 @@ func TestEthTxDecodeVerify(t *testing.T) {
 					require.True(bytes.Equal(sig, selp.signature))
 					checkSelp(selp, tx, v)
 					require.Equal(v.encoding, selp.encoding)
+					require.EqualValues(tx.Type()+1, selp.Version())
 					// selp converted to actual tx
 					_, ok = selp.Action().(TxContainer)
 					require.False(ok)

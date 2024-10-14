@@ -86,8 +86,8 @@ type (
 	}
 )
 
-// NewEnvelop creates a new envelope
-func NewEnvelop(common TxCommonInternal, payload actionPayload) Envelope {
+// NewEnvelope creates a new envelope
+func NewEnvelope(common TxCommonInternal, payload actionPayload) Envelope {
 	return &envelope{
 		common:  common,
 		payload: payload,
@@ -425,12 +425,6 @@ func (elp *envelope) loadProtoActionPayload(pbAct *iotextypes.ActionCore) error 
 	case pbAct.GetCandidateTransferOwnership() != nil:
 		act := &CandidateTransferOwnership{}
 		if err := act.LoadProto(pbAct.GetCandidateTransferOwnership()); err != nil {
-			return err
-		}
-		elp.payload = act
-	case pbAct.GetTxContainer() != nil:
-		act := &txContainer{}
-		if err := act.loadProto(pbAct.GetTxContainer()); err != nil {
 			return err
 		}
 		elp.payload = act
