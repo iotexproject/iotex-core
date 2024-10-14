@@ -52,20 +52,23 @@ func init() {
 
 type (
 	workingSet struct {
-		height    uint64
-		store     workingSetStore
-		finalized bool
-		dock      protocol.Dock
-		receipts  []*action.Receipt
+		height      uint64
+		store       workingSetStore
+		finalized   bool
+		dock        protocol.Dock
+		txValidator *protocol.GenericValidator
+		receipts    []*action.Receipt
 	}
 )
 
 func newWorkingSet(height uint64, store workingSetStore) *workingSet {
-	return &workingSet{
+	ws := &workingSet{
 		height: height,
 		store:  store,
 		dock:   protocol.NewDock(),
 	}
+	ws.txValidator = protocol.NewGenericValidator(ws, accountutil.AccountState)
+	return ws
 }
 
 func (ws *workingSet) digest() (hash.Hash256, error) {
@@ -618,6 +621,15 @@ func (ws *workingSet) pickAndRunActions(
 						actionIterator.PopAccount()
 						continue
 					}
+				}
+			}
+			if fCtx.GenericValidateWhenMintBlock {
+				if err := ws.txValidator.Validate(ctxWithBlockContext, nextAction); err != nil {
+					if caller := nextAction.SenderAddress(); caller != nil {
+						ap.DeleteAction(caller)
+					}
+					actionIterator.PopAccount()
+					continue
 				}
 			}
 			actionCtx, err := withActionCtx(ctxWithBlockContext, nextAction)

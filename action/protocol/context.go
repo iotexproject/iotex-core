@@ -146,6 +146,7 @@ type (
 		UnfoldContainerBeforeValidate           bool
 		DisallowSpecialAddressInTx              bool
 		EnableNewTxTypes                        bool
+		GenericValidateWhenMintBlock            bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -305,6 +306,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			UnfoldContainerBeforeValidate:           g.IsVanuatu(height),
 			DisallowSpecialAddressInTx:              g.IsVanuatu(height),
 			EnableNewTxTypes:                        g.IsVanuatu(height),
+			GenericValidateWhenMintBlock:            g.IsVanuatu(height),
 		},
 	)
 }
