@@ -9,6 +9,7 @@ import (
 	"context"
 	"math/big"
 	"sort"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
@@ -597,6 +598,7 @@ func (ws *workingSet) pickAndRunActions(
 		blobCnt             = uint64(0)
 		blobLimit           = params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob
 	)
+	gValidatorLatency := time.Duration(0)
 	if ap != nil {
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
 		for {
@@ -624,6 +626,7 @@ func (ws *workingSet) pickAndRunActions(
 				}
 			}
 			if fCtx.GenericValidateWhenMintBlock {
+				t := time.Now()
 				if err := ws.txValidator.Validate(ctxWithBlockContext, nextAction); err != nil {
 					if caller := nextAction.SenderAddress(); caller != nil {
 						ap.DeleteAction(caller)
@@ -631,6 +634,7 @@ func (ws *workingSet) pickAndRunActions(
 					actionIterator.PopAccount()
 					continue
 				}
+				gValidatorLatency += time.Since(t)
 			}
 			actionCtx, err := withActionCtx(ctxWithBlockContext, nextAction)
 			if err == nil {
@@ -683,6 +687,9 @@ func (ws *workingSet) pickAndRunActions(
 			receipts = append(receipts, receipt)
 			executedActions = append(executedActions, nextAction)
 			blobCnt += uint64(len(nextAction.BlobHashes()))
+			if len(receipts)%100 == 0 {
+				log.L().Info("actions processing", zap.Uint64("height", ws.height), zap.Int("num", len(receipts)), zap.Duration("generic_validator", gValidatorLatency))
+			}
 
 			// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
 			// than certain threshold
