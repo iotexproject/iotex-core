@@ -623,14 +623,13 @@ func (ws *workingSet) pickAndRunActions(
 					}
 				}
 			}
-			if fCtx.GenericValidateWhenMintBlock {
-				if err := ws.txValidator.Validate(ctxWithBlockContext, nextAction); err != nil {
-					if caller := nextAction.SenderAddress(); caller != nil {
-						ap.DeleteAction(caller)
-					}
-					actionIterator.PopAccount()
-					continue
+			if err := ws.txValidator.Validate(ctxWithBlockContext, nextAction); err != nil {
+				log.L().Info("Failed to validate action", zap.Error(err), zap.Int("nonce", int(nextAction.Nonce())), zap.String("sender", nextAction.SenderAddress().String()))
+				if caller := nextAction.SenderAddress(); caller != nil {
+					ap.DeleteAction(caller)
 				}
+				actionIterator.PopAccount()
+				continue
 			}
 			actionCtx, err := withActionCtx(ctxWithBlockContext, nextAction)
 			if err == nil {

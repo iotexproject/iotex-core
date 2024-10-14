@@ -752,6 +752,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(ctx, selp1))
 	// This execution should not be included in block because block is out of gas
+	bd = &action.EnvelopeBuilder{}
 	elp2 := bd.SetAction(execution).
 		SetNonce(2).
 		SetGasLimit(100000).
@@ -820,7 +821,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	}
 	for i := uint64(0); i < 300; i++ {
 		tsf, err := action.SignedTransfer(addr1, priKey0, i+7, big.NewInt(2), bytes,
-			19000, big.NewInt(testutil.TestGasPriceInt64))
+			190000, big.NewInt(testutil.TestGasPriceInt64))
 		require.NoError(t, err)
 		require.NoError(t, ap.Add(ctx, tsf))
 	}
