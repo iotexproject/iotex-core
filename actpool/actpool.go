@@ -102,18 +102,23 @@ type Option func(pool *actPool) error
 
 // actPool implements ActPool interface
 type actPool struct {
-	cfg                      Config
-	g                        genesis.Genesis
-	sf                       protocol.StateReader
-	accountDesActs           *destinationMap
-	allActions               *ttl.Cache
-	gasInPool                uint64
+	cfg            Config
+	g              genesis.Genesis
+	sf             protocol.StateReader
+	accountDesActs *destinationMap
+	allActions     *ttl.Cache
+	gasInPool      uint64
+	// actionEnvelopeValidators are the validators that are used in both actpool.Add and actpool.Validate
+	// TODO: can combine with privateValidators after NOT use actpool to call generic_validator in block validate
 	actionEnvelopeValidators []action.SealedEnvelopeValidator
-	timerFactory             *prometheustimer.TimerFactory
-	senderBlackList          map[string]bool
-	jobQueue                 []chan workerJob
-	worker                   []*queueWorker
-	subs                     []Subscriber
+	// privateValidators are the validators that are only used in actpool.Add
+	// they are not used in actpool.Validate
+	privateValidators []action.SealedEnvelopeValidator
+	timerFactory      *prometheustimer.TimerFactory
+	senderBlackList   map[string]bool
+	jobQueue          []chan workerJob
+	worker            []*queueWorker
+	subs              []Subscriber
 
 	store     *actionStore           // store is the persistent cache for actpool
 	storeSync *routine.RecurringTask // storeSync is the recurring task to sync actions from store to memory
@@ -146,6 +151,11 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 			return nil, err
 		}
 	}
+	// init validators
+	blobValidator := newBlobValidator(cfg.MaxNumBlobsPerAcct)
+	ap.privateValidators = append(ap.privateValidators, blobValidator)
+	ap.AddSubscriber(blobValidator)
+
 	timerFactory, err := prometheustimer.New(
 		"iotex_action_pool_perf",
 		"Performance of action pool",
@@ -353,8 +363,8 @@ func (ap *actPool) checkSelpWithoutState(ctx context.Context, selp *action.Seale
 		_actpoolMtc.WithLabelValues("blacklisted").Inc()
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
-
-	for _, ev := range ap.actionEnvelopeValidators {
+	validators := append(ap.privateValidators, ap.actionEnvelopeValidators...)
+	for _, ev := range validators {
 		span.AddEvent("ev.Validate")
 		if err := ev.Validate(ctx, selp); err != nil {
 			return err
