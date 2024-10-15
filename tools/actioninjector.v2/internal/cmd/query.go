@@ -53,8 +53,8 @@ var (
 		"iotexapi.APIService.GetAccount",
 		"iotexapi.APIService.EstimateActionGasConsumption",
 		"iotexapi.APIService.ReadContract",
-		"iotexapi.APIService.GetRawBlocks",
-		"iotexapi.APIService.GetBlockMetas",
+		// "iotexapi.APIService.GetRawBlocks",
+		// "iotexapi.APIService.GetBlockMetas",
 	}
 )
 
