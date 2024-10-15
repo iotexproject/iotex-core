@@ -7,14 +7,18 @@
 package db
 
 import (
+	"encoding/hex"
 	"fmt"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/byteutil"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
+	"go.etcd.io/bbolt"
 	bolt "go.etcd.io/bbolt"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/v2/crypto"
 	"github.com/iotexproject/iotex-core/v2/db/versionpb"
 )
 
@@ -47,6 +51,152 @@ func deserializeVersionedNamespace(buf []byte) (*versionedNamespace, error) {
 		return nil, err
 	}
 	return fromProtoVN(&vn), nil
+}
+
+func (b *BoltDBVersioned) Hash() (string, error) {
+	var (
+		ns  []string
+		err error
+	)
+	if err = b.db.db.View(func(tx *bolt.Tx) error {
+		// Iterate over all top-level buckets
+		return tx.ForEach(func(name []byte, b *bolt.Bucket) error {
+			ns = append(ns, string(name))
+			return nil
+		})
+	}); err != nil {
+		return "", err
+	}
+
+	h := make([]hash.Hash256, len(ns))
+	for i, bucket := range ns {
+		println("bucket =", bucket)
+		h[i], err = b.bucketHash(bucket)
+		if err != nil {
+			return "", err
+		}
+	}
+	hash := crypto.NewMerkleTree(h).HashTree()
+	return hex.EncodeToString(hash[:]), nil
+}
+
+func (b *BoltDBVersioned) bucketHash(ns string) (hash.Hash256, error) {
+	var h hash.Hash256
+	err := b.db.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(ns))
+		if bucket == nil {
+			return errors.Wrapf(ErrBucketNotExist, "bucket %s", ns)
+		}
+		var (
+			c     = bucket.Cursor()
+			bytes = make([]byte, 0, 32)
+		)
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			bytes = append(bytes, k...)
+			bytes = append(bytes, v...)
+			h = hash.Hash256b(bytes)
+			copy(bytes, h[:])
+			bytes = bytes[:32]
+		}
+		return nil
+	})
+	return h, err
+}
+
+func (b *BoltDBVersioned) PurgeHeight(ns string, version uint64) error {
+	var (
+		err       error
+		finished  bool
+		keyLength int
+	)
+	// key length
+	if ns == "Account" {
+		keyLength = 20
+	} else if ns == "Contract" {
+		keyLength = 32
+	} else {
+		panic(ns)
+	}
+	var (
+		total           uint64
+		start           = time.Now()
+		bucket, mBucket *bbolt.Bucket
+	)
+	for !finished {
+		entries := 0
+		if err = b.db.db.Update(func(tx *bolt.Tx) error {
+			if bucket == nil {
+				if bucket = tx.Bucket([]byte(ns)); bucket == nil {
+					return errors.Wrapf(ErrBucketNotExist, "bucket = %s doesn't exist", ns)
+				}
+			}
+			var (
+				c = bucket.Cursor()
+				k []byte
+			)
+			if mBucket = tx.Bucket([]byte("Meta")); mBucket == nil {
+				return errors.Wrap(ErrBucketNotExist, "metadata bucket doesn't exist")
+			}
+			if kLast := mBucket.Get([]byte(ns)); kLast != nil {
+				// there's a transform in progress
+				k, _ = c.Seek(kLast)
+				fmt.Printf("continue from key = %x\n", k)
+			} else {
+				c.First()
+				k, _ = c.Next()
+				fmt.Printf("first key = %x\n", k)
+			}
+			for ; k != nil; k, _ = c.Next() {
+				if len(k) != keyLength {
+					println("key length =", len(k))
+					panic("wrong key")
+				}
+				if err := bucket.Delete(k); err != nil {
+					return err
+				}
+				total++
+				if total%1000000 == 0 {
+					fmt.Printf("delete %d entries\n", total)
+				}
+				entries++
+				if entries == 256000 {
+					// commit the tx, and write the next key
+					if k, _ = c.Next(); k != nil {
+						fmt.Printf("next key = %x\n", k)
+						return mBucket.Put([]byte(ns), k)
+					} else {
+						// hit the end of the bucket
+						break
+					}
+				}
+			}
+			finished = true
+			return mBucket.Delete([]byte(ns))
+		}); err != nil {
+			break
+		}
+	}
+	fmt.Printf("delete %d entries, time = %v\n", total, time.Since(start))
+	return err
+}
+
+func (b *BoltDBVersioned) CheckBucket(ns string) error {
+	return b.db.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(ns))
+		if bucket == nil {
+			return errors.Wrapf(ErrBucketNotExist, "bucket = %s doesn't exist", ns)
+		}
+		var total int
+		return bucket.ForEach(func(k, v []byte) error {
+			total++
+			fmt.Printf("total = %d, key = %x\n", total, k)
+			return nil
+		})
+	})
+}
+
+func (b *BoltDBVersioned) CopyBucket(ns string) error {
+	return nil
 }
 
 func (b *BoltDBVersioned) TransformToVersioned(version uint64, ns string) error {
