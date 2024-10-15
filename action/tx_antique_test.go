@@ -60,7 +60,7 @@ func TestAntiqueTx(t *testing.T) {
 		r.Equal(tx, tx1)
 	})
 	ab := AbstractAction{
-		version:   _outOfBandTxType18879571,
+		version:   18879571,
 		chainID:   8,
 		nonce:     3,
 		gasLimit:  2024,
@@ -78,7 +78,7 @@ func TestAntiqueTx(t *testing.T) {
 			nonce:    3,
 			gasLimit: 2024,
 		},
-		version: _outOfBandTxType18879571,
+		version: 18879571,
 	}
 	t.Run("convert", func(t *testing.T) {
 		for _, price := range []*big.Int{
@@ -93,7 +93,7 @@ func TestAntiqueTx(t *testing.T) {
 			} else {
 				expect.gasPrice = new(big.Int).Set(price)
 			}
-			r.EqualValues(_outOfBandTxType18879571, antique.Version())
+			r.EqualValues(18879571, antique.Version())
 			r.Equal(expect, antique)
 		}
 	})
@@ -106,7 +106,7 @@ func TestAntiqueTx(t *testing.T) {
 			r.NoError(elp.loadProtoTxCommon(expect.toProto()))
 			antique, ok := elp.common.(*AntiqueTx)
 			r.True(ok)
-			r.EqualValues(_outOfBandTxType18879571, antique.Version())
+			r.EqualValues(18879571, antique.Version())
 			if price == nil {
 				expect.gasPrice = new(big.Int)
 			}

@@ -6,7 +6,6 @@
 package action
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -286,11 +285,6 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
 	var err error
 	switch pbAct.Version {
-	case AntiqueTxType, _outOfBandTxType18879571:
-		tx := AntiqueTx{}
-		if err = tx.fromProto(pbAct); err == nil {
-			elp.common = &tx
-		}
 	case LegacyTxType:
 		tx := LegacyTx{}
 		if err = tx.fromProto(pbAct); err == nil {
@@ -312,7 +306,10 @@ func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
 			elp.common = &tx
 		}
 	default:
-		panic(fmt.Sprintf("unsupported action version = %d", pbAct.Version))
+		tx := AntiqueTx{}
+		if err = tx.fromProto(pbAct); err == nil {
+			elp.common = &tx
+		}
 	}
 	return err
 }

@@ -6,7 +6,6 @@
 package action
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -164,20 +163,6 @@ func (act *AbstractAction) fromProto(pb *iotextypes.ActionCore) error {
 
 func (act *AbstractAction) convertToTx() TxCommonInternal {
 	switch act.version {
-	case AntiqueTxType, _outOfBandTxType18879571:
-		tx := AntiqueTx{
-			LegacyTx: LegacyTx{
-				chainID:  act.chainID,
-				nonce:    act.nonce,
-				gasLimit: act.gasLimit,
-				gasPrice: &big.Int{},
-			},
-			version: act.version,
-		}
-		if act.gasPrice != nil {
-			tx.gasPrice.Set(act.gasPrice)
-		}
-		return &tx
 	case LegacyTxType:
 		tx := LegacyTx{
 			chainID:  act.chainID,
@@ -221,6 +206,18 @@ func (act *AbstractAction) convertToTx() TxCommonInternal {
 			blob:       act.blobData,
 		}
 	default:
-		panic(fmt.Sprintf("unsupported action version = %d", act.version))
+		tx := AntiqueTx{
+			LegacyTx: LegacyTx{
+				chainID:  act.chainID,
+				nonce:    act.nonce,
+				gasLimit: act.gasLimit,
+				gasPrice: &big.Int{},
+			},
+			version: act.version,
+		}
+		if act.gasPrice != nil {
+			tx.gasPrice.Set(act.gasPrice)
+		}
+		return &tx
 	}
 }
