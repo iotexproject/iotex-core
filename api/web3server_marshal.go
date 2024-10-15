@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -65,6 +66,7 @@ type (
 		contractAddress *string
 		logsBloom       string
 		receipt         *action.Receipt
+		txType          uint
 	}
 
 	getLogsResult struct {
@@ -147,12 +149,15 @@ func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 		producerAddress   string
 		logsBloomStr      string
 		gasLimit, gasUsed uint64
+		baseFee           *hexutil.Big
 
 		txs              = make([]interface{}, 0)
 		preHash          = obj.blk.Header.PrevHash()
 		txRoot           = obj.blk.Header.TxRoot()
 		deltaStateDigest = obj.blk.Header.DeltaStateDigest()
 		receiptRoot      = obj.blk.Header.ReceiptRoot()
+		blobGasUsed      = hexutil.Uint64(obj.blk.Header.BlobGasUsed())
+		excessBlobGas    = hexutil.Uint64(obj.blk.Header.ExcessBlobGas())
 	)
 	if obj.blk.Height() > 0 {
 		producerAddress = obj.blk.Header.ProducerAddress()
@@ -176,27 +181,33 @@ func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 	if len(obj.transactions) > 0 {
 		txs = obj.transactions
 	}
+	if obj.blk.Header.BaseFee() != nil {
+		baseFee = (*hexutil.Big)(obj.blk.Header.BaseFee())
+	}
 	return json.Marshal(&struct {
-		Author           string        `json:"author"`
-		Number           string        `json:"number"`
-		Hash             string        `json:"hash"`
-		ParentHash       string        `json:"parentHash"`
-		Sha3Uncles       string        `json:"sha3Uncles"`
-		LogsBloom        string        `json:"logsBloom"`
-		TransactionsRoot string        `json:"transactionsRoot"`
-		StateRoot        string        `json:"stateRoot"`
-		ReceiptsRoot     string        `json:"receiptsRoot"`
-		Miner            string        `json:"miner"`
-		Difficulty       string        `json:"difficulty"`
-		TotalDifficulty  string        `json:"totalDifficulty"`
-		ExtraData        string        `json:"extraData"`
-		Size             string        `json:"size"`
-		GasLimit         string        `json:"gasLimit"`
-		GasUsed          string        `json:"gasUsed"`
-		Timestamp        string        `json:"timestamp"`
-		Transactions     []interface{} `json:"transactions"`
-		Step             string        `json:"step"`
-		Uncles           []string      `json:"uncles"`
+		Author           string         `json:"author"`
+		Number           string         `json:"number"`
+		Hash             string         `json:"hash"`
+		ParentHash       string         `json:"parentHash"`
+		Sha3Uncles       string         `json:"sha3Uncles"`
+		LogsBloom        string         `json:"logsBloom"`
+		TransactionsRoot string         `json:"transactionsRoot"`
+		StateRoot        string         `json:"stateRoot"`
+		ReceiptsRoot     string         `json:"receiptsRoot"`
+		Miner            string         `json:"miner"`
+		Difficulty       string         `json:"difficulty"`
+		TotalDifficulty  string         `json:"totalDifficulty"`
+		ExtraData        string         `json:"extraData"`
+		Size             string         `json:"size"`
+		GasLimit         string         `json:"gasLimit"`
+		GasUsed          string         `json:"gasUsed"`
+		Timestamp        string         `json:"timestamp"`
+		Transactions     []interface{}  `json:"transactions"`
+		Step             string         `json:"step"`
+		Uncles           []string       `json:"uncles"`
+		BaseFeePerGas    *hexutil.Big   `json:"baseFeePerGas,omitempty"`
+		BlobGasUsed      hexutil.Uint64 `json:"blobGasUsed,omitempty"`
+		ExcessBlobGas    hexutil.Uint64 `json:"excessBlobGas,omitempty"`
 	}{
 		Author:           producerAddr,
 		Number:           uint64ToHex(obj.blk.Height()),
@@ -218,6 +229,9 @@ func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 		Transactions:     txs,
 		Step:             "373422302",
 		Uncles:           []string{},
+		BaseFeePerGas:    baseFee,
+		BlobGasUsed:      blobGasUsed,
+		ExcessBlobGas:    excessBlobGas,
 	})
 }
 
@@ -250,22 +264,31 @@ func (obj *getTransactionResult) MarshalJSON() ([]byte, error) {
 		tmp := "0x" + hex.EncodeToString(obj.blockHash[:])
 		blkHash = &tmp
 	}
-	return json.Marshal(&struct {
-		Hash             string  `json:"hash"`
-		Nonce            string  `json:"nonce"`
-		BlockHash        *string `json:"blockHash"`
-		BlockNumber      *string `json:"blockNumber"`
-		TransactionIndex *string `json:"transactionIndex"`
-		From             string  `json:"from"`
-		To               *string `json:"to"`
-		Value            string  `json:"value"`
-		GasPrice         string  `json:"gasPrice"`
-		Gas              string  `json:"gas"`
-		Input            string  `json:"input"`
-		R                string  `json:"r"`
-		S                string  `json:"s"`
-		V                string  `json:"v"`
-	}{
+	type rpcTransaction struct {
+		Hash                string            `json:"hash"`
+		Nonce               string            `json:"nonce"`
+		BlockHash           *string           `json:"blockHash"`
+		BlockNumber         *string           `json:"blockNumber"`
+		TransactionIndex    *string           `json:"transactionIndex"`
+		From                string            `json:"from"`
+		To                  *string           `json:"to"`
+		Value               string            `json:"value"`
+		GasPrice            string            `json:"gasPrice"`
+		Gas                 string            `json:"gas"`
+		Input               string            `json:"input"`
+		R                   string            `json:"r"`
+		S                   string            `json:"s"`
+		V                   string            `json:"v"`
+		Type                hexutil.Uint64    `json:"type"`
+		GasFeeCap           *hexutil.Big      `json:"maxFeePerGas,omitempty"`
+		GasTipCap           *hexutil.Big      `json:"maxPriorityFeePerGas,omitempty"`
+		MaxFeePerBlobGas    *hexutil.Big      `json:"maxFeePerBlobGas,omitempty"`
+		Accesses            *types.AccessList `json:"accessList,omitempty"`
+		ChainID             *hexutil.Big      `json:"chainId,omitempty"`
+		BlobVersionedHashes []common.Hash     `json:"blobVersionedHashes,omitempty"`
+		YParity             *hexutil.Uint64   `json:"yParity,omitempty"`
+	}
+	result := &rpcTransaction{
 		Hash:             "0x" + hex.EncodeToString(txHash),
 		Nonce:            uint64ToHex(obj.ethTx.Nonce()),
 		BlockHash:        blkHash,
@@ -280,7 +303,52 @@ func (obj *getTransactionResult) MarshalJSON() ([]byte, error) {
 		R:                hexutil.EncodeBig(r),
 		S:                hexutil.EncodeBig(s),
 		V:                hexutil.EncodeBig(v),
-	})
+		Type:             hexutil.Uint64(obj.ethTx.Type()),
+	}
+	tx := obj.ethTx
+	switch tx.Type() {
+	case types.LegacyTxType:
+		// if a legacy transaction has an EIP-155 chain id, include it explicitly
+		if id := tx.ChainId(); id.Sign() != 0 {
+			result.ChainID = (*hexutil.Big)(id)
+		}
+
+	case types.AccessListTxType:
+		al := tx.AccessList()
+		yparity := hexutil.Uint64(v.Sign())
+		result.Accesses = &al
+		result.ChainID = (*hexutil.Big)(tx.ChainId())
+		result.YParity = &yparity
+
+	case types.DynamicFeeTxType:
+		al := tx.AccessList()
+		yparity := hexutil.Uint64(v.Sign())
+		result.Accesses = &al
+		result.ChainID = (*hexutil.Big)(tx.ChainId())
+		result.YParity = &yparity
+		result.GasFeeCap = (*hexutil.Big)(tx.GasFeeCap())
+		result.GasTipCap = (*hexutil.Big)(tx.GasTipCap())
+		// if the transaction has been mined, compute the effective gas price
+		if obj.receipt != nil {
+			result.GasPrice = hexutil.EncodeBig(obj.receipt.EffectiveGasPrice)
+		}
+
+	case types.BlobTxType:
+		al := tx.AccessList()
+		yparity := hexutil.Uint64(v.Sign())
+		result.Accesses = &al
+		result.ChainID = (*hexutil.Big)(tx.ChainId())
+		result.YParity = &yparity
+		result.GasFeeCap = (*hexutil.Big)(tx.GasFeeCap())
+		result.GasTipCap = (*hexutil.Big)(tx.GasTipCap())
+		// if the transaction has been mined, compute the effective gas price
+		if obj.receipt != nil {
+			result.GasPrice = hexutil.EncodeBig(obj.receipt.EffectiveGasPrice)
+		}
+		result.MaxFeePerBlobGas = (*hexutil.Big)(tx.BlobGasFeeCap())
+		result.BlobVersionedHashes = tx.BlobHashes()
+	}
+	return json.Marshal(result)
 }
 
 func (obj *getReceiptResult) MarshalJSON() ([]byte, error) {
@@ -305,6 +373,10 @@ func (obj *getReceiptResult) MarshalJSON() ([]byte, error) {
 		LogsBloom         string           `json:"logsBloom"`
 		Logs              []*getLogsResult `json:"logs"`
 		Status            string           `json:"status"`
+		Type              hexutil.Uint     `json:"type"`
+		EffectiveGasPrice *hexutil.Big     `json:"effectiveGasPrice"`
+		BlobGasUsed       hexutil.Uint64   `json:"blobGasUsed,omitempty"`
+		BlobGasPrice      *hexutil.Big     `json:"blobGasPrice,omitempty"`
 	}{
 		TransactionIndex:  uint64ToHex(uint64(obj.receipt.TxIndex)),
 		TransactionHash:   "0x" + hex.EncodeToString(obj.receipt.ActionHash[:]),
@@ -318,6 +390,10 @@ func (obj *getReceiptResult) MarshalJSON() ([]byte, error) {
 		LogsBloom:         getLogsBloomHex(obj.logsBloom),
 		Logs:              logs,
 		Status:            uint64ToHex(obj.receipt.Status),
+		Type:              hexutil.Uint(obj.txType),
+		EffectiveGasPrice: (*hexutil.Big)(obj.receipt.EffectiveGasPrice),
+		BlobGasUsed:       hexutil.Uint64(obj.receipt.BlobGasUsed),
+		BlobGasPrice:      (*hexutil.Big)(obj.receipt.BlobGasPrice),
 	})
 }
 
