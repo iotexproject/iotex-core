@@ -689,6 +689,10 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 		}
 		return nil, err
 	}
+	tx, err := selp.ToEthTx()
+	if err != nil {
+		return nil, err
+	}
 	receipt, err := svr.coreService.ReceiptByActionHash(actHash)
 	if err != nil {
 		if errors.Cause(err) == ErrNotFound {
@@ -706,7 +710,6 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 	if logsBloom := blk.LogsBloomfilter(); logsBloom != nil {
 		logsBloomStr = hex.EncodeToString(logsBloom.Bytes())
 	}
-
 	return &getReceiptResult{
 		blockHash:       blk.HashBlock(),
 		from:            selp.SenderAddress(),
@@ -714,6 +717,7 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 		contractAddress: contractAddr,
 		logsBloom:       logsBloomStr,
 		receipt:         receipt,
+		txType:          uint(tx.Type()),
 	}, nil
 
 }
