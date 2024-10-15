@@ -2,30 +2,56 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/iotexproject/iotex-core/v2/db"
 )
 
 func main() {
-	// file to convert needs to be in /iotex-core/data folder
-	// in this example, convert the file at 24m height
 	cfg := db.DefaultConfig
-	cfg.DbPath = "../../data/trie.24m"
-	println("transform file", cfg.DbPath)
-	db := db.NewBoltDBVersioned(cfg)
+	cfg.DbPath = "../../data/archive.db"
+	db1 := db.NewBoltDBVersioned(cfg)
 	ctx := context.Background()
-	if err := db.Start(ctx); err != nil {
+	if err := db1.Start(ctx); err != nil {
+		panic(err.Error())
+	}
+	println("======= source file:", cfg.DbPath)
+	defer func() {
+		db1.Stop(ctx)
+	}()
+	cfg.DbPath = "../../data/archive.db2"
+	db2 := db.NewBoltDBVersioned(cfg)
+	if err := db2.Start(ctx); err != nil {
 		panic(err.Error())
 	}
 	defer func() {
-		db.Stop(ctx)
+		db2.Stop(ctx)
 	}()
-
-	var v uint64 = 24000000
-	if err := db.TransformToVersioned(v, "Account"); err != nil {
+	buckets, err := db1.Buckets()
+	if err != nil {
 		panic(err.Error())
 	}
-	if err := db.TransformToVersioned(v, "Contract"); err != nil {
+	fmt.Printf("source buckets = %v\n", buckets)
+	buckets, err = db2.Buckets()
+	if err != nil {
 		panic(err.Error())
+	}
+	println("======= dest file:", cfg.DbPath)
+	fmt.Printf("dest buckets = %v\n", buckets)
+	var height uint64 = 17000000
+	println("======= merge at height:", height)
+	for _, v := range buckets {
+		if v == "Account" || v == "Contract" {
+			if err := db2.PurgeVersion(v, height); err != nil {
+				panic(err.Error())
+			}
+		} else {
+			if err := db1.PurgeVersion(v, height); err != nil {
+				panic(err.Error())
+			}
+		}
+		if err := db1.CopyBucket(v, db2); err != nil {
+			panic(err.Error())
+		}
 	}
 }
