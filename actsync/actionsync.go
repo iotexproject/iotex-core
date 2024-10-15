@@ -78,13 +78,12 @@ func (as *ActionSync) Stop(ctx context.Context) error {
 
 	as.mu.Lock()
 	if !as.stopped {
+		close(as.syncChan)
 		as.stopped = true
-		close(as.quit)
 	}
 	as.mu.Unlock()
 
 	as.wg.Wait()
-	close(as.syncChan)
 	return nil
 }
 
@@ -173,14 +172,17 @@ func (as *ActionSync) triggerSync() {
 }
 
 func (as *ActionSync) trigger(hash hash.Hash256) {
-	if !as.IsReady() || as.isStopped() {
+	if !as.IsReady() {
 		return
 	}
-
-	select {
-	case as.syncChan <- hash:
-	default:
-		log.L().Warn("action sync channel is full, fail to sync action", log.Hex("hash", hash[:]))
+	as.mu.Lock()
+	defer as.mu.Unlock()
+	if !as.stopped {
+		select {
+		case as.syncChan <- hash:
+		default:
+			log.L().Warn("action sync channel is full, fail to sync action", log.Hex("hash", hash[:]))
+		}
 	}
 }
 
