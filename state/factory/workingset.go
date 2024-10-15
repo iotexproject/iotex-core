@@ -485,7 +485,58 @@ func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap 
 }
 
 func (ws *workingSet) Process(ctx context.Context, actions []*action.SealedEnvelope) error {
+	if protocol.MustGetFeatureCtx(ctx).CorrectValidationOrder {
+		return ws.processWithCorrectOrder(ctx, actions)
+	}
 	return ws.process(ctx, actions)
+}
+
+func (ws *workingSet) processWithCorrectOrder(ctx context.Context, actions []*action.SealedEnvelope) error {
+	if err := ws.validate(ctx); err != nil {
+		return err
+	}
+	reg := protocol.MustGetRegistry(ctx)
+	for _, p := range reg.All() {
+		if pp, ok := p.(protocol.PreStatesCreator); ok {
+			if err := pp.CreatePreStates(ctx, ws); err != nil {
+				return err
+			}
+		}
+	}
+	var (
+		receipts            = make([]*action.Receipt, 0)
+		ctxWithBlockContext = ctx
+		blkCtx              = protocol.MustGetBlockCtx(ctx)
+		fCtx                = protocol.MustGetFeatureCtx(ctx)
+	)
+	for _, act := range actions {
+		actionCtx, err := withActionCtx(ctxWithBlockContext, act)
+		if err != nil {
+			return err
+		}
+		for _, p := range reg.All() {
+			if validator, ok := p.(protocol.ActionValidator); ok {
+				if err := validator.Validate(actionCtx, act.Envelope, ws); err != nil {
+					return err
+				}
+			}
+		}
+		receipt, err := ws.runAction(actionCtx, act)
+		if err != nil {
+			return errors.Wrap(err, "error when run action")
+		}
+		receipts = append(receipts, receipt)
+		blkCtx.GasLimit -= receipt.GasConsumed
+		if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
+			(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
+		}
+		ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
+	}
+	if fCtx.CorrectTxLogIndex {
+		updateReceiptIndex(receipts)
+	}
+	ws.receipts = receipts
+	return ws.finalize()
 }
 
 func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvelope) error {
@@ -746,7 +797,13 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 			return err
 		}
 	}
-	if err := ws.process(ctx, blk.RunnableActions().Actions()); err != nil {
+	var err error
+	if protocol.MustGetFeatureCtx(ctx).CorrectValidationOrder {
+		err = ws.processWithCorrectOrder(ctx, blk.RunnableActions().Actions())
+	} else {
+		err = ws.process(ctx, blk.RunnableActions().Actions())
+	}
+	if err != nil {
 		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
 		return err
 	}

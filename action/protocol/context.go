@@ -144,6 +144,7 @@ type (
 		SufficentBalanceGuarantee               bool
 		EnableCancunEVM                         bool
 		UnfoldContainerBeforeValidate           bool
+		CorrectValidationOrder                  bool
 		UnstakedButNotClearSelfStakeAmount      bool
 	}
 
@@ -302,6 +303,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			SufficentBalanceGuarantee:               g.IsVanuatu(height),
 			EnableCancunEVM:                         g.IsVanuatu(height),
 			UnfoldContainerBeforeValidate:           g.IsVanuatu(height),
+			CorrectValidationOrder:                  g.IsVanuatu(height),
 			UnstakedButNotClearSelfStakeAmount:      !g.IsVanuatu(height),
 		},
 	)
