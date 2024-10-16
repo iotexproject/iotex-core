@@ -5,8 +5,10 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 type blobValidator struct {
@@ -53,5 +55,9 @@ func (v *blobValidator) OnRemoved(act *action.SealedEnvelope) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 	sender := act.SenderAddress().String()
+	if v.blobCntPerAcc[sender] == 0 {
+		log.L().Warn("blob count per account is already 0", zap.String("sender", sender))
+		return
+	}
 	v.blobCntPerAcc[sender]--
 }
