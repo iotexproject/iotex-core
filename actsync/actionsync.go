@@ -38,7 +38,6 @@ type (
 		cfg      Config
 		quit     chan struct{}
 		mu       sync.Mutex
-		stopped  bool
 	}
 
 	actionMsg struct {
@@ -60,7 +59,6 @@ func NewActionSync(cfg Config, helper *Helper) *ActionSync {
 func (as *ActionSync) Start(ctx context.Context) error {
 	log.L().Info("starting action sync")
 	as.mu.Lock()
-	as.stopped = false
 	as.mu.Unlock()
 
 	as.wg.Add(2)
@@ -77,25 +75,18 @@ func (as *ActionSync) Stop(ctx context.Context) error {
 	}
 
 	as.mu.Lock()
-	if !as.stopped {
-		close(as.syncChan)
-		as.stopped = true
-	}
+	close(as.quit)
+
 	as.mu.Unlock()
 
 	as.wg.Wait()
+	close(as.syncChan)
 	return nil
-}
-
-func (as *ActionSync) isStopped() bool {
-	as.mu.Lock()
-	defer as.mu.Unlock()
-	return as.stopped
 }
 
 // RequestAction requests an action by hash
 func (as *ActionSync) RequestAction(_ context.Context, hash hash.Hash256) {
-	if !as.IsReady() || as.isStopped() {
+	if !as.IsReady() {
 		return
 	}
 	// check if the action is already requested
@@ -111,7 +102,7 @@ func (as *ActionSync) RequestAction(_ context.Context, hash hash.Hash256) {
 
 // ReceiveAction receives an action
 func (as *ActionSync) ReceiveAction(_ context.Context, hash hash.Hash256) {
-	if !as.IsReady() || as.isStopped() {
+	if !as.IsReady() {
 		return
 	}
 	log.L().Debug("received action", log.Hex("hash", hash[:]))
@@ -123,7 +114,7 @@ func (as *ActionSync) sync() {
 	for {
 		select {
 		case hash := <-as.syncChan:
-			if as.isStopped() {
+			if as.IsReady() {
 				return
 			}
 			log.L().Debug("syncing action", log.Hex("hash", hash[:]))
@@ -157,7 +148,7 @@ func (as *ActionSync) triggerSync() {
 	for {
 		select {
 		case <-ticker.C:
-			if as.isStopped() {
+			if as.IsReady() {
 				return
 			}
 			as.actions.Range(func(key, value interface{}) bool {
@@ -177,12 +168,13 @@ func (as *ActionSync) trigger(hash hash.Hash256) {
 	}
 	as.mu.Lock()
 	defer as.mu.Unlock()
-	if !as.stopped {
-		select {
-		case as.syncChan <- hash:
-		default:
-			log.L().Warn("action sync channel is full, fail to sync action", log.Hex("hash", hash[:]))
-		}
+	select {
+	case as.syncChan <- hash:
+	case <-as.quit:
+		log.L().Info("quitting action trigger sync")
+		return
+	default:
+		log.L().Warn("action sync channel is full, fail to sync action", log.Hex("hash", hash[:]))
 	}
 }
 
