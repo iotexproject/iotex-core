@@ -67,7 +67,7 @@ func TestBlobTx(t *testing.T) {
 		{
 			name: "reject before Vanuatu",
 			act: &actionWithTime{
-				mustNoErr(action.Sign(action.NewEnvelop(newBlobTx(test.nonceMgr[(sender)], sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
+				mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr[(sender)], sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
 				time.Now(),
 			},
 			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
@@ -78,14 +78,14 @@ func TestBlobTx(t *testing.T) {
 		{
 			name: "must have blobs",
 			preActs: []*actionWithTime{
-				{mustNoErr(action.Sign(action.NewEnvelop(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelop(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelop(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelop(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelop(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
 			},
 			act: &actionWithTime{
-				mustNoErr(action.Sign(action.NewEnvelop(newBlobTx(test.nonceMgr[sender], nil, nil), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
+				mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr[sender], nil, nil), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
 				time.Now(),
 			},
 			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
@@ -95,7 +95,7 @@ func TestBlobTx(t *testing.T) {
 		{
 			name: "fail to verify blobs",
 			act: &actionWithTime{
-				mustNoErr(action.Sign(action.NewEnvelop(newBlobTx(test.nonceMgr[sender], sidecar, []common.Hash{common.Hash{}}), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
+				mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr[sender], sidecar, []common.Hash{common.Hash{}}), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
 				time.Now(),
 			},
 			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
@@ -105,7 +105,7 @@ func TestBlobTx(t *testing.T) {
 		{
 			name: "blobfee too low",
 			act: &actionWithTime{
-				mustNoErr(action.Sign(action.NewEnvelop(action.NewBlobTx(chainID, test.nonceMgr[sender], gasLimit, gasTipCap, gasFeeCap, nil, action.NewBlobTxData(uint256.NewInt(0), sidecar.BlobHashes(), sidecar)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
+				mustNoErr(action.Sign(action.NewEnvelope(action.NewBlobTx(chainID, test.nonceMgr[sender], gasLimit, gasTipCap, gasFeeCap, nil, action.NewBlobTxData(uint256.NewInt(0), sidecar.BlobHashes(), sidecar)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
 				time.Now(),
 			},
 			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
@@ -116,7 +116,7 @@ func TestBlobTx(t *testing.T) {
 		{
 			name: "cannot create contract",
 			act: &actionWithTime{
-				mustNoErr(action.Sign(action.NewEnvelop(newBlobTx(test.nonceMgr[sender], sidecar, sidecar.BlobHashes()), action.NewExecution("", big.NewInt(0), contractBytecode)), senderSK)),
+				mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr[sender], sidecar, sidecar.BlobHashes()), action.NewExecution("", big.NewInt(0), contractBytecode)), senderSK)),
 				time.Now(),
 			},
 			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
@@ -126,7 +126,7 @@ func TestBlobTx(t *testing.T) {
 		{
 			name: "accept after Vanuatu",
 			act: &actionWithTime{
-				mustNoErr(action.Sign(action.NewEnvelop(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
+				mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
 				time.Now(),
 			},
 			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
@@ -178,13 +178,13 @@ func TestBlobTx(t *testing.T) {
 		{
 			name: "6 blobs per block at most",
 			acts: []*actionWithTime{
-				{mustNoErr(action.Sign(action.NewEnvelop(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelop(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelop(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelop(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelop(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelop(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelop(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
 			},
 			blockExpect: func(test *e2etest, blk *block.Block, err error) {
 				r.NoError(err)
