@@ -48,7 +48,7 @@ func TestDynamicFeeTx(t *testing.T) {
 		{
 			name: "reject before Vanuatu",
 			act: &actionWithTime{
-				mustNoErr(action.Sign(action.NewEnvelop(newDynamicTx(test.nonceMgr[(sender)]), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
+				mustNoErr(action.Sign(action.NewEnvelope(newDynamicTx(test.nonceMgr[(sender)]), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
 				time.Now(),
 			},
 			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
@@ -59,14 +59,14 @@ func TestDynamicFeeTx(t *testing.T) {
 		{
 			name: "success",
 			preActs: []*actionWithTime{
-				{mustNoErr(action.Sign(action.NewEnvelop(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelop(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelop(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelop(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelop(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
 			},
 			act: &actionWithTime{
-				mustNoErr(action.Sign(action.NewEnvelop(newDynamicTx(test.nonceMgr.pop((sender))), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
+				mustNoErr(action.Sign(action.NewEnvelope(newDynamicTx(test.nonceMgr.pop((sender))), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
 				time.Now(),
 			},
 			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
@@ -105,7 +105,7 @@ func TestDynamicFeeTx(t *testing.T) {
 		},
 		{
 			name: "suggestGasTipCap",
-			act:  &actionWithTime{mustNoErr(action.Sign(action.NewEnvelop(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+			act:  &actionWithTime{mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
 			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
 				tip, err := test.ethcli.SuggestGasTipCap(context.Background())
 				r.NoError(err)
