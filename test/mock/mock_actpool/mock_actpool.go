@@ -261,3 +261,50 @@ func (mr *MockActPoolMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActPool)(nil).Validate), arg0, arg1)
 }
+
+// MockSubscriber is a mock of Subscriber interface.
+type MockSubscriber struct {
+	ctrl     *gomock.Controller
+	recorder *MockSubscriberMockRecorder
+}
+
+// MockSubscriberMockRecorder is the mock recorder for MockSubscriber.
+type MockSubscriberMockRecorder struct {
+	mock *MockSubscriber
+}
+
+// NewMockSubscriber creates a new mock instance.
+func NewMockSubscriber(ctrl *gomock.Controller) *MockSubscriber {
+	mock := &MockSubscriber{ctrl: ctrl}
+	mock.recorder = &MockSubscriberMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSubscriber) EXPECT() *MockSubscriberMockRecorder {
+	return m.recorder
+}
+
+// OnAdded mocks base method.
+func (m *MockSubscriber) OnAdded(arg0 *action.SealedEnvelope) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "OnAdded", arg0)
+}
+
+// OnAdded indicates an expected call of OnAdded.
+func (mr *MockSubscriberMockRecorder) OnAdded(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OnAdded", reflect.TypeOf((*MockSubscriber)(nil).OnAdded), arg0)
+}
+
+// OnRemoved mocks base method.
+func (m *MockSubscriber) OnRemoved(arg0 *action.SealedEnvelope) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "OnRemoved", arg0)
+}
+
+// OnRemoved indicates an expected call of OnRemoved.
+func (mr *MockSubscriberMockRecorder) OnRemoved(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OnRemoved", reflect.TypeOf((*MockSubscriber)(nil).OnRemoved), arg0)
+}

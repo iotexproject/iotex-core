@@ -15,7 +15,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-var _ validateSidecar = (*BlobTx)(nil)
+var (
+	_ TxCommonInternal = (*BlobTx)(nil)
+	_ validateSidecar  = (*BlobTx)(nil)
+)
 
 // BlobTx represents EIP-4844 blob transaction
 type BlobTx struct {
@@ -49,7 +52,7 @@ func NewBlobTx(
 	}
 }
 
-func (tx *BlobTx) Version() uint32 {
+func (tx *BlobTx) TxType() uint32 {
 	return BlobTxType
 }
 
@@ -137,7 +140,7 @@ func (tx *BlobTx) ValidateSidecar() error { return tx.blob.ValidateSidecar() }
 
 func (tx *BlobTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
-		Version:  BlobTxType,
+		TxType:   BlobTxType,
 		Nonce:    tx.nonce,
 		GasLimit: tx.gasLimit,
 		ChainID:  tx.chainID,
@@ -164,6 +167,9 @@ func (tx *BlobTx) ProtoForRawHash() *iotextypes.ActionCore {
 }
 
 func (tx *BlobTx) fromProto(pb *iotextypes.ActionCore) error {
+	if pb.TxType != BlobTxType {
+		return errors.Wrapf(ErrInvalidProto, "wrong tx type = %d", pb.TxType)
+	}
 	var (
 		feeCap   = new(uint256.Int)
 		tipCap   = new(uint256.Int)

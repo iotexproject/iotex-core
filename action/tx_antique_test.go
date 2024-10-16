@@ -23,14 +23,15 @@ func TestAntiqueTx(t *testing.T) {
 	r := require.New(t)
 	t.Run("proto", func(t *testing.T) {
 		tx := &AntiqueTx{
-			LegacyTx{
+			LegacyTx: LegacyTx{
 				chainID:  8,
 				nonce:    3,
 				gasLimit: 2024,
 				gasPrice: big.NewInt(31),
 			},
+			version: 355,
 		}
-		r.EqualValues(AntiqueTxType, tx.Version())
+		r.EqualValues(AntiqueTxType, tx.TxType())
 		r.EqualValues(8, tx.ChainID())
 		r.EqualValues(3, tx.Nonce())
 		r.EqualValues(2024, tx.Gas())
@@ -43,11 +44,11 @@ func TestAntiqueTx(t *testing.T) {
 		r.Nil(tx.BlobHashes())
 		r.Nil(tx.BlobTxSidecar())
 		b := MustNoErrorV(proto.Marshal(tx.toProto()))
-		r.Equal("100318e80f220233312808", hex.EncodeToString(b))
+		r.Equal("08e302100318e80f220233312808", hex.EncodeToString(b))
 		pb := iotextypes.ActionCore{}
 		r.NoError(proto.Unmarshal(b, &pb))
 		tx1 := &AntiqueTx{
-			LegacyTx{
+			LegacyTx: LegacyTx{
 				chainID:  88,
 				nonce:    33,
 				gasLimit: 22,
@@ -56,9 +57,11 @@ func TestAntiqueTx(t *testing.T) {
 		}
 		r.NoError(tx1.fromProto(&pb))
 		r.Equal(tx, tx1)
+		pb.TxType = LegacyTxType
+		r.ErrorIs(tx1.fromProto(&pb), ErrInvalidProto)
 	})
 	ab := AbstractAction{
-		version:   AntiqueTxType,
+		version:   355,
 		chainID:   8,
 		nonce:     3,
 		gasLimit:  2024,
@@ -71,11 +74,12 @@ func TestAntiqueTx(t *testing.T) {
 		},
 	}
 	expect := &AntiqueTx{
-		LegacyTx{
+		LegacyTx: LegacyTx{
 			chainID:  8,
 			nonce:    3,
 			gasLimit: 2024,
 		},
+		version: 355,
 	}
 	t.Run("convert", func(t *testing.T) {
 		for _, price := range []*big.Int{
@@ -90,7 +94,6 @@ func TestAntiqueTx(t *testing.T) {
 			} else {
 				expect.gasPrice = new(big.Int).Set(price)
 			}
-			r.EqualValues(AntiqueTxType, antique.Version())
 			r.Equal(expect, antique)
 		}
 	})
@@ -103,7 +106,6 @@ func TestAntiqueTx(t *testing.T) {
 			r.NoError(elp.loadProtoTxCommon(expect.toProto()))
 			antique, ok := elp.common.(*AntiqueTx)
 			r.True(ok)
-			r.EqualValues(AntiqueTxType, antique.Version())
 			if price == nil {
 				expect.gasPrice = new(big.Int)
 			}

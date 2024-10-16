@@ -85,13 +85,13 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 				return action.ErrNonceTooLow
 			}
 		}
-		if ok && !featureCtx.EnableAccessListTx && selp.Version() == action.AccessListTxType {
+		if ok && !featureCtx.EnableAccessListTx && selp.TxType() == action.AccessListTxType {
 			return errors.Wrap(action.ErrInvalidAct, "access list tx is not enabled")
 		}
-		if ok && !featureCtx.EnableDynamicFeeTx && selp.Version() == action.DynamicFeeTxType {
+		if ok && !featureCtx.EnableDynamicFeeTx && selp.TxType() == action.DynamicFeeTxType {
 			return errors.Wrap(action.ErrInvalidAct, "dynamic fee tx is not enabled")
 		}
-		if ok && !featureCtx.EnableBlobTransaction && selp.Version() == action.BlobTxType {
+		if ok && !featureCtx.EnableBlobTransaction && selp.TxType() == action.BlobTxType {
 			return errors.Wrap(action.ErrInvalidAct, "blob tx is not enabled")
 		}
 		if ok && featureCtx.EnableDynamicFeeTx {

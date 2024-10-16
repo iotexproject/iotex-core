@@ -9,6 +9,7 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 )
 
 var _ TxCommonInternal = (*AntiqueTx)(nil)
@@ -16,26 +17,54 @@ var _ TxCommonInternal = (*AntiqueTx)(nil)
 // AntiqueTx is same as LegacyTx, with the only difference that version = 0
 type AntiqueTx struct {
 	LegacyTx
+	version uint32
 }
 
 // NewAntiqueTx creates a new antique transaction
-func NewAntiqueTx(chainID uint32, nonce uint64, gasLimit uint64, gasPrice *big.Int) *AntiqueTx {
+func NewAntiqueTx(chainID, version uint32, nonce uint64, gasLimit uint64, gasPrice *big.Int) *AntiqueTx {
 	return &AntiqueTx{
-		LegacyTx{
+		LegacyTx: LegacyTx{
 			chainID:  chainID,
 			nonce:    nonce,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
+		version: version,
 	}
 }
 
-func (tx *AntiqueTx) Version() uint32 {
+func (tx *AntiqueTx) TxType() uint32 {
 	return AntiqueTxType
 }
 
 func (tx *AntiqueTx) toProto() *iotextypes.ActionCore {
-	actCore := tx.LegacyTx.toProto()
-	actCore.Version = AntiqueTxType
-	return actCore
+	actCore := iotextypes.ActionCore{
+		TxType:   AntiqueTxType,
+		Version:  tx.version,
+		Nonce:    tx.nonce,
+		GasLimit: tx.gasLimit,
+		ChainID:  tx.chainID,
+	}
+	if tx.gasPrice != nil {
+		actCore.GasPrice = tx.gasPrice.String()
+	}
+	return &actCore
+}
+
+func (tx *AntiqueTx) fromProto(pb *iotextypes.ActionCore) error {
+	if pb.TxType != AntiqueTxType {
+		return errors.Wrapf(ErrInvalidProto, "wrong tx type = %d", pb.TxType)
+	}
+	var gasPrice big.Int
+	if price := pb.GetGasPrice(); len(price) > 0 {
+		if _, ok := gasPrice.SetString(price, 10); !ok {
+			return errors.Errorf("invalid gasPrice %s", price)
+		}
+	}
+	tx.version = pb.GetVersion()
+	tx.chainID = pb.GetChainID()
+	tx.nonce = pb.GetNonce()
+	tx.gasLimit = pb.GetGasLimit()
+	tx.gasPrice = &gasPrice
+	return nil
 }

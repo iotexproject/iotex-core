@@ -165,7 +165,7 @@ func CreateTestBlockWithBlob(start, n int) ([]*Block, error) {
 		if err != nil {
 			return nil, err
 		}
-		if tsf3.Version() != action.BlobTxType {
+		if tsf3.TxType() != action.BlobTxType {
 			return nil, action.ErrInvalidAct
 		}
 		sc4 := createTestBlobSidecar(i+1, i)
@@ -177,7 +177,7 @@ func CreateTestBlockWithBlob(start, n int) ([]*Block, error) {
 		if err != nil {
 			return nil, err
 		}
-		if tsf4.Version() != action.BlobTxType {
+		if tsf4.TxType() != action.BlobTxType {
 			return nil, action.ErrInvalidAct
 		}
 		blkhash, err := tsf1.Hash()

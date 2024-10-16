@@ -125,7 +125,7 @@ func TestExecutionAccessList(t *testing.T) {
 			identityset.Address(29).String(),
 			big.NewInt(20),
 			[]byte("test"))
-		elp := (&EnvelopeBuilder{}).SetVersion(AccessListTxType).SetNonce(1).SetAccessList(v.list).
+		elp := (&EnvelopeBuilder{}).SetTxType(AccessListTxType).SetNonce(1).SetAccessList(v.list).
 			SetGasPrice(big.NewInt(1000000)).SetGasLimit(100).SetAction(ex).Build()
 		require.NoError(ex1.LoadProto(ex.Proto()))
 		require.Equal(ex, ex1)

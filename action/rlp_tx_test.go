@@ -420,7 +420,7 @@ func TestEthTxDecodeVerify(t *testing.T) {
 
 				// evm tx conversion
 				if i == 1 {
-					require.EqualValues(tx.Type()+1, selp.Version())
+					require.EqualValues(tx.Type()+1, selp.TxType())
 					// tx unfolding
 					_, ok := selp.Action().(*txContainer)
 					require.True(ok)
@@ -430,7 +430,7 @@ func TestEthTxDecodeVerify(t *testing.T) {
 					require.True(bytes.Equal(sig, selp.signature))
 					checkSelp(selp, tx, v)
 					require.Equal(v.encoding, selp.encoding)
-					require.EqualValues(tx.Type()+1, selp.Version())
+					require.EqualValues(tx.Type()+1, selp.TxType())
 					// selp converted to actual tx
 					_, ok = selp.Action().(TxContainer)
 					require.False(ok)

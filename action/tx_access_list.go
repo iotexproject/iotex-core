@@ -37,7 +37,7 @@ func NewAccessListTx(chainID uint32, nonce uint64, gasLimit uint64, gasPrice *bi
 	}
 }
 
-func (tx *AccessListTx) Version() uint32 {
+func (tx *AccessListTx) TxType() uint32 {
 	return AccessListTxType
 }
 
@@ -101,7 +101,7 @@ func (tx *AccessListTx) SanityCheck() error {
 
 func (tx *AccessListTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
-		Version:  AccessListTxType,
+		TxType:   AccessListTxType,
 		Nonce:    tx.nonce,
 		GasLimit: tx.gasLimit,
 		ChainID:  tx.chainID,
@@ -154,6 +154,9 @@ func fromAccessListProto(list []*iotextypes.AccessTuple) types.AccessList {
 }
 
 func (tx *AccessListTx) fromProto(pb *iotextypes.ActionCore) error {
+	if pb.TxType != AccessListTxType {
+		return errors.Wrapf(ErrInvalidProto, "wrong tx type = %d", pb.TxType)
+	}
 	var gasPrice big.Int
 	if price := pb.GetGasPrice(); len(price) > 0 {
 		if _, ok := gasPrice.SetString(price, 10); !ok {

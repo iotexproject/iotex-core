@@ -28,7 +28,7 @@ func TestDynamicFeeTxSelf(t *testing.T) {
 		accessList: acl,
 	}
 	// case: getters
-	r.Equal(tx.Version(), uint32(DynamicFeeTxType))
+	r.Equal(tx.TxType(), uint32(DynamicFeeTxType))
 	r.Equal(tx.ChainID(), uint32(1))
 	r.Equal(tx.Nonce(), uint64(2))
 	r.Equal(tx.Gas(), uint64(3))
@@ -41,9 +41,11 @@ func TestDynamicFeeTxSelf(t *testing.T) {
 	r.Len(tx.BlobHashes(), 0)
 	r.Nil(tx.BlobTxSidecar())
 	// case: serialization
-	b, err := proto.Marshal(tx.toProto())
+	pb := tx.toProto()
+	r.Zero(pb.Version)
+	b, err := proto.Marshal(pb)
 	r.NoError(err)
-	r.Equal("08031002180328013201343a01354a6c0a2830303030303030303030303030303030303030303030303030303030303030303030303030303031124030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303032", hex.EncodeToString(b))
+	r.Equal("1002180328013201343a01354a6c0a2830303030303030303030303030303030303030303030303030303030303030303030303030303031124030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303032e00103", hex.EncodeToString(b))
 	core := &iotextypes.ActionCore{}
 	r.NoError(proto.Unmarshal(b, core))
 	tx2 := &DynamicFeeTx{
@@ -56,6 +58,8 @@ func TestDynamicFeeTxSelf(t *testing.T) {
 	}
 	r.NoError(tx2.fromProto(core))
 	r.Equal(tx, tx2)
+	core.TxType = BlobTxType
+	r.ErrorIs(tx2.fromProto(core), ErrInvalidProto)
 	// case: sanity check
 	r.NoError(tx.SanityCheck())
 	tx.gasTipCap = big.NewInt(-1)

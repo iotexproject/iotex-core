@@ -34,7 +34,7 @@ func NewLegacyTx(chainID uint32, nonce uint64, gasLimit uint64, gasPrice *big.In
 	}
 }
 
-func (tx *LegacyTx) Version() uint32 {
+func (tx *LegacyTx) TxType() uint32 {
 	return LegacyTxType
 }
 
@@ -96,7 +96,7 @@ func (tx *LegacyTx) SanityCheck() error {
 
 func (tx *LegacyTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
-		Version:  LegacyTxType,
+		TxType:   LegacyTxType,
 		Nonce:    tx.nonce,
 		GasLimit: tx.gasLimit,
 		ChainID:  tx.chainID,
@@ -108,6 +108,9 @@ func (tx *LegacyTx) toProto() *iotextypes.ActionCore {
 }
 
 func (tx *LegacyTx) fromProto(pb *iotextypes.ActionCore) error {
+	if pb.TxType != LegacyTxType {
+		return errors.Wrapf(ErrInvalidProto, "wrong tx type = %d", pb.TxType)
+	}
 	var gasPrice big.Int
 	if price := pb.GetGasPrice(); len(price) > 0 {
 		if _, ok := gasPrice.SetString(price, 10); !ok {

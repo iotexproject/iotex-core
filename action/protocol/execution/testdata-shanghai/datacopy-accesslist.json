@@ -45,9 +45,9 @@
         "expectedStatus": 1,
         "comment": "the data of return is [0x11, 0x22, 0x33]",
         "expectedBlockInfos" : {
-            "txRootHash" : "6a61ad22579c0548af74a0c8ae6239b3950df05a6e69f758f566cb85111275fd",
+            "txRootHash" : "fcd1f67ce7db3cb05e19d9791338c4cf6ebcb1be5cca140ea3bb43c373c448d5",
             "stateRootHash" : "3595fffd9f80f99887e3108d84f3558e2691ab9dc1c73f6279e3da5735d02afa",
-            "receiptRootHash" : "03b68bde2535bd4a933bea0a861d1756e31e7cda47be9bb1d126277d4c8c4c3f"
+            "receiptRootHash" : "c12ce49f2a372d4b0bc28a8da27c0c0635191bb450440ee9c3d00be5d1f0aa9f"
         }
     }]
 }

@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -17,7 +19,7 @@ import (
 func TestEnvelope_Basic(t *testing.T) {
 	req := require.New(t)
 	evlp, tsf := createEnvelope()
-	req.Equal(uint32(1), evlp.Version())
+	req.Equal(uint32(1), evlp.TxType())
 	req.Equal(uint64(10), evlp.Nonce())
 	req.Equal(uint64(20010), evlp.Gas())
 	req.Equal("11000000000000000000", evlp.GasPrice().String())
@@ -43,7 +45,7 @@ func TestEnvelope_Proto(t *testing.T) {
 
 	proto := evlp.Proto()
 	actCore := &iotextypes.ActionCore{
-		Version:  evlp.Version(),
+		TxType:   evlp.TxType(),
 		Nonce:    evlp.Nonce(),
 		GasLimit: evlp.Gas(),
 		ChainID:  evlp.ChainID(),
@@ -108,17 +110,22 @@ func TestEnvelope_Actions(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		bd := &EnvelopeBuilder{}
-		elp := bd.SetNonce(1).SetGasLimit(_gasLimit).SetGasPrice(_gasPrice).
-			SetAction(test).SetChainID(1).Build()
-		evlp, ok := elp.(*envelope)
-		require.True(ok)
-		require.NoError(evlp.LoadProto(evlp.Proto()))
-		require.Equal(elp.Version(), evlp.Version())
-		require.Equal(elp.Nonce(), evlp.Nonce())
-		require.Equal(elp.ChainID(), evlp.ChainID())
-		require.Equal(elp.GasPrice(), evlp.GasPrice())
-		require.Equal(elp.Gas(), evlp.Gas())
+		for _, txtype := range []uint32{AntiqueTxType, LegacyTxType, AccessListTxType, DynamicFeeTxType, BlobTxType} {
+			bd := &EnvelopeBuilder{}
+			if txtype == BlobTxType {
+				bd.SetBlobTxData(uint256.NewInt(1), []common.Hash{}, nil)
+			}
+			elp := bd.SetNonce(1).SetGasLimit(_gasLimit).SetGasPrice(_gasPrice).
+				SetTxType(txtype).SetAction(test).SetChainID(1).Build()
+			evlp := envelope{}
+			require.NoError(evlp.LoadProto(elp.Proto()))
+			require.Equal(elp.TxType(), evlp.TxType())
+			require.Equal(elp.Nonce(), evlp.Nonce())
+			require.Equal(elp.ChainID(), evlp.ChainID())
+			require.Equal(elp.GasPrice(), evlp.GasPrice())
+			require.Equal(elp.Gas(), evlp.Gas())
+			require.Equal(test, evlp.Action())
+		}
 	}
 }
 
@@ -127,7 +134,7 @@ func createEnvelope() (Envelope, *Transfer) {
 		identityset.Address(10%identityset.Size()).String(),
 		nil)
 	evlp := (&EnvelopeBuilder{}).SetAction(tsf).SetGasLimit(20010).
-		SetGasPrice(unit.ConvertIotxToRau(11)).
+		SetGasPrice(unit.ConvertIotxToRau(11)).SetTxType(1).
 		SetNonce(10).SetVersion(1).SetChainID(1).Build()
 	return evlp, tsf
 }
@@ -140,4 +147,5 @@ func TestEnvelope_Hash(t *testing.T) {
 	blobWithoutSidecar.sidecar = nil
 	eWithoutSidecar := NewEnvelope(NewBlobTx(1, 2, 3, big.NewInt(1), big.NewInt(1), nil, blobWithoutSidecar), NewTransfer(big.NewInt(10), "io1", []byte("test")))
 	r.Equal(byteutil.Must(proto.Marshal(e.ProtoForHash())), byteutil.Must(proto.Marshal(eWithoutSidecar.ProtoForHash())))
+	r.NotEqual(byteutil.Must(proto.Marshal(e.Proto())), byteutil.Must(proto.Marshal(eWithoutSidecar.Proto())))
 }
