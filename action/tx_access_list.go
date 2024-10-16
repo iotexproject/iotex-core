@@ -90,8 +90,10 @@ func (tx *AccessListTx) BlobHashes() []common.Hash { return nil }
 func (tx *AccessListTx) BlobTxSidecar() *types.BlobTxSidecar { return nil }
 
 func (tx *AccessListTx) SanityCheck() error {
-	// Reject execution of negative gas price
-	if tx.gasPrice != nil && tx.gasPrice.Sign() < 0 {
+	if tx.gasPrice == nil {
+		return ErrMissRequiredField
+	}
+	if tx.gasPrice.Sign() < 0 {
 		return ErrNegativeValue
 	}
 	return nil
@@ -119,8 +121,9 @@ func toAccessListProto(list types.AccessList) []*iotextypes.AccessTuple {
 	}
 	proto := make([]*iotextypes.AccessTuple, len(list))
 	for i, v := range list {
-		proto[i] = &iotextypes.AccessTuple{}
-		proto[i].Address = hex.EncodeToString(v.Address.Bytes())
+		proto[i] = &iotextypes.AccessTuple{
+			Address: hex.EncodeToString(v.Address.Bytes()),
+		}
 		if numKey := len(v.StorageKeys); numKey > 0 {
 			proto[i].StorageKeys = make([]string, numKey)
 			for j, key := range v.StorageKeys {
@@ -143,6 +146,8 @@ func fromAccessListProto(list []*iotextypes.AccessTuple) types.AccessList {
 			for j, key := range v.StorageKeys {
 				accessList[i].StorageKeys[j] = common.HexToHash(key)
 			}
+		} else {
+			accessList[i].StorageKeys = []common.Hash{}
 		}
 	}
 	return accessList
