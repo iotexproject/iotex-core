@@ -219,5 +219,6 @@ func (tx *BlobTx) toEthTx(to *common.Address, value *big.Int, data []byte) *type
 		AccessList: tx.accessList,
 		BlobFeeCap: uint256.MustFromBig(tx.BlobGasFeeCap()),
 		BlobHashes: tx.BlobHashes(),
+		Sidecar:    tx.BlobTxSidecar(),
 	})
 }
