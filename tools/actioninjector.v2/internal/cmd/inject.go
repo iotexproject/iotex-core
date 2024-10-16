@@ -37,6 +37,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	grpcInsecure "google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -112,12 +113,11 @@ const (
 func newInjectionProcessor() (*injectProcessor, error) {
 	var conn *grpc.ClientConn
 	var err error
-	grpcctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	log.L().Info("Server Addr", zap.String("endpoint", rawInjectCfg.serverAddr))
 	if rawInjectCfg.insecure {
-		conn, err = grpc.DialContext(grpcctx, rawInjectCfg.serverAddr, grpc.WithBlock(), grpc.WithInsecure())
+		conn, err = grpc.NewClient(rawInjectCfg.serverAddr, grpc.WithTransportCredentials(grpcInsecure.NewCredentials()))
 	} else {
-		conn, err = grpc.DialContext(grpcctx, rawInjectCfg.serverAddr, grpc.WithBlock(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+		conn, err = grpc.NewClient(rawInjectCfg.serverAddr, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 	if err != nil {
 		return nil, err

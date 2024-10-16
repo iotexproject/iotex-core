@@ -41,20 +41,21 @@ var (
 	//go:embed api.protoset
 	protosetBinary []byte
 
-	rps         int
-	concurrency int
-	total       int
-	endpoint    string
-	insecure    bool
-	async       bool
-	duration    time.Duration
+	rps          int
+	concurrency  int
+	total        int
+	endpoint     string
+	insecure     bool
+	async        bool
+	duration     time.Duration
+	methodFilter []string
 
-	methods = []string{
+	defaultMethods = []string{
 		"iotexapi.APIService.GetAccount",
 		"iotexapi.APIService.EstimateActionGasConsumption",
 		"iotexapi.APIService.ReadContract",
-		// "iotexapi.APIService.GetRawBlocks",
-		// "iotexapi.APIService.GetBlockMetas",
+		"iotexapi.APIService.GetRawBlocks",
+		"iotexapi.APIService.GetBlockMetas",
 	}
 )
 
@@ -72,10 +73,12 @@ func init() {
 	queryCmd.PersistentFlags().BoolVarP(&insecure, "insecure", "", false, "Use insecure connection")
 	queryCmd.PersistentFlags().BoolVarP(&async, "async", "", false, "Use async mode")
 	queryCmd.PersistentFlags().DurationVarP(&duration, "duration", "", 0, "Duration of test")
+	queryCmd.PersistentFlags().StringSliceVarP(&methodFilter, "methods", "", defaultMethods, "Methods to query")
 	rootCmd.AddCommand(queryCmd)
 }
 
 func query() error {
+	methods := queryMethods()
 	reports := make([]*runner.Report, len(methods))
 	g := errgroup.Group{}
 	conMethod := concurrency / len(methods)
@@ -114,6 +117,24 @@ func query() error {
 		printer.Print("summary")
 	}
 	return nil
+}
+
+func queryMethods() []string {
+	methods := make([]string, 0)
+	filter := func(s string) bool {
+		for _, f := range methodFilter {
+			if strings.Contains(s, f) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, m := range defaultMethods {
+		if filter(m) {
+			methods = append(methods, m)
+		}
+	}
+	return methods
 }
 
 func provider(call *runner.CallData) ([]*dynamic.Message, error) {
