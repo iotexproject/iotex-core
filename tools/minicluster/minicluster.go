@@ -125,7 +125,7 @@ func main() {
 			config.Network.MasterKey = "bootnode"
 		}
 		config.Genesis.VanuatuBlockHeight = 1
-		genesis.NormalizeHeights(&config.Genesis.Blockchain)
+		testutil.NormalizeGenesisHeights(&config.Genesis.Blockchain)
 		configs[i] = config
 	}
 

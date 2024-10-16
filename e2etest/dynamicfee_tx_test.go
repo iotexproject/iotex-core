@@ -32,7 +32,7 @@ func TestDynamicFeeTx(t *testing.T) {
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.VanuatuBlockHeight = 5
 	cfg.Genesis.InitBalanceMap[sender] = unit.ConvertIotxToRau(10000).String()
-	normalizeGenesisHeights(&cfg)
+	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
 	chainID := cfg.Chain.ID
 	gasPrice := big.NewInt(unit.Qev)

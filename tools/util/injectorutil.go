@@ -690,10 +690,9 @@ func injectAction(
 		return err
 	}, bo); err != nil {
 		log.L().Error("Failed to inject action", zap.Error(err))
-	}
-	hash := assertions.MustNoErrorV(selp.Hash())
-	log.L().Debug("Injected action", log.Hex("hash", hash[:]))
-	if pendingActionMap != nil {
+	} else if pendingActionMap != nil {
+		hash := assertions.MustNoErrorV(selp.Hash())
+		log.L().Debug("Injected action", log.Hex("hash", hash[:]))
 		pendingActionMap.Set(hash, 1)
 	}
 	if wg != nil {
