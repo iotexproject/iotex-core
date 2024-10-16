@@ -127,3 +127,65 @@ func TestActionSync(t *testing.T) {
 		}
 	})
 }
+
+func TestSelectPeers(t *testing.T) {
+	r := require.New(t)
+	neighbors := []peer.AddrInfo{
+		{ID: peer.ID("peer1")},
+		{ID: peer.ID("peer2")},
+		{ID: peer.ID("peer3")},
+	}
+	as := NewActionSync(DefaultConfig, &Helper{
+		P2PNeighbor: func() ([]peer.AddrInfo, error) {
+			return neighbors, nil
+		},
+		UnicastOutbound: func(context.Context, peer.AddrInfo, proto.Message) error {
+			return nil
+		},
+	})
+
+	// Test selectPeers
+	selectedPeers, err := as.selectPeers()
+	r.NoError(err)
+	r.Len(selectedPeers, 2, "should select 2 peers")
+}
+
+func TestRequestFromNeighbors(t *testing.T) {
+	r := require.New(t)
+	neighbors := []peer.AddrInfo{
+		{ID: peer.ID("peer1")},
+		{ID: peer.ID("peer2")},
+		{ID: peer.ID("peer3")},
+	}
+	count := atomic.Int32{}
+	as := NewActionSync(Config{
+		Size:     1000,
+		Interval: 10 * time.Millisecond,
+	}, &Helper{
+		P2PNeighbor: func() ([]peer.AddrInfo, error) {
+			return neighbors, nil
+		},
+		UnicastOutbound: func(_ context.Context, p peer.AddrInfo, msg proto.Message) error {
+			count.Add(1)
+			return nil
+		},
+	})
+
+	r.NoError(as.Start(context.Background()))
+	defer func() {
+		r.NoError(as.Stop(context.Background()))
+	}()
+
+	actHash := hash.BytesToHash256([]byte("test"))
+	as.RequestAction(context.Background(), actHash)
+
+	// Simulate requesting from neighbors
+	err := as.requestFromNeighbors(context.Background(), actHash)
+	r.NoError(err)
+
+	// Wait for the requests to be processed
+	time.Sleep(100 * time.Millisecond)
+
+	// Check that the count of requests sent to neighbors is greater than 0
+	r.True(count.Load() > 0, "should have sent requests to neighbors")
+}
