@@ -38,7 +38,7 @@ func TestBlobTx(t *testing.T) {
 	cfg.Genesis.VanuatuBlockHeight = 5
 	cfg.Chain.BlobStoreRetentionDays = 1
 	cfg.Genesis.InitBalanceMap[sender] = unit.ConvertIotxToRau(10000).String()
-	normalizeGenesisHeights(&cfg)
+	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
 	chainID := cfg.Chain.ID
 	gasPrice := big.NewInt(unit.Qev)
