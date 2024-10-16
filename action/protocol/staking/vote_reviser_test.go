@@ -482,3 +482,108 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 		})
 	})
 }
+
+func TestVoteRevise_CorrectSelfStake(t *testing.T) {
+	r := require.New(t)
+	t.Run("correct height", func(t *testing.T) {
+		revise := NewVoteReviser(ReviseConfig{})
+		r.False(revise.shouldCorrectCandSelfStake(1))
+
+		revise = NewVoteReviser(ReviseConfig{
+			CorrectCandSelfStakeHeight: 1,
+		})
+		r.True(revise.shouldCorrectCandSelfStake(1))
+		r.False(revise.shouldCorrectCandSelfStake(2))
+	})
+	t.Run("correct candidate selfstake", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{BlockHeight: 2})
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithFeatureCtx(ctx)
+		sm := testdb.NewMockStateManagerWithoutHeightFunc(ctrl)
+		sm.EXPECT().Height().Return(uint64(2), nil).AnyTimes()
+		_, err := sm.PutState(
+			&totalBucketCount{count: 0},
+			protocol.NamespaceOption(_stakingNameSpace),
+			protocol.KeyOption(TotalBucketKey),
+		)
+		r.NoError(err)
+		_, err = sm.PutState(&totalAmount{
+			amount: big.NewInt(0),
+			count:  0,
+		}, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
+		r.NoError(err)
+		view, _, err := CreateBaseView(sm, true)
+		r.NoError(err)
+		sm.WriteView(_protocolID, view)
+		revise := NewVoteReviser(ReviseConfig{
+			VoteWeight:                 g.VoteWeightCalConsts,
+			CorrectCandSelfStakeHeight: 2,
+		})
+		bkt := &VoteBucket{
+			Index:            0,
+			Candidate:        identityset.Address(1),
+			Owner:            identityset.Address(1),
+			StakedAmount:     unit.ConvertIotxToRau(1200000),
+			StakedDuration:   time.Hour * 24,
+			CreateTime:       time.Now(),
+			AutoStake:        true,
+			UnstakeStartTime: time.Now(),
+		}
+		csm, err := NewCandidateStateManager(sm, true)
+		r.NoError(err)
+		bktIdx, err := csm.putBucketAndIndex(bkt)
+		r.NoError(err)
+		bkt.Index = bktIdx
+		cand := &Candidate{
+			Owner:              identityset.Address(1),
+			Operator:           identityset.Address(11),
+			Reward:             identityset.Address(1),
+			Identifier:         identityset.Address(1),
+			Name:               "test1",
+			Votes:              CalculateVoteWeight(g.VoteWeightCalConsts, bkt, true),
+			SelfStakeBucketIdx: bktIdx,
+			SelfStake:          bkt.StakedAmount,
+		}
+		cand2 := &Candidate{
+			Owner:              identityset.Address(2),
+			Operator:           identityset.Address(12),
+			Reward:             identityset.Address(2),
+			Identifier:         identityset.Address(2),
+			Name:               "test2",
+			Votes:              CalculateVoteWeight(g.VoteWeightCalConsts, bkt, true),
+			SelfStakeBucketIdx: 100000,
+			SelfStake:          bkt.StakedAmount,
+		}
+		r.NoError(csm.Upsert(cand))
+		r.NoError(csm.Upsert(cand2))
+		r.NoError(csm.Commit(ctx))
+		r.True(revise.NeedRevise(protocol.MustGetBlockCtx(ctx).BlockHeight))
+		r.NoError(revise.Revise(protocol.MustGetFeatureCtx(ctx), csm, 2))
+		candPost := csm.GetByIdentifier(cand.GetIdentifier())
+		// revise unstaked but not cleaned up
+		r.Equal(&Candidate{
+			Owner:              identityset.Address(1),
+			Operator:           identityset.Address(11),
+			Reward:             identityset.Address(1),
+			Identifier:         identityset.Address(1),
+			Name:               "test1",
+			Votes:              big.NewInt(0),
+			SelfStakeBucketIdx: candidateNoSelfStakeBucketIndex,
+			SelfStake:          big.NewInt(0),
+		}, candPost)
+		// revise withdrawn
+		candPost = csm.GetByIdentifier(cand2.GetIdentifier())
+		r.Equal(&Candidate{
+			Owner:              identityset.Address(2),
+			Operator:           identityset.Address(12),
+			Reward:             identityset.Address(2),
+			Identifier:         identityset.Address(2),
+			Name:               "test2",
+			Votes:              big.NewInt(0),
+			SelfStakeBucketIdx: candidateNoSelfStakeBucketIndex,
+			SelfStake:          big.NewInt(0),
+		}, candPost)
+	})
+}
