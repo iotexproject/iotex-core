@@ -10,8 +10,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -54,17 +52,13 @@ func TestLegacyTx(t *testing.T) {
 		r.Equal(tx, tx1)
 	})
 	ab := AbstractAction{
-		version:   LegacyTxType,
-		chainID:   3,
-		nonce:     8,
-		gasLimit:  1001,
-		gasTipCap: big.NewInt(10),
-		gasFeeCap: big.NewInt(30),
-		accessList: types.AccessList{
-			{Address: common.Address{}, StorageKeys: nil},
-			{Address: _c1, StorageKeys: []common.Hash{_k1, {}, _k3}},
-			{Address: _c2, StorageKeys: []common.Hash{_k2, _k3, _k4, _k1}},
-		},
+		version:    LegacyTxType,
+		chainID:    3,
+		nonce:      8,
+		gasLimit:   1001,
+		gasTipCap:  big.NewInt(10),
+		gasFeeCap:  big.NewInt(30),
+		accessList: createTestACL(),
 	}
 	expect := &LegacyTx{
 		chainID:  3,

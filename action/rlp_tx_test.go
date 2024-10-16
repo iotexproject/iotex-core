@@ -319,9 +319,8 @@ var (
 func TestEthTxDecodeVerify(t *testing.T) {
 	require := require.New(t)
 	var (
-		sk       = MustNoErrorV(crypto.HexStringToPrivateKey("a000000000000000000000000000000000000000000000000000000000000000"))
-		pkhash   = sk.PublicKey().Address().Hex()
-		testBlob = createTestBlobTxData()
+		sk     = MustNoErrorV(crypto.HexStringToPrivateKey("a000000000000000000000000000000000000000000000000000000000000000"))
+		pkhash = sk.PublicKey().Address().Hex()
 	)
 
 	checkSelp := func(selp *SealedEnvelope, tx *types.Transaction, e rlpTest) {
@@ -384,15 +383,13 @@ func TestEthTxDecodeVerify(t *testing.T) {
 			}
 
 			var pb [2]*iotextypes.Action
-			// convert to our Execution
+			// convert to native proto
 			pb[0] = &iotextypes.Action{
-				Encoding: encoding,
+				Encoding:     encoding,
+				Core:         MustNoErrorV(convertToNativeProto(tx, v.actType)),
+				SenderPubKey: pubkey.Bytes(),
+				Signature:    sig,
 			}
-			pb[0].Core, err = convertToNativeProto(tx, v.actType)
-			require.NoError(err)
-			pb[0].SenderPubKey = pubkey.Bytes()
-			pb[0].Signature = sig
-
 			// test tx container
 			pb[1] = &iotextypes.Action{
 				Core:         MustNoErrorV(EthRawToContainer(1, raw)),
@@ -442,43 +439,49 @@ func TestEthTxDecodeVerify(t *testing.T) {
 				evmTx, err := selp.ToEthTx()
 				require.NoError(err)
 				// verify against original tx
-				require.Equal(v.nonce, evmTx.Nonce())
-				require.Equal(v.limit, evmTx.Gas())
+				require.Equal(tx.Type(), evmTx.Type())
+				require.Equal(tx.Nonce(), evmTx.Nonce())
+				require.Equal(tx.Gas(), evmTx.Gas())
+				require.Equal(tx.GasPrice(), evmTx.GasPrice())
 				if v.to == "" {
 					require.Nil(evmTx.To())
 				} else {
-					require.Equal(v.to, evmTx.To().Hex())
+					require.Equal(tx.To(), evmTx.To())
 				}
-				require.Equal(v.amount, evmTx.Value().String())
+				require.Equal(tx.Value(), evmTx.Value())
 				if v.data != nil {
-					require.Equal(v.data, evmTx.Data())
+					require.Equal(tx.Data(), evmTx.Data())
 				} else {
 					require.Zero(len(evmTx.Data()))
 				}
+				require.Equal(tx.Cost(), evmTx.Cost())
+				require.Equal(tx.AccessList(), evmTx.AccessList())
+				require.Equal(tx.GasFeeCap(), evmTx.GasFeeCap())
+				require.Equal(tx.GasTipCap(), evmTx.GasTipCap())
+				require.Equal(tx.BlobGas(), evmTx.BlobGas())
+				require.Equal(tx.BlobGasFeeCap(), evmTx.BlobGasFeeCap())
+				require.Equal(tx.BlobHashes(), evmTx.BlobHashes())
+				require.Equal(tx.BlobTxSidecar(), evmTx.BlobTxSidecar())
+
 				switch tx.Type() {
 				case types.LegacyTxType:
-					require.Equal(v.price, evmTx.GasPrice().String())
-					require.Nil(tx.AccessList())
-				case types.BlobTxType:
-					require.Equal(testBlob.blobFeeCap.ToBig(), tx.BlobGasFeeCap())
-					require.Equal(testBlob.hashes(), tx.BlobHashes())
-					require.Equal(testBlob.sidecar, tx.BlobTxSidecar())
-					require.Equal(selp.BlobGasFeeCap(), tx.BlobGasFeeCap())
-					require.Equal(selp.BlobHashes(), tx.BlobHashes())
-					require.Equal(selp.BlobTxSidecar(), tx.BlobTxSidecar())
-					fallthrough
-				case types.DynamicFeeTxType:
-					require.Equal(v.price, evmTx.GasTipCap().String())
-					tip := MustBeTrueV(new(big.Int).SetString(v.price, 10))
-					require.Equal(tip.Lsh(tip, 1), tx.GasFeeCap())
-					require.Equal(tx.GasPrice(), tx.GasFeeCap())
-					require.Equal(selp.GasTipCap(), evmTx.GasTipCap())
-					require.Equal(selp.GasFeeCap(), evmTx.GasFeeCap())
-					require.Equal(selp.GasPrice(), evmTx.GasPrice())
+					require.Nil(evmTx.AccessList())
 					fallthrough
 				case types.AccessListTxType:
-					require.Equal(3, len(tx.AccessList()))
+					require.Equal(evmTx.GasTipCap(), evmTx.GasPrice())
+					require.Equal(evmTx.GasFeeCap(), evmTx.GasPrice())
+					fallthrough
+				case types.DynamicFeeTxType:
+					require.Zero(evmTx.BlobGas())
+					require.Nil(evmTx.BlobGasFeeCap())
+					require.Nil(evmTx.BlobHashes())
+					require.Nil(evmTx.BlobTxSidecar())
 				}
+				// verify signed tx hash and protected
+				signer := MustNoErrorV(NewEthSigner(iotextypes.Encoding_ETHEREUM_EIP155, v.chainID))
+				signedTx := MustNoErrorV(RawTxToSignedTx(evmTx, signer, sig))
+				require.Equal(tx.Hash(), signedTx.Hash())
+				require.Equal(tx.Protected(), signedTx.Protected())
 			}
 		})
 	}
@@ -997,17 +1000,13 @@ func generateRLPTestRaw(sk *ecdsa.PrivateKey, test *rlpTest) string {
 		return deterministicDeploymentTx
 	case "accesslist":
 		tx = &types.AccessListTx{
-			Nonce:    test.nonce,
-			GasPrice: MustBeTrueV(new(big.Int).SetString(test.price, 10)),
-			Gas:      test.limit,
-			To:       to,
-			Value:    MustBeTrueV(new(big.Int).SetString(test.amount, 10)),
-			Data:     test.data,
-			AccessList: types.AccessList{
-				{Address: common.Address{}, StorageKeys: nil},
-				{Address: _c1, StorageKeys: []common.Hash{_k1, {}, _k3}},
-				{Address: _c2, StorageKeys: []common.Hash{_k2, _k3, _k4, _k1}},
-			},
+			Nonce:      test.nonce,
+			GasPrice:   MustBeTrueV(new(big.Int).SetString(test.price, 10)),
+			Gas:        test.limit,
+			To:         to,
+			Value:      MustBeTrueV(new(big.Int).SetString(test.amount, 10)),
+			Data:       test.data,
+			AccessList: createTestACL(),
 		}
 	case "dynamicfee":
 		tip := MustBeTrueV(new(big.Int).SetString(test.price, 10))
