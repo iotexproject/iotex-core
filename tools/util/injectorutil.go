@@ -233,7 +233,7 @@ loop:
 					txc = action.NewLegacyTx(1, nonce, uint64(transferGasLimit), big.NewInt(transferGasPrice))
 				}
 				tsf := action.NewTransfer(big.NewInt(amount), recipient.EncodedAddr, assertions.MustNoErrorV(hex.DecodeString(transferPayload)))
-				act := assertions.MustNoErrorV(action.Sign(action.NewEnvelop(txc, tsf), sender.PriKey))
+				act := assertions.MustNoErrorV(action.Sign(action.NewEnvelope(txc, tsf), sender.PriKey))
 				atomic.AddUint64(&totalTsfCreated, 1)
 				go injectAction(wg, act, client, retryNum, retryInterval, pendingActionMap, func() { atomic.AddUint64(&totalTsfSentToAPI, 1) })
 			case 1:
@@ -253,7 +253,7 @@ loop:
 					txc = action.NewLegacyTx(1, nonce, uint64(executionGasLimit), big.NewInt(executionGasPrice))
 				}
 				exec := action.NewExecution(contract, big.NewInt(int64(executionAmount)), assertions.MustNoErrorV(hex.DecodeString(executionData)))
-				act := assertions.MustNoErrorV(action.Sign(action.NewEnvelop(txc, exec), executor.PriKey))
+				act := assertions.MustNoErrorV(action.Sign(action.NewEnvelope(txc, exec), executor.PriKey))
 				go injectAction(wg, act, client, retryNum, retryInterval, pendingActionMap, func() {})
 			}
 		}
