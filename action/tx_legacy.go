@@ -107,19 +107,18 @@ func (tx *LegacyTx) toProto() *iotextypes.ActionCore {
 	return &actCore
 }
 
-func fromProtoLegacyTx(pb *iotextypes.ActionCore) (*LegacyTx, error) {
-	var tx LegacyTx
-	tx.nonce = pb.GetNonce()
-	tx.gasLimit = pb.GetGasLimit()
-	tx.chainID = pb.GetChainID()
-	tx.gasPrice = &big.Int{}
+func (tx *LegacyTx) fromProto(pb *iotextypes.ActionCore) error {
+	var gasPrice big.Int
 	if price := pb.GetGasPrice(); len(price) > 0 {
-		var ok bool
-		if tx.gasPrice, ok = tx.gasPrice.SetString(price, 10); !ok {
-			return nil, errors.Errorf("invalid gasPrice %s", price)
+		if _, ok := gasPrice.SetString(price, 10); !ok {
+			return errors.Errorf("invalid gasPrice %s", price)
 		}
 	}
-	return &tx, nil
+	tx.chainID = pb.GetChainID()
+	tx.nonce = pb.GetNonce()
+	tx.gasLimit = pb.GetGasLimit()
+	tx.gasPrice = &gasPrice
+	return nil
 }
 
 func (tx *LegacyTx) setNonce(n uint64) {

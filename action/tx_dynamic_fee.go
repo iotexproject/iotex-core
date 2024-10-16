@@ -138,7 +138,6 @@ func (tx *DynamicFeeTx) fromProto(pb *iotextypes.ActionCore) error {
 	var (
 		feeCap *big.Int
 		tipCap *big.Int
-		acl    types.AccessList
 	)
 	if feeCapStr := pb.GetGasFeeCap(); len(feeCapStr) > 0 {
 		v, ok := big.NewInt(0).SetString(feeCapStr, 10)
@@ -154,15 +153,12 @@ func (tx *DynamicFeeTx) fromProto(pb *iotextypes.ActionCore) error {
 		}
 		tipCap = v
 	}
-	if aclp := pb.GetAccessList(); len(aclp) > 0 {
-		acl = fromAccessListProto(aclp)
-	}
 	tx.nonce = pb.GetNonce()
 	tx.gasLimit = pb.GetGasLimit()
 	tx.chainID = pb.GetChainID()
 	tx.gasFeeCap = feeCap
 	tx.gasTipCap = tipCap
-	tx.accessList = acl
+	tx.accessList = fromAccessListProto(pb.GetAccessList())
 	return nil
 }
 

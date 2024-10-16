@@ -46,7 +46,14 @@ func TestDynamicFeeTxSelf(t *testing.T) {
 	r.Equal("08031002180328013201343a01354a6c0a2830303030303030303030303030303030303030303030303030303030303030303030303030303031124030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303032", hex.EncodeToString(b))
 	core := &iotextypes.ActionCore{}
 	r.NoError(proto.Unmarshal(b, core))
-	tx2 := &DynamicFeeTx{}
+	tx2 := &DynamicFeeTx{
+		chainID:    88,
+		nonce:      33,
+		gasLimit:   22,
+		gasTipCap:  big.NewInt(5),
+		gasFeeCap:  big.NewInt(6),
+		accessList: types.AccessList{},
+	}
 	r.NoError(tx2.fromProto(core))
 	r.Equal(tx, tx2)
 	// case: sanity check

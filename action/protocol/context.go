@@ -143,6 +143,7 @@ type (
 		EnableBlobTransaction                   bool
 		SufficentBalanceGuarantee               bool
 		EnableCancunEVM                         bool
+		UnfoldContainerBeforeValidate           bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -299,6 +300,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			EnableBlobTransaction:                   g.IsVanuatu(height),
 			SufficentBalanceGuarantee:               g.IsVanuatu(height),
 			EnableCancunEVM:                         g.IsVanuatu(height),
+			UnfoldContainerBeforeValidate:           g.IsVanuatu(height),
 		},
 	)
 }

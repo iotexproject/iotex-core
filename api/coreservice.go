@@ -497,14 +497,14 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	}
 	// If there is no error putting into local actpool, broadcast it to the network
 	// broadcast action hash if it's blobTx
-	isBlobTx := in.Core.BlobTxData != nil
+	hasSidecar := selp.BlobTxSidecar() != nil
 	out := proto.Message(in)
-	if isBlobTx {
+	if hasSidecar {
 		out = &iotextypes.ActionHash{
 			Hash: hash[:],
 		}
 	}
-	if core.messageBatcher != nil && !isBlobTx {
+	if core.messageBatcher != nil && !hasSidecar {
 		// TODO: batch blobTx
 		err = core.messageBatcher.Put(&batch.Message{
 			ChainID: core.bc.ChainID(),

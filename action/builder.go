@@ -196,13 +196,17 @@ func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) error {
 	b.ab.nonce = tx.Nonce()
 	b.ab.gasPrice = tx.GasPrice()
 	b.ab.gasLimit = tx.Gas()
-	b.ab.accessList = tx.AccessList()
+	if acl := tx.AccessList(); len(acl) > 0 {
+		b.ab.accessList = tx.AccessList()
+	}
 	b.ab.gasFeeCap = tx.GasFeeCap()
 	b.ab.gasTipCap = tx.GasTipCap()
-	b.ab.blobData = &BlobTxData{
-		blobFeeCap: uint256.MustFromBig(tx.BlobGasFeeCap()),
-		blobHashes: tx.BlobHashes(),
-		sidecar:    tx.BlobTxSidecar(),
+	if hashes := tx.BlobHashes(); len(hashes) > 0 {
+		b.ab.blobData = &BlobTxData{
+			blobFeeCap: uint256.MustFromBig(tx.BlobGasFeeCap()),
+			blobHashes: hashes,
+			sidecar:    tx.BlobTxSidecar(),
+		}
 	}
 	return nil
 }

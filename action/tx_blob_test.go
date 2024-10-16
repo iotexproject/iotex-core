@@ -56,7 +56,15 @@ func TestBlobTx(t *testing.T) {
 		r.Equal("0e6639e7bd18c71233cd064704eddb4819f767af50610aa159899a1d717e5099", hex.EncodeToString(h[:]))
 		pb := iotextypes.ActionCore{}
 		r.NoError(proto.Unmarshal(b, &pb))
-		tx1 := &BlobTx{}
+		tx1 := &BlobTx{
+			chainID:    88,
+			nonce:      33,
+			gasLimit:   22,
+			gasTipCap:  uint256.NewInt(5),
+			gasFeeCap:  uint256.NewInt(6),
+			accessList: types.AccessList{},
+			blob:       &BlobTxData{},
+		}
 		r.NoError(tx1.fromProto(&pb))
 		r.Equal(expect, tx1)
 	})

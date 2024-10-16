@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
@@ -129,4 +130,40 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 	rawHash := signer.Hash(tx)
 	pubkey, err = crypto.RecoverPubkey(rawHash[:], sig)
 	return encoding, sig, pubkey, err
+}
+
+func StakingRewardingTxToEnvelope(chainID uint32, tx *types.Transaction) (Envelope, error) {
+	if tx.To() == nil {
+		return nil, nil
+	}
+	var (
+		ioAddr, _  = address.FromBytes(tx.To().Bytes())
+		to         = ioAddr.String()
+		elpBuilder = (&EnvelopeBuilder{}).SetChainID(chainID)
+	)
+	if to == address.StakingProtocolAddr {
+		return elpBuilder.BuildStakingAction(tx)
+	}
+	if to == address.RewardingProtocol {
+		return elpBuilder.BuildRewardingAction(tx)
+	}
+	return nil, nil
+}
+
+func EthRawToContainer(chainID uint32, rawString string) (*iotextypes.ActionCore, error) {
+	if strings.HasPrefix(rawString, "0x") || strings.HasPrefix(rawString, "0X") {
+		rawString = rawString[2:]
+	}
+	rawBytes, err := hex.DecodeString(rawString)
+	if err != nil {
+		return nil, err
+	}
+	return &iotextypes.ActionCore{
+		ChainID: chainID,
+		Action: &iotextypes.ActionCore_TxContainer{
+			TxContainer: &iotextypes.TxContainer{
+				Raw: rawBytes,
+			},
+		},
+	}, nil
 }

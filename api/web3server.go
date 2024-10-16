@@ -8,7 +8,6 @@ import (
 	"io"
 	"math/big"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -34,7 +33,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -502,27 +500,30 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 	if err != nil {
 		return nil, err
 	}
-	if g := cs.Genesis(); g.IsToBeEnabled(cs.TipHeight()) {
-		if strings.HasPrefix(rawString, "0x") || strings.HasPrefix(rawString, "0X") {
-			rawString = rawString[2:]
+	if g := cs.Genesis(); g.IsVanuatu(cs.TipHeight()) {
+		elp, err := action.StakingRewardingTxToEnvelope(svr.coreService.ChainID(), tx)
+		if err != nil {
+			return nil, err
 		}
-		rawBytes, _ := hex.DecodeString(rawString)
-		req = &iotextypes.Action{
-			Core: &iotextypes.ActionCore{
-				Version:  version.ProtocolVersion,
-				Nonce:    tx.Nonce(),
-				GasLimit: tx.Gas(),
-				GasPrice: tx.GasPrice().String(),
-				ChainID:  cs.ChainID(),
-				Action: &iotextypes.ActionCore_TxContainer{
-					TxContainer: &iotextypes.TxContainer{
-						Raw: rawBytes,
-					},
-				},
-			},
-			SenderPubKey: pubkey.Bytes(),
-			Signature:    sig,
-			Encoding:     iotextypes.Encoding_TX_CONTAINER,
+		if elp != nil {
+			req = &iotextypes.Action{
+				Core:         elp.Proto(),
+				SenderPubKey: pubkey.Bytes(),
+				Signature:    sig,
+				Encoding:     encoding,
+			}
+		} else {
+			// tx is not staking or rewarding
+			actCore, err := action.EthRawToContainer(svr.coreService.ChainID(), rawString)
+			if err != nil {
+				return nil, err
+			}
+			req = &iotextypes.Action{
+				Core:         actCore,
+				SenderPubKey: pubkey.Bytes(),
+				Signature:    sig,
+				Encoding:     iotextypes.Encoding_TX_CONTAINER,
+			}
 		}
 	} else {
 		elp, err := svr.ethTxToEnvelope(tx)
@@ -688,6 +689,10 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 		}
 		return nil, err
 	}
+	tx, err := selp.ToEthTx()
+	if err != nil {
+		return nil, err
+	}
 	receipt, err := svr.coreService.ReceiptByActionHash(actHash)
 	if err != nil {
 		if errors.Cause(err) == ErrNotFound {
@@ -705,7 +710,6 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 	if logsBloom := blk.LogsBloomfilter(); logsBloom != nil {
 		logsBloomStr = hex.EncodeToString(logsBloom.Bytes())
 	}
-
 	return &getReceiptResult{
 		blockHash:       blk.HashBlock(),
 		from:            selp.SenderAddress(),
@@ -713,6 +717,7 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 		contractAddress: contractAddr,
 		logsBloom:       logsBloomStr,
 		receipt:         receipt,
+		txType:          uint(tx.Type()),
 	}, nil
 
 }
