@@ -180,7 +180,7 @@ func (ap *actPool) Start(ctx context.Context) error {
 	sort.Sort(blobs)
 	for _, selp := range blobs {
 		if err := ap.add(ctx, selp); err != nil {
-			return err
+			log.L().Info("Failed to load action from store", zap.Error(err))
 		}
 	}
 	return ap.storeSync.Start(ctx)
