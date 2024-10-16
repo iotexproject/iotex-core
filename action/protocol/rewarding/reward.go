@@ -124,7 +124,7 @@ func (p *Protocol) GrantBlockReward(
 			{
 				Type:   rewardingpb.RewardLog_BLOCK_REWARD,
 				Addr:   rewardAddrStr,
-				Amount: totalReward.String(),
+				Amount: a.blockReward.String(),
 			},
 		}
 		msg proto.Message = rewardLogs[0]
