@@ -104,6 +104,7 @@ func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
 	//serviceName: grpc.health.v1.Health
 	grpc_health_v1.RegisterHealthServer(gSvr, health.NewServer())
 	iotexapi.RegisterAPIServiceServer(gSvr, newGRPCHandler(core))
+	grpc_prometheus.EnableHandlingTimeHistogram()
 	grpc_prometheus.Register(gSvr)
 	reflection.Register(gSvr)
 	return &GRPCServer{
