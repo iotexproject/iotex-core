@@ -10,6 +10,7 @@ import (
 	"github.com/holiman/billy"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -68,6 +69,20 @@ var (
 	errStoreNotOpen = fmt.Errorf("blob store is not open")
 )
 
+var (
+	actionStoreMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_actionstore",
+			Help: "ActionStore statistics",
+		},
+		[]string{"message"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(actionStoreMtc)
+}
+
 func newActionStore(cfg actionStoreConfig, encode encodeAction, decode decodeAction) (*actionStore, error) {
 	if len(cfg.Datadir) == 0 {
 		return nil, errors.New("datadir is empty")
@@ -88,6 +103,7 @@ func (s *actionStore) Open(onData onAction) error {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return errors.Wrap(err, "failed to create blob store directory")
 	}
+	actionStoreMtc.WithLabelValues("size").Set(0)
 	// Index all transactions on disk and delete anything inprocessable
 	var fails []uint64
 	index := func(id uint64, size uint32, blob []byte) {
@@ -103,6 +119,7 @@ func (s *actionStore) Open(onData onAction) error {
 			return
 		}
 		s.stored += uint64(size)
+		actionStoreMtc.WithLabelValues("size").Set(float64(s.stored))
 		h, _ := act.Hash()
 		s.lookup[h] = id
 	}
@@ -186,6 +203,7 @@ func (s *actionStore) Put(act *action.SealedEnvelope) error {
 			s.drop(toDelete)
 		}
 	}
+	actionStoreMtc.WithLabelValues("size").Set(float64(s.stored))
 	return nil
 }
 
@@ -205,6 +223,7 @@ func (s *actionStore) Delete(hash hash.Hash256) error {
 	}
 	delete(s.lookup, hash)
 	s.stored -= uint64(s.store.Size(id))
+	actionStoreMtc.WithLabelValues("size").Set(float64(s.stored))
 	return nil
 }
 
