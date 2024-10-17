@@ -72,6 +72,11 @@ var (
 		Name: "iotex_web3_api_metrics",
 		Help: "web3 api metrics.",
 	}, []string{"method"})
+	_web3ServerLatency = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Name:       "iotex_web3_api_latency",
+		Help:       "web3 api latency.",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+	}, []string{"method"})
 
 	errUnkownType        = errors.New("wrong type of params")
 	errNullPointer       = errors.New("null pointer")
@@ -91,6 +96,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(_web3ServerMtc)
+	prometheus.MustRegister(_web3ServerLatency)
 }
 
 // NewWeb3Handler creates a handle to process web3 requests
