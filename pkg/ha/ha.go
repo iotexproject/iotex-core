@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/iotexproject/iotex-core/consensus"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/consensus"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 // Controller controls the node high availability status

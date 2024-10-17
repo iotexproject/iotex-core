@@ -10,8 +10,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	bloom "github.com/iotexproject/go-pkgs/bloom"
-	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
-	block "github.com/iotexproject/iotex-core/blockchain/block"
+	logfilter "github.com/iotexproject/iotex-core/v2/api/logfilter"
+	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
 
 // MockBloomFilterIndexer is a mock of BloomFilterIndexer interface.

@@ -13,7 +13,7 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core/pkg/routine"
+	"github.com/iotexproject/iotex-core/v2/pkg/routine"
 )
 
 func TestDelayTaskTimeout(t *testing.T) {

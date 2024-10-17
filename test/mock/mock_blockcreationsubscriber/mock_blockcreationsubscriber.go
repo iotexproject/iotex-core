@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	block "github.com/iotexproject/iotex-core/blockchain/block"
+	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
 
 // MockBlockCreationSubscriber is a mock of BlockCreationSubscriber interface.

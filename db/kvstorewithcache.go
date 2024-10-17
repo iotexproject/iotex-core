@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/cache"
-	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 // kvStoreWithCache is an implementation of KVStore, wrapping kvstore with LRU caches of latest states

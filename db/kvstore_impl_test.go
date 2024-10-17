@@ -8,7 +8,7 @@ package db
 import (
 	"testing"
 
-	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/v2/db/batch"
 
 	"github.com/stretchr/testify/require"
 )

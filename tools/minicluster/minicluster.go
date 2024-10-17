@@ -25,22 +25,22 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/probe"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
-	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-core/tools/executiontester/assetcontract"
-	bc "github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
-	"github.com/iotexproject/iotex-core/tools/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/probe"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/fileutil"
+	"github.com/iotexproject/iotex-core/v2/server/itx"
+	"github.com/iotexproject/iotex-core/v2/state/factory"
+	"github.com/iotexproject/iotex-core/v2/testutil"
+	"github.com/iotexproject/iotex-core/v2/tools/executiontester/assetcontract"
+	bc "github.com/iotexproject/iotex-core/v2/tools/executiontester/blockchain"
+	"github.com/iotexproject/iotex-core/v2/tools/util"
 )
 
 const (
@@ -104,9 +104,7 @@ func main() {
 		dbFilePaths = append(dbFilePaths, systemLogDBPath)
 		candidateIndexDBPath := fmt.Sprintf("./candidate.index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
-		contractStakingIndexDBPath := fmt.Sprintf("./contractstaking.index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, contractStakingIndexDBPath)
-		blobDBPath := fmt.Sprintf("./blob%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, blobDBPath)
 		networkPort := config.Default.Network.Port + i
 		apiPort := config.Default.API.GRPCPort + i
