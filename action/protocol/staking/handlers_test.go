@@ -29,6 +29,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil/testdb"
@@ -1285,6 +1286,60 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			require.False(vb.isUnstaked())
 		}
 	}
+	t.Run("CleanSelfStake", func(t *testing.T) {
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		runtest := func(t *testing.T, height uint64, fn func(vb *VoteBucket, cand *Candidate, sm protocol.StateManager)) {
+			ctrl := gomock.NewController(t)
+			sm, p, vbs, cands := initTestState(t, ctrl, []*bucketConfig{
+				{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, false, true, nil, 0},
+			}, []*candidateConfig{
+				{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
+			})
+			sk := identityset.PrivateKey(1)
+			require.NoError(setupAccount(sm, sk.PublicKey().Address(), 100000000))
+			// unstake
+			unstake, err := action.SignedReclaimStake(false, 0, cands[0].SelfStakeBucketIdx, nil, gasLimit, testGasPrice, sk)
+			require.NoError(err)
+			ctx := genesis.WithGenesisContext(context.Background(), g)
+			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+				BlockHeight:    height,
+				BlockTimeStamp: vbs[0].StakeStartTime.Add(vbs[0].StakedDuration),
+			})
+			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+			ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+				Caller:       sk.PublicKey().Address(),
+				GasPrice:     unstake.GasPrice(),
+				IntrinsicGas: assertions.MustNoErrorV(unstake.IntrinsicGas()),
+				Nonce:        unstake.Nonce(),
+			})
+			receipt, err := p.Handle(ctx, unstake.Envelope, sm)
+			require.NoError(err)
+			require.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
+			fn(vbs[0], cands[0], sm)
+		}
+		t.Run("NotCleanAtUpernavik", func(t *testing.T) {
+			runtest(t, g.UpernavikBlockHeight, func(vb *VoteBucket, cand *Candidate, sm protocol.StateManager) {
+				csm, err := NewCandidateStateManager(sm, false)
+				require.NoError(err)
+				newCand := csm.GetByIdentifier(cand.GetIdentifier())
+				selfStakeVotes := CalculateVoteWeight(p.config.VoteWeightCalConsts, vb, true)
+				votes := CalculateVoteWeight(p.config.VoteWeightCalConsts, vb, false)
+				require.Equal(new(big.Int).Sub(selfStakeVotes, votes).String(), newCand.Votes.String())
+				require.Equal(cand.SelfStake, newCand.SelfStake)
+				require.Equal(cand.SelfStakeBucketIdx, newCand.SelfStakeBucketIdx)
+			})
+		})
+		t.Run("CleanAtVanuatu", func(t *testing.T) {
+			runtest(t, g.VanuatuBlockHeight, func(vb *VoteBucket, cand *Candidate, sm protocol.StateManager) {
+				csm, err := NewCandidateStateManager(sm, false)
+				require.NoError(err)
+				newCand := csm.GetByIdentifier(cand.GetIdentifier())
+				require.Equal("0", newCand.Votes.String())
+				require.Equal(big.NewInt(0), newCand.SelfStake)
+				require.Equal(uint64(candidateNoSelfStakeBucketIndex), newCand.SelfStakeBucketIdx)
+			})
+		})
+	})
 }
 
 func TestProtocol_HandleWithdrawStake(t *testing.T) {
