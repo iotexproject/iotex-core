@@ -92,6 +92,10 @@ func main() {
 		dbFilePaths = append(dbFilePaths, trieDBPath)
 		indexDBPath := fmt.Sprintf("./index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, indexDBPath)
+		blobDBPath := fmt.Sprintf("./blob%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, blobDBPath)
+		contractStakingIndexDBPath := fmt.Sprintf("./contractstaking.index%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, contractStakingIndexDBPath)
 		bloomfilterIndexDBPath := fmt.Sprintf("./bloomfilter.index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, bloomfilterIndexDBPath)
 		consensusDBPath := fmt.Sprintf("./consensus%d.db", i+1)
@@ -114,6 +118,8 @@ func main() {
 		config.Chain.TrieDBPatchFile = ""
 		config.Chain.TrieDBPath = trieDBPath
 		config.Chain.IndexDBPath = indexDBPath
+		config.Chain.BlobStoreDBPath = blobDBPath
+		config.Chain.ContractStakingIndexDBPath = contractStakingIndexDBPath
 		config.Chain.BloomfilterIndexDBPath = bloomfilterIndexDBPath
 		config.Chain.CandidateIndexDBPath = candidateIndexDBPath
 		config.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
