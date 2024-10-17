@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
 var (

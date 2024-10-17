@@ -16,9 +16,9 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 )
 
 func TestNewProtocol(t *testing.T) {

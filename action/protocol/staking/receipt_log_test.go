@@ -13,10 +13,10 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 func TestReceiptLog(t *testing.T) {

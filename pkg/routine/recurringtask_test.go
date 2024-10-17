@@ -14,7 +14,7 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/pkg/routine"
+	"github.com/iotexproject/iotex-core/v2/pkg/routine"
 )
 
 type MockHandler struct {

@@ -11,10 +11,10 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
-	action "github.com/iotexproject/iotex-core/action"
-	blockchain "github.com/iotexproject/iotex-core/blockchain"
-	block "github.com/iotexproject/iotex-core/blockchain/block"
-	genesis "github.com/iotexproject/iotex-core/blockchain/genesis"
+	action "github.com/iotexproject/iotex-core/v2/action"
+	blockchain "github.com/iotexproject/iotex-core/v2/blockchain"
+	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
+	genesis "github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 )
 
 // MockBlockchain is a mock of Blockchain interface.

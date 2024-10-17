@@ -3,9 +3,9 @@ package staking
 import (
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 type (

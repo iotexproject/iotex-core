@@ -8,7 +8,7 @@ package mptrie
 import (
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/db/trie"
+	"github.com/iotexproject/iotex-core/v2/db/trie"
 )
 
 // NewLayerTwoLeafIterator returns a new leaf iterator

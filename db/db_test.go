@@ -16,9 +16,9 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
-	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 var (

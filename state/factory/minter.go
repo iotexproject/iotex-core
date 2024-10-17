@@ -8,10 +8,10 @@ package factory
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/actpool"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
 
 type minter struct {

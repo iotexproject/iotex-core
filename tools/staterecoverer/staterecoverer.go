@@ -17,12 +17,12 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/server/itx"
+	"github.com/iotexproject/iotex-core/v2/state/factory"
 )
 
 // recoveryHeight is the blockchain height being recovered to

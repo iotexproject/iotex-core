@@ -11,9 +11,9 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 // const

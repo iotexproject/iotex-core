@@ -20,11 +20,11 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/tools/bot/config"
-	"github.com/iotexproject/iotex-core/tools/bot/pkg/util/grpcutil"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/tools/bot/config"
+	"github.com/iotexproject/iotex-core/v2/tools/bot/pkg/util/grpcutil"
 )
 
 const (

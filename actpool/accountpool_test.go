@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/v2/action"
 )
 
 var (

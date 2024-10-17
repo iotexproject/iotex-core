@@ -1,4 +1,4 @@
-module github.com/iotexproject/iotex-core
+module github.com/iotexproject/iotex-core/v2
 
 go 1.21
 

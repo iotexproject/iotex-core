@@ -36,7 +36,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 // KeyPairs indicate the keypair of accounts getting transfers from Creator in genesis block

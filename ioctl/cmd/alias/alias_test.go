@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/validator"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/validator"
 )
 
 func TestAlias(t *testing.T) {

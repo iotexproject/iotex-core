@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 func TestRangeIndex(t *testing.T) {

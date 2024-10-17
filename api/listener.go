@@ -8,10 +8,10 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	apitypes "github.com/iotexproject/iotex-core/api/types"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/pkg/fastrand"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/pkg/fastrand"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 const (

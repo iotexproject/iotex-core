@@ -15,11 +15,11 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/pkg/compress"
-	. "github.com/iotexproject/iotex-core/pkg/util/assertions"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/pkg/compress"
+	. "github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 func TestChecksumNamespaceAndKeys(t *testing.T) {

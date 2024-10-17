@@ -16,7 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 )
 
 func TestClaimReward(t *testing.T) {

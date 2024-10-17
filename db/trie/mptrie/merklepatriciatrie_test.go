@@ -15,10 +15,10 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/db/trie"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 var (

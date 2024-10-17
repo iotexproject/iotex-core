@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/output"
 )
 
 // Multi-language support

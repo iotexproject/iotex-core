@@ -18,10 +18,10 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/util"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_ioctlclient"
 )
 
 func TestNewContractTestBytecodeCmd(t *testing.T) {

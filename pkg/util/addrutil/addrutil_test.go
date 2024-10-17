@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 func TestIoAddrToEvmAddr(t *testing.T) {

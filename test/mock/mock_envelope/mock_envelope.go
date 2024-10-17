@@ -11,7 +11,7 @@ import (
 	common "github.com/ethereum/go-ethereum/common"
 	types "github.com/ethereum/go-ethereum/core/types"
 	gomock "github.com/golang/mock/gomock"
-	action "github.com/iotexproject/iotex-core/action"
+	action "github.com/iotexproject/iotex-core/v2/action"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -1055,20 +1055,6 @@ func (m *MockTxCommonInternal) SanityCheck() error {
 func (mr *MockTxCommonInternalMockRecorder) SanityCheck() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SanityCheck", reflect.TypeOf((*MockTxCommonInternal)(nil).SanityCheck))
-}
-
-// ValidateSidecar mocks base method.
-func (m *MockTxCommonInternal) ValidateSidecar() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateSidecar")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ValidateSidecar indicates an expected call of ValidateSidecar.
-func (mr *MockTxCommonInternalMockRecorder) ValidateSidecar() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateSidecar", reflect.TypeOf((*MockTxCommonInternal)(nil).ValidateSidecar))
 }
 
 // Version mocks base method.

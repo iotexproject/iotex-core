@@ -18,12 +18,12 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
-	apitypes "github.com/iotexproject/iotex-core/api/types"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/util/assertions"
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/action"
+	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 var (

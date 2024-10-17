@@ -12,8 +12,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/test/mock/mock_web3server"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_web3server"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 func TestServeHTTP(t *testing.T) {

@@ -9,8 +9,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	block "github.com/iotexproject/iotex-core/blockchain/block"
-	scheme "github.com/iotexproject/iotex-core/consensus/scheme"
+	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
+	scheme "github.com/iotexproject/iotex-core/v2/consensus/scheme"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 

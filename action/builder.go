@@ -15,7 +15,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/v2/pkg/version"
 )
 
 var (

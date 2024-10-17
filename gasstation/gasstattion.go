@@ -13,10 +13,10 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
 
 // BlockDAO represents the block data access object

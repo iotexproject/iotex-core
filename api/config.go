@@ -6,8 +6,8 @@
 package api
 
 import (
-	"github.com/iotexproject/iotex-core/gasstation"
-	"github.com/iotexproject/iotex-core/pkg/tracer"
+	"github.com/iotexproject/iotex-core/v2/gasstation"
+	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
 )
 
 // Config is the api service config

@@ -12,10 +12,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/ioctl/validator"
+	"github.com/iotexproject/iotex-core/v2/ioctl"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/util"
+	"github.com/iotexproject/iotex-core/v2/ioctl/validator"
 )
 
 // Multi-language support

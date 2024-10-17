@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	batch "github.com/iotexproject/iotex-core/db/batch"
+	batch "github.com/iotexproject/iotex-core/v2/db/batch"
 )
 
 // MockKVStoreBasic is a mock of KVStoreBasic interface.

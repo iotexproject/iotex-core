@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	action "github.com/iotexproject/iotex-core/action"
+	action "github.com/iotexproject/iotex-core/v2/action"
 )
 
 // MockActionIterator is a mock of ActionIterator interface.

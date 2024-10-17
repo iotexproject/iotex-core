@@ -20,8 +20,8 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type (

@@ -8,7 +8,7 @@ package protocol
 import (
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 // Errors

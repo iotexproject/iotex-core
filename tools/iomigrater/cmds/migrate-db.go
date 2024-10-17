@@ -8,10 +8,10 @@ import (
 	"github.com/schollz/progressbar/v2"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/filedao"
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/tools/iomigrater/common"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/tools/iomigrater/common"
 )
 
 const (

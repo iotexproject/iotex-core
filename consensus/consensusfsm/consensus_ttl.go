@@ -8,7 +8,7 @@ package consensusfsm
 import (
 	"time"
 
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 )
 
 // DefaultDardanellesUpgradeConfig is the default config for dardanelles upgrade

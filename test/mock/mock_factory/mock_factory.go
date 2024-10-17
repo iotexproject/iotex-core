@@ -10,11 +10,11 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	address "github.com/iotexproject/iotex-address/address"
-	action "github.com/iotexproject/iotex-core/action"
-	protocol "github.com/iotexproject/iotex-core/action/protocol"
-	actpool "github.com/iotexproject/iotex-core/actpool"
-	block "github.com/iotexproject/iotex-core/blockchain/block"
-	state "github.com/iotexproject/iotex-core/state"
+	action "github.com/iotexproject/iotex-core/v2/action"
+	protocol "github.com/iotexproject/iotex-core/v2/action/protocol"
+	actpool "github.com/iotexproject/iotex-core/v2/actpool"
+	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
+	state "github.com/iotexproject/iotex-core/v2/state"
 )
 
 // MockFactory is a mock of Factory interface.

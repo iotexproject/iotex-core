@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/v2/db"
 )
 
 func TestKVStore_Get(t *testing.T) {
