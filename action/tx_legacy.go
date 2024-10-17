@@ -26,10 +26,9 @@ type LegacyTx struct {
 }
 
 // NewLegacyTx creates a new legacy transaction
-func NewLegacyTx(chainID, version uint32, nonce uint64, gasLimit uint64, gasPrice *big.Int) *LegacyTx {
+func NewLegacyTx(chainID uint32, nonce uint64, gasLimit uint64, gasPrice *big.Int) *LegacyTx {
 	return &LegacyTx{
 		chainID:  chainID,
-		version:  version,
 		nonce:    nonce,
 		gasLimit: gasLimit,
 		gasPrice: gasPrice,

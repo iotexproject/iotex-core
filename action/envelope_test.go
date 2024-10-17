@@ -18,7 +18,7 @@ import (
 
 func TestEnvelope_Basic(t *testing.T) {
 	req := require.New(t)
-	evlp, tsf := createEnvelope()
+	evlp, tsf := createEnvelope(1)
 	req.EqualValues(LegacyTxType, evlp.TxType())
 	req.Equal(uint64(10), evlp.Nonce())
 	req.Equal(uint64(20010), evlp.Gas())
@@ -39,7 +39,7 @@ func TestEnvelope_Basic(t *testing.T) {
 
 func TestEnvelope_Proto(t *testing.T) {
 	req := require.New(t)
-	eb, tsf := createEnvelope()
+	eb, tsf := createEnvelope(1)
 	evlp, ok := eb.(*envelope)
 	req.True(ok)
 
@@ -130,13 +130,13 @@ func TestEnvelope_Actions(t *testing.T) {
 	}
 }
 
-func createEnvelope() (Envelope, *Transfer) {
+func createEnvelope(chainID uint32) (Envelope, *Transfer) {
 	tsf := NewTransfer(unit.ConvertIotxToRau(1000+int64(10)),
 		identityset.Address(10%identityset.Size()).String(),
 		nil)
 	evlp := (&EnvelopeBuilder{}).SetAction(tsf).SetGasLimit(20010).
-		SetGasPrice(unit.ConvertIotxToRau(11)).
-		SetNonce(10).SetVersion(1).SetChainID(1).Build()
+		SetGasPrice(unit.ConvertIotxToRau(11)).SetNonce(10).
+		SetVersion(1).SetChainID(chainID).Build()
 	return evlp, tsf
 }
 

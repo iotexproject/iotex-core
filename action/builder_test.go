@@ -39,7 +39,7 @@ func TestActionBuilder(t *testing.T) {
 		SetGasLimit(10003).
 		SetGasPrice(big.NewInt(10004)).
 		Build()
-
+	r.Equal(uint32(version.ProtocolVersion), act.version)
 	r.Equal(uint64(2), act.Nonce())
 	r.Equal(uint64(10003), act.Gas())
 	r.Equal(big.NewInt(10004), act.GasPrice())

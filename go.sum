@@ -1184,8 +1184,8 @@ github.com/iotexproject/iotex-antenna-go/v2 v2.5.1/go.mod h1:8pDZcM45M0gY6jm3PoM
 github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d h1:/j1xCAC9YiG/8UKqYvycS/v3ddVsb1G7AMyLXOjeYI0=
 github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d/go.mod h1:GRWevxtqQ4gPMrd7Qxhr29/7aTgvjiTp+rFI9KMMZEo=
 github.com/iotexproject/iotex-proto v0.5.0/go.mod h1:Xg6REkv+nTZN+OC22xXIQuqKdTWWHwOAJEXCoMpDwtI=
-github.com/iotexproject/iotex-proto v0.6.4-0.20241016170144-e7484fceea16 h1:eb+urFmGPGConBqlf+1c2NsmuuSm3hj5M5/prURFNzQ=
-github.com/iotexproject/iotex-proto v0.6.4-0.20241016170144-e7484fceea16/go.mod h1:Hxct427jhlu08PHQ44Jwh//hZVhXKq+XO/Mdqwc6dNc=
+github.com/iotexproject/iotex-proto v0.6.4 h1:r3qpnK8X2cys53pktRTWnmDzeS9jcsawwSuKq7iF7eQ=
+github.com/iotexproject/iotex-proto v0.6.4/go.mod h1:Hxct427jhlu08PHQ44Jwh//hZVhXKq+XO/Mdqwc6dNc=
 github.com/ipfs/bbloom v0.0.1/go.mod h1:oqo8CVWsJFMOZqTglBG4wydCE4IQA/G2/SEofB0rjUI=
 github.com/ipfs/bbloom v0.0.4/go.mod h1:cS9YprKXpoZ9lT0n/Mw/a6/aFV6DTjTLYHeA+gyqMG0=
 github.com/ipfs/boxo v0.8.1/go.mod h1:xJ2hVb4La5WyD7GvKYE0lq2g1rmQZoCD2K4WNrV6aZI=

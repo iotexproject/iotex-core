@@ -157,7 +157,7 @@ func CreateTestBlockWithBlob(start, n int) ([]*Block, error) {
 	blks := make([]*Block, n)
 	for i := start; i < start+n; i++ {
 		sc3 := createTestBlobSidecar(i, i+1)
-		act3 := (&action.EnvelopeBuilder{}).SetVersion(action.BlobTxType).SetChainID(1).SetNonce(uint64(i)).
+		act3 := (&action.EnvelopeBuilder{}).SetTxType(action.BlobTxType).SetChainID(1).SetNonce(uint64(i)).
 			SetGasLimit(20000).SetDynamicGas(big.NewInt(100), big.NewInt(200)).
 			SetBlobTxData(uint256.NewInt(15), sc3.BlobHashes(), sc3).
 			SetAction(action.NewTransfer(amount, "", nil)).Build()
@@ -169,7 +169,7 @@ func CreateTestBlockWithBlob(start, n int) ([]*Block, error) {
 			return nil, action.ErrInvalidAct
 		}
 		sc4 := createTestBlobSidecar(i+1, i)
-		act4 := (&action.EnvelopeBuilder{}).SetVersion(action.BlobTxType).SetChainID(1).SetNonce(uint64(i)).
+		act4 := (&action.EnvelopeBuilder{}).SetTxType(action.BlobTxType).SetChainID(1).SetNonce(uint64(i)).
 			SetGasLimit(20000).SetDynamicGas(big.NewInt(100), big.NewInt(200)).
 			SetBlobTxData(uint256.NewInt(15), sc4.BlobHashes(), sc4).
 			SetAction(action.NewTransfer(amount, "", nil)).Build()
