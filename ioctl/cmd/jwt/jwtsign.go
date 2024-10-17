@@ -13,11 +13,11 @@ import (
 	"github.com/iotexproject/iotex-antenna-go/v2/jwt"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/flag"
-	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/flag"
+	"github.com/iotexproject/iotex-core/v2/ioctl/output"
 )
 
 // Multi-language support

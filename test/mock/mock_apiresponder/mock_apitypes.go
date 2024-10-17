@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	apitypes "github.com/iotexproject/iotex-core/api/types"
-	block "github.com/iotexproject/iotex-core/blockchain/block"
+	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
+	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
 
 // MockWeb3ResponseWriter is a mock of Web3ResponseWriter interface.

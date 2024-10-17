@@ -22,14 +22,14 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/flag"
-	"github.com/iotexproject/iotex-core/ioctl/newcmd/account"
-	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
-	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/flag"
+	"github.com/iotexproject/iotex-core/v2/ioctl/newcmd/account"
+	"github.com/iotexproject/iotex-core/v2/ioctl/newcmd/bc"
+	"github.com/iotexproject/iotex-core/v2/ioctl/util"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 // Multi-language support

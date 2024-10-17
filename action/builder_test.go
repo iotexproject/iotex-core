@@ -19,8 +19,8 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
-	. "github.com/iotexproject/iotex-core/pkg/util/assertions"
-	"github.com/iotexproject/iotex-core/pkg/version"
+	. "github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/v2/pkg/version"
 )
 
 func TestBuilderEthAddr(t *testing.T) {

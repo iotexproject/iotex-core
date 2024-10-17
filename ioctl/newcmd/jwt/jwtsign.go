@@ -14,11 +14,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/flag"
-	"github.com/iotexproject/iotex-core/ioctl/newcmd/account"
-	"github.com/iotexproject/iotex-core/ioctl/newcmd/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/flag"
+	"github.com/iotexproject/iotex-core/v2/ioctl/newcmd/account"
+	"github.com/iotexproject/iotex-core/v2/ioctl/newcmd/action"
 )
 
 // Multi-language support

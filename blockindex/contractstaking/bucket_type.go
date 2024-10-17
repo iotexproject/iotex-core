@@ -6,7 +6,7 @@
 package contractstaking
 
 import (
-	"github.com/iotexproject/iotex-core/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 )
 
 type (

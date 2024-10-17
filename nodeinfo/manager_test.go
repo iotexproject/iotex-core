@@ -19,7 +19,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/iotexproject/iotex-core/test/mock/mock_nodeinfo"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_nodeinfo"
 )
 
 func getEmptyWhiteList() []string {

@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/iotexproject/iotex-core/action/protocol/poll/blockmetapb"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/poll/blockmetapb"
 )
 
 // BlockMeta is a struct to store block metadata

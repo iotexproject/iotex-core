@@ -8,11 +8,11 @@ package newcmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/newcmd/account"
-	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
-	"github.com/iotexproject/iotex-core/ioctl/newcmd/node"
+	"github.com/iotexproject/iotex-core/v2/ioctl"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/newcmd/account"
+	"github.com/iotexproject/iotex-core/v2/ioctl/newcmd/bc"
+	"github.com/iotexproject/iotex-core/v2/ioctl/newcmd/node"
 )
 
 // Multi-language support

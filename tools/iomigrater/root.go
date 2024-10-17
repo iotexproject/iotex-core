@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/tools/iomigrater/cmds"
-	"github.com/iotexproject/iotex-core/tools/iomigrater/common"
+	"github.com/iotexproject/iotex-core/v2/tools/iomigrater/cmds"
+	"github.com/iotexproject/iotex-core/v2/tools/iomigrater/common"
 )
 
 // Multi-language support

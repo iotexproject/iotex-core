@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	. "github.com/iotexproject/iotex-core/pkg/util/assertions"
+	. "github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 )
 
 func TestBlobTx(t *testing.T) {

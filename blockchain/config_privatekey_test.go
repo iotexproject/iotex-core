@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/test/mock/mock_privatekey"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_privatekey"
 )
 
 const (

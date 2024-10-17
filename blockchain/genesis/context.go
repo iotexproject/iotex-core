@@ -8,7 +8,7 @@ package genesis
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type genesisKey struct{}

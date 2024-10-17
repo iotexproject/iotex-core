@@ -17,14 +17,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/consensus"
-	"github.com/iotexproject/iotex-core/consensus/scheme"
-	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
-	"github.com/iotexproject/iotex-core/dispatcher"
-	"github.com/iotexproject/iotex-core/p2p"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/version"
-	statedb "github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/v2/consensus"
+	"github.com/iotexproject/iotex-core/v2/consensus/scheme"
+	"github.com/iotexproject/iotex-core/v2/consensus/scheme/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/dispatcher"
+	"github.com/iotexproject/iotex-core/v2/p2p"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/version"
+	statedb "github.com/iotexproject/iotex-core/v2/state"
 )
 
 // TODO: HeartbeatHandler opens encapsulation of a few structs to inspect the internal status, we need to find a better

@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/addrutil"
 )
 
 type (

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	stakingComm "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi/common"
+	stakingComm "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi/common"
 )
 
 func TestBuildReadStateRequestContractBucketTypes(t *testing.T) {

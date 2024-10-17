@@ -10,7 +10,7 @@ import (
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
-	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/v2/pkg/version"
 )
 
 const (

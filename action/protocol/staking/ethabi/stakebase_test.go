@@ -7,7 +7,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
-	stakingComm "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi/common"
+	stakingComm "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi/common"
 )
 
 var errInvalidMsg = "address length = 40, expecting 41: invalid address"

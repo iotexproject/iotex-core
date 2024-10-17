@@ -10,7 +10,7 @@ import (
 	"github.com/iotexproject/go-pkgs/byteutil"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/db/versionpb"
+	"github.com/iotexproject/iotex-core/v2/db/versionpb"
 )
 
 // versionedNamespace is the metadata for versioned namespace

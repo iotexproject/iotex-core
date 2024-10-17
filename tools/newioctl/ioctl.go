@@ -8,10 +8,10 @@ package main
 import (
 	"os"
 
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/newcmd"
-	"github.com/iotexproject/iotex-core/ioctl/newcmd/config"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/ioctl"
+	"github.com/iotexproject/iotex-core/v2/ioctl/newcmd"
+	"github.com/iotexproject/iotex-core/v2/ioctl/newcmd/config"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 func main() {
