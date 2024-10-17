@@ -10,7 +10,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -171,13 +170,7 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 }
 
 func createSealedEnvelope(chainID uint32) (*SealedEnvelope, error) {
-	tsf := NewTransfer(
-		unit.ConvertIotxToRau(1000+int64(10)),
-		identityset.Address(10%identityset.Size()).String(),
-		nil)
-	evlp := (&EnvelopeBuilder{}).SetAction(tsf).SetGasLimit(20010).
-		SetGasPrice(unit.ConvertIotxToRau(11)).SetNonce(10).
-		SetVersion(1).SetChainID(chainID).Build()
+	evlp, _ := createEnvelope(chainID)
 	cPubKey, err := crypto.HexStringToPublicKey(_publicKey)
 	se := &SealedEnvelope{}
 	se.Envelope = evlp

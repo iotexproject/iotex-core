@@ -324,8 +324,7 @@ func TestEthTxDecodeVerify(t *testing.T) {
 	)
 
 	checkSelp := func(selp *SealedEnvelope, tx *types.Transaction, e rlpTest) {
-		h, err := selp.Hash()
-		require.NoError(err)
+		h := MustNoErrorV(selp.Hash())
 		require.Equal(e.hash, hex.EncodeToString(h[:]))
 		if e.actType == "unprotected" {
 			require.Equal(deterministicDeployer, selp.srcPubkey.Address().Hex())
@@ -334,10 +333,19 @@ func TestEthTxDecodeVerify(t *testing.T) {
 		}
 		require.Equal(e.chainID, selp.evmNetworkID)
 		require.EqualValues(1, selp.ChainID())
-		raw, err := selp.envelopeHash()
-		require.NoError(err)
-		signer, err := NewEthSigner(e.encoding, uint32(e.chainID))
-		require.NoError(err)
+		require.EqualValues(tx.Type(), selp.TxType())
+		require.EqualValues(tx.Nonce(), selp.Nonce())
+		require.EqualValues(tx.Gas(), selp.Gas())
+		require.Equal(tx.GasPrice(), selp.GasPrice())
+		require.Equal(tx.AccessList(), selp.AccessList())
+		require.Equal(tx.GasFeeCap(), selp.GasFeeCap())
+		require.Equal(tx.GasTipCap(), selp.GasTipCap())
+		require.Equal(tx.BlobGas(), selp.BlobGas())
+		require.Equal(tx.BlobGasFeeCap(), selp.BlobGasFeeCap())
+		require.Equal(tx.BlobHashes(), selp.BlobHashes())
+		require.Equal(tx.BlobTxSidecar(), selp.BlobTxSidecar())
+		raw := MustNoErrorV(selp.envelopeHash())
+		signer := MustNoErrorV(NewEthSigner(e.encoding, uint32(e.chainID)))
 		rawHash := signer.Hash(tx)
 		require.True(bytes.Equal(rawHash[:], raw[:]))
 		require.NotEqual(raw, h)
@@ -348,8 +356,7 @@ func TestEthTxDecodeVerify(t *testing.T) {
 		t.Run(v.actType, func(t *testing.T) {
 			raw := generateRLPTestRaw(sk.EcdsaPrivateKey().(*ecdsa.PrivateKey), &v)
 			// decode received RLP tx
-			tx, err := DecodeEtherTx(raw)
-			require.NoError(err)
+			tx := MustNoErrorV(DecodeEtherTx(raw))
 			encoding, sig, pubkey, err := ExtractTypeSigPubkey(tx)
 			require.NoError(err)
 			require.Equal(v.encoding, encoding)
@@ -400,15 +407,12 @@ func TestEthTxDecodeVerify(t *testing.T) {
 
 			for i := 0; i < 2; i++ {
 				// send on wire
-				bs, err := proto.Marshal(pb[i])
-				require.NoError(err)
-
+				bs := MustNoErrorV(proto.Marshal(pb[i]))
 				// receive from API
 				e := &iotextypes.Action{}
 				proto.Unmarshal(bs, e)
 
-				selp, err := (&Deserializer{}).SetEvmNetworkID(v.chainID).ActionToSealedEnvelope(e)
-				require.NoError(err)
+				selp := MustNoErrorV((&Deserializer{}).SetEvmNetworkID(v.chainID).ActionToSealedEnvelope(e))
 				require.True(bytes.Equal(sig, selp.signature))
 				checkSelp(selp, tx, v)
 				if i == 0 {
@@ -420,7 +424,6 @@ func TestEthTxDecodeVerify(t *testing.T) {
 
 				// evm tx conversion
 				if i == 1 {
-					require.EqualValues(tx.Type()+1, selp.Version())
 					// tx unfolding
 					_, ok := selp.Action().(*txContainer)
 					require.True(ok)
@@ -430,14 +433,11 @@ func TestEthTxDecodeVerify(t *testing.T) {
 					require.True(bytes.Equal(sig, selp.signature))
 					checkSelp(selp, tx, v)
 					require.Equal(v.encoding, selp.encoding)
-					require.EqualValues(tx.Type()+1, selp.Version())
 					// selp converted to actual tx
 					_, ok = selp.Action().(TxContainer)
 					require.False(ok)
-
 				}
-				evmTx, err := selp.ToEthTx()
-				require.NoError(err)
+				evmTx := MustNoErrorV(selp.ToEthTx())
 				// verify against original tx
 				require.Equal(tx.Type(), evmTx.Type())
 				require.Equal(tx.Nonce(), evmTx.Nonce())

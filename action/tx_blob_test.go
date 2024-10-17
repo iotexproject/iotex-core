@@ -35,7 +35,7 @@ func TestBlobTx(t *testing.T) {
 		blob:       testBlob,
 	}
 	t.Run("proto", func(t *testing.T) {
-		r.EqualValues(BlobTxType, expect.Version())
+		r.EqualValues(BlobTxType, expect.TxType())
 		r.EqualValues(8, expect.Nonce())
 		r.EqualValues(1001, expect.Gas())
 		r.Equal(big.NewInt(27), expect.GasPrice())
@@ -46,9 +46,11 @@ func TestBlobTx(t *testing.T) {
 		r.Equal(big.NewInt(15), expect.BlobGasFeeCap())
 		r.Equal(testBlob.hashes(), expect.BlobHashes())
 		r.Equal(testBlob.sidecar, expect.BlobTxSidecar())
-		b := MustNoErrorV(proto.Marshal(expect.toProto()))
+		epb := expect.toProto()
+		r.Zero(epb.Version)
+		b := MustNoErrorV(proto.Marshal(epb))
 		h := hash.Hash256b(b[:])
-		r.Equal("0e6639e7bd18c71233cd064704eddb4819f767af50610aa159899a1d717e5099", hex.EncodeToString(h[:]))
+		r.Equal("9801a7f9829dc76de51f54896884ad439bd25420bb5cd2771995312257ec3885", hex.EncodeToString(h[:]))
 		pb := iotextypes.ActionCore{}
 		r.NoError(proto.Unmarshal(b, &pb))
 		tx1 := &BlobTx{
@@ -62,6 +64,8 @@ func TestBlobTx(t *testing.T) {
 		}
 		r.NoError(tx1.fromProto(&pb))
 		r.Equal(expect, tx1)
+		pb.TxType = LegacyTxType
+		r.ErrorIs(tx1.fromProto(&pb), ErrInvalidProto)
 	})
 	t.Run("sanity", func(t *testing.T) {
 		r.NoError(expect.SanityCheck())
@@ -91,17 +95,17 @@ func TestBlobTx(t *testing.T) {
 		r.NoError(elp.loadProtoTxCommon(expect.toProto()))
 		blob, ok := elp.common.(*BlobTx)
 		r.True(ok)
-		r.EqualValues(BlobTxType, blob.Version())
+		r.EqualValues(BlobTxType, blob.TxType())
 		r.Equal(expect, blob)
 	})
 	t.Run("build from setter", func(t *testing.T) {
-		tx := (&EnvelopeBuilder{}).SetVersion(BlobTxType).SetChainID(expect.ChainID()).SetNonce(expect.Nonce()).
+		tx := (&EnvelopeBuilder{}).SetTxType(BlobTxType).SetChainID(expect.ChainID()).SetNonce(expect.Nonce()).
 			SetGasLimit(expect.Gas()).SetDynamicGas(expect.GasFeeCap(), expect.GasTipCap()).
 			SetAccessList(expect.AccessList()).SetBlobTxData(testBlob.blobFeeCap, testBlob.blobHashes, testBlob.sidecar).
 			SetAction(&Transfer{}).Build()
 		blob, ok := tx.(*envelope).common.(*BlobTx)
 		r.True(ok)
-		r.EqualValues(BlobTxType, blob.Version())
+		r.EqualValues(BlobTxType, blob.TxType())
 		r.Equal(expect, blob)
 	})
 	t.Run("build from EthTx", func(t *testing.T) {
@@ -122,7 +126,7 @@ func TestBlobTx(t *testing.T) {
 		r.NoError(err)
 		blob, ok := tx.(*envelope).common.(*BlobTx)
 		r.True(ok)
-		r.EqualValues(BlobTxType, blob.Version())
+		r.EqualValues(BlobTxType, blob.TxType())
 		r.Equal(expect, blob)
 		tsf, ok := tx.(*envelope).Action().(*Transfer)
 		r.True(ok)
