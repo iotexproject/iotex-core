@@ -19,7 +19,7 @@ import (
 func TestEnvelope_Basic(t *testing.T) {
 	req := require.New(t)
 	evlp, tsf := createEnvelope()
-	req.Equal(uint32(1), evlp.TxType())
+	req.EqualValues(LegacyTxType, evlp.TxType())
 	req.Equal(uint64(10), evlp.Nonce())
 	req.Equal(uint64(20010), evlp.Gas())
 	req.Equal("11000000000000000000", evlp.GasPrice().String())
@@ -46,6 +46,7 @@ func TestEnvelope_Proto(t *testing.T) {
 	proto := evlp.Proto()
 	actCore := &iotextypes.ActionCore{
 		TxType:   evlp.TxType(),
+		Version:  evlp.common.(*LegacyTx).version,
 		Nonce:    evlp.Nonce(),
 		GasLimit: evlp.Gas(),
 		ChainID:  evlp.ChainID(),
@@ -110,7 +111,7 @@ func TestEnvelope_Actions(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		for _, txtype := range []uint32{AntiqueTxType, LegacyTxType, AccessListTxType, DynamicFeeTxType, BlobTxType} {
+		for _, txtype := range []uint32{LegacyTxType, AccessListTxType, DynamicFeeTxType, BlobTxType} {
 			bd := &EnvelopeBuilder{}
 			if txtype == BlobTxType {
 				bd.SetBlobTxData(uint256.NewInt(1), []common.Hash{}, nil)
@@ -134,7 +135,7 @@ func createEnvelope() (Envelope, *Transfer) {
 		identityset.Address(10%identityset.Size()).String(),
 		nil)
 	evlp := (&EnvelopeBuilder{}).SetAction(tsf).SetGasLimit(20010).
-		SetGasPrice(unit.ConvertIotxToRau(11)).SetTxType(1).
+		SetGasPrice(unit.ConvertIotxToRau(11)).
 		SetNonce(10).SetVersion(1).SetChainID(1).Build()
 	return evlp, tsf
 }

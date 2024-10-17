@@ -41,7 +41,7 @@ func TestLegacyTx(t *testing.T) {
 		epb := tx.toProto()
 		r.Zero(epb.Version)
 		b := MustNoErrorV(proto.Marshal(epb))
-		r.Equal("100818e907220231332803e00101", hex.EncodeToString(b))
+		r.Equal("100818e907220231332803", hex.EncodeToString(b))
 		pb := iotextypes.ActionCore{}
 		r.NoError(proto.Unmarshal(b, &pb))
 		tx1 := &LegacyTx{

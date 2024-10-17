@@ -19,15 +19,17 @@ var _ TxCommonInternal = (*LegacyTx)(nil)
 // LegacyTx is the legacy transaction
 type LegacyTx struct {
 	chainID  uint32
+	version  uint32
 	nonce    uint64
 	gasLimit uint64
 	gasPrice *big.Int
 }
 
 // NewLegacyTx creates a new legacy transaction
-func NewLegacyTx(chainID uint32, nonce uint64, gasLimit uint64, gasPrice *big.Int) *LegacyTx {
+func NewLegacyTx(chainID, version uint32, nonce uint64, gasLimit uint64, gasPrice *big.Int) *LegacyTx {
 	return &LegacyTx{
 		chainID:  chainID,
+		version:  version,
 		nonce:    nonce,
 		gasLimit: gasLimit,
 		gasPrice: gasPrice,
@@ -97,6 +99,7 @@ func (tx *LegacyTx) SanityCheck() error {
 func (tx *LegacyTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
 		TxType:   LegacyTxType,
+		Version:  tx.version,
 		Nonce:    tx.nonce,
 		GasLimit: tx.gasLimit,
 		ChainID:  tx.chainID,
@@ -118,6 +121,7 @@ func (tx *LegacyTx) fromProto(pb *iotextypes.ActionCore) error {
 		}
 	}
 	tx.chainID = pb.GetChainID()
+	tx.version = pb.GetVersion()
 	tx.nonce = pb.GetNonce()
 	tx.gasLimit = pb.GetGasLimit()
 	tx.gasPrice = &gasPrice

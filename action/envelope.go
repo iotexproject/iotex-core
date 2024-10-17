@@ -286,11 +286,6 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
 	var err error
 	switch pbAct.TxType {
-	case AntiqueTxType:
-		tx := AntiqueTx{}
-		if err = tx.fromProto(pbAct); err == nil {
-			elp.common = &tx
-		}
 	case LegacyTxType:
 		tx := LegacyTx{}
 		if err = tx.fromProto(pbAct); err == nil {

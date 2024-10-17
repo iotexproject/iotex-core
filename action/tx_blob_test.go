@@ -50,7 +50,7 @@ func TestBlobTx(t *testing.T) {
 		r.Zero(epb.Version)
 		b := MustNoErrorV(proto.Marshal(epb))
 		h := hash.Hash256b(b[:])
-		r.Equal("10da9eef18487286f7f0324069640622cb3d18e3bde75f3c487e235df9a28fac", hex.EncodeToString(h[:]))
+		r.Equal("9801a7f9829dc76de51f54896884ad439bd25420bb5cd2771995312257ec3885", hex.EncodeToString(h[:]))
 		pb := iotextypes.ActionCore{}
 		r.NoError(proto.Unmarshal(b, &pb))
 		tx1 := &BlobTx{
@@ -64,7 +64,7 @@ func TestBlobTx(t *testing.T) {
 		}
 		r.NoError(tx1.fromProto(&pb))
 		r.Equal(expect, tx1)
-		pb.TxType = AntiqueTxType
+		pb.TxType = LegacyTxType
 		r.ErrorIs(tx1.fromProto(&pb), ErrInvalidProto)
 	})
 	t.Run("sanity", func(t *testing.T) {

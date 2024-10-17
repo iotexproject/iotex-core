@@ -164,23 +164,10 @@ func (act *AbstractAction) fromProto(pb *iotextypes.ActionCore) error {
 
 func (act *AbstractAction) convertToTx() TxCommonInternal {
 	switch act.txType {
-	case AntiqueTxType:
-		tx := AntiqueTx{
-			LegacyTx: LegacyTx{
-				chainID:  act.chainID,
-				nonce:    act.nonce,
-				gasLimit: act.gasLimit,
-				gasPrice: &big.Int{},
-			},
-			version: act.version,
-		}
-		if act.gasPrice != nil {
-			tx.gasPrice.Set(act.gasPrice)
-		}
-		return &tx
 	case LegacyTxType:
 		tx := LegacyTx{
 			chainID:  act.chainID,
+			version:  act.version,
 			nonce:    act.nonce,
 			gasLimit: act.gasLimit,
 			gasPrice: &big.Int{},
@@ -227,7 +214,7 @@ func (act *AbstractAction) convertToTx() TxCommonInternal {
 
 func (act *AbstractAction) validateTx() error {
 	switch act.txType {
-	case AntiqueTxType, LegacyTxType, AccessListTxType, DynamicFeeTxType, BlobTxType:
+	case LegacyTxType, AccessListTxType, DynamicFeeTxType, BlobTxType:
 		// these are allowed tx types
 	default:
 		return errors.Wrapf(ErrInvalidAct, "unsupported tx type = %d", act.txType)
