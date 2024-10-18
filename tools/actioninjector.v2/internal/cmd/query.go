@@ -347,6 +347,8 @@ func query() error {
 	}
 	api = iotexapi.NewAPIServiceClient(conn)
 
+	go syncTip()
+
 	methods := queryMethods()
 	reports := make([]*runner.Report, len(methods))
 	g := errgroup.Group{}
@@ -474,16 +476,13 @@ func provider(call *runner.CallData) ([]*dynamic.Message, error) {
 }
 
 func syncTip() {
-	ticker := time.NewTicker(5 * time.Second)
 	for {
-		select {
-		case <-ticker.C:
-			resp, err := api.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
-			if err != nil {
-				log.L().Error("Failed to get chain meta", zap.Error(err))
-				continue
-			}
-			tip.Store(resp.ChainMeta.Height)
+		resp, err := api.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
+		if err != nil {
+			log.L().Error("Failed to get chain meta", zap.Error(err))
+			continue
 		}
+		tip.Store(resp.ChainMeta.Height)
+		time.Sleep(5 * time.Second)
 	}
 }
