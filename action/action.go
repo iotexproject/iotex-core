@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
@@ -118,4 +119,16 @@ func IsSystemAction(act *SealedEnvelope) bool {
 	default:
 		return false
 	}
+}
+
+func CheckTransferAddress(act Action) error {
+	switch act := act.(type) {
+	case *Transfer:
+		if _, err := address.FromString(act.recipient); err != nil {
+			return errors.Wrapf(err, "invalid address %s", act.recipient)
+		}
+	default:
+		// other actions have this check in their SanityCheck
+	}
+	return nil
 }
