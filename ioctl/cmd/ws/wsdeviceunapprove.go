@@ -61,7 +61,7 @@ func unapproveProjectDevice(projectID uint64, devices string) (string, error) {
 		deviceArr = strings.Split(devices, ",")
 	}
 
-	deviceAddress := make([]common.Address, len(deviceArr))
+	deviceAddress := make([]common.Address, 0, len(deviceArr))
 	for _, device := range deviceArr {
 		addr, err := address.FromString(device)
 		if err != nil {
