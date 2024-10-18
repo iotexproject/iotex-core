@@ -176,6 +176,10 @@ func (ws *workingSet) runAction(
 			}
 		}
 	}
+	// verify the tx is not container format (unfolded correctly)
+	if fCtx.VerifyNotContainerBeforeRun && selp.Encoding() == uint32(iotextypes.Encoding_TX_CONTAINER) {
+		return nil, errors.Wrap(action.ErrInvalidAct, "cannot run tx container without unfolding")
+	}
 	// for replay tx, check against deployer whitelist
 	g := genesis.MustExtractGenesisContext(ctx)
 	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && !g.IsDeployerWhitelisted(selp.SenderAddress()) {
@@ -526,11 +530,13 @@ func (ws *workingSet) processWithCorrectOrder(ctx context.Context, actions []*ac
 			return errors.Wrap(err, "error when run action")
 		}
 		receipts = append(receipts, receipt)
-		blkCtx.GasLimit -= receipt.GasConsumed
-		if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
-			(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
+		if !action.IsSystemAction(act) {
+			blkCtx.GasLimit -= receipt.GasConsumed
+			if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
+				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
+			}
+			ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 		}
-		ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 	}
 	if fCtx.CorrectTxLogIndex {
 		updateReceiptIndex(receipts)
@@ -637,6 +643,12 @@ func (ws *workingSet) pickAndRunActions(
 		}
 	}
 
+	removeCaller := func(ap actpool.ActPool, iter actioniterator.ActionIterator, caller address.Address) {
+		if caller != nil {
+			ap.DeleteAction(caller)
+		}
+		iter.PopAccount()
+	}
 	// initial action iterator
 	var (
 		ctxWithBlockContext = ctx
@@ -663,11 +675,18 @@ func (ws *workingSet) pickAndRunActions(
 			if fCtx.UnfoldContainerBeforeValidate {
 				if container, ok := nextAction.Envelope.(action.TxContainer); ok {
 					if err := container.Unfold(nextAction, ctx, ws.checkContract); err != nil {
-						if caller := nextAction.SenderAddress(); caller != nil {
-							ap.DeleteAction(caller)
-						}
-						actionIterator.PopAccount()
+						removeCaller(ap, actionIterator, nextAction.SenderAddress())
 						continue
+					}
+					if nextAction.To() != nil {
+						var (
+							ioAddr, _ = address.FromBytes(nextAction.To().Bytes())
+							to        = ioAddr.String()
+						)
+						if to == address.StakingProtocolAddr || to == address.RewardingProtocol {
+							removeCaller(ap, actionIterator, nextAction.SenderAddress())
+							continue
+						}
 					}
 				}
 			}
@@ -681,13 +700,12 @@ func (ws *workingSet) pickAndRunActions(
 					}
 				}
 			}
+			caller := nextAction.SenderAddress()
 			if err != nil {
-				caller := nextAction.SenderAddress()
 				if caller == nil {
 					return nil, errors.New("failed to get address")
 				}
-				ap.DeleteAction(caller)
-				actionIterator.PopAccount()
+				removeCaller(ap, actionIterator, caller)
 				continue
 			}
 			receipt, err := ws.runAction(actionCtx, nextAction)
@@ -698,16 +716,10 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			case action.ErrChainID, errUnfoldTxContainer, errDeployerNotWhitelisted:
-				if caller := nextAction.SenderAddress(); caller != nil {
-					ap.DeleteAction(caller)
-				}
-				actionIterator.PopAccount()
+				removeCaller(ap, actionIterator, caller)
 				continue
 			default:
-				if caller := nextAction.SenderAddress(); caller != nil {
-					ap.DeleteAction(caller)
-				}
-				actionIterator.PopAccount()
+				removeCaller(ap, actionIterator, caller)
 				nextActionHash, hashErr := nextAction.Hash()
 				if hashErr != nil {
 					return nil, errors.Wrapf(hashErr, "Failed to get hash for %x", nextActionHash)
