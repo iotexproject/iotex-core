@@ -139,6 +139,10 @@ func (ib *IndexBuilder) init(ctx context.Context) error {
 		blks = make([]*block.Block, 0, 5000)
 	)
 	for startHeight++; startHeight <= tipHeight; startHeight++ {
+		// ternimate if context is done
+		if err := ctx.Err(); err != nil {
+			return errors.Wrap(err, "terminate the indexer init")
+		}
 		blk, err := ib.dao.GetBlockByHeight(startHeight)
 		if err != nil {
 			return err
