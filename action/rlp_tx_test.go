@@ -367,19 +367,19 @@ func TestEthTxDecodeVerify(t *testing.T) {
 				require.False(tx.Protected())
 				require.Zero(tx.ChainId().Uint64())
 				// unprotected tx has V = 27, 28
-				require.True(27 == recID || 28 == recID)
-				require.True(27 == sig[64] || 28 == sig[64])
+				require.True(recID == 27 || recID == 28)
+				require.True(sig[64] == 27 || sig[64] == 28)
 			} else {
 				require.Equal(iotextypes.Encoding_ETHEREUM_EIP155, encoding)
 				switch tx.Type() {
 				case types.LegacyTxType:
 					require.True(tx.Protected())
 					require.Less(uint64(28), recID)
-				case types.AccessListTxType:
+				case types.AccessListTxType, types.DynamicFeeTxType, types.BlobTxType:
 					require.True(tx.Protected())
 					// // accesslist tx has V = 0, 1
 					require.LessOrEqual(recID, uint64(1))
-					require.True(27 == sig[64] || 28 == sig[64])
+					require.True(sig[64] == 27 || sig[64] == 28)
 				}
 			}
 			require.EqualValues(v.chainID, tx.ChainId().Uint64())
@@ -388,6 +388,7 @@ func TestEthTxDecodeVerify(t *testing.T) {
 			} else {
 				require.Equal(pkhash, pubkey.Address().Hex())
 			}
+			require.Equal(v.hash, tx.Hash().Hex()[2:])
 
 			var pb [2]*iotextypes.Action
 			// convert to native proto
@@ -424,6 +425,13 @@ func TestEthTxDecodeVerify(t *testing.T) {
 
 				// evm tx conversion
 				if i == 1 {
+					// staking and rewarding can be directly converted
+					elp := MustNoErrorV(StakingRewardingTxToEnvelope(1, tx))
+					var to string
+					if tx.To() != nil {
+						to = MustNoErrorV(address.FromBytes(tx.To().Bytes())).String()
+					}
+					require.Equal(to == address.StakingProtocolAddr || to == string(address.RewardingProtocol), elp != nil)
 					// tx unfolding
 					_, ok := selp.Action().(*txContainer)
 					require.True(ok)
@@ -436,6 +444,9 @@ func TestEthTxDecodeVerify(t *testing.T) {
 					// selp converted to actual tx
 					_, ok = selp.Action().(TxContainer)
 					require.False(ok)
+					if elp != nil {
+						require.Equal(elp, selp.Envelope)
+					}
 				}
 				evmTx := MustNoErrorV(selp.ToEthTx())
 				// verify against original tx
