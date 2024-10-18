@@ -285,7 +285,7 @@ func TestBlockIndexerChecker_CheckIndexer(t *testing.T) {
 			p.ApplyMethodReturn(pubkey, "Address", nil)
 
 			err := bic.CheckIndexer(ctx, indexer, 0, nil)
-			r.ErrorContains(err, "failed to get pubkey")
+			r.ErrorContains(err, "failed to get producer address")
 		})
 	})
 }
