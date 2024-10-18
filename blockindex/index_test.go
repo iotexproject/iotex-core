@@ -12,8 +12,8 @@ func TestActionIndex(t *testing.T) {
 	require := require.New(t)
 
 	ad := []*ActionIndex{
-		{1048000},
-		{1048001},
+		{1048000, 0},
+		{1048001, 0},
 	}
 
 	for i := range ad {
