@@ -675,18 +675,9 @@ func (ws *workingSet) pickAndRunActions(
 			if fCtx.UnfoldContainerBeforeValidate {
 				if container, ok := nextAction.Envelope.(action.TxContainer); ok {
 					if err := container.Unfold(nextAction, ctx, ws.checkContract); err != nil {
+						log.L().Info("failed to unfold tx container", zap.Uint64("height", ws.height), zap.Error(err))
 						removeCaller(ap, actionIterator, nextAction.SenderAddress())
 						continue
-					}
-					if nextAction.To() != nil {
-						var (
-							ioAddr, _ = address.FromBytes(nextAction.To().Bytes())
-							to        = ioAddr.String()
-						)
-						if to == address.StakingProtocolAddr || to == address.RewardingProtocol {
-							removeCaller(ap, actionIterator, nextAction.SenderAddress())
-							continue
-						}
 					}
 				}
 			}
@@ -705,6 +696,7 @@ func (ws *workingSet) pickAndRunActions(
 				if caller == nil {
 					return nil, errors.New("failed to get address")
 				}
+				log.L().Info("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
 				removeCaller(ap, actionIterator, caller)
 				continue
 			}
@@ -716,6 +708,7 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			case action.ErrChainID, errUnfoldTxContainer, errDeployerNotWhitelisted:
+				log.L().Info("runAction() failed", zap.Uint64("height", ws.height), zap.Error(err))
 				removeCaller(ap, actionIterator, caller)
 				continue
 			default:
