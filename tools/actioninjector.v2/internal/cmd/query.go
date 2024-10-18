@@ -347,6 +347,7 @@ func query() error {
 	}
 	api = iotexapi.NewAPIServiceClient(conn)
 	syncTip()
+	log.L().Info("sync tip", zap.Uint64("tip", tip.Load()))
 	go func() {
 		for {
 			syncTip()
