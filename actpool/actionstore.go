@@ -68,11 +68,6 @@ var (
 	errStoreNotOpen = fmt.Errorf("blob store is not open")
 )
 
-var defaultActionStoreConfig = actionStoreConfig{
-	Datadir: "actionstore",
-	Datacap: 1024 * 1024 * 1024,
-}
-
 func newActionStore(cfg actionStoreConfig, encode encodeAction, decode decodeAction) (*actionStore, error) {
 	if len(cfg.Datadir) == 0 {
 		return nil, errors.New("datadir is empty")
@@ -176,6 +171,7 @@ func (s *actionStore) Put(act *action.SealedEnvelope) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to encode action")
 	}
+	toDelete, hasBlobToDelete := s.evict()
 	id, err := s.store.Put(blob)
 	if err != nil {
 		return errors.Wrap(err, "failed to put blob into store")
@@ -184,7 +180,11 @@ func (s *actionStore) Put(act *action.SealedEnvelope) error {
 	s.lookup[h] = id
 	// if the datacap is exceeded, remove old data
 	if s.stored > s.config.Datacap {
-		s.drop()
+		if !hasBlobToDelete {
+			log.L().Debug("no worst action found")
+		} else {
+			s.drop(toDelete)
+		}
 	}
 	return nil
 }
@@ -223,12 +223,7 @@ func (s *actionStore) Range(fn func(hash.Hash256) bool) {
 	}
 }
 
-func (s *actionStore) drop() {
-	h, ok := s.evict()
-	if !ok {
-		log.L().Debug("no worst action found")
-		return
-	}
+func (s *actionStore) drop(h hash.Hash256) {
 	id, ok := s.lookup[h]
 	if !ok {
 		log.L().Warn("worst action not found in lookup", zap.String("hash", hex.EncodeToString(h[:])))
@@ -239,7 +234,6 @@ func (s *actionStore) drop() {
 	}
 	s.stored -= uint64(s.store.Size(id))
 	delete(s.lookup, h)
-	return
 }
 
 // TODO: implement a proper eviction policy
