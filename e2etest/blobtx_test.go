@@ -190,7 +190,7 @@ func TestBlobTx(t *testing.T) {
 				r.NoError(err)
 				confirmedBlobTxCnt := 0
 				for _, act := range blk.Actions {
-					if act.Version() == action.BlobTxType {
+					if act.TxType() == action.BlobTxType {
 						confirmedBlobTxCnt++
 					}
 				}

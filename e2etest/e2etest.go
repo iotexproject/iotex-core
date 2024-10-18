@@ -305,7 +305,7 @@ func addOneTx(ctx context.Context, ap actpool.ActPool, bc blockchain.Blockchain,
 		}
 	}
 
-	return tx.act, nil, nil, errors.Wrapf(errReceiptNotFound, "for action %x, %v, %T, %+v", h, tx.act.Envelope.Version(), tx.act.Envelope.Action(), tx.act.Envelope.Action())
+	return tx.act, nil, nil, errors.Wrapf(errReceiptNotFound, "for action %x, %v, %T, %+v", h, tx.act.Envelope.TxType(), tx.act.Envelope.Action(), tx.act.Envelope.Action())
 }
 
 func createAndCommitBlock(bc blockchain.Blockchain, ap actpool.ActPool, blkTime time.Time) (*block.Block, error) {
