@@ -321,8 +321,10 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		if bsPath := cfg.Chain.BlobStoreDBPath; len(bsPath) > 0 {
 			blocksPerHour := time.Hour / cfg.DardanellesUpgrade.BlockInterval
 			dbConfig.DbPath = bsPath
-			blobStore = blockdao.NewBlobStore(db.NewBoltDB(dbConfig),
-				uint64(blocksPerHour)*uint64(cfg.Chain.BlobStoreRetentionDays)*24, cfg.Chain.BlobPurgeInterval)
+			blobStore = blockdao.NewBlobStore(
+				db.NewBoltDB(dbConfig),
+				uint64(blocksPerHour)*uint64(cfg.Chain.BlobStoreRetentionDays)*24,
+			)
 			opts = append(opts, blockdao.WithBlobStore(blobStore))
 		}
 		dbConfig.DbPath = cfg.Chain.ChainDBPath
