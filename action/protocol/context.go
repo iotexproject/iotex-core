@@ -144,7 +144,9 @@ type (
 		SufficentBalanceGuarantee               bool
 		EnableCancunEVM                         bool
 		UnfoldContainerBeforeValidate           bool
+		CorrectValidationOrder                  bool
 		UnstakedButNotClearSelfStakeAmount      bool
+		EnableNewTxTypes                        bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -302,7 +304,9 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			SufficentBalanceGuarantee:               g.IsVanuatu(height),
 			EnableCancunEVM:                         g.IsVanuatu(height),
 			UnfoldContainerBeforeValidate:           g.IsVanuatu(height),
+			CorrectValidationOrder:                  g.IsVanuatu(height),
 			UnstakedButNotClearSelfStakeAmount:      !g.IsVanuatu(height),
+			EnableNewTxTypes:                        g.IsVanuatu(height),
 		},
 	)
 }

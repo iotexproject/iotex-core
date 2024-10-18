@@ -48,7 +48,7 @@ func (etx *txContainer) typeToEncoding() (iotextypes.Encoding, error) {
 	return iotextypes.Encoding_ETHEREUM_EIP155, nil
 }
 
-func (etx *txContainer) Version() uint32 {
+func (etx *txContainer) TxType() uint32 {
 	txType, _ := convertEthTxType(etx.tx.Type())
 	return uint32(txType)
 }
