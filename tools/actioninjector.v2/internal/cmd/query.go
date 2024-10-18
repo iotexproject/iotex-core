@@ -1,12 +1,15 @@
 package cmd
 
 import (
+	"context"
+	"crypto/tls"
 	_ "embed"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/bojand/ghz/printer"
@@ -17,10 +20,15 @@ import (
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	grpcInsecure "google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/runtime/protoiface"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -302,6 +310,10 @@ var (
 		"21b4eea90984fbd3c56adc5d43b900cf9d3a0c1f3fdd860f21562b457dbc9faf",
 		"a08384b27120daac1e2f89c07e876538aebcce3f28151c4da0a060a2e9fae050",
 	}
+
+	tip       atomic.Uint64
+	actHashes atomic.Value
+	api       iotexapi.APIServiceClient
 )
 
 func init() {
@@ -323,6 +335,18 @@ func init() {
 }
 
 func query() error {
+	var conn *grpc.ClientConn
+	var err error
+	if insecure {
+		conn, err = grpc.NewClient(rawInjectCfg.serverAddr, grpc.WithTransportCredentials(grpcInsecure.NewCredentials()))
+	} else {
+		conn, err = grpc.NewClient(rawInjectCfg.serverAddr, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+	}
+	if err != nil {
+		log.L().Fatal("Failed to create gRPC client", zap.Error(err))
+	}
+	api = iotexapi.NewAPIServiceClient(conn)
+
 	methods := queryMethods()
 	reports := make([]*runner.Report, len(methods))
 	g := errgroup.Group{}
@@ -416,7 +440,7 @@ func provider(call *runner.CallData) ([]*dynamic.Message, error) {
 		}
 	case "GetRawBlocks":
 		protoMsg = &iotexapi.GetRawBlocksRequest{
-			StartHeight:         uint64(rand.Intn(27928108)),
+			StartHeight:         tip.Load() - uint64(rand.Intn(64)),
 			Count:               3,
 			WithReceipts:        true,
 			WithTransactionLogs: true,
@@ -425,7 +449,7 @@ func provider(call *runner.CallData) ([]*dynamic.Message, error) {
 		protoMsg = &iotexapi.GetBlockMetasRequest{
 			Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
 				ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
-					Start: uint64(rand.Intn(27928108)),
+					Start: tip.Load() - uint64(rand.Intn(64)),
 					Count: 10,
 				},
 			},
@@ -447,4 +471,19 @@ func provider(call *runner.CallData) ([]*dynamic.Message, error) {
 		return nil, err
 	}
 	return []*dynamic.Message{dynamicMsg}, nil
+}
+
+func syncTip() {
+	ticker := time.NewTicker(5 * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			resp, err := api.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
+			if err != nil {
+				log.L().Error("Failed to get chain meta", zap.Error(err))
+				continue
+			}
+			tip.Store(resp.ChainMeta.Height)
+		}
+	}
 }
