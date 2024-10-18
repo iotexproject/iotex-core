@@ -128,3 +128,15 @@ func CheckSpecialAddress(act Action) bool {
 		return false
 	}
 }
+
+func CheckTransferAddress(act Action) error {
+	switch act := act.(type) {
+	case *Transfer:
+		if _, err := address.FromString(act.recipient); err != nil {
+			return errors.Wrapf(err, "invalid address %s", act.recipient)
+		}
+	default:
+		// other actions have this check in their SanityCheck
+	}
+	return nil
+}
