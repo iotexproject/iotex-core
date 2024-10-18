@@ -16,11 +16,20 @@ import (
 // ActionIndex change private to public for mock Indexer
 type ActionIndex struct {
 	blkHeight uint64
+	// txNumber is the %-th of action in a block
+	// txNumber starts from 1
+	// 0 means no txNumber for backward compatibility
+	txNumber uint32
 }
 
 // Height returns the block height of action
 func (a *ActionIndex) BlockHeight() uint64 {
 	return a.blkHeight
+}
+
+// TxNumber returns the transaction number of action
+func (a *ActionIndex) TxNumber() uint32 {
+	return a.txNumber
 }
 
 // Serialize into byte stream
@@ -41,6 +50,7 @@ func (a *ActionIndex) Deserialize(buf []byte) error {
 func (a *ActionIndex) toProto() *indexpb.ActionIndex {
 	return &indexpb.ActionIndex{
 		BlkHeight: a.blkHeight,
+		TxNumber:  a.txNumber,
 	}
 }
 
@@ -50,5 +60,6 @@ func (a *ActionIndex) fromProto(pbIndex *indexpb.ActionIndex) error {
 		return errors.New("empty protobuf")
 	}
 	a.blkHeight = pbIndex.BlkHeight
+	a.txNumber = pbIndex.TxNumber
 	return nil
 }
