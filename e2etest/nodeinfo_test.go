@@ -40,11 +40,8 @@ func newConfigForNodeInfoTest(triePath, dBPath, idxDBPath, contractIdxDBPath str
 	if err != nil {
 		return cfg, nil, err
 	}
-	contractIndexV2DBPath, err := testutil.PathOfTempFile(contractIdxDBPath + ".v2")
-	if err != nil {
-		return cfg, nil, err
-	}
 	cfg.Chain.TrieDBPatchFile = ""
+	cfg.Chain.BlobStoreDBPath = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
@@ -54,7 +51,6 @@ func newConfigForNodeInfoTest(triePath, dBPath, idxDBPath, contractIdxDBPath str
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(indexDBPath)
 		testutil.CleanupPath(contractIndexDBPath)
-		testutil.CleanupPath(contractIndexV2DBPath)
 	}, nil
 }
 

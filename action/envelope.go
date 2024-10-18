@@ -19,7 +19,7 @@ type (
 	// Envelope defines an envelope wrapped on action with some envelope metadata.
 	Envelope interface {
 		TxData
-		Version() uint32
+		TxType() uint32
 		ChainID() uint32
 		Destination() (string, bool)
 		Cost() (*big.Int, error)
@@ -58,7 +58,7 @@ type (
 
 	TxCommonInternal interface {
 		TxCommon
-		Version() uint32
+		TxType() uint32
 		ChainID() uint32
 		SanityCheck() error
 		toProto() *iotextypes.ActionCore
@@ -86,16 +86,16 @@ type (
 	}
 )
 
-// NewEnvelop creates a new envelope
-func NewEnvelop(common TxCommonInternal, payload actionPayload) Envelope {
+// NewEnvelope creates a new envelope
+func NewEnvelope(common TxCommonInternal, payload actionPayload) Envelope {
 	return &envelope{
 		common:  common,
 		payload: payload,
 	}
 }
 
-func (elp *envelope) Version() uint32 {
-	return elp.common.Version()
+func (elp *envelope) TxType() uint32 {
+	return elp.common.TxType()
 }
 
 func (elp *envelope) ChainID() uint32 {
@@ -285,11 +285,17 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 
 func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
 	var err error
-	switch pbAct.Version {
+	switch pbAct.TxType {
 	case LegacyTxType:
-		elp.common, err = fromProtoLegacyTx(pbAct)
+		tx := LegacyTx{}
+		if err = tx.fromProto(pbAct); err == nil {
+			elp.common = &tx
+		}
 	case AccessListTxType:
-		elp.common, err = fromProtoAccessListTx(pbAct)
+		tx := AccessListTx{}
+		if err = tx.fromProto(pbAct); err == nil {
+			elp.common = &tx
+		}
 	case DynamicFeeTxType:
 		tx := &DynamicFeeTx{}
 		if err = tx.fromProto(pbAct); err == nil {
@@ -301,7 +307,7 @@ func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
 			elp.common = &tx
 		}
 	default:
-		panic(fmt.Sprintf("unsupported action version = %d", pbAct.Version))
+		panic(fmt.Sprintf("unsupported action type = %d", pbAct.TxType))
 	}
 	return err
 }
@@ -414,12 +420,6 @@ func (elp *envelope) loadProtoActionPayload(pbAct *iotextypes.ActionCore) error 
 	case pbAct.GetCandidateTransferOwnership() != nil:
 		act := &CandidateTransferOwnership{}
 		if err := act.LoadProto(pbAct.GetCandidateTransferOwnership()); err != nil {
-			return err
-		}
-		elp.payload = act
-	case pbAct.GetTxContainer() != nil:
-		act := &txContainer{}
-		if err := act.loadProto(pbAct.GetTxContainer()); err != nil {
 			return err
 		}
 		elp.payload = act

@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	LegacyTxType     = 1
-	AccessListTxType = 2
-	DynamicFeeTxType = 3
-	BlobTxType       = 4
+	LegacyTxType     = 0
+	AccessListTxType = 1
+	DynamicFeeTxType = 2
+	BlobTxType       = 3
 )
 
 type (

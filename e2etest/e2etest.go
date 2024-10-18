@@ -259,6 +259,7 @@ func initDBPaths(r *require.Assertions, cfg *config.Config) {
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.BlobStoreDBPath = ""
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.ContractStakingIndexDBPath = testContractIndexPath
 	cfg.Chain.BloomfilterIndexDBPath = testBloomfilterIndexPath
@@ -277,4 +278,5 @@ func clearDBPaths(cfg *config.Config) {
 	testutil.CleanupPath(cfg.DB.DbPath)
 	testutil.CleanupPath(cfg.Chain.IndexDBPath)
 	testutil.CleanupPath(cfg.System.SystemLogDBPath)
+	testutil.CleanupPath(cfg.Consensus.RollDPoS.ConsensusDBPath)
 }

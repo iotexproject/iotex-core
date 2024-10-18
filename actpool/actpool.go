@@ -84,6 +84,12 @@ type ActPool interface {
 	AddActionEnvelopeValidators(...action.SealedEnvelopeValidator)
 }
 
+// Subscriber is the interface for actpool subscriber
+type Subscriber interface {
+	OnAdded(*action.SealedEnvelope)
+	OnRemoved(*action.SealedEnvelope)
+}
+
 // SortedActions is a slice of actions that implements sort.Interface to sort by Value.
 type SortedActions []*action.SealedEnvelope
 
@@ -96,17 +102,23 @@ type Option func(pool *actPool) error
 
 // actPool implements ActPool interface
 type actPool struct {
-	cfg                      Config
-	g                        genesis.Genesis
-	sf                       protocol.StateReader
-	accountDesActs           *destinationMap
-	allActions               *ttl.Cache
-	gasInPool                uint64
+	cfg            Config
+	g              genesis.Genesis
+	sf             protocol.StateReader
+	accountDesActs *destinationMap
+	allActions     *ttl.Cache
+	gasInPool      uint64
+	// actionEnvelopeValidators are the validators that are used in both actpool.Add and actpool.Validate
+	// TODO: can combine with privateValidators after NOT use actpool to call generic_validator in block validate
 	actionEnvelopeValidators []action.SealedEnvelopeValidator
-	timerFactory             *prometheustimer.TimerFactory
-	senderBlackList          map[string]bool
-	jobQueue                 []chan workerJob
-	worker                   []*queueWorker
+	// privateValidators are the validators that are only used in actpool.Add
+	// they are not used in actpool.Validate
+	privateValidators []action.SealedEnvelopeValidator
+	timerFactory      *prometheustimer.TimerFactory
+	senderBlackList   map[string]bool
+	jobQueue          []chan workerJob
+	worker            []*queueWorker
+	subs              []Subscriber
 
 	store     *actionStore           // store is the persistent cache for actpool
 	storeSync *routine.RecurringTask // storeSync is the recurring task to sync actions from store to memory
@@ -139,6 +151,11 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 			return nil, err
 		}
 	}
+	// init validators
+	blobValidator := newBlobValidator(cfg.MaxNumBlobsPerAcct)
+	ap.privateValidators = append(ap.privateValidators, blobValidator)
+	ap.AddSubscriber(blobValidator)
+
 	timerFactory, err := prometheustimer.New(
 		"iotex_action_pool_perf",
 		"Performance of action pool",
@@ -180,7 +197,7 @@ func (ap *actPool) Start(ctx context.Context) error {
 	sort.Sort(blobs)
 	for _, selp := range blobs {
 		if err := ap.add(ctx, selp); err != nil {
-			return err
+			log.L().Info("Failed to load action from store", zap.Error(err))
 		}
 	}
 	return ap.storeSync.Start(ctx)
@@ -346,8 +363,8 @@ func (ap *actPool) checkSelpWithoutState(ctx context.Context, selp *action.Seale
 		_actpoolMtc.WithLabelValues("blacklisted").Inc()
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
-
-	for _, ev := range ap.actionEnvelopeValidators {
+	validators := append(ap.privateValidators, ap.actionEnvelopeValidators...)
+	for _, ev := range validators {
 		span.AddEvent("ev.Validate")
 		if err := ev.Validate(ctx, selp); err != nil {
 			return err
@@ -489,6 +506,7 @@ func (ap *actPool) removeInvalidActs(acts []*action.SealedEnvelope) {
 				log.L().Warn("Failed to delete action from store", zap.Error(err), log.Hex("hash", hash[:]))
 			}
 		}
+		ap.onRemoved(act)
 	}
 }
 
@@ -546,6 +564,22 @@ func (ap *actPool) syncFromStore() {
 		}
 		return true
 	})
+}
+
+func (ap *actPool) AddSubscriber(sub Subscriber) {
+	ap.subs = append(ap.subs, sub)
+}
+
+func (ap *actPool) onAdded(act *action.SealedEnvelope) {
+	for _, sub := range ap.subs {
+		sub.OnAdded(act)
+	}
+}
+
+func (ap *actPool) onRemoved(act *action.SealedEnvelope) {
+	for _, sub := range ap.subs {
+		sub.OnRemoved(act)
+	}
 }
 
 type destinationMap struct {

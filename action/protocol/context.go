@@ -142,6 +142,11 @@ type (
 		EnableDynamicFeeTx                      bool
 		EnableBlobTransaction                   bool
 		SufficentBalanceGuarantee               bool
+		EnableCancunEVM                         bool
+		UnfoldContainerBeforeValidate           bool
+		CorrectValidationOrder                  bool
+		UnstakedButNotClearSelfStakeAmount      bool
+		EnableNewTxTypes                        bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -297,6 +302,11 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			EnableDynamicFeeTx:                      g.IsVanuatu(height),
 			EnableBlobTransaction:                   g.IsVanuatu(height),
 			SufficentBalanceGuarantee:               g.IsVanuatu(height),
+			EnableCancunEVM:                         g.IsVanuatu(height),
+			UnfoldContainerBeforeValidate:           g.IsVanuatu(height),
+			CorrectValidationOrder:                  g.IsVanuatu(height),
+			UnstakedButNotClearSelfStakeAmount:      !g.IsVanuatu(height),
+			EnableNewTxTypes:                        g.IsVanuatu(height),
 		},
 	)
 }

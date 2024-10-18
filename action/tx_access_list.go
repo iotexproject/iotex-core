@@ -37,7 +37,7 @@ func NewAccessListTx(chainID uint32, nonce uint64, gasLimit uint64, gasPrice *bi
 	}
 }
 
-func (tx *AccessListTx) Version() uint32 {
+func (tx *AccessListTx) TxType() uint32 {
 	return AccessListTxType
 }
 
@@ -90,8 +90,10 @@ func (tx *AccessListTx) BlobHashes() []common.Hash { return nil }
 func (tx *AccessListTx) BlobTxSidecar() *types.BlobTxSidecar { return nil }
 
 func (tx *AccessListTx) SanityCheck() error {
-	// Reject execution of negative gas price
-	if tx.gasPrice != nil && tx.gasPrice.Sign() < 0 {
+	if tx.gasPrice == nil {
+		return ErrMissRequiredField
+	}
+	if tx.gasPrice.Sign() < 0 {
 		return ErrNegativeValue
 	}
 	return nil
@@ -99,7 +101,7 @@ func (tx *AccessListTx) SanityCheck() error {
 
 func (tx *AccessListTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
-		Version:  AccessListTxType,
+		TxType:   AccessListTxType,
 		Nonce:    tx.nonce,
 		GasLimit: tx.gasLimit,
 		ChainID:  tx.chainID,
@@ -119,8 +121,9 @@ func toAccessListProto(list types.AccessList) []*iotextypes.AccessTuple {
 	}
 	proto := make([]*iotextypes.AccessTuple, len(list))
 	for i, v := range list {
-		proto[i] = &iotextypes.AccessTuple{}
-		proto[i].Address = hex.EncodeToString(v.Address.Bytes())
+		proto[i] = &iotextypes.AccessTuple{
+			Address: hex.EncodeToString(v.Address.Bytes()),
+		}
 		if numKey := len(v.StorageKeys); numKey > 0 {
 			proto[i].StorageKeys = make([]string, numKey)
 			for j, key := range v.StorageKeys {
@@ -143,28 +146,29 @@ func fromAccessListProto(list []*iotextypes.AccessTuple) types.AccessList {
 			for j, key := range v.StorageKeys {
 				accessList[i].StorageKeys[j] = common.HexToHash(key)
 			}
+		} else {
+			accessList[i].StorageKeys = []common.Hash{}
 		}
 	}
 	return accessList
 }
 
-func fromProtoAccessListTx(pb *iotextypes.ActionCore) (*AccessListTx, error) {
-	var tx AccessListTx
-	tx.nonce = pb.GetNonce()
-	tx.gasLimit = pb.GetGasLimit()
-	tx.chainID = pb.GetChainID()
-	tx.gasPrice = &big.Int{}
-
+func (tx *AccessListTx) fromProto(pb *iotextypes.ActionCore) error {
+	if pb.TxType != AccessListTxType {
+		return errors.Wrapf(ErrInvalidProto, "wrong tx type = %d", pb.TxType)
+	}
+	var gasPrice big.Int
 	if price := pb.GetGasPrice(); len(price) > 0 {
-		var ok bool
-		if tx.gasPrice, ok = tx.gasPrice.SetString(price, 10); !ok {
-			return nil, errors.Errorf("invalid gasPrice %s", price)
+		if _, ok := gasPrice.SetString(price, 10); !ok {
+			return errors.Errorf("invalid gasPrice %s", price)
 		}
 	}
-	if acl := pb.GetAccessList(); len(acl) > 0 {
-		tx.accessList = fromAccessListProto(acl)
-	}
-	return &tx, nil
+	tx.chainID = pb.GetChainID()
+	tx.nonce = pb.GetNonce()
+	tx.gasLimit = pb.GetGasLimit()
+	tx.gasPrice = &gasPrice
+	tx.accessList = fromAccessListProto(pb.GetAccessList())
+	return nil
 }
 
 func (tx *AccessListTx) setNonce(n uint64) {

@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -122,4 +123,12 @@ func TestIsSystemAction(t *testing.T) {
 	sel, err = Sign(act, identityset.PrivateKey(1))
 	require.NoError(err)
 	require.True(IsSystemAction(sel))
+}
+
+func TestNewActionType(t *testing.T) {
+	r := require.New(t)
+	r.Equal(types.LegacyTxType, LegacyTxType)
+	r.Equal(types.AccessListTxType, AccessListTxType)
+	r.Equal(types.DynamicFeeTxType, DynamicFeeTxType)
+	r.Equal(types.BlobTxType, BlobTxType)
 }

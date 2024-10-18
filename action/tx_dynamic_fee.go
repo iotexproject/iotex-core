@@ -33,7 +33,7 @@ func NewDynamicFeeTx(chainID uint32, nonce uint64, gasLimit uint64, gasFeeCap, g
 	}
 }
 
-func (tx *DynamicFeeTx) Version() uint32 {
+func (tx *DynamicFeeTx) TxType() uint32 {
 	return DynamicFeeTxType
 }
 
@@ -117,7 +117,7 @@ func (tx *DynamicFeeTx) SanityCheck() error {
 
 func (tx *DynamicFeeTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
-		Version:  uint32(DynamicFeeTxType),
+		TxType:   DynamicFeeTxType,
 		Nonce:    tx.nonce,
 		GasLimit: tx.gasLimit,
 		ChainID:  tx.chainID,
@@ -135,10 +135,12 @@ func (tx *DynamicFeeTx) toProto() *iotextypes.ActionCore {
 }
 
 func (tx *DynamicFeeTx) fromProto(pb *iotextypes.ActionCore) error {
+	if pb.TxType != DynamicFeeTxType {
+		return errors.Wrapf(ErrInvalidProto, "wrong tx type = %d", pb.TxType)
+	}
 	var (
 		feeCap *big.Int
 		tipCap *big.Int
-		acl    types.AccessList
 	)
 	if feeCapStr := pb.GetGasFeeCap(); len(feeCapStr) > 0 {
 		v, ok := big.NewInt(0).SetString(feeCapStr, 10)
@@ -154,15 +156,12 @@ func (tx *DynamicFeeTx) fromProto(pb *iotextypes.ActionCore) error {
 		}
 		tipCap = v
 	}
-	if aclp := pb.GetAccessList(); len(aclp) > 0 {
-		acl = fromAccessListProto(aclp)
-	}
 	tx.nonce = pb.GetNonce()
 	tx.gasLimit = pb.GetGasLimit()
 	tx.chainID = pb.GetChainID()
 	tx.gasFeeCap = feeCap
 	tx.gasTipCap = tipCap
-	tx.accessList = acl
+	tx.accessList = fromAccessListProto(pb.GetAccessList())
 	return nil
 }
 
