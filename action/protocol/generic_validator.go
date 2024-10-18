@@ -78,20 +78,9 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 	if ok && !featureCtx.EnableBlobTransaction && selp.TxType() == action.BlobTxType {
 		return errors.Wrap(action.ErrInvalidAct, "blob tx is not enabled")
 	}
-	if ok && featureCtx.EnableDynamicFeeTx {
-		// check transaction's max fee can cover base fee
-		blkCtx := MustGetBlockCtx(ctx)
-		if baseFee := blkCtx.BaseFee; baseFee != nil && selp.Envelope.GasFeeCap().Cmp(baseFee) < 0 {
-			return errors.Errorf("transaction cannot cover base fee, max fee = %s, base fee = %s",
-				selp.Envelope.GasFeeCap().String(), baseFee.String())
-		}
-		if selp.Envelope.GasTipCap().Cmp(MinTipCap) < 0 {
-			return errors.Wrapf(action.ErrUnderpriced, "tip cap is too low: %s, min tip cap: %s", selp.Envelope.GasTipCap().String(), MinTipCap.String())
-		}
-	}
 	if ok && featureCtx.EnableBlobTransaction && len(selp.BlobHashes()) > 0 {
 		// validate sidecar
-		if blkCtx, ok := GetBlockCtx(ctx); (ok && !blkCtx.SkipSidecarValidation) || selp.BlobTxSidecar() != nil {
+		if !MustGetBlockCtx(ctx).SkipSidecarValidation || selp.BlobTxSidecar() != nil {
 			if err := selp.ValidateSidecar(); err != nil {
 				return errors.Wrap(err, "failed to validate blob sidecar")
 			}
@@ -110,17 +99,17 @@ func (v *GenericValidator) validateWithState(ctx context.Context, selp *action.S
 	}
 	var (
 		caller         = selp.SenderAddress()
-		nonce          uint64
 		featureCtx, ok = GetFeatureCtx(ctx)
 	)
 	if caller == nil {
 		return errors.New("failed to get address")
 	}
-	if featureCtx.FixGasAndNonceUpdate || selp.Nonce() != 0 {
+	if ok && featureCtx.FixGasAndNonceUpdate || selp.Nonce() != 0 {
 		confirmedState, err := v.accountState(ctx, v.sr, caller)
 		if err != nil {
 			return errors.Wrapf(err, "invalid state of account %s", caller.String())
 		}
+		var nonce uint64
 		if featureCtx.UseZeroNonceForFreshAccount {
 			nonce = confirmedState.PendingNonceConsideringFreshAccount()
 		} else {
@@ -146,9 +135,20 @@ func (v *GenericValidator) validateWithState(ctx context.Context, selp *action.S
 			return errors.Wrapf(state.ErrNotEnoughBalance, "sender %s balance %s, cost %s", caller.String(), acc.Balance, cost)
 		}
 	}
+	blkCtx := MustGetBlockCtx(ctx)
+	if featureCtx.EnableDynamicFeeTx {
+		// check transaction's max fee can cover base fee
+		if baseFee := blkCtx.BaseFee; baseFee != nil && selp.GasFeeCap().Cmp(baseFee) < 0 {
+			return errors.Errorf("transaction cannot cover base fee, max fee = %s, base fee = %s",
+				selp.GasFeeCap().String(), baseFee.String())
+		}
+		if selp.GasTipCap().Cmp(MinTipCap) < 0 {
+			return errors.Wrapf(action.ErrUnderpriced, "tip cap is too low: %s, min tip cap: %s", selp.GasTipCap().String(), MinTipCap.String())
+		}
+	}
 	if featureCtx.EnableBlobTransaction && len(selp.BlobHashes()) > 0 {
 		// blobFeeCap must be not less than the blob price
-		basefee := CalcBlobFee(MustGetBlockCtx(ctx).ExcessBlobGas)
+		basefee := CalcBlobFee(blkCtx.ExcessBlobGas)
 		if selp.BlobGasFeeCap().Cmp(basefee) < 0 {
 			return errors.Wrapf(action.ErrUnderpriced, "blob fee cap is too low: %s, base fee: %s", selp.BlobGasFeeCap().String(), basefee.String())
 		}
