@@ -482,7 +482,7 @@ func TestClaimReward(t *testing.T) {
 	cfg.Genesis.UpernavikBlockHeight = 10
 	cfg.Genesis.InitBalanceMap[producerSK.PublicKey().Address().String()] = "100000000000000000000000000"
 	cfg.Plugins[config.GatewayPlugin] = struct{}{}
-	normalizeGenesisHeights(&cfg)
+	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	// new e2e test
 	test := newE2ETest(t, cfg)
 	defer test.teardown()
