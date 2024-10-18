@@ -39,8 +39,7 @@ func TestBlobStore(t *testing.T) {
 	r := require.New(t)
 	t.Run("putBlob", func(t *testing.T) {
 		ctx := context.Background()
-		testPath, err := testutil.PathOfTempFile("test-blob-store")
-		r.NoError(err)
+		testPath := MustNoErrorV(testutil.PathOfTempFile("test-blob-store"))
 		defer func() {
 			testutil.CleanupPath(testPath)
 		}()
@@ -64,19 +63,13 @@ func TestBlobStore(t *testing.T) {
 			hashes := createTestHash(i, height)
 			r.NoError(bs.putBlob(_value[i%7], height, hashes))
 			r.Equal(height, bs.currWriteBlock)
-			raw, err := bs.kvStore.Get(_heightIndexNS, keyForBlock(height))
-			r.NoError(err)
-			index, err := deserializeBlobIndex(raw)
-			r.NoError(err)
+			raw := MustNoErrorV(bs.kvStore.Get(_heightIndexNS, keyForBlock(height)))
+			index := MustNoErrorV(deserializeBlobIndex(raw))
 			r.Equal(index.hashes, hashes)
 			for i := range hashes {
-				h, err := bs.getHeightByHash(hashes[i])
-				r.NoError(err)
-				r.Equal(height, h)
+				r.Equal(height, MustNoErrorV(bs.getHeightByHash(hashes[i])))
 			}
-			v, err := bs.kvStore.Get(_blobDataNS, keyForBlock(height))
-			r.NoError(err)
-			r.Equal(_value[i%7], v)
+			r.Equal(_value[i%7], MustNoErrorV(bs.kvStore.Get(_blobDataNS, keyForBlock(height))))
 		}
 		time.Sleep(time.Second * 3 / 2)
 		// slot 0 - 13 has expired
@@ -86,8 +79,7 @@ func TestBlobStore(t *testing.T) {
 			if i <= 4 {
 				r.ErrorIs(err, db.ErrNotExist)
 			} else {
-				index, err := deserializeBlobIndex(raw)
-				r.NoError(err)
+				index := MustNoErrorV(deserializeBlobIndex(raw))
 				r.Equal(index.hashes, hashes)
 			}
 			for j := range hashes {
@@ -108,16 +100,16 @@ func TestBlobStore(t *testing.T) {
 			}
 		}
 		// verify write and expire block
+		r.NoError(bs.expireBlob(41))
 		r.NoError(bs.Stop(ctx))
 		r.NoError(bs.Start(ctx))
 		r.EqualValues(37, bs.currWriteBlock)
-		r.EqualValues(13, bs.currExpireBlock)
+		r.EqualValues(17, bs.currExpireBlock)
 		r.NoError(bs.Stop(ctx))
 	})
 	t.Run("PutBlock", func(t *testing.T) {
 		ctx := context.Background()
-		testPath, err := testutil.PathOfTempFile("test-blob-store")
-		r.NoError(err)
+		testPath := MustNoErrorV(testutil.PathOfTempFile("test-blob-store"))
 		defer func() {
 			testutil.CleanupPath(testPath)
 		}()
@@ -125,32 +117,29 @@ func TestBlobStore(t *testing.T) {
 		cfg.DbPath = testPath
 		kvs := db.NewBoltDB(cfg)
 		bs := NewBlobStore(kvs, 24, time.Second)
-		testPath1, err := testutil.PathOfTempFile("test-blob-store")
-		r.NoError(err)
+		testPath1 := MustNoErrorV(testutil.PathOfTempFile("test-blob-store"))
 		cfg.DbPath = testPath1
-		fd, err := createFileDAO(false, false, compress.Snappy, cfg)
-		r.NoError(err)
+		fd := MustNoErrorV(createFileDAO(false, false, compress.Snappy, cfg))
 		r.NotNil(fd)
 		dao := NewBlockDAOWithIndexersAndCache(fd, nil, 10, WithBlobStore(bs))
-		r.NoError(err)
 		r.NoError(dao.Start(ctx))
 		defer func() {
 			r.NoError(dao.Stop(ctx))
 			testutil.CleanupPath(testPath1)
 		}()
 
-		blks, err := block.CreateTestBlockWithBlob(1, cfg.BlockStoreBatchSize+7)
-		r.NoError(err)
+		blks := MustNoErrorV(block.CreateTestBlockWithBlob(1, cfg.BlockStoreBatchSize+7))
 		for _, blk := range blks {
-			r.True(blk.HasBlob())
+			r.Nil(blk.Actions[0].BlobTxSidecar())
+			r.Nil(blk.Actions[2].BlobTxSidecar())
+			r.NotNil(blk.Actions[1].BlobTxSidecar())
+			r.NotNil(blk.Actions[3].BlobTxSidecar())
 			r.NoError(dao.PutBlock(ctx, blk))
 		}
 		// cannot store blocks less than tip height
-		err = bs.PutBlock(blks[len(blks)-1])
-		r.ErrorContains(err, "block height 23 is less than current tip height")
+		r.ErrorContains(bs.PutBlock(blks[len(blks)-1]), "block height 23 is less than current tip height")
 		for i := 0; i < cfg.BlockStoreBatchSize+7; i++ {
-			blk, err := dao.GetBlockByHeight(1 + uint64(i))
-			r.NoError(err)
+			blk := MustNoErrorV(dao.GetBlockByHeight(1 + uint64(i)))
 			if i < cfg.BlockStoreBatchSize {
 				// blocks written to disk has sidecar removed
 				r.False(blk.HasBlob())
@@ -158,32 +147,27 @@ func TestBlobStore(t *testing.T) {
 				// verify sidecar
 				sc, hashes, err := dao.GetBlobsByHeight(1 + uint64(i))
 				r.NoError(err)
-				r.Equal(blks[i].Actions[1].BlobTxSidecar(), sc[0])
-				h := MustNoErrorV(blks[i].Actions[1].Hash())
-				r.Equal(hex.EncodeToString(h[:]), hashes[0][2:])
-				sc1, h1, err := dao.GetBlob(h)
-				r.NoError(err)
-				r.Equal(hashes[0], h1)
-				r.Equal(sc[0], sc1)
-				r.Equal(blks[i].Actions[3].BlobTxSidecar(), sc[1])
-				h = MustNoErrorV(blks[i].Actions[3].Hash())
-				r.Equal(hex.EncodeToString(h[:]), hashes[1][2:])
-				sc3, h3, err := dao.GetBlob(h)
-				r.NoError(err)
-				r.Equal(hashes[1], h3)
-				r.Equal(sc[1], sc3)
-
+				for j := 0; j < 2; j++ {
+					// sc[0] <--> Actions[1].sidecar
+					// sc[1] <--> Actions[3].sidecar
+					r.Equal(blks[i].Actions[2*j+1].BlobTxSidecar(), sc[j])
+					h := MustNoErrorV(blk.Actions[2*j+1].Hash())
+					r.Equal(hex.EncodeToString(h[:]), hashes[j][2:])
+					sc1, h1, err := dao.GetBlob(h)
+					r.NoError(err)
+					r.Equal(hashes[j], h1)
+					r.Equal(sc[j], sc1)
+					r.NotEqual(blks[i].Actions[2*j+1], blk.Actions[2*j+1])
+				}
 			} else {
 				// blocks in the staging buffer still has sidecar attached
 				r.True(blk.HasBlob())
 				r.Equal(blks[i], blk)
 			}
 			h := blk.HashBlock()
-			height, err := dao.GetBlockHeight(h)
-			r.NoError(err)
+			height := MustNoErrorV(dao.GetBlockHeight(h))
 			r.Equal(1+uint64(i), height)
-			hash, err := dao.GetBlockHash(height)
-			r.NoError(err)
+			hash := MustNoErrorV(dao.GetBlockHash(height))
 			r.Equal(h, hash)
 		}
 	})

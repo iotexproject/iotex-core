@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
+	. "github.com/iotexproject/iotex-core/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -366,7 +367,10 @@ func TestBlockWithSidecar(t *testing.T) {
 		blks, err := block.CreateTestBlockWithBlob(int(start), cfg.BlockStoreBatchSize+2)
 		r.NoError(err)
 		for _, blk := range blks {
-			r.True(blk.HasBlob())
+			r.Nil(blk.Actions[0].BlobTxSidecar())
+			r.Nil(blk.Actions[2].BlobTxSidecar())
+			r.NotNil(blk.Actions[1].BlobTxSidecar())
+			r.NotNil(blk.Actions[3].BlobTxSidecar())
 			r.NoError(fd.PutBlock(ctx, blk))
 		}
 		for i := 0; i < cfg.BlockStoreBatchSize+2; i++ {
@@ -376,11 +380,18 @@ func TestBlockWithSidecar(t *testing.T) {
 				// blocks written to disk has sidecar removed
 				r.False(blk.HasBlob())
 				r.Equal(4, len(blk.Actions))
+				// 2 actions don't have sidecar
 				blk.Actions[0].Hash()
 				r.Equal(blks[i].Actions[0], blk.Actions[0])
-				r.NotEqual(blks[i].Actions[1], blk.Actions[1])
 				blk.Actions[2].Hash()
 				r.Equal(blks[i].Actions[2], blk.Actions[2])
+				// the other 2 have sidecar but got removed when stored to DB/disk
+				// verify hash still remains the same
+				h1 := MustNoErrorV(blk.Actions[1].Hash())
+				r.Equal(MustNoErrorV(blks[i].Actions[1].Hash()), h1)
+				r.NotEqual(blks[i].Actions[1], blk.Actions[1])
+				h3 := MustNoErrorV(blk.Actions[3].Hash())
+				r.Equal(MustNoErrorV(blks[i].Actions[3].Hash()), h3)
 				r.NotEqual(blks[i].Actions[3], blk.Actions[3])
 			} else {
 				// blocks in the staging buffer still has sidecar attached
