@@ -346,8 +346,13 @@ func query() error {
 		log.L().Fatal("Failed to create gRPC client", zap.Error(err))
 	}
 	api = iotexapi.NewAPIServiceClient(conn)
-
-	go syncTip()
+	syncTip()
+	go func() {
+		for {
+			syncTip()
+			time.Sleep(5 * time.Second)
+		}
+	}()
 
 	methods := queryMethods()
 	reports := make([]*runner.Report, len(methods))
@@ -476,13 +481,9 @@ func provider(call *runner.CallData) ([]*dynamic.Message, error) {
 }
 
 func syncTip() {
-	for {
-		resp, err := api.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
-		if err != nil {
-			log.L().Error("Failed to get chain meta", zap.Error(err))
-			continue
-		}
-		tip.Store(resp.ChainMeta.Height)
-		time.Sleep(5 * time.Second)
+	resp, err := api.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
+	if err != nil {
+		log.L().Error("Failed to get chain meta", zap.Error(err))
 	}
+	tip.Store(resp.ChainMeta.Height)
 }
