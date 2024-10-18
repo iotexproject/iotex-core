@@ -56,6 +56,14 @@ var (
 		"iotexapi.APIService.ReadContract",
 		"iotexapi.APIService.GetRawBlocks",
 		"iotexapi.APIService.GetBlockMetas",
+		"iotexapi.APIService.GetActions",
+	}
+
+	txHashes = []string{
+		"85f9812b2f3491fa3e649d71374eb739e4e6337210038d3ba54ee48bf3fd209e",
+		"8c4ad6f969713c5e4c5d5e47b70f917e1f400ea593ce29f0a043bb03351383c9",
+		"c1520605b6a74df4230cacb246ac16bb443c17c54db413b2aef09e1b46041331",
+		"9e430374c73a761d4ec27fb5ff1d427e90dc3c9a3af87db593971700216471ba",
 	}
 )
 
@@ -182,6 +190,14 @@ func provider(call *runner.CallData) ([]*dynamic.Message, error) {
 				ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
 					Start: uint64(rand.Intn(27928108)),
 					Count: 10,
+				},
+			},
+		}
+	case "GetActions":
+		protoMsg = &iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_ByHash{
+				ByHash: &iotexapi.GetActionByHashRequest{
+					ActionHash: txHashes[rand.Intn(len(txHashes))],
 				},
 			},
 		}
