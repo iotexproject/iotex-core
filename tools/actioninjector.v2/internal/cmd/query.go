@@ -338,9 +338,9 @@ func query() error {
 	var conn *grpc.ClientConn
 	var err error
 	if insecure {
-		conn, err = grpc.NewClient(rawInjectCfg.serverAddr, grpc.WithTransportCredentials(grpcInsecure.NewCredentials()))
+		conn, err = grpc.NewClient(endpoint, grpc.WithTransportCredentials(grpcInsecure.NewCredentials()))
 	} else {
-		conn, err = grpc.NewClient(rawInjectCfg.serverAddr, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+		conn, err = grpc.NewClient(endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 	if err != nil {
 		log.L().Fatal("Failed to create gRPC client", zap.Error(err))
@@ -448,7 +448,7 @@ func provider(call *runner.CallData) ([]*dynamic.Message, error) {
 		}
 	case "GetRawBlocks":
 		protoMsg = &iotexapi.GetRawBlocksRequest{
-			StartHeight:         tip.Load() - 100 - uint64(rand.Intn(64)),
+			StartHeight:         tip.Load() - 32 - uint64(rand.Intn(64)),
 			Count:               3,
 			WithReceipts:        true,
 			WithTransactionLogs: true,
@@ -457,7 +457,7 @@ func provider(call *runner.CallData) ([]*dynamic.Message, error) {
 		protoMsg = &iotexapi.GetBlockMetasRequest{
 			Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
 				ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
-					Start: tip.Load() - 100 - uint64(rand.Intn(64)),
+					Start: tip.Load() - 32 - uint64(rand.Intn(64)),
 					Count: 10,
 				},
 			},
