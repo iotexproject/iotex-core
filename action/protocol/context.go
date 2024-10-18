@@ -147,6 +147,7 @@ type (
 		CorrectValidationOrder                  bool
 		UnstakedButNotClearSelfStakeAmount      bool
 		EnableNewTxTypes                        bool
+		ValidateStateWhenMintBlock              bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -307,6 +308,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CorrectValidationOrder:                  g.IsVanuatu(height),
 			UnstakedButNotClearSelfStakeAmount:      !g.IsVanuatu(height),
 			EnableNewTxTypes:                        g.IsVanuatu(height),
+			ValidateStateWhenMintBlock:              g.IsVanuatu(height),
 		},
 	)
 }
