@@ -7,6 +7,7 @@
 //      protoc --go_out=plugins=grpc:. *.proto
 syntax = "proto3";
 package indexpb;
+option go_package = "github.com/iotexproject/iotex-core/blockindex/indexpb";
 
 message BlockIndex {
     uint32 numAction = 1;
@@ -16,4 +17,5 @@ message BlockIndex {
 
 message ActionIndex {
     uint64 blkHeight = 1;
+    uint32 txNumber = 2;
 }
