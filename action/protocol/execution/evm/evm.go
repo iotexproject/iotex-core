@@ -373,6 +373,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if featureCtx.PanicUnrecoverableError {
 		opts = append(opts, PanicUnrecoverableErrorOption())
 	}
+	if featureCtx.EnableCancunEVM {
+		opts = append(opts, EnableCancunEVMOption())
+	}
 
 	return NewStateDBAdapter(
 		sm,

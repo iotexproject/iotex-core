@@ -26,6 +26,7 @@ type (
 		ReviseHeights               []uint64
 		CorrectCandsHeight          uint64
 		SelfStakeBucketReviseHeight uint64
+		CorrectCandSelfStakeHeight  uint64
 	}
 )
 
@@ -46,6 +47,12 @@ func (vr *VoteReviser) Revise(ctx protocol.FeatureCtx, csm CandidateStateManager
 		case errors.Cause(err) == state.ErrStateNotExist:
 		case err != nil:
 			return err
+		}
+		if vr.shouldCorrectCandSelfStake(height) {
+			cands, err = vr.correctCandSelfStake(ctx, csm, height, cands)
+			if err != nil {
+				return err
+			}
 		}
 		if vr.shouldReviseSelfStakeBuckets(height) {
 			cands, err = vr.reviseSelfStakeBuckets(ctx, csm, height, cands)
@@ -115,6 +122,31 @@ func (vr *VoteReviser) reviseSelfStakeBuckets(ctx protocol.FeatureCtx, csm Candi
 	return cands, nil
 }
 
+func (vr *VoteReviser) correctCandSelfStake(ctx protocol.FeatureCtx, csm CandidateStateManager, height uint64, cands CandidateList) (CandidateList, error) {
+	// revise selfstake
+	for _, cand := range cands {
+		if cand.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
+			cand.SelfStake = big.NewInt(0)
+			continue
+		}
+		sb, err := csm.getBucket(cand.SelfStakeBucketIdx)
+		switch errors.Cause(err) {
+		case state.ErrStateNotExist:
+			// bucket has been withdrawn
+			cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
+			cand.SelfStake = big.NewInt(0)
+		case nil:
+			if sb.isUnstaked() {
+				cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
+				cand.SelfStake = big.NewInt(0)
+			}
+		default:
+			return nil, errors.Wrapf(err, "failed to get bucket with index %d", cand.SelfStakeBucketIdx)
+		}
+	}
+	return cands, nil
+}
+
 func (vr *VoteReviser) result(height uint64) (CandidateList, bool) {
 	cands, ok := vr.cache[height]
 	if !ok {
@@ -136,7 +168,8 @@ func (vr *VoteReviser) isCacheExist(height uint64) bool {
 func (vr *VoteReviser) NeedRevise(height uint64) bool {
 	return slices.Contains(vr.cfg.ReviseHeights, height) ||
 		vr.shouldReviseSelfStakeBuckets(height) ||
-		vr.shouldReviseAlias(height)
+		vr.shouldReviseAlias(height) ||
+		vr.shouldCorrectCandSelfStake(height)
 }
 
 // NeedCorrectCands returns true if height needs to correct candidates
@@ -146,6 +179,10 @@ func (vr *VoteReviser) shouldReviseAlias(height uint64) bool {
 
 func (vr *VoteReviser) shouldReviseSelfStakeBuckets(height uint64) bool {
 	return vr.cfg.SelfStakeBucketReviseHeight == height
+}
+
+func (vr *VoteReviser) shouldCorrectCandSelfStake(height uint64) bool {
+	return vr.cfg.CorrectCandSelfStakeHeight == height
 }
 
 func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager, height uint64, cands CandidateList) (CandidateList, error) {

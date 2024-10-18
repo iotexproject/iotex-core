@@ -37,6 +37,7 @@ var (
 	ErrGasLimit           = errors.New("exceeds block gas limit")
 	ErrOversizedData      = errors.New("oversized data")
 	ErrNilProto           = errors.New("empty action proto to load")
+	ErrInvalidProto       = errors.New("invalid action proto to load")
 	ErrNilAction          = errors.New("nil action to load proto")
 	ErrInvalidAct         = errors.New("invalid action type")
 	ErrInvalidABI         = errors.New("invalid abi binary data")

@@ -84,6 +84,11 @@ type EnvelopeBuilder struct {
 	ab  AbstractAction
 }
 
+func (b *EnvelopeBuilder) SetTxType(v uint32) *EnvelopeBuilder {
+	b.ab.txType = v
+	return b
+}
+
 // SetVersion sets action's version.
 func (b *EnvelopeBuilder) SetVersion(v uint32) *EnvelopeBuilder {
 	b.ab.version = v
@@ -165,8 +170,11 @@ func (b *EnvelopeBuilder) build() Envelope {
 		b.ab.gasPrice = big.NewInt(0)
 	}
 	if b.ab.version == 0 {
-		// default to version = 1 (legacy tx)
-		b.ab.version = LegacyTxType
+		// default to version = 1
+		b.ab.version = version.ProtocolVersion
+	}
+	if err := b.ab.validateTx(); err != nil {
+		panic(err.Error())
 	}
 	if b.elp.payload == nil {
 		panic("cannot build Envelope w/o a valid payload")
@@ -192,17 +200,21 @@ func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) error {
 	if err != nil {
 		return err
 	}
-	b.ab.version = uint32(v)
+	b.ab.txType = uint32(v)
 	b.ab.nonce = tx.Nonce()
 	b.ab.gasPrice = tx.GasPrice()
 	b.ab.gasLimit = tx.Gas()
-	b.ab.accessList = tx.AccessList()
+	if acl := tx.AccessList(); len(acl) > 0 {
+		b.ab.accessList = tx.AccessList()
+	}
 	b.ab.gasFeeCap = tx.GasFeeCap()
 	b.ab.gasTipCap = tx.GasTipCap()
-	b.ab.blobData = &BlobTxData{
-		blobFeeCap: uint256.MustFromBig(tx.BlobGasFeeCap()),
-		blobHashes: tx.BlobHashes(),
-		sidecar:    tx.BlobTxSidecar(),
+	if hashes := tx.BlobHashes(); len(hashes) > 0 {
+		b.ab.blobData = &BlobTxData{
+			blobFeeCap: uint256.MustFromBig(tx.BlobGasFeeCap()),
+			blobHashes: hashes,
+			sidecar:    tx.BlobTxSidecar(),
+		}
 	}
 	return nil
 }

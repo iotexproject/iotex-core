@@ -61,7 +61,10 @@ func TestNoncePriorityQueue(t *testing.T) {
 
 func TestActQueuePut(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue(nil, "", 1, big.NewInt(maxBalance)).(*actQueue)
+	ctrl := gomock.NewController(t)
+	ap, err := NewActPool(genesis.Default, mock_chainmanager.NewMockStateReader(ctrl), DefaultConfig)
+	require.NoError(err)
+	q := NewActQueue(ap.(*actPool), "", 1, big.NewInt(maxBalance)).(*actQueue)
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(1))
 	require.NoError(err)
 	require.NoError(q.Put(tsf1))

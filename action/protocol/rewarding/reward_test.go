@@ -70,6 +70,20 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 		// Grant the same block reward again will fail
 		_, err = p.GrantBlockReward(ctx, sm)
 		require.Error(t, err)
+
+		// Grant with priority fee after VanuatuBlockHeight
+		blkCtx.AccumulatedTips = *big.NewInt(5)
+		blkCtx.BlockHeight = genesis.Default.VanuatuBlockHeight
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, blkCtx))
+		rewardLog, err = p.GrantBlockReward(ctx, sm)
+		require.NoError(t, err)
+		rls, err := UnmarshalRewardLog(rewardLog.Data)
+		require.NoError(t, err)
+		require.Len(t, rls.Logs, 2)
+		require.Equal(t, rewardingpb.RewardLog_BLOCK_REWARD, rls.Logs[0].Type)
+		require.Equal(t, "10", rls.Logs[0].Amount)
+		require.Equal(t, rewardingpb.RewardLog_PRIORITY_BONUS, rls.Logs[1].Type)
+		require.Equal(t, blkCtx.AccumulatedTips.String(), rls.Logs[1].Amount)
 	}, false)
 }
 

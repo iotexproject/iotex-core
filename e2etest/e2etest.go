@@ -2,22 +2,27 @@ package e2etest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/go-resty/resty/v2"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
+	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/chainservice"
@@ -36,11 +41,13 @@ type (
 		t   time.Time
 	}
 	testcase struct {
-		name    string
-		preFunc func(*e2etest)
-		preActs []*actionWithTime
-		act     *actionWithTime
-		expect  []actionExpect
+		name        string
+		preFunc     func(*e2etest)
+		preActs     []*actionWithTime
+		act         *actionWithTime
+		expect      []actionExpect
+		acts        []*actionWithTime
+		blockExpect func(test *e2etest, blk *block.Block, err error)
 	}
 	accountNonceManager map[string]uint64
 	e2etest             struct {
@@ -50,6 +57,7 @@ type (
 		t        *testing.T
 		nonceMgr accountNonceManager
 		api      iotexapi.APIServiceClient
+		ethcli   *ethclient.Client
 	}
 )
 
@@ -69,6 +77,8 @@ func newE2ETest(t *testing.T, cfg config.Config) *e2etest {
 	// Create a new API service client
 	conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", cfg.API.GRPCPort), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(err)
+	cli, err := ethclient.Dial(fmt.Sprintf("http://localhost:%d", cfg.API.HTTPPort))
+	require.NoError(err)
 	return &e2etest{
 		cfg:      cfg,
 		svr:      svr,
@@ -76,6 +86,7 @@ func newE2ETest(t *testing.T, cfg config.Config) *e2etest {
 		t:        t,
 		nonceMgr: make(accountNonceManager),
 		api:      iotexapi.NewAPIServiceClient(conn),
+		ethcli:   cli,
 	}
 }
 
@@ -99,14 +110,24 @@ func (e *e2etest) runCase(ctx context.Context, c *testcase) {
 	}
 	// run pre-actions
 	for i, act := range c.preActs {
-		_, receipt, err := addOneTx(ctx, ap, bc, act)
+		_, receipt, _, err := addOneTx(ctx, ap, bc, act)
 		require.NoErrorf(err, "failed to add pre-action %d", i)
 		require.EqualValuesf(iotextypes.ReceiptStatus_Success, receipt.Status, "pre-action %d failed", i)
 	}
 	// run action
-	act, receipt, err := addOneTx(ctx, ap, bc, c.act)
-	for _, exp := range c.expect {
-		exp.expect(e, act, receipt, err)
+	if c.act != nil {
+		act, receipt, blk, err := addOneTx(ctx, ap, bc, c.act)
+		for _, exp := range c.expect {
+			exp.expect(e, act, receipt, err)
+		}
+		if c.blockExpect != nil {
+			c.blockExpect(e, blk, err)
+		}
+	} else if len(c.acts) > 0 {
+		_, _, blk, err := runTxs(ctx, ap, bc, c.acts)
+		if c.blockExpect != nil {
+			c.blockExpect(e, blk, err)
+		}
 	}
 }
 
@@ -119,11 +140,12 @@ func (e *e2etest) teardown() {
 
 func (e *e2etest) withTest(t *testing.T) *e2etest {
 	return &e2etest{
-		cfg: e.cfg,
-		svr: e.svr,
-		cs:  e.cs,
-		t:   t,
-		api: e.api,
+		cfg:    e.cfg,
+		svr:    e.svr,
+		cs:     e.cs,
+		t:      t,
+		api:    e.api,
+		ethcli: e.ethcli,
 	}
 }
 
@@ -198,25 +220,92 @@ func (e *e2etest) getBucket(index uint64, contractAddr string) (*iotextypes.Vote
 
 }
 
-func addOneTx(ctx context.Context, ap actpool.ActPool, bc blockchain.Blockchain, tx *actionWithTime) (*action.SealedEnvelope, *action.Receipt, error) {
+func (e *e2etest) getBlobs(height uint64) ([]*apitypes.BlobSidecarResult, error) {
+	body := fmt.Sprintf(`{
+		"jsonrpc":"2.0",
+		"method":"eth_getBlobSidecars",
+		"params":[
+			"%s"
+		],
+		"id":1
+		}`, hexutil.EncodeUint64(height))
+	url := fmt.Sprintf("http://localhost:%d", e.cfg.API.HTTPPort)
+	type web3Response struct {
+		ID     int                           `json:"id"`
+		Result []*apitypes.BlobSidecarResult `json:"result"`
+		Err    string                        `json:"err"`
+	}
+	result := &web3Response{}
+	resp, err := resty.New().R().SetBody(body).SetResult(result).Post(url)
+	if err != nil {
+		return nil, err
+	}
+	if resp.IsError() {
+		return nil, errors.Errorf("failed to get blobs: %s", resp.String())
+	}
+	err = json.Unmarshal([]byte(resp.String()), result)
+	if err != nil {
+		return nil, err
+	}
+	return result.Result, nil
+}
+
+func runTxs(ctx context.Context, ap actpool.ActPool, bc blockchain.Blockchain, txs []*actionWithTime) ([]*action.SealedEnvelope, []*action.Receipt, *block.Block, error) {
+	for _, tx := range txs {
+		if err := ap.Add(ctx, tx.act); err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	blk, err := createAndCommitBlock(bc, ap, txs[len(txs)-1].t)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	receipts := make([]*action.Receipt, 0, len(txs))
+	actions := make([]*action.SealedEnvelope, 0, len(txs))
+firstLoop:
+	for _, tx := range txs {
+		actions = append(actions, tx.act)
+		h, err := tx.act.Hash()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		for _, r := range blk.Receipts {
+			if r.ActionHash == h {
+				receipts = append(receipts, r)
+				continue firstLoop
+			}
+		}
+		receipts = append(receipts, nil)
+	}
+	return actions, receipts, blk, nil
+}
+
+func addOneTx(ctx context.Context, ap actpool.ActPool, bc blockchain.Blockchain, tx *actionWithTime) (*action.SealedEnvelope, *action.Receipt, *block.Block, error) {
+	ctx, err := bc.Context(ctx)
+	if err != nil {
+		return tx.act, nil, nil, err
+	}
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: bc.TipHeight() + 1,
+	}))
 	if err := ap.Add(ctx, tx.act); err != nil {
-		return tx.act, nil, err
+		return tx.act, nil, nil, err
 	}
 	blk, err := createAndCommitBlock(bc, ap, tx.t)
 	if err != nil {
-		return tx.act, nil, err
+		return tx.act, nil, nil, err
 	}
 	h, err := tx.act.Hash()
 	if err != nil {
-		return tx.act, nil, err
+		return tx.act, nil, nil, err
 	}
 	for _, r := range blk.Receipts {
 		if r.ActionHash == h {
-			return tx.act, r, nil
+			return tx.act, r, blk, nil
 		}
 	}
 
-	return tx.act, nil, errors.Wrapf(errReceiptNotFound, "for action %x, %T, %+v", h, tx.act.Envelope.Action(), tx.act.Envelope.Action())
+	return tx.act, nil, nil, errors.Wrapf(errReceiptNotFound, "for action %x, %v, %T, %+v", h, tx.act.Envelope.TxType(), tx.act.Envelope.Action(), tx.act.Envelope.Action())
 }
 
 func createAndCommitBlock(bc blockchain.Blockchain, ap actpool.ActPool, blkTime time.Time) (*block.Block, error) {
@@ -255,16 +344,20 @@ func initDBPaths(r *require.Assertions, cfg *config.Config) {
 	r.NoError(err)
 	testConsensusPath, err := testutil.PathOfTempFile("consensus")
 	r.NoError(err)
+	testBlobPath, err := testutil.PathOfTempFile("blob")
+	r.NoError(err)
 
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.BlobStoreDBPath = ""
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.ContractStakingIndexDBPath = testContractIndexPath
 	cfg.Chain.BloomfilterIndexDBPath = testBloomfilterIndexPath
 	cfg.Chain.CandidateIndexDBPath = testCandidateIndexPath
 	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
+	cfg.Chain.BlobStoreDBPath = testBlobPath
 }
 
 func clearDBPaths(cfg *config.Config) {
@@ -277,4 +370,6 @@ func clearDBPaths(cfg *config.Config) {
 	testutil.CleanupPath(cfg.DB.DbPath)
 	testutil.CleanupPath(cfg.Chain.IndexDBPath)
 	testutil.CleanupPath(cfg.System.SystemLogDBPath)
+	testutil.CleanupPath(cfg.Consensus.RollDPoS.ConsensusDBPath)
+	testutil.CleanupPath(cfg.Chain.BlobStoreDBPath)
 }

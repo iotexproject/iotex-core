@@ -307,6 +307,20 @@ func (mr *MockEnvelopeMockRecorder) Proto() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Proto", reflect.TypeOf((*MockEnvelope)(nil).Proto))
 }
 
+// ProtoForHash mocks base method.
+func (m *MockEnvelope) ProtoForHash() *iotextypes.ActionCore {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProtoForHash")
+	ret0, _ := ret[0].(*iotextypes.ActionCore)
+	return ret0
+}
+
+// ProtoForHash indicates an expected call of ProtoForHash.
+func (mr *MockEnvelopeMockRecorder) ProtoForHash() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProtoForHash", reflect.TypeOf((*MockEnvelope)(nil).ProtoForHash))
+}
+
 // SanityCheck mocks base method.
 func (m *MockEnvelope) SanityCheck() error {
 	m.ctrl.T.Helper()
@@ -400,6 +414,20 @@ func (mr *MockEnvelopeMockRecorder) ToEthTx(arg0, arg1 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToEthTx", reflect.TypeOf((*MockEnvelope)(nil).ToEthTx), arg0, arg1)
 }
 
+// TxType mocks base method.
+func (m *MockEnvelope) TxType() uint32 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TxType")
+	ret0, _ := ret[0].(uint32)
+	return ret0
+}
+
+// TxType indicates an expected call of TxType.
+func (mr *MockEnvelopeMockRecorder) TxType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TxType", reflect.TypeOf((*MockEnvelope)(nil).TxType))
+}
+
 // ValidateSidecar mocks base method.
 func (m *MockEnvelope) ValidateSidecar() error {
 	m.ctrl.T.Helper()
@@ -426,20 +454,6 @@ func (m *MockEnvelope) Value() *big.Int {
 func (mr *MockEnvelopeMockRecorder) Value() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Value", reflect.TypeOf((*MockEnvelope)(nil).Value))
-}
-
-// Version mocks base method.
-func (m *MockEnvelope) Version() uint32 {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Version")
-	ret0, _ := ret[0].(uint32)
-	return ret0
-}
-
-// Version indicates an expected call of Version.
-func (mr *MockEnvelopeMockRecorder) Version() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockEnvelope)(nil).Version))
 }
 
 // MockTxData is a mock of TxData interface.
@@ -1043,32 +1057,18 @@ func (mr *MockTxCommonInternalMockRecorder) SanityCheck() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SanityCheck", reflect.TypeOf((*MockTxCommonInternal)(nil).SanityCheck))
 }
 
-// ValidateSidecar mocks base method.
-func (m *MockTxCommonInternal) ValidateSidecar() error {
+// TxType mocks base method.
+func (m *MockTxCommonInternal) TxType() uint32 {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateSidecar")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ValidateSidecar indicates an expected call of ValidateSidecar.
-func (mr *MockTxCommonInternalMockRecorder) ValidateSidecar() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateSidecar", reflect.TypeOf((*MockTxCommonInternal)(nil).ValidateSidecar))
-}
-
-// Version mocks base method.
-func (m *MockTxCommonInternal) Version() uint32 {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Version")
+	ret := m.ctrl.Call(m, "TxType")
 	ret0, _ := ret[0].(uint32)
 	return ret0
 }
 
-// Version indicates an expected call of Version.
-func (mr *MockTxCommonInternalMockRecorder) Version() *gomock.Call {
+// TxType indicates an expected call of TxType.
+func (mr *MockTxCommonInternalMockRecorder) TxType() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockTxCommonInternal)(nil).Version))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TxType", reflect.TypeOf((*MockTxCommonInternal)(nil).TxType))
 }
 
 // setChainID mocks base method.

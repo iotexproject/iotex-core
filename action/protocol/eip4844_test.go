@@ -92,3 +92,14 @@ func TestFakeExponential(t *testing.T) {
 		require.Equal(original, later, "test %d: fake exponential modified arguments", i)
 	}
 }
+
+func TestEIP4844Params(t *testing.T) {
+	require := require.New(t)
+	require.Equal(1<<17, params.BlobTxBlobGasPerBlob)
+	require.Equal(3*params.BlobTxBlobGasPerBlob, params.BlobTxTargetBlobGasPerBlock)
+	require.Equal(6*params.BlobTxBlobGasPerBlob, params.MaxBlobGasPerBlock)
+	require.Equal(1, params.BlobTxMinBlobGasprice)
+	require.Equal(3338477, params.BlobTxBlobGaspriceUpdateFraction)
+	require.Equal(4096, params.BlobTxFieldElementsPerBlob)
+	require.Equal(32, params.BlobTxBytesPerFieldElement)
+}

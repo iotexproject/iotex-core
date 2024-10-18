@@ -19,6 +19,7 @@ var _ TxCommonInternal = (*LegacyTx)(nil)
 // LegacyTx is the legacy transaction
 type LegacyTx struct {
 	chainID  uint32
+	version  uint32
 	nonce    uint64
 	gasLimit uint64
 	gasPrice *big.Int
@@ -34,7 +35,7 @@ func NewLegacyTx(chainID uint32, nonce uint64, gasLimit uint64, gasPrice *big.In
 	}
 }
 
-func (tx *LegacyTx) Version() uint32 {
+func (tx *LegacyTx) TxType() uint32 {
 	return LegacyTxType
 }
 
@@ -96,7 +97,8 @@ func (tx *LegacyTx) SanityCheck() error {
 
 func (tx *LegacyTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
-		Version:  LegacyTxType,
+		TxType:   LegacyTxType,
+		Version:  tx.version,
 		Nonce:    tx.nonce,
 		GasLimit: tx.gasLimit,
 		ChainID:  tx.chainID,
@@ -107,19 +109,22 @@ func (tx *LegacyTx) toProto() *iotextypes.ActionCore {
 	return &actCore
 }
 
-func fromProtoLegacyTx(pb *iotextypes.ActionCore) (*LegacyTx, error) {
-	var tx LegacyTx
-	tx.nonce = pb.GetNonce()
-	tx.gasLimit = pb.GetGasLimit()
-	tx.chainID = pb.GetChainID()
-	tx.gasPrice = &big.Int{}
+func (tx *LegacyTx) fromProto(pb *iotextypes.ActionCore) error {
+	if pb.TxType != LegacyTxType {
+		return errors.Wrapf(ErrInvalidProto, "wrong tx type = %d", pb.TxType)
+	}
+	var gasPrice big.Int
 	if price := pb.GetGasPrice(); len(price) > 0 {
-		var ok bool
-		if tx.gasPrice, ok = tx.gasPrice.SetString(price, 10); !ok {
-			return nil, errors.Errorf("invalid gasPrice %s", price)
+		if _, ok := gasPrice.SetString(price, 10); !ok {
+			return errors.Errorf("invalid gasPrice %s", price)
 		}
 	}
-	return &tx, nil
+	tx.chainID = pb.GetChainID()
+	tx.version = pb.GetVersion()
+	tx.nonce = pb.GetNonce()
+	tx.gasLimit = pb.GetGasLimit()
+	tx.gasPrice = &gasPrice
+	return nil
 }
 
 func (tx *LegacyTx) setNonce(n uint64) {

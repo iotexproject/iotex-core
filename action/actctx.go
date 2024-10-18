@@ -19,6 +19,7 @@ import (
 type AbstractAction struct {
 	version    uint32
 	chainID    uint32
+	txType     uint32
 	nonce      uint64
 	gasLimit   uint64
 	gasPrice   *big.Int
@@ -27,9 +28,6 @@ type AbstractAction struct {
 	accessList types.AccessList
 	blobData   *BlobTxData
 }
-
-// Version returns the version
-func (act *AbstractAction) Version() uint32 { return act.version }
 
 // ChainID returns the chainID
 func (act *AbstractAction) ChainID() uint32 { return act.chainID }
@@ -112,6 +110,7 @@ func (act *AbstractAction) toProto() *iotextypes.ActionCore {
 		Nonce:    act.nonce,
 		GasLimit: act.gasLimit,
 		ChainID:  act.chainID,
+		TxType:   act.txType,
 	}
 	if act.gasPrice != nil {
 		actCore.GasPrice = act.gasPrice.String()
@@ -133,6 +132,7 @@ func (act *AbstractAction) fromProto(pb *iotextypes.ActionCore) error {
 	act.nonce = pb.GetNonce()
 	act.gasLimit = pb.GetGasLimit()
 	act.chainID = pb.GetChainID()
+	act.txType = pb.GetTxType()
 
 	var ok bool
 	if price := pb.GetGasPrice(); price == "" {
@@ -163,10 +163,11 @@ func (act *AbstractAction) fromProto(pb *iotextypes.ActionCore) error {
 }
 
 func (act *AbstractAction) convertToTx() TxCommonInternal {
-	switch act.version {
+	switch act.txType {
 	case LegacyTxType:
 		tx := LegacyTx{
 			chainID:  act.chainID,
+			version:  act.version,
 			nonce:    act.nonce,
 			gasLimit: act.gasLimit,
 			gasPrice: &big.Int{},
@@ -207,6 +208,19 @@ func (act *AbstractAction) convertToTx() TxCommonInternal {
 			blob:       act.blobData,
 		}
 	default:
-		panic(fmt.Sprintf("unsupported action version = %d", act.version))
+		panic(fmt.Sprintf("unsupported action type = %d", act.txType))
 	}
+}
+
+func (act *AbstractAction) validateTx() error {
+	switch act.txType {
+	case LegacyTxType, AccessListTxType, DynamicFeeTxType, BlobTxType:
+		// these are allowed tx types
+	default:
+		return errors.Wrapf(ErrInvalidAct, "unsupported tx type = %d", act.txType)
+	}
+	if act.txType == BlobTxType && act.blobData == nil {
+		return errors.Wrap(ErrInvalidAct, "blob tx with empty blob")
+	}
+	return nil
 }

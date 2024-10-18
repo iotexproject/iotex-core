@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -114,7 +115,7 @@ func (ws *workingSet) runActions(
 		if err != nil {
 			return nil, err
 		}
-		receipt, err := ws.runAction(ctxWithActionContext, elp)
+		receipt, err := ws.runAction(protocol.WithBlockCtx(ctxWithActionContext, blkCtx), elp)
 		if err != nil {
 			return nil, errors.Wrap(err, "error when run action")
 		}
@@ -123,7 +124,7 @@ func (ws *workingSet) runActions(
 			(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
 		}
 	}
-	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
+	if fCtx.CorrectTxLogIndex {
 		updateReceiptIndex(receipts)
 	}
 	return receipts, nil
@@ -168,8 +169,8 @@ func (ws *workingSet) runAction(
 	}
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	// if it's a tx container, unfold the tx inside
-	if fCtx.UseTxContainer {
-		if container, ok := selp.Action().(action.TxContainer); ok {
+	if fCtx.UseTxContainer && !fCtx.UnfoldContainerBeforeValidate {
+		if container, ok := selp.Envelope.(action.TxContainer); ok {
 			if err := container.Unfold(selp, ctx, ws.checkContract); err != nil {
 				return nil, errors.Wrap(errUnfoldTxContainer, err.Error())
 			}
@@ -203,8 +204,7 @@ func (ws *workingSet) runAction(
 			)
 		}
 		if receipt != nil {
-			isBlobTx := len(selp.BlobHashes()) > 0
-			if protocol.MustGetFeatureCtx(ctx).EnableBlobTransaction && isBlobTx {
+			if fCtx.EnableBlobTransaction && len(selp.BlobHashes()) > 0 {
 				if err = ws.handleBlob(ctx, selp, receipt); err != nil {
 					return nil, err
 				}
@@ -485,7 +485,58 @@ func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap 
 }
 
 func (ws *workingSet) Process(ctx context.Context, actions []*action.SealedEnvelope) error {
+	if protocol.MustGetFeatureCtx(ctx).CorrectValidationOrder {
+		return ws.processWithCorrectOrder(ctx, actions)
+	}
 	return ws.process(ctx, actions)
+}
+
+func (ws *workingSet) processWithCorrectOrder(ctx context.Context, actions []*action.SealedEnvelope) error {
+	if err := ws.validate(ctx); err != nil {
+		return err
+	}
+	reg := protocol.MustGetRegistry(ctx)
+	for _, p := range reg.All() {
+		if pp, ok := p.(protocol.PreStatesCreator); ok {
+			if err := pp.CreatePreStates(ctx, ws); err != nil {
+				return err
+			}
+		}
+	}
+	var (
+		receipts            = make([]*action.Receipt, 0)
+		ctxWithBlockContext = ctx
+		blkCtx              = protocol.MustGetBlockCtx(ctx)
+		fCtx                = protocol.MustGetFeatureCtx(ctx)
+	)
+	for _, act := range actions {
+		actionCtx, err := withActionCtx(ctxWithBlockContext, act)
+		if err != nil {
+			return err
+		}
+		for _, p := range reg.All() {
+			if validator, ok := p.(protocol.ActionValidator); ok {
+				if err := validator.Validate(actionCtx, act.Envelope, ws); err != nil {
+					return err
+				}
+			}
+		}
+		receipt, err := ws.runAction(actionCtx, act)
+		if err != nil {
+			return errors.Wrap(err, "error when run action")
+		}
+		receipts = append(receipts, receipt)
+		blkCtx.GasLimit -= receipt.GasConsumed
+		if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
+			(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
+		}
+		ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
+	}
+	if fCtx.CorrectTxLogIndex {
+		updateReceiptIndex(receipts)
+	}
+	ws.receipts = receipts
+	return ws.finalize()
 }
 
 func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvelope) error {
@@ -592,7 +643,7 @@ func (ws *workingSet) pickAndRunActions(
 		blkCtx              = protocol.MustGetBlockCtx(ctx)
 		fCtx                = protocol.MustGetFeatureCtx(ctx)
 		blobCnt             = uint64(0)
-		blobLimit           = genesis.MustExtractGenesisContext(ctx).MaxBlobsPerBlock
+		blobLimit           = params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob
 	)
 	if ap != nil {
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
@@ -605,9 +656,20 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			}
-			if blobCnt+uint64(len(nextAction.BlobHashes())) > blobLimit {
+			if blobCnt+uint64(len(nextAction.BlobHashes())) > uint64(blobLimit) {
 				actionIterator.PopAccount()
 				continue
+			}
+			if fCtx.UnfoldContainerBeforeValidate {
+				if container, ok := nextAction.Envelope.(action.TxContainer); ok {
+					if err := container.Unfold(nextAction, ctx, ws.checkContract); err != nil {
+						if caller := nextAction.SenderAddress(); caller != nil {
+							ap.DeleteAction(caller)
+						}
+						actionIterator.PopAccount()
+						continue
+					}
+				}
 			}
 			actionCtx, err := withActionCtx(ctxWithBlockContext, nextAction)
 			if err == nil {
@@ -723,7 +785,7 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 	}
 	if fCtx.EnableBlobTransaction {
 		blobCnt := uint64(0)
-		blobLimit := genesis.MustExtractGenesisContext(ctx).MaxBlobsPerBlock
+		blobLimit := uint64(params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob)
 		for _, selp := range blk.Actions {
 			blobCnt += uint64(len(selp.BlobHashes()))
 			if blobCnt > blobLimit {
@@ -735,7 +797,13 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 			return err
 		}
 	}
-	if err := ws.process(ctx, blk.RunnableActions().Actions()); err != nil {
+	var err error
+	if protocol.MustGetFeatureCtx(ctx).CorrectValidationOrder {
+		err = ws.processWithCorrectOrder(ctx, blk.RunnableActions().Actions())
+	} else {
+		err = ws.process(ctx, blk.RunnableActions().Actions())
+	}
+	if err != nil {
 		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
 		return err
 	}

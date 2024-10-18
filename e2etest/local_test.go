@@ -370,6 +370,7 @@ func TestLocalSync(t *testing.T) {
 	require.NoError(err)
 	initDBPaths(require, &cfg)
 	cfg.Chain.TrieDBPatchFile = ""
+	cfg.Chain.BlobStoreDBPath = ""
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
@@ -432,6 +433,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Disable block reward to make bookkeeping easier
 	cfg := config.Default
 	cfg.Chain.TrieDBPatchFile = ""
+	cfg.Chain.BlobStoreDBPath = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
@@ -538,8 +540,6 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 func newTestConfig() (config.Config, error) {
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = _triePath
-	cfg.Chain.ChainDBPath = _dBPath
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()

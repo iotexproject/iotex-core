@@ -43,15 +43,25 @@ func TestBlobTxHashing(t *testing.T) {
 	r.NotNil(withBlob.Sidecar)
 
 	signer := types.NewCancunSigner(withBlob.ChainID.ToBig())
-	raw := signer.Hash(types.NewTx(withBlob))
+	tx := types.NewTx(withBlob)
+	raw := signer.Hash(tx)
 	withBlobSigned := types.MustSignNewTx(sk, signer, withBlob)
+	r.Equal(blobData.sidecar, withBlob.Sidecar)
+	r.Equal(blobData.sidecar, tx.BlobTxSidecar())
+	r.Equal(blobData.sidecar, withBlobSigned.BlobTxSidecar())
 	h := withBlobSigned.Hash()
 	// without blob
 	withBlob.Sidecar = nil
-	r.Equal(raw, signer.Hash(types.NewTx(withBlob)))
-	r.Equal(h, types.MustSignNewTx(sk, signer, withBlob).Hash())
+	tx = types.NewTx(withBlob)
+	woBlobSigned := types.MustSignNewTx(sk, signer, withBlob)
+	r.Equal(raw, signer.Hash(tx))
+	r.Nil(withBlob.Sidecar)
+	r.Nil(tx.BlobTxSidecar())
+	r.Nil(woBlobSigned.BlobTxSidecar())
+	r.Equal(h, woBlobSigned.Hash())
 	// remove blob from signed tx
 	withBlobStripped := withBlobSigned.WithoutBlobTxSidecar()
+	r.Nil(withBlobStripped.BlobTxSidecar())
 	r.Equal(h, withBlobStripped.Hash())
 }
 
@@ -85,7 +95,7 @@ func TestBlobTxData(t *testing.T) {
 		// check blob hashes size
 		h := blobData.blobHashes
 		blobData.blobHashes = blobData.blobHashes[:0]
-		r.ErrorContains(blobData.ValidateSidecar(), "blobless blob transaction")
+		r.ErrorContains(blobData.ValidateSidecar(), "number of blobs and hashes mismatch")
 		blobData.blobHashes = h
 		// check Blobs, Commitments, Proofs size
 		sidecar := blobData.sidecar

@@ -180,7 +180,7 @@ func (s *actionStore) Put(act *action.SealedEnvelope) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to put blob into store")
 	}
-	s.stored += uint64(len(blob))
+	s.stored += uint64(s.store.Size(id))
 	s.lookup[h] = id
 	// if the datacap is exceeded, remove old data
 	if s.stored > s.config.Datacap {
@@ -204,6 +204,7 @@ func (s *actionStore) Delete(hash hash.Hash256) error {
 		return errors.Wrap(err, "failed to delete blob from store")
 	}
 	delete(s.lookup, hash)
+	s.stored -= uint64(s.store.Size(id))
 	return nil
 }
 
@@ -236,6 +237,7 @@ func (s *actionStore) drop() {
 	if err := s.store.Delete(id); err != nil {
 		log.L().Error("failed to delete worst action", zap.Error(err))
 	}
+	s.stored -= uint64(s.store.Size(id))
 	delete(s.lookup, h)
 	return
 }

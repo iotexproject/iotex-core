@@ -32,7 +32,7 @@ type SealedEnvelope struct {
 func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 	switch sealed.encoding {
 	case iotextypes.Encoding_TX_CONTAINER:
-		act, ok := sealed.Action().(*txContainer)
+		act, ok := sealed.Envelope.(*txContainer)
 		if !ok {
 			return hash.ZeroHash256, ErrInvalidAct
 		}
@@ -56,7 +56,7 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 		}
 		return rlpRawHash(tx, signer)
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
-		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Envelope.Proto()))), nil
+		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Envelope.ProtoForHash()))), nil
 	default:
 		return hash.ZeroHash256, errors.Errorf("unknown encoding type %v", sealed.encoding)
 	}
@@ -78,7 +78,7 @@ func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
 func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
 	switch sealed.encoding {
 	case iotextypes.Encoding_TX_CONTAINER:
-		act, ok := sealed.Action().(*txContainer)
+		act, ok := sealed.Envelope.(*txContainer)
 		if !ok {
 			return hash.ZeroHash256, ErrInvalidAct
 		}
@@ -94,7 +94,7 @@ func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
 		}
 		return rlpSignedHash(tx, signer, sealed.Signature())
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
-		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Proto()))), nil
+		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.protoForHash()))), nil
 	default:
 		return hash.ZeroHash256, errors.Errorf("unknown encoding type %v", sealed.encoding)
 	}
@@ -138,6 +138,15 @@ func (sealed *SealedEnvelope) Proto() *iotextypes.Action {
 	}
 }
 
+func (sealed *SealedEnvelope) protoForHash() *iotextypes.Action {
+	return &iotextypes.Action{
+		Core:         sealed.Envelope.ProtoForHash(),
+		SenderPubKey: sealed.srcPubkey.Bytes(),
+		Signature:    sealed.signature,
+		Encoding:     sealed.encoding,
+	}
+}
+
 // loadProto loads from proto scheme.
 func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) error {
 	if pbAct == nil {
@@ -151,8 +160,8 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 		return errors.Errorf("invalid signature length = %d, expecting 65", sigSize)
 	}
 
-	var elp Envelope = &envelope{}
-	if err := elp.LoadProto(pbAct.GetCore()); err != nil {
+	elp, err := protoToEnvelope(pbAct)
+	if err != nil {
 		return err
 	}
 	// populate pubkey and signature
@@ -164,7 +173,7 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 	switch encoding {
 	case iotextypes.Encoding_TX_CONTAINER:
 		// verify it is container format
-		if _, ok := elp.Action().(TxContainer); !ok {
+		if _, ok := elp.(TxContainer); !ok {
 			return ErrInvalidAct
 		}
 		sealed.evmNetworkID = evmID
@@ -197,6 +206,23 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 	sealed.hash = hash.ZeroHash256
 	sealed.srcAddress = nil
 	return nil
+}
+
+func protoToEnvelope(pbAct *iotextypes.Action) (Envelope, error) {
+	var (
+		elp = &envelope{}
+		cnt = &txContainer{}
+	)
+	if pbAct.GetEncoding() == iotextypes.Encoding_TX_CONTAINER {
+		if err := cnt.LoadProto(pbAct.GetCore()); err != nil {
+			return nil, err
+		}
+		return cnt, nil
+	}
+	if err := elp.LoadProto(pbAct.GetCore()); err != nil {
+		return nil, err
+	}
+	return elp, nil
 }
 
 // VerifySignature verifies the action using sender's public key
