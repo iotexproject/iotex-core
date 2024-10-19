@@ -6,7 +6,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_apicoreservice"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )

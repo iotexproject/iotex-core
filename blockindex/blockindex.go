@@ -11,8 +11,8 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/blockindex/indexpb"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/blockindex/indexpb"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 // BlockIndex change private to public for mock Indexer

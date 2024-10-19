@@ -10,7 +10,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	apitypes "github.com/iotexproject/iotex-core/api/types"
+	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 )
 
 // MockWeb3Handler is a mock of Web3Handler interface.

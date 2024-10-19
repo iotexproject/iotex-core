@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core/test/mock/mock_lifecycle"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_lifecycle"
 )
 
 func TestLifecycle(t *testing.T) {

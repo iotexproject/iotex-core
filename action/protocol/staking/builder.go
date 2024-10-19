@@ -1,6 +1,6 @@
 package staking
 
-import "github.com/iotexproject/iotex-core/blockchain/genesis"
+import "github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 
 type (
 

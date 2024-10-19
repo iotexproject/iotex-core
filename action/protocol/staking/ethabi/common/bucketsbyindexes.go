@@ -6,7 +6,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
 // BucketsByIndexesStateContext context for BucketsByIndexes

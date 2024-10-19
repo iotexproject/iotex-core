@@ -1,6 +1,6 @@
 package testutil
 
-import "github.com/iotexproject/iotex-core/blockchain/genesis"
+import "github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 
 // NormalizeGenesisHeights normalizes the heights in the genesis config
 // it's used in tests to make sure the heights are monotonically increasing

@@ -11,7 +11,7 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type (
