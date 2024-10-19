@@ -8,7 +8,9 @@ package actpool
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"crypto/sha256"
+	"encoding/hex"
 	"math/big"
 	"testing"
 	"time"
@@ -19,6 +21,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/mohae/deepcopy"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -32,6 +35,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	. "github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
@@ -289,62 +293,34 @@ func TestActPool_AddActs(t *testing.T) {
 
 	t.Run("blobTx", func(t *testing.T) {
 		blob := kzg4844.Blob{}
-		commitment, err := kzg4844.BlobToCommitment(blob)
-		require.NoError(err)
-		proof, err := kzg4844.ComputeBlobProof(blob, commitment)
-		require.NoError(err)
-		blobHash := kzg4844.CalcBlobHashV1(sha256.New(), &commitment)
-		builder := &action.EnvelopeBuilder{}
-		tx, err := builder.BuildTransfer(types.NewTx(&types.BlobTx{
-			Nonce:      2,
-			GasTipCap:  uint256.MustFromBig(big.NewInt(10)),
-			GasFeeCap:  uint256.MustFromBig(big.NewInt(2000000000000)),
-			Gas:        100000,
-			To:         common.BytesToAddress(identityset.Address(1).Bytes()),
-			Value:      uint256.MustFromBig(big.NewInt(1)),
-			BlobFeeCap: uint256.MustFromBig(big.NewInt(10)),
-			BlobHashes: []common.Hash{blobHash},
-			Sidecar: &types.BlobTxSidecar{
-				Blobs:       []kzg4844.Blob{blob},
-				Commitments: []kzg4844.Commitment{commitment},
-				Proofs:      []kzg4844.Proof{proof},
-			},
-		}))
-		require.NoError(err)
-		builder = &action.EnvelopeBuilder{}
-		tx2, err := builder.BuildTransfer(types.NewTx(&types.BlobTx{
-			Nonce:      1,
-			GasTipCap:  uint256.MustFromBig(big.NewInt(10)),
-			GasFeeCap:  uint256.MustFromBig(big.NewInt(2000000000000)),
-			Gas:        100000,
-			To:         common.BytesToAddress(identityset.Address(1).Bytes()),
-			Value:      uint256.MustFromBig(big.NewInt(2)),
-			BlobFeeCap: uint256.MustFromBig(big.NewInt(10)),
-			BlobHashes: []common.Hash{blobHash},
-			Sidecar: &types.BlobTxSidecar{
-				Blobs:       []kzg4844.Blob{blob},
-				Commitments: []kzg4844.Commitment{commitment},
-				Proofs:      []kzg4844.Proof{proof},
-			},
-		}))
-		require.NoError(err)
-		builder = &action.EnvelopeBuilder{}
-		tx3, err := builder.BuildTransfer(types.NewTx(&types.BlobTx{
-			Nonce:      1,
-			GasTipCap:  uint256.MustFromBig(big.NewInt(20)),
-			GasFeeCap:  uint256.MustFromBig(big.NewInt(4000000000000)),
-			Gas:        100000,
-			To:         common.BytesToAddress(identityset.Address(1).Bytes()),
-			Value:      uint256.MustFromBig(big.NewInt(2)),
-			BlobFeeCap: uint256.MustFromBig(big.NewInt(20)),
-			BlobHashes: []common.Hash{blobHash},
-			Sidecar: &types.BlobTxSidecar{
-				Blobs:       []kzg4844.Blob{blob},
-				Commitments: []kzg4844.Commitment{commitment},
-				Proofs:      []kzg4844.Proof{proof},
-			},
-		}))
-		require.NoError(err)
+		commitment := MustNoErrorV(kzg4844.BlobToCommitment(blob))
+		testBlobTxWithNonce := func(n uint64, tip, fee, blobFee int64) *action.SealedEnvelope {
+			tx := types.MustSignNewTx(identityset.PrivateKey(1).EcdsaPrivateKey().(*ecdsa.PrivateKey),
+				types.NewCancunSigner(big.NewInt(int64(4689))), &types.BlobTx{
+					Nonce:      n,
+					GasTipCap:  uint256.MustFromBig(big.NewInt(tip)),
+					GasFeeCap:  uint256.MustFromBig(big.NewInt(fee)),
+					Gas:        100000,
+					To:         common.BytesToAddress(identityset.Address(1).Bytes()),
+					Value:      uint256.MustFromBig(big.NewInt(1)),
+					BlobFeeCap: uint256.MustFromBig(big.NewInt(blobFee)),
+					BlobHashes: []common.Hash{kzg4844.CalcBlobHashV1(sha256.New(), &commitment)},
+					Sidecar: &types.BlobTxSidecar{
+						Blobs:       []kzg4844.Blob{blob},
+						Commitments: []kzg4844.Commitment{commitment},
+						Proofs:      []kzg4844.Proof{MustNoErrorV(kzg4844.ComputeBlobProof(blob, commitment))},
+					},
+				})
+			_, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
+			require.NoError(err)
+			req := &iotextypes.Action{
+				Core:         MustNoErrorV(action.EthRawToContainer(1, hex.EncodeToString(MustNoErrorV(tx.MarshalBinary())))),
+				SenderPubKey: pubkey.Bytes(),
+				Signature:    sig,
+				Encoding:     iotextypes.Encoding_TX_CONTAINER,
+			}
+			return MustNoErrorV((&action.Deserializer{}).SetEvmNetworkID(4689).ActionToSealedEnvelope(req))
+		}
 		// reject non-continuous nonce
 		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
 		g.VanuatuBlockHeight = 0
@@ -353,34 +329,18 @@ func TestActPool_AddActs(t *testing.T) {
 		require.NoError(ap.Start(ctx))
 		defer ap.Stop(ctx)
 		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-		signedTx, err := action.Sign(tx, identityset.PrivateKey(1))
-		require.NoError(err)
-		require.ErrorIs(ap.Add(ctx, signedTx), action.ErrNonceTooHigh)
+		require.ErrorIs(ap.Add(ctx, testBlobTxWithNonce(2, 10, 2000000000000, 10)), action.ErrNonceTooHigh)
 		// accept continuous nonce
-		tx.SetNonce(1)
-		signedTx, err = action.Sign(tx, identityset.PrivateKey(1))
-		require.NoError(err)
-		require.NoError(ap.Add(ctx, signedTx))
+		require.NoError(ap.Add(ctx, testBlobTxWithNonce(1, 10, 2000000000000, 10)))
 		// 2x price bump to replace
-		signedTx, err = action.Sign(tx2, identityset.PrivateKey(1))
-		require.NoError(err)
-		require.ErrorIs(ap.Add(ctx, signedTx), action.ErrReplaceUnderpriced)
-		signedTx, err = action.Sign(tx3, identityset.PrivateKey(1))
-		require.NoError(err)
-		require.NoError(ap.Add(ctx, signedTx))
+		require.ErrorIs(ap.Add(ctx, testBlobTxWithNonce(1, 10, 4000000000000, 20)), action.ErrReplaceUnderpriced)
+		require.ErrorIs(ap.Add(ctx, testBlobTxWithNonce(1, 20, 2000000000000, 20)), action.ErrReplaceUnderpriced)
+		require.ErrorIs(ap.Add(ctx, testBlobTxWithNonce(1, 20, 4000000000000, 10)), action.ErrReplaceUnderpriced)
+		require.NoError(ap.Add(ctx, testBlobTxWithNonce(1, 20, 4000000000000, 20)))
 		// max blob tx per account
-		tx.SetNonce(2)
-		signedTx, err = action.Sign(tx, identityset.PrivateKey(1))
-		require.NoError(err)
-		require.NoError(ap.Add(ctx, signedTx))
-		tx.SetNonce(3)
-		signedTx, err = action.Sign(tx, identityset.PrivateKey(1))
-		require.NoError(err)
-		require.NoError(ap.Add(ctx, signedTx))
-		tx.SetNonce(4)
-		signedTx, err = action.Sign(tx, identityset.PrivateKey(1))
-		require.NoError(err)
-		require.ErrorIs(ap.Add(ctx, signedTx), action.ErrNonceTooHigh)
+		require.NoError(ap.Add(ctx, testBlobTxWithNonce(2, 10, 2000000000000, 10)))
+		require.NoError(ap.Add(ctx, testBlobTxWithNonce(3, 10, 2000000000000, 10)))
+		require.ErrorIs(ap.Add(ctx, testBlobTxWithNonce(4, 10, 2000000000000, 10)), action.ErrNonceTooHigh)
 	})
 }
 

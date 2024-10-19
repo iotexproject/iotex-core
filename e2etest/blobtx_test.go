@@ -2,6 +2,7 @@ package e2etest
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"math/big"
 	"testing"
@@ -20,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
@@ -41,16 +41,15 @@ func TestBlobTx(t *testing.T) {
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
 	chainID := cfg.Chain.ID
+	evmNetworkID := cfg.Chain.EVMNetworkID
 	gasPrice := big.NewInt(unit.Qev)
 	gasFeeCap := big.NewInt(unit.Qev * 2)
 	gasTipCap := big.NewInt(1)
-	blobFeeCap := uint256.MustFromBig(big.NewInt(1))
-	contractBytecode, err := hex.DecodeString(`6080604052348015600e575f80fd5b506101438061001c5f395ff3fe608060405234801561000f575f80fd5b5060043610610034575f3560e01c80632e64cec1146100385780636057361d14610056575b5f80fd5b610040610072565b60405161004d919061009b565b60405180910390f35b610070600480360381019061006b91906100e2565b61007a565b005b5f8054905090565b805f8190555050565b5f819050919050565b61009581610083565b82525050565b5f6020820190506100ae5f83018461008c565b92915050565b5f80fd5b6100c181610083565b81146100cb575f80fd5b50565b5f813590506100dc816100b8565b92915050565b5f602082840312156100f7576100f66100b4565b5b5f610104848285016100ce565b9150509291505056fea26469706673582212209a0dd35336aff1eb3eeb11db76aa60a1427a12c1b92f945ea8c8d1dfa337cf2264736f6c634300081a0033`)
-	r.NoError(err)
+	blobFeeCap := uint256.NewInt(1)
 	var (
 		testBlob       = kzg4844.Blob{1, 2, 3, 4}
-		testBlobCommit = assertions.MustNoErrorV(kzg4844.BlobToCommitment(testBlob))
-		testBlobProof  = assertions.MustNoErrorV(kzg4844.ComputeBlobProof(testBlob, testBlobCommit))
+		testBlobCommit = mustNoErr(kzg4844.BlobToCommitment(testBlob))
+		testBlobProof  = mustNoErr(kzg4844.ComputeBlobProof(testBlob, testBlobCommit))
 	)
 	sidecar := &types.BlobTxSidecar{
 		Blobs:       []kzg4844.Blob{testBlob},
@@ -62,6 +61,33 @@ func TestBlobTx(t *testing.T) {
 	}
 	newLegacyTx := func(nonce uint64) action.TxCommonInternal {
 		return action.NewLegacyTx(chainID, nonce, gasLimit, gasPrice)
+	}
+	newBlobTxWeb3 := func(nonce uint64, addr string, value *big.Int, blobFee *uint256.Int, sidecar *types.BlobTxSidecar, blobHashes []common.Hash) (*action.SealedEnvelope, error) {
+		to := mustNoErr(address.FromString(addr))
+		txdata := types.BlobTx{
+			ChainID:    uint256.NewInt(uint64(evmNetworkID)),
+			Nonce:      nonce,
+			GasTipCap:  uint256.MustFromBig(gasTipCap),
+			GasFeeCap:  uint256.MustFromBig(gasFeeCap),
+			Gas:        gasLimit,
+			To:         common.BytesToAddress(to.Bytes()),
+			Value:      uint256.MustFromBig(value),
+			BlobFeeCap: blobFee,
+			BlobHashes: blobHashes,
+			Sidecar:    sidecar,
+		}
+		tx := types.MustSignNewTx(senderSK.EcdsaPrivateKey().(*ecdsa.PrivateKey), types.NewCancunSigner(txdata.ChainID.ToBig()), &txdata)
+		_, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
+		if err != nil {
+			return nil, err
+		}
+		req := &iotextypes.Action{
+			Core:         mustNoErr(action.EthRawToContainer(chainID, hex.EncodeToString(mustNoErr(tx.MarshalBinary())))),
+			SenderPubKey: pubkey.Bytes(),
+			Signature:    sig,
+			Encoding:     iotextypes.Encoding_TX_CONTAINER,
+		}
+		return (&action.Deserializer{}).SetEvmNetworkID(evmNetworkID).ActionToSealedEnvelope(req)
 	}
 	test.run([]*testcase{
 		{
@@ -95,7 +121,7 @@ func TestBlobTx(t *testing.T) {
 		{
 			name: "fail to verify blobs",
 			act: &actionWithTime{
-				mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr[sender], sidecar, []common.Hash{common.Hash{}}), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
+				mustNoErr(newBlobTxWeb3(test.nonceMgr[sender], sender, big.NewInt(1), blobFeeCap, sidecar, []common.Hash{{}})),
 				time.Now(),
 			},
 			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
@@ -105,7 +131,7 @@ func TestBlobTx(t *testing.T) {
 		{
 			name: "blobfee too low",
 			act: &actionWithTime{
-				mustNoErr(action.Sign(action.NewEnvelope(action.NewBlobTx(chainID, test.nonceMgr[sender], gasLimit, gasTipCap, gasFeeCap, nil, action.NewBlobTxData(uint256.NewInt(0), sidecar.BlobHashes(), sidecar)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
+				mustNoErr(newBlobTxWeb3(test.nonceMgr[sender], sender, big.NewInt(1), uint256.NewInt(0), sidecar, []common.Hash{{}})),
 				time.Now(),
 			},
 			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
@@ -114,31 +140,29 @@ func TestBlobTx(t *testing.T) {
 			}}},
 		},
 		{
-			name: "cannot create contract",
+			name: "protobuf does not support blob",
 			act: &actionWithTime{
-				mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr[sender], sidecar, sidecar.BlobHashes()), action.NewExecution("", big.NewInt(0), contractBytecode)), senderSK)),
+				mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr[sender], nil, []common.Hash{{}}), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
 				time.Now(),
 			},
 			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
-				r.ErrorIs(err, errReceiptNotFound)
+				r.ErrorIs(err, action.ErrInvalidAct)
+				r.ErrorContains(err, "protobuf encoding only supports legacy tx")
 			}}},
 		},
 		{
 			name: "accept after Vanuatu",
 			act: &actionWithTime{
-				mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
+				mustNoErr(newBlobTxWeb3(test.nonceMgr.pop(sender), sender, big.NewInt(1), blobFeeCap, sidecar, sidecar.BlobHashes())),
 				time.Now(),
 			},
 			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
 				r.Nil(err)
 				r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
 				// prepare data
-				resp, rerr := test.api.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{StartHeight: receipt.BlockHeight, Count: 1})
-				r.NoError(rerr)
+				resp := mustNoErr(test.api.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{StartHeight: receipt.BlockHeight, Count: 1}))
 				r.Len(resp.Blocks, 1)
-				d := &block.Deserializer{}
-				blk, err := d.SetEvmNetworkID(test.cfg.Chain.EVMNetworkID).FromBlockProto(resp.Blocks[0].Block)
-				r.NoError(err)
+				blk := mustNoErr((&block.Deserializer{}).SetEvmNetworkID(test.cfg.Chain.EVMNetworkID).FromBlockProto(resp.Blocks[0].Block))
 				baseFee := blk.BaseFee()
 				transfer := act.Envelope.Action().(*action.Transfer)
 				// check transaction logs
@@ -169,8 +193,7 @@ func TestBlobTx(t *testing.T) {
 					},
 				}, receipt.TransactionLogs())
 				// retrieve the blobs via api
-				blobs, err := test.getBlobs(receipt.BlockHeight)
-				r.NoError(err)
+				blobs := mustNoErr(test.getBlobs(receipt.BlockHeight))
 				r.Len(blobs, 1)
 				r.Equal(act.BlobTxSidecar(), blobs[0].BlobSidecar)
 			}}},
@@ -178,13 +201,13 @@ func TestBlobTx(t *testing.T) {
 		{
 			name: "6 blobs per block at most",
 			acts: []*actionWithTime{
-				{mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
-				{mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr.pop(sender), sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
+				{mustNoErr(newBlobTxWeb3(test.nonceMgr.pop(sender), sender, big.NewInt(1), blobFeeCap, sidecar, sidecar.BlobHashes())), time.Now()},
+				{mustNoErr(newBlobTxWeb3(test.nonceMgr.pop(sender), sender, big.NewInt(1), blobFeeCap, sidecar, sidecar.BlobHashes())), time.Now()},
+				{mustNoErr(newBlobTxWeb3(test.nonceMgr.pop(sender), sender, big.NewInt(1), blobFeeCap, sidecar, sidecar.BlobHashes())), time.Now()},
+				{mustNoErr(newBlobTxWeb3(test.nonceMgr.pop(sender), sender, big.NewInt(1), blobFeeCap, sidecar, sidecar.BlobHashes())), time.Now()},
+				{mustNoErr(newBlobTxWeb3(test.nonceMgr.pop(sender), sender, big.NewInt(1), blobFeeCap, sidecar, sidecar.BlobHashes())), time.Now()},
+				{mustNoErr(newBlobTxWeb3(test.nonceMgr.pop(sender), sender, big.NewInt(1), blobFeeCap, sidecar, sidecar.BlobHashes())), time.Now()},
+				{mustNoErr(newBlobTxWeb3(test.nonceMgr.pop(sender), sender, big.NewInt(1), blobFeeCap, sidecar, sidecar.BlobHashes())), time.Now()},
 			},
 			blockExpect: func(test *e2etest, blk *block.Block, err error) {
 				r.NoError(err)
