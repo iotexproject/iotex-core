@@ -6,14 +6,12 @@
 package block
 
 import (
-	"context"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -101,44 +99,14 @@ func (b *Block) TransactionLog() *BlkTransactionLog {
 
 // ActionByHash returns the action of a given hash
 func (b *Block) ActionByHash(h hash.Hash256) (*action.SealedEnvelope, uint32, error) {
-	var (
-		acts      = make(chan int, len(b.Actions))
-		res       = make(chan int)
-		wg, _     = errgroup.WithContext(context.Background())
-		finish    = make(chan error, 1)
-		workerNum = 8
-	)
-
-	for i := 0; i < workerNum; i++ {
-		wg.Go(func() error {
-			for index := range acts {
-				act := b.Actions[index]
-				actHash, err := act.Hash()
-				if err != nil {
-					return err
-				}
-				if actHash == h {
-					res <- index
-					return nil
-				}
-			}
-			return nil
-		})
-	}
-	for i := range b.Actions {
-		acts <- i
-	}
-
-	go func() {
-		finish <- wg.Wait()
-	}()
-	select {
-	case idx := <-res:
-		return b.Actions[idx], uint32(idx), nil
-	case err := <-finish:
+	for i, act := range b.Actions {
+		actHash, err := act.Hash()
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, errors.Errorf("hash failed for action %d", i)
 		}
-		return nil, 0, errors.Errorf("block does not have action %x", h)
+		if actHash == h {
+			return act, uint32(i), nil
+		}
 	}
+	return nil, 0, errors.Errorf("block does not have action %x", h)
 }
