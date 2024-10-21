@@ -38,11 +38,6 @@ func (v *blobValidator) Validate(ctx context.Context, act *action.SealedEnvelope
 	return nil
 }
 
-func (v *blobValidator) ValidateWithState(ctx context.Context, act *action.SealedEnvelope) error {
-	panic("should not call blobValidator.ValidateWithState")
-
-}
-
 func (v *blobValidator) OnAdded(act *action.SealedEnvelope) {
 	if len(act.BlobHashes()) == 0 {
 		return

@@ -262,20 +262,6 @@ func (mr *MockActPoolMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActPool)(nil).Validate), arg0, arg1)
 }
 
-// ValidateWithState mocks base method.
-func (m *MockActPool) ValidateWithState(arg0 context.Context, arg1 *action.SealedEnvelope) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateWithState", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ValidateWithState indicates an expected call of ValidateWithState.
-func (mr *MockActPoolMockRecorder) ValidateWithState(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateWithState", reflect.TypeOf((*MockActPool)(nil).ValidateWithState), arg0, arg1)
-}
-
 // MockSubscriber is a mock of Subscriber interface.
 type MockSubscriber struct {
 	ctrl     *gomock.Controller

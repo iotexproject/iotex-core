@@ -13,5 +13,4 @@ import (
 type SealedEnvelopeValidator interface {
 	// Validate returns an error if any validation failed
 	Validate(context.Context, *SealedEnvelope) error
-	ValidateWithState(context.Context, *SealedEnvelope) error
 }

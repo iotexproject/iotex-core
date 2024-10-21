@@ -451,10 +451,6 @@ func (ap *actPool) Validate(ctx context.Context, selp *action.SealedEnvelope) er
 	return ap.validate(ctx, selp)
 }
 
-func (ap *actPool) ValidateWithState(ctx context.Context, selp *action.SealedEnvelope) error {
-	panic("should not call actPool.ValidateWithState")
-}
-
 func (ap *actPool) DeleteAction(caller address.Address) {
 	if caller == nil {
 		return
