@@ -8,7 +8,7 @@ package testutil
 import (
 	"os"
 
-	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/fileutil"
 )
 
 // PathOfTempFile returns path of a new temporary file

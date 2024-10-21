@@ -8,8 +8,8 @@ package blockdao
 import (
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/blockchain/blockdao/blobindexpb"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao/blobindexpb"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 type blobIndex struct {

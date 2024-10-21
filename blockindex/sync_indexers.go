@@ -8,8 +8,8 @@ package blockindex
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 )
 
 // SyncIndexers is a special index that includes multiple indexes,

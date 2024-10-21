@@ -9,7 +9,7 @@ import (
 	"bytes"
 	"container/heap"
 
-	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/v2/action"
 )
 
 // ActionByPrice implements both the sort and the heap interface, making it useful

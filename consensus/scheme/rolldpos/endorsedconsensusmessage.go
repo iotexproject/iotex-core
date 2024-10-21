@@ -6,10 +6,10 @@
 package rolldpos
 
 import (
-	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/endorsement"
+	"github.com/iotexproject/iotex-core/v2/endorsement"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 

@@ -22,7 +22,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/iotexproject/iotex-proto/golang/testingpb"
 
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 // TODO: define defaultChainID in chain.DefaultConfig

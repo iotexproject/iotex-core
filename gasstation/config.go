@@ -5,7 +5,7 @@
 
 package gasstation
 
-import "github.com/iotexproject/iotex-core/pkg/unit"
+import "github.com/iotexproject/iotex-core/v2/pkg/unit"
 
 // Config is the gas station config
 type Config struct {

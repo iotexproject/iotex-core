@@ -9,7 +9,7 @@ package db
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 )
 
 type (

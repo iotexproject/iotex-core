@@ -16,7 +16,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/crypto"
 
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 var stakeDepositTestParams = []struct {

@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/db/trie"
+	"github.com/iotexproject/iotex-core/v2/db/trie"
 )
 
 func TestIterator(t *testing.T) {

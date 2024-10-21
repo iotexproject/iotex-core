@@ -3,8 +3,8 @@ package v3
 import (
 	"encoding/hex"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
-	stakingComm "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi/common"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	stakingComm "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi/common"
 )
 
 func BuildReadStateRequest(data []byte) (protocol.StateContext, error) {

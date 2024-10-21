@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	dispatcher "github.com/iotexproject/iotex-core/dispatcher"
+	dispatcher "github.com/iotexproject/iotex-core/v2/dispatcher"
 	peer "github.com/libp2p/go-libp2p/core/peer"
 	proto "google.golang.org/protobuf/proto"
 )
