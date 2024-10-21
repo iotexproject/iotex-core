@@ -8,6 +8,7 @@
 // option go_package = "../indexpb"; is to specify the package name in the generated go file
 syntax = "proto3";
 package indexpb;
+option go_package = "github.com/iotexproject/iotex-core/v2/blockindex/indexpb";
 
 message BlockIndex {
     uint32 numAction = 1;
@@ -17,6 +18,7 @@ message BlockIndex {
 
 message ActionIndex {
     uint64 blkHeight = 1;
+    uint32 txNumber = 2;
 }
 
 message SGDIndex {

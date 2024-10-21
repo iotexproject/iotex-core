@@ -322,8 +322,6 @@ func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 	}
 
 	// store height of the block, so getReceiptByActionHash() can use height to directly pull receipts
-	ad := (&ActionIndex{
-		blkHeight: blk.Height()}).Serialize()
 	if err := x.tac.UseBatch(x.batch); err != nil {
 		return err
 	}
@@ -331,11 +329,12 @@ func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 	fCtx := protocol.MustGetFeatureCtx(protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: blk.Height(),
 	})))
-	for _, selp := range blk.Actions {
+	for idx, selp := range blk.Actions {
 		actHash, err := selp.Hash()
 		if err != nil {
 			return err
 		}
+		ad := (&ActionIndex{blkHeight: blk.Height(), txNumber: uint32(idx + 1)}).Serialize()
 		x.batch.Put(_actionToBlockHashNS, actHash[_hashOffset:], ad, fmt.Sprintf("failed to put action hash %x", actHash))
 		// add to total account index
 		if err := x.tac.Add(actHash[:], true); err != nil {

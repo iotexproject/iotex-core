@@ -1110,6 +1110,9 @@ func (core *coreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvel
 	if err != nil {
 		return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
+	if actIndex.TxNumber() > 0 {
+		return blk.Actions[actIndex.TxNumber()-1], blk, actIndex.TxNumber() - 1, nil
+	}
 	selp, index, err := blk.ActionByHash(h)
 	if err != nil {
 		return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
