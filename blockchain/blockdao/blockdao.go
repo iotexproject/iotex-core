@@ -168,12 +168,31 @@ func (dao *blockDAO) Stop(ctx context.Context) error {
 }
 
 func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
+	if height == 0 {
+		return block.GenesisHash(), nil
+	}
+	if v, ok := lruCacheGet(dao.headerCache, height); ok {
+		_cacheMtc.WithLabelValues("hit_header").Inc()
+		return v.(*block.Header).HashBlock(), nil
+	}
+	if v, ok := lruCacheGet(dao.blockCache, height); ok {
+		_cacheMtc.WithLabelValues("hit_block").Inc()
+		return v.(*block.Block).HashBlock(), nil
+	}
 	timer := dao.timerFactory.NewTimer("get_block_hash")
 	defer timer.End()
 	return dao.blockStore.GetBlockHash(height)
 }
 
 func (dao *blockDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
+	if v, ok := lruCacheGet(dao.headerCache, hash); ok {
+		_cacheMtc.WithLabelValues("hit_header").Inc()
+		return v.(*block.Header).Height(), nil
+	}
+	if v, ok := lruCacheGet(dao.blockCache, hash); ok {
+		_cacheMtc.WithLabelValues("hit_block").Inc()
+		return v.(*block.Block).Height(), nil
+	}
 	timer := dao.timerFactory.NewTimer("get_block_height")
 	defer timer.End()
 	return dao.blockStore.GetBlockHeight(hash)
