@@ -58,8 +58,3 @@ type StoreConfig struct {
 	Store        actionStoreConfig `yaml:"store"`
 	ReadInterval time.Duration     `yaml:"readInterval"` // Interval to read from store to actpool memory
 }
-
-var defaultStoreConfig = StoreConfig{
-	Store:        defaultActionStoreConfig,
-	ReadInterval: 10 * time.Minute,
-}
