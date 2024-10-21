@@ -37,6 +37,7 @@ type (
 		helper   *Helper
 		cfg      Config
 		quit     chan struct{}
+		mu       sync.Mutex
 	}
 
 	actionMsg struct {
@@ -57,12 +58,12 @@ func NewActionSync(cfg Config, helper *Helper) *ActionSync {
 // Start starts the action syncer
 func (as *ActionSync) Start(ctx context.Context) error {
 	log.L().Info("starting action sync")
-	as.wg.Add(1)
+	as.mu.Lock()
+	as.mu.Unlock()
+
+	as.wg.Add(2)
 	go as.sync()
-
-	as.wg.Add(1)
 	go as.triggerSync()
-
 	return as.TurnOn()
 }
 
@@ -72,9 +73,14 @@ func (as *ActionSync) Stop(ctx context.Context) error {
 	if err := as.TurnOff(); err != nil {
 		return err
 	}
+
+	as.mu.Lock()
 	close(as.quit)
-	close(as.syncChan)
+
+	as.mu.Unlock()
+
 	as.wg.Wait()
+	close(as.syncChan)
 	return nil
 }
 
@@ -105,26 +111,34 @@ func (as *ActionSync) ReceiveAction(_ context.Context, hash hash.Hash256) {
 
 func (as *ActionSync) sync() {
 	defer as.wg.Done()
-	for hash := range as.syncChan {
-		log.L().Debug("syncing action", log.Hex("hash", hash[:]))
-		ctx, cancel := context.WithTimeout(context.Background(), unicaseTimeout)
-		defer cancel()
-		msg, ok := as.actions.Load(hash)
-		if !ok {
-			log.L().Debug("action not requested or already received", log.Hex("hash", hash[:]))
-			continue
-		}
-		if time.Since(msg.(*actionMsg).lastTime) < as.cfg.Interval {
-			log.L().Debug("action is recently requested", log.Hex("hash", hash[:]))
-			continue
-		}
-		msg.(*actionMsg).lastTime = time.Now()
-		// TODO: enhancement, request multiple actions in one message
-		if err := as.requestFromNeighbors(ctx, hash); err != nil {
-			log.L().Warn("Failed to request action from neighbors", zap.Error(err))
+	for {
+		select {
+		case hash := <-as.syncChan:
+			if as.IsReady() {
+				return
+			}
+			log.L().Debug("syncing action", log.Hex("hash", hash[:]))
+			ctx, cancel := context.WithTimeout(context.Background(), unicaseTimeout)
+			defer cancel()
+			msg, ok := as.actions.Load(hash)
+			if !ok {
+				log.L().Debug("action not requested or already received", log.Hex("hash", hash[:]))
+				continue
+			}
+			if time.Since(msg.(*actionMsg).lastTime) < as.cfg.Interval {
+				log.L().Debug("action is recently requested", log.Hex("hash", hash[:]))
+				continue
+			}
+			msg.(*actionMsg).lastTime = time.Now()
+			// TODO: enhancement, request multiple actions in one message
+			if err := as.requestFromNeighbors(ctx, hash); err != nil {
+				log.L().Warn("Failed to request action from neighbors", zap.Error(err))
+			}
+		case <-as.quit:
+			log.L().Info("quitting action sync")
+			return
 		}
 	}
-	log.L().Info("quitting action sync")
 }
 
 func (as *ActionSync) triggerSync() {
@@ -134,6 +148,9 @@ func (as *ActionSync) triggerSync() {
 	for {
 		select {
 		case <-ticker.C:
+			if as.IsReady() {
+				return
+			}
 			as.actions.Range(func(key, value interface{}) bool {
 				as.trigger(key.(hash.Hash256))
 				return true
@@ -149,9 +166,13 @@ func (as *ActionSync) trigger(hash hash.Hash256) {
 	if !as.IsReady() {
 		return
 	}
-
+	as.mu.Lock()
+	defer as.mu.Unlock()
 	select {
 	case as.syncChan <- hash:
+	case <-as.quit:
+		log.L().Info("quitting action trigger sync")
+		return
 	default:
 		log.L().Warn("action sync channel is full, fail to sync action", log.Hex("hash", hash[:]))
 	}
