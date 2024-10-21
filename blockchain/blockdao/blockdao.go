@@ -168,14 +168,12 @@ func (dao *blockDAO) Stop(ctx context.Context) error {
 }
 
 func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
-	_cacheMtc.WithLabelValues("miss_block").Inc()
 	timer := dao.timerFactory.NewTimer("get_block_hash")
 	defer timer.End()
 	return dao.blockStore.GetBlockHash(height)
 }
 
 func (dao *blockDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
-	_cacheMtc.WithLabelValues("miss_block").Inc()
 	timer := dao.timerFactory.NewTimer("get_block_height")
 	defer timer.End()
 	return dao.blockStore.GetBlockHeight(hash)
