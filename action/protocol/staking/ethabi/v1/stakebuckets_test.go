@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	stakingComm "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi/common"
+	stakingComm "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi/common"
 )
 
 func TestBuildReadStateRequestBuckets(t *testing.T) {

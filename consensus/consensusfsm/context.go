@@ -11,7 +11,7 @@ import (
 	fsm "github.com/iotexproject/go-fsm"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 )
 
 // Context defines the context of the fsm

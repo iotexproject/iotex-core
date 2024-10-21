@@ -11,7 +11,7 @@ import (
 	common "github.com/ethereum/go-ethereum/common"
 	types "github.com/ethereum/go-ethereum/core/types"
 	gomock "github.com/golang/mock/gomock"
-	action "github.com/iotexproject/iotex-core/action"
+	action "github.com/iotexproject/iotex-core/v2/action"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 

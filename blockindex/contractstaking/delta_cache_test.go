@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 func TestContractStakingDelta_BucketInfoDelta(t *testing.T) {
