@@ -7,7 +7,6 @@ package blockdao
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -73,7 +72,6 @@ type (
 		receiptCache cache.LRUCache
 		blockCache   cache.LRUCache
 		txLogCache   cache.LRUCache
-		heightToHash sync.Map
 		tipHeight    uint64
 	}
 )
@@ -112,9 +110,7 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockStore, indexers []BlockIndexe
 		blockDAO.headerCache = cache.NewThreadSafeLruCache(cacheSize)
 		blockDAO.footerCache = cache.NewThreadSafeLruCache(cacheSize)
 		blockDAO.receiptCache = cache.NewThreadSafeLruCache(cacheSize)
-		blockDAO.blockCache = cache.NewThreadSafeLruCacheWithOnEvicted(cacheSize, func(_ cache.Key, value interface{}) {
-			blockDAO.heightToHash.Delete(value.(*block.Block).Height())
-		})
+		blockDAO.blockCache = cache.NewThreadSafeLruCache(cacheSize)
 		blockDAO.txLogCache = cache.NewThreadSafeLruCache(cacheSize)
 	}
 	timerFactory, err := prometheustimer.New(
@@ -172,10 +168,6 @@ func (dao *blockDAO) Stop(ctx context.Context) error {
 }
 
 func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
-	if v, ok := dao.heightToHash.Load(height); ok {
-		_cacheMtc.WithLabelValues("hit_block").Inc()
-		return v.(hash.Hash256), nil
-	}
 	_cacheMtc.WithLabelValues("miss_block").Inc()
 	timer := dao.timerFactory.NewTimer("get_block_hash")
 	defer timer.End()
@@ -183,10 +175,6 @@ func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
 }
 
 func (dao *blockDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
-	if blk, ok := lruCacheGet(dao.blockCache, hash); ok {
-		_cacheMtc.WithLabelValues("hit_block").Inc()
-		return blk.(*block.Block).Height(), nil
-	}
 	_cacheMtc.WithLabelValues("miss_block").Inc()
 	timer := dao.timerFactory.NewTimer("get_block_height")
 	defer timer.End()
@@ -207,14 +195,14 @@ func (dao *blockDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
 		return nil, err
 	}
 	lruCachePut(dao.blockCache, hash, blk)
-	dao.heightToHash.Store(blk.Height(), hash)
+	lruCachePut(dao.blockCache, blk.Height(), blk)
 	return blk, nil
 }
 
 func (dao *blockDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
-	if blk := dao.getBlockByHeightFromCache(height); blk != nil {
+	if blk, ok := lruCacheGet(dao.blockCache, height); ok {
 		_cacheMtc.WithLabelValues("hit_block").Inc()
-		return blk, nil
+		return blk.(*block.Block), nil
 	}
 	_cacheMtc.WithLabelValues("miss_block").Inc()
 	timer := dao.timerFactory.NewTimer("get_block_byheight")
@@ -223,29 +211,25 @@ func (dao *blockDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	hash := blk.HashBlock()
-	lruCachePut(dao.blockCache, hash, blk)
-	dao.heightToHash.Store(blk.Height(), hash)
+	lruCachePut(dao.blockCache, height, blk)
 	return blk, nil
 }
 
-func (dao *blockDAO) getBlockByHeightFromCache(height uint64) *block.Block {
-	if v, ok := dao.heightToHash.Load(height); ok {
-		if blk, ok := lruCacheGet(dao.blockCache, v.(hash.Hash256)); ok {
-			return blk.(*block.Block)
-		}
+func (dao *blockDAO) headerFromCache(heightOrHash any) *block.Header {
+	if v, ok := lruCacheGet(dao.headerCache, heightOrHash); ok {
+		_cacheMtc.WithLabelValues("hit_header").Inc()
+		return v.(*block.Header)
+	}
+	if blk, ok := lruCacheGet(dao.blockCache, heightOrHash); ok {
+		_cacheMtc.WithLabelValues("hit_block").Inc()
+		return &blk.(*block.Block).Header
 	}
 	return nil
 }
 
 func (dao *blockDAO) HeaderByHeight(height uint64) (*block.Header, error) {
-	if v, ok := lruCacheGet(dao.headerCache, height); ok {
-		_cacheMtc.WithLabelValues("hit_header").Inc()
-		return v.(*block.Header), nil
-	}
-	if blk := dao.getBlockByHeightFromCache(height); blk != nil {
-		_cacheMtc.WithLabelValues("hit_block").Inc()
-		return &blk.Header, nil
+	if v := dao.headerFromCache(height); v != nil {
+		return v, nil
 	}
 	_cacheMtc.WithLabelValues("miss_header").Inc()
 	header, err := dao.blockStore.HeaderByHeight(height)
@@ -262,9 +246,9 @@ func (dao *blockDAO) FooterByHeight(height uint64) (*block.Footer, error) {
 		_cacheMtc.WithLabelValues("hit_footer").Inc()
 		return v.(*block.Footer), nil
 	}
-	if blk := dao.getBlockByHeightFromCache(height); blk != nil {
+	if v, ok := lruCacheGet(dao.blockCache, height); ok {
 		_cacheMtc.WithLabelValues("hit_block").Inc()
-		return &blk.Footer, nil
+		return &v.(*block.Block).Footer, nil
 	}
 	_cacheMtc.WithLabelValues("miss_footer").Inc()
 	footer, err := dao.blockStore.FooterByHeight(height)
@@ -281,13 +265,8 @@ func (dao *blockDAO) Height() (uint64, error) {
 }
 
 func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
-	if header, ok := lruCacheGet(dao.headerCache, h); ok {
-		_cacheMtc.WithLabelValues("hit_header").Inc()
-		return header.(*block.Header), nil
-	}
-	if header, ok := lruCacheGet(dao.blockCache, h); ok {
-		_cacheMtc.WithLabelValues("hit_block").Inc()
-		return &header.(*block.Block).Header, nil
+	if v := dao.headerFromCache(h); v != nil {
+		return v, nil
 	}
 	_cacheMtc.WithLabelValues("miss_header").Inc()
 	header, err := dao.blockStore.Header(h)
@@ -353,7 +332,7 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	lruCachePut(dao.headerCache, blk.Height(), &header)
 	lruCachePut(dao.headerCache, header.HashHeader(), &header)
 	lruCachePut(dao.blockCache, hash, blk)
-	dao.heightToHash.Store(blk.Height(), hash)
+	lruCachePut(dao.blockCache, blk.Height(), blk)
 	timer.End()
 
 	// index the block if there's indexer
