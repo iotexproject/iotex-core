@@ -130,8 +130,9 @@ func (bs *blobStore) getBlobs(height uint64) ([]*types.BlobTxSidecar, []string, 
 }
 
 func (bs *blobStore) PutBlock(blk *block.Block) error {
-	if blk.Height() <= atomic.LoadUint64(&bs.currWriteBlock) {
-		return errors.Errorf("block height %d is less than current tip height", blk.Height())
+	height := blk.Height()
+	if height <= atomic.LoadUint64(&bs.currWriteBlock) {
+		return errors.Errorf("block height %d is less than current tip height", height)
 	}
 	pb := iotextypes.BlobTxSidecars{
 		TxHash:   make([][]byte, 0),
@@ -154,16 +155,12 @@ func (bs *blobStore) PutBlock(blk *block.Block) error {
 	if len(pb.Sidecars) != 0 {
 		raw, err = proto.Marshal(&pb)
 		if err != nil {
-			return errors.Wrapf(err, "failed to put block = %d", blk.Height())
+			return errors.Wrapf(err, "failed to put block = %d", height)
 		}
 	}
-	return bs.putSidecars(blk.Height(), raw, pb.TxHash)
-}
-
-func (bs *blobStore) putSidecars(height uint64, raw []byte, txHash [][]byte) error {
 	b := batch.NewBatch()
 	if raw != nil {
-		bs.putBlob(raw, height, txHash, b)
+		bs.putBlob(raw, height, pb.TxHash, b)
 	}
 	if height >= bs.totalBlocks {
 		k := keyForBlock(height - bs.totalBlocks)
