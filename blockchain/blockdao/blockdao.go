@@ -171,13 +171,8 @@ func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
 	if height == 0 {
 		return block.GenesisHash(), nil
 	}
-	if v, ok := lruCacheGet(dao.headerCache, height); ok {
-		_cacheMtc.WithLabelValues("hit_header").Inc()
-		return v.(*block.Header).HashBlock(), nil
-	}
-	if v, ok := lruCacheGet(dao.blockCache, height); ok {
-		_cacheMtc.WithLabelValues("hit_block").Inc()
-		return v.(*block.Block).HashBlock(), nil
+	if header := dao.headerFromCache(height); header != nil {
+		return header.HashBlock(), nil
 	}
 	timer := dao.timerFactory.NewTimer("get_block_hash")
 	defer timer.End()
@@ -185,13 +180,8 @@ func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
 }
 
 func (dao *blockDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
-	if v, ok := lruCacheGet(dao.headerCache, hash); ok {
-		_cacheMtc.WithLabelValues("hit_header").Inc()
-		return v.(*block.Header).Height(), nil
-	}
-	if v, ok := lruCacheGet(dao.blockCache, hash); ok {
-		_cacheMtc.WithLabelValues("hit_block").Inc()
-		return v.(*block.Block).Height(), nil
+	if header := dao.headerFromCache(hash); header != nil {
+		return header.Height(), nil
 	}
 	timer := dao.timerFactory.NewTimer("get_block_height")
 	defer timer.End()
