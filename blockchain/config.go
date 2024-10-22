@@ -17,22 +17,27 @@ import (
 	"go.uber.org/config"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type (
 	// Config is the config struct for blockchain package
 	Config struct {
-		ChainDBPath                string           `yaml:"chainDBPath"`
-		TrieDBPatchFile            string           `yaml:"trieDBPatchFile"`
-		TrieDBPath                 string           `yaml:"trieDBPath"`
-		StakingPatchDir            string           `yaml:"stakingPatchDir"`
-		IndexDBPath                string           `yaml:"indexDBPath"`
-		BloomfilterIndexDBPath     string           `yaml:"bloomfilterIndexDBPath"`
-		CandidateIndexDBPath       string           `yaml:"candidateIndexDBPath"`
-		StakingIndexDBPath         string           `yaml:"stakingIndexDBPath"`
+		ChainDBPath            string `yaml:"chainDBPath"`
+		TrieDBPatchFile        string `yaml:"trieDBPatchFile"`
+		TrieDBPath             string `yaml:"trieDBPath"`
+		StakingPatchDir        string `yaml:"stakingPatchDir"`
+		IndexDBPath            string `yaml:"indexDBPath"`
+		BloomfilterIndexDBPath string `yaml:"bloomfilterIndexDBPath"`
+		CandidateIndexDBPath   string `yaml:"candidateIndexDBPath"`
+		StakingIndexDBPath     string `yaml:"stakingIndexDBPath"`
+		// deprecated
+		SGDIndexDBPath             string           `yaml:"sgdIndexDBPath"`
 		ContractStakingIndexDBPath string           `yaml:"contractStakingIndexDBPath"`
+		BlobStoreDBPath            string           `yaml:"blobStoreDBPath"`
+		BlobStoreRetentionDays     uint32           `yaml:"blobStoreRetentionDays"`
+		BlobPurgeInterval          time.Duration    `yaml:"blobPurgeInterval"`
 		ID                         uint32           `yaml:"id"`
 		EVMNetworkID               uint32           `yaml:"evmNetworkID"`
 		Address                    string           `yaml:"address"`
@@ -86,7 +91,11 @@ var (
 		BloomfilterIndexDBPath:     "/var/data/bloomfilter.index.db",
 		CandidateIndexDBPath:       "/var/data/candidate.index.db",
 		StakingIndexDBPath:         "/var/data/staking.index.db",
+		SGDIndexDBPath:             "/var/data/sgd.index.db",
 		ContractStakingIndexDBPath: "/var/data/contractstaking.index.db",
+		BlobStoreDBPath:            "/var/data/blob.db",
+		BlobStoreRetentionDays:     21,
+		BlobPurgeInterval:          time.Hour,
 		ID:                         1,
 		EVMNetworkID:               4689,
 		Address:                    "",

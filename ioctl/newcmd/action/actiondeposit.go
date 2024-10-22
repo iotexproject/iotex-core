@@ -9,10 +9,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/util"
 )
 
 // Multi-language support
@@ -66,15 +66,14 @@ func NewActionDepositCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get nonce")
 			}
-			act := (&action.DepositToRewardingFundBuilder{}).SetAmount(amount).SetData(payload).Build()
-
+			act := action.NewDepositToRewardingFund(amount, payload)
 			return SendAction(
 				client,
 				cmd,
 				(&action.EnvelopeBuilder{}).SetNonce(nonce).
 					SetGasPrice(gasPriceRau).
 					SetGasLimit(gasLimit).
-					SetAction(&act).Build(),
+					SetAction(act).Build(),
 				sender,
 				password,
 				nonce,

@@ -13,14 +13,14 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/db/trie/mptrie"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/db/trie"
+	"github.com/iotexproject/iotex-core/v2/db/trie/mptrie"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 func processOptions(opts ...protocol.StateOption) (*protocol.StateConfig, error) {
@@ -80,6 +80,14 @@ func calculateGasUsed(receipts []*action.Receipt) uint64 {
 		gas += receipt.GasConsumed
 	}
 	return gas
+}
+
+func calculateBlobGasUsed(receipts []*action.Receipt) uint64 {
+	var blobGas uint64
+	for _, receipt := range receipts {
+		blobGas += receipt.BlobGasUsed
+	}
+	return blobGas
 }
 
 // generateWorkingSetCacheKey generates hash key for workingset cache by hashing blockheader core and producer pubkey

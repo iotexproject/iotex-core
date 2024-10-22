@@ -22,7 +22,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 
-	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/v2/action"
 )
 
 const (
@@ -198,17 +198,7 @@ func (c *contract) Transact(data []byte, readOnly bool) (string, error) {
 	nonce := response.AccountMeta.PendingNonce
 	gasPrice := big.NewInt(0)
 	gasLimit := GasLimitPerByte*uint64(len(data)) + 5000000
-	tx, err := action.NewExecution(
-		c.addr,
-		nonce,
-		big.NewInt(0),
-		gasLimit,
-		gasPrice,
-		data)
-	if err != nil {
-		return "", err
-	}
-
+	tx := action.NewExecution(c.addr, big.NewInt(0), data)
 	if readOnly {
 		response, err := cli.ReadContract(ctx, &iotexapi.ReadContractRequest{
 			Execution:     tx.Proto(),
@@ -220,11 +210,8 @@ func (c *contract) Transact(data []byte, readOnly bool) (string, error) {
 		return response.Data, nil
 	}
 
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
-		SetGasPrice(gasPrice).
-		SetGasLimit(gasLimit).
-		SetAction(tx).Build()
+	elp := (&action.EnvelopeBuilder{}).SetNonce(nonce).SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).SetAction(tx).Build()
 	prvKey, err := crypto.HexStringToPrivateKey(c.prvkey)
 	if err != nil {
 		return "", crypto.ErrInvalidKey

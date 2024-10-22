@@ -23,14 +23,14 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 var (
@@ -110,17 +110,9 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	if err != nil {
 		return err
 	}
-	execution, err := action.NewExecution(
-		"",
-		_nativeStakingContractNonce,
-		big.NewInt(0),
-		g.BlockGasLimitByHeight(0),
-		big.NewInt(0),
-		bytes,
-	)
-	if err != nil {
-		return err
-	}
+	execution := action.NewExecution("", big.NewInt(0), bytes)
+	elp := (&action.EnvelopeBuilder{}).SetGasLimit(g.BlockGasLimitByHeight(0)).
+		SetNonce(_nativeStakingContractNonce).SetAction(execution).Build()
 	actionCtx := protocol.ActionCtx{}
 	actionCtx.Caller, err = address.FromString(_nativeStakingContractCreator)
 	if err != nil {
@@ -128,8 +120,8 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	}
 	actionCtx.Nonce = _nativeStakingContractNonce
 	actionCtx.ActionHash = _nativeStakingContractHash
-	actionCtx.GasPrice = execution.GasPrice()
-	actionCtx.IntrinsicGas, err = execution.IntrinsicGas()
+	actionCtx.GasPrice = elp.GasPrice()
+	actionCtx.IntrinsicGas, err = elp.IntrinsicGas()
 	if err != nil {
 		return err
 	}
@@ -143,16 +135,12 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 			// make sure the returned timestamp is after the current block time so that evm upgrades based on timestamp (Shanghai and onwards) are disabled
 			return blkCtx.BlockTimeStamp.Add(5 * time.Second), nil
 		},
-		DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int, ...protocol.Option) ([]*action.TransactionLog, error) {
+		DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int, ...protocol.DepositOption) ([]*action.TransactionLog, error) {
 			return nil, nil
 		},
 	})
 	// deploy native staking contract
-	_, receipt, err := evm.ExecuteContract(
-		ctx,
-		sm,
-		action.NewEvmTx(execution),
-	)
+	_, receipt, err := evm.ExecuteContract(ctx, sm, elp)
 	if err != nil {
 		return err
 	}

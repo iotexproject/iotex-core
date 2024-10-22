@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
 
-	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_apicoreservice"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 func TestServerV2(t *testing.T) {
@@ -28,7 +28,7 @@ func TestServerV2(t *testing.T) {
 		core:         core,
 		grpcServer:   NewGRPCServer(core, nil, testutil.RandomPort()),
 		httpSvr:      NewHTTPServer("", testutil.RandomPort(), newHTTPHandler(web3Handler)),
-		websocketSvr: NewHTTPServer("", testutil.RandomPort(), NewWebsocketHandler(web3Handler, nil)),
+		websocketSvr: NewHTTPServer("", testutil.RandomPort(), NewWebsocketHandler(core, web3Handler, nil)),
 	}
 	ctx := context.Background()
 

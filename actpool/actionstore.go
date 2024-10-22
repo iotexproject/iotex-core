@@ -10,11 +10,12 @@ import (
 	"github.com/holiman/billy"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 const (
@@ -40,9 +41,9 @@ const (
 )
 
 type (
-	blobStore struct {
+	actionStore struct {
 		lifecycle.Readiness
-		config blobStoreConfig // Configuration for the blob store
+		config actionStoreConfig // Configuration for the blob store
 
 		store  billy.Database // Persistent data store for the tx
 		stored uint64         // Useful data size of all transactions on disk
@@ -53,7 +54,7 @@ type (
 		encode encodeAction // Encoder for the tx
 		decode decodeAction // Decoder for the tx
 	}
-	blobStoreConfig struct {
+	actionStoreConfig struct {
 		Datadir string `yaml:"datadir"` // Data directory containing the currently executable blobs
 		Datacap uint64 `yaml:"datacap"` // Soft-cap of database storage (hard cap is larger due to overhead)
 	}
@@ -68,16 +69,25 @@ var (
 	errStoreNotOpen = fmt.Errorf("blob store is not open")
 )
 
-var defaultBlobStoreConfig = blobStoreConfig{
-	Datadir: "blobpool",
-	Datacap: 10 * 1024 * 1024 * 1024,
+var (
+	actionStoreMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_actionstore",
+			Help: "ActionStore statistics",
+		},
+		[]string{"message"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(actionStoreMtc)
 }
 
-func newBlobStore(cfg blobStoreConfig, encode encodeAction, decode decodeAction) (*blobStore, error) {
+func newActionStore(cfg actionStoreConfig, encode encodeAction, decode decodeAction) (*actionStore, error) {
 	if len(cfg.Datadir) == 0 {
 		return nil, errors.New("datadir is empty")
 	}
-	return &blobStore{
+	return &actionStore{
 		config: cfg,
 		lookup: make(map[hash.Hash256]uint64),
 		encode: encode,
@@ -85,7 +95,7 @@ func newBlobStore(cfg blobStoreConfig, encode encodeAction, decode decodeAction)
 	}, nil
 }
 
-func (s *blobStore) Open(onData onAction) error {
+func (s *actionStore) Open(onData onAction) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -93,6 +103,7 @@ func (s *blobStore) Open(onData onAction) error {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return errors.Wrap(err, "failed to create blob store directory")
 	}
+	actionStoreMtc.WithLabelValues("size").Set(0)
 	// Index all transactions on disk and delete anything inprocessable
 	var fails []uint64
 	index := func(id uint64, size uint32, blob []byte) {
@@ -108,6 +119,7 @@ func (s *blobStore) Open(onData onAction) error {
 			return
 		}
 		s.stored += uint64(size)
+		actionStoreMtc.WithLabelValues("size").Set(float64(s.stored))
 		h, _ := act.Hash()
 		s.lookup[h] = id
 	}
@@ -131,7 +143,7 @@ func (s *blobStore) Open(onData onAction) error {
 	return s.TurnOn()
 }
 
-func (s *blobStore) Close() error {
+func (s *actionStore) Close() error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -141,7 +153,7 @@ func (s *blobStore) Close() error {
 	return s.store.Close()
 }
 
-func (s *blobStore) Get(hash hash.Hash256) (*action.SealedEnvelope, error) {
+func (s *actionStore) Get(hash hash.Hash256) (*action.SealedEnvelope, error) {
 	if !s.IsReady() {
 		return nil, errors.Wrap(errStoreNotOpen, "")
 	}
@@ -159,7 +171,7 @@ func (s *blobStore) Get(hash hash.Hash256) (*action.SealedEnvelope, error) {
 	return s.decode(blob)
 }
 
-func (s *blobStore) Put(act *action.SealedEnvelope) error {
+func (s *actionStore) Put(act *action.SealedEnvelope) error {
 	if !s.IsReady() {
 		return errors.Wrap(errStoreNotOpen, "")
 	}
@@ -176,20 +188,26 @@ func (s *blobStore) Put(act *action.SealedEnvelope) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to encode action")
 	}
+	toDelete, hasBlobToDelete := s.evict()
 	id, err := s.store.Put(blob)
 	if err != nil {
 		return errors.Wrap(err, "failed to put blob into store")
 	}
-	s.stored += uint64(len(blob))
+	s.stored += uint64(s.store.Size(id))
 	s.lookup[h] = id
 	// if the datacap is exceeded, remove old data
 	if s.stored > s.config.Datacap {
-		s.drop()
+		if !hasBlobToDelete {
+			log.L().Debug("no worst action found")
+		} else {
+			s.drop(toDelete)
+		}
 	}
+	actionStoreMtc.WithLabelValues("size").Set(float64(s.stored))
 	return nil
 }
 
-func (s *blobStore) Delete(hash hash.Hash256) error {
+func (s *actionStore) Delete(hash hash.Hash256) error {
 	if !s.IsReady() {
 		return errors.Wrap(errStoreNotOpen, "")
 	}
@@ -204,11 +222,13 @@ func (s *blobStore) Delete(hash hash.Hash256) error {
 		return errors.Wrap(err, "failed to delete blob from store")
 	}
 	delete(s.lookup, hash)
+	s.stored -= uint64(s.store.Size(id))
+	actionStoreMtc.WithLabelValues("size").Set(float64(s.stored))
 	return nil
 }
 
 // Range iterates over all stored with hashes
-func (s *blobStore) Range(fn func(hash.Hash256) bool) {
+func (s *actionStore) Range(fn func(hash.Hash256) bool) {
 	if !s.IsReady() {
 		return
 	}
@@ -222,12 +242,7 @@ func (s *blobStore) Range(fn func(hash.Hash256) bool) {
 	}
 }
 
-func (s *blobStore) drop() {
-	h, ok := s.evict()
-	if !ok {
-		log.L().Debug("no worst action found")
-		return
-	}
+func (s *actionStore) drop(h hash.Hash256) {
 	id, ok := s.lookup[h]
 	if !ok {
 		log.L().Warn("worst action not found in lookup", zap.String("hash", hex.EncodeToString(h[:])))
@@ -236,12 +251,12 @@ func (s *blobStore) drop() {
 	if err := s.store.Delete(id); err != nil {
 		log.L().Error("failed to delete worst action", zap.Error(err))
 	}
+	s.stored -= uint64(s.store.Size(id))
 	delete(s.lookup, h)
-	return
 }
 
 // TODO: implement a proper eviction policy
-func (s *blobStore) evict() (hash.Hash256, bool) {
+func (s *actionStore) evict() (hash.Hash256, bool) {
 	for h := range s.lookup {
 		return h, true
 	}

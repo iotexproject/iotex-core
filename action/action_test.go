@@ -10,19 +10,19 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 func TestActionProtoAndVerify(t *testing.T) {
 	require := require.New(t)
 	data, err := hex.DecodeString("")
 	require.NoError(err)
-	v, err := NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
-	require.NoError(err)
+	v := NewExecution("", big.NewInt(10), data)
 	t.Run("no error", func(t *testing.T) {
 		bd := &EnvelopeBuilder{}
 		elp := bd.SetGasPrice(big.NewInt(10)).
@@ -82,50 +82,53 @@ func TestActionFakeSeal(t *testing.T) {
 func TestAbstractActionSetter(t *testing.T) {
 	require := require.New(t)
 	t.Run("set nonce", func(t *testing.T) {
-		ex, err := NewExecution("2", uint64(1), big.NewInt(-100), uint64(0), big.NewInt(0), []byte{})
-		require.NoError(err)
-		require.Equal(uint64(1), ex.nonce)
-		ex.SetNonce(2)
-		require.Equal(uint64(2), ex.nonce)
+		ab := AbstractAction{}
+		require.Zero(ab.nonce)
+		ab.SetNonce(2)
+		require.EqualValues(2, ab.nonce)
 	})
 
 	t.Run("set gaslimit", func(t *testing.T) {
-		ex, err := NewExecution("2", uint64(1), big.NewInt(-100), uint64(0), big.NewInt(0), []byte{})
-		require.NoError(err)
-		require.Equal(uint64(0), ex.gasLimit)
-		ex.SetGasLimit(10000)
-		require.Equal(uint64(10000), ex.gasLimit)
+		ab := AbstractAction{}
+		require.Zero(ab.gasLimit)
+		ab.SetGasLimit(10000)
+		require.EqualValues(10000, ab.gasLimit)
 	})
 
 	t.Run("set gasPrice", func(t *testing.T) {
-		ex, err := NewExecution("2", uint64(1), big.NewInt(-100), uint64(0), big.NewInt(10), []byte{})
-		require.NoError(err)
-		require.Equal(big.NewInt(10), ex.gasPrice)
-		ex.SetGasPrice(big.NewInt(0))
-		require.Equal(big.NewInt(0), ex.gasPrice)
+		ab := AbstractAction{}
+		require.Zero(ab.gasPrice)
+		ab.SetGasPrice(big.NewInt(10))
+		require.Equal(big.NewInt(10), ab.gasPrice)
 	})
 }
 
 func TestIsSystemAction(t *testing.T) {
 	require := require.New(t)
 	builder := EnvelopeBuilder{}
-	cf := ClaimFromRewardingFundBuilder{}
-	actClaimFromRewarding := cf.Build()
+	actClaimFromRewarding := ClaimFromRewardingFund{}
 	act := builder.SetAction(&actClaimFromRewarding).Build()
 	sel, err := Sign(act, identityset.PrivateKey(1))
 	require.NoError(err)
 	require.False(IsSystemAction(sel))
 
-	gb := GrantRewardBuilder{}
-	actGrantReward := gb.Build()
-	act = builder.SetAction(&actGrantReward).Build()
+	actGrantReward := NewGrantReward(EpochReward, 1)
+	act = builder.SetAction(actGrantReward).Build()
 	sel, err = Sign(act, identityset.PrivateKey(1))
 	require.NoError(err)
 	require.True(IsSystemAction(sel))
 
-	actPollResult := NewPutPollResult(1, 1, nil)
+	actPollResult := NewPutPollResult(1, nil)
 	act = builder.SetAction(actPollResult).Build()
 	sel, err = Sign(act, identityset.PrivateKey(1))
 	require.NoError(err)
 	require.True(IsSystemAction(sel))
+}
+
+func TestNewActionType(t *testing.T) {
+	r := require.New(t)
+	r.Equal(types.LegacyTxType, LegacyTxType)
+	r.Equal(types.AccessListTxType, AccessListTxType)
+	r.Equal(types.DynamicFeeTxType, DynamicFeeTxType)
+	r.Equal(types.BlobTxType, BlobTxType)
 }

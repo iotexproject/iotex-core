@@ -20,16 +20,16 @@ import (
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-election/types"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
 )
 
 // TODO: we need something like mock_nativestaking to test properly with native buckets
@@ -186,7 +186,7 @@ func TestCreatePostSystemActions_StakingCommittee(t *testing.T) {
 	act, ok := elp[0].Action().(*action.PutPollResult)
 	require.True(ok)
 	require.Equal(uint64(1), act.Height())
-	require.Equal(uint64(0), act.AbstractAction.Nonce())
+	require.Equal(uint64(0), elp[0].Nonce())
 	delegates := r.Delegates()
 	require.Equal(len(act.Candidates()), len(delegates))
 	for _, can := range act.Candidates() {
@@ -208,11 +208,9 @@ func TestHandle_StakingCommittee(t *testing.T) {
 	recipientAddr := identityset.Address(28)
 	senderKey := identityset.PrivateKey(27)
 	t.Run("Wrong action type", func(t *testing.T) {
-		tsf, err := action.NewTransfer(0, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
-		require.NoError(err)
+		tsf := action.NewTransfer(big.NewInt(10), recipientAddr.String(), []byte{})
 		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasLimit(uint64(100000)).
-			SetGasPrice(big.NewInt(10)).
+		elp := bd.SetGasLimit(100000).SetGasPrice(big.NewInt(10)).
 			SetAction(tsf).Build()
 		receipt, err := p.Handle(ctx, elp, nil)
 		require.NoError(err)
@@ -226,11 +224,9 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		var sc2 state.CandidateList
 		_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
 		require.NoError(err)
-		act2 := action.NewPutPollResult(1, 1, sc2)
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasLimit(uint64(100000)).
-			SetGasPrice(big.NewInt(10)).
-			SetAction(act2).Build()
+		act2 := action.NewPutPollResult(1, sc2)
+		elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(uint64(100000)).
+			SetGasPrice(big.NewInt(10)).SetAction(act2).Build()
 		receipt, err := p.Handle(ctx2, elp, sm2)
 		require.NoError(err)
 		require.NotNil(receipt)
@@ -253,11 +249,9 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		var sc2 state.CandidateList
 		_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
 		require.NoError(err)
-		act2 := action.NewPutPollResult(1, 1, sc2)
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasLimit(uint64(100000)).
-			SetGasPrice(big.NewInt(10)).
-			SetAction(act2).Build()
+		act2 := action.NewPutPollResult(1, sc2)
+		elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(uint64(100000)).
+			SetGasPrice(big.NewInt(10)).SetAction(act2).Build()
 		caller := senderKey.PublicKey().Address()
 		require.NotNil(caller)
 		ctx2 = protocol.WithBlockCtx(
@@ -287,11 +281,9 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		require.NoError(err)
 		sc3 = append(sc3, &state.Candidate{Address: "1", Votes: big.NewInt(10), RewardAddress: "2", CanName: nil})
 		sc3 = append(sc3, &state.Candidate{Address: "1", Votes: big.NewInt(10), RewardAddress: "2", CanName: nil})
-		act3 := action.NewPutPollResult(1, 1, sc3)
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasLimit(uint64(100000)).
-			SetGasPrice(big.NewInt(10)).
-			SetAction(act3).Build()
+		act3 := action.NewPutPollResult(1, sc3)
+		elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(uint64(100000)).
+			SetGasPrice(big.NewInt(10)).SetAction(act3).Build()
 		caller := senderKey.PublicKey().Address()
 		require.NotNil(caller)
 		ctx3 = protocol.WithBlockCtx(
@@ -320,11 +312,9 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		_, err = sm4.State(&sc4, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
 		require.NoError(err)
 		sc4 = append(sc4, &state.Candidate{Address: "1", Votes: big.NewInt(10), RewardAddress: "2", CanName: nil})
-		act4 := action.NewPutPollResult(1, 1, sc4)
-		bd4 := &action.EnvelopeBuilder{}
-		elp4 := bd4.SetGasLimit(uint64(100000)).
-			SetGasPrice(big.NewInt(10)).
-			SetAction(act4).Build()
+		act4 := action.NewPutPollResult(1, sc4)
+		elp4 := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(uint64(100000)).
+			SetGasPrice(big.NewInt(10)).SetAction(act4).Build()
 		caller := senderKey.PublicKey().Address()
 		require.NotNil(caller)
 		ctx4 = protocol.WithBlockCtx(
@@ -353,11 +343,9 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		var sc5 state.CandidateList
 		_, err = sm5.State(&sc5, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
 		sc5[0].Votes = big.NewInt(10)
-		act5 := action.NewPutPollResult(1, 1, sc5)
-		bd5 := &action.EnvelopeBuilder{}
-		elp5 := bd5.SetGasLimit(uint64(100000)).
-			SetGasPrice(big.NewInt(10)).
-			SetAction(act5).Build()
+		act5 := action.NewPutPollResult(1, sc5)
+		elp5 := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(uint64(100000)).
+			SetGasPrice(big.NewInt(10)).SetAction(act5).Build()
 		caller := senderKey.PublicKey().Address()
 		require.NotNil(caller)
 		ctx5 = protocol.WithBlockCtx(

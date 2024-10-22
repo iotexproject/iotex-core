@@ -12,10 +12,10 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type (
@@ -115,20 +115,24 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 			bcCtx.Tip.Hash = tipBlk.HashHeader()
 			bcCtx.Tip.Timestamp = tipBlk.Timestamp()
 			bcCtx.Tip.BaseFee = tipBlk.BaseFee()
+			bcCtx.Tip.BlobGasUsed = tipBlk.BlobGasUsed()
+			bcCtx.Tip.ExcessBlobGas = tipBlk.ExcessBlobGas()
 		} else {
 			bcCtx.Tip.Hash = g.Hash()
 			bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)
 		}
 		for {
-			if err = indexer.PutBlock(protocol.WithBlockCtx(
+			if err = indexer.PutBlock(protocol.WithFeatureCtx(protocol.WithBlockCtx(
 				protocol.WithBlockchainCtx(ctx, bcCtx),
 				protocol.BlockCtx{
 					BlockHeight:    i,
 					BlockTimeStamp: blk.Timestamp(),
 					Producer:       producer,
 					GasLimit:       g.BlockGasLimitByHeight(i),
+					BaseFee:        blk.BaseFee(),
+					ExcessBlobGas:  blk.ExcessBlobGas(),
 				},
-			), blk); err == nil {
+			)), blk); err == nil {
 				break
 			}
 			if i < g.HawaiiBlockHeight && errors.Cause(err) == block.ErrDeltaStateMismatch {

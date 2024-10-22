@@ -15,8 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 const (
@@ -66,13 +65,13 @@ var (
 	// _createStakeMethod is the interface of the abi encoding of stake action
 	_createStakeMethod abi.Method
 	_                  EthCompatibleAction = (*CreateStake)(nil)
+	_                  amountForCost       = (*CreateStake)(nil)
 
 	errDecodeFailure = errors.New("failed to decode the data")
 )
 
 // CreateStake defines the action of CreateStake creation
 type CreateStake struct {
-	AbstractAction
 	stake_common
 	candName  string
 	amount    *big.Int
@@ -95,26 +94,16 @@ func init() {
 
 // NewCreateStake returns a CreateStake instance
 func NewCreateStake(
-	nonce uint64,
 	candidateName, amount string,
 	duration uint32,
 	autoStake bool,
 	payload []byte,
-	gasLimit uint64,
-	gasPrice *big.Int,
 ) (*CreateStake, error) {
 	stake, ok := new(big.Int).SetString(amount, 10)
 	if !ok {
 		return nil, errors.Wrapf(ErrInvalidAmount, "amount %s", amount)
 	}
-
 	return &CreateStake{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
 		candName:  candidateName,
 		amount:    stake,
 		duration:  duration,
@@ -141,6 +130,10 @@ func (cs *CreateStake) AutoStake() bool { return cs.autoStake }
 // Serialize returns a raw byte stream of the CreateStake struct
 func (cs *CreateStake) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(cs.Proto()))
+}
+
+func (act *CreateStake) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_StakeCreate{StakeCreate: act.Proto()}
 }
 
 // Proto converts to protobuf CreateStake Action
@@ -193,16 +186,6 @@ func (cs *CreateStake) IntrinsicGas() (uint64, error) {
 	return CalculateIntrinsicGas(CreateStakeBaseIntrinsicGas, CreateStakePayloadGas, payloadSize)
 }
 
-// Cost returns the total cost of a CreateStake
-func (cs *CreateStake) Cost() (*big.Int, error) {
-	intrinsicGas, err := cs.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the CreateStake creates")
-	}
-	CreateStakeFee := big.NewInt(0).Mul(cs.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return big.NewInt(0).Add(cs.Amount(), CreateStakeFee), nil
-}
-
 // SanityCheck validates the variables in the action
 func (cs *CreateStake) SanityCheck() error {
 	if cs.Amount().Sign() <= 0 {
@@ -211,7 +194,7 @@ func (cs *CreateStake) SanityCheck() error {
 	if !IsValidCandidateName(cs.candName) {
 		return ErrInvalidCanName
 	}
-	return cs.AbstractAction.SanityCheck()
+	return nil
 }
 
 // EthData returns the ABI-encoded data for converting to eth tx

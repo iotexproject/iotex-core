@@ -13,43 +13,44 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/execution"
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
-	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/actsync"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/blockchain/filedao"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/blockindex"
-	"github.com/iotexproject/iotex-core/blockindex/contractstaking"
-	"github.com/iotexproject/iotex-core/blocksync"
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/consensus"
-	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
-	rp "github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/nodeinfo"
-	"github.com/iotexproject/iotex-core/p2p"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/blockutil"
-	"github.com/iotexproject/iotex-core/server/itx/nodestats"
-	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/systemcontractindex/stakingindex"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/v2/actpool"
+	"github.com/iotexproject/iotex-core/v2/actsync"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/blockindex"
+	"github.com/iotexproject/iotex-core/v2/blockindex/contractstaking"
+	"github.com/iotexproject/iotex-core/v2/blocksync"
+	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/consensus"
+	"github.com/iotexproject/iotex-core/v2/consensus/consensusfsm"
+	rp "github.com/iotexproject/iotex-core/v2/consensus/scheme/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/nodeinfo"
+	"github.com/iotexproject/iotex-core/v2/p2p"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/blockutil"
+	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
+	"github.com/iotexproject/iotex-core/v2/state/factory"
+	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex"
 )
 
 // Builder is a builder to build chainservice
@@ -246,7 +247,28 @@ func (builder *Builder) createElectionCommittee() (committee.Committee, error) {
 
 func (builder *Builder) buildActionPool() error {
 	if builder.cs.actpool == nil {
-		ac, err := actpool.NewActPool(builder.cfg.Genesis, builder.cs.factory, builder.cfg.ActPool)
+		options := []actpool.Option{}
+		if builder.cfg.ActPool.Store != nil {
+			d := &action.Deserializer{}
+			d.SetEvmNetworkID(builder.cfg.Chain.EVMNetworkID)
+			options = append(options, actpool.WithStore(
+				*builder.cfg.ActPool.Store,
+				func(selp *action.SealedEnvelope) ([]byte, error) {
+					return proto.Marshal(selp.Proto())
+				},
+				func(blob []byte) (*action.SealedEnvelope, error) {
+					a := &iotextypes.Action{}
+					if err := proto.Unmarshal(blob, a); err != nil {
+						return nil, err
+					}
+					se, err := d.ActionToSealedEnvelope(a)
+					if err != nil {
+						return nil, err
+					}
+					return se, nil
+				}))
+		}
+		ac, err := actpool.NewActPool(builder.cfg.Genesis, builder.cs.factory, builder.cfg.ActPool, options...)
 		if err != nil {
 			return errors.Wrap(err, "failed to create actpool")
 		}
@@ -287,8 +309,11 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		indexers = append(indexers, builder.cs.bfIndexer)
 	}
 	var (
-		err   error
-		store blockdao.BlockDAO
+		cfg       = builder.cfg
+		err       error
+		store     blockdao.BlockStore
+		blobStore blockdao.BlobStore
+		opts      []blockdao.Option
 	)
 	if forTest {
 		store, err = filedao.NewFileDAOInMemForTest()
@@ -302,7 +327,14 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		case "grpc":
 			store = blockdao.NewGrpcBlockDAO(uri.Host, uri.Query().Get("insecure") == "true", block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
 		case "file", "":
-			dbConfig := builder.cfg.DB
+			dbConfig := cfg.DB
+			if bsPath := cfg.Chain.BlobStoreDBPath; len(bsPath) > 0 {
+				blocksPerHour := time.Hour / cfg.DardanellesUpgrade.BlockInterval
+				dbConfig.DbPath = bsPath
+				blobStore = blockdao.NewBlobStore(db.NewBoltDB(dbConfig),
+					uint64(blocksPerHour)*uint64(cfg.Chain.BlobStoreRetentionDays)*24, cfg.Chain.BlobPurgeInterval)
+				opts = append(opts, blockdao.WithBlobStore(blobStore))
+			}
 			dbConfig.DbPath = uri.Path
 			store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
 		default:
@@ -312,7 +344,8 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if err != nil {
 		return err
 	}
-	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(store, indexers, builder.cfg.DB.MaxCacheSize)
+	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(
+		store, indexers, cfg.DB.MaxCacheSize, opts...)
 
 	return nil
 }
@@ -441,7 +474,7 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 func (builder *Builder) buildBlockchain(forSubChain, forTest bool) error {
 	builder.cs.chain = builder.createBlockchain(forSubChain, forTest)
 	builder.cs.lifecycle.Add(builder.cs.chain)
-
+	builder.cs.lifecycle.Add(builder.cs.actpool)
 	if err := builder.cs.chain.AddSubscriber(builder.cs.actpool); err != nil {
 		return errors.Wrap(err, "failed to add actpool as subscriber")
 	}
@@ -515,11 +548,45 @@ func (builder *Builder) buildBlockSyncer() error {
 	p2pAgent := builder.cs.p2pAgent
 	chain := builder.cs.chain
 	consens := builder.cs.consensus
+	dao := builder.cs.blockdao
+	cfg := builder.cfg
+	// estimateTipHeight estimates the height of the block at the given time
+	// it ignores the influence of the block missing in the blockchain
+	// it must >= the real head height of the block
+	estimateTipHeight := func(blk *block.Block, duration time.Duration) uint64 {
+		if blk.Height() >= cfg.Genesis.DardanellesBlockHeight {
+			return blk.Height() + uint64(duration.Seconds()/float64(cfg.DardanellesUpgrade.BlockInterval))
+		}
+		durationToDardanelles := time.Duration(cfg.Genesis.DardanellesBlockHeight-blk.Height()) * time.Duration(cfg.Genesis.BlockInterval)
+		if duration < durationToDardanelles {
+			return blk.Height() + uint64(duration.Seconds()/float64(cfg.Genesis.BlockInterval))
+		}
+		return cfg.Genesis.DardanellesBlockHeight + uint64((duration-durationToDardanelles).Seconds()/float64(cfg.DardanellesUpgrade.BlockInterval))
+	}
 
 	blocksync, err := blocksync.NewBlockSyncer(
 		builder.cfg.BlockSync,
 		chain.TipHeight,
-		builder.cs.blockdao.GetBlockByHeight,
+		func(height uint64) (*block.Block, error) {
+			blk, err := dao.GetBlockByHeight(height)
+			if err != nil {
+				return blk, err
+			}
+			if blk.HasBlob() {
+				// block already has blob sidecar attached
+				return blk, nil
+			}
+			sidecars, hashes, err := dao.GetBlobsByHeight(height)
+			if errors.Cause(err) == db.ErrNotExist {
+				// the block does not have blob or blob has expired
+				return blk, nil
+			}
+			if err != nil {
+				return nil, err
+			}
+			deser := (&action.Deserializer{}).SetEvmNetworkID(builder.cfg.Chain.EVMNetworkID)
+			return blk.WithBlobSidecars(sidecars, hashes, deser)
+		},
 		func(blk *block.Block) error {
 			if err := consens.ValidateBlockFooter(blk); err != nil {
 				log.L().Debug("Failed to validate block footer.", zap.Error(err), zap.Uint64("height", blk.Height()))
@@ -527,8 +594,13 @@ func (builder *Builder) buildBlockSyncer() error {
 			}
 			retries := 1
 			var err error
+			opts := []blockchain.BlockValidationOption{}
+			if now := time.Now(); now.After(blk.Timestamp()) &&
+				blk.Height()+cfg.Genesis.MinBlocksForBlobRetention <= estimateTipHeight(blk, now.Sub(blk.Timestamp())) {
+				opts = append(opts, blockchain.SkipSidecarValidationOption())
+			}
 			for i := 0; i < retries; i++ {
-				if err = chain.ValidateBlock(blk); err == nil {
+				if err = chain.ValidateBlock(blk, opts...); err == nil {
 					if err = chain.CommitBlock(blk); err == nil {
 						break
 					}
@@ -604,6 +676,7 @@ func (builder *Builder) registerStakingProtocol() error {
 				ReviseHeights:               []uint64{builder.cfg.Genesis.GreenlandBlockHeight, builder.cfg.Genesis.HawaiiBlockHeight},
 				CorrectCandsHeight:          builder.cfg.Genesis.OkhotskBlockHeight,
 				SelfStakeBucketReviseHeight: builder.cfg.Genesis.UpernavikBlockHeight,
+				CorrectCandSelfStakeHeight:  builder.cfg.Genesis.VanuatuBlockHeight,
 			},
 		},
 		builder.cs.candBucketsIndexer,
@@ -656,10 +729,8 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 			if correctGas {
 				gasLimit *= 10
 			}
-			ex, err := action.NewExecution(contract, 1, big.NewInt(0), gasLimit, big.NewInt(0), params)
-			if err != nil {
-				return nil, err
-			}
+			elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(gasLimit).
+				SetAction(action.NewExecution(contract, big.NewInt(0), params)).Build()
 
 			addr, err := address.FromString(address.ZeroAddress)
 			if err != nil {
@@ -671,7 +742,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 				GetBlockTime:   getBlockTime,
 				DepositGasFunc: rewarding.DepositGas,
 			})
-			data, _, err := factory.SimulateExecution(ctx, addr, ex)
+			data, _, err := factory.SimulateExecution(ctx, addr, elp)
 			return data, err
 		},
 		candidatesutil.CandidatesFromDB,
@@ -796,13 +867,13 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.buildConsensusComponent(); err != nil {
 		return nil, err
 	}
+	if err := builder.buildNodeInfoManager(); err != nil {
+		return nil, err
+	}
 	if err := builder.buildBlockSyncer(); err != nil {
 		return nil, err
 	}
 	if err := builder.buildActionSyncer(); err != nil {
-		return nil, err
-	}
-	if err := builder.buildNodeInfoManager(); err != nil {
 		return nil, err
 	}
 	cs := builder.cs

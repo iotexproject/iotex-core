@@ -10,12 +10,12 @@ import (
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/pkg/compress"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/pkg/compress"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
@@ -42,7 +42,7 @@ func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
 		// populate to staging buffer, if the block is in latest round
 		height := info.Block.Height()
 		if height > blockStoreTip {
-			if _, err = buffer.Put(stagingKey(height, fd.header), v); err != nil {
+			if _, err = buffer.Put(stagingKey(height, fd.header), info); err != nil {
 				return nil, err
 			}
 		} else {
@@ -88,7 +88,7 @@ func (fd *fileDAOv2) putBlock(blk *block.Block) error {
 
 	// add to staging buffer
 	index := stagingKey(blk.Height(), fd.header)
-	full, err := fd.blkBuffer.Put(index, ser)
+	full, err := fd.blkBuffer.Put(index, blkInfo)
 	if err != nil {
 		return err
 	}

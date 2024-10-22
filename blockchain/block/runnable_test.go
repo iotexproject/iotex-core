@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,12 +15,10 @@ func TestRunnableActionsBuilder(t *testing.T) {
 	require := require.New(t)
 	data, err := hex.DecodeString("")
 	require.NoError(err)
-	v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
-	require.NoError(err)
+	v := action.NewExecution("", big.NewInt(10), data)
 	ra := NewRunnableActionsBuilder()
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetGasPrice(big.NewInt(10)).
-		SetGasLimit(uint64(100000)).
+	elp := bd.SetGasPrice(big.NewInt(10)).SetGasLimit(uint64(100000)).
 		SetAction(v).Build()
 
 	selp, err := action.Sign(elp, identityset.PrivateKey(28))
@@ -31,5 +29,5 @@ func TestRunnableActionsBuilder(t *testing.T) {
 	require.Equal(1, len(racs.Actions()))
 	act := racs.Actions()[0]
 	require.Equal(big.NewInt(10), act.GasPrice())
-	require.Equal(uint64(100000), act.GasLimit())
+	require.Equal(uint64(100000), act.Gas())
 }

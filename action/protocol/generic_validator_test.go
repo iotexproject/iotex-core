@@ -18,10 +18,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 const _evmNetworkID uint32 = 4689
@@ -84,13 +84,9 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 	data, err := hex.DecodeString("")
 	require.NoError(err)
 	t.Run("normal", func(t *testing.T) {
-		v, err := action.NewExecution("", 3, big.NewInt(10), uint64(10), big.NewInt(10), data)
-		require.NoError(err)
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
-			SetGasLimit(uint64(100000)).
-			SetNonce(3).
-			SetAction(v).Build()
+		v := action.NewExecution("", big.NewInt(10), data)
+		elp := (&action.EnvelopeBuilder{}).SetGasPrice(big.NewInt(10)).SetNonce(3).
+			SetGasLimit(uint64(100000)).SetAction(v).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
@@ -98,12 +94,9 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.NoError(valid.Validate(ctx, nselp))
 	})
 	t.Run("Gas limit low", func(t *testing.T) {
-		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
-		require.NoError(err)
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
-			SetGasLimit(uint64(10)).
-			SetAction(v).Build()
+		v := action.NewExecution("", big.NewInt(10), data)
+		elp := (&action.EnvelopeBuilder{}).SetGasPrice(big.NewInt(10)).
+			SetGasLimit(10).SetAction(v).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
@@ -113,13 +106,9 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.Contains(err.Error(), action.ErrIntrinsicGas.Error())
 	})
 	t.Run("state error", func(t *testing.T) {
-		v, err := action.NewExecution("", 1, big.NewInt(10), uint64(10), big.NewInt(10), data)
-		require.NoError(err)
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
-			SetGasLimit(uint64(100000)).
-			SetNonce(1).
-			SetAction(v).Build()
+		v := action.NewExecution("", big.NewInt(10), data)
+		elp := (&action.EnvelopeBuilder{}).SetGasPrice(big.NewInt(10)).SetNonce(1).
+			SetGasLimit(uint64(100000)).SetAction(v).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
 		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
@@ -130,12 +119,8 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 	})
 	t.Run("invalid system action nonce", func(t *testing.T) {
 		gr := action.GrantReward{}
-		gr.SetNonce(1)
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
-			SetNonce(1).
-			SetGasLimit(uint64(100000)).
-			SetAction(&gr).Build()
+		elp := (&action.EnvelopeBuilder{}).SetGasPrice(big.NewInt(10)).SetNonce(1).
+			SetGasLimit(uint64(100000)).SetAction(&gr).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
@@ -144,13 +129,9 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.Equal(action.ErrSystemActionNonce, errors.Cause(err))
 	})
 	t.Run("nonce too low", func(t *testing.T) {
-		v, err := action.NewExecution("", 1, big.NewInt(10), uint64(10), big.NewInt(10), data)
-		require.NoError(err)
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
-			SetNonce(1).
-			SetGasLimit(uint64(100000)).
-			SetAction(v).Build()
+		v := action.NewExecution("", big.NewInt(10), data)
+		elp := (&action.EnvelopeBuilder{}).SetGasPrice(big.NewInt(10)).SetNonce(1).
+			SetGasLimit(uint64(100000)).SetAction(v).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
@@ -160,8 +141,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.Equal(action.ErrNonceTooLow, errors.Cause(err))
 	})
 	t.Run("wrong recipient", func(t *testing.T) {
-		v, err := action.NewTransfer(1, big.NewInt(1), "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep", []byte{}, uint64(100000), big.NewInt(10))
-		require.NoError(err)
+		v := action.NewTransfer(big.NewInt(1), "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep", []byte{})
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetAction(v).SetGasLimit(100000).
 			SetGasPrice(big.NewInt(10)).
@@ -171,9 +151,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.Error(valid.Validate(ctx, selp))
 	})
 	t.Run("wrong signature", func(t *testing.T) {
-		unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), caller.String(), []byte{}, uint64(100000), big.NewInt(0))
-		require.NoError(err)
-
+		unsignedTsf := action.NewTransfer(big.NewInt(1), caller.String(), []byte{})
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetNonce(1).
 			SetAction(unsignedTsf).

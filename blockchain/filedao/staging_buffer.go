@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
 
 type (
@@ -36,13 +36,9 @@ func (s *stagingBuffer) Get(pos uint64) (*block.Store, error) {
 	return s.buffer[pos], nil
 }
 
-func (s *stagingBuffer) Put(pos uint64, blkBytes []byte) (bool, error) {
+func (s *stagingBuffer) Put(pos uint64, blk *block.Store) (bool, error) {
 	if pos >= s.size {
 		return false, ErrNotSupported
-	}
-	blk, err := s.deser.DeserializeBlockStore(blkBytes)
-	if err != nil {
-		return false, err
 	}
 	s.buffer[pos] = blk
 	return pos == s.size-1, nil
@@ -50,8 +46,9 @@ func (s *stagingBuffer) Put(pos uint64, blkBytes []byte) (bool, error) {
 
 func (s *stagingBuffer) Serialize() ([]byte, error) {
 	blkStores := []*iotextypes.BlockStore{}
+	// blob sidecar data are stored separately
 	for _, v := range s.buffer {
-		blkStores = append(blkStores, v.ToProto())
+		blkStores = append(blkStores, v.ToProtoWithoutSidecar())
 	}
 	allBlks := &iotextypes.BlockStores{
 		BlockStores: blkStores,

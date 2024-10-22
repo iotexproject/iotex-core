@@ -13,10 +13,10 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 const (
@@ -63,8 +63,7 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 
 // Handle handles an execution
 func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
-	exec, ok := elp.Action().(*action.Execution)
-	if !ok {
+	if _, ok := elp.Action().(*action.Execution); !ok {
 		return nil, nil
 	}
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
@@ -72,12 +71,11 @@ func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.
 		GetBlockTime:   p.getBlockTime,
 		DepositGasFunc: p.depositGas,
 	})
-	_, receipt, err := evm.ExecuteContract(ctx, sm, action.NewEvmTx(exec))
+	_, receipt, err := evm.ExecuteContract(ctx, sm, elp)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute contract")
 	}
-
 	return receipt, nil
 }
 
@@ -100,6 +98,9 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, _ protocol
 	// Reject oversize execution
 	if dataSize > sizeLimit {
 		return action.ErrOversizedData
+	}
+	if len(elp.BlobHashes()) > 0 && elp.To() == nil {
+		return errors.New("cannot create contract in blob tx")
 	}
 	return nil
 }

@@ -19,13 +19,13 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 func TestExecuteContractFailure(t *testing.T) {
@@ -36,15 +36,9 @@ func TestExecuteContractFailure(t *testing.T) {
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 
-	e, err := action.NewExecution(
-		"",
-		1,
-		big.NewInt(0),
-		testutil.TestGasLimit,
-		big.NewInt(10),
-		nil,
-	)
-	require.NoError(t, err)
+	e := action.NewExecution("", big.NewInt(0), nil)
+	elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasPrice(big.NewInt(10)).
+		SetGasLimit(testutil.TestGasLimit).SetAction(e).Build()
 
 	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 		Caller: identityset.Address(27),
@@ -66,11 +60,11 @@ func TestExecuteContractFailure(t *testing.T) {
 		GetBlockTime: func(uint64) (time.Time, error) {
 			return time.Time{}, nil
 		},
-		DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int, ...protocol.Option) ([]*action.TransactionLog, error) {
+		DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int, ...protocol.DepositOption) ([]*action.TransactionLog, error) {
 			return nil, nil
 		},
 	})
-	retval, receipt, err := ExecuteContract(ctx, sm, action.NewEvmTx(e))
+	retval, receipt, err := ExecuteContract(ctx, sm, elp)
 	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)
@@ -259,10 +253,19 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			31174200,
 		},
-		// after Upernavik
+		// after Upernavik - Vanuatu
 		{
 			action.EmptyAddress,
 			31174201,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			41174200,
+		},
+		// after Vanuatu
+		{
+			action.EmptyAddress,
+			41174201,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
@@ -274,15 +277,9 @@ func TestConstantinople(t *testing.T) {
 		return now.Add(time.Duration(height) * time.Second * 5), nil
 	}
 	for _, e := range execHeights {
-		ex, err := action.NewExecution(
-			e.contract,
-			1,
-			big.NewInt(0),
-			testutil.TestGasLimit,
-			big.NewInt(10),
-			nil,
-		)
-		require.NoError(err)
+		ex := action.NewExecution(e.contract, big.NewInt(0), nil)
+		elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasPrice(big.NewInt(10)).
+			SetGasLimit(testutil.TestGasLimit).SetAction(ex).Build()
 
 		timestamp, err := getBlockTime(e.height)
 		require.NoError(err)
@@ -300,7 +297,7 @@ func TestConstantinople(t *testing.T) {
 		})
 		stateDB, err := prepareStateDB(fCtx, sm)
 		require.NoError(err)
-		ps, err := newParams(fCtx, action.NewEvmTx(ex), stateDB)
+		ps, err := newParams(fCtx, elp, stateDB)
 		require.NoError(err)
 
 		evm := vm.NewEVM(ps.context, ps.txCtx, stateDB, ps.chainConfig, ps.evmConfig)
@@ -362,11 +359,16 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isSumatra, chainRules.IsMerge)
 		require.Equal(isSumatra, chainRules.IsShanghai)
 
-		// Cancun and Prague not yet enabled
-		require.False(chainRules.IsCancun)
-		require.False(evmChainConfig.IsCancun(big.NewInt(int64(e.height)), evm.Context.Time))
+		// Vanuatu = enable Cancun
+		isVanuatu := g.IsVanuatu(e.height)
+		require.Equal(isVanuatu, chainRules.IsCancun)
+		require.Equal(isVanuatu, evmChainConfig.IsCancun(big.NewInt(int64(e.height)), evm.Context.Time))
+
+		// Prague and Verkle not yet enabled
 		require.False(chainRules.IsPrague)
 		require.False(evmChainConfig.IsPrague(big.NewInt(int64(e.height)), evm.Context.Time))
+		require.False(chainRules.IsVerkle)
+		require.False(evmChainConfig.IsVerkle(big.NewInt(int64(e.height)), evm.Context.Time))
 
 		// test basefee
 		require.Equal(new(big.Int), evm.Context.BaseFee)

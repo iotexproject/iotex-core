@@ -14,8 +14,8 @@ import (
 
 	"github.com/iotexproject/go-pkgs/crypto"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 func TestActionIterator(t *testing.T) {
@@ -28,60 +28,42 @@ func TestActionIterator(t *testing.T) {
 	c := identityset.Address(30)
 	priKeyC := identityset.PrivateKey(30)
 	accMap := make(map[string][]*action.SealedEnvelope)
-	tsf1, err := action.NewTransfer(uint64(1), big.NewInt(100), b.String(), nil, uint64(0), big.NewInt(13))
-	require.NoError(err)
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).
-		SetGasPrice(big.NewInt(13)).
+	tsf1 := action.NewTransfer(big.NewInt(100), b.String(), nil)
+	elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasPrice(big.NewInt(13)).
 		SetAction(tsf1).Build()
 	selp1, err := action.Sign(elp, priKeyA)
 	require.NoError(err)
 
-	tsf2, err := action.NewTransfer(uint64(2), big.NewInt(100), "2", nil, uint64(0), big.NewInt(30))
-	require.NoError(err)
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(2).
-		SetGasPrice(big.NewInt(30)).
+	tsf2 := action.NewTransfer(big.NewInt(100), "2", nil)
+	elp = (&action.EnvelopeBuilder{}).SetNonce(2).SetGasPrice(big.NewInt(30)).
 		SetAction(tsf2).Build()
 	selp2, err := action.Sign(elp, priKeyA)
 	require.NoError(err)
 
 	accMap[a.String()] = []*action.SealedEnvelope{selp1, selp2}
 
-	tsf3, err := action.NewTransfer(uint64(1), big.NewInt(100), c.String(), nil, uint64(0), big.NewInt(15))
-	require.NoError(err)
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(1).
-		SetGasPrice(big.NewInt(15)).
+	tsf3 := action.NewTransfer(big.NewInt(100), c.String(), nil)
+	elp = (&action.EnvelopeBuilder{}).SetNonce(1).SetGasPrice(big.NewInt(15)).
 		SetAction(tsf3).Build()
 	selp3, err := action.Sign(elp, priKeyB)
 	require.NoError(err)
 
-	tsf4, err := action.NewTransfer(uint64(2), big.NewInt(100), "3", nil, uint64(0), big.NewInt(10))
-	require.NoError(err)
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(2).
-		SetGasPrice(big.NewInt(10)).
+	tsf4 := action.NewTransfer(big.NewInt(100), "3", nil)
+	elp = (&action.EnvelopeBuilder{}).SetNonce(2).SetGasPrice(big.NewInt(10)).
 		SetAction(tsf4).Build()
 	selp4, err := action.Sign(elp, priKeyB)
 	require.NoError(err)
 
-	tsf5, err := action.NewTransfer(uint64(3), big.NewInt(100), a.String(), nil, uint64(0), big.NewInt(2))
-	require.NoError(err)
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(3).
-		SetGasPrice(big.NewInt(20)).
+	tsf5 := action.NewTransfer(big.NewInt(100), a.String(), nil)
+	elp = (&action.EnvelopeBuilder{}).SetNonce(3).SetGasPrice(big.NewInt(20)).
 		SetAction(tsf5).Build()
 	selp5, err := action.Sign(elp, priKeyB)
 	require.NoError(err)
 
 	accMap[b.String()] = []*action.SealedEnvelope{selp3, selp4, selp5}
 
-	tsf6, err := action.NewTransfer(uint64(1), big.NewInt(100), "1", nil, uint64(0), big.NewInt(5))
-	require.NoError(err)
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(1).
-		SetGasPrice(big.NewInt(5)).
+	tsf6 := action.NewTransfer(big.NewInt(100), "1", nil)
+	elp = (&action.EnvelopeBuilder{}).SetNonce(1).SetGasPrice(big.NewInt(5)).
 		SetAction(tsf6).Build()
 	selp6, err := action.Sign(elp, priKeyC)
 	require.NoError(err)
@@ -106,11 +88,8 @@ func TestActionByPrice(t *testing.T) {
 	s := &actionByPrice{}
 	require.Equal(0, s.Len())
 
-	tsf1, err := action.NewTransfer(uint64(1), big.NewInt(100), "100", nil, uint64(0), big.NewInt(13))
-	require.NoError(err)
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).
-		SetGasPrice(big.NewInt(5)).
+	tsf1 := action.NewTransfer(big.NewInt(100), "100", nil)
+	elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasPrice(big.NewInt(5)).
 		SetAction(tsf1).Build()
 	selp, err := action.Sign(elp, identityset.PrivateKey(28))
 	require.NoError(err)
@@ -130,12 +109,9 @@ func BenchmarkLooping(b *testing.B) {
 		require.NoError(b, err)
 		addr := priKey.PublicKey().Address()
 		require.NotNil(b, addr)
-		tsf, err := action.NewTransfer(uint64(1), big.NewInt(100), "1", nil, uint64(100000), big.NewInt(int64(i)))
-		require.NoError(b, err)
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetNonce(1).
-			SetGasPrice(big.NewInt(5)).
-			SetAction(tsf).Build()
+		tsf := action.NewTransfer(big.NewInt(100), "1", nil)
+		elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasPrice(big.NewInt(int64(i))).
+			SetGasLimit(100000).SetAction(tsf).Build()
 		selp, err := action.Sign(elp, priKey)
 		require.NoError(b, err)
 		accMap[addr.String()] = []*action.SealedEnvelope{selp}
@@ -147,7 +123,7 @@ func BenchmarkLooping(b *testing.B) {
 		if !ok {
 			break
 		}
-		if act.GasLimit() < 30 {
+		if act.Gas() < 30 {
 			ai.PopAccount()
 		}
 	}

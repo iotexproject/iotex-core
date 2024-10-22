@@ -1,0 +1,37 @@
+{
+    "initGenesis": {
+        "isBering" : true,
+        "isIceland" : true,
+        "isLondon" : true,
+        "isShanghai" : true,
+        "isCancun": true
+    },
+    "initBalances": [{
+        "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+        "rawBalance": "1000000000000000000000000000"
+    }],
+    "deployments": [{
+        "rawByteCode": "6080604052348015600e575f80fd5b5060b480601a5f395ff3fe6080604052348015600e575f80fd5b50600436106026575f3560e01c806361d76d9714602a575b5f80fd5b60306044565b604051603b91906067565b60405180910390f35b5f805f4990508091505090565b5f819050919050565b6061816051565b82525050565b5f60208201905060785f830184605a565b9291505056fea2646970667358221220eaf046fb891b69fc7cdacb0eccc78223b665af6db2f5303c72524a98e0b1ae0d64736f6c634300081a0033",
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawAmount": "0",
+        "rawGasLimit": 5000000,
+        "rawGasPrice": "2000000000000",
+        "rawExpectedGasConsumed": 66685,
+        "expectedStatus": 1,
+        "expectedBalances": [],
+        "comment": "deploy blobhash contract"
+    }],
+    "executions": [{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "61d76d97",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "2000000000000",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 10725,
+        "expectedStatus": 1,
+        "readOnly": true,
+        "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000000",
+        "comment": "call getBlobHash"
+    }]
+}

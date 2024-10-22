@@ -3,7 +3,7 @@
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
-package block
+package protocol
 
 import (
 	"math/big"
@@ -12,12 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 )
 
-func VerifyEIP1559Header(g genesis.Blockchain, parent *protocol.TipInfo, header *Header) error {
+func VerifyEIP1559Header(g genesis.Blockchain, parent *TipInfo, header blockHeader) error {
 	if header.BaseFee() == nil {
 		return errors.New("header is missing baseFee")
 	}
@@ -31,10 +30,13 @@ func VerifyEIP1559Header(g genesis.Blockchain, parent *protocol.TipInfo, header 
 }
 
 // CalcBaseFee calculates the basefee of the header.
-func CalcBaseFee(g genesis.Blockchain, parent *protocol.TipInfo) *big.Int {
-	// If the current block is the first EIP-1559 block, return the InitialBaseFee.
-	if parent.Height < g.VanuatuBlockHeight {
+func CalcBaseFee(g genesis.Blockchain, parent *TipInfo) *big.Int {
+	if parent.Height == g.VanuatuBlockHeight-1 {
+		// If the current block is the first EIP-1559 block, return the InitialBaseFee.
 		return new(big.Int).SetUint64(action.InitialBaseFee)
+	} else if parent.Height < g.VanuatuBlockHeight-1 {
+		// return nil for no base fee block
+		return nil
 	}
 
 	parentGasTarget := g.BlockGasLimitByHeight(parent.Height) / action.DefaultElasticityMultiplier

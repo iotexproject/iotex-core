@@ -19,8 +19,8 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
-	. "github.com/iotexproject/iotex-core/pkg/util/assertions"
-	"github.com/iotexproject/iotex-core/pkg/version"
+	. "github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/v2/pkg/version"
 )
 
 func TestBuilderEthAddr(t *testing.T) {
@@ -39,10 +39,9 @@ func TestActionBuilder(t *testing.T) {
 		SetGasLimit(10003).
 		SetGasPrice(big.NewInt(10004)).
 		Build()
-
-	r.Equal(uint32(version.ProtocolVersion), act.Version())
+	r.Equal(uint32(version.ProtocolVersion), act.version)
 	r.Equal(uint64(2), act.Nonce())
-	r.Equal(uint64(10003), act.GasLimit())
+	r.Equal(uint64(10003), act.Gas())
 	r.Equal(big.NewInt(10004), act.GasPrice())
 }
 
@@ -98,8 +97,8 @@ func TestBuildRewardingAction(t *testing.T) {
 			r.NoError(err)
 			r.IsType(&ClaimFromRewardingFund{}, elp.Action())
 			r.Equal(big.NewInt(10004), elp.GasPrice())
-			r.Equal(uint64(10000), elp.GasLimit())
-			r.Equal(big.NewInt(101), elp.Action().(*ClaimFromRewardingFund).Amount())
+			r.Equal(uint64(10000), elp.Gas())
+			r.Equal(big.NewInt(101), elp.Action().(*ClaimFromRewardingFund).ClaimAmount())
 		})
 		t.Run("Debug", func(t *testing.T) {
 			eb := &EnvelopeBuilder{}
@@ -134,7 +133,7 @@ func TestBuildRewardingAction(t *testing.T) {
 			r.NoError(err)
 			r.IsType(&DepositToRewardingFund{}, elp.Action())
 			r.EqualValues(big.NewInt(10004), elp.GasPrice())
-			r.EqualValues(10000, elp.GasLimit())
+			r.EqualValues(10000, elp.Gas())
 			r.EqualValues(big.NewInt(102), elp.Action().(*DepositToRewardingFund).Amount())
 		})
 	})
@@ -147,10 +146,6 @@ func TestEthTxUtils(t *testing.T) {
 		sk1, _  = iotexcrypto.HexStringToPrivateKey(skhex)
 		sk2, _  = ethercrypto.HexToECDSA(skhex)
 		chainID = uint32(4689)
-		builder = (&Builder{}).
-			SetNonce(100).
-			SetGasLimit(21000).
-			SetGasPrice(big.NewInt(101))
 	)
 
 	pk1 := sk1.PublicKey()
@@ -163,20 +158,16 @@ func TestEthTxUtils(t *testing.T) {
 
 	addr, err := address.FromHex("0xA576C141e5659137ddDa4223d209d4744b2106BE")
 	r.NoError(err)
-	act := (&ClaimFromRewardingFundBuilder{Builder: *builder}).
-		SetAddress(addr).
-		SetData([]byte("any")).
-		SetAmount(big.NewInt(1)).Build()
-	elp := (&EnvelopeBuilder{}).SetNonce(act.Nonce()).
-		SetGasLimit(act.GasLimit()).SetGasPrice(act.GasPrice()).
-		SetAction(&act).Build()
+	act := NewClaimFromRewardingFund(big.NewInt(1), addr, []byte("any"))
+	elp := (&EnvelopeBuilder{}).SetNonce(100).SetGasLimit(21000).
+		SetGasPrice(big.NewInt(101)).SetAction(act).Build()
 	tx, err := elp.ToEthTx(chainID, iotextypes.Encoding_ETHEREUM_EIP155)
 	r.NoError(err)
 
 	var (
 		signer1, _ = NewEthSigner(iotextypes.Encoding_ETHEREUM_EIP155, chainID)
 		sig1, _    = sk1.Sign(tx.Hash().Bytes())
-		signer2    = types.NewEIP2930Signer(big.NewInt(int64(chainID)))
+		signer2    = types.NewCancunSigner(big.NewInt(int64(chainID)))
 		sig2, _    = ethercrypto.Sign(tx.Hash().Bytes(), sk2)
 	)
 	r.Equal(signer1, signer2)

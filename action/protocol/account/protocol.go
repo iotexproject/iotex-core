@@ -14,11 +14,12 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state"
+
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 // protocolID is the protocol ID
@@ -65,9 +66,8 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 
 // Handle handles an account
 func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
-	switch act := elp.Action().(type) {
-	case *action.Transfer:
-		return p.handleTransfer(ctx, act, sm)
+	if _, ok := elp.Action().(*action.Transfer); ok {
+		return p.handleTransfer(ctx, elp, sm)
 	}
 	return nil, nil
 }

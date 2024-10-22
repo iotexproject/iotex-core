@@ -7,6 +7,7 @@ package blockchain
 
 import (
 	"context"
+	"math/big"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -19,15 +20,16 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/blockchain/filedao"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 )
 
 // const
@@ -93,7 +95,7 @@ type (
 		// CommitBlock validates and appends a block to the chain
 		CommitBlock(blk *block.Block) error
 		// ValidateBlock validates a new block before adding it to the blockchain
-		ValidateBlock(blk *block.Block) error
+		ValidateBlock(*block.Block, ...BlockValidationOption) error
 
 		// AddSubscriber make you listen to every single produced block
 		AddSubscriber(BlockCreationSubscriber) error
@@ -156,6 +158,20 @@ func ClockOption(clk clock.Clock) Option {
 	return func(bc *blockchain) error {
 		bc.clk = clk
 		return nil
+	}
+}
+
+type (
+	BlockValidationCfg struct {
+		skipSidecarValidation bool
+	}
+
+	BlockValidationOption func(*BlockValidationCfg)
+)
+
+func SkipSidecarValidationOption() BlockValidationOption {
+	return func(opts *BlockValidationCfg) {
+		opts.skipSidecarValidation = true
 	}
 }
 
@@ -257,7 +273,7 @@ func (bc *blockchain) TipHeight() uint64 {
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
-func (bc *blockchain) ValidateBlock(blk *block.Block) error {
+func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOption) error {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	timer := bc.timerFactory.NewTimer("ValidateBlock")
@@ -291,7 +307,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	}
 	// verify EIP1559 header (baseFee adjustment)
 	if blk.Header.BaseFee() != nil {
-		if err = block.VerifyEIP1559Header(bc.genesis.Blockchain, tip, &blk.Header); err != nil {
+		if err = protocol.VerifyEIP1559Header(bc.genesis.Blockchain, tip, &blk.Header); err != nil {
 			return errors.Wrap(err, "failed to verify EIP1559 header (baseFee adjustment)")
 		}
 	}
@@ -310,19 +326,25 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
+	cfg := BlockValidationCfg{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 	ctx = protocol.WithBlockCtx(ctx,
 		protocol.BlockCtx{
-			BlockHeight:    blk.Height(),
-			BlockTimeStamp: blk.Timestamp(),
-			GasLimit:       bc.genesis.BlockGasLimitByHeight(blk.Height()),
-			Producer:       producerAddr,
+			BlockHeight:           blk.Height(),
+			BlockTimeStamp:        blk.Timestamp(),
+			GasLimit:              bc.genesis.BlockGasLimitByHeight(blk.Height()),
+			Producer:              producerAddr,
+			BaseFee:               blk.BaseFee(),
+			ExcessBlobGas:         blk.ExcessBlobGas(),
+			SkipSidecarValidation: cfg.skipSidecarValidation,
 		},
 	)
 	ctx = protocol.WithFeatureCtx(ctx)
 	if bc.blockValidator == nil {
 		return nil
 	}
-
 	return bc.blockValidator.Validate(ctx, blk)
 }
 
@@ -333,7 +355,7 @@ func (bc *blockchain) Context(ctx context.Context) (context.Context, error) {
 	return bc.context(ctx, true)
 }
 
-func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Address, height uint64, timestamp time.Time) context.Context {
+func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Address, height uint64, timestamp time.Time, baseFee *big.Int, blobgas uint64) context.Context {
 	return protocol.WithBlockCtx(
 		ctx,
 		protocol.BlockCtx{
@@ -341,6 +363,8 @@ func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Add
 			BlockTimeStamp: timestamp,
 			Producer:       producer,
 			GasLimit:       bc.genesis.BlockGasLimitByHeight(height),
+			BaseFee:        baseFee,
+			ExcessBlobGas:  blobgas,
 		})
 }
 
@@ -382,7 +406,8 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp)
+	tip := protocol.MustGetBlockchainCtx(ctx).Tip
+	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
 	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
 	minterPrivateKey := bc.config.ProducerPrivateKey()
@@ -455,11 +480,13 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 	}
 
 	return &protocol.TipInfo{
-		Height:    tipHeight,
-		GasUsed:   header.GasUsed(),
-		Hash:      header.HashBlock(),
-		Timestamp: header.Timestamp(),
-		BaseFee:   header.BaseFee(),
+		Height:        tipHeight,
+		GasUsed:       header.GasUsed(),
+		Hash:          header.HashBlock(),
+		Timestamp:     header.Timestamp(),
+		BaseFee:       header.BaseFee(),
+		BlobGasUsed:   header.BlobGasUsed(),
+		ExcessBlobGas: header.ExcessBlobGas(),
 	}, nil
 }
 
@@ -469,7 +496,8 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-
+	ctx = bc.contextWithBlock(ctx, blk.PublicKey().Address(), blk.Height(), blk.Timestamp(), blk.BaseFee(), blk.ExcessBlobGas())
+	ctx = protocol.WithFeatureCtx(ctx)
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")
 	err = bc.dao.PutBlock(ctx, blk)
@@ -485,6 +513,12 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", blkHash[:]))
 	}
 	_blockMtc.WithLabelValues("numActions").Set(float64(len(blk.Actions)))
+	if blk.BaseFee() != nil {
+		basefeeQev := new(big.Int).Div(blk.BaseFee(), big.NewInt(unit.Qev))
+		_blockMtc.WithLabelValues("baseFee").Set(float64(basefeeQev.Int64()))
+	}
+	_blockMtc.WithLabelValues("excessBlobGas").Set(float64(blk.ExcessBlobGas()))
+	_blockMtc.WithLabelValues("blobGasUsed").Set(float64(blk.BlobGasUsed()))
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
 	return nil

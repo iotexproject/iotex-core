@@ -8,10 +8,10 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	apitypes "github.com/iotexproject/iotex-core/api/types"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/pkg/fastrand"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/pkg/fastrand"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 const (
@@ -63,6 +63,7 @@ func (cl *chainListener) Stop() error {
 		return nil
 	})
 	cl.streamMap.Reset()
+	apiLimitMtcs.WithLabelValues("listener").Set(float64(cl.streamMap.Count()))
 	return nil
 }
 
@@ -105,6 +106,7 @@ func (cl *chainListener) AddResponder(responder apitypes.Responder) (string, err
 	}
 
 	cl.streamMap.Set(listenerID, responder)
+	apiLimitMtcs.WithLabelValues("listener").Set(float64(cl.streamMap.Count()))
 	return listenerID, nil
 }
 
@@ -122,6 +124,7 @@ func (cl *chainListener) RemoveResponder(listenerID string) (bool, error) {
 		return false, errListenerNotFound
 	}
 	r.Exit()
+	apiLimitMtcs.WithLabelValues("listener").Set(float64(cl.streamMap.Count() - 1))
 	return cl.streamMap.Delete(listenerID), nil
 }
 

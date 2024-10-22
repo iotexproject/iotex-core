@@ -12,8 +12,8 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 func TestProto(t *testing.T) {
@@ -97,18 +97,10 @@ func TestCalculateTransferAmount(t *testing.T) {
 
 func makeBody() (body Body, err error) {
 	A := make([]*action.SealedEnvelope, 0)
-	v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), []byte("data"))
-	if err != nil {
-		return
-	}
-	t, err := action.NewTransfer(0, big.NewInt(20), "", []byte("payload"), uint64(20), big.NewInt(20))
-	if err != nil {
-		return
-	}
+	t := action.NewTransfer(big.NewInt(20), "", []byte("payload"))
+
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetGasPrice(big.NewInt(10)).
-		SetGasLimit(uint64(100000)).
-		SetAction(v).
+	elp := bd.SetGasPrice(big.NewInt(10)).SetGasLimit(uint64(100000)).
 		SetAction(t).Build()
 
 	selp, err := action.Sign(elp, identityset.PrivateKey(28))

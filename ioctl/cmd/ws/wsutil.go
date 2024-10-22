@@ -18,10 +18,10 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/util"
 )
 
 func NewContractCaller(contractabi abi.ABI, contractaddress string) (*ContractCaller, error) {
@@ -148,48 +148,34 @@ func (c *ContractCaller) envelop(method string, arguments ...any) (action.Envelo
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to pack method: %s", method)
 	}
-	tx, err := action.NewExecution(c.contract.String(), 0, c.amount, 0, big.NewInt(0), bytecode)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to new execution")
-	}
-
+	tx := action.NewExecution(c.contract.String(), c.amount, bytecode)
 	gasPrice, err := c.gasPrice()
 	if err != nil {
 		return nil, err
 	}
-	tx.SetGasPrice(gasPrice)
-
 	meta, err := c.accountMeta()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get account meta")
 	}
-	tx.SetNonce(meta.GetPendingNonce())
-
 	gasLimit, err := c.gasLimit(tx.Proto())
 	if err != nil {
 		return nil, err
 		// gasLimit = 20000000
 	}
-	tx.SetGasLimit(gasLimit)
-
 	balance, ok := new(big.Int).SetString(meta.GetBalance(), 10)
 	if !ok {
 		return nil, errors.Errorf("failed to convert balance: %s", meta.GetBalance())
 	}
-	cost, _ := tx.Cost()
-	if balance.Cmp(cost) < 0 {
-		return nil, errors.Errorf("balance is not enouth: %s", meta.GetAddress())
+	elp := (&action.EnvelopeBuilder{}).SetNonce(meta.GetPendingNonce()).SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).SetAction(tx).SetChainID(c.chainID).Build()
+	cost, _ := elp.Cost()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get action's cost")
 	}
-
-	envelop := (&action.EnvelopeBuilder{}).
-		SetNonce(tx.Nonce()).
-		SetGasPrice(tx.GasPrice()).
-		SetGasLimit(tx.GasLimit()).
-		SetAction(tx).
-		SetChainID(c.chainID).
-		Build()
-
-	return envelop, nil
+	if balance.Cmp(cost) < 0 {
+		return nil, errors.Errorf("balance is not enough: %s", meta.GetAddress())
+	}
+	return elp, nil
 }
 
 func (c *ContractCaller) gasPrice() (*big.Int, error) {

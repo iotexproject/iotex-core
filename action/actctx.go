@@ -6,9 +6,11 @@
 package action
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
@@ -17,16 +19,15 @@ import (
 type AbstractAction struct {
 	version    uint32
 	chainID    uint32
+	txType     uint32
 	nonce      uint64
 	gasLimit   uint64
 	gasPrice   *big.Int
 	gasTipCap  *big.Int
 	gasFeeCap  *big.Int
 	accessList types.AccessList
+	blobData   *BlobTxData
 }
-
-// Version returns the version
-func (act *AbstractAction) Version() uint32 { return act.version }
 
 // ChainID returns the chainID
 func (act *AbstractAction) ChainID() uint32 { return act.chainID }
@@ -39,8 +40,8 @@ func (act *AbstractAction) SetNonce(val uint64) {
 	act.nonce = val
 }
 
-// GasLimit returns the gas limit
-func (act *AbstractAction) GasLimit() uint64 { return act.gasLimit }
+// Gas returns the gas limit
+func (act *AbstractAction) Gas() uint64 { return act.gasLimit }
 
 // SetGasLimit sets gaslimit
 func (act *AbstractAction) SetGasLimit(val uint64) {
@@ -88,23 +89,6 @@ func (act *AbstractAction) BasicActionSize() uint32 {
 	return uint32(size)
 }
 
-// SetEnvelopeContext sets the struct according to input
-func (act *AbstractAction) SetEnvelopeContext(in *AbstractAction) {
-	if act == nil {
-		return
-	}
-	*act = *in
-	if in.gasPrice != nil {
-		act.gasPrice = new(big.Int).Set(in.gasPrice)
-	}
-	if in.gasTipCap != nil {
-		act.gasTipCap = new(big.Int).Set(in.gasTipCap)
-	}
-	if in.gasFeeCap != nil {
-		act.gasFeeCap = new(big.Int).Set(in.gasFeeCap)
-	}
-}
-
 // SanityCheck validates the variables in the action
 func (act *AbstractAction) SanityCheck() error {
 	// Reject execution of negative gas price
@@ -126,6 +110,7 @@ func (act *AbstractAction) toProto() *iotextypes.ActionCore {
 		Nonce:    act.nonce,
 		GasLimit: act.gasLimit,
 		ChainID:  act.chainID,
+		TxType:   act.txType,
 	}
 	if act.gasPrice != nil {
 		actCore.GasPrice = act.gasPrice.String()
@@ -147,6 +132,7 @@ func (act *AbstractAction) fromProto(pb *iotextypes.ActionCore) error {
 	act.nonce = pb.GetNonce()
 	act.gasLimit = pb.GetGasLimit()
 	act.chainID = pb.GetChainID()
+	act.txType = pb.GetTxType()
 
 	var ok bool
 	if price := pb.GetGasPrice(); price == "" {
@@ -172,6 +158,69 @@ func (act *AbstractAction) fromProto(pb *iotextypes.ActionCore) error {
 	}
 	if acl := pb.GetAccessList(); acl != nil {
 		act.accessList = fromAccessListProto(acl)
+	}
+	return nil
+}
+
+func (act *AbstractAction) convertToTx() TxCommonInternal {
+	switch act.txType {
+	case LegacyTxType:
+		tx := LegacyTx{
+			chainID:  act.chainID,
+			version:  act.version,
+			nonce:    act.nonce,
+			gasLimit: act.gasLimit,
+			gasPrice: &big.Int{},
+		}
+		if act.gasPrice != nil {
+			tx.gasPrice.Set(act.gasPrice)
+		}
+		return &tx
+	case AccessListTxType:
+		tx := AccessListTx{
+			chainID:    act.chainID,
+			nonce:      act.nonce,
+			gasLimit:   act.gasLimit,
+			gasPrice:   &big.Int{},
+			accessList: act.accessList,
+		}
+		if act.gasPrice != nil {
+			tx.gasPrice.Set(act.gasPrice)
+		}
+		return &tx
+	case DynamicFeeTxType:
+		return &DynamicFeeTx{
+			chainID:    act.chainID,
+			nonce:      act.nonce,
+			gasLimit:   act.gasLimit,
+			gasTipCap:  act.gasTipCap,
+			gasFeeCap:  act.gasFeeCap,
+			accessList: act.accessList,
+		}
+	case BlobTxType:
+		return &BlobTx{
+			chainID:    act.chainID,
+			nonce:      act.nonce,
+			gasLimit:   act.gasLimit,
+			gasTipCap:  uint256.MustFromBig(act.gasTipCap),
+			gasFeeCap:  uint256.MustFromBig(act.gasFeeCap),
+			accessList: act.accessList,
+			blob:       act.blobData,
+		}
+	default:
+		panic(fmt.Sprintf("unsupported action type = %d", act.txType))
+	}
+}
+
+func (act *AbstractAction) validateTx() error {
+	switch act.txType {
+	case LegacyTxType, AccessListTxType, DynamicFeeTxType, BlobTxType:
+		// these are allowed tx types
+	default:
+		return errors.Wrapf(ErrInvalidAct, "unsupported tx type = %d", act.txType)
+	}
+	if act.txType == BlobTxType && act.blobData == nil {
+		return errors.Wrap(ErrInvalidAct, "blob tx with empty blob")
 	}
 	return nil
 }

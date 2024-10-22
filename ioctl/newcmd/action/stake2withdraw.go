@@ -12,9 +12,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 )
 
 // Multi-language support
@@ -72,10 +72,7 @@ func NewStake2WithdrawCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get nonce")
 			}
-			s2w, err := action.NewWithdrawStake(nonce, bucketIndex, data, gasLimit, gasPriceRau)
-			if err != nil {
-				return errors.Wrap(err, "failed to make a changeCandidate instance")
-			}
+			s2w := action.NewWithdrawStake(bucketIndex, data)
 			return SendAction(
 				client,
 				cmd,

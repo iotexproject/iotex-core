@@ -14,8 +14,8 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type (
@@ -35,11 +35,13 @@ type (
 
 	// TipInfo contains the tip block information
 	TipInfo struct {
-		Height    uint64
-		GasUsed   uint64
-		Hash      hash.Hash256
-		Timestamp time.Time
-		BaseFee   *big.Int
+		Height        uint64
+		GasUsed       uint64
+		Hash          hash.Hash256
+		Timestamp     time.Time
+		BaseFee       *big.Int
+		BlobGasUsed   uint64
+		ExcessBlobGas uint64
 	}
 
 	// BlockchainCtx provides blockchain auxiliary information.
@@ -62,6 +64,14 @@ type (
 		GasLimit uint64
 		// Producer is the address of whom composes the block containing this action
 		Producer address.Address
+		// AccumTips is the accumulated tips of the block
+		AccumulatedTips big.Int
+		// BaseFee is the base fee of the block
+		BaseFee *big.Int
+		// ExcessBlobGas is the excess blob gas of the block
+		ExcessBlobGas uint64
+		// SkipSidecarValidation dictates to validate sidecar (for blob tx) or not
+		SkipSidecarValidation bool
 	}
 
 	// ActionCtx provides action auxiliary information.
@@ -128,7 +138,16 @@ type (
 		MigrateNativeStake                      bool
 		AddClaimRewardAddress                   bool
 		EnforceLegacyEndorsement                bool
+		EnableAccessListTx                      bool
 		EnableDynamicFeeTx                      bool
+		EnableBlobTransaction                   bool
+		SufficentBalanceGuarantee               bool
+		EnableCancunEVM                         bool
+		UnfoldContainerBeforeValidate           bool
+		CorrectValidationOrder                  bool
+		UnstakedButNotClearSelfStakeAmount      bool
+		EnableNewTxTypes                        bool
+		VerifyNotContainerBeforeRun             bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -280,7 +299,16 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			MigrateNativeStake:                      g.IsUpernavik(height),
 			AddClaimRewardAddress:                   g.IsUpernavik(height),
 			EnforceLegacyEndorsement:                !g.IsUpernavik(height),
+			EnableAccessListTx:                      g.IsVanuatu(height),
 			EnableDynamicFeeTx:                      g.IsVanuatu(height),
+			EnableBlobTransaction:                   g.IsVanuatu(height),
+			SufficentBalanceGuarantee:               g.IsVanuatu(height),
+			EnableCancunEVM:                         g.IsVanuatu(height),
+			UnfoldContainerBeforeValidate:           g.IsVanuatu(height),
+			CorrectValidationOrder:                  g.IsVanuatu(height),
+			UnstakedButNotClearSelfStakeAmount:      !g.IsVanuatu(height),
+			EnableNewTxTypes:                        g.IsVanuatu(height),
+			VerifyNotContainerBeforeRun:             g.IsVanuatu(height),
 		},
 	)
 }

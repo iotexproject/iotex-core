@@ -17,21 +17,24 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto/kzg4844"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/api"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/api"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/v2/tools/executiontester/blockchain"
 )
 
 // KeyPairs indicate the keypair of accounts getting transfers from Creator in genesis block
@@ -159,6 +162,7 @@ func InjectByAps(
 	expectedBalances map[string]*big.Int,
 	cs api.CoreService,
 	pendingActionMap *ttl.Cache,
+	expectedUnclaimedMap map[string]*big.Int,
 ) {
 	timeout := time.After(duration)
 	tick := time.NewTicker(time.Duration(1/aps*1000000) * time.Microsecond)
@@ -209,16 +213,28 @@ loop:
 			if _, err := CheckPendingActionList(cs,
 				pendingActionMap,
 				expectedBalances,
+				expectedUnclaimedMap,
 			); err != nil {
 				log.L().Error(err.Error())
 			}
+
 		rerand:
 			switch rand.Intn(3) {
 			case 0:
 				sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
+				var txc action.TxCommonInternal
+				switch rand.Intn(3) {
+				case 2:
+					txc = createBlobInjection(1, nonce, uint64(transferGasLimit), big.NewInt(10), big.NewInt(transferGasPrice+20), big.NewInt(1), []kzg4844.Blob{{1, 2, 3, 4}})
+				case 1:
+					txc = action.NewDynamicFeeTx(1, nonce, uint64(transferGasLimit), big.NewInt(transferGasPrice+10), big.NewInt(1), nil)
+				default:
+					txc = action.NewLegacyTx(1, nonce, uint64(transferGasLimit), big.NewInt(transferGasPrice))
+				}
+				tsf := action.NewTransfer(big.NewInt(amount), recipient.EncodedAddr, assertions.MustNoErrorV(hex.DecodeString(transferPayload)))
+				act := assertions.MustNoErrorV(action.Sign(action.NewEnvelope(txc, tsf), sender.PriKey))
 				atomic.AddUint64(&totalTsfCreated, 1)
-				go injectTransfer(wg, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
-					big.NewInt(transferGasPrice), transferPayload, retryNum, retryInterval, pendingActionMap)
+				go injectAction(wg, act, client, retryNum, retryInterval, pendingActionMap, func() { atomic.AddUint64(&totalTsfSentToAPI, 1) })
 			case 1:
 				if fpToken == nil {
 					goto rerand
@@ -226,9 +242,18 @@ loop:
 				go injectFpTokenTransfer(wg, fpToken, fpContract, debtor, creditor)
 			case 2:
 				executor, nonce := createExecutionInjection(counter, delegates)
-				go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
-					uint64(executionGasLimit), big.NewInt(executionGasPrice),
-					executionData, retryNum, retryInterval, pendingActionMap)
+				var txc action.TxCommonInternal
+				switch rand.Intn(3) {
+				case 2:
+					txc = createBlobInjection(1, nonce, uint64(executionGasLimit), big.NewInt(10), big.NewInt(executionGasPrice+20), big.NewInt(1), []kzg4844.Blob{{1, 2, 3, 4}})
+				case 1:
+					txc = action.NewDynamicFeeTx(1, nonce, uint64(executionGasLimit), big.NewInt(executionGasPrice+10), big.NewInt(1), nil)
+				default:
+					txc = action.NewLegacyTx(1, nonce, uint64(executionGasLimit), big.NewInt(executionGasPrice))
+				}
+				exec := action.NewExecution(contract, big.NewInt(int64(executionAmount)), assertions.MustNoErrorV(hex.DecodeString(executionData)))
+				act := assertions.MustNoErrorV(action.Sign(action.NewEnvelope(txc, exec), executor.PriKey))
+				go injectAction(wg, act, client, retryNum, retryInterval, pendingActionMap, func() {})
 			}
 		}
 	}
@@ -393,10 +418,10 @@ func injectTransfer(
 		pendingActionMap.Set(selpHash, 1)
 		atomic.AddUint64(&totalTsfSentToAPI, 1)
 	}
-
 	if wg != nil {
 		wg.Done()
 	}
+	log.L().Debug("Injected transfer", zap.String("sender", sender.EncodedAddr), zap.String("recipient", recipient.EncodedAddr))
 }
 
 func injectExecInteraction(
@@ -433,6 +458,7 @@ func injectExecInteraction(
 	if wg != nil {
 		wg.Done()
 	}
+	log.L().Debug("Injected Execution", zap.String("sender", executor.EncodedAddr), zap.String("recipient", contract))
 }
 
 func injectFpTokenTransfer(
@@ -466,6 +492,7 @@ func injectFpTokenTransfer(
 	if wg != nil {
 		wg.Done()
 	}
+	log.L().Debug("Injected FpTokenTransfer", zap.String("sender", sender.EncodedAddr), zap.String("recipient", recipient.EncodedAddr))
 }
 
 func injectStake(
@@ -525,6 +552,32 @@ func createTransferInjection(
 	return sender, recipient, nonce, amount
 }
 
+func createBlobInjection(chainID uint32, nonce uint64, gasLimit uint64, tip, fee, blobFee *big.Int, blobs []kzg4844.Blob) action.TxCommonInternal {
+	commits := make([]kzg4844.Commitment, len(blobs))
+	proofs := make([]kzg4844.Proof, len(blobs))
+	for i, blob := range blobs {
+		commit := assertions.MustNoErrorV(kzg4844.BlobToCommitment(blob))
+		proof := assertions.MustNoErrorV(kzg4844.ComputeBlobProof(blob, commit))
+		commits[i] = commit
+		proofs[i] = proof
+	}
+	sidecar := &types.BlobTxSidecar{
+		Blobs:       blobs,
+		Commitments: commits,
+		Proofs:      proofs,
+	}
+	return action.NewBlobTx(chainID, nonce, gasLimit, tip, fee, nil, action.NewBlobTxData(uint256.MustFromBig(blobFee), sidecar.BlobHashes(), sidecar))
+}
+
+func createTransfer(counter map[string]uint64, addrs []*AddressKey, payload []byte) *action.Transfer {
+	recipient := addrs[rand.Intn(len(addrs))]
+	amount := int64(0)
+	for amount == int64(0) {
+		amount = int64(rand.Intn(5))
+	}
+	return action.NewTransfer(big.NewInt(amount), recipient.EncodedAddr, payload)
+}
+
 // Helper function to get the sender, recipient, and nonce of next injected vote
 func createVoteInjection(
 	counter map[string]uint64,
@@ -563,16 +616,9 @@ func createSignedTransfer(
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to decode payload %s", payload)
 	}
-	transfer, err := action.NewTransfer(
-		nonce, amount, recipient.EncodedAddr, transferPayload, gasLimit, gasPrice)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to create raw transfer")
-	}
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
-		SetGasPrice(gasPrice).
-		SetGasLimit(gasLimit).
-		SetAction(transfer).Build()
+	transfer := action.NewTransfer(amount, recipient.EncodedAddr, transferPayload)
+	elp := (&action.EnvelopeBuilder{}).SetNonce(nonce).SetGasPrice(gasPrice).SetChainID(1).
+		SetGasLimit(gasLimit).SetAction(transfer).Build()
 	selp, err := action.Sign(elp, sender.PriKey)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to sign transfer %v", elp)
@@ -594,15 +640,9 @@ func createSignedExecution(
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to decode data %s", data)
 	}
-	execution, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPrice, executionData)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to create raw execution")
-	}
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
-		SetGasPrice(gasPrice).
-		SetGasLimit(gasLimit).
-		SetAction(execution).Build()
+	execution := action.NewExecution(contract, amount, executionData)
+	elp := (&action.EnvelopeBuilder{}).SetNonce(nonce).SetGasPrice(gasPrice).SetChainID(1).
+		SetGasLimit(gasLimit).SetAction(execution).Build()
 	selp, err := action.Sign(elp, executor.PriKey)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to sign execution %v", elp)
@@ -621,21 +661,43 @@ func createSignedStake(
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) (*action.SealedEnvelope, *action.CreateStake, error) {
-	createStake, err := action.NewCreateStake(nonce, candidateName, amount, duration, autoStake, payload, gasLimit, gasPrice)
+	createStake, err := action.NewCreateStake(candidateName, amount, duration, autoStake, payload)
 	if err != nil {
 		return nil, nil, err
 	}
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
-		SetGasPrice(gasPrice).
-		SetGasLimit(gasLimit).
-		SetAction(createStake).
-		Build()
+	elp := (&action.EnvelopeBuilder{}).SetNonce(nonce).SetGasPrice(gasPrice).SetChainID(1).
+		SetGasLimit(gasLimit).SetAction(createStake).Build()
 	selp, err := action.Sign(elp, executor.PriKey)
 	if err != nil {
 		return nil, nil, err
 	}
 	return selp, createStake, nil
+}
+
+func injectAction(
+	wg *sync.WaitGroup,
+	selp *action.SealedEnvelope,
+	c iotexapi.APIServiceClient,
+	retryNum int,
+	retryInterval int,
+	pendingActionMap *ttl.Cache,
+	callback func(),
+) {
+	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(retryInterval)*time.Second), uint64(retryNum))
+	if err := backoff.Retry(func() error {
+		_, err := c.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
+		return err
+	}, bo); err != nil {
+		log.L().Error("Failed to inject action", zap.Error(err))
+	} else if pendingActionMap != nil {
+		hash := assertions.MustNoErrorV(selp.Hash())
+		log.L().Debug("Injected action", log.Hex("hash", hash[:]))
+		pendingActionMap.Set(hash, 1)
+	}
+	if wg != nil {
+		wg.Done()
+	}
+	callback()
 }
 
 func injectExecution(
@@ -652,6 +714,8 @@ func injectExecution(
 	}, bo); err != nil {
 		log.L().Error("Failed to inject execution", zap.Error(err))
 	}
+	hash := assertions.MustNoErrorV(selp.Hash())
+	log.L().Debug("Inject deploy contract", log.Hex("hash", hash[:]))
 }
 
 // GetAllBalanceMap returns a account balance map of all admins and delegates
@@ -694,6 +758,7 @@ func CheckPendingActionList(
 	cs api.CoreService,
 	pendingActionMap *ttl.Cache,
 	balancemap map[string]*big.Int,
+	unclaimedBalancemap map[string]*big.Int,
 ) (bool, error) {
 	var retErr error
 	empty := true
@@ -701,7 +766,7 @@ func CheckPendingActionList(
 	pendingActionMap.Range(func(selphash, vi interface{}) error {
 		empty = false
 		sh, _ := selphash.(hash.Hash256)
-		receipt, err := GetReceiptByAction(cs, sh)
+		receipt, err := cs.ReceiptByActionHash(sh)
 		if err == nil {
 			actInfo, err := GetActionByActionHash(cs, selphash.(hash.Hash256))
 			if err != nil {
@@ -709,12 +774,35 @@ func CheckPendingActionList(
 				return nil
 			}
 			executoraddr := actInfo.GetSender()
+			price := receipt.EffectiveGasPrice
+			if price == nil {
+				price = big.NewInt(0)
+			}
+			blk, err := cs.BlockByHeight(receipt.BlockHeight)
+			if err != nil {
+				retErr = err
+				return nil
+			}
+			ub, ok := unclaimedBalancemap[blk.Block.ProducerAddress()]
+			if !ok {
+				ub = big.NewInt(0)
+				unclaimedBalancemap[blk.Block.ProducerAddress()] = ub
+			}
+			if receipt.PriorityFee() != nil {
+				ub.Add(ub, receipt.PriorityFee())
+				log.L().Debug("with priorityFee", zap.String("producer", blk.Block.ProducerAddress()), zap.String("priorityFee", receipt.PriorityFee().String()))
+			}
 			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
+				// log.L().Info("action is executed", log.Hex("hash", sh[:]), zap.Int("status", int(receipt.Status)))
 				pbAct := actInfo.GetAction().GetCore()
 				gasLimit := actInfo.GetAction().Core.GetGasLimit()
-				gasPrice, ok := new(big.Int).SetString(actInfo.GetAction().Core.GetGasPrice(), 10)
-				if !ok {
-					return errors.New("failed to set gas price")
+				blobPrice := receipt.BlobGasPrice
+				if blobPrice == nil {
+					blobPrice = big.NewInt(0)
+				}
+				blobFee := new(big.Int).Mul(blobPrice, new(big.Int).SetUint64(receipt.BlobGasUsed))
+				if blobFee.Sign() > 0 {
+					log.L().Debug("with blobFee", zap.String("blobFee", blobFee.String()))
 				}
 				switch {
 				case pbAct.GetTransfer() != nil:
@@ -724,7 +812,7 @@ func CheckPendingActionList(
 						return nil
 					}
 					updateTransferExpectedBalanceMap(balancemap, executoraddr,
-						act.Recipient(), act.Amount(), act.Payload(), gasLimit, gasPrice)
+						act.Recipient(), act.Amount(), act.Payload(), gasLimit, price, blobFee)
 					atomic.AddUint64(&totalTsfSucceeded, 1)
 				case pbAct.GetExecution() != nil:
 					act := &action.Execution{}
@@ -732,14 +820,16 @@ func CheckPendingActionList(
 						retErr = err
 						return nil
 					}
-					updateExecutionExpectedBalanceMap(balancemap, executoraddr, gasLimit, gasPrice)
+					updateExecutionExpectedBalanceMap(balancemap, executoraddr, gasLimit, price, blobFee)
 				case pbAct.GetStakeCreate() != nil:
 					act := &action.CreateStake{}
 					if err := act.LoadProto(pbAct.GetStakeCreate()); err != nil {
 						retErr = err
 						return nil
 					}
-					cost, err := act.Cost()
+					elp := (&action.EnvelopeBuilder{}).SetNonce(pbAct.GetNonce()).SetGasLimit(gasLimit).
+						SetGasPrice(price).SetAction(act).Build()
+					cost, err := elp.Cost()
 					if err != nil {
 						retErr = err
 						return nil
@@ -756,7 +846,9 @@ func CheckPendingActionList(
 		}
 		return nil
 	})
-
+	if retErr != nil {
+		log.L().Error("Failed to check pending action list", zap.Error(retErr))
+	}
 	return empty, retErr
 }
 
@@ -768,6 +860,7 @@ func updateTransferExpectedBalanceMap(
 	payload []byte,
 	gasLimit uint64,
 	gasPrice *big.Int,
+	blobFee *big.Int,
 ) {
 
 	gasLimitBig := big.NewInt(int64(gasLimit))
@@ -788,6 +881,7 @@ func updateTransferExpectedBalanceMap(
 
 	// total cost of transferred amount, payload, transfer intrinsic
 	totalUsed := new(big.Int).Add(gasConsumed, amount)
+	totalUsed.Add(totalUsed, blobFee)
 
 	// update sender balance
 	senderBalance := balancemap[senderAddr]
@@ -805,7 +899,7 @@ func updateExecutionExpectedBalanceMap(
 	balancemap map[string]*big.Int,
 	executor string,
 	gasLimit uint64,
-	gasPrice *big.Int,
+	gasPrice, blobFee *big.Int,
 ) {
 	gasLimitBig := new(big.Int).SetUint64(gasLimit)
 
@@ -816,6 +910,7 @@ func updateExecutionExpectedBalanceMap(
 		log.L().Fatal("Not enough gas")
 	}
 	gasConsumed := new(big.Int).Mul(gasUnitConsumed, gasPrice)
+	gasConsumed.Add(gasConsumed, blobFee)
 
 	executorBalance := balancemap[executor]
 	if executorBalance.Cmp(gasConsumed) < 0 {

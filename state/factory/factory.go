@@ -20,23 +20,23 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
-	"github.com/iotexproject/iotex-core/pkg/tracer"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/actpool"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/db/trie"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 const (
@@ -86,7 +86,7 @@ type (
 		Validate(context.Context, *block.Block) error
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
-		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
+		SimulateExecution(context.Context, address.Address, action.Envelope, ...protocol.SimulateOption) ([]byte, *action.Receipt, error)
 		ReadContractStorage(context.Context, address.Address, []byte) ([]byte, error)
 		PutBlock(context.Context, *block.Block) error
 		DeleteTipBlock(context.Context, *block.Block) error
@@ -387,7 +387,8 @@ func (sf *factory) NewBlockBuilder(
 func (sf *factory) SimulateExecution(
 	ctx context.Context,
 	caller address.Address,
-	ex *action.Execution,
+	elp action.Envelope,
+	opts ...protocol.SimulateOption,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "factory.SimulateExecution")
 	defer span.End()
@@ -398,8 +399,16 @@ func (sf *factory) SimulateExecution(
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-
-	return evm.SimulateExecution(ctx, ws, caller, ex)
+	cfg := &protocol.SimulateOptionConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	if cfg.PreOpt != nil {
+		if err := cfg.PreOpt(ws); err != nil {
+			return nil, nil, err
+		}
+	}
+	return evm.SimulateExecution(ctx, ws, caller, elp)
 }
 
 // ReadContractStorage reads contract's storage
@@ -423,17 +432,7 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	if producer == nil {
 		return errors.New("failed to get address")
 	}
-	g := genesis.MustExtractGenesisContext(ctx)
-	ctx = protocol.WithBlockCtx(
-		protocol.WithRegistry(ctx, sf.registry),
-		protocol.BlockCtx{
-			BlockHeight:    blk.Height(),
-			BlockTimeStamp: blk.Timestamp(),
-			GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
-			Producer:       producer,
-		},
-	)
-	ctx = protocol.WithFeatureCtx(ctx)
+	ctx = protocol.WithRegistry(ctx, sf.registry)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
 	if err != nil {

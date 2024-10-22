@@ -18,11 +18,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/testutil/testdb"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 )
 
 func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
@@ -204,11 +204,11 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 				})
 			}
 			require.NoError(setupAccount(sm, test.caller, test.initBalance))
-			act, err := action.NewCandidateTransferOwnership(test.nonce, test.gasLimit, test.gasPrice, test.owner.String(), test.payload)
+			act, err := action.NewCandidateTransferOwnership(test.owner.String(), test.payload)
 			require.NoError(err)
 			IntrinsicGas, _ := act.IntrinsicGas()
-			elp := builder.SetNonce(act.Nonce()).SetGasLimit(act.GasLimit()).
-				SetGasPrice(act.GasPrice()).SetAction(act).Build()
+			elp := builder.SetNonce(test.nonce).SetGasLimit(test.gasLimit).
+				SetGasPrice(test.gasPrice).SetAction(act).Build()
 			ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 				Caller:       test.caller,
 				GasPrice:     test.gasPrice,

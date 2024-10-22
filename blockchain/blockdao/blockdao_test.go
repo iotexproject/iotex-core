@@ -15,19 +15,19 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/filedao"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/pkg/compress"
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/pkg/compress"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_blockdao"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 func TestNewBlockDAOWithIndexersAndCache(t *testing.T) {
@@ -546,7 +546,9 @@ func Test_blockDAO_PutBlock(t *testing.T) {
 		indexers:   []BlockIndexer{indexer},
 		blockStore: store,
 	}
-
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	blk, err := block.NewTestingBuilder().SignAndBuild(identityset.PrivateKey(1))
+	r.NoError(err)
 	t.Run("FailedToPutBlockToBlockStore", func(t *testing.T) {
 		store.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(errors.New(t.Name())).Times(1)
 
@@ -558,8 +560,7 @@ func Test_blockDAO_PutBlock(t *testing.T) {
 	t.Run("FailedToPutBlockToIndexer", func(t *testing.T) {
 		store.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 		indexer.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(errors.New(t.Name())).Times(1)
-
-		err := dao.PutBlock(context.Background(), &block.Block{})
+		err = dao.PutBlock(ctx, &blk)
 
 		r.ErrorContains(err, t.Name())
 	})
@@ -568,7 +569,7 @@ func Test_blockDAO_PutBlock(t *testing.T) {
 		store.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 		indexer.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 
-		err := dao.PutBlock(context.Background(), &block.Block{})
+		err := dao.PutBlock(ctx, &blk)
 
 		r.NoError(err)
 	})
@@ -758,7 +759,7 @@ func TestBlockDAO(t *testing.T) {
 		},
 	}
 
-	testBlockDao := func(dao BlockDAO, t *testing.T) {
+	testBlockDao := func(dao BlockStore, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
 			genesis.WithGenesisContext(context.Background(), genesis.Default),
 			protocol.BlockchainCtx{

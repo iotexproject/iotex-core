@@ -14,8 +14,8 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/pkg/version"
 )
 
 // Builder is used to construct Block.
@@ -93,6 +93,18 @@ func (b *Builder) SetGasUsed(g uint64) *Builder {
 // SetBaseFee sets the base fee
 func (b *Builder) SetBaseFee(fee *big.Int) *Builder {
 	b.blk.Header.baseFee = new(big.Int).Set(fee)
+	return b
+}
+
+// SetBlobGasUsed sets the blob gas used
+func (b *Builder) SetBlobGasUsed(g uint64) *Builder {
+	b.blk.Header.blobGasUsed = g
+	return b
+}
+
+// SetExcessBlobGas sets the excess blob gas
+func (b *Builder) SetExcessBlobGas(g uint64) *Builder {
+	b.blk.Header.excessBlobGas = g
 	return b
 }
 

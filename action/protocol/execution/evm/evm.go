@@ -26,12 +26,12 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/tracer"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 var (
@@ -100,7 +100,7 @@ type (
 // newParams creates a new context for use in the EVM.
 func newParams(
 	ctx context.Context,
-	execution *action.EvmTransaction,
+	execution action.TxData,
 	stateDB *StateDBAdapter,
 ) (*Params, error) {
 	var (
@@ -166,6 +166,14 @@ func newParams(
 		// Random opcode (EIP-4399) is not supported
 		context.Random = &common.Hash{}
 	}
+	if g.IsVanuatu(blkCtx.BlockHeight) {
+		// enable BLOBBASEFEE opcode
+		context.BlobBaseFee = protocol.CalcBlobFee(blkCtx.ExcessBlobGas)
+		// enable BASEFEE opcode
+		if blkCtx.BaseFee != nil {
+			context.BaseFee = new(big.Int).Set(blkCtx.BaseFee)
+		}
+	}
 
 	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
 		vmConfig = vmCfg
@@ -174,13 +182,18 @@ func newParams(
 	if err != nil {
 		return nil, err
 	}
-
+	vmTxCtx := vm.TxContext{
+		Origin:   executorAddr,
+		GasPrice: execution.GasPrice(),
+	}
+	if g.IsVanuatu(blkCtx.BlockHeight) {
+		// enable BLOBHASH opcode
+		vmTxCtx.BlobHashes = execution.BlobHashes()
+		vmTxCtx.BlobFeeCap = execution.BlobGasFeeCap()
+	}
 	return &Params{
 		context,
-		vm.TxContext{
-			Origin:   executorAddr,
-			GasPrice: execution.GasPrice(),
-		},
+		vmTxCtx,
 		execution.Nonce(),
 		execution.Value(),
 		execution.To(),
@@ -219,7 +232,7 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
 func ExecuteContract(
 	ctx context.Context,
 	sm protocol.StateManager,
-	execution *action.EvmTransaction,
+	execution action.TxData,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
@@ -237,13 +250,13 @@ func ExecuteContract(
 		return nil, nil, err
 	}
 	receipt := &action.Receipt{
-		GasConsumed:     ps.gas - remainingGas,
-		BlockHeight:     ps.blkCtx.BlockHeight,
-		ActionHash:      ps.actionCtx.ActionHash,
-		ContractAddress: contractAddress,
+		GasConsumed:       ps.gas - remainingGas,
+		BlockHeight:       ps.blkCtx.BlockHeight,
+		ActionHash:        ps.actionCtx.ActionHash,
+		ContractAddress:   contractAddress,
+		Status:            uint64(statusCode),
+		EffectiveGasPrice: protocol.EffectiveGasPrice(ctx, execution),
 	}
-
-	receipt.Status = uint64(statusCode)
 	var (
 		depositLog  []*action.TransactionLog
 		burnLog     *action.TransactionLog
@@ -267,11 +280,11 @@ func ExecuteContract(
 		}
 	}
 	if consumedGas > 0 {
-		gasFee, baseFee, err := protocol.SplitGas(ctx, execution, consumedGas)
+		priorityFee, baseFee, err := protocol.SplitGas(ctx, execution, consumedGas)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to split gas")
 		}
-		depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, gasFee, protocol.BurnGasOption(baseFee))
+		depositLog, err = ps.helperCtx.DepositGasFunc(ctx, sm, baseFee, protocol.PriorityFeeOption(priorityFee))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -360,6 +373,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if featureCtx.PanicUnrecoverableError {
 		opts = append(opts, PanicUnrecoverableErrorOption())
 	}
+	if featureCtx.EnableCancunEVM {
+		opts = append(opts, EnableCancunEVMOption())
+	}
 
 	return NewStateDBAdapter(
 		sm,
@@ -396,6 +412,13 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 	}
 	sumatraTimestamp := (uint64)(sumatraTime.Unix())
 	chainConfig.ShanghaiTime = &sumatraTimestamp
+	// enable Cancun at Vanuatu
+	cancunTime, err := getBlockTime(g.VanuatuBlockHeight)
+	if err != nil {
+		return nil, err
+	}
+	cancunTimestamp := (uint64)(cancunTime.Unix())
+	chainConfig.CancunTime = &cancunTimestamp
 	return &chainConfig, nil
 }
 
@@ -589,7 +612,7 @@ func SimulateExecution(
 	ctx context.Context,
 	sm protocol.StateManager,
 	caller address.Address,
-	ex *action.Execution,
+	ex action.TxDataForSimulation,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.SimulateExecution")
 	defer span.End()
@@ -616,13 +639,11 @@ func SimulateExecution(
 			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(g.BlockInterval),
 			GasLimit:       g.BlockGasLimitByHeight(bcCtx.Tip.Height + 1),
 			Producer:       zeroAddr,
+			BaseFee:        protocol.CalcBaseFee(g.Blockchain, &bcCtx.Tip),
+			ExcessBlobGas:  protocol.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed),
 		},
 	)
 
 	ctx = protocol.WithFeatureCtx(ctx)
-	return ExecuteContract(
-		ctx,
-		sm,
-		action.NewEvmTx(ex),
-	)
+	return ExecuteContract(ctx, sm, ex)
 }

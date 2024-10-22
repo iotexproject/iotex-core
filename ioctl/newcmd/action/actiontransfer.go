@@ -11,11 +11,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/newcmd/account"
-	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/newcmd/account"
+	"github.com/iotexproject/iotex-core/v2/ioctl/util"
 )
 
 // Multi-language support
@@ -85,10 +85,7 @@ func NewActionTransferCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get nonce")
 			}
-			tx, err := action.NewTransfer(nonce, amount, recipient, payload, gasLimit, gasPriceRau)
-			if err != nil {
-				return errors.Wrap(err, "failed to make a Transfer instance")
-			}
+			tx := action.NewTransfer(amount, recipient, payload)
 			return SendAction(
 				client,
 				cmd,

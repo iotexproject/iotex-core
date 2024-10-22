@@ -19,19 +19,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
 )
 
 func TestProtocol_GrantBlockReward(t *testing.T) {
@@ -70,6 +70,20 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 		// Grant the same block reward again will fail
 		_, err = p.GrantBlockReward(ctx, sm)
 		require.Error(t, err)
+
+		// Grant with priority fee after VanuatuBlockHeight
+		blkCtx.AccumulatedTips = *big.NewInt(5)
+		blkCtx.BlockHeight = genesis.Default.VanuatuBlockHeight
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, blkCtx))
+		rewardLog, err = p.GrantBlockReward(ctx, sm)
+		require.NoError(t, err)
+		rls, err := UnmarshalRewardLog(rewardLog.Data)
+		require.NoError(t, err)
+		require.Len(t, rls.Logs, 2)
+		require.Equal(t, rewardingpb.RewardLog_BLOCK_REWARD, rls.Logs[0].Type)
+		require.Equal(t, "10", rls.Logs[0].Amount)
+		require.Equal(t, rewardingpb.RewardLog_PRIORITY_BONUS, rls.Logs[1].Type)
+		require.Equal(t, blkCtx.AccumulatedTips.String(), rls.Logs[1].Amount)
 	}, false)
 }
 
@@ -480,4 +494,35 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	assert.Equal(t, rewardingpb.RewardLog_EPOCH_REWARD, rl.Type)
 	assert.Equal(t, identityset.Address(1).String(), rl.Addr)
 	assert.Equal(t, "50", rl.Amount)
+}
+
+func TestRewardLogCompatibility(t *testing.T) {
+	r := require.New(t)
+	rl := &rewardingpb.RewardLog{
+		Type:   rewardingpb.RewardLog_BLOCK_REWARD,
+		Addr:   "io1",
+		Amount: "100",
+	}
+	data, err := proto.Marshal(rl)
+	r.NoError(err)
+	rls := &rewardingpb.RewardLogs{
+		Logs: []*rewardingpb.RewardLog{rl},
+	}
+	datas, err := proto.Marshal(rls)
+	r.NoError(err)
+	t.Logf("rls = %+v", rls)
+
+	rls2, err := UnmarshalRewardLog(data)
+	r.NoError(err)
+	t.Logf("decoded from rl = %+v", rls2)
+	datao, err := proto.Marshal(rls2)
+	r.NoError(err)
+	r.Equal(datas, datao)
+
+	rls2, err = UnmarshalRewardLog(datas)
+	r.NoError(err)
+	t.Logf("decoded from rls = %+v", rls2)
+	datao, err = proto.Marshal(rls2)
+	r.NoError(err)
+	r.Equal(datas, datao)
 }

@@ -14,17 +14,14 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 func TestBlobStore(t *testing.T) {
 	r := require.New(t)
-	cfg := blobStoreConfig{
-		Datadir: t.TempDir(),
-		Datacap: 10 * 1024 * 1024,
-	}
 	encode := func(selp *action.SealedEnvelope) ([]byte, error) {
 		return proto.Marshal(selp.Proto())
 	}
@@ -42,27 +39,63 @@ func TestBlobStore(t *testing.T) {
 		}
 		return se, nil
 	}
-	store, err := newBlobStore(cfg, encode, decode)
-	r.NoError(err)
-	r.NoError(store.Open(func(selp *action.SealedEnvelope) error {
-		r.FailNow("should not be called")
-		return nil
-	}))
-	act, err := action.SignedExecution("", identityset.PrivateKey(1), 1, big.NewInt(1), 100, big.NewInt(100), nil)
-	r.NoError(err)
-	r.NoError(store.Put(act))
-	r.NoError(store.Close())
+	t.Run("open", func(t *testing.T) {
+		cfg := actionStoreConfig{
+			Datadir: t.TempDir(),
+			Datacap: 10 * 1024 * 1024,
+		}
+		store, err := newActionStore(cfg, encode, decode)
+		r.NoError(err)
+		r.NoError(store.Open(func(selp *action.SealedEnvelope) error {
+			r.FailNow("should not be called")
+			return nil
+		}))
+		act, err := action.SignedExecution("", identityset.PrivateKey(1), 1, big.NewInt(1), 100, big.NewInt(100), nil)
+		r.NoError(err)
+		r.NoError(store.Put(act))
+		r.NoError(store.Close())
 
-	store, err = newBlobStore(cfg, encode, decode)
-	r.NoError(err)
-	acts := []*action.SealedEnvelope{}
-	r.NoError(store.Open(func(selp *action.SealedEnvelope) error {
-		acts = append(acts, selp)
-		return nil
-	}))
-	acts[0].Hash()
-	r.Len(acts, 1)
-	r.Equal(act, acts[0])
+		store, err = newActionStore(cfg, encode, decode)
+		r.NoError(err)
+		acts := []*action.SealedEnvelope{}
+		r.NoError(store.Open(func(selp *action.SealedEnvelope) error {
+			acts = append(acts, selp)
+			return nil
+		}))
+		r.Len(acts, 1)
+		r.Equal(act, acts[0])
+	})
+	t.Run("put", func(t *testing.T) {
+		cfg := actionStoreConfig{
+			Datadir: t.TempDir(),
+			Datacap: 10240,
+		}
+		store, err := newActionStore(cfg, encode, decode)
+		r.NoError(err)
+		r.NoError(store.Open(func(selp *action.SealedEnvelope) error { return nil }))
+		// put action 1
+		body := make([]byte, 1024)
+		act, err := action.SignedExecution("", identityset.PrivateKey(1), 1, big.NewInt(1), 100, big.NewInt(100), body)
+		r.NoError(err)
+		r.NoError(store.Put(act))
+		r.Equal(uint64(4096), store.stored)
+		r.Equal(1, len(store.lookup))
+		assertions.MustNoErrorV(store.Get(assertions.MustNoErrorV(act.Hash())))
+		// put action 2
+		act, err = action.SignedExecution("", identityset.PrivateKey(1), 2, big.NewInt(1), 100, big.NewInt(100), body)
+		r.NoError(err)
+		r.NoError(store.Put(act))
+		r.Equal(uint64(8192), store.stored)
+		r.Equal(2, len(store.lookup))
+		assertions.MustNoErrorV(store.Get(assertions.MustNoErrorV(act.Hash())))
+		// put action 3 and drop
+		act, err = action.SignedExecution("", identityset.PrivateKey(1), 3, big.NewInt(1), 100, big.NewInt(100), body)
+		r.NoError(err)
+		r.NoError(store.Put(act))
+		r.Equal(uint64(8192), store.stored)
+		r.Equal(2, len(store.lookup))
+		assertions.MustNoErrorV(store.Get(assertions.MustNoErrorV(act.Hash())))
+	})
 }
 
 func BenchmarkDatabase(b *testing.B) {
@@ -83,11 +116,11 @@ func BenchmarkDatabase(b *testing.B) {
 	}
 
 	b.Run("billy-put", func(b *testing.B) {
-		cfg := blobStoreConfig{
+		cfg := actionStoreConfig{
 			Datadir: b.TempDir(),
 			Datacap: 1024,
 		}
-		store, err := newBlobStore(cfg, nil, nil)
+		store, err := newActionStore(cfg, nil, nil)
 		r.NoError(err)
 		r.NoError(store.Open(func(selp *action.SealedEnvelope) error {
 			r.FailNow("should not be called")

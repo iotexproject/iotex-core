@@ -8,7 +8,7 @@ package contractstaking
 import (
 	"time"
 
-	"github.com/iotexproject/iotex-core/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 )
 
 // Bucket defines the bucket struct for contract staking

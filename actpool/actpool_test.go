@@ -8,33 +8,45 @@ package actpool
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/sha256"
+	"encoding/hex"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/golang/mock/gomock"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/mohae/deepcopy"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/actpool/actioniterator"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
-	"github.com/iotexproject/iotex-core/test/mock/mock_sealed_envelope_validator"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/v2/actpool/actioniterator"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	. "github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_sealed_envelope_validator"
 )
 
 const (
-	_maxNumActsPerPool  = 8192
-	_maxGasLimitPerPool = 81920000
-	_maxNumActsPerAcct  = 256
+	_maxNumActsPerPool   = 8192
+	_maxGasLimitPerPool  = 81920000
+	_maxNumActsPerAcct   = 256
+	_maxNumBlobTxPerAcct = 3
 )
 
 var (
@@ -128,6 +140,8 @@ func TestActPool_AddActs(t *testing.T) {
 		}
 		if bytes.Equal(cfg.Key, identityset.Address(28).Bytes()) {
 			require.NoError(acct.AddBalance(big.NewInt(100)))
+		} else if bytes.Equal(cfg.Key, identityset.Address(1).Bytes()) {
+			require.NoError(acct.AddBalance(unit.ConvertIotxToRau(100)))
 		} else {
 			require.NoError(acct.AddBalance(big.NewInt(10)))
 		}
@@ -239,13 +253,8 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 	err = ap.Add(ctx, replaceTsf)
 	require.Equal(action.ErrReplaceUnderpriced, errors.Cause(err))
-	replaceTransfer, err := action.NewTransfer(uint64(4), big.NewInt(1), _addr2, []byte{}, uint64(100000), big.NewInt(0))
-	require.NoError(err)
-
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(4).
-		SetAction(replaceTransfer).
-		SetGasLimit(100000).Build()
+	replaceTransfer := action.NewTransfer(big.NewInt(1), _addr2, []byte{})
+	elp := (&action.EnvelopeBuilder{}).SetNonce(4).SetAction(replaceTransfer).SetGasLimit(100000).Build()
 	selp, err := action.Sign(elp, _priKey1)
 
 	require.NoError(err)
@@ -264,20 +273,9 @@ func TestActPool_AddActs(t *testing.T) {
 	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	// Case VII: insufficient gas
 	tmpData := [1234]byte{}
-	creationExecution, err := action.NewExecution(
-		action.EmptyAddress,
-		uint64(5),
-		big.NewInt(int64(0)),
-		10,
-		big.NewInt(10),
-		tmpData[:],
-	)
-	require.NoError(err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(5).
-		SetGasPrice(big.NewInt(10)).
-		SetGasLimit(10).
+	creationExecution := action.NewExecution(action.EmptyAddress, big.NewInt(int64(0)), tmpData[:])
+	bd := &action.EnvelopeBuilder{}
+	elp = bd.SetNonce(5).SetGasPrice(big.NewInt(10)).SetGasLimit(10).
 		SetAction(creationExecution).Build()
 	selp, err = action.Sign(elp, _priKey1)
 	require.NoError(err)
@@ -292,6 +290,58 @@ func TestActPool_AddActs(t *testing.T) {
 	elp = bd.SetAction(&action.PutPollResult{}).Build()
 	err = ap.Add(ctx, action.FakeSeal(elp, _priKey1.PublicKey()))
 	require.Equal(action.ErrInvalidAct, errors.Cause(err))
+
+	t.Run("blobTx", func(t *testing.T) {
+		blob := kzg4844.Blob{}
+		commitment := MustNoErrorV(kzg4844.BlobToCommitment(blob))
+		testBlobTxWithNonce := func(n uint64, tip, fee, blobFee int64) *action.SealedEnvelope {
+			tx := types.MustSignNewTx(identityset.PrivateKey(1).EcdsaPrivateKey().(*ecdsa.PrivateKey),
+				types.NewCancunSigner(big.NewInt(int64(4689))), &types.BlobTx{
+					Nonce:      n,
+					GasTipCap:  uint256.MustFromBig(big.NewInt(tip)),
+					GasFeeCap:  uint256.MustFromBig(big.NewInt(fee)),
+					Gas:        100000,
+					To:         common.BytesToAddress(identityset.Address(1).Bytes()),
+					Value:      uint256.MustFromBig(big.NewInt(1)),
+					BlobFeeCap: uint256.MustFromBig(big.NewInt(blobFee)),
+					BlobHashes: []common.Hash{kzg4844.CalcBlobHashV1(sha256.New(), &commitment)},
+					Sidecar: &types.BlobTxSidecar{
+						Blobs:       []kzg4844.Blob{blob},
+						Commitments: []kzg4844.Commitment{commitment},
+						Proofs:      []kzg4844.Proof{MustNoErrorV(kzg4844.ComputeBlobProof(blob, commitment))},
+					},
+				})
+			_, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
+			require.NoError(err)
+			req := &iotextypes.Action{
+				Core:         MustNoErrorV(action.EthRawToContainer(1, hex.EncodeToString(MustNoErrorV(tx.MarshalBinary())))),
+				SenderPubKey: pubkey.Bytes(),
+				Signature:    sig,
+				Encoding:     iotextypes.Encoding_TX_CONTAINER,
+			}
+			return MustNoErrorV((&action.Deserializer{}).SetEvmNetworkID(4689).ActionToSealedEnvelope(req))
+		}
+		// reject non-continuous nonce
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g.VanuatuBlockHeight = 0
+		ap, err := NewActPool(g, sf, apConfig)
+		require.NoError(err)
+		require.NoError(ap.Start(ctx))
+		defer ap.Stop(ctx)
+		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+		require.ErrorIs(ap.Add(ctx, testBlobTxWithNonce(2, 10, 2000000000000, 10)), action.ErrNonceTooHigh)
+		// accept continuous nonce
+		require.NoError(ap.Add(ctx, testBlobTxWithNonce(1, 10, 2000000000000, 10)))
+		// 2x price bump to replace
+		require.ErrorIs(ap.Add(ctx, testBlobTxWithNonce(1, 10, 4000000000000, 20)), action.ErrReplaceUnderpriced)
+		require.ErrorIs(ap.Add(ctx, testBlobTxWithNonce(1, 20, 2000000000000, 20)), action.ErrReplaceUnderpriced)
+		require.ErrorIs(ap.Add(ctx, testBlobTxWithNonce(1, 20, 4000000000000, 10)), action.ErrReplaceUnderpriced)
+		require.NoError(ap.Add(ctx, testBlobTxWithNonce(1, 20, 4000000000000, 20)))
+		// max blob tx per account
+		require.NoError(ap.Add(ctx, testBlobTxWithNonce(2, 10, 2000000000000, 10)))
+		require.NoError(ap.Add(ctx, testBlobTxWithNonce(3, 10, 2000000000000, 10)))
+		require.ErrorIs(ap.Add(ctx, testBlobTxWithNonce(4, 10, 2000000000000, 10)), action.ErrNonceTooHigh)
+	})
 }
 
 func TestActPool_PickActs(t *testing.T) {
@@ -724,13 +774,8 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	tsf22, err := action.SignedTransfer(_addr5, _priKey4, uint64(2), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf23, err := action.NewTransfer(uint64(3), big.NewInt(1), "", []byte{}, uint64(100000), big.NewInt(0))
-	require.NoError(err)
-
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(3).
-		SetGasLimit(20000).
-		SetAction(tsf23).Build()
+	tsf23 := action.NewTransfer(big.NewInt(1), "", []byte{})
+	elp := (&action.EnvelopeBuilder{}).SetNonce(3).SetGasLimit(20000).SetAction(tsf23).Build()
 	selp23, err := action.Sign(elp, _priKey4)
 	require.NoError(err)
 
@@ -738,13 +783,8 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	tsf25, err := action.SignedTransfer(_addr4, _priKey5, uint64(2), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf26, err := action.NewTransfer(uint64(3), big.NewInt(1), _addr4, []byte{}, uint64(20000), big.NewInt(0))
-	require.NoError(err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(3).
-		SetGasLimit(20000).
-		SetAction(tsf26).Build()
+	tsf26 := action.NewTransfer(big.NewInt(1), _addr4, []byte{})
+	elp = (&action.EnvelopeBuilder{}).SetNonce(3).SetGasLimit(20000).SetAction(tsf26).Build()
 	selp26, err := action.Sign(elp, _priKey5)
 	require.NoError(err)
 
@@ -1162,6 +1202,7 @@ func getActPoolCfg() Config {
 		MaxNumActsPerAcct:  _maxNumActsPerAcct,
 		MinGasPriceStr:     "0",
 		BlackList:          []string{_addr6},
+		MaxNumBlobsPerAcct: _maxNumBlobTxPerAcct,
 	}
 }
 

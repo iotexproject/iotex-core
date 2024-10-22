@@ -13,14 +13,15 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 // ActQueue is the interface of actQueue
@@ -104,7 +105,28 @@ func (q *actQueue) Put(act *action.SealedEnvelope) error {
 	if actInPool, exist := q.items[nonce]; exist {
 		// act of higher gas price can cut in line
 		if nonce < q.pendingNonce && act.GasFeeCap().Cmp(actInPool.GasFeeCap()) != 1 {
-			return action.ErrReplaceUnderpriced
+			return errors.Wrapf(action.ErrReplaceUnderpriced, "gas fee cap %s < %s", act.GasFeeCap(), actInPool.GasFeeCap())
+		}
+		// 2x bumps in gas price are allowed for blob tx
+		isPrevBlobTx, isBlobTx := len(actInPool.BlobHashes()) > 0, len(act.BlobHashes()) > 0
+		if isPrevBlobTx {
+			if !isBlobTx {
+				return errors.Wrap(action.ErrReplaceUnderpriced, "blob tx can only replace blob tx")
+			}
+			var (
+				priceBump        = big.NewInt(2)
+				minGasFeeCap     = new(big.Int).Mul(actInPool.GasFeeCap(), priceBump)
+				minGasTipCap     = new(big.Int).Mul(actInPool.GasTipCap(), priceBump)
+				minBlobGasFeeCap = new(big.Int).Mul(actInPool.BlobGasFeeCap(), priceBump)
+			)
+			switch {
+			case act.GasFeeCap().Cmp(minGasFeeCap) < 0:
+				return errors.Wrapf(action.ErrReplaceUnderpriced, "gas fee cap %s < %s", act.GasFeeCap(), minGasFeeCap)
+			case act.GasTipCap().Cmp(minGasTipCap) < 0:
+				return errors.Wrapf(action.ErrReplaceUnderpriced, "gas tip cap %s < %s", act.GasTipCap(), minGasTipCap)
+			case act.BlobGasFeeCap().Cmp(minBlobGasFeeCap) < 0:
+				return errors.Wrapf(action.ErrReplaceUnderpriced, "blob gas fee cap %s < %s", act.BlobGasFeeCap(), minBlobGasFeeCap)
+			}
 		}
 		// update action in q.items and q.index
 		q.items[nonce] = act
@@ -115,6 +137,7 @@ func (q *actQueue) Put(act *action.SealedEnvelope) error {
 			}
 		}
 		q.updateFromNonce(nonce)
+		q.ap.removeInvalidActs([]*action.SealedEnvelope{actInPool})
 		return nil
 	}
 	nttl := &nonceWithTTL{nonce: nonce, deadline: q.clock.Now().Add(q.ttl)}
@@ -221,6 +244,7 @@ func (q *actQueue) UpdateAccountState(nonce uint64, balance *big.Int) []*action.
 		nonce := nttl.nonce
 		removed = append(removed, q.items[nonce])
 		delete(q.items, nonce)
+
 	}
 	return removed
 }
@@ -337,6 +361,5 @@ func (q *actQueue) PopActionWithLargestNonce() *action.SealedEnvelope {
 	item := q.items[itemMeta.nonce]
 	delete(q.items, itemMeta.nonce)
 	q.updateFromNonce(itemMeta.nonce)
-
 	return item
 }

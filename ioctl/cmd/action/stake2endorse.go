@@ -5,9 +5,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/output"
 )
 
 // Multi-language support
@@ -131,7 +131,7 @@ func doEndorsement(bucketIndex uint64, op action.CandidateEndorsementOp) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	s2t, err := action.NewCandidateEndorsement(nonce, gasLimit, gasPriceRau, bucketIndex, op)
+	s2t, err := action.NewCandidateEndorsement(bucketIndex, op)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidate endorsement", err)
 	}

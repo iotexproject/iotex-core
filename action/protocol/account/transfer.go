@@ -12,22 +12,24 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 // TransferSizeLimit is the maximum size of transfer allowed
 const TransferSizeLimit = 32 * 1024
 
 // handleTransfer handles a transfer
-func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) handleTransfer(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
 	var (
 		fCtx      = protocol.MustGetFeatureCtx(ctx)
 		actionCtx = protocol.MustGetActionCtx(ctx)
 		blkCtx    = protocol.MustGetBlockCtx(ctx)
+		tsf       = elp.Action().(*action.Transfer)
 	)
 	accountCreationOpts := []state.AccountCreationOption{}
 	if fCtx.CreateLegacyNonceAccount {
@@ -39,14 +41,12 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 		return nil, errors.Wrapf(err, "failed to load or create the account of sender %s", actionCtx.Caller.String())
 	}
 
-	gasFee, baseFee, err := protocol.SplitGas(ctx, &tsf.AbstractAction, actionCtx.IntrinsicGas)
+	priorityFee, baseFee, err := protocol.SplitGas(ctx, elp, actionCtx.IntrinsicGas)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to split gas")
 	}
-	total := big.NewInt(0).Add(tsf.Amount(), gasFee)
-	if baseFee != nil {
-		total.Add(total, baseFee)
-	}
+	total := big.NewInt(0).Add(tsf.Amount(), priorityFee)
+	total.Add(total, baseFee)
 	if !sender.HasSufficientBalance(total) {
 		return nil, errors.Wrapf(
 			state.ErrNotEnoughBalance,
@@ -60,20 +60,20 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 	var depositLog []*action.TransactionLog
 	if !fCtx.FixDoubleChargeGas {
 		// charge sender gas
-		if err := sender.SubBalance(gasFee); err != nil {
+		if err := sender.SubBalance(baseFee); err != nil {
 			return nil, errors.Wrapf(err, "failed to charge the gas for sender %s", actionCtx.Caller.String())
 		}
 		if p.depositGas != nil {
-			depositLog, err = p.depositGas(ctx, sm, gasFee)
+			depositLog, err = p.depositGas(ctx, sm, baseFee)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	if fCtx.FixGasAndNonceUpdate || tsf.Nonce() != 0 {
+	if fCtx.FixGasAndNonceUpdate || elp.Nonce() != 0 {
 		// update sender Nonce
-		if err := sender.SetPendingNonce(tsf.Nonce() + 1); err != nil {
+		if err := sender.SetPendingNonce(elp.Nonce() + 1); err != nil {
 			return nil, errors.Wrapf(err, "failed to update pending nonce of sender %s", actionCtx.Caller.String())
 		}
 	}
@@ -91,6 +91,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load address %s", tsf.Recipient())
 	}
+	price := protocol.EffectiveGasPrice(ctx, elp)
 	if recipientAcct.IsContract() {
 		// put updated sender's state to trie
 		if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
@@ -98,18 +99,19 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 		}
 		if fCtx.FixDoubleChargeGas {
 			if p.depositGas != nil {
-				depositLog, err = p.depositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee))
+				depositLog, err = p.depositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(priorityFee))
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
 		receipt := &action.Receipt{
-			Status:          uint64(iotextypes.ReceiptStatus_Failure),
-			BlockHeight:     blkCtx.BlockHeight,
-			ActionHash:      actionCtx.ActionHash,
-			GasConsumed:     actionCtx.IntrinsicGas,
-			ContractAddress: p.addr.String(),
+			Status:            uint64(iotextypes.ReceiptStatus_Failure),
+			BlockHeight:       blkCtx.BlockHeight,
+			ActionHash:        actionCtx.ActionHash,
+			GasConsumed:       actionCtx.IntrinsicGas,
+			ContractAddress:   p.addr.String(),
+			EffectiveGasPrice: price,
 		}
 		receipt.AddTransactionLogs(depositLog...)
 		return receipt, nil
@@ -140,7 +142,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 
 	if fCtx.FixDoubleChargeGas {
 		if p.depositGas != nil {
-			depositLog, err = p.depositGas(ctx, sm, gasFee, protocol.BurnGasOption(baseFee))
+			depositLog, err = p.depositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(priorityFee))
 			if err != nil {
 				return nil, err
 			}
@@ -148,11 +150,12 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 	}
 
 	receipt := &action.Receipt{
-		Status:          uint64(iotextypes.ReceiptStatus_Success),
-		BlockHeight:     blkCtx.BlockHeight,
-		ActionHash:      actionCtx.ActionHash,
-		GasConsumed:     actionCtx.IntrinsicGas,
-		ContractAddress: p.addr.String(),
+		Status:            uint64(iotextypes.ReceiptStatus_Success),
+		BlockHeight:       blkCtx.BlockHeight,
+		ActionHash:        actionCtx.ActionHash,
+		GasConsumed:       actionCtx.IntrinsicGas,
+		ContractAddress:   p.addr.String(),
+		EffectiveGasPrice: price,
 	}
 	receipt.AddTransactionLogs(&action.TransactionLog{
 		Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,

@@ -12,7 +12,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/endorsement"
+	"github.com/iotexproject/iotex-core/v2/endorsement"
 )
 
 func TestRoundCtx(t *testing.T) {

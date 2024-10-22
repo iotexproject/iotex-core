@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -9,6 +9,7 @@ import (
 	"context"
 	"sync/atomic"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -16,11 +17,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
 )
 
 // vars
@@ -37,8 +39,14 @@ var (
 type (
 	// BlockDAO represents the block data access object
 	BlockDAO interface {
-		Start(ctx context.Context) error
-		Stop(ctx context.Context) error
+		BlockStore
+		GetBlob(hash.Hash256) (*types.BlobTxSidecar, string, error)
+		GetBlobsByHeight(uint64) ([]*types.BlobTxSidecar, []string, error)
+	}
+
+	BlockStore interface {
+		Start(context.Context) error
+		Stop(context.Context) error
 		Height() (uint64, error)
 		GetBlockHash(uint64) (hash.Hash256, error)
 		GetBlockHeight(hash.Hash256) (uint64, error)
@@ -54,7 +62,8 @@ type (
 	}
 
 	blockDAO struct {
-		blockStore   BlockDAO
+		blockStore   BlockStore
+		blobStore    BlobStore
 		indexers     []BlockIndexer
 		timerFactory *prometheustimer.TimerFactory
 		lifecycle    lifecycle.Lifecycle
@@ -66,9 +75,17 @@ type (
 	}
 )
 
+type Option func(*blockDAO)
+
+func WithBlobStore(bs BlobStore) Option {
+	return func(dao *blockDAO) {
+		dao.blobStore = bs
+	}
+}
+
 // NewBlockDAOWithIndexersAndCache returns a BlockDAO with indexers which will consume blocks appended, and
 // caches which will speed up reading
-func NewBlockDAOWithIndexersAndCache(blkStore BlockDAO, indexers []BlockIndexer, cacheSize int) BlockDAO {
+func NewBlockDAOWithIndexersAndCache(blkStore BlockStore, indexers []BlockIndexer, cacheSize int, opts ...Option) BlockDAO {
 	if blkStore == nil {
 		return nil
 	}
@@ -77,8 +94,14 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockDAO, indexers []BlockIndexer,
 		blockStore: blkStore,
 		indexers:   indexers,
 	}
+	for _, opt := range opts {
+		opt(blockDAO)
+	}
 
 	blockDAO.lifecycle.Add(blkStore)
+	if blockDAO.blobStore != nil {
+		blockDAO.lifecycle.Add(blockDAO.blobStore)
+	}
 	for _, indexer := range indexers {
 		blockDAO.lifecycle.Add(indexer)
 	}
@@ -261,6 +284,12 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 		timer.End()
 		return err
 	}
+	if dao.blobStore != nil && blk.HasBlob() {
+		if err := dao.blobStore.PutBlock(blk); err != nil {
+			timer.End()
+			return err
+		}
+	}
 	atomic.StoreUint64(&dao.tipHeight, blk.Height())
 	header := blk.Header
 	lruCachePut(dao.headerCache, blk.Height(), &header)
@@ -276,6 +305,24 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 	}
 	return nil
+}
+
+func (dao *blockDAO) GetBlob(h hash.Hash256) (*types.BlobTxSidecar, string, error) {
+	if dao.blobStore == nil {
+		return nil, "", errors.Wrap(db.ErrNotExist, "blob store is not available")
+	}
+	return dao.blobStore.GetBlob(h)
+}
+
+func (dao *blockDAO) GetBlobsByHeight(height uint64) ([]*types.BlobTxSidecar, []string, error) {
+	if dao.blobStore == nil {
+		return nil, nil, errors.Wrap(db.ErrNotExist, "blob store is not available")
+	}
+	tip := atomic.LoadUint64(&dao.tipHeight)
+	if height > tip {
+		return nil, nil, errors.Wrapf(db.ErrNotExist, "requested height %d higher than current tip %d", height, tip)
+	}
+	return dao.blobStore.GetBlobsByHeight(height)
 }
 
 func lruCacheGet(c cache.LRUCache, key interface{}) (interface{}, bool) {

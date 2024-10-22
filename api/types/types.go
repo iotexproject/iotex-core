@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
 
 // MaxResponseSize is the max size of response
@@ -36,6 +39,14 @@ type (
 	BlockWithReceipts struct {
 		Block    *block.Block
 		Receipts []*action.Receipt
+	}
+	// BlobSidecarResult is the result of get blob sidecar
+	BlobSidecarResult struct {
+		BlobSidecar *types.BlobTxSidecar `json:"blobSidecar"`
+		BlockNumber uint64               `json:"blockHeight"`
+		BlockHash   common.Hash          `json:"blockHash"`
+		TxIndex     uint64               `json:"txIndex"`
+		TxHash      common.Hash          `json:"txHash"`
 	}
 )
 

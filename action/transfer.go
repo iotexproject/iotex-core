@@ -14,8 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 const (
@@ -29,12 +28,11 @@ var (
 	_ hasDestination      = (*Transfer)(nil)
 	_ hasSize             = (*Transfer)(nil)
 	_ EthCompatibleAction = (*Transfer)(nil)
+	_ amountForCost       = (*Transfer)(nil)
 )
 
 // Transfer defines the struct of account-based transfer
 type Transfer struct {
-	AbstractAction
-
 	amount    *big.Int
 	recipient string
 	payload   []byte
@@ -42,25 +40,15 @@ type Transfer struct {
 
 // NewTransfer returns a Transfer instance
 func NewTransfer(
-	nonce uint64,
 	amount *big.Int,
 	recipient string,
 	payload []byte,
-	gasLimit uint64,
-	gasPrice *big.Int,
-) (*Transfer, error) {
+) *Transfer {
 	return &Transfer{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
 		recipient: recipient,
 		amount:    amount,
 		payload:   payload,
-		// SenderPublicKey and Signature will be populated in Sign()
-	}, nil
+	}
 }
 
 // Amount returns the amount
@@ -88,6 +76,10 @@ func (tsf *Transfer) Size() uint32 {
 // Serialize returns a raw byte stream of this Transfer
 func (tsf *Transfer) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(tsf.Proto()))
+}
+
+func (tsf *Transfer) FillAction(act *iotextypes.ActionCore) {
+	act.Action = &iotextypes.ActionCore_Transfer{Transfer: tsf.Proto()}
 }
 
 // Proto converts Transfer to protobuf's Action
@@ -135,23 +127,13 @@ func (tsf *Transfer) IntrinsicGas() (uint64, error) {
 	return CalculateIntrinsicGas(TransferBaseIntrinsicGas, TransferPayloadGas, payloadSize)
 }
 
-// Cost returns the total cost of a transfer
-func (tsf *Transfer) Cost() (*big.Int, error) {
-	intrinsicGas, err := tsf.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the transfer")
-	}
-	transferFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return big.NewInt(0).Add(tsf.Amount(), transferFee), nil
-}
-
 // SanityCheck validates the variables in the action
 func (tsf *Transfer) SanityCheck() error {
 	// Reject transfer of negative amount
 	if tsf.Amount().Sign() < 0 {
 		return ErrNegativeValue
 	}
-	return tsf.AbstractAction.SanityCheck()
+	return nil
 }
 
 // EthTo returns the address for converting to eth tx

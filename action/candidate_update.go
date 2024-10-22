@@ -7,18 +7,16 @@ package action
 
 import (
 	"bytes"
-	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 const (
@@ -60,7 +58,6 @@ var (
 
 // CandidateUpdate is the action to update a candidate
 type CandidateUpdate struct {
-	AbstractAction
 	stake_common
 	name            string
 	operatorAddress address.Address
@@ -80,19 +77,8 @@ func init() {
 }
 
 // NewCandidateUpdate creates a CandidateUpdate instance
-func NewCandidateUpdate(
-	nonce uint64,
-	name, operatorAddrStr, rewardAddrStr string,
-	gasLimit uint64,
-	gasPrice *big.Int,
-) (*CandidateUpdate, error) {
+func NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr string) (*CandidateUpdate, error) {
 	cu := &CandidateUpdate{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
 		name: name,
 	}
 
@@ -125,6 +111,10 @@ func (cu *CandidateUpdate) RewardAddress() address.Address { return cu.rewardAdd
 // Serialize returns a raw byte stream of the CandidateUpdate struct
 func (cu *CandidateUpdate) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(cu.Proto()))
+}
+
+func (act *CandidateUpdate) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_CandidateUpdate{CandidateUpdate: act.Proto()}
 }
 
 // Proto converts to protobuf CandidateUpdate Action
@@ -175,23 +165,12 @@ func (cu *CandidateUpdate) IntrinsicGas() (uint64, error) {
 	return CandidateUpdateBaseIntrinsicGas, nil
 }
 
-// Cost returns the total cost of a CandidateUpdate
-func (cu *CandidateUpdate) Cost() (*big.Int, error) {
-	intrinsicGas, err := cu.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed ts get intrinsic gas for the CandidateUpdate")
-	}
-	fee := big.NewInt(0).Mul(cu.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return fee, nil
-}
-
 // SanityCheck validates the variables in the action
 func (cu *CandidateUpdate) SanityCheck() error {
 	if !IsValidCandidateName(cu.Name()) {
 		return ErrInvalidCanName
 	}
-
-	return cu.AbstractAction.SanityCheck()
+	return nil
 }
 
 // EthData returns the ABI-encoded data for converting to eth tx

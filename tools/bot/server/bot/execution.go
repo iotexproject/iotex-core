@@ -20,11 +20,11 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/tools/bot/config"
-	"github.com/iotexproject/iotex-core/tools/bot/pkg/util/grpcutil"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/tools/bot/config"
+	"github.com/iotexproject/iotex-core/v2/tools/bot/pkg/util/grpcutil"
 )
 
 const (
@@ -155,20 +155,13 @@ func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
 		err = errors.New("amount convert error")
 		return
 	}
-	tx, err := action.NewExecution(s.cfg.Execution.Contract, nonce, amount,
-		s.cfg.GasLimit, gasprice, dataBytes)
+	tx := action.NewExecution(s.cfg.Execution.Contract, amount, dataBytes)
+	gas, err := grpcutil.FixGasLimit(s.cfg.API.URL, addr.String(), tx)
 	if err != nil {
 		return
 	}
-	tx, err = grpcutil.FixGasLimit(s.cfg.API.URL, addr.String(), tx)
-	if err != nil {
-		return
-	}
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
-		SetGasLimit(tx.GasLimit()).
-		SetGasPrice(gasprice).
-		SetAction(tx).Build()
+	elp := (&action.EnvelopeBuilder{}).SetNonce(nonce).SetGasLimit(gas).
+		SetGasPrice(gasprice).SetAction(tx).Build()
 	selp, err := action.Sign(elp, pri)
 	if err != nil {
 		return

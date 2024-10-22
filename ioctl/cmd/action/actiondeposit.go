@@ -8,10 +8,10 @@ package action
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/output"
+	"github.com/iotexproject/iotex-core/v2/ioctl/util"
 )
 
 // Multi-language support
@@ -69,12 +69,11 @@ func deposit(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce", err)
 	}
-	act := (&action.DepositToRewardingFundBuilder{}).SetAmount(amount).SetData(payload).Build()
-
+	act := action.NewDepositToRewardingFund(amount, payload)
 	return SendAction((&action.EnvelopeBuilder{}).SetNonce(nonce).
 		SetGasPrice(gasPriceRau).
 		SetGasLimit(gasLimit).
-		SetAction(&act).Build(),
+		SetAction(act).Build(),
 		sender,
 	)
 }

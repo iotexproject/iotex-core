@@ -19,11 +19,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
-	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/v2/ioctl"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/newcmd/bc"
+	"github.com/iotexproject/iotex-core/v2/ioctl/util"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 // Multi-language support
@@ -171,7 +171,7 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 				}
 				cmd.Println(message.String(epochNum))
 			} else {
-				// specfic epoch-num
+				// specific epoch-num
 				if epochNum == 0 {
 					currEpochNum, err := currEpochNum(client)
 					if err != nil {

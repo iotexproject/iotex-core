@@ -24,12 +24,12 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/actpool"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 const (
@@ -48,6 +48,10 @@ func TestWeb3ServerIntegrity(t *testing.T) {
 	// send request
 	t.Run("eth_gasPrice", func(t *testing.T) {
 		gasPrice(t, handler)
+	})
+
+	t.Run("eth_maxPriorityFeePerGas", func(t *testing.T) {
+		maxPriorityFee(t, handler)
 	})
 
 	t.Run("eth_chainId", func(t *testing.T) {
@@ -186,6 +190,14 @@ func serveTestHTTP(require *require.Assertions, handler *hTTPHandler, method str
 func gasPrice(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
 	result := serveTestHTTP(require, handler, "eth_gasPrice", "[]")
+	actual, ok := result.(string)
+	require.True(ok)
+	require.Equal(uint64ToHex(1000000000000), actual)
+}
+
+func maxPriorityFee(t *testing.T, handler *hTTPHandler) {
+	require := require.New(t)
+	result := serveTestHTTP(require, handler, "eth_maxPriorityFeePerGas", "[]")
 	actual, ok := result.(string)
 	require.True(ok)
 	require.Equal(uint64ToHex(1000000000000), actual)
@@ -598,50 +610,46 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 	var testDatas []stakeData
 
 	// encode stake data
-	act1, err := action.NewCreateStake(1, "test", "100", 7, false, []byte{}, 1000000, big.NewInt(0))
+	act1, err := action.NewCreateStake("test", "100", 7, false, []byte{})
 	require.NoError(err)
 	data, err := act1.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"createStake", data})
 
-	act2, err := action.NewDepositToStake(2, 7, "100", []byte{}, 1000000, big.NewInt(0))
+	act2, err := action.NewDepositToStake(7, "100", []byte{})
 	require.NoError(err)
 	data2, err := act2.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"depositToStake", data2})
 
-	act3, err := action.NewChangeCandidate(3, "test", 7, []byte{}, 1000000, big.NewInt(0))
+	act3 := action.NewChangeCandidate("test", 7, []byte{})
 	require.NoError(err)
 	data3, err := act3.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"changeCandidate", data3})
 
-	act4, err := action.NewUnstake(4, 7, []byte{}, 1000000, big.NewInt(0))
-	require.NoError(err)
+	act4 := action.NewUnstake(7, []byte{})
 	data4, err := act4.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"unstake", data4})
 
-	act5, err := action.NewWithdrawStake(5, 7, []byte{}, 1000000, big.NewInt(0))
-	require.NoError(err)
+	act5 := action.NewWithdrawStake(7, []byte{})
 	data5, err := act5.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"withdrawStake", data5})
 
-	act6, err := action.NewRestake(6, 7, 7, false, []byte{}, 1000000, big.NewInt(0))
-	require.NoError(err)
+	act6 := action.NewRestake(7, 7, false, []byte{})
 	data6, err := act6.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"restake", data6})
 
-	act7, err := action.NewTransferStake(7, "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza", 7, []byte{}, 1000000, big.NewInt(0))
+	act7, err := action.NewTransferStake("io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza", 7, []byte{})
 	require.NoError(err)
 	data7, err := act7.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"transferStake", data7})
 
 	act8, err := action.NewCandidateRegister(
-		8,
 		"test",
 		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
 		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
@@ -649,21 +657,16 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 		"100",
 		7,
 		false,
-		[]byte{},
-		1000000,
-		big.NewInt(0))
+		[]byte{})
 	require.NoError(err)
 	data8, err := act8.EthData()
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"candidateRegister", data8})
 
 	act9, err := action.NewCandidateUpdate(
-		9,
 		"test",
 		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
-		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
-		1000000,
-		big.NewInt(0))
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza")
 	require.NoError(err)
 	data9, err := act9.EthData()
 	require.NoError(err)

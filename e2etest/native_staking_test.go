@@ -18,17 +18,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/server/itx"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 const (
@@ -827,6 +828,8 @@ func TestCandidateTransferOwnership(t *testing.T) {
 		cfg := initCfg(require)
 		cfg.Genesis.SystemStakingContractV2Address = contractAddress
 		cfg.Genesis.SystemStakingContractV2Height = 1
+		cfg.Genesis.VanuatuBlockHeight = 100
+		testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 		cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
 		cfg.Plugins[config.GatewayPlugin] = nil
 		test := newE2ETest(t, cfg)
@@ -851,6 +854,7 @@ func TestCandidateTransferOwnership(t *testing.T) {
 			return data
 		}
 		deployCode := append(bytecode, mustCallData("", minAmount)...)
+		poorID := 30
 		test.run([]*testcase{
 			{
 				name: "deploy staking contract",
@@ -1011,11 +1015,31 @@ func TestCandidateTransferOwnership(t *testing.T) {
 				name: "estimateGas",
 				act:  &actionWithTime{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", stakeAmount.String(), stakeDurationDays, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), stakeTime},
 				expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
-					ms, err := action.NewMigrateStake(0, 6, gasLimit, gasPrice)
-					require.NoError(err)
+					ms := action.NewMigrateStake(6)
 					resp, err := test.api.EstimateActionGasConsumption(context.Background(), &iotexapi.EstimateActionGasConsumptionRequest{
 						Action:        &iotexapi.EstimateActionGasConsumptionRequest_StakeMigrate{StakeMigrate: ms.Proto()},
 						CallerAddress: identityset.Address(3).String(),
+						GasPrice:      gasPrice.String(),
+					})
+					require.NoError(err)
+					require.Equal(uint64(194912), resp.Gas)
+					require.Len(receipt.Logs(), 1)
+					topic := receipt.Logs()[0].Topics[1][:]
+					bktIdx := byteutil.BytesToUint64BigEndian(topic[len(topic)-8:])
+					require.Equal(uint64(6), bktIdx)
+				}}},
+			},
+			{
+				name: "estimateGasPoorAcc",
+				act:  &actionWithTime{mustNoErr(action.SignedTransferStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), identityset.Address(poorID).String(), 6, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+					resp1, err := test.api.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: identityset.Address(poorID).String()})
+					require.NoError(err)
+					require.Equal("0", resp1.GetAccountMeta().Balance)
+					ms := action.NewMigrateStake(6)
+					resp, err := test.api.EstimateActionGasConsumption(context.Background(), &iotexapi.EstimateActionGasConsumptionRequest{
+						Action:        &iotexapi.EstimateActionGasConsumptionRequest_StakeMigrate{StakeMigrate: ms.Proto()},
+						CallerAddress: identityset.Address(poorID).String(),
 						GasPrice:      gasPrice.String(),
 					})
 					require.NoError(err)
@@ -1243,6 +1267,8 @@ func TestCandidateTransferOwnership(t *testing.T) {
 		contractAddr := "io16gnlvx6zk3tev9g6vaupngkpcrwe8hdsknxerw"
 		cfg := initCfg(require)
 		cfg.Genesis.UpernavikBlockHeight = 1
+		cfg.Genesis.VanuatuBlockHeight = 100
+		testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 		cfg.Genesis.EndorsementWithdrawWaitingBlocks = 5
 		cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
 		cfg.Genesis.SystemStakingContractV2Address = contractAddr
@@ -1346,30 +1372,9 @@ func initCfg(r *require.Assertions) config.Config {
 	cfg.Genesis.InitBalanceMap[identityset.Address(1).String()] = "100000000000000000000000000"
 	cfg.Genesis.InitBalanceMap[identityset.Address(2).String()] = "100000000000000000000000000"
 	cfg.Genesis.EndorsementWithdrawWaitingBlocks = 10
-	cfg.Genesis.PacificBlockHeight = 1
-	cfg.Genesis.AleutianBlockHeight = 1
-	cfg.Genesis.BeringBlockHeight = 1
-	cfg.Genesis.CookBlockHeight = 1
-	cfg.Genesis.DardanellesBlockHeight = 1
-	cfg.Genesis.DaytonaBlockHeight = 1
-	cfg.Genesis.EasterBlockHeight = 1
-	cfg.Genesis.FbkMigrationBlockHeight = 1
-	cfg.Genesis.FairbankBlockHeight = 1
-	cfg.Genesis.GreenlandBlockHeight = 1
-	cfg.Genesis.HawaiiBlockHeight = 1
-	cfg.Genesis.IcelandBlockHeight = 1
-	cfg.Genesis.JutlandBlockHeight = 1
-	cfg.Genesis.KamchatkaBlockHeight = 1
-	cfg.Genesis.LordHoweBlockHeight = 1
-	cfg.Genesis.MidwayBlockHeight = 1
-	cfg.Genesis.NewfoundlandBlockHeight = 1
-	cfg.Genesis.OkhotskBlockHeight = 1
-	cfg.Genesis.PalauBlockHeight = 1
-	cfg.Genesis.QuebecBlockHeight = 1
-	cfg.Genesis.RedseaBlockHeight = 1
-	cfg.Genesis.SumatraBlockHeight = 1
 	cfg.Genesis.TsunamiBlockHeight = 1
 	cfg.Genesis.UpernavikBlockHeight = 2 // enable CandidateIdentifiedByOwner feature
+	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	return cfg
 }
 
@@ -1388,7 +1393,7 @@ func TestCandidateOwnerCollision(t *testing.T) {
 		cfg.Genesis.EndorsementWithdrawWaitingBlocks = 10
 		cfg.Genesis.TsunamiBlockHeight = 1
 		cfg.Genesis.UpernavikBlockHeight = 2 // enable CandidateIdentifiedByOwner feature
-		normalizeGenesisHeights(&cfg)
+		testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 		return cfg
 	}
 	registerAmount, _ := big.NewInt(0).SetString("1200000000000000000000000", 10)
@@ -1422,39 +1427,4 @@ func TestCandidateOwnerCollision(t *testing.T) {
 			expect:  []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrCandidateAlreadyExist), ""}},
 		},
 	})
-}
-
-func normalizeGenesisHeights(cfg *config.Config) {
-	heights := []*uint64{
-		&cfg.Genesis.PacificBlockHeight,
-		&cfg.Genesis.AleutianBlockHeight,
-		&cfg.Genesis.BeringBlockHeight,
-		&cfg.Genesis.CookBlockHeight,
-		&cfg.Genesis.DardanellesBlockHeight,
-		&cfg.Genesis.DaytonaBlockHeight,
-		&cfg.Genesis.EasterBlockHeight,
-		&cfg.Genesis.FbkMigrationBlockHeight,
-		&cfg.Genesis.FairbankBlockHeight,
-		&cfg.Genesis.GreenlandBlockHeight,
-		&cfg.Genesis.HawaiiBlockHeight,
-		&cfg.Genesis.IcelandBlockHeight,
-		&cfg.Genesis.JutlandBlockHeight,
-		&cfg.Genesis.KamchatkaBlockHeight,
-		&cfg.Genesis.LordHoweBlockHeight,
-		&cfg.Genesis.MidwayBlockHeight,
-		&cfg.Genesis.NewfoundlandBlockHeight,
-		&cfg.Genesis.OkhotskBlockHeight,
-		&cfg.Genesis.PalauBlockHeight,
-		&cfg.Genesis.QuebecBlockHeight,
-		&cfg.Genesis.RedseaBlockHeight,
-		&cfg.Genesis.SumatraBlockHeight,
-		&cfg.Genesis.TsunamiBlockHeight,
-		&cfg.Genesis.UpernavikBlockHeight,
-		&cfg.Genesis.ToBeEnabledBlockHeight,
-	}
-	for i := len(heights) - 2; i >= 0; i-- {
-		if *(heights[i]) > *(heights[i+1]) {
-			*(heights[i]) = *(heights[i+1])
-		}
-	}
 }

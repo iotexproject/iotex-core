@@ -26,14 +26,14 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
-	apitypes "github.com/iotexproject/iotex-core/api/types"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
-	mock_apitypes "github.com/iotexproject/iotex-core/test/mock/mock_apiresponder"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/action"
+	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_apicoreservice"
+	mock_apitypes "github.com/iotexproject/iotex-core/v2/test/mock/mock_apiresponder"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 func TestGetWeb3Reqs(t *testing.T) {
@@ -1125,34 +1125,39 @@ func TestSubscribe(t *testing.T) {
 
 	t.Run("newHeads subscription", func(t *testing.T) {
 		in := gjson.Parse(`{"params":["newHeads"]}`)
-		ret, err := web3svr.subscribe(&in, writer)
+		sc, _ := StreamFromContext(WithStreamContext(context.Background()))
+		ret, err := web3svr.subscribe(sc, &in, writer)
 		require.NoError(err)
 		require.Equal("streamid_1", ret.(string))
 	})
 
 	t.Run("logs subscription", func(t *testing.T) {
 		in := gjson.Parse(`{"params":["logs",{"fromBlock":"1","fromBlock":"2","address":["0x0000000000000000000000000000000000000001"],"topics":[["0x5f746f70696331"]]}]}`)
-		ret, err := web3svr.subscribe(&in, writer)
+		sc, _ := StreamFromContext(WithStreamContext(context.Background()))
+		ret, err := web3svr.subscribe(sc, &in, writer)
 		require.NoError(err)
 		require.Equal("streamid_1", ret.(string))
 	})
 
 	t.Run("logs topic not array", func(t *testing.T) {
 		in := gjson.Parse(`{"params":["logs",{"fromBlock":"1","fromBlock":"2","address":["0x0000000000000000000000000000000000000001"],"topics":["0x5f746f70696331"]}]}`)
-		ret, err := web3svr.subscribe(&in, writer)
+		sc, _ := StreamFromContext(WithStreamContext(context.Background()))
+		ret, err := web3svr.subscribe(sc, &in, writer)
 		require.NoError(err)
 		require.Equal("streamid_1", ret.(string))
 	})
 
 	t.Run("nil params", func(t *testing.T) {
 		inNil := gjson.Parse(`{"params":[]}`)
-		_, err := web3svr.subscribe(&inNil, writer)
+		sc, _ := StreamFromContext(WithStreamContext(context.Background()))
+		_, err := web3svr.subscribe(sc, &inNil, writer)
 		require.EqualError(err, errInvalidFormat.Error())
 	})
 
 	t.Run("nil logs", func(t *testing.T) {
 		inNil := gjson.Parse(`{"params":["logs"]}`)
-		_, err := web3svr.subscribe(&inNil, writer)
+		sc, _ := StreamFromContext(WithStreamContext(context.Background()))
+		_, err := web3svr.subscribe(sc, &inNil, writer)
 		require.EqualError(err, errInvalidFormat.Error())
 	})
 }

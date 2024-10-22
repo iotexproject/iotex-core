@@ -8,7 +8,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-antenna-go/v2/iotex"
-	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -85,10 +85,10 @@ func GetNonce(url string, address string) (nonce uint64, err error) {
 }
 
 // FixGasLimit estimate action gas
-func FixGasLimit(url string, caller string, execution *action.Execution) (exec *action.Execution, err error) {
+func FixGasLimit(url string, caller string, execution *action.Execution) (uint64, error) {
 	conn, err := ConnectToEndpoint(url)
 	if err != nil {
-		return
+		return 0, err
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -100,9 +100,7 @@ func FixGasLimit(url string, caller string, execution *action.Execution) (exec *
 	}
 	res, err := cli.EstimateActionGasConsumption(context.Background(), request)
 	if err != nil {
-		return
+		return 0, err
 	}
-	contract := execution.Contract()
-	data := execution.Data()
-	return action.NewExecution(contract, execution.Nonce(), execution.Amount(), res.Gas, execution.GasPrice(), data)
+	return res.Gas, nil
 }

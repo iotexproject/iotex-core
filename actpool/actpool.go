@@ -11,6 +11,7 @@ import (
 	"sort"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -21,14 +22,16 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
-	"github.com/iotexproject/iotex-core/pkg/tracer"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/v2/pkg/routine"
+	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
 )
 
 const (
@@ -52,6 +55,7 @@ func init() {
 // ActPool is the interface of actpool
 type ActPool interface {
 	action.SealedEnvelopeValidator
+	lifecycle.StartStopper
 	// Reset resets actpool state
 	Reset()
 	// PendingActionMap returns an action map with all accepted actions
@@ -80,6 +84,12 @@ type ActPool interface {
 	AddActionEnvelopeValidators(...action.SealedEnvelopeValidator)
 }
 
+// Subscriber is the interface for actpool subscriber
+type Subscriber interface {
+	OnAdded(*action.SealedEnvelope)
+	OnRemoved(*action.SealedEnvelope)
+}
+
 // SortedActions is a slice of actions that implements sort.Interface to sort by Value.
 type SortedActions []*action.SealedEnvelope
 
@@ -92,17 +102,26 @@ type Option func(pool *actPool) error
 
 // actPool implements ActPool interface
 type actPool struct {
-	cfg                      Config
-	g                        genesis.Genesis
-	sf                       protocol.StateReader
-	accountDesActs           *destinationMap
-	allActions               *ttl.Cache
-	gasInPool                uint64
+	cfg            Config
+	g              genesis.Genesis
+	sf             protocol.StateReader
+	accountDesActs *destinationMap
+	allActions     *ttl.Cache
+	gasInPool      uint64
+	// actionEnvelopeValidators are the validators that are used in both actpool.Add and actpool.Validate
+	// TODO: can combine with privateValidators after NOT use actpool to call generic_validator in block validate
 	actionEnvelopeValidators []action.SealedEnvelopeValidator
-	timerFactory             *prometheustimer.TimerFactory
-	senderBlackList          map[string]bool
-	jobQueue                 []chan workerJob
-	worker                   []*queueWorker
+	// privateValidators are the validators that are only used in actpool.Add
+	// they are not used in actpool.Validate
+	privateValidators []action.SealedEnvelopeValidator
+	timerFactory      *prometheustimer.TimerFactory
+	senderBlackList   map[string]bool
+	jobQueue          []chan workerJob
+	worker            []*queueWorker
+	subs              []Subscriber
+
+	store     *actionStore           // store is the persistent cache for actpool
+	storeSync *routine.RecurringTask // storeSync is the recurring task to sync actions from store to memory
 }
 
 // NewActPool constructs a new actpool
@@ -132,6 +151,11 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 			return nil, err
 		}
 	}
+	// init validators
+	blobValidator := newBlobValidator(cfg.MaxNumBlobsPerAcct)
+	ap.privateValidators = append(ap.privateValidators, blobValidator)
+	ap.AddSubscriber(blobValidator)
+
 	timerFactory, err := prometheustimer.New(
 		"iotex_action_pool_perf",
 		"Performance of action pool",
@@ -142,7 +166,7 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 		return nil, err
 	}
 	ap.timerFactory = timerFactory
-
+	// TODO: move to Start
 	for i := 0; i < _numWorker; i++ {
 		ap.jobQueue[i] = make(chan workerJob, ap.cfg.WorkerBufferSize)
 		ap.worker[i] = newQueueWorker(ap, ap.jobQueue[i])
@@ -151,6 +175,45 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 		}
 	}
 	return ap, nil
+}
+
+func (ap *actPool) Start(ctx context.Context) error {
+	if ap.store == nil {
+		return nil
+	}
+	// open action store and load all actions
+	blobs := make(SortedActions, 0)
+	err := ap.store.Open(func(selp *action.SealedEnvelope) error {
+		if len(selp.BlobHashes()) > 0 {
+			blobs = append(blobs, selp)
+			return nil
+		}
+		return ap.add(ctx, selp)
+	})
+	if err != nil {
+		return err
+	}
+	// add blob txs to actpool in nonce order
+	sort.Sort(blobs)
+	for _, selp := range blobs {
+		if err := ap.add(ctx, selp); err != nil {
+			log.L().Info("Failed to load action from store", zap.Error(err))
+		}
+	}
+	return ap.storeSync.Start(ctx)
+}
+
+func (ap *actPool) Stop(ctx context.Context) error {
+	for i := 0; i < _numWorker; i++ {
+		if err := ap.worker[i].Stop(); err != nil {
+			return err
+		}
+	}
+	if ap.store != nil {
+		ap.storeSync.Stop(ctx)
+		return ap.store.Close()
+	}
+	return nil
 }
 
 func (ap *actPool) AddActionEnvelopeValidators(fs ...action.SealedEnvelopeValidator) {
@@ -217,6 +280,10 @@ func (ap *actPool) PendingActionMap() map[string][]*action.SealedEnvelope {
 }
 
 func (ap *actPool) Add(ctx context.Context, act *action.SealedEnvelope) error {
+	return ap.add(ctx, act)
+}
+
+func (ap *actPool) add(ctx context.Context, act *action.SealedEnvelope) error {
 	ctx, span := tracer.NewSpan(ap.context(ctx), "actPool.Add")
 	defer span.End()
 	ctx = ap.context(ctx)
@@ -296,8 +363,8 @@ func (ap *actPool) checkSelpWithoutState(ctx context.Context, selp *action.Seale
 		_actpoolMtc.WithLabelValues("blacklisted").Inc()
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
-
-	for _, ev := range ap.actionEnvelopeValidators {
+	validators := append(ap.privateValidators, ap.actionEnvelopeValidators...)
+	for _, ev := range validators {
 		span.AddEvent("ev.Validate")
 		if err := ev.Validate(ctx, selp); err != nil {
 			return err
@@ -344,10 +411,20 @@ func (ap *actPool) GetUnconfirmedActs(addrStr string) []*action.SealedEnvelope {
 // GetActionByHash returns the pending action in pool given action's hash
 func (ap *actPool) GetActionByHash(hash hash.Hash256) (*action.SealedEnvelope, error) {
 	act, ok := ap.allActions.Get(hash)
-	if !ok {
-		return nil, errors.Wrapf(action.ErrNotFound, "action hash %x does not exist in pool", hash)
+	if ok {
+		return act.(*action.SealedEnvelope), nil
 	}
-	return act.(*action.SealedEnvelope), nil
+	if ap.store != nil {
+		act, err := ap.store.Get(hash)
+		switch errors.Cause(err) {
+		case nil:
+			return act, nil
+		case errBlobNotFound:
+		default:
+			return nil, err
+		}
+	}
+	return nil, errors.Wrapf(action.ErrNotFound, "action hash %x does not exist in pool", hash)
 }
 
 // GetSize returns the act pool size
@@ -375,6 +452,9 @@ func (ap *actPool) Validate(ctx context.Context, selp *action.SealedEnvelope) er
 }
 
 func (ap *actPool) DeleteAction(caller address.Address) {
+	if caller == nil {
+		return
+	}
 	worker := ap.worker[ap.allocatedWorker(caller)]
 	if pendingActs := worker.ResetAccount(caller); len(pendingActs) != 0 {
 		ap.removeInvalidActs(pendingActs)
@@ -424,6 +504,12 @@ func (ap *actPool) removeInvalidActs(acts []*action.SealedEnvelope) {
 		intrinsicGas, _ := act.IntrinsicGas()
 		atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))
 		ap.accountDesActs.delete(act)
+		if ap.store != nil {
+			if err = ap.store.Delete(hash); err != nil {
+				log.L().Warn("Failed to delete action from store", zap.Error(err), log.Hex("hash", hash[:]))
+			}
+		}
+		ap.onRemoved(act)
 	}
 }
 
@@ -459,6 +545,44 @@ func (ap *actPool) allocatedWorker(senderAddr address.Address) int {
 	senderBytes := senderAddr.Bytes()
 	var lastByte uint8 = senderBytes[len(senderBytes)-1]
 	return int(lastByte) % _numWorker
+}
+
+func (ap *actPool) syncFromStore() {
+	if ap.store == nil {
+		return
+	}
+	ap.store.Range(func(h hash.Hash256) bool {
+		if _, exist := ap.allActions.Get(h); !exist {
+			act, err := ap.store.Get(h)
+			if err != nil {
+				log.L().Warn("Failed to get action from store", zap.Error(err))
+				return true
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := ap.add(ctx, act); err != nil {
+				log.L().Warn("Failed to add action to pool", zap.Error(err))
+				return true
+			}
+		}
+		return true
+	})
+}
+
+func (ap *actPool) AddSubscriber(sub Subscriber) {
+	ap.subs = append(ap.subs, sub)
+}
+
+func (ap *actPool) onAdded(act *action.SealedEnvelope) {
+	for _, sub := range ap.subs {
+		sub.OnAdded(act)
+	}
+}
+
+func (ap *actPool) onRemoved(act *action.SealedEnvelope) {
+	for _, sub := range ap.subs {
+		sub.OnRemoved(act)
+	}
 }
 
 type destinationMap struct {

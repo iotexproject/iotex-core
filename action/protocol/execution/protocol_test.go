@@ -29,28 +29,28 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/execution"
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/blockchain/filedao"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/blockindex"
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/actpool"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/blockindex"
+	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/state/factory"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 type (
@@ -273,18 +273,13 @@ func readExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-	exec, err := action.NewExecutionWithAccessList(
-		contractAddr,
-		state.PendingNonce(),
-		ecfg.Amount(),
-		ecfg.GasLimit(),
-		ecfg.GasPrice(),
-		ecfg.ByteCode(),
-		ecfg.AccessList(),
-	)
-	if err != nil {
-		return nil, nil, err
+	exec := action.NewExecution(contractAddr, ecfg.Amount(), ecfg.ByteCode())
+	builder := (&action.EnvelopeBuilder{}).SetGasPrice(ecfg.GasPrice()).SetGasLimit(ecfg.GasLimit()).
+		SetNonce(state.PendingNonce()).SetAction(exec)
+	if len(ecfg.AccessList()) > 0 {
+		builder.SetTxType(action.AccessListTxType).SetAccessList(ecfg.AccessList())
 	}
+	elp := builder.Build()
 	addr := ecfg.PrivateKey().PublicKey().Address()
 	if addr == nil {
 		return nil, nil, errors.New("failed to get address")
@@ -298,7 +293,7 @@ func readExecution(
 		GetBlockTime:   getBlockTimeForTest,
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	return sf.SimulateExecution(ctx, addr, exec)
+	return sf.SimulateExecution(ctx, addr, elp)
 }
 
 func (sct *SmartContractTest) runExecutions(
@@ -324,25 +319,18 @@ func (sct *SmartContractTest) runExecutions(
 			nonce = state.PendingNonce()
 		}
 		nonces[executor.String()] = nonce
-		exec, err := action.NewExecution(
+		exec := action.NewExecution(
 			contractAddrs[i],
-			nonce,
 			ecfg.Amount(),
-			ecfg.GasLimit(),
-			ecfg.GasPrice(),
 			ecfg.ByteCode(),
 		)
-		if err != nil {
-			return nil, nil, err
-		}
-		builder := &action.EnvelopeBuilder{}
-		builder.SetAction(exec).
-			SetNonce(exec.Nonce()).
-			SetGasLimit(ecfg.GasLimit()).
-			SetGasPrice(ecfg.GasPrice()).
-			SetAccessList(ecfg.AccessList())
+		builder := (&action.EnvelopeBuilder{}).SetGasLimit(ecfg.GasLimit()).SetGasPrice(ecfg.GasPrice()).
+			SetNonce(nonce).SetAction(exec)
 		if sct.InitGenesis.IsShanghai {
 			builder.SetChainID(bc.ChainID())
+		}
+		if len(ecfg.AccessList()) > 0 {
+			builder.SetTxType(action.AccessListTxType).SetAccessList(ecfg.AccessList())
 		}
 		elp := builder.Build()
 		selp, err := action.Sign(elp, ecfg.PrivateKey())
@@ -358,7 +346,11 @@ func (sct *SmartContractTest) runExecutions(
 		}
 		hashes = append(hashes, selpHash)
 	}
-	blk, err := bc.MintNewBlock(fixedTime)
+	t, err := getBlockTimeForTest(bc.TipHeight() + 1)
+	if err != nil {
+		return nil, nil, err
+	}
+	blk, err := bc.MintNewBlock(t)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -441,7 +433,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.ActionGasLimit = 10000000
 	}
 	if sct.InitGenesis.IsCancun {
-		cfg.Genesis.Blockchain.UpernavikBlockHeight = 0
+		cfg.Genesis.Blockchain.VanuatuBlockHeight = 1
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
@@ -594,7 +586,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 
 		if sct.InitGenesis.IsBering {
 			// if it is post bering, it compares the status with expected status
-			r.Equal(exec.ExpectedStatus, receipt.Status)
+			r.Equal(exec.ExpectedStatus, receipt.Status, receipt.ExecutionRevertMsg())
 		} else {
 			if exec.Failed {
 				r.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
@@ -659,12 +651,8 @@ func TestProtocol_Validate(t *testing.T) {
 	builder := action.EnvelopeBuilder{}
 	for i := range cases {
 		t.Run(cases[i].name, func(t *testing.T) {
-			ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), make([]byte, cases[i].size))
-			require.NoError(err)
-			elp := builder.SetNonce(ex.Nonce()).
-				SetGasLimit(ex.GasLimit()).
-				SetGasPrice(ex.GasPrice()).
-				SetAction(ex).Build()
+			ex := action.NewExecution("2", big.NewInt(0), make([]byte, cases[i].size))
+			elp := builder.SetNonce(1).SetAction(ex).Build()
 			ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
 			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 				BlockHeight: cases[i].height,
@@ -749,12 +737,8 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 
 		data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
-		execution, err := action.NewExecution(action.EmptyAddress, 1, big.NewInt(0), uint64(100000), big.NewInt(0), data)
-		require.NoError(err)
-
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetAction(execution).
-			SetNonce(1).
+		execution := action.NewExecution(action.EmptyAddress, big.NewInt(0), data)
+		elp := (&action.EnvelopeBuilder{}).SetAction(execution).SetNonce(1).
 			SetGasLimit(100000).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
@@ -803,12 +787,8 @@ func TestProtocol_Handle(t *testing.T) {
 
 		// store to key 0
 		data, _ = hex.DecodeString("60fe47b1000000000000000000000000000000000000000000000000000000000000000f")
-		execution, err = action.NewExecution(r.ContractAddress, 2, big.NewInt(0), uint64(120000), big.NewInt(0), data)
-		require.NoError(err)
-
-		bd = &action.EnvelopeBuilder{}
-		elp = bd.SetAction(execution).
-			SetNonce(2).
+		execution = action.NewExecution(r.ContractAddress, big.NewInt(0), data)
+		elp = (&action.EnvelopeBuilder{}).SetAction(execution).SetNonce(2).
 			SetGasLimit(120000).Build()
 		selp, err = action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
@@ -837,12 +817,8 @@ func TestProtocol_Handle(t *testing.T) {
 		// read from key 0
 		data, err = hex.DecodeString("6d4ce63c")
 		require.NoError(err)
-		execution, err = action.NewExecution(r.ContractAddress, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
-		require.NoError(err)
-
-		bd = &action.EnvelopeBuilder{}
-		elp = bd.SetAction(execution).
-			SetNonce(3).
+		execution = action.NewExecution(r.ContractAddress, big.NewInt(0), data)
+		elp = (&action.EnvelopeBuilder{}).SetAction(execution).SetNonce(3).
 			SetGasLimit(120000).Build()
 		selp, err = action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
@@ -859,12 +835,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(eHash, blk.Receipts[0].ActionHash)
 
 		data, _ = hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
-		execution1, err := action.NewExecution(action.EmptyAddress, 4, big.NewInt(0), uint64(100000), big.NewInt(10), data)
-		require.NoError(err)
-		bd = &action.EnvelopeBuilder{}
-
-		elp = bd.SetAction(execution1).
-			SetNonce(4).
+		execution1 := action.NewExecution(action.EmptyAddress, big.NewInt(0), data)
+		elp = (&action.EnvelopeBuilder{}).SetAction(execution1).SetNonce(4).
 			SetGasLimit(100000).SetGasPrice(big.NewInt(10)).Build()
 		selp, err = action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
@@ -1231,6 +1203,9 @@ func TestLondonEVM(t *testing.T) {
 	t.Run("datacopy", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/datacopy.json")
 	})
+	t.Run("datacopy-with-accesslist", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/datacopy-accesslist.json")
+	})
 	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/CVE-2021-39137-attack-replay.json")
 	})
@@ -1263,6 +1238,9 @@ func TestShanghaiEVM(t *testing.T) {
 	})
 	t.Run("datacopy", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-shanghai/datacopy.json")
+	})
+	t.Run("datacopy-with-accesslist", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/datacopy-accesslist.json")
 	})
 	t.Run("f.value", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-shanghai/f.value.json")
@@ -1331,9 +1309,25 @@ func TestShanghaiEVM(t *testing.T) {
 
 func TestCancunEVM(t *testing.T) {
 	t.Run("eip1153-transientstorage", func(t *testing.T) {
-		// TODO: re-enable this test when enable Cancun
-		t.Skip()
 		NewSmartContractTest(t, "testdata-cancun/transientstorage.json")
+	})
+	t.Run("eip5656-mcopy", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-cancun/mcopy.json")
+	})
+	t.Run("eip4844-point_evaluation_precompile", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-cancun/point_evaluation.json")
+	})
+	t.Run("eip4844-blobhash", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-cancun/blobhash.json")
+	})
+	t.Run("eip7516-blobbasefee", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-cancun/blobbasefee.json")
+	})
+	t.Run("eip1559-basefee", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-cancun/basefee.json")
+	})
+	t.Run("eip6780-selfdestruct", func(t *testing.T) {
+		t.Skip("TODO: test it ")
 	})
 }
 

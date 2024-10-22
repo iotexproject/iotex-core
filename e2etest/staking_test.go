@@ -20,19 +20,19 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/server/itx"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 func TestStakingContract(t *testing.T) {
@@ -113,11 +113,8 @@ func TestStakingContract(t *testing.T) {
 			if correctGas {
 				gasLimit *= 10
 			}
-			ex, err := action.NewExecution(contract, 1, big.NewInt(0), gasLimit, big.NewInt(0), params)
-			if err != nil {
-				return nil, err
-			}
-
+			elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(contract, big.NewInt(0), params)).
+				SetGasLimit(gasLimit).Build()
 			addr, err := address.FromString(address.ZeroAddress)
 			if err != nil {
 				return nil, err
@@ -128,7 +125,7 @@ func TestStakingContract(t *testing.T) {
 				GetBlockTime:   fakeGetBlockTime,
 				DepositGasFunc: rewarding.DepositGas,
 			})
-			data, _, err := sf.SimulateExecution(ctx, addr, ex)
+			data, _, err := sf.SimulateExecution(ctx, addr, elp)
 
 			return data, err
 		})

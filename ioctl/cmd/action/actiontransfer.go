@@ -10,11 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/output"
+	"github.com/iotexproject/iotex-core/v2/ioctl/util"
 )
 
 // Multi-language support
@@ -88,11 +88,7 @@ func transfer(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	tx, err := action.NewTransfer(nonce, amount,
-		recipient, payload, gasLimit, gasPriceRau)
-	if err != nil {
-		return output.NewError(output.InstantiationError, "failed to make a Transfer instance", err)
-	}
+	tx := action.NewTransfer(amount, recipient, payload)
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).
@@ -101,5 +97,4 @@ func transfer(args []string) error {
 			SetAction(tx).Build(),
 		sender,
 	)
-
 }

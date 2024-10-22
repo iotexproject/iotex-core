@@ -16,8 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 const (
@@ -57,11 +56,11 @@ var (
 	// _depositToStakeMethod is the interface of the abi encoding of stake action
 	_depositToStakeMethod abi.Method
 	_                     EthCompatibleAction = (*DepositToStake)(nil)
+	_                     amountForCost       = (*DepositToStake)(nil)
 )
 
 // DepositToStake defines the action of stake add deposit
 type DepositToStake struct {
-	AbstractAction
 	stake_common
 	bucketIndex uint64
 	amount      *big.Int
@@ -82,24 +81,15 @@ func init() {
 
 // NewDepositToStake returns a DepositToStake instance
 func NewDepositToStake(
-	nonce uint64,
 	index uint64,
 	amount string,
 	payload []byte,
-	gasLimit uint64,
-	gasPrice *big.Int,
 ) (*DepositToStake, error) {
 	stake, ok := new(big.Int).SetString(amount, 10)
 	if !ok {
 		return nil, errors.Wrapf(ErrInvalidAmount, "amount %s", amount)
 	}
 	return &DepositToStake{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
 		bucketIndex: index,
 		amount:      stake,
 		payload:     payload,
@@ -118,6 +108,10 @@ func (ds *DepositToStake) BucketIndex() uint64 { return ds.bucketIndex }
 // Serialize returns a raw byte stream of the DepositToStake struct
 func (ds *DepositToStake) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(ds.Proto()))
+}
+
+func (act *DepositToStake) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_StakeAddDeposit{StakeAddDeposit: act.Proto()}
 }
 
 // Proto converts to protobuf DepositToStake Action
@@ -160,23 +154,12 @@ func (ds *DepositToStake) IntrinsicGas() (uint64, error) {
 	return CalculateIntrinsicGas(DepositToStakeBaseIntrinsicGas, DepositToStakePayloadGas, payloadSize)
 }
 
-// Cost returns the total cost of a DepositToStake
-func (ds *DepositToStake) Cost() (*big.Int, error) {
-	intrinsicGas, err := ds.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the DepositToStake")
-	}
-	depositToStakeFee := big.NewInt(0).Mul(ds.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return big.NewInt(0).Add(ds.Amount(), depositToStakeFee), nil
-}
-
 // SanityCheck validates the variables in the action
 func (ds *DepositToStake) SanityCheck() error {
 	if ds.Amount().Sign() <= 0 {
 		return errors.Wrap(ErrInvalidAmount, "negative value")
 	}
-
-	return ds.AbstractAction.SanityCheck()
+	return nil
 }
 
 // EthData returns the ABI-encoded data for converting to eth tx

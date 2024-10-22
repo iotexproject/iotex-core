@@ -8,15 +8,16 @@ package block
 import (
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/endorsement"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/endorsement"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 // Block defines the struct of block
@@ -40,6 +41,18 @@ func (b *Block) ConvertToBlockPb() *iotextypes.Block {
 		Body:   b.Body.Proto(),
 		Footer: footer,
 	}
+}
+
+// ProtoWithoutSidecar returns the protobuf without sidecar
+func (b *Block) ProtoWithoutSidecar() *iotextypes.Block {
+	pb := b.ConvertToBlockPb()
+	for _, v := range pb.GetBody().GetActions() {
+		blobdata := v.GetCore().GetBlobTxData()
+		if blobdata != nil {
+			blobdata.BlobTxSidecar = nil
+		}
+	}
+	return pb
 }
 
 // Serialize returns the serialized byte stream of the block
@@ -109,4 +122,44 @@ func (b *Block) ActionByHash(h hash.Hash256) (*action.SealedEnvelope, uint32, er
 		}
 	}
 	return nil, 0, errors.Errorf("block does not have action %x", h)
+}
+
+// HasBlob returns whether the block contains blobs
+func (b *Block) HasBlob() bool {
+	for _, act := range b.Actions {
+		if act.BlobTxSidecar() != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func (b *Block) WithBlobSidecars(sidecars []*types.BlobTxSidecar, txhash []string, deser *action.Deserializer) (*Block, error) {
+	scMap := make(map[hash.Hash256]*types.BlobTxSidecar)
+	for i := range txhash {
+		h, err := hash.HexStringToHash256(txhash[i])
+		if err != nil {
+			return nil, err
+		}
+		scMap[h] = sidecars[i]
+	}
+	for i, act := range b.Actions {
+		h, _ := act.Hash()
+		if sc, ok := scMap[h]; ok {
+			// add the sidecar to this action
+			pb := act.Proto()
+			blobData := pb.GetCore().GetBlobTxData()
+			if blobData == nil {
+				// this is not a blob tx, something's wrong
+				return nil, errors.Wrap(action.ErrInvalidAct, "tx is not blob type")
+			}
+			blobData.BlobTxSidecar = action.ToProtoSideCar(sc)
+			actWithBlob, err := deser.ActionToSealedEnvelope(pb)
+			if err != nil {
+				return nil, err
+			}
+			b.Actions[i] = actWithBlob
+		}
+	}
+	return b, nil
 }

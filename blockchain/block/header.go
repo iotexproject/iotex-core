@@ -18,8 +18,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 // Header defines the struct of block header
@@ -37,6 +37,10 @@ type Header struct {
 	blockSig         []byte            // block signature
 	pubkey           crypto.PublicKey  // block producer's public key
 	baseFee          *big.Int          // added by EIP-1559 and is ignored in legacy headers
+
+	// added by EIP-4844 and is ignored in legacy headers.
+	blobGasUsed   uint64
+	excessBlobGas uint64
 }
 
 // Errors
@@ -87,6 +91,16 @@ func (h *Header) BaseFee() *big.Int {
 	return new(big.Int).Set(h.baseFee)
 }
 
+// BlobGasUsed returns the blob gas used in this block
+func (h *Header) BlobGasUsed() uint64 {
+	return h.blobGasUsed
+}
+
+// ExcessBlobGas returns the excess blob gas in this block
+func (h *Header) ExcessBlobGas() uint64 {
+	return h.excessBlobGas
+}
+
 // Proto returns BlockHeader proto.
 func (h *Header) Proto() *iotextypes.BlockHeader {
 	header := iotextypes.BlockHeader{
@@ -112,6 +126,8 @@ func (h *Header) BlockHeaderCoreProto() *iotextypes.BlockHeaderCore {
 		TxRoot:           h.txRoot[:],
 		DeltaStateDigest: h.deltaStateDigest[:],
 		ReceiptRoot:      h.receiptRoot[:],
+		BlobGasUsed:      h.blobGasUsed,
+		ExcessBlobGas:    h.excessBlobGas,
 	}
 	if h.logsBloom != nil {
 		header.LogsBloom = h.logsBloom.Bytes()
@@ -164,6 +180,8 @@ func (h *Header) loadFromBlockHeaderCoreProto(pb *iotextypes.BlockHeaderCore) er
 	if fee := pb.GetBaseFee(); fee != nil {
 		h.baseFee = new(big.Int).SetBytes(fee)
 	}
+	h.blobGasUsed = pb.GetBlobGasUsed()
+	h.excessBlobGas = pb.GetExcessBlobGas()
 	return err
 }
 
@@ -237,5 +255,7 @@ func (h *Header) HeaderLogger(l *zap.Logger) *zap.Logger {
 		log.Hex("txRoot", h.txRoot[:]),
 		log.Hex("receiptRoot", h.receiptRoot[:]),
 		log.Hex("deltaStateDigest", h.deltaStateDigest[:]),
+		zap.Uint64("blobGasUsed", h.blobGasUsed),
+		zap.Uint64("excessBlobGas", h.excessBlobGas),
 	)
 }

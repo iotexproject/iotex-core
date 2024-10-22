@@ -16,6 +16,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -23,8 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	. "github.com/iotexproject/iotex-core/pkg/util/assertions"
-	"github.com/iotexproject/iotex-core/pkg/version"
+	. "github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 )
 
 func TestGenerateRlp(t *testing.T) {
@@ -36,7 +36,8 @@ func TestGenerateRlp(t *testing.T) {
 		gasLimit: 1000,
 		gasPrice: new(big.Int),
 	}
-	builder := (&EnvelopeBuilder{}).SetNonce(ab.Nonce()).SetGasLimit(ab.GasLimit()).SetGasPrice(ab.GasPrice())
+	builder := (&EnvelopeBuilder{}).SetNonce(ab.Nonce()).
+		SetGasLimit(ab.Gas()).SetGasPrice(ab.GasPrice())
 	for _, v := range []struct {
 		act  actionPayload
 		sig  []byte
@@ -44,33 +45,27 @@ func TestGenerateRlp(t *testing.T) {
 		hash hash.Hash256
 	}{
 		{&Transfer{
-			AbstractAction: ab,
-			recipient:      "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3071",
+			recipient: "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3071",
 		}, _validSig, address.ErrInvalidAddr.Error(), hash.ZeroHash256},
 		{&Transfer{
-			AbstractAction: ab,
-			amount:         big.NewInt(100),
-			recipient:      "",
+			amount:    big.NewInt(100),
+			recipient: "",
 		}, _signByte, "address length = 0, expecting 41", hash.ZeroHash256},
 		{&Transfer{
-			AbstractAction: ab,
-			amount:         big.NewInt(100),
-			recipient:      "",
+			amount:    big.NewInt(100),
+			recipient: "",
 		}, _validSig, "", hash.BytesToHash256(MustNoErrorV(hex.DecodeString("87e39e819193ae46472eb1320739b34c4c3b38ea321c7cc503432bdcfd0cbf15")))},
 		{&Transfer{
-			AbstractAction: ab,
-			recipient:      "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
+			recipient: "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
 		}, _validSig, "", hash.BytesToHash256(MustNoErrorV(hex.DecodeString("eaaf38a552809a9bdb1509c8093bd2c74eb07baff862dae692c1d2b865478b14")))},
 		{&Execution{
-			AbstractAction: ab,
-			amount:         big.NewInt(100),
-			data:           _signByte,
+			amount: big.NewInt(100),
+			data:   _signByte,
 		}, _validSig, "", hash.BytesToHash256(MustNoErrorV(hex.DecodeString("fcdd0c3d07f438d6e67ea852b40e5dc256d75f5e1fa9ac3ca96030efeb634150")))},
 		{&Execution{
-			AbstractAction: ab,
-			contract:       "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
-			amount:         big.NewInt(100),
-			data:           _signByte,
+			contract: "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
+			amount:   big.NewInt(100),
+			data:     _signByte,
 		}, _validSig, "", hash.BytesToHash256(MustNoErrorV(hex.DecodeString("fee3db88ee7d7defa9eded672d08fc8641f760f3a11d404a53276ad6f412b8a5")))},
 	} {
 		elp := builder.SetAction(v.act).Build()
@@ -294,26 +289,32 @@ var (
 			MustNoErrorV(hex.DecodeString("120f99ad0000000000000000000000000000000000000000000000000000000000000002")),
 			"0ae11105b673835c4b612f98ab748d5b4e9aa1e779f404866658476fd230c33f",
 		},
+		{
+			"accesslist", 120, 21000, "1000000000", "0",
+			"0x3141df3f2e4415533bb6d6be2A351B2db9ee84EF",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			nil,
+			"b30463d727248560e17d82764604fa64b2161f3bdb53434a6afd15fc64a42918",
+		},
+		{
+			"dynamicfee", 120, 21000, "1000000000", "0",
+			"0x3141df3f2e4415533bb6d6be2A351B2db9ee84EF",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			nil,
+			"46e367af6c609032b85e7d3f40f0af3fcb59779b55d92eefea2ee1dbdaca41fa",
+		},
+		{
+			"blobtx", 120, 21000, "1000000000", "0",
+			"0x3141df3f2e4415533bb6d6be2A351B2db9ee84EF",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			[]byte{1, 2, 3},
+			"526b46d97b334cc5edb6095448406c9df74c8d6310d22044cb9a3a2a305bc398",
+		},
 	}
 )
-
-func TestNewEthSignerError(t *testing.T) {
-	require := require.New(t)
-	singer, err := NewEthSigner(iotextypes.Encoding_ETHEREUM_ACCESSLIST, 1)
-	require.ErrorIs(err, ErrInvalidAct)
-	require.Nil(singer)
-
-	tx := types.NewTx(&types.DynamicFeeTx{
-		To:        nil,
-		Nonce:     4,
-		Value:     big.NewInt(4),
-		Gas:       4,
-		GasTipCap: big.NewInt(44),
-		GasFeeCap: big.NewInt(1045),
-	})
-	_, _, _, err = ExtractTypeSigPubkey(tx)
-	require.ErrorIs(err, ErrNotSupported)
-}
 
 func TestEthTxDecodeVerify(t *testing.T) {
 	require := require.New(t)
@@ -323,8 +324,7 @@ func TestEthTxDecodeVerify(t *testing.T) {
 	)
 
 	checkSelp := func(selp *SealedEnvelope, tx *types.Transaction, e rlpTest) {
-		h, err := selp.Hash()
-		require.NoError(err)
+		h := MustNoErrorV(selp.Hash())
 		require.Equal(e.hash, hex.EncodeToString(h[:]))
 		if e.actType == "unprotected" {
 			require.Equal(deterministicDeployer, selp.srcPubkey.Address().Hex())
@@ -333,10 +333,19 @@ func TestEthTxDecodeVerify(t *testing.T) {
 		}
 		require.Equal(e.chainID, selp.evmNetworkID)
 		require.EqualValues(1, selp.ChainID())
-		raw, err := selp.envelopeHash()
-		require.NoError(err)
-		signer, err := NewEthSigner(e.encoding, uint32(e.chainID))
-		require.NoError(err)
+		require.EqualValues(tx.Type(), selp.TxType())
+		require.EqualValues(tx.Nonce(), selp.Nonce())
+		require.EqualValues(tx.Gas(), selp.Gas())
+		require.Equal(tx.GasPrice(), selp.GasPrice())
+		require.Equal(tx.AccessList(), selp.AccessList())
+		require.Equal(tx.GasFeeCap(), selp.GasFeeCap())
+		require.Equal(tx.GasTipCap(), selp.GasTipCap())
+		require.Equal(tx.BlobGas(), selp.BlobGas())
+		require.Equal(tx.BlobGasFeeCap(), selp.BlobGasFeeCap())
+		require.Equal(tx.BlobHashes(), selp.BlobHashes())
+		require.Equal(tx.BlobTxSidecar(), selp.BlobTxSidecar())
+		raw := MustNoErrorV(selp.envelopeHash())
+		signer := MustNoErrorV(NewEthSigner(e.encoding, uint32(e.chainID)))
 		rawHash := signer.Hash(tx)
 		require.True(bytes.Equal(rawHash[:], raw[:]))
 		require.NotEqual(raw, h)
@@ -347,24 +356,31 @@ func TestEthTxDecodeVerify(t *testing.T) {
 		t.Run(v.actType, func(t *testing.T) {
 			raw := generateRLPTestRaw(sk.EcdsaPrivateKey().(*ecdsa.PrivateKey), &v)
 			// decode received RLP tx
-			tx, err := DecodeEtherTx(raw)
-			require.NoError(err)
+			tx := MustNoErrorV(DecodeEtherTx(raw))
 			encoding, sig, pubkey, err := ExtractTypeSigPubkey(tx)
 			require.NoError(err)
 			require.Equal(v.encoding, encoding)
 			V, _, _ := tx.RawSignatureValues()
 			recID := V.Uint64()
-			if encoding == iotextypes.Encoding_ETHEREUM_EIP155 {
-				require.EqualValues(types.LegacyTxType, tx.Type())
-				require.True(tx.Protected())
-				require.Less(uint64(28), recID)
-			} else if encoding == iotextypes.Encoding_ETHEREUM_UNPROTECTED {
+			if encoding == iotextypes.Encoding_ETHEREUM_UNPROTECTED {
 				require.EqualValues(types.LegacyTxType, tx.Type())
 				require.False(tx.Protected())
 				require.Zero(tx.ChainId().Uint64())
 				// unprotected tx has V = 27, 28
-				require.True(27 == recID || 28 == recID)
-				require.True(27 == sig[64] || 28 == sig[64])
+				require.True(recID == 27 || recID == 28)
+				require.True(sig[64] == 27 || sig[64] == 28)
+			} else {
+				require.Equal(iotextypes.Encoding_ETHEREUM_EIP155, encoding)
+				switch tx.Type() {
+				case types.LegacyTxType:
+					require.True(tx.Protected())
+					require.Less(uint64(28), recID)
+				case types.AccessListTxType, types.DynamicFeeTxType, types.BlobTxType:
+					require.True(tx.Protected())
+					// // accesslist tx has V = 0, 1
+					require.LessOrEqual(recID, uint64(1))
+					require.True(sig[64] == 27 || sig[64] == 28)
+				}
 			}
 			require.EqualValues(v.chainID, tx.ChainId().Uint64())
 			if v.actType == "unprotected" {
@@ -372,32 +388,19 @@ func TestEthTxDecodeVerify(t *testing.T) {
 			} else {
 				require.Equal(pkhash, pubkey.Address().Hex())
 			}
+			require.Equal(v.hash, tx.Hash().Hex()[2:])
 
 			var pb [2]*iotextypes.Action
-			// convert to our Execution
+			// convert to native proto
 			pb[0] = &iotextypes.Action{
-				Encoding: encoding,
+				Encoding:     encoding,
+				Core:         MustNoErrorV(convertToNativeProto(tx, v.actType)),
+				SenderPubKey: pubkey.Bytes(),
+				Signature:    sig,
 			}
-			pb[0].Core, err = convertToNativeProto(tx, v.actType)
-			require.NoError(err)
-			pb[0].SenderPubKey = pubkey.Bytes()
-			pb[0].Signature = sig
-
 			// test tx container
-			rawBytes, _ := hex.DecodeString(raw)
 			pb[1] = &iotextypes.Action{
-				Core: &iotextypes.ActionCore{
-					Version:  1,
-					Nonce:    tx.Nonce(),
-					GasLimit: tx.Gas(),
-					GasPrice: tx.GasPrice().String(),
-					ChainID:  1,
-					Action: &iotextypes.ActionCore_TxContainer{
-						TxContainer: &iotextypes.TxContainer{
-							Raw: rawBytes,
-						},
-					},
-				},
+				Core:         MustNoErrorV(EthRawToContainer(1, raw)),
 				SenderPubKey: pubkey.Bytes(),
 				Signature:    sig,
 				Encoding:     iotextypes.Encoding_TX_CONTAINER,
@@ -405,15 +408,12 @@ func TestEthTxDecodeVerify(t *testing.T) {
 
 			for i := 0; i < 2; i++ {
 				// send on wire
-				bs, err := proto.Marshal(pb[i])
-				require.NoError(err)
-
+				bs := MustNoErrorV(proto.Marshal(pb[i]))
 				// receive from API
 				e := &iotextypes.Action{}
 				proto.Unmarshal(bs, e)
 
-				selp, err := (&Deserializer{}).SetEvmNetworkID(v.chainID).ActionToSealedEnvelope(e)
-				require.NoError(err)
+				selp := MustNoErrorV((&Deserializer{}).SetEvmNetworkID(v.chainID).ActionToSealedEnvelope(e))
 				require.True(bytes.Equal(sig, selp.signature))
 				checkSelp(selp, tx, v)
 				if i == 0 {
@@ -425,6 +425,13 @@ func TestEthTxDecodeVerify(t *testing.T) {
 
 				// evm tx conversion
 				if i == 1 {
+					// staking and rewarding can be directly converted
+					elp := MustNoErrorV(StakingRewardingTxToEnvelope(1, tx))
+					var to string
+					if tx.To() != nil {
+						to = MustNoErrorV(address.FromBytes(tx.To().Bytes())).String()
+					}
+					require.Equal(to == address.StakingProtocolAddr || to == string(address.RewardingProtocol), elp != nil)
 					// tx unfolding
 					_, ok := selp.Action().(*txContainer)
 					require.True(ok)
@@ -437,25 +444,55 @@ func TestEthTxDecodeVerify(t *testing.T) {
 					// selp converted to actual tx
 					_, ok = selp.Action().(TxContainer)
 					require.False(ok)
-
+					if elp != nil {
+						require.Equal(elp, selp.Envelope)
+					}
 				}
-				evmTx, err := selp.ToEthTx()
-				require.NoError(err)
+				evmTx := MustNoErrorV(selp.ToEthTx())
 				// verify against original tx
-				require.Equal(v.nonce, evmTx.Nonce())
-				require.Equal(v.price, evmTx.GasPrice().String())
-				require.Equal(v.limit, evmTx.Gas())
+				require.Equal(tx.Type(), evmTx.Type())
+				require.Equal(tx.Nonce(), evmTx.Nonce())
+				require.Equal(tx.Gas(), evmTx.Gas())
+				require.Equal(tx.GasPrice(), evmTx.GasPrice())
 				if v.to == "" {
 					require.Nil(evmTx.To())
 				} else {
-					require.Equal(v.to, evmTx.To().Hex())
+					require.Equal(tx.To(), evmTx.To())
 				}
-				require.Equal(v.amount, evmTx.Value().String())
+				require.Equal(tx.Value(), evmTx.Value())
 				if v.data != nil {
-					require.Equal(v.data, evmTx.Data())
+					require.Equal(tx.Data(), evmTx.Data())
 				} else {
 					require.Zero(len(evmTx.Data()))
 				}
+				require.Equal(tx.Cost(), evmTx.Cost())
+				require.Equal(tx.AccessList(), evmTx.AccessList())
+				require.Equal(tx.GasFeeCap(), evmTx.GasFeeCap())
+				require.Equal(tx.GasTipCap(), evmTx.GasTipCap())
+				require.Equal(tx.BlobGas(), evmTx.BlobGas())
+				require.Equal(tx.BlobGasFeeCap(), evmTx.BlobGasFeeCap())
+				require.Equal(tx.BlobHashes(), evmTx.BlobHashes())
+				require.Equal(tx.BlobTxSidecar(), evmTx.BlobTxSidecar())
+
+				switch tx.Type() {
+				case types.LegacyTxType:
+					require.Nil(evmTx.AccessList())
+					fallthrough
+				case types.AccessListTxType:
+					require.Equal(evmTx.GasTipCap(), evmTx.GasPrice())
+					require.Equal(evmTx.GasFeeCap(), evmTx.GasPrice())
+					fallthrough
+				case types.DynamicFeeTxType:
+					require.Zero(evmTx.BlobGas())
+					require.Nil(evmTx.BlobGasFeeCap())
+					require.Nil(evmTx.BlobHashes())
+					require.Nil(evmTx.BlobTxSidecar())
+				}
+				// verify signed tx hash and protected
+				signer := MustNoErrorV(NewEthSigner(iotextypes.Encoding_ETHEREUM_EIP155, v.chainID))
+				signedTx := MustNoErrorV(RawTxToSignedTx(evmTx, signer, sig))
+				require.Equal(tx.Hash(), signedTx.Hash())
+				require.Equal(tx.Protected(), signedTx.Protected())
 			}
 		})
 	}
@@ -498,7 +535,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			txto:     to,
 			txamount: amount,
 			txdata:   data,
-			action:   MustNoErrorV(NewTransfer(nonce, amount, to, data, gasLimit, gasPrice)),
+			action:   NewTransfer(amount, to, data),
 			builder:  elpbuilder.BuildTransfer,
 		},
 		{
@@ -507,7 +544,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			txto:     to,
 			txamount: amount,
 			txdata:   data,
-			action:   MustNoErrorV(NewExecution(to, nonce, amount, gasLimit, gasPrice, data)),
+			action:   NewExecution(to, amount, data),
 			builder:  elpbuilder.BuildExecution,
 		},
 		{
@@ -516,7 +553,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			txto:     "",
 			txamount: amount,
 			txdata:   data,
-			action:   MustNoErrorV(NewExecution("", nonce, amount, gasLimit, gasPrice, data)),
+			action:   NewExecution("", amount, data),
 			builder:  elpbuilder.BuildExecution,
 		},
 		{
@@ -528,7 +565,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_createStakeMethod.ID,
 				MustNoErrorV(_createStakeMethod.Inputs.Pack("name", amount, uint32(86400), true, data))...,
 			),
-			action:  MustNoErrorV(NewCreateStake(nonce, "name", amount.String(), 86400, true, data, gasLimit, gasPrice)),
+			action:  MustNoErrorV(NewCreateStake("name", amount.String(), 86400, true, data)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -540,7 +577,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_depositToStakeMethod.ID,
 				MustNoErrorV(_depositToStakeMethod.Inputs.Pack(uint64(10), amount, data))...,
 			),
-			action:  MustNoErrorV(NewDepositToStake(nonce, 10, amount.String(), data, gasLimit, gasPrice)),
+			action:  MustNoErrorV(NewDepositToStake(10, amount.String(), data)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -552,7 +589,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_changeCandidateMethod.ID,
 				MustNoErrorV(_changeCandidateMethod.Inputs.Pack("name", uint64(11), data))...,
 			),
-			action:  MustNoErrorV(NewChangeCandidate(nonce, "name", 11, data, gasLimit, gasPrice)),
+			action:  NewChangeCandidate("name", 11, data),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -564,7 +601,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_unstakeMethod.ID,
 				MustNoErrorV(_unstakeMethod.Inputs.Pack(uint64(12), data))...,
 			),
-			action:  MustNoErrorV(NewUnstake(nonce, 12, data, gasLimit, gasPrice)),
+			action:  NewUnstake(12, data),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -576,7 +613,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_withdrawStakeMethod.ID,
 				MustNoErrorV(_withdrawStakeMethod.Inputs.Pack(uint64(13), data))...,
 			),
-			action:  MustNoErrorV(NewWithdrawStake(nonce, 13, data, gasLimit, gasPrice)),
+			action:  NewWithdrawStake(13, data),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -588,7 +625,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_restakeMethod.ID,
 				MustNoErrorV(_restakeMethod.Inputs.Pack(uint64(14), uint32(7200), false, data))...,
 			),
-			action:  MustNoErrorV(NewRestake(nonce, 14, 7200, false, data, gasLimit, gasPrice)),
+			action:  NewRestake(14, 7200, false, data),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -603,7 +640,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 					uint64(15), data),
 				)...,
 			),
-			action:  MustNoErrorV(NewTransferStake(nonce, to, 15, data, gasLimit, gasPrice)),
+			action:  MustNoErrorV(NewTransferStake(to, 15, data)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -617,10 +654,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 					"name", addrto, addrto, addrto, amount, uint32(6400), false, data,
 				))...,
 			),
-			action: MustNoErrorV(NewCandidateRegister(
-				nonce, "name", to, to, to, amount.String(),
-				6400, false, data, gasLimit, gasPrice,
-			)),
+			action:  MustNoErrorV(NewCandidateRegister("name", to, to, to, amount.String(), 6400, false, data)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -632,7 +666,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_candidateUpdateMethod.ID,
 				MustNoErrorV(_candidateUpdateMethod.Inputs.Pack("name", addrto, addrto))...,
 			),
-			action:  MustNoErrorV(NewCandidateUpdate(nonce, "name", to, to, gasLimit, gasPrice)),
+			action:  MustNoErrorV(NewCandidateUpdate("name", to, to)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -644,16 +678,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				candidateActivateMethod.ID,
 				MustNoErrorV(candidateActivateMethod.Inputs.Pack(uint64(16)))...,
 			),
-			action: &CandidateActivate{
-				AbstractAction: AbstractAction{
-					version:  version.ProtocolVersion,
-					chainID:  chainID,
-					nonce:    nonce,
-					gasLimit: gasLimit,
-					gasPrice: gasPrice,
-				},
-				bucketID: 16,
-			},
+			action:  NewCandidateActivate(16),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -665,16 +690,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				candidateEndorsementLegacyMethod.ID,
 				MustNoErrorV(candidateEndorsementLegacyMethod.Inputs.Pack(uint64(17), false))...,
 			),
-			action: &CandidateEndorsement{
-				AbstractAction: AbstractAction{
-					version:  version.ProtocolVersion,
-					chainID:  chainID,
-					nonce:    nonce,
-					gasLimit: gasLimit,
-					gasPrice: gasPrice,
-				},
-				bucketIndex: 17,
-			},
+			action:  NewCandidateEndorsementLegacy(17, false),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -686,7 +702,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				_candidateTransferOwnershipMethod.ID,
 				MustNoErrorV(_candidateTransferOwnershipMethod.Inputs.Pack(addrto, data))...,
 			),
-			action:  MustNoErrorV(NewCandidateTransferOwnership(nonce, gasLimit, gasPrice, to, data)),
+			action:  MustNoErrorV(NewCandidateTransferOwnership(to, data)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -699,13 +715,6 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				MustNoErrorV(_claimRewardingMethodV2.Inputs.Pack(amount, to, data))...,
 			),
 			action: &ClaimFromRewardingFund{
-				AbstractAction: AbstractAction{
-					version:  version.ProtocolVersion,
-					chainID:  chainID,
-					nonce:    nonce,
-					gasLimit: gasLimit,
-					gasPrice: gasPrice,
-				},
 				amount:  amount,
 				address: MustNoErrorV(address.FromString(to)),
 				data:    data,
@@ -722,13 +731,6 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				MustNoErrorV(_depositRewardMethod.Inputs.Pack(amount, data))...,
 			),
 			action: &DepositToRewardingFund{
-				AbstractAction: AbstractAction{
-					version:  version.ProtocolVersion,
-					chainID:  chainID,
-					nonce:    nonce,
-					gasLimit: gasLimit,
-					gasPrice: gasPrice,
-				},
 				amount: amount,
 				data:   data,
 			},
@@ -740,7 +742,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			txto:     to,
 			txamount: amount,
 			txdata:   data,
-			action:   MustNoErrorV(NewExecution(to, nonce, amount, gasLimit, gasPrice, data)),
+			action:   NewExecution(to, amount, data),
 			builder:  elpbuilder.BuildExecution,
 		},
 		{
@@ -752,7 +754,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				migrateStakeMethod.ID,
 				MustNoErrorV(migrateStakeMethod.Inputs.Pack(uint64(1)))...,
 			),
-			action:  MustNoErrorV(NewMigrateStake(nonce, 1, gasLimit, gasPrice)),
+			action:  NewMigrateStake(1),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -764,17 +766,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				candidateEndorsementEndorseMethod.ID,
 				MustNoErrorV(candidateEndorsementEndorseMethod.Inputs.Pack(uint64(17)))...,
 			),
-			action: &CandidateEndorsement{
-				AbstractAction: AbstractAction{
-					version:  version.ProtocolVersion,
-					chainID:  chainID,
-					nonce:    nonce,
-					gasLimit: gasLimit,
-					gasPrice: gasPrice,
-				},
-				bucketIndex: 17,
-				op:          CandidateEndorsementOpEndorse,
-			},
+			action:  MustNoErrorV(NewCandidateEndorsement(17, CandidateEndorsementOpEndorse)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -786,17 +778,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				caniddateEndorsementIntentToRevokeMethod.ID,
 				MustNoErrorV(caniddateEndorsementIntentToRevokeMethod.Inputs.Pack(uint64(17)))...,
 			),
-			action: &CandidateEndorsement{
-				AbstractAction: AbstractAction{
-					version:  version.ProtocolVersion,
-					chainID:  chainID,
-					nonce:    nonce,
-					gasLimit: gasLimit,
-					gasPrice: gasPrice,
-				},
-				bucketIndex: 17,
-				op:          CandidateEndorsementOpIntentToRevoke,
-			},
+			action:  MustNoErrorV(NewCandidateEndorsement(17, CandidateEndorsementOpIntentToRevoke)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
@@ -808,17 +790,7 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 				candidateEndorsementRevokeMethod.ID,
 				MustNoErrorV(candidateEndorsementRevokeMethod.Inputs.Pack(uint64(17)))...,
 			),
-			action: &CandidateEndorsement{
-				AbstractAction: AbstractAction{
-					version:  version.ProtocolVersion,
-					chainID:  chainID,
-					nonce:    nonce,
-					gasLimit: gasLimit,
-					gasPrice: gasPrice,
-				},
-				bucketIndex: 17,
-				op:          CandidateEndorsementOpRevoke,
-			},
+			action:  MustNoErrorV(NewCandidateEndorsement(17, CandidateEndorsementOpRevoke)),
 			builder: elpbuilder.BuildStakingAction,
 		},
 	}
@@ -907,9 +879,9 @@ func convertToNativeProto(tx *types.Transaction, actType string) (*iotextypes.Ac
 		err error
 	)
 	switch actType {
-	case "transfer":
+	case "transfer", "blobtx":
 		elp, err = elpBuilder.BuildTransfer(tx)
-	case "execution", "unprotected", "accesslist":
+	case "execution", "unprotected", "accesslist", "dynamicfee":
 		elp, err = elpBuilder.BuildExecution(tx)
 	case "stakeCreate", "stakeAddDeposit", "changeCandidate", "unstake", "withdrawStake", "restake",
 		"transferStake", "candidateRegister", "candidateUpdate", "candidateActivate", "candidateEndorsement", "candidateTransferOwnership",
@@ -947,11 +919,11 @@ func checkContract(to string, actType string) func(context.Context, *common.Addr
 		}
 	}
 	switch actType {
-	case "transfer":
+	case "transfer", "blobtx":
 		return func(context.Context, *common.Address) (bool, bool, bool, error) {
 			return false, false, false, nil
 		}
-	case "execution", "unprotected", "accesslist":
+	case "execution", "unprotected", "accesslist", "dynamicfee":
 		return func(context.Context, *common.Address) (bool, bool, bool, error) {
 			return true, false, false, nil
 		}
@@ -1020,23 +992,78 @@ func generateRLPTestRaw(sk *ecdsa.PrivateKey, test *rlpTest) string {
 	}
 	switch test.actType {
 	case "transfer", "execution":
+		fallthrough
 	case "stakeCreate", "stakeAddDeposit", "unstake", "withdrawStake", "restake",
 		"transferStake", "changeCandidate", "candidateRegister", "candidateUpdate",
 		"candidateActivate", "candidateTransferOwnership", "migrateStake", "endorseCandidate",
 		"candidateEndorsement", "intentToRevokeEndorsement", "revokeEndorsement":
+		fallthrough
 	case "rewardingClaim", "rewardingClaimWithAddress", "rewardingDeposit":
+		tx = &types.LegacyTx{
+			Nonce:    test.nonce,
+			GasPrice: MustBeTrueV(new(big.Int).SetString(test.price, 10)),
+			Gas:      test.limit,
+			To:       to,
+			Value:    MustBeTrueV(new(big.Int).SetString(test.amount, 10)),
+			Data:     test.data,
+		}
 	case "unprotected":
 		return deterministicDeploymentTx
+	case "accesslist":
+		tx = &types.AccessListTx{
+			Nonce:      test.nonce,
+			GasPrice:   MustBeTrueV(new(big.Int).SetString(test.price, 10)),
+			Gas:        test.limit,
+			To:         to,
+			Value:      MustBeTrueV(new(big.Int).SetString(test.amount, 10)),
+			Data:       test.data,
+			AccessList: createTestACL(),
+		}
+	case "dynamicfee":
+		tip := MustBeTrueV(new(big.Int).SetString(test.price, 10))
+		tx = &types.DynamicFeeTx{
+			Nonce:     test.nonce,
+			GasTipCap: tip,
+			GasFeeCap: new(big.Int).Lsh(tip, 1),
+			Gas:       test.limit,
+			To:        to,
+			Value:     MustBeTrueV(new(big.Int).SetString(test.amount, 10)),
+			Data:      test.data,
+			AccessList: types.AccessList{
+				{Address: common.Address{}, StorageKeys: nil},
+				{Address: _c1, StorageKeys: []common.Hash{_k1, {}, _k3}},
+				{Address: _c2, StorageKeys: []common.Hash{_k2, _k3, _k4, _k1}},
+			},
+		}
+	case "blobtx":
+		price := new(uint256.Int)
+		if err := price.SetFromDecimal(test.price); err != nil {
+			panic(err.Error())
+		}
+		value := new(uint256.Int)
+		if err := value.SetFromDecimal(test.amount); err != nil {
+			panic(err.Error())
+		}
+		blob := createTestBlobTxData()
+		tx = &types.BlobTx{
+			Nonce:     test.nonce,
+			GasTipCap: price,
+			GasFeeCap: new(uint256.Int).Lsh(price, 1),
+			Gas:       test.limit,
+			To:        *to,
+			Value:     value,
+			Data:      test.data,
+			AccessList: types.AccessList{
+				{Address: common.Address{}, StorageKeys: nil},
+				{Address: _c1, StorageKeys: []common.Hash{_k1, {}, _k3}},
+				{Address: _c2, StorageKeys: []common.Hash{_k2, _k3, _k4, _k1}},
+			},
+			BlobFeeCap: blob.gasFeeCap(),
+			BlobHashes: blob.hashes(),
+			Sidecar:    blob.sidecar,
+		}
 	default:
 		panic("not supported")
-	}
-	tx = &types.LegacyTx{
-		Nonce:    test.nonce,
-		GasPrice: MustBeTrueV(new(big.Int).SetString(test.price, 10)),
-		Gas:      test.limit,
-		To:       to,
-		Value:    MustBeTrueV(new(big.Int).SetString(test.amount, 10)),
-		Data:     test.data,
 	}
 	signer := types.NewCancunSigner(big.NewInt(int64(test.chainID)))
 	signedtx := types.MustSignNewTx(sk, signer, tx)

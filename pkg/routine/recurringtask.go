@@ -11,7 +11,7 @@ import (
 
 	"github.com/facebookgo/clock"
 
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 )
 
 var _ lifecycle.StartStopper = (*RecurringTask)(nil)
@@ -24,11 +24,11 @@ type RecurringTaskOption interface {
 // RecurringTask represents a recurring task
 type RecurringTask struct {
 	lifecycle.Readiness
-	t        Task
-	interval time.Duration
-	ticker   *clock.Ticker
-	done     chan struct{}
-	clock    clock.Clock
+	t          Task
+	interval   time.Duration
+	ticker     *clock.Ticker
+	done, exit chan struct{}
+	clock      clock.Clock
 }
 
 // NewRecurringTask creates an instance of RecurringTask
@@ -37,6 +37,7 @@ func NewRecurringTask(t Task, i time.Duration, ops ...RecurringTaskOption) *Recu
 		t:        t,
 		interval: i,
 		done:     make(chan struct{}),
+		exit:     make(chan struct{}),
 		clock:    clock.New(),
 	}
 	for _, opt := range ops {
@@ -54,6 +55,7 @@ func (t *RecurringTask) Start(_ context.Context) error {
 		for {
 			select {
 			case <-t.done:
+				close(t.exit)
 				return
 			case <-t.ticker.C:
 				t.t()
@@ -75,5 +77,7 @@ func (t *RecurringTask) Stop(_ context.Context) error {
 		t.ticker.Stop()
 	}
 	close(t.done)
+	// ensure the goroutine has exited
+	<-t.exit
 	return nil
 }

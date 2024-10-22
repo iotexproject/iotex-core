@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 )
 
 // _aliasExportCmd doesn't support global flag "output-format", use `ioctl alias list -o [FORMAT]` instead

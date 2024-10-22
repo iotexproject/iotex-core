@@ -14,8 +14,8 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 var (
@@ -80,21 +80,28 @@ type ActionHandler interface {
 }
 
 type (
-	Options struct {
-		ValueBigInt *big.Int
+	DepositOptionCfg struct {
+		PriorityFee *big.Int
+		BlobGasFee  *big.Int
 	}
 
-	Option func(*Options)
+	DepositOption func(*DepositOptionCfg)
 )
 
-func BurnGasOption(burnAmount *big.Int) Option {
-	return func(opts *Options) {
-		opts.ValueBigInt = burnAmount
+func PriorityFeeOption(priorityFee *big.Int) DepositOption {
+	return func(opts *DepositOptionCfg) {
+		opts.PriorityFee = priorityFee
+	}
+}
+
+func BlobGasFeeOption(blobGasFee *big.Int) DepositOption {
+	return func(opts *DepositOptionCfg) {
+		opts.BlobGasFee = blobGasFee
 	}
 }
 
 // DepositGas deposits gas to rewarding pool and burns baseFee
-type DepositGas func(context.Context, StateManager, *big.Int, ...Option) ([]*action.TransactionLog, error)
+type DepositGas func(context.Context, StateManager, *big.Int, ...DepositOption) ([]*action.TransactionLog, error)
 
 // View stores the view for all protocols
 type View map[string]interface{}
@@ -123,19 +130,27 @@ func HashStringToAddress(str string) address.Address {
 
 func SplitGas(ctx context.Context, tx action.TxDynamicGas, usedGas uint64) (*big.Int, *big.Int, error) {
 	var (
-		baseFee = MustGetBlockchainCtx(ctx).Tip.BaseFee
+		baseFee = MustGetBlockCtx(ctx).BaseFee
 		gas     = new(big.Int).SetUint64(usedGas)
 	)
+	if baseFee == nil {
+		// treat as basefee if before enabling EIP-1559
+		return new(big.Int), new(big.Int).Mul(tx.GasFeeCap(), gas), nil
+	}
 	priority, err := action.EffectiveGasTip(tx, baseFee)
 	if err != nil {
 		return nil, nil, err
-	}
-	if baseFee == nil {
-		return priority.Mul(priority, gas), nil, nil
 	}
 	// after enabling EIP-1559, fee is split into 2 parts
 	// priority fee goes to the rewarding pool (or block producer) as before
 	// base fee will be burnt
 	base := new(big.Int).Set(baseFee)
 	return priority.Mul(priority, gas), base.Mul(base, gas), nil
+}
+
+func EffectiveGasPrice(ctx context.Context, tx action.TxCommon) *big.Int {
+	if !MustGetFeatureCtx(ctx).EnableDynamicFeeTx {
+		return nil
+	}
+	return tx.EffectiveGasPrice(MustGetBlockCtx(ctx).BaseFee)
 }

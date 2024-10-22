@@ -9,12 +9,13 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/pkg/fastrand"
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/fastrand"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 const (
@@ -43,6 +44,27 @@ type (
 		lastTime time.Time
 	}
 )
+
+var (
+	channelFullnessMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_actionsync_fullness",
+			Help: "ActionSync fullness statistics",
+		},
+		[]string{"message_type"},
+	)
+	counterMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_actionsync_counter",
+			Help: "ActionSync counter statistics",
+		},
+		[]string{"message_type"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(channelFullnessMtc, counterMtc)
+}
 
 // NewActionSync creates a new action syncer
 func NewActionSync(cfg Config, helper *Helper) *ActionSync {
@@ -107,6 +129,7 @@ func (as *ActionSync) sync() {
 	defer as.wg.Done()
 	for hash := range as.syncChan {
 		log.L().Debug("syncing action", log.Hex("hash", hash[:]))
+		channelFullnessMtc.WithLabelValues("action").Set(float64(len(as.syncChan)) / float64(cap(as.syncChan)))
 		ctx, cancel := context.WithTimeout(context.Background(), unicaseTimeout)
 		defer cancel()
 		msg, ok := as.actions.Load(hash)
@@ -122,6 +145,7 @@ func (as *ActionSync) sync() {
 		// TODO: enhancement, request multiple actions in one message
 		if err := as.requestFromNeighbors(ctx, hash); err != nil {
 			log.L().Warn("Failed to request action from neighbors", zap.Error(err))
+			counterMtc.WithLabelValues("failed").Inc()
 		}
 	}
 	log.L().Info("quitting action sync")
@@ -152,6 +176,7 @@ func (as *ActionSync) trigger(hash hash.Hash256) {
 
 	select {
 	case as.syncChan <- hash:
+		channelFullnessMtc.WithLabelValues("action").Set(float64(len(as.syncChan)) / float64(cap(as.syncChan)))
 	default:
 		log.L().Warn("action sync channel is full, fail to sync action", log.Hex("hash", hash[:]))
 	}

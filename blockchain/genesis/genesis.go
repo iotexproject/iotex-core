@@ -23,9 +23,9 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 var (
@@ -43,42 +43,43 @@ func init() {
 func defaultConfig() Genesis {
 	return Genesis{
 		Blockchain: Blockchain{
-			Timestamp:               1546329600,
-			BlockGasLimit:           20000000,
-			TsunamiBlockGasLimit:    50000000,
-			ActionGasLimit:          5000000,
-			BlockInterval:           10 * time.Second,
-			NumSubEpochs:            2,
-			DardanellesNumSubEpochs: 30,
-			NumDelegates:            24,
-			NumCandidateDelegates:   36,
-			TimeBasedRotation:       false,
-			PacificBlockHeight:      432001,
-			AleutianBlockHeight:     864001,
-			BeringBlockHeight:       1512001,
-			CookBlockHeight:         1641601,
-			DardanellesBlockHeight:  1816201,
-			DaytonaBlockHeight:      3238921,
-			EasterBlockHeight:       4478761,
-			FbkMigrationBlockHeight: 5157001,
-			FairbankBlockHeight:     5165641,
-			GreenlandBlockHeight:    6544441,
-			HawaiiBlockHeight:       11267641,
-			IcelandBlockHeight:      12289321,
-			JutlandBlockHeight:      13685401,
-			KamchatkaBlockHeight:    13816441,
-			LordHoweBlockHeight:     13979161,
-			MidwayBlockHeight:       16509241,
-			NewfoundlandBlockHeight: 17662681,
-			OkhotskBlockHeight:      21542761,
-			PalauBlockHeight:        22991401,
-			QuebecBlockHeight:       24838201,
-			RedseaBlockHeight:       26704441,
-			SumatraBlockHeight:      28516681,
-			TsunamiBlockHeight:      29275561,
-			UpernavikBlockHeight:    31174201,
-			VanuatuBlockHeight:      41174201,
-			ToBeEnabledBlockHeight:  math.MaxUint64,
+			Timestamp:                 1546329600,
+			BlockGasLimit:             20000000,
+			TsunamiBlockGasLimit:      50000000,
+			ActionGasLimit:            5000000,
+			BlockInterval:             10 * time.Second,
+			NumSubEpochs:              2,
+			DardanellesNumSubEpochs:   30,
+			NumDelegates:              24,
+			NumCandidateDelegates:     36,
+			TimeBasedRotation:         false,
+			MinBlocksForBlobRetention: 345600,
+			PacificBlockHeight:        432001,
+			AleutianBlockHeight:       864001,
+			BeringBlockHeight:         1512001,
+			CookBlockHeight:           1641601,
+			DardanellesBlockHeight:    1816201,
+			DaytonaBlockHeight:        3238921,
+			EasterBlockHeight:         4478761,
+			FbkMigrationBlockHeight:   5157001,
+			FairbankBlockHeight:       5165641,
+			GreenlandBlockHeight:      6544441,
+			HawaiiBlockHeight:         11267641,
+			IcelandBlockHeight:        12289321,
+			JutlandBlockHeight:        13685401,
+			KamchatkaBlockHeight:      13816441,
+			LordHoweBlockHeight:       13979161,
+			MidwayBlockHeight:         16509241,
+			NewfoundlandBlockHeight:   17662681,
+			OkhotskBlockHeight:        21542761,
+			PalauBlockHeight:          22991401,
+			QuebecBlockHeight:         24838201,
+			RedseaBlockHeight:         26704441,
+			SumatraBlockHeight:        28516681,
+			TsunamiBlockHeight:        29275561,
+			UpernavikBlockHeight:      31174201,
+			VanuatuBlockHeight:        41174201,
+			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{
 			InitBalanceMap:          make(map[string]string),
@@ -183,6 +184,8 @@ type (
 		NumCandidateDelegates uint64 `yaml:"numCandidateDelegates"`
 		// TimeBasedRotation is the flag to enable rotating delegates' time slots on a block height
 		TimeBasedRotation bool `yaml:"timeBasedRotation"`
+		// MinBlocksForBlobRetention is the minimum number of blocks for blob retention
+		MinBlocksForBlobRetention uint64 `yaml:"minBlocksForBlobRetention"`
 		// PacificBlockHeight is the start height of using the logic of Pacific version
 		// TODO: PacificBlockHeight is not added into protobuf definition for backward compatibility
 		PacificBlockHeight uint64 `yaml:"pacificHeight"`
@@ -324,6 +327,10 @@ type (
 		SystemStakingContractAddress string `yaml:"systemStakingContractAddress"`
 		// SystemStakingContractHeight is the height of system staking contract
 		SystemStakingContractHeight uint64 `yaml:"systemStakingContractHeight"`
+		// deprecated
+		SystemSGDContractAddress string `yaml:"systemSGDContractAddress"`
+		// deprecated
+		SystemSGDContractHeight uint64 `yaml:"systemSGDContractHeight"`
 		// SystemStakingContractV2Address is the address of system staking contract
 		SystemStakingContractV2Address string `yaml:"systemStakingContractV2Address"`
 		// SystemStakingContractV2Height is the height of system staking contract

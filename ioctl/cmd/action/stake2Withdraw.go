@@ -11,9 +11,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/output"
 )
 
 // Multi-language support
@@ -79,10 +79,7 @@ func stake2Withdraw(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2w, err := action.NewWithdrawStake(nonce, bucketIndex, data, gasLimit, gasPriceRau)
-	if err != nil {
-		return output.NewError(output.InstantiationError, "failed to make a changeCandidate instance", err)
-	}
+	s2w := action.NewWithdrawStake(bucketIndex, data)
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).

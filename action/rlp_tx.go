@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
@@ -56,7 +57,7 @@ func NewEthSigner(txType iotextypes.Encoding, chainID uint32) (types.Signer, err
 		// native tx use same signature format as that of Homestead (for pre-EIP155 unprotected tx)
 		return types.HomesteadSigner{}, nil
 	case iotextypes.Encoding_ETHEREUM_EIP155:
-		return types.NewEIP2930Signer(big.NewInt(int64(chainID))), nil
+		return types.NewCancunSigner(big.NewInt(int64(chainID))), nil
 	default:
 		return nil, ErrInvalidAct
 	}
@@ -84,8 +85,8 @@ func DecodeEtherTx(rawData string) (*types.Transaction, error) {
 // ExtractTypeSigPubkey extracts tx type, signature, and pubkey
 func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, crypto.PublicKey, error) {
 	var (
-		encoding iotextypes.Encoding
-		signer   = types.NewEIP2930Signer(tx.ChainId()) // by default assume latest signer
+		encoding = iotextypes.Encoding_ETHEREUM_EIP155
+		signer   = types.NewCancunSigner(tx.ChainId()) // by default assume latest signer
 		V, R, S  = tx.RawSignatureValues()
 	)
 	// extract correct V value
@@ -95,12 +96,17 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 			chainIDMul := tx.ChainId()
 			V = new(big.Int).Sub(V, new(big.Int).Lsh(chainIDMul, 1))
 			V.Sub(V, big.NewInt(8))
-			encoding = iotextypes.Encoding_ETHEREUM_EIP155
 		} else {
 			// tx has pre-EIP155 signature
 			encoding = iotextypes.Encoding_ETHEREUM_UNPROTECTED
 			signer = types.HomesteadSigner{}
 		}
+	case types.AccessListTxType, types.DynamicFeeTxType, types.BlobTxType:
+		// AL txs are defined to use 0 and 1 as their recovery id,
+		// DynamicFee txs are defined to use 0 and 1 as their recovery id,
+		// Blob txs are defined to use 0 and 1 as their recovery id,
+		// add 27 to become equivalent to unprotected Homestead signatures.
+		V = new(big.Int).Add(V, big.NewInt(27))
 	default:
 		return encoding, nil, nil, ErrNotSupported
 	}
@@ -126,29 +132,38 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 	return encoding, sig, pubkey, err
 }
 
-// ======================================
-// utility funcs to convert native action to eth tx
-// ======================================
-func toLegacyTx(ab *AbstractAction, act Action) (*types.Transaction, error) {
-	tx, ok := act.(EthCompatibleAction)
-	if !ok {
-		// action type not supported
-		return nil, ErrInvalidAct
+func StakingRewardingTxToEnvelope(chainID uint32, tx *types.Transaction) (Envelope, error) {
+	if tx.To() == nil {
+		return nil, nil
 	}
-	to, err := tx.EthTo()
+	var (
+		ioAddr, _  = address.FromBytes(tx.To().Bytes())
+		to         = ioAddr.String()
+		elpBuilder = (&EnvelopeBuilder{}).SetChainID(chainID)
+	)
+	if to == address.StakingProtocolAddr {
+		return elpBuilder.BuildStakingAction(tx)
+	}
+	if to == address.RewardingProtocol {
+		return elpBuilder.BuildRewardingAction(tx)
+	}
+	return nil, nil
+}
+
+func EthRawToContainer(chainID uint32, rawString string) (*iotextypes.ActionCore, error) {
+	if strings.HasPrefix(rawString, "0x") || strings.HasPrefix(rawString, "0X") {
+		rawString = rawString[2:]
+	}
+	rawBytes, err := hex.DecodeString(rawString)
 	if err != nil {
 		return nil, err
 	}
-	data, err := tx.EthData()
-	if err != nil {
-		return nil, err
-	}
-	return types.NewTx(&types.LegacyTx{
-		Nonce:    ab.Nonce(),
-		GasPrice: ab.GasPrice(),
-		Gas:      ab.GasLimit(),
-		To:       to,
-		Value:    tx.Value(),
-		Data:     data,
-	}), nil
+	return &iotextypes.ActionCore{
+		ChainID: chainID,
+		Action: &iotextypes.ActionCore_TxContainer{
+			TxContainer: &iotextypes.TxContainer{
+				Raw: rawBytes,
+			},
+		},
+	}, nil
 }

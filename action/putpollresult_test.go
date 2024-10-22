@@ -11,8 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 func TestPutPollResult(t *testing.T) {
@@ -24,18 +24,19 @@ func TestPutPollResult(t *testing.T) {
 		Address: addr.String(),
 		Votes:   big.NewInt(1000),
 	})
-	r := NewPutPollResult(1, 10001, candidates)
-	assert.Equal(t, uint64(1), r.Nonce())
+	r := NewPutPollResult(10001, candidates)
 	igas, err := r.IntrinsicGas()
 	assert.NoError(t, err)
-	assert.Equal(t, uint64(0), igas)
-	cost, err := r.Cost()
+	assert.Zero(t, igas)
+	elp := (&EnvelopeBuilder{}).SetNonce(1).SetGasLimit(uint64(100000)).
+		SetAction(r).Build()
+	cost, err := elp.Cost()
 	assert.NoError(t, err)
-	assert.Equal(t, 0, big.NewInt(0).Cmp(cost))
+	assert.Equal(t, big.NewInt(0), cost)
 	pb := r.Proto()
 	assert.NotNil(t, pb)
 	clone := &PutPollResult{}
 	assert.NoError(t, clone.LoadProto(pb))
-	assert.Equal(t, uint64(10001), clone.Height())
+	assert.Equal(t, r, clone)
 
 }

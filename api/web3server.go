@@ -8,7 +8,6 @@ import (
 	"io"
 	"math/big"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,14 +26,13 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-core/action"
-	rewardingabi "github.com/iotexproject/iotex-core/action/protocol/rewarding/ethabi"
-	stakingabi "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi"
-	apitypes "github.com/iotexproject/iotex-core/api/types"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/tracer"
-	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/v2/action"
+	rewardingabi "github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/ethabi"
+	stakingabi "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi"
+	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/addrutil"
 )
 
 const (
@@ -72,6 +70,11 @@ var (
 		Name: "iotex_web3_api_metrics",
 		Help: "web3 api metrics.",
 	}, []string{"method"})
+	_web3ServerLatency = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Name:       "iotex_web3_api_latency",
+		Help:       "web3 api latency.",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+	}, []string{"method"})
 
 	errUnkownType        = errors.New("wrong type of params")
 	errNullPointer       = errors.New("null pointer")
@@ -82,6 +85,7 @@ var (
 	errInvalidBlock      = errors.New("invalid block")
 	errUnsupportedAction = errors.New("the type of action is not supported")
 	errMsgBatchTooLarge  = errors.New("batch too large")
+	errHTTPNotSupported  = errors.New("http not supported")
 
 	_pendingBlockNumber  = "pending"
 	_latestBlockNumber   = "latest"
@@ -90,6 +94,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(_web3ServerMtc)
+	prometheus.MustRegister(_web3ServerLatency)
 }
 
 // NewWeb3Handler creates a handle to process web3 requests
@@ -153,6 +158,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.ethAccounts()
 	case "eth_gasPrice":
 		res, err = svr.gasPrice()
+	case "eth_maxPriorityFeePerGas":
+		res, err = svr.maxPriorityFee()
 	case "eth_getBlockByHash":
 		res, err = svr.getBlockByHash(web3Req)
 	case "eth_chainId":
@@ -224,9 +231,15 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	case "eth_newBlockFilter":
 		res, err = svr.newBlockFilter()
 	case "eth_subscribe":
-		res, err = svr.subscribe(web3Req, writer)
+		sc, ok := StreamFromContext(ctx)
+		if !ok {
+			return errHTTPNotSupported
+		}
+		res, err = svr.subscribe(sc, web3Req, writer)
 	case "eth_unsubscribe":
 		res, err = svr.unsubscribe(web3Req)
+	case "eth_getBlobSidecars":
+		res, err = svr.getBlobSidecars(web3Req)
 	//TODO: enable debug api after archive mode is supported
 	// case "debug_traceTransaction":
 	// 	res, err = svr.traceTransaction(ctx, web3Req)
@@ -297,6 +310,14 @@ func (svr *web3Handler) gasPrice() (interface{}, error) {
 	return uint64ToHex(ret), nil
 }
 
+func (svr *web3Handler) maxPriorityFee() (interface{}, error) {
+	ret, err := svr.coreService.SuggestGasTipCap()
+	if err != nil {
+		return nil, err
+	}
+	return uint64ToHex(ret.Uint64()), nil
+}
+
 func (svr *web3Handler) getChainID() (interface{}, error) {
 	return uint64ToHex(uint64(svr.coreService.EVMNetworkID())), nil
 }
@@ -361,7 +382,7 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 }
 
 func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
-	callerAddr, to, gasLimit, gasPrice, value, data, err := parseCallObject(in)
+	callerAddr, to, gasLimit, _, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
@@ -398,8 +419,9 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 		}
 		return "0x" + ret, nil
 	}
-	exec, _ := action.NewExecution(to, 0, value, gasLimit, gasPrice, data)
-	ret, receipt, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
+	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(to, value, data)).
+		SetGasLimit(gasLimit).Build()
+	ret, receipt, err := svr.coreService.ReadContract(context.Background(), callerAddr, elp)
 	if err != nil {
 		return nil, err
 	}
@@ -442,7 +464,7 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 	var estimatedGas uint64
 	switch act := elp.Action().(type) {
 	case *action.Execution:
-		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), act, from)
+		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), elp, from)
 	case *action.MigrateStake:
 		estimatedGas, err = svr.coreService.EstimateMigrateStakeGasConsumption(context.Background(), act, from)
 	default:
@@ -484,27 +506,30 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 	if err != nil {
 		return nil, err
 	}
-	if g := cs.Genesis(); g.IsToBeEnabled(cs.TipHeight()) {
-		if strings.HasPrefix(rawString, "0x") || strings.HasPrefix(rawString, "0X") {
-			rawString = rawString[2:]
+	if g := cs.Genesis(); g.IsVanuatu(cs.TipHeight()) {
+		elp, err := action.StakingRewardingTxToEnvelope(svr.coreService.ChainID(), tx)
+		if err != nil {
+			return nil, err
 		}
-		rawBytes, _ := hex.DecodeString(rawString)
-		req = &iotextypes.Action{
-			Core: &iotextypes.ActionCore{
-				Version:  version.ProtocolVersion,
-				Nonce:    tx.Nonce(),
-				GasLimit: tx.Gas(),
-				GasPrice: tx.GasPrice().String(),
-				ChainID:  cs.ChainID(),
-				Action: &iotextypes.ActionCore_TxContainer{
-					TxContainer: &iotextypes.TxContainer{
-						Raw: rawBytes,
-					},
-				},
-			},
-			SenderPubKey: pubkey.Bytes(),
-			Signature:    sig,
-			Encoding:     iotextypes.Encoding_TX_CONTAINER,
+		if elp != nil {
+			req = &iotextypes.Action{
+				Core:         elp.Proto(),
+				SenderPubKey: pubkey.Bytes(),
+				Signature:    sig,
+				Encoding:     encoding,
+			}
+		} else {
+			// tx is not staking or rewarding
+			actCore, err := action.EthRawToContainer(svr.coreService.ChainID(), rawString)
+			if err != nil {
+				return nil, err
+			}
+			req = &iotextypes.Action{
+				Core:         actCore,
+				SenderPubKey: pubkey.Bytes(),
+				Signature:    sig,
+				Encoding:     iotextypes.Encoding_TX_CONTAINER,
+			}
 		}
 	} else {
 		elp, err := svr.ethTxToEnvelope(tx)
@@ -670,6 +695,10 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 		}
 		return nil, err
 	}
+	tx, err := selp.ToEthTx()
+	if err != nil {
+		return nil, err
+	}
 	receipt, err := svr.coreService.ReceiptByActionHash(actHash)
 	if err != nil {
 		if errors.Cause(err) == ErrNotFound {
@@ -687,7 +716,6 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 	if logsBloom := blk.LogsBloomfilter(); logsBloom != nil {
 		logsBloomStr = hex.EncodeToString(logsBloom.Bytes())
 	}
-
 	return &getReceiptResult{
 		blockHash:       blk.HashBlock(),
 		from:            selp.SenderAddress(),
@@ -695,6 +723,7 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 		contractAddress: contractAddr,
 		logsBloom:       logsBloomStr,
 		receipt:         receipt,
+		txType:          uint(tx.Type()),
 	}, nil
 
 }
@@ -924,35 +953,36 @@ func (svr *web3Handler) getFilterLogs(in *gjson.Result) (interface{}, error) {
 	return svr.getLogsWithFilter(from, to, filterObj.Address, filterObj.Topics)
 }
 
-func (svr *web3Handler) subscribe(in *gjson.Result, writer apitypes.Web3ResponseWriter) (interface{}, error) {
+func (svr *web3Handler) subscribe(ctx *StreamContext, in *gjson.Result, writer apitypes.Web3ResponseWriter) (interface{}, error) {
 	subscription := in.Get("params.0")
 	if !subscription.Exists() {
 		return nil, errInvalidFormat
 	}
 	switch subscription.String() {
 	case "newHeads":
-		return svr.streamBlocks(writer)
+		return svr.streamBlocks(ctx, writer)
 	case "logs":
 		filter, err := parseLogRequest(in.Get("params.1"))
 		if err != nil {
 			return nil, err
 		}
-		return svr.streamLogs(filter, writer)
+		return svr.streamLogs(ctx, filter, writer)
 	default:
 		return nil, errInvalidFormat
 	}
 }
 
-func (svr *web3Handler) streamBlocks(writer apitypes.Web3ResponseWriter) (interface{}, error) {
+func (svr *web3Handler) streamBlocks(ctx *StreamContext, writer apitypes.Web3ResponseWriter) (interface{}, error) {
 	chainListener := svr.coreService.ChainListener()
 	streamID, err := chainListener.AddResponder(NewWeb3BlockListener(writer.Write))
 	if err != nil {
 		return nil, err
 	}
+	ctx.AddListener(streamID)
 	return streamID, nil
 }
 
-func (svr *web3Handler) streamLogs(filterObj *filterObject, writer apitypes.Web3ResponseWriter) (interface{}, error) {
+func (svr *web3Handler) streamLogs(ctx *StreamContext, filterObj *filterObject, writer apitypes.Web3ResponseWriter) (interface{}, error) {
 	filter, err := newLogFilterFrom(filterObj.Address, filterObj.Topics)
 	if err != nil {
 		return nil, err
@@ -962,6 +992,7 @@ func (svr *web3Handler) streamLogs(filterObj *filterObject, writer apitypes.Web3
 	if err != nil {
 		return nil, err
 	}
+	ctx.AddListener(streamID)
 	return streamID, nil
 }
 
@@ -972,6 +1003,26 @@ func (svr *web3Handler) unsubscribe(in *gjson.Result) (interface{}, error) {
 	}
 	chainListener := svr.coreService.ChainListener()
 	return chainListener.RemoveResponder(id.String())
+}
+
+func (svr *web3Handler) getBlobSidecars(in *gjson.Result) (interface{}, error) {
+	blkNum := in.Get("params.0")
+	if !blkNum.Exists() {
+		return nil, errInvalidFormat
+	}
+	num, err := svr.parseBlockNumber(blkNum.String())
+	if err != nil {
+		return nil, err
+	}
+	res, err := svr.coreService.BlobSidecarsByHeight(num)
+	switch errors.Cause(err) {
+	case nil:
+		return res, nil
+	case ErrNotFound:
+		return nil, nil
+	default:
+		return nil, err
+	}
 }
 
 func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) (interface{}, error) {

@@ -8,10 +8,10 @@ package action
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/output"
+	"github.com/iotexproject/iotex-core/v2/ioctl/util"
 )
 
 // Multi-language support
@@ -77,7 +77,7 @@ func stake2Update(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2u, err := action.NewCandidateUpdate(nonce, name, operatorAddrStr, rewardAddrStr, gasLimit, gasPriceRau)
+	s2u, err := action.NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidateUpdate instance", err)
 	}

@@ -10,8 +10,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
-	block "github.com/iotexproject/iotex-core/blockchain/block"
-	blockindex "github.com/iotexproject/iotex-core/blockindex"
+	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
+	blockindex "github.com/iotexproject/iotex-core/v2/blockindex"
 )
 
 // MockIndexer is a mock of Indexer interface.

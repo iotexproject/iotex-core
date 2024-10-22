@@ -17,28 +17,28 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/execution"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/blockchain/filedao"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/blockindex"
-	"github.com/iotexproject/iotex-core/blockindex/contractstaking"
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/actpool"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/blockindex"
+	"github.com/iotexproject/iotex-core/v2/blockindex/contractstaking"
+	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/consensus/consensusfsm"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/state/factory"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 const (
@@ -2017,14 +2017,9 @@ func deployContracts(
 	amount := param.amount
 	gasLimit := param.gasLimit
 	gasPrice := param.gasPrice
-	exec, err := action.NewExecution(action.EmptyAddress, nonce, amount, gasLimit, gasPrice, bytecode)
-	r.NoError(err)
-	builder := &action.EnvelopeBuilder{}
-	elp := builder.SetAction(exec).
-		SetNonce(exec.Nonce()).
-		SetGasLimit(gasLimit).
-		SetGasPrice(gasPrice).
-		Build()
+	exec := action.NewExecution(action.EmptyAddress, amount, bytecode)
+	elp := (&action.EnvelopeBuilder{}).SetAction(exec).SetNonce(nonce).
+		SetGasLimit(gasLimit).SetGasPrice(gasPrice).Build()
 	selp, err := action.Sign(elp, sk)
 	r.NoError(err)
 	err = ap.Add(context.Background(), selp)
@@ -2082,14 +2077,9 @@ func writeContract(bc blockchain.Blockchain,
 		gasPrice := param.gasPrice
 		bytecode, err := hex.DecodeString(param.bytecode)
 		r.NoError(err)
-		exec, err := action.NewExecution(param.contractAddr, nonce, amount, gasLimit, gasPrice, bytecode)
-		r.NoError(err)
-		builder := &action.EnvelopeBuilder{}
-		elp := builder.SetAction(exec).
-			SetNonce(exec.Nonce()).
-			SetGasLimit(gasLimit).
-			SetGasPrice(gasPrice).
-			Build()
+		exec := action.NewExecution(param.contractAddr, amount, bytecode)
+		elp := (&action.EnvelopeBuilder{}).SetAction(exec).SetNonce(nonce).
+			SetGasLimit(gasLimit).SetGasPrice(gasPrice).Build()
 		selp, err := action.Sign(elp, sk)
 		r.NoError(err)
 		err = ap.Add(context.Background(), selp)

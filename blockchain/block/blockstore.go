@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/v2/action"
 )
 
 type (
@@ -34,6 +34,18 @@ func (in *Store) ToProto() *iotextypes.BlockStore {
 	}
 	return &iotextypes.BlockStore{
 		Block:    in.Block.ConvertToBlockPb(),
+		Receipts: receipts,
+	}
+}
+
+// ToProto converts to proto message
+func (in *Store) ToProtoWithoutSidecar() *iotextypes.BlockStore {
+	receipts := []*iotextypes.Receipt{}
+	for _, r := range in.Receipts {
+		receipts = append(receipts, r.ConvertToReceiptPb())
+	}
+	return &iotextypes.BlockStore{
+		Block:    in.Block.ProtoWithoutSidecar(),
 		Receipts: receipts,
 	}
 }

@@ -7,13 +7,14 @@ package action
 
 import (
 	"math/big"
+	"slices"
 
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type (
@@ -26,8 +27,11 @@ type (
 		BlockHeight        uint64
 		ActionHash         hash.Hash256
 		GasConsumed        uint64
+		BlobGasUsed        uint64
+		BlobGasPrice       *big.Int
 		ContractAddress    string
 		TxIndex            uint32
+		EffectiveGasPrice  *big.Int
 		logs               []*Log
 		transactionLogs    []*TransactionLog
 		executionRevertMsg string
@@ -69,6 +73,13 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	if receipt.executionRevertMsg != "" {
 		r.ExecutionRevertMsg = receipt.executionRevertMsg
 	}
+	r.BlobGasUsed = receipt.BlobGasUsed
+	if receipt.BlobGasPrice != nil {
+		r.BlobGasPrice = receipt.BlobGasPrice.String()
+	}
+	if receipt.EffectiveGasPrice != nil {
+		r.EffectiveGasPrice = receipt.EffectiveGasPrice.String()
+	}
 	return r
 }
 
@@ -87,6 +98,15 @@ func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iotextypes.Receipt) {
 		receipt.logs[i].ConvertFromLogPb(log)
 	}
 	receipt.executionRevertMsg = pbReceipt.GetExecutionRevertMsg()
+	receipt.BlobGasUsed = pbReceipt.GetBlobGasUsed()
+	if pbReceipt.GetBlobGasPrice() != "" {
+		receipt.BlobGasPrice = new(big.Int)
+		receipt.BlobGasPrice.SetString(pbReceipt.GetBlobGasPrice(), 10)
+	}
+	if pbReceipt.GetEffectiveGasPrice() != "" {
+		receipt.EffectiveGasPrice = new(big.Int)
+		receipt.EffectiveGasPrice.SetString(pbReceipt.GetEffectiveGasPrice(), 10)
+	}
 }
 
 // Serialize returns a serialized byte stream for the Receipt
@@ -154,6 +174,14 @@ func (receipt *Receipt) SetExecutionRevertMsg(revertReason string) *Receipt {
 		receipt.executionRevertMsg = revertReason
 	}
 	return receipt
+}
+
+func (receipt *Receipt) PriorityFee() *big.Int {
+	txLogs := receipt.TransactionLogs()
+	if id := slices.IndexFunc(txLogs, func(t *TransactionLog) bool { return t.Type == iotextypes.TransactionLogType_PRIORITY_FEE }); id != -1 {
+		return txLogs[id].Amount
+	}
+	return nil
 }
 
 // UpdateIndex updates the index of receipt and logs, and returns the next log index

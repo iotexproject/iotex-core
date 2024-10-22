@@ -15,12 +15,13 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	goproto "github.com/iotexproject/iotex-proto/golang"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type (
@@ -325,6 +326,20 @@ func (d *IotxDispatcher) dispatchMsg(message *message) {
 		}
 		if err := subscriber.HandleNodeInfoRequest(message.ctx, *message.peerInfo, msg); err != nil {
 			log.L().Warn("Failed to handle node info request message.", zap.Error(err))
+		}
+	case *iotextypes.ActionHash:
+		if err := subscriber.HandleActionHash(message.ctx, hash.BytesToHash256(msg.Hash), message.peer); err != nil {
+			log.L().Warn("Failed to handle action hash message.", zap.Error(err))
+		}
+	case *iotexrpc.ActionSync:
+		if message.peerInfo == nil {
+			log.L().Warn("ActionSync message must be unicast.")
+			return
+		}
+		for _, h := range msg.Hashes {
+			if err := subscriber.HandleActionRequest(message.ctx, *message.peerInfo, hash.BytesToHash256(h)); err != nil {
+				log.L().Warn("Failed to handle action sync message.", zap.Error(err))
+			}
 		}
 	default:
 		msgType, _ := goproto.GetTypeFromRPCMsg(message.msg)

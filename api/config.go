@@ -6,8 +6,8 @@
 package api
 
 import (
-	"github.com/iotexproject/iotex-core/gasstation"
-	"github.com/iotexproject/iotex-core/pkg/tracer"
+	"github.com/iotexproject/iotex-core/v2/gasstation"
+	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
 )
 
 // Config is the api service config
@@ -25,6 +25,8 @@ type Config struct {
 	BatchRequestLimit int `yaml:"batchRequestLimit"`
 	// WebsocketRateLimit is the maximum number of messages per second per client.
 	WebsocketRateLimit int `yaml:"websocketRateLimit"`
+	// ListenerLimit is the maximum number of listeners.
+	ListenerLimit int `yaml:"listenerLimit"`
 }
 
 // DefaultConfig is the default config
@@ -38,4 +40,5 @@ var DefaultConfig = Config{
 	RangeQueryLimit:    1000,
 	BatchRequestLimit:  _defaultBatchRequestLimit,
 	WebsocketRateLimit: 5,
+	ListenerLimit:      5000,
 }

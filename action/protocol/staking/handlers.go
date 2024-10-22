@@ -15,11 +15,11 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 // constants
@@ -179,16 +179,25 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 	}
 	// TODO: cannot unstake if selected as candidates in this or next epoch
 
-	// update bucket
-	bucket.UnstakeStartTime = blkCtx.BlockTimeStamp.UTC()
-	if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
-		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
+	if featureCtx.UnstakedButNotClearSelfStakeAmount {
+		// update bucket
+		bucket.UnstakeStartTime = blkCtx.BlockTimeStamp.UTC()
+		if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
+			return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
+		}
 	}
 	selfStake, err := isSelfStakeBucket(featureCtx, csm, bucket)
 	if err != nil {
 		return log, &handleError{
 			err:           err,
 			failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
+		}
+	}
+	if !featureCtx.UnstakedButNotClearSelfStakeAmount {
+		// update bucket
+		bucket.UnstakeStartTime = blkCtx.BlockTimeStamp.UTC()
+		if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
+			return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 		}
 	}
 	weightedVote := p.calculateVoteWeight(bucket, selfStake)
@@ -201,6 +210,9 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 	// clear candidate's self stake if the bucket is self staking
 	if selfStake {
 		candidate.SelfStake = big.NewInt(0)
+		if !featureCtx.UnstakedButNotClearSelfStakeAmount {
+			candidate.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
+		}
 	}
 	if err := csm.Upsert(candidate); err != nil {
 		return log, csmErrorToHandleError(candidate.GetIdentifier().String(), err)

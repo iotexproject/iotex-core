@@ -1,23 +1,29 @@
 package api
 
 import (
+	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto/kzg4844"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/action"
+	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 var (
@@ -80,21 +86,11 @@ func TestBlockObjectMarshal(t *testing.T) {
 		deltaStateDigest, _  = hex.DecodeString("900d80ab3bb6d12a98ae177268610b28a14c9ef84fb891a9c809d6d863d79cd3")
 		previousBlockHash, _ = hex.DecodeString("1f20ad92a25748c2459aa6820a4fe5a25a1c57702045f4ab910dc88df5a04fce")
 	)
-	tsf, err := action.NewExecution(action.EmptyAddress,
-		uint64(2),
+	tsf := action.NewExecution(action.EmptyAddress,
 		unit.ConvertIotxToRau(1000),
-		21000,
-		unit.ConvertIotxToRau(1),
-		[]byte{},
-	)
-	require.NoError(err)
-	evlp := (&action.EnvelopeBuilder{}).
-		SetAction(tsf).
-		SetGasLimit(tsf.GasLimit()).
-		SetGasPrice(tsf.GasPrice()).
-		SetNonce(2).
-		SetVersion(1).
-		Build()
+		[]byte{})
+	evlp := (&action.EnvelopeBuilder{}).SetNonce(2).SetGasPrice(unit.ConvertIotxToRau(1)).
+		SetGasLimit(21000).SetAction(tsf).Build()
 	sevlp, err := action.Sign(evlp, identityset.PrivateKey(24))
 	require.NoError(err)
 	ra := (&block.RunnableActionsBuilder{}).AddActions([]*action.SealedEnvelope{sevlp}...).Build()
@@ -105,6 +101,8 @@ func TestBlockObjectMarshal(t *testing.T) {
 		SetReceiptRoot(hash.BytesToHash256(receiptRoot)).
 		SetDeltaStateDigest(hash.BytesToHash256(deltaStateDigest)).
 		SetPrevBlockHash(hash.BytesToHash256(previousBlockHash)).
+		SetBaseFee(big.NewInt(10)).
+		SetBlobGasUsed(20).SetExcessBlobGas(100).
 		SignAndBuild(identityset.PrivateKey(28))
 	require.NoError(err)
 	txHash, err := sevlp.Hash()
@@ -128,7 +126,7 @@ func TestBlockObjectMarshal(t *testing.T) {
 		{
 			"author":"0x1e14d5373E1AF9Cc77F0032aD2cd0FBA8be5Ea2e",
 			"number":"0x1",
-			"hash":"0x2584c5383cf2f9ac36cda227e092935dc3d410e349d5e815300a3c7d148e0b79",
+			"hash":"0xe234481999d8eb5731b5a22b9991d50e08ca46e9768145e2529c35c39e8e53d3",
 			"parentHash":"0x1f20ad92a25748c2459aa6820a4fe5a25a1c57702045f4ab910dc88df5a04fce",
 			"sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
 			"logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
@@ -149,7 +147,10 @@ func TestBlockObjectMarshal(t *testing.T) {
 			"step":"373422302",
 			"uncles":[
 
-			]
+			],
+			"baseFeePerGas": "0xa",
+			"blobGasUsed": "0x14",
+			"excessBlobGas": "0x64"
 		 }
 		`, string(res))
 	})
@@ -182,7 +183,7 @@ func TestBlockObjectMarshal(t *testing.T) {
 		{
 			"author":"0x1e14d5373E1AF9Cc77F0032aD2cd0FBA8be5Ea2e",
 			"number":"0x1",
-			"hash":"0x2584c5383cf2f9ac36cda227e092935dc3d410e349d5e815300a3c7d148e0b79",
+			"hash":"0xe234481999d8eb5731b5a22b9991d50e08ca46e9768145e2529c35c39e8e53d3",
 			"parentHash":"0x1f20ad92a25748c2459aa6820a4fe5a25a1c57702045f4ab910dc88df5a04fce",
 			"sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
 			"logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
@@ -212,13 +213,17 @@ func TestBlockObjectMarshal(t *testing.T) {
 				  "input":"0x",
 				  "r":"0xd7b08f7b37c7fac89a2d0b819225f459cfab6d6d14307893ce711269c26c1c67",
 				  "s":"0x5f9b182b55d50734447f0859b7261701b0195357048d902a723dcb40616ebdda",
-				  "v":"0x1c"
+				  "v":"0x1c",
+				  "type": "0x0"
 			   }
 			],
 			"step":"373422302",
 			"uncles":[
 
-			]
+			],
+			"baseFeePerGas": "0xa",
+			"blobGasUsed": "0x14",
+			"excessBlobGas": "0x64"
 		 }
 		`, string(res))
 	})
@@ -272,7 +277,9 @@ func TestTransactionObjectMarshal(t *testing.T) {
 			"input":"0x",
 			"r":"0x3639643839613061663237646361613637663162363261333833353934643937",
 			"s":"0x3539396161646432623762313634636234313132616138646466643432663839",
-			"v":"0x24c7"
+			"v":"0x24c7",
+			"chainId":"0x1252",
+			"type":"0x0"
 		 }
 		`, string(res))
 	})
@@ -324,7 +331,8 @@ func TestTransactionObjectMarshal(t *testing.T) {
 			"input": "0x1fad948c0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000ec4daee51c4bf81bd00af165f8ca66823ee3b12a000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000003e24491a4f2a946e30baf624fda6b4484d106c12000000000000000000000000000000000000000000000000000000000000005b000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000001800000000000000000000000000000000000000000000000000000000000009fd90000000000000000000000000000000000000000000000000000000000011da4000000000000000000000000000000000000000000000000000000000000db26000000000000000000000000000000000000000000000000000000e8d4a51000000000000000000000000000000000000000000000000000000000e8d4a510000000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000084b61d27f6000000000000000000000000065e1164818487818e6ba714e8d80b91718ad75800000000000000000000000000000000000000000000000000038d7ea4c6800000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000095ccc7012efb2e65aa31752f3ac01e23817c08a47500000000000000000000000000000000000000000000000000000000650af9f8000000000000000000000000000000000000000000000000000000006509a878b5acba7277159ae6fa661ed1988cc10ac2c96c58dc332bde2a6dc0d8531ea3924d9d04cda681c271411250ae7d9e9aea47661dba67a66f08d19804a255e45c561b0000000000000000000000000000000000000000000000000000000000000000000000000000000000004160daa88165299ca7e585d5d286cee98b54397b57ac704b74331a48d67651195322ef3884c7d60023333f2542a07936f34edc9efa3cbd19e8cd0f8972c54171a21b00000000000000000000000000000000000000000000000000000000000000",
 			"r": "0xd50c3169003e7c9c9392069a1c9e5251c8f558120cceb9aa312f0fa4624770",
 			"s": "0x1f4cad47a5540cdda5459f7a46c62df752ca588e0b73722ec767ff08994134a4",
-			"v": "0x1b"
+			"v": "0x1b",
+			"type": "0x0"
 		}
 		`, string(res))
 	})
@@ -367,8 +375,218 @@ func TestTransactionObjectMarshal(t *testing.T) {
 			"input": "0x1fad948c0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000ec4daee51c4bf81bd00af165f8ca66823ee3b12a000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000003e24491a4f2a946e30baf624fda6b4484d106c12000000000000000000000000000000000000000000000000000000000000005b000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000001800000000000000000000000000000000000000000000000000000000000009fd90000000000000000000000000000000000000000000000000000000000011da4000000000000000000000000000000000000000000000000000000000000db26000000000000000000000000000000000000000000000000000000e8d4a51000000000000000000000000000000000000000000000000000000000e8d4a510000000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000084b61d27f6000000000000000000000000065e1164818487818e6ba714e8d80b91718ad75800000000000000000000000000000000000000000000000000038d7ea4c6800000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000095ccc7012efb2e65aa31752f3ac01e23817c08a47500000000000000000000000000000000000000000000000000000000650af9f8000000000000000000000000000000000000000000000000000000006509a878b5acba7277159ae6fa661ed1988cc10ac2c96c58dc332bde2a6dc0d8531ea3924d9d04cda681c271411250ae7d9e9aea47661dba67a66f08d19804a255e45c561b0000000000000000000000000000000000000000000000000000000000000000000000000000000000004160daa88165299ca7e585d5d286cee98b54397b57ac704b74331a48d67651195322ef3884c7d60023333f2542a07936f34edc9efa3cbd19e8cd0f8972c54171a21b00000000000000000000000000000000000000000000000000000000000000",
 			"r": "0xd50c3169003e7c9c9392069a1c9e5251c8f558120cceb9aa312f0fa4624770",
 			"s": "0x1f4cad47a5540cdda5459f7a46c62df752ca588e0b73722ec767ff08994134a4",
-			"v": "0x1b"
+			"v": "0x1b",
+			"type": "0x0"
 		}
+		`, string(res))
+	})
+	t.Run("AccessListTx", func(t *testing.T) {
+		to := common.BigToAddress(big.NewInt(2))
+		toStr := to.String()
+		raw := types.NewTx(&types.AccessListTx{
+			ChainID:  big.NewInt(4690),
+			Nonce:    1,
+			Value:    big.NewInt(10),
+			Gas:      21000,
+			GasPrice: big.NewInt(0),
+			Data:     []byte{},
+			To:       &to,
+			AccessList: types.AccessList{
+				{Address: common.BigToAddress(big.NewInt(1)), StorageKeys: []common.Hash{common.BigToHash(big.NewInt(1))}},
+			},
+		})
+
+		signer, err := action.NewEthSigner(iotextypes.Encoding_ETHEREUM_EIP155, 4690)
+		require.NoError(err)
+		tx, err := types.SignTx(raw, signer, identityset.PrivateKey(1).EcdsaPrivateKey().(*ecdsa.PrivateKey))
+		require.NoError(err)
+		res, err := json.Marshal(&getTransactionResult{
+			blockHash: &_testBlkHash,
+			to:        &toStr,
+			ethTx:     tx,
+			receipt:   receipt,
+			pubkey:    _testPubKey,
+		})
+		require.NoError(err)
+		require.JSONEq(`
+		{
+			"hash":"0x25bef7a7e20402a625973613b19bbc1793ed3a38cad270abf623222120a10fd0",
+			"nonce":"0x1",
+			"blockHash":"0xc4aace64c1f4d7c0b6ebe74ba01e00e27c7ff4b2552c36ef617f38f0f2b1ebb3",
+			"blockNumber":"0x10",
+			"transactionIndex":"0x1",
+			"from":"0x0666dba65b0ef88d11cdcbe857ffb6618310dcfa",
+			"to":"0x0000000000000000000000000000000000000002",
+			"value":"0xa",
+			"gasPrice":"0x0",
+			"gas":"0x5208",
+			"input":"0x",
+			"r":"0xa5cc935e61c499b8ee016f44eb77400cd42fa44e54c37370c9b002ad661b2485",
+			"s":"0x1a295c82f4c2c9b96477ea450c256f5544afdde6e712c515a213fc8888879d96",
+			"v":"0x0",
+			"chainId":"0x1252",
+			"type":"0x1",
+			"yParity": "0x0",
+			"accessList": [
+				{
+					"address": "0x0000000000000000000000000000000000000001",
+					"storageKeys": ["0x0000000000000000000000000000000000000000000000000000000000000001"]
+				}
+			]
+		 }
+		`, string(res))
+	})
+	t.Run("DynamicFeeTx", func(t *testing.T) {
+		to := common.BigToAddress(big.NewInt(2))
+		toStr := to.String()
+		raw := types.NewTx(&types.DynamicFeeTx{
+			ChainID:   big.NewInt(4690),
+			Nonce:     1,
+			Value:     big.NewInt(10),
+			Gas:       21000,
+			GasTipCap: big.NewInt(20),
+			GasFeeCap: big.NewInt(30),
+			Data:      []byte{},
+			To:        &to,
+			AccessList: types.AccessList{
+				{Address: common.BigToAddress(big.NewInt(1)), StorageKeys: []common.Hash{common.BigToHash(big.NewInt(1))}},
+			},
+		})
+
+		signer, err := action.NewEthSigner(iotextypes.Encoding_ETHEREUM_EIP155, 4690)
+		require.NoError(err)
+		tx, err := types.SignTx(raw, signer, identityset.PrivateKey(1).EcdsaPrivateKey().(*ecdsa.PrivateKey))
+		require.NoError(err)
+		receipt := &action.Receipt{
+			Status:            1,
+			BlockHeight:       16,
+			ActionHash:        _testTxHash,
+			GasConsumed:       21000,
+			ContractAddress:   _testContractIoAddr,
+			TxIndex:           1,
+			EffectiveGasPrice: big.NewInt(25),
+		}
+		res, err := json.Marshal(&getTransactionResult{
+			blockHash: &_testBlkHash,
+			to:        &toStr,
+			ethTx:     tx,
+			receipt:   receipt,
+			pubkey:    _testPubKey,
+		})
+		require.NoError(err)
+		require.JSONEq(`
+		{
+			"hash":"0x25bef7a7e20402a625973613b19bbc1793ed3a38cad270abf623222120a10fd0",
+			"nonce":"0x1",
+			"blockHash":"0xc4aace64c1f4d7c0b6ebe74ba01e00e27c7ff4b2552c36ef617f38f0f2b1ebb3",
+			"blockNumber":"0x10",
+			"transactionIndex":"0x1",
+			"from":"0x0666dba65b0ef88d11cdcbe857ffb6618310dcfa",
+			"to":"0x0000000000000000000000000000000000000002",
+			"value":"0xa",
+			"gasPrice":"0x19",
+			"gas":"0x5208",
+			"input":"0x",
+			"r":"0xc5d7508b27bc4a675ab72d3cae3caec37727de81d6d05ab608e8a013a98dabe4",
+			"s":"0x6149528d7a506af04fd8e825bdf79a8a3619f9e1b4f5272ba8c76e07807d0ab1",
+			"v":"0x0",
+			"chainId":"0x1252",
+			"type":"0x2",
+			"yParity": "0x0",
+			"accessList": [
+				{
+					"address": "0x0000000000000000000000000000000000000001",
+					"storageKeys": ["0x0000000000000000000000000000000000000000000000000000000000000001"]
+				}
+			],
+			"maxFeePerGas": "0x1e",
+			"maxPriorityFeePerGas": "0x14"
+		 }
+		`, string(res))
+	})
+	t.Run("BlobTx", func(t *testing.T) {
+		to := common.BigToAddress(big.NewInt(2))
+		toStr := to.String()
+		var (
+			testBlob       = kzg4844.Blob{1, 2, 3, 4}
+			testBlobCommit = assertions.MustNoErrorV(kzg4844.BlobToCommitment(testBlob))
+			testBlobProof  = assertions.MustNoErrorV(kzg4844.ComputeBlobProof(testBlob, testBlobCommit))
+		)
+		sidecar := &types.BlobTxSidecar{
+			Blobs:       []kzg4844.Blob{testBlob},
+			Commitments: []kzg4844.Commitment{testBlobCommit},
+			Proofs:      []kzg4844.Proof{testBlobProof},
+		}
+		raw := types.NewTx(&types.BlobTx{
+			ChainID:   uint256.MustFromBig(big.NewInt(4690)),
+			Nonce:     1,
+			Value:     uint256.MustFromBig(big.NewInt(10)),
+			Gas:       21000,
+			GasTipCap: uint256.MustFromBig(big.NewInt(20)),
+			GasFeeCap: uint256.MustFromBig(big.NewInt(30)),
+			Data:      []byte{},
+			To:        to,
+			AccessList: types.AccessList{
+				{Address: common.BigToAddress(big.NewInt(1)), StorageKeys: []common.Hash{common.BigToHash(big.NewInt(1))}},
+			},
+			BlobFeeCap: uint256.MustFromBig(big.NewInt(10)),
+			BlobHashes: sidecar.BlobHashes(),
+			Sidecar:    sidecar,
+		})
+
+		signer, err := action.NewEthSigner(iotextypes.Encoding_ETHEREUM_EIP155, 4690)
+		require.NoError(err)
+		tx, err := types.SignTx(raw, signer, identityset.PrivateKey(1).EcdsaPrivateKey().(*ecdsa.PrivateKey))
+		require.NoError(err)
+		receipt := &action.Receipt{
+			Status:            1,
+			BlockHeight:       16,
+			ActionHash:        _testTxHash,
+			GasConsumed:       21000,
+			ContractAddress:   _testContractIoAddr,
+			TxIndex:           1,
+			EffectiveGasPrice: big.NewInt(25),
+			BlobGasUsed:       1024,
+			BlobGasPrice:      big.NewInt(10),
+		}
+		res, err := json.Marshal(&getTransactionResult{
+			blockHash: &_testBlkHash,
+			to:        &toStr,
+			ethTx:     tx,
+			receipt:   receipt,
+			pubkey:    _testPubKey,
+		})
+		require.NoError(err)
+		require.JSONEq(`
+		{
+			"hash":"0x25bef7a7e20402a625973613b19bbc1793ed3a38cad270abf623222120a10fd0",
+			"nonce":"0x1",
+			"blockHash":"0xc4aace64c1f4d7c0b6ebe74ba01e00e27c7ff4b2552c36ef617f38f0f2b1ebb3",
+			"blockNumber":"0x10",
+			"transactionIndex":"0x1",
+			"from":"0x0666dba65b0ef88d11cdcbe857ffb6618310dcfa",
+			"to":"0x0000000000000000000000000000000000000002",
+			"value":"0xa",
+			"gasPrice":"0x19",
+			"gas":"0x5208",
+			"input":"0x",
+			"r":"0xdc27308cb102ad623f48c8f71a1eb407a3070d5185a99be4b8af5a88b49dcc5b",
+			"s":"0x776660bf014e4c25751c08e047be0d7f7490e564c96a3de88ca65e53147c87bf",
+			"v":"0x1",
+			"chainId":"0x1252",
+			"type":"0x3",
+			"yParity": "0x1",
+			"accessList": [
+				{
+					"address": "0x0000000000000000000000000000000000000001",
+					"storageKeys": ["0x0000000000000000000000000000000000000000000000000000000000000001"]
+				}
+			],
+			"maxFeePerGas": "0x1e",
+			"maxPriorityFeePerGas": "0x14",
+			"blobVersionedHashes": ["0x016ba00cade4653a609ffbfb20363fbc5ec4d09f58f3598fc96677a2aaad2837"],
+			"maxFeePerBlobGas": "0xa"
+		 }
 		`, string(res))
 	})
 }
@@ -377,12 +595,15 @@ func TestReceiptObjectMarshal(t *testing.T) {
 	require := require.New(t)
 
 	receipt := &action.Receipt{
-		Status:          1,
-		BlockHeight:     16,
-		ActionHash:      _testTxHash,
-		GasConsumed:     21000,
-		ContractAddress: _testContractIoAddr,
-		TxIndex:         1,
+		Status:            1,
+		BlockHeight:       16,
+		ActionHash:        _testTxHash,
+		GasConsumed:       21000,
+		ContractAddress:   _testContractIoAddr,
+		TxIndex:           1,
+		BlobGasUsed:       2,
+		BlobGasPrice:      big.NewInt(10),
+		EffectiveGasPrice: big.NewInt(25),
 	}
 
 	t.Run("ContractCreation", func(t *testing.T) {
@@ -411,7 +632,11 @@ func TestReceiptObjectMarshal(t *testing.T) {
 			"logs":[
 			   
 			],
-			"status":"0x1"
+			"status":"0x1",
+			"blobGasPrice": "0xa",
+			"blobGasUsed": "0x2",
+			"effectiveGasPrice": "0x19",
+			"type": "0x0"
 		 }
 		`, string(res))
 	})
@@ -466,7 +691,11 @@ func TestReceiptObjectMarshal(t *testing.T) {
 				  ]
 			   }
 			],
-			"status":"0x1"
+			"status":"0x1",
+			"blobGasPrice": "0xa",
+			"blobGasUsed": "0x2",
+			"effectiveGasPrice": "0x19",
+			"type": "0x0"
 		 }
 		`, string(res))
 	})
@@ -551,4 +780,44 @@ func TestStreamResponseMarshal(t *testing.T) {
 		}
 	 }
 	`, string(res))
+}
+
+func TestBlobSiderCar(t *testing.T) {
+	require := require.New(t)
+
+	t.Run("Marshal", func(t *testing.T) {
+		res, err := json.Marshal(&apitypes.BlobSidecarResult{
+			BlobSidecar: &types.BlobTxSidecar{
+				Blobs: []kzg4844.Blob{},
+				Commitments: []kzg4844.Commitment{
+					kzg4844.Commitment{},
+				},
+				Proofs: []kzg4844.Proof{
+					kzg4844.Proof{},
+				},
+			},
+			BlockNumber: 1,
+			BlockHash:   common.BigToHash(big.NewInt(2)),
+			TxIndex:     2,
+			TxHash:      common.BigToHash(big.NewInt(3)),
+		})
+		require.NoError(err)
+		require.JSONEq(`
+		{
+			"blobSidecar":{
+				"Blobs":[],
+				"Commitments":[
+					"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+				],
+				"Proofs":[
+					"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+				]
+			},
+			"blockHeight":1,
+			"blockHash":"0x0000000000000000000000000000000000000000000000000000000000000002",
+			"txIndex":2,
+			"txHash":"0x0000000000000000000000000000000000000000000000000000000000000003"
+		}
+		`, string(res))
+	})
 }

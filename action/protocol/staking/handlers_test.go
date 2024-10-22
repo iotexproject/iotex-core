@@ -24,14 +24,15 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/testutil/testdb"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 )
 
 const (
@@ -205,8 +206,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
 			Height: test.blkHeight - 1,
 		}})
-		act, err := action.NewCreateStake(test.nonce, test.candName, test.amount, test.duration, test.autoStake,
-			nil, test.gasLimit, testGasPrice)
+		act, err := action.NewCreateStake(test.candName, test.amount, test.duration, test.autoStake, nil)
 		require.NoError(err)
 		elp := builder.SetNonce(test.nonce).SetGasLimit(test.gasLimit).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
@@ -256,7 +256,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			// test staker's account
 			caller, err := accountutil.LoadAccount(sm, stakerAddr)
 			require.NoError(err)
-			actCost, err := act.Cost()
+			actCost, err := elp.Cost()
 			require.NoError(err)
 			require.Equal(unit.ConvertIotxToRau(test.initBalance), big.NewInt(0).Add(caller.Balance, actCost))
 			require.Equal(test.nonce+1, caller.PendingNonce())
@@ -573,7 +573,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			csr = newCandidateStateReader(sm)
 		}
 		require.NoError(setupAccount(sm, test.caller, test.initBalance))
-		act, err := action.NewCandidateRegister(test.nonce, test.name, test.operatorAddrStr, test.rewardAddrStr, test.ownerAddrStr, test.amountStr, test.duration, test.autoStake, test.payload, test.gasLimit, test.gasPrice)
+		act, err := action.NewCandidateRegister(test.name, test.operatorAddrStr, test.rewardAddrStr, test.ownerAddrStr, test.amountStr, test.duration, test.autoStake, test.payload)
 		require.NoError(err)
 		IntrinsicGas, _ := act.IntrinsicGas()
 		elp := builder.SetNonce(test.nonce).SetGasLimit(test.gasLimit).
@@ -655,7 +655,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			// test staker's account
 			caller, err := accountutil.LoadAccount(sm, test.caller)
 			require.NoError(err)
-			actCost, err := act.Cost()
+			actCost, err := elp.Cost()
 			require.NoError(err)
 			total := big.NewInt(0)
 			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, p.config.RegistrationConsts.Fee))
@@ -889,11 +889,13 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 		sm, p, _, _ := initAll(t, ctrl)
 		csr := newCandidateStateReader(sm)
 		require.NoError(setupAccount(sm, test.caller, test.initBalance))
-		act, err := action.NewCandidateRegister(test.nonce, test.name, test.operatorAddrStr, test.rewardAddrStr, test.ownerAddrStr, test.amountStr, test.duration, test.autoStake, test.payload, test.gasLimit, test.gasPrice)
+		act, err := action.NewCandidateRegister(test.name, test.operatorAddrStr, test.rewardAddrStr, test.ownerAddrStr, test.amountStr, test.duration, test.autoStake, test.payload)
 		require.NoError(err)
 		intrinsic, _ := act.IntrinsicGas()
 		elp := builder.SetNonce(test.nonce).SetGasLimit(test.gasLimit).
 			SetGasPrice(test.gasPrice).SetAction(act).Build()
+		registerCost, err := elp.Cost()
+		require.NoError(err)
 		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
@@ -911,7 +913,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 		_, err = p.Handle(ctx, elp, sm)
 		require.NoError(err)
 
-		cu, err := action.NewCandidateUpdate(test.nonce+1, test.updateName, test.updateOperator, test.updateReward, test.gasLimit, test.gasPrice)
+		cu, err := action.NewCandidateUpdate(test.updateName, test.updateOperator, test.updateReward)
 		require.NoError(err)
 		intrinsic, _ = cu.IntrinsicGas()
 		elp = builder.SetNonce(test.nonce + 1).SetGasLimit(test.gasLimit).
@@ -975,12 +977,10 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			// test staker's account
 			caller, err := accountutil.LoadAccount(sm, test.caller)
 			require.NoError(err)
-			actCost, err := act.Cost()
-			require.NoError(err)
-			cuCost, err := cu.Cost()
+			cuCost, err := elp.Cost()
 			require.NoError(err)
 			total := big.NewInt(0)
-			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, cuCost).Add(total, p.config.RegistrationConsts.Fee))
+			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, registerCost).Add(total, cuCost).Add(total, p.config.RegistrationConsts.Fee))
 			require.Equal(test.nonce+2, caller.PendingNonce())
 		}
 	}
@@ -1148,8 +1148,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 
 		var createCost *big.Int
 		ctx, createCost = initCreateStake(t, sm, test.caller, test.initBalance, testGasPrice, gasLimit, nonce, blkHeight, test.blkTimestamp, gasLimit, p, candidate, test.amount, test.autoStake)
-		act, err := action.NewUnstake(nonce+1, test.index, nil, gasLimit, testGasPrice)
-		require.NoError(err)
+		act := action.NewUnstake(test.index, nil)
 		intrinsicGas, err := act.IntrinsicGas()
 		elp := builder.SetNonce(nonce + 1).SetGasLimit(gasLimit).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
@@ -1174,7 +1173,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			require.True(ok)
 			sc.candCenter.deleteForTestOnly(test.caller)
 			require.False(csm.ContainsOwner(test.caller))
-			r, err = p.handle(ctx, act, csm)
+			r, err = p.handle(ctx, elp, csm)
 			require.Equal(test.err, errors.Cause(err))
 		} else {
 			r, err = p.Handle(ctx, elp, sm)
@@ -1215,7 +1214,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			// test staker's account
 			caller, err := accountutil.LoadAccount(sm, test.caller)
 			require.NoError(err)
-			actCost, err := act.Cost()
+			actCost, err := elp.Cost()
 			require.NoError(err)
 			require.Equal(nonce+2, caller.PendingNonce())
 			total := big.NewInt(0)
@@ -1228,20 +1227,17 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 	require.NoError(err)
 	require.True(vb.isUnstaked())
 
-	unstakeAct, err := action.NewUnstake(nonce+2, 0, nil, gasLimit, testGasPrice)
-	require.NoError(err)
+	unstakeAct := action.NewUnstake(0, nil)
 	unstake := builder.SetNonce(nonce + 2).SetGasLimit(gasLimit).
 		SetGasPrice(testGasPrice).SetAction(unstakeAct).Build()
-	changeCandAct, err := action.NewChangeCandidate(nonce+2, candidate2.Name, 0, nil, gasLimit, testGasPrice)
-	require.NoError(err)
+	changeCandAct := action.NewChangeCandidate(candidate2.Name, 0, nil)
 	changeCand := builder.SetNonce(nonce + 2).SetGasLimit(gasLimit).
 		SetGasPrice(testGasPrice).SetAction(changeCandAct).Build()
-	depositAct, err := action.NewDepositToStake(nonce+2, 0, "10000", nil, gasLimit, testGasPrice)
+	depositAct, err := action.NewDepositToStake(0, "10000", nil)
 	deposit := builder.SetNonce(nonce + 2).SetGasLimit(gasLimit).
 		SetGasPrice(testGasPrice).SetAction(depositAct).Build()
 	require.NoError(err)
-	restakeAct, err := action.NewRestake(nonce+2, 0, 0, false, nil, gasLimit, testGasPrice)
-	require.NoError(err)
+	restakeAct := action.NewRestake(0, 0, false, nil)
 	restake := builder.SetNonce(nonce + 2).SetGasLimit(gasLimit).
 		SetGasPrice(testGasPrice).SetAction(restakeAct).Build()
 
@@ -1290,6 +1286,60 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			require.False(vb.isUnstaked())
 		}
 	}
+	t.Run("CleanSelfStake", func(t *testing.T) {
+		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		runtest := func(t *testing.T, height uint64, fn func(vb *VoteBucket, cand *Candidate, sm protocol.StateManager)) {
+			ctrl := gomock.NewController(t)
+			sm, p, vbs, cands := initTestState(t, ctrl, []*bucketConfig{
+				{identityset.Address(1), identityset.Address(1), "1200000000000000000000000", 30, false, true, nil, 0},
+			}, []*candidateConfig{
+				{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
+			})
+			sk := identityset.PrivateKey(1)
+			require.NoError(setupAccount(sm, sk.PublicKey().Address(), 100000000))
+			// unstake
+			unstake, err := action.SignedReclaimStake(false, 0, cands[0].SelfStakeBucketIdx, nil, gasLimit, testGasPrice, sk)
+			require.NoError(err)
+			ctx := genesis.WithGenesisContext(context.Background(), g)
+			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+				BlockHeight:    height,
+				BlockTimeStamp: vbs[0].StakeStartTime.Add(vbs[0].StakedDuration),
+			})
+			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+			ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+				Caller:       sk.PublicKey().Address(),
+				GasPrice:     unstake.GasPrice(),
+				IntrinsicGas: assertions.MustNoErrorV(unstake.IntrinsicGas()),
+				Nonce:        unstake.Nonce(),
+			})
+			receipt, err := p.Handle(ctx, unstake.Envelope, sm)
+			require.NoError(err)
+			require.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
+			fn(vbs[0], cands[0], sm)
+		}
+		t.Run("NotCleanAtUpernavik", func(t *testing.T) {
+			runtest(t, g.UpernavikBlockHeight, func(vb *VoteBucket, cand *Candidate, sm protocol.StateManager) {
+				csm, err := NewCandidateStateManager(sm, false)
+				require.NoError(err)
+				newCand := csm.GetByIdentifier(cand.GetIdentifier())
+				selfStakeVotes := CalculateVoteWeight(p.config.VoteWeightCalConsts, vb, true)
+				votes := CalculateVoteWeight(p.config.VoteWeightCalConsts, vb, false)
+				require.Equal(new(big.Int).Sub(selfStakeVotes, votes).String(), newCand.Votes.String())
+				require.Equal(cand.SelfStake, newCand.SelfStake)
+				require.Equal(cand.SelfStakeBucketIdx, newCand.SelfStakeBucketIdx)
+			})
+		})
+		t.Run("CleanAtVanuatu", func(t *testing.T) {
+			runtest(t, g.VanuatuBlockHeight, func(vb *VoteBucket, cand *Candidate, sm protocol.StateManager) {
+				csm, err := NewCandidateStateManager(sm, false)
+				require.NoError(err)
+				newCand := csm.GetByIdentifier(cand.GetIdentifier())
+				require.Equal("0", newCand.Votes.String())
+				require.Equal(big.NewInt(0), newCand.SelfStake)
+				require.Equal(uint64(candidateNoSelfStakeBucketIndex), newCand.SelfStakeBucketIdx)
+			})
+		})
+	})
 }
 
 func TestProtocol_HandleWithdrawStake(t *testing.T) {
@@ -1377,13 +1427,12 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 		ctx, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, testGasPrice, gasLimit, 1, 1, test.blkTimestamp, gasLimit, p, candidate, test.amount, false)
 		var actCost *big.Int
 		if test.unstake {
-			act, err := action.NewUnstake(1, 0, nil, gasLimit, testGasPrice)
-			require.NoError(err)
+			act := action.NewUnstake(0, nil)
 			intrinsic, err := act.IntrinsicGas()
 			require.NoError(err)
 			elp := builder.SetNonce(1).SetGasLimit(gasLimit).
 				SetGasPrice(testGasPrice).SetAction(act).Build()
-			actCost, err = act.Cost()
+			actCost, err = elp.Cost()
 			require.NoError(err)
 			ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
 				Caller:       caller,
@@ -1403,9 +1452,7 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			require.Equal(0, sm.Snapshot())
 		}
 
-		withdraw, err := action.NewWithdrawStake(1, test.withdrawIndex,
-			nil, gasLimit, testGasPrice)
-		require.NoError(err)
+		withdraw := action.NewWithdrawStake(test.withdrawIndex, nil)
 		elp := builder.SetNonce(1).SetGasLimit(gasLimit).SetGasPrice(testGasPrice).
 			SetAction(withdraw).Build()
 		actionCtx := protocol.MustGetActionCtx(ctx)
@@ -1447,7 +1494,7 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			// test staker's account
 			caller, err := accountutil.LoadAccount(sm, caller)
 			require.NoError(err)
-			withdrawCost, err := withdraw.Cost()
+			withdrawCost, err := elp.Cost()
 			require.NoError(err)
 			require.Equal(uint64(4), caller.PendingNonce())
 			total := big.NewInt(0)
@@ -1667,8 +1714,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 		// candidate vote self,index 1
 		_, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, testGasPrice, test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candidate, test.amount, false)
 
-		act, err := action.NewChangeCandidate(test.nonce+1, test.candidateName, test.index, nil, test.gasLimit, testGasPrice)
-		require.NoError(err)
+		act := action.NewChangeCandidate(test.candidateName, test.index, nil)
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
 		elp := builder.SetNonce(test.nonce + 1).SetGasLimit(test.gasLimit).
@@ -1697,7 +1743,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			cc := sc.candCenter.GetBySelfStakingIndex(test.index)
 			sc.candCenter.deleteForTestOnly(cc.Owner)
 			require.False(csm.ContainsOwner(cc.Owner))
-			r, err = p.handle(ctx, act, csm)
+			r, err = p.handle(ctx, elp, csm)
 			require.Equal(test.err, errors.Cause(err))
 		} else {
 			require.Equal(test.err, errors.Cause(p.Validate(ctx, elp, sm)))
@@ -1747,7 +1793,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			// test staker's account
 			caller, err := accountutil.LoadAccount(sm, test.caller)
 			require.NoError(err)
-			actCost, err := act.Cost()
+			actCost, err := elp.Cost()
 			require.NoError(err)
 			require.Equal(test.nonce+2, caller.PendingNonce())
 			total := big.NewInt(0)
@@ -1770,8 +1816,7 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 			}, 1)
 		r.NoError(setupAccount(sm, identityset.Address(5), 10000))
 		nonce := uint64(1)
-		act, err := action.NewChangeCandidate(nonce, "test2", buckets[0].Index, nil, 10000, testGasPrice)
-		r.NoError(err)
+		act := action.NewChangeCandidate("test2", buckets[0].Index, nil)
 		intrinsic, err := act.IntrinsicGas()
 		r.NoError(err)
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
@@ -1819,8 +1864,7 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 			}, 1)
 		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
 		nonce := uint64(1)
-		act, err := action.NewChangeCandidate(nonce, "test2", buckets[2].Index, nil, 10000, testGasPrice)
-		r.NoError(err)
+		act := action.NewChangeCandidate("test2", buckets[2].Index, nil)
 		intrinsic, err := act.IntrinsicGas()
 		r.NoError(err)
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
@@ -1868,8 +1912,7 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 			}, 1)
 		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
 		nonce := uint64(1)
-		act, err := action.NewChangeCandidate(nonce, "test2", buckets[2].Index, nil, 10000, testGasPrice)
-		r.NoError(err)
+		act := action.NewChangeCandidate("test2", buckets[2].Index, nil)
 		intrinsic, err := act.IntrinsicGas()
 		r.NoError(err)
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
@@ -2040,7 +2083,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			require.NoError(setupAccount(sm, identityset.Address(1), 1))
 		}
 
-		act, err := action.NewTransferStake(nonce, test.to.String(), test.index, nil, test.gasLimit, testGasPrice)
+		act, err := action.NewTransferStake(test.to.String(), test.index, nil)
 		require.NoError(err)
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
@@ -2100,7 +2143,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			// test staker's account
 			caller, err := accountutil.LoadAccount(sm, test.caller)
 			require.NoError(err)
-			actCost, err := act.Cost()
+			actCost, err := elp.Cost()
 			require.NoError(err)
 			require.Equal(test.nonce+1, caller.PendingNonce())
 			total := big.NewInt(0)
@@ -2274,7 +2317,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 			consign = newconsignment(require, test.sigIndex, test.sigNonce, test.bucketOwner, test.to.String(), test.consignType, test.reclaim, test.wrongSig)
 		}
 
-		act, err := action.NewTransferStake(1, caller.String(), 0, consign, gasLimit, testGasPrice)
+		act, err := action.NewTransferStake(caller.String(), 0, consign)
 		require.NoError(err)
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
@@ -2333,7 +2376,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 			// test staker's account
 			caller, err := accountutil.LoadAccount(sm, caller)
 			require.NoError(err)
-			actCost, err := act.Cost()
+			actCost, err := elp.Cost()
 			require.NoError(err)
 			require.Equal(uint64(2), caller.PendingNonce())
 			total := big.NewInt(0)
@@ -2531,8 +2574,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			nonce++
 		}
 
-		act, err := action.NewRestake(nonce, test.index, test.duration, test.autoStake, nil, test.gasLimit, testGasPrice)
-		require.NoError(err)
+		act := action.NewRestake(test.index, test.duration, test.autoStake, nil)
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
 		elp := builder.SetNonce(nonce).SetGasLimit(test.gasLimit).
@@ -2557,7 +2599,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			sc.candCenter.deleteForTestOnly(test.caller)
 			require.False(csm.ContainsOwner(test.caller))
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
-			r, err = p.handle(ctx, act, csm)
+			r, err = p.handle(ctx, elp, csm)
 			require.Equal(test.err, errors.Cause(err))
 		} else {
 			r, err = p.Handle(ctx, elp, sm)
@@ -2597,7 +2639,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			// test staker's account
 			caller, err := accountutil.LoadAccount(sm, test.caller)
 			require.NoError(err)
-			actCost, err := act.Cost()
+			actCost, err := elp.Cost()
 			require.NoError(err)
 			require.Equal(test.nonce+2, caller.PendingNonce())
 			total := big.NewInt(0)
@@ -2739,7 +2781,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.NoError(setupAccount(sm, test.caller, test.initBalance))
 		}
 
-		act, err := action.NewDepositToStake(test.nonce, test.index, test.amount, nil, test.gasLimit, testGasPrice)
+		act, err := action.NewDepositToStake(test.index, test.amount, nil)
 		require.NoError(err)
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
@@ -2765,7 +2807,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			sc.candCenter.deleteForTestOnly(test.caller)
 			require.False(csm.ContainsOwner(test.caller))
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
-			r, err = p.handle(ctx, act, csm)
+			r, err = p.handle(ctx, elp, csm)
 			require.Equal(test.err, errors.Cause(err))
 		} else {
 			r, err = p.Handle(ctx, elp, sm)
@@ -2815,7 +2857,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			// test staker's account
 			caller, err := accountutil.LoadAccount(sm, test.caller)
 			require.NoError(err)
-			actCost, err := act.Cost()
+			actCost, err := elp.Cost()
 			require.NoError(err)
 			require.Equal(test.nonce+1, caller.PendingNonce())
 			total := big.NewInt(0)
@@ -2910,8 +2952,7 @@ func TestChangeCandidate(t *testing.T) {
 		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
 		// csm, err := NewCandidateStateManager(sm, false)
 		nonce := uint64(1)
-		act, err := action.NewChangeCandidate(nonce, "test1", buckets[0].Index, nil, 10000, testGasPrice)
-		r.NoError(err)
+		act := action.NewChangeCandidate("test1", buckets[0].Index, nil)
 		intrinsic, err := act.IntrinsicGas()
 		r.NoError(err)
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
@@ -2952,7 +2993,7 @@ func TestChangeCandidate(t *testing.T) {
 		err := esm.Put(buckets[0].Index, &Endorsement{ExpireHeight: endorsementNotExpireHeight})
 		r.NoError(err)
 		nonce := uint64(1)
-		act, err := action.NewChangeCandidate(nonce, "test1", buckets[0].Index, nil, 10000, testGasPrice)
+		act := action.NewChangeCandidate("test1", buckets[0].Index, nil)
 		r.NoError(err)
 		intrinsic, err := act.IntrinsicGas()
 		r.NoError(err)
@@ -2994,7 +3035,7 @@ func TestChangeCandidate(t *testing.T) {
 		err := esm.Put(buckets[0].Index, &Endorsement{ExpireHeight: 10})
 		r.NoError(err)
 		nonce := uint64(1)
-		act, err := action.NewChangeCandidate(nonce, "test1", buckets[0].Index, nil, 10000, testGasPrice)
+		act := action.NewChangeCandidate("test1", buckets[0].Index, nil)
 		r.NoError(err)
 		intrinsic, err := act.IntrinsicGas()
 		r.NoError(err)
@@ -3033,8 +3074,7 @@ func TestChangeCandidate(t *testing.T) {
 		sm, p, buckets, _ := initTestStateWithHeight(t, ctrl, bucketCfgs, candCfgs, 2)
 		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
 		nonce := uint64(1)
-		act, err := action.NewChangeCandidate(nonce, "test1", buckets[0].Index, nil, 10000, testGasPrice)
-		r.NoError(err)
+		act := action.NewChangeCandidate("test1", buckets[0].Index, nil)
 		intrinsic, err := act.IntrinsicGas()
 		r.NoError(err)
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
@@ -3077,8 +3117,7 @@ func TestUnstake(t *testing.T) {
 		sm, p, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
 		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
 		nonce := uint64(1)
-		act, err := action.NewUnstake(nonce, buckets[0].Index, nil, 10000, testGasPrice)
-		r.NoError(err)
+		act := action.NewUnstake(buckets[0].Index, nil)
 		intrinsic, err := act.IntrinsicGas()
 		r.NoError(err)
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
@@ -3119,8 +3158,7 @@ func TestUnstake(t *testing.T) {
 		err := esm.Put(buckets[0].Index, &Endorsement{ExpireHeight: endorsementNotExpireHeight})
 		r.NoError(err)
 		nonce := uint64(1)
-		act, err := action.NewUnstake(nonce, buckets[0].Index, nil, 10000, testGasPrice)
-		r.NoError(err)
+		act := action.NewUnstake(buckets[0].Index, nil)
 		intrinsic, err := act.IntrinsicGas()
 		r.NoError(err)
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
@@ -3161,8 +3199,7 @@ func TestUnstake(t *testing.T) {
 		err := esm.Put(buckets[0].Index, &Endorsement{ExpireHeight: 10})
 		r.NoError(err)
 		nonce := uint64(1)
-		act, err := action.NewUnstake(nonce, buckets[0].Index, nil, 10000, testGasPrice)
-		r.NoError(err)
+		act := action.NewUnstake(buckets[0].Index, nil)
 		intrinsic, err := act.IntrinsicGas()
 		r.NoError(err)
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
@@ -3200,8 +3237,7 @@ func TestUnstake(t *testing.T) {
 		sm, p, buckets, _ := initTestStateWithHeight(t, ctrl, bucketCfgs, candCfgs, 1)
 		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
 		nonce := uint64(1)
-		act, err := action.NewUnstake(nonce, buckets[0].Index, nil, 10000, testGasPrice)
-		r.NoError(err)
+		act := action.NewUnstake(buckets[0].Index, nil)
 		intrinsic, err := act.IntrinsicGas()
 		r.NoError(err)
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
@@ -3234,8 +3270,7 @@ func TestUnstake(t *testing.T) {
 func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.Address, initBalance int64, gasPrice *big.Int, gasLimit uint64, nonce uint64, blkHeight uint64, blkTimestamp time.Time, blkGasLimit uint64, p *Protocol, candidate *Candidate, amount string, autoStake bool) (context.Context, *big.Int) {
 	require := require.New(t)
 	require.NoError(setupAccount(sm, callerAddr, initBalance))
-	a, err := action.NewCreateStake(nonce, candidate.Name, amount, 1, autoStake,
-		nil, gasLimit, gasPrice)
+	a, err := action.NewCreateStake(candidate.Name, amount, 1, autoStake, nil)
 	require.NoError(err)
 	intrinsic, err := a.IntrinsicGas()
 	require.NoError(err)
@@ -3264,7 +3299,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 	require.NoError(sm.WriteView(_protocolID, cc))
 	_, err = p.Handle(ctx, elp, sm)
 	require.NoError(err)
-	cost, err := a.Cost()
+	cost, err := elp.Cost()
 	require.NoError(err)
 	return ctx, cost
 }
@@ -3327,7 +3362,7 @@ func setupAccount(sm protocol.StateManager, addr address.Address, balance int64)
 	return accountutil.StoreAccount(sm, addr, account)
 }
 
-func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int, opts ...protocol.Option) ([]*action.TransactionLog, error) {
+func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int, opts ...protocol.DepositOption) ([]*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	// Subtract balance from caller
 	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller)

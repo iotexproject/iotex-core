@@ -15,15 +15,15 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/pkg/enc"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/pkg/enc"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 // rewardHistory is the dummy struct to record a reward. Only key matters.
@@ -72,6 +72,7 @@ func (p *Protocol) GrantBlockReward(
 ) (*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	if err := p.assertNoRewardYet(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
 	}
@@ -105,21 +106,40 @@ func (p *Protocol) GrantBlockReward(
 	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
 		return nil, err
 	}
-	if err := p.updateAvailableBalance(ctx, sm, a.blockReward); err != nil {
+	totalReward := big.NewInt(0).Set(a.blockReward)
+	if featureCtx.EnableDynamicFeeTx {
+		totalReward.Add(totalReward, &blkCtx.AccumulatedTips)
+	}
+	if err := p.updateAvailableBalance(ctx, sm, totalReward); err != nil {
 		return nil, err
 	}
-	if err := p.grantToAccount(ctx, sm, rewardAddr, a.blockReward); err != nil {
+	if err := p.grantToAccount(ctx, sm, rewardAddr, totalReward); err != nil {
 		return nil, err
 	}
 	if err := p.updateRewardHistory(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
 	}
-	rewardLog := rewardingpb.RewardLog{
-		Type:   rewardingpb.RewardLog_BLOCK_REWARD,
-		Addr:   rewardAddrStr,
-		Amount: a.blockReward.String(),
+	var (
+		rewardLogs = []*rewardingpb.RewardLog{
+			{
+				Type:   rewardingpb.RewardLog_BLOCK_REWARD,
+				Addr:   rewardAddrStr,
+				Amount: a.blockReward.String(),
+			},
+		}
+		msg proto.Message = rewardLogs[0]
+	)
+	if featureCtx.EnableDynamicFeeTx {
+		if blkCtx.AccumulatedTips.Sign() > 0 {
+			rewardLogs = append(rewardLogs, &rewardingpb.RewardLog{
+				Type:   rewardingpb.RewardLog_PRIORITY_BONUS,
+				Addr:   rewardAddrStr,
+				Amount: blkCtx.AccumulatedTips.String(),
+			})
+		}
+		msg = &rewardingpb.RewardLogs{Logs: rewardLogs}
 	}
-	data, err := proto.Marshal(&rewardLog)
+	data, err := proto.Marshal(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -486,4 +506,24 @@ func (p *Protocol) assertLastBlockInEpoch(blkHeight uint64, epochNum uint64, rp 
 		return errors.Errorf("current block %d is not the last block of epoch %d", blkHeight, epochNum)
 	}
 	return nil
+}
+
+// UnmarshalRewardLog unmarshals reward log from byte slice
+// it keep the compatibility with old reward log
+func UnmarshalRewardLog(data []byte) (*rewardingpb.RewardLogs, error) {
+	logs := rewardingpb.RewardLogs{}
+	if err := proto.Unmarshal(data, &logs); err != nil {
+		return nil, err
+	}
+	if len(logs.Logs) == 0 {
+		// compatibility with old reward log
+		log := rewardingpb.RewardLog{}
+		if err := proto.Unmarshal(data, &log); err != nil {
+			return nil, err
+		}
+		logs = rewardingpb.RewardLogs{
+			Logs: []*rewardingpb.RewardLog{&log},
+		}
+	}
+	return &logs, nil
 }

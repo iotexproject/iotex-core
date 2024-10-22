@@ -3,7 +3,6 @@ package actpool
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"math/big"
 	"sort"
 	"strings"
@@ -12,13 +11,14 @@ import (
 
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/tracer"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
 )
 
 type (
@@ -105,6 +105,13 @@ func (worker *queueWorker) Handle(job workerJob) error {
 	}
 
 	worker.ap.allActions.Set(actHash, act)
+	worker.ap.onAdded(act)
+	isBlobTx := len(act.BlobHashes()) > 0 // only store blob tx
+	if worker.ap.store != nil && isBlobTx {
+		if err := worker.ap.store.Put(act); err != nil {
+			log.L().Warn("failed to store action", zap.Error(err), log.Hex("hash", actHash[:]))
+		}
+	}
 
 	if desAddress, ok := act.Destination(); ok && !strings.EqualFold(sender, desAddress) {
 		if err := worker.ap.accountDesActs.addAction(act); err != nil {
@@ -172,6 +179,18 @@ func (worker *queueWorker) checkSelpWithState(act *action.SealedEnvelope, pendin
 			zap.Uint64("actNonce", act.Nonce()))
 		_actpoolMtc.WithLabelValues("nonceTooLarge").Inc()
 		return action.ErrNonceTooHigh
+	}
+
+	// Nonce must be continuous for blob tx
+	if len(act.BlobHashes()) > 0 {
+		pendingNonceInPool, ok := worker.PendingNonce(act.SenderAddress())
+		if !ok {
+			pendingNonceInPool = pendingNonce
+		}
+		if act.Nonce() > pendingNonceInPool {
+			_actpoolMtc.WithLabelValues("nonceTooLarge").Inc()
+			return errors.Wrapf(action.ErrNonceTooHigh, "nonce %d is larger than pending nonce %d", act.Nonce(), pendingNonceInPool)
+		}
 	}
 
 	if cost, _ := act.Cost(); balance.Cmp(cost) < 0 {

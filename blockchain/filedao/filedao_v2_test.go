@@ -18,11 +18,11 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/pkg/compress"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/pkg/compress"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 const (
@@ -345,6 +345,73 @@ func TestNewFdStart(t *testing.T) {
 			cfg.Compressor = compress
 			t.Run("test fileDAOv2 start", func(t *testing.T) {
 				testFdStart(cfg, start, t)
+			})
+		}
+	}
+}
+
+func TestBlockWithSidecar(t *testing.T) {
+	testBlockWithSidecar := func(cfg db.Config, start uint64, r *require.Assertions) {
+		testutil.CleanupPath(cfg.DbPath)
+		r.Equal(5, cfg.BlockStoreBatchSize)
+		deser := block.NewDeserializer(_defaultEVMNetworkID)
+		fd, err := newFileDAOv2(start, cfg, deser)
+		r.NoError(err)
+		ctx := context.Background()
+		r.NoError(fd.Start(ctx))
+		defer func() {
+			r.NoError(fd.Stop(ctx))
+		}()
+
+		blks, err := block.CreateTestBlockWithBlob(int(start), cfg.BlockStoreBatchSize+2)
+		r.NoError(err)
+		for _, blk := range blks {
+			r.True(blk.HasBlob())
+			r.NoError(fd.PutBlock(ctx, blk))
+		}
+		for i := 0; i < cfg.BlockStoreBatchSize+2; i++ {
+			blk, err := fd.GetBlockByHeight(start + uint64(i))
+			r.NoError(err)
+			if i < cfg.BlockStoreBatchSize {
+				// blocks written to disk has sidecar removed
+				r.False(blk.HasBlob())
+				r.Equal(4, len(blk.Actions))
+				blk.Actions[0].Hash()
+				r.Equal(blks[i].Actions[0], blk.Actions[0])
+				r.NotEqual(blks[i].Actions[1], blk.Actions[1])
+				blk.Actions[2].Hash()
+				r.Equal(blks[i].Actions[2], blk.Actions[2])
+				r.NotEqual(blks[i].Actions[3], blk.Actions[3])
+			} else {
+				// blocks in the staging buffer still has sidecar attached
+				r.True(blk.HasBlob())
+				r.Equal(blks[i], blk)
+			}
+			h := blk.HashBlock()
+			height, err := fd.GetBlockHeight(h)
+			r.NoError(err)
+			r.Equal(start+uint64(i), height)
+			hash, err := fd.GetBlockHash(height)
+			r.NoError(err)
+			r.Equal(h, hash)
+		}
+	}
+
+	r := require.New(t)
+	testPath, err := testutil.PathOfTempFile("test-sidecar")
+	r.NoError(err)
+	defer func() {
+		testutil.CleanupPath(testPath)
+	}()
+
+	cfg := db.DefaultConfig
+	cfg.BlockStoreBatchSize = 5
+	cfg.DbPath = testPath
+	for _, compress := range []string{"", compress.Snappy} {
+		for _, start := range []uint64{1, 4, uint64(cfg.BlockStoreBatchSize) + 3, 3 * uint64(cfg.BlockStoreBatchSize)} {
+			cfg.Compressor = compress
+			t.Run("test block with sidecar", func(t *testing.T) {
+				testBlockWithSidecar(cfg, start, r)
 			})
 		}
 	}

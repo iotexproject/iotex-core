@@ -23,17 +23,20 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/db/trie"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 type (
 	// deleteAccount records the account/contract to be deleted
 	deleteAccount map[common.Address]struct{}
+
+	// createdAccount contains new accounts created in this tx
+	createdAccount map[common.Address]struct{}
 
 	// contractMap records the contracts being changed
 	contractMap map[common.Address]Contract
@@ -43,27 +46,28 @@ type (
 
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
-		sm                     protocol.StateManager
-		logs                   []*action.Log
-		transactionLogs        []*action.TransactionLog
-		err                    error
-		blockHeight            uint64
-		executionHash          hash.Hash256
-		lastAddBalanceAddr     string
-		lastAddBalanceAmount   *big.Int
-		refund                 uint64
-		refundSnapshot         map[int]uint64
-		cachedContract         contractMap
-		contractSnapshot       map[int]contractMap   // snapshots of contracts
-		selfDestructed         deleteAccount         // account/contract calling SelfDestruct
-		selfDestructedSnapshot map[int]deleteAccount // snapshots of SelfDestruct accounts
-		preimages              preimageMap
-		preimageSnapshot       map[int]preimageMap
-		accessList             *accessList // per-transaction access list
-		accessListSnapshot     map[int]*accessList
-		// Transient storage
-		transientStorage           transientStorage
+		sm                         protocol.StateManager
+		logs                       []*action.Log
+		transactionLogs            []*action.TransactionLog
+		err                        error
+		blockHeight                uint64
+		executionHash              hash.Hash256
+		lastAddBalanceAddr         string
+		lastAddBalanceAmount       *big.Int
+		refund                     uint64
+		refundSnapshot             map[int]uint64
+		cachedContract             contractMap
+		contractSnapshot           map[int]contractMap   // snapshots of contracts
+		selfDestructed             deleteAccount         // account/contract calling SelfDestruct
+		selfDestructedSnapshot     map[int]deleteAccount // snapshots of SelfDestruct accounts
+		preimages                  preimageMap
+		preimageSnapshot           map[int]preimageMap
+		accessList                 *accessList // per-transaction access list
+		accessListSnapshot         map[int]*accessList
+		transientStorage           transientStorage // Transient storage
 		transientStorageSnapshot   map[int]transientStorage
+		createdAccount             createdAccount
+		createdAccountSnapshot     map[int]createdAccount
 		logsSnapshot               map[int]int // logs is an array, save len(logs) at time of snapshot suffices
 		txLogsSnapshot             map[int]int
 		notFixTopicCopyBug         bool
@@ -77,6 +81,7 @@ type (
 		suicideTxLogMismatchPanic  bool
 		zeroNonceForFreshAccount   bool
 		panicUnrecoverableError    bool
+		enableCancun               bool
 	}
 )
 
@@ -174,6 +179,14 @@ func PanicUnrecoverableErrorOption() StateDBAdapterOption {
 	}
 }
 
+// EnableCancunEVMOption indicates that Cancun EVM is activated
+func EnableCancunEVMOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.enableCancun = true
+		return nil
+	}
+}
+
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(
 	sm protocol.StateManager,
@@ -182,25 +195,23 @@ func NewStateDBAdapter(
 	opts ...StateDBAdapterOption,
 ) (*StateDBAdapter, error) {
 	s := &StateDBAdapter{
-		sm:                       sm,
-		logs:                     []*action.Log{},
-		err:                      nil,
-		blockHeight:              blockHeight,
-		executionHash:            executionHash,
-		lastAddBalanceAmount:     new(big.Int),
-		refundSnapshot:           make(map[int]uint64),
-		cachedContract:           make(contractMap),
-		contractSnapshot:         make(map[int]contractMap),
-		selfDestructed:           make(deleteAccount),
-		selfDestructedSnapshot:   make(map[int]deleteAccount),
-		preimages:                make(preimageMap),
-		preimageSnapshot:         make(map[int]preimageMap),
-		accessList:               newAccessList(),
-		accessListSnapshot:       make(map[int]*accessList),
-		transientStorage:         newTransientStorage(),
-		transientStorageSnapshot: make(map[int]transientStorage),
-		logsSnapshot:             make(map[int]int),
-		txLogsSnapshot:           make(map[int]int),
+		sm:                     sm,
+		logs:                   []*action.Log{},
+		err:                    nil,
+		blockHeight:            blockHeight,
+		executionHash:          executionHash,
+		lastAddBalanceAmount:   new(big.Int),
+		refundSnapshot:         make(map[int]uint64),
+		cachedContract:         make(contractMap),
+		contractSnapshot:       make(map[int]contractMap),
+		selfDestructed:         make(deleteAccount),
+		selfDestructedSnapshot: make(map[int]deleteAccount),
+		preimages:              make(preimageMap),
+		preimageSnapshot:       make(map[int]preimageMap),
+		accessList:             newAccessList(),
+		accessListSnapshot:     make(map[int]*accessList),
+		logsSnapshot:           make(map[int]int),
+		txLogsSnapshot:         make(map[int]int),
 	}
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
@@ -210,6 +221,12 @@ func NewStateDBAdapter(
 	// TODO: add combination limitation for useZeroNonceForFreshAccount
 	if !s.legacyNonceAccount && s.useConfirmedNonce {
 		return nil, errors.New("invalid parameter combination")
+	}
+	if s.enableCancun {
+		s.transientStorage = newTransientStorage()
+		s.transientStorageSnapshot = make(map[int]transientStorage)
+		s.createdAccount = make(createdAccount)
+		s.createdAccountSnapshot = make(map[int]createdAccount)
 	}
 	return s, nil
 }
@@ -250,9 +267,15 @@ func (stateDB *StateDBAdapter) CreateAccount(evmAddr common.Address) {
 	if stateDB.assertError(err, "Failed to convert evm address.", zap.Error(err)) {
 		return
 	}
-	_, err = accountutil.LoadOrCreateAccount(stateDB.sm, addr, stateDB.accountCreationOpts()...)
-	if stateDB.assertError(err, "Failed to create account.", zap.Error(err), zap.String("address", evmAddr.Hex())) {
-		return
+	// TODO: possibly remove the enableCancun flag after hard-fork
+	if _, ok := stateDB.cachedContract[evmAddr]; !ok || !stateDB.enableCancun {
+		_, err = accountutil.LoadOrCreateAccount(stateDB.sm, addr, stateDB.accountCreationOpts()...)
+		if stateDB.assertError(err, "Failed to create account.", zap.Error(err), zap.String("address", evmAddr.Hex())) {
+			return
+		}
+	}
+	if stateDB.enableCancun {
+		stateDB.createdAccount[evmAddr] = struct{}{}
 	}
 	log.L().Debug("Called CreateAccount.", log.Hex("addrHash", evmAddr[:]))
 }
@@ -443,6 +466,7 @@ func (stateDB *StateDBAdapter) SelfDestruct(evmAddr common.Address) {
 	}
 	// clears the account balance
 	actBalance := new(big.Int).Set(s.Balance)
+	log.L().Info("SelfDestruct contract", zap.String("Balance", actBalance.String()))
 	err = s.SubBalance(s.Balance)
 	if stateDB.assertError(err, "Failed to clear balance.", zap.Error(err), zap.String("address", evmAddr.Hex())) {
 		return
@@ -451,28 +475,10 @@ func (stateDB *StateDBAdapter) SelfDestruct(evmAddr common.Address) {
 	if stateDB.assertError(err, "Failed to kill contract.", zap.Error(err), zap.String("address", evmAddr.Hex())) {
 		return
 	}
-	// To ensure data consistency, generate this log after the hard-fork
-	// a separate patch file will be created later to provide missing logs before the hard-fork
-	// TODO: remove this gating once the hard-fork has passed
-	if stateDB.suicideTxLogMismatchPanic {
-		// before calling SelfDestruct, EVM will transfer the contract's balance to beneficiary
-		// need to create a transaction log on successful SelfDestruct
-		if stateDB.lastAddBalanceAmount.Cmp(actBalance) == 0 {
-			if stateDB.lastAddBalanceAmount.Cmp(big.NewInt(0)) > 0 {
-				from, _ := address.FromBytes(evmAddr[:])
-				stateDB.addTransactionLogs(&action.TransactionLog{
-					Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
-					Sender:    from.String(),
-					Recipient: stateDB.lastAddBalanceAddr,
-					Amount:    stateDB.lastAddBalanceAmount,
-				})
-			}
-		} else {
-			log.L().Panic("SelfDestruct contract's balance does not match",
-				zap.String("SelfDestruct", actBalance.String()),
-				zap.String("beneficiary", stateDB.lastAddBalanceAmount.String()))
-		}
-	}
+	// before calling SelfDestruct, EVM will transfer the contract's balance to beneficiary
+	// need to create a transaction log on successful SelfDestruct
+	from, _ := address.FromBytes(evmAddr[:])
+	stateDB.generateSelfDestructTransferLog(from.String(), stateDB.lastAddBalanceAmount.Cmp(actBalance) == 0)
 	// mark it as deleted
 	stateDB.selfDestructed[evmAddr] = struct{}{}
 }
@@ -481,6 +487,22 @@ func (stateDB *StateDBAdapter) SelfDestruct(evmAddr common.Address) {
 func (stateDB *StateDBAdapter) HasSelfDestructed(evmAddr common.Address) bool {
 	_, ok := stateDB.selfDestructed[evmAddr]
 	return ok
+}
+
+// Selfdestruct6780 implements EIP-6780
+func (stateDB *StateDBAdapter) Selfdestruct6780(evmAddr common.Address) {
+	if !stateDB.Exist(evmAddr) {
+		log.L().Debug("Account does not exist.", zap.String("address", evmAddr.Hex()))
+		return
+	}
+	// opSelfdestruct6780 has already subtracted the contract's balance
+	// so create a transaction log
+	from, _ := address.FromBytes(evmAddr[:])
+	stateDB.generateSelfDestructTransferLog(from.String(), true)
+	// per EIP-6780, delete the account only if it is created in the same transaction
+	if _, ok := stateDB.createdAccount[evmAddr]; ok {
+		stateDB.selfDestructed[evmAddr] = struct{}{}
+	}
 }
 
 // SetTransientState sets transient storage for a given account
@@ -495,12 +517,6 @@ func (stateDB *StateDBAdapter) SetTransientState(addr common.Address, key, value
 // GetTransientState gets transient storage for a given account.
 func (stateDB *StateDBAdapter) GetTransientState(addr common.Address, key common.Hash) common.Hash {
 	return stateDB.transientStorage.Get(addr, key)
-}
-
-// Selfdestruct6780 implements EIP-6780
-func (stateDB *StateDBAdapter) Selfdestruct6780(evmAddr common.Address) {
-	//Todo: implement EIP-6780
-	log.S().Panic("Selfdestruct6780 not implemented")
 }
 
 // Exist checks the existence of an address
@@ -632,14 +648,27 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 			}
 		}
 	}
-	//restore transientStorage
-	stateDB.transientStorage = stateDB.transientStorageSnapshot[snapshot]
-	{
-		for i := snapshot; ; i++ {
-			if _, ok := stateDB.transientStorageSnapshot[i]; ok {
-				delete(stateDB.transientStorageSnapshot, i)
-			} else {
-				break
+	if stateDB.enableCancun {
+		//restore transientStorage
+		stateDB.transientStorage = stateDB.transientStorageSnapshot[snapshot]
+		{
+			for i := snapshot; ; i++ {
+				if _, ok := stateDB.transientStorageSnapshot[i]; ok {
+					delete(stateDB.transientStorageSnapshot, i)
+				} else {
+					break
+				}
+			}
+		}
+		// restore created accounts
+		stateDB.createdAccount = stateDB.createdAccountSnapshot[snapshot]
+		{
+			for i := snapshot; ; i++ {
+				if _, ok := stateDB.createdAccountSnapshot[i]; ok {
+					delete(stateDB.createdAccountSnapshot, i)
+				} else {
+					break
+				}
 			}
 		}
 	}
@@ -762,8 +791,16 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 	stateDB.preimageSnapshot[sn] = p
 	// save a copy of access list
 	stateDB.accessListSnapshot[sn] = stateDB.accessList.Copy()
-	// save a copy of transient storage
-	stateDB.transientStorageSnapshot[sn] = stateDB.transientStorage.Copy()
+	if stateDB.enableCancun {
+		// save a copy of transient storage
+		stateDB.transientStorageSnapshot[sn] = stateDB.transientStorage.Copy()
+		// save a copy of created account map
+		ca := make(createdAccount)
+		for k, v := range stateDB.createdAccount {
+			ca[k] = v
+		}
+		stateDB.createdAccountSnapshot[sn] = ca
+	}
 	return sn
 }
 
@@ -862,6 +899,27 @@ func (stateDB *StateDBAdapter) accountState(evmAddr common.Address) (*state.Acco
 		return contract.SelfState(), nil
 	}
 	return accountutil.LoadAccountByHash160(stateDB.sm, hash.BytesToHash160(evmAddr[:]), stateDB.accountCreationOpts()...)
+}
+
+func (stateDB *StateDBAdapter) generateSelfDestructTransferLog(sender string, amountMatch bool) {
+	// To ensure data consistency, generate this log after the hard-fork
+	// a separate patch file will be created later to provide missing logs before the hard-fork
+	// TODO: remove this gating once the hard-fork has passed
+	if stateDB.suicideTxLogMismatchPanic {
+		if amountMatch {
+			if stateDB.lastAddBalanceAmount.Cmp(big.NewInt(0)) > 0 {
+				stateDB.addTransactionLogs(&action.TransactionLog{
+					Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
+					Sender:    sender,
+					Recipient: stateDB.lastAddBalanceAddr,
+					Amount:    stateDB.lastAddBalanceAmount,
+				})
+			}
+		} else {
+			log.L().Panic("SelfDestruct contract's balance does not match",
+				zap.String("beneficiary", stateDB.lastAddBalanceAmount.String()))
+		}
+	}
 }
 
 func (stateDB *StateDBAdapter) addTransactionLogs(tlog *action.TransactionLog) {
@@ -1068,10 +1126,14 @@ func (stateDB *StateDBAdapter) clear() {
 	stateDB.preimageSnapshot = make(map[int]preimageMap)
 	stateDB.accessList = newAccessList()
 	stateDB.accessListSnapshot = make(map[int]*accessList)
-	stateDB.transientStorage = newTransientStorage()
-	stateDB.transientStorageSnapshot = make(map[int]transientStorage)
 	stateDB.logsSnapshot = make(map[int]int)
 	stateDB.txLogsSnapshot = make(map[int]int)
 	stateDB.logs = []*action.Log{}
 	stateDB.transactionLogs = []*action.TransactionLog{}
+	if stateDB.enableCancun {
+		stateDB.transientStorage = newTransientStorage()
+		stateDB.transientStorageSnapshot = make(map[int]transientStorage)
+		stateDB.createdAccount = make(createdAccount)
+		stateDB.createdAccountSnapshot = make(map[int]createdAccount)
+	}
 }

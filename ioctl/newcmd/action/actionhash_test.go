@@ -16,12 +16,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/util"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_ioctlclient"
 )
 
 var (
@@ -105,20 +105,10 @@ func TestNewActionHashCmd(t *testing.T) {
 }
 
 func createEnvelope(chainID uint32) action.Envelope {
-	tsf, _ := action.NewTransfer(
-		uint64(10),
+	tsf := action.NewTransfer(
 		unit.ConvertIotxToRau(1000+int64(10)),
 		identityset.Address(10%identityset.Size()).String(),
-		nil,
-		20000+uint64(10),
-		unit.ConvertIotxToRau(1+int64(10)),
-	)
-	eb := action.EnvelopeBuilder{}
-	return eb.
-		SetAction(tsf).
-		SetGasLimit(tsf.GasLimit()).
-		SetGasPrice(tsf.GasPrice()).
-		SetNonce(tsf.Nonce()).
-		SetVersion(1).
-		SetChainID(chainID).Build()
+		nil)
+	return (&action.EnvelopeBuilder{}).SetGasPrice(unit.ConvertIotxToRau(1 + int64(10))).
+		SetNonce(10).SetGasLimit(20010).SetAction(tsf).SetChainID(chainID).Build()
 }

@@ -17,8 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 const (
@@ -93,11 +92,11 @@ var (
 	ErrInvalidOwner = errors.New("invalid owner address")
 
 	_ EthCompatibleAction = (*CandidateRegister)(nil)
+	_ amountForCost       = (*CandidateRegister)(nil)
 )
 
 // CandidateRegister is the action to register a candidate
 type CandidateRegister struct {
-	AbstractAction
 	stake_common
 	name            string
 	operatorAddress address.Address
@@ -123,13 +122,10 @@ func init() {
 
 // NewCandidateRegister creates a CandidateRegister instance
 func NewCandidateRegister(
-	nonce uint64,
 	name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr string,
 	duration uint32,
 	autoStake bool,
 	payload []byte,
-	gasLimit uint64,
-	gasPrice *big.Int,
 ) (*CandidateRegister, error) {
 	operatorAddr, err := address.FromString(operatorAddrStr)
 	if err != nil {
@@ -147,12 +143,6 @@ func NewCandidateRegister(
 	}
 
 	cr := &CandidateRegister{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
 		name:            name,
 		operatorAddress: operatorAddr,
 		rewardAddress:   rewardAddress,
@@ -199,6 +189,10 @@ func (cr *CandidateRegister) OwnerAddress() address.Address { return cr.ownerAdd
 // Serialize returns a raw byte stream of the CandidateRegister struct
 func (cr *CandidateRegister) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(cr.Proto()))
+}
+
+func (act *CandidateRegister) FillAction(core *iotextypes.ActionCore) {
+	core.Action = &iotextypes.ActionCore_CandidateRegister{CandidateRegister: act.Proto()}
 }
 
 // Proto converts to protobuf CandidateRegister Action
@@ -280,16 +274,6 @@ func (cr *CandidateRegister) IntrinsicGas() (uint64, error) {
 	return CalculateIntrinsicGas(CandidateRegisterBaseIntrinsicGas, CandidateRegisterPayloadGas, payloadSize)
 }
 
-// Cost returns the total cost of a CandidateRegister
-func (cr *CandidateRegister) Cost() (*big.Int, error) {
-	intrinsicGas, err := cr.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the CandidateRegister creates")
-	}
-	fee := big.NewInt(0).Mul(cr.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return big.NewInt(0).Add(cr.Amount(), fee), nil
-}
-
 // SanityCheck validates the variables in the action
 func (cr *CandidateRegister) SanityCheck() error {
 	if cr.Amount().Sign() < 0 {
@@ -298,8 +282,7 @@ func (cr *CandidateRegister) SanityCheck() error {
 	if !IsValidCandidateName(cr.Name()) {
 		return ErrInvalidCanName
 	}
-
-	return cr.AbstractAction.SanityCheck()
+	return nil
 }
 
 // EthData returns the ABI-encoded data for converting to eth tx

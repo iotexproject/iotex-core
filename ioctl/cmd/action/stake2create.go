@@ -10,10 +10,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/output"
+	"github.com/iotexproject/iotex-core/v2/ioctl/util"
 )
 
 // Multi-language support
@@ -94,7 +94,7 @@ func stake2Create(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2c, err := action.NewCreateStake(nonce, candidateName, amountStringInRau, duration, _stake2AutoStake, data, gasLimit, gasPriceRau)
+	s2c, err := action.NewCreateStake(candidateName, amountStringInRau, duration, _stake2AutoStake, data)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a createStake instance", err)
 	}

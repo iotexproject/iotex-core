@@ -13,11 +13,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
 )
 
 var batchSizeMtc = prometheus.NewGaugeVec(
@@ -47,13 +47,13 @@ const (
 // IndexBuilder defines the index builder
 type IndexBuilder struct {
 	timerFactory *prometheustimer.TimerFactory
-	dao          blockdao.BlockDAO
+	dao          blockdao.BlockStore
 	indexer      Indexer
 	genesis      genesis.Genesis
 }
 
 // NewIndexBuilder instantiates an index builder
-func NewIndexBuilder(chainID uint32, g genesis.Genesis, dao blockdao.BlockDAO, indexer Indexer) (*IndexBuilder, error) {
+func NewIndexBuilder(chainID uint32, g genesis.Genesis, dao blockdao.BlockStore, indexer Indexer) (*IndexBuilder, error) {
 	timerFactory, err := prometheustimer.New(
 		"iotex_indexer_batch_time",
 		"Indexer batch time",

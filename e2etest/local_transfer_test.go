@@ -25,25 +25,25 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/blockchain/filedao"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/pkg/probe"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-core/tools/util"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/v2/actpool"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/pkg/probe"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/server/itx"
+	"github.com/iotexproject/iotex-core/v2/state/factory"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/testutil"
+	"github.com/iotexproject/iotex-core/v2/tools/util"
 )
 
 type TransferState int
@@ -304,8 +304,6 @@ func TestLocalTransfer(t *testing.T) {
 	require.NoError(err)
 	testContractStakeIndexPath, err := testutil.PathOfTempFile("contractStakeIndex")
 	require.NoError(err)
-	testContractStakeIndexPathV2, err := testutil.PathOfTempFile("contractStakeIndex.v2")
-	require.NoError(err)
 
 	defer func() {
 		testutil.CleanupPath(testTriePath)
@@ -315,12 +313,11 @@ func TestLocalTransfer(t *testing.T) {
 		testutil.CleanupPath(testBloomfilterIndexPath)
 		testutil.CleanupPath(testCandidateIndexPath)
 		testutil.CleanupPath(testContractStakeIndexPath)
-		testutil.CleanupPath(testContractStakeIndexPathV2)
 	}()
 
 	networkPort := 4689
 	apiPort := testutil.RandomPort()
-	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, testBloomfilterIndexPath, testSystemLogPath, testCandidateIndexPath, testContractStakeIndexPath, testContractStakeIndexPathV2, networkPort, apiPort)
+	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, testBloomfilterIndexPath, testSystemLogPath, testCandidateIndexPath, testContractStakeIndexPath, networkPort, apiPort)
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -592,7 +589,6 @@ func newTransferConfig(
 	systemLogDBPath string,
 	candidateIndexDBPath string,
 	contractstakeIndexDBPath string,
-	contractstakeIndexDBPathV2 string,
 	networkPort,
 	apiPort int,
 ) (config.Config, error) {
@@ -604,6 +600,7 @@ func newTransferConfig(
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.TrieDBPatchFile = ""
+	cfg.Chain.BlobStoreDBPath = ""
 	cfg.Chain.IndexDBPath = indexDBPath
 	cfg.Chain.BloomfilterIndexDBPath = bloomfilterIndex
 	cfg.System.SystemLogDBPath = systemLogDBPath
@@ -685,21 +682,9 @@ func TestEnforceChainID(t *testing.T) {
 		require.NoError(bc.Stop(ctx))
 	}()
 	for i, c := range testCase {
-		tsf, err := action.NewTransfer(
-			uint64(i)+1,
-			big.NewInt(100),
-			identityset.Address(27).String(),
-			[]byte{}, uint64(100000),
-			big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev)),
-		)
-		require.NoError(err)
-
-		bd := &action.EnvelopeBuilder{}
-		elp1 := bd.SetAction(tsf).
-			SetChainID(c.chainID).
-			SetNonce(c.nonce).
-			SetGasLimit(100000).
-			SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).Build()
+		tsf := action.NewTransfer(big.NewInt(100), identityset.Address(27).String(), []byte{})
+		elp1 := (&action.EnvelopeBuilder{}).SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).
+			SetChainID(c.chainID).SetNonce(c.nonce).SetGasLimit(100000).SetAction(tsf).Build()
 		selp, err := action.Sign(elp1, identityset.PrivateKey(0))
 		require.NoError(err)
 
@@ -718,10 +703,9 @@ func TestEnforceChainID(t *testing.T) {
 		// verify action has valid chainID
 		if c.success {
 			act := blk.Actions[0]
-			tsf, ok := act.Action().(*action.Transfer)
+			_, ok := act.Action().(*action.Transfer)
 			require.True(ok)
 			require.Equal(c.chainID, act.ChainID())
-			require.Equal(c.chainID, tsf.ChainID())
 		}
 	}
 }

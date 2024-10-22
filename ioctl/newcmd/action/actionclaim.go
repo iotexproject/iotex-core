@@ -12,11 +12,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/flag"
-	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/flag"
+	"github.com/iotexproject/iotex-core/v2/ioctl/output"
 )
 
 // Multi-language support
@@ -101,18 +101,14 @@ func NewActionClaimCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get nonce")
 			}
-			act := (&action.ClaimFromRewardingFundBuilder{}).
-				SetAmount(amount).
-				SetData(payload).
-				SetAddress(addr).
-				Build()
+			act := action.NewClaimFromRewardingFund(amount, addr, payload)
 			return SendAction(
 				client,
 				cmd,
 				(&action.EnvelopeBuilder{}).SetNonce(nonce).
 					SetGasPrice(gasPriceRau).
 					SetGasLimit(gasLimit).
-					SetAction(&act).Build(),
+					SetAction(act).Build(),
 				sender,
 				password,
 				nonce,

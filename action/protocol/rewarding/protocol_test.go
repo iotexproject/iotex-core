@@ -18,19 +18,19 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
-	"github.com/iotexproject/iotex-core/test/mock/mock_poll"
-	"github.com/iotexproject/iotex-core/testutil/testdb"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_poll"
+	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 )
 
 func TestValidateExtension(t *testing.T) {
@@ -370,14 +370,8 @@ func TestProtocol_Handle(t *testing.T) {
 	)
 
 	// Deposit
-	db := action.DepositToRewardingFundBuilder{}
-	deposit := db.SetAmount(big.NewInt(1000000)).Build()
-	eb1 := action.EnvelopeBuilder{}
-	e1 := eb1.SetNonce(1).
-		SetGasPrice(big.NewInt(0)).
-		SetGasLimit(deposit.GasLimit()).
-		SetAction(&deposit).
-		Build()
+	deposit := action.NewDepositToRewardingFund(big.NewInt(1000000), nil)
+	e1 := (&action.EnvelopeBuilder{}).SetNonce(1).SetAction(deposit).Build()
 	_, err = p.Handle(ctx, e1, sm)
 	require.NoError(t, err)
 	balance, _, err := p.TotalBalance(ctx, sm)
@@ -413,14 +407,8 @@ func TestProtocol_Handle(t *testing.T) {
 	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
 
 	// Claim
-	claimBuilder := action.ClaimFromRewardingFundBuilder{}
-	claim := claimBuilder.SetAmount(big.NewInt(1000000)).Build()
-	eb3 := action.EnvelopeBuilder{}
-	e3 := eb3.SetNonce(4).
-		SetGasPrice(big.NewInt(0)).
-		SetGasLimit(claim.GasLimit()).
-		SetAction(&claim).
-		Build()
+	claim := action.NewClaimFromRewardingFund(big.NewInt(1000000), nil, nil)
+	e3 := (&action.EnvelopeBuilder{}).SetNonce(4).SetAction(claim).Build()
 	ctx = protocol.WithActionCtx(
 		ctx,
 		protocol.ActionCtx{

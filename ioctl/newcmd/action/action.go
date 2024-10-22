@@ -22,14 +22,14 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/flag"
-	"github.com/iotexproject/iotex-core/ioctl/newcmd/account"
-	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
-	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/flag"
+	"github.com/iotexproject/iotex-core/v2/ioctl/newcmd/account"
+	"github.com/iotexproject/iotex-core/v2/ioctl/newcmd/bc"
+	"github.com/iotexproject/iotex-core/v2/ioctl/util"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 // Multi-language support
@@ -265,10 +265,10 @@ func gasPriceInRau(client ioctl.Client, gasPrice string) (*big.Int, error) {
 	return new(big.Int).SetUint64(rsp.GasPrice), nil
 }
 
-func fixGasLimit(client ioctl.Client, caller string, execution *action.Execution) (*action.Execution, error) {
+func fixGasLimit(client ioctl.Client, caller string, execution *action.Execution) (uint64, error) {
 	cli, err := client.APIServiceClient()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to connect to endpoint")
+		return 0, errors.Wrap(err, "failed to connect to endpoint")
 	}
 
 	ctx := context.Background()
@@ -284,9 +284,9 @@ func fixGasLimit(client ioctl.Client, caller string, execution *action.Execution
 			CallerAddress: caller,
 		})
 	if err != nil {
-		return nil, handleClientRequestError(err, "EstimateActionGasConsumption")
+		return 0, handleClientRequestError(err, "EstimateActionGasConsumption")
 	}
-	return action.NewExecution(execution.Contract(), execution.Nonce(), execution.Amount(), res.Gas, execution.GasPrice(), execution.Data())
+	return res.Gas, nil
 }
 
 // SendRaw sends raw action to blockchain
@@ -412,16 +412,12 @@ func Execute(client ioctl.Client,
 	if err != nil {
 		return errors.Wrap(err, "failed to get nonce")
 	}
-	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
-	if err != nil || tx == nil {
-		return errors.Wrap(err, "failed to make a Execution instance")
-	}
+	tx := action.NewExecution(contract, amount, bytecode)
 	if gasLimit == 0 {
-		tx, err = fixGasLimit(client, sender, tx)
-		if err != nil || tx == nil {
+		gasLimit, err = fixGasLimit(client, sender, tx)
+		if err != nil {
 			return errors.Wrap(err, "failed to fix Execution gas limit")
 		}
-		gasLimit = tx.GasLimit()
 	}
 	return SendAction(
 		client,

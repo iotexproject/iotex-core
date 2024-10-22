@@ -19,13 +19,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
-	apitypes "github.com/iotexproject/iotex-core/api/types"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
-	mock_apitypes "github.com/iotexproject/iotex-core/test/mock/mock_apiresponder"
+	"github.com/iotexproject/iotex-core/v2/action"
+	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/pkg/version"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_apicoreservice"
+	mock_apitypes "github.com/iotexproject/iotex-core/v2/test/mock/mock_apiresponder"
 )
 
 func TestGrpcServer_GetAccount(t *testing.T) {
@@ -358,6 +358,9 @@ func TestGrpcServer_StreamBlocks(t *testing.T) {
 			}()
 			return "", nil
 		})
+		listener.EXPECT().RemoveResponder(gomock.Any()).DoAndReturn(func(string) (bool, error) {
+			return true, nil
+		})
 		core.EXPECT().ChainListener().Return(listener)
 		err := grpcSvr.StreamBlocks(&iotexapi.StreamBlocksRequest{}, nil)
 		require.NoError(err)
@@ -389,6 +392,9 @@ func TestGrpcServer_StreamLogs(t *testing.T) {
 				g.errChan <- nil
 			}()
 			return "", nil
+		})
+		listener.EXPECT().RemoveResponder(gomock.Any()).DoAndReturn(func(string) (bool, error) {
+			return true, nil
 		})
 		core.EXPECT().ChainListener().Return(listener)
 		err := grpcSvr.StreamLogs(&iotexapi.StreamLogsRequest{Filter: &iotexapi.LogsFilter{}}, nil)
