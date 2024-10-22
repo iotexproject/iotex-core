@@ -3,7 +3,7 @@ package mptrie
 import (
 	"testing"
 
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )

@@ -26,13 +26,13 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-core/action"
-	rewardingabi "github.com/iotexproject/iotex-core/action/protocol/rewarding/ethabi"
-	stakingabi "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi"
-	apitypes "github.com/iotexproject/iotex-core/api/types"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/tracer"
-	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
+	"github.com/iotexproject/iotex-core/v2/action"
+	rewardingabi "github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/ethabi"
+	stakingabi "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi"
+	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/addrutil"
 )
 
 const (

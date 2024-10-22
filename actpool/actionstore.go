@@ -10,11 +10,12 @@ import (
 	"github.com/holiman/billy"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 const (
@@ -68,9 +69,18 @@ var (
 	errStoreNotOpen = fmt.Errorf("blob store is not open")
 )
 
-var defaultActionStoreConfig = actionStoreConfig{
-	Datadir: "actionstore",
-	Datacap: 1024 * 1024 * 1024,
+var (
+	actionStoreMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_actionstore",
+			Help: "ActionStore statistics",
+		},
+		[]string{"message"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(actionStoreMtc)
 }
 
 func newActionStore(cfg actionStoreConfig, encode encodeAction, decode decodeAction) (*actionStore, error) {
@@ -93,6 +103,7 @@ func (s *actionStore) Open(onData onAction) error {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return errors.Wrap(err, "failed to create blob store directory")
 	}
+	actionStoreMtc.WithLabelValues("size").Set(0)
 	// Index all transactions on disk and delete anything inprocessable
 	var fails []uint64
 	index := func(id uint64, size uint32, blob []byte) {
@@ -108,6 +119,7 @@ func (s *actionStore) Open(onData onAction) error {
 			return
 		}
 		s.stored += uint64(size)
+		actionStoreMtc.WithLabelValues("size").Set(float64(s.stored))
 		h, _ := act.Hash()
 		s.lookup[h] = id
 	}
@@ -176,6 +188,7 @@ func (s *actionStore) Put(act *action.SealedEnvelope) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to encode action")
 	}
+	toDelete, hasBlobToDelete := s.evict()
 	id, err := s.store.Put(blob)
 	if err != nil {
 		return errors.Wrap(err, "failed to put blob into store")
@@ -184,8 +197,13 @@ func (s *actionStore) Put(act *action.SealedEnvelope) error {
 	s.lookup[h] = id
 	// if the datacap is exceeded, remove old data
 	if s.stored > s.config.Datacap {
-		s.drop()
+		if !hasBlobToDelete {
+			log.L().Debug("no worst action found")
+		} else {
+			s.drop(toDelete)
+		}
 	}
+	actionStoreMtc.WithLabelValues("size").Set(float64(s.stored))
 	return nil
 }
 
@@ -205,6 +223,7 @@ func (s *actionStore) Delete(hash hash.Hash256) error {
 	}
 	delete(s.lookup, hash)
 	s.stored -= uint64(s.store.Size(id))
+	actionStoreMtc.WithLabelValues("size").Set(float64(s.stored))
 	return nil
 }
 
@@ -223,12 +242,7 @@ func (s *actionStore) Range(fn func(hash.Hash256) bool) {
 	}
 }
 
-func (s *actionStore) drop() {
-	h, ok := s.evict()
-	if !ok {
-		log.L().Debug("no worst action found")
-		return
-	}
+func (s *actionStore) drop(h hash.Hash256) {
 	id, ok := s.lookup[h]
 	if !ok {
 		log.L().Warn("worst action not found in lookup", zap.String("hash", hex.EncodeToString(h[:])))
@@ -239,7 +253,6 @@ func (s *actionStore) drop() {
 	}
 	s.stored -= uint64(s.store.Size(id))
 	delete(s.lookup, h)
-	return
 }
 
 // TODO: implement a proper eviction policy

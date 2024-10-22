@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 )
 
 func VerifyEIP1559Header(g genesis.Blockchain, parent *TipInfo, header blockHeader) error {

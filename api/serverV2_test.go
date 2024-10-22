@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
 
-	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_apicoreservice"
+	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 func TestServerV2(t *testing.T) {

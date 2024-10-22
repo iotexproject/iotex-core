@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/endorsement"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/endorsement"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 func TestEndorserEndorsementCollection(t *testing.T) {

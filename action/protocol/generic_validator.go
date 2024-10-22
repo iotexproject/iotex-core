@@ -12,9 +12,10 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 type (
@@ -93,6 +94,10 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 		}
 		if ok && !featureCtx.EnableBlobTransaction && selp.TxType() == action.BlobTxType {
 			return errors.Wrap(action.ErrInvalidAct, "blob tx is not enabled")
+		}
+		if ok && featureCtx.EnableNewTxTypes && selp.TxType() != action.LegacyTxType &&
+			selp.Encoding() == uint32(iotextypes.Encoding_IOTEX_PROTOBUF) {
+			return errors.Wrap(action.ErrInvalidAct, "protobuf encoding only supports legacy tx")
 		}
 		if ok && featureCtx.EnableDynamicFeeTx {
 			// check transaction's max fee can cover base fee

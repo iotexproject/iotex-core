@@ -10,7 +10,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/v2/action"
 )
 
 type (

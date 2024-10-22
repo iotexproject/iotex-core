@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	trie "github.com/iotexproject/iotex-core/db/trie"
+	trie "github.com/iotexproject/iotex-core/v2/db/trie"
 )
 
 // MockIterator is a mock of Iterator interface.

@@ -20,16 +20,16 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/actpool/actioniterator"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/v2/actpool"
+	"github.com/iotexproject/iotex-core/v2/actpool/actioniterator"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 var (
@@ -175,6 +175,10 @@ func (ws *workingSet) runAction(
 				return nil, errors.Wrap(errUnfoldTxContainer, err.Error())
 			}
 		}
+	}
+	// verify the tx is not container format (unfolded correctly)
+	if fCtx.VerifyNotContainerBeforeRun && selp.Encoding() == uint32(iotextypes.Encoding_TX_CONTAINER) {
+		return nil, errors.Wrap(action.ErrInvalidAct, "cannot run tx container without unfolding")
 	}
 	// for replay tx, check against deployer whitelist
 	g := genesis.MustExtractGenesisContext(ctx)
@@ -526,11 +530,13 @@ func (ws *workingSet) processWithCorrectOrder(ctx context.Context, actions []*ac
 			return errors.Wrap(err, "error when run action")
 		}
 		receipts = append(receipts, receipt)
-		blkCtx.GasLimit -= receipt.GasConsumed
-		if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
-			(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
+		if !action.IsSystemAction(act) {
+			blkCtx.GasLimit -= receipt.GasConsumed
+			if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
+				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
+			}
+			ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 		}
-		ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 	}
 	if fCtx.CorrectTxLogIndex {
 		updateReceiptIndex(receipts)
@@ -663,9 +669,8 @@ func (ws *workingSet) pickAndRunActions(
 			if fCtx.UnfoldContainerBeforeValidate {
 				if container, ok := nextAction.Envelope.(action.TxContainer); ok {
 					if err := container.Unfold(nextAction, ctx, ws.checkContract); err != nil {
-						if caller := nextAction.SenderAddress(); caller != nil {
-							ap.DeleteAction(caller)
-						}
+						log.L().Debug("failed to unfold tx container", zap.Uint64("height", ws.height), zap.Error(err))
+						ap.DeleteAction(nextAction.SenderAddress())
 						actionIterator.PopAccount()
 						continue
 					}
@@ -681,11 +686,12 @@ func (ws *workingSet) pickAndRunActions(
 					}
 				}
 			}
+			caller := nextAction.SenderAddress()
 			if err != nil {
-				caller := nextAction.SenderAddress()
 				if caller == nil {
 					return nil, errors.New("failed to get address")
 				}
+				log.L().Debug("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
 				ap.DeleteAction(caller)
 				actionIterator.PopAccount()
 				continue
@@ -698,15 +704,12 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			case action.ErrChainID, errUnfoldTxContainer, errDeployerNotWhitelisted:
-				if caller := nextAction.SenderAddress(); caller != nil {
-					ap.DeleteAction(caller)
-				}
+				log.L().Debug("runAction() failed", zap.Uint64("height", ws.height), zap.Error(err))
+				ap.DeleteAction(caller)
 				actionIterator.PopAccount()
 				continue
 			default:
-				if caller := nextAction.SenderAddress(); caller != nil {
-					ap.DeleteAction(caller)
-				}
+				ap.DeleteAction(caller)
 				actionIterator.PopAccount()
 				nextActionHash, hashErr := nextAction.Hash()
 				if hashErr != nil {

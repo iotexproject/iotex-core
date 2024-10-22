@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/sha3"
 
-	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 )
 
 // IONode hash for io

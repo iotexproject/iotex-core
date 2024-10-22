@@ -11,7 +11,7 @@ import (
 
 	"github.com/facebookgo/clock"
 
-	"github.com/iotexproject/iotex-core/pkg/routine"
+	"github.com/iotexproject/iotex-core/v2/pkg/routine"
 )
 
 // ActQueueOption is the option for actQueue.

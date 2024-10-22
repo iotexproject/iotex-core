@@ -9,9 +9,9 @@ import (
 
 	"go.uber.org/zap"
 
-	apitypes "github.com/iotexproject/iotex-core/api/types"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/httputil"
+	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/httputil"
 )
 
 type (

@@ -1,7 +1,7 @@
 package consensus
 
 import (
-	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/consensus/scheme/rolldpos"
 )
 
 const (

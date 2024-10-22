@@ -8,8 +8,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
+	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/tools/executiontester/blockchain"
 )
 
 const (

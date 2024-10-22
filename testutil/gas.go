@@ -8,7 +8,7 @@ package testutil
 import (
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 )
 
 // TestGasLimit represents the gas limit used for test actions

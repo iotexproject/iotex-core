@@ -6,8 +6,8 @@
 package factory
 
 import (
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 // historyStateReader implements state reader interface, wrap factory with archive height

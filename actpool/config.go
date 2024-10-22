@@ -4,8 +4,8 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 )
 
 var (
@@ -57,9 +57,4 @@ func (ap Config) MinGasPrice() *big.Int {
 type StoreConfig struct {
 	Store        actionStoreConfig `yaml:"store"`
 	ReadInterval time.Duration     `yaml:"readInterval"` // Interval to read from store to actpool memory
-}
-
-var defaultStoreConfig = StoreConfig{
-	Store:        defaultActionStoreConfig,
-	ReadInterval: 10 * time.Minute,
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/action"
 )
 
 func readContract(

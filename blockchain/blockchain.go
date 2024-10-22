@@ -20,15 +20,16 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/blockchain/filedao"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 )
 
 // const
@@ -512,6 +513,12 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", blkHash[:]))
 	}
 	_blockMtc.WithLabelValues("numActions").Set(float64(len(blk.Actions)))
+	if blk.BaseFee() != nil {
+		basefeeQev := new(big.Int).Div(blk.BaseFee(), big.NewInt(unit.Qev))
+		_blockMtc.WithLabelValues("baseFee").Set(float64(basefeeQev.Int64()))
+	}
+	_blockMtc.WithLabelValues("excessBlobGas").Set(float64(blk.ExcessBlobGas()))
+	_blockMtc.WithLabelValues("blobGasUsed").Set(float64(blk.BlobGasUsed()))
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
 	return nil

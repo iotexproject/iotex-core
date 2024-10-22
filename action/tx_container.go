@@ -6,6 +6,7 @@
 package action
 
 import (
+	"bytes"
 	"context"
 	"math/big"
 
@@ -179,6 +180,22 @@ func (etx *txContainer) LoadProto(pbAct *iotextypes.ActionCore) error {
 }
 
 func (etx *txContainer) Unfold(selp *SealedEnvelope, ctx context.Context, checker func(context.Context, *common.Address) (bool, bool, bool, error)) error {
+	if etx.chainID != selp.ChainID() {
+		return errors.Wrapf(ErrInvalidAct, "Unfold() expect chainID = %d, got chainID = %d", etx.chainID, selp.ChainID())
+	}
+	if selp.Encoding() != uint32(iotextypes.Encoding_TX_CONTAINER) {
+		return errors.Wrapf(ErrInvalidAct, "Unfold() expect encoding = %d, got encoding = %d", iotextypes.Encoding_TX_CONTAINER, selp.Encoding())
+	}
+	_, sig, pubkey, err := ExtractTypeSigPubkey(etx.tx)
+	if err != nil {
+		return errors.Wrap(err, "Unfold() failed to extract sig and pubkey")
+	}
+	if !bytes.Equal(sig, selp.signature) {
+		return errors.Wrapf(ErrInvalidAct, "Unfold() expect sig = %x, got sig = %x", sig, selp.signature)
+	}
+	if !bytes.Equal(pubkey.Hash(), selp.srcPubkey.Hash()) {
+		return errors.Wrapf(ErrInvalidAct, "Unfold() expect sender = %x, got sender = %x", pubkey.Hash(), selp.srcPubkey.Hash())
+	}
 	var (
 		elp        Envelope
 		elpBuilder = (&EnvelopeBuilder{}).SetChainID(selp.ChainID())
@@ -240,17 +257,21 @@ func (etx *txContainer) SetChainID(chainID uint32) {
 }
 
 func (etx *txContainer) SanityCheck() error {
-	// Reject execution of negative amount
+	var (
+		tipCap = etx.tx.GasTipCap()
+		feeCap = etx.tx.GasFeeCap()
+	)
+	if tipCap == nil || feeCap == nil {
+		return ErrMissRequiredField
+	}
 	if etx.tx.Value().Sign() < 0 {
 		return errors.Wrap(ErrNegativeValue, "negative value")
 	}
-	if price := etx.tx.GasPrice(); price != nil && price.Sign() < 0 {
-		return errors.Wrap(ErrNegativeValue, "negative gas price")
-	}
-	if tipCap := etx.tx.GasTipCap(); tipCap != nil && tipCap.Sign() < 0 {
+	if tipCap.Sign() < 0 {
 		return errors.Wrap(ErrNegativeValue, "negative gas tip cap")
 	}
-	if feeCap := etx.tx.GasFeeCap(); feeCap != nil && feeCap.Sign() < 0 {
+	if feeCap.Sign() < 0 {
+		// gas price is same as fee cap
 		return errors.Wrap(ErrNegativeValue, "negative gas fee cap")
 	}
 	switch etx.tx.Type() {
@@ -264,10 +285,6 @@ func (etx *txContainer) SanityCheck() error {
 		}
 		fallthrough
 	case types.DynamicFeeTxType:
-		var (
-			feeCap = etx.tx.GasFeeCap()
-			tipCap = etx.tx.GasTipCap()
-		)
 		if feeCap.Cmp(tipCap) < 0 {
 			return ErrGasTipOverFeeCap
 		}

@@ -42,34 +42,34 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/actpool"
-	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
-	apitypes "github.com/iotexproject/iotex-core/api/types"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/blockchain/filedao"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/blockindex"
-	"github.com/iotexproject/iotex-core/blocksync"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/gasstation"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	batch "github.com/iotexproject/iotex-core/pkg/messagebatcher"
-	"github.com/iotexproject/iotex-core/pkg/tracer"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/server/itx/nodestats"
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/actpool"
+	logfilter "github.com/iotexproject/iotex-core/v2/api/logfilter"
+	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/blockindex"
+	"github.com/iotexproject/iotex-core/v2/blocksync"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/gasstation"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	batch "github.com/iotexproject/iotex-core/v2/pkg/messagebatcher"
+	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/version"
+	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory"
 )
 
 const _workerNumbers int = 5
@@ -1122,6 +1122,9 @@ func (core *coreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvel
 	blk, err := core.dao.GetBlockByHeight(actIndex.BlockHeight())
 	if err != nil {
 		return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
+	}
+	if actIndex.TxNumber() > 0 {
+		return blk.Actions[actIndex.TxNumber()-1], blk, actIndex.TxNumber() - 1, nil
 	}
 	selp, index, err := blk.ActionByHash(h)
 	if err != nil {

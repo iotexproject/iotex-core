@@ -11,7 +11,7 @@ import (
 
 	"github.com/facebookgo/clock"
 
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 )
 
 var _ lifecycle.StartStopper = (*DelayTask)(nil)

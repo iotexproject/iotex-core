@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 
-	apitypes "github.com/iotexproject/iotex-core/api/types"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 const (
