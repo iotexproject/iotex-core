@@ -328,17 +328,18 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 			store = blockdao.NewGrpcBlockDAO(uri.Host, uri.Query().Get("insecure") == "true", block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
 		case "file", "":
 			dbConfig := cfg.DB
-			if bsPath := cfg.Chain.BlobStoreDBPath; len(bsPath) > 0 {
-				blocksPerHour := time.Hour / cfg.DardanellesUpgrade.BlockInterval
-				dbConfig.DbPath = bsPath
-				blobStore = blockdao.NewBlobStore(db.NewBoltDB(dbConfig),
-					uint64(blocksPerHour)*uint64(cfg.Chain.BlobStoreRetentionDays)*24, cfg.Chain.BlobPurgeInterval)
-				opts = append(opts, blockdao.WithBlobStore(blobStore))
-			}
 			dbConfig.DbPath = uri.Path
 			store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
 		default:
 			return errors.Errorf("unsupported blockdao scheme %s", uri.Scheme)
+		}
+		dbConfig := cfg.DB
+		if bsPath := cfg.Chain.BlobStoreDBPath; len(bsPath) > 0 {
+			blocksPerHour := time.Hour / cfg.DardanellesUpgrade.BlockInterval
+			dbConfig.DbPath = bsPath
+			blobStore = blockdao.NewBlobStore(db.NewBoltDB(dbConfig),
+				uint64(blocksPerHour)*uint64(cfg.Chain.BlobStoreRetentionDays)*24, cfg.Chain.BlobPurgeInterval)
+			opts = append(opts, blockdao.WithBlobStore(blobStore))
 		}
 	}
 	if err != nil {
