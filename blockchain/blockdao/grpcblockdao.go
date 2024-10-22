@@ -36,6 +36,8 @@ type GrpcBlockDAO struct {
 var (
 	// ErrRemoteHeightTooLow is the error that remote height is too low
 	ErrRemoteHeightTooLow = fmt.Errorf("remote height is too low")
+	// ErrAlreadyExist is the error that block already exists
+	ErrAlreadyExist = fmt.Errorf("block already exists")
 )
 
 func NewGrpcBlockDAO(
@@ -176,7 +178,7 @@ func (gbd *GrpcBlockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	localHeight := gbd.localHeight.Load()
 	switch {
 	case blk.Height() <= localHeight:
-		return errors.Errorf("block height %d is less than or equal to local height %d", blk.Height(), localHeight)
+		return errors.Wrapf(ErrAlreadyExist, "block height %d, local height %d", blk.Height(), localHeight)
 	case blk.Height() > localHeight+1:
 		return errors.Errorf("block height %d is larger than local height %d + 1", blk.Height(), localHeight)
 	}
