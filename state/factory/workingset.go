@@ -52,20 +52,23 @@ func init() {
 
 type (
 	workingSet struct {
-		height    uint64
-		store     workingSetStore
-		finalized bool
-		dock      protocol.Dock
-		receipts  []*action.Receipt
+		height      uint64
+		store       workingSetStore
+		finalized   bool
+		dock        protocol.Dock
+		txValidator *protocol.GenericValidator
+		receipts    []*action.Receipt
 	}
 )
 
 func newWorkingSet(height uint64, store workingSetStore) *workingSet {
-	return &workingSet{
+	ws := &workingSet{
 		height: height,
 		store:  store,
 		dock:   protocol.NewDock(),
 	}
+	ws.txValidator = protocol.NewGenericValidator(ws, accountutil.AccountState)
+	return ws
 }
 
 func (ws *workingSet) digest() (hash.Hash256, error) {
@@ -514,6 +517,11 @@ func (ws *workingSet) processWithCorrectOrder(ctx context.Context, actions []*ac
 		fCtx                = protocol.MustGetFeatureCtx(ctx)
 	)
 	for _, act := range actions {
+		if fCtx.ValidateActionWithState {
+			if err := ws.txValidator.ValidateWithState(ctxWithBlockContext, act); err != nil {
+				return err
+			}
+		}
 		actionCtx, err := withActionCtx(ctxWithBlockContext, act)
 		if err != nil {
 			return err
@@ -674,6 +682,14 @@ func (ws *workingSet) pickAndRunActions(
 						actionIterator.PopAccount()
 						continue
 					}
+				}
+			}
+			if fCtx.ValidateActionWithState {
+				if err := ws.txValidator.ValidateWithState(ctxWithBlockContext, nextAction); err != nil {
+					log.L().Debug("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
+					ap.DeleteAction(nextAction.SenderAddress())
+					actionIterator.PopAccount()
+					continue
 				}
 			}
 			actionCtx, err := withActionCtx(ctxWithBlockContext, nextAction)

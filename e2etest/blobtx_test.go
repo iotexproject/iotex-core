@@ -131,12 +131,11 @@ func TestBlobTx(t *testing.T) {
 		{
 			name: "blobfee too low",
 			act: &actionWithTime{
-				mustNoErr(newBlobTxWeb3(test.nonceMgr[sender], sender, big.NewInt(1), uint256.NewInt(0), sidecar, []common.Hash{{}})),
+				mustNoErr(newBlobTxWeb3(test.nonceMgr[sender], sender, big.NewInt(1), uint256.NewInt(0), sidecar, sidecar.BlobHashes())),
 				time.Now(),
 			},
 			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
-				r.ErrorIs(err, action.ErrUnderpriced)
-				r.ErrorContains(err, "blob fee cap is too low")
+				r.ErrorIs(err, errReceiptNotFound)
 			}}},
 		},
 		{
