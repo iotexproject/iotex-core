@@ -569,8 +569,6 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	if err != nil {
 		return "", nil, status.Error(codes.Internal, err.Error())
 	}
-	// ReadContract() is read-only, if no error returned, we consider it a success
-	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
 	res := iotexapi.ReadContractResponse{
 		Data:    hex.EncodeToString(retval),
 		Receipt: receipt.ConvertToReceiptPb(),
