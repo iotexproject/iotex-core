@@ -24,6 +24,11 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
+	"github.com/iotexproject/iotex-election/types"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -48,10 +53,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_envelope"
 	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
-	"github.com/iotexproject/iotex-election/types"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func TestLogsInRange(t *testing.T) {
@@ -492,7 +493,7 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
 
-		_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+		_, _, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
 		require.ErrorContains(err, t.Name())
 	})
 
@@ -522,7 +523,7 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
 		bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
 
-		_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+		_, _, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
 		require.ErrorContains(err, t.Name())
 	})
 
@@ -556,7 +557,7 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 			bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
 			bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
 
-			_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+			_, _, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
 			require.ErrorContains(err, "execution simulation failed:")
 		})
 
@@ -589,7 +590,7 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 			bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(2)
 			bc.EXPECT().TipHeight().Return(uint64(0)).Times(2)
 
-			_, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
+			_, _, err := cs.EstimateExecutionGasConsumption(ctx, &action.Execution{}, &address.AddrV1{})
 			require.ErrorContains(err, "execution simulation is reverted due to the reason:")
 		})
 	})
@@ -604,13 +605,13 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 
 		//gasprice is zero
 		sc.SetGasPrice(big.NewInt(0))
-		estimatedGas, err := svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
+		estimatedGas, _, err := svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
 		require.NoError(err)
 		require.Equal(uint64(10000), estimatedGas)
 
 		//gasprice no zero, should return error before fixed
 		sc.SetGasPrice(big.NewInt(100))
-		estimatedGas, err = svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
+		estimatedGas, _, err = svr.EstimateExecutionGasConsumption(context.Background(), sc, callAddr)
 		require.NoError(err)
 		require.Equal(uint64(10000), estimatedGas)
 	})
