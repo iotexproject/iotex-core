@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 func TestCandidateTransferOwnership(t *testing.T) {

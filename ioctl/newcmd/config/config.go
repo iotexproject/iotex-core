@@ -20,10 +20,10 @@ import (
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v2"
 
-	serverCfg "github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/validator"
+	serverCfg "github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl"
+	"github.com/iotexproject/iotex-core/v2/ioctl/config"
+	"github.com/iotexproject/iotex-core/v2/ioctl/validator"
 )
 
 // Regexp patterns

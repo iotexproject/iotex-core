@@ -17,8 +17,8 @@ import (
 	"go.uber.org/config"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type (

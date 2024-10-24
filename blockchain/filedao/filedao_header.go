@@ -11,8 +11,8 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
-	"github.com/iotexproject/iotex-core/blockchain/filedao/headerpb"
-	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/v2/blockchain/filedao/headerpb"
+	"github.com/iotexproject/iotex-core/v2/db"
 )
 
 // constants

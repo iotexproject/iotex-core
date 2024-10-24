@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/addrutil"
 )
 
 // ErrInvalidArg indicates argument is invalid

@@ -17,12 +17,12 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
 )
 
 const (
@@ -231,7 +231,7 @@ func TestActQueueCleanTimeout(t *testing.T) {
 // using the heap.Init and the heap.Remove after remove some elements.
 // The bench result show that the performance of heap.Init is better than heap.Remove
 // in the most cases.
-// More detail to see the discusses in https://github.com/iotexproject/iotex-core/pull/3013
+// More detail to see the discusses in https://github.com/iotexproject/iotex-core/v2/pull/3013
 func BenchmarkHeapInitAndRemove(b *testing.B) {
 	const batch = 20
 	testIndex := ascNoncePriorityQueue{}

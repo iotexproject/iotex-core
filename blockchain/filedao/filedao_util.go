@@ -16,7 +16,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
-	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/v2/db"
 )
 
 func readFileHeader(filename, fileType string) (*FileHeader, error) {

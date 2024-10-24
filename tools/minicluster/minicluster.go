@@ -25,21 +25,21 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/probe"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
-	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-core/tools/executiontester/assetcontract"
-	bc "github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
-	"github.com/iotexproject/iotex-core/tools/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/probe"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/fileutil"
+	"github.com/iotexproject/iotex-core/v2/server/itx"
+	"github.com/iotexproject/iotex-core/v2/state/factory"
+	"github.com/iotexproject/iotex-core/v2/testutil"
+	"github.com/iotexproject/iotex-core/v2/tools/executiontester/assetcontract"
+	bc "github.com/iotexproject/iotex-core/v2/tools/executiontester/blockchain"
+	"github.com/iotexproject/iotex-core/v2/tools/util"
 )
 
 const (
@@ -93,6 +93,8 @@ func main() {
 		dbFilePaths = append(dbFilePaths, indexDBPath)
 		bloomfilterIndexDBPath := fmt.Sprintf("./bloomfilter.index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, bloomfilterIndexDBPath)
+		contractStakingIndexDBPath := fmt.Sprintf("./contractstaking.index%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, contractStakingIndexDBPath)
 		consensusDBPath := fmt.Sprintf("./consensus%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, consensusDBPath)
 		systemLogDBPath := fmt.Sprintf("./systemlog%d.db", i+1)
@@ -113,6 +115,7 @@ func main() {
 		config.Chain.CandidateIndexDBPath = candidateIndexDBPath
 		config.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
 		config.System.SystemLogDBPath = systemLogDBPath
+		config.Chain.ContractStakingIndexDBPath = contractStakingIndexDBPath
 		if i == 0 {
 			config.Network.BootstrapNodes = []string{}
 			config.Network.MasterKey = "bootnode"

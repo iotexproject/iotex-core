@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/stretchr/testify/require"
 )
 

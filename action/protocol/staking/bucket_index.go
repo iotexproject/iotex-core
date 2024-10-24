@@ -11,7 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 )
 
 type (

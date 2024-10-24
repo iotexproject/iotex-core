@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	block "github.com/iotexproject/iotex-core/blockchain/block"
+	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 )
 

@@ -4,7 +4,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 // NamespaceOption creates an option for given namesapce

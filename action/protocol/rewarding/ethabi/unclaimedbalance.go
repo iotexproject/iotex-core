@@ -10,8 +10,8 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	proto "github.com/iotexproject/iotex-proto/golang/protocol"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/abiutil"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/abiutil"
 )
 
 const _unclaimedBalanceInterfaceABI = `[

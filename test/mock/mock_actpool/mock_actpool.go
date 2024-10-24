@@ -11,8 +11,8 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	address "github.com/iotexproject/iotex-address/address"
-	action "github.com/iotexproject/iotex-core/action"
-	block "github.com/iotexproject/iotex-core/blockchain/block"
+	action "github.com/iotexproject/iotex-core/v2/action"
+	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
 
 // MockActPool is a mock of ActPool interface.

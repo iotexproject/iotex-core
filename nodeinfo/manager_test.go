@@ -12,7 +12,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-core/test/mock/mock_nodeinfo"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_nodeinfo"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/libp2p/go-libp2p-core/peer"
 	dto "github.com/prometheus/client_model/go"

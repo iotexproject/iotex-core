@@ -12,7 +12,7 @@ import (
 
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	gomock "github.com/golang/mock/gomock"
-	config "github.com/iotexproject/iotex-core/ioctl/config"
+	config "github.com/iotexproject/iotex-core/v2/ioctl/config"
 	iotexapi "github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 

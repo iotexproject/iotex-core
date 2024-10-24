@@ -10,8 +10,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
-	action "github.com/iotexproject/iotex-core/action"
-	block "github.com/iotexproject/iotex-core/blockchain/block"
+	action "github.com/iotexproject/iotex-core/v2/action"
+	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 

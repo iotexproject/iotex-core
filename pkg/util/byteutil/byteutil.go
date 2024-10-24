@@ -8,7 +8,7 @@ package byteutil
 import (
 	"encoding/binary"
 
-	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/iotexproject/iotex-core/v2/pkg/enc"
 )
 
 // Uint32ToBytes converts a uint32 to 4 bytes in little-endian
