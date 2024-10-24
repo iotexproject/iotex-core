@@ -93,6 +93,21 @@ func (mr *MockContractStakingIndexerMockRecorder) ContractAddress() *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractAddress", reflect.TypeOf((*MockContractStakingIndexer)(nil).ContractAddress))
 }
 
+// Height mocks base method.
+func (m *MockContractStakingIndexer) Height() (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Height indicates an expected call of Height.
+func (mr *MockContractStakingIndexerMockRecorder) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockContractStakingIndexer)(nil).Height))
+}
+
 // TotalBucketCount mocks base method.
 func (m *MockContractStakingIndexer) TotalBucketCount(height uint64) (uint64, error) {
 	m.ctrl.T.Helper()
@@ -203,6 +218,21 @@ func (m *MockContractStakingIndexerWithBucketType) ContractAddress() string {
 func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) ContractAddress() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractAddress", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).ContractAddress))
+}
+
+// Height mocks base method.
+func (m *MockContractStakingIndexerWithBucketType) Height() (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Height indicates an expected call of Height.
+func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).Height))
 }
 
 // TotalBucketCount mocks base method.
