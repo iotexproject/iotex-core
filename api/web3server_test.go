@@ -359,7 +359,7 @@ func TestCall(t *testing.T) {
 
 	t.Run("revert call", func(t *testing.T) {
 		receipt := &iotextypes.Receipt{
-			Status:             0,
+			Status:             uint64(iotextypes.ReceiptStatus_ErrExecutionReverted),
 			BlkHeight:          0,
 			ActHash:            nil,
 			GasConsumed:        0,
