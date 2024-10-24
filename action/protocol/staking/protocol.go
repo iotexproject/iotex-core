@@ -303,7 +303,10 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	if p.candBucketsIndexer == nil {
 		return nil
 	}
-	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
+	if rp == nil {
+		return nil
+	}
 	currentEpochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	if currentEpochNum == 0 {
 		return nil

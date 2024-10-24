@@ -48,8 +48,10 @@ func (c *compositeStakingStateReader) readStateBuckets(ctx context.Context, req 
 	if err != nil {
 		return nil, 0, err
 	}
-	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
+	epochStartHeight := inputHeight
+	if rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx)); rp != nil {
+		epochStartHeight = rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
+	}
 
 	var (
 		buckets *iotextypes.VoteBucketList
@@ -216,8 +218,10 @@ func (c *compositeStakingStateReader) readStateCandidates(ctx context.Context, r
 	if err != nil {
 		return nil, 0, err
 	}
-	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
+	epochStartHeight := inputHeight
+	if rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx)); rp != nil {
+		epochStartHeight = rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
+	}
 
 	// read native candidates
 	var (
