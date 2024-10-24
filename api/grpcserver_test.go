@@ -596,7 +596,7 @@ func TestGrpcServer_EstimateActionGasConsumption(t *testing.T) {
 	}
 
 	t.Run("Execution is not nil", func(t *testing.T) {
-		core.EXPECT().EstimateExecutionGasConsumption(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint64(10100), nil)
+		core.EXPECT().EstimateExecutionGasConsumption(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint64(10100), nil, nil)
 		request.Action = &iotexapi.EstimateActionGasConsumptionRequest_Execution{
 			Execution: &iotextypes.Execution{
 				Data: _executionHash1[:],

@@ -511,8 +511,8 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 				ctx context.Context,
 				caller address.Address,
 				sc *action.Execution,
-			) (bool, *action.Receipt, error) {
-				return false, nil, errors.New(t.Name())
+			) (bool, *action.Receipt, []byte, error) {
+				return false, nil, nil, errors.New(t.Name())
 			},
 		)
 
@@ -538,8 +538,8 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 					ctx context.Context,
 					caller address.Address,
 					sc *action.Execution,
-				) (bool, *action.Receipt, error) {
-					return false, receipt, nil
+				) (bool, *action.Receipt, []byte, error) {
+					return false, receipt, nil, nil
 				},
 			)
 			p = p.ApplyMethodReturn(receipt, "ExecutionRevertMsg", "")
@@ -555,7 +555,9 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 			p := NewPatches()
 			defer p.Reset()
 
-			receipt := &action.Receipt{}
+			receipt := &action.Receipt{
+				Status: uint64(iotextypes.ReceiptStatus_ErrExecutionReverted),
+			}
 			p = p.ApplyFuncReturn(accountutil.AccountState, &state.Account{}, nil)
 			p = p.ApplyMethodReturn(&genesis.Blockchain{}, "BlockGasLimitByHeight", uint64(0))
 			p = p.ApplyPrivateMethod(
@@ -565,8 +567,8 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 					ctx context.Context,
 					caller address.Address,
 					sc *action.Execution,
-				) (bool, *action.Receipt, error) {
-					return false, receipt, nil
+				) (bool, *action.Receipt, []byte, error) {
+					return false, receipt, nil, nil
 				},
 			)
 			p = p.ApplyMethodReturn(receipt, "ExecutionRevertMsg", "TestRevertMsg")
