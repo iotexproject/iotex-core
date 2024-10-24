@@ -393,7 +393,7 @@ func TestEstimateGas(t *testing.T) {
 
 	t.Run("estimate execution", func(t *testing.T) {
 		core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{IsContract: true}, nil, nil)
-		core.EXPECT().EstimateExecutionGasConsumption(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint64(11000), nil)
+		core.EXPECT().EstimateExecutionGasConsumption(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint64(11000), nil, nil)
 
 		in := gjson.Parse(`{"params":[{
 			"from":     "",
