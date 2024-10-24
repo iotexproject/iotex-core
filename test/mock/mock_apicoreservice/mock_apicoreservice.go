@@ -306,7 +306,7 @@ func (mr *MockCoreServiceMockRecorder) EpochMeta(epochNum interface{}) *gomock.C
 }
 
 // EstimateExecutionGasConsumption mocks base method.
-func (m *MockCoreService) EstimateExecutionGasConsumption(ctx context.Context, sc action.Envelope, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, error) {
+func (m *MockCoreService) EstimateExecutionGasConsumption(ctx context.Context, sc action.Envelope, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, []byte, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, sc, callerAddr}
 	for _, a := range opts {
@@ -314,8 +314,9 @@ func (m *MockCoreService) EstimateExecutionGasConsumption(ctx context.Context, s
 	}
 	ret := m.ctrl.Call(m, "EstimateExecutionGasConsumption", varargs...)
 	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].([]byte)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // EstimateExecutionGasConsumption indicates an expected call of EstimateExecutionGasConsumption.
@@ -356,12 +357,13 @@ func (mr *MockCoreServiceMockRecorder) EstimateGasForNonExecution(arg0 interface
 }
 
 // EstimateMigrateStakeGasConsumption mocks base method.
-func (m *MockCoreService) EstimateMigrateStakeGasConsumption(arg0 context.Context, arg1 *action.MigrateStake, arg2 address.Address) (uint64, error) {
+func (m *MockCoreService) EstimateMigrateStakeGasConsumption(arg0 context.Context, arg1 *action.MigrateStake, arg2 address.Address) (uint64, []byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EstimateMigrateStakeGasConsumption", arg0, arg1, arg2)
 	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].([]byte)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // EstimateMigrateStakeGasConsumption indicates an expected call of EstimateMigrateStakeGasConsumption.
