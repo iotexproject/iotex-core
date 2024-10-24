@@ -19,6 +19,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/pkg/fastrand"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -163,11 +164,15 @@ func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
 			continue
 		}
 		err := bs.commitBlockHandler(blk.block)
-		if err == nil {
+		switch errors.Cause(err) {
+		case nil:
 			return true
+		case blockdao.ErrRemoteHeightTooLow:
+			log.L().Info("remote height too low", zap.Uint64("height", blk.block.Height()))
+		default:
+			bs.blockP2pPeer(blk.pid)
+			log.L().Error("failed to commit block", zap.Error(err), zap.Uint64("height", blk.block.Height()), zap.String("peer", blk.pid))
 		}
-		bs.blockP2pPeer(blk.pid)
-		log.L().Error("failed to commit block", zap.Error(err), zap.Uint64("height", blk.block.Height()), zap.String("peer", blk.pid))
 	}
 	return false
 }

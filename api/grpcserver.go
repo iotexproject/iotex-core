@@ -41,6 +41,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/api/logfilter"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao/blockdaopb"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/recovery"
 	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
@@ -81,7 +82,7 @@ func RecoveryInterceptor() grpc_recovery.Option {
 }
 
 // NewGRPCServer creates a new grpc server
-func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
+func NewGRPCServer(core CoreService, bds *blockDAOService, grpcPort int) *GRPCServer {
 	if grpcPort == 0 {
 		return nil
 	}
@@ -104,6 +105,9 @@ func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
 	//serviceName: grpc.health.v1.Health
 	grpc_health_v1.RegisterHealthServer(gSvr, health.NewServer())
 	iotexapi.RegisterAPIServiceServer(gSvr, newGRPCHandler(core))
+	if bds != nil {
+		blockdaopb.RegisterBlockDAOServiceServer(gSvr, bds)
+	}
 	grpc_prometheus.EnableHandlingTimeHistogram()
 	grpc_prometheus.Register(gSvr)
 	reflection.Register(gSvr)
