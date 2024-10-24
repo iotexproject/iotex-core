@@ -69,7 +69,7 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 		if len(blk.Actions) == 1 && action.IsSystemAction(blk.Actions[0]) {
 			continue
 		}
-		smallestPrice := blk.Actions[0].GasPrice()
+		smallestPrice := blk.Actions[0].EffectiveGasPrice(blk.BaseFee())
 		for _, receipt := range blk.Receipts {
 			gasConsumed += receipt.GasConsumed
 		}
@@ -77,8 +77,9 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 			if action.IsSystemAction(act) {
 				continue
 			}
-			if smallestPrice.Cmp(act.GasPrice()) == 1 {
-				smallestPrice = act.GasPrice()
+			gasprice := act.EffectiveGasPrice(blk.BaseFee())
+			if smallestPrice.Cmp(gasprice) == 1 {
+				smallestPrice = gasprice
 			}
 		}
 		smallestPrices = append(smallestPrices, smallestPrice)
