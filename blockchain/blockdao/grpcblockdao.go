@@ -131,6 +131,9 @@ func (gbd *GrpcBlockDAO) GetBlock(h hash.Hash256) (*block.Block, error) {
 }
 
 func (gbd *GrpcBlockDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
+	if height == 0 {
+		return block.GenesisBlock(), nil
+	}
 	response, err := gbd.client.GetBlockByHeight(context.Background(), &blockdaopb.BlockHeightRequest{
 		Height: height,
 	})

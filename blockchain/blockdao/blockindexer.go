@@ -67,14 +67,9 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 	if tipHeight > daoTip {
 		return errors.New("indexer tip height cannot by higher than dao tip height")
 	}
-	var tipBlk *block.Block
-	if tipHeight > 0 {
-		tipBlk, err = bic.dao.GetBlockByHeight(tipHeight)
-		if err != nil {
-			return err
-		}
-	} else {
-		tipBlk = block.GenesisBlock()
+	tipBlk, err := bic.dao.GetBlockByHeight(tipHeight)
+	if err != nil {
+		return err
 	}
 	if targetHeight == 0 || targetHeight > daoTip {
 		targetHeight = daoTip

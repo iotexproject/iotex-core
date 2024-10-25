@@ -594,6 +594,9 @@ func (builder *Builder) buildBlockSyncer() error {
 				return err
 			}
 			retries := 1
+			if !builder.cfg.Genesis.IsHawaii(blk.Height()) {
+				retries = 4
+			}
 			var err error
 			opts := []blockchain.BlockValidationOption{}
 			if now := time.Now(); now.After(blk.Timestamp()) &&
