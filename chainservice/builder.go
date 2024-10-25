@@ -8,6 +8,7 @@ package chainservice
 import (
 	"context"
 	"math/big"
+	"net/url"
 	"time"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -292,9 +293,21 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if forTest {
 		store, err = filedao.NewFileDAOInMemForTest()
 	} else {
-		dbConfig := builder.cfg.DB
-		dbConfig.DbPath = builder.cfg.Chain.ChainDBPath
-		store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+		path := builder.cfg.Chain.ChainDBPath
+		uri, err := url.Parse(path)
+		if err != nil {
+			return errors.Wrapf(err, "failed to parse chain db path %s", path)
+		}
+		switch uri.Scheme {
+		case "grpc":
+			store = blockdao.NewGrpcBlockDAO(uri.Host, uri.Query().Get("insecure") == "true", block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+		case "file", "":
+			dbConfig := builder.cfg.DB
+			dbConfig.DbPath = uri.Path
+			store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+		default:
+			return errors.Errorf("unsupported blockdao scheme %s", uri.Scheme)
+		}
 	}
 	if err != nil {
 		return err
@@ -545,6 +558,12 @@ func (builder *Builder) buildBlockSyncer() error {
 					return nil
 				case block.ErrDeltaStateMismatch:
 					log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
+				case blockdao.ErrRemoteHeightTooLow:
+					if retries == 1 {
+						retries = 4
+					}
+					log.L().Debug("Remote height too low.", zap.Uint64("height", blk.Height()))
+					time.Sleep(100 * time.Millisecond)
 				default:
 					log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 					return err
