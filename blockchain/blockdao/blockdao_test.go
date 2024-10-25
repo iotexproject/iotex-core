@@ -156,7 +156,7 @@ func Test_blockDAO_checkIndexers(t *testing.T) {
 		mockblockindexer.EXPECT().Height().Return(tipHeight, nil).Times(1)
 		// mock doaTip return
 		mockblockdao.EXPECT().Height().Return(daoTip, nil).Times(1)
-		// mockblockdao.EXPECT().GetBlockByHeight(gomock.Any()).Return(&block.Block{}, nil).Times(1)
+		mockblockdao.EXPECT().GetBlockByHeight(gomock.Any()).Return(&block.Block{}, nil).Times(1)
 
 		err := blockdao.checkIndexers(ctx)
 		r.NoError(err)
