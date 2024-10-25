@@ -305,13 +305,15 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, blk.Height())
-	header := blk.Header
-	hash := blk.HashBlock()
-	lruCachePut(dao.headerCache, blk.Height(), &header)
-	lruCachePut(dao.headerCache, header.HashHeader(), &header)
-	lruCachePut(dao.blockCache, hash, blk)
-	lruCachePut(dao.blockCache, blk.Height(), blk)
 	timer.End()
+	defer func() {
+		header := blk.Header
+		hash := blk.HashBlock()
+		lruCachePut(dao.headerCache, blk.Height(), &header)
+		lruCachePut(dao.headerCache, header.HashHeader(), &header)
+		lruCachePut(dao.blockCache, hash, blk)
+		lruCachePut(dao.blockCache, blk.Height(), blk)
+	}()
 
 	// index the block if there's indexer
 	timer = dao.timerFactory.NewTimer("index_block")
