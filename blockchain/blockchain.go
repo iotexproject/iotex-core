@@ -502,10 +502,12 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	putTimer := bc.timerFactory.NewTimer("putBlock")
 	err = bc.dao.PutBlock(ctx, blk)
 	putTimer.End()
-	switch {
-	case errors.Cause(err) == filedao.ErrAlreadyExist:
+	switch errors.Cause(err) {
+	case filedao.ErrAlreadyExist, blockdao.ErrAlreadyExist:
 		return nil
-	case err != nil:
+	case nil:
+		// do nothing
+	default:
 		return err
 	}
 	blkHash := blk.HashBlock()
