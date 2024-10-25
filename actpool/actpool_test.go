@@ -201,6 +201,12 @@ func TestActPool_AddActs(t *testing.T) {
 	pNonce2, _ = ap.GetPendingNonce(_addr2)
 	require.Equal(uint64(4), pNonce2)
 	// Error Case Handling
+	// case 0: invalid transfer address
+	for _, addr := range []string{"", "wrongaddress", "io18743s33zmsvmvyynfxu5sy2f80e2g5mzk3y5uf"} {
+		tsf, err := action.SignedTransfer(addr, _priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+		require.NoError(err)
+		require.ErrorIs(ap.Add(ctx, tsf), address.ErrInvalidAddr)
+	}
 	// Case I: Action source address is blacklisted
 	bannedTsf, err := action.SignedTransfer(_addr6, _priKey6, uint64(1), big.NewInt(0), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
