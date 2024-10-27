@@ -80,32 +80,3 @@ func TestCountHeightKey(t *testing.T) {
 	r.NoError(err)
 	r.Equal(20326, n)
 }
-
-func TestCopyBucket(t *testing.T) {
-	r := require.New(t)
-
-	cfg := DefaultConfig
-	cfg.DbPath = "../data/archive.db"
-	db := NewBoltDBVersioned(cfg)
-	ctx := context.Background()
-	r.NoError(db.Start(ctx))
-	defer func() {
-		db.Stop(ctx)
-	}()
-	cfg.DbPath = "../data/archive.db2"
-	db2 := NewBoltDBVersioned(cfg)
-	r.NoError(db2.Start(ctx))
-	defer func() {
-		db2.Stop(ctx)
-	}()
-	buckets, err := db2.Buckets()
-	r.NoError(err)
-	for _, v := range buckets {
-		if v == "Account" || v == "Contract" {
-			r.NoError(db2.PurgeVersion(v, 20000))
-		} else {
-			r.NoError(db.PurgeVersion(v, 20000))
-		}
-		r.NoError(db.CopyBucket(v, db2))
-	}
-}

@@ -145,106 +145,23 @@ func (b *BoltDBVersioned) countHeightKey(ns string, height uint64) (int, error) 
 	return count, err
 }
 
-func (b *BoltDBVersioned) PurgeVersion(ns string, version uint64) error {
-	var (
-		err       error
-		finished  bool
-		keyLength int
-	)
-	// key length
-	if ns == "Account" {
-		println("======= purge Account version =", version)
-		keyLength = 20 + 9
-	} else if ns == "Contract" {
-		println("======= purge Contract version =", version)
-		keyLength = 32 + 9
-	} else {
-		// delete the entire bucket
-		println("======= delete bucket =", ns)
-		return b.db.Delete(ns, nil)
-	}
-	var (
-		total uint64
-		start = time.Now()
-	)
-	for !finished {
-		entries := 0
-		if err = b.db.db.Update(func(tx *bolt.Tx) error {
-			bucket := tx.Bucket([]byte(ns))
-			if bucket == nil {
-				return errors.Wrapf(ErrBucketNotExist, "bucket = %s doesn't exist", ns)
-			}
-			var (
-				c = bucket.Cursor()
-				k []byte
-			)
-			mBucket := tx.Bucket([]byte("Meta"))
-			if mBucket == nil {
-				return errors.Wrap(ErrBucketNotExist, "metadata bucket doesn't exist")
-			}
-			if kLast := mBucket.Get([]byte(ns)); kLast != nil {
-				// there's a transform in progress
-				k, _ = c.Seek(kLast)
-				fmt.Printf("continue from key = %x\n", k)
-			} else {
-				c.First()
-				k, _ = c.Next()
-				fmt.Printf("first key = %x\n", k)
-			}
-			for ; k != nil; k, _ = c.Next() {
-				if len(k) != keyLength {
-					println("key length =", len(k))
-					panic("wrong key")
-				}
-				if _, height := parseKey(k); height != version {
-					continue
-				}
-				if err := bucket.Delete(k); err != nil {
-					return err
-				}
-				total++
-				if total%1000000 == 0 {
-					fmt.Printf("delete %d entries\n", total)
-				}
-				entries++
-				if entries == 256000 {
-					// commit the tx, and write the next key
-					if k, _ = c.Next(); k != nil {
-						fmt.Printf("next key = %x\n", k)
-						return mBucket.Put([]byte(ns), k)
-					} else {
-						// hit the end of the bucket
-						break
-					}
-				}
-			}
-			finished = true
-			return mBucket.Delete([]byte(ns))
-		}); err != nil {
-			println("encounter error:", err.Error())
-			break
-		}
-	}
-	fmt.Printf("ns = %s, delete %d entries, time = %v\n", ns, total, time.Since(start))
-	return err
+func IsVersioned(ns string) bool {
+	return ns == "Account" || ns == "Contract"
 }
 
 func (b *BoltDBVersioned) CopyBucket(ns string, srcDB *BoltDBVersioned) error {
-	var (
-		err       error
-		finished  bool
-		keyLength int
-	)
-	// key length
-	if ns == "Account" {
-		keyLength = 20 + 9
-	} else if ns == "Contract" {
-		keyLength = 32 + 9
+	if IsVersioned(ns) {
+		return errors.Wrapf(ErrInvalid, "ns = %s is versioned", ns)
 	}
-	println("======= copy bucket =", ns)
+	if err := b.db.Delete(ns, nil); err != nil {
+		return err
+	}
+	println("======= delete and copy bucket =", ns)
 	var (
-		total uint64
-		start = time.Now()
+		err      error
+		finished bool
+		total    uint64
+		start    = time.Now()
 	)
 	return srcDB.db.db.View(func(tx *bolt.Tx) error {
 		srcBucket := tx.Bucket([]byte(ns))
@@ -269,19 +186,10 @@ func (b *BoltDBVersioned) CopyBucket(ns string, srcDB *BoltDBVersioned) error {
 					k, v = c.Seek(kLast)
 					fmt.Printf("continue from key = %x\n", k)
 				} else {
-					if ns == "Account" || ns == "Contract" {
-						c.First()
-						k, v = c.Next()
-					} else {
-						k, v = c.First()
-					}
+					k, v = c.First()
 					fmt.Printf("first key = %x\n", k)
 				}
 				for ; k != nil; k, v = c.Next() {
-					if keyLength > 0 && len(k) != keyLength {
-						println("key length =", len(k))
-						panic("wrong key")
-					}
 					if err := bucket.Put(k, v); err != nil {
 						return err
 					}
@@ -309,6 +217,93 @@ func (b *BoltDBVersioned) CopyBucket(ns string, srcDB *BoltDBVersioned) error {
 			}
 		}
 		fmt.Printf("ns = %s, copy %d entries, time = %v\n", ns, total, time.Since(start))
+		return err
+	})
+}
+
+func (b *BoltDBVersioned) CopyVersionedBucket(ns string, version uint64, srcDB *BoltDBVersioned) error {
+	var (
+		err       error
+		finished  bool
+		keyLength int
+	)
+	// key length
+	if ns == "Account" {
+		keyLength = 20 + 9
+	} else if ns == "Contract" {
+		keyLength = 32 + 9
+	} else {
+		return errors.Wrapf(ErrInvalid, "ns = %s is not versioned", ns)
+	}
+	println("======= copy versioned bucket =", ns)
+	var (
+		total uint64
+		skip  uint64
+		start = time.Now()
+	)
+	return srcDB.db.db.View(func(tx *bolt.Tx) error {
+		srcBucket := tx.Bucket([]byte(ns))
+		if srcBucket == nil {
+			return errors.Wrapf(ErrBucketNotExist, "bucket = %s doesn't exist", ns)
+		}
+		c := srcBucket.Cursor()
+		for !finished {
+			entries := 0
+			if err = b.db.db.Update(func(tx *bolt.Tx) error {
+				bucket, err := tx.CreateBucketIfNotExists([]byte(ns))
+				if err != nil || bucket == nil {
+					return errors.Wrapf(ErrBucketNotExist, "bucket = %s doesn't exist", ns)
+				}
+				mBucket := tx.Bucket([]byte("Meta"))
+				if mBucket == nil {
+					return errors.Wrap(ErrBucketNotExist, "metadata bucket doesn't exist")
+				}
+				var k, v []byte
+				if kLast := mBucket.Get([]byte(ns)); kLast != nil {
+					// there's a transform in progress
+					k, v = c.Seek(kLast)
+					fmt.Printf("continue from key = %x\n", k)
+				} else {
+					c.First()
+					k, v = c.Next()
+					fmt.Printf("first key = %x\n", k)
+				}
+				for ; k != nil; k, v = c.Next() {
+					if len(k) != keyLength {
+						fmt.Printf("key = %x, length = %d", k, len(k))
+						return errors.Wrapf(ErrInvalid, "key length = %d, expecting %d", len(k), keyLength)
+					}
+					if _, height := parseKey(k); height == version {
+						skip++
+						continue
+					}
+					if err := bucket.Put(k, v); err != nil {
+						return err
+					}
+					total++
+					if total%1000000 == 0 {
+						fmt.Printf("copy %d entries\n", total)
+					}
+					entries++
+					if entries == 128000 {
+						// commit the tx, and write the next key
+						if k, _ = c.Next(); k != nil {
+							fmt.Printf("next key = %x\n", k)
+							return mBucket.Put([]byte(ns), k)
+						} else {
+							// hit the end of the bucket
+							break
+						}
+					}
+				}
+				finished = true
+				return mBucket.Delete([]byte(ns))
+			}); err != nil {
+				println("encounter error:", err.Error())
+				break
+			}
+		}
+		fmt.Printf("ns = %s, skip = %d, copy %d entries, time = %v\n", ns, skip, total, time.Since(start))
 		return err
 	})
 }
