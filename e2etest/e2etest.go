@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"slices"
 	"testing"
 	"time"
@@ -358,6 +359,12 @@ func initDBPaths(r *require.Assertions, cfg *config.Config) {
 	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
 	cfg.Chain.BlobStoreDBPath = testBlobPath
+
+	if cfg.ActPool.Store != nil {
+		testActionStorePath, err := os.MkdirTemp(os.TempDir(), "actionstore")
+		r.NoError(err)
+		cfg.ActPool.Store.Store.Datadir = testActionStorePath
+	}
 }
 
 func clearDBPaths(cfg *config.Config) {
@@ -372,4 +379,7 @@ func clearDBPaths(cfg *config.Config) {
 	testutil.CleanupPath(cfg.System.SystemLogDBPath)
 	testutil.CleanupPath(cfg.Consensus.RollDPoS.ConsensusDBPath)
 	testutil.CleanupPath(cfg.Chain.BlobStoreDBPath)
+	if cfg.ActPool.Store != nil {
+		testutil.CleanupPath(cfg.ActPool.Store.Store.Datadir)
+	}
 }
