@@ -294,6 +294,8 @@ func TestLocalTransfer(t *testing.T) {
 	require.NoError(err)
 	testDBPath, err := testutil.PathOfTempFile("db")
 	require.NoError(err)
+	testBlobPath, err := testutil.PathOfTempFile("blob")
+	require.NoError(err)
 	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
 	testBloomfilterIndexPath, err := testutil.PathOfTempFile("bloomfilterIndex")
@@ -308,6 +310,7 @@ func TestLocalTransfer(t *testing.T) {
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(testBlobPath)
 		testutil.CleanupPath(testIndexPath)
 		testutil.CleanupPath(testSystemLogPath)
 		testutil.CleanupPath(testBloomfilterIndexPath)
@@ -317,7 +320,7 @@ func TestLocalTransfer(t *testing.T) {
 
 	networkPort := 4689
 	apiPort := testutil.RandomPort()
-	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, testBloomfilterIndexPath, testSystemLogPath, testCandidateIndexPath, testContractStakeIndexPath, networkPort, apiPort)
+	cfg, err := newTransferConfig(testDBPath, testTriePath, testBlobPath, testIndexPath, testBloomfilterIndexPath, testSystemLogPath, testCandidateIndexPath, testContractStakeIndexPath, networkPort, apiPort)
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -584,6 +587,7 @@ func getLocalKey(i int) crypto.PrivateKey {
 func newTransferConfig(
 	chainDBPath,
 	trieDBPath,
+	blobDBPath,
 	indexDBPath string,
 	bloomfilterIndex string,
 	systemLogDBPath string,
@@ -600,7 +604,7 @@ func newTransferConfig(
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.TrieDBPatchFile = ""
-	cfg.Chain.BlobStoreDBPath = ""
+	cfg.Chain.BlobStoreDBPath = blobDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
 	cfg.Chain.BloomfilterIndexDBPath = bloomfilterIndex
 	cfg.System.SystemLogDBPath = systemLogDBPath
