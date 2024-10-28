@@ -152,6 +152,9 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 					zap.Uint64("height", height),
 				)
 			}
+			if height == 121930 {
+				panic("hit stopHeight")
+			}
 		}); err != nil {
 			return err
 		}

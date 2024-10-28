@@ -497,6 +497,12 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
+
+	var stopHeight uint64 = 121930
+	if blk.Height() > stopHeight {
+		panic(blk.Height())
+	}
+
 	ctx = bc.contextWithBlock(ctx, blk.PublicKey().Address(), blk.Height(), blk.Timestamp(), blk.BaseFee(), blk.ExcessBlobGas())
 	ctx = protocol.WithFeatureCtx(ctx)
 	// write block into DB
