@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"slices"
 	"testing"
 	"time"
@@ -346,18 +347,27 @@ func initDBPaths(r *require.Assertions, cfg *config.Config) {
 	r.NoError(err)
 	testBlobPath, err := testutil.PathOfTempFile("blob")
 	r.NoError(err)
+	testStakingIndexPath, err := testutil.PathOfTempFile("stakingindex")
+	r.NoError(err)
 
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.BlobStoreDBPath = ""
 	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Chain.StakingIndexDBPath = testStakingIndexPath
 	cfg.Chain.ContractStakingIndexDBPath = testContractIndexPath
 	cfg.Chain.BloomfilterIndexDBPath = testBloomfilterIndexPath
 	cfg.Chain.CandidateIndexDBPath = testCandidateIndexPath
 	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
 	cfg.Chain.BlobStoreDBPath = testBlobPath
+
+	if cfg.ActPool.Store != nil {
+		testActionStorePath, err := os.MkdirTemp(os.TempDir(), "actionstore")
+		r.NoError(err)
+		cfg.ActPool.Store.Store.Datadir = testActionStorePath
+	}
 }
 
 func clearDBPaths(cfg *config.Config) {
@@ -372,4 +382,7 @@ func clearDBPaths(cfg *config.Config) {
 	testutil.CleanupPath(cfg.System.SystemLogDBPath)
 	testutil.CleanupPath(cfg.Consensus.RollDPoS.ConsensusDBPath)
 	testutil.CleanupPath(cfg.Chain.BlobStoreDBPath)
+	if cfg.ActPool.Store != nil {
+		testutil.CleanupPath(cfg.ActPool.Store.Store.Datadir)
+	}
 }
