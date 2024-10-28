@@ -577,7 +577,9 @@ func (ws *workingSet) pickAndRunActions(
 				continue
 			}
 			actionCtx, err := withActionCtx(ctxWithBlockContext, nextAction)
+			var actHash hash.Hash256
 			if err == nil {
+				actHash = protocol.MustGetActionCtx(actionCtx).ActionHash
 				for _, p := range reg.All() {
 					if validator, ok := p.(protocol.ActionValidator); ok {
 						if err = validator.Validate(actionCtx, nextAction.Action(), ws); err != nil {
@@ -587,6 +589,7 @@ func (ws *workingSet) pickAndRunActions(
 				}
 			}
 			if err != nil {
+				log.L().Debug("failed to validate action", zap.Error(err), log.Hex("actionHash", actHash[:]))
 				caller := nextAction.SenderAddress()
 				if caller == nil {
 					return nil, errors.New("failed to get address")
@@ -600,9 +603,11 @@ func (ws *workingSet) pickAndRunActions(
 			case nil:
 				// do nothing
 			case action.ErrGasLimit:
+				log.L().Debug("gas limit not enough", zap.Uint64("gasLimit", blkCtx.GasLimit), zap.Uint64("actionGasLimit", nextAction.GasLimit()), log.Hex("actionHash", actHash[:]))
 				actionIterator.PopAccount()
 				continue
 			case action.ErrChainID, errUnfoldTxContainer, errDeployerNotWhitelisted:
+				log.L().Debug("failed to run action", zap.Error(err), log.Hex("actionHash", actHash[:]))
 				if caller := nextAction.SenderAddress(); caller != nil {
 					ap.DeleteAction(caller)
 				}

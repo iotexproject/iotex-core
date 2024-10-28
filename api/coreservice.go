@@ -13,6 +13,7 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -299,7 +300,22 @@ func newCoreService(
 
 	if core.broadcastHandler != nil {
 		core.messageBatcher = batch.NewManager(func(msg *batch.Message) error {
-			return core.broadcastHandler(context.Background(), core.bc.ChainID(), msg.Data)
+			acts, ok := msg.Data.(*iotextypes.Actions)
+			sign := ""
+			if ok {
+				signs := make([]string, 0, len(acts.Actions))
+				for _, act := range acts.Actions {
+					signs = append(signs, hex.EncodeToString(act.Signature))
+				}
+				sign = strings.Join(signs, ",")
+			}
+			err := core.broadcastHandler(context.Background(), core.bc.ChainID(), msg.Data)
+			if err != nil {
+				log.L().Debug("fail to handle a batch message when calling back", zap.Error(err), zap.String("aggrSigns", sign))
+			} else {
+				log.L().Debug("successfully handle a batch message", zap.String("aggrSigns", sign))
+			}
+			return err
 		})
 	}
 
@@ -477,7 +493,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	if err != nil {
 		return "", err
 	}
-	l := log.Logger("api").With(zap.String("actionHash", hex.EncodeToString(hash[:])))
+	l := log.Logger("api").With(zap.String("actionHash", hex.EncodeToString(hash[:])), zap.String("sign", hex.EncodeToString(selp.Signature())))
 	if err = core.ap.Add(ctx, selp); err != nil {
 		txBytes, serErr := proto.Marshal(in)
 		if serErr != nil {
@@ -500,6 +516,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		}
 		return "", st.Err()
 	}
+	l.Debug("action added into actpool")
 	// If there is no error putting into local actpool, broadcast it to the network
 	if core.messageBatcher != nil {
 		err = core.messageBatcher.Put(&batch.Message{
@@ -512,6 +529,8 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	}
 	if err != nil {
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
+	} else {
+		l.Debug("SendAction request broadcasted.")
 	}
 	return hex.EncodeToString(hash[:]), nil
 }
