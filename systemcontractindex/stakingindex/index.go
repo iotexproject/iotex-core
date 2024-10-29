@@ -32,7 +32,6 @@ type (
 	StakingIndexer interface {
 		lifecycle.StartStopper
 		Height() (uint64, error)
-		StartHeight() uint64
 		ContractAddress() string
 		Buckets(height uint64) ([]*VoteBucket, error)
 		Bucket(id uint64, height uint64) (*VoteBucket, bool, error)
@@ -88,13 +87,6 @@ func (s *Indexer) Height() (uint64, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.common.Height(), nil
-}
-
-// StartHeight returns the start height of the indexer
-func (s *Indexer) StartHeight() uint64 {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.common.StartHeight()
 }
 
 // ContractAddress returns the contract address

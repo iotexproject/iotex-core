@@ -84,12 +84,11 @@ func (s *Indexer) Stop(ctx context.Context) error {
 
 // Height returns the tip block height
 func (s *Indexer) Height() (uint64, error) {
-	return s.cache.Height(), nil
-}
-
-// StartHeight returns the start height of the indexer
-func (s *Indexer) StartHeight() uint64 {
-	return s.config.ContractDeployHeight
+	h := s.cache.Height()
+	if h < s.config.ContractDeployHeight {
+		h = s.config.ContractDeployHeight
+	}
+	return h, nil
 }
 
 // ContractAddress returns the contract address

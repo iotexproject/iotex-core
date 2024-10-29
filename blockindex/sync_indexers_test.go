@@ -67,8 +67,6 @@ func TestSyncIndexers_StartHeight(t *testing.T) {
 			ig := NewSyncIndexers(indexers...)
 			err := ig.Start(context.Background())
 			require.NoError(err)
-			height := ig.StartHeight()
-			require.Equal(c.expect, height)
 		})
 	}
 
