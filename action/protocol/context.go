@@ -150,6 +150,7 @@ type (
 		VerifyNotContainerBeforeRun             bool
 		ValidateActionWithState                 bool
 		DisallowSpecialAddressInTx              bool
+		CheckStakingDurationUpperLimit          bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -313,6 +314,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			VerifyNotContainerBeforeRun:             g.IsVanuatu(height),
 			ValidateActionWithState:                 g.IsVanuatu(height),
 			DisallowSpecialAddressInTx:              g.IsVanuatu(height),
+			CheckStakingDurationUpperLimit:          g.IsVanuatu(height),
 		},
 	)
 }
