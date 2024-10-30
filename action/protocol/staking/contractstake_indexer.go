@@ -52,6 +52,7 @@ type (
 
 	delayTolerantIndexerWithBucketType struct {
 		*delayTolerantIndexer
+		indexer ContractStakingIndexerWithBucketType
 	}
 )
 
@@ -70,7 +71,10 @@ func NewDelayTolerantIndexer(indexer ContractStakingIndexer, duration time.Durat
 
 // NewDelayTolerantIndexerWithBucketType creates a delay tolerant indexer with bucket type
 func NewDelayTolerantIndexerWithBucketType(indexer ContractStakingIndexerWithBucketType, duration time.Duration) ContractStakingIndexerWithBucketType {
-	return &delayTolerantIndexerWithBucketType{&delayTolerantIndexer{ContractStakingIndexer: indexer, duration: duration}}
+	return &delayTolerantIndexerWithBucketType{
+		&delayTolerantIndexer{ContractStakingIndexer: indexer, duration: duration},
+		indexer,
+	}
 }
 
 func (c *delayTolerantIndexer) wait(height uint64) (bool, error) {
@@ -140,5 +144,5 @@ func (c *delayTolerantIndexerWithBucketType) BucketTypes(height uint64) ([]*Cont
 	if err != nil {
 		return nil, err
 	}
-	return c.delayTolerantIndexer.ContractStakingIndexer.(ContractStakingIndexerWithBucketType).BucketTypes(height)
+	return c.indexer.BucketTypes(height)
 }
