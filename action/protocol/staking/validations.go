@@ -14,6 +14,10 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
+const (
+	_stakeDurationLimit = 1050
+)
+
 // Errors
 var (
 	ErrInvalidOwner        = errors.New("invalid owner address")
@@ -22,6 +26,7 @@ var (
 	ErrInvalidSelfStkIndex = errors.New("invalid self-staking bucket index")
 	ErrMissingField        = errors.New("missing data field")
 	ErrTypeAssertion       = errors.New("failed type assertion")
+	ErrDurationTooHigh     = errors.New("stake duration cannot exceed 1050 days")
 )
 
 func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateStake) error {
@@ -30,6 +35,9 @@ func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateSt
 	}
 	if act.Amount().Cmp(p.config.MinStakeAmount) == -1 {
 		return errors.Wrap(action.ErrInvalidAmount, "stake amount is less than the minimum requirement")
+	}
+	if protocol.MustGetFeatureCtx(ctx).CheckStakingDurationUpperLimit && act.Duration() > _stakeDurationLimit {
+		return ErrDurationTooHigh
 	}
 	return nil
 }
@@ -58,6 +66,9 @@ func (p *Protocol) validateDepositToStake(ctx context.Context, act *action.Depos
 }
 
 func (p *Protocol) validateRestake(ctx context.Context, act *action.Restake) error {
+	if protocol.MustGetFeatureCtx(ctx).CheckStakingDurationUpperLimit && act.Duration() > _stakeDurationLimit {
+		return ErrDurationTooHigh
+	}
 	return nil
 }
 
@@ -72,6 +83,9 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 			return nil
 		}
 		return errors.Wrap(action.ErrInvalidAmount, "self staking amount is not valid")
+	}
+	if protocol.MustGetFeatureCtx(ctx).CheckStakingDurationUpperLimit && act.Duration() > _stakeDurationLimit {
+		return ErrDurationTooHigh
 	}
 	return nil
 }
