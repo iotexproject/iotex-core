@@ -366,7 +366,7 @@ func initDBPaths(r *require.Assertions, cfg *config.Config) {
 	if cfg.ActPool.Store != nil {
 		testActionStorePath, err := os.MkdirTemp(os.TempDir(), "actionstore")
 		r.NoError(err)
-		cfg.ActPool.Store.Store.Datadir = testActionStorePath
+		cfg.ActPool.Store.Datadir = testActionStorePath
 	}
 }
 
@@ -383,6 +383,6 @@ func clearDBPaths(cfg *config.Config) {
 	testutil.CleanupPath(cfg.Consensus.RollDPoS.ConsensusDBPath)
 	testutil.CleanupPath(cfg.Chain.BlobStoreDBPath)
 	if cfg.ActPool.Store != nil {
-		testutil.CleanupPath(cfg.ActPool.Store.Store.Datadir)
+		testutil.CleanupPath(cfg.ActPool.Store.Datadir)
 	}
 }
