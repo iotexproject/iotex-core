@@ -96,7 +96,7 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	cfg.Chain.BlobStoreDBPath = blobPath
 	cfg.Chain.ContractStakingIndexDBPath = contractIndexPath
 	if cfg.ActPool.Store != nil {
-		cfg.ActPool.Store.Store.Datadir = testActionStorePath
+		cfg.ActPool.Store.Datadir = testActionStorePath
 	}
 	return cfg, func() {
 		testutil.CleanupPath(dbPath)
