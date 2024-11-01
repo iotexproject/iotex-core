@@ -2,8 +2,9 @@ package ws
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -11,6 +12,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 	"github.com/iotexproject/iotex-core/v2/ioctl/output"
+	"github.com/iotexproject/iotex-core/v2/ioctl/util"
 )
 
 var (
@@ -59,10 +61,16 @@ func init() {
 }
 
 func bindDapp(projectID uint64, dapp string) (string, error) {
-	addr, err := address.FromString(dapp)
+	addrStr, err := util.Address(dapp)
 	if err != nil {
 		return "", errors.Wrapf(err, "invalid dapp address: %s", dapp)
 	}
+	// Convert addrStr to an Address type
+	addr, err := address.FromString(addrStr)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to parse address: %s", addrStr)
+	}
+
 	newAddr := common.BytesToAddress(addr.Bytes())
 
 	caller, err := NewContractCaller(routerABI, routerAddress)
