@@ -149,6 +149,7 @@ type (
 		EnableNewTxTypes                        bool
 		VerifyNotContainerBeforeRun             bool
 		ValidateActionWithState                 bool
+		CheckStakingDurationUpperLimit          bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -311,6 +312,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			EnableNewTxTypes:                        g.IsVanuatu(height),
 			VerifyNotContainerBeforeRun:             g.IsVanuatu(height),
 			ValidateActionWithState:                 g.IsVanuatu(height),
+			CheckStakingDurationUpperLimit:          g.IsVanuatu(height),
 		},
 	)
 }
