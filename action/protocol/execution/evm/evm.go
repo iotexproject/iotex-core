@@ -639,8 +639,6 @@ func SimulateExecution(
 			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(g.BlockInterval),
 			GasLimit:       g.BlockGasLimitByHeight(bcCtx.Tip.Height + 1),
 			Producer:       zeroAddr,
-			BaseFee:        protocol.CalcBaseFee(g.Blockchain, &bcCtx.Tip),
-			ExcessBlobGas:  protocol.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed),
 		},
 	)
 
