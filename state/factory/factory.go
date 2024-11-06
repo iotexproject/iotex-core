@@ -18,7 +18,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -86,12 +85,11 @@ type (
 		Validate(context.Context, *block.Block) error
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
-		SimulateExecution(context.Context, address.Address, action.Envelope, ...protocol.SimulateOption) ([]byte, *action.Receipt, error)
-		ReadContractStorage(context.Context, address.Address, []byte) ([]byte, error)
 		PutBlock(context.Context, *block.Block) error
 		DeleteTipBlock(context.Context, *block.Block) error
 		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
 		StatesAtHeight(uint64, ...protocol.StateOption) (state.Iterator, error)
+		WorkingSetNotWritable(context.Context, uint64, bool) (protocol.StateManager, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -382,44 +380,23 @@ func (sf *factory) NewBlockBuilder(
 	return blkBuilder, nil
 }
 
-// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
-// cause any state change
-func (sf *factory) SimulateExecution(
-	ctx context.Context,
-	caller address.Address,
-	elp action.Envelope,
-	opts ...protocol.SimulateOption,
-) ([]byte, *action.Receipt, error) {
-	ctx, span := tracer.NewSpan(ctx, "factory.SimulateExecution")
-	defer span.End()
-
+func (sf *factory) WorkingSetNotWritable(ctx context.Context, height uint64, isArchive bool) (protocol.StateManager, error) {
+	var (
+		ws  *workingSet
+		err error
+	)
+	// TODO: make the workingset not writable, cannot call commit() to write its content to DB
 	sf.mutex.Lock()
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+	if isArchive {
+		ws, err = sf.newWorkingSet(ctx, height+1)
+	} else {
+		ws, err = sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+	}
 	sf.mutex.Unlock()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
+		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-	cfg := &protocol.SimulateOptionConfig{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-	if cfg.PreOpt != nil {
-		if err := cfg.PreOpt(ws); err != nil {
-			return nil, nil, err
-		}
-	}
-	return evm.SimulateExecution(ctx, ws, caller, elp)
-}
-
-// ReadContractStorage reads contract's storage
-func (sf *factory) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
-	sf.mutex.Lock()
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
-	sf.mutex.Unlock()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate working set from state factory")
-	}
-	return evm.ReadContractStorage(ctx, ws, contract, key)
+	return ws, nil
 }
 
 // PutBlock persists all changes in RunActions() into the DB
