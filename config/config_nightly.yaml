@@ -3,6 +3,7 @@ actPool:
   store:
     datadir: ./data/actionstore.cache
 chain:
+  producerPrivKey: 414efa99dfac6f4095d6954713fb0085268d400d6a05a8ae8a69b5b1c10b4bed
   bloomfilterIndexDBPath: ./data/bloomfilter.index.db
   candidateIndexDBPath: ./data/candidate.index.db
   chainDBPath: ./data/chain.db
@@ -54,8 +55,7 @@ log:
     - stderr
     - stdout
 network:
-  bootstrapNodes:
-  - /dns4/bootnode-0.nightly.iotex.one/tcp/4689/p2p/12D3KooWCb1nZdLsR6WBgXqmGnzRvhxASQJaAB3NgwTNk3JE43Wj
+  masterKey: "bootnode"
   enableRateLimit: false
 system:
   httpAdminPort: 8082 

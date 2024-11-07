@@ -2,7 +2,12 @@ actPool:
   minGasPrice: "0"
   store:
     datadir: ./data3/actionstore.cache
+api:
+  port: 14044
+  web3port: 15044
+  webSocketPort: 16044
 chain:
+  producerPrivKey: a6b15f8f3a7da3b0db011eaea5a43980b5c2d6a9b61fefb70938cc7dd0f61264
   bloomfilterIndexDBPath: ./data3/bloomfilter.index.db
   candidateIndexDBPath: ./data3/candidate.index.db
   chainDBPath: ./data3/chain.db
@@ -55,7 +60,7 @@ log:
     - stdout
 network:
   bootstrapNodes:
-  - /dns4/bootnode-0.nightly.iotex.one/tcp/4689/p2p/12D3KooWCb1nZdLsR6WBgXqmGnzRvhxASQJaAB3NgwTNk3JE43Wj
+  - /ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ
   enableRateLimit: false
 system:
   httpAdminPort: 8082 
