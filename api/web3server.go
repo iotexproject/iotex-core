@@ -382,10 +382,11 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 }
 
 func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
-	callerAddr, to, gasLimit, _, value, data, err := parseCallObject(in)
+	callMsg, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
+	callerAddr, to, gasLimit, value, data := callMsg.From, callMsg.To, callMsg.Gas, callMsg.Value, callMsg.Data
 	if to == _metamaskBalanceContractAddr {
 		return nil, nil
 	}
@@ -435,11 +436,11 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 }
 
 func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
-	from, to, gasLimit, gasPrice, value, data, err := parseCallObject(in)
+	callMsg, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
-
+	from, to, gasLimit, gasPrice, value, data := callMsg.From, callMsg.To, callMsg.Gas, callMsg.GasPrice, callMsg.Value, callMsg.Data
 	var (
 		tx     *types.Transaction
 		toAddr *common.Address
@@ -1085,12 +1086,14 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		gasLimit     uint64
 		value        *big.Int
 		callerAddr   address.Address
+		callMsg      *callMsg
 	)
 	blkNumOrHashObj, options := in.Get("params.1"), in.Get("params.2")
-	callerAddr, contractAddr, gasLimit, _, value, callData, err = parseCallObject(in)
+	callMsg, err = parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
+	callerAddr, contractAddr, gasLimit, value, callData = callMsg.From, callMsg.To, callMsg.Gas, callMsg.Value, callMsg.Data
 	var blkNumOrHash any
 	if blkNumOrHashObj.Exists() {
 		blkNumOrHash = blkNumOrHashObj.Get("blockHash").String()
