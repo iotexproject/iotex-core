@@ -200,11 +200,11 @@ func (bs *blockSyncer) sync() {
 		zap.Any("intervals", intervals),
 		zap.Uint64("targetHeight", targetHeight))
 	for i, interval := range intervals {
-		bs.requestBlock(context.Background(), interval.Start, interval.End, bs.cfg.MaxRepeat-i/bs.cfg.RepeatDecayStep)
+		bs.requestBlock(context.Background(), i, interval.Start, interval.End, bs.cfg.MaxRepeat-i/bs.cfg.RepeatDecayStep)
 	}
 }
 
-func (bs *blockSyncer) requestBlock(ctx context.Context, start uint64, end uint64, repeat int) {
+func (bs *blockSyncer) requestBlock(ctx context.Context, k int, start uint64, end uint64, repeat int) {
 	peers, err := bs.p2pNeighbor()
 	if err != nil {
 		log.L().Error("failed to get neighbours", zap.Error(err))
@@ -222,6 +222,9 @@ func (bs *blockSyncer) requestBlock(ctx context.Context, start uint64, end uint6
 	}
 	for i := 0; i < repeat; i++ {
 		peer := peers[fastrand.Uint32n(uint32(len(peers)))]
+		if k == 0 {
+			log.L().Info("request peer", zap.String("ID", peer.ID.String()), zap.String("Addr", peer.Addrs[0].String()))
+		}
 		if err := bs.unicastOutbound(
 			ctx,
 			peer,
@@ -281,6 +284,11 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		bs.targetHeight = targetHeight
 	}
 	if !added {
+		if bs.buf.Peek(tip + 1) {
+			log.L().Info("ProcessBlock", zap.Uint64("has next block =", tip+1))
+		} else {
+			log.L().Info("ProcessBlock", zap.Uint64("wait next block =", tip+1))
+		}
 		return nil
 	}
 	syncedHeight := tip

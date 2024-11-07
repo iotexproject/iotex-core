@@ -34,6 +34,13 @@ func newBlockBuffer(bufferSize, intervalSize uint64) *blockBuffer {
 	}
 }
 
+func (b *blockBuffer) Peek(height uint64) bool {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	_, ok := b.blockQueues[height]
+	return ok
+}
+
 func (b *blockBuffer) Pop(height uint64) []*peerBlock {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -70,15 +77,18 @@ func (b *blockBuffer) AddBlock(tipHeight uint64, blk *peerBlock) (bool, uint64) 
 	defer b.mu.Unlock()
 	blkHeight := blk.block.Height()
 	if blkHeight <= tipHeight {
+		log.L().Info("AddBlock", zap.Uint64("past block =", blkHeight))
 		return false, blkHeight
 	}
 	if blkHeight > tipHeight+b.bufferSize {
+		log.L().Info("AddBlock", zap.Uint64("far block =", blkHeight))
 		return false, tipHeight + b.bufferSize
 	}
 	if _, ok := b.blockQueues[blkHeight]; !ok {
 		b.blockQueues[blkHeight] = newUniQueue()
 	}
 	b.blockQueues[blkHeight].enque(blk)
+	log.L().Info("AddBlock", zap.Uint64("receive block =", blkHeight))
 	return true, blkHeight
 }
 
