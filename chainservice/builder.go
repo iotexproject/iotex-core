@@ -553,19 +553,6 @@ func (builder *Builder) buildBlockSyncer() error {
 	consens := builder.cs.consensus
 	dao := builder.cs.blockdao
 	cfg := builder.cfg
-	// estimateTipHeight estimates the height of the block at the given time
-	// it ignores the influence of the block missing in the blockchain
-	// it must >= the real head height of the block
-	estimateTipHeight := func(blk *block.Block, duration time.Duration) uint64 {
-		if blk.Height() >= cfg.Genesis.DardanellesBlockHeight {
-			return blk.Height() + uint64(duration.Seconds()/float64(cfg.DardanellesUpgrade.BlockInterval))
-		}
-		durationToDardanelles := time.Duration(cfg.Genesis.DardanellesBlockHeight-blk.Height()) * time.Duration(cfg.Genesis.BlockInterval)
-		if duration < durationToDardanelles {
-			return blk.Height() + uint64(duration.Seconds()/float64(cfg.Genesis.BlockInterval))
-		}
-		return cfg.Genesis.DardanellesBlockHeight + uint64((duration-durationToDardanelles).Seconds()/float64(cfg.DardanellesUpgrade.BlockInterval))
-	}
 
 	blocksync, err := blocksync.NewBlockSyncer(
 		builder.cfg.BlockSync,
@@ -602,7 +589,7 @@ func (builder *Builder) buildBlockSyncer() error {
 			var err error
 			opts := []blockchain.BlockValidationOption{}
 			if now := time.Now(); now.After(blk.Timestamp()) &&
-				blk.Height()+cfg.Genesis.MinBlocksForBlobRetention <= estimateTipHeight(blk, now.Sub(blk.Timestamp())) {
+				blk.Height()+cfg.Genesis.MinBlocksForBlobRetention <= estimateTipHeight(&cfg, blk, now.Sub(blk.Timestamp())) {
 				opts = append(opts, blockchain.SkipSidecarValidationOption())
 			}
 			for i := 0; i < retries; i++ {
@@ -886,4 +873,18 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	builder.cs = nil
 
 	return cs, nil
+}
+
+// estimateTipHeight estimates the height of the block at the given time
+// it ignores the influence of the block missing in the blockchain
+// it must >= the real head height of the block
+func estimateTipHeight(cfg *config.Config, blk *block.Block, duration time.Duration) uint64 {
+	if blk.Height() >= cfg.Genesis.DardanellesBlockHeight {
+		return blk.Height() + uint64(duration/cfg.DardanellesUpgrade.BlockInterval)
+	}
+	durationToDardanelles := time.Duration(cfg.Genesis.DardanellesBlockHeight-blk.Height()) * cfg.Genesis.BlockInterval
+	if duration < durationToDardanelles {
+		return blk.Height() + uint64(duration/cfg.Genesis.BlockInterval)
+	}
+	return cfg.Genesis.DardanellesBlockHeight + uint64((duration-durationToDardanelles)/cfg.DardanellesUpgrade.BlockInterval)
 }
