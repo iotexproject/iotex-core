@@ -76,6 +76,8 @@ type (
 		PersistStakingPatchBlock uint64 `yaml:"persistStakingPatchBlock"`
 		// FactoryDBType is the type of factory db
 		FactoryDBType string `yaml:"factoryDBType"`
+		// MintTimeout is the timeout for minting
+		MintTimeout time.Duration `yaml:"mintTimeout"`
 	}
 )
 

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/mohae/deepcopy"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -184,7 +185,7 @@ func TestStakingContract(t *testing.T) {
 		}
 	}
 
-	cfg := config.Default
+	cfg := deepcopy.Copy(config.Default).(config.Config)
 	initDBPaths(require, &cfg)
 
 	defer func() {

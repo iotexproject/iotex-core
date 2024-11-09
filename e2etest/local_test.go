@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/mohae/deepcopy"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -548,7 +549,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 }
 
 func newTestConfig() (config.Config, error) {
-	cfg := config.Default
+	cfg := deepcopy.Copy(config.Default).(config.Config)
 	cfg.Chain.TrieDBPath = _triePath
 	cfg.Chain.ChainDBPath = _dBPath
 	cfg.Chain.BlobStoreDBPath = _blobPath

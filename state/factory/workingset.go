@@ -9,6 +9,7 @@ import (
 	"context"
 	"math/big"
 	"sort"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
@@ -658,10 +659,18 @@ func (ws *workingSet) pickAndRunActions(
 		fCtx                = protocol.MustGetFeatureCtx(ctx)
 		blobCnt             = uint64(0)
 		blobLimit           = params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob
+		deadline            *time.Time
 	)
 	if ap != nil {
+		if dl, ok := ctx.Deadline(); ok {
+			deadline = &dl
+		}
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
 		for {
+			if deadline != nil && time.Now().After(*deadline) {
+				log.L().Warn("Stop processing actions due to deadline")
+				break
+			}
 			nextAction, ok := actionIterator.Next()
 			if !ok {
 				break
