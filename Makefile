@@ -54,7 +54,7 @@ endif
 endif
 GO_VERSION := $(shell go version)
 BUILD_TIME=$(shell date +%F-%Z/%T)
-VersionImportPath := github.com/iotexproject/iotex-core/pkg/version
+VersionImportPath := github.com/iotexproject/iotex-core/v2/pkg/version
 PackageFlags += -X '$(VersionImportPath).PackageVersion=$(PACKAGE_VERSION)'
 PackageFlags += -X '$(VersionImportPath).PackageCommitID=$(PACKAGE_COMMIT_ID)'
 PackageFlags += -X '$(VersionImportPath).GitStatus=$(GIT_STATUS)'
