@@ -1823,7 +1823,11 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return core.sf.ReadContractStorage(ctx, addr, key)
+	ws, err := core.sf.WorkingSet(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return evm.ReadContractStorage(ctx, ws, addr, key)
 }
 
 func (core *coreService) ReceiveBlock(blk *block.Block) error {
@@ -1972,7 +1976,11 @@ func (core *coreService) simulateExecution(ctx context.Context, addr address.Add
 		GetBlockTime:   core.getBlockTime,
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	return core.sf.SimulateExecution(ctx, addr, elp, opts...)
+	ws, err := core.sf.WorkingSet(ctx)
+	if err != nil {
+		return nil, nil, status.Error(codes.Internal, err.Error())
+	}
+	return evm.SimulateExecution(ctx, ws, addr, elp, opts...)
 }
 
 func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Receipt {

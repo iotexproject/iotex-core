@@ -126,8 +126,11 @@ func TestStakingContract(t *testing.T) {
 				GetBlockTime:   fakeGetBlockTime,
 				DepositGasFunc: rewarding.DepositGas,
 			})
-			data, _, err := sf.SimulateExecution(ctx, addr, elp)
-
+			ws, err := sf.WorkingSet(ctx)
+			if err != nil {
+				return nil, err
+			}
+			data, _, err := evm.SimulateExecution(ctx, ws, addr, elp)
 			return data, err
 		})
 		require.NoError(err)
