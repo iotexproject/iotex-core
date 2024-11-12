@@ -481,14 +481,20 @@ func newGetTransactionResult(
 		tmp := ethTx.To().String()
 		to = &tmp
 	}
-
-	signer, err := action.NewEthSigner(iotextypes.Encoding(selp.Encoding()), evmChainID)
-	if err != nil {
-		return nil, err
-	}
-	tx, err := action.RawTxToSignedTx(ethTx, signer, selp.Signature())
-	if err != nil {
-		return nil, err
+	var (
+		tx *types.Transaction
+	)
+	if _, ok := selp.Envelope.(action.TxContainer); ok {
+		tx = ethTx
+	} else {
+		signer, err := action.NewEthSigner(iotextypes.Encoding(selp.Encoding()), evmChainID)
+		if err != nil {
+			return nil, err
+		}
+		tx, err = action.RawTxToSignedTx(ethTx, signer, selp.Signature())
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &getTransactionResult{
 		blockHash: blkHash,
