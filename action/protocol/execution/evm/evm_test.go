@@ -260,12 +260,12 @@ func TestConstantinople(t *testing.T) {
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			41174200,
+			33350760,
 		},
 		// after Vanuatu
 		{
 			action.EmptyAddress,
-			41174201,
+			33350761,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
