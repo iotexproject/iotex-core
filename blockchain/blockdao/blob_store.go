@@ -8,7 +8,6 @@ package blockdao
 import (
 	"context"
 	"sync/atomic"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -22,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
-	"github.com/iotexproject/iotex-core/v2/pkg/routine"
 )
 
 var (
@@ -34,6 +32,7 @@ var (
 )
 
 type (
+	// BlobStore defines the interface of blob store
 	BlobStore interface {
 		Start(context.Context) error
 		Stop(context.Context) error
@@ -62,19 +61,16 @@ type (
 	//    entire blob storage is 786kB x 311040 = 245GB.
 	//
 	blobStore struct {
-		kvStore                         db.KVStore
-		totalBlocks                     uint64
-		currWriteBlock, currExpireBlock uint64
-		purgeTask                       *routine.RecurringTask
-		interval                        time.Duration
+		kvStore        db.KVStore
+		totalBlocks    uint64
+		currWriteBlock uint64
 	}
 )
 
-func NewBlobStore(kv db.KVStore, size uint64, interval time.Duration) *blobStore {
+func NewBlobStore(kv db.KVStore, size uint64) *blobStore {
 	return &blobStore{
 		kvStore:     kv,
 		totalBlocks: size,
-		interval:    interval,
 	}
 }
 
@@ -82,32 +78,16 @@ func (bs *blobStore) Start(ctx context.Context) error {
 	if err := bs.kvStore.Start(ctx); err != nil {
 		return err
 	}
-	if err := bs.checkDB(); err != nil {
-		return err
-	}
-	if bs.interval != 0 {
-		bs.purgeTask = routine.NewRecurringTask(func() {
-			bs.expireBlob(atomic.LoadUint64(&bs.currWriteBlock))
-		}, bs.interval)
-		return bs.purgeTask.Start(ctx)
-	}
-	return nil
+	return bs.checkDB()
 }
 
 func (bs *blobStore) Stop(ctx context.Context) error {
-	if err := bs.purgeTask.Stop(ctx); err != nil {
-		return err
-	}
 	return bs.kvStore.Stop(ctx)
 }
 
 func (bs *blobStore) checkDB() error {
 	var err error
 	bs.currWriteBlock, err = bs.getHeightByHash(_writeHeight)
-	if err != nil && errors.Cause(err) != db.ErrNotExist {
-		return err
-	}
-	bs.currExpireBlock, err = bs.getHeightByHash(_expireHeight)
 	if err != nil && errors.Cause(err) != db.ErrNotExist {
 		return err
 	}
@@ -150,8 +130,9 @@ func (bs *blobStore) getBlobs(height uint64) ([]*types.BlobTxSidecar, []string, 
 }
 
 func (bs *blobStore) PutBlock(blk *block.Block) error {
-	if blk.Height() <= atomic.LoadUint64(&bs.currWriteBlock) {
-		return errors.Errorf("block height %d is less than current tip height", blk.Height())
+	height := blk.Height()
+	if height <= atomic.LoadUint64(&bs.currWriteBlock) {
+		return errors.Errorf("block height %d is less than current tip height", height)
 	}
 	pb := iotextypes.BlobTxSidecars{
 		TxHash:   make([][]byte, 0),
@@ -167,17 +148,44 @@ func (bs *blobStore) PutBlock(blk *block.Block) error {
 			pb.Sidecars = append(pb.Sidecars, action.ToProtoSideCar(b))
 		}
 	}
-	raw, err := proto.Marshal(&pb)
-	if err != nil {
-		return errors.Wrapf(err, "failed to put block = %d", blk.Height())
+	var (
+		raw []byte
+		err error
+	)
+	if len(pb.Sidecars) != 0 {
+		raw, err = proto.Marshal(&pb)
+		if err != nil {
+			return errors.Wrapf(err, "failed to put block = %d", height)
+		}
 	}
-	return bs.putBlob(raw, blk.Height(), pb.TxHash)
+	b := batch.NewBatch()
+	if raw != nil {
+		bs.putBlob(raw, height, pb.TxHash, b)
+	}
+	if height >= bs.totalBlocks {
+		k := keyForBlock(height - bs.totalBlocks)
+		v, err := bs.kvStore.Get(_heightIndexNS, k)
+		if err != nil {
+			if errors.Cause(err) != db.ErrNotExist {
+				return err
+			}
+		} else {
+			if err := bs.deleteBlob(k, v, b); err != nil {
+				return errors.Wrapf(err, "failed to delete blob")
+			}
+		}
+	}
+	if err := bs.kvStore.WriteBatch(b); err != nil {
+		return errors.Wrapf(err, "failed to write batch")
+	}
+	atomic.StoreUint64(&bs.currWriteBlock, height)
+
+	return nil
 }
 
-func (bs *blobStore) putBlob(blob []byte, height uint64, txHash [][]byte) error {
+func (bs *blobStore) putBlob(blob []byte, height uint64, txHash [][]byte, b batch.KVStoreBatch) {
 	// write blob index
 	var (
-		b     = batch.NewBatch()
 		key   = keyForBlock(height)
 		index = blobIndex{hashes: txHash}
 	)
@@ -189,10 +197,20 @@ func (bs *blobStore) putBlob(blob []byte, height uint64, txHash [][]byte) error 
 	// write the blob data and height
 	b.Put(_blobDataNS, key, blob, "failed to put blob")
 	b.Put(_hashHeightNS, _writeHeight, key, "failed to put write height")
-	if err := bs.kvStore.WriteBatch(b); err != nil {
+}
+
+func (bs *blobStore) deleteBlob(k []byte, v []byte, b batch.KVStoreBatch) error {
+	dx, err := deserializeBlobIndex(v)
+	if err != nil {
 		return err
 	}
-	atomic.StoreUint64(&bs.currWriteBlock, height)
+	// delete tx hash of expired blobs
+	for i := range dx.hashes {
+		b.Delete(_hashHeightNS, dx.hashes[i], "failed to delete hash")
+	}
+	b.Delete(_heightIndexNS, k, "failed to delete index")
+	b.Delete(_blobDataNS, k, "failed to delete blob")
+
 	return nil
 }
 
@@ -201,41 +219,26 @@ func (bs *blobStore) expireBlob(height uint64) error {
 		b              = batch.NewBatch()
 		toExpireHeight = height - bs.totalBlocks
 	)
-	if height <= bs.totalBlocks || toExpireHeight <= bs.currExpireBlock {
+	if height <= bs.totalBlocks {
 		return nil
 	}
-	ek, ev, err := bs.kvStore.Filter(_heightIndexNS, func(k, v []byte) bool { return true },
-		keyForBlock(bs.currExpireBlock), keyForBlock(toExpireHeight))
+	ek, ev, err := bs.kvStore.Filter(_heightIndexNS, func(k, v []byte) bool {
+		return byteutil.BytesToUint64BigEndian(k) <= toExpireHeight
+	}, nil, nil)
 	if errors.Cause(err) == db.ErrNotExist {
 		// no blobs are stored up to the new expire height
-		bs.currExpireBlock = toExpireHeight
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	for _, v := range ev {
-		dx, err := deserializeBlobIndex(v)
-		if err != nil {
-			return err
-		}
-		// delete tx hash of expired blobs
-		for i := range dx.hashes {
-			b.Delete(_hashHeightNS, dx.hashes[i], "failed to delete hash")
+	for i, key := range ek {
+		v := ev[i]
+		if err := bs.deleteBlob(key, v, b); err != nil {
+			return errors.Wrapf(err, "failed to delete blob")
 		}
 	}
-	for i := range ek {
-		// delete index expired blob data
-		b.Delete(_heightIndexNS, ek[i], "failed to delete index")
-		b.Delete(_blobDataNS, ek[i], "failed to delete blob")
-	}
-	// update expired blob height
-	b.Put(_hashHeightNS, _expireHeight, keyForBlock(toExpireHeight), "failed to put expired height")
-	if err := bs.kvStore.WriteBatch(b); err != nil {
-		return err
-	}
-	bs.currExpireBlock = toExpireHeight
-	return nil
+	return bs.kvStore.WriteBatch(b)
 }
 
 func decodeBlob(raw []byte) ([]*types.BlobTxSidecar, []string, error) {

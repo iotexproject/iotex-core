@@ -7,6 +7,7 @@ package itx
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -78,9 +79,11 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	require.NoError(err)
 	indexPath, err := testutil.PathOfTempFile("indxer.db")
 	require.NoError(err)
+	blobPath, err := testutil.PathOfTempFile("blob.db")
+	require.NoError(err)
 	contractIndexPath, err := testutil.PathOfTempFile("contractindxer.db")
 	require.NoError(err)
-	blobPath, err := testutil.PathOfTempFile("blob.db")
+	testActionStorePath, err := os.MkdirTemp(os.TempDir(), "actionstore")
 	require.NoError(err)
 	cfg := config.Default
 	cfg.API.GRPCPort = testutil.RandomPort()
@@ -88,14 +91,20 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	cfg.API.WebSocketPort = testutil.RandomPort()
 	cfg.Chain.ChainDBPath = dbPath
 	cfg.Chain.TrieDBPath = triePath
+	cfg.Chain.BlobStoreDBPath = blobPath
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.BlobStoreDBPath = blobPath
 	cfg.Chain.ContractStakingIndexDBPath = contractIndexPath
+	if cfg.ActPool.Store != nil {
+		cfg.ActPool.Store.Datadir = testActionStorePath
+	}
 	return cfg, func() {
 		testutil.CleanupPath(dbPath)
 		testutil.CleanupPath(triePath)
 		testutil.CleanupPath(indexPath)
+		testutil.CleanupPath(blobPath)
 		testutil.CleanupPath(contractIndexPath)
 		testutil.CleanupPath(blobPath)
+		testutil.CleanupPath(testActionStorePath)
 	}
 }

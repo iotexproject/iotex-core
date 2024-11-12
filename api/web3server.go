@@ -425,14 +425,17 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	if receipt != nil && len(receipt.GetExecutionRevertMsg()) > 0 {
+	if receipt != nil && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) {
+		if len(receipt.GetExecutionRevertMsg()) == 0 {
+			return "0x" + ret, status.Error(codes.InvalidArgument, "execution reverted")
+		}
 		return "0x" + ret, status.Error(codes.InvalidArgument, "execution reverted: "+receipt.GetExecutionRevertMsg())
 	}
 	return "0x" + ret, nil
 }
 
 func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
-	from, to, gasLimit, gasPrice, value, data, err := parseCallObject(in)
+	from, to, gasLimit, _, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
@@ -450,7 +453,7 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 	}
 	tx = types.NewTx(&types.LegacyTx{
 		Nonce:    0,
-		GasPrice: gasPrice,
+		GasPrice: &big.Int{},
 		Gas:      gasLimit,
 		To:       toAddr,
 		Value:    value,

@@ -561,8 +561,6 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	if err != nil {
 		return "", nil, status.Error(codes.Internal, err.Error())
 	}
-	// ReadContract() is read-only, if no error returned, we consider it a success
-	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
 	res := iotexapi.ReadContractResponse{
 		Data:    hex.EncodeToString(retval),
 		Receipt: receipt.ConvertToReceiptPb(),
@@ -1161,7 +1159,7 @@ func (core *coreService) UnconfirmedActionsByAddress(address string, start uint6
 
 	var res []*iotexapi.ActionInfo
 	for i := start; i < uint64(len(selps)) && i < start+count; i++ {
-		if act, err := core.pendingAction(selps[i]); err == nil {
+		if act, err := core.actionToApiProto(selps[i]); err == nil {
 			res = append(res, act)
 		}
 	}
@@ -1344,10 +1342,19 @@ func (core *coreService) committedAction(selp *action.SealedEnvelope, blkHash ha
 	}, nil
 }
 
-func (core *coreService) pendingAction(selp *action.SealedEnvelope) (*iotexapi.ActionInfo, error) {
+func (core *coreService) actionToApiProto(selp *action.SealedEnvelope) (*iotexapi.ActionInfo, error) {
 	actHash, err := selp.Hash()
 	if err != nil {
 		return nil, err
+	}
+	if container, ok := selp.Envelope.(action.TxContainer); ok {
+		ctx, err := core.bc.Context(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		if err := container.Unfold(selp, ctx, core.checkContract); err != nil {
+			return nil, err
+		}
 	}
 	sender := selp.SenderAddress()
 	return &iotexapi.ActionInfo{
@@ -1378,7 +1385,28 @@ func (core *coreService) getAction(actHash hash.Hash256, checkPending bool) (*io
 	if err != nil {
 		return nil, err
 	}
-	return core.pendingAction(selp)
+	return core.actionToApiProto(selp)
+}
+
+func (core *coreService) checkContract(ctx context.Context, to *common.Address) (bool, bool, bool, error) {
+	if to == nil {
+		return true, false, false, nil
+	}
+	var (
+		addr, _ = address.FromBytes(to.Bytes())
+		ioAddr  = addr.String()
+	)
+	if ioAddr == address.StakingProtocolAddr {
+		return false, true, false, nil
+	}
+	if ioAddr == address.RewardingProtocol {
+		return false, false, true, nil
+	}
+	sender, err := accountutil.AccountState(ctx, core.sf, addr)
+	if err != nil {
+		return false, false, false, errors.Wrapf(err, "failed to get account of %s", to.Hex())
+	}
+	return sender.IsContract(), false, false, nil
 }
 
 func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, count uint64) []*iotexapi.ActionInfo {

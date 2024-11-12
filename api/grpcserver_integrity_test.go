@@ -1484,7 +1484,7 @@ func TestGrpcServer_ReadContractIntegrity(t *testing.T) {
 		res, err := grpcHandler.ReadContract(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.retValue, res.Data)
-		require.EqualValues(1, res.Receipt.Status)
+		require.EqualValues(0, res.Receipt.Status)
 		require.Equal(test.actionHash, hex.EncodeToString(res.Receipt.ActHash))
 		require.Equal(test.gasConsumed, res.Receipt.GasConsumed)
 	}
