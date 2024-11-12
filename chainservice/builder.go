@@ -735,7 +735,11 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 				GetBlockTime:   getBlockTime,
 				DepositGasFunc: rewarding.DepositGas,
 			})
-			data, _, err := factory.SimulateExecution(ctx, addr, elp)
+			ws, err := factory.WorkingSet(ctx)
+			if err != nil {
+				return nil, err
+			}
+			data, _, err := evm.SimulateExecution(ctx, ws, addr, elp)
 			return data, err
 		},
 		candidatesutil.CandidatesFromDB,

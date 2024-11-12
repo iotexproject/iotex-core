@@ -1224,7 +1224,9 @@ func testSimulateExecution(ctx context.Context, sf Factory, t *testing.T) {
 		},
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	_, _, err = sf.SimulateExecution(ctx, addr, elp)
+	ws, err := sf.WorkingSet(ctx)
+	require.NoError(err)
+	_, _, err = evm.SimulateExecution(ctx, ws, addr, elp)
 	require.NoError(err)
 }
 
