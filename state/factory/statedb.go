@@ -259,21 +259,15 @@ func (sdb *stateDB) NewBlockBuilder(
 	return blkBuilder, nil
 }
 
-func (sdb *stateDB) WorkingSetNotWritable(ctx context.Context, height uint64, isArchive bool) (protocol.StateManager, error) {
-	var (
-		ws  *workingSet
-		err error
-	)
-	if !isArchive {
-		sdb.mutex.RLock()
-		height = sdb.currentChainHeight
-		sdb.mutex.RUnlock()
-	}
-	ws, err = sdb.newWorkingSet(ctx, height+1)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-	return ws, nil
+func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, error) {
+	sdb.mutex.RLock()
+	height := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	return sdb.newWorkingSet(ctx, height+1)
+}
+
+func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManager, error) {
+	return sdb.newWorkingSet(ctx, height+1)
 }
 
 // PutBlock persists all changes in RunActions() into the DB

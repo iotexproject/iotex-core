@@ -247,17 +247,32 @@ func (mr *MockFactoryMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockFactory)(nil).Validate), arg0, arg1)
 }
 
-// WorkingSetNotWritable mocks base method.
-func (m *MockFactory) WorkingSetNotWritable(arg0 context.Context, arg1 uint64, arg2 bool) (protocol.StateManager, error) {
+// WorkingSet mocks base method.
+func (m *MockFactory) WorkingSet(arg0 context.Context) (protocol.StateManager, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WorkingSetNotWritable", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "WorkingSet", arg0)
 	ret0, _ := ret[0].(protocol.StateManager)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// WorkingSetNotWritable indicates an expected call of WorkingSetNotWritable.
-func (mr *MockFactoryMockRecorder) WorkingSetNotWritable(arg0, arg1, arg2 interface{}) *gomock.Call {
+// WorkingSet indicates an expected call of WorkingSet.
+func (mr *MockFactoryMockRecorder) WorkingSet(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorkingSetNotWritable", reflect.TypeOf((*MockFactory)(nil).WorkingSetNotWritable), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorkingSet", reflect.TypeOf((*MockFactory)(nil).WorkingSet), arg0)
+}
+
+// WorkingSetAtHeight mocks base method.
+func (m *MockFactory) WorkingSetAtHeight(arg0 context.Context, arg1 uint64) (protocol.StateManager, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WorkingSetAtHeight", arg0, arg1)
+	ret0, _ := ret[0].(protocol.StateManager)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WorkingSetAtHeight indicates an expected call of WorkingSetAtHeight.
+func (mr *MockFactoryMockRecorder) WorkingSetAtHeight(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorkingSetAtHeight", reflect.TypeOf((*MockFactory)(nil).WorkingSetAtHeight), arg0, arg1)
 }

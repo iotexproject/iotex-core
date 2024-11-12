@@ -1,4 +1,4 @@
-// Copyright (c) 2022 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -89,7 +89,8 @@ type (
 		DeleteTipBlock(context.Context, *block.Block) error
 		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
 		StatesAtHeight(uint64, ...protocol.StateOption) (state.Iterator, error)
-		WorkingSetNotWritable(context.Context, uint64, bool) (protocol.StateManager, error)
+		WorkingSet(context.Context) (protocol.StateManager, error)
+		WorkingSetAtHeight(context.Context, uint64) (protocol.StateManager, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -380,23 +381,16 @@ func (sf *factory) NewBlockBuilder(
 	return blkBuilder, nil
 }
 
-func (sf *factory) WorkingSetNotWritable(ctx context.Context, height uint64, isArchive bool) (protocol.StateManager, error) {
-	var (
-		ws  *workingSet
-		err error
-	)
-	// TODO: make the workingset not writable, cannot call commit() to write its content to DB
+func (sf *factory) WorkingSet(ctx context.Context) (protocol.StateManager, error) {
 	sf.mutex.Lock()
-	if isArchive {
-		ws, err = sf.newWorkingSet(ctx, height+1)
-	} else {
-		ws, err = sf.newWorkingSet(ctx, sf.currentChainHeight+1)
-	}
-	sf.mutex.Unlock()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-	return ws, nil
+	defer sf.mutex.Unlock()
+	return sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+}
+
+func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManager, error) {
+	sf.mutex.Lock()
+	defer sf.mutex.Unlock()
+	return sf.newWorkingSet(ctx, height+1)
 }
 
 // PutBlock persists all changes in RunActions() into the DB

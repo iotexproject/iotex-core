@@ -1820,7 +1820,7 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	ws, err := core.sf.WorkingSetNotWritable(ctx, 0, false)
+	ws, err := core.sf.WorkingSet(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1973,7 +1973,7 @@ func (core *coreService) simulateExecution(ctx context.Context, addr address.Add
 		GetBlockTime:   core.getBlockTime,
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	ws, err := core.sf.WorkingSetNotWritable(ctx, 0, false)
+	ws, err := core.sf.WorkingSet(ctx)
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}

@@ -125,7 +125,7 @@ func TestStakingContract(t *testing.T) {
 				GetBlockTime:   fakeGetBlockTime,
 				DepositGasFunc: rewarding.DepositGas,
 			})
-			ws, err := sf.WorkingSetNotWritable(ctx, 0, false)
+			ws, err := sf.WorkingSet(ctx)
 			if err != nil {
 				return nil, err
 			}

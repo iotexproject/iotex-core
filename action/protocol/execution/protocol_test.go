@@ -293,7 +293,7 @@ func readExecution(
 		GetBlockTime:   getBlockTimeForTest,
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	ws, err := sf.WorkingSetNotWritable(ctx, 0, false)
+	ws, err := sf.WorkingSet(ctx)
 	if err != nil {
 		return nil, nil, err
 	}

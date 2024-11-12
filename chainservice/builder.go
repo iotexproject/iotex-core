@@ -735,7 +735,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 				GetBlockTime:   getBlockTime,
 				DepositGasFunc: rewarding.DepositGas,
 			})
-			ws, err := factory.WorkingSetNotWritable(ctx, 0, false)
+			ws, err := factory.WorkingSet(ctx)
 			if err != nil {
 				return nil, err
 			}
