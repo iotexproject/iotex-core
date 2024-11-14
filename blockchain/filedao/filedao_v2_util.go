@@ -173,7 +173,7 @@ func (fd *fileDAOv2) getBlock(height uint64) (*block.Block, error) {
 		return nil, db.ErrNotExist
 	}
 	// check whether block in staging buffer or not
-	if blkStore, err := fd.getFromStagingBuffer(height); err == nil {
+	if blkStore := fd.getFromStagingBuffer(height); blkStore != nil {
 		return blkStore.Block, nil
 	}
 	// read from storage DB
@@ -189,7 +189,7 @@ func (fd *fileDAOv2) getReceipt(height uint64) ([]*action.Receipt, error) {
 		return nil, db.ErrNotExist
 	}
 	// check whether block in staging buffer or not
-	if blkStore, err := fd.getFromStagingBuffer(height); err == nil {
+	if blkStore := fd.getFromStagingBuffer(height); blkStore != nil {
 		return blkStore.Receipts, nil
 	}
 	// read from storage DB
@@ -200,18 +200,15 @@ func (fd *fileDAOv2) getReceipt(height uint64) ([]*action.Receipt, error) {
 	return fd.deser.ReceiptsFromBlockStoreProto(blockStore)
 }
 
-func (fd *fileDAOv2) getFromStagingBuffer(height uint64) (*block.Store, error) {
+func (fd *fileDAOv2) getFromStagingBuffer(height uint64) *block.Store {
 	if fd.loadTip().Height-height >= fd.header.BlockStoreSize {
-		return nil, ErrNotSupported
+		return nil
 	}
-	blkStore, err := fd.blkBuffer.Get(height)
-	if err != nil {
-		return nil, err
-	}
+	blkStore := fd.blkBuffer.Get(height)
 	if blkStore == nil || blkStore.Block.Height() != height {
-		return nil, ErrNotSupported
+		return nil
 	}
-	return blkStore, nil
+	return blkStore
 }
 
 func (fd *fileDAOv2) getBlockStore(height uint64) (*iotextypes.BlockStore, error) {

@@ -32,13 +32,13 @@ func newStagingBuffer(size, start uint64) *stagingBuffer {
 	}
 }
 
-func (s *stagingBuffer) Get(height uint64) (*block.Store, error) {
+func (s *stagingBuffer) Get(height uint64) *block.Store {
 	if height < s.start {
-		return nil, ErrNotSupported
+		return nil
 	}
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	return s.buffer[s.slot(height)], nil
+	return s.buffer[s.slot(height)]
 }
 
 func (s *stagingBuffer) Put(height uint64, blk *block.Store) (bool, error) {
@@ -59,11 +59,11 @@ func (s *stagingBuffer) slot(height uint64) uint64 {
 func (s *stagingBuffer) Serialize() ([]byte, error) {
 	blkStores := []*iotextypes.BlockStore{}
 	// blob sidecar data are stored separately
-	s.lock.Lock()
+	s.lock.RLock()
 	for _, v := range s.buffer {
 		blkStores = append(blkStores, v.ToProtoWithoutSidecar())
 	}
-	s.lock.Unlock()
+	s.lock.RUnlock()
 	allBlks := &iotextypes.BlockStores{
 		BlockStores: blkStores,
 	}
