@@ -13,7 +13,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
-	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/compress"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
@@ -55,9 +54,7 @@ func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
 func (fd *fileDAOv2) putTipHashHeightMapping(blk *block.Block) error {
 	// write height <-> hash mapping
 	h := blk.HashBlock()
-	if err := addOneEntryToBatch(fd.hashStore, h[:], fd.batch); err != nil {
-		return err
-	}
+	fd.hashStore.AddToBatch(fd.batch, h[:])
 
 	// write hash <-> height mapping
 	height := blk.Height()
@@ -104,7 +101,8 @@ func (fd *fileDAOv2) putBlock(blk *block.Block) error {
 	if blkBytes, err = compBytes(ser, fd.header.Compressor); err != nil {
 		return err
 	}
-	return addOneEntryToBatch(fd.blkStore, blkBytes, fd.batch)
+	fd.blkStore.AddToBatch(fd.batch, blkBytes)
+	return nil
 }
 
 func (fd *fileDAOv2) putTransactionLog(blk *block.Block) error {
@@ -116,17 +114,8 @@ func (fd *fileDAOv2) putTransactionLog(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	return addOneEntryToBatch(fd.sysStore, logBytes, fd.batch)
-}
-
-func addOneEntryToBatch(c db.CountingIndex, v []byte, b batch.KVStoreBatch) error {
-	if err := c.UseBatch(b); err != nil {
-		return err
-	}
-	if err := c.Add(v, true); err != nil {
-		return err
-	}
-	return c.Finalize()
+	fd.sysStore.AddToBatch(fd.batch, logBytes)
+	return nil
 }
 
 func compBytes(v []byte, comp string) ([]byte, error) {

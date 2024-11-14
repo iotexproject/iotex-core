@@ -7,7 +7,7 @@ package db
 
 import (
 	"fmt"
-	"sync/atomic"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -31,8 +31,12 @@ type (
 	CountingIndex interface {
 		// Size returns the total number of keys so far
 		Size() uint64
-		// Add inserts a value into the index
-		Add([]byte, bool) error
+		// AddToBatch inserts an entry into external batch
+		AddToBatch(batch.KVStoreBatch, []byte)
+		// BeginBatch should be called before writing the batch
+		BeginBatch(batch.KVStoreBatch)
+		// EndBatch should be called after the batch has been written to DB
+		EndBatch()
 		// Get return value of key[slot]
 		Get(uint64) ([]byte, error)
 		// Range return value of keys [start, start+count)
@@ -41,20 +45,32 @@ type (
 		Revert(uint64) error
 		// Close makes the index not usable
 		Close()
-		// Commit commits the batch
-		Commit() error
-		// UseBatch
-		UseBatch(batch.KVStoreBatch) error
-		// Finalize
-		Finalize() error
 	}
 
 	// countingIndex is CountingIndex implementation based on KVStore
+	// it is designed for a single writer and multiple readers
+	//
+	// for writer to add entries to the CountingIndex:
+	// c, err := NewCountingIndexNX(kv, name)
+	// b := batch.NewBatch()
+	// c.AddToBatch(b, []byte("entry 1"))
+	// c.AddToBatch(b, []byte("entry 2"))
+	// ...
+	// c.AddToBatch(b, []byte("entry n"))
+	// c.BeginBatch()
+	// write the batch to underlying DB
+	// c.EndBatch()
+	//
+	// multiple readers can call reader methods concurrently:
+	// size := c.Size()
+	// v, err := c.Get(1)
+	// entries, err := c.Range(1, 100)
 	countingIndex struct {
-		kvStore KVStoreWithRange
-		bucket  string
-		size    uint64 // total number of keys
-		batch   batch.KVStoreBatch
+		lock       sync.RWMutex
+		kvStore    KVStoreWithRange
+		bucket     string
+		size       uint64
+		writerSize uint64
 	}
 )
 
@@ -70,7 +86,10 @@ func NewCountingIndexNX(kv KVStore, name []byte) (CountingIndex, error) {
 	if len(name) == 0 {
 		return nil, errors.Wrap(ErrInvalid, "bucket name is nil")
 	}
-	bucket := string(name)
+	var (
+		bucket = string(name)
+		size   uint64
+	)
 	// check if the index exist or not
 	total, err := kv.Get(bucket, CountKey)
 	if errors.Cause(err) == ErrNotExist || total == nil {
@@ -78,13 +97,14 @@ func NewCountingIndexNX(kv KVStore, name []byte) (CountingIndex, error) {
 		if err := kv.Put(bucket, CountKey, ZeroIndex); err != nil {
 			return nil, errors.Wrapf(err, "failed to create counting index %x", name)
 		}
-		total = ZeroIndex
+	} else {
+		size = byteutil.BytesToUint64BigEndian(total)
 	}
-
 	return &countingIndex{
-		kvStore: kvRange,
-		bucket:  bucket,
-		size:    byteutil.BytesToUint64BigEndian(total),
+		kvStore:    kvRange,
+		bucket:     bucket,
+		size:       size,
+		writerSize: size,
 	}, nil
 }
 
@@ -100,76 +120,69 @@ func GetCountingIndex(kv KVStore, name []byte) (CountingIndex, error) {
 	if errors.Cause(err) == ErrNotExist || total == nil {
 		return nil, errors.Wrapf(err, "counting index 0x%x doesn't exist", name)
 	}
+	size := byteutil.BytesToUint64BigEndian(total)
 	return &countingIndex{
-		kvStore: kvRange,
-		bucket:  bucket,
-		size:    byteutil.BytesToUint64BigEndian(total),
+		kvStore:    kvRange,
+		bucket:     bucket,
+		size:       size,
+		writerSize: size,
 	}, nil
 }
 
 // Size returns the total number of keys so far
 func (c *countingIndex) Size() uint64 {
-	return atomic.LoadUint64(&c.size)
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.size
 }
 
-// Add inserts a value into the index
-func (c *countingIndex) Add(value []byte, inBatch bool) error {
-	if inBatch {
-		return c.addBatch(value)
-	}
-	if c.batch != nil {
-		return errors.Wrap(ErrInvalid, "cannot call Add in batch mode, call Commit() first to exit batch mode")
-	}
-	b := batch.NewBatch()
-	size := c.Size()
-	b.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(size), value, fmt.Sprintf("failed to add %d-th item", size+1))
-	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(size+1), fmt.Sprintf("failed to update size = %d", size+1))
+func (c *countingIndex) AddToBatch(b batch.KVStoreBatch, value []byte) {
+	b.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(c.writerSize), value, fmt.Sprintf("failed to add %d-th item", c.writerSize))
+	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.writerSize+1), fmt.Sprintf("failed to update size = %d", c.writerSize+1))
+	c.writerSize++
+}
+
+func (c *countingIndex) BeginBatch(b batch.KVStoreBatch) {
+	c.lock.Lock()
 	b.AddFillPercent(c.bucket, 1.0)
-	if err := c.kvStore.WriteBatch(b); err != nil {
-		return err
-	}
-	atomic.AddUint64(&c.size, 1)
-	return nil
 }
 
-// addBatch inserts a value into the index in batch mode
-func (c *countingIndex) addBatch(value []byte) error {
-	if c.batch == nil {
-		c.batch = batch.NewBatch()
-	}
-	size := c.Size()
-	c.batch.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(size), value, fmt.Sprintf("failed to add %d-th item", size+1))
-	atomic.AddUint64(&c.size, 1)
-	return nil
+func (c *countingIndex) EndBatch() {
+	c.size = c.writerSize
+	c.lock.Unlock()
 }
 
 // Get return value of key[slot]
 func (c *countingIndex) Get(slot uint64) ([]byte, error) {
-	if slot >= c.Size() {
+	c.lock.RLock()
+	if slot >= c.size {
+		c.lock.RUnlock()
 		return nil, errors.Wrapf(ErrNotExist, "slot: %d", slot)
 	}
+	c.lock.RUnlock()
 	return c.kvStore.Get(c.bucket, byteutil.Uint64ToBytesBigEndian(slot))
 }
 
 // Range return value of keys [start, start+count)
 func (c *countingIndex) Range(start, count uint64) ([][]byte, error) {
-	if start+count > c.Size() || count == 0 {
+	c.lock.RLock()
+	if start+count > c.size || count == 0 {
+		c.lock.RUnlock()
 		return nil, errors.Wrapf(ErrInvalid, "start: %d, count: %d", start, count)
 	}
+	c.lock.RUnlock()
 	return c.kvStore.Range(c.bucket, byteutil.Uint64ToBytesBigEndian(start), count)
 }
 
 // Revert removes entries from end
 func (c *countingIndex) Revert(count uint64) error {
-	if c.batch != nil {
-		return errors.Wrap(ErrInvalid, "cannot call Revert in batch mode, call Commit() first to exit batch mode")
-	}
-	size := c.Size()
-	if count == 0 || count > size {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if count == 0 || count > c.size {
 		return errors.Wrapf(ErrInvalid, "count: %d", count)
 	}
 	b := batch.NewBatch()
-	start := size - count
+	start := c.size - count
 	for i := uint64(0); i < count; i++ {
 		b.Delete(c.bucket, byteutil.Uint64ToBytesBigEndian(start+i), fmt.Sprintf("failed to delete %d-th item", start+i))
 	}
@@ -178,7 +191,8 @@ func (c *countingIndex) Revert(count uint64) error {
 	if err := c.kvStore.WriteBatch(b); err != nil {
 		return err
 	}
-	atomic.StoreUint64(&c.size, start)
+	c.size = start
+	c.writerSize = start
 	return nil
 }
 
@@ -186,41 +200,4 @@ func (c *countingIndex) Revert(count uint64) error {
 func (c *countingIndex) Close() {
 	// frees reference to db, the db object itself will be closed/freed by its owner, not here
 	c.kvStore = nil
-	c.batch = nil
-}
-
-// Commit commits a batch
-func (c *countingIndex) Commit() error {
-	if c.batch == nil {
-		return nil
-	}
-	size := c.Size()
-	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(size), fmt.Sprintf("failed to update size = %d", size))
-	c.batch.AddFillPercent(c.bucket, 1.0)
-	if err := c.kvStore.WriteBatch(c.batch); err != nil {
-		return err
-	}
-	c.batch = nil
-	return nil
-}
-
-// UseBatch sets a (usually common) batch for the counting index to use
-func (c *countingIndex) UseBatch(b batch.KVStoreBatch) error {
-	if b == nil {
-		return ErrInvalid
-	}
-	c.batch = b
-	return nil
-}
-
-// Finalize updates the total size before committing the (usually common) batch
-func (c *countingIndex) Finalize() error {
-	if c.batch == nil {
-		return ErrInvalid
-	}
-	size := c.Size()
-	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(size), fmt.Sprintf("failed to update size = %d", size))
-	c.batch.AddFillPercent(c.bucket, 1.0)
-	c.batch = nil
-	return nil
 }
