@@ -155,12 +155,6 @@ func NewProtocol(
 	if contractStakingIndexerV2 != nil {
 		migrateContractAddress = contractStakingIndexerV2.ContractAddress()
 	}
-	if contractStakingIndexer != nil {
-		contractStakingIndexer = NewDelayTolerantIndexerWithBucketType(contractStakingIndexer, time.Second)
-	}
-	if contractStakingIndexerV2 != nil {
-		contractStakingIndexerV2 = NewDelayTolerantIndexer(contractStakingIndexerV2, time.Second)
-	}
 	return &Protocol{
 		addr: addr,
 		config: Configuration{
@@ -587,10 +581,10 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	// stakeSR is the stake state reader including native and contract staking
 	indexers := []ContractStakingIndexer{}
 	if p.contractStakingIndexer != nil {
-		indexers = append(indexers, p.contractStakingIndexer)
+		indexers = append(indexers, NewDelayTolerantIndexerWithBucketType(p.contractStakingIndexer, time.Second))
 	}
 	if p.contractStakingIndexerV2 != nil {
-		indexers = append(indexers, p.contractStakingIndexerV2)
+		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV2, time.Second))
 	}
 	stakeSR, err := newCompositeStakingStateReader(p.candBucketsIndexer, sr, p.calculateVoteWeight, indexers...)
 	if err != nil {
