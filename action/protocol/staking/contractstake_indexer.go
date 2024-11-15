@@ -86,6 +86,11 @@ func (c *delayTolerantIndexer) wait(height uint64) (bool, error) {
 	if h >= height {
 		return true, nil
 	}
+	if indexWithStart, ok := c.ContractStakingIndexer.(interface{ StartHeight() uint64 }); ok {
+		if indexWithStart.StartHeight() >= height {
+			return false, nil
+		}
+	}
 	// wait for the height to be reached
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
