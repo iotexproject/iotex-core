@@ -376,7 +376,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if featureCtx.EnableCancunEVM {
 		opts = append(opts, EnableCancunEVMOption())
 	}
-
+	if featureCtx.FixRevertSnapshot {
+		opts = append(opts, FixRevertSnapshotOption())
+	}
 	return NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,
