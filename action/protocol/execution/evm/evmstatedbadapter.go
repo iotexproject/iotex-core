@@ -598,6 +598,7 @@ func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
 // RevertToSnapshot reverts the state factory to the state at a given snapshot
 func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	ds, ok := stateDB.selfDestructedSnapshot[snapshot]
+	log.L().Warn("revert to", zap.Int("snapshot", snapshot))
 	if !ok && stateDB.panicUnrecoverableError {
 		log.L().Panic("Failed to revert to snapshot.", zap.Int("snapshot", snapshot))
 	}
@@ -605,6 +606,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	if stateDB.assertError(err, "state manager's Revert() failed.", zap.Error(err), zap.Int("snapshot", snapshot)) {
 		return
 	}
+	log.L().Warn("after sm.Revert()")
 	if !ok {
 		// this should not happen, b/c we save the SelfDestruct accounts on a successful return of Snapshot(), but check anyway
 		log.L().Error("Failed to revert to snapshot.", zap.Int("snapshot", snapshot))
@@ -664,10 +666,12 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	}
 	// restore the SelfDestruct accounts
 	stateDB.selfDestructed = ds
+	log.L().Warn("recover selfDestructed")
 	if stateDB.fixSnapshotOrder {
 		for i := snapshot; ; i++ {
 			if _, ok := stateDB.selfDestructedSnapshot[i]; ok {
 				delete(stateDB.selfDestructedSnapshot, i)
+				log.L().Warn("revert", zap.Int("delete snapshot", i))
 			} else {
 				break
 			}
@@ -702,6 +706,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 			}
 		}
 	}
+	log.L().Warn("revert done")
 }
 
 func (stateDB *StateDBAdapter) cachedContractAddrs() []common.Address {
@@ -725,6 +730,7 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		}
 	}
 	sn := stateDB.sm.Snapshot()
+	log.L().Warn("create snapshot", zap.Int("snapshot", sn))
 	if _, ok := stateDB.selfDestructedSnapshot[sn]; ok {
 		err := errors.New("unexpected error: duplicate snapshot version")
 		if stateDB.fixSnapshotOrder {
@@ -748,6 +754,7 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		sa[k] = v
 	}
 	stateDB.selfDestructedSnapshot[sn] = sa
+	log.L().Warn("selfDestructedSnapshot updated", zap.Int("snapshot", sn))
 	if !stateDB.fixSnapshotOrder {
 		for _, addr := range stateDB.cachedContractAddrs() {
 			c[addr] = stateDB.cachedContract[addr].Snapshot()
@@ -764,6 +771,7 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 	stateDB.accessListSnapshot[sn] = stateDB.accessList.Copy()
 	// save a copy of transient storage
 	stateDB.transientStorageSnapshot[sn] = stateDB.transientStorage.Copy()
+	log.L().Warn("create snapshot done")
 	return sn
 }
 
