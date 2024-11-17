@@ -74,7 +74,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		DepositGasFunc: p.depositGas,
 		Sgd:            p.sgdRegistry,
 	})
-	_, receipt, err := evm.ExecuteContract(ctx, sm, action.NewEvmTx(exec))
+	_, receipt, err := evm.ExecuteContract(ctx, sm, action.NewEvmTx(exec), false)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute contract")

@@ -228,11 +228,12 @@ func ExecuteContract(
 	ctx context.Context,
 	sm protocol.StateManager,
 	execution *action.EvmTransaction,
+	readOnly bool,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
 
-	stateDB, err := prepareStateDB(ctx, sm)
+	stateDB, err := prepareStateDB(ctx, sm, readOnly)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -360,7 +361,7 @@ func ReadContractStorage(
 			BlockHeight: bcCtx.Tip.Height + 1,
 		},
 	))
-	stateDB, err := prepareStateDB(ctx, sm)
+	stateDB, err := prepareStateDB(ctx, sm, true)
 	if err != nil {
 		return nil, err
 	}
@@ -368,7 +369,7 @@ func ReadContractStorage(
 	return res[:], nil
 }
 
-func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdapter, error) {
+func prepareStateDB(ctx context.Context, sm protocol.StateManager, read bool) (*StateDBAdapter, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
@@ -405,7 +406,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if featureCtx.PanicUnrecoverableError {
 		opts = append(opts, PanicUnrecoverableErrorOption())
 	}
-
+	if read {
+		opts = append(opts, FixRevertSnapshotOption())
+	}
 	return NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,
@@ -669,5 +672,6 @@ func SimulateExecution(
 		ctx,
 		sm,
 		action.NewEvmTx(ex),
+		true,
 	)
 }

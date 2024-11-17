@@ -77,6 +77,7 @@ type (
 		suicideTxLogMismatchPanic  bool
 		zeroNonceForFreshAccount   bool
 		panicUnrecoverableError    bool
+		fixRevertSnapshot          bool
 	}
 )
 
@@ -170,6 +171,14 @@ func ZeroNonceForFreshAccountOption() StateDBAdapterOption {
 func PanicUnrecoverableErrorOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.panicUnrecoverableError = true
+		return nil
+	}
+}
+
+// FixRevertSnapshotOption set fixRevertSnapshot as true
+func FixRevertSnapshotOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.fixRevertSnapshot = true
 		return nil
 	}
 }
@@ -610,10 +619,14 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		log.L().Error("Failed to revert to snapshot.", zap.Int("snapshot", snapshot))
 		return
 	}
+	deleteSnapshot := snapshot
+	if stateDB.fixRevertSnapshot {
+		deleteSnapshot++
+	}
 	// restore gas refund
 	if !stateDB.manualCorrectGasRefund {
 		stateDB.refund = stateDB.refundSnapshot[snapshot]
-		for i := snapshot; ; i++ {
+		for i := deleteSnapshot; ; i++ {
 			if _, ok := stateDB.refundSnapshot[i]; ok {
 				delete(stateDB.refundSnapshot, i)
 			} else {
@@ -624,7 +637,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	// restore access list
 	stateDB.accessList = stateDB.accessListSnapshot[snapshot]
 	{
-		for i := snapshot; ; i++ {
+		for i := deleteSnapshot; ; i++ {
 			if _, ok := stateDB.accessListSnapshot[i]; ok {
 				delete(stateDB.accessListSnapshot, i)
 			} else {
@@ -635,7 +648,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	//restore transientStorage
 	stateDB.transientStorage = stateDB.transientStorageSnapshot[snapshot]
 	{
-		for i := snapshot; ; i++ {
+		for i := deleteSnapshot; ; i++ {
 			if _, ok := stateDB.transientStorageSnapshot[i]; ok {
 				delete(stateDB.transientStorageSnapshot, i)
 			} else {
@@ -646,7 +659,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	// restore logs and txLogs
 	if stateDB.revertLog {
 		stateDB.logs = stateDB.logs[:stateDB.logsSnapshot[snapshot]]
-		for i := snapshot; ; i++ {
+		for i := deleteSnapshot; ; i++ {
 			if _, ok := stateDB.logsSnapshot[i]; ok {
 				delete(stateDB.logsSnapshot, i)
 			} else {
@@ -654,7 +667,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 			}
 		}
 		stateDB.transactionLogs = stateDB.transactionLogs[:stateDB.txLogsSnapshot[snapshot]]
-		for i := snapshot; ; i++ {
+		for i := deleteSnapshot; ; i++ {
 			if _, ok := stateDB.txLogsSnapshot[i]; ok {
 				delete(stateDB.txLogsSnapshot, i)
 			} else {
@@ -665,7 +678,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	// restore the SelfDestruct accounts
 	stateDB.selfDestructed = ds
 	if stateDB.fixSnapshotOrder {
-		for i := snapshot; ; i++ {
+		for i := deleteSnapshot; ; i++ {
 			if _, ok := stateDB.selfDestructedSnapshot[i]; ok {
 				delete(stateDB.selfDestructedSnapshot, i)
 			} else {
@@ -683,7 +696,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		}
 	}
 	if stateDB.fixSnapshotOrder {
-		for i := snapshot; ; i++ {
+		for i := deleteSnapshot; ; i++ {
 			if _, ok := stateDB.contractSnapshot[i]; ok {
 				delete(stateDB.contractSnapshot, i)
 			} else {
@@ -694,7 +707,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	// restore preimages
 	stateDB.preimages = stateDB.preimageSnapshot[snapshot]
 	if stateDB.fixSnapshotOrder {
-		for i := snapshot; ; i++ {
+		for i := deleteSnapshot; ; i++ {
 			if _, ok := stateDB.preimageSnapshot[i]; ok {
 				delete(stateDB.preimageSnapshot, i)
 			} else {
