@@ -146,6 +146,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 		ctx,
 		sm,
 		action.NewEvmTx(execution),
+		false,
 	)
 	if err != nil {
 		return err

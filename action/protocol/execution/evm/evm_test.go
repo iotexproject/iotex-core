@@ -72,7 +72,7 @@ func TestExecuteContractFailure(t *testing.T) {
 		},
 		Sgd: nil,
 	})
-	retval, receipt, err := ExecuteContract(ctx, sm, action.NewEvmTx(e))
+	retval, receipt, err := ExecuteContract(ctx, sm, action.NewEvmTx(e), false)
 	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)
@@ -300,7 +300,7 @@ func TestConstantinople(t *testing.T) {
 			},
 			GetBlockTime: getBlockTime,
 		})
-		stateDB, err := prepareStateDB(fCtx, sm)
+		stateDB, err := prepareStateDB(fCtx, sm, false)
 		require.NoError(err)
 		ps, err := newParams(fCtx, action.NewEvmTx(ex), stateDB)
 		require.NoError(err)
