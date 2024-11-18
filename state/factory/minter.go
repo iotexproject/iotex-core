@@ -10,15 +10,16 @@ import (
 	"time"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
 
-type mintOption func(*minter)
+type MintOption func(*minter)
 
 // WithTimeoutOption sets the timeout for NewBlockBuilder
-func WithTimeoutOption(timeout time.Duration) mintOption {
+func WithTimeoutOption(timeout time.Duration) MintOption {
 	return func(m *minter) {
 		m.timeout = timeout
 	}
@@ -31,7 +32,7 @@ type minter struct {
 }
 
 // NewMinter creates a wrapper instance
-func NewMinter(f Factory, ap actpool.ActPool, opts ...mintOption) blockchain.BlockBuilderFactory {
+func NewMinter(f Factory, ap actpool.ActPool, opts ...MintOption) blockchain.BlockBuilderFactory {
 	m := &minter{f: f, ap: ap}
 	for _, opt := range opts {
 		opt(m)
@@ -43,7 +44,7 @@ func NewMinter(f Factory, ap actpool.ActPool, opts ...mintOption) blockchain.Blo
 func (m *minter) NewBlockBuilder(ctx context.Context, sign func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error) {
 	if m.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, m.timeout)
+		ctx, cancel = context.WithDeadline(ctx, protocol.MustGetBlockCtx(ctx).BlockTimeStamp.Add(m.timeout))
 		defer cancel()
 	}
 	return m.f.NewBlockBuilder(ctx, m.ap, sign)

@@ -553,6 +553,7 @@ func newTestConfig() (config.Config, error) {
 	cfg.Chain.TrieDBPath = _triePath
 	cfg.Chain.ChainDBPath = _dBPath
 	cfg.Chain.BlobStoreDBPath = _blobPath
+	cfg.Chain.MintTimeout = 0
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()

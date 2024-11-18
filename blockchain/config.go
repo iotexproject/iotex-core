@@ -77,7 +77,7 @@ type (
 		// FactoryDBType is the type of factory db
 		FactoryDBType string `yaml:"factoryDBType"`
 		// MintTimeout is the timeout for minting
-		MintTimeout time.Duration `yaml:"mintTimeout"`
+		MintTimeout time.Duration `yaml:"-"`
 	}
 )
 
@@ -121,6 +121,7 @@ var (
 		StreamingBlockBufferSize:      200,
 		PersistStakingPatchBlock:      19778037,
 		FactoryDBType:                 db.DBBolt,
+		MintTimeout:                   1500 * time.Millisecond, // valued with block accept ttl - 500ms(tolerate network delay)
 	}
 
 	// ErrConfig config error

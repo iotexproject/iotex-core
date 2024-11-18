@@ -197,6 +197,7 @@ func TestStakingContract(t *testing.T) {
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"
+	cfg.Chain.MintTimeout = 0
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.NumDelegates = 1
 	cfg.Genesis.NumSubEpochs = 10

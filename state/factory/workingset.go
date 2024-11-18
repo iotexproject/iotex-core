@@ -668,7 +668,7 @@ func (ws *workingSet) pickAndRunActions(
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
 		for {
 			if deadline != nil && time.Now().After(*deadline) {
-				log.L().Warn("Stop processing actions due to deadline")
+				log.L().Warn("Stop processing actions due to deadline, please consider increasing hardware", zap.Time("deadline", *deadline), zap.Int("actions", len(executedActions)))
 				break
 			}
 			nextAction, ok := actionIterator.Next()
