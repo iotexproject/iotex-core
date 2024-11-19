@@ -153,6 +153,7 @@ type (
 		ValidateActionWithState                 bool
 		CheckStakingDurationUpperLimit          bool
 		DisallowSpecialAddressInTx              bool
+		FixRevertSnapshot                       bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -317,6 +318,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			ValidateActionWithState:                 g.IsVanuatu(height),
 			CheckStakingDurationUpperLimit:          g.IsVanuatu(height),
 			DisallowSpecialAddressInTx:              g.IsVanuatu(height),
+			FixRevertSnapshot:                       g.IsVanuatu(height),
 		},
 	)
 }
