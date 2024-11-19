@@ -337,10 +337,12 @@ func ReadContractStorage(
 }
 
 func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdapter, error) {
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	opts := []StateDBAdapterOption{}
+	var (
+		actionCtx  = protocol.MustGetActionCtx(ctx)
+		blkCtx     = protocol.MustGetBlockCtx(ctx)
+		featureCtx = protocol.MustGetFeatureCtx(ctx)
+		opts       = []StateDBAdapterOption{}
+	)
 	if featureCtx.CreateLegacyNonceAccount {
 		opts = append(opts, LegacyNonceAccountOption())
 	}
@@ -376,7 +378,7 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if featureCtx.EnableCancunEVM {
 		opts = append(opts, EnableCancunEVMOption())
 	}
-	if featureCtx.FixRevertSnapshot {
+	if featureCtx.FixRevertSnapshot || actionCtx.ReadOnly {
 		opts = append(opts, FixRevertSnapshotOption())
 	}
 	return NewStateDBAdapter(
