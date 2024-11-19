@@ -155,12 +155,6 @@ func NewProtocol(
 	if contractStakingIndexerV2 != nil {
 		migrateContractAddress = contractStakingIndexerV2.ContractAddress()
 	}
-	if contractStakingIndexer != nil {
-		contractStakingIndexer = NewDelayTolerantIndexerWithBucketType(contractStakingIndexer, time.Second)
-	}
-	if contractStakingIndexerV2 != nil {
-		contractStakingIndexerV2 = NewDelayTolerantIndexer(contractStakingIndexerV2, time.Second)
-	}
 	return &Protocol{
 		addr: addr,
 		config: Configuration{
