@@ -87,8 +87,6 @@ type (
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
 		PutBlock(context.Context, *block.Block) error
 		DeleteTipBlock(context.Context, *block.Block) error
-		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
-		StatesAtHeight(uint64, ...protocol.StateOption) (state.Iterator, error)
 		WorkingSet(context.Context) (protocol.StateManager, error)
 		WorkingSetAtHeight(context.Context, uint64) (protocol.StateManager, error)
 	}
@@ -268,7 +266,16 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	if err != nil {
 		return nil, err
 	}
-	store, err := newFactoryWorkingSetStore(sf.protocolView, flusher)
+	var (
+		rootKey    = ArchiveTrieRootKey
+		createTrie = true
+	)
+	if height < sf.currentChainHeight {
+		// archive mode
+		rootKey = fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height)
+		createTrie = false
+	}
+	store, err := newFactoryWorkingSetStore(sf.protocolView, flusher, rootKey, createTrie)
 	if err != nil {
 		return nil, err
 	}
@@ -388,16 +395,20 @@ func (sf *factory) WorkingSet(ctx context.Context) (protocol.StateManager, error
 }
 
 func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManager, error) {
+	if !sf.saveHistory {
+		return nil, ErrNoArchiveData
+	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	return sf.newWorkingSet(ctx, height+1)
+	if height > sf.currentChainHeight {
+		return nil, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
+	}
+	return sf.newWorkingSet(ctx, height)
 }
 
 // PutBlock persists all changes in RunActions() into the DB
 func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
-	sf.mutex.Lock()
 	timer := sf.timerFactory.NewTimer("Commit")
-	sf.mutex.Unlock()
 	defer timer.End()
 	producer := blk.PublicKey().Address()
 	if producer == nil {
@@ -454,52 +465,6 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 
 func (sf *factory) DeleteTipBlock(_ context.Context, _ *block.Block) error {
 	return errors.Wrap(ErrNotSupported, "cannot delete tip block from factory")
-}
-
-// StateAtHeight returns a confirmed state at height -- archive mode
-func (sf *factory) StateAtHeight(height uint64, s interface{}, opts ...protocol.StateOption) error {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	cfg, err := processOptions(opts...)
-	if err != nil {
-		return err
-	}
-	if cfg.Keys != nil {
-		return errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
-	}
-	if height > sf.currentChainHeight {
-		return errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
-	}
-	return sf.stateAtHeight(height, cfg.Namespace, cfg.Key, s)
-}
-
-// StatesAtHeight returns a set states in the state factory at height -- archive mode
-func (sf *factory) StatesAtHeight(height uint64, opts ...protocol.StateOption) (state.Iterator, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	if height > sf.currentChainHeight {
-		return nil, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
-	}
-	cfg, err := processOptions(opts...)
-	if err != nil {
-		return nil, err
-	}
-	if cfg.Keys != nil {
-		return nil, errors.Wrap(ErrNotSupported, "Read states with keys option has not been implemented yet")
-	}
-	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), false)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to generate trie for %d", height)
-	}
-	if err := tlt.Start(context.Background()); err != nil {
-		return nil, err
-	}
-	defer tlt.Stop(context.Background())
-	keys, values, err := readStatesFromTLT(tlt, cfg.Namespace, cfg.Keys)
-	if err != nil {
-		return nil, err
-	}
-	return state.NewIterator(keys, values)
 }
 
 // State returns a confirmed state in the state factory
@@ -571,26 +536,6 @@ func toLegacyKey(input []byte) []byte {
 
 func legacyKeyLen() int {
 	return 20
-}
-
-func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interface{}) error {
-	if !sf.saveHistory {
-		return ErrNoArchiveData
-	}
-	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), false)
-	if err != nil {
-		return errors.Wrapf(err, "failed to generate trie for %d", height)
-	}
-	if err := tlt.Start(context.Background()); err != nil {
-		return err
-	}
-	defer tlt.Stop(context.Background())
-
-	value, err := readStateFromTLT(tlt, ns, key)
-	if err != nil {
-		return err
-	}
-	return state.Deserialize(s, value)
 }
 
 func (sf *factory) createGenesisStates(ctx context.Context) error {

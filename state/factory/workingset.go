@@ -333,7 +333,7 @@ func (ws *workingSet) Commit(ctx context.Context) error {
 		return err
 	}
 	ws.Reset()
-	return nil
+	return ws.store.Stop(ctx)
 }
 
 // State pulls a state from DB
@@ -342,6 +342,9 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return ws.height, err
+	}
+	if cfg.Keys != nil {
+		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
 	value, err := ws.store.Get(cfg.Namespace, cfg.Key)
 	if err != nil {

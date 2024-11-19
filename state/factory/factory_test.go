@@ -567,21 +567,24 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 
 	// check archive data
 	if statetx {
-		// statetx not support archive mode
-		_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), a)
-		require.Equal(t, ErrNotSupported, errors.Cause(err))
-		_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), b)
+		// statetx not support archive mode yet
+		_, err = sf.WorkingSetAtHeight(ctx, 0)
 		require.Equal(t, ErrNotSupported, errors.Cause(err))
 	} else {
+		_, err = sf.WorkingSetAtHeight(ctx, 10)
 		if !archive {
-			_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), a)
-			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
-			_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), b)
 			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
 		} else {
-			accountA, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), a)
+			require.Contains(t, err.Error(), "query height 10 is higher than tip height 1")
+		}
+		sr, err := sf.WorkingSetAtHeight(ctx, 0)
+		if !archive {
+			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
+		} else {
 			require.NoError(t, err)
-			accountB, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), b)
+			accountA, err = accountutil.AccountState(ctx, sr, a)
+			require.NoError(t, err)
+			accountB, err = accountutil.AccountState(ctx, sr, b)
 			require.NoError(t, err)
 			require.Equal(t, big.NewInt(100), accountA.Balance)
 			require.Equal(t, big.NewInt(0), accountB.Balance)
