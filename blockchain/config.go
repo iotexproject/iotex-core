@@ -71,6 +71,8 @@ type (
 		StreamingBlockBufferSize uint64 `yaml:"streamingBlockBufferSize"`
 		// PersistStakingPatchBlock is the block to persist staking patch
 		PersistStakingPatchBlock uint64 `yaml:"persistStakingPatchBlock"`
+		// MintTimeout is the timeout for minting
+		MintTimeout time.Duration `yaml:"-"`
 	}
 )
 
@@ -111,6 +113,7 @@ var (
 		WorkingSetCacheSize:           20,
 		StreamingBlockBufferSize:      200,
 		PersistStakingPatchBlock:      19778037,
+		MintTimeout:                   1500 * time.Millisecond, // valued with block accept ttl - 500ms(tolerate network delay)
 	}
 
 	// ErrConfig config error

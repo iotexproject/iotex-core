@@ -8,6 +8,7 @@ package factory
 import (
 	"context"
 	"sort"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -37,6 +38,13 @@ var (
 		},
 		[]string{"type"},
 	)
+	_mintAbility = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_mint_ability",
+			Help: "IoTeX Mint Ability",
+		},
+		[]string{"type"},
+	)
 
 	errInvalidSystemActionLayout = errors.New("system action layout is invalid")
 	errUnfoldTxContainer         = errors.New("failed to unfold tx container")
@@ -45,6 +53,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(_stateDBMtc)
+	prometheus.MustRegister(_mintAbility)
 }
 
 type (
@@ -564,10 +573,23 @@ func (ws *workingSet) pickAndRunActions(
 		ctxWithBlockContext = ctx
 		blkCtx              = protocol.MustGetBlockCtx(ctx)
 		fCtx                = protocol.MustGetFeatureCtx(ctx)
+		deadline            *time.Time
+		fullGas             = blkCtx.GasLimit
 	)
 	if ap != nil {
+		if dl, ok := ctx.Deadline(); ok {
+			deadline = &dl
+		}
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
 		for {
+			if deadline != nil && time.Now().After(*deadline) {
+				duration := time.Since(blkCtx.BlockTimeStamp)
+				log.L().Warn("Stop processing actions due to deadline, please consider increasing hardware", zap.Time("deadline", *deadline), zap.Duration("duration", duration), zap.Int("actions", len(executedActions)), zap.Uint64("gas", fullGas-blkCtx.GasLimit))
+				_mintAbility.WithLabelValues("action").Set(float64(len(executedActions)))
+				_mintAbility.WithLabelValues("gas").Set(float64(fullGas - blkCtx.GasLimit))
+				_mintAbility.WithLabelValues("duration").Set(float64(duration.Milliseconds()))
+				break
+			}
 			nextAction, ok := actionIterator.Next()
 			if !ok {
 				break
