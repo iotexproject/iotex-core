@@ -626,6 +626,7 @@ func SimulateExecution(
 		protocol.ActionCtx{
 			Caller:     caller,
 			ActionHash: hash.Hash256b(byteutil.Must(proto.Marshal(ex.Proto()))),
+			ReadOnly:   true,
 		},
 	)
 	zeroAddr, err := address.FromString(address.ZeroAddress)

@@ -86,6 +86,8 @@ type (
 		IntrinsicGas uint64
 		// Nonce is the nonce of the action
 		Nonce uint64
+		// ReadOnly indicates two scenarios: eth_estimateGas and eth_call
+		ReadOnly bool
 	}
 
 	// CheckFunc is function type to check by height.
