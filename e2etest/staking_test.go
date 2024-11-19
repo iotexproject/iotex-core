@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/mohae/deepcopy"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -184,7 +185,7 @@ func TestStakingContract(t *testing.T) {
 		}
 	}
 
-	cfg := config.Default
+	cfg := deepcopy.Copy(config.Default).(config.Config)
 	initDBPaths(require, &cfg)
 
 	defer func() {
@@ -196,6 +197,7 @@ func TestStakingContract(t *testing.T) {
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"
+	cfg.Chain.MintTimeout = 0
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.NumDelegates = 1
 	cfg.Genesis.NumSubEpochs = 10
