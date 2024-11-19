@@ -130,10 +130,11 @@ func HashStringToAddress(str string) address.Address {
 
 func SplitGas(ctx context.Context, tx action.TxDynamicGas, usedGas uint64) (*big.Int, *big.Int, error) {
 	var (
-		baseFee = MustGetBlockCtx(ctx).BaseFee
-		gas     = new(big.Int).SetUint64(usedGas)
+		baseFee  = MustGetBlockCtx(ctx).BaseFee
+		gas      = new(big.Int).SetUint64(usedGas)
+		readOnly = MustGetActionCtx(ctx).ReadOnly
 	)
-	if baseFee == nil {
+	if baseFee == nil || readOnly {
 		// treat as basefee if before enabling EIP-1559
 		return new(big.Int), new(big.Int).Mul(tx.GasFeeCap(), gas), nil
 	}
