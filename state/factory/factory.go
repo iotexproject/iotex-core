@@ -1,4 +1,4 @@
-// Copyright (c) 2022 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -18,7 +18,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -86,12 +85,12 @@ type (
 		Validate(context.Context, *block.Block) error
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
-		SimulateExecution(context.Context, address.Address, action.Envelope, ...protocol.SimulateOption) ([]byte, *action.Receipt, error)
-		ReadContractStorage(context.Context, address.Address, []byte) ([]byte, error)
 		PutBlock(context.Context, *block.Block) error
 		DeleteTipBlock(context.Context, *block.Block) error
 		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
 		StatesAtHeight(uint64, ...protocol.StateOption) (state.Iterator, error)
+		WorkingSet(context.Context) (protocol.StateManager, error)
+		WorkingSetAtHeight(context.Context, uint64) (protocol.StateManager, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -382,44 +381,16 @@ func (sf *factory) NewBlockBuilder(
 	return blkBuilder, nil
 }
 
-// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
-// cause any state change
-func (sf *factory) SimulateExecution(
-	ctx context.Context,
-	caller address.Address,
-	elp action.Envelope,
-	opts ...protocol.SimulateOption,
-) ([]byte, *action.Receipt, error) {
-	ctx, span := tracer.NewSpan(ctx, "factory.SimulateExecution")
-	defer span.End()
-
+func (sf *factory) WorkingSet(ctx context.Context) (protocol.StateManager, error) {
 	sf.mutex.Lock()
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
-	sf.mutex.Unlock()
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-	cfg := &protocol.SimulateOptionConfig{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-	if cfg.PreOpt != nil {
-		if err := cfg.PreOpt(ws); err != nil {
-			return nil, nil, err
-		}
-	}
-	return evm.SimulateExecution(ctx, ws, caller, elp)
+	defer sf.mutex.Unlock()
+	return sf.newWorkingSet(ctx, sf.currentChainHeight+1)
 }
 
-// ReadContractStorage reads contract's storage
-func (sf *factory) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
+func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManager, error) {
 	sf.mutex.Lock()
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
-	sf.mutex.Unlock()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate working set from state factory")
-	}
-	return evm.ReadContractStorage(ctx, ws, contract, key)
+	defer sf.mutex.Unlock()
+	return sf.newWorkingSet(ctx, height+1)
 }
 
 // PutBlock persists all changes in RunActions() into the DB

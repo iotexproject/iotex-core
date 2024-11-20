@@ -337,10 +337,12 @@ func ReadContractStorage(
 }
 
 func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdapter, error) {
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	opts := []StateDBAdapterOption{}
+	var (
+		actionCtx  = protocol.MustGetActionCtx(ctx)
+		blkCtx     = protocol.MustGetBlockCtx(ctx)
+		featureCtx = protocol.MustGetFeatureCtx(ctx)
+		opts       = []StateDBAdapterOption{}
+	)
 	if featureCtx.CreateLegacyNonceAccount {
 		opts = append(opts, LegacyNonceAccountOption())
 	}
@@ -376,7 +378,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if featureCtx.EnableCancunEVM {
 		opts = append(opts, EnableCancunEVMOption())
 	}
-
+	if featureCtx.FixRevertSnapshot || actionCtx.ReadOnly {
+		opts = append(opts, FixRevertSnapshotOption())
+	}
 	return NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,
@@ -613,6 +617,7 @@ func SimulateExecution(
 	sm protocol.StateManager,
 	caller address.Address,
 	ex action.TxDataForSimulation,
+	opts ...protocol.SimulateOption,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.SimulateExecution")
 	defer span.End()
@@ -626,13 +631,23 @@ func SimulateExecution(
 		protocol.ActionCtx{
 			Caller:     caller,
 			ActionHash: hash.Hash256b(byteutil.Must(proto.Marshal(ex.Proto()))),
+			ReadOnly:   true,
 		},
 	)
 	zeroAddr, err := address.FromString(address.ZeroAddress)
 	if err != nil {
 		return nil, nil, err
 	}
-	ctx = protocol.WithBlockCtx(
+	cfg := &protocol.SimulateOptionConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	if cfg.PreOpt != nil {
+		if err := cfg.PreOpt(sm); err != nil {
+			return nil, nil, err
+		}
+	}
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(
 		ctx,
 		protocol.BlockCtx{
 			BlockHeight:    bcCtx.Tip.Height + 1,
@@ -642,8 +657,6 @@ func SimulateExecution(
 			BaseFee:        protocol.CalcBaseFee(g.Blockchain, &bcCtx.Tip),
 			ExcessBlobGas:  protocol.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed),
 		},
-	)
-
-	ctx = protocol.WithFeatureCtx(ctx)
+	))
 	return ExecuteContract(ctx, sm, ex)
 }
