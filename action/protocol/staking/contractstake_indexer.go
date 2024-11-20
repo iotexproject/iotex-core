@@ -47,7 +47,8 @@ type (
 
 	delayTolerantIndexer struct {
 		ContractStakingIndexer
-		duration time.Duration
+		duration    time.Duration
+		startHeight uint64
 	}
 
 	delayTolerantIndexerWithBucketType struct {
@@ -66,30 +67,32 @@ func init() {
 
 // NewDelayTolerantIndexer creates a delay tolerant indexer
 func NewDelayTolerantIndexer(indexer ContractStakingIndexer, duration time.Duration) ContractStakingIndexer {
-	return &delayTolerantIndexer{ContractStakingIndexer: indexer, duration: duration}
+	d := &delayTolerantIndexer{ContractStakingIndexer: indexer, duration: duration}
+	if indexWithStart, ok := indexer.(interface{ StartHeight() uint64 }); ok {
+		d.startHeight = indexWithStart.StartHeight()
+	}
+	return d
 }
 
 // NewDelayTolerantIndexerWithBucketType creates a delay tolerant indexer with bucket type
 func NewDelayTolerantIndexerWithBucketType(indexer ContractStakingIndexerWithBucketType, duration time.Duration) ContractStakingIndexerWithBucketType {
 	return &delayTolerantIndexerWithBucketType{
-		&delayTolerantIndexer{ContractStakingIndexer: indexer, duration: duration},
+		NewDelayTolerantIndexer(indexer, duration).(*delayTolerantIndexer),
 		indexer,
 	}
 }
 
 func (c *delayTolerantIndexer) wait(height uint64) (bool, error) {
 	// first check if the height is already reached
+	if c.startHeight >= height {
+		return false, nil
+	}
 	h, err := c.Height()
 	if err != nil {
 		return false, err
 	}
 	if h >= height {
 		return true, nil
-	}
-	if indexWithStart, ok := c.ContractStakingIndexer.(interface{ StartHeight() uint64 }); ok {
-		if indexWithStart.StartHeight() >= height {
-			return false, nil
-		}
 	}
 	// wait for the height to be reached
 	ticker := time.NewTicker(100 * time.Millisecond)
