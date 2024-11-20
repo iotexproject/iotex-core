@@ -296,7 +296,19 @@ func newCoreService(
 	}
 
 	if core.broadcastHandler != nil {
-		core.actionRadio = NewActionRadio(core.broadcastHandler, core.bc.ChainID(), WithMessageBatch())
+		core.actionRadio = NewActionRadio(core.broadcastHandler, core.bc.ChainID(), WithMessageBatch(), WithRetry(func() chan *action.SealedEnvelope {
+			// fetch the exactly pending action of all accounts
+			pendings := make(chan *action.SealedEnvelope, 100)
+			go func() {
+				for _, pendingAcc := range core.ap.PendingActionMap() {
+					if len(pendingAcc) > 0 {
+						pendings <- pendingAcc[0]
+					}
+				}
+				close(pendings)
+			}()
+			return pendings
+		}, 3, time.Minute))
 		actPool.AddSubscriber(core.actionRadio)
 	}
 
