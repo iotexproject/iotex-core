@@ -359,11 +359,11 @@ func TestState(t *testing.T) {
 
 func TestHistoryState(t *testing.T) {
 	r := require.New(t)
-	var err error
 	// using factory and enable history
 	cfg := DefaultConfig
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
+	file1, err := testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
+	cfg.Chain.TrieDBPath = file1
 	cfg.Chain.EnableArchiveMode = true
 	db1, err := db.CreateKVStore(db.DefaultConfig, cfg.Chain.TrieDBPath)
 	r.NoError(err)
@@ -372,8 +372,9 @@ func TestHistoryState(t *testing.T) {
 	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
 	// using stateDB and enable history
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
+	file2, err := testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
+	cfg.Chain.TrieDBPath = file2
 	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	r.NoError(err)
 	sf, err = NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
@@ -381,8 +382,9 @@ func TestHistoryState(t *testing.T) {
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 
 	// using factory and disable history
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
+	file3, err := testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
+	cfg.Chain.TrieDBPath = file3
 	cfg.Chain.EnableArchiveMode = false
 	db1, err = db.CreateKVStore(db.DefaultConfig, cfg.Chain.TrieDBPath)
 	r.NoError(err)
@@ -391,15 +393,19 @@ func TestHistoryState(t *testing.T) {
 	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
 	// using stateDB and disable history
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
+	file4, err := testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
+	cfg.Chain.TrieDBPath = file4
 	db2, err = db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	r.NoError(err)
 	sf, err = NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	r.NoError(err)
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 	defer func() {
-		testutil.CleanupPath(cfg.Chain.TrieDBPath)
+		testutil.CleanupPath(file1)
+		testutil.CleanupPath(file2)
+		testutil.CleanupPath(file3)
+		testutil.CleanupPath(file4)
 	}()
 }
 
