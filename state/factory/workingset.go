@@ -333,7 +333,7 @@ func (ws *workingSet) Commit(ctx context.Context) error {
 		return err
 	}
 	ws.Reset()
-	return ws.store.Stop(ctx)
+	return nil
 }
 
 // State pulls a state from DB

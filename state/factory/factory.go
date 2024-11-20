@@ -266,19 +266,35 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	if err != nil {
 		return nil, err
 	}
-	var (
-		rootKey    = ArchiveTrieRootKey
-		createTrie = true
-	)
-	if height < sf.currentChainHeight {
-		// archive mode
-		rootKey = fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height)
-		createTrie = false
-	}
-	store, err := newFactoryWorkingSetStore(sf.protocolView, flusher, rootKey, createTrie)
+	store, err := newFactoryWorkingSetStore(sf.protocolView, flusher)
 	if err != nil {
 		return nil, err
 	}
+	return sf.createSfWorkingSet(ctx, height, store)
+}
+
+func (sf *factory) newWorkingSetAtHeight(ctx context.Context, height uint64) (*workingSet, error) {
+	span := tracer.SpanFromContext(ctx)
+	span.AddEvent("factory.newWorkingSet")
+	defer span.End()
+
+	g := genesis.MustExtractGenesisContext(ctx)
+	flusher, err := db.NewKVStoreFlusher(
+		sf.dao,
+		batch.NewCachedBatch(),
+		sf.flusherOptions(!g.IsEaster(height))...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	store, err := newFactoryWorkingSetStoreAtHeight(sf.protocolView, flusher, height)
+	if err != nil {
+		return nil, err
+	}
+	return sf.createSfWorkingSet(ctx, height, store)
+}
+
+func (sf *factory) createSfWorkingSet(ctx context.Context, height uint64, store workingSetStore) (*workingSet, error) {
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
@@ -293,7 +309,6 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			}
 		}
 	}
-
 	return newWorkingSet(height, store), nil
 }
 
@@ -403,7 +418,7 @@ func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64) (proto
 	if height > sf.currentChainHeight {
 		return nil, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
 	}
-	return sf.newWorkingSet(ctx, height)
+	return sf.newWorkingSetAtHeight(ctx, height)
 }
 
 // PutBlock persists all changes in RunActions() into the DB
