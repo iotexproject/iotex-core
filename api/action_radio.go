@@ -54,7 +54,7 @@ func (ar *ActionRadio) Start() error {
 
 // Stop stops the action radio
 func (ar *ActionRadio) Stop() error {
-	if ar.messageBatcher == nil {
+	if ar.messageBatcher != nil {
 		return ar.messageBatcher.Stop()
 	}
 	return nil
