@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"sync"
 	"time"
 
@@ -114,6 +115,26 @@ func (ar *ActionRadio) OnRemoved(selp *action.SealedEnvelope) {
 	defer ar.mutex.Unlock()
 	hash, _ := selp.Hash()
 	delete(ar.unconfirmedActs, hash)
+}
+
+func (ar *ActionRadio) OnRejected(ctx context.Context, selp *action.SealedEnvelope, err error) {
+	if !errors.Is(err, action.ErrExistedInPool) {
+		return
+	}
+	if _, fromAPI := GetAPIContext(ctx); fromAPI {
+		// ignore action rejected from API
+		return
+	}
+	// retry+1 for action broadcast from other nodes, alleviate the network congestion
+	hash, _ := selp.Hash()
+	ar.mutex.Lock()
+	defer ar.mutex.Unlock()
+	if radioAct, ok := ar.unconfirmedActs[hash]; ok {
+		radioAct.retry++
+		radioAct.lastRadioTime = time.Now()
+	} else {
+		log.L().Warn("Found rejected action not in unconfirmedActs", zap.String("actionHash", hex.EncodeToString(hash[:])))
+	}
 }
 
 // autoRadio broadcasts long time pending actions periodically

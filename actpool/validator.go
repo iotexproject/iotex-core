@@ -61,3 +61,5 @@ func (v *blobValidator) OnRemoved(act *action.SealedEnvelope) {
 	}
 	v.blobCntPerAcc[sender]--
 }
+
+func (v *blobValidator) OnRejected(context.Context, *action.SealedEnvelope, error) {}
