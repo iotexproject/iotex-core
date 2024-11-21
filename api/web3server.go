@@ -435,7 +435,7 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 }
 
 func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
-	from, to, gasLimit, gasPrice, value, data, err := parseCallObject(in)
+	from, to, gasLimit, _, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
@@ -453,7 +453,7 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 	}
 	tx = types.NewTx(&types.LegacyTx{
 		Nonce:    0,
-		GasPrice: gasPrice,
+		GasPrice: &big.Int{},
 		Gas:      gasLimit,
 		To:       toAddr,
 		Value:    value,

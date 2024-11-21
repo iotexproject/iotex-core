@@ -86,6 +86,8 @@ type (
 		IntrinsicGas uint64
 		// Nonce is the nonce of the action
 		Nonce uint64
+		// ReadOnly indicates two scenarios: eth_estimateGas and eth_call
+		ReadOnly bool
 	}
 
 	// CheckFunc is function type to check by height.
@@ -149,6 +151,8 @@ type (
 		EnableNewTxTypes                        bool
 		VerifyNotContainerBeforeRun             bool
 		ValidateActionWithState                 bool
+		CheckStakingDurationUpperLimit          bool
+		FixRevertSnapshot                       bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -311,6 +315,8 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			EnableNewTxTypes:                        g.IsVanuatu(height),
 			VerifyNotContainerBeforeRun:             g.IsVanuatu(height),
 			ValidateActionWithState:                 g.IsVanuatu(height),
+			CheckStakingDurationUpperLimit:          g.IsVanuatu(height),
+			FixRevertSnapshot:                       g.IsVanuatu(height),
 		},
 	)
 }
