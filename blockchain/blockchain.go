@@ -424,7 +424,8 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
 	}
-
+	_blockMtc.WithLabelValues("MintGas").Set(float64(blk.GasUsed()))
+	_blockMtc.WithLabelValues("MintActions").Set(float64(len(blk.Actions)))
 	return &blk, nil
 }
 
