@@ -679,13 +679,12 @@ func (ws *workingSet) pickAndRunActions(
 			if deadline != nil && time.Now().After(*deadline) {
 				duration := time.Since(blkCtx.BlockTimeStamp)
 				log.L().Warn("Stop processing actions due to deadline, please consider increasing hardware", zap.Time("deadline", *deadline), zap.Duration("duration", duration), zap.Int("actions", len(executedActions)), zap.Uint64("gas", fullGas-blkCtx.GasLimit))
-				_mintAbility.WithLabelValues("action").Set(float64(len(executedActions)))
-				_mintAbility.WithLabelValues("gas").Set(float64(fullGas - blkCtx.GasLimit))
-				_mintAbility.WithLabelValues("duration").Set(float64(duration.Milliseconds()))
+				_mintAbility.WithLabelValues("saturation").Set(1)
 				break
 			}
 			nextAction, ok := actionIterator.Next()
 			if !ok {
+				_mintAbility.WithLabelValues("saturation").Set(0)
 				break
 			}
 			if nextAction.Gas() > blkCtx.GasLimit {
@@ -767,6 +766,7 @@ func (ws *workingSet) pickAndRunActions(
 			// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
 			// than certain threshold
 			if blkCtx.GasLimit < allowedBlockGasResidue {
+				_mintAbility.WithLabelValues("saturation").Set(0)
 				break
 			}
 		}
