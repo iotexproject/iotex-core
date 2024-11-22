@@ -44,14 +44,15 @@ type (
 
 	contract struct {
 		*state.Account
-		async      bool
-		dirtyCode  bool                       // contract's code has been set
-		dirtyState bool                       // contract's account state has changed
-		code       protocol.SerializableBytes // contract byte-code
-		root       hash.Hash256
-		committed  map[hash.Hash256][]byte
-		sm         protocol.StateManager
-		trie       trie.Trie // storage trie of the contract
+		async        bool
+		dirtyCode    bool                       // contract's code has been set
+		dirtyState   bool                       // contract's account state has changed
+		code         protocol.SerializableBytes // contract byte-code
+		root         hash.Hash256
+		committed    map[hash.Hash256][]byte
+		sm           protocol.StateManager
+		trie         trie.Trie // storage trie of the contract
+		storeForTrie *protocol.KvStoreForTrie
 	}
 )
 
@@ -145,6 +146,11 @@ func (c *contract) Commit() error {
 		}
 		c.dirtyCode = false
 	}
+	for _, opts := range c.storeForTrie.Stales() {
+		if _, err := c.sm.DelState(opts...); err != nil {
+			return errors.Wrapf(err, "Failed to delete stale key")
+		}
+	}
 	return nil
 }
 
@@ -180,14 +186,15 @@ func (c *contract) Snapshot() Contract {
 // newContract returns a Contract instance
 func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateManager, enableAsync bool) (Contract, error) {
 	c := &contract{
-		Account:   account,
-		root:      account.Root,
-		committed: make(map[hash.Hash256][]byte),
-		sm:        sm,
-		async:     enableAsync,
+		Account:      account,
+		root:         account.Root,
+		committed:    make(map[hash.Hash256][]byte),
+		sm:           sm,
+		async:        enableAsync,
+		storeForTrie: protocol.NewKVStoreForTrieWithStateManager(ContractKVNameSpace, sm),
 	}
 	options := []mptrie.Option{
-		mptrie.KVStoreOption(protocol.NewKVStoreForTrieWithStateManager(ContractKVNameSpace, sm)),
+		mptrie.KVStoreOption(c.storeForTrie),
 		mptrie.KeyLengthOption(len(hash.Hash256{})),
 		mptrie.HashFuncOption(func(data []byte) []byte {
 			h := hash.Hash256b(append(addr[:], data...))

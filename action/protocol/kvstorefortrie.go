@@ -16,9 +16,10 @@ import (
 )
 
 type (
-	kvStoreForTrie struct {
-		nsOpt StateOption
-		sm    StateManager
+	KvStoreForTrie struct {
+		nsOpt     StateOption
+		sm        StateManager
+		staleKeys map[string]struct{}
 	}
 	kvStoreForTrieWithStateReader struct {
 		nsOpt StateOption
@@ -27,36 +28,50 @@ type (
 )
 
 // NewKVStoreForTrieWithStateManager creates a trie.KVStore with state manager
-func NewKVStoreForTrieWithStateManager(ns string, sm StateManager) trie.KVStore {
-	return &kvStoreForTrie{nsOpt: NamespaceOption(ns), sm: sm}
+func NewKVStoreForTrieWithStateManager(ns string, sm StateManager) *KvStoreForTrie {
+	return &KvStoreForTrie{nsOpt: NamespaceOption(ns), sm: sm, staleKeys: make(map[string]struct{})}
 }
 
-func (kv *kvStoreForTrie) Start(context.Context) error {
+func (kv *KvStoreForTrie) Start(context.Context) error {
 	return nil
 }
 
-func (kv *kvStoreForTrie) Stop(context.Context) error {
+func (kv *KvStoreForTrie) Stop(context.Context) error {
 	return nil
 }
 
-func (kv *kvStoreForTrie) Put(key []byte, value []byte) error {
+func (kv *KvStoreForTrie) Put(key []byte, value []byte) error {
 	var sb SerializableBytes
 	sb = make([]byte, len(value))
 	copy(sb, value)
 	_, err := kv.sm.PutState(sb, KeyOption(key), kv.nsOpt)
-
-	return err
-}
-
-func (kv *kvStoreForTrie) Delete(key []byte) error {
-	_, err := kv.sm.DelState(KeyOption(key), kv.nsOpt)
-	if errors.Cause(err) == state.ErrStateNotExist {
-		return nil
+	if err != nil {
+		return err
 	}
-	return err
+	dk := string(key)
+	if _, ok := kv.staleKeys[dk]; ok {
+		delete(kv.staleKeys, dk)
+	}
+	return nil
 }
 
-func (kv *kvStoreForTrie) Get(key []byte) ([]byte, error) {
+func (kv *KvStoreForTrie) Delete(key []byte) error {
+	dk := string(key)
+	if _, ok := kv.staleKeys[dk]; !ok {
+		kv.staleKeys[dk] = struct{}{}
+	}
+	return nil
+}
+
+func (kv *KvStoreForTrie) Stales() [][]StateOption {
+	var keys [][]StateOption
+	for k := range kv.staleKeys {
+		keys = append(keys, []StateOption{KeyOption([]byte(k)), kv.nsOpt})
+	}
+	return keys
+}
+
+func (kv *KvStoreForTrie) Get(key []byte) ([]byte, error) {
 	var value SerializableBytes
 	_, err := kv.sm.State(&value, KeyOption(key), kv.nsOpt)
 	switch errors.Cause(err) {

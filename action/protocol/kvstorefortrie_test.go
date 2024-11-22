@@ -11,8 +11,11 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/v2/db/trie"
+	"github.com/iotexproject/iotex-core/v2/db/trie/mptrie"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 type inMemStateManager struct {
@@ -113,7 +116,8 @@ func TestKVStoreForTrie(t *testing.T) {
 	key := []byte("key")
 	value := SerializableBytes("value")
 	sm := newInMemStateManager()
-	kvstore := NewKVStoreForTrieWithStateManager(ns, sm)
+	var kvstore trie.KVStore
+	kvstore = NewKVStoreForTrieWithStateManager(ns, sm)
 	require.NoError(kvstore.Start(context.Background()))
 	require.NoError(kvstore.Stop(context.Background()))
 	_, err := kvstore.Get(key)
@@ -138,4 +142,39 @@ func TestKVStoreForTrie(t *testing.T) {
 	require.NoError(err)
 	require.True(bytes.Equal(fromStore, value))
 
+}
+
+func TestHistoryKVStoreForTrie(t *testing.T) {
+	r := require.New(t)
+	ns := "namespace"
+	key := []byte("key")
+	value := SerializableBytes("value")
+	sm := newInMemStateManager()
+	kvstore := NewKVStoreForTrieWithStateManager(ns, sm)
+
+	trie, err := mptrie.New(mptrie.KVStoreOption(kvstore), mptrie.KeyLengthOption(3))
+	r.NoError(err)
+	r.NoError(trie.Start(context.Background()))
+	defer trie.Stop(context.Background())
+
+	root0, err := trie.RootHash()
+	r.NoError(err)
+	t.Logf("root: %x\n", root0)
+
+	r.NoError(trie.Upsert(key, value))
+	root1, err := trie.RootHash()
+	r.NoError(err)
+	t.Logf("root: %x\n", root1)
+
+	r.NoError(trie.Upsert(key, SerializableBytes("value2")))
+	root2, err := trie.RootHash()
+	r.NoError(err)
+	t.Logf("root: %x\n", root2)
+
+	r.NoError(trie.SetRootHash(root1))
+	for _, opt := range kvstore.Stales() {
+		for _, o := range opt {
+			t.Logf("stale: %#v\n", o)
+		}
+	}
 }
