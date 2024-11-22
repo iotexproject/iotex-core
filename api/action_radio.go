@@ -35,6 +35,7 @@ func WithRetry(fetchFn func() chan *action.SealedEnvelope, max int, interval tim
 		ar.fetchFn = fetchFn
 		ar.retryMax = max
 		ar.retryInterval = interval
+		ar.tickInterval = time.Second * 10
 	}
 }
 
@@ -49,6 +50,7 @@ type ActionRadio struct {
 	fetchFn          func() chan *action.SealedEnvelope
 	retryMax         int
 	retryInterval    time.Duration
+	tickInterval     time.Duration
 }
 
 type radioAction struct {
@@ -76,20 +78,22 @@ func (ar *ActionRadio) Start() error {
 	if ar.messageBatcher != nil {
 		return ar.messageBatcher.Start()
 	}
-	go func() {
-		ticker := time.NewTicker(time.Second * 10)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				ar.mutex.Lock()
-				ar.autoRadio()
-				ar.mutex.Unlock()
-			case <-ar.quit:
-				break
+	if ar.tickInterval > 0 {
+		go func() {
+			ticker := time.NewTicker(ar.tickInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					ar.mutex.Lock()
+					ar.autoRadio()
+					ar.mutex.Unlock()
+				case <-ar.quit:
+					break
+				}
 			}
-		}
-	}()
+		}()
+	}
 	return nil
 }
 
