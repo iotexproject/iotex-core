@@ -128,7 +128,7 @@ type (
 		ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, *block.Block, uint32, error)
 		// PendingActionByActionHash returns action by action hash
 		PendingActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, error)
-		// ActPoolActions returns the all Transaction Identifiers in the actpool
+		// ActionsInActPool returns the all Transaction Identifiers in the actpool
 		ActionsInActPool(actHashes []string) ([]*action.SealedEnvelope, error)
 		// BlockByHeightRange returns blocks within the height range
 		BlockByHeightRange(uint64, uint64) ([]*apitypes.BlockWithReceipts, error)

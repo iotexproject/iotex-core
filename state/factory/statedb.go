@@ -338,7 +338,7 @@ func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, 
 	return sdb.currentChainHeight, sdb.state(cfg.Namespace, cfg.Key, s)
 }
 
-// State returns a set of states in the state factory
+// States returns a set of states in the state factory
 func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
 	cfg, err := processOptions(opts...)
 	if err != nil {

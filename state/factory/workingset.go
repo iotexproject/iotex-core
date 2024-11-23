@@ -419,7 +419,7 @@ func (ws *workingSet) Reset() {
 	ws.dock.Reset()
 }
 
-// createGenesisStates initialize the genesis states
+// CreateGenesisStates initialize the genesis states
 func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
 	if reg, ok := protocol.GetRegistry(ctx); ok {
 		for _, p := range reg.All() {
