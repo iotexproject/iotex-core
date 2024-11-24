@@ -230,12 +230,12 @@ func TestVoteReviser(t *testing.T) {
 func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 	r := require.New(t)
 	t.Run("correct endorse height", func(t *testing.T) {
-		revise := NewVoteReviser(ReviseConfig{})
+		revise := NewVoteReviser(ReviseConfig{}, nil)
 		r.False(revise.shouldReviseSelfStakeBuckets(1))
 
 		revise = NewVoteReviser(ReviseConfig{
 			SelfStakeBucketReviseHeight: 1,
-		})
+		}, nil)
 		r.True(revise.shouldReviseSelfStakeBuckets(1))
 		r.False(revise.shouldReviseSelfStakeBuckets(2))
 	})
@@ -243,7 +243,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		revise := NewVoteReviser(ReviseConfig{
 			SelfStakeBucketReviseHeight: 2,
-		})
+		}, nil)
 		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
 		ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{BlockHeight: 2})
 		ctx = genesis.WithGenesisContext(ctx, g)
@@ -338,7 +338,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 			revise := NewVoteReviser(ReviseConfig{
 				VoteWeight:                  g.VoteWeightCalConsts,
 				SelfStakeBucketReviseHeight: 2,
-			})
+			}, nil)
 			bkt := &VoteBucket{
 				Index:          0,
 				Candidate:      identityset.Address(1),
@@ -373,7 +373,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 			revise := NewVoteReviser(ReviseConfig{
 				VoteWeight:                  g.VoteWeightCalConsts,
 				SelfStakeBucketReviseHeight: 2,
-			})
+			}, nil)
 			bkt := &VoteBucket{
 				Candidate:      identityset.Address(3),
 				Owner:          identityset.Address(4),
@@ -409,7 +409,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 			revise := NewVoteReviser(ReviseConfig{
 				VoteWeight:                  g.VoteWeightCalConsts,
 				SelfStakeBucketReviseHeight: 2,
-			})
+			}, nil)
 			bkt := &VoteBucket{
 				Candidate:      identityset.Address(4),
 				Owner:          identityset.Address(5),
@@ -445,7 +445,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 			revise := NewVoteReviser(ReviseConfig{
 				VoteWeight:                  g.VoteWeightCalConsts,
 				SelfStakeBucketReviseHeight: 2,
-			})
+			}, nil)
 			bkt := &VoteBucket{
 				Candidate:      identityset.Address(5),
 				Owner:          identityset.Address(6),
@@ -486,12 +486,12 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 func TestVoteRevise_CorrectSelfStake(t *testing.T) {
 	r := require.New(t)
 	t.Run("correct height", func(t *testing.T) {
-		revise := NewVoteReviser(ReviseConfig{})
+		revise := NewVoteReviser(ReviseConfig{}, nil)
 		r.False(revise.shouldCorrectCandSelfStake(1))
 
 		revise = NewVoteReviser(ReviseConfig{
 			CorrectCandSelfStakeHeight: 1,
-		})
+		}, nil)
 		r.True(revise.shouldCorrectCandSelfStake(1))
 		r.False(revise.shouldCorrectCandSelfStake(2))
 	})
@@ -520,7 +520,7 @@ func TestVoteRevise_CorrectSelfStake(t *testing.T) {
 		revise := NewVoteReviser(ReviseConfig{
 			VoteWeight:                 g.VoteWeightCalConsts,
 			CorrectCandSelfStakeHeight: 2,
-		})
+		}, nil)
 		bkt := &VoteBucket{
 			Index:            0,
 			Candidate:        identityset.Address(1),
