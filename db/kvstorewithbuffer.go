@@ -3,7 +3,11 @@ package db
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
+	"encoding/hex"
 	"fmt"
+	"os"
+	"strconv"
 
 	"github.com/pkg/errors"
 
@@ -25,6 +29,7 @@ type (
 	KVStoreWithBuffer interface {
 		KVStore
 		withBuffer
+		DumpBatch(file string)
 	}
 
 	// kvStoreWithBuffer is an implementation of KVStore, which buffers all the changes
@@ -144,6 +149,32 @@ func (kvb *kvStoreWithBuffer) Stop(ctx context.Context) error {
 
 func (kvb *kvStoreWithBuffer) Snapshot() int {
 	return kvb.buffer.Snapshot()
+}
+
+func (kvb *kvStoreWithBuffer) DumpBatch(file string) {
+	f, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		panic("failed to open patch")
+	}
+	defer f.Close()
+
+	writer := csv.NewWriter(f)
+	defer writer.Flush()
+
+	for i := 0; i < kvb.buffer.Size(); i++ {
+		e, err := kvb.buffer.Entry(i)
+		if err != nil {
+			panic(err.Error())
+		}
+		if err := writer.Write([]string{
+			strconv.Itoa(int(e.WriteType())),
+			e.Namespace(),
+			hex.EncodeToString(e.Key()),
+			hex.EncodeToString(e.Value()),
+		}); err != nil {
+			panic(err.Error())
+		}
+	}
 }
 
 func (kvb *kvStoreWithBuffer) RevertSnapshot(sid int) error {

@@ -588,13 +588,16 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 			}
 		}
 	}
+	ws.store.KVB().DumpBatch("./CreatePreStates.log")
 
 	receipts, err := ws.runActions(ctx, actions)
 	if err != nil {
 		return err
 	}
 	ws.receipts = receipts
-	return ws.finalize()
+	err = ws.finalize()
+	ws.store.KVB().DumpBatch("./finalize.log")
+	return err
 }
 
 func (ws *workingSet) generateSystemActions(ctx context.Context) ([]action.Envelope, error) {

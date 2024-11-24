@@ -498,7 +498,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		return err
 	}
 
-	var stopHeight uint64 = 121930
+	var stopHeight uint64 = 21542760
 	if blk.Height() > stopHeight {
 		panic(blk.Height())
 	}

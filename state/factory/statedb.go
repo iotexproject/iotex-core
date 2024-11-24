@@ -179,7 +179,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	flusher, err := db.NewKVStoreFlusher(
 		sdb.dao,
 		batch.NewCachedBatch(),
-		sdb.flusherOptions(!g.IsEaster(height))...,
+		sdb.flusherOptions(!g.IsEaster(height), height == g.FixAliasForNonStopHeight)...,
 	)
 	if err != nil {
 		return nil, err
@@ -413,7 +413,7 @@ func (sdb *stateDB) ReadView(name string) (interface{}, error) {
 // private trie constructor functions
 //======================================
 
-func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
+func (sdb *stateDB) flusherOptions(preEaster, fixNonStop bool) []db.KVStoreFlusherOption {
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
 			if preEaster {
@@ -422,15 +422,16 @@ func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 			return wi.Serialize()
 		}),
 	}
-	if !preEaster {
-		return opts
+	if preEaster || fixNonStop {
+		opts = append(
+			opts,
+			db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
+				return preEaster && (wi.Namespace() == evm.CodeKVNameSpace || wi.Namespace() == staking.CandsMapNS) ||
+					fixNonStop && (wi.Namespace() == staking.CandsMapNS)
+			}),
+		)
 	}
-	return append(
-		opts,
-		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
-			return wi.Namespace() == evm.CodeKVNameSpace || wi.Namespace() == staking.CandsMapNS
-		}),
-	)
+	return opts
 }
 
 func (sdb *stateDB) state(ns string, addr []byte, s interface{}) error {

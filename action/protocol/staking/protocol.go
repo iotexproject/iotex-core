@@ -8,6 +8,7 @@ package staking
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -197,6 +199,21 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
+
+	// persist nameMap/operatorMap and ownerList to stateDB
+	var (
+		base   = c.candCenter.base
+		name   = base.candsInNameMap()
+		op     = base.candsInOperatorMap()
+		owners = base.all()
+	)
+	if len(name) == 0 || len(op) == 0 {
+		return nil, ErrNilParameters
+	}
+	fmt.Println("height =", height)
+	fmt.Printf("name = %d, %x\n", len(name), byteutil.Must(name.Serialize()))
+	fmt.Printf("op = %d, %x\n", len(op), byteutil.Must(op.Serialize()))
+	fmt.Printf("owner = %d, %x\n", len(owners), byteutil.Must(owners.Serialize()))
 
 	if p.needToReadCandsMap(ctx, height) {
 		name, operator, owners, err := readCandCenterStateFromStateDB(sr)

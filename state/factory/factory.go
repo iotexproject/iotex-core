@@ -264,7 +264,7 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	flusher, err := db.NewKVStoreFlusher(
 		sf.dao,
 		batch.NewCachedBatch(),
-		sf.flusherOptions(!g.IsEaster(height))...,
+		sf.flusherOptions(!g.IsEaster(height), height == g.FixAliasForNonStopHeight)...,
 	)
 	if err != nil {
 		return nil, err
@@ -291,16 +291,14 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	return newWorkingSet(height, store), nil
 }
 
-func (sf *factory) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
+func (sf *factory) flusherOptions(preEaster, fixNonStop bool) []db.KVStoreFlusherOption {
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
 			if wi.Namespace() == ArchiveTrieNamespace {
 				return true
 			}
-			if wi.Namespace() != evm.CodeKVNameSpace && wi.Namespace() != staking.CandsMapNS {
-				return false
-			}
-			return preEaster
+			return preEaster && (wi.Namespace() == evm.CodeKVNameSpace || wi.Namespace() == staking.CandsMapNS) ||
+				fixNonStop && (wi.Namespace() == staking.CandsMapNS)
 		}),
 		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
 			if preEaster {

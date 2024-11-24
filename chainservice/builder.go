@@ -671,6 +671,7 @@ func (builder *Builder) registerStakingProtocol() error {
 			Revise: staking.ReviseConfig{
 				VoteWeight:                  builder.cfg.Genesis.VoteWeightCalConsts,
 				ReviseHeights:               []uint64{builder.cfg.Genesis.GreenlandBlockHeight, builder.cfg.Genesis.HawaiiBlockHeight},
+				FixAliasForNonStopHeight:    builder.cfg.Genesis.FixAliasForNonStopHeight,
 				CorrectCandsHeight:          builder.cfg.Genesis.OkhotskBlockHeight,
 				SelfStakeBucketReviseHeight: builder.cfg.Genesis.UpernavikBlockHeight,
 				CorrectCandSelfStakeHeight:  builder.cfg.Genesis.VanuatuBlockHeight,

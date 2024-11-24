@@ -34,6 +34,7 @@ type (
 		ResetSnapshots()
 		ReadView(string) (interface{}, error)
 		WriteView(string, interface{}) error
+		KVB() db.KVStoreWithBuffer
 	}
 	stateDBWorkingSetStore struct {
 		view       protocol.View
@@ -78,6 +79,10 @@ func (store *stateDBWorkingSetStore) Stop(context.Context) error {
 	return nil
 }
 
+func (store *stateDBWorkingSetStore) KVB() db.KVStoreWithBuffer {
+	return store.flusher.KVStoreWithBuffer()
+}
+
 func (store *stateDBWorkingSetStore) ReadView(name string) (interface{}, error) {
 	return store.view.Read(name)
 }
@@ -93,6 +98,10 @@ func (store *stateDBWorkingSetStore) Get(ns string, key []byte) ([]byte, error) 
 			return nil, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
 		}
 		return nil, err
+	}
+	name := string(key)
+	if name == "operator" || name == "name" || name == "owner" {
+		fmt.Printf("value = %x\n", data)
 	}
 	return data, nil
 }
@@ -150,6 +159,10 @@ func (store *factoryWorkingSetStore) Start(ctx context.Context) error {
 
 func (store *factoryWorkingSetStore) Stop(ctx context.Context) error {
 	return store.tlt.Stop(ctx)
+}
+
+func (store *factoryWorkingSetStore) KVB() db.KVStoreWithBuffer {
+	return store.flusher.KVStoreWithBuffer()
 }
 
 func (store *factoryWorkingSetStore) ReadView(name string) (interface{}, error) {

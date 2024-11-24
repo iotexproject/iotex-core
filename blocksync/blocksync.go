@@ -171,7 +171,7 @@ func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
 			log.L().Info("remote height too low", zap.Uint64("height", blk.block.Height()))
 		default:
 			bs.blockP2pPeer(blk.pid)
-			log.L().Error("failed to commit block", zap.Error(err), zap.Uint64("height", blk.block.Height()), zap.String("peer", blk.pid))
+			log.L().Panic("failed to commit block", zap.Error(err), zap.Uint64("height", blk.block.Height()), zap.String("peer", blk.pid))
 		}
 	}
 	return false
