@@ -53,6 +53,7 @@ func defaultConfig() Genesis {
 			NumDelegates:              24,
 			NumCandidateDelegates:     36,
 			TimeBasedRotation:         false,
+			FixAliasForNonStopHeight:  21542761,
 			MinBlocksForBlobRetention: 345600,
 			PacificBlockHeight:        432001,
 			AleutianBlockHeight:       864001,
@@ -184,6 +185,8 @@ type (
 		NumCandidateDelegates uint64 `yaml:"numCandidateDelegates"`
 		// TimeBasedRotation is the flag to enable rotating delegates' time slots on a block height
 		TimeBasedRotation bool `yaml:"timeBasedRotation"`
+		// FixAliasForNonStopHeight is the height to fix candidate alias for a non-stopping node
+		FixAliasForNonStopHeight uint64 `yaml:"fixAliasForNonStopHeight"`
 		// MinBlocksForBlobRetention is the minimum number of blocks for blob retention
 		MinBlocksForBlobRetention uint64 `yaml:"minBlocksForBlobRetention"`
 		// PacificBlockHeight is the start height of using the logic of Pacific version
