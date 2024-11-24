@@ -150,7 +150,6 @@ func NewProtocol(
 	}
 
 	// new vote reviser, revise at greenland
-	voteReviser := NewVoteReviser(cfg.Revise)
 	migrateContractAddress := ""
 	if contractStakingIndexerV2 != nil {
 		migrateContractAddress = contractStakingIndexerV2.ContractAddress()
@@ -161,6 +160,7 @@ func NewProtocol(
 	if contractStakingIndexerV2 != nil {
 		contractStakingIndexerV2 = NewDelayTolerantIndexer(contractStakingIndexerV2, time.Second)
 	}
+	patch := NewPatchStore(cfg.StakingPatchDir)
 	return &Protocol{
 		addr: addr,
 		config: Configuration{
@@ -177,8 +177,8 @@ func NewProtocol(
 			MigrateContractAddress:           migrateContractAddress,
 		},
 		candBucketsIndexer:       candBucketsIndexer,
-		voteReviser:              voteReviser,
-		patch:                    NewPatchStore(cfg.StakingPatchDir),
+		voteReviser:              NewVoteReviser(cfg.Revise, patch),
+		patch:                    patch,
 		contractStakingIndexer:   contractStakingIndexer,
 		helperCtx:                helperCtx,
 		contractStakingIndexerV2: contractStakingIndexerV2,
