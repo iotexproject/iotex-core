@@ -1158,6 +1158,20 @@ func (m *MockTxDynamicGas) EXPECT() *MockTxDynamicGasMockRecorder {
 	return m.recorder
 }
 
+// EffectiveGasPrice mocks base method.
+func (m *MockTxDynamicGas) EffectiveGasPrice(arg0 *big.Int) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EffectiveGasPrice", arg0)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// EffectiveGasPrice indicates an expected call of EffectiveGasPrice.
+func (mr *MockTxDynamicGasMockRecorder) EffectiveGasPrice(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EffectiveGasPrice", reflect.TypeOf((*MockTxDynamicGas)(nil).EffectiveGasPrice), arg0)
+}
+
 // GasFeeCap mocks base method.
 func (m *MockTxDynamicGas) GasFeeCap() *big.Int {
 	m.ctrl.T.Helper()

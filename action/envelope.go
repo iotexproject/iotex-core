@@ -50,7 +50,6 @@ type (
 		Nonce() uint64
 		Gas() uint64
 		GasPrice() *big.Int
-		EffectiveGasPrice(*big.Int) *big.Int
 		TxDynamicGas
 		AccessList() types.AccessList
 		TxBlob
@@ -71,6 +70,7 @@ type (
 	TxDynamicGas interface {
 		GasTipCap() *big.Int
 		GasFeeCap() *big.Int
+		EffectiveGasPrice(*big.Int) *big.Int
 	}
 
 	TxBlob interface {
