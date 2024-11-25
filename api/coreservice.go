@@ -949,7 +949,7 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 	if height != "" {
 		inputHeight, err := strconv.ParseUint(height, 0, 64)
 		if err != nil {
-			return nil, uint64(0), err
+			return nil, 0, err
 		}
 		rp := rolldpos.FindProtocol(core.registry)
 		if rp != nil {
@@ -961,7 +961,11 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 		}
 		if inputHeight < tipHeight {
 			// old data, wrap to history state reader
-			d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(core.sf, inputHeight), methodName, arguments...)
+			historySR, err := core.sf.WorkingSetAtHeight(ctx, inputHeight)
+			if err != nil {
+				return nil, 0, err
+			}
+			d, h, err := p.ReadState(ctx, historySR, methodName, arguments...)
 			if err == nil {
 				key.Height = strconv.FormatUint(h, 10)
 				core.readCache.Put(key.Hash(), d)
