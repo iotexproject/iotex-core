@@ -171,6 +171,7 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	case "eth_getTransactionCount":
 		res, err = svr.getTransactionCount(web3Req)
 	case "eth_call":
+		log.T(ctx).Info("eth_call", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
 		res, err = svr.call(web3Req)
 	case "eth_getCode":
 		res, err = svr.getCode(web3Req)
