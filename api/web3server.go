@@ -150,7 +150,7 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	)
 	defer func(start time.Time) { svr.coreService.Track(ctx, start, method.(string), int64(size), err == nil) }(time.Now())
 
-	log.T(ctx).Debug("handleWeb3Req", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
+	log.T(ctx).Info("handleWeb3Req", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
 	_web3ServerMtc.WithLabelValues(method.(string)).Inc()
 	_web3ServerMtc.WithLabelValues("requests_total").Inc()
 	switch method {
@@ -171,7 +171,7 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	case "eth_getTransactionCount":
 		res, err = svr.getTransactionCount(web3Req)
 	case "eth_call":
-		res, err = svr.call(web3Req)
+		res, err = svr.call(ctx, web3Req)
 	case "eth_getCode":
 		res, err = svr.getCode(web3Req)
 	case "eth_protocolVersion":
@@ -201,9 +201,9 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	case "eth_getBlockByNumber":
 		res, err = svr.getBlockByNumber(web3Req)
 	case "eth_estimateGas":
-		res, err = svr.estimateGas(web3Req)
+		res, err = svr.estimateGas(ctx, web3Req)
 	case "eth_sendRawTransaction":
-		res, err = svr.sendRawTransaction(web3Req)
+		res, err = svr.sendRawTransaction(ctx, web3Req)
 	case "eth_getTransactionByHash":
 		res, err = svr.getTransactionByHash(web3Req)
 	case "eth_getTransactionByBlockNumberAndIndex":
@@ -381,7 +381,7 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 	return uint64ToHex(pendingNonce), nil
 }
 
-func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
+func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}, error) {
 	callerAddr, to, gasLimit, _, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
@@ -421,7 +421,7 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 	}
 	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(to, value, data)).
 		SetGasLimit(gasLimit).Build()
-	ret, receipt, err := svr.coreService.ReadContract(context.Background(), callerAddr, elp)
+	ret, receipt, err := svr.coreService.ReadContract(ctx, callerAddr, elp)
 	if err != nil {
 		return nil, err
 	}
@@ -434,7 +434,7 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 	return "0x" + ret, nil
 }
 
-func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
+func (svr *web3Handler) estimateGas(ctx context.Context, in *gjson.Result) (interface{}, error) {
 	from, to, gasLimit, _, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
@@ -467,9 +467,9 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 	var estimatedGas uint64
 	switch act := elp.Action().(type) {
 	case *action.Execution:
-		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), elp, from)
+		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(ctx, elp, from)
 	case *action.MigrateStake:
-		estimatedGas, err = svr.coreService.EstimateMigrateStakeGasConsumption(context.Background(), act, from)
+		estimatedGas, err = svr.coreService.EstimateMigrateStakeGasConsumption(ctx, act, from)
 	default:
 		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act)
 	}
@@ -482,7 +482,7 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 	return uint64ToHex(estimatedGas), nil
 }
 
-func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error) {
+func (svr *web3Handler) sendRawTransaction(ctx context.Context, in *gjson.Result) (interface{}, error) {
 	dataStr := in.Get("params.0")
 	if !dataStr.Exists() {
 		return nil, errInvalidFormat
@@ -546,7 +546,7 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 			Encoding:     encoding,
 		}
 	}
-	actionHash, err := cs.SendAction(context.Background(), req)
+	actionHash, err := cs.SendAction(ctx, req)
 	if err != nil {
 		return nil, err
 	}
