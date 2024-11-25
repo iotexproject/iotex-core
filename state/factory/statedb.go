@@ -267,7 +267,8 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, erro
 }
 
 func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManager, error) {
-	return sdb.newWorkingSet(ctx, height+1)
+	// TODO: implement archive mode
+	return nil, ErrNotSupported
 }
 
 // PutBlock persists all changes in RunActions() into the DB
