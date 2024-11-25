@@ -317,7 +317,7 @@ func TestCall(t *testing.T) {
 			"data":     "d201114a"
 		   },
 		   1]}`)
-		ret, err := web3svr.call(&in)
+		ret, err := web3svr.call(context.Background(), &in)
 		require.NoError(err)
 		require.Equal("0x0000000000000000000000000000000000000000000000056bc75e2d63100000", ret.(string))
 	})
@@ -336,7 +336,7 @@ func TestCall(t *testing.T) {
 			"data":     "ad7a672f"
 		   },
 		   1]}`)
-		ret, err := web3svr.call(&in)
+		ret, err := web3svr.call(context.Background(), &in)
 		require.NoError(err)
 		require.Equal("0x0000000000000000000000000000000000000000000000000000000000002710", ret.(string))
 	})
@@ -352,7 +352,7 @@ func TestCall(t *testing.T) {
 			"data":     "0x1"
 		   },
 		   1]}`)
-		ret, err := web3svr.call(&in)
+		ret, err := web3svr.call(context.Background(), &in)
 		require.NoError(err)
 		require.Equal("0x111111", ret.(string))
 	})
@@ -378,7 +378,7 @@ func TestCall(t *testing.T) {
 			"data":     "0x1"
 		   },
 		   1]}`)
-		_, err := web3svr.call(&in)
+		_, err := web3svr.call(context.Background(), &in)
 		require.EqualError(err, "rpc error: code = InvalidArgument desc = execution reverted: "+receipt.GetExecutionRevertMsg())
 	})
 }

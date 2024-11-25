@@ -171,7 +171,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	case "eth_getTransactionCount":
 		res, err = svr.getTransactionCount(web3Req)
 	case "eth_call":
-		res, err = svr.call(web3Req)
+		log.T(ctx).Info("eth_call", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
+		res, err = svr.call(ctx, web3Req)
 	case "eth_getCode":
 		res, err = svr.getCode(web3Req)
 	case "eth_protocolVersion":
@@ -371,7 +372,7 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 	return uint64ToHex(pendingNonce), nil
 }
 
-func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
+func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}, error) {
 	callerAddr, to, gasLimit, gasPrice, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
@@ -410,7 +411,7 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 		return "0x" + ret, nil
 	}
 	exec, _ := action.NewExecution(to, 0, value, gasLimit, gasPrice, data)
-	ret, receipt, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
+	ret, receipt, err := svr.coreService.ReadContract(ctx, callerAddr, exec)
 	if err != nil {
 		return nil, err
 	}

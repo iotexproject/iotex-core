@@ -7,6 +7,7 @@ package evm
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -43,6 +44,7 @@ type (
 
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
+		ctx                    context.Context
 		sm                     protocol.StateManager
 		logs                   []*action.Log
 		transactionLogs        []*action.TransactionLog
@@ -183,6 +185,13 @@ func FixRevertSnapshotOption() StateDBAdapterOption {
 	}
 }
 
+func WithContext(ctx context.Context) StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.ctx = ctx
+		return nil
+	}
+}
+
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(
 	sm protocol.StateManager,
@@ -191,6 +200,7 @@ func NewStateDBAdapter(
 	opts ...StateDBAdapterOption,
 ) (*StateDBAdapter, error) {
 	s := &StateDBAdapter{
+		ctx:                      context.Background(),
 		sm:                       sm,
 		logs:                     []*action.Log{},
 		err:                      nil,
@@ -691,7 +701,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	for _, addr := range stateDB.cachedContractAddrs() {
 		c := stateDB.cachedContract[addr]
 		if err := c.LoadRoot(); err != nil {
-			log.L().Error("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
+			log.T(stateDB.ctx).Error("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
 			return
 		}
 	}

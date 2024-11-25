@@ -408,6 +408,7 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager, read bool) (*
 	}
 	if read {
 		opts = append(opts, FixRevertSnapshotOption())
+		opts = append(opts, WithContext(ctx))
 	}
 	return NewStateDBAdapter(
 		sm,
