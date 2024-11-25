@@ -244,9 +244,9 @@ func (stateDB *StateDBAdapter) assertError(err error, msg string, fields ...zap.
 		return false
 	}
 	if stateDB.panicUnrecoverableError {
-		log.L().Panic(msg, fields...)
+		log.T(stateDB.ctx).Panic(msg, fields...)
 	}
-	log.L().Error(msg, fields...)
+	log.T(stateDB.ctx).Error(msg, fields...)
 	stateDB.logError(err)
 	return true
 }
@@ -273,7 +273,7 @@ func (stateDB *StateDBAdapter) CreateAccount(evmAddr common.Address) {
 	if stateDB.assertError(err, "Failed to create account.", zap.Error(err), zap.String("address", evmAddr.Hex())) {
 		return
 	}
-	log.L().Debug("Called CreateAccount.", log.Hex("addrHash", evmAddr[:]))
+	log.T(stateDB.ctx).Debug("Called CreateAccount.", log.Hex("addrHash", evmAddr[:]))
 }
 
 // SubBalance subtracts balance from account
@@ -283,7 +283,7 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, a256 *uint256.
 		return
 	}
 	// stateDB.GetBalance(evmAddr)
-	log.L().Debug(fmt.Sprintf("SubBalance %v from %s", amount, evmAddr.Hex()))
+	log.T(stateDB.ctx).Debug(fmt.Sprintf("SubBalance %v from %s", amount, evmAddr.Hex()))
 	addr, err := address.FromBytes(evmAddr.Bytes())
 	if stateDB.assertError(err, "Failed to convert evm address.", zap.Error(err)) {
 		return
@@ -310,7 +310,7 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, a256 *uint256.
 		return
 	}
 	// stateDB.GetBalance(evmAddr)
-	log.L().Debug(fmt.Sprintf("AddBalance %v to %s", amount, evmAddr.Hex()))
+	log.T(stateDB.ctx).Debug(fmt.Sprintf("AddBalance %v to %s", amount, evmAddr.Hex()))
 
 	addr, err := address.FromBytes(evmAddr.Bytes())
 	if stateDB.assertError(err, "Failed to convert evm address.", zap.Error(err)) {
@@ -347,7 +347,7 @@ func (stateDB *StateDBAdapter) GetBalance(evmAddr common.Address) *uint256.Int {
 	if stateDB.assertError(err, "Failed to get balance.", zap.Error(err), zap.String("address", evmAddr.Hex())) {
 		return common.U2560
 	}
-	log.L().Debug(fmt.Sprintf("Balance of %s is %v", evmAddr.Hex(), state.Balance))
+	log.T(stateDB.ctx).Debug(fmt.Sprintf("Balance of %s is %v", evmAddr.Hex(), state.Balance))
 
 	return uint256.MustFromBig(state.Balance)
 }
@@ -373,9 +373,9 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 	state, err := stateDB.accountState(evmAddr)
 	if err != nil {
 		if stateDB.panicUnrecoverableError {
-			log.L().Panic("Failed to get nonce.", zap.Error(err))
+			log.T(stateDB.ctx).Panic("Failed to get nonce.", zap.Error(err))
 		} else {
-			log.L().Error("Failed to get nonce.", zap.Error(err))
+			log.T(stateDB.ctx).Error("Failed to get nonce.", zap.Error(err))
 			stateDB.logError(err)
 		}
 	} else {
@@ -391,7 +391,7 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 		}
 		pendingNonce--
 	}
-	log.L().Debug("Called GetNonce.",
+	log.T(stateDB.ctx).Debug("Called GetNonce.",
 		zap.String("address", evmAddr.Hex()),
 		zap.Uint64("pendingNonce", pendingNonce))
 
@@ -414,12 +414,12 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
 		}
 		nonce--
 	}
-	log.L().Debug("Called SetNonce.",
+	log.T(stateDB.ctx).Debug("Called SetNonce.",
 		zap.String("address", addr.String()),
 		zap.Uint64("nonce", nonce))
 	if !s.IsNewbieAccount() || s.AccountType() != 0 || nonce != 0 || stateDB.zeroNonceForFreshAccount {
 		if err := s.SetPendingNonce(nonce + 1); err != nil {
-			log.L().Panic("Failed to set nonce.", zap.Error(err), zap.String("addr", addr.Hex()), zap.Uint64("pendingNonce", s.PendingNonce()), zap.Uint64("nonce", nonce), zap.String("execution", hex.EncodeToString(stateDB.executionHash[:])))
+			log.T(stateDB.ctx).Panic("Failed to set nonce.", zap.Error(err), zap.String("addr", addr.Hex()), zap.Uint64("pendingNonce", s.PendingNonce()), zap.Uint64("nonce", nonce), zap.String("execution", hex.EncodeToString(stateDB.executionHash[:])))
 			stateDB.logError(err)
 		}
 	}
@@ -429,7 +429,7 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
 
 // SubRefund subtracts refund
 func (stateDB *StateDBAdapter) SubRefund(gas uint64) {
-	log.L().Debug("Called SubRefund.", zap.Uint64("gas", gas))
+	log.T(stateDB.ctx).Debug("Called SubRefund.", zap.Uint64("gas", gas))
 	// stateDB.journal.append(refundChange{prev: self.refund})
 	if gas > stateDB.refund {
 		panic("Refund counter not enough!")
@@ -439,21 +439,21 @@ func (stateDB *StateDBAdapter) SubRefund(gas uint64) {
 
 // AddRefund adds refund
 func (stateDB *StateDBAdapter) AddRefund(gas uint64) {
-	log.L().Debug("Called AddRefund.", zap.Uint64("gas", gas))
+	log.T(stateDB.ctx).Debug("Called AddRefund.", zap.Uint64("gas", gas))
 	// stateDB.journal.append(refundChange{prev: self.refund})
 	stateDB.refund += gas
 }
 
 // GetRefund gets refund
 func (stateDB *StateDBAdapter) GetRefund() uint64 {
-	log.L().Debug("Called GetRefund.")
+	log.T(stateDB.ctx).Debug("Called GetRefund.")
 	return stateDB.refund
 }
 
 // SelfDestruct kills the contract
 func (stateDB *StateDBAdapter) SelfDestruct(evmAddr common.Address) {
 	if !stateDB.Exist(evmAddr) {
-		log.L().Debug("Account does not exist.", zap.String("address", evmAddr.Hex()))
+		log.T(stateDB.ctx).Debug("Account does not exist.", zap.String("address", evmAddr.Hex()))
 		return
 	}
 	s, err := stateDB.accountState(evmAddr)
@@ -487,7 +487,7 @@ func (stateDB *StateDBAdapter) SelfDestruct(evmAddr common.Address) {
 				})
 			}
 		} else {
-			log.L().Panic("SelfDestruct contract's balance does not match",
+			log.T(stateDB.ctx).Panic("SelfDestruct contract's balance does not match",
 				zap.String("SelfDestruct", actBalance.String()),
 				zap.String("beneficiary", stateDB.lastAddBalanceAmount.String()))
 		}
@@ -528,7 +528,7 @@ func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 	if stateDB.assertError(err, "Failed to convert evm address.", zap.Error(err)) {
 		return false
 	}
-	log.L().Debug("Check existence.", zap.String("address", addr.String()), log.Hex("addrHash", evmAddr[:]))
+	log.T(stateDB.ctx).Debug("Check existence.", zap.String("address", addr.String()), log.Hex("addrHash", evmAddr[:]))
 	if _, ok := stateDB.cachedContract[evmAddr]; ok {
 		return true
 	}
@@ -537,7 +537,7 @@ func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 		return false
 	}
 	if !recorded {
-		log.L().Debug("Account does not exist.", zap.String("address", addr.String()))
+		log.T(stateDB.ctx).Debug("Account does not exist.", zap.String("address", addr.String()))
 		return false
 	}
 	return true
@@ -603,7 +603,7 @@ func (stateDB *StateDBAdapter) AddSlotToAccessList(addr common.Address, slot com
 
 // Empty returns true if the the contract is empty
 func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
-	log.L().Debug("Check whether the contract is empty.")
+	log.T(stateDB.ctx).Debug("Check whether the contract is empty.")
 	s, err := stateDB.accountState(evmAddr)
 	if stateDB.assertError(err, "Failed to get account.", zap.Error(err), zap.String("address", evmAddr.Hex())) {
 		return true
@@ -618,7 +618,7 @@ func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
 func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	ds, ok := stateDB.selfDestructedSnapshot[snapshot]
 	if !ok && stateDB.panicUnrecoverableError {
-		log.L().Panic("Failed to revert to snapshot.", zap.Int("snapshot", snapshot))
+		log.T(stateDB.ctx).Panic("Failed to revert to snapshot.", zap.Int("snapshot", snapshot))
 	}
 	err := stateDB.sm.Revert(snapshot)
 	if stateDB.assertError(err, "state manager's Revert() failed.", zap.Error(err), zap.Int("snapshot", snapshot)) {
@@ -626,7 +626,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	}
 	if !ok {
 		// this should not happen, b/c we save the SelfDestruct accounts on a successful return of Snapshot(), but check anyway
-		log.L().Error("Failed to revert to snapshot.", zap.Int("snapshot", snapshot))
+		log.T(stateDB.ctx).Error("Failed to revert to snapshot.", zap.Int("snapshot", snapshot))
 		return
 	}
 	deleteSnapshot := snapshot
@@ -751,9 +751,9 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 	if _, ok := stateDB.selfDestructedSnapshot[sn]; ok {
 		err := errors.New("unexpected error: duplicate snapshot version")
 		if stateDB.fixSnapshotOrder {
-			log.L().Panic("Failed to snapshot.", zap.Error(err))
+			log.T(stateDB.ctx).Panic("Failed to snapshot.", zap.Error(err))
 		} else {
-			log.L().Error("Failed to snapshot.", zap.Error(err))
+			log.T(stateDB.ctx).Error("Failed to snapshot.", zap.Error(err))
 		}
 		// stateDB.err = err
 		return sn
@@ -792,7 +792,7 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 
 // AddLog adds log whose transaction amount is larger than 0
 func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
-	log.L().Debug("Called AddLog.", zap.Any("log", evmLog))
+	log.T(stateDB.ctx).Debug("Called AddLog.", zap.Any("log", evmLog))
 	addr, err := address.FromBytes(evmLog.Address.Bytes())
 	if stateDB.assertError(err, "Failed to convert evm address.", zap.Error(err)) {
 		return
@@ -915,7 +915,7 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 	if contract, ok := stateDB.cachedContract[evmAddr]; ok {
 		code, err := contract.GetCode()
 		if err != nil {
-			log.L().Error("Failed to get code hash.", zap.Error(err))
+			log.T(stateDB.ctx).Error("Failed to get code hash.", zap.Error(err))
 			return nil
 		}
 		return code
@@ -936,7 +936,7 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 // GetCodeSize gets the code size saved in hash
 func (stateDB *StateDBAdapter) GetCodeSize(evmAddr common.Address) int {
 	code := stateDB.GetCode(evmAddr)
-	log.L().Debug("Called GetCodeSize.", log.Hex("addrHash", evmAddr[:]))
+	log.T(stateDB.ctx).Debug("Called GetCodeSize.", log.Hex("addrHash", evmAddr[:]))
 	return len(code)
 }
 
@@ -944,7 +944,7 @@ func (stateDB *StateDBAdapter) GetCodeSize(evmAddr common.Address) int {
 func (stateDB *StateDBAdapter) SetCode(evmAddr common.Address, code []byte) {
 	contract, err := stateDB.getContract(evmAddr)
 	if err != nil {
-		log.L().Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
+		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
 		stateDB.logError(err)
 		return
 	}
@@ -955,13 +955,13 @@ func (stateDB *StateDBAdapter) SetCode(evmAddr common.Address, code []byte) {
 func (stateDB *StateDBAdapter) GetCommittedState(evmAddr common.Address, k common.Hash) common.Hash {
 	contract, err := stateDB.getContract(evmAddr)
 	if err != nil {
-		log.L().Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
+		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
 		stateDB.logError(err)
 		return common.Hash{}
 	}
 	v, err := contract.GetCommittedState(hash.BytesToHash256(k[:]))
 	if err != nil {
-		log.L().Debug("Failed to get committed state.", zap.Error(err))
+		log.T(stateDB.ctx).Debug("Failed to get committed state.", zap.Error(err))
 		stateDB.logError(err)
 		return common.Hash{}
 	}
@@ -972,13 +972,13 @@ func (stateDB *StateDBAdapter) GetCommittedState(evmAddr common.Address, k commo
 func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) common.Hash {
 	contract, err := stateDB.getContract(evmAddr)
 	if err != nil {
-		log.L().Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
+		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
 		stateDB.logError(err)
 		return common.Hash{}
 	}
 	v, err := contract.GetState(hash.BytesToHash256(k[:]))
 	if err != nil {
-		log.L().Debug("Failed to get state.", zap.Error(err))
+		log.T(stateDB.ctx).Debug("Failed to get state.", zap.Error(err))
 		stateDB.logError(err)
 		return common.Hash{}
 	}
@@ -989,11 +989,11 @@ func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) c
 func (stateDB *StateDBAdapter) SetState(evmAddr common.Address, k, v common.Hash) {
 	contract, err := stateDB.getContract(evmAddr)
 	if err != nil {
-		log.L().Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
+		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
 		stateDB.logError(err)
 		return
 	}
-	log.L().Debug("Called SetState", log.Hex("addrHash", evmAddr[:]), log.Hex("k", k[:]))
+	log.T(stateDB.ctx).Debug("Called SetState", log.Hex("addrHash", evmAddr[:]), log.Hex("k", k[:]))
 	err = contract.SetState(hash.BytesToHash256(k[:]), v[:])
 	stateDB.assertError(err, "Failed to set state.", zap.Error(err), zap.String("address", evmAddr.Hex()))
 }
