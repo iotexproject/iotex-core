@@ -8,7 +8,6 @@ package staking
 import (
 	_ "embed"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-address/address"
@@ -26,7 +25,6 @@ type (
 
 	// ContractStakingIndexer defines the interface of contract staking reader
 	ContractStakingIndexer interface {
-		Height() (uint64, error)
 		// Buckets returns active buckets
 		Buckets(height uint64) ([]*VoteBucket, error)
 		// BucketsByIndices returns active buckets by indices
@@ -44,16 +42,6 @@ type (
 		// BucketTypes returns the active bucket types
 		BucketTypes(height uint64) ([]*ContractStakingBucketType, error)
 	}
-
-	delayTolerantIndexer struct {
-		ContractStakingIndexer
-		duration time.Duration
-	}
-
-	delayTolerantIndexerWithBucketType struct {
-		*delayTolerantIndexer
-		indexer ContractStakingIndexerWithBucketType
-	}
 )
 
 func init() {
@@ -62,92 +50,4 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-// NewDelayTolerantIndexer creates a delay tolerant indexer
-func NewDelayTolerantIndexer(indexer ContractStakingIndexer, duration time.Duration) ContractStakingIndexer {
-	return &delayTolerantIndexer{ContractStakingIndexer: indexer, duration: duration}
-}
-
-// NewDelayTolerantIndexerWithBucketType creates a delay tolerant indexer with bucket type
-func NewDelayTolerantIndexerWithBucketType(indexer ContractStakingIndexerWithBucketType, duration time.Duration) ContractStakingIndexerWithBucketType {
-	return &delayTolerantIndexerWithBucketType{
-		&delayTolerantIndexer{ContractStakingIndexer: indexer, duration: duration},
-		indexer,
-	}
-}
-
-func (c *delayTolerantIndexer) wait(height uint64) (bool, error) {
-	// first check if the height is already reached
-	h, err := c.Height()
-	if err != nil {
-		return false, err
-	}
-	if h >= height {
-		return true, nil
-	}
-	if indexWithStart, ok := c.ContractStakingIndexer.(interface{ StartHeight() uint64 }); ok {
-		if indexWithStart.StartHeight() >= height {
-			return false, nil
-		}
-	}
-	// wait for the height to be reached
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-	timer := time.NewTimer(c.duration)
-	defer timer.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			h, err := c.Height()
-			if err != nil {
-				return false, err
-			}
-			if h >= height {
-				return true, nil
-			}
-		case <-timer.C:
-			return false, nil
-		}
-	}
-}
-
-func (c *delayTolerantIndexer) Buckets(height uint64) ([]*VoteBucket, error) {
-	_, err := c.wait(height)
-	if err != nil {
-		return nil, err
-	}
-	return c.ContractStakingIndexer.Buckets(height)
-}
-
-func (c *delayTolerantIndexer) BucketsByIndices(indices []uint64, height uint64) ([]*VoteBucket, error) {
-	_, err := c.wait(height)
-	if err != nil {
-		return nil, err
-	}
-	return c.ContractStakingIndexer.BucketsByIndices(indices, height)
-}
-
-func (c *delayTolerantIndexer) BucketsByCandidate(ownerAddr address.Address, height uint64) ([]*VoteBucket, error) {
-	_, err := c.wait(height)
-	if err != nil {
-		return nil, err
-	}
-	return c.ContractStakingIndexer.BucketsByCandidate(ownerAddr, height)
-}
-
-func (c *delayTolerantIndexer) TotalBucketCount(height uint64) (uint64, error) {
-	_, err := c.wait(height)
-	if err != nil {
-		return 0, err
-	}
-	return c.ContractStakingIndexer.TotalBucketCount(height)
-}
-
-func (c *delayTolerantIndexerWithBucketType) BucketTypes(height uint64) ([]*ContractStakingBucketType, error) {
-	_, err := c.wait(height)
-	if err != nil {
-		return nil, err
-	}
-	return c.indexer.BucketTypes(height)
 }
