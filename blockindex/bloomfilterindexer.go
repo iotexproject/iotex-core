@@ -178,6 +178,18 @@ func (bfx *bloomfilterIndexer) PutBlock(ctx context.Context, blk *block.Block) (
 	return nil
 }
 
+// DeleteTipBlock deletes tip height from underlying DB if necessary
+func (bfx *bloomfilterIndexer) DeleteTipBlock(_ context.Context, blk *block.Block) (err error) {
+	bfx.mutex.Lock()
+	defer bfx.mutex.Unlock()
+	height := blk.Height()
+	if err := bfx.kvStore.Delete(BlockBloomFilterNamespace, byteutil.Uint64ToBytesBigEndian(height)); err != nil {
+		return err
+	}
+	bfx.curRangeBloomfilter = nil
+	return nil
+}
+
 // RangeBloomFilterNumElements returns the number of elements that each rangeBloomfilter indexes
 func (bfx *bloomfilterIndexer) RangeBloomFilterNumElements() uint64 {
 	bfx.mutex.RLock()
