@@ -82,6 +82,7 @@ type ActPool interface {
 	ReceiveBlock(*block.Block) error
 
 	AddActionEnvelopeValidators(...action.SealedEnvelopeValidator)
+	AddSubscriber(sub Subscriber)
 }
 
 // Subscriber is the interface for actpool subscriber
