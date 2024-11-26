@@ -23,7 +23,9 @@ func TestActionRadio(t *testing.T) {
 		},
 		0)
 	r.NoError(radio.Start())
-	defer radio.Stop()
+	defer func() {
+		r.NoError(radio.Stop())
+	}()
 
 	gas := uint64(100000)
 	gasPrice := big.NewInt(10)
