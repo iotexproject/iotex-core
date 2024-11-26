@@ -70,6 +70,21 @@ func newFactoryWorkingSetStore(view protocol.View, flusher db.KVStoreFlusher) (w
 	}, nil
 }
 
+func newFactoryWorkingSetStoreAtHeight(view protocol.View, flusher db.KVStoreFlusher, height uint64) (workingSetStore, error) {
+	rootKey := fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height)
+	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, flusher.KVStoreWithBuffer(), rootKey, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return &factoryWorkingSetStore{
+		flusher:   flusher,
+		view:      view,
+		tlt:       tlt,
+		trieRoots: make(map[int][]byte),
+	}, nil
+}
+
 func (store *stateDBWorkingSetStore) Start(context.Context) error {
 	return nil
 }

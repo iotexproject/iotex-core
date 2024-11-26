@@ -241,7 +241,7 @@ require (
 	lukechampine.com/blake3 v1.2.1 // indirect
 )
 
-//TODO: add tag for go-ethereum
+//Note: add tag for go-ethereum before cutting hard-fork release
 replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v0.5.0
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
