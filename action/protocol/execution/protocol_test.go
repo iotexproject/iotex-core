@@ -293,7 +293,11 @@ func readExecution(
 		GetBlockTime:   getBlockTimeForTest,
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	return sf.SimulateExecution(ctx, addr, elp)
+	ws, err := sf.WorkingSet(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	return evm.SimulateExecution(ctx, ws, addr, elp)
 }
 
 func (sct *SmartContractTest) runExecutions(

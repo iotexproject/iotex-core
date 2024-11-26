@@ -9,6 +9,7 @@ import (
 	"context"
 	"math/big"
 	"sort"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
@@ -40,6 +41,13 @@ var (
 		},
 		[]string{"type"},
 	)
+	_mintAbility = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_mint_ability",
+			Help: "IoTeX Mint Ability",
+		},
+		[]string{"type"},
+	)
 
 	errInvalidSystemActionLayout = errors.New("system action layout is invalid")
 	errUnfoldTxContainer         = errors.New("failed to unfold tx container")
@@ -48,6 +56,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(_stateDBMtc)
+	prometheus.MustRegister(_mintAbility)
 }
 
 type (
@@ -333,6 +342,9 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return ws.height, err
+	}
+	if cfg.Keys != nil {
+		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
 	value, err := ws.store.Get(cfg.Namespace, cfg.Key)
 	if err != nil {
@@ -658,12 +670,24 @@ func (ws *workingSet) pickAndRunActions(
 		fCtx                = protocol.MustGetFeatureCtx(ctx)
 		blobCnt             = uint64(0)
 		blobLimit           = params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob
+		deadline            *time.Time
+		fullGas             = blkCtx.GasLimit
 	)
 	if ap != nil {
+		if dl, ok := ctx.Deadline(); ok {
+			deadline = &dl
+		}
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
 		for {
+			if deadline != nil && time.Now().After(*deadline) {
+				duration := time.Since(blkCtx.BlockTimeStamp)
+				log.L().Warn("Stop processing actions due to deadline, please consider increasing hardware", zap.Time("deadline", *deadline), zap.Duration("duration", duration), zap.Int("actions", len(executedActions)), zap.Uint64("gas", fullGas-blkCtx.GasLimit))
+				_mintAbility.WithLabelValues("saturation").Set(1)
+				break
+			}
 			nextAction, ok := actionIterator.Next()
 			if !ok {
+				_mintAbility.WithLabelValues("saturation").Set(0)
 				break
 			}
 			if nextAction.Gas() > blkCtx.GasLimit {
@@ -745,6 +769,7 @@ func (ws *workingSet) pickAndRunActions(
 			// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
 			// than certain threshold
 			if blkCtx.GasLimit < allowedBlockGasResidue {
+				_mintAbility.WithLabelValues("saturation").Set(0)
 				break
 			}
 		}

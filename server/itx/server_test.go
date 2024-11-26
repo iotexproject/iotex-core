@@ -7,6 +7,7 @@ package itx
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -82,6 +83,8 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	require.NoError(err)
 	contractIndexPath, err := testutil.PathOfTempFile("contractindxer.db")
 	require.NoError(err)
+	testActionStorePath, err := os.MkdirTemp(os.TempDir(), "actionstore")
+	require.NoError(err)
 	cfg := config.Default
 	cfg.API.GRPCPort = testutil.RandomPort()
 	cfg.API.HTTPPort = testutil.RandomPort()
@@ -92,6 +95,9 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.BlobStoreDBPath = blobPath
 	cfg.Chain.ContractStakingIndexDBPath = contractIndexPath
+	if cfg.ActPool.Store != nil {
+		cfg.ActPool.Store.Datadir = testActionStorePath
+	}
 	return cfg, func() {
 		testutil.CleanupPath(dbPath)
 		testutil.CleanupPath(triePath)
@@ -99,5 +105,6 @@ func newConfig(t *testing.T) (config.Config, func()) {
 		testutil.CleanupPath(blobPath)
 		testutil.CleanupPath(contractIndexPath)
 		testutil.CleanupPath(blobPath)
+		testutil.CleanupPath(testActionStorePath)
 	}
 }
