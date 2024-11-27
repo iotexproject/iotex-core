@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
@@ -119,6 +121,7 @@ type (
 		clk            clock.Clock
 		pubSubManager  PubSubManager
 		timerFactory   *prometheustimer.TimerFactory
+		buildEvmLogger func() vm.EVMLogger
 
 		// used by account-based model
 		bbf BlockBuilderFactory
@@ -155,6 +158,13 @@ func BlockValidatorOption(blockValidator block.Validator) Option {
 func ClockOption(clk clock.Clock) Option {
 	return func(bc *blockchain) error {
 		bc.clk = clk
+		return nil
+	}
+}
+
+func EVMLoggerOption(buildLogger func() vm.EVMLogger) Option {
+	return func(bc *blockchain) error {
+		bc.buildEvmLogger = buildLogger
 		return nil
 	}
 }
@@ -305,6 +315,9 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
+	if bc.buildEvmLogger != nil {
+		ctx = evm.WithLoggerCtx(ctx, bc.buildEvmLogger)
+	}
 	ctx = protocol.WithBlockCtx(ctx,
 		protocol.BlockCtx{
 			BlockHeight:    blk.Height(),
@@ -379,6 +392,9 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	}
 	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp)
 	ctx = protocol.WithFeatureCtx(ctx)
+	if bc.buildEvmLogger != nil {
+		ctx = evm.WithLoggerCtx(ctx, bc.buildEvmLogger)
+	}
 	// run execution and update state trie root hash
 	minterPrivateKey := bc.config.ProducerPrivateKey()
 	blockBuilder, err := bc.bbf.NewBlockBuilder(
@@ -462,7 +478,9 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-
+	if bc.buildEvmLogger != nil {
+		ctx = evm.WithLoggerCtx(ctx, bc.buildEvmLogger)
+	}
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")
 	err = bc.dao.PutBlock(ctx, blk)
