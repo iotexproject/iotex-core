@@ -47,20 +47,13 @@ func (b *blockBuffer) Pop(height uint64) []*peerBlock {
 	return blks
 }
 
-func (b *blockBuffer) Cleanup(height uint64) {
+func (b *blockBuffer) Cleanup() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	size := len(b.blockQueues)
 	if size > int(b.bufferSize)*2 {
 		log.L().Warn("blockBuffer is leaking memory.", zap.Int("bufferSize", size))
-		newQueues := map[uint64]*uniQueue{}
-		for h := range b.blockQueues {
-			if h > height {
-				newQueues[h] = b.blockQueues[h]
-			}
-		}
-		b.blockQueues = newQueues
 	}
 }
 
