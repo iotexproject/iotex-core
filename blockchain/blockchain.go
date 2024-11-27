@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
@@ -121,6 +123,7 @@ type (
 		clk            clock.Clock
 		pubSubManager  PubSubManager
 		timerFactory   *prometheustimer.TimerFactory
+		buildEvmLogger func() vm.EVMLogger
 
 		// used by account-based model
 		bbf BlockBuilderFactory
@@ -157,6 +160,13 @@ func BlockValidatorOption(blockValidator block.Validator) Option {
 func ClockOption(clk clock.Clock) Option {
 	return func(bc *blockchain) error {
 		bc.clk = clk
+		return nil
+	}
+}
+
+func EVMLoggerOption(buildLogger func() vm.EVMLogger) Option {
+	return func(bc *blockchain) error {
+		bc.buildEvmLogger = buildLogger
 		return nil
 	}
 }
@@ -326,6 +336,9 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 	if err != nil {
 		return err
 	}
+	if bc.buildEvmLogger != nil {
+		ctx = evm.WithLoggerCtx(ctx, bc.buildEvmLogger)
+	}
 	cfg := BlockValidationCfg{}
 	for _, opt := range opts {
 		opt(&cfg)
@@ -405,6 +418,9 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	ctx, err := bc.context(context.Background(), true)
 	if err != nil {
 		return nil, err
+	}
+	if bc.buildEvmLogger != nil {
+		ctx = evm.WithLoggerCtx(ctx, bc.buildEvmLogger)
 	}
 	tip := protocol.MustGetBlockchainCtx(ctx).Tip
 	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
@@ -496,6 +512,9 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	ctx, err := bc.context(context.Background(), true)
 	if err != nil {
 		return err
+	}
+	if bc.buildEvmLogger != nil {
+		ctx = evm.WithLoggerCtx(ctx, bc.buildEvmLogger)
 	}
 	ctx = bc.contextWithBlock(ctx, blk.PublicKey().Address(), blk.Height(), blk.Timestamp(), blk.BaseFee(), blk.ExcessBlobGas())
 	ctx = protocol.WithFeatureCtx(ctx)

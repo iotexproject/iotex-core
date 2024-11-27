@@ -8,6 +8,7 @@ package chainservice
 import (
 	"context"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -79,6 +80,7 @@ type ChainService struct {
 	apiStats                 *nodestats.APILocalStats
 	blockTimeCalculator      *blockutil.BlockTimeCalculator
 	actionsync               *actsync.ActionSync
+	buildEvmLogger           func() vm.EVMLogger
 }
 
 // Start starts the server

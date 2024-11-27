@@ -10,8 +10,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/actsync"
@@ -44,6 +47,8 @@ const (
 const (
 	// GatewayPlugin is the plugin of accepting user API requests and serving blockchain data to users
 	GatewayPlugin = iota
+	// EVMLoggerPlugin is the plugin of logging EVM execution
+	EVMLoggerPlugin
 )
 
 type strs []string
@@ -180,6 +185,21 @@ func New(configPaths []string, _plugins []string, validates ...Validate) (Config
 		switch strings.ToLower(plugin) {
 		case "gateway":
 			cfg.Plugins[GatewayPlugin] = nil
+		case "evmlogger":
+			var (
+				name   = "callTracer"
+				config = &tracers.TraceConfig{
+					Tracer: &name,
+				}
+			)
+			cfg.Plugins[EVMLoggerPlugin] = func() vm.EVMLogger {
+				t, err := tracers.DefaultDirectory.New(*config.Tracer, new(tracers.Context), config.TracerConfig)
+				if err != nil {
+					log.L().Error("failed to create EVM logger", zap.Error(err))
+					return nil
+				}
+				return t
+			}
 		default:
 			return Config{}, errors.Errorf("Plugin %s is not supported", plugin)
 		}

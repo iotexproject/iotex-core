@@ -11,6 +11,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -35,6 +36,8 @@ type (
 		logs               []*Log
 		transactionLogs    []*TransactionLog
 		executionRevertMsg string
+		// EVMLogger is the logger for EVM, it is optional
+		EvmLogger vm.EVMLogger
 	}
 
 	// Log stores an evm contract event
