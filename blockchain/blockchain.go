@@ -424,7 +424,8 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
 	}
-
+	_blockMtc.WithLabelValues("MintGas").Set(float64(blk.GasUsed()))
+	_blockMtc.WithLabelValues("MintActions").Set(float64(len(blk.Actions)))
 	return &blk, nil
 }
 
@@ -502,10 +503,12 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	putTimer := bc.timerFactory.NewTimer("putBlock")
 	err = bc.dao.PutBlock(ctx, blk)
 	putTimer.End()
-	switch {
-	case errors.Cause(err) == filedao.ErrAlreadyExist:
+	switch errors.Cause(err) {
+	case filedao.ErrAlreadyExist, blockdao.ErrAlreadyExist:
 		return nil
-	case err != nil:
+	case nil:
+		// do nothing
+	default:
 		return err
 	}
 	blkHash := blk.HashBlock()

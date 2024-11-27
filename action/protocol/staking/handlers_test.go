@@ -106,7 +106,9 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require.NoError(csm.putCandidate(candidate))
 	candidateName := candidate.Name
 	candidateAddr := candidate.Owner
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	g := genesis.Default
+	g.VanuatuBlockHeight = 1
+	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
@@ -178,6 +180,20 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			101,
 			candidateName,
 			"100000000000000000000",
+			1051,
+			false,
+			10000,
+			2,
+			1,
+			time.Now(),
+			10000,
+			ErrDurationTooHigh,
+			iotextypes.ReceiptStatus_Failure,
+		},
+		{
+			101,
+			candidateName,
+			"100000000000000000000",
 			1,
 			false,
 			10000,
@@ -203,9 +219,9 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			BlockTimeStamp: test.blkTimestamp,
 			GasLimit:       test.blkGasLimit,
 		})
-		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
 			Height: test.blkHeight - 1,
-		}})
+		}}))
 		act, err := action.NewCreateStake(test.candName, test.amount, test.duration, test.autoStake, nil)
 		require.NoError(err)
 		elp := builder.SetNonce(test.nonce).SetGasLimit(test.gasLimit).
@@ -215,7 +231,6 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			require.EqualError(test.err, errors.Cause(err).Error())
 			continue
 		}
-		ctx = protocol.WithFeatureCtx(ctx)
 		r, err := p.Handle(ctx, elp, sm)
 		require.NoError(err)
 		require.Equal(uint64(test.status), r.Status)

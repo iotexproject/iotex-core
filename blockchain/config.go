@@ -37,7 +37,6 @@ type (
 		ContractStakingIndexDBPath string           `yaml:"contractStakingIndexDBPath"`
 		BlobStoreDBPath            string           `yaml:"blobStoreDBPath"`
 		BlobStoreRetentionDays     uint32           `yaml:"blobStoreRetentionDays"`
-		BlobPurgeInterval          time.Duration    `yaml:"blobPurgeInterval"`
 		ID                         uint32           `yaml:"id"`
 		EVMNetworkID               uint32           `yaml:"evmNetworkID"`
 		Address                    string           `yaml:"address"`
@@ -77,6 +76,8 @@ type (
 		PersistStakingPatchBlock uint64 `yaml:"persistStakingPatchBlock"`
 		// FactoryDBType is the type of factory db
 		FactoryDBType string `yaml:"factoryDBType"`
+		// MintTimeout is the timeout for minting
+		MintTimeout time.Duration `yaml:"-"`
 	}
 )
 
@@ -95,7 +96,6 @@ var (
 		ContractStakingIndexDBPath: "/var/data/contractstaking.index.db",
 		BlobStoreDBPath:            "/var/data/blob.db",
 		BlobStoreRetentionDays:     21,
-		BlobPurgeInterval:          time.Hour,
 		ID:                         1,
 		EVMNetworkID:               4689,
 		Address:                    "",
@@ -121,6 +121,7 @@ var (
 		StreamingBlockBufferSize:      200,
 		PersistStakingPatchBlock:      19778037,
 		FactoryDBType:                 db.DBBolt,
+		MintTimeout:                   1500 * time.Millisecond, // valued with block accept ttl - 500ms(tolerate network delay)
 	}
 
 	// ErrConfig config error

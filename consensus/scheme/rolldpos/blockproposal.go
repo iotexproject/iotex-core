@@ -34,11 +34,7 @@ func (bp *blockProposal) Proto() (*iotextypes.BlockProposal, error) {
 	bPb := bp.block.ConvertToBlockPb()
 	endorsements := []*iotextypes.Endorsement{}
 	for _, en := range bp.proofOfLock {
-		ePb, err := en.Proto()
-		if err != nil {
-			return nil, err
-		}
-		endorsements = append(endorsements, ePb)
+		endorsements = append(endorsements, en.Proto())
 	}
 	return &iotextypes.BlockProposal{
 		Block:        bPb,

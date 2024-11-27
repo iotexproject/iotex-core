@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/mohae/deepcopy"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -47,6 +48,7 @@ const (
 	_dBPath2    = "db.test2"
 	_triePath   = "trie.test"
 	_triePath2  = "trie.test2"
+	_blobPath   = "blob.test"
 	_disabledIP = "169.254."
 )
 
@@ -363,6 +365,8 @@ func TestLocalSync(t *testing.T) {
 	require.NoError(err)
 	indexDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
+	blobIndexPath, err := testutil.PathOfTempFile(_blobPath)
+	require.NoError(err)
 	contractIndexDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
 
@@ -374,11 +378,13 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
+	cfg.Chain.BlobStoreDBPath = blobIndexPath
 	cfg.Chain.ContractStakingIndexDBPath = contractIndexDBPath2
 	defer func() {
 		testutil.CleanupPath(testTriePath2)
 		testutil.CleanupPath(testDBPath2)
 		testutil.CleanupPath(indexDBPath2)
+		testutil.CleanupPath(blobIndexPath)
 		testutil.CleanupPath(contractIndexDBPath2)
 	}()
 
@@ -430,6 +436,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(err)
 	testContractStakeIndexPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
+	testBlobIndexPath, err := testutil.PathOfTempFile(_blobPath)
+	require.NoError(err)
 	// Disable block reward to make bookkeeping easier
 	cfg := config.Default
 	cfg.Chain.TrieDBPatchFile = ""
@@ -437,6 +445,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Chain.BlobStoreDBPath = testBlobIndexPath
 	cfg.Chain.ContractStakingIndexDBPath = testContractStakeIndexPath
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.ActPool.MinGasPriceStr = "0"
@@ -458,6 +467,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(testIndexPath)
+		testutil.CleanupPath(testBlobIndexPath)
 		testutil.CleanupPath(testContractStakeIndexPath)
 	}()
 
@@ -539,7 +549,11 @@ func TestStartExistingBlockchain(t *testing.T) {
 }
 
 func newTestConfig() (config.Config, error) {
-	cfg := config.Default
+	cfg := deepcopy.Copy(config.Default).(config.Config)
+	cfg.Chain.TrieDBPath = _triePath
+	cfg.Chain.ChainDBPath = _dBPath
+	cfg.Chain.BlobStoreDBPath = _blobPath
+	cfg.Chain.MintTimeout = 0
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()

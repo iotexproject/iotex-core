@@ -8,6 +8,7 @@ package chainservice
 import (
 	"context"
 	"math/big"
+	"net/url"
 	"time"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -317,16 +318,31 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if forTest {
 		store, err = filedao.NewFileDAOInMemForTest()
 	} else {
+		path := builder.cfg.Chain.ChainDBPath
+		uri, err := url.Parse(path)
+		if err != nil {
+			return errors.Wrapf(err, "failed to parse chain db path %s", path)
+		}
+		switch uri.Scheme {
+		case "grpc":
+			store = blockdao.NewGrpcBlockDAO(uri.Host, uri.Query().Get("insecure") == "true", block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+		case "file", "":
+			dbConfig := cfg.DB
+			dbConfig.DbPath = uri.Path
+			store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+		default:
+			return errors.Errorf("unsupported blockdao scheme %s", uri.Scheme)
+		}
 		dbConfig := cfg.DB
 		if bsPath := cfg.Chain.BlobStoreDBPath; len(bsPath) > 0 {
 			blocksPerHour := time.Hour / cfg.DardanellesUpgrade.BlockInterval
 			dbConfig.DbPath = bsPath
-			blobStore = blockdao.NewBlobStore(db.NewBoltDB(dbConfig),
-				uint64(blocksPerHour)*uint64(cfg.Chain.BlobStoreRetentionDays)*24, cfg.Chain.BlobPurgeInterval)
+			blobStore = blockdao.NewBlobStore(
+				db.NewBoltDB(dbConfig),
+				uint64(blocksPerHour)*uint64(cfg.Chain.BlobStoreRetentionDays)*24,
+			)
 			opts = append(opts, blockdao.WithBlobStore(blobStore))
 		}
-		dbConfig.DbPath = cfg.Chain.ChainDBPath
-		store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(cfg.Chain.EVMNetworkID))
 	}
 	if err != nil {
 		return err
@@ -490,7 +506,11 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(builder.cs.factory))
 	}
 
-	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, factory.NewMinter(builder.cs.factory, builder.cs.actpool), chainOpts...)
+	var mintOpts []factory.MintOption
+	if builder.cfg.Consensus.Scheme == config.RollDPoSScheme {
+		mintOpts = append(mintOpts, factory.WithTimeoutOption(builder.cfg.Chain.MintTimeout))
+	}
+	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, factory.NewMinter(builder.cs.factory, builder.cs.actpool, mintOpts...), chainOpts...)
 }
 
 func (builder *Builder) buildNodeInfoManager() error {
@@ -535,27 +555,14 @@ func (builder *Builder) buildBlockSyncer() error {
 	p2pAgent := builder.cs.p2pAgent
 	chain := builder.cs.chain
 	consens := builder.cs.consensus
-	blockdao := builder.cs.blockdao
+	dao := builder.cs.blockdao
 	cfg := builder.cfg
-	// estimateTipHeight estimates the height of the block at the given time
-	// it ignores the influence of the block missing in the blockchain
-	// it must >= the real head height of the block
-	estimateTipHeight := func(blk *block.Block, duration time.Duration) uint64 {
-		if blk.Height() >= cfg.Genesis.DardanellesBlockHeight {
-			return blk.Height() + uint64(duration.Seconds()/float64(cfg.DardanellesUpgrade.BlockInterval))
-		}
-		durationToDardanelles := time.Duration(cfg.Genesis.DardanellesBlockHeight-blk.Height()) * time.Duration(cfg.Genesis.BlockInterval)
-		if duration < durationToDardanelles {
-			return blk.Height() + uint64(duration.Seconds()/float64(cfg.Genesis.BlockInterval))
-		}
-		return cfg.Genesis.DardanellesBlockHeight + uint64((duration-durationToDardanelles).Seconds()/float64(cfg.DardanellesUpgrade.BlockInterval))
-	}
 
 	blocksync, err := blocksync.NewBlockSyncer(
 		builder.cfg.BlockSync,
 		chain.TipHeight,
 		func(height uint64) (*block.Block, error) {
-			blk, err := blockdao.GetBlockByHeight(height)
+			blk, err := dao.GetBlockByHeight(height)
 			if err != nil {
 				return blk, err
 			}
@@ -563,7 +570,7 @@ func (builder *Builder) buildBlockSyncer() error {
 				// block already has blob sidecar attached
 				return blk, nil
 			}
-			sidecars, hashes, err := blockdao.GetBlobsByHeight(height)
+			sidecars, hashes, err := dao.GetBlobsByHeight(height)
 			if errors.Cause(err) == db.ErrNotExist {
 				// the block does not have blob or blob has expired
 				return blk, nil
@@ -586,7 +593,7 @@ func (builder *Builder) buildBlockSyncer() error {
 			var err error
 			opts := []blockchain.BlockValidationOption{}
 			if now := time.Now(); now.After(blk.Timestamp()) &&
-				blk.Height()+cfg.Genesis.MinBlocksForBlobRetention <= estimateTipHeight(blk, now.Sub(blk.Timestamp())) {
+				blk.Height()+cfg.Genesis.MinBlocksForBlobRetention <= estimateTipHeight(&cfg, blk, now.Sub(blk.Timestamp())) {
 				opts = append(opts, blockchain.SkipSidecarValidationOption())
 			}
 			for i := 0; i < retries; i++ {
@@ -601,6 +608,12 @@ func (builder *Builder) buildBlockSyncer() error {
 					return nil
 				case block.ErrDeltaStateMismatch:
 					log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
+				case blockdao.ErrRemoteHeightTooLow:
+					if retries == 1 {
+						retries = 4
+					}
+					log.L().Debug("Remote height too low.", zap.Uint64("height", blk.Height()))
+					time.Sleep(100 * time.Millisecond)
 				default:
 					log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 					return err
@@ -726,7 +739,11 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 				GetBlockTime:   getBlockTime,
 				DepositGasFunc: rewarding.DepositGas,
 			})
-			data, _, err := factory.SimulateExecution(ctx, addr, elp)
+			ws, err := factory.WorkingSet(ctx)
+			if err != nil {
+				return nil, err
+			}
+			data, _, err := evm.SimulateExecution(ctx, ws, addr, elp)
 			return data, err
 		},
 		candidatesutil.CandidatesFromDB,
@@ -864,4 +881,18 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	builder.cs = nil
 
 	return cs, nil
+}
+
+// estimateTipHeight estimates the height of the block at the given time
+// it ignores the influence of the block missing in the blockchain
+// it must >= the real head height of the block
+func estimateTipHeight(cfg *config.Config, blk *block.Block, duration time.Duration) uint64 {
+	if blk.Height() >= cfg.Genesis.DardanellesBlockHeight {
+		return blk.Height() + uint64(duration/cfg.DardanellesUpgrade.BlockInterval)
+	}
+	durationToDardanelles := time.Duration(cfg.Genesis.DardanellesBlockHeight-blk.Height()) * cfg.Genesis.BlockInterval
+	if duration < durationToDardanelles {
+		return blk.Height() + uint64(duration/cfg.Genesis.BlockInterval)
+	}
+	return cfg.Genesis.DardanellesBlockHeight + uint64((duration-durationToDardanelles)/cfg.DardanellesUpgrade.BlockInterval)
 }

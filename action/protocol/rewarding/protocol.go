@@ -145,7 +145,10 @@ func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.
 		return err
 	}
 
-	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
+	if rp == nil {
+		return nil
+	}
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	newLastEpoch := rp.GetEpochNum(blkCtx.BlockHeight) + 8760
 
@@ -384,7 +387,7 @@ func (p *Protocol) deleteStateV2(sm protocol.StateManager, key []byte) error {
 func (p *Protocol) settleSystemAction(
 	ctx context.Context,
 	sm protocol.StateManager,
-	act action.TxCommon,
+	act action.TxDynamicGas,
 	status uint64,
 	si int,
 	logs []*action.Log,
@@ -396,7 +399,7 @@ func (p *Protocol) settleSystemAction(
 func (p *Protocol) settleUserAction(
 	ctx context.Context,
 	sm protocol.StateManager,
-	act action.TxCommon,
+	act action.TxDynamicGas,
 	status uint64,
 	si int,
 	logs []*action.Log,
@@ -408,7 +411,7 @@ func (p *Protocol) settleUserAction(
 func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
-	act action.TxCommon,
+	act action.TxDynamicGas,
 	status uint64,
 	si int,
 	isSystemAction bool,

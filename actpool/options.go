@@ -43,7 +43,10 @@ func WithStore(cfg StoreConfig, encode encodeAction, decode decodeAction) func(*
 		if encode == nil || decode == nil {
 			return errors.New("encode and decode functions must be provided")
 		}
-		store, err := newActionStore(cfg.Store, encode, decode)
+		store, err := newActionStore(actionStoreConfig{
+			Datadir: cfg.Datadir,
+			Datacap: cfg.Datacap,
+		}, encode, decode)
 		if err != nil {
 			return err
 		}
