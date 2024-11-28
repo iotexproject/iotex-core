@@ -245,7 +245,7 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB)
+	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ctx, ps, stateDB)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -380,6 +380,7 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	}
 	if featureCtx.FixRevertSnapshot || actionCtx.ReadOnly {
 		opts = append(opts, FixRevertSnapshotOption())
+		opts = append(opts, WithContext(ctx))
 	}
 	return NewStateDBAdapter(
 		sm,
@@ -427,7 +428,7 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 }
 
 // Error in executeInEVM is a consensus issue
-func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, uint64, string, iotextypes.ReceiptStatus, error) {
+func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, uint64, string, iotextypes.ReceiptStatus, error) {
 	var (
 		gasLimit     = evmParams.blkCtx.GasLimit
 		blockHeight  = evmParams.blkCtx.BlockHeight
@@ -436,7 +437,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 		chainConfig  = evmParams.chainConfig
 	)
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
-		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
+		log.T(ctx).Warn("unexpected error: not enough security deposit", zap.Error(err))
 		return nil, 0, 0, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
 	}
 	var (
@@ -472,7 +473,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 		// create contract
 		var evmContractAddress common.Address
 		_, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, remainingGas, amount)
-		log.L().Debug("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
+		log.T(ctx).Debug("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
 		if evmErr == nil {
 			if contractAddress, err := address.FromBytes(evmContractAddress.Bytes()); err == nil {
 				contractRawAddress = contractAddress.String()
@@ -484,7 +485,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 		ret, remainingGas, evmErr = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, amount)
 	}
 	if evmErr != nil {
-		log.L().Debug("evm error", zap.Error(evmErr))
+		log.T(ctx).Debug("evm error", zap.Error(evmErr))
 		// The only possible consensus-error would be if there wasn't
 		// sufficient balance to make the transfer happen.
 		// Should be a hard fork (Bering)
@@ -493,7 +494,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 		}
 	}
 	if stateDB.Error() != nil {
-		log.L().Debug("statedb error", zap.Error(stateDB.Error()))
+		log.T(ctx).Debug("statedb error", zap.Error(stateDB.Error()))
 	}
 	if !rules.IsLondon {
 		// Before EIP-3529: refunds were capped to gasUsed / 2
@@ -532,7 +533,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 			} else {
 				addr = "contract creation"
 			}
-			log.L().Warn("evm internal error", zap.Error(evmErr),
+			log.T(ctx).Warn("evm internal error", zap.Error(evmErr),
 				zap.String("address", addr),
 				log.Hex("calldata", evmParams.data))
 		}

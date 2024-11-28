@@ -445,7 +445,7 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 
 // SendAction is the API to send an action to blockchain.
 func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
-	log.Logger("api").Debug("receive send action request")
+	log.T(ctx).Debug("receive send action request")
 	selp, err := (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID()).ActionToSealedEnvelope(in)
 	if err != nil {
 		return "", status.Error(codes.InvalidArgument, err.Error())
@@ -470,7 +470,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	if err != nil {
 		return "", err
 	}
-	l := log.Logger("api").With(zap.String("actionHash", hex.EncodeToString(hash[:])))
+	l := log.T(ctx).Logger().With(zap.String("actionHash", hex.EncodeToString(hash[:])))
 	if err = core.ap.Add(ctx, selp); err != nil {
 		txBytes, serErr := proto.Marshal(in)
 		if serErr != nil {
@@ -489,7 +489,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		}
 		st, err := st.WithDetails(br)
 		if err != nil {
-			log.Logger("api").Panic("Unexpected error attaching metadata", zap.Error(err))
+			log.T(ctx).Panic("Unexpected error attaching metadata", zap.Error(err))
 		}
 		return "", st.Err()
 	}
