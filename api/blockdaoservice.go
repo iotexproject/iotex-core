@@ -152,12 +152,7 @@ func (service *blockDAOService) FooterByHeight(_ context.Context, request *block
 	if err != nil {
 		return nil, err
 	}
-	footerpb, err := footer.ConvertToBlockFooterPb()
-	if err != nil {
-		return nil, err
-	}
-
 	return &blockdaopb.FooterResponse{
-		Footer: footerpb,
+		Footer: footer.Proto(),
 	}, nil
 }

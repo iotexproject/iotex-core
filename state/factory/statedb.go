@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -30,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
-	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
@@ -261,46 +259,16 @@ func (sdb *stateDB) NewBlockBuilder(
 	return blkBuilder, nil
 }
 
-// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
-// cause any state change
-func (sdb *stateDB) SimulateExecution(
-	ctx context.Context,
-	caller address.Address,
-	elp action.Envelope,
-	opts ...protocol.SimulateOption,
-) ([]byte, *action.Receipt, error) {
-	ctx, span := tracer.NewSpan(ctx, "stateDB.SimulateExecution")
-	defer span.End()
-
+func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, error) {
 	sdb.mutex.RLock()
-	currHeight := sdb.currentChainHeight
+	height := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
-	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
-	if err != nil {
-		return nil, nil, err
-	}
-	cfg := &protocol.SimulateOptionConfig{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-	if cfg.PreOpt != nil {
-		if err := cfg.PreOpt(ws); err != nil {
-			return nil, nil, err
-		}
-	}
-	return evm.SimulateExecution(ctx, ws, caller, elp)
+	return sdb.newWorkingSet(ctx, height+1)
 }
 
-// ReadContractStorage reads contract's storage
-func (sdb *stateDB) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
-	sdb.mutex.RLock()
-	currHeight := sdb.currentChainHeight
-	sdb.mutex.RUnlock()
-	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate working set from state db")
-	}
-	return evm.ReadContractStorage(ctx, ws, contract, key)
+func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManager, error) {
+	// TODO: implement archive mode
+	return nil, ErrNotSupported
 }
 
 // PutBlock persists all changes in RunActions() into the DB
