@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"strconv"
 	"time"
 
@@ -453,7 +454,7 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 	}
 	tx = types.NewTx(&types.LegacyTx{
 		Nonce:    0,
-		GasPrice: callMsg.GasPrice,
+		GasPrice: big.NewInt(0),
 		Gas:      callMsg.Gas,
 		To:       toAddr,
 		Value:    callMsg.Value,
