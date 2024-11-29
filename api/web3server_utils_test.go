@@ -4,11 +4,14 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/v2/test/mock/mock_apicoreservice"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_apicoreservice"
 )
 
 func TestParseCallObject(t *testing.T) {
@@ -18,13 +21,16 @@ func TestParseCallObject(t *testing.T) {
 		name  string
 		input string
 
-		from     string
-		to       string
-		gasLimit uint64
-		gasPrice *big.Int
-		value    *big.Int
-		data     []byte
-		err      error
+		from      string
+		to        string
+		gasLimit  uint64
+		gasPrice  *big.Int
+		gasTipCap *big.Int
+		gasFeeCap *big.Int
+		value     *big.Int
+		data      []byte
+		acl       types.AccessList
+		err       error
 	}{
 		{
 			name: "legacy",
@@ -62,18 +68,54 @@ func TestParseCallObject(t *testing.T) {
 			value:    new(big.Int).SetInt64(1),
 			data:     []byte{0x6d, 0x4c, 0xe6, 0x3c},
 		},
+		{
+			name: "dynamicfee",
+			input: `{"params":[{
+				"from":     "0x1a2f3b98e2f5a0f9f9f3f3f3f3f3f3f3f3f3f3f3",
+				"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
+				"gas":      "0x4e20",
+				"maxFeePerGas": "0xe8d4a51000",
+				"maxPriorityFeePerGas": "0xd4a51000",
+				"value":    "0x1",
+				"input":    "0x6d4ce63c",
+				"accessList": [
+					{
+						"address": "0x1a2f3b98e2f5a0f9f9f3f3f3f3f3f3f3f3f3f3f3",
+						"storageKeys": ["0x0000000000000000000000001a2f3b98e2f5a0f9f9f3f3f3f3f3f3f3f3f3f3f3"]
+					}
+				]
+			   },
+			   1]}`,
+			from:      "io1rghnhx8z7ks0n70n70el8uln70el8ulnp8hq9l",
+			to:        "io10sfcvmuj2000083qqd8d6qg7r457vll9gly090",
+			gasLimit:  20000,
+			gasPrice:  new(big.Int).SetInt64(0),
+			gasTipCap: new(big.Int).SetInt64(0xd4a51000),
+			gasFeeCap: new(big.Int).SetInt64(0xe8d4a51000),
+			value:     new(big.Int).SetInt64(1),
+			data:      []byte{0x6d, 0x4c, 0xe6, 0x3c},
+			acl: types.AccessList{
+				{
+					Address:     common.HexToAddress("0x1a2f3b98e2f5a0f9f9f3f3f3f3f3f3f3f3f3f3f3"),
+					StorageKeys: []common.Hash{common.HexToHash("0x0000000000000000000000001a2f3b98e2f5a0f9f9f3f3f3f3f3f3f3f3f3f3f3")},
+				},
+			},
+		},
 	}
 
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
 			in := gjson.Parse(test.input)
-			from, to, gasLimit, gasPrice, value, data, err := parseCallObject(&in)
-			require.Equal(test.from, from.String())
-			require.Equal(test.to, to)
-			require.Equal(test.gasLimit, gasLimit)
-			require.Equal(test.gasPrice, gasPrice)
-			require.Equal(test.value, value)
-			require.Equal(test.data, data)
+			callMsg, err := parseCallObject(&in)
+			require.Equal(test.from, callMsg.From.String())
+			require.Equal(test.to, callMsg.To)
+			require.Equal(test.gasLimit, callMsg.Gas)
+			require.Equal(test.gasPrice, callMsg.GasPrice)
+			require.Equal(test.gasTipCap, callMsg.GasTipCap)
+			require.Equal(test.gasFeeCap, callMsg.GasFeeCap)
+			require.Equal(test.value, callMsg.Value)
+			require.Equal(test.data, callMsg.Data)
+			require.Equal(test.acl, callMsg.AccessList)
 			require.Equal(test.err, err)
 		})
 	}
@@ -89,7 +131,7 @@ func TestParseCallObject(t *testing.T) {
 			   },
 			   1]}`
 		in := gjson.Parse(input)
-		_, _, _, _, _, _, err := parseCallObject(&in)
+		_, err := parseCallObject(&in)
 		require.EqualError(err, "gasPrice: unknown: wrong type of params")
 	})
 
@@ -104,7 +146,7 @@ func TestParseCallObject(t *testing.T) {
 			   },
 			   1]}`
 		in := gjson.Parse(input)
-		_, _, _, _, _, _, err := parseCallObject(&in)
+		_, err := parseCallObject(&in)
 		require.EqualError(err, "value: unknown: wrong type of params")
 	})
 
