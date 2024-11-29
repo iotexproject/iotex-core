@@ -386,8 +386,8 @@ func (call *callMsg) toUnsignedTx(chainID uint32) (*types.Transaction, error) {
 	case call.GasFeeCap != nil || call.GasTipCap != nil:
 		tx = types.NewTx(&types.DynamicFeeTx{
 			ChainID:    big.NewInt(int64(chainID)),
-			GasTipCap:  call.GasTipCap,
-			GasFeeCap:  call.GasFeeCap,
+			GasTipCap:  big.NewInt(0),
+			GasFeeCap:  big.NewInt(0),
 			Gas:        call.Gas,
 			To:         toAddr,
 			Value:      call.Value,
@@ -397,7 +397,7 @@ func (call *callMsg) toUnsignedTx(chainID uint32) (*types.Transaction, error) {
 	case call.AccessList != nil:
 		tx = types.NewTx(&types.AccessListTx{
 			ChainID:    big.NewInt(int64(chainID)),
-			GasPrice:   call.GasPrice,
+			GasPrice:   big.NewInt(0),
 			Gas:        call.Gas,
 			To:         toAddr,
 			Value:      call.Value,
@@ -406,7 +406,7 @@ func (call *callMsg) toUnsignedTx(chainID uint32) (*types.Transaction, error) {
 		})
 	default:
 		tx = types.NewTx(&types.LegacyTx{
-			GasPrice: call.GasPrice,
+			GasPrice: big.NewInt(0),
 			Gas:      call.Gas,
 			To:       toAddr,
 			Value:    call.Value,
