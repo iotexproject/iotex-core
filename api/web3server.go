@@ -6,11 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
 	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
@@ -32,7 +30,6 @@ import (
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/addrutil"
 )
 
 const (
@@ -440,26 +437,10 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	from, to := callMsg.From, callMsg.To
-	var (
-		tx     *types.Transaction
-		toAddr *common.Address
-	)
-	if len(to) != 0 {
-		addr, err := addrutil.IoAddrToEvmAddr(to)
-		if err != nil {
-			return nil, err
-		}
-		toAddr = &addr
+	tx, err := callMsg.toUnsignedTx(svr.coreService.EVMNetworkID())
+	if err != nil {
+		return nil, err
 	}
-	tx = types.NewTx(&types.LegacyTx{
-		Nonce:    0,
-		GasPrice: big.NewInt(0),
-		Gas:      callMsg.Gas,
-		To:       toAddr,
-		Value:    callMsg.Value,
-		Data:     callMsg.Data,
-	})
 	elp, err := svr.ethTxToEnvelope(tx)
 	if err != nil {
 		return nil, err
@@ -468,6 +449,7 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 	var (
 		estimatedGas uint64
 		retval       []byte
+		from         = callMsg.From
 	)
 	switch act := elp.Action().(type) {
 	case *action.Execution:

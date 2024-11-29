@@ -370,6 +370,52 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 	}, nil
 }
 
+func (call *callMsg) toUnsignedTx(chainID uint32) (*types.Transaction, error) {
+	var (
+		tx     *types.Transaction
+		toAddr *common.Address
+	)
+	if len(call.To) != 0 {
+		addr, err := addrutil.IoAddrToEvmAddr(call.To)
+		if err != nil {
+			return nil, err
+		}
+		toAddr = &addr
+	}
+	switch {
+	case call.GasFeeCap != nil || call.GasTipCap != nil:
+		tx = types.NewTx(&types.DynamicFeeTx{
+			ChainID:    big.NewInt(int64(chainID)),
+			GasTipCap:  big.NewInt(0),
+			GasFeeCap:  big.NewInt(0),
+			Gas:        call.Gas,
+			To:         toAddr,
+			Value:      call.Value,
+			Data:       call.Data,
+			AccessList: call.AccessList,
+		})
+	case call.AccessList != nil:
+		tx = types.NewTx(&types.AccessListTx{
+			ChainID:    big.NewInt(int64(chainID)),
+			GasPrice:   big.NewInt(0),
+			Gas:        call.Gas,
+			To:         toAddr,
+			Value:      call.Value,
+			Data:       call.Data,
+			AccessList: call.AccessList,
+		})
+	default:
+		tx = types.NewTx(&types.LegacyTx{
+			GasPrice: big.NewInt(0),
+			Gas:      call.Gas,
+			To:       toAddr,
+			Value:    call.Value,
+			Data:     call.Data,
+		})
+	}
+	return tx, nil
+}
+
 func (svr *web3Handler) getLogQueryRange(fromStr, toStr string, logHeight uint64) (from uint64, to uint64, hasNewLogs bool, err error) {
 	if from, to, err = svr.parseBlockRange(fromStr, toStr); err != nil {
 		return
