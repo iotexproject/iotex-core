@@ -2356,7 +2356,7 @@ func testHistoryForAccount(t *testing.T, statetx bool) {
 	// check history account's balance
 	if statetx {
 		_, err = sf.WorkingSetAtHeight(ctx, 0)
-		require.Equal(factory.ErrNotSupported, errors.Cause(err))
+		require.NoError(err)
 	} else {
 		sr, err := sf.WorkingSetAtHeight(ctx, bc.TipHeight()-1)
 		require.NoError(err)
@@ -2404,7 +2404,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	// check the the original balance again
 	if statetx {
 		_, err = sf.WorkingSetAtHeight(ctx, bc.TipHeight()-1)
-		require.Equal(factory.ErrNotSupported, errors.Cause(err))
+		require.NoError(err)
 	} else {
 		sr, err := sf.WorkingSetAtHeight(ctx, bc.TipHeight()-1)
 		require.NoError(err)
