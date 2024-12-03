@@ -460,7 +460,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		g        = core.Genesis()
 		deployer = selp.SenderAddress()
 	)
-	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && !g.IsDeployerWhitelisted(deployer) {
+	if !selp.Protected() && !g.IsDeployerWhitelisted(deployer) {
 		return "", status.Errorf(codes.InvalidArgument, "replay deployer %v not whitelisted", deployer.Hex())
 	}
 
