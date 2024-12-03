@@ -575,7 +575,7 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	if statetx {
 		// statetx not support archive mode yet
 		_, err = sf.WorkingSetAtHeight(ctx, 0)
-		require.Equal(t, ErrNotSupported, errors.Cause(err))
+		require.NoError(t, err)
 	} else {
 		_, err = sf.WorkingSetAtHeight(ctx, 10)
 		if !archive {
