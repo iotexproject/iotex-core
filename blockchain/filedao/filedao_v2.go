@@ -132,6 +132,9 @@ func (fd *fileDAOv2) Start(ctx context.Context) error {
 }
 
 func (fd *fileDAOv2) Stop(ctx context.Context) error {
+	fd.hashStore.Close()
+	fd.blkStore.Close()
+	fd.sysStore.Close()
 	return fd.kvStore.Stop(ctx)
 }
 
@@ -230,21 +233,25 @@ func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
 	if err := fd.putTipHashHeightMapping(blk); err != nil {
 		return errors.Wrap(err, "failed to write hash-height mapping")
 	}
-
 	// write block data
 	if err := fd.putBlock(blk); err != nil {
 		return errors.Wrap(err, "failed to write block")
 	}
-
 	// write receipt and transaction log
 	if err := fd.putTransactionLog(blk); err != nil {
 		return errors.Wrap(err, "failed to write receipt")
 	}
-
+	fd.hashStore.BeginBatch(fd.batch)
+	fd.blkStore.BeginBatch(fd.batch)
+	fd.sysStore.BeginBatch(fd.batch)
 	if err := fd.kvStore.WriteBatch(fd.batch); err != nil {
 		return errors.Wrapf(err, "failed to put block at height %d", blk.Height())
 	}
 	fd.batch.Clear()
+	// done processing the batch
+	fd.hashStore.EndBatch()
+	fd.blkStore.EndBatch()
+	fd.sysStore.EndBatch()
 	// update file tip
 	tip = &FileTip{Height: blk.Height(), Hash: blk.HashBlock()}
 	fd.storeTip(tip)

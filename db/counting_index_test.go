@@ -47,17 +47,20 @@ func TestCountingIndex(t *testing.T) {
 
 		index, err := NewCountingIndexNX(kv, bucket)
 		require.NoError(err)
-		require.Equal(uint64(0), index.Size())
+		require.Zero(index.Size())
 
 		// write 200 entries in batch mode
+		b := batch.NewBatch()
 		for i := 0; i < 200; i++ {
 			h := hash.Hash160b([]byte(strconv.Itoa(i)))
-			require.NoError(index.Add(h[:], true))
+			index.AddToBatch(b, h[:])
 		}
-		// cannot Add() before Commit() in batch mode
-		require.Equal(ErrInvalid, errors.Cause(index.Add([]byte{1}, false)))
-		require.NoError(index.Commit())
+		index.BeginBatch(b)
+		require.NoError(kv.WriteBatch(b))
+		index.EndBatch()
+		b.Clear()
 		require.EqualValues(200, index.Size())
+
 		// cannot get > size
 		_, err = index.Get(index.Size())
 		require.Equal(ErrNotExist, errors.Cause(err))
@@ -70,25 +73,16 @@ func TestCountingIndex(t *testing.T) {
 		// re-open the bucket
 		index, err = GetCountingIndex(kv, bucket)
 		require.NoError(err)
+		require.EqualValues(200, index.Size())
 		// write another 100 entries
-		for i := 200; i < 250; i++ {
+		for i := 200; i < 300; i++ {
 			h := hash.Hash160b([]byte(strconv.Itoa(i)))
-			require.NoError(index.Add(h[:], false))
+			index.AddToBatch(b, h[:])
 		}
-		require.EqualValues(250, index.Size())
-
-		// use external batch
-		require.Equal(ErrInvalid, index.Finalize())
-		b := batch.NewBatch()
-		require.NoError(index.UseBatch(b))
-		for i := 250; i < 300; i++ {
-			h := hash.Hash160b([]byte(strconv.Itoa(i)))
-			require.NoError(index.Add(h[:], true))
-		}
-		require.NoError(index.Finalize())
-		cIndex, ok := index.(*countingIndex)
-		require.True(ok)
-		require.NoError(cIndex.kvStore.WriteBatch(b))
+		index.BeginBatch(b)
+		require.NoError(kv.WriteBatch(b))
+		index.EndBatch()
+		b.Clear()
 		require.EqualValues(300, index.Size())
 
 		_, err = index.Range(248, 0)
@@ -96,15 +90,8 @@ func TestCountingIndex(t *testing.T) {
 		_, err = index.Range(248, 53)
 		require.Equal(ErrInvalid, errors.Cause(err))
 
-		// last key
-		v, err := index.Range(299, 1)
-		require.NoError(err)
-		require.Equal(1, len(v))
-		h = hash.Hash160b([]byte(strconv.Itoa(299)))
-		require.Equal(h[:], v[0])
-
 		// first 5 keys
-		v, err = index.Range(0, 5)
+		v, err := index.Range(0, 5)
 		require.NoError(err)
 		require.Equal(5, len(v))
 		for i := range v {
@@ -145,6 +132,16 @@ func TestCountingIndex(t *testing.T) {
 			h := hash.Hash160b([]byte(strconv.Itoa(220 + i)))
 			require.Equal(h[:], v[i])
 		}
+		// add after revert
+		index1.AddToBatch(b, []byte{1, 2, 3, 4})
+		index1.BeginBatch(b)
+		require.NoError(kv.WriteBatch(b))
+		index1.EndBatch()
+		b.Clear()
+		require.EqualValues(261, index1.Size())
+		k, err = index1.Get(260)
+		require.NoError(err)
+		require.Equal([]byte{1, 2, 3, 4}, k)
 	}
 
 	path := "test-counting.bolt"
@@ -165,8 +162,8 @@ func TestCountingIndex(t *testing.T) {
 }
 
 const (
-	Tenants = 10000
-	Keys    = 200
+	_tenants = 10000
+	_keys    = 200
 )
 
 func TestBulk(t *testing.T) {
@@ -182,17 +179,26 @@ func TestBulk(t *testing.T) {
 			require.NoError(kv.Stop(context.Background()))
 		}()
 
-		// create 10000 tenants
-		for i := 0; i < Tenants; i++ {
+		// create 200 entries
+		var (
+			b       = batch.NewBatch()
+			entries = make([][]byte, _keys)
+		)
+		for i := 0; i < _keys; i++ {
+			h := hash.Hash160b([]byte(strconv.Itoa(i)))
+			entries[i] = h[:]
+		}
+		// write to 10000 tenants
+		for i := 0; i < _tenants; i++ {
 			h := hash.Hash160b([]byte(strconv.Itoa(i)))
 			tenant, err := NewCountingIndexNX(kv, h[:])
 			require.NoError(err)
-
-			for i := 0; i < Keys; i++ {
-				h := hash.Hash160b([]byte(strconv.Itoa(i)))
-				require.NoError(tenant.Add(h[:], true))
+			for i := range entries {
+				tenant.AddToBatch(b, entries[i])
 			}
-			require.NoError(tenant.Commit())
+			tenant.BeginBatch(b)
+			require.NoError(kv.WriteBatch(b))
+			tenant.EndBatch()
 			tenant.Close()
 			log.L().Info(fmt.Sprintf("write tenant %d:\n", i))
 		}
@@ -219,21 +225,21 @@ func TestCheckBulk(t *testing.T) {
 			require.NoError(kv.Stop(context.Background()))
 		}()
 
+		// create 200 entries
+		entries := make([][]byte, _keys)
+		for i := 0; i < _keys; i++ {
+			h := hash.Hash160b([]byte(strconv.Itoa(i)))
+			entries[i] = h[:]
+		}
 		// verify 1000 tenants
-		for i := 0; i < Tenants; i++ {
+		for i := 0; i < _tenants; i++ {
 			h := hash.Hash160b([]byte(strconv.Itoa(i)))
 			index, err := GetCountingIndex(kv, h[:])
 			require.NoError(err)
-			require.EqualValues(Keys, index.Size())
-
-			value, err := index.Range(0, Keys)
+			require.EqualValues(_keys, index.Size())
+			value, err := index.Range(0, _keys)
 			require.NoError(err)
-			require.EqualValues(Keys, len(value))
-
-			for i := range value {
-				h := hash.Hash160b([]byte(strconv.Itoa(i)))
-				require.Equal(h[:], value[i])
-			}
+			require.Equal(entries, value)
 			log.L().Info(fmt.Sprintf("verify tenant: %d\n", i))
 		}
 	}

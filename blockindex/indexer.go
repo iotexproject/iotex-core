@@ -103,10 +103,14 @@ func (x *blockIndexer) Start(ctx context.Context) error {
 	}
 	if x.tbk.Size() == 0 {
 		// insert genesis block
-		if err = x.tbk.Add((&BlockIndex{
+		b := batch.NewBatch()
+		x.tbk.AddToBatch(b, (&BlockIndex{
 			x.genesisHash[:],
 			0,
-			big.NewInt(0)}).Serialize(), false); err != nil {
+			big.NewInt(0)}).Serialize())
+		x.tbk.BeginBatch(b)
+		defer x.tbk.EndBatch()
+		if err = x.kvStore.WriteBatch(b); err != nil {
 			return err
 		}
 	}
@@ -314,17 +318,8 @@ func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 		hash:      hash[:],
 		numAction: uint32(len(blk.Actions)),
 		tsfAmount: blk.CalculateTransferAmount()}
-	if err := x.tbk.UseBatch(x.batch); err != nil {
-		return err
-	}
-	if err := x.tbk.Add(bd.Serialize(), true); err != nil {
-		return errors.Wrapf(err, "failed to put block %d index", height)
-	}
+	x.tbk.AddToBatch(x.batch, bd.Serialize())
 
-	// store height of the block, so getReceiptByActionHash() can use height to directly pull receipts
-	if err := x.tac.UseBatch(x.batch); err != nil {
-		return err
-	}
 	// index actions in the block
 	fCtx := protocol.MustGetFeatureCtx(protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: blk.Height(),
@@ -337,9 +332,7 @@ func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 		ad := (&ActionIndex{blkHeight: blk.Height(), txNumber: uint32(idx + 1)}).Serialize()
 		x.batch.Put(_actionToBlockHashNS, actHash[_hashOffset:], ad, fmt.Sprintf("failed to put action hash %x", actHash))
 		// add to total account index
-		if err := x.tac.Add(actHash[:], true); err != nil {
-			return err
-		}
+		x.tac.AddToBatch(x.batch, actHash[:])
 		if err := x.indexAction(actHash, selp, true, fCtx.TolerateLegacyAddress); err != nil {
 			return err
 		}
@@ -349,25 +342,21 @@ func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 
 // commit writes the changes
 func (x *blockIndexer) commit() error {
-	var commitErr error
-	for k, v := range x.dirtyAddr {
-		if commitErr == nil {
-			if err := v.Finalize(); err != nil {
-				commitErr = err
-			}
-		}
-		delete(x.dirtyAddr, k)
-	}
-	if commitErr != nil {
-		return commitErr
+	// individual address index
+	for _, v := range x.dirtyAddr {
+		v.BeginBatch(x.batch)
 	}
 	// total block and total action index
-	if err := x.tbk.Finalize(); err != nil {
-		return err
-	}
-	if err := x.tac.Finalize(); err != nil {
-		return err
-	}
+	x.tbk.BeginBatch(x.batch)
+	x.tac.BeginBatch(x.batch)
+	defer func() {
+		for k, v := range x.dirtyAddr {
+			v.EndBatch()
+			delete(x.dirtyAddr, k)
+		}
+		x.tbk.EndBatch()
+		x.tac.EndBatch()
+	}()
 	if err := x.kvStore.WriteBatch(x.batch); err != nil {
 		return err
 	}
@@ -390,9 +379,6 @@ func (x *blockIndexer) getIndexerForAddr(addr []byte, batch bool) (db.CountingIn
 		if err != nil {
 			return nil, err
 		}
-		if err := indexer.UseBatch(x.batch); err != nil {
-			return nil, err
-		}
 		x.dirtyAddr[address] = indexer
 	}
 	return indexer, nil
@@ -407,12 +393,11 @@ func (x *blockIndexer) indexAction(actHash hash.Hash256, elp *action.SealedEnvel
 		return err
 	}
 	if insert {
-		err = sender.Add(actHash[:], insert)
+		sender.AddToBatch(x.batch, actHash[:])
 	} else {
-		err = sender.Revert(1)
-	}
-	if err != nil {
-		return err
+		if err = sender.Revert(1); err != nil {
+			return err
+		}
 	}
 
 	dst, ok := elp.Destination()
@@ -442,7 +427,7 @@ func (x *blockIndexer) indexAction(actHash hash.Hash256, elp *action.SealedEnvel
 		return err
 	}
 	if insert {
-		err = recipient.Add(actHash[:], insert)
+		recipient.AddToBatch(x.batch, actHash[:])
 	} else {
 		err = recipient.Revert(1)
 	}
