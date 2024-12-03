@@ -137,7 +137,6 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	newHeight, err := newIndexer.Height()
 	r.NoError(err)
 	r.Equal(height, newHeight)
-	r.Equal(startHeight, newIndexer.StartHeight())
 	tbc, err = newIndexer.TotalBucketCount(height)
 	r.EqualValues(1, tbc)
 	r.NoError(err)

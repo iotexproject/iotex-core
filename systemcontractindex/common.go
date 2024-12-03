@@ -61,6 +61,9 @@ func (s *IndexerCommon) ContractAddress() string { return s.contractAddress }
 
 // Height returns the tip block height
 func (s *IndexerCommon) Height() uint64 {
+	if s.height < s.startHeight {
+		return s.startHeight
+	}
 	return s.height
 }
 
