@@ -6,11 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
 	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
@@ -32,7 +30,6 @@ import (
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/addrutil"
 )
 
 const (
@@ -382,10 +379,11 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 }
 
 func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
-	callerAddr, to, gasLimit, _, value, data, err := parseCallObject(in)
+	callMsg, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
+	callerAddr, to, gasLimit, value, data := callMsg.From, callMsg.To, callMsg.Gas, callMsg.Value, callMsg.Data
 	if to == _metamaskBalanceContractAddr {
 		return nil, nil
 	}
@@ -435,36 +433,21 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 }
 
 func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
-	from, to, gasLimit, _, value, data, err := parseCallObject(in)
+	callMsg, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
-
-	var (
-		tx     *types.Transaction
-		toAddr *common.Address
-	)
-	if len(to) != 0 {
-		addr, err := addrutil.IoAddrToEvmAddr(to)
-		if err != nil {
-			return nil, err
-		}
-		toAddr = &addr
+	tx, err := callMsg.toUnsignedTx(svr.coreService.EVMNetworkID())
+	if err != nil {
+		return nil, err
 	}
-	tx = types.NewTx(&types.LegacyTx{
-		Nonce:    0,
-		GasPrice: &big.Int{},
-		Gas:      gasLimit,
-		To:       toAddr,
-		Value:    value,
-		Data:     data,
-	})
 	elp, err := svr.ethTxToEnvelope(tx)
 	if err != nil {
 		return nil, err
 	}
 
 	var estimatedGas uint64
+	from := callMsg.From
 	switch act := elp.Action().(type) {
 	case *action.Execution:
 		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), elp, from)
@@ -1079,18 +1062,15 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 
 func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interface{}, error) {
 	var (
-		err          error
-		contractAddr string
-		callData     []byte
-		gasLimit     uint64
-		value        *big.Int
-		callerAddr   address.Address
+		err     error
+		callMsg *callMsg
 	)
 	blkNumOrHashObj, options := in.Get("params.1"), in.Get("params.2")
-	callerAddr, contractAddr, gasLimit, _, value, callData, err = parseCallObject(in)
+	callMsg, err = parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
+
 	var blkNumOrHash any
 	if blkNumOrHashObj.Exists() {
 		blkNumOrHash = blkNumOrHashObj.Get("blockHash").String()
@@ -1130,7 +1110,7 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		},
 	}
 
-	retval, receipt, tracer, err := svr.coreService.TraceCall(ctx, callerAddr, blkNumOrHash, contractAddr, 0, value, gasLimit, callData, cfg)
+	retval, receipt, tracer, err := svr.coreService.TraceCall(ctx, callMsg.From, blkNumOrHash, callMsg.To, 0, callMsg.Value, callMsg.Gas, callMsg.Data, cfg)
 	if err != nil {
 		return nil, err
 	}

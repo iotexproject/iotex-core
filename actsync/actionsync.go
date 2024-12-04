@@ -95,7 +95,6 @@ func (as *ActionSync) Stop(ctx context.Context) error {
 		return err
 	}
 	close(as.quit)
-	close(as.syncChan)
 	as.wg.Wait()
 	return nil
 }
@@ -127,28 +126,33 @@ func (as *ActionSync) ReceiveAction(_ context.Context, hash hash.Hash256) {
 
 func (as *ActionSync) sync() {
 	defer as.wg.Done()
-	for hash := range as.syncChan {
-		log.L().Debug("syncing action", log.Hex("hash", hash[:]))
-		channelFullnessMtc.WithLabelValues("action").Set(float64(len(as.syncChan)) / float64(cap(as.syncChan)))
-		ctx, cancel := context.WithTimeout(context.Background(), unicaseTimeout)
-		defer cancel()
-		msg, ok := as.actions.Load(hash)
-		if !ok {
-			log.L().Debug("action not requested or already received", log.Hex("hash", hash[:]))
-			continue
-		}
-		if time.Since(msg.(*actionMsg).lastTime) < as.cfg.Interval {
-			log.L().Debug("action is recently requested", log.Hex("hash", hash[:]))
-			continue
-		}
-		msg.(*actionMsg).lastTime = time.Now()
-		// TODO: enhancement, request multiple actions in one message
-		if err := as.requestFromNeighbors(ctx, hash); err != nil {
-			log.L().Warn("Failed to request action from neighbors", zap.Error(err))
-			counterMtc.WithLabelValues("failed").Inc()
+	for {
+		select {
+		case hash := <-as.syncChan:
+			log.L().Debug("syncing action", log.Hex("hash", hash[:]))
+			channelFullnessMtc.WithLabelValues("action").Set(float64(len(as.syncChan)) / float64(cap(as.syncChan)))
+			ctx, cancel := context.WithTimeout(context.Background(), unicaseTimeout)
+			defer cancel()
+			msg, ok := as.actions.Load(hash)
+			if !ok {
+				log.L().Debug("action not requested or already received", log.Hex("hash", hash[:]))
+				continue
+			}
+			if time.Since(msg.(*actionMsg).lastTime) < as.cfg.Interval {
+				log.L().Debug("action is recently requested", log.Hex("hash", hash[:]))
+				continue
+			}
+			msg.(*actionMsg).lastTime = time.Now()
+			// TODO: enhancement, request multiple actions in one message
+			if err := as.requestFromNeighbors(ctx, hash); err != nil {
+				log.L().Warn("Failed to request action from neighbors", zap.Error(err))
+				counterMtc.WithLabelValues("failed").Inc()
+			}
+		case <-as.quit:
+			log.L().Info("quitting action sync")
+			return
 		}
 	}
-	log.L().Info("quitting action sync")
 }
 
 func (as *ActionSync) triggerSync() {
