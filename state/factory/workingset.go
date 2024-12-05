@@ -168,7 +168,13 @@ func withActionCtx(ctx context.Context, selp *action.SealedEnvelope) (context.Co
 func (ws *workingSet) runAction(
 	ctx context.Context,
 	selp *action.SealedEnvelope,
-) (*action.Receipt, error) {
+) (receipt *action.Receipt, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			receipt = nil
+			err = errors.Wrapf(action.ErrPanic, "panic when running action: %v", r)
+		}
+	}()
 	actCtx := protocol.MustGetActionCtx(ctx)
 	if protocol.MustGetBlockCtx(ctx).GasLimit < actCtx.IntrinsicGas {
 		return nil, action.ErrGasLimit

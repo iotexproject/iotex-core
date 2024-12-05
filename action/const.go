@@ -44,6 +44,7 @@ var (
 	ErrGasTipOverFeeCap   = errors.New("tip cap is greater than fee cap")
 	ErrMissRequiredField  = errors.New("missing required field")
 	ErrValueVeryHigh      = errors.New("value is very high")
+	ErrPanic              = errors.New("panic")
 )
 
 // LoadErrorDescription loads corresponding description related to the error
