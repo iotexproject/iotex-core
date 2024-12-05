@@ -49,6 +49,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 	. "github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/blockutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/state/factory"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -926,15 +927,11 @@ func createChain(cfg config.Config, inMem bool) (blockchain.Blockchain, factory.
 	if dao == nil {
 		return nil, nil, nil, nil, err
 	}
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, fakeGetBlockTime)
-	if err = ep.Register(registry); err != nil {
-		return nil, nil, nil, nil, err
-	}
 	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	if err = rewardingProtocol.Register(registry); err != nil {
 		return nil, nil, nil, nil, err
 	}
-	return blockchain.NewBlockchain(
+	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
@@ -943,7 +940,23 @@ func createChain(cfg config.Config, inMem bool) (blockchain.Blockchain, factory.
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
-	), sf, dao, ap, nil
+	)
+	btc, err := blockutil.NewBlockTimeCalculator(func(uint64) time.Duration { return time.Second },
+		bc.TipHeight, func(height uint64) (time.Time, error) {
+			blk, err := dao.GetBlockByHeight(height)
+			if err != nil {
+				return time.Time{}, err
+			}
+			return blk.Timestamp(), nil
+		})
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, btc.CalculateBlockTime)
+	if err = ep.Register(registry); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	return bc, sf, dao, ap, nil
 }
 
 func TestBlockchainHardForkFeatures(t *testing.T) {
@@ -993,7 +1006,7 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 	cfg.Genesis.VanuatuBlockHeight = 4
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 
-	ctx := context.Background()
+	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 	bc, sf, dao, ap, err := createChain(cfg, true)
 	require.NoError(err)
 	sk, err := iotexcrypto.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
@@ -1232,7 +1245,7 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 		require.Equal(v.b, a.Balance.String())
 	}
 
-	// Add block 4 -- test the UseTxContainer and AddClaimRewardAddress flag
+	// Add block 4 -- test the UseTxContainer, AddClaimRewardAddress, and EIP-6780 selfdestruct
 	var (
 		txs          [2]*types.Transaction
 		contractHash hash.Hash256
@@ -1283,14 +1296,39 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 	tsf2, err = action.Sign(elp, priKey0)
 	require.NoError(err)
 	require.NoError(ap.Add(ctx, tsf2))
+	elp = (&action.EnvelopeBuilder{}).SetNonce(7).
+		SetChainID(cfg.Chain.ID).
+		SetGasPrice(minGas).
+		SetGasLimit(500000).
+		SetAction(action.NewExecution(action.EmptyAddress, new(big.Int), _selfdestructContract)).Build()
+	ex1, err = action.Sign(elp, priKey0)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, ex1))
+	elp = (&action.EnvelopeBuilder{}).SetNonce(8).
+		SetChainID(cfg.Chain.ID).
+		SetGasPrice(minGas).
+		SetGasLimit(500000).
+		SetAction(action.NewExecution(action.EmptyAddress, new(big.Int), _selfdestructOnCreationContract)).Build()
+	ex2, err = action.Sign(elp, priKey0)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, ex2))
+	selfdestructContract := "io12fltnfupejreyl8fmd9jq6rcfextg5ra9zjwuz"
+	elp = (&action.EnvelopeBuilder{}).SetNonce(9).
+		SetChainID(cfg.Chain.ID).
+		SetGasPrice(minGas).
+		SetGasLimit(500000).
+		SetAction(action.NewExecution(selfdestructContract, new(big.Int), MustNoErrorV(hex.DecodeString("0c08bf88")))).Build()
+	ex3, err := action.Sign(elp, priKey0)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, ex3))
 
 	blockTime = blockTime.Add(time.Second)
 	blk3, err := bc.MintNewBlock(blockTime)
 	require.NoError(err)
 	require.EqualValues(4, blk3.Height())
-	require.EqualValues(40020, blk3.Header.GasUsed())
+	require.EqualValues(377122, blk3.Header.GasUsed())
 	require.EqualValues(action.InitialBaseFee, blk3.Header.BaseFee().Uint64())
-	require.Equal(4, len(blk3.Body.Actions))
+	require.Equal(7, len(blk3.Body.Actions))
 	require.NoError(bc.CommitBlock(blk3))
 
 	// verify contract execution
@@ -1311,6 +1349,31 @@ func TestBlockchainHardForkFeatures(t *testing.T) {
 	require.NoError(err)
 	require.EqualValues(1, a.AccountType())
 	require.Equal("200000000000", a.Balance.String())
+
+	// verify EIP-6780 selfdestruct contract address
+	for _, v := range []struct {
+		h      hash.Hash256
+		txType string
+		gas    uint64
+	}{
+		{MustNoErrorV(ex1.Hash()), "selfdestruct", 269559},
+		{MustNoErrorV(ex2.Hash()), "selfdestruct-oncreation", 49724},
+		{MustNoErrorV(ex3.Hash()), "selfdestruct-afterwards", 17819},
+	} {
+		r = MustNoErrorV(receiptByActionHash(dao, 4, v.h))
+		require.EqualValues(1, r.Status)
+		require.EqualValues(v.gas, r.GasConsumed)
+		if v.txType == "selfdestruct" {
+			require.Equal(selfdestructContract, r.ContractAddress)
+			a = MustNoErrorV(accountutil.AccountState(ctx, sf, MustNoErrorV(address.FromString(r.ContractAddress))))
+			require.True(a.IsContract())
+			require.False(a.IsNewbieAccount())
+		} else if v.txType == "selfdestruct-oncreation" {
+			a = MustNoErrorV(accountutil.AccountState(ctx, sf, MustNoErrorV(address.FromString(r.ContractAddress))))
+			require.False(a.IsContract())
+			require.True(a.IsNewbieAccount())
+		}
+	}
 
 	// commit 4 blocks to a new chain
 	testTriePath2, err := testutil.PathOfTempFile("trie")
