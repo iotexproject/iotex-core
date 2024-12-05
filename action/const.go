@@ -45,6 +45,8 @@ var (
 	ErrMissRequiredField  = errors.New("missing required field")
 	ErrValueVeryHigh      = errors.New("value is very high")
 	ErrSpecialAddress     = errors.New("special address not allowed")
+	ErrPanic              = errors.New("panic")
+	ErrPanicButReverted   = errors.New("panic but reverted")
 )
 
 // LoadErrorDescription loads corresponding description related to the error
