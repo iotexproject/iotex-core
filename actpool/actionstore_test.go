@@ -42,7 +42,6 @@ func TestBlobStore(t *testing.T) {
 	t.Run("open", func(t *testing.T) {
 		cfg := actionStoreConfig{
 			Datadir: t.TempDir(),
-			Datacap: 10 * 1024 * 1024,
 		}
 		store, err := newActionStore(cfg, encode, decode)
 		r.NoError(err)
@@ -68,7 +67,6 @@ func TestBlobStore(t *testing.T) {
 	t.Run("put", func(t *testing.T) {
 		cfg := actionStoreConfig{
 			Datadir: t.TempDir(),
-			Datacap: 10240,
 		}
 		store, err := newActionStore(cfg, encode, decode)
 		r.NoError(err)
@@ -92,8 +90,8 @@ func TestBlobStore(t *testing.T) {
 		act, err = action.SignedExecution("", identityset.PrivateKey(1), 3, big.NewInt(1), 100, big.NewInt(100), body)
 		r.NoError(err)
 		r.NoError(store.Put(act))
-		r.Equal(uint64(8192), store.stored)
-		r.Equal(2, len(store.lookup))
+		r.Equal(uint64(12288), store.stored)
+		r.Equal(3, len(store.lookup))
 		assertions.MustNoErrorV(store.Get(assertions.MustNoErrorV(act.Hash())))
 	})
 }
@@ -118,7 +116,6 @@ func BenchmarkDatabase(b *testing.B) {
 	b.Run("billy-put", func(b *testing.B) {
 		cfg := actionStoreConfig{
 			Datadir: b.TempDir(),
-			Datacap: 1024,
 		}
 		store, err := newActionStore(cfg, nil, nil)
 		r.NoError(err)

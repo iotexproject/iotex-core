@@ -1,7 +1,6 @@
 package actpool
 
 import (
-	"encoding/hex"
 	"fmt"
 	"os"
 	"sync"
@@ -56,7 +55,6 @@ type (
 	}
 	actionStoreConfig struct {
 		Datadir string `yaml:"datadir"` // Data directory containing the currently executable blobs
-		Datacap uint64 `yaml:"datacap"` // Soft-cap of database storage (hard cap is larger due to overhead)
 	}
 
 	onAction     func(selp *action.SealedEnvelope) error
@@ -188,21 +186,12 @@ func (s *actionStore) Put(act *action.SealedEnvelope) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to encode action")
 	}
-	toDelete, hasBlobToDelete := s.evict()
 	id, err := s.store.Put(blob)
 	if err != nil {
 		return errors.Wrap(err, "failed to put blob into store")
 	}
 	s.stored += uint64(s.store.Size(id))
 	s.lookup[h] = id
-	// if the datacap is exceeded, remove old data
-	if s.stored > s.config.Datacap {
-		if !hasBlobToDelete {
-			log.L().Debug("no worst action found")
-		} else {
-			s.drop(toDelete)
-		}
-	}
 	actionStoreMtc.WithLabelValues("size").Set(float64(s.stored))
 	return nil
 }
@@ -240,27 +229,6 @@ func (s *actionStore) Range(fn func(hash.Hash256) bool) {
 			return
 		}
 	}
-}
-
-func (s *actionStore) drop(h hash.Hash256) {
-	id, ok := s.lookup[h]
-	if !ok {
-		log.L().Warn("worst action not found in lookup", zap.String("hash", hex.EncodeToString(h[:])))
-		return
-	}
-	if err := s.store.Delete(id); err != nil {
-		log.L().Error("failed to delete worst action", zap.Error(err))
-	}
-	s.stored -= uint64(s.store.Size(id))
-	delete(s.lookup, h)
-}
-
-// TODO: implement a proper eviction policy
-func (s *actionStore) evict() (hash.Hash256, bool) {
-	for h := range s.lookup {
-		return h, true
-	}
-	return hash.ZeroHash256, false
 }
 
 // newSlotter creates a helper method for the Billy datastore that returns the
