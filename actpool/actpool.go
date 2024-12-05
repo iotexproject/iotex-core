@@ -89,6 +89,7 @@ type ActPool interface {
 type Subscriber interface {
 	OnAdded(*action.SealedEnvelope)
 	OnRemoved(*action.SealedEnvelope)
+	OnRejected(context.Context, *action.SealedEnvelope, error)
 }
 
 // SortedActions is a slice of actions that implements sort.Interface to sort by Value.
@@ -281,7 +282,11 @@ func (ap *actPool) PendingActionMap() map[string][]*action.SealedEnvelope {
 }
 
 func (ap *actPool) Add(ctx context.Context, act *action.SealedEnvelope) error {
-	return ap.add(ctx, act)
+	err := ap.add(ctx, act)
+	if err != nil {
+		ap.onRejected(ctx, act, err)
+	}
+	return err
 }
 
 func (ap *actPool) add(ctx context.Context, act *action.SealedEnvelope) error {
@@ -583,6 +588,12 @@ func (ap *actPool) onAdded(act *action.SealedEnvelope) {
 func (ap *actPool) onRemoved(act *action.SealedEnvelope) {
 	for _, sub := range ap.subs {
 		sub.OnRemoved(act)
+	}
+}
+
+func (ap *actPool) onRejected(ctx context.Context, act *action.SealedEnvelope, err error) {
+	for _, sub := range ap.subs {
+		sub.OnRejected(ctx, act, err)
 	}
 }
 
