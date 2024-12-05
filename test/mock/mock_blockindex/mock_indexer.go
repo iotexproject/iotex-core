@@ -37,20 +37,6 @@ func (m *MockIndexer) EXPECT() *MockIndexerMockRecorder {
 	return m.recorder
 }
 
-// DeleteTipBlock mocks base method.
-func (m *MockIndexer) DeleteTipBlock(arg0 context.Context, arg1 *block.Block) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteTipBlock", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteTipBlock indicates an expected call of DeleteTipBlock.
-func (mr *MockIndexerMockRecorder) DeleteTipBlock(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTipBlock", reflect.TypeOf((*MockIndexer)(nil).DeleteTipBlock), arg0, arg1)
-}
-
 // GetActionCountByAddress mocks base method.
 func (m *MockIndexer) GetActionCountByAddress(arg0 hash.Hash160) (uint64, error) {
 	m.ctrl.T.Helper()

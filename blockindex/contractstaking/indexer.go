@@ -195,11 +195,6 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	return s.commit(handler, blk.Height())
 }
 
-// DeleteTipBlock deletes the tip block from indexer
-func (s *Indexer) DeleteTipBlock(context.Context, *block.Block) error {
-	return errors.New("not implemented")
-}
-
 func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) error {
 	batch, delta := handler.Result()
 	// update cache

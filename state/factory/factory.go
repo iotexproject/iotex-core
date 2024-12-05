@@ -86,7 +86,6 @@ type (
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
 		PutBlock(context.Context, *block.Block) error
-		DeleteTipBlock(context.Context, *block.Block) error
 		WorkingSet(context.Context) (protocol.StateManager, error)
 		WorkingSetAtHeight(context.Context, uint64) (protocol.StateManager, error)
 	}
@@ -476,10 +475,6 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	sf.currentChainHeight = h
 
 	return nil
-}
-
-func (sf *factory) DeleteTipBlock(_ context.Context, _ *block.Block) error {
-	return errors.Wrap(ErrNotSupported, "cannot delete tip block from factory")
 }
 
 // State returns a confirmed state in the state factory
