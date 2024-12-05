@@ -20,9 +20,7 @@ var (
 		BlackList:          []string{},
 		MaxNumBlobsPerAcct: 16,
 		Store: &StoreConfig{
-			Datadir:      "/var/data/actpool.cache",
-			Datacap:      1024 * 1024 * 100, // 100MB
-			ReadInterval: 10 * time.Minute,
+			Datadir: "/var/data/actpool.cache",
 		},
 	}
 )
@@ -60,7 +58,5 @@ func (ap Config) MinGasPrice() *big.Int {
 
 // StoreConfig is the configuration for the blob store
 type StoreConfig struct {
-	Datadir      string        `yaml:"datadir"`      // Data directory containing the currently executable blobs
-	Datacap      uint64        `yaml:"datacap"`      // Soft-cap of database storage (hard cap is larger due to overhead)
-	ReadInterval time.Duration `yaml:"readInterval"` // Interval to read from store to actpool memory
+	Datadir string `yaml:"datadir"` // Data directory containing the currently executable blobs
 }
