@@ -110,7 +110,7 @@ func getBucketList(method, addr string, args ...string) (err error) {
 	return output.NewError(output.InputError, "unknown <method>", nil)
 }
 
-// getBucketList get bucket list from chain by voter address
+// getBucketListByVoter get bucket list from chain by voter address
 func getBucketListByVoter(addr string, offset, limit uint32) error {
 	address, err := util.GetAddress(addr)
 	if err != nil {
