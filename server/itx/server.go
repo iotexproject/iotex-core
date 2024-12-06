@@ -12,6 +12,7 @@ import (
 	"net/http/pprof"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -231,6 +232,13 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 			log.L().Panic("Failed to stop server.", zap.Error(err))
 		}
 	}()
+	if cfg.API.ReadyDuration > 0 {
+		// wait for a while to make sure the server is ready
+		// The original intention was to ensure that all transactions that were not received during the restart were included in block, thereby avoiding inconsistencies in the state of the API node.
+		readyTimer := time.NewTimer(cfg.API.ReadyDuration)
+		<-readyTimer.C
+		readyTimer.Stop()
+	}
 	if err := probeSvr.TurnOn(); err != nil {
 		log.L().Panic("Failed to turn on probe server.", zap.Error(err))
 	}
