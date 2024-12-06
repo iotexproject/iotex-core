@@ -290,7 +290,7 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		}
 		syncedHeight++
 	}
-	bs.buf.Cleanup(syncedHeight)
+	bs.buf.Cleanup()
 	log.L().Debug("flush blocks", zap.Uint64("start", tip), zap.Uint64("end", syncedHeight))
 	if syncedHeight > bs.lastTip {
 		bs.lastTip = syncedHeight
