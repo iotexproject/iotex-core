@@ -113,6 +113,7 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 		return err
 	}
 	cs.actionsync.ReceiveAction(ctx, hash)
+	log.L().Info("received action from p2p", log.Hex("actionHash", hash[:]))
 	return nil
 }
 
