@@ -6,6 +6,8 @@
 package api
 
 import (
+	"time"
+
 	"github.com/iotexproject/iotex-core/v2/gasstation"
 	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
 )
@@ -27,6 +29,8 @@ type Config struct {
 	WebsocketRateLimit int `yaml:"websocketRateLimit"`
 	// ListenerLimit is the maximum number of listeners.
 	ListenerLimit int `yaml:"listenerLimit"`
+	// ReadyDuration is the duration to wait for the server to be ready.
+	ReadyDuration time.Duration `yaml:"readyDuration"`
 }
 
 // DefaultConfig is the default config
