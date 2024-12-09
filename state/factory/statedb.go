@@ -267,7 +267,8 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, erro
 }
 
 func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManager, error) {
-	return sdb.newWorkingSet(ctx, height+1)
+	// TODO: implement archive mode
+	return sdb.newWorkingSet(ctx, height)
 }
 
 // PutBlock persists all changes in RunActions() into the DB
@@ -318,10 +319,6 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	sdb.currentChainHeight = h
 	return nil
-}
-
-func (sdb *stateDB) DeleteTipBlock(_ context.Context, _ *block.Block) error {
-	return errors.Wrap(ErrNotSupported, "cannot delete tip block from state db")
 }
 
 // State returns a confirmed state in the state factory

@@ -21,20 +21,16 @@ type Footer struct {
 	commitTime   time.Time
 }
 
-// ConvertToBlockFooterPb converts BlockFooter
-func (f *Footer) ConvertToBlockFooterPb() (*iotextypes.BlockFooter, error) {
+// Proto converts BlockFooter
+func (f *Footer) Proto() *iotextypes.BlockFooter {
 	pb := iotextypes.BlockFooter{}
 	commitTime := timestamppb.New(f.commitTime)
 	pb.Timestamp = commitTime
 	pb.Endorsements = []*iotextypes.Endorsement{}
 	for _, en := range f.endorsements {
-		ePb, err := en.Proto()
-		if err != nil {
-			return nil, err
-		}
-		pb.Endorsements = append(pb.Endorsements, ePb)
+		pb.Endorsements = append(pb.Endorsements, en.Proto())
 	}
-	return &pb, nil
+	return &pb
 }
 
 // ConvertFromBlockFooterPb converts BlockFooter to BlockFooter
@@ -75,11 +71,7 @@ func (f *Footer) Endorsements() []*endorsement.Endorsement {
 
 // Serialize returns the serialized byte stream of the block footer
 func (f *Footer) Serialize() ([]byte, error) {
-	pb, err := f.ConvertToBlockFooterPb()
-	if err != nil {
-		return nil, err
-	}
-	return proto.Marshal(pb)
+	return proto.Marshal(f.Proto())
 }
 
 // Deserialize loads from the serialized byte stream

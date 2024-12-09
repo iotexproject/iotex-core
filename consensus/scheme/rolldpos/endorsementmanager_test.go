@@ -195,10 +195,8 @@ func TestEndorsementManagerProto(t *testing.T) {
 	require.NoError(em.SetMintedBlock(&b))
 
 	//test converting endorsement pb
-	endProto, err := end.Proto()
-	require.NoError(err)
 	end2 := &endorsement.Endorsement{}
-	require.NoError(end2.LoadProto(endProto))
+	require.NoError(end2.LoadProto(end.Proto()))
 	require.Equal(end, end2)
 
 	//test converting emanager pb

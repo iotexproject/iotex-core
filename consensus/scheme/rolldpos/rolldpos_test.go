@@ -179,9 +179,7 @@ func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndo
 		}
 		en, err := endorsement.Endorse(identityset.PrivateKey(i), consensusVote, timeTime)
 		require.NoError(t, err)
-		enProto, err := en.Proto()
-		require.NoError(t, err)
-		typesFooter.Endorsements = append(typesFooter.Endorsements, enProto)
+		typesFooter.Endorsements = append(typesFooter.Endorsements, en.Proto())
 	}
 	ts := timestamppb.New(time.Unix(int64(unixTime), 0))
 	typesFooter.Timestamp = ts

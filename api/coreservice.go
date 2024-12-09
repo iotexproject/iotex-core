@@ -63,7 +63,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/gasstation"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
-	batch "github.com/iotexproject/iotex-core/v2/pkg/messagebatcher"
 	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 	"github.com/iotexproject/iotex-core/v2/pkg/version"
@@ -205,7 +204,7 @@ type (
 		chainListener     apitypes.Listener
 		electionCommittee committee.Committee
 		readCache         *ReadCache
-		messageBatcher    *batch.Manager
+		actionRadio       *ActionRadio
 		apiStats          *nodestats.APILocalStats
 		getBlockTime      evm.GetBlockTime
 	}
@@ -297,9 +296,8 @@ func newCoreService(
 	}
 
 	if core.broadcastHandler != nil {
-		core.messageBatcher = batch.NewManager(func(msg *batch.Message) error {
-			return core.broadcastHandler(context.Background(), core.bc.ChainID(), msg.Data)
-		})
+		core.actionRadio = NewActionRadio(core.broadcastHandler, core.bc.ChainID(), WithMessageBatch())
+		actPool.AddSubscriber(core.actionRadio)
 	}
 
 	return &core, nil
@@ -462,7 +460,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		g        = core.Genesis()
 		deployer = selp.SenderAddress()
 	)
-	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && !g.IsDeployerWhitelisted(deployer) {
+	if !selp.Protected() && !g.IsDeployerWhitelisted(deployer) {
 		return "", status.Errorf(codes.InvalidArgument, "replay deployer %v not whitelisted", deployer.Hex())
 	}
 
@@ -494,28 +492,6 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 			log.Logger("api").Panic("Unexpected error attaching metadata", zap.Error(err))
 		}
 		return "", st.Err()
-	}
-	// If there is no error putting into local actpool, broadcast it to the network
-	// broadcast action hash if it's blobTx
-	hasSidecar := selp.BlobTxSidecar() != nil
-	out := proto.Message(in)
-	if hasSidecar {
-		out = &iotextypes.ActionHash{
-			Hash: hash[:],
-		}
-	}
-	if core.messageBatcher != nil && !hasSidecar {
-		// TODO: batch blobTx
-		err = core.messageBatcher.Put(&batch.Message{
-			ChainID: core.bc.ChainID(),
-			Target:  nil,
-			Data:    out,
-		})
-	} else {
-		err = core.broadcastHandler(ctx, core.bc.ChainID(), out)
-	}
-	if err != nil {
-		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	return hex.EncodeToString(hash[:]), nil
 }
@@ -899,9 +875,9 @@ func (core *coreService) Start(_ context.Context) error {
 	if err := core.chainListener.Start(); err != nil {
 		return errors.Wrap(err, "failed to start blockchain listener")
 	}
-	if core.messageBatcher != nil {
-		if err := core.messageBatcher.Start(); err != nil {
-			return errors.Wrap(err, "failed to start message batcher")
+	if core.actionRadio != nil {
+		if err := core.actionRadio.Start(); err != nil {
+			return errors.Wrap(err, "failed to start action radio")
 		}
 	}
 	return nil
@@ -909,9 +885,9 @@ func (core *coreService) Start(_ context.Context) error {
 
 // Stop stops the API server
 func (core *coreService) Stop(_ context.Context) error {
-	if core.messageBatcher != nil {
-		if err := core.messageBatcher.Stop(); err != nil {
-			return errors.Wrap(err, "failed to stop message batcher")
+	if core.actionRadio != nil {
+		if err := core.actionRadio.Stop(); err != nil {
+			return errors.Wrap(err, "failed to stop action radio")
 		}
 	}
 	return core.chainListener.Stop()
@@ -949,7 +925,7 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 	if height != "" {
 		inputHeight, err := strconv.ParseUint(height, 0, 64)
 		if err != nil {
-			return nil, uint64(0), err
+			return nil, 0, err
 		}
 		rp := rolldpos.FindProtocol(core.registry)
 		if rp != nil {
@@ -961,7 +937,11 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 		}
 		if inputHeight < tipHeight {
 			// old data, wrap to history state reader
-			d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(core.sf, inputHeight), methodName, arguments...)
+			historySR, err := core.sf.WorkingSetAtHeight(ctx, inputHeight)
+			if err != nil {
+				return nil, 0, err
+			}
+			d, h, err := p.ReadState(ctx, historySR, methodName, arguments...)
 			if err == nil {
 				key.Height = strconv.FormatUint(h, 10)
 				core.readCache.Put(key.Hash(), d)
