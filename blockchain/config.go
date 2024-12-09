@@ -74,6 +74,8 @@ type (
 		StreamingBlockBufferSize uint64 `yaml:"streamingBlockBufferSize"`
 		// PersistStakingPatchBlock is the block to persist staking patch
 		PersistStakingPatchBlock uint64 `yaml:"persistStakingPatchBlock"`
+		// FixAliasForNonStopHeight is the height to fix candidate alias for a non-stopping node
+		FixAliasForNonStopHeight uint64 `yaml:"fixAliasForNonStopHeight"`
 		// FactoryDBType is the type of factory db
 		FactoryDBType string `yaml:"factoryDBType"`
 		// MintTimeout is the timeout for minting
@@ -120,6 +122,7 @@ var (
 		WorkingSetCacheSize:           20,
 		StreamingBlockBufferSize:      200,
 		PersistStakingPatchBlock:      19778037,
+		FixAliasForNonStopHeight:      19778036,
 		FactoryDBType:                 db.DBBolt,
 		MintTimeout:                   1500 * time.Millisecond, // valued with block accept ttl - 500ms(tolerate network delay)
 	}
