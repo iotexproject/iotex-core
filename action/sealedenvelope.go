@@ -242,3 +242,13 @@ func (sealed *SealedEnvelope) VerifySignature() error {
 	}
 	return nil
 }
+
+// Protected says whether the transaction is replay-protected.
+func (sealed *SealedEnvelope) Protected() bool {
+	switch sealed.encoding {
+	case iotextypes.Encoding_TX_CONTAINER:
+		return sealed.Envelope.(*txContainer).tx.Protected()
+	default:
+		return sealed.encoding != iotextypes.Encoding_ETHEREUM_UNPROTECTED
+	}
+}
