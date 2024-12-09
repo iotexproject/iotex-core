@@ -7,10 +7,6 @@ package blocksync
 
 import (
 	"sync"
-
-	"go.uber.org/zap"
-
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 // blockBuffer is used to keep in-coming block in order.
@@ -45,16 +41,6 @@ func (b *blockBuffer) Pop(height uint64) []*peerBlock {
 	delete(b.blockQueues, height)
 
 	return blks
-}
-
-func (b *blockBuffer) Cleanup() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	size := len(b.blockQueues)
-	if size > int(b.bufferSize)*2 {
-		log.L().Warn("blockBuffer is leaking memory.", zap.Int("bufferSize", size))
-	}
 }
 
 // AddBlock tries to put given block into buffer and flush buffer into blockchain.
