@@ -754,7 +754,7 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			}
-			actCtx := protocol.MustGetActionCtx(ctx)
+			actCtx := protocol.MustGetActionCtx(actionCtx)
 			l := log.L().With(log.Hex("actHash", actCtx.ActionHash[:]), zap.Uint64("height", ws.height))
 			receipt, err := ws.runAction(actionCtx, nextAction)
 			switch errors.Cause(err) {
