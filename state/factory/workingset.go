@@ -169,12 +169,6 @@ func (ws *workingSet) runAction(
 	ctx context.Context,
 	selp *action.SealedEnvelope,
 ) (receipt *action.Receipt, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			receipt = nil
-			err = errors.Wrapf(action.ErrPanic, "panic when running action: %v", r)
-		}
-	}()
 	actCtx := protocol.MustGetActionCtx(ctx)
 	if protocol.MustGetBlockCtx(ctx).GasLimit < actCtx.IntrinsicGas {
 		return nil, action.ErrGasLimit
@@ -213,6 +207,24 @@ func (ws *workingSet) runAction(
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
 	defer ws.ResetSnapshots()
+	sn := ws.Snapshot()
+	defer func() {
+		if err != nil {
+			if e := ws.Revert(sn); e != nil {
+				log.T(ctx).Error("Failed to revert snapshot", zap.Error(e))
+				return
+			}
+			if errors.Is(err, action.ErrPanic) {
+				err = errors.Wrap(action.ErrPanicButReverted, err.Error())
+			}
+		}
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			receipt = nil
+			err = errors.Wrapf(action.ErrPanic, "panic and reverted when running action: %v", r)
+		}
+	}()
 	if err := ws.freshAccountConversion(ctx, &actCtx); err != nil {
 		return nil, err
 	}
@@ -742,6 +754,8 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			}
+			actCtx := protocol.MustGetActionCtx(ctx)
+			l := log.L().With(log.Hex("actHash", actCtx.ActionHash[:]), zap.Uint64("height", ws.height))
 			receipt, err := ws.runAction(actionCtx, nextAction)
 			switch errors.Cause(err) {
 			case nil:
@@ -750,7 +764,12 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			case action.ErrChainID, errUnfoldTxContainer, errDeployerNotWhitelisted:
-				log.L().Debug("runAction() failed", zap.Uint64("height", ws.height), zap.Error(err))
+				l.Debug("runAction() failed", zap.Error(err))
+				ap.DeleteAction(caller)
+				actionIterator.PopAccount()
+				continue
+			case action.ErrPanicButReverted:
+				l.Warn("runAction() panic but reverted", zap.Error(err))
 				ap.DeleteAction(caller)
 				actionIterator.PopAccount()
 				continue
