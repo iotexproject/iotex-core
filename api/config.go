@@ -45,4 +45,5 @@ var DefaultConfig = Config{
 	BatchRequestLimit:  _defaultBatchRequestLimit,
 	WebsocketRateLimit: 5,
 	ListenerLimit:      5000,
+	ReadyDuration:      time.Second * 30,
 }
