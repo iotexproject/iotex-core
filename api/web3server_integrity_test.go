@@ -766,7 +766,7 @@ func estimateGas(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, d
 				"from":     "%s",
 				"to":       "%s",
 				"gas":      "0x0",
-				"gasPrice": "0x0",
+				"gasPrice": "0x1000000000000000000",
 				"value":    "0x0",
 				"data":     "0x6d4ce63c"},
 				1]`, fromAddr, contractAddr),

@@ -49,7 +49,6 @@ type (
 		Stop(context.Context) error
 		PutBlock(context.Context, *block.Block) error
 		PutBlocks(context.Context, []*block.Block) error
-		DeleteTipBlock(context.Context, *block.Block) error
 		Height() (uint64, error)
 		GetBlockHash(height uint64) (hash.Hash256, error)
 		GetBlockHeight(hash hash.Hash256) (uint64, error)
@@ -141,49 +140,6 @@ func (x *blockIndexer) PutBlock(ctx context.Context, blk *block.Block) error {
 		return err
 	}
 	return x.commit()
-}
-
-// DeleteTipBlock deletes a block's index
-func (x *blockIndexer) DeleteTipBlock(ctx context.Context, blk *block.Block) error {
-	x.mutex.Lock()
-	defer x.mutex.Unlock()
-
-	// the block to be deleted must be exactly current top, otherwise counting index would not work correctly
-	height := blk.Height()
-	if height != x.tbk.Size()-1 {
-		return errors.Wrapf(db.ErrInvalid, "wrong block height %d, expecting %d", height, x.tbk.Size()-1)
-	}
-	// delete hash --> height
-	hash := blk.HashBlock()
-	x.batch.Delete(_blockHashToHeightNS, hash[_hashOffset:], fmt.Sprintf("failed to delete block at height %d", height))
-	// delete from total block index
-	if err := x.tbk.Revert(1); err != nil {
-		return err
-	}
-
-	// delete action index
-	fCtx := protocol.MustGetFeatureCtx(protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: blk.Height(),
-	})))
-	for _, selp := range blk.Actions {
-		actHash, err := selp.Hash()
-		if err != nil {
-			return err
-		}
-		x.batch.Delete(_actionToBlockHashNS, actHash[_hashOffset:], fmt.Sprintf("failed to delete action hash %x", actHash))
-		if err := x.indexAction(actHash, selp, false, fCtx.TolerateLegacyAddress); err != nil {
-			return err
-		}
-	}
-	// delete from total action index
-	if err := x.tac.Revert(uint64(len(blk.Actions))); err != nil {
-		return err
-	}
-	if err := x.kvStore.WriteBatch(x.batch); err != nil {
-		return err
-	}
-	x.batch.Clear()
-	return nil
 }
 
 // Height return the blockchain height
@@ -340,7 +296,7 @@ func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 		if err := x.tac.Add(actHash[:], true); err != nil {
 			return err
 		}
-		if err := x.indexAction(actHash, selp, true, fCtx.TolerateLegacyAddress); err != nil {
+		if err := x.indexAction(actHash, selp, fCtx.TolerateLegacyAddress); err != nil {
 			return err
 		}
 	}
@@ -377,10 +333,7 @@ func (x *blockIndexer) commit() error {
 
 // getIndexerForAddr returns the counting indexer for an address
 // if batch is true, the indexer will be placed into a dirty map, to be committed later
-func (x *blockIndexer) getIndexerForAddr(addr []byte, batch bool) (db.CountingIndex, error) {
-	if !batch {
-		return db.NewCountingIndexNX(x.kvStore, addr)
-	}
+func (x *blockIndexer) getIndexerForAddr(addr []byte) (db.CountingIndex, error) {
 	address := hash.BytesToHash160(addr)
 	indexer, ok := x.dirtyAddr[address]
 	if !ok {
@@ -399,19 +352,14 @@ func (x *blockIndexer) getIndexerForAddr(addr []byte, batch bool) (db.CountingIn
 }
 
 // indexAction builds index for an action
-func (x *blockIndexer) indexAction(actHash hash.Hash256, elp *action.SealedEnvelope, insert, tolerateLegacyAddress bool) error {
+func (x *blockIndexer) indexAction(actHash hash.Hash256, elp *action.SealedEnvelope, tolerateLegacyAddress bool) error {
 	// add to sender's index
 	callerAddrBytes := elp.SrcPubkey().Hash()
-	sender, err := x.getIndexerForAddr(callerAddrBytes, insert)
+	sender, err := x.getIndexerForAddr(callerAddrBytes)
 	if err != nil {
 		return err
 	}
-	if insert {
-		err = sender.Add(actHash[:], insert)
-	} else {
-		err = sender.Revert(1)
-	}
-	if err != nil {
+	if err = sender.Add(actHash[:], true); err != nil {
 		return err
 	}
 
@@ -437,14 +385,9 @@ func (x *blockIndexer) indexAction(actHash hash.Hash256, elp *action.SealedEnvel
 	}
 
 	// add to recipient's index
-	recipient, err := x.getIndexerForAddr(dstAddrBytes, insert)
+	recipient, err := x.getIndexerForAddr(dstAddrBytes)
 	if err != nil {
 		return err
 	}
-	if insert {
-		err = recipient.Add(actHash[:], insert)
-	} else {
-		err = recipient.Revert(1)
-	}
-	return err
+	return recipient.Add(actHash[:], true)
 }

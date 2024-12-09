@@ -126,4 +126,40 @@ func TestActionSync(t *testing.T) {
 			r.False(ok, "action should be removed after received")
 		}
 	})
+	t.Run("requestWhenStopping", func(t *testing.T) {
+		count := atomic.Int32{}
+		as := NewActionSync(Config{
+			Size:     1000,
+			Interval: 10 * time.Millisecond,
+		}, &Helper{
+			P2PNeighbor: func() ([]peer.AddrInfo, error) {
+				return neighbors, nil
+			},
+			UnicastOutbound: func(_ context.Context, p peer.AddrInfo, msg proto.Message) error {
+				count.Add(1)
+				return nil
+			},
+		})
+		r.NoError(as.Start(context.Background()))
+		acts := []hash.Hash256{}
+		for i := 0; i < 100; i++ {
+			acts = append(acts, hash.Hash256b([]byte{byte(i)}))
+		}
+		wg := sync.WaitGroup{}
+		for i := 0; i < 10; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				for k := 0; k <= 10; k++ {
+					idx := i*10 + k
+					if idx >= len(acts) {
+						break
+					}
+					as.RequestAction(context.Background(), acts[idx])
+				}
+			}(i)
+		}
+		r.NoError(as.Stop(context.Background()))
+		wg.Wait()
+	})
 }

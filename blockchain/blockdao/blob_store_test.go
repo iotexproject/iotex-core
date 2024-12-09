@@ -122,7 +122,7 @@ func TestBlobStore(t *testing.T) {
 		for i := 0; i < cfg.BlockStoreBatchSize+7; i++ {
 			blk, err := dao.GetBlockByHeight(1 + uint64(i))
 			r.NoError(err)
-			if i < cfg.BlockStoreBatchSize {
+			if i < 7 {
 				// blocks written to disk has sidecar removed
 				r.False(blk.HasBlob())
 				r.Equal(4, len(blk.Actions))

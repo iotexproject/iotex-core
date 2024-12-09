@@ -82,6 +82,7 @@ type ActPool interface {
 	ReceiveBlock(*block.Block) error
 
 	AddActionEnvelopeValidators(...action.SealedEnvelopeValidator)
+	AddSubscriber(sub Subscriber)
 }
 
 // Subscriber is the interface for actpool subscriber
@@ -533,7 +534,7 @@ func (ap *actPool) enqueue(ctx context.Context, act *action.SealedEnvelope, repl
 	for {
 		select {
 		case <-ctx.Done():
-			log.L().Error("enqueue actpool fails", zap.Error(ctx.Err()))
+			log.T(ctx).Error("enqueue actpool fails", zap.Error(ctx.Err()))
 			return ctx.Err()
 		case ret := <-errChan:
 			return ret
