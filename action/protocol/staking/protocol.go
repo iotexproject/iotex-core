@@ -8,7 +8,9 @@ package staking
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math/big"
+	"sort"
 	"time"
 
 	"github.com/pkg/errors"
@@ -299,10 +301,54 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		if err != nil {
 			return err
 		}
-		base := csm.DirtyView().candCenter.base
-		owners := base.all()
-		if err := base.loadNameOperatorMapOwnerList(owners, owners, nil); err != nil {
+		center := csm.DirtyView().candCenter
+		println("height =", blkCtx.BlockHeight)
+		fmt.Printf("center = %p\n", center)
+		fmt.Printf("base = %p\n", center.base)
+		var cands CandidateList
+		for _, v := range center.base.nameMap {
+			cands = append(cands, v)
+		}
+		sort.Sort(cands)
+		println("name map =", len(cands))
+		for _, v := range cands {
+			fmt.Printf("name = %s, op = %s, votes = %s\n", v.Name, v.Operator.String(), v.Votes.String())
+		}
+		cands = cands[:0]
+		for _, v := range center.base.operatorMap {
+			cands = append(cands, v)
+		}
+		sort.Sort(cands)
+		println("op map =", len(cands))
+		for _, v := range cands {
+			fmt.Printf("name = %s, op = %s, votes = %s\n", v.Name, v.Operator.String(), v.Votes.String())
+		}
+		// reset base
+		owners := center.base.all()
+		if err := center.base.loadNameOperatorMapOwnerList(owners, owners, nil); err != nil {
 			return err
+		}
+		println("after reset")
+		println("height =", blkCtx.BlockHeight)
+		fmt.Printf("center = %p\n", center)
+		fmt.Printf("base = %p\n", center.base)
+		cands = cands[:0]
+		for _, v := range center.base.nameMap {
+			cands = append(cands, v)
+		}
+		sort.Sort(cands)
+		println("name map =", len(cands))
+		for _, v := range cands {
+			fmt.Printf("name = %s, op = %s, votes = %s\n", v.Name, v.Operator.String(), v.Votes.String())
+		}
+		cands = cands[:0]
+		for _, v := range center.base.operatorMap {
+			cands = append(cands, v)
+		}
+		sort.Sort(cands)
+		println("op map =", len(cands))
+		for _, v := range cands {
+			fmt.Printf("name = %s, op = %s, votes = %s\n", v.Name, v.Operator.String(), v.Votes.String())
 		}
 	}
 	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
