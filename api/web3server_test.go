@@ -317,7 +317,7 @@ func TestCall(t *testing.T) {
 			"data":     "d201114a"
 		   },
 		   1]}`)
-		ret, err := web3svr.call(&in)
+		ret, err := web3svr.call(context.Background(), &in)
 		require.NoError(err)
 		require.Equal("0x0000000000000000000000000000000000000000000000056bc75e2d63100000", ret.(string))
 	})
@@ -336,7 +336,7 @@ func TestCall(t *testing.T) {
 			"data":     "ad7a672f"
 		   },
 		   1]}`)
-		ret, err := web3svr.call(&in)
+		ret, err := web3svr.call(context.Background(), &in)
 		require.NoError(err)
 		require.Equal("0x0000000000000000000000000000000000000000000000000000000000002710", ret.(string))
 	})
@@ -352,7 +352,7 @@ func TestCall(t *testing.T) {
 			"data":     "0x1"
 		   },
 		   1]}`)
-		ret, err := web3svr.call(&in)
+		ret, err := web3svr.call(context.Background(), &in)
 		require.NoError(err)
 		require.Equal("0x111111", ret.(string))
 	})
@@ -378,7 +378,7 @@ func TestCall(t *testing.T) {
 			"data":     "0x1"
 		   },
 		   1]}`)
-		_, err := web3svr.call(&in)
+		_, err := web3svr.call(context.Background(), &in)
 		require.EqualError(err, "rpc error: code = InvalidArgument desc = execution reverted: "+receipt.GetExecutionRevertMsg())
 	})
 }
@@ -405,7 +405,7 @@ func TestEstimateGas(t *testing.T) {
 			"data":     "0x6d4ce63c"
 		   },
 		   1]}`)
-		ret, err := web3svr.estimateGas(&in)
+		ret, err := web3svr.estimateGas(context.Background(), &in)
 		require.NoError(err)
 		require.Equal(uint64ToHex(uint64(21000)), ret.(string))
 	})
@@ -423,7 +423,7 @@ func TestEstimateGas(t *testing.T) {
 			"data":     "0x1123123c"
 		   },
 		   1]}`)
-		ret, err := web3svr.estimateGas(&in)
+		ret, err := web3svr.estimateGas(context.Background(), &in)
 		require.NoError(err)
 		require.Equal(uint64ToHex(uint64(36000)), ret.(string))
 	})
@@ -444,13 +444,13 @@ func TestSendRawTransaction(t *testing.T) {
 
 	t.Run("nil params", func(t *testing.T) {
 		inNil := gjson.Parse(`{"params":[]}`)
-		_, err := web3svr.sendRawTransaction(&inNil)
+		_, err := web3svr.sendRawTransaction(context.Background(), &inNil)
 		require.EqualError(err, errInvalidFormat.Error())
 	})
 
 	t.Run("send tx", func(t *testing.T) {
 		in := gjson.Parse(`{"params":["f8600180830186a09412745fec82b585f239c01090882eb40702c32b04808025a0b0e1aab5b64d744ae01fc9f1c3e9919844a799e90c23129d611f7efe6aec8a29a0195e28d22d9b280e00d501ff63525bb76f5c87b8646c89d5d9c5485edcb1b498"]}`)
-		ret, err := web3svr.sendRawTransaction(&in)
+		ret, err := web3svr.sendRawTransaction(context.Background(), &in)
 		require.NoError(err)
 		require.Equal("0x111111111111111", ret.(string))
 	})
