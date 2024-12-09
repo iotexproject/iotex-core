@@ -8,6 +8,7 @@ type (
 	BuilderConfig struct {
 		Staking                  genesis.Staking
 		PersistStakingPatchBlock uint64
+		FixAliasForNonStopHeight uint64
 		StakingPatchDir          string
 		Revise                   ReviseConfig
 	}
