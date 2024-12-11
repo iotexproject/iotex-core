@@ -254,20 +254,42 @@ func TestValidateRollDPoS(t *testing.T) {
 }
 
 func TestValidateArchiveMode(t *testing.T) {
+	r := require.New(t)
 	cfg := Default
-	cfg.Chain.EnableArchiveMode = true
-	cfg.Chain.EnableTrielessStateDB = true
-	require.Error(t, ErrInvalidCfg, errors.Cause(ValidateArchiveMode(cfg)))
-	require.EqualError(t, ValidateArchiveMode(cfg), "Archive mode is incompatible with trieless state DB: invalid config value")
-	cfg.Chain.EnableArchiveMode = false
-	cfg.Chain.EnableTrielessStateDB = true
-	require.NoError(t, errors.Cause(ValidateArchiveMode(cfg)))
-	cfg.Chain.EnableArchiveMode = true
-	cfg.Chain.EnableTrielessStateDB = false
-	require.NoError(t, errors.Cause(ValidateArchiveMode(cfg)))
-	cfg.Chain.EnableArchiveMode = false
-	cfg.Chain.EnableTrielessStateDB = false
-	require.NoError(t, errors.Cause(ValidateArchiveMode(cfg)))
+	cfg.Chain.VersionedMetadata = "meta"
+	for _, v := range [][2]bool{
+		{false, false},
+		{false, true},
+		{true, false},
+		{true, true},
+	} {
+		cfg.Chain.EnableArchiveMode = v[0]
+		cfg.Chain.EnableTrielessStateDB = v[1]
+		if !(cfg.Chain.EnableArchiveMode && cfg.Chain.EnableTrielessStateDB) {
+			r.NoError(ValidateArchiveMode(cfg))
+			continue
+		}
+		for _, v := range []struct {
+			ns  []string
+			err string
+		}{
+			{[]string{"", ""}, "State DB archive mode is enabled with empty versioned namespace"},
+			{[]string{"Account", ""}, "State DB archive mode is enabled with empty versioned namespace"},
+			{[]string{"", "Account"}, "State DB archive mode is enabled with empty versioned namespace"},
+			{[]string{"Account", "Contract"}, ""},
+		} {
+			cfg.Chain.VersionedNamespaces = v.ns
+			if len(v.err) > 0 {
+				r.ErrorContains(ValidateArchiveMode(cfg), v.err)
+			} else {
+				r.NoError(ValidateArchiveMode(cfg))
+			}
+		}
+		cfg.Chain.VersionedMetadata = ""
+		r.ErrorContains(ValidateArchiveMode(cfg), "State DB archive mode is enabled with empty metadata namespace")
+		cfg.Chain.VersionedMetadata = "meta"
+		r.NoError(ValidateArchiveMode(cfg))
+	}
 }
 
 func TestValidateActPool(t *testing.T) {

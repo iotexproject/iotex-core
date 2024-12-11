@@ -256,11 +256,20 @@ func ValidateRollDPoS(cfg Config) error {
 
 // ValidateArchiveMode validates the state factory setting
 func ValidateArchiveMode(cfg Config) error {
-	if !cfg.Chain.EnableArchiveMode || !cfg.Chain.EnableTrielessStateDB {
-		return nil
+	if cfg.Chain.EnableArchiveMode && cfg.Chain.EnableTrielessStateDB {
+		if len(cfg.Chain.VersionedMetadata) == 0 {
+			return errors.Wrap(ErrInvalidCfg, "State DB archive mode is enabled with empty metadata namespace")
+		}
+		if len(cfg.Chain.VersionedNamespaces) == 0 {
+			return errors.Wrap(ErrInvalidCfg, "State DB archive mode is enabled with empty versioned namespace")
+		}
+		for _, v := range cfg.Chain.VersionedNamespaces {
+			if len(v) == 0 {
+				return errors.Wrap(ErrInvalidCfg, "State DB archive mode is enabled with empty versioned namespace")
+			}
+		}
 	}
-
-	return errors.Wrap(ErrInvalidCfg, "Archive mode is incompatible with trieless state DB")
+	return nil
 }
 
 // ValidateAPI validates the api configs
