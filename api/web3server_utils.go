@@ -181,6 +181,9 @@ func (svr *web3Handler) checkContractAddr(to string) (bool, error) {
 		return false, err
 	}
 	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	if err != nil {
+		return false, err
+	}
 	return accountMeta.IsContract, err
 }
 
