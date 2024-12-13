@@ -83,6 +83,7 @@ var (
 	errUnsupportedAction = errors.New("the type of action is not supported")
 	errMsgBatchTooLarge  = errors.New("batch too large")
 	errHTTPNotSupported  = errors.New("http not supported")
+	errPanic             = errors.New("panic")
 
 	_pendingBlockNumber  = "pending"
 	_latestBlockNumber   = "latest"
@@ -104,7 +105,7 @@ func NewWeb3Handler(core CoreService, cacheURL string, batchRequestLimit int) We
 }
 
 // HandlePOSTReq handles web3 request
-func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, writer apitypes.Web3ResponseWriter) error {
+func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, writer apitypes.Web3ResponseWriter) (err error) {
 	ctx, span := tracer.NewSpan(ctx, "svr.HandlePOSTReq")
 	defer span.End()
 	web3Reqs, err := parseWeb3Reqs(reader)
@@ -114,6 +115,15 @@ func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, wri
 		_, err = writer.Write(&web3Response{err: err})
 		return err
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Wrapf(errPanic, "recovered from panic: %v, request params: %+v", r, web3Reqs)
+			return
+		}
+		if err != nil {
+			err = errors.Wrapf(err, "failed to handle web3 requests: %+v", web3Reqs)
+		}
+	}()
 	if !web3Reqs.IsArray() {
 		return svr.handleWeb3Req(ctx, &web3Reqs, writer)
 	}
@@ -147,7 +157,7 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	)
 	defer func(start time.Time) { svr.coreService.Track(ctx, start, method.(string), int64(size), err == nil) }(time.Now())
 
-	log.T(ctx).Info("handleWeb3Req", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
+	log.T(ctx).Debug("handleWeb3Req", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
 	_web3ServerMtc.WithLabelValues(method.(string)).Inc()
 	_web3ServerMtc.WithLabelValues("requests_total").Inc()
 	switch method {
