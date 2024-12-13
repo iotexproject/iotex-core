@@ -184,7 +184,7 @@ func (svr *web3Handler) checkContractAddr(to string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return accountMeta.IsContract, err
+	return accountMeta.IsContract, nil
 }
 
 func (svr *web3Handler) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]*getLogsResult, error) {
