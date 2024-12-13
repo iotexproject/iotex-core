@@ -400,7 +400,7 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 	}
 	if stateDB.useConfirmedNonce {
 		if pendingNonce == 0 {
-			panic("invalid pending nonce")
+			log.T(stateDB.ctx).Panic("invalid pending nonce")
 		}
 		pendingNonce--
 	}
@@ -423,7 +423,7 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
 	}
 	if !stateDB.useConfirmedNonce {
 		if nonce == 0 {
-			panic("invalid nonce zero")
+			log.T(stateDB.ctx).Panic("invalid nonce zero")
 		}
 		nonce--
 	}
@@ -445,7 +445,7 @@ func (stateDB *StateDBAdapter) SubRefund(gas uint64) {
 	log.L().Debug("Called SubRefund.", zap.Uint64("gas", gas))
 	// stateDB.journal.append(refundChange{prev: self.refund})
 	if gas > stateDB.refund {
-		panic("Refund counter not enough!")
+		log.T(stateDB.ctx).Panic("Refund counter not enough!")
 	}
 	stateDB.refund -= gas
 }
@@ -832,7 +832,7 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 	}
 	if topics[0] == _inContractTransfer {
 		if len(topics) != 3 {
-			panic("Invalid in contract transfer topics")
+			log.T(stateDB.ctx).Panic("Invalid in contract transfer topics")
 		}
 		if amount, zero := new(big.Int).SetBytes(evmLog.Data), big.NewInt(0); amount.Cmp(zero) == 1 {
 			from, _ := address.FromBytes(topics[1][12:])

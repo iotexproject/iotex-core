@@ -13,6 +13,7 @@ import (
 
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
 )
 
 const (
@@ -141,21 +142,24 @@ func (wsSvr *WebsocketHandler) handleConnection(ctx context.Context, ws *websock
 				cancel()
 				return
 			}
-
-			err = wsSvr.msgHandler.HandlePOSTReq(ctx, reader,
-				apitypes.NewResponseWriter(
-					func(resp interface{}) (int, error) {
-						if err = safeWs.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
-							log.Logger("api").Warn("failed to set write deadline timeout.", zap.Error(err))
-						}
-						return 0, safeWs.WriteJSON(resp)
-					}),
-			)
-			if err != nil {
-				log.Logger("api").Warn("fail to respond request.", zap.Error(err))
-				cancel()
-				return
-			}
+			func() {
+				wsCtx, span := tracer.NewSpan(ctx, "wss")
+				defer span.End()
+				err = wsSvr.msgHandler.HandlePOSTReq(wsCtx, reader,
+					apitypes.NewResponseWriter(
+						func(resp interface{}) (int, error) {
+							if err = safeWs.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+								log.T(wsCtx).Warn("failed to set write deadline timeout.", zap.Error(err))
+							}
+							return 0, safeWs.WriteJSON(resp)
+						}),
+				)
+				if err != nil {
+					log.T(wsCtx).Warn("fail to respond request.", zap.Error(err))
+					cancel()
+					return
+				}
+			}()
 		}
 	}
 }
