@@ -20,6 +20,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -29,6 +30,13 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/v2/state"
+)
+
+var (
+	// VersionedMetadata is the metadata namespace for versioned stateDB
+	VersionedMetadata = "Meta"
+	// VersionedNamespaces are the versioned namespaces for versioned stateDB
+	VersionedNamespaces = []string{AccountKVNamespace, evm.ContractKVNameSpace}
 )
 
 type (
@@ -53,7 +61,6 @@ type (
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
-		metaNS                   string // metadata namespace, only meaningful when archive-mode enabled
 	}
 )
 
@@ -92,14 +99,6 @@ func DisableWorkingSetCacheOption() StateDBOption {
 	}
 }
 
-// MetadataNamespaceOption specifies the metadat namespace for versioned DB
-func MetadataNamespaceOption(ns string) StateDBOption {
-	return func(sdb *stateDB, cfg *Config) error {
-		sdb.metaNS = ns
-		return nil
-	}
-}
-
 // NewStateDB creates a new state db
 func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, error) {
 	sdb := stateDB{
@@ -120,7 +119,7 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 		if !ok {
 			return nil, errors.Wrap(ErrNotSupported, "cannot enable archive mode StateDB with non-versioned DB")
 		}
-		sdb.dao = newDaoRetrofitterArchive(daoVersioned, sdb.metaNS)
+		sdb.dao = newDaoRetrofitterArchive(daoVersioned, VersionedMetadata)
 	} else {
 		sdb.dao = newDaoRetrofitter(dao)
 	}

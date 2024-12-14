@@ -5,6 +5,8 @@ import "github.com/pkg/errors"
 var (
 	// ErrEmptyDBPath is the error when db path is empty
 	ErrEmptyDBPath = errors.New("empty db path")
+	// ErrEmptyVersionedNamespace is the error of empty versioned namespace
+	ErrEmptyVersionedNamespace = errors.New("cannot create versioned KVStore with empty versioned namespace")
 )
 
 // CreateKVStore creates db from config and db path
@@ -37,6 +39,14 @@ func CreateKVStoreWithCache(cfg Config, dbPath string, cacheSize int) (KVStore, 
 func CreateKVStoreVersioned(cfg Config, dbPath string, vns []string) (KVStore, error) {
 	if len(dbPath) == 0 {
 		return nil, ErrEmptyDBPath
+	}
+	if len(vns) == 0 {
+		return nil, ErrEmptyVersionedNamespace
+	}
+	for i := range vns {
+		if len(vns[i]) == 0 {
+			return nil, ErrEmptyVersionedNamespace
+		}
 	}
 	cfg.DbPath = dbPath
 	return NewKVStoreWithVersion(cfg, VersionedNamespaceOption(vns...)), nil

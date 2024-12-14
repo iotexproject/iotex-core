@@ -174,8 +174,7 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 			factory.DefaultPatchOption(),
 		}
 		if builder.cfg.Chain.EnableArchiveMode {
-			dao, err = db.CreateKVStoreVersioned(factoryDBCfg, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.VersionedNamespaces)
-			opts = append(opts, factory.MetadataNamespaceOption(builder.cfg.Chain.VersionedMetadata))
+			dao, err = db.CreateKVStoreVersioned(factoryDBCfg, builder.cfg.Chain.TrieDBPath, factory.VersionedNamespaces)
 		} else if builder.cfg.Chain.EnableStateDBCaching {
 			dao, err = db.CreateKVStoreWithCache(factoryDBCfg, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
 		} else {
