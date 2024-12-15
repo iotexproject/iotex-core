@@ -259,11 +259,7 @@ func (b *BoltDBVersioned) commitToDB(version uint64, vnsize map[string]int, ve, 
 				// get bucket
 				bucket, ok := buckets[ns]
 				if !ok {
-					bucket, err = tx.CreateBucketIfNotExists([]byte(ns))
-					if err != nil {
-						return errors.Wrapf(err, "failed to create bucket %s", ns)
-					}
-					buckets[ns] = bucket
+					panic(fmt.Sprintf("BoltDBVersioned.commitToDB(), vns = %s does not exist", ns))
 				}
 				// check key's last version
 				var (
@@ -286,7 +282,7 @@ func (b *BoltDBVersioned) commitToDB(version uint64, vnsize map[string]int, ve, 
 				switch write.WriteType() {
 				case batch.Put:
 					if bytes.Equal(key, _minKey) {
-						// create namespace
+						// create metadata for namespace
 						if err = bucket.Put(key, val); err != nil {
 							return errors.Wrap(err, write.Error())
 						}
