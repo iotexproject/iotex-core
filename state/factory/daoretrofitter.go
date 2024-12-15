@@ -35,6 +35,18 @@ func (rtf *daoRTF) Stop(ctx context.Context) error {
 	return rtf.dao.Stop(ctx)
 }
 
+func (rtf *daoRTF) checkDBCompatibility() error {
+	for _, ns := range VersionedNamespaces {
+		if _, err := rtf.dao.Get(ns, []byte{0}); err == nil {
+			return errors.Wrap(ErrIncompatibleDB, "non-archive using archive-mode DB")
+		}
+	}
+	if _, err := rtf.dao.Get(VersionedMetadata, []byte(CurrentHeightKey)); err == nil {
+		return errors.Wrap(ErrIncompatibleDB, "non-archive using archive-mode DB")
+	}
+	return nil
+}
+
 func (rtf *daoRTF) atHeight(uint64) db.KVStore {
 	return rtf.dao
 }

@@ -37,6 +37,13 @@ func (rtf *daoRTFArchive) Stop(ctx context.Context) error {
 	return rtf.daoVersioned.Stop(ctx)
 }
 
+func (rtf *daoRTFArchive) checkDBCompatibility() error {
+	if _, err := rtf.daoVersioned.Base().Get(AccountKVNamespace, []byte(CurrentHeightKey)); err == nil {
+		return errors.Wrap(ErrIncompatibleDB, "archive-mode using non-archive DB")
+	}
+	return nil
+}
+
 func (rtf *daoRTFArchive) atHeight(h uint64) db.KVStore {
 	return rtf.daoVersioned.SetVersion(h)
 }

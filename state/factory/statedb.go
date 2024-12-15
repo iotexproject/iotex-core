@@ -37,12 +37,15 @@ var (
 	VersionedMetadata = "Meta"
 	// VersionedNamespaces are the versioned namespaces for versioned stateDB
 	VersionedNamespaces = []string{AccountKVNamespace, evm.ContractKVNameSpace}
+	// ErrIncompatibleDB is the error of imcompatible DB (archive-mode using non-archive DB or vice versa)
+	ErrIncompatibleDB = errors.New("incompatible DB format")
 )
 
 type (
 	// daoRetrofitter represents the DAO-related methods to accommodate archive-mode
 	daoRetrofitter interface {
 		lifecycle.StartStopper
+		checkDBCompatibility() error
 		atHeight(uint64) db.KVStore
 		getHeight() (uint64, error)
 		putHeight(uint64) error
@@ -139,6 +142,10 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 func (sdb *stateDB) Start(ctx context.Context) error {
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	if err := sdb.dao.Start(ctx); err != nil {
+		return err
+	}
+	// verify DB compatibility
+	if err := sdb.dao.checkDBCompatibility(); err != nil {
 		return err
 	}
 	// check factory height
