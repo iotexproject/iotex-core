@@ -46,6 +46,9 @@ type (
 	KvVersioned interface {
 		lifecycle.StartStopper
 
+		// Base returns the underlying KVStore
+		Base() KVStore
+
 		// Version returns the key's most recent version
 		Version(string, []byte) (uint64, error)
 
@@ -86,6 +89,10 @@ func NewKVStoreWithVersion(cfg Config, opts ...Option) *KvWithVersion {
 		opt(&kv)
 	}
 	return &kv
+}
+
+func (b *KvWithVersion) Base() KVStore {
+	return b.db.Base()
 }
 
 // Start starts the DB
