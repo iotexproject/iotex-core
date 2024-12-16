@@ -108,7 +108,7 @@ var (
 		},
 		EnableTrielessStateDB:         true,
 		EnableStateDBCaching:          false,
-		EnableArchiveMode:             false,
+		EnableArchiveMode:             true,
 		EnableAsyncIndexWrite:         true,
 		EnableSystemLogIndexer:        false,
 		EnableStakingProtocol:         true,
