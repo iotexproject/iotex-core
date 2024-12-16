@@ -87,7 +87,7 @@ type (
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
 		PutBlock(context.Context, *block.Block) error
 		WorkingSet(context.Context) (protocol.StateManager, error)
-		WorkingSetAtHeight(context.Context, uint64) (protocol.StateManager, error)
+		WorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManager, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -408,16 +408,35 @@ func (sf *factory) WorkingSet(ctx context.Context) (protocol.StateManager, error
 	return sf.newWorkingSet(ctx, sf.currentChainHeight+1)
 }
 
-func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManager, error) {
+func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManager, error) {
 	if !sf.saveHistory {
 		return nil, ErrNoArchiveData
 	}
 	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
 	if height > sf.currentChainHeight {
+		sf.mutex.Unlock()
 		return nil, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
 	}
-	return sf.newWorkingSetAtHeight(ctx, height)
+	var (
+		ws  *workingSet
+		err error
+	)
+	if len(preacts) == 0 {
+		ws, err = sf.newWorkingSet(ctx, height)
+		sf.mutex.Unlock()
+		return ws, err
+	}
+	// prepare workingset at height-1, and run acts
+	ws, err = sf.newWorkingSet(ctx, height-1)
+	sf.mutex.Unlock()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+	ws.height++
+	if err := ws.Process(ctx, preacts); err != nil {
+		return nil, err
+	}
+	return ws, nil
 }
 
 // PutBlock persists all changes in RunActions() into the DB
