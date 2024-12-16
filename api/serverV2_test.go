@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
 
-	"github.com/iotexproject/iotex-core/v2/test/mock/mock_apicoreservice"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
@@ -22,7 +21,7 @@ func TestServerV2(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3Handler := NewWeb3Handler(core, "", _defaultBatchRequestLimit)
 	svr := &ServerV2{
 		core:         core,

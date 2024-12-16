@@ -31,7 +31,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
-	"github.com/iotexproject/iotex-core/v2/test/mock/mock_apicoreservice"
 	mock_apitypes "github.com/iotexproject/iotex-core/v2/test/mock/mock_apiresponder"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
@@ -101,7 +100,7 @@ func TestHandlePost(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	core.EXPECT().Track(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
 	svr := newHTTPHandler(NewWeb3Handler(core, "", _defaultBatchRequestLimit))
 	getServerResp := func(svr *hTTPHandler, req *http.Request) *httptest.ResponseRecorder {
@@ -170,7 +169,7 @@ func TestGasPrice(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	core.EXPECT().SuggestGasPrice().Return(uint64(1), nil)
 	ret, err := web3svr.gasPrice()
@@ -186,7 +185,7 @@ func TestGetChainID(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	core.EXPECT().EVMNetworkID().Return(uint32(1))
 	ret, err := web3svr.getChainID()
@@ -198,7 +197,7 @@ func TestGetBlockNumber(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	core.EXPECT().TipHeight().Return(uint64(1))
 	ret, err := web3svr.getBlockNumber()
@@ -210,7 +209,7 @@ func TestGetBlockByNumber(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	tsf, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -261,12 +260,13 @@ func TestGetBalance(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	balance := "111111111111111111"
+	core.EXPECT().WithHeight(gomock.Any()).Return(core).Times(1)
 	core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{Balance: balance}, nil, nil)
 
-	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]}`)
+	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"]}`)
 	ret, err := web3svr.getBalance(&in)
 	require.NoError(err)
 	ans, ok := new(big.Int).SetString(balance, 10)
@@ -278,7 +278,7 @@ func TestGetTransactionCount(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	core.EXPECT().PendingNonce(gomock.Any()).Return(uint64(2), nil)
 
@@ -296,7 +296,7 @@ func TestCall(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	t.Run("to is StakingProtocol addr", func(t *testing.T) {
@@ -315,8 +315,7 @@ func TestCall(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "d201114a"
-		   },
-		   1]}`)
+		   }]}`)
 		ret, err := web3svr.call(&in)
 		require.NoError(err)
 		require.Equal("0x0000000000000000000000000000000000000000000000056bc75e2d63100000", ret.(string))
@@ -334,8 +333,7 @@ func TestCall(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "ad7a672f"
-		   },
-		   1]}`)
+		   }]}`)
 		ret, err := web3svr.call(&in)
 		require.NoError(err)
 		require.Equal("0x0000000000000000000000000000000000000000000000000000000000002710", ret.(string))
@@ -350,8 +348,7 @@ func TestCall(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "0x1"
-		   },
-		   1]}`)
+		   }]}`)
 		ret, err := web3svr.call(&in)
 		require.NoError(err)
 		require.Equal("0x111111", ret.(string))
@@ -376,8 +373,7 @@ func TestCall(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "0x1"
-		   },
-		   1]}`)
+		   }]}`)
 		_, err := web3svr.call(&in)
 		require.EqualError(err, "rpc error: code = InvalidArgument desc = execution reverted: "+receipt.GetExecutionRevertMsg())
 	})
@@ -387,12 +383,12 @@ func TestEstimateGas(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	core.EXPECT().ChainID().Return(uint32(1)).Times(2)
+	core.EXPECT().EVMNetworkID().Return(uint32(0)).Times(2)
 
 	t.Run("estimate execution", func(t *testing.T) {
-		core.EXPECT().EVMNetworkID().Return(uint32(0)).AnyTimes()
 		core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{IsContract: true}, nil, nil)
 		core.EXPECT().EstimateExecutionGasConsumption(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint64(11000), nil, nil)
 
@@ -403,8 +399,7 @@ func TestEstimateGas(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "0x6d4ce63c"
-		   },
-		   1]}`)
+		   }]}`)
 		ret, err := web3svr.estimateGas(&in)
 		require.NoError(err)
 		require.Equal(uint64ToHex(uint64(21000)), ret.(string))
@@ -421,8 +416,7 @@ func TestEstimateGas(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "0x1123123c"
-		   },
-		   1]}`)
+		   }]}`)
 		ret, err := web3svr.estimateGas(&in)
 		require.NoError(err)
 		require.Equal(uint64ToHex(uint64(36000)), ret.(string))
@@ -433,7 +427,7 @@ func TestSendRawTransaction(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	core.EXPECT().Genesis().Return(genesis.Default)
 	core.EXPECT().TipHeight().Return(uint64(0))
@@ -460,7 +454,7 @@ func TestGetCode(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	code := "608060405234801561001057600080fd5b50610150806100206contractbytecode"
 	data, _ := hex.DecodeString(code)
@@ -484,7 +478,7 @@ func TestGetNodeInfo(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	core.EXPECT().ServerMeta().Return("111", "", "", "222", "")
 	ret, err := web3svr.getNodeInfo()
@@ -496,7 +490,7 @@ func TestGetNetworkID(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	core.EXPECT().EVMNetworkID().Return(uint32(123))
 	ret, err := web3svr.getNetworkID()
@@ -508,7 +502,7 @@ func TestIsSyncing(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	core.EXPECT().SyncingProgress().Return(uint64(1), uint64(2), uint64(3))
 	ret, err := web3svr.isSyncing()
@@ -524,7 +518,7 @@ func TestGetBlockTransactionCountByHash(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	tsf, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -560,7 +554,7 @@ func TestGetBlockByHash(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	tsf, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -612,7 +606,7 @@ func TestGetTransactionByHash(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	selp, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -682,7 +676,7 @@ func TestGetLogs(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	logs := []*action.Log{
@@ -731,7 +725,7 @@ func TestGetTransactionReceipt(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	selp, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -779,7 +773,7 @@ func TestGetBlockTransactionCountByNumber(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	tsf, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -814,7 +808,7 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	tsf, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -861,7 +855,7 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	tsf, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -907,7 +901,7 @@ func TestGetStorageAt(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	val := []byte("test")
 	core.EXPECT().ReadContractStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(val, nil)
@@ -922,7 +916,7 @@ func TestNewfilter(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, newAPICache(1*time.Second, ""), _defaultBatchRequestLimit}
 
 	ret, err := web3svr.newFilter(&filterObject{
@@ -939,7 +933,7 @@ func TestNewBlockFilter(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, newAPICache(1*time.Second, ""), _defaultBatchRequestLimit}
 	core.EXPECT().TipHeight().Return(uint64(123))
 
@@ -952,7 +946,7 @@ func TestUninstallFilter(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, newAPICache(1*time.Second, ""), _defaultBatchRequestLimit}
 
 	require.NoError(web3svr.cache.Set("123456789abc", []byte("test")))
@@ -975,7 +969,7 @@ func TestGetFilterChanges(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, newAPICache(1*time.Second, ""), _defaultBatchRequestLimit}
 	core.EXPECT().TipHeight().Return(uint64(0)).Times(3)
 
@@ -1060,7 +1054,7 @@ func TestGetFilterLogs(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, newAPICache(1*time.Second, ""), _defaultBatchRequestLimit}
 
 	logs := []*action.Log{
@@ -1116,7 +1110,7 @@ func TestSubscribe(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	listener := mock_apitypes.NewMockListener(ctrl)
@@ -1167,7 +1161,7 @@ func TestUnsubscribe(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	listener := mock_apitypes.NewMockListener(ctrl)
@@ -1207,7 +1201,7 @@ func TestDebugTraceTransaction(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	ctx := context.Background()
@@ -1246,7 +1240,7 @@ func TestDebugTraceCall(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	ctx := context.Background()
@@ -1261,7 +1255,7 @@ func TestDebugTraceCall(t *testing.T) {
 
 	core.EXPECT().TraceCall(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return([]byte{0x01}, receipt, structLogger, nil)
 
-	in := gjson.Parse(`{"method":"debug_traceCall","params":[{"from":null,"to":"0x6b175474e89094c44da98b954eedeac495271d0f","data":"0x70a082310000000000000000000000006E0d01A76C3Cf4288372a29124A26D4353EE51BE"}, {"blockNumber":1}],"id":1,"jsonrpc":"2.0"}`)
+	in := gjson.Parse(`{"method":"debug_traceCall","params":[{"from":null,"to":"0x6b175474e89094c44da98b954eedeac495271d0f","data":"0x70a082310000000000000000000000006E0d01A76C3Cf4288372a29124A26D4353EE51BE"}],"id":1,"jsonrpc":"2.0"}`)
 	ret, err := web3svr.traceCall(ctx, &in)
 	require.NoError(err)
 	rlt, ok := ret.(*debugTraceTransactionResult)
@@ -1277,7 +1271,7 @@ func TestResponseIDMatchTypeWithRequest(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	core.EXPECT().TipHeight().Return(uint64(1)).AnyTimes()
 	core.EXPECT().Track(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
 	svr := newHTTPHandler(NewWeb3Handler(core, "", _defaultBatchRequestLimit))

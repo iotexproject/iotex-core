@@ -10,8 +10,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-
-	"github.com/iotexproject/iotex-core/v2/test/mock/mock_apicoreservice"
 )
 
 func TestParseCallObject(t *testing.T) {
@@ -41,8 +39,7 @@ func TestParseCallObject(t *testing.T) {
 				"gasPrice": "0xe8d4a51000",
 				"value":    "0x1",
 				"data":     "0x6d4ce63c"
-			   },
-			   1]}`,
+			   }, "0x1"]}`,
 			from:     address.ZeroAddress,
 			to:       "io10sfcvmuj2000083qqd8d6qg7r457vll9gly090",
 			gasLimit: 20000,
@@ -59,8 +56,7 @@ func TestParseCallObject(t *testing.T) {
 				"gasPrice": "0xe8d4a51000",
 				"value":    "0x1",
 				"input":     "0x6d4ce63c"
-			   },
-			   1]}`,
+			   }, "0x1"]}`,
 			from:     address.ZeroAddress,
 			to:       "io10sfcvmuj2000083qqd8d6qg7r457vll9gly090",
 			gasLimit: 20000,
@@ -84,8 +80,7 @@ func TestParseCallObject(t *testing.T) {
 						"storageKeys": ["0x0000000000000000000000001a2f3b98e2f5a0f9f9f3f3f3f3f3f3f3f3f3f3f3"]
 					}
 				]
-			   },
-			   1]}`,
+			   }, "0x1"]}`,
 			from:      "io1rghnhx8z7ks0n70n70el8uln70el8ulnp8hq9l",
 			to:        "io10sfcvmuj2000083qqd8d6qg7r457vll9gly090",
 			gasLimit:  20000,
@@ -156,7 +151,7 @@ func TestParseBlockNumber(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	t.Run("earliest block number", func(t *testing.T) {
