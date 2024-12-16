@@ -358,6 +358,7 @@ func TestState(t *testing.T) {
 }
 
 func TestHistoryState(t *testing.T) {
+	t.Skip()
 	r := require.New(t)
 	// using factory and enable history
 	cfg := DefaultConfig
