@@ -87,6 +87,8 @@ type (
 		Genesis() genesis.Genesis
 		// Context returns current context
 		Context(context.Context) (context.Context, error)
+		// ContextAtHeight returns context at given height
+		ContextAtHeight(context.Context, uint64) (context.Context, error)
 
 		// For block operations
 		// MintNewBlock creates a new block with given actions
@@ -228,10 +230,14 @@ func (bc *blockchain) Start(ctx context.Context) error {
 	defer bc.mu.Unlock()
 
 	// pass registry to be used by state factory's initialization
-	ctx, err := bc.context(ctx, false)
-	if err != nil {
-		return err
-	}
+	ctx = protocol.WithFeatureWithHeightCtx(genesis.WithGenesisContext(
+		protocol.WithBlockchainCtx(
+			ctx,
+			protocol.BlockchainCtx{
+				ChainID:      bc.ChainID(),
+				EvmNetworkID: bc.EvmNetworkID(),
+			},
+		), bc.genesis))
 	return bc.lifecycle.OnStart(ctx)
 }
 
@@ -281,7 +287,11 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 	if blk == nil {
 		return ErrInvalidBlock
 	}
-	tip, err := bc.tipInfo()
+	tipHeight, err := bc.dao.Height()
+	if err != nil {
+		return err
+	}
+	tip, err := bc.tipInfo(tipHeight)
 	if err != nil {
 		return err
 	}
@@ -322,7 +332,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 	if producerAddr == nil {
 		return errors.New("failed to get address")
 	}
-	ctx, err := bc.context(context.Background(), true)
+	ctx, err := bc.context(context.Background(), tipHeight)
 	if err != nil {
 		return err
 	}
@@ -351,8 +361,17 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 func (bc *blockchain) Context(ctx context.Context) (context.Context, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
+	tipHeight, err := bc.dao.Height()
+	if err != nil {
+		return nil, err
+	}
+	return bc.context(ctx, tipHeight)
+}
 
-	return bc.context(ctx, true)
+func (bc *blockchain) ContextAtHeight(ctx context.Context, height uint64) (context.Context, error) {
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
+	return bc.context(ctx, height)
 }
 
 func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Address, height uint64, timestamp time.Time, baseFee *big.Int, blobgas uint64) context.Context {
@@ -368,21 +387,17 @@ func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Add
 		})
 }
 
-func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Context, error) {
-	var tip protocol.TipInfo
-	if tipInfoFlag {
-		if tipInfoValue, err := bc.tipInfo(); err == nil {
-			tip = *tipInfoValue
-		} else {
-			return nil, err
-		}
+func (bc *blockchain) context(ctx context.Context, height uint64) (context.Context, error) {
+	tip, err := bc.tipInfo(height)
+	if err != nil {
+		return nil, err
 	}
 
 	ctx = genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
 			ctx,
 			protocol.BlockchainCtx{
-				Tip:          tip,
+				Tip:          *tip,
 				ChainID:      bc.ChainID(),
 				EvmNetworkID: bc.EvmNetworkID(),
 			},
@@ -402,7 +417,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 		return nil, err
 	}
 	newblockHeight := tipHeight + 1
-	ctx, err := bc.context(context.Background(), true)
+	ctx, err := bc.context(context.Background(), tipHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -463,11 +478,7 @@ func (bc *blockchain) Genesis() genesis.Genesis {
 // private functions
 //=====================================
 
-func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
-	tipHeight, err := bc.dao.Height()
-	if err != nil {
-		return nil, err
-	}
+func (bc *blockchain) tipInfo(tipHeight uint64) (*protocol.TipInfo, error) {
 	if tipHeight == 0 {
 		return &protocol.TipInfo{
 			Height:    0,
@@ -493,7 +504,11 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 
 // commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *block.Block) error {
-	ctx, err := bc.context(context.Background(), true)
+	tipHeight, err := bc.dao.Height()
+	if err != nil {
+		return err
+	}
+	ctx, err := bc.context(context.Background(), tipHeight)
 	if err != nil {
 		return err
 	}
