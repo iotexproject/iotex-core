@@ -412,7 +412,20 @@ func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	bnParam := in.Get("params.1")
+	bn, err := parseBlockNumber(&bnParam)
+	if err != nil {
+		return nil, err
+	}
+	var (
+		accountMeta     *iotextypes.AccountMeta
+		height, archive = blockNumberToHeight(bn)
+	)
+	if !archive {
+		accountMeta, _, err = svr.coreService.Account(ioAddr)
+	} else {
+		accountMeta, _, err = svr.coreService.WithHeight(height).Account(ioAddr)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -480,9 +493,18 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		}
 		return "0x" + ret, nil
 	}
-	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(to, callMsg.Value, data)).
-		SetGasLimit(callMsg.Gas).Build()
-	ret, receipt, err := svr.coreService.ReadContract(ctx, callMsg.From, elp)
+	var (
+		elp = (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(to, callMsg.Value, data)).
+			SetGasLimit(callMsg.Gas).Build()
+		ret             string
+		receipt         *iotextypes.Receipt
+		height, archive = blockNumberToHeight(callMsg.BlockNumber)
+	)
+	if !archive {
+		ret, receipt, err = svr.coreService.ReadContract(context.Background(), callMsg.From, elp)
+	} else {
+		ret, receipt, err = svr.coreService.WithHeight(height).ReadContract(context.Background(), callMsg.From, elp)
+	}
 	if err != nil {
 		return nil, err
 	}
