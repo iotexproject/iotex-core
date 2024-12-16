@@ -399,6 +399,31 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 	}, nil
 }
 
+func parseBlockNumber(in *gjson.Result) (rpc.BlockNumber, error) {
+	if !in.Exists() {
+		return rpc.LatestBlockNumber, nil
+	}
+	var height rpc.BlockNumber
+	if err := height.UnmarshalJSON([]byte(in.String())); err != nil {
+		return 0, err
+	}
+	if height == rpc.PendingBlockNumber {
+		return 0, errors.Wrap(errNotImplemented, "pending block number is not supported")
+	}
+	return height, nil
+}
+
+func blockNumberToHeight(bn rpc.BlockNumber) (uint64, bool) {
+	switch bn {
+	case rpc.SafeBlockNumber, rpc.FinalizedBlockNumber, rpc.LatestBlockNumber:
+		return 0, false
+	case rpc.EarliestBlockNumber:
+		return 1, true
+	default:
+		return uint64(bn), true
+	}
+}
+
 func (call *callMsg) toUnsignedTx(chainID uint32) (*types.Transaction, error) {
 	var (
 		tx     *types.Transaction

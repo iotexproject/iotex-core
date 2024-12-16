@@ -216,7 +216,7 @@ func (cs *ChainService) NodeInfoManager() *nodeinfo.InfoManager {
 func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
 
 // NewAPIServer creates a new api server
-func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}) (*api.ServerV2, error) {
+func (cs *ChainService) NewAPIServer(cfg api.Config, archive bool) (*api.ServerV2, error) {
 	if cfg.GRPCPort == 0 && cfg.HTTPPort == 0 {
 		return nil, nil
 	}
@@ -227,6 +227,7 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 		}),
 		api.WithNativeElection(cs.electionCommittee),
 		api.WithAPIStats(cs.apiStats),
+		api.WithArchiveSupport(archive),
 	}
 
 	svr, err := api.NewServerV2(

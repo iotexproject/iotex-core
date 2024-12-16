@@ -127,10 +127,9 @@ mockgen -destination=./test/mock/mock_apiserver/mock_apiserver.go  \
         -package=mock_apiserver \
         StreamBlocksServer
 
-mkdir -p ./test/mock/mock_apicoreservice
-mockgen -destination=./test/mock/mock_apicoreservice/mock_apicoreservice.go  \
+mockgen -destination=./api/mock_apicoreservice.go  \
         -source=./api/coreservice.go \
-        -package=mock_apicoreservice \
+        -package=api \
         CoreService
 
 mkdir -p ./test/mock/mock_blockindex

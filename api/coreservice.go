@@ -65,6 +65,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/pkg/version"
 	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -81,6 +82,7 @@ const (
 type (
 	// CoreService provides api interface for user to interact with blockchain data
 	CoreService interface {
+		WithHeight(uint64) CoreServiceReaderWithHeight
 		// Account returns the metadata of an account
 		Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error)
 		// ChainMeta returns blockchain metadata
@@ -202,6 +204,7 @@ type (
 		gs                *gasstation.GasStation
 		broadcastHandler  BroadcastOutbound
 		cfg               Config
+		archiveSupported  bool
 		registry          *protocol.Registry
 		chainListener     apitypes.Listener
 		electionCommittee committee.Committee
@@ -245,13 +248,21 @@ func WithAPIStats(stats *nodestats.APILocalStats) Option {
 	}
 }
 
+// WithArchiveSupport is the option to enable archive support
+func WithArchiveSupport(enabled bool) Option {
+	return func(svr *coreService) {
+		svr.archiveSupported = enabled
+	}
+}
+
 type intrinsicGasCalculator interface {
 	IntrinsicGas() (uint64, error)
 }
 
 var (
 	// ErrNotFound indicates the record isn't found
-	ErrNotFound = errors.New("not found")
+	ErrNotFound            = errors.New("not found")
+	ErrArchiveNotSupported = errors.New("archive-mode not supported")
 )
 
 // newcoreService creates a api server that contains major blockchain components
@@ -305,6 +316,10 @@ func newCoreService(
 	return &core, nil
 }
 
+func (core *coreService) WithHeight(height uint64) CoreServiceReaderWithHeight {
+	return newCoreServiceWithHeight(core, height)
+}
+
 // Account returns the metadata of an account
 func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
 	ctx, span := tracer.NewSpan(context.Background(), "coreService.Account")
@@ -313,16 +328,38 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
 		return core.getProtocolAccount(ctx, addrStr)
 	}
-	span.AddEvent("accountutil.AccountStateWithHeight")
 	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	state, tipHeight, err := accountutil.AccountStateWithHeight(ctx, core.sf, addr)
+	return core.acccount(ctx, core.bc.TipHeight(), false, core.sf, addr)
+}
+
+func (core *coreService) acccount(ctx context.Context, height uint64, archive bool, sr protocol.StateReader, addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+	span := tracer.SpanFromContext(ctx)
+	span.AddEvent("accountutil.AccountStateWithHeight")
+	state, height, err := accountutil.AccountStateWithHeight(ctx, sr, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
 	span.AddEvent("ap.GetPendingNonce")
-	pendingNonce, err := core.ap.GetPendingNonce(addrStr)
-	if err != nil {
-		return nil, nil, status.Error(codes.Internal, err.Error())
+	var (
+		addrStr      = addr.String()
+		pendingNonce uint64
+	)
+	if archive {
+		state, err := accountutil.AccountState(ctx, sr, addr)
+		if err != nil {
+			return nil, nil, status.Error(codes.NotFound, err.Error())
+		}
+		g := core.bc.Genesis()
+		if g.IsSumatra(height) {
+			pendingNonce = state.PendingNonceConsideringFreshAccount()
+		} else {
+			pendingNonce = state.PendingNonce()
+		}
+	} else {
+		pendingNonce, err = core.ap.GetPendingNonce(addrStr)
+		if err != nil {
+			return nil, nil, status.Error(codes.Internal, err.Error())
+		}
 	}
 	if core.indexer == nil {
 		return nil, nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
@@ -342,14 +379,14 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	}
 	if state.IsContract() {
 		var code protocol.SerializableBytes
-		_, err = core.sf.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(state.CodeHash))
+		_, err = sr.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(state.CodeHash))
 		if err != nil {
 			return nil, nil, status.Error(codes.NotFound, err.Error())
 		}
 		accountMeta.ContractByteCode = code
 	}
 	span.AddEvent("bc.BlockHeaderByHeight")
-	header, err := core.bc.BlockHeaderByHeight(tipHeight)
+	header, err := core.bc.BlockHeaderByHeight(height)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -357,7 +394,7 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	span.AddEvent("coreService.Account.End")
 	return accountMeta, &iotextypes.BlockIdentifier{
 		Hash:   hex.EncodeToString(hash[:]),
-		Height: tipHeight,
+		Height: height,
 	}, nil
 }
 
@@ -520,7 +557,21 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	if !ok {
 		return "", nil, status.Error(codes.InvalidArgument, "expecting action.Execution")
 	}
-	key := hash.Hash160b(append([]byte(exec.Contract()), exec.Data()...))
+	var (
+		tipHeight = core.bc.TipHeight()
+		hdBytes   = append(byteutil.Uint64ToBytesBigEndian(tipHeight), []byte(exec.Contract())...)
+		key       = hash.Hash160b(append(hdBytes, exec.Data()...))
+	)
+	return core.readContract(ctx, key, tipHeight, false, callerAddr, elp)
+}
+
+func (core *coreService) readContract(
+	ctx context.Context,
+	key hash.Hash160,
+	height uint64,
+	archive bool,
+	callerAddr address.Address,
+	elp action.Envelope) (string, *iotextypes.Receipt, error) {
 	// TODO: either moving readcache into the upper layer or change the storage format
 	if d, ok := core.readCache.Get(key); ok {
 		res := iotexapi.ReadContractResponse{}
@@ -530,15 +581,17 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	}
 	var (
 		g             = core.bc.Genesis()
-		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+		blockGasLimit = g.BlockGasLimitByHeight(height)
 	)
 	if elp.Gas() == 0 || blockGasLimit < elp.Gas() {
 		elp.SetGas(blockGasLimit)
 	}
-	retval, receipt, err := core.simulateExecution(ctx, callerAddr, elp)
+	retval, receipt, err := core.simulateExecution(ctx, height, archive, callerAddr, elp)
 	if err != nil {
 		return "", nil, status.Error(codes.Internal, err.Error())
 	}
+	// ReadContract() is read-only, if no error returned, we consider it a success
+	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
 	res := iotexapi.ReadContractResponse{
 		Data:    hex.EncodeToString(retval),
 		Receipt: receipt.ConvertToReceiptPb(),
@@ -1680,7 +1733,7 @@ func (core *coreService) isGasLimitEnough(
 ) (bool, *action.Receipt, []byte, error) {
 	ctx, span := tracer.NewSpan(ctx, "Server.isGasLimitEnough")
 	defer span.End()
-	ret, receipt, err := core.simulateExecution(ctx, caller, elp, opts...)
+	ret, receipt, err := core.simulateExecution(ctx, core.bc.TipHeight(), false, caller, elp, opts...)
 	if err != nil {
 		return false, nil, nil, err
 	}
@@ -1825,10 +1878,11 @@ func (core *coreService) ReceiveBlock(blk *block.Block) error {
 func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, elp action.Envelope) ([]byte, *action.Receipt, error) {
 	var (
 		g             = core.bc.Genesis()
-		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+		tipHeight     = core.bc.TipHeight()
+		blockGasLimit = g.BlockGasLimitByHeight(tipHeight)
 	)
 	elp.SetGas(blockGasLimit)
-	return core.simulateExecution(ctx, addr, elp)
+	return core.simulateExecution(ctx, tipHeight, false, addr, elp)
 }
 
 // SyncingProgress returns the syncing status of node
@@ -1852,7 +1906,7 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	}
 	addr, _ := address.FromString(address.ZeroAddress)
 	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-		return core.simulateExecution(ctx, addr, act.Envelope)
+		return core.simulateExecution(ctx, core.bc.TipHeight(), false, addr, act.Envelope)
 	})
 }
 
@@ -1880,7 +1934,7 @@ func (core *coreService) TraceCall(ctx context.Context,
 	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(contractAddress, amount, data)).
 		SetGasLimit(gasLimit).Build()
 	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-		return core.simulateExecution(ctx, callerAddr, elp)
+		return core.simulateExecution(ctx, core.bc.TipHeight(), false, callerAddr, elp)
 	})
 }
 
@@ -1939,20 +1993,42 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 	return retval, receipt, tracer, err
 }
 
-func (core *coreService) simulateExecution(ctx context.Context, addr address.Address, elp action.Envelope, opts ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
-	ctx, err := core.bc.Context(ctx)
+func (core *coreService) simulateExecution(
+	ctx context.Context,
+	height uint64,
+	archive bool,
+	addr address.Address,
+	elp action.Envelope,
+	opts ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
+	var (
+		err error
+		ws  protocol.StateManager
+	)
+	if archive {
+		ctx, err = core.bc.ContextAtHeight(ctx, height)
+		if err != nil {
+			return nil, nil, status.Error(codes.Internal, err.Error())
+		}
+		ws, err = core.sf.WorkingSetAtHeight(ctx, height)
+	} else {
+		ctx, err = core.bc.Context(ctx)
+		if err != nil {
+			return nil, nil, status.Error(codes.Internal, err.Error())
+		}
+		ws, err = core.sf.WorkingSet(ctx)
+	}
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
-	state, err := accountutil.AccountState(ctx, core.sf, addr)
+	state, err := accountutil.AccountState(ctx, ws, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	var pendingNonce uint64
 	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: core.bc.TipHeight(),
+		BlockHeight: height,
 	}))
-	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
 		pendingNonce = state.PendingNonceConsideringFreshAccount()
 	} else {
 		pendingNonce = state.PendingNonce()
@@ -1963,10 +2039,6 @@ func (core *coreService) simulateExecution(ctx context.Context, addr address.Add
 		GetBlockTime:   core.getBlockTime,
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	ws, err := core.sf.WorkingSet(ctx)
-	if err != nil {
-		return nil, nil, status.Error(codes.Internal, err.Error())
-	}
 	return evm.SimulateExecution(ctx, ws, addr, elp, opts...)
 }
 
