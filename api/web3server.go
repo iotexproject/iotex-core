@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	rewardingabi "github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/ethabi"
 	stakingabi "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
@@ -160,6 +161,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.maxPriorityFee()
 	case "eth_feeHistory":
 		res, err = svr.feeHistory(ctx, web3Req)
+	case "eth_blobBaseFee":
+		res, err = svr.blobBaseFee()
 	case "eth_getBlockByHash":
 		res, err = svr.getBlockByHash(web3Req)
 	case "eth_chainId":
@@ -356,6 +359,14 @@ func (svr *web3Handler) feeHistory(ctx context.Context, in *gjson.Result) (inter
 
 func (svr *web3Handler) getChainID() (interface{}, error) {
 	return uint64ToHex(uint64(svr.coreService.EVMNetworkID())), nil
+}
+
+func (svr *web3Handler) blobBaseFee() (interface{}, error) {
+	blk, err := svr.coreService.BlockByHeight(svr.coreService.TipHeight())
+	if err != nil {
+		return nil, err
+	}
+	return bigIntToHex(protocol.CalcBlobFee(protocol.CalcExcessBlobGas(blk.Block.ExcessBlobGas(), blk.Block.BlobGasUsed()))), nil
 }
 
 func (svr *web3Handler) getBlockNumber() (interface{}, error) {
