@@ -370,6 +370,26 @@ func (mr *MockCoreServiceMockRecorder) EstimateMigrateStakeGasConsumption(arg0, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateMigrateStakeGasConsumption", reflect.TypeOf((*MockCoreService)(nil).EstimateMigrateStakeGasConsumption), arg0, arg1, arg2)
 }
 
+// FeeHistory mocks base method.
+func (m *MockCoreService) FeeHistory(ctx context.Context, blocks, lastBlock uint64, rewardPercentiles []float64) (uint64, [][]*big.Int, []*big.Int, []float64, []*big.Int, []float64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FeeHistory", ctx, blocks, lastBlock, rewardPercentiles)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].([][]*big.Int)
+	ret2, _ := ret[2].([]*big.Int)
+	ret3, _ := ret[3].([]float64)
+	ret4, _ := ret[4].([]*big.Int)
+	ret5, _ := ret[5].([]float64)
+	ret6, _ := ret[6].(error)
+	return ret0, ret1, ret2, ret3, ret4, ret5, ret6
+}
+
+// FeeHistory indicates an expected call of FeeHistory.
+func (mr *MockCoreServiceMockRecorder) FeeHistory(ctx, blocks, lastBlock, rewardPercentiles interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FeeHistory", reflect.TypeOf((*MockCoreService)(nil).FeeHistory), ctx, blocks, lastBlock, rewardPercentiles)
+}
+
 // Genesis mocks base method.
 func (m *MockCoreService) Genesis() genesis.Genesis {
 	m.ctrl.T.Helper()

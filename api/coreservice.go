@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"sort"
 	"strconv"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
+	"github.com/ethereum/go-ethereum/params"
 
 	// Force-load the tracer engines to trigger registration
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
@@ -97,6 +99,8 @@ type (
 		SuggestGasPrice() (uint64, error)
 		// SuggestGasTipCap suggests gas tip cap
 		SuggestGasTipCap() (*big.Int, error)
+		// FeeHistory returns the fee history
+		FeeHistory(ctx context.Context, blocks, lastBlock uint64, rewardPercentiles []float64) (uint64, [][]*big.Int, []*big.Int, []float64, []*big.Int, []float64, error)
 		// EstimateGasForAction estimates gas for action
 		EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error)
 		// EpochMeta gets epoch metadata
@@ -598,6 +602,83 @@ func (core *coreService) SuggestGasTipCap() (*big.Int, error) {
 		fee = minFee
 	}
 	return fee, nil
+}
+
+// FeeHistory returns the fee history
+func (core *coreService) FeeHistory(ctx context.Context, blocks, lastBlock uint64, rewardPercentiles []float64) (uint64, [][]*big.Int, []*big.Int, []float64, []*big.Int, []float64, error) {
+	if blocks < 1 {
+		return 0, nil, nil, nil, nil, nil, nil
+	}
+	maxFeeHistory := uint64(1024)
+	if blocks > maxFeeHistory {
+		log.T(ctx).Warn("Sanitizing fee history length", zap.Uint64("requested", blocks), zap.Uint64("truncated", maxFeeHistory))
+		blocks = maxFeeHistory
+	}
+	for i, p := range rewardPercentiles {
+		if p < 0 || p > 100 {
+			return 0, nil, nil, nil, nil, nil, status.Error(codes.InvalidArgument, "percentile must be in [0, 100]")
+		}
+		if i > 0 && p <= rewardPercentiles[i-1] {
+			return 0, nil, nil, nil, nil, nil, status.Error(codes.InvalidArgument, "percentiles must be in ascending order")
+		}
+	}
+
+	var (
+		reward           = make([][]*big.Int, 0, blocks)
+		baseFee          = make([]*big.Int, blocks+1)
+		gasUsedRatio     = make([]float64, blocks)
+		blobBaseFee      = make([]*big.Int, blocks+1)
+		blobGasUsedRatio = make([]float64, blocks)
+		g                = core.Genesis()
+		lastBlk          *block.Block
+	)
+	for i := uint64(0); i < blocks; i++ {
+		blk, err := core.dao.GetBlockByHeight(lastBlock - i)
+		if err != nil {
+			return 0, nil, nil, nil, nil, nil, status.Error(codes.NotFound, err.Error())
+		}
+		receipts, err := core.dao.GetReceipts(lastBlock - i)
+		if err != nil {
+			return 0, nil, nil, nil, nil, nil, status.Error(codes.NotFound, err.Error())
+		}
+		if i == 0 {
+			lastBlk = blk
+		}
+		baseFee[i] = blk.BaseFee()
+		gasRa := float64(blk.GasUsed()) / float64(g.BlockGasLimitByHeight(blk.Height()))
+		gasUsedRatio[i] = gasRa
+		blobBaseFee[i] = protocol.CalcBlobFee(blk.ExcessBlobGas())
+		blobGasUsedRatio[i] = float64(blk.BlobGasUsed()) / float64(params.MaxBlobGasPerBlock)
+		if len(rewardPercentiles) > 0 {
+			reward = append(reward, effectivePriorityFeesPercentiles(receipts, rewardPercentiles))
+		}
+	}
+	baseFee[blocks] = protocol.CalcBaseFee(g.Blockchain, &protocol.TipInfo{
+		Height:  lastBlock,
+		GasUsed: lastBlk.GasUsed(),
+		BaseFee: lastBlk.BaseFee(),
+	})
+	blobBaseFee[blocks] = protocol.CalcBlobFee(protocol.CalcExcessBlobGas(lastBlk.ExcessBlobGas(), lastBlk.BlobGasUsed()))
+	return lastBlock - blocks + 1, reward, baseFee, gasUsedRatio, blobBaseFee, blobGasUsedRatio, nil
+}
+
+func effectivePriorityFeesPercentiles(receiptsOfBlock []*action.Receipt, percentiles []float64) []*big.Int {
+	fees := make([]*big.Int, 0, len(receiptsOfBlock))
+	for _, r := range receiptsOfBlock {
+		fees = append(fees, r.PriorityFee())
+	}
+	sort.Slice(fees, func(i, j int) bool {
+		return fees[i].Cmp(fees[j]) < 0
+	})
+	res := make([]*big.Int, len(percentiles))
+	for i, p := range percentiles {
+		idx := int(float64(len(fees)) * p)
+		if idx >= len(fees) {
+			idx = len(fees) - 1
+		}
+		res[i] = fees[idx]
+	}
+	return res
 }
 
 // EstimateGasForAction estimates gas for action
