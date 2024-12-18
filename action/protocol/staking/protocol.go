@@ -277,10 +277,12 @@ func (p *Protocol) CreateGenesisStates(
 
 // CreatePreStates updates state manager
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
-	g := genesis.MustExtractGenesisContext(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	var (
+		g                    = genesis.MustExtractGenesisContext(ctx)
+		blkCtx               = protocol.MustGetBlockCtx(ctx)
+		featureCtx           = protocol.MustGetFeatureCtx(ctx)
+		featureWithHeightCtx = protocol.MustGetFeatureWithHeightCtx(ctx)
+	)
 	if blkCtx.BlockHeight == g.GreenlandBlockHeight {
 		csr, err := ConstructBaseView(sm)
 		if err != nil {
@@ -290,7 +292,17 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			return err
 		}
 	}
-
+	if blkCtx.BlockHeight == p.config.PersistStakingPatchBlock-1 {
+		csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(blkCtx.BlockHeight))
+		if err != nil {
+			return err
+		}
+		base := csm.DirtyView().candCenter.base
+		owners := base.all()
+		if err := base.loadNameOperatorMapOwnerList(owners, owners, nil); err != nil {
+			return err
+		}
+	}
 	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
 		csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(blkCtx.BlockHeight))
 		if err != nil {
