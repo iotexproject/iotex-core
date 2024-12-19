@@ -24,6 +24,11 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
+	"github.com/iotexproject/iotex-election/types"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
@@ -48,10 +53,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_envelope"
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/v2/testutil"
-	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
-	"github.com/iotexproject/iotex-election/types"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func TestLogsInRange(t *testing.T) {
@@ -507,9 +508,10 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 			cs,
 			"isGasLimitEnough",
 			func(
-				ctx context.Context,
-				caller address.Address,
-				sc *action.Execution,
+				context.Context,
+				address.Address,
+				*action.Envelope,
+				...protocol.SimulateOption,
 			) (bool, *action.Receipt, error) {
 				return false, nil, errors.New(t.Name())
 			},
@@ -534,9 +536,10 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 				cs,
 				"isGasLimitEnough",
 				func(
-					ctx context.Context,
-					caller address.Address,
-					sc *action.Execution,
+					context.Context,
+					address.Address,
+					*action.Envelope,
+					...protocol.SimulateOption,
 				) (bool, *action.Receipt, error) {
 					return false, receipt, nil
 				},
@@ -561,9 +564,10 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 				cs,
 				"isGasLimitEnough",
 				func(
-					ctx context.Context,
-					caller address.Address,
-					sc *action.Execution,
+					context.Context,
+					address.Address,
+					*action.Envelope,
+					...protocol.SimulateOption,
 				) (bool, *action.Receipt, error) {
 					return false, receipt, nil
 				},
