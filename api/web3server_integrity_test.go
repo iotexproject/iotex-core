@@ -832,6 +832,7 @@ func feeHistory(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, da
 	}{
 		{`[4, "latest", [25,75]]`, 1},
 	} {
+		oldnest := max(bc.TipHeight()-4+1, 1)
 		result := serveTestHTTP(require, handler, "eth_feeHistory", test.params)
 		if test.expected == 0 {
 			require.Nil(result)
@@ -839,8 +840,8 @@ func feeHistory(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, da
 		}
 		actual, err := json.Marshal(result)
 		require.NoError(err)
-		require.JSONEq(`{
-    "oldestBlock": "0x1",
+		require.JSONEq(fmt.Sprintf(`{
+    "oldestBlock": "0x%0x",
     "reward": [
       ["0x0", "0x0"],
       ["0x0", "0x0"],
@@ -851,6 +852,6 @@ func feeHistory(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, da
     "gasUsedRatio": [0,0,0,0],
     "baseFeePerBlobGas": ["0x1", "0x1", "0x1", "0x1", "0x1"],
     "blobGasUsedRatio": [0, 0, 0, 0]
-  }`, string(actual))
+  }`, oldnest), string(actual))
 	}
 }
