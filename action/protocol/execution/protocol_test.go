@@ -293,7 +293,11 @@ func readExecution(
 		GetBlockTime:   getBlockTimeForTest,
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	return sf.SimulateExecution(ctx, addr, elp)
+	ws, err := sf.WorkingSet(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	return evm.SimulateExecution(ctx, ws, addr, elp)
 }
 
 func (sct *SmartContractTest) runExecutions(
@@ -1327,7 +1331,7 @@ func TestCancunEVM(t *testing.T) {
 		NewSmartContractTest(t, "testdata-cancun/basefee.json")
 	})
 	t.Run("eip6780-selfdestruct", func(t *testing.T) {
-		t.Skip("TODO: test it ")
+		NewSmartContractTest(t, "testdata-cancun/selfdestruct.json")
 	})
 }
 

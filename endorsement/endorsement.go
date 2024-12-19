@@ -113,13 +113,13 @@ func (en *Endorsement) Signature() []byte {
 }
 
 // Proto converts an endorsement to protobuf message
-func (en *Endorsement) Proto() (*iotextypes.Endorsement, error) {
+func (en *Endorsement) Proto() *iotextypes.Endorsement {
 	ts := timestamppb.New(en.ts)
 	return &iotextypes.Endorsement{
 		Timestamp: ts,
 		Endorser:  en.endorser.Bytes(),
 		Signature: en.Signature(),
-	}, nil
+	}
 }
 
 // LoadProto converts a protobuf message to endorsement

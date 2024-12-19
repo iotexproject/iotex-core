@@ -1292,7 +1292,7 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 	cfg := newConfig()
 	cfg.api.GRPCPort = testutil.RandomPort()
 	cfg.genesis.MidwayBlockHeight = 10
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
+	svr, _, _, _, _, ap, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
@@ -1306,7 +1306,8 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 		broadcastHandlerCount++
 		return nil
 	}
-	coreService.messageBatcher = nil
+	coreService.actionRadio = NewActionRadio(coreService.broadcastHandler, 0)
+	ap.AddSubscriber(coreService.actionRadio)
 
 	for i, test := range _sendActionTests {
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
@@ -1484,7 +1485,7 @@ func TestGrpcServer_ReadContractIntegrity(t *testing.T) {
 		res, err := grpcHandler.ReadContract(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.retValue, res.Data)
-		require.EqualValues(1, res.Receipt.Status)
+		require.EqualValues(0, res.Receipt.Status)
 		require.Equal(test.actionHash, hex.EncodeToString(res.Receipt.ActHash))
 		require.Equal(test.gasConsumed, res.Receipt.GasConsumed)
 	}

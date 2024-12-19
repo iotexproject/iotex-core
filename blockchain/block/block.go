@@ -32,14 +32,10 @@ type Block struct {
 
 // ConvertToBlockPb converts Block to Block
 func (b *Block) ConvertToBlockPb() *iotextypes.Block {
-	footer, err := b.ConvertToBlockFooterPb()
-	if err != nil {
-		log.L().Panic("failed to convert block footer to protobuf message")
-	}
 	return &iotextypes.Block{
 		Header: b.Header.Proto(),
 		Body:   b.Body.Proto(),
-		Footer: footer,
+		Footer: b.Footer.Proto(),
 	}
 }
 

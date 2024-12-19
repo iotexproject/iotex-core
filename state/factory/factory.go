@@ -1,4 +1,4 @@
-// Copyright (c) 2022 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -18,7 +18,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -86,12 +85,9 @@ type (
 		Validate(context.Context, *block.Block) error
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
-		SimulateExecution(context.Context, address.Address, action.Envelope, ...protocol.SimulateOption) ([]byte, *action.Receipt, error)
-		ReadContractStorage(context.Context, address.Address, []byte) ([]byte, error)
 		PutBlock(context.Context, *block.Block) error
-		DeleteTipBlock(context.Context, *block.Block) error
-		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
-		StatesAtHeight(uint64, ...protocol.StateOption) (state.Iterator, error)
+		WorkingSet(context.Context) (protocol.StateManager, error)
+		WorkingSetAtHeight(context.Context, uint64) (protocol.StateManager, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -273,6 +269,31 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	if err != nil {
 		return nil, err
 	}
+	return sf.createSfWorkingSet(ctx, height, store)
+}
+
+func (sf *factory) newWorkingSetAtHeight(ctx context.Context, height uint64) (*workingSet, error) {
+	span := tracer.SpanFromContext(ctx)
+	span.AddEvent("factory.newWorkingSet")
+	defer span.End()
+
+	g := genesis.MustExtractGenesisContext(ctx)
+	flusher, err := db.NewKVStoreFlusher(
+		sf.dao,
+		batch.NewCachedBatch(),
+		sf.flusherOptions(!g.IsEaster(height))...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	store, err := newFactoryWorkingSetStoreAtHeight(sf.protocolView, flusher, height)
+	if err != nil {
+		return nil, err
+	}
+	return sf.createSfWorkingSet(ctx, height, store)
+}
+
+func (sf *factory) createSfWorkingSet(ctx context.Context, height uint64, store workingSetStore) (*workingSet, error) {
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
@@ -287,7 +308,6 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			}
 		}
 	}
-
 	return newWorkingSet(height, store), nil
 }
 
@@ -382,51 +402,27 @@ func (sf *factory) NewBlockBuilder(
 	return blkBuilder, nil
 }
 
-// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
-// cause any state change
-func (sf *factory) SimulateExecution(
-	ctx context.Context,
-	caller address.Address,
-	elp action.Envelope,
-	opts ...protocol.SimulateOption,
-) ([]byte, *action.Receipt, error) {
-	ctx, span := tracer.NewSpan(ctx, "factory.SimulateExecution")
-	defer span.End()
-
+func (sf *factory) WorkingSet(ctx context.Context) (protocol.StateManager, error) {
 	sf.mutex.Lock()
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
-	sf.mutex.Unlock()
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-	cfg := &protocol.SimulateOptionConfig{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-	if cfg.PreOpt != nil {
-		if err := cfg.PreOpt(ws); err != nil {
-			return nil, nil, err
-		}
-	}
-	return evm.SimulateExecution(ctx, ws, caller, elp)
+	defer sf.mutex.Unlock()
+	return sf.newWorkingSet(ctx, sf.currentChainHeight+1)
 }
 
-// ReadContractStorage reads contract's storage
-func (sf *factory) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
-	sf.mutex.Lock()
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
-	sf.mutex.Unlock()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate working set from state factory")
+func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManager, error) {
+	if !sf.saveHistory {
+		return nil, ErrNoArchiveData
 	}
-	return evm.ReadContractStorage(ctx, ws, contract, key)
+	sf.mutex.Lock()
+	defer sf.mutex.Unlock()
+	if height > sf.currentChainHeight {
+		return nil, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
+	}
+	return sf.newWorkingSetAtHeight(ctx, height)
 }
 
 // PutBlock persists all changes in RunActions() into the DB
 func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
-	sf.mutex.Lock()
 	timer := sf.timerFactory.NewTimer("Commit")
-	sf.mutex.Unlock()
 	defer timer.End()
 	producer := blk.PublicKey().Address()
 	if producer == nil {
@@ -479,56 +475,6 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	sf.currentChainHeight = h
 
 	return nil
-}
-
-func (sf *factory) DeleteTipBlock(_ context.Context, _ *block.Block) error {
-	return errors.Wrap(ErrNotSupported, "cannot delete tip block from factory")
-}
-
-// StateAtHeight returns a confirmed state at height -- archive mode
-func (sf *factory) StateAtHeight(height uint64, s interface{}, opts ...protocol.StateOption) error {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	cfg, err := processOptions(opts...)
-	if err != nil {
-		return err
-	}
-	if cfg.Keys != nil {
-		return errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
-	}
-	if height > sf.currentChainHeight {
-		return errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
-	}
-	return sf.stateAtHeight(height, cfg.Namespace, cfg.Key, s)
-}
-
-// StatesAtHeight returns a set states in the state factory at height -- archive mode
-func (sf *factory) StatesAtHeight(height uint64, opts ...protocol.StateOption) (state.Iterator, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	if height > sf.currentChainHeight {
-		return nil, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
-	}
-	cfg, err := processOptions(opts...)
-	if err != nil {
-		return nil, err
-	}
-	if cfg.Keys != nil {
-		return nil, errors.Wrap(ErrNotSupported, "Read states with keys option has not been implemented yet")
-	}
-	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), false)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to generate trie for %d", height)
-	}
-	if err := tlt.Start(context.Background()); err != nil {
-		return nil, err
-	}
-	defer tlt.Stop(context.Background())
-	keys, values, err := readStatesFromTLT(tlt, cfg.Namespace, cfg.Keys)
-	if err != nil {
-		return nil, err
-	}
-	return state.NewIterator(keys, values)
 }
 
 // State returns a confirmed state in the state factory
@@ -600,26 +546,6 @@ func toLegacyKey(input []byte) []byte {
 
 func legacyKeyLen() int {
 	return 20
-}
-
-func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interface{}) error {
-	if !sf.saveHistory {
-		return ErrNoArchiveData
-	}
-	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), false)
-	if err != nil {
-		return errors.Wrapf(err, "failed to generate trie for %d", height)
-	}
-	if err := tlt.Start(context.Background()); err != nil {
-		return err
-	}
-	defer tlt.Stop(context.Background())
-
-	value, err := readStateFromTLT(tlt, ns, key)
-	if err != nil {
-		return err
-	}
-	return state.Deserialize(s, value)
 }
 
 func (sf *factory) createGenesisStates(ctx context.Context) error {

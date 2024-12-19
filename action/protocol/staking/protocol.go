@@ -303,7 +303,10 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	if p.candBucketsIndexer == nil {
 		return nil
 	}
-	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
+	if rp == nil {
+		return nil
+	}
 	currentEpochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	if currentEpochNum == 0 {
 		return nil
@@ -578,10 +581,10 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	// stakeSR is the stake state reader including native and contract staking
 	indexers := []ContractStakingIndexer{}
 	if p.contractStakingIndexer != nil {
-		indexers = append(indexers, p.contractStakingIndexer)
+		indexers = append(indexers, NewDelayTolerantIndexerWithBucketType(p.contractStakingIndexer, time.Second))
 	}
 	if p.contractStakingIndexerV2 != nil {
-		indexers = append(indexers, p.contractStakingIndexerV2)
+		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV2, time.Second))
 	}
 	stakeSR, err := newCompositeStakingStateReader(p.candBucketsIndexer, sr, p.calculateVoteWeight, indexers...)
 	if err != nil {
@@ -686,7 +689,7 @@ const (
 func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
-	act action.TxCommon,
+	act action.TxDynamicGas,
 	status uint64,
 	logs []*action.Log,
 	tLogs []*action.TransactionLog,

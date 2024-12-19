@@ -40,7 +40,6 @@ type (
 		BucketsByCandidate(candidate address.Address, height uint64) ([]*VoteBucket, error)
 		TotalBucketCount(height uint64) (uint64, error)
 		PutBlock(ctx context.Context, blk *block.Block) error
-		DeleteTipBlock(ctx context.Context, blk *block.Block) error
 	}
 	// Indexer is the staking indexer
 	Indexer struct {
@@ -211,11 +210,6 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	// commit
 	return s.commit(handler, blk.Height())
-}
-
-// DeleteTipBlock deletes the tip block from indexer
-func (s *Indexer) DeleteTipBlock(context.Context, *block.Block) error {
-	return errors.New("not implemented")
 }
 
 func (s *Indexer) commit(handler *eventHandler, height uint64) error {

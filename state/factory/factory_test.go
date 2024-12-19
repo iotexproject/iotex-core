@@ -359,11 +359,11 @@ func TestState(t *testing.T) {
 
 func TestHistoryState(t *testing.T) {
 	r := require.New(t)
-	var err error
 	// using factory and enable history
 	cfg := DefaultConfig
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
+	file1, err := testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
+	cfg.Chain.TrieDBPath = file1
 	cfg.Chain.EnableArchiveMode = true
 	db1, err := db.CreateKVStore(db.DefaultConfig, cfg.Chain.TrieDBPath)
 	r.NoError(err)
@@ -372,8 +372,9 @@ func TestHistoryState(t *testing.T) {
 	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
 	// using stateDB and enable history
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
+	file2, err := testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
+	cfg.Chain.TrieDBPath = file2
 	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	r.NoError(err)
 	sf, err = NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
@@ -381,8 +382,9 @@ func TestHistoryState(t *testing.T) {
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 
 	// using factory and disable history
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
+	file3, err := testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
+	cfg.Chain.TrieDBPath = file3
 	cfg.Chain.EnableArchiveMode = false
 	db1, err = db.CreateKVStore(db.DefaultConfig, cfg.Chain.TrieDBPath)
 	r.NoError(err)
@@ -391,15 +393,19 @@ func TestHistoryState(t *testing.T) {
 	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
 	// using stateDB and disable history
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
+	file4, err := testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
+	cfg.Chain.TrieDBPath = file4
 	db2, err = db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	r.NoError(err)
 	sf, err = NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	r.NoError(err)
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 	defer func() {
-		testutil.CleanupPath(cfg.Chain.TrieDBPath)
+		testutil.CleanupPath(file1)
+		testutil.CleanupPath(file2)
+		testutil.CleanupPath(file3)
+		testutil.CleanupPath(file4)
 	}()
 }
 
@@ -567,21 +573,24 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 
 	// check archive data
 	if statetx {
-		// statetx not support archive mode
-		_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), a)
-		require.Equal(t, ErrNotSupported, errors.Cause(err))
-		_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), b)
-		require.Equal(t, ErrNotSupported, errors.Cause(err))
+		// statetx not support archive mode yet
+		_, err = sf.WorkingSetAtHeight(ctx, 0)
+		require.NoError(t, err)
 	} else {
+		_, err = sf.WorkingSetAtHeight(ctx, 10)
 		if !archive {
-			_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), a)
-			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
-			_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), b)
 			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
 		} else {
-			accountA, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), a)
+			require.Contains(t, err.Error(), "query height 10 is higher than tip height 1")
+		}
+		sr, err := sf.WorkingSetAtHeight(ctx, 0)
+		if !archive {
+			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
+		} else {
 			require.NoError(t, err)
-			accountB, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), b)
+			accountA, err = accountutil.AccountState(ctx, sr, a)
+			require.NoError(t, err)
+			accountB, err = accountutil.AccountState(ctx, sr, b)
 			require.NoError(t, err)
 			require.Equal(t, big.NewInt(100), accountA.Balance)
 			require.Equal(t, big.NewInt(0), accountB.Balance)
@@ -1224,7 +1233,9 @@ func testSimulateExecution(ctx context.Context, sf Factory, t *testing.T) {
 		},
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	_, _, err = sf.SimulateExecution(ctx, addr, elp)
+	ws, err := sf.WorkingSet(ctx)
+	require.NoError(err)
+	_, _, err = evm.SimulateExecution(ctx, ws, addr, elp)
 	require.NoError(err)
 }
 

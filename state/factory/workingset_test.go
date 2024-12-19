@@ -57,7 +57,9 @@ func newFactoryWorkingSet(t testing.TB) *workingSet {
 		genesis.Default,
 	)
 	r.NoError(sf.Start(ctx))
-	// defer r.NoError(sf.Stop(ctx))
+	defer func() {
+		r.NoError(sf.Stop(ctx))
+	}()
 
 	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
 	r.NoError(err)
