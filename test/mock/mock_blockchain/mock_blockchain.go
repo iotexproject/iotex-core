@@ -141,6 +141,21 @@ func (mr *MockBlockchainMockRecorder) Context(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockBlockchain)(nil).Context), arg0)
 }
 
+// ContextAtHeight mocks base method.
+func (m *MockBlockchain) ContextAtHeight(arg0 context.Context, arg1 uint64) (context.Context, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContextAtHeight", arg0, arg1)
+	ret0, _ := ret[0].(context.Context)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ContextAtHeight indicates an expected call of ContextAtHeight.
+func (mr *MockBlockchainMockRecorder) ContextAtHeight(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContextAtHeight", reflect.TypeOf((*MockBlockchain)(nil).ContextAtHeight), arg0, arg1)
+}
+
 // EvmNetworkID mocks base method.
 func (m *MockBlockchain) EvmNetworkID() uint32 {
 	m.ctrl.T.Helper()
