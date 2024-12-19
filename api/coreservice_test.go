@@ -508,9 +508,10 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 			cs,
 			"isGasLimitEnough",
 			func(
-				ctx context.Context,
-				caller address.Address,
-				sc *action.Execution,
+				context.Context,
+				address.Address,
+				*action.Envelope,
+				...protocol.SimulateOption,
 			) (bool, *action.Receipt, []byte, error) {
 				return false, nil, nil, errors.New(t.Name())
 			},
@@ -535,9 +536,10 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 				cs,
 				"isGasLimitEnough",
 				func(
-					ctx context.Context,
-					caller address.Address,
-					sc *action.Execution,
+					context.Context,
+					address.Address,
+					*action.Envelope,
+					...protocol.SimulateOption,
 				) (bool, *action.Receipt, []byte, error) {
 					return false, receipt, nil, nil
 				},
@@ -564,9 +566,10 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 				cs,
 				"isGasLimitEnough",
 				func(
-					ctx context.Context,
-					caller address.Address,
-					sc *action.Execution,
+					context.Context,
+					address.Address,
+					*action.Envelope,
+					...protocol.SimulateOption,
 				) (bool, *action.Receipt, []byte, error) {
 					return false, receipt, nil, nil
 				},
