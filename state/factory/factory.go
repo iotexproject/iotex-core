@@ -499,7 +499,7 @@ func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, e
 	return sf.currentChainHeight, state.Deserialize(s, value)
 }
 
-// State returns a set states in the state factory
+// States returns a set states in the state factory
 func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
