@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-
-	"github.com/iotexproject/iotex-core/v2/pkg/routine"
 )
 
 // ActQueueOption is the option for actQueue.
@@ -45,15 +43,11 @@ func WithStore(cfg StoreConfig, encode encodeAction, decode decodeAction) func(*
 		}
 		store, err := newActionStore(actionStoreConfig{
 			Datadir: cfg.Datadir,
-			Datacap: cfg.Datacap,
 		}, encode, decode)
 		if err != nil {
 			return err
 		}
 		a.store = store
-		a.storeSync = routine.NewRecurringTask(func() {
-			a.syncFromStore()
-		}, cfg.ReadInterval)
 		return nil
 	}
 }
