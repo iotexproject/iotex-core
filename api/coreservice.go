@@ -97,6 +97,8 @@ type (
 		SuggestGasPrice() (uint64, error)
 		// SuggestGasTipCap suggests gas tip cap
 		SuggestGasTipCap() (*big.Int, error)
+		// FeeHistory returns the fee history
+		FeeHistory(ctx context.Context, blocks, lastBlock uint64, rewardPercentiles []float64) (uint64, [][]*big.Int, []*big.Int, []float64, []*big.Int, []float64, error)
 		// EstimateGasForAction estimates gas for action
 		EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error)
 		// EpochMeta gets epoch metadata
@@ -598,6 +600,11 @@ func (core *coreService) SuggestGasTipCap() (*big.Int, error) {
 		fee = minFee
 	}
 	return fee, nil
+}
+
+// FeeHistory returns the fee history
+func (core *coreService) FeeHistory(ctx context.Context, blocks, lastBlock uint64, rewardPercentiles []float64) (uint64, [][]*big.Int, []*big.Int, []float64, []*big.Int, []float64, error) {
+	return core.gs.FeeHistory(ctx, blocks, lastBlock, rewardPercentiles)
 }
 
 // EstimateGasForAction estimates gas for action

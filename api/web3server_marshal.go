@@ -87,6 +87,15 @@ type (
 		Gas         uint64               `json:"gas"`
 		StructLogs  []apitypes.StructLog `json:"structLogs"`
 	}
+
+	feeHistoryResult struct {
+		OldestBlock       string     `json:"oldestBlock"`
+		BaseFeePerGas     []string   `json:"baseFeePerGas"`
+		GasUsedRatio      []float64  `json:"gasUsedRatio"`
+		BaseFeePerBlobGas []string   `json:"baseFeePerBlobGas"`
+		BlobGasUsedRatio  []float64  `json:"blobGasUsedRatio"`
+		Reward            [][]string `json:"reward,omitempty"`
+	}
 )
 
 var (

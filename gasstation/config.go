@@ -9,14 +9,16 @@ import "github.com/iotexproject/iotex-core/v2/pkg/unit"
 
 // Config is the gas station config
 type Config struct {
-	SuggestBlockWindow int    `yaml:"suggestBlockWindow"`
-	DefaultGas         uint64 `yaml:"defaultGas"`
-	Percentile         int    `yaml:"Percentile"`
+	SuggestBlockWindow  int    `yaml:"suggestBlockWindow"`
+	DefaultGas          uint64 `yaml:"defaultGas"`
+	Percentile          int    `yaml:"Percentile"`
+	FeeHistoryCacheSize int    `yaml:"feeHistoryCacheSize"`
 }
 
 // DefaultConfig is the default config
 var DefaultConfig = Config{
-	SuggestBlockWindow: 20,
-	DefaultGas:         uint64(unit.Qev),
-	Percentile:         60,
+	SuggestBlockWindow:  20,
+	DefaultGas:          uint64(unit.Qev),
+	Percentile:          60,
+	FeeHistoryCacheSize: 1024,
 }
