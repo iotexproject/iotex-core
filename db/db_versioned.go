@@ -44,6 +44,9 @@ type (
 		// Base returns the underlying KVStore
 		Base() KVStore
 
+		// AddVersionedNamespace adds a versioned namespace
+		AddVersionedNamespace(string, int) error
+
 		// Version returns the key's most recent version
 		Version(string, []byte) (uint64, error)
 	}
@@ -77,6 +80,24 @@ func (b *BoltDBVersioned) Base() KVStore {
 	return b.db
 }
 
+// AddVersionedNamespace adds a versioned namespace
+func (b *BoltDBVersioned) AddVersionedNamespace(ns string, keyLen uint32) error {
+	vn, err := b.checkNamespace(ns)
+	if cause := errors.Cause(err); cause == ErrNotExist || cause == ErrBucketNotExist {
+		// create metadata for namespace
+		return b.db.Put(ns, _minKey, (&versionedNamespace{
+			keyLen: keyLen,
+		}).serialize())
+	}
+	if err != nil {
+		return err
+	}
+	if vn.keyLen != keyLen {
+		return errors.Wrapf(ErrInvalid, "namespace %s already exists with key length = %d, got %d", ns, vn.keyLen, keyLen)
+	}
+	return nil
+}
+
 // Put writes a <key, value> record
 func (b *BoltDBVersioned) Put(version uint64, ns string, key, value []byte) error {
 	if !b.db.IsReady() {
@@ -88,22 +109,15 @@ func (b *BoltDBVersioned) Put(version uint64, ns string, key, value []byte) erro
 		return err
 	}
 	buf := batch.NewBatch()
-	if vn == nil {
-		// namespace not yet created
-		buf.Put(ns, _minKey, (&versionedNamespace{
-			keyLen: uint32(len(key)),
-		}).serialize(), "failed to create metadata")
-	} else {
-		if len(key) != int(vn.keyLen) {
-			return errors.Wrapf(ErrInvalid, "invalid key length, expecting %d, got %d", vn.keyLen, len(key))
-		}
-		last, _, err := b.get(math.MaxUint64, ns, key)
-		if !isNotExist(err) && version < last {
-			// not allowed to perform write on an earlier version
-			return ErrInvalid
-		}
-		buf.Delete(ns, keyForDelete(key, version), fmt.Sprintf("failed to delete key %x", key))
+	if len(key) != int(vn.keyLen) {
+		return errors.Wrapf(ErrInvalid, "invalid key length, expecting %d, got %d", vn.keyLen, len(key))
 	}
+	last, _, err := b.get(math.MaxUint64, ns, key)
+	if !isNotExist(err) && version < last {
+		// not allowed to perform write on an earlier version
+		return ErrInvalid
+	}
+	buf.Delete(ns, keyForDelete(key, version), fmt.Sprintf("failed to delete key %x", key))
 	buf.Put(ns, keyForWrite(key, version), value, fmt.Sprintf("failed to put key %x", key))
 	return b.db.WriteBatch(buf)
 }
@@ -455,27 +469,20 @@ func parseKey(key []byte) (bool, uint64) {
 
 func (b *BoltDBVersioned) checkNamespace(ns string) (*versionedNamespace, error) {
 	data, err := b.db.Get(ns, _minKey)
-	switch errors.Cause(err) {
-	case nil:
-		vn, err := deserializeVersionedNamespace(data)
-		if err != nil {
-			return nil, err
-		}
-		return vn, nil
-	case ErrNotExist, ErrBucketNotExist:
-		return nil, nil
-	default:
+	if err != nil {
 		return nil, err
 	}
+	vn, err := deserializeVersionedNamespace(data)
+	if err != nil {
+		return nil, err
+	}
+	return vn, nil
 }
 
 func (b *BoltDBVersioned) checkNamespaceAndKey(ns string, key []byte) error {
 	vn, err := b.checkNamespace(ns)
 	if err != nil {
 		return err
-	}
-	if vn == nil {
-		return errors.Wrapf(ErrNotExist, "namespace = %x doesn't exist", ns)
 	}
 	if len(key) != int(vn.keyLen) {
 		return errors.Wrapf(ErrInvalid, "invalid key length, expecting %d, got %d", vn.keyLen, len(key))
