@@ -441,6 +441,7 @@ func TestCommitToDB(t *testing.T) {
 	} {
 		b.Put(e.ns, e.k, e.v, "test")
 	}
+	r.ErrorContains(db.CommitToDB(1, nil, b), "has not been added")
 
 	// create namespace
 	r.NoError(db.AddVersionedNamespace(_bucket1, uint32(len(_k1))))
