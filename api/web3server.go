@@ -393,7 +393,10 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 	if err != nil {
 		return nil, err
 	}
-	callerAddr, to, gasLimit, value, data := callMsg.From, callMsg.To, callMsg.Gas, callMsg.Value, callMsg.Data
+	var (
+		to   = callMsg.To
+		data = callMsg.Data
+	)
 	if to == _metamaskBalanceContractAddr {
 		return nil, nil
 	}
@@ -427,9 +430,9 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		}
 		return "0x" + ret, nil
 	}
-	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(to, value, data)).
-		SetGasLimit(gasLimit).Build()
-	ret, receipt, err := svr.coreService.ReadContract(ctx, callerAddr, elp)
+	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(to, callMsg.Value, data)).
+		SetGasLimit(callMsg.Gas).Build()
+	ret, receipt, err := svr.coreService.ReadContract(ctx, callMsg.From, elp)
 	if err != nil {
 		return nil, err
 	}
