@@ -408,7 +408,7 @@ func (svr *gRPCHandler) EstimateActionGasConsumption(ctx context.Context, in *io
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 		elp := (&action.EnvelopeBuilder{}).SetAction(sc).Build()
-		ret, err := svr.coreService.EstimateExecutionGasConsumption(ctx, elp, callerAddr)
+		ret, _, err := svr.coreService.EstimateExecutionGasConsumption(ctx, elp, callerAddr)
 		if err != nil {
 			return nil, err
 		}
@@ -423,7 +423,7 @@ func (svr *gRPCHandler) EstimateActionGasConsumption(ctx context.Context, in *io
 		if err := ms.LoadProto(in.GetStakeMigrate()); err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		ret, err := svr.coreService.EstimateMigrateStakeGasConsumption(ctx, ms, callerAddr)
+		ret, _, err := svr.coreService.EstimateMigrateStakeGasConsumption(ctx, ms, callerAddr)
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
