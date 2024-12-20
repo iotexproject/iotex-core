@@ -50,15 +50,18 @@ func TestVersionedDB(t *testing.T) {
 	// namespace and key does not exist
 	vn, err := db.checkNamespace(_bucket1)
 	r.Nil(vn)
-	r.Nil(err)
-	// write first key, namespace and key now exist
+	r.ErrorContains(err, ErrNotExist.Error())
+	// create namespace
+	r.NoError(db.AddVersionedNamespace(_bucket1, uint32(len(_k2))))
+	r.ErrorContains(db.AddVersionedNamespace(_bucket1, 8), "namespace test_ns1 already exists with key length = 5, got 8")
+	// write first key
 	r.NoError(db.Put(0, _bucket1, _k2, _v2))
 	vn, err = db.checkNamespace(_bucket1)
 	r.NoError(err)
 	r.EqualValues(len(_k2), vn.keyLen)
 	// check more Put/Get
 	err = db.Put(1, _bucket1, _k10, _v1)
-	r.Equal("invalid key length, expecting 5, got 6: invalid input", err.Error())
+	r.ErrorContains(err, "invalid key length, expecting 5, got 6: invalid input")
 	r.NoError(db.Put(1, _bucket1, _k2, _v1))
 	r.NoError(db.Put(3, _bucket1, _k2, _v3))
 	r.NoError(db.Put(6, _bucket1, _k2, _v2))
@@ -94,8 +97,8 @@ func TestVersionedDB(t *testing.T) {
 	r.NoError(db.Put(6, _bucket1, _k2, _v4))
 	r.NoError(db.Put(7, _bucket1, _k4, _v4))
 	// write to earlier version again is invalid
-	r.Equal(ErrInvalid, db.Put(3, _bucket1, _k2, _v4))
-	r.Equal(ErrInvalid, db.Put(4, _bucket1, _k4, _v4))
+	r.ErrorContains(db.Put(3, _bucket1, _k2, _v4), "cannot write at earlier version 3: invalid input")
+	r.ErrorContains(db.Put(4, _bucket1, _k4, _v4), "cannot write at earlier version 4: invalid input")
 	// write with same value
 	r.NoError(db.Put(9, _bucket1, _k2, _v4))
 	r.NoError(db.Put(10, _bucket1, _k4, _v4))
@@ -145,6 +148,7 @@ func TestVersionedDB(t *testing.T) {
 	r.Equal(ErrNotExist, errors.Cause(db.Delete(10, _bucket2, _k1)))
 	for _, k := range [][]byte{_k2, _k4} {
 		r.NoError(db.Delete(11, _bucket1, k))
+		r.ErrorContains(db.Delete(10, _bucket1, k), "cannot delete at earlier version 10")
 	}
 	for _, k := range [][]byte{_k1, _k3, _k5} {
 		r.Equal(ErrNotExist, errors.Cause(db.Delete(10, _bucket1, k)))
@@ -181,8 +185,8 @@ func TestVersionedDB(t *testing.T) {
 		r.Equal(e.v, value)
 	}
 	// write before delete version is invalid
-	r.Equal(ErrInvalid, db.Put(9, _bucket1, _k2, _k2))
-	r.Equal(ErrInvalid, db.Put(9, _bucket1, _k4, _k4))
+	r.ErrorContains(db.Put(9, _bucket1, _k2, _k2), "cannot write at earlier version 9: invalid input")
+	r.ErrorContains(db.Put(9, _bucket1, _k4, _k4), "cannot write at earlier version 9: invalid input")
 	for _, e := range []versionTest{
 		{_bucket1, _k2, _v4, 10, nil},        // before delete version
 		{_bucket1, _k2, nil, 11, ErrDeleted}, // after delete version
@@ -256,6 +260,8 @@ func TestMultipleWriteDelete(t *testing.T) {
 		ctx := context.Background()
 		r.NoError(db.Start(ctx))
 
+		// create namespace
+		r.NoError(db.AddVersionedNamespace(_bucket1, uint32(len(_k2))))
 		if i == 0 {
 			// multiple writes and deletes
 			r.NoError(db.Put(1, _bucket1, _k2, _v1))
@@ -436,6 +442,9 @@ func TestCommitToDB(t *testing.T) {
 		b.Put(e.ns, e.k, e.v, "test")
 	}
 
+	// create namespace
+	r.NoError(db.AddVersionedNamespace(_bucket1, uint32(len(_k1))))
+	r.NoError(db.AddVersionedNamespace(_bucket2, uint32(len(_v1))))
 	r.NoError(db.CommitToDB(1, nil, b))
 	b.Clear()
 	for _, e := range []versionTest{
