@@ -281,13 +281,13 @@ func (p *agent) Start(ctx context.Context) error {
 				err = errors.Wrap(err, "error when marshaling broadcast message")
 				return
 			}
-			// Skip the broadcast message if it's from the node itself
 			rawmsg, ok := p2p.GetBroadcastMsg(ctx)
 			if !ok {
 				err = errors.New("error when asserting broadcast msg context")
 				return
 			}
 			peerID = rawmsg.GetFrom().String()
+			// Skip the broadcast message if it's from the node itself
 			if p.host.HostIdentity() == peerID {
 				skip = true
 				return
