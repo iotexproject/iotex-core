@@ -194,7 +194,7 @@ func (ws *workingSet) runAction(
 	}
 	// for replay tx, check against deployer whitelist
 	g := genesis.MustExtractGenesisContext(ctx)
-	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_UNPROTECTED) && !g.IsDeployerWhitelisted(selp.SenderAddress()) {
+	if !selp.Protected() && !g.IsDeployerWhitelisted(selp.SenderAddress()) {
 		return nil, errors.Wrap(errDeployerNotWhitelisted, selp.SenderAddress().String())
 	}
 	// Handle action
@@ -342,6 +342,9 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return ws.height, err
+	}
+	if cfg.Keys != nil {
+		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
 	value, err := ws.store.Get(cfg.Namespace, cfg.Key)
 	if err != nil {

@@ -689,7 +689,7 @@ const (
 func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
-	act action.TxCommon,
+	act action.TxDynamicGas,
 	status uint64,
 	logs []*action.Log,
 	tLogs []*action.TransactionLog,

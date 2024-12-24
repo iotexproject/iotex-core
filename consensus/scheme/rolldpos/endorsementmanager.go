@@ -60,11 +60,7 @@ func (ee *endorserEndorsementCollection) toProto(endorser string) (*endorsementp
 	eeProto.Endorser = endorser
 	for topic, endorse := range ee.endorsements {
 		eeProto.Topics = append(eeProto.Topics, uint32(topic))
-		ioEndorsement, err := endorse.Proto()
-		if err != nil {
-			return nil, err
-		}
-		eeProto.Endorsements = append(eeProto.Endorsements, ioEndorsement)
+		eeProto.Endorsements = append(eeProto.Endorsements, endorse.Proto())
 	}
 	return eeProto, nil
 }

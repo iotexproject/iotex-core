@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2024 IoTeX Foundation
 // This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
@@ -27,25 +27,34 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
-// stateDB implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
-type stateDB struct {
-	mutex                    sync.RWMutex
-	currentChainHeight       uint64
-	cfg                      Config
-	registry                 *protocol.Registry
-	dao                      db.KVStore // the underlying DB for account/contract storage
-	timerFactory             *prometheustimer.TimerFactory
-	workingsets              cache.LRUCache // lru cache for workingsets
-	protocolView             protocol.View
-	skipBlockValidationOnPut bool
-	ps                       *patchStore
-}
+type (
+	// daoRetrofitter represents the DAO-related methods to accommodate archive-mode
+	daoRetrofitter interface {
+		lifecycle.StartStopper
+		atHeight(uint64) db.KVStore
+		getHeight() (uint64, error)
+		putHeight(uint64) error
+	}
+	// stateDB implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
+	stateDB struct {
+		mutex                    sync.RWMutex
+		currentChainHeight       uint64
+		cfg                      Config
+		registry                 *protocol.Registry
+		dao                      daoRetrofitter
+		timerFactory             *prometheustimer.TimerFactory
+		workingsets              cache.LRUCache // lru cache for workingsets
+		protocolView             protocol.View
+		skipBlockValidationOnPut bool
+		ps                       *patchStore
+	}
+)
 
 // StateDBOption sets stateDB construction parameter
 type StateDBOption func(*stateDB, *Config) error
@@ -90,7 +99,6 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 		registry:           protocol.NewRegistry(),
 		protocolView:       protocol.View{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
-		dao:                dao,
 	}
 	for _, opt := range opts {
 		if err := opt(&sdb, &cfg); err != nil {
@@ -98,6 +106,7 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 			return nil, err
 		}
 	}
+	sdb.dao = newDaoRetrofitter(dao)
 	timerFactory, err := prometheustimer.New(
 		"iotex_statefactory_perf",
 		"Performance of state factory module",
@@ -117,17 +126,17 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		return err
 	}
 	// check factory height
-	h, err := sdb.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
+	h, err := sdb.dao.getHeight()
 	switch errors.Cause(err) {
 	case nil:
-		sdb.currentChainHeight = byteutil.BytesToUint64(h)
+		sdb.currentChainHeight = h
 		// start all protocols
 		if sdb.protocolView, err = sdb.registry.StartAll(ctx, sdb); err != nil {
 			return err
 		}
 	case db.ErrNotExist:
 		sdb.currentChainHeight = 0
-		if err = sdb.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+		if err = sdb.dao.putHeight(0); err != nil {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
 		// start all protocols
@@ -150,7 +159,6 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	default:
 		return err
 	}
-
 	return nil
 }
 
@@ -165,17 +173,13 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 func (sdb *stateDB) Height() (uint64, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	height, err := sdb.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to get factory's height from underlying DB")
-	}
-	return byteutil.BytesToUint64(height), nil
+	return sdb.dao.getHeight()
 }
 
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
 	flusher, err := db.NewKVStoreFlusher(
-		sdb.dao,
+		sdb.dao.atHeight(height),
 		batch.NewCachedBatch(),
 		sdb.flusherOptions(!g.IsEaster(height))...,
 	)
@@ -267,7 +271,8 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, erro
 }
 
 func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManager, error) {
-	return sdb.newWorkingSet(ctx, height+1)
+	// TODO: implement archive mode
+	return sdb.newWorkingSet(ctx, height)
 }
 
 // PutBlock persists all changes in RunActions() into the DB
@@ -320,10 +325,6 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-func (sdb *stateDB) DeleteTipBlock(_ context.Context, _ *block.Block) error {
-	return errors.Wrap(ErrNotSupported, "cannot delete tip block from state db")
-}
-
 // State returns a confirmed state in the state factory
 func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	cfg, err := processOptions(opts...)
@@ -335,7 +336,7 @@ func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, 
 	if cfg.Keys != nil {
 		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
-	return sdb.currentChainHeight, sdb.state(cfg.Namespace, cfg.Key, s)
+	return sdb.currentChainHeight, sdb.state(sdb.currentChainHeight, cfg.Namespace, cfg.Key, s)
 }
 
 // States returns a set of states in the state factory
@@ -349,7 +350,7 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 	if cfg.Key != nil {
 		return sdb.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	keys, values, err := readStates(sdb.dao, cfg.Namespace, cfg.Keys)
+	keys, values, err := readStates(sdb.dao.atHeight(sdb.currentChainHeight), cfg.Namespace, cfg.Keys)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -359,16 +360,6 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 	}
 
 	return sdb.currentChainHeight, iter, nil
-}
-
-// StateAtHeight returns a confirmed state at height -- archive mode
-func (sdb *stateDB) StateAtHeight(height uint64, s interface{}, opts ...protocol.StateOption) error {
-	return ErrNotSupported
-}
-
-// StatesAtHeight returns a set states in the state factory at height -- archive mode
-func (sdb *stateDB) StatesAtHeight(height uint64, opts ...protocol.StateOption) (state.Iterator, error) {
-	return nil, errors.Wrap(ErrNotSupported, "state db does not support archive mode")
 }
 
 // ReadView reads the view
@@ -400,8 +391,8 @@ func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 	)
 }
 
-func (sdb *stateDB) state(ns string, addr []byte, s interface{}) error {
-	data, err := sdb.dao.Get(ns, addr)
+func (sdb *stateDB) state(h uint64, ns string, addr []byte, s interface{}) error {
+	data, err := sdb.dao.atHeight(h).Get(ns, addr)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return errors.Wrapf(state.ErrStateNotExist, "state of %x doesn't exist", addr)

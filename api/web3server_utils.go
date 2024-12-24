@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-redis/redis/v8"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -181,7 +182,10 @@ func (svr *web3Handler) checkContractAddr(to string) (bool, error) {
 		return false, err
 	}
 	accountMeta, _, err := svr.coreService.Account(ioAddr)
-	return accountMeta.IsContract, err
+	if err != nil {
+		return false, err
+	}
+	return accountMeta.IsContract, nil
 }
 
 func (svr *web3Handler) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]*getLogsResult, error) {
@@ -263,29 +267,46 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 	return &logReq, nil
 }
 
-func parseCallObject(in *gjson.Result) (address.Address, string, uint64, *big.Int, *big.Int, []byte, error) {
+type callMsg struct {
+	From        address.Address  // the sender of the 'transaction'
+	To          string           // the destination contract (empty for contract creation)
+	Gas         uint64           // if 0, the call executes with near-infinite gas
+	GasPrice    *big.Int         // wei <-> gas exchange ratio
+	GasFeeCap   *big.Int         // EIP-1559 fee cap per gas.
+	GasTipCap   *big.Int         // EIP-1559 tip per gas.
+	Value       *big.Int         // amount of wei sent along with the call
+	Data        []byte           // input data, usually an ABI-encoded contract method invocation
+	AccessList  types.AccessList // EIP-2930 access list.
+	BlockNumber rpc.BlockNumber
+}
+
+func parseCallObject(in *gjson.Result) (*callMsg, error) {
 	var (
-		from     address.Address
-		to       string
-		gasLimit uint64
-		gasPrice *big.Int = big.NewInt(0)
-		value    *big.Int = big.NewInt(0)
-		data     []byte
-		err      error
+		from      address.Address
+		to        string
+		gasLimit  uint64
+		gasPrice  *big.Int = big.NewInt(0)
+		gasTipCap *big.Int
+		gasFeeCap *big.Int
+		value     *big.Int = big.NewInt(0)
+		data      []byte
+		acl       types.AccessList
+		bn        = rpc.LatestBlockNumber
+		err       error
 	)
 	fromStr := in.Get("params.0.from").String()
 	if fromStr == "" {
 		fromStr = "0x0000000000000000000000000000000000000000"
 	}
 	if from, err = ethAddrToIoAddr(fromStr); err != nil {
-		return nil, "", 0, nil, nil, nil, err
+		return nil, err
 	}
 
 	toStr := in.Get("params.0.to").String()
 	if toStr != "" {
 		ioAddr, err := ethAddrToIoAddr(toStr)
 		if err != nil {
-			return nil, "", 0, nil, nil, nil, err
+			return nil, err
 		}
 		to = ioAddr.String()
 	}
@@ -293,7 +314,7 @@ func parseCallObject(in *gjson.Result) (address.Address, string, uint64, *big.In
 	gasStr := in.Get("params.0.gas").String()
 	if gasStr != "" {
 		if gasLimit, err = hexStringToNumber(gasStr); err != nil {
-			return nil, "", 0, nil, nil, nil, err
+			return nil, err
 		}
 	}
 
@@ -301,7 +322,21 @@ func parseCallObject(in *gjson.Result) (address.Address, string, uint64, *big.In
 	if gasPriceStr != "" {
 		var ok bool
 		if gasPrice, ok = new(big.Int).SetString(util.Remove0xPrefix(gasPriceStr), 16); !ok {
-			return nil, "", 0, nil, nil, nil, errors.Wrapf(errUnkownType, "gasPrice: %s", gasPriceStr)
+			return nil, errors.Wrapf(errUnkownType, "gasPrice: %s", gasPriceStr)
+		}
+	}
+
+	if gasTipCapStr := in.Get("params.0.maxPriorityFeePerGas").String(); gasTipCapStr != "" {
+		var ok bool
+		if gasTipCap, ok = new(big.Int).SetString(util.Remove0xPrefix(gasTipCapStr), 16); !ok {
+			return nil, errors.Wrapf(errUnkownType, "gasTipCap: %s", gasTipCapStr)
+		}
+	}
+
+	if gasFeeCapStr := in.Get("params.0.maxFeePerGas").String(); gasFeeCapStr != "" {
+		var ok bool
+		if gasFeeCap, ok = new(big.Int).SetString(util.Remove0xPrefix(gasFeeCapStr), 16); !ok {
+			return nil, errors.Wrapf(errUnkownType, "gasFeeCap: %s", gasFeeCapStr)
 		}
 	}
 
@@ -309,17 +344,89 @@ func parseCallObject(in *gjson.Result) (address.Address, string, uint64, *big.In
 	if valStr != "" {
 		var ok bool
 		if value, ok = new(big.Int).SetString(util.Remove0xPrefix(valStr), 16); !ok {
-			return nil, "", 0, nil, nil, nil, errors.Wrapf(errUnkownType, "value: %s", valStr)
+			return nil, errors.Wrapf(errUnkownType, "value: %s", valStr)
 		}
 	}
 
-	input := in.Get("params.0.input")
-	if input.Exists() {
+	if input := in.Get("params.0.input"); input.Exists() {
 		data = common.FromHex(input.String())
 	} else {
 		data = common.FromHex(in.Get("params.0.data").String())
 	}
-	return from, to, gasLimit, gasPrice, value, data, nil
+
+	if accessList := in.Get("params.0.accessList"); accessList.Exists() {
+		acl = types.AccessList{}
+		log.L().Info("raw acl", zap.String("accessList", accessList.Raw))
+		if err := json.Unmarshal([]byte(accessList.Raw), &acl); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal access list %s", accessList.Raw)
+		}
+	}
+	if bnParam := in.Get("params.1"); bnParam.Exists() {
+		if err = bn.UnmarshalJSON([]byte(bnParam.String())); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal height %s", bnParam.String())
+		}
+		if bn == rpc.PendingBlockNumber {
+			return nil, errors.Wrap(errNotImplemented, "pending block number is not supported")
+		}
+	}
+	return &callMsg{
+		From:        from,
+		To:          to,
+		Gas:         gasLimit,
+		GasPrice:    gasPrice,
+		GasFeeCap:   gasFeeCap,
+		GasTipCap:   gasTipCap,
+		Value:       value,
+		Data:        data,
+		AccessList:  acl,
+		BlockNumber: bn,
+	}, nil
+}
+
+func (call *callMsg) toUnsignedTx(chainID uint32) (*types.Transaction, error) {
+	var (
+		tx     *types.Transaction
+		toAddr *common.Address
+	)
+	if len(call.To) != 0 {
+		addr, err := addrutil.IoAddrToEvmAddr(call.To)
+		if err != nil {
+			return nil, err
+		}
+		toAddr = &addr
+	}
+	switch {
+	case call.GasFeeCap != nil || call.GasTipCap != nil:
+		tx = types.NewTx(&types.DynamicFeeTx{
+			ChainID:    big.NewInt(int64(chainID)),
+			GasTipCap:  big.NewInt(0),
+			GasFeeCap:  big.NewInt(0),
+			Gas:        call.Gas,
+			To:         toAddr,
+			Value:      call.Value,
+			Data:       call.Data,
+			AccessList: call.AccessList,
+		})
+	case call.AccessList != nil:
+		tx = types.NewTx(&types.AccessListTx{
+			ChainID:    big.NewInt(int64(chainID)),
+			GasPrice:   big.NewInt(0),
+			Gas:        call.Gas,
+			To:         toAddr,
+			Value:      call.Value,
+			Data:       call.Data,
+			AccessList: call.AccessList,
+		})
+	default:
+		tx = types.NewTx(&types.LegacyTx{
+			GasPrice: big.NewInt(0),
+			Gas:      call.Gas,
+			To:       toAddr,
+			Value:    call.Value,
+			Data:     call.Data,
+		})
+	}
+	return tx, nil
 }
 
 func (svr *web3Handler) getLogQueryRange(fromStr, toStr string, logHeight uint64) (from uint64, to uint64, hasNewLogs bool, err error) {

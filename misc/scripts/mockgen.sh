@@ -52,10 +52,7 @@ mockgen -destination=./test/mock/mock_lifecycle/mock_lifecycle.go \
 
 mkdir -p ./test/mock/mock_actpool
 mockgen -destination=./test/mock/mock_actpool/mock_actpool.go  \
-        -source=./actpool/actpool.go \
-        -self_package=github.com/iotexproject/iotex-core/v2/actpool \
-        -package=mock_actpool \
-        ActPool
+        github.com/iotexproject/iotex-core/v2/actpool ActPool
 
 mkdir -p ./test/mock/mock_actioniterator
 mockgen -destination=./test/mock/mock_actioniterator/mock_actioniterator.go  \

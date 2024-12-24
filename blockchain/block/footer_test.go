@@ -20,14 +20,12 @@ import (
 func TestConvertToBlockFooterPb(t *testing.T) {
 	require := require.New(t)
 	footer := &Footer{nil, time.Now()}
-	blockFooter, err := footer.ConvertToBlockFooterPb()
-	require.NoError(err)
+	blockFooter := footer.Proto()
 	require.NotNil(blockFooter)
 	require.Equal(0, len(blockFooter.Endorsements))
 
 	footer = makeFooter()
-	blockFooter, err = footer.ConvertToBlockFooterPb()
-	require.NoError(err)
+	blockFooter = footer.Proto()
 	require.NotNil(blockFooter)
 	require.Equal(1, len(blockFooter.Endorsements))
 }
