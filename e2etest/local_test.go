@@ -33,7 +33,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/v2/chainservice"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/p2p"
@@ -126,8 +125,8 @@ func TestLocalCommit(t *testing.T) {
 		},
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 		},
-		p2p.JoinSubnet(chainservice.CompatibleNetwork),
-	).Subnet(chainservice.CompatibleNetwork)
+		p2p.JoinSubnet(blockchain.CompatibleNetwork),
+	).Subnet(blockchain.CompatibleNetwork)
 	require.NotNil(p)
 	require.NoError(p.Start(ctx))
 	defer func() {
@@ -332,7 +331,7 @@ func TestLocalSync(t *testing.T) {
 		hash.ZeroHash256,
 		func(_ context.Context, _ uint32, _ string, msg proto.Message) {},
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {},
-		p2p.JoinSubnet(chainservice.CompatibleNetwork),
+		p2p.JoinSubnet(blockchain.CompatibleNetwork),
 	)
 	require.NoError(bootnode.Start(ctx))
 	addrs, err := bootnode.Self()
@@ -408,7 +407,7 @@ func TestLocalSync(t *testing.T) {
 	}()
 
 	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, func() (bool, error) {
-		peers, err := svr.P2PAgent().Subnet(chainservice.CompatibleNetwork).ConnectedPeers()
+		peers, err := svr.P2PAgent().Subnet(blockchain.CompatibleNetwork).ConnectedPeers()
 		return len(peers) >= 1, err
 	})
 	require.NoError(err)

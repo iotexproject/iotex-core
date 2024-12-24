@@ -38,6 +38,12 @@ const (
 	SigP256sm2 = "p256sm2"
 )
 
+// Message networks definition
+const (
+	// CompatiableNetwork is the network for connecting to the nodes without message network feature
+	CompatibleNetwork = ""
+)
+
 var (
 	_blockMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{

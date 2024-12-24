@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/api"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/chainservice"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/dispatcher"
@@ -65,7 +66,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	case config.StandaloneScheme:
 		p2pAgent = p2p.NewDummyAgent()
 	default:
-		p2pAgent = p2p.NewAgent(cfg.Network, cfg.Chain.ID, cfg.Genesis.Hash(), dispatcher.HandleBroadcast, dispatcher.HandleTell, p2p.JoinSubnet(chainservice.CompatibleNetwork))
+		p2pAgent = p2p.NewAgent(cfg.Network, cfg.Chain.ID, cfg.Genesis.Hash(), dispatcher.HandleBroadcast, dispatcher.HandleTell, p2p.JoinSubnet(blockchain.CompatibleNetwork))
 	}
 	chains := make(map[uint32]*chainservice.ChainService)
 	apiServers := make(map[uint32]*api.ServerV2)
