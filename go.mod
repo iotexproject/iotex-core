@@ -1,8 +1,6 @@
 module github.com/iotexproject/iotex-core/v2
 
-go 1.22.7
-
-toolchain go1.23.3
+go 1.23.3
 
 require (
 	github.com/agiledragon/gomonkey/v2 v2.11.0
