@@ -59,6 +59,25 @@ func uint64ToHex(val uint64) string {
 	return "0x" + strconv.FormatUint(val, 16)
 }
 
+func bigIntToHex(b *big.Int) string {
+	if b == nil {
+		return "0x0"
+	}
+	if b.Sign() == 0 {
+		return "0x0"
+	}
+	return "0x" + b.Text(16)
+}
+
+// mapper maps a slice of S to a slice of T
+func mapper[S, T any](arr []S, fn func(S) T) []T {
+	ret := make([]T, len(arr))
+	for i, v := range arr {
+		ret[i] = fn(v)
+	}
+	return ret
+}
+
 func intStrToHex(str string) (string, error) {
 	amount, ok := new(big.Int).SetString(str, 10)
 	if !ok {
