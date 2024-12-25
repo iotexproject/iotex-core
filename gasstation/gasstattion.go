@@ -195,7 +195,7 @@ func (gs *GasStation) FeeHistory(ctx context.Context, blocks, lastBlock uint64, 
 				})
 				rewards = append(rewards, feesPercentiles(fees, rewardPercentiles))
 				gs.percentileCache.Add(height, &blockPercents{
-					ascEffectivePriorityFees: rewards[i],
+					ascEffectivePriorityFees: fees,
 				})
 			}
 		}
