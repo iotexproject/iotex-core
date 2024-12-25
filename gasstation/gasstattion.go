@@ -116,6 +116,17 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 	return gasPrice, nil
 }
 
+type blockFee struct {
+	baseFee      *big.Int
+	gasUsedRatio float64
+	blobBaseFee  *big.Int
+	blobGasRatio float64
+}
+
+type blockPercents struct {
+	ascEffectivePriorityFees []*big.Int
+}
+
 // FeeHistory returns fee history over a series of blocks
 func (gs *GasStation) FeeHistory(ctx context.Context, blocks, lastBlock uint64, rewardPercentiles []float64) (uint64, [][]*big.Int, []*big.Int, []float64, []*big.Int, []float64, error) {
 	if blocks < 1 {
