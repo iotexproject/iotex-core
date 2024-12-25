@@ -157,6 +157,10 @@ func TestWeb3ServerIntegrity(t *testing.T) {
 	t.Run("eth_getStorageAt", func(t *testing.T) {
 		getStorageAt(t, handler, bc, dao, actPool)
 	})
+
+	t.Run("eth_feeHistory", func(t *testing.T) {
+		feeHistory(t, handler, bc, dao, actPool)
+	})
 }
 
 func setupTestServer() (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
@@ -811,5 +815,37 @@ func getStorageAt(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, 
 		require.True(ok)
 		// the value of any contract at pos0 is be "0x0000000000000000000000000000000000000000000000000000000000000000"
 		require.Equal("0x0000000000000000000000000000000000000000000000000000000000000000", actual)
+	}
+}
+
+func feeHistory(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool actpool.ActPool) {
+	require := require.New(t)
+	for _, test := range []struct {
+		params   string
+		expected int
+	}{
+		{`[4, "latest", [25,75]]`, 1},
+	} {
+		oldnest := max(bc.TipHeight()-4+1, 1)
+		result := serveTestHTTP(require, handler, "eth_feeHistory", test.params)
+		if test.expected == 0 {
+			require.Nil(result)
+			continue
+		}
+		actual, err := json.Marshal(result)
+		require.NoError(err)
+		require.JSONEq(fmt.Sprintf(`{
+    "oldestBlock": "0x%0x",
+    "reward": [
+      ["0x0", "0x0"],
+      ["0x0", "0x0"],
+      ["0x0", "0x0"],
+      ["0x0", "0x0"]
+    ],
+    "baseFeePerGas": ["0x0","0x0","0x0","0x0","0x0"],
+    "gasUsedRatio": [0,0,0,0],
+    "baseFeePerBlobGas": ["0x1", "0x1", "0x1", "0x1", "0x1"],
+    "blobGasUsedRatio": [0, 0, 0, 0]
+  }`, oldnest), string(actual))
 	}
 }
