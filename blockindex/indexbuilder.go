@@ -144,8 +144,8 @@ func (ib *IndexBuilder) init(ctx context.Context) error {
 			return err
 		}
 		blks = append(blks, blk)
-		// commit once every 5000 blocks
-		if startHeight%5000 == 0 || startHeight == tipHeight {
+		// commit once every 100 blocks
+		if startHeight%100 == 0 || startHeight == tipHeight {
 			if err := ib.indexer.PutBlocks(gCtx, blks); err != nil {
 				return err
 			}
