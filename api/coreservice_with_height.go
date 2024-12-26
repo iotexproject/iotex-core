@@ -10,10 +10,12 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 type (
@@ -46,12 +48,33 @@ func (core *coreServiceReaderWithHeight) Account(addr address.Address) (*iotexty
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
 		return core.cs.getProtocolAccount(ctx, addrStr)
 	}
-	ctx = genesis.WithGenesisContext(ctx, core.cs.bc.Genesis())
-	ws, err := core.cs.sf.WorkingSetAtHeight(ctx, core.height)
+	state, pendingNonce, err := core.stateAndNonce(addr)
 	if err != nil {
 		return nil, nil, err
 	}
-	return core.cs.acccount(ctx, core.height, true, ws, addr)
+	return core.cs.acccount(ctx, core.height, state, pendingNonce, addr)
+}
+
+func (core *coreServiceReaderWithHeight) stateAndNonce(addr address.Address) (*state.Account, uint64, error) {
+	var (
+		g   = core.cs.bc.Genesis()
+		ctx = genesis.WithGenesisContext(context.Background(), g)
+	)
+	ws, err := core.cs.sf.WorkingSetAtHeight(ctx, core.height)
+	if err != nil {
+		return nil, 0, status.Error(codes.Internal, err.Error())
+	}
+	state, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return nil, 0, status.Error(codes.NotFound, err.Error())
+	}
+	var pendingNonce uint64
+	if g.IsSumatra(core.height) {
+		pendingNonce = state.PendingNonceConsideringFreshAccount()
+	} else {
+		pendingNonce = state.PendingNonce()
+	}
+	return state, pendingNonce, nil
 }
 
 func (core *coreServiceReaderWithHeight) ReadContract(ctx context.Context, callerAddr address.Address, elp action.Envelope) (string, *iotextypes.Receipt, error) {

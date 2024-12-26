@@ -340,7 +340,9 @@ func TestCall(t *testing.T) {
 	})
 
 	t.Run("to is contract addr", func(t *testing.T) {
-		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("111111", nil, nil)
+		coreWithHeight := NewMockCoreServiceReaderWithHeight(ctrl)
+		core.EXPECT().WithHeight(gomock.Any()).Return(coreWithHeight).Times(1)
+		coreWithHeight.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("111111", nil, nil)
 		in := gjson.Parse(`{"params":[{
 			"from":     "",
 			"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
@@ -365,7 +367,9 @@ func TestCall(t *testing.T) {
 			ExecutionRevertMsg: "revert call",
 			TxIndex:            0,
 		}
-		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", receipt, nil)
+		coreWithHeight := NewMockCoreServiceReaderWithHeight(ctrl)
+		core.EXPECT().WithHeight(gomock.Any()).Return(coreWithHeight).Times(1)
+		coreWithHeight.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", receipt, nil)
 		in := gjson.Parse(`{"params":[{
 			"from":     "",
 			"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",

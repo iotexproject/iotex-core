@@ -227,7 +227,9 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, archive bool) (*api.ServerV
 		}),
 		api.WithNativeElection(cs.electionCommittee),
 		api.WithAPIStats(cs.apiStats),
-		api.WithArchiveSupport(archive),
+	}
+	if archive {
+		apiServerOptions = append(apiServerOptions, api.WithArchiveSupport())
 	}
 
 	svr, err := api.NewServerV2(
