@@ -131,6 +131,10 @@ mockgen -destination=./api/mock_apicoreservice.go  \
         -source=./api/coreservice.go \
         -package=api \
         CoreService
+mockgen -destination=./api/mock_coreservicewithheight.go  \
+        -source=./api/coreservice_with_height.go \
+        -package=api \
+        CoreServiceWithHeight
 
 mkdir -p ./test/mock/mock_blockindex
 mockgen -destination=./test/mock/mock_blockindex/mock_blockindex.go  \

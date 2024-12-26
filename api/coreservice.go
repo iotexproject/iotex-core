@@ -249,9 +249,9 @@ func WithAPIStats(stats *nodestats.APILocalStats) Option {
 }
 
 // WithArchiveSupport is the option to enable archive support
-func WithArchiveSupport(enabled bool) Option {
+func WithArchiveSupport() Option {
 	return func(svr *coreService) {
-		svr.archiveSupported = enabled
+		svr.archiveSupported = true
 	}
 }
 
@@ -260,7 +260,6 @@ type intrinsicGasCalculator interface {
 }
 
 var (
-	// ErrNotFound indicates the record isn't found
 	ErrNotFound            = errors.New("not found")
 	ErrArchiveNotSupported = errors.New("archive-mode not supported")
 )
@@ -328,42 +327,25 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
 		return core.getProtocolAccount(ctx, addrStr)
 	}
-	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	return core.acccount(ctx, core.bc.TipHeight(), false, core.sf, addr)
-}
-
-func (core *coreService) acccount(ctx context.Context, height uint64, archive bool, sr protocol.StateReader, addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
-	span := tracer.SpanFromContext(ctx)
 	span.AddEvent("accountutil.AccountStateWithHeight")
-	state, height, err := accountutil.AccountStateWithHeight(ctx, sr, addr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, tipHeight, err := accountutil.AccountStateWithHeight(ctx, core.sf, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
 	span.AddEvent("ap.GetPendingNonce")
-	var (
-		addrStr      = addr.String()
-		pendingNonce uint64
-	)
-	if archive {
-		state, err := accountutil.AccountState(ctx, sr, addr)
-		if err != nil {
-			return nil, nil, status.Error(codes.NotFound, err.Error())
-		}
-		g := core.bc.Genesis()
-		if g.IsSumatra(height) {
-			pendingNonce = state.PendingNonceConsideringFreshAccount()
-		} else {
-			pendingNonce = state.PendingNonce()
-		}
-	} else {
-		pendingNonce, err = core.ap.GetPendingNonce(addrStr)
-		if err != nil {
-			return nil, nil, status.Error(codes.Internal, err.Error())
-		}
+	pendingNonce, err := core.ap.GetPendingNonce(addrStr)
+	if err != nil {
+		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
+	return core.acccount(ctx, tipHeight, state, pendingNonce, addr)
+}
+
+func (core *coreService) acccount(ctx context.Context, height uint64, state *state.Account, pendingNonce uint64, addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
 	if core.indexer == nil {
 		return nil, nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
+	span := tracer.SpanFromContext(ctx)
 	span.AddEvent("indexer.GetActionCount")
 	numActions, err := core.indexer.GetActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
 	if err != nil {
@@ -371,7 +353,7 @@ func (core *coreService) acccount(ctx context.Context, height uint64, archive bo
 	}
 	// TODO: deprecate nonce field in account meta
 	accountMeta := &iotextypes.AccountMeta{
-		Address:      addrStr,
+		Address:      addr.String(),
 		Balance:      state.Balance.String(),
 		PendingNonce: pendingNonce,
 		NumActions:   numActions,
@@ -379,7 +361,7 @@ func (core *coreService) acccount(ctx context.Context, height uint64, archive bo
 	}
 	if state.IsContract() {
 		var code protocol.SerializableBytes
-		_, err = sr.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(state.CodeHash))
+		_, err = core.sf.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(state.CodeHash))
 		if err != nil {
 			return nil, nil, status.Error(codes.NotFound, err.Error())
 		}
@@ -590,8 +572,6 @@ func (core *coreService) readContract(
 	if err != nil {
 		return "", nil, status.Error(codes.Internal, err.Error())
 	}
-	// ReadContract() is read-only, if no error returned, we consider it a success
-	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
 	res := iotexapi.ReadContractResponse{
 		Data:    hex.EncodeToString(retval),
 		Receipt: receipt.ConvertToReceiptPb(),
