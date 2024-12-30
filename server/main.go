@@ -59,7 +59,7 @@ func (ss *strs) Set(str string) error {
 
 func init() {
 	// set max number of CPUs, disable log printing
-	maxprocs.Set(maxprocs.Logger(nil))
+	maxprocs.Set(maxprocs.Logger(log.S().Infof))
 	flag.StringVar(&_genesisPath, "genesis-path", "", "Genesis path")
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
