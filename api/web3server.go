@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"strconv"
 	"time"
 
@@ -83,6 +84,7 @@ var (
 	errUnsupportedAction = errors.New("the type of action is not supported")
 	errMsgBatchTooLarge  = errors.New("batch too large")
 	errHTTPNotSupported  = errors.New("http not supported")
+	errPanic             = errors.New("panic")
 
 	_pendingBlockNumber  = "pending"
 	_latestBlockNumber   = "latest"
@@ -104,7 +106,7 @@ func NewWeb3Handler(core CoreService, cacheURL string, batchRequestLimit int) We
 }
 
 // HandlePOSTReq handles web3 request
-func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, writer apitypes.Web3ResponseWriter) error {
+func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, writer apitypes.Web3ResponseWriter) (err error) {
 	ctx, span := tracer.NewSpan(ctx, "svr.HandlePOSTReq")
 	defer span.End()
 	web3Reqs, err := parseWeb3Reqs(reader)
@@ -114,6 +116,15 @@ func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, wri
 		_, err = writer.Write(&web3Response{err: err})
 		return err
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Wrapf(errPanic, "recovered from panic: %v, request params: %+v", r, web3Reqs)
+			return
+		}
+		if err != nil {
+			err = errors.Wrapf(err, "failed to handle web3 requests: %+v", web3Reqs)
+		}
+	}()
 	if !web3Reqs.IsArray() {
 		return svr.handleWeb3Req(ctx, &web3Reqs, writer)
 	}
@@ -147,7 +158,7 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	)
 	defer func(start time.Time) { svr.coreService.Track(ctx, start, method.(string), int64(size), err == nil) }(time.Now())
 
-	log.T(ctx).Info("handleWeb3Req", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
+	log.T(ctx).Debug("handleWeb3Req", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
 	_web3ServerMtc.WithLabelValues(method.(string)).Inc()
 	_web3ServerMtc.WithLabelValues("requests_total").Inc()
 	switch method {
@@ -157,6 +168,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.gasPrice()
 	case "eth_maxPriorityFeePerGas":
 		res, err = svr.maxPriorityFee()
+	case "eth_feeHistory":
+		res, err = svr.feeHistory(ctx, web3Req)
 	case "eth_getBlockByHash":
 		res, err = svr.getBlockByHash(web3Req)
 	case "eth_chainId":
@@ -315,6 +328,42 @@ func (svr *web3Handler) maxPriorityFee() (interface{}, error) {
 	return uint64ToHex(ret.Uint64()), nil
 }
 
+func (svr *web3Handler) feeHistory(ctx context.Context, in *gjson.Result) (interface{}, error) {
+	blkCnt, newestBlk, rewardPercentiles := in.Get("params.0"), in.Get("params.1"), in.Get("params.2")
+	if !blkCnt.Exists() || !newestBlk.Exists() {
+		return nil, errInvalidFormat
+	}
+	blocks, err := strconv.ParseUint(blkCnt.String(), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	lastBlock, err := svr.parseBlockNumber(newestBlk.String())
+	if err != nil {
+		return nil, err
+	}
+	rewardPercents := []float64{}
+	if rewardPercentiles.Exists() {
+		for _, p := range rewardPercentiles.Array() {
+			rewardPercents = append(rewardPercents, p.Float())
+		}
+	}
+	oldest, reward, baseFee, gasRatio, blobBaseFee, blobGasRatio, err := svr.coreService.FeeHistory(ctx, blocks, lastBlock, rewardPercents)
+	if err != nil {
+		return nil, err
+	}
+
+	return &feeHistoryResult{
+		OldestBlock:       uint64ToHex(oldest),
+		BaseFeePerGas:     mapper(baseFee, bigIntToHex),
+		GasUsedRatio:      gasRatio,
+		BaseFeePerBlobGas: mapper(blobBaseFee, bigIntToHex),
+		BlobGasUsedRatio:  blobGasRatio,
+		Reward: mapper(reward, func(a []*big.Int) []string {
+			return mapper(a, bigIntToHex)
+		}),
+	}, nil
+}
+
 func (svr *web3Handler) getChainID() (interface{}, error) {
 	return uint64ToHex(uint64(svr.coreService.EVMNetworkID())), nil
 }
@@ -383,7 +432,10 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 	if err != nil {
 		return nil, err
 	}
-	callerAddr, to, gasLimit, value, data := callMsg.From, callMsg.To, callMsg.Gas, callMsg.Value, callMsg.Data
+	var (
+		to   = callMsg.To
+		data = callMsg.Data
+	)
 	if to == _metamaskBalanceContractAddr {
 		return nil, nil
 	}
@@ -417,9 +469,9 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		}
 		return "0x" + ret, nil
 	}
-	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(to, value, data)).
-		SetGasLimit(gasLimit).Build()
-	ret, receipt, err := svr.coreService.ReadContract(ctx, callerAddr, elp)
+	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(to, callMsg.Value, data)).
+		SetGasLimit(callMsg.Gas).Build()
+	ret, receipt, err := svr.coreService.ReadContract(ctx, callMsg.From, elp)
 	if err != nil {
 		return nil, err
 	}
@@ -446,18 +498,21 @@ func (svr *web3Handler) estimateGas(ctx context.Context, in *gjson.Result) (inte
 		return nil, err
 	}
 
-	var estimatedGas uint64
-	from := callMsg.From
+	var (
+		estimatedGas uint64
+		retval       []byte
+		from         = callMsg.From
+	)
 	switch act := elp.Action().(type) {
 	case *action.Execution:
-		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(ctx, elp, from)
+		estimatedGas, retval, err = svr.coreService.EstimateExecutionGasConsumption(ctx, elp, from)
 	case *action.MigrateStake:
-		estimatedGas, err = svr.coreService.EstimateMigrateStakeGasConsumption(ctx, act, from)
+		estimatedGas, retval, err = svr.coreService.EstimateMigrateStakeGasConsumption(ctx, act, from)
 	default:
 		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act)
 	}
 	if err != nil {
-		return nil, err
+		return "0x" + hex.EncodeToString(retval), err
 	}
 	if estimatedGas < 21000 {
 		estimatedGas = 21000

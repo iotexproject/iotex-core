@@ -157,6 +157,10 @@ func TestWeb3ServerIntegrity(t *testing.T) {
 	t.Run("eth_getStorageAt", func(t *testing.T) {
 		getStorageAt(t, handler, bc, dao, actPool)
 	})
+
+	t.Run("eth_feeHistory", func(t *testing.T) {
+		feeHistory(t, handler, bc, dao, actPool)
+	})
 }
 
 func setupTestServer() (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
@@ -243,7 +247,7 @@ func getBlockByNumber(t *testing.T, handler *hTTPHandler) {
 
 func getBalance(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
-	result := serveTestHTTP(require, handler, "eth_getBalance", `["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]`)
+	result := serveTestHTTP(require, handler, "eth_getBalance", `["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36"]`)
 	ans, ok := new(big.Int).SetString("9999999999999999999999999991", 10)
 	require.True(ok)
 	actual, ok := result.(string)
@@ -283,8 +287,7 @@ func ethCall(t *testing.T, handler *hTTPHandler) {
 				"gasPrice": "0xe8d4a51000",
 				"value":    "0x1",
 				"data":     "0x1"
-			  },
-			1]`,
+			  }]`,
 			1,
 		},
 		{
@@ -295,8 +298,7 @@ func ethCall(t *testing.T, handler *hTTPHandler) {
 				"gasPrice": "0xe8d4a51000",
 				"value":    "0x1",
 				"data":     "0x1"
-			   },
-			1]`,
+			   }]`,
 			0,
 		},
 	} {
@@ -681,8 +683,7 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 				"gas":      "0x0",
 				"gasPrice": "0x0",
 				"value":    "0x0",
-				"data":     "%s"},
-			    1]`, identityset.Address(28).Hex(), toAddr, hex.EncodeToString(test.data)))
+				"data":     "%s"}]`, identityset.Address(28).Hex(), toAddr, hex.EncodeToString(test.data)))
 		actual, ok := result.(string)
 		require.True(ok)
 		gasLimit, err := hexStringToNumber(actual)
@@ -746,8 +747,7 @@ func estimateGas(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, d
 				"gas":      "0x0",
 				"gasPrice": "0x0",
 				"value":    "0x0",
-				"data":     "0x1123123c"},
-			    1]`, fromAddr, toAddr),
+				"data":     "0x1123123c"}]`, fromAddr, toAddr),
 			21000,
 		},
 		{
@@ -757,8 +757,7 @@ func estimateGas(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, d
 			    "gas":      "0x0",
 				"gasPrice": "0x0",
 				"value":    "0x0",
-				"data":      "344933be000000000000000000000000000000000000000000000000000be497a92e9f3300000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000f8be4046fd89199906ca348bcd3822c4b250e246000000000000000000000000000000000000000000000000000000006173a15400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000a00744882684c3e4747faefd68d283ea44099d030000000000000000000000000258866edaf84d6081df17660357ab20a07d0c80"},
-				1]`, fromAddr, toAddr),
+				"data":      "344933be000000000000000000000000000000000000000000000000000be497a92e9f3300000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000f8be4046fd89199906ca348bcd3822c4b250e246000000000000000000000000000000000000000000000000000000006173a15400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000a00744882684c3e4747faefd68d283ea44099d030000000000000000000000000258866edaf84d6081df17660357ab20a07d0c80"}]`, fromAddr, toAddr),
 			36000,
 		},
 		{
@@ -768,8 +767,7 @@ func estimateGas(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, d
 				"gas":      "0x0",
 				"gasPrice": "0x1000000000000000000",
 				"value":    "0x0",
-				"data":     "0x6d4ce63c"},
-				1]`, fromAddr, contractAddr),
+				"data":     "0x6d4ce63c"}]`, fromAddr, contractAddr),
 			21000,
 		},
 	} {
@@ -817,5 +815,37 @@ func getStorageAt(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, 
 		require.True(ok)
 		// the value of any contract at pos0 is be "0x0000000000000000000000000000000000000000000000000000000000000000"
 		require.Equal("0x0000000000000000000000000000000000000000000000000000000000000000", actual)
+	}
+}
+
+func feeHistory(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool actpool.ActPool) {
+	require := require.New(t)
+	for _, test := range []struct {
+		params   string
+		expected int
+	}{
+		{`[4, "latest", [25,75]]`, 1},
+	} {
+		oldnest := max(bc.TipHeight()-4+1, 1)
+		result := serveTestHTTP(require, handler, "eth_feeHistory", test.params)
+		if test.expected == 0 {
+			require.Nil(result)
+			continue
+		}
+		actual, err := json.Marshal(result)
+		require.NoError(err)
+		require.JSONEq(fmt.Sprintf(`{
+    "oldestBlock": "0x%0x",
+    "reward": [
+      ["0x0", "0x0"],
+      ["0x0", "0x0"],
+      ["0x0", "0x0"],
+      ["0x0", "0x0"]
+    ],
+    "baseFeePerGas": ["0x0","0x0","0x0","0x0","0x0"],
+    "gasUsedRatio": [0,0,0,0],
+    "baseFeePerBlobGas": ["0x1", "0x1", "0x1", "0x1", "0x1"],
+    "blobGasUsedRatio": [0, 0, 0, 0]
+  }`, oldnest), string(actual))
 	}
 }
