@@ -161,6 +161,10 @@ func TestWeb3ServerIntegrity(t *testing.T) {
 	t.Run("eth_feeHistory", func(t *testing.T) {
 		feeHistory(t, handler, bc, dao, actPool)
 	})
+
+	t.Run("eth_blobBaseFee", func(t *testing.T) {
+		blobBaseFee(t, handler, bc, dao, actPool)
+	})
 }
 
 func setupTestServer() (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
@@ -853,5 +857,24 @@ func feeHistory(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, da
     "baseFeePerBlobGas": ["0x1", "0x1", "0x1", "0x1", "0x1"],
     "blobGasUsedRatio": [0, 0, 0, 0]
   }`, oldnest), string(actual))
+	}
+}
+
+func blobBaseFee(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool actpool.ActPool) {
+	require := require.New(t)
+	for _, test := range []struct {
+		params   string
+		expected int
+	}{
+		{`[]`, 1},
+	} {
+		result := serveTestHTTP(require, handler, "eth_blobBaseFee", test.params)
+		if test.expected == 0 {
+			require.Nil(result)
+			continue
+		}
+		actual, ok := result.(string)
+		require.True(ok)
+		require.Equal("0x1", actual)
 	}
 }
