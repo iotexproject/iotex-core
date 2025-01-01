@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -504,6 +505,9 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(block.NewValidator(builder.cs.factory, builder.cs.actpool)))
 	} else {
 		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(builder.cs.factory))
+	}
+	if evmLogBuilder, ok := builder.cfg.Plugins[config.EVMLoggerPlugin]; ok {
+		chainOpts = append(chainOpts, blockchain.EVMLoggerOption(evmLogBuilder.(func() vm.EVMLogger)))
 	}
 
 	var mintOpts []factory.MintOption
