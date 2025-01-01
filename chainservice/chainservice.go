@@ -137,7 +137,7 @@ func (cs *ChainService) HandleActionRequest(ctx context.Context, peer peer.AddrI
 		}
 		return err
 	}
-	return cs.p2pAgent.UnicastOutbound(ctx, peer, act.Proto())
+	return cs.p2pAgent.Subnet(blockchain.CompatibleNetwork).UnicastOutbound(ctx, peer, act.Proto())
 }
 
 // HandleBlock handles incoming block request.
@@ -220,7 +220,7 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 	if cfg.GRPCPort == 0 && cfg.HTTPPort == 0 {
 		return nil, nil
 	}
-	p2pAgent := cs.p2pAgent
+	p2pAgent := cs.p2pAgent.Subnet(blockchain.CompatibleNetwork)
 	apiServerOptions := []api.Option{
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 			return p2pAgent.BroadcastOutbound(ctx, msg)
