@@ -200,9 +200,13 @@ func (log *Log) ConvertToLogPb() *iotextypes.Log {
 	l := &iotextypes.Log{}
 	l.ContractAddress = log.Address
 	l.Topics = [][]byte{}
+	// staleTopic is used to keep bug in go1.22, b/c after which each iteration of the loop creates new variables.
+	// refer to [go1.22 Changes to the language](https://tip.golang.org/doc/go1.22#language)
+	var staleTopic hash.Hash256
 	for _, topic := range log.Topics {
+		staleTopic = topic
 		if log.NotFixTopicCopyBug {
-			l.Topics = append(l.Topics, topic[:])
+			l.Topics = append(l.Topics, staleTopic[:])
 		} else {
 			data := make([]byte, len(topic))
 			copy(data, topic[:])
