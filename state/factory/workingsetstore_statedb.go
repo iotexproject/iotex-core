@@ -19,15 +19,17 @@ import (
 type stateDBWorkingSetStore struct {
 	*workingSetStoreCommon
 	readBuffer bool
+	metaNS     string // metadata namespace, only meaningful when archive-mode enabled
 }
 
-func newStateDBWorkingSetStore(view protocol.View, flusher db.KVStoreFlusher, readBuffer bool) workingSetStore {
+func newStateDBWorkingSetStore(view protocol.View, flusher db.KVStoreFlusher, readBuffer bool, ns string) workingSetStore {
 	return &stateDBWorkingSetStore{
 		workingSetStoreCommon: &workingSetStoreCommon{
 			flusher: flusher,
 			view:    view,
 		},
 		readBuffer: readBuffer,
+		metaNS:     ns,
 	}
 }
 
@@ -61,7 +63,7 @@ func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte) ([][]byte,
 func (store *stateDBWorkingSetStore) Finalize(height uint64) error {
 	// Persist current chain Height
 	store.flusher.KVStoreWithBuffer().MustPut(
-		AccountKVNamespace,
+		store.metaNS,
 		[]byte(CurrentHeightKey),
 		byteutil.Uint64ToBytes(height),
 	)
