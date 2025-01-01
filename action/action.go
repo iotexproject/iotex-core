@@ -132,3 +132,27 @@ func CheckTransferAddress(act Action) error {
 	}
 	return nil
 }
+
+func CheckSpecialAddress(act Action) bool {
+	switch act := act.(type) {
+	case *Transfer:
+		return address.IsAddrV1Special(act.recipient)
+	case *Execution:
+		return address.IsAddrV1Special(act.contract)
+	case *CandidateRegister:
+		return address.IsAddrV1Special(act.rewardAddress.String()) ||
+			address.IsAddrV1Special(act.operatorAddress.String()) ||
+			(act.ownerAddress != nil && address.IsAddrV1Special(act.ownerAddress.String()))
+	case *CandidateUpdate:
+		return (act.rewardAddress != nil && address.IsAddrV1Special(act.rewardAddress.String())) ||
+			(act.operatorAddress != nil && address.IsAddrV1Special(act.operatorAddress.String()))
+	case *CandidateTransferOwnership:
+		return address.IsAddrV1Special(act.newOwner.String())
+	case *TransferStake:
+		return address.IsAddrV1Special(act.voterAddress.String())
+	case *ClaimFromRewardingFund:
+		return act.address != nil && address.IsAddrV1Special(act.address.String())
+	default:
+		return false
+	}
+}
