@@ -153,7 +153,26 @@ func (builder *Builder) buildFactory(forTest bool) error {
 		return errors.Wrapf(err, "failed to create state factory")
 	}
 	builder.cs.factory = factory
+	history, err := builder.createHistoryIndex()
+	if err != nil {
+		return errors.Wrapf(err, "failed to create history index")
+	}
+	builder.cs.historyIndex = history
 	return nil
+}
+
+func (builder *Builder) createHistoryIndex() (*factory.HistoryStateIndex, error) {
+	if len(builder.cfg.Chain.HistoryIndexPath) == 0 {
+		return nil, nil
+	}
+	getBlockTime := func(height uint64) (time.Time, error) {
+		blk, err := builder.cs.blockdao.GetBlockByHeight(height)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return blk.Timestamp(), nil
+	}
+	return factory.NewHistoryStateIndex(builder.cs.factory, builder.cfg.Chain.HistoryIndexPath, getBlockTime), nil
 }
 
 func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
@@ -288,6 +307,9 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 
 	var indexers []blockdao.BlockIndexer
+	if builder.cs.historyIndex != nil {
+		indexers = append(indexers, builder.cs.historyIndex)
+	}
 	// indexers in synchronizedIndexers will need to run PutBlock() one by one
 	// factory is dependent on sgdIndexer and contractStakingIndexer, so it should be put in the first place
 	synchronizedIndexers := []blockdao.BlockIndexer{builder.cs.factory}

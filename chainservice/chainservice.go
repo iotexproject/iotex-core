@@ -64,6 +64,7 @@ type ChainService struct {
 	consensus         consensus.Consensus
 	chain             blockchain.Blockchain
 	factory           factory.Factory
+	historyIndex      *factory.HistoryStateIndex
 	blockdao          blockdao.BlockDAO
 	p2pAgent          p2p.Agent
 	electionCommittee committee.Committee
