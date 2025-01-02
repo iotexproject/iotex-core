@@ -47,31 +47,33 @@ type (
 
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
-		ctx                        context.Context
-		sm                         protocol.StateManager
-		logs                       []*action.Log
-		transactionLogs            []*action.TransactionLog
-		err                        error
-		blockHeight                uint64
-		executionHash              hash.Hash256
-		lastAddBalanceAddr         string
-		lastAddBalanceAmount       *big.Int
-		refund                     uint64
-		refundSnapshot             map[int]uint64
-		cachedContract             contractMap
-		contractSnapshot           map[int]contractMap   // snapshots of contracts
-		selfDestructed             deleteAccount         // account/contract calling SelfDestruct
-		selfDestructedSnapshot     map[int]deleteAccount // snapshots of SelfDestruct accounts
-		preimages                  preimageMap
-		preimageSnapshot           map[int]preimageMap
-		accessList                 *accessList // per-transaction access list
-		accessListSnapshot         map[int]*accessList
-		transientStorage           transientStorage // Transient storage
-		transientStorageSnapshot   map[int]transientStorage
-		createdAccount             createdAccount
-		createdAccountSnapshot     map[int]createdAccount
-		logsSnapshot               map[int]int // logs is an array, save len(logs) at time of snapshot suffices
-		txLogsSnapshot             map[int]int
+		ctx                      context.Context
+		sm                       protocol.StateManager
+		logs                     []*action.Log
+		transactionLogs          []*action.TransactionLog
+		err                      error
+		blockHeight              uint64
+		executionHash            hash.Hash256
+		lastAddBalanceAddr       string
+		lastAddBalanceAmount     *big.Int
+		refund                   uint64
+		refundSnapshot           map[int]uint64
+		cachedContract           contractMap
+		contractSnapshot         map[int]contractMap   // snapshots of contracts
+		selfDestructed           deleteAccount         // account/contract calling SelfDestruct
+		selfDestructedSnapshot   map[int]deleteAccount // snapshots of SelfDestruct accounts
+		preimages                preimageMap
+		preimageSnapshot         map[int]preimageMap
+		accessList               *accessList // per-transaction access list
+		accessListSnapshot       map[int]*accessList
+		transientStorage         transientStorage // Transient storage
+		transientStorageSnapshot map[int]transientStorage
+		createdAccount           createdAccount
+		createdAccountSnapshot   map[int]createdAccount
+		logsSnapshot             map[int]int // logs is an array, save len(logs) at time of snapshot suffices
+		txLogsSnapshot           map[int]int
+		newContract              func(addr hash.Hash160, account *state.Account) (Contract, error)
+
 		notFixTopicCopyBug         bool
 		asyncContractTrie          bool
 		disableSortCachedContracts bool
@@ -246,6 +248,9 @@ func NewStateDBAdapter(
 		s.transientStorageSnapshot = make(map[int]transientStorage)
 		s.createdAccount = make(createdAccount)
 		s.createdAccountSnapshot = make(map[int]createdAccount)
+	}
+	s.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
+		return newContract(addr, account, s.sm, s.asyncContractTrie)
 	}
 	return s, nil
 }
@@ -632,6 +637,7 @@ func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
 
 // RevertToSnapshot reverts the state factory to the state at a given snapshot
 func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
+	log.L().Debug("RevertToSnapshot", zap.Int("snapshot", snapshot))
 	ds, ok := stateDB.selfDestructedSnapshot[snapshot]
 	if !ok && stateDB.panicUnrecoverableError {
 		log.T(stateDB.ctx).Panic("Failed to revert to snapshot.", zap.Int("snapshot", snapshot))
@@ -824,6 +830,7 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		}
 		stateDB.createdAccountSnapshot[sn] = ca
 	}
+	log.L().Debug("Snapshot", zap.Int("snapshot", sn))
 	return sn
 }
 
@@ -1129,7 +1136,7 @@ func (stateDB *StateDBAdapter) getNewContract(evmAddr common.Address) (Contract,
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}
-	contract, err := newContract(addr, account, stateDB.sm, stateDB.asyncContractTrie)
+	contract, err := stateDB.newContract(addr, account)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}

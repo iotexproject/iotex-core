@@ -33,6 +33,8 @@ type (
 
 	vmConfigContextKey struct{}
 
+	erigonContextKey struct{}
+
 	// TipInfo contains the tip block information
 	TipInfo struct {
 		Height        uint64
@@ -397,4 +399,13 @@ func WithVMConfigCtx(ctx context.Context, vmConfig vm.Config) context.Context {
 func GetVMConfigCtx(ctx context.Context) (vm.Config, bool) {
 	cfg, ok := ctx.Value(vmConfigContextKey{}).(vm.Config)
 	return cfg, ok
+}
+
+func WithErigonCtx(ctx context.Context) context.Context {
+	return context.WithValue(ctx, erigonContextKey{}, struct{}{})
+}
+
+func GetErigonCtx(ctx context.Context) (any, bool) {
+	v := ctx.Value(erigonContextKey{})
+	return v, v != nil
 }

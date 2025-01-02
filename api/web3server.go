@@ -158,7 +158,7 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	)
 	defer func(start time.Time) { svr.coreService.Track(ctx, start, method.(string), int64(size), err == nil) }(time.Now())
 
-	log.T(ctx).Debug("handleWeb3Req", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
+	// log.T(ctx).Debug("handleWeb3Req", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
 	_web3ServerMtc.WithLabelValues(method.(string)).Inc()
 	_web3ServerMtc.WithLabelValues("requests_total").Inc()
 	switch method {
@@ -267,7 +267,7 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 			zap.String("requestParams", fmt.Sprintf("%+v", web3Req)),
 			zap.Error(err))
 	} else {
-		log.Logger("api").Debug("web3Debug", zap.String("response", fmt.Sprintf("%+v", res)))
+		// log.Logger("api").Debug("web3Debug", zap.String("response", fmt.Sprintf("%+v", res)))
 	}
 	var id any
 	reqID := web3Req.Get("id")
@@ -471,7 +471,13 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 	}
 	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(to, callMsg.Value, data)).
 		SetGasLimit(callMsg.Gas).Build()
-	ret, receipt, err := svr.coreService.ReadContract(ctx, callMsg.From, elp)
+	var ret string
+	var receipt *iotextypes.Receipt
+	if callMsg.BlockNumber <= 0 {
+		ret, receipt, err = svr.coreService.ReadContract(ctx, callMsg.From, elp)
+	} else {
+		ret, receipt, err = svr.coreService.ReadContractAt(ctx, callMsg.From, elp, uint64(callMsg.BlockNumber.Int64()))
+	}
 	if err != nil {
 		return nil, err
 	}

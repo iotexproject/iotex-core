@@ -153,7 +153,26 @@ func (builder *Builder) buildFactory(forTest bool) error {
 		return errors.Wrapf(err, "failed to create state factory")
 	}
 	builder.cs.factory = factory
+	history, err := builder.createHistoryIndex()
+	if err != nil {
+		return errors.Wrapf(err, "failed to create history index")
+	}
+	builder.cs.historyIndex = history
 	return nil
+}
+
+func (builder *Builder) createHistoryIndex() (*factory.HistoryStateIndex, error) {
+	if len(builder.cfg.Chain.HistoryIndexPath) == 0 {
+		return nil, nil
+	}
+	// getBlockTime := func(height uint64) (time.Time, error) {
+	// 	blk, err := builder.cs.blockdao.GetBlockByHeight(height)
+	// 	if err != nil {
+	// 		return time.Time{}, err
+	// 	}
+	// 	return blk.Timestamp(), nil
+	// }
+	return factory.NewHistoryStateIndex(builder.cs.factory, builder.cfg.Chain.HistoryIndexPath, nil), nil
 }
 
 func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
@@ -290,7 +309,11 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	var indexers []blockdao.BlockIndexer
 	// indexers in synchronizedIndexers will need to run PutBlock() one by one
 	// factory is dependent on sgdIndexer and contractStakingIndexer, so it should be put in the first place
-	synchronizedIndexers := []blockdao.BlockIndexer{builder.cs.factory}
+	var synchronizedIndexers []blockdao.BlockIndexer
+	if builder.cs.historyIndex != nil {
+		synchronizedIndexers = append(synchronizedIndexers, builder.cs.historyIndex)
+	}
+	synchronizedIndexers = append(synchronizedIndexers, builder.cs.factory)
 	if builder.cs.contractStakingIndexer != nil {
 		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexer)
 	}
@@ -349,7 +372,18 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(
 		store, indexers, cfg.DB.MaxCacheSize, opts...)
-
+	// TODO: refactor
+	if builder.cs.historyIndex != nil {
+		dao := builder.cs.blockdao
+		getBlockTime := func(height uint64) (time.Time, error) {
+			blk, err := dao.GetBlockByHeight(height)
+			if err != nil {
+				return time.Time{}, err
+			}
+			return blk.Timestamp(), nil
+		}
+		builder.cs.historyIndex.SetGetBlockTime(getBlockTime)
+	}
 	return nil
 }
 
@@ -783,6 +817,9 @@ func (builder *Builder) buildBlockTimeCalculator() (err error) {
 		}
 		return blk.Timestamp(), nil
 	})
+	if builder.cs.historyIndex != nil {
+		builder.cs.historyIndex.SetGetBlockTime(builder.cs.blockTimeCalculator.CalculateBlockTime)
+	}
 	return err
 }
 

@@ -322,6 +322,9 @@ func (dao *blockDAO) TransactionLogs(height uint64) (*iotextypes.TransactionLogs
 }
 
 func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
+	if blk.Height() >= 12000000 {
+		panic("stop at 12000000")
+	}
 	timer := dao.timerFactory.NewTimer("put_block")
 	if err := dao.blockStore.PutBlock(ctx, blk); err != nil {
 		timer.End()

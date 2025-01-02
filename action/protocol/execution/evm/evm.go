@@ -18,6 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
+	erigonchain "github.com/ledgerwatch/erigon-lib/chain"
+	erigonstate "github.com/ledgerwatch/erigon/core/state"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -101,7 +103,7 @@ type (
 func newParams(
 	ctx context.Context,
 	execution action.TxData,
-	stateDB *StateDBAdapter,
+	stateDB StateDB,
 ) (*Params, error) {
 	var (
 		actionCtx    = protocol.MustGetActionCtx(ctx)
@@ -134,7 +136,7 @@ func newParams(
 		}
 	case featureCtx.FixGetHashFnHeight:
 		getHashFn = func(n uint64) common.Hash {
-			hash, err := getBlockHash(stateDB.blockHeight - (n + 1))
+			hash, err := getBlockHash(blkCtx.BlockHeight - (n + 1))
 			if err == nil {
 				return common.BytesToHash(hash[:])
 			}
@@ -142,7 +144,7 @@ func newParams(
 		}
 	default:
 		getHashFn = func(n uint64) common.Hash {
-			hash, err := getBlockHash(stateDB.blockHeight - n)
+			hash, err := getBlockHash(blkCtx.BlockHeight - n)
 			if err != nil {
 				// initial implementation did wrong, should return common.Hash{} in case of error
 				return common.BytesToHash(hash[:])
@@ -228,15 +230,34 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
 	return nil
 }
 
+type (
+	ExecuteOption       func(*ExecuteOptionConfig)
+	ExecuteOptionConfig struct {
+		ErigonStorage bool
+	}
+)
+
+func ErigonStorage() ExecuteOption {
+	return func(e *ExecuteOptionConfig) {
+		e.ErigonStorage = true
+	}
+}
+
 // ExecuteContract processes a transfer which contains a contract
 func ExecuteContract(
 	ctx context.Context,
 	sm protocol.StateManager,
 	execution action.TxData,
+	opts ...ExecuteOption,
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
 
+	cfg := &ExecuteOptionConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	var stateDB StateDB
 	stateDB, err := prepareStateDB(ctx, sm)
 	if err != nil {
 		return nil, nil, err
@@ -245,6 +266,19 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
+	if erigonsm, ok := sm.(interface {
+		StateWriter() erigonstate.StateWriter
+		Intra() *erigonstate.IntraBlockState
+	}); ok {
+		rules := ps.chainConfig.Rules(ps.context.BlockNumber, ps.genesis.IsSumatra(uint64(ps.context.BlockNumber.Int64())), ps.context.Time)
+		stateDB = NewErigonStateDBAdapter(
+			stateDB.(*StateDBAdapter),
+			erigonsm.StateWriter(),
+			erigonsm.Intra(),
+			NewErigonRules(&rules),
+		)
+	}
+
 	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ctx, ps, stateDB)
 	if err != nil {
 		return nil, nil, err
@@ -390,6 +424,31 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	)
 }
 
+func NewErigonRules(rules *params.Rules) *erigonchain.Rules {
+	return &erigonchain.Rules{
+		ChainID:            rules.ChainID,
+		IsHomestead:        rules.IsHomestead,
+		IsTangerineWhistle: true,
+		IsSpuriousDragon:   true,
+		IsByzantium:        rules.IsByzantium,
+		IsConstantinople:   rules.IsConstantinople,
+		IsPetersburg:       rules.IsPetersburg,
+		IsIstanbul:         rules.IsIstanbul,
+		IsBerlin:           rules.IsBerlin,
+		IsLondon:           rules.IsLondon,
+		IsShanghai:         rules.IsShanghai,
+		IsCancun:           rules.IsCancun,
+		IsNapoli:           false,
+		IsPrague:           false,
+		IsOsaka:            false,
+		IsAura:             false,
+	}
+}
+
+func NewChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime GetBlockTime) (*params.ChainConfig, error) {
+	return getChainConfig(g, height, id, getBlockTime)
+}
+
 func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime GetBlockTime) (*params.ChainConfig, error) {
 	var chainConfig params.ChainConfig
 	chainConfig.ConstantinopleBlock = new(big.Int).SetUint64(0) // Constantinople switch block (nil = no fork, 0 = already activated)
@@ -428,7 +487,7 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 }
 
 // Error in executeInEVM is a consensus issue
-func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, uint64, string, iotextypes.ReceiptStatus, error) {
+func executeInEVM(ctx context.Context, evmParams *Params, stateDB StateDB) ([]byte, uint64, uint64, string, iotextypes.ReceiptStatus, error) {
 	var (
 		gasLimit     = evmParams.blkCtx.GasLimit
 		blockHeight  = evmParams.blkCtx.BlockHeight
