@@ -29,7 +29,7 @@ require (
 	github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d
 	github.com/iotexproject/iotex-proto v0.6.4
 	github.com/ipfs/go-ipfs-api v0.7.0
-	github.com/ledgerwatch/erigon v1.9.7-0.20240916152703-dec9d2067be6
+	github.com/ledgerwatch/erigon v0.0.0-00010101000000-000000000000
 	github.com/ledgerwatch/erigon-lib v1.0.0
 	github.com/ledgerwatch/log/v3 v3.9.0
 	github.com/libp2p/go-libp2p v0.32.2
@@ -43,7 +43,7 @@ require (
 	github.com/prometheus/client_model v0.6.1
 	github.com/rodaine/table v1.0.1
 	github.com/schollz/progressbar/v2 v2.15.0
-	github.com/shirou/gopsutil/v3 v3.22.8
+	github.com/shirou/gopsutil/v3 v3.24.3
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.9.0
 	github.com/tidwall/gjson v1.11.0
@@ -99,7 +99,7 @@ require (
 	github.com/erigontech/mdbx-go v0.27.24 // indirect
 	github.com/ethereum/c-kzg-4844 v0.4.0 // indirect
 	github.com/gballet/go-verkle v0.1.1-0.20231031103413-a67434b50f46 // indirect
-	github.com/getsentry/sentry-go v0.18.0 // indirect
+	github.com/getsentry/sentry-go v0.13.0 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
@@ -118,10 +118,11 @@ require (
 	github.com/protolambda/ztyp v0.2.2 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
+	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/supranational/blst v0.3.11 // indirect
 	github.com/tidwall/btree v1.6.0 // indirect
-	github.com/ugorji/go/codec v1.2.7 // indirect
+	github.com/ugorji/go/codec v1.1.13 // indirect
 	github.com/valyala/fastjson v1.6.4 // indirect
 	go.uber.org/dig v1.17.1 // indirect
 	go.uber.org/fx v1.20.1 // indirect
@@ -264,5 +265,10 @@ replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
 
-// replace github.com/ledgerwatch/erigon-lib => github.com/ledgerwatch/erigon dec9d2067be63cb155016efa05050339e2a8994a
-replace github.com/ledgerwatch/erigon-lib => github.com/ledgerwatch/erigon/erigon-lib v0.0.0-20240916152703-dec9d2067be6
+replace github.com/ledgerwatch/erigon => github.com/envestcc/erigon v0.0.0-20250102030637-ee31f4bde3a1
+
+replace github.com/ledgerwatch/erigon-lib => github.com/envestcc/erigon/erigon-lib v0.0.0-20250102030637-ee31f4bde3a1
+
+// replace github.com/gballet/go-verkle => github.com/gballet/go-verkle v0.0.0-20221121182333-31427a1f2d35
+
+// replace github.com/crate-crypto/go-ipa => github.com/crate-crypto/go-ipa v0.0.0-20221111143132-9aa5d42120bc
