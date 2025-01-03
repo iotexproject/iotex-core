@@ -1,7 +1,7 @@
 package evm
 
 import (
-	"encoding/hex"
+	"math/big"
 
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -61,7 +61,7 @@ func (c *contractV2) SetState(key hash.Hash256, value []byte) error {
 	}
 	c.dirtyState = true
 	k := libcommon.Hash(key)
-	c.intra.SetState(libcommon.Address(c.addr), &k, *uint256.MustFromHex(hex.EncodeToString(value)))
+	c.intra.SetState(libcommon.Address(c.addr), &k, *uint256.MustFromBig(big.NewInt(0).SetBytes(value)))
 	return nil
 }
 func (c *contractV2) GetCode() ([]byte, error) {

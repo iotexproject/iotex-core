@@ -165,14 +165,14 @@ func (builder *Builder) createHistoryIndex() (*factory.HistoryStateIndex, error)
 	if len(builder.cfg.Chain.HistoryIndexPath) == 0 {
 		return nil, nil
 	}
-	getBlockTime := func(height uint64) (time.Time, error) {
-		blk, err := builder.cs.blockdao.GetBlockByHeight(height)
-		if err != nil {
-			return time.Time{}, err
-		}
-		return blk.Timestamp(), nil
-	}
-	return factory.NewHistoryStateIndex(builder.cs.factory, builder.cfg.Chain.HistoryIndexPath, getBlockTime), nil
+	// getBlockTime := func(height uint64) (time.Time, error) {
+	// 	blk, err := builder.cs.blockdao.GetBlockByHeight(height)
+	// 	if err != nil {
+	// 		return time.Time{}, err
+	// 	}
+	// 	return blk.Timestamp(), nil
+	// }
+	return factory.NewHistoryStateIndex(builder.cs.factory, builder.cfg.Chain.HistoryIndexPath, nil), nil
 }
 
 func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
@@ -371,7 +371,18 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(
 		store, indexers, cfg.DB.MaxCacheSize, opts...)
-
+	// TODO: refactor
+	if builder.cs.historyIndex != nil {
+		dao := builder.cs.blockdao
+		getBlockTime := func(height uint64) (time.Time, error) {
+			blk, err := dao.GetBlockByHeight(height)
+			if err != nil {
+				return time.Time{}, err
+			}
+			return blk.Timestamp(), nil
+		}
+		builder.cs.historyIndex.SetGetBlockTime(getBlockTime)
+	}
 	return nil
 }
 

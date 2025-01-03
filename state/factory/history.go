@@ -15,6 +15,7 @@ import (
 	erigonstate "github.com/ledgerwatch/erigon/core/state"
 	erigonlog "github.com/ledgerwatch/log/v3"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
@@ -59,10 +60,18 @@ func NewHistoryStateIndex(sdb Factory, path string, getBlockTime func(uint64) (t
 	return h
 }
 
+func (h *HistoryStateIndex) SetGetBlockTime(getBlockTime func(uint64) (time.Time, error)) {
+	h.getBlockTime = getBlockTime
+}
+
 func (h *HistoryStateIndex) Start(ctx context.Context) error {
+	log.L().Info("starting history state index")
 	lg := erigonlog.New()
 	lg.SetHandler(erigonlog.StdoutHandler)
-	rw, err := mdbx.NewMDBX(lg).Path(h.path).Open(ctx)
+	rw, err := mdbx.NewMDBX(lg).Path(h.path).WithTableCfg(func(defaultBuckets kv.TableCfg) kv.TableCfg {
+		defaultBuckets[systemNS] = kv.TableCfgItem{}
+		return defaultBuckets
+	}).Open(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to open history state index")
 	}
@@ -72,6 +81,14 @@ func (h *HistoryStateIndex) Start(ctx context.Context) error {
 		return errors.Wrap(err, "failed to begin read transaction")
 	}
 	defer tx.Rollback()
+	exist, err := tx.Has(systemNS, heightKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to check height key")
+	}
+	if !exist {
+		log.L().Info("history state index is empty")
+		return nil
+	}
 	heightBytes, err := tx.GetOne(systemNS, heightKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to get height")
@@ -87,9 +104,11 @@ func (h *HistoryStateIndex) Start(ctx context.Context) error {
 }
 
 func (h *HistoryStateIndex) Stop(ctx context.Context) error {
+	log.L().Info("stopping history state index")
 	if h.rw != nil {
 		h.rw.Close()
 	}
+	log.L().Info("history state index is stopped")
 	return nil
 }
 
@@ -106,15 +125,17 @@ func (h *HistoryStateIndex) PutBlock(ctx context.Context, blk *block.Block) erro
 	if err != nil {
 		return err
 	}
-	r, tsw := erigonstate.NewDbStateReader(tx), erigonstate.NewDbStateWriter(tx, blk.Height())
+	r, tsw := erigonstate.NewPlainStateReader(tx), erigonstate.NewPlainStateWriter(tx, tx, blk.Height())
 	intraBlockState := erigonstate.New(r)
+	intraBlockState.SetTrace(true)
 
 	hws := &historyWorkingSet{
 		workingSet: ws,
 		sw:         tsw,
 		intra:      intraBlockState,
 	}
-	err = hws.Process(protocol.WithErigonCtx(ctx), blk.Actions)
+	ctx = protocol.WithRegistry(ctx, h.sdb.registry)
+	err = hws.processWithCorrectOrder(protocol.WithErigonCtx(ctx), blk.Actions)
 	if err != nil {
 		return err
 	}
@@ -127,10 +148,13 @@ func (h *HistoryStateIndex) PutBlock(ctx context.Context, blk *block.Block) erro
 
 	chainRules := chainCfg.Rules(big.NewInt(int64(blk.Height())), g.IsSumatra(blk.Height()), uint64(blk.Timestamp().Unix()))
 	rules := evm.NewErigonRules(&chainRules)
+	log.L().Info("intraBlockState Commit block", zap.Uint64("height", blk.Height()))
 	err = intraBlockState.CommitBlock(rules, tsw)
 	if err != nil {
 		return err
 	}
+	intraBlockState.Print(*rules)
+
 	err = tsw.WriteChangeSets()
 	if err != nil {
 		return err
@@ -139,7 +163,10 @@ func (h *HistoryStateIndex) PutBlock(ctx context.Context, blk *block.Block) erro
 	if err != nil {
 		return err
 	}
-	tx.Put(systemNS, heightKey, uint256.NewInt(blk.Height()).Bytes())
+	err = tx.Put(systemNS, heightKey, uint256.NewInt(blk.Height()).Bytes())
+	if err != nil {
+		return err
+	}
 	err = tx.Commit()
 	if err != nil {
 		return err
@@ -148,15 +175,118 @@ func (h *HistoryStateIndex) PutBlock(ctx context.Context, blk *block.Block) erro
 	return nil
 }
 
+func (h *HistoryStateIndex) StateManagerAt(ctx context.Context, height uint64) (protocol.StateManager, error) {
+	ws, err := h.sdb.newWorkingSet(ctx, height)
+	if err != nil {
+		return nil, err
+	}
+	tx, err := h.rw.BeginRo(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tsw := erigonstate.NewPlainState(tx, height, nil)
+	intraBlockState := erigonstate.New(tsw)
+	return &historyWorkingSet{
+		workingSet: ws,
+		sw:         tsw,
+		intra:      intraBlockState,
+	}, nil
+}
+
 type historyWorkingSet struct {
 	*workingSet
-	sw    *erigonstate.DbStateWriter
+	sw    erigonstate.StateWriter
 	intra *erigonstate.IntraBlockState
 }
 
-func (hws *historyWorkingSet) StateWriter() *erigonstate.DbStateWriter {
+func (hws *historyWorkingSet) StateWriter() erigonstate.StateWriter {
 	return hws.sw
 }
+
 func (hws *historyWorkingSet) Intra() *erigonstate.IntraBlockState {
 	return hws.intra
+}
+
+func (ws *historyWorkingSet) processWithCorrectOrder(ctx context.Context, actions []*action.SealedEnvelope) error {
+	reg := protocol.MustGetRegistry(ctx)
+	for _, p := range reg.All() {
+		if pp, ok := p.(protocol.PreStatesCreator); ok {
+			if err := pp.CreatePreStates(ctx, ws); err != nil {
+				return err
+			}
+		}
+	}
+	var (
+		receipts            = make([]*action.Receipt, 0)
+		ctxWithBlockContext = ctx
+		blkCtx              = protocol.MustGetBlockCtx(ctx)
+		fCtx                = protocol.MustGetFeatureCtx(ctx)
+	)
+	for _, act := range actions {
+		actionCtx, err := withActionCtx(ctxWithBlockContext, act)
+		if err != nil {
+			return err
+		}
+		receipt, err := ws.runAction(actionCtx, act)
+		if err != nil {
+			return errors.Wrap(err, "error when run action")
+		}
+		receipts = append(receipts, receipt)
+		if !action.IsSystemAction(act) {
+			blkCtx.GasLimit -= receipt.GasConsumed
+			if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
+				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
+			}
+			ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
+		}
+	}
+	return nil
+}
+
+func (ws *historyWorkingSet) runAction(
+	ctx context.Context,
+	selp *action.SealedEnvelope,
+) (*action.Receipt, error) {
+	actCtx := protocol.MustGetActionCtx(ctx)
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	// if it's a tx container, unfold the tx inside
+	if fCtx.UseTxContainer && !fCtx.UnfoldContainerBeforeValidate {
+		if container, ok := selp.Envelope.(action.TxContainer); ok {
+			if err := container.Unfold(selp, ctx, ws.checkContract); err != nil {
+				return nil, errors.Wrap(errUnfoldTxContainer, err.Error())
+			}
+		}
+	}
+	// Handle action
+	reg, ok := protocol.GetRegistry(ctx)
+	if !ok {
+		return nil, errors.New("protocol is empty")
+	}
+	selpHash, err := selp.Hash()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to get hash")
+	}
+	defer ws.ResetSnapshots()
+	if err := ws.freshAccountConversion(ctx, &actCtx); err != nil {
+		return nil, err
+	}
+	for _, actionHandler := range reg.All() {
+		receipt, err := actionHandler.Handle(ctx, selp.Envelope, ws)
+		if err != nil {
+			return nil, errors.Wrapf(
+				err,
+				"error when action %x mutates states",
+				selpHash,
+			)
+		}
+		if receipt != nil {
+			if fCtx.EnableBlobTransaction && len(selp.BlobHashes()) > 0 {
+				if err = ws.handleBlob(ctx, selp, receipt); err != nil {
+					return nil, err
+				}
+			}
+			return receipt, nil
+		}
+	}
+	return nil, errors.New("receipt is empty")
 }

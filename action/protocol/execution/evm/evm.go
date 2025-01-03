@@ -266,11 +266,10 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	if cfg.ErigonStorage {
-		erigonsm := sm.(interface {
-			StateWriter() *erigonstate.DbStateWriter
-			Intra() *erigonstate.IntraBlockState
-		})
+	if erigonsm, ok := sm.(interface {
+		StateWriter() erigonstate.StateWriter
+		Intra() *erigonstate.IntraBlockState
+	}); ok {
 		rules := ps.chainConfig.Rules(ps.context.BlockNumber, ps.genesis.IsSumatra(uint64(ps.context.BlockNumber.Int64())), ps.context.Time)
 		stateDB = NewErigonStateDBAdapter(
 			stateDB.(*StateDBAdapter),

@@ -261,7 +261,7 @@ require (
 )
 
 //Note: add tag for go-ethereum before cutting hard-fork release
-replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v0.5.0
+replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v1.7.4-0.20250102060848-adaefd28e52f
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
 
@@ -269,6 +269,10 @@ replace github.com/ledgerwatch/erigon => github.com/envestcc/erigon v0.0.0-20250
 
 replace github.com/ledgerwatch/erigon-lib => github.com/envestcc/erigon/erigon-lib v0.0.0-20250102030637-ee31f4bde3a1
 
+replace github.com/iotexproject/go-pkgs => github.com/iotexproject/go-pkgs v0.1.15-0.20250102061825-4556d014fc54
+
 // replace github.com/gballet/go-verkle => github.com/gballet/go-verkle v0.0.0-20221121182333-31427a1f2d35
 
 // replace github.com/crate-crypto/go-ipa => github.com/crate-crypto/go-ipa v0.0.0-20221111143132-9aa5d42120bc
+
+// replace github.com/ethereum/go-ethereum/crypto/secp256k1 => github.com/ledgerwatch/secp256k1 v1.0.0

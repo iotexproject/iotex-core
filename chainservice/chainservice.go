@@ -229,7 +229,9 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, plugins map[int]interface{}
 		api.WithNativeElection(cs.electionCommittee),
 		api.WithAPIStats(cs.apiStats),
 	}
-
+	if cs.historyIndex != nil {
+		apiServerOptions = append(apiServerOptions, api.WithHistory(cs.historyIndex))
+	}
 	svr, err := api.NewServerV2(
 		cfg,
 		cs.chain,

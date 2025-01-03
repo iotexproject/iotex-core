@@ -1134,7 +1134,7 @@ func (stateDB *StateDBAdapter) getNewContract(evmAddr common.Address) (Contract,
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}
-	contract, err := newContract(addr, account, stateDB.sm, stateDB.asyncContractTrie)
+	contract, err := stateDB.newContract(addr, account)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}

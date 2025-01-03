@@ -1,14 +1,21 @@
 package evm
 
 import (
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 	erigonchain "github.com/ledgerwatch/erigon-lib/chain"
+	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	erigonstate "github.com/ledgerwatch/erigon/core/state"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -30,7 +37,7 @@ type ErigonStateDBAdapter struct {
 }
 
 func NewErigonStateDBAdapter(adapter *StateDBAdapter,
-	rw *erigonstate.DbStateWriter,
+	rw erigonstate.StateWriter,
 	intra *erigonstate.IntraBlockState,
 	chainRules *erigonchain.Rules,
 ) *ErigonStateDBAdapter {
@@ -45,7 +52,47 @@ func NewErigonStateDBAdapter(adapter *StateDBAdapter,
 	}
 }
 
+func (s *ErigonStateDBAdapter) CreateAccount(evmAddr common.Address) {
+	s.StateDBAdapter.CreateAccount(evmAddr)
+	s.intra.CreateAccount(libcommon.Address(evmAddr), true)
+}
+
+func (s *ErigonStateDBAdapter) SubBalance(evmAddr common.Address, v *uint256.Int) {
+	s.StateDBAdapter.SubBalance(evmAddr, v)
+	s.intra.SubBalance(libcommon.Address(evmAddr), v)
+}
+
+func (s *ErigonStateDBAdapter) AddBalance(evmAddr common.Address, v *uint256.Int) {
+	s.StateDBAdapter.AddBalance(evmAddr, v)
+	s.intra.AddBalance(libcommon.Address(evmAddr), v)
+}
+
+func (s *ErigonStateDBAdapter) SetNonce(evmAddr common.Address, n uint64) {
+	s.StateDBAdapter.SetNonce(evmAddr, n)
+	s.intra.SetNonce(libcommon.Address(evmAddr), n)
+}
+
+func (s *ErigonStateDBAdapter) SetCode(evmAddr common.Address, c []byte) {
+	s.StateDBAdapter.SetCode(evmAddr, c)
+	s.intra.SetCode(libcommon.Address(evmAddr), c)
+}
+
+func (s *ErigonStateDBAdapter) AddRefund(r uint64) {
+	s.StateDBAdapter.AddRefund(r)
+	s.intra.AddRefund(r)
+}
+func (s *ErigonStateDBAdapter) SubRefund(r uint64) {
+	s.StateDBAdapter.SubRefund(r)
+	s.intra.SubRefund(r)
+}
+func (s *ErigonStateDBAdapter) SetState(evmAddr common.Address, k common.Hash, v common.Hash) {
+	s.StateDBAdapter.SetState(evmAddr, k, v)
+	key := libcommon.Hash(k)
+	s.intra.SetState(libcommon.Address(evmAddr), &key, *uint256.MustFromBig(big.NewInt(0).SetBytes(v[:])))
+}
+
 func (s *ErigonStateDBAdapter) CommitContracts() error {
+	log.L().Info("intraBlockState Committing contracts", zap.Uint64("height", s.StateDBAdapter.blockHeight))
 	err := s.intra.FinalizeTx(s.chainRules, s.rw)
 	if err != nil {
 		return errors.Wrap(err, "failed to finalize tx")
