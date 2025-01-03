@@ -408,11 +408,7 @@ func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
 	if !addr.Exists() {
 		return nil, errInvalidFormat
 	}
-	ioAddr, err := ethAddrToIoAddr(addr.String())
-	if err != nil {
-		return nil, err
-	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	accountMeta, _, err := svr.coreService.Account(addr.String())
 	if err != nil {
 		return nil, err
 	}
@@ -607,11 +603,7 @@ func (svr *web3Handler) getCode(in *gjson.Result) (interface{}, error) {
 	if !addr.Exists() {
 		return nil, errInvalidFormat
 	}
-	ioAddr, err := ethAddrToIoAddr(addr.String())
-	if err != nil {
-		return nil, err
-	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	accountMeta, _, err := svr.coreService.Account(addr.String())
 	if err != nil {
 		return nil, err
 	}

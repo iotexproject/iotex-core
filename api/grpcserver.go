@@ -159,11 +159,7 @@ func (svr *gRPCHandler) SuggestGasPrice(ctx context.Context, in *iotexapi.Sugges
 func (svr *gRPCHandler) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
 	span := tracer.SpanFromContext(ctx)
 	defer span.End()
-	addr, err := address.FromString(in.Address)
-	if err != nil {
-		return nil, err
-	}
-	accountMeta, blockIdentifier, err := svr.coreService.Account(addr)
+	accountMeta, blockIdentifier, err := svr.coreService.Account(in.Address)
 	if err != nil {
 		return nil, err
 	}

@@ -82,7 +82,7 @@ type (
 	// CoreService provides api interface for user to interact with blockchain data
 	CoreService interface {
 		// Account returns the metadata of an account
-		Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error)
+		Account(string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error)
 		// ChainMeta returns blockchain metadata
 		ChainMeta() (*iotextypes.ChainMeta, string, error)
 		// ServerMeta gets the server metadata
@@ -306,14 +306,17 @@ func newCoreService(
 }
 
 // Account returns the metadata of an account
-func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+func (core *coreService) Account(addrStr string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
 	ctx, span := tracer.NewSpan(context.Background(), "coreService.Account")
 	defer span.End()
-	addrStr := addr.String()
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
 		return core.getProtocolAccount(ctx, addrStr)
 	}
 	span.AddEvent("accountutil.AccountStateWithHeight")
+	addr, err := address.FromString(addrStr)
+	if err != nil {
+		return nil, nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
 	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
 	state, tipHeight, err := accountutil.AccountStateWithHeight(ctx, core.sf, addr)
 	if err != nil {
@@ -1068,7 +1071,6 @@ func (core *coreService) ActionsByAddress(addr address.Address, start uint64, co
 	if count > core.cfg.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
-
 	actions, err := core.indexer.GetActionsByAddress(hash.BytesToHash160(addr.Bytes()), start, count)
 	if err != nil {
 		if errors.Cause(err) == db.ErrBucketNotExist || errors.Cause(err) == db.ErrNotExist {
