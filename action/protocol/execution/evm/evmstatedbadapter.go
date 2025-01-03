@@ -830,6 +830,7 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		}
 		stateDB.createdAccountSnapshot[sn] = ca
 	}
+	log.L().Debug("Snapshot", zap.Int("snapshot", sn))
 	return sn
 }
 
