@@ -102,7 +102,7 @@ func (s *ErigonStateDBAdapter) Selfdestruct6780(evmAddr common.Address) {
 }
 
 func (s *ErigonStateDBAdapter) CommitContracts() error {
-	log.L().Info("intraBlockState Committing contracts", zap.Uint64("height", s.StateDBAdapter.blockHeight))
+	log.L().Debug("intraBlockState Committing contracts", zap.Uint64("height", s.StateDBAdapter.blockHeight))
 	err := s.intra.FinalizeTx(s.chainRules, s.rw)
 	if err != nil {
 		return errors.Wrap(err, "failed to finalize tx")

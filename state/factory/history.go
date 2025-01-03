@@ -149,7 +149,7 @@ func (h *HistoryStateIndex) PutBlock(ctx context.Context, blk *block.Block) erro
 
 	chainRules := chainCfg.Rules(big.NewInt(int64(blk.Height())), g.IsSumatra(blk.Height()), uint64(blk.Timestamp().Unix()))
 	rules := evm.NewErigonRules(&chainRules)
-	log.L().Info("intraBlockState Commit block", zap.Uint64("height", blk.Height()))
+	log.L().Debug("intraBlockState Commit block", zap.Uint64("height", blk.Height()))
 	err = intraBlockState.CommitBlock(rules, tsw)
 	if err != nil {
 		return err
