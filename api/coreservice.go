@@ -91,6 +91,8 @@ type (
 		SendAction(ctx context.Context, in *iotextypes.Action) (string, error)
 		// ReadContract reads the state in a contract address specified by the slot
 		ReadContract(ctx context.Context, callerAddr address.Address, sc action.Envelope) (string, *iotextypes.Receipt, error)
+
+		ReadContractAt(ctx context.Context, callerAddr address.Address, sc action.Envelope, height uint64) (string, *iotextypes.Receipt, error)
 		// ReadState reads state on blockchain
 		ReadState(protocolID string, height string, methodName []byte, arguments [][]byte) (*iotexapi.ReadStateResponse, error)
 		// SuggestGasPrice suggests gas price
@@ -195,6 +197,7 @@ type (
 		bc                blockchain.Blockchain
 		bs                blocksync.BlockSync
 		sf                factory.Factory
+		history           *factory.HistoryStateIndex
 		dao               blockdao.BlockDAO
 		indexer           blockindex.Indexer
 		bfIndexer         blockindex.BloomFilterIndexer
@@ -242,6 +245,12 @@ func WithNativeElection(committee committee.Committee) Option {
 func WithAPIStats(stats *nodestats.APILocalStats) Option {
 	return func(svr *coreService) {
 		svr.apiStats = stats
+	}
+}
+
+func WithHistory(history *factory.HistoryStateIndex) Option {
+	return func(svr *coreService) {
+		svr.history = history
 	}
 }
 
@@ -545,6 +554,26 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	}
 	if d, err := proto.Marshal(&res); err == nil {
 		core.readCache.Put(key, d)
+	}
+	return res.Data, res.Receipt, nil
+}
+
+func (core *coreService) ReadContractAt(ctx context.Context, callerAddr address.Address, elp action.Envelope, height uint64) (string, *iotextypes.Receipt, error) {
+	log.Logger("api").Debug("receive read smart contract request")
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(height)
+	)
+	if elp.Gas() == 0 || blockGasLimit < elp.Gas() {
+		elp.SetGas(blockGasLimit)
+	}
+	retval, receipt, err := core.simulateExecutionAt(ctx, callerAddr, elp, height)
+	if err != nil {
+		return "", nil, status.Error(codes.Internal, err.Error())
+	}
+	res := iotexapi.ReadContractResponse{
+		Data:    hex.EncodeToString(retval),
+		Receipt: receipt.ConvertToReceiptPb(),
 	}
 	return res.Data, res.Receipt, nil
 }
@@ -1831,6 +1860,15 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 	return core.simulateExecution(ctx, addr, elp)
 }
 
+func (core *coreService) SimulateExecutionAt(ctx context.Context, addr address.Address, elp action.Envelope, height uint64) ([]byte, *action.Receipt, error) {
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(height)
+	)
+	elp.SetGas(blockGasLimit)
+	return core.simulateExecution(ctx, addr, elp)
+}
+
 // SyncingProgress returns the syncing status of node
 func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
 	startingHeight, currentHeight, targetHeight, _ := core.bs.SyncStatus()
@@ -1967,6 +2005,38 @@ func (core *coreService) simulateExecution(ctx context.Context, addr address.Add
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
+	return evm.SimulateExecution(ctx, ws, addr, elp, opts...)
+}
+
+func (core *coreService) simulateExecutionAt(ctx context.Context, addr address.Address, elp action.Envelope, height uint64, opts ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
+	ctx, err := core.bc.ContextAtHeight(ctx, height)
+	if err != nil {
+		return nil, nil, status.Error(codes.Internal, err.Error())
+	}
+	state, err := accountutil.AccountState(ctx, core.sf, addr)
+	if err != nil {
+		return nil, nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	var pendingNonce uint64
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: height,
+	}))
+	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+		pendingNonce = state.PendingNonceConsideringFreshAccount()
+	} else {
+		pendingNonce = state.PendingNonce()
+	}
+	elp.SetNonce(pendingNonce)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash:   core.dao.GetBlockHash,
+		GetBlockTime:   core.getBlockTime,
+		DepositGasFunc: rewarding.DepositGas,
+	})
+	ws, err := core.history.StateManagerAt(ctx, height)
+	if err != nil {
+		return nil, nil, status.Error(codes.Internal, err.Error())
+	}
+	defer ws.Close()
 	return evm.SimulateExecution(ctx, ws, addr, elp, opts...)
 }
 
