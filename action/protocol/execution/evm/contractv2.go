@@ -8,11 +8,9 @@ import (
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	erigonstate "github.com/ledgerwatch/erigon/core/state"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db/trie"
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -21,7 +19,6 @@ type contractV2 struct {
 	dirtyCode  bool                       // contract's code has been set
 	dirtyState bool                       // contract's account state has changed
 	code       protocol.SerializableBytes // contract byte-code
-	sn         []int
 	committed  map[hash.Hash256][]byte
 	sm         protocol.StateReader
 	intra      *erigonstate.IntraBlockState
@@ -99,13 +96,6 @@ func (c *contractV2) Commit() error {
 	return nil
 }
 func (c *contractV2) LoadRoot() error {
-	if len(c.sn) == 0 {
-		return errors.New("no snapshot")
-	}
-	sn := c.sn[len(c.sn)-1]
-	c.sn = c.sn[:len(c.sn)-1]
-	log.L().Debug("revertsnapshot", zap.Int("sn", sn), zap.Any("sns", c.sn))
-	c.intra.RevertToSnapshot(sn)
 	return nil
 }
 
@@ -115,14 +105,11 @@ func (c *contractV2) Iterator() (trie.Iterator, error) {
 }
 
 func (c *contractV2) Snapshot() Contract {
-	sn := c.intra.Snapshot()
-	log.L().Debug("snapshot", zap.Int("sn", sn))
 	return &contractV2{
 		Account:    c.Account.Clone(),
 		dirtyCode:  c.dirtyCode,
 		dirtyState: c.dirtyState,
 		code:       c.code,
-		sn:         append(c.sn, sn),
 		committed:  c.committed,
 		sm:         c.sm,
 		intra:      c.intra,

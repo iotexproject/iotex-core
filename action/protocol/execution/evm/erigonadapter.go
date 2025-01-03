@@ -109,3 +109,17 @@ func (s *ErigonStateDBAdapter) CommitContracts() error {
 	}
 	return nil
 }
+
+func (s *ErigonStateDBAdapter) RevertToSnapshot(sn int) {
+	s.StateDBAdapter.RevertToSnapshot(sn)
+	s.intra.RevertToSnapshot(sn)
+}
+
+func (s *ErigonStateDBAdapter) Snapshot() int {
+	sn := s.StateDBAdapter.Snapshot()
+	isn := s.intra.Snapshot()
+	if sn != isn {
+		panic("snapshot mismatch")
+	}
+	return sn
+}
