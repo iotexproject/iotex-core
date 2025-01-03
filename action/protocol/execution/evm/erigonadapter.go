@@ -34,6 +34,7 @@ type ErigonStateDBAdapter struct {
 	rw         erigonstate.StateWriter
 	intra      *erigonstate.IntraBlockState
 	chainRules *erigonchain.Rules
+	snDiff     int
 }
 
 func NewErigonStateDBAdapter(adapter *StateDBAdapter,
@@ -112,14 +113,16 @@ func (s *ErigonStateDBAdapter) CommitContracts() error {
 
 func (s *ErigonStateDBAdapter) RevertToSnapshot(sn int) {
 	s.StateDBAdapter.RevertToSnapshot(sn)
-	s.intra.RevertToSnapshot(sn)
+	s.intra.RevertToSnapshot(sn + s.snDiff)
 }
 
 func (s *ErigonStateDBAdapter) Snapshot() int {
 	sn := s.StateDBAdapter.Snapshot()
 	isn := s.intra.Snapshot()
-	if sn != isn {
-		log.L().Panic("inconsistent snapshot", zap.Int("stateDB", sn), zap.Int("intra", isn))
+	diff := isn - sn
+	if s.snDiff != 0 && diff != s.snDiff {
+		log.L().Panic("snapshot diff changed", zap.Int("old", s.snDiff), zap.Int("new", diff))
 	}
+	s.snDiff = diff
 	return sn
 }
