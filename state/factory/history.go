@@ -125,11 +125,12 @@ func (h *HistoryStateIndex) PutBlock(ctx context.Context, blk *block.Block) erro
 	if err != nil {
 		return err
 	}
+	defer tx.Rollback()
 	r, tsw := erigonstate.NewPlainStateReader(tx), erigonstate.NewPlainStateWriter(tx, tx, blk.Height())
 	intraBlockState := erigonstate.New(r)
 	intraBlockState.SetTrace(true)
 
-	hws := &historyWorkingSet{
+	hws := &HistoryWorkingSet{
 		workingSet: ws,
 		sw:         tsw,
 		intra:      intraBlockState,
@@ -175,7 +176,7 @@ func (h *HistoryStateIndex) PutBlock(ctx context.Context, blk *block.Block) erro
 	return nil
 }
 
-func (h *HistoryStateIndex) StateManagerAt(ctx context.Context, height uint64) (protocol.StateManager, error) {
+func (h *HistoryStateIndex) StateManagerAt(ctx context.Context, height uint64) (*HistoryWorkingSet, error) {
 	ws, err := h.sdb.newWorkingSet(ctx, height)
 	if err != nil {
 		return nil, err
@@ -186,28 +187,34 @@ func (h *HistoryStateIndex) StateManagerAt(ctx context.Context, height uint64) (
 	}
 	tsw := erigonstate.NewPlainState(tx, height, nil)
 	intraBlockState := erigonstate.New(tsw)
-	return &historyWorkingSet{
+	return &HistoryWorkingSet{
 		workingSet: ws,
 		sw:         tsw,
 		intra:      intraBlockState,
+		cleanup:    func() { tx.Rollback() },
 	}, nil
 }
 
-type historyWorkingSet struct {
+type HistoryWorkingSet struct {
 	*workingSet
-	sw    erigonstate.StateWriter
-	intra *erigonstate.IntraBlockState
+	sw      erigonstate.StateWriter
+	intra   *erigonstate.IntraBlockState
+	cleanup func()
 }
 
-func (hws *historyWorkingSet) StateWriter() erigonstate.StateWriter {
+func (hws *HistoryWorkingSet) StateWriter() erigonstate.StateWriter {
 	return hws.sw
 }
 
-func (hws *historyWorkingSet) Intra() *erigonstate.IntraBlockState {
+func (hws *HistoryWorkingSet) Intra() *erigonstate.IntraBlockState {
 	return hws.intra
 }
 
-func (ws *historyWorkingSet) processWithCorrectOrder(ctx context.Context, actions []*action.SealedEnvelope) error {
+func (hws *HistoryWorkingSet) Close() {
+	hws.cleanup()
+}
+
+func (ws *HistoryWorkingSet) processWithCorrectOrder(ctx context.Context, actions []*action.SealedEnvelope) error {
 	reg := protocol.MustGetRegistry(ctx)
 	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
@@ -243,7 +250,7 @@ func (ws *historyWorkingSet) processWithCorrectOrder(ctx context.Context, action
 	return nil
 }
 
-func (ws *historyWorkingSet) runAction(
+func (ws *HistoryWorkingSet) runAction(
 	ctx context.Context,
 	selp *action.SealedEnvelope,
 ) (*action.Receipt, error) {

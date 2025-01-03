@@ -91,6 +91,16 @@ func (s *ErigonStateDBAdapter) SetState(evmAddr common.Address, k common.Hash, v
 	s.intra.SetState(libcommon.Address(evmAddr), &key, *uint256.MustFromBig(big.NewInt(0).SetBytes(v[:])))
 }
 
+func (s *ErigonStateDBAdapter) SelfDestruct(evmAddr common.Address) {
+	s.StateDBAdapter.SelfDestruct(evmAddr)
+	s.intra.Selfdestruct(libcommon.Address(evmAddr))
+}
+
+func (s *ErigonStateDBAdapter) Selfdestruct6780(evmAddr common.Address) {
+	s.StateDBAdapter.Selfdestruct6780(evmAddr)
+	s.intra.Selfdestruct6780(libcommon.Address(evmAddr))
+}
+
 func (s *ErigonStateDBAdapter) CommitContracts() error {
 	log.L().Info("intraBlockState Committing contracts", zap.Uint64("height", s.StateDBAdapter.blockHeight))
 	err := s.intra.FinalizeTx(s.chainRules, s.rw)

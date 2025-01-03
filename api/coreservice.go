@@ -2036,6 +2036,7 @@ func (core *coreService) simulateExecutionAt(ctx context.Context, addr address.A
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
+	defer ws.Close()
 	return evm.SimulateExecution(ctx, ws, addr, elp, opts...)
 }
 
