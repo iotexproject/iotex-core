@@ -817,6 +817,9 @@ func (builder *Builder) buildBlockTimeCalculator() (err error) {
 		}
 		return blk.Timestamp(), nil
 	})
+	if builder.cs.historyIndex != nil {
+		builder.cs.historyIndex.SetGetBlockTime(builder.cs.blockTimeCalculator.CalculateBlockTime)
+	}
 	return err
 }
 
