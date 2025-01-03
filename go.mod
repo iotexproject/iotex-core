@@ -24,7 +24,7 @@ require (
 	github.com/iotexproject/go-fsm v1.0.0
 	github.com/iotexproject/go-p2p v0.3.7-0.20240327085559-423bb9cc8f5f
 	github.com/iotexproject/go-pkgs v0.1.13
-	github.com/iotexproject/iotex-address v0.2.8
+	github.com/iotexproject/iotex-address v0.2.9-0.20241020230354-523f3f51b5f9
 	github.com/iotexproject/iotex-antenna-go/v2 v2.5.1
 	github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d
 	github.com/iotexproject/iotex-proto v0.6.4
