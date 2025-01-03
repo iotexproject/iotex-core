@@ -119,7 +119,7 @@ func (s *ErigonStateDBAdapter) Snapshot() int {
 	sn := s.StateDBAdapter.Snapshot()
 	isn := s.intra.Snapshot()
 	if sn != isn {
-		panic("snapshot mismatch")
+		log.L().Panic("inconsistent snapshot", zap.Int("stateDB", sn), zap.Int("intra", isn))
 	}
 	return sn
 }
