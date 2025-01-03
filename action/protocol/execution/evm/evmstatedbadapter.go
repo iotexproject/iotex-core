@@ -637,6 +637,7 @@ func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
 
 // RevertToSnapshot reverts the state factory to the state at a given snapshot
 func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
+	log.L().Debug("RevertToSnapshot", zap.Int("snapshot", snapshot))
 	ds, ok := stateDB.selfDestructedSnapshot[snapshot]
 	if !ok && stateDB.panicUnrecoverableError {
 		log.T(stateDB.ctx).Panic("Failed to revert to snapshot.", zap.Int("snapshot", snapshot))

@@ -104,7 +104,7 @@ func (c *contractV2) LoadRoot() error {
 	}
 	sn := c.sn[len(c.sn)-1]
 	c.sn = c.sn[:len(c.sn)-1]
-	log.L().Debug("revertsnapshot", zap.Int("sn", sn))
+	log.L().Debug("revertsnapshot", zap.Int("sn", sn), zap.Any("sns", c.sn))
 	c.intra.RevertToSnapshot(sn)
 	return nil
 }
