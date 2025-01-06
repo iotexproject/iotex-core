@@ -60,10 +60,7 @@ func uint64ToHex(val uint64) string {
 }
 
 func bigIntToHex(b *big.Int) string {
-	if b == nil {
-		return "0x0"
-	}
-	if b.Sign() == 0 {
+	if b == nil || b.Sign() == 0 {
 		return "0x0"
 	}
 	return "0x" + b.Text(16)
