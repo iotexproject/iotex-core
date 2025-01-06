@@ -277,3 +277,7 @@ newxctl:
 .PHONY: iomigrater
 iomigrater:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOMIGRATER) -v ./tools/iomigrater
+
+.PHONY: dbwatcher
+dbwatcher:
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/dbwatcher -v ./tools/dbwatcher

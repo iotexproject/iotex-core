@@ -116,9 +116,9 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 			bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)
 		}
 		for {
-			if blk.Height() >= 12000000 {
-				panic("stop at 12000000")
-			}
+			// if blk.Height() >= 12000000 {
+			// 	panic("stop at 12000000")
+			// }
 			if err = indexer.PutBlock(protocol.WithFeatureCtx(protocol.WithBlockCtx(
 				protocol.WithBlockchainCtx(ctx, bcCtx),
 				protocol.BlockCtx{
