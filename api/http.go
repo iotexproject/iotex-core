@@ -11,6 +11,7 @@ import (
 
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/httputil"
 )
 
@@ -68,7 +69,9 @@ func (handler *hTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	if err := handler.msgHandler.HandlePOSTReq(req.Context(), req.Body,
+	ctx, span := tracer.NewSpan(req.Context(), "http")
+	defer span.End()
+	if err := handler.msgHandler.HandlePOSTReq(ctx, req.Body,
 		apitypes.NewResponseWriter(
 			func(resp interface{}) (int, error) {
 				w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -80,6 +83,7 @@ func (handler *hTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 				return w.Write(raw)
 			}),
 	); err != nil {
-		log.Logger("api").Warn("fail to respond request.", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		log.T(ctx).Error("fail to respond request.", zap.Error(err))
 	}
 }

@@ -266,7 +266,7 @@ func TestGetBalance(t *testing.T) {
 	balance := "111111111111111111"
 	core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{Balance: balance}, nil, nil)
 
-	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]}`)
+	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"]}`)
 	ret, err := web3svr.getBalance(&in)
 	require.NoError(err)
 	ans, ok := new(big.Int).SetString(balance, 10)
@@ -283,11 +283,11 @@ func TestGetTransactionCount(t *testing.T) {
 	core.EXPECT().PendingNonce(gomock.Any()).Return(uint64(2), nil)
 
 	inNil := gjson.Parse(`{"params":[]}`)
-	ret, err := web3svr.getTransactionCount(&inNil)
+	_, err := web3svr.getTransactionCount(&inNil)
 	require.EqualError(err, errInvalidFormat.Error())
 
 	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]}`)
-	ret, err = web3svr.getTransactionCount(&in)
+	ret, err := web3svr.getTransactionCount(&in)
 	require.NoError(err)
 	require.Equal("0x2", ret.(string))
 }
@@ -315,9 +315,8 @@ func TestCall(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "d201114a"
-		   },
-		   1]}`)
-		ret, err := web3svr.call(&in)
+		   }, "0x1"]}`)
+		ret, err := web3svr.call(context.Background(), &in)
 		require.NoError(err)
 		require.Equal("0x0000000000000000000000000000000000000000000000056bc75e2d63100000", ret.(string))
 	})
@@ -334,9 +333,8 @@ func TestCall(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "ad7a672f"
-		   },
-		   1]}`)
-		ret, err := web3svr.call(&in)
+		   }, "0x1"]}`)
+		ret, err := web3svr.call(context.Background(), &in)
 		require.NoError(err)
 		require.Equal("0x0000000000000000000000000000000000000000000000000000000000002710", ret.(string))
 	})
@@ -350,9 +348,8 @@ func TestCall(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "0x1"
-		   },
-		   1]}`)
-		ret, err := web3svr.call(&in)
+		   }, "0x1"]}`)
+		ret, err := web3svr.call(context.Background(), &in)
 		require.NoError(err)
 		require.Equal("0x111111", ret.(string))
 	})
@@ -376,9 +373,8 @@ func TestCall(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "0x1"
-		   },
-		   1]}`)
-		_, err := web3svr.call(&in)
+		   }, "0x1"]}`)
+		_, err := web3svr.call(context.Background(), &in)
 		require.EqualError(err, "rpc error: code = InvalidArgument desc = execution reverted: "+receipt.GetExecutionRevertMsg())
 	})
 }
@@ -390,11 +386,11 @@ func TestEstimateGas(t *testing.T) {
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	core.EXPECT().ChainID().Return(uint32(1)).Times(2)
+	core.EXPECT().EVMNetworkID().Return(uint32(0)).Times(2)
 
 	t.Run("estimate execution", func(t *testing.T) {
-		core.EXPECT().EVMNetworkID().Return(uint32(0)).AnyTimes()
 		core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{IsContract: true}, nil, nil)
-		core.EXPECT().EstimateExecutionGasConsumption(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint64(11000), nil)
+		core.EXPECT().EstimateExecutionGasConsumption(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint64(11000), nil, nil)
 
 		in := gjson.Parse(`{"params":[{
 			"from":     "",
@@ -403,9 +399,8 @@ func TestEstimateGas(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "0x6d4ce63c"
-		   },
-		   1]}`)
-		ret, err := web3svr.estimateGas(&in)
+		   }, "0x1"]}`)
+		ret, err := web3svr.estimateGas(context.Background(), &in)
 		require.NoError(err)
 		require.Equal(uint64ToHex(uint64(21000)), ret.(string))
 	})
@@ -421,9 +416,8 @@ func TestEstimateGas(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "0x1123123c"
-		   },
-		   1]}`)
-		ret, err := web3svr.estimateGas(&in)
+		   }, "0x1"]}`)
+		ret, err := web3svr.estimateGas(context.Background(), &in)
 		require.NoError(err)
 		require.Equal(uint64ToHex(uint64(36000)), ret.(string))
 	})
@@ -444,13 +438,13 @@ func TestSendRawTransaction(t *testing.T) {
 
 	t.Run("nil params", func(t *testing.T) {
 		inNil := gjson.Parse(`{"params":[]}`)
-		_, err := web3svr.sendRawTransaction(&inNil)
+		_, err := web3svr.sendRawTransaction(context.Background(), &inNil)
 		require.EqualError(err, errInvalidFormat.Error())
 	})
 
 	t.Run("send tx", func(t *testing.T) {
 		in := gjson.Parse(`{"params":["f8600180830186a09412745fec82b585f239c01090882eb40702c32b04808025a0b0e1aab5b64d744ae01fc9f1c3e9919844a799e90c23129d611f7efe6aec8a29a0195e28d22d9b280e00d501ff63525bb76f5c87b8646c89d5d9c5485edcb1b498"]}`)
-		ret, err := web3svr.sendRawTransaction(&in)
+		ret, err := web3svr.sendRawTransaction(context.Background(), &in)
 		require.NoError(err)
 		require.Equal("0x111111111111111", ret.(string))
 	})
@@ -1261,7 +1255,7 @@ func TestDebugTraceCall(t *testing.T) {
 
 	core.EXPECT().TraceCall(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return([]byte{0x01}, receipt, structLogger, nil)
 
-	in := gjson.Parse(`{"method":"debug_traceCall","params":[{"from":null,"to":"0x6b175474e89094c44da98b954eedeac495271d0f","data":"0x70a082310000000000000000000000006E0d01A76C3Cf4288372a29124A26D4353EE51BE"}, {"blockNumber":1}],"id":1,"jsonrpc":"2.0"}`)
+	in := gjson.Parse(`{"method":"debug_traceCall","params":[{"from":null,"to":"0x6b175474e89094c44da98b954eedeac495271d0f","data":"0x70a082310000000000000000000000006E0d01A76C3Cf4288372a29124A26D4353EE51BE"}],"id":1,"jsonrpc":"2.0"}`)
 	ret, err := web3svr.traceCall(ctx, &in)
 	require.NoError(err)
 	rlt, ok := ret.(*debugTraceTransactionResult)

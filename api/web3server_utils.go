@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-redis/redis/v8"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -56,6 +57,22 @@ func ioAddrToEthAddr(ioAddr string) (string, error) {
 
 func uint64ToHex(val uint64) string {
 	return "0x" + strconv.FormatUint(val, 16)
+}
+
+func bigIntToHex(b *big.Int) string {
+	if b == nil || b.Sign() == 0 {
+		return "0x0"
+	}
+	return "0x" + b.Text(16)
+}
+
+// mapper maps a slice of S to a slice of T
+func mapper[S, T any](arr []S, fn func(S) T) []T {
+	ret := make([]T, len(arr))
+	for i, v := range arr {
+		ret[i] = fn(v)
+	}
+	return ret
 }
 
 func intStrToHex(str string) (string, error) {
@@ -181,7 +198,10 @@ func (svr *web3Handler) checkContractAddr(to string) (bool, error) {
 		return false, err
 	}
 	accountMeta, _, err := svr.coreService.Account(ioAddr)
-	return accountMeta.IsContract, err
+	if err != nil {
+		return false, err
+	}
+	return accountMeta.IsContract, nil
 }
 
 func (svr *web3Handler) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]*getLogsResult, error) {
@@ -264,16 +284,16 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 }
 
 type callMsg struct {
-	From      address.Address // the sender of the 'transaction'
-	To        string          // the destination contract (empty for contract creation)
-	Gas       uint64          // if 0, the call executes with near-infinite gas
-	GasPrice  *big.Int        // wei <-> gas exchange ratio
-	GasFeeCap *big.Int        // EIP-1559 fee cap per gas.
-	GasTipCap *big.Int        // EIP-1559 tip per gas.
-	Value     *big.Int        // amount of wei sent along with the call
-	Data      []byte          // input data, usually an ABI-encoded contract method invocation
-
-	AccessList types.AccessList // EIP-2930 access list.
+	From        address.Address  // the sender of the 'transaction'
+	To          string           // the destination contract (empty for contract creation)
+	Gas         uint64           // if 0, the call executes with near-infinite gas
+	GasPrice    *big.Int         // wei <-> gas exchange ratio
+	GasFeeCap   *big.Int         // EIP-1559 fee cap per gas.
+	GasTipCap   *big.Int         // EIP-1559 tip per gas.
+	Value       *big.Int         // amount of wei sent along with the call
+	Data        []byte           // input data, usually an ABI-encoded contract method invocation
+	AccessList  types.AccessList // EIP-2930 access list.
+	BlockNumber rpc.BlockNumber
 }
 
 func parseCallObject(in *gjson.Result) (*callMsg, error) {
@@ -287,6 +307,7 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 		value     *big.Int = big.NewInt(0)
 		data      []byte
 		acl       types.AccessList
+		bn        = rpc.LatestBlockNumber
 		err       error
 	)
 	fromStr := in.Get("params.0.from").String()
@@ -343,8 +364,7 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 		}
 	}
 
-	input := in.Get("params.0.input")
-	if input.Exists() {
+	if input := in.Get("params.0.input"); input.Exists() {
 		data = common.FromHex(input.String())
 	} else {
 		data = common.FromHex(in.Get("params.0.data").String())
@@ -357,16 +377,25 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 			return nil, errors.Wrapf(err, "failed to unmarshal access list %s", accessList.Raw)
 		}
 	}
+	if bnParam := in.Get("params.1"); bnParam.Exists() {
+		if err = bn.UnmarshalJSON([]byte(bnParam.String())); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal height %s", bnParam.String())
+		}
+		if bn == rpc.PendingBlockNumber {
+			return nil, errors.Wrap(errNotImplemented, "pending block number is not supported")
+		}
+	}
 	return &callMsg{
-		From:       from,
-		To:         to,
-		Gas:        gasLimit,
-		GasPrice:   gasPrice,
-		GasFeeCap:  gasFeeCap,
-		GasTipCap:  gasTipCap,
-		Value:      value,
-		Data:       data,
-		AccessList: acl,
+		From:        from,
+		To:          to,
+		Gas:         gasLimit,
+		GasPrice:    gasPrice,
+		GasFeeCap:   gasFeeCap,
+		GasTipCap:   gasTipCap,
+		Value:       value,
+		Data:        data,
+		AccessList:  acl,
+		BlockNumber: bn,
 	}, nil
 }
 

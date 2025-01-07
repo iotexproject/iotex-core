@@ -17,7 +17,7 @@ type DiskStatus struct {
 	Free uint64 `json:"Free"`
 }
 
-// diskusage of path/disk
+// diskUsage of path/disk
 func diskUsage(path string) (disk DiskStatus) {
 	fs := syscall.Statfs_t{}
 	err := syscall.Statfs(path, &fs)

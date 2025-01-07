@@ -39,20 +39,6 @@ func (m *MockFactory) EXPECT() *MockFactoryMockRecorder {
 	return m.recorder
 }
 
-// DeleteTipBlock mocks base method.
-func (m *MockFactory) DeleteTipBlock(arg0 context.Context, arg1 *block.Block) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteTipBlock", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteTipBlock indicates an expected call of DeleteTipBlock.
-func (mr *MockFactoryMockRecorder) DeleteTipBlock(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTipBlock", reflect.TypeOf((*MockFactory)(nil).DeleteTipBlock), arg0, arg1)
-}
-
 // Height mocks base method.
 func (m *MockFactory) Height() (uint64, error) {
 	m.ctrl.T.Helper()
@@ -224,16 +210,21 @@ func (mr *MockFactoryMockRecorder) WorkingSet(arg0 interface{}) *gomock.Call {
 }
 
 // WorkingSetAtHeight mocks base method.
-func (m *MockFactory) WorkingSetAtHeight(arg0 context.Context, arg1 uint64) (protocol.StateManager, error) {
+func (m *MockFactory) WorkingSetAtHeight(arg0 context.Context, arg1 uint64, arg2 ...*action.SealedEnvelope) (protocol.StateManager, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WorkingSetAtHeight", arg0, arg1)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "WorkingSetAtHeight", varargs...)
 	ret0, _ := ret[0].(protocol.StateManager)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WorkingSetAtHeight indicates an expected call of WorkingSetAtHeight.
-func (mr *MockFactoryMockRecorder) WorkingSetAtHeight(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockFactoryMockRecorder) WorkingSetAtHeight(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorkingSetAtHeight", reflect.TypeOf((*MockFactory)(nil).WorkingSetAtHeight), arg0, arg1)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorkingSetAtHeight", reflect.TypeOf((*MockFactory)(nil).WorkingSetAtHeight), varargs...)
 }

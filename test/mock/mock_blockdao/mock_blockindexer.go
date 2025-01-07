@@ -35,20 +35,6 @@ func (m *MockBlockIndexer) EXPECT() *MockBlockIndexerMockRecorder {
 	return m.recorder
 }
 
-// DeleteTipBlock mocks base method.
-func (m *MockBlockIndexer) DeleteTipBlock(arg0 context.Context, arg1 *block.Block) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteTipBlock", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteTipBlock indicates an expected call of DeleteTipBlock.
-func (mr *MockBlockIndexerMockRecorder) DeleteTipBlock(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTipBlock", reflect.TypeOf((*MockBlockIndexer)(nil).DeleteTipBlock), arg0, arg1)
-}
-
 // Height mocks base method.
 func (m *MockBlockIndexer) Height() (uint64, error) {
 	m.ctrl.T.Helper()
