@@ -83,6 +83,8 @@ type (
 	CoreService interface {
 		// Account returns the metadata of an account
 		Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error)
+		// Account returns the metadata of an account
+		AccountAt(addr address.Address, height uint64) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error)
 		// ChainMeta returns blockchain metadata
 		ChainMeta() (*iotextypes.ChainMeta, string, error)
 		// ServerMeta gets the server metadata
@@ -352,6 +354,61 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	if state.IsContract() {
 		var code protocol.SerializableBytes
 		_, err = core.sf.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(state.CodeHash))
+		if err != nil {
+			return nil, nil, status.Error(codes.NotFound, err.Error())
+		}
+		accountMeta.ContractByteCode = code
+	}
+	span.AddEvent("bc.BlockHeaderByHeight")
+	header, err := core.bc.BlockHeaderByHeight(tipHeight)
+	if err != nil {
+		return nil, nil, status.Error(codes.NotFound, err.Error())
+	}
+	hash := header.HashBlock()
+	span.AddEvent("coreService.Account.End")
+	return accountMeta, &iotextypes.BlockIdentifier{
+		Hash:   hex.EncodeToString(hash[:]),
+		Height: tipHeight,
+	}, nil
+}
+
+func (core *coreService) AccountAt(addr address.Address, height uint64) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+	ctx, span := tracer.NewSpan(context.Background(), "coreService.Account")
+	defer span.End()
+	addrStr := addr.String()
+	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
+		return core.getProtocolAccount(ctx, addrStr)
+	}
+	span.AddEvent("accountutil.AccountStateWithHeight")
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	ws, err := core.history.StateManagerAt(ctx, height)
+	if err != nil {
+		return nil, nil, status.Error(codes.NotFound, err.Error())
+	}
+	defer ws.Close()
+	state, tipHeight, err := accountutil.AccountStateWithHeight(ctx, ws, addr)
+	if err != nil {
+		return nil, nil, status.Error(codes.NotFound, err.Error())
+	}
+	if core.indexer == nil {
+		return nil, nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+	}
+	span.AddEvent("indexer.GetActionCount")
+	numActions, err := core.indexer.GetActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
+	if err != nil {
+		return nil, nil, status.Error(codes.NotFound, err.Error())
+	}
+	// TODO: deprecate nonce field in account meta
+	accountMeta := &iotextypes.AccountMeta{
+		Address:      addrStr,
+		Balance:      state.Balance.String(),
+		PendingNonce: state.PendingNonce(),
+		NumActions:   numActions,
+		IsContract:   state.IsContract(),
+	}
+	if state.IsContract() {
+		var code protocol.SerializableBytes
+		_, err = ws.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(addr.Bytes()))
 		if err != nil {
 			return nil, nil, status.Error(codes.NotFound, err.Error())
 		}

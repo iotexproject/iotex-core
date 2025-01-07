@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
@@ -401,7 +402,21 @@ func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	var bn = rpc.LatestBlockNumber
+	if bnParam := in.Get("params.1"); bnParam.Exists() {
+		if err = bn.UnmarshalJSON([]byte(bnParam.String())); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal height %s", bnParam.String())
+		}
+		if bn == rpc.PendingBlockNumber {
+			return nil, errors.Wrap(errNotImplemented, "pending block number is not supported")
+		}
+	}
+	var accountMeta *iotextypes.AccountMeta
+	if bn < 0 {
+		accountMeta, _, err = svr.coreService.Account(ioAddr)
+	} else {
+		accountMeta, _, err = svr.coreService.AccountAt(ioAddr, uint64(bn.Int64()))
+	}
 	if err != nil {
 		return nil, err
 	}
