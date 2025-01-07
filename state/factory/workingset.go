@@ -209,20 +209,13 @@ func (ws *workingSet) runAction(
 	defer ws.ResetSnapshots()
 	sn := ws.Snapshot()
 	defer func() {
-		if err != nil {
-			if e := ws.Revert(sn); e != nil {
-				log.T(ctx).Error("Failed to revert snapshot", zap.Error(e))
-				return
-			}
-			if errors.Is(err, action.ErrPanic) {
-				err = errors.Wrap(action.ErrPanicButReverted, err.Error())
-			}
-		}
-	}()
-	defer func() {
 		if r := recover(); r != nil {
 			receipt = nil
-			err = errors.Wrapf(action.ErrPanic, "panic and reverted when running action: %v", r)
+			if e := ws.Revert(sn); e != nil {
+				err = errors.Wrapf(e, "panic and recovered but failed to revert when running action: %v", r)
+				return
+			}
+			err = errors.Wrapf(action.ErrPanicButReverted, "panic and reverted when running action: %v", r)
 		}
 	}()
 	if err := ws.freshAccountConversion(ctx, &actCtx); err != nil {
