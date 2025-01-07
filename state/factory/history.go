@@ -12,15 +12,18 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	erigonstate "github.com/ledgerwatch/erigon/core/state"
 	erigonlog "github.com/ledgerwatch/log/v3"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 const (
@@ -76,7 +79,7 @@ func (h *HistoryStateIndex) Start(ctx context.Context) error {
 		return errors.Wrap(err, "failed to open history state index")
 	}
 	h.rw = rw
-	tx, err := rw.BeginRo(ctx)
+	tx, err := rw.BeginRw(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to begin read transaction")
 	}
@@ -87,7 +90,36 @@ func (h *HistoryStateIndex) Start(ctx context.Context) error {
 	}
 	if !exist {
 		log.L().Info("history state index is empty")
-		return nil
+		ctx = protocol.WithBlockCtx(
+			ctx,
+			protocol.BlockCtx{
+				BlockHeight:    0,
+				BlockTimeStamp: time.Unix(h.sdb.cfg.Genesis.Timestamp, 0),
+				Producer:       h.sdb.cfg.Chain.ProducerAddress(),
+				GasLimit:       h.sdb.cfg.Genesis.BlockGasLimitByHeight(0),
+			})
+		ctx = protocol.WithFeatureCtx(ctx)
+		// init the state factory
+		ws, err := h.sdb.newWorkingSet(ctx, 0)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		r, tsw := erigonstate.NewPlainStateReader(tx), erigonstate.NewPlainStateWriter(tx, tx, 0)
+		intraBlockState := erigonstate.New(r)
+		intraBlockState.SetTrace(true)
+		hws := &historyWorkingSetRo{
+			historyWorkingSet: &historyWorkingSet{
+				workingSet: ws,
+				sw:         tsw,
+				intra:      intraBlockState,
+			},
+		}
+		ctx = protocol.WithRegistry(ctx, h.sdb.registry)
+		if err := hws.CreateGenesisStates(ctx); err != nil {
+			return err
+		}
+		return h.commit(ctx, tx, tsw, intraBlockState, 0, uint64(h.sdb.cfg.Genesis.Timestamp))
 	}
 	heightBytes, err := tx.GetOne(systemNS, heightKey)
 	if err != nil {
@@ -130,7 +162,7 @@ func (h *HistoryStateIndex) PutBlock(ctx context.Context, blk *block.Block) erro
 	intraBlockState := erigonstate.New(r)
 	intraBlockState.SetTrace(true)
 
-	hws := &HistoryWorkingSet{
+	hws := &historyWorkingSet{
 		workingSet: ws,
 		sw:         tsw,
 		intra:      intraBlockState,
@@ -141,15 +173,19 @@ func (h *HistoryStateIndex) PutBlock(ctx context.Context, blk *block.Block) erro
 		return err
 	}
 
+	return h.commit(ctx, tx, tsw, intraBlockState, blk.Height(), uint64(blk.Timestamp().Unix()))
+}
+
+func (h *HistoryStateIndex) commit(ctx context.Context, tx kv.RwTx, tsw *erigonstate.PlainStateWriter, intraBlockState *erigonstate.IntraBlockState, height uint64, ts uint64) error {
 	g := h.sdb.cfg.Genesis
-	chainCfg, err := evm.NewChainConfig(g.Blockchain, blk.Height(), protocol.MustGetBlockchainCtx(ctx).EvmNetworkID, h.getBlockTime)
+	chainCfg, err := evm.NewChainConfig(g.Blockchain, height, protocol.MustGetBlockchainCtx(ctx).EvmNetworkID, h.getBlockTime)
 	if err != nil {
 		return err
 	}
 
-	chainRules := chainCfg.Rules(big.NewInt(int64(blk.Height())), g.IsSumatra(blk.Height()), uint64(blk.Timestamp().Unix()))
+	chainRules := chainCfg.Rules(big.NewInt(int64(height)), g.IsSumatra(height), uint64(ts))
 	rules := evm.NewErigonRules(&chainRules)
-	log.L().Debug("intraBlockState Commit block", zap.Uint64("height", blk.Height()))
+	log.L().Debug("intraBlockState Commit block", zap.Uint64("height", height))
 	err = intraBlockState.CommitBlock(rules, tsw)
 	if err != nil {
 		return err
@@ -164,7 +200,7 @@ func (h *HistoryStateIndex) PutBlock(ctx context.Context, blk *block.Block) erro
 	if err != nil {
 		return err
 	}
-	err = tx.Put(systemNS, heightKey, uint256.NewInt(blk.Height()).Bytes())
+	err = tx.Put(systemNS, heightKey, uint256.NewInt(height).Bytes())
 	if err != nil {
 		return err
 	}
@@ -172,11 +208,11 @@ func (h *HistoryStateIndex) PutBlock(ctx context.Context, blk *block.Block) erro
 	if err != nil {
 		return err
 	}
-	atomic.StoreUint64(&h.height, blk.Height())
+	atomic.StoreUint64(&h.height, height)
 	return nil
 }
 
-func (h *HistoryStateIndex) StateManagerAt(ctx context.Context, height uint64) (*HistoryWorkingSet, error) {
+func (h *HistoryStateIndex) StateManagerAt(ctx context.Context, height uint64) (*historyWorkingSetRo, error) {
 	ws, err := h.sdb.newWorkingSet(ctx, height)
 	if err != nil {
 		return nil, err
@@ -187,34 +223,36 @@ func (h *HistoryStateIndex) StateManagerAt(ctx context.Context, height uint64) (
 	}
 	tsw := erigonstate.NewPlainState(tx, height, nil)
 	intraBlockState := erigonstate.New(tsw)
-	return &HistoryWorkingSet{
-		workingSet: ws,
-		sw:         tsw,
-		intra:      intraBlockState,
-		cleanup:    func() { tx.Rollback() },
+	return &historyWorkingSetRo{
+		historyWorkingSet: &historyWorkingSet{
+			workingSet: ws,
+			sw:         tsw,
+			intra:      intraBlockState,
+			cleanup:    func() { tx.Rollback() },
+		},
 	}, nil
 }
 
-type HistoryWorkingSet struct {
+type historyWorkingSet struct {
 	*workingSet
 	sw      erigonstate.StateWriter
 	intra   *erigonstate.IntraBlockState
 	cleanup func()
 }
 
-func (hws *HistoryWorkingSet) StateWriter() erigonstate.StateWriter {
+func (hws *historyWorkingSet) StateWriter() erigonstate.StateWriter {
 	return hws.sw
 }
 
-func (hws *HistoryWorkingSet) Intra() *erigonstate.IntraBlockState {
+func (hws *historyWorkingSet) Intra() *erigonstate.IntraBlockState {
 	return hws.intra
 }
 
-func (hws *HistoryWorkingSet) Close() {
+func (hws *historyWorkingSet) Close() {
 	hws.cleanup()
 }
 
-func (ws *HistoryWorkingSet) processWithCorrectOrder(ctx context.Context, actions []*action.SealedEnvelope) error {
+func (ws *historyWorkingSet) processWithCorrectOrder(ctx context.Context, actions []*action.SealedEnvelope) error {
 	reg := protocol.MustGetRegistry(ctx)
 	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
@@ -250,7 +288,7 @@ func (ws *HistoryWorkingSet) processWithCorrectOrder(ctx context.Context, action
 	return nil
 }
 
-func (ws *HistoryWorkingSet) runAction(
+func (ws *historyWorkingSet) runAction(
 	ctx context.Context,
 	selp *action.SealedEnvelope,
 ) (*action.Receipt, error) {
@@ -296,4 +334,97 @@ func (ws *HistoryWorkingSet) runAction(
 		}
 	}
 	return nil, errors.New("receipt is empty")
+}
+
+func (ws *historyWorkingSet) PutState(s interface{}, opts ...protocol.StateOption) (uint64, error) {
+	h, err := ws.workingSet.PutState(s, opts...)
+	if err != nil {
+		return h, err
+	}
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return h, err
+	}
+	if cfg.Namespace != AccountKVNamespace {
+		return h, nil
+	}
+	if acc, ok := s.(*state.Account); ok {
+		addr := libcommon.Address(cfg.Key)
+		if !ws.intra.Exist(addr) {
+			ws.intra.CreateAccount(addr, false)
+		}
+		ws.intra.SetBalance(addr, uint256.MustFromBig(acc.Balance))
+		ws.intra.SetNonce(addr, acc.PendingNonce()) // TODO(erigon): not sure if this is correct
+	}
+	return h, nil
+}
+
+type historyWorkingSetRo struct {
+	*historyWorkingSet
+}
+
+func (ws *historyWorkingSetRo) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return ws.height, err
+	}
+	if cfg.Keys != nil {
+		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
+	}
+	switch cfg.Namespace {
+	case AccountKVNamespace:
+		if acc, ok := s.(*state.Account); ok {
+			addr := libcommon.Address(cfg.Key)
+			if !ws.intra.Exist(addr) {
+				return ws.height, state.ErrStateNotExist
+			}
+			balance := ws.intra.GetBalance(addr)
+			acc.Balance = balance.ToBig()
+			acc.SetPendingNonce(ws.intra.GetNonce(addr))
+			if ch := ws.intra.GetCodeHash(addr); len(ch) > 0 {
+				acc.CodeHash = ws.intra.GetCodeHash(addr).Bytes()
+			}
+			return ws.height, nil
+		}
+	case evm.CodeKVNameSpace:
+		addr := libcommon.Address(cfg.Key)
+		if !ws.intra.Exist(addr) {
+			return ws.height, state.ErrStateNotExist
+		}
+		return ws.height, state.Deserialize(s, ws.intra.GetCode(addr))
+	}
+	return ws.historyWorkingSet.State(s, opts...)
+}
+
+func (ws *historyWorkingSetRo) CreateGenesisStates(ctx context.Context) error {
+	if reg, ok := protocol.GetRegistry(ctx); ok {
+		for _, p := range reg.All() {
+			if gsc, ok := p.(*account.Protocol); ok {
+				if err := gsc.CreateGenesisStates(ctx, ws); err != nil {
+					return errors.Wrap(err, "failed to create genesis states for protocol")
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (ws *historyWorkingSetRo) PutState(s interface{}, opts ...protocol.StateOption) (uint64, error) {
+	h := ws.height
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return h, err
+	}
+	if cfg.Namespace != AccountKVNamespace {
+		return h, nil
+	}
+	if acc, ok := s.(*state.Account); ok {
+		addr := libcommon.Address(cfg.Key)
+		if !ws.intra.Exist(addr) {
+			ws.intra.CreateAccount(addr, false)
+		}
+		ws.intra.SetBalance(addr, uint256.MustFromBig(acc.Balance))
+		ws.intra.SetNonce(addr, acc.PendingNonce()) // TODO(erigon): not sure if this is correct
+	}
+	return h, nil
 }

@@ -128,7 +128,7 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockStore, indexers []BlockIndexe
 
 // Start starts block DAO and initiates the top height if it doesn't exist
 func (dao *blockDAO) Start(ctx context.Context) error {
-	err := dao.lifecycle.OnStart(ctx)
+	err := dao.lifecycle.OnStartSequentially(ctx) // ensure block store is started first and then history index
 	if err != nil {
 		return errors.Wrap(err, "failed to start child services")
 	}

@@ -117,6 +117,7 @@ func NewFileDAOInMemForTest() (FileDAO, error) {
 }
 
 func (fd *fileDAO) Start(ctx context.Context) error {
+	log.L().Info("Start filedao")
 	if fd.legacyFd != nil {
 		if err := fd.legacyFd.Start(ctx); err != nil {
 			return err
