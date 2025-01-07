@@ -253,11 +253,10 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.unsubscribe(web3Req)
 	case "eth_getBlobSidecars":
 		res, err = svr.getBlobSidecars(web3Req)
-	//TODO: enable debug api after archive mode is supported
-	// case "debug_traceTransaction":
-	// 	res, err = svr.traceTransaction(ctx, web3Req)
-	// case "debug_traceCall":
-	// 	res, err = svr.traceCall(ctx, web3Req)
+	case "debug_traceTransaction":
+		res, err = svr.traceTransaction(ctx, web3Req)
+	case "debug_traceCall":
+		res, err = svr.traceCall(ctx, web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
 		"eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex",
 		"eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
@@ -412,7 +411,20 @@ func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	bnParam := in.Get("params.1")
+	bn, err := parseBlockNumber(&bnParam)
+	if err != nil {
+		return nil, err
+	}
+	var (
+		accountMeta     *iotextypes.AccountMeta
+		height, archive = blockNumberToHeight(bn)
+	)
+	if !archive {
+		accountMeta, _, err = svr.coreService.Account(ioAddr)
+	} else {
+		accountMeta, _, err = svr.coreService.WithHeight(height).Account(ioAddr)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -480,9 +492,18 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		}
 		return "0x" + ret, nil
 	}
-	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(to, callMsg.Value, data)).
-		SetGasLimit(callMsg.Gas).Build()
-	ret, receipt, err := svr.coreService.ReadContract(ctx, callMsg.From, elp)
+	var (
+		elp = (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(to, callMsg.Value, data)).
+			SetGasLimit(callMsg.Gas).Build()
+		ret             string
+		receipt         *iotextypes.Receipt
+		height, archive = blockNumberToHeight(callMsg.BlockNumber)
+	)
+	if !archive {
+		ret, receipt, err = svr.coreService.ReadContract(context.Background(), callMsg.From, elp)
+	} else {
+		ret, receipt, err = svr.coreService.WithHeight(height).ReadContract(context.Background(), callMsg.From, elp)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1131,18 +1152,10 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		err     error
 		callMsg *callMsg
 	)
-	blkNumOrHashObj, options := in.Get("params.1"), in.Get("params.2")
+	options := in.Get("params.2")
 	callMsg, err = parseCallObject(in)
 	if err != nil {
 		return nil, err
-	}
-
-	var blkNumOrHash any
-	if blkNumOrHashObj.Exists() {
-		blkNumOrHash = blkNumOrHashObj.Get("blockHash").String()
-		if blkNumOrHash == "" {
-			blkNumOrHash = blkNumOrHashObj.Get("blockNumber").Uint()
-		}
 	}
 
 	var (
@@ -1175,8 +1188,17 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 			EnableReturnData: enableReturnData,
 		},
 	}
-
-	retval, receipt, tracer, err := svr.coreService.TraceCall(ctx, callMsg.From, blkNumOrHash, callMsg.To, 0, callMsg.Value, callMsg.Gas, callMsg.Data, cfg)
+	var (
+		retval  []byte
+		receipt *action.Receipt
+		tracer  any
+	)
+	height, archive := blockNumberToHeight(callMsg.BlockNumber)
+	if !archive {
+		retval, receipt, tracer, err = svr.coreService.TraceCall(ctx, callMsg.From, callMsg.To, 0, callMsg.Value, callMsg.Gas, callMsg.Data, cfg)
+	} else {
+		retval, receipt, tracer, err = svr.coreService.WithHeight(height).TraceCall(ctx, callMsg.From, callMsg.To, 0, callMsg.Value, callMsg.Gas, callMsg.Data, cfg)
+	}
 	if err != nil {
 		return nil, err
 	}

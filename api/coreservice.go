@@ -65,6 +65,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/pkg/version"
 	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -81,6 +82,7 @@ const (
 type (
 	// CoreService provides api interface for user to interact with blockchain data
 	CoreService interface {
+		WithHeight(uint64) CoreServiceReaderWithHeight
 		// Account returns the metadata of an account
 		Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error)
 		// ChainMeta returns blockchain metadata
@@ -172,17 +174,10 @@ type (
 		// BlockHashByBlockHeight returns block hash by block height
 		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
 		// TraceTransaction returns the trace result of a transaction
-		TraceTransaction(ctx context.Context, actHash string, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error)
+		TraceTransaction(context.Context, string, *tracers.TraceConfig) ([]byte, *action.Receipt, any, error)
 		// TraceCall returns the trace result of a call
-		TraceCall(ctx context.Context,
-			callerAddr address.Address,
-			blkNumOrHash any,
-			contractAddress string,
-			nonce uint64,
-			amount *big.Int,
-			gasLimit uint64,
-			data []byte,
-			config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error)
+		TraceCall(context.Context, address.Address, string, uint64, *big.Int, uint64, []byte,
+			*tracers.TraceConfig) ([]byte, *action.Receipt, any, error)
 
 		// Track tracks the api call
 		Track(ctx context.Context, start time.Time, method string, size int64, success bool)
@@ -202,6 +197,7 @@ type (
 		gs                *gasstation.GasStation
 		broadcastHandler  BroadcastOutbound
 		cfg               Config
+		archiveSupported  bool
 		registry          *protocol.Registry
 		chainListener     apitypes.Listener
 		electionCommittee committee.Committee
@@ -245,13 +241,20 @@ func WithAPIStats(stats *nodestats.APILocalStats) Option {
 	}
 }
 
+// WithArchiveSupport is the option to enable archive support
+func WithArchiveSupport() Option {
+	return func(svr *coreService) {
+		svr.archiveSupported = true
+	}
+}
+
 type intrinsicGasCalculator interface {
 	IntrinsicGas() (uint64, error)
 }
 
 var (
-	// ErrNotFound indicates the record isn't found
-	ErrNotFound = errors.New("not found")
+	ErrNotFound            = errors.New("not found")
+	ErrArchiveNotSupported = errors.New("archive-mode not supported")
 )
 
 // newcoreService creates a api server that contains major blockchain components
@@ -305,6 +308,10 @@ func newCoreService(
 	return &core, nil
 }
 
+func (core *coreService) WithHeight(height uint64) CoreServiceReaderWithHeight {
+	return newCoreServiceWithHeight(core, height)
+}
+
 // Account returns the metadata of an account
 func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
 	ctx, span := tracer.NewSpan(context.Background(), "coreService.Account")
@@ -324,9 +331,14 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
+	return core.acccount(ctx, tipHeight, state, pendingNonce, addr)
+}
+
+func (core *coreService) acccount(ctx context.Context, height uint64, state *state.Account, pendingNonce uint64, addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
 	if core.indexer == nil {
 		return nil, nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
+	span := tracer.SpanFromContext(ctx)
 	span.AddEvent("indexer.GetActionCount")
 	numActions, err := core.indexer.GetActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
 	if err != nil {
@@ -334,7 +346,7 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	}
 	// TODO: deprecate nonce field in account meta
 	accountMeta := &iotextypes.AccountMeta{
-		Address:      addrStr,
+		Address:      addr.String(),
 		Balance:      state.Balance.String(),
 		PendingNonce: pendingNonce,
 		NumActions:   numActions,
@@ -349,7 +361,7 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 		accountMeta.ContractByteCode = code
 	}
 	span.AddEvent("bc.BlockHeaderByHeight")
-	header, err := core.bc.BlockHeaderByHeight(tipHeight)
+	header, err := core.bc.BlockHeaderByHeight(height)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -357,7 +369,7 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	span.AddEvent("coreService.Account.End")
 	return accountMeta, &iotextypes.BlockIdentifier{
 		Hash:   hex.EncodeToString(hash[:]),
-		Height: tipHeight,
+		Height: height,
 	}, nil
 }
 
@@ -520,7 +532,21 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	if !ok {
 		return "", nil, status.Error(codes.InvalidArgument, "expecting action.Execution")
 	}
-	key := hash.Hash160b(append([]byte(exec.Contract()), exec.Data()...))
+	var (
+		tipHeight = core.bc.TipHeight()
+		hdBytes   = append(byteutil.Uint64ToBytesBigEndian(tipHeight), []byte(exec.Contract())...)
+		key       = hash.Hash160b(append(hdBytes, exec.Data()...))
+	)
+	return core.readContract(ctx, key, tipHeight, false, callerAddr, elp)
+}
+
+func (core *coreService) readContract(
+	ctx context.Context,
+	key hash.Hash160,
+	height uint64,
+	archive bool,
+	callerAddr address.Address,
+	elp action.Envelope) (string, *iotextypes.Receipt, error) {
 	// TODO: either moving readcache into the upper layer or change the storage format
 	if d, ok := core.readCache.Get(key); ok {
 		res := iotexapi.ReadContractResponse{}
@@ -530,12 +556,12 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	}
 	var (
 		g             = core.bc.Genesis()
-		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+		blockGasLimit = g.BlockGasLimitByHeight(height)
 	)
 	if elp.Gas() == 0 || blockGasLimit < elp.Gas() {
 		elp.SetGas(blockGasLimit)
 	}
-	retval, receipt, err := core.simulateExecution(ctx, callerAddr, elp)
+	retval, receipt, err := core.simulateExecution(ctx, height, archive, callerAddr, elp)
 	if err != nil {
 		return "", nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1680,7 +1706,7 @@ func (core *coreService) isGasLimitEnough(
 ) (bool, *action.Receipt, []byte, error) {
 	ctx, span := tracer.NewSpan(ctx, "Server.isGasLimitEnough")
 	defer span.End()
-	ret, receipt, err := core.simulateExecution(ctx, caller, elp, opts...)
+	ret, receipt, err := core.simulateExecution(ctx, core.bc.TipHeight(), false, caller, elp, opts...)
 	if err != nil {
 		return false, nil, nil, err
 	}
@@ -1825,10 +1851,11 @@ func (core *coreService) ReceiveBlock(blk *block.Block) error {
 func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, elp action.Envelope) ([]byte, *action.Receipt, error) {
 	var (
 		g             = core.bc.Genesis()
-		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+		tipHeight     = core.bc.TipHeight()
+		blockGasLimit = g.BlockGasLimitByHeight(tipHeight)
 	)
 	elp.SetGas(blockGasLimit)
-	return core.simulateExecution(ctx, addr, elp)
+	return core.simulateExecution(ctx, tipHeight, false, addr, elp)
 }
 
 // SyncingProgress returns the syncing status of node
@@ -1839,6 +1866,9 @@ func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
 
 // TraceTransaction returns the trace result of transaction
 func (core *coreService) TraceTransaction(ctx context.Context, actHash string, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
+	if !core.archiveSupported {
+		return nil, nil, nil, ErrArchiveNotSupported
+	}
 	actInfo, err := core.Action(util.Remove0xPrefix(actHash), false)
 	if err != nil {
 		return nil, nil, nil, err
@@ -1850,16 +1880,73 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	if _, ok := act.Action().(*action.Execution); !ok {
 		return nil, nil, nil, errors.New("the type of action is not supported")
 	}
-	addr, _ := address.FromString(address.ZeroAddress)
+	blk, err := core.dao.GetBlockByHeight(actInfo.BlkHeight)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	var (
+		preActs  = make([]*action.SealedEnvelope, 0)
+		actExist bool
+	)
+	hash, err := act.Hash()
+	if err != nil {
+		return nil, nil, nil, status.Error(codes.Internal, err.Error())
+	}
+	for i := range blk.Actions {
+		shash, err := blk.Actions[i].Hash()
+		if err != nil {
+			return nil, nil, nil, status.Error(codes.Internal, err.Error())
+		}
+		if bytes.Equal(shash[:], hash[:]) {
+			actExist = true
+			break
+		}
+		preActs = append(preActs, blk.Actions[i])
+	}
+	if !actExist {
+		return nil, nil, nil, status.Errorf(codes.InvalidArgument, "action %s does not exist in block %d", actHash, actInfo.BlkHeight)
+	}
+	// generate the working set just before the target action
+	ctx, err = core.bc.ContextAtHeight(ctx, actInfo.BlkHeight-1)
+	if err != nil {
+		return nil, nil, nil, status.Error(codes.Internal, err.Error())
+	}
+	ws, err := core.sf.WorkingSetAtHeight(ctx, actInfo.BlkHeight-1, preActs...)
+	if err != nil {
+		return nil, nil, nil, status.Error(codes.Internal, err.Error())
+	}
+	g := core.bc.Genesis()
+	ctx = protocol.WithBlockCtx(protocol.WithRegistry(ctx, core.registry), protocol.BlockCtx{
+		BlockHeight:    blk.Height(),
+		BlockTimeStamp: blk.Timestamp(),
+		GasLimit:       g.BlockGasLimitByHeight(actInfo.BlkHeight),
+		Producer:       blk.PublicKey().Address(),
+	})
+	intrinsicGas, err := act.IntrinsicGas()
+	if err != nil {
+		return nil, nil, nil, status.Error(codes.Internal, err.Error())
+	}
+	ctx = protocol.WithFeatureCtx(protocol.WithActionCtx(ctx,
+		protocol.ActionCtx{
+			Caller:       act.SenderAddress(),
+			ActionHash:   hash,
+			GasPrice:     act.GasPrice(),
+			IntrinsicGas: intrinsicGas,
+			Nonce:        act.Nonce(),
+		}))
 	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-		return core.simulateExecution(ctx, addr, act.Envelope)
+		ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+			GetBlockHash:   core.dao.GetBlockHash,
+			GetBlockTime:   core.getBlockTime,
+			DepositGasFunc: rewarding.DepositGas,
+		})
+		return evm.ExecuteContract(ctx, ws, act.Envelope)
 	})
 }
 
 // TraceCall returns the trace result of call
 func (core *coreService) TraceCall(ctx context.Context,
 	callerAddr address.Address,
-	blkNumOrHash any,
 	contractAddress string,
 	nonce uint64,
 	amount *big.Int,
@@ -1880,7 +1967,7 @@ func (core *coreService) TraceCall(ctx context.Context,
 	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(contractAddress, amount, data)).
 		SetGasLimit(gasLimit).Build()
 	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-		return core.simulateExecution(ctx, callerAddr, elp)
+		return core.simulateExecution(ctx, core.bc.TipHeight(), false, callerAddr, elp)
 	})
 }
 
@@ -1939,20 +2026,42 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 	return retval, receipt, tracer, err
 }
 
-func (core *coreService) simulateExecution(ctx context.Context, addr address.Address, elp action.Envelope, opts ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
-	ctx, err := core.bc.Context(ctx)
+func (core *coreService) simulateExecution(
+	ctx context.Context,
+	height uint64,
+	archive bool,
+	addr address.Address,
+	elp action.Envelope,
+	opts ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
+	var (
+		err error
+		ws  protocol.StateManager
+	)
+	if archive {
+		ctx, err = core.bc.ContextAtHeight(ctx, height)
+		if err != nil {
+			return nil, nil, status.Error(codes.Internal, err.Error())
+		}
+		ws, err = core.sf.WorkingSetAtHeight(ctx, height)
+	} else {
+		ctx, err = core.bc.Context(ctx)
+		if err != nil {
+			return nil, nil, status.Error(codes.Internal, err.Error())
+		}
+		ws, err = core.sf.WorkingSet(ctx)
+	}
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
-	state, err := accountutil.AccountState(ctx, core.sf, addr)
+	state, err := accountutil.AccountState(ctx, ws, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	var pendingNonce uint64
 	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: core.bc.TipHeight(),
+		BlockHeight: height,
 	}))
-	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
 		pendingNonce = state.PendingNonceConsideringFreshAccount()
 	} else {
 		pendingNonce = state.PendingNonce()
@@ -1963,10 +2072,6 @@ func (core *coreService) simulateExecution(ctx context.Context, addr address.Add
 		GetBlockTime:   core.getBlockTime,
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	ws, err := core.sf.WorkingSet(ctx)
-	if err != nil {
-		return nil, nil, status.Error(codes.Internal, err.Error())
-	}
 	return evm.SimulateExecution(ctx, ws, addr, elp, opts...)
 }
 

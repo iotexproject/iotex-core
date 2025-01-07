@@ -10,8 +10,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-
-	"github.com/iotexproject/iotex-core/v2/test/mock/mock_apicoreservice"
 )
 
 func TestParseCallObject(t *testing.T) {
@@ -153,7 +151,7 @@ func TestParseBlockNumber(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 
 	t.Run("earliest block number", func(t *testing.T) {
