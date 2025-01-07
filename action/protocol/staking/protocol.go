@@ -94,6 +94,7 @@ type (
 		MinStakeAmount                   *big.Int
 		BootstrapCandidates              []genesis.BootstrapCandidate
 		PersistStakingPatchBlock         uint64
+		FixAliasForNonStopHeight         uint64
 		EndorsementWithdrawWaitingBlocks uint64
 		MigrateContractAddress           string
 	}
@@ -167,6 +168,7 @@ func NewProtocol(
 			MinStakeAmount:                   minStakeAmount,
 			BootstrapCandidates:              cfg.Staking.BootstrapCandidates,
 			PersistStakingPatchBlock:         cfg.PersistStakingPatchBlock,
+			FixAliasForNonStopHeight:         cfg.FixAliasForNonStopHeight,
 			EndorsementWithdrawWaitingBlocks: cfg.Staking.EndorsementWithdrawWaitingBlocks,
 			MigrateContractAddress:           migrateContractAddress,
 		},
@@ -277,10 +279,12 @@ func (p *Protocol) CreateGenesisStates(
 
 // CreatePreStates updates state manager
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
-	g := genesis.MustExtractGenesisContext(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	var (
+		g                    = genesis.MustExtractGenesisContext(ctx)
+		blkCtx               = protocol.MustGetBlockCtx(ctx)
+		featureCtx           = protocol.MustGetFeatureCtx(ctx)
+		featureWithHeightCtx = protocol.MustGetFeatureWithHeightCtx(ctx)
+	)
 	if blkCtx.BlockHeight == g.GreenlandBlockHeight {
 		csr, err := ConstructBaseView(sm)
 		if err != nil {
@@ -290,7 +294,17 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			return err
 		}
 	}
-
+	if blkCtx.BlockHeight == p.config.FixAliasForNonStopHeight {
+		csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(blkCtx.BlockHeight))
+		if err != nil {
+			return err
+		}
+		base := csm.DirtyView().candCenter.base
+		owners := base.all()
+		if err := base.loadNameOperatorMapOwnerList(owners, owners, nil); err != nil {
+			return err
+		}
+	}
 	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
 		csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(blkCtx.BlockHeight))
 		if err != nil {
