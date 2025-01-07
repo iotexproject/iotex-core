@@ -118,8 +118,7 @@ type actPool struct {
 	jobQueue          []chan workerJob
 	worker            []*queueWorker
 	subs              []Subscriber
-
-	store *actionStore // store is the persistent cache for actpool
+	store             *actionStore // store is the persistent cache for actpool
 }
 
 // NewActPool constructs a new actpool
