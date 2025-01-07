@@ -119,6 +119,10 @@ ioctl [command]
 
 Refer to [CLI document](https://docs.iotex.io/developer/ioctl/install.html) for more details.
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=iotexproject/iotex-core&type=Date)](https://star-history.com/#iotexproject/iotex-core&Date)
+
 ## Contact
 
 - Mailing list: [iotex-dev](iotex-dev@iotex.io)

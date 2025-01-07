@@ -7,6 +7,7 @@ package blockdao
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/hex"
 	"fmt"
 	"sync/atomic"
@@ -15,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -57,8 +59,10 @@ func (gbd *GrpcBlockDAO) Start(ctx context.Context) error {
 	opts := []grpc.DialOption{}
 	if gbd.insecure {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
 	}
-	gbd.conn, err = grpc.Dial(gbd.url, opts...)
+	gbd.conn, err = grpc.NewClient(gbd.url, opts...)
 	if err != nil {
 		return err
 	}

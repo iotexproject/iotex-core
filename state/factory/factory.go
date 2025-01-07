@@ -86,9 +86,8 @@ type (
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
 		PutBlock(context.Context, *block.Block) error
-		DeleteTipBlock(context.Context, *block.Block) error
 		WorkingSet(context.Context) (protocol.StateManager, error)
-		WorkingSetAtHeight(context.Context, uint64) (protocol.StateManager, error)
+		WorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManager, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -409,16 +408,29 @@ func (sf *factory) WorkingSet(ctx context.Context) (protocol.StateManager, error
 	return sf.newWorkingSet(ctx, sf.currentChainHeight+1)
 }
 
-func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManager, error) {
+func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManager, error) {
 	if !sf.saveHistory {
 		return nil, ErrNoArchiveData
 	}
 	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
 	if height > sf.currentChainHeight {
+		sf.mutex.Unlock()
 		return nil, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
 	}
-	return sf.newWorkingSetAtHeight(ctx, height)
+	ws, err := sf.newWorkingSetAtHeight(ctx, height)
+	sf.mutex.Unlock()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+	if len(preacts) == 0 {
+		return ws, nil
+	}
+	// prepare workingset at height, and run acts
+	ws.height++
+	if err := ws.Process(ctx, preacts); err != nil {
+		return nil, err
+	}
+	return ws, nil
 }
 
 // PutBlock persists all changes in RunActions() into the DB
@@ -478,10 +490,6 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-func (sf *factory) DeleteTipBlock(_ context.Context, _ *block.Block) error {
-	return errors.Wrap(ErrNotSupported, "cannot delete tip block from factory")
-}
-
 // State returns a confirmed state in the state factory
 func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	sf.mutex.RLock()
@@ -504,7 +512,7 @@ func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, e
 	return sf.currentChainHeight, state.Deserialize(s, value)
 }
 
-// State returns a set states in the state factory
+// States returns a set states in the state factory
 func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
