@@ -11,7 +11,6 @@ import (
 	"sort"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -30,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
-	"github.com/iotexproject/iotex-core/v2/pkg/routine"
 	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
 )
 
@@ -120,9 +118,7 @@ type actPool struct {
 	jobQueue          []chan workerJob
 	worker            []*queueWorker
 	subs              []Subscriber
-
-	store     *actionStore           // store is the persistent cache for actpool
-	storeSync *routine.RecurringTask // storeSync is the recurring task to sync actions from store to memory
+	store             *actionStore // store is the persistent cache for actpool
 }
 
 // NewActPool constructs a new actpool
@@ -201,7 +197,7 @@ func (ap *actPool) Start(ctx context.Context) error {
 			log.L().Info("Failed to load action from store", zap.Error(err))
 		}
 	}
-	return ap.storeSync.Start(ctx)
+	return nil
 }
 
 func (ap *actPool) Stop(ctx context.Context) error {
@@ -211,7 +207,6 @@ func (ap *actPool) Stop(ctx context.Context) error {
 		}
 	}
 	if ap.store != nil {
-		ap.storeSync.Stop(ctx)
 		return ap.store.Close()
 	}
 	return nil
@@ -546,28 +541,6 @@ func (ap *actPool) allocatedWorker(senderAddr address.Address) int {
 	senderBytes := senderAddr.Bytes()
 	var lastByte uint8 = senderBytes[len(senderBytes)-1]
 	return int(lastByte) % _numWorker
-}
-
-func (ap *actPool) syncFromStore() {
-	if ap.store == nil {
-		return
-	}
-	ap.store.Range(func(h hash.Hash256) bool {
-		if _, exist := ap.allActions.Get(h); !exist {
-			act, err := ap.store.Get(h)
-			if err != nil {
-				log.L().Warn("Failed to get action from store", zap.Error(err))
-				return true
-			}
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			if err := ap.add(ctx, act); err != nil {
-				log.L().Warn("Failed to add action to pool", zap.Error(err))
-				return true
-			}
-		}
-		return true
-	})
 }
 
 func (ap *actPool) AddSubscriber(sub Subscriber) {
