@@ -348,13 +348,14 @@ func (ws *historyWorkingSet) PutState(s interface{}, opts ...protocol.StateOptio
 	if cfg.Namespace != AccountKVNamespace {
 		return h, nil
 	}
-	acc := s.(*state.Account)
-	addr := libcommon.Address(cfg.Key)
-	if !ws.intra.Exist(addr) {
-		ws.intra.CreateAccount(addr, false)
+	if acc, ok := s.(*state.Account); ok {
+		addr := libcommon.Address(cfg.Key)
+		if !ws.intra.Exist(addr) {
+			ws.intra.CreateAccount(addr, false)
+		}
+		ws.intra.SetBalance(addr, uint256.MustFromBig(acc.Balance))
+		ws.intra.SetNonce(addr, acc.PendingNonce()) // TODO(erigon): not sure if this is correct
 	}
-	ws.intra.SetBalance(addr, uint256.MustFromBig(acc.Balance))
-	ws.intra.SetNonce(addr, acc.PendingNonce()) // TODO(erigon): not sure if this is correct
 	return h, nil
 }
 
@@ -372,29 +373,27 @@ func (ws *historyWorkingSetRo) State(s interface{}, opts ...protocol.StateOption
 	}
 	switch cfg.Namespace {
 	case AccountKVNamespace:
-		acc := s.(*state.Account)
-		addr := libcommon.Address(cfg.Key)
-		if !ws.intra.Exist(addr) {
-			return ws.height, state.ErrStateNotExist
-		}
-		balance := ws.intra.GetBalance(addr)
-		acc.Balance = balance.ToBig()
-		acc.SetPendingNonce(ws.intra.GetNonce(addr))
-		if ch := ws.intra.GetCodeHash(addr); len(ch) > 0 {
-			acc.CodeHash = ws.intra.GetCodeHash(addr).Bytes()
+		if acc, ok := s.(*state.Account); ok {
+			addr := libcommon.Address(cfg.Key)
+			if !ws.intra.Exist(addr) {
+				return ws.height, state.ErrStateNotExist
+			}
+			balance := ws.intra.GetBalance(addr)
+			acc.Balance = balance.ToBig()
+			acc.SetPendingNonce(ws.intra.GetNonce(addr))
+			if ch := ws.intra.GetCodeHash(addr); len(ch) > 0 {
+				acc.CodeHash = ws.intra.GetCodeHash(addr).Bytes()
+			}
+			return ws.height, nil
 		}
 	case evm.CodeKVNameSpace:
 		addr := libcommon.Address(cfg.Key)
 		if !ws.intra.Exist(addr) {
 			return ws.height, state.ErrStateNotExist
 		}
-		if err = state.Deserialize(s, ws.intra.GetCode(addr)); err != nil {
-			return ws.height, err
-		}
-	default:
-		return ws.historyWorkingSet.State(s, opts...)
+		return ws.height, state.Deserialize(s, ws.intra.GetCode(addr))
 	}
-	return ws.height, nil
+	return ws.historyWorkingSet.State(s, opts...)
 }
 
 func (ws *historyWorkingSetRo) CreateGenesisStates(ctx context.Context) error {
@@ -419,12 +418,13 @@ func (ws *historyWorkingSetRo) PutState(s interface{}, opts ...protocol.StateOpt
 	if cfg.Namespace != AccountKVNamespace {
 		return h, nil
 	}
-	acc := s.(*state.Account)
-	addr := libcommon.Address(cfg.Key)
-	if !ws.intra.Exist(addr) {
-		ws.intra.CreateAccount(addr, false)
+	if acc, ok := s.(*state.Account); ok {
+		addr := libcommon.Address(cfg.Key)
+		if !ws.intra.Exist(addr) {
+			ws.intra.CreateAccount(addr, false)
+		}
+		ws.intra.SetBalance(addr, uint256.MustFromBig(acc.Balance))
+		ws.intra.SetNonce(addr, acc.PendingNonce()) // TODO(erigon): not sure if this is correct
 	}
-	ws.intra.SetBalance(addr, uint256.MustFromBig(acc.Balance))
-	ws.intra.SetNonce(addr, acc.PendingNonce()) // TODO(erigon): not sure if this is correct
 	return h, nil
 }
