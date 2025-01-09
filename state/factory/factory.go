@@ -356,7 +356,7 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 		if err := ws.ValidateBlock(ctx, blk); err != nil {
 			return errors.Wrap(err, "failed to validate block with workingset in factory")
 		}
-		sf.putIntoWorkingSets(key, ws)
+		sf.workingsets.Add(key, ws)
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
@@ -398,7 +398,7 @@ func (sf *factory) NewBlockBuilder(
 
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
-	sf.putIntoWorkingSets(key, ws)
+	sf.workingsets.Add(key, ws)
 	return blkBuilder, nil
 }
 
@@ -590,10 +590,4 @@ func (sf *factory) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*w
 		return nil, false, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 	return ws, false, nil
-}
-
-func (sf *factory) putIntoWorkingSets(key hash.Hash256, ws *workingSet) {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
-	sf.workingsets.Add(key, ws)
 }
