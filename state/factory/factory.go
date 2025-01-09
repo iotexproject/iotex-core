@@ -269,7 +269,9 @@ func (sf *factory) PutBlockHeader(header *block.Header) {
 	sf.chamber.PutBlockHeader(header)
 }
 
-func (sf *factory) CancelBlock(height uint64) {}
+func (sf *factory) CancelBlock(height uint64) {
+	sf.chamber.AbandonWorkingSets(height)
+}
 
 func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
 	span := tracer.SpanFromContext(ctx)
@@ -289,7 +291,11 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	if err != nil {
 		return nil, err
 	}
-	return sf.createSfWorkingSet(ctx, height, store)
+	var parent *workingSet
+	if height > 0 {
+		parent = sf.chamber.GetWorkingSet(height - 1)
+	}
+	return sf.createSfWorkingSet(ctx, height, store, parent)
 }
 
 func (sf *factory) newWorkingSetAtHeight(ctx context.Context, height uint64) (*workingSet, error) {
@@ -310,10 +316,10 @@ func (sf *factory) newWorkingSetAtHeight(ctx context.Context, height uint64) (*w
 	if err != nil {
 		return nil, err
 	}
-	return sf.createSfWorkingSet(ctx, height, store)
+	return sf.createSfWorkingSet(ctx, height, store, nil)
 }
 
-func (sf *factory) createSfWorkingSet(ctx context.Context, height uint64, store workingSetStore) (*workingSet, error) {
+func (sf *factory) createSfWorkingSet(ctx context.Context, height uint64, store workingSetStore, parent *workingSet) (*workingSet, error) {
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
@@ -328,7 +334,7 @@ func (sf *factory) createSfWorkingSet(ctx context.Context, height uint64, store 
 			}
 		}
 	}
-	return newWorkingSet(height, store), nil
+	return newWorkingSet(height, store, parent), nil
 }
 
 func (sf *factory) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
@@ -394,7 +400,7 @@ func (sf *factory) NewBlockBuilder(
 ) (*block.Builder, error) {
 	sf.mutex.Lock()
 	ctx = protocol.WithRegistry(ctx, sf.registry)
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+	ws, err := sf.newWorkingSet(ctx, sf.chamber.OngoingBlockHeight()+1)
 	sf.mutex.Unlock()
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
@@ -454,19 +460,34 @@ func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64, preact
 }
 
 // PutBlock persists all changes in RunActions() into the DB
-func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
+func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) (err error) {
 	timer := sf.timerFactory.NewTimer("Commit")
-	defer timer.End()
+	var (
+		ws      *workingSet
+		isExist bool
+	)
+	defer func() {
+		timer.End()
+		if err != nil {
+			// abandon current workingset, and all pending workingsets beyond current height
+			ws.abandon()
+			sf.chamber.AbandonWorkingSets(ws.height)
+		}
+	}()
 	producer := blk.PublicKey().Address()
 	if producer == nil {
 		return errors.New("failed to get address")
 	}
 	ctx = protocol.WithRegistry(ctx, sf.registry)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
+	ws, isExist, err = sf.getFromWorkingSets(ctx, key)
 	if err != nil {
-		return err
+		return
 	}
+	if err = ws.verifyParent(); err != nil {
+		return
+	}
+	ws.detachParent()
 	if !isExist {
 		// regenerate workingset
 		if !sf.skipBlockValidationOnPut {
@@ -476,14 +497,14 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 		if err != nil {
 			log.L().Error("Failed to update state.", zap.Error(err))
-			return err
+			return
 		}
 	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	receipts, err := ws.Receipts()
 	if err != nil {
-		return err
+		return
 	}
 	blk.Receipts = receipts
 	h, _ := ws.Height()
@@ -495,18 +516,17 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
-	if err := ws.Commit(ctx); err != nil {
-		return err
+	if err = ws.Commit(ctx); err != nil {
+		return
 	}
 	rh, err := sf.dao.Get(ArchiveTrieNamespace, []byte(ArchiveTrieRootKey))
 	if err != nil {
-		return err
+		return
 	}
-	if err := sf.twoLayerTrie.SetRootHash(rh); err != nil {
-		return err
+	if err = sf.twoLayerTrie.SetRootHash(rh); err != nil {
+		return
 	}
 	sf.currentChainHeight = h
-
 	return nil
 }
 

@@ -190,7 +190,9 @@ func (sdb *stateDB) PutBlockHeader(header *block.Header) {
 	sdb.chamber.PutBlockHeader(header)
 }
 
-func (sdb *stateDB) CancelBlock(height uint64) {}
+func (sdb *stateDB) CancelBlock(height uint64) {
+	sdb.chamber.AbandonWorkingSets(height)
+}
 
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
@@ -213,8 +215,11 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
-
-	return newWorkingSet(height, store), nil
+	var parent *workingSet
+	if height > 0 {
+		parent = sdb.chamber.GetWorkingSet(height - 1)
+	}
+	return newWorkingSet(height, store, parent), nil
 }
 
 func (sdb *stateDB) Register(p protocol.Protocol) error {
@@ -250,7 +255,7 @@ func (sdb *stateDB) NewBlockBuilder(
 ) (*block.Builder, error) {
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	sdb.mutex.RLock()
-	currHeight := sdb.currentChainHeight
+	currHeight := sdb.chamber.OngoingBlockHeight()
 	sdb.mutex.RUnlock()
 	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
 	if err != nil {
@@ -303,21 +308,36 @@ func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preac
 }
 
 // PutBlock persists all changes in RunActions() into the DB
-func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
+func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) (err error) {
 	sdb.mutex.Lock()
 	timer := sdb.timerFactory.NewTimer("Commit")
 	sdb.mutex.Unlock()
-	defer timer.End()
+	var (
+		ws      *workingSet
+		isExist bool
+	)
+	defer func() {
+		timer.End()
+		if err != nil {
+			// abandon current workingset, and all pending workingsets beyond current height
+			ws.abandon()
+			sdb.chamber.AbandonWorkingSets(ws.height)
+		}
+	}()
 	producer := blk.PublicKey().Address()
 	if producer == nil {
 		return errors.New("failed to get address")
 	}
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
+	ws, isExist, err = sdb.getFromWorkingSets(ctx, key)
 	if err != nil {
-		return err
+		return
 	}
+	if err = ws.verifyParent(); err != nil {
+		return
+	}
+	ws.detachParent()
 	if !isExist {
 		if !sdb.skipBlockValidationOnPut {
 			err = ws.ValidateBlock(ctx, blk)
@@ -326,14 +346,14 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 		if err != nil {
 			log.L().Error("Failed to update state.", zap.Error(err))
-			return err
+			return
 		}
 	}
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 	receipts, err := ws.Receipts()
 	if err != nil {
-		return err
+		return
 	}
 	blk.Receipts = receipts
 	h, _ := ws.Height()
@@ -345,8 +365,8 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
-	if err := ws.Commit(ctx); err != nil {
-		return err
+	if err = ws.Commit(ctx); err != nil {
+		return
 	}
 	sdb.currentChainHeight = h
 	return nil
@@ -454,6 +474,6 @@ func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*
 	sdb.mutex.RLock()
 	currHeight := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
-	tx, err := sdb.newWorkingSet(ctx, currHeight+1)
-	return tx, false, err
+	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
+	return ws, false, err
 }

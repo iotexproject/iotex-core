@@ -9,6 +9,7 @@ import (
 	"context"
 	"math/big"
 	"sort"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -64,17 +65,20 @@ type (
 		height      uint64
 		store       workingSetStore
 		finalized   bool
+		abandoned   atomic.Bool
 		dock        protocol.Dock
 		txValidator *protocol.GenericValidator
 		receipts    []*action.Receipt
+		parent      *workingSet
 	}
 )
 
-func newWorkingSet(height uint64, store workingSetStore) *workingSet {
+func newWorkingSet(height uint64, store workingSetStore, parent *workingSet) *workingSet {
 	ws := &workingSet{
 		height: height,
 		store:  store,
 		dock:   protocol.NewDock(),
+		parent: parent,
 	}
 	ws.txValidator = protocol.NewGenericValidator(ws, accountutil.AccountState)
 	return ws
@@ -112,6 +116,26 @@ func (ws *workingSet) validate(ctx context.Context) error {
 		)
 	}
 	return nil
+}
+
+func (ws *workingSet) isAbandoned() bool {
+	return ws.abandoned.Load()
+}
+
+func (ws *workingSet) abandon() {
+	ws.abandoned.Store(true)
+}
+
+func (ws *workingSet) verifyParent() error {
+	if ws.parent != nil && ws.parent.isAbandoned() {
+		ws.abandon()
+		return errors.New("workingset abandoned")
+	}
+	return nil
+}
+
+func (ws *workingSet) detachParent() {
+	ws.parent = nil
 }
 
 func withActionCtx(ctx context.Context, selp *action.SealedEnvelope) (context.Context, error) {
@@ -292,8 +316,15 @@ func (ws *workingSet) freshAccountConversion(ctx context.Context, actCtx *protoc
 	return nil
 }
 
+func (ws *workingSet) getDirty(ns string, key []byte) ([]byte, bool) {
+	return ws.store.GetDirty(ns, key)
+}
+
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit(ctx context.Context) error {
+	if err := ws.verifyParent(); err != nil {
+		return err
+	}
 	if err := protocolPreCommit(ctx, ws); err != nil {
 		return err
 	}
@@ -318,6 +349,14 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	if cfg.Keys != nil {
 		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
+	if ws.parent != nil {
+		if value, dirty := ws.getDirty(cfg.Namespace, cfg.Key); dirty {
+			return ws.height, state.Deserialize(s, value)
+		}
+		if value, dirty := ws.parent.getDirty(cfg.Namespace, cfg.Key); dirty {
+			return ws.height, state.Deserialize(s, value)
+		}
+	}
 	value, err := ws.store.Get(cfg.Namespace, cfg.Key)
 	if err != nil {
 		return ws.height, err
@@ -333,6 +372,7 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 	if cfg.Key != nil {
 		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
+	// TODO: check parent
 	keys, values, err := ws.store.States(cfg.Namespace, cfg.Keys)
 	if err != nil {
 		return 0, nil, err
@@ -480,6 +520,9 @@ func (ws *workingSet) Process(ctx context.Context, actions []*action.SealedEnvel
 }
 
 func (ws *workingSet) processWithCorrectOrder(ctx context.Context, actions []*action.SealedEnvelope) error {
+	if err := ws.verifyParent(); err != nil {
+		return err
+	}
 	if err := ws.validate(ctx); err != nil {
 		return err
 	}
@@ -643,7 +686,9 @@ func (ws *workingSet) pickAndRunActions(
 			if err := ws.txValidator.ValidateWithState(ctxWithBlockContext, nextAction); err != nil {
 				log.L().Debug("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
 				ap.DeleteAction(nextAction.SenderAddress())
-				actionIterator.PopAccount()
+				if errors.Cause(err) != action.ErrNonceTooLow {
+					actionIterator.PopAccount()
+				}
 				continue
 			}
 			actionCtx, err := withActionCtx(ctxWithBlockContext, nextAction)

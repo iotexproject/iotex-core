@@ -16,6 +16,7 @@ type (
 	WorkingSetChamber interface {
 		GetWorkingSet(any) *workingSet
 		PutWorkingSet(hash.Hash256, *workingSet)
+		AbandonWorkingSets(uint64)
 		OngoingBlockHeight() uint64
 		GetBlockHeader(uint64) *block.Header
 		PutBlockHeader(*block.Header)
@@ -48,6 +49,16 @@ func (cmb *chamber) PutWorkingSet(key hash.Hash256, ws *workingSet) {
 	cmb.ws.Add(ws.height, ws)
 	if ws.height > cmb.height {
 		cmb.height = ws.height
+	}
+}
+
+func (cmb *chamber) AbandonWorkingSets(h uint64) {
+	for ; ; h++ {
+		if ws := cmb.GetWorkingSet(h); ws != nil {
+			cmb.ws.Remove(h)
+		} else {
+			break
+		}
 	}
 }
 
