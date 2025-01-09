@@ -1013,6 +1013,7 @@ func (stateDB *StateDBAdapter) SetCode(evmAddr common.Address, code []byte) {
 		stateDB.logError(err)
 		return
 	}
+	log.T(stateDB.ctx).Debug("Called SetCode", log.Hex("addrHash", evmAddr[:]))
 	contract.SetCode(hash.Hash256b(code), code)
 }
 

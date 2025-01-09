@@ -37,19 +37,33 @@ type ErigonStateDBAdapter struct {
 	snDiff     int
 }
 
+type ErigonStateDBAdapterDryrun struct {
+	*ErigonStateDBAdapter
+}
+
 func NewErigonStateDBAdapter(adapter *StateDBAdapter,
 	rw erigonstate.StateWriter,
 	intra *erigonstate.IntraBlockState,
 	chainRules *erigonchain.Rules,
 ) *ErigonStateDBAdapter {
-	adapter.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
-		return newContractV2(addr, account, adapter.sm, intra)
-	}
 	return &ErigonStateDBAdapter{
 		StateDBAdapter: adapter,
 		rw:             rw,
 		intra:          intra,
 		chainRules:     chainRules,
+	}
+}
+
+func NewErigonStateDBAdapterDryrun(adapter *StateDBAdapter,
+	rw erigonstate.StateWriter,
+	intra *erigonstate.IntraBlockState,
+	chainRules *erigonchain.Rules,
+) *ErigonStateDBAdapterDryrun {
+	adapter.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
+		return newContractV2(addr, account, adapter.sm, intra)
+	}
+	return &ErigonStateDBAdapterDryrun{
+		NewErigonStateDBAdapter(adapter, rw, intra, chainRules),
 	}
 }
 
@@ -104,7 +118,11 @@ func (s *ErigonStateDBAdapter) Selfdestruct6780(evmAddr common.Address) {
 
 func (s *ErigonStateDBAdapter) CommitContracts() error {
 	log.L().Debug("intraBlockState Committing contracts", zap.Uint64("height", s.StateDBAdapter.blockHeight))
-	err := s.intra.FinalizeTx(s.chainRules, s.rw)
+	err := s.StateDBAdapter.CommitContracts()
+	if err != nil {
+		return err
+	}
+	err = s.intra.FinalizeTx(s.chainRules, s.rw)
 	if err != nil {
 		return errors.Wrap(err, "failed to finalize tx")
 	}
@@ -112,17 +130,30 @@ func (s *ErigonStateDBAdapter) CommitContracts() error {
 }
 
 func (s *ErigonStateDBAdapter) RevertToSnapshot(sn int) {
+	log.L().Debug("erigon adapter revert to snapshot", zap.Int("sn", sn), zap.Int("isn", sn+s.snDiff))
 	s.StateDBAdapter.RevertToSnapshot(sn)
-	s.intra.RevertToSnapshot(sn + s.snDiff)
+	// s.intra.RevertToSnapshot(sn + s.snDiff)
 }
 
 func (s *ErigonStateDBAdapter) Snapshot() int {
 	sn := s.StateDBAdapter.Snapshot()
-	isn := s.intra.Snapshot()
-	diff := isn - sn
-	if s.snDiff != 0 && diff != s.snDiff {
-		log.L().Panic("snapshot diff changed", zap.Int("old", s.snDiff), zap.Int("new", diff))
-	}
-	s.snDiff = diff
+	// isn := s.intra.Snapshot()
+	// log.L().Debug("erigon adapter snapshot", zap.Int("sn", sn), zap.Int("isn", isn))
+	// diff := isn - sn
+	// if s.snDiff != 0 && diff != s.snDiff {
+	// 	log.L().Panic("snapshot diff changed", zap.Int("old", s.snDiff), zap.Int("new", diff))
+	// }
+	// s.snDiff = diff
 	return sn
+}
+
+func (stateDB *ErigonStateDBAdapterDryrun) GetCode(evmAddr common.Address) []byte {
+	return stateDB.intra.GetCode(libcommon.Address(evmAddr))
+}
+
+// GetCodeSize gets the code size saved in hash
+func (stateDB *ErigonStateDBAdapterDryrun) GetCodeSize(evmAddr common.Address) int {
+	code := stateDB.intra.GetCodeSize(libcommon.Address(evmAddr))
+	log.T(stateDB.ctx).Debug("Called GetCodeSize.", log.Hex("addrHash", evmAddr[:]))
+	return code
 }

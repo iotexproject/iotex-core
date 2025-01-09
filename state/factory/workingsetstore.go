@@ -6,6 +6,8 @@
 package factory
 
 import (
+	"context"
+
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -15,15 +17,16 @@ import (
 type (
 	workingSetStore interface {
 		db.KVStoreBasic
-		Commit() error
+		Commit(context.Context) error
 		States(string, [][]byte) ([][]byte, [][]byte, error)
 		Digest() hash.Hash256
-		Finalize(uint64) error
+		Finalize(context.Context, uint64) error
 		Snapshot() int
 		RevertSnapshot(int) error
 		ResetSnapshots()
 		ReadView(string) (interface{}, error)
 		WriteView(string, interface{}) error
+		Close()
 	}
 	workingSetStoreCommon struct {
 		view    protocol.View
@@ -53,7 +56,7 @@ func (store *workingSetStoreCommon) Digest() hash.Hash256 {
 	return hash.Hash256b(store.flusher.SerializeQueue())
 }
 
-func (store *workingSetStoreCommon) Commit() error {
+func (store *workingSetStoreCommon) Commit(context.Context) error {
 	_dbBatchSizelMtc.WithLabelValues().Set(float64(store.flusher.KVStoreWithBuffer().Size()))
 	return store.flusher.Flush()
 }

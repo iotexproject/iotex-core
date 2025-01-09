@@ -12,6 +12,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ledgerwatch/erigon-lib/kv"
+	"github.com/ledgerwatch/erigon-lib/kv/mdbx"
+	erigonstate "github.com/ledgerwatch/erigon/core/state"
+	erigonlog "github.com/ledgerwatch/log/v3"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -53,6 +57,10 @@ type (
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
+
+		// erigon
+		rw           kv.RwDB
+		getBlockTime func(uint64) (time.Time, error)
 	}
 )
 
@@ -120,10 +128,28 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 	return &sdb, nil
 }
 
+func (sdb *stateDB) SetGetBlockTime(getBlockTime func(uint64) (time.Time, error)) {
+	sdb.getBlockTime = getBlockTime
+}
+
 func (sdb *stateDB) Start(ctx context.Context) error {
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	if err := sdb.dao.Start(ctx); err != nil {
 		return err
+	}
+	// start erigon
+	if len(sdb.cfg.Chain.HistoryIndexPath) > 0 {
+		log.L().Info("starting history state index")
+		lg := erigonlog.New()
+		lg.SetHandler(erigonlog.StdoutHandler)
+		rw, err := mdbx.NewMDBX(lg).Path(sdb.cfg.Chain.HistoryIndexPath).WithTableCfg(func(defaultBuckets kv.TableCfg) kv.TableCfg {
+			defaultBuckets[systemNS] = kv.TableCfgItem{}
+			return defaultBuckets
+		}).Open(ctx)
+		if err != nil {
+			return errors.Wrap(err, "failed to open history state index")
+		}
+		sdb.rw = rw
 	}
 	// check factory height
 	h, err := sdb.dao.getHeight()
@@ -197,8 +223,61 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
-
 	return newWorkingSet(height, store), nil
+}
+
+func (sdb *stateDB) newErigonStore(ctx context.Context, height uint64) (*erigonStore, error) {
+	tx, err := sdb.rw.BeginRw(ctx)
+	if err != nil {
+		return nil, err
+	}
+	r, tsw := erigonstate.NewPlainStateReader(tx), erigonstate.NewPlainStateWriter(tx, tx, height)
+	intraBlockState := erigonstate.New(r)
+	// debug: enable trace
+	intraBlockState.SetTrace(false)
+	return &erigonStore{
+		tsw:             tsw,
+		tx:              tx,
+		intraBlockState: intraBlockState,
+		getBlockTime:    sdb.getBlockTime,
+	}, nil
+}
+
+func (sdb *stateDB) newWorkingSetWithErigonOutput(ctx context.Context, height uint64) (*workingSet, error) {
+	ws, err := sdb.newWorkingSet(ctx, height)
+	if err != nil {
+		return nil, err
+	}
+	e, err := sdb.newErigonStore(ctx, height)
+	if err != nil {
+		return nil, err
+	}
+	ws.store = newStateDBWorkingSetStoreWithErigonOutput(
+		ws.store.(*stateDBWorkingSetStore),
+		e,
+	)
+	return ws, nil
+}
+
+func (sdb *stateDB) newWorkingSetWithErigonDryrun(ctx context.Context, height uint64) (*workingSet, error) {
+	ws, err := sdb.newWorkingSet(ctx, height)
+	if err != nil {
+		return nil, err
+	}
+	tx, err := sdb.rw.BeginRo(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tsw := erigonstate.NewPlainState(tx, height, nil)
+	intraBlockState := erigonstate.New(tsw)
+	e := &erigonStore{
+		tsw:             tsw,
+		tx:              tx,
+		intraBlockState: intraBlockState,
+		getBlockTime:    sdb.getBlockTime,
+	}
+	ws.store = newStateDBWorkingSetStoreWithErigonDryrun(ws.store.(*stateDBWorkingSetStore), e)
+	return ws, nil
 }
 
 func (sdb *stateDB) Register(p protocol.Protocol) error {
@@ -236,7 +315,15 @@ func (sdb *stateDB) NewBlockBuilder(
 	sdb.mutex.RLock()
 	currHeight := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
-	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
+	var (
+		ws  *workingSet
+		err error
+	)
+	if len(sdb.cfg.Chain.HistoryIndexPath) > 0 {
+		ws, err = sdb.newWorkingSetWithErigonOutput(ctx, currHeight+1)
+	} else {
+		ws, err = sdb.newWorkingSet(ctx, currHeight+1)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -270,9 +357,12 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, erro
 	return sdb.newWorkingSet(ctx, height+1)
 }
 
-func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManager, error) {
+func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManagerWithCloser, error) {
 	// TODO: implement archive mode
-	return sdb.newWorkingSet(ctx, height)
+	if sdb.rw == nil {
+		return nil, errors.New("archive mode is not enabled")
+	}
+	return sdb.newWorkingSetWithErigonDryrun(ctx, height)
 }
 
 // PutBlock persists all changes in RunActions() into the DB
@@ -406,7 +496,15 @@ func (sdb *stateDB) state(h uint64, ns string, addr []byte, s interface{}) error
 }
 
 func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
-	ws, err := sdb.newWorkingSet(ctx, 0)
+	var (
+		ws  *workingSet
+		err error
+	)
+	if len(sdb.cfg.Chain.HistoryIndexPath) > 0 {
+		ws, err = sdb.newWorkingSetWithErigonOutput(ctx, 0)
+	} else {
+		ws, err = sdb.newWorkingSet(ctx, 0)
+	}
 	if err != nil {
 		return err
 	}
@@ -429,6 +527,14 @@ func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*
 	sdb.mutex.RLock()
 	currHeight := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
-	tx, err := sdb.newWorkingSet(ctx, currHeight+1)
+	var (
+		tx  *workingSet
+		err error
+	)
+	if len(sdb.cfg.Chain.HistoryIndexPath) > 0 {
+		tx, err = sdb.newWorkingSetWithErigonOutput(ctx, currHeight+1)
+	} else {
+		tx, err = sdb.newWorkingSet(ctx, currHeight+1)
+	}
 	return tx, false, err
 }

@@ -87,7 +87,7 @@ type (
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
 		PutBlock(context.Context, *block.Block) error
 		WorkingSet(context.Context) (protocol.StateManager, error)
-		WorkingSetAtHeight(context.Context, uint64) (protocol.StateManager, error)
+		WorkingSetAtHeight(context.Context, uint64) (protocol.StateManagerWithCloser, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -408,7 +408,7 @@ func (sf *factory) WorkingSet(ctx context.Context) (protocol.StateManager, error
 	return sf.newWorkingSet(ctx, sf.currentChainHeight+1)
 }
 
-func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManager, error) {
+func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManagerWithCloser, error) {
 	if !sf.saveHistory {
 		return nil, ErrNoArchiveData
 	}

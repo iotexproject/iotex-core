@@ -381,7 +381,7 @@ func (core *coreService) AccountAt(addr address.Address, height uint64) (*iotext
 	}
 	span.AddEvent("accountutil.AccountStateWithHeight")
 	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	ws, err := core.history.StateManagerAt(ctx, height)
+	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -2089,7 +2089,7 @@ func (core *coreService) simulateExecutionAt(ctx context.Context, addr address.A
 		GetBlockTime:   core.getBlockTime,
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	ws, err := core.history.StateManagerAt(ctx, height)
+	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}

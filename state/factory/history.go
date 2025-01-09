@@ -42,7 +42,10 @@ type HistoryState interface {
 	// 1. query history account, impl state reader
 	// 2. query history storage, impl state manager
 	// 3. simulate in history, impl state manager
-	StateManagerAt(height uint64) protocol.StateManager
+	StateManagerAt(height uint64) interface {
+		protocol.StateManager
+		Close()
+	}
 }
 
 type HistoryStateIndex struct {
@@ -107,7 +110,7 @@ func (h *HistoryStateIndex) Start(ctx context.Context) error {
 		defer tx.Rollback()
 		r, tsw := erigonstate.NewPlainStateReader(tx), erigonstate.NewPlainStateWriter(tx, tx, 0)
 		intraBlockState := erigonstate.New(r)
-		intraBlockState.SetTrace(true)
+		intraBlockState.SetTrace(false)
 		hws := &historyWorkingSetRo{
 			historyWorkingSet: &historyWorkingSet{
 				workingSet: ws,
@@ -160,7 +163,7 @@ func (h *HistoryStateIndex) PutBlock(ctx context.Context, blk *block.Block) erro
 	defer tx.Rollback()
 	r, tsw := erigonstate.NewPlainStateReader(tx), erigonstate.NewPlainStateWriter(tx, tx, blk.Height())
 	intraBlockState := erigonstate.New(r)
-	intraBlockState.SetTrace(true)
+	intraBlockState.SetTrace(false)
 
 	hws := &historyWorkingSet{
 		workingSet: ws,
@@ -190,7 +193,7 @@ func (h *HistoryStateIndex) commit(ctx context.Context, tx kv.RwTx, tsw *erigons
 	if err != nil {
 		return err
 	}
-	intraBlockState.Print(*rules)
+	// intraBlockState.Print(*rules)
 
 	err = tsw.WriteChangeSets()
 	if err != nil {
@@ -427,4 +430,8 @@ func (ws *historyWorkingSetRo) PutState(s interface{}, opts ...protocol.StateOpt
 		ws.intra.SetNonce(addr, acc.PendingNonce()) // TODO(erigon): not sure if this is correct
 	}
 	return h, nil
+}
+
+func (ws *historyWorkingSetRo) Close() {
+	ws.cleanup()
 }

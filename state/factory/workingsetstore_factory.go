@@ -94,7 +94,7 @@ func (store *factoryWorkingSetStore) States(ns string, keys [][]byte) ([][]byte,
 	return readStatesFromTLT(store.tlt, ns, keys)
 }
 
-func (store *factoryWorkingSetStore) Finalize(h uint64) error {
+func (store *factoryWorkingSetStore) Finalize(_ context.Context, h uint64) error {
 	rootHash, err := store.tlt.RootHash()
 	if err != nil {
 		return err
@@ -136,3 +136,5 @@ func (store *factoryWorkingSetStore) ResetSnapshots() {
 	store.workingSetStoreCommon.ResetSnapshots()
 	store.trieRoots = make(map[int][]byte)
 }
+
+func (store *factoryWorkingSetStore) Close() {}

@@ -7,6 +7,7 @@ package factory
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sort"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	erigonstate "github.com/ledgerwatch/erigon/core/state"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -277,11 +279,11 @@ func (ws *workingSet) checkContract(ctx context.Context, to *common.Address) (bo
 	return sender.IsContract(), false, false, nil
 }
 
-func (ws *workingSet) finalize() error {
+func (ws *workingSet) finalize(ctx context.Context) error {
 	if ws.finalized {
 		return errors.New("Cannot finalize a working set twice")
 	}
-	if err := ws.store.Finalize(ws.height); err != nil {
+	if err := ws.store.Finalize(ctx, ws.height); err != nil {
 		return err
 	}
 	ws.finalized = true
@@ -325,7 +327,7 @@ func (ws *workingSet) Commit(ctx context.Context) error {
 	if err := protocolPreCommit(ctx, ws); err != nil {
 		return err
 	}
-	if err := ws.store.Commit(); err != nil {
+	if err := ws.store.Commit(ctx); err != nil {
 		return err
 	}
 	if err := protocolCommit(ctx, ws); err != nil {
@@ -383,6 +385,7 @@ func (ws *workingSet) PutState(s interface{}, opts ...protocol.StateOption) (uin
 	if err != nil {
 		return ws.height, errors.Wrapf(err, "failed to convert account %v to bytes", s)
 	}
+	log.L().Debug("workingSet.PutState", zap.String("namespace", cfg.Namespace), log.Hex("key", cfg.Key), zap.Any("state", s), zap.String("store", fmt.Sprintf("%+T", ws.store)))
 	return ws.height, ws.store.Put(cfg.Namespace, cfg.Key, ss)
 }
 
@@ -393,6 +396,7 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 	if err != nil {
 		return ws.height, err
 	}
+	log.L().Debug("workingSet.DelState", zap.String("namespace", cfg.Namespace), log.Hex("key", cfg.Key), zap.String("store", fmt.Sprintf("%+T", ws.store)))
 	return ws.height, ws.store.Delete(cfg.Namespace, cfg.Key)
 }
 
@@ -422,6 +426,21 @@ func (ws *workingSet) Reset() {
 	ws.dock.Reset()
 }
 
+func (ws *workingSet) Close() {
+	ws.store.Close()
+}
+
+func (ws *workingSet) Erigon() (erigonstate.StateWriter, *erigonstate.IntraBlockState, bool) {
+	switch st := ws.store.(type) {
+	case *stateDBWorkingSetStoreWithErigonOutput:
+		return st.erigonStore.tsw, st.erigonStore.intraBlockState, false
+	case *stateDBWorkingSetStoreWithErigonDryrun:
+		return st.erigonStore.tsw, st.erigonStore.intraBlockState, true
+	default:
+		return nil, nil, false
+	}
+}
+
 // CreateGenesisStates initialize the genesis states
 func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
 	if reg, ok := protocol.GetRegistry(ctx); ok {
@@ -434,7 +453,7 @@ func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
 		}
 	}
 
-	return ws.finalize()
+	return ws.finalize(ctx)
 }
 
 func (ws *workingSet) validateNonce(ctx context.Context, blk *block.Block) error {
@@ -562,7 +581,7 @@ func (ws *workingSet) processWithCorrectOrder(ctx context.Context, actions []*ac
 		updateReceiptIndex(receipts)
 	}
 	ws.receipts = receipts
-	return ws.finalize()
+	return ws.finalize(ctx)
 }
 
 func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvelope) error {
@@ -597,7 +616,7 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 		return err
 	}
 	ws.receipts = receipts
-	return ws.finalize()
+	return ws.finalize(ctx)
 }
 
 func (ws *workingSet) generateSystemActions(ctx context.Context) ([]action.Envelope, error) {
@@ -792,7 +811,7 @@ func (ws *workingSet) pickAndRunActions(
 	}
 	ws.receipts = receipts
 
-	return executedActions, ws.finalize()
+	return executedActions, ws.finalize(ctx)
 }
 
 func updateReceiptIndex(receipts []*action.Receipt) {

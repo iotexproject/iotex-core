@@ -58,7 +58,7 @@ func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte) ([][]byte,
 	return readStates(store.flusher.BaseKVStore(), ns, keys)
 }
 
-func (store *stateDBWorkingSetStore) Finalize(height uint64) error {
+func (store *stateDBWorkingSetStore) Finalize(_ context.Context, height uint64) error {
 	// Persist current chain Height
 	store.flusher.KVStoreWithBuffer().MustPut(
 		AccountKVNamespace,
@@ -67,3 +67,5 @@ func (store *stateDBWorkingSetStore) Finalize(height uint64) error {
 	)
 	return nil
 }
+
+func (store *stateDBWorkingSetStore) Close() {}

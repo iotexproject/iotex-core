@@ -137,6 +137,9 @@ func (gs *GasStation) FeeHistory(ctx context.Context, blocks, lastBlock uint64, 
 		log.T(ctx).Warn("Sanitizing fee history length", zap.Uint64("requested", blocks), zap.Uint64("truncated", maxFeeHistory))
 		blocks = maxFeeHistory
 	}
+	if blocks > lastBlock {
+		blocks = lastBlock
+	}
 	for i, p := range rewardPercentiles {
 		if p < 0 || p > 100 {
 			return 0, nil, nil, nil, nil, nil, status.Error(codes.InvalidArgument, "percentile must be in [0, 100]")
@@ -199,7 +202,11 @@ func (gs *GasStation) FeeHistory(ctx context.Context, blocks, lastBlock uint64, 
 				}
 				fees := make([]*big.Int, 0, len(receipts))
 				for _, r := range receipts {
-					fees = append(fees, r.PriorityFee())
+					if pf := r.PriorityFee(); pf != nil {
+						fees = append(fees, pf)
+					} else {
+						fees = append(fees, big.NewInt(0))
+					}
 				}
 				sort.Slice(fees, func(i, j int) bool {
 					return fees[i].Cmp(fees[j]) < 0

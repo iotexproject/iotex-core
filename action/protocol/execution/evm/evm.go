@@ -267,16 +267,26 @@ func ExecuteContract(
 		return nil, nil, err
 	}
 	if erigonsm, ok := sm.(interface {
-		StateWriter() erigonstate.StateWriter
-		Intra() *erigonstate.IntraBlockState
+		Erigon() (erigonstate.StateWriter, *erigonstate.IntraBlockState, bool)
 	}); ok {
-		rules := ps.chainConfig.Rules(ps.context.BlockNumber, ps.genesis.IsSumatra(uint64(ps.context.BlockNumber.Int64())), ps.context.Time)
-		stateDB = NewErigonStateDBAdapter(
-			stateDB.(*StateDBAdapter),
-			erigonsm.StateWriter(),
-			erigonsm.Intra(),
-			NewErigonRules(&rules),
-		)
+		if sw, in, dryrun := erigonsm.Erigon(); sw != nil && in != nil {
+			rules := ps.chainConfig.Rules(ps.context.BlockNumber, ps.genesis.IsSumatra(uint64(ps.context.BlockNumber.Int64())), ps.context.Time)
+			if dryrun {
+				stateDB = NewErigonStateDBAdapterDryrun(
+					stateDB.(*StateDBAdapter),
+					sw,
+					in,
+					NewErigonRules(&rules),
+				)
+			} else {
+				stateDB = NewErigonStateDBAdapter(
+					stateDB.(*StateDBAdapter),
+					sw,
+					in,
+					NewErigonRules(&rules),
+				)
+			}
+		}
 	}
 
 	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ctx, ps, stateDB)

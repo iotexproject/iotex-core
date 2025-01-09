@@ -153,11 +153,11 @@ func (builder *Builder) buildFactory(forTest bool) error {
 		return errors.Wrapf(err, "failed to create state factory")
 	}
 	builder.cs.factory = factory
-	history, err := builder.createHistoryIndex()
-	if err != nil {
-		return errors.Wrapf(err, "failed to create history index")
-	}
-	builder.cs.historyIndex = history
+	// history, err := builder.createHistoryIndex()
+	// if err != nil {
+	// 	return errors.Wrapf(err, "failed to create history index")
+	// }
+	// builder.cs.historyIndex = history
 	return nil
 }
 
@@ -819,6 +819,11 @@ func (builder *Builder) buildBlockTimeCalculator() (err error) {
 	})
 	if builder.cs.historyIndex != nil {
 		builder.cs.historyIndex.SetGetBlockTime(builder.cs.blockTimeCalculator.CalculateBlockTime)
+	}
+	if f, ok := builder.cs.factory.(interface {
+		SetGetBlockTime(func(uint64) (time.Time, error))
+	}); ok {
+		f.SetGetBlockTime(builder.cs.blockTimeCalculator.CalculateBlockTime)
 	}
 	return err
 }
