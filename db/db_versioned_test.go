@@ -144,11 +144,13 @@ func TestVersionedDB(t *testing.T) {
 		r.Equal(e.err, errors.Cause(err))
 		r.Equal(e.height, value)
 	}
+	v, err := db.Version(_bucket2, _k1)
+	r.Zero(v)
+	r.ErrorContains(err, "namespace test_ns2 is non-versioned")
 	// test delete
-	r.Equal(ErrNotExist, errors.Cause(db.Delete(10, _bucket2, _k1)))
 	for _, k := range [][]byte{_k2, _k4} {
 		r.NoError(db.Delete(11, _bucket1, k))
-		r.ErrorContains(db.Delete(10, _bucket1, k), "cannot delete at earlier version 10")
+		r.ErrorContains(db.Delete(10, _bucket1, k), "cannot delete at earlier version 10: invalid input")
 	}
 	for _, k := range [][]byte{_k1, _k3, _k5} {
 		r.Equal(ErrNotExist, errors.Cause(db.Delete(10, _bucket1, k)))
@@ -243,6 +245,8 @@ func TestVersionedDB(t *testing.T) {
 		r.Equal(e.err, errors.Cause(err))
 		r.Equal(e.height, value)
 	}
+	// test filter
+	r.PanicsWithValue("Filter not supported for versioned DB", func() { db.Filter(_bucket1, nil, nil, nil) })
 }
 
 func TestMultipleWriteDelete(t *testing.T) {
@@ -324,7 +328,7 @@ func TestMultipleWriteDelete(t *testing.T) {
 				} else {
 					b.Put(e.ns, e.k, e.v, "test")
 				}
-				r.NoError(db.CommitToDB(e.height, nil, b))
+				r.NoError(db.CommitToDB(e.height, b))
 				b.Clear()
 				v, err := db.Version(e.ns, e.k)
 				r.Equal(e.err, errors.Cause(err))
@@ -378,11 +382,8 @@ func TestDedup(t *testing.T) {
 	} {
 		b.Put(e.ns, e.k, e.v, "test")
 	}
-	keySize, ve, ce, err := dedup(nil, b)
+	ve, ce, err := dedup(nil, b)
 	r.NoError(err)
-	r.Equal(2, len(keySize))
-	r.Equal(5, keySize[_bucket1])
-	r.Equal(7, keySize[_bucket2])
 	r.Equal(8, len(ve))
 	r.Zero(len(ce))
 	for i, v := range [][]byte{_k4, _k3, _k2, _k1, _v4, _v3, _v2, _v1} {
@@ -391,12 +392,8 @@ func TestDedup(t *testing.T) {
 	// put a key with diff length into _bucket2
 	b.Put(_bucket2, _k1, _v1, "test")
 	// treat _bucket1 as versioned namespace still OK
-	keySize, ve, ce, err = dedup(map[string]bool{
-		_bucket1: true,
-	}, b)
+	ve, ce, err = dedup(map[string]int{_bucket1: 5}, b)
 	r.NoError(err)
-	r.Equal(1, len(keySize))
-	r.Equal(5, keySize[_bucket1])
 	r.Equal(4, len(ve))
 	r.Equal(5, len(ce))
 	for i, v := range [][]byte{_k4, _k3, _k2, _k1} {
@@ -406,12 +403,10 @@ func TestDedup(t *testing.T) {
 		r.Equal(v, ce[i].Key())
 	}
 	// treat _bucket2 (or both buckets) as versioned namespace hits error due to diff key size
-	for _, v := range []map[string]bool{
-		{_bucket2: true}, nil,
-	} {
-		_, _, _, err = dedup(v, b)
-		r.Equal("invalid key length, expecting 5, got 7: invalid input", err.Error())
-	}
+	_, _, err = dedup(map[string]int{_bucket2: 7}, b)
+	r.ErrorContains(err, "invalid key length, expecting 7, got 5: invalid input")
+	_, _, err = dedup(nil, b)
+	r.ErrorContains(err, "invalid key length, expecting 5, got 7: invalid input")
 }
 
 func TestCommitToDB(t *testing.T) {
@@ -441,12 +436,12 @@ func TestCommitToDB(t *testing.T) {
 	} {
 		b.Put(e.ns, e.k, e.v, "test")
 	}
-	r.ErrorContains(db.CommitToDB(1, nil, b), "has not been added")
+	r.PanicsWithValue("BoltDBVersioned.commitToDB(), vns = test_ns2 does not exist", func() { db.CommitToDB(1, b) })
 
 	// create namespace
 	r.NoError(db.AddVersionedNamespace(_bucket1, uint32(len(_k1))))
 	r.NoError(db.AddVersionedNamespace(_bucket2, uint32(len(_v1))))
-	r.NoError(db.CommitToDB(1, nil, b))
+	r.NoError(db.CommitToDB(1, b))
 	b.Clear()
 	for _, e := range []versionTest{
 		{_bucket2, _v1, nil, 0, ErrNotExist},
@@ -478,7 +473,7 @@ func TestCommitToDB(t *testing.T) {
 
 	// batch with wrong key length would fail
 	b.Put(_bucket1, _v1, _k1, "test")
-	r.Equal(ErrInvalid, errors.Cause(db.CommitToDB(3, nil, b)))
+	r.Equal(ErrInvalid, errors.Cause(db.CommitToDB(3, b)))
 	b.Clear()
 	for _, e := range []versionTest{
 		{_bucket1, _k1, _v1, 0, nil},
@@ -495,7 +490,7 @@ func TestCommitToDB(t *testing.T) {
 	b.Delete(_bucket1, _k3, "test")
 	b.Delete(_bucket2, _v3, "test")
 
-	r.NoError(db.CommitToDB(5, nil, b))
+	r.NoError(db.CommitToDB(5, b))
 	b.Clear()
 	for _, e := range []versionTest{
 		{_bucket1, _k1, nil, 0, ErrNotExist},
@@ -546,5 +541,5 @@ func TestCommitToDB(t *testing.T) {
 	// cannot write to earlier version
 	b.Put(_bucket1, _k1, _v2, "test")
 	b.Put(_bucket1, _k2, _v1, "test")
-	r.ErrorIs(db.CommitToDB(4, nil, b), ErrInvalid)
+	r.ErrorIs(db.CommitToDB(4, b), ErrInvalid)
 }
