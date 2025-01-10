@@ -54,23 +54,32 @@ type (
 	// KvWithVersion wraps the versioned DB implementation with a certain version
 	KvWithVersion struct {
 		db      VersionedDB
-		version uint64 // the current version
+		version uint64      // the current version
+		vns     []Namespace // versioned namespace
 	}
 )
 
 // Option sets an option
 type Option func(*KvWithVersion)
 
+func VersionedNamespaceOption(ns ...Namespace) Option {
+	return func(k *KvWithVersion) {
+		k.vns = ns
+	}
+}
+
 // NewKVStoreWithVersion implements a KVStore that can handle both versioned
 // and non-versioned namespace
 func NewKVStoreWithVersion(cfg Config, opts ...Option) *KvWithVersion {
-	db := NewBoltDBVersioned(cfg)
-	kv := KvWithVersion{
-		db: db,
-	}
+	kv := KvWithVersion{}
 	for _, opt := range opts {
 		opt(&kv)
 	}
+	var dbOpts []BoltDBVersionedOption
+	if len(kv.vns) > 0 {
+		dbOpts = append(dbOpts, VnsOption(kv.vns...))
+	}
+	kv.db = NewBoltDBVersioned(cfg, dbOpts...)
 	return &kv
 }
 
@@ -119,6 +128,7 @@ func (b *KvWithVersion) SetVersion(v uint64) KVStore {
 	kv := KvWithVersion{
 		db:      b.db,
 		version: v,
+		vns:     b.vns,
 	}
 	return &kv
 }
