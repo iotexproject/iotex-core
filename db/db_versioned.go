@@ -143,6 +143,9 @@ func (b *BoltDBVersioned) Get(version uint64, ns string, key []byte) ([]byte, er
 		return nil, err
 	}
 	_, v, err := b.get(version, ns, key)
+	if err == ErrDeleted {
+		err = errors.Wrapf(ErrNotExist, "key %x deleted", key)
+	}
 	return v, err
 }
 

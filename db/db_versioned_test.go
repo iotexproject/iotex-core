@@ -19,15 +19,17 @@ import (
 )
 
 var (
-	_k5  = []byte("key_5")
-	_k10 = []byte("key_10")
+	_k5          = []byte("key_5")
+	_k10         = []byte("key_10")
+	_errNotExist = ErrNotExist.Error()
+	_errDeleted  = "deleted: not exist in DB"
 )
 
 type versionTest struct {
 	ns     string
 	k, v   []byte
 	height uint64
-	err    error
+	err    string
 }
 
 func TestVersionedDB(t *testing.T) {
@@ -69,28 +71,32 @@ func TestVersionedDB(t *testing.T) {
 	r.NoError(db.Put(4, _bucket1, _k4, _v1))
 	r.NoError(db.Put(7, _bucket1, _k4, _v3))
 	for _, e := range []versionTest{
-		{_bucket2, _k1, nil, 0, ErrNotExist}, // bucket not exist
-		{_bucket1, _k1, nil, 0, ErrNotExist},
-		{_bucket1, _k2, _v2, 0, nil},
-		{_bucket1, _k2, _v1, 1, nil},
-		{_bucket1, _k2, _v1, 2, nil},
-		{_bucket1, _k2, _v3, 3, nil},
-		{_bucket1, _k2, _v3, 5, nil},
-		{_bucket1, _k2, _v2, 6, nil},
-		{_bucket1, _k2, _v2, 7, nil}, // after last write version
-		{_bucket1, _k3, nil, 0, ErrNotExist},
-		{_bucket1, _k4, nil, 1, ErrNotExist}, // before first write version
-		{_bucket1, _k4, _v2, 2, nil},
-		{_bucket1, _k4, _v2, 3, nil},
-		{_bucket1, _k4, _v1, 4, nil},
-		{_bucket1, _k4, _v1, 6, nil},
-		{_bucket1, _k4, _v3, 7, nil},
-		{_bucket1, _k4, _v3, 8, nil}, // larger than last key in bucket
-		{_bucket1, _k5, nil, 0, ErrNotExist},
-		{_bucket1, _k10, nil, 0, ErrInvalid},
+		{_bucket2, _k1, nil, 0, _errNotExist}, // bucket not exist
+		{_bucket1, _k1, nil, 0, _errNotExist},
+		{_bucket1, _k2, _v2, 0, ""},
+		{_bucket1, _k2, _v1, 1, ""},
+		{_bucket1, _k2, _v1, 2, ""},
+		{_bucket1, _k2, _v3, 3, ""},
+		{_bucket1, _k2, _v3, 5, ""},
+		{_bucket1, _k2, _v2, 6, ""},
+		{_bucket1, _k2, _v2, 7, ""}, // after last write version
+		{_bucket1, _k3, nil, 0, _errNotExist},
+		{_bucket1, _k4, nil, 1, _errNotExist}, // before first write version
+		{_bucket1, _k4, _v2, 2, ""},
+		{_bucket1, _k4, _v2, 3, ""},
+		{_bucket1, _k4, _v1, 4, ""},
+		{_bucket1, _k4, _v1, 6, ""},
+		{_bucket1, _k4, _v3, 7, ""},
+		{_bucket1, _k4, _v3, 8, ""}, // larger than last key in bucket
+		{_bucket1, _k5, nil, 0, _errNotExist},
+		{_bucket1, _k10, nil, 0, ErrInvalid.Error()},
 	} {
 		value, err := db.Get(e.height, e.ns, e.k)
-		r.Equal(e.err, errors.Cause(err))
+		if len(e.err) == 0 {
+			r.NoError(err)
+		} else {
+			r.ErrorContains(err, e.err)
+		}
 		r.Equal(e.v, value)
 	}
 	// overwrite the same height again
@@ -103,45 +109,53 @@ func TestVersionedDB(t *testing.T) {
 	r.NoError(db.Put(9, _bucket1, _k2, _v4))
 	r.NoError(db.Put(10, _bucket1, _k4, _v4))
 	for _, e := range []versionTest{
-		{_bucket2, _k1, nil, 0, ErrNotExist}, // bucket not exist
-		{_bucket1, _k1, nil, 0, ErrNotExist},
-		{_bucket1, _k2, _v2, 0, nil},
-		{_bucket1, _k2, _v1, 1, nil},
-		{_bucket1, _k2, _v1, 2, nil},
-		{_bucket1, _k2, _v3, 3, nil},
-		{_bucket1, _k2, _v3, 5, nil},
-		{_bucket1, _k2, _v4, 6, nil},
-		{_bucket1, _k2, _v4, 8, nil},
-		{_bucket1, _k2, _v4, 9, nil},
-		{_bucket1, _k2, _v4, 10, nil}, // after last write version
-		{_bucket1, _k3, nil, 0, ErrNotExist},
-		{_bucket1, _k4, nil, 1, ErrNotExist}, // before first write version
-		{_bucket1, _k4, _v2, 2, nil},
-		{_bucket1, _k4, _v2, 3, nil},
-		{_bucket1, _k4, _v1, 4, nil},
-		{_bucket1, _k4, _v1, 6, nil},
-		{_bucket1, _k4, _v4, 7, nil},
-		{_bucket1, _k4, _v4, 9, nil},
-		{_bucket1, _k4, _v4, 10, nil},
-		{_bucket1, _k4, _v4, 11, nil}, // larger than last key in bucket
-		{_bucket1, _k5, nil, 0, ErrNotExist},
-		{_bucket1, _k10, nil, 0, ErrInvalid},
+		{_bucket2, _k1, nil, 0, _errNotExist}, // bucket not exist
+		{_bucket1, _k1, nil, 0, _errNotExist},
+		{_bucket1, _k2, _v2, 0, ""},
+		{_bucket1, _k2, _v1, 1, ""},
+		{_bucket1, _k2, _v1, 2, ""},
+		{_bucket1, _k2, _v3, 3, ""},
+		{_bucket1, _k2, _v3, 5, ""},
+		{_bucket1, _k2, _v4, 6, ""},
+		{_bucket1, _k2, _v4, 8, ""},
+		{_bucket1, _k2, _v4, 9, ""},
+		{_bucket1, _k2, _v4, 10, ""}, // after last write version
+		{_bucket1, _k3, nil, 0, _errNotExist},
+		{_bucket1, _k4, nil, 1, _errNotExist}, // before first write version
+		{_bucket1, _k4, _v2, 2, ""},
+		{_bucket1, _k4, _v2, 3, ""},
+		{_bucket1, _k4, _v1, 4, ""},
+		{_bucket1, _k4, _v1, 6, ""},
+		{_bucket1, _k4, _v4, 7, ""},
+		{_bucket1, _k4, _v4, 9, ""},
+		{_bucket1, _k4, _v4, 10, ""},
+		{_bucket1, _k4, _v4, 11, ""}, // larger than last key in bucket
+		{_bucket1, _k5, nil, 0, _errNotExist},
+		{_bucket1, _k10, nil, 0, ErrInvalid.Error()},
 	} {
 		value, err := db.Get(e.height, e.ns, e.k)
-		r.Equal(e.err, errors.Cause(err))
+		if len(e.err) == 0 {
+			r.NoError(err)
+		} else {
+			r.ErrorContains(err, e.err)
+		}
 		r.Equal(e.v, value)
 	}
 	// check version
 	for _, e := range []versionTest{
-		{_bucket1, _k1, nil, 0, ErrNotExist},
-		{_bucket1, _k2, nil, 9, nil},
-		{_bucket1, _k3, nil, 0, ErrNotExist},
-		{_bucket1, _k4, nil, 10, nil},
-		{_bucket1, _k5, nil, 0, ErrNotExist},
-		{_bucket1, _k10, nil, 0, ErrInvalid},
+		{_bucket1, _k1, nil, 0, _errNotExist},
+		{_bucket1, _k2, nil, 9, ""},
+		{_bucket1, _k3, nil, 0, _errNotExist},
+		{_bucket1, _k4, nil, 10, ""},
+		{_bucket1, _k5, nil, 0, _errNotExist},
+		{_bucket1, _k10, nil, 0, ErrInvalid.Error()},
 	} {
 		value, err := db.Version(e.ns, e.k)
-		r.Equal(e.err, errors.Cause(err))
+		if len(e.err) == 0 {
+			r.NoError(err)
+		} else {
+			r.ErrorContains(err, e.err)
+		}
 		r.Equal(e.height, value)
 	}
 	v, err := db.Version(_bucket2, _k1)
@@ -158,91 +172,107 @@ func TestVersionedDB(t *testing.T) {
 	r.Equal(ErrInvalid, errors.Cause(db.Delete(10, _bucket1, _k10)))
 	// key still can be read before delete version
 	for _, e := range []versionTest{
-		{_bucket2, _k1, nil, 0, ErrNotExist}, // bucket not exist
-		{_bucket1, _k1, nil, 0, ErrNotExist},
-		{_bucket1, _k2, _v2, 0, nil},
-		{_bucket1, _k2, _v1, 1, nil},
-		{_bucket1, _k2, _v1, 2, nil},
-		{_bucket1, _k2, _v3, 3, nil},
-		{_bucket1, _k2, _v3, 5, nil},
-		{_bucket1, _k2, _v4, 6, nil},
-		{_bucket1, _k2, _v4, 8, nil},
-		{_bucket1, _k2, _v4, 9, nil},
-		{_bucket1, _k2, _v4, 10, nil},        // before delete version
-		{_bucket1, _k2, nil, 11, ErrDeleted}, // after delete version
-		{_bucket1, _k3, nil, 0, ErrNotExist},
-		{_bucket1, _k4, nil, 1, ErrNotExist}, // before first write version
-		{_bucket1, _k4, _v2, 2, nil},
-		{_bucket1, _k4, _v2, 3, nil},
-		{_bucket1, _k4, _v1, 4, nil},
-		{_bucket1, _k4, _v1, 6, nil},
-		{_bucket1, _k4, _v4, 7, nil},
-		{_bucket1, _k4, _v4, 10, nil},        // before delete version
-		{_bucket1, _k4, nil, 11, ErrDeleted}, // after delete version
-		{_bucket1, _k5, nil, 0, ErrNotExist},
-		{_bucket1, _k10, nil, 0, ErrInvalid},
+		{_bucket2, _k1, nil, 0, _errNotExist}, // bucket not exist
+		{_bucket1, _k1, nil, 0, _errNotExist},
+		{_bucket1, _k2, _v2, 0, ""},
+		{_bucket1, _k2, _v1, 1, ""},
+		{_bucket1, _k2, _v1, 2, ""},
+		{_bucket1, _k2, _v3, 3, ""},
+		{_bucket1, _k2, _v3, 5, ""},
+		{_bucket1, _k2, _v4, 6, ""},
+		{_bucket1, _k2, _v4, 8, ""},
+		{_bucket1, _k2, _v4, 9, ""},
+		{_bucket1, _k2, _v4, 10, ""},          // before delete version
+		{_bucket1, _k2, nil, 11, _errDeleted}, // after delete version
+		{_bucket1, _k3, nil, 0, _errNotExist},
+		{_bucket1, _k4, nil, 1, _errNotExist}, // before first write version
+		{_bucket1, _k4, _v2, 2, ""},
+		{_bucket1, _k4, _v2, 3, ""},
+		{_bucket1, _k4, _v1, 4, ""},
+		{_bucket1, _k4, _v1, 6, ""},
+		{_bucket1, _k4, _v4, 7, ""},
+		{_bucket1, _k4, _v4, 10, ""},          // before delete version
+		{_bucket1, _k4, nil, 11, _errDeleted}, // after delete version
+		{_bucket1, _k5, nil, 0, _errNotExist},
+		{_bucket1, _k10, nil, 0, ErrInvalid.Error()},
 	} {
 		value, err := db.Get(e.height, e.ns, e.k)
-		r.Equal(e.err, errors.Cause(err))
+		if len(e.err) == 0 {
+			r.NoError(err)
+		} else {
+			r.ErrorContains(err, e.err)
+		}
 		r.Equal(e.v, value)
 	}
 	// write before delete version is invalid
 	r.ErrorContains(db.Put(9, _bucket1, _k2, _k2), "cannot write at earlier version 9: invalid input")
 	r.ErrorContains(db.Put(9, _bucket1, _k4, _k4), "cannot write at earlier version 9: invalid input")
 	for _, e := range []versionTest{
-		{_bucket1, _k2, _v4, 10, nil},        // before delete version
-		{_bucket1, _k2, nil, 11, ErrDeleted}, // after delete version
-		{_bucket1, _k4, _v4, 10, nil},        // before delete version
-		{_bucket1, _k4, nil, 11, ErrDeleted}, // after delete version
+		{_bucket1, _k2, _v4, 10, ""},          // before delete version
+		{_bucket1, _k2, nil, 11, _errDeleted}, // after delete version
+		{_bucket1, _k4, _v4, 10, ""},          // before delete version
+		{_bucket1, _k4, nil, 11, _errDeleted}, // after delete version
 	} {
 		value, err := db.Get(e.height, e.ns, e.k)
-		r.Equal(e.err, errors.Cause(err))
+		if len(e.err) == 0 {
+			r.NoError(err)
+		} else {
+			r.ErrorContains(err, e.err)
+		}
 		r.Equal(e.v, value)
 	}
 	// write after delete version
 	r.NoError(db.Put(12, _bucket1, _k2, _k2))
 	r.NoError(db.Put(12, _bucket1, _k4, _k4))
 	for _, e := range []versionTest{
-		{_bucket2, _k1, nil, 0, ErrNotExist}, // bucket not exist
-		{_bucket1, _k1, nil, 0, ErrNotExist},
-		{_bucket1, _k2, _v2, 0, nil},
-		{_bucket1, _k2, _v1, 1, nil},
-		{_bucket1, _k2, _v1, 2, nil},
-		{_bucket1, _k2, _v3, 3, nil},
-		{_bucket1, _k2, _v3, 5, nil},
-		{_bucket1, _k2, _v4, 6, nil},
-		{_bucket1, _k2, _v4, 8, nil},
-		{_bucket1, _k2, _v4, 10, nil},        // before delete version
-		{_bucket1, _k2, nil, 11, ErrDeleted}, // after delete version
-		{_bucket1, _k2, _k2, 12, nil},        // after next write version
-		{_bucket1, _k3, nil, 0, ErrNotExist},
-		{_bucket1, _k4, nil, 1, ErrNotExist}, // before first write version
-		{_bucket1, _k4, _v2, 2, nil},
-		{_bucket1, _k4, _v2, 3, nil},
-		{_bucket1, _k4, _v1, 4, nil},
-		{_bucket1, _k4, _v1, 6, nil},
-		{_bucket1, _k4, _v4, 7, nil},
-		{_bucket1, _k4, _v4, 10, nil},        // before delete version
-		{_bucket1, _k4, nil, 11, ErrDeleted}, // after delete version
-		{_bucket1, _k4, _k4, 12, nil},        // after next write version
-		{_bucket1, _k5, nil, 0, ErrNotExist},
-		{_bucket1, _k10, nil, 0, ErrInvalid},
+		{_bucket2, _k1, nil, 0, _errNotExist}, // bucket not exist
+		{_bucket1, _k1, nil, 0, _errNotExist},
+		{_bucket1, _k2, _v2, 0, ""},
+		{_bucket1, _k2, _v1, 1, ""},
+		{_bucket1, _k2, _v1, 2, ""},
+		{_bucket1, _k2, _v3, 3, ""},
+		{_bucket1, _k2, _v3, 5, ""},
+		{_bucket1, _k2, _v4, 6, ""},
+		{_bucket1, _k2, _v4, 8, ""},
+		{_bucket1, _k2, _v4, 10, ""},          // before delete version
+		{_bucket1, _k2, nil, 11, _errDeleted}, // after delete version
+		{_bucket1, _k2, _k2, 12, ""},          // after next write version
+		{_bucket1, _k3, nil, 0, _errNotExist},
+		{_bucket1, _k4, nil, 1, _errNotExist}, // before first write version
+		{_bucket1, _k4, _v2, 2, ""},
+		{_bucket1, _k4, _v2, 3, ""},
+		{_bucket1, _k4, _v1, 4, ""},
+		{_bucket1, _k4, _v1, 6, ""},
+		{_bucket1, _k4, _v4, 7, ""},
+		{_bucket1, _k4, _v4, 10, ""},          // before delete version
+		{_bucket1, _k4, nil, 11, _errDeleted}, // after delete version
+		{_bucket1, _k4, _k4, 12, ""},          // after next write version
+		{_bucket1, _k5, nil, 0, _errNotExist},
+		{_bucket1, _k10, nil, 0, ErrInvalid.Error()},
 	} {
 		value, err := db.Get(e.height, e.ns, e.k)
-		r.Equal(e.err, errors.Cause(err))
+		if len(e.err) == 0 {
+			r.NoError(err)
+		} else {
+			r.ErrorContains(err, e.err)
+		}
 		r.Equal(e.v, value)
 	}
 	// check version after delete
 	for _, e := range []versionTest{
-		{_bucket1, _k1, nil, 0, ErrNotExist},
-		{_bucket1, _k2, nil, 12, nil},
-		{_bucket1, _k3, nil, 0, ErrNotExist},
-		{_bucket1, _k4, nil, 12, nil},
-		{_bucket1, _k5, nil, 0, ErrNotExist},
-		{_bucket1, _k10, nil, 0, ErrInvalid},
+		{_bucket1, _k1, nil, 0, _errNotExist},
+		{_bucket1, _k2, nil, 12, ""},
+		{_bucket1, _k3, nil, 0, _errNotExist},
+		{_bucket1, _k4, nil, 12, ""},
+		{_bucket1, _k5, nil, 0, _errNotExist},
+		{_bucket1, _k10, nil, 0, ErrInvalid.Error()},
 	} {
 		value, err := db.Version(e.ns, e.k)
-		r.Equal(e.err, errors.Cause(err))
+		if len(e.err) == 0 {
+			r.NoError(err)
+		} else {
+			r.ErrorContains(err, e.err)
+		}
 		r.Equal(e.height, value)
 	}
 	// test filter
@@ -304,14 +334,14 @@ func TestMultipleWriteDelete(t *testing.T) {
 			// multiple writes and deletes using commitToDB
 			b := batch.NewBatch()
 			for _, e := range []versionTest{
-				{_bucket1, _k2, _v1, 1, nil},
-				{_bucket1, _k2, _v3, 3, nil},
-				{_bucket1, _k2, nil, 7, ErrDeleted},
-				{_bucket1, _k2, _v2, 10, nil},
-				{_bucket1, _k2, nil, 15, ErrDeleted},
-				{_bucket1, _k2, _v3, 18, ErrDeleted}, // delete-after-write
-				{_bucket1, _k2, _v4, 21, nil},
-				{_bucket1, _k2, _k2, 25, nil}, // write-after-delete
+				{_bucket1, _k2, _v1, 1, ""},
+				{_bucket1, _k2, _v3, 3, ""},
+				{_bucket1, _k2, nil, 7, ErrDeleted.Error()},
+				{_bucket1, _k2, _v2, 10, ""},
+				{_bucket1, _k2, nil, 15, ErrDeleted.Error()},
+				{_bucket1, _k2, _v3, 18, ErrDeleted.Error()}, // delete-after-write
+				{_bucket1, _k2, _v4, 21, ""},
+				{_bucket1, _k2, _k2, 25, ""}, // write-after-delete
 			} {
 				if e.height == 7 || e.height == 15 {
 					b.Delete(e.ns, e.k, "test")
@@ -331,35 +361,43 @@ func TestMultipleWriteDelete(t *testing.T) {
 				r.NoError(db.CommitToDB(e.height, b))
 				b.Clear()
 				v, err := db.Version(e.ns, e.k)
-				r.Equal(e.err, errors.Cause(err))
+				if len(e.err) == 0 {
+					r.NoError(err)
+				} else {
+					r.ErrorContains(err, e.err)
+				}
 				if err == nil {
 					r.EqualValues(e.height, v)
 				}
 			}
 		}
 		for _, e := range []versionTest{
-			{_bucket1, _k2, nil, 0, ErrNotExist},
-			{_bucket1, _k2, _v1, 1, nil},
-			{_bucket1, _k2, _v1, 2, nil},
-			{_bucket1, _k2, _v3, 3, nil},
-			{_bucket1, _k2, _v3, 6, nil},
-			{_bucket1, _k2, nil, 7, ErrDeleted},
-			{_bucket1, _k2, nil, 9, ErrDeleted},
-			{_bucket1, _k2, _v2, 10, nil},
-			{_bucket1, _k2, _v2, 14, nil},
-			{_bucket1, _k2, nil, 15, ErrDeleted},
-			{_bucket1, _k2, nil, 17, ErrDeleted},
-			{_bucket1, _k2, nil, 18, ErrDeleted},
-			{_bucket1, _k2, nil, 20, ErrDeleted},
-			{_bucket1, _k2, _v4, 21, nil},
-			{_bucket1, _k2, _v4, 22, nil},
-			{_bucket1, _k2, _v4, 24, nil},
-			{_bucket1, _k2, _k2, 25, nil},
-			{_bucket1, _k2, _k2, 26, nil},
-			{_bucket1, _k2, _k2, 25000, nil},
+			{_bucket1, _k2, nil, 0, _errNotExist},
+			{_bucket1, _k2, _v1, 1, ""},
+			{_bucket1, _k2, _v1, 2, ""},
+			{_bucket1, _k2, _v3, 3, ""},
+			{_bucket1, _k2, _v3, 6, ""},
+			{_bucket1, _k2, nil, 7, _errDeleted},
+			{_bucket1, _k2, nil, 9, _errDeleted},
+			{_bucket1, _k2, _v2, 10, ""},
+			{_bucket1, _k2, _v2, 14, ""},
+			{_bucket1, _k2, nil, 15, _errDeleted},
+			{_bucket1, _k2, nil, 17, _errDeleted},
+			{_bucket1, _k2, nil, 18, _errDeleted},
+			{_bucket1, _k2, nil, 20, _errDeleted},
+			{_bucket1, _k2, _v4, 21, ""},
+			{_bucket1, _k2, _v4, 22, ""},
+			{_bucket1, _k2, _v4, 24, ""},
+			{_bucket1, _k2, _k2, 25, ""},
+			{_bucket1, _k2, _k2, 26, ""},
+			{_bucket1, _k2, _k2, 25000, ""},
 		} {
 			value, err := db.Get(e.height, e.ns, e.k)
-			r.Equal(e.err, errors.Cause(err))
+			if len(e.err) == 0 {
+				r.NoError(err)
+			} else {
+				r.ErrorContains(err, e.err)
+			}
 			r.Equal(e.v, value)
 		}
 		r.NoError(db.Stop(ctx))
@@ -371,14 +409,14 @@ func TestDedup(t *testing.T) {
 
 	b := batch.NewBatch()
 	for _, e := range []versionTest{
-		{_bucket2, _v1, _v2, 0, nil},
-		{_bucket2, _v2, _v3, 9, nil},
-		{_bucket2, _v3, _v4, 3, nil},
-		{_bucket2, _v4, _v1, 1, nil},
-		{_bucket1, _k1, _v1, 0, nil},
-		{_bucket1, _k2, _v2, 9, nil},
-		{_bucket1, _k3, _v3, 3, nil},
-		{_bucket1, _k4, _v4, 1, nil},
+		{_bucket2, _v1, _v2, 0, ""},
+		{_bucket2, _v2, _v3, 9, ""},
+		{_bucket2, _v3, _v4, 3, ""},
+		{_bucket2, _v4, _v1, 1, ""},
+		{_bucket1, _k1, _v1, 0, ""},
+		{_bucket1, _k2, _v2, 9, ""},
+		{_bucket1, _k3, _v3, 3, ""},
+		{_bucket1, _k4, _v4, 1, ""},
 	} {
 		b.Put(e.ns, e.k, e.v, "test")
 	}
@@ -428,11 +466,11 @@ func TestCommitToDB(t *testing.T) {
 
 	b := batch.NewBatch()
 	for _, e := range []versionTest{
-		{_bucket2, _v1, _k1, 0, nil},
-		{_bucket2, _v2, _k2, 9, nil},
-		{_bucket2, _v3, _k3, 3, nil},
-		{_bucket1, _k1, _v1, 0, nil},
-		{_bucket1, _k2, _v2, 9, nil},
+		{_bucket2, _v1, _k1, 0, ""},
+		{_bucket2, _v2, _k2, 9, ""},
+		{_bucket2, _v3, _k3, 3, ""},
+		{_bucket1, _k1, _v1, 0, ""},
+		{_bucket1, _k2, _v2, 9, ""},
 	} {
 		b.Put(e.ns, e.k, e.v, "test")
 	}
@@ -444,30 +482,34 @@ func TestCommitToDB(t *testing.T) {
 	r.NoError(db.CommitToDB(1, b))
 	b.Clear()
 	for _, e := range []versionTest{
-		{_bucket2, _v1, nil, 0, ErrNotExist},
-		{_bucket2, _v2, nil, 0, ErrNotExist},
-		{_bucket2, _v3, nil, 0, ErrNotExist},
-		{_bucket2, _v4, nil, 0, ErrNotExist},
-		{_bucket2, _v1, _k1, 1, nil},
-		{_bucket2, _v2, _k2, 1, nil},
-		{_bucket2, _v3, _k3, 1, nil},
-		{_bucket2, _v1, _k1, 2, nil},
-		{_bucket2, _v2, _k2, 2, nil},
-		{_bucket2, _v3, _k3, 2, nil},
-		{_bucket2, _v4, nil, 2, ErrNotExist},
-		{_bucket1, _k1, nil, 0, ErrNotExist},
-		{_bucket1, _k2, nil, 0, ErrNotExist},
-		{_bucket1, _k3, nil, 0, ErrNotExist},
-		{_bucket1, _k4, nil, 0, ErrNotExist},
-		{_bucket1, _k1, _v1, 1, nil},
-		{_bucket1, _k2, _v2, 1, nil},
-		{_bucket1, _k1, _v1, 3, nil},
-		{_bucket1, _k2, _v2, 3, nil},
-		{_bucket1, _k3, nil, 3, ErrNotExist},
-		{_bucket1, _k4, nil, 3, ErrNotExist},
+		{_bucket2, _v1, nil, 0, _errNotExist},
+		{_bucket2, _v2, nil, 0, _errNotExist},
+		{_bucket2, _v3, nil, 0, _errNotExist},
+		{_bucket2, _v4, nil, 0, _errNotExist},
+		{_bucket2, _v1, _k1, 1, ""},
+		{_bucket2, _v2, _k2, 1, ""},
+		{_bucket2, _v3, _k3, 1, ""},
+		{_bucket2, _v1, _k1, 2, ""},
+		{_bucket2, _v2, _k2, 2, ""},
+		{_bucket2, _v3, _k3, 2, ""},
+		{_bucket2, _v4, nil, 2, _errNotExist},
+		{_bucket1, _k1, nil, 0, _errNotExist},
+		{_bucket1, _k2, nil, 0, _errNotExist},
+		{_bucket1, _k3, nil, 0, _errNotExist},
+		{_bucket1, _k4, nil, 0, _errNotExist},
+		{_bucket1, _k1, _v1, 1, ""},
+		{_bucket1, _k2, _v2, 1, ""},
+		{_bucket1, _k1, _v1, 3, ""},
+		{_bucket1, _k2, _v2, 3, ""},
+		{_bucket1, _k3, nil, 3, _errNotExist},
+		{_bucket1, _k4, nil, 3, _errNotExist},
 	} {
 		value, err := db.Get(e.height, e.ns, e.k)
-		r.Equal(e.err, errors.Cause(err))
+		if len(e.err) == 0 {
+			r.NoError(err)
+		} else {
+			r.ErrorContains(err, e.err)
+		}
 		r.Equal(e.v, value)
 	}
 
@@ -476,14 +518,14 @@ func TestCommitToDB(t *testing.T) {
 	r.Equal(ErrInvalid, errors.Cause(db.CommitToDB(3, b)))
 	b.Clear()
 	for _, e := range []versionTest{
-		{_bucket1, _k1, _v1, 0, nil},
-		{_bucket1, _k2, _v3, 9, nil},
-		{_bucket1, _k3, _v1, 3, nil},
-		{_bucket1, _k4, _v2, 1, nil},
-		{_bucket2, _v1, _k3, 0, nil},
-		{_bucket2, _v2, _k2, 9, nil},
-		{_bucket2, _v3, _k1, 3, nil},
-		{_bucket2, _v4, _k4, 1, nil},
+		{_bucket1, _k1, _v1, 0, ""},
+		{_bucket1, _k2, _v3, 9, ""},
+		{_bucket1, _k3, _v1, 3, ""},
+		{_bucket1, _k4, _v2, 1, ""},
+		{_bucket2, _v1, _k3, 0, ""},
+		{_bucket2, _v2, _k2, 9, ""},
+		{_bucket2, _v3, _k1, 3, ""},
+		{_bucket2, _v4, _k4, 1, ""},
 	} {
 		b.Put(e.ns, e.k, e.v, "test")
 	}
@@ -493,48 +535,60 @@ func TestCommitToDB(t *testing.T) {
 	r.NoError(db.CommitToDB(5, b))
 	b.Clear()
 	for _, e := range []versionTest{
-		{_bucket1, _k1, nil, 0, ErrNotExist},
-		{_bucket1, _k2, nil, 0, ErrNotExist},
-		{_bucket1, _k3, nil, 0, ErrNotExist},
-		{_bucket1, _k4, nil, 0, ErrNotExist},
-		{_bucket2, _v1, nil, 0, ErrNotExist},
-		{_bucket2, _v2, nil, 0, ErrNotExist},
-		{_bucket2, _v3, nil, 0, ErrNotExist},
-		{_bucket2, _v4, nil, 0, ErrNotExist},
+		{_bucket1, _k1, nil, 0, _errNotExist},
+		{_bucket1, _k2, nil, 0, _errNotExist},
+		{_bucket1, _k3, nil, 0, _errNotExist},
+		{_bucket1, _k4, nil, 0, _errNotExist},
+		{_bucket2, _v1, nil, 0, _errNotExist},
+		{_bucket2, _v2, nil, 0, _errNotExist},
+		{_bucket2, _v3, nil, 0, _errNotExist},
+		{_bucket2, _v4, nil, 0, _errNotExist},
 	} {
 		value, err := db.Get(e.height, e.ns, e.k)
-		r.Equal(e.err, errors.Cause(err))
+		if len(e.err) == 0 {
+			r.NoError(err)
+		} else {
+			r.ErrorContains(err, e.err)
+		}
 		r.Equal(e.v, value)
 	}
 	for _, e := range []versionTest{
-		{_bucket1, _k1, _v1, 1, nil},
-		{_bucket1, _k2, _v2, 1, nil},
-		{_bucket1, _k3, nil, 1, ErrNotExist},
-		{_bucket1, _k4, nil, 1, ErrNotExist},
-		{_bucket2, _v1, _k1, 1, nil},
-		{_bucket2, _v2, _k2, 1, nil},
-		{_bucket2, _v3, _k3, 1, nil},
-		{_bucket2, _v4, nil, 1, ErrNotExist},
+		{_bucket1, _k1, _v1, 1, ""},
+		{_bucket1, _k2, _v2, 1, ""},
+		{_bucket1, _k3, nil, 1, _errNotExist},
+		{_bucket1, _k4, nil, 1, _errNotExist},
+		{_bucket2, _v1, _k1, 1, ""},
+		{_bucket2, _v2, _k2, 1, ""},
+		{_bucket2, _v3, _k3, 1, ""},
+		{_bucket2, _v4, nil, 1, _errNotExist},
 	} {
 		for _, h := range []uint64{1, 2, 3, 4} {
 			value, err := db.Get(h, e.ns, e.k)
-			r.Equal(e.err, errors.Cause(err))
+			if len(e.err) == 0 {
+				r.NoError(err)
+			} else {
+				r.ErrorContains(err, e.err)
+			}
 			r.Equal(e.v, value)
 		}
 	}
 	for _, e := range []versionTest{
-		{_bucket1, _k1, _v1, 5, nil},
-		{_bucket1, _k2, _v3, 5, nil},
-		{_bucket1, _k3, nil, 5, ErrDeleted},
-		{_bucket1, _k4, _v2, 5, nil},
-		{_bucket2, _v1, _k3, 5, nil},
-		{_bucket2, _v2, _k2, 5, nil},
-		{_bucket2, _v3, nil, 5, ErrDeleted},
-		{_bucket2, _v4, _k4, 5, nil},
+		{_bucket1, _k1, _v1, 5, ""},
+		{_bucket1, _k2, _v3, 5, ""},
+		{_bucket1, _k3, nil, 5, _errDeleted},
+		{_bucket1, _k4, _v2, 5, ""},
+		{_bucket2, _v1, _k3, 5, ""},
+		{_bucket2, _v2, _k2, 5, ""},
+		{_bucket2, _v3, nil, 5, _errDeleted},
+		{_bucket2, _v4, _k4, 5, ""},
 	} {
 		for _, h := range []uint64{5, 16, 64, 3000, math.MaxUint64} {
 			value, err := db.Get(h, e.ns, e.k)
-			r.Equal(e.err, errors.Cause(err))
+			if len(e.err) == 0 {
+				r.NoError(err)
+			} else {
+				r.ErrorContains(err, e.err)
+			}
 			r.Equal(e.v, value)
 		}
 	}
