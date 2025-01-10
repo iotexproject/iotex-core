@@ -54,12 +54,24 @@ type (
 	// KvWithVersion wraps the versioned DB implementation with a certain version
 	KvWithVersion struct {
 		db      VersionedDB
-		version uint64 // the current version
+		version uint64      // the current version
+		vns     []Namespace // versioned namespace
+	}
+
+	Namespace struct {
+		ns     string
+		keyLen uint32
 	}
 )
 
 // Option sets an option
 type Option func(*KvWithVersion)
+
+func VersionedNamespaceOption(ns ...Namespace) Option {
+	return func(k *KvWithVersion) {
+		k.vns = ns
+	}
+}
 
 // NewKVStoreWithVersion implements a KVStore that can handle both versioned
 // and non-versioned namespace
@@ -76,7 +88,15 @@ func NewKVStoreWithVersion(cfg Config, opts ...Option) *KvWithVersion {
 
 // Start starts the DB
 func (b *KvWithVersion) Start(ctx context.Context) error {
-	return b.db.Start(ctx)
+	if err := b.db.Start(ctx); err != nil {
+		return err
+	}
+	for _, v := range b.vns {
+		if err := b.db.AddVersionedNamespace(v.ns, v.keyLen); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Stop stops the DB
@@ -119,6 +139,7 @@ func (b *KvWithVersion) SetVersion(v uint64) KVStore {
 	kv := KvWithVersion{
 		db:      b.db,
 		version: v,
+		vns:     b.vns,
 	}
 	return &kv
 }
