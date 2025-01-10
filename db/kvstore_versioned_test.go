@@ -33,7 +33,7 @@ func TestKVStoreWithVersion(t *testing.T) {
 
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
-	db := NewKVStoreWithVersion(cfg)
+	db := NewKVStoreWithVersion(cfg, VersionedNamespaceOption(Namespace{_bucket1, 5}, Namespace{_bucket2, 5}))
 	ctx := context.Background()
 	r.NoError(db.Start(ctx))
 	defer func() {
@@ -116,8 +116,8 @@ func TestKVStoreWithVersion(t *testing.T) {
 	r.NoError(db.SetVersion(6).Put(_bucket2, _k2, _v4))
 	r.NoError(db.SetVersion(7).Put(_bucket1, _k4, _v4))
 	// write to earlier version again is invalid
-	r.Equal(ErrInvalid, db.SetVersion(3).Put(_bucket1, _k2, _v4))
-	r.Equal(ErrInvalid, db.SetVersion(4).Put(_bucket1, _k4, _v4))
+	r.ErrorContains(db.SetVersion(3).Put(_bucket1, _k2, _v4), "cannot write at earlier version 3: invalid input")
+	r.ErrorContains(db.SetVersion(4).Put(_bucket1, _k4, _v4), "cannot write at earlier version 4: invalid input")
 	// write with same value
 	r.NoError(db.SetVersion(9).Put(_bucket1, _k2, _v4))
 	r.NoError(db.SetVersion(10).Put(_bucket1, _k4, _v4))
@@ -206,12 +206,12 @@ func TestKVStoreWithVersion(t *testing.T) {
 	}
 	// test delete
 	kv := db.SetVersion(10)
-	r.Equal(ErrNotExist, errors.Cause(kv.Delete(_bucket2, _k1)))
 	for _, k := range [][]byte{_k2, _k4} {
 		r.NoError(kv.Delete(_bucket1, k))
+		r.ErrorContains(db.SetVersion(9).Delete(_bucket1, k), "cannot delete at earlier version 9")
 	}
 	for _, k := range [][]byte{_k1, _k3, _k5} {
-		r.Equal(ErrNotExist, errors.Cause(kv.Delete(_bucket1, k)))
+		r.NoError(kv.Delete(_bucket1, k))
 	}
 	r.Equal(ErrInvalid, errors.Cause(kv.Delete(_bucket1, _k10)))
 	// key still can be read before delete version
@@ -382,7 +382,7 @@ func TestWriteBatch(t *testing.T) {
 
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
-	db := NewKVStoreWithVersion(cfg)
+	db := NewKVStoreWithVersion(cfg, VersionedNamespaceOption(Namespace{_bucket1, 5}, Namespace{_bucket2, 7}))
 	ctx := context.Background()
 	r.NoError(db.Start(ctx))
 	defer func() {
