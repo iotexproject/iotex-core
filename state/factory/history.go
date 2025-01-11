@@ -107,7 +107,7 @@ func (h *HistoryStateIndex) Start(ctx context.Context) error {
 		defer tx.Rollback()
 		r, tsw := erigonstate.NewPlainStateReader(tx), erigonstate.NewPlainStateWriter(tx, tx, 0)
 		intraBlockState := erigonstate.New(r)
-		intraBlockState.SetTrace(true)
+		intraBlockState.SetTrace(false)
 		hws := &historyWorkingSetRo{
 			historyWorkingSet: &historyWorkingSet{
 				workingSet: ws,
@@ -160,7 +160,7 @@ func (h *HistoryStateIndex) PutBlock(ctx context.Context, blk *block.Block) erro
 	defer tx.Rollback()
 	r, tsw := erigonstate.NewPlainStateReader(tx), erigonstate.NewPlainStateWriter(tx, tx, blk.Height())
 	intraBlockState := erigonstate.New(r)
-	intraBlockState.SetTrace(true)
+	intraBlockState.SetTrace(false)
 
 	hws := &historyWorkingSet{
 		workingSet: ws,
@@ -190,7 +190,7 @@ func (h *HistoryStateIndex) commit(ctx context.Context, tx kv.RwTx, tsw *erigons
 	if err != nil {
 		return err
 	}
-	intraBlockState.Print(*rules)
+	// intraBlockState.Print(*rules)
 
 	err = tsw.WriteChangeSets()
 	if err != nil {
