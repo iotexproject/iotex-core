@@ -128,7 +128,7 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockStore, indexers []BlockIndexe
 
 // Start starts block DAO and initiates the top height if it doesn't exist
 func (dao *blockDAO) Start(ctx context.Context) error {
-	err := dao.lifecycle.OnStart(ctx)
+	err := dao.lifecycle.OnStartSequentially(ctx) // ensure block store is started first and then history index
 	if err != nil {
 		return errors.Wrap(err, "failed to start child services")
 	}
@@ -322,6 +322,9 @@ func (dao *blockDAO) TransactionLogs(height uint64) (*iotextypes.TransactionLogs
 }
 
 func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
+	// if blk.Height() >= 12000000 {
+	// 	panic("stop at 12000000")
+	// }
 	timer := dao.timerFactory.NewTimer("put_block")
 	if err := dao.blockStore.PutBlock(ctx, blk); err != nil {
 		timer.End()

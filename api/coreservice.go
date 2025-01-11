@@ -83,6 +83,8 @@ type (
 	CoreService interface {
 		// Account returns the metadata of an account
 		Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error)
+		// Account returns the metadata of an account
+		AccountAt(addr address.Address, height uint64) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error)
 		// ChainMeta returns blockchain metadata
 		ChainMeta() (*iotextypes.ChainMeta, string, error)
 		// ServerMeta gets the server metadata
@@ -91,6 +93,8 @@ type (
 		SendAction(ctx context.Context, in *iotextypes.Action) (string, error)
 		// ReadContract reads the state in a contract address specified by the slot
 		ReadContract(ctx context.Context, callerAddr address.Address, sc action.Envelope) (string, *iotextypes.Receipt, error)
+
+		ReadContractAt(ctx context.Context, callerAddr address.Address, sc action.Envelope, height uint64) (string, *iotextypes.Receipt, error)
 		// ReadState reads state on blockchain
 		ReadState(protocolID string, height string, methodName []byte, arguments [][]byte) (*iotexapi.ReadStateResponse, error)
 		// SuggestGasPrice suggests gas price
@@ -195,6 +199,7 @@ type (
 		bc                blockchain.Blockchain
 		bs                blocksync.BlockSync
 		sf                factory.Factory
+		history           *factory.HistoryStateIndex
 		dao               blockdao.BlockDAO
 		indexer           blockindex.Indexer
 		bfIndexer         blockindex.BloomFilterIndexer
@@ -242,6 +247,12 @@ func WithNativeElection(committee committee.Committee) Option {
 func WithAPIStats(stats *nodestats.APILocalStats) Option {
 	return func(svr *coreService) {
 		svr.apiStats = stats
+	}
+}
+
+func WithHistory(history *factory.HistoryStateIndex) Option {
+	return func(svr *coreService) {
+		svr.history = history
 	}
 }
 
@@ -343,6 +354,61 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	if state.IsContract() {
 		var code protocol.SerializableBytes
 		_, err = core.sf.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(state.CodeHash))
+		if err != nil {
+			return nil, nil, status.Error(codes.NotFound, err.Error())
+		}
+		accountMeta.ContractByteCode = code
+	}
+	span.AddEvent("bc.BlockHeaderByHeight")
+	header, err := core.bc.BlockHeaderByHeight(tipHeight)
+	if err != nil {
+		return nil, nil, status.Error(codes.NotFound, err.Error())
+	}
+	hash := header.HashBlock()
+	span.AddEvent("coreService.Account.End")
+	return accountMeta, &iotextypes.BlockIdentifier{
+		Hash:   hex.EncodeToString(hash[:]),
+		Height: tipHeight,
+	}, nil
+}
+
+func (core *coreService) AccountAt(addr address.Address, height uint64) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+	ctx, span := tracer.NewSpan(context.Background(), "coreService.Account")
+	defer span.End()
+	addrStr := addr.String()
+	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
+		return core.getProtocolAccount(ctx, addrStr)
+	}
+	span.AddEvent("accountutil.AccountStateWithHeight")
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	ws, err := core.history.StateManagerAt(ctx, height)
+	if err != nil {
+		return nil, nil, status.Error(codes.NotFound, err.Error())
+	}
+	defer ws.Close()
+	state, tipHeight, err := accountutil.AccountStateWithHeight(ctx, ws, addr)
+	if err != nil {
+		return nil, nil, status.Error(codes.NotFound, err.Error())
+	}
+	if core.indexer == nil {
+		return nil, nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+	}
+	span.AddEvent("indexer.GetActionCount")
+	numActions, err := core.indexer.GetActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
+	if err != nil {
+		return nil, nil, status.Error(codes.NotFound, err.Error())
+	}
+	// TODO: deprecate nonce field in account meta
+	accountMeta := &iotextypes.AccountMeta{
+		Address:      addrStr,
+		Balance:      state.Balance.String(),
+		PendingNonce: state.PendingNonce(),
+		NumActions:   numActions,
+		IsContract:   state.IsContract(),
+	}
+	if state.IsContract() {
+		var code protocol.SerializableBytes
+		_, err = ws.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(addr.Bytes()))
 		if err != nil {
 			return nil, nil, status.Error(codes.NotFound, err.Error())
 		}
@@ -545,6 +611,26 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	}
 	if d, err := proto.Marshal(&res); err == nil {
 		core.readCache.Put(key, d)
+	}
+	return res.Data, res.Receipt, nil
+}
+
+func (core *coreService) ReadContractAt(ctx context.Context, callerAddr address.Address, elp action.Envelope, height uint64) (string, *iotextypes.Receipt, error) {
+	log.Logger("api").Debug("receive read smart contract request")
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(height)
+	)
+	if elp.Gas() == 0 || blockGasLimit < elp.Gas() {
+		elp.SetGas(blockGasLimit)
+	}
+	retval, receipt, err := core.simulateExecutionAt(ctx, callerAddr, elp, height)
+	if err != nil {
+		return "", nil, status.Error(codes.Internal, err.Error())
+	}
+	res := iotexapi.ReadContractResponse{
+		Data:    hex.EncodeToString(retval),
+		Receipt: receipt.ConvertToReceiptPb(),
 	}
 	return res.Data, res.Receipt, nil
 }
@@ -1831,6 +1917,15 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 	return core.simulateExecution(ctx, addr, elp)
 }
 
+func (core *coreService) SimulateExecutionAt(ctx context.Context, addr address.Address, elp action.Envelope, height uint64) ([]byte, *action.Receipt, error) {
+	var (
+		g             = core.bc.Genesis()
+		blockGasLimit = g.BlockGasLimitByHeight(height)
+	)
+	elp.SetGas(blockGasLimit)
+	return core.simulateExecution(ctx, addr, elp)
+}
+
 // SyncingProgress returns the syncing status of node
 func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
 	startingHeight, currentHeight, targetHeight, _ := core.bs.SyncStatus()
@@ -1967,6 +2062,38 @@ func (core *coreService) simulateExecution(ctx context.Context, addr address.Add
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
+	return evm.SimulateExecution(ctx, ws, addr, elp, opts...)
+}
+
+func (core *coreService) simulateExecutionAt(ctx context.Context, addr address.Address, elp action.Envelope, height uint64, opts ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
+	ctx, err := core.bc.ContextAtHeight(ctx, height)
+	if err != nil {
+		return nil, nil, status.Error(codes.Internal, err.Error())
+	}
+	state, err := accountutil.AccountState(ctx, core.sf, addr)
+	if err != nil {
+		return nil, nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	var pendingNonce uint64
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: height,
+	}))
+	if protocol.MustGetFeatureCtx(ctx).RefactorFreshAccountConversion {
+		pendingNonce = state.PendingNonceConsideringFreshAccount()
+	} else {
+		pendingNonce = state.PendingNonce()
+	}
+	elp.SetNonce(pendingNonce)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash:   core.dao.GetBlockHash,
+		GetBlockTime:   core.getBlockTime,
+		DepositGasFunc: rewarding.DepositGas,
+	})
+	ws, err := core.history.StateManagerAt(ctx, height)
+	if err != nil {
+		return nil, nil, status.Error(codes.Internal, err.Error())
+	}
+	defer ws.Close()
 	return evm.SimulateExecution(ctx, ws, addr, elp, opts...)
 }
 
