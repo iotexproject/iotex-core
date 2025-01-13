@@ -70,9 +70,9 @@ func TestGrpcServer_GetAccount(t *testing.T) {
 		request := &iotexapi.GetAccountRequest{
 			Address: "9254d943485d0fb859ff63c5581acc44f00fc2110343ac0445b99dfe39a6f1a5",
 		}
-
+		core.EXPECT().Account(gomock.Any()).Return(nil, nil, expectedErr)
 		_, err := grpcSvr.GetAccount(context.Background(), request)
-		require.Contains(err.Error(), expectedErr.Error())
+		require.ErrorContains(err, expectedErr.Error())
 	})
 }
 

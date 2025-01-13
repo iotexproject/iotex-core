@@ -252,11 +252,9 @@ func getBlockByNumber(t *testing.T, handler *hTTPHandler) {
 func getBalance(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
 	result := serveTestHTTP(require, handler, "eth_getBalance", `["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36"]`)
-	ans, ok := new(big.Int).SetString("9999999999999999999999999991", 10)
-	require.True(ok)
 	actual, ok := result.(string)
 	require.True(ok)
-	ans, ok = new(big.Int).SetString("9999999999999999999999999991", 10)
+	ans, ok := new(big.Int).SetString("9999999999999999999999999991", 10)
 	require.True(ok)
 	require.Equal("0x"+fmt.Sprintf("%x", ans), actual)
 }
