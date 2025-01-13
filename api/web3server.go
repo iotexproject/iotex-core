@@ -412,7 +412,7 @@ func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	accountMeta, _, err := svr.coreService.Account(ioAddr.String())
 	if err != nil {
 		return nil, err
 	}
@@ -611,7 +611,7 @@ func (svr *web3Handler) getCode(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	accountMeta, _, err := svr.coreService.Account(ioAddr.String())
 	if err != nil {
 		return nil, err
 	}

@@ -48,9 +48,9 @@ func (m *MockCoreService) EXPECT() *MockCoreServiceMockRecorder {
 }
 
 // Account mocks base method.
-func (m *MockCoreService) Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+func (m *MockCoreService) Account(arg0 string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Account", addr)
+	ret := m.ctrl.Call(m, "Account", arg0)
 	ret0, _ := ret[0].(*iotextypes.AccountMeta)
 	ret1, _ := ret[1].(*iotextypes.BlockIdentifier)
 	ret2, _ := ret[2].(error)
@@ -58,9 +58,9 @@ func (m *MockCoreService) Account(addr address.Address) (*iotextypes.AccountMeta
 }
 
 // Account indicates an expected call of Account.
-func (mr *MockCoreServiceMockRecorder) Account(addr interface{}) *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) Account(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Account", reflect.TypeOf((*MockCoreService)(nil).Account), addr)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Account", reflect.TypeOf((*MockCoreService)(nil).Account), arg0)
 }
 
 // Action mocks base method.
