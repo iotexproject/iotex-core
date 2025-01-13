@@ -12,6 +12,7 @@ import (
 	"github.com/ledgerwatch/erigon-lib/kv"
 	erigonstate "github.com/ledgerwatch/erigon/core/state"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -19,6 +20,16 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
+)
+
+var (
+	perfMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_factory_perf",
+			Help: "iotex factory perf",
+		},
+		[]string{"topic"},
+	)
 )
 
 type reader interface {
@@ -51,6 +62,10 @@ type erigonStore struct {
 	intraBlockState *erigonstate.IntraBlockState
 	tx              kv.Tx
 	getBlockTime    func(uint64) (time.Time, error)
+}
+
+func init() {
+	prometheus.MustRegister(perfMtc)
 }
 
 func newStateDBWorkingSetStoreWithErigonOutput(store *stateDBWorkingSetStore, erigonStore *erigonStore) *stateDBWorkingSetStoreWithErigonOutput {
@@ -94,10 +109,15 @@ func (store *stateDBWorkingSetStoreWithErigonOutput) Delete(ns string, key []byt
 }
 
 func (store *stateDBWorkingSetStoreWithErigonOutput) Commit(ctx context.Context) error {
+	t1 := time.Now()
 	if err := store.store.Commit(ctx); err != nil {
 		return err
 	}
-	return store.erigonStore.commit(ctx)
+	perfMtc.WithLabelValues("commitstore").Set(float64(time.Since(t1).Nanoseconds()))
+	t2 := time.Now()
+	err := store.erigonStore.commit(ctx)
+	perfMtc.WithLabelValues("commiterigon").Set(float64(time.Since(t2).Nanoseconds()))
+	return err
 }
 
 func (store *stateDBWorkingSetStoreWithErigonOutput) Snapshot() int {
