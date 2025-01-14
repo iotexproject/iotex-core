@@ -151,17 +151,8 @@ func (ws *workingSet) runAction(
 			return nil, err
 		}
 	}
-	fCtx := protocol.MustGetFeatureCtx(ctx)
-	// if it's a tx container, unfold the tx inside
-	if fCtx.UseTxContainer && !fCtx.UnfoldContainerBeforeValidate {
-		if container, ok := selp.Envelope.(action.TxContainer); ok {
-			if err := container.Unfold(selp, ctx, ws.checkContract); err != nil {
-				return nil, errors.Wrap(errUnfoldTxContainer, err.Error())
-			}
-		}
-	}
 	// verify the tx is not container format (unfolded correctly)
-	if fCtx.VerifyNotContainerBeforeRun && selp.Encoding() == uint32(iotextypes.Encoding_TX_CONTAINER) {
+	if selp.Encoding() == uint32(iotextypes.Encoding_TX_CONTAINER) {
 		return nil, errors.Wrap(action.ErrInvalidAct, "cannot run tx container without unfolding")
 	}
 	// for replay tx, check against deployer whitelist
@@ -182,6 +173,7 @@ func (ws *workingSet) runAction(
 	if err := ws.freshAccountConversion(ctx, &actCtx); err != nil {
 		return nil, err
 	}
+	fCtx := protocol.MustGetFeatureCtx(ctx)
 	for _, actionHandler := range reg.All() {
 		receipt, err := actionHandler.Handle(ctx, selp.Envelope, ws)
 		if err != nil {
@@ -630,14 +622,12 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			}
-			if fCtx.UnfoldContainerBeforeValidate {
-				if container, ok := nextAction.Envelope.(action.TxContainer); ok {
-					if err := container.Unfold(nextAction, ctx, ws.checkContract); err != nil {
-						log.L().Debug("failed to unfold tx container", zap.Uint64("height", ws.height), zap.Error(err))
-						ap.DeleteAction(nextAction.SenderAddress())
-						actionIterator.PopAccount()
-						continue
-					}
+			if container, ok := nextAction.Envelope.(action.TxContainer); ok {
+				if err := container.Unfold(nextAction, ctx, ws.checkContract); err != nil {
+					log.L().Debug("failed to unfold tx container", zap.Uint64("height", ws.height), zap.Error(err))
+					ap.DeleteAction(nextAction.SenderAddress())
+					actionIterator.PopAccount()
+					continue
 				}
 			}
 			if err := ws.txValidator.ValidateWithState(ctxWithBlockContext, nextAction); err != nil {
