@@ -1,13 +1,14 @@
 package evm
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 	erigonchain "github.com/ledgerwatch/erigon-lib/chain"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
+	types2 "github.com/ledgerwatch/erigon-lib/types"
 	erigonstate "github.com/ledgerwatch/erigon/core/state"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -46,6 +47,9 @@ func NewErigonStateDBAdapter(adapter *StateDBAdapter,
 	intra *erigonstate.IntraBlockState,
 	chainRules *erigonchain.Rules,
 ) *ErigonStateDBAdapter {
+	adapter.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
+		return newContractV3(addr, account, adapter.sm, intra, adapter.asyncContractTrie)
+	}
 	return &ErigonStateDBAdapter{
 		StateDBAdapter: adapter,
 		rw:             rw,
@@ -59,11 +63,12 @@ func NewErigonStateDBAdapterDryrun(adapter *StateDBAdapter,
 	intra *erigonstate.IntraBlockState,
 	chainRules *erigonchain.Rules,
 ) *ErigonStateDBAdapterDryrun {
+	a := NewErigonStateDBAdapter(adapter, rw, intra, chainRules)
 	adapter.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
 		return newContractV2(addr, account, adapter.sm, intra)
 	}
 	return &ErigonStateDBAdapterDryrun{
-		NewErigonStateDBAdapter(adapter, rw, intra, chainRules),
+		ErigonStateDBAdapter: a,
 	}
 }
 
@@ -89,7 +94,6 @@ func (s *ErigonStateDBAdapter) SetNonce(evmAddr common.Address, n uint64) {
 
 func (s *ErigonStateDBAdapter) SetCode(evmAddr common.Address, c []byte) {
 	s.StateDBAdapter.SetCode(evmAddr, c)
-	s.intra.SetCode(libcommon.Address(evmAddr), c)
 }
 
 func (s *ErigonStateDBAdapter) AddRefund(r uint64) {
@@ -102,8 +106,6 @@ func (s *ErigonStateDBAdapter) SubRefund(r uint64) {
 }
 func (s *ErigonStateDBAdapter) SetState(evmAddr common.Address, k common.Hash, v common.Hash) {
 	s.StateDBAdapter.SetState(evmAddr, k, v)
-	key := libcommon.Hash(k)
-	s.intra.SetState(libcommon.Address(evmAddr), &key, *uint256.MustFromBig(big.NewInt(0).SetBytes(v[:])))
 }
 
 func (s *ErigonStateDBAdapter) SelfDestruct(evmAddr common.Address) {
@@ -132,19 +134,54 @@ func (s *ErigonStateDBAdapter) CommitContracts() error {
 func (s *ErigonStateDBAdapter) RevertToSnapshot(sn int) {
 	log.L().Debug("erigon adapter revert to snapshot", zap.Int("sn", sn), zap.Int("isn", sn+s.snDiff))
 	s.StateDBAdapter.RevertToSnapshot(sn)
-	// s.intra.RevertToSnapshot(sn + s.snDiff)
 }
 
 func (s *ErigonStateDBAdapter) Snapshot() int {
 	sn := s.StateDBAdapter.Snapshot()
-	// isn := s.intra.Snapshot()
-	// log.L().Debug("erigon adapter snapshot", zap.Int("sn", sn), zap.Int("isn", isn))
-	// diff := isn - sn
-	// if s.snDiff != 0 && diff != s.snDiff {
-	// 	log.L().Panic("snapshot diff changed", zap.Int("old", s.snDiff), zap.Int("new", diff))
-	// }
-	// s.snDiff = diff
 	return sn
+}
+
+func (s *ErigonStateDBAdapter) AddAddressToAccessList(addr common.Address) {
+	s.StateDBAdapter.AddAddressToAccessList(addr)
+	s.intra.AddAddressToAccessList(libcommon.Address(addr))
+}
+
+func (s *ErigonStateDBAdapter) AddSlotToAccessList(addr common.Address, slot common.Hash) {
+	s.StateDBAdapter.AddSlotToAccessList(addr, slot)
+	s.intra.AddSlotToAccessList(libcommon.Address(addr), libcommon.Hash(slot))
+}
+func (s *ErigonStateDBAdapter) Prepare(rules params.Rules, sender, coinbase common.Address, dest *common.Address, precompiles []common.Address, txAccesses types.AccessList) {
+	s.StateDBAdapter.Prepare(rules, sender, coinbase, dest, precompiles, txAccesses)
+	var (
+		d      *libcommon.Address
+		prec   = make([]libcommon.Address, len(precompiles))
+		access = types2.AccessList{}
+	)
+	if dest != nil {
+		d = new(libcommon.Address)
+		*d = libcommon.Address(*dest)
+	}
+	for i, p := range precompiles {
+		prec[i] = libcommon.Address(p)
+	}
+	for _, a := range txAccesses {
+		acl := types2.AccessTuple{
+			Address: libcommon.Address(a.Address),
+		}
+		for _, s := range a.StorageKeys {
+			acl.StorageKeys = append(acl.StorageKeys, libcommon.Hash(s))
+		}
+		access = append(access, acl)
+	}
+	s.intra.Prepare(NewErigonRules(&rules), libcommon.Address(sender), libcommon.Address(coinbase), d, prec, access)
+}
+
+func (s *ErigonStateDBAdapter) AddLog(l *types.Log) {
+	s.StateDBAdapter.AddLog(l)
+}
+
+func (s *ErigonStateDBAdapter) AddPreimage(k common.Hash, v []byte) {
+	s.StateDBAdapter.AddPreimage(k, v)
 }
 
 func (stateDB *ErigonStateDBAdapterDryrun) GetCode(evmAddr common.Address) []byte {
