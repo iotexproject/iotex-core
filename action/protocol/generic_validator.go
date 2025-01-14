@@ -85,17 +85,7 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 				return action.ErrNonceTooLow
 			}
 		}
-		if !featureCtx.EnableAccessListTx && selp.TxType() == action.AccessListTxType {
-			return errors.Wrap(action.ErrInvalidAct, "access list tx is not enabled")
-		}
-		if !featureCtx.EnableDynamicFeeTx && selp.TxType() == action.DynamicFeeTxType {
-			return errors.Wrap(action.ErrInvalidAct, "dynamic fee tx is not enabled")
-		}
-		if !featureCtx.EnableBlobTransaction && selp.TxType() == action.BlobTxType {
-			return errors.Wrap(action.ErrInvalidAct, "blob tx is not enabled")
-		}
-		if featureCtx.EnableNewTxTypes && selp.TxType() != action.LegacyTxType &&
-			selp.Encoding() == uint32(iotextypes.Encoding_IOTEX_PROTOBUF) {
+		if selp.TxType() != action.LegacyTxType && selp.Encoding() == uint32(iotextypes.Encoding_IOTEX_PROTOBUF) {
 			return errors.Wrap(action.ErrInvalidAct, "protobuf encoding only supports legacy tx")
 		}
 		if featureCtx.EnableDynamicFeeTx {
