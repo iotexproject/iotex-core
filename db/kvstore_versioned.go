@@ -62,6 +62,7 @@ type (
 // Option sets an option
 type Option func(*KvWithVersion)
 
+// VersionedNamespaceOption pass in versioned namespaces
 func VersionedNamespaceOption(ns ...Namespace) Option {
 	return func(k *KvWithVersion) {
 		k.vns = ns
