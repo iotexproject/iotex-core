@@ -136,7 +136,6 @@ type (
 		SuicideTxLogMismatchPanic               bool
 		PanicUnrecoverableError                 bool
 		CandidateIdentifiedByOwner              bool
-		UseTxContainer                          bool
 		LimitedStakingContract                  bool
 		MigrateNativeStake                      bool
 		AddClaimRewardAddress                   bool
@@ -144,9 +143,7 @@ type (
 		EnableDynamicFeeTx                      bool
 		EnableBlobTransaction                   bool
 		EnableCancunEVM                         bool
-		UnfoldContainerBeforeValidate           bool
 		UnstakedButNotClearSelfStakeAmount      bool
-		VerifyNotContainerBeforeRun             bool
 		CheckStakingDurationUpperLimit          bool
 		FixRevertSnapshot                       bool
 	}
@@ -296,7 +293,6 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			SuicideTxLogMismatchPanic:               g.IsUpernavik(height),
 			PanicUnrecoverableError:                 g.IsUpernavik(height),
 			CandidateIdentifiedByOwner:              !g.IsUpernavik(height),
-			UseTxContainer:                          g.IsUpernavik(height),
 			LimitedStakingContract:                  !g.IsUpernavik(height),
 			MigrateNativeStake:                      g.IsUpernavik(height),
 			AddClaimRewardAddress:                   g.IsUpernavik(height),
@@ -304,9 +300,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			EnableDynamicFeeTx:                      g.IsVanuatu(height),
 			EnableBlobTransaction:                   g.IsVanuatu(height),
 			EnableCancunEVM:                         g.IsVanuatu(height),
-			UnfoldContainerBeforeValidate:           g.IsVanuatu(height),
 			UnstakedButNotClearSelfStakeAmount:      !g.IsVanuatu(height),
-			VerifyNotContainerBeforeRun:             g.IsVanuatu(height),
 			CheckStakingDurationUpperLimit:          g.IsVanuatu(height),
 			FixRevertSnapshot:                       g.IsVanuatu(height),
 		},
