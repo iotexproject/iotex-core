@@ -167,7 +167,7 @@ func TestVersionedDB(t *testing.T) {
 		r.ErrorContains(db.Delete(10, _bucket1, k), "cannot delete at earlier version 10: invalid input")
 	}
 	for _, k := range [][]byte{_k1, _k3, _k5} {
-		r.Equal(ErrNotExist, errors.Cause(db.Delete(10, _bucket1, k)))
+		r.NoError(db.Delete(10, _bucket1, k))
 	}
 	r.Equal(ErrInvalid, errors.Cause(db.Delete(10, _bucket1, _k10)))
 	// key still can be read before delete version
@@ -276,7 +276,7 @@ func TestVersionedDB(t *testing.T) {
 		r.Equal(e.height, value)
 	}
 	// test filter
-	r.PanicsWithValue("Filter not supported for versioned DB", func() { db.Filter(_bucket1, nil, nil, nil) })
+	r.PanicsWithValue("Filter not supported for versioned DB", func() { db.Filter(0, _bucket1, nil, nil, nil) })
 }
 
 func TestMultipleWriteDelete(t *testing.T) {
