@@ -488,11 +488,12 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 		p := NewPatches()
 		defer p.Reset()
 
-		p = p.ApplyFuncReturn(accountutil.AccountState, nil, errors.New(t.Name()))
+		p = p.ApplyFuncReturn(accountutil.AccountStateWithHeight, nil, uint64(0), errors.New(t.Name()))
 
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
-		bc.EXPECT().TipHeight().Return(uint64(1)).Times(1)
+		bc.EXPECT().TipHeight().Return(uint64(1)).Times(2)
 		bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).Times(1)
+		sf.EXPECT().WorkingSet(gomock.Any()).Return(nil, nil).Times(1)
 		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
 		_, _, err := cs.EstimateExecutionGasConsumption(ctx, elp, &address.AddrV1{})
 		require.ErrorContains(err, t.Name())
@@ -1024,9 +1025,11 @@ func TestSimulateExecution(t *testing.T) {
 	var (
 		bc  = mock_blockchain.NewMockBlockchain(ctrl)
 		dao = mock_blockdao.NewMockBlockDAO(ctrl)
+		sf  = mock_factory.NewMockFactory(ctrl)
 		cs  = &coreService{
 			bc:  bc,
 			dao: dao,
+			sf:  sf,
 		}
 		ctx = context.Background()
 	)
@@ -1039,6 +1042,7 @@ func TestSimulateExecution(t *testing.T) {
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
 		bc.EXPECT().TipHeight().Return(uint64(1)).Times(1)
 		bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).Times(1)
+		sf.EXPECT().WorkingSet(gomock.Any()).Return(nil, nil).Times(1)
 		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
 		_, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, elp)
 		require.ErrorContains(err, t.Name())
