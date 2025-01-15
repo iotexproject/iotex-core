@@ -353,7 +353,7 @@ func TestMultipleWriteDelete(t *testing.T) {
 				} else {
 					b.Put(e.ns, e.k, e.v, "test")
 				}
-				r.NoError(db.CommitToDB(e.height, b))
+				r.NoError(db.CommitBatch(e.height, b))
 				b.Clear()
 				v, err := db.Version(e.ns, e.k)
 				if len(e.err) == 0 {
@@ -442,7 +442,7 @@ func TestDedup(t *testing.T) {
 	r.ErrorContains(err, "invalid key length, expecting 5, got 7: invalid input")
 }
 
-func TestCommitToDB(t *testing.T) {
+func TestCommitBatch(t *testing.T) {
 	r := require.New(t)
 	testPath, err := testutil.PathOfTempFile("test-version")
 	r.NoError(err)
@@ -470,7 +470,7 @@ func TestCommitToDB(t *testing.T) {
 	} {
 		b.Put(e.ns, e.k, e.v, "test")
 	}
-	r.NoError(db.CommitToDB(1, b))
+	r.NoError(db.CommitBatch(1, b))
 	b.Clear()
 	for _, e := range []versionTest{
 		{_bucket2, _v1, nil, 0, _errNotExist},
@@ -506,7 +506,7 @@ func TestCommitToDB(t *testing.T) {
 
 	// batch with wrong key length would fail
 	b.Put(_bucket1, _v1, _k1, "test")
-	r.Equal(ErrInvalid, errors.Cause(db.CommitToDB(3, b)))
+	r.Equal(ErrInvalid, errors.Cause(db.CommitBatch(3, b)))
 	b.Clear()
 	for _, e := range []versionTest{
 		{_bucket1, _k1, _v1, 0, ""},
@@ -523,7 +523,7 @@ func TestCommitToDB(t *testing.T) {
 	b.Delete(_bucket1, _k3, "test")
 	b.Delete(_bucket2, _v3, "test")
 
-	r.NoError(db.CommitToDB(5, b))
+	r.NoError(db.CommitBatch(5, b))
 	b.Clear()
 	for _, e := range []versionTest{
 		{_bucket1, _k1, nil, 0, _errNotExist},
@@ -586,5 +586,5 @@ func TestCommitToDB(t *testing.T) {
 	// cannot write to earlier version
 	b.Put(_bucket1, _k1, _v2, "test")
 	b.Put(_bucket1, _k2, _v1, "test")
-	r.ErrorIs(db.CommitToDB(4, b), ErrInvalid)
+	r.ErrorIs(db.CommitBatch(4, b), ErrInvalid)
 }

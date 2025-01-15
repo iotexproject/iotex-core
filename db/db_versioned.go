@@ -263,17 +263,17 @@ func (b *BoltDBVersioned) Filter(version uint64, ns string, cond Condition, minK
 	return b.db.Filter(ns, cond, minKey, maxKey)
 }
 
-// CommitToDB write a batch to DB, where the batch can contain keys for
+// CommitBatch write a batch to DB, where the batch can contain keys for
 // both versioned and non-versioned namespace
-func (b *BoltDBVersioned) CommitToDB(version uint64, kvsb batch.KVStoreBatch) error {
+func (b *BoltDBVersioned) CommitBatch(version uint64, kvsb batch.KVStoreBatch) error {
 	ve, nve, err := dedup(b.vns, kvsb)
 	if err != nil {
 		return errors.Wrapf(err, "BoltDBVersioned failed to write batch")
 	}
-	return b.commitToDB(version, ve, nve)
+	return b.commitBatch(version, ve, nve)
 }
 
-func (b *BoltDBVersioned) commitToDB(version uint64, ve, nve []*batch.WriteInfo) error {
+func (b *BoltDBVersioned) commitBatch(version uint64, ve, nve []*batch.WriteInfo) error {
 	var (
 		err      error
 		nonDBErr bool
