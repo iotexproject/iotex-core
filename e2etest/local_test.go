@@ -34,9 +34,11 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/p2p"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/blockutil"
 	"github.com/iotexproject/iotex-core/v2/server/itx"
 	"github.com/iotexproject/iotex-core/v2/state/factory"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -154,7 +156,12 @@ func TestLocalCommit(t *testing.T) {
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	db1, err := db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	require.NoError(err)
-	sf2, err := factory.NewStateDB(factoryCfg, db1, factory.RegistryStateDBOption(registry))
+	consensusCfg := consensusfsm.NewConsensusConfig(cfg.Consensus.RollDPoS.FSM, cfg.DardanellesUpgrade, cfg.Genesis, cfg.Consensus.RollDPoS.Delay)
+	gts := cfg.Genesis.Timestamp
+	blockTimeCalculator, err := blockutil.NewBlockTimeCalculator(consensusCfg.BlockInterval, func() uint64 { return 0 }, func(height uint64) (time.Time, error) {
+		return time.Unix(gts, 0), nil
+	})
+	sf2, err := factory.NewStateDB(factoryCfg, db1, factory.RegistryStateDBOption(registry), factory.WithBlockTimeGetter(blockTimeCalculator.CalculateBlockTime))
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(cfg.Genesis, sf2, cfg.ActPool)
 	require.NoError(err)
@@ -173,6 +180,14 @@ func TestLocalCommit(t *testing.T) {
 			protocol.NewGenericValidator(sf2, accountutil.AccountState),
 		)),
 	)
+	blockTimeCalculator.SetTipHeight(chain.TipHeight)
+	blockTimeCalculator.SetGetHistoryBlockTime(func(height uint64) (time.Time, error) {
+		blk, err := dao.GetBlockByHeight(height)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return blk.Timestamp(), nil
+	})
 	rolldposProtocol := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,

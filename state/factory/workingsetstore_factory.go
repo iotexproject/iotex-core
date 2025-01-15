@@ -110,6 +110,10 @@ func (store *factoryWorkingSetStore) Finalize(_ context.Context, h uint64) error
 	return nil
 }
 
+func (store *factoryWorkingSetStore) FinalizeTx(context.Context) error {
+	return nil
+}
+
 func (store *factoryWorkingSetStore) Snapshot() int {
 	rh, err := store.tlt.RootHash()
 	if err != nil {

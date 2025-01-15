@@ -68,4 +68,8 @@ func (store *stateDBWorkingSetStore) Finalize(_ context.Context, height uint64) 
 	return nil
 }
 
+func (store *stateDBWorkingSetStore) FinalizeTx(_ context.Context) error {
+	return nil
+}
+
 func (store *stateDBWorkingSetStore) Close() {}

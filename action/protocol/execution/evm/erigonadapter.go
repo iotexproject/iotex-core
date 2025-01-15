@@ -10,7 +10,6 @@ import (
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	types2 "github.com/ledgerwatch/erigon-lib/types"
 	erigonstate "github.com/ledgerwatch/erigon/core/state"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -124,10 +123,10 @@ func (s *ErigonStateDBAdapter) CommitContracts() error {
 	if err != nil {
 		return err
 	}
-	err = s.intra.FinalizeTx(s.chainRules, s.rw)
-	if err != nil {
-		return errors.Wrap(err, "failed to finalize tx")
-	}
+	// err = s.intra.FinalizeTx(s.chainRules, s.rw)
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed to finalize tx")
+	// }
 	return nil
 }
 

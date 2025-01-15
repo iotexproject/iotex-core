@@ -434,6 +434,15 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	)
 }
 
+func NewErigonRules2(g genesis.Genesis, height uint64, timestamp uint64, evmNetID uint32, getBlockTime func(uint64) (time.Time, error)) (*erigonchain.Rules, error) {
+	chainCfg, err := NewChainConfig(g.Blockchain, height, evmNetID, getBlockTime)
+	if err != nil {
+		return nil, err
+	}
+	chainRules := chainCfg.Rules(big.NewInt(int64(height)), g.IsSumatra(height), timestamp)
+	return NewErigonRules(&chainRules), nil
+}
+
 func NewErigonRules(rules *params.Rules) *erigonchain.Rules {
 	return &erigonchain.Rules{
 		ChainID:            rules.ChainID,

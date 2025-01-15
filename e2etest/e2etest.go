@@ -349,6 +349,8 @@ func initDBPaths(r *require.Assertions, cfg *config.Config) {
 	r.NoError(err)
 	testStakingIndexPath, err := testutil.PathOfTempFile("stakingindex")
 	r.NoError(err)
+	testHistoryPath, err := os.MkdirTemp(os.TempDir(), "historyindex")
+	r.NoError(err)
 
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
@@ -362,6 +364,7 @@ func initDBPaths(r *require.Assertions, cfg *config.Config) {
 	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
 	cfg.Chain.BlobStoreDBPath = testBlobPath
+	cfg.Chain.HistoryIndexPath = testHistoryPath
 
 	if cfg.ActPool.Store != nil {
 		testActionStorePath, err := os.MkdirTemp(os.TempDir(), "actionstore")

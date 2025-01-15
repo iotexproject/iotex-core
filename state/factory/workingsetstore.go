@@ -21,6 +21,7 @@ type (
 		States(string, [][]byte) ([][]byte, [][]byte, error)
 		Digest() hash.Hash256
 		Finalize(context.Context, uint64) error
+		FinalizeTx(context.Context) error
 		Snapshot() int
 		RevertSnapshot(int) error
 		ResetSnapshots()

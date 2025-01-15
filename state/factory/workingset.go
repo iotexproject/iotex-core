@@ -208,7 +208,7 @@ func (ws *workingSet) runAction(
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
-	defer ws.ResetSnapshots()
+	defer ws.finalizeTx(ctx)
 	if err := ws.freshAccountConversion(ctx, &actCtx); err != nil {
 		return nil, err
 	}
@@ -289,6 +289,13 @@ func (ws *workingSet) finalize(ctx context.Context) error {
 	ws.finalized = true
 
 	return nil
+}
+
+func (ws *workingSet) finalizeTx(ctx context.Context) {
+	if err := ws.store.FinalizeTx(ctx); err != nil {
+		log.L().Panic("failed to finalize tx", zap.Error(err))
+	}
+	ws.ResetSnapshots()
 }
 
 func (ws *workingSet) Snapshot() int {

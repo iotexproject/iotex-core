@@ -92,6 +92,15 @@ func (store *stateDBWorkingSetStoreWithErigonOutput) Finalize(ctx context.Contex
 	return store.erigonStore.finalize(ctx, height, uint64(protocol.MustGetBlockCtx(ctx).BlockTimeStamp.Unix()))
 }
 
+func (store *stateDBWorkingSetStoreWithErigonOutput) FinalizeTx(ctx context.Context) error {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	rules, err := evm.NewErigonRules2(genesis.MustExtractGenesisContext(ctx), blkCtx.BlockHeight, uint64(blkCtx.BlockTimeStamp.Unix()), protocol.MustGetBlockchainCtx(ctx).EvmNetworkID, store.erigonStore.getBlockTime)
+	if err != nil {
+		return errors.Wrap(err, "failed to create erigon rules")
+	}
+	return store.erigonStore.intraBlockState.FinalizeTx(rules, store.erigonStore.tsw)
+}
+
 func (store *stateDBWorkingSetStoreWithErigonOutput) WriteView(name string, value interface{}) error {
 	return store.store.WriteView(name, value)
 }
@@ -287,6 +296,10 @@ func (store *stateDBWorkingSetStoreWithErigonDryrun) States(ns string, keys [][]
 
 func (store *stateDBWorkingSetStoreWithErigonDryrun) Finalize(_ context.Context, height uint64) error {
 	// do nothing for dryrun
+	return nil
+}
+
+func (store *stateDBWorkingSetStoreWithErigonDryrun) FinalizeTx(ctx context.Context) error {
 	return nil
 }
 
