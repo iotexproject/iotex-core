@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"path"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -45,6 +46,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/blockindex"
 	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
@@ -2549,26 +2551,34 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	require.NoError(err)
 	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
+	testArchivePath := path.Join(t.TempDir(), "archive")
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(testIndexPath)
+		testutil.CleanupPath(testArchivePath)
 	}()
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.EnableArchiveMode = true
+	cfg.Chain.HistoryIndexPath = testArchivePath
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.BlockGasLimit = uint64(1000000)
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.NewRegistry()
+	consensusCfg := consensusfsm.NewConsensusConfig(cfg.Consensus.RollDPoS.FSM, cfg.DardanellesUpgrade, cfg.Genesis, cfg.Consensus.RollDPoS.Delay)
+	gts := cfg.Genesis.Timestamp
+	blockTimeCalculator, err := blockutil.NewBlockTimeCalculator(consensusCfg.BlockInterval, func() uint64 { return 0 }, func(height uint64) (time.Time, error) {
+		return time.Unix(gts, 0), nil
+	})
 	var sf factory.Factory
 	kv := db.NewMemKVStore()
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	if stateTX {
-		sf, err = factory.NewStateDB(factoryCfg, kv, factory.RegistryStateDBOption(registry))
+		sf, err = factory.NewStateDB(factoryCfg, kv, factory.RegistryStateDBOption(registry), factory.WithBlockTimeGetter(blockTimeCalculator.CalculateBlockTime))
 		require.NoError(err)
 	} else {
 		sf, err = factory.NewFactory(factoryCfg, kv, factory.RegistryOption(registry))
@@ -2607,6 +2617,14 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 		)),
 	)
 	require.NotNil(bc)
+	blockTimeCalculator.SetTipHeight(bc.TipHeight)
+	blockTimeCalculator.SetGetHistoryBlockTime(func(height uint64) (time.Time, error) {
+		blk, err := dao.GetBlockByHeight(height)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return blk.Timestamp(), nil
+	})
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, fakeGetBlockTime)
 	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))

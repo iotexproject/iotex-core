@@ -366,7 +366,7 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, erro
 func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManagerWithCloser, error) {
 	// TODO: implement archive mode
 	if sdb.rw == nil {
-		return nil, errors.New("archive mode is not enabled")
+		return sdb.newWorkingSet(ctx, height)
 	}
 	return sdb.newWorkingSetWithErigonDryrun(ctx, height)
 }

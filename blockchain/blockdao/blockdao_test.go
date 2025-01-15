@@ -83,7 +83,7 @@ func Test_blockDAO_Start(t *testing.T) {
 		p := gomonkey.NewPatches()
 		defer p.Reset()
 
-		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStart", errors.New(t.Name()))
+		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStartSequentially", errors.New(t.Name()))
 
 		err := blockdao.Start(context.Background())
 		r.ErrorContains(err, t.Name())

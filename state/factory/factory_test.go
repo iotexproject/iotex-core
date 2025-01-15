@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
+	"path"
 	"path/filepath"
 	"testing"
 	"time"
@@ -375,9 +376,12 @@ func TestHistoryState(t *testing.T) {
 	file2, err := testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
 	cfg.Chain.TrieDBPath = file2
+	cfg.Chain.HistoryIndexPath = path.Join(t.TempDir(), "historyindex")
 	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	r.NoError(err)
-	sf, err = NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
+	sf, err = NewStateDB(cfg, db2, SkipBlockValidationStateDBOption(), WithBlockTimeGetter(func(u uint64) (time.Time, error) {
+		return time.Unix(cfg.Genesis.Timestamp, 0), nil
+	}))
 	r.NoError(err)
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 
@@ -396,6 +400,7 @@ func TestHistoryState(t *testing.T) {
 	file4, err := testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
 	cfg.Chain.TrieDBPath = file4
+	cfg.Chain.HistoryIndexPath = ""
 	db2, err = db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	r.NoError(err)
 	sf, err = NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
@@ -526,7 +531,7 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 		},
 	)
 	ctx = genesis.WithGenesisContext(ctx, ge)
-
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{})
 	require.NoError(t, sf.Start(ctx))
 	defer func() {
 		require.NoError(t, sf.Stop(ctx))

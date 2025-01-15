@@ -266,7 +266,7 @@ func TestGetBalance(t *testing.T) {
 	balance := "111111111111111111"
 	core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{Balance: balance}, nil, nil)
 
-	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"]}`)
+	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "latest"]}`)
 	ret, err := web3svr.getBalance(&in)
 	require.NoError(err)
 	ans, ok := new(big.Int).SetString(balance, 10)
@@ -348,7 +348,7 @@ func TestCall(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "0x1"
-		   }, "0x1"]}`)
+		   }, "latest"]}`)
 		ret, err := web3svr.call(context.Background(), &in)
 		require.NoError(err)
 		require.Equal("0x111111", ret.(string))
@@ -373,7 +373,7 @@ func TestCall(t *testing.T) {
 			"gasPrice": "0xe8d4a51000",
 			"value":    "0x1",
 			"data":     "0x1"
-		   }, "0x1"]}`)
+		   }, "latest"]}`)
 		_, err := web3svr.call(context.Background(), &in)
 		require.EqualError(err, "rpc error: code = InvalidArgument desc = execution reverted: "+receipt.GetExecutionRevertMsg())
 	})

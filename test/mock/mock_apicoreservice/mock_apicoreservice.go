@@ -63,6 +63,22 @@ func (mr *MockCoreServiceMockRecorder) Account(addr interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Account", reflect.TypeOf((*MockCoreService)(nil).Account), addr)
 }
 
+// AccountAt mocks base method.
+func (m *MockCoreService) AccountAt(addr address.Address, height uint64) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AccountAt", addr, height)
+	ret0, _ := ret[0].(*iotextypes.AccountMeta)
+	ret1, _ := ret[1].(*iotextypes.BlockIdentifier)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// AccountAt indicates an expected call of AccountAt.
+func (mr *MockCoreServiceMockRecorder) AccountAt(addr, height interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccountAt", reflect.TypeOf((*MockCoreService)(nil).AccountAt), addr, height)
+}
+
 // Action mocks base method.
 func (m *MockCoreService) Action(actionHash string, checkPending bool) (*iotexapi.ActionInfo, error) {
 	m.ctrl.T.Helper()
@@ -496,6 +512,22 @@ func (m *MockCoreService) ReadContract(ctx context.Context, callerAddr address.A
 func (mr *MockCoreServiceMockRecorder) ReadContract(ctx, callerAddr, sc interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadContract", reflect.TypeOf((*MockCoreService)(nil).ReadContract), ctx, callerAddr, sc)
+}
+
+// ReadContractAt mocks base method.
+func (m *MockCoreService) ReadContractAt(ctx context.Context, callerAddr address.Address, sc action.Envelope, height uint64) (string, *iotextypes.Receipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadContractAt", ctx, callerAddr, sc, height)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(*iotextypes.Receipt)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ReadContractAt indicates an expected call of ReadContractAt.
+func (mr *MockCoreServiceMockRecorder) ReadContractAt(ctx, callerAddr, sc, height interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadContractAt", reflect.TypeOf((*MockCoreService)(nil).ReadContractAt), ctx, callerAddr, sc, height)
 }
 
 // ReadContractStorage mocks base method.
