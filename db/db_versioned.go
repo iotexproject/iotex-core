@@ -44,9 +44,6 @@ type (
 		// Filter returns <k, v> pair in a bucket that meet the condition
 		Filter(uint64, string, Condition, []byte, []byte) ([][]byte, [][]byte, error)
 
-		// AddVersionedNamespace adds a versioned namespace
-		AddVersionedNamespace(string, uint32) error
-
 		// Version returns the key's most recent version
 		Version(string, []byte) (uint64, error)
 	}
@@ -56,20 +53,43 @@ type (
 		db  *BoltDB
 		vns map[string]int // map of versioned namespace
 	}
+
+	// Namespace specifies the name and key length of the versioned namespace
+	Namespace struct {
+		ns     string
+		keyLen uint32
+	}
 )
 
+// BoltDBVersionedOption sets option for BoltDBVersioned
+type BoltDBVersionedOption func(*BoltDBVersioned)
+
+func VnsOption(ns ...Namespace) BoltDBVersionedOption {
+	return func(k *BoltDBVersioned) {
+		for _, v := range ns {
+			k.vns[v.ns] = int(v.keyLen)
+		}
+	}
+}
+
 // NewBoltDBVersioned instantiates an BoltDB which implements VersionedDB
-func NewBoltDBVersioned(cfg Config) *BoltDBVersioned {
+func NewBoltDBVersioned(cfg Config, opts ...BoltDBVersionedOption) *BoltDBVersioned {
 	b := BoltDBVersioned{
 		db:  NewBoltDB(cfg),
 		vns: make(map[string]int),
+	}
+	for _, opt := range opts {
+		opt(&b)
 	}
 	return &b
 }
 
 // Start starts the DB
 func (b *BoltDBVersioned) Start(ctx context.Context) error {
-	return b.db.Start(ctx)
+	if err := b.db.Start(ctx); err != nil {
+		return err
+	}
+	return b.addVersionedNamespace()
 }
 
 // Stop stops the DB
@@ -77,26 +97,25 @@ func (b *BoltDBVersioned) Stop(ctx context.Context) error {
 	return b.db.Stop(ctx)
 }
 
-// AddVersionedNamespace adds a versioned namespace
-func (b *BoltDBVersioned) AddVersionedNamespace(ns string, keyLen uint32) error {
-	vn, err := b.checkNamespace(ns)
-	if cause := errors.Cause(err); cause == ErrNotExist || cause == ErrBucketNotExist {
-		// create metadata for namespace
-		if err = b.db.Put(ns, _minKey, (&versionedNamespace{
-			keyLen: keyLen,
-		}).serialize()); err != nil {
+func (b *BoltDBVersioned) addVersionedNamespace() error {
+	for ns, keyLen := range b.vns {
+		vn, err := b.checkNamespace(ns)
+		if cause := errors.Cause(err); cause == ErrNotExist || cause == ErrBucketNotExist {
+			// create metadata for namespace
+			if err = b.db.Put(ns, _minKey, (&versionedNamespace{
+				keyLen: uint32(keyLen),
+			}).serialize()); err != nil {
+				return err
+			}
+			continue
+		}
+		if err != nil {
 			return err
 		}
-		b.vns[ns] = int(keyLen)
-		return nil
+		if vn.keyLen != uint32(keyLen) {
+			return errors.Wrapf(ErrInvalid, "namespace %s already exists with key length = %d, got %d", ns, vn.keyLen, keyLen)
+		}
 	}
-	if err != nil {
-		return err
-	}
-	if vn.keyLen != keyLen {
-		return errors.Wrapf(ErrInvalid, "namespace %s already exists with key length = %d, got %d", ns, vn.keyLen, keyLen)
-	}
-	b.vns[ns] = int(keyLen)
 	return nil
 }
 

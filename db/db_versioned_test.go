@@ -42,20 +42,17 @@ func TestVersionedDB(t *testing.T) {
 
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
-	db := NewBoltDBVersioned(cfg)
+	db := NewBoltDBVersioned(cfg, VnsOption(Namespace{_bucket1, uint32(len(_k2))}))
 	ctx := context.Background()
 	r.NoError(db.Start(ctx))
 	defer func() {
 		db.Stop(ctx)
 	}()
 
-	// namespace and key does not exist
+	// namespace created
 	vn, err := db.checkNamespace(_bucket1)
-	r.Nil(vn)
-	r.ErrorContains(err, ErrNotExist.Error())
-	// create namespace
-	r.NoError(db.AddVersionedNamespace(_bucket1, uint32(len(_k2))))
-	r.ErrorContains(db.AddVersionedNamespace(_bucket1, 8), "namespace test_ns1 already exists with key length = 5, got 8")
+	r.NoError(err)
+	r.Equal(uint32(len(_k2)), vn.keyLen)
 	// write first key
 	r.NoError(db.Put(0, _bucket1, _k2, _v2))
 	vn, err = db.checkNamespace(_bucket1)
@@ -290,12 +287,10 @@ func TestMultipleWriteDelete(t *testing.T) {
 
 		cfg := DefaultConfig
 		cfg.DbPath = testPath
-		db := NewBoltDBVersioned(cfg)
+		db := NewBoltDBVersioned(cfg, VnsOption(Namespace{_bucket1, uint32(len(_k2))}))
 		ctx := context.Background()
 		r.NoError(db.Start(ctx))
 
-		// create namespace
-		r.NoError(db.AddVersionedNamespace(_bucket1, uint32(len(_k2))))
 		if i == 0 {
 			// multiple writes and deletes
 			r.NoError(db.Put(1, _bucket1, _k2, _v1))
@@ -457,7 +452,8 @@ func TestCommitToDB(t *testing.T) {
 
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
-	db := NewBoltDBVersioned(cfg)
+	db := NewBoltDBVersioned(cfg, VnsOption(
+		Namespace{_bucket1, uint32(len(_k1))}, Namespace{_bucket2, uint32(len(_v1))}))
 	ctx := context.Background()
 	r.NoError(db.Start(ctx))
 	defer func() {
@@ -474,11 +470,6 @@ func TestCommitToDB(t *testing.T) {
 	} {
 		b.Put(e.ns, e.k, e.v, "test")
 	}
-	r.PanicsWithValue("BoltDBVersioned.commitToDB(), vns = test_ns2 does not exist", func() { db.CommitToDB(1, b) })
-
-	// create namespace
-	r.NoError(db.AddVersionedNamespace(_bucket1, uint32(len(_k1))))
-	r.NoError(db.AddVersionedNamespace(_bucket2, uint32(len(_v1))))
 	r.NoError(db.CommitToDB(1, b))
 	b.Clear()
 	for _, e := range []versionTest{
