@@ -99,6 +99,13 @@ func DisableWorkingSetCacheOption() StateDBOption {
 	}
 }
 
+func WithBlockTimeGetter(getBlockTime func(uint64) (time.Time, error)) StateDBOption {
+	return func(sdb *stateDB, cfg *Config) error {
+		sdb.getBlockTime = getBlockTime
+		return nil
+	}
+}
+
 // NewStateDB creates a new state db
 func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, error) {
 	sdb := stateDB{
@@ -114,6 +121,9 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 			return nil, err
 		}
 	}
+	if len(cfg.Chain.HistoryIndexPath) > 0 && sdb.getBlockTime == nil {
+		return nil, errors.New("getBlockTime is required for history index")
+	}
 	sdb.dao = newDaoRetrofitter(dao)
 	timerFactory, err := prometheustimer.New(
 		"iotex_statefactory_perf",
@@ -126,10 +136,6 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 	}
 	sdb.timerFactory = timerFactory
 	return &sdb, nil
-}
-
-func (sdb *stateDB) SetGetBlockTime(getBlockTime func(uint64) (time.Time, error)) {
-	sdb.getBlockTime = getBlockTime
 }
 
 func (sdb *stateDB) Start(ctx context.Context) error {

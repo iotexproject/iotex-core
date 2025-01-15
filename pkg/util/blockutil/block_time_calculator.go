@@ -59,3 +59,11 @@ func (btc *BlockTimeCalculator) CalculateBlockTime(height uint64) (time.Time, er
 	}
 	return tipBlockTime.Add(blockNumer * blockInterval), nil
 }
+
+func (btc *BlockTimeCalculator) SetGetHistoryBlockTime(getHistoryBlockTime getHistoryblockTimeFn) {
+	btc.getHistoryBlockTime = getHistoryBlockTime
+}
+
+func (btc *BlockTimeCalculator) SetTipHeight(getTipHeight getTipHeightFn) {
+	btc.getTipHeight = getTipHeight
+}

@@ -153,26 +153,7 @@ func (builder *Builder) buildFactory(forTest bool) error {
 		return errors.Wrapf(err, "failed to create state factory")
 	}
 	builder.cs.factory = factory
-	// history, err := builder.createHistoryIndex()
-	// if err != nil {
-	// 	return errors.Wrapf(err, "failed to create history index")
-	// }
-	// builder.cs.historyIndex = history
 	return nil
-}
-
-func (builder *Builder) createHistoryIndex() (*factory.HistoryStateIndex, error) {
-	if len(builder.cfg.Chain.HistoryIndexPath) == 0 {
-		return nil, nil
-	}
-	// getBlockTime := func(height uint64) (time.Time, error) {
-	// 	blk, err := builder.cs.blockdao.GetBlockByHeight(height)
-	// 	if err != nil {
-	// 		return time.Time{}, err
-	// 	}
-	// 	return blk.Timestamp(), nil
-	// }
-	return factory.NewHistoryStateIndex(builder.cs.factory, builder.cfg.Chain.HistoryIndexPath, nil), nil
 }
 
 func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
@@ -191,6 +172,9 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 		opts := []factory.StateDBOption{
 			factory.RegistryStateDBOption(builder.cs.registry),
 			factory.DefaultPatchOption(),
+		}
+		if len(factoryCfg.Chain.HistoryIndexPath) > 0 {
+			opts = append(opts, factory.WithBlockTimeGetter(builder.cs.blockTimeCalculator.CalculateBlockTime))
 		}
 		if builder.cfg.Chain.EnableStateDBCaching {
 			dao, err = db.CreateKVStoreWithCache(factoryDBCfg, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
@@ -526,6 +510,18 @@ func (builder *Builder) buildBlockchain(forSubChain, forTest bool) error {
 			return errors.Wrap(err, "failed to add index builder as subscriber")
 		}
 	}
+	if builder.cs.blockTimeCalculator != nil {
+		dao := builder.cs.BlockDAO()
+		calc := builder.cs.blockTimeCalculator
+		calc.SetTipHeight(builder.cs.Blockchain().TipHeight)
+		calc.SetGetHistoryBlockTime(func(height uint64) (time.Time, error) {
+			blk, err := dao.GetBlockByHeight(height)
+			if err != nil {
+				return time.Time{}, err
+			}
+			return blk.Timestamp(), nil
+		})
+	}
 	return nil
 }
 
@@ -809,22 +805,10 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 
 func (builder *Builder) buildBlockTimeCalculator() (err error) {
 	consensusCfg := consensusfsm.NewConsensusConfig(builder.cfg.Consensus.RollDPoS.FSM, builder.cfg.DardanellesUpgrade, builder.cfg.Genesis, builder.cfg.Consensus.RollDPoS.Delay)
-	dao := builder.cs.BlockDAO()
-	builder.cs.blockTimeCalculator, err = blockutil.NewBlockTimeCalculator(consensusCfg.BlockInterval, builder.cs.Blockchain().TipHeight, func(height uint64) (time.Time, error) {
-		blk, err := dao.GetBlockByHeight(height)
-		if err != nil {
-			return time.Time{}, err
-		}
-		return blk.Timestamp(), nil
+	g := builder.cfg.Genesis.Timestamp
+	builder.cs.blockTimeCalculator, err = blockutil.NewBlockTimeCalculator(consensusCfg.BlockInterval, func() uint64 { return 0 }, func(height uint64) (time.Time, error) {
+		return time.Unix(g, 0), nil
 	})
-	if builder.cs.historyIndex != nil {
-		builder.cs.historyIndex.SetGetBlockTime(builder.cs.blockTimeCalculator.CalculateBlockTime)
-	}
-	if f, ok := builder.cs.factory.(interface {
-		SetGetBlockTime(func(uint64) (time.Time, error))
-	}); ok {
-		f.SetGetBlockTime(builder.cs.blockTimeCalculator.CalculateBlockTime)
-	}
 	return err
 }
 
@@ -867,6 +851,9 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if builder.cs.p2pAgent == nil {
 		builder.cs.p2pAgent = p2p.NewDummyAgent()
 	}
+	if err := builder.buildBlockTimeCalculator(); err != nil {
+		return nil, err
+	}
 	if err := builder.buildFactory(forTest); err != nil {
 		return nil, err
 	}
@@ -886,9 +873,6 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildBlockchain(forSubChain, forTest); err != nil {
-		return nil, err
-	}
-	if err := builder.buildBlockTimeCalculator(); err != nil {
 		return nil, err
 	}
 	// staking protocol need to be put in registry before poll protocol when enabling
