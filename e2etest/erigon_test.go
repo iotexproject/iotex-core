@@ -45,7 +45,7 @@ func TestArchiveModeByErigon(t *testing.T) {
 	sender := identityset.Address(10).String()
 	senderSK := identityset.PrivateKey(10)
 	ethSender := common.BytesToAddress(identityset.Address(10).Bytes())
-	// holder := identityset.Address(11).String()
+	holder := identityset.Address(11).String()
 	ethHolder := common.BytesToAddress(identityset.Address(11).Bytes())
 	cfg := initCfg(r)
 	cfg.API.GRPCPort = testutil.RandomPort()
@@ -55,7 +55,7 @@ func TestArchiveModeByErigon(t *testing.T) {
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.UpernavikBlockHeight = 5
 	cfg.Genesis.VanuatuBlockHeight = 5
-	balance := unit.ConvertIotxToRau(10000)
+	balance := unit.ConvertIotxToRau(2000000)
 	cfg.Genesis.InitBalanceMap[sender] = balance.String()
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
@@ -74,6 +74,63 @@ func TestArchiveModeByErigon(t *testing.T) {
 	contractAddr := ""
 	ethContractAddr := common.Address{}
 	ctx := context.Background()
+	consumeFee := func(receipt *action.Receipt, from string) *big.Int {
+		fee := big.NewInt(0)
+		for _, l := range receipt.TransactionLogs() {
+			if l.Sender == from {
+				fee.Add(fee, l.Amount)
+			}
+		}
+		return fee
+	}
+	test.runCase(ctx, &testcase{
+		name: "transfer",
+		act: &actionWithTime{
+			mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(10), holder, nil)), senderSK)),
+			time.Now(),
+		},
+		blockExpect: func(test *e2etest, blk *block.Block, err error) {
+			r.NoError(err)
+			r.EqualValues(1, blk.Receipts[0].Status)
+			t.Log("transfer success, block height:", blk.Height())
+			// check holder balance
+			amount := big.NewInt(10)
+			b0, err := test.ethcli.BalanceAt(ctx, ethHolder, big.NewInt(int64(blk.Height())))
+			r.NoError(err)
+			b1, err := test.ethcli.BalanceAt(ctx, ethHolder, nil)
+			r.NoError(err)
+			r.Equal(new(big.Int).Add(b0, amount).String(), b1.String())
+			b0, err = test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height())))
+			r.NoError(err)
+			b1, err = test.ethcli.BalanceAt(ctx, ethSender, nil)
+			r.NoError(err)
+			consumed := new(big.Int).Mul(gasPrice, big.NewInt(int64(blk.Receipts[0].GasConsumed)))
+			r.Equal(new(big.Int).Sub(balance, consumed.Add(consumed, amount)).String(), b1.String())
+			balance = b1
+		},
+	})
+	registerAmount := unit.ConvertIotxToRau(1200000)
+	test.runCase(ctx, &testcase{
+		name: "register candidate",
+		acts: []*actionWithTime{
+			{mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), mustNoErr(action.NewCandidateRegister("cand1", identityset.Address(1).String(), identityset.Address(1).String(), sender, registerAmount.String(), 1, true, nil))), senderSK)), time.Now()},
+		},
+		blockExpect: func(test *e2etest, blk *block.Block, err error) {
+			r.NoError(err)
+			r.EqualValues(1, blk.Receipts[0].Status)
+			t.Log("register candidate, block height:", blk.Height())
+			// check sender balance
+			consumed := consumeFee(blk.Receipts[0], sender)
+			ctx := context.Background()
+			b, err := test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height())))
+			r.NoError(err)
+			r.Equal(balance.String(), b.String())
+			b, err = test.ethcli.BalanceAt(ctx, ethSender, nil)
+			r.NoError(err)
+			balance.Sub(balance, consumed)
+			r.Equal(balance.String(), b.String())
+		},
+	})
 	test.runCase(ctx, &testcase{
 		name: "deploy erc20",
 		act: &actionWithTime{
