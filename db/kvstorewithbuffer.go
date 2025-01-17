@@ -24,6 +24,7 @@ type (
 	// and transaction with multiple writes
 	KVStoreWithBuffer interface {
 		KVStore
+		GetDirty(string, []byte) ([]byte, bool)
 		withBuffer
 	}
 
@@ -174,6 +175,13 @@ func (kvb *kvStoreWithBuffer) Get(ns string, key []byte) ([]byte, error) {
 		err = errors.Wrapf(ErrNotExist, "failed to get key %x in %s, deleted in buffer level", key, ns)
 	}
 	return value, err
+}
+
+func (kvb *kvStoreWithBuffer) GetDirty(ns string, key []byte) ([]byte, bool) {
+	if value, err := kvb.buffer.Get(ns, key); err == nil {
+		return value, true
+	}
+	return nil, false
 }
 
 func (kvb *kvStoreWithBuffer) Put(ns string, key, value []byte) error {

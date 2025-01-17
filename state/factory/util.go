@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/iotexproject/go-pkgs/bloom"
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
@@ -94,6 +95,28 @@ func calculateBlobGasUsed(receipts []*action.Receipt) uint64 {
 func generateWorkingSetCacheKey(blkHeader block.Header, producerAddr string) hash.Hash256 {
 	sum := append(blkHeader.SerializeCore(), []byte(producerAddr)...)
 	return hash.Hash256b(sum)
+}
+
+func getWorkingSetByHeight(c cache.LRUCache, h uint64) *workingSet {
+	if h == 0 {
+		return nil
+	}
+	if data, ok := c.Get(h); ok {
+		if ws, ok := data.(*workingSet); ok {
+			return ws
+		}
+	}
+	return nil
+}
+
+func abandonWorkingSets(c cache.LRUCache, h uint64) {
+	for ; ; h++ {
+		if ws := getWorkingSetByHeight(c, h); ws != nil {
+			c.Remove(h)
+		} else {
+			break
+		}
+	}
 }
 
 func protocolPreCommit(ctx context.Context, sr protocol.StateManager) error {
