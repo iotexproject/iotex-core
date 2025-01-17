@@ -85,17 +85,7 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 				return action.ErrNonceTooLow
 			}
 		}
-		if !featureCtx.EnableAccessListTx && selp.TxType() == action.AccessListTxType {
-			return errors.Wrap(action.ErrInvalidAct, "access list tx is not enabled")
-		}
-		if !featureCtx.EnableDynamicFeeTx && selp.TxType() == action.DynamicFeeTxType {
-			return errors.Wrap(action.ErrInvalidAct, "dynamic fee tx is not enabled")
-		}
-		if !featureCtx.EnableBlobTransaction && selp.TxType() == action.BlobTxType {
-			return errors.Wrap(action.ErrInvalidAct, "blob tx is not enabled")
-		}
-		if featureCtx.EnableNewTxTypes && selp.TxType() != action.LegacyTxType &&
-			selp.Encoding() == uint32(iotextypes.Encoding_IOTEX_PROTOBUF) {
+		if selp.TxType() != action.LegacyTxType && selp.Encoding() == uint32(iotextypes.Encoding_IOTEX_PROTOBUF) {
 			return errors.Wrap(action.ErrInvalidAct, "protobuf encoding only supports legacy tx")
 		}
 		if featureCtx.EnableDynamicFeeTx {
@@ -141,18 +131,17 @@ func (v *GenericValidator) ValidateWithState(ctx context.Context, selp *action.S
 			return action.ErrNonceTooLow
 		}
 	}
-	if featureCtx.SufficentBalanceGuarantee {
-		acc, err := v.accountState(ctx, v.sr, caller)
-		if err != nil {
-			return errors.Wrapf(err, "invalid state of account %s", caller.String())
-		}
-		cost, err := selp.Cost()
-		if err != nil {
-			return errors.Wrap(err, "failed to get cost of action")
-		}
-		if acc.Balance.Cmp(cost) < 0 {
-			return errors.Wrapf(state.ErrNotEnoughBalance, "sender %s balance %s, cost %s", caller.String(), acc.Balance, cost)
-		}
+	// check whether the account has enough balance
+	acc, err := v.accountState(ctx, v.sr, caller)
+	if err != nil {
+		return errors.Wrapf(err, "invalid state of account %s", caller.String())
+	}
+	cost, err := selp.Cost()
+	if err != nil {
+		return errors.Wrap(err, "failed to get cost of action")
+	}
+	if acc.Balance.Cmp(cost) < 0 {
+		return errors.Wrapf(state.ErrNotEnoughBalance, "sender %s balance %s, cost %s", caller.String(), acc.Balance, cost)
 	}
 	blkCtx := MustGetBlockCtx(ctx)
 	if featureCtx.EnableDynamicFeeTx {
