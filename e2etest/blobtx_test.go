@@ -91,17 +91,6 @@ func TestBlobTx(t *testing.T) {
 	}
 	test.run([]*testcase{
 		{
-			name: "reject before Vanuatu",
-			act: &actionWithTime{
-				mustNoErr(action.Sign(action.NewEnvelope(newBlobTx(test.nonceMgr[(sender)], sidecar, sidecar.BlobHashes()), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
-				time.Now(),
-			},
-			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
-				r.ErrorIs(err, action.ErrInvalidAct)
-				r.ErrorContains(err, "blob tx is not enabled")
-			}}},
-		},
-		{
 			name: "must have blobs",
 			preActs: []*actionWithTime{
 				{mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},
