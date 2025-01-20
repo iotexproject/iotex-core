@@ -62,10 +62,35 @@ type (
 		TipHeight() uint64
 		// ChainAddress returns chain address on parent chain, the root chain return empty.
 		ChainAddress() string
+		// DraftHeight returns draft height
+		DraftHeight() uint64
+		DropDraftBlock(uint64)
+	}
+
+	workingSet interface {
+		OngoingBlockHeight() uint64
+		PendingBlockHeader(uint64) (*block.Header, error)
+		CancelBlock(uint64)
+		// OngoingBlockHeight() uint64
+		// PendingBlockHeader(uint64) (*block.Header, error)
 	}
 
 	chainManager struct {
 		bc blockchain.Blockchain
+		ws workingSet
+	}
+
+	consensusFsm interface {
+		Start(context.Context) error
+		Stop(context.Context) error
+		BackToPrepare(time.Duration) (fsm.State, error)
+		ProduceReceiveBlockEvent(any)
+		ProduceReceiveProposalEndorsementEvent(any)
+		ProduceReceiveLockEndorsementEvent(any)
+		ProduceReceivePreCommitEndorsementEvent(any)
+		Calibrate(uint64)
+		NumPendingEvents() int
+		CurrentState() fsm.State
 	}
 )
 
@@ -92,10 +117,24 @@ func NewChainManager(bc blockchain.Blockchain) ChainManager {
 	}
 }
 
+func NewChainManager2(bc blockchain.Blockchain, ws workingSet) ChainManager {
+	return &chainManager{
+		bc: bc,
+		ws: ws,
+	}
+}
+
 // BlockProposeTime return propose time by height
 func (cm *chainManager) BlockProposeTime(height uint64) (time.Time, error) {
 	if height == 0 {
 		return time.Unix(cm.bc.Genesis().Timestamp, 0), nil
+	}
+	if cm.ws != nil && height > cm.bc.TipHeight() {
+		log.L().Debug("Get propose time from working set", zap.Uint64("height", height))
+		blk, err := cm.ws.PendingBlockHeader(height)
+		if err == nil {
+			return blk.Timestamp(), nil
+		}
 	}
 	header, err := cm.bc.BlockHeaderByHeight(height)
 	if err != nil {
@@ -109,6 +148,12 @@ func (cm *chainManager) BlockProposeTime(height uint64) (time.Time, error) {
 
 // BlockCommitTime return commit time by height
 func (cm *chainManager) BlockCommitTime(height uint64) (time.Time, error) {
+	if cm.ws != nil && height > cm.bc.TipHeight() {
+		blk, err := cm.ws.PendingBlockHeader(height)
+		if err == nil {
+			return blk.Timestamp(), nil
+		}
+	}
 	footer, err := cm.bc.BlockFooterByHeight(height)
 	if err != nil {
 		return time.Time{}, errors.Wrapf(
@@ -144,9 +189,22 @@ func (cm *chainManager) ChainAddress() string {
 	return cm.bc.ChainAddress()
 }
 
+func (cm *chainManager) DraftHeight() uint64 {
+	if cm.ws == nil {
+		return cm.TipHeight()
+	}
+	return cm.ws.OngoingBlockHeight()
+}
+
+func (cm *chainManager) DropDraftBlock(height uint64) {
+	if cm.ws != nil {
+		cm.ws.CancelBlock(height)
+	}
+}
+
 // RollDPoS is Roll-DPoS consensus main entrance
 type RollDPoS struct {
-	cfsm       *consensusfsm.ConsensusFSM
+	cfsm       consensusFsm
 	ctx        RDPoSCtx
 	startDelay time.Duration
 	ready      chan interface{}
@@ -446,6 +504,54 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		return nil, errors.Wrap(err, "error when constructing consensus context")
 	}
 	cfsm, err := consensusfsm.NewConsensusFSM(ctx, b.clock)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when constructing the consensus FSM")
+	}
+	return &RollDPoS{
+		cfsm:       cfsm,
+		ctx:        ctx,
+		startDelay: b.cfg.Consensus.Delay,
+		ready:      make(chan interface{}),
+	}, nil
+}
+
+func (b *Builder) BuildV2() (*RollDPoS, error) {
+	if b.chain == nil {
+		return nil, errors.Wrap(ErrNewRollDPoS, "blockchain APIs is nil")
+	}
+	if b.broadcastHandler == nil {
+		return nil, errors.Wrap(ErrNewRollDPoS, "broadcast callback is nil")
+	}
+	if b.clock == nil {
+		b.clock = clock.New()
+	}
+	b.cfg.DB.DbPath = "" // disable consensus db
+	b.cfg.Consensus.Delay = 0
+	ctx, err := NewRollDPoSCtx(
+		consensusfsm.NewConsensusConfig(b.cfg.Consensus.FSM, b.cfg.DardanellesUpgrade, b.cfg.Genesis, b.cfg.Consensus.Delay),
+		b.cfg.DB,
+		b.cfg.SystemActive,
+		b.cfg.Consensus.ToleratedOvertime,
+		b.cfg.Genesis.TimeBasedRotation,
+		b.chain,
+		b.blockDeserializer,
+		b.rp,
+		b.broadcastHandler,
+		b.delegatesByEpochFunc,
+		b.proposersByEpochFunc,
+		b.encodedAddr,
+		b.priKey,
+		b.clock,
+		b.cfg.Genesis.BeringBlockHeight,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when constructing consensus context")
+	}
+	ctx, err = NewChainedRollDPoSCtx(ctx.(*rollDPoSCtx))
+	if err != nil {
+		return nil, errors.Wrap(err, "error when constructing chained roll dpos context")
+	}
+	cfsm, err := consensusfsm.NewChainedConsensusFSM(ctx, b.clock)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing the consensus FSM")
 	}

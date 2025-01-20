@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/endorsement"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 var errInvalidCurrentTime = errors.New("invalid current time")
@@ -72,7 +74,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 		blockInLock = round.blockInLock
 		proofOfLock = round.proofOfLock
 	} else {
-		err = round.eManager.Cleanup(time.Time{})
+		err := round.eManager.WithRound(height, roundNum)
 		if err != nil {
 			return nil, err
 		}
@@ -135,12 +137,14 @@ func (c *roundCalculator) roundInfo(
 	now time.Time,
 	toleratedOvertime time.Duration,
 ) (roundNum uint32, roundStartTime time.Time, err error) {
+	blockProcessDuration := blockInterval
+	blockInterval = time.Second
 	var lastBlockTime time.Time
 	if lastBlockTime, err = c.chain.BlockProposeTime(0); err != nil {
 		return
 	}
 	if height > 1 {
-		if height >= c.beringHeight {
+		if true {
 			var lastBlkProposeTime time.Time
 			if lastBlkProposeTime, err = c.chain.BlockProposeTime(height - 1); err != nil {
 				return
@@ -157,22 +161,25 @@ func (c *roundCalculator) roundInfo(
 	if !lastBlockTime.Before(now) {
 		// TODO: if this is the case, it is possible that the system time is far behind the time of other nodes.
 		// better error handling may be needed on the caller side
-		err = errors.Wrapf(
-			errInvalidCurrentTime,
-			"last block time %s is after than current time %s",
-			lastBlockTime,
-			now,
-		)
-		return
+		// err = errors.Wrapf(
+		// 	errInvalidCurrentTime,
+		// 	"last block time %s is after than current time %s height %d",
+		// 	lastBlockTime,
+		// 	now,
+		// 	height,
+		// )
+		roundStartTime = lastBlockTime.Add(blockInterval)
+		return roundNum, roundStartTime, nil
 	}
 	duration := now.Sub(lastBlockTime)
 	if duration > blockInterval {
-		roundNum = uint32(duration / blockInterval)
-		if toleratedOvertime == 0 || duration%blockInterval < toleratedOvertime {
+		roundNum = 1 + uint32((duration-blockInterval)/blockProcessDuration)
+		if toleratedOvertime == 0 || (duration-blockInterval)%blockProcessDuration < toleratedOvertime {
 			roundNum--
 		}
 	}
-	roundStartTime = lastBlockTime.Add(time.Duration(roundNum+1) * blockInterval)
+	log.L().Debug("round info", zap.Time("lastBlockTime", lastBlockTime), zap.Time("now", now), zap.Uint64("height", height), zap.Duration("duration", duration), zap.Uint32("roundNum", roundNum))
+	roundStartTime = lastBlockTime.Add(time.Duration(roundNum)*blockProcessDuration + blockInterval)
 
 	return roundNum, roundStartTime, nil
 }
@@ -244,6 +251,7 @@ func (c *roundCalculator) newRound(
 			return nil, err
 		}
 	}
+	eManager.WithRound(height, roundNum)
 	round = &roundCtx{
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,

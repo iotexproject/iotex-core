@@ -136,16 +136,16 @@ func NewRollDPoSCtx(
 	if proposersByEpochFunc == nil {
 		return nil, errors.New("proposers by epoch function cannot be nil")
 	}
-	if cfg.AcceptBlockTTL(0)+cfg.AcceptProposalEndorsementTTL(0)+cfg.AcceptLockEndorsementTTL(0)+cfg.CommitTTL(0) > cfg.BlockInterval(0) {
-		return nil, errors.Errorf(
-			"invalid ttl config, the sum of ttls should be equal to block interval. acceptBlockTTL %d, acceptProposalEndorsementTTL %d, acceptLockEndorsementTTL %d, commitTTL %d, blockInterval %d",
-			cfg.AcceptBlockTTL(0),
-			cfg.AcceptProposalEndorsementTTL(0),
-			cfg.AcceptLockEndorsementTTL(0),
-			cfg.CommitTTL(0),
-			cfg.BlockInterval(0),
-		)
-	}
+	// if cfg.AcceptBlockTTL(0)+cfg.AcceptProposalEndorsementTTL(0)+cfg.AcceptLockEndorsementTTL(0)+cfg.CommitTTL(0) > cfg.BlockInterval(0) {
+	// 	return nil, errors.Errorf(
+	// 		"invalid ttl config, the sum of ttls should be equal to block interval. acceptBlockTTL %d, acceptProposalEndorsementTTL %d, acceptLockEndorsementTTL %d, commitTTL %d, blockInterval %d",
+	// 		cfg.AcceptBlockTTL(0),
+	// 		cfg.AcceptProposalEndorsementTTL(0),
+	// 		cfg.AcceptLockEndorsementTTL(0),
+	// 		cfg.CommitTTL(0),
+	// 		cfg.BlockInterval(0),
+	// 	)
+	// }
 	var eManagerDB db.KVStore
 	if len(consensusDBConfig.DbPath) > 0 {
 		eManagerDB = db.NewBoltDB(consensusDBConfig)
@@ -179,7 +179,7 @@ func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
 		if err := ctx.eManagerDB.Start(c); err != nil {
 			return errors.Wrap(err, "Error when starting the collectionDB")
 		}
-		eManager, err = newEndorsementManager(ctx.eManagerDB, ctx.blockDeserializer)
+		eManager, err = newEndorsementManager(newRoundStore(ctx.eManagerDB, 0, 0), ctx.blockDeserializer)
 	}
 	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.BlockInterval(0), ctx.clock.Now(), eManager, ctx.toleratedOvertime)
 
@@ -604,6 +604,13 @@ func (ctx *rollDPoSCtx) Height() uint64 {
 	return ctx.round.Height()
 }
 
+func (ctx *rollDPoSCtx) Number() uint32 {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
+
+	return ctx.round.Number()
+}
+
 func (ctx *rollDPoSCtx) Activate(active bool) {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
@@ -660,7 +667,7 @@ func (ctx *rollDPoSCtx) endorseBlockProposal(proposal *blockProposal) (*Endorsed
 }
 
 func (ctx *rollDPoSCtx) logger() *zap.Logger {
-	return ctx.round.Log(log.Logger("consensus"))
+	return ctx.round.Log(log.Logger("consensus")).With(zap.String("ioAddr", ctx.encodedAddr))
 }
 
 func (ctx *rollDPoSCtx) newConsensusEvent(

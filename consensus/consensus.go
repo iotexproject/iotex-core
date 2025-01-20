@@ -136,7 +136,7 @@ func NewConsensus(
 			SetAddr(cfg.Chain.ProducerAddress().String()).
 			SetPriKey(cfg.Chain.ProducerPrivateKey()).
 			SetConfig(cfg).
-			SetChainManager(rolldpos.NewChainManager(bc)).
+			SetChainManager(rolldpos.NewChainManager2(bc, sf)).
 			SetBlockDeserializer(block.NewDeserializer(bc.EvmNetworkID())).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
@@ -144,7 +144,8 @@ func NewConsensus(
 			SetProposersByEpochFunc(proposersByEpochFunc).
 			RegisterProtocol(ops.rp)
 		// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
-		cs.scheme, err = bd.Build()
+		// cs.scheme, err = bd.Build()
+		cs.scheme = rolldpos.NewChainedRollDPoS(bd)
 		if err != nil {
 			log.Logger("consensus").Panic("Error when constructing RollDPoS.", zap.Error(err))
 		}
