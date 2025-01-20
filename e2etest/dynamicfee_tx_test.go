@@ -75,17 +75,6 @@ func TestDynamicFeeTx(t *testing.T) {
 	}
 	test.run([]*testcase{
 		{
-			name: "reject before Vanuatu",
-			act: &actionWithTime{
-				mustNoErr(action.Sign(action.NewEnvelope(newDynamicTx(test.nonceMgr[(sender)]), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)),
-				time.Now(),
-			},
-			expect: []actionExpect{&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
-				r.ErrorIs(err, action.ErrInvalidAct)
-				r.ErrorContains(err, "dynamic fee tx is not enabled")
-			}}},
-		},
-		{
 			name: "accept after Vanuatu",
 			preActs: []*actionWithTime{
 				{mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(1), sender, nil)), senderSK)), time.Now()},

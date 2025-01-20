@@ -140,14 +140,12 @@ type (
 		MigrateNativeStake                      bool
 		AddClaimRewardAddress                   bool
 		EnforceLegacyEndorsement                bool
-		EnableAccessListTx                      bool
 		EnableDynamicFeeTx                      bool
 		EnableBlobTransaction                   bool
 		SufficentBalanceGuarantee               bool
 		EnableCancunEVM                         bool
 		UnfoldContainerBeforeValidate           bool
 		UnstakedButNotClearSelfStakeAmount      bool
-		EnableNewTxTypes                        bool
 		VerifyNotContainerBeforeRun             bool
 		ValidateActionWithState                 bool
 		CheckStakingDurationUpperLimit          bool
@@ -303,14 +301,12 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			MigrateNativeStake:                      g.IsUpernavik(height),
 			AddClaimRewardAddress:                   g.IsUpernavik(height),
 			EnforceLegacyEndorsement:                !g.IsUpernavik(height),
-			EnableAccessListTx:                      g.IsVanuatu(height),
 			EnableDynamicFeeTx:                      g.IsVanuatu(height),
 			EnableBlobTransaction:                   g.IsVanuatu(height),
 			SufficentBalanceGuarantee:               g.IsVanuatu(height),
 			EnableCancunEVM:                         g.IsVanuatu(height),
 			UnfoldContainerBeforeValidate:           g.IsVanuatu(height),
 			UnstakedButNotClearSelfStakeAmount:      !g.IsVanuatu(height),
-			EnableNewTxTypes:                        g.IsVanuatu(height),
 			VerifyNotContainerBeforeRun:             g.IsVanuatu(height),
 			ValidateActionWithState:                 g.IsVanuatu(height),
 			CheckStakingDurationUpperLimit:          g.IsVanuatu(height),
