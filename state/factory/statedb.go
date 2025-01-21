@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -49,7 +48,7 @@ type (
 		registry                 *protocol.Registry
 		dao                      daoRetrofitter
 		timerFactory             *prometheustimer.TimerFactory
-		workingsets              cache.LRUCache // lru cache for workingsets
+		chamber                  WorkingSetChamber
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
@@ -86,7 +85,7 @@ func SkipBlockValidationStateDBOption() StateDBOption {
 // DisableWorkingSetCacheOption disable workingset cache
 func DisableWorkingSetCacheOption() StateDBOption {
 	return func(sdb *stateDB, cfg *Config) error {
-		sdb.workingsets = cache.NewDummyLruCache()
+		sdb.chamber = newWorkingsetChamber(8)
 		return nil
 	}
 }
@@ -98,7 +97,7 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
 		protocolView:       protocol.View{},
-		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
+		chamber:            newWorkingsetChamber(int(cfg.Chain.WorkingSetCacheSize)),
 	}
 	for _, opt := range opts {
 		if err := opt(&sdb, &cfg); err != nil {
@@ -165,7 +164,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	sdb.workingsets.Clear()
+	sdb.chamber.Clear()
 	return sdb.dao.Stop(ctx)
 }
 
@@ -216,7 +215,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 		if err = ws.ValidateBlock(ctx, blk); err != nil {
 			return errors.Wrap(err, "failed to validate block with workingset in statedb")
 		}
-		sdb.workingsets.Add(key, ws)
+		sdb.chamber.PutWorkingSet(key, ws)
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
@@ -259,7 +258,7 @@ func (sdb *stateDB) NewBlockBuilder(
 
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
-	sdb.workingsets.Add(key, ws)
+	sdb.chamber.PutWorkingSet(key, ws)
 	return blkBuilder, nil
 }
 
@@ -430,12 +429,10 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
 func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*workingSet, bool, error) {
-	if data, ok := sdb.workingsets.Get(key); ok {
-		if ws, ok := data.(*workingSet); ok {
-			// if it is already validated, return workingset
-			return ws, true, nil
-		}
-		return nil, false, errors.New("type assertion failed to be WorkingSet")
+	if ws := sdb.chamber.GetWorkingSet(key); ws != nil {
+		// if it is already validated, return workingset
+		return ws, true, nil
+
 	}
 	sdb.mutex.RLock()
 	currHeight := sdb.currentChainHeight

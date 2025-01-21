@@ -16,7 +16,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -101,7 +100,7 @@ type (
 		twoLayerTrie             trie.TwoLayerTrie // global state trie, this is a read only trie
 		dao                      db.KVStore        // the underlying DB for account/contract storage
 		timerFactory             *prometheustimer.TimerFactory
-		workingsets              cache.LRUCache // lru cache for workingsets
+		chamber                  WorkingSetChamber
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
@@ -157,7 +156,7 @@ func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
 		registry:           protocol.NewRegistry(),
 		saveHistory:        cfg.Chain.EnableArchiveMode,
 		protocolView:       protocol.View{},
-		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
+		chamber:            newWorkingsetChamber(int(cfg.Chain.WorkingSetCacheSize)),
 		dao:                dao,
 	}
 
@@ -236,7 +235,7 @@ func (sf *factory) Stop(ctx context.Context) error {
 	if err := sf.dao.Stop(ctx); err != nil {
 		return err
 	}
-	sf.workingsets.Clear()
+	sf.chamber.Clear()
 	return sf.lifecycle.OnStop(ctx)
 }
 
@@ -356,7 +355,7 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 		if err := ws.ValidateBlock(ctx, blk); err != nil {
 			return errors.Wrap(err, "failed to validate block with workingset in factory")
 		}
-		sf.putIntoWorkingSets(key, ws)
+		sf.chamber.PutWorkingSet(key, ws)
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
@@ -398,7 +397,7 @@ func (sf *factory) NewBlockBuilder(
 
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
-	sf.putIntoWorkingSets(key, ws)
+	sf.chamber.PutWorkingSet(key, ws)
 	return blkBuilder, nil
 }
 
@@ -578,22 +577,13 @@ func (sf *factory) createGenesisStates(ctx context.Context) error {
 func (sf *factory) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*workingSet, bool, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	if data, ok := sf.workingsets.Get(key); ok {
-		if ws, ok := data.(*workingSet); ok {
-			// if it is already validated, return workingset
-			return ws, true, nil
-		}
-		return nil, false, errors.New("type assertion failed to be WorkingSet")
+	if ws := sf.chamber.GetWorkingSet(key); ws != nil {
+		// if it is already validated, return workingset
+		return ws, true, nil
 	}
 	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
 	if err != nil {
 		return nil, false, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 	return ws, false, nil
-}
-
-func (sf *factory) putIntoWorkingSets(key hash.Hash256, ws *workingSet) {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
-	sf.workingsets.Add(key, ws)
 }
