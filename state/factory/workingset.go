@@ -114,34 +114,6 @@ func (ws *workingSet) validate(ctx context.Context) error {
 	return nil
 }
 
-func (ws *workingSet) runActions(
-	ctx context.Context,
-	elps []*action.SealedEnvelope,
-) ([]*action.Receipt, error) {
-	// Handle actions
-	receipts := make([]*action.Receipt, 0)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	fCtx := protocol.MustGetFeatureCtx(ctx)
-	for _, elp := range elps {
-		ctxWithActionContext, err := withActionCtx(ctx, elp)
-		if err != nil {
-			return nil, err
-		}
-		receipt, err := ws.runAction(protocol.WithBlockCtx(ctxWithActionContext, blkCtx), elp)
-		if err != nil {
-			return nil, errors.Wrap(err, "error when run action")
-		}
-		receipts = append(receipts, receipt)
-		if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
-			(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
-		}
-	}
-	if fCtx.CorrectTxLogIndex {
-		updateReceiptIndex(receipts)
-	}
-	return receipts, nil
-}
-
 func withActionCtx(ctx context.Context, selp *action.SealedEnvelope) (context.Context, error) {
 	var actionCtx protocol.ActionCtx
 	var err error
@@ -526,10 +498,8 @@ func (ws *workingSet) processWithCorrectOrder(ctx context.Context, actions []*ac
 		fCtx                = protocol.MustGetFeatureCtx(ctx)
 	)
 	for _, act := range actions {
-		if fCtx.ValidateActionWithState {
-			if err := ws.txValidator.ValidateWithState(ctxWithBlockContext, act); err != nil {
-				return err
-			}
+		if err := ws.txValidator.ValidateWithState(ctxWithBlockContext, act); err != nil {
+			return err
 		}
 		actionCtx, err := withActionCtx(ctxWithBlockContext, act)
 		if err != nil {
@@ -670,13 +640,11 @@ func (ws *workingSet) pickAndRunActions(
 					}
 				}
 			}
-			if fCtx.ValidateActionWithState {
-				if err := ws.txValidator.ValidateWithState(ctxWithBlockContext, nextAction); err != nil {
-					log.L().Debug("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
-					ap.DeleteAction(nextAction.SenderAddress())
-					actionIterator.PopAccount()
-					continue
-				}
+			if err := ws.txValidator.ValidateWithState(ctxWithBlockContext, nextAction); err != nil {
+				log.L().Debug("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
+				ap.DeleteAction(nextAction.SenderAddress())
+				actionIterator.PopAccount()
+				continue
 			}
 			actionCtx, err := withActionCtx(ctxWithBlockContext, nextAction)
 			if err == nil {

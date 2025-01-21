@@ -142,12 +142,10 @@ type (
 		EnforceLegacyEndorsement                bool
 		EnableDynamicFeeTx                      bool
 		EnableBlobTransaction                   bool
-		SufficentBalanceGuarantee               bool
 		EnableCancunEVM                         bool
 		UnfoldContainerBeforeValidate           bool
 		UnstakedButNotClearSelfStakeAmount      bool
 		VerifyNotContainerBeforeRun             bool
-		ValidateActionWithState                 bool
 		CheckStakingDurationUpperLimit          bool
 		FixRevertSnapshot                       bool
 	}
@@ -303,12 +301,10 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			EnforceLegacyEndorsement:                !g.IsUpernavik(height),
 			EnableDynamicFeeTx:                      g.IsVanuatu(height),
 			EnableBlobTransaction:                   g.IsVanuatu(height),
-			SufficentBalanceGuarantee:               g.IsVanuatu(height),
 			EnableCancunEVM:                         g.IsVanuatu(height),
 			UnfoldContainerBeforeValidate:           g.IsVanuatu(height),
 			UnstakedButNotClearSelfStakeAmount:      !g.IsVanuatu(height),
 			VerifyNotContainerBeforeRun:             g.IsVanuatu(height),
-			ValidateActionWithState:                 g.IsVanuatu(height),
 			CheckStakingDurationUpperLimit:          g.IsVanuatu(height),
 			FixRevertSnapshot:                       g.IsVanuatu(height),
 		},
