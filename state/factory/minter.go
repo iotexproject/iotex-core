@@ -49,3 +49,19 @@ func (m *minter) NewBlockBuilder(ctx context.Context, sign func(action.Envelope)
 	}
 	return m.f.NewBlockBuilder(ctx, m.ap, sign)
 }
+
+func (m *minter) OngoingBlockHeight() uint64 {
+	return m.f.OngoingBlockHeight()
+}
+
+func (m *minter) PendingBlockHeader(height uint64) (*block.Header, error) {
+	return m.f.PendingBlockHeader(height)
+}
+
+func (m *minter) PutBlockHeader(header *block.Header) {
+	m.f.PutBlockHeader(header)
+}
+
+func (m *minter) CancelBlock(height uint64) {
+	m.f.CancelBlock(height)
+}

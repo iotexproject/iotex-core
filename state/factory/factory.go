@@ -87,6 +87,10 @@ type (
 		PutBlock(context.Context, *block.Block) error
 		WorkingSet(context.Context) (protocol.StateManager, error)
 		WorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManager, error)
+		OngoingBlockHeight() uint64
+		PendingBlockHeader(uint64) (*block.Header, error)
+		PutBlockHeader(*block.Header)
+		CancelBlock(uint64)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -249,6 +253,23 @@ func (sf *factory) Height() (uint64, error) {
 	}
 	return byteutil.BytesToUint64(height), nil
 }
+
+func (sf *factory) OngoingBlockHeight() uint64 {
+	return sf.chamber.OngoingBlockHeight()
+}
+
+func (sf *factory) PendingBlockHeader(height uint64) (*block.Header, error) {
+	if h := sf.chamber.GetBlockHeader(height); h != nil {
+		return h, nil
+	}
+	return nil, errors.Errorf("pending block %d not exist", height)
+}
+
+func (sf *factory) PutBlockHeader(header *block.Header) {
+	sf.chamber.PutBlockHeader(header)
+}
+
+func (sf *factory) CancelBlock(height uint64) {}
 
 func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
 	span := tracer.SpanFromContext(ctx)

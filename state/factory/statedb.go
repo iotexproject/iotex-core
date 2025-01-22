@@ -175,6 +175,23 @@ func (sdb *stateDB) Height() (uint64, error) {
 	return sdb.dao.getHeight()
 }
 
+func (sdb *stateDB) OngoingBlockHeight() uint64 {
+	return sdb.chamber.OngoingBlockHeight()
+}
+
+func (sdb *stateDB) PendingBlockHeader(height uint64) (*block.Header, error) {
+	if h := sdb.chamber.GetBlockHeader(height); h != nil {
+		return h, nil
+	}
+	return nil, errors.Errorf("pending block %d not exist", height)
+}
+
+func (sdb *stateDB) PutBlockHeader(header *block.Header) {
+	sdb.chamber.PutBlockHeader(header)
+}
+
+func (sdb *stateDB) CancelBlock(height uint64) {}
+
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
 	flusher, err := db.NewKVStoreFlusher(
