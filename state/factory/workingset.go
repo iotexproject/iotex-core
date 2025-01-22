@@ -630,7 +630,8 @@ func (ws *workingSet) validateSystemActionLayout(ctx context.Context, actions []
 				return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action should not be a system action", i)
 			}
 			if actions[i].Envelope.Proto().String() != postSystemActions[sysActCnt].Proto().String() {
-				return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action is not the expected system action", i)
+				return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action is not the expected system action, actual: %s, expected: %s",
+					i, actions[i].Envelope.Proto().String(), postSystemActions[sysActCnt].Proto().String())
 			}
 			sysActCnt++
 		}
