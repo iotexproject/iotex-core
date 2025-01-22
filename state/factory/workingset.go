@@ -7,6 +7,7 @@ package factory
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sort"
 	"sync/atomic"
@@ -221,6 +222,7 @@ func (ws *workingSet) runAction(
 					return nil, err
 				}
 			}
+			fmt.Printf("action %x added to block\n", selpHash)
 			return receipt, nil
 		}
 	}

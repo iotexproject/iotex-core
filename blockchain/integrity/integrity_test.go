@@ -1047,7 +1047,7 @@ func TestBlockPipeline(t *testing.T) {
 	require.NoError(err)
 	require.EqualValues(1, blk.Height())
 	require.Equal(4, len(blk.Body.Actions))
-	require.NoError(bc.CommitBlock(blk))
+	require.NoError(bc.ValidateBlock(blk))
 	// add block 2
 	tsf3, err := action.SignedTransfer(identityset.Address(23).String(), priKey0, 4, big.NewInt(30000), nil, 500000, minGas)
 	require.NoError(err)
@@ -1057,10 +1057,13 @@ func TestBlockPipeline(t *testing.T) {
 	tsf4, err := action.SignedTransfer(deterministic.String(), priKey0, 5, big.NewInt(10000000000000000), nil, 500000, minGas)
 	require.NoError(err)
 	require.NoError(ap.Add(ctx, tsf4))
+	println("mint block 2")
 	blk1, err := bc.MintNewBlock(blockTime.Add(time.Second))
 	require.NoError(err)
 	require.EqualValues(2, blk1.Height())
 	require.Equal(3, len(blk1.Body.Actions))
+	require.NoError(bc.ValidateBlock(blk1))
+	require.NoError(bc.CommitBlock(blk))
 	require.NoError(bc.CommitBlock(blk1))
 	// verify accounts
 	for _, v := range []struct {
