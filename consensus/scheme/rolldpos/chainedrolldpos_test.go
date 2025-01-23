@@ -31,12 +31,14 @@ type mockChain struct {
 	finalizedHash map[string]bool
 	blocks        map[uint64]*block.Block
 	draftBlocks   map[uint64]*block.Header
-	mutex         sync.Mutex
+	mutex         sync.RWMutex
 }
 
 func (m *mockChain) OngoingBlockHeight() uint64 {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	log.L().Debug("OngoingBlockHeight enter")
+	m.mutex.RLock()
+	log.L().Debug("OngoingBlockHeight locked")
+	defer m.mutex.RUnlock()
 	return m.draft
 }
 
@@ -54,8 +56,8 @@ func (m *mockChain) NewDraftBlock(blk *block.Block) {
 }
 
 func (m *mockChain) Finalized(blkHash []byte) bool {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	if _, ok := m.finalizedHash[string(blkHash)]; ok {
 		return true
 	}
@@ -78,8 +80,8 @@ func (m *mockChain) FinalizeBlock(blk *block.Block) error {
 }
 
 func (m *mockChain) Block(height uint64) (*block.Block, error) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	blk, ok := m.blocks[height]
 	if !ok {
 		return nil, errors.Errorf("block %d not found", height)
@@ -88,8 +90,8 @@ func (m *mockChain) Block(height uint64) (*block.Block, error) {
 }
 
 func (m *mockChain) PendingBlockHeader(height uint64) (*block.Header, error) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	var header *block.Header
 	blk, ok := m.blocks[height]
 	if !ok {
@@ -104,18 +106,23 @@ func (m *mockChain) PendingBlockHeader(height uint64) (*block.Header, error) {
 }
 
 func (m *mockChain) TipHeight() uint64 {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	return m.finalized
 }
 
 func (m *mockChain) CancelBlock(height uint64) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
+	log.L().Debug("cancel block", zap.Uint64("height", height), zap.Uint64("draft", m.draft))
 	for i := height; i <= m.draft; i++ {
 		delete(m.draftBlocks, i)
 	}
-	m.draft = height - 1
+	if height > 0 {
+		m.draft = height - 1
+	} else {
+		m.draft = 0
+	}
 }
 
 func TestChainedRollDPoS(t *testing.T) {
@@ -123,7 +130,7 @@ func TestChainedRollDPoS(t *testing.T) {
 	defer ctrl.Finish()
 	r := require.New(t)
 	g := genesis.Default
-	g.NumCandidateDelegates = 1
+	g.NumCandidateDelegates = 4
 	g.NumDelegates = 1
 	builderCfg := BuilderConfig{
 		Chain:              blockchain.DefaultConfig,

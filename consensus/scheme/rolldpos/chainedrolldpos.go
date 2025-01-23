@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"go.uber.org/zap"
 
@@ -24,6 +25,7 @@ type (
 		Handle(msg *iotextypes.ConsensusMessage)
 		Result() chan int
 		Calibrate(h uint64)
+		State() fsm.State
 	}
 
 	ChainedRollDPoS struct {
@@ -32,7 +34,7 @@ type (
 		builder *Builder
 		wg      sync.WaitGroup
 		active  bool
-		mutex   sync.Mutex
+		mutex   sync.RWMutex
 	}
 )
 
@@ -52,7 +54,6 @@ func (cr *ChainedRollDPoS) Start(ctx context.Context) error {
 		defer cr.wg.Done()
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
-		counter := 0
 		for {
 			select {
 			case <-cr.quit:
@@ -61,8 +62,8 @@ func (cr *ChainedRollDPoS) Start(ctx context.Context) error {
 				func() {
 					cr.mutex.Lock()
 					defer cr.mutex.Unlock()
-					if len(cr.rounds) < 4 && counter < 1000 {
-						// log.L().Debug("new round started")
+					if len(cr.rounds) < 5 {
+						// log.L().Debug("create round")
 						// defer log.L().Debug("new round finished")
 						rs, err := cr.newRound()
 						if err != nil {
@@ -73,14 +74,13 @@ func (cr *ChainedRollDPoS) Start(ctx context.Context) error {
 						cr.RunRound(ctx, rs)
 
 						for _, r := range cr.rounds {
-							if r.Height() == rs.Height() && r.RoundNum() == rs.RoundNum() {
+							if r.Height() == rs.Height() {
 								log.L().Debug("round already exists", zap.Uint64("height", rs.Height()), zap.Uint32("round", rs.RoundNum()))
 								cancel()
 								return
 							}
 						}
 						cr.rounds = append(cr.rounds, rs)
-						counter++
 					}
 				}()
 			}
@@ -96,13 +96,13 @@ func (cr *ChainedRollDPoS) Start(ctx context.Context) error {
 			case <-cr.quit:
 				return
 			case <-ticker.C:
-				cr.mutex.Lock()
+				cr.mutex.RLock()
 				fmt.Printf("\nrounds size: %d\n", len(cr.rounds))
-				// for _, r := range cr.rounds {
-				// 	fmt.Printf("round height: %d, round num: %d\n", r.Height(), r.RoundNum())
-				// }
+				for _, r := range cr.rounds {
+					fmt.Printf("round height: %d, round num: %d, state: %+v\n", r.Height(), r.RoundNum(), r.State())
+				}
 				fmt.Printf("\n")
-				cr.mutex.Unlock()
+				cr.mutex.RUnlock()
 			}
 		}
 	}()
@@ -148,7 +148,7 @@ func (cr *ChainedRollDPoS) Active() bool {
 
 func (cr *ChainedRollDPoS) removeRound(round Round) {
 	for i, r := range cr.rounds {
-		if r.Height() == round.Height() && r.RoundNum() == round.RoundNum() {
+		if r.Height() == round.Height() {
 			cr.rounds = append(cr.rounds[:i], cr.rounds[i+1:]...)
 			log.L().Debug("round removed", zap.Uint64("height", round.Height()), zap.Uint32("round", round.RoundNum()))
 			break
@@ -269,4 +269,8 @@ func (r *roundV2) Result() chan int {
 
 func (r *roundV2) Calibrate(h uint64) {
 	r.dpos.Calibrate(h)
+}
+
+func (r *roundV2) State() fsm.State {
+	return r.dpos.cfsm.CurrentState()
 }

@@ -376,11 +376,13 @@ func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {
 	now := ctx.clock.Now()
 	startTime := ctx.round.StartTime()
 	if now.Before(startTime) {
+		ctx.Logger().Debug("wait until round start", zap.Time("start", startTime), zap.Time("now", now))
 		time.Sleep(startTime.Sub(now))
 		return 0
 	}
 	overTime := now.Sub(startTime)
 	if !ctx.isDelegate() && ctx.toleratedOvertime > overTime {
+		ctx.Logger().Debug("tolerating overtime", zap.Duration("toleratedOvertime", ctx.toleratedOvertime), zap.Duration("overTime", overTime))
 		time.Sleep(ctx.toleratedOvertime - overTime)
 		return 0
 	}

@@ -18,9 +18,12 @@ func NewChainedRollDPoSCtx(
 
 func (cctx *chainedRollDPoSCtx) Prepare() error {
 	ctx := cctx.rollDPoSCtx
+	ctx.logger().Debug("prepare")
 	ctx.mutex.Lock()
+	ctx.logger().Debug("prepare lock")
 	defer ctx.mutex.Unlock()
 	height := cctx.chain.DraftHeight() + 1
+	ctx.logger().Debug("prepare draft height", zap.Uint64("height", height))
 	newRound, err := ctx.roundCalc.UpdateRound(ctx.round, height, ctx.BlockInterval(height), ctx.clock.Now(), ctx.toleratedOvertime)
 	if err != nil {
 		return err
