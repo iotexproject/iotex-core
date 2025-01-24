@@ -122,6 +122,7 @@ type (
 		FixGasAndNonceUpdate                    bool
 		FixUnproductiveDelegates                bool
 		CorrectGasRefund                        bool
+		SufficentBalanceGuarantee               bool
 		SkipSystemActionNonce                   bool
 		ValidateSystemAction                    bool
 		AllowCorrectChainIDOnly                 bool
@@ -281,6 +282,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixGasAndNonceUpdate:                    g.IsOkhotsk(height),
 			FixUnproductiveDelegates:                g.IsOkhotsk(height),
 			CorrectGasRefund:                        g.IsOkhotsk(height),
+			SufficentBalanceGuarantee:               g.IsOkhotsk(height),
 			SkipSystemActionNonce:                   g.IsPalau(height),
 			ValidateSystemAction:                    g.IsQuebec(height),
 			AllowCorrectChainIDOnly:                 g.IsQuebec(height),

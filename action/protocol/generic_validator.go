@@ -131,17 +131,19 @@ func (v *GenericValidator) ValidateWithState(ctx context.Context, selp *action.S
 			return action.ErrNonceTooLow
 		}
 	}
-	// check whether the account has enough balance
-	acc, err := v.accountState(ctx, v.sr, caller)
-	if err != nil {
-		return errors.Wrapf(err, "invalid state of account %s", caller.String())
-	}
-	cost, err := selp.Cost()
-	if err != nil {
-		return errors.Wrap(err, "failed to get cost of action")
-	}
-	if acc.Balance.Cmp(cost) < 0 {
-		return errors.Wrapf(state.ErrNotEnoughBalance, "sender %s balance %s, cost %s", caller.String(), acc.Balance, cost)
+	if featureCtx.SufficentBalanceGuarantee {
+		// check whether the account has enough balance
+		acc, err := v.accountState(ctx, v.sr, caller)
+		if err != nil {
+			return errors.Wrapf(err, "invalid state of account %s", caller.String())
+		}
+		cost, err := selp.Cost()
+		if err != nil {
+			return errors.Wrap(err, "failed to get cost of action")
+		}
+		if acc.Balance.Cmp(cost) < 0 {
+			return errors.Wrapf(state.ErrNotEnoughBalance, "sender %s balance %s, cost %s", caller.String(), acc.Balance, cost)
+		}
 	}
 	blkCtx := MustGetBlockCtx(ctx)
 	if featureCtx.EnableDynamicFeeTx {
