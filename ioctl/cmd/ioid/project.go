@@ -50,7 +50,7 @@ func init() {
 
 	_projectCmd.Flags().StringVarP(
 		&ioIDStore, "ioIDStore", "i",
-		"0x60cac5CE11cb2F98bF179BE5fd3D801C3D5DBfF2",
+		config.ReadConfig.IoidProjectStoreContract,
 		config.TranslateInLang(_ioIDStoreUsages, config.UILanguage),
 	)
 	_projectCmd.Flags().Uint64VarP(
