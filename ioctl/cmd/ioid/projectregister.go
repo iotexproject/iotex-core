@@ -62,7 +62,7 @@ func init() {
 
 	_projectRegisterCmd.Flags().StringVarP(
 		&projectRegistry, "projectRegistry", "p",
-		"0x060581AA1A4e0cC92FBd74d251913238De2F13cd",
+		config.ReadConfig.IoidProjectRegisterContract,
 		config.TranslateInLang(_projectRegisterUsages, config.UILanguage),
 	)
 	_projectRegisterCmd.Flags().Uint8VarP(

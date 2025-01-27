@@ -38,7 +38,7 @@ var _nameCmd = &cobra.Command{
 func init() {
 	_nameCmd.Flags().StringVarP(
 		&ioIDStore, "ioIDStore", "i",
-		"0x60cac5CE11cb2F98bF179BE5fd3D801C3D5DBfF2",
+		config.ReadConfig.IoidProjectStoreContract,
 		config.TranslateInLang(_ioIDStoreUsages, config.UILanguage),
 	)
 	_nameCmd.Flags().Uint64VarP(

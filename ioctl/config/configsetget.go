@@ -48,6 +48,10 @@ const (
 	_defaultWsRouterContract = "0x749C1856D7fdF7b4a2BEBDa6c16E335CE6b33bAe"
 	// _defaultWsVmTypeContract default vmType contract address
 	_defaultWsVmTypeContract = "0x3C296D654d33901F8c2D08386Bf438458c89dFaB"
+	// _defaultIoidProjectRegisterContract is the default ioID project register contract address
+	_defaultIoidProjectRegisterContract = "0x601B655c0a20FA1465C9a18e39387A33eEe7F777"
+	// _defaultIoidProjectStoreContract is the default ioID project store contract address
+	_defaultIoidProjectStoreContract = "0xa822Fd390e8eD3FEC80Bd26c77DD036935463b5E"
 )
 
 var (
