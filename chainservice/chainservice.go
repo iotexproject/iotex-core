@@ -11,6 +11,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 	"google.golang.org/protobuf/proto"
 
@@ -113,7 +114,8 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 		}
 		limiter := cs.getRateLimiter(sender)
 		if !limiter.Allow() {
-			return errors.Errorf("rate limit exceeded for %s", sender)
+			log.L().Debug("rate limit exceeded", zap.String("sender", act.SenderAddress().String()))
+			return nil
 		}
 	}
 	ctx = protocol.WithRegistry(ctx, cs.registry)
