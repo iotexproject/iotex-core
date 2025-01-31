@@ -98,6 +98,7 @@ func (cs *ChainService) ReportFullness(_ context.Context, messageType iotexrpc.M
 
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
+	return nil
 	act, err := (&action.Deserializer{}).SetEvmNetworkID(cs.chain.EvmNetworkID()).ActionToSealedEnvelope(actPb)
 	if err != nil {
 		return err
@@ -118,6 +119,7 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 
 // HandleActionHash handles incoming action hash request.
 func (cs *ChainService) HandleActionHash(ctx context.Context, actHash hash.Hash256, from string) error {
+	return nil
 	_, err := cs.actpool.GetActionByHash(actHash)
 	if err == nil { // action already in pool
 		return nil
@@ -130,6 +132,7 @@ func (cs *ChainService) HandleActionHash(ctx context.Context, actHash hash.Hash2
 }
 
 func (cs *ChainService) HandleActionRequest(ctx context.Context, peer peer.AddrInfo, actHash hash.Hash256) error {
+	return nil
 	act, err := cs.actpool.GetActionByHash(actHash)
 	if err != nil {
 		if errors.Is(err, action.ErrNotFound) {
