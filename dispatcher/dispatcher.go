@@ -294,13 +294,13 @@ func (d *IotxDispatcher) dispatchMsg(message *message) {
 	case *iotextypes.Action:
 		if err := subscriber.HandleAction(message.ctx, msg); err != nil {
 			requestMtc.WithLabelValues("AddAction", "false").Inc()
-			log.L().Warn("Handle action request error.", zap.Error(err))
+			log.L().Debug("Handle action request error.", zap.Error(err))
 		}
 	case *iotextypes.Actions:
 		for i := range msg.Actions {
 			if err := subscriber.HandleAction(message.ctx, msg.Actions[i]); err != nil {
 				requestMtc.WithLabelValues("AddAction", "false").Inc()
-				log.L().Warn("Handle action request error.", zap.Error(err))
+				log.L().Debug("Handle action request error.", zap.Error(err))
 			}
 		}
 	case *iotextypes.Block:
