@@ -114,7 +114,11 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 		return err
 	}
 	// cs.actionsync.ReceiveAction(ctx, hash)
-	log.L().Info("received action from p2p", log.Hex("actionHash", hash[:]), zap.String("action", act.Proto().String()))
+	var data []byte
+	if tx, err := act.ToEthTx(); err == nil {
+		data, _ = tx.MarshalBinary()
+	}
+	log.L().Info("received action from p2p", log.Hex("actionHash", hash[:]), zap.String("action", act.Proto().String()), zap.String("addr", act.SenderAddress().String()), log.Hex("data", data))
 	return nil
 }
 
