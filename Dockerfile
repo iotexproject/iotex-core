@@ -1,4 +1,4 @@
-FROM golang:1.21.4-alpine as build
+FROM golang:1.23.3-alpine as build
 
 WORKDIR apps/iotex-core
 
