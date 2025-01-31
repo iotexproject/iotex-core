@@ -200,9 +200,11 @@ func (log *Log) ConvertToLogPb() *iotextypes.Log {
 	l := &iotextypes.Log{}
 	l.ContractAddress = log.Address
 	l.Topics = [][]byte{}
+	var shareTopic hash.Hash256
 	for _, topic := range log.Topics {
+		shareTopic = topic
 		if log.NotFixTopicCopyBug {
-			l.Topics = append(l.Topics, topic[:])
+			l.Topics = append(l.Topics, shareTopic[:])
 		} else {
 			data := make([]byte, len(topic))
 			copy(data, topic[:])

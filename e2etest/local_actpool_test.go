@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/p2p"
 	"github.com/iotexproject/iotex-core/v2/server/itx"
@@ -59,7 +60,8 @@ func TestLocalActPool(t *testing.T) {
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 
 		},
-	)
+		p2p.JoinSubnet(blockchain.CompatibleNetwork),
+	).Subnet(blockchain.CompatibleNetwork)
 	require.NotNil(cli)
 	require.NoError(cli.Start(ctx))
 	fmt.Println("p2p agent started")
@@ -137,7 +139,8 @@ func TestPressureActPool(t *testing.T) {
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 
 		},
-	)
+		p2p.JoinSubnet(blockchain.CompatibleNetwork),
+	).Subnet(blockchain.CompatibleNetwork)
 	require.NotNil(cli)
 	require.NoError(cli.Start(ctx))
 

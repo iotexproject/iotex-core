@@ -528,7 +528,7 @@ func (builder *Builder) buildNodeInfoManager() error {
 		return errors.New("cannot find staking protocol")
 	}
 	chain := builder.cs.chain
-	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func() []string {
+	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent.Subnet(blockchain.CompatibleNetwork), cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func() []string {
 		ctx := protocol.WithFeatureCtx(
 			protocol.WithBlockCtx(
 				genesis.WithGenesisContext(context.Background(), chain.Genesis()),
@@ -560,7 +560,7 @@ func (builder *Builder) buildBlockSyncer() error {
 		return nil
 	}
 
-	p2pAgent := builder.cs.p2pAgent
+	p2pAgent := builder.cs.p2pAgent.Subnet(blockchain.CompatibleNetwork)
 	chain := builder.cs.chain
 	consens := builder.cs.consensus
 	dao := builder.cs.blockdao
@@ -655,7 +655,7 @@ func (builder *Builder) buildActionSyncer() error {
 	p2pAgent := builder.cs.p2pAgent
 	actionsync := actsync.NewActionSync(builder.cfg.ActionSync, &actsync.Helper{
 		P2PNeighbor:     p2pAgent.ConnectedPeers,
-		UnicastOutbound: p2pAgent.UnicastOutbound,
+		UnicastOutbound: p2pAgent.Subnet(blockchain.CompatibleNetwork).UnicastOutbound,
 	})
 	builder.cs.actionsync = actionsync
 	builder.cs.lifecycle.Add(actionsync)
@@ -796,7 +796,7 @@ func (builder *Builder) buildBlockTimeCalculator() (err error) {
 }
 
 func (builder *Builder) buildConsensusComponent() error {
-	p2pAgent := builder.cs.p2pAgent
+	p2pAgent := builder.cs.p2pAgent.Subnet(blockchain.CompatibleNetwork)
 	copts := []consensus.Option{
 		consensus.WithBroadcast(func(msg proto.Message) error {
 			return p2pAgent.BroadcastOutbound(context.Background(), msg)
