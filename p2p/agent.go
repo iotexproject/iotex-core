@@ -95,6 +95,8 @@ type (
 		PrivateNetworkPSK string              `yaml:"privateNetworkPSK"`
 		MaxPeers          int                 `yaml:"maxPeers"`
 		MaxMessageSize    int                 `yaml:"maxMessageSize"`
+		// AccountRateLimit is the maximum number of requests per second per account.
+		AccountRateLimit int `yaml:"accountRateLimit"`
 	}
 
 	// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
@@ -145,6 +147,7 @@ var DefaultConfig = Config{
 	PrivateNetworkPSK: "",
 	MaxPeers:          30,
 	MaxMessageSize:    p2p.DefaultConfig.MaxMessageSize,
+	AccountRateLimit:  100,
 }
 
 // NewDummyAgent creates a dummy p2p agent

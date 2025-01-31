@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -99,6 +100,13 @@ func (builder *Builder) SetBlockDAO(bd blockdao.BlockDAO) *Builder {
 func (builder *Builder) SetP2PAgent(agent p2p.Agent) *Builder {
 	builder.createInstance()
 	builder.cs.p2pAgent = agent
+	return builder
+}
+
+func (builder *Builder) SetAccountRateLimit(r int) *Builder {
+	builder.createInstance()
+	builder.cs.accRateLimitCfg = r
+	builder.cs.rateLimiters = cache.NewThreadSafeLruCache(10000)
 	return builder
 }
 
