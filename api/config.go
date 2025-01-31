@@ -31,6 +31,8 @@ type Config struct {
 	ListenerLimit int `yaml:"listenerLimit"`
 	// ReadyDuration is the duration to wait for the server to be ready.
 	ReadyDuration time.Duration `yaml:"readyDuration"`
+	// DisableAction is to disable action transiting
+	DisableAction bool `yaml:"disableAction"`
 }
 
 // DefaultConfig is the default config

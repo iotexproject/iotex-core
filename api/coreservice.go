@@ -499,6 +499,9 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	}
 	// If there is no error putting into local actpool, broadcast it to the network
 	// broadcast action hash if it's blobTx
+	if core.cfg.DisableAction {
+		return hex.EncodeToString(hash[:]), status.Error(codes.Internal, "action is disabled")
+	}
 	hasSidecar := selp.BlobTxSidecar() != nil
 	out := proto.Message(in)
 	if hasSidecar {
