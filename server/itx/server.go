@@ -73,6 +73,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	var cs *chainservice.ChainService
 	builder := chainservice.NewBuilder(cfg)
 	builder.SetP2PAgent(p2pAgent)
+	builder.SetAccountRateLimit(cfg.Network.AccountRateLimit)
 	rpcStats := nodestats.NewAPILocalStats()
 	builder.SetRPCStats(rpcStats)
 	if testing {

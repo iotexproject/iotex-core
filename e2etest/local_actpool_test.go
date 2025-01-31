@@ -183,6 +183,7 @@ func newActPoolConfig(t *testing.T) (config.Config, error) {
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
+	cfg.Network.AccountRateLimit = 0
 
 	sk, err := crypto.GenerateKey()
 	if err != nil {
