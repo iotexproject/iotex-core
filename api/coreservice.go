@@ -449,6 +449,9 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 
 // SendAction is the API to send an action to blockchain.
 func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
+	if core.cfg.DisableAction {
+		return "", status.Error(codes.Internal, "action is disabled")
+	}
 	log.T(ctx).Debug("receive send action request")
 	selp, err := (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID()).ActionToSealedEnvelope(in)
 	if err != nil {
@@ -499,9 +502,6 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	}
 	// If there is no error putting into local actpool, broadcast it to the network
 	// broadcast action hash if it's blobTx
-	if core.cfg.DisableAction {
-		return hex.EncodeToString(hash[:]), status.Error(codes.Internal, "action is disabled")
-	}
 	hasSidecar := selp.BlobTxSidecar() != nil
 	out := proto.Message(in)
 	if hasSidecar {

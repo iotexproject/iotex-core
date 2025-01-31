@@ -11,6 +11,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -98,22 +99,22 @@ func (cs *ChainService) ReportFullness(_ context.Context, messageType iotexrpc.M
 
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
-	return nil
 	act, err := (&action.Deserializer{}).SetEvmNetworkID(cs.chain.EvmNetworkID()).ActionToSealedEnvelope(actPb)
 	if err != nil {
 		return err
 	}
 	ctx = protocol.WithRegistry(ctx, cs.registry)
-	err = cs.actpool.Add(ctx, act)
-	if err != nil {
-		log.L().Debug(err.Error())
-	}
+	// err = cs.actpool.Add(ctx, act)
+	// if err != nil {
+	// 	log.L().Debug(err.Error())
+	// }
 	// TODO: only update action sync for blob action
 	hash, err := act.Hash()
 	if err != nil {
 		return err
 	}
-	cs.actionsync.ReceiveAction(ctx, hash)
+	// cs.actionsync.ReceiveAction(ctx, hash)
+	log.L().Info("received action from p2p", log.Hex("actionHash", hash[:]), zap.String("action", act.Proto().String()))
 	return nil
 }
 
