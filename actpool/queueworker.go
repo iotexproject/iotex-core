@@ -130,7 +130,7 @@ func (worker *queueWorker) Handle(job workerJob) error {
 			log.L().Warn("UNEXPECTED ERROR: action pool is full, but no action to drop")
 			return nil
 		}
-		worker.ap.removeInvalidActs([]*action.SealedEnvelope{actToReplace})
+		worker.ap.removeInvalidActs([]*action.SealedEnvelope{actToReplace}, "replace")
 		if actToReplace.SenderAddress().String() == sender && actToReplace.Nonce() == nonce {
 			err = action.ErrTxPoolOverflow
 			_actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
@@ -266,7 +266,7 @@ func (worker *queueWorker) Reset(ctx context.Context) {
 		// Remove all actions that are committed to new block
 		acts := queue.UpdateAccountState(pendingNonce, confirmedState.Balance)
 		acts2 := queue.UpdateQueue()
-		worker.ap.removeInvalidActs(append(acts, acts2...))
+		worker.ap.removeInvalidActs(append(acts, acts2...), "reset")
 		// Delete the queue entry if it becomes empty
 		if queue.Empty() {
 			worker.emptyAccounts.Set(from, struct{}{})
@@ -286,7 +286,7 @@ func (worker *queueWorker) PendingActions(ctx context.Context) []*pendingActions
 		}
 		// Remove the actions that are already timeout
 		acts := queue.UpdateQueue()
-		worker.ap.removeInvalidActs(acts)
+		worker.ap.removeInvalidActs(acts, "timeout")
 		pd := queue.PendingActs(ctx)
 		if len(pd) == 0 {
 			return

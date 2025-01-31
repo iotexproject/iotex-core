@@ -457,7 +457,7 @@ func (ap *actPool) DeleteAction(caller address.Address) {
 	}
 	worker := ap.worker[ap.allocatedWorker(caller)]
 	if pendingActs := worker.ResetAccount(caller); len(pendingActs) != 0 {
-		ap.removeInvalidActs(pendingActs)
+		ap.removeInvalidActs(pendingActs, "invalid")
 	}
 }
 
@@ -492,14 +492,14 @@ func (ap *actPool) validate(ctx context.Context, selp *action.SealedEnvelope) er
 	return nil
 }
 
-func (ap *actPool) removeInvalidActs(acts []*action.SealedEnvelope) {
+func (ap *actPool) removeInvalidActs(acts []*action.SealedEnvelope, reason string) {
 	for _, act := range acts {
 		hash, err := act.Hash()
 		if err != nil {
 			log.L().Debug("Skipping action due to hash error", zap.Error(err))
 			continue
 		}
-		log.L().Debug("Removed invalidated action.", log.Hex("hash", hash[:]))
+		log.L().Debug("Removed invalidated action.", zap.String("reason", reason), log.Hex("hash", hash[:]))
 		ap.allActions.Delete(hash)
 		intrinsicGas, _ := act.IntrinsicGas()
 		atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))

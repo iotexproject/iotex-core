@@ -137,7 +137,7 @@ func (q *actQueue) Put(act *action.SealedEnvelope) error {
 			}
 		}
 		q.updateFromNonce(nonce)
-		q.ap.removeInvalidActs([]*action.SealedEnvelope{actInPool})
+		q.ap.removeInvalidActs([]*action.SealedEnvelope{actInPool}, "replace")
 		return nil
 	}
 	nttl := &nonceWithTTL{nonce: nonce, deadline: q.clock.Now().Add(q.ttl)}
