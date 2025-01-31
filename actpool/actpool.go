@@ -280,7 +280,8 @@ func (ap *actPool) PendingActionMap() map[string][]*action.SealedEnvelope {
 }
 
 func (ap *actPool) Add(ctx context.Context, act *action.SealedEnvelope) error {
-	return ap.add(ctx, act)
+	return nil
+	// return ap.add(ctx, act)
 }
 
 func (ap *actPool) add(ctx context.Context, act *action.SealedEnvelope) error {

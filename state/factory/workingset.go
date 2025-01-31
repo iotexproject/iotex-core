@@ -679,6 +679,10 @@ func (ws *workingSet) pickAndRunActions(
 		}
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
 		for {
+			if len(receipts) >= 10 {
+				log.L().Info("10 actions have been handled, stop processing actions")
+				break
+			}
 			if deadline != nil && time.Now().After(*deadline) {
 				duration := time.Since(blkCtx.BlockTimeStamp)
 				log.L().Warn("Stop processing actions due to deadline, please consider increasing hardware", zap.Time("deadline", *deadline), zap.Duration("duration", duration), zap.Int("actions", len(executedActions)), zap.Uint64("gas", fullGas-blkCtx.GasLimit))
