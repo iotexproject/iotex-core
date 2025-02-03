@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -731,7 +730,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 }
 
 func TestClearSnapshots(t *testing.T) {
-	testClearSnapshots := func(t *testing.T, async, fixSnapshotOrder, panicUnrecoverableError bool) {
+	testClearSnapshots := func(t *testing.T, async, fixSnapshotOrder bool) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 
@@ -746,9 +745,6 @@ func TestClearSnapshots(t *testing.T) {
 		}
 		if fixSnapshotOrder {
 			opts = append(opts, FixSnapshotOrderOption())
-		}
-		if panicUnrecoverableError {
-			opts = append(opts, PanicUnrecoverableErrorOption())
 		}
 		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
 		require.NoError(err)
@@ -795,6 +791,7 @@ func TestClearSnapshots(t *testing.T) {
 			require.Equal(2, len(stateDB.contractSnapshot))
 			require.Equal(2, len(stateDB.preimageSnapshot))
 			require.Equal(2, len(stateDB.logsSnapshot))
+			require.Panics(func() { stateDB.RevertToSnapshot(1) })
 		} else {
 			// snapshot not cleared
 			require.Equal(3, len(stateDB.selfDestructedSnapshot))
@@ -808,20 +805,12 @@ func TestClearSnapshots(t *testing.T) {
 			// log snapshot added after fixSnapshotOrder, so it is cleared and 1 remains
 			require.Equal(1, len(stateDB.logsSnapshot))
 		}
-		if panicUnrecoverableError {
-			require.Panics(func() { stateDB.RevertToSnapshot(1) })
-		} else {
-			stateDB.RevertToSnapshot(1)
-		}
 	}
 	t.Run("contract w/o clear snapshots", func(t *testing.T) {
-		testClearSnapshots(t, false, false, false)
+		testClearSnapshots(t, false, false)
 	})
 	t.Run("contract with clear snapshots", func(t *testing.T) {
-		testClearSnapshots(t, false, true, false)
-	})
-	t.Run("contract with clear snapshots and panic on duplicate revert", func(t *testing.T) {
-		testClearSnapshots(t, false, true, true)
+		testClearSnapshots(t, false, true)
 	})
 }
 
@@ -861,6 +850,7 @@ func TestGetCommittedState(t *testing.T) {
 }
 
 func TestGetBalanceOnError(t *testing.T) {
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
@@ -871,16 +861,22 @@ func TestGetBalanceOnError(t *testing.T) {
 	for _, err := range errs {
 		sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), err).Times(1)
 		addr := common.HexToAddress("test address")
-		stateDB, err := NewStateDBAdapter(
+		stateDB, err1 := NewStateDBAdapter(
 			sm,
 			1,
 			hash.ZeroHash256,
 			NotFixTopicCopyBugOption(),
 			FixSnapshotOrderOption(),
 		)
-		assert.NoError(t, err)
-		amount := stateDB.GetBalance(addr)
-		assert.Equal(t, common.U2560, amount)
+		require.NoError(err1)
+		if err == state.ErrStateNotExist {
+			amount := stateDB.GetBalance(addr)
+			require.Equal(common.U2560, amount)
+		} else {
+			require.Panics(func() {
+				stateDB.GetBalance(addr)
+			})
+		}
 	}
 }
 
