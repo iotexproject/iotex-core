@@ -13,7 +13,6 @@ import (
 	"math/big"
 	"strconv"
 
-	protoV1 "github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -21,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	protoV1 "google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/alias"
@@ -259,7 +259,8 @@ func printActionProto(act *iotextypes.Action) (string, error) {
 		result += "  >\n" +
 			">\n"
 	default:
-		result += protoV1.MarshalTextString(core)
+		bs, _ := protoV1.Marshal(core)
+		result += string(bs)
 	}
 	result += fmt.Sprintf("senderPubKey: %x\n", act.SenderPubKey) +
 		fmt.Sprintf("signature: %x\n", act.Signature)

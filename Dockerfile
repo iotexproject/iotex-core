@@ -1,6 +1,6 @@
-FROM golang:1.21.4-alpine as build
+FROM golang:1.22-alpine AS build
 
-WORKDIR apps/iotex-core
+WORKDIR /go/apps/iotex-core
 
 RUN apk add --no-cache make gcc musl-dev linux-headers git ca-certificates
 
@@ -13,6 +13,9 @@ COPY . .
 ARG PACKAGE_VERSION
 ARG PACKAGE_COMMIT_ID
 ARG GIT_STATUS
+RUN echo "package version: $PACKAGE_VERSION"
+RUN echo "package commit id: $PACKAGE_COMMIT_ID"
+RUN echo "git status: $GIT_STATUS"
 RUN mkdir -p $GOPATH/pkg/linux_amd64/github.com/iotexproject/ && \
     PACKAGE_VERSION=$PACKAGE_VERSION PACKAGE_COMMIT_ID=$PACKAGE_COMMIT_ID GIT_STATUS=$GIT_STATUS make clean build-all
 
