@@ -11,8 +11,8 @@ import (
 	"os"
 	"path/filepath"
 
+	hdwallet "github.com/ethereum-optimism/go-ethereum-hdwallet"
 	ecrypt "github.com/ethereum/go-ethereum/crypto"
-	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/go-pkgs/crypto"

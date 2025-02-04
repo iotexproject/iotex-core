@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS build
+FROM golang:1.21.11-alpine AS build
 
 WORKDIR /go/apps/iotex-core
 
@@ -14,9 +14,6 @@ ARG PACKAGE_VERSION
 ARG PACKAGE_COMMIT_ID
 ARG GIT_STATUS
 ENV CGO_CFLAGS=-D_LARGEFILE64_SOURCE
-RUN echo "package version: $PACKAGE_VERSION"
-RUN echo "package commit id: $PACKAGE_COMMIT_ID"
-RUN echo "git status: $GIT_STATUS"
 RUN mkdir -p $GOPATH/pkg/linux_amd64/github.com/iotexproject/ && \
     PACKAGE_VERSION=$PACKAGE_VERSION PACKAGE_COMMIT_ID=$PACKAGE_COMMIT_ID GIT_STATUS=$GIT_STATUS make clean build-all
 
