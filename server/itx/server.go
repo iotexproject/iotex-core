@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/api"
 	"github.com/iotexproject/iotex-core/v2/chainservice"
 	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/consensus/scheme"
 	"github.com/iotexproject/iotex-core/v2/dispatcher"
 	"github.com/iotexproject/iotex-core/v2/p2p"
 	"github.com/iotexproject/iotex-core/v2/pkg/ha"
@@ -66,6 +67,8 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	case config.StandaloneScheme:
 		p2pAgent = p2p.NewDummyAgent()
 	default:
+		// TODO: add different topic depends on node type
+		cfg.Network.ExtraTopics = append(cfg.Network.ExtraTopics, scheme.BroadcastTopic)
 		p2pAgent = p2p.NewAgent(cfg.Network, cfg.Chain.ID, cfg.Genesis.Hash(), dispatcher.HandleBroadcast, dispatcher.HandleTell)
 	}
 	chains := make(map[uint32]*chainservice.ChainService)

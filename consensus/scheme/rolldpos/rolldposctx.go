@@ -90,6 +90,7 @@ type (
 		chain             ChainManager
 		blockDeserializer *block.Deserializer
 		broadcastHandler  scheme.Broadcast
+		topic             string
 		roundCalc         *roundCalculator
 		eManagerDB        db.KVStore
 		toleratedOvertime time.Duration
@@ -114,6 +115,7 @@ func NewRollDPoSCtx(
 	blockDeserializer *block.Deserializer,
 	rp *rolldpos.Protocol,
 	broadcastHandler scheme.Broadcast,
+	topic string,
 	delegatesByEpochFunc NodesSelectionByEpochFunc,
 	proposersByEpochFunc NodesSelectionByEpochFunc,
 	encodedAddr string,
@@ -166,6 +168,7 @@ func NewRollDPoSCtx(
 		chain:             chain,
 		blockDeserializer: blockDeserializer,
 		broadcastHandler:  broadcastHandler,
+		topic:             topic,
 		clock:             clock,
 		roundCalc:         roundCalc,
 		eManagerDB:        eManagerDB,
@@ -526,7 +529,8 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	}
 	// Broadcast the committed block to the network
 	if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
-		if err := ctx.broadcastHandler(blkProto); err != nil {
+		// TODO: broadcast to different topic after HF height
+		if err := ctx.broadcastHandler(ctx.topic, blkProto); err != nil {
 			ctx.logger().Error(
 				"error when broadcasting blkProto",
 				zap.Error(err),
@@ -571,7 +575,8 @@ func (ctx *rollDPoSCtx) Broadcast(endorsedMsg interface{}) {
 		ctx.loggerWithStats().Error("failed to generate protobuf message", zap.Error(err))
 		return
 	}
-	if err := ctx.broadcastHandler(msg); err != nil {
+	// TODO: broadcast to different topic after HF height
+	if err := ctx.broadcastHandler(ctx.topic, msg); err != nil {
 		ctx.loggerWithStats().Error("fail to broadcast", zap.Error(err))
 	}
 }
