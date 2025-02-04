@@ -221,7 +221,11 @@ func printActionProto(client ioctl.Client, action *iotextypes.Action) (string, e
 		result += "  >\n" +
 			">\n"
 	default:
-		result += protoV1.MarshalTextString(core)
+		bs, err := protoV1.Marshal(core)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to marshal core")
+		}
+		result += string(bs)
 	}
 	result += fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
 		fmt.Sprintf("signature: %x\n", action.Signature)
