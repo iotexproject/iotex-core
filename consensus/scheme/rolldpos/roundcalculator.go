@@ -291,3 +291,26 @@ func (c *roundCalculator) calculateProposer(
 	proposer = proposers[idx%numProposers]
 	return
 }
+
+func (c *roundCalculator) calculateChainedProposer(
+	height uint64,
+	round uint32,
+	proposers []string,
+) (proposer string, err error) {
+	// TODO use number of proposers
+	numProposers := c.rp.NumDelegates()
+	if numProposers != uint64(len(proposers)) {
+		err = errors.New("invalid proposer list")
+		return
+	}
+	var (
+		epochNum             = c.rp.GetEpochNum(height)
+		epochStartHeight     = c.rp.GetEpochHeight(epochNum)
+		nextEpochStartHeight = c.rp.GetEpochHeight(epochNum + 1)
+	)
+	if c.timeBasedRotation && height >= (nextEpochStartHeight+epochStartHeight)/2 {
+		epochNum += 1
+	}
+	proposer = proposers[epochNum%numProposers]
+	return
+}

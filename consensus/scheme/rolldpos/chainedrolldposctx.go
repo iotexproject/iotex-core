@@ -28,6 +28,11 @@ func (cctx *chainedRollDPoSCtx) Prepare() error {
 	if err != nil {
 		return err
 	}
+	proposer, err := cctx.roundCalc.calculateChainedProposer(newRound.epochStartHeight, newRound.roundNum, newRound.proposers)
+	if err != nil {
+		return err
+	}
+	newRound.proposer = proposer
 	ctx.logger().Debug(
 		"new round",
 		zap.Uint64("newheight", newRound.height),
