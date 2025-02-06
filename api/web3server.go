@@ -617,11 +617,22 @@ func (svr *web3Handler) getCode(in *gjson.Result) (interface{}, error) {
 	if !addr.Exists() {
 		return nil, errInvalidFormat
 	}
+	var bn = rpc.LatestBlockNumber
+	if bnParam := in.Get("params.1"); bnParam.Exists() {
+		if err := bn.UnmarshalJSON([]byte(bnParam.String())); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal height %s", bnParam.String())
+		}
+	}
 	ioAddr, err := ethAddrToIoAddr(addr.String())
 	if err != nil {
 		return nil, err
 	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	var accountMeta *iotextypes.AccountMeta
+	if bn < 0 {
+		accountMeta, _, err = svr.coreService.Account(ioAddr)
+	} else {
+		accountMeta, _, err = svr.coreService.AccountAt(ioAddr, uint64(bn.Int64()))
+	}
 	if err != nil {
 		return nil, err
 	}
