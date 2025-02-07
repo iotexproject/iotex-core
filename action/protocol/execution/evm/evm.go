@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
+	erigonstate "github.com/ledgerwatch/erigon/core/state"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -247,7 +248,7 @@ func ExecuteContract(
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
-
+	var stateDB stateDB
 	stateDB, err := prepareStateDB(ctx, sm)
 	if err != nil {
 		return nil, nil, err
@@ -255,6 +256,17 @@ func ExecuteContract(
 	ps, err := newParams(ctx, execution)
 	if err != nil {
 		return nil, nil, err
+	}
+	if erigonsm, ok := sm.(interface {
+		Erigon() (*erigonstate.IntraBlockState, bool)
+	}); ok {
+		if in, dryrun := erigonsm.Erigon(); in != nil {
+			if dryrun {
+				stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
+			} else {
+				stateDB = NewErigonStateDBAdapter(stateDB.(*StateDBAdapter), in)
+			}
+		}
 	}
 	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ctx, ps, stateDB)
 	if err != nil {
