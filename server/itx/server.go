@@ -16,7 +16,9 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/api"
 	"github.com/iotexproject/iotex-core/v2/chainservice"
 	"github.com/iotexproject/iotex-core/v2/config"
@@ -28,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/routine"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/httputil"
 	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Server is the iotex server instance containing all components.
@@ -61,19 +64,63 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create dispatcher")
 	}
+
+	// TODO: move to a separate package
+	actionDeserializer := (&action.Deserializer{}).SetEvmNetworkID(cfg.Chain.EVMNetworkID)
+	verifyFunc := func(pb *iotextypes.Action) (string, error) {
+		act, err := actionDeserializer.ActionToSealedEnvelope(pb)
+		if err != nil {
+			return "", err
+		}
+		if err := act.VerifySignature(); err != nil {
+			return "", err
+		}
+		sender := act.SenderAddress()
+		if sender == nil {
+			return "", errors.New("sender address is nil")
+		}
+		return sender.String(), nil
+	}
+
 	var p2pAgent p2p.Agent
 	switch cfg.Consensus.Scheme {
 	case config.StandaloneScheme:
 		p2pAgent = p2p.NewDummyAgent()
 	default:
-		p2pAgent = p2p.NewAgent(cfg.Network, cfg.Chain.ID, cfg.Genesis.Hash(), dispatcher.HandleBroadcast, dispatcher.HandleTell)
+		p2pAgent = p2p.NewAgent(
+			cfg.Network,
+			cfg.Chain.ID,
+			cfg.Genesis.Hash(),
+			func(pMsg proto.Message) ([]string, error) {
+				var senders []string
+				// TODO: support more types of messages
+				switch pb := pMsg.(type) {
+				case *iotextypes.Action:
+					sender, err := verifyFunc(pb)
+					senders = append(senders, sender)
+					return senders, err
+				case *iotextypes.Actions:
+					actions := pb.GetActions()
+					senders = make([]string, 0, len(actions))
+					for _, act := range actions {
+						sender, err := verifyFunc(act)
+						if err != nil {
+							return nil, err
+						}
+						senders = append(senders, sender)
+					}
+				}
+				return senders, nil
+			},
+			dispatcher.HandleBroadcast,
+			dispatcher.HandleTell,
+		)
 	}
 	chains := make(map[uint32]*chainservice.ChainService)
 	apiServers := make(map[uint32]*api.ServerV2)
 	var cs *chainservice.ChainService
 	builder := chainservice.NewBuilder(cfg)
 	builder.SetP2PAgent(p2pAgent)
-	builder.SetAccountRateLimit(cfg.Network.AccountRateLimit)
 	rpcStats := nodestats.NewAPILocalStats()
 	builder.SetRPCStats(rpcStats)
 	if testing {

@@ -22,7 +22,7 @@ require (
 	github.com/holiman/billy v0.0.0-20230718173358-1c7e68d277a7
 	github.com/holiman/uint256 v1.2.4
 	github.com/iotexproject/go-fsm v1.0.0
-	github.com/iotexproject/go-p2p v0.3.7-0.20240813235149-489210d196b4
+	github.com/iotexproject/go-p2p v0.3.7-0.20250210125343-1e80396fd07f
 	github.com/iotexproject/go-pkgs v0.1.15-0.20250203050652-f6f37ab0c630
 	github.com/iotexproject/iotex-address v0.2.8
 	github.com/iotexproject/iotex-antenna-go/v2 v2.6.4-0.20250203054316-e9b97f4e8885
@@ -30,6 +30,7 @@ require (
 	github.com/iotexproject/iotex-proto v0.6.4
 	github.com/ipfs/go-ipfs-api v0.7.0
 	github.com/libp2p/go-libp2p v0.33.2
+	github.com/libp2p/go-libp2p-pubsub v0.10.0
 	github.com/mackerelio/go-osstat v0.2.4
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
@@ -156,7 +157,6 @@ require (
 	github.com/libp2p/go-libp2p-asn-util v0.4.1 // indirect
 	github.com/libp2p/go-libp2p-kad-dht v0.25.2 // indirect
 	github.com/libp2p/go-libp2p-kbucket v0.6.3 // indirect
-	github.com/libp2p/go-libp2p-pubsub v0.10.0 // indirect
 	github.com/libp2p/go-libp2p-record v0.2.0 // indirect
 	github.com/libp2p/go-libp2p-routing-helpers v0.7.2 // indirect
 	github.com/libp2p/go-msgio v0.3.0 // indirect
