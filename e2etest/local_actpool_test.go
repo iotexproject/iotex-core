@@ -53,6 +53,9 @@ func TestLocalActPool(t *testing.T) {
 		cfg.Network,
 		cfg.Chain.ID,
 		cfg.Genesis.Hash(),
+		func(proto.Message) ([]string, error) {
+			return nil, nil
+		},
 		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 
 		},
@@ -131,6 +134,9 @@ func TestPressureActPool(t *testing.T) {
 		cfg.Network,
 		cfg.Chain.ID,
 		cfg.Genesis.Hash(),
+		func(proto.Message) ([]string, error) {
+			return nil, nil
+		},
 		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 
 		},

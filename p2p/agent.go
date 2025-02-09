@@ -13,15 +13,18 @@ import (
 	"strings"
 	"time"
 
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+	"golang.org/x/time/rate"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-p2p"
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	goproto "github.com/iotexproject/iotex-proto/golang"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
@@ -56,6 +59,9 @@ var (
 	)
 	// ErrAgentNotStarted is the error returned when p2p agent has not been started
 	ErrAgentNotStarted = errors.New("p2p agent has not been started")
+
+	// ErrRateLimit is the error returned when rate limit is exceeded
+	ErrRateLimit = errors.New("rate limit exceeded")
 )
 
 func init() {
@@ -72,6 +78,9 @@ const (
 )
 
 type (
+	// ValidateBroadcastInbound validates the inbound broadcast message
+	ValidateBroadcastInbound func(proto.Message) ([]string, error)
+
 	// HandleBroadcastInbound handles broadcast message when agent listens it from the network
 	HandleBroadcastInbound func(context.Context, uint32, string, proto.Message)
 
@@ -123,6 +132,8 @@ type (
 		cfg                        Config
 		chainID                    uint32
 		topicSuffix                string
+		validatorBroadcastInbound  ValidateBroadcastInbound
+		caches                     cache.LRUCache
 		broadcastInboundHandler    HandleBroadcastInbound
 		unicastInboundAsyncHandler HandleUnicastInboundAsync
 		host                       *p2p.Host
@@ -130,6 +141,15 @@ type (
 		reconnectTimeout           time.Duration
 		reconnectTask              *routine.RecurringTask
 		qosMetrics                 *Qos
+		accRateLimitCfg            int
+		rateLimiters               cache.LRUCache
+	}
+
+	cacheValue struct {
+		msgType   iotexrpc.MessageType
+		message   proto.Message
+		peerID    string
+		timestamp time.Time
 	}
 )
 
@@ -192,17 +212,30 @@ func (*dummyAgent) BuildReport() string {
 }
 
 // NewAgent instantiates a local P2P agent instance
-func NewAgent(cfg Config, chainID uint32, genesisHash hash.Hash256, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) Agent {
+func NewAgent(
+	cfg Config,
+	chainID uint32,
+	genesisHash hash.Hash256,
+	validateBroadcastInbound ValidateBroadcastInbound,
+	broadcastHandler HandleBroadcastInbound,
+	unicastHandler HandleUnicastInboundAsync,
+) Agent {
 	log.L().Info("p2p agent", log.Hex("topicSuffix", genesisHash[22:]))
 	return &agent{
 		cfg:     cfg,
 		chainID: chainID,
 		// Make sure the honest node only care the messages related the chain from the same genesis
-		topicSuffix:                hex.EncodeToString(genesisHash[22:]), // last 10 bytes of genesis hash
+		topicSuffix:               hex.EncodeToString(genesisHash[22:]), // last 10 bytes of genesis hash
+		validatorBroadcastInbound: validateBroadcastInbound,
+		// TODO: make the cache size configurable
+		caches:                     cache.NewThreadSafeLruCache(10000),
 		broadcastInboundHandler:    broadcastHandler,
 		unicastInboundAsyncHandler: unicastHandler,
 		reconnectTimeout:           cfg.ReconnectInterval,
 		qosMetrics:                 NewQoS(time.Now(), 2*cfg.ReconnectInterval),
+		// TODO: make the rate limit cache size configurable
+		rateLimiters:    cache.NewThreadSafeLruCache(10000),
+		accRateLimitCfg: cfg.AccountRateLimit,
 	}
 }
 
@@ -236,59 +269,96 @@ func (p *agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
 
-	if err := host.AddBroadcastPubSub(ctx, _broadcastTopic+p.topicSuffix, func(ctx context.Context, data []byte) (err error) {
-		// Blocking handling the broadcast message until the agent is started
-		<-ready
-		var (
-			peerID    string
-			broadcast iotexrpc.BroadcastMsg
-			latency   int64
-		)
-		skip := false
-		defer func() {
-			// Skip accounting if the broadcast message is not handled
-			if skip {
-				return
+	if err := host.AddBroadcastPubSub(
+		ctx,
+		_broadcastTopic+p.topicSuffix,
+		func(ctx context.Context, pid peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
+			if pid.String() == host.HostIdentity() {
+				return pubsub.ValidationAccept
 			}
-			status := _successStr
+			var broadcast iotexrpc.BroadcastMsg
+			if err := proto.Unmarshal(msg.Data, &broadcast); err != nil {
+				log.L().Debug("error when unmarshaling broadcast message", zap.Error(err))
+				return pubsub.ValidationReject
+			}
+			if broadcast.ChainId != p.chainID {
+				log.L().Debug("chain ID mismatch", zap.Uint32("received", broadcast.ChainId), zap.Uint32("expecting", p.chainID))
+				return pubsub.ValidationReject
+			}
+			pMsg, err := goproto.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
 			if err != nil {
-				status = _failureStr
+				log.L().Debug("error when typifying broadcast message", zap.Error(err))
+				return pubsub.ValidationReject
 			}
-			_p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), "in", peerID, status).Inc()
-			_p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), status).Observe(float64(latency))
-		}()
-		if err = proto.Unmarshal(data, &broadcast); err != nil {
-			err = errors.Wrap(err, "error when marshaling broadcast message")
+			senders, err := p.validatorBroadcastInbound(pMsg)
+			if err != nil {
+				log.L().Debug("error when validating broadcast message", zap.Error(err))
+				return pubsub.ValidationReject
+			}
+			for _, sender := range senders {
+				rl := p.getRateLimiter(sender)
+				if rl != nil && !rl.Allow() {
+					log.L().Debug("rate limit exceeded", zap.String("sender", sender))
+					return pubsub.ValidationIgnore
+				}
+			}
+			p.caches.Add(hash.Hash256b(msg.Data), &cacheValue{
+				msgType:   broadcast.MsgType,
+				message:   pMsg,
+				peerID:    pid.String(),
+				timestamp: time.Now(),
+			})
+			return pubsub.ValidationAccept
+		}, func(ctx context.Context, pid peer.ID, data []byte) (err error) {
+			// Blocking handling the broadcast message until the agent is started
+			<-ready
+			if pid.String() == host.HostIdentity() {
+				return nil
+			}
+			var (
+				peerID  string
+				pMsg    proto.Message
+				msgType iotexrpc.MessageType
+				latency int64
+			)
+			defer func() {
+				status := _successStr
+				if err != nil {
+					status = _failureStr
+				}
+				_p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(msgType)), "in", peerID, status).Inc()
+				_p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(msgType)), status).Observe(float64(latency))
+			}()
+			// Check the cache first
+			cache, ok := p.caches.Get(hash.Hash256b(data))
+			if ok {
+				value := cache.(*cacheValue)
+				pMsg = value.message
+				peerID = value.peerID
+				msgType = value.msgType
+				latency = time.Since(value.timestamp).Nanoseconds() / time.Millisecond.Nanoseconds()
+			} else {
+				var broadcast iotexrpc.BroadcastMsg
+				if err = proto.Unmarshal(data, &broadcast); err != nil {
+					// TODO: unexpected error
+					err = errors.Wrap(err, "error when marshaling broadcast message")
+					return
+				}
+				t := broadcast.GetTimestamp().AsTime()
+				latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
+				pMsg, err = goproto.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
+				if err != nil {
+					err = errors.Wrap(err, "error when typifying broadcast message")
+					return
+				}
+				peerID = broadcast.PeerId
+				msgType = broadcast.MsgType
+			}
+			// TODO: skip signature verification for actions
+			p.broadcastInboundHandler(ctx, p.chainID, peerID, pMsg)
+			p.qosMetrics.updateRecvBroadcast(time.Now())
 			return
-		}
-		// Skip the broadcast message if it's from the node itself
-		rawmsg, ok := p2p.GetBroadcastMsg(ctx)
-		if !ok {
-			err = errors.New("error when asserting broadcast msg context")
-			return
-		}
-		peerID = rawmsg.GetFrom().String()
-		if p.host.HostIdentity() == peerID {
-			skip = true
-			return
-		}
-		if broadcast.ChainId != p.chainID {
-			err = errors.Errorf("chain ID mismatch, received %d, expecting %d", broadcast.ChainId, p.chainID)
-			return
-		}
-
-		t := broadcast.GetTimestamp().AsTime()
-		latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
-
-		msg, err := goproto.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
-		if err != nil {
-			err = errors.Wrap(err, "error when typifying broadcast message")
-			return
-		}
-		p.broadcastInboundHandler(ctx, broadcast.ChainId, peerID, msg)
-		p.qosMetrics.updateRecvBroadcast(time.Now())
-		return
-	}); err != nil {
+		}); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
 	}
 
@@ -601,4 +671,16 @@ func exponentialRetry(f func() error, retryInterval time.Duration, numRetries in
 		retryInterval *= 2
 	}
 	return
+}
+
+func (p *agent) getRateLimiter(sender string) *rate.Limiter {
+	if p.accRateLimitCfg <= 0 {
+		return nil
+	}
+	limiter, exists := p.rateLimiters.Get(sender)
+	if !exists {
+		limiter = rate.NewLimiter(rate.Limit(p.accRateLimitCfg), 2*p.accRateLimitCfg) // account limit request per second with a burst of *2
+		p.rateLimiters.Add(sender, limiter)
+	}
+	return limiter.(*rate.Limiter)
 }
