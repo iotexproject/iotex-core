@@ -27,11 +27,12 @@ import (
 
 // TODO: define defaultChainID in chain.DefaultConfig
 var (
-	defaultChainID uint32 = 1
+	defaultChainID        uint32 = 1
+	dummyVerificationFunc        = func(proto.Message) (string, error) { return "", nil }
 )
 
 func createDispatcher(t *testing.T, chainID uint32) Dispatcher {
-	dp, err := NewDispatcher(DefaultConfig)
+	dp, err := NewDispatcher(DefaultConfig, dummyVerificationFunc)
 	assert.NoError(t, err)
 	dp.AddSubscriber(chainID, &dummySubscriber{})
 	return dp
@@ -103,7 +104,7 @@ func TestDispatcherV2(t *testing.T) {
 	t.Run("limitBlockSync", func(t *testing.T) {
 		cfg := DefaultConfig
 		cfg.ProcessSyncRequestInterval = time.Second
-		dsp, err := NewDispatcher(cfg)
+		dsp, err := NewDispatcher(cfg, dummyVerificationFunc)
 		r.NoError(err)
 		r.NoError(dsp.Start(context.Background()))
 		defer func() {
@@ -122,7 +123,7 @@ func TestDispatcherV2(t *testing.T) {
 		r.Equal(int32(2), sub.blockSync.Load())
 	})
 	t.Run("broadcast", func(t *testing.T) {
-		dsp, err := NewDispatcher(DefaultConfig)
+		dsp, err := NewDispatcher(DefaultConfig, dummyVerificationFunc)
 		r.NoError(err)
 		r.NoError(dsp.Start(context.Background()))
 		defer func() {
@@ -145,7 +146,7 @@ func TestDispatcherV2(t *testing.T) {
 		r.Equal(int32(1), sub.nodeInfo.Load())
 	})
 	t.Run("unicast", func(t *testing.T) {
-		dsp, err := NewDispatcher(DefaultConfig)
+		dsp, err := NewDispatcher(DefaultConfig, dummyVerificationFunc)
 		r.NoError(err)
 		r.NoError(dsp.Start(context.Background()))
 		defer func() {
