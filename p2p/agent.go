@@ -193,7 +193,7 @@ func (*dummyAgent) BuildReport() string {
 
 // NewAgent instantiates a local P2P agent instance
 func NewAgent(cfg Config, chainID uint32, genesisHash hash.Hash256, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) Agent {
-	log.L().Info("p2p agent", log.Hex("topicSuffix", genesisHash[22:]))
+	log.L().Info("p2p agent", log.Hex("topicSuffix", genesisHash[22:]), log.Hex("genesishash", genesisHash[:]))
 	return &agent{
 		cfg:     cfg,
 		chainID: chainID,
