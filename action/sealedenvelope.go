@@ -125,7 +125,7 @@ func (sealed *SealedEnvelope) Encoding() uint32 {
 
 // ToEthTx converts to Ethereum tx
 func (sealed *SealedEnvelope) ToEthTx() (*types.Transaction, error) {
-	return sealed.Envelope.ToEthTx(sealed.evmNetworkID, sealed.encoding)
+	return sealed.Envelope.ToEthTx()
 }
 
 // Proto converts it to it's proto scheme.
@@ -179,7 +179,7 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 		sealed.evmNetworkID = evmID
 	case iotextypes.Encoding_ETHEREUM_EIP155, iotextypes.Encoding_ETHEREUM_UNPROTECTED:
 		// verify action type can support RLP-encoding
-		tx, err := elp.ToEthTx(evmID, encoding)
+		tx, err := elp.ToEthTx()
 		if err != nil {
 			return err
 		}

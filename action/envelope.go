@@ -26,7 +26,7 @@ type (
 		IntrinsicGas() (uint64, error)
 		Size() uint32
 		Action() Action
-		ToEthTx(uint32, iotextypes.Encoding) (*types.Transaction, error)
+		ToEthTx() (*types.Transaction, error)
 		Proto() *iotextypes.ActionCore
 		ProtoForHash() *iotextypes.ActionCore
 		LoadProto(*iotextypes.ActionCore) error
@@ -234,7 +234,7 @@ func (elp *envelope) Size() uint32 {
 func (elp *envelope) Action() Action { return elp.payload }
 
 // ToEthTx converts to Ethereum tx
-func (elp *envelope) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
+func (elp *envelope) ToEthTx() (*types.Transaction, error) {
 	tx, ok := elp.Action().(EthCompatibleAction)
 	if !ok {
 		// action type not supported

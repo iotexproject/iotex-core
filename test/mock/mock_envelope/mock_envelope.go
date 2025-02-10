@@ -400,18 +400,18 @@ func (mr *MockEnvelopeMockRecorder) To() *gomock.Call {
 }
 
 // ToEthTx mocks base method.
-func (m *MockEnvelope) ToEthTx(arg0 uint32, arg1 iotextypes.Encoding) (*types.Transaction, error) {
+func (m *MockEnvelope) ToEthTx() (*types.Transaction, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ToEthTx", arg0, arg1)
+	ret := m.ctrl.Call(m, "ToEthTx")
 	ret0, _ := ret[0].(*types.Transaction)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ToEthTx indicates an expected call of ToEthTx.
-func (mr *MockEnvelopeMockRecorder) ToEthTx(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockEnvelopeMockRecorder) ToEthTx() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToEthTx", reflect.TypeOf((*MockEnvelope)(nil).ToEthTx), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToEthTx", reflect.TypeOf((*MockEnvelope)(nil).ToEthTx))
 }
 
 // TxType mocks base method.
