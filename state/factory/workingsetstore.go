@@ -15,6 +15,7 @@ import (
 type (
 	workingSetStore interface {
 		db.KVStoreBasic
+		GetDirty(string, []byte) ([]byte, bool)
 		Commit() error
 		States(string, [][]byte) ([][]byte, [][]byte, error)
 		Digest() hash.Hash256
@@ -37,6 +38,10 @@ func (store *workingSetStoreCommon) ReadView(name string) (interface{}, error) {
 
 func (store *workingSetStoreCommon) WriteView(name string, value interface{}) error {
 	return store.view.Write(name, value)
+}
+
+func (store *workingSetStoreCommon) GetDirty(ns string, key []byte) ([]byte, bool) {
+	return store.flusher.KVStoreWithBuffer().GetDirty(ns, key)
 }
 
 func (store *workingSetStoreCommon) Put(ns string, key []byte, value []byte) error {

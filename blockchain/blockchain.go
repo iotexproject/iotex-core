@@ -110,6 +110,14 @@ type (
 	BlockBuilderFactory interface {
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
+		// OngoingBlockHeight returns the height of current ongoing block (not yet committed)
+		OngoingBlockHeight() uint64
+		// PendingBlockHeader returns the header of pending blocks (not yet committed)
+		PendingBlockHeader(uint64) (*block.Header, error)
+		// PutBlockHeader stores the pending block header
+		PutBlockHeader(*block.Header)
+		// CancelBlock indicates the block producing fails
+		CancelBlock(uint64)
 	}
 
 	// blockchain implements the Blockchain interface
@@ -287,10 +295,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 	if blk == nil {
 		return ErrInvalidBlock
 	}
-	tipHeight, err := bc.dao.Height()
-	if err != nil {
-		return err
-	}
+	tipHeight := blk.Height() - 1
 	tip, err := bc.tipInfo(tipHeight)
 	if err != nil {
 		return err
@@ -412,10 +417,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	defer bc.mu.RUnlock()
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
 	defer mintNewBlockTimer.End()
-	tipHeight, err := bc.dao.Height()
-	if err != nil {
-		return nil, err
-	}
+	tipHeight := bc.bbf.OngoingBlockHeight()
 	newblockHeight := tipHeight + 1
 	ctx, err := bc.context(context.Background(), tipHeight)
 	if err != nil {
@@ -439,6 +441,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
 	}
+	bc.bbf.PutBlockHeader(&blk.Header)
 	_blockMtc.WithLabelValues("MintGas").Set(float64(blk.GasUsed()))
 	_blockMtc.WithLabelValues("MintActions").Set(float64(len(blk.Actions)))
 	return &blk, nil
@@ -478,21 +481,30 @@ func (bc *blockchain) Genesis() genesis.Genesis {
 // private functions
 //=====================================
 
-func (bc *blockchain) tipInfo(tipHeight uint64) (*protocol.TipInfo, error) {
-	if tipHeight == 0 {
+func (bc *blockchain) tipInfo(height uint64) (*protocol.TipInfo, error) {
+	if height == 0 {
 		return &protocol.TipInfo{
 			Height:    0,
 			Hash:      bc.genesis.Hash(),
 			Timestamp: time.Unix(bc.genesis.Timestamp, 0),
 		}, nil
 	}
-	header, err := bc.dao.HeaderByHeight(tipHeight)
+	tipHeight, err := bc.dao.Height()
+	if err != nil {
+		return nil, err
+	}
+	var header *block.Header
+	if height <= tipHeight {
+		header, err = bc.dao.HeaderByHeight(height)
+	} else {
+		header, err = bc.bbf.PendingBlockHeader(height)
+	}
 	if err != nil {
 		return nil, err
 	}
 
 	return &protocol.TipInfo{
-		Height:        tipHeight,
+		Height:        height,
 		GasUsed:       header.GasUsed(),
 		Hash:          header.HashBlock(),
 		Timestamp:     header.Timestamp(),

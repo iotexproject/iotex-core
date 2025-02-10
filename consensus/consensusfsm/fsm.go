@@ -15,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 /**
@@ -305,6 +307,7 @@ func (m *ConsensusFSM) produce(evt *ConsensusEvent, delay time.Duration) {
 	if evt == nil {
 		return
 	}
+	// m.ctx.Logger().Debug("produce event", zap.Any("event", evt.Type()), zap.Stack("stack"))
 	_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "produced").Inc()
 	if delay > 0 {
 		m.wg.Add(1)
@@ -328,7 +331,7 @@ func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 		return nil
 	}
 	if m.ctx.IsFutureEvent(evt) {
-		m.ctx.Logger().Debug("future event", zap.Any("event", evt.Type()))
+		m.ctx.Logger().Debug("future event", zap.Any("event", evt.Type()), zap.Any("eventHeight", evt.Height()), zap.Any("eventRount", evt.Round()))
 		// TODO: find a more appropriate delay
 		m.produce(evt, m.ctx.UnmatchedEventInterval(evt.Height()))
 		_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "backoff").Inc()
@@ -375,6 +378,8 @@ func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 }
 
 func (m *ConsensusFSM) calibrate(evt fsm.Event) (fsm.State, error) {
+	log.L().Debug("Handle event", zap.String("event", string(evt.Type())))
+	defer log.L().Debug("Handled event", zap.String("event", string(evt.Type())))
 	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
 		return sPrepare, errors.New("invalid fsm event")
@@ -397,14 +402,14 @@ func (m *ConsensusFSM) calibrate(evt fsm.Event) (fsm.State, error) {
 
 func (m *ConsensusFSM) prepare(evt fsm.Event) (fsm.State, error) {
 	if err := m.ctx.Prepare(); err != nil {
-		m.ctx.Logger().Error("Error during prepare", zap.Error(err))
-		return m.BackToPrepare(0)
+		m.ctx.Logger().Error("Error during prepare", zap.Error(err), zap.Stack("stack"))
+		return m.BackToPrepare(100 * time.Millisecond)
 	}
-	m.ctx.Logger().Debug("Start a new round")
+	m.ctx.Logger().Debug("Start a new round", zap.Stack("stack"))
 	proposal, err := m.ctx.Proposal()
 	if err != nil {
 		m.ctx.Logger().Error("failed to generate block proposal", zap.Error(err))
-		return m.BackToPrepare(0)
+		return m.BackToPrepare(100 * time.Millisecond)
 	}
 
 	overtime := m.ctx.WaitUntilRoundStart()
@@ -448,6 +453,8 @@ func (m *ConsensusFSM) prepare(evt fsm.Event) (fsm.State, error) {
 }
 
 func (m *ConsensusFSM) onReceiveBlock(evt fsm.Event) (fsm.State, error) {
+	log.L().Debug("Handle event", zap.String("event", string(evt.Type())))
+	defer log.L().Debug("Handled event", zap.String("event", string(evt.Type())))
 	m.ctx.Logger().Debug("Receive block")
 	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
@@ -473,6 +480,8 @@ func (m *ConsensusFSM) processBlock(block interface{}) error {
 }
 
 func (m *ConsensusFSM) onFailedToReceiveBlock(evt fsm.Event) (fsm.State, error) {
+	log.L().Debug("Handle event", zap.String("event", string(evt.Type())))
+	defer log.L().Debug("Handled event", zap.String("event", string(evt.Type())))
 	m.ctx.Logger().Warn("didn't receive the proposed block before timeout")
 	if err := m.processBlock(nil); err != nil {
 		m.ctx.Logger().Debug("Failed to generate proposal endorsement", zap.Error(err))
@@ -482,10 +491,14 @@ func (m *ConsensusFSM) onFailedToReceiveBlock(evt fsm.Event) (fsm.State, error) 
 }
 
 func (m *ConsensusFSM) onReceiveProposalEndorsementInAcceptLockEndorsementState(evt fsm.Event) (fsm.State, error) {
+	log.L().Debug("Handle event", zap.String("event", string(evt.Type())))
+	defer log.L().Debug("Handled event", zap.String("event", string(evt.Type())))
 	return m.onReceiveProposalEndorsement(evt, sAcceptLockEndorsement)
 }
 
 func (m *ConsensusFSM) onReceiveProposalEndorsementInAcceptProposalEndorsementState(evt fsm.Event) (fsm.State, error) {
+	log.L().Debug("Handle event", zap.String("event", string(evt.Type())))
+	defer log.L().Debug("Handled event", zap.String("event", string(evt.Type())))
 	return m.onReceiveProposalEndorsement(evt, sAcceptProposalEndorsement)
 }
 
@@ -509,12 +522,16 @@ func (m *ConsensusFSM) onReceiveProposalEndorsement(evt fsm.Event, currentState 
 }
 
 func (m *ConsensusFSM) onStopReceivingProposalEndorsement(evt fsm.Event) (fsm.State, error) {
+	log.L().Debug("Handle event", zap.String("event", string(evt.Type())))
+	defer log.L().Debug("Handled event", zap.String("event", string(evt.Type())))
 	m.ctx.Logger().Warn("Not enough proposal endorsements")
 
 	return sAcceptLockEndorsement, nil
 }
 
 func (m *ConsensusFSM) onReceiveLockEndorsement(evt fsm.Event) (fsm.State, error) {
+	log.L().Debug("Handle event", zap.String("event", string(evt.Type())))
+	defer log.L().Debug("Handled event", zap.String("event", string(evt.Type())))
 	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
 		return sAcceptLockEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
@@ -533,6 +550,8 @@ func (m *ConsensusFSM) onReceiveLockEndorsement(evt fsm.Event) (fsm.State, error
 }
 
 func (m *ConsensusFSM) onBroadcastPreCommitEndorsement(evt fsm.Event) (fsm.State, error) {
+	log.L().Debug("Handle event", zap.String("event", string(evt.Type())))
+	defer log.L().Debug("Handled event", zap.String("event", string(evt.Type())))
 	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
 		return sAcceptPreCommitEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
@@ -569,6 +588,8 @@ func (m *ConsensusFSM) onStopReceivingPreCommitEndorsement(evt fsm.Event) (fsm.S
 
 // handleBackdoorEvt takes the dst state from the event and move the FSM into it
 func (m *ConsensusFSM) handleBackdoorEvt(evt fsm.Event) (fsm.State, error) {
+	log.L().Debug("Handle event", zap.String("event", string(evt.Type())))
+	defer log.L().Debug("Handled event", zap.String("event", string(evt.Type())))
 	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
 		return sPrepare, errors.Wrap(ErrEvtCast, "the event is not a backdoor event")

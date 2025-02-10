@@ -16,7 +16,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -88,6 +87,10 @@ type (
 		PutBlock(context.Context, *block.Block) error
 		WorkingSet(context.Context) (protocol.StateManager, error)
 		WorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManager, error)
+		OngoingBlockHeight() uint64
+		PendingBlockHeader(uint64) (*block.Header, error)
+		PutBlockHeader(*block.Header)
+		CancelBlock(uint64)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -101,7 +104,7 @@ type (
 		twoLayerTrie             trie.TwoLayerTrie // global state trie, this is a read only trie
 		dao                      db.KVStore        // the underlying DB for account/contract storage
 		timerFactory             *prometheustimer.TimerFactory
-		workingsets              cache.LRUCache // lru cache for workingsets
+		chamber                  WorkingSetChamber
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
@@ -157,7 +160,7 @@ func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
 		registry:           protocol.NewRegistry(),
 		saveHistory:        cfg.Chain.EnableArchiveMode,
 		protocolView:       protocol.View{},
-		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
+		chamber:            newWorkingsetChamber(int(cfg.Chain.WorkingSetCacheSize)),
 		dao:                dao,
 	}
 
@@ -236,7 +239,7 @@ func (sf *factory) Stop(ctx context.Context) error {
 	if err := sf.dao.Stop(ctx); err != nil {
 		return err
 	}
-	sf.workingsets.Clear()
+	sf.chamber.Clear()
 	return sf.lifecycle.OnStop(ctx)
 }
 
@@ -249,6 +252,25 @@ func (sf *factory) Height() (uint64, error) {
 		return 0, errors.Wrap(err, "failed to get factory's height from underlying DB")
 	}
 	return byteutil.BytesToUint64(height), nil
+}
+
+func (sf *factory) OngoingBlockHeight() uint64 {
+	return sf.chamber.OngoingBlockHeight()
+}
+
+func (sf *factory) PendingBlockHeader(height uint64) (*block.Header, error) {
+	if h := sf.chamber.GetBlockHeader(height); h != nil {
+		return h, nil
+	}
+	return nil, errors.Errorf("pending block %d not exist", height)
+}
+
+func (sf *factory) PutBlockHeader(header *block.Header) {
+	sf.chamber.PutBlockHeader(header)
+}
+
+func (sf *factory) CancelBlock(height uint64) {
+	sf.chamber.AbandonWorkingSets(height)
 }
 
 func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
@@ -269,7 +291,11 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	if err != nil {
 		return nil, err
 	}
-	return sf.createSfWorkingSet(ctx, height, store)
+	var parent *workingSet
+	if height > 0 {
+		parent = sf.chamber.GetWorkingSet(height - 1)
+	}
+	return sf.createSfWorkingSet(ctx, height, store, parent)
 }
 
 func (sf *factory) newWorkingSetAtHeight(ctx context.Context, height uint64) (*workingSet, error) {
@@ -290,10 +316,10 @@ func (sf *factory) newWorkingSetAtHeight(ctx context.Context, height uint64) (*w
 	if err != nil {
 		return nil, err
 	}
-	return sf.createSfWorkingSet(ctx, height, store)
+	return sf.createSfWorkingSet(ctx, height, store, nil)
 }
 
-func (sf *factory) createSfWorkingSet(ctx context.Context, height uint64, store workingSetStore) (*workingSet, error) {
+func (sf *factory) createSfWorkingSet(ctx context.Context, height uint64, store workingSetStore, parent *workingSet) (*workingSet, error) {
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
@@ -308,7 +334,7 @@ func (sf *factory) createSfWorkingSet(ctx context.Context, height uint64, store 
 			}
 		}
 	}
-	return newWorkingSet(height, store), nil
+	return newWorkingSet(height, store, parent), nil
 }
 
 func (sf *factory) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
@@ -356,7 +382,7 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 		if err := ws.ValidateBlock(ctx, blk); err != nil {
 			return errors.Wrap(err, "failed to validate block with workingset in factory")
 		}
-		sf.putIntoWorkingSets(key, ws)
+		sf.chamber.PutWorkingSet(key, ws)
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
@@ -374,7 +400,7 @@ func (sf *factory) NewBlockBuilder(
 ) (*block.Builder, error) {
 	sf.mutex.Lock()
 	ctx = protocol.WithRegistry(ctx, sf.registry)
-	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+	ws, err := sf.newWorkingSet(ctx, sf.chamber.OngoingBlockHeight()+1)
 	sf.mutex.Unlock()
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
@@ -398,7 +424,7 @@ func (sf *factory) NewBlockBuilder(
 
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
-	sf.putIntoWorkingSets(key, ws)
+	sf.chamber.PutWorkingSet(key, ws)
 	return blkBuilder, nil
 }
 
@@ -434,19 +460,34 @@ func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64, preact
 }
 
 // PutBlock persists all changes in RunActions() into the DB
-func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
+func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) (err error) {
 	timer := sf.timerFactory.NewTimer("Commit")
-	defer timer.End()
+	var (
+		ws      *workingSet
+		isExist bool
+	)
+	defer func() {
+		timer.End()
+		if err != nil {
+			// abandon current workingset, and all pending workingsets beyond current height
+			ws.abandon()
+			sf.chamber.AbandonWorkingSets(ws.height)
+		}
+	}()
 	producer := blk.PublicKey().Address()
 	if producer == nil {
 		return errors.New("failed to get address")
 	}
 	ctx = protocol.WithRegistry(ctx, sf.registry)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
+	ws, isExist, err = sf.getFromWorkingSets(ctx, key)
 	if err != nil {
-		return err
+		return
 	}
+	if err = ws.verifyParent(); err != nil {
+		return
+	}
+	ws.detachParent()
 	if !isExist {
 		// regenerate workingset
 		if !sf.skipBlockValidationOnPut {
@@ -456,14 +497,14 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 		if err != nil {
 			log.L().Error("Failed to update state.", zap.Error(err))
-			return err
+			return
 		}
 	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	receipts, err := ws.Receipts()
 	if err != nil {
-		return err
+		return
 	}
 	blk.Receipts = receipts
 	h, _ := ws.Height()
@@ -475,18 +516,17 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
-	if err := ws.Commit(ctx); err != nil {
-		return err
+	if err = ws.Commit(ctx); err != nil {
+		return
 	}
 	rh, err := sf.dao.Get(ArchiveTrieNamespace, []byte(ArchiveTrieRootKey))
 	if err != nil {
-		return err
+		return
 	}
-	if err := sf.twoLayerTrie.SetRootHash(rh); err != nil {
-		return err
+	if err = sf.twoLayerTrie.SetRootHash(rh); err != nil {
+		return
 	}
 	sf.currentChainHeight = h
-
 	return nil
 }
 
@@ -578,22 +618,13 @@ func (sf *factory) createGenesisStates(ctx context.Context) error {
 func (sf *factory) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*workingSet, bool, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	if data, ok := sf.workingsets.Get(key); ok {
-		if ws, ok := data.(*workingSet); ok {
-			// if it is already validated, return workingset
-			return ws, true, nil
-		}
-		return nil, false, errors.New("type assertion failed to be WorkingSet")
+	if ws := sf.chamber.GetWorkingSet(key); ws != nil {
+		// if it is already validated, return workingset
+		return ws, true, nil
 	}
 	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
 	if err != nil {
 		return nil, false, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 	return ws, false, nil
-}
-
-func (sf *factory) putIntoWorkingSets(key hash.Hash256, ws *workingSet) {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
-	sf.workingsets.Add(key, ws)
 }

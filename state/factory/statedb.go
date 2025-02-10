@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -49,7 +48,7 @@ type (
 		registry                 *protocol.Registry
 		dao                      daoRetrofitter
 		timerFactory             *prometheustimer.TimerFactory
-		workingsets              cache.LRUCache // lru cache for workingsets
+		chamber                  WorkingSetChamber
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
@@ -86,7 +85,7 @@ func SkipBlockValidationStateDBOption() StateDBOption {
 // DisableWorkingSetCacheOption disable workingset cache
 func DisableWorkingSetCacheOption() StateDBOption {
 	return func(sdb *stateDB, cfg *Config) error {
-		sdb.workingsets = cache.NewDummyLruCache()
+		sdb.chamber = newWorkingsetChamber(8)
 		return nil
 	}
 }
@@ -98,7 +97,7 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
 		protocolView:       protocol.View{},
-		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
+		chamber:            newWorkingsetChamber(int(cfg.Chain.WorkingSetCacheSize)),
 	}
 	for _, opt := range opts {
 		if err := opt(&sdb, &cfg); err != nil {
@@ -165,7 +164,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	sdb.workingsets.Clear()
+	sdb.chamber.Clear()
 	return sdb.dao.Stop(ctx)
 }
 
@@ -174,6 +173,25 @@ func (sdb *stateDB) Height() (uint64, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 	return sdb.dao.getHeight()
+}
+
+func (sdb *stateDB) OngoingBlockHeight() uint64 {
+	return sdb.chamber.OngoingBlockHeight()
+}
+
+func (sdb *stateDB) PendingBlockHeader(height uint64) (*block.Header, error) {
+	if h := sdb.chamber.GetBlockHeader(height); h != nil {
+		return h, nil
+	}
+	return nil, errors.Errorf("pending block %d not exist", height)
+}
+
+func (sdb *stateDB) PutBlockHeader(header *block.Header) {
+	sdb.chamber.PutBlockHeader(header)
+}
+
+func (sdb *stateDB) CancelBlock(height uint64) {
+	sdb.chamber.AbandonWorkingSets(height)
 }
 
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
@@ -197,8 +215,11 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
-
-	return newWorkingSet(height, store), nil
+	var parent *workingSet
+	if height > 0 {
+		parent = sdb.chamber.GetWorkingSet(height - 1)
+	}
+	return newWorkingSet(height, store, parent), nil
 }
 
 func (sdb *stateDB) Register(p protocol.Protocol) error {
@@ -216,7 +237,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 		if err = ws.ValidateBlock(ctx, blk); err != nil {
 			return errors.Wrap(err, "failed to validate block with workingset in statedb")
 		}
-		sdb.workingsets.Add(key, ws)
+		sdb.chamber.PutWorkingSet(key, ws)
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
@@ -234,7 +255,7 @@ func (sdb *stateDB) NewBlockBuilder(
 ) (*block.Builder, error) {
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	sdb.mutex.RLock()
-	currHeight := sdb.currentChainHeight
+	currHeight := sdb.chamber.OngoingBlockHeight()
 	sdb.mutex.RUnlock()
 	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
 	if err != nil {
@@ -259,7 +280,7 @@ func (sdb *stateDB) NewBlockBuilder(
 
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
-	sdb.workingsets.Add(key, ws)
+	sdb.chamber.PutWorkingSet(key, ws)
 	return blkBuilder, nil
 }
 
@@ -287,21 +308,36 @@ func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preac
 }
 
 // PutBlock persists all changes in RunActions() into the DB
-func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
+func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) (err error) {
 	sdb.mutex.Lock()
 	timer := sdb.timerFactory.NewTimer("Commit")
 	sdb.mutex.Unlock()
-	defer timer.End()
+	var (
+		ws      *workingSet
+		isExist bool
+	)
+	defer func() {
+		timer.End()
+		if err != nil {
+			// abandon current workingset, and all pending workingsets beyond current height
+			ws.abandon()
+			sdb.chamber.AbandonWorkingSets(ws.height)
+		}
+	}()
 	producer := blk.PublicKey().Address()
 	if producer == nil {
 		return errors.New("failed to get address")
 	}
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
+	ws, isExist, err = sdb.getFromWorkingSets(ctx, key)
 	if err != nil {
-		return err
+		return
 	}
+	if err = ws.verifyParent(); err != nil {
+		return
+	}
+	ws.detachParent()
 	if !isExist {
 		if !sdb.skipBlockValidationOnPut {
 			err = ws.ValidateBlock(ctx, blk)
@@ -310,14 +346,14 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 		if err != nil {
 			log.L().Error("Failed to update state.", zap.Error(err))
-			return err
+			return
 		}
 	}
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 	receipts, err := ws.Receipts()
 	if err != nil {
-		return err
+		return
 	}
 	blk.Receipts = receipts
 	h, _ := ws.Height()
@@ -329,8 +365,8 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
-	if err := ws.Commit(ctx); err != nil {
-		return err
+	if err = ws.Commit(ctx); err != nil {
+		return
 	}
 	sdb.currentChainHeight = h
 	return nil
@@ -430,16 +466,14 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
 func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*workingSet, bool, error) {
-	if data, ok := sdb.workingsets.Get(key); ok {
-		if ws, ok := data.(*workingSet); ok {
-			// if it is already validated, return workingset
-			return ws, true, nil
-		}
-		return nil, false, errors.New("type assertion failed to be WorkingSet")
+	if ws := sdb.chamber.GetWorkingSet(key); ws != nil {
+		// if it is already validated, return workingset
+		return ws, true, nil
+
 	}
 	sdb.mutex.RLock()
 	currHeight := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
-	tx, err := sdb.newWorkingSet(ctx, currHeight+1)
-	return tx, false, err
+	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
+	return ws, false, err
 }

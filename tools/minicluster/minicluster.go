@@ -124,6 +124,7 @@ func main() {
 		config.System.SystemLogDBPath = systemLogDBPath
 		config.Chain.ContractStakingIndexDBPath = contractStakingIndexDBPath
 		config.Chain.BlobStoreDBPath = blobDBPath
+		config.ActPool.Store = nil
 		if i == 0 {
 			config.Network.BootstrapNodes = []string{}
 			config.Network.MasterKey = "bootnode"

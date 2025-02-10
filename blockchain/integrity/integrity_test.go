@@ -959,6 +959,133 @@ func createChain(cfg config.Config, inMem bool) (blockchain.Blockchain, factory.
 	return bc, sf, dao, ap, nil
 }
 
+func TestBlockPipeline(t *testing.T) {
+	require := require.New(t)
+
+	cfg := config.Default
+	testIndexPath, err := testutil.PathOfTempFile("index")
+	require.NoError(err)
+
+	defer func() {
+		testutil.CleanupPath(testIndexPath)
+		// clear the gateway
+		delete(cfg.Plugins, config.GatewayPlugin)
+	}()
+
+	minGas := big.NewInt(unit.Qev)
+	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"
+	cfg.Genesis.EnableGravityChainVoting = false
+	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.ActPool.MinGasPriceStr = minGas.String()
+	cfg.Genesis.PacificBlockHeight = 2
+	cfg.Genesis.AleutianBlockHeight = 2
+	cfg.Genesis.BeringBlockHeight = 2
+	cfg.Genesis.CookBlockHeight = 2
+	cfg.Genesis.DaytonaBlockHeight = 2
+	cfg.Genesis.DardanellesBlockHeight = 2
+	cfg.Genesis.EasterBlockHeight = 2
+	cfg.Genesis.FbkMigrationBlockHeight = 2
+	cfg.Genesis.FairbankBlockHeight = 2
+	cfg.Genesis.GreenlandBlockHeight = 2
+	cfg.Genesis.HawaiiBlockHeight = 2
+	cfg.Genesis.IcelandBlockHeight = 2
+	cfg.Genesis.JutlandBlockHeight = 2
+	cfg.Genesis.KamchatkaBlockHeight = 2
+	cfg.Genesis.LordHoweBlockHeight = 2
+	cfg.Genesis.MidwayBlockHeight = 2
+	cfg.Genesis.NewfoundlandBlockHeight = 2
+	cfg.Genesis.OkhotskBlockHeight = 2
+	cfg.Genesis.PalauBlockHeight = 2
+	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
+
+	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
+	bc, sf, _, ap, err := createChain(cfg, true)
+	require.NoError(err)
+	sk, err := iotexcrypto.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
+	require.NoError(err)
+	producer := sk.PublicKey().Address()
+	ctrl := gomock.NewController(t)
+	pp := mock_poll.NewMockProtocol(ctrl)
+	pp.EXPECT().CreateGenesisStates(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	pp.EXPECT().Candidates(gomock.Any(), gomock.Any()).Return([]*state.Candidate{
+		{
+			Address:       producer.String(),
+			RewardAddress: producer.String(),
+		},
+	}, nil).AnyTimes()
+	pp.EXPECT().Register(gomock.Any()).DoAndReturn(func(reg *protocol.Registry) error {
+		return reg.Register("poll", pp)
+	}).AnyTimes()
+	pp.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	require.NoError(sf.Register(pp))
+	require.NoError(bc.Start(ctx))
+	defer func() {
+		require.NoError(bc.Stop(ctx))
+	}()
+
+	// Add block 1
+	nonce, err := ap.GetPendingNonce(identityset.Address(27).String())
+	require.NoError(err)
+	require.EqualValues(1, nonce)
+	nonce, err = ap.GetPendingNonce(identityset.Address(25).String())
+	require.NoError(err)
+	require.EqualValues(1, nonce)
+	priKey0 := identityset.PrivateKey(27)
+	ex1, err := action.SignedExecution(action.EmptyAddress, priKey0, 1, new(big.Int), 500000, minGas, _constantinopleOpCodeContract)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, ex1))
+	tsf1, err := action.SignedTransfer(identityset.Address(25).String(), priKey0, 2, big.NewInt(10000), nil, 500000, minGas)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tsf1))
+	tsf2, err := action.SignedTransfer(identityset.Address(24).String(), priKey0, 3, big.NewInt(20000), nil, 500000, minGas)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tsf2))
+	blockTime := time.Unix(1546329600, 0)
+	blk, err := bc.MintNewBlock(blockTime)
+	require.NoError(err)
+	require.EqualValues(1, blk.Height())
+	require.Equal(4, len(blk.Body.Actions))
+	require.NoError(bc.ValidateBlock(blk))
+	// add block 2
+	tsf3, err := action.SignedTransfer(identityset.Address(23).String(), priKey0, 4, big.NewInt(30000), nil, 500000, minGas)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tsf3))
+	deterministic, err := address.FromHex("3fab184622dc19b6109349b94811493bf2a45362")
+	require.NoError(err)
+	tsf4, err := action.SignedTransfer(deterministic.String(), priKey0, 5, big.NewInt(10000000000000000), nil, 500000, minGas)
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tsf4))
+	println("mint block 2")
+	blk1, err := bc.MintNewBlock(blockTime.Add(time.Second))
+	require.NoError(err)
+	require.EqualValues(2, blk1.Height())
+	require.Equal(3, len(blk1.Body.Actions))
+	require.NoError(bc.ValidateBlock(blk1))
+	require.NoError(bc.CommitBlock(blk))
+	require.NoError(bc.CommitBlock(blk1))
+	// verify accounts
+	for _, v := range []struct {
+		a     address.Address
+		atype int32
+		nonce uint64
+		b     string
+	}{
+		{identityset.Address(27), 0, 6, "9999999999180825999999940000"},
+		{identityset.Address(25), 0, 1, "100000000000000000000010000"},
+		{identityset.Address(24), 0, 1, "100000000000000000000020000"},
+		{identityset.Address(23), 0, 1, "100000000000000000000030000"},
+		{deterministic, 1, 0, "10000000000000000"},
+	} {
+		a, err := accountutil.AccountState(ctx, sf, v.a)
+		require.NoError(err)
+		require.Equal(v.atype, a.AccountType())
+		require.Equal(v.nonce, a.PendingNonce())
+		require.Equal(v.b, a.Balance.String())
+	}
+}
+
 func TestBlockchainHardForkFeatures(t *testing.T) {
 	require := require.New(t)
 

@@ -214,19 +214,35 @@ func (bc *blockEndorsementCollection) Endorsements(
 
 type endorsementManager struct {
 	isMajorityFunc  EndorsedByMajorityFunc
-	eManagerDB      db.KVStore
+	eManagerDB      *roundStore
 	collections     map[string]*blockEndorsementCollection
 	cachedMintedBlk *block.Block
+	deserializer    *block.Deserializer
 }
 
-func newEndorsementManager(eManagerDB db.KVStore, deserializer *block.Deserializer) (*endorsementManager, error) {
+func newEndorsementManager(eManagerDB *roundStore, deserializer *block.Deserializer) (*endorsementManager, error) {
 	if eManagerDB == nil {
 		return &endorsementManager{
 			eManagerDB:      nil,
 			collections:     map[string]*blockEndorsementCollection{},
 			cachedMintedBlk: nil,
+			deserializer:    deserializer,
 		}, nil
 	}
+	manager := &endorsementManager{
+		eManagerDB:      eManagerDB,
+		collections:     map[string]*blockEndorsementCollection{},
+		cachedMintedBlk: nil,
+		deserializer:    deserializer,
+	}
+	if err := manager.load(); err != nil {
+		return nil, err
+	}
+	return manager, nil
+}
+
+func (m *endorsementManager) load() error {
+	eManagerDB := m.eManagerDB
 	bytes, err := eManagerDB.Get(_eManagerNS, _statusKey)
 	switch errors.Cause(err) {
 	case nil:
@@ -234,23 +250,19 @@ func newEndorsementManager(eManagerDB db.KVStore, deserializer *block.Deserializ
 		manager := &endorsementManager{eManagerDB: eManagerDB}
 		managerProto := &endorsementpb.EndorsementManager{}
 		if err = proto.Unmarshal(bytes, managerProto); err != nil {
-			return nil, err
+			return err
 		}
-		if err = manager.fromProto(managerProto, deserializer); err != nil {
-			return nil, err
+		if err = manager.fromProto(managerProto, m.deserializer); err != nil {
+			return err
 		}
 		manager.eManagerDB = eManagerDB
-		return manager, nil
+		return nil
 	case db.ErrNotExist:
 		// If DB doesn't have any information
 		log.L().Info("First initializing DB")
-		return &endorsementManager{
-			eManagerDB:      eManagerDB,
-			collections:     map[string]*blockEndorsementCollection{},
-			cachedMintedBlk: nil,
-		}, nil
+		return nil
 	default:
-		return nil, err
+		return err
 	}
 }
 
@@ -404,6 +416,15 @@ func (m *endorsementManager) Cleanup(timestamp time.Time) error {
 		return m.PutEndorsementManagerToDB()
 	}
 	return nil
+}
+
+func (m *endorsementManager) WithRound(height uint64, roundNum uint32) error {
+	m.Cleanup(time.Time{})
+	if m.eManagerDB == nil {
+		return nil
+	}
+	m.eManagerDB.ChangeRound(height, roundNum)
+	return m.load()
 }
 
 func (m *endorsementManager) Log(
