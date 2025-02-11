@@ -16,7 +16,9 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/api"
 	"github.com/iotexproject/iotex-core/v2/chainservice"
 	"github.com/iotexproject/iotex-core/v2/config"
@@ -28,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/routine"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/httputil"
 	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Server is the iotex server instance containing all components.
@@ -56,24 +59,52 @@ func NewInMemTestServer(cfg config.Config) (*Server, error) { // notest
 }
 
 func newServer(cfg config.Config, testing bool) (*Server, error) {
+	// TODO: move to a separate package
+	actionDeserializer := (&action.Deserializer{}).SetEvmNetworkID(cfg.Chain.EVMNetworkID)
 	// create dispatcher instance
-	dispatcher, err := dispatcher.NewDispatcher(cfg.Dispatcher)
+	dispatcher, err := dispatcher.NewDispatcher(cfg.Dispatcher, func(msg proto.Message) (string, error) {
+		// TODO: support more types of messages
+		switch pb := msg.(type) {
+		case *iotextypes.Action:
+			act, err := actionDeserializer.ActionToSealedEnvelope(pb)
+			if err != nil {
+				return "", err
+			}
+			if err := act.VerifySignature(); err != nil {
+				return "", err
+			}
+			pubkey := act.SrcPubkey()
+			if pubkey == nil {
+				return "", errors.New("public key is nil")
+			}
+			return string(pubkey.Bytes()), nil
+		default:
+			return "", nil
+		}
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create dispatcher")
 	}
+
 	var p2pAgent p2p.Agent
 	switch cfg.Consensus.Scheme {
 	case config.StandaloneScheme:
 		p2pAgent = p2p.NewDummyAgent()
 	default:
-		p2pAgent = p2p.NewAgent(cfg.Network, cfg.Chain.ID, cfg.Genesis.Hash(), dispatcher.HandleBroadcast, dispatcher.HandleTell)
+		p2pAgent = p2p.NewAgent(
+			cfg.Network,
+			cfg.Chain.ID,
+			cfg.Genesis.Hash(),
+			dispatcher.ValidateMessage,
+			dispatcher.HandleBroadcast,
+			dispatcher.HandleTell,
+		)
 	}
 	chains := make(map[uint32]*chainservice.ChainService)
 	apiServers := make(map[uint32]*api.ServerV2)
 	var cs *chainservice.ChainService
 	builder := chainservice.NewBuilder(cfg)
 	builder.SetP2PAgent(p2pAgent)
-	builder.SetAccountRateLimit(cfg.Network.AccountRateLimit)
 	rpcStats := nodestats.NewAPILocalStats()
 	builder.SetRPCStats(rpcStats)
 	if testing {
