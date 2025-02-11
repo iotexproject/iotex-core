@@ -297,7 +297,7 @@ func TestConstantinople(t *testing.T) {
 		})
 		stateDB, err := prepareStateDB(fCtx, sm)
 		require.NoError(err)
-		ps, err := newParams(fCtx, elp, stateDB)
+		ps, err := newParams(fCtx, elp)
 		require.NoError(err)
 
 		evm := vm.NewEVM(ps.context, ps.txCtx, stateDB, ps.chainConfig, ps.evmConfig)
