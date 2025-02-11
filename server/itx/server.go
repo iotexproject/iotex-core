@@ -59,27 +59,31 @@ func NewInMemTestServer(cfg config.Config) (*Server, error) { // notest
 }
 
 func newServer(cfg config.Config, testing bool) (*Server, error) {
-	// create dispatcher instance
-	dispatcher, err := dispatcher.NewDispatcher(cfg.Dispatcher)
-	if err != nil {
-		return nil, errors.Wrap(err, "fail to create dispatcher")
-	}
-
 	// TODO: move to a separate package
 	actionDeserializer := (&action.Deserializer{}).SetEvmNetworkID(cfg.Chain.EVMNetworkID)
-	verifyFunc := func(pb *iotextypes.Action) (string, error) {
-		act, err := actionDeserializer.ActionToSealedEnvelope(pb)
-		if err != nil {
-			return "", err
+	// create dispatcher instance
+	dispatcher, err := dispatcher.NewDispatcher(cfg.Dispatcher, func(msg proto.Message) (string, error) {
+		// TODO: support more types of messages
+		switch pb := msg.(type) {
+		case *iotextypes.Action:
+			act, err := actionDeserializer.ActionToSealedEnvelope(pb)
+			if err != nil {
+				return "", err
+			}
+			if err := act.VerifySignature(); err != nil {
+				return "", err
+			}
+			pubkey := act.SrcPubkey()
+			if pubkey == nil {
+				return "", errors.New("public key is nil")
+			}
+			return string(pubkey.Bytes()), nil
+		default:
+			return "", nil
 		}
-		if err := act.VerifySignature(); err != nil {
-			return "", err
-		}
-		sender := act.SenderAddress()
-		if sender == nil {
-			return "", errors.New("sender address is nil")
-		}
-		return sender.String(), nil
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "fail to create dispatcher")
 	}
 
 	var p2pAgent p2p.Agent
@@ -91,27 +95,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 			cfg.Network,
 			cfg.Chain.ID,
 			cfg.Genesis.Hash(),
-			func(pMsg proto.Message) ([]string, error) {
-				var senders []string
-				// TODO: support more types of messages
-				switch pb := pMsg.(type) {
-				case *iotextypes.Action:
-					sender, err := verifyFunc(pb)
-					senders = append(senders, sender)
-					return senders, err
-				case *iotextypes.Actions:
-					actions := pb.GetActions()
-					senders = make([]string, 0, len(actions))
-					for _, act := range actions {
-						sender, err := verifyFunc(act)
-						if err != nil {
-							return nil, err
-						}
-						senders = append(senders, sender)
-					}
-				}
-				return senders, nil
-			},
+			dispatcher.ValidateMessage,
 			dispatcher.HandleBroadcast,
 			dispatcher.HandleTell,
 		)

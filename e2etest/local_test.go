@@ -121,8 +121,8 @@ func TestLocalCommit(t *testing.T) {
 		cfg.Network,
 		cfg.Chain.ID,
 		cfg.Genesis.Hash(),
-		func(proto.Message) ([]string, error) {
-			return nil, nil
+		func(proto.Message) (bool, error) {
+			return false, nil
 		},
 		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 		},
@@ -331,8 +331,8 @@ func TestLocalSync(t *testing.T) {
 		ReconnectInterval: 150 * time.Second},
 		cfg.Chain.ID,
 		hash.ZeroHash256,
-		func(proto.Message) ([]string, error) {
-			return nil, nil
+		func(proto.Message) (bool, error) {
+			return false, nil
 		},
 		func(_ context.Context, _ uint32, _ string, msg proto.Message) {},
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {})
