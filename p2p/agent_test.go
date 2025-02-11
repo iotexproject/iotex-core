@@ -83,8 +83,8 @@ func TestBroadcast(t *testing.T) {
 			BootstrapNodes:    []string{bootnodeAddr[0].String()},
 			ReconnectInterval: 150 * time.Second,
 			MaxMessageSize:    p2p.DefaultConfig.MaxMessageSize,
-		}, 1, hash.ZeroHash256, func(proto.Message) ([]string, error) {
-			return nil, nil
+		}, 1, hash.ZeroHash256, func(proto.Message) (bool, error) {
+			return false, nil
 		}, b, u)
 		agent.Start(ctx)
 		agents = append(agents, agent)
@@ -144,8 +144,8 @@ func TestUnicast(t *testing.T) {
 			BootstrapNodes:    []string{addrs[0].String()},
 			ReconnectInterval: 150 * time.Second,
 			MasterKey:         strconv.Itoa(i),
-		}, 2, hash.ZeroHash256, func(proto.Message) ([]string, error) {
-			return nil, nil
+		}, 2, hash.ZeroHash256, func(proto.Message) (bool, error) {
+			return false, nil
 		}, b, u)
 		r.NoError(agent.Start(ctx))
 		agents = append(agents, agent)

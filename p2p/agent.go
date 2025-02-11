@@ -19,7 +19,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
-	"golang.org/x/time/rate"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -79,7 +78,7 @@ const (
 
 type (
 	// ValidateBroadcastInbound validates the inbound broadcast message
-	ValidateBroadcastInbound func(proto.Message) ([]string, error)
+	ValidateBroadcastInbound func(proto.Message) (bool, error)
 
 	// HandleBroadcastInbound handles broadcast message when agent listens it from the network
 	HandleBroadcastInbound func(context.Context, uint32, string, proto.Message)
@@ -104,8 +103,6 @@ type (
 		PrivateNetworkPSK string              `yaml:"privateNetworkPSK"`
 		MaxPeers          int                 `yaml:"maxPeers"`
 		MaxMessageSize    int                 `yaml:"maxMessageSize"`
-		// AccountRateLimit is the maximum number of requests per second per account.
-		AccountRateLimit int `yaml:"accountRateLimit"`
 	}
 
 	// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
@@ -141,8 +138,6 @@ type (
 		reconnectTimeout           time.Duration
 		reconnectTask              *routine.RecurringTask
 		qosMetrics                 *Qos
-		accRateLimitCfg            int
-		rateLimiters               cache.LRUCache
 	}
 
 	cacheValue struct {
@@ -167,7 +162,6 @@ var DefaultConfig = Config{
 	PrivateNetworkPSK: "",
 	MaxPeers:          30,
 	MaxMessageSize:    p2p.DefaultConfig.MaxMessageSize,
-	AccountRateLimit:  100,
 }
 
 // NewDummyAgent creates a dummy p2p agent
@@ -233,9 +227,6 @@ func NewAgent(
 		unicastInboundAsyncHandler: unicastHandler,
 		reconnectTimeout:           cfg.ReconnectInterval,
 		qosMetrics:                 NewQoS(time.Now(), 2*cfg.ReconnectInterval),
-		// TODO: make the rate limit cache size configurable
-		rateLimiters:    cache.NewThreadSafeLruCache(10000),
-		accRateLimitCfg: cfg.AccountRateLimit,
 	}
 }
 
@@ -290,17 +281,14 @@ func (p *agent) Start(ctx context.Context) error {
 				log.L().Debug("error when typifying broadcast message", zap.Error(err))
 				return pubsub.ValidationReject
 			}
-			senders, err := p.validatorBroadcastInbound(pMsg)
+			ignore, err := p.validatorBroadcastInbound(pMsg)
 			if err != nil {
 				log.L().Debug("error when validating broadcast message", zap.Error(err))
 				return pubsub.ValidationReject
 			}
-			for _, sender := range senders {
-				rl := p.getRateLimiter(sender)
-				if rl != nil && !rl.Allow() {
-					log.L().Debug("rate limit exceeded", zap.String("sender", sender))
-					return pubsub.ValidationIgnore
-				}
+			if ignore {
+				log.L().Debug("invalid broadcast message")
+				return pubsub.ValidationIgnore
 			}
 			p.caches.Add(hash.Hash256b(msg.Data), &cacheValue{
 				msgType:   broadcast.MsgType,
@@ -671,16 +659,4 @@ func exponentialRetry(f func() error, retryInterval time.Duration, numRetries in
 		retryInterval *= 2
 	}
 	return
-}
-
-func (p *agent) getRateLimiter(sender string) *rate.Limiter {
-	if p.accRateLimitCfg <= 0 {
-		return nil
-	}
-	limiter, exists := p.rateLimiters.Get(sender)
-	if !exists {
-		limiter = rate.NewLimiter(rate.Limit(p.accRateLimitCfg), 2*p.accRateLimitCfg) // account limit request per second with a burst of *2
-		p.rateLimiters.Add(sender, limiter)
-	}
-	return limiter.(*rate.Limiter)
 }
