@@ -58,6 +58,7 @@ type AddressKey struct {
 
 type injectProcessor struct {
 	api      iotexapi.APIServiceClient
+	chainID  uint32
 	nonces   *ttl.Cache
 	accounts []*AddressKey
 }
@@ -83,9 +84,14 @@ func newInjectionProcessor() (*injectProcessor, error) {
 	if err != nil {
 		return nil, err
 	}
+	response, err := api.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
+	if err != nil {
+		return nil, err
+	}
 	p := &injectProcessor{
-		api:    api,
-		nonces: nonceCache,
+		api:     api,
+		chainID: response.ChainMeta.ChainID,
+		nonces:  nonceCache,
 	}
 	if err = p.randAccounts(injectCfg.randAccounts); err != nil {
 		return p, err
@@ -151,7 +157,7 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 
 		recipient, _ := address.FromString(r.EncodedAddr)
 		log.L().Info("generated account", zap.String("addr", recipient.String()))
-		c := iotex.NewAuthedClient(p.api, operatorAccount)
+		c := iotex.NewAuthedClient(p.api, p.chainID, operatorAccount)
 		caller := c.Transfer(recipient, injectCfg.loadTokenAmount).SetGasPrice(injectCfg.transferGasPrice).SetGasLimit(injectCfg.transferGasLimit)
 		if _, err := caller.Call(context.Background()); err != nil {
 			log.L().Error("Failed to inject.", zap.Error(err))
@@ -261,7 +267,7 @@ func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 	}
 }
 
-func (p *injectProcessor) pickAction() (iotex.SendActionCaller, error) {
+func (p *injectProcessor) pickAction() (iotex.Caller, error) {
 	switch injectCfg.actionType {
 	case "transfer":
 		return p.transferCaller()
@@ -277,7 +283,7 @@ func (p *injectProcessor) pickAction() (iotex.SendActionCaller, error) {
 	}
 }
 
-func (p *injectProcessor) executionCaller() (iotex.SendActionCaller, error) {
+func (p *injectProcessor) executionCaller() (iotex.Caller, error) {
 	var nonce uint64
 	sender := p.accounts[rand.Intn(len(p.accounts))]
 	if val, ok := p.nonces.Get(sender.EncodedAddr); ok {
@@ -286,7 +292,7 @@ func (p *injectProcessor) executionCaller() (iotex.SendActionCaller, error) {
 	p.nonces.Set(sender.EncodedAddr, nonce+1)
 
 	operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
-	c := iotex.NewAuthedClient(p.api, operatorAccount)
+	c := iotex.NewAuthedClient(p.api, p.chainID, operatorAccount)
 	address, _ := address.FromString(injectCfg.contract)
 	abiJSONVar, _ := abi.JSON(strings.NewReader(_abiStr))
 	contract := c.Contract(address, abiJSONVar)
@@ -314,7 +320,7 @@ func (p *injectProcessor) transferCaller() (iotex.SendActionCaller, error) {
 	p.nonces.Set(sender.EncodedAddr, nonce+1)
 
 	operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
-	c := iotex.NewAuthedClient(p.api, operatorAccount)
+	c := iotex.NewAuthedClient(p.api, p.chainID, operatorAccount)
 
 	recipient, _ := address.FromString(p.accounts[rand.Intn(len(p.accounts))].EncodedAddr)
 	data := rand.Int63()

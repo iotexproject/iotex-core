@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
@@ -351,7 +351,7 @@ func TestNotProducingMultipleBlocks(t *testing.T) {
 
 func getBlockforctx(t *testing.T, i int, sign bool) block.Block {
 	require := require.New(t)
-	ts := &timestamp.Timestamp{Seconds: 1596329600, Nanos: 10}
+	ts := &timestamppb.Timestamp{Seconds: 1596329600, Nanos: 10}
 	hcore := &iotextypes.BlockHeaderCore{
 		Version:          1,
 		Height:           51,

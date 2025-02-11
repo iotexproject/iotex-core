@@ -8,9 +8,9 @@ package hdwallet
 import (
 	"fmt"
 
+	hdwallet "github.com/ethereum-optimism/go-ethereum-hdwallet"
 	ecrypt "github.com/ethereum/go-ethereum/crypto"
 	"github.com/iotexproject/go-pkgs/crypto"
-	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
