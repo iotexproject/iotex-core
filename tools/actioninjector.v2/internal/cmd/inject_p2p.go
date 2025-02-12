@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/p2p"
@@ -67,14 +69,16 @@ var (
 		},
 	}
 
-	port           int = 4689
-	injectDuration     = time.Minute
-	tps                = 10
-	concur             = 4
-	cluster            = "nightly"
+	port           = 4689
+	injectDuration = time.Minute
+	tps            = 10
+	concur         = 4
+	cluster        = "nightly"
 	chainID        uint32
 	bootstraps     = []string{}
 	genesisHashHex = ""
+	accountNum     = 1
+	actionNum      = 1
 )
 
 func init() {
@@ -86,6 +90,8 @@ func init() {
 	injectP2PCmd.Flags().Uint32Var(&chainID, "chain-id", chainID, "chain ID if not using predefined cluster")
 	injectP2PCmd.Flags().StringSliceVar(&bootstraps, "bootstraps", bootstraps, "bootstrap nodes if not using predefined cluster")
 	injectP2PCmd.Flags().StringVar(&genesisHashHex, "genesis-hash", genesisHashHex, "genesis hash if not using predefined cluster")
+	injectP2PCmd.Flags().IntVar(&accountNum, "account-num", accountNum, "number of accounts")
+	injectP2PCmd.Flags().IntVar(&actionNum, "action-num", actionNum, "number of actions")
 	rootCmd.AddCommand(injectP2PCmd)
 }
 
@@ -142,14 +148,21 @@ loop:
 		}
 	}
 
-	selp, err := generateTx()
+	selps, err := generateTxs()
 	if err != nil {
 		return errors.Wrap(err, "failed to generate tx")
+	}
+	log.L().Info("generated actions", zap.Int("count", len(selps)))
+	msg := &iotextypes.Actions{
+		Actions: make([]*iotextypes.Action, 0, len(selps)),
+	}
+	for _, selp := range selps {
+		msg.Actions = append(msg.Actions, selp.Proto())
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), injectDuration)
 	defer cancel()
-	sendTx(ctx, agent, tps, concur, selp.Proto())
+	sendTx(ctx, agent, tps, concur, msg)
 
 	return nil
 }
@@ -159,6 +172,30 @@ func generateTx() (*action.SealedEnvelope, error) {
 	receipt := identityset.Address(1)
 	e := action.NewEnvelope(action.NewLegacyTx(chainID, nonce, 1000000, big.NewInt(unit.Qev*2)), action.NewTransfer(big.NewInt(1), receipt.String(), nil))
 	return action.Sign(e, identityset.PrivateKey(2))
+}
+
+func generateTxs() ([]*action.SealedEnvelope, error) {
+	var (
+		selps     []*action.SealedEnvelope
+		accsNonce = make(map[int]uint64)
+	)
+	for i := 0; i < actionNum; i++ {
+		accIdx := i % accountNum
+		nonce, ok := accsNonce[accIdx]
+		if !ok {
+			nonce = 10
+		}
+		receipt := identityset.Address(rand.Intn(accountNum))
+		e := action.NewEnvelope(action.NewLegacyTx(chainID, nonce, 1000000, big.NewInt(unit.Qev*2)), action.NewTransfer(big.NewInt(rand.Int63n(10)), receipt.String(), nil))
+		selp, err := action.Sign(e, identityset.PrivateKey(accIdx))
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to sign action")
+		}
+		selps = append(selps, selp)
+		accsNonce[accIdx] = nonce + 1
+		log.L().Info("generated action", zap.Uint64("nonce", nonce), zap.String("sender", selp.SrcPubkey().Address().String()))
+	}
+	return selps, nil
 }
 
 func sendTx(ctx context.Context, agent p2p.Agent, tps, concurrency int, msg proto.Message) {
