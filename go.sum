@@ -607,8 +607,8 @@ github.com/iotexproject/go-ethereum v0.5.0 h1:lpmCpO4AdoFElHvrbmcSict86hHmd1yYSM
 github.com/iotexproject/go-ethereum v0.5.0/go.mod h1:hKL2Qcj1OvStXNSEDbucexqnEt1Wh4Cz329XsjAalZY=
 github.com/iotexproject/go-fsm v1.0.0 h1:Zrg9JnNDUZg4Anpj6oa0Tk4+sXbHTpJzI0v5/Cj5N6A=
 github.com/iotexproject/go-fsm v1.0.0/go.mod h1:t3aYXtCCcQxyS7oduQZyuUpPnVI4ddFTwbAagHN7fT0=
-github.com/iotexproject/go-p2p v0.3.7-0.20250210125343-1e80396fd07f h1:G3hE0FnXbTB0c5ZRmhmVZBHtTCJgRjip6cIK8X7WIfk=
-github.com/iotexproject/go-p2p v0.3.7-0.20250210125343-1e80396fd07f/go.mod h1:kY/byhFXLCaKnmGuZstc+gc99yq7zmN6zkZei9oQ1c8=
+github.com/iotexproject/go-p2p v0.3.7-0.20250212042614-3342a0702ece h1:aNzs/93OD+sHP4VxNTw/1qfuUd7lx2i8pQE6isAwAJE=
+github.com/iotexproject/go-p2p v0.3.7-0.20250212042614-3342a0702ece/go.mod h1:kY/byhFXLCaKnmGuZstc+gc99yq7zmN6zkZei9oQ1c8=
 github.com/iotexproject/go-pkgs v0.1.5-0.20210604060651-be5ee19f2575/go.mod h1:ttXhcwrtODyh7JozpJlCml09CjP0pcKqTe2B0MbTGc8=
 github.com/iotexproject/go-pkgs v0.1.15-0.20250203050652-f6f37ab0c630 h1:DyRguJDgv34i0XIVTEWlJ5SvZRWpLNLKbe3/+tBP/xM=
 github.com/iotexproject/go-pkgs v0.1.15-0.20250203050652-f6f37ab0c630/go.mod h1:T9UX5gAis+Z5j7ZgGwqDbBH+eXWnZgt3nenW4+w7pa8=

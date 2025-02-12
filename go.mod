@@ -22,7 +22,7 @@ require (
 	github.com/holiman/billy v0.0.0-20230718173358-1c7e68d277a7
 	github.com/holiman/uint256 v1.2.4
 	github.com/iotexproject/go-fsm v1.0.0
-	github.com/iotexproject/go-p2p v0.3.7-0.20250210125343-1e80396fd07f
+	github.com/iotexproject/go-p2p v0.3.7-0.20250212042614-3342a0702ece
 	github.com/iotexproject/go-pkgs v0.1.15-0.20250203050652-f6f37ab0c630
 	github.com/iotexproject/iotex-address v0.2.8
 	github.com/iotexproject/iotex-antenna-go/v2 v2.5.1
