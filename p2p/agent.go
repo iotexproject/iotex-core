@@ -131,6 +131,7 @@ type (
 		topicSuffix                string
 		validatorBroadcastInbound  ValidateBroadcastInbound
 		caches                     cache.LRUCache
+		deduper                    cache.LRUCache
 		broadcastInboundHandler    HandleBroadcastInbound
 		unicastInboundAsyncHandler HandleUnicastInboundAsync
 		host                       *p2p.Host
@@ -223,6 +224,7 @@ func NewAgent(
 		validatorBroadcastInbound: validateBroadcastInbound,
 		// TODO: make the cache size configurable
 		caches:                     cache.NewThreadSafeLruCache(10000),
+		deduper:                    cache.NewThreadSafeLruCache(10000),
 		broadcastInboundHandler:    broadcastHandler,
 		unicastInboundAsyncHandler: unicastHandler,
 		reconnectTimeout:           cfg.ReconnectInterval,
@@ -265,7 +267,11 @@ func (p *agent) Start(ctx context.Context) error {
 		_broadcastTopic+p.topicSuffix,
 		func(ctx context.Context, pid peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
 			if pid.String() == host.HostIdentity() {
-				return pubsub.ValidationAccept
+				return pubsub.ValidationIgnore
+			}
+			// check duplicate message
+			if p.duplicateMsg(msg) {
+				return pubsub.ValidationIgnore
 			}
 			var broadcast iotexrpc.BroadcastMsg
 			if err := proto.Unmarshal(msg.Data, &broadcast); err != nil {
@@ -435,6 +441,27 @@ func (p *agent) Stop(ctx context.Context) error {
 		return errors.Wrap(err, "error when closing Agent host")
 	}
 	return nil
+}
+
+func (p *agent) duplicateMsg(msg *pubsub.Message) bool {
+	if !p.cfg.EnableRateLimit {
+		return false
+	}
+	hash := hash.Hash160b([]byte(msg.String()))
+	val, ok := p.deduper.Get(hash)
+	if !ok {
+		p.deduper.Add(hash, 1)
+		return false
+	}
+	p.deduper.Add(hash, val.(int)+1)
+	if val.(int) > 2 {
+		log.L().Info("duplicate message", log.Hex("hash", hash[:10]), zap.Int("repeat", val.(int)))
+		var broadcast iotexrpc.BroadcastMsg
+		if err := proto.Unmarshal(msg.Data, &broadcast); err == nil {
+			log.L().Info("duplicate message", log.Hex("hash", hash[:10]), zap.Int("msgType", int(broadcast.MsgType)))
+		}
+	}
+	return val.(int) > 2
 }
 
 func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err error) {
