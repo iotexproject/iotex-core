@@ -41,6 +41,9 @@ type (
 		// Delete deletes a record by (namespace, key)
 		Delete(uint64, string, []byte) error
 
+		// CommitBatch writes a batch to the underlying DB
+		CommitBatch(uint64, batch.KVStoreBatch) error
+
 		// Filter returns <k, v> pair in a bucket that meet the condition
 		Filter(uint64, string, Condition, []byte, []byte) ([][]byte, [][]byte, error)
 
