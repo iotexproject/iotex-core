@@ -256,21 +256,19 @@ func ExecuteContract(
 		return nil, nil, err
 	}
 	if erigonsm, ok := sm.(interface {
-		Erigon() (erigonstate.StateWriter, *erigonstate.IntraBlockState, bool)
+		Erigon() (*erigonstate.IntraBlockState, bool)
 	}); ok {
-		if sw, in, dryrun := erigonsm.Erigon(); sw != nil && in != nil {
+		if in, dryrun := erigonsm.Erigon(); in != nil {
 			rules := ps.chainConfig.Rules(ps.context.BlockNumber, ps.genesis.IsSumatra(uint64(ps.context.BlockNumber.Int64())), ps.context.Time)
 			if dryrun {
 				stateDB = NewErigonStateDBAdapterDryrun(
 					stateDB.(*StateDBAdapter),
-					sw,
 					in,
 					NewErigonRules(&rules),
 				)
 			} else {
 				stateDB = NewErigonStateDBAdapter(
 					stateDB.(*StateDBAdapter),
-					sw,
 					in,
 					NewErigonRules(&rules),
 				)
