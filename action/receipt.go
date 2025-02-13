@@ -202,7 +202,7 @@ func (log *Log) ConvertToLogPb() *iotextypes.Log {
 	l.Topics = [][]byte{}
 	for _, topic := range log.Topics {
 		if log.NotFixTopicCopyBug {
-			l.Topics = append(l.Topics, topic[:])
+			l.Topics = append(l.Topics, log.Topics[len(log.Topics)-1][:])
 		} else {
 			data := make([]byte, len(topic))
 			copy(data, topic[:])
