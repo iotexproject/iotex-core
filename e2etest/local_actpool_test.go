@@ -53,6 +53,9 @@ func TestLocalActPool(t *testing.T) {
 		cfg.Network,
 		cfg.Chain.ID,
 		cfg.Genesis.Hash(),
+		func(proto.Message) (bool, error) {
+			return false, nil
+		},
 		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 
 		},
@@ -112,6 +115,7 @@ func TestPressureActPool(t *testing.T) {
 
 	cfg, err := newActPoolConfig(t)
 	require.NoError(err)
+	cfg.Dispatcher.AccountRateLimit = 1000
 
 	// create server
 	ctx := context.Background()
@@ -131,6 +135,9 @@ func TestPressureActPool(t *testing.T) {
 		cfg.Network,
 		cfg.Chain.ID,
 		cfg.Genesis.Hash(),
+		func(proto.Message) (bool, error) {
+			return false, nil
+		},
 		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 
 		},
@@ -183,7 +190,6 @@ func newActPoolConfig(t *testing.T) (config.Config, error) {
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
-	cfg.Network.AccountRateLimit = 0
 
 	sk, err := crypto.GenerateKey()
 	if err != nil {
