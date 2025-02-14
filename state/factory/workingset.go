@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	erigonstate "github.com/ledgerwatch/erigon/core/state"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -169,7 +170,7 @@ func (ws *workingSet) runAction(
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
-	defer ws.ResetSnapshots()
+	defer ws.finalizeTx(ctx)
 	if err := ws.freshAccountConversion(ctx, &actCtx); err != nil {
 		return nil, err
 	}
@@ -241,16 +242,23 @@ func (ws *workingSet) checkContract(ctx context.Context, to *common.Address) (bo
 	return sender.IsContract(), false, false, nil
 }
 
-func (ws *workingSet) finalize() error {
+func (ws *workingSet) finalize(ctx context.Context) error {
 	if ws.finalized {
 		return errors.New("Cannot finalize a working set twice")
 	}
-	if err := ws.store.Finalize(ws.height); err != nil {
+	if err := ws.store.Finalize(ctx, ws.height); err != nil {
 		return err
 	}
 	ws.finalized = true
 
 	return nil
+}
+
+func (ws *workingSet) finalizeTx(ctx context.Context) {
+	if err := ws.store.FinalizeTx(ctx); err != nil {
+		log.L().Panic("failed to finalize tx", zap.Error(err))
+	}
+	ws.ResetSnapshots()
 }
 
 func (ws *workingSet) Snapshot() int {
@@ -289,7 +297,7 @@ func (ws *workingSet) Commit(ctx context.Context) error {
 	if err := protocolPreCommit(ctx, ws); err != nil {
 		return err
 	}
-	if err := ws.store.Commit(); err != nil {
+	if err := ws.store.Commit(ctx); err != nil {
 		return err
 	}
 	if err := protocolCommit(ctx, ws); err != nil {
@@ -398,7 +406,7 @@ func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
 		}
 	}
 
-	return ws.finalize()
+	return ws.finalize(ctx)
 }
 
 func (ws *workingSet) validateNonce(ctx context.Context, blk *block.Block) error {
@@ -521,7 +529,7 @@ func (ws *workingSet) processWithCorrectOrder(ctx context.Context, actions []*ac
 		updateReceiptIndex(receipts)
 	}
 	ws.receipts = receipts
-	return ws.finalize()
+	return ws.finalize(ctx)
 }
 
 func (ws *workingSet) generateSystemActions(ctx context.Context) ([]action.Envelope, error) {
@@ -712,7 +720,7 @@ func (ws *workingSet) pickAndRunActions(
 	}
 	ws.receipts = receipts
 
-	return executedActions, ws.finalize()
+	return executedActions, ws.finalize(ctx)
 }
 
 func updateReceiptIndex(receipts []*action.Receipt) {
@@ -822,4 +830,19 @@ func (ws *workingSet) CreateBuilder(
 		blkBuilder.SetExcessBlobGas(blkCtx.ExcessBlobGas)
 	}
 	return blkBuilder, nil
+}
+
+func (ws *workingSet) Close() {
+	ws.store.Close()
+}
+
+func (ws *workingSet) Erigon() (*erigonstate.IntraBlockState, bool) {
+	switch st := ws.store.(type) {
+	case *stateDBWorkingSetStoreWithErigonOutput:
+		return st.erigonStore.intraBlockState, false
+	case *stateDBWorkingSetStoreWithErigonDryrun:
+		return st.erigonStore.intraBlockState, true
+	default:
+		return nil, false
+	}
 }

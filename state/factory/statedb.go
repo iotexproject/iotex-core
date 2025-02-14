@@ -53,6 +53,7 @@ type (
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
+		erigonDB                 *erigonDB
 	}
 )
 
@@ -91,6 +92,13 @@ func DisableWorkingSetCacheOption() StateDBOption {
 	}
 }
 
+func WithBlockTimeGetter(getBlockTime func(uint64) (time.Time, error)) StateDBOption {
+	return func(sdb *stateDB, cfg *Config) error {
+		cfg.getBlockTime = getBlockTime
+		return nil
+	}
+}
+
 // NewStateDB creates a new state db
 func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, error) {
 	sdb := stateDB{
@@ -117,6 +125,13 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	sdb.timerFactory = timerFactory
+	if len(cfg.Chain.HistoryIndexPath) > 0 {
+		if cfg.getBlockTime == nil {
+			return nil, errors.New("getBlockTime is required for history index")
+		}
+		sdb.erigonDB = newErigonDB(cfg.Chain.HistoryIndexPath, cfg.getBlockTime)
+	}
+
 	return &sdb, nil
 }
 
@@ -124,6 +139,11 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	if err := sdb.dao.Start(ctx); err != nil {
 		return err
+	}
+	if sdb.erigonDB != nil {
+		if err := sdb.erigonDB.Start(ctx); err != nil {
+			return err
+		}
 	}
 	// check factory height
 	h, err := sdb.dao.getHeight()
@@ -166,6 +186,9 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 	sdb.workingsets.Clear()
+	if sdb.erigonDB != nil {
+		sdb.erigonDB.Stop(ctx)
+	}
 	return sdb.dao.Stop(ctx)
 }
 
@@ -199,6 +222,35 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	}
 
 	return newWorkingSet(height, store), nil
+}
+
+func (sdb *stateDB) newWorkingSetWithErigonOutput(ctx context.Context, height uint64) (*workingSet, error) {
+	ws, err := sdb.newWorkingSet(ctx, height)
+	if err != nil {
+		return nil, err
+	}
+	e, err := sdb.erigonDB.newErigonStore(ctx, height)
+	if err != nil {
+		return nil, err
+	}
+	ws.store = newStateDBWorkingSetStoreWithErigonOutput(
+		ws.store.(*stateDBWorkingSetStore),
+		e,
+	)
+	return ws, nil
+}
+
+func (sdb *stateDB) newWorkingSetWithErigonDryrun(ctx context.Context, height uint64) (*workingSet, error) {
+	ws, err := sdb.newWorkingSet(ctx, height)
+	if err != nil {
+		return nil, err
+	}
+	e, err := sdb.erigonDB.newErigonStoreDryrun(ctx, height)
+	if err != nil {
+		return nil, err
+	}
+	ws.store = newStateDBWorkingSetStoreWithErigonDryrun(ws.store.(*stateDBWorkingSetStore), e)
+	return ws, nil
 }
 
 func (sdb *stateDB) Register(p protocol.Protocol) error {
@@ -236,7 +288,15 @@ func (sdb *stateDB) NewBlockBuilder(
 	sdb.mutex.RLock()
 	currHeight := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
-	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
+	var (
+		ws  *workingSet
+		err error
+	)
+	if sdb.erigonDB != nil {
+		ws, err = sdb.newWorkingSetWithErigonOutput(ctx, currHeight+1)
+	} else {
+		ws, err = sdb.newWorkingSet(ctx, currHeight+1)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +331,15 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, erro
 }
 
 func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManager, error) {
-	ws, err := sdb.newWorkingSet(ctx, height)
+	var (
+		ws  *workingSet
+		err error
+	)
+	if sdb.erigonDB != nil {
+		ws, err = sdb.newWorkingSetWithErigonDryrun(ctx, height)
+	} else {
+		ws, err = sdb.newWorkingSet(ctx, height)
+	}
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain working set from state db")
 	}
@@ -417,7 +485,15 @@ func (sdb *stateDB) state(h uint64, ns string, addr []byte, s interface{}) error
 }
 
 func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
-	ws, err := sdb.newWorkingSet(ctx, 0)
+	var (
+		ws  *workingSet
+		err error
+	)
+	if sdb.erigonDB != nil {
+		ws, err = sdb.newWorkingSetWithErigonOutput(ctx, 0)
+	} else {
+		ws, err = sdb.newWorkingSet(ctx, 0)
+	}
 	if err != nil {
 		return err
 	}
@@ -440,6 +516,14 @@ func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*
 	sdb.mutex.RLock()
 	currHeight := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
-	tx, err := sdb.newWorkingSet(ctx, currHeight+1)
+	var (
+		tx  *workingSet
+		err error
+	)
+	if sdb.erigonDB != nil {
+		tx, err = sdb.newWorkingSetWithErigonOutput(ctx, currHeight+1)
+	} else {
+		tx, err = sdb.newWorkingSet(ctx, currHeight+1)
+	}
 	return tx, false, err
 }

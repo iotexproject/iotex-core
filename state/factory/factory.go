@@ -109,8 +109,9 @@ type (
 
 	// Config contains the config for factory
 	Config struct {
-		Chain   blockchain.Config
-		Genesis genesis.Genesis
+		Chain        blockchain.Config
+		Genesis      genesis.Genesis
+		getBlockTime func(uint64) (time.Time, error)
 	}
 )
 
