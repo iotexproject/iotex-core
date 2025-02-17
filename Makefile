@@ -277,3 +277,7 @@ newxctl:
 .PHONY: iomigrater
 iomigrater:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOMIGRATER) -v ./tools/iomigrater
+
+.PHONY: verifier
+verifier:
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/verifier -v ./tools/verifier
