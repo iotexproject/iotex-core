@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/pkg/errors"
 )
 
@@ -51,15 +52,21 @@ func (v *validator) validateActions(
 	actions []*action.SealedEnvelope,
 	errChan chan error,
 ) {
-	var wg sync.WaitGroup
+	var (
+		wg       sync.WaitGroup
+		chainCtx = protocol.MustGetBlockchainCtx(ctx)
+		blockCtx = protocol.MustGetBlockCtx(ctx)
+	)
 	for _, selp := range actions {
 		wg.Add(1)
 		go func(s *action.SealedEnvelope) {
 			defer wg.Done()
 			for _, sev := range v.validators {
 				if err := sev.Validate(ctx, s); err != nil {
-					errChan <- err
-					return
+					if !action.ExemptError(chainCtx.ChainID, blockCtx.BlockHeight, s.Action(), err) {
+						errChan <- err
+						return
+					}
 				}
 			}
 		}(selp)
