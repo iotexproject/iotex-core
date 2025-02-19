@@ -251,7 +251,9 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.unsubscribe(web3Req)
 	case "eth_getBlobSidecars":
 		res, err = svr.getBlobSidecars(web3Req)
-	//TODO: enable debug api after archive mode is supported
+		//TODO: enable debug api after archive mode is supported
+	case "debug_traceBlockByNumber":
+		res, err = svr.traceBlockByNumber(ctx, web3Req)
 	// case "debug_traceTransaction":
 	// 	res, err = svr.traceTransaction(ctx, web3Req)
 	// case "debug_traceCall":
@@ -1219,4 +1221,25 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 
 func (svr *web3Handler) unimplemented() (interface{}, error) {
 	return nil, errNotImplemented
+}
+
+func (svr *web3Handler) traceBlockByNumber(ctx context.Context, in *gjson.Result) (any, error) {
+	blkParam, tracerParam := in.Get("params.0"), in.Get("params.1")
+	height, err := parseBlockNumber(&blkParam)
+	if err != nil {
+		return nil, err
+	}
+	tracer := parseTracerConfig(&tracerParam)
+	_, receipts, results, err := svr.coreService.TraceBlockByNumber(ctx, height, tracer)
+	for _, receipt := range receipts {
+		// print receipt logs
+		log.L().Info("receipt", log.Hex("acthash", receipt.ActionHash[:]), zap.Uint64("status", receipt.Status), zap.String("contract", receipt.ContractAddress))
+		for _, l := range receipt.Logs() {
+			for tIdx, t := range l.Topics {
+				log.L().Info("receipt topics", zap.String("topic", hex.EncodeToString(t[:])), zap.Int("index", tIdx))
+			}
+			log.L().Info("receipt data", zap.String("data", hex.EncodeToString(l.Data)))
+		}
+	}
+	return results, err
 }

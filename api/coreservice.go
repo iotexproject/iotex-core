@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	// Force-load the tracer engines to trigger registration
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
@@ -192,6 +193,8 @@ type (
 		Track(ctx context.Context, start time.Time, method string, size int64, success bool)
 		// BlobSidecarsByHeight returns blob sidecars by height
 		BlobSidecarsByHeight(height uint64) ([]*apitypes.BlobSidecarResult, error)
+
+		TraceBlockByNumber(ctx context.Context, height rpc.BlockNumber, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -2104,4 +2107,125 @@ func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Re
 		}
 	}
 	return nil
+}
+
+func (core *coreService) TraceBlockByNumber(ctx context.Context, blkNum rpc.BlockNumber, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
+	height, err := core.blockNumToHeight(blkNum)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	blk, err := core.dao.GetBlockByHeight(height)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return core.traceBlock(ctx, blk, config)
+}
+
+func (core *coreService) blockNumToHeight(blockNum rpc.BlockNumber) (uint64, error) {
+	var height uint64
+	switch blockNum {
+	case rpc.SafeBlockNumber, rpc.FinalizedBlockNumber, rpc.LatestBlockNumber:
+		height = core.bc.TipHeight()
+	case rpc.EarliestBlockNumber:
+		height = core.bc.Genesis().EasterBlockHeight
+	case rpc.PendingBlockNumber:
+		return 0, status.Error(codes.InvalidArgument, "pending block number is not supported")
+	default:
+		height = uint64(blockNum.Int64())
+	}
+	return height, nil
+}
+
+func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
+	ctx, err := core.bc.ContextAtHeight(ctx, blk.Height())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	g := core.bc.Genesis()
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    blk.Height(),
+		BlockTimeStamp: blk.Timestamp(),
+		GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
+		Producer:       blk.PublicKey().Address(),
+	})
+	ctx = protocol.WithRegistry(ctx, core.registry)
+	ctx = protocol.WithFeatureCtx(ctx)
+	ws, err := core.sf.WorkingSetAtHeight(ctx, blk.Height())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	retvals := make([][]byte, 0)
+	receipts := make([]*action.Receipt, 0)
+	results := make([]*blockTraceResult, 0)
+	for _, p := range core.registry.All() {
+		if pp, ok := p.(protocol.PreStatesCreator); ok {
+			if err := pp.CreatePreStates(ctx, ws); err != nil {
+				return nil, nil, nil, err
+			}
+		}
+	}
+	for i := range blk.Actions {
+		act := blk.Actions[i]
+		actHash, err := act.Hash()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		intrinsicGas, err := act.IntrinsicGas()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		ctx = protocol.WithActionCtx(
+			ctx,
+			protocol.ActionCtx{
+				Caller:       act.SenderAddress(),
+				ActionHash:   actHash,
+				GasPrice:     act.GasPrice(),
+				IntrinsicGas: intrinsicGas,
+				Nonce:        act.Nonce(),
+			},
+		)
+		_, ok := act.Action().(*action.Execution)
+		if !ok {
+			if _, err = ws.RunAction(ctx, act); err != nil {
+				return nil, nil, nil, err
+			}
+			continue
+		}
+		retval, receipt, tracer, err := core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
+			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+				GetBlockHash:   core.dao.GetBlockHash,
+				GetBlockTime:   core.getBlockTime,
+				DepositGasFunc: rewarding.DepositGas,
+			})
+			return evm.ExecuteContract(ctx, ws, act)
+		})
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		var res any
+		switch tracer := tracer.(type) {
+		case *logger.StructLogger:
+			res = &debugTraceTransactionResult{
+				Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+				Revert:      receipt.ExecutionRevertMsg(),
+				ReturnValue: byteToHex(retval),
+				StructLogs:  fromLoggerStructLogs(tracer.StructLogs()),
+				Gas:         receipt.GasConsumed,
+			}
+		case tracers.Tracer:
+			res, err = tracer.GetResult()
+			if err != nil {
+				return nil, nil, nil, err
+			}
+		default:
+			return nil, nil, nil, fmt.Errorf("unknown tracer type: %T", tracer)
+		}
+		results = append(results, &blockTraceResult{
+			TxHash: actHash,
+			Result: res,
+		})
+		retvals = append(retvals, retval)
+		receipts = append(receipts, receipt)
+	}
+	return retvals, receipts, results, nil
 }

@@ -1,11 +1,13 @@
 package protocol
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -89,6 +91,7 @@ type (
 	StateManagerWithCloser interface {
 		StateManager
 		Close()
+		RunAction(ctx context.Context, selp *action.SealedEnvelope) (*action.Receipt, error)
 	}
 
 	// Dock defines an interface for protocol to read/write their private data in StateReader/Manager

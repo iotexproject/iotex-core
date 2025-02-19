@@ -935,3 +935,11 @@ func (ws *workingSet) CreateBuilder(
 	}
 	return blkBuilder, nil
 }
+
+func (ws *workingSet) RunAction(ctx context.Context, selp *action.SealedEnvelope) (*action.Receipt, error) {
+	receipts, err := ws.runActions(ctx, []*action.SealedEnvelope{selp})
+	if err != nil {
+		return nil, err
+	}
+	return receipts[0], nil
+}
