@@ -8,6 +8,7 @@ package evm
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math"
 	"math/big"
 	"time"
@@ -215,7 +216,7 @@ func newParams(
 func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
 	executorNonce := stateDB.GetNonce(ps.txCtx.Origin)
 	if executorNonce > ps.nonce {
-		log.S().Errorf("Nonce on %v: %d vs %d", ps.txCtx.Origin, executorNonce, ps.nonce)
+		log.L().Error(fmt.Sprintf("Nonce on %v: %d vs %d", ps.txCtx.Origin, executorNonce, ps.nonce))
 		// TODO ignore inconsistent nonce problem until the actions are executed sequentially
 		// return ErrInconsistentNonce
 	}
@@ -547,6 +548,13 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB StateDB) ([]by
 		refund             uint64
 		amount             = uint256.MustFromBig(evmParams.amount)
 	)
+	debug := evm.Config.Tracer != nil
+	if debug {
+		evm.Config.Tracer.CaptureTxStart(remainingGas)
+		defer func() {
+			evm.Config.Tracer.CaptureTxEnd(remainingGas)
+		}()
+	}
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address
