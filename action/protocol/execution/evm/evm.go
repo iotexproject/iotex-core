@@ -471,6 +471,13 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter) ([]byte, uint64, u
 		refund             uint64
 		amount             = uint256.MustFromBig(evmParams.amount)
 	)
+	if evm.Config.Tracer != nil {
+		evm.Config.Tracer.CaptureTxStart(remainingGas)
+		r := &remainingGas
+		defer func() {
+			evm.Config.Tracer.CaptureTxEnd(*r)
+		}()
+	}
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address

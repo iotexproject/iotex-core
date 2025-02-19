@@ -1955,33 +1955,32 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 		return nil, nil, nil, status.Errorf(codes.InvalidArgument, "action %s does not exist in block %d", actHash, actInfo.BlkHeight)
 	}
 	// generate the working set just before the target action
-	ctx, err = core.bc.ContextAtHeight(ctx, actInfo.BlkHeight-1)
-	if err != nil {
-		return nil, nil, nil, status.Error(codes.Internal, err.Error())
-	}
-	ws, err := core.sf.WorkingSetAtHeight(ctx, actInfo.BlkHeight, preActs...)
+	ctx, err = core.bc.ContextAtHeight(ctx, actInfo.BlkHeight)
 	if err != nil {
 		return nil, nil, nil, status.Error(codes.Internal, err.Error())
 	}
 	g := core.bc.Genesis()
-	ctx = protocol.WithBlockCtx(protocol.WithRegistry(ctx, core.registry), protocol.BlockCtx{
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(protocol.WithRegistry(ctx, core.registry), protocol.BlockCtx{
 		BlockHeight:    blk.Height(),
 		BlockTimeStamp: blk.Timestamp(),
 		GasLimit:       g.BlockGasLimitByHeight(actInfo.BlkHeight),
 		Producer:       blk.PublicKey().Address(),
-	})
+	}))
+	ws, err := core.sf.WorkingSetAtHeight(ctx, actInfo.BlkHeight, preActs...)
+	if err != nil {
+		return nil, nil, nil, status.Error(codes.Internal, err.Error())
+	}
 	intrinsicGas, err := act.IntrinsicGas()
 	if err != nil {
 		return nil, nil, nil, status.Error(codes.Internal, err.Error())
 	}
-	ctx = protocol.WithFeatureCtx(protocol.WithActionCtx(ctx,
-		protocol.ActionCtx{
-			Caller:       act.SenderAddress(),
-			ActionHash:   hash,
-			GasPrice:     act.GasPrice(),
-			IntrinsicGas: intrinsicGas,
-			Nonce:        act.Nonce(),
-		}))
+	ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+		Caller:       act.SenderAddress(),
+		ActionHash:   hash,
+		GasPrice:     act.GasPrice(),
+		IntrinsicGas: intrinsicGas,
+		Nonce:        act.Nonce(),
+	})
 	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
 		ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 			GetBlockHash:   core.dao.GetBlockHash,
