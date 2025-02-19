@@ -293,9 +293,13 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, erro
 	return sdb.newWorkingSet(ctx, height+1)
 }
 
-func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManager, error) {
+func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManagerActionRunner, error) {
 	if len(preacts) == 0 {
-		return sdb.newWorkingSet(ctx, height)
+		ws, err := sdb.newWorkingSet(ctx, height)
+		if err != nil {
+			return nil, err
+		}
+		return newWorkingSetSimulator(ws), nil
 	}
 	// prepare workingset at height-1, and run acts
 	ws, err := sdb.newWorkingSet(ctx, height-1)
@@ -306,7 +310,7 @@ func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preac
 	if err := ws.Process(ctx, preacts); err != nil {
 		return nil, err
 	}
-	return ws, nil
+	return newWorkingSetSimulator(ws), nil
 }
 
 // PutBlock persists all changes in RunActions() into the DB

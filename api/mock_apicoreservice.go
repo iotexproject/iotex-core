@@ -11,6 +11,7 @@ import (
 	time "time"
 
 	tracers "github.com/ethereum/go-ethereum/eth/tracers"
+	rpc "github.com/ethereum/go-ethereum/rpc"
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	address "github.com/iotexproject/iotex-address/address"
@@ -672,6 +673,40 @@ func (m *MockCoreService) TipHeight() uint64 {
 func (mr *MockCoreServiceMockRecorder) TipHeight() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*MockCoreService)(nil).TipHeight))
+}
+
+// TraceBlockByHash mocks base method.
+func (m *MockCoreService) TraceBlockByHash(arg0 context.Context, arg1 string, arg2 *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TraceBlockByHash", arg0, arg1, arg2)
+	ret0, _ := ret[0].([][]byte)
+	ret1, _ := ret[1].([]*action.Receipt)
+	ret2, _ := ret[2].(any)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// TraceBlockByHash indicates an expected call of TraceBlockByHash.
+func (mr *MockCoreServiceMockRecorder) TraceBlockByHash(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceBlockByHash", reflect.TypeOf((*MockCoreService)(nil).TraceBlockByHash), arg0, arg1, arg2)
+}
+
+// TraceBlockByNumber mocks base method.
+func (m *MockCoreService) TraceBlockByNumber(arg0 context.Context, arg1 rpc.BlockNumber, arg2 *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TraceBlockByNumber", arg0, arg1, arg2)
+	ret0, _ := ret[0].([][]byte)
+	ret1, _ := ret[1].([]*action.Receipt)
+	ret2, _ := ret[2].(any)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// TraceBlockByNumber indicates an expected call of TraceBlockByNumber.
+func (mr *MockCoreServiceMockRecorder) TraceBlockByNumber(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceBlockByNumber", reflect.TypeOf((*MockCoreService)(nil).TraceBlockByNumber), arg0, arg1, arg2)
 }
 
 // TraceCall mocks base method.

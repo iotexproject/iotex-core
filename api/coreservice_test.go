@@ -8,6 +8,7 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"math/big"
 	"strconv"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	. "github.com/agiledragon/gomonkey/v2"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -179,7 +181,10 @@ func getTopicsAddress(addr []string, topics [][]string) (*iotexapi.LogsFilter, e
 
 func setupTestCoreService() (CoreService, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
 	cfg := newConfig()
+	return setupTestCoreServiceWithConfig(cfg)
+}
 
+func setupTestCoreServiceWithConfig(cfg testConfig) (CoreService, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
 	// TODO (zhi): revise
 	bc, dao, indexer, bfIndexer, sf, ap, registry, bfIndexFile, err := setupChain(cfg)
 	if err != nil {
@@ -680,6 +685,48 @@ func TestTraceCall(t *testing.T) {
 	require.Equal(uint64(0x2710), receipt.GasConsumed)
 	require.Empty(receipt.ExecutionRevertMsg())
 	require.Equal(0, len(traces.(*logger.StructLogger).StructLogs()))
+}
+
+func TestTraceBlock(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	scfg := newConfig()
+	svr, bc, _, ap, cleanCallback := setupTestCoreServiceWithConfig(scfg)
+	defer cleanCallback()
+	ctx := context.Background()
+	tsf, err := action.SignedExecution(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64), []byte{})
+	require.NoError(err)
+
+	blk1Time := testutil.TimestampNow()
+	require.NoError(ap.Add(ctx, tsf))
+	blk, err := bc.MintNewBlock(blk1Time)
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk))
+	tracer := "callTracer"
+	cfg := &tracers.TraceConfig{
+		Config: &logger.Config{
+			EnableMemory:     true,
+			DisableStack:     false,
+			DisableStorage:   false,
+			EnableReturnData: true,
+		},
+		Tracer:       &tracer,
+		TracerConfig: json.RawMessage(`{"onlyTopCall": true}`),
+	}
+	retval, receipt, traces, err := svr.TraceBlockByNumber(ctx, rpc.BlockNumber(blk.Height()), cfg)
+	require.NoError(err)
+	require.Len(retval, 1)
+	require.Equal("0x", byteToHex(retval[0]))
+	require.Equal(uint64(1), receipt[0].Status)
+	require.Equal(uint64(0x2710), receipt[0].GasConsumed)
+	require.Empty(receipt[0].ExecutionRevertMsg())
+	require.Equal(1, len(traces.([]*blockTraceResult)))
+	// txt, err := traces.([]*blockTraceResult)[0].MarshalJSON()
+	// require.NoError(err)
+	t.Logf("traces: %s", traces.([]*blockTraceResult)[0].Result)
 }
 
 func TestProofAndCompareReverseActions(t *testing.T) {

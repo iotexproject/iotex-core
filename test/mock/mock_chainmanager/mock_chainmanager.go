@@ -5,9 +5,11 @@
 package mock_chainmanager
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	action "github.com/iotexproject/iotex-core/v2/action"
 	protocol "github.com/iotexproject/iotex-core/v2/action/protocol"
 	state "github.com/iotexproject/iotex-core/v2/state"
 )
@@ -408,4 +410,247 @@ func (m *MockDock) Unload(arg0, arg1 string, arg2 interface{}) error {
 func (mr *MockDockMockRecorder) Unload(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unload", reflect.TypeOf((*MockDock)(nil).Unload), arg0, arg1, arg2)
+}
+
+// MockStateManagerActionRunner is a mock of StateManagerActionRunner interface.
+type MockStateManagerActionRunner struct {
+	ctrl     *gomock.Controller
+	recorder *MockStateManagerActionRunnerMockRecorder
+}
+
+// MockStateManagerActionRunnerMockRecorder is the mock recorder for MockStateManagerActionRunner.
+type MockStateManagerActionRunnerMockRecorder struct {
+	mock *MockStateManagerActionRunner
+}
+
+// NewMockStateManagerActionRunner creates a new mock instance.
+func NewMockStateManagerActionRunner(ctrl *gomock.Controller) *MockStateManagerActionRunner {
+	mock := &MockStateManagerActionRunner{ctrl: ctrl}
+	mock.recorder = &MockStateManagerActionRunnerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockStateManagerActionRunner) EXPECT() *MockStateManagerActionRunnerMockRecorder {
+	return m.recorder
+}
+
+// DelState mocks base method.
+func (m *MockStateManagerActionRunner) DelState(arg0 ...protocol.StateOption) (uint64, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DelState", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DelState indicates an expected call of DelState.
+func (mr *MockStateManagerActionRunnerMockRecorder) DelState(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelState", reflect.TypeOf((*MockStateManagerActionRunner)(nil).DelState), arg0...)
+}
+
+// Height mocks base method.
+func (m *MockStateManagerActionRunner) Height() (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Height indicates an expected call of Height.
+func (mr *MockStateManagerActionRunnerMockRecorder) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockStateManagerActionRunner)(nil).Height))
+}
+
+// Load mocks base method.
+func (m *MockStateManagerActionRunner) Load(arg0, arg1 string, arg2 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Load", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Load indicates an expected call of Load.
+func (mr *MockStateManagerActionRunnerMockRecorder) Load(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockStateManagerActionRunner)(nil).Load), arg0, arg1, arg2)
+}
+
+// ProtocolDirty mocks base method.
+func (m *MockStateManagerActionRunner) ProtocolDirty(arg0 string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProtocolDirty", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ProtocolDirty indicates an expected call of ProtocolDirty.
+func (mr *MockStateManagerActionRunnerMockRecorder) ProtocolDirty(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProtocolDirty", reflect.TypeOf((*MockStateManagerActionRunner)(nil).ProtocolDirty), arg0)
+}
+
+// PutState mocks base method.
+func (m *MockStateManagerActionRunner) PutState(arg0 interface{}, arg1 ...protocol.StateOption) (uint64, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "PutState", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PutState indicates an expected call of PutState.
+func (mr *MockStateManagerActionRunnerMockRecorder) PutState(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutState", reflect.TypeOf((*MockStateManagerActionRunner)(nil).PutState), varargs...)
+}
+
+// ReadView mocks base method.
+func (m *MockStateManagerActionRunner) ReadView(arg0 string) (interface{}, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadView", arg0)
+	ret0, _ := ret[0].(interface{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadView indicates an expected call of ReadView.
+func (mr *MockStateManagerActionRunnerMockRecorder) ReadView(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadView", reflect.TypeOf((*MockStateManagerActionRunner)(nil).ReadView), arg0)
+}
+
+// Reset mocks base method.
+func (m *MockStateManagerActionRunner) Reset() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Reset")
+}
+
+// Reset indicates an expected call of Reset.
+func (mr *MockStateManagerActionRunnerMockRecorder) Reset() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reset", reflect.TypeOf((*MockStateManagerActionRunner)(nil).Reset))
+}
+
+// Revert mocks base method.
+func (m *MockStateManagerActionRunner) Revert(arg0 int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Revert", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Revert indicates an expected call of Revert.
+func (mr *MockStateManagerActionRunnerMockRecorder) Revert(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revert", reflect.TypeOf((*MockStateManagerActionRunner)(nil).Revert), arg0)
+}
+
+// RunAction mocks base method.
+func (m *MockStateManagerActionRunner) RunAction(ctx context.Context, selp *action.SealedEnvelope) (*action.Receipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunAction", ctx, selp)
+	ret0, _ := ret[0].(*action.Receipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RunAction indicates an expected call of RunAction.
+func (mr *MockStateManagerActionRunnerMockRecorder) RunAction(ctx, selp interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunAction", reflect.TypeOf((*MockStateManagerActionRunner)(nil).RunAction), ctx, selp)
+}
+
+// Snapshot mocks base method.
+func (m *MockStateManagerActionRunner) Snapshot() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Snapshot")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// Snapshot indicates an expected call of Snapshot.
+func (mr *MockStateManagerActionRunnerMockRecorder) Snapshot() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Snapshot", reflect.TypeOf((*MockStateManagerActionRunner)(nil).Snapshot))
+}
+
+// State mocks base method.
+func (m *MockStateManagerActionRunner) State(arg0 interface{}, arg1 ...protocol.StateOption) (uint64, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "State", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// State indicates an expected call of State.
+func (mr *MockStateManagerActionRunnerMockRecorder) State(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStateManagerActionRunner)(nil).State), varargs...)
+}
+
+// States mocks base method.
+func (m *MockStateManagerActionRunner) States(arg0 ...protocol.StateOption) (uint64, state.Iterator, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "States", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(state.Iterator)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// States indicates an expected call of States.
+func (mr *MockStateManagerActionRunnerMockRecorder) States(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "States", reflect.TypeOf((*MockStateManagerActionRunner)(nil).States), arg0...)
+}
+
+// Unload mocks base method.
+func (m *MockStateManagerActionRunner) Unload(arg0, arg1 string, arg2 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Unload", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Unload indicates an expected call of Unload.
+func (mr *MockStateManagerActionRunnerMockRecorder) Unload(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unload", reflect.TypeOf((*MockStateManagerActionRunner)(nil).Unload), arg0, arg1, arg2)
+}
+
+// WriteView mocks base method.
+func (m *MockStateManagerActionRunner) WriteView(arg0 string, arg1 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteView", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteView indicates an expected call of WriteView.
+func (mr *MockStateManagerActionRunnerMockRecorder) WriteView(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteView", reflect.TypeOf((*MockStateManagerActionRunner)(nil).WriteView), arg0, arg1)
 }

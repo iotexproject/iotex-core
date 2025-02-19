@@ -87,7 +87,7 @@ type (
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
 		PutBlock(context.Context, *block.Block) error
 		WorkingSet(context.Context) (protocol.StateManager, error)
-		WorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManager, error)
+		WorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManagerActionRunner, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -408,7 +408,7 @@ func (sf *factory) WorkingSet(ctx context.Context) (protocol.StateManager, error
 	return sf.newWorkingSet(ctx, sf.currentChainHeight+1)
 }
 
-func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManager, error) {
+func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManagerActionRunner, error) {
 	if !sf.saveHistory {
 		return nil, ErrNoArchiveData
 	}
@@ -424,7 +424,10 @@ func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64, preact
 	if len(preacts) == 0 {
 		ws, err = sf.newWorkingSet(ctx, height)
 		sf.mutex.Unlock()
-		return ws, err
+		if err != nil {
+			return nil, err
+		}
+		return newWorkingSetSimulator(ws), nil
 	}
 	// prepare workingset at height-1, and run acts
 	ws, err = sf.newWorkingSet(ctx, height-1)
@@ -436,7 +439,7 @@ func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64, preact
 	if err := ws.Process(ctx, preacts); err != nil {
 		return nil, err
 	}
-	return ws, nil
+	return newWorkingSetSimulator(ws), nil
 }
 
 // PutBlock persists all changes in RunActions() into the DB
