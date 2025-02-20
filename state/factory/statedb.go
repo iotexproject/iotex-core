@@ -395,6 +395,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 		if err != nil {
 			log.L().Error("Failed to update state.", zap.Error(err))
+			ws.Close()
 			return err
 		}
 	}
