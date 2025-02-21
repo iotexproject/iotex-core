@@ -20,6 +20,11 @@ func TestEstimateTipHeight(t *testing.T) {
 		blk, err := block.NewBuilder(block.RunnableActions{}).SetHeight(cfg.Genesis.DardanellesBlockHeight + 1).SignAndBuild(sk)
 		r.NoError(err)
 		r.Equal(blk.Height()+2, estimateTipHeight(&cfg, &blk, 10*time.Second))
+		blk, err = block.NewBuilder(block.RunnableActions{}).SetHeight(cfg.Genesis.ToBeEnabledBlockHeight - 3).SignAndBuild(sk)
+		r.NoError(err)
+		r.Equal(blk.Height()+2, estimateTipHeight(&cfg, &blk, 10*time.Second))
+		r.Equal(blk.Height()+3, estimateTipHeight(&cfg, &blk, 13*time.Second))
+		r.Equal(blk.Height()+3, estimateTipHeight(&cfg, &blk, 15*time.Second))
 	})
 	t.Run("before dardanelles", func(t *testing.T) {
 		blk, err := block.NewBuilder(block.RunnableActions{}).SetHeight(cfg.Genesis.DardanellesBlockHeight - 100).SignAndBuild(sk)
@@ -27,6 +32,13 @@ func TestEstimateTipHeight(t *testing.T) {
 		r.Equal(blk.Height()+1, estimateTipHeight(&cfg, &blk, 10*time.Second))
 		blk, err = block.NewBuilder(block.RunnableActions{}).SetHeight(cfg.Genesis.DardanellesBlockHeight - 1).SignAndBuild(sk)
 		r.NoError(err)
-		r.Equal(blk.Height()+3, estimateTipHeight(&cfg, &blk, 20*time.Second))
+		r.Equal(blk.Height()+4, estimateTipHeight(&cfg, &blk, 20*time.Second))
+	})
+	t.Run("after wake", func(t *testing.T) {
+		blk, err := block.NewBuilder(block.RunnableActions{}).SetHeight(cfg.Genesis.ToBeEnabledBlockHeight).SignAndBuild(sk)
+		r.NoError(err)
+		r.Equal(blk.Height()+1, estimateTipHeight(&cfg, &blk, 3*time.Second))
+		r.Equal(blk.Height()+1, estimateTipHeight(&cfg, &blk, 5*time.Second))
+		r.Equal(blk.Height()+2, estimateTipHeight(&cfg, &blk, 6*time.Second))
 	})
 }
