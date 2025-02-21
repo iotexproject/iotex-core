@@ -12,6 +12,10 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 )
 
+var (
+	_ blockdao.BlockIndexerStateDBWriter = (*SyncIndexers)(nil)
+)
+
 // SyncIndexers is a special index that includes multiple indexes,
 // which stay in sync when blocks are added.
 type SyncIndexers struct {
@@ -25,6 +29,8 @@ type SyncIndexers struct {
 func NewSyncIndexers(indexers ...blockdao.BlockIndexer) *SyncIndexers {
 	return &SyncIndexers{indexers: indexers}
 }
+
+func (ig *SyncIndexers) StateDBWriter() {}
 
 // Start starts the indexer group
 func (ig *SyncIndexers) Start(ctx context.Context) error {
