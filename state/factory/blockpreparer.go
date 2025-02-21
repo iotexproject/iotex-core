@@ -79,6 +79,7 @@ func (d *blockPreparer) prepare(prevHash []byte, timestamp time.Time, mintFn fun
 
 func (d *blockPreparer) ReceiveBlock(blk *block.Block) error {
 	d.mu.Lock()
+	// TODO: clean up old results and no memory leak
 	delete(d.tasks, blk.PrevHash())
 	d.mu.Unlock()
 	return nil

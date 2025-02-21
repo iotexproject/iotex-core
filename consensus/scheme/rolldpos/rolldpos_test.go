@@ -209,6 +209,7 @@ func TestValidateBlockFooter(t *testing.T) {
 	bc.EXPECT().TipHeight().Return(blockHeight).AnyTimes()
 	bc.EXPECT().BlockHeaderByHeight(blockHeight).Return(&block.Header{}, nil).AnyTimes()
 	bc.EXPECT().TipHash().Return(hash.ZeroHash256).AnyTimes()
+
 	sk1 := identityset.PrivateKey(1)
 	g := genesis.TestDefault()
 	g.NumDelegates = 4
@@ -222,11 +223,13 @@ func TestValidateBlockFooter(t *testing.T) {
 		DB:                 db.DefaultConfig,
 		Genesis:            g,
 		SystemActive:       true,
+		WakeUpgrade:        consensusfsm.DefaultWakeUpgradeConfig,
 	}
 	builderCfg.Consensus.ConsensusDBPath = ""
 	bc.EXPECT().Genesis().Return(g).AnyTimes()
 	sf := mock_factory.NewMockFactory(ctrl)
 	sf.EXPECT().StateReaderAt(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	bc.EXPECT().Genesis().Return(g).AnyTimes()
 	rp := rolldpos.NewProtocol(
 		g.NumCandidateDelegates,
 		g.NumDelegates,

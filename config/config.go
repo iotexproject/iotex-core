@@ -68,6 +68,7 @@ var (
 		ActPool:            actpool.DefaultConfig,
 		Consensus:          consensus.DefaultConfig,
 		DardanellesUpgrade: consensusfsm.DefaultDardanellesUpgradeConfig,
+		WakeUpgrade:        consensusfsm.DefaultWakeUpgradeConfig,
 		BlockSync:          blocksync.DefaultConfig,
 		Dispatcher:         dispatcher.DefaultConfig,
 		API:                api.DefaultConfig,
@@ -124,6 +125,7 @@ type (
 		ActPool            actpool.Config                  `yaml:"actPool"`
 		Consensus          consensus.Config                `yaml:"consensus"`
 		DardanellesUpgrade consensusfsm.DardanellesUpgrade `yaml:"dardanellesUpgrade"`
+		WakeUpgrade        consensusfsm.WakeUpgrade        `yaml:"wakeUpgrade"`
 		BlockSync          blocksync.Config                `yaml:"blockSync"`
 		Dispatcher         dispatcher.Config               `yaml:"dispatcher"`
 		API                api.Config                      `yaml:"api"`
@@ -330,6 +332,8 @@ func ValidateForkHeights(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "Tsunami is heigher than Upernavik")
 	case hu.UpernavikBlockHeight > hu.VanuatuBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Upernavik is heigher than Vanuatu")
+	case hu.VanuatuBlockHeight > hu.ToBeEnabledBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Vanuatu is heigher than Wake")
 	}
 	return nil
 }
