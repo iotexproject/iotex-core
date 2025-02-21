@@ -322,7 +322,7 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		}
 		dbConfig := cfg.DB
 		if bsPath := cfg.Chain.BlobStoreDBPath; len(bsPath) > 0 {
-			blocksPerHour := time.Hour / cfg.DardanellesUpgrade.BlockInterval
+			blocksPerHour := time.Hour / cfg.WakeUpgrade.BlockInterval
 			dbConfig.DbPath = bsPath
 			blobStore = blockdao.NewBlobStore(
 				db.NewBoltDB(dbConfig),
@@ -364,6 +364,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 				CalculateVoteWeight: func(v *staking.VoteBucket) *big.Int {
 					return staking.CalculateVoteWeight(voteCalcConsts, v, false)
 				},
+				// TODO: accounting for wake upgrade
 				BlockInterval: builder.cfg.DardanellesUpgrade.BlockInterval,
 			})
 		if err != nil {
@@ -379,6 +380,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 			builder.cfg.Genesis.SystemStakingContractV2Address,
 			builder.cfg.Genesis.SystemStakingContractV2Height,
 			func(start uint64, end uint64) time.Duration {
+				// TODO: accounting for wake upgrade
 				return time.Duration(end-start) * blockInterval
 			},
 			stakingindex.WithMuteHeight(builder.cfg.Genesis.ToBeEnabledBlockHeight),
@@ -667,7 +669,7 @@ func (builder *Builder) registerStakingProtocol() error {
 	if !builder.cfg.Chain.EnableStakingProtocol {
 		return nil
 	}
-	consensusCfg := consensusfsm.NewConsensusConfig(builder.cfg.Consensus.RollDPoS.FSM, builder.cfg.DardanellesUpgrade, builder.cfg.Genesis, builder.cfg.Consensus.RollDPoS.Delay)
+	consensusCfg := consensusfsm.NewConsensusConfig(builder.cfg.Consensus.RollDPoS.FSM, builder.cfg.DardanellesUpgrade, builder.cfg.WakeUpgrade, builder.cfg.Genesis, builder.cfg.Consensus.RollDPoS.Delay)
 	opts := []staking.Option{}
 	if builder.cs.contractStakingIndexerV3 != nil {
 		opts = append(opts, staking.WithContractStakingIndexerV3(builder.cs.contractStakingIndexerV3))
@@ -798,6 +800,7 @@ func (builder *Builder) buildConsensusComponent() error {
 		Consensus:          builder.cfg.Consensus.RollDPoS,
 		Scheme:             builder.cfg.Consensus.Scheme,
 		DardanellesUpgrade: builder.cfg.DardanellesUpgrade,
+		WakeUpgrade:        builder.cfg.WakeUpgrade,
 		DB:                 builder.cfg.DB,
 		Genesis:            builder.cfg.Genesis,
 		SystemActive:       builder.cfg.System.Active,
@@ -876,12 +879,21 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 // it ignores the influence of the block missing in the blockchain
 // it must >= the real head height of the block
 func estimateTipHeight(cfg *config.Config, blk *block.Block, duration time.Duration) uint64 {
-	if blk.Height() >= cfg.Genesis.DardanellesBlockHeight {
-		return blk.Height() + uint64(duration/cfg.DardanellesUpgrade.BlockInterval)
+	heights, intervals := []uint64{0, cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.ToBeEnabledBlockHeight}, []time.Duration{cfg.Genesis.BlockInterval, cfg.DardanellesUpgrade.BlockInterval, cfg.WakeUpgrade.BlockInterval}
+	tip := blk.Height()
+	interval := intervals[0]
+	for i := 1; i < len(heights); i++ {
+		h := heights[i]
+		if tip >= h {
+			continue
+		}
+		interval = intervals[i-1]
+		durationToFork := time.Duration(h-1-tip) * interval
+		if duration <= durationToFork {
+			return tip + uint64(duration/interval)
+		}
+		tip = h - 1
+		duration -= durationToFork
 	}
-	durationToDardanelles := time.Duration(cfg.Genesis.DardanellesBlockHeight-blk.Height()) * cfg.Genesis.BlockInterval
-	if duration < durationToDardanelles {
-		return blk.Height() + uint64(duration/cfg.Genesis.BlockInterval)
-	}
-	return cfg.Genesis.DardanellesBlockHeight + uint64((duration-durationToDardanelles)/cfg.DardanellesUpgrade.BlockInterval)
+	return tip + uint64(duration/intervals[len(intervals)-1])
 }
