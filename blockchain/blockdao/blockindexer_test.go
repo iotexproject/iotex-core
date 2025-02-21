@@ -49,7 +49,7 @@ func TestCheckIndexer(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			mockDao := mock_blockdao.NewMockBlockDAO(ctrl)
-			checker := NewBlockIndexerChecker(mockDao)
+			checker := NewBlockIndexerChecker(mockDao, nil)
 			indexer := mock_blockdao.NewMockBlockIndexer(ctrl)
 
 			putBlocks := make([]*block.Block, 0)
@@ -121,7 +121,7 @@ func TestCheckIndexerWithStart(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			mockDao := mock_blockdao.NewMockBlockDAO(ctrl)
-			checker := NewBlockIndexerChecker(mockDao)
+			checker := NewBlockIndexerChecker(mockDao, nil)
 			indexer := mock_blockdao.NewMockBlockIndexerWithStart(ctrl)
 
 			putBlocks := make([]*block.Block, 0)
@@ -179,7 +179,7 @@ func TestBlockIndexerChecker_CheckIndexer(t *testing.T) {
 	ctx := context.Background()
 	store := mock_blockdao.NewMockBlockDAO(ctrl)
 	dao := &blockDAO{blockStore: store}
-	bic := NewBlockIndexerChecker(dao)
+	bic := NewBlockIndexerChecker(dao, nil)
 	indexer := mock_blockdao.NewMockBlockIndexer(ctrl)
 
 	t.Run("WithoutBlockchainContext", func(t *testing.T) {
