@@ -162,6 +162,7 @@ type (
 		ChainID() uint32
 		// ReadContractStorage reads contract's storage
 		ReadContractStorage(ctx context.Context, addr address.Address, key []byte) ([]byte, error)
+		ReadContractStorageAt(ctx context.Context, addr address.Address, key []byte, height uint64) ([]byte, error)
 		// ChainListener returns the instance of Listener
 		ChainListener() apitypes.Listener
 		// SimulateExecution simulates execution
@@ -1903,6 +1904,19 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+	return evm.ReadContractStorage(ctx, ws, addr, key)
+}
+
+func (core *coreService) ReadContractStorageAt(ctx context.Context, addr address.Address, key []byte, height uint64) ([]byte, error) {
+	ctx, err := core.bc.ContextAtHeight(ctx, height)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	defer ws.Close()
 	return evm.ReadContractStorage(ctx, ws, addr, key)
 }
 

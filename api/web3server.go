@@ -874,6 +874,15 @@ func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
 	if !ethAddr.Exists() || !storagePos.Exists() {
 		return nil, errInvalidFormat
 	}
+	var bn = rpc.LatestBlockNumber
+	if bnParam := in.Get("params.2"); bnParam.Exists() {
+		if err := bn.UnmarshalJSON([]byte(bnParam.String())); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal height %s", bnParam.String())
+		}
+		if bn == rpc.PendingBlockNumber {
+			return nil, errors.Wrap(errNotImplemented, "pending block number is not supported")
+		}
+	}
 	contractAddr, err := address.FromHex(ethAddr.String())
 	if err != nil {
 		return nil, err
@@ -882,7 +891,12 @@ func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	val, err := svr.coreService.ReadContractStorage(context.Background(), contractAddr, pos)
+	var val []byte
+	if bn <= 0 {
+		val, err = svr.coreService.ReadContractStorage(context.Background(), contractAddr, pos)
+	} else {
+		val, err = svr.coreService.ReadContractStorageAt(context.Background(), contractAddr, pos, uint64(bn.Int64()))
+	}
 	if err != nil {
 		return nil, err
 	}
