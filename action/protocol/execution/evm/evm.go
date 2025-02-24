@@ -378,28 +378,23 @@ func ReadContractStorage(
 	if err != nil {
 		return nil, err
 	}
-	ps, err := newParams(ctx, action.NewEnvelope(action.NewLegacyTx(0, 0, 0, big.NewInt(0)), action.NewExecution("", big.NewInt(0), nil)), stateDB)
-	if err != nil {
-		return nil, err
-	}
 	if erigonsm, ok := sm.(interface {
 		Erigon() (erigonstate.StateWriter, *erigonstate.IntraBlockState, bool)
 	}); ok {
 		if sw, in, dryrun := erigonsm.Erigon(); sw != nil && in != nil {
-			rules := ps.chainConfig.Rules(ps.context.BlockNumber, ps.genesis.IsSumatra(uint64(ps.context.BlockNumber.Int64())), ps.context.Time)
 			if dryrun {
 				stateDB = NewErigonStateDBAdapterDryrun(
 					stateDB.(*StateDBAdapter),
 					sw,
 					in,
-					NewErigonRules(&rules),
+					nil,
 				)
 			} else {
 				stateDB = NewErigonStateDBAdapter(
 					stateDB.(*StateDBAdapter),
 					sw,
 					in,
-					NewErigonRules(&rules),
+					nil,
 				)
 			}
 		}
