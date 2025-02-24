@@ -4,6 +4,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	erigonstate "github.com/ledgerwatch/erigon/core/state"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db/trie"
@@ -42,8 +43,20 @@ func newContractV3(addr hash.Hash160, account *state.Account, sm protocol.StateM
 	return c, nil
 }
 
+func (c *contractV3) GetCommittedState(key hash.Hash256) ([]byte, error) {
+	v, err := c.v2.GetCommittedState(key)
+	log.L().Debug("contractv3 GetCommittedState", log.Hex("key", key[:]), log.Hex("value", v), zap.Error(err))
+	return c.contractReader.GetCommittedState(key)
+}
+
+func (c *contractV3) GetState(key hash.Hash256) ([]byte, error) {
+	v, err := c.v2.GetState(key)
+	log.L().Debug("contractv3 GetState", log.Hex("key", key[:]), log.Hex("value", v), zap.Error(err))
+	return c.contractReader.GetState(key)
+}
+
 func (c *contractV3) SetState(key hash.Hash256, value []byte) error {
-	log.L().Debug("contractv3 set state", log.Hex("key", key[:]), log.Hex("value", value))
+	log.L().Debug("contractv3 SetState", log.Hex("key", key[:]), log.Hex("value", value))
 	if err := c.v1.SetState(key, value); err != nil {
 		return err
 	}
@@ -51,13 +64,13 @@ func (c *contractV3) SetState(key hash.Hash256, value []byte) error {
 }
 
 func (c *contractV3) SetCode(hash hash.Hash256, code []byte) {
-	log.L().Debug("contractv3 set code", log.Hex("hash", hash[:]), log.Hex("code", code))
+	log.L().Debug("contractv3 SetCode", log.Hex("hash", hash[:]), log.Hex("code", code))
 	c.v1.SetCode(hash, code)
 	c.v2.SetCode(hash, code)
 }
 
 func (c *contractV3) Commit() error {
-	log.L().Debug("contractv3 commit")
+	log.L().Debug("contractv3 Commit")
 	if err := c.v1.Commit(); err != nil {
 		return err
 	}
@@ -65,7 +78,7 @@ func (c *contractV3) Commit() error {
 }
 
 func (c *contractV3) LoadRoot() error {
-	log.L().Debug("contractv3 load root")
+	log.L().Debug("contractv3 LoadRoot")
 	if err := c.v1.LoadRoot(); err != nil {
 		return err
 	}
@@ -78,7 +91,7 @@ func (c *contractV3) Iterator() (trie.Iterator, error) {
 }
 
 func (c *contractV3) Snapshot() Contract {
-	log.L().Debug("contractv3 snapshot")
+	log.L().Debug("contractv3 Snapshot")
 	v1 := c.v1.Snapshot().(*contract)
 	v2 := c.v2.Snapshot().(*contractV2)
 	return &contractV3{

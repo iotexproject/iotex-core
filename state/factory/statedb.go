@@ -240,7 +240,7 @@ func (sdb *stateDB) newErigonStore(ctx context.Context, height uint64) (*erigonS
 	r, tsw := erigonstate.NewPlainStateReader(tx), erigonstate.NewPlainStateWriter(tx, tx, height)
 	intraBlockState := erigonstate.New(r)
 	// debug: enable trace
-	intraBlockState.SetTrace(false)
+	intraBlockState.SetTrace(log.L().Level() == zap.DebugLevel)
 	return &erigonStore{
 		tsw:             tsw,
 		tx:              tx,
