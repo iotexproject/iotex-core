@@ -274,7 +274,7 @@ func (sdb *stateDB) newWorkingSetWithErigonDryrun(ctx context.Context, height ui
 	if err != nil {
 		return nil, err
 	}
-	tsw := erigonstate.NewPlainState(tx, height, nil)
+	tsw := erigonstate.NewPlainState(tx, height+1, nil)
 	intraBlockState := erigonstate.New(tsw)
 	e := &erigonStore{
 		tsw:             tsw,
