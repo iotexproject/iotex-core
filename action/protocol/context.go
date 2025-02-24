@@ -13,7 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
@@ -123,6 +125,7 @@ type (
 		FixUnproductiveDelegates                bool
 		CorrectGasRefund                        bool
 		SufficentBalanceGuarantee               bool
+		TolerateEmptyCandidateName              bool
 		SkipSystemActionNonce                   bool
 		ValidateSystemAction                    bool
 		AllowCorrectChainIDOnly                 bool
@@ -280,6 +283,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixUnproductiveDelegates:                g.IsOkhotsk(height),
 			CorrectGasRefund:                        g.IsOkhotsk(height),
 			SufficentBalanceGuarantee:               g.IsOkhotsk(height),
+			TolerateEmptyCandidateName:              !g.IsPalau(height),
 			SkipSystemActionNonce:                   g.IsPalau(height),
 			ValidateSystemAction:                    g.IsQuebec(height),
 			AllowCorrectChainIDOnly:                 g.IsQuebec(height),
@@ -305,6 +309,13 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixRevertSnapshot:                       g.IsVanuatu(height),
 		},
 	)
+}
+
+func (fCtx *FeatureCtx) Tolerate(err error) bool {
+	if fCtx.TolerateEmptyCandidateName && errors.Cause(err) == action.ErrInvalidCanName {
+		return true
+	}
+	return false
 }
 
 // GetFeatureCtx gets FeatureCtx.
