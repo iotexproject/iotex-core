@@ -10,6 +10,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db/trie"
@@ -60,16 +61,23 @@ func (c *contract) Iterator() (trie.Iterator, error) {
 }
 
 // GetCommittedState get the committed value of a key
-func (c *contract) GetCommittedState(key hash.Hash256) ([]byte, error) {
-	if v, ok := c.committed[key]; ok {
+func (c *contract) GetCommittedState(key hash.Hash256) (v []byte, err error) {
+	var ok bool
+	defer func() {
+		log.L().Debug("contract GetCommittedState", log.Hex("key", key[:]), log.Hex("value", v), zap.Error(err))
+	}()
+	if v, ok = c.committed[key]; ok {
 		return v, nil
 	}
 	return c.GetState(key)
 }
 
 // GetState get the value from contract storage
-func (c *contract) GetState(key hash.Hash256) ([]byte, error) {
-	v, err := c.trie.Get(key[:])
+func (c *contract) GetState(key hash.Hash256) (v []byte, err error) {
+	defer func() {
+		log.L().Debug("contract GetState", log.Hex("key", key[:]), log.Hex("value", v), zap.Error(err))
+	}()
+	v, err = c.trie.Get(key[:])
 	if err != nil {
 		return nil, err
 	}
@@ -81,6 +89,7 @@ func (c *contract) GetState(key hash.Hash256) ([]byte, error) {
 
 // SetState set the value into contract storage
 func (c *contract) SetState(key hash.Hash256, value []byte) error {
+	log.L().Debug("contract SetState", log.Hex("key", key[:]), log.Hex("value", value))
 	if _, ok := c.committed[key]; !ok {
 		_, _ = c.GetState(key)
 	}
@@ -101,11 +110,14 @@ func (c *contract) SetState(key hash.Hash256, value []byte) error {
 }
 
 // GetCode gets the contract's byte-code
-func (c *contract) GetCode() ([]byte, error) {
+func (c *contract) GetCode() (code []byte, err error) {
+	defer func() {
+		log.L().Debug("contract GetCode", log.Hex("code", code), zap.Error(err))
+	}()
 	if c.code != nil {
 		return c.code[:], nil
 	}
-	_, err := c.sm.State(&c.code, protocol.NamespaceOption(CodeKVNameSpace), protocol.KeyOption(c.Account.CodeHash))
+	_, err = c.sm.State(&c.code, protocol.NamespaceOption(CodeKVNameSpace), protocol.KeyOption(c.Account.CodeHash))
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +127,7 @@ func (c *contract) GetCode() ([]byte, error) {
 
 // SetCode sets the contract's byte-code
 func (c *contract) SetCode(hash hash.Hash256, code []byte) {
+	log.L().Debug("contract SetCode", log.Hex("hash", hash[:]), log.Hex("code", code))
 	c.Account.CodeHash = hash[:]
 	c.code = code
 	c.dirtyCode = true

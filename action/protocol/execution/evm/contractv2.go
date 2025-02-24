@@ -37,6 +37,7 @@ func (c *contractV2) GetCommittedState(key hash.Hash256) ([]byte, error) {
 	v := uint256.NewInt(0)
 	// Fix(erigon): return err if not exist
 	c.intra.GetCommittedState(libcommon.Address(c.addr), &k, v)
+	log.L().Debug("contractv2 GetCommittedState", log.Hex("key", key[:]), log.Hex("value", v.Bytes()))
 	return v.Bytes(), nil
 }
 
@@ -45,23 +46,27 @@ func (c *contractV2) GetState(key hash.Hash256) ([]byte, error) {
 	v := uint256.NewInt(0)
 	// Fix(erigon): return err if not exist
 	c.intra.GetState(libcommon.Address(c.addr), &k, v)
+	log.L().Debug("contractv2 GetState", log.Hex("key", key[:]), log.Hex("value", v.Bytes()))
 	return v.Bytes(), nil
 }
 
 func (c *contractV2) SetState(key hash.Hash256, value []byte) error {
+	log.L().Debug("contractv2 SetState", log.Hex("key", key[:]), log.Hex("value", value))
 	k := libcommon.Hash(key)
 	c.intra.SetState(libcommon.Address(c.addr), &k, *uint256.MustFromBig(big.NewInt(0).SetBytes(value)))
 	return nil
 }
 
 func (c *contractV2) GetCode() ([]byte, error) {
-	return c.intra.GetCode(libcommon.Address(c.addr)), nil
+	code := c.intra.GetCode(libcommon.Address(c.addr))
+	log.L().Debug("contractv2 GetCode", log.Hex("code", code))
+	return code, nil
 }
 
 func (c *contractV2) SetCode(hash hash.Hash256, code []byte) {
 	c.intra.SetCode(libcommon.Address(c.addr), code)
 	eh := c.intra.GetCodeHash(libcommon.Address(c.addr))
-	log.L().Debug("SetCode", log.Hex("erigonhash", eh[:]), log.Hex("iotexhash", hash[:]))
+	log.L().Debug("contractv2 SetCode", log.Hex("erigonhash", eh[:]), log.Hex("iotexhash", hash[:]))
 }
 
 func (c *contractV2) SelfState() *state.Account {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db/trie"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -42,6 +43,7 @@ func newContractV3(addr hash.Hash160, account *state.Account, sm protocol.StateM
 }
 
 func (c *contractV3) SetState(key hash.Hash256, value []byte) error {
+	log.L().Debug("contractv3 set state", log.Hex("key", key[:]), log.Hex("value", value))
 	if err := c.v1.SetState(key, value); err != nil {
 		return err
 	}
@@ -49,11 +51,13 @@ func (c *contractV3) SetState(key hash.Hash256, value []byte) error {
 }
 
 func (c *contractV3) SetCode(hash hash.Hash256, code []byte) {
+	log.L().Debug("contractv3 set code", log.Hex("hash", hash[:]), log.Hex("code", code))
 	c.v1.SetCode(hash, code)
 	c.v2.SetCode(hash, code)
 }
 
 func (c *contractV3) Commit() error {
+	log.L().Debug("contractv3 commit")
 	if err := c.v1.Commit(); err != nil {
 		return err
 	}
@@ -61,6 +65,7 @@ func (c *contractV3) Commit() error {
 }
 
 func (c *contractV3) LoadRoot() error {
+	log.L().Debug("contractv3 load root")
 	if err := c.v1.LoadRoot(); err != nil {
 		return err
 	}
@@ -73,6 +78,7 @@ func (c *contractV3) Iterator() (trie.Iterator, error) {
 }
 
 func (c *contractV3) Snapshot() Contract {
+	log.L().Debug("contractv3 snapshot")
 	v1 := c.v1.Snapshot().(*contract)
 	v2 := c.v2.Snapshot().(*contractV2)
 	return &contractV3{

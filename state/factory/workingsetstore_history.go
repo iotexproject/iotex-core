@@ -171,7 +171,9 @@ func (store *erigonStore) finalize(ctx context.Context, height uint64, ts uint64
 		return err
 	}
 	log.L().Debug("erigon store finalize", zap.Uint64("height", height), zap.String("tsw", fmt.Sprintf("%+T", store.tsw)))
-	// store.intraBlockState.Print(*rules)
+	if log.L().Level() == zap.DebugLevel {
+		store.intraBlockState.Print(*rules)
+	}
 
 	if c, ok := store.tsw.(erigonstate.WriterWithChangeSets); ok {
 		log.L().Debug("erigon store write changesets", zap.Uint64("height", height))
