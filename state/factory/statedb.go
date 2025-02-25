@@ -237,13 +237,14 @@ func (sdb *stateDB) newErigonStore(ctx context.Context, height uint64) (*erigonS
 	if err != nil {
 		return nil, err
 	}
-	r, tsw := erigonstate.NewPlainStateReader(tx), erigonstate.NewPlainStateWriter(tx, tx, height)
+	tx2 := &txWithLogs{tx}
+	r, tsw := erigonstate.NewPlainStateReader(tx), erigonstate.NewPlainStateWriter(tx2, tx2, height)
 	intraBlockState := erigonstate.New(r)
 	// debug: enable trace
 	intraBlockState.SetTrace(log.L().Level() == zap.DebugLevel)
 	return &erigonStore{
 		tsw:             tsw,
-		tx:              tx,
+		tx:              tx2,
 		intraBlockState: intraBlockState,
 		getBlockTime:    sdb.getBlockTime,
 	}, nil
@@ -544,4 +545,33 @@ func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*
 		tx, err = sdb.newWorkingSet(ctx, currHeight+1)
 	}
 	return tx, false, err
+}
+
+type txWithLogs struct {
+	kv.RwTx
+}
+
+func (t *txWithLogs) Put(table string, k, v []byte) error {
+	log.L().Debug("tx.Put", zap.String("table", table), log.Hex("key", k), log.Hex("value", v))
+	return t.RwTx.Put(table, k, v)
+}
+
+func (t *txWithLogs) Delete(table string, k []byte) error {
+	log.L().Debug("tx.Delete", zap.String("table", table), log.Hex("key", k))
+	return t.RwTx.Delete(table, k)
+}
+
+func (t *txWithLogs) IncrementSequence(table string, amount uint64) (uint64, error) {
+	log.L().Debug("tx.IncrementSequence", zap.String("table", table), zap.Uint64("amount", amount))
+	return t.RwTx.IncrementSequence(table, amount)
+}
+
+func (t *txWithLogs) Append(table string, k, v []byte) error {
+	log.L().Debug("tx.Append", zap.String("table", table), log.Hex("key", k), log.Hex("value", v))
+	return t.RwTx.Append(table, k, v)
+}
+
+func (t *txWithLogs) AppendDup(table string, k, v []byte) error {
+	log.L().Debug("tx.AppendDup", zap.String("table", table), log.Hex("key", k), log.Hex("value", v))
+	return t.RwTx.AppendDup(table, k, v)
 }

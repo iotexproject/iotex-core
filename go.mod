@@ -267,8 +267,8 @@ replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947
 
 replace github.com/iotexproject/go-pkgs => github.com/iotexproject/go-pkgs v0.1.15-0.20250102061825-4556d014fc54
 
-replace github.com/ledgerwatch/erigon => github.com/erigontech/erigon v1.9.7-0.20240710071432-72ab70be8b28
+replace github.com/ledgerwatch/erigon => github.com/envestcc/erigon v0.0.0-20250225023353-4ff6e2b188bf
 
-replace github.com/ledgerwatch/erigon-lib => github.com/erigontech/erigon/erigon-lib v0.0.0-20240710071432-72ab70be8b28
+replace github.com/ledgerwatch/erigon-lib => github.com/envestcc/erigon/erigon-lib v0.0.0-20250225023353-4ff6e2b188bf
 
 replace github.com/gballet/go-verkle => github.com/envestcc/go-verkle v0.0.0-20250213083643-8c07c3a18b5d
