@@ -98,12 +98,12 @@ func TestErigonArchiveContract(t *testing.T) {
 			t.Log("transfer success, block height:", blk.Height())
 			// check holder balance
 			amount := big.NewInt(10)
-			b0, err := test.ethcli.BalanceAt(ctx, ethHolder, big.NewInt(int64(blk.Height())))
+			b0, err := test.ethcli.BalanceAt(ctx, ethHolder, big.NewInt(int64(blk.Height()-1)))
 			r.NoError(err)
 			b1, err := test.ethcli.BalanceAt(ctx, ethHolder, nil)
 			r.NoError(err)
 			r.Equal(new(big.Int).Add(b0, amount).String(), b1.String())
-			b0, err = test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height())))
+			b0, err = test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height()-1)))
 			r.NoError(err)
 			b1, err = test.ethcli.BalanceAt(ctx, ethSender, nil)
 			r.NoError(err)
@@ -125,7 +125,7 @@ func TestErigonArchiveContract(t *testing.T) {
 			// check sender balance
 			consumed := consumeFee(blk.Receipts[0], sender)
 			ctx := context.Background()
-			b, err := test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height())))
+			b, err := test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height()-1)))
 			r.NoError(err)
 			r.Equal(balance.String(), b.String())
 			b, err = test.ethcli.BalanceAt(ctx, ethSender, nil)
@@ -152,7 +152,7 @@ func TestErigonArchiveContract(t *testing.T) {
 			t.Log("contract address:", contractAddr, "block height:", blk.Height())
 			// check sender balance
 			ctx := context.Background()
-			b, err := test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height())))
+			b, err := test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height()-1)))
 			r.NoError(err)
 			r.Equal(balance.String(), b.String())
 			b, err = test.ethcli.BalanceAt(ctx, ethSender, nil)
@@ -179,7 +179,7 @@ func TestErigonArchiveContract(t *testing.T) {
 			b, err := test.ethcli.CallContract(ctx, ethereum.CallMsg{
 				To:   &ethContractAddr,
 				Data: mustCallData("balanceOf(address)", ethHolder),
-			}, big.NewInt(int64(blk.Height())))
+			}, big.NewInt(int64(blk.Height()-1)))
 			r.NoError(err)
 			r.Equal("0", big.NewInt(0).SetBytes(b).String())
 			b, err = test.ethcli.CallContract(ctx, ethereum.CallMsg{
@@ -189,7 +189,7 @@ func TestErigonArchiveContract(t *testing.T) {
 			r.NoError(err)
 			r.Equal("1", big.NewInt(0).SetBytes(b).String())
 			// check code
-			c, err := test.ethcli.CodeAt(ctx, ethContractAddr, big.NewInt(int64(blk.Height())))
+			c, err := test.ethcli.CodeAt(ctx, ethContractAddr, big.NewInt(int64(blk.Height()-1)))
 			r.NoError(err)
 			r.Equal(code, c)
 		},
@@ -241,7 +241,7 @@ func TestErigonArchiveAccountForAllActions(t *testing.T) {
 				r.EqualValues(iotextypes.ReceiptStatus_Success, receipt.Status)
 				t.Log("contract address", receipt.ContractAddress)
 				sender := act.SrcPubkey().Address()
-				preBalance, err := test.ethcli.BalanceAt(ctx, common.BytesToAddress(sender.Bytes()), big.NewInt(int64(receipt.BlockHeight)))
+				preBalance, err := test.ethcli.BalanceAt(ctx, common.BytesToAddress(sender.Bytes()), big.NewInt(int64(receipt.BlockHeight-1)))
 				r.NoError(err)
 				t.Log("pre balance:", preBalance, "block height:", receipt.BlockHeight)
 				postBalance, err := test.ethcli.BalanceAt(ctx, common.BytesToAddress(sender.Bytes()), nil)
