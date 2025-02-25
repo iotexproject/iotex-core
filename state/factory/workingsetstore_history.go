@@ -98,7 +98,7 @@ func (store *stateDBWorkingSetStoreWithErigonOutput) FinalizeTx(ctx context.Cont
 	if err != nil {
 		return errors.Wrap(err, "failed to create erigon rules")
 	}
-	return store.erigonStore.intraBlockState.FinalizeTx(rules, store.erigonStore.tsw)
+	return store.erigonStore.intraBlockState.FinalizeTx(rules, erigonstate.NewNoopWriter())
 }
 
 func (store *stateDBWorkingSetStoreWithErigonOutput) WriteView(name string, value interface{}) error {
