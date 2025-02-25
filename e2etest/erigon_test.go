@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"strings"
@@ -244,15 +245,21 @@ func TestErigonArchiveAccountForAllActions(t *testing.T) {
 				preBalance, err := test.ethcli.BalanceAt(ctx, common.BytesToAddress(sender.Bytes()), big.NewInt(int64(receipt.BlockHeight-1)))
 				r.NoError(err)
 				t.Log("pre balance:", preBalance, "block height:", receipt.BlockHeight)
-				postBalance, err := test.ethcli.BalanceAt(ctx, common.BytesToAddress(sender.Bytes()), nil)
+				postBalance, err := test.ethcli.BalanceAt(ctx, common.BytesToAddress(sender.Bytes()), big.NewInt(int64(receipt.BlockHeight)))
 				r.NoError(err)
 				t.Log("post balance:", postBalance)
-				postNonce, err := test.ethcli.NonceAt(ctx, common.BytesToAddress(sender.Bytes()), nil)
+				preNonce, err := test.ethcli.NonceAt(ctx, common.BytesToAddress(sender.Bytes()), big.NewInt(int64(receipt.BlockHeight-1)))
+				r.NoError(err)
+				t.Log("pre nonce:", preNonce)
+				if !(preNonce == 1 && act.Nonce() == 0) {
+					r.Equal(act.Nonce(), preNonce, "prenonce mismatch")
+				}
+				postNonce, err := test.ethcli.NonceAt(ctx, common.BytesToAddress(sender.Bytes()), big.NewInt(int64(receipt.BlockHeight)))
 				r.NoError(err)
 				t.Log("post nonce:", postNonce)
 				cost := costOfAction(act.SrcPubkey().Address().String(), receipt)
 				r.Equal(postBalance.String(), big.NewInt(0).Sub(preBalance, cost).String(), "balance mismatch")
-				r.Equal(act.Nonce()+1, postNonce, "nonce mismatch")
+				r.Equal(act.Nonce()+1, postNonce, "postnonce mismatch")
 			}}},
 		})
 	}
@@ -273,7 +280,7 @@ func TestErigonArchiveAccountForAllActions(t *testing.T) {
 	for i := range payloads {
 		senderIdx := payloads[i].sender
 		act := mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(identityset.Address(senderIdx).String())), payloads[i].payload), identityset.PrivateKey(senderIdx)))
-		check(act)
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) { check(act) })
 	}
 }
 
