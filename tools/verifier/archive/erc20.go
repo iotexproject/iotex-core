@@ -71,6 +71,8 @@ func verifyERC20(contract address.Address) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to fetch block range")
 	}
+	minH = max(minH, startHeight)
+	maxH = min(maxH, endHeight)
 	fmt.Printf("contract %s block range: %d - %d\n", contract.Hex(), minH, maxH)
 	rev, err := readProgress()
 	if err != nil {

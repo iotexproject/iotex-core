@@ -39,6 +39,8 @@ func verifyToken(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to fetch block range")
 	}
+	minH = max(minH, startHeight)
+	maxH = min(maxH, endHeight)
 	fmt.Printf("token block range: %d - %d\n", minH, maxH)
 	rev, err := readProgress()
 	if err != nil {

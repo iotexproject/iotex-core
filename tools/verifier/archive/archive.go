@@ -3,6 +3,7 @@ package archive
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -46,13 +47,15 @@ var (
 	}
 
 	// params
-	dsn       string
-	rpc       string
-	legacyRPC string
-	contracts []string
-	batch     uint64
-	workerNum int
-	deltaMode bool
+	dsn         string
+	rpc         string
+	legacyRPC   string
+	contracts   []string
+	batch       uint64
+	workerNum   int
+	deltaMode   bool
+	startHeight uint64
+	endHeight   uint64
 
 	// global variables
 	db               *gorm.DB
@@ -71,6 +74,8 @@ func init() {
 	flag.IntVar(&workerNum, "workers", 8, "the number of workers to verify erc20 balance")
 	flag.StringVar(&progressFilePath, "progress", "progress.dat", "the file to store progress")
 	flag.BoolVar(&deltaMode, "delta", false, "verify delta mode")
+	flag.Uint64Var(&startHeight, "start", 0, "the start height to verify")
+	flag.Uint64Var(&endHeight, "end", math.MaxUint64, "the end height to verify")
 }
 
 func connectAv2(dsn string) (*gorm.DB, error) {
