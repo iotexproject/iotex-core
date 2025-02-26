@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/hash"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
@@ -16,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/account/accountpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -229,24 +231,28 @@ func (store *erigonStore) put(ns string, key []byte, value []byte) (err error) {
 	}
 	store.intraBlockState.SetBalance(addr, uint256.MustFromBig(acc.Balance))
 	store.intraBlockState.SetNonce(addr, acc.PendingNonce()) // TODO(erigon): not sure if this is correct
+	log.L().Debug("erigon store put account", zap.String("ns", ns), log.Hex("key", key), zap.String("balance", acc.Balance.String()), zap.Uint64("nonce", acc.PendingNonce()))
 	return nil
 }
 
 func (store *erigonStore) get(ns string, key []byte) ([]byte, error) {
 	switch ns {
 	case AccountKVNamespace:
-		acc := &state.Account{}
+		accProto := &accountpb.Account{}
 		addr := libcommon.Address(key)
 		if !store.intraBlockState.Exist(addr) {
 			return nil, state.ErrStateNotExist
 		}
 		balance := store.intraBlockState.GetBalance(addr)
-		acc.Balance = balance.ToBig()
-		acc.SetPendingNonce(store.intraBlockState.GetNonce(addr))
+		accProto.Balance = balance.String()
+		nonce := store.intraBlockState.GetNonce(addr)
+		accProto.Nonce = nonce
+		accProto.Type = accountpb.AccountType_ZERO_NONCE
 		if ch := store.intraBlockState.GetCodeHash(addr); len(ch) > 0 {
-			acc.CodeHash = store.intraBlockState.GetCodeHash(addr).Bytes()
+			accProto.CodeHash = store.intraBlockState.GetCodeHash(addr).Bytes()
 		}
-		return acc.Serialize()
+		log.L().Debug("eringon get account", zap.String("ns", ns), log.Hex("key", key), zap.String("balance", balance.String()), zap.Uint64("nonce", nonce))
+		return proto.Marshal(accProto)
 	case evm.CodeKVNameSpace:
 		addr := libcommon.Address(key)
 		if !store.intraBlockState.Exist(addr) {
