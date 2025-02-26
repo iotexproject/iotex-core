@@ -271,46 +271,55 @@ func verifyOneTokenDelta(c *tokenCase) (*mismatch, error) {
 		errWG                            errgroup.Group
 		retryMax                         = 10
 	)
+	opts := []retry.Option{retry.Attempts(uint(retryMax)), retry.LastErrorOnly(true)}
 	errWG.Go(func() error {
 		return retry.Do(func() error {
 			resp, err := ethcli.BalanceAt(ctx, addr, big.NewInt(int64(c.height)))
 			if err != nil {
-				return errors.Wrap(err, "failed to get balance")
+				return errors.Wrapf(err, "failed to get balance from erigon, address %x, height %d", addr, c.height)
 			}
 			balance = new(big.Int).SetBytes(resp.Bytes())
 			return nil
-		}, retry.Attempts(uint(retryMax)))
+		}, opts...)
 	})
 	errWG.Go(func() error {
 		return retry.Do(func() error {
+			if c.height == 0 {
+				prevBalance = new(big.Int)
+				return nil
+			}
 			resp, err := ethcli.BalanceAt(ctx, addr, big.NewInt(int64(c.height-1)))
 			if err != nil {
-				return errors.Wrap(err, "failed to get balance")
+				return errors.Wrapf(err, "failed to get balance from erigon, address %x, height %d", addr, c.height-1)
 			}
 			prevBalance = new(big.Int).SetBytes(resp.Bytes())
 			return nil
-		}, retry.Attempts(uint(retryMax)))
+		}, opts...)
 	})
 	if ethcliLegacy != nil {
 		errWG.Go(func() error {
 			return retry.Do(func() error {
 				resp, err := ethcliLegacy.BalanceAt(ctx, addr, big.NewInt(int64(c.height)))
 				if err != nil {
-					return errors.Wrap(err, "failed to get balance")
+					return errors.Wrapf(err, "failed to get balance from archive, address %x, height %d", addr, c.height)
 				}
 				balanceLegacy = new(big.Int).SetBytes(resp.Bytes())
 				return nil
-			}, retry.Attempts(uint(retryMax)))
+			}, opts...)
 		})
 		errWG.Go(func() error {
 			return retry.Do(func() error {
+				if c.height == 0 {
+					prevBalanceLegacy = new(big.Int)
+					return nil
+				}
 				resp, err := ethcliLegacy.BalanceAt(ctx, addr, big.NewInt(int64(c.height-1)))
 				if err != nil {
-					return errors.Wrap(err, "failed to get balance")
+					return errors.Wrapf(err, "failed to get balance from archive, address %x, height %d", addr, c.height-1)
 				}
 				prevBalanceLegacy = new(big.Int).SetBytes(resp.Bytes())
 				return nil
-			}, retry.Attempts(uint(retryMax)))
+			}, opts...)
 		})
 	}
 	if err := errWG.Wait(); err != nil {
