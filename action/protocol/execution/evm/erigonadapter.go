@@ -78,12 +78,12 @@ func (s *ErigonStateDBAdapter) CreateAccount(evmAddr common.Address) {
 
 func (s *ErigonStateDBAdapter) SubBalance(evmAddr common.Address, v *uint256.Int) {
 	s.StateDBAdapter.SubBalance(evmAddr, v)
-	s.intra.SubBalance(libcommon.Address(evmAddr), v)
+	// s.intra.SubBalance(libcommon.Address(evmAddr), v)
 }
 
 func (s *ErigonStateDBAdapter) AddBalance(evmAddr common.Address, v *uint256.Int) {
 	s.StateDBAdapter.AddBalance(evmAddr, v)
-	s.intra.AddBalance(libcommon.Address(evmAddr), v)
+	// s.intra.AddBalance(libcommon.Address(evmAddr), v)
 }
 
 func (s *ErigonStateDBAdapter) SetNonce(evmAddr common.Address, n uint64) {
