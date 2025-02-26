@@ -71,7 +71,7 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 		return err
 	}
 	if targetHeight == 0 || targetHeight > daoTip {
-		targetHeight = min(daoTip, 30957)
+		targetHeight = min(daoTip, 20000000)
 	}
 	startHeight := tipHeight + 1
 	if indexerWS, ok := indexer.(BlockIndexerWithStart); ok {
