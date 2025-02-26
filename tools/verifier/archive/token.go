@@ -214,7 +214,7 @@ func verifyOneToken(c *tokenCase) (*mismatch, error) {
 	)
 	errWG.Go(func() error {
 		return retry.Do(func() error {
-			resp, err := ethcli.BalanceAt(ctx, addr, big.NewInt(int64(c.height+1)))
+			resp, err := ethcli.BalanceAt(ctx, addr, big.NewInt(int64(c.height)))
 			if err != nil {
 				return errors.Wrap(err, "failed to get balance")
 			}
@@ -273,7 +273,7 @@ func verifyOneTokenDelta(c *tokenCase) (*mismatch, error) {
 	)
 	errWG.Go(func() error {
 		return retry.Do(func() error {
-			resp, err := ethcli.BalanceAt(ctx, addr, big.NewInt(int64(c.height+1)))
+			resp, err := ethcli.BalanceAt(ctx, addr, big.NewInt(int64(c.height)))
 			if err != nil {
 				return errors.Wrap(err, "failed to get balance")
 			}
@@ -283,7 +283,7 @@ func verifyOneTokenDelta(c *tokenCase) (*mismatch, error) {
 	})
 	errWG.Go(func() error {
 		return retry.Do(func() error {
-			resp, err := ethcli.BalanceAt(ctx, addr, big.NewInt(int64(c.height)))
+			resp, err := ethcli.BalanceAt(ctx, addr, big.NewInt(int64(c.height-1)))
 			if err != nil {
 				return errors.Wrap(err, "failed to get balance")
 			}

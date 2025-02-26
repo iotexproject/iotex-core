@@ -259,7 +259,7 @@ func verifyOne(c *erc20Case) (*mismatch, error) {
 			resp, err := ethcli.CallContract(ctx, ethereum.CallMsg{
 				To:   &to,
 				Data: data,
-			}, big.NewInt(int64(c.height+1)))
+			}, big.NewInt(int64(c.height)))
 			if err != nil {
 				return errors.Wrap(err, "failed to call contract")
 			}
@@ -328,7 +328,7 @@ func verifyOneDelta(c *erc20Case) (*mismatch, error) {
 			resp, err := ethcli.CallContract(ctx, ethereum.CallMsg{
 				To:   &to,
 				Data: data,
-			}, big.NewInt(int64(c.height+1)))
+			}, big.NewInt(int64(c.height)))
 			if err != nil {
 				return errors.Wrap(err, "failed to call contract")
 			}
@@ -341,7 +341,7 @@ func verifyOneDelta(c *erc20Case) (*mismatch, error) {
 			resp, err := ethcli.CallContract(ctx, ethereum.CallMsg{
 				To:   &to,
 				Data: data,
-			}, big.NewInt(int64(c.height)))
+			}, big.NewInt(int64(c.height-1)))
 			if err != nil {
 				return errors.Wrap(err, "failed to call contract")
 			}
