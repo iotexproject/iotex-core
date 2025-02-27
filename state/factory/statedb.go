@@ -245,7 +245,7 @@ func (sdb *stateDB) newWorkingSetWithErigonDryrun(ctx context.Context, height ui
 	if err != nil {
 		return nil, err
 	}
-	e, err := sdb.erigonDB.newErigonStoreDryrun(ctx, height)
+	e, err := sdb.erigonDB.newErigonStoreDryrun(ctx, height+1)
 	if err != nil {
 		return nil, err
 	}
