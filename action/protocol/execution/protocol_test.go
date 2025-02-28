@@ -87,6 +87,7 @@ type (
 
 	ExecutionConfig struct {
 		Comment                 string            `json:"comment"`
+		PrecompiledContractAddr string            `json:"precompiledContractAddr"`
 		ContractIndex           int               `json:"contractIndex"`
 		AppendContractAddress   bool              `json:"appendContractAddress"`
 		ContractIndexToAppend   int               `json:"contractIndexToAppend"`
@@ -503,6 +504,10 @@ func (sct *SmartContractTest) deployContracts(
 	r *require.Assertions,
 ) (contractAddresses []string) {
 	for i, contract := range sct.Deployments {
+		if contract.PrecompiledContractAddr != "" {
+			contractAddresses = append(contractAddresses, contract.PrecompiledContractAddr)
+			continue
+		}
 		if contract.AppendContractAddress {
 			contract.ContractAddressToAppend = contractAddresses[contract.ContractIndexToAppend]
 		}
@@ -1308,6 +1313,9 @@ func TestShanghaiEVM(t *testing.T) {
 	})
 	t.Run("push0-valid", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-shanghai/push0.json")
+	})
+	t.Run("receive", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-shanghai/receive.json")
 	})
 }
 
