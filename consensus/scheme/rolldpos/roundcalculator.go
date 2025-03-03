@@ -276,7 +276,8 @@ func (c *roundCalculator) calculateProposer(
 		err = errors.New("invalid proposer list")
 		return
 	}
-	idx := height
+	proposalBatch := c.rp.ProposalBatchSizeByEpoch(c.rp.GetEpochNum(height))
+	idx := height / proposalBatch
 	if c.timeBasedRotation {
 		idx += uint64(round)
 	}

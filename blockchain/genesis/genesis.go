@@ -54,6 +54,7 @@ func defaultConfig() Genesis {
 			NumCandidateDelegates:     36,
 			TimeBasedRotation:         false,
 			MinBlocksForBlobRetention: 345600,
+			WakeNumProposalBatchSize:  5,
 			PacificBlockHeight:        432001,
 			AleutianBlockHeight:       864001,
 			BeringBlockHeight:         1512001,
@@ -187,6 +188,8 @@ type (
 		TimeBasedRotation bool `yaml:"timeBasedRotation"`
 		// MinBlocksForBlobRetention is the minimum number of blocks for blob retention
 		MinBlocksForBlobRetention uint64 `yaml:"minBlocksForBlobRetention"`
+		// WakeNumProposalBatchSize is the number of proposals in a batch
+		WakeNumProposalBatchSize uint64 `yaml:"numProposalBatchSize"`
 		// PacificBlockHeight is the start height of using the logic of Pacific version
 		// TODO: PacificBlockHeight is not added into protobuf definition for backward compatibility
 		PacificBlockHeight uint64 `yaml:"pacificHeight"`
