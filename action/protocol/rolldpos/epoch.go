@@ -27,6 +27,9 @@ type Protocol struct {
 	numSubEpochsDardanelles uint64
 	dardanellesHeight       uint64
 	dardanellesOn           bool
+	wakeHeight              uint64
+	numProposalBatch        uint64
+	numProposalBatchWake    uint64
 }
 
 // FindProtocol return a registered protocol from registry
@@ -74,6 +77,15 @@ func EnableDardanellesSubEpoch(height, numSubEpochs uint64) Option {
 	}
 }
 
+// EnableWakeProposalBatch will set the wake height and number of proposal batch wake
+func EnableWakeProposalBatch(wakeHeight, numProposalBatchWake uint64) Option {
+	return func(p *Protocol) error {
+		p.wakeHeight = wakeHeight
+		p.numProposalBatchWake = numProposalBatchWake
+		return nil
+	}
+}
+
 // NewProtocol returns a new rolldpos protocol
 func NewProtocol(numCandidateDelegates, numDelegates, numSubEpochs uint64, opts ...Option) *Protocol {
 	if numCandidateDelegates < numDelegates {
@@ -83,6 +95,7 @@ func NewProtocol(numCandidateDelegates, numDelegates, numSubEpochs uint64, opts 
 		numCandidateDelegates: numCandidateDelegates,
 		numDelegates:          numDelegates,
 		numSubEpochs:          numSubEpochs,
+		numProposalBatch:      1,
 	}
 	for _, opt := range opts {
 		if err := opt(p); err != nil {
@@ -259,4 +272,13 @@ func (p *Protocol) ProductivityByEpoch(
 	}
 	produce, err := productivity(epochStartHeight, epochEndHeight)
 	return epochEndHeight - epochStartHeight + 1, produce, err
+}
+
+// ProposalBatchSizeByEpoch returns the number of proposal batch size in an epoch
+func (p *Protocol) ProposalBatchSizeByEpoch(epochNum uint64) uint64 {
+	height := p.GetEpochHeight(epochNum)
+	if p.wakeHeight > 0 && height >= p.wakeHeight {
+		return p.numProposalBatchWake
+	}
+	return p.numProposalBatch
 }
