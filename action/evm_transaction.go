@@ -20,7 +20,7 @@ type (
 	}
 )
 
-// EffectiveGas returns the effective gas
+// EffectiveGasTip returns the effective gas
 func EffectiveGasTip(tx TxDynamicGas, baseFee *big.Int) (*big.Int, error) {
 	tip := tx.GasTipCap()
 	if baseFee == nil {
