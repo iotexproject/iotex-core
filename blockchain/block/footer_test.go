@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/v2/endorsement"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -32,7 +32,7 @@ func TestConvertToBlockFooterPb(t *testing.T) {
 
 func TestConvertFromBlockFooterPb(t *testing.T) {
 	require := require.New(t)
-	ts := &timestamp.Timestamp{Seconds: 10, Nanos: 10}
+	ts := &timestamppb.Timestamp{Seconds: 10, Nanos: 10}
 	footerPb := &iotextypes.BlockFooter{
 		Endorsements: nil,
 		Timestamp:    ts,

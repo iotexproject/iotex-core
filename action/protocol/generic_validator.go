@@ -58,7 +58,8 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 	if caller == nil {
 		return errors.New("failed to get address")
 	}
-	if err = selp.Envelope.SanityCheck(); err != nil {
+	featureCtx := MustGetFeatureCtx(ctx)
+	if err = selp.Envelope.SanityCheck(); err != nil && !featureCtx.Tolerate(err) {
 		return err
 	}
 	// Reject action if nonce is too low
@@ -67,10 +68,7 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 			return action.ErrSystemActionNonce
 		}
 	} else {
-		var (
-			nonce      uint64
-			featureCtx = MustGetFeatureCtx(ctx)
-		)
+		var nonce uint64
 		if featureCtx.FixGasAndNonceUpdate || selp.Nonce() != 0 {
 			confirmedState, err := v.accountState(ctx, v.sr, caller)
 			if err != nil {

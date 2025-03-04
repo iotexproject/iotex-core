@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"testing"
 
+	hdwallet "github.com/ethereum-optimism/go-ethereum-hdwallet"
 	ecrypt "github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/crypto"
-	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/stretchr/testify/require"
 	"github.com/tyler-smith/go-bip39"
 

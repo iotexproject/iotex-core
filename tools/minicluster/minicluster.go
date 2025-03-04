@@ -103,9 +103,11 @@ func main() {
 		systemLogDBPath := fmt.Sprintf("./systemlog%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, systemLogDBPath)
 		candidateIndexDBPath := fmt.Sprintf("./candidate.index%d.db", i+1)
+		actpoolCacheDBPath := fmt.Sprintf("./actpool%d.cache", i+1)
 		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
 		dbFilePaths = append(dbFilePaths, contractStakingIndexDBPath)
 		dbFilePaths = append(dbFilePaths, blobDBPath)
+		dbFilePaths = append(dbFilePaths, actpoolCacheDBPath)
 		networkPort := config.Default.Network.Port + i
 		apiPort := config.Default.API.GRPCPort + i
 		web3APIPort := config.Default.API.HTTPPort + i
@@ -124,6 +126,7 @@ func main() {
 		config.System.SystemLogDBPath = systemLogDBPath
 		config.Chain.ContractStakingIndexDBPath = contractStakingIndexDBPath
 		config.Chain.BlobStoreDBPath = blobDBPath
+		config.ActPool.Store.Datadir = actpoolCacheDBPath
 		if i == 0 {
 			config.Network.BootstrapNodes = []string{}
 			config.Network.MasterKey = "bootnode"
