@@ -46,6 +46,7 @@ func defaultConfig() Genesis {
 			BlockInterval:             10 * time.Second,
 			NumSubEpochs:              15,
 			DardanellesNumSubEpochs:   30,
+			WakeNumSubEpochs:          50,
 			NumDelegates:              24,
 			NumCandidateDelegates:     36,
 			TimeBasedRotation:         true,
@@ -257,6 +258,8 @@ type (
 		NumSubEpochs uint64 `yaml:"numSubEpochs"`
 		// DardanellesNumSubEpochs is the number of sub epochs starts from dardanelles height in one epoch of block production
 		DardanellesNumSubEpochs uint64 `yaml:"dardanellesNumSubEpochs"`
+		// WakeNumSubEpochs is the number of sub epochs starts from wake height in one epoch of block production
+		WakeNumSubEpochs uint64 `yaml:"wakeNumSubEpochs"`
 		// NumDelegates is the number of delegates that participate into one epoch of block production
 		NumDelegates uint64 `yaml:"numDelegates"`
 		// NumCandidateDelegates is the number of candidate delegates, who may be selected as a delegate via roll dpos
