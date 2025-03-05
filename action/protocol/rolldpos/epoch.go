@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -30,6 +31,7 @@ type Protocol struct {
 	wakeHeight              uint64
 	numProposalBatch        uint64
 	numProposalBatchWake    uint64
+	numSubEpochsWake        uint64
 }
 
 // FindProtocol return a registered protocol from registry
@@ -77,11 +79,12 @@ func EnableDardanellesSubEpoch(height, numSubEpochs uint64) Option {
 	}
 }
 
-// EnableWakeProposalBatch will set the wake height and number of proposal batch wake
-func EnableWakeProposalBatch(wakeHeight, numProposalBatchWake uint64) Option {
+// EnableWakeSubEpoch will set give numSubEpochs at give height.
+func EnableWakeSubEpoch(height, numSubEpochs, numProposalBatch uint64) Option {
 	return func(p *Protocol) error {
-		p.wakeHeight = wakeHeight
-		p.numProposalBatchWake = numProposalBatchWake
+		p.numSubEpochsWake = numSubEpochs
+		p.numProposalBatchWake = numProposalBatch
+		p.wakeHeight = height
 		return nil
 	}
 }
@@ -211,7 +214,10 @@ func (p *Protocol) NumSubEpochs(height uint64) uint64 {
 	if !p.dardanellesOn || height < p.dardanellesHeight {
 		return p.numSubEpochs
 	}
-	return p.numSubEpochsDardanelles
+	if p.wakeHeight == 0 || height < p.wakeHeight {
+		return p.numSubEpochsDardanelles
+	}
+	return p.numSubEpochsWake
 }
 
 // GetEpochNum returns the number of the epoch for a given height
@@ -224,7 +230,12 @@ func (p *Protocol) GetEpochNum(height uint64) uint64 {
 	}
 	dardanellesEpoch := p.GetEpochNum(p.dardanellesHeight)
 	dardanellesEpochHeight := p.GetEpochHeight(dardanellesEpoch)
-	return dardanellesEpoch + (height-dardanellesEpochHeight)/p.numDelegates/p.numSubEpochsDardanelles
+	if p.wakeHeight == 0 || height <= p.wakeHeight {
+		return dardanellesEpoch + (height-dardanellesEpochHeight)/p.numDelegates/p.numSubEpochsDardanelles
+	}
+	wakeEpoch := p.GetEpochNum(p.wakeHeight)
+	wakeEpochHeight := p.GetEpochHeight(wakeEpoch)
+	return wakeEpoch + (height-wakeEpochHeight)/p.numDelegates/p.numSubEpochsWake
 }
 
 // GetEpochHeight returns the start height of an epoch
@@ -237,7 +248,12 @@ func (p *Protocol) GetEpochHeight(epochNum uint64) uint64 {
 		return (epochNum-1)*p.numDelegates*p.numSubEpochs + 1
 	}
 	dardanellesEpochHeight := p.GetEpochHeight(dardanellesEpoch)
-	return dardanellesEpochHeight + (epochNum-dardanellesEpoch)*p.numDelegates*p.numSubEpochsDardanelles
+	wakeEpoch := p.GetEpochNum(p.wakeHeight)
+	if p.wakeHeight == 0 || epochNum <= wakeEpoch {
+		return dardanellesEpochHeight + (epochNum-dardanellesEpoch)*p.numDelegates*p.numSubEpochsDardanelles
+	}
+	wakeEpochHeight := p.GetEpochHeight(wakeEpoch)
+	return wakeEpochHeight + (epochNum-wakeEpoch)*p.numDelegates*p.numSubEpochsWake
 }
 
 // GetEpochLastBlockHeight returns the last height of an epoch
