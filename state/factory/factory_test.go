@@ -242,7 +242,6 @@ func testCandidates(sf Factory, t *testing.T) {
 		nil,
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
-		cfg.Genesis.DardanellesNumSubEpochs,
 		cfg.Genesis.ProductivityThreshold,
 		cfg.Genesis.ProbationEpochPeriod,
 		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
