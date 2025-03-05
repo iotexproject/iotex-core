@@ -27,6 +27,10 @@ type mismatch struct {
 	balanceAv2     string
 	balanceErigon  string
 	balanceArchive string
+	isNonce        bool
+	nonceAv2       uint64
+	nonceErigon    uint64
+	nonceArchive   uint64
 }
 
 var (
@@ -144,10 +148,14 @@ func verifyCases[T any](cases []T, verifyFunc func(T) (*mismatch, error)) error 
 	go func() {
 		for m := range resultQ {
 			if m != nil {
-				if m.balanceErigon != m.balanceArchive {
-					os.Stderr.WriteString(fmt.Sprintf("balance mismatch_archive: %s: %s, av2 %s, archive %s at %d height\n", m.address, m.balanceErigon, m.balanceAv2, m.balanceArchive, m.height))
+				if m.isNonce {
+					os.Stderr.WriteString(fmt.Sprintln("nonce mismatch", "av2", m.nonceAv2, "archive", m.nonceArchive, "erigon", m.nonceErigon, "block_height", m.height, "account", m.address))
+				} else {
+					if m.balanceErigon != m.balanceArchive {
+						os.Stderr.WriteString(fmt.Sprintf("balance mismatch_archive: %s: %s, av2 %s, archive %s at %d height\n", m.address, m.balanceErigon, m.balanceAv2, m.balanceArchive, m.height))
+					}
+					os.Stderr.WriteString(fmt.Sprintf("balance mismatch_av2: %s: %s, av2 %s, archive %s at %d height\n", m.address, m.balanceErigon, m.balanceAv2, m.balanceArchive, m.height))
 				}
-				os.Stderr.WriteString(fmt.Sprintf("balance mismatch_av2: %s: %s, av2 %s, archive %s at %d height\n", m.address, m.balanceErigon, m.balanceAv2, m.balanceArchive, m.height))
 			}
 		}
 		finished <- struct{}{}
