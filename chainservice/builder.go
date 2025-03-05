@@ -718,7 +718,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 		builder.cfg.Genesis.NumDelegates,
 		builder.cfg.Genesis.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(builder.cfg.Genesis.DardanellesBlockHeight, builder.cfg.Genesis.DardanellesNumSubEpochs),
-		rolldpos.EnableWakeProposalBatch(builder.cfg.Genesis.WakeBlockHeight, builder.cfg.Genesis.WakeNumProposalBatchSize),
+		rolldpos.EnableWakeProposalBatch(builder.cfg.Genesis.WakeBlockHeight, builder.cfg.Genesis.NumProposalBatchSize),
 	).Register(builder.cs.registry); err != nil {
 		return err
 	}

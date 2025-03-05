@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -29,7 +30,6 @@ type Protocol struct {
 	dardanellesOn           bool
 	wakeHeight              uint64
 	numProposalBatch        uint64
-	numProposalBatchWake    uint64
 }
 
 // FindProtocol return a registered protocol from registry
@@ -78,10 +78,10 @@ func EnableDardanellesSubEpoch(height, numSubEpochs uint64) Option {
 }
 
 // EnableWakeProposalBatch will set the wake height and number of proposal batch wake
-func EnableWakeProposalBatch(wakeHeight, numProposalBatchWake uint64) Option {
+func EnableWakeProposalBatch(wakeHeight, numProposalBatch uint64) Option {
 	return func(p *Protocol) error {
 		p.wakeHeight = wakeHeight
-		p.numProposalBatchWake = numProposalBatchWake
+		p.numProposalBatch = numProposalBatch
 		return nil
 	}
 }
@@ -95,7 +95,6 @@ func NewProtocol(numCandidateDelegates, numDelegates, numSubEpochs uint64, opts 
 		numCandidateDelegates: numCandidateDelegates,
 		numDelegates:          numDelegates,
 		numSubEpochs:          numSubEpochs,
-		numProposalBatch:      1,
 	}
 	for _, opt := range opts {
 		if err := opt(p); err != nil {
@@ -278,7 +277,7 @@ func (p *Protocol) ProductivityByEpoch(
 func (p *Protocol) ProposalBatchSizeByEpoch(epochNum uint64) uint64 {
 	height := p.GetEpochHeight(epochNum)
 	if p.wakeHeight > 0 && height >= p.wakeHeight {
-		return p.numProposalBatchWake
+		return p.numProposalBatch
 	}
-	return p.numProposalBatch
+	return 1
 }
