@@ -298,3 +298,8 @@ func (p *Protocol) ProposalBatchSizeByEpoch(epochNum uint64) uint64 {
 	}
 	return p.numProposalBatch
 }
+
+// NumBlocksByEpoch returns the number of blocks in an epoch
+func (p *Protocol) NumBlocksByEpoch(epochNum uint64) uint64 {
+	return p.NumSubEpochs(p.GetEpochHeight(epochNum)) * p.NumDelegates()
+}
