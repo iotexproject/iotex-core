@@ -285,3 +285,8 @@ func (p *Protocol) ProductivityByEpoch(
 	produce, err := productivity(epochStartHeight, epochEndHeight)
 	return epochEndHeight - epochStartHeight + 1, produce, err
 }
+
+// NumBlocksByEpoch returns the number of blocks in an epoch
+func (p *Protocol) NumBlocksByEpoch(epochNum uint64) uint64 {
+	return p.NumSubEpochs(p.GetEpochHeight(epochNum)) * p.NumDelegates()
+}
