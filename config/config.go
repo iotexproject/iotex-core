@@ -170,7 +170,7 @@ func New(configPaths []string, _plugins []string, validates ...Validate) (Config
 		return Config{}, errors.Wrap(err, "failed to set producer private key")
 	}
 	// set default value for mint timeout
-	cfg.Chain.MintTimeout = Default.Chain.MintTimeout
+	// cfg.Chain.MintTimeout = Default.Chain.MintTimeout
 
 	// set network master key to private key
 	if cfg.Network.MasterKey == "" {
