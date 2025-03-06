@@ -259,8 +259,9 @@ func TestNewFdInterface(t *testing.T) {
 	deser := block.NewDeserializer(_defaultEVMNetworkID)
 	_, err = newFileDAOv2(0, cfg, deser)
 	r.Equal(ErrNotSupported, err)
-	genesis.SetGenesisTimestamp(genesis.Default.Timestamp)
-	block.LoadGenesisHash(&genesis.Default)
+	g := genesis.TestDefault()
+	genesis.SetGenesisTimestamp(g.Timestamp)
+	block.LoadGenesisHash(&g)
 
 	for _, compress := range []string{"", compress.Snappy} {
 		for _, start := range []uint64{1, 5, _blockStoreBatchSize + 1, 4 * _blockStoreBatchSize} {

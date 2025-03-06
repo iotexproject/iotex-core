@@ -36,23 +36,19 @@ var (
 	_loadGenesisTs sync.Once
 )
 
-func init() {
-	initTestDefaultConfig(&Default)
-}
-
 func defaultConfig() Genesis {
 	return Genesis{
 		Blockchain: Blockchain{
-			Timestamp:                 1546329600,
+			Timestamp:                 1553558500,
 			BlockGasLimit:             20000000,
 			TsunamiBlockGasLimit:      50000000,
 			ActionGasLimit:            5000000,
 			BlockInterval:             10 * time.Second,
-			NumSubEpochs:              2,
+			NumSubEpochs:              15,
 			DardanellesNumSubEpochs:   30,
 			NumDelegates:              24,
 			NumCandidateDelegates:     36,
-			TimeBasedRotation:         false,
+			TimeBasedRotation:         true,
 			MinBlocksForBlobRetention: 345600,
 			PacificBlockHeight:        432001,
 			AleutianBlockHeight:       864001,
@@ -126,7 +122,7 @@ func defaultConfig() Genesis {
 			SystemStakingContractV2Address:   "io13mjjr5shj4mte39axwsqjp8fdggk0qzjhatprp", // https://iotexscan.io/tx/b838b7a7c95e511fd8b256c5cbafde0547a72215d682eb60668d1b475a1beb70
 			SystemStakingContractV2Height:    30934838,
 			NativeStakingContractAddress:     "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
-			VoteThreshold:                    "1000000000000000000000000",
+			VoteThreshold:                    "100000000000000000000",
 			StakingContractAddress:           "0x87c9dbff0016af23f5b1ab9b8e072124ab729193",
 			SelfStakingThreshold:             "1200000000000000000000000",
 			ScoreThreshold:                   "2000000000000000000000000",
@@ -208,12 +204,18 @@ func defaultConfig() Genesis {
 // TestDefault is the default genesis config for testing
 func TestDefault() Genesis {
 	ge := defaultConfig()
+	ge.InitBalanceMap = map[string]string{}
+	ge.NumSubEpochs = 2
+	ge.Timestamp = 1546329600
+	ge.TimeBasedRotation = false
 	initTestDefaultConfig(&ge)
 	return ge
 }
 
 func initTestDefaultConfig(cfg *Genesis) {
 	cfg.PacificBlockHeight = 0
+	cfg.NumSubEpochs = 2
+	cfg.EnableGravityChainVoting = false
 	for i := 0; i < identityset.Size(); i++ {
 		addr := identityset.Address(i).String()
 		value := unit.ConvertIotxToRau(100000000).String()
