@@ -124,7 +124,7 @@ var (
 		PersistStakingPatchBlock:      19778037,
 		FixAliasForNonStopHeight:      19778036,
 		FactoryDBType:                 db.DBBolt,
-		MintTimeout:                   1500 * time.Millisecond, // valued with block accept ttl - 500ms(tolerate network delay)
+		MintTimeout:                   600 * time.Millisecond, // valued with block accept ttl - 500ms(tolerate network delay)
 	}
 
 	// ErrConfig config error
