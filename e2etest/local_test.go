@@ -448,6 +448,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.Chain.BlobStoreDBPath = testBlobIndexPath
 	cfg.Chain.ContractStakingIndexDBPath = testContractStakeIndexPath
 	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Genesis = genesis.TestDefault()
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
@@ -549,7 +550,9 @@ func TestStartExistingBlockchain(t *testing.T) {
 }
 
 func newTestConfig() (config.Config, error) {
-	cfg := deepcopy.Copy(config.Default).(config.Config)
+	cfg := config.Default
+	cfg.Genesis = genesis.TestDefault()
+	cfg = deepcopy.Copy(cfg).(config.Config)
 	cfg.Chain.TrieDBPath = _triePath
 	cfg.Chain.ChainDBPath = _dBPath
 	cfg.Chain.BlobStoreDBPath = _blobPath

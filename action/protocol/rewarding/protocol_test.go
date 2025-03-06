@@ -36,7 +36,7 @@ import (
 func TestValidateExtension(t *testing.T) {
 	r := require.New(t)
 
-	g := genesis.Default.Rewarding
+	g := genesis.TestDefault().Rewarding
 	r.NoError(validateFoundationBonusExtension(g))
 
 	last := g.FoundationBonusP2StartEpoch
@@ -56,7 +56,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	registry := protocol.NewRegistry()
 	sm := testdb.NewMockStateManager(ctrl)
 
-	g := genesis.Default
+	g := genesis.TestDefault()
 	// Create a test account with 1000 token
 	g.InitBalanceMap[identityset.Address(28).String()] = "1000"
 	g.Rewarding.InitBalanceStr = "0"
@@ -173,7 +173,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	ctx = protocol.WithBlockCtx(
 		ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
-			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+			BlockHeight: g.NumDelegates * g.NumSubEpochs,
 		},
 	)
 	ctx = protocol.WithActionCtx(
@@ -218,7 +218,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 }
 
 func TestProtocol_Validate(t *testing.T) {
-	g := genesis.Default
+	g := genesis.TestDefault()
 	g.NewfoundlandBlockHeight = 0
 	p := NewProtocol(g.Rewarding)
 	act := createGrantRewardAction(0, uint64(0))
@@ -226,7 +226,7 @@ func TestProtocol_Validate(t *testing.T) {
 		context.Background(),
 		protocol.BlockCtx{
 			Producer:    identityset.Address(0),
-			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+			BlockHeight: g.NumDelegates * g.NumSubEpochs,
 		},
 	)
 	ctx = genesis.WithGenesisContext(
@@ -272,7 +272,7 @@ func TestProtocol_Validate(t *testing.T) {
 func TestProtocol_Handle(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
-	g := genesis.Default
+	g := genesis.TestDefault()
 	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := batch.NewCachedBatch()
@@ -357,7 +357,7 @@ func TestProtocol_Handle(t *testing.T) {
 		ctx,
 		protocol.BlockCtx{
 			Producer:    identityset.Address(0),
-			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+			BlockHeight: g.NumDelegates * g.NumSubEpochs,
 		},
 	)
 	ctx = protocol.WithActionCtx(
@@ -506,7 +506,7 @@ func TestStateCheckLegacy(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	p := NewProtocol(genesis.Default.Rewarding)
+	p := NewProtocol(genesis.TestDefault().Rewarding)
 	chainCtx := genesis.WithGenesisContext(
 		context.Background(),
 		genesis.Genesis{
@@ -601,7 +601,7 @@ func TestMigrateValue(t *testing.T) {
 	e1 := exempt{
 		[]address.Address{identityset.Address(31)},
 	}
-	g := genesis.Default
+	g := genesis.TestDefault()
 
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		// verify v1 state

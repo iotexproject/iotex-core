@@ -546,7 +546,7 @@ func Test_blockDAO_PutBlock(t *testing.T) {
 		indexers:   []BlockIndexer{indexer},
 		blockStore: store,
 	}
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
 	blk, err := block.NewTestingBuilder().SignAndBuild(identityset.PrivateKey(1))
 	r.NoError(err)
 	t.Run("FailedToPutBlockToBlockStore", func(t *testing.T) {
@@ -761,7 +761,7 @@ func TestBlockDAO(t *testing.T) {
 
 	testBlockDao := func(dao BlockStore, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
-			genesis.WithGenesisContext(context.Background(), genesis.Default),
+			genesis.WithGenesisContext(context.Background(), genesis.TestDefault()),
 			protocol.BlockchainCtx{
 				ChainID: 1,
 			})
@@ -874,7 +874,7 @@ func TestBlockDAO(t *testing.T) {
 
 	testDeleteDao := func(dao filedao.FileDAO, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
-			genesis.WithGenesisContext(context.Background(), genesis.Default),
+			genesis.WithGenesisContext(context.Background(), genesis.TestDefault()),
 			protocol.BlockchainCtx{
 				ChainID: 1,
 			})
@@ -1005,8 +1005,9 @@ func TestBlockDAO(t *testing.T) {
 
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	genesis.SetGenesisTimestamp(genesis.Default.Timestamp)
-	block.LoadGenesisHash(&genesis.Default)
+	g := genesis.TestDefault()
+	genesis.SetGenesisTimestamp(g.Timestamp)
+	block.LoadGenesisHash(&g)
 	for _, v := range daoList {
 		testutil.CleanupPath(testPath)
 		dao, err := createFileDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
