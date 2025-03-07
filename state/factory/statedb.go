@@ -176,10 +176,18 @@ func (sdb *stateDB) Height() (uint64, error) {
 	return sdb.dao.getHeight()
 }
 
+func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
+	return sdb.newWorkingSetWithKVStore(ctx, height, &readOnlyKV{sdb.dao.atHeight(height)})
+}
+
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
+	return sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height))
+}
+
+func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64, kvstore db.KVStore) (*workingSet, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
 	flusher, err := db.NewKVStoreFlusher(
-		sdb.dao.atHeight(height),
+		kvstore,
 		batch.NewCachedBatch(),
 		sdb.flusherOptions(!g.IsEaster(height))...,
 	)
@@ -267,11 +275,13 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, erro
 	sdb.mutex.RLock()
 	height := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
-	return sdb.newWorkingSet(ctx, height+1)
+	// TODO: the workingset should be read only, and should not be able to commit
+	return sdb.newReadOnlyWorkingSet(ctx, height+1)
 }
 
 func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManager, error) {
-	ws, err := sdb.newWorkingSet(ctx, height)
+	// TODO: the workingset should be read only, and should not be able to commit
+	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain working set from state db")
 	}
