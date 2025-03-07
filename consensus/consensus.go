@@ -46,6 +46,7 @@ type IotxConsensus struct {
 }
 
 type optionParams struct {
+	defaultTopic     string
 	broadcastHandler scheme.Broadcast
 	pp               poll.Protocol
 	rp               *rp.Protocol
@@ -53,6 +54,14 @@ type optionParams struct {
 
 // Option sets Consensus construction parameter.
 type Option func(op *optionParams) error
+
+// WithDefaultTopic is an option to set consensus broadcast topic
+func WithDefaultTopic(topic string) Option {
+	return func(ops *optionParams) error {
+		ops.defaultTopic = topic
+		return nil
+	}
+}
 
 // WithBroadcast is an option to add broadcast callback to Consensus
 func WithBroadcast(broadcastHandler scheme.Broadcast) Option {
@@ -140,6 +149,7 @@ func NewConsensus(
 			SetBlockDeserializer(block.NewDeserializer(bc.EvmNetworkID())).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
+			SetDefaultTopic(ops.defaultTopic).
 			SetDelegatesByEpochFunc(delegatesByEpochFunc).
 			SetProposersByEpochFunc(proposersByEpochFunc).
 			RegisterProtocol(ops.rp)
@@ -171,7 +181,7 @@ func NewConsensus(
 		}
 		broadcastBlockCB := func(blk *block.Block) error {
 			if blkPb := blk.ConvertToBlockPb(); blkPb != nil {
-				return ops.broadcastHandler(blkPb)
+				return ops.broadcastHandler(ops.defaultTopic, blkPb)
 			}
 			return nil
 		}
