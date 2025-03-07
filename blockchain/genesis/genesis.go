@@ -50,6 +50,7 @@ func defaultConfig() Genesis {
 			BlockInterval:             10 * time.Second,
 			NumSubEpochs:              2,
 			DardanellesNumSubEpochs:   30,
+			WakeNumSubEpochs:          50,
 			NumDelegates:              24,
 			NumCandidateDelegates:     36,
 			TimeBasedRotation:         false,
@@ -79,6 +80,7 @@ func defaultConfig() Genesis {
 			TsunamiBlockHeight:        29275561,
 			UpernavikBlockHeight:      31174201,
 			VanuatuBlockHeight:        33730921,
+			WakeBlockHeight:           43730921,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{
@@ -178,6 +180,8 @@ type (
 		NumSubEpochs uint64 `yaml:"numSubEpochs"`
 		// DardanellesNumSubEpochs is the number of sub epochs starts from dardanelles height in one epoch of block production
 		DardanellesNumSubEpochs uint64 `yaml:"dardanellesNumSubEpochs"`
+		// WakeNumSubEpochs is the number of sub epochs starts from wake height in one epoch of block production
+		WakeNumSubEpochs uint64 `yaml:"wakeNumSubEpochs"`
 		// NumDelegates is the number of delegates that participate into one epoch of block production
 		NumDelegates uint64 `yaml:"numDelegates"`
 		// NumCandidateDelegates is the number of candidate delegates, who may be selected as a delegate via roll dpos
@@ -276,6 +280,9 @@ type (
 		// 1. enable Cancun EVM
 		// 2. enable dynamic fee tx
 		VanuatuBlockHeight uint64 `yaml:"vanuatuHeight"`
+		// WakeBlockHeight is the start height to
+		// 1. enable 3s block interval
+		WakeBlockHeight uint64 `yaml:"wakeHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -639,6 +646,11 @@ func (g *Blockchain) IsUpernavik(height uint64) bool {
 // IsVanuatu checks whether height is equal to or larger than vanuatu height
 func (g *Blockchain) IsVanuatu(height uint64) bool {
 	return g.isPost(g.VanuatuBlockHeight, height)
+}
+
+// IsWake checks whether height is equal to or larger than wake height
+func (g *Blockchain) IsWake(height uint64) bool {
+	return g.isPost(g.WakeBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height

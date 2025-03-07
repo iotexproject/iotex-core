@@ -157,6 +157,18 @@ func TestProtocol_NumSubEpochs(t *testing.T) {
 		require.Equal(expectedP[i], numSubEpochs)
 	}
 
+	t.Run("wakeUpgrade", func(t *testing.T) {
+		p := NewProtocol(23, 4, 3,
+			EnableDardanellesSubEpoch(10, 5),
+			EnableWakeSubEpoch(20, 7),
+		)
+		require.Equal(uint64(3), p.NumSubEpochs(0))
+		require.Equal(uint64(3), p.NumSubEpochs(9))
+		require.Equal(uint64(5), p.NumSubEpochs(10))
+		require.Equal(uint64(5), p.NumSubEpochs(11))
+		require.Equal(uint64(7), p.NumSubEpochs(20))
+		require.Equal(uint64(7), p.NumSubEpochs(30))
+	})
 }
 
 func TestGetEpochNum(t *testing.T) {
@@ -196,6 +208,27 @@ func TestGetEpochNum(t *testing.T) {
 		require.Equal(expectedP3[i], epochNum)
 	}
 
+	t.Run("wakeUpgrade", func(t *testing.T) {
+		p := NewProtocol(23, 4, 5,
+			EnableDardanellesSubEpoch(41, 10),
+			EnableWakeSubEpoch(201, 20),
+		)
+		require.Equal(uint64(0), p.GetEpochNum(0))
+		require.Equal(uint64(1), p.GetEpochNum(1))
+		require.Equal(uint64(1), p.GetEpochNum(19))
+		require.Equal(uint64(1), p.GetEpochNum(20))
+		require.Equal(uint64(2), p.GetEpochNum(21))
+		require.Equal(uint64(2), p.GetEpochNum(40))
+		require.Equal(uint64(3), p.GetEpochNum(41))
+		require.Equal(uint64(3), p.GetEpochNum(80))
+		require.Equal(uint64(4), p.GetEpochNum(81))
+		require.Equal(uint64(4), p.GetEpochNum(120))
+		require.Equal(uint64(5), p.GetEpochNum(121))
+		require.Equal(uint64(6), p.GetEpochNum(200))
+		require.Equal(uint64(7), p.GetEpochNum(201))
+		require.Equal(uint64(7), p.GetEpochNum(280))
+		require.Equal(uint64(8), p.GetEpochNum(281))
+	})
 }
 
 func TestGetEpochHeight(t *testing.T) {
@@ -222,6 +255,22 @@ func TestGetEpochHeight(t *testing.T) {
 		require.Equal(expectedP2[i], epochHeight)
 	}
 
+	t.Run("wakeUpgrade", func(t *testing.T) {
+		p := NewProtocol(23, 4, 5,
+			EnableDardanellesSubEpoch(41, 10),
+			EnableWakeSubEpoch(201, 20),
+		)
+		cases := []struct {
+			epochNum uint64
+			height   uint64
+		}{
+			{0, 0}, {1, 1}, {2, 21}, {3, 41}, {4, 81}, {5, 121}, {6, 161}, {7, 201}, {8, 281}, {9, 361},
+		}
+		for i := range cases {
+			c := &cases[i]
+			require.Equal(c.height, p.GetEpochHeight(c.epochNum), "epochNum %d", c.epochNum)
+		}
+	})
 }
 
 func TestGetEpochLastBlockHeight(t *testing.T) {
@@ -234,6 +283,23 @@ func TestGetEpochLastBlockHeight(t *testing.T) {
 		height := p.GetEpochLastBlockHeight(epochNum)
 		require.Equal(expectedHeights[i], height)
 	}
+
+	t.Run("wakeUpgrade", func(t *testing.T) {
+		p := NewProtocol(23, 4, 5,
+			EnableDardanellesSubEpoch(41, 10),
+			EnableWakeSubEpoch(201, 20),
+		)
+		cases := []struct {
+			epochNum uint64
+			height   uint64
+		}{
+			{0, 0}, {1, 20}, {2, 40}, {3, 80}, {4, 120}, {5, 160}, {6, 200}, {7, 280}, {8, 360}, {9, 440},
+		}
+		for i := range cases {
+			c := &cases[i]
+			require.Equal(c.height, p.GetEpochLastBlockHeight(c.epochNum), "epochNum %d", c.epochNum)
+		}
+	})
 }
 
 func TestGetSubEpochNum(t *testing.T) {
