@@ -38,7 +38,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		Genesis genesis.Genesis
 		Chain   blockchain.Config
 	}{
-		Genesis: genesis.Default,
+		Genesis: genesis.TestDefault(),
 		Chain:   blockchain.DefaultConfig,
 	}
 	cfg.Genesis.EasterBlockHeight = 1 // set up testing after Easter Height

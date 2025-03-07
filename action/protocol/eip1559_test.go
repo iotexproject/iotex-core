@@ -27,7 +27,7 @@ func TestCalcBaseFee(t *testing.T) {
 		{action.InitialBaseFee, 24000000, 1000000000000},         // usage below target but capped to default
 		{action.InitialBaseFee, 26000000, 1005000000000},         // usage above target
 	}
-	g := genesis.Default.Blockchain
+	g := genesis.TestDefault().Blockchain
 	for _, test := range tests {
 		parent := &TipInfo{
 			Height:  g.VanuatuBlockHeight,

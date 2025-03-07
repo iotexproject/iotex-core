@@ -54,7 +54,7 @@ func newFactoryWorkingSet(t testing.TB) *workingSet {
 
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		genesis.Default,
+		genesis.TestDefault(),
 	)
 	r.NoError(sf.Start(ctx))
 	defer func() {
@@ -73,7 +73,7 @@ func newStateDBWorkingSet(t testing.TB) *workingSet {
 
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		genesis.Default,
+		genesis.TestDefault(),
 	)
 	r.NoError(sf.Start(ctx))
 	// defer r.NoError(sf.Stop(ctx))

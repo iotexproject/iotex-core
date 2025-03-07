@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/p2p"
 	"github.com/iotexproject/iotex-core/v2/server/itx"
@@ -174,6 +175,7 @@ func newActPoolConfig(t *testing.T) (config.Config, error) {
 	r := require.New(t)
 
 	cfg := config.Default
+	cfg.Genesis = genesis.TestDefault()
 
 	initDBPaths(r, &cfg)
 	defer func() {
