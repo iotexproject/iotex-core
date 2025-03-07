@@ -7,6 +7,7 @@ package factory
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -48,4 +49,9 @@ func (m *minter) NewBlockBuilder(ctx context.Context, sign func(action.Envelope)
 		defer cancel()
 	}
 	return m.f.NewBlockBuilder(ctx, m.ap, sign)
+}
+
+func (m *minter) NewBlockBuilderAt(ctx context.Context, sign func(action.Envelope) (*action.SealedEnvelope, error), prevHash []byte) (*block.Builder, error) {
+	// TODO: implement this
+	return nil, errors.New("not implemented")
 }

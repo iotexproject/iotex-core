@@ -60,6 +60,14 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 	if err != nil {
 		return nil, err
 	}
+	nextProposers, err := c.Proposers(height + 1)
+	if err != nil {
+		return nil, err
+	}
+	nextProposer, err := c.calculateProposer(height+1, 0, nextProposers)
+	if err != nil {
+		return nil, err
+	}
 	var status status
 	var blockInLock []byte
 	var proofOfLock []*endorsement.Endorsement
@@ -89,6 +97,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 		proposer:           proposer,
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(blockInterval),
+		nextRoundProposer:  nextProposer,
 		eManager:           round.eManager,
 		status:             status,
 		blockInLock:        blockInLock,
@@ -219,9 +228,9 @@ func (c *roundCalculator) newRound(
 ) (round *roundCtx, err error) {
 	epochNum := uint64(0)
 	epochStartHeight := uint64(0)
-	var delegates, proposers []string
+	var delegates, proposers, nextProposers []string
 	var roundNum uint32
-	var proposer string
+	var proposer, nextProposer string
 	var roundStartTime time.Time
 	if height != 0 {
 		epochNum = c.rp.GetEpochNum(height)
@@ -238,6 +247,12 @@ func (c *roundCalculator) newRound(
 		if proposer, err = c.calculateProposer(height, roundNum, proposers); err != nil {
 			return
 		}
+	}
+	if nextProposers, err = c.Proposers(height + 1); err != nil {
+		return
+	}
+	if nextProposer, err = c.calculateProposer(height+1, 0, nextProposers); err != nil {
+		return
 	}
 	if eManager == nil {
 		if eManager, err = newEndorsementManager(nil, nil); err != nil {
@@ -257,6 +272,7 @@ func (c *roundCalculator) newRound(
 		eManager:           eManager,
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(blockInterval),
+		nextRoundProposer:  nextProposer,
 		status:             _open,
 	}
 	eManager.SetIsMarjorityFunc(round.EndorsedByMajority)
