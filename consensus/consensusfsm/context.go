@@ -41,4 +41,5 @@ type Context interface {
 	NewPreCommitEndorsement(interface{}) (interface{}, error)
 	Commit(interface{}) (bool, error)
 	ConsensusConfig
+	PrepareNextProposal(any) error
 }

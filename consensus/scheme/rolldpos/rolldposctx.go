@@ -370,6 +370,14 @@ func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 	return ctx.mintNewBlock()
 }
 
+func (ctx *rollDPoSCtx) PrepareNextProposal(endorse any) error {
+	if ctx.encodedAddr != ctx.round.nextRoundProposer {
+		return nil
+	}
+	prevHash := endorse.(*EndorsedConsensusMessage).Document().(*ConsensusVote).blkHash
+	return ctx.chain.PrepareBlock(ctx.round.height+1, prevHash, ctx.round.nextRoundStartTime)
+}
+
 func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()

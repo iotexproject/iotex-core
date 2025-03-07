@@ -94,6 +94,9 @@ type (
 		// MintNewBlock creates a new block with given actions
 		// Note: the coinbase transfer will be added to the given transfers when minting a new block
 		MintNewBlock(timestamp time.Time) (*block.Block, error)
+		// PrepareBlock start to prepares a new block with given previous hash asynchrously
+		// it can speed up the MintNewBlock
+		PrepareBlock(height uint64, prevHash []byte, timestamp time.Time) error
 		// CommitBlock validates and appends a block to the chain
 		CommitBlock(blk *block.Block) error
 		// ValidateBlock validates a new block before adding it to the blockchain
@@ -110,6 +113,7 @@ type (
 	BlockBuilderFactory interface {
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
+		NewBlockBuilderAt(context.Context, func(action.Envelope) (*action.SealedEnvelope, error), []byte) (*block.Builder, error)
 	}
 
 	// blockchain implements the Blockchain interface
@@ -125,7 +129,8 @@ type (
 		timerFactory   *prometheustimer.TimerFactory
 
 		// used by account-based model
-		bbf BlockBuilderFactory
+		bbf     BlockBuilderFactory
+		prepare *Prepare
 	}
 )
 
@@ -187,6 +192,7 @@ func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf Blo
 		bbf:           bbf,
 		clk:           clock.New(),
 		pubSubManager: NewPubSub(cfg.StreamingBlockBufferSize),
+		prepare:       newPrepare(),
 	}
 	for _, opt := range opts {
 		if err := opt(chain); err != nil {
@@ -208,7 +214,7 @@ func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf Blo
 	}
 	chain.lifecycle.Add(chain.dao)
 	chain.lifecycle.Add(chain.pubSubManager)
-
+	chain.pubSubManager.AddBlockListener(chain.prepare)
 	return chain
 }
 
@@ -407,6 +413,41 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 	return protocol.WithFeatureWithHeightCtx(ctx), nil
 }
 
+func (bc *blockchain) PrepareBlock(height uint64, prevHash []byte, timestamp time.Time) error {
+	ctx, err := bc.context(context.Background(), height-1)
+	if err != nil {
+		return err
+	}
+	tip := protocol.MustGetBlockchainCtx(ctx).Tip
+	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), height, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
+	ctx = protocol.WithFeatureCtx(ctx)
+	// run execution and update state trie root hash
+	minterPrivateKey := bc.config.ProducerPrivateKey()
+
+	go bc.prepare.PrepareBlock(prevHash, func() (*block.Block, error) {
+		blockBuilder, err := bc.bbf.NewBlockBuilderAt(
+			ctx,
+			func(elp action.Envelope) (*action.SealedEnvelope, error) {
+				return action.Sign(elp, minterPrivateKey)
+			},
+			prevHash,
+		)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create block builder at height %d", height)
+		}
+		blk, err := blockBuilder.SignAndBuild(minterPrivateKey)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create block at height %d", height)
+		}
+
+		_blockMtc.WithLabelValues("MintGas").Set(float64(blk.GasUsed()))
+		_blockMtc.WithLabelValues("MintActions").Set(float64(len(blk.Actions)))
+		return &blk, nil
+	})
+
+	return nil
+}
+
 func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
@@ -422,6 +463,17 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 		return nil, err
 	}
 	tip := protocol.MustGetBlockchainCtx(ctx).Tip
+
+	// retrieve the draft block if it's prepared
+	pblk, err := bc.prepare.WaitBlock(tip.Hash[:])
+	if pblk != nil {
+		return pblk, nil
+	}
+	if err != nil {
+		log.L().Error("Failed to prepare new block", zap.Error(err))
+	}
+
+	// create a new block
 	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
 	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
