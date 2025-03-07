@@ -54,6 +54,7 @@ func defaultConfig() Genesis {
 			NumCandidateDelegates:     36,
 			TimeBasedRotation:         false,
 			MinBlocksForBlobRetention: 345600,
+			NumProposalBatchSize:      5,
 			PacificBlockHeight:        432001,
 			AleutianBlockHeight:       864001,
 			BeringBlockHeight:         1512001,
@@ -79,6 +80,7 @@ func defaultConfig() Genesis {
 			TsunamiBlockHeight:        29275561,
 			UpernavikBlockHeight:      31174201,
 			VanuatuBlockHeight:        33730921,
+			WakeBlockHeight:           math.MaxUint64,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{
@@ -186,6 +188,8 @@ type (
 		TimeBasedRotation bool `yaml:"timeBasedRotation"`
 		// MinBlocksForBlobRetention is the minimum number of blocks for blob retention
 		MinBlocksForBlobRetention uint64 `yaml:"minBlocksForBlobRetention"`
+		// NumProposalBatchSize is the number of proposals in a batch
+		NumProposalBatchSize uint64 `yaml:"numProposalBatchSize"`
 		// PacificBlockHeight is the start height of using the logic of Pacific version
 		// TODO: PacificBlockHeight is not added into protobuf definition for backward compatibility
 		PacificBlockHeight uint64 `yaml:"pacificHeight"`
@@ -276,6 +280,9 @@ type (
 		// 1. enable Cancun EVM
 		// 2. enable dynamic fee tx
 		VanuatuBlockHeight uint64 `yaml:"vanuatuHeight"`
+		// WakeBlockHeight is the start height to
+		// 1. enable 3s block interval
+		WakeBlockHeight uint64 `yaml:"wakeHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -639,6 +646,11 @@ func (g *Blockchain) IsUpernavik(height uint64) bool {
 // IsVanuatu checks whether height is equal to or larger than vanuatu height
 func (g *Blockchain) IsVanuatu(height uint64) bool {
 	return g.isPost(g.VanuatuBlockHeight, height)
+}
+
+// IsWake checks whether height is equal to or larger than wake height
+func (g *Blockchain) IsWake(height uint64) bool {
+	return g.isPost(g.WakeBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height

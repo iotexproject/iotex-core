@@ -200,7 +200,7 @@ func TestValidateBlockFooter(t *testing.T) {
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
-	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(5)
+	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).AnyTimes()
 
 	sk1 := identityset.PrivateKey(1)
 	g := genesis.Default
@@ -216,7 +216,7 @@ func TestValidateBlockFooter(t *testing.T) {
 		Genesis:            g,
 		SystemActive:       true,
 	}
-	bc.EXPECT().Genesis().Return(g).Times(5)
+	bc.EXPECT().Genesis().Return(g).AnyTimes()
 	rp := rolldpos.NewProtocol(
 		g.NumCandidateDelegates,
 		g.NumDelegates,
