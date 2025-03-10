@@ -70,7 +70,7 @@ type (
 		Height() (uint64, error)
 		State(interface{}, ...StateOption) (uint64, error)
 		States(...StateOption) (uint64, state.Iterator, error)
-		ReadView(string) (interface{}, error)
+		ReadView(string) (View, error)
 	}
 
 	// StateManager defines the stateDB interface atop IoTeX blockchain
@@ -82,7 +82,7 @@ type (
 		// General state
 		PutState(interface{}, ...StateOption) (uint64, error)
 		DelState(...StateOption) (uint64, error)
-		WriteView(string, interface{}) error
+		WriteView(string, View) error
 		Dock
 	}
 

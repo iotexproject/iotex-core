@@ -82,6 +82,23 @@ type (
 	}
 )
 
+func (v *ViewData) Clone() protocol.View {
+	// TODO: clone the view
+	return v
+}
+
+func (v *ViewData) Commit() error {
+	return nil
+}
+
+func (v *ViewData) Snapshot() int {
+	return 0
+}
+
+func (v *ViewData) Revert(snapshot int) error {
+	return nil
+}
+
 func newCandidateStateReader(sr protocol.StateReader) CandidateStateReader {
 	return &candSR{
 		StateReader: sr,

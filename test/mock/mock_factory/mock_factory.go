@@ -84,10 +84,10 @@ func (mr *MockFactoryMockRecorder) PutBlock(arg0, arg1 interface{}) *gomock.Call
 }
 
 // ReadView mocks base method.
-func (m *MockFactory) ReadView(arg0 string) (interface{}, error) {
+func (m *MockFactory) ReadView(arg0 string) (protocol.View, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadView", arg0)
-	ret0, _ := ret[0].(interface{})
+	ret0, _ := ret[0].(protocol.View)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
