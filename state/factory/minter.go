@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type MintOption func(*minter)
@@ -53,5 +54,6 @@ func (m *minter) NewBlockBuilder(ctx context.Context, sign func(action.Envelope)
 
 func (m *minter) NewBlockBuilderAt(ctx context.Context, sign func(action.Envelope) (*action.SealedEnvelope, error), prevHash []byte) (*block.Builder, error) {
 	// TODO: implement this
+	log.L().Info("NewBlockBuilderAt is not implemented")
 	return nil, errors.New("not implemented")
 }

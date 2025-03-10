@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
@@ -361,7 +362,12 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 	if bc.blockValidator == nil {
 		return nil
 	}
-	return bc.blockValidator.Validate(ctx, blk)
+	err = bc.blockValidator.Validate(ctx, blk)
+	if err != nil {
+		return err
+	}
+	bc.prepare.AddDraftBlock(blk)
+	return nil
 }
 
 func (bc *blockchain) Context(ctx context.Context) (context.Context, error) {
@@ -414,6 +420,7 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 }
 
 func (bc *blockchain) PrepareBlock(height uint64, prevHash []byte, timestamp time.Time) error {
+	log.L().Info("Prepare a new block.", zap.Uint64("height", height), zap.Time("timestamp", timestamp), log.Hex("prevHash", prevHash))
 	ctx, err := bc.context(context.Background(), height-1)
 	if err != nil {
 		return err
@@ -424,7 +431,7 @@ func (bc *blockchain) PrepareBlock(height uint64, prevHash []byte, timestamp tim
 	// run execution and update state trie root hash
 	minterPrivateKey := bc.config.ProducerPrivateKey()
 
-	go bc.prepare.PrepareBlock(prevHash, func() (*block.Block, error) {
+	bc.prepare.PrepareBlock(prevHash, func() (*block.Block, error) {
 		blockBuilder, err := bc.bbf.NewBlockBuilderAt(
 			ctx,
 			func(elp action.Envelope) (*action.SealedEnvelope, error) {
@@ -467,12 +474,13 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	// retrieve the draft block if it's prepared
 	pblk, err := bc.prepare.WaitBlock(tip.Hash[:])
 	if pblk != nil {
+		log.L().Info("Produce a new block from draft block.", zap.Uint64("height", newblockHeight), zap.Time("timestamp", timestamp))
 		return pblk, nil
 	}
 	if err != nil {
 		log.L().Error("Failed to prepare new block", zap.Error(err))
 	}
-
+	log.L().Info("Produce a new block.", zap.Uint64("height", newblockHeight), zap.Time("timestamp", timestamp))
 	// create a new block
 	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
 	ctx = protocol.WithFeatureCtx(ctx)
@@ -538,11 +546,23 @@ func (bc *blockchain) tipInfo(tipHeight uint64) (*protocol.TipInfo, error) {
 			Timestamp: time.Unix(bc.genesis.Timestamp, 0),
 		}, nil
 	}
-	header, err := bc.dao.HeaderByHeight(tipHeight)
+	daoHeight, err := bc.dao.Height()
 	if err != nil {
 		return nil, err
 	}
-
+	var header *block.Header
+	if tipHeight > daoHeight {
+		if blk := bc.prepare.Block(tipHeight); blk != nil {
+			header = &blk.Header
+		} else {
+			err = errors.Wrapf(db.ErrNotExist, "draft block not found at height %d", tipHeight)
+		}
+	} else {
+		header, err = bc.dao.HeaderByHeight(tipHeight)
+	}
+	if err != nil {
+		return nil, err
+	}
 	return &protocol.TipInfo{
 		Height:        tipHeight,
 		GasUsed:       header.GasUsed(),

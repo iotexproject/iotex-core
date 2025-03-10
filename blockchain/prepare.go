@@ -4,13 +4,16 @@ import (
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type (
 	Prepare struct {
-		draftBlocks map[hash.Hash256]chan *mintResult
+		tasks       map[hash.Hash256]chan *mintResult
+		draftBlocks map[uint64]*block.Block
 		mu          sync.Mutex
 	}
 	mintResult struct {
@@ -21,53 +24,66 @@ type (
 
 func newPrepare() *Prepare {
 	return &Prepare{
-		draftBlocks: make(map[hash.Hash256]chan *mintResult),
+		tasks:       make(map[hash.Hash256]chan *mintResult),
+		draftBlocks: make(map[uint64]*block.Block),
 	}
 }
 
 func (d *Prepare) PrepareBlock(prevHash []byte, mintFn func() (*block.Block, error)) {
+	log.L().Info("wait prepare block lock", log.Hex("prevHash", prevHash))
 	d.mu.Lock()
+	if _, ok := d.tasks[hash.BytesToHash256(prevHash)]; ok {
+		log.L().Info("draft block already exists", log.Hex("prevHash", prevHash))
+		d.mu.Unlock()
+		return
+	}
 	res := make(chan *mintResult, 1)
-	d.draftBlocks[hash.BytesToHash256(prevHash)] = res
+	d.tasks[hash.BytesToHash256(prevHash)] = res
 	d.mu.Unlock()
 
-	blk, err := mintFn()
-	res <- &mintResult{blk: blk, err: err}
+	go func() {
+		log.L().Info("prepare mint start")
+		blk, err := mintFn()
+		log.L().Info("prepare mint", zap.Error(err))
+		res <- &mintResult{blk: blk, err: err}
+		log.L().Info("prepare mint returned", zap.Error(err))
+	}()
 }
 
 func (d *Prepare) WaitBlock(prevHash []byte) (*block.Block, error) {
 	d.mu.Lock()
-	defer d.mu.Unlock()
 	hash := hash.Hash256(prevHash)
-	if ch, ok := d.draftBlocks[hash]; ok {
-		// wait for the draft block
+	if ch, ok := d.tasks[hash]; ok {
+		log.L().Info("waiting for draft block", log.Hex("prevHash", prevHash))
+		d.mu.Unlock()
 		res := <-ch
-		delete(d.draftBlocks, hash)
-		if res.err == nil {
-			return res.blk, nil
-		}
-		return nil, res.err
+		log.L().Info("draft block received", log.Hex("prevHash", prevHash), zap.Error(res.err))
+		d.mu.Lock()
+		delete(d.tasks, hash)
+		d.mu.Unlock()
+		return res.blk, res.err
 	}
+	d.mu.Unlock()
 	return nil, nil
+}
+
+func (d *Prepare) AddDraftBlock(blk *block.Block) {
+	d.mu.Lock()
+	d.draftBlocks[blk.Height()] = blk
+	d.mu.Unlock()
 }
 
 func (d *Prepare) ReceiveBlock(blk *block.Block) error {
 	d.mu.Lock()
-	keys := make([]hash.Hash256, 0, len(d.draftBlocks))
-	for hash, ch := range d.draftBlocks {
-		select {
-		case res := <-ch:
-			if res.err != nil {
-				keys = append(keys, hash)
-			} else if res.blk.Height() <= blk.Height() {
-				keys = append(keys, hash)
-			}
-		default:
-		}
-	}
-	for _, key := range keys {
-		delete(d.draftBlocks, key)
-	}
+	delete(d.tasks, blk.PrevHash())
+	delete(d.draftBlocks, blk.Height())
 	d.mu.Unlock()
 	return nil
+}
+
+func (d *Prepare) Block(height uint64) *block.Block {
+	d.mu.Lock()
+	blk := d.draftBlocks[height]
+	d.mu.Unlock()
+	return blk
 }

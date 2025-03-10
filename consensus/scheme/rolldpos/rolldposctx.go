@@ -375,6 +375,7 @@ func (ctx *rollDPoSCtx) PrepareNextProposal(endorse any) error {
 		return nil
 	}
 	prevHash := endorse.(*EndorsedConsensusMessage).Document().(*ConsensusVote).blkHash
+	ctx.Logger().Info("prepare next proposal", log.Hex("prevHash", prevHash), zap.Uint64("height", ctx.round.height+1), zap.Time("timestamp", ctx.round.nextRoundStartTime), zap.String("ioAddr", ctx.encodedAddr), zap.String("nextproposer", ctx.round.nextRoundProposer))
 	return ctx.chain.PrepareBlock(ctx.round.height+1, prevHash, ctx.round.nextRoundStartTime)
 }
 

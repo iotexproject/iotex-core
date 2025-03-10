@@ -469,6 +469,9 @@ func (m *ConsensusFSM) processBlock(block interface{}) error {
 	}
 	m.ProduceReceiveProposalEndorsementEvent(en)
 	m.ctx.Broadcast(en)
+	if err = m.ctx.PrepareNextProposal(en); err != nil {
+		m.ctx.Logger().Warn("Failed to prepare next proposal", zap.Error(err))
+	}
 	return nil
 }
 
@@ -504,7 +507,6 @@ func (m *ConsensusFSM) onReceiveProposalEndorsement(evt fsm.Event, currentState 
 	}
 	m.ProduceReceiveLockEndorsementEvent(lockEndorsement)
 	m.ctx.Broadcast(lockEndorsement)
-	m.ctx.PrepareNextProposal(lockEndorsement)
 	return sAcceptLockEndorsement, err
 }
 
