@@ -187,7 +187,7 @@ func ProtocolAddr() address.Address {
 }
 
 // Start starts the protocol
-func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
+func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol.View, error) {
 	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sr.Height()
 	if err != nil {

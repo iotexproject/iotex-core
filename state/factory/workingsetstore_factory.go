@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/trie"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -27,7 +26,7 @@ type factoryWorkingSetStore struct {
 	trieRoots map[int][]byte
 }
 
-func newFactoryWorkingSetStore(view protocol.View, flusher db.KVStoreFlusher) (workingSetStore, error) {
+func newFactoryWorkingSetStore(flusher db.KVStoreFlusher) (workingSetStore, error) {
 	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, flusher.KVStoreWithBuffer(), ArchiveTrieRootKey, true)
 	if err != nil {
 		return nil, err
@@ -36,14 +35,13 @@ func newFactoryWorkingSetStore(view protocol.View, flusher db.KVStoreFlusher) (w
 	return &factoryWorkingSetStore{
 		workingSetStoreCommon: &workingSetStoreCommon{
 			flusher: flusher,
-			view:    view,
 		},
 		tlt:       tlt,
 		trieRoots: make(map[int][]byte),
 	}, nil
 }
 
-func newFactoryWorkingSetStoreAtHeight(view protocol.View, flusher db.KVStoreFlusher, height uint64) (workingSetStore, error) {
+func newFactoryWorkingSetStoreAtHeight(flusher db.KVStoreFlusher, height uint64) (workingSetStore, error) {
 	rootKey := fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height)
 	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, flusher.KVStoreWithBuffer(), rootKey, false)
 	if err != nil {
@@ -53,7 +51,6 @@ func newFactoryWorkingSetStoreAtHeight(view protocol.View, flusher db.KVStoreFlu
 	return &factoryWorkingSetStore{
 		workingSetStoreCommon: &workingSetStoreCommon{
 			flusher: flusher,
-			view:    view,
 		},
 		tlt:       tlt,
 		trieRoots: make(map[int][]byte),

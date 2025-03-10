@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
@@ -21,15 +20,12 @@ import (
 func TestStateDBWorkingSetStore(t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
-	view := protocol.View{}
 	inMemStore := db.NewMemKVStore()
 	flusher, err := db.NewKVStoreFlusher(inMemStore, batch.NewCachedBatch())
 	require.NoError(err)
-	store := newStateDBWorkingSetStore(view, flusher, true)
+	store := newStateDBWorkingSetStore(flusher, true)
 	require.NotNil(store)
 	require.NoError(store.Start(ctx))
-	name := "name"
-	viewValue := "value"
 	namespace := "namespace"
 	key1 := []byte("key1")
 	value1 := []byte("value1")
@@ -37,14 +33,6 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 	value2 := []byte("value2")
 	key3 := []byte("key3")
 	value3 := []byte("value3")
-	t.Run("test view", func(t *testing.T) {
-		_, err := store.ReadView(name)
-		require.Error(err)
-		require.NoError(store.WriteView(name, viewValue))
-		valueInView, err := store.ReadView(name)
-		require.NoError(err)
-		require.Equal(valueInView, viewValue)
-	})
 	t.Run("test kvstore feature", func(t *testing.T) {
 		_, err := store.Get(namespace, key1)
 		require.Error(err)

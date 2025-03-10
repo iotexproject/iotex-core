@@ -333,7 +333,7 @@ func TestFixAlias(t *testing.T) {
 	r := require.New(t)
 
 	dk := protocol.NewDock()
-	view := protocol.View{}
+	view := protocol.NewViews()
 
 	for _, hasAlias := range []bool{false, true} {
 		// add 6 candidates into cand center
@@ -350,7 +350,9 @@ func TestFixAlias(t *testing.T) {
 		} else {
 			r.NoError(m.Commit())
 		}
-		r.NoError(view.Write(_protocolID, m))
+		r.NoError(view.Write(_protocolID, &ViewData{
+			candCenter: m,
+		}))
 
 		// simulate handleCandidateUpdate: update name
 		center := candCenterFromNewCandidateStateManager(r, view, dk)
@@ -407,7 +409,9 @@ func TestFixAlias(t *testing.T) {
 			} else {
 				r.NoError(center.Commit())
 			}
-			r.NoError(view.Write(_protocolID, center))
+			r.NoError(view.Write(_protocolID, &ViewData{
+				candCenter: center,
+			}))
 			dk.Reset()
 		}
 
@@ -506,8 +510,10 @@ func TestMultipleNonStakingCandidate(t *testing.T) {
 		r.True(testEqual(candcenter, CandidateList(cands)))
 		// from state manager
 		dk := protocol.NewDock()
-		view := protocol.View{}
-		r.NoError(view.Write(_protocolID, candcenter))
+		view := protocol.NewViews()
+		r.NoError(view.Write(_protocolID, &ViewData{
+			candCenter: candcenter,
+		}))
 		dk.Reset()
 		candcenter = candCenterFromNewCandidateStateManager(r, view, dk)
 		r.True(testEqual(candcenter, CandidateList(cands)))
@@ -564,11 +570,11 @@ func TestMultipleNonStakingCandidate(t *testing.T) {
 	})
 }
 
-func candCenterFromNewCandidateStateManager(r *require.Assertions, view protocol.View, dk protocol.Dock) *CandidateCenter {
+func candCenterFromNewCandidateStateManager(r *require.Assertions, view *protocol.Views, dk protocol.Dock) *CandidateCenter {
 	// get cand center: csm.ConstructBaseView
 	v, err := view.Read(_protocolID)
 	r.NoError(err)
-	center := v.(*CandidateCenter).Base()
+	center := v.(*ViewData).candCenter.Base()
 	// get changes: csm.Sync()
 	delta := CandidateList{}
 	err = dk.Unload(_protocolID, _stakingCandCenter, &delta)

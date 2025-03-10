@@ -39,7 +39,7 @@ type Protocol interface {
 
 // Starter starts the protocol
 type Starter interface {
-	Start(context.Context, StateReader) (interface{}, error)
+	Start(context.Context, StateReader) (View, error)
 }
 
 // GenesisStateCreator creates some genesis states
@@ -100,21 +100,89 @@ func BlobGasFeeOption(blobGasFee *big.Int) DepositOption {
 	}
 }
 
-// DepositGas deposits gas to rewarding pool and burns baseFee
-type DepositGas func(context.Context, StateManager, *big.Int, ...DepositOption) ([]*action.TransactionLog, error)
+type (
+	// DepositGas deposits gas to rewarding pool and burns baseFee
+	DepositGas func(context.Context, StateManager, *big.Int, ...DepositOption) ([]*action.TransactionLog, error)
 
-// View stores the view for all protocols
-type View map[string]interface{}
+	View interface {
+		Clone() View
+		Snapshot() int
+		Revert(int) error
+		Commit() error
+	}
 
-func (view View) Read(name string) (interface{}, error) {
-	if v, hit := view[name]; hit {
+	// Views stores the view for all protocols
+	Views struct {
+		views     map[string]View
+		snapshots []map[string]int
+	}
+)
+
+func NewViews() *Views {
+	return &Views{
+		views:     make(map[string]View),
+		snapshots: make([]map[string]int, 0),
+	}
+}
+
+func (views *Views) Clone() *Views {
+	clone := Views{
+		views:     make(map[string]View, len(views.views)),
+		snapshots: make([]map[string]int, len(views.snapshots)),
+	}
+	for key, view := range views.views {
+		clone.views[key] = view.Clone()
+	}
+	for snapshot, snapshotMap := range views.snapshots {
+		clone.snapshots[snapshot] = make(map[string]int)
+		for key, value := range snapshotMap {
+			clone.snapshots[snapshot][key] = value
+		}
+	}
+	return &clone
+}
+
+func (views *Views) Commit() error {
+	for _, view := range views.views {
+		if err := view.Commit(); err != nil {
+			return err
+		}
+	}
+	views.snapshots = make([]map[string]int, 0)
+	return nil
+}
+
+func (views Views) Snapshot() int {
+	snapshot := len(views.snapshots)
+	views.snapshots = append(views.snapshots, make(map[string]int))
+	for key, view := range views.views {
+		views.snapshots[snapshot][key] = view.Snapshot()
+	}
+	return snapshot
+}
+
+func (views Views) Revert(snapshot int) error {
+	if snapshot < 0 || snapshot >= len(views.snapshots) {
+		return errors.New("invalid snapshot")
+	}
+	for key, view := range views.views {
+		if err := view.Revert(views.snapshots[snapshot][key]); err != nil {
+			return err
+		}
+	}
+	views.snapshots = views.snapshots[:snapshot]
+	return nil
+}
+
+func (views Views) Read(name string) (View, error) {
+	if v, hit := views.views[name]; hit {
 		return v, nil
 	}
 	return nil, ErrNoName
 }
 
-func (view View) Write(name string, v interface{}) error {
-	view[name] = v
+func (views Views) Write(name string, v View) error {
+	views.views[name] = v
 	return nil
 }
 

@@ -83,6 +83,24 @@ func newStateDBWorkingSet(t testing.TB) *workingSet {
 	return ws
 }
 
+type value string
+
+func (v value) Clone() protocol.View {
+	return v
+}
+
+func (v value) Snapshot() int {
+	return 0
+}
+
+func (v value) Revert(int) error {
+	return nil
+}
+
+func (v value) Commit() error {
+	return nil
+}
+
 func TestWorkingSet_ReadWriteView(t *testing.T) {
 	var (
 		r   = require.New(t)
@@ -90,33 +108,33 @@ func TestWorkingSet_ReadWriteView(t *testing.T) {
 			newFactoryWorkingSet(t),
 			newStateDBWorkingSet(t),
 		}
-		tests = []struct{ key, val string }{
-			{"key1", "value1"},
-			{"key2", "value2"},
-			{"key3", "value3"},
-			{"key4", "value4"},
+		tests = map[string]value{
+			"key1": "value1",
+			"key2": "value2",
+			"key3": "value3",
+			"key4": "value4",
 		}
 	)
 	for _, ws := range set {
-		for _, test := range tests {
-			val, err := ws.ReadView(test.key)
+		for key, oval := range tests {
+			val, err := ws.ReadView(key)
 			r.Equal(protocol.ErrNoName, errors.Cause(err))
 			r.Equal(val, nil)
 			// write view into workingSet
-			r.NoError(ws.WriteView(test.key, test.val))
+			r.NoError(ws.WriteView(key, oval))
 		}
 
 		// read view and compare result
-		for _, test := range tests {
-			val, err := ws.ReadView(test.key)
+		for key, oval := range tests {
+			val, err := ws.ReadView(key)
 			r.NoError(err)
-			r.Equal(test.val, val)
+			r.Equal(oval, val)
 		}
 
 		// overwrite
-		newVal := "testvalue"
-		r.NoError(ws.WriteView(tests[0].key, newVal))
-		val, err := ws.ReadView(tests[0].key)
+		var newVal value = "testvalue"
+		r.NoError(ws.WriteView("key1", newVal))
+		val, err := ws.ReadView("key1")
 		r.NoError(err)
 		r.Equal(newVal, val)
 	}
