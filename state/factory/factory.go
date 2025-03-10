@@ -102,7 +102,7 @@ type (
 		dao                      db.KVStore        // the underlying DB for account/contract storage
 		timerFactory             *prometheustimer.TimerFactory
 		workingsets              cache.LRUCache // lru cache for workingsets
-		protocolView             protocol.View
+		protocolView             *protocol.Views
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
 	}
@@ -156,7 +156,7 @@ func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
 		saveHistory:        cfg.Chain.EnableArchiveMode,
-		protocolView:       protocol.View{},
+		protocolView:       &protocol.Views{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
 		dao:                dao,
 	}
@@ -273,7 +273,7 @@ func (sf *factory) newWorkingSetWithKVStore(ctx context.Context, height uint64, 
 	if err != nil {
 		return nil, err
 	}
-	store, err := newFactoryWorkingSetStore(sf.protocolView, flusher)
+	store, err := newFactoryWorkingSetStore(flusher)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +294,7 @@ func (sf *factory) newWorkingSetAtHeight(ctx context.Context, height uint64) (*w
 	if err != nil {
 		return nil, err
 	}
-	store, err := newFactoryWorkingSetStoreAtHeight(sf.protocolView, flusher, height)
+	store, err := newFactoryWorkingSetStoreAtHeight(flusher, height)
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +316,7 @@ func (sf *factory) createSfWorkingSet(ctx context.Context, height uint64, store 
 			}
 		}
 	}
-	return newWorkingSet(height, store), nil
+	return newWorkingSet(height, sf.protocolView, store), nil
 }
 
 func (sf *factory) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
@@ -543,7 +543,7 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 }
 
 // ReadView reads the view
-func (sf *factory) ReadView(name string) (interface{}, error) {
+func (sf *factory) ReadView(name string) (protocol.View, error) {
 	return sf.protocolView.Read(name)
 }
 

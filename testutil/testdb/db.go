@@ -126,7 +126,7 @@ func NewMockStateManagerWithoutHeightFunc(ctrl *gomock.Controller) *mock_chainma
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	kv := NewMockKVStore(ctrl)
 	dk := protocol.NewDock()
-	view := protocol.View{}
+	view := protocol.NewViews()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 			cfg, err := protocol.CreateStateConfig(opts...)
@@ -220,16 +220,15 @@ func NewMockStateManagerWithoutHeightFunc(ctrl *gomock.Controller) *mock_chainma
 	).AnyTimes()
 	sm.EXPECT().ReadView(gomock.Any()).DoAndReturn(
 		func(name string) (interface{}, error) {
-			if v, hit := view[name]; hit {
+			if v, err := view.Read(name); err == nil {
 				return v, nil
 			}
 			return nil, protocol.ErrNoName
 		},
 	).AnyTimes()
 	sm.EXPECT().WriteView(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(name string, v interface{}) error {
-			view[name] = v
-			return nil
+		func(name string, v protocol.View) error {
+			return view.Write(name, v)
 		},
 	).AnyTimes()
 	// use Snapshot() to simulate workingset.Reset()
