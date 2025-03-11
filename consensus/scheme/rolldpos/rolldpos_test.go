@@ -671,7 +671,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}()
 		time.Sleep(5 * time.Second)
 		for _, chain := range chains {
-			header, err := chain.BlockHeaderByHeight(1)
+			header, err := chain.BlockFooterByHeight(1)
 			assert.Nil(t, header)
 			assert.Error(t, err)
 		}

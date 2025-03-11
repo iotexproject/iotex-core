@@ -199,6 +199,34 @@ func (mr *MockBlockchainMockRecorder) MintNewBlock(timestamp interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), timestamp)
 }
 
+// PendingHeight mocks base method.
+func (m *MockBlockchain) PendingHeight() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PendingHeight")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// PendingHeight indicates an expected call of PendingHeight.
+func (mr *MockBlockchainMockRecorder) PendingHeight() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingHeight", reflect.TypeOf((*MockBlockchain)(nil).PendingHeight))
+}
+
+// PrepareBlock mocks base method.
+func (m *MockBlockchain) PrepareBlock(height uint64, prevHash []byte, timestamp time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PrepareBlock", height, prevHash, timestamp)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PrepareBlock indicates an expected call of PrepareBlock.
+func (mr *MockBlockchainMockRecorder) PrepareBlock(height, prevHash, timestamp interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareBlock", reflect.TypeOf((*MockBlockchain)(nil).PrepareBlock), height, prevHash, timestamp)
+}
+
 // RemoveSubscriber mocks base method.
 func (m *MockBlockchain) RemoveSubscriber(arg0 blockchain.BlockCreationSubscriber) error {
 	m.ctrl.T.Helper()

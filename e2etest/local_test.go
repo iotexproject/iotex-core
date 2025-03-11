@@ -449,6 +449,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.Chain.ContractStakingIndexDBPath = testContractStakeIndexPath
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.ActPool.MinGasPriceStr = "0"
+	cfg.ActPool.Store = nil
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
 
@@ -473,7 +474,6 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	require.NoError(addTestingTsfBlocks(bc, ap))
 	require.Equal(uint64(5), bc.TipHeight())
-
 	require.NoError(svr.Stop(ctx))
 	// Delete state db and recover to tip
 	testutil.CleanupPath(testTriePath)
