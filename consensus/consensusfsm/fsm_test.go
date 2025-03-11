@@ -79,6 +79,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 				data:      data,
 			}
 		}).AnyTimes()
+	mockCtx.EXPECT().PrepareNextProposal(gomock.Any()).Return(nil).AnyTimes()
 	cfsm, err := NewConsensusFSM(mockCtx, mockClock)
 	require.NoError(err)
 	require.NotNil(cfsm)
