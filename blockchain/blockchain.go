@@ -84,6 +84,9 @@ type (
 		TipHash() hash.Hash256
 		// TipHeight returns tip block's height
 		TipHeight() uint64
+		// PendingHeight returns the height of the pending block
+		// if there is no pending block, it returns the tip height
+		PendingHeight() uint64
 		// Genesis returns the genesis
 		Genesis() genesis.Genesis
 		// Context returns current context
@@ -255,7 +258,18 @@ func (bc *blockchain) Stop(ctx context.Context) error {
 }
 
 func (bc *blockchain) BlockHeaderByHeight(height uint64) (*block.Header, error) {
-	return bc.dao.HeaderByHeight(height)
+	header, err := bc.dao.HeaderByHeight(height)
+	switch errors.Cause(err) {
+	case nil:
+		return header, nil
+	case db.ErrNotExist:
+		if blk := bc.prepare.Block(height); blk != nil {
+			return &blk.Header, nil
+		}
+		return nil, err
+	default:
+		return nil, err
+	}
 }
 
 func (bc *blockchain) BlockFooterByHeight(height uint64) (*block.Footer, error) {
@@ -416,6 +430,12 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 		bc.genesis,
 	)
 	return protocol.WithFeatureWithHeightCtx(ctx), nil
+}
+
+func (bc *blockchain) PendingHeight() uint64 {
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
+	return max(bc.prepare.Tip(), bc.TipHeight())
 }
 
 func (bc *blockchain) PrepareBlock(height uint64, prevHash []byte, timestamp time.Time) error {

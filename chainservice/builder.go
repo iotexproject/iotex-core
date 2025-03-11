@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/cache"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -500,6 +501,13 @@ func (builder *Builder) buildBlockchain(forSubChain, forTest bool) error {
 			return errors.Wrap(err, "failed to add index builder as subscriber")
 		}
 	}
+	builder.cs.getBlockHashFn = func(height uint64) (hash.Hash256, error) {
+		header, err := builder.cs.Blockchain().BlockHeaderByHeight(height)
+		if err != nil {
+			return hash.ZeroHash256, err
+		}
+		return header.HashBlock(), nil
+	}
 	return nil
 }
 
@@ -706,7 +714,7 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGas, builder.cs.blockTimeCalculator.CalculateBlockTime).Register(builder.cs.registry)
+	return execution.NewProtocol(builder.cs.getBlockHashFn, rewarding.DepositGas, builder.cs.blockTimeCalculator.CalculateBlockTime).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
@@ -722,9 +730,9 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 		return err
 	}
 	factory := builder.cs.factory
-	dao := builder.cs.blockdao
 	chain := builder.cs.chain
 	getBlockTime := builder.cs.blockTimeCalculator.CalculateBlockTime
+	getBlockHash := builder.cs.getBlockHashFn
 	pollProtocol, err := poll.NewProtocol(
 		builder.cfg.Consensus.Scheme,
 		builder.cfg.Chain,
@@ -744,7 +752,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 			}
 
 			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-				GetBlockHash:   dao.GetBlockHash,
+				GetBlockHash:   getBlockHash,
 				GetBlockTime:   getBlockTime,
 				DepositGasFunc: rewarding.DepositGas,
 			})
@@ -773,7 +781,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 		func(start, end uint64) (map[string]uint64, error) {
 			return blockchain.Productivity(chain, start, end)
 		},
-		dao.GetBlockHash,
+		getBlockHash,
 		getBlockTime,
 	)
 	if err != nil {
@@ -784,9 +792,9 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 
 func (builder *Builder) buildBlockTimeCalculator() (err error) {
 	consensusCfg := consensusfsm.NewConsensusConfig(builder.cfg.Consensus.RollDPoS.FSM, builder.cfg.DardanellesUpgrade, builder.cfg.Genesis, builder.cfg.Consensus.RollDPoS.Delay)
-	dao := builder.cs.BlockDAO()
-	builder.cs.blockTimeCalculator, err = blockutil.NewBlockTimeCalculator(consensusCfg.BlockInterval, builder.cs.Blockchain().TipHeight, func(height uint64) (time.Time, error) {
-		blk, err := dao.GetBlockByHeight(height)
+	bc := builder.cs.Blockchain()
+	builder.cs.blockTimeCalculator, err = blockutil.NewBlockTimeCalculator(consensusCfg.BlockInterval, builder.cs.Blockchain().PendingHeight, func(height uint64) (time.Time, error) {
+		blk, err := bc.BlockHeaderByHeight(height)
 		if err != nil {
 			return time.Time{}, err
 		}
