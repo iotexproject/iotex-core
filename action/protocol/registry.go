@@ -109,7 +109,7 @@ func (r *Registry) StartAll(ctx context.Context, sr StateReader) (*Views, error)
 		if view == nil {
 			continue
 		}
-		allViews.views[p.Name()] = view
+		allViews.Write(p.Name(), view)
 	}
 	return allViews, nil
 }

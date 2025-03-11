@@ -77,6 +77,27 @@ func (b *baseKVStoreBatch) Put(namespace string, key, value []byte, errorMessage
 	b.batch(Put, namespace, key, value, errorMessage)
 }
 
+func (b *baseKVStoreBatch) Append(kvb KVStoreBatch) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	kvb.Lock()
+	defer kvb.Unlock()
+	for i := range kvb.Size() {
+		wi, err := b.Entry(i)
+		if err != nil {
+			panic(err)
+		}
+		switch wi.writeType {
+		case Put:
+			b.batch(Put, wi.namespace, wi.key, wi.value, wi.errorMessage)
+		case Delete:
+			b.batch(Delete, wi.namespace, wi.key, nil, wi.errorMessage)
+		default:
+			panic("unexpected write type")
+		}
+	}
+}
+
 // Delete deletes a record
 func (b *baseKVStoreBatch) Delete(namespace string, key []byte, errorMessage string) {
 	b.mutex.Lock()
@@ -280,16 +301,45 @@ func (cb *cachedBatch) touchKey(h kvCacheKey) {
 func (cb *cachedBatch) Put(namespace string, key, value []byte, errorMessage string) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
+	cb.put(namespace, key, value, errorMessage)
+}
+
+func (cb *cachedBatch) put(namespace string, key, value []byte, errorMessage string) {
 	h := cb.hash(namespace, key)
 	cb.touchKey(h)
 	cb.currentCache().Write(&h, value)
 	cb.kvStoreBatch.batch(Put, namespace, key, value, errorMessage)
 }
 
+func (cb *cachedBatch) Append(b KVStoreBatch) {
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
+	b.Lock()
+	defer b.Unlock()
+	for i := range b.Size() {
+		wi, err := b.Entry(i)
+		if err != nil {
+			panic(err)
+		}
+		switch wi.writeType {
+		case Put:
+			cb.put(wi.namespace, wi.key, wi.value, wi.errorMessage)
+		case Delete:
+			cb.delete(wi.namespace, wi.key, wi.errorMessage)
+		default:
+			panic("unexpected write type")
+		}
+	}
+}
+
 // Delete deletes a record
 func (cb *cachedBatch) Delete(namespace string, key []byte, errorMessage string) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
+	cb.delete(namespace, key, errorMessage)
+}
+
+func (cb *cachedBatch) delete(namespace string, key []byte, errorMessage string) {
 	h := cb.hash(namespace, key)
 	cb.touchKey(h)
 	cb.currentCache().Evict(&h)

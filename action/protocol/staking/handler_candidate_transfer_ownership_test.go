@@ -32,7 +32,7 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 	v, _, err := CreateBaseView(sm, false)
 	require.NoError(err)
 	sm.WriteView(_protocolID, v)
-	csm, err := NewCandidateStateManager(sm, false)
+	csm, err := NewCandidateStateManager(sm)
 	require.NoError(err)
 	// create protocol
 	p, err := NewProtocol(HelperCtx{
@@ -188,7 +188,7 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 			identityset.Address(1),
 		},
 	}
-	csm, err = NewCandidateStateManager(sm, false)
+	csm, err = NewCandidateStateManager(sm)
 	require.NoError(err)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

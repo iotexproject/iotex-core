@@ -224,7 +224,7 @@ func (p *Protocol) CreateGenesisStates(
 		return nil
 	}
 	// TODO: set init values based on ctx
-	csm, err := NewCandidateStateManager(sm, false)
+	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
 		return err
 	}
@@ -280,22 +280,26 @@ func (p *Protocol) CreateGenesisStates(
 // CreatePreStates updates state manager
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
 	var (
-		g                    = genesis.MustExtractGenesisContext(ctx)
-		blkCtx               = protocol.MustGetBlockCtx(ctx)
-		featureCtx           = protocol.MustGetFeatureCtx(ctx)
-		featureWithHeightCtx = protocol.MustGetFeatureWithHeightCtx(ctx)
+		g          = genesis.MustExtractGenesisContext(ctx)
+		blkCtx     = protocol.MustGetBlockCtx(ctx)
+		featureCtx = protocol.MustGetFeatureCtx(ctx)
 	)
 	if blkCtx.BlockHeight == g.GreenlandBlockHeight {
 		csr, err := ConstructBaseView(sm)
 		if err != nil {
 			return err
 		}
+		view := csr.BaseView()
 		if _, err = sm.PutState(csr.BaseView().bucketPool.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); err != nil {
+			return err
+		}
+		view.bucketPool.EnableSMStorage()
+		if err := sm.WriteView(_protocolID, view); err != nil {
 			return err
 		}
 	}
 	if blkCtx.BlockHeight == p.config.FixAliasForNonStopHeight {
-		csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(blkCtx.BlockHeight))
+		csm, err := NewCandidateStateManager(sm)
 		if err != nil {
 			return err
 		}
@@ -306,7 +310,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 	}
 	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
-		csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(blkCtx.BlockHeight))
+		csm, err := NewCandidateStateManager(sm)
 		if err != nil {
 			return err
 		}
@@ -372,7 +376,7 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	}
 
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
-	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
 		return err
 	}
@@ -396,12 +400,7 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
-	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
-	height, err := sm.Height()
-	if err != nil {
-		return err
-	}
-	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
 		return err
 	}
@@ -412,16 +411,25 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
-	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
-	height, err := sm.Height()
+	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
 		return nil, err
 	}
-	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	view, err := sm.ReadView(_protocolID)
 	if err != nil {
 		return nil, err
 	}
-	return p.handle(ctx, elp, csm)
+	snapshot := view.(*ViewData).Snapshot()
+	receipt, err := p.handle(ctx, elp, csm)
+	if err != nil {
+		if err := view.(*ViewData).Revert(snapshot); err != nil {
+			return nil, errors.Wrap(err, "failed to revert view")
+		}
+		return receipt, err
+	}
+	sm.WriteView(_protocolID, csm.DirtyView())
+
+	return receipt, nil
 }
 
 func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm CandidateStateManager) (*action.Receipt, error) {

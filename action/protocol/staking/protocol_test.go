@@ -132,7 +132,7 @@ func TestProtocol(t *testing.T) {
 	_, ok := v.(*ViewData)
 	r.True(ok)
 
-	csm, err := NewCandidateStateManager(sm, false)
+	csm, err := NewCandidateStateManager(sm)
 	r.NoError(err)
 	// load a number of candidates
 	for _, e := range testCandidates {
@@ -226,11 +226,9 @@ func TestCreatePreStates(t *testing.T) {
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	require.NoError(sm.WriteView(_protocolID, v))
-	csm, err := NewCandidateStateManager(sm, false)
+	csm, err := NewCandidateStateManager(sm)
 	require.NoError(err)
 	require.NotNil(csm)
-	_, err = NewCandidateStateManager(sm, true)
-	require.Error(err)
 	require.NoError(p.CreatePreStates(ctx, sm))
 	_, err = sm.State(nil, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 	require.EqualError(errors.Cause(err), state.ErrStateNotExist.Error())
@@ -301,10 +299,10 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	require.NoError(sm.WriteView(_protocolID, v))
-	_, err = NewCandidateStateManager(sm, true)
+	_, err = NewCandidateStateManager(sm)
 	require.Error(err)
 
+	require.NoError(sm.WriteView(_protocolID, v))
 	require.NoError(p.CreatePreStates(ctx, sm))
 }
 
@@ -539,7 +537,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 		}
 		candCfgs := []*candidateConfig{}
 		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
 		r.NoError(err)
@@ -556,7 +554,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
 
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
@@ -574,7 +572,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
 
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
@@ -593,7 +591,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
 
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[1])
@@ -611,7 +609,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
 
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
@@ -629,7 +627,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestStateWithHeight(t, ctrl, bucketCfgs, candCfgs, 0)
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
 
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
@@ -647,7 +645,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestStateWithHeight(t, ctrl, bucketCfgs, candCfgs, 2)
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
 		r.NoError(err)

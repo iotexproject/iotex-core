@@ -100,7 +100,7 @@ func protocolPreCommit(ctx context.Context, sr protocol.StateManager) error {
 	if reg, ok := protocol.GetRegistry(ctx); ok {
 		for _, p := range reg.All() {
 			post, ok := p.(protocol.PreCommitter)
-			if ok && sr.ProtocolDirty(p.Name()) {
+			if ok {
 				if err := post.PreCommit(ctx, sr); err != nil {
 					return err
 				}
@@ -114,7 +114,7 @@ func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
 	if reg, ok := protocol.GetRegistry(ctx); ok {
 		for _, p := range reg.All() {
 			post, ok := p.(protocol.Committer)
-			if ok && sr.ProtocolDirty(p.Name()) {
+			if ok {
 				if err := post.Commit(ctx, sr); err != nil {
 					return err
 				}
