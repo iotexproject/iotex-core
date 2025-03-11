@@ -83,21 +83,21 @@ func newStateDBWorkingSet(t testing.TB) *workingSet {
 	return ws
 }
 
-type value string
+type mockView string
 
-func (v value) Clone() protocol.View {
+func (v mockView) Clone() protocol.View {
 	return v
 }
 
-func (v value) Snapshot() int {
+func (v mockView) Snapshot() int {
 	return 0
 }
 
-func (v value) Revert(int) error {
+func (v mockView) Revert(int) error {
 	return nil
 }
 
-func (v value) Commit() error {
+func (v mockView) Commit() error {
 	return nil
 }
 
@@ -108,7 +108,7 @@ func TestWorkingSet_ReadWriteView(t *testing.T) {
 			newFactoryWorkingSet(t),
 			newStateDBWorkingSet(t),
 		}
-		tests = map[string]value{
+		tests = map[string]mockView{
 			"key1": "value1",
 			"key2": "value2",
 			"key3": "value3",
@@ -132,7 +132,7 @@ func TestWorkingSet_ReadWriteView(t *testing.T) {
 		}
 
 		// overwrite
-		var newVal value = "testvalue"
+		var newVal mockView = "testvalue"
 		r.NoError(ws.WriteView("key1", newVal))
 		val, err := ws.ReadView("key1")
 		r.NoError(err)
