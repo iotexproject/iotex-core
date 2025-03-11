@@ -433,8 +433,6 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 }
 
 func (bc *blockchain) PendingHeight() uint64 {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
 	return max(bc.prepare.Tip(), bc.TipHeight())
 }
 

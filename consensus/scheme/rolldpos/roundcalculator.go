@@ -247,12 +247,12 @@ func (c *roundCalculator) newRound(
 		if proposer, err = c.calculateProposer(height, roundNum, proposers); err != nil {
 			return
 		}
-	}
-	if nextProposers, err = c.Proposers(height + 1); err != nil {
-		return
-	}
-	if nextProposer, err = c.calculateProposer(height+1, 0, nextProposers); err != nil {
-		return
+		if nextProposers, err = c.Proposers(height + 1); err != nil {
+			return
+		}
+		if nextProposer, err = c.calculateProposer(height+1, 0, nextProposers); err != nil {
+			return
+		}
 	}
 	if eManager == nil {
 		if eManager, err = newEndorsementManager(nil, nil); err != nil {
