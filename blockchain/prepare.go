@@ -30,10 +30,9 @@ func newPrepare() *Prepare {
 }
 
 func (d *Prepare) PrepareBlock(prevHash []byte, mintFn func() (*block.Block, error)) {
-	log.L().Info("wait prepare block lock", log.Hex("prevHash", prevHash))
 	d.mu.Lock()
 	if _, ok := d.tasks[hash.BytesToHash256(prevHash)]; ok {
-		log.L().Info("draft block already exists", log.Hex("prevHash", prevHash))
+		log.L().Debug("draft block already exists", log.Hex("prevHash", prevHash))
 		d.mu.Unlock()
 		return
 	}
@@ -42,11 +41,9 @@ func (d *Prepare) PrepareBlock(prevHash []byte, mintFn func() (*block.Block, err
 	d.mu.Unlock()
 
 	go func() {
-		log.L().Info("prepare mint start")
 		blk, err := mintFn()
-		log.L().Info("prepare mint", zap.Error(err))
 		res <- &mintResult{blk: blk, err: err}
-		log.L().Info("prepare mint returned", zap.Error(err))
+		log.L().Debug("prepare mint returned", zap.Error(err))
 	}()
 }
 
@@ -54,10 +51,8 @@ func (d *Prepare) WaitBlock(prevHash []byte) (*block.Block, error) {
 	d.mu.Lock()
 	hash := hash.Hash256(prevHash)
 	if ch, ok := d.tasks[hash]; ok {
-		log.L().Info("waiting for draft block", log.Hex("prevHash", prevHash))
 		d.mu.Unlock()
 		res := <-ch
-		log.L().Info("draft block received", log.Hex("prevHash", prevHash), zap.Error(res.err))
 		d.mu.Lock()
 		delete(d.tasks, hash)
 		d.mu.Unlock()

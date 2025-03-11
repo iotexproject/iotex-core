@@ -114,7 +114,6 @@ type (
 	BlockBuilderFactory interface {
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
-		NewBlockBuilderAt(context.Context, func(action.Envelope) (*action.SealedEnvelope, error), []byte) (*block.Builder, error)
 	}
 
 	// blockchain implements the Blockchain interface
@@ -432,12 +431,11 @@ func (bc *blockchain) PrepareBlock(height uint64, prevHash []byte, timestamp tim
 	minterPrivateKey := bc.config.ProducerPrivateKey()
 
 	bc.prepare.PrepareBlock(prevHash, func() (*block.Block, error) {
-		blockBuilder, err := bc.bbf.NewBlockBuilderAt(
+		blockBuilder, err := bc.bbf.NewBlockBuilder(
 			ctx,
 			func(elp action.Envelope) (*action.SealedEnvelope, error) {
 				return action.Sign(elp, minterPrivateKey)
 			},
-			prevHash,
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create block builder at height %d", height)
@@ -474,7 +472,8 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	// retrieve the draft block if it's prepared
 	pblk, err := bc.prepare.WaitBlock(tip.Hash[:])
 	if pblk != nil {
-		log.L().Info("Produce a new block from draft block.", zap.Uint64("height", newblockHeight), zap.Time("timestamp", timestamp))
+		blkHash := pblk.HashBlock()
+		log.L().Debug("Produce a new block from draft block.", zap.Uint64("height", newblockHeight), zap.Time("timestamp", timestamp), log.Hex("hash", blkHash[:]))
 		return pblk, nil
 	}
 	if err != nil {
@@ -506,6 +505,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 
 // CommitBlock validates and appends a block to the chain
 func (bc *blockchain) CommitBlock(blk *block.Block) error {
+	log.L().Debug("Commit a block.", zap.Uint64("height", blk.Height()), zap.String("ioAddr", bc.config.ProducerAddress().String()))
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 	timer := bc.timerFactory.NewTimer("CommitBlock")
