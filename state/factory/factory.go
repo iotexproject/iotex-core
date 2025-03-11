@@ -316,7 +316,7 @@ func (sf *factory) createSfWorkingSet(ctx context.Context, height uint64, store 
 			}
 		}
 	}
-	return newWorkingSet(height, sf.protocolView, store), nil
+	return newWorkingSet(height, sf.protocolView, store, sf), nil
 }
 
 func (sf *factory) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
@@ -545,6 +545,10 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 // ReadView reads the view
 func (sf *factory) ReadView(name string) (protocol.View, error) {
 	return sf.protocolView.Read(name)
+}
+
+func (sf *factory) CreateWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
+	panic("implement me")
 }
 
 //======================================

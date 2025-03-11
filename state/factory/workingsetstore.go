@@ -33,7 +33,11 @@ func (store *workingSetStoreCommon) Filter(ns string, cond db.Condition, start, 
 }
 
 func (store *workingSetStoreCommon) WriteBatch(bat batch.KVStoreBatch) error {
-	return store.flusher.KVStoreWithBuffer().WriteBatch(bat)
+	err := store.flusher.KVStoreWithBuffer().WriteBatch(bat)
+	if err != nil {
+		return err
+	}
+	return store.flusher.Flush()
 }
 
 func (store *workingSetStoreCommon) Put(ns string, key []byte, value []byte) error {

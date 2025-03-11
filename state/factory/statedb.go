@@ -192,7 +192,7 @@ func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64,
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
-	return newWorkingSet(height, sdb.protocolView, store), nil
+	return newWorkingSet(height, sdb.protocolView, store, sdb), nil
 }
 
 func (sdb *stateDB) CreateWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
@@ -235,6 +235,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 			return errors.Wrap(err, "failed to validate block with workingset in statedb")
 		}
 		sdb.workingsets.Add(key, ws)
+		sdb.workingsets.Add(blk.Height(), ws)
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
@@ -262,7 +263,7 @@ func (sdb *stateDB) NewBlockBuilder(
 	sdb.mutex.RUnlock()
 	switch {
 	case currHeight+1 < expectedBlockHeight:
-		parent, ok := sdb.workingsets.Get(bcCtx.Tip.Hash)
+		parent, ok := sdb.workingsets.Get(bcCtx.Tip.Height)
 		if !ok {
 			return nil, errors.Wrapf(ErrNotSupported, "failed to create block at height %d, current height is %d", expectedBlockHeight, sdb.currentChainHeight)
 		}
@@ -295,6 +296,7 @@ func (sdb *stateDB) NewBlockBuilder(
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
 	sdb.workingsets.Add(key, ws)
+	sdb.workingsets.Add(expectedBlockHeight, ws)
 	return blkBuilder, nil
 }
 

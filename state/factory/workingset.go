@@ -77,12 +77,13 @@ type (
 	}
 )
 
-func newWorkingSet(height uint64, views *protocol.Views, store workingSetStore) *workingSet {
+func newWorkingSet(height uint64, views *protocol.Views, store workingSetStore, wssFactory WorkingSetStoreFactory) *workingSet {
 	ws := &workingSet{
-		height: height,
-		views:  views.Clone(),
-		store:  store,
-		dock:   protocol.NewDock(),
+		height:                 height,
+		views:                  views.Clone(),
+		store:                  store,
+		dock:                   protocol.NewDock(),
+		workingSetStoreFactory: wssFactory,
 	}
 	if err := ws.views.Commit(); err != nil {
 		panic(err)
@@ -843,5 +844,5 @@ func (ws *workingSet) NewWorkingSet(ctx context.Context) (*workingSet, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newWorkingSet(ws.height+1, ws.views, store), nil
+	return newWorkingSet(ws.height+1, ws.views, store, ws.workingSetStoreFactory), nil
 }
