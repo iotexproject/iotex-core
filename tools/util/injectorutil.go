@@ -223,7 +223,7 @@ loop:
 			case 0:
 				sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
 				var txc action.TxCommonInternal
-				switch rand.Intn(3) {
+				switch rand.Intn(1) {
 				case 2:
 					txc = createBlobInjection(1, nonce, uint64(transferGasLimit), big.NewInt(10), big.NewInt(transferGasPrice+20), big.NewInt(1), []kzg4844.Blob{{1, 2, 3, 4}})
 				case 1:
@@ -243,7 +243,7 @@ loop:
 			case 2:
 				executor, nonce := createExecutionInjection(counter, delegates)
 				var txc action.TxCommonInternal
-				switch rand.Intn(3) {
+				switch rand.Intn(1) {
 				case 2:
 					txc = createBlobInjection(1, nonce, uint64(executionGasLimit), big.NewInt(10), big.NewInt(executionGasPrice+20), big.NewInt(1), []kzg4844.Blob{{1, 2, 3, 4}})
 				case 1:
