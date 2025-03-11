@@ -84,6 +84,7 @@ type ChainService struct {
 	actionsync               *actsync.ActionSync
 	rateLimiters             cache.LRUCache
 	accRateLimitCfg          int
+	getBlockHashFn           func(uint64) (hash.Hash256, error)
 }
 
 // Start starts the server

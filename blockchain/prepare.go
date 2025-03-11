@@ -82,3 +82,15 @@ func (d *Prepare) Block(height uint64) *block.Block {
 	d.mu.Unlock()
 	return blk
 }
+
+func (d *Prepare) Tip() uint64 {
+	d.mu.Lock()
+	var tip uint64
+	for h := range d.draftBlocks {
+		if h > tip {
+			tip = h
+		}
+	}
+	d.mu.Unlock()
+	return tip
+}
