@@ -106,22 +106,20 @@ func TestBucketPool(t *testing.T) {
 	}
 
 	// simulate bucket pool operation success, but sm did not commit (Snapshot() implements workingset.Reset(), clearing data stored in Dock())
-	csm, err := NewCandidateStateManager(sm, false)
+	csm, err := NewCandidateStateManager(sm)
 	r.NoError(err)
 	r.NoError(csm.DebitBucketPool(tests[0].amount, true))
+	total.Add(total, tests[0].amount)
+	count++
 	sm.Snapshot()
-
-	// after that, the base view should not change
-	c, err := ConstructBaseView(sm)
-	r.NoError(err)
-	pool = c.BaseView().bucketPool
-	r.Equal(total, pool.Total())
-	r.Equal(count, pool.Count())
 
 	var testGreenland bool
 	ctx := protocol.WithFeatureWithHeightCtx(genesis.WithGenesisContext(context.Background(), genesis.TestDefault()))
 	for _, v := range tests {
-		csm, err = NewCandidateStateManager(sm, v.postGreenland && testGreenland)
+		csm, err = NewCandidateStateManager(sm)
+		if v.postGreenland && testGreenland {
+			csm.(*candSM).bucketPool.EnableSMStorage()
+		}
 		r.NoError(err)
 		// dirty view always follows the latest change
 		pool = csm.DirtyView().bucketPool
@@ -151,7 +149,7 @@ func TestBucketPool(t *testing.T) {
 		if v.commit {
 			r.NoError(csm.Commit(ctx))
 			// after commit, value should reflect in base view
-			c, err = ConstructBaseView(sm)
+			c, err := ConstructBaseView(sm)
 			r.NoError(err)
 			pool = c.BaseView().bucketPool
 			r.Equal(total, pool.Total())
@@ -159,6 +157,8 @@ func TestBucketPool(t *testing.T) {
 		}
 
 		if !testGreenland && v.postGreenland {
+			c, err := ConstructBaseView(sm)
+			r.NoError(err)
 			_, err = sm.PutState(c.BaseView().bucketPool.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 			r.NoError(err)
 			testGreenland = true
@@ -173,14 +173,14 @@ func TestBucketPool(t *testing.T) {
 	r.Equal(count, b.count)
 
 	// test again bucket pool operation success but sm did not commit
-	csm, err = NewCandidateStateManager(sm, true)
+	csm, err = NewCandidateStateManager(sm)
 	r.NoError(err)
 	r.NoError(csm.DebitBucketPool(tests[0].amount, true))
 	sm.Snapshot()
 
-	c, err = ConstructBaseView(sm)
+	c, err := ConstructBaseView(sm)
 	r.NoError(err)
 	pool = c.BaseView().bucketPool
-	r.Equal(total, pool.Total())
-	r.Equal(count, pool.Count())
+	r.Equal(total.Add(total, tests[0].amount), pool.Total())
+	r.Equal(count+1, pool.Count())
 }

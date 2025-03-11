@@ -74,30 +74,7 @@ type (
 		height uint64
 		view   *ViewData
 	}
-
-	// ViewData is the data that need to be stored in protocol's view
-	ViewData struct {
-		candCenter *CandidateCenter
-		bucketPool *BucketPool
-	}
 )
-
-func (v *ViewData) Clone() protocol.View {
-	// TODO: clone the view
-	return v
-}
-
-func (v *ViewData) Commit() error {
-	return nil
-}
-
-func (v *ViewData) Snapshot() int {
-	return 0
-}
-
-func (v *ViewData) Revert(snapshot int) error {
-	return nil
-}
 
 func newCandidateStateReader(sr protocol.StateReader) CandidateStateReader {
 	return &candSR{
@@ -165,7 +142,6 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 	if !ok {
 		return nil, errors.Wrap(ErrTypeAssertion, "expecting *ViewData")
 	}
-
 	return &candSR{
 		StateReader: sr,
 		height:      height,

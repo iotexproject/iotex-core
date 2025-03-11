@@ -71,7 +71,6 @@ type (
 		views                  *protocol.Views
 		store                  workingSetStore
 		finalized              bool
-		dock                   protocol.Dock
 		txValidator            *protocol.GenericValidator
 		receipts               []*action.Receipt
 	}
@@ -82,7 +81,6 @@ func newWorkingSet(height uint64, views *protocol.Views, store workingSetStore) 
 		height: height,
 		views:  views.Clone(),
 		store:  store,
-		dock:   protocol.NewDock(),
 	}
 	if err := ws.views.Commit(); err != nil {
 		panic(err)
@@ -307,7 +305,6 @@ func (ws *workingSet) Commit(ctx context.Context) error {
 		// TODO (zhi): wrap the error and eventually panic it in caller side
 		return err
 	}
-	ws.Reset()
 	return nil
 }
 
@@ -378,23 +375,8 @@ func (ws *workingSet) ReadView(name string) (protocol.View, error) {
 
 // WriteView writeback the view to factory
 func (ws *workingSet) WriteView(name string, v protocol.View) error {
-	return ws.views.Write(name, v)
-}
-
-func (ws *workingSet) ProtocolDirty(name string) bool {
-	return ws.dock.ProtocolDirty(name)
-}
-
-func (ws *workingSet) Load(name, key string, v interface{}) error {
-	return ws.dock.Load(name, key, v)
-}
-
-func (ws *workingSet) Unload(name, key string, v interface{}) error {
-	return ws.dock.Unload(name, key, v)
-}
-
-func (ws *workingSet) Reset() {
-	ws.dock.Reset()
+	ws.views.Write(name, v)
+	return nil
 }
 
 // CreateGenesisStates initialize the genesis states

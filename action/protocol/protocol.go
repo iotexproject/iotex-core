@@ -21,6 +21,8 @@ import (
 var (
 	// ErrUnimplemented indicates a method is not implemented yet
 	ErrUnimplemented = errors.New("method is unimplemented")
+	// ErrNoName indicates the name is not found
+	ErrNoName = errors.New("name is not found")
 )
 
 const (
@@ -113,77 +115,42 @@ type (
 
 	// Views stores the view for all protocols
 	Views struct {
-		views     map[string]View
-		snapshots []map[string]int
+		vm map[string]View
 	}
 )
 
 func NewViews() *Views {
 	return &Views{
-		views:     make(map[string]View),
-		snapshots: make([]map[string]int, 0),
+		vm: make(map[string]View),
 	}
 }
 
 func (views *Views) Clone() *Views {
-	clone := Views{
-		views:     make(map[string]View, len(views.views)),
-		snapshots: make([]map[string]int, len(views.snapshots)),
+	clone := NewViews()
+	for key, view := range views.vm {
+		clone.vm[key] = view.Clone()
 	}
-	for key, view := range views.views {
-		clone.views[key] = view.Clone()
-	}
-	for snapshot, snapshotMap := range views.snapshots {
-		clone.snapshots[snapshot] = make(map[string]int)
-		for key, value := range snapshotMap {
-			clone.snapshots[snapshot][key] = value
-		}
-	}
-	return &clone
+	return clone
 }
 
 func (views *Views) Commit() error {
-	for _, view := range views.views {
+	for _, view := range views.vm {
 		if err := view.Commit(); err != nil {
 			return err
 		}
 	}
-	views.snapshots = make([]map[string]int, 0)
 	return nil
 }
 
-func (views Views) Snapshot() int {
-	snapshot := len(views.snapshots)
-	views.snapshots = append(views.snapshots, make(map[string]int))
-	for key, view := range views.views {
-		views.snapshots[snapshot][key] = view.Snapshot()
-	}
-	return snapshot
-}
-
-func (views Views) Revert(snapshot int) error {
-	if snapshot < 0 || snapshot >= len(views.snapshots) {
-		return errors.New("invalid snapshot")
-	}
-	for key, view := range views.views {
-		if err := view.Revert(views.snapshots[snapshot][key]); err != nil {
-			return err
-		}
-	}
-	views.snapshots = views.snapshots[:snapshot]
-	return nil
-}
-
-func (views Views) Read(name string) (View, error) {
-	if v, hit := views.views[name]; hit {
+func (views *Views) Read(name string) (View, error) {
+	if v, hit := views.vm[name]; hit {
 		return v, nil
 	}
 	return nil, ErrNoName
 }
 
-func (views Views) Write(name string, v View) error {
-	views.views[name] = v
-	return nil
+func (views *Views) Write(name string, v View) {
+	views.vm[name] = v
 }
 
 // HashStringToAddress generates the contract address from the protocolID of each protocol
