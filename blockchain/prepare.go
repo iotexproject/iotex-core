@@ -12,9 +12,8 @@ import (
 
 type (
 	Prepare struct {
-		tasks       map[hash.Hash256]chan *mintResult
-		draftBlocks map[uint64]*block.Block
-		mu          sync.Mutex
+		tasks map[hash.Hash256]chan *mintResult
+		mu    sync.Mutex
 	}
 	mintResult struct {
 		blk *block.Block
@@ -24,8 +23,7 @@ type (
 
 func newPrepare() *Prepare {
 	return &Prepare{
-		tasks:       make(map[hash.Hash256]chan *mintResult),
-		draftBlocks: make(map[uint64]*block.Block),
+		tasks: make(map[hash.Hash256]chan *mintResult),
 	}
 }
 
@@ -62,35 +60,9 @@ func (d *Prepare) WaitBlock(prevHash []byte) (*block.Block, error) {
 	return nil, nil
 }
 
-func (d *Prepare) AddDraftBlock(blk *block.Block) {
-	d.mu.Lock()
-	d.draftBlocks[blk.Height()] = blk
-	d.mu.Unlock()
-}
-
 func (d *Prepare) ReceiveBlock(blk *block.Block) error {
 	d.mu.Lock()
 	delete(d.tasks, blk.PrevHash())
-	delete(d.draftBlocks, blk.Height())
 	d.mu.Unlock()
 	return nil
-}
-
-func (d *Prepare) Block(height uint64) *block.Block {
-	d.mu.Lock()
-	blk := d.draftBlocks[height]
-	d.mu.Unlock()
-	return blk
-}
-
-func (d *Prepare) Tip() uint64 {
-	d.mu.Lock()
-	var tip uint64
-	for h := range d.draftBlocks {
-		if h > tip {
-			tip = h
-		}
-	}
-	d.mu.Unlock()
-	return tip
 }
