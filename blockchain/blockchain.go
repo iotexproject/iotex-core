@@ -132,8 +132,9 @@ type (
 		timerFactory   *prometheustimer.TimerFactory
 
 		// used by account-based model
-		bbf     BlockBuilderFactory
-		prepare *Prepare
+		bbf          BlockBuilderFactory
+		prepare      *Prepare
+		proposalPool *proposalPool
 	}
 )
 
@@ -196,6 +197,7 @@ func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf Blo
 		clk:           clock.New(),
 		pubSubManager: NewPubSub(cfg.StreamingBlockBufferSize),
 		prepare:       newPrepare(),
+		proposalPool:  newProposalPool(),
 	}
 	for _, opt := range opts {
 		if err := opt(chain); err != nil {
@@ -218,6 +220,7 @@ func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf Blo
 	chain.lifecycle.Add(chain.dao)
 	chain.lifecycle.Add(chain.pubSubManager)
 	chain.pubSubManager.AddBlockListener(chain.prepare)
+	chain.pubSubManager.AddBlockListener(chain.proposalPool)
 	return chain
 }
 
@@ -263,7 +266,7 @@ func (bc *blockchain) BlockHeaderByHeight(height uint64) (*block.Header, error) 
 	case nil:
 		return header, nil
 	case db.ErrNotExist:
-		if blk := bc.prepare.Block(height); blk != nil {
+		if blk := bc.proposalPool.Block(height); blk != nil {
 			return &blk.Header, nil
 		}
 		return nil, err
@@ -379,7 +382,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 	if err != nil {
 		return err
 	}
-	bc.prepare.AddDraftBlock(blk)
+	bc.proposalPool.AddBlock(blk)
 	return nil
 }
 
@@ -433,7 +436,7 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 }
 
 func (bc *blockchain) PendingHeight() uint64 {
-	return max(bc.prepare.Tip(), bc.TipHeight())
+	return max(bc.proposalPool.Tip(), bc.TipHeight())
 }
 
 func (bc *blockchain) PrepareBlock(height uint64, prevHash []byte, timestamp time.Time) error {
@@ -570,7 +573,7 @@ func (bc *blockchain) tipInfo(tipHeight uint64) (*protocol.TipInfo, error) {
 	}
 	var header *block.Header
 	if tipHeight > daoHeight {
-		if blk := bc.prepare.Block(tipHeight); blk != nil {
+		if blk := bc.proposalPool.Block(tipHeight); blk != nil {
 			header = &blk.Header
 		} else {
 			err = errors.Wrapf(db.ErrNotExist, "draft block not found at height %d", tipHeight)
