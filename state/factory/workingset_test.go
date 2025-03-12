@@ -312,6 +312,132 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 	})
 }
 
+func TestChainedWorkingSet(t *testing.T) {
+	r := require.New(t)
+	ctx := context.Background()
+	ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
+
+	t.Run("read-from-ancestors", func(t *testing.T) {
+		ws := newStateDBWorkingSet(t)
+		var (
+			ns       = "ns"
+			k1       = []byte("k1")
+			k2       = []byte("k2")
+			v1h1     = testStateValue("hello")
+			v2h1     = testStateValue("world")
+			v1h2     = testStateValue("hello2")
+			viewName = "view"
+			viewData = mockView("viewdata")
+		)
+		r.Equal(uint64(1), ws.height)
+		h1, err := ws.PutState(v1h1, protocol.NamespaceOption(ns), protocol.KeyOption(k1))
+		r.NoError(err)
+		r.Equal(uint64(1), h1)
+		h1, err = ws.PutState(v2h1, protocol.NamespaceOption(ns), protocol.KeyOption(k2))
+		r.NoError(err)
+		r.Equal(uint64(1), h1)
+		err = ws.WriteView(viewName, viewData)
+		r.NoError(err)
+		r.NoError(ws.finalize())
+
+		child, err := ws.NewWorkingSet(ctx)
+		r.NoError(err)
+		r.Equal(uint64(2), child.height)
+		var value testStateValue
+		h2, err := child.State(&value, protocol.NamespaceOption(ns), protocol.KeyOption(k1))
+		r.NoError(err)
+		r.Equal(uint64(2), h2)
+		r.Equal(v1h1, value)
+		view, err := child.ReadView(viewName)
+		r.NoError(err)
+		r.Equal(viewData, view)
+		_, err = child.PutState(v1h2, protocol.NamespaceOption(ns), protocol.KeyOption(k1))
+		r.NoError(err)
+		r.NoError(child.finalize())
+
+		gchild, err := child.NewWorkingSet(ctx)
+		r.NoError(err)
+		r.Equal(uint64(3), gchild.height)
+		h3, err := gchild.State(&value, protocol.NamespaceOption(ns), protocol.KeyOption(k1))
+		r.NoError(err)
+		r.Equal(uint64(3), h3)
+		r.Equal(v1h2, value)
+		h3, err = gchild.State(&value, protocol.NamespaceOption(ns), protocol.KeyOption(k2))
+		r.NoError(err)
+		r.Equal(uint64(3), h3)
+		r.Equal(v2h1, value)
+		view, err = gchild.ReadView(viewName)
+		r.NoError(err)
+		r.Equal(viewData, view)
+	})
+	t.Run("updates-affect-current", func(t *testing.T) {
+		ws := newStateDBWorkingSet(t)
+		var (
+			ns = "ns"
+			k1 = []byte("k1")
+			v1 = testStateValue("hello")
+			v2 = testStateValue("world")
+		)
+		r.Equal(uint64(1), ws.height)
+		h1, err := ws.PutState(v1, protocol.NamespaceOption(ns), protocol.KeyOption(k1))
+		r.NoError(err)
+		r.Equal(uint64(1), h1)
+		r.NoError(ws.finalize())
+
+		child, err := ws.NewWorkingSet(ctx)
+		r.NoError(err)
+		r.Equal(uint64(2), child.height)
+		var value testStateValue
+		h2, err := child.State(&value, protocol.NamespaceOption(ns), protocol.KeyOption(k1))
+		r.NoError(err)
+		r.Equal(uint64(2), h2)
+		r.Equal(v1, value)
+		_, err = child.PutState(v2, protocol.NamespaceOption(ns), protocol.KeyOption(k1))
+		r.NoError(err)
+		_, err = ws.State(&value, protocol.NamespaceOption(ns), protocol.KeyOption(k1))
+		r.NoError(err)
+		r.Equal(v1, value)
+	})
+	t.Run("read-after-commit", func(t *testing.T) {
+		ws := newStateDBWorkingSet(t)
+		var (
+			ns = "ns"
+			k1 = []byte("k1")
+			v1 = testStateValue("hello")
+		)
+		r.Equal(uint64(1), ws.height)
+		h1, err := ws.PutState(v1, protocol.NamespaceOption(ns), protocol.KeyOption(k1))
+		r.NoError(err)
+		r.Equal(uint64(1), h1)
+		r.NoError(ws.finalize())
+
+		child, err := ws.NewWorkingSet(ctx)
+		r.NoError(err)
+		r.Equal(uint64(2), child.height)
+		var value testStateValue
+		h2, err := child.State(&value, protocol.NamespaceOption(ns), protocol.KeyOption(k1))
+		r.NoError(err)
+		r.Equal(uint64(2), h2)
+		r.Equal(v1, value)
+		r.NoError(ws.Commit(ctx))
+		h3, err := child.State(&value, protocol.NamespaceOption(ns), protocol.KeyOption(k1))
+		r.NoError(err)
+		r.Equal(uint64(2), h3)
+		r.Equal(v1, value)
+	})
+}
+
+type testStateValue string
+
+func (s testStateValue) Serialize() ([]byte, error) {
+	return []byte(s), nil
+}
+
+func (s *testStateValue) Deserialize(data []byte) error {
+	*s = testStateValue(data)
+	return nil
+}
+
 func makeTransferAction(t *testing.T, nonce uint64) *action.SealedEnvelope {
 	tsf := action.NewTransfer(big.NewInt(1), identityset.Address(29).String(), nil)
 	evlp := (&action.EnvelopeBuilder{}).
