@@ -43,8 +43,18 @@ func NewMinter(f Factory, ap actpool.ActPool, opts ...MintOption) blockchain.Blo
 // NewBlockBuilder implements the BlockMinter interface
 func (m *minter) NewBlockBuilder(ctx context.Context, sign func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error) {
 	if m.timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithDeadline(ctx, protocol.MustGetBlockCtx(ctx).BlockTimeStamp.Add(m.timeout))
+		// set deadline for NewBlockBuilder
+		// ensure that minting finishes before `block start time + timeout` and that its duration does not exceed the timeout.
+		var (
+			cancel context.CancelFunc
+			now    = time.Now()
+			blkTs  = protocol.MustGetBlockCtx(ctx).BlockTimeStamp
+			ddl    = blkTs.Add(m.timeout)
+		)
+		if now.Before(blkTs) {
+			ddl = now.Add(m.timeout)
+		}
+		ctx, cancel = context.WithDeadline(ctx, ddl)
 		defer cancel()
 	}
 	return m.f.NewBlockBuilder(ctx, m.ap, sign)
