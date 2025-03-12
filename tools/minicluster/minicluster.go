@@ -48,6 +48,8 @@ const (
 	_numAdmins = 2
 )
 
+var numNodes int
+
 func main() {
 	// timeout indicates the duration of running nightly build in seconds. Default is 300
 	var timeout int
@@ -60,12 +62,20 @@ func main() {
 	// switch of fp token smart contract test. Default is false
 	var testFpToken bool
 
+	var nodeOffset int
+	var numNodesRunning int
+	var endness bool
+
 	flag.IntVar(&timeout, "timeout", 100, "duration of running nightly build")
 	flag.Float64Var(&aps, "aps", 1, "actions to be injected per second")
 	flag.StringVar(&deployExecData, "deploy-data", "608060405234801561001057600080fd5b506102f5806100206000396000f3006080604052600436106100615763ffffffff7c01000000000000000000000000000000000000000000000000000000006000350416632885ad2c8114610066578063797d9fbd14610070578063cd5e3c5d14610091578063d0e30db0146100b8575b600080fd5b61006e6100c0565b005b61006e73ffffffffffffffffffffffffffffffffffffffff600435166100cb565b34801561009d57600080fd5b506100a6610159565b60408051918252519081900360200190f35b61006e610229565b6100c9336100cb565b565b60006100d5610159565b6040805182815290519192507fbae72e55df73720e0f671f4d20a331df0c0dc31092fda6c573f35ff7f37f283e919081900360200190a160405173ffffffffffffffffffffffffffffffffffffffff8316906305f5e100830280156108fc02916000818181858888f19350505050158015610154573d6000803e3d6000fd5b505050565b604080514460208083019190915260001943014082840152825180830384018152606090920192839052815160009360059361021a9360029391929182918401908083835b602083106101bd5780518252601f19909201916020918201910161019e565b51815160209384036101000a600019018019909216911617905260405191909301945091925050808303816000865af11580156101fe573d6000803e3d6000fd5b5050506040513d602081101561021357600080fd5b5051610261565b81151561022357fe5b06905090565b60408051348152905133917fe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c919081900360200190a2565b600080805b60208110156102c25780600101602060ff160360080260020a848260208110151561028d57fe5b7f010000000000000000000000000000000000000000000000000000000000000091901a810204029190910190600101610266565b50929150505600a165627a7a72305820a426929891673b0a04d7163b60113d28e7d0f48ea667680ba48126c182b872c10029",
 		"smart contract deployment data")
 	flag.StringVar(&interactExecData, "interact-data", "d0e30db0", "smart contract interaction data")
 	flag.BoolVar(&testFpToken, "fp-token", false, "switch of fp token smart contract test")
+	flag.IntVar(&nodeOffset, "node-offset", 0, "node offset")
+	flag.IntVar(&numNodesRunning, "num-nodes", _numNodes, "number of nodes running")
+	flag.IntVar(&numNodes, "num-nodes-total", _numNodes, "total number of nodes")
+	flag.BoolVar(&endness, "endness", false, "endness")
 	flag.Parse()
 
 	// path of config file containing all the public/private key paris of addresses getting transfers
@@ -84,8 +94,8 @@ func main() {
 	deleteDBFiles := false
 
 	// Set mini-cluster configurations
-	configs := make([]config.Config, _numNodes)
-	for i := 0; i < _numNodes; i++ {
+	configs := make([]config.Config, numNodes)
+	for i := 0; i < numNodes; i++ {
 		chainDBPath := fmt.Sprintf("./chain%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, chainDBPath)
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
@@ -137,9 +147,9 @@ func main() {
 	}
 
 	// Create mini-cluster
-	svrs := make([]*itx.Server, _numNodes)
-	for i := 0; i < _numNodes; i++ {
-		svr, err := itx.NewServer(configs[i])
+	svrs := make([]*itx.Server, numNodesRunning)
+	for i := 0; i < numNodesRunning; i++ {
+		svr, err := itx.NewServer(configs[i+nodeOffset])
 		if err != nil {
 			log.L().Fatal("Failed to create server.", zap.Error(err))
 		}
@@ -157,10 +167,10 @@ func main() {
 	}()
 
 	// Start mini-cluster
-	for i := 0; i < _numNodes; i++ {
+	for i := 0; i < numNodesRunning; i++ {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		go itx.StartServer(ctx, svrs[i], probe.New(7788+i), configs[i])
+		go itx.StartServer(ctx, svrs[i], probe.New(7788+i+nodeOffset), configs[i+nodeOffset])
 	}
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"
@@ -318,17 +328,18 @@ func main() {
 			log.L().Error("Not all actions are settled", zap.Error(err), zap.Int("totalPendingActions", totalPendingActions))
 		}
 
-		chains := make([]blockchain.Blockchain, _numNodes)
-		sfs := make([]factory.Factory, _numNodes)
-		daos := make([]blockdao.BlockDAO, _numNodes)
-		stateHeights := make([]uint64, _numNodes)
-		bcHeights := make([]uint64, _numNodes)
-		idealHeight := make([]uint64, _numNodes)
+		chains := make([]blockchain.Blockchain, numNodes)
+		sfs := make([]factory.Factory, numNodes)
+		daos := make([]blockdao.BlockDAO, numNodes)
+		stateHeights := make([]uint64, numNodes)
+		bcHeights := make([]uint64, numNodes)
+		idealHeight := make([]uint64, numNodes)
 
 		var netTimeout int
 		var minTimeout int
 
-		for i := 0; i < _numNodes; i++ {
+		for ii := 0; ii < numNodesRunning; ii++ {
+			i := ii + nodeOffset
 			chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
 			sfs[i] = svrs[i].ChainService(configs[i].Chain.ID).StateFactory()
 			daos[i] = svrs[i].ChainService(configs[i].Chain.ID).BlockDAO()
@@ -357,8 +368,9 @@ func main() {
 			}
 		}
 
-		for i := 0; i < _numNodes; i++ {
-			for j := i + 1; j < _numNodes; j++ {
+		for ii := 0; ii < numNodesRunning; ii++ {
+			i := ii + nodeOffset
+			for j := i + 1; j < numNodesRunning+nodeOffset; j++ {
 				if math.Abs(float64(bcHeights[i]-bcHeights[j])) > 1 {
 					log.S().Errorf("blockchain in Node#%d and blockchain in Node#%d are not sync", i, j)
 				} else {
@@ -424,8 +436,9 @@ func main() {
 			ub.Add(ub, configs[0].Genesis.BlockReward())
 		}
 
-		registries := make([]*protocol.Registry, _numNodes)
-		for i := 0; i < _numNodes; i++ {
+		registries := make([]*protocol.Registry, numNodesRunning)
+		for ii := 0; ii < numNodesRunning; ii++ {
+			i := ii + nodeOffset
 			registries[i] = svrs[i].ChainService(configs[i].Chain.ID).Registry()
 
 			ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
@@ -473,6 +486,9 @@ func main() {
 
 		deleteDBFiles = true
 	}
+	if endness {
+		select {}
+	}
 }
 
 func newConfig(
@@ -513,9 +529,9 @@ func newConfig(
 
 	cfg.Genesis.BlockInterval = 6 * time.Second
 	cfg.Genesis.Blockchain.NumSubEpochs = 2
-	cfg.Genesis.Blockchain.NumDelegates = _numNodes
+	cfg.Genesis.Blockchain.NumDelegates = uint64(numNodes)
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
-	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : _numNodes+3]
+	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.PollMode = "lifeLong"
 
