@@ -132,9 +132,9 @@ type (
 		timerFactory   *prometheustimer.TimerFactory
 
 		// used by account-based model
-		bbf          BlockBuilderFactory
-		prepare      *Prepare
-		proposalPool *proposalPool
+		bbf           BlockBuilderFactory
+		blockPreparer *blockPreparer
+		proposalPool  *proposalPool
 	}
 )
 
@@ -196,7 +196,7 @@ func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf Blo
 		bbf:           bbf,
 		clk:           clock.New(),
 		pubSubManager: NewPubSub(cfg.StreamingBlockBufferSize),
-		prepare:       newPrepare(),
+		blockPreparer: newBlockPreparer(),
 		proposalPool:  newProposalPool(),
 	}
 	for _, opt := range opts {
@@ -219,7 +219,7 @@ func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf Blo
 	}
 	chain.lifecycle.Add(chain.dao)
 	chain.lifecycle.Add(chain.pubSubManager)
-	chain.pubSubManager.AddBlockListener(chain.prepare)
+	chain.pubSubManager.AddBlockListener(chain.blockPreparer)
 	chain.pubSubManager.AddBlockListener(chain.proposalPool)
 	return chain
 }
@@ -451,7 +451,7 @@ func (bc *blockchain) PrepareBlock(height uint64, prevHash []byte, timestamp tim
 	// run execution and update state trie root hash
 	minterPrivateKey := bc.config.ProducerPrivateKey()
 
-	bc.prepare.PrepareBlock(prevHash, func() (*block.Block, error) {
+	bc.blockPreparer.PrepareBlock(prevHash, func() (*block.Block, error) {
 		blockBuilder, err := bc.bbf.NewBlockBuilder(
 			ctx,
 			func(elp action.Envelope) (*action.SealedEnvelope, error) {
@@ -491,7 +491,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	tip := protocol.MustGetBlockchainCtx(ctx).Tip
 
 	// retrieve the draft block if it's prepared
-	pblk, err := bc.prepare.WaitBlock(tip.Hash[:])
+	pblk, err := bc.blockPreparer.WaitBlock(tip.Hash[:])
 	if pblk != nil {
 		blkHash := pblk.HashBlock()
 		log.L().Debug("Produce a new block from draft block.", zap.Uint64("height", newblockHeight), zap.Time("timestamp", timestamp), log.Hex("hash", blkHash[:]))

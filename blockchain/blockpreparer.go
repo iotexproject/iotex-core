@@ -11,7 +11,7 @@ import (
 )
 
 type (
-	Prepare struct {
+	blockPreparer struct {
 		tasks map[hash.Hash256]chan *mintResult
 		mu    sync.Mutex
 	}
@@ -21,13 +21,13 @@ type (
 	}
 )
 
-func newPrepare() *Prepare {
-	return &Prepare{
+func newBlockPreparer() *blockPreparer {
+	return &blockPreparer{
 		tasks: make(map[hash.Hash256]chan *mintResult),
 	}
 }
 
-func (d *Prepare) PrepareBlock(prevHash []byte, mintFn func() (*block.Block, error)) {
+func (d *blockPreparer) PrepareBlock(prevHash []byte, mintFn func() (*block.Block, error)) {
 	d.mu.Lock()
 	if _, ok := d.tasks[hash.BytesToHash256(prevHash)]; ok {
 		log.L().Debug("draft block already exists", log.Hex("prevHash", prevHash))
@@ -45,7 +45,7 @@ func (d *Prepare) PrepareBlock(prevHash []byte, mintFn func() (*block.Block, err
 	}()
 }
 
-func (d *Prepare) WaitBlock(prevHash []byte) (*block.Block, error) {
+func (d *blockPreparer) WaitBlock(prevHash []byte) (*block.Block, error) {
 	d.mu.Lock()
 	hash := hash.Hash256(prevHash)
 	if ch, ok := d.tasks[hash]; ok {
@@ -60,7 +60,7 @@ func (d *Prepare) WaitBlock(prevHash []byte) (*block.Block, error) {
 	return nil, nil
 }
 
-func (d *Prepare) ReceiveBlock(blk *block.Block) error {
+func (d *blockPreparer) ReceiveBlock(blk *block.Block) error {
 	d.mu.Lock()
 	delete(d.tasks, blk.PrevHash())
 	d.mu.Unlock()
