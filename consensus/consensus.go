@@ -110,10 +110,12 @@ func NewConsensus(
 				cfg.Genesis,
 			)
 			ctx = protocol.WithFeatureWithHeightCtx(ctx)
-			tipHeight := bc.TipHeight()
+			tipHeight, err := sr.Height()
+			if err != nil {
+				return nil, err
+			}
 			tipEpochNum := ops.rp.GetEpochNum(tipHeight)
 			var candidatesList state.CandidateList
-			var err error
 			switch epochNum {
 			case tipEpochNum:
 				candidatesList, err = ops.pp.Delegates(ctx, sr)
