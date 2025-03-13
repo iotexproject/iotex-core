@@ -9,10 +9,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/endorsement"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 var errInvalidCurrentTime = errors.New("invalid current time")
@@ -111,14 +113,17 @@ func (c *roundCalculator) Proposer(height uint64, blockInterval time.Duration, r
 func (c *roundCalculator) ProposerAt(height uint64, blockInterval time.Duration, roundStartTime time.Time, sr protocol.StateReader) string {
 	proposers, err := c.Proposers(height, sr)
 	if err != nil {
+		log.L().Warn("Failed to get proposers", zap.Error(err))
 		return ""
 	}
 	roundNum, roundStartTime, err := c.roundInfo(height, blockInterval, roundStartTime, 0)
 	if err != nil {
+		log.L().Warn("Failed to get round info", zap.Error(err))
 		return ""
 	}
 	proposer, err := c.calculateProposer(height, roundNum, proposers)
 	if err != nil {
+		log.L().Warn("Failed to calculate proposer", zap.Error(err))
 		return ""
 	}
 	return proposer
