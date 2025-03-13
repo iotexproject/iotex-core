@@ -226,7 +226,7 @@ func (sdb *stateDB) Register(p protocol.Protocol) error {
 func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
+	ws, isExist, err := sdb.getOrNewFromWorkingSets(ctx, key)
 	if err != nil {
 		return err
 	}
@@ -235,8 +235,8 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 			return errors.Wrap(err, "failed to validate block with workingset in statedb")
 		}
 		sdb.workingsets.Add(key, ws)
-		sdb.workingsets.Add(blk.Height(), ws)
 	}
+	sdb.workingsets.Add(blk.HashBlock(), ws)
 	receipts, err := ws.Receipts()
 	if err != nil {
 		return err
@@ -263,7 +263,7 @@ func (sdb *stateDB) NewBlockBuilder(
 	sdb.mutex.RUnlock()
 	switch {
 	case currHeight+1 < expectedBlockHeight:
-		parent, ok := sdb.workingsets.Get(bcCtx.Tip.Height)
+		parent, ok := sdb.workingsets.Get(bcCtx.Tip.Hash)
 		if !ok {
 			return nil, errors.Wrapf(ErrNotSupported, "failed to create block at height %d, current height is %d", expectedBlockHeight, sdb.currentChainHeight)
 		}
@@ -296,7 +296,6 @@ func (sdb *stateDB) NewBlockBuilder(
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
 	sdb.workingsets.Add(key, ws)
-	sdb.workingsets.Add(expectedBlockHeight, ws)
 	return blkBuilder, nil
 }
 
@@ -336,7 +335,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
+	ws, isExist, err := sdb.getOrNewFromWorkingSets(ctx, key)
 	if err != nil {
 		return err
 	}
@@ -417,6 +416,19 @@ func (sdb *stateDB) ReadView(name string) (protocol.View, error) {
 	return sdb.protocolView.Read(name)
 }
 
+func (sdb *stateDB) StateReaderAt(header *block.Header) (protocol.StateReader, error) {
+	sdb.mutex.RLock()
+	curHeight := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	if header.Height() == curHeight {
+		return sdb, nil
+	} else if header.Height() < curHeight {
+		return nil, errors.Wrapf(ErrNotSupported, "cannot read state at height %d, current height is %d", header.Height(), curHeight)
+	}
+	key := generateWorkingSetCacheKey(*header, header.ProducerAddress())
+	return sdb.getFromWorkingSets(key)
+}
+
 //======================================
 // private trie constructor functions
 //======================================
@@ -471,18 +483,28 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 	return nil
 }
 
-// getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
-func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*workingSet, bool, error) {
-	if data, ok := sdb.workingsets.Get(key); ok {
-		if ws, ok := data.(*workingSet); ok {
-			// if it is already validated, return workingset
-			return ws, true, nil
-		}
-		return nil, false, errors.New("type assertion failed to be WorkingSet")
+// getOrNewFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
+func (sdb *stateDB) getOrNewFromWorkingSets(ctx context.Context, key hash.Hash256) (*workingSet, bool, error) {
+	if ws, err := sdb.getFromWorkingSets(key); err != nil {
+		return nil, false, err
+	} else if ws != nil {
+		return ws, true, nil
 	}
+
 	sdb.mutex.RLock()
 	currHeight := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
 	tx, err := sdb.newWorkingSet(ctx, currHeight+1)
 	return tx, false, err
+}
+
+func (sdb *stateDB) getFromWorkingSets(key hash.Hash256) (*workingSet, error) {
+	if data, ok := sdb.workingsets.Get(key); ok {
+		if ws, ok := data.(*workingSet); ok {
+			// if it is already validated, return workingset
+			return ws, nil
+		}
+		return nil, errors.New("type assertion failed to be WorkingSet")
+	}
+	return nil, nil
 }

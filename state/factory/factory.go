@@ -88,6 +88,7 @@ type (
 		PutBlock(context.Context, *block.Block) error
 		WorkingSet(context.Context) (protocol.StateManager, error)
 		WorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManager, error)
+		StateReaderAt(header *block.Header) (protocol.StateReader, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -548,6 +549,10 @@ func (sf *factory) ReadView(name string) (protocol.View, error) {
 }
 
 func (sf *factory) CreateWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
+	panic("implement me")
+}
+
+func (sf *factory) StateReaderAt(header *block.Header) (protocol.StateReader, error) {
 	panic("implement me")
 }
 
