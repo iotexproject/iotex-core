@@ -108,6 +108,11 @@ func (d *proposalPool) isForkedAt(blk *block.Block, fork hash.Hash256) bool {
 func (d *proposalPool) forkAt(blk *block.Block) (hash.Hash256, error) {
 	blkHash := blk.HashBlock()
 	if _, ok := d.blocks[blkHash]; !ok {
+		d.blocks[blkHash] = blk
+		if _, ok := d.forks[blk.PrevHash()]; ok {
+			delete(d.forks, blk.PrevHash())
+		}
+		d.forks[blkHash] = blk.Timestamp()
 		return blkHash, nil
 	}
 	for h := range d.forks {
