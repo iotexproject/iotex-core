@@ -32,7 +32,6 @@ type Slasher struct {
 	indexer               *CandidateIndexer
 	numCandidateDelegates uint64
 	numDelegates          uint64
-	numOfBlocksByEpoch    uint64
 	prodThreshold         uint64
 	probationEpochPeriod  uint64
 	maxProbationPeriod    uint64
@@ -46,7 +45,7 @@ func NewSlasher(
 	getProbationList GetProbationList,
 	getUnprodDelegate GetUnproductiveDelegate,
 	indexer *CandidateIndexer,
-	numCandidateDelegates, numDelegates, dardanellesNumSubEpochs, thres, koPeriod, maxKoPeriod uint64,
+	numCandidateDelegates, numDelegates, thres, koPeriod, maxKoPeriod uint64,
 	koIntensity uint32,
 ) (*Slasher, error) {
 	return &Slasher{
@@ -57,7 +56,6 @@ func NewSlasher(
 		indexer:               indexer,
 		numCandidateDelegates: numCandidateDelegates,
 		numDelegates:          numDelegates,
-		numOfBlocksByEpoch:    numDelegates * dardanellesNumSubEpochs,
 		prodThreshold:         thres,
 		probationEpochPeriod:  koPeriod,
 		maxProbationPeriod:    maxKoPeriod,
@@ -496,6 +494,7 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
+	numOfBlocksByEpoch := rp.NumBlocksByEpoch(epochNum)
 	delegates, _, err := sh.GetActiveBlockProducers(ctx, sr, false)
 	if err != nil {
 		return nil, err
@@ -503,7 +502,7 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 	productivityFunc := sh.productivity
 	if featureCtx.CurrentEpochProductivity {
 		productivityFunc = func(start, end uint64) (map[string]uint64, error) {
-			return currentEpochProductivity(sr, start, end, sh.numOfBlocksByEpoch)
+			return currentEpochProductivity(sr, start, end, numOfBlocksByEpoch)
 		}
 	}
 	numBlks, produce, err := rp.ProductivityByEpoch(
@@ -539,8 +538,9 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 
 func (sh *Slasher) updateCurrentBlockMeta(ctx context.Context, sm protocol.StateManager) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	currentBlockMeta := NewBlockMeta(blkCtx.BlockHeight, blkCtx.Producer.String(), blkCtx.BlockTimeStamp)
-	return setCurrentBlockMeta(sm, currentBlockMeta, blkCtx.BlockHeight, sh.numOfBlocksByEpoch)
+	return setCurrentBlockMeta(sm, currentBlockMeta, blkCtx.BlockHeight, rp.NumBlocksByEpoch(rp.GetEpochNum(blkCtx.BlockHeight)))
 }
 
 // calculateBlockProducer calculates block producer by given candidate list
