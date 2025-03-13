@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
@@ -64,10 +65,17 @@ type (
 		TipHeight() uint64
 		// ChainAddress returns chain address on parent chain, the root chain return empty.
 		ChainAddress() string
+		// StateReaderAt returns state reader at given header
+		StateReaderAt(header *block.Header) (protocol.StateReader, error)
+		// StateReader returns latest confirmed state reader
+		StateReader() protocol.StateReader
 	}
 
-	chainManager struct {
-		bc blockchain.Blockchain
+	StateReaderAtFn func(header *block.Header) (protocol.StateReader, error)
+	chainManager    struct {
+		bc   blockchain.Blockchain
+		sr   protocol.StateReader
+		srFn StateReaderAtFn
 	}
 )
 
@@ -88,9 +96,11 @@ var DefaultConfig = Config{
 }
 
 // NewChainManager creates a chain manager
-func NewChainManager(bc blockchain.Blockchain) ChainManager {
+func NewChainManager(bc blockchain.Blockchain, sr protocol.StateReader, srFn StateReaderAtFn) ChainManager {
 	return &chainManager{
-		bc: bc,
+		bc:   bc,
+		sr:   sr,
+		srFn: srFn,
 	}
 }
 
@@ -152,6 +162,16 @@ func (cm *chainManager) TipHeight() uint64 {
 // ChainAddress returns chain address on parent chain, the root chain return empty.
 func (cm *chainManager) ChainAddress() string {
 	return cm.bc.ChainAddress()
+}
+
+// StateReaderAt returns state reader at given header
+func (cm *chainManager) StateReaderAt(header *block.Header) (protocol.StateReader, error) {
+	return cm.srFn(header)
+}
+
+// StateReader returns state reader
+func (cm *chainManager) StateReader() protocol.StateReader {
+	return cm.sr
 }
 
 // RollDPoS is Roll-DPoS consensus main entrance

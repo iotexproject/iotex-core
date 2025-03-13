@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
@@ -70,7 +71,7 @@ func init() {
 
 type (
 	// NodesSelectionByEpochFunc defines a function to select nodes
-	NodesSelectionByEpochFunc func(uint64) ([]string, error)
+	NodesSelectionByEpochFunc func(uint64, protocol.StateReader) ([]string, error)
 
 	// RDPoSCtx is the context of RollDPoS
 	RDPoSCtx interface {
@@ -370,13 +371,36 @@ func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 	return ctx.mintNewBlock()
 }
 
-func (ctx *rollDPoSCtx) PrepareNextProposal(endorse any) error {
-	if ctx.encodedAddr != ctx.round.nextRoundProposer {
+func (ctx *rollDPoSCtx) PrepareNextProposal(msg any) error {
+	// retrieve the block from the message
+	ecm, ok := msg.(*EndorsedConsensusMessage)
+	if !ok {
+		return errors.New("invalid endorsed block")
+	}
+	proposal, ok := ecm.Document().(*blockProposal)
+	if !ok {
+		return errors.New("invalid endorsed block")
+	}
+	var (
+		blk       = proposal.block
+		height    = blk.Height() + 1
+		interval  = ctx.BlockInterval(height)
+		startTime = blk.Timestamp().Add(interval)
+		prevHash  = blk.HashBlock()
+		err       error
+		sr        protocol.StateReader
+	)
+	sr, err = ctx.chain.StateReaderAt(&blk.Header)
+	if err != nil {
+		return errors.Errorf("failed to get state reader at block %d, hash %x", blk.Height(), prevHash[:])
+	}
+	// check if the current node is the next proposer
+	nextProposer := ctx.roundCalc.ProposerAt(height, interval, startTime, sr)
+	if ctx.encodedAddr != nextProposer {
 		return nil
 	}
-	prevHash := endorse.(*EndorsedConsensusMessage).Document().(*ConsensusVote).blkHash
-	ctx.logger().Debug("prepare next proposal", log.Hex("prevHash", prevHash), zap.Uint64("height", ctx.round.height+1), zap.Time("timestamp", ctx.round.nextRoundStartTime), zap.String("ioAddr", ctx.encodedAddr), zap.String("nextproposer", ctx.round.nextRoundProposer))
-	return ctx.chain.PrepareBlock(ctx.round.height+1, prevHash, ctx.round.nextRoundStartTime)
+	ctx.logger().Debug("prepare next proposal", log.Hex("prevHash", prevHash[:]), zap.Uint64("height", ctx.round.height+1), zap.Time("timestamp", startTime), zap.String("ioAddr", ctx.encodedAddr), zap.String("nextproposer", nextProposer))
+	return ctx.chain.PrepareBlock(height, prevHash[:], startTime)
 }
 
 func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {

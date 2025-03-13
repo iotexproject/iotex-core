@@ -100,7 +100,7 @@ func NewConsensus(
 	var err error
 	switch cfg.Scheme {
 	case RollDPoSScheme:
-		delegatesByEpochFunc := func(epochNum uint64) ([]string, error) {
+		delegatesByEpochFunc := func(epochNum uint64, sr protocol.StateReader) ([]string, error) {
 			re := protocol.NewRegistry()
 			if err := ops.rp.Register(re); err != nil {
 				return nil, err
@@ -116,9 +116,9 @@ func NewConsensus(
 			var err error
 			switch epochNum {
 			case tipEpochNum:
-				candidatesList, err = ops.pp.Delegates(ctx, sf)
+				candidatesList, err = ops.pp.Delegates(ctx, sr)
 			case tipEpochNum + 1:
-				candidatesList, err = ops.pp.NextDelegates(ctx, sf)
+				candidatesList, err = ops.pp.NextDelegates(ctx, sr)
 			default:
 				err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochNum, tipEpochNum)
 			}
@@ -132,11 +132,14 @@ func NewConsensus(
 			return addrs, nil
 		}
 		proposersByEpochFunc := delegatesByEpochFunc
+		stateReaderFn := func(header *block.Header) (protocol.StateReader, error) {
+			return sf.StateReaderAt(header)
+		}
 		bd := rolldpos.NewRollDPoSBuilder().
 			SetAddr(cfg.Chain.ProducerAddress().String()).
 			SetPriKey(cfg.Chain.ProducerPrivateKey()).
 			SetConfig(cfg).
-			SetChainManager(rolldpos.NewChainManager(bc)).
+			SetChainManager(rolldpos.NewChainManager(bc, sf, stateReaderFn)).
 			SetBlockDeserializer(block.NewDeserializer(bc.EvmNetworkID())).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).

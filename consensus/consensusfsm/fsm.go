@@ -469,7 +469,7 @@ func (m *ConsensusFSM) processBlock(block interface{}) error {
 	}
 	m.ProduceReceiveProposalEndorsementEvent(en)
 	m.ctx.Broadcast(en)
-	if err = m.ctx.PrepareNextProposal(en); err != nil {
+	if err = m.ctx.PrepareNextProposal(block); err != nil {
 		m.ctx.Logger().Warn("Failed to prepare next proposal", zap.Error(err))
 	}
 	return nil

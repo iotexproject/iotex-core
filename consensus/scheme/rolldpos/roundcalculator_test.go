@@ -37,7 +37,7 @@ import (
 
 func TestUpdateRound(t *testing.T) {
 	require := require.New(t)
-	rc := makeRoundCalculator(t)
+	rc, _ := makeRoundCalculator(t)
 	ra, err := rc.NewRound(51, time.Second, time.Unix(1562382522, 0), nil)
 	require.NoError(err)
 
@@ -61,7 +61,7 @@ func TestUpdateRound(t *testing.T) {
 
 func TestNewRound(t *testing.T) {
 	require := require.New(t)
-	rc := makeRoundCalculator(t)
+	rc, _ := makeRoundCalculator(t)
 	_, err := rc.calculateProposer(5, 1, []string{"1", "2", "3", "4", "5"})
 	require.Error(err)
 	var validDelegates [24]string
@@ -94,9 +94,9 @@ func TestNewRound(t *testing.T) {
 
 func TestDelegates(t *testing.T) {
 	require := require.New(t)
-	rc := makeRoundCalculator(t)
+	rc, sf := makeRoundCalculator(t)
 
-	dels, err := rc.Delegates(51)
+	dels, err := rc.Delegates(51, sf)
 	require.NoError(err)
 	require.Equal(rc.rp.NumDelegates(), uint64(len(dels)))
 
@@ -106,7 +106,7 @@ func TestDelegates(t *testing.T) {
 
 func TestRoundInfo(t *testing.T) {
 	require := require.New(t)
-	rc := makeRoundCalculator(t)
+	rc, _ := makeRoundCalculator(t)
 	require.NotNil(rc)
 
 	// error for lastBlockTime.Before(now)
@@ -225,9 +225,9 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 	return chain, sf, ap, rolldposProtocol, pp
 }
 
-func makeRoundCalculator(t *testing.T) *roundCalculator {
+func makeRoundCalculator(t *testing.T) (*roundCalculator, factory.Factory) {
 	bc, sf, _, rp, pp := makeChain(t)
-	delegatesByEpoch := func(epochNum uint64) ([]string, error) {
+	delegatesByEpoch := func(epochNum uint64, _ protocol.StateReader) ([]string, error) {
 		re := protocol.NewRegistry()
 		if err := rp.Register(re); err != nil {
 			return nil, err
@@ -264,12 +264,15 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 		}
 		return addrs, nil
 	}
+	stateReaderAtFn := func(*block.Header) (protocol.StateReader, error) {
+		return sf, nil
+	}
 	return &roundCalculator{
-		NewChainManager(bc),
+		NewChainManager(bc, sf, stateReaderAtFn),
 		true,
 		rp,
 		delegatesByEpoch,
 		delegatesByEpoch,
 		0,
-	}
+	}, sf
 }

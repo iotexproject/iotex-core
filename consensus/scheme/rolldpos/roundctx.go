@@ -38,7 +38,6 @@ type roundCtx struct {
 	roundNum           uint32
 	proposer           string
 	roundStartTime     time.Time
-	nextRoundProposer  string
 	nextRoundStartTime time.Time
 
 	blockInLock []byte
