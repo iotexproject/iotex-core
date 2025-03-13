@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -223,24 +224,64 @@ func testVerifyChainDB(t *testing.T, fd FileDAO, start, end uint64) {
 	}
 }
 
-func createTestingBlock(builder *block.TestingBuilder, height uint64, h hash.Hash256) *block.Block {
+type (
+	testBlockCfg struct {
+		actionNum int
+	}
+	testBlockOption func(*testBlockCfg)
+)
+
+func withActionNum(num int) testBlockOption {
+	return func(cfg *testBlockCfg) {
+		cfg.actionNum = num
+	}
+}
+
+func createTestingBlock(builder *block.TestingBuilder, height uint64, h hash.Hash256, opts ...testBlockOption) *block.Block {
+	cfg := &testBlockCfg{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
 	block.LoadGenesisHash(&genesis.Default)
-	r := &action.Receipt{
-		Status:      1,
-		BlockHeight: height,
-		ActionHash:  h,
+	if cfg.actionNum > 0 {
+		acts := make([]*action.SealedEnvelope, 0)
+		receipts := make([]*action.Receipt, 0)
+		for i := 0; i < cfg.actionNum; i++ {
+			amount := big.NewInt(int64(rand.Intn(100)))
+			sender := rand.Intn(20)
+			receipient := rand.Intn(20)
+			act, _ := action.SignedTransfer(identityset.Address(receipient).String(), identityset.PrivateKey(sender), uint64(rand.Intn(100)), amount, nil, testutil.TestGasLimit, testutil.TestGasPrice)
+			acts = append(acts, act)
+			actHash, _ := act.Hash()
+			r := &action.Receipt{
+				Status:      1,
+				BlockHeight: height,
+				ActionHash:  actHash,
+			}
+			receipts = append(receipts, r.AddTransactionLogs(&action.TransactionLog{
+				Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,
+				Amount:    amount,
+				Sender:    hex.EncodeToString(identityset.Address(sender).Bytes()),
+				Recipient: hex.EncodeToString(identityset.Address(receipient).Bytes()),
+			}))
+		}
+		builder.AddActions(acts...).SetReceipts(receipts)
+	} else {
+		r := &action.Receipt{
+			Status:      1,
+			BlockHeight: height,
+			ActionHash:  h,
+		}
+		builder.SetReceipts([]*action.Receipt{r.AddTransactionLogs(&action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,
+			Amount:    big.NewInt(100),
+			Sender:    hex.EncodeToString(h[:]),
+			Recipient: hex.EncodeToString(h[:]),
+		})})
 	}
 	blk, _ := builder.
 		SetHeight(height).
 		SetPrevBlockHash(h).
-		SetReceipts([]*action.Receipt{
-			r.AddTransactionLogs(&action.TransactionLog{
-				Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,
-				Amount:    big.NewInt(100),
-				Sender:    hex.EncodeToString(h[:]),
-				Recipient: hex.EncodeToString(h[:]),
-			}),
-		}).
 		SetTimeStamp(testutil.TimestampNow().UTC()).
 		SignAndBuild(identityset.PrivateKey(27))
 	return &blk
