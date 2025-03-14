@@ -26,13 +26,13 @@ type Context interface {
 	Logger() *zap.Logger
 	Height() uint64
 
-	NewConsensusEvent(fsm.EventType, interface{}) *ConsensusEvent
-	NewBackdoorEvt(fsm.State) *ConsensusEvent
+	NewConsensusEvent(fsm.EventType, interface{}) []*ConsensusEvent
+	NewBackdoorEvt(fsm.State) []*ConsensusEvent
 
 	Broadcast(interface{})
 
 	Prepare() error
-	IsDelegate() bool
+	HasDelegate() bool
 	Proposal() (interface{}, error)
 	WaitUntilRoundStart() time.Duration
 	PreCommitEndorsement() interface{}

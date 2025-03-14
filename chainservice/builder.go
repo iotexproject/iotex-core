@@ -528,7 +528,7 @@ func (builder *Builder) buildNodeInfoManager() error {
 		return errors.New("cannot find staking protocol")
 	}
 	chain := builder.cs.chain
-	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func() []string {
+	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.Chain.MainProducerPrivateKey(), func() []string {
 		ctx := protocol.WithFeatureCtx(
 			protocol.WithBlockCtx(
 				genesis.WithGenesisContext(context.Background(), chain.Genesis()),

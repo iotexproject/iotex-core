@@ -53,7 +53,7 @@ type (
 		BlockCommitTime(uint64) (time.Time, error)
 		// MintNewBlock creates a new block with given actions
 		// Note: the coinbase transfer will be added to the given transfers when minting a new block
-		MintNewBlock(timestamp time.Time) (*block.Block, error)
+		MintNewBlock(uint64, time.Time, ...blockchain.FilterFunc) (*block.Block, error)
 		// CommitBlock validates and appends a block to the chain
 		CommitBlock(blk *block.Block) error
 		// ValidateBlock validates a new block before adding it to the blockchain
@@ -120,8 +120,8 @@ func (cm *chainManager) BlockCommitTime(height uint64) (time.Time, error) {
 }
 
 // MintNewBlock creates a new block with given actions
-func (cm *chainManager) MintNewBlock(timestamp time.Time) (*block.Block, error) {
-	return cm.bc.MintNewBlock(timestamp)
+func (cm *chainManager) MintNewBlock(height uint64, timestamp time.Time, fs ...blockchain.FilterFunc) (*block.Block, error) {
+	return cm.bc.MintNewBlock(timestamp, fs...)
 }
 
 // CommitBlock validates and appends a block to the chain
@@ -332,7 +332,7 @@ type (
 		cfg BuilderConfig
 		// TODO: we should use keystore in the future
 		encodedAddr       string
-		priKey            crypto.PrivateKey
+		priKey            []crypto.PrivateKey
 		chain             ChainManager
 		blockDeserializer *block.Deserializer
 		broadcastHandler  scheme.Broadcast
@@ -355,15 +355,9 @@ func (b *Builder) SetConfig(cfg BuilderConfig) *Builder {
 	return b
 }
 
-// SetAddr sets the address and key pair for signature
-func (b *Builder) SetAddr(encodedAddr string) *Builder {
-	b.encodedAddr = encodedAddr
-	return b
-}
-
 // SetPriKey sets the private key
-func (b *Builder) SetPriKey(priKey crypto.PrivateKey) *Builder {
-	b.priKey = priKey
+func (b *Builder) SetPriKey(priKeys ...crypto.PrivateKey) *Builder {
+	b.priKey = priKeys
 	return b
 }
 
@@ -437,7 +431,6 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.broadcastHandler,
 		b.delegatesByEpochFunc,
 		b.proposersByEpochFunc,
-		b.encodedAddr,
 		b.priKey,
 		b.clock,
 		b.cfg.Genesis.BeringBlockHeight,
