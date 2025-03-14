@@ -203,16 +203,11 @@ func defaultConfig() Genesis {
 
 // TestDefault is the default genesis config for testing
 func TestDefault() Genesis {
-	ge := defaultConfig()
-	ge.InitBalanceMap = map[string]string{}
-	ge.NumSubEpochs = 2
-	ge.Timestamp = 1546329600
-	ge.TimeBasedRotation = false
-	initTestDefaultConfig(&ge)
-	return ge
-}
-
-func initTestDefaultConfig(cfg *Genesis) {
+	cfg := defaultConfig()
+	cfg.InitBalanceMap = map[string]string{}
+	cfg.NumSubEpochs = 2
+	cfg.Timestamp = 1546329600
+	cfg.TimeBasedRotation = false
 	cfg.PacificBlockHeight = 0
 	cfg.NumSubEpochs = 2
 	cfg.EnableGravityChainVoting = false
@@ -228,6 +223,8 @@ func initTestDefaultConfig(cfg *Genesis) {
 			})
 		}
 	}
+
+	return cfg
 }
 
 type (

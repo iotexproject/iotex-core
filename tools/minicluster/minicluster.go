@@ -484,6 +484,7 @@ func newConfig(
 	HTTPAdminPort int,
 ) config.Config {
 	cfg := config.Default
+	cfg.Genesis = genesis.TestDefault()
 
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
