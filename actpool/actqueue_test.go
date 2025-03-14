@@ -62,7 +62,7 @@ func TestNoncePriorityQueue(t *testing.T) {
 func TestActQueuePut(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	ap, err := NewActPool(genesis.Default, mock_chainmanager.NewMockStateReader(ctrl), DefaultConfig)
+	ap, err := NewActPool(genesis.TestDefault(), mock_chainmanager.NewMockStateReader(ctrl), DefaultConfig)
 	require.NoError(err)
 	q := NewActQueue(ap.(*actPool), "", 1, big.NewInt(maxBalance)).(*actQueue)
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(1))
@@ -137,10 +137,10 @@ func TestActQueuePendingActs(t *testing.T) {
 	}).Return(uint64(0), nil).Times(1)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(
-		genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{
+		genesis.WithGenesisContext(context.Background(), genesis.TestDefault()), protocol.BlockCtx{
 			BlockHeight: 1,
 		}))
-	ap, err := NewActPool(genesis.Default, sf, DefaultConfig)
+	ap, err := NewActPool(genesis.TestDefault(), sf, DefaultConfig)
 	require.NoError(err)
 	q := NewActQueue(ap.(*actPool), identityset.Address(0).String(), 1, big.NewInt(maxBalance)).(*actQueue)
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(0))

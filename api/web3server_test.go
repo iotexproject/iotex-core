@@ -433,7 +433,7 @@ func TestSendRawTransaction(t *testing.T) {
 	defer ctrl.Finish()
 	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
-	core.EXPECT().Genesis().Return(genesis.Default)
+	core.EXPECT().Genesis().Return(genesis.TestDefault())
 	core.EXPECT().TipHeight().Return(uint64(0))
 	core.EXPECT().EVMNetworkID().Return(uint32(1))
 	core.EXPECT().ChainID().Return(uint32(1))

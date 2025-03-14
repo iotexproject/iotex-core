@@ -73,7 +73,7 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 
 		// Grant with priority fee after VanuatuBlockHeight
 		blkCtx.AccumulatedTips = *big.NewInt(5)
-		blkCtx.BlockHeight = genesis.Default.VanuatuBlockHeight
+		blkCtx.BlockHeight = genesis.TestDefault().VanuatuBlockHeight
 		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, blkCtx))
 		rewardLog, err = p.GrantBlockReward(ctx, sm)
 		require.NoError(t, err)
@@ -344,7 +344,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		}).AnyTimes()
 	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
-	ge := genesis.Default
+	ge := genesis.TestDefault()
 	ge.Rewarding.InitBalanceStr = "0"
 	ge.Rewarding.BlockRewardStr = "10"
 	ge.Rewarding.EpochRewardStr = "100"
@@ -362,9 +362,9 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 
 	p := NewProtocol(ge.Rewarding)
 	rp := rolldpos.NewProtocol(
-		genesis.Default.NumCandidateDelegates,
-		genesis.Default.NumDelegates,
-		genesis.Default.NumSubEpochs,
+		ge.NumCandidateDelegates,
+		ge.NumDelegates,
+		ge.NumSubEpochs,
 	)
 	abps := []*state.Candidate{
 		{
@@ -378,7 +378,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			RewardAddress: identityset.Address(1).String(),
 		},
 	}
-	g := genesis.Default
+	g := genesis.TestDefault()
 	committee := mock_committee.NewMockCommittee(ctrl)
 	slasher, err := poll.NewSlasher(
 		func(uint64, uint64) (map[string]uint64, error) {
@@ -443,7 +443,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		ctx,
 		protocol.BlockCtx{
 			Producer:    identityset.Address(0),
-			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+			BlockHeight: g.NumDelegates * g.NumSubEpochs,
 		},
 	)
 	ctx = protocol.WithActionCtx(

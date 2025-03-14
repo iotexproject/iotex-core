@@ -114,7 +114,7 @@ func TestEndorsementStateReader_Status(t *testing.T) {
 	esr := NewEndorsementStateReader(sm)
 
 	t.Run("legacy status", func(t *testing.T) {
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 1 // enable endorsement protocol at block 1
 		ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{BlockHeight: 2})
 		ctx = genesis.WithGenesisContext(ctx, g)
@@ -133,7 +133,7 @@ func TestEndorsementStateReader_Status(t *testing.T) {
 		r.Equal(UnEndorsing, status)
 	})
 	t.Run("status after Upernavik", func(t *testing.T) {
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 1   // enable endorsement protocol at block 1
 		g.UpernavikBlockHeight = 2 // enable endorsement protocol improvement at block 2
 		ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{BlockHeight: 2})

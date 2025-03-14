@@ -110,7 +110,7 @@ type (
 )
 
 var (
-	fixedTime = time.Unix(genesis.Default.Timestamp, 0)
+	fixedTime = time.Unix(genesis.TestDefault().Timestamp, 0)
 )
 
 func (eb *ExpectedBalance) Balance() *big.Int {
@@ -546,7 +546,9 @@ func (sct *SmartContractTest) deployContracts(
 func (sct *SmartContractTest) run(r *require.Assertions) {
 	// prepare blockchain
 	ctx := context.Background()
-	cfg := deepcopy.Copy(config.Default).(config.Config)
+	defaultCfg := config.Default
+	defaultCfg.Genesis = genesis.TestDefault()
+	cfg := deepcopy.Copy(defaultCfg).(config.Config)
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(28).HexString()
 	cfg.Chain.EnableTrielessStateDB = false
 	bc, sf, dao, ap := sct.prepareBlockchain(ctx, cfg, r)
@@ -639,6 +641,7 @@ func TestProtocol_Validate(t *testing.T) {
 	p := execution.NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
 	}, rewarding.DepositGas, getBlockTimeForTest)
+	g := genesis.TestDefault()
 
 	cases := []struct {
 		name      string
@@ -648,8 +651,8 @@ func TestProtocol_Validate(t *testing.T) {
 	}{
 		{"limit 32KB", 0, 32683, nil},
 		{"exceed 32KB", 0, 32684, action.ErrOversizedData},
-		{"limit 48KB", genesis.Default.SumatraBlockHeight, uint64(48 * 1024), nil},
-		{"exceed 48KB", genesis.Default.SumatraBlockHeight, uint64(48*1024) + 1, action.ErrOversizedData},
+		{"limit 48KB", g.SumatraBlockHeight, uint64(48 * 1024), nil},
+		{"exceed 48KB", g.SumatraBlockHeight, uint64(48*1024) + 1, action.ErrOversizedData},
 	}
 
 	builder := action.EnvelopeBuilder{}
@@ -657,7 +660,7 @@ func TestProtocol_Validate(t *testing.T) {
 		t.Run(cases[i].name, func(t *testing.T) {
 			ex := action.NewExecution("2", big.NewInt(0), make([]byte, cases[i].size))
 			elp := builder.SetNonce(1).SetAction(ex).Build()
-			ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
+			ctx := genesis.WithGenesisContext(context.Background(), g)
 			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 				BlockHeight: cases[i].height,
 			})
@@ -696,6 +699,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.EnableAsyncIndexWrite = false
 		cfg.Genesis.EnableGravityChainVoting = false
 		cfg.ActPool.MinGasPriceStr = "0"
+		cfg.Genesis = genesis.TestDefault()
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(1000000000).String()
 		ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 
@@ -1357,6 +1361,7 @@ func benchmarkHotContractWithFactory(b *testing.B, async bool) {
 	r := require.New(b)
 	ctx := context.Background()
 	cfg := config.Default
+	cfg.Genesis = genesis.TestDefault()
 	cfg.Genesis.NumSubEpochs = uint64(b.N)
 	cfg.Chain.EnableTrielessStateDB = false
 	if async {
@@ -1435,6 +1440,7 @@ func benchmarkHotContractWithStateDB(b *testing.B, cachedStateDBOption bool) {
 	r := require.New(b)
 	ctx := context.Background()
 	cfg := config.Default
+	cfg.Genesis = genesis.TestDefault()
 	cfg.Genesis.NumSubEpochs = uint64(b.N)
 	if cachedStateDBOption {
 		cfg.Chain.EnableStateDBCaching = true

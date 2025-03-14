@@ -18,14 +18,15 @@ import (
 
 func initTestProtocol(t *testing.T) (*Protocol, []*Candidate) {
 	require := require.New(t)
+	g := genesis.TestDefault()
 	p, err := NewProtocol(HelperCtx{
 		DepositGas:    nil,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  genesis.Default.Staking,
+		Staking:                  g.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
+			VoteWeight: g.Staking.VoteWeightCalConsts,
 		},
 	}, nil, nil, nil)
 	require.NoError(err)

@@ -108,7 +108,7 @@ func TestGetPutStaking(t *testing.T) {
 func TestCalculateVoteWeight(t *testing.T) {
 	// Define test cases
 	blockInterval := consensusfsm.DefaultDardanellesUpgradeConfig.BlockInterval
-	consts := genesis.Default.VoteWeightCalConsts
+	consts := genesis.TestDefault().VoteWeightCalConsts
 	tests := []struct {
 		name       string
 		consts     genesis.VoteWeightCalConsts

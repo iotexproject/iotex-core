@@ -38,18 +38,19 @@ func TestHandleStakeMigrate(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
+	g := genesis.TestDefault()
 	p, err := NewProtocol(
 		HelperCtx{getBlockInterval, depositGas},
 		&BuilderConfig{
-			Staking:                  genesis.Default.Staking,
+			Staking:                  g.Staking,
 			PersistStakingPatchBlock: math.MaxUint64,
 			Revise: ReviseConfig{
-				VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
+				VoteWeight: g.Staking.VoteWeightCalConsts,
 			},
 		},
 		nil, nil, nil)
 	r.NoError(err)
-	cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+	cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 	initCfg := func(cfg *genesis.Genesis) {
 		cfg.PacificBlockHeight = 1
 		cfg.AleutianBlockHeight = 1

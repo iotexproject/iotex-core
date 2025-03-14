@@ -84,16 +84,17 @@ func TestProtocol(t *testing.T) {
 			3,
 		},
 	}
+	g := genesis.TestDefault()
 
 	// test loading with no candidate in stateDB
 	stk, err := NewProtocol(HelperCtx{
 		DepositGas:    nil,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  genesis.Default.Staking,
+		Staking:                  g.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
+			VoteWeight: g.Staking.VoteWeightCalConsts,
 		},
 	}, nil, nil, nil)
 	r.NotNil(stk)
@@ -120,7 +121,6 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// load candidates from stateDB and verify
-	g := genesis.Default
 	g.QuebecBlockHeight = 1
 	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
@@ -205,21 +205,22 @@ func TestCreatePreStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
+	g := genesis.TestDefault()
 	p, err := NewProtocol(HelperCtx{
 		DepositGas:    nil,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  genesis.Default.Staking,
+		Staking:                  g.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight:    genesis.Default.Staking.VoteWeightCalConsts,
-			ReviseHeights: []uint64{genesis.Default.GreenlandBlockHeight}},
+			VoteWeight:    g.Staking.VoteWeightCalConsts,
+			ReviseHeights: []uint64{g.GreenlandBlockHeight}},
 	}, nil, nil, nil)
 	require.NoError(err)
 	ctx := protocol.WithBlockCtx(
-		genesis.WithGenesisContext(context.Background(), genesis.Default),
+		genesis.WithGenesisContext(context.Background(), g),
 		protocol.BlockCtx{
-			BlockHeight: genesis.Default.GreenlandBlockHeight - 1,
+			BlockHeight: g.GreenlandBlockHeight - 1,
 		},
 	)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
@@ -237,7 +238,7 @@ func TestCreatePreStates(t *testing.T) {
 	ctx = protocol.WithBlockCtx(
 		ctx,
 		protocol.BlockCtx{
-			BlockHeight: genesis.Default.GreenlandBlockHeight + 1,
+			BlockHeight: g.GreenlandBlockHeight + 1,
 		},
 	)
 	require.NoError(p.CreatePreStates(ctx, sm))
@@ -246,7 +247,7 @@ func TestCreatePreStates(t *testing.T) {
 	ctx = protocol.WithBlockCtx(
 		ctx,
 		protocol.BlockCtx{
-			BlockHeight: genesis.Default.GreenlandBlockHeight,
+			BlockHeight: g.GreenlandBlockHeight,
 		},
 	)
 	require.NoError(p.CreatePreStates(ctx, sm))
@@ -274,15 +275,16 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 
 	ctx := context.Background()
 	require.NoError(cbi.Start(ctx))
+	g := genesis.TestDefault()
 	p, err := NewProtocol(HelperCtx{
 		DepositGas:    nil,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  genesis.Default.Staking,
+		Staking:                  g.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight:    genesis.Default.Staking.VoteWeightCalConsts,
-			ReviseHeights: []uint64{genesis.Default.GreenlandBlockHeight},
+			VoteWeight:    g.Staking.VoteWeightCalConsts,
+			ReviseHeights: []uint64{g.GreenlandBlockHeight},
 		},
 	}, cbi, nil, nil)
 	require.NoError(err)
@@ -293,9 +295,9 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 
 	ctx = protocol.WithRegistry(ctx, reg)
 	ctx = protocol.WithBlockCtx(
-		genesis.WithGenesisContext(ctx, genesis.Default),
+		genesis.WithGenesisContext(ctx, g),
 		protocol.BlockCtx{
-			BlockHeight: genesis.Default.GreenlandBlockHeight,
+			BlockHeight: g.GreenlandBlockHeight,
 		},
 	)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
@@ -314,7 +316,8 @@ func Test_CreateGenesisStates(t *testing.T) {
 	sm := testdb.NewMockStateManager(ctrl)
 
 	selfStake, _ := new(big.Int).SetString("1200000000000000000000000", 10)
-	cfg := genesis.Default.Staking
+	g := genesis.TestDefault()
+	cfg := g.Staking
 
 	testBootstrapCandidates := []struct {
 		BootstrapCandidate []genesis.BootstrapCandidate
@@ -389,9 +392,9 @@ func Test_CreateGenesisStates(t *testing.T) {
 		},
 	}
 	ctx := protocol.WithBlockCtx(
-		genesis.WithGenesisContext(context.Background(), genesis.Default),
+		genesis.WithGenesisContext(context.Background(), g),
 		protocol.BlockCtx{
-			BlockHeight: genesis.Default.GreenlandBlockHeight - 1,
+			BlockHeight: g.GreenlandBlockHeight - 1,
 		},
 	)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
@@ -404,7 +407,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 			Staking:                  cfg,
 			PersistStakingPatchBlock: math.MaxUint64,
 			Revise: ReviseConfig{
-				VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
+				VoteWeight: g.Staking.VoteWeightCalConsts,
 			},
 		}, nil, nil, nil)
 		require.NoError(err)
@@ -427,7 +430,8 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 	csIndexer := NewMockContractStakingIndexerWithBucketType(ctrl)
 
 	selfStake, _ := new(big.Int).SetString("1200000000000000000000000", 10)
-	cfg := genesis.Default.Staking
+	g := genesis.TestDefault()
+	cfg := g.Staking
 	cfg.BootstrapCandidates = []genesis.BootstrapCandidate{
 		{
 			OwnerAddress:      identityset.Address(22).String(),
@@ -444,14 +448,14 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 		Staking:                  cfg,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
+			VoteWeight: g.Staking.VoteWeightCalConsts,
 		},
 	}, nil, csIndexer, nil)
 	require.NoError(err)
 
-	blkHeight := genesis.Default.QuebecBlockHeight + 1
+	blkHeight := g.QuebecBlockHeight + 1
 	ctx := protocol.WithBlockCtx(
-		genesis.WithGenesisContext(context.Background(), genesis.Default),
+		genesis.WithGenesisContext(context.Background(), g),
 		protocol.BlockCtx{
 			BlockHeight: blkHeight,
 		},
@@ -498,9 +502,9 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 		require.EqualValues(100, cands[0].Votes.Sub(cands[0].Votes, originCandVotes).Uint64())
 	})
 	t.Run("contract staking votes after Redsea", func(t *testing.T) {
-		blkHeight = genesis.Default.RedseaBlockHeight
+		blkHeight = g.RedseaBlockHeight
 		ctx := protocol.WithBlockCtx(
-			genesis.WithGenesisContext(context.Background(), genesis.Default),
+			genesis.WithGenesisContext(context.Background(), g),
 			protocol.BlockCtx{
 				BlockHeight: blkHeight,
 			},

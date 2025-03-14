@@ -64,7 +64,7 @@ func randStringRunes(n int) string {
 
 func TestGenerateConfig(t *testing.T) {
 	require := require.New(t)
-	cfg := GenerateConfig(blockchain.DefaultConfig, genesis.Default)
+	cfg := GenerateConfig(blockchain.DefaultConfig, genesis.TestDefault())
 	require.Equal(27, len(cfg.Genesis.InitBalanceMap))
 	require.Equal(blockchain.DefaultConfig.ChainDBPath, cfg.Chain.ChainDBPath)
 }
@@ -453,7 +453,7 @@ func testState(sf Factory, t *testing.T) {
 	priKeyA := identityset.PrivateKey(28)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, sf.Register(acc))
-	ge := genesis.Default
+	ge := genesis.TestDefault()
 	ge.InitBalanceMap[a.String()] = "100"
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockchainCtx(protocol.WithBlockCtx(
@@ -514,7 +514,7 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	priKeyA := identityset.PrivateKey(28)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, sf.Register(acc))
-	ge := genesis.Default
+	ge := genesis.TestDefault()
 	ge.InitBalanceMap[a.String()] = "100"
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(
@@ -605,7 +605,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	priKeyA := identityset.PrivateKey(28)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, sf.Register(acc))
-	ge := genesis.Default
+	ge := genesis.TestDefault()
 	ge.InitBalanceMap = make(map[string]string)
 	ge.InitBalanceMap[a] = "100"
 	ge.InitBalanceMap[b] = "100"
@@ -773,7 +773,7 @@ func testNonce(ctx context.Context, sf Factory, t *testing.T) {
 	a := identityset.Address(28)
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
-	ge := genesis.Default
+	ge := genesis.TestDefault()
 	ge.InitBalanceMap[a.String()] = "100"
 	gasLimit := uint64(1000000)
 	ctx = protocol.WithBlockCtx(ctx,
@@ -904,7 +904,7 @@ func TestSDBLoadStoreHeightInMem(t *testing.T) {
 
 func testLoadStoreHeight(sf Factory, t *testing.T) {
 	require := require.New(t)
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
 	require.NoError(sf.Start(ctx))
 	defer func() {
 		require.NoError(sf.Stop(ctx))
@@ -1032,7 +1032,7 @@ func testCommit(factory Factory, t *testing.T) {
 					Hash:   blkHash,
 				},
 			}),
-		genesis.Default,
+		genesis.TestDefault(),
 	)
 	ctx = protocol.WithFeatureCtx(ctx)
 	blk, err := block.NewTestingBuilder().
@@ -1140,7 +1140,7 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 			GasLimit:    gasLimit,
 		})
 	ctx = protocol.WithBlockchainCtx(
-		genesis.WithGenesisContext(ctx, genesis.Default),
+		genesis.WithGenesisContext(ctx, genesis.TestDefault()),
 		protocol.BlockchainCtx{},
 	)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
@@ -1244,7 +1244,7 @@ func TestCachedBatch(t *testing.T) {
 	require.NoError(t, err)
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		genesis.Default,
+		genesis.TestDefault(),
 	)
 	require.NoError(t, sf.Start(ctx))
 	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
@@ -1257,7 +1257,7 @@ func TestSTXCachedBatch(t *testing.T) {
 	require.NoError(t, err)
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		genesis.Default,
+		genesis.TestDefault(),
 	)
 	require.NoError(t, sdb.Start(ctx))
 	ws, err := sdb.(workingSetCreator).newWorkingSet(ctx, 1)
@@ -1346,7 +1346,7 @@ func TestStateDBPatch(t *testing.T) {
 			GasLimit:    gasLimit,
 		},
 	)
-	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+	ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
 
 	require.NoError(sdb.Start(ctx))
 	defer func() {
@@ -1437,7 +1437,7 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 	}
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		genesis.Default,
+		genesis.TestDefault(),
 	)
 	t.Run("workingSet", func(t *testing.T) {
 		sf, err := NewFactory(DefaultConfig, db.NewMemKVStore())
@@ -1550,7 +1550,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 		identityset.PrivateKey(33).PublicKey(),
 	}
 	nonces := make([]uint64, len(accounts))
-	ge := genesis.Default
+	ge := genesis.TestDefault()
 	prevHash := ge.Hash()
 	for _, acc := range accounts {
 		ge.InitBalanceMap[acc] = big.NewInt(int64(b.N * 100)).String()
@@ -1602,7 +1602,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 				Producer:    identityset.Address(27),
 				GasLimit:    gasLimit,
 			})
-		zctx = genesis.WithGenesisContext(zctx, genesis.Default)
+		zctx = genesis.WithGenesisContext(zctx, genesis.TestDefault())
 
 		blk, err := block.NewTestingBuilder().
 			SetHeight(uint64(n)).
@@ -1679,7 +1679,7 @@ func benchState(sf Factory, b *testing.B) {
 		identityset.PrivateKey(33).PublicKey(),
 	}
 	nonces := make([]uint64, len(accounts))
-	ge := genesis.Default
+	ge := genesis.TestDefault()
 	prevHash := ge.Hash()
 	for _, acc := range accounts {
 		ge.InitBalanceMap[acc] = big.NewInt(int64(1000)).String()
@@ -1727,7 +1727,7 @@ func benchState(sf Factory, b *testing.B) {
 			Producer:    identityset.Address(27),
 			GasLimit:    gasLimit,
 		})
-	zctx = genesis.WithGenesisContext(zctx, genesis.Default)
+	zctx = genesis.WithGenesisContext(zctx, genesis.TestDefault())
 
 	blk, err := block.NewTestingBuilder().
 		SetHeight(uint64(1)).
