@@ -39,9 +39,10 @@ func TestProposalPool(t *testing.T) {
 			prev = blk
 		}
 		pool := newProposalPool()
+		pool.Init(gb.HashBlock())
 		for i := range blocks {
 			blk := blocks[i]
-			pool.AddBlock(blk)
+			r.NoError(pool.AddBlock(blk))
 			got := pool.Block(blk.Height())
 			r.Equal(blk, got, "height %d", blk.Height())
 			r.Equal(blk.Height(), pool.Tip(), "height %d", blk.Height())
@@ -60,9 +61,10 @@ func TestProposalPool(t *testing.T) {
 			blocks = append(blocks, blk)
 		}
 		pool := newProposalPool()
+		pool.Init(gb.HashBlock())
 		for i := range blocks {
 			blk := blocks[i]
-			pool.AddBlock(blk)
+			r.NoError(pool.AddBlock(blk))
 			got := pool.Block(blk.Height())
 			r.Equal(blk, got, "index %d", i)
 			r.Equal(blk.Timestamp(), pool.forks[blk.HashBlock()])

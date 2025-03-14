@@ -400,7 +400,7 @@ func (ctx *rollDPoSCtx) PrepareNextProposal(msg any) error {
 		return nil
 	}
 	ctx.logger().Debug("prepare next proposal", log.Hex("prevHash", prevHash[:]), zap.Uint64("height", ctx.round.height+1), zap.Time("timestamp", startTime), zap.String("ioAddr", ctx.encodedAddr), zap.String("nextproposer", nextProposer))
-	return ctx.chain.PrepareBlock(height, prevHash[:], startTime)
+	return ctx.chain.PrepareBlock(prevHash[:], startTime)
 }
 
 func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {

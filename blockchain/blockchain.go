@@ -80,11 +80,11 @@ type (
 		EvmNetworkID() uint32
 		// ChainAddress returns chain address on parent chain, the root chain return empty.
 		ChainAddress() string
-		// TipHash returns tip block's hash
+		// TipHash returns tip confirmed block's hash
 		TipHash() hash.Hash256
-		// TipHeight returns tip block's height
+		// TipHeight returns tip confirmed block's height
 		TipHeight() uint64
-		// PendingHeight returns the height of the pending block
+		// PendingHeight returns the latest height of the pending block
 		// if there is no pending block, it returns the tip height
 		PendingHeight() uint64
 		// Genesis returns the genesis
@@ -95,12 +95,12 @@ type (
 		ContextAtHeight(context.Context, uint64) (context.Context, error)
 
 		// For block operations
-		// MintNewBlock creates a new block with given actions
+		// MintNewBlock creates a new block with given actions, based on the tip block
 		// Note: the coinbase transfer will be added to the given transfers when minting a new block
 		MintNewBlock(timestamp time.Time) (*block.Block, error)
 		// PrepareBlock start to prepares a new block with given previous hash asynchrously
-		// it can speed up the MintNewBlock
-		PrepareBlock(height uint64, prevHash []byte, timestamp time.Time) error
+		// prepared block will be used by MintNewBlock
+		PrepareBlock(prevHash []byte, timestamp time.Time) error
 		// CommitBlock validates and appends a block to the chain
 		CommitBlock(blk *block.Block) error
 		// ValidateBlock validates a new block before adding it to the blockchain
@@ -250,7 +250,11 @@ func (bc *blockchain) Start(ctx context.Context) error {
 				EvmNetworkID: bc.EvmNetworkID(),
 			},
 		), bc.genesis))
-	return bc.lifecycle.OnStart(ctx)
+	if err := bc.lifecycle.OnStart(ctx); err != nil {
+		return err
+	}
+	bc.proposalPool.Init(bc.TipHash())
+	return nil
 }
 
 // Stop stops the blockchain.
@@ -382,7 +386,9 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 	if err != nil {
 		return err
 	}
-	bc.proposalPool.AddBlock(blk)
+	if err = bc.proposalPool.AddBlock(blk); err != nil {
+		log.L().Warn("failed to add block to proposal pool", zap.Error(err), zap.Uint64("height", blk.Height()), zap.Time("timestamp", blk.Timestamp()))
+	}
 	return nil
 }
 
@@ -439,8 +445,24 @@ func (bc *blockchain) PendingHeight() uint64 {
 	return max(bc.proposalPool.Tip(), bc.TipHeight())
 }
 
-func (bc *blockchain) PrepareBlock(height uint64, prevHash []byte, timestamp time.Time) error {
-	log.L().Info("Prepare a new block.", zap.Uint64("height", height), zap.Time("timestamp", timestamp), log.Hex("prevHash", prevHash))
+func (bc *blockchain) blockByHash(hash hash.Hash256) (*block.Block, error) {
+	if blk := bc.proposalPool.BlockByHash(hash); blk != nil {
+		return blk, nil
+	}
+	return bc.dao.GetBlock(hash)
+}
+
+func (bc *blockchain) PrepareBlock(prevHash []byte, timestamp time.Time) error {
+	prevBlk, err := bc.blockByHash(hash.Hash256(prevHash))
+	if err != nil {
+		return errors.Wrapf(err, "failed to get previous block %x", prevHash)
+	}
+	if prevBlk.Height() < bc.TipHeight() {
+		return errors.Errorf("previous block height %d is less than tip height %d", prevBlk.Height(), bc.TipHeight())
+	}
+	height := prevBlk.Height() + 1
+
+	log.L().Debug("Prepare a new block.", zap.Uint64("height", height), zap.Time("timestamp", timestamp), log.Hex("prevHash", prevHash))
 	ctx, err := bc.context(context.Background(), height-1)
 	if err != nil {
 		return err
@@ -492,13 +514,15 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 
 	// retrieve the draft block if it's prepared
 	pblk, err := bc.blockPreparer.WaitBlock(tip.Hash[:])
-	if pblk != nil {
+	if err != nil {
+		log.L().Error("Failed to prepare new block", zap.Error(err))
+	} else if pblk != nil && pblk.Timestamp() == timestamp {
+		if err = bc.proposalPool.AddBlock(pblk); err != nil {
+			log.L().Warn("failed to add block to proposal pool", zap.Error(err), zap.Uint64("height", pblk.Height()), zap.Time("timestamp", pblk.Timestamp()))
+		}
 		blkHash := pblk.HashBlock()
 		log.L().Debug("Produce a new block from draft block.", zap.Uint64("height", newblockHeight), zap.Time("timestamp", timestamp), log.Hex("hash", blkHash[:]))
 		return pblk, nil
-	}
-	if err != nil {
-		log.L().Error("Failed to prepare new block", zap.Error(err))
 	}
 	log.L().Info("Produce a new block.", zap.Uint64("height", newblockHeight), zap.Time("timestamp", timestamp))
 	// create a new block
@@ -518,6 +542,9 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	blk, err := blockBuilder.SignAndBuild(minterPrivateKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
+	}
+	if err = bc.proposalPool.AddBlock(&blk); err != nil {
+		log.L().Warn("failed to add block to proposal pool", zap.Error(err), zap.Uint64("height", blk.Height()), zap.Time("timestamp", blk.Timestamp()))
 	}
 	_blockMtc.WithLabelValues("MintGas").Set(float64(blk.GasUsed()))
 	_blockMtc.WithLabelValues("MintActions").Set(float64(len(blk.Actions)))

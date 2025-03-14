@@ -56,7 +56,7 @@ type (
 		// Note: the coinbase transfer will be added to the given transfers when minting a new block
 		MintNewBlock(height uint64, timestamp time.Time) (*block.Block, error)
 		// PrepareBlock prepares a new block with given parent hash
-		PrepareBlock(height uint64, prevHash []byte, timestamp time.Time) error
+		PrepareBlock(prevHash []byte, timestamp time.Time) error
 		// CommitBlock validates and appends a block to the chain
 		CommitBlock(blk *block.Block) error
 		// ValidateBlock validates a new block before adding it to the blockchain
@@ -140,8 +140,8 @@ func (cm *chainManager) MintNewBlock(height uint64, timestamp time.Time) (*block
 }
 
 // PrepareBlock prepares a new block with given parent hash
-func (cm *chainManager) PrepareBlock(height uint64, prevHash []byte, timestamp time.Time) error {
-	return cm.bc.PrepareBlock(height, prevHash, timestamp)
+func (cm *chainManager) PrepareBlock(prevHash []byte, timestamp time.Time) error {
+	return cm.bc.PrepareBlock(prevHash, timestamp)
 }
 
 // CommitBlock validates and appends a block to the chain
